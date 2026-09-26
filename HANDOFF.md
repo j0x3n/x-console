@@ -54,17 +54,16 @@
 | --- | --- | --- |
 | 0 | M0 基础、前端外壳、协议、contracts、actions、全部文档 | 完成 |
 | 1 | M5 项目、M6 备忘、M7 提醒通知、M8 习惯、M2/M3 服务器和本机、M9 Home Assistant | 完成，已合并，浏览器验收通过 |
-| 2 | M13 GitHub + Linear | 完成，已合并 |
-| 2 | M4 编码任务、M10 运维监控、M11 日历早报番茄钟 | 见第 12 节“最后状态” |
+| 2 | M4 编码任务、M10 运维监控、M11 日历早报番茄钟、M13 GitHub + Linear | 完成，已合并，浏览器验收通过 |
 | 3 | M12 AI 助手与自动化；M1 首页、命令面板增强、PWA、端到端测试 | **未开始**，下一步做这个 |
 
 ### 已有的后端模块
 
-`backend/internal/server/modules/` 下：`hosts`（M2/M3）、`projects`（M5）、`notes`（M6）、`reminders`（M7）、`habits`（M8）、`homeassistant`（M9）、`github` 和 `linear`（M13）。批次 2 剩下的模块合并后会多出编码任务、运维监控、日历等目录。
+`backend/internal/server/modules/` 下：`hosts`（M2/M3）、`coding`（M4）、`projects`（M5）、`notes`（M6）、`reminders`（M7）、`habits`（M8）、`homeassistant`（M9）、`monitoring`（M10，含 Docker、脚本、网站/证书/域名监控、订阅）、`calendar`、`brief`、`focus`（M11）、`github`、`linear`（M13）。注册顺序见 `backend/internal/server/app/modules.go`。
 
 ### 前端
 
-`web/src/features/` 下每个模块一个目录。还是占位页（显示“即将推出”）的：`overview`（首页，M1）、`automations` 和 `assistant`（M12）。批次 2 未合并的模块也是占位页。
+`web/src/features/` 下每个模块一个目录。还是占位页（显示“即将推出”）的只有：`overview`（首页，M1）、`automations` 和 `assistant`（M12）。
 
 ## 5. 仓库结构
 
@@ -159,7 +158,8 @@ CI 会检查生成的代码是否最新（`go generate` 和 `npm run gen:api` �
 - `read` 动作直接执行；`write` 等用户确认；`dangerous` 要确认并要求提升权限。
 - 自动化：触发器（定时、事件、指标、HA 状态、Webhook）+ 条件 + 动作。HA 实体要调用 `contracts.HomeAssistant.WatchEntity`。
 - 前端：`features/assistant`、`features/automations`；在 `app/GlobalPanels.tsx` 加侧边面板，在 `app/TopbarActions.tsx` 加按钮。
-- 批次 2 的 M11 早报里预留了“AI 润色”的位置，M12 完成后接上。
+- M11 早报预留了“AI 润色”：在注册表里用键 `ai.brief_polisher` 注册一个实现 `brief` 包里 Polisher 接口的对象，设置页的开关就会出现。
+- M10 的 `scripts.run` 用审计里的 actor 是否包含 `automation` 区分自动化和 AI 调用。自动化引擎运行动作时，actor 要设成 `automation:<规则id>`（`audit.WithActor`）。
 
 ### J：M1 首页与收尾
 
@@ -210,13 +210,43 @@ CI 会检查生成的代码是否最新（`go generate` 和 `npm run gen:api` �
 - SSH 主机的最后在线时间只存在内存里。
 - Windows 上 `svc.logs` 返回“不支持”（没读 Windows 事件日志）。
 
+- 早报的“续费”部分还没接上：M11 在注册表键 `monitoring.renewals` 下找实现 `brief.RenewalSource` 的对象，M10 没有注册。建议在 `contracts` 里加一个 `Renewals` 接口，M10 实现，M11 使用。
+- 早报的习惯部分只显示今天，因为 `contracts.Habits` 没有“昨天”的数据。
+- 番茄钟不能暂停。
+- 脚本运行记录不会自动清理。Windows 主机上跑 bash 脚本会直接失败，没有按系统检查。
+- 订阅支出汇总没有汇率换算。
+- Codex CLI 的默认参数（`exec --json --full-auto -`）没实测过，可以在代理配置里改。
+- 编码任务的运行设置在仓库页，没有单独的设置标签。
+
 ### 可以改进
 
 - 文件上传进度条。
 - SSH 主机指纹变化后，在界面上重新信任。
 - `features/reminders` 和 `features/habits` 的 `api.ts` 在修改后自己刷新数据，同时也用了 `invalidateOn`，有重复，可以精简。
 - `features/projects` 的 Markdown 渲染器（`mdparse.ts`、`Markdown.tsx`）可以挪到 `components/ui` 给其他模块用。
+- 前端代码没统一跑过 prettier（`npx prettier --check` 报 100 多个文件）。可以一次性 `npx prettier --write "src/**/*.{ts,tsx,css}"`，再在 CI 里加检查。注意 `src/api/gen/` 已被 `.prettierignore` 排除。
+- 构建时主包超过 500 kB 的警告，路由懒加载可以解决（批次 3 的 J）。
 
 ## 12. 最后状态
 
-（批次 2 剩余任务合并后在这里更新。）
+- 批次 0、1、2 全部完成，合并到开发分支，已推送。最后的开发提交见 `git log`。
+- 验证结果（合并后在本地跑的）：后端 30 个包 `go test -race` 全部通过；代理的 Windows 交叉编译和 vet 通过；前端类型检查通过，21 个测试文件 130 个测试通过，构建通过。
+- 浏览器验收：真实服务端加真实 Linux 代理，23 个页面在 1360px 和 390px 各打开一次，没有报错，没有横向溢出。
+- 合并时修的问题：`rpc` 写入取消会断开代理连接；文件数据库并发事务报 SQLITE_BUSY；编码任务测试和通知之间的时序；各模块中文词典键冲突（现在有测试检查）。
+- 线上已按用户要求更新到这个版本（提交信息带 `[deploy]`）。
+- 下一步：批次 3（第 9 节）。
+
+## 13. 交付和验收约定
+
+用户安排：接手的人（或 AI）开发，完成后由 Claude 验收。为了让验收又快又省，每批交付时请做到：
+
+1. **写一份简短的交付说明**，放在 `docs/deliveries/<日期>-<批次>.md`：
+   - 做了哪些模块，对应哪些验收条目。
+   - 改了哪些共享文件，改了哪些基础代码（`internal/server` 下非 `modules/` 的目录、`pkg/`、`web/src/{api,auth,app,components,lib}`），每处改动的理由。
+   - 和 `docs/modules/Mx.md` 不一致的地方。
+   - 没做完的和没验证过的。
+2. **遵守 `docs/roadmap.md` 的子代理规则**，只改自己模块的目录；共享文件只加行。
+3. **提交前跑完第 7 节的全部验证**，把输出的最后几行贴进交付说明。
+4. **不要把开发分支合并进 `main`，也不要推带 `[deploy]` 的提交**，除非用户明确同意。
+
+验收会做：全量测试和构建；真实服务端加代理的浏览器检查（桌面和手机宽度）；重点审查安全相关代码（高危操作是否要求提升权限、令牌是否加密、代理执行命令的限制、公开入口的密钥校验）。
