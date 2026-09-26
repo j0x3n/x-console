@@ -33,6 +33,10 @@ export default function CommandPalette({
     [registered, navigate, t],
   );
   const results = useMemo(() => {
+    const prefix = all.find(
+      (command) => command.prefix && query.startsWith(command.prefix),
+    );
+    if (prefix) return [prefix];
     const q = query.trim().toLowerCase();
     if (!q) return all.slice(0, 30);
     return all
@@ -51,8 +55,13 @@ export default function CommandPalette({
   if (!open) return null;
   const run = async (command?: Command) => {
     if (!command) return;
+    const input =
+      command.prefix && query.startsWith(command.prefix)
+        ? query.slice(command.prefix.length).trim()
+        : undefined;
+    if (command.prefix && !input) return;
     onClose();
-    await command.run({ navigate });
+    await command.run({ navigate, input });
   };
   return (
     <div
@@ -98,7 +107,11 @@ export default function CommandPalette({
               onClick={() => run(command)}
             >
               {command.icon && <command.icon size={15} />}
-              <span>{command.title}</span>
+              <span>
+                {command.prefix && query.startsWith(command.prefix)
+                  ? `${command.title}：${query.slice(command.prefix.length).trim() || "输入内容"}`
+                  : command.title}
+              </span>
               <small className="command-caption">{command.group}</small>
               {index === active && <CornerDownLeft size={13} />}
             </button>

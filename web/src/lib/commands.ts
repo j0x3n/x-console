@@ -11,8 +11,12 @@ export interface Command {
   title: string;
   group: string;
   keywords?: string;
+  prefix?: string;
   icon?: LucideIcon;
-  run: (ctx: { navigate: NavigateFunction }) => void | Promise<void>;
+  run: (ctx: {
+    navigate: NavigateFunction;
+    input?: string;
+  }) => void | Promise<void>;
 }
 
 let commands: Command[] = [];
