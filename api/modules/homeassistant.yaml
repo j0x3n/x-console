@@ -1,0 +1,253 @@
+openapi: 3.0.3
+info:
+  title: X Console Home Assistant API (M9)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /ha/config:
+    get:
+      operationId: getHAConfig
+      tags: [homeassistant]
+      description: 当前配置。令牌只返回打码后的样子。
+      responses:
+        "200":
+          description: 配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putHAConfig
+      tags: [homeassistant]
+      description: 保存配置并重新连接。需要提升权限。token 留空表示不改令牌。url 留空表示清除整个配置。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HAConfigInput"
+      responses:
+        "200":
+          description: 保存后的配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ha/test:
+    post:
+      operationId: testHA
+      tags: [homeassistant]
+      description: |
+        测试连接：先用 REST 读 /api/config，再走一遍 WebSocket 认证。
+        不带请求体时测试已保存的配置；带请求体时测试表单里的值，需要提升权限（可能用到已保存的令牌）。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HAConfigInput"
+      responses:
+        "200":
+          description: 测试结果。连不上或令牌错误时 ok 为 false，message 说明原因
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HATestResult"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ha/status:
+    get:
+      operationId: getHAStatus
+      tags: [homeassistant]
+      responses:
+        "200":
+          description: 连接状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAStatus"
+  /ha/states:
+    get:
+      operationId: listHAStates
+      tags: [homeassistant]
+      description: 内存里缓存的全部实体状态，按 entityId 排序。未配置时返回 412 integration_not_configured。
+      parameters:
+        - name: domain
+          in: query
+          schema: { type: string }
+          description: 只看某个域，例如 light
+        - name: q
+          in: query
+          schema: { type: string }
+          description: 按 entityId 或名称模糊搜索
+      responses:
+        "200":
+          description: 实体状态
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/HAState" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ha/states/{entityId}:
+    parameters:
+      - name: entityId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getHAState
+      tags: [homeassistant]
+      responses:
+        "200":
+          description: 实体状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HAState"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ha/services/{domain}/{service}:
+    parameters:
+      - name: domain
+        in: path
+        required: true
+        schema: { type: string }
+      - name: service
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: callHAService
+      tags: [homeassistant]
+      description: |
+        调用 HA 服务。门锁、安防面板、打开窗帘或车库门这类操作需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HAServiceCall"
+      responses:
+        "204":
+          description: 已调用
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ha/favorites:
+    get:
+      operationId: listHAFavorites
+      tags: [homeassistant]
+      responses:
+        "200":
+          description: 收藏，按顺序排列。state 在未连接或实体不存在时为空
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/HAFavorite" }
+    put:
+      operationId: putHAFavorites
+      tags: [homeassistant]
+      description: 整体替换收藏列表，数组顺序就是显示顺序。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 200
+                  items: { $ref: "#/components/schemas/HAFavoriteInput" }
+      responses:
+        "200":
+          description: 保存后的收藏
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/HAFavorite" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    HAMode:
+      type: string
+      enum: [direct, agent]
+      description: direct 表示服务端直接访问 HA；agent 表示通过家里的代理转发
+    HAConfig:
+      type: object
+      required: [url, mode, agentId, hasToken, token]
+      properties:
+        url: { type: string, description: "例如 http://homeassistant.local:8123，空表示未配置" }
+        mode: { $ref: "#/components/schemas/HAMode" }
+        agentId: { type: string, description: mode 为 agent 时使用的代理 id }
+        hasToken: { type: boolean }
+        token: { type: string, description: 打码后的令牌，例如 ••••••••x9Qa }
+    HAConfigInput:
+      type: object
+      required: [url, mode]
+      properties:
+        url: { type: string }
+        token: { type: string, description: 留空表示保留原令牌 }
+        mode: { $ref: "#/components/schemas/HAMode" }
+        agentId: { type: string }
+    HATestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        message: { type: string, description: 失败原因，给人看 }
+        version: { type: string }
+        locationName: { type: string }
+    HAStatus:
+      type: object
+      required: [configured, connected, mode, entityCount]
+      properties:
+        configured: { type: boolean }
+        connected: { type: boolean }
+        mode: { $ref: "#/components/schemas/HAMode" }
+        version: { type: string, description: HA 版本 }
+        entityCount: { type: integer }
+        error: { type: string, description: 最近一次连接失败的原因 }
+        connectedAt: { type: string, format: date-time }
+    HAState:
+      type: object
+      required: [entityId, state, attributes, lastChanged]
+      properties:
+        entityId: { type: string }
+        state: { type: string }
+        attributes:
+          type: object
+          additionalProperties: true
+        lastChanged: { type: string, format: date-time }
+    HAServiceCall:
+      type: object
+      properties:
+        entityId: { type: string, description: 目标实体，会放进 target.entity_id }
+        data:
+          type: object
+          additionalProperties: true
+          description: service_data
+    HAFavoriteInput:
+      type: object
+      required: [entityId]
+      properties:
+        entityId: { type: string }
+        alias: { type: string, maxLength: 64 }
+    HAFavorite:
+      type: object
+      required: [entityId, alias, sortOrder]
+      properties:
+        entityId: { type: string }
+        alias: { type: string }
+        sortOrder: { type: integer }
+        state: { $ref: "#/components/schemas/HAState" }

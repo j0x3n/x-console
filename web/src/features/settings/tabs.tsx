@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import GeneralTab from "./GeneralTab";
 import DevicesTab from "./DevicesTab";
 import AuditTab from "./AuditTab";
+import HASettingsTab from "../home/HASettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -15,4 +16,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "general", label: "General", component: GeneralTab },
   { id: "devices", label: "Devices & agents", component: DevicesTab },
   { id: "audit", label: "Audit log", component: AuditTab },
+  { id: "homeassistant", label: "Home Assistant", component: HASettingsTab },
 ];

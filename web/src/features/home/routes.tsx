@@ -1,11 +1,33 @@
 import type { RouteObject } from "react-router";
-import ComingSoon from "../../components/ComingSoon";
+import { House, Settings } from "lucide-react";
+import { registerCommands } from "../../lib/commands";
+import "./i18n";
+import "./home.css";
+import HomePage from "./HomePage";
 
-// 模块入口：路由、命令、事件订阅都从这里注册。开发这个模块时替换占位页面。
+registerCommands([
+  {
+    id: "home.open",
+    title: "打开智能家居",
+    group: "智能家居",
+    keywords: "home assistant ha 灯 开关",
+    icon: House,
+    run: ({ navigate }) => navigate("/home"),
+  },
+  {
+    id: "home.settings",
+    title: "Home Assistant 设置",
+    group: "智能家居",
+    keywords: "home assistant ha token",
+    icon: Settings,
+    run: ({ navigate }) => navigate("/settings/homeassistant"),
+  },
+]);
+
 export const routes: RouteObject[] = [
   {
     path: "home/*",
-    element: <ComingSoon title="Smart home" />,
+    element: <HomePage />,
     handle: { title: "Smart home" },
   },
 ];
