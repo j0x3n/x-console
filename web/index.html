@@ -5,13 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0b" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>X Console</title>
     <script>
       let savedTheme = "system";
       let savedLanguage = "zh";
       try {
-        savedTheme = localStorage.getItem("x-console-theme") || localStorage.getItem("xcc-theme") || "system";
-        savedLanguage = localStorage.getItem("x-console-language") || localStorage.getItem("xcc-language") || "zh";
+        savedTheme =
+          localStorage.getItem("x-console-theme") ||
+          localStorage.getItem("xcc-theme") ||
+          "system";
+        savedLanguage =
+          localStorage.getItem("x-console-language") ||
+          localStorage.getItem("xcc-language") ||
+          "zh";
       } catch {
         // Use default preferences if browser storage is unavailable.
       }

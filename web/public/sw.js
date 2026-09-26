@@ -6,11 +6,90 @@
  * Clicking a button calls POST /api/v1/notify/actions with the action id,
  * for example "reminder.done:42" or "habit.checkin:3:1".
  *
- * Task card J (PWA) merges its caching logic into this file.
+ * PWA caches the app shell and built assets. API responses are never cached.
  */
 
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+const APP_CACHE = "xc-app-v1";
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(APP_CACHE);
+      try {
+        const response = await fetch("/", { cache: "reload" });
+        if (response.ok) {
+          await cache.put("/", response.clone());
+          const html = await response.text();
+          const assets = [
+            ...html.matchAll(/(?:src|href)="(\/assets\/[^\"]+)"/g),
+          ].map((match) => match[1]);
+          await Promise.allSettled(assets.map((asset) => cache.add(asset)));
+        }
+        await Promise.allSettled(
+          [
+            "/favicon.svg",
+            "/manifest.webmanifest",
+            "/icons/icon-192.png",
+            "/icons/icon-512.png",
+          ].map((path) => cache.add(path)),
+        );
+      } catch {
+        // A later online visit can fill the cache.
+      }
+      await self.skipWaiting();
+    })(),
+  );
+});
+self.addEventListener("activate", (event) =>
+  event.waitUntil(
+    (async () => {
+      const names = await caches.keys();
+      await Promise.all(
+        names
+          .filter((name) => name.startsWith("xc-app-") && name !== APP_CACHE)
+          .map((name) => caches.delete(name)),
+      );
+      await self.clients.claim();
+    })(),
+  ),
+);
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/"))
+    return;
+  if (request.mode === "navigate") {
+    event.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            const cache = await caches.open(APP_CACHE);
+            await cache.put("/", response.clone());
+          }
+          return response;
+        } catch {
+          return (await caches.match("/")) || Response.error();
+        }
+      })(),
+    );
+  } else if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        const response = await fetch(request);
+        if (response.ok) {
+          const cache = await caches.open(APP_CACHE);
+          await cache.put(request, response.clone());
+        }
+        return response;
+      })(),
+    );
+  }
+});
 
 self.addEventListener("push", (event) => {
   let data = {};
@@ -35,9 +114,15 @@ self.addEventListener("push", (event) => {
 
 async function openLink(link) {
   const url = new URL(link || "/", self.location.origin).href;
-  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const windows = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
   for (const client of windows) {
-    if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+    if (
+      new URL(client.url).origin === self.location.origin &&
+      "focus" in client
+    ) {
       await client.focus();
       if ("navigate" in client) {
         try {
@@ -57,7 +142,10 @@ async function runAction(actionId, link) {
     const response = await fetch("/api/v1/notify/actions", {
       method: "POST",
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "x-console" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "x-console",
+      },
       body: JSON.stringify({ actionId }),
     });
     if (response.status === 401) {
