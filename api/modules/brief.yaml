@@ -1,0 +1,192 @@
+openapi: 3.0.3
+info:
+  title: X Console daily brief and weather (M11)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /briefs:
+    get:
+      operationId: listBriefs
+      tags: [brief]
+      parameters:
+        - $ref: "../common.yaml#/components/parameters/Limit"
+        - $ref: "../common.yaml#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: 历史早报，新的在前
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Brief" }
+                  nextCursor: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /briefs/generate:
+    post:
+      operationId: generateBrief
+      tags: [brief]
+      description: 立即按当前设置生成今天的早报。send 为 false 时只预览，不保存；为 true 时保存为今天的早报并发送。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                send: { type: boolean }
+      responses:
+        "200":
+          description: 生成的早报
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Brief" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /briefs/settings:
+    get:
+      operationId: getBriefSettings
+      tags: [brief]
+      responses:
+        "200":
+          description: 早报设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BriefSettingsView" }
+    put:
+      operationId: putBriefSettings
+      tags: [brief]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BriefSettings" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BriefSettingsView" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /briefs/{date}:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        description: YYYY-MM-DD
+        schema: { type: string }
+    get:
+      operationId: getBrief
+      tags: [brief]
+      responses:
+        "200":
+          description: 这一天的早报
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Brief" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /weather:
+    get:
+      operationId: getWeather
+      tags: [brief]
+      description: 当前天气和今天的预报（Open-Meteo）。不传经纬度时用早报设置里的位置，没设置位置时返回 412。结果缓存 10 分钟。
+      parameters:
+        - name: lat
+          in: query
+          schema: { type: number, format: double }
+        - name: lon
+          in: query
+          schema: { type: number, format: double }
+      responses:
+        "200":
+          description: 天气
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Weather" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    Brief:
+      type: object
+      required: [date, content, sections, createdAt]
+      properties:
+        id: { type: integer, format: int64, description: 预览时没有 }
+        date: { type: string, description: YYYY-MM-DD，用户时区 }
+        content: { type: string, description: Markdown }
+        sections:
+          type: array
+          items: { $ref: "#/components/schemas/BriefSection" }
+        createdAt: { type: string, format: date-time }
+        sentAt: { type: string, format: date-time }
+    BriefSection:
+      type: object
+      required: [key, title, markdown]
+      properties:
+        key: { $ref: "#/components/schemas/BriefSectionKey" }
+        title: { type: string }
+        markdown: { type: string }
+    BriefSectionKey:
+      type: string
+      description: summary 只在 AI 总结打开时出现，不能在设置里选
+      enum: [summary, weather, calendar, issues, reminders, alerts, habits, renewals]
+    BriefLocation:
+      type: object
+      required: [lat, lon]
+      properties:
+        lat: { type: number, format: double }
+        lon: { type: number, format: double }
+        name: { type: string, description: 显示用的地名 }
+    BriefSettings:
+      type: object
+      required: [enabled, time, channels, sections]
+      properties:
+        enabled: { type: boolean, description: 每天定时生成并发送 }
+        time: { type: string, description: "HH:MM，用户时区，默认 08:00" }
+        channels:
+          type: array
+          description: 发到哪些渠道。空数组表示按通知的路由规则
+          items: { type: string }
+        location: { $ref: "#/components/schemas/BriefLocation" }
+        sections:
+          type: array
+          description: 启用的部分，顺序固定
+          items: { $ref: "#/components/schemas/BriefSectionKey" }
+        aiPolish:
+          type: boolean
+          description: 用 AI 在最前面加一段总结。AI 助手模块可用时才生效
+        weatherApiBase:
+          type: string
+          description: Open-Meteo 地址，默认 https://api.open-meteo.com
+    BriefSettingsView:
+      allOf:
+        - $ref: "#/components/schemas/BriefSettings"
+        - type: object
+          required: [availableChannels, aiAvailable]
+          properties:
+            availableChannels:
+              type: array
+              items: { type: string }
+            aiAvailable: { type: boolean, description: AI 润色是否可用 }
+            nextRunAt: { type: string, format: date-time, description: 下次定时发送的时间 }
+    Weather:
+      type: object
+      required: [latitude, longitude, temperature, weatherCode, summary, high, low, precipitationChance, fetchedAt]
+      properties:
+        location: { type: string }
+        latitude: { type: number, format: double }
+        longitude: { type: number, format: double }
+        temperature: { type: number, format: double, description: 当前气温，摄氏度 }
+        weatherCode: { type: integer, description: WMO 天气代码 }
+        summary: { type: string, description: 天气的中文说明，例如 多云 }
+        high: { type: number, format: double }
+        low: { type: number, format: double }
+        precipitationChance: { type: integer, description: 今天的最大降水概率，百分比 }
+        fetchedAt: { type: string, format: date-time }

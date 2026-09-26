@@ -5,8 +5,11 @@ go 1.26.0
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/UserExistsError/conpty v0.1.4
+	github.com/arran4/golang-ical v0.3.6
 	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
+	github.com/emersion/go-ical v0.0.0-20240127095438-fc1c9d8fb2b6
+	github.com/emersion/go-webdav v0.7.0
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/pquerna/otp v1.5.0

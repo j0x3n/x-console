@@ -1,0 +1,182 @@
+openapi: 3.0.3
+info:
+  title: X Console calendar (M11)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /calendars:
+    get:
+      operationId: listCalendars
+      tags: [calendar]
+      responses:
+        "200":
+          description: 所有日历，密码不返回
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Calendar" }
+    post:
+      operationId: createCalendar
+      tags: [calendar]
+      description: 新建后立即在后台同步一次，完成时发 calendar.synced 事件。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CalendarInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /calendars/{calendarId}:
+    parameters:
+      - $ref: "#/components/parameters/CalendarId"
+    get:
+      operationId: getCalendar
+      tags: [calendar]
+      responses:
+        "200":
+          description: 日历
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateCalendar
+      tags: [calendar]
+      description: 只改传了的字段。password 传空字符串表示清除密码。改了地址或账号会在后台重新同步。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CalendarPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteCalendar
+      tags: [calendar]
+      description: 删除日历和同步下来的事件
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /calendars/{calendarId}/sync:
+    parameters:
+      - $ref: "#/components/parameters/CalendarId"
+    post:
+      operationId: syncCalendar
+      tags: [calendar]
+      description: 立即同步，等同步结束再返回。同步失败时返回 200，错误写在 lastError 里。
+      responses:
+        "200":
+          description: 同步后的日历
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Calendar" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /calendar/events:
+    get:
+      operationId: listCalendarEvents
+      tags: [calendar]
+      description: 范围内的事件。重复事件按用户时区展开成每一次发生。范围最长 100 天。
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: 按开始时间排序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CalendarEvent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    CalendarId:
+      name: calendarId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    CalendarKind:
+      type: string
+      enum: [ics, caldav]
+    Calendar:
+      type: object
+      required: [id, name, kind, url, username, hasPassword, color, enabled, lastError, eventCount, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/CalendarKind" }
+        url: { type: string }
+        username: { type: string }
+        hasPassword: { type: boolean }
+        color: { type: string, description: "#rrggbb，空表示默认色" }
+        enabled: { type: boolean }
+        lastSyncedAt: { type: string, format: date-time }
+        lastError: { type: string, description: 上次同步的错误，成功时为空 }
+        eventCount: { type: integer, description: 同步下来的事件条数（重复事件算一条） }
+        createdAt: { type: string, format: date-time }
+    CalendarInput:
+      type: object
+      required: [name, kind, url]
+      properties:
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/CalendarKind" }
+        url:
+          type: string
+          description: ICS 订阅地址（webcal:// 也可以），或 CalDAV 日历集合、日历主目录的地址
+        username: { type: string }
+        password: { type: string, description: 加密保存，不会再返回 }
+        color: { type: string }
+        enabled: { type: boolean }
+    CalendarPatch:
+      type: object
+      properties:
+        name: { type: string }
+        url: { type: string }
+        username: { type: string }
+        password: { type: string }
+        color: { type: string }
+        enabled: { type: boolean }
+    CalendarEvent:
+      type: object
+      required: [id, eventId, calendarId, calendar, color, title, start, end, allDay, location, description, recurring]
+      properties:
+        id: { type: string, description: 每次发生唯一，事件 id 加开始时间 }
+        eventId: { type: integer, format: int64 }
+        calendarId: { type: integer, format: int64 }
+        calendar: { type: string, description: 日历名 }
+        color: { type: string }
+        title: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        allDay: { type: boolean }
+        startDate: { type: string, description: 全天事件的开始日期 YYYY-MM-DD }
+        endDate: { type: string, description: 全天事件的结束日期 YYYY-MM-DD（不含） }
+        location: { type: string }
+        description: { type: string }
+        recurring: { type: boolean }
