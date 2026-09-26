@@ -357,10 +357,9 @@ function Properties({ issue, onSave }: { issue: Issue; onSave: (body: UpdateIssu
         )}
       </dl>
       <div className="projects-coding">
-        <button className="xc-btn" disabled title={t("The coding module is not available yet.")}>
+        <Link className="xc-btn" to={`/coding?new=1&issue=${encodeURIComponent(issue.key)}`}>
           <Bot size={14} /> {t("Hand to coding assistant")}
-        </button>
-        <small className="xc-muted">{t("The coding module is not available yet.")}</small>
+        </Link>
       </div>
       <button
         className="xc-btn danger small"
