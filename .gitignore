@@ -8,3 +8,6 @@ backend/bin/
 *.db-wal
 *.db-shm
 .env
+# Claude Code 本地设置和子代理的 worktree
+.claude/worktrees/
+.claude/settings.local.json
