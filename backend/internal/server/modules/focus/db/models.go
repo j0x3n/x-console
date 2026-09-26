@@ -347,6 +347,36 @@ type Milestone struct {
 	CreatedAt time.Time
 }
 
+type Monitor struct {
+	ID                  int64
+	Kind                string
+	Name                string
+	Target              string
+	IntervalSeconds     int64
+	ExpectedStatus      int64
+	Keyword             string
+	TimeoutMs           int64
+	Enabled             int64
+	LastStatus          string
+	LastCheckedAt       *time.Time
+	LastError           string
+	ConsecutiveFailures int64
+	ExpiresAt           *time.Time
+	ExpiryNotified      string
+	CreatedAt           time.Time
+}
+
+type MonitorResult struct {
+	ID         int64
+	MonitorID  int64
+	At         time.Time
+	Ok         int64
+	StatusCode *int64
+	LatencyMs  int64
+	Error      string
+	Detail     string
+}
+
 type Note struct {
 	ID         int64
 	Title      string
@@ -425,6 +455,32 @@ type Reminder struct {
 	CreatedAt    time.Time
 }
 
+type Script struct {
+	ID             int64
+	Name           string
+	Description    string
+	Shell          string
+	Body           string
+	DefaultHostIds string
+	TimeoutSeconds int64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type ScriptRun struct {
+	ID          int64
+	ScriptID    int64
+	HostID      string
+	HostName    string
+	StartedAt   time.Time
+	FinishedAt  *time.Time
+	ExitCode    *int64
+	Stdout      string
+	Stderr      string
+	Error       string
+	TriggeredBy string
+}
+
 type Session struct {
 	ID            string
 	UserID        int64
@@ -452,6 +508,33 @@ type SshHost struct {
 	Secret    string
 	HostKey   string
 	CreatedAt time.Time
+}
+
+type Subscription struct {
+	ID               int64
+	Name             string
+	Category         string
+	Amount           float64
+	Currency         string
+	Cycle            string
+	CycleDays        int64
+	NextRenewal      string
+	RemindDaysBefore string
+	Reminded         string
+	Url              string
+	Note             string
+	AutoRenew        int64
+	ArchivedAt       *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type SubscriptionEvent struct {
+	ID             int64
+	SubscriptionID int64
+	At             time.Time
+	Kind           string
+	Detail         string
 }
 
 type User struct {

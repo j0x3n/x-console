@@ -19,6 +19,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/coding"
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
+	"github.com/j0x3n/x-console/backend/internal/agent/docker"
 	agentexec "github.com/j0x3n/x-console/backend/internal/agent/exec"
 	"github.com/j0x3n/x-console/backend/internal/agent/files"
 	"github.com/j0x3n/x-console/backend/internal/agent/metrics"
@@ -115,6 +116,7 @@ func register(c *conn.Client, cfg config.Config) {
 	c.Handle(protocol.MethodHTTPProxy, netproxy.HTTP)   // M9
 	c.HandleStream(protocol.MethodWSProxy, netproxy.WS) // M9
 	coding.Register(c, cfg.Coding)                      // M4: also adds the coding capability for configured executor paths
+	docker.Register(c)                                  // M10: docker.* over the Engine socket
 }
 
 // capabilities lists what this build supports on this OS.
@@ -139,6 +141,9 @@ func capabilities() []string {
 	caps = append(caps, protocol.CapProxy) // M9: http.proxy and ws.proxy
 	if coding.Available() {                // M4: Windows desktop, or claude/codex on PATH
 		caps = append(caps, protocol.CapCoding)
+	}
+	if docker.Available() {
+		caps = append(caps, protocol.CapDocker) // M10: only when the Docker socket answers
 	}
 	return caps
 }

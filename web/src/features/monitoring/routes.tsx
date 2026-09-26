@@ -1,11 +1,54 @@
 import type { RouteObject } from "react-router";
-import ComingSoon from "../../components/ComingSoon";
+import { FileCode2, Globe, Receipt, ShieldCheck } from "lucide-react";
+import { registerCommands } from "../../lib/commands";
+import "./i18n";
+import "./monitoring.css";
+import MonitoringPage from "./MonitoringPage";
 
-// 模块入口：路由、命令、事件订阅都从这里注册。开发这个模块时替换占位页面。
-export const routes: RouteObject[] = [
+registerCommands([
   {
-    path: "monitoring/*",
-    element: <ComingSoon title="Monitoring" />,
-    handle: { title: "Monitoring" },
+    id: "monitoring.sites",
+    title: "网站监控",
+    group: "监控",
+    icon: Globe,
+    keywords: "monitor uptime website http",
+    run: ({ navigate }) => navigate("/monitoring"),
   },
+  {
+    id: "monitoring.new-site",
+    title: "添加网站监控",
+    group: "监控",
+    icon: Globe,
+    keywords: "monitor new website",
+    run: ({ navigate }) => navigate("/monitoring?new=1"),
+  },
+  {
+    id: "monitoring.certs",
+    title: "证书和域名到期",
+    group: "监控",
+    icon: ShieldCheck,
+    keywords: "tls ssl certificate domain expiry",
+    run: ({ navigate }) => navigate("/monitoring/certs"),
+  },
+  {
+    id: "monitoring.scripts",
+    title: "脚本库",
+    group: "监控",
+    icon: FileCode2,
+    keywords: "script run bash",
+    run: ({ navigate }) => navigate("/monitoring/scripts"),
+  },
+  {
+    id: "monitoring.subscriptions",
+    title: "订阅和续费",
+    group: "监控",
+    icon: Receipt,
+    keywords: "subscription renewal bill 续费",
+    run: ({ navigate }) => navigate("/monitoring/subscriptions"),
+  },
+]);
+
+export const routes: RouteObject[] = [
+  { path: "monitoring", element: <MonitoringPage />, handle: { title: "Monitoring" } },
+  { path: "monitoring/:tab", element: <MonitoringPage />, handle: { title: "Monitoring" } },
 ];
