@@ -16,6 +16,7 @@ import (
 	"syscall"
 
 	"github.com/j0x3n/x-console/backend/internal/agent/clipboard"
+	"github.com/j0x3n/x-console/backend/internal/agent/coding"
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
 	agentexec "github.com/j0x3n/x-console/backend/internal/agent/exec"
@@ -113,6 +114,7 @@ func register(c *conn.Client, cfg config.Config) {
 	power.Register(c)                                   // M3: power.action and app.open
 	c.Handle(protocol.MethodHTTPProxy, netproxy.HTTP)   // M9
 	c.HandleStream(protocol.MethodWSProxy, netproxy.WS) // M9
+	coding.Register(c, cfg.Coding)                      // M4: also adds the coding capability for configured executor paths
 }
 
 // capabilities lists what this build supports on this OS.
@@ -135,5 +137,8 @@ func capabilities() []string {
 		caps = append(caps, protocol.CapPower, protocol.CapOpen)
 	}
 	caps = append(caps, protocol.CapProxy) // M9: http.proxy and ws.proxy
+	if coding.Available() {                // M4: Windows desktop, or claude/codex on PATH
+		caps = append(caps, protocol.CapCoding)
+	}
 	return caps
 }
