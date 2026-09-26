@@ -1,0 +1,238 @@
+openapi: 3.0.3
+info:
+  title: X Console notes API (M6)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /notes:
+    get:
+      operationId: listNotes
+      tags: [notes]
+      description: |
+        没有 q 时置顶在前，然后按更新时间倒序。
+        有 q 时按相关度排序，并在 snippet 里返回命中片段。
+        q 的每个词都在三个字以上时走全文索引，否则用 LIKE 逐字匹配。
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: pinned
+          in: query
+          schema: { type: boolean }
+        - name: archived
+          in: query
+          description: true 时只看已归档的笔记，默认只看未归档的
+          schema: { type: boolean }
+        - $ref: "../common.yaml#/components/parameters/Limit"
+        - $ref: "../common.yaml#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: 笔记列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/NoteSummary" }
+                  nextCursor: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createNote
+      tags: [notes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateNote" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/tags:
+    get:
+      operationId: listNoteTags
+      tags: [notes]
+      responses:
+        "200":
+          description: 未归档笔记用到的标签和数量，按数量倒序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TagCount" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/{noteId}:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    get:
+      operationId: getNote
+      tags: [notes]
+      responses:
+        "200":
+          description: 笔记
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateNote
+      tags: [notes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateNote" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Note" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteNote
+      tags: [notes]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/{noteId}/to-issue:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    post:
+      operationId: noteToIssue
+      tags: [notes]
+      description: 用笔记建一个 Issue。Issue 的关联里会有这条笔记，笔记末尾会加上 Issue 的链接。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [projectId]
+              properties:
+                projectId: { type: integer, format: int64 }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [issueKey, issueUrl, note]
+                properties:
+                  issueKey: { type: string }
+                  issueUrl: { type: string, description: 站内路径，例如 /projects/XC/12 }
+                  note: { $ref: "#/components/schemas/Note" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/{noteId}/to-reminder:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    post:
+      operationId: noteToReminder
+      tags: [notes]
+      description: 用笔记建一个提醒。提醒模块没启用时返回 501 feature_unavailable。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [at]
+              properties:
+                at: { type: string, format: date-time }
+                rrule: { type: string, description: 重复规则，例如 FREQ=DAILY;BYHOUR=9 }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reminderId]
+                properties:
+                  reminderId: { type: integer, format: int64 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    NoteId:
+      name: noteId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    Note:
+      type: object
+      required: [id, title, body, pinned, tags, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        body: { type: string, description: Markdown }
+        pinned: { type: boolean }
+        tags:
+          type: array
+          items: { type: string }
+        archivedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    NoteSummary:
+      type: object
+      required: [id, title, excerpt, pinned, tags, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        excerpt: { type: string, description: 正文开头的一段纯文本 }
+        snippet:
+          type: string
+          description: 搜索时的命中片段，命中的部分用 U+E000 和 U+E001 包住
+        pinned: { type: boolean }
+        tags:
+          type: array
+          items: { type: string }
+        archivedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateNote:
+      type: object
+      properties:
+        title: { type: string }
+        body: { type: string }
+        pinned: { type: boolean }
+        tags:
+          type: array
+          items: { type: string }
+    UpdateNote:
+      type: object
+      properties:
+        title: { type: string }
+        body: { type: string }
+        pinned: { type: boolean }
+        archived: { type: boolean }
+        tags:
+          type: array
+          description: 传了就整体替换
+          items: { type: string }
+    TagCount:
+      type: object
+      required: [tag, count]
+      properties:
+        tag: { type: string }
+        count: { type: integer }
