@@ -172,7 +172,7 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
           />
         </label>
         <label className="xc-field">
-          <span>{t("Note")}</span>
+          <span>{t("Reminder note")}</span>
           <textarea
             className="xc-textarea"
             value={body}

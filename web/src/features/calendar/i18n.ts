@@ -116,6 +116,6 @@ registerZh({
   "No focus linked to an issue yet.": "还没有关联 Issue 的专注记录。",
   Recent: "最近",
   "No focus sessions yet": "还没有专注记录",
-  Finished: "完成",
+  Finished: "已结束",
   "Stopped early": "提前结束",
 });

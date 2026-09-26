@@ -6,7 +6,7 @@ registerZh({
   "All devices": "全部设备",
   "No favorites yet": "还没有收藏",
   "Browse devices": "去看全部设备",
-  Done: "完成",
+  "Done editing": "完成",
   "Move up": "上移",
   "Move down": "下移",
   "Remove from favorites": "取消收藏",

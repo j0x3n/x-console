@@ -79,7 +79,7 @@ registerZh({
   "Add exercise": "添加动作",
   "Workout logged": "训练已记录",
   "Duration (minutes)": "时长（分钟）",
-  Note: "备注",
+  "Workout note": "备注",
   workouts: "次训练",
   min: "分钟",
   "No workouts logged yet": "还没有训练记录",

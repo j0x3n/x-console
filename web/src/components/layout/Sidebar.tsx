@@ -128,7 +128,7 @@ function ProfileMenu() {
               <small>
                 {t(
                   themeMode === "system"
-                    ? "System"
+                    ? "Follow system"
                     : themeMode === "dark"
                       ? "Dark"
                       : "Light",

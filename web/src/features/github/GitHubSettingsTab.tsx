@@ -200,7 +200,7 @@ function StatusCard() {
               <dd className="xc-mono">{s.login}</dd>
             </>
           )}
-          <dt>{t("Repositories")}</dt>
+          <dt>{t("Watched repository count")}</dt>
           <dd>{s.repoCount}</dd>
           <dt>{t("Last sync")}</dt>
           <dd>

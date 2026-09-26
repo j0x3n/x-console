@@ -66,7 +66,7 @@ export function ClipboardCard({ host }: { host: HostDetail }) {
 }
 
 const powerButtons: { action: PowerAction; label: string; icon: typeof Lock; danger?: boolean }[] = [
-  { action: "lock", label: "Lock", icon: Lock },
+  { action: "lock", label: "Lock screen", icon: Lock },
   { action: "sleep", label: "Sleep", icon: Moon },
   { action: "restart", label: "Restart", icon: RotateCcw, danger: true },
   { action: "shutdown", label: "Shut down", icon: Power, danger: true },

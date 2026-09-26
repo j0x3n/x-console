@@ -132,6 +132,7 @@ export function useIssues(projectId: number) {
 ## 文案
 
 - 界面默认中文。代码里写英文原文，`t("Save")`，中文在模块的 `i18n.ts` 里用 `registerZh` 注册。
+- 中文词典是全局共用的。同一个英文键在所有模块里必须对应同一个中文。意思不同就换一个更具体的英文键，比如 `Lock screen` 和 `Lock`。`src/lib/i18n.test.ts` 会检查冲突。
 - 只在当前模块内出现、不需要英文版的长句，可以直接写中文。
 - 中文文案短句为主，一句一个意思，用日常词。
 

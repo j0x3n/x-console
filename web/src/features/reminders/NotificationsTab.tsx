@@ -304,7 +304,7 @@ function RoutesCard({ channels }: { channels: ChannelName[] }) {
                 <th>{t("Kind")}</th>
                 <th>{t("At least")}</th>
                 <th>{t("Channels")}</th>
-                <th>{t("On")}</th>
+                <th>{t("Enabled")}</th>
                 <th />
               </tr>
             </thead>
@@ -356,7 +356,7 @@ function RoutesCard({ channels }: { channels: ChannelName[] }) {
                   <td>
                     <input
                       type="checkbox"
-                      aria-label={t("On")}
+                      aria-label={t("Enabled")}
                       checked={r.enabled}
                       onChange={(e) => set(i, { enabled: e.target.checked })}
                     />

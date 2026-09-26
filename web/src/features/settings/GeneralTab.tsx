@@ -18,7 +18,7 @@ export default function GeneralTab() {
           value={themeMode}
           onChange={(e) => setThemeMode(e.target.value as ThemeMode)}
         >
-          <option value="system">{t("System")}</option>
+          <option value="system">{t("Follow system")}</option>
           <option value="dark">{t("Dark")}</option>
           <option value="light">{t("Light")}</option>
         </select>

@@ -60,7 +60,7 @@ export default function FavoritesView({ onBrowse }: { onBrowse: () => void }) {
           onClick={() => setEditing(!editing)}
         >
           {editing ? <Check size={14} /> : <Pencil size={14} />}{" "}
-          {editing ? t("Done") : t("Edit")}
+          {editing ? t("Done editing") : t("Edit")}
         </button>
       </div>
       <div className="home-grid">

@@ -251,7 +251,7 @@ function LogDialog({
         <input className="xc-input" type="number" min="0" value={duration} onChange={(e) => setDuration(e.target.value)} />
       </label>
       <label className="xc-field">
-        <span>{t("Note")}</span>
+        <span>{t("Workout note")}</span>
         <textarea className="xc-textarea" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
       <div className="xc-dialog-actions">

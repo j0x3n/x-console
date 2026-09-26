@@ -6,9 +6,25 @@ import type { Language, Text } from "../types/domain";
  * 并在模块路由文件里 import 这个文件。
  */
 const zh: Record<string, string> = {};
+const conflicts: string[] = [];
 
+/**
+ * 注册中文词条。词典是全局共用的：同一个英文键在不同模块里
+ * 必须对应同一个中文。意思不同就换一个更具体的英文键。
+ */
 export function registerZh(dict: Record<string, string>) {
-  Object.assign(zh, dict);
+  for (const [key, value] of Object.entries(dict)) {
+    if (key in zh && zh[key] !== value) {
+      conflicts.push(`${key}: "${zh[key]}" vs "${value}"`);
+      if (import.meta.env?.DEV) console.warn(`i18n key conflict: ${key}`);
+    }
+    zh[key] = value;
+  }
+}
+
+/** 测试用：注册过程中出现的冲突。 */
+export function zhConflicts(): readonly string[] {
+  return conflicts;
 }
 
 export function translate(language: Language, text: Text): string {
@@ -49,7 +65,7 @@ registerZh({
   "No notifications": "没有通知",
   "Open command palette": "打开命令面板",
   Theme: "主题",
-  System: "跟随系统",
+  "Follow system": "跟随系统",
   Dark: "深色",
   Light: "浅色",
   Language: "语言",
