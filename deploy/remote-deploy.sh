@@ -19,6 +19,7 @@ if [ ! -f .env ]; then
 		echo "XC_PUBLIC_URL=https://$XC_DOMAIN"
 		echo "XC_MASTER_KEY=$KEY"
 		echo "XC_TZ=${XC_TZ:-Asia/Shanghai}"
+		echo "XC_PORT=${XC_PORT:-17380}"
 	} >.env
 	echo "已创建 .env。请立即备份其中的 XC_MASTER_KEY：$(pwd)/.env"
 fi
@@ -30,7 +31,7 @@ else
 	echo "XC_IMAGE=$IMAGE" >>.env
 fi
 
-docker compose pull x-console caddy
+docker compose pull
 docker compose up -d --remove-orphans
 
 # 等服务健康。
@@ -44,5 +45,6 @@ until docker compose exec -T x-console wget -qO- http://127.0.0.1:8080/api/v1/he
 	fi
 	sleep 2
 done
-echo "部署完成：$(docker compose exec -T x-console wget -qO- http://127.0.0.1:8080/api/v1/health)"
+PORT=$(grep '^XC_PORT=' .env | cut -d= -f2)
+echo "部署完成，面板在 127.0.0.1:${PORT:-17380}：$(docker compose exec -T x-console wget -qO- http://127.0.0.1:8080/api/v1/health)"
 docker image prune -f >/dev/null

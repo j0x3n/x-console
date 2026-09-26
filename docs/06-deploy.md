@@ -18,7 +18,27 @@
    ```
    把 `xconsole_deploy.pub` 的内容追加到服务器的 `/home/deploy/.ssh/authorized_keys`。
 4. 域名加一条 A 记录指向服务器 IP。
-5. 防火墙放行 80 和 443 端口（Caddy 要用 80 申请证书）。
+5. 配好反向代理，见下一节。
+
+### 反向代理
+
+面板容器只监听服务器本机的 `127.0.0.1:17380`，外网直接访问不到。HTTPS 由反向代理负责。端口可以在服务器的 `~/x-console/.env` 里用 `XC_PORT` 改。
+
+**服务器上已经有 Caddy（直接装在系统里）**：在你的 Caddyfile 里加一段，然后 `sudo systemctl reload caddy`：
+
+```
+console.example.com {
+	reverse_proxy 127.0.0.1:17380
+}
+```
+
+WebSocket（终端、实时推送）不用额外配置，Caddy 会自动处理。
+
+**Caddy 本身跑在 Docker 里**：容器里的 `127.0.0.1` 指的是 Caddy 容器自己，连不到面板。改成 `reverse_proxy host.docker.internal:17380`，并在 Caddy 容器上加 `extra_hosts: ["host.docker.internal:host-gateway"]`。这种情况下，还要把面板的端口映射从 `127.0.0.1:17380` 改成 `172.17.0.1:17380`，或者让两个容器加入同一个 Docker 网络，再反代到 `x-console:8080`。
+
+**服务器上没有反向代理**：在 `~/x-console/.env` 里加一行 `COMPOSE_PROFILES=caddy`，再部署一次，就会启动自带的 Caddy。它会自动申请证书，要求 80 和 443 端口空闲并在防火墙放行。
+
+用 Nginx 也可以，注意转发 WebSocket 的 `Upgrade` 和 `Connection` 头，并设置 `X-Forwarded-For`。
 
 ### 2. 在 GitHub 填 Secrets
 
@@ -76,6 +96,8 @@ docker compose up -d --build
 | `XC_DEV` | 空 | 设为 `1` 时 Cookie 不带 Secure，只用于本地 HTTP 调试 |
 | `XC_DEBUG` | 空 | 设为 `1` 输出调试日志 |
 | `XC_IMAGE` | `ghcr.io/j0x3n/x-console:latest` | 仅 docker compose 使用，自动部署会写入具体版本 |
+| `XC_PORT` | `17380` | 仅 docker compose 使用，面板在服务器本机监听的端口 |
+| `COMPOSE_PROFILES` | 空 | 设为 `caddy` 时启动自带的 Caddy |
 
 ### 备份
 
