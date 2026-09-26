@@ -58,6 +58,46 @@ type AuditLog struct {
 	Result string
 }
 
+type Brief struct {
+	ID        int64
+	Date      string
+	Content   string
+	Sections  string
+	CreatedAt time.Time
+	SentAt    *time.Time
+}
+
+type Calendar struct {
+	ID           int64
+	Name         string
+	Kind         string
+	Url          string
+	Username     string
+	Secret       string
+	Color        string
+	Enabled      int64
+	LastSyncedAt *time.Time
+	LastError    string
+	CreatedAt    time.Time
+}
+
+type CalendarEvent struct {
+	ID           int64
+	CalendarID   int64
+	Uid          string
+	Title        string
+	StartsAt     time.Time
+	EndsAt       time.Time
+	AllDay       int64
+	Tzid         string
+	Location     string
+	Description  string
+	Rrule        string
+	Rdates       string
+	Exdates      string
+	RecurrenceID *time.Time
+}
+
 type CodingRepo struct {
 	ID            int64
 	AgentID       string
@@ -99,6 +139,18 @@ type CodingTaskEvent struct {
 	Kind   string
 	Text   string
 	Data   string
+}
+
+type FocusSession struct {
+	ID             int64
+	IssueKey       string
+	StartedAt      time.Time
+	EndedAt        *time.Time
+	PlannedMinutes int64
+	ActualSeconds  int64
+	Completed      int64
+	Note           string
+	NotifiedAt     *time.Time
 }
 
 type GithubCiState struct {

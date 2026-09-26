@@ -32,6 +32,7 @@ import {
 } from "./api";
 import { LabelChip, PriorityIcon, StatusIcon } from "./components/Icons";
 import Markdown from "./Markdown";
+import StartFocusButton from "../calendar/StartFocusButton";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -361,6 +362,7 @@ function Properties({ issue, onSave }: { issue: Issue; onSave: (body: UpdateIssu
           <Bot size={14} /> {t("Hand to coding assistant")}
         </Link>
       </div>
+      <StartFocusButton issueKey={issue.key} />
       <button
         className="xc-btn danger small"
         disabled={remove.isPending}

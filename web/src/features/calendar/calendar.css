@@ -1,0 +1,678 @@
+/* M11 日历、早报、番茄钟 */
+
+/* ---- 日程视图 ---- */
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.calendar-range {
+  margin-left: 6px;
+  color: var(--xc-text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.calendar-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 7px;
+  background: var(--xc-surface-2);
+}
+.calendar-switch button {
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--xc-muted);
+  font-weight: 500;
+}
+.calendar-switch button.active {
+  background: var(--xc-surface);
+  color: var(--xc-text);
+  box-shadow: 0 0 0 1px var(--xc-border-strong);
+}
+.calendar-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  color: var(--xc-text-2);
+}
+.calendar-hint > span {
+  flex: 1;
+  min-width: 180px;
+}
+
+/* 表头和时间列都用 sticky，所以横竖滚动都放在同一个容器里。 */
+.calendar-grid-wrap {
+  max-height: max(360px, calc(100vh - 300px));
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-surface);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.calendar-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--xc-surface);
+}
+.calendar-grid {
+  --calendar-gutter: 52px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.calendar-grid-wrap.is-week .calendar-grid {
+  min-width: 640px;
+}
+.calendar-row {
+  display: grid;
+  grid-template-columns: var(--calendar-gutter) repeat(
+      var(--calendar-days),
+      minmax(0, 1fr)
+    );
+}
+.calendar-gutter {
+  color: var(--xc-faint);
+  font-size: 11px;
+}
+.calendar-head {
+  border-bottom: 1px solid var(--xc-border);
+}
+.calendar-dayhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 4px;
+  color: var(--xc-muted);
+  font-size: 12px;
+  border-left: 1px solid var(--xc-border);
+}
+.calendar-dayhead b {
+  color: var(--xc-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.calendar-dayhead.is-today b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border-radius: 12px;
+  background: var(--xc-accent);
+  color: #fff;
+}
+.calendar-allday {
+  border-bottom: 1px solid var(--xc-border);
+}
+.calendar-allday > .calendar-gutter {
+  padding: 6px 6px 0 0;
+  text-align: right;
+}
+.calendar-allday-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 3px;
+  border-left: 1px solid var(--xc-border);
+}
+.calendar-chip,
+.calendar-event {
+  min-width: 0;
+  border: 0;
+  border-left: 3px solid var(--ev, var(--xc-accent));
+  border-radius: 4px;
+  background: color-mix(
+    in srgb,
+    var(--ev, var(--xc-accent)) 18%,
+    var(--xc-surface)
+  );
+  color: var(--xc-text);
+  text-align: left;
+  cursor: pointer;
+}
+.calendar-chip {
+  padding: 2px 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calendar-body {
+  position: relative;
+}
+.calendar-hours {
+  position: relative;
+}
+.calendar-hours span {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+}
+.calendar-col {
+  position: relative;
+  border-left: 1px solid var(--xc-border);
+  background-image: linear-gradient(
+    to bottom,
+    var(--xc-border) 1px,
+    transparent 1px
+  );
+  background-size: 100% 48px;
+}
+.calendar-col.is-today {
+  background-color: color-mix(in srgb, var(--xc-accent) 4%, transparent);
+}
+.calendar-event {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 6px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.calendar-event:hover,
+.calendar-chip:hover {
+  background: color-mix(
+    in srgb,
+    var(--ev, var(--xc-accent)) 28%,
+    var(--xc-surface)
+  );
+}
+.calendar-event strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar-event span {
+  color: var(--xc-text-2);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.calendar-event.is-short {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.calendar-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--xc-danger);
+  pointer-events: none;
+}
+.calendar-now::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--xc-danger);
+}
+.calendar-detail p {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.calendar-desc {
+  max-height: 240px;
+  margin: 8px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
+  font-family: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.calendar-dot {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ev, var(--xc-accent));
+}
+
+/* ---- 日历管理 ---- */
+.calendar-note {
+  min-width: 0;
+}
+.calendar-list {
+  padding: 4px 0;
+}
+.calendar-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.calendar-item:last-child {
+  border-bottom: 0;
+}
+.calendar-item > .calendar-dot {
+  margin-top: 5px;
+}
+.calendar-item.is-off .calendar-item-main {
+  opacity: 0.6;
+}
+.calendar-item-main {
+  flex: 1;
+  min-width: 0;
+}
+.calendar-item-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.calendar-item-url {
+  margin-top: 2px;
+  color: var(--xc-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar-item-meta {
+  margin-top: 4px;
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.calendar-error {
+  color: var(--xc-danger);
+  overflow-wrap: anywhere;
+}
+.calendar-item-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+}
+.calendar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  color: var(--xc-text-2);
+  font-size: 12px;
+}
+.calendar-spin {
+  animation: calendar-spin 0.9s linear infinite;
+}
+@keyframes calendar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.calendar-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+.calendar-color {
+  width: 44px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+}
+
+/* ---- 早报 ---- */
+.brief-toolbar {
+  flex-wrap: wrap;
+}
+.brief-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.brief-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.brief-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--xc-text-2);
+  text-align: left;
+}
+.brief-list button:hover {
+  background: var(--xc-surface-2);
+}
+.brief-list button.active {
+  background: var(--xc-accent-soft);
+  color: var(--xc-text);
+}
+.brief-content {
+  min-width: 0;
+  padding: 16px 20px;
+  overflow-wrap: anywhere;
+}
+.brief-content h2:first-child {
+  margin-top: 0;
+}
+.brief-settings {
+  max-width: 760px;
+}
+.brief-settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+}
+.brief-settings-card h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.brief-settings-card .xc-field {
+  margin-bottom: 0;
+}
+.brief-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--xc-text);
+}
+.brief-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.brief-time .xc-input {
+  width: 140px;
+}
+.brief-location {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 12px;
+}
+.brief-advanced summary {
+  color: var(--xc-muted);
+  cursor: pointer;
+}
+.brief-advanced .xc-field {
+  margin-top: 10px;
+}
+
+/* ---- 番茄钟 ---- */
+.focus-wrap {
+  position: relative;
+}
+.focus-button {
+  width: auto;
+  min-width: 27px;
+  gap: 4px;
+  padding: 0 5px;
+}
+.focus-button.is-running {
+  color: var(--xc-accent-text);
+}
+.focus-button.is-done {
+  color: var(--xc-ok);
+}
+.focus-remaining {
+  font-family: var(--xc-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.focus-panel {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(300px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 8px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.focus-running {
+  gap: 8px;
+}
+.focus-running p {
+  margin: 0;
+}
+.focus-time {
+  color: var(--xc-text);
+  font-family: var(--xc-mono);
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.focus-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--xc-surface-2);
+  overflow: hidden;
+}
+.focus-bar i {
+  display: block;
+  height: 100%;
+  background: var(--xc-accent);
+}
+.focus-issue {
+  color: var(--xc-accent-text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.focus-start {
+  gap: 10px;
+}
+.focus-start .xc-field {
+  margin-bottom: 0;
+}
+.focus-presets {
+  display: flex;
+  gap: 6px;
+}
+.focus-presets button {
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
+  white-space: nowrap;
+}
+.focus-presets button.active {
+  border-color: var(--xc-accent);
+  color: var(--xc-text);
+  background: var(--xc-accent-soft);
+}
+.focus-presets .xc-input {
+  width: 64px;
+  flex: none;
+}
+.focus-stats-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--xc-muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+.focus-stats-link:hover {
+  color: var(--xc-text);
+}
+.focus-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.focus-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+}
+.focus-tile span {
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.focus-tile strong {
+  color: var(--xc-text);
+  font-size: 20px;
+  font-weight: 600;
+}
+.focus-chart-card {
+  padding-bottom: 12px;
+}
+.focus-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 160px;
+  padding: 0 16px;
+}
+.focus-chart.is-dense {
+  gap: 3px;
+}
+.focus-chart-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.focus-chart-bar {
+  flex: 1;
+  width: 100%;
+  max-width: 36px;
+  display: flex;
+  align-items: flex-end;
+}
+.focus-chart-bar i {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--xc-accent);
+}
+.focus-chart-col span {
+  color: var(--xc-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.focus-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.focus-list {
+  margin: 0;
+  padding: 4px 16px 12px;
+  list-style: none;
+}
+.focus-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--xc-border);
+  overflow-wrap: anywhere;
+}
+.focus-list li:last-child {
+  border-bottom: 0;
+}
+.focus-list a {
+  color: var(--xc-accent-text);
+  text-decoration: none;
+}
+.focus-empty {
+  margin: 0;
+  padding: 4px 16px 14px;
+}
+
+@media (max-width: 720px) {
+  .brief-layout,
+  .focus-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .brief-list {
+    max-height: 180px;
+  }
+  .brief-location,
+  .calendar-form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .focus-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .focus-tile {
+    padding: 10px 12px;
+  }
+  .focus-tile strong {
+    font-size: 16px;
+  }
+  .calendar-item {
+    flex-wrap: wrap;
+  }
+  .calendar-item-actions {
+    width: 100%;
+  }
+}
+
+/* 链接样式的按钮不要下划线 */
+.calendar-page a.xc-btn,
+.brief-settings a.xc-btn {
+  text-decoration: none;
+}
+
+/* 周视图在窄屏上横向滚动时，时间列保持在左边 */
+.calendar-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--xc-surface);
+}

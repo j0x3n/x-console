@@ -2,7 +2,10 @@ package app
 
 import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/homeassistant"
@@ -26,6 +29,9 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	reminders.New,     // M7
 	habits.New,        // M8
 	homeassistant.New, // M9
+	calendar.New,      // M11
+	focus.New,         // M11
+	brief.New,         // M11
 	github.New,        // M13
 	linear.New,        // M13
 }

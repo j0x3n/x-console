@@ -1,0 +1,135 @@
+openapi: 3.0.3
+info:
+  title: X Console focus sessions (M11 pomodoro)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /focus/start:
+    post:
+      operationId: startFocus
+      tags: [focus]
+      description: 开始一个番茄钟。同时只能有一个在进行，已有时返回 409。到点由服务端发 focus.done 通知。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FocusStart" }
+      responses:
+        "201":
+          description: 已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FocusSession" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /focus/current:
+    get:
+      operationId: currentFocus
+      tags: [focus]
+      responses:
+        "200":
+          description: 正在进行的番茄钟，没有时 session 为空
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: "#/components/schemas/FocusSession" }
+  /focus/stats:
+    get:
+      operationId: focusStats
+      tags: [focus]
+      parameters:
+        - name: days
+          in: query
+          description: 最近几天，含今天。默认 7，最多 90
+          schema: { type: integer, minimum: 1, maximum: 90 }
+      responses:
+        "200":
+          description: 专注统计，按用户时区分天
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FocusStats" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /focus/{focusId}/stop:
+    parameters:
+      - name: focusId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      operationId: stopFocus
+      tags: [focus]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                completed:
+                  type: boolean
+                  description: 不传时按是否到点判断
+                note: { type: string }
+      responses:
+        "200":
+          description: 已结束
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FocusSession" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    FocusStart:
+      type: object
+      properties:
+        minutes: { type: integer, minimum: 1, maximum: 180, description: 默认 25 }
+        issueKey: { type: string, description: 关联的 Issue，例如 XC-12 }
+        note: { type: string }
+    FocusSession:
+      type: object
+      required: [id, issueKey, startedAt, plannedMinutes, endsAt, actualSeconds, completed, note]
+      properties:
+        id: { type: integer, format: int64 }
+        issueKey: { type: string }
+        issueTitle: { type: string, description: 项目模块可用时才有 }
+        startedAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time, description: 计划结束时间 }
+        endedAt: { type: string, format: date-time, description: 实际结束时间，进行中时为空 }
+        plannedMinutes: { type: integer }
+        actualSeconds: { type: integer }
+        completed: { type: boolean }
+        note: { type: string }
+        notifiedAt: { type: string, format: date-time }
+    FocusDay:
+      type: object
+      required: [date, seconds, sessions]
+      properties:
+        date: { type: string, description: YYYY-MM-DD }
+        seconds: { type: integer }
+        sessions: { type: integer, description: 完成的番茄钟个数 }
+    FocusIssueTotal:
+      type: object
+      required: [issueKey, seconds]
+      properties:
+        issueKey: { type: string }
+        seconds: { type: integer }
+    FocusStats:
+      type: object
+      required: [days, totalSeconds, completed, byIssue, recent]
+      properties:
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/FocusDay" }
+        totalSeconds: { type: integer }
+        completed: { type: integer }
+        byIssue:
+          type: array
+          items: { $ref: "#/components/schemas/FocusIssueTotal" }
+        recent:
+          type: array
+          description: 最近结束的 10 个
+          items: { $ref: "#/components/schemas/FocusSession" }

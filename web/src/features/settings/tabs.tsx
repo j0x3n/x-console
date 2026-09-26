@@ -6,6 +6,7 @@ import NotificationsTab from "../reminders/NotificationsTab";
 import HASettingsTab from "../home/HASettingsTab";
 import GitHubSettingsTab from "../github/GitHubSettingsTab";
 import LinearSettingsTab from "../github/LinearSettingsTab";
+import BriefSettingsTab from "../calendar/BriefSettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -23,4 +24,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "homeassistant", label: "Home Assistant", component: HASettingsTab },
   { id: "github", label: "GitHub", component: GitHubSettingsTab },
   { id: "linear", label: "Linear", component: LinearSettingsTab },
+  { id: "brief", label: "Daily brief", component: BriefSettingsTab },
 ];

@@ -82,3 +82,27 @@ sql:
         package: db
         out: internal/server/modules/coding/db
         emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/calendar/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/calendar/db
+        emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/brief/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/brief/db
+        emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/focus/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/focus/db
+        emit_pointers_for_null_types: true
