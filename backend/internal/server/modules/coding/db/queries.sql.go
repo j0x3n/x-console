@@ -10,6 +10,25 @@ import (
 	"time"
 )
 
+const cancelQueued = `-- name: CancelQueued :execrows
+UPDATE coding_tasks SET status = 'canceled', error = ?1, finished_at = ?2, updated_at = ?2
+WHERE id = ?3 AND status = 'queued'
+`
+
+type CancelQueuedParams struct {
+	Error string
+	Now   *time.Time
+	ID    int64
+}
+
+func (q *Queries) CancelQueued(ctx context.Context, arg CancelQueuedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, cancelQueued, arg.Error, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const countActiveTasksForRepo = `-- name: CountActiveTasksForRepo :one
 SELECT COUNT(*) FROM coding_tasks WHERE repo_id = ? AND status IN ('queued', 'running')
 `

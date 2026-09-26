@@ -105,3 +105,7 @@ SELECT * FROM coding_task_events
 WHERE task_id = sqlc.arg(task_id) AND seq > sqlc.arg(after)
 ORDER BY seq
 LIMIT sqlc.arg(lim);
+
+-- name: CancelQueued :execrows
+UPDATE coding_tasks SET status = 'canceled', error = sqlc.arg(error), finished_at = sqlc.arg(now), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND status = 'queued';

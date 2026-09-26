@@ -72,15 +72,25 @@ func (m *Module) CancelTask(w http.ResponseWriter, r *http.Request, id int64) {
 }
 
 func (m *Module) cancel(ctx context.Context, id int64) error {
+	// dispatch holds this lock while it moves a task from queued to running
+	// and registers its stream, so the state seen here is consistent.
+	m.dispatchMu.Lock()
+	defer m.dispatchMu.Unlock()
 	row, err := m.row(ctx, id)
 	if err != nil {
 		return err
 	}
 	switch row.Status {
 	case statusQueued:
-		m.finish(ctx, id, statusCanceled, nil, "已取消。", nil)
-		if fresh, err := m.row(ctx, id); err == nil && fresh.Status == statusRunning {
-			return m.cancel(ctx, id) // it started in the meantime
+		now := m.now()
+		n, err := m.q.CancelQueued(ctx, db.CancelQueuedParams{Error: "已取消。", Now: &now, ID: id})
+		if err != nil {
+			return err
+		}
+		if n > 0 {
+			if t, err := m.task(ctx, id); err == nil {
+				m.d.Bus.Publish("coding_task.updated", t)
+			}
 		}
 		return nil
 	case statusRunning:
@@ -88,7 +98,8 @@ func (m *Module) cancel(ctx context.Context, id int64) error {
 			m.cancelRun(run)
 			return nil
 		}
-		// Running in the database but not here: the stream is gone.
+		// Running in the database but without a stream here: it was left
+		// over by an earlier server process.
 		m.finish(ctx, id, statusCanceled, nil, "已取消。", nil)
 		return nil
 	}
