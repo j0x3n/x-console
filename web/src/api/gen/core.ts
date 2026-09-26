@@ -4,762 +4,762 @@
  */
 
 export interface paths {
-  "/health": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get: operations["getHealth"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/status": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAuthStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get: operations["getAuthStatus"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/setup": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 仅在还没有用户时可用。创建用户并返回 TOTP 密钥，需再调用 /auth/setup/confirm 完成。 */
+        post: operations["setupAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** @description 仅在还没有用户时可用。创建用户并返回 TOTP 密钥，需再调用 /auth/setup/confirm 完成。 */
-    post: operations["setupAccount"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/setup/confirm": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/setup/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post: operations["confirmSetup"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/login": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post: operations["login"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/logout": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post: operations["logout"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/auth/elevate": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/auth/elevate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 用 TOTP 再验证一次，之后 5 分钟内可以执行高危操作。 */
+        post: operations["elevate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** @description 用 TOTP 再验证一次，之后 5 分钟内可以执行高危操作。 */
-    post: operations["elevate"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/audit": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get: operations["listAudit"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/agents": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAgents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get: operations["listAgents"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/agents/pairing-codes": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/agents/pairing-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 生成一次性配对码，10 分钟内有效。需要提升权限。 */
+        post: operations["createPairingCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** @description 生成一次性配对码，10 分钟内有效。需要提升权限。 */
-    post: operations["createPairingCode"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/agents/{agentId}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        agentId: string;
-      };
-      cookie?: never;
+    "/agents/{agentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agentId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 吊销代理令牌并断开连接。需要提升权限。 */
+        delete: operations["revokeAgent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** @description 吊销代理令牌并断开连接。需要提升权限。 */
-    delete: operations["revokeAgent"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/agent/pair": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/agent/pair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 代理程序用配对码换取长期令牌。 */
+        post: operations["pairAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /** @description 代理程序用配对码换取长期令牌。 */
-    post: operations["pairAgent"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/notifications": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get: operations["listNotifications"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/notifications/read-all": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post: operations["markAllNotificationsRead"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/notifications/{notificationId}/read": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        notificationId: number;
-      };
-      cookie?: never;
+    "/notifications/{notificationId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notificationId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post: operations["markNotificationRead"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/notifications/{notificationId}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        notificationId: number;
-      };
-      cookie?: never;
+    "/notifications/{notificationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notificationId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteNotification"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    delete: operations["deleteNotification"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    AuthStatus: {
-      /** @description 还没有用户，需要先走初始化 */
-      setupRequired: boolean;
-      authenticated: boolean;
-      username?: string;
-      /** Format: date-time */
-      elevatedUntil?: string;
+    schemas: {
+        AuthStatus: {
+            /** @description 还没有用户，需要先走初始化 */
+            setupRequired: boolean;
+            authenticated: boolean;
+            username?: string;
+            /** Format: date-time */
+            elevatedUntil?: string;
+        };
+        Credentials: {
+            username: string;
+            password: string;
+        };
+        TotpEnrollment: {
+            secret: string;
+            otpauthUrl: string;
+        };
+        TotpCode: {
+            code: string;
+        };
+        LoginRequest: {
+            username: string;
+            password: string;
+            code: string;
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            actor: string;
+            action: string;
+            target: string;
+            result: string;
+            detail?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        AgentKind: "server" | "desktop";
+        Agent: {
+            id: string;
+            name: string;
+            kind: components["schemas"]["AgentKind"];
+            os: string;
+            arch: string;
+            hostname: string;
+            version: string;
+            online: boolean;
+            capabilities: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+        };
+        PairRequest: {
+            code: string;
+            hostname: string;
+            os: string;
+            arch: string;
+            version: string;
+            capabilities?: string[];
+        };
+        /** @enum {string} */
+        NotificationPriority: "low" | "normal" | "high" | "urgent";
+        Notification: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description 事件类型，例如 reminder.due、server.alert、coding.done */
+            kind: string;
+            title: string;
+            body?: string;
+            /** @description 前端内部路径，例如 /servers/abc */
+            link?: string;
+            priority: components["schemas"]["NotificationPriority"];
+            /** @description 产生通知的模块，例如 reminders */
+            source: string;
+            /** Format: date-time */
+            readAt?: string;
+        };
+        Error: {
+            /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
+            code: string;
+            /** @description 给人看的错误说明 */
+            message: string;
+            details?: {
+                [key: string]: unknown;
+            };
+        };
     };
-    Credentials: {
-      username: string;
-      password: string;
+    responses: {
+        /** @description 错误 */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
-    TotpEnrollment: {
-      secret: string;
-      otpauthUrl: string;
+    parameters: {
+        Limit: number;
+        Cursor: string;
     };
-    TotpCode: {
-      code: string;
-    };
-    LoginRequest: {
-      username: string;
-      password: string;
-      code: string;
-    };
-    AuditEntry: {
-      /** Format: int64 */
-      id: number;
-      /** Format: date-time */
-      at: string;
-      actor: string;
-      action: string;
-      target: string;
-      result: string;
-      detail?: {
-        [key: string]: unknown;
-      };
-    };
-    /** @enum {string} */
-    AgentKind: "server" | "desktop";
-    Agent: {
-      id: string;
-      name: string;
-      kind: components["schemas"]["AgentKind"];
-      os: string;
-      arch: string;
-      hostname: string;
-      version: string;
-      online: boolean;
-      capabilities: string[];
-      /** Format: date-time */
-      createdAt: string;
-      /** Format: date-time */
-      lastSeenAt?: string;
-    };
-    PairRequest: {
-      code: string;
-      hostname: string;
-      os: string;
-      arch: string;
-      version: string;
-      capabilities?: string[];
-    };
-    /** @enum {string} */
-    NotificationPriority: "low" | "normal" | "high" | "urgent";
-    Notification: {
-      /** Format: int64 */
-      id: number;
-      /** Format: date-time */
-      createdAt: string;
-      /** @description 事件类型，例如 reminder.due、server.alert、coding.done */
-      kind: string;
-      title: string;
-      body?: string;
-      /** @description 前端内部路径，例如 /servers/abc */
-      link?: string;
-      priority: components["schemas"]["NotificationPriority"];
-      /** @description 产生通知的模块，例如 reminders */
-      source: string;
-      /** Format: date-time */
-      readAt?: string;
-    };
-    Error: {
-      /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
-      code: string;
-      /** @description 给人看的错误说明 */
-      message: string;
-      details?: {
-        [key: string]: unknown;
-      };
-    };
-  };
-  responses: {
-    /** @description 错误 */
-    Error: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        "application/json": components["schemas"]["Error"];
-      };
-    };
-  };
-  parameters: {
-    Limit: number;
-    Cursor: string;
-  };
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  getHealth: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 服务状态 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": {
-            status: string;
-            version: string;
-          };
+        requestBody?: never;
+        responses: {
+            /** @description 服务状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        status: string;
+                        version: string;
+                    };
+                };
+            };
         };
-      };
     };
-  };
-  getAuthStatus: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 当前登录状态 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    getAuthStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["AuthStatus"];
+        requestBody?: never;
+        responses: {
+            /** @description 当前登录状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthStatus"];
+                };
+            };
         };
-      };
     };
-  };
-  setupAccount: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Credentials"];
-      };
-    };
-    responses: {
-      /** @description 返回 TOTP 密钥 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    setupAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["TotpEnrollment"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
         };
-      };
-      default: components["responses"]["Error"];
-    };
-  };
-  confirmSetup: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TotpCode"];
-      };
-    };
-    responses: {
-      /** @description 启用两步验证并登录 */
-      204: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description 返回 TOTP 密钥 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpEnrollment"];
+                };
+            };
+            default: components["responses"]["Error"];
         };
-        content?: never;
-      };
-      default: components["responses"]["Error"];
     };
-  };
-  login: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["LoginRequest"];
-      };
-    };
-    responses: {
-      /** @description 登录成功，设置会话 Cookie */
-      204: {
-        headers: {
-          [name: string]: unknown;
+    confirmSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content?: never;
-      };
-      default: components["responses"]["Error"];
-    };
-  };
-  logout: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 已退出 */
-      204: {
-        headers: {
-          [name: string]: unknown;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCode"];
+            };
         };
-        content?: never;
-      };
-    };
-  };
-  elevate: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TotpCode"];
-      };
-    };
-    responses: {
-      /** @description 已提升权限 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description 启用两步验证并登录 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
         };
-        content: {
-          "application/json": {
-            /** Format: date-time */
-            elevatedUntil: string;
-          };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-      };
-      default: components["responses"]["Error"];
-    };
-  };
-  listAudit: {
-    parameters: {
-      query?: {
-        limit?: components["parameters"]["Limit"];
-        cursor?: components["parameters"]["Cursor"];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 审计日志，按时间倒序 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
         };
-        content: {
-          "application/json": {
-            items: components["schemas"]["AuditEntry"][];
-            nextCursor?: string;
-          };
+        responses: {
+            /** @description 登录成功，设置会话 Cookie */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
         };
-      };
     };
-  };
-  listAgents: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 已配对的代理 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          "application/json": components["schemas"]["Agent"][];
+        requestBody?: never;
+        responses: {
+            /** @description 已退出 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
-      };
     };
-  };
-  createPairingCode: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          name: string;
-          kind: components["schemas"]["AgentKind"];
+    elevate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-      };
-    };
-    responses: {
-      /** @description 配对码 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCode"];
+            };
         };
-        content: {
-          "application/json": {
-            code: string;
-            /** Format: date-time */
-            expiresAt: string;
-          };
+        responses: {
+            /** @description 已提升权限 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date-time */
+                        elevatedUntil: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
         };
-      };
-      default: components["responses"]["Error"];
     };
-  };
-  revokeAgent: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        agentId: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 已吊销 */
-      204: {
-        headers: {
-          [name: string]: unknown;
+    listAudit: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content?: never;
-      };
-      default: components["responses"]["Error"];
-    };
-  };
-  pairAgent: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PairRequest"];
-      };
-    };
-    responses: {
-      /** @description 配对成功 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+        requestBody?: never;
+        responses: {
+            /** @description 审计日志，按时间倒序 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AuditEntry"][];
+                        nextCursor?: string;
+                    };
+                };
+            };
         };
-        content: {
-          "application/json": {
-            agentId: string;
-            token: string;
-          };
+    };
+    listAgents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-      };
-      default: components["responses"]["Error"];
-    };
-  };
-  listNotifications: {
-    parameters: {
-      query?: {
-        unread?: boolean;
-        limit?: components["parameters"]["Limit"];
-        cursor?: components["parameters"]["Cursor"];
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 站内通知，按时间倒序 */
-      200: {
-        headers: {
-          [name: string]: unknown;
+        requestBody?: never;
+        responses: {
+            /** @description 已配对的代理 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent"][];
+                };
+            };
         };
-        content: {
-          "application/json": {
-            items: components["schemas"]["Notification"][];
-            nextCursor?: string;
-            unreadCount: number;
-          };
+    };
+    createPairingCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-      };
-    };
-  };
-  markAllNotificationsRead: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 全部标为已读 */
-      204: {
-        headers: {
-          [name: string]: unknown;
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    kind: components["schemas"]["AgentKind"];
+                };
+            };
         };
-        content?: never;
-      };
-    };
-  };
-  markNotificationRead: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        notificationId: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 已读 */
-      204: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description 配对码 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        code: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
         };
-        content?: never;
-      };
-      default: components["responses"]["Error"];
     };
-  };
-  deleteNotification: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        notificationId: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description 已删除 */
-      204: {
-        headers: {
-          [name: string]: unknown;
+    revokeAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                agentId: string;
+            };
+            cookie?: never;
         };
-        content?: never;
-      };
-      default: components["responses"]["Error"];
+        requestBody?: never;
+        responses: {
+            /** @description 已吊销 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
     };
-  };
+    pairAgent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairRequest"];
+            };
+        };
+        responses: {
+            /** @description 配对成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agentId: string;
+                        token: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                unread?: boolean;
+                limit?: components["parameters"]["Limit"];
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 站内通知，按时间倒序 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Notification"][];
+                        nextCursor?: string;
+                        unreadCount: number;
+                    };
+                };
+            };
+        };
+    };
+    markAllNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 全部标为已读 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markNotificationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notificationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已读 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notificationId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
 }

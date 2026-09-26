@@ -7,7 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
@@ -124,3 +127,20 @@ func TestNotifications(t *testing.T) {
 		t.Fatal("audit log empty")
 	}
 }
+
+func TestDuplicateConstructorsBuiltOnce(t *testing.T) {
+	built := 0
+	ctor := func(d *module.Deps) (module.Module, error) {
+		built++
+		return fakeModule{}, nil
+	}
+	testutil.New(t, ctor, ctor)
+	if built != 1 {
+		t.Fatalf("constructor ran %d times", built)
+	}
+}
+
+type fakeModule struct{}
+
+func (fakeModule) Name() string       { return "fake" }
+func (fakeModule) Mount(r chi.Router) {}

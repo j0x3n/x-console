@@ -115,6 +115,7 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | services | systemd | Windows 服务 |
 | docker | 装了 Docker 才有 | 一般没有 |
 | clipboard、power、coding | 没有 | 有 |
+| proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
 
 ## 新增方法的步骤
 

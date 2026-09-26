@@ -34,7 +34,7 @@ backend/
    - 分页参数引用 `../common.yaml#/components/parameters/Limit` 和 `Cursor`。
    - 每个操作写 `operationId`，用小驼峰。
 2. **写迁移** `backend/internal/server/store/migrations/<UTC时间>_m5_projects.sql`。
-   - 文件名前缀用当前 UTC 时间 `YYYYMMDDHHMMSS`，保证不和别人冲突。
+   - 文件名前缀用 `YYYYMMDDHHMMSS` 格式的 UTC 时间，保证不和别人冲突。时间必须晚于 M0 的 `20260927000000`，否则会排在 M0 前面执行。
    - 必须有 `-- +goose Up` 和 `-- +goose Down`。
    - 表名用复数，列名用蛇形。时间列类型写 `DATETIME`。
    - 外键加 `ON DELETE` 策略。常用查询加索引。
@@ -75,7 +75,7 @@ backend/
    有后台任务就实现 `Start(ctx) error`。需要免登录的入口（Webhook）就实现 `PublicPaths() []string`。
 6. **注册**：在 `internal/server/app/modules.go` 的 `constructors` 里加一行 `projects.New,`，按模块编号排序。
 7. **生成代码**：`go generate ./...`。
-8. **测试** `modules/projects/projects_test.go`，用 `testutil.New(t, projects.New)`。
+8. **测试** `modules/projects/projects_test.go`，用 `testutil.New(t, projects.New)`。已在 `modules.go` 注册的模块再传一次也没关系，重复的构造函数只会执行一次。
 9. **前端类型**：`cd web && npm run gen:api`。
 
 ## 处理器写法

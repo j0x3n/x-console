@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -72,7 +73,7 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 		Registry:  module.NewRegistry(),
 	}
 	a := &App{Deps: d}
-	for _, build := range append(append([]func(*module.Deps) (module.Module, error){}, constructors...), extra...) {
+	for _, build := range dedupe(append(append([]func(*module.Deps) (module.Module, error){}, constructors...), extra...)) {
 		m, err := build(d)
 		if err != nil {
 			return nil, fmt.Errorf("module: %w", err)
@@ -81,6 +82,22 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 	}
 	a.Handler = a.routes()
 	return a, nil
+}
+
+// dedupe drops repeated constructors, so tests can pass a module that is
+// already registered in modules.go without building it twice.
+func dedupe(list []func(*module.Deps) (module.Module, error)) []func(*module.Deps) (module.Module, error) {
+	seen := map[uintptr]bool{}
+	out := list[:0]
+	for _, fn := range list {
+		ptr := reflect.ValueOf(fn).Pointer()
+		if seen[ptr] {
+			continue
+		}
+		seen[ptr] = true
+		out = append(out, fn)
+	}
+	return out
 }
 
 // Start runs module background work and the scheduler.
