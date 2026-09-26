@@ -27,6 +27,7 @@ export const hostTabs: HostTab[] = [
   { id: "services", label: "Services", cap: "services", component: ServicesTab },
   { id: "terminal", label: "Terminal", cap: "pty", component: TerminalTab },
   { id: "files", label: "Files", cap: "files", component: FilesTab },
+  { id: "docker", label: "Containers", cap: "docker", component: lazy(() => import("../monitoring/DockerTab")) },
   { id: "alerts", label: "Alerts", component: AlertsTab },
 ];
 

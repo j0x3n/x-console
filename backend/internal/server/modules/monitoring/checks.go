@@ -11,9 +11,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/db"
@@ -272,15 +274,26 @@ func (m *Module) probeHTTP(ctx context.Context, x db.Monitor) probeResult {
 // netError shortens common network errors.
 func netError(err error) string {
 	var dnsErr *net.DNSError
+	var certErr *tls.CertificateVerificationError
+	var netErr net.Error
 	switch {
 	case errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled):
 		return "超时"
+	case errors.As(err, &netErr) && netErr.Timeout():
+		return "超时"
 	case errors.As(err, &dnsErr):
 		return "域名解析失败：" + dnsErr.Name
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return "连接被拒绝"
+	case errors.Is(err, syscall.ECONNRESET):
+		return "连接被重置"
+	case errors.As(err, &certErr):
+		return "证书无效：" + certErr.Err.Error()
 	}
-	var opErr *net.OpError
-	if errors.As(err, &opErr) {
-		return opErr.Error()
+	// Drop the `Get "https://...":` prefix of *url.Error; the URL is shown anyway.
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return urlErr.Err.Error()
 	}
 	return err.Error()
 }

@@ -1,10 +1,37 @@
 package monitoring
 
 import (
+	"context"
+	"errors"
+	"net"
+	"net/http"
+	"net/url"
 	"slices"
 	"testing"
 	"time"
 )
+
+func TestNetError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	ln.Close()
+	_, err = http.Get("http://" + addr + "/")
+	if got := netError(err); got != "连接被拒绝" {
+		t.Fatalf("refused: %q", got)
+	}
+	if got := netError(&url.Error{Op: "Get", URL: "x", Err: &net.DNSError{Name: "nope.invalid"}}); got != "域名解析失败：nope.invalid" {
+		t.Fatalf("dns: %q", got)
+	}
+	if got := netError(&url.Error{Op: "Get", URL: "x", Err: errors.New("boom")}); got != "boom" {
+		t.Fatalf("url error: %q", got)
+	}
+	if got := netError(context.DeadlineExceeded); got != "超时" {
+		t.Fatalf("timeout: %q", got)
+	}
+}
 
 func TestNextState(t *testing.T) {
 	s := monitorState{Status: statusUnknown}
