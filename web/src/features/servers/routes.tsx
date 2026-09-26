@@ -1,10 +1,12 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { BellRing, TerminalSquare } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./servers.css";
-import ServersPage from "./ServersPage";
-import HostDetailPage from "./HostDetailPage";
+
+const ServersPage = lazy(() => import("./ServersPage"));
+const HostDetailPage = lazy(() => import("./HostDetailPage"));
 
 registerCommands([
   {
@@ -27,6 +29,14 @@ registerCommands([
 
 export const routes: RouteObject[] = [
   { path: "servers", element: <ServersPage />, handle: { title: "Servers" } },
-  { path: "servers/:hostId", element: <HostDetailPage />, handle: { title: "Servers" } },
-  { path: "servers/:hostId/:tab", element: <HostDetailPage />, handle: { title: "Servers" } },
+  {
+    path: "servers/:hostId",
+    element: <HostDetailPage />,
+    handle: { title: "Servers" },
+  },
+  {
+    path: "servers/:hostId/:tab",
+    element: <HostDetailPage />,
+    handle: { title: "Servers" },
+  },
 ];

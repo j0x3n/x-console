@@ -1,6 +1,8 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import "./i18n";
-import SettingsPage from "./SettingsPage";
+
+const SettingsPage = lazy(() => import("./SettingsPage"));
 
 export const routes: RouteObject[] = [
   {

@@ -1,10 +1,12 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { NotebookPen, Search, StickyNote } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./notes.css";
-import NotesPage from "./NotesPage";
 import { useQuickNote } from "./QuickNote";
+
+const NotesPage = lazy(() => import("./NotesPage"));
 
 // 模块入口：路由和命令面板命令。
 registerCommands([
@@ -36,5 +38,9 @@ registerCommands([
 
 export const routes: RouteObject[] = [
   // 同一个路由，切换笔记时列表不会重新挂载。
-  { path: "notes/:noteId?", element: <NotesPage />, handle: { title: "Notes" } },
+  {
+    path: "notes/:noteId?",
+    element: <NotesPage />,
+    handle: { title: "Notes" },
+  },
 ];

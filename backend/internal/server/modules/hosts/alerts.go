@@ -242,7 +242,7 @@ func (m *Module) resolveAlert(ctx context.Context, ev db.AlertEvent, now time.Ti
 
 // Alerts implements contracts.Hosts: alerts fired since the given time.
 func (m *Module) Alerts(ctx context.Context, since time.Time) ([]contracts.HostAlert, error) {
-	rows, err := m.q.ListAlertEvents(ctx, db.ListAlertEventsParams{Since: since, HostID: nil, OpenOnly: 0, Lim: 500})
+	rows, err := m.q.ListAlertEvents(ctx, db.ListAlertEventsParams{Since: since.UTC(), HostID: nil, OpenOnly: 0, Lim: 500})
 	if err != nil {
 		return nil, err
 	}
