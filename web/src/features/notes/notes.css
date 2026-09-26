@@ -1,0 +1,344 @@
+/* M6 备忘模块样式。只用 --xc-* 颜色变量，类名前缀 notes-。 */
+
+.notes-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  height: calc(100dvh - 72px);
+  min-height: 420px;
+  border-top: 1px solid var(--xc-border);
+}
+.notes-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--xc-border);
+}
+.notes-sidebar-head {
+  display: flex;
+  gap: 8px;
+  padding: 12px 12px 8px;
+}
+.notes-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 6px;
+  background: var(--xc-surface);
+  color: var(--xc-muted);
+}
+.notes-search:focus-within {
+  border-color: var(--xc-accent);
+}
+.notes-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+}
+.notes-search button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--xc-muted);
+}
+.notes-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.notes-tags button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--xc-border);
+  border-radius: 11px;
+  background: none;
+  color: var(--xc-muted);
+  font-size: 11px;
+}
+.notes-tags button small {
+  color: var(--xc-faint);
+}
+.notes-tags button.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+  color: var(--xc-text);
+}
+.notes-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px;
+  scrollbar-width: thin;
+}
+.notes-item {
+  display: block;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--xc-text-2);
+  text-decoration: none;
+}
+.notes-item + .notes-item {
+  margin-top: 2px;
+}
+.notes-item:hover {
+  background: var(--xc-surface-2);
+}
+.notes-item.active {
+  background: var(--xc-surface-2);
+  box-shadow: inset 2px 0 0 var(--xc-accent);
+}
+.notes-item-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.notes-item-head strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--xc-text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notes-item-head time {
+  flex: none;
+  color: var(--xc-faint);
+  font-size: 11px;
+}
+.notes-pin {
+  flex: none;
+  color: var(--xc-accent-text);
+}
+.notes-item p {
+  display: -webkit-box;
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--xc-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+.notes-item mark {
+  border-radius: 3px;
+  background: var(--xc-warn-soft);
+  color: var(--xc-text);
+}
+.notes-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+  color: var(--xc-info);
+  font-size: 11px;
+}
+.notes-more {
+  width: 100%;
+  margin-top: 6px;
+}
+.notes-main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 编辑器 */
+.notes-editor {
+  display: flex;
+  flex-direction: column;
+  max-width: 860px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 10px 28px 24px;
+}
+.notes-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+}
+.notes-back {
+  display: none;
+}
+.notes-save-state {
+  color: var(--xc-faint);
+  font-size: 12px;
+}
+.notes-save-state.saved {
+  color: var(--xc-ok);
+}
+.notes-save-state.error {
+  color: var(--xc-danger);
+}
+.notes-pinned {
+  color: var(--xc-accent-text);
+}
+.notes-menu-wrap {
+  position: relative;
+}
+.notes-menu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 10;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 8px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.notes-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-text-2);
+  text-align: left;
+}
+.notes-menu button:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.notes-menu button.danger {
+  color: var(--xc-danger);
+}
+.notes-title-input {
+  width: 100%;
+  margin: 10px 0 6px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 600;
+}
+.notes-title-input::placeholder,
+.notes-body-input::placeholder,
+.notes-tags-edit input::placeholder {
+  color: var(--xc-faint);
+}
+.notes-tags-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  margin-bottom: 12px;
+}
+.notes-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 4px 0 8px;
+  border-radius: 11px;
+  background: var(--xc-info-soft);
+  color: var(--xc-info);
+  font-size: 12px;
+}
+.notes-tag button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: inherit;
+  opacity: 0.7;
+}
+.notes-tags-edit input {
+  flex: 1;
+  min-width: 90px;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: 12px;
+}
+.notes-body-input {
+  flex: 1;
+  width: 100%;
+  min-height: 320px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.7;
+  resize: none;
+}
+.notes-preview {
+  flex: 1;
+  font-size: 14px;
+}
+
+/* 页头的快速记录 */
+.notes-quick-wrap {
+  position: relative;
+}
+.notes-quick {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 10px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 8px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.notes-hint {
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .notes-layout {
+    grid-template-columns: minmax(0, 1fr);
+    height: calc(100dvh - 60px);
+  }
+  .notes-sidebar {
+    border-right: 0;
+  }
+  .notes-layout.has-note .notes-sidebar,
+  .notes-layout:not(.has-note) .notes-main {
+    display: none;
+  }
+  .notes-back {
+    display: inline-flex;
+  }
+  .notes-editor {
+    padding: 8px 16px 20px;
+  }
+  .notes-btn-text,
+  .notes-hint {
+    display: none;
+  }
+}
