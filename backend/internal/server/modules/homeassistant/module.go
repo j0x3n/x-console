@@ -69,15 +69,16 @@ func (m *Module) Start(ctx context.Context) error {
 	}
 	m.c.setFavorites(ids)
 	go m.c.run(ctx)
+	m.watchAgents(ctx)
 	return nil
 }
 
 // transport picks how to reach HA for cfg.
-func (m *Module) transport(cfg config) transport { return m.direct }
-
-// checkAgent validates the agent used in agent mode.
-func (m *Module) checkAgent(ctx context.Context, agentID string) error {
-	return httpx.Invalid("暂不支持通过代理连接")
+func (m *Module) transport(cfg config) transport {
+	if cfg.AgentID != "" {
+		return &viaAgent{hub: m.d.Agents, agentID: cfg.AgentID}
+	}
+	return m.direct
 }
 
 // config is the stored connection setup.

@@ -414,6 +414,9 @@ func describe(err error) string {
 	case errors.As(err, &auth):
 		return auth.Error()
 	case errors.As(err, &apiErr):
+		if strings.HasPrefix(apiErr.Code, "agent_") && apiErr.Code != "agent_offline" {
+			return "代理转发失败: " + apiErr.Message
+		}
 		return apiErr.Message
 	case errors.As(err, &pe):
 		return "代理转发失败: " + pe.Message
