@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -55,6 +56,9 @@ func main() {
 	}
 	if err != nil {
 		slog.Error("agent failed", "err", err)
+		if errors.Is(err, conn.ErrRevoked) {
+			os.Exit(3)
+		}
 		os.Exit(1)
 	}
 }

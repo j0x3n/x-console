@@ -19,11 +19,15 @@ ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags "-s -w -X github.com/j0x3n/x-console/backend/internal/server/core.Version=${VERSION}" \
     -o /out/x-console-server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
+    -ldflags "-s -w -X main.Version=${VERSION}" \
+    -o /out/x-console-agent ./cmd/agent
 
 FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 xconsole \
     && mkdir /data && chown xconsole /data
 COPY --from=server /out/x-console-server /usr/local/bin/x-console-server
+COPY --from=server /out/x-console-agent /usr/local/bin/x-console-agent
 COPY --from=web /src/web/dist /srv/web
 ENV XC_ADDR=0.0.0.0:8080 XC_DATA_DIR=/data XC_WEB_DIR=/srv/web
 USER xconsole
