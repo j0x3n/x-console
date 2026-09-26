@@ -1,0 +1,87 @@
+@keyframes surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.decision-card,
+.meeting-row,
+.activity-row {
+  animation: surface-enter 0.22s ease-out both;
+}
+
+.decision-card:nth-child(2),
+.meeting-row:nth-child(2),
+.activity-row:nth-child(2) {
+  animation-delay: 35ms;
+}
+
+.decision-card:nth-child(3),
+.meeting-row:nth-child(3),
+.activity-row:nth-child(3) {
+  animation-delay: 70ms;
+}
+
+.command-dialog,
+.form-dialog,
+.profile-popover {
+  animation: dialog-enter 0.17s ease-out both;
+}
+
+.sidebar-search,
+.nav-item,
+.profile,
+.decision-card,
+.meeting-row,
+.activity-row,
+.command-results button {
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.command-results button.is-selected {
+  background: #303036;
+}
+html[data-theme="light"] .command-results button.is-selected {
+  background: #ededf0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .decision-card,
+  .meeting-row,
+  .activity-row,
+  .command-dialog,
+  .form-dialog,
+  .profile-popover {
+    animation: none;
+  }
+
+  .sidebar-search,
+  .nav-item,
+  .profile,
+  .decision-card,
+  .meeting-row,
+  .activity-row,
+  .command-results button {
+    transition: none;
+  }
+}

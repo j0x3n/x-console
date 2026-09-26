@@ -1,0 +1,227 @@
+.nav-item .agent-badge,
+.nav-item .company-badge {
+  flex: none !important;
+}
+
+.nav-item > span:not(.agent-badge):not(.company-badge):not(.status-dot) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coverage-gauge::before {
+  background: conic-gradient(
+    from 270deg,
+    #58c3ad 0deg 108deg,
+    #34343a 108deg 180deg,
+    transparent 180deg 360deg
+  );
+}
+
+.profile-menu-wrap {
+  position: relative;
+  flex: none;
+  width: 100%;
+}
+
+.profile-menu-wrap .profile {
+  width: 100%;
+}
+
+.profile-menu-wrap .profile:hover,
+.profile-menu-wrap .profile[aria-expanded="true"] {
+  background: #1d1d20;
+  border-radius: 7px;
+}
+
+.profile-popover {
+  position: absolute;
+  z-index: 25;
+  bottom: calc(100% + 5px);
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #303036;
+  border-radius: 8px;
+  background: #202024;
+  box-shadow: 0 16px 36px #0008;
+  color: #e9e9ec;
+}
+
+.profile-email {
+  padding: 11px 12px;
+  color: #898991;
+  font-size: 11px;
+}
+
+.profile-menu-section {
+  padding: 6px;
+  border-top: 1px solid #34343a;
+}
+
+.profile-menu-label {
+  padding: 5px 6px 4px;
+  color: #777780;
+  font-size: 10px;
+}
+
+.profile-menu-item {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #d9d9dd;
+  text-align: left;
+}
+
+.profile-menu-item:hover,
+.profile-menu-item:focus-visible {
+  background: #303036;
+}
+
+.profile-menu-item > svg:first-child {
+  color: #96969e;
+}
+
+.profile-menu-item span {
+  flex: 1;
+}
+
+.profile-menu-item .menu-check {
+  color: #e98756;
+}
+
+.profile-menu-item kbd {
+  color: #85858d;
+  font-size: 10px;
+}
+
+html[lang="zh-CN"] .win-ring {
+  width: 34px;
+  height: 34px;
+}
+
+html[lang="zh-CN"] .win-body {
+  gap: 6px;
+}
+
+html[lang="zh-CN"] .win-body strong {
+  font-size: 19px;
+}
+
+html[lang="zh-CN"] .trend-up {
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+html[lang="zh-CN"] .forecast-card .metric-value,
+html[lang="zh-CN"] .response-card .metric-value {
+  margin-top: 14px;
+  font-size: 20px;
+}
+
+html[lang="zh-CN"] .forecast-card .metric-secondary,
+html[lang="zh-CN"] .response-card .metric-secondary {
+  position: static;
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+html[lang="zh-CN"] .response-card .metric-value {
+  font-size: 18px;
+}
+
+html[lang="zh-CN"] .metric-top span:last-child {
+  max-width: 52%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[lang="zh-CN"] .decision-meta,
+html[lang="zh-CN"] .company-line,
+html[lang="zh-CN"] .receipts {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+html[lang="zh-CN"] .preview-muted,
+html[lang="zh-CN"] .draft-preview p {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+html[lang="zh-CN"] .draft-preview strong {
+  font-size: 13px;
+}
+
+html[lang="zh-CN"] .health-top,
+html[lang="zh-CN"] .health-bottom,
+html[lang="zh-CN"] .stage-line,
+html[lang="zh-CN"] .stage-receipt {
+  font-size: 11px;
+}
+
+html[lang="zh-CN"] .stage-labels {
+  font-size: 10px;
+}
+
+html[lang="zh-CN"] .meeting-time,
+html[lang="zh-CN"] .meeting-time small,
+html[lang="zh-CN"] .meeting-info b,
+html[lang="zh-CN"] .meeting-info small,
+html[lang="zh-CN"] .meeting-tag,
+html[lang="zh-CN"] .activity-content > span,
+html[lang="zh-CN"] .activity-content small,
+html[lang="zh-CN"] .activity-row time {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+html[lang="zh-CN"] .meeting-time {
+  width: 48px;
+  white-space: nowrap;
+}
+
+@media (max-width: 430px) {
+  .header-actions {
+    gap: 2px;
+  }
+
+  .delegate-button {
+    gap: 4px;
+    padding: 0 6px;
+  }
+
+  .delegate-button kbd {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .right-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .forecast-card .metric-value,
+  .response-card .metric-value {
+    margin-top: 16px;
+  }
+
+  .forecast-card .metric-secondary,
+  .response-card .metric-secondary {
+    position: static;
+    margin-top: 3px;
+    font-size: 9px;
+  }
+}

@@ -1,0 +1,53 @@
+.decision-outcome {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #303036;
+  border-radius: 10px;
+  background: #17171a;
+  color: #e8e8eb;
+  font-size: 12px;
+}
+.decision-outcome-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  flex: none;
+  border-radius: 50%;
+  background: #28463b;
+  color: #7fd0a6;
+}
+.decision-outcome-agent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: #d5ba77;
+  font-size: 12px;
+}
+.decision-outcome-agent.ledger { color: #a69ff2; }
+.decision-outcome-agent.pilot { color: #a8ca74; }
+.decision-outcome-agent.echo { color: #e984a7; }
+.decision-outcome-agent.scout { color: #69c7b0; }
+.decision-outcome-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.decision-outcome button { flex: none; border: 0; background: transparent; cursor: pointer; }
+.decision-outcome-company { margin-left: auto; overflow: hidden; max-width: 28%; color: #909099; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.decision-outcome-company:hover { color: #e8e8eb; }
+.decision-outcome-undo { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 0 6px; border-radius: 5px; color: #bdbdc4; font-size: 11px; }
+.decision-outcome-undo:hover { background: #29292e; color: #fff; }
+html[data-theme="light"] .decision-outcome { border-color: #e4e4e7; background: #fff; color: #252529; }
+html[data-theme="light"] .decision-outcome-check { background: #e7f3ed; color: #57a886; }
+html[data-theme="light"] .decision-outcome-company { color: #85858e; }
+html[data-theme="light"] .decision-outcome-company:hover { color: #252529; }
+html[data-theme="light"] .decision-outcome-undo { color: #62626b; }
+html[data-theme="light"] .decision-outcome-undo:hover { background: #f4f4f5; color: #252529; }
+.ws-lane .decision-outcome { padding: 8px; gap: 5px; }
+.ws-lane .decision-outcome-company { display: none; }
+.ws-lane .decision-outcome-undo { padding: 0 3px; }

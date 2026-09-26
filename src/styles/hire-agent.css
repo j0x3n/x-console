@@ -1,0 +1,70 @@
+.hire-backdrop { --ws-bg: #17171a; --ws-raised: #1d1d21; --ws-deep: #101012; --ws-border: #29292f; --ws-line: #242429; --ws-text: #e8e8eb; --ws-muted: #92929b; --ws-faint: #6f6f79; --ws-hover: #222227; position: fixed; z-index: 110; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; background: #00000047; animation: hire-fade .16s ease both; }
+html[data-theme="light"] .hire-backdrop { --ws-bg: #fff; --ws-raised: #f7f7f8; --ws-deep: #f4f4f5; --ws-border: #e1e1e4; --ws-line: #ebebed; --ws-text: #19191d; --ws-muted: #63636b; --ws-faint: #898990; --ws-hover: #f5f5f6; }
+.hire-dialog { width: 720px; max-width: 100%; max-height: calc(100dvh - 48px); overflow-y: auto; color: var(--ws-text); background: var(--ws-bg); border: 1px solid var(--ws-border); border-radius: 13px; box-shadow: 0 18px 60px #0003; font-size: 13px; animation: hire-open .19s ease both; }
+.hire-dialog button { cursor: pointer; font: inherit; }
+.hire-dialog button:disabled { cursor: default; opacity: .45; }
+.hire-dialog button:focus-visible, .hire-dialog input:focus-visible { outline: 2px solid #e58a64; outline-offset: 2px; }
+.hire-dialog-head { position: relative; padding: 18px 20px 12px; }
+.hire-dialog-head h2 { margin: 0 30px 6px 0; font-size: 16px; font-weight: 600; }
+.hire-dialog-head p { margin: 0; padding-right: 16px; color: var(--ws-muted); font-size: 12px; line-height: 1.5; }
+.hire-close { position: absolute; top: 17px; right: 17px; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: 4px; color: var(--ws-faint); background: none; }
+.hire-close:hover { color: var(--ws-text); background: var(--ws-hover); }
+.hire-dialog-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; padding: 0 20px 20px 16px; }
+.hire-template-picker { display: flex; flex-direction: column; gap: 5px; }
+.hire-template-picker > button { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 12px 9px; text-align: left; border: 1px solid transparent; border-radius: 8px; color: var(--ws-text); background: transparent; }
+.hire-template-picker > button:hover { background: var(--ws-hover); }
+.hire-template-picker > button.selected { border-color: #eeb79e; background: #fcf0e9; box-shadow: 0 0 0 1px #edb59e25; }
+html[data-theme="dark"] .hire-template-picker > button.selected { border-color: #a56950; background: #342820; }
+.hire-template-picker b { display: block; margin: 0 0 3px; font-size: 13px; font-weight: 600; }
+.hire-template-picker small { display: block; color: var(--ws-muted); font-size: 12px; line-height: 1.4; }
+.hire-template-icon { display: inline-grid; place-items: center; width: 28px; height: 28px; flex: none; border: 1px solid var(--ws-border); border-radius: 8px; background: var(--ws-deep); color: #5a5b60; box-shadow: inset 0 0 0 2px #ffffff18; }
+.hire-template-icon svg { width: 18px; height: 18px; fill: currentColor; }
+.hire-template-icon.relay { background: #e1eaf7; border-color: #cbd6e8; color: #4b98d4; }
+.hire-template-icon.large { width: 40px; height: 40px; border-radius: 11px; }
+.hire-template-icon.large svg { width: 25px; height: 25px; }
+html[data-theme="dark"] .hire-template-icon { color: #b7b7bb; }
+html[data-theme="dark"] .hire-template-icon.relay { background: #24364c; border-color: #334762; color: #6aa9e5; }
+.hire-template-config { padding: 16px; min-width: 0; border: 1px solid var(--ws-border); border-radius: 13px; background: var(--ws-deep); }
+.hire-name-row { display: flex; align-items: flex-start; gap: 12px; }
+.hire-name-row > div { min-width: 0; flex: 1; }
+.hire-name-row input { box-sizing: border-box; width: 100%; height: 32px; padding: 4px 9px; border: 1px solid var(--ws-border); border-radius: 8px; color: var(--ws-text); background: var(--ws-bg); font: inherit; font-weight: 500; }
+.hire-name-row p { margin: 4px 0 0; color: var(--ws-muted); font-size: 11px; line-height: 1.45; }
+.hire-name-row .hire-name-error { color: #c07455; }
+.hire-config-section { margin-top: 18px; }
+.hire-label { display: block; margin-bottom: 7px; color: var(--ws-muted); font-size: 12px; line-height: 1.4; }
+.hire-config-section ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.hire-config-section li { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.4; }
+.hire-config-section li svg { flex: none; margin-top: 1px; color: var(--ws-faint); }
+.hire-sources { display: flex; flex-wrap: wrap; gap: 6px; }
+.hire-sources button { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 24px; padding: 2px 6px; border: 1px solid var(--ws-border); border-radius: 5px; background: var(--ws-bg); color: var(--ws-muted); font-size: 11px; }
+.hire-sources button.selected { background: var(--ws-hover); color: var(--ws-text); border-color: #cfcfd2; }
+html[data-theme="dark"] .hire-sources button.selected { border-color: #626268; }
+.hire-config-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.hire-segment { display: flex; padding: 2px; border: 1px solid var(--ws-border); border-radius: 8px; }
+.hire-segment button { flex: 1; min-width: 0; height: 24px; padding: 0 3px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--ws-muted); font-size: 11px; white-space: nowrap; }
+.hire-segment button.selected { border-color: var(--ws-border); background: var(--ws-bg); color: var(--ws-text); box-shadow: 0 1px 3px #00000014; }
+.hire-config-columns p { margin: 6px 0 0; color: var(--ws-muted); font-size: 11px; line-height: 1.45; }
+.hire-dialog-footer { display: flex; align-items: center; gap: 8px; padding: 11px 20px; border-top: 1px solid var(--ws-border); background: var(--ws-raised); border-radius: 0 0 13px 13px; }
+.hire-dialog-footer p { flex: 1; margin: 0; color: var(--ws-muted); font-size: 11px; line-height: 1.5; }
+.hire-cancel { padding: 6px 9px; border: 0; border-radius: 5px; color: var(--ws-muted); background: transparent; }
+.hire-cancel:hover { background: var(--ws-hover); color: var(--ws-text); }
+.hire-submit { display: inline-flex; align-items: center; gap: 8px; min-height: 29px; padding: 5px 10px; border: 1px solid #e4815c; border-radius: 7px; background: #ef895f; color: #281b16; font-weight: 550; white-space: nowrap; }
+.hire-submit:hover:not(:disabled) { background: #e87d54; }
+.hire-submit kbd { padding: 1px 3px; border-radius: 3px; color: #714632; background: #99573715; font-size: 10px; }
+.hire-empty { margin: 0; padding: 25px 20px; color: var(--ws-muted); }
+.hire-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.hire-new-label { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; color: var(--ws-muted); font-size: 10px; white-space: nowrap; }
+.hire-new-label small { color: var(--ws-faint); font-size: 9px; }
+.hire-new-card .ws-autonomy { grid-template-columns: 1fr 1fr; }
+.hire-new-stats > div > span { position: absolute; bottom: 15px; right: 9px; font-size: 9px; color: var(--ws-faint); }
+.hire-zero-ticks { display: flex; gap: 2px; }
+.hire-zero-ticks i { width: 6px; height: 17px; border-radius: 3px; background: var(--ws-border); }
+.hire-next { display: flex; gap: 8px; min-height: 30px; align-items: center; padding: 0 4px; border-bottom: 1px solid var(--ws-line); font-size: 11px; }
+.hire-next small { color: var(--ws-muted); }
+.hire-next > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hire-backdrop.is-closing { animation: hire-fade .15s ease reverse both; pointer-events: none; }
+.hire-backdrop.is-closing .hire-dialog { animation: hire-open .15s ease reverse both; }
+@keyframes hire-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hire-open { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 640px) { .hire-backdrop { padding: 14px; } .hire-dialog { max-height: calc(100dvh - 28px); } .hire-dialog-body { grid-template-columns: 1fr; gap: 12px; padding: 0 14px 14px; } .hire-template-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; } .hire-template-picker > button { padding: 8px; } .hire-template-picker small { font-size: 11px; } .hire-dialog-footer { flex-wrap: wrap; padding: 12px 14px; } .hire-dialog-footer p { flex-basis: 100%; } .hire-cancel { margin-left: auto; } }
+@media (prefers-reduced-motion: reduce) { .hire-backdrop, .hire-dialog { animation-duration: .01ms !important; } }

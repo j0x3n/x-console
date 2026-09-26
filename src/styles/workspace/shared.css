@@ -1,0 +1,308 @@
+.workspace-page {
+  --ws-bg: #17171a;
+  --ws-raised: #1d1d21;
+  --ws-deep: #101012;
+  --ws-border: #29292f;
+  --ws-line: #242429;
+  --ws-text: #e8e8eb;
+  --ws-muted: #92929b;
+  --ws-faint: #6f6f79;
+  --ws-hover: #222227;
+  min-width: 0;
+  padding: 8px 24px 40px;
+  color: var(--ws-text);
+  animation: ws-enter 0.24s ease-out both;
+}
+
+html[data-theme="light"] .workspace-page {
+  --ws-bg: #fff;
+  --ws-raised: #f7f7f8;
+  --ws-deep: #f4f4f5;
+  --ws-border: #e1e1e4;
+  --ws-line: #ebebed;
+  --ws-text: #19191d;
+  --ws-muted: #63636b;
+  --ws-faint: #898990;
+  --ws-hover: #f5f5f6;
+}
+
+.workspace-page button {
+  color: inherit;
+}
+.workspace-page button:not(.ws-deal-card):not(.ws-card-open) {
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    transform 0.14s ease;
+}
+.workspace-page h1,
+.workspace-page h2,
+.workspace-page h3,
+.workspace-page p {
+  margin-top: 0;
+}
+.workspace-page h1 {
+  font-size: 23px;
+  font-weight: 600;
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+.workspace-page h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.workspace-page small {
+  color: var(--ws-faint);
+}
+.ws-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+}
+.ws-heading p {
+  margin: 0;
+  color: var(--ws-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ws-heading > :last-child:not(:first-child) {
+  flex: none;
+}
+.ws-secondary,
+.ws-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 29px;
+  padding: 0 10px;
+  border: 1px solid var(--ws-border);
+  border-radius: 6px;
+  background: var(--ws-bg);
+  font-size: 12px;
+}
+.ws-secondary:hover,
+.ws-icon-button:hover {
+  background: var(--ws-hover);
+  border-color: var(--ws-muted);
+}
+.ws-summary-line,
+.ws-records-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 23px;
+  color: var(--ws-muted);
+  font-size: 11px;
+}
+.ws-live {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: #e9774b;
+  box-shadow: 0 0 0 3px #e9774b22;
+}
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 17px;
+  min-width: 0;
+}
+.ws-toolbar-spacer {
+  flex: 1;
+}
+.ws-agent-filters,
+.ws-forecast-filters,
+.ws-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.ws-agent-filters {
+  padding-right: 11px;
+  margin-right: 2px;
+  border-right: 1px solid var(--ws-border);
+}
+.ws-agent-filters button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 26px;
+  height: 27px;
+  padding: 0 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ws-muted);
+  font-size: 11px;
+}
+.ws-agent-filters button {
+  white-space: nowrap;
+}
+.ws-agent-filters button:hover,
+.ws-agent-filters button.active {
+  color: var(--ws-text);
+  background: var(--ws-raised);
+  border-color: var(--ws-border);
+}
+.ws-agent,
+.ws-company,
+.ws-person {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ws-agent.teal,
+.ws-company.teal {
+  color: #70d4b9;
+  background: #1d3d37;
+}
+.ws-agent.amber,
+.ws-company.yellow {
+  color: #eab864;
+  background: #493920;
+}
+.ws-agent.violet,
+.ws-company.violet {
+  color: #aaa3fa;
+  background: #30304d;
+}
+.ws-agent.lime,
+.ws-company.lime {
+  color: #bce477;
+  background: #354020;
+}
+.ws-agent.pink,
+.ws-company.pink {
+  color: #ef85ad;
+  background: #492837;
+}
+.ws-company.terra {
+  color: #efaa76;
+  background: #4d3024;
+}
+.ws-company.cyan {
+  color: #7dcbd8;
+  background: #1d3d44;
+}
+.ws-person {
+  color: #d7bdd8;
+  background: #423048;
+  font-size: 9px;
+}
+html[data-theme="light"] .ws-agent.teal,
+html[data-theme="light"] .ws-company.teal {
+  color: #267c67;
+  background: #e2f2ed;
+}
+html[data-theme="light"] .ws-agent.amber,
+html[data-theme="light"] .ws-company.yellow {
+  color: #9a6d26;
+  background: #f6eddc;
+}
+html[data-theme="light"] .ws-agent.violet,
+html[data-theme="light"] .ws-company.violet {
+  color: #6a62ac;
+  background: #eceaf7;
+}
+html[data-theme="light"] .ws-agent.lime,
+html[data-theme="light"] .ws-company.lime {
+  color: #6d8936;
+  background: #edf2de;
+}
+html[data-theme="light"] .ws-agent.pink,
+html[data-theme="light"] .ws-company.pink {
+  color: #ad4d75;
+  background: #f7e6ec;
+}
+html[data-theme="light"] .ws-company.terra {
+  color: #a35d36;
+  background: #f5e9df;
+}
+html[data-theme="light"] .ws-company.cyan {
+  color: #337e89;
+  background: #e2f1f3;
+}
+html[data-theme="light"] .ws-person {
+  color: #735475;
+  background: #f0e9f1;
+}
+.ws-select,
+.ws-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 29px;
+  padding: 0 9px;
+  border: 1px solid var(--ws-border);
+  border-radius: 6px;
+  background: var(--ws-bg);
+  color: var(--ws-muted);
+}
+.ws-select select {
+  max-width: 175px;
+  border: 0;
+  background: transparent;
+  color: var(--ws-text);
+  font-size: 11px;
+  outline: 0;
+  cursor: pointer;
+}
+.ws-select option {
+  background: var(--ws-bg);
+  color: var(--ws-text);
+}
+.ws-search {
+  width: min(250px, 100%);
+}
+.ws-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--ws-text);
+  background: transparent;
+  font-size: 12px;
+}
+.ws-search input::placeholder {
+  color: var(--ws-faint);
+}
+.ws-mode {
+  margin-left: auto;
+  padding: 2px;
+  border: 1px solid var(--ws-border);
+  border-radius: 6px;
+  background: var(--ws-deep);
+}
+.ws-mode button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ws-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.ws-mode button.active {
+  color: var(--ws-text);
+  background: var(--ws-raised);
+  box-shadow: 0 1px 2px #0002;
+}
