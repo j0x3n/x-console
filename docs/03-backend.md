@@ -50,6 +50,7 @@ backend/
          emit_pointers_for_null_types: true
    ```
    sqlc 处理不了的语句（比如 FTS5 虚拟表的 MATCH）直接写在 Go 里，用 `database/sql`。
+   事务直接用 `db.BeginTx`。数据库连接已设成 `_txlock=immediate`，事务一开始就拿写锁，并发写会排队等待，不会报 `SQLITE_BUSY`。不用自己写 `BEGIN IMMEDIATE`。
 4. **生成接口代码**：建 `modules/projects/api/cfg.yaml` 和 `gen.go`，照抄 `core/api/` 的写法，改文件名。
 5. **写模块** `modules/projects/module.go`：
    ```go

@@ -31,7 +31,10 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		}
 		dsn = "file:" + path
 	}
-	dsn += "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_time_format=sqlite"
+	// _txlock=immediate makes BEGIN take the write lock, so concurrent
+	// read-then-write transactions wait on busy_timeout instead of failing
+	// with SQLITE_BUSY when they upgrade from a read lock.
+	dsn += "?_txlock=immediate&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_time_format=sqlite"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
