@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
@@ -177,26 +176,13 @@ func (p *Peer) nextID() string {
 	return p.prefix + strconv.FormatUint(p.seq.Add(1), 36)
 }
 
-// WriteTimeout bounds one frame write. A write that takes longer means the
-// connection is dead.
-var WriteTimeout = 30 * time.Second
-
 func (p *Peer) write(ctx context.Context, env protocol.Envelope) error {
 	p.wmu.Lock()
 	defer p.wmu.Unlock()
 	if p.isDone() {
 		return ErrClosed
 	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	// The websocket transport closes the whole connection when the write
-	// context ends mid-write. A caller giving up (a finished stream, a
-	// canceled HTTP request) must not take every other call down with it,
-	// so the write gets its own deadline instead of the caller's context.
-	wctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), WriteTimeout)
-	defer cancel()
-	return p.conn.Write(wctx, env)
+	return p.conn.Write(ctx, env)
 }
 
 func (p *Peer) isDone() bool {
