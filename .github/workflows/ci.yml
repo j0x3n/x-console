@@ -1,0 +1,63 @@
+name: CI
+
+# 其他分支和 PR 跑测试。main 和开发分支的推送由 deploy.yml 调用本工作流。
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+      - claude/focused-wozniak-i2fda9
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Install code generators
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
+      - name: Generated code is up to date
+        run: |
+          go generate ./...
+          git diff --exit-code -- .
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test -race ./...
+      - name: Windows agent builds
+        run: |
+          GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent
+          GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/agent
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Generated API types are up to date
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/api/gen
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

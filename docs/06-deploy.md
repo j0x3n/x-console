@@ -1,20 +1,67 @@
 # 部署与本地联调
 
-## 服务端（Docker）
+## 服务端：GitHub Actions 自动部署（推荐）
 
-在你的服务器上：
+推送到 `main` 或开发分支后，`.github/workflows/deploy.yml` 会依次做：跑测试，构建 amd64 镜像推到 `ghcr.io/j0x3n/x-console`，构建代理程序（Linux 和 Windows），然后 SSH 到服务器更新。
+
+### 1. 准备服务器（只做一次）
+
+1. 装 Docker 和 compose 插件：`curl -fsSL https://get.docker.com | sh`。
+2. 建一个部署用户，加进 docker 组，让它不用 sudo 就能跑 docker：
+   ```bash
+   sudo adduser --disabled-password deploy
+   sudo usermod -aG docker deploy
+   ```
+3. 在你自己的电脑上生成一对专用密钥，不要设密码：
+   ```bash
+   ssh-keygen -t ed25519 -f xconsole_deploy -C github-actions -N ""
+   ```
+   把 `xconsole_deploy.pub` 的内容追加到服务器的 `/home/deploy/.ssh/authorized_keys`。
+4. 域名加一条 A 记录指向服务器 IP。
+5. 防火墙放行 80 和 443 端口（Caddy 要用 80 申请证书）。
+
+### 2. 在 GitHub 填 Secrets
+
+仓库页面 → Settings → Secrets and variables → Actions → New repository secret。
+
+| 名称 | 必填 | 内容 |
+| --- | --- | --- |
+| `DEPLOY_HOST` | 是 | 服务器 IP 或域名 |
+| `DEPLOY_USER` | 是 | 部署用户，比如 `deploy` |
+| `DEPLOY_SSH_KEY` | 是 | 私钥 `xconsole_deploy` 的全部内容，包括首尾两行 |
+| `DEPLOY_DOMAIN` | 首次部署必填 | 面板域名，比如 `console.example.com` |
+| `DEPLOY_PORT` | 否 | SSH 端口，默认 22 |
+| `DEPLOY_PATH` | 否 | 部署目录，默认部署用户家目录下的 `x-console` |
+| `DEPLOY_KNOWN_HOSTS` | 否，建议填 | 服务器指纹，在你电脑上运行 `ssh-keyscan -p 22 服务器IP` 得到。不填时首次连接自动信任 |
+
+没填 `DEPLOY_HOST` 时工作流只构建不部署，不会报错。
+
+### 3. 触发部署
+
+推送代码就会触发。也可以在 Actions 页面选 Deploy，点 Run workflow 手动运行。
+
+第一次部署时，服务器上没有 `.env`，脚本会自动生成一份，里面有随机生成的主密钥 `XC_MASTER_KEY`。**请马上登录服务器备份这个文件**：`~/x-console/.env`。丢了主密钥，存进去的令牌就解不开了。
+
+部署完打开 `https://你的域名`，按提示创建账号并绑定两步验证。
+
+代理程序在每次运行的 Artifacts 里下载：`x-console-agent-linux-amd64`、`x-console-agent-windows-amd64`。
+
+### 镜像是私有的
+
+私有仓库推到 ghcr.io 的镜像默认也是私有的。自动部署时工作流会临时登录拉取镜像，不用你管。要在服务器上手动拉取，先用一个有 `read:packages` 权限的 GitHub 令牌 `docker login ghcr.io`。
+
+## 服务端：手动部署
+
+不用 GitHub Actions 时，在服务器上：
 
 ```bash
 git clone https://github.com/j0x3n/x-console.git && cd x-console/deploy
 cp .env.example .env
 # 填 XC_DOMAIN、XC_PUBLIC_URL，生成主密钥：
 echo "XC_MASTER_KEY=$(openssl rand -base64 32)" >> .env
+echo "XC_IMAGE=x-console:local" >> .env
 docker compose up -d --build
 ```
-
-打开 `https://你的域名`，按页面提示创建账号并绑定 TOTP。
-
-主密钥一定要备份。丢了它，库里加密的令牌就解不开了。
 
 ### 环境变量
 
@@ -22,20 +69,23 @@ docker compose up -d --build
 | --- | --- | --- |
 | `XC_MASTER_KEY` | 无，必填 | 32 字节的 base64，用来加密令牌 |
 | `XC_ADDR` | `127.0.0.1:8080` | 监听地址。Docker 里是 `0.0.0.0:8080` |
-| `XC_DATA_DIR` | `./data` | 数据库目录 |
+| `XC_DATA_DIR` | `./data` | 数据库目录。Docker 里是 `/data` |
 | `XC_WEB_DIR` | 空 | 前端构建产物目录。空表示只提供 API |
 | `XC_PUBLIC_URL` | 空 | 外部访问地址，通知里的链接用它拼 |
 | `XC_TZ` | `Asia/Shanghai` | 你的时区 |
 | `XC_DEV` | 空 | 设为 `1` 时 Cookie 不带 Secure，只用于本地 HTTP 调试 |
 | `XC_DEBUG` | 空 | 设为 `1` 输出调试日志 |
+| `XC_IMAGE` | `ghcr.io/j0x3n/x-console:latest` | 仅 docker compose 使用，自动部署会写入具体版本 |
 
 ### 备份
 
-数据都在 `deploy/data/x-console.db`。用 SQLite 的在线备份：
+数据库在 Docker 卷 `xc-data` 里。在部署目录下运行：
 
 ```bash
-sqlite3 deploy/data/x-console.db ".backup '/backup/x-console-$(date +%F).db'"
+docker compose exec -T x-console sh -c 'cat /data/x-console.db' > backup-$(date +%F).db
 ```
+
+服务运行时这样复制，极少数情况下会拿到写了一半的文件。更稳妥的做法是先停服务：`docker compose stop x-console`，复制完再 `docker compose start x-console`。同时备份 `.env`。
 
 ## 代理
 

@@ -1,0 +1,141 @@
+name: Deploy
+
+# 推送到 main 或开发分支时：测试 → 构建镜像推到 ghcr.io → 构建代理程序 → 部署到服务器。
+# 服务器相关的 Secrets 没配置时，只构建不部署。配置方法见 docs/06-deploy.md。
+on:
+  push:
+    branches:
+      - main
+      - claude/focused-wozniak-i2fda9
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ env.IMAGE }}:sha-${{ steps.version.outputs.short }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/amd64
+          push: true
+          build-args: VERSION=${{ steps.version.outputs.short }}
+          tags: |
+            ${{ env.IMAGE }}:sha-${{ steps.version.outputs.short }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  agents:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64, ext: "" }
+          - { goos: windows, goarch: amd64, ext: ".exe" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Build agent
+        working-directory: backend
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags "-s -w -X main.Version=${GITHUB_SHA::7}" -o ../dist/x-console-agent${{ matrix.ext }} ./cmd/agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: x-console-agent-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/x-console-agent${{ matrix.ext }}
+
+  deploy:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || 'x-console' }}
+    steps:
+      - name: Check deploy settings
+        id: check
+        run: |
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ]; then
+            echo "::notice::没有配置 DEPLOY_HOST / DEPLOY_USER，跳过部署。镜像已推送：${{ needs.image.outputs.ref }}"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.enabled == 'true'
+      - name: Set up SSH
+        if: steps.check.outputs.enabled == 'true'
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$KNOWN_HOSTS" ]; then
+            printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+            echo "STRICT=yes" >> "$GITHUB_ENV"
+          else
+            echo "::warning::没有配置 DEPLOY_KNOWN_HOSTS，首次连接会自动信任服务器指纹。"
+            echo "STRICT=accept-new" >> "$GITHUB_ENV"
+          fi
+      - name: Upload deploy files
+        if: steps.check.outputs.enabled == 'true'
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT -o StrictHostKeyChecking=$STRICT"
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
+          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" -o StrictHostKeyChecking=$STRICT \
+            deploy/docker-compose.yml deploy/Caddyfile deploy/remote-deploy.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+      - name: Deploy
+        if: steps.check.outputs.enabled == 'true'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XC_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
+          IMAGE_REF: ${{ needs.image.outputs.ref }}
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT -o StrictHostKeyChecking=$STRICT"
+          printf '%s' "$REGISTRY_TOKEN" | $SSH "$DEPLOY_USER@$DEPLOY_HOST" "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "XC_DOMAIN='$XC_DOMAIN' sh '$DEPLOY_PATH/remote-deploy.sh' '$IMAGE_REF'"
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" "docker logout ghcr.io" || true
