@@ -1,0 +1,180 @@
+/* M13 GitHub 与 Linear */
+
+.github-synced {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.github-spin {
+  animation: github-spin 1s linear infinite;
+}
+@keyframes github-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.github-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.github-notice > span {
+  flex: 1;
+  min-width: 0;
+}
+.github-notice.warn {
+  border-color: var(--xc-warn);
+  background: var(--xc-warn-soft);
+}
+.github-notice.warn > svg {
+  color: var(--xc-warn);
+  flex: none;
+  margin-top: 2px;
+}
+.github-notice p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.github-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.github-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.github-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.github-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.github-check {
+  flex: none;
+  margin-top: 2px;
+  color: var(--xc-faint);
+}
+.github-check.ok {
+  color: var(--xc-ok);
+}
+.github-check.warn {
+  color: var(--xc-warn);
+}
+.github-check.danger {
+  color: var(--xc-danger);
+}
+.github-title {
+  color: var(--xc-text);
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.github-title:hover {
+  text-decoration: underline;
+}
+.github-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--xc-muted);
+  min-width: 0;
+}
+.github-branch {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.github-badges,
+.github-heads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.github-badges a.xc-badge,
+.github-heads a.xc-badge {
+  text-decoration: none;
+}
+.github-heads .xc-badge {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.github-small {
+  font-size: 12px;
+}
+.github-inline {
+  margin-left: 6px;
+}
+
+/* 设置页 */
+.github-settings {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 560px) minmax(0, 340px);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .github-settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.github-actions {
+  flex-wrap: wrap;
+}
+.github-test-result {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--xc-radius);
+  overflow-wrap: anywhere;
+}
+.github-test-result.ok {
+  color: var(--xc-ok);
+  background: var(--xc-ok-soft);
+}
+.github-test-result.fail {
+  color: var(--xc-danger);
+  background: var(--xc-danger-soft);
+}
+.github-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+}
+.github-status dt {
+  color: var(--xc-muted);
+}
+.github-status dd {
+  margin: 0;
+  color: var(--xc-text-2);
+  overflow-wrap: anywhere;
+}
+.github-errors {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.linear-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.linear-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
