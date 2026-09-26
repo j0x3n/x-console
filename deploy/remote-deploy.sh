@@ -47,4 +47,10 @@ until docker compose exec -T x-console wget -qO- http://127.0.0.1:8080/api/v1/he
 done
 PORT=$(grep '^XC_PORT=' .env | cut -d= -f2)
 echo "部署完成，面板在 127.0.0.1:${PORT:-17380}：$(docker compose exec -T x-console wget -qO- http://127.0.0.1:8080/api/v1/health)"
-docker image prune -f >/dev/null
+
+# 只保留本次和上一次的 x-console 镜像（方便回滚），不动服务器上的其他镜像。
+REPO="${IMAGE%:*}"
+docker images "$REPO" --format '{{.Repository}}:{{.Tag}}' |
+	grep -v -x -F "$IMAGE" | grep -v ':<none>$' | tail -n +2 |
+	xargs -r docker rmi >/dev/null 2>&1 || true
+docker image prune -f --filter "label=org.opencontainers.image.source" >/dev/null 2>&1 || true

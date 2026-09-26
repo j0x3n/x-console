@@ -2,7 +2,9 @@
 
 ## 服务端：GitHub Actions 自动部署（推荐）
 
-推送到 `main` 或开发分支后，`.github/workflows/deploy.yml` 会依次做：跑测试，构建 amd64 镜像推到 `ghcr.io/j0x3n/x-console`，构建代理程序（Linux 和 Windows），然后 SSH 到服务器更新。
+`.github/workflows/deploy.yml` 会依次做：跑测试，构建 amd64 镜像推到 `ghcr.io/j0x3n/x-console`，构建代理程序（Linux 和 Windows），然后 SSH 到服务器更新。
+
+测试和构建都在 GitHub 的机器上跑，不占你服务器的资源。服务器每次部署只拉镜像、重启容器，前后几十秒。
 
 ### 1. 准备服务器（只做一次）
 
@@ -58,7 +60,20 @@ WebSocket（终端、实时推送）不用额外配置，Caddy 会自动处理�
 
 ### 3. 触发部署
 
-推送代码就会触发。也可以在 Actions 页面选 Deploy，点 Run workflow 手动运行。
+只有这三种情况会部署：
+
+- 推送到 `main`。
+- 提交信息里带 `[deploy]`，比如 `git commit -m "feat: xxx [deploy]"`。
+- 在 Actions 页面选 Deploy，点 Run workflow 手动运行（需要这个工作流文件已经在默认分支上）。
+
+其他推送只跑测试，不构建镜像，也不部署。
+
+### 服务器资源保护
+
+- 只保留当前和上一个版本的镜像，方便回滚。不会删服务器上其他程序的镜像。
+- 每个容器的日志最多 3 个 10 MB 文件，自动轮换。
+- 面板容器内存上限 512 MB。
+- 服务器指标数据按保留期自动清理（原始数据 1 小时，分钟级 7 天，小时级 90 天）。
 
 第一次部署时，服务器上没有 `.env`，脚本会自动生成一份，里面有随机生成的主密钥 `XC_MASTER_KEY`。**请马上登录服务器备份这个文件**：`~/x-console/.env`。丢了主密钥，存进去的令牌就解不开了。
 

@@ -17,6 +17,13 @@ services:
       - xc-data:/data
     ports:
       - "127.0.0.1:${XC_PORT:-17380}:8080"
+    # 防止异常时占满服务器内存和磁盘
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   caddy:
     image: caddy:2
@@ -33,6 +40,11 @@ services:
       - caddy-data:/data
     depends_on:
       - x-console
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   # 数据库在这个卷里。备份方法见 docs/06-deploy.md。
