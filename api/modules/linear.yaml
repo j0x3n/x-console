@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: X Console Linear API (M13)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /linear/config:
+    get:
+      operationId: getLinearConfig
+      tags: [linear]
+      description: 当前配置。API key 只返回打码后的样子。
+      responses:
+        "200":
+          description: 配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinearConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putLinearConfig
+      tags: [linear]
+      description: |
+        保存配置。apiKey 留空表示不改；clearKey 为 true 时删除 API key。
+        改 API key 或 API 地址需要提升权限，只改团队对应关系不需要。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinearConfigInput"
+      responses:
+        "200":
+          description: 保存后的配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinearConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /linear/test:
+    post:
+      operationId: testLinear
+      tags: [linear]
+      description: |
+        读一次当前用户。不带请求体时测试已保存的配置；
+        带请求体时测试表单里的值，需要提升权限（可能用到已保存的 key）。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LinearTestInput"
+      responses:
+        "200":
+          description: 测试结果。key 不对时 ok 为 false
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinearTestResult"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /linear/teams:
+    get:
+      operationId: listLinearTeams
+      tags: [linear]
+      description: Linear 里能看到的团队，配置对应关系时用。未配置时返回 412。
+      responses:
+        "200":
+          description: 团队
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LinearTeam" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /linear/sync:
+    post:
+      operationId: syncLinear
+      tags: [linear]
+      description: 立即同步一次，等同步结束后返回状态。未配置时返回 412。
+      responses:
+        "200":
+          description: 同步后的状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinearStatus"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /linear/status:
+    get:
+      operationId: getLinearStatus
+      tags: [linear]
+      responses:
+        "200":
+          description: 最近一次同步的结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinearStatus"
+components:
+  schemas:
+    LinearTeam:
+      type: object
+      required: [id, key, name]
+      properties:
+        id: { type: string }
+        key: { type: string, description: 例如 ENG }
+        name: { type: string }
+    LinearMapping:
+      type: object
+      required: [teamId, teamKey, teamName, projectId]
+      properties:
+        teamId: { type: string }
+        teamKey: { type: string }
+        teamName: { type: string }
+        projectId: { type: integer, format: int64 }
+        lastPulledAt: { type: string, format: date-time, description: 已经拉到的 Linear 最新更新时间 }
+    LinearMappingInput:
+      type: object
+      required: [teamId, projectId]
+      properties:
+        teamId: { type: string }
+        teamKey: { type: string }
+        teamName: { type: string }
+        projectId: { type: integer, format: int64 }
+    LinearConfig:
+      type: object
+      required: [hasKey, apiKey, apiUrl, mappings]
+      properties:
+        hasKey: { type: boolean }
+        apiKey: { type: string, description: 打码后的 key }
+        apiUrl: { type: string, description: "GraphQL 地址，默认 https://api.linear.app/graphql" }
+        mappings:
+          type: array
+          items: { $ref: "#/components/schemas/LinearMapping" }
+    LinearConfigInput:
+      type: object
+      required: [mappings]
+      properties:
+        apiKey: { type: string, description: 留空表示保留原 key }
+        clearKey: { type: boolean }
+        apiUrl: { type: string, description: 留空表示用默认地址 }
+        mappings:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/LinearMappingInput" }
+    LinearTestInput:
+      type: object
+      properties:
+        apiKey: { type: string }
+        apiUrl: { type: string }
+    LinearTestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        message: { type: string }
+        user: { type: string, description: key 对应的用户名 }
+    LinearStatus:
+      type: object
+      required: [configured, syncing, mappingCount]
+      properties:
+        configured: { type: boolean }
+        syncing: { type: boolean }
+        mappingCount: { type: integer }
+        lastSync: { $ref: "#/components/schemas/LinearSyncResult" }
+    LinearSyncResult:
+      type: object
+      required: [at, ok, created, pulled, pushed, conflicts, errors]
+      properties:
+        at: { type: string, format: date-time }
+        ok: { type: boolean }
+        created: { type: integer, description: 从 Linear 新建到本地的 Issue 数 }
+        pulled: { type: integer, description: 用 Linear 的内容更新了本地的 Issue 数 }
+        pushed: { type: integer, description: 推到 Linear 的 Issue 数 }
+        conflicts: { type: integer, description: 两边都改过、按较新一方处理的 Issue 数 }
+        errors:
+          type: array
+          items: { type: string }

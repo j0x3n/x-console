@@ -58,6 +58,69 @@ type AuditLog struct {
 	Result string
 }
 
+type GithubCiState struct {
+	Key       string
+	State     string
+	UpdatedAt time.Time
+}
+
+type GithubIssue struct {
+	ID        int64
+	Repo      string
+	Number    int64
+	Title     string
+	Url       string
+	Author    string
+	Assignees string
+	Labels    string
+	Relation  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type GithubLink struct {
+	ID        int64
+	Repo      string
+	Number    int64
+	Kind      string
+	Ref       string
+	CreatedAt time.Time
+}
+
+type GithubPull struct {
+	ID          int64
+	Repo        string
+	Number      int64
+	Title       string
+	Author      string
+	Url         string
+	HeadRef     string
+	HeadSha     string
+	BaseRef     string
+	Draft       bool
+	ReviewState string
+	CheckState  string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	SyncedAt    time.Time
+}
+
+type GithubRun struct {
+	ID            int64
+	Repo          string
+	WorkflowID    int64
+	Name          string
+	Branch        string
+	Event         string
+	Status        string
+	Conclusion    string
+	Url           string
+	HeadSha       string
+	DefaultBranch bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
 type HaFavorite struct {
 	EntityID  string
 	SortOrder int64
@@ -161,6 +224,24 @@ type Label struct {
 	ProjectID *int64
 	Name      string
 	Color     string
+}
+
+type LinearIssue struct {
+	LinearID        string
+	IssueKey        string
+	Identifier      string
+	RemoteUpdatedAt time.Time
+	LocalUpdatedAt  time.Time
+	SyncedAt        time.Time
+}
+
+type LinearTeam struct {
+	TeamID    string
+	TeamKey   string
+	TeamName  string
+	ProjectID int64
+	Cursor    *time.Time
+	CreatedAt time.Time
 }
 
 type Milestone struct {

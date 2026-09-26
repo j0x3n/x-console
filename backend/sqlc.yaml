@@ -58,3 +58,19 @@ sql:
         package: db
         out: internal/server/modules/homeassistant/db
         emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/github/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/github/db
+        emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/linear/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/linear/db
+        emit_pointers_for_null_types: true

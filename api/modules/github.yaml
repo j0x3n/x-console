@@ -1,0 +1,261 @@
+openapi: 3.0.3
+info:
+  title: X Console GitHub API (M13)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /github/config:
+    get:
+      operationId: getGitHubConfig
+      tags: [github]
+      description: 当前配置。令牌只返回打码后的样子。
+      responses:
+        "200":
+          description: 配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putGitHubConfig
+      tags: [github]
+      description: |
+        保存配置。token 留空表示不改令牌；clearToken 为 true 时删除令牌。
+        改令牌或 API 地址需要提升权限，只改仓库列表不需要。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GitHubConfigInput"
+      responses:
+        "200":
+          description: 保存后的配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/test:
+    post:
+      operationId: testGitHub
+      tags: [github]
+      description: |
+        用令牌读一次 /user。不带请求体时测试已保存的配置；
+        带请求体时测试表单里的值，需要提升权限（可能用到已保存的令牌）。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GitHubTestInput"
+      responses:
+        "200":
+          description: 测试结果。令牌不对时 ok 为 false
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubTestResult"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/status:
+    get:
+      operationId: getGitHubStatus
+      tags: [github]
+      responses:
+        "200":
+          description: 最近一次同步的结果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubStatus"
+  /github/sync:
+    post:
+      operationId: syncGitHub
+      tags: [github]
+      description: 立即同步一次，等同步结束后返回状态。未配置时返回 412。
+      responses:
+        "200":
+          description: 同步后的状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GitHubStatus"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/pulls:
+    get:
+      operationId: listGitHubPulls
+      tags: [github]
+      description: 缓存里打开的 PR，按仓库、更新时间排序。未配置时返回 412。
+      parameters:
+        - name: repo
+          in: query
+          schema: { type: string }
+          description: 只看某个仓库，owner/name
+      responses:
+        "200":
+          description: PR
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GitHubPull" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/runs:
+    get:
+      operationId: listGitHubRuns
+      tags: [github]
+      description: 缓存里最近的 workflow runs，新的在前。未配置时返回 412。
+      parameters:
+        - name: repo
+          in: query
+          schema: { type: string }
+        - $ref: "../common.yaml#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 运行记录
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GitHubRun" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/issues:
+    get:
+      operationId: listGitHubIssues
+      tags: [github]
+      description: 关注仓库里分配给你或你创建的打开的 Issue。未配置时返回 412。
+      responses:
+        "200":
+          description: Issue
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GitHubIssue" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    GitHubConfig:
+      type: object
+      required: [hasToken, token, repos, apiUrl]
+      properties:
+        hasToken: { type: boolean }
+        token: { type: string, description: 打码后的令牌，例如 ••••••••x9Qa }
+        repos:
+          type: array
+          items: { type: string }
+          description: 关注的仓库，owner/name
+        apiUrl: { type: string, description: "REST API 地址，默认 https://api.github.com" }
+        login: { type: string, description: 令牌对应的用户名，同步过才有 }
+    GitHubConfigInput:
+      type: object
+      required: [repos]
+      properties:
+        token: { type: string, description: 留空表示保留原令牌 }
+        clearToken: { type: boolean }
+        repos:
+          type: array
+          maxItems: 50
+          items: { type: string }
+        apiUrl: { type: string, description: 留空表示用默认地址 }
+    GitHubTestInput:
+      type: object
+      properties:
+        token: { type: string, description: 留空表示用已保存的令牌 }
+        apiUrl: { type: string }
+    GitHubTestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        message: { type: string, description: 失败原因，给人看 }
+        login: { type: string }
+        rateLimitRemaining: { type: integer }
+    GitHubStatus:
+      type: object
+      required: [configured, syncing, repoCount]
+      properties:
+        configured: { type: boolean }
+        syncing: { type: boolean }
+        repoCount: { type: integer }
+        login: { type: string }
+        lastSyncAt: { type: string, format: date-time }
+        lastError: { type: string, description: 最近一次同步的错误，成功时为空 }
+        rateLimitRemaining: { type: integer }
+        rateLimitResetAt: { type: string, format: date-time }
+    GitHubReviewState:
+      type: string
+      enum: [approved, changes_requested, pending, commented, none]
+      description: pending 表示请了评审但还没人评
+    GitHubCheckState:
+      type: string
+      enum: [success, failure, pending, none]
+    GitHubPull:
+      type: object
+      required: [repo, number, title, author, url, headRef, baseRef, draft, reviewState, checkState, issueKeys, createdAt, updatedAt]
+      properties:
+        repo: { type: string }
+        number: { type: integer }
+        title: { type: string }
+        author: { type: string }
+        url: { type: string }
+        headRef: { type: string }
+        baseRef: { type: string }
+        draft: { type: boolean }
+        reviewState: { $ref: "#/components/schemas/GitHubReviewState" }
+        checkState: { $ref: "#/components/schemas/GitHubCheckState" }
+        issueKeys:
+          type: array
+          items: { type: string }
+          description: 标题或分支里出现、并已关联的本地 Issue，例如 XC-12
+        codingTaskId:
+          type: integer
+          format: int64
+          description: 分支是 xc/<任务id>-... 时对应的编码任务
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    GitHubRun:
+      type: object
+      required: [id, repo, name, branch, event, status, conclusion, url, defaultBranch, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        repo: { type: string }
+        name: { type: string }
+        branch: { type: string }
+        event: { type: string }
+        status: { type: string, description: "queued、in_progress、completed 等" }
+        conclusion: { type: string, description: "success、failure、cancelled 等，没结束时为空" }
+        url: { type: string }
+        defaultBranch: { type: boolean, description: 是否在默认分支上 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    GitHubIssueRelation:
+      type: string
+      enum: [assigned, created, both]
+    GitHubIssue:
+      type: object
+      required: [repo, number, title, url, author, assignees, labels, relation, createdAt, updatedAt]
+      properties:
+        repo: { type: string }
+        number: { type: integer }
+        title: { type: string }
+        url: { type: string }
+        author: { type: string }
+        assignees:
+          type: array
+          items: { type: string }
+        labels:
+          type: array
+          items: { type: string }
+        relation: { $ref: "#/components/schemas/GitHubIssueRelation" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }

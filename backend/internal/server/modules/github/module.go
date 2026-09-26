@@ -1,0 +1,221 @@
+// Package github is the GitHub half of M13: a cache of open pull requests,
+// workflow runs and issues of watched repositories, refreshed every five
+// minutes, CI failure notifications, links from pull requests to local
+// issues and coding tasks, and contracts.GitHub for opening pull requests.
+// See docs/modules/M13.md.
+package github
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/github/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/github/db"
+	"github.com/j0x3n/x-console/backend/internal/server/settings"
+)
+
+// Settings keys.
+const (
+	keyToken    = "github.token" // encrypted
+	keyRepos    = "github.repos"
+	keyAPIURL   = "github.api_url"
+	keyLogin    = "github.login"
+	keyLastSync = "github.last_sync"
+)
+
+const (
+	defaultAPIURL = "https://api.github.com"
+	syncInterval  = 5 * time.Minute
+	maxRepos      = 50
+)
+
+// Module implements the HTTP API and contracts.GitHub.
+type Module struct {
+	d    *module.Deps
+	q    *db.Queries
+	log  *slog.Logger
+	hc   *http.Client
+	rate *rateState
+	etag *etagCache
+	now  func() time.Time
+
+	syncMu  sync.Mutex // one sync at a time
+	stateMu sync.Mutex
+	syncing bool
+}
+
+var (
+	_ api.ServerInterface = (*Module)(nil)
+	_ contracts.GitHub    = (*Module)(nil)
+	_ module.Starter      = (*Module)(nil)
+)
+
+// New builds the module and offers contracts.GitHub.
+func New(d *module.Deps) (module.Module, error) {
+	m := &Module{
+		d: d, q: db.New(d.DB), log: d.Log.With("module", "github"),
+		hc:   &http.Client{Timeout: 15 * time.Second},
+		rate: &rateState{remaining: -1},
+		etag: newETagCache(),
+		now:  func() time.Time { return time.Now().UTC() },
+	}
+	module.Provide[contracts.GitHub](d.Registry, contracts.GitHubKey, m)
+	m.registerActions()
+	return m, nil
+}
+
+// Name implements module.Module.
+func (m *Module) Name() string { return "github" }
+
+// Mount implements module.Module.
+func (m *Module) Mount(r chi.Router) {
+	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
+}
+
+// Start schedules the sync every five minutes.
+func (m *Module) Start(ctx context.Context) error {
+	m.d.Scheduler.Every("github.sync", syncInterval, func(ctx context.Context) error {
+		err := m.sync(ctx)
+		if errors.Is(err, httpx.ErrIntegrationMissing) {
+			return nil
+		}
+		return err
+	})
+	return nil
+}
+
+// config is the stored setup.
+type config struct {
+	Token  string
+	Repos  []string
+	APIURL string
+	Login  string
+}
+
+func (c config) configured() bool { return c.Token != "" }
+
+func (m *Module) loadConfig(ctx context.Context) (config, error) {
+	var c config
+	get := func(key string, dst any) error {
+		if err := m.d.Settings.Get(ctx, key, dst); err != nil && !errors.Is(err, settings.ErrNotSet) {
+			return err
+		}
+		return nil
+	}
+	for key, dst := range map[string]any{keyToken: &c.Token, keyRepos: &c.Repos, keyAPIURL: &c.APIURL, keyLogin: &c.Login} {
+		if err := get(key, dst); err != nil {
+			return config{}, err
+		}
+	}
+	if c.APIURL == "" {
+		c.APIURL = defaultAPIURL
+	}
+	if c.Repos == nil {
+		c.Repos = []string{}
+	}
+	return c, nil
+}
+
+// requireConfigured returns ErrIntegrationMissing when no token is stored.
+func (m *Module) requireConfigured(ctx context.Context) (config, error) {
+	cfg, err := m.loadConfig(ctx)
+	if err != nil {
+		return config{}, err
+	}
+	if !cfg.configured() {
+		return config{}, httpx.ErrIntegrationMissing
+	}
+	return cfg, nil
+}
+
+func (m *Module) client(cfg config) *restClient {
+	return &restClient{base: cfg.APIURL, token: cfg.Token, hc: m.hc, rate: m.rate, etag: m.etag, now: m.now}
+}
+
+// normalizeAPIURL validates the REST base URL. Empty means the default.
+func normalizeAPIURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return defaultAPIURL, nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" {
+		return "", httpx.Invalid("API 地址格式不对，应该像 https://api.github.com")
+	}
+	return strings.TrimRight(u.String(), "/"), nil
+}
+
+var repoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+
+// normalizeRepo accepts owner/name or a github.com URL.
+func normalizeRepo(raw string) (string, error) {
+	s := strings.TrimSpace(raw)
+	if u, err := url.Parse(s); err == nil && u.Host != "" {
+		s = strings.Trim(u.Path, "/")
+	}
+	s = strings.TrimSuffix(s, ".git")
+	if !repoRe.MatchString(s) {
+		return "", httpx.Invalid("仓库要写成 owner/name：" + raw)
+	}
+	return s, nil
+}
+
+func normalizeRepos(in []string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, raw := range in {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		r, err := normalizeRepo(raw)
+		if err != nil {
+			return nil, err
+		}
+		if k := strings.ToLower(r); !seen[k] {
+			seen[k] = true
+			out = append(out, r)
+		}
+	}
+	if len(out) > maxRepos {
+		return nil, httpx.Invalid("最多关注 50 个仓库")
+	}
+	return out, nil
+}
+
+func maskToken(token string) string {
+	if token == "" {
+		return ""
+	}
+	if len(token) < 12 {
+		return "••••••••"
+	}
+	return "••••••••" + token[len(token)-4:]
+}
+
+// keepInts turns an empty list into one that matches nothing real, because
+// "NOT IN (NULL)" would match nothing at all.
+func keepInts(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return []int64{0}
+	}
+	return ids
+}
+
+func keepStrings(s []string) []string {
+	if len(s) == 0 {
+		return []string{""}
+	}
+	return s
+}
