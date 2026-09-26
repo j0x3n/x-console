@@ -3,7 +3,7 @@ import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatBytes } from "../../../lib/time";
 import { ErrorState, Loading } from "../../../components/ui/States";
 import { useHostMetrics, type HostDetail, type MetricsRange } from "../api";
-import { formatRate, formatUptime, percent } from "../lib";
+import { formatRate, formatUptime, niceRateMax, percent } from "../lib";
 import MetricChart from "./MetricChart";
 import UsageBar from "./UsageBar";
 
@@ -64,6 +64,7 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
               points={points}
               stepSeconds={step}
               format={formatRate}
+              nice={niceRateMax}
               series={[
                 { key: "netRx", label: t("Received"), color: S1 },
                 { key: "netTx", label: t("Sent"), color: S2 },

@@ -135,6 +135,13 @@ export function niceMax(value: number, min = 1): number {
   return 10 * pow;
 }
 
+/** 字节速率的坐标轴上限：先换成 KB/MB 再取整，刻度才是整数。 */
+export function niceRateMax(bytesPerSecond: number): number {
+  let unit = 1;
+  while (bytesPerSecond / unit >= 1024 && unit < 1024 ** 3) unit *= 1024;
+  return niceMax(bytesPerSecond / unit, 1) * unit;
+}
+
 /** 文件路径的上一级和拼接，按代理报告的分隔符处理。 */
 export function joinPath(dir: string, name: string, sep: string): string {
   if (dir.endsWith(sep)) return dir + name;

@@ -18,6 +18,8 @@ interface MetricChartProps {
   series: ChartSeries[];
   /** 纵轴固定上限，比如百分比用 100；不给就按数据取整 */
   max?: number;
+  /** 按数据取整的方法，默认十进制；字节速率用 niceRateMax */
+  nice?: (value: number) => number;
   format: (value: number) => string;
   /** 标题右边显示的当前值 */
   current?: string;
@@ -33,6 +35,7 @@ export default function MetricChart({
   stepSeconds,
   series,
   max,
+  nice = (v) => niceMax(v, 1),
   format,
   current,
 }: MetricChartProps) {
@@ -56,8 +59,8 @@ export default function MetricChart({
     if (max !== undefined) return max;
     let m = 0;
     for (const p of points) for (const s of series) m = Math.max(m, Number(p[s.key]));
-    return niceMax(m * 1.1, 1);
-  }, [points, series, max]);
+    return nice(m * 1.1);
+  }, [points, series, max, nice]);
 
   const plotW = Math.max(0, width - PAD.left - PAD.right);
   const plotH = HEIGHT - PAD.top - PAD.bottom;

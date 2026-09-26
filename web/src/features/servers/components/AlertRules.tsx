@@ -28,7 +28,8 @@ const metricLabels: Record<string, string> = {
 export function describeRule(rule: Pick<AlertRule, "metric" | "op" | "threshold" | "durationSeconds">, t: (s: string) => string): string {
   const mins = Math.round(rule.durationSeconds / 60);
   const lasting = rule.durationSeconds > 0 ? `，${t("for")} ${mins || "<1"} ${t("min")}` : "";
-  if (rule.metric === "offline") return `${t("Offline")} ${mins || "<1"} ${t("min")}`;
+  if (rule.metric === "offline")
+    return rule.durationSeconds > 0 ? `${t("Offline")} ${t("over")} ${mins || "<1"} ${t("min")}` : t("Offline");
   return `${t(metricLabels[rule.metric])} ${rule.op === "lt" ? "<" : ">"} ${rule.threshold}%${lasting}`;
 }
 

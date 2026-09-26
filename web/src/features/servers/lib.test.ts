@@ -8,6 +8,7 @@ import {
   fullestDisk,
   joinPath,
   niceMax,
+  niceRateMax,
   percent,
   pickDesktop,
   pointFromSample,
@@ -77,6 +78,9 @@ describe("numbers", () => {
     expect(niceMax(7)).toBe(10);
     expect(niceMax(1800)).toBe(2000);
     expect(niceMax(2300)).toBe(2500);
+    expect(niceRateMax(80_000)).toBe(100 * 1024);
+    expect(niceRateMax(500)).toBe(500);
+    expect(niceRateMax(3 * 1024 * 1024)).toBe(5 * 1024 * 1024);
   });
 });
 
@@ -153,6 +157,7 @@ describe("tabs and filters", () => {
   it("describes rules", () => {
     const t = (s: string) => s;
     expect(describeRule({ metric: "cpu", op: "gt", threshold: 90, durationSeconds: 300 }, t)).toBe("CPU > 90%，for 5 min");
-    expect(describeRule({ metric: "offline", op: "gt", threshold: 0, durationSeconds: 600 }, t)).toBe("Offline 10 min");
+    expect(describeRule({ metric: "offline", op: "gt", threshold: 0, durationSeconds: 600 }, t)).toBe("Offline over 10 min");
+    expect(describeRule({ metric: "offline", op: "gt", threshold: 0, durationSeconds: 0 }, t)).toBe("Offline");
   });
 });

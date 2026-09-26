@@ -131,7 +131,7 @@ html[data-theme="light"] {
 .servers-stats {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
 }
 .servers-stat {
   display: flex;
@@ -148,7 +148,7 @@ html[data-theme="light"] {
   font-size: 12px;
 }
 .servers-stat strong {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--xc-text);
   font-variant-numeric: tabular-nums;

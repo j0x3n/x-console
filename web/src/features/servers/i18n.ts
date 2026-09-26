@@ -147,6 +147,7 @@ registerZh({
   Resolved: "已恢复",
   resolved: "恢复于",
   for: "持续",
+  over: "超过",
   min: "分钟",
   Saved: "已保存",
   // SSH
