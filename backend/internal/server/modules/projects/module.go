@@ -98,18 +98,35 @@ func notFound(err error) error {
 	return err
 }
 
-// tx runs fn in a transaction. Inside fn only use the given queries: tests
-// run on a single connection, so touching m.q there would deadlock.
+// tx runs fn in a write transaction. Inside fn only use the given queries:
+// tests run on a single connection, so touching m.q there would deadlock.
 func (m *Module) tx(ctx context.Context, fn func(q *db.Queries) error) error {
-	tx, err := m.d.DB.BeginTx(ctx, nil)
+	return writeTx(ctx, m.d.DB, func(c *sql.Conn) error { return fn(db.New(c)) })
+}
+
+// writeTx runs fn inside BEGIN IMMEDIATE on one connection. A deferred
+// transaction that reads first and writes later fails at once with
+// SQLITE_BUSY when another writer got in between; taking the write lock up
+// front makes it wait for busy_timeout instead.
+func writeTx(ctx context.Context, conn *sql.DB, fn func(c *sql.Conn) error) error {
+	c, err := conn.Conn(ctx)
 	if err != nil {
 		return err
 	}
-	if err := fn(m.q.WithTx(tx)); err != nil {
-		_ = tx.Rollback()
+	defer c.Close()
+	if _, err := c.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return err
 	}
-	return tx.Commit()
+	rollback := func() { _, _ = c.ExecContext(context.WithoutCancel(ctx), "ROLLBACK") }
+	if err := fn(c); err != nil {
+		rollback()
+		return err
+	}
+	if _, err := c.ExecContext(ctx, "COMMIT"); err != nil {
+		rollback()
+		return err
+	}
+	return nil
 }
 
 // today is the user's local date as YYYY-MM-DD.

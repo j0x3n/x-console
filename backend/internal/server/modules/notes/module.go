@@ -62,18 +62,30 @@ func notFound(err error) error {
 	return err
 }
 
-// tx runs fn in a transaction. Inside fn only use the given queries: tests
-// run on a single connection, so touching m.q there would deadlock.
+// tx runs fn in a write transaction (BEGIN IMMEDIATE on one connection).
+// A deferred transaction that reads first and writes later fails at once
+// with SQLITE_BUSY when another writer got in between; taking the write lock
+// up front makes it wait for busy_timeout instead. Inside fn only use the
+// given queries: tests run on a single connection.
 func (m *Module) tx(ctx context.Context, fn func(q *db.Queries) error) error {
-	tx, err := m.d.DB.BeginTx(ctx, nil)
+	c, err := m.d.DB.Conn(ctx)
 	if err != nil {
 		return err
 	}
-	if err := fn(m.q.WithTx(tx)); err != nil {
-		_ = tx.Rollback()
+	defer c.Close()
+	if _, err := c.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return err
 	}
-	return tx.Commit()
+	rollback := func() { _, _ = c.ExecContext(context.WithoutCancel(ctx), "ROLLBACK") }
+	if err := fn(db.New(c)); err != nil {
+		rollback()
+		return err
+	}
+	if _, err := c.ExecContext(ctx, "COMMIT"); err != nil {
+		rollback()
+		return err
+	}
+	return nil
 }
 
 const maxTagLen = 40
