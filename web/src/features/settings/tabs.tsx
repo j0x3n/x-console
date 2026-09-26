@@ -4,6 +4,7 @@ import DevicesTab from "./DevicesTab";
 import AuditTab from "./AuditTab";
 import NotificationsTab from "../reminders/NotificationsTab";
 import HASettingsTab from "../home/HASettingsTab";
+import BriefSettingsTab from "../calendar/BriefSettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -19,4 +20,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "audit", label: "Audit log", component: AuditTab },
   { id: "notifications", label: "Notifications", component: NotificationsTab },
   { id: "homeassistant", label: "Home Assistant", component: HASettingsTab },
+  { id: "brief", label: "Daily brief", component: BriefSettingsTab },
 ];

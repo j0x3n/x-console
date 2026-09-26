@@ -153,7 +153,7 @@ func (m *Module) fire(ctx context.Context, id int64, now time.Time) error {
 	link := "/calendar/focus"
 	if r.IssueKey != "" {
 		body = fmt.Sprintf("%s 专注了 %d 分钟，休息一下吧。", m.issueLabel(ctx, r.IssueKey), r.PlannedMinutes)
-		link = "/projects/" + r.IssueKey
+		link = issuePath(r.IssueKey)
 	}
 	_, err = m.d.Notify.Send(ctx, notify.Notification{
 		Kind: "focus.done", Title: "番茄钟结束了", Body: body, Link: link, Priority: notify.PriorityHigh, Source: "focus",
@@ -192,6 +192,18 @@ func notFound(err error) error {
 		return httpx.ErrNotFound
 	}
 	return err
+}
+
+// issuePath is the in-app page of an issue: XC-12 lives at /projects/XC/12.
+func issuePath(key string) string {
+	i := strings.LastIndex(key, "-")
+	if i <= 0 {
+		return "/projects"
+	}
+	if _, err := strconv.Atoi(key[i+1:]); err != nil {
+		return "/projects"
+	}
+	return "/projects/" + key[:i] + "/" + key[i+1:]
 }
 
 // issueLabel is "XC-12 标题" when the projects module can tell the title.

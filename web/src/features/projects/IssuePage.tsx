@@ -32,6 +32,7 @@ import {
 } from "./api";
 import { LabelChip, PriorityIcon, StatusIcon } from "./components/Icons";
 import Markdown from "./Markdown";
+import StartFocusButton from "../calendar/StartFocusButton";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -362,6 +363,7 @@ function Properties({ issue, onSave }: { issue: Issue; onSave: (body: UpdateIssu
         </button>
         <small className="xc-muted">{t("The coding module is not available yet.")}</small>
       </div>
+      <StartFocusButton issueKey={issue.key} />
       <button
         className="xc-btn danger small"
         disabled={remove.isPending}
