@@ -5,6 +5,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/homeassistant"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
@@ -22,4 +23,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	reminders.New,     // M7
 	habits.New,        // M8
 	homeassistant.New, // M9
+	monitoring.New,    // M10
 }

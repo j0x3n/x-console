@@ -1,0 +1,875 @@
+openapi: 3.0.3
+info:
+  title: X Console monitoring API (M10 Docker, scripts, monitors, subscriptions)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  # ---- Docker ----
+  /hosts/{hostId}/docker/containers:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: listContainers
+      tags: [docker]
+      parameters:
+        - name: all
+          in: query
+          description: 包括已停止的容器
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: 容器列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerContainerList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/docker/containers/{containerId}/{action}:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - $ref: "#/components/parameters/ContainerId"
+      - name: action
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/DockerContainerAction" }
+    post:
+      operationId: containerAction
+      tags: [docker]
+      description: 启动、停止、重启或删除容器。stop 和 remove 需要提升权限。都会写审计日志。
+      responses:
+        "204":
+          description: 已执行
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/docker/containers/{containerId}/logs:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - $ref: "#/components/parameters/ContainerId"
+    get:
+      operationId: getContainerLogs
+      tags: [docker]
+      parameters:
+        - $ref: "#/components/parameters/Tail"
+      responses:
+        "200":
+          description: 最近的日志行
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerLogs" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/docker/containers/{containerId}/logs/follow:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - $ref: "#/components/parameters/ContainerId"
+    get:
+      operationId: followContainerLogs
+      tags: [docker]
+      description: |
+        WebSocket。先发最近 tail 行，然后持续推送新日志。每个文本帧是一段日志文本。
+        容器日志结束时服务端正常关闭连接。
+      parameters:
+        - $ref: "#/components/parameters/Tail"
+      responses:
+        "101":
+          description: 升级为 WebSocket
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/docker/stats:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: getDockerStats
+      tags: [docker]
+      description: 所有运行中容器的资源占用。采样大约需要 1 到 2 秒。
+      responses:
+        "200":
+          description: 资源占用
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerStatsList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/docker/images:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: listImages
+      tags: [docker]
+      responses:
+        "200":
+          description: 本地镜像
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DockerImageList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+
+  # ---- scripts ----
+  /scripts:
+    get:
+      operationId: listScripts
+      tags: [scripts]
+      responses:
+        "200":
+          description: 脚本列表，按名称排序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Script" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createScript
+      tags: [scripts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScriptInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Script" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /scripts/{scriptId}:
+    parameters:
+      - $ref: "#/components/parameters/ScriptId"
+    get:
+      operationId: getScript
+      tags: [scripts]
+      responses:
+        "200":
+          description: 脚本
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Script" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateScript
+      tags: [scripts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScriptPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Script" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteScript
+      tags: [scripts]
+      responses:
+        "204":
+          description: 已删除，运行记录一起删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /scripts/{scriptId}/run:
+    parameters:
+      - $ref: "#/components/parameters/ScriptId"
+    post:
+      operationId: runScript
+      tags: [scripts]
+      description: |
+        在一台或多台机器上并行执行，需要提升权限。立即返回每台机器的运行记录（状态 running），
+        每台跑完后发 script_run.finished 事件。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunScriptRequest" }
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ScriptRun" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /scripts/{scriptId}/runs:
+    parameters:
+      - $ref: "#/components/parameters/ScriptId"
+    get:
+      operationId: listScriptRuns
+      tags: [scripts]
+      parameters:
+        - $ref: "../common.yaml#/components/parameters/Limit"
+        - $ref: "../common.yaml#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: 运行记录，新的在前
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScriptRunPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /script-runs/{runId}:
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: getScriptRun
+      tags: [scripts]
+      responses:
+        "200":
+          description: 一次运行
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScriptRun" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+
+  # ---- monitors ----
+  /monitors:
+    get:
+      operationId: listMonitors
+      tags: [monitors]
+      parameters:
+        - name: kind
+          in: query
+          schema: { $ref: "#/components/schemas/MonitorKind" }
+      responses:
+        "200":
+          description: 监控列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Monitor" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createMonitor
+      tags: [monitors]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MonitorInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Monitor" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /monitors/{monitorId}:
+    parameters:
+      - $ref: "#/components/parameters/MonitorId"
+    get:
+      operationId: getMonitor
+      tags: [monitors]
+      responses:
+        "200":
+          description: 监控
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Monitor" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateMonitor
+      tags: [monitors]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MonitorPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Monitor" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteMonitor
+      tags: [monitors]
+      responses:
+        "204":
+          description: 已删除，历史结果一起删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /monitors/{monitorId}/check:
+    parameters:
+      - $ref: "#/components/parameters/MonitorId"
+    post:
+      operationId: checkMonitor
+      tags: [monitors]
+      description: 立即检查一次，结果会记录并参与告警判断。
+      responses:
+        "200":
+          description: 检查结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonitorResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /monitors/{monitorId}/results:
+    parameters:
+      - $ref: "#/components/parameters/MonitorId"
+    get:
+      operationId: getMonitorResults
+      tags: [monitors]
+      parameters:
+        - name: range
+          in: query
+          schema:
+            type: string
+            enum: ["24h", "7d", "30d"]
+            default: "24h"
+      responses:
+        "200":
+          description: 历史结果。点多时合并成最多 500 个点
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MonitorResults" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+
+  # ---- subscriptions ----
+  /subscriptions:
+    get:
+      operationId: listSubscriptions
+      tags: [subscriptions]
+      parameters:
+        - name: archived
+          in: query
+          description: true 只看已归档的
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: 订阅列表，按下次续费日期排序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Subscription" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createSubscription
+      tags: [subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /subscriptions/summary:
+    get:
+      operationId: getSubscriptionSummary
+      tags: [subscriptions]
+      responses:
+        "200":
+          description: 未归档订阅按月和按年折算的支出，按币种分开
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /subscriptions/{subscriptionId}:
+    parameters:
+      - $ref: "#/components/parameters/SubscriptionId"
+    get:
+      operationId: getSubscription
+      tags: [subscriptions]
+      responses:
+        "200":
+          description: 订阅
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateSubscription
+      tags: [subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Subscription" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteSubscription
+      tags: [subscriptions]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /subscriptions/{subscriptionId}/events:
+    parameters:
+      - $ref: "#/components/parameters/SubscriptionId"
+    get:
+      operationId: listSubscriptionEvents
+      tags: [subscriptions]
+      responses:
+        "200":
+          description: 历史：创建、提醒、自动续期，新的在前，最多 100 条
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SubscriptionEvent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+
+components:
+  parameters:
+    HostId:
+      name: hostId
+      in: path
+      required: true
+      schema: { type: string }
+    ContainerId:
+      name: containerId
+      in: path
+      required: true
+      description: 容器 id 或名称
+      schema: { type: string }
+    Tail:
+      name: tail
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 5000, default: 200 }
+    ScriptId:
+      name: scriptId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    MonitorId:
+      name: monitorId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    SubscriptionId:
+      name: subscriptionId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    # ---- Docker ----
+    DockerPort:
+      type: object
+      required: [privatePort, type]
+      properties:
+        ip: { type: string }
+        privatePort: { type: integer }
+        publicPort: { type: integer }
+        type: { type: string }
+    DockerContainer:
+      type: object
+      required: [id, name, image, state, status, created, ports]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        image: { type: string }
+        state:
+          type: string
+          description: created、running、paused、restarting、removing、exited、dead
+        status:
+          type: string
+          description: Docker 给的描述，例如 Up 3 hours
+        created: { type: string, format: date-time }
+        ports:
+          type: array
+          items: { $ref: "#/components/schemas/DockerPort" }
+    DockerContainerList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DockerContainer" }
+    DockerContainerAction:
+      type: string
+      enum: [start, stop, restart, remove]
+    DockerLogs:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          items: { type: string }
+    DockerStats:
+      type: object
+      required: [id, name, cpuPercent, memUsage, memLimit, memPercent, netRx, netTx, blockRead, blockWrite, pids]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        cpuPercent:
+          type: number
+          format: double
+          description: 占一个核的百分比，和 docker stats 一样
+        memUsage: { type: integer, format: int64, description: 字节，不含页缓存 }
+        memLimit: { type: integer, format: int64 }
+        memPercent: { type: number, format: double }
+        netRx: { type: integer, format: int64, description: 启动以来收到的字节 }
+        netTx: { type: integer, format: int64 }
+        blockRead: { type: integer, format: int64 }
+        blockWrite: { type: integer, format: int64 }
+        pids: { type: integer, format: int64 }
+    DockerStatsList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DockerStats" }
+    DockerImage:
+      type: object
+      required: [id, tags, size, created, containers]
+      properties:
+        id: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        size: { type: integer, format: int64 }
+        created: { type: string, format: date-time }
+        containers:
+          type: integer
+          description: 使用这个镜像的容器数，-1 表示 Docker 没有统计
+    DockerImageList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DockerImage" }
+
+    # ---- scripts ----
+    ScriptShell:
+      type: string
+      description: bash 和 sh 用于 Linux，powershell 用于 Windows
+      enum: [bash, sh, powershell]
+    Script:
+      type: object
+      required: [id, name, description, shell, body, defaultHostIds, timeoutSeconds, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        description: { type: string }
+        shell: { $ref: "#/components/schemas/ScriptShell" }
+        body: { type: string }
+        defaultHostIds:
+          type: array
+          items: { type: string }
+        timeoutSeconds: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ScriptInput:
+      type: object
+      required: [name, shell, body]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        shell: { $ref: "#/components/schemas/ScriptShell" }
+        body: { type: string }
+        defaultHostIds:
+          type: array
+          items: { type: string }
+        timeoutSeconds:
+          type: integer
+          minimum: 1
+          maximum: 1800
+          description: 默认 300 秒
+    ScriptPatch:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        shell: { $ref: "#/components/schemas/ScriptShell" }
+        body: { type: string }
+        defaultHostIds:
+          type: array
+          items: { type: string }
+        timeoutSeconds: { type: integer, minimum: 1, maximum: 1800 }
+    RunScriptRequest:
+      type: object
+      properties:
+        hostIds:
+          type: array
+          description: 不填就用脚本的默认机器
+          items: { type: string }
+    ScriptRunStatus:
+      type: string
+      description: running 运行中；ok 退出码 0；failed 退出码非 0 或没能执行
+      enum: [running, ok, failed]
+    ScriptRun:
+      type: object
+      required: [id, scriptId, hostId, hostName, startedAt, status, stdout, stderr, error, triggeredBy]
+      properties:
+        id: { type: integer, format: int64 }
+        scriptId: { type: integer, format: int64 }
+        hostId: { type: string }
+        hostName: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        exitCode: { type: integer }
+        status: { $ref: "#/components/schemas/ScriptRunStatus" }
+        stdout: { type: string }
+        stderr: { type: string }
+        error:
+          type: string
+          description: 没能执行时的原因，例如代理不在线
+        triggeredBy:
+          type: string
+          enum: [user, automation, ai]
+    ScriptRunPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ScriptRun" }
+        nextCursor: { type: string }
+
+    # ---- monitors ----
+    MonitorKind:
+      type: string
+      description: http 网站；tls 证书到期；domain 域名到期（RDAP）
+      enum: [http, tls, domain]
+    MonitorStatus:
+      type: string
+      description: unknown 还没检查；up 正常；down 连续 2 次失败
+      enum: [unknown, up, down]
+    Monitor:
+      type: object
+      required: [id, kind, name, target, intervalSeconds, expectedStatus, keyword, timeoutMs, enabled, lastStatus, lastError, consecutiveFailures, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/MonitorKind" }
+        name: { type: string }
+        target:
+          type: string
+          description: http 是网址；tls 是 host 或 host:port（也可以填网址）；domain 是域名
+        intervalSeconds: { type: integer }
+        expectedStatus:
+          type: integer
+          description: 0 表示 200 到 399 都算正常
+        keyword:
+          type: string
+          description: 页面里必须出现的文字，空表示不检查
+        timeoutMs: { type: integer }
+        enabled: { type: boolean }
+        lastStatus: { $ref: "#/components/schemas/MonitorStatus" }
+        lastCheckedAt: { type: string, format: date-time }
+        lastError: { type: string }
+        consecutiveFailures: { type: integer }
+        expiresAt:
+          type: string
+          format: date-time
+          description: 证书或域名的到期时间
+        daysLeft:
+          type: number
+          format: double
+          description: 离到期还有几天
+        createdAt: { type: string, format: date-time }
+    MonitorInput:
+      type: object
+      required: [kind, name, target]
+      properties:
+        kind: { $ref: "#/components/schemas/MonitorKind" }
+        name: { type: string }
+        target: { type: string }
+        intervalSeconds:
+          type: integer
+          description: 默认 http 60 秒，tls 6 小时，domain 1 天。最小 http 30 秒，tls 5 分钟，domain 1 小时
+        expectedStatus: { type: integer, minimum: 0, maximum: 599 }
+        keyword: { type: string }
+        timeoutMs: { type: integer, minimum: 100, maximum: 60000 }
+        enabled: { type: boolean }
+    MonitorPatch:
+      type: object
+      properties:
+        name: { type: string }
+        target: { type: string }
+        intervalSeconds: { type: integer }
+        expectedStatus: { type: integer, minimum: 0, maximum: 599 }
+        keyword: { type: string }
+        timeoutMs: { type: integer, minimum: 100, maximum: 60000 }
+        enabled: { type: boolean }
+    MonitorResultDetail:
+      type: object
+      properties:
+        expiresAt: { type: string, format: date-time }
+        daysLeft: { type: number, format: double }
+        subject: { type: string }
+        issuer: { type: string }
+        registrar: { type: string }
+    MonitorResult:
+      type: object
+      required: [at, ok, latencyMs, error, detail]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        ok: { type: boolean }
+        statusCode: { type: integer }
+        latencyMs: { type: integer }
+        error: { type: string }
+        detail: { $ref: "#/components/schemas/MonitorResultDetail" }
+    MonitorResults:
+      type: object
+      required: [items, uptime, avgLatencyMs, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/MonitorResult" }
+        uptime:
+          type: number
+          format: double
+          description: 正常的百分比，没有结果时是 0
+        avgLatencyMs: { type: number, format: double }
+        total:
+          type: integer
+          description: 合并前的结果数
+        stepSeconds:
+          type: integer
+          description: 合并后每个点代表的秒数，0 表示没有合并
+
+    # ---- subscriptions ----
+    SubscriptionCategory:
+      type: string
+      enum: [server, domain, saas, other]
+    SubscriptionCycle:
+      type: string
+      enum: [monthly, yearly, custom_days]
+    Subscription:
+      type: object
+      required: [id, name, category, amount, currency, cycle, cycleDays, nextRenewal, remindDaysBefore, url, note, autoRenew, daysLeft, monthlyCost, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        category: { $ref: "#/components/schemas/SubscriptionCategory" }
+        amount: { type: number, format: double }
+        currency: { type: string }
+        cycle: { $ref: "#/components/schemas/SubscriptionCycle" }
+        cycleDays:
+          type: integer
+          description: cycle 是 custom_days 时的天数
+        nextRenewal: { type: string, format: date }
+        remindDaysBefore:
+          type: array
+          items: { type: integer }
+        url: { type: string }
+        note: { type: string }
+        autoRenew: { type: boolean }
+        archivedAt: { type: string, format: date-time }
+        daysLeft:
+          type: integer
+          description: 离下次续费还有几天，按你的时区算。负数表示已过期
+        monthlyCost:
+          type: number
+          format: double
+          description: 折算到每月的金额
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SubscriptionInput:
+      type: object
+      required: [name, amount, cycle, nextRenewal]
+      properties:
+        name: { type: string }
+        category: { $ref: "#/components/schemas/SubscriptionCategory" }
+        amount: { type: number, format: double, minimum: 0 }
+        currency:
+          type: string
+          description: 默认 CNY
+        cycle: { $ref: "#/components/schemas/SubscriptionCycle" }
+        cycleDays: { type: integer, minimum: 1, maximum: 3660 }
+        nextRenewal: { type: string, format: date }
+        remindDaysBefore:
+          type: array
+          description: 默认 [7, 1]
+          items: { type: integer, minimum: 0, maximum: 365 }
+        url: { type: string }
+        note: { type: string }
+        autoRenew: { type: boolean }
+    SubscriptionPatch:
+      type: object
+      properties:
+        name: { type: string }
+        category: { $ref: "#/components/schemas/SubscriptionCategory" }
+        amount: { type: number, format: double, minimum: 0 }
+        currency: { type: string }
+        cycle: { $ref: "#/components/schemas/SubscriptionCycle" }
+        cycleDays: { type: integer, minimum: 1, maximum: 3660 }
+        nextRenewal: { type: string, format: date }
+        remindDaysBefore:
+          type: array
+          items: { type: integer, minimum: 0, maximum: 365 }
+        url: { type: string }
+        note: { type: string }
+        autoRenew: { type: boolean }
+        archived:
+          type: boolean
+          description: true 归档，false 取消归档
+    SubscriptionEvent:
+      type: object
+      required: [id, subscriptionId, at, kind, detail]
+      properties:
+        id: { type: integer, format: int64 }
+        subscriptionId: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        kind:
+          type: string
+          description: created 新建；reminded 发了续费提醒；renewed 自动续期；updated 改了续费日期
+          enum: [created, reminded, renewed, updated]
+        detail: { type: string }
+    SpendTotal:
+      type: object
+      required: [currency, monthly, yearly, count]
+      properties:
+        currency: { type: string }
+        monthly: { type: number, format: double }
+        yearly: { type: number, format: double }
+        count: { type: integer }
+    CategorySpend:
+      type: object
+      required: [category, currency, monthly, yearly]
+      properties:
+        category: { $ref: "#/components/schemas/SubscriptionCategory" }
+        currency: { type: string }
+        monthly: { type: number, format: double }
+        yearly: { type: number, format: double }
+    SubscriptionSummary:
+      type: object
+      required: [totals, byCategory]
+      properties:
+        totals:
+          type: array
+          items: { $ref: "#/components/schemas/SpendTotal" }
+        byCategory:
+          type: array
+          items: { $ref: "#/components/schemas/CategorySpend" }

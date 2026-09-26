@@ -18,6 +18,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/clipboard"
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
+	"github.com/j0x3n/x-console/backend/internal/agent/docker"
 	agentexec "github.com/j0x3n/x-console/backend/internal/agent/exec"
 	"github.com/j0x3n/x-console/backend/internal/agent/files"
 	"github.com/j0x3n/x-console/backend/internal/agent/metrics"
@@ -113,6 +114,7 @@ func register(c *conn.Client, cfg config.Config) {
 	power.Register(c)                                   // M3: power.action and app.open
 	c.Handle(protocol.MethodHTTPProxy, netproxy.HTTP)   // M9
 	c.HandleStream(protocol.MethodWSProxy, netproxy.WS) // M9
+	docker.Register(c)                                  // M10: docker.* over the Engine socket
 }
 
 // capabilities lists what this build supports on this OS.
@@ -135,5 +137,8 @@ func capabilities() []string {
 		caps = append(caps, protocol.CapPower, protocol.CapOpen)
 	}
 	caps = append(caps, protocol.CapProxy) // M9: http.proxy and ws.proxy
+	if docker.Available() {
+		caps = append(caps, protocol.CapDocker) // M10: only when the Docker socket answers
+	}
 	return caps
 }
