@@ -39,7 +39,7 @@ type terminal interface {
 }
 
 // killGrace is how long a shell gets to exit after the hangup signal.
-var killGrace = 2 * time.Second
+const killGrace = 2 * time.Second
 
 // Serve runs one terminal for the lifetime of the stream. When the stream
 // ends (the browser closed the page) the shell is killed; when the shell

@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
 )
 
 // constructors lists every feature module. Add one line per module:
@@ -9,4 +10,6 @@ import (
 //	projects.New,
 //
 // Keep the list sorted by module number (M1..M13) to make merges easy.
-var constructors = []func(*module.Deps) (module.Module, error){}
+var constructors = []func(*module.Deps) (module.Module, error){
+	hosts.New, // M2/M3
+}

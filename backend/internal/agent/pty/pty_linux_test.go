@@ -47,7 +47,6 @@ func readUntil(t *testing.T, s *rpc.Stream, out *bytes.Buffer, want string) {
 }
 
 func TestShellSession(t *testing.T) {
-	killGrace = 500 * time.Millisecond
 	client := pipePeers(t)
 	ctx := context.Background()
 	s, err := client.Open(ctx, protocol.MethodPTYOpen, protocol.PTYOpenParams{Shell: "/bin/sh", Cols: 80, Rows: 24})
