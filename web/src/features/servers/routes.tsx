@@ -1,11 +1,32 @@
 import type { RouteObject } from "react-router";
-import ComingSoon from "../../components/ComingSoon";
+import { BellRing, TerminalSquare } from "lucide-react";
+import { registerCommands } from "../../lib/commands";
+import "./i18n";
+import "./servers.css";
+import ServersPage from "./ServersPage";
+import HostDetailPage from "./HostDetailPage";
 
-// 模块入口：路由、命令、事件订阅都从这里注册。开发这个模块时替换占位页面。
-export const routes: RouteObject[] = [
+registerCommands([
   {
-    path: "servers/*",
-    element: <ComingSoon title="Servers" />,
-    handle: { title: "Servers" },
+    id: "servers.ssh-hosts",
+    title: "添加 SSH 主机",
+    group: "服务器",
+    keywords: "ssh server add",
+    icon: TerminalSquare,
+    run: ({ navigate }) => navigate("/servers?ssh=1"),
   },
+  {
+    id: "servers.alerts",
+    title: "服务器告警",
+    group: "服务器",
+    keywords: "alert rules",
+    icon: BellRing,
+    run: ({ navigate }) => navigate("/servers?alerts=1"),
+  },
+]);
+
+export const routes: RouteObject[] = [
+  { path: "servers", element: <ServersPage />, handle: { title: "Servers" } },
+  { path: "servers/:hostId", element: <HostDetailPage />, handle: { title: "Servers" } },
+  { path: "servers/:hostId/:tab", element: <HostDetailPage />, handle: { title: "Servers" } },
 ];
