@@ -139,13 +139,13 @@ CI 会检查生成的代码是否最新（`go generate` 和 `npm run gen:api` �
 
 ## 8. 部署现状
 
-- `.github/workflows/deploy.yml` 已跑通：测试通过，镜像已推到 `ghcr.io/j0x3n/x-console`，Linux 和 Windows 代理程序在 Artifacts 里。
-- **还没有真正部署过**。用户需要先完成两件事：
-  1. 在 GitHub 仓库 Secrets 里填 `DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_SSH_KEY`、`DEPLOY_DOMAIN`（可选 `DEPLOY_PORT`、`DEPLOY_KNOWN_HOSTS`、`DEPLOY_PATH`）。
-  2. 在自己的 Caddy 里加 `域名 { reverse_proxy 127.0.0.1:17380 }`。
-- 部署触发条件：推送到 `main`，或提交信息带 `[deploy]`，或手动运行（手动按钮要等工作流文件进入默认分支 `main` 才会出现）。其他推送只跑测试。
-- 第一次部署会在服务器 `~/x-console/.env` 生成主密钥，要提醒用户马上备份。
-- 详细步骤在 `docs/06-deploy.md`。
+- **已经上线**，用户在自己的服务器上能打开面板。面板容器监听 `127.0.0.1:17380`，由用户已有的 Caddy 反代并提供 HTTPS。
+- 流水线是 `.github/workflows/deploy.yml`：测试 → 构建镜像推到 `ghcr.io/j0x3n/x-console` → 构建 Linux 和 Windows 代理程序（在 Artifacts 里下载）→ SSH 到服务器运行 `deploy/remote-deploy.sh`。
+- **只有这三种情况会部署**：推送到 `main`；提交信息里带 `[deploy]`；手动运行（手动按钮要等工作流文件进入默认分支 `main` 才会出现）。其他推送只跑测试，不构建镜像。
+- 所以线上版本不会自动跟着开发分支更新。要更新线上，推一个提交信息带 `[deploy]` 的提交。更新线上前先问用户。
+- 服务器上的部署目录默认是部署用户家目录下的 `x-console`。`.env` 里有主密钥 `XC_MASTER_KEY`，丢了就解不开存进去的令牌。
+- 服务器资源保护：只保留当前和上一个镜像；容器日志轮换（3 个 10 MB）；面板内存上限 512 MB。
+- 详细说明在 `docs/06-deploy.md`。
 - 开发分支还没合并进 `main`。是否合并、何时合并，先问用户。
 
 ## 9. 下一步：批次 3
@@ -197,7 +197,6 @@ CI 会检查生成的代码是否最新（`go generate` 和 `npm run gen:api` �
 - 真实的 Home Assistant、Telegram、Bark、Server酱、Web Push、GitHub、Linear（测试全部用假服务器）。
 - systemd 服务管理（开发环境没有 systemd，只有解析逻辑的测试）。
 - 真实的 SSH 主机（只用进程内的假 SSH 服务器测过）。
-- 服务器上的第一次部署。
 
 ### 已知限制
 
