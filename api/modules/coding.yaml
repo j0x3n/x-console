@@ -1,0 +1,495 @@
+openapi: 3.0.3
+info:
+  title: X Console coding tasks API (M4)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /coding/executors:
+    get:
+      operationId: listExecutors
+      tags: [coding]
+      description: 代理上的 claude、codex 是否可用及版本。
+      parameters:
+        - name: agentId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 执行器
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Executor" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/repos:
+    get:
+      operationId: listRepos
+      tags: [coding]
+      responses:
+        "200":
+          description: 已登记的仓库
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Repo" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createRepo
+      tags: [coding]
+      description: 登记代理上的一个仓库。代理会先确认它是 git 仓库的根目录。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRepo" }
+      responses:
+        "201":
+          description: 已登记
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Repo" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/repos/discover:
+    get:
+      operationId: discoverRepos
+      tags: [coding]
+      description: 让代理扫描目录里的 git 仓库。不传 root 时扫描代理配置的目录。
+      parameters:
+        - name: agentId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: root
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: 扫描结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscoverResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/repos/{repoId}:
+    parameters:
+      - $ref: "#/components/parameters/RepoId"
+    delete:
+      operationId: deleteRepo
+      tags: [coding]
+      description: 删除登记和它的任务记录。有排队或运行中的任务时不能删。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks:
+    get:
+      operationId: listTasks
+      tags: [coding]
+      description: 任务列表。排队和运行中的在前，其余按创建时间倒序。
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/TaskStatus" }
+        - name: repoId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: issueKey
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createTask
+      tags: [coding]
+      description: 新建任务并排队。有 issueKey 时，需求前面会自动带上 Issue 的标题和描述。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTask" }
+      responses:
+        "201":
+          description: 已排队
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: getTask
+      tags: [coding]
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/events:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: listTaskEvents
+      tags: [coding]
+      description: 执行器输出。after 是上次拿到的最大 seq。
+      parameters:
+        - name: after
+          in: query
+          schema: { type: integer, format: int64, minimum: 0, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5000, default: 2000 }
+      responses:
+        "200":
+          description: 事件
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskEventList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      operationId: cancelTask
+      tags: [coding]
+      description: 取消排队或运行中的任务。运行中的任务先收到中断信号，10 秒后强制结束，worktree 会被清理。
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/diff:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: getTaskDiff
+      tags: [coding]
+      description: 改动文件和统一 diff（最多 2 MB）。需要代理在线。
+      responses:
+        "200":
+          description: 改动
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskDiff" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/commit:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      operationId: commitTask
+      tags: [coding]
+      description: 提交全部改动，删除 worktree，保留分支。push 为 true 时接着推送。需要提升权限。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CommitRequest" }
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/push:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      operationId: pushTask
+      tags: [coding]
+      description: 把任务分支推送到 origin。需要提升权限。
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/pr:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      operationId: openPullRequest
+      tags: [coding]
+      description: 没推送时先推送，再通过 GitHub 模块建 PR。GitHub 模块不可用时返回 501。需要提升权限。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PullRequestRequest" }
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/discard:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      operationId: discardTask
+      tags: [coding]
+      description: 删除 worktree 和本地分支。已推送的远端分支不动。需要提升权限。
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/settings:
+    get:
+      operationId: getCodingSettings
+      tags: [coding]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CodingSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: updateCodingSettings
+      tags: [coding]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateCodingSettings" }
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CodingSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    RepoId:
+      name: repoId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    ExecutorName:
+      type: string
+      enum: [claude, codex]
+    Executor:
+      type: object
+      required: [name, available]
+      properties:
+        name: { $ref: "#/components/schemas/ExecutorName" }
+        available: { type: boolean }
+        path: { type: string }
+        version: { type: string }
+        error: { type: string, description: 不可用的原因 }
+    Repo:
+      type: object
+      required: [id, agentId, agentName, agentOnline, path, name, defaultBranch, remoteUrl, githubRepo, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        agentId: { type: string }
+        agentName: { type: string }
+        agentOnline: { type: boolean }
+        path: { type: string }
+        name: { type: string }
+        defaultBranch: { type: string }
+        remoteUrl: { type: string }
+        githubRepo: { type: string, description: owner/name，从 GitHub 远端地址解析，不是 GitHub 时为空 }
+        createdAt: { type: string, format: date-time }
+    CreateRepo:
+      type: object
+      required: [agentId, path]
+      additionalProperties: false
+      properties:
+        agentId: { type: string }
+        path: { type: string, description: 仓库根目录的绝对路径 }
+    DiscoveredRepo:
+      type: object
+      required: [path, name, currentBranch, defaultBranch, remoteUrl]
+      properties:
+        path: { type: string }
+        name: { type: string }
+        currentBranch: { type: string }
+        defaultBranch: { type: string }
+        remoteUrl: { type: string }
+        repoId: { type: integer, format: int64, description: 已登记时是登记的 id }
+    DiscoverResult:
+      type: object
+      required: [roots, items]
+      properties:
+        roots:
+          type: array
+          items: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DiscoveredRepo" }
+    TaskStatus:
+      type: string
+      enum: [queued, running, review, failed, canceled, committed, pushed, pr_opened, discarded]
+    ChangedFile:
+      type: object
+      required: [path, status, additions, deletions]
+      properties:
+        path: { type: string }
+        status: { type: string, description: A 新增、M 修改、D 删除、T 类型变化 }
+        additions: { type: integer }
+        deletions: { type: integer }
+        binary: { type: boolean }
+    Task:
+      type: object
+      required: [id, repoId, repoName, agentId, executor, prompt, title, baseBranch, branch, status, error, commitSha, prUrl, changedFiles, timeoutMinutes, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        repoId: { type: integer, format: int64 }
+        repoName: { type: string }
+        agentId: { type: string }
+        issueKey: { type: string }
+        executor: { $ref: "#/components/schemas/ExecutorName" }
+        prompt: { type: string, description: 发给执行器的完整需求 }
+        title: { type: string, description: 需求的第一行 }
+        baseBranch: { type: string }
+        branch: { type: string }
+        baseCommit: { type: string }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        exitCode: { type: integer }
+        error: { type: string, description: 失败或取消的原因 }
+        commitSha: { type: string }
+        prUrl: { type: string }
+        changedFiles:
+          type: array
+          items: { $ref: "#/components/schemas/ChangedFile" }
+        queuePosition: { type: integer, description: 排队中的第几个，从 1 开始 }
+        timeoutMinutes: { type: integer }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    TaskList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Task" }
+    CreateTask:
+      type: object
+      required: [repoId, executor]
+      additionalProperties: false
+      properties:
+        repoId: { type: integer, format: int64 }
+        executor: { $ref: "#/components/schemas/ExecutorName" }
+        prompt: { type: string, description: 有 issueKey 时可以留空 }
+        baseBranch: { type: string, description: 留空用仓库的默认分支 }
+        issueKey: { type: string }
+        timeoutMinutes: { type: integer, minimum: 1, maximum: 1440, description: 留空用设置里的默认值 }
+    TaskEventKind:
+      type: string
+      enum: [text, tool, status, error, done]
+    TaskEvent:
+      type: object
+      required: [seq, at, kind, text]
+      properties:
+        seq: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        kind: { $ref: "#/components/schemas/TaskEventKind" }
+        text: { type: string }
+        data:
+          type: object
+          additionalProperties: true
+          description: 工具调用是 {id, name, input}，工具结果是 {id, result, isError}，状态是 {code, ...}，stderr 输出是 {stream}
+        exitCode: { type: integer }
+    TaskEventList:
+      type: object
+      required: [items, lastSeq]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TaskEvent" }
+        lastSeq: { type: integer, format: int64 }
+    TaskOutputEvent:
+      type: object
+      description: coding_task.output 事件的数据，每 200 毫秒合并一次
+      required: [taskId, events]
+      properties:
+        taskId: { type: integer, format: int64 }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/TaskEvent" }
+    TaskDiff:
+      type: object
+      required: [files, diff, truncated]
+      properties:
+        files:
+          type: array
+          items: { $ref: "#/components/schemas/ChangedFile" }
+        diff: { type: string }
+        truncated: { type: boolean }
+    CommitRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        message: { type: string, description: 留空时用需求的第一行 }
+        push: { type: boolean }
+    PullRequestRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string }
+        body: { type: string }
+        draft: { type: boolean }
+    CodingSettings:
+      type: object
+      required: [maxConcurrent, defaultTimeoutMinutes, prAvailable]
+      properties:
+        maxConcurrent: { type: integer, description: 同时运行的任务数上限 }
+        defaultTimeoutMinutes: { type: integer }
+        prAvailable: { type: boolean, description: GitHub 模块可用时才能建 PR（只读） }
+    UpdateCodingSettings:
+      type: object
+      additionalProperties: false
+      properties:
+        maxConcurrent: { type: integer, minimum: 1, maximum: 10 }
+        defaultTimeoutMinutes: { type: integer, minimum: 1, maximum: 1440 }
