@@ -147,11 +147,15 @@ CI 会检查生成的代码是否最新（`go generate` 和 `npm run gen:api` �
 - 详细说明在 `docs/06-deploy.md`。
 - 开发分支还没合并进 `main`。是否合并、何时合并，先问用户。
 
-## 9. 下一步：批次 3
+## 9. 下一步
+
+先做 `docs/backlog.md` 里状态为“待开发”的需求（目前有 B1：部署面板的主机自动加入代理），再做批次 3。
+
+### 批次 3
 
 任务卡在 `docs/roadmap.md`，规格在 `docs/modules/M12.md`、`docs/modules/M1.md`、`docs/01-product.md` 的“全局”部分。
 
-### I：M12 AI 助手与自动化
+#### I：M12 AI 助手与自动化
 
 - 用官方 Go SDK `github.com/anthropics/anthropic-sdk-go`。默认模型 `claude-opus-5`，adaptive thinking，流式输出，开启服务端 refusal fallback（`fallbacks: "default"` 加 beta 头 `server-side-fallback-2026-07-01`）。写代码前查官方 Go SDK 文档确认用法，不要凭记忆。
 - 工具来自 `d.Actions.List()`。各模块已经注册了动作（`grep -rn "Actions.Register" backend/internal/server/modules`）。
@@ -161,7 +165,7 @@ CI 会检查生成的代码是否最新（`go generate` 和 `npm run gen:api` �
 - M11 早报预留了“AI 润色”：在注册表里用键 `ai.brief_polisher` 注册一个实现 `brief` 包里 Polisher 接口的对象，设置页的开关就会出现。
 - M10 的 `scripts.run` 用审计里的 actor 是否包含 `automation` 区分自动化和 AI 调用。自动化引擎运行动作时，actor 要设成 `automation:<规则id>`（`audit.WithActor`）。
 
-### J：M1 首页与收尾
+#### J：M1 首页与收尾
 
 - `features/overview`：卡片网格，数据来自各模块已有的 hooks；每张卡片包错误边界；布局存服务端。
 - 命令面板支持前缀输入：`> 内容` 直接存成笔记（现在 `components/command/CommandPalette.tsx` 不支持把输入的文字传给命令）。
@@ -236,9 +240,15 @@ CI 会检查生成的代码是否最新（`go generate` 和 `npm run gen:api` �
 - 线上已按用户要求更新到这个版本（提交信息带 `[deploy]`）。
 - 下一步：批次 3（第 9 节）。
 
-## 13. 交付和验收约定
+## 13. 分工、交付和验收约定
 
-用户安排：接手的人（或 AI）开发，完成后由 Claude 验收。为了让验收又快又省，每批交付时请做到：
+用户的分工安排：
+
+- **新需求**：用户提给 Claude。Claude 不开发，只把需求写成规格，加进 `docs/backlog.md`（编号 B1、B2……，写清楚做法和验收标准），并在这份文档里提一句。
+- **开发**：由接手的人（或 AI，目前是 GPT）按 `docs/backlog.md` 和批次计划开发。
+- **验收**：开发完由 Claude 验收。
+
+交付时请做到：为了让验收又快又省，每批交付时请做到：
 
 1. **写一份简短的交付说明**，放在 `docs/deliveries/<日期>-<批次>.md`：
    - 做了哪些模块，对应哪些验收条目。

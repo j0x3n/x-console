@@ -11,6 +11,8 @@
 
 每批结束后统一合并、全量测试、浏览器冒烟，再开下一批。
 
+批次之外的新需求记在 [backlog.md](backlog.md)，优先于批次 3 开发。
+
 ## 子代理工作规则
 
 1. **先读文档**：`docs/README.md`、`03-backend.md`、`04-agent-protocol.md`（涉及代理时）、`05-frontend.md`、自己的 `modules/Mx.md`。M0 的代码是样板。

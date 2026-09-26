@@ -1,0 +1,74 @@
+# 待开发需求
+
+用户新提的需求先写在这里，写清楚要做成什么样、怎么做、怎么验收。开发者按条目实现，完成后把状态改成“已完成”，并写交付说明（见 `HANDOFF.md` 第 13 节）。
+
+| 编号 | 需求 | 状态 |
+| --- | --- | --- |
+| B1 | 部署面板的主机自动加入代理，可以手动移除 | 待开发 |
+
+---
+
+## B1 部署面板的主机自动加入代理
+
+### 用户要什么
+
+- 面板部署到服务器后，这台服务器自己自动出现在“服务器”页面里，不用手动下载代理、生成配对码、装服务。
+- 可以手动移除。移除后以后的部署不会再把它加回来。
+
+### 做法
+
+1. **代理程序打进面板镜像**。`deploy/Dockerfile` 的 server 阶段再编译一个 `cmd/agent`，放到镜像的 `/usr/local/bin/x-console-agent`。这样代理版本总是和面板一致。
+2. **服务端加一个子命令** `x-console-server pairing-code --name <名称> --kind server`：
+   - 直接打开数据库（`store.Open`），调用 `agenthub.CreatePairingCode` 生成一次性配对码并打印到标准输出。
+   - 审计日志的 actor 记为 `system:deploy`。
+   - 在容器里运行：`docker compose exec -T x-console x-console-server pairing-code ...`。SQLite 开了 WAL，和正在运行的服务端同时访问没问题。
+3. **代理被吊销后停下来，不再重启**：
+   - `internal/agent/conn` 定义 `ErrRevoked`（连接时服务端返回 401）。`fatalError` 实现 `Unwrap`，让 `errors.Is` 能判断。
+   - `cmd/agent/main.go` 遇到 `ErrRevoked` 用退出码 3 退出。
+   - `deploy/x-console-agent.service` 加 `RestartPreventExitStatus=3`。
+4. **部署脚本 `deploy/remote-deploy.sh` 在面板健康后执行下面的逻辑**（这一段失败只打警告，不能让整个部署失败）：
+   - 读 `.env` 里的 `XC_LOCAL_AGENT`，没有就当 `1`。第一次生成 `.env` 时写入 `XC_LOCAL_AGENT=1`。
+   - `XC_LOCAL_AGENT=1` 且主机上没有 `/etc/x-console-agent/config.json`，并且部署目录下没有标记文件 `.local-agent-installed`：
+     1. `docker compose cp x-console:/usr/local/bin/x-console-agent ./x-console-agent`
+     2. 用上面的子命令生成配对码，名称用 `$(hostname)`。
+     3. 安装到主机上（需要 root，见下面“权限”）：复制二进制到 `/usr/local/bin/`，写入 systemd 单元，运行 `x-console-agent pair --server http://127.0.0.1:${XC_PORT} --code <配对码> --config /etc/x-console-agent/config.json`，然后 `systemctl daemon-reload && systemctl enable --now x-console-agent`。
+     4. 创建标记文件 `.local-agent-installed`。
+   - 已安装且服务正在运行（`systemctl is-active`）：用镜像里的新二进制替换，然后 `systemctl restart x-console-agent`。服务不在运行（比如被吊销后停了），就什么都不做。
+   - `XC_LOCAL_AGENT=0`：如果装过，停止并禁用服务，删除二进制、单元文件和 `/etc/x-console-agent/`，删除标记文件。
+5. **代理连接地址用本机** `http://127.0.0.1:${XC_PORT}`（默认 17380），不走公网和 Caddy。
+
+### 权限
+
+部署用户不是 root，但它在 docker 组里，本来就等于有 root 权限。安装步骤借一个临时特权容器完成，不需要 sudo：
+
+```sh
+# 写文件：把主机根目录挂进容器
+docker run --rm -v /:/host -v "$PWD:/src:ro" alpine:3.22 sh -c '
+  install -m 755 /src/x-console-agent /host/usr/local/bin/x-console-agent
+  install -m 644 /src/x-console-agent.service /host/etc/systemd/system/x-console-agent.service'
+# 在主机上执行命令：进入 1 号进程的命名空间
+docker run --rm --privileged --pid=host alpine:3.22 \
+  nsenter -t 1 -m -u -n -i -- sh -c 'x-console-agent pair ... && systemctl daemon-reload && systemctl enable --now x-console-agent'
+```
+
+`x-console-agent.service` 也要上传到部署目录（`deploy.yml` 的上传步骤里加上它）。
+
+### 怎么移除
+
+- **在界面上移除**：设置 → 设备与代理 → 吊销。代理收到 401 后以退出码 3 退出，systemd 不再重启它。以后的部署看到服务没在运行，不会动它。
+- **彻底卸载**：在服务器部署目录的 `.env` 里设 `XC_LOCAL_AGENT=0`，再部署一次。
+- **吊销后想重新加回来**：先设 `XC_LOCAL_AGENT=0` 部署一次（清理干净），再改回 `1` 部署一次。
+
+### 文档
+
+- `docs/06-deploy.md`：写上面“怎么移除”，环境变量表加 `XC_LOCAL_AGENT`。
+- `deploy/.env.example`：加 `XC_LOCAL_AGENT=1` 和说明。
+
+### 验收
+
+- 单元测试：`pairing-code` 子命令生成的码能被 `/agent/pair` 用掉；吊销后代理进程退出码是 3。
+- `sh -n deploy/remote-deploy.sh` 通过；`deploy.yml` 用 actionlint 检查通过。
+- 在真实服务器上部署一次：“服务器”页面出现这台主机，指标、进程、服务、终端都能用。
+- 界面上吊销后再部署一次：主机不会重新出现，`systemctl status x-console-agent` 显示已停止。
+- 设 `XC_LOCAL_AGENT=0` 部署：服务和文件都被删除。
+- 安装失败时（比如主机不是 systemd 系统）面板部署仍然成功，日志里有警告。

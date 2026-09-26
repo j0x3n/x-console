@@ -14,6 +14,7 @@ X Console 是一个人用的控制台。它管服务器和 Windows 本机，跑�
 | 6 | [06-deploy.md](06-deploy.md) | 部署、本地联调 |
 | 7 | [modules/](modules/) | 每个模块的数据表、接口、页面和验收标准 |
 | 8 | [roadmap.md](roadmap.md) | 开发批次和子代理任务卡 |
+| 9 | [backlog.md](backlog.md) | 用户新提的需求，每条有做法和验收标准 |
 
 ## 仓库结构
 
