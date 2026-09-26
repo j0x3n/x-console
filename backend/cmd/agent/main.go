@@ -17,6 +17,7 @@ import (
 
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
+	"github.com/j0x3n/x-console/backend/internal/agent/netproxy"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
@@ -93,9 +94,14 @@ func run(args []string) error {
 func register(c *conn.Client, cfg config.Config) {
 	c.Handle(protocol.MethodPing, sysinfo.Ping)
 	c.Handle(protocol.MethodSystemInfo, sysinfo.SystemInfo)
+	c.Handle(protocol.MethodHTTPProxy, netproxy.HTTP)   // M9
+	c.HandleStream(protocol.MethodWSProxy, netproxy.WS) // M9
 }
 
 // capabilities lists what this build supports on this OS.
 func capabilities() []string {
-	return []string{protocol.CapSystemInfo}
+	return []string{
+		protocol.CapSystemInfo,
+		protocol.CapProxy, // M9: http.proxy and ws.proxy
+	}
 }
