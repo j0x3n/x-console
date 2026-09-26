@@ -29,7 +29,7 @@ export function useWorkspacePreferences(view: string) {
   const t = (text: Text) => translate(language, text);
   useEffect(() => {
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
-    document.title = `${t(view)} · xcc`;
+    document.title = `${t(view)} · X Console`;
   }, [language, view]);
 
   return { language, setLanguage, themeMode, setThemeMode, t };

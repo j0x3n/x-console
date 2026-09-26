@@ -57,7 +57,7 @@ export default function WorkDetailDrawer({
             onClick={() => {
               setSelected(null);
               navigate(
-                selectedItem.company === "xcc" ? "Work" : selectedItem.company,
+                selectedItem.company === "X Console" ? "Work" : selectedItem.company,
               );
             }}
           >

@@ -9,6 +9,14 @@ function readPreference(key: string): string | null {
     return null;
   }
 }
+function readBrandPreference(name: string): string | null {
+  const key = `x-console-${name}`;
+  const current = readPreference(key);
+  if (current !== null) return current;
+  const previous = readPreference(`xcc-${name}`);
+  if (previous !== null) savePreference(key, previous);
+  return previous;
+}
 function savePreference(key: string, value: string) {
   try {
     localStorage.setItem(key, value);
@@ -19,7 +27,7 @@ function savePreference(key: string, value: string) {
 function readAgentModes(): Record<string, AgentMode> {
   try {
     const value: unknown = JSON.parse(
-      readPreference("xcc-agent-modes") || "{}",
+      readBrandPreference("agent-modes") || "{}",
     );
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
     return Object.fromEntries(
@@ -42,28 +50,28 @@ interface PreferencesState {
   setThemeMode: Setter<ThemeMode>;
   setAgentModes: Setter<Record<string, AgentMode>>;
 }
-const savedTheme = readPreference("xcc-theme");
+const savedTheme = readBrandPreference("theme");
 export const usePreferencesStore = create<PreferencesState>()((set) => ({
-  language: readPreference("xcc-language") === "en" ? "en" : "zh",
+  language: readBrandPreference("language") === "en" ? "en" : "zh",
   themeMode:
     savedTheme === "dark" || savedTheme === "light" ? savedTheme : "system",
   agentModes: readAgentModes(),
   setLanguage: (update) =>
     set((state) => {
       const language = resolveUpdate(update, state.language);
-      savePreference("xcc-language", language);
+      savePreference("x-console-language", language);
       return { language };
     }),
   setThemeMode: (update) =>
     set((state) => {
       const themeMode = resolveUpdate(update, state.themeMode);
-      savePreference("xcc-theme", themeMode);
+      savePreference("x-console-theme", themeMode);
       return { themeMode };
     }),
   setAgentModes: (update) =>
     set((state) => {
       const agentModes = resolveUpdate(update, state.agentModes);
-      savePreference("xcc-agent-modes", JSON.stringify(agentModes));
+      savePreference("x-console-agent-modes", JSON.stringify(agentModes));
       return { agentModes };
     }),
 }));

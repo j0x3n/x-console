@@ -36,7 +36,7 @@ export function useNavigation(onNavigate?: () => void) {
   }, [view]);
   const navigate: Navigate = (name, anchor) => {
     if (!name) return;
-    const nextView = name === "xcc" ? "Deals" : name;
+    const nextView = name === "X Console" ? "Deals" : name;
     setView(nextView);
     const nextPath = pathForView(nextView);
     const nextUrl = nextPath + (anchor ? `#${anchor}` : "");

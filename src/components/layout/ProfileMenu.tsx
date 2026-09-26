@@ -30,7 +30,7 @@ export default function ProfileMenu({
       aria-label={t("Account and settings")}
     >
       <div className="profile-email">
-        <span>jo@xcc.ai</span>
+        <span>jo@xcc.im</span>
         <button
           className="profile-language-button"
           onClick={() => {

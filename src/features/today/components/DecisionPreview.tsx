@@ -27,7 +27,7 @@ export default function DecisionPreview({
         <strong>{t("Two pricing options before our 10:00")}</strong>
         <p>
           {t(
-            "Hi Priya — thanks for walking us through the fleet telemetry setup yesterday. Jun’s question about tracing handoffs between picking agents is exactly where xcc earns its keep.",
+            "Hi Priya — thanks for walking us through the fleet telemetry setup yesterday. Jun’s question about tracing handoffs between picking agents is exactly where X Console earns its keep.",
           )}
         </p>
       </button>

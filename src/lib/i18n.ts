@@ -92,10 +92,10 @@ export const zh: Record<string, string> = {
   "Open the draft": "打开草稿",
   "To Priya Raman": "收件人：Priya Raman",
   "Two pricing options before our 10:00": "10 点会议前的两种报价方案",
-  "Hi Priya — thanks for walking us through the fleet telemetry setup yesterday. Jun’s question about tracing handoffs between picking agents is exactly where xcc earns its keep.":
-    "Priya，你好。感谢你昨天介绍车队遥测系统。Jun 提到的拣货机器人之间如何追踪任务交接，正是 xcc 能发挥作用的地方。",
-  "Hi Priya — thanks for walking us through the fleet telemetry setup yesterday. Jun’s question about tracing handoffs between picking agents is exactly where xcc earns its keep. As promised, two options sized for 40 robots now and 120 by Q2. Both include decision replay and the on-prem collector you asked about.":
-    "Priya，你好。感谢你昨天介绍车队遥测系统。Jun 提到的拣货机器人之间如何追踪任务交接，正是 xcc 能发挥作用的地方。按约定，我们准备了两种方案，分别适用于目前的 40 台机器人和第二季度扩展至 120 台的需求。两种方案都包含决策回放及你提出的本地采集器。",
+  "Hi Priya — thanks for walking us through the fleet telemetry setup yesterday. Jun’s question about tracing handoffs between picking agents is exactly where X Console earns its keep.":
+    "Priya，你好。感谢你昨天介绍车队遥测系统。Jun 提到的拣货机器人之间如何追踪任务交接，正是 X Console 能发挥作用的地方。",
+  "Hi Priya — thanks for walking us through the fleet telemetry setup yesterday. Jun’s question about tracing handoffs between picking agents is exactly where X Console earns its keep. As promised, two options sized for 40 robots now and 120 by Q2. Both include decision replay and the on-prem collector you asked about.":
+    "Priya，你好。感谢你昨天介绍车队遥测系统。Jun 提到的拣货机器人之间如何追踪任务交接，正是 X Console 能发挥作用的地方。按约定，我们准备了两种方案，分别适用于目前的 40 台机器人和第二季度扩展至 120 台的需求。两种方案都包含决策回放及你提出的本地采集器。",
   Health: "健康度",
   "Seats in use": "活跃席位",
   "in 14d": "14 天内",

@@ -71,7 +71,7 @@ export default function WorkPage({
     title: typeof task === "string" ? task : task.title,
     titleZh: typeof task === "string" ? task : task.title,
     assignee: typeof task === "string" ? "Scout" : task.assignee,
-    company: typeof task === "string" ? "xcc" : task.company,
+    company: typeof task === "string" ? "X Console" : task.company,
     status: "Queued",
     type: "Task",
     progress: 0,

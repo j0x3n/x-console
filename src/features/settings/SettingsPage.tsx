@@ -5,7 +5,7 @@ export default function SettingsPage() {
   const t = useT();
   return (
     <div className="subpage">
-      <div className="eyebrow">xcc</div>
+      <div className="eyebrow">X Console</div>
       <h1>{t("Workspace settings")}</h1>
       <section className="plain-section settings-section">
         <h2>{t("Profile")}</h2>

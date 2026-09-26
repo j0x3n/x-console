@@ -12,7 +12,7 @@ describe("preferences store", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("restores xcc preferences and persists typed updates", async () => {
+  it("migrates old preferences and persists updates under X Console keys", async () => {
     storage.set("xcc-language", "en");
     storage.set("xcc-theme", "dark");
     storage.set("xcc-agent-modes", JSON.stringify({ Scout: "Ask first" }));
@@ -21,12 +21,17 @@ describe("preferences store", () => {
     expect(store.language).toBe("en");
     expect(store.themeMode).toBe("dark");
     expect(store.agentModes.Scout).toBe("Ask first");
+    expect(storage.get("x-console-language")).toBe("en");
+    expect(storage.get("x-console-theme")).toBe("dark");
+    expect(JSON.parse(storage.get("x-console-agent-modes")!)).toEqual({
+      Scout: "Ask first",
+    });
     store.setLanguage("zh");
     store.setThemeMode("light");
     store.setAgentModes((modes) => ({ ...modes, Echo: "Autopilot" }));
-    expect(storage.get("xcc-language")).toBe("zh");
-    expect(storage.get("xcc-theme")).toBe("light");
-    expect(JSON.parse(storage.get("xcc-agent-modes")!)).toEqual({
+    expect(storage.get("x-console-language")).toBe("zh");
+    expect(storage.get("x-console-theme")).toBe("light");
+    expect(JSON.parse(storage.get("x-console-agent-modes")!)).toEqual({
       Scout: "Ask first",
       Echo: "Autopilot",
     });
@@ -34,7 +39,7 @@ describe("preferences store", () => {
 
   it("rejects malformed or invalid saved agent modes", async () => {
     storage.set(
-      "xcc-agent-modes",
+      "x-console-agent-modes",
       JSON.stringify({ Scout: "invalid", Echo: "Autopilot", Pilot: 42 }),
     );
     const { usePreferencesStore } = await import("./preferences-store");

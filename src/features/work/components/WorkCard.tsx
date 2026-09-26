@@ -53,7 +53,7 @@ export default function WorkCard({
       <h3>{L(item.title, item.titleZh || item.title)}</h3>
       <button
         className="ws-record-link"
-        onClick={() => navigate(item.company === "xcc" ? "Work" : item.company)}
+        onClick={() => navigate(item.company === "X Console" ? "Work" : item.company)}
       >
         <CompanyIcon company={item.company} />
         {item.company}

@@ -109,7 +109,7 @@ export function DraftReviewDialog({
           <div>
             <dt>{L("From", "发件人")}</dt>
             <dd>
-              Theo Park <small>&lt;theo@xcc.ai&gt;</small>
+              Theo Park <small>&lt;theo@xcc.im&gt;</small>
             </dd>
           </div>
           <div>
@@ -174,7 +174,7 @@ export function DraftReviewDialog({
                   Priya，你好。感谢你昨天<del>抽出时间</del>
                   <ins>介绍车队遥测系统</ins>。
                   <ins>
-                    Jun 提到的拣货机器人之间如何追踪任务交接，正是 xcc
+                    Jun 提到的拣货机器人之间如何追踪任务交接，正是 X Console
                     能发挥作用的地方。
                   </ins>
                 </p>
@@ -200,7 +200,7 @@ export function DraftReviewDialog({
                   yesterday.{" "}
                   <ins>
                     Jun’s question about tracing handoffs between picking agents
-                    is exactly where xcc earns its keep.
+                    is exactly where X Console earns its keep.
                   </ins>
                 </p>
                 <p>

@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0a0a0b" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>今日 · xcc</title>
+    <title>今日 · X Console</title>
     <script>
       let savedTheme = "system";
       let savedLanguage = "zh";
       try {
-        savedTheme = localStorage.getItem("xcc-theme") || "system";
-        savedLanguage = localStorage.getItem("xcc-language") || "zh";
+        savedTheme = localStorage.getItem("x-console-theme") || localStorage.getItem("xcc-theme") || "system";
+        savedLanguage = localStorage.getItem("x-console-language") || localStorage.getItem("xcc-language") || "zh";
       } catch {
         // Use default preferences if browser storage is unavailable.
       }
@@ -23,7 +23,7 @@
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
       if (savedLanguage === "en") {
         document.documentElement.lang = "en";
-        document.title = "Today · xcc";
+        document.title = "Today · X Console";
       }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

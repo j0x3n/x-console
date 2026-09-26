@@ -1,4 +1,4 @@
-# xcc 工作台
+# X Console
 
 基于 React 19、TypeScript、Vite、Zustand 和 lucide-react 的工作台界面。项目按业务功能组织，页面、展示组件、跨页面状态、示例数据和工具函数分别维护。
 
@@ -95,7 +95,7 @@ Hooks 负责连接 store 与 React 生命周期、动画和提示：
 
 业务页面持有自己的筛选、排序、分组和选中状态。审批和撤销等影响多个页面的操作由 `workspace-store` 统一处理，`useWorkspaceState` 补充本地化提示。页面可通过回调发起操作，也可使用 Zustand selector 订阅所需状态。
 
-当前公司、联系人、商机和任务数据仍是示例数据。决策、委派任务、任务状态和已雇佣助手保存在内存，刷新后重置；语言、主题和已有助手的权限模式使用 `xcc-language`、`xcc-theme`、`xcc-agent-modes` 三个 `localStorage` 键保存。
+当前公司、联系人、商机和任务数据仍是示例数据。决策、委派任务、任务状态和已雇佣助手保存在内存，刷新后重置；语言、主题和已有助手的权限模式使用 `x-console-language`、`x-console-theme`、`x-console-agent-modes` 三个 `localStorage` 键保存。首次加载时会读取旧 `xcc-*` 键并迁移已有设置。
 
 ## 类型约束
 

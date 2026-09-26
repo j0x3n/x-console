@@ -138,7 +138,7 @@ export default function WorkList({
                             onClick={(event) => {
                               event.stopPropagation();
                               navigate(
-                                item.company === "xcc" ? "Work" : item.company,
+                                item.company === "X Console" ? "Work" : item.company,
                               );
                             }}
                           >

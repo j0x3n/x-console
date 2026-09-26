@@ -68,8 +68,8 @@ export const meetings = [
   {
     time: "4:00",
     duration: "45m",
-    company: "xcc",
-    initials: "LO",
+    company: "X Console",
+    initials: "XC",
     color: "terra",
     note: "Pipeline review · 5 people",
     tag: "Brief at 3:45 PM",

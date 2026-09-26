@@ -88,8 +88,8 @@ export default function Sidebar({
         aria-label={t("Main")}
       >
         <div className="workspace-switch">
-          <span className="brand-mark">XC</span>
-          <span>xcc</span>
+          <span className="brand-mark">X</span>
+          <span>X Console</span>
           <ChevronDown size={13} />
           <button
             className="icon-button sidebar-collapse"

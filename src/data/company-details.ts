@@ -158,7 +158,7 @@ export const companyDetailData: Record<string, CompanyDetail> = {
       [
         "Fri, Sep 18",
         "Theo",
-        "Theo Park sent Proposal: xcc for the Halcyon fleet",
+        "Theo Park sent Proposal: X Console for the Halcyon fleet",
         "",
         "12:30 PM",
         "Sent to Priya Raman and Owen Castellanos",

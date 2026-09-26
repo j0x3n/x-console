@@ -60,7 +60,7 @@ export const timelineTitlesZh: Record<string, string> = {
   "Theo Park called · Technical discovery with Priya · 32 min":
     "Theo Park 与 Priya 进行了技术需求电话 · 32 分钟",
   "Pilot moved to Proposal": "Pilot 将阶段推进至方案",
-  "Theo Park sent Proposal: xcc for the Halcyon fleet":
+  "Theo Park sent Proposal: X Console for the Halcyon fleet":
     "Theo Park 发送了 Halcyon 车队方案",
   "Theo Park met · Evaluation workshop · 60 min":
     "Theo Park 参加了评估研讨会 · 60 分钟",

@@ -212,7 +212,7 @@ export function DelegateDialog({
               <small>
                 {selectedAgent?.[1] === "Suggests"
                   ? L(
-                      `${assignee} only suggests. Nothing leaves xcc until you act.`,
+                      `${assignee} only suggests. Nothing leaves X Console until you act.`,
                       `${assignee} 只会提出建议，未经你确认不会发送。`,
                     )
                   : L(
