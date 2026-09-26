@@ -67,6 +67,81 @@ type HabitLog struct {
 	Note    string
 }
 
+type Issue struct {
+	ID             int64
+	ProjectID      int64
+	Number         int64
+	Title          string
+	Description    string
+	Status         string
+	Priority       int64
+	DueDate        *string
+	MilestoneID    *int64
+	SortOrder      float64
+	ExternalSource string
+	ExternalID     string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	CompletedAt    *time.Time
+}
+
+type IssueComment struct {
+	ID        int64
+	IssueID   int64
+	Body      string
+	CreatedAt time.Time
+}
+
+type IssueLabel struct {
+	IssueID int64
+	LabelID int64
+}
+
+type IssueLink struct {
+	ID        int64
+	IssueID   int64
+	Kind      string
+	Title     string
+	Url       string
+	Ref       string
+	CreatedAt time.Time
+}
+
+type Label struct {
+	ID        int64
+	ProjectID *int64
+	Name      string
+	Color     string
+}
+
+type Milestone struct {
+	ID        int64
+	ProjectID int64
+	Name      string
+	DueDate   *string
+	CreatedAt time.Time
+}
+
+type Note struct {
+	ID         int64
+	Title      string
+	Body       string
+	Pinned     int64
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+type NoteTag struct {
+	NoteID int64
+	Tag    string
+}
+
+type NotesFt struct {
+	Title string
+	Body  string
+}
+
 type Notification struct {
 	ID        int64
 	CreatedAt time.Time
@@ -95,6 +170,19 @@ type PairingCode struct {
 	Kind      string
 	ExpiresAt time.Time
 	UsedAt    *time.Time
+}
+
+type Project struct {
+	ID          int64
+	Key         string
+	Name        string
+	Description string
+	Color       string
+	Icon        string
+	ArchivedAt  *time.Time
+	NextNumber  int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Reminder struct {

@@ -12,6 +12,22 @@ sql:
         emit_pointers_for_null_types: true
   - engine: sqlite
     schema: internal/server/store/migrations
+    queries: internal/server/modules/projects/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/projects/db
+        emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/notes/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/notes/db
+        emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
     queries: internal/server/modules/reminders/queries.sql
     gen:
       go:
