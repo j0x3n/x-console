@@ -153,14 +153,14 @@ func TestTaskLifecycle(t *testing.T) {
 		t.Fatalf("published %d events, stored %d", published, len(evs))
 	}
 
-	// The review notification was sent.
-	var notes struct {
-		Items []struct{ Kind, Link string }
-	}
-	env.MustDo(http.MethodGet, "/notifications", nil, &notes)
-	if len(notes.Items) == 0 || notes.Items[0].Kind != "coding_task.review" || notes.Items[0].Link != "/coding/"+itoa(task.Id) {
-		t.Fatalf("notifications %+v", notes)
-	}
+	// The review notification is sent right after the status is stored.
+	waitFor(t, "review notification", func() bool {
+		var notes struct {
+			Items []struct{ Kind, Link string }
+		}
+		env.MustDo(http.MethodGet, "/notifications", nil, &notes)
+		return len(notes.Items) > 0 && notes.Items[0].Kind == "coding_task.review" && notes.Items[0].Link == "/coding/"+itoa(task.Id)
+	})
 
 	var diff api.TaskDiff
 	env.MustDo(http.MethodGet, "/coding/tasks/"+itoa(task.Id)+"/diff", nil, &diff)
@@ -234,11 +234,12 @@ func TestDiscardAndFailure(t *testing.T) {
 	if task.ExitCode == nil || *task.ExitCode != 3 || !strings.Contains(task.Error, "3") {
 		t.Fatalf("failed task %+v", task)
 	}
-	var notes struct{ Items []struct{ Kind string } }
-	env.MustDo(http.MethodGet, "/notifications", nil, &notes)
-	if len(notes.Items) == 0 || notes.Items[0].Kind != "coding_task.failed" {
-		t.Fatalf("notifications %+v", notes)
-	}
+	// The notification is sent right after the status is stored, so wait for it.
+	waitFor(t, "failure notification", func() bool {
+		var notes struct{ Items []struct{ Kind string } }
+		env.MustDo(http.MethodGet, "/notifications", nil, &notes)
+		return len(notes.Items) > 0 && notes.Items[0].Kind == "coding_task.failed"
+	})
 	worktree := agentcoding.WorktreePath(repoPath, task.Id)
 	if !exists(worktree) {
 		t.Fatal("a failed run keeps its worktree for review")
