@@ -1,7 +1,7 @@
 // Package coding is M4: coding tasks. It keeps the registered repositories
 // and the task queue, runs tasks on an agent (coding.run stream), stores and
 // forwards their output, and lets you review, commit, push, open a pull
-// request or discard the result. See docs/modules/M4.md.
+// request or discard the result. See docs/specs/M4.md.
 package coding
 
 import (

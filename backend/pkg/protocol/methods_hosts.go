@@ -2,7 +2,7 @@ package protocol
 
 import "time"
 
-// Methods and events of M2 servers / M3 this PC. See docs/modules/M2-M3.md.
+// Methods and events of M2 servers / M3 this PC. See docs/specs/M2-M3.md.
 const (
 	// EventMetrics is pushed by the agent every 10 seconds. Params: MetricsSample.
 	EventMetrics = "metrics"

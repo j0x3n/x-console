@@ -145,7 +145,7 @@ d.Actions.Register(actions.Action{
 
 - `Effect`：只读用 `actions.Read`；改数据用 `actions.Write`；执行命令、控制设备、关机用 `actions.Dangerous`。
 - `Run` 里复用处理器背后的业务方法，同样写审计日志。
-- 每个模块的动作清单写在自己的 `docs/modules/Mx.md` 里。
+- 每个模块的动作清单写在自己的 `docs/specs/Mx.md` 里。
 - 测试里至少跑一次你注册的每个动作。
 
 ## 调用外部服务

@@ -60,13 +60,14 @@ WebSocket（终端、实时推送）不用额外配置，Caddy 会自动处理�
 
 ### 3. 触发部署
 
-只有这三种情况会部署：
+只有两种情况会部署：
 
-- 推送到 `main`。
-- 提交信息里带 `[deploy]`，比如 `git commit -m "feat: xxx [deploy]"`。
-- 在 Actions 页面选 Deploy，点 Run workflow 手动运行（需要这个工作流文件已经在默认分支上）。
+- 推送到 `main`，通常是把 `develop` 合并进 `main`。
+- 在 Actions 页面选 Deploy，点 Run workflow 手动运行。
 
-其他推送只跑测试，不构建镜像，也不部署。
+其他分支的推送和 PR 只跑测试，不构建镜像，也不部署。
+
+回滚：在 Actions 页面找到上一次成功的 Deploy，点 Re-run all jobs。
 
 ### 服务器资源保护
 

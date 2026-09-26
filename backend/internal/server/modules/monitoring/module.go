@@ -1,7 +1,7 @@
 // Package monitoring is M10 (ops monitoring): Docker containers on agents,
 // a script library that runs on one or many hosts, website / certificate /
 // domain monitors, and subscriptions with renewal reminders.
-// See docs/modules/M10.md.
+// See docs/specs/M10.md.
 package monitoring
 
 import (

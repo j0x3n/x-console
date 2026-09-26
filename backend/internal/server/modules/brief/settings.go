@@ -13,7 +13,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
-// Settings keys. Each value is stored on its own key, as in docs/modules/M11.md.
+// Settings keys. Each value is stored on its own key, as in docs/specs/M11.md.
 const (
 	keyEnabled     = "brief.enabled"
 	keyTime        = "brief.time"

@@ -1,6 +1,6 @@
 // Package homeassistant is M9: a live connection to Home Assistant over its
 // WebSocket API, an in-memory cache of every entity state, favorites, and
-// service calls. See docs/modules/M9.md.
+// service calls. See docs/specs/M9.md.
 package homeassistant
 
 import (

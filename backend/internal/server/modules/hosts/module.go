@@ -1,6 +1,6 @@
 // Package hosts is the backend of M2 (servers) and M3 (this PC): metrics,
 // processes, services, terminals, files, exec, desktop quick actions,
-// SSH-only hosts and alert rules. See docs/modules/M2-M3.md.
+// SSH-only hosts and alert rules. See docs/specs/M2-M3.md.
 package hosts
 
 import (

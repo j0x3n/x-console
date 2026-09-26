@@ -2,7 +2,7 @@
 // workflow runs and issues of watched repositories, refreshed every five
 // minutes, CI failure notifications, links from pull requests to local
 // issues and coding tasks, and contracts.GitHub for opening pull requests.
-// See docs/modules/M13.md.
+// See docs/specs/M13.md.
 package github
 
 import (

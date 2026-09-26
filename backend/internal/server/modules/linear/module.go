@@ -1,6 +1,6 @@
 // Package linear is the Linear half of M13: two-way sync between Linear
 // teams and local projects. It reads and writes local issues only through
-// contracts.IssueSync. See docs/modules/M13.md.
+// contracts.IssueSync. See docs/specs/M13.md.
 package linear
 
 import (

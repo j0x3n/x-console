@@ -3,7 +3,7 @@ package protocol
 import "time"
 
 // Methods of M10 Docker. The agent announces CapDocker only when the Docker
-// Engine socket answers. See docs/modules/M10.md.
+// Engine socket answers. See docs/specs/M10.md.
 const (
 	MethodDockerPS     = "docker.ps"     // DockerPSParams -> DockerContainerList
 	MethodDockerAction = "docker.action" // DockerActionParams -> nil

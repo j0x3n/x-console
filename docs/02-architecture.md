@@ -1,5 +1,22 @@
 # 架构
 
+## 已定的技术决定
+
+这些是和用户确认过的，不要推翻。要改先问用户。
+
+| 事项 | 结论 |
+| --- | --- |
+| 部署 | 面板和 API 在一台服务器上（Docker）。Windows 本机和各台 Linux 装代理，代理主动连服务器 |
+| 后端 | Go 1.26，SQLite（modernc.org/sqlite，纯 Go），chi，goose 迁移，sqlc，oapi-codegen |
+| 前端 | React 19 + TypeScript（严格）+ Vite + React Router 8 + TanStack Query + Zustand |
+| 接口契约 | `api/modules/<模块>.yaml`（OpenAPI 3.0），前后端代码都从它生成 |
+| 编码执行器 | Claude Code 和 Codex CLI 都支持 |
+| 项目管理 | 自建为主，可选同步 Linear |
+| 登录 | 单用户，密码 + TOTP；高危操作要求 5 分钟内再验证一次 TOTP |
+| 服务器 | 1 到 10 台 Linux，amd64 |
+| 反向代理 | 用户服务器上已有 Caddy。面板容器只监听 `127.0.0.1:17380`，由用户的 Caddy 反代 |
+| 镜像 | 只构建 linux/amd64 |
+
 ## 组件
 
 ```

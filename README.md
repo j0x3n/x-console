@@ -28,4 +28,4 @@ cd web && npm ci && npm run dev
 
 ## 开发进度
 
-见 [docs/roadmap.md](docs/roadmap.md)。
+见 [docs/tasks.md](docs/tasks.md)。协作规则见 [AGENTS.md](AGENTS.md)。

@@ -1,14 +1,12 @@
 name: Deploy
 
-# 推送到 main 或开发分支时都会跑测试。
-# 以下情况才会继续构建镜像、构建代理程序并部署到服务器：
-#   推送到 main；在 Actions 页面手动运行；提交信息里带 [deploy]。
+# main 是线上版本。推送到 main（或在 Actions 页面手动运行）时：
+# 测试 → 构建镜像推到 ghcr.io → 构建代理程序 → 部署到服务器。
 # 服务器相关的 Secrets 没配置时，只构建不部署。配置方法见 docs/06-deploy.md。
 on:
   push:
     branches:
       - main
-      - claude/focused-wozniak-i2fda9
   workflow_dispatch:
 
 concurrency:
@@ -27,7 +25,6 @@ jobs:
 
   image:
     needs: test
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy]')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -59,7 +56,6 @@ jobs:
 
   agents:
     needs: test
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy]')
     runs-on: ubuntu-latest
     strategy:
       matrix:

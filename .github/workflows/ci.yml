@@ -1,12 +1,11 @@
 name: CI
 
-# 其他分支和 PR 跑测试。main 和开发分支的推送由 deploy.yml 调用本工作流。
+# 除 main 以外的分支和所有 PR 都跑测试。main 的推送由 deploy.yml 调用本工作流。
 on:
   pull_request:
   push:
     branches-ignore:
       - main
-      - claude/focused-wozniak-i2fda9
   workflow_call:
 
 permissions:

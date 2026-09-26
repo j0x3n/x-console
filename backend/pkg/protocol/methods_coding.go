@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Methods of M4 coding tasks. See docs/modules/M4.md.
+// Methods of M4 coding tasks. See docs/specs/M4.md.
 //
 // A task runs in a git worktree at <repo>/.x-console/worktrees/<taskId> on
 // its own branch. The agent keeps no state between calls: every method gets
