@@ -5,8 +5,8 @@
 | 批次 | 内容 | 状态 |
 | --- | --- | --- |
 | 0 | 文档、仓库结构、M0 基础、前端外壳、协议、contracts、actions | 已完成 |
-| 1 | A：M5 项目 + M6 备忘；B：M7 提醒通知 + M8 习惯；C：代理 + M2 服务器 + M3 本机；D：M9 Home Assistant | 进行中 |
-| 2 | E：M4 编码任务；F：M10 运维监控；G：M11 日历早报番茄钟；H：M13 GitHub + Linear | 未开始 |
+| 1 | A：M5 项目 + M6 备忘；B：M7 提醒通知 + M8 习惯；C：代理 + M2 服务器 + M3 本机；D：M9 Home Assistant | 已完成 |
+| 2 | E：M4 编码任务；F：M10 运维监控；G：M11 日历早报番茄钟；H：M13 GitHub + Linear | 进行中 |
 | 3 | I：M12 AI 助手与自动化；J：M1 首页、命令面板增强、PWA、部署、端到端测试 | 未开始 |
 
 每批结束后统一合并、全量测试、浏览器冒烟，再开下一批。
@@ -111,3 +111,16 @@
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
 | 2026-09-27 | 新增 `contracts.IssueSync`、`HomeAssistant.WatchEntity` | Linear 同步和 HA 联动需要 |
+| 2026-09-27 | `app.New` 对重复的模块构造函数去重 | 测试里可以再传一次已注册的模块 |
+| 2026-09-27 | `rpc` 写入不再使用可取消的 context；`shutdown` 修复 inflight 数据竞争 | 负载高时代理连接会被误断开 |
+| 2026-09-27 | 数据库连接使用 `_txlock=immediate` | 文件数据库上并发的先读后写事务会报 SQLITE_BUSY |
+| 2026-09-27 | 新增 `proxy`、`open` 两个代理能力 | M9 访问内网 HA；M3 打开程序和网址 |
+
+## 批次 1 的经验（批次 2 起的子代理必读）
+
+- worktree 可能从旧的 `main` 创建。开始前先确认分支包含开发分支的最新提交，不包含就 `git reset --hard <任务里给的提交>`。
+- 模块的集成测试放在外部测试包（`package xxx_test`），需要内部函数时用 `export_test.go` 暴露，避免 testutil → app → 模块的循环引用。
+- `core/db/models.go` 等生成文件每个模块都会改，合并时由负责人重新生成，不要手工合并。
+- 不要对 `web/src/api/gen/` 运行 prettier。
+- 事务直接用 `db.BeginTx`，不要自己写 `BEGIN IMMEDIATE`。
+- 浏览器检查：Chromium 在 `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`，在临时目录里 `npm i playwright` 后用 `executablePath` 指向它。脚本里用 `spawn` 起的子进程要在结束时杀掉，否则 node 不退出。
