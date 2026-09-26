@@ -1,0 +1,264 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { errorMessage } from "../../api/client";
+import Dialog from "../../components/ui/Dialog";
+import { useT } from "../../contexts/LanguageContext";
+import { toast } from "../../hooks/useToast";
+import {
+  useCreateHabit,
+  useDeleteHabit,
+  useUpdateHabit,
+  type Habit,
+  type HabitInput,
+  type RemindMode,
+} from "./api";
+import { joinWindow, parseTimes, splitWindow } from "./progress";
+
+const colors = ["accent", "ok", "info", "warn", "danger"];
+const colorLabels: Record<string, string> = {
+  accent: "Orange",
+  ok: "Green",
+  info: "Blue",
+  warn: "Yellow",
+  danger: "Red",
+};
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  habit?: Habit | null;
+}
+
+export default function HabitDialog({ open, onClose, habit }: Props) {
+  const t = useT();
+  const create = useCreateHabit();
+  const update = useUpdateHabit();
+  const remove = useDeleteHabit();
+  const [name, setName] = useState("");
+  const [icon, setIcon] = useState("");
+  const [color, setColor] = useState("accent");
+  const [unit, setUnit] = useState("次");
+  const [target, setTarget] = useState("1");
+  const [mode, setMode] = useState<RemindMode>("none");
+  const [interval, setIntervalMinutes] = useState("60");
+  const [windowStart, setWindowStart] = useState("09:00");
+  const [windowEnd, setWindowEnd] = useState("21:00");
+  const [times, setTimes] = useState("");
+  const [entity, setEntity] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setError("");
+    const h = habit;
+    setName(h?.name ?? "");
+    setIcon(h?.icon ?? "");
+    setColor(h?.color || "accent");
+    setUnit(h?.unit ?? "次");
+    setTarget(String(h?.dailyTarget ?? 1));
+    setMode(h?.remindMode ?? "none");
+    setIntervalMinutes(String(h?.remindIntervalMinutes || 60));
+    const w = splitWindow(h?.remindWindow ?? "09:00-21:00");
+    setWindowStart(w.start);
+    setWindowEnd(w.end);
+    setTimes((h?.remindTimes ?? []).join(", "));
+    setEntity(h?.haEntityId ?? "");
+  }, [open, habit]);
+
+  const pending = create.isPending || update.isPending;
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const dailyTarget = Number(target);
+    if (!name.trim()) return setError(t("Name is required"));
+    if (!(dailyTarget > 0)) return setError(t("The daily goal must be above 0"));
+    const remindTimes = parseTimes(times);
+    if (mode === "times" && (!remindTimes || remindTimes.length === 0))
+      return setError(t("Write times like 08:00, 20:00"));
+    const minutes = Number(interval);
+    if (mode === "interval" && !(minutes >= 5 && minutes <= 1440))
+      return setError(t("The interval must be 5 to 1440 minutes"));
+    const body: HabitInput = {
+      name: name.trim(),
+      icon: icon.trim(),
+      color,
+      unit: unit.trim() || "次",
+      dailyTarget,
+      remindMode: mode,
+      remindIntervalMinutes: mode === "interval" ? minutes : 0,
+      remindWindow: mode === "interval" ? joinWindow(windowStart, windowEnd) : "",
+      remindTimes: mode === "times" ? (remindTimes ?? []) : [],
+      haEntityId: entity.trim(),
+    };
+    try {
+      if (habit) await update.mutateAsync({ id: habit.id, body });
+      else await create.mutateAsync(body);
+      toast(t("Saved"));
+      onClose();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const archive = async () => {
+    if (!habit) return;
+    try {
+      await update.mutateAsync({ id: habit.id, body: { archived: !habit.archived } });
+      toast(habit.archived ? t("Restored") : t("Archived"));
+      onClose();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const destroy = async () => {
+    if (!habit || !confirm(t("Delete this habit and all its check-ins?"))) return;
+    try {
+      await remove.mutateAsync(habit.id);
+      toast(t("Deleted"));
+      onClose();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title={habit ? t("Edit habit") : t("New habit")}>
+      <form onSubmit={submit}>
+        <div className="habits-form-row habits-form-name">
+          <label className="xc-field">
+            <span>{t("Icon")}</span>
+            <input
+              className="xc-input"
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              maxLength={4}
+              placeholder="💧"
+            />
+          </label>
+          <label className="xc-field">
+            <span>{t("Name")}</span>
+            <input
+              className="xc-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例如 喝水"
+              maxLength={100}
+              autoFocus
+            />
+          </label>
+        </div>
+        <div className="habits-form-row">
+          <label className="xc-field">
+            <span>{t("Daily goal")}</span>
+            <input
+              className="xc-input"
+              type="number"
+              min="0"
+              step="any"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+            />
+          </label>
+          <label className="xc-field">
+            <span>{t("Unit")}</span>
+            <input
+              className="xc-input"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="杯、分钟、次"
+            />
+          </label>
+          <label className="xc-field">
+            <span>{t("Color")}</span>
+            <select className="xc-select" value={color} onChange={(e) => setColor(e.target.value)}>
+              {colors.map((c) => (
+                <option key={c} value={c}>
+                  {t(colorLabels[c])}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label className="xc-field">
+          <span>{t("Reminders")}</span>
+          <select className="xc-select" value={mode} onChange={(e) => setMode(e.target.value as RemindMode)}>
+            <option value="none">{t("No reminders")}</option>
+            <option value="interval">{t("Every few minutes")}</option>
+            <option value="times">{t("At set times")}</option>
+          </select>
+        </label>
+        {mode === "interval" && (
+          <div className="habits-form-row">
+            <label className="xc-field">
+              <span>{t("Every (minutes)")}</span>
+              <input
+                className="xc-input"
+                type="number"
+                min="5"
+                max="1440"
+                value={interval}
+                onChange={(e) => setIntervalMinutes(e.target.value)}
+              />
+            </label>
+            <label className="xc-field">
+              <span>{t("From")}</span>
+              <input className="xc-input" type="time" value={windowStart} onChange={(e) => setWindowStart(e.target.value)} />
+            </label>
+            <label className="xc-field">
+              <span>{t("To")}</span>
+              <input className="xc-input" type="time" value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} />
+            </label>
+          </div>
+        )}
+        {mode === "times" && (
+          <label className="xc-field">
+            <span>{t("Times")}</span>
+            <input
+              className="xc-input"
+              value={times}
+              onChange={(e) => setTimes(e.target.value)}
+              placeholder="08:00, 20:00"
+            />
+          </label>
+        )}
+        {mode !== "none" && (
+          <p className="xc-muted habits-hint">{t("Reminders stop once today's goal is reached.")}</p>
+        )}
+        <label className="xc-field">
+          <span>
+            {t("Home Assistant entity")} <small className="xc-muted">· {t("optional")}</small>
+          </span>
+          <input
+            className="xc-input xc-mono"
+            value={entity}
+            onChange={(e) => setEntity(e.target.value)}
+            placeholder="binary_sensor.toothbrush"
+          />
+          <small>{t("Each state change of this entity counts as one check-in.")}</small>
+        </label>
+        {error && <p className="xc-error-text">{error}</p>}
+        <div className="xc-dialog-actions habits-dialog-actions">
+          {habit && (
+            <>
+              <button type="button" className="xc-btn ghost small" onClick={archive}>
+                {habit.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}{" "}
+                {habit.archived ? t("Restore") : t("Archive")}
+              </button>
+              <button type="button" className="xc-btn danger small" onClick={destroy}>
+                <Trash2 size={14} /> {t("Delete")}
+              </button>
+              <span className="xc-spacer" />
+            </>
+          )}
+          <button type="button" className="xc-btn ghost" onClick={onClose}>
+            {t("Cancel")}
+          </button>
+          <button className="xc-btn primary" disabled={pending}>
+            {t("Save")}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
