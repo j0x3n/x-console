@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: X Console AI assistant
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /ai/conversations:
+    get:
+      operationId: listConversations
+      tags: [assistant]
+      responses:
+        "200":
+          description: 对话列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Conversation" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    post:
+      operationId: createConversation
+      tags: [assistant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateConversation" }
+      responses:
+        "201":
+          description: 新对话
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conversation" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /ai/conversations/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getConversation
+      tags: [assistant]
+      responses:
+        "200":
+          description: 对话及消息
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationDetail" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    delete:
+      operationId: deleteConversation
+      tags: [assistant]
+      responses:
+        "204": { description: 已删除 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /ai/conversations/{id}/messages:
+    post:
+      operationId: sendMessage
+      tags: [assistant]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendMessage" }
+      responses:
+        "202": { description: 已开始回复 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /ai/actions/{id}/approve:
+    post:
+      operationId: approveAction
+      tags: [assistant]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "202": { description: 已确认 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /ai/actions/{id}/reject:
+    post:
+      operationId: rejectAction
+      tags: [assistant]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "202": { description: 已拒绝 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /ai/settings:
+    get:
+      operationId: getAISettings
+      tags: [assistant]
+      responses:
+        "200":
+          description: AI 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISettings" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    put:
+      operationId: putAISettings
+      tags: [assistant]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateAISettings" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AISettings" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+components:
+  schemas:
+    Conversation:
+      type: object
+      required: [id, title, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AIMessage:
+      type: object
+      required: [id, conversationId, seq, role, content, createdAt]
+      properties:
+        id: { type: string }
+        conversationId: { type: string }
+        seq: { type: integer }
+        role: { type: string, enum: [user, assistant] }
+        content:
+          type: array
+          items: { type: object, additionalProperties: true }
+        createdAt: { type: string, format: date-time }
+    PendingAction:
+      type: object
+      required: [id, conversationId, toolUseId, action, input, status]
+      properties:
+        id: { type: string }
+        conversationId: { type: string }
+        toolUseId: { type: string }
+        action: { type: string }
+        input: { type: object, additionalProperties: true }
+        status: { type: string, enum: [pending, approved, rejected, done, failed] }
+        result: { type: object, additionalProperties: true, nullable: true }
+    ConversationDetail:
+      type: object
+      required: [conversation, messages, pendingActions]
+      properties:
+        conversation: { $ref: "#/components/schemas/Conversation" }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/AIMessage" }
+        pendingActions:
+          type: array
+          items: { $ref: "#/components/schemas/PendingAction" }
+    CreateConversation:
+      type: object
+      properties:
+        title: { type: string }
+    SendMessage:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1 }
+    AISettings:
+      type: object
+      required: [model, configured]
+      properties:
+        model: { type: string }
+        configured: { type: boolean }
+    UpdateAISettings:
+      type: object
+      required: [model]
+      properties:
+        model: { type: string }
+        apiKey: { type: string }

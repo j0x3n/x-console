@@ -369,7 +369,7 @@ func TestExec(t *testing.T) {
 	id, _, _ := startAgent(t, env, "tokyo-1", "server", serverCaps, fa.register)
 	var res api.ExecResult
 	env.MustDo(http.MethodPost, "/hosts/"+id+"/exec", map[string]any{"command": "echo hi; exit 3", "timeoutSeconds": 5}, &res)
-	if res.Stdout != "hi\n" || res.ExitCode != 3 {
+	if strings.ReplaceAll(res.Stdout, "\r\n", "\n") != "hi\n" || res.ExitCode != 3 {
 		t.Fatalf("exec: %+v", res)
 	}
 	expectStatus(t, env, http.MethodPost, "/hosts/"+id+"/exec", map[string]any{"command": " "}, http.StatusBadRequest, "")
@@ -696,7 +696,7 @@ func TestActions(t *testing.T) {
 	}
 	run("hosts.get_metrics", `{"host":"tokyo-1","range":"1h"}`)
 	run("hosts.service_action", `{"host":"tokyo-1","name":"nginx.service","action":"restart"}`)
-	if res := run("hosts.exec", `{"host":"`+srv+`","command":"echo from-action"}`).(api.ExecResult); res.Stdout != "from-action\n" {
+	if res := run("hosts.exec", `{"host":"`+srv+`","command":"echo from-action"}`).(api.ExecResult); strings.ReplaceAll(res.Stdout, "\r\n", "\n") != "from-action\n" {
 		t.Fatalf("hosts.exec: %+v", res)
 	}
 	run("hosts.clipboard_set", `{"text":"copied"}`)

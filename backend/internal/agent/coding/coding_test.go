@@ -117,7 +117,18 @@ func TestLineWriter(t *testing.T) {
 }
 
 func TestConfigCommand(t *testing.T) {
-	cfg, err := ParseConfig(json.RawMessage(`{"executors":{"claude":{"path":"/bin/sh","extraArgs":["--model","x"],"env":{"A":"1"}},"codex":{"path":"/bin/sh","args":["exec","{prompt}"]}}}`))
+	path, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(Config{Executors: map[string]ExecutorConfig{
+		"claude": {Path: path, ExtraArgs: []string{"--model", "x"}, Env: map[string]string{"A": "1"}},
+		"codex":  {Path: path, Args: []string{"exec", "{prompt}"}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := ParseConfig(raw)
 	if err != nil {
 		t.Fatal(err)
 	}

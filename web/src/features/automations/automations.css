@@ -1,0 +1,92 @@
+.automation-layout {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 16px;
+}
+.automation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  align-self: start;
+}
+.automation-list button {
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  border: 0;
+  border-radius: 6px;
+  padding: 10px;
+  color: var(--xc-text);
+  background: transparent;
+}
+.automation-list button.active {
+  background: var(--xc-surface-2);
+}
+.automation-list small {
+  color: var(--xc-muted);
+}
+.automation-detail {
+  min-width: 0;
+}
+.automation-summary,
+.automation-editor,
+.automation-run {
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.automation-summary h2,
+.automation-editor h2 {
+  margin-top: 0;
+}
+.automation-editor h3 {
+  border-top: 1px solid var(--xc-border);
+  padding-top: 14px;
+}
+.automation-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+.automation-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.automation-row > input {
+  min-width: 0;
+  flex: 1;
+}
+.automation-row > select {
+  min-width: 0;
+  flex: 1;
+}
+.automation-row > button {
+  flex: none;
+}
+.automation-step {
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.automation-actions {
+  margin-top: 20px;
+}
+.automation-run pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  .automation-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .automation-row {
+    flex-wrap: wrap;
+  }
+  .automation-row > input,
+  .automation-row > select {
+    flex-basis: 100%;
+  }
+}
