@@ -136,11 +136,11 @@ describe("Board drag and drop", () => {
 });
 
 describe("IssuePage", () => {
-  it("shows the issue, a disabled coding button, and edits with the keyboard", async () => {
+  it("shows the issue, a coding link, and edits with the keyboard", async () => {
     renderAt("/projects/XC/1");
     expect(await screen.findByRole("heading", { name: "Issue 1" })).toBeTruthy();
-    const coding = screen.getByRole("button", { name: /交给编码助手/ }) as HTMLButtonElement;
-    expect(coding.disabled).toBe(true);
+    const coding = screen.getByRole("link", { name: /交给编码助手/ }) as HTMLAnchorElement;
+    expect(coding.getAttribute("href")).toBe("/coding?new=1&issue=XC-1");
     fireEvent.keyDown(document.body, { key: "4" });
     await waitFor(() =>
       expect(calls.find((c) => c.method === "PATCH")).toMatchObject({ body: { status: "in_review" } }),

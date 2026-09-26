@@ -58,6 +58,49 @@ type AuditLog struct {
 	Result string
 }
 
+type CodingRepo struct {
+	ID            int64
+	AgentID       string
+	Path          string
+	Name          string
+	DefaultBranch string
+	RemoteUrl     string
+	GithubRepo    string
+	CreatedAt     time.Time
+}
+
+type CodingTask struct {
+	ID             int64
+	RepoID         int64
+	IssueKey       string
+	Executor       string
+	Prompt         string
+	BaseBranch     string
+	Branch         string
+	BaseCommit     string
+	Status         string
+	ExitCode       *int64
+	Error          string
+	CommitSha      string
+	PrUrl          string
+	ChangedFiles   string
+	TimeoutMinutes int64
+	CreatedAt      time.Time
+	StartedAt      *time.Time
+	FinishedAt     *time.Time
+	UpdatedAt      time.Time
+}
+
+type CodingTaskEvent struct {
+	ID     int64
+	TaskID int64
+	Seq    int64
+	At     time.Time
+	Kind   string
+	Text   string
+	Data   string
+}
+
 type GithubCiState struct {
 	Key       string
 	State     string

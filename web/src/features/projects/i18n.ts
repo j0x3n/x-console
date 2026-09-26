@@ -96,7 +96,6 @@ registerZh({
   "Issue not found": "找不到这个 Issue",
   "Back to project": "返回项目",
   "Hand to coding assistant": "交给编码助手",
-  "The coding module is not available yet.": "编码模块还没上线，暂时不能用。",
   Links: "关联",
   "Add link": "添加链接",
   "Remove link": "移除链接",
