@@ -15,9 +15,17 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/j0x3n/x-console/backend/internal/agent/clipboard"
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
+	agentexec "github.com/j0x3n/x-console/backend/internal/agent/exec"
+	"github.com/j0x3n/x-console/backend/internal/agent/files"
+	"github.com/j0x3n/x-console/backend/internal/agent/metrics"
 	"github.com/j0x3n/x-console/backend/internal/agent/netproxy"
+	"github.com/j0x3n/x-console/backend/internal/agent/power"
+	"github.com/j0x3n/x-console/backend/internal/agent/proc"
+	"github.com/j0x3n/x-console/backend/internal/agent/pty"
+	"github.com/j0x3n/x-console/backend/internal/agent/svc"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
@@ -94,14 +102,38 @@ func run(args []string) error {
 func register(c *conn.Client, cfg config.Config) {
 	c.Handle(protocol.MethodPing, sysinfo.Ping)
 	c.Handle(protocol.MethodSystemInfo, sysinfo.SystemInfo)
+	sysinfo.Info = metrics.SystemInfo                   // M2/M3: full system.info via gopsutil
+	metrics.Register(c)                                 // M2/M3: metrics event every 10s
+	proc.Register(c)                                    // M2/M3
+	svc.Register(c)                                     // M2/M3
+	pty.Register(c)                                     // M2/M3
+	files.Register(c)                                   // M2/M3
+	agentexec.Register(c)                               // M2/M3
+	clipboard.Register(c)                               // M3
+	power.Register(c)                                   // M3: power.action and app.open
 	c.Handle(protocol.MethodHTTPProxy, netproxy.HTTP)   // M9
 	c.HandleStream(protocol.MethodWSProxy, netproxy.WS) // M9
 }
 
 // capabilities lists what this build supports on this OS.
 func capabilities() []string {
-	return []string{
-		protocol.CapSystemInfo,
-		protocol.CapProxy, // M9: http.proxy and ws.proxy
+	caps := []string{protocol.CapSystemInfo}
+	// M2/M3: metrics, processes, files and exec work everywhere; terminal
+	// and services depend on the system; clipboard, power and open are
+	// Windows desktop only.
+	caps = append(caps, protocol.CapMetrics, protocol.CapProcesses, protocol.CapFiles, protocol.CapExec)
+	if pty.Available() {
+		caps = append(caps, protocol.CapPTY)
 	}
+	if svc.Available() {
+		caps = append(caps, protocol.CapServices)
+	}
+	if clipboard.Available() {
+		caps = append(caps, protocol.CapClipboard)
+	}
+	if power.Available() {
+		caps = append(caps, protocol.CapPower, protocol.CapOpen)
+	}
+	caps = append(caps, protocol.CapProxy) // M9: http.proxy and ws.proxy
+	return caps
 }

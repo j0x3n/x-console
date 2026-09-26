@@ -306,6 +306,7 @@ func (p *Peer) shutdown(err error) {
 	inflight := p.inflight
 	p.pending = map[string]chan protocol.Envelope{}
 	p.streams = map[string]*Stream{}
+	p.inflight = map[string]context.CancelFunc{} // finishing requests delete from it concurrently
 	p.mu.Unlock()
 	for _, ch := range pending {
 		close(ch)

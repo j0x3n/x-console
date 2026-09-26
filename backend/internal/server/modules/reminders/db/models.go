@@ -23,6 +23,31 @@ type Agent struct {
 	RevokedAt    *time.Time
 }
 
+type AlertEvent struct {
+	ID         int64
+	RuleID     *int64
+	HostID     string
+	HostName   string
+	Metric     string
+	Severity   string
+	Value      float64
+	Message    string
+	FiredAt    time.Time
+	ResolvedAt *time.Time
+}
+
+type AlertRule struct {
+	ID              int64
+	HostID          *string
+	Metric          string
+	Op              string
+	Threshold       float64
+	DurationSeconds int64
+	Severity        string
+	Enabled         int64
+	CreatedAt       time.Time
+}
+
 type AuditLog struct {
 	ID     int64
 	At     time.Time
@@ -65,6 +90,30 @@ type HabitLog struct {
 	Amount  float64
 	Source  string
 	Note    string
+}
+
+type HostMetrics1h struct {
+	HostID   string
+	At       time.Time
+	Cpu      float64
+	MemUsed  int64
+	MemTotal int64
+	DiskJson string
+	NetRx    float64
+	NetTx    float64
+	Load1    float64
+}
+
+type HostMetrics1m struct {
+	HostID   string
+	At       time.Time
+	Cpu      float64
+	MemUsed  int64
+	MemTotal int64
+	DiskJson string
+	NetRx    float64
+	NetTx    float64
+	Load1    float64
 }
 
 type Issue struct {
@@ -215,6 +264,18 @@ type Setting struct {
 	Value     string
 	Encrypted int64
 	UpdatedAt time.Time
+}
+
+type SshHost struct {
+	ID        int64
+	Name      string
+	Address   string
+	Port      int64
+	Username  string
+	Auth      string
+	Secret    string
+	HostKey   string
+	CreatedAt time.Time
 }
 
 type User struct {

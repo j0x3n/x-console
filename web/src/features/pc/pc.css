@@ -1,0 +1,43 @@
+/* M3 本机：剪贴板和快捷操作卡片。 */
+.pc-quick {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin-bottom: 16px;
+}
+.pc-clip {
+  min-height: 84px;
+}
+.pc-actions {
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.pc-power {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  margin-bottom: 12px;
+}
+.pc-power .xc-btn {
+  height: 36px;
+}
+.pc-open .xc-input {
+  flex: 1;
+  min-width: 0;
+}
+.pc-recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.pc-recent .xc-badge {
+  border: 0;
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pc-select {
+  width: auto;
+}

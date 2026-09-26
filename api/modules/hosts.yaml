@@ -1,0 +1,894 @@
+openapi: 3.0.3
+info:
+  title: X Console hosts API (M2 servers, M3 this PC)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /hosts:
+    get:
+      operationId: listHosts
+      tags: [hosts]
+      description: 所有机器（代理和 SSH 主机）及最新指标。
+      parameters:
+        - name: kind
+          in: query
+          schema: { $ref: "#/components/schemas/HostKind" }
+      responses:
+        "200":
+          description: 机器列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Host" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: getHost
+      tags: [hosts]
+      responses:
+        "200":
+          description: 详情：系统信息、最新指标、能力
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/metrics:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: getHostMetrics
+      tags: [hosts]
+      parameters:
+        - name: range
+          in: query
+          schema:
+            type: string
+            enum: ["1h", "24h", "7d"]
+            default: "1h"
+      responses:
+        "200":
+          description: 曲线数据。1h 是 10 秒粒度，24h 是 5 分钟，7d 是 1 小时
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MetricsSeries" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/processes:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: listProcesses
+      tags: [hosts]
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [cpu, mem, pid, name]
+            default: cpu
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 2000, default: 200 }
+      responses:
+        "200":
+          description: 进程列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProcessList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/processes/{pid}/kill:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - name: pid
+        in: path
+        required: true
+        schema: { type: integer, format: int32 }
+    post:
+      operationId: killProcess
+      tags: [hosts]
+      description: 结束进程。需要提升权限。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                signal:
+                  type: string
+                  description: TERM（默认）、KILL、INT、HUP、STOP、CONT。Windows 一律结束进程
+      responses:
+        "204":
+          description: 已发送
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/services:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: listServices
+      tags: [hosts]
+      responses:
+        "200":
+          description: systemd 服务或 Windows 服务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/services/{name}/{action}:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+      - name: action
+        in: path
+        required: true
+        schema: { $ref: "#/components/schemas/ServiceAction" }
+    post:
+      operationId: serviceAction
+      tags: [hosts]
+      description: 启动、停止、重启、开机启动、取消开机启动。stop 和 disable 需要提升权限。
+      responses:
+        "204":
+          description: 已执行
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/services/{name}/logs:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getServiceLogs
+      tags: [hosts]
+      parameters:
+        - name: lines
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5000, default: 200 }
+      responses:
+        "200":
+          description: 最近的日志
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceLogs" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/terminal:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: openTerminal
+      tags: [hosts]
+      description: |
+        WebSocket 终端。需要提升权限，在升级之前检查。
+        二进制帧是终端数据，文本帧是 JSON 控制消息 {"type":"resize","cols":120,"rows":32}。
+      parameters:
+        - name: cols
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000 }
+        - name: rows
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        "101":
+          description: 升级为 WebSocket
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/files:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: listFiles
+      tags: [hosts]
+      parameters:
+        - name: path
+          in: query
+          description: 绝对路径。空表示用户主目录；Windows 上 / 列出所有盘符
+          schema: { type: string }
+      responses:
+        "200":
+          description: 目录内容
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FileList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteFile
+      tags: [hosts]
+      description: 删除文件或目录。需要提升权限。
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+        - name: recursive
+          in: query
+          schema: { type: boolean }
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/files/mkdir:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    post:
+      operationId: makeDirectory
+      tags: [hosts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string }
+      responses:
+        "201":
+          description: 新目录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FileEntry" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/files/rename:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    post:
+      operationId: renameFile
+      tags: [hosts]
+      description: 移动或改名，目标不能已存在。需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, to]
+              properties:
+                from: { type: string }
+                to: { type: string }
+      responses:
+        "200":
+          description: 新位置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FileEntry" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/files/content:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - name: path
+        in: query
+        required: true
+        schema: { type: string }
+    get:
+      operationId: downloadFile
+      tags: [hosts]
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: uploadFile
+      tags: [hosts]
+      description: 上传并覆盖，最大 1 GB，必须带 Content-Length。需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: 上传后的文件
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FileEntry" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/exec:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    post:
+      operationId: execCommand
+      tags: [hosts]
+      description: 执行一条命令并等待结果。需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExecRequest" }
+      responses:
+        "200":
+          description: 执行结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExecResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/clipboard:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: getClipboard
+      tags: [hosts]
+      responses:
+        "200":
+          description: 电脑剪贴板里的文字
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Clipboard" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: setClipboard
+      tags: [hosts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Clipboard" }
+      responses:
+        "204":
+          description: 已写入
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/power:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    post:
+      operationId: powerAction
+      tags: [hosts]
+      description: 锁屏、睡眠、关机、重启。关机和重启需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { $ref: "#/components/schemas/PowerAction" }
+      responses:
+        "204":
+          description: 已执行
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/open:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    post:
+      operationId: openOnHost
+      tags: [hosts]
+      description: 在电脑上打开程序、文件或网址。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OpenRequest" }
+      responses:
+        "204":
+          description: 已打开
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ssh-hosts:
+    get:
+      operationId: listSshHosts
+      tags: [ssh]
+      responses:
+        "200":
+          description: 只登记了 SSH 的服务器
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SshHost" }
+    post:
+      operationId: createSshHost
+      tags: [ssh]
+      description: 登记 SSH 主机。密码或私钥加密保存。需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SshHostInput" }
+      responses:
+        "201":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SshHost" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ssh-hosts/test:
+    post:
+      operationId: testSshHost
+      tags: [ssh]
+      description: 不保存，只试着连一次。需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SshHostInput" }
+      responses:
+        "200":
+          description: 测试结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SshTestResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ssh-hosts/{sshId}:
+    parameters:
+      - name: sshId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: getSshHost
+      tags: [ssh]
+      responses:
+        "200":
+          description: SSH 主机
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SshHost" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: updateSshHost
+      tags: [ssh]
+      description: 修改。secret 留空表示不改。地址变了会清掉记住的主机指纹。需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SshHostInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SshHost" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteSshHost
+      tags: [ssh]
+      description: 需要提升权限。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ssh-hosts/{sshId}/test:
+    parameters:
+      - name: sshId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      operationId: testSavedSshHost
+      tags: [ssh]
+      description: 用保存的信息连一次。
+      responses:
+        "200":
+          description: 测试结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SshTestResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /alert-rules:
+    get:
+      operationId: listAlertRules
+      tags: [alerts]
+      responses:
+        "200":
+          description: 告警规则
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AlertRule" }
+    post:
+      operationId: createAlertRule
+      tags: [alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertRuleInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertRule" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /alert-rules/{ruleId}:
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    put:
+      operationId: updateAlertRule
+      tags: [alerts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertRuleInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertRule" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteAlertRule
+      tags: [alerts]
+      description: 删除规则，它正在报的告警会标为已恢复。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      parameters:
+        - name: since
+          in: query
+          description: 默认 7 天前
+          schema: { type: string, format: date-time }
+        - name: hostId
+          in: query
+          schema: { type: string }
+        - name: active
+          in: query
+          description: 只看还没恢复的
+          schema: { type: boolean }
+        - $ref: "../common.yaml#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 告警历史，新的在前
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/AlertEvent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    HostId:
+      name: hostId
+      in: path
+      required: true
+      description: 代理 id，SSH 主机是 ssh:<数字>
+      schema: { type: string }
+  schemas:
+    HostKind:
+      type: string
+      enum: [server, desktop]
+    HostSource:
+      type: string
+      enum: [agent, ssh]
+    DiskUsage:
+      type: object
+      required: [mount, fsType, used, total]
+      properties:
+        mount: { type: string }
+        fsType: { type: string }
+        used: { type: integer, format: int64 }
+        total: { type: integer, format: int64 }
+    MetricsSample:
+      type: object
+      required: [at, cpu, cpuPerCore, memUsed, memTotal, swapUsed, swapTotal, disks, netRx, netTx, diskRead, diskWrite, load1, load5, load15, uptimeSeconds, procs]
+      properties:
+        at: { type: string, format: date-time }
+        cpu: { type: number, format: double, description: 所有核心的 CPU 使用率（%） }
+        cpuPerCore:
+          type: array
+          items: { type: number, format: double }
+        memUsed: { type: integer, format: int64 }
+        memTotal: { type: integer, format: int64 }
+        swapUsed: { type: integer, format: int64 }
+        swapTotal: { type: integer, format: int64 }
+        disks:
+          type: array
+          items: { $ref: "#/components/schemas/DiskUsage" }
+        netRx: { type: number, format: double, description: 字节/秒 }
+        netTx: { type: number, format: double, description: 字节/秒 }
+        diskRead: { type: number, format: double, description: 字节/秒 }
+        diskWrite: { type: number, format: double, description: 字节/秒 }
+        load1: { type: number, format: double }
+        load5: { type: number, format: double }
+        load15: { type: number, format: double }
+        uptimeSeconds: { type: integer, format: int64 }
+        procs: { type: integer }
+    Host:
+      type: object
+      required: [id, name, kind, source, online, os, arch, hostname, version, capabilities, activeAlerts]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/HostKind" }
+        source: { $ref: "#/components/schemas/HostSource" }
+        online: { type: boolean }
+        os: { type: string }
+        arch: { type: string }
+        hostname: { type: string }
+        version: { type: string }
+        capabilities:
+          type: array
+          items: { type: string }
+        lastSeenAt: { type: string, format: date-time }
+        metrics: { $ref: "#/components/schemas/MetricsSample" }
+        cpu: { type: number, format: double, description: 最新 CPU 使用率（%） }
+        memory: { type: number, format: double, description: 最新内存使用率（%） }
+        disk: { type: number, format: double, description: 最满的磁盘使用率（%） }
+        activeAlerts: { type: integer }
+    SystemInfo:
+      type: object
+      required: [hostname, os, platform, platformVersion, kernelVersion, arch, cpuModel, cpuCores, memoryTotal, uptimeSeconds]
+      properties:
+        hostname: { type: string }
+        os: { type: string }
+        platform: { type: string }
+        platformVersion: { type: string }
+        kernelVersion: { type: string }
+        arch: { type: string }
+        cpuModel: { type: string }
+        cpuCores: { type: integer }
+        memoryTotal: { type: integer, format: int64 }
+        uptimeSeconds: { type: integer, format: int64 }
+    HostDetail:
+      allOf:
+        - $ref: "#/components/schemas/Host"
+        - type: object
+          properties:
+            systemInfo: { $ref: "#/components/schemas/SystemInfo" }
+            address:
+              type: string
+              description: SSH 主机的地址
+    MetricsPoint:
+      type: object
+      required: [at, cpu, memory, memUsed, memTotal, disk, netRx, netTx, load1]
+      properties:
+        at: { type: string, format: date-time }
+        cpu: { type: number, format: double }
+        memory: { type: number, format: double, description: 内存使用率（%） }
+        memUsed: { type: integer, format: int64 }
+        memTotal: { type: integer, format: int64 }
+        disk: { type: number, format: double, description: 最满的磁盘使用率（%） }
+        netRx: { type: number, format: double }
+        netTx: { type: number, format: double }
+        load1: { type: number, format: double }
+    MetricsSeries:
+      type: object
+      required: [range, stepSeconds, points]
+      properties:
+        range: { type: string }
+        stepSeconds: { type: integer }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/MetricsPoint" }
+    Process:
+      type: object
+      required: [pid, ppid, name, user, cpu, memRss, memPercent, cmdline, startedAt, status]
+      properties:
+        pid: { type: integer, format: int32 }
+        ppid: { type: integer, format: int32 }
+        name: { type: string }
+        user: { type: string }
+        cpu: { type: number, format: double, description: 单核百分比 }
+        memRss: { type: integer, format: int64 }
+        memPercent: { type: number, format: double }
+        cmdline: { type: string }
+        startedAt: { type: string, format: date-time }
+        status: { type: string }
+    ProcessList:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Process" }
+        total: { type: integer }
+    ServiceAction:
+      type: string
+      enum: [start, stop, restart, enable, disable]
+    Service:
+      type: object
+      required: [name, description, state, subState, enabled, startType]
+      properties:
+        name: { type: string }
+        description: { type: string }
+        state:
+          type: string
+          description: running、stopped、failed、starting、stopping、other
+        subState: { type: string }
+        enabled: { type: boolean }
+        startType: { type: string }
+    ServiceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Service" }
+    ServiceLogs:
+      type: object
+      required: [lines]
+      properties:
+        lines:
+          type: array
+          items: { type: string }
+    FileEntry:
+      type: object
+      required: [name, path, type, size, modTime, mode]
+      properties:
+        name: { type: string }
+        path: { type: string }
+        type:
+          type: string
+          description: file、dir、symlink、symlink_dir、other
+        size: { type: integer, format: int64 }
+        modTime: { type: string, format: date-time }
+        mode: { type: string }
+    FileList:
+      type: object
+      required: [path, parent, sep, entries]
+      properties:
+        path: { type: string }
+        parent: { type: string, description: 上一级目录，已经在最上层时为空 }
+        sep: { type: string }
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/FileEntry" }
+    ExecRequest:
+      type: object
+      required: [command]
+      properties:
+        command: { type: string }
+        timeoutSeconds: { type: integer, minimum: 1, maximum: 1800, default: 60 }
+        cwd: { type: string }
+    ExecResult:
+      type: object
+      required: [exitCode, stdout, stderr, timedOut, truncated, durationMs]
+      properties:
+        exitCode: { type: integer }
+        stdout: { type: string }
+        stderr: { type: string }
+        timedOut: { type: boolean }
+        truncated: { type: boolean, description: 输出超过 1 MB 被截断 }
+        durationMs: { type: integer, format: int64 }
+    Clipboard:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+    PowerAction:
+      type: string
+      enum: [lock, sleep, shutdown, restart]
+    OpenRequest:
+      type: object
+      required: [target]
+      properties:
+        target: { type: string, description: 程序路径、文件或网址 }
+        args: { type: string }
+    SshAuth:
+      type: string
+      enum: [password, key]
+    SshHost:
+      type: object
+      required: [id, hostId, name, address, port, username, auth, hostKeyFingerprint, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        hostId: { type: string, description: 在 /hosts 接口里的 id，形如 ssh:3 }
+        name: { type: string }
+        address: { type: string }
+        port: { type: integer }
+        username: { type: string }
+        auth: { $ref: "#/components/schemas/SshAuth" }
+        hostKeyFingerprint: { type: string, description: 第一次连接时记下的主机指纹，还没连过为空 }
+        createdAt: { type: string, format: date-time }
+    SshHostInput:
+      type: object
+      required: [name, address, username, auth]
+      properties:
+        name: { type: string }
+        address: { type: string }
+        port: { type: integer, default: 22 }
+        username: { type: string }
+        auth: { $ref: "#/components/schemas/SshAuth" }
+        secret:
+          type: string
+          description: 密码，或 PEM 格式的私钥。修改时留空表示不改
+        passphrase:
+          type: string
+          description: 私钥的密码（可选）
+    SshTestResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        message: { type: string }
+        fingerprint: { type: string }
+    AlertMetric:
+      type: string
+      enum: [cpu, memory, disk, offline]
+    AlertOp:
+      type: string
+      enum: [gt, lt]
+    AlertSeverity:
+      type: string
+      enum: [warning, critical]
+    AlertRule:
+      type: object
+      required: [id, metric, op, threshold, durationSeconds, severity, enabled, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        hostId: { type: string, description: 空表示所有机器 }
+        metric: { $ref: "#/components/schemas/AlertMetric" }
+        op: { $ref: "#/components/schemas/AlertOp" }
+        threshold: { type: number, format: double, description: 百分比；offline 规则不用 }
+        durationSeconds: { type: integer, description: 持续多久才报警；offline 规则是离线多久 }
+        severity: { $ref: "#/components/schemas/AlertSeverity" }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    AlertRuleInput:
+      type: object
+      required: [metric]
+      properties:
+        hostId: { type: string }
+        metric: { $ref: "#/components/schemas/AlertMetric" }
+        op: { $ref: "#/components/schemas/AlertOp" }
+        threshold: { type: number, format: double }
+        durationSeconds: { type: integer, minimum: 0 }
+        severity: { $ref: "#/components/schemas/AlertSeverity" }
+        enabled: { type: boolean }
+    AlertEvent:
+      type: object
+      required: [id, hostId, hostName, metric, severity, value, message, firedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        ruleId: { type: integer, format: int64 }
+        hostId: { type: string }
+        hostName: { type: string }
+        metric: { $ref: "#/components/schemas/AlertMetric" }
+        severity: { $ref: "#/components/schemas/AlertSeverity" }
+        value: { type: number, format: double }
+        message: { type: string }
+        firedAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time }
