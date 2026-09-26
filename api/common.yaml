@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: X Console common schemas
+  version: 0.1.0
+paths: {}
+components:
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: 机器可读的错误码，例如 not_found、validation_failed、elevation_required
+        message:
+          type: string
+          description: 给人看的错误说明
+        details:
+          type: object
+          additionalProperties: true
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+  responses:
+    Error:
+      description: 错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

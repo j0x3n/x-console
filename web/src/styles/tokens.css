@@ -1,0 +1,60 @@
+/*
+ * 样式令牌。新模块只用这些变量取色，不要再写死颜色，
+ * 这样深色和浅色主题都能自动适配。
+ */
+:root,
+html[data-theme="dark"] {
+  --xc-bg: #0a0a0b;
+  --xc-panel: #111113;
+  --xc-surface: #17171a;
+  --xc-surface-2: #1d1d21;
+  --xc-elevated: #202024;
+  --xc-border: #26262b;
+  --xc-border-strong: #37373d;
+  --xc-text: #ededf0;
+  --xc-text-2: #b4b4bc;
+  --xc-muted: #85858e;
+  --xc-faint: #5c5c64;
+  --xc-accent: #cc7752;
+  --xc-accent-soft: #cc775226;
+  --xc-accent-text: #f1a07c;
+  --xc-ok: #5cc98b;
+  --xc-ok-soft: #5cc98b22;
+  --xc-warn: #e8b454;
+  --xc-warn-soft: #e8b45422;
+  --xc-danger: #ef6b6b;
+  --xc-danger-soft: #ef6b6b22;
+  --xc-info: #70b5f7;
+  --xc-info-soft: #70b5f722;
+  --xc-radius: 8px;
+  --xc-radius-lg: 12px;
+  --xc-shadow: 0 18px 50px #000a;
+  --xc-mono:
+    ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+html[data-theme="light"] {
+  --xc-bg: #f3f3f4;
+  --xc-panel: #fafafa;
+  --xc-surface: #ffffff;
+  --xc-surface-2: #f4f4f5;
+  --xc-elevated: #ffffff;
+  --xc-border: #e6e6e9;
+  --xc-border-strong: #d4d4d8;
+  --xc-text: #171719;
+  --xc-text-2: #45454b;
+  --xc-muted: #6e6e76;
+  --xc-faint: #a1a1a8;
+  --xc-accent: #c2653d;
+  --xc-accent-soft: #c2653d1c;
+  --xc-accent-text: #a8522d;
+  --xc-ok: #1f9d5b;
+  --xc-ok-soft: #1f9d5b18;
+  --xc-warn: #b7791f;
+  --xc-warn-soft: #b7791f18;
+  --xc-danger: #d23f3f;
+  --xc-danger-soft: #d23f3f14;
+  --xc-info: #2f7fd1;
+  --xc-info-soft: #2f7fd116;
+  --xc-shadow: 0 18px 50px #17171a1f;
+}

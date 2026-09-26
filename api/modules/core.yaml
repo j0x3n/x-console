@@ -1,0 +1,378 @@
+openapi: 3.0.3
+info:
+  title: X Console core API (M0)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      tags: [core]
+      security: []
+      responses:
+        "200":
+          description: 服务状态
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string }
+                  version: { type: string }
+  /auth/status:
+    get:
+      operationId: getAuthStatus
+      tags: [auth]
+      security: []
+      responses:
+        "200":
+          description: 当前登录状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthStatus"
+  /auth/setup:
+    post:
+      operationId: setupAccount
+      tags: [auth]
+      security: []
+      description: 仅在还没有用户时可用。创建用户并返回 TOTP 密钥，需再调用 /auth/setup/confirm 完成。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: 返回 TOTP 密钥
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpEnrollment"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /auth/setup/confirm:
+    post:
+      operationId: confirmSetup
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpCode"
+      responses:
+        "204":
+          description: 启用两步验证并登录
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "204":
+          description: 登录成功，设置会话 Cookie
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      responses:
+        "204":
+          description: 已退出
+  /auth/elevate:
+    post:
+      operationId: elevate
+      tags: [auth]
+      description: 用 TOTP 再验证一次，之后 5 分钟内可以执行高危操作。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpCode"
+      responses:
+        "200":
+          description: 已提升权限
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [elevatedUntil]
+                properties:
+                  elevatedUntil: { type: string, format: date-time }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /audit:
+    get:
+      operationId: listAudit
+      tags: [audit]
+      parameters:
+        - $ref: "../common.yaml#/components/parameters/Limit"
+        - $ref: "../common.yaml#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: 审计日志，按时间倒序
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuditEntry" }
+                  nextCursor: { type: string }
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      responses:
+        "200":
+          description: 已配对的代理
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Agent" }
+  /agents/pairing-codes:
+    post:
+      operationId: createPairingCode
+      tags: [agents]
+      description: 生成一次性配对码，10 分钟内有效。需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, kind]
+              properties:
+                name: { type: string }
+                kind: { $ref: "#/components/schemas/AgentKind" }
+      responses:
+        "200":
+          description: 配对码
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, expiresAt]
+                properties:
+                  code: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agents/{agentId}:
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      operationId: revokeAgent
+      tags: [agents]
+      description: 吊销代理令牌并断开连接。需要提升权限。
+      responses:
+        "204":
+          description: 已吊销
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agent/pair:
+    post:
+      operationId: pairAgent
+      tags: [agents]
+      security: []
+      description: 代理程序用配对码换取长期令牌。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PairRequest"
+      responses:
+        "200":
+          description: 配对成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agentId, token]
+                properties:
+                  agentId: { type: string }
+                  token: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      parameters:
+        - name: unread
+          in: query
+          schema: { type: boolean }
+        - $ref: "../common.yaml#/components/parameters/Limit"
+        - $ref: "../common.yaml#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: 站内通知，按时间倒序
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, unreadCount]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
+                  nextCursor: { type: string }
+                  unreadCount: { type: integer }
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      responses:
+        "204":
+          description: 全部标为已读
+  /notifications/{notificationId}/read:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      responses:
+        "204":
+          description: 已读
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notifications/{notificationId}:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      operationId: deleteNotification
+      tags: [notifications]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    AuthStatus:
+      type: object
+      required: [setupRequired, authenticated]
+      properties:
+        setupRequired:
+          type: boolean
+          description: 还没有用户，需要先走初始化
+        authenticated: { type: boolean }
+        username: { type: string }
+        elevatedUntil: { type: string, format: date-time }
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1 }
+        password: { type: string, minLength: 10 }
+    TotpEnrollment:
+      type: object
+      required: [secret, otpauthUrl]
+      properties:
+        secret: { type: string }
+        otpauthUrl: { type: string }
+    TotpCode:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: "^[0-9]{6}$" }
+    LoginRequest:
+      type: object
+      required: [username, password, code]
+      properties:
+        username: { type: string }
+        password: { type: string }
+        code: { type: string }
+    AuditEntry:
+      type: object
+      required: [id, at, actor, action, target, result]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        action: { type: string }
+        target: { type: string }
+        result: { type: string }
+        detail:
+          type: object
+          additionalProperties: true
+    AgentKind:
+      type: string
+      enum: [server, desktop]
+    Agent:
+      type: object
+      required: [id, name, kind, os, arch, hostname, version, online, capabilities, createdAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/AgentKind" }
+        os: { type: string }
+        arch: { type: string }
+        hostname: { type: string }
+        version: { type: string }
+        online: { type: boolean }
+        capabilities:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time }
+    PairRequest:
+      type: object
+      required: [code, hostname, os, arch, version]
+      properties:
+        code: { type: string }
+        hostname: { type: string }
+        os: { type: string }
+        arch: { type: string }
+        version: { type: string }
+        capabilities:
+          type: array
+          items: { type: string }
+    NotificationPriority:
+      type: string
+      enum: [low, normal, high, urgent]
+    Notification:
+      type: object
+      required: [id, createdAt, kind, title, priority, source]
+      properties:
+        id: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+        kind:
+          type: string
+          description: 事件类型，例如 reminder.due、server.alert、coding.done
+        title: { type: string }
+        body: { type: string }
+        link:
+          type: string
+          description: 前端内部路径，例如 /servers/abc
+        priority: { $ref: "#/components/schemas/NotificationPriority" }
+        source: { type: string, description: 产生通知的模块，例如 reminders }
+        readAt: { type: string, format: date-time }

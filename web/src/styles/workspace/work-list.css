@@ -1,0 +1,221 @@
+.ws-work-list-table {
+  min-width: 1080px;
+}
+.ws-work-list-table th:nth-child(1) {
+  width: 29%;
+}
+.ws-work-list-table th:nth-child(2) {
+  width: 16%;
+}
+.ws-work-list-table th:nth-child(3) {
+  width: 17%;
+}
+.ws-work-list-table th:nth-child(4) {
+  width: 24%;
+}
+.ws-work-list-table th:nth-child(n + 5),
+.ws-work-list-table td:nth-child(n + 5) {
+  text-align: right;
+}
+.ws-work-list-table .ws-group-row td,
+.ws-deal-table .ws-group-row td {
+  height: 32px;
+  padding: 0 12px;
+  background: var(--ws-raised);
+  color: var(--ws-text);
+}
+.ws-work-list-table .ws-lane-dot {
+  display: inline-block;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+.ws-group-row td > b {
+  margin: 0 7px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ws-group-row td > span:not(.ws-lane-dot) {
+  color: var(--ws-faint);
+}
+.ws-group-row td > small {
+  margin-left: 8px;
+  color: var(--ws-faint);
+  font-size: 10px;
+}
+.ws-group-row td > strong {
+  float: right;
+  color: var(--ws-text);
+  font-size: 11px;
+}
+.ws-list-task,
+.ws-list-record,
+.ws-list-assignee,
+.ws-deal-table-name,
+.ws-deal-table-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.ws-list-task .ws-lane-dot {
+  flex: none;
+  margin-right: 7px;
+}
+.ws-list-task small {
+  color: var(--ws-muted);
+  font-size: 11px;
+}
+.ws-list-record {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ws-muted) !important;
+  font-size: 11px;
+}
+.ws-list-record:hover {
+  color: var(--ws-text) !important;
+  text-decoration: underline;
+}
+.ws-list-record .ws-company,
+.ws-list-assignee .ws-agent {
+  margin-right: 0 !important;
+}
+.ws-list-action {
+  min-height: 24px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: #202023;
+  color: #fff !important;
+  font-size: 11px;
+}
+.ws-list-action:hover {
+  background: #37373b;
+}
+.ws-list-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+}
+.ws-list-progress-track {
+  display: inline-block;
+  width: 62px;
+  height: 5px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--ws-border);
+}
+.ws-list-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #4caa9b;
+}
+.ws-deal-table {
+  min-width: 1100px;
+}
+.ws-deal-table th:first-child {
+  width: 32%;
+}
+.ws-deal-table th:last-child {
+  width: 28%;
+}
+.ws-deal-table .ws-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ws-deal-table .ws-health b {
+  color: var(--ws-muted);
+  font-weight: 400;
+}
+.ws-deal-table-name span,
+.ws-deal-table-signal {
+  color: var(--ws-muted);
+}
+.ws-deal-stage-chip {
+  display: inline-block;
+  padding: 2px 5px;
+  border: 1px solid var(--ws-border);
+  border-radius: 4px;
+  background: var(--ws-raised);
+}
+.ws-deal-stage-hint {
+  margin-left: 4px;
+  color: #7a9d5d;
+}
+.ws-deal-forecast::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 1px;
+  background: #bfc0c4;
+}
+.ws-deal-forecast.ws-forecast-label-commit::before {
+  background: #4caa9b;
+}
+.ws-deal-forecast.ws-forecast-label-best-case::before {
+  background: repeating-linear-gradient(120deg, #4caa9b 0 2px, #d0e7e1 2px 4px);
+}
+.ws-deal-table-signal .ws-agent {
+  margin-right: 0 !important;
+}
+.ws-deal-table-signal {
+  width: 100%;
+}
+.ws-signal-pending {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  margin-left: auto;
+  border: 1.5px solid var(--ws-text);
+  border-radius: 50%;
+}
+@media (max-width: 1150px) {
+  .ws-deals-page .ws-heading {
+    flex-wrap: wrap;
+  }
+  .ws-deals-pulse {
+    width: min(100%, 445px);
+  }
+}
+@media (max-width: 760px) {
+  .ws-deals-aside {
+    display: flex;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .ws-forecast-track,
+  .ws-forecast-scale {
+    margin-left: 0;
+  }
+  .ws-list-group-control {
+    position: static;
+    justify-content: flex-end;
+    width: 100%;
+    margin-bottom: 7px;
+  }
+}
+.ws-forecast-filters {
+  gap: 6px;
+}
+.ws-forecast-filters button {
+  min-height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--ws-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ws-muted);
+  font-size: 11px;
+}
+.ws-forecast-filters button.active,
+.ws-forecast-filters button:hover {
+  background: var(--ws-raised);
+  color: var(--ws-text);
+}
+.ws-forecast-filters span {
+  color: var(--ws-faint);
+}

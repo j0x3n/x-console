@@ -1,0 +1,442 @@
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes popover-out {
+  to {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.985);
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(9px) scale(0.985);
+  }
+}
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.985);
+  }
+}
+@keyframes decision-exit {
+  0% {
+    opacity: 1;
+    height: 164px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    transform: translateY(0) scale(1);
+  }
+  65% {
+    opacity: 0.28;
+    transform: translateY(-6px) scale(0.99);
+  }
+  100% {
+    opacity: 0;
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+}
+@keyframes workspace-decision-exit {
+  from {
+    opacity: 1;
+    max-height: 420px;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+}
+
+.decision-card.is-exiting {
+  overflow: hidden;
+  pointer-events: none;
+  animation: decision-exit 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.decision-card.menu-open {
+  position: relative;
+  z-index: 15;
+}
+.ws-work-card.is-exiting,
+.ws-account-decision.is-exiting {
+  overflow: hidden;
+  pointer-events: none;
+  animation: workspace-decision-exit 0.26s ease-in forwards;
+}
+.ws-table tr.is-exiting {
+  pointer-events: none;
+  animation: popover-out 0.26s ease-in forwards;
+}
+.decision-reassign {
+  position: relative;
+}
+.decision-reassign > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.reassign-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 7px);
+  left: 0;
+  width: 230px;
+  padding: 7px;
+  border: 1px solid #37373d;
+  border-radius: 10px;
+  background: #202024;
+  box-shadow: 0 16px 40px #0007;
+  animation: popover-in 0.16s ease-out both;
+}
+.reassign-menu-title {
+  padding: 5px 8px 7px;
+  color: #909099;
+  font-size: 11px;
+}
+.reassign-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #e7e7e9;
+  text-align: left;
+  cursor: pointer;
+}
+.reassign-menu button:hover {
+  background: #303036;
+}
+.reassign-menu button span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reassign-menu button b {
+  font-size: 12px;
+  font-weight: 500;
+}
+.reassign-menu button small {
+  color: #909099;
+  font-size: 10px;
+}
+.teammate-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #334352;
+  color: #9fd4e7;
+  font-size: 9px;
+  font-weight: 700;
+}
+.reassign-menu button:nth-of-type(2) .teammate-avatar {
+  background: #3a3151;
+  color: #c9b4ee;
+}
+.reassign-menu button:nth-of-type(3) .teammate-avatar {
+  background: #4a3043;
+  color: #e8afcc;
+}
+.reassign-menu button:nth-of-type(4) .teammate-avatar {
+  background: #304b3a;
+  color: #a7d6b5;
+}
+
+.profile-popover {
+  border-radius: 11px;
+  animation: popover-in 0.18s ease-out both;
+  transform-origin: bottom left;
+}
+.profile-popover.is-closing,
+.notifications-popover.is-closing {
+  pointer-events: none;
+  animation: popover-out 0.17s ease-in both;
+}
+.profile-email {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 13px;
+}
+.profile-language-button {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #a1a1a8;
+  font-size: 10px;
+  cursor: pointer;
+}
+.profile-language-button:hover {
+  color: #e9e9ed;
+}
+.profile-menu-section {
+  padding: 6px;
+}
+.profile-menu-label {
+  padding: 5px 7px 4px;
+}
+.profile-menu-item {
+  height: 31px;
+}
+.profile-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.notifications-popover {
+  right: -15px;
+  top: 34px;
+  width: 360px;
+  border-radius: 12px;
+  animation: popover-in 0.18s ease-out both;
+  transform-origin: top right;
+}
+.popover-head {
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 0;
+}
+.popover-head b {
+  font-size: 12px;
+  font-weight: 600;
+}
+.popover-head span {
+  color: #888890;
+  font-size: 11px;
+}
+.notification-list {
+  padding: 2px 7px 8px;
+}
+.notification-entry {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 44px;
+  padding: 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #d9d9de;
+  text-align: left;
+  cursor: pointer;
+}
+.notification-entry:hover {
+  background: #2d2d32;
+}
+.notification-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.notification-entry time {
+  flex: none;
+  color: #888890;
+  font-size: 10px;
+  padding-top: 2px;
+}
+.notification-entry > i {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #ec7b4b;
+}
+
+.modal-backdrop {
+  align-items: center;
+  padding: 20px;
+  backdrop-filter: none;
+  animation: overlay-in 0.18s ease-out both;
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.modal-backdrop.is-closing {
+  pointer-events: none;
+  animation: overlay-out 0.17s ease-in both;
+}
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+.modal-backdrop.is-closing .command-dialog,
+.modal-backdrop.is-closing .form-dialog {
+  animation: dialog-out 0.17s ease-in both;
+}
+.command-dialog,
+.form-dialog {
+  animation: dialog-enter 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.toast {
+  right: 16px;
+  bottom: 16px;
+  width: min(400px, calc(100vw - 32px));
+  min-height: 60px;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #e9e9ed;
+  background: #212125;
+  border-color: #3a3a40;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px #0007;
+  animation: toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.toast.is-closing {
+  pointer-events: none;
+  animation: toast-out 0.17s ease-in both;
+}
+.toast-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.toast-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+.toast-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #95959e;
+  font-size: 10px;
+}
+.toast .toast-undo {
+  flex: none;
+  margin: 0 0 0 auto;
+  color: #e8e8eb;
+  font-size: 11px;
+  font-weight: 500;
+}
+.toast .toast-close {
+  flex: none;
+  margin: 0;
+  padding: 3px;
+  color: #96969f;
+}
+.toast .toast-undo:hover,
+.toast .toast-close:hover {
+  background: #34343a;
+}
+.toast .toast-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #28463b;
+  color: #7fd0a6;
+}
+
+.decision-outcome-status {
+  flex: none;
+  color: #93939a;
+  font-size: 10px;
+}
+html[data-theme="light"] .reassign-menu,
+html[data-theme="light"] .toast {
+  color: #242428;
+  background: #fff;
+  border-color: #e4e4e8;
+  box-shadow: 0 14px 36px #1112;
+}
+html[data-theme="light"] .reassign-menu button {
+  color: #242428;
+}
+html[data-theme="light"] .profile-language-button {
+  color: #85858b;
+}
+html[data-theme="light"] .profile-language-button:hover {
+  color: #242428;
+}
+html[data-theme="light"] .reassign-menu button:hover,
+html[data-theme="light"] .notification-entry:hover {
+  background: #f3f3f4;
+}
+html[data-theme="light"] .notification-entry {
+  color: #4b4b51;
+}
+html[data-theme="light"] .notification-entry time,
+html[data-theme="light"] .popover-head span {
+  color: #929298;
+}
+html[data-theme="light"] .toast-copy small {
+  color: #8b8b92;
+}
+html[data-theme="light"] .toast .toast-undo {
+  color: #303036;
+}
+html[data-theme="light"] .toast .toast-close {
+  color: #929298;
+}
+html[data-theme="light"] .toast .toast-undo:hover,
+html[data-theme="light"] .toast .toast-close:hover {
+  background: #f0f0f2;
+}
+
+@media (max-width: 430px) {
+  .notifications-popover {
+    right: -45px;
+    width: min(360px, calc(100vw - 28px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .decision-card.is-exiting,
+  .profile-popover,
+  .notifications-popover,
+  .reassign-menu,
+  .modal-backdrop,
+  .command-dialog,
+  .form-dialog,
+  .toast {
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,12 @@
+# sqlc 配置。每个模块在 sql 下加一项，schema 统一指向迁移目录。
+# 生成：在 backend/ 下运行 go generate ./...（或 sqlc generate）
+version: "2"
+sql:
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/core/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/core/db
+        emit_pointers_for_null_types: true

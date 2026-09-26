@@ -1,3 +1,10 @@
 node_modules/
 dist/
 .vite/
+# 本地运行数据和编译产物
+data/
+backend/bin/
+*.db
+*.db-wal
+*.db-shm
+.env

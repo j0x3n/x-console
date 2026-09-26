@@ -1,0 +1,26 @@
+import { registerZh } from "../../lib/i18n";
+
+registerZh({
+  General: "通用",
+  "Devices & agents": "设备与代理",
+  "Audit log": "审计日志",
+  Appearance: "外观",
+  "Pair a new device": "配对新设备",
+  "Pairing code": "配对码",
+  "Device name": "设备名称",
+  "Device type": "设备类型",
+  "Linux server": "Linux 服务器",
+  "Windows PC": "Windows 电脑",
+  "Generate code": "生成配对码",
+  Revoke: "吊销",
+  "No devices paired yet": "还没有配对的设备",
+  "Last seen": "最后在线",
+  Capabilities: "能力",
+  Version: "版本",
+  Time: "时间",
+  Actor: "操作者",
+  Action: "操作",
+  Target: "对象",
+  Result: "结果",
+  "Load more": "加载更多",
+});
