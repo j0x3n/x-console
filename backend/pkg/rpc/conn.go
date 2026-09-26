@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -21,8 +22,21 @@ func (w *wsConn) Read(ctx context.Context) (protocol.Envelope, error) {
 	return env, err
 }
 
+// writeTimeout bounds one frame write. A write that takes longer means the
+// connection is stuck, and closing it is the right outcome.
+const writeTimeout = 30 * time.Second
+
+// Write sends one frame. coder/websocket closes the whole connection when the
+// context of an in-flight write is canceled, so a canceled request or a
+// finished stream must never cancel the write itself: we check ctx first and
+// then write with a context that only carries the timeout.
 func (w *wsConn) Write(ctx context.Context, env protocol.Envelope) error {
-	return wsjson.Write(ctx, w.c, env)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	wctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), writeTimeout)
+	defer cancel()
+	return wsjson.Write(wctx, w.c, env)
 }
 
 func (w *wsConn) Close() error { return w.c.Close(websocket.StatusNormalClosure, "") }
