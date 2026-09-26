@@ -1,0 +1,31 @@
+# 用法：
+#   cp .env.example .env   然后填好 XC_MASTER_KEY 和域名
+#   docker compose up -d --build
+services:
+  x-console:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - XC_DOMAIN=${XC_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - x-console
+
+volumes:
+  caddy-data:

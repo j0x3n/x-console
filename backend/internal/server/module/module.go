@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/agenthub"
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
@@ -39,6 +40,9 @@ type Deps struct {
 	Notify    *notify.Service
 	Agents    *agenthub.Hub
 	Scheduler *scheduler.Scheduler
+	// Actions is the catalog used by the AI assistant and automations (M12).
+	// Register every operation that makes sense to trigger by name.
+	Actions *actions.Registry
 	// Registry lets modules find each other's public services (for example
 	// the automation engine calls actions offered by other modules).
 	Registry *Registry

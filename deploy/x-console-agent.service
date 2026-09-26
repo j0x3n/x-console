@@ -1,0 +1,16 @@
+# Linux 服务器上的代理。放到 /etc/systemd/system/ 后：
+#   systemctl daemon-reload && systemctl enable --now x-console-agent
+[Unit]
+Description=X Console agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/x-console-agent run --config /etc/x-console-agent/config.json
+Restart=always
+RestartSec=5
+# 代理需要管理 systemd 服务、读所有进程、开终端，所以以 root 运行。
+User=root
+
+[Install]
+WantedBy=multi-user.target

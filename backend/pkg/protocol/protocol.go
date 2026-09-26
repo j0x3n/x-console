@@ -88,7 +88,7 @@ const (
 	CapSystemInfo = "system.info"
 	CapMetrics    = "metrics"
 	CapProcesses  = "processes"
-	CapServices   = "services"  // systemd on Linux, SCM on Windows
+	CapServices   = "services" // systemd on Linux, SCM on Windows
 	CapDocker     = "docker"
 	CapPTY        = "pty"
 	CapFiles      = "files"

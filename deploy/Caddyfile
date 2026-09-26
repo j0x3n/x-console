@@ -1,0 +1,4 @@
+{$XC_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy x-console:8080
+}

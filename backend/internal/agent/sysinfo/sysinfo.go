@@ -11,7 +11,6 @@ import (
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
 
-
 // Info collects basic facts. The metrics package (M2/M3) replaces the fields
 // that need gopsutil.
 var Info = func() protocol.SystemInfo {

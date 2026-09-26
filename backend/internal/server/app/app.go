@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/agenthub"
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
@@ -67,6 +68,7 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 		Notify:    notify.New(conn, bus),
 		Agents:    agenthub.New(conn, bus, auditLog),
 		Scheduler: scheduler.New(cfg.Location),
+		Actions:   actions.NewRegistry(),
 		Registry:  module.NewRegistry(),
 	}
 	a := &App{Deps: d}

@@ -37,12 +37,12 @@ type Action struct {
 
 // Notification is what modules send.
 type Notification struct {
-	Kind     string         // event type, for example "reminder.due"
+	Kind     string // event type, for example "reminder.due"
 	Title    string
 	Body     string
-	Link     string         // in-app path, for example "/reminders"
-	Priority string         // defaults to normal
-	Source   string         // module name
+	Link     string // in-app path, for example "/reminders"
+	Priority string // defaults to normal
+	Source   string // module name
 	Actions  []Action
 	Data     map[string]any
 }

@@ -1,182 +1,25 @@
-# X Console 项目交接
+# X Console 交接
 
-更新时间：2026-09-27（Asia/Shanghai）
+更新时间：2026-09-27
 
-## 1. 用户目标与最新决定
+## 现状
 
-用户已确定产品名为 **X Console**。
+- 产品方向、技术选型、模块划分已和用户确认，见 `docs/01-product.md`。
+- 批次 0 已完成：Go 后端基础（登录、TOTP、会话、审计、加密设置、事件、调度、通知、代理配对与协议）、前端外壳（登录、导航、命令面板、通知、设置页）、全部开发文档。
+- 旧的 CRM 原型页面已删除。旧代码可以用 `git show 3215f0f:<路径>` 查看，比如看板组件 `src/features/work/components/WorkBoard.tsx`。
 
-目标是个人使用的多功能面板，逐步支持：
+## 下一步
 
-- 服务器管理：查看状态、连接服务器、执行操作和管理服务。
-- 本机管理：查看本机状态、管理进程/服务、执行本机操作。
-- 本机项目编码任务：关联本地仓库，发起、查看和管理编码任务。
-- 项目进度：看板和类似 Linear 的列表视图。
-- 个人备忘记录。
-- 通知、提醒和任务结果反馈。
-- 后续对接 Home Assistant 等个人服务。
+按 `docs/roadmap.md` 的批次推进。每个任务卡由一个子代理在独立 worktree 里开发，完成后合并到 `claude/focused-wozniak-i2fda9`。
 
-这些是产品方向，具体功能范围、技术接口和实施顺序尚未最终确定。“Linear 列表”目前可理解为类似 Linear 的交互；是否连接真实 Linear 账号尚未确认。
+## 恢复开发时
 
-用户因额度不足要求先写交接文档。当前应保存上下文，后续恢复开发时从本文继续。
+1. 读 `docs/README.md` 和 `docs/roadmap.md`，看哪个批次在进行。
+2. `cd backend && go test ./...`，`cd web && npm ci && npm test && npm run build`，确认基线是好的。
+3. 继续下一个任务卡。
 
-## 2. 项目位置与 Git
+## 用户的环境
 
-- 工作目录：`C:\Users\xcc19\Documents\ChatGPT\个人中心`
-- 分支：`main`
-- 初始代码提交：`e320650`（`feat: migrate xcc dashboard to TypeScript and Zustand`）。
-- 初始提交包含组件拆分、TypeScript 迁移和 Zustand 改造后的完整项目。
-- GitHub 远端：`https://github.com/j0x3n/x-console.git`，使用 `main` 分支。
-
-## 3. 已完成工作
-
-### 组件拆分
-
-原工作台已按业务功能拆分，布局、弹窗、展示组件、数据、工具、状态和样式分开维护。保留了原界面与交互。
-
-### TypeScript
-
-- 应用源码已全部迁移为 `.ts/.tsx`。
-- `tsconfig.json` 开启 `strict`。
-- 补充组件 props、业务实体、状态更新、回调和 DOM 事件类型。
-- 共用业务类型放在 `src/types/domain.ts`。
-- `npm run build` 会先执行类型检查。
-
-### Zustand
-
-| 文件 | 职责 |
-| --- | --- |
-| `src/stores/workspace-store.ts` | 决策、审批结果、撤销历史、动态、委派任务、任务状态、已雇佣助手 |
-| `src/stores/overlay-store.ts` | 搜索、通知、委派、移动导航、草稿和弹窗状态 |
-| `src/stores/preferences-store.ts` | 语言、主题、已有助手权限模式及本地保存 |
-| `src/stores/update.ts` | 函数式状态更新工具 |
-
-审批和撤销会原子更新相关状态，避免重复操作和计时器冲突。Hooks 负责连接 store 与 React 生命周期、动画和本地化提示。
-
-### 品牌与用户名称
-
-上一轮已完成 `loomwell` → `xcc`、`mara` → `jo`，涉及界面、翻译、邮件地址、示例数据、本地保存键和截图。
-
-品牌已在运行代码中统一为 **X Console**，npm 包名为 `x-console`。当前用户为 `jo`，邮箱为 `jo@xcc.im`；示例发件人邮箱也已改为 `xcc.im` 域名。
-
-## 4. 当前技术栈与启动方式
-
-保留 React 19 + Vite，使用 TypeScript、Zustand、lucide-react，测试使用 Vitest。
-
-当前依赖声明：TypeScript `^7.0.2`、Zustand `^5.0.15`、Vite `^6.0.0`、Vitest `^4.1.11`。准确安装版本以 `package-lock.json` 为准。
-
-```bash
-npm ci
-npm run dev
-npm run typecheck
-npm test
-npm run build
-```
-
-开发服务绑定 `127.0.0.1`。构建产物在 `dist/`，已被 Git 忽略。
-
-## 5. 代码入口与目录
-
-```text
-src/
-  main.tsx                    应用挂载与样式入口
-  app/App.tsx                 布局、状态 hooks、页面、弹窗组合
-  app/WorkspaceRouter.tsx     根据当前 view 选择页面
-  components/layout/         侧边栏、页头、个人菜单、通知
-  components/dialogs/        搜索、委派、草稿审阅
-  components/ui/             共用展示组件
-  features/                  各业务页面与子组件
-  stores/                    Zustand 状态及测试
-  hooks/                     导航、偏好、动画、快捷键、提示
-  contexts/                  语言上下文
-  types/                     共用类型
-  data/                      示例数据
-  lib/                       导航映射、翻译、导出和格式化
-  styles/                    全局样式与按功能拆分的样式
-```
-
-现有功能目录：`today`、`work`、`crew`、`records`、`deals`、`companies`、`people`、`settings`。当前产品是带有公司、联系人、商机和模拟智能助手的工作台原型，尚未改造成个人控制台。
-
-导航入口在 `src/lib/navigation.ts`，当前为自定义 URL/view 映射，还没有引入 React Router。翻译在 `src/lib/i18n.ts`，新增文案需要照顾中英文。
-
-全局样式只从 `src/styles/index.css` 加载，跨功能覆盖规则分布在 `theme.css`、`refinements.css`、`interaction-polish.css` 等文件。调整样式导入顺序会改变层叠结果。
-
-详细模块说明见 `README.md`。
-
-## 6. 当前能力边界与数据保存
-
-当前只有前端，没有后端、数据库、登录体系、接口层、SSH 执行器、本机代理、真实编码任务执行器或 Home Assistant/Linear 连接。
-
-现有“助手”“委派”“审批”都是前端演示交互，不会实际操作服务器、本机或调用编码服务。现有通知组件不是完整的定时提醒或通知投递系统。
-
-- 公司、联系人、商机和基础任务来自示例数据。
-- 决策、委派任务、任务状态和已雇佣助手保存在内存，刷新后重置。
-- 语言、主题、已有助手权限模式分别保存在 `x-console-language`、`x-console-theme`、`x-console-agent-modes`；旧 `xcc-*` 键会在首次读取时迁移。
-- 备忘和项目进度的持久化尚未实现。
-
-接入真实服务时，应明确执行发生在哪台机器。浏览器不能直接承担任意本机命令或 SSH 执行，远程部署的 API 也不能自然访问用户本机文件。
-
-## 7. 已执行的验证
-
-上一轮代码提交前已通过：
-
-- `npm test`：2 个测试文件，9 个状态测试通过。
-- `npm run build`：严格类型检查与生产构建通过。
-- 浏览器检查：130 个页面/语言组合，覆盖所有公司和联系人详情及主要页面。
-- 交互检查：审批/撤销、草稿保存、搜索、档案筛选与导航、任务视图、委派、助手权限/雇佣/移除/撤销、主题/语言保存和移动导航。
-- 浏览器检查未发现运行错误。
-- Git 提交内容的空白检查通过。
-
-保留的自动测试在 `src/stores/*.test.ts`。完整浏览器回归脚本是临时脚本，已经移除；上述浏览器结果属于历史验证，不是可直接重跑的项目测试命令。
-
-示例截图：`artifacts/deals-table.png`、`artifacts/hire-agent-dialog.png`。截图已更新为 X Console/jo。
-
-本次更名后重新运行了 `npm test`（2 个测试文件、9 个测试通过）和 `npm run build`（类型检查及生产构建通过）。
-
-## 8. 建议的后续实施顺序
-
-以下是交接建议，还没有形成用户确认的详细实施方案。
-
-### 第一步：产品更名与个人面板导航
-
-1. 根据个人面板目标确定导航：概览、服务器、本机、编码任务、项目、备忘、通知、集成、设置。
-2. 将旧公司/商机业务替换成对应个人模块；保留可复用的布局、表格、看板、搜索、弹窗、主题和语言机制。
-
-### 第二步：先交付项目与备忘
-
-实现项目列表/看板、任务详情、状态流转、备忘编辑/搜索和持久化。它们可以先形成完整的个人使用流程，也能作为后续编码任务、通知和集成的基础。
-
-### 第三步：建立前后端与执行边界
-
-建议起步采用模块化后端，统一管理数据、集成配置、任务队列、执行结果和通知。前端继续沿用 React/Vite/TypeScript，不需要因功能增多立即重写框架。
-
-建议区分三个角色：
-
-- Web 前端：展示、交互和操作请求。
-- API 服务：持久化、访问校验、集成调用、任务调度和结果记录。
-- 本机执行代理：在用户本机执行明确的文件、进程和编码任务，通过任务协议与 API 服务通信。
-
-服务器管理可由后端或执行代理使用 SSH/服务 API 接入，具体位置取决于部署方式。本机和服务器写操作应有明确目标、执行记录和取消/超时机制。凭据由服务端或本机代理保存，不放入前端代码或 Git。
-
-后端语言、数据库、部署方式，以及编码任务使用哪个执行器，尚未选定。Zustand 继续负责客户端状态；接入 API 后，服务端数据读取/缓存应与界面状态分开。
-
-### 第四步：真实设备、编码任务与集成
-
-逐步接入服务器状态、本机代理、本地项目仓库、编码任务执行，再加入统一通知/提醒与 Home Assistant。每个集成独立成模块，共用任务状态和通知机制。
-
-## 9. 恢复开发时优先厘清的问题
-
-这些问题不妨碍完成更名和查看当前代码，但会影响执行架构：
-
-- 面板/API 是只在本机运行，还是部署到服务器并支持外部访问？
-- 管理的本机操作系统、服务器数量和系统类型是什么？
-- 编码任务采用 Codex、其他工具，还是自建执行器？如何查看改动并决定提交？
-- 项目管理是自建看板/列表，还是同步 Linear 或已有看板服务？
-- 提醒需要哪些渠道：站内、桌面、邮件或其他服务？
-- Home Assistant 的部署位置和连接方式是什么？
-
-不要把当前 Codex 会话可调用的工具视为 X Console 产品已经拥有的能力。
-
-## 10. 可直接用于新会话的接续说明
-
-> 请先阅读项目根目录 HANDOFF.md 和 README.md，再检查 Git 状态。项目位置是 C:\Users\xcc19\Documents\ChatGPT\个人中心，GitHub 远端是 https://github.com/j0x3n/x-console.git。组件拆分、严格 TypeScript 迁移和 Zustand 改造已经完成。产品名已改为 X Console。目标是个人多功能面板，支持服务器、本机、编码任务、项目看板/列表、备忘、通知提醒和 Home Assistant 等集成。当前只有使用示例数据的前端。请保留已有结构，从个人模块改造继续；接入真实执行能力前，先明确部署位置与本机代理边界。本文中的技术路线是建议，不代表全部已获用户实施确认。
+- 本机是 Windows（项目原来在 `C:\Users\xcc19\Documents\ChatGPT\个人中心`）。
+- 服务器是 1 到 10 台 Linux。
+- 通知渠道：站内、Web Push、Telegram、Bark、Server酱。
