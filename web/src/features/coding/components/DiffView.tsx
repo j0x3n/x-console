@@ -4,7 +4,7 @@ import { useT } from "../../../contexts/LanguageContext";
 import type { TaskDiff } from "../api";
 import { parseDiff } from "../logic";
 
-const STATUS_NAMES: Record<string, string> = { A: "Added", M: "Modified", D: "Deleted", T: "Type changed" };
+const STATUS_NAMES: Record<string, string> = { A: "File added", M: "File modified", D: "File deleted", T: "File type changed" };
 
 /** 改动文件列表和 diff。文件多或很长时默认折叠。 */
 export default function DiffView({ diff }: { diff: TaskDiff }) {

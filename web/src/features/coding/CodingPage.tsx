@@ -86,7 +86,7 @@ export default function CodingPage() {
   }, [tasks.data]);
 
   return (
-    <div className="xc-page">
+    <div className="xc-page coding-page">
       <PageHeading
         title={t("Coding tasks")}
         subtitle={t("Claude Code and Codex work on your repositories in separate worktrees.")}

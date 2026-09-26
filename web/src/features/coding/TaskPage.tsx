@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   CircleStop,
   ExternalLink,
-  GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
   RotateCcw,
@@ -244,9 +243,7 @@ function Details({ task }: { task: Task }) {
       <dt>{t("Executor")}</dt>
       <dd>{task.executor === "claude" ? "Claude Code" : "Codex"}</dd>
       <dt>{t("Branch")}</dt>
-      <dd className="xc-mono">
-        <GitBranch size={12} /> {task.branch}
-      </dd>
+      <dd className="xc-mono">{task.branch}</dd>
       <dt>{t("Base branch")}</dt>
       <dd className="xc-mono">
         {task.baseBranch || "HEAD"}
@@ -266,7 +263,7 @@ function Details({ task }: { task: Task }) {
           <dd className="xc-mono">{task.commitSha.slice(0, 12)}</dd>
         </>
       )}
-      <dt>{t("Created")}</dt>
+      <dt>{t("Task created")}</dt>
       <dd title={task.createdAt}>{relativeTime(task.createdAt, language)}</dd>
       {started && (
         <>
@@ -302,7 +299,7 @@ export default function TaskPage() {
   }
   const data = task.data;
   return (
-    <div className="xc-page coding-task-page">
+    <div className="xc-page coding-page coding-task-page">
       <div className="coding-task-head">
         <Link to="/coding" className="xc-btn ghost small">
           <ArrowLeft size={14} /> {t("Coding tasks")}

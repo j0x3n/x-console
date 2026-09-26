@@ -188,7 +188,8 @@
   min-height: 0;
 }
 .coding-output {
-  height: min(62vh, 640px);
+  min-height: 220px;
+  max-height: min(62vh, 640px);
   overflow-y: auto;
   padding: 4px 2px;
   display: flex;
@@ -522,7 +523,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .coding-output {
-    height: 55vh;
+    max-height: 55vh;
   }
 }
 @media (max-width: 600px) {
@@ -548,4 +549,9 @@
   .coding-found li > .xc-mono {
     display: none;
   }
+}
+
+/* 链接样式的按钮不要下划线 */
+.coding-page a.xc-btn {
+  text-decoration: none;
 }

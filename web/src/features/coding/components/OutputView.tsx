@@ -57,7 +57,7 @@ function ToolRow({ call }: { call: ToolCall }) {
           call.isError ? (
             <CircleX size={13} className="coding-tool-state danger" aria-label={t("Failed")} />
           ) : (
-            <CircleCheck size={13} className="coding-tool-state ok" aria-label={t("Done")} />
+            <CircleCheck size={13} className="coding-tool-state ok" aria-label={t("Tool call succeeded")} />
           )
         ) : null}
       </button>

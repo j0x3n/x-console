@@ -170,7 +170,7 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
               {t("Cancel")}
             </button>
             <button type="submit" className="xc-btn primary" disabled={!canSubmit}>
-              {t("Start")}
+              {t("Start task")}
             </button>
           </div>
         </form>

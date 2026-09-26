@@ -262,7 +262,7 @@ function RunnerSettings() {
 export default function ReposPage() {
   const t = useT();
   return (
-    <div className="xc-page">
+    <div className="xc-page coding-page">
       <PageHeading
         title={t("Repositories")}
         aside={

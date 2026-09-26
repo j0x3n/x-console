@@ -44,7 +44,7 @@ export const FILTERS: Array<{ id: Filter; label: string; statuses?: TaskStatus[]
   { id: "all", label: "All" },
   { id: "active", label: "In progress", statuses: ["queued", "running"] },
   { id: "review", label: "Needs review", statuses: ["review"] },
-  { id: "done", label: "Done", statuses: ["committed", "pushed", "pr_opened"] },
+  { id: "done", label: "Finished tasks", statuses: ["committed", "pushed", "pr_opened"] },
   { id: "failed", label: "Failed or canceled", statuses: ["failed", "canceled", "discarded"] },
 ];
 

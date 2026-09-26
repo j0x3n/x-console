@@ -119,7 +119,7 @@ func (m *Module) linkIssueOnStart(ctx context.Context, r taskRow) {
 	if err := issues.SetStatus(ctx, r.IssueKey, "in_progress"); err != nil {
 		slog.Warn("coding: set issue status", "issue", r.IssueKey, "err", err)
 	}
-	link := contracts.IssueLink{Kind: "coding_task", Title: "编码任务 #" + itoa(r.ID) + " " + shorten(titleOf(r.Prompt), 60),
+	link := contracts.IssueLink{Kind: "coding_task", Title: "编码任务 #" + itoa(r.ID) + " " + shorten(titleOf(stripIssueHeader(r.Prompt, r.IssueKey)), 60),
 		URL: "/coding/" + itoa(r.ID), Ref: itoa(r.ID)}
 	if err := issues.AttachLink(ctx, r.IssueKey, link); err != nil {
 		slog.Warn("coding: link issue", "issue", r.IssueKey, "err", err)
