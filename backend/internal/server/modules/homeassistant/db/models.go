@@ -39,6 +39,34 @@ type HaFavorite struct {
 	Alias     string
 }
 
+type Habit struct {
+	ID                    int64
+	Name                  string
+	Icon                  string
+	Color                 string
+	Unit                  string
+	DailyTarget           float64
+	RemindMode            string
+	RemindIntervalMinutes int64
+	RemindWindow          string
+	RemindTimes           string
+	HaEntityID            string
+	ArchivedAt            *time.Time
+	SortOrder             int64
+	CreatedAt             time.Time
+	LastRemindedAt        *time.Time
+	QuietUntil            *time.Time
+}
+
+type HabitLog struct {
+	ID      int64
+	HabitID int64
+	At      time.Time
+	Amount  float64
+	Source  string
+	Note    string
+}
+
 type Notification struct {
 	ID        int64
 	CreatedAt time.Time
@@ -52,12 +80,36 @@ type Notification struct {
 	ReadAt    *time.Time
 }
 
+type NotificationRoute struct {
+	ID          int64
+	KindPattern string
+	MinPriority string
+	Channels    string
+	Enabled     int64
+	SortOrder   int64
+}
+
 type PairingCode struct {
 	CodeHash  string
 	Name      string
 	Kind      string
 	ExpiresAt time.Time
 	UsedAt    *time.Time
+}
+
+type Reminder struct {
+	ID           int64
+	Title        string
+	Body         string
+	Link         string
+	Rrule        string
+	Dtstart      time.Time
+	NextAt       *time.Time
+	LastFiredAt  *time.Time
+	SnoozedUntil *time.Time
+	DoneAt       *time.Time
+	Enabled      int64
+	CreatedAt    time.Time
 }
 
 type Session struct {
@@ -84,4 +136,30 @@ type User struct {
 	TotpSecret   string
 	TotpEnabled  int64
 	CreatedAt    time.Time
+}
+
+type WebpushSubscription struct {
+	ID        int64
+	Endpoint  string
+	P256dh    string
+	Auth      string
+	UserAgent string
+	CreatedAt time.Time
+}
+
+type WorkoutLog struct {
+	ID              int64
+	Date            string
+	PlanID          *int64
+	Items           string
+	DurationMinutes int64
+	Note            string
+	CreatedAt       time.Time
+}
+
+type WorkoutPlan struct {
+	ID      int64
+	Weekday int64
+	Title   string
+	Items   string
 }

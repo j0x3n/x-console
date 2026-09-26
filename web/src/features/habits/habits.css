@@ -1,0 +1,300 @@
+/* M8 习惯与健康 */
+
+.habits-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+@media (max-width: 420px) {
+  .habits-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.habits-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.habits-card.is-reached {
+  border-color: color-mix(in srgb, var(--xc-ok) 45%, var(--xc-border));
+}
+.habits-ring {
+  position: relative;
+  flex: none;
+}
+.habits-ring svg {
+  display: block;
+}
+.habits-ring-bar {
+  transition: stroke-dashoffset 0.35s ease;
+}
+.habits-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+}
+.habits-ring-label strong {
+  font-size: 18px;
+  color: var(--xc-text);
+}
+.habits-ring-label small {
+  font-size: 11px;
+  color: var(--xc-muted);
+}
+.habits-card-main {
+  flex: 1;
+  min-width: 0;
+}
+.habits-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--xc-text);
+}
+.habits-card-title > span:not(.habits-icon) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.habits-icon {
+  font-size: 16px;
+}
+.habits-edit {
+  flex: none;
+}
+.habits-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 2px 0 8px;
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.habits-card-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.habits-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 编辑弹窗 */
+.habits-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.habits-form-row.habits-form-name {
+  grid-template-columns: 72px 1fr;
+}
+.habits-hint {
+  margin: -6px 0 14px;
+  font-size: 12px;
+}
+.habits-dialog-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 520px) {
+  .habits-form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 统计 */
+.habits-stats-select {
+  max-width: 320px;
+  margin-bottom: 0;
+}
+.habits-tiles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.habits-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.habits-tile strong {
+  font-size: 22px;
+  color: var(--xc-text);
+}
+.habits-tile small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--xc-muted);
+}
+.habits-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+}
+.habits-heatmap-wrap {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+.habits-heatmap-days {
+  display: grid;
+  grid-template-rows: repeat(7, 16px);
+  gap: 4px;
+  font-size: 10px;
+  color: var(--xc-muted);
+  line-height: 16px;
+}
+.habits-heatmap {
+  display: grid;
+  grid-template-rows: repeat(7, 16px);
+  grid-auto-flow: column;
+  grid-auto-columns: 16px;
+  gap: 4px;
+}
+.habits-heat {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--xc-surface-2);
+}
+.habits-legend .habits-heat {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+.habits-heat.pad {
+  visibility: hidden;
+}
+.habits-heat.l1 {
+  background: color-mix(in srgb, var(--habit-color, var(--xc-accent)) 25%, var(--xc-surface-2));
+}
+.habits-heat.l2 {
+  background: color-mix(in srgb, var(--habit-color, var(--xc-accent)) 50%, var(--xc-surface-2));
+}
+.habits-heat.l3 {
+  background: color-mix(in srgb, var(--habit-color, var(--xc-accent)) 75%, var(--xc-surface-2));
+}
+.habits-heat.l4 {
+  background: var(--habit-color, var(--xc-accent));
+}
+.habits-bars svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+.habits-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--xc-muted);
+}
+
+/* 健身 */
+.habits-plan-empty {
+  margin: 0;
+}
+.habits-plan-items {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--xc-text-2);
+  line-height: 1.8;
+}
+.habits-week {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+@media (max-width: 420px) {
+  .habits-week {
+    grid-template-columns: 1fr;
+  }
+}
+.habits-week-day {
+  padding: 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  min-width: 0;
+}
+.habits-week-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.habits-week-head strong {
+  flex: none;
+  width: 36px;
+  color: var(--xc-text);
+}
+.habits-item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 52px 52px 60px auto;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.habits-item-head {
+  margin-bottom: 2px;
+  font-size: 11px;
+  color: var(--xc-muted);
+}
+.habits-item-head span:last-child {
+  width: 26px;
+}
+.habits-item-row .xc-input {
+  padding: 4px 6px;
+  min-height: 28px;
+}
+.habits-add-item {
+  margin-top: 2px;
+}
+.habits-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--xc-text-2);
+}
+.habits-log-items {
+  margin-bottom: 8px;
+}
+.habits-logs {
+  display: flex;
+  flex-direction: column;
+}
+.habits-log {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.habits-log:last-child {
+  border-bottom: 0;
+}
+.habits-log-detail {
+  margin-top: 2px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.habits-notice-row {
+  flex-wrap: wrap;
+}
+.habits-notice-row .habits-check {
+  margin: 0;
+}
+.habits-time {
+  width: 110px;
+}

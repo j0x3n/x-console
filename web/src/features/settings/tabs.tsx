@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import GeneralTab from "./GeneralTab";
 import DevicesTab from "./DevicesTab";
 import AuditTab from "./AuditTab";
+import NotificationsTab from "../reminders/NotificationsTab";
 import HASettingsTab from "../home/HASettingsTab";
 
 export interface SettingsTab {
@@ -16,5 +17,6 @@ export const settingsTabs: SettingsTab[] = [
   { id: "general", label: "General", component: GeneralTab },
   { id: "devices", label: "Devices & agents", component: DevicesTab },
   { id: "audit", label: "Audit log", component: AuditTab },
+  { id: "notifications", label: "Notifications", component: NotificationsTab },
   { id: "homeassistant", label: "Home Assistant", component: HASettingsTab },
 ];
