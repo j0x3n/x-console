@@ -10,3 +10,19 @@ sql:
         package: db
         out: internal/server/core/db
         emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/reminders/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/reminders/db
+        emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/habits/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/habits/db
+        emit_pointers_for_null_types: true
