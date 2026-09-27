@@ -38,11 +38,23 @@ type Session struct {
 	UserID        int64
 	Username      string
 	ElevatedUntil *time.Time
+	VaultUntil    *time.Time
 }
 
 // Elevated reports whether dangerous operations are allowed right now.
 func (s *Session) Elevated() bool {
 	return s.ElevatedUntil != nil && s.ElevatedUntil.After(time.Now())
+}
+
+func VaultUnlocked(ctx context.Context) bool {
+	s := FromContext(ctx)
+	return s != nil && s.VaultUntil != nil && s.VaultUntil.After(time.Now()) && ctx.Value(vaultDisabledKey{}) == nil
+}
+
+type vaultDisabledKey struct{}
+
+func WithoutVault(ctx context.Context) context.Context {
+	return context.WithValue(ctx, vaultDisabledKey{}, true)
 }
 
 type sessionKey struct{}
@@ -72,19 +84,22 @@ func RequireElevated(ctx context.Context) error {
 
 // Service owns users and sessions.
 type Service struct {
-	q        *db.Queries
-	settings *settings.Store
-	box      *secrets.Box
-	audit    *audit.Log
-	secure   bool
-	fails    *limiter
-	now      func() time.Time
+	conn       *sql.DB
+	q          *db.Queries
+	settings   *settings.Store
+	box        *secrets.Box
+	audit      *audit.Log
+	secure     bool
+	fails      *limiter
+	vaultFails *limiter
+	now        func() time.Time
 }
 
 // NewService builds the auth service. secureCookies should be false only in dev.
 func NewService(conn *sql.DB, box *secrets.Box, log *audit.Log, secureCookies bool) *Service {
-	return &Service{q: db.New(conn), settings: settings.New(conn, box), box: box, audit: log, secure: secureCookies,
-		fails: newLimiter(loginFailLimit, 15*time.Minute), now: func() time.Time { return time.Now().UTC() }}
+	return &Service{conn: conn, q: db.New(conn), settings: settings.New(conn, box), box: box, audit: log, secure: secureCookies,
+		fails: newLimiter(loginFailLimit, 15*time.Minute), vaultFails: newLimiter(loginFailLimit, 15*time.Minute),
+		now: func() time.Time { return time.Now().UTC() }}
 }
 
 // SetupRequired is true until the first user exists and has TOTP enabled.
@@ -264,7 +279,7 @@ func (s *Service) Authenticate(r *http.Request) (*Session, error) {
 	if row.ExpiresAt.Sub(s.now()) < sessionTTL-24*time.Hour {
 		_ = s.q.TouchSession(r.Context(), db.TouchSessionParams{ExpiresAt: s.now().Add(sessionTTL), ID: id})
 	}
-	return &Session{ID: id, UserID: row.UserID, Username: row.Username, ElevatedUntil: row.ElevatedUntil}, nil
+	return &Session{ID: id, UserID: row.UserID, Username: row.Username, ElevatedUntil: row.ElevatedUntil, VaultUntil: row.VaultUntil}, nil
 }
 
 // Middleware attaches the session and rejects unauthenticated requests,
@@ -292,6 +307,14 @@ func (s *Service) Middleware(public func(path string) bool) func(http.Handler) h
 			if isMutating(r.Method) && r.Header.Get(CSRFHeader) != csrfValue {
 				httpx.Fail(w, r, httpx.NewError(http.StatusForbidden, "csrf", "缺少 X-Requested-With 请求头"))
 				return
+			}
+			if VaultUnlocked(r.Context()) {
+				until := s.now().Add(vaultTTL)
+				if err := s.q.SetVaultUntil(r.Context(), db.SetVaultUntilParams{VaultUntil: &until, ID: sess.ID}); err != nil {
+					httpx.Fail(w, r, err)
+					return
+				}
+				sess.VaultUntil = &until
 			}
 			next.ServeHTTP(w, r)
 		})

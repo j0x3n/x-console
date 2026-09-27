@@ -385,6 +385,7 @@ type Note struct {
 	ArchivedAt *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	Hidden     int64
 }
 
 type NoteAttachment struct {
@@ -504,6 +505,7 @@ type Session struct {
 	ElevatedUntil *time.Time
 	UserAgent     string
 	Ip            string
+	VaultUntil    *time.Time
 }
 
 type Setting struct {

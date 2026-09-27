@@ -44,13 +44,14 @@ func (q *Queries) ClearTagColor(ctx context.Context, tag string) error {
 }
 
 const createNote = `-- name: CreateNote :one
-INSERT INTO notes (title, body, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id, title, body, pinned, archived_at, created_at, updated_at
+INSERT INTO notes (title, body, pinned, hidden, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, title, body, pinned, archived_at, created_at, updated_at, hidden
 `
 
 type CreateNoteParams struct {
 	Title     string
 	Body      string
 	Pinned    int64
+	Hidden    int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -60,6 +61,7 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, e
 		arg.Title,
 		arg.Body,
 		arg.Pinned,
+		arg.Hidden,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -72,6 +74,7 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, e
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
@@ -89,7 +92,7 @@ func (q *Queries) DeleteNote(ctx context.Context, id int64) (int64, error) {
 }
 
 const getNote = `-- name: GetNote :one
-SELECT id, title, body, pinned, archived_at, created_at, updated_at FROM notes WHERE id = ?
+SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden FROM notes WHERE id = ?
 `
 
 func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
@@ -103,6 +106,7 @@ func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Hidden,
 	)
 	return i, err
 }
@@ -136,16 +140,18 @@ func (q *Queries) ListNoteTags(ctx context.Context, noteID int64) ([]string, err
 
 const listNotes = `-- name: ListNotes :many
 
-SELECT id, title, body, pinned, archived_at, created_at, updated_at FROM notes
+SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden FROM notes
 WHERE (archived_at IS NOT NULL) = CAST(?1 AS BOOLEAN)
-  AND (?2 IS NULL OR pinned = ?2)
-  AND (?3 IS NULL OR id IN (SELECT note_id FROM note_tags WHERE note_tags.tag = ?3))
+  AND hidden = ?2
+  AND (?3 IS NULL OR pinned = ?3)
+  AND (?4 IS NULL OR id IN (SELECT note_id FROM note_tags WHERE note_tags.tag = ?4))
 ORDER BY pinned DESC, updated_at DESC, id DESC
-LIMIT ?5 OFFSET ?4
+LIMIT ?6 OFFSET ?5
 `
 
 type ListNotesParams struct {
 	Archived bool
+	Hidden   int64
 	Pinned   interface{}
 	Tag      interface{}
 	Off      int64
@@ -158,6 +164,7 @@ type ListNotesParams struct {
 func (q *Queries) ListNotes(ctx context.Context, arg ListNotesParams) ([]Note, error) {
 	rows, err := q.db.QueryContext(ctx, listNotes,
 		arg.Archived,
+		arg.Hidden,
 		arg.Pinned,
 		arg.Tag,
 		arg.Off,
@@ -178,6 +185,7 @@ func (q *Queries) ListNotes(ctx context.Context, arg ListNotesParams) ([]Note, e
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Hidden,
 		); err != nil {
 			return nil, err
 		}
@@ -249,7 +257,7 @@ SELECT note_tags.tag, count(*) AS count, CAST(coalesce(max(note_tag_colors.color
 FROM note_tags
 JOIN notes ON notes.id = note_tags.note_id
 LEFT JOIN note_tag_colors ON note_tag_colors.tag = note_tags.tag
-WHERE notes.archived_at IS NULL
+WHERE notes.archived_at IS NULL AND notes.hidden = ?1
 GROUP BY note_tags.tag
 ORDER BY count(*) DESC, note_tags.tag
 `
@@ -260,8 +268,8 @@ type TagCountsRow struct {
 	Color string
 }
 
-func (q *Queries) TagCounts(ctx context.Context) ([]TagCountsRow, error) {
-	rows, err := q.db.QueryContext(ctx, tagCounts)
+func (q *Queries) TagCounts(ctx context.Context, hidden int64) ([]TagCountsRow, error) {
+	rows, err := q.db.QueryContext(ctx, tagCounts, hidden)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +292,7 @@ func (q *Queries) TagCounts(ctx context.Context) ([]TagCountsRow, error) {
 }
 
 const updateNote = `-- name: UpdateNote :exec
-UPDATE notes SET title = ?, body = ?, pinned = ?, archived_at = ?, updated_at = ? WHERE id = ?
+UPDATE notes SET title = ?, body = ?, pinned = ?, archived_at = ?, hidden = ?, updated_at = ? WHERE id = ?
 `
 
 type UpdateNoteParams struct {
@@ -292,6 +300,7 @@ type UpdateNoteParams struct {
 	Body       string
 	Pinned     int64
 	ArchivedAt *time.Time
+	Hidden     int64
 	UpdatedAt  time.Time
 	ID         int64
 }
@@ -302,6 +311,7 @@ func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) error {
 		arg.Body,
 		arg.Pinned,
 		arg.ArchivedAt,
+		arg.Hidden,
 		arg.UpdatedAt,
 		arg.ID,
 	)

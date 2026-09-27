@@ -16,6 +16,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
 )
 
 // constructors lists every feature module. Add one line per module:
@@ -38,4 +39,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	brief.New,         // M11
 	github.New,        // M13
 	linear.New,        // M13
+	vault.New,
 }

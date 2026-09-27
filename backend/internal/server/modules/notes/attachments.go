@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 )
@@ -147,7 +148,7 @@ func (m *Module) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, no
 	}
 	defer tx.Rollback()
 	var exists int64
-	if err = tx.QueryRowContext(r.Context(), `SELECT id FROM notes WHERE id = ?`, noteID).Scan(&exists); err == nil {
+	if err = tx.QueryRowContext(r.Context(), `SELECT id FROM notes WHERE id = ? AND (hidden = 0 OR ? = 1)`, noteID, boolInt(auth.VaultUnlocked(r.Context()))).Scan(&exists); err == nil {
 		var result sql.Result
 		result, err = tx.ExecContext(r.Context(), `INSERT INTO note_attachments (note_id, name, mime, size, sha256, created_at) VALUES (?, ?, ?, ?, ?, ?)`, noteID, name, kind, written, fmt.Sprintf("%x", hash.Sum(nil)), now)
 		if err == nil {
@@ -164,23 +165,33 @@ func (m *Module) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, no
 		if id != 0 {
 			os.Remove(m.attachmentPath(id))
 		}
+		if errors.Is(err, sql.ErrNoRows) {
+			err = httpx.ErrNotFound
+		}
 		httpx.Fail(w, r, err)
 		return
 	}
 	out := attachmentDTO(attachmentRow{ID: id, NoteID: noteID, Name: name, Mime: kind, Size: written, CreatedAt: now})
 	m.d.Audit.Record(r.Context(), "note.attachment.upload", strconv.FormatInt(noteID, 10), map[string]any{"id": id}, nil)
-	m.d.Bus.Publish("note.updated", map[string]int64{"id": noteID})
+	m.noteChanged(r.Context(), noteID)
 	httpx.JSON(w, http.StatusCreated, out)
 }
 
-func (m *Module) attachment(ctx context.Context, id int64) (attachmentRow, error) {
+func (m *Module) attachment(ctx context.Context, id int64) (attachmentRow, bool, error) {
 	var row attachmentRow
-	err := m.d.DB.QueryRowContext(ctx, `SELECT id, note_id, name, mime, size, created_at FROM note_attachments WHERE id = ?`, id).Scan(&row.ID, &row.NoteID, &row.Name, &row.Mime, &row.Size, &row.CreatedAt)
-	return row, notFound(err)
+	var hidden int64
+	err := m.d.DB.QueryRowContext(ctx, `SELECT a.id, a.note_id, a.name, a.mime, a.size, a.created_at, n.hidden FROM note_attachments a JOIN notes n ON n.id = a.note_id WHERE a.id = ?`, id).Scan(&row.ID, &row.NoteID, &row.Name, &row.Mime, &row.Size, &row.CreatedAt, &hidden)
+	if err != nil {
+		return row, false, notFound(err)
+	}
+	if hidden != 0 && !auth.VaultUnlocked(ctx) {
+		return row, false, httpx.ErrNotFound
+	}
+	return row, hidden != 0, nil
 }
 
 func (m *Module) DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentID api.AttachmentId) {
-	row, err := m.attachment(r.Context(), attachmentID)
+	row, hidden, err := m.attachment(r.Context(), attachmentID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -204,12 +215,16 @@ func (m *Module) DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, 
 	}
 	w.Header().Set("Content-Type", row.Mime)
 	w.Header().Set("Content-Disposition", disposition+"; filename*=UTF-8''"+url.PathEscape(row.Name))
-	w.Header().Set("Cache-Control", "private, max-age=31536000")
+	if hidden {
+		w.Header().Set("Cache-Control", "private, no-store")
+	} else {
+		w.Header().Set("Cache-Control", "private, max-age=31536000")
+	}
 	http.ServeContent(w, r, row.Name, row.CreatedAt, file)
 }
 
 func (m *Module) DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentID api.AttachmentId) {
-	row, err := m.attachment(r.Context(), attachmentID)
+	row, _, err := m.attachment(r.Context(), attachmentID)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -227,7 +242,7 @@ func (m *Module) DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, at
 		return
 	}
 	m.d.Audit.Record(r.Context(), "note.attachment.delete", strconv.FormatInt(attachmentID, 10), nil, nil)
-	m.d.Bus.Publish("note.updated", map[string]int64{"id": row.NoteID})
+	m.noteChanged(r.Context(), row.NoteID)
 	httpx.NoContent(w)
 }
 

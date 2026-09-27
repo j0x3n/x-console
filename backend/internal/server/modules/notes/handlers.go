@@ -3,6 +3,7 @@ package notes
 import (
 	"net/http"
 
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 )
@@ -17,7 +18,7 @@ func deref[T any](p *T) T {
 
 func (m *Module) ListNotes(w http.ResponseWriter, r *http.Request, params api.ListNotesParams) {
 	f := listFilter{Q: deref(params.Q), Tag: deref(params.Tag), Pinned: params.Pinned,
-		Archived: deref(params.Archived), Limit: int(httpx.Limit(params.Limit))}
+		Archived: deref(params.Archived), Hidden: deref(params.Hidden), Limit: int(httpx.Limit(params.Limit))}
 	if params.Cursor != nil && *params.Cursor != "" {
 		off, err := httpx.DecodeIDCursor(params.Cursor)
 		if err != nil {
@@ -44,7 +45,7 @@ func (m *Module) CreateNote(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out, err := m.createNote(r.Context(), deref(body.Title), deref(body.Body), deref(body.Tags), deref(body.Pinned))
+	out, err := m.createNote(r.Context(), deref(body.Title), deref(body.Body), deref(body.Tags), deref(body.Pinned), deref(body.Hidden))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -53,12 +54,12 @@ func (m *Module) CreateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) ListNoteTags(w http.ResponseWriter, r *http.Request, params api.ListNoteTagsParams) {
-	// 隐藏笔记（B13）还没做，隐藏空间的标签先回空。
-	if params.Hidden != nil && *params.Hidden {
+	hidden := deref(params.Hidden)
+	if hidden && !auth.VaultUnlocked(r.Context()) {
 		httpx.JSON(w, http.StatusOK, []api.TagCount{})
 		return
 	}
-	out, err := m.tagCounts(r.Context())
+	out, err := m.tagCounts(r.Context(), hidden)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -95,7 +96,7 @@ func (m *Module) UpdateNote(w http.ResponseWriter, r *http.Request, id api.NoteI
 		return
 	}
 	out, err := m.updateNote(r.Context(), id, notePatch{Title: body.Title, Body: body.Body, Pinned: body.Pinned,
-		Archived: body.Archived, Tags: body.Tags})
+		Archived: body.Archived, Hidden: body.Hidden, Tags: body.Tags})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

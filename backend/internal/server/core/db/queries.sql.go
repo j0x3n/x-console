@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+const clearVaultSessions = `-- name: ClearVaultSessions :exec
+UPDATE sessions SET vault_until = NULL WHERE vault_until IS NOT NULL
+`
+
+func (q *Queries) ClearVaultSessions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, clearVaultSessions)
+	return err
+}
+
 const confirmPendingTOTP = `-- name: ConfirmPendingTOTP :execrows
 UPDATE users SET totp_enabled = 1, totp_secret = ? WHERE id = ? AND setup_completed = 1 AND totp_enabled = 0
 `
@@ -340,7 +349,7 @@ func (q *Queries) GetFirstUser(ctx context.Context) (User, error) {
 }
 
 const getSession = `-- name: GetSession :one
-SELECT sessions.id, sessions.user_id, sessions.created_at, sessions.expires_at, sessions.elevated_until, sessions.user_agent, sessions.ip, users.username
+SELECT sessions.id, sessions.user_id, sessions.created_at, sessions.expires_at, sessions.elevated_until, sessions.user_agent, sessions.ip, sessions.vault_until, users.username
 FROM sessions JOIN users ON users.id = sessions.user_id
 WHERE sessions.id = ? AND sessions.expires_at > ?
 `
@@ -358,6 +367,7 @@ type GetSessionRow struct {
 	ElevatedUntil *time.Time
 	UserAgent     string
 	Ip            string
+	VaultUntil    *time.Time
 	Username      string
 }
 
@@ -372,6 +382,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 		&i.ElevatedUntil,
 		&i.UserAgent,
 		&i.Ip,
+		&i.VaultUntil,
 		&i.Username,
 	)
 	return i, err
@@ -499,6 +510,25 @@ func (q *Queries) InsertNotification(ctx context.Context, arg InsertNotification
 		&i.ReadAt,
 	)
 	return i, err
+}
+
+const insertVaultPassword = `-- name: InsertVaultPassword :execrows
+INSERT INTO settings (key, value, encrypted, updated_at)
+VALUES ('vault.password_hash', ?, 0, ?)
+ON CONFLICT (key) DO NOTHING
+`
+
+type InsertVaultPasswordParams struct {
+	Value     string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) InsertVaultPassword(ctx context.Context, arg InsertVaultPasswordParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertVaultPassword, arg.Value, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const listAgents = `-- name: ListAgents :many
@@ -700,6 +730,20 @@ func (q *Queries) RevokeAgent(ctx context.Context, arg RevokeAgentParams) (int64
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setVaultUntil = `-- name: SetVaultUntil :exec
+UPDATE sessions SET vault_until = ? WHERE id = ?
+`
+
+type SetVaultUntilParams struct {
+	VaultUntil *time.Time
+	ID         string
+}
+
+func (q *Queries) SetVaultUntil(ctx context.Context, arg SetVaultUntilParams) error {
+	_, err := q.db.ExecContext(ctx, setVaultUntil, arg.VaultUntil, arg.ID)
+	return err
 }
 
 const touchSession = `-- name: TouchSession :exec

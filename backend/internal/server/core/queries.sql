@@ -48,6 +48,12 @@ UPDATE sessions SET expires_at = ? WHERE id = ?;
 -- name: ElevateSession :exec
 UPDATE sessions SET elevated_until = ? WHERE id = ?;
 
+-- name: SetVaultUntil :exec
+UPDATE sessions SET vault_until = ? WHERE id = ?;
+
+-- name: ClearVaultSessions :exec
+UPDATE sessions SET vault_until = NULL WHERE vault_until IS NOT NULL;
+
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?;
 
@@ -63,6 +69,11 @@ SELECT * FROM audit_log WHERE id < ? ORDER BY id DESC LIMIT ?;
 
 -- name: GetSetting :one
 SELECT * FROM settings WHERE key = ?;
+
+-- name: InsertVaultPassword :execrows
+INSERT INTO settings (key, value, encrypted, updated_at)
+VALUES ('vault.password_hash', ?, 0, ?)
+ON CONFLICT (key) DO NOTHING;
 
 -- name: UpsertSetting :exec
 INSERT INTO settings (key, value, encrypted, updated_at) VALUES (?, ?, ?, ?)

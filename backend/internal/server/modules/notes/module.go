@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
@@ -51,7 +52,7 @@ func (m *Module) Mount(r chi.Router) {
 type notesService struct{ m *Module }
 
 func (s *notesService) Create(ctx context.Context, title, body string, tags []string) (int64, error) {
-	n, err := s.m.createNote(ctx, title, body, tags, false)
+	n, err := s.m.createNote(auth.WithoutVault(ctx), title, body, tags, false, false)
 	return n.Id, err
 }
 

@@ -1,5 +1,5 @@
 import { demoFull } from "./mode";
-import { fail, json, noContent, now, route, ago } from "./router";
+import { fail, json, noContent, route } from "./router";
 
 /*
  * 隐藏内容：密码存在 localStorage，解锁状态存在 sessionStorage，
@@ -42,8 +42,9 @@ const unlock = () => {
   persist();
 };
 
-route("GET", "/vault/status", () => json(status()));
+route("GET", "/vault/status", () => demoFull ? json(status()) : undefined);
 route("POST", "/vault/setup", ({ body }) => {
+  if (!demoFull) return undefined;
   if (vault.configured) return fail(409, "conflict", "已经设置过隐藏密码");
   vault.configured = true;
   vault.password = body?.password ?? "";
@@ -51,134 +52,23 @@ route("POST", "/vault/setup", ({ body }) => {
   return json(status());
 });
 route("POST", "/vault/unlock", ({ body }) => {
+  if (!demoFull) return undefined;
   if (body?.password !== vault.password)
     return fail(401, "invalid_password", "密码不对");
   unlock();
   return json(status());
 });
 route("POST", "/vault/lock", () => {
+  if (!demoFull) return undefined;
   vault.unlocked = false;
   persist();
   return noContent();
 });
 route("POST", "/vault/password", ({ body }) => {
+  if (!demoFull) return undefined;
   if (body?.oldPassword !== vault.password)
     return fail(401, "invalid_password", "旧密码不对");
   vault.password = body.newPassword;
   persist();
-  return noContent();
-});
-
-/* 隐藏笔记：id 从 900001 开始，只在解锁后出现。普通笔记照常走真实服务端。 */
-interface HiddenNote {
-  id: number;
-  title: string;
-  body: string;
-  pinned: boolean;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-let nextNoteId = 900003;
-const hiddenNotes: HiddenNote[] = [
-  {
-    id: 900001,
-    title: "银行卡和保险",
-    body: "- 招行储蓄卡：尾号 1234\n- 医保卡：放在书房抽屉\n- 车险到期：明年 3 月 12 日",
-    pinned: true,
-    tags: ["私人"],
-    createdAt: ago(60 * 24 * 12),
-    updatedAt: ago(60 * 5),
-  },
-  {
-    id: 900002,
-    title: "体检结果",
-    body: "血脂偏高，三个月后复查。\n\n少吃油炸，每周跑步三次。",
-    pinned: false,
-    tags: ["健康"],
-    createdAt: ago(60 * 24 * 30),
-    updatedAt: ago(60 * 24 * 2),
-  },
-];
-
-const summary = (n: HiddenNote) => ({
-  id: n.id,
-  title: n.title,
-  excerpt: n.body.replace(/[#*>`-]/g, "").slice(0, 120),
-  pinned: n.pinned,
-  tags: n.tags,
-  hidden: true,
-  createdAt: n.createdAt,
-  updatedAt: n.updatedAt,
-});
-const full = (n: HiddenNote) => ({ ...n, hidden: true });
-const isDemoNote = (id: string) => Number(id) >= 900000;
-
-route("GET", "/notes", ({ query }) => {
-  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
-  if (demoFull) return undefined;
-  if (query.get("hidden") !== "true") return undefined;
-  if (!vault.unlocked) return json({ items: [] });
-  const q = (query.get("q") ?? "").toLowerCase();
-  const items = hiddenNotes
-    .filter((n) => !q || `${n.title} ${n.body}`.toLowerCase().includes(q))
-    .sort(
-      (a, b) =>
-        Number(b.pinned) - Number(a.pinned) ||
-        b.updatedAt.localeCompare(a.updatedAt),
-    )
-    .map(summary);
-  return json({ items });
-});
-route("POST", "/notes", ({ body }) => {
-  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
-  if (demoFull) return undefined;
-  if (!body?.hidden) return undefined;
-  if (!vault.unlocked) return fail(403, "vault_locked", "先解锁隐藏内容");
-  const n: HiddenNote = {
-    id: nextNoteId++,
-    title: body.title ?? "",
-    body: body.body ?? "",
-    pinned: !!body.pinned,
-    tags: body.tags ?? [],
-    createdAt: now(),
-    updatedAt: now(),
-  };
-  hiddenNotes.push(n);
-  return json(full(n), 201);
-});
-route("GET", "/notes/:id", ({ params }) => {
-  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
-  if (demoFull) return undefined;
-  if (!isDemoNote(params.id)) return undefined;
-  const n = hiddenNotes.find((x) => x.id === Number(params.id));
-  return n && vault.unlocked
-    ? json(full(n))
-    : fail(404, "not_found", "资源不存在");
-});
-route("PATCH", "/notes/:id", ({ params, body }) => {
-  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
-  if (demoFull) return undefined;
-  if (!isDemoNote(params.id)) return undefined;
-  const n = hiddenNotes.find((x) => x.id === Number(params.id));
-  if (!n || !vault.unlocked) return fail(404, "not_found", "资源不存在");
-  for (const k of ["title", "body", "pinned", "tags"] as const)
-    if (body?.[k] !== undefined)
-      (n as unknown as Record<string, unknown>)[k] = body[k];
-  n.updatedAt = now();
-  if (body?.hidden === false) {
-    // 演示里取消隐藏就当作删掉，普通笔记在真实服务端。
-    hiddenNotes.splice(hiddenNotes.indexOf(n), 1);
-    return json({ ...full(n), hidden: false });
-  }
-  return json(full(n));
-});
-route("DELETE", "/notes/:id", ({ params }) => {
-  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
-  if (demoFull) return undefined;
-  if (!isDemoNote(params.id)) return undefined;
-  const i = hiddenNotes.findIndex((x) => x.id === Number(params.id));
-  if (i >= 0) hiddenNotes.splice(i, 1);
   return noContent();
 });
