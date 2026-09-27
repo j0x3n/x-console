@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AutoSaver, type SaveState } from "./autosave";
-import { defaultReminderTime, noteTitle, parseTags, sameTags, snippetParts } from "./logic";
+import {
+  defaultReminderTime,
+  noteTitle,
+  parseTags,
+  sameTags,
+  snippetParts,
+} from "./logic";
 
 describe("AutoSaver", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -8,7 +14,12 @@ describe("AutoSaver", () => {
 
   function setup(save = vi.fn(async (_draft: string) => {})) {
     const states: SaveState[] = [];
-    const saver = new AutoSaver<string>({ delay: 800, retryDelay: 3000, save, onState: (s) => states.push(s) });
+    const saver = new AutoSaver<string>({
+      delay: 800,
+      retryDelay: 3000,
+      save,
+      onState: (s) => states.push(s),
+    });
     return { saver, save, states };
   }
 
@@ -91,11 +102,17 @@ describe("notes helpers", () => {
     expect(noteTitle("", "")).toBe("");
   });
   it("parses tag input", () => {
-    expect(parseTags("#work, idea  work，生活")).toEqual(["work", "idea", "生活"]);
+    expect(parseTags("#work, idea  work，生活")).toEqual([
+      "work",
+      "idea",
+      "生活",
+    ]);
     expect(sameTags(["a", "b"], ["b", "a"])).toBe(true);
     expect(sameTags(["a"], ["a", "b"])).toBe(false);
   });
   it("defaults reminders to tomorrow 9:00", () => {
-    expect(defaultReminderTime(new Date(2026, 8, 30, 22, 15))).toBe("2026-10-01T09:00");
+    expect(defaultReminderTime(new Date(2026, 8, 30, 22, 15))).toBe(
+      "2026-10-01T09:00",
+    );
   });
 });

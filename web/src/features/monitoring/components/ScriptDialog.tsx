@@ -20,7 +20,12 @@ const shells: { id: ScriptShell; label: string }[] = [
   { id: "powershell", label: "PowerShell" },
 ];
 
-export default function ScriptDialog({ open, onClose, script, onSaved }: Props) {
+export default function ScriptDialog({
+  open,
+  onClose,
+  script,
+  onSaved,
+}: Props) {
   const t = useT();
   const save = useSaveScript();
   const [name, setName] = useState("");
@@ -47,7 +52,8 @@ export default function ScriptDialog({ open, onClose, script, onSaved }: Props) 
     if (!name.trim()) return setError(t("Please enter a name"));
     if (!body.trim()) return setError(t("The script is empty"));
     const seconds = Number(timeout);
-    if (!seconds || seconds > 1800) return setError(t("Timeout must be 1 to 1800 seconds"));
+    if (!seconds || seconds > 1800)
+      return setError(t("Timeout must be 1 to 1800 seconds"));
     const fields = {
       name: name.trim(),
       description: description.trim(),
@@ -66,7 +72,9 @@ export default function ScriptDialog({ open, onClose, script, onSaved }: Props) 
           ...(newBody !== script.body ? { body: newBody } : {}),
           ...(newShell !== script.shell ? { shell: newShell } : {}),
         };
-        saved = await withElevation(() => save.mutateAsync({ id: script.id, patch }));
+        saved = await withElevation(() =>
+          save.mutateAsync({ id: script.id, patch }),
+        );
       } else {
         saved = await save.mutateAsync({ create: fields });
       }
@@ -79,16 +87,31 @@ export default function ScriptDialog({ open, onClose, script, onSaved }: Props) 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={script ? t("Edit script") : t("New script")} wide>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={script ? t("Edit script") : t("New script")}
+      wide
+    >
       <form onSubmit={submit}>
         <div className="monitoring-form-row">
           <label className="xc-field">
             <span>{t("Name")}</span>
-            <input className="xc-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} autoFocus />
+            <input
+              className="xc-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={100}
+              autoFocus
+            />
           </label>
           <label className="xc-field monitoring-narrow-field">
             <span>{t("Shell")}</span>
-            <select className="xc-select" value={shell} onChange={(e) => setShell(e.target.value as ScriptShell)}>
+            <select
+              className="xc-select"
+              value={shell}
+              onChange={(e) => setShell(e.target.value as ScriptShell)}
+            >
               {shells.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
@@ -99,7 +122,12 @@ export default function ScriptDialog({ open, onClose, script, onSaved }: Props) 
         </div>
         <label className="xc-field">
           <span>{t("Description")}</span>
-          <input className="xc-input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("optional")} />
+          <input
+            className="xc-input"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t("optional")}
+          />
         </label>
         <label className="xc-field">
           <span>{t("Script")}</span>
@@ -109,9 +137,15 @@ export default function ScriptDialog({ open, onClose, script, onSaved }: Props) 
             onChange={(e) => setBody(e.target.value)}
             rows={10}
             spellCheck={false}
-            placeholder={shell === "powershell" ? "Get-Service | Where Status -eq Running" : "df -h\nuptime"}
+            placeholder={
+              shell === "powershell"
+                ? "Get-Service | Where Status -eq Running"
+                : "df -h\nuptime"
+            }
           />
-          <small>{t("bash and sh run on Linux. PowerShell runs on Windows.")}</small>
+          <small>
+            {t("bash and sh run on Linux. PowerShell runs on Windows.")}
+          </small>
         </label>
         <div className="xc-field">
           <span>{t("Default machines")}</span>
@@ -131,7 +165,11 @@ export default function ScriptDialog({ open, onClose, script, onSaved }: Props) 
           <button type="button" className="xc-btn" onClick={onClose}>
             {t("Cancel")}
           </button>
-          <button type="submit" className="xc-btn primary" disabled={save.isPending}>
+          <button
+            type="submit"
+            className="xc-btn primary"
+            disabled={save.isPending}
+          >
             {t("Save")}
           </button>
         </div>

@@ -85,5 +85,6 @@ registerZh({
   Conflicts: "冲突",
   Errors: "错误",
   "Choose a team and a project in every row": "每一行都要选团队和项目",
-  "Each team and each project can be used only once": "一个团队或项目只能用一次",
+  "Each team and each project can be used only once":
+    "一个团队或项目只能用一次",
 });

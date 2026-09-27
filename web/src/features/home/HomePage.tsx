@@ -4,7 +4,12 @@ import { House, Settings, WifiOff } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
-import { isNotConfigured, useHAEvents, useHAStatus, type HAStatus } from "./api";
+import {
+  isNotConfigured,
+  useHAEvents,
+  useHAStatus,
+  type HAStatus,
+} from "./api";
 import EntitiesView from "./components/EntitiesView";
 import FavoritesView from "./components/FavoritesView";
 
@@ -82,7 +87,10 @@ export default function HomePage() {
 function StatusBadge({ status }: { status: HAStatus }) {
   const t = useT();
   return status.connected ? (
-    <span className="xc-badge ok" title={`Home Assistant ${status.version ?? ""}`}>
+    <span
+      className="xc-badge ok"
+      title={`Home Assistant ${status.version ?? ""}`}
+    >
       <span className="xc-dot ok" /> {t("Connected")}
     </span>
   ) : (
@@ -113,11 +121,10 @@ function OfflineNotice({ status }: { status: HAStatus }) {
 function SetupGuide() {
   const t = useT();
   return (
-    <EmptyState
-      title={t("Connect Home Assistant")}
-      icon={<House size={28} />}
-    >
-      <span>填好 Home Assistant 的地址和长期访问令牌，就能在这里控制家里的设备。</span>
+    <EmptyState title={t("Connect Home Assistant")} icon={<House size={28} />}>
+      <span>
+        填好 Home Assistant 的地址和长期访问令牌，就能在这里控制家里的设备。
+      </span>
       <Link className="xc-btn small primary" to="/settings/homeassistant">
         <Settings size={14} /> {t("Go to settings")}
       </Link>

@@ -3,7 +3,13 @@ import type { Monitor } from "../api";
 import type { Tone } from "../lib";
 
 /** 监控状态：正常、失败一次、不可用、已暂停、未检查。 */
-export function StatusBadge({ monitor, tone }: { monitor: Monitor; tone: Tone }) {
+export function StatusBadge({
+  monitor,
+  tone,
+}: {
+  monitor: Monitor;
+  tone: Tone;
+}) {
   const t = useT();
   let label = "Not checked yet";
   if (!monitor.enabled) label = "Paused";

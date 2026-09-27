@@ -21,7 +21,13 @@ export default function HostDetailPage() {
             </Link>
             <PageHeading
               title={h.name}
-              subtitle={[h.hostname, h.os && `${h.os}/${h.arch}`, h.source === "ssh" ? t("SSH only") : ""].filter(Boolean).join(" · ")}
+              subtitle={[
+                h.hostname,
+                h.os && `${h.os}/${h.arch}`,
+                h.source === "ssh" ? t("SSH only") : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
               aside={<HostStatus host={h} />}
             />
           </>

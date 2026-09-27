@@ -36,7 +36,9 @@ export default function PcPage() {
       <div className="xc-page">
         <PageHeading title={t("This PC")} />
         <EmptyState title={t("No PC paired yet")} icon={<Monitor size={28} />}>
-          <span>{t("Install the agent on your Windows PC and pair it as a PC.")}</span>
+          <span>
+            {t("Install the agent on your Windows PC and pair it as a PC.")}
+          </span>
           <Link className="xc-btn primary" to="/settings/devices">
             {t("Pair a device")}
           </Link>
@@ -60,7 +62,12 @@ export default function PcPage() {
             aside={
               <>
                 {hosts.data.length > 1 && (
-                  <select className="xc-select pc-select" value={host.id} onChange={(e) => choose(e.target.value)} aria-label={t("Choose a PC")}>
+                  <select
+                    className="xc-select pc-select"
+                    value={host.id}
+                    onChange={(e) => choose(e.target.value)}
+                    aria-label={t("Choose a PC")}
+                  >
                     {hosts.data.map((x) => (
                       <option key={x.id} value={x.id}>
                         {x.name}

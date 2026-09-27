@@ -16,7 +16,11 @@ export default function CertsTab() {
   const [openId, setOpenId] = useIdParam("monitor");
   const items = (monitors.data ?? [])
     .filter((m) => m.kind !== "http")
-    .sort((a, b) => (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity) || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity) ||
+        a.name.localeCompare(b.name),
+    );
   const open = items.find((m) => m.id === openId) ?? null;
 
   return (
@@ -26,9 +30,15 @@ export default function CertsTab() {
       ) : monitors.isError ? (
         <ErrorState error={monitors.error} onRetry={() => monitors.refetch()} />
       ) : items.length === 0 ? (
-        <EmptyState title={t("No certificates or domains yet")} icon={<ShieldCheck size={28} />}>
+        <EmptyState
+          title={t("No certificates or domains yet")}
+          icon={<ShieldCheck size={28} />}
+        >
           <span>{t("You get a reminder before they expire.")}</span>
-          <button className="xc-btn primary small" onClick={() => setCreating("1")}>
+          <button
+            className="xc-btn primary small"
+            onClick={() => setCreating("1")}
+          >
             <Plus size={14} /> {t("New monitor")}
           </button>
         </EmptyState>
@@ -39,13 +49,23 @@ export default function CertsTab() {
           ))}
         </div>
       )}
-      <MonitorDialog open={creating === "1"} onClose={() => setCreating(null)} kinds={["tls", "domain"]} />
+      <MonitorDialog
+        open={creating === "1"}
+        onClose={() => setCreating(null)}
+        kinds={["tls", "domain"]}
+      />
       <MonitorDetail monitor={open} onClose={() => setOpenId(null)} />
     </>
   );
 }
 
-function CertRow({ monitor: m, onOpen }: { monitor: Monitor; onOpen: () => void }) {
+function CertRow({
+  monitor: m,
+  onOpen,
+}: {
+  monitor: Monitor;
+  onOpen: () => void;
+}) {
   const t = useT();
   const language = useLanguage();
   const tone = expiryTone(m.kind, m.daysLeft);
@@ -55,10 +75,15 @@ function CertRow({ monitor: m, onOpen }: { monitor: Monitor; onOpen: () => void 
       <span className={`xc-dot ${m.enabled ? tone : ""}`} />
       <span className="monitoring-row-main">
         <strong>
-          {m.name} <span className="xc-badge">{t(m.kind === "tls" ? "Certificate" : "Domain")}</span>
+          {m.name}{" "}
+          <span className="xc-badge">
+            {t(m.kind === "tls" ? "Certificate" : "Domain")}
+          </span>
         </strong>
         <small className="xc-mono">{m.target}</small>
-        {m.lastError && m.enabled && <small className="monitoring-row-error">{m.lastError}</small>}
+        {m.lastError && m.enabled && (
+          <small className="monitoring-row-error">{m.lastError}</small>
+        )}
       </span>
       <span className="monitoring-row-side">
         {days === null ? (
@@ -68,7 +93,9 @@ function CertRow({ monitor: m, onOpen }: { monitor: Monitor; onOpen: () => void 
             {days <= 0 ? t("Expired") : `${days} ${t("days left")}`}
           </span>
         )}
-        {m.expiresAt && <small className="xc-muted">{longDate(m.expiresAt, language)}</small>}
+        {m.expiresAt && (
+          <small className="xc-muted">{longDate(m.expiresAt, language)}</small>
+        )}
       </span>
     </button>
   );

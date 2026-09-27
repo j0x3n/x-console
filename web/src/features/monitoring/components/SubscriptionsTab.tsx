@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Archive, ArchiveRestore, CalendarCheck, ExternalLink, Pencil, Plus, Receipt, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  CalendarCheck,
+  ExternalLink,
+  Pencil,
+  Plus,
+  Receipt,
+  Trash2,
+} from "lucide-react";
 import Dialog from "../../../components/ui/Dialog";
 import { EmptyState, ErrorState, Loading } from "../../../components/ui/States";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
@@ -12,9 +21,23 @@ import {
   useSubscriptionSummary,
   type Subscription,
 } from "../api";
-import { formatMoney, nextRenewal, renewalTone, sortSubscriptions } from "../lib";
-import { longDate, shortDateTime, showError, useIdParam, useParam } from "./common";
-import SubscriptionDialog, { categoryLabels, cycleLabels } from "./SubscriptionDialog";
+import {
+  formatMoney,
+  nextRenewal,
+  renewalTone,
+  sortSubscriptions,
+} from "../lib";
+import {
+  longDate,
+  shortDateTime,
+  showError,
+  useIdParam,
+  useParam,
+} from "./common";
+import SubscriptionDialog, {
+  categoryLabels,
+  cycleLabels,
+} from "./SubscriptionDialog";
 
 /** 订阅与续费：支出汇总、列表、详情。 */
 export default function SubscriptionsTab() {
@@ -31,7 +54,11 @@ export default function SubscriptionsTab() {
       {!archived && <SpendSummary />}
       <div className="monitoring-toolbar">
         <label className="monitoring-check">
-          <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={archived}
+            onChange={(e) => setArchived(e.target.checked)}
+          />
           <span>{t("Show archived")}</span>
         </label>
       </div>
@@ -40,11 +67,21 @@ export default function SubscriptionsTab() {
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => list.refetch()} />
       ) : items.length === 0 ? (
-        <EmptyState title={archived ? t("Nothing archived") : t("No subscriptions yet")} icon={<Receipt size={28} />}>
+        <EmptyState
+          title={archived ? t("Nothing archived") : t("No subscriptions yet")}
+          icon={<Receipt size={28} />}
+        >
           {!archived && (
             <>
-              <span>{t("Add servers, domains and apps you pay for. You get a reminder before each renewal.")}</span>
-              <button className="xc-btn primary small" onClick={() => setCreating("1")}>
+              <span>
+                {t(
+                  "Add servers, domains and apps you pay for. You get a reminder before each renewal.",
+                )}
+              </span>
+              <button
+                className="xc-btn primary small"
+                onClick={() => setCreating("1")}
+              >
                 <Plus size={14} /> {t("New subscription")}
               </button>
             </>
@@ -53,11 +90,18 @@ export default function SubscriptionsTab() {
       ) : (
         <div className="xc-card monitoring-list">
           {items.map((s) => (
-            <SubscriptionRow key={s.id} sub={s} onOpen={() => setOpenId(s.id)} />
+            <SubscriptionRow
+              key={s.id}
+              sub={s}
+              onOpen={() => setOpenId(s.id)}
+            />
           ))}
         </div>
       )}
-      <SubscriptionDialog open={creating === "1"} onClose={() => setCreating(null)} />
+      <SubscriptionDialog
+        open={creating === "1"}
+        onClose={() => setCreating(null)}
+      />
       <SubscriptionDetail sub={open} onClose={() => setOpenId(null)} />
     </>
   );
@@ -76,7 +120,8 @@ function SpendSummary() {
           </small>
           <strong>{formatMoney(x.monthly, x.currency)}</strong>
           <small className="xc-muted">
-            {t("Per year")} {formatMoney(x.yearly, x.currency)} · {x.count} {t("items")}
+            {t("Per year")} {formatMoney(x.yearly, x.currency)} · {x.count}{" "}
+            {t("items")}
           </small>
         </div>
       ))}
@@ -90,17 +135,27 @@ function daysText(t: (s: string) => string, days: number) {
   return `${days} ${t("days to renewal")}`;
 }
 
-function SubscriptionRow({ sub: s, onOpen }: { sub: Subscription; onOpen: () => void }) {
+function SubscriptionRow({
+  sub: s,
+  onOpen,
+}: {
+  sub: Subscription;
+  onOpen: () => void;
+}) {
   const t = useT();
   const language = useLanguage();
   return (
     <button className="monitoring-row" onClick={onOpen}>
       <span className="monitoring-row-main">
         <strong>
-          {s.name} <span className="xc-badge">{t(categoryLabels[s.category])}</span>
+          {s.name}{" "}
+          <span className="xc-badge">{t(categoryLabels[s.category])}</span>
         </strong>
         <small>
-          {formatMoney(s.amount, s.currency)} · {s.cycle === "custom_days" ? `${s.cycleDays} ${t("days")}` : t(cycleLabels[s.cycle])}
+          {formatMoney(s.amount, s.currency)} ·{" "}
+          {s.cycle === "custom_days"
+            ? `${s.cycleDays} ${t("days")}`
+            : t(cycleLabels[s.cycle])}
           {s.autoRenew && ` · ${t("auto renew")}`}
         </small>
       </span>
@@ -108,7 +163,9 @@ function SubscriptionRow({ sub: s, onOpen }: { sub: Subscription; onOpen: () => 
         {s.archivedAt ? (
           <span className="xc-badge">{t("Archived")}</span>
         ) : (
-          <span className={`xc-badge ${renewalTone(s.daysLeft)}`}>{daysText(t, s.daysLeft)}</span>
+          <span className={`xc-badge ${renewalTone(s.daysLeft)}`}>
+            {daysText(t, s.daysLeft)}
+          </span>
         )}
         <small className="xc-muted">{longDate(s.nextRenewal, language)}</small>
       </span>
@@ -123,7 +180,13 @@ const eventLabels: Record<string, string> = {
   updated: "Date changed",
 };
 
-function SubscriptionDetail({ sub, onClose }: { sub: Subscription | null; onClose: () => void }) {
+function SubscriptionDetail({
+  sub,
+  onClose,
+}: {
+  sub: Subscription | null;
+  onClose: () => void;
+}) {
   const t = useT();
   const language = useLanguage();
   const events = useSubscriptionEvents(sub?.id ?? null);
@@ -134,8 +197,16 @@ function SubscriptionDetail({ sub, onClose }: { sub: Subscription | null; onClos
 
   const markRenewed = () =>
     save.mutate(
-      { id: sub.id, patch: { nextRenewal: nextRenewal(sub.nextRenewal, sub.cycle, sub.cycleDays) } },
-      { onSuccess: () => toast(t("Moved to the next cycle")), onError: showError },
+      {
+        id: sub.id,
+        patch: {
+          nextRenewal: nextRenewal(sub.nextRenewal, sub.cycle, sub.cycleDays),
+        },
+      },
+      {
+        onSuccess: () => toast(t("Moved to the next cycle")),
+        onError: showError,
+      },
     );
   const archive = () =>
     save.mutate(
@@ -159,7 +230,11 @@ function SubscriptionDetail({ sub, onClose }: { sub: Subscription | null; onClos
           </div>
           <div>
             <small>{t("Billing cycle")}</small>
-            <strong>{sub.cycle === "custom_days" ? `${sub.cycleDays} ${t("days")}` : t(cycleLabels[sub.cycle])}</strong>
+            <strong>
+              {sub.cycle === "custom_days"
+                ? `${sub.cycleDays} ${t("days")}`
+                : t(cycleLabels[sub.cycle])}
+            </strong>
           </div>
           <div>
             <small>{t("Next renewal")}</small>
@@ -172,7 +247,10 @@ function SubscriptionDetail({ sub, onClose }: { sub: Subscription | null; onClos
           <div>
             <small>{t("Reminders")}</small>
             <strong>
-              {sub.remindDaysBefore.length ? sub.remindDaysBefore.map((d) => `${d}`).join(", ") + ` ${t("days before")}` : t("Off")}
+              {sub.remindDaysBefore.length
+                ? sub.remindDaysBefore.map((d) => `${d}`).join(", ") +
+                  ` ${t("days before")}`
+                : t("Off")}
             </strong>
           </div>
         </div>
@@ -197,9 +275,13 @@ function SubscriptionDetail({ sub, onClose }: { sub: Subscription | null; onClos
           <ul className="monitoring-events">
             {events.data.map((e) => (
               <li key={e.id}>
-                <span className="xc-badge">{t(eventLabels[e.kind] ?? e.kind)}</span>
+                <span className="xc-badge">
+                  {t(eventLabels[e.kind] ?? e.kind)}
+                </span>
                 <span>{e.detail}</span>
-                <small className="xc-muted">{shortDateTime(e.at, language)}</small>
+                <small className="xc-muted">
+                  {shortDateTime(e.at, language)}
+                </small>
               </li>
             ))}
           </ul>
@@ -221,8 +303,16 @@ function SubscriptionDetail({ sub, onClose }: { sub: Subscription | null; onClos
           >
             <Trash2 size={14} /> {t("Delete")}
           </button>
-          <button className="xc-btn ghost" disabled={save.isPending} onClick={archive}>
-            {sub.archivedAt ? <ArchiveRestore size={14} /> : <Archive size={14} />}{" "}
+          <button
+            className="xc-btn ghost"
+            disabled={save.isPending}
+            onClick={archive}
+          >
+            {sub.archivedAt ? (
+              <ArchiveRestore size={14} />
+            ) : (
+              <Archive size={14} />
+            )}{" "}
             {sub.archivedAt ? t("Unarchive") : t("Archive")}
           </button>
           <span className="xc-spacer" />
@@ -230,13 +320,21 @@ function SubscriptionDetail({ sub, onClose }: { sub: Subscription | null; onClos
             <Pencil size={14} /> {t("Edit")}
           </button>
           {!sub.autoRenew && !sub.archivedAt && (
-            <button className="xc-btn primary" disabled={save.isPending} onClick={markRenewed}>
+            <button
+              className="xc-btn primary"
+              disabled={save.isPending}
+              onClick={markRenewed}
+            >
               <CalendarCheck size={14} /> {t("Mark renewed")}
             </button>
           )}
         </div>
       </Dialog>
-      <SubscriptionDialog open={editing} onClose={() => setEditing(false)} subscription={sub} />
+      <SubscriptionDialog
+        open={editing}
+        onClose={() => setEditing(false)}
+        subscription={sub}
+      />
     </>
   );
 }

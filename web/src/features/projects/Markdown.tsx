@@ -14,11 +14,15 @@ export default function Markdown({
 }) {
   const blocks = useMemo(() => parseMarkdown(source), [source]);
   if (blocks.length === 0 && empty) return <>{empty}</>;
-  return <div className={`projects-md ${className}`}>{renderBlocks(blocks)}</div>;
+  return (
+    <div className={`projects-md ${className}`}>{renderBlocks(blocks)}</div>
+  );
 }
 
 function renderBlocks(blocks: Block[]): ReactNode {
-  return blocks.map((block, i) => <Fragment key={i}>{renderBlock(block)}</Fragment>);
+  return blocks.map((block, i) => (
+    <Fragment key={i}>{renderBlock(block)}</Fragment>
+  ));
 }
 
 function renderBlock(block: Block): ReactNode {
@@ -43,7 +47,12 @@ function renderBlock(block: Block): ReactNode {
       const items = block.items.map((item, i) => (
         <li key={i} className={item.checked !== null ? "task" : undefined}>
           {item.checked !== null && (
-            <input type="checkbox" checked={item.checked} readOnly tabIndex={-1} />
+            <input
+              type="checkbox"
+              checked={item.checked}
+              readOnly
+              tabIndex={-1}
+            />
           )}
           {item.blocks.length === 1 && item.blocks[0].type === "paragraph"
             ? renderInline(item.blocks[0].children)

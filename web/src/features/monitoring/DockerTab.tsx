@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileText, Play, RefreshCw, RotateCw, Square, Trash2 } from "lucide-react";
+import {
+  FileText,
+  Play,
+  RefreshCw,
+  RotateCw,
+  Square,
+  Trash2,
+} from "lucide-react";
 import { wsUrl } from "../../api/client";
 import { withElevation } from "../../auth/elevation";
 import Dialog from "../../components/ui/Dialog";
@@ -17,7 +24,15 @@ import {
   type ContainerAction,
 } from "./api";
 import { showError } from "./components/common";
-import { appendLog, containerTone, emptyLog, formatPorts, logText, mergeStats, type ContainerRow } from "./lib";
+import {
+  appendLog,
+  containerTone,
+  emptyLog,
+  formatPorts,
+  logText,
+  mergeStats,
+  type ContainerRow,
+} from "./lib";
 
 /** 服务器详情页的“容器”标签。机器上报了 docker 能力才显示。 */
 export default function DockerTab({ host }: { host: { id: string } }) {
@@ -29,13 +44,23 @@ export default function DockerTab({ host }: { host: { id: string } }) {
   const stats = useDockerStats(host.id);
   const images = useDockerImages(host.id, showImages);
   const action = useContainerAction(host.id);
-  const rows = useMemo(() => mergeStats(containers.data?.items ?? [], stats.data?.items), [containers.data, stats.data]);
+  const rows = useMemo(
+    () => mergeStats(containers.data?.items ?? [], stats.data?.items),
+    [containers.data, stats.data],
+  );
 
   const run = (c: ContainerRow, act: ContainerAction) => {
     const danger = act === "stop" || act === "remove";
-    if (danger && !confirm(`${t(act === "stop" ? "Stop" : "Remove")} ${c.name}?`)) return;
+    if (
+      danger &&
+      !confirm(`${t(act === "stop" ? "Stop" : "Remove")} ${c.name}?`)
+    )
+      return;
     const call = () => action.mutateAsync({ id: c.id, action: act });
-    (danger ? withElevation(call) : call()).then(() => toast(t("Done")), showError);
+    (danger ? withElevation(call) : call()).then(
+      () => toast(t("Done")),
+      showError,
+    );
   };
 
   return (
@@ -45,7 +70,11 @@ export default function DockerTab({ host }: { host: { id: string } }) {
           <h2>{t("Containers")}</h2>
           <div className="xc-row monitoring-wrap">
             <label className="monitoring-check">
-              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={all}
+                onChange={(e) => setAll(e.target.checked)}
+              />
               <span>{t("Show stopped")}</span>
             </label>
             <button
@@ -57,16 +86,28 @@ export default function DockerTab({ host }: { host: { id: string } }) {
               disabled={containers.isFetching}
               aria-label={t("Refresh")}
             >
-              <RefreshCw size={14} className={containers.isFetching || stats.isFetching ? "monitoring-spin" : ""} />
+              <RefreshCw
+                size={14}
+                className={
+                  containers.isFetching || stats.isFetching
+                    ? "monitoring-spin"
+                    : ""
+                }
+              />
             </button>
           </div>
         </div>
         {containers.isPending ? (
           <Loading />
         ) : containers.isError ? (
-          <ErrorState error={containers.error} onRetry={() => containers.refetch()} />
+          <ErrorState
+            error={containers.error}
+            onRetry={() => containers.refetch()}
+          />
         ) : rows.length === 0 ? (
-          <EmptyState title={all ? t("No containers") : t("No running containers")} />
+          <EmptyState
+            title={all ? t("No containers") : t("No running containers")}
+          />
         ) : (
           <div className="xc-table-wrap">
             <table className="xc-table monitoring-table">
@@ -88,16 +129,29 @@ export default function DockerTab({ host }: { host: { id: string } }) {
                       <small className="xc-muted xc-mono">{c.image}</small>
                     </td>
                     <td>
-                      <span className={`xc-badge ${containerTone(c.state)}`}>{t(`state.${c.state}`).replace(/^state\./, "")}</span>
-                      <small className="xc-muted monitoring-block">{c.status}</small>
+                      <span className={`xc-badge ${containerTone(c.state)}`}>
+                        {t(`state.${c.state}`).replace(/^state\./, "")}
+                      </span>
+                      <small className="xc-muted monitoring-block">
+                        {c.status}
+                      </small>
                     </td>
-                    <td className="xc-mono monitoring-small">{formatPorts(c.ports) || "—"}</td>
-                    <td>{c.stats ? `${c.stats.cpuPercent.toFixed(1)}%` : "—"}</td>
+                    <td className="xc-mono monitoring-small">
+                      {formatPorts(c.ports) || "—"}
+                    </td>
+                    <td>
+                      {c.stats ? `${c.stats.cpuPercent.toFixed(1)}%` : "—"}
+                    </td>
                     <td>
                       {c.stats ? (
                         <>
                           {formatBytes(c.stats.memUsage)}
-                          {c.stats.memLimit > 0 && <small className="xc-muted"> / {formatBytes(c.stats.memLimit)}</small>}
+                          {c.stats.memLimit > 0 && (
+                            <small className="xc-muted">
+                              {" "}
+                              / {formatBytes(c.stats.memLimit)}
+                            </small>
+                          )}
                         </>
                       ) : (
                         "—"
@@ -106,24 +160,49 @@ export default function DockerTab({ host }: { host: { id: string } }) {
                     <td className="monitoring-cell-actions">
                       {c.state === "running" ? (
                         <>
-                          <button className="xc-btn small" disabled={action.isPending} onClick={() => run(c, "restart")} title={t("Restart")}>
+                          <button
+                            className="xc-btn small"
+                            disabled={action.isPending}
+                            onClick={() => run(c, "restart")}
+                            title={t("Restart")}
+                          >
                             <RotateCw size={13} />
                           </button>
-                          <button className="xc-btn small danger" disabled={action.isPending} onClick={() => run(c, "stop")} title={t("Stop")}>
+                          <button
+                            className="xc-btn small danger"
+                            disabled={action.isPending}
+                            onClick={() => run(c, "stop")}
+                            title={t("Stop")}
+                          >
                             <Square size={12} />
                           </button>
                         </>
                       ) : (
                         <>
-                          <button className="xc-btn small" disabled={action.isPending} onClick={() => run(c, "start")} title={t("Start")}>
+                          <button
+                            className="xc-btn small"
+                            disabled={action.isPending}
+                            onClick={() => run(c, "start")}
+                            title={t("Start")}
+                          >
                             <Play size={13} />
                           </button>
-                          <button className="xc-btn small danger" disabled={action.isPending} onClick={() => run(c, "remove")} title={t("Remove")}>
+                          <button
+                            className="xc-btn small danger"
+                            disabled={action.isPending}
+                            onClick={() => run(c, "remove")}
+                            title={t("Remove")}
+                          >
                             <Trash2 size={13} />
                           </button>
                         </>
                       )}
-                      <button className="xc-btn small ghost" onClick={() => setLogsFor(c)} title={t("Logs")} aria-label={t("Logs")}>
+                      <button
+                        className="xc-btn small ghost"
+                        onClick={() => setLogsFor(c)}
+                        title={t("Logs")}
+                        aria-label={t("Logs")}
+                      >
                         <FileText size={13} />
                       </button>
                     </td>
@@ -138,7 +217,10 @@ export default function DockerTab({ host }: { host: { id: string } }) {
       <div className="xc-card">
         <div className="xc-card-head">
           <h2>{t("Images")}</h2>
-          <button className="xc-btn small ghost" onClick={() => setShowImages(!showImages)}>
+          <button
+            className="xc-btn small ghost"
+            onClick={() => setShowImages(!showImages)}
+          >
             {showImages ? t("Hide") : t("Show")}
           </button>
         </div>
@@ -162,7 +244,10 @@ export default function DockerTab({ host }: { host: { id: string } }) {
                 <tbody>
                   {images.data.items.map((img) => (
                     <tr key={img.id}>
-                      <td className="xc-mono monitoring-small">{img.tags.join(", ") || img.id.replace("sha256:", "").slice(0, 12)}</td>
+                      <td className="xc-mono monitoring-small">
+                        {img.tags.join(", ") ||
+                          img.id.replace("sha256:", "").slice(0, 12)}
+                      </td>
                       <td>{formatBytes(img.size)}</td>
                       <td>{img.containers >= 0 ? img.containers : "—"}</td>
                     </tr>
@@ -173,7 +258,11 @@ export default function DockerTab({ host }: { host: { id: string } }) {
           ))}
       </div>
 
-      <LogsDialog hostId={host.id} container={logsFor} onClose={() => setLogsFor(null)} />
+      <LogsDialog
+        hostId={host.id}
+        container={logsFor}
+        onClose={() => setLogsFor(null)}
+      />
     </div>
   );
 }
@@ -181,7 +270,15 @@ export default function DockerTab({ host }: { host: { id: string } }) {
 type LogStatus = "connecting" | "following" | "ended" | "error";
 
 /** 跟随容器日志。关闭弹窗就断开。 */
-function LogsDialog({ hostId, container, onClose }: { hostId: string; container: ContainerRow | null; onClose: () => void }) {
+function LogsDialog({
+  hostId,
+  container,
+  onClose,
+}: {
+  hostId: string;
+  container: ContainerRow | null;
+  onClose: () => void;
+}) {
   const t = useT();
   const [buf, setBuf] = useState(emptyLog);
   const [status, setStatus] = useState<LogStatus>("connecting");
@@ -195,7 +292,9 @@ function LogsDialog({ hostId, container, onClose }: { hostId: string; container:
     setStatus("connecting");
     setError("");
     const ws = new WebSocket(
-      wsUrl(`/hosts/${encodeURIComponent(hostId)}/docker/containers/${encodeURIComponent(id)}/logs/follow?tail=300`),
+      wsUrl(
+        `/hosts/${encodeURIComponent(hostId)}/docker/containers/${encodeURIComponent(id)}/logs/follow?tail=300`,
+      ),
     );
     let opened = false;
     ws.onopen = () => {
@@ -203,13 +302,17 @@ function LogsDialog({ hostId, container, onClose }: { hostId: string; container:
       setStatus("following");
     };
     ws.onmessage = (event) => {
-      if (typeof event.data === "string") setBuf((b) => appendLog(b, event.data));
+      if (typeof event.data === "string")
+        setBuf((b) => appendLog(b, event.data));
     };
     ws.onclose = (event) => {
       if (event.code === 1000) setStatus("ended");
       else {
         setStatus("error");
-        setError(event.reason || (opened ? "Connection closed" : "Could not read the logs"));
+        setError(
+          event.reason ||
+            (opened ? "Connection closed" : "Could not read the logs"),
+        );
       }
     };
     return () => ws.close();
@@ -218,7 +321,8 @@ function LogsDialog({ hostId, container, onClose }: { hostId: string; container:
   // 新日志到来时滚到底部，除非你往上翻了。
   useEffect(() => {
     const el = box.current;
-    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80) el.scrollTop = el.scrollHeight;
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80)
+      el.scrollTop = el.scrollHeight;
   }, [buf]);
 
   const statusText: Record<LogStatus, string> = {
@@ -228,9 +332,18 @@ function LogsDialog({ hostId, container, onClose }: { hostId: string; container:
     error: "Disconnected",
   };
   return (
-    <Dialog open={!!container} onClose={onClose} title={`${t("Logs")} · ${container?.name ?? ""}`} wide>
+    <Dialog
+      open={!!container}
+      onClose={onClose}
+      title={`${t("Logs")} · ${container?.name ?? ""}`}
+      wide
+    >
       <div className="monitoring-detail-bar">
-        <span className={`xc-badge ${status === "following" ? "ok" : status === "error" ? "danger" : ""}`}>{t(statusText[status])}</span>
+        <span
+          className={`xc-badge ${status === "following" ? "ok" : status === "error" ? "danger" : ""}`}
+        >
+          {t(statusText[status])}
+        </span>
         {error && <span className="xc-muted monitoring-small">{t(error)}</span>}
       </div>
       <pre ref={box} className="monitoring-output monitoring-logs">

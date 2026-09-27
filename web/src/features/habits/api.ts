@@ -49,7 +49,9 @@ export function useHabitList() {
   return useQuery({
     queryKey: habitKeys.list,
     queryFn: () =>
-      unwrap(habitsApi.GET("/habits", { params: { query: { archived: true } } })),
+      unwrap(
+        habitsApi.GET("/habits", { params: { query: { archived: true } } }),
+      ),
   });
 }
 
@@ -96,7 +98,8 @@ export function useUndoCheckin() {
 export function useCreateHabit() {
   const invalidate = useInvalidateAll();
   return useMutation({
-    mutationFn: (body: HabitInput) => unwrap(habitsApi.POST("/habits", { body })),
+    mutationFn: (body: HabitInput) =>
+      unwrap(habitsApi.POST("/habits", { body })),
     onSuccess: invalidate,
   });
 }

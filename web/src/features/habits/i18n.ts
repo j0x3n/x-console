@@ -7,7 +7,8 @@ registerZh({
   "New habit": "新建习惯",
   "Edit habit": "编辑习惯",
   "No habits yet": "还没有习惯",
-  "Add one, for example drinking water or reading.": "加一个吧，比如喝水或者读书。",
+  "Add one, for example drinking water or reading.":
+    "加一个吧，比如喝水或者读书。",
   "Checked in": "已打卡",
   "Goal reached today": "今天达标了",
   Undone: "已撤销",
@@ -20,7 +21,8 @@ registerZh({
   Archive: "归档",
   Restore: "恢复",
   archived: "已归档",
-  "Delete this habit and all its check-ins?": "删除这个习惯和它的所有打卡记录？",
+  "Delete this habit and all its check-ins?":
+    "删除这个习惯和它的所有打卡记录？",
   Icon: "图标",
   Name: "名称",
   "Daily goal": "每日目标",
@@ -42,7 +44,8 @@ registerZh({
   "Reminders stop once today's goal is reached.": "当天达标后就不再提醒。",
   "Home Assistant entity": "Home Assistant 实体",
   optional: "选填",
-  "Each state change of this entity counts as one check-in.": "这个实体每变化一次状态，就算打卡一次。",
+  "Each state change of this entity counts as one check-in.":
+    "这个实体每变化一次状态，就算打卡一次。",
   "Name is required": "请填写名称",
   "The daily goal must be above 0": "每日目标要大于 0",
   "Write times like 08:00, 20:00": "提醒时间要写成 08:00, 20:00 这样",
@@ -68,7 +71,8 @@ registerZh({
   Saturday: "周六",
   Sunday: "周日",
   "Log workout": "记录训练",
-  "No plan for today. Rest or log a free workout.": "今天没有计划。可以休息，也可以记一次自由训练。",
+  "No plan for today. Rest or log a free workout.":
+    "今天没有计划。可以休息，也可以记一次自由训练。",
   "Weekly plan": "每周计划",
   "Save plan": "保存计划",
   "For example legs, or rest": "例如 练腿，或者休息",

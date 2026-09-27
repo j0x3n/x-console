@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 
@@ -24,7 +30,11 @@ const responses = vi.hoisted(() => {
     const req = input as Request;
     const path = new URL(req.url).pathname.replace("/api/v1", "");
     const text = await req.text();
-    calls.push({ method: req.method, path, body: text ? JSON.parse(text) : null });
+    calls.push({
+      method: req.method,
+      path,
+      body: text ? JSON.parse(text) : null,
+    });
     if (req.method !== "GET") return new Response(null, { status: 204 });
     const body = routes.get(path);
     return new Response(JSON.stringify(body ?? {}), {

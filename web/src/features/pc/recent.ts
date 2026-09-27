@@ -13,7 +13,9 @@ export function pushRecent(list: string[], value: string): string[] {
 export function loadRecent(): string[] {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(raw) ? raw.filter((v) => typeof v === "string").slice(0, MAX) : [];
+    return Array.isArray(raw)
+      ? raw.filter((v) => typeof v === "string").slice(0, MAX)
+      : [];
   } catch {
     return [];
   }

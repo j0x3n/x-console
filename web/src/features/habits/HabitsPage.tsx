@@ -30,7 +30,10 @@ export default function HabitsPage() {
         title={t("Habits")}
         aside={
           current.id === "" && (
-            <button className="xc-btn primary" onClick={() => setCreating(true)}>
+            <button
+              className="xc-btn primary"
+              onClick={() => setCreating(true)}
+            >
               <Plus size={15} /> {t("New habit")}
             </button>
           )
@@ -49,7 +52,10 @@ export default function HabitsPage() {
         ))}
       </nav>
       {current.id === "" && (
-        <TodayView creating={creating} onCloseCreate={() => setCreating(false)} />
+        <TodayView
+          creating={creating}
+          onCloseCreate={() => setCreating(false)}
+        />
       )}
       {current.id === "stats" && <StatsView />}
       {current.id === "workout" && <WorkoutView />}

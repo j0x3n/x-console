@@ -6,7 +6,11 @@ import type { Host } from "../api";
 import { formatRate, formatUptime } from "../lib";
 import UsageBar from "./UsageBar";
 
-export function HostStatus({ host }: { host: Pick<Host, "online" | "lastSeenAt" | "activeAlerts"> }) {
+export function HostStatus({
+  host,
+}: {
+  host: Pick<Host, "online" | "lastSeenAt" | "activeAlerts">;
+}) {
   const t = useT();
   const language = useLanguage();
   return (
@@ -34,7 +38,10 @@ export default function HostCard({ host }: { host: Host }) {
   const language = useLanguage();
   const m = host.metrics;
   return (
-    <Link to={`/servers/${encodeURIComponent(host.id)}`} className={`xc-card servers-card${host.online ? "" : " offline"}`}>
+    <Link
+      to={`/servers/${encodeURIComponent(host.id)}`}
+      className={`xc-card servers-card${host.online ? "" : " offline"}`}
+    >
       <div className="servers-card-head">
         <div>
           <strong>{host.name}</strong>

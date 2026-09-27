@@ -44,7 +44,10 @@ export default function ProjectsPage() {
         title={t("Projects")}
         aside={
           <>
-            <button className="xc-btn small" onClick={() => setProjectDialog(true)}>
+            <button
+              className="xc-btn small"
+              onClick={() => setProjectDialog(true)}
+            >
               <FolderKanban size={14} /> {t("New project")}
             </button>
             <button
@@ -65,8 +68,14 @@ export default function ProjectsPage() {
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => list.refetch()} />
       ) : list.data.length === 0 && !showArchived ? (
-        <EmptyState title={t("No projects yet")} icon={<FolderKanban size={28} />}>
-          <button className="xc-btn primary small" onClick={() => setProjectDialog(true)}>
+        <EmptyState
+          title={t("No projects yet")}
+          icon={<FolderKanban size={28} />}
+        >
+          <button
+            className="xc-btn primary small"
+            onClick={() => setProjectDialog(true)}
+          >
             <Plus size={14} /> {t("Create your first project")}
           </button>
         </EmptyState>
@@ -78,19 +87,29 @@ export default function ProjectsPage() {
         </div>
       )}
       {!!archived.data?.length && (
-        <button className="xc-btn ghost small projects-archived-toggle" onClick={() => setShowArchived((v) => !v)}>
-          {showArchived ? t("Show active projects") : `${t("Show archived projects")} (${archived.data.length})`}
+        <button
+          className="xc-btn ghost small projects-archived-toggle"
+          onClick={() => setShowArchived((v) => !v)}
+        >
+          {showArchived
+            ? t("Show active projects")
+            : `${t("Show archived projects")} (${archived.data.length})`}
         </button>
       )}
 
       {!!projects.data?.length && (
         <section className="projects-mine">
           <h2>{t("My open issues")}</h2>
-          <p className="xc-muted">{t("Open issues in all projects. The ones due soonest come first.")}</p>
+          <p className="xc-muted">
+            {t("Open issues in all projects. The ones due soonest come first.")}
+          </p>
           {myIssues.isPending ? (
             <Loading />
           ) : myIssues.isError ? (
-            <ErrorState error={myIssues.error} onRetry={() => myIssues.refetch()} />
+            <ErrorState
+              error={myIssues.error}
+              onRetry={() => myIssues.refetch()}
+            />
           ) : (
             <IssueList
               groups={groups}
@@ -124,18 +143,27 @@ export default function ProjectsPage() {
 function ProjectCard({ project }: { project: Project }) {
   const t = useT();
   const done = project.issueCount - project.openCount;
-  const pct = project.issueCount ? Math.round((done / project.issueCount) * 100) : 0;
+  const pct = project.issueCount
+    ? Math.round((done / project.issueCount) * 100)
+    : 0;
   return (
-    <Link to={`/projects/${project.key}`} className="xc-card projects-card-link">
+    <Link
+      to={`/projects/${project.key}`}
+      className="xc-card projects-card-link"
+    >
       <div className="xc-row">
         <ProjectBadge projectKey={project.key} color={project.color} />
         <strong>{project.name}</strong>
         <span className="xc-spacer" />
         <span className="xc-mono xc-muted">{project.key}</span>
       </div>
-      {project.description && <p className="projects-card-desc">{project.description}</p>}
+      {project.description && (
+        <p className="projects-card-desc">{project.description}</p>
+      )}
       <div className="projects-progress" aria-label={`${pct}%`}>
-        <i style={{ width: `${pct}%`, background: project.color || undefined }} />
+        <i
+          style={{ width: `${pct}%`, background: project.color || undefined }}
+        />
       </div>
       <small className="xc-muted">
         {project.openCount} {t("open")} · {project.issueCount} {t("total")}
@@ -145,7 +173,13 @@ function ProjectCard({ project }: { project: Project }) {
 }
 
 /** 输入 key（比如 XC-12）跳到 Issue。 */
-function GotoIssueDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function GotoIssueDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const t = useT();
   const navigate = useNavigate();
   const [value, setValue] = useState("");

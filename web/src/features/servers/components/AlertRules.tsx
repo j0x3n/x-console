@@ -25,11 +25,17 @@ const metricLabels: Record<string, string> = {
 };
 
 /** 规则的一句话描述，例如 “CPU > 90%，持续 5 分钟”。 */
-export function describeRule(rule: Pick<AlertRule, "metric" | "op" | "threshold" | "durationSeconds">, t: (s: string) => string): string {
+export function describeRule(
+  rule: Pick<AlertRule, "metric" | "op" | "threshold" | "durationSeconds">,
+  t: (s: string) => string,
+): string {
   const mins = Math.round(rule.durationSeconds / 60);
-  const lasting = rule.durationSeconds > 0 ? `，${t("for")} ${mins || "<1"} ${t("min")}` : "";
+  const lasting =
+    rule.durationSeconds > 0 ? `，${t("for")} ${mins || "<1"} ${t("min")}` : "";
   if (rule.metric === "offline")
-    return rule.durationSeconds > 0 ? `${t("Offline")} ${t("over")} ${mins || "<1"} ${t("min")}` : t("Offline");
+    return rule.durationSeconds > 0
+      ? `${t("Offline")} ${t("over")} ${mins || "<1"} ${t("min")}`
+      : t("Offline");
   return `${t(metricLabels[rule.metric])} ${rule.op === "lt" ? "<" : ">"} ${rule.threshold}%${lasting}`;
 }
 
@@ -41,11 +47,17 @@ export function AlertRulesCard({ hostId }: { hostId?: string }) {
   const hosts = useHosts();
   const [editing, setEditing] = useState<AlertRule | "new" | null>(null);
   const names = new Map((hosts.data ?? []).map((h) => [h.id, h.name]));
-  const shown = (rules.data ?? []).filter((r) => !hostId || !r.hostId || r.hostId === hostId);
+  const shown = (rules.data ?? []).filter(
+    (r) => !hostId || !r.hostId || r.hostId === hostId,
+  );
   const remove = async (r: AlertRule) => {
     if (!confirm(t("Delete this rule?"))) return;
     try {
-      await unwrap(hostsApi.DELETE("/alert-rules/{ruleId}", { params: { path: { ruleId: r.id } } }));
+      await unwrap(
+        hostsApi.DELETE("/alert-rules/{ruleId}", {
+          params: { path: { ruleId: r.id } },
+        }),
+      );
       qc.invalidateQueries({ queryKey: hostsKeys.rules });
       toast(t("Deleted"));
     } catch (e) {
@@ -66,7 +78,11 @@ export function AlertRulesCard({ hostId }: { hostId?: string }) {
         <ErrorState error={rules.error} onRetry={() => rules.refetch()} />
       ) : shown.length === 0 ? (
         <EmptyState title={t("No alert rules yet")}>
-          <span>{t("Add a rule to get notified when CPU, memory or disk run high, or a machine goes offline.")}</span>
+          <span>
+            {t(
+              "Add a rule to get notified when CPU, memory or disk run high, or a machine goes offline.",
+            )}
+          </span>
         </EmptyState>
       ) : (
         <div className="xc-table-wrap">
@@ -84,17 +100,35 @@ export function AlertRulesCard({ hostId }: { hostId?: string }) {
                 <tr key={r.id} className={r.enabled ? "" : "servers-disabled"}>
                   <td>
                     {describeRule(r, t)}
-                    {!r.enabled && <span className="xc-badge"> {t("Paused")}</span>}
+                    {!r.enabled && (
+                      <span className="xc-badge"> {t("Paused")}</span>
+                    )}
                   </td>
-                  <td>{r.hostId ? (names.get(r.hostId) ?? r.hostId) : t("All machines")}</td>
                   <td>
-                    <span className={`xc-badge ${r.severity === "critical" ? "danger" : "warn"}`}>{t(r.severity === "critical" ? "Critical" : "Warning")}</span>
+                    {r.hostId
+                      ? (names.get(r.hostId) ?? r.hostId)
+                      : t("All machines")}
+                  </td>
+                  <td>
+                    <span
+                      className={`xc-badge ${r.severity === "critical" ? "danger" : "warn"}`}
+                    >
+                      {t(r.severity === "critical" ? "Critical" : "Warning")}
+                    </span>
                   </td>
                   <td className="servers-actions">
-                    <button className="xc-btn small ghost" onClick={() => setEditing(r)} aria-label={t("Edit")}>
+                    <button
+                      className="xc-btn small ghost"
+                      onClick={() => setEditing(r)}
+                      aria-label={t("Edit")}
+                    >
                       <Pencil size={13} />
                     </button>
-                    <button className="xc-btn small ghost" onClick={() => remove(r)} aria-label={t("Delete")}>
+                    <button
+                      className="xc-btn small ghost"
+                      onClick={() => remove(r)}
+                      aria-label={t("Delete")}
+                    >
                       <Trash2 size={13} />
                     </button>
                   </td>
@@ -104,23 +138,54 @@ export function AlertRulesCard({ hostId }: { hostId?: string }) {
           </table>
         </div>
       )}
-      {editing && <RuleDialog rule={editing === "new" ? null : editing} hostId={hostId} onClose={() => setEditing(null)} />}
+      {editing && (
+        <RuleDialog
+          rule={editing === "new" ? null : editing}
+          hostId={hostId}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }
 
-function RuleDialog({ rule, hostId, onClose }: { rule: AlertRule | null; hostId?: string; onClose: () => void }) {
+function RuleDialog({
+  rule,
+  hostId,
+  onClose,
+}: {
+  rule: AlertRule | null;
+  hostId?: string;
+  onClose: () => void;
+}) {
   const t = useT();
   const qc = useQueryClient();
   const hosts = useHosts();
   const [form, setForm] = useState<AlertRuleInput>(
     rule
-      ? { hostId: rule.hostId, metric: rule.metric, op: rule.op, threshold: rule.threshold, durationSeconds: rule.durationSeconds, severity: rule.severity, enabled: rule.enabled }
-      : { hostId, metric: "cpu", op: "gt", threshold: 90, durationSeconds: 300, severity: "warning", enabled: true },
+      ? {
+          hostId: rule.hostId,
+          metric: rule.metric,
+          op: rule.op,
+          threshold: rule.threshold,
+          durationSeconds: rule.durationSeconds,
+          severity: rule.severity,
+          enabled: rule.enabled,
+        }
+      : {
+          hostId,
+          metric: "cpu",
+          op: "gt",
+          threshold: 90,
+          durationSeconds: 300,
+          severity: "warning",
+          enabled: true,
+        },
   );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const set = (patch: Partial<AlertRuleInput>) => setForm((f) => ({ ...f, ...patch }));
+  const set = (patch: Partial<AlertRuleInput>) =>
+    setForm((f) => ({ ...f, ...patch }));
   const offline = form.metric === "offline";
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -129,7 +194,12 @@ function RuleDialog({ rule, hostId, onClose }: { rule: AlertRule | null; hostId?
     const body = { ...form, hostId: form.hostId || undefined };
     try {
       if (rule) {
-        await unwrap(hostsApi.PUT("/alert-rules/{ruleId}", { params: { path: { ruleId: rule.id } }, body }));
+        await unwrap(
+          hostsApi.PUT("/alert-rules/{ruleId}", {
+            params: { path: { ruleId: rule.id } },
+            body,
+          }),
+        );
       } else {
         await unwrap(hostsApi.POST("/alert-rules", { body }));
       }
@@ -143,11 +213,22 @@ function RuleDialog({ rule, hostId, onClose }: { rule: AlertRule | null; hostId?
     }
   };
   return (
-    <Dialog open onClose={onClose} title={t(rule ? "Edit rule" : "New rule")} description={t("A notification is sent when the condition holds for the whole duration.")}>
+    <Dialog
+      open
+      onClose={onClose}
+      title={t(rule ? "Edit rule" : "New rule")}
+      description={t(
+        "A notification is sent when the condition holds for the whole duration.",
+      )}
+    >
       <form onSubmit={submit}>
         <label className="xc-field">
           <span>{t("Machine")}</span>
-          <select className="xc-select" value={form.hostId ?? ""} onChange={(e) => set({ hostId: e.target.value || undefined })}>
+          <select
+            className="xc-select"
+            value={form.hostId ?? ""}
+            onChange={(e) => set({ hostId: e.target.value || undefined })}
+          >
             <option value="">{t("All machines")}</option>
             {(hosts.data ?? []).map((h) => (
               <option key={h.id} value={h.id}>
@@ -159,7 +240,13 @@ function RuleDialog({ rule, hostId, onClose }: { rule: AlertRule | null; hostId?
         <div className="servers-form-row">
           <label className="xc-field">
             <span>{t("Metric")}</span>
-            <select className="xc-select" value={form.metric} onChange={(e) => set({ metric: e.target.value as AlertRuleInput["metric"] })}>
+            <select
+              className="xc-select"
+              value={form.metric}
+              onChange={(e) =>
+                set({ metric: e.target.value as AlertRuleInput["metric"] })
+              }
+            >
               {Object.entries(metricLabels).map(([k, v]) => (
                 <option key={k} value={k}>
                   {t(v)}
@@ -171,40 +258,70 @@ function RuleDialog({ rule, hostId, onClose }: { rule: AlertRule | null; hostId?
             <>
               <label className="xc-field">
                 <span>{t("Condition")}</span>
-                <select className="xc-select" value={form.op} onChange={(e) => set({ op: e.target.value as AlertRuleInput["op"] })}>
+                <select
+                  className="xc-select"
+                  value={form.op}
+                  onChange={(e) =>
+                    set({ op: e.target.value as AlertRuleInput["op"] })
+                  }
+                >
                   <option value="gt">{t("Above")}</option>
                   <option value="lt">{t("Below")}</option>
                 </select>
               </label>
               <label className="xc-field">
                 <span>{t("Threshold (%)")}</span>
-                <input className="xc-input" type="number" min={0} max={100} step={1} value={form.threshold ?? 0} onChange={(e) => set({ threshold: Number(e.target.value) })} required />
+                <input
+                  className="xc-input"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={form.threshold ?? 0}
+                  onChange={(e) => set({ threshold: Number(e.target.value) })}
+                  required
+                />
               </label>
             </>
           )}
         </div>
         <div className="servers-form-row">
           <label className="xc-field">
-            <span>{t(offline ? "Offline for (minutes)" : "Lasting (minutes)")}</span>
+            <span>
+              {t(offline ? "Offline for (minutes)" : "Lasting (minutes)")}
+            </span>
             <input
               className="xc-input"
               type="number"
               min={0}
               step={1}
               value={Math.round((form.durationSeconds ?? 0) / 60)}
-              onChange={(e) => set({ durationSeconds: Number(e.target.value) * 60 })}
+              onChange={(e) =>
+                set({ durationSeconds: Number(e.target.value) * 60 })
+              }
             />
           </label>
           <label className="xc-field">
             <span>{t("Severity")}</span>
-            <select className="xc-select" value={form.severity} onChange={(e) => set({ severity: e.target.value as AlertRuleInput["severity"] })}>
+            <select
+              className="xc-select"
+              value={form.severity}
+              onChange={(e) =>
+                set({ severity: e.target.value as AlertRuleInput["severity"] })
+              }
+            >
               <option value="warning">{t("Warning")}</option>
               <option value="critical">{t("Critical")}</option>
             </select>
           </label>
         </div>
         <label className="servers-check">
-          <input type="checkbox" checked={form.enabled ?? true} onChange={(e) => set({ enabled: e.target.checked })} /> {t("Enabled")}
+          <input
+            type="checkbox"
+            checked={form.enabled ?? true}
+            onChange={(e) => set({ enabled: e.target.checked })}
+          />{" "}
+          {t("Enabled")}
         </label>
         {error && <p className="xc-error-text">{error}</p>}
         <div className="xc-dialog-actions">
@@ -241,7 +358,9 @@ export function AlertHistoryCard({ hostId }: { hostId?: string }) {
         <ul className="servers-alerts">
           {alerts.data.items.map((a) => (
             <li key={a.id}>
-              <span className={`xc-badge ${a.resolvedAt ? "ok" : a.severity === "critical" ? "danger" : "warn"}`}>
+              <span
+                className={`xc-badge ${a.resolvedAt ? "ok" : a.severity === "critical" ? "danger" : "warn"}`}
+              >
                 {t(a.resolvedAt ? "Resolved" : "Firing")}
               </span>
               <div>
@@ -251,7 +370,8 @@ export function AlertHistoryCard({ hostId }: { hostId?: string }) {
                 </strong>
                 <small className="xc-muted">
                   {relativeTime(a.firedAt, language)}
-                  {a.resolvedAt && ` · ${t("resolved")} ${relativeTime(a.resolvedAt, language)}`}
+                  {a.resolvedAt &&
+                    ` · ${t("resolved")} ${relativeTime(a.resolvedAt, language)}`}
                 </small>
               </div>
             </li>

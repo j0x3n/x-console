@@ -87,7 +87,11 @@ export default function QuickNote() {
             </button>
             <span className="xc-spacer" />
             <span className="xc-muted notes-hint">⌘/Ctrl + Enter</span>
-            <button className="xc-btn primary small" disabled={!text.trim() || createNote.isPending} onClick={save}>
+            <button
+              className="xc-btn primary small"
+              disabled={!text.trim() || createNote.isPending}
+              onClick={save}
+            >
               {t("Save")}
             </button>
           </div>

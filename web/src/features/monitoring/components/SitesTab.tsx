@@ -27,7 +27,10 @@ export default function SitesTab() {
       ) : items.length === 0 ? (
         <EmptyState title={t("No websites yet")} icon={<Globe size={28} />}>
           <span>{t("Add a site and it is checked every minute.")}</span>
-          <button className="xc-btn primary small" onClick={() => setCreating("1")}>
+          <button
+            className="xc-btn primary small"
+            onClick={() => setCreating("1")}
+          >
             <Plus size={14} /> {t("New website")}
           </button>
         </EmptyState>
@@ -48,7 +51,13 @@ export default function SitesTab() {
   );
 }
 
-function SiteRow({ monitor: m, onOpen }: { monitor: Monitor; onOpen: () => void }) {
+function SiteRow({
+  monitor: m,
+  onOpen,
+}: {
+  monitor: Monitor;
+  onOpen: () => void;
+}) {
   const t = useT();
   const language = useLanguage();
   const tone = monitorTone(m);
@@ -58,11 +67,17 @@ function SiteRow({ monitor: m, onOpen }: { monitor: Monitor; onOpen: () => void 
       <span className="monitoring-row-main">
         <strong>{m.name}</strong>
         <small className="xc-mono">{m.target}</small>
-        {m.lastError && m.enabled && <small className="monitoring-row-error">{m.lastError}</small>}
+        {m.lastError && m.enabled && (
+          <small className="monitoring-row-error">{m.lastError}</small>
+        )}
       </span>
       <span className="monitoring-row-side">
         <StatusBadge monitor={m} tone={tone} />
-        {m.lastCheckedAt && <small className="xc-muted">{relativeTime(m.lastCheckedAt, language)}</small>}
+        {m.lastCheckedAt && (
+          <small className="xc-muted">
+            {relativeTime(m.lastCheckedAt, language)}
+          </small>
+        )}
       </span>
     </button>
   );

@@ -32,10 +32,7 @@ export default function EntitiesView() {
   const [query, setQuery] = useState("");
   const [domain, setDomain] = useState("");
 
-  const groups = useMemo(
-    () => groupByDomain(states.data ?? []),
-    [states.data],
-  );
+  const groups = useMemo(() => groupByDomain(states.data ?? []), [states.data]);
   const visible = useMemo(
     () =>
       groups
@@ -171,7 +168,9 @@ function EntityRow({
         ))}
         <button
           className={`xc-btn small ghost home-star${favorite ? " active" : ""}`}
-          aria-label={favorite ? t("Remove from favorites") : t("Add to favorites")}
+          aria-label={
+            favorite ? t("Remove from favorites") : t("Add to favorites")
+          }
           aria-pressed={favorite}
           title={favorite ? t("Remove from favorites") : t("Add to favorites")}
           disabled={favoriteBusy}

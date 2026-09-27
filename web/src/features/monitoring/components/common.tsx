@@ -4,7 +4,9 @@ import { errorMessage } from "../../../api/client";
 import { toast } from "../../../hooks/useToast";
 
 /** 地址栏里的一个查询参数，比如 ?monitor=3 打开详情，?new=1 打开新建弹窗。 */
-export function useParam(key: string): [string | null, (value: string | null) => void] {
+export function useParam(
+  key: string,
+): [string | null, (value: string | null) => void] {
   const [params, setParams] = useSearchParams();
   const set = useCallback(
     (value: string | null) => {
@@ -24,7 +26,9 @@ export function useParam(key: string): [string | null, (value: string | null) =>
 }
 
 /** 数字 id 参数。 */
-export function useIdParam(key: string): [number | null, (id: number | null) => void] {
+export function useIdParam(
+  key: string,
+): [number | null, (id: number | null) => void] {
   const [value, set] = useParam(key);
   const id = value && /^\d+$/.test(value) ? Number(value) : null;
   return [id, (next) => set(next === null ? null : String(next))];
@@ -47,7 +51,8 @@ export function shortDateTime(value: string, language: string): string {
 
 /** 日期，比如 2026-10-11 显示成 “2026年10月11日”。 */
 export function longDate(value: string, language: string): string {
-  const d = value.length === 10 ? new Date(value + "T00:00:00") : new Date(value);
+  const d =
+    value.length === 10 ? new Date(value + "T00:00:00") : new Date(value);
   return d.toLocaleDateString(language === "zh" ? "zh-CN" : "en", {
     year: "numeric",
     month: "short",

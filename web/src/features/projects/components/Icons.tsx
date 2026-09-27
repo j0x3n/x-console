@@ -24,11 +24,20 @@ const statusIcons = {
   canceled: CircleX,
 };
 
-export function StatusIcon({ status, size = 15 }: { status: IssueStatus; size?: number }) {
+export function StatusIcon({
+  status,
+  size = 15,
+}: {
+  status: IssueStatus;
+  size?: number;
+}) {
   const t = useT();
   const Icon = statusIcons[status];
   return (
-    <span className={`projects-status ${status}`} title={t(STATUS_LABELS[status])}>
+    <span
+      className={`projects-status ${status}`}
+      title={t(STATUS_LABELS[status])}
+    >
       <Icon size={size} />
     </span>
   );
@@ -42,11 +51,20 @@ const priorityIcons = {
   4: SignalLow,
 } as const;
 
-export function PriorityIcon({ priority, size = 15 }: { priority: number; size?: number }) {
+export function PriorityIcon({
+  priority,
+  size = 15,
+}: {
+  priority: number;
+  size?: number;
+}) {
   const t = useT();
   const Icon = priorityIcons[priority as keyof typeof priorityIcons] ?? Minus;
   return (
-    <span className={`projects-priority p${priority}`} title={t(PRIORITY_LABELS[priority])}>
+    <span
+      className={`projects-priority p${priority}`}
+      title={t(PRIORITY_LABELS[priority])}
+    >
       <Icon size={size} />
     </span>
   );
@@ -62,9 +80,18 @@ export function LabelChip({ label }: { label: Label }) {
 }
 
 /** 项目的小方块图标：颜色 + key 首字母。 */
-export function ProjectBadge({ projectKey, color }: { projectKey: string; color: string }) {
+export function ProjectBadge({
+  projectKey,
+  color,
+}: {
+  projectKey: string;
+  color: string;
+}) {
   return (
-    <span className="projects-badge" style={color ? { background: color } : undefined}>
+    <span
+      className="projects-badge"
+      style={color ? { background: color } : undefined}
+    >
       {projectKey.slice(0, 2)}
     </span>
   );

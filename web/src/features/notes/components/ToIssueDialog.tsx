@@ -26,7 +26,8 @@ export default function ToIssueDialog({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (open && projectId === null && projects.data?.length) setProjectId(projects.data[0].id);
+    if (open && projectId === null && projects.data?.length)
+      setProjectId(projects.data[0].id);
   }, [open, projectId, projects.data]);
   useEffect(() => {
     if (open) setError("");
@@ -37,11 +38,14 @@ export default function ToIssueDialog({
       open={open}
       onClose={onClose}
       title={t("Turn into issue")}
-      description={t("The note becomes the issue description. A link to the issue is added to the note.")}
+      description={t(
+        "The note becomes the issue description. A link to the issue is added to the note.",
+      )}
     >
       {projects.data?.length === 0 ? (
         <p className="xc-muted">
-          {t("No projects yet")} · <Link to="/projects?newProject=1">{t("New project")}</Link>
+          {t("No projects yet")} ·{" "}
+          <Link to="/projects?newProject=1">{t("New project")}</Link>
         </p>
       ) : (
         <form
@@ -80,7 +84,10 @@ export default function ToIssueDialog({
             <button type="button" className="xc-btn" onClick={onClose}>
               {t("Cancel")}
             </button>
-            <button className="xc-btn primary" disabled={!projectId || toIssue.isPending}>
+            <button
+              className="xc-btn primary"
+              disabled={!projectId || toIssue.isPending}
+            >
               {t("Create issue")}
             </button>
           </div>

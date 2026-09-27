@@ -36,7 +36,12 @@ export default function ProjectSettingsDialog({
   const archived = !!project.archivedAt;
 
   return (
-    <Dialog open={open} onClose={onClose} title={`${project.name} · ${t("Settings")}`} wide>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={`${project.name} · ${t("Settings")}`}
+      wide
+    >
       <section className="projects-settings-section">
         <h3>{t("Labels")}</h3>
         <ul className="projects-settings-list">
@@ -59,7 +64,9 @@ export default function ProjectSettingsDialog({
               </button>
             </li>
           ))}
-          {labels.data?.length === 0 && <li className="xc-muted">{t("No labels yet")}</li>}
+          {labels.data?.length === 0 && (
+            <li className="xc-muted">{t("No labels yet")}</li>
+          )}
         </ul>
         <form
           className="projects-inline-form"
@@ -67,7 +74,11 @@ export default function ProjectSettingsDialog({
             e.preventDefault();
             if (!labelName.trim()) return;
             labelOps.create.mutate(
-              { name: labelName.trim(), color: labelColor, global: labelGlobal },
+              {
+                name: labelName.trim(),
+                color: labelColor,
+                global: labelGlobal,
+              },
               { onSuccess: () => setLabelName("") },
             );
           }}
@@ -180,7 +191,10 @@ export default function ProjectSettingsDialog({
           className={`xc-btn ${archived ? "" : "danger"}`}
           disabled={updateProject.isPending}
           onClick={() => {
-            if (!archived && !confirm(t("Archive this project? You can restore it later.")))
+            if (
+              !archived &&
+              !confirm(t("Archive this project? You can restore it later."))
+            )
               return;
             updateProject.mutate(
               { id: project.id, body: { archived: !archived } },

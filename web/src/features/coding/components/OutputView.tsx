@@ -1,11 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ChevronRight, CircleCheck, CircleX, Info, Loader2, Wrench } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronRight,
+  CircleCheck,
+  CircleX,
+  Info,
+  Loader2,
+  Wrench,
+} from "lucide-react";
 import { useT } from "../../../contexts/LanguageContext";
 import type { Translate } from "../../../types/domain";
-import { buildBlocks, type OutputBlock, type TaskEvent, type ToolCall } from "../logic";
+import {
+  buildBlocks,
+  type OutputBlock,
+  type TaskEvent,
+  type ToolCall,
+} from "../logic";
 
 /** 状态事件的说明，按 data.code 翻译。 */
-function statusText(block: Extract<OutputBlock, { type: "status" }>, t: Translate): string {
+function statusText(
+  block: Extract<OutputBlock, { type: "status" }>,
+  t: Translate,
+): string {
   const d = block.data;
   switch (block.code) {
     case "worktree_ready":
@@ -13,11 +29,15 @@ function statusText(block: Extract<OutputBlock, { type: "status" }>, t: Translat
     case "started":
       return t("Executor started");
     case "session_started":
-      return d.model ? `${t("Session started")} · ${String(d.model)}` : t("Session started");
+      return d.model
+        ? `${t("Session started")} · ${String(d.model)}`
+        : t("Session started");
     case "result": {
       const parts = [t("Executor finished")];
-      if (typeof d.turns === "number" && d.turns > 0) parts.push(`${d.turns} ${t("turns")}`);
-      if (typeof d.costUsd === "number" && d.costUsd > 0) parts.push(`$${d.costUsd.toFixed(2)}`);
+      if (typeof d.turns === "number" && d.turns > 0)
+        parts.push(`${d.turns} ${t("turns")}`);
+      if (typeof d.costUsd === "number" && d.costUsd > 0)
+        parts.push(`$${d.costUsd.toFixed(2)}`);
       return parts.join(" · ");
     }
     case "canceled":
@@ -30,7 +50,10 @@ function statusText(block: Extract<OutputBlock, { type: "status" }>, t: Translat
   return block.text;
 }
 
-function doneText(block: Extract<OutputBlock, { type: "done" }>, t: Translate): string {
+function doneText(
+  block: Extract<OutputBlock, { type: "done" }>,
+  t: Translate,
+): string {
   switch (block.reason) {
     case "exited":
       return `${t("Exited with code")} ${block.exitCode ?? "?"}`;
@@ -47,17 +70,31 @@ function doneText(block: Extract<OutputBlock, { type: "done" }>, t: Translate): 
 function ToolRow({ call }: { call: ToolCall }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const input = call.input === undefined ? "" : JSON.stringify(call.input, null, 2);
+  const input =
+    call.input === undefined ? "" : JSON.stringify(call.input, null, 2);
   return (
     <li className={`coding-tool${call.isError ? " error" : ""}`}>
-      <button type="button" className="coding-tool-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button
+        type="button"
+        className="coding-tool-head"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         <ChevronRight size={13} className="coding-chevron" />
         <span className="coding-tool-summary">{call.summary}</span>
         {call.done ? (
           call.isError ? (
-            <CircleX size={13} className="coding-tool-state danger" aria-label={t("Failed")} />
+            <CircleX
+              size={13}
+              className="coding-tool-state danger"
+              aria-label={t("Failed")}
+            />
           ) : (
-            <CircleCheck size={13} className="coding-tool-state ok" aria-label={t("Tool call succeeded")} />
+            <CircleCheck
+              size={13}
+              className="coding-tool-state ok"
+              aria-label={t("Tool call succeeded")}
+            />
           )
         ) : null}
       </button>
@@ -65,7 +102,9 @@ function ToolRow({ call }: { call: ToolCall }) {
         <div className="coding-tool-body">
           {input && input !== "{}" && <pre>{input}</pre>}
           {call.result !== undefined && (
-            <pre className="coding-tool-result">{call.result || t("(no output)")}</pre>
+            <pre className="coding-tool-result">
+              {call.result || t("(no output)")}
+            </pre>
           )}
         </div>
       )}
@@ -80,7 +119,12 @@ function ToolGroup({ calls }: { calls: ToolCall[] }) {
   const last = calls[calls.length - 1];
   return (
     <div className="coding-tools">
-      <button type="button" className="coding-tools-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button
+        type="button"
+        className="coding-tools-head"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         <ChevronRight size={14} className="coding-chevron" />
         <Wrench size={13} />
         <span>
@@ -131,12 +175,17 @@ export default function OutputView({ events, running }: Props) {
       aria-live="polite"
       aria-label={t("Output")}
     >
-      {blocks.length === 0 && !running && <p className="xc-muted">{t("No output yet.")}</p>}
+      {blocks.length === 0 && !running && (
+        <p className="xc-muted">{t("No output yet.")}</p>
+      )}
       {blocks.map((b) => {
         switch (b.type) {
           case "text":
             return (
-              <p key={b.seq} className={`coding-text${b.stderr ? " stderr" : ""}`}>
+              <p
+                key={b.seq}
+                className={`coding-text${b.stderr ? " stderr" : ""}`}
+              >
                 {b.text}
               </p>
             );
@@ -154,7 +203,10 @@ export default function OutputView({ events, running }: Props) {
             );
           case "done":
             return (
-              <p key={b.seq} className={`coding-line done${b.reason === "exited" && b.exitCode === 0 ? " ok" : ""}`}>
+              <p
+                key={b.seq}
+                className={`coding-line done${b.reason === "exited" && b.exitCode === 0 ? " ok" : ""}`}
+              >
                 {doneText(b, t)}
               </p>
             );

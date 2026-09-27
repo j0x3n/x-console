@@ -84,9 +84,7 @@ export default function NewIssueDialog({
   useEffect(() => {
     if (!open || pid !== undefined || !projects.data?.length) return;
     const last = lastProject();
-    setPid(
-      projects.data.find((p) => p.id === last)?.id ?? projects.data[0].id,
-    );
+    setPid(projects.data.find((p) => p.id === last)?.id ?? projects.data[0].id);
   }, [open, pid, projects.data]);
 
   const submit = () => {

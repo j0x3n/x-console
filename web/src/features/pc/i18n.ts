@@ -20,6 +20,7 @@ registerZh({
   "Shut down": "关机",
   Open: "打开",
   "Open on PC": "在电脑上打开",
-  "Program, file or URL, e.g. notepad or https://…": "程序、文件或网址，比如 notepad",
+  "Program, file or URL, e.g. notepad or https://…":
+    "程序、文件或网址，比如 notepad",
   "Opened on the PC": "已在电脑上打开",
 });

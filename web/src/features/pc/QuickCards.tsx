@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { ClipboardCopy, ClipboardPaste, ExternalLink, Lock, Moon, Power, RotateCcw, X } from "lucide-react";
+import {
+  ClipboardCopy,
+  ClipboardPaste,
+  ExternalLink,
+  Lock,
+  Moon,
+  Power,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { errorMessage, unwrap } from "../../api/client";
 import { withElevation } from "../../auth/elevation";
 import { useT } from "../../contexts/LanguageContext";
@@ -19,12 +28,22 @@ export function ClipboardCard({ host }: { host: HostDetail }) {
   const can = useCan(host, "clipboard");
   const send = useMutation({
     mutationFn: () =>
-      unwrap(hostsApi.PUT("/hosts/{hostId}/clipboard", { params: { path: { hostId: host.id } }, body: { text } })),
+      unwrap(
+        hostsApi.PUT("/hosts/{hostId}/clipboard", {
+          params: { path: { hostId: host.id } },
+          body: { text },
+        }),
+      ),
     onSuccess: () => toast(t("Sent to the PC clipboard")),
     onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
   });
   const fetchIt = useMutation({
-    mutationFn: () => unwrap(hostsApi.GET("/hosts/{hostId}/clipboard", { params: { path: { hostId: host.id } } })),
+    mutationFn: () =>
+      unwrap(
+        hostsApi.GET("/hosts/{hostId}/clipboard", {
+          params: { path: { hostId: host.id } },
+        }),
+      ),
     onSuccess: async (data) => {
       setText(data.text);
       try {
@@ -49,14 +68,26 @@ export function ClipboardCard({ host }: { host: HostDetail }) {
         aria-label={t("Clipboard")}
       />
       <div className="xc-row pc-actions">
-        <button className="xc-btn primary" disabled={!can || !text || send.isPending} onClick={() => send.mutate()}>
+        <button
+          className="xc-btn primary"
+          disabled={!can || !text || send.isPending}
+          onClick={() => send.mutate()}
+        >
           <ClipboardPaste size={14} /> {t("Send to PC")}
         </button>
-        <button className="xc-btn" disabled={!can || fetchIt.isPending} onClick={() => fetchIt.mutate()}>
+        <button
+          className="xc-btn"
+          disabled={!can || fetchIt.isPending}
+          onClick={() => fetchIt.mutate()}
+        >
           <ClipboardCopy size={14} /> {t("Get from PC")}
         </button>
         {text && (
-          <button className="xc-btn ghost" onClick={() => setText("")} aria-label={t("Clear")}>
+          <button
+            className="xc-btn ghost"
+            onClick={() => setText("")}
+            aria-label={t("Clear")}
+          >
             <X size={14} />
           </button>
         )}
@@ -65,7 +96,12 @@ export function ClipboardCard({ host }: { host: HostDetail }) {
   );
 }
 
-const powerButtons: { action: PowerAction; label: string; icon: typeof Lock; danger?: boolean }[] = [
+const powerButtons: {
+  action: PowerAction;
+  label: string;
+  icon: typeof Lock;
+  danger?: boolean;
+}[] = [
   { action: "lock", label: "Lock screen", icon: Lock },
   { action: "sleep", label: "Sleep", icon: Moon },
   { action: "restart", label: "Restart", icon: RotateCcw, danger: true },
@@ -82,14 +118,24 @@ export function QuickActionsCard({ host }: { host: HostDetail }) {
   const power = useMutation({
     mutationFn: (action: PowerAction) =>
       withElevation(() =>
-        unwrap(hostsApi.POST("/hosts/{hostId}/power", { params: { path: { hostId: host.id } }, body: { action } })),
+        unwrap(
+          hostsApi.POST("/hosts/{hostId}/power", {
+            params: { path: { hostId: host.id } },
+            body: { action },
+          }),
+        ),
       ),
     onSuccess: () => toast(t("Done")),
     onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
   });
   const open = useMutation({
     mutationFn: (value: string) =>
-      unwrap(hostsApi.POST("/hosts/{hostId}/open", { params: { path: { hostId: host.id } }, body: { target: value } })),
+      unwrap(
+        hostsApi.POST("/hosts/{hostId}/open", {
+          params: { path: { hostId: host.id } },
+          body: { target: value },
+        }),
+      ),
     onSuccess: (_, value) => {
       const next = pushRecent(recent, value);
       setRecent(next);
@@ -133,14 +179,23 @@ export function QuickActionsCard({ host }: { host: HostDetail }) {
           placeholder={t("Program, file or URL, e.g. notepad or https://…")}
           aria-label={t("Open on PC")}
         />
-        <button className="xc-btn" disabled={!canOpen || !target.trim() || open.isPending}>
+        <button
+          className="xc-btn"
+          disabled={!canOpen || !target.trim() || open.isPending}
+        >
           <ExternalLink size={14} /> {t("Open")}
         </button>
       </form>
       {recent.length > 0 && (
         <div className="pc-recent">
           {recent.map((r) => (
-            <button key={r} className="xc-badge" disabled={!canOpen || open.isPending} onClick={() => open.mutate(r)} title={r}>
+            <button
+              key={r}
+              className="xc-badge"
+              disabled={!canOpen || open.isPending}
+              onClick={() => open.mutate(r)}
+              title={r}
+            >
               {r}
             </button>
           ))}

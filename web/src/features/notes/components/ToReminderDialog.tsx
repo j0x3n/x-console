@@ -72,7 +72,11 @@ export default function ToReminderDialog({
         </label>
         <label className="xc-field">
           <span>{t("Repeat")}</span>
-          <select className="xc-select" value={rrule} onChange={(e) => setRrule(e.target.value)}>
+          <select
+            className="xc-select"
+            value={rrule}
+            onChange={(e) => setRrule(e.target.value)}
+          >
             {REPEATS.map((r) => (
               <option key={r.value} value={r.value}>
                 {t(r.label)}
@@ -85,7 +89,10 @@ export default function ToReminderDialog({
           <button type="button" className="xc-btn" onClick={onClose}>
             {t("Cancel")}
           </button>
-          <button className="xc-btn primary" disabled={!at || toReminder.isPending}>
+          <button
+            className="xc-btn primary"
+            disabled={!at || toReminder.isPending}
+          >
             {t("Create reminder")}
           </button>
         </div>

@@ -55,7 +55,10 @@ describe("progress math", () => {
 
 describe("reminder settings", () => {
   it("splits and joins windows", () => {
-    expect(splitWindow("09:00-21:00")).toEqual({ start: "09:00", end: "21:00" });
+    expect(splitWindow("09:00-21:00")).toEqual({
+      start: "09:00",
+      end: "21:00",
+    });
     expect(splitWindow("")).toEqual({ start: "", end: "" });
     expect(joinWindow("09:00", "21:00")).toBe("09:00-21:00");
     expect(joinWindow("", "21:00")).toBe("");
@@ -73,9 +76,17 @@ describe("reminder settings", () => {
   });
 
   it("summarizes reminders", () => {
-    const base = { remindIntervalMinutes: 60, remindWindow: "09:00-21:00", remindTimes: ["08:00", "20:00"] };
-    expect(remindSummary({ ...base, remindMode: "interval" })).toBe("每 60 分钟 · 09:00-21:00");
-    expect(remindSummary({ ...base, remindMode: "times" })).toBe("08:00、20:00");
+    const base = {
+      remindIntervalMinutes: 60,
+      remindWindow: "09:00-21:00",
+      remindTimes: ["08:00", "20:00"],
+    };
+    expect(remindSummary({ ...base, remindMode: "interval" })).toBe(
+      "每 60 分钟 · 09:00-21:00",
+    );
+    expect(remindSummary({ ...base, remindMode: "times" })).toBe(
+      "08:00、20:00",
+    );
     expect(remindSummary({ ...base, remindMode: "none" })).toBe("");
   });
 });
@@ -87,7 +98,9 @@ describe("workouts", () => {
   });
 
   it("describes items", () => {
-    expect(describeItem({ name: "深蹲", sets: 5, reps: 5, weight: 60 })).toBe("深蹲 5×5 60kg");
+    expect(describeItem({ name: "深蹲", sets: 5, reps: 5, weight: 60 })).toBe(
+      "深蹲 5×5 60kg",
+    );
     expect(describeItem({ name: "平板支撑", sets: 3 })).toBe("平板支撑 3 组");
     expect(describeItem({ name: "跑步" })).toBe("跑步");
   });

@@ -60,7 +60,9 @@ export function useNote(id: number) {
   return useQuery({
     queryKey: notesKeys.note(id),
     queryFn: () =>
-      unwrap(notesApi.GET("/notes/{noteId}", { params: { path: { noteId: id } } })),
+      unwrap(
+        notesApi.GET("/notes/{noteId}", { params: { path: { noteId: id } } }),
+      ),
   });
 }
 
@@ -73,7 +75,10 @@ export function useTags() {
 
 export function patchNote(id: number, body: UpdateNote) {
   return unwrap(
-    notesApi.PATCH("/notes/{noteId}", { params: { path: { noteId: id } }, body }),
+    notesApi.PATCH("/notes/{noteId}", {
+      params: { path: { noteId: id } },
+      body,
+    }),
   );
 }
 
@@ -107,7 +112,8 @@ export function useCreateNote() {
 export function useUpdateNote() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, body }: { id: number; body: UpdateNote }) => patchNote(id, body),
+    mutationFn: ({ id, body }: { id: number; body: UpdateNote }) =>
+      patchNote(id, body),
     onSuccess: (note) => {
       qc.setQueryData(notesKeys.note(note.id), note);
       qc.invalidateQueries({ queryKey: notesKeys.lists });
@@ -121,7 +127,11 @@ export function useDeleteNote() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) =>
-      unwrap(notesApi.DELETE("/notes/{noteId}", { params: { path: { noteId: id } } })),
+      unwrap(
+        notesApi.DELETE("/notes/{noteId}", {
+          params: { path: { noteId: id } },
+        }),
+      ),
     onSuccess: (_data, id) => {
       qc.removeQueries({ queryKey: notesKeys.note(id) });
       qc.invalidateQueries({ queryKey: notesKeys.lists });
@@ -151,7 +161,15 @@ export function useNoteToIssue() {
 
 export function useNoteToReminder() {
   return useMutation({
-    mutationFn: ({ id, at, rrule }: { id: number; at: string; rrule?: string }) =>
+    mutationFn: ({
+      id,
+      at,
+      rrule,
+    }: {
+      id: number;
+      at: string;
+      rrule?: string;
+    }) =>
       unwrap(
         notesApi.POST("/notes/{noteId}/to-reminder", {
           params: { path: { noteId: id } },

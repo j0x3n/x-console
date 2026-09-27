@@ -6,7 +6,11 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { ApiError, createApi, unwrap } from "../../api/client";
-import { invalidateOn, useServerEvent, type ServerEvent } from "../../api/events";
+import {
+  invalidateOn,
+  useServerEvent,
+  type ServerEvent,
+} from "../../api/events";
 import { withElevation } from "../../auth/elevation";
 import type { components, paths } from "../../api/gen/homeassistant";
 import { applyStateChange } from "./logic";

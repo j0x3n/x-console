@@ -101,12 +101,21 @@ export default function ProjectDialog({
               value={key}
               onChange={(e) => {
                 setKeyTouched(true);
-                setKey(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5));
+                setKey(
+                  e.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z]/g, "")
+                    .slice(0, 5),
+                );
               }}
               pattern="[A-Z]{2,5}"
               required
             />
-            <small>{t("2 to 5 capital letters. Issue keys look like XC-12. It cannot be changed later.")}</small>
+            <small>
+              {t(
+                "2 to 5 capital letters. Issue keys look like XC-12. It cannot be changed later.",
+              )}
+            </small>
           </label>
         )}
         <label className="xc-field">
@@ -142,7 +151,12 @@ export default function ProjectDialog({
           <button
             type="submit"
             className="xc-btn primary"
-            disabled={!name.trim() || (!project && key.length < 2) || create.isPending || update.isPending}
+            disabled={
+              !name.trim() ||
+              (!project && key.length < 2) ||
+              create.isPending ||
+              update.isPending
+            }
           >
             {project ? t("Save") : t("Create project")}
           </button>
