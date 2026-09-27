@@ -11,21 +11,22 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B10 | 界面统一：内容占满右侧，页面按初版的样式统一 | [specs/B10.md](specs/B10.md) | Claude |
-| B11 | 备忘改名为笔记，重做列表和编辑器，支持图片和附件（前端已做，后端待做） | [specs/B11.md](specs/B11.md) | Claude |
+| B12 | 两步验证改为设置里可选（前端） | [specs/B12.md](specs/B12.md) | Claude |
 
 ## 待做
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B2 | 今日（首页），参考初版的“今日” | [specs/M1.md](specs/M1.md) | |
-| B12 | 两步验证改为设置里可选 | [specs/B12.md](specs/B12.md) | |
 | B13 | 隐藏内容：隐藏入口，输入密码后显示隐藏的笔记和文件 | [specs/B13.md](specs/B13.md) | |
 | B14 | 云盘：存文件，支持隐藏，同步到 S3 兼容存储 | [specs/B14.md](specs/B14.md) | |
 | B3 | AI 助手（全局浮窗，能读写删非隐藏内容）与自动化 | [specs/M12.md](specs/M12.md) | |
 | B4 | 命令面板支持前缀输入：`> 内容` 直接存成笔记 | 见下方说明 | |
 | B5 | PWA：manifest、图标、安装提示 | 见下方说明 | |
 | B6 | 路由懒加载，消除主包超过 500 kB 的构建警告 | 见下方说明 | |
+| B11 | 笔记后端：接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | |
+| B2 | 今日页后端：`GET/PUT /dashboard/layout` | [specs/M1.md](specs/M1.md) | |
+| B12 | 两步验证可选的后端 | [specs/B12.md](specs/B12.md) | |
+| B15 | B10 遗留：0% 进度环多一个点；提醒页和项目页的概要卡片和规格不一致，等用户决定按哪个做 | 见下方说明 | |
 | B1 | 部署面板的主机自动加入代理，可手动移除 | [specs/B1.md](specs/B1.md) | |
 | B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
 | B8 | Playwright 端到端测试加进 CI | 见下方说明 | |
@@ -33,11 +34,15 @@
 
 顺序说明（2026-09-27 用户要求）：先把前端做完整，再一步步做后端。
 
-- 第一轮只做前端：B10、B11、B2、B12、B13、B14、B3 的界面部分，以及 B4、B5、B6。接口契约（`api/modules/*.yaml`）和前端一起写好，后端没做的接口先返回 404，界面上显示“功能还没上线”。
+- 第一轮只做前端：B10、B11、B2、B12、B13、B14、B3 的界面部分，以及 B4、B5、B6。接口契约（`api/modules/*.yaml`）和前端一起写好，后端没做的接口先返回 501（错误码 `not_ready`）或 404，界面上显示“功能还没上线”。
 - 第二轮按表里的顺序补后端：B11、B2、B12、B13、B14、B3，然后 B1、B7。
 - 最后做 B8、B9。
 
 ### 待做任务的说明
+
+**B15 B10 遗留**
+- `components/ui/Stat.tsx` 的 `Ring`：比例为 0 时不渲染 `.bar`。原因是 `stroke-linecap: round`，长度为 0 也会画一个点。
+- 提醒页概要现在是“今天、下一个、即将到来、已完成”，规格写的是“今天、逾期、本周”。项目页“进行中”只在说明里，没单独成卡。等用户决定。
 
 **B2 今日（首页）**
 - 依赖 B10 的 `StatStrip`、`Section`。
@@ -107,6 +112,9 @@
 | 1 | M2/M3 服务器和本机、M5 项目、M6 备忘、M7 提醒与通知、M8 习惯、M9 Home Assistant |
 | 2 | M4 编码任务、M10 运维监控、M11 日历早报番茄钟、M13 GitHub 和 Linear |
 | 部署 | GitHub Actions 自动测试、构建镜像、部署到用户服务器，已上线 |
+| B10 | 界面统一（[#12](https://github.com/j0x3n/x-console/pull/12)） |
+| B11 前端 | 备忘改名笔记，新列表和编辑器，图片和附件（[#13](https://github.com/j0x3n/x-console/pull/13)） |
+| B2 前端 | 今日页规格和前端（[#14](https://github.com/j0x3n/x-console/pull/14)、[#15](https://github.com/j0x3n/x-console/pull/15)） |
 
 ## 接口变更记录
 
@@ -121,4 +129,5 @@
 | 2026-09-27 | 新增 `proxy`、`open` 两个代理能力 | M9 访问内网 HA；M3 打开程序和网址 |
 | 2026-09-27 | `PageHeading` 加 `meta`，`title`、`subtitle` 可以传节点；新增 `components/ui/Stat.tsx`（`StatStrip`、`StatCard`、`Ring`、`Segments`、`MiniBars`、`Section`）；`.xc-page` 去掉最大宽度 | B10 界面统一 |
 | 2026-09-27 | Markdown 渲染器从 `features/projects` 挪到 `components/markdown`，支持图片、可勾选的待办；原路径保留转发 | B11 笔记要显示图片，别的模块也要用 |
+| 2026-09-27 | `app/nav.ts` 首页入口从 `Overview` 改成 `My day`（今日），图标换成 `Sun` | B2 今日页 |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |
