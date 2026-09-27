@@ -15,32 +15,44 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B1 | 部署面板的主机自动加入代理，可手动移除 | [specs/B1.md](specs/B1.md) | |
-| B2 | 概览首页 | [specs/M1.md](specs/M1.md) | |
-| B3 | AI 助手与自动化 | [specs/M12.md](specs/M12.md) | |
+| B10 | 界面统一：内容占满右侧，页面按初版的样式统一 | [specs/B10.md](specs/B10.md) | |
+| B11 | 备忘改名为笔记，重做列表和编辑器，支持图片和附件 | [specs/B11.md](specs/B11.md) | |
+| B2 | 今日（首页），参考初版的“今日” | [specs/M1.md](specs/M1.md) | |
+| B12 | 两步验证改为设置里可选 | [specs/B12.md](specs/B12.md) | |
+| B13 | 隐藏内容：隐藏入口，输入密码后显示隐藏的笔记和文件 | [specs/B13.md](specs/B13.md) | |
+| B14 | 云盘：存文件，支持隐藏，同步到 S3 兼容存储 | [specs/B14.md](specs/B14.md) | |
+| B3 | AI 助手（全局浮窗，能读写删非隐藏内容）与自动化 | [specs/M12.md](specs/M12.md) | |
 | B4 | 命令面板支持前缀输入：`> 内容` 直接存成笔记 | 见下方说明 | |
 | B5 | PWA：manifest、图标、安装提示 | 见下方说明 | |
 | B6 | 路由懒加载，消除主包超过 500 kB 的构建警告 | 见下方说明 | |
+| B1 | 部署面板的主机自动加入代理，可手动移除 | [specs/B1.md](specs/B1.md) | |
 | B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
 | B8 | Playwright 端到端测试加进 CI | 见下方说明 | |
 | B9 | 前端统一跑一遍 prettier，并在 CI 里检查 | 见下方说明 | |
 
+顺序说明（2026-09-27 用户要求）：先把前端做完整，再一步步做后端。
+
+- 第一轮只做前端：B10、B11、B2、B12、B13、B14、B3 的界面部分，以及 B4、B5、B6。接口契约（`api/modules/*.yaml`）和前端一起写好，后端没做的接口先返回 404，界面上显示“功能还没上线”。
+- 第二轮按表里的顺序补后端：B11、B2、B12、B13、B14、B3，然后 B1、B7。
+- 最后做 B8、B9。
+
 ### 待做任务的说明
 
-**B2 概览首页**
-- `web/src/features/overview`：卡片网格，数据来自各模块已有的 hooks。每张卡片包错误边界，一张出错不影响别的。卡片布局存服务端。
+**B2 今日（首页）**
+- `web/src/features/overview`：版式照初版“今日”，数据来自各模块已有的 hooks。每张卡片包错误边界，一张出错不影响别的。卡片布局存服务端。
 - 要显示的卡片和布局接口见规格。
 
 **B3 AI 助手与自动化**
-- 用官方 Go SDK `github.com/anthropics/anthropic-sdk-go`。默认模型 `claude-opus-5`，adaptive thinking，流式输出，开启服务端 refusal fallback（`fallbacks: "default"` 加 beta 头 `server-side-fallback-2026-07-01`）。写代码前查官方 SDK 文档确认用法，不要凭记忆。
+- 用官方 Go SDK `github.com/anthropics/anthropic-sdk-go`。默认模型 `claude-opus-5-5`，adaptive thinking，流式输出，开启服务端 refusal fallback（`fallbacks: "default"` 加 beta 头 `server-side-fallback-2026-07-01`）。写代码前查官方 SDK 文档确认用法，不要凭记忆。
 - 工具来自 `d.Actions.List()`，各模块已经注册了动作（`grep -rn "Actions.Register" backend/internal/server/modules`）。`read` 直接执行；`write` 等用户确认；`dangerous` 要确认并要求提升权限。
 - 自动化引擎执行动作时，actor 设成 `automation:<规则id>`（`audit.WithActor`）。M10 的 `scripts.run` 靠它区分自动化和 AI。
 - HA 实体做触发器时要调用 `contracts.HomeAssistant.WatchEntity`。
 - 早报的“AI 润色”：在注册表键 `ai.brief_polisher` 下注册实现 `brief` 包 Polisher 接口的对象，设置页的开关就会出现。
-- 前端：`features/assistant`、`features/automations`；在 `app/GlobalPanels.tsx` 加侧边面板，在 `app/TopbarActions.tsx` 加按钮。
+- 前端：`features/assistant`、`features/automations`。助手是全局浮窗，右下角按钮打开，放在 `app/GlobalPanels.tsx`，不在侧边栏出现。见规格。
+- 所有非隐藏内容都要能读写删，缺的动作在各模块补上，清单见规格。
 
 **B4 命令面板前缀输入**
-- 现在 `web/src/components/command/CommandPalette.tsx` 不能把输入的文字传给命令。给 `Command` 加可选的前缀，比如 `>`，输入以它开头时把剩余文字传给 `run`。备忘模块注册 `>` 前缀，存成新笔记。
+- 现在 `web/src/components/command/CommandPalette.tsx` 不能把输入的文字传给命令。给 `Command` 加可选的前缀，比如 `>`，输入以它开头时把剩余文字传给 `run`。笔记模块注册 `>` 前缀，存成新笔记。
 
 **B5 PWA**
 - `web/public/manifest.webmanifest`、图标、`index.html` 引用、安装提示。
@@ -54,7 +66,7 @@
 - 做法：在 `contracts` 里加 `Renewals` 接口（`Upcoming(ctx, until) ([]RenewalRef, error)`），运维监控实现并注册，早报改用它。在下面的“接口变更记录”里记一笔。
 
 **B8 端到端测试**
-- 用 Playwright 跑主流程：初始化账号、登录、建 Issue、写备忘、建提醒、看服务器、开终端、打卡。
+- 用 Playwright 跑主流程：初始化账号、登录、建 Issue、写笔记、建提醒、看服务器、开终端、打卡。
 - 在 CI 里起真实服务端和一个 Linux 代理。
 
 **B9 代码格式**

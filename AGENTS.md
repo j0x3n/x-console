@@ -1,6 +1,6 @@
 # AGENTS.md
 
-X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编码任务、项目看板、备忘、提醒、习惯、日历、Home Assistant、GitHub。后端 Go + SQLite，前端 React + TypeScript，部署在用户自己的服务器上。
+X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编码任务、项目看板、笔记、云盘、提醒、习惯、日历、Home Assistant、GitHub。后端 Go + SQLite，前端 React + TypeScript，部署在用户自己的服务器上。
 
 ## 先读什么
 
