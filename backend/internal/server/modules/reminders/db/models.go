@@ -141,6 +141,31 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type DriveItem struct {
+	ID         int64
+	ParentID   *int64
+	Name       string
+	IsDir      int64
+	Size       int64
+	Mime       string
+	Sha256     string
+	Hidden     int64
+	HiddenFrom *int64
+	TrashedAt  *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	S3SyncedAt *time.Time
+	S3Etag     *string
+	S3Error    *string
+	S3Key      *string
+	S3Hash     *string
+}
+
+type DriveS3Deletion struct {
+	Key       string
+	CreatedAt time.Time
+}
+
 type FocusSession struct {
 	ID             int64
 	IssueKey       string

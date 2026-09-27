@@ -6,6 +6,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
@@ -40,4 +41,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	github.New,        // M13
 	linear.New,        // M13
 	vault.New,
+	drive.New, // M14
 }

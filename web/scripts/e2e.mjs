@@ -211,6 +211,33 @@ try {
   const reminder = reminders.find((item) => item.title === "端到端提醒");
   assert.ok(reminder, "真实接口里没有新建的提醒");
 
+  stage = "手机云盘上传、预览和删除";
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${base}/drive`);
+  await page.locator('[data-testid="drive-file-input"]').setInputFiles({
+    name: "端到端文件.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("云盘内容可以预览。"),
+  });
+  const driveFile = await until("云盘上传", async () =>
+    (await api("/drive/items")).items.find((item) => item.name === "端到端文件.txt"),
+  );
+  const driveRow = page.locator(".drive-row").filter({ hasText: "端到端文件.txt" });
+  await driveRow.getByRole("button", { name: "端到端文件.txt", exact: true }).click();
+  await dialog("端到端文件.txt").getByText("云盘内容可以预览。").waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "手机云盘横向溢出");
+  await dialog("端到端文件.txt").getByRole("button", { name: "关闭" }).click();
+  await page.screenshot({ path: join(artifacts, "drive-390.png"), fullPage: true });
+  await page.setViewportSize({ width: 1360, height: 860 });
+  await page.screenshot({ path: join(artifacts, "drive-1360.png"), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await driveRow.getByRole("button", { name: /更多.*端到端文件\.txt/ }).click();
+  await page.getByRole("menuitem", { name: "删除" }).click();
+  await until("云盘删除", async () =>
+    !(await api("/drive/items")).items.some((item) => item.id === driveFile.id),
+  );
+  await page.setViewportSize({ width: 1360, height: 860 });
+
   stage = "习惯打卡";
   await page.goto(`${base}/habits`);
   await page.getByRole("button", { name: "新建习惯" }).click();
