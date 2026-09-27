@@ -23,6 +23,32 @@ type Agent struct {
 	RevokedAt    *time.Time
 }
 
+type AiConversation struct {
+	ID        int64
+	Title     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type AiMessage struct {
+	ID             int64
+	ConversationID int64
+	Seq            int64
+	Role           string
+	Content        string
+	CreatedAt      time.Time
+}
+
+type AiPendingAction struct {
+	ID             int64
+	ConversationID int64
+	ToolUseID      string
+	Action         string
+	Input          string
+	Status         string
+	Result         *string
+}
+
 type AlertEvent struct {
 	ID         int64
 	RuleID     *int64
@@ -56,6 +82,31 @@ type AuditLog struct {
 	Target string
 	Detail string
 	Result string
+}
+
+type Automation struct {
+	ID               int64
+	Name             string
+	Enabled          int64
+	Trigger          string
+	Conditions       string
+	Actions          string
+	CooldownSeconds  int64
+	Authorized       int64
+	WebhookTokenHash *string
+	WebhookTokenEnc  *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type AutomationRun struct {
+	ID           int64
+	AutomationID int64
+	StartedAt    time.Time
+	FinishedAt   *time.Time
+	TriggerData  string
+	Steps        string
+	Status       string
 }
 
 type Brief struct {

@@ -11,14 +11,13 @@
 
 - 前端已经做完四轮，线上是 `develop` 最新的部署（带部署标记的提交会部署，见 AGENTS.md）。
 - 演示数据保留（用户要求），页面底部的“演示数据：开/关”可以切换。说明见下方“演示数据”。
-- **下一步：Codex 在 `codex` 分支上做 B3 AI 助手和自动化后端。** 做法见 AGENTS.md 的“流程”。
+- **下一步：Codex 在 `codex` 分支上做 C1 清理。** 做法见 AGENTS.md 的“流程”。
 - `frontend-done` 分支是交给 Codex 之前的版本，需要时可以回到这里。
 
 ## 进行中
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| （空） | | | |
 
 ## 待做
 
@@ -26,7 +25,6 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B3 | AI 助手和自动化的后端 | [specs/M12.md](specs/M12.md) | |
 | C1 | 第一轮清理：不加新功能。去掉重复代码、补缺的测试、更新文档，并做 B9（prettier 检查加进 CI） | 见下方说明 | |
 | B16 | 日历可写：本地日历、CalDAV（iCloud）写回。前端已做，后端回 501 | [specs/B16.md](specs/B16.md) | |
 | B17 | 健身类习惯：记训练自动打卡。前端已做 | [specs/B17.md](specs/B17.md) | |
@@ -62,7 +60,7 @@
 
 **B3 AI 助手与自动化**
 - 用官方 Go SDK `github.com/anthropics/anthropic-sdk-go`。默认模型 `claude-opus-5-5`，adaptive thinking，流式输出，开启服务端 refusal fallback（`fallbacks: "default"` 加 beta 头 `server-side-fallback-2026-07-01`）。写代码前查官方 SDK 文档确认用法，不要凭记忆。
-- 工具来自 `d.Actions.List()`，各模块已经注册了动作（`grep -rn "Actions.Register" backend/internal/server/modules`）。`read` 直接执行；`write` 等用户确认；`dangerous` 要确认并要求提升权限。
+- 工具来自 `d.Actions.List()`。`read` 直接执行；普通 `write` 直接执行；删除和标记为破坏性的动作要确认；`dangerous` 要确认并要求提升权限。“所有写操作都先确认”开关可以覆盖普通写动作。
 - 自动化引擎执行动作时，actor 设成 `automation:<规则id>`（`audit.WithActor`）。M10 的 `scripts.run` 靠它区分自动化和 AI。
 - HA 实体做触发器时要调用 `contracts.HomeAssistant.WatchEntity`。
 - 早报的“AI 润色”：在注册表键 `ai.brief_polisher` 下注册实现 `brief` 包 Polisher 接口的对象，设置页的开关就会出现。
@@ -119,7 +117,7 @@
 - 早报的习惯部分只显示今天，`contracts.Habits` 没有“昨天”的数据。
 - SSH 主机的最后在线时间只存在内存里。Windows 上 `svc.logs` 返回“不支持”。
 - 脚本运行记录不会自动清理。Windows 主机上跑 bash 脚本会直接失败。订阅支出汇总没有汇率换算。
-- `npm test` 并行运行时，云盘页和项目页的个别断言偶尔会在默认 1 秒内超时，重跑通过。C1 清理时调整测试等待时间或并发数。
+- `npm test` 默认并行运行时，个别页面断言偶尔会在默认 1 秒内超时；限制为 2 个 worker 后 236 条测试通过。C1 清理时调整测试等待时间或并发数。
 
 可以改进：
 - 手机上命令面板比屏幕高，底部的结果和前缀提示要滚动才能看到。
@@ -133,7 +131,8 @@
 
 | 批次 | 内容 |
 | --- | --- |
-| B14 | 云盘后端、S3 同步和隐藏空间；390px 上传预览删除（待合并，提交号在下一次看板更新时补） |
+| B3 | AI 助手和自动化后端、跨模块动作、演示拦截开关与端到端主流程（待合并） |
+| B14 | 云盘后端、S3 同步和隐藏空间；390px 上传预览删除（`b914a73`，待合并） |
 | B8 | Playwright 端到端主流程和 CI（待合并） |
 | B19 | 部署前备份数据库和失败回退（待合并） |
 | B11 后端 | 附件上传下载、缩略图、笔记删除时清理文件（待合并） |
@@ -166,6 +165,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-28 | `actions.Action` 增加可选的 `Destructive` 标记；`app/modules.go` 注册 AI 助手和自动化模块 | B3 确认删除类动作并接入服务 |
 | 2026-09-28 | `auth` 增加 `VaultUnlocked`、`WithoutVault`；会话增加 `vault_until` | B13 隐藏内容 |
 | 2026-09-28 | `auth` 用 `setup_completed` 区分初始化和启用两步验证；按账号设置改用密码或验证码提升权限，新增安全设置操作 | B12 两步验证可选 |
 | 2026-09-27 | 新增 `contracts.IssueSync`、`HomeAssistant.WatchEntity` | Linear 同步和 HA 联动需要 |

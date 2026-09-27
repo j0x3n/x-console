@@ -211,6 +211,30 @@ try {
   const reminder = reminders.find((item) => item.title === "端到端提醒");
   assert.ok(reminder, "真实接口里没有新建的提醒");
 
+  stage = "自动化规则运行";
+  const automationResponse = await page.context().request.post(`${base}/api/v1/automations`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: {
+      name: "端到端自动化",
+      enabled: true,
+      trigger: { type: "event", topic: "e2e.never" },
+      conditions: [],
+      actions: [{ action: "notify.send", input: { title: "端到端自动化通知" } }],
+      cooldownSeconds: 0,
+    },
+  });
+  assert.equal(automationResponse.status(), 201, await automationResponse.text());
+  const automation = await automationResponse.json();
+  await page.goto(`${base}/automations`);
+  await page.getByText("端到端自动化").waitFor();
+  const runResponse = await page.context().request.post(`${base}/api/v1/automations/${automation.id}/run`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(runResponse.status(), 202, await runResponse.text());
+  await until("自动化执行", async () =>
+    (await api(`/automations/${automation.id}/runs`))[0]?.status === "ok",
+  );
+
   stage = "手机云盘上传、预览和删除";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${base}/drive`);

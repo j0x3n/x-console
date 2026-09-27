@@ -381,7 +381,7 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 
 	var view api.BriefSettingsView
 	env.MustDo(http.MethodGet, "/briefs/settings", nil, &view)
-	if !view.Enabled || view.Time != "08:00" || len(view.Sections) != 7 || view.Location != nil || view.AiAvailable || len(view.Channels) != 0 {
+	if !view.Enabled || view.Time != "08:00" || len(view.Sections) != 7 || view.Location != nil || !view.AiAvailable || len(view.Channels) != 0 {
 		t.Fatalf("defaults: %+v", view)
 	}
 	if status, _ := env.Do(http.MethodGet, "/weather", nil, nil); status != http.StatusPreconditionFailed {
