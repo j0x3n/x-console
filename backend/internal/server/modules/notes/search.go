@@ -74,6 +74,7 @@ func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary
 	out := make([]api.NoteSummary, len(notes))
 	for i, n := range notes {
 		out[i] = toSummary(n, tags[n.ID])
+		out[i].Thumbnail = m.thumbnail(ctx, n.ID, n.Body)
 		if i < len(snippets) && snippets[i] != "" {
 			s := snippets[i]
 			out[i].Snippet = &s

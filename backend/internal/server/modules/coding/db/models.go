@@ -387,6 +387,16 @@ type Note struct {
 	UpdatedAt  time.Time
 }
 
+type NoteAttachment struct {
+	ID        int64
+	NoteID    int64
+	Name      string
+	Mime      string
+	Size      int64
+	Sha256    string
+	CreatedAt time.Time
+}
+
 type NoteTag struct {
 	NoteID int64
 	Tag    string

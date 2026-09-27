@@ -170,6 +170,9 @@ func (m *Module) appendNote(ctx context.Context, id int64, text string) (api.Not
 
 func (m *Module) deleteNote(ctx context.Context, id int64) (err error) {
 	defer func() { m.d.Audit.Record(ctx, "note.delete", strconv.FormatInt(id, 10), nil, err) }()
+	if err := m.removeNoteFiles(ctx, id); err != nil {
+		return err
+	}
 	n, err := m.q.DeleteNote(ctx, id)
 	if err != nil {
 		return err
