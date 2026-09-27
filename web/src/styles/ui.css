@@ -1261,3 +1261,79 @@ a.xc-badge:hover {
   color: var(--xc-muted);
   line-height: 1.5;
 }
+
+/* 公共 Markdown 编辑框（components/markdown/MarkdownEditor），和笔记编辑器一个样子 */
+.xc-mde {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+  overflow: hidden;
+}
+.xc-mde:focus-within {
+  border-color: var(--xc-accent);
+}
+.xc-mde-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--xc-border);
+  background: var(--xc-surface-2);
+}
+.xc-mde-toolbar button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-text-2);
+  cursor: pointer;
+}
+.xc-mde-toolbar button:hover {
+  background: var(--xc-surface);
+  color: var(--xc-text);
+}
+.xc-mde-toolbar .xc-mde-mode {
+  display: inline-flex;
+  gap: 4px;
+  width: auto;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+}
+.xc-mde-input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: none;
+}
+.xc-mde-input:focus,
+.xc-mde-input:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+.xc-mde-preview {
+  min-height: 6em;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+@media (max-width: 720px) {
+  .xc-mde-toolbar button {
+    width: 30px;
+    height: 30px;
+  }
+}

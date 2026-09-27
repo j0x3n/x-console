@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import MarkdownEditor from "../../../components/markdown/MarkdownEditor";
 import { errorMessage } from "../../../api/client";
 import Dialog from "../../../components/ui/Dialog";
 import { useT } from "../../../contexts/LanguageContext";
@@ -162,16 +163,16 @@ export default function NewIssueDialog({
             required
           />
         </label>
-        <label className="xc-field">
+        <div className="xc-field">
           <span>{t("Description")}</span>
-          <textarea
-            className="xc-textarea"
+          <MarkdownEditor
+            label={t("Description")}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={setDescription}
             placeholder={t("Markdown is supported")}
-            rows={5}
+            minRows={5}
           />
-        </label>
+        </div>
         <div className="projects-form-grid">
           <label className="xc-field">
             <span>{t("Status")}</span>

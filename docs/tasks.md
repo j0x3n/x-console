@@ -7,46 +7,49 @@
 - 大任务的做法和验收标准在 `docs/specs/` 里。小任务直接写在这里。
 - 用户提的新需求，由审查者加到“待做”末尾（编号顺延），需要时写规格文件。
 
+## 当前状态（2026-09-27 更新）
+
+- 前端已经做完四轮，线上是 `develop` 最新的部署（带部署标记的提交会部署，见 AGENTS.md）。
+- 演示数据保留（用户要求），页面底部的“演示数据：开/关”可以切换。说明见下方“演示数据”。
+- **下一步：开新对话做后端，从 B11 开始，按“待做”表的顺序往下做。**
+
 ## 进行中
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| 演示 | 前端先用假数据给用户看效果（`web/src/demo`）。用户确认后删掉，再开始后端 | 见下方说明 | Claude |
+| （空） | | | |
 
 ## 待做
 
+后端按这个顺序做。每个任务做完、全部检查通过后直接提交到 `develop`，不开 PR（2026-09-27 用户要求）。用户说“构建”或“部署”时才带部署标记。
+
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B11 | 笔记后端：接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | |
-| B2 | 今日页后端：`GET/PUT /dashboard/layout` | [specs/M1.md](specs/M1.md) | |
+| B11 | 笔记后端：附件接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | |
+| B2 | 今日页后端：`GET/PUT /dashboard/layout`（卡片多了 `weather` 置顶和 `fitness`，见 `web/src/features/overview/layout.ts`） | [specs/M1.md](specs/M1.md) | |
 | B12 | 两步验证可选的后端 | [specs/B12.md](specs/B12.md) | |
-| B13 | 隐藏内容的后端：`/vault/*`、笔记的 `hidden` | [specs/B13.md](specs/B13.md) | |
-| B14 | 云盘后端：`modules/drive`、S3 同步 | [specs/B14.md](specs/B14.md) | |
+| B13 | 隐藏内容的后端：`/vault/*`、笔记的 `hidden`、隐藏空间自己的标签（`/notes/tags?hidden=true`） | [specs/B13.md](specs/B13.md) | |
+| B14 | 云盘后端：`modules/drive`、S3 同步、隐藏空间（记住原位置，还原放回） | [specs/B14.md](specs/B14.md) | |
 | B3 | AI 助手和自动化的后端 | [specs/M12.md](specs/M12.md) | |
-| B15 | B10 遗留：提醒页和项目页的概要卡片和规格不一致，等用户决定按哪个做（0% 进度环的点已修） | 见下方说明 | |
-| B1 | 部署面板的主机自动加入代理，可手动移除 | [specs/B1.md](specs/B1.md) | |
-| B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
-| B8 | Playwright 端到端测试加进 CI | 见下方说明 | |
-| B9 | 前端统一跑一遍 prettier，并在 CI 里检查 | 见下方说明 | |
 | B16 | 日历可写：本地日历、CalDAV（iCloud）写回。前端已做，后端回 501 | [specs/B16.md](specs/B16.md) | |
 | B17 | 健身类习惯：记训练自动打卡。前端已做 | [specs/B17.md](specs/B17.md) | |
 | B18 | 按需推送：WebSocket 订阅主题、代理按需上报详细数据 | [specs/B18.md](specs/B18.md) | |
-
-顺序说明（2026-09-27 用户要求）：先把前端做完整，再一步步做后端。第一轮前端已经做完（B10、B11、B2、B12、B13、B14、B3、B4、B5、B6），现在开始第二轮后端。
-
-- 第一轮只做前端：B10、B11、B2、B12、B13、B14、B3 的界面部分，以及 B4、B5、B6。接口契约（`api/modules/*.yaml`）和前端一起写好，后端没做的接口先返回 501（错误码 `not_ready`）或 404，界面上显示“功能还没上线”。
-- 第二轮按表里的顺序补后端：B11、B2、B12、B13、B14、B3，然后 B1、B7。
-- 最后做 B8、B9。
-- 这一轮由 Claude 一个人按顺序做，不开子代理。每个任务做完、全部检查通过后直接提交到 `develop`，不开 PR（2026-09-27 用户要求）。`main` 仍然要用户同意才动。
+| B1 | 部署面板的主机自动加入代理，可手动移除 | [specs/B1.md](specs/B1.md) | |
+| B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
+| B15 | B10 遗留：提醒页和项目页的概要卡片和规格不一致，等用户决定按哪个做 | 见下方说明 | |
+| B8 | Playwright 端到端测试加进 CI | 见下方说明 | |
+| B9 | 前端统一跑一遍 prettier，并在 CI 里检查 | 见下方说明 | |
+| D1 | 去掉演示数据。**只有用户明确说要去掉时才做** | 见下方说明 | |
 
 ### 待做任务的说明
 
-**演示数据（临时）**
-- `web/src/demo` 在浏览器里拦下还没有后端的接口，返回假数据：今日页布局、隐藏内容和隐藏笔记、云盘、AI 助手、自动化。页面底部有“演示数据”的标记。
-- 演示开关：页面底部“演示数据：开/关”，存在浏览器的 `xc.demo.full` 里，默认开。开着时 `web/src/demo/full` 接管已有后端的模块（项目、笔记、提醒、习惯、日历、服务器、监控、编码任务、智能家居、GitHub 等，见 `demo/mode.ts` 的 `FULL_PREFIXES`），读写都只动内存里的假数据，刷新后恢复原样，不会碰服务器上的真数据。关掉后这些模块回到真数据，没有后端的功能照样是假数据。
-- 不拦登录和两步验证、笔记图片附件。
-- 去掉时删 `web/src/demo`，以及 `main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
-- 2026-09-27 部署到线上给用户看效果（develop 上带部署标记的提交）。同一天又部署了两次：第一次加上全部页面的假数据和演示开关，第二次是界面第三轮（今日页宽屏三列、健身并入习惯、日历可新建等）。
+**演示数据（保留，D1 才删）**
+- `web/src/demo` 在浏览器里拦请求，返回假数据。`main.tsx` 第一行引入。
+- 常开的拦截（不管开关）：还没有后端的功能，`demo/dashboard.ts`（今日页布局）、`demo/vault.ts`（隐藏内容）、`demo/drive.ts`（云盘）、`demo/ai.ts`（AI 助手）、`demo/automations.ts`（自动化）。
+- 演示开关：页面底部“演示数据：开/关”，存在浏览器的 `xc.demo.full` 里，默认开。开着时 `demo/full/*` 接管已有后端的模块（`demo/mode.ts` 的 `FULL_PREFIXES`），读写只动内存，刷新后恢复原样，不碰服务器上的真数据。关掉后回到真数据。`PASS_THROUGH` 里的接口（搜城市）始终走真实服务器。
+- **做后端时注意**：做完 B2、B13、B14、B3 中任何一个，要把上面对应的“常开拦截”改成只在开关打开时生效（文件开头判断 `demoFull`，或者挪进 `demo/full`），否则关掉开关也看不到真数据。改完在这里更新。
+- 做新的前端功能时，同时在 `demo/full` 里补假数据，保证演示模式下能用。
+- D1 删除时：删 `web/src/demo`、`main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
 
 **B15 B10 遗留**
 - `components/ui/Stat.tsx` 的 `Ring`：比例为 0 时不渲染 `.bar`。原因是 `stroke-linecap: round`，长度为 0 也会画一个点。
@@ -110,8 +113,9 @@
 - 手机上命令面板比屏幕高，底部的结果和前缀提示要滚动才能看到。
 - 文件上传进度条。SSH 主机指纹变化后在界面上重新信任。
 - `features/reminders` 和 `features/habits` 的 `api.ts` 修改后自己刷新数据，同时又用了 `invalidateOn`，有重复。
-- `features/projects` 的 Markdown 渲染器可以挪到 `components/ui` 给其他模块用。
-- 编码任务的运行设置在仓库页，没有单独的设置标签。
+- Agent 任务（原“编码任务”）的运行设置在仓库页，没有单独的设置标签。
+- 公共的 Markdown 编辑框（`components/markdown/MarkdownEditor`）还不能贴图片，只有笔记能。
+- 搜城市先查 Open-Meteo，查不到再查 OpenStreetMap（Nominatim），开发环境连不上外网，没在真实网络下验证过。
 
 ## 已完成
 
@@ -124,7 +128,7 @@
 | B10 | 界面统一（[#12](https://github.com/j0x3n/x-console/pull/12)） |
 | B11 前端 | 备忘改名笔记，新列表和编辑器，图片和附件（[#13](https://github.com/j0x3n/x-console/pull/13)） |
 | B12 前端 | 两步验证可选：登录分两步、初始化可跳过、设置里的“安全”标签（[#16](https://github.com/j0x3n/x-console/pull/16)） |
-| B13 前端 | 隐藏内容：点 Logo 5 次解锁、顶部提示栏、15 分钟自动锁定、笔记的“隐藏”分类、安全标签里改隐藏密码。云盘部分跟 B14 一起做 |
+| B13 前端 | 隐藏内容：点 Logo 3 次解锁、解锁后 Logo 旁一个小锁、15 分钟自动锁定、笔记的“隐藏”分类、安全标签里改隐藏密码。云盘部分跟 B14 一起做 |
 | B14 前端 | 云盘：列表和网格、多选、拖拽上传和进度、预览、移动改名、回收站、隐藏分类、设置里的“云盘同步” |
 | B3 界面 | AI 助手浮窗（右下角按钮、⌘J、可拖动和放大、手机全屏、历史对话、动作卡片和确认）、设置里的“AI 助手”、自动化的规则列表、编辑器和运行记录 |
 | B4 | 命令面板前缀：`Command.prefix`，笔记注册 `>`，输入“> 内容”回车直接存成笔记 |
@@ -132,6 +136,10 @@
 | 设置页 | 按用户要求，设置页的切换从 B10 的左侧一列改回顶部一排标签，内容的卡片排法不变 |
 | B6 | 路由懒加载：各模块页面用 `React.lazy`；第三方库拆成 react、vendor、icons 三个包；qrcode 按需加载。主包 132 kB，没有超过 500 kB 的警告 |
 | B2 前端 | 今日页规格和前端（[#14](https://github.com/j0x3n/x-console/pull/14)、[#15](https://github.com/j0x3n/x-console/pull/15)） |
+| 界面第二轮 | 去掉大标题、侧边栏二级菜单、概要卡片缩小、命令面板、设计规范 `docs/07-design.md` 和 `npm run shots`、只在带部署标记时部署 |
+| 界面第三轮 | 全部页面的演示数据和开关；今日页按宽度分 1～4 列、天气置顶；“编码任务”改名“Agent 任务”；笔记标签颜色（后端已做）；健身并入习惯、健身类习惯、图标点选；云盘概况一行字；日历新建编辑界面；本机快捷按钮；后台标签页不处理高频推送 |
+| 界面第四轮 | 左上角标题可点击跳转、去掉返回按钮、只有设备页有状态点；天气设置弹窗（搜城市、显示内容、降雨提醒，后端已做）；隐藏空间（独立文件夹和标签、原样还原）；本机操作二次确认；笔记列表选中样式 |
+| 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
 
@@ -166,3 +174,4 @@
 | 2026-09-27 | “编码任务”界面上改名“Agent 任务”，导航图标换成 `Bot`；接口和代码里的名字不变 | 用户要求，Agent 不只写代码 |
 | 2026-09-27 | `stores/page-title.ts` 加 `parents`、`status` 和 `usePageCrumb`、`usePageStatus`；`PageHeading` 加 `parents`；`Topbar` 的模块名和中间层可以点击跳转，去掉常驻的连接状态点（只在断线时显示黄点），设备页显示在线状态点；`Sidebar` 在“X Console”后面加 `#brand-slot`，再点一次已展开的一级菜单会收起 | 用户要求左上角兼做导航，详情页去掉“返回”按钮 |
 | 2026-09-27 | `brief.yaml` 加 `GET /weather/places`、`GET/PUT /weather/alert`（后端已实现，每 30 分钟检查降雨）；`notes.yaml` 的 `/notes/tags` 加 `hidden`；`drive.yaml` 加 `restoreTo`，写清隐藏和还原的规则 | 天气设置弹窗、隐藏空间 |
+| 2026-09-27 | 新增 `components/markdown/MarkdownEditor.tsx`（样式 `.xc-mde*` 在 `ui.css`），编辑用的纯函数从 `features/notes/logic.ts` 挪到 `components/markdown/edit.ts`（notes 里保留转发）；`demo/mode.ts` 加 `PASS_THROUGH` | 长文字输入统一用笔记的编辑框 |

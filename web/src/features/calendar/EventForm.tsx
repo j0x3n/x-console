@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { Trash2 } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
@@ -267,15 +268,15 @@ export default function EventForm({
             onChange={(e) => set({ location: e.target.value })}
           />
         </label>
-        <label className="xc-field">
+        <div className="xc-field">
           <span>{t("Event notes")}</span>
-          <textarea
-            className="xc-textarea"
-            rows={3}
+          <MarkdownEditor
+            label={t("Event notes")}
             value={d.description}
-            onChange={(e) => set({ description: e.target.value })}
+            onChange={(v) => set({ description: v })}
+            minRows={3}
           />
-        </label>
+        </div>
         {error && <p className="calendar-form-error">{error}</p>}
         <div className="xc-dialog-actions">
           {event && (

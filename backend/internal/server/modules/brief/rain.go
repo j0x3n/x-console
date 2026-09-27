@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief/api"
@@ -23,6 +24,7 @@ const (
 	keyRainAlertLast = "brief.rain_alert_last"
 
 	defaultGeoBase = "https://geocoding-api.open-meteo.com"
+	defaultOSMBase = "https://nominatim.openstreetmap.org"
 	// rainQuiet is the shortest gap between two rain notifications.
 	rainQuiet = 6 * time.Hour
 )
@@ -147,6 +149,48 @@ func (m *Module) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, par
 		httpx.Fail(w, r, httpx.Invalid("请输入地名"))
 		return
 	}
+	out, err := m.searchPlaces(r.Context(), name)
+	if err != nil {
+		httpx.Fail(w, r, httpx.NewError(http.StatusBadGateway, "weather_unavailable", err.Error()))
+		return
+	}
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+// searchPlaces 先查 Open-Meteo 的地名库。它对县、镇这类中文名收得不全，
+// 查不到时去掉“县”“区”这类后缀再查一次，还没有就查 OpenStreetMap。
+func (m *Module) searchPlaces(ctx context.Context, name string) ([]api.WeatherPlace, error) {
+	out, firstErr := m.openMeteoPlaces(ctx, name)
+	if len(out) > 0 {
+		return out, nil
+	}
+	if short := trimPlaceSuffix(name); short != name {
+		if more, err := m.openMeteoPlaces(ctx, short); err == nil && len(more) > 0 {
+			return more, nil
+		}
+	}
+	osm, err := m.osmPlaces(ctx, name)
+	if err != nil && firstErr != nil {
+		return nil, firstErr
+	}
+	if osm == nil {
+		osm = []api.WeatherPlace{}
+	}
+	return osm, nil
+}
+
+var placeSuffixes = []string{"自治县", "自治州", "县", "区", "市", "镇", "乡"}
+
+func trimPlaceSuffix(name string) string {
+	for _, s := range placeSuffixes {
+		if short, ok := strings.CutSuffix(name, s); ok && utf8.RuneCountInString(short) >= 2 {
+			return short
+		}
+	}
+	return name
+}
+
+func (m *Module) openMeteoPlaces(ctx context.Context, name string) ([]api.WeatherPlace, error) {
 	q := url.Values{"name": {name}, "count": {"8"}, "language": {"zh"}, "format": {"json"}}
 	var raw struct {
 		Results []struct {
@@ -157,15 +201,47 @@ func (m *Module) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, par
 			Lon     float64 `json:"longitude"`
 		} `json:"results"`
 	}
-	if err := m.getJSON(r.Context(), m.geoBase+"/v1/search?"+q.Encode(), &raw); err != nil {
-		httpx.Fail(w, r, httpx.NewError(http.StatusBadGateway, "weather_unavailable", err.Error()))
-		return
+	if err := m.getJSON(ctx, m.geoBase+"/v1/search?"+q.Encode(), &raw); err != nil {
+		return nil, err
 	}
 	out := make([]api.WeatherPlace, 0, len(raw.Results))
 	for _, p := range raw.Results {
 		out = append(out, api.WeatherPlace{Name: p.Name, Region: p.Admin1, Country: p.Country, Lat: round4(p.Lat), Lon: round4(p.Lon)})
 	}
-	httpx.JSON(w, http.StatusOK, out)
+	return out, nil
+}
+
+// osmPlaces 查 OpenStreetMap 的 Nominatim。它要求带 User-Agent，一秒最多一次，
+// 这里只在用户点“搜索”时才会调用。
+func (m *Module) osmPlaces(ctx context.Context, name string) ([]api.WeatherPlace, error) {
+	q := url.Values{"q": {name}, "format": {"jsonv2"}, "limit": {"8"}, "addressdetails": {"1"}, "accept-language": {"zh"}}
+	var raw []struct {
+		Name    string `json:"name"`
+		Lat     string `json:"lat"`
+		Lon     string `json:"lon"`
+		Address struct {
+			City    string `json:"city"`
+			State   string `json:"state"`
+			Country string `json:"country"`
+		} `json:"address"`
+	}
+	if err := m.getJSON(ctx, m.osmBase+"/search?"+q.Encode(), &raw); err != nil {
+		return nil, err
+	}
+	out := make([]api.WeatherPlace, 0, len(raw))
+	for _, p := range raw {
+		lat, err1 := strconv.ParseFloat(p.Lat, 64)
+		lon, err2 := strconv.ParseFloat(p.Lon, 64)
+		if err1 != nil || err2 != nil || p.Name == "" {
+			continue
+		}
+		region := p.Address.State
+		if p.Address.City != "" && p.Address.City != p.Name {
+			region = strings.TrimSpace(p.Address.City + " · " + p.Address.State)
+		}
+		out = append(out, api.WeatherPlace{Name: p.Name, Region: region, Country: p.Address.Country, Lat: round4(lat), Lon: round4(lon)})
+	}
+	return out, nil
 }
 
 func round4(f float64) float64 { return math.Round(f*1e4) / 1e4 }
@@ -176,6 +252,8 @@ func (m *Module) getJSON(ctx context.Context, u string, v any) error {
 	if err != nil {
 		return errors.New("天气接口地址不对")
 	}
+	// Nominatim 要求写明是谁在用
+	req.Header.Set("User-Agent", "x-console (self-hosted personal console)")
 	resp, err := m.http.Do(req)
 	if err != nil {
 		var uerr *url.Error

@@ -38,7 +38,20 @@ func newWeatherServer(t *testing.T) *weatherServer {
 		s.hits.Add(1)
 		s.query.Store(r.URL.RawQuery)
 		if r.URL.Path == "/v1/search" {
+			if r.URL.Query().Get("name") != "深圳" {
+				_, _ = w.Write([]byte(`{"generationtime_ms":0.1}`))
+				return
+			}
 			_, _ = w.Write([]byte(`{"results":[{"name":"深圳","admin1":"广东","country":"中国","latitude":22.54554,"longitude":114.0683}]}`))
+			return
+		}
+		if r.URL.Path == "/search" {
+			if r.Header.Get("User-Agent") == "" {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			_, _ = w.Write([]byte(`[{"name":"东海县","lat":"34.5424","lon":"118.7527",
+				"address":{"county":"东海县","city":"连云港市","state":"江苏省","country":"中国"}}]`))
 			return
 		}
 		if r.URL.Path != "/v1/forecast" {
@@ -447,6 +460,12 @@ func TestRainAlertAndPlaces(t *testing.T) {
 	env.MustDo(http.MethodGet, "/weather/places?q=%E6%B7%B1%E5%9C%B3", nil, &places)
 	if len(places) != 1 || places[0].Name != "深圳" || places[0].Region != "广东" || places[0].Lat != 22.5455 {
 		t.Fatalf("places: %+v", places)
+	}
+
+	// Open-Meteo 查不到县名，改查 OpenStreetMap
+	env.MustDo(http.MethodGet, "/weather/places?q=%E4%B8%9C%E6%B5%B7%E5%8E%BF", nil, &places)
+	if len(places) != 1 || places[0].Name != "东海县" || places[0].Region != "连云港市 · 江苏省" || places[0].Lon != 118.7527 {
+		t.Fatalf("osm places: %+v", places)
 	}
 
 	var a api.RainAlert

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { usePageCrumb } from "../../stores/page-title";
 import {
@@ -178,7 +179,6 @@ function IssueTitle({
 function Description({ issue, onSave }: { issue: Issue; onSave: (description: string) => void }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
-  const [preview, setPreview] = useState(false);
   const [value, setValue] = useState(issue.description);
   useEffect(() => {
     if (!editing) setValue(issue.description);
@@ -186,7 +186,6 @@ function Description({ issue, onSave }: { issue: Issue; onSave: (description: st
   const commit = () => {
     if (value !== issue.description) onSave(value);
     setEditing(false);
-    setPreview(false);
   };
   if (!editing)
     return (
@@ -207,37 +206,25 @@ function Description({ issue, onSave }: { issue: Issue; onSave: (description: st
       </section>
     );
   return (
-    <section className="projects-description editing">
-      <div className="xc-tabs projects-md-tabs">
-        <button className={!preview ? "active" : ""} onClick={() => setPreview(false)}>
-          {t("Write")}
-        </button>
-        <button className={preview ? "active" : ""} onClick={() => setPreview(true)}>
-          {t("Preview")}
-        </button>
-      </div>
-      {preview ? (
-        <div className="projects-md-preview">
-          <Markdown source={value} empty={<span className="xc-muted">{t("Nothing to preview")}</span>} />
-        </div>
-      ) : (
-        <textarea
-          className="xc-textarea projects-md-editor"
-          value={value}
-          autoFocus
-          rows={12}
-          placeholder={t("Markdown is supported")}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) commit();
-            if (e.key === "Escape") {
-              e.stopPropagation();
-              setValue(issue.description);
-              setEditing(false);
-            }
-          }}
-        />
-      )}
+    <section
+      className="projects-description editing"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          setValue(issue.description);
+          setEditing(false);
+        }
+      }}
+    >
+      <MarkdownEditor
+        label={t("Description")}
+        value={value}
+        onChange={setValue}
+        autoFocus
+        minRows={10}
+        placeholder={t("Markdown is supported")}
+        onSubmit={commit}
+      />
       <div className="xc-row projects-md-actions">
         <span className="xc-muted projects-hint">⌘/Ctrl + Enter</span>
         <span className="xc-spacer" />
@@ -525,15 +512,13 @@ function Comments({ issueKey }: { issueKey: string }) {
           submit();
         }}
       >
-        <textarea
-          className="xc-textarea"
-          rows={3}
+        <MarkdownEditor
+          label={t("Comment")}
           value={body}
+          onChange={setBody}
+          minRows={3}
           placeholder={t("Write a progress note…")}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
-          }}
+          onSubmit={submit}
         />
         <div className="xc-row">
           <span className="xc-muted projects-hint">⌘/Ctrl + Enter</span>

@@ -61,7 +61,10 @@
 | 加载、空、出错 | `components/ui/States`：`Loading`、`EmptyState`、`ErrorState` | |
 | 还没上线 | `components/ui/States` 的 `NotLive` | 接口回 404 或 501 时整页显示它，不要显示成“出错了” |
 | 提示 | `toast("已保存")`、`toast({ message, tone: "error" })` | |
-| Markdown | `components/markdown/Markdown` | |
+| Markdown 显示 | `components/markdown/Markdown` | |
+| 长文字输入（描述、评论、备注） | `components/markdown/MarkdownEditor` | 和笔记一样的格式按钮和预览。不要用裸的 `textarea`；外层用 `div.xc-field`，不要用 `label` 包 |
+| 左上角标题 | `PageHeading` 的 `title`、`parents`，或 `usePageCrumb` | 模块名能点回首页，不要再放“返回”按钮 |
+| 设备在线状态 | `usePageStatus` | 只有服务器、本机这类有设备状态的页面用，显示成左上角标题后的小点 |
 | 侧边栏二级菜单 | `registerNavChildren` + `components/layout/NavChildLinks` | 最多 5 条，多了给“全部 N” |
 | 图标 | lucide-react，14 到 17 | 同一行里的图标大小一致 |
 

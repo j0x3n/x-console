@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import MarkdownEditor from "../../../components/markdown/MarkdownEditor";
 import { Link, useNavigate } from "react-router";
 import { errorMessage } from "../../../api/client";
 import Dialog from "../../../components/ui/Dialog";
@@ -150,21 +151,19 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
               />
             </label>
           </div>
-          <label className="xc-field">
+          <div className="xc-field">
             <span>{t("What should it do?")}</span>
-            <textarea
-              className="xc-textarea coding-prompt"
-              rows={7}
+            <MarkdownEditor
+              label={t("What should it do?")}
               value={prompt}
+              onChange={setPrompt}
               autoFocus
+              minRows={6}
               placeholder={issueKey ? t("Anything to add? Optional.") : t("Describe the change you want.")}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSubmit) submit(e);
-              }}
+              onSubmit={() => canSubmit && submit({ preventDefault: () => {} })}
             />
             <small>{t("It runs in its own git worktree. Your checkout is not touched.")}</small>
-          </label>
+          </div>
           <div className="xc-dialog-actions">
             <button type="button" className="xc-btn" onClick={onClose}>
               {t("Cancel")}

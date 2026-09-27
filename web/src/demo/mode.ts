@@ -54,7 +54,12 @@ export const FULL_PREFIXES = [
   "/agents",
 ];
 
+/** 只读、不涉及个人数据的接口，演示模式下也走真实服务器。 */
+const PASS_THROUGH = ["/weather/places"];
+
 export function isFullPath(path: string) {
+  if (PASS_THROUGH.some((p) => path === p || path.startsWith(`${p}?`)))
+    return false;
   return FULL_PREFIXES.some(
     (p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`),
   );

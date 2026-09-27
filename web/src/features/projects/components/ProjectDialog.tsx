@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import MarkdownEditor from "../../../components/markdown/MarkdownEditor";
 import { errorMessage } from "../../../api/client";
 import Dialog from "../../../components/ui/Dialog";
 import { useT } from "../../../contexts/LanguageContext";
@@ -109,15 +110,15 @@ export default function ProjectDialog({
             <small>{t("2 to 5 capital letters. Issue keys look like XC-12. It cannot be changed later.")}</small>
           </label>
         )}
-        <label className="xc-field">
+        <div className="xc-field">
           <span>{t("Description")}</span>
-          <textarea
-            className="xc-textarea"
-            rows={3}
+          <MarkdownEditor
+            label={t("Description")}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={setDescription}
+            minRows={4}
           />
-        </label>
+        </div>
         <div className="xc-field">
           <span>{t("Color")}</span>
           <div className="projects-colors">

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
@@ -171,15 +172,15 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
             placeholder="/projects 或 https://..."
           />
         </label>
-        <label className="xc-field">
+        <div className="xc-field">
           <span>{t("Reminder note")}</span>
-          <textarea
-            className="xc-textarea"
+          <MarkdownEditor
+            label={t("Reminder note")}
             value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={3}
+            onChange={setBody}
+            minRows={3}
           />
-        </label>
+        </div>
         {reminder && (
           <label className="reminders-check">
             <input
