@@ -1,10 +1,13 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { Workflow } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./automations.css";
-import AutomationsPage from "./AutomationsPage";
-import AutomationEditor from "./AutomationEditor";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const AutomationsPage = lazy(() => import("./AutomationsPage"));
+const AutomationEditor = lazy(() => import("./AutomationEditor"));
 
 registerCommands([
   {

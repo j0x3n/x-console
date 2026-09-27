@@ -1,9 +1,12 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { House, Settings } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./home.css";
-import HomePage from "./HomePage";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const HomePage = lazy(() => import("./HomePage"));
 
 registerCommands([
   {

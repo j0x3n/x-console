@@ -1,7 +1,10 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import "./i18n";
 import "./settings.css";
-import SettingsPage from "./SettingsPage";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const SettingsPage = lazy(() => import("./SettingsPage"));
 
 export const routes: RouteObject[] = [
   {

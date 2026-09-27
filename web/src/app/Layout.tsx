@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useServerEvents } from "../api/events";
 import ElevationDialog from "../auth/ElevationDialog";
 import CommandPalette from "../components/command/CommandPalette";
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
+import { Loading } from "../components/ui/States";
 import Toast from "../components/ui/Toast";
 import { useToastStore } from "../hooks/useToast";
 import GlobalPanels from "./GlobalPanels";
@@ -40,7 +41,10 @@ export default function Layout() {
             openMobile={() => setMobileOpen(true)}
             openPalette={() => setPaletteOpen(true)}
           />
-          <Outlet />
+          {/* 页面按需加载（B6），加载时显示转圈 */}
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
       <GlobalPanels />

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import QRCode from "qrcode";
 
 /** 两步验证的二维码和密钥。初始化页和设置里的“安全”标签共用。 */
 export default function TotpQr({
@@ -12,7 +11,9 @@ export default function TotpQr({
   const [qr, setQr] = useState("");
   useEffect(() => {
     let alive = true;
-    QRCode.toDataURL(otpauthUrl, { margin: 1, width: 200 })
+    // qrcode 只在绑定两步验证时用，按需加载（B6）。
+    import("qrcode")
+      .then((m) => m.default.toDataURL(otpauthUrl, { margin: 1, width: 200 }))
       .then((url) => alive && setQr(url))
       .catch(() => alive && setQr(""));
     return () => {

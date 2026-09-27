@@ -1,10 +1,13 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { BellRing, TerminalSquare } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./servers.css";
-import ServersPage from "./ServersPage";
-import HostDetailPage from "./HostDetailPage";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const ServersPage = lazy(() => import("./ServersPage"));
+const HostDetailPage = lazy(() => import("./HostDetailPage"));
 
 registerCommands([
   {

@@ -1,9 +1,12 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { Dumbbell, HeartPulse, Plus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./habits.css";
-import HabitsPage from "./HabitsPage";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const HabitsPage = lazy(() => import("./HabitsPage"));
 
 registerCommands([
   {

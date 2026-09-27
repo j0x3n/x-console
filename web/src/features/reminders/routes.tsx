@@ -1,9 +1,12 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { AlarmClockPlus, BellRing } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./reminders.css";
-import RemindersPage from "./RemindersPage";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const RemindersPage = lazy(() => import("./RemindersPage"));
 
 registerCommands([
   {

@@ -1,10 +1,13 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import "./i18n";
 import "./projects.css";
 import "./commands";
-import IssuePage from "./IssuePage";
-import ProjectPage from "./ProjectPage";
-import ProjectsPage from "./ProjectsPage";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const IssuePage = lazy(() => import("./IssuePage"));
+const ProjectPage = lazy(() => import("./ProjectPage"));
+const ProjectsPage = lazy(() => import("./ProjectsPage"));
 
 // 模块入口：路由、命令、事件订阅都从这里注册。
 export const routes: RouteObject[] = [

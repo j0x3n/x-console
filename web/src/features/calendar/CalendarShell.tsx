@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { NavLink, Outlet } from "react-router";
 import PageHeading from "../../components/ui/PageHeading";
+import { Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 
 const tabs = [
@@ -34,7 +36,9 @@ export default function CalendarShell() {
           </NavLink>
         ))}
       </nav>
-      <Outlet />
+      <Suspense fallback={<Loading />}>
+        <Outlet />
+      </Suspense>
     </div>
   );
 }

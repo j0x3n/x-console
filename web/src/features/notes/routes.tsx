@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { NotebookPen, Search, SquarePen, StickyNote } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
@@ -5,8 +6,10 @@ import { toast } from "../../hooks/useToast";
 import { captureNote } from "./api";
 import "./i18n";
 import "./notes.css";
-import NotesPage from "./NotesPage";
 import { useQuickNote } from "./QuickNote";
+
+// 页面按需加载（B6），主包里只留路由、命令和样式。
+const NotesPage = lazy(() => import("./NotesPage"));
 
 // 模块入口：路由和命令面板命令。
 registerCommands([
