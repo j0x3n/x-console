@@ -236,30 +236,39 @@ export function parseInline(text: string): Inline[] {
 
 const taskLineRe = /^(\s*(?:>\s*)*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])(\])/;
 
+/** 按预览里的顺序列出每个待办的勾选状态，和 Markdown.tsx 的编号一致。 */
+function taskStates(blocks: Block[], out: boolean[] = []): boolean[] {
+  for (const b of blocks) {
+    if (b.type === "quote") taskStates(b.blocks, out);
+    if (b.type !== "list") continue;
+    for (const item of b.items) {
+      if (item.checked !== null) out.push(item.checked);
+      taskStates(item.blocks, out);
+    }
+  }
+  return out;
+}
+
 /**
- * 切换源码里第 index 个待办（从 0 开始，按出现顺序，跳过代码块）。
+ * 切换源码里第 index 个待办（从 0 开始，按预览里的顺序）。
  * 预览里点勾选框时用它改正文。
+ * 像待办的行不一定被解析成待办（比如代码块里的、没有文字的 `- [ ]`），
+ * 所以逐行试着切换，重新解析后只有第 index 个待办变了才算找对了行。
  */
 export function toggleTask(source: string, index: number): string {
+  const before = taskStates(parseMarkdown(source));
+  if (index < 0 || index >= before.length) return source;
   const lines = source.split("\n");
-  let fence: string | null = null;
-  let n = 0;
   for (let i = 0; i < lines.length; i++) {
-    const f = fenceRe.exec(lines[i]);
-    if (f) {
-      if (fence === null) fence = f[1];
-      else if (lines[i].trim().startsWith(fence)) fence = null;
-      continue;
-    }
-    if (fence !== null) continue;
     const m = taskLineRe.exec(lines[i]);
     if (!m) continue;
-    if (n === index) {
-      const mark = m[2] === " " ? "x" : " ";
-      lines[i] = m[1] + mark + m[3] + lines[i].slice(m[0].length);
-      return lines.join("\n");
-    }
-    n++;
+    const original = lines[i];
+    lines[i] = m[1] + (m[2] === " " ? "x" : " ") + m[3] + original.slice(m[0].length);
+    const next = lines.join("\n");
+    const after = taskStates(parseMarkdown(next));
+    if (after.length === before.length && after.every((c, k) => (k === index ? c !== before[k] : c === before[k])))
+      return next;
+    lines[i] = original;
   }
   return source;
 }

@@ -142,6 +142,20 @@ export function insertBlock(text: string, start: number, end: number, block: str
   return { text: before + inserted + after, start: pos, end: pos };
 }
 
+/** 删掉 insertBlock 插进去的一块，连同它前后多出来的空行。 */
+export function removeBlock(text: string, block: string): string {
+  const i = text.indexOf(block);
+  if (i < 0) return text;
+  let before = text.slice(0, i);
+  let after = text.slice(i + block.length);
+  if (before.trim() === "") before = "";
+  if (before === "") after = after.replace(/^\n+/, "");
+  else if (after.trim() === "") after = "";
+  if (after === "") before = before.replace(/\n+$/, "");
+  else if (before.endsWith("\n\n") && after.startsWith("\n")) after = after.replace(/^\n+/, "");
+  return before + after;
+}
+
 /* ---- 列表分组 ---- */
 
 export type DateGroup = "today" | "yesterday" | "week" | "month" | "earlier";

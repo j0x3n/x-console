@@ -76,6 +76,16 @@ describe("images and tasks", () => {
     expect(toggleTask(src, 3)).toBe(src);
   });
 
+  it("counts tasks the same way the preview does", () => {
+    // 没有文字的 `- [ ]` 预览里不是待办，不能算进去。
+    const src = "- [ ]\n- [ ] a\n\n> - [x] quoted\n\n1. [ ] b";
+    expect(toggleTask(src, 0)).toBe(src.replace("- [ ] a", "- [x] a"));
+    expect(toggleTask(src, 1)).toBe(src.replace("- [x] quoted", "- [ ] quoted"));
+    expect(toggleTask(src, 2)).toBe(src.replace("1. [ ] b", "1. [x] b"));
+    expect(toggleTask(src, 3)).toBe(src);
+    expect(toggleTask(src, -1)).toBe(src);
+  });
+
   it("lists image sources", () => {
     expect(imageSources("a ![x](/a.png) b ![y](https://e.com/b.png \"t\") ![z](bad:1)")).toEqual([
       "/a.png",

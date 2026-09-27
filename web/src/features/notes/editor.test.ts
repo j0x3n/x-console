@@ -4,6 +4,7 @@ import {
   countWords,
   dateGroup,
   insertBlock,
+  removeBlock,
   prefixLines,
   wrapSelection,
 } from "./logic";
@@ -43,6 +44,17 @@ describe("insertBlock", () => {
   });
   it("adds nothing at the start of an empty note", () => {
     expect(insertBlock("", 0, 0, "![x](/a)").text).toBe("![x](/a)");
+  });
+});
+
+describe("removeBlock", () => {
+  it("undoes insertBlock without leaving blank lines", () => {
+    for (const [text, pos] of [["abc", 3], ["", 0], ["a\n\nb", 1], ["a\n\nb", 3]] as const) {
+      const inserted = insertBlock(text, pos, pos, "TOKEN").text;
+      expect(removeBlock(inserted, "TOKEN")).toBe(text);
+    }
+    expect(removeBlock("a\n\nT1\n\nT2\n\nb", "T1")).toBe("a\n\nT2\n\nb");
+    expect(removeBlock("abc", "missing")).toBe("abc");
   });
 });
 

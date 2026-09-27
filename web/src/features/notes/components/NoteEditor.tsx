@@ -61,6 +61,7 @@ import {
   insertBlock,
   parseTags,
   prefixLines,
+  removeBlock,
   sameTags,
   uploadPlaceholder,
   wrapSelection,
@@ -148,6 +149,16 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
     lastSaved.current = server;
     setDraft(server);
   }, [note.title, note.body, note.tags]);
+
+  // 看大图时按 Esc 关闭。
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox]);
 
   // 离开时把没保存的内容存掉。页面关闭用 keepalive 请求。
   useEffect(() => {
@@ -258,9 +269,9 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
       list.map(async (file, i) => {
         try {
           const a = await uploadAttachment(note.id, file);
-          edit({ body: draftRef.current.body.replace(tokens[i], attachmentMarkdown(a)) });
+          edit({ body: draftRef.current.body.replace(tokens[i], () => attachmentMarkdown(a)) });
         } catch (err) {
-          edit({ body: draftRef.current.body.replace(tokens[i], "").replace(/\n{3,}/g, "\n\n") });
+          edit({ body: removeBlock(draftRef.current.body, tokens[i]) });
           toast({ message: `${file.name}: ${errorMessage(err)}`, tone: "error" });
         } finally {
           setUploading((n) => n - 1);
@@ -278,7 +289,8 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
 
   const onPaste = (e: ClipboardEvent) => {
     const files = Array.from(e.clipboardData.files);
-    if (!files.length) return;
+    // 从 Excel、Word 复制时剪贴板里同时有文字和图片，这时按文字粘贴。
+    if (!files.length || e.clipboardData.getData("text/plain")) return;
     e.preventDefault();
     void upload(files);
   };
@@ -347,7 +359,9 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
         }
       }}
       onDragLeave={(e) => {
-        if (e.currentTarget === e.target) setDragging(false);
+        // 移到编辑区里的子元素时不关；移出编辑区或拖出窗口（relatedTarget 为空）时关掉遮罩。
+        const to = e.relatedTarget;
+        if (!(to instanceof Node) || !e.currentTarget.contains(to)) setDragging(false);
       }}
       onDrop={onDrop}
     >
