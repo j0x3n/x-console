@@ -1,0 +1,108 @@
+openapi: 3.0.3
+info:
+  title: X Console vault API (B13)
+  version: 0.1.0
+  description: |
+    隐藏内容。解锁后当前会话 15 分钟内能看到隐藏的笔记和云盘文件，
+    每次带着解锁状态的请求往后延。动作目录（AI 助手、自动化）永远看不到隐藏内容。
+servers:
+  - url: /api/v1
+paths:
+  /vault/status:
+    get:
+      operationId: getVaultStatus
+      tags: [vault]
+      responses:
+        "200":
+          description: 当前会话的隐藏内容状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultStatus"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /vault/setup:
+    post:
+      operationId: setupVault
+      tags: [vault]
+      description: 设置隐藏密码，只在没设过时可用（否则 409）。设好后直接解锁。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VaultPassword"
+      responses:
+        "200":
+          description: 已设置并解锁
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultStatus"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /vault/unlock:
+    post:
+      operationId: unlockVault
+      tags: [vault]
+      description: 失败次数限制和登录一样：同一 IP 15 分钟内错 5 次就锁住。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VaultPassword"
+      responses:
+        "200":
+          description: 已解锁
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultStatus"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /vault/lock:
+    post:
+      operationId: lockVault
+      tags: [vault]
+      responses:
+        "204":
+          description: 已锁定
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /vault/password:
+    post:
+      operationId: changeVaultPassword
+      tags: [vault]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, minLength: 6 }
+      responses:
+        "204":
+          description: 已修改
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    VaultStatus:
+      type: object
+      required: [configured, unlocked]
+      properties:
+        configured: { type: boolean, description: 是否设过隐藏密码 }
+        unlocked: { type: boolean }
+        unlockedUntil:
+          type: string
+          format: date-time
+          description: 解锁到什么时候，只在已解锁时返回
+    VaultPassword:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 6 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Archive,
+  EyeOff,
   Hash,
   NotebookPen,
   Notebook,
@@ -14,6 +15,7 @@ import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
 import { useCreateNote, useNotes, useTags, type NoteSummary } from "./api";
+import { useVaultStatus } from "../vault/api";
 import NoteEditor from "./components/NoteEditor";
 import {
   DATE_GROUP_LABELS,
@@ -23,7 +25,7 @@ import {
   type DateGroup,
 } from "./logic";
 
-type View = "all" | "pinned" | "archived" | "tag";
+type View = "all" | "pinned" | "archived" | "tag" | "hidden";
 
 export default function NotesPage() {
   const t = useT();
@@ -34,12 +36,30 @@ export default function NotesPage() {
   const tag = search.get("tag") ?? "";
   const archived = search.get("archived") === "1";
   const pinned = search.get("pinned") === "1";
-  const view: View = tag ? "tag" : archived ? "archived" : pinned ? "pinned" : "all";
+  const vault = useVaultStatus();
+  const vaultUnlocked = vault.data?.unlocked ?? false;
+  // 隐藏分类只在解锁后出现。地址栏带着 hidden=1 但已锁定时，当作全部笔记。
+  const hidden = search.get("hidden") === "1" && vaultUnlocked;
+  const view: View = hidden
+    ? "hidden"
+    : tag
+      ? "tag"
+      : archived
+        ? "archived"
+        : pinned
+          ? "pinned"
+          : "all";
   const [input, setInput] = useState(q);
   const searchRef = useRef<HTMLInputElement>(null);
   const create = useCreateNote();
   const tags = useTags();
-  const notes = useNotes({ q, tag, archived, pinned });
+  const notes = useNotes({
+    q,
+    tag: hidden ? "" : tag,
+    archived: hidden ? false : archived,
+    pinned: hidden ? false : pinned,
+    hidden,
+  });
   const id = noteId ? Number(noteId) : null;
 
   // 地址栏的 q 变了（比如后退），同步到输入框。
@@ -72,6 +92,7 @@ export default function NotesPage() {
         if (next === "pinned") p.set("pinned", "1");
         if (next === "archived") p.set("archived", "1");
         if (next === "tag" && nextTag) p.set("tag", nextTag);
+        if (next === "hidden") p.set("hidden", "1");
         return p;
       },
       { replace: true },
@@ -86,7 +107,9 @@ export default function NotesPage() {
 
   const newNote = () =>
     create.mutate(
-      { tags: tag ? [tag] : [], pinned: pinned || undefined },
+      hidden
+        ? { hidden: true }
+        : { tags: tag ? [tag] : [], pinned: pinned || undefined },
       { onSuccess: (note) => navigate(`/notes/${note.id}${query}`) },
     );
 
@@ -114,7 +137,9 @@ export default function NotesPage() {
         ? t("Pinned notes")
         : view === "archived"
           ? t("Archived")
-          : t("All notes");
+          : view === "hidden"
+            ? t("Hidden notes")
+            : t("All notes");
 
   const navItem = (key: string, active: boolean, onClick: () => void, icon: ReactNode, label: string, count?: number) => (
     <button key={key} className={active ? "active" : ""} aria-pressed={active} onClick={onClick}>
@@ -128,6 +153,9 @@ export default function NotesPage() {
     navItem("all", view === "all", () => setView("all"), <Notebook size={15} />, t("All notes")),
     navItem("pinned", view === "pinned", () => setView("pinned"), <Pin size={15} />, t("Pinned notes")),
     navItem("archived", view === "archived", () => setView("archived"), <Archive size={15} />, t("Archived")),
+    ...(vaultUnlocked
+      ? [navItem("hidden", view === "hidden", () => setView("hidden"), <EyeOff size={15} />, t("Hidden notes"))]
+      : []),
   ];
   const tagItems =
     tags.data?.map((tc) =>
@@ -198,6 +226,8 @@ export default function NotesPage() {
                   ? t("No matching notes")
                   : view === "archived"
                     ? t("No archived notes")
+                    : view === "hidden"
+                      ? t("No hidden notes")
                     : view === "pinned"
                       ? t("No pinned notes")
                       : t("No notes yet")

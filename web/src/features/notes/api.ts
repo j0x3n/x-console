@@ -22,6 +22,8 @@ export interface NotesFilter {
   tag: string;
   archived: boolean;
   pinned: boolean;
+  /** B13：只看隐藏笔记，要先解锁 */
+  hidden: boolean;
 }
 
 export const notesKeys = {
@@ -47,6 +49,7 @@ export function useNotes(filter: NotesFilter) {
               tag: filter.tag || undefined,
               archived: filter.archived || undefined,
               pinned: filter.pinned || undefined,
+              hidden: filter.hidden || undefined,
               limit: 50,
               cursor: pageParam || undefined,
             },

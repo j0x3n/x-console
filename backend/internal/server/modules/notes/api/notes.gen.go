@@ -30,7 +30,10 @@ type Attachment struct {
 
 // CreateNote defines model for CreateNote.
 type CreateNote struct {
-	Body   *string   `json:"body,omitempty"`
+	Body *string `json:"body,omitempty"`
+
+	// Hidden 直接建成隐藏笔记，要先解锁
+	Hidden *bool     `json:"hidden,omitempty"`
 	Pinned *bool     `json:"pinned,omitempty"`
 	Tags   *[]string `json:"tags,omitempty"`
 	Title  *string   `json:"title,omitempty"`
@@ -43,6 +46,9 @@ type Note struct {
 	// Body Markdown
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"createdAt"`
+
+	// Hidden B13 隐藏笔记，只在解锁后出现
+	Hidden    *bool     `json:"hidden,omitempty"`
 	Id        int64     `json:"id"`
 	Pinned    bool      `json:"pinned"`
 	Tags      []string  `json:"tags"`
@@ -57,8 +63,11 @@ type NoteSummary struct {
 
 	// Excerpt 正文开头的一段纯文本
 	Excerpt string `json:"excerpt"`
-	Id      int64  `json:"id"`
-	Pinned  bool   `json:"pinned"`
+
+	// Hidden B13 隐藏笔记，只在解锁后出现
+	Hidden *bool `json:"hidden,omitempty"`
+	Id     int64 `json:"id"`
+	Pinned bool  `json:"pinned"`
 
 	// Snippet 搜索时的命中片段，命中的部分用 U+E000 和 U+E001 包住
 	Snippet *string  `json:"snippet,omitempty"`
@@ -80,7 +89,10 @@ type TagCount struct {
 type UpdateNote struct {
 	Archived *bool   `json:"archived,omitempty"`
 	Body     *string `json:"body,omitempty"`
-	Pinned   *bool   `json:"pinned,omitempty"`
+
+	// Hidden 设为隐藏或取消隐藏，要先解锁
+	Hidden *bool `json:"hidden,omitempty"`
+	Pinned *bool `json:"pinned,omitempty"`
 
 	// Tags 传了就整体替换
 	Tags  *[]string `json:"tags,omitempty"`
@@ -100,9 +112,13 @@ type ListNotesParams struct {
 	Pinned *bool   `form:"pinned,omitempty" json:"pinned,omitempty"`
 
 	// Archived true 时只看已归档的笔记，默认只看未归档的
-	Archived *bool                `form:"archived,omitempty" json:"archived,omitempty"`
-	Limit    *externalRef0.Limit  `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor   *externalRef0.Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
+
+	// Hidden B13。true 时只返回隐藏笔记，要先解锁隐藏内容，没解锁时返回空列表。
+	// 不传时只返回普通笔记。隐藏笔记不进全文索引，搜索用 LIKE。
+	Hidden *bool                `form:"hidden,omitempty" json:"hidden,omitempty"`
+	Limit  *externalRef0.Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *externalRef0.Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // UploadNoteAttachmentMultipartBody defines parameters for UploadNoteAttachment.
@@ -308,6 +324,19 @@ func (siw *ServerInterfaceWrapper) ListNotes(w http.ResponseWriter, r *http.Requ
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "archived"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archived", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "hidden" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hidden", r.URL.Query(), &params.Hidden, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hidden"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hidden", Err: err})
 		}
 		return
 	}

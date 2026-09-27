@@ -1,0 +1,36 @@
+/* 解锁后主面板顶部的提示栏。主面板内容往下让出同样的高度。 */
+.vault-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  background:
+    linear-gradient(var(--xc-accent-soft), var(--xc-accent-soft)),
+    var(--xc-panel);
+  border-bottom: 1px solid var(--xc-border);
+  color: var(--xc-text);
+  font-size: 12.5px;
+}
+.vault-bar .xc-btn {
+  height: 24px;
+  padding: 0 8px;
+}
+.main-panel:has(> .vault-bar) > .main-scroll {
+  padding-top: 32px;
+}
+.vault-note {
+  margin: 0 0 12px;
+  color: var(--xc-muted);
+  line-height: 1.5;
+}
+.vault-actions {
+  display: flex;
+  justify-content: flex-end;
+}

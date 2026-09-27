@@ -19,6 +19,7 @@ import {
   Columns2,
   Ellipsis,
   Eye,
+  EyeOff,
   Heading2,
   ImagePlus,
   Italic,
@@ -42,6 +43,7 @@ import { toggleTask } from "../../../components/markdown/mdparse";
 import { ErrorState, Loading } from "../../../components/ui/States";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
+import { useVaultUnlocked } from "../../vault/api";
 import { formatDate, formatTime, relativeTime } from "../../../lib/time";
 import {
   MAX_ATTACHMENT_BYTES,
@@ -104,6 +106,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const update = useUpdateNote();
+  const vaultUnlocked = useVaultUnlocked();
   const remove = useDeleteNote();
   const [draft, setDraft] = useState<Draft>({ title: note.title, body: note.body, tags: note.tags });
   const draftRef = useRef(draft);
@@ -374,6 +377,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
           {status}
         </span>
         <span className="xc-spacer" />
+        {note.hidden && <span className="xc-badge accent">{t("Hidden note")}</span>}
         {note.archivedAt && <span className="xc-badge warn">{t("Archived")}</span>}
         <div className="notes-modes" role="group" aria-label={t("View")}>
           <button className={mode === "edit" ? "on" : ""} aria-pressed={mode === "edit"} onClick={() => setMode("edit")} title={t("Edit")}>
@@ -426,6 +430,21 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                   {note.archivedAt ? <ArchiveRestore size={14} /> : <Archive size={14} />}
                   {note.archivedAt ? t("Unarchive") : t("Archive")}
                 </button>
+                {/* 只有解锁隐藏内容后才能改（B13） */}
+                {vaultUnlocked && (
+                  <button
+                    role="menuitem"
+                    onClick={() =>
+                      update.mutate(
+                        { id: note.id, body: { hidden: !note.hidden } },
+                        { onSuccess: (n) => toast(n.hidden ? t("Moved to hidden") : t("No longer hidden")) },
+                      )
+                    }
+                  >
+                    {note.hidden ? <Eye size={14} /> : <EyeOff size={14} />}
+                    {note.hidden ? t("Unhide note") : t("Hide note")}
+                  </button>
+                )}
                 <button
                   role="menuitem"
                   className="danger"

@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const vault = vi.hoisted(() => ({ unlocked: false }));
+
 // openapi-fetch reads globalThis.fetch when the client is created, so the
 // mock must exist before the modules are imported.
 const calls = vi.hoisted(() => {
@@ -23,6 +25,8 @@ const calls = vi.hoisted(() => {
       new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json" } });
     if (path === "/notes")
       return json({ items: [{ ...note, excerpt: note.body, snippet: url.searchParams.get("q") ? "学习笔记" : undefined }] });
+    if (path === "/vault/status") return json({ configured: true, unlocked: vault.unlocked });
+    if (path === "/notes" && req.method === "POST") return json({ ...note, id: 2, hidden: true });
     if (path === "/notes/tags") return json([{ tag: "work", count: 1 }]);
     if (path === "/notes/1" && req.method === "GET") return json(note);
     if (path === "/notes/1" && req.method === "PATCH") {
@@ -53,6 +57,7 @@ function renderAt(path: string) {
 afterEach(() => {
   cleanup();
   calls.length = 0;
+  vault.unlocked = false;
 });
 
 describe("NotesPage", () => {
@@ -73,5 +78,24 @@ describe("NotesPage", () => {
     const mark = await screen.findByText("学习", { selector: "mark" });
     expect(mark).toBeTruthy();
     expect(calls.some((c) => c.path.startsWith("/notes?q="))).toBe(true);
+  });
+
+  it("has no hidden category while the vault is locked", async () => {
+    renderAt("/notes?hidden=1");
+    await screen.findAllByText("学习笔记");
+    expect(screen.queryAllByRole("button", { name: "隐藏" })).toHaveLength(0);
+    expect(calls.some((c) => c.path.includes("hidden=true"))).toBe(false);
+  });
+
+  it("lists and creates hidden notes once unlocked", async () => {
+    vault.unlocked = true;
+    renderAt("/notes");
+    const [chip] = await screen.findAllByRole("button", { name: "隐藏" });
+    fireEvent.click(chip);
+    await waitFor(() => expect(calls.some((c) => c.path.includes("hidden=true"))).toBe(true));
+    fireEvent.click(screen.getByTitle("新建笔记"));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "POST" && c.path === "/notes")?.body).toEqual({ hidden: true }),
+    );
   });
 });

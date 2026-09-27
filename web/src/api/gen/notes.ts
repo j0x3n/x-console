@@ -50,6 +50,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description 隐藏笔记在没解锁时返回 404。 */
         get: operations["getNote"];
         put?: never;
         post?: never;
@@ -147,6 +148,8 @@ export interface components {
             body: string;
             pinned: boolean;
             tags: string[];
+            /** @description B13 隐藏笔记，只在解锁后出现 */
+            hidden?: boolean;
             /** Format: date-time */
             archivedAt?: string;
             /** Format: date-time */
@@ -166,6 +169,8 @@ export interface components {
             tags: string[];
             /** @description 正文里第一张附件图片的地址，没有图片时不返回 */
             thumbnail?: string;
+            /** @description B13 隐藏笔记，只在解锁后出现 */
+            hidden?: boolean;
             /** Format: date-time */
             archivedAt?: string;
             /** Format: date-time */
@@ -192,12 +197,16 @@ export interface components {
             body?: string;
             pinned?: boolean;
             tags?: string[];
+            /** @description 直接建成隐藏笔记，要先解锁 */
+            hidden?: boolean;
         };
         UpdateNote: {
             title?: string;
             body?: string;
             pinned?: boolean;
             archived?: boolean;
+            /** @description 设为隐藏或取消隐藏，要先解锁 */
+            hidden?: boolean;
             /** @description 传了就整体替换 */
             tags?: string[];
         };
@@ -246,6 +255,11 @@ export interface operations {
                 pinned?: boolean;
                 /** @description true 时只看已归档的笔记，默认只看未归档的 */
                 archived?: boolean;
+                /**
+                 * @description B13。true 时只返回隐藏笔记，要先解锁隐藏内容，没解锁时返回空列表。
+                 *     不传时只返回普通笔记。隐藏笔记不进全文索引，搜索用 LIKE。
+                 */
+                hidden?: boolean;
                 limit?: components["parameters"]["Limit"];
                 cursor?: components["parameters"]["Cursor"];
             };

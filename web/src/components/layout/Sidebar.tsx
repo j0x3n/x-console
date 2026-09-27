@@ -44,7 +44,13 @@ export default function Sidebar({
         aria-label={t("Main")}
       >
         <div className="workspace-switch">
-          <span className="brand-mark">X</span>
+          {/* 点 Logo 发出事件。隐藏内容模块（B13）数连续点击次数。 */}
+          <span
+            className="brand-mark"
+            onClick={() => window.dispatchEvent(new Event("xc:brand-tap"))}
+          >
+            X
+          </span>
           <span>X Console</span>
           <button
             className="icon-button sidebar-collapse"

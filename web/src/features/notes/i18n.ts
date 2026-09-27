@@ -80,4 +80,11 @@ registerZh({
   words: "字",
   "Created on": "创建于",
   "Updated on": "更新于",
+  "Hidden notes": "隐藏",
+  "Hidden note": "隐藏",
+  "No hidden notes": "没有隐藏笔记",
+  "Hide note": "设为隐藏",
+  "Unhide note": "取消隐藏",
+  "Moved to hidden": "已设为隐藏",
+  "No longer hidden": "已取消隐藏",
 });

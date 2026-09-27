@@ -11,13 +11,12 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B13 | 隐藏内容：隐藏入口，输入密码后显示隐藏的笔记和文件（前端） | [specs/B13.md](specs/B13.md) | Claude |
+| B14 | 云盘：存文件，支持隐藏，同步到 S3 兼容存储（前端） | [specs/B14.md](specs/B14.md) | Claude |
 
 ## 待做
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B14 | 云盘：存文件，支持隐藏，同步到 S3 兼容存储 | [specs/B14.md](specs/B14.md) | |
 | B3 | AI 助手（全局浮窗，能读写删非隐藏内容）与自动化 | [specs/M12.md](specs/M12.md) | |
 | B4 | 命令面板支持前缀输入：`> 内容` 直接存成笔记 | 见下方说明 | |
 | B5 | PWA：manifest、图标、安装提示 | 见下方说明 | |
@@ -25,6 +24,7 @@
 | B11 | 笔记后端：接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | |
 | B2 | 今日页后端：`GET/PUT /dashboard/layout` | [specs/M1.md](specs/M1.md) | |
 | B12 | 两步验证可选的后端 | [specs/B12.md](specs/B12.md) | |
+| B13 | 隐藏内容的后端：`/vault/*`、笔记的 `hidden` | [specs/B13.md](specs/B13.md) | |
 | B15 | B10 遗留：0% 进度环多一个点；提醒页和项目页的概要卡片和规格不一致，等用户决定按哪个做 | 见下方说明 | |
 | B1 | 部署面板的主机自动加入代理，可手动移除 | [specs/B1.md](specs/B1.md) | |
 | B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
@@ -115,6 +115,7 @@
 | B10 | 界面统一（[#12](https://github.com/j0x3n/x-console/pull/12)） |
 | B11 前端 | 备忘改名笔记，新列表和编辑器，图片和附件（[#13](https://github.com/j0x3n/x-console/pull/13)） |
 | B12 前端 | 两步验证可选：登录分两步、初始化可跳过、设置里的“安全”标签（[#16](https://github.com/j0x3n/x-console/pull/16)） |
+| B13 前端 | 隐藏内容：点 Logo 5 次解锁、顶部提示栏、15 分钟自动锁定、笔记的“隐藏”分类、安全标签里改隐藏密码。云盘部分跟 B14 一起做 |
 | B2 前端 | 今日页规格和前端（[#14](https://github.com/j0x3n/x-console/pull/14)、[#15](https://github.com/j0x3n/x-console/pull/15)） |
 
 ## 接口变更记录
@@ -132,4 +133,5 @@
 | 2026-09-27 | Markdown 渲染器从 `features/projects` 挪到 `components/markdown`，支持图片、可勾选的待办；原路径保留转发 | B11 笔记要显示图片，别的模块也要用 |
 | 2026-09-27 | `app/nav.ts` 首页入口从 `Overview` 改成 `My day`（今日），图标换成 `Sun` | B2 今日页 |
 | 2026-09-27 | `core.yaml`：登录的 `code` 改为可选，没带时回 401 `totp_required`（不计失败次数，已实现）；`/auth/elevate` 可传 `password`；新增 `/auth/setup/skip-totp`、`/auth/totp/*`、`/auth/password`（先回 501）；`AuthStatus` 加 `totpEnabled`。前端新增 `auth/TotpQr.tsx`，`ui.css` 加 `.xc-auth-actions` | B12 两步验证可选 |
+| 2026-09-27 | 侧边栏 Logo 点击时发出 `xc:brand-tap` 事件；`app/GlobalPanels.tsx` 加 `VaultPanel`；新增 `api/modules/vault.yaml`，笔记接口加 `hidden` | B13 隐藏内容 |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |
