@@ -42,6 +42,7 @@
 - `web/src/demo` 在浏览器里拦下还没有后端的接口，返回假数据：今日页布局、隐藏内容和隐藏笔记、云盘、AI 助手、自动化。页面底部有“演示数据”的标记。
 - 不拦登录和两步验证、笔记图片附件。
 - 去掉时删 `web/src/demo`，以及 `main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
+- 2026-09-27 部署到线上给用户看效果（develop 上带 `[deploy]` 的提交）。
 
 **B15 B10 遗留**
 - `components/ui/Stat.tsx` 的 `Ring`：比例为 0 时不渲染 `.bar`。原因是 `stroke-linecap: round`，长度为 0 也会画一个点。
