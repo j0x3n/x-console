@@ -45,5 +45,5 @@ registerZh({
   "Reminders are not available yet.": "提醒模块还没启用。",
   "Quick note": "快速记录",
   "Write it down. It is saved as a new note.": "写下来，会存成一条新笔记。",
-  "Saved to notes": "已存到备忘",
+  "Saved to notes": "已存到笔记",
 });

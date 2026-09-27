@@ -117,6 +117,7 @@ export function useIssues(projectId: number) {
 | 时间和大小 | `lib/time.ts` 的 `relativeTime`、`formatDate`、`formatTime`、`formatBytes` |
 
 - 颜色只用 `styles/tokens.css` 里的 `--xc-*` 变量，这样深浅主题都对。
+- `PageHeading` 的标题只供无障碍工具读取。可见标题由左上角的 Topbar 显示，不在内容区重复显示。
 - 模块样式的类名加模块前缀，比如 `.projects-board`。
 - 390px 宽度下页面不能横向滚动。表格放在 `xc-table-wrap` 里自己滚动。
 - 图标用 lucide-react，尺寸 14 到 17。

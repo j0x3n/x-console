@@ -12,9 +12,9 @@ export default function PageHeading({
   aside,
 }: PageHeadingProps) {
   return (
-    <div className="xc-page-head">
+    <div className={`xc-page-head${aside || subtitle ? "" : " title-only"}`}>
       <div>
-        <h1>{title}</h1>
+        <h1 className="xc-visually-hidden">{title}</h1>
         {subtitle && <p>{subtitle}</p>}
       </div>
       {aside && <div className="xc-row">{aside}</div>}
