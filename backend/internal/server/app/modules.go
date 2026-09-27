@@ -2,6 +2,8 @@ package app
 
 import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/assistant"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/automations"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
@@ -36,6 +38,8 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	calendar.New,      // M11
 	focus.New,         // M11
 	brief.New,         // M11
+	assistant.New,     // M12
+	automations.New,   // M12
 	github.New,        // M13
 	linear.New,        // M13
 }

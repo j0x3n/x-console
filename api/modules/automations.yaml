@@ -1,0 +1,198 @@
+openapi: 3.0.3
+info:
+  title: X Console automations
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /automations:
+    get:
+      operationId: listAutomations
+      tags: [automations]
+      responses:
+        "200":
+          description: 规则列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Automation" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    post:
+      operationId: createAutomation
+      tags: [automations]
+      requestBody: { $ref: "#/components/requestBodies/Rule" }
+      responses:
+        "201":
+          description: 新规则
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Automation" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /automations/catalog:
+    get:
+      operationId: getAutomationCatalog
+      tags: [automations]
+      responses:
+        "200":
+          description: 动作和触发器目录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Catalog" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /automations/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getAutomation
+      tags: [automations]
+      responses:
+        "200":
+          description: 规则
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Automation" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    put:
+      operationId: updateAutomation
+      tags: [automations]
+      requestBody: { $ref: "#/components/requestBodies/Rule" }
+      responses:
+        "200":
+          description: 已更新规则
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Automation" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    delete:
+      operationId: deleteAutomation
+      tags: [automations]
+      responses:
+        "204": { description: 已删除 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /automations/{id}/run:
+    post:
+      operationId: runAutomation
+      tags: [automations]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "202": { description: 已开始运行 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /automations/{id}/runs:
+    get:
+      operationId: listAutomationRuns
+      tags: [automations]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 运行记录
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AutomationRun" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+components:
+  requestBodies:
+    Rule:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/AutomationInput" }
+  schemas:
+    Trigger:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [schedule, event, metric, ha_state, webhook] }
+        cron: { type: string }
+        topic: { type: string }
+        field: { type: string }
+        op: { type: string }
+        value: {}
+        entityId: { type: string }
+        state: { type: string }
+    Condition:
+      type: object
+      required: [field, op, value]
+      properties:
+        field: { type: string }
+        op: { type: string, enum: [eq, ne, gt, gte, lt, lte, contains] }
+        value: {}
+    Step:
+      type: object
+      required: [action, input]
+      properties:
+        action: { type: string }
+        input: { type: object, additionalProperties: true }
+    AutomationInput:
+      type: object
+      required: [name, enabled, trigger, conditions, actions, cooldownSeconds]
+      properties:
+        name: { type: string }
+        enabled: { type: boolean }
+        trigger: { $ref: "#/components/schemas/Trigger" }
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
+        actions:
+          type: array
+          items: { $ref: "#/components/schemas/Step" }
+        cooldownSeconds: { type: integer, minimum: 0 }
+    Automation:
+      allOf:
+        - { $ref: "#/components/schemas/AutomationInput" }
+        - type: object
+          required: [id, dangerousAuthorized, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            dangerousAuthorized: { type: boolean }
+            webhookUrl: { type: string }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    AutomationRun:
+      type: object
+      required: [id, automationId, startedAt, triggerData, steps, status]
+      properties:
+        id: { type: string }
+        automationId: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        triggerData: { type: object, additionalProperties: true }
+        steps:
+          type: array
+          items: { type: object, additionalProperties: true }
+        status: { type: string }
+    ActionCatalogItem:
+      type: object
+      required: [name, title, description, effect, input]
+      properties:
+        name: { type: string }
+        title: { type: string }
+        description: { type: string }
+        effect: { type: string }
+        input: { type: object, additionalProperties: true }
+    Catalog:
+      type: object
+      required: [triggers, eventTopics, actions]
+      properties:
+        triggers:
+          type: array
+          items: { type: string }
+        eventTopics:
+          type: array
+          items: { type: string }
+        actions:
+          type: array
+          items: { $ref: "#/components/schemas/ActionCatalogItem" }

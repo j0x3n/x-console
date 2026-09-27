@@ -1,11 +1,19 @@
+import { lazy, Suspense } from "react";
 import type { RouteObject } from "react-router";
-import ComingSoon from "../../components/ComingSoon";
+import { Loading } from "../../components/ui/States";
+import "./i18n";
+import "./automations.css";
 
-// 模块入口：路由、命令、事件订阅都从这里注册。开发这个模块时替换占位页面。
+const AutomationsPage = lazy(() => import("./AutomationsPage"));
+
 export const routes: RouteObject[] = [
   {
     path: "automations/*",
-    element: <ComingSoon title="Automations" />,
+    element: (
+      <Suspense fallback={<Loading />}>
+        <AutomationsPage />
+      </Suspense>
+    ),
     handle: { title: "Automations" },
   },
 ];
