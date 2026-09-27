@@ -69,8 +69,10 @@ test("主流程：账号、项目、备忘、提醒、服务器终端、习惯",
       await project.getByLabel("Key").fill("EET");
       await project.getByRole("button", { name: "创建项目" }).click();
       await expect(page).toHaveURL(/\/projects\/EET$/);
+      await expect(page.locator(".projects-lane")).toHaveCount(6);
       await page.locator(".xc-page-head").getByRole("button", { name: /新建 Issue/ }).click();
       const issue = page.getByRole("dialog", { name: "新建 Issue" });
+      await expect(issue).toBeVisible();
       await issue.getByLabel("标题").fill("E2E Issue");
       await issue.getByRole("button", { name: "创建 Issue" }).click();
       await expect(page.getByText("E2E Issue")).toBeVisible();
