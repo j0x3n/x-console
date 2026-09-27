@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: X Console dashboard layout
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /dashboard/layout:
+    get:
+      operationId: getDashboardLayout
+      tags: [dashboard]
+      responses:
+        "200":
+          description: 首页卡片布局
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardLayout" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putDashboardLayout
+      tags: [dashboard]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DashboardLayout" }
+      responses:
+        "200":
+          description: 已保存的布局
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardLayout" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    DashboardCard:
+      type: object
+      required: [id, visible, order]
+      additionalProperties: false
+      properties:
+        id: { type: string }
+        visible: { type: boolean }
+        order: { type: integer }
+    DashboardLayout:
+      type: object
+      required: [cards]
+      additionalProperties: false
+      properties:
+        cards:
+          type: array
+          items: { $ref: "#/components/schemas/DashboardCard" }

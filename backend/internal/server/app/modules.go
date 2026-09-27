@@ -5,6 +5,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
@@ -23,6 +24,7 @@ import (
 //
 // Keep the list sorted by module number (M1..M13) to make merges easy.
 var constructors = []func(*module.Deps) (module.Module, error){
+	dashboard.New,     // M1
 	hosts.New,         // M2/M3
 	coding.New,        // M4
 	projects.New,      // M5
