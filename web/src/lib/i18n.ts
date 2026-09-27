@@ -34,6 +34,7 @@ export function translate(language: Language, text: Text): string {
 
 registerZh({
   Overview: "概览",
+  "My day": "今日",
   Projects: "项目",
   Notes: "备忘",
   Reminders: "提醒",
