@@ -97,31 +97,29 @@ export default function OverviewPage() {
     <div className="xc-page overview-page">
       <h1 className="overview-accessible-title">{t("Overview")}</h1>
       <div className="overview-actions">
-        {
-          draft ? (
-            <>
-              <button className="xc-btn small" onClick={() => setDraft(null)}>
-                <X size={14} /> {t("Cancel overview edit")}
-              </button>
-              <button
-                className="xc-btn small primary"
-                onClick={persist}
-                disabled={save.isPending}
-              >
-                <Save size={14} /> {t("Save overview")}
-              </button>
-            </>
-          ) : (
-            <button
-              className="xc-btn small"
-              onClick={() =>
-                setDraft(layout.data.cards.map((card) => ({ ...card })))
-              }
-            >
-              <Pencil size={14} /> {t("Edit overview")}
+        {draft ? (
+          <>
+            <button className="xc-btn small" onClick={() => setDraft(null)}>
+              <X size={14} /> {t("Cancel overview edit")}
             </button>
-          )
-        }
+            <button
+              className="xc-btn small primary"
+              onClick={persist}
+              disabled={save.isPending}
+            >
+              <Save size={14} /> {t("Save overview")}
+            </button>
+          </>
+        ) : (
+          <button
+            className="xc-btn small"
+            onClick={() =>
+              setDraft(layout.data.cards.map((card) => ({ ...card })))
+            }
+          >
+            <Pencil size={14} /> {t("Edit overview")}
+          </button>
+        )}
       </div>
 
       {draft && (

@@ -122,11 +122,14 @@ import "./i18n";
 
 function renderAt(path: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter([
-    { path: "projects", element: <ProjectsPage /> },
-    { path: "projects/:projectKey", element: <ProjectPage /> },
-    { path: "projects/:projectKey/:number", element: <IssuePage /> },
-  ], { initialEntries: [path] });
+  const router = createMemoryRouter(
+    [
+      { path: "projects", element: <ProjectsPage /> },
+      { path: "projects/:projectKey", element: <ProjectPage /> },
+      { path: "projects/:projectKey/:number", element: <IssuePage /> },
+    ],
+    { initialEntries: [path] },
+  );
   render(
     <QueryClientProvider client={qc}>
       <RouterProvider router={router} />
