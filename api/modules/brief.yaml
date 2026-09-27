@@ -112,8 +112,74 @@ paths:
               schema: { $ref: "#/components/schemas/Weather" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /weather/places:
+    get:
+      operationId: searchWeatherPlaces
+      tags: [brief]
+      description: 按名字搜城市，用 Open-Meteo 的地名接口。
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 60 }
+      responses:
+        "200":
+          description: 最多 8 个结果
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WeatherPlace" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /weather/alert:
+    get:
+      operationId: getRainAlert
+      tags: [brief]
+      responses:
+        "200":
+          description: 降雨提醒设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RainAlert" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putRainAlert
+      tags: [brief]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RainAlert" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RainAlert" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   schemas:
+    WeatherPlace:
+      type: object
+      required: [name, region, country, lat, lon]
+      properties:
+        name: { type: string }
+        region: { type: string, description: 省或州 }
+        country: { type: string }
+        lat: { type: number, format: double }
+        lon: { type: number, format: double }
+    RainAlert:
+      type: object
+      required: [enabled, threshold, leadHours]
+      properties:
+        enabled:
+          type: boolean
+          description: 早报设置的位置接下来可能下雨时发通知。每 30 分钟看一次，6 小时内最多提醒一次
+        threshold: { type: integer, minimum: 10, maximum: 100, description: 降雨概率达到多少就提醒，默认 60 }
+        leadHours: { type: integer, minimum: 1, maximum: 6, description: 看接下来几个小时，默认 2 }
     Brief:
       type: object
       required: [date, content, sections, createdAt]

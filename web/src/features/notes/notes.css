@@ -206,22 +206,10 @@
 }
 .notes-item:hover {
   background: var(--xc-surface);
-  border-color: var(--xc-border);
 }
+/* 选中：和侧边栏选中一样只换底色，不加边框和竖条 */
 .notes-item.active {
-  background: var(--xc-surface);
-  border-color: var(--xc-border-strong);
-  box-shadow: 0 1px 2px #0000000d;
-}
-.notes-item.active::before {
-  content: "";
-  position: absolute;
-  left: -1px;
-  top: 12px;
-  bottom: 12px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--xc-accent);
+  background: var(--xc-surface-2);
 }
 .notes-item-text {
   flex: 1;
@@ -280,7 +268,7 @@
   color: var(--xc-faint);
 }
 .notes-item-tag {
-  color: var(--xc-info);
+  color: var(--tag, var(--xc-muted));
 }
 .notes-thumb {
   flex: none;

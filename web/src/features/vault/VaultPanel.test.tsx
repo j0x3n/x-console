@@ -53,7 +53,7 @@ function renderPanel() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <main id="main" className="main-panel" />
+      <span id="brand-slot" />
       <VaultPanel />
     </QueryClientProvider>,
   );
@@ -100,7 +100,7 @@ describe("vault panel", () => {
     expect(await screen.findByText("这个功能还没上线。")).toBeTruthy();
   });
 
-  it("sets a password the first time, then shows the bar and locks", async () => {
+  it("sets a password the first time, then shows the lock button and locks", async () => {
     let unlocked = false;
     api.routes.set("GET /vault/status", () => ({
       status: 200,
@@ -124,12 +124,13 @@ describe("vault panel", () => {
       target: { value: "123456" },
     });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    const bar = await screen.findByText("隐藏内容已显示");
-    // 提示栏放在主面板里。
-    expect(bar.closest("#main")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "锁定" }));
+    // 解锁后只在 Logo 旁边出现一个锁定按钮，没有提示栏。
+    const lockButton = await screen.findByRole("button", { name: "锁定" });
+    expect(lockButton.closest("#brand-slot")).toBeTruthy();
+    expect(screen.queryByText("隐藏内容已显示")).toBeNull();
+    fireEvent.click(lockButton);
     await waitFor(() =>
-      expect(screen.queryByText("隐藏内容已显示")).toBeNull(),
+      expect(screen.queryByRole("button", { name: "锁定" })).toBeNull(),
     );
     expect(api.calls.some((c) => c.path === "/vault/lock")).toBe(true);
   });
@@ -153,7 +154,7 @@ describe("vault panel", () => {
       status({ configured: true, unlocked: true }),
     );
     renderPanel();
-    expect(await screen.findByText("隐藏内容已显示")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "锁定" })).toBeTruthy();
     expect(api.calls.some((c) => c.path === "/vault/lock")).toBe(false);
   });
 
@@ -166,7 +167,7 @@ describe("vault panel", () => {
     );
     api.routes.set("POST /vault/lock", () => ({ status: 204 }));
     renderPanel();
-    await screen.findByText("隐藏内容已显示");
+    await screen.findByRole("button", { name: "锁定" });
     await act(async () => {
       vi.advanceTimersByTime(14 * 60 * 1000);
     });

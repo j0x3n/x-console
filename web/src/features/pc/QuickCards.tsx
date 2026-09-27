@@ -63,11 +63,23 @@ function ClipboardBody({ host }: { host: HostDetail }) {
   );
 }
 
-const powerButtons: { action: PowerAction; label: string; icon: typeof Lock; danger?: boolean }[] = [
-  { action: "lock", label: "Lock screen", icon: Lock },
-  { action: "sleep", label: "Sleep", icon: Moon },
-  { action: "restart", label: "Restart", icon: RotateCcw, danger: true },
-  { action: "shutdown", label: "Shut down", icon: Power, danger: true },
+const powerButtons: { action: PowerAction; label: string; hint: string; icon: typeof Lock; danger?: boolean }[] = [
+  { action: "lock", label: "Lock screen", hint: "The screen of this PC will lock:", icon: Lock },
+  { action: "sleep", label: "Sleep", hint: "This PC will go to sleep:", icon: Moon },
+  {
+    action: "restart",
+    label: "Restart",
+    hint: "This PC will restart. Unsaved work will be lost:",
+    icon: RotateCcw,
+    danger: true,
+  },
+  {
+    action: "shutdown",
+    label: "Shut down",
+    hint: "This PC will shut down. Unsaved work will be lost:",
+    icon: Power,
+    danger: true,
+  },
 ];
 
 /** 打开程序、文件或网址，下面是最近打开过的。 */
@@ -127,18 +139,18 @@ export function PcQuickBar({ host }: { host: HostDetail }) {
   const t = useT();
   const canPower = useCan(host, "power");
   const [dialog, setDialog] = useState<"clipboard" | "open" | null>(null);
+  const [asking, setAsking] = useState<(typeof powerButtons)[number] | null>(null);
   const power = useMutation({
     mutationFn: (action: PowerAction) =>
       withElevation(() =>
         unwrap(hostsApi.POST("/hosts/{hostId}/power", { params: { path: { hostId: host.id } }, body: { action } })),
       ),
-    onSuccess: () => toast(t("Done")),
+    onSuccess: () => {
+      toast(t("Done"));
+      setAsking(null);
+    },
     onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
   });
-  const onPower = (action: PowerAction, label: string, danger?: boolean) => {
-    if (danger && !confirm(`${t(label)}?`)) return;
-    power.mutate(action);
-  };
   return (
     <div className="pc-bar" role="toolbar" aria-label={t("Quick actions")}>
       <button className="xc-btn small" onClick={() => setDialog("clipboard")} title={t("Clipboard")}>
@@ -154,11 +166,32 @@ export function PcQuickBar({ host }: { host: HostDetail }) {
           className={`xc-btn small${b.danger ? " danger" : ""}`}
           disabled={!canPower || power.isPending}
           title={t(b.label)}
-          onClick={() => onPower(b.action, b.label, b.danger)}
+          onClick={() => setAsking(b)}
         >
           <b.icon size={14} /> <span>{t(b.label)}</span>
         </button>
       ))}
+      <Dialog
+        open={asking !== null}
+        onClose={() => setAsking(null)}
+        title={asking ? `${t(asking.label)}？` : ""}
+      >
+        <p className="pc-confirm">
+          {asking && t(asking.hint)} <b>{host.name}</b>
+        </p>
+        <div className="xc-dialog-actions">
+          <button className="xc-btn ghost" onClick={() => setAsking(null)}>
+            {t("Cancel")}
+          </button>
+          <button
+            className={`xc-btn ${asking?.danger ? "danger" : "primary"}`}
+            disabled={power.isPending}
+            onClick={() => asking && power.mutate(asking.action)}
+          >
+            {asking && t(asking.label)}
+          </button>
+        </div>
+      </Dialog>
       <Dialog open={dialog === "clipboard"} onClose={() => setDialog(null)} title={t("Clipboard")}>
         <ClipboardBody host={host} />
       </Dialog>

@@ -5,7 +5,7 @@ import PageHeading from "../../components/ui/PageHeading";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { useHosts } from "../servers/api";
-import { HostStatus } from "../servers/components/HostCard";
+import { HostHeadStatus } from "../servers/components/HostCard";
 import HostView from "../servers/components/HostView";
 import { pickDesktop } from "../servers/lib";
 import { PcQuickBar } from "./QuickCards";
@@ -68,8 +68,8 @@ export default function PcPage() {
                     ))}
                   </select>
                 )}
+                <HostHeadStatus host={h} />
                 <PcQuickBar host={h} />
-                <HostStatus host={h} />
               </>
             }
           />

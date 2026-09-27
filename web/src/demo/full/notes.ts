@@ -2,6 +2,7 @@ import { fail, json, noContent, route } from "../router";
 import { createIssueFromNote } from "./projects";
 import { addReminder } from "./reminders";
 import { at } from "./util";
+import { vault } from "../vault";
 
 interface Note {
   id: number;
@@ -10,6 +11,7 @@ interface Note {
   pinned: boolean;
   tags: string[];
   archivedAt?: string;
+  hidden?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,6 +72,31 @@ const notes: Note[] = raw.map(([title, body, tags, pinned, archived], i) => ({
   updatedAt: at(-60 * (i * i * 2 + 1)),
 }));
 
+// 隐藏空间里的笔记，解锁后才看得到。标签是隐藏空间自己的。
+notes.push(
+  {
+    id: 900001,
+    title: "银行卡和保险",
+    body: "- 招行储蓄卡：尾号 1234\n- 医保卡：放在书房抽屉\n- 车险到期：明年 3 月 12 日",
+    pinned: true,
+    tags: ["私人"],
+    hidden: true,
+    createdAt: at(-60 * 24 * 12),
+    updatedAt: at(-60 * 5),
+  },
+  {
+    id: 900002,
+    title: "体检结果",
+    body: "血脂偏高，三个月后复查。\n\n少吃油炸，每周跑步三次。",
+    pinned: false,
+    tags: ["健康", "私人"],
+    hidden: true,
+    createdAt: at(-60 * 24 * 30),
+    updatedAt: at(-60 * 24 * 2),
+  },
+);
+const canSee = (n: Note) => !n.hidden || vault.unlocked;
+
 const plain = (s: string) =>
   s
     .replace(/[#>*`\-[\]]/g, "")
@@ -98,6 +125,7 @@ const summary = (n: Note, q?: string) => {
     snippet,
     pinned: n.pinned,
     tags: n.tags,
+    hidden: !!n.hidden,
     archivedAt: n.archivedAt,
     createdAt: n.createdAt,
     updatedAt: n.updatedAt,
@@ -115,7 +143,10 @@ export function register() {
     const tag = query.get("tag");
     const archived = query.get("archived") === "true";
     const pinned = query.get("pinned") === "true";
+    const hidden = query.get("hidden") === "true";
+    if (hidden && !vault.unlocked) return json({ items: [] });
     const list = notes
+      .filter((n) => !!n.hidden === hidden)
       .filter((n) => !!n.archivedAt === archived)
       .filter((n) => !pinned || n.pinned)
       .filter((n) => !tag || n.tags.includes(tag))
@@ -135,10 +166,12 @@ export function register() {
     else tagColors.delete(body.tag);
     return noContent();
   });
-  route("GET", "/notes/tags", () => {
+  route("GET", "/notes/tags", ({ query }) => {
+    const hidden = query.get("hidden") === "true";
+    if (hidden && !vault.unlocked) return json([]);
     const counts = new Map<string, number>();
     for (const n of notes)
-      if (!n.archivedAt)
+      if (!n.archivedAt && !!n.hidden === hidden)
         for (const t of n.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
     return json(
       [...counts]
@@ -147,7 +180,10 @@ export function register() {
     );
   });
   route("POST", "/notes", ({ body }) => {
+    if (body?.hidden && !vault.unlocked)
+      return fail(403, "vault_locked", "先解锁隐藏内容");
     const n: Note = {
+      hidden: !!body?.hidden,
       id: nextId++,
       title: body?.title ?? "",
       body: body?.body ?? "",
@@ -161,11 +197,16 @@ export function register() {
   });
   route("GET", "/notes/:id", ({ params }) => {
     const n = notes.find((x) => x.id === Number(params.id));
-    return n ? json(n) : fail(404, "not_found", "资源不存在");
+    return n && canSee(n) ? json(n) : fail(404, "not_found", "资源不存在");
   });
   route("PATCH", "/notes/:id", ({ params, body }) => {
     const n = notes.find((x) => x.id === Number(params.id));
-    if (!n) return fail(404, "not_found", "资源不存在");
+    if (!n || !canSee(n)) return fail(404, "not_found", "资源不存在");
+    if (body?.hidden !== undefined) {
+      if (!vault.unlocked) return fail(403, "vault_locked", "先解锁隐藏内容");
+      // 标签、置顶都原样留着，还原后和隐藏前一样
+      n.hidden = body.hidden;
+    }
     for (const k of ["title", "body", "pinned", "tags"] as const)
       if (body?.[k] !== undefined)
         (n as unknown as Record<string, unknown>)[k] = body[k];

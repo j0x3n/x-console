@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowLeft, FolderGit2, FolderSearch, Plus, Trash2 } from "lucide-react";
+import { FolderGit2, FolderSearch, Plus, Trash2 } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import { useAgents } from "../../api/core";
 import PageHeading from "../../components/ui/PageHeading";
@@ -265,11 +265,6 @@ export default function ReposPage() {
     <div className="xc-page coding-page">
       <PageHeading
         title={t("Repositories")}
-        aside={
-          <Link to="/coding" className="xc-btn ghost">
-            <ArrowLeft size={14} /> {t("Coding tasks")}
-          </Link>
-        }
       />
       <div className="xc-stack">
         <section className="xc-card">

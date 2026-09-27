@@ -41,6 +41,7 @@ type Module struct {
 
 	weatherMu    sync.Mutex
 	weatherCache map[string]cachedWeather
+	geoBase      string // Open-Meteo 地名接口，测试里换成假服务
 }
 
 var (
@@ -50,7 +51,7 @@ var (
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}, weatherCache: map[string]cachedWeather{}}
+	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}, weatherCache: map[string]cachedWeather{}, geoBase: defaultGeoBase}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	m.registerActions()
 	return m, nil
@@ -69,6 +70,9 @@ func (m *Module) Mount(r chi.Router) {
 func (m *Module) Start(context.Context) error {
 	m.d.Scheduler.Every("brief.daily", time.Minute, func(ctx context.Context) error {
 		return m.tick(ctx, time.Now())
+	})
+	m.d.Scheduler.Every("brief.rain", 30*time.Minute, func(ctx context.Context) error {
+		return m.checkRain(ctx, time.Now())
 	})
 	return nil
 }

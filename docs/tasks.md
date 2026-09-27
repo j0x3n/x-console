@@ -164,3 +164,5 @@
 | 2026-09-27 | `api/events.ts` 页面在后台时跳过 `host.metrics`、`ha.state_changed`，切回来刷新；`api/query.ts` 的 `staleTime` 从 15 秒改成 60 秒 | 性能优化（B18） |
 | 2026-09-27 | `notes.yaml` 加 `PUT /notes/tag-colors`，`TagCount.color`（后端已实现，迁移 `m6_note_tag_colors`）；`habits.yaml` 加 `HabitKind`；`calendar.yaml` 加 `local` 类型、`writable`、事件的新建修改删除（后端回 501） | 标签颜色、健身类习惯、日历可写 |
 | 2026-09-27 | “编码任务”界面上改名“Agent 任务”，导航图标换成 `Bot`；接口和代码里的名字不变 | 用户要求，Agent 不只写代码 |
+| 2026-09-27 | `stores/page-title.ts` 加 `parents`、`status` 和 `usePageCrumb`、`usePageStatus`；`PageHeading` 加 `parents`；`Topbar` 的模块名和中间层可以点击跳转，去掉常驻的连接状态点（只在断线时显示黄点），设备页显示在线状态点；`Sidebar` 在“X Console”后面加 `#brand-slot`，再点一次已展开的一级菜单会收起 | 用户要求左上角兼做导航，详情页去掉“返回”按钮 |
+| 2026-09-27 | `brief.yaml` 加 `GET /weather/places`、`GET/PUT /weather/alert`（后端已实现，每 30 分钟检查降雨）；`notes.yaml` 的 `/notes/tags` 加 `hidden`；`drive.yaml` 加 `restoreTo`，写清隐藏和还原的规则 | 天气设置弹窗、隐藏空间 |

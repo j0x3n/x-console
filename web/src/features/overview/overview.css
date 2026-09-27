@@ -164,22 +164,25 @@ a.today-row:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 12px;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
   color: var(--xc-muted);
+  font: inherit;
   font-size: 12px;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.today-weather-strip:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
 }
 .today-weather-strip b {
   color: var(--xc-text);
   font-weight: 600;
-}
-.today-weather-strip.is-setup {
-  color: var(--xc-muted);
-  text-decoration: none;
-}
-.today-weather-strip.is-setup:hover {
-  color: var(--xc-text);
 }
 .today-weather-rain {
   display: inline-flex;
@@ -310,4 +313,90 @@ a.today-row:hover {
   .today-page .xc-stats {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+/* 天气设置弹窗 */
+.weather-dialog section {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.weather-dialog section:last-of-type {
+  border-bottom: 0;
+  margin-bottom: 0;
+}
+.weather-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.weather-current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--xc-text-2);
+  font-size: 13px;
+}
+.weather-current .xc-btn {
+  margin-left: auto;
+}
+.weather-search {
+  display: flex;
+  gap: 8px;
+}
+.weather-search .xc-input {
+  flex: 1;
+  min-width: 0;
+}
+.weather-places {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  max-height: 200px;
+  overflow: auto;
+}
+.weather-places button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.weather-places button:hover {
+  background: var(--xc-surface-2);
+}
+.weather-places button.on {
+  background: var(--xc-accent-soft);
+}
+.weather-places small {
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.weather-note {
+  margin: 0 0 8px;
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.weather-alert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.weather-alert-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+.weather-error {
+  margin: 0 0 8px;
+  color: var(--xc-danger);
+  font-size: 12.5px;
 }

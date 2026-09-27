@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Bell, CloudSun, Droplets, Plus } from "lucide-react";
 import { errorMessage } from "../../../api/client";
@@ -22,6 +23,7 @@ import {
 import { useWeather } from "../api";
 import { sortEvents } from "../today";
 import { Empty, isSetupNeeded, MoreLink, QueryState } from "./shared";
+import WeatherDialog, { loadWeatherShow } from "./WeatherDialog";
 
 const onError = (e: unknown) =>
   toast({ message: errorMessage(e), tone: "error" });
@@ -147,30 +149,54 @@ export function HabitsCard() {
 }
 
 /** 当前天气和今天的最高最低温。 */
-/** 标题下面的一行天气。没设置位置时给一个“去设置”。 */
+/** 标题右下的一行天气。点一下打开天气设置。 */
 export function WeatherStrip() {
   const t = useT();
   const weather = useWeather();
+  const [open, setOpen] = useState(false);
+  const [show, setShow] = useState(loadWeatherShow);
+  useEffect(() => {
+    const onChange = () => setShow(loadWeatherShow());
+    window.addEventListener("xc:weather-show", onChange);
+    return () => window.removeEventListener("xc:weather-show", onChange);
+  }, []);
   if (weather.isPending) return null;
-  if (weather.isError)
-    return isSetupNeeded(weather.error) ? (
-      <Link className="today-weather-strip is-setup" to="/settings/brief">
-        <CloudSun size={14} /> {t("Weather")} · {t("Go to settings")}
-      </Link>
-    ) : null;
+  const setup = weather.isError && isSetupNeeded(weather.error);
+  if (weather.isError && !setup) return null;
   const w = weather.data;
   return (
-    <span className="today-weather-strip" title={w.location || undefined}>
-      <CloudSun size={14} />
-      <b>{Math.round(w.temperature)}°</b>
-      <span>{w.summary}</span>
-      <span className="today-weather-range">
-        {Math.round(w.low)}°/{Math.round(w.high)}°
-      </span>
-      <span className="today-weather-rain">
-        <Droplets size={12} /> {w.precipitationChance}%
-      </span>
-    </span>
+    <>
+      <button
+        type="button"
+        className={`today-weather-strip${setup ? " is-setup" : ""}`}
+        title={t("Weather settings")}
+        onClick={() => setOpen(true)}
+      >
+        <CloudSun size={14} />
+        {setup || !w ? (
+          <span>
+            {t("Weather")} · {t("Set a place")}
+          </span>
+        ) : (
+          <>
+            {show.place && w.location && <span>{w.location}</span>}
+            <b>{Math.round(w.temperature)}°</b>
+            <span>{w.summary}</span>
+            {show.range && (
+              <span className="today-weather-range">
+                {Math.round(w.low)}°/{Math.round(w.high)}°
+              </span>
+            )}
+            {show.rain && (
+              <span className="today-weather-rain">
+                <Droplets size={12} /> {w.precipitationChance}%
+              </span>
+            )}
+          </>
+        )}
+      </button>
+      <WeatherDialog open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 

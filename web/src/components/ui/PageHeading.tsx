@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { usePageTitle } from "../../stores/page-title";
+import { usePageTitle, type Crumb } from "../../stores/page-title";
 
 interface PageHeadingProps {
   /**
@@ -15,6 +15,8 @@ interface PageHeadingProps {
   meta?: ReactNode;
   /** 显示大标题。只有标题本身是内容时才用，比如今日页的问候语。 */
   showTitle?: boolean;
+  /** 左上角模块名和标题之间的层级，比如 Issue 页的项目。 */
+  parents?: Crumb[];
 }
 
 export default function PageHeading({
@@ -23,13 +25,17 @@ export default function PageHeading({
   aside,
   meta,
   showTitle,
+  parents,
 }: PageHeadingProps) {
   const setTitle = usePageTitle((s) => s.setTitle);
+  const parentsKey = JSON.stringify(parents ?? []);
   useEffect(() => {
     if (showTitle || typeof title !== "string") return;
-    setTitle(title);
+    setTitle(title, parents);
     return () => setTitle("");
-  }, [title, showTitle, setTitle]);
+    // parents 按内容比较
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, showTitle, setTitle, parentsKey]);
 
   const hasRow = showTitle || subtitle || aside || meta;
   return (

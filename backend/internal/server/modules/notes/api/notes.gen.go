@@ -130,6 +130,12 @@ type ListNotesParams struct {
 	Cursor *externalRef0.Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListNoteTagsParams defines parameters for ListNoteTags.
+type ListNoteTagsParams struct {
+	// Hidden true 时只数隐藏笔记的标签（隐藏空间自己的标签），要先解锁，没解锁时返回空数组
+	Hidden *bool `form:"hidden,omitempty" json:"hidden,omitempty"`
+}
+
 // UploadNoteAttachmentMultipartBody defines parameters for UploadNoteAttachment.
 type UploadNoteAttachmentMultipartBody struct {
 	File openapi_types.File `json:"file"`
@@ -185,7 +191,7 @@ type ServerInterface interface {
 	SetNoteTagColor(w http.ResponseWriter, r *http.Request)
 
 	// (GET /notes/tags)
-	ListNoteTags(w http.ResponseWriter, r *http.Request)
+	ListNoteTags(w http.ResponseWriter, r *http.Request, params ListNoteTagsParams)
 
 	// (DELETE /notes/{noteId})
 	DeleteNote(w http.ResponseWriter, r *http.Request, noteId NoteId)
@@ -239,7 +245,7 @@ func (_ Unimplemented) SetNoteTagColor(w http.ResponseWriter, r *http.Request) {
 }
 
 // (GET /notes/tags)
-func (_ Unimplemented) ListNoteTags(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListNoteTags(w http.ResponseWriter, r *http.Request, params ListNoteTagsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -481,8 +487,27 @@ func (siw *ServerInterfaceWrapper) SetNoteTagColor(w http.ResponseWriter, r *htt
 // ListNoteTags operation middleware
 func (siw *ServerInterfaceWrapper) ListNoteTags(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListNoteTagsParams
+
+	// ------------- Optional query parameter "hidden" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "hidden", r.URL.Query(), &params.Hidden, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hidden"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hidden", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListNoteTags(w, r)
+		siw.Handler.ListNoteTags(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

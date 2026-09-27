@@ -824,6 +824,13 @@ button.xc-stat:hover {
 .breadcrumbs .breadcrumb-parent {
   flex: none;
   color: var(--xc-muted);
+  text-decoration: none;
+}
+.breadcrumbs a.breadcrumb-parent:hover {
+  color: var(--xc-text);
+}
+.breadcrumbs .breadcrumb-mid {
+  display: contents;
 }
 .breadcrumbs .breadcrumb-sep {
   flex: none;

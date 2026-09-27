@@ -37,8 +37,16 @@ func newWeatherServer(t *testing.T) *weatherServer {
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.hits.Add(1)
 		s.query.Store(r.URL.RawQuery)
+		if r.URL.Path == "/v1/search" {
+			_, _ = w.Write([]byte(`{"results":[{"name":"深圳","admin1":"广东","country":"中国","latitude":22.54554,"longitude":114.0683}]}`))
+			return
+		}
 		if r.URL.Path != "/v1/forecast" {
 			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.URL.Query().Get("hourly") != "" {
+			_, _ = w.Write([]byte(`{"hourly":{"precipitation_probability":[20,75,null]}}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"current":{"temperature_2m":18.24,"weather_code":2},
@@ -429,5 +437,63 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 	}
 	if _, err := env.App.Deps.Actions.Run(context.Background(), "brief.preview", json.RawMessage(`{"x":1}`)); err == nil {
 		t.Fatal("unexpected input accepted")
+	}
+}
+
+func TestRainAlertAndPlaces(t *testing.T) {
+	env, m, ws := setup(t)
+	brief.SetGeoBase(m, ws.URL)
+	var places []api.WeatherPlace
+	env.MustDo(http.MethodGet, "/weather/places?q=%E6%B7%B1%E5%9C%B3", nil, &places)
+	if len(places) != 1 || places[0].Name != "深圳" || places[0].Region != "广东" || places[0].Lat != 22.5455 {
+		t.Fatalf("places: %+v", places)
+	}
+
+	var a api.RainAlert
+	env.MustDo(http.MethodGet, "/weather/alert", nil, &a)
+	if a.Enabled || a.Threshold != 60 || a.LeadHours != 2 {
+		t.Fatalf("defaults: %+v", a)
+	}
+	if status, _ := env.Do(http.MethodPut, "/weather/alert", api.RainAlert{Enabled: true, Threshold: 5, LeadHours: 2}, nil); status != http.StatusBadRequest {
+		t.Fatalf("bad threshold: %d", status)
+	}
+	env.MustDo(http.MethodPut, "/weather/alert", api.RainAlert{Enabled: true, Threshold: 70, LeadHours: 3}, &a)
+	putSettings(t, env, baseSettings(ws))
+
+	ctx := context.Background()
+	for _, now := range []time.Time{at(27, 8, 0), at(27, 8, 30), at(27, 15, 0)} {
+		if err := brief.CheckRain(m, ctx, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var notes struct {
+		Items []struct{ Kind, Body string }
+	}
+	env.MustDo(http.MethodGet, "/notifications", nil, &notes)
+	rain := 0
+	for _, n := range notes.Items {
+		if n.Kind == "weather.rain" {
+			rain++
+			if !strings.Contains(n.Body, "上海") || !strings.Contains(n.Body, "75%") {
+				t.Fatalf("body: %s", n.Body)
+			}
+		}
+	}
+	// 8:00 提醒一次，8:30 在 6 小时内不再提醒，15:00 又可以提醒。
+	if rain != 2 {
+		t.Fatalf("rain notices: %d", rain)
+	}
+
+	env.MustDo(http.MethodPut, "/weather/alert", api.RainAlert{Enabled: true, Threshold: 80, LeadHours: 3}, &a)
+	_ = brief.CheckRain(m, ctx, at(28, 9, 0))
+	env.MustDo(http.MethodGet, "/notifications", nil, &notes)
+	count := 0
+	for _, n := range notes.Items {
+		if n.Kind == "weather.rain" {
+			count++
+		}
+	}
+	if count != 2 {
+		t.Fatalf("below threshold should stay quiet: %d", count)
 	}
 }

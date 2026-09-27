@@ -71,10 +71,16 @@ export function useNote(id: number) {
   });
 }
 
-export function useTags() {
+/** 标签和数量。hidden 为 true 时是隐藏空间自己的标签。 */
+export function useTags(hidden = false) {
   return useQuery({
-    queryKey: notesKeys.tags,
-    queryFn: () => unwrap(notesApi.GET("/notes/tags")),
+    queryKey: [...notesKeys.tags, hidden],
+    queryFn: () =>
+      unwrap(
+        notesApi.GET("/notes/tags", {
+          params: { query: hidden ? { hidden: true } : {} },
+        }),
+      ),
   });
 }
 

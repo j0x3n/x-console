@@ -335,7 +335,10 @@ export interface operations {
     };
     listNoteTags: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description true 时只数隐藏笔记的标签（隐藏空间自己的标签），要先解锁，没解锁时返回空数组 */
+                hidden?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;

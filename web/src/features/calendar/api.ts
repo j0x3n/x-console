@@ -36,6 +36,9 @@ export type BriefSettings = BriefComponents["schemas"]["BriefSettings"];
 export type BriefSettingsView = BriefComponents["schemas"]["BriefSettingsView"];
 export type BriefSectionKey = BriefComponents["schemas"]["BriefSectionKey"];
 export type Weather = BriefComponents["schemas"]["Weather"];
+export type WeatherPlace = BriefComponents["schemas"]["WeatherPlace"];
+export type BriefLocation = BriefComponents["schemas"]["BriefLocation"];
+export type RainAlert = BriefComponents["schemas"]["RainAlert"];
 export type FocusSession = FocusComponents["schemas"]["FocusSession"];
 export type FocusStats = FocusComponents["schemas"]["FocusStats"];
 
@@ -218,6 +221,34 @@ export function useSaveBriefSettings() {
   return useMutation({
     mutationFn: (body: BriefSettings) =>
       unwrap(briefApi.PUT("/briefs/settings", { body })),
+    onSuccess: invalidate,
+  });
+}
+
+export function useWeatherPlaces(q: string) {
+  return useQuery({
+    queryKey: ["calendar", "weather", "places", q],
+    queryFn: () =>
+      unwrap(briefApi.GET("/weather/places", { params: { query: { q } } })),
+    enabled: q.trim().length > 0,
+    staleTime: 60 * 60_000,
+    retry: false,
+  });
+}
+
+export function useRainAlert() {
+  return useQuery({
+    queryKey: ["calendar", "weather", "alert"],
+    queryFn: () => unwrap(briefApi.GET("/weather/alert")),
+    retry: false,
+  });
+}
+
+export function useSaveRainAlert() {
+  const invalidate = useInvalidate(calendarKeys.weather);
+  return useMutation({
+    mutationFn: (body: RainAlert) =>
+      unwrap(briefApi.PUT("/weather/alert", { body })),
     onSuccess: invalidate,
   });
 }

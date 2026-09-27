@@ -290,7 +290,9 @@ function DriveBrowser() {
               toast(
                 action === "hide"
                   ? t("Moved to hidden")
-                  : t("No longer hidden"),
+                  : item.restoreTo
+                    ? `${t("Restored to")} ${item.restoreTo}`
+                    : t("No longer hidden"),
               ),
           },
         );
@@ -614,12 +616,13 @@ function DriveBrowser() {
                   <button onClick={() => open(item)} title={item.name}>
                     <FileIcon item={item} />
                     <span>{item.name}</span>
-                    {item.hidden && !hidden && (
-                      <EyeOff
-                        size={12}
-                        className="drive-muted"
-                        aria-label={t("Hidden items")}
-                      />
+                    {hidden && item.restoreTo && (
+                      <small
+                        className="drive-restore"
+                        title={t("Restores to this folder")}
+                      >
+                        {t("Originally in")} {item.restoreTo}
+                      </small>
                     )}
                   </button>
                   <small className="drive-sub">

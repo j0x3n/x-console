@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { usePageCrumb } from "../../stores/page-title";
 import {
-  ArrowLeft,
   Bot,
   ExternalLink,
   GitPullRequest,
@@ -48,6 +48,12 @@ export default function IssuePage() {
   const { projectKey = "", number = "" } = useParams();
   const key = `${projectKey.toUpperCase()}-${number}`;
   const issue = useIssue(key);
+  usePageCrumb(
+    issue.data?.key ?? "",
+    issue.data
+      ? [{ label: issue.data.projectKey, to: `/projects/${issue.data.projectKey}` }]
+      : undefined,
+  );
   const update = useUpdateIssue();
   const [search, setSearch] = useSearchParams();
   const [editingTitle, setEditingTitle] = useState(search.get("edit") === "title");
@@ -96,13 +102,11 @@ export default function IssuePage() {
   const data = issue.data;
   return (
     <div className="xc-page wide projects-issue-page">
-      <nav className="projects-issue-crumbs">
-        <Link to={`/projects/${data.projectKey}`}>
-          <ArrowLeft size={14} /> {data.projectKey}
-        </Link>
-        <span className="xc-mono">{data.key}</span>
-        {data.externalSource && <span className="xc-badge info">{data.externalSource}</span>}
-      </nav>
+      {data.externalSource && (
+        <nav className="projects-issue-crumbs">
+          <span className="xc-badge info">{data.externalSource}</span>
+        </nav>
+      )}
       <div className="projects-issue-layout">
         <main className="projects-issue-main">
           <IssueTitle

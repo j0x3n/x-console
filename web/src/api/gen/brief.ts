@@ -89,10 +89,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/weather/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 按名字搜城市，用 Open-Meteo 的地名接口。 */
+        get: operations["searchWeatherPlaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/weather/alert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRainAlert"];
+        put: operations["putRainAlert"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        WeatherPlace: {
+            name: string;
+            /** @description 省或州 */
+            region: string;
+            country: string;
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lon: number;
+        };
+        RainAlert: {
+            /** @description 早报设置的位置接下来可能下雨时发通知。每 30 分钟看一次，6 小时内最多提醒一次 */
+            enabled: boolean;
+            /** @description 降雨概率达到多少就提醒，默认 60 */
+            threshold: number;
+            /** @description 看接下来几个小时，默认 2 */
+            leadHours: number;
+        };
         Brief: {
             /**
              * Format: int64
@@ -349,6 +400,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Weather"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    searchWeatherPlaces: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 最多 8 个结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherPlace"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRainAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 降雨提醒设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RainAlert"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putRainAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RainAlert"];
+            };
+        };
+        responses: {
+            /** @description 保存后的设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RainAlert"];
                 };
             };
             default: components["responses"]["Error"];

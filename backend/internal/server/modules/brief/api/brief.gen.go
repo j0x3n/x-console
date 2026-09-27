@@ -136,6 +136,18 @@ type BriefSettingsView struct {
 	WeatherApiBase *string `json:"weatherApiBase,omitempty"`
 }
 
+// RainAlert defines model for RainAlert.
+type RainAlert struct {
+	// Enabled 早报设置的位置接下来可能下雨时发通知。每 30 分钟看一次，6 小时内最多提醒一次
+	Enabled bool `json:"enabled"`
+
+	// LeadHours 看接下来几个小时，默认 2
+	LeadHours int `json:"leadHours"`
+
+	// Threshold 降雨概率达到多少就提醒，默认 60
+	Threshold int `json:"threshold"`
+}
+
 // Weather defines model for Weather.
 type Weather struct {
 	FetchedAt time.Time `json:"fetchedAt"`
@@ -158,6 +170,17 @@ type Weather struct {
 	WeatherCode int `json:"weatherCode"`
 }
 
+// WeatherPlace defines model for WeatherPlace.
+type WeatherPlace struct {
+	Country string  `json:"country"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
+	Name    string  `json:"name"`
+
+	// Region 省或州
+	Region string `json:"region"`
+}
+
 // ListBriefsParams defines parameters for ListBriefs.
 type ListBriefsParams struct {
 	Limit  *externalRef0.Limit  `form:"limit,omitempty" json:"limit,omitempty"`
@@ -175,11 +198,19 @@ type GetWeatherParams struct {
 	Lon *float64 `form:"lon,omitempty" json:"lon,omitempty"`
 }
 
+// SearchWeatherPlacesParams defines parameters for SearchWeatherPlaces.
+type SearchWeatherPlacesParams struct {
+	Q string `form:"q" json:"q"`
+}
+
 // GenerateBriefJSONRequestBody defines body for GenerateBrief for application/json ContentType.
 type GenerateBriefJSONRequestBody GenerateBriefJSONBody
 
 // PutBriefSettingsJSONRequestBody defines body for PutBriefSettings for application/json ContentType.
 type PutBriefSettingsJSONRequestBody = BriefSettings
+
+// PutRainAlertJSONRequestBody defines body for PutRainAlert for application/json ContentType.
+type PutRainAlertJSONRequestBody = RainAlert
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -201,6 +232,15 @@ type ServerInterface interface {
 
 	// (GET /weather)
 	GetWeather(w http.ResponseWriter, r *http.Request, params GetWeatherParams)
+
+	// (GET /weather/alert)
+	GetRainAlert(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /weather/alert)
+	PutRainAlert(w http.ResponseWriter, r *http.Request)
+
+	// (GET /weather/places)
+	SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, params SearchWeatherPlacesParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -234,6 +274,21 @@ func (_ Unimplemented) GetBrief(w http.ResponseWriter, r *http.Request, date str
 
 // (GET /weather)
 func (_ Unimplemented) GetWeather(w http.ResponseWriter, r *http.Request, params GetWeatherParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /weather/alert)
+func (_ Unimplemented) GetRainAlert(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /weather/alert)
+func (_ Unimplemented) PutRainAlert(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /weather/places)
+func (_ Unimplemented) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, params SearchWeatherPlacesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -406,6 +461,67 @@ func (siw *ServerInterfaceWrapper) GetWeather(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetRainAlert operation middleware
+func (siw *ServerInterfaceWrapper) GetRainAlert(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRainAlert(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutRainAlert operation middleware
+func (siw *ServerInterfaceWrapper) PutRainAlert(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutRainAlert(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SearchWeatherPlaces operation middleware
+func (siw *ServerInterfaceWrapper) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchWeatherPlacesParams
+
+	// ------------- Required query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchWeatherPlaces(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -536,6 +652,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/weather", wrapper.GetWeather)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/weather/places", wrapper.SearchWeatherPlaces)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/weather/alert", wrapper.GetRainAlert)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/weather/alert", wrapper.PutRainAlert)
 	})
 
 	return r

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Columns3, LayoutList, Plus, Settings2 } from "lucide-react";
+import { Columns3, LayoutList, Plus, Settings2 } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
@@ -157,9 +157,6 @@ export default function ProjectPage() {
         subtitle={project.description || undefined}
         aside={
           <>
-            <Link className="xc-btn ghost small" to="/projects">
-              <ArrowLeft size={14} /> {t("Projects")}
-            </Link>
             <button className="xc-btn small" onClick={() => setEditOpen(true)}>
               {t("Edit")}
             </button>

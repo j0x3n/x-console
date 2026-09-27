@@ -22,4 +22,8 @@ registerZh({
   "Open on PC": "在电脑上打开",
   "Program, file or URL, e.g. notepad or https://…": "程序、文件或网址，比如 notepad",
   "Opened on the PC": "已在电脑上打开",
+  "The screen of this PC will lock:": "这台电脑会锁屏：",
+  "This PC will go to sleep:": "这台电脑会进入睡眠：",
+  "This PC will restart. Unsaved work will be lost:": "这台电脑会重启，没保存的内容会丢：",
+  "This PC will shut down. Unsaved work will be lost:": "这台电脑会关机，没保存的内容会丢：",
 });

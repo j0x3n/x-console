@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useMatches } from "react-router";
+import { Link, useLocation, useMatches } from "react-router";
 import { Bell, Command, Menu } from "lucide-react";
 import { useNotifications } from "../../api/core";
 import { useEventConnection } from "../../api/events";
@@ -7,6 +7,7 @@ import { useT } from "../../contexts/LanguageContext";
 import NotificationsPopover from "./NotificationsPopover";
 import TopbarActions from "../../app/TopbarActions";
 import { usePageTitle } from "../../stores/page-title";
+import { navItems } from "../../app/nav";
 
 interface RouteHandle {
   title?: string;
@@ -28,8 +29,15 @@ export default function Topbar({
       .find(Boolean) ?? "";
   // 详情页的具体名称，比如项目名。和模块名一样时不重复显示。
   const pageTitle = usePageTitle((s) => s.title);
+  const parents = usePageTitle((s) => s.parents);
+  const status = usePageTitle((s) => s.status);
+  const statusLabel = usePageTitle((s) => s.statusLabel);
   const detail = pageTitle && pageTitle !== t(title) ? pageTitle : "";
   const connected = useEventConnection((s) => s.connected);
+  const location = useLocation();
+  // 模块首页：导航里同名的入口。找不到（比如 404 页）就不做成链接。
+  const moduleTo = navItems.find((n) => n.label === title)?.path;
+  const atModule = !moduleTo || (!detail && location.pathname === moduleTo);
   const notifications = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -56,21 +64,39 @@ export default function Topbar({
         >
           <Menu size={18} />
         </button>
-        {detail ? (
+        {atModule ? (
+          <span aria-current="page">{t(title)}</span>
+        ) : (
+          <Link className="breadcrumb-parent" to={moduleTo!}>
+            {t(title)}
+          </Link>
+        )}
+        {detail &&
+          parents.map((p) => (
+            <span key={p.to} className="breadcrumb-mid">
+              <span className="breadcrumb-sep">/</span>
+              <Link className="breadcrumb-parent" to={p.to}>
+                {p.label}
+              </Link>
+            </span>
+          ))}
+        {detail && (
           <>
-            <span className="breadcrumb-parent">{t(title)}</span>
             <span className="breadcrumb-sep">/</span>
             <span aria-current="page" className="breadcrumb-detail">
               {detail}
             </span>
           </>
-        ) : (
-          <span aria-current="page">{t(title)}</span>
         )}
-        <span
-          className={`xc-dot ${connected ? "ok" : "warn"}`}
-          title={connected ? t("Online") : t("Offline")}
-        />
+        {status && (
+          <span className={`xc-dot ${status}`} title={statusLabel} />
+        )}
+        {!connected && (
+          <span
+            className="xc-dot warn breadcrumb-offline"
+            title={t("Live updates disconnected. Reconnecting.")}
+          />
+        )}
       </nav>
       <div className="header-actions">
         <TopbarActions />

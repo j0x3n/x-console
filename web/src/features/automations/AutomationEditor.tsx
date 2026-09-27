@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   Play,
   Plus,
@@ -40,21 +39,14 @@ import {
 } from "./logic";
 
 export default function AutomationEditor() {
-  const t = useT();
   const { id: idParam } = useParams();
   const id = idParam && idParam !== "new" ? Number(idParam) : null;
   const rule = useAutomation(id);
   const catalog = useCatalog();
 
-  const back = (
-    <Link to="/automations" className="xc-btn ghost small auto-link">
-      <ArrowLeft size={14} /> {t("Automations")}
-    </Link>
-  );
   if ((id != null && rule.isPending) || catalog.isPending)
     return (
       <div className="xc-page">
-        {back}
         <Loading />
       </div>
     );
@@ -62,7 +54,6 @@ export default function AutomationEditor() {
     const error = catalog.error ?? rule.error;
     return (
       <div className="xc-page">
-        {back}
         {isNotLive(error) ? (
           <p className="auto-muted">自动化还没上线。</p>
         ) : (
@@ -164,12 +155,6 @@ function Editor({
 
   return (
     <div className="xc-page auto-editor">
-      <Link
-        to="/automations"
-        className="xc-btn ghost small auto-back auto-link"
-      >
-        <ArrowLeft size={14} /> {t("Automations")}
-      </Link>
       <PageHeading
         title={id == null ? t("New rule") : form.name || t("Untitled rule")}
         aside={

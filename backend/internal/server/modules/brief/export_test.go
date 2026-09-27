@@ -9,6 +9,10 @@ import (
 
 // Hooks for the external test package.
 
+func CheckRain(m *Module, ctx context.Context, now time.Time) error { return m.checkRain(ctx, now) }
+
+func SetGeoBase(m *Module, base string) { m.geoBase = base }
+
 func Tick(m *Module, ctx context.Context, now time.Time) error { return m.tick(ctx, now) }
 
 func ShouldSend(enabled bool, at string, now time.Time, loc *time.Location, sentToday bool) bool {

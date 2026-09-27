@@ -70,6 +70,11 @@ paths:
     get:
       operationId: listNoteTags
       tags: [notes]
+      parameters:
+        - name: hidden
+          in: query
+          description: true 时只数隐藏笔记的标签（隐藏空间自己的标签），要先解锁，没解锁时返回空数组
+          schema: { type: boolean }
       responses:
         "200":
           description: 未归档笔记用到的标签和数量，按数量倒序

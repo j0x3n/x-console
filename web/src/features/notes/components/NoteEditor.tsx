@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { Link, useNavigate } from "react-router";
+import { usePageCrumb } from "../../../stores/page-title";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlarmClock,
@@ -109,6 +110,8 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const vaultUnlocked = useVaultUnlocked();
   const remove = useDeleteNote();
   const [draft, setDraft] = useState<Draft>({ title: note.title, body: note.body, tags: note.tags });
+  // 左上角显示“笔记 / 标题”，边打字边更新
+  usePageCrumb(draft.title.trim() || t("Untitled note"));
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const [tagInput, setTagInput] = useState("");

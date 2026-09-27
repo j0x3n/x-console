@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { EyeOff, Lock } from "lucide-react";
+import { LockOpen } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
 import { useT } from "../../contexts/LanguageContext";
@@ -25,7 +25,7 @@ import "./vault.css";
 /*
  * 隐藏内容的全局部分（B13）：
  * - 连续点 Logo 3 次弹出密码框，界面上没有别的入口提示。
- * - 解锁后页面顶部显示提示栏和“锁定”按钮。
+ * - 解锁后只在侧边栏“X Console”后面显示一个小锁图标，点一下锁定，图标消失。
  * - 15 分钟没有操作、关掉页面后重新打开，都会自动锁定。
  */
 export default function VaultPanel() {
@@ -98,23 +98,20 @@ function useIdleLock(active: boolean, onIdle: () => void) {
 
 function VaultBar({ onLock, busy }: { onLock: () => void; busy: boolean }) {
   const t = useT();
-  const host = document.getElementById("main");
-  const bar = (
-    <div className="vault-bar" role="status">
-      <EyeOff size={14} />
-      <span>{t("Hidden items are showing")}</span>
-      <button
-        type="button"
-        className="xc-btn small"
-        onClick={onLock}
-        disabled={busy}
-      >
-        <Lock size={13} />
-        {t("Lock vault")}
-      </button>
-    </div>
+  const host = document.getElementById("brand-slot");
+  const button = (
+    <button
+      type="button"
+      className="vault-lock"
+      onClick={onLock}
+      disabled={busy}
+      title={t("Lock vault")}
+      aria-label={t("Lock vault")}
+    >
+      <LockOpen size={13} />
+    </button>
   );
-  return host ? createPortal(bar, host) : bar;
+  return host ? createPortal(button, host) : null;
 }
 
 function VaultDialog({

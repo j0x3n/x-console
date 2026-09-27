@@ -243,6 +243,8 @@ export interface components {
             /** @description 只有文件有 */
             mime?: string;
             hidden: boolean;
+            /** @description 隐藏空间最上层的条目才有：隐藏前所在文件夹的路径，比如 /项目资料，根目录是 / */
+            restoreTo?: string;
             /** Format: date-time */
             trashedAt?: string;
             /**
@@ -271,6 +273,11 @@ export interface components {
              * @description 移动到这个目录。传 0 表示根目录
              */
             parentId?: number;
+            /**
+             * @description true：放进隐藏空间。记下原来所在的文件夹，条目移到隐藏空间的最上层，里面的东西跟着走。
+             *     false：从隐藏空间还原，放回原来的文件夹；原文件夹已经删了或进了回收站时放回根目录，重名时自动加“ (1)”。
+             *     都要先解锁。隐藏空间里可以自己建文件夹、移动，互不影响普通文件。
+             */
             hidden?: boolean;
         };
         S3Config: {

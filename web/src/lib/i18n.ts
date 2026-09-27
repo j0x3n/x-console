@@ -44,6 +44,8 @@ registerZh({
   Servers: "服务器",
   "This PC": "本机",
   "Coding tasks": "Agent 任务",
+  "Not found": "页面不存在",
+  "Live updates disconnected. Reconnecting.": "实时连接断开了，正在重连",
   Monitoring: "监控",
   "Smart home": "智能家居",
   Automations: "自动化",

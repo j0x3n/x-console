@@ -83,9 +83,9 @@ registerZh({
   "Hidden notes": "隐藏",
   "Hidden note": "隐藏",
   "No hidden notes": "没有隐藏笔记",
-  "Hide note": "设为隐藏",
-  "Unhide note": "取消隐藏",
-  "Moved to hidden": "已设为隐藏",
-  "No longer hidden": "已取消隐藏",
+  "Hide note": "隐藏",
+  "Unhide note": "还原",
+  "Moved to hidden": "已隐藏",
+  "No longer hidden": "已还原到原来的位置",
   "Tag color": "标签颜色",
 });

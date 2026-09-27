@@ -3,10 +3,13 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import type { NavChildrenProps } from "../../lib/navChildren";
 import { formatTime, relativeTime } from "../../lib/time";
 import { useReminders } from "./api";
+import { useNow } from "../calendar/hooks";
 
 /** 侧边栏“提醒”下面：接下来要到的提醒和时间。 */
 export default function RemindersNavChildren({ onNavigate }: NavChildrenProps) {
   const language = useLanguage();
+  // 每分钟重算一次“3 分钟后”这类时间
+  useNow(60_000);
   const today = useReminders("today");
   const upcoming = useReminders("upcoming");
   // 今天的和以后的合在一起，按时间排。

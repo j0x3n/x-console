@@ -544,3 +544,8 @@
 .drive-summary a {
   color: inherit;
 }
+.drive-restore {
+  flex: none;
+  color: var(--xc-faint);
+  font-size: 11.5px;
+}

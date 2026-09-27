@@ -57,4 +57,22 @@ registerZh({
     "保存布局的功能还没上线，改动只在离开这个页面前有效。",
   "Drag cards to reorder. Hidden cards stay hidden until you show them again.":
     "拖动卡片调整顺序。隐藏的卡片要再点一下才会显示。",
+  "Weather settings": "天气设置",
+  Place: "地区",
+  "Not set yet": "还没设置",
+  "City name, e.g. Shenzhen": "城市名，比如 深圳",
+  "Search city": "搜索城市",
+  "No matching places": "没找到这个地方",
+  "Show on the today page": "今日页上显示",
+  "Low and high of the day": "今天的最低和最高温度",
+  "Chance of rain": "降雨概率",
+  "Rain alert": "降雨提醒",
+  "Not live yet": "还没上线",
+  "Checked every 30 minutes. At most one notice every 6 hours.":
+    "每 30 分钟看一次预报，6 小时内最多提醒一次。",
+  "Look ahead": "看接下来",
+  hours: "小时",
+  "When the chance of rain reaches": "降雨概率达到",
+  "Current location": "当前位置",
+  "Set a place": "设置地区",
 });

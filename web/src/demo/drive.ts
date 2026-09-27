@@ -11,6 +11,8 @@ interface Node {
   size: number;
   mime?: string;
   hidden: boolean;
+  /** 放进隐藏空间前所在的文件夹，0 是根目录。只有隐藏空间最上层的条目有。 */
+  hiddenFrom?: number;
   trashedAt?: string;
   syncState: "synced" | "pending" | "failed" | "off";
   syncError?: string;
@@ -197,8 +199,13 @@ const inTrash = (n: Node): boolean => {
 };
 const visible = (n: Node) => !isHidden(n) || vault.unlocked;
 const view = (n: Node) => {
-  const { ...rest } = n;
-  return rest;
+  const { hiddenFrom, ...rest } = n;
+  if (!n.hidden || n.parentId) return rest;
+  const from = hiddenFrom ? byId(hiddenFrom) : undefined;
+  const restoreTo = from
+    ? "/" + [...path(from).map((p) => p.name), from.name].join("/")
+    : "/";
+  return { ...rest, restoreTo };
 };
 const path = (n: Node) => {
   const out: { id: number; name: string }[] = [];
@@ -322,9 +329,23 @@ route("PATCH", "/drive/items/:id", ({ params, body }) => {
     n.parentId = target;
     n.name = uniqueName(target, n.name, n.id);
   }
-  if (body?.hidden !== undefined) {
+  if (body?.hidden !== undefined && body.hidden !== isHidden(n)) {
     if (!vault.unlocked) return fail(403, "vault_locked", "先解锁隐藏内容");
-    n.hidden = body.hidden;
+    if (body.hidden) {
+      // 放进隐藏空间最上层，记住原来的文件夹
+      n.hiddenFrom = n.parentId ?? 0;
+      n.parentId = undefined;
+      n.hidden = true;
+    } else {
+      // 放回原来的文件夹；原文件夹没了、进了回收站或也被隐藏了，就放到根目录
+      const from = n.hiddenFrom ? byId(n.hiddenFrom) : undefined;
+      const ok = from && !inTrash(from) && !isHidden(from);
+      n.hidden = false;
+      n.parentId = ok ? from.id : undefined;
+      n.hiddenFrom = undefined;
+      for (const c of children(n.id)) c.hidden = false;
+    }
+    n.name = uniqueName(n.parentId, n.name, n.id);
   }
   n.updatedAt = now();
   if (!n.isDir && s3.enabled) n.syncState = "pending";

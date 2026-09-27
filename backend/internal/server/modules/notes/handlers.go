@@ -52,7 +52,12 @@ func (m *Module) CreateNote(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusCreated, out)
 }
 
-func (m *Module) ListNoteTags(w http.ResponseWriter, r *http.Request) {
+func (m *Module) ListNoteTags(w http.ResponseWriter, r *http.Request, params api.ListNoteTagsParams) {
+	// 隐藏笔记（B13）还没做，隐藏空间的标签先回空。
+	if params.Hidden != nil && *params.Hidden {
+		httpx.JSON(w, http.StatusOK, []api.TagCount{})
+		return
+	}
 	out, err := m.tagCounts(r.Context())
 	if err != nil {
 		httpx.Fail(w, r, err)

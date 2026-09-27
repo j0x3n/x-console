@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, useNavigate } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
 import {
   ChevronRight,
   LogOut,
@@ -41,6 +41,8 @@ export default function Sidebar({
   const t = useT();
   const children = useNavChildren();
   const [open, setOpen] = useState<string[]>(readOpen);
+  const location = useLocation();
+  const atRoot = (path: string) => location.pathname === path;
   // 点一级菜单就展开它的二级菜单；只有点箭头才会收起。
   const setItemOpen = (path: string, value: boolean) =>
     setOpen((prev) => {
@@ -79,6 +81,8 @@ export default function Sidebar({
             X
           </span>
           <span>X Console</span>
+          {/* 隐藏内容解锁时，VaultPanel 把锁定按钮放到这里 */}
+          <span id="brand-slot" className="brand-slot" />
           <button
             className="icon-button sidebar-collapse"
             title={t("Close navigation")}
@@ -107,7 +111,9 @@ export default function Sidebar({
                       to={item.path}
                       end={item.path === "/"}
                       onClick={() => {
-                        if (Children) setItemOpen(item.path, true);
+                        // 从别的页面点过来时展开；已经在这一页、已经展开时再点一下收起。
+                        if (Children)
+                          setItemOpen(item.path, !(isOpen && atRoot(item.path)));
                         setMobileOpen(false);
                       }}
                       className={({ isActive }) =>

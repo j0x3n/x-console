@@ -1,3 +1,4 @@
+import { demoFull } from "./mode";
 import { fail, json, noContent, now, route, ago } from "./router";
 
 /*
@@ -115,6 +116,8 @@ const full = (n: HiddenNote) => ({ ...n, hidden: true });
 const isDemoNote = (id: string) => Number(id) >= 900000;
 
 route("GET", "/notes", ({ query }) => {
+  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
+  if (demoFull) return undefined;
   if (query.get("hidden") !== "true") return undefined;
   if (!vault.unlocked) return json({ items: [] });
   const q = (query.get("q") ?? "").toLowerCase();
@@ -129,6 +132,8 @@ route("GET", "/notes", ({ query }) => {
   return json({ items });
 });
 route("POST", "/notes", ({ body }) => {
+  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
+  if (demoFull) return undefined;
   if (!body?.hidden) return undefined;
   if (!vault.unlocked) return fail(403, "vault_locked", "先解锁隐藏内容");
   const n: HiddenNote = {
@@ -144,6 +149,8 @@ route("POST", "/notes", ({ body }) => {
   return json(full(n), 201);
 });
 route("GET", "/notes/:id", ({ params }) => {
+  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
+  if (demoFull) return undefined;
   if (!isDemoNote(params.id)) return undefined;
   const n = hiddenNotes.find((x) => x.id === Number(params.id));
   return n && vault.unlocked
@@ -151,6 +158,8 @@ route("GET", "/notes/:id", ({ params }) => {
     : fail(404, "not_found", "资源不存在");
 });
 route("PATCH", "/notes/:id", ({ params, body }) => {
+  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
+  if (demoFull) return undefined;
   if (!isDemoNote(params.id)) return undefined;
   const n = hiddenNotes.find((x) => x.id === Number(params.id));
   if (!n || !vault.unlocked) return fail(404, "not_found", "资源不存在");
@@ -166,6 +175,8 @@ route("PATCH", "/notes/:id", ({ params, body }) => {
   return json(full(n));
 });
 route("DELETE", "/notes/:id", ({ params }) => {
+  // 全部演示数据打开时，隐藏笔记由 full/notes.ts 管。
+  if (demoFull) return undefined;
   if (!isDemoNote(params.id)) return undefined;
   const i = hiddenNotes.findIndex((x) => x.id === Number(params.id));
   if (i >= 0) hiddenNotes.splice(i, 1);

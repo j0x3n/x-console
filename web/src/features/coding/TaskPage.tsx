@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
+import { usePageCrumb } from "../../stores/page-title";
 import {
-  ArrowLeft,
   CircleStop,
   ExternalLink,
   GitCommitHorizontal,
@@ -283,6 +283,7 @@ export default function TaskPage() {
   const t = useT();
   const id = Number(useParams().taskId);
   const task = useTask(id);
+  usePageCrumb(task.data ? taskTitle(task.data) : "");
   const events = useTaskEvents(id);
   const status = task.data?.status;
   const can = task.data ? actionsFor(task.data, false) : undefined;
@@ -301,9 +302,6 @@ export default function TaskPage() {
   return (
     <div className="xc-page coding-page coding-task-page">
       <div className="coding-task-head">
-        <Link to="/coding" className="xc-btn ghost small">
-          <ArrowLeft size={14} /> {t("Coding tasks")}
-        </Link>
         <div className="coding-task-title">
           <h1>{taskTitle(data)}</h1>
           <StatusBadge status={data.status} />

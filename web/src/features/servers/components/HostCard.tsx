@@ -1,3 +1,4 @@
+import { usePageStatus } from "../../../stores/page-title";
 import { Link } from "react-router";
 import { AlertTriangle, TerminalSquare } from "lucide-react";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
@@ -24,6 +25,29 @@ export function HostStatus({ host }: { host: Pick<Host, "online" | "lastSeenAt" 
             ? `${t("Offline")} · ${relativeTime(host.lastSeenAt, language)}`
             : t("Offline")}
       </span>
+    </span>
+  );
+}
+
+/**
+ * 详情页用：在线状态显示成左上角标题后面的小点，页头只在有告警或离线时显示标签。
+ */
+export function HostHeadStatus({ host }: { host: Pick<Host, "online" | "lastSeenAt" | "activeAlerts"> }) {
+  const t = useT();
+  const language = useLanguage();
+  const offline = host.lastSeenAt
+    ? `${t("Offline")} · ${relativeTime(host.lastSeenAt, language)}`
+    : t("Offline");
+  usePageStatus(host.online ? "ok" : "danger", host.online ? t("Online") : offline);
+  if (host.online && host.activeAlerts === 0) return null;
+  return (
+    <span className="xc-row">
+      {host.activeAlerts > 0 && (
+        <span className="xc-badge danger">
+          <AlertTriangle size={11} /> {host.activeAlerts} {t("alerts")}
+        </span>
+      )}
+      {!host.online && <span className="xc-badge">{offline}</span>}
     </span>
   );
 }

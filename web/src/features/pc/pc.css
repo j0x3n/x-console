@@ -44,3 +44,8 @@
 .pc-select {
   width: auto;
 }
+.pc-confirm {
+  margin: 0 0 16px;
+  color: var(--xc-text-2);
+  line-height: 1.6;
+}

@@ -270,7 +270,49 @@ for (const b of briefs)
   b.content = b.sections
     .map((s) => `## ${s.title}\n\n${s.markdown}`)
     .join("\n\n");
-const briefSettings = {
+const demoPlaces = [
+  {
+    name: "北京",
+    region: "北京",
+    country: "中国",
+    lat: 39.9075,
+    lon: 116.3972,
+  },
+  {
+    name: "上海",
+    region: "上海",
+    country: "中国",
+    lat: 31.2222,
+    lon: 121.4581,
+  },
+  {
+    name: "深圳",
+    region: "广东",
+    country: "中国",
+    lat: 22.5455,
+    lon: 114.0683,
+  },
+  { name: "广州", region: "广东", country: "中国", lat: 23.1167, lon: 113.25 },
+  {
+    name: "杭州",
+    region: "浙江",
+    country: "中国",
+    lat: 30.2936,
+    lon: 120.1614,
+  },
+  {
+    name: "成都",
+    region: "四川",
+    country: "中国",
+    lat: 30.6667,
+    lon: 104.0667,
+  },
+];
+const rainAlert = { enabled: true, threshold: 60, leadHours: 2 };
+const briefSettings: {
+  location?: { lat: number; lon: number; name?: string };
+  [key: string]: unknown;
+} = {
   enabled: true,
   time: "07:30",
   channels: ["webpush", "telegram"],
@@ -408,11 +450,21 @@ export function register() {
     const b = briefs.find((x) => x.date === params.date);
     return b ? json(b) : fail(404, "not_found", "那天没有早报");
   });
+  route("GET", "/weather/places", ({ query }) => {
+    const q = query.get("q") ?? "";
+    return json(
+      demoPlaces.filter((p) => p.name.includes(q) || q.includes(p.name)),
+    );
+  });
+  route("GET", "/weather/alert", () => json(rainAlert));
+  route("PUT", "/weather/alert", ({ body }) =>
+    json(Object.assign(rainAlert, body)),
+  );
   route("GET", "/weather", () =>
     json({
-      location: "北京",
-      latitude: 39.9,
-      longitude: 116.4,
+      location: briefSettings.location?.name ?? "北京",
+      latitude: briefSettings.location?.lat ?? 39.9,
+      longitude: briefSettings.location?.lon ?? 116.4,
       temperature: 22.5,
       weatherCode: 1,
       summary: "晴",
