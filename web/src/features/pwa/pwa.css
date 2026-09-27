@@ -1,0 +1,27 @@
+.pwa-install {
+  position: fixed;
+  z-index: 80;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 10px;
+  background: var(--xc-surface);
+  color: var(--xc-text);
+  box-shadow: 0 12px 36px #0003;
+}
+.pwa-install span {
+  flex: 1;
+  font-size: 13px;
+}
+@media (max-width: 600px) {
+  .pwa-install {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+}

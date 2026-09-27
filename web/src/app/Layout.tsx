@@ -8,6 +8,7 @@ import Topbar from "../components/layout/Topbar";
 import Toast from "../components/ui/Toast";
 import { useToastStore } from "../hooks/useToast";
 import GlobalPanels from "./GlobalPanels";
+import InstallPrompt from "../features/pwa/InstallPrompt";
 
 export default function Layout() {
   useServerEvents();
@@ -49,6 +50,7 @@ export default function Layout() {
         onClose={() => setPaletteOpen(false)}
       />
       <ElevationDialog />
+      <InstallPrompt />
       {toast && <Toast key={toast.id} toast={toast} hideToast={hideToast} />}
     </div>
   );
