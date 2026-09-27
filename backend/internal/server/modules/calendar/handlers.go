@@ -102,6 +102,9 @@ func boolInt(b bool) int64 {
 // ---- business methods ----
 
 func (m *Module) create(ctx context.Context, in api.CalendarInput) (db.Calendar, error) {
+	if in.Kind == "local" {
+		return db.Calendar{}, httpx.NewError(http.StatusNotImplemented, "not_ready", "本地日历还没上线")
+	}
 	if in.Kind != kindICS && in.Kind != kindCalDAV {
 		return db.Calendar{}, httpx.Invalid("类型只能是 ics 或 caldav")
 	}
@@ -326,4 +329,19 @@ func (m *Module) actionEvents(ctx context.Context, raw json.RawMessage) (any, er
 		to = from.AddDate(0, 0, 1)
 	}
 	return m.events(ctx, from, to)
+}
+
+// 新建和修改事件还没做完（本地日历、CalDAV 写回），先回 501，前端显示“还没上线”。
+var errEventsNotReady = httpx.NewError(http.StatusNotImplemented, "not_ready", "新建和修改日程还没上线")
+
+func (m *Module) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
+	httpx.Fail(w, r, errEventsNotReady)
+}
+
+func (m *Module) UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, _ int64) {
+	httpx.Fail(w, r, errEventsNotReady)
+}
+
+func (m *Module) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request, _ int64) {
+	httpx.Fail(w, r, errEventsNotReady)
 }

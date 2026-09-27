@@ -28,6 +28,9 @@
 | B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
 | B8 | Playwright 端到端测试加进 CI | 见下方说明 | |
 | B9 | 前端统一跑一遍 prettier，并在 CI 里检查 | 见下方说明 | |
+| B16 | 日历可写：本地日历、CalDAV（iCloud）写回。前端已做，后端回 501 | [specs/B16.md](specs/B16.md) | |
+| B17 | 健身类习惯：记训练自动打卡。前端已做 | [specs/B17.md](specs/B17.md) | |
+| B18 | 按需推送：WebSocket 订阅主题、代理按需上报详细数据 | [specs/B18.md](specs/B18.md) | |
 
 顺序说明（2026-09-27 用户要求）：先把前端做完整，再一步步做后端。第一轮前端已经做完（B10、B11、B2、B12、B13、B14、B3、B4、B5、B6），现在开始第二轮后端。
 
@@ -157,3 +160,7 @@
 | 2026-09-27 | 新增公共组件 `components/ui/Toolbar.tsx`（`Toolbar`、`SearchBox`、`Segmented`）、`MoreMenu.tsx`、`Switch.tsx`，`States` 加 `NotLive`，`ui.css` 加 `.xc-check`；云盘、自动化、AI 助手设置改用它们。新增 `docs/07-design.md` 和 `npm run shots`（`web/scripts/shots.mjs`，开发依赖 `playwright-core`） | 让别的开发者照着做出一样的界面 |
 | 2026-09-27 | 平时推送 develop 不跑 CI；develop 上最后一个提交带 `[deploy]` 时构建并部署（见 AGENTS.md“构建和部署”） | 用户要求省构建额度 |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |
+| 2026-09-27 | `NavChildLinks` 的链接加可选的 `active`（带查询参数的链接自己判断选中）；`ui.css` 加 `.nav-child-dot`；侧边栏点一级菜单就展开二级菜单 | Agent 任务按状态、笔记按标签的二级菜单 |
+| 2026-09-27 | `api/events.ts` 页面在后台时跳过 `host.metrics`、`ha.state_changed`，切回来刷新；`api/query.ts` 的 `staleTime` 从 15 秒改成 60 秒 | 性能优化（B18） |
+| 2026-09-27 | `notes.yaml` 加 `PUT /notes/tag-colors`，`TagCount.color`（后端已实现，迁移 `m6_note_tag_colors`）；`habits.yaml` 加 `HabitKind`；`calendar.yaml` 加 `local` 类型、`writable`、事件的新建修改删除（后端回 501） | 标签颜色、健身类习惯、日历可写 |
+| 2026-09-27 | “编码任务”界面上改名“Agent 任务”，导航图标换成 `Bot`；接口和代码里的名字不变 | 用户要求，Agent 不只写代码 |

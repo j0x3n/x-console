@@ -11,6 +11,8 @@ export interface NavChildLink {
   mark?: ReactNode;
   /** 名称右边的灰字，比如时间、数量。 */
   hint?: string;
+  /** 链接带查询参数时自己判断是否选中；不传就按路径判断。 */
+  active?: boolean;
 }
 
 /**
@@ -50,7 +52,7 @@ export default function NavChildLinks({
           end
           onClick={onNavigate}
           className={({ isActive }) =>
-            `nav-child${isActive ? " selected" : ""}`
+            `nav-child${(l.active ?? isActive) ? " selected" : ""}`
           }
           title={l.label}
         >

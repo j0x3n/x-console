@@ -21,7 +21,7 @@ import {
 } from "../../home/logic";
 import { useWeather } from "../api";
 import { sortEvents } from "../today";
-import { Empty, MoreLink, QueryState } from "./shared";
+import { Empty, isSetupNeeded, MoreLink, QueryState } from "./shared";
 
 const onError = (e: unknown) =>
   toast({ message: errorMessage(e), tone: "error" });
@@ -147,39 +147,30 @@ export function HabitsCard() {
 }
 
 /** 当前天气和今天的最高最低温。 */
-export function WeatherCard() {
+/** 标题下面的一行天气。没设置位置时给一个“去设置”。 */
+export function WeatherStrip() {
   const t = useT();
-  const language = useLanguage();
   const weather = useWeather();
-  if (weather.isPending || weather.isError)
-    return (
-      <QueryState
-        query={weather}
-        setupTo="/settings/brief"
-        setupHint={t("Set a location in daily brief settings")}
-      />
-    );
+  if (weather.isPending) return null;
+  if (weather.isError)
+    return isSetupNeeded(weather.error) ? (
+      <Link className="today-weather-strip is-setup" to="/settings/brief">
+        <CloudSun size={14} /> {t("Weather")} · {t("Go to settings")}
+      </Link>
+    ) : null;
   const w = weather.data;
   return (
-    <div className="xc-card today-weather">
-      <CloudSun size={30} />
-      <div className="today-weather-now">
-        <strong>{Math.round(w.temperature)}°</strong>
-        <span>{w.summary}</span>
-      </div>
-      <div className="today-weather-meta">
-        <span>
-          {Math.round(w.low)}° / {Math.round(w.high)}°
-        </span>
-        <span>
-          <Droplets size={12} /> {w.precipitationChance}%
-        </span>
-        <small>
-          {w.location ? `${w.location} · ` : ""}
-          {formatTime(w.fetchedAt, language)}
-        </small>
-      </div>
-    </div>
+    <span className="today-weather-strip" title={w.location || undefined}>
+      <CloudSun size={14} />
+      <b>{Math.round(w.temperature)}°</b>
+      <span>{w.summary}</span>
+      <span className="today-weather-range">
+        {Math.round(w.low)}°/{Math.round(w.high)}°
+      </span>
+      <span className="today-weather-rain">
+        <Droplets size={12} /> {w.precipitationChance}%
+      </span>
+    </span>
   );
 }
 

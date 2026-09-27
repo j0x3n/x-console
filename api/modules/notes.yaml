@@ -80,6 +80,21 @@ paths:
                 items: { $ref: "#/components/schemas/TagCount" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /notes/tag-colors:
+    put:
+      operationId: setNoteTagColor
+      tags: [notes]
+      description: 设置一个标签的颜色。标签名可能带斜杠，所以放在请求体里。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TagColorInput" }
+      responses:
+        "204":
+          description: 已保存
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /notes/{noteId}:
     parameters:
       - $ref: "#/components/parameters/NoteId"
@@ -326,3 +341,14 @@ components:
       properties:
         tag: { type: string }
         count: { type: integer }
+        color:
+          type: string
+          description: 用户给标签设的颜色，形如 #cc7752；没设过时为空，前端按标签名选一个
+    TagColorInput:
+      type: object
+      required: [tag, color]
+      properties:
+        tag: { type: string, minLength: 1 }
+        color:
+          type: string
+          description: 形如 #cc7752，空字符串表示恢复默认

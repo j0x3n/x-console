@@ -1,34 +1,36 @@
-import { Pin } from "lucide-react";
+import { useLocation } from "react-router";
 import NavChildLinks from "../../components/layout/NavChildLinks";
 import type { NavChildrenProps } from "../../lib/navChildren";
-import { useNotes } from "./api";
-import { noteTitle } from "./logic";
+import { useTags } from "./api";
+import { tagColor } from "./tagColor";
 
-/** 侧边栏“笔记”下面：置顶的在前，然后是最近改过的。 */
+/** 侧边栏“笔记”下面：标签，前面是标签颜色，后面是笔记数。 */
 export default function NotesNavChildren({ onNavigate }: NavChildrenProps) {
-  const notes = useNotes({
-    q: "",
-    tag: "",
-    archived: false,
-    pinned: false,
-    hidden: false,
-  });
-  const items = notes.data?.pages.flatMap((p) => p.items) ?? [];
+  const tags = useTags();
+  const location = useLocation();
+  const current =
+    location.pathname.startsWith("/notes")
+      ? new URLSearchParams(location.search).get("tag")
+      : null;
   return (
     <NavChildLinks
-      links={items.map((n) => ({
-        key: n.id,
-        to: `/notes/${n.id}`,
-        label: noteTitle(n.title, n.excerpt) || "无标题笔记",
-        mark: n.pinned ? (
-          <Pin size={11} className="nav-child-mark" />
-        ) : undefined,
+      links={(tags.data ?? []).map((tc) => ({
+        key: tc.tag,
+        to: `/notes?tag=${encodeURIComponent(tc.tag)}`,
+        label: tc.tag,
+        hint: String(tc.count),
+        active: current === tc.tag,
+        mark: (
+          <i
+            className="nav-child-dot"
+            style={{ background: tagColor(tc.tag, tc.color) }}
+          />
+        ),
       }))}
-      total={notes.hasNextPage ? items.length + 1 : items.length}
       allTo="/notes"
-      loading={notes.isPending}
-      error={notes.isError}
-      empty="还没有笔记"
+      loading={tags.isPending}
+      error={tags.isError}
+      empty="还没有标签"
       onNavigate={onNavigate}
     />
   );

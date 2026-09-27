@@ -113,6 +113,54 @@ paths:
                 items: { $ref: "#/components/schemas/CalendarEvent" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createCalendarEvent
+      tags: [calendar]
+      description: 在可写的日历里新建事件。CalDAV 日历会马上写回服务器，失败时不保存。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventInput" }
+      responses:
+        "201":
+          description: 新建的事件（第一次发生）
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarEvent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /calendar/events/{eventId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    patch:
+      operationId: updateCalendarEvent
+      tags: [calendar]
+      description: 改一个不重复的事件。CalDAV 日历会马上写回服务器。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventPatch" }
+      responses:
+        "200":
+          description: 改好的事件
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarEvent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteCalendarEvent
+      tags: [calendar]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     CalendarId:
@@ -123,7 +171,8 @@ components:
   schemas:
     CalendarKind:
       type: string
-      enum: [ics, caldav]
+      description: ics 订阅链接，只读；caldav 可以读写（iCloud 等）；local 存在自己服务器上的日历
+      enum: [ics, caldav, local]
     Calendar:
       type: object
       required: [id, name, kind, url, username, hasPassword, color, enabled, lastError, eventCount, createdAt]
@@ -139,6 +188,9 @@ components:
         lastSyncedAt: { type: string, format: date-time }
         lastError: { type: string, description: 上次同步的错误，成功时为空 }
         eventCount: { type: integer, description: 同步下来的事件条数（重复事件算一条） }
+        writable:
+          type: boolean
+          description: 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 为 false
         createdAt: { type: string, format: date-time }
     CalendarInput:
       type: object
@@ -180,3 +232,31 @@ components:
         location: { type: string }
         description: { type: string }
         recurring: { type: boolean }
+        writable:
+          type: boolean
+          description: 能不能改。日历可写且不是重复事件时为 true
+    EventInput:
+      type: object
+      required: [calendarId, title, allDay]
+      properties:
+        calendarId: { type: integer, format: int64 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        allDay: { type: boolean }
+        start: { type: string, format: date-time, description: 不是全天事件时必填 }
+        end: { type: string, format: date-time, description: 不是全天事件时必填 }
+        startDate: { type: string, description: 全天事件的开始日期 YYYY-MM-DD }
+        endDate: { type: string, description: 全天事件的结束日期 YYYY-MM-DD（不含） }
+        location: { type: string }
+        description: { type: string }
+    EventPatch:
+      type: object
+      properties:
+        calendarId: { type: integer, format: int64, description: 移到另一个可写的日历 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        allDay: { type: boolean }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        startDate: { type: string }
+        endDate: { type: string }
+        location: { type: string }
+        description: { type: string }

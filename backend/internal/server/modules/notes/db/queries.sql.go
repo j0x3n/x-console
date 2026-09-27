@@ -34,6 +34,15 @@ func (q *Queries) ClearNoteTags(ctx context.Context, noteID int64) error {
 	return err
 }
 
+const clearTagColor = `-- name: ClearTagColor :exec
+DELETE FROM note_tag_colors WHERE tag = ?
+`
+
+func (q *Queries) ClearTagColor(ctx context.Context, tag string) error {
+	_, err := q.db.ExecContext(ctx, clearTagColor, tag)
+	return err
+}
+
 const createNote = `-- name: CreateNote :one
 INSERT INTO notes (title, body, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id, title, body, pinned, archived_at, created_at, updated_at
 `
@@ -220,9 +229,26 @@ func (q *Queries) ListTagsForNotes(ctx context.Context, ids []int64) ([]NoteTag,
 	return items, nil
 }
 
+const setTagColor = `-- name: SetTagColor :exec
+INSERT INTO note_tag_colors (tag, color) VALUES (?, ?)
+ON CONFLICT (tag) DO UPDATE SET color = excluded.color
+`
+
+type SetTagColorParams struct {
+	Tag   string
+	Color string
+}
+
+func (q *Queries) SetTagColor(ctx context.Context, arg SetTagColorParams) error {
+	_, err := q.db.ExecContext(ctx, setTagColor, arg.Tag, arg.Color)
+	return err
+}
+
 const tagCounts = `-- name: TagCounts :many
-SELECT note_tags.tag, count(*) AS count
-FROM note_tags JOIN notes ON notes.id = note_tags.note_id
+SELECT note_tags.tag, count(*) AS count, CAST(coalesce(max(note_tag_colors.color), '') AS TEXT) AS color
+FROM note_tags
+JOIN notes ON notes.id = note_tags.note_id
+LEFT JOIN note_tag_colors ON note_tag_colors.tag = note_tags.tag
 WHERE notes.archived_at IS NULL
 GROUP BY note_tags.tag
 ORDER BY count(*) DESC, note_tags.tag
@@ -231,6 +257,7 @@ ORDER BY count(*) DESC, note_tags.tag
 type TagCountsRow struct {
 	Tag   string
 	Count int64
+	Color string
 }
 
 func (q *Queries) TagCounts(ctx context.Context) ([]TagCountsRow, error) {
@@ -242,7 +269,7 @@ func (q *Queries) TagCounts(ctx context.Context) ([]TagCountsRow, error) {
 	var items []TagCountsRow
 	for rows.Next() {
 		var i TagCountsRow
-		if err := rows.Scan(&i.Tag, &i.Count); err != nil {
+		if err := rows.Scan(&i.Tag, &i.Count, &i.Color); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -80,14 +80,14 @@ afterEach(() => {
 });
 
 describe("vault panel", () => {
-  it("shows nothing until the logo is tapped five times", async () => {
+  it("shows nothing until the logo is tapped three times", async () => {
     api.routes.set(
       "GET /vault/status",
       status({ configured: true, unlocked: false }),
     );
     renderPanel();
     await waitFor(() => expect(api.calls.length).toBe(1));
-    tap(4);
+    tap(2);
     expect(screen.queryByRole("dialog")).toBeNull();
     tap(1);
     expect(await screen.findByText("输入隐藏密码。")).toBeTruthy();
@@ -96,7 +96,7 @@ describe("vault panel", () => {
   it("says the feature is not live when the server has no vault", async () => {
     renderPanel();
     await waitFor(() => expect(api.calls.length).toBe(1));
-    tap(5);
+    tap(3);
     expect(await screen.findByText("这个功能还没上线。")).toBeTruthy();
   });
 
@@ -116,7 +116,7 @@ describe("vault panel", () => {
     });
     renderPanel();
     await waitFor(() => expect(api.calls.length).toBe(1));
-    tap(5);
+    tap(3);
     fireEvent.change(await screen.findByLabelText("隐藏密码"), {
       target: { value: "123456" },
     });

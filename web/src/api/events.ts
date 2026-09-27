@@ -50,7 +50,31 @@ export const useEventConnection = create<ConnectionState>()((set) => ({
   setConnected: (connected) => set({ connected }),
 }));
 
+/*
+ * 高频事件（监控数据、智能家居状态）在页面切到后台时不处理，省 CPU。
+ * 记下漏掉的前缀，切回来时按前缀刷新一次对应的查询。
+ */
+const backgroundSkip: Array<[string, QueryKey]> = [
+  ["host.metrics", ["hosts"]],
+  ["ha.state_changed", ["ha"]],
+];
+const skipped = new Set<string>();
+if (typeof document !== "undefined")
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || skipped.size === 0) return;
+    for (const [prefix, key] of backgroundSkip)
+      if (skipped.has(prefix)) queryClient.invalidateQueries({ queryKey: key });
+    skipped.clear();
+  });
+
 function dispatch(event: ServerEvent) {
+  if (typeof document !== "undefined" && document.hidden) {
+    const skip = backgroundSkip.find(([p]) => event.topic.startsWith(p));
+    if (skip) {
+      skipped.add(skip[0]);
+      return;
+    }
+  }
   const keys = new Map<string, QueryKey>();
   for (const [prefix, key] of invalidations) {
     if (event.topic.startsWith(prefix)) keys.set(JSON.stringify(key), key);

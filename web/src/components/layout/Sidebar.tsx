@@ -41,11 +41,11 @@ export default function Sidebar({
   const t = useT();
   const children = useNavChildren();
   const [open, setOpen] = useState<string[]>(readOpen);
-  const toggle = (path: string) =>
+  // 点一级菜单就展开它的二级菜单；只有点箭头才会收起。
+  const setItemOpen = (path: string, value: boolean) =>
     setOpen((prev) => {
-      const next = prev.includes(path)
-        ? prev.filter((p) => p !== path)
-        : [...prev, path];
+      if (prev.includes(path) === value) return prev;
+      const next = value ? [...prev, path] : prev.filter((p) => p !== path);
       try {
         localStorage.setItem(OPEN_KEY, JSON.stringify(next));
       } catch {
@@ -106,7 +106,10 @@ export default function Sidebar({
                     <NavLink
                       to={item.path}
                       end={item.path === "/"}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={() => {
+                        if (Children) setItemOpen(item.path, true);
+                        setMobileOpen(false);
+                      }}
                       className={({ isActive }) =>
                         `nav-item ${isActive ? "selected" : ""}${Children ? " has-children" : ""}`
                       }
@@ -120,7 +123,7 @@ export default function Sidebar({
                         className={`nav-toggle${isOpen ? " open" : ""}`}
                         aria-expanded={isOpen}
                         aria-label={`${isOpen ? t("Collapse menu") : t("Expand menu")} ${t(item.label)}`}
-                        onClick={() => toggle(item.path)}
+                        onClick={() => setItemOpen(item.path, !isOpen)}
                       >
                         <ChevronRight size={14} />
                       </button>

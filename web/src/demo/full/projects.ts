@@ -211,7 +211,7 @@ const links = [
     id: 2,
     issueId: 1,
     kind: "coding_task",
-    title: "编码任务 #3",
+    title: "Agent 任务 #3",
     url: "/coding/3",
     ref: "3",
     createdAt: at(-60 * 3),

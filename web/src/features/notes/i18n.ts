@@ -87,4 +87,5 @@ registerZh({
   "Unhide note": "取消隐藏",
   "Moved to hidden": "已设为隐藏",
   "No longer hidden": "已取消隐藏",
+  "Tag color": "标签颜色",
 });

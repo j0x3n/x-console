@@ -29,6 +29,8 @@ export type Calendar = CalendarComponents["schemas"]["Calendar"];
 export type CalendarInput = CalendarComponents["schemas"]["CalendarInput"];
 export type CalendarPatch = CalendarComponents["schemas"]["CalendarPatch"];
 export type CalendarEvent = CalendarComponents["schemas"]["CalendarEvent"];
+export type EventInput = CalendarComponents["schemas"]["EventInput"];
+export type EventPatch = CalendarComponents["schemas"]["EventPatch"];
 export type Brief = BriefComponents["schemas"]["Brief"];
 export type BriefSettings = BriefComponents["schemas"]["BriefSettings"];
 export type BriefSettingsView = BriefComponents["schemas"]["BriefSettingsView"];
@@ -63,6 +65,42 @@ function useInvalidate(key: readonly unknown[]) {
 }
 
 // ---- calendars ----
+
+export function useCreateEvent() {
+  const invalidate = useInvalidate(calendarKeys.all);
+  return useMutation({
+    mutationFn: (body: EventInput) =>
+      unwrap(calendarApi.POST("/calendar/events", { body })),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateEvent() {
+  const invalidate = useInvalidate(calendarKeys.all);
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: EventPatch }) =>
+      unwrap(
+        calendarApi.PATCH("/calendar/events/{eventId}", {
+          params: { path: { eventId: id } },
+          body,
+        }),
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteEvent() {
+  const invalidate = useInvalidate(calendarKeys.all);
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        calendarApi.DELETE("/calendar/events/{eventId}", {
+          params: { path: { eventId: id } },
+        }),
+      ),
+    onSuccess: invalidate,
+  });
+}
 
 export function useCalendars() {
   return useQuery({

@@ -79,10 +79,19 @@ type NoteSummary struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// TagColorInput defines model for TagColorInput.
+type TagColorInput struct {
+	// Color 形如
+	Color string `json:"color"`
+	Tag   string `json:"tag"`
+}
+
 // TagCount defines model for TagCount.
 type TagCount struct {
-	Count int    `json:"count"`
-	Tag   string `json:"tag"`
+	// Color 用户给标签设的颜色，形如
+	Color *string `json:"color,omitempty"`
+	Count int     `json:"count"`
+	Tag   string  `json:"tag"`
 }
 
 // UpdateNote defines model for UpdateNote.
@@ -142,6 +151,9 @@ type NoteToReminderJSONBody struct {
 // CreateNoteJSONRequestBody defines body for CreateNote for application/json ContentType.
 type CreateNoteJSONRequestBody = CreateNote
 
+// SetNoteTagColorJSONRequestBody defines body for SetNoteTagColor for application/json ContentType.
+type SetNoteTagColorJSONRequestBody = TagColorInput
+
 // UpdateNoteJSONRequestBody defines body for UpdateNote for application/json ContentType.
 type UpdateNoteJSONRequestBody = UpdateNote
 
@@ -168,6 +180,9 @@ type ServerInterface interface {
 
 	// (GET /notes/attachments/{attachmentId})
 	DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId)
+
+	// (PUT /notes/tag-colors)
+	SetNoteTagColor(w http.ResponseWriter, r *http.Request)
 
 	// (GET /notes/tags)
 	ListNoteTags(w http.ResponseWriter, r *http.Request)
@@ -215,6 +230,11 @@ func (_ Unimplemented) DeleteNoteAttachment(w http.ResponseWriter, r *http.Reque
 
 // (GET /notes/attachments/{attachmentId})
 func (_ Unimplemented) DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /notes/tag-colors)
+func (_ Unimplemented) SetNoteTagColor(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -435,6 +455,20 @@ func (siw *ServerInterfaceWrapper) DownloadNoteAttachment(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DownloadNoteAttachment(w, r, attachmentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetNoteTagColor operation middleware
+func (siw *ServerInterfaceWrapper) SetNoteTagColor(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetNoteTagColor(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -761,6 +795,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/notes/tags", wrapper.ListNoteTags)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/notes/tag-colors", wrapper.SetNoteTagColor)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/notes/{noteId}", wrapper.DeleteNote)

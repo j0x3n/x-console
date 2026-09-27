@@ -227,7 +227,7 @@ const notifications = [
   },
   {
     kind: "coding.review",
-    title: "编码任务等你看：登录页只用密码登录",
+    title: "Agent 任务等你看：登录页只用密码登录",
     body: "改了 2 个文件",
     link: "/coding/2",
     priority: "normal",

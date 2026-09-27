@@ -78,6 +78,17 @@ export function useTags() {
   });
 }
 
+export function useSetTagColor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { tag: string; color: string }) =>
+      unwrap(notesApi.PUT("/notes/tag-colors", { body })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: notesKeys.tags }),
+    onError: (error: unknown) =>
+      toast({ message: errorMessage(error), tone: "error" }),
+  });
+}
+
 export function patchNote(id: number, body: UpdateNote) {
   return unwrap(
     notesApi.PATCH("/notes/{noteId}", { params: { path: { noteId: id } }, body }),

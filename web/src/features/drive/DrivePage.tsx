@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
   ArrowDown,
+  Cloud,
   ArrowUp,
   ChevronRight,
   Download,
   EyeOff,
+  Files,
   FolderInput,
   FolderPlus,
   HardDrive,
@@ -18,7 +20,6 @@ import {
 } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { SearchBox, Segmented, Toolbar } from "../../components/ui/Toolbar";
-import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
@@ -333,6 +334,14 @@ function DriveBrowser() {
     <div className="xc-page drive-page">
       <PageHeading
         title={t("Drive")}
+        subtitle={
+          <DriveSummary
+            usage={usage.data}
+            s3={s3.data}
+            s3Missing={s3.isError}
+            language={language}
+          />
+        }
         aside={
           !trash && (
             <>
@@ -365,13 +374,6 @@ function DriveBrowser() {
             </>
           )
         }
-      />
-
-      <DriveStats
-        usage={usage.data}
-        s3={s3.data}
-        s3Missing={s3.isError}
-        language={language}
       />
 
       <Toolbar
@@ -814,7 +816,8 @@ const S3_LABELS: Record<S3Status["state"], string> = {
   failed: "Sync failed",
 };
 
-function DriveStats({
+/** 标题下面一行：文件数、占用、S3 同步状态。 */
+function DriveSummary({
   usage,
   s3,
   s3Missing,
@@ -828,44 +831,35 @@ function DriveStats({
   const t = useT();
   const state = s3?.state ?? "off";
   return (
-    <StatStrip label={t("Drive")}>
-      <StatCard
-        label={t("Files")}
-        value={usage ? usage.files : "-"}
-        foot={t("Not counting hidden items")}
-      />
-      <StatCard
-        label={t("Storage used")}
-        value={usage ? formatBytes(usage.bytes) : "-"}
-        foot={
-          usage ? `${t("Trash")} ${formatBytes(usage.trashBytes)}` : undefined
-        }
-      />
-      <StatCard
-        label={t("S3 sync")}
-        value={s3Missing ? "-" : t(S3_LABELS[state])}
-        tone={
-          state === "failed"
-            ? "danger"
-            : state === "syncing"
-              ? "info"
-              : state === "idle"
-                ? "ok"
-                : undefined
-        }
-        caption={
-          s3 && s3.pending > 0 ? `${s3.pending} ${t("waiting")}` : undefined
-        }
-        foot={
-          state === "off" ? (
-            <Link to="/settings/drive-sync">{t("Set up")}</Link>
-          ) : state === "failed" && s3?.lastError ? (
-            <span title={s3.lastError}>{s3.lastError}</span>
-          ) : s3?.lastRunAt ? (
-            `${t("Last sync")} ${relativeTime(s3.lastRunAt, language)}`
-          ) : undefined
-        }
-      />
-    </StatStrip>
+    <span className="drive-summary">
+      <span>
+        <Files size={13} /> {usage ? usage.files : "-"} {t("files")}
+      </span>
+      <span>
+        <HardDrive size={13} /> {usage ? formatBytes(usage.bytes) : "-"}
+        {usage && usage.trashBytes > 0 && (
+          <small>
+            {" "}
+            · {t("Trash")} {formatBytes(usage.trashBytes)}
+          </small>
+        )}
+      </span>
+      {!s3Missing && (
+        <span className={`drive-summary-s3 is-${state}`}>
+          <Cloud size={13} />{" "}
+          {state === "off" ? (
+            <Link to="/settings/drive-sync">{t("Set up S3 sync")}</Link>
+          ) : (
+            <>
+              {t(S3_LABELS[state])}
+              {s3 && s3.pending > 0 && ` · ${s3.pending} ${t("waiting")}`}
+              {state === "idle" && s3?.lastRunAt && (
+                <small> · {relativeTime(s3.lastRunAt, language)}</small>
+              )}
+            </>
+          )}
+        </span>
+      )}
+    </span>
   );
 }

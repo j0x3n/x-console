@@ -1,25 +1,28 @@
-/* M3 本机：剪贴板和快捷操作卡片。 */
-.pc-quick {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  margin-bottom: 16px;
+/* M3 本机：页头的快捷按钮，剪贴板和打开程序在弹窗里。 */
+.pc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.pc-bar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--xc-border);
+}
+@media (max-width: 1100px) {
+  /* 窄了只留图标 */
+  .pc-bar .xc-btn span {
+    display: none;
+  }
 }
 .pc-clip {
-  min-height: 84px;
+  min-height: 120px;
 }
 .pc-actions {
   margin-top: 10px;
   flex-wrap: wrap;
-}
-.pc-power {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, 1fr);
-  margin-bottom: 12px;
-}
-.pc-power .xc-btn {
-  height: 36px;
 }
 .pc-open .xc-input {
   flex: 1;

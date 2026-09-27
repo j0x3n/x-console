@@ -104,6 +104,11 @@ const summary = (n: Note, q?: string) => {
   };
 };
 
+const tagColors = new Map<string, string>([
+  ["工作", "#70b5f7"],
+  ["家里", "#5cc98b"],
+]);
+
 export function register() {
   route("GET", "/notes", ({ query }) => {
     const q = query.get("q") ?? "";
@@ -125,6 +130,11 @@ export function register() {
       );
     return json({ items: list.map((n) => summary(n, q || undefined)) });
   });
+  route("PUT", "/notes/tag-colors", ({ body }) => {
+    if (body.color) tagColors.set(body.tag, body.color);
+    else tagColors.delete(body.tag);
+    return noContent();
+  });
   route("GET", "/notes/tags", () => {
     const counts = new Map<string, number>();
     for (const n of notes)
@@ -132,7 +142,7 @@ export function register() {
         for (const t of n.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
     return json(
       [...counts]
-        .map(([tag, count]) => ({ tag, count }))
+        .map(([tag, count]) => ({ tag, count, color: tagColors.get(tag) }))
         .sort((a, b) => b.count - a.count),
     );
   });

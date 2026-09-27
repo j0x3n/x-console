@@ -1,5 +1,15 @@
 import { useState, type ReactNode } from "react";
-import { Bell, Flame, HeartPulse, Pencil, Plus, Undo2 } from "lucide-react";
+import MoreMenu from "../../components/ui/MoreMenu";
+import {
+  Bell,
+  Dumbbell,
+  Flame,
+  HeartPulse,
+  Pencil,
+  Plus,
+  Undo2,
+  X,
+} from "lucide-react";
 import { errorMessage } from "../../api/client";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
@@ -12,6 +22,7 @@ import {
   type Habit,
   type HabitToday,
 } from "./api";
+import { FitnessSummary, TodayLogDialog } from "./FitnessModule";
 import HabitDialog from "./HabitDialog";
 import { formatAmount, ratio, remindSummary, ringGeometry } from "./progress";
 
@@ -40,8 +51,20 @@ export function ProgressRing({
   const { circumference, offset } = ringGeometry(value, r);
   return (
     <div className="habits-ring" style={{ width: size, height: size }}>
-      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--xc-surface-2)" strokeWidth={stroke} />
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        width={size}
+        height={size}
+        aria-hidden="true"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="var(--xc-surface-2)"
+          strokeWidth={stroke}
+        />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -84,10 +107,15 @@ export default function TodayView({
       ) : (
         <div className="habits-grid">
           {today.data.map((p) => (
-            <HabitCard key={p.habit.id} progress={p} onEdit={() => setEditing(p.habit)} />
+            <HabitCard
+              key={p.habit.id}
+              progress={p}
+              onEdit={() => setEditing(p.habit)}
+            />
           ))}
         </div>
       )}
+      <HabitModules />
       <HabitDialog
         open={creating || editing !== null}
         habit={editing}
@@ -100,7 +128,83 @@ export default function TodayView({
   );
 }
 
-function HabitCard({ progress: p, onEdit }: { progress: HabitToday; onEdit: () => void }) {
+/** 习惯页下面可以加的模块。只有健身一种，以后加别的也放这里。 */
+const modules = [
+  { id: "fitness", title: "Workout", icon: <Dumbbell size={15} /> },
+];
+const MODULES_KEY = "xc.habits.modules";
+
+function loadModules(): string[] {
+  try {
+    const raw = localStorage.getItem(MODULES_KEY);
+    if (raw) return JSON.parse(raw) as string[];
+  } catch {
+    // 读不到就用默认
+  }
+  return ["fitness"];
+}
+
+function HabitModules() {
+  const t = useT();
+  const [enabled, setEnabled] = useState(loadModules);
+  const save = (next: string[]) => {
+    setEnabled(next);
+    try {
+      localStorage.setItem(MODULES_KEY, JSON.stringify(next));
+    } catch {
+      // 存不了就只在这次打开的页面里生效
+    }
+  };
+  const available = modules.filter((m) => !enabled.includes(m.id));
+  return (
+    <>
+      {modules
+        .filter((m) => enabled.includes(m.id))
+        .map((m) => (
+          <section className="xc-card habits-module" key={m.id}>
+            <div className="xc-card-head">
+              <h2>
+                {m.icon} {t(m.title)}
+              </h2>
+              <MoreMenu
+                label={t("More")}
+                items={[
+                  {
+                    key: "remove",
+                    label: t("Remove module"),
+                    icon: <X size={14} />,
+                    onSelect: () => save(enabled.filter((id) => id !== m.id)),
+                  },
+                ]}
+              />
+            </div>
+            <FitnessSummary />
+          </section>
+        ))}
+      {available.length > 0 && (
+        <div className="habits-add-module">
+          {available.map((m) => (
+            <button
+              key={m.id}
+              className="xc-btn small ghost"
+              onClick={() => save([...enabled, m.id])}
+            >
+              <Plus size={14} /> {t("Add module")}：{t(m.title)}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function HabitCard({
+  progress: p,
+  onEdit,
+}: {
+  progress: HabitToday;
+  onEdit: () => void;
+}) {
   const t = useT();
   const language = useLanguage();
   const checkin = useCheckin();
@@ -109,6 +213,8 @@ function HabitCard({ progress: p, onEdit }: { progress: HabitToday; onEdit: () =
   const color = colorVar(h.color);
   const last = p.logs[0];
   const summary = remindSummary(h, language);
+  const isWorkout = h.kind === "workout";
+  const [logging, setLogging] = useState(false);
 
   const plusOne = () =>
     checkin.mutate(
@@ -116,7 +222,10 @@ function HabitCard({ progress: p, onEdit }: { progress: HabitToday; onEdit: () =
       {
         onSuccess: (res) =>
           toast({
-            message: res.today.reached && !p.reached ? t("Goal reached today") : t("Checked in"),
+            message:
+              res.today.reached && !p.reached
+                ? t("Goal reached today")
+                : t("Checked in"),
             subtitle: `${h.name} ${formatAmount(res.today.done)}/${formatAmount(h.dailyTarget)} ${h.unit}`,
             onUndo: () => undo.mutate(res.log.id, { onError }),
           }),
@@ -134,7 +243,12 @@ function HabitCard({ progress: p, onEdit }: { progress: HabitToday; onEdit: () =
         <div className="habits-card-title">
           {h.icon && <span className="habits-icon">{h.icon}</span>}
           <span>{h.name}</span>
-          <button className="xc-btn ghost small habits-edit" aria-label={t("Edit")} title={t("Edit")} onClick={onEdit}>
+          <button
+            className="xc-btn ghost small habits-edit"
+            aria-label={t("Edit")}
+            title={t("Edit")}
+            onClick={onEdit}
+          >
             <Pencil size={13} />
           </button>
         </div>
@@ -152,21 +266,42 @@ function HabitCard({ progress: p, onEdit }: { progress: HabitToday; onEdit: () =
           )}
         </div>
         <div className="habits-card-actions">
-          <button className="xc-btn primary small" disabled={checkin.isPending} onClick={plusOne}>
-            <Plus size={14} /> 1 {h.unit}
-          </button>
+          {isWorkout ? (
+            <button
+              className="xc-btn primary small"
+              onClick={() => setLogging(true)}
+            >
+              <Dumbbell size={14} /> {t("Log workout")}
+            </button>
+          ) : (
+            <button
+              className="xc-btn primary small"
+              disabled={checkin.isPending}
+              onClick={plusOne}
+            >
+              <Plus size={14} /> 1 {h.unit}
+            </button>
+          )}
           {last && (
             <button
               className="xc-btn ghost small"
               disabled={undo.isPending}
               title={`${t("Undo")} ${formatTime(last.at, language)} +${formatAmount(last.amount)}`}
-              onClick={() => undo.mutate(last.id, { onSuccess: () => toast(t("Undone")), onError })}
+              onClick={() =>
+                undo.mutate(last.id, {
+                  onSuccess: () => toast(t("Undone")),
+                  onError,
+                })
+              }
             >
               <Undo2 size={13} /> {t("Undo")}
             </button>
           )}
         </div>
       </div>
+      {isWorkout && (
+        <TodayLogDialog open={logging} onClose={() => setLogging(false)} />
+      )}
     </div>
   );
 }

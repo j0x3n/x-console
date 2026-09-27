@@ -35,7 +35,7 @@ registerZh({
   "Review requested": "等待评审",
   Commented: "有评论",
   "No review": "未评审",
-  "Coding task": "编码任务",
+  "Coding task": "Agent 任务",
   "Default branches": "默认分支",
   default: "默认",
   Workflow: "工作流",

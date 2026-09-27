@@ -392,6 +392,11 @@ type NoteTag struct {
 	Tag    string
 }
 
+type NoteTagColor struct {
+	Tag   string
+	Color string
+}
+
 type NotesFt struct {
 	Title string
 	Body  string

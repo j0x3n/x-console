@@ -8,7 +8,7 @@ import { useHosts } from "../servers/api";
 import { HostStatus } from "../servers/components/HostCard";
 import HostView from "../servers/components/HostView";
 import { pickDesktop } from "../servers/lib";
-import { ClipboardCard, QuickActionsCard } from "./QuickCards";
+import { PcQuickBar } from "./QuickCards";
 import { loadSelectedHost, saveSelectedHost } from "./recent";
 
 /** 本机：只看 kind=desktop 的机器，通常只有一台，直接进详情。 */
@@ -68,16 +68,11 @@ export default function PcPage() {
                     ))}
                   </select>
                 )}
+                <PcQuickBar host={h} />
                 <HostStatus host={h} />
               </>
             }
           />
-        )}
-        extra={(h) => (
-          <div className="pc-quick">
-            <ClipboardCard host={h} />
-            <QuickActionsCard host={h} />
-          </div>
         )}
       />
     </div>

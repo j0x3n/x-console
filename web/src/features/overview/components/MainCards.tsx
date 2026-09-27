@@ -126,7 +126,7 @@ export function useTodoCount() {
   };
 }
 
-/** 待你决定：等你确认的编码任务和已经逾期的 Issue。 */
+/** 待你决定：等你确认的 Agent 任务和已经逾期的 Issue。 */
 export function DecisionsCard() {
   const t = useT();
   const language = useLanguage();

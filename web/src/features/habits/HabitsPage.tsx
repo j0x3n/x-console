@@ -7,12 +7,11 @@ import { useHabitsToday } from "./api";
 import { formatAmount, ratio } from "./progress";
 import StatsView from "./StatsView";
 import TodayView from "./TodayView";
-import WorkoutView from "./WorkoutView";
+import { TodayLogDialog } from "./FitnessModule";
 
 const tabs = [
   { id: "", label: "Today", to: "/habits" },
   { id: "stats", label: "Stats", to: "/habits/stats" },
-  { id: "workout", label: "Workout", to: "/habits/workout" },
 ];
 
 export default function HabitsPage() {
@@ -21,6 +20,12 @@ export default function HabitsPage() {
   const [params, setParams] = useSearchParams();
   const current = tabs.find((x) => x.id === tab) ?? tabs[0];
   const creating = params.get("new") === "1";
+  const logging = params.get("log") === "workout";
+  const closeLog = () => {
+    const next = new URLSearchParams(params);
+    next.delete("log");
+    setParams(next, { replace: true });
+  };
   const setCreating = (open: boolean) => {
     const next = new URLSearchParams(params);
     if (open) next.set("new", "1");
@@ -109,7 +114,7 @@ export default function HabitsPage() {
         <TodayView creating={creating} onCloseCreate={() => setCreating(false)} />
       )}
       {current.id === "stats" && <StatsView />}
-      {current.id === "workout" && <WorkoutView />}
+      {logging && <TodayLogDialog open onClose={closeLog} />}
     </div>
   );
 }

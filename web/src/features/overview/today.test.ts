@@ -6,6 +6,7 @@ import {
   moveCard,
   normalizeLayout,
   shiftCard,
+  spreadSide,
   toggleCard,
 } from "./layout";
 import {
@@ -142,8 +143,8 @@ describe("layout", () => {
       "activity",
       "schedule",
       "habits",
-      "weather",
       "home",
+      "fitness",
     ]);
     expect(moveCard(base, "todos", "schedule")).toBe(base);
   });
@@ -157,6 +158,25 @@ describe("layout", () => {
     expect(toggleCard(base, "home").find((c) => c.id === "home")?.visible).toBe(
       false,
     );
+  });
+
+  it("keeps optional cards hidden until turned on", () => {
+    expect(defaultLayout().find((c) => c.id === "fitness")?.visible).toBe(
+      false,
+    );
+    expect(normalizeLayout([]).find((c) => c.id === "fitness")?.visible).toBe(
+      false,
+    );
+  });
+
+  it("spreads side cards over columns by height", () => {
+    const side = columnCards(defaultLayout(), "side");
+    expect(spreadSide(side, 1)[0]).toHaveLength(side.length);
+    const two = spreadSide(side, 2).map((col) => col.map((c) => c.id));
+    expect(two).toEqual([
+      ["schedule", "activity"],
+      ["habits", "home", "fitness"],
+    ]);
   });
 
   it("keeps order unique after a move", () => {

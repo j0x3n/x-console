@@ -174,7 +174,8 @@ describe("TodayPage", () => {
     await screen.findByText("今天没有日程");
     fireEvent.click(screen.getByRole("button", { name: /调整布局/ }));
     expect(await screen.findByText(/还没上线/)).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("button", { name: "隐藏" })[0]);
+    // 第一个是标题旁的天气，第二个是“今日待办”卡片。
+    fireEvent.click(screen.getAllByRole("button", { name: "隐藏" })[1]);
     fireEvent.click(screen.getByRole("button", { name: "完成" }));
     expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
     expect(screen.queryByText("今日待办", { selector: "h2" })).toBeNull();

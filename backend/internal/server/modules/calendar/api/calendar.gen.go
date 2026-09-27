@@ -17,6 +17,7 @@ import (
 const (
 	Caldav CalendarKind = "caldav"
 	Ics    CalendarKind = "ics"
+	Local  CalendarKind = "local"
 )
 
 // Valid indicates whether the value is a known member of the CalendarKind enum.
@@ -25,6 +26,8 @@ func (e CalendarKind) Valid() bool {
 	case Caldav:
 		return true
 	case Ics:
+		return true
+	case Local:
 		return true
 	default:
 		return false
@@ -39,10 +42,12 @@ type Calendar struct {
 	Enabled   bool      `json:"enabled"`
 
 	// EventCount 同步下来的事件条数（重复事件算一条）
-	EventCount  int          `json:"eventCount"`
-	HasPassword bool         `json:"hasPassword"`
-	Id          int64        `json:"id"`
-	Kind        CalendarKind `json:"kind"`
+	EventCount  int   `json:"eventCount"`
+	HasPassword bool  `json:"hasPassword"`
+	Id          int64 `json:"id"`
+
+	// Kind ics 订阅链接，只读；caldav 可以读写（iCloud 等）；local 存在自己服务器上的日历
+	Kind CalendarKind `json:"kind"`
 
 	// LastError 上次同步的错误，成功时为空
 	LastError    string     `json:"lastError"`
@@ -50,6 +55,9 @@ type Calendar struct {
 	Name         string     `json:"name"`
 	Url          string     `json:"url"`
 	Username     string     `json:"username"`
+
+	// Writable 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 为 false
+	Writable *bool `json:"writable,omitempty"`
 }
 
 // CalendarEvent defines model for CalendarEvent.
@@ -76,14 +84,19 @@ type CalendarEvent struct {
 	// StartDate 全天事件的开始日期 YYYY-MM-DD
 	StartDate *string `json:"startDate,omitempty"`
 	Title     string  `json:"title"`
+
+	// Writable 能不能改。日历可写且不是重复事件时为 true
+	Writable *bool `json:"writable,omitempty"`
 }
 
 // CalendarInput defines model for CalendarInput.
 type CalendarInput struct {
-	Color   *string      `json:"color,omitempty"`
-	Enabled *bool        `json:"enabled,omitempty"`
-	Kind    CalendarKind `json:"kind"`
-	Name    string       `json:"name"`
+	Color   *string `json:"color,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+
+	// Kind ics 订阅链接，只读；caldav 可以读写（iCloud 等）；local 存在自己服务器上的日历
+	Kind CalendarKind `json:"kind"`
+	Name string       `json:"name"`
 
 	// Password 加密保存，不会再返回
 	Password *string `json:"password,omitempty"`
@@ -93,7 +106,7 @@ type CalendarInput struct {
 	Username *string `json:"username,omitempty"`
 }
 
-// CalendarKind defines model for CalendarKind.
+// CalendarKind ics 订阅链接，只读；caldav 可以读写（iCloud 等）；local 存在自己服务器上的日历
 type CalendarKind string
 
 // CalendarPatch defines model for CalendarPatch.
@@ -106,6 +119,42 @@ type CalendarPatch struct {
 	Username *string `json:"username,omitempty"`
 }
 
+// EventInput defines model for EventInput.
+type EventInput struct {
+	AllDay      bool    `json:"allDay"`
+	CalendarId  int64   `json:"calendarId"`
+	Description *string `json:"description,omitempty"`
+
+	// End 不是全天事件时必填
+	End *time.Time `json:"end,omitempty"`
+
+	// EndDate 全天事件的结束日期 YYYY-MM-DD（不含）
+	EndDate  *string `json:"endDate,omitempty"`
+	Location *string `json:"location,omitempty"`
+
+	// Start 不是全天事件时必填
+	Start *time.Time `json:"start,omitempty"`
+
+	// StartDate 全天事件的开始日期 YYYY-MM-DD
+	StartDate *string `json:"startDate,omitempty"`
+	Title     string  `json:"title"`
+}
+
+// EventPatch defines model for EventPatch.
+type EventPatch struct {
+	AllDay *bool `json:"allDay,omitempty"`
+
+	// CalendarId 移到另一个可写的日历
+	CalendarId  *int64     `json:"calendarId,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	End         *time.Time `json:"end,omitempty"`
+	EndDate     *string    `json:"endDate,omitempty"`
+	Location    *string    `json:"location,omitempty"`
+	Start       *time.Time `json:"start,omitempty"`
+	StartDate   *string    `json:"startDate,omitempty"`
+	Title       *string    `json:"title,omitempty"`
+}
+
 // CalendarId defines model for CalendarId.
 type CalendarId = int64
 
@@ -114,6 +163,12 @@ type ListCalendarEventsParams struct {
 	From time.Time `form:"from" json:"from"`
 	To   time.Time `form:"to" json:"to"`
 }
+
+// CreateCalendarEventJSONRequestBody defines body for CreateCalendarEvent for application/json ContentType.
+type CreateCalendarEventJSONRequestBody = EventInput
+
+// UpdateCalendarEventJSONRequestBody defines body for UpdateCalendarEvent for application/json ContentType.
+type UpdateCalendarEventJSONRequestBody = EventPatch
 
 // CreateCalendarJSONRequestBody defines body for CreateCalendar for application/json ContentType.
 type CreateCalendarJSONRequestBody = CalendarInput
@@ -126,6 +181,15 @@ type ServerInterface interface {
 
 	// (GET /calendar/events)
 	ListCalendarEvents(w http.ResponseWriter, r *http.Request, params ListCalendarEventsParams)
+
+	// (POST /calendar/events)
+	CreateCalendarEvent(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /calendar/events/{eventId})
+	DeleteCalendarEvent(w http.ResponseWriter, r *http.Request, eventId int64)
+
+	// (PATCH /calendar/events/{eventId})
+	UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, eventId int64)
 
 	// (GET /calendars)
 	ListCalendars(w http.ResponseWriter, r *http.Request)
@@ -152,6 +216,21 @@ type Unimplemented struct{}
 
 // (GET /calendar/events)
 func (_ Unimplemented) ListCalendarEvents(w http.ResponseWriter, r *http.Request, params ListCalendarEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /calendar/events)
+func (_ Unimplemented) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /calendar/events/{eventId})
+func (_ Unimplemented) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request, eventId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /calendar/events/{eventId})
+func (_ Unimplemented) UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, eventId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -231,6 +310,72 @@ func (siw *ServerInterfaceWrapper) ListCalendarEvents(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListCalendarEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateCalendarEvent operation middleware
+func (siw *ServerInterfaceWrapper) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateCalendarEvent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCalendarEvent operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", chi.URLParam(r, "eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCalendarEvent(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCalendarEvent operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCalendarEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "eventId" -------------
+	var eventId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventId", chi.URLParam(r, "eventId"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCalendarEvent(w, r, eventId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -505,6 +650,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/calendar/events", wrapper.ListCalendarEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/calendar/events", wrapper.CreateCalendarEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/calendar/events/{eventId}", wrapper.DeleteCalendarEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/calendar/events/{eventId}", wrapper.UpdateCalendarEvent)
 	})
 
 	return r

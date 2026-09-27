@@ -24,7 +24,8 @@ const onError = (err: unknown) =>
 export default function CalendarsManager() {
   const t = useT();
   const [params, setParams] = useSearchParams();
-  const creating = params.get("new") === "1";
+  const creating = !!params.get("new");
+  const presetKind = params.get("new") === "local" ? "local" : undefined;
   const [editing, setEditing] = useState<Calendar | null>(null);
   const list = useCalendars();
 
@@ -41,7 +42,9 @@ export default function CalendarsManager() {
     <div className="xc-stack">
       <div className="xc-row">
         <span className="xc-muted calendar-note">
-          {t("Calendars sync every 15 minutes. They are read only here.")}
+          {t(
+            "Local and CalDAV calendars can be edited here. ICS links are read only. Remote calendars sync every 15 minutes.",
+          )}
         </span>
         <span className="xc-spacer" />
         <button
@@ -72,6 +75,7 @@ export default function CalendarsManager() {
       <CalendarDialog
         open={creating || editing !== null}
         calendar={editing}
+        presetKind={presetKind}
         onClose={closeDialog}
       />
     </div>
@@ -100,13 +104,24 @@ function CalendarRow({
         <div className="calendar-item-title">
           <strong>{c.name}</strong>
           <span className="xc-badge">
-            {c.kind === "ics" ? "ICS" : "CalDAV"}
+            {c.kind === "ics"
+              ? "ICS"
+              : c.kind === "caldav"
+                ? "CalDAV"
+                : t("Local")}
           </span>
+          {c.kind !== "ics" && (
+            <span className="xc-badge ok">{t("Editable")}</span>
+          )}
           {!c.enabled && <span className="xc-badge warn">{t("Hidden")}</span>}
         </div>
-        <div className="calendar-item-url xc-mono">{c.url}</div>
+        {c.url && <div className="calendar-item-url xc-mono">{c.url}</div>}
         <div className="calendar-item-meta">
-          {c.lastError ? (
+          {c.kind === "local" ? (
+            <span>
+              {c.eventCount} {t("events")}
+            </span>
+          ) : c.lastError ? (
             <span className="calendar-error">{c.lastError}</span>
           ) : c.lastSyncedAt ? (
             <span>
@@ -133,26 +148,28 @@ function CalendarRow({
           />
           <span>{t("Show")}</span>
         </label>
-        <button
-          className="xc-btn ghost small"
-          title={t("Sync now")}
-          aria-label={t("Sync now")}
-          disabled={sync.isPending || !c.enabled}
-          onClick={() =>
-            sync.mutate(c.id, {
-              onSuccess: (res) =>
-                res.lastError
-                  ? toast({ message: res.lastError, tone: "error" })
-                  : toast(t("Synced")),
-              onError,
-            })
-          }
-        >
-          <RefreshCw
-            size={14}
-            className={sync.isPending ? "calendar-spin" : ""}
-          />
-        </button>
+        {c.kind !== "local" && (
+          <button
+            className="xc-btn ghost small"
+            title={t("Sync now")}
+            aria-label={t("Sync now")}
+            disabled={sync.isPending || !c.enabled}
+            onClick={() =>
+              sync.mutate(c.id, {
+                onSuccess: (res) =>
+                  res.lastError
+                    ? toast({ message: res.lastError, tone: "error" })
+                    : toast(t("Synced")),
+                onError,
+              })
+            }
+          >
+            <RefreshCw
+              size={14}
+              className={sync.isPending ? "calendar-spin" : ""}
+            />
+          </button>
+        )}
         <button
           className="xc-btn ghost small"
           title={t("Edit")}
@@ -184,7 +201,7 @@ function CalendarRow({
 
 interface FormState {
   name: string;
-  kind: "ics" | "caldav";
+  kind: "ics" | "caldav" | "local";
   url: string;
   username: string;
   password: string;
@@ -193,7 +210,7 @@ interface FormState {
 
 const emptyForm: FormState = {
   name: "",
-  kind: "ics",
+  kind: "local",
   url: "",
   username: "",
   password: "",
@@ -203,10 +220,12 @@ const emptyForm: FormState = {
 function CalendarDialog({
   open,
   calendar,
+  presetKind,
   onClose,
 }: {
   open: boolean;
   calendar: Calendar | null;
+  presetKind?: FormState["kind"];
   onClose: () => void;
 }) {
   const t = useT();
@@ -228,18 +247,19 @@ function CalendarDialog({
             password: "",
             color: calendar.color,
           }
-        : emptyForm,
+        : { ...emptyForm, kind: presetKind ?? emptyForm.kind },
     );
-  }, [open, calendar]);
+  }, [open, calendar, presetKind]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   const submit = () => {
     if (!form.name.trim()) return setError(t("Name is required"));
-    if (!form.url.trim()) return setError(t("Address is required"));
+    const local = form.kind === "local";
+    if (!local && !form.url.trim()) return setError(t("Address is required"));
     const done = () => {
-      toast(t("Saved. Syncing now."));
+      toast(local ? t("Saved") : t("Saved. Syncing now."));
       onClose();
     };
     const fail = (err: unknown) => setError(errorMessage(err));
@@ -314,62 +334,74 @@ function CalendarDialog({
               value={form.kind}
               onChange={(e) => set("kind", e.target.value as FormState["kind"])}
             >
+              <option value="local">{t("Local calendar")}</option>
+              <option value="caldav">{t("CalDAV, such as iCloud")}</option>
               <option value="ics">{t("ICS subscription link")}</option>
-              <option value="caldav">CalDAV</option>
             </select>
           </label>
         )}
-        <label className="xc-field">
-          <span>{t("Address")}</span>
-          <input
-            className="xc-input"
-            value={form.url}
-            inputMode="url"
-            placeholder={
-              form.kind === "ics"
-                ? "https://…/basic.ics"
-                : "https://caldav.example.com/"
-            }
-            onChange={(e) => set("url", e.target.value)}
-          />
-          <small>
-            {form.kind === "ics"
-              ? t("A webcal:// link works too.")
-              : t(
-                  "A calendar address or the server address. Calendars are found automatically.",
-                )}
-          </small>
-        </label>
-        <div className="calendar-form-row">
-          <label className="xc-field">
-            <span>
-              {t("Username")}{" "}
-              <small className="xc-muted">{t("optional")}</small>
-            </span>
-            <input
-              className="xc-input"
-              value={form.username}
-              autoComplete="off"
-              onChange={(e) => set("username", e.target.value)}
-            />
-          </label>
-          <label className="xc-field">
-            <span>
-              {t("Password")}{" "}
-              <small className="xc-muted">{t("optional")}</small>
-            </span>
-            <input
-              className="xc-input"
-              type="password"
-              value={form.password}
-              autoComplete="new-password"
-              placeholder={
-                calendar?.hasPassword ? t("Leave empty to keep it") : ""
-              }
-              onChange={(e) => set("password", e.target.value)}
-            />
-          </label>
-        </div>
+        {form.kind === "local" && (
+          <p className="calendar-kind-hint">
+            {t("Saved on your own server. Add and edit events here.")}
+          </p>
+        )}
+        {form.kind !== "local" && (
+          <>
+            <label className="xc-field">
+              <span>{t("Address")}</span>
+              <input
+                className="xc-input"
+                value={form.url}
+                inputMode="url"
+                placeholder={
+                  form.kind === "ics"
+                    ? "https://…/basic.ics"
+                    : "https://caldav.example.com/"
+                }
+                onChange={(e) => set("url", e.target.value)}
+              />
+              <small>
+                {form.kind === "ics"
+                  ? t(
+                      "A webcal:// link works too. For Google Calendar, use the secret address in iCal format from its settings.",
+                    )
+                  : t(
+                      "For iCloud, use https://caldav.icloud.com, your Apple ID and an app-specific password. Events you add here are written back.",
+                    )}
+              </small>
+            </label>
+            <div className="calendar-form-row">
+              <label className="xc-field">
+                <span>
+                  {t("Username")}{" "}
+                  <small className="xc-muted">{t("optional")}</small>
+                </span>
+                <input
+                  className="xc-input"
+                  value={form.username}
+                  autoComplete="off"
+                  onChange={(e) => set("username", e.target.value)}
+                />
+              </label>
+              <label className="xc-field">
+                <span>
+                  {t("Password")}{" "}
+                  <small className="xc-muted">{t("optional")}</small>
+                </span>
+                <input
+                  className="xc-input"
+                  type="password"
+                  value={form.password}
+                  autoComplete="new-password"
+                  placeholder={
+                    calendar?.hasPassword ? t("Leave empty to keep it") : ""
+                  }
+                  onChange={(e) => set("password", e.target.value)}
+                />
+              </label>
+            </div>
+          </>
+        )}
         <label className="xc-field">
           <span>{t("Color")}</span>
           <div className="xc-row">

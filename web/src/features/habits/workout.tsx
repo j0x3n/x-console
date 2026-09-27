@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dumbbell, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
 import { ErrorState, Loading } from "../../components/ui/States";
@@ -12,18 +12,17 @@ import {
   useSavePlans,
   useSaveWorkoutSettings,
   useWorkoutLogs,
-  useWorkoutPlans,
   useWorkoutSettings,
   type WorkoutItem,
   type WorkoutPlan,
 } from "./api";
-import { describeItem, isoWeekday, plansToSave, weekPlans, type DayPlan } from "./progress";
+import { describeItem, plansToSave, weekPlans, type DayPlan } from "./progress";
 
 const onError = (err: unknown) => toast({ message: errorMessage(err), tone: "error" });
 
-const weekdayLabels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+export const weekdayLabels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-function toItem(i: WorkoutItem) {
+export function toItem(i: WorkoutItem) {
   return {
     name: i.name,
     sets: i.sets ?? undefined,
@@ -33,57 +32,7 @@ function toItem(i: WorkoutItem) {
   };
 }
 
-export default function WorkoutView() {
-  const plans = useWorkoutPlans();
-  if (plans.isPending) return <Loading />;
-  if (plans.isError) return <ErrorState error={plans.error} onRetry={() => plans.refetch()} />;
-  return (
-    <div className="xc-stack">
-      <TodayPlan plans={plans.data} />
-      <WeekEditor plans={plans.data} />
-      <RecentLogs />
-      <NoticeSettings />
-    </div>
-  );
-}
-
-function TodayPlan({ plans }: { plans: WorkoutPlan[] }) {
-  const t = useT();
-  const weekday = isoWeekday(new Date());
-  const today = weekPlans(plans.map((p) => ({ ...p, items: p.items.map(toItem) })))[weekday - 1];
-  const todayPlans = plans.filter((p) => p.weekday === weekday);
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="xc-card">
-      <div className="xc-card-head">
-        <h2>
-          {t("Today")} · {t(weekdayLabels[weekday - 1])}
-          {today.title && ` · ${today.title}`}
-        </h2>
-        <button className="xc-btn small primary" onClick={() => setOpen(true)}>
-          <Dumbbell size={14} /> {t("Log workout")}
-        </button>
-      </div>
-      {today.items.length === 0 ? (
-        <p className="xc-muted habits-plan-empty">{t("No plan for today. Rest or log a free workout.")}</p>
-      ) : (
-        <ul className="habits-plan-items">
-          {today.items.map((it, i) => (
-            <li key={i}>{describeItem(it)}</li>
-          ))}
-        </ul>
-      )}
-      <LogDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        planId={todayPlans.length === 1 ? todayPlans[0].id : undefined}
-        items={today.items}
-      />
-    </div>
-  );
-}
-
-function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
+export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
   const t = useT();
   const save = useSavePlans();
   const initial = useMemo(() => weekPlans(plans.map((p) => ({ ...p, items: p.items.map(toItem) }))), [plans]);
@@ -192,7 +141,7 @@ function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
   );
 }
 
-function LogDialog({
+export function LogDialog({
   open,
   onClose,
   planId,
@@ -266,7 +215,7 @@ function LogDialog({
   );
 }
 
-function RecentLogs() {
+export function RecentLogs() {
   const t = useT();
   const language = useLanguage();
   const logs = useWorkoutLogs(30);
@@ -318,7 +267,7 @@ function RecentLogs() {
   );
 }
 
-function NoticeSettings() {
+export function NoticeSettings() {
   const t = useT();
   const settings = useWorkoutSettings();
   const save = useSaveWorkoutSettings();

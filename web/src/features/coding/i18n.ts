@@ -9,9 +9,9 @@ registerZh({
   queued: "个排队中",
   running: "个运行中",
   // 列表
-  "Coding tasks": "编码任务",
+  "Coding tasks": "Agent 任务",
   "Claude Code and Codex work on your repositories in separate worktrees.":
-    "让 Claude Code 或 Codex 改你的仓库。每个任务用单独的 worktree。",
+    "让 Claude Code 或 Codex 替你干活：改代码、写自动化、修系统。每个任务用单独的 worktree。",
   Repositories: "仓库",
   "New task": "新建任务",
   All: "全部",
@@ -20,7 +20,7 @@ registerZh({
   "Finished tasks": "已完成",
   "Tool call succeeded": "成功",
   "Failed or canceled": "失败或取消",
-  "No coding tasks yet": "还没有编码任务",
+  "No coding tasks yet": "还没有 Agent 任务",
   "Nothing here": "这里是空的",
   "Pick a repository, describe the change, and let the assistant work on it.":
     "选一个仓库，写下要改什么，助手会去做。",
@@ -36,7 +36,7 @@ registerZh({
   "PR opened": "已建 PR",
   Discarded: "已丢弃",
   // 新建
-  "New coding task": "新建编码任务",
+  "New coding task": "新建 Agent 任务",
   "Its title and description are added to the prompt.": "它的标题和描述会自动加进需求。",
   "Register a repository first.": "先登记一个仓库。",
   "Manage repositories": "管理仓库",
@@ -125,7 +125,7 @@ registerZh({
   "Its task history is deleted too. Files on disk stay.": "它的任务记录也会删掉。磁盘上的文件不动。",
   "Find repositories": "查找仓库",
   "No machine can run coding tasks yet. Pair the agent on your PC, then install Claude Code or Codex there.":
-    "还没有能跑编码任务的机器。先在电脑上配对代理，再装上 Claude Code 或 Codex。",
+    "还没有能跑 Agent 任务的机器。先在电脑上配对代理，再装上 Claude Code 或 Codex。",
   "Pair a device": "去配对",
   "Folder to scan": "要扫描的目录",
   "Empty means the folders in the agent config": "不填就扫描代理配置里的目录",

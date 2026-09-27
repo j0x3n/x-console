@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
+import { Segmented } from "../../components/ui/Toolbar";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import {
@@ -10,9 +11,38 @@ import {
   useUpdateHabit,
   type Habit,
   type HabitInput,
+  type HabitKind,
   type RemindMode,
 } from "./api";
 import { joinWindow, parseTimes, splitWindow } from "./progress";
+
+/** 常用图标，也可以自己输入一个。 */
+export const iconChoices = [
+  "💧",
+  "🏃",
+  "📖",
+  "🧘",
+  "🌙",
+  "💪",
+  "🥗",
+  "🍎",
+  "🚶",
+  "🚴",
+  "🏊",
+  "😴",
+  "✍️",
+  "🎸",
+  "💊",
+  "🦷",
+  "☀️",
+  "🧹",
+  "💻",
+  "🗣️",
+  "📵",
+  "🚭",
+  "💰",
+  "🙏",
+];
 
 const colors = ["accent", "ok", "info", "warn", "danger"];
 const colorLabels: Record<string, string> = {
@@ -36,6 +66,8 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   const remove = useDeleteHabit();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
+  const [kind, setKind] = useState<HabitKind>("count");
+  const [picking, setPicking] = useState(false);
   const [color, setColor] = useState("accent");
   const [unit, setUnit] = useState("次");
   const [target, setTarget] = useState("1");
@@ -53,6 +85,8 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
     const h = habit;
     setName(h?.name ?? "");
     setIcon(h?.icon ?? "");
+    setKind(h?.kind ?? "count");
+    setPicking(false);
     setColor(h?.color || "accent");
     setUnit(h?.unit ?? "次");
     setTarget(String(h?.dailyTarget ?? 1));
@@ -71,7 +105,8 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
     event.preventDefault();
     const dailyTarget = Number(target);
     if (!name.trim()) return setError(t("Name is required"));
-    if (!(dailyTarget > 0)) return setError(t("The daily goal must be above 0"));
+    if (!(dailyTarget > 0))
+      return setError(t("The daily goal must be above 0"));
     const remindTimes = parseTimes(times);
     if (mode === "times" && (!remindTimes || remindTimes.length === 0))
       return setError(t("Write times like 08:00, 20:00"));
@@ -81,12 +116,14 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
     const body: HabitInput = {
       name: name.trim(),
       icon: icon.trim(),
+      kind,
       color,
-      unit: unit.trim() || "次",
+      unit: kind === "workout" ? "次" : unit.trim() || "次",
       dailyTarget,
       remindMode: mode,
       remindIntervalMinutes: mode === "interval" ? minutes : 0,
-      remindWindow: mode === "interval" ? joinWindow(windowStart, windowEnd) : "",
+      remindWindow:
+        mode === "interval" ? joinWindow(windowStart, windowEnd) : "",
       remindTimes: mode === "times" ? (remindTimes ?? []) : [],
       haEntityId: entity.trim(),
     };
@@ -103,7 +140,10 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   const archive = async () => {
     if (!habit) return;
     try {
-      await update.mutateAsync({ id: habit.id, body: { archived: !habit.archived } });
+      await update.mutateAsync({
+        id: habit.id,
+        body: { archived: !habit.archived },
+      });
       toast(habit.archived ? t("Restored") : t("Archived"));
       onClose();
     } catch (err) {
@@ -112,7 +152,8 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   };
 
   const destroy = async () => {
-    if (!habit || !confirm(t("Delete this habit and all its check-ins?"))) return;
+    if (!habit || !confirm(t("Delete this habit and all its check-ins?")))
+      return;
     try {
       await remove.mutateAsync(habit.id);
       toast(t("Deleted"));
@@ -123,19 +164,49 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={habit ? t("Edit habit") : t("New habit")}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={habit ? t("Edit habit") : t("New habit")}
+    >
       <form onSubmit={submit}>
+        <div className="habits-kind">
+          <Segmented<HabitKind>
+            label={t("Kind")}
+            value={kind}
+            onChange={(v) => {
+              setKind(v);
+              if (v === "workout") {
+                setTarget("1");
+                if (!icon) setIcon("💪");
+              }
+            }}
+            options={[
+              { value: "count", label: t("Check-in habit") },
+              { value: "workout", label: t("Workout habit") },
+            ]}
+          />
+        </div>
+        {kind === "workout" && (
+          <p className="habits-kind-hint habits-kind">
+            {t(
+              "Logging a workout checks this habit in. You can pick the exercises when logging.",
+            )}
+          </p>
+        )}
         <div className="habits-form-row habits-form-name">
-          <label className="xc-field">
+          <div className="xc-field">
             <span>{t("Icon")}</span>
-            <input
-              className="xc-input"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              maxLength={4}
-              placeholder="💧"
-            />
-          </label>
+            <button
+              type="button"
+              className={`habits-icon-pick${picking ? " open" : ""}`}
+              aria-expanded={picking}
+              aria-label={t("Choose icon")}
+              onClick={() => setPicking(!picking)}
+            >
+              {icon || "＋"}
+            </button>
+          </div>
           <label className="xc-field">
             <span>{t("Name")}</span>
             <input
@@ -148,6 +219,45 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
             />
           </label>
         </div>
+        {picking && (
+          <div
+            className="habits-icon-grid"
+            role="group"
+            aria-label={t("Choose icon")}
+          >
+            {iconChoices.map((c) => (
+              <button
+                type="button"
+                key={c}
+                className={c === icon ? "on" : ""}
+                aria-pressed={c === icon}
+                onClick={() => {
+                  setIcon(c);
+                  setPicking(false);
+                }}
+              >
+                {c}
+              </button>
+            ))}
+            <input
+              className="xc-input"
+              value={iconChoices.includes(icon) ? "" : icon}
+              onChange={(e) => setIcon(e.target.value)}
+              maxLength={4}
+              placeholder={t("Other")}
+              aria-label={t("Custom icon")}
+            />
+            {icon && (
+              <button
+                type="button"
+                className="habits-icon-clear"
+                onClick={() => setIcon("")}
+              >
+                {t("No icon")}
+              </button>
+            )}
+          </div>
+        )}
         <div className="habits-form-row">
           <label className="xc-field">
             <span>{t("Daily goal")}</span>
@@ -160,18 +270,24 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
               onChange={(e) => setTarget(e.target.value)}
             />
           </label>
-          <label className="xc-field">
-            <span>{t("Unit")}</span>
-            <input
-              className="xc-input"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              placeholder="杯、分钟、次"
-            />
-          </label>
+          {kind !== "workout" && (
+            <label className="xc-field">
+              <span>{t("Unit")}</span>
+              <input
+                className="xc-input"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="杯、分钟、次"
+              />
+            </label>
+          )}
           <label className="xc-field">
             <span>{t("Color")}</span>
-            <select className="xc-select" value={color} onChange={(e) => setColor(e.target.value)}>
+            <select
+              className="xc-select"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+            >
               {colors.map((c) => (
                 <option key={c} value={c}>
                   {t(colorLabels[c])}
@@ -182,7 +298,11 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
         </div>
         <label className="xc-field">
           <span>{t("Reminders")}</span>
-          <select className="xc-select" value={mode} onChange={(e) => setMode(e.target.value as RemindMode)}>
+          <select
+            className="xc-select"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as RemindMode)}
+          >
             <option value="none">{t("No reminders")}</option>
             <option value="interval">{t("Every few minutes")}</option>
             <option value="times">{t("At set times")}</option>
@@ -203,11 +323,21 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
             </label>
             <label className="xc-field">
               <span>{t("From")}</span>
-              <input className="xc-input" type="time" value={windowStart} onChange={(e) => setWindowStart(e.target.value)} />
+              <input
+                className="xc-input"
+                type="time"
+                value={windowStart}
+                onChange={(e) => setWindowStart(e.target.value)}
+              />
             </label>
             <label className="xc-field">
               <span>{t("To")}</span>
-              <input className="xc-input" type="time" value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} />
+              <input
+                className="xc-input"
+                type="time"
+                value={windowEnd}
+                onChange={(e) => setWindowEnd(e.target.value)}
+              />
             </label>
           </div>
         )}
@@ -223,11 +353,14 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
           </label>
         )}
         {mode !== "none" && (
-          <p className="xc-muted habits-hint">{t("Reminders stop once today's goal is reached.")}</p>
+          <p className="xc-muted habits-hint">
+            {t("Reminders stop once today's goal is reached.")}
+          </p>
         )}
         <label className="xc-field">
           <span>
-            {t("Home Assistant entity")} <small className="xc-muted">· {t("optional")}</small>
+            {t("Home Assistant entity")}{" "}
+            <small className="xc-muted">· {t("optional")}</small>
           </span>
           <input
             className="xc-input xc-mono"
@@ -235,17 +368,31 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
             onChange={(e) => setEntity(e.target.value)}
             placeholder="binary_sensor.toothbrush"
           />
-          <small>{t("Each state change of this entity counts as one check-in.")}</small>
+          <small>
+            {t("Each state change of this entity counts as one check-in.")}
+          </small>
         </label>
         {error && <p className="xc-error-text">{error}</p>}
         <div className="xc-dialog-actions habits-dialog-actions">
           {habit && (
             <>
-              <button type="button" className="xc-btn ghost small" onClick={archive}>
-                {habit.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}{" "}
+              <button
+                type="button"
+                className="xc-btn ghost small"
+                onClick={archive}
+              >
+                {habit.archived ? (
+                  <ArchiveRestore size={14} />
+                ) : (
+                  <Archive size={14} />
+                )}{" "}
                 {habit.archived ? t("Restore") : t("Archive")}
               </button>
-              <button type="button" className="xc-btn danger small" onClick={destroy}>
+              <button
+                type="button"
+                className="xc-btn danger small"
+                onClick={destroy}
+              >
                 <Trash2 size={14} /> {t("Delete")}
               </button>
               <span className="xc-spacer" />

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -25,8 +25,9 @@ import {
   HabitsCard,
   HomeCard,
   ScheduleCard,
-  WeatherCard,
+  WeatherStrip,
 } from "./components/SideCards";
+import { FitnessSummary } from "../habits/FitnessModule";
 import { MoreLink } from "./components/shared";
 import TodayStats from "./components/TodayStats";
 import {
@@ -35,6 +36,7 @@ import {
   defaultLayout,
   moveCard,
   shiftCard,
+  spreadSide,
   toggleCard,
   type Column,
   type LayoutCard,
@@ -46,15 +48,39 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   decisions: { body: () => <DecisionsCard />, more: "/coding" },
   schedule: { body: () => <ScheduleCard />, more: "/calendar" },
   habits: { body: () => <HabitsCard />, more: "/habits" },
-  weather: { body: () => <WeatherCard /> },
   home: { body: () => <HomeCard />, more: "/home" },
   activity: { body: () => <ActivityCard /> },
+  fitness: { body: () => <FitnessSummary compact />, more: "/habits" },
 };
+
+/** 按内容区宽度决定几列：窄屏一列，常见宽度两列，2K 屏三列，更宽四列。 */
+function columnCount(width: number) {
+  if (width >= 2300) return 4;
+  if (width >= 1500) return 3;
+  if (width >= 700) return 2;
+  return 1;
+}
+
+function useWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, width] as const;
+}
 
 export default function TodayPage() {
   const t = useT();
   const language = useLanguage();
-  const now = useNow(30_000);
+  // 问候语只看小时，不需要每 30 秒重画整页；时间单独放在 TodayClock 里走。
+  const now = new Date();
   const auth = useAuthStatus();
   const todo = useTodoCount();
   const hosts = useHosts("server");
@@ -66,6 +92,11 @@ export default function TodayPage() {
   const editing = draft !== null;
   const cards = draft ?? local ?? layout.data?.cards ?? defaultLayout();
   const unavailable = layout.data?.unavailable ?? false;
+  const [gridRef, gridWidth] = useWidth<HTMLDivElement>();
+  const columns = columnCount(gridWidth);
+  const shown = (column: Column) =>
+    columnCards(cards, column).filter((c) => editing || c.visible);
+  const weather = cards.find((c) => c.id === "weather");
 
   const servers = hosts.data ?? [];
   const summary = summaryLine(
@@ -132,9 +163,24 @@ export default function TodayPage() {
           )
         }
         meta={
-          <time dateTime={now.toISOString()}>
-            {formatDate(now, language)} · {formatTime(now, language)}
-          </time>
+          <>
+            <TodayClock />
+            {weather &&
+              (editing ? (
+                <button
+                  className={`xc-btn small ghost today-weather-toggle${weather.visible ? "" : " is-off"}`}
+                  aria-pressed={weather.visible}
+                  aria-label={weather.visible ? t("Hide card") : t("Show card")}
+                  title={weather.visible ? t("Hide card") : t("Show card")}
+                  onClick={() => setDraft(toggleCard(cards, "weather"))}
+                >
+                  {weather.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                  {t("Weather")}
+                </button>
+              ) : (
+                weather.visible && <WeatherStrip />
+              ))}
+          </>
         }
       />
       {editing && (
@@ -149,25 +195,49 @@ export default function TodayPage() {
         </div>
       )}
       <TodayStats />
-      <div className="xc-split today-columns">
-        {(["main", "side"] as Column[]).map((column) => (
-          <div className="today-column" key={column}>
-            {columnCards(cards, column)
-              .filter((c) => editing || c.visible)
-              .map((c) => (
-                <TodayCard
-                  key={c.id}
-                  card={c}
-                  editing={editing}
-                  onToggle={() => setDraft(toggleCard(cards, c.id))}
-                  onShift={(delta) => setDraft(shiftCard(cards, c.id, delta))}
-                  onDrop={(from) => setDraft(moveCard(cards, from, c.id))}
-                />
-              ))}
+      <div
+        ref={gridRef}
+        className="today-columns"
+        style={{
+          gridTemplateColumns:
+            columns === 1
+              ? "minmax(0, 1fr)"
+              : columns === 2
+                ? "minmax(0, 1.96fr) minmax(300px, 1fr)"
+                : `minmax(0, 1.3fr) repeat(${columns - 1}, minmax(0, 1fr))`,
+        }}
+      >
+        {[
+          shown("main"),
+          ...(columns === 1
+            ? [shown("side")]
+            : spreadSide(shown("side"), columns - 1)),
+        ].map((list, i) => (
+          <div className="today-column" key={i}>
+            {list.map((c) => (
+              <TodayCard
+                key={c.id}
+                card={c}
+                editing={editing}
+                onToggle={() => setDraft(toggleCard(cards, c.id))}
+                onShift={(delta) => setDraft(shiftCard(cards, c.id, delta))}
+                onDrop={(from) => setDraft(moveCard(cards, from, c.id))}
+              />
+            ))}
           </div>
         ))}
       </div>
     </div>
+  );
+}
+
+function TodayClock() {
+  const language = useLanguage();
+  const now = useNow(30_000);
+  return (
+    <time dateTime={now.toISOString()}>
+      {formatDate(now, language)} · {formatTime(now, language)}
+    </time>
   );
 }
 

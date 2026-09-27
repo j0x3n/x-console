@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Bot, FolderGit2, GitBranch, Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
@@ -72,6 +72,16 @@ export default function CodingPage() {
       /* 忽略 */
     }
   };
+  // 侧边栏二级菜单用 ?filter= 跳过来，切到对应的标签后把参数去掉。
+  const linked = params.get("filter") as Filter | null;
+  useEffect(() => {
+    if (!linked) return;
+    if (FILTERS.some((f) => f.id === linked)) setFilter(linked);
+    const next = new URLSearchParams(params);
+    next.delete("filter");
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linked]);
   const newOpen = params.get("new") === "1";
   const issueKey = params.get("issue") ?? undefined;
   const closeNew = () => {

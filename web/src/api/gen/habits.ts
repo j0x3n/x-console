@@ -186,11 +186,17 @@ export interface components {
          * @enum {string}
          */
         RemindMode: "none" | "interval" | "times";
+        /**
+         * @description count 普通打卡；workout 健身，记一次训练就算打卡一次
+         * @enum {string}
+         */
+        HabitKind: "count" | "workout";
         Habit: {
             /** Format: int64 */
             id: number;
             name: string;
             icon: string;
+            kind?: components["schemas"]["HabitKind"];
             color: string;
             unit: string;
             /** Format: double */
@@ -210,6 +216,7 @@ export interface components {
         HabitInput: {
             name: string;
             icon?: string;
+            kind?: components["schemas"]["HabitKind"];
             color?: string;
             unit?: string;
             /** Format: double */
@@ -224,6 +231,7 @@ export interface components {
         HabitPatch: {
             name?: string;
             icon?: string;
+            kind?: components["schemas"]["HabitKind"];
             color?: string;
             unit?: string;
             /** Format: double */

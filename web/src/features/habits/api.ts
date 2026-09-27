@@ -14,6 +14,7 @@ export type HabitLog = Schemas["HabitLog"];
 export type HabitStats = Schemas["HabitStats"];
 export type HabitDay = Schemas["HabitDay"];
 export type RemindMode = Schemas["RemindMode"];
+export type HabitKind = Schemas["HabitKind"];
 export type WorkoutItem = Schemas["WorkoutItem"];
 export type WorkoutPlan = Schemas["WorkoutPlan"];
 export type WorkoutLog = Schemas["WorkoutLog"];

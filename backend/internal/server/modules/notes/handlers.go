@@ -61,6 +61,19 @@ func (m *Module) ListNoteTags(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
+func (m *Module) SetNoteTagColor(w http.ResponseWriter, r *http.Request) {
+	var body api.TagColorInput
+	if err := httpx.Decode(r, &body); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if err := m.setTagColor(r.Context(), body.Tag, body.Color); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (m *Module) GetNote(w http.ResponseWriter, r *http.Request, id api.NoteId) {
 	out, err := m.getNote(r.Context(), id)
 	if err != nil {

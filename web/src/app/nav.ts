@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bell,
   CalendarDays,
-  Code2,
+  Bot,
   Github,
   HardDrive,
   HeartPulse,
@@ -30,7 +30,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { path: "/", label: "My day", icon: Sun, group: "main" },
   { path: "/projects", label: "Projects", icon: SquareKanban, group: "main" },
-  { path: "/coding", label: "Coding tasks", icon: Code2, group: "main" },
+  { path: "/coding", label: "Coding tasks", icon: Bot, group: "main" },
   { path: "/notes", label: "Notes", icon: NotebookPen, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },

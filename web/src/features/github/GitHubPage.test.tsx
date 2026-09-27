@@ -74,7 +74,7 @@ describe("GitHubPage", () => {
     expect(screen.getByText("检查失败")).toBeTruthy();
     expect(screen.getByText("已批准")).toBeTruthy();
     expect(screen.getByRole("link", { name: "XC-12" }).getAttribute("href")).toBe("/projects/XC/12");
-    expect(screen.getByRole("link", { name: /编码任务 #5/ }).getAttribute("href")).toBe("/coding/5");
+    expect(screen.getByRole("link", { name: /Agent 任务 #5/ }).getAttribute("href")).toBe("/coding/5");
 
     responses.routes.set("/github/runs", [
       { id: 1, repo: "acme/api", name: "CI", branch: "main", event: "push", status: "completed", conclusion: "failure", url: "https://x", defaultBranch: true, createdAt: "2026-09-25T10:00:00Z", updatedAt: "2026-09-25T10:00:00Z" },

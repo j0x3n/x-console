@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { ClipboardCopy, ClipboardPaste, ExternalLink, Lock, Moon, Power, RotateCcw, X } from "lucide-react";
+import { Clipboard, ClipboardCopy, ClipboardPaste, ExternalLink, Lock, Moon, Power, RotateCcw, X } from "lucide-react";
 import { errorMessage, unwrap } from "../../api/client";
 import { withElevation } from "../../auth/elevation";
+import Dialog from "../../components/ui/Dialog";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { hostsApi, type HostDetail, type PowerAction } from "../servers/api";
@@ -13,7 +14,7 @@ function useCan(host: HostDetail, cap: string) {
 }
 
 /** 剪贴板：把手机上的文字发到电脑，或者取回电脑上的文字。 */
-export function ClipboardCard({ host }: { host: HostDetail }) {
+function ClipboardBody({ host }: { host: HostDetail }) {
   const t = useT();
   const [text, setText] = useState("");
   const can = useCan(host, "clipboard");
@@ -37,10 +38,7 @@ export function ClipboardCard({ host }: { host: HostDetail }) {
     onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
   });
   return (
-    <div className="xc-card">
-      <div className="xc-card-head">
-        <h2>{t("Clipboard")}</h2>
-      </div>
+    <>
       <textarea
         className="xc-textarea pc-clip"
         value={text}
@@ -61,7 +59,7 @@ export function ClipboardCard({ host }: { host: HostDetail }) {
           </button>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -72,21 +70,12 @@ const powerButtons: { action: PowerAction; label: string; icon: typeof Lock; dan
   { action: "shutdown", label: "Shut down", icon: Power, danger: true },
 ];
 
-/** 快捷操作：锁屏、睡眠、重启、关机，打开程序或网址。 */
-export function QuickActionsCard({ host }: { host: HostDetail }) {
+/** 打开程序、文件或网址，下面是最近打开过的。 */
+function OpenBody({ host, onDone }: { host: HostDetail; onDone: () => void }) {
   const t = useT();
-  const canPower = useCan(host, "power");
   const canOpen = useCan(host, "open");
   const [target, setTarget] = useState("");
   const [recent, setRecent] = useState<string[]>(loadRecent);
-  const power = useMutation({
-    mutationFn: (action: PowerAction) =>
-      withElevation(() =>
-        unwrap(hostsApi.POST("/hosts/{hostId}/power", { params: { path: { hostId: host.id } }, body: { action } })),
-      ),
-    onSuccess: () => toast(t("Done")),
-    onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
-  });
   const open = useMutation({
     mutationFn: (value: string) =>
       unwrap(hostsApi.POST("/hosts/{hostId}/open", { params: { path: { hostId: host.id } }, body: { target: value } })),
@@ -95,30 +84,12 @@ export function QuickActionsCard({ host }: { host: HostDetail }) {
       setRecent(next);
       saveRecent(next);
       toast(t("Opened on the PC"));
+      onDone();
     },
     onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
   });
-  const onPower = (action: PowerAction, label: string, danger?: boolean) => {
-    if (danger && !confirm(`${t(label)}?`)) return;
-    power.mutate(action);
-  };
   return (
-    <div className="xc-card">
-      <div className="xc-card-head">
-        <h2>{t("Quick actions")}</h2>
-      </div>
-      <div className="pc-power">
-        {powerButtons.map((b) => (
-          <button
-            key={b.action}
-            className={`xc-btn${b.danger ? " danger" : ""}`}
-            disabled={!canPower || power.isPending}
-            onClick={() => onPower(b.action, b.label, b.danger)}
-          >
-            <b.icon size={15} /> {t(b.label)}
-          </button>
-        ))}
-      </div>
+    <>
       <form
         className="xc-row pc-open"
         onSubmit={(e) => {
@@ -129,11 +100,12 @@ export function QuickActionsCard({ host }: { host: HostDetail }) {
         <input
           className="xc-input"
           value={target}
+          autoFocus
           onChange={(e) => setTarget(e.target.value)}
           placeholder={t("Program, file or URL, e.g. notepad or https://…")}
           aria-label={t("Open on PC")}
         />
-        <button className="xc-btn" disabled={!canOpen || !target.trim() || open.isPending}>
+        <button className="xc-btn primary" disabled={!canOpen || !target.trim() || open.isPending}>
           <ExternalLink size={14} /> {t("Open")}
         </button>
       </form>
@@ -146,6 +118,53 @@ export function QuickActionsCard({ host }: { host: HostDetail }) {
           ))}
         </div>
       )}
+    </>
+  );
+}
+
+/** 页头右边的一排按钮：锁屏、睡眠、重启、关机、打开、剪贴板。 */
+export function PcQuickBar({ host }: { host: HostDetail }) {
+  const t = useT();
+  const canPower = useCan(host, "power");
+  const [dialog, setDialog] = useState<"clipboard" | "open" | null>(null);
+  const power = useMutation({
+    mutationFn: (action: PowerAction) =>
+      withElevation(() =>
+        unwrap(hostsApi.POST("/hosts/{hostId}/power", { params: { path: { hostId: host.id } }, body: { action } })),
+      ),
+    onSuccess: () => toast(t("Done")),
+    onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
+  });
+  const onPower = (action: PowerAction, label: string, danger?: boolean) => {
+    if (danger && !confirm(`${t(label)}?`)) return;
+    power.mutate(action);
+  };
+  return (
+    <div className="pc-bar" role="toolbar" aria-label={t("Quick actions")}>
+      <button className="xc-btn small" onClick={() => setDialog("clipboard")} title={t("Clipboard")}>
+        <Clipboard size={14} /> <span>{t("Clipboard")}</span>
+      </button>
+      <button className="xc-btn small" onClick={() => setDialog("open")} title={t("Open on PC")}>
+        <ExternalLink size={14} /> <span>{t("Open")}</span>
+      </button>
+      <span className="pc-bar-sep" aria-hidden="true" />
+      {powerButtons.map((b) => (
+        <button
+          key={b.action}
+          className={`xc-btn small${b.danger ? " danger" : ""}`}
+          disabled={!canPower || power.isPending}
+          title={t(b.label)}
+          onClick={() => onPower(b.action, b.label, b.danger)}
+        >
+          <b.icon size={14} /> <span>{t(b.label)}</span>
+        </button>
+      ))}
+      <Dialog open={dialog === "clipboard"} onClose={() => setDialog(null)} title={t("Clipboard")}>
+        <ClipboardBody host={host} />
+      </Dialog>
+      <Dialog open={dialog === "open"} onClose={() => setDialog(null)} title={t("Open on PC")}>
+        <OpenBody host={host} onDone={() => setDialog(null)} />
+      </Dialog>
     </div>
   );
 }

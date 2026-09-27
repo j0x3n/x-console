@@ -3,6 +3,7 @@ package notes
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -188,8 +189,31 @@ func (m *Module) tagCounts(ctx context.Context) ([]api.TagCount, error) {
 	out := make([]api.TagCount, len(rows))
 	for i, r := range rows {
 		out[i] = api.TagCount{Tag: r.Tag, Count: int(r.Count)}
+		if r.Color != "" {
+			out[i].Color = &r.Color
+		}
 	}
 	return out, nil
+}
+
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
+// setTagColor saves a tag's color. An empty color goes back to the default.
+func (m *Module) setTagColor(ctx context.Context, tag, color string) error {
+	tags, err := cleanTags([]string{tag})
+	if err != nil {
+		return err
+	}
+	if len(tags) == 0 {
+		return httpx.Invalid("标签不能为空")
+	}
+	if color == "" {
+		return m.q.ClearTagColor(ctx, tags[0])
+	}
+	if !hexColor.MatchString(color) {
+		return httpx.Invalid("颜色要写成 #cc7752 这样")
+	}
+	return m.q.SetTagColor(ctx, db.SetTagColorParams{Tag: tags[0], Color: strings.ToLower(color)})
 }
 
 // toIssueResult is the answer of noteToIssue.

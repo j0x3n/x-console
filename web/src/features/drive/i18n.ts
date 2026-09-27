@@ -49,7 +49,6 @@ registerZh({
   "Trash is empty": "回收站是空的",
   "Nothing here yet": "这里还没有文件",
   "Storage used": "占用空间",
-  "Not counting hidden items": "不含隐藏内容",
   "S3 sync": "S3 同步",
   "Not set up": "未配置",
   Synced: "已同步",
@@ -72,4 +71,6 @@ registerZh({
   "Sync status": "同步状态",
   "Sync now": "立即同步",
   "leave empty to keep": "留空表示不改",
+  files: "个文件",
+  "Set up S3 sync": "设置 S3 同步",
 });

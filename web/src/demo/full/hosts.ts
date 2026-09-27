@@ -531,5 +531,5 @@ export function register() {
   });
 }
 
-/** 编码任务里的代理列表用。 */
+/** Agent 任务里的代理列表用。 */
 export const desktopAgent = { id: "pc-home", name: "我的电脑" };

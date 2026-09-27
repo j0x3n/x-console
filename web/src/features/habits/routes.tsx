@@ -31,7 +31,7 @@ registerCommands([
     group: "习惯",
     icon: Dumbbell,
     keywords: "workout gym 健身",
-    run: ({ navigate }) => navigate("/habits/workout"),
+    run: ({ navigate }) => navigate("/habits?log=workout"),
   },
 ]);
 

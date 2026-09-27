@@ -510,3 +510,37 @@
     width: auto;
   }
 }
+
+/* 标题下面的概况 */
+.drive-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  font-variant-numeric: tabular-nums;
+}
+.drive-summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.drive-summary svg {
+  color: var(--xc-faint);
+}
+.drive-summary small {
+  color: var(--xc-faint);
+  font-size: inherit;
+}
+.drive-summary-s3.is-failed,
+.drive-summary-s3.is-failed svg {
+  color: var(--xc-danger);
+}
+.drive-summary-s3.is-syncing svg {
+  color: var(--xc-info);
+}
+.drive-summary-s3.is-idle svg {
+  color: var(--xc-ok);
+}
+.drive-summary a {
+  color: inherit;
+}

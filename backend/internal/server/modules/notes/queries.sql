@@ -35,8 +35,17 @@ DELETE FROM note_tags WHERE note_id = ?;
 INSERT OR IGNORE INTO note_tags (note_id, tag) VALUES (?, ?);
 
 -- name: TagCounts :many
-SELECT note_tags.tag, count(*) AS count
-FROM note_tags JOIN notes ON notes.id = note_tags.note_id
+SELECT note_tags.tag, count(*) AS count, CAST(coalesce(max(note_tag_colors.color), '') AS TEXT) AS color
+FROM note_tags
+JOIN notes ON notes.id = note_tags.note_id
+LEFT JOIN note_tag_colors ON note_tag_colors.tag = note_tags.tag
 WHERE notes.archived_at IS NULL
 GROUP BY note_tags.tag
 ORDER BY count(*) DESC, note_tags.tag;
+
+-- name: SetTagColor :exec
+INSERT INTO note_tag_colors (tag, color) VALUES (?, ?)
+ON CONFLICT (tag) DO UPDATE SET color = excluded.color;
+
+-- name: ClearTagColor :exec
+DELETE FROM note_tag_colors WHERE tag = ?;

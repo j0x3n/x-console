@@ -1,7 +1,35 @@
 import { fail, json, noContent, route } from "../router";
 import { at, date, day } from "./util";
 
-const calendars = [
+const calendars: {
+  id: number;
+  name: string;
+  kind: string;
+  url: string;
+  username: string;
+  hasPassword: boolean;
+  color: string;
+  enabled: boolean;
+  lastSyncedAt?: string;
+  lastError: string;
+  eventCount: number;
+  writable: boolean;
+  createdAt: string;
+}[] = [
+  {
+    id: 4,
+    name: "我的日程",
+    kind: "local",
+    url: "",
+    username: "",
+    hasPassword: false,
+    color: "#cc7752",
+    enabled: true,
+    lastError: "",
+    eventCount: 0,
+    writable: true,
+    createdAt: at(-60 * 24 * 30),
+  },
   {
     id: 1,
     name: "工作",
@@ -14,6 +42,7 @@ const calendars = [
     lastSyncedAt: at(-8),
     lastError: "",
     eventCount: 0,
+    writable: true,
     createdAt: at(-60 * 24 * 90),
   },
   {
@@ -28,6 +57,7 @@ const calendars = [
     lastSyncedAt: at(-12),
     lastError: "",
     eventCount: 0,
+    writable: false,
     createdAt: at(-60 * 24 * 60),
   },
   {
@@ -42,6 +72,7 @@ const calendars = [
     lastSyncedAt: at(-60 * 3),
     lastError: "",
     eventCount: 0,
+    writable: false,
     createdAt: at(-60 * 24 * 200),
   },
 ];
@@ -110,9 +141,36 @@ seed.push(
   { cal: 3, title: "国庆节", d: 4, allDay: true },
   { cal: 2, title: "云南旅行", d: 6, allDay: true },
   { cal: 1, title: "发版 2.0", d: 12, start: "20:00", end: "22:00" },
+  { cal: 4, title: "取快递", d: 0, start: "12:00", end: "12:30" },
+  {
+    cal: 4,
+    title: "健身",
+    d: 1,
+    start: "19:00",
+    end: "20:00",
+    loc: "楼下健身房",
+  },
+  { cal: 4, title: "交房租", d: 3, allDay: true },
 );
 
-const events = seed.map((e, i) => {
+type DemoEvent = {
+  id: string;
+  eventId: number;
+  calendarId: number;
+  calendar: string;
+  color: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  startDate?: string;
+  endDate?: string;
+  location: string;
+  description: string;
+  recurring: boolean;
+  writable: boolean;
+};
+const events: DemoEvent[] = seed.map((e, i) => {
   const c = calendars.find((x) => x.id === e.cal)!;
   return {
     id: `demo-${i}`,
@@ -129,8 +187,45 @@ const events = seed.map((e, i) => {
     location: e.loc ?? "",
     description: "",
     recurring: !!e.recurring,
+    writable: c.writable && !e.recurring,
   };
 });
+
+/** 把请求体变成一条假事件。全天事件用本地零点。 */
+function fillEvent(target: DemoEvent, body: Record<string, unknown>) {
+  const c = calendars.find(
+    (x) => x.id === Number(body.calendarId ?? target.calendarId),
+  );
+  if (!c || !c.writable) return "这个日历不能改";
+  Object.assign(target, {
+    calendarId: c.id,
+    calendar: c.name,
+    color: c.color,
+    title: (body.title as string) ?? target.title,
+    location: (body.location as string) ?? target.location,
+    description: (body.description as string) ?? target.description,
+    allDay: (body.allDay as boolean) ?? target.allDay,
+  });
+  if (target.allDay) {
+    target.startDate = (body.startDate as string) ?? target.startDate;
+    target.endDate = (body.endDate as string) ?? target.endDate;
+    target.start = new Date(`${target.startDate}T00:00:00`).toISOString();
+    target.end = new Date(`${target.endDate}T00:00:00`).toISOString();
+  } else {
+    target.start = (body.start as string) ?? target.start;
+    target.end = (body.end as string) ?? target.end;
+    target.startDate = undefined;
+    target.endDate = undefined;
+  }
+  target.id = `demo-${target.eventId}-${target.start}`;
+  return null;
+}
+let nextEventId = 1000;
+let nextCalendarId = 10;
+const countEvents = () => {
+  for (const c of calendars)
+    c.eventCount = events.filter((e) => e.calendarId === c.id).length;
+};
 for (const c of calendars)
   c.eventCount = events.filter((e) => e.calendarId === c.id).length;
 
@@ -217,6 +312,74 @@ const recent = [0, -1, -1, -2, -3].map((d, i) => ({
 
 export function register() {
   route("GET", "/calendars", () => json(calendars));
+  route("POST", "/calendars", ({ body }) => {
+    const c = {
+      id: nextCalendarId++,
+      name: body.name,
+      kind: body.kind,
+      url: body.url ?? "",
+      username: body.username ?? "",
+      hasPassword: !!body.password,
+      color: body.color ?? "",
+      enabled: true,
+      lastSyncedAt: body.kind === "local" ? undefined : at(0),
+      lastError: "",
+      eventCount: 0,
+      writable: body.kind !== "ics",
+      createdAt: at(0),
+    };
+    calendars.push(c);
+    return json(c, 201);
+  });
+  route("PATCH", "/calendars/:id", ({ params, body }) => {
+    const c = calendars.find((x) => x.id === Number(params.id));
+    if (!c) return fail(404, "not_found", "资源不存在");
+    const { password, ...rest } = body;
+    Object.assign(c, rest);
+    if (password) c.hasPassword = true;
+    for (const e of events)
+      if (e.calendarId === c.id) {
+        e.calendar = c.name;
+        e.color = c.color;
+      }
+    return json(c);
+  });
+  route("DELETE", "/calendars/:id", ({ params }) => {
+    const i = calendars.findIndex((x) => x.id === Number(params.id));
+    if (i >= 0) calendars.splice(i, 1);
+    for (let j = events.length - 1; j >= 0; j--)
+      if (events[j].calendarId === Number(params.id)) events.splice(j, 1);
+    return noContent();
+  });
+  route("POST", "/calendar/events", ({ body }) => {
+    const e = {
+      eventId: nextEventId++,
+      recurring: false,
+      writable: true,
+      location: "",
+      description: "",
+    } as DemoEvent;
+    const err = fillEvent(e, body);
+    if (err) return fail(400, "invalid", err);
+    events.push(e);
+    countEvents();
+    return json(e, 201);
+  });
+  route("PATCH", "/calendar/events/:id", ({ params, body }) => {
+    const e = events.find((x) => x.eventId === Number(params.id));
+    if (!e) return fail(404, "not_found", "资源不存在");
+    if (!e.writable) return fail(400, "invalid", "这个日程不能改");
+    const err = fillEvent(e, body);
+    if (err) return fail(400, "invalid", err);
+    countEvents();
+    return json(e);
+  });
+  route("DELETE", "/calendar/events/:id", ({ params }) => {
+    const i = events.findIndex((x) => x.eventId === Number(params.id));
+    if (i >= 0) events.splice(i, 1);
+    countEvents();
+    return noContent();
+  });
   route("GET", "/calendars/:id", ({ params }) => {
     const c = calendars.find((x) => x.id === Number(params.id));
     return c ? json(c) : fail(404, "not_found", "资源不存在");

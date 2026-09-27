@@ -1,25 +1,32 @@
 /*
  * “今日”页的卡片布局。纯逻辑，不依赖 React。
- * 每张卡片固定在左栏或右栏，order 只在同一栏里比较。
+ * 每张卡片固定在一栏，order 只在同一栏里比较。
+ * top 是标题下面的一行小条（天气），main 是左栏，side 是右边的卡片。
+ * 宽屏时 side 会分成几列，见 spreadSide。
  */
 
-export type Column = "main" | "side";
+export type Column = "top" | "main" | "side";
 
 export interface CardDef {
   id: string;
   title: string; // 英文原文，界面里用 t()
   column: Column;
+  /** 大概有多高，分列时用来让几列高度差不多。 */
+  weight?: number;
+  /** 默认不显示，要在编辑布局里打开。 */
+  hidden?: boolean;
 }
 
 /** 默认顺序就是这个数组的顺序。 */
 export const cardDefs: CardDef[] = [
   { id: "todos", title: "To do today", column: "main" },
   { id: "decisions", title: "Needs your call", column: "main" },
-  { id: "schedule", title: "Schedule", column: "side" },
-  { id: "habits", title: "Habits", column: "side" },
-  { id: "weather", title: "Weather", column: "side" },
-  { id: "home", title: "Smart home", column: "side" },
-  { id: "activity", title: "Recent activity", column: "side" },
+  { id: "schedule", title: "Schedule", column: "side", weight: 3 },
+  { id: "habits", title: "Habits", column: "side", weight: 2 },
+  { id: "weather", title: "Weather", column: "top" },
+  { id: "home", title: "Smart home", column: "side", weight: 2 },
+  { id: "activity", title: "Recent activity", column: "side", weight: 3 },
+  { id: "fitness", title: "Workout", column: "side", weight: 2, hidden: true },
 ];
 
 export interface LayoutCard {
@@ -29,7 +36,7 @@ export interface LayoutCard {
 }
 
 export function defaultLayout(): LayoutCard[] {
-  return cardDefs.map((d, i) => ({ id: d.id, visible: true, order: i }));
+  return cardDefs.map((d, i) => ({ id: d.id, visible: !d.hidden, order: i }));
 }
 
 /**
@@ -44,7 +51,7 @@ export function normalizeLayout(saved: LayoutCard[] | undefined): LayoutCard[] {
     .sort((a, b) => a.order - b.order);
   const missing = cardDefs
     .filter((d) => !seen.has(d.id))
-    .map((d) => ({ id: d.id, visible: true, order: 0 }));
+    .map((d) => ({ id: d.id, visible: !d.hidden, order: 0 }));
   return [...kept, ...missing].map((c, i) => ({
     id: c.id,
     visible: c.visible,
@@ -104,9 +111,24 @@ function renumber(
   column: Column,
   ordered: LayoutCard[],
 ): LayoutCard[] {
-  const other = layout.filter((c) => columnOf(c.id) !== column);
-  // 两栏各自连续编号，存下来的 order 在同一栏里不重复就行。
-  const main = column === "main" ? ordered : columnCards(other, "main");
-  const side = column === "side" ? ordered : columnCards(other, "side");
-  return [...main, ...side].map((c, i) => ({ ...c, order: i }));
+  // 各栏连续编号，存下来的 order 在同一栏里不重复就行。
+  const all = (["top", "main", "side"] as Column[]).flatMap((col) =>
+    col === column ? ordered : columnCards(layout, col),
+  );
+  return all.map((c, i) => ({ ...c, order: i }));
+}
+
+/**
+ * 把右边的卡片按顺序分到 n 列：每张放进当前最矮的一列。
+ * n 为 1 时就是原来的一列。
+ */
+export function spreadSide(cards: LayoutCard[], n: number): LayoutCard[][] {
+  const cols: LayoutCard[][] = Array.from({ length: Math.max(1, n) }, () => []);
+  const heights = cols.map(() => 0);
+  for (const c of cards) {
+    const i = heights.indexOf(Math.min(...heights));
+    cols[i].push(c);
+    heights[i] += cardDefs.find((d) => d.id === c.id)?.weight ?? 2;
+  }
+  return cols;
 }

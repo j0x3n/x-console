@@ -13,6 +13,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for HabitKind.
+const (
+	Count   HabitKind = "count"
+	Workout HabitKind = "workout"
+)
+
+// Valid indicates whether the value is a known member of the HabitKind enum.
+func (e HabitKind) Valid() bool {
+	switch e {
+	case Count:
+		return true
+	case Workout:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RemindMode.
 const (
 	Interval RemindMode = "interval"
@@ -42,11 +60,14 @@ type Habit struct {
 	DailyTarget float64   `json:"dailyTarget"`
 
 	// HaEntityId 这个 Home Assistant 实体状态变化时自动打卡一次
-	HaEntityId            string `json:"haEntityId"`
-	Icon                  string `json:"icon"`
-	Id                    int64  `json:"id"`
-	Name                  string `json:"name"`
-	RemindIntervalMinutes int    `json:"remindIntervalMinutes"`
+	HaEntityId string `json:"haEntityId"`
+	Icon       string `json:"icon"`
+	Id         int64  `json:"id"`
+
+	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
+	Kind                  *HabitKind `json:"kind,omitempty"`
+	Name                  string     `json:"name"`
+	RemindIntervalMinutes int        `json:"remindIntervalMinutes"`
 
 	// RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
 	RemindMode  RemindMode `json:"remindMode"`
@@ -69,12 +90,15 @@ type HabitDay struct {
 
 // HabitInput defines model for HabitInput.
 type HabitInput struct {
-	Color                 *string  `json:"color,omitempty"`
-	DailyTarget           *float64 `json:"dailyTarget,omitempty"`
-	HaEntityId            *string  `json:"haEntityId,omitempty"`
-	Icon                  *string  `json:"icon,omitempty"`
-	Name                  string   `json:"name"`
-	RemindIntervalMinutes *int     `json:"remindIntervalMinutes,omitempty"`
+	Color       *string  `json:"color,omitempty"`
+	DailyTarget *float64 `json:"dailyTarget,omitempty"`
+	HaEntityId  *string  `json:"haEntityId,omitempty"`
+	Icon        *string  `json:"icon,omitempty"`
+
+	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
+	Kind                  *HabitKind `json:"kind,omitempty"`
+	Name                  string     `json:"name"`
+	RemindIntervalMinutes *int       `json:"remindIntervalMinutes,omitempty"`
 
 	// RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
 	RemindMode   *RemindMode `json:"remindMode,omitempty"`
@@ -83,6 +107,9 @@ type HabitInput struct {
 	SortOrder    *int        `json:"sortOrder,omitempty"`
 	Unit         *string     `json:"unit,omitempty"`
 }
+
+// HabitKind count 普通打卡；workout 健身，记一次训练就算打卡一次
+type HabitKind string
 
 // HabitLog defines model for HabitLog.
 type HabitLog struct {
@@ -98,13 +125,16 @@ type HabitLog struct {
 
 // HabitPatch defines model for HabitPatch.
 type HabitPatch struct {
-	Archived              *bool    `json:"archived,omitempty"`
-	Color                 *string  `json:"color,omitempty"`
-	DailyTarget           *float64 `json:"dailyTarget,omitempty"`
-	HaEntityId            *string  `json:"haEntityId,omitempty"`
-	Icon                  *string  `json:"icon,omitempty"`
-	Name                  *string  `json:"name,omitempty"`
-	RemindIntervalMinutes *int     `json:"remindIntervalMinutes,omitempty"`
+	Archived    *bool    `json:"archived,omitempty"`
+	Color       *string  `json:"color,omitempty"`
+	DailyTarget *float64 `json:"dailyTarget,omitempty"`
+	HaEntityId  *string  `json:"haEntityId,omitempty"`
+	Icon        *string  `json:"icon,omitempty"`
+
+	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
+	Kind                  *HabitKind `json:"kind,omitempty"`
+	Name                  *string    `json:"name,omitempty"`
+	RemindIntervalMinutes *int       `json:"remindIntervalMinutes,omitempty"`
 
 	// RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
 	RemindMode   *RemindMode `json:"remindMode,omitempty"`

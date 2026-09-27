@@ -994,6 +994,12 @@ a.xc-badge:hover {
   color: var(--xc-faint);
   font-size: 12px;
 }
+.nav-child-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
 .nav-child-swatch {
   flex: none;
   width: 8px;

@@ -5,14 +5,17 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
   MapPin,
+  Pencil,
+  Plus,
   Repeat,
 } from "lucide-react";
+import EventForm from "./EventForm";
 import Dialog from "../../components/ui/Dialog";
 import { ErrorState, Spinner } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
@@ -55,6 +58,21 @@ export default function CalendarView() {
   const events = useCalendarEvents(from, to);
   const calendars = useCalendars();
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
+  const [form, setForm] = useState<{
+    event: CalendarEvent | null;
+    start: Date | null;
+  } | null>(null);
+  const navigate = useNavigate();
+  const writable = (calendars.data ?? []).filter(
+    (c) => c.enabled && (c.writable ?? c.kind !== "ics"),
+  );
+  const newEvent = (start: Date | null) => {
+    if (writable.length === 0) {
+      navigate("/calendar/calendars?new=local");
+      return;
+    }
+    setForm({ event: null, start });
+  };
 
   const setParam = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
@@ -97,17 +115,27 @@ export default function CalendarView() {
           </strong>
           {events.isFetching && <Spinner />}
         </div>
-        <div className="calendar-switch" role="group" aria-label={t("View")}>
-          {(["day", "week"] as const).map((v) => (
-            <button
-              key={v}
-              className={v === view ? "active" : ""}
-              aria-pressed={v === view}
-              onClick={() => setParam({ view: v })}
-            >
-              {t(v === "day" ? "Day" : "Week")}
-            </button>
-          ))}
+        <div className="xc-row">
+          <button
+            className="xc-btn small primary"
+            onClick={() => newEvent(null)}
+            title={t("New event")}
+          >
+            <Plus size={14} />{" "}
+            <span className="calendar-btn-text">{t("New event")}</span>
+          </button>
+          <div className="calendar-switch" role="group" aria-label={t("View")}>
+            {(["day", "week"] as const).map((v) => (
+              <button
+                key={v}
+                className={v === view ? "active" : ""}
+                aria-pressed={v === view}
+                onClick={() => setParam({ view: v })}
+              >
+                {t(v === "day" ? "Day" : "Week")}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -130,10 +158,25 @@ export default function CalendarView() {
           days={days}
           events={events.data ?? []}
           onSelect={setSelected}
+          onPick={newEvent}
           language={language}
         />
       )}
-      <EventDialog event={selected} onClose={() => setSelected(null)} />
+      <EventDialog
+        event={selected}
+        onClose={() => setSelected(null)}
+        onEdit={(e) => {
+          setSelected(null);
+          setForm({ event: e, start: null });
+        }}
+      />
+      <EventForm
+        open={form !== null}
+        event={form?.event ?? null}
+        start={form?.start ?? null}
+        calendars={writable}
+        onClose={() => setForm(null)}
+      />
     </div>
   );
 }
@@ -142,11 +185,13 @@ function TimeGrid({
   days,
   events,
   onSelect,
+  onPick,
   language,
 }: {
   days: Date[];
   events: CalendarEvent[];
   onSelect: (e: CalendarEvent) => void;
+  onPick: (start: Date) => void;
   language: "zh" | "en";
 }) {
   const t = useT();
@@ -234,6 +279,7 @@ function TimeGrid({
               events={events}
               now={dayKey(d) === todayKey ? now : null}
               onSelect={onSelect}
+              onPick={onPick}
               language={language}
             />
           ))}
@@ -248,12 +294,14 @@ function DayColumn({
   events,
   now,
   onSelect,
+  onPick,
   language,
 }: {
   day: Date;
   events: CalendarEvent[];
   now: Date | null;
   onSelect: (e: CalendarEvent) => void;
+  onPick: (start: Date) => void;
   language: "zh" | "en";
 }) {
   const t = useT();
@@ -262,7 +310,18 @@ function DayColumn({
     ? ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR
     : null;
   return (
-    <div className={`calendar-col${now ? " is-today" : ""}`}>
+    <div
+      className={`calendar-col${now ? " is-today" : ""}`}
+      onClick={(ev) => {
+        // 点空白处新建，按半小时取整
+        if (ev.target !== ev.currentTarget) return;
+        const y = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+        const minutes = Math.floor(((y / HOUR) * 60) / 30) * 30;
+        const start = new Date(day);
+        start.setHours(0, minutes, 0, 0);
+        onPick(start);
+      }}
+    >
       {blocks.map((b) => {
         const e = b.event;
         const style = {
@@ -300,9 +359,11 @@ function DayColumn({
 function EventDialog({
   event,
   onClose,
+  onEdit,
 }: {
   event: CalendarEvent | null;
   onClose: () => void;
+  onEdit: (e: CalendarEvent) => void;
 }) {
   const t = useT();
   const language = useLanguage();
@@ -335,9 +396,16 @@ function EventDialog({
       onClose={onClose}
       title={event.title || t("(no title)")}
       footer={
-        <button className="xc-btn" onClick={onClose}>
-          {t("Close")}
-        </button>
+        <>
+          {event.writable && (
+            <button className="xc-btn" onClick={() => onEdit(event)}>
+              <Pencil size={14} /> {t("Edit")}
+            </button>
+          )}
+          <button className="xc-btn" onClick={onClose}>
+            {t("Close")}
+          </button>
+        </>
       }
     >
       <div className="calendar-detail">

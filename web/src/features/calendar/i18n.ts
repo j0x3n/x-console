@@ -118,4 +118,27 @@ registerZh({
   "No focus sessions yet": "还没有专注记录",
   Finished: "已结束",
   "Stopped early": "提前结束",
+  "New event": "新建日程",
+  "Edit event": "编辑日程",
+  "Delete this event?": "删除这个日程？",
+  Starts: "开始",
+  Ends: "结束",
+  Date: "日期",
+  Location: "地点",
+  "Event notes": "备注",
+  "Choose a calendar": "请选一个日历",
+  "The end must be after the start": "结束要晚于开始",
+  "Enter a valid time": "时间格式不对",
+  Local: "本地",
+  Editable: "可编辑",
+  "Local calendar": "本地日历",
+  "CalDAV, such as iCloud": "CalDAV（比如 iCloud）",
+  "Saved on your own server. Add and edit events here.":
+    "存在你自己的服务器上，可以在这里新建和修改日程。",
+  "Local and CalDAV calendars can be edited here. ICS links are read only. Remote calendars sync every 15 minutes.":
+    "本地日历和 CalDAV 日历可以在这里改。ICS 订阅只读。外部日历每 15 分钟同步一次。",
+  "A webcal:// link works too. For Google Calendar, use the secret address in iCal format from its settings.":
+    "webcal:// 开头的也可以。Google 日历用它设置里的“iCal 格式的私密地址”。",
+  "For iCloud, use https://caldav.icloud.com, your Apple ID and an app-specific password. Events you add here are written back.":
+    "iCloud 填 https://caldav.icloud.com，用户名是 Apple ID，密码用 App 专用密码。在这里加的日程会写回 iCloud。",
 });

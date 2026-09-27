@@ -5,6 +5,7 @@ interface Habit {
   id: number;
   name: string;
   icon: string;
+  kind: "count" | "workout";
   color: string;
   unit: string;
   dailyTarget: number;
@@ -27,6 +28,7 @@ interface Log {
 }
 
 const base = {
+  kind: "count" as "count" | "workout",
   remindMode: "none" as const,
   remindIntervalMinutes: 0,
   remindWindow: "",
@@ -40,7 +42,7 @@ const habits: Habit[] = [
     id: 1,
     name: "喝水",
     icon: "💧",
-    color: "#70b5f7",
+    color: "info",
     unit: "杯",
     dailyTarget: 8,
     remindMode: "interval",
@@ -54,7 +56,7 @@ const habits: Habit[] = [
     id: 2,
     name: "跑步",
     icon: "🏃",
-    color: "#5cc98b",
+    color: "ok",
     unit: "公里",
     dailyTarget: 3,
     sortOrder: 2,
@@ -65,7 +67,7 @@ const habits: Habit[] = [
     id: 3,
     name: "读书",
     icon: "📖",
-    color: "#b69cf5",
+    color: "accent",
     unit: "页",
     dailyTarget: 20,
     remindMode: "times",
@@ -78,7 +80,7 @@ const habits: Habit[] = [
     id: 4,
     name: "冥想",
     icon: "🧘",
-    color: "#e8b454",
+    color: "warn",
     unit: "分钟",
     dailyTarget: 10,
     sortOrder: 4,
@@ -89,11 +91,23 @@ const habits: Habit[] = [
     id: 5,
     name: "早睡",
     icon: "🌙",
-    color: "#cc7752",
+    color: "danger",
     unit: "次",
     dailyTarget: 1,
     sortOrder: 5,
     createdAt: at(-60 * 24 * 20),
+  },
+  {
+    ...base,
+    id: 6,
+    name: "健身",
+    icon: "💪",
+    kind: "workout",
+    color: "ok",
+    unit: "次",
+    dailyTarget: 1,
+    sortOrder: 6,
+    createdAt: at(-60 * 24 * 90),
   },
 ];
 let nextLog = 1;
@@ -101,6 +115,7 @@ const logs: Log[] = [];
 const r = rand(7);
 for (let d = -120; d <= 0; d++) {
   for (const h of habits) {
+    if (h.kind === "workout") continue;
     if (
       d < -Math.round((Date.now() - new Date(h.createdAt).getTime()) / 86400000)
     )
@@ -194,35 +209,42 @@ const plans = [
     ],
   },
 ];
-const workoutLogs = [
-  {
-    id: 1,
-    date: date(-2),
-    planId: 3,
-    items: plans[2].items,
-    durationMinutes: 50,
-    note: "深蹲加了 5 公斤",
-    createdAt: day(-2, "19:30"),
-  },
-  {
-    id: 2,
-    date: date(-4),
-    planId: 2,
-    items: plans[1].items,
-    durationMinutes: 45,
-    note: "",
-    createdAt: day(-4, "19:10"),
-  },
-  {
-    id: 3,
-    date: date(-6),
-    planId: 1,
-    items: plans[0].items,
-    durationMinutes: 48,
-    note: "",
-    createdAt: day(-6, "19:40"),
-  },
-];
+const workoutLogs: {
+  id: number;
+  date: string;
+  planId?: number;
+  items: (typeof plans)[number]["items"];
+  durationMinutes: number;
+  note: string;
+  createdAt: string;
+}[] = [];
+// 最近 8 周，大约一周三次，按计划练
+{
+  const wr = rand(11);
+  for (let d = -2; d > -56; d--) {
+    const wd = new Date(day(d)).getDay() || 7;
+    const plan = plans.find((p) => p.weekday === wd);
+    if (!plan || wr() < 0.2) continue;
+    workoutLogs.push({
+      id: workoutLogs.length + 1,
+      date: date(d),
+      planId: plan.id,
+      items: plan.items,
+      durationMinutes: 40 + Math.round(wr() * 20),
+      note: d === -2 ? "深蹲加了 5 公斤" : "",
+      createdAt: day(d, "19:30"),
+    });
+  }
+  for (const w of workoutLogs)
+    logs.push({
+      id: nextLog++,
+      habitId: 6,
+      at: w.createdAt,
+      amount: 1,
+      source: "workout",
+      note: "",
+    });
+}
 const workoutSettings = { notifyEnabled: true, notifyTime: "18:30" };
 
 export function register() {
@@ -328,7 +350,11 @@ export function register() {
     plans.splice(0, plans.length, ...body);
     return json(plans);
   });
-  route("GET", "/workouts/logs", () => json(workoutLogs));
+  route("GET", "/workouts/logs", ({ query }) => {
+    const days = Number(query.get("days") ?? 30);
+    const from = date(-days + 1);
+    return json(workoutLogs.filter((l) => l.date >= from));
+  });
   route("POST", "/workouts/logs", ({ body }) => {
     const l = {
       id: workoutLogs.length + 1,
@@ -340,6 +366,16 @@ export function register() {
       createdAt: at(0),
     };
     workoutLogs.unshift(l);
+    // 记一次训练，健身类的习惯各打卡一次
+    for (const h of habits.filter((x) => x.kind === "workout" && !x.archived))
+      logs.push({
+        id: nextLog++,
+        habitId: h.id,
+        at: at(0),
+        amount: 1,
+        source: "workout",
+        note: "",
+      });
     return json(l, 201);
   });
   route("DELETE", "/workouts/logs/:id", ({ params }) => {

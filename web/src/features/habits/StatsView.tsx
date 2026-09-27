@@ -2,7 +2,8 @@ import { useState } from "react";
 import { BarChart3 } from "lucide-react";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
-import { useHabitList, useHabitStats, type Habit, type HabitDay } from "./api";
+import { MiniBars } from "../../components/ui/Stat";
+import { useHabitList, useHabitStats, useWorkoutLogs, type Habit, type HabitDay, type WorkoutLog } from "./api";
 import { barMax, formatAmount, heatLevel, isoWeekday } from "./progress";
 import { colorVar } from "./TodayView";
 
@@ -32,6 +33,49 @@ export default function StatsView() {
         </select>
       </label>
       <HabitStatsPanel habit={habit} />
+      <WorkoutTrend />
+    </div>
+  );
+}
+
+const WEEKS = 8;
+
+/** 最近 8 周每周练了几次、多少分钟，从周一算起。 */
+export function weeklyWorkouts(logs: WorkoutLog[], now: Date) {
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - isoWeekday(now) + 1);
+  const weeks = Array.from({ length: WEEKS }, () => ({ count: 0, minutes: 0 }));
+  for (const l of logs) {
+    const [y, m, d] = l.date.split("-").map(Number);
+    const day = new Date(y, m - 1, d);
+    const daysBefore = Math.round((monday.getTime() - day.getTime()) / 86400_000);
+    const back = daysBefore <= 0 ? 0 : Math.ceil(daysBefore / 7);
+    const i = WEEKS - 1 - back;
+    if (i < 0 || i >= WEEKS) continue;
+    weeks[i].count++;
+    weeks[i].minutes += l.durationMinutes;
+  }
+  return weeks;
+}
+
+function WorkoutTrend() {
+  const t = useT();
+  const logs = useWorkoutLogs(WEEKS * 7);
+  if (logs.isPending || logs.isError || logs.data.length === 0) return null;
+  const weeks = weeklyWorkouts(logs.data, new Date());
+  const total = weeks.reduce((sum, w) => sum + w.count, 0);
+  const minutes = weeks.reduce((sum, w) => sum + w.minutes, 0);
+  const labels = weeks.map((_, i) => (i === WEEKS - 1 ? t("This week") : `${WEEKS - 1 - i} ${t("weeks ago")}`));
+  return (
+    <div className="xc-card">
+      <div className="xc-card-head">
+        <h2>{t("Workout")}</h2>
+        <span className="xc-muted">
+          {t("Last 8 weeks")} {total} {t("times")} · {minutes} {t("min")}
+        </span>
+      </div>
+      <div className="habits-trend">
+        <MiniBars values={weeks.map((w) => w.count)} labels={labels} tone="ok" />
+      </div>
     </div>
   );
 }

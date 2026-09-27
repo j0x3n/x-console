@@ -15,6 +15,7 @@ import {
   type S3Config,
   type S3ConfigInput,
 } from "./api";
+import { useVaultUnlocked } from "../vault/api";
 import "./i18n";
 import "./drive.css";
 
@@ -60,6 +61,7 @@ export function toInput(form: Form): S3ConfigInput {
 
 function S3Form({ initial }: { initial: S3Config }) {
   const t = useT();
+  const vaultUnlocked = useVaultUnlocked();
   const save = useSaveS3Config();
   const test = useTestS3();
   const [form, setForm] = useState<Form>(() => toForm(initial));
@@ -154,17 +156,21 @@ function S3Form({ initial }: { initial: S3Config }) {
         <span>{t("Path-style URLs")}</span>
       </label>
       <small className="xc-check-hint">MinIO 一般要勾上。</small>
-      <label className="xc-check">
-        <input
-          type="checkbox"
-          checked={form.includeHidden}
-          onChange={(e) => set("includeHidden", e.target.checked)}
-        />
-        <span>{t("Also sync hidden files")}</span>
-      </label>
-      <small className="xc-check-hint">
-        放在前缀下的 .hidden 目录里。桶的权限要自己管好。
-      </small>
+      {vaultUnlocked && (
+        <>
+          <label className="xc-check">
+            <input
+              type="checkbox"
+              checked={form.includeHidden}
+              onChange={(e) => set("includeHidden", e.target.checked)}
+            />
+            <span>{t("Also sync hidden files")}</span>
+          </label>
+          <small className="xc-check-hint">
+            放在前缀下的 .hidden 目录里。桶的权限要自己管好。
+          </small>
+        </>
+      )}
       {result && (
         <p className={`drive-test ${result.ok ? "ok" : "fail"}`} role="status">
           {result.message}

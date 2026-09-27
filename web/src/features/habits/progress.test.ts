@@ -106,3 +106,20 @@ describe("workouts", () => {
     expect(saved.map((d) => d.weekday)).toEqual([1, 4]);
   });
 });
+
+import { weeklyWorkouts } from "./StatsView";
+
+describe("weeklyWorkouts", () => {
+  it("groups logs by week, this week last", () => {
+    const now = new Date(2026, 8, 27); // 周日
+    const log = (date: string, durationMinutes = 30) => ({ id: 1, date, items: [], durationMinutes, note: "", createdAt: "" });
+    const weeks = weeklyWorkouts(
+      [log("2026-09-21"), log("2026-09-27", 40), log("2026-09-20"), log("2026-08-03"), log("2026-07-01")],
+      now,
+    );
+    expect(weeks[7]).toEqual({ count: 2, minutes: 70 });
+    expect(weeks[6].count).toBe(1);
+    expect(weeks[0].count).toBe(1);
+    expect(weeks.reduce((s, w) => s + w.count, 0)).toBe(4);
+  });
+});

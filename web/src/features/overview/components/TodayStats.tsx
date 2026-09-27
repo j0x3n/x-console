@@ -16,7 +16,7 @@ import { useTodoCount } from "./MainCards";
 
 const DASH = "–";
 
-/** 顶部一排概要：待办、提醒、习惯、服务器、编码任务、下一项日程。 */
+/** 顶部一排概要：待办、提醒、习惯、服务器、Agent 任务、下一项日程。 */
 export default function TodayStats() {
   const t = useT();
   const language = useLanguage();

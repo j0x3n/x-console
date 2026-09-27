@@ -1,5 +1,5 @@
-/** 入口：2 秒内连续点 5 次 Logo。 */
-export const TAP_COUNT = 5;
+/** 入口：2 秒内连续点 3 次 Logo。 */
+export const TAP_COUNT = 3;
 export const TAP_WINDOW_MS = 2000;
 /** 15 分钟没有操作就自动锁定。 */
 export const IDLE_LOCK_MS = 15 * 60 * 1000;

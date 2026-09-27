@@ -156,6 +156,33 @@ func TestListTagsPinnedArchived(t *testing.T) {
 	_ = a
 }
 
+func TestTagColors(t *testing.T) {
+	env := testutil.New(t)
+	createNote(t, env, api.CreateNote{Title: str("a"), Tags: &[]string{"work", "idea"}})
+	env.MustDo(http.MethodPut, "/notes/tag-colors", api.TagColorInput{Tag: "#work", Color: "#8F86F0"}, nil)
+	if code, _ := env.Do(http.MethodPut, "/notes/tag-colors", api.TagColorInput{Tag: "idea", Color: "red"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("bad color: %d", code)
+	}
+	colors := func() map[string]string {
+		var tags []api.TagCount
+		env.MustDo(http.MethodGet, "/notes/tags", nil, &tags)
+		out := map[string]string{}
+		for _, tc := range tags {
+			if tc.Color != nil {
+				out[tc.Tag] = *tc.Color
+			}
+		}
+		return out
+	}
+	if got := colors(); len(got) != 1 || got["work"] != "#8f86f0" {
+		t.Fatalf("colors: %v", got)
+	}
+	env.MustDo(http.MethodPut, "/notes/tag-colors", api.TagColorInput{Tag: "work", Color: ""}, nil)
+	if got := colors(); len(got) != 0 {
+		t.Fatalf("after reset: %v", got)
+	}
+}
+
 func ptr[T any](v T) *T { return &v }
 
 func TestSearch(t *testing.T) {

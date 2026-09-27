@@ -153,47 +153,49 @@ a.today-row:hover {
 }
 
 /* 天气 */
-.today-weather {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  color: var(--xc-muted);
+.today-columns {
+  display: grid;
+  gap: 20px;
+  align-items: start;
 }
-.today-weather-now {
-  display: flex;
-  flex-direction: column;
-}
-.today-weather-now strong {
-  color: var(--xc-text);
-  font-size: 26px;
-  font-weight: 500;
-  line-height: 1.1;
-}
-.today-weather-now span {
-  font-size: 12px;
-}
-.today-weather-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  margin-left: auto;
-  min-width: 0;
-  font-size: 12px;
-}
-.today-weather-meta span {
+
+/* 标题右下的一行天气 */
+.today-weather-strip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-}
-.today-weather-meta small {
-  color: var(--xc-faint);
-  font-size: 11px;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 6px;
+  margin-left: 12px;
+  color: var(--xc-muted);
+  font-size: 12px;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.today-weather-strip b {
+  color: var(--xc-text);
+  font-weight: 600;
+}
+.today-weather-strip.is-setup {
+  color: var(--xc-muted);
+  text-decoration: none;
+}
+.today-weather-strip.is-setup:hover {
+  color: var(--xc-text);
+}
+.today-weather-rain {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.today-weather-toggle {
+  margin-left: 12px;
+}
+.today-weather-toggle.is-off {
+  color: var(--xc-faint);
+}
+@media (max-width: 720px) {
+  .today-weather-range {
+    display: none;
+  }
 }
 
 /* 智能家居 */

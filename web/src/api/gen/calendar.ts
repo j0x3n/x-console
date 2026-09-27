@@ -70,19 +70,42 @@ export interface paths {
         /** @description 范围内的事件。重复事件按用户时区展开成每一次发生。范围最长 100 天。 */
         get: operations["listCalendarEvents"];
         put?: never;
-        post?: never;
+        /** @description 在可写的日历里新建事件。CalDAV 日历会马上写回服务器，失败时不保存。 */
+        post: operations["createCalendarEvent"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
+    "/calendar/events/{eventId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eventId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteCalendarEvent"];
+        options?: never;
+        head?: never;
+        /** @description 改一个不重复的事件。CalDAV 日历会马上写回服务器。 */
+        patch: operations["updateCalendarEvent"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @enum {string} */
-        CalendarKind: "ics" | "caldav";
+        /**
+         * @description ics 订阅链接，只读；caldav 可以读写（iCloud 等）；local 存在自己服务器上的日历
+         * @enum {string}
+         */
+        CalendarKind: "ics" | "caldav" | "local";
         Calendar: {
             /** Format: int64 */
             id: number;
@@ -100,6 +123,8 @@ export interface components {
             lastError: string;
             /** @description 同步下来的事件条数（重复事件算一条） */
             eventCount: number;
+            /** @description 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 为 false */
+            writable?: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -145,6 +170,47 @@ export interface components {
             location: string;
             description: string;
             recurring: boolean;
+            /** @description 能不能改。日历可写且不是重复事件时为 true */
+            writable?: boolean;
+        };
+        EventInput: {
+            /** Format: int64 */
+            calendarId: number;
+            title: string;
+            allDay: boolean;
+            /**
+             * Format: date-time
+             * @description 不是全天事件时必填
+             */
+            start?: string;
+            /**
+             * Format: date-time
+             * @description 不是全天事件时必填
+             */
+            end?: string;
+            /** @description 全天事件的开始日期 YYYY-MM-DD */
+            startDate?: string;
+            /** @description 全天事件的结束日期 YYYY-MM-DD（不含） */
+            endDate?: string;
+            location?: string;
+            description?: string;
+        };
+        EventPatch: {
+            /**
+             * Format: int64
+             * @description 移到另一个可写的日历
+             */
+            calendarId?: number;
+            title?: string;
+            allDay?: boolean;
+            /** Format: date-time */
+            start?: string;
+            /** Format: date-time */
+            end?: string;
+            startDate?: string;
+            endDate?: string;
+            location?: string;
+            description?: string;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -334,6 +400,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarEvent"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createCalendarEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventInput"];
+            };
+        };
+        responses: {
+            /** @description 新建的事件（第一次发生） */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEvent"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteCalendarEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eventId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateCalendarEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                eventId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventPatch"];
+            };
+        };
+        responses: {
+            /** @description 改好的事件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEvent"];
                 };
             };
             default: components["responses"]["Error"];

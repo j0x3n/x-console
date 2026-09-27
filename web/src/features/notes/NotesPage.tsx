@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Archive,
   EyeOff,
-  Hash,
   NotebookPen,
   Notebook,
   Pin,
@@ -14,7 +13,8 @@ import {
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
-import { useCreateNote, useNotes, useTags, type NoteSummary } from "./api";
+import { useCreateNote, useNotes, useSetTagColor, useTags, type NoteSummary } from "./api";
+import { tagColor, TAG_COLORS } from "./tagColor";
 import { useVaultStatus } from "../vault/api";
 import NoteEditor from "./components/NoteEditor";
 import {
@@ -163,7 +163,7 @@ export default function NotesPage() {
         `tag-${tc.tag}`,
         tag === tc.tag,
         () => setView(tag === tc.tag ? "all" : "tag", tc.tag),
-        <Hash size={14} />,
+        <i className="notes-tag-dot" style={{ background: tagColor(tc.tag, tc.color) }} />,
         tc.tag,
         tc.count,
       ),
@@ -183,6 +183,9 @@ export default function NotesPage() {
       <aside className="notes-list-pane">
         <div className="notes-list-head">
           <div className="notes-list-title">
+            {view === "tag" && (
+              <TagColorPicker tag={tag} color={tags.data?.find((tc) => tc.tag === tag)?.color} />
+            )}
             <h1>{viewTitle}</h1>
             <span>{items.length > 0 ? `${items.length}${notes.hasNextPage ? "+" : ""}` : ""}</span>
           </div>
@@ -344,5 +347,59 @@ function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean;
       </div>
       {note.thumbnail && <img className="notes-thumb" src={note.thumbnail} alt="" loading="lazy" />}
     </Link>
+  );
+}
+
+/** 标签的颜色：点小圆点弹出一排可选的颜色。 */
+function TagColorPicker({ tag, color }: { tag: string; color?: string }) {
+  const t = useT();
+  const save = useSetTagColor();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open]);
+  const current = tagColor(tag, color);
+  const pick = (c: string) => {
+    save.mutate({ tag, color: c });
+    setOpen(false);
+  };
+  return (
+    <div className="notes-tag-color" ref={ref}>
+      <button
+        className="notes-tag-color-btn"
+        aria-label={t("Tag color")}
+        title={t("Tag color")}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <i className="notes-tag-dot" style={{ background: current }} />
+      </button>
+      {open && (
+        <div className="notes-tag-color-menu" role="menu">
+          {TAG_COLORS.map((c) => (
+            <button
+              key={c}
+              role="menuitemradio"
+              aria-checked={c === current}
+              aria-label={c}
+              className={c === current ? "on" : ""}
+              style={{ background: c }}
+              onClick={() => pick(c)}
+            />
+          ))}
+          {color && (
+            <button role="menuitem" className="notes-tag-color-reset" onClick={() => pick("")}>
+              {t("Default color")}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

@@ -306,3 +306,191 @@
   color: var(--xc-muted);
   font-size: 12px;
 }
+
+/* 模块（健身） */
+.habits-module {
+  margin-top: 16px;
+}
+.habits-module .xc-card-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.habits-add-module {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.habits-fitness {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.habits-fitness-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.habits-fitness-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin-right: auto;
+}
+.habits-fitness-title strong {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.habits-fitness-title span {
+  color: var(--xc-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.habits-fitness-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  max-width: 420px;
+}
+.habits-fitness-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0 4px;
+  border-radius: var(--xc-radius);
+  color: var(--xc-muted);
+}
+.habits-fitness-day small {
+  font-size: 11px;
+}
+.habits-fitness-day.is-today {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.habits-fitness-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--xc-border-strong);
+}
+.habits-fitness-day.is-planned .habits-fitness-dot {
+  border-color: var(--xc-accent);
+}
+.habits-fitness-day.is-done .habits-fitness-dot {
+  border-color: var(--xc-ok);
+  background: var(--xc-ok);
+}
+.habits-fitness-day.is-rest .habits-fitness-dot {
+  width: 8px;
+  height: 2px;
+  margin: 5px 0;
+  border: 0;
+  border-radius: 1px;
+  background: var(--xc-border-strong);
+}
+.habits-fitness-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.habits-fitness-items li {
+  padding: 3px 9px;
+  border: 1px solid var(--xc-border);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.habits-fitness-empty {
+  margin: 0;
+  color: var(--xc-muted);
+  font-size: 12.5px;
+}
+.habits-fitness-foot {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--xc-border);
+}
+.habits-plan-dialog .xc-card {
+  border: 0;
+  padding: 0;
+}
+
+/* 习惯弹窗：类型和图标 */
+.habits-kind-hint {
+  margin: 8px 0 0;
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.habits-icon-pick {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+  color: var(--xc-muted);
+  font-size: 17px;
+  cursor: pointer;
+}
+.habits-icon-pick.open,
+.habits-icon-pick:hover {
+  border-color: var(--xc-accent);
+}
+.habits-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  margin: -4px 0 14px;
+  padding: 8px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-surface-2);
+}
+.habits-icon-grid button {
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--xc-radius);
+  background: none;
+  font-size: 17px;
+  cursor: pointer;
+}
+.habits-icon-grid button:hover {
+  background: var(--xc-surface);
+}
+.habits-icon-grid button.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-surface);
+}
+.habits-icon-grid .xc-input {
+  grid-column: span 4;
+  height: 32px;
+}
+.habits-icon-grid .habits-icon-clear {
+  grid-column: span 4;
+  color: var(--xc-muted);
+  font-size: 12.5px;
+}
+.habits-trend .xc-minibars {
+  height: 64px;
+}
+.habits-plan-dialog .xc-card-head h2 {
+  display: none;
+}
+.habits-plan-dialog .xc-card-head {
+  justify-content: flex-end;
+}
+.habits-kind {
+  margin-bottom: 14px;
+}
+.habits-kind-hint.habits-kind {
+  margin-top: -6px;
+}

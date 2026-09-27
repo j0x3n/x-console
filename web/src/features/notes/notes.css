@@ -766,3 +766,80 @@
     display: none;
   }
 }
+
+/* 标签颜色 */
+.notes-tag-dot {
+  flex: none;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.notes-nav .notes-tag-dot,
+.notes-chips .notes-tag-dot {
+  margin: 0 3px;
+}
+.notes-tag-color {
+  position: relative;
+  align-self: center;
+}
+.notes-tag-color-btn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.notes-tag-color-btn .notes-tag-dot {
+  width: 11px;
+  height: 11px;
+}
+.notes-tag-color-btn:hover,
+.notes-tag-color-btn[aria-expanded="true"] {
+  border-color: var(--xc-border-strong);
+  background: var(--xc-surface-2);
+}
+.notes-tag-color-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(4, 22px);
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 10px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.notes-tag-color-menu button[role="menuitemradio"] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.notes-tag-color-menu button.on {
+  border-color: var(--xc-text);
+}
+.notes-tag-color-reset {
+  grid-column: 1 / -1;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.notes-tag-color-reset:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}

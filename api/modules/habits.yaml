@@ -275,6 +275,10 @@ components:
       type: string
       description: none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
       enum: [none, interval, times]
+    HabitKind:
+      type: string
+      description: count 普通打卡；workout 健身，记一次训练就算打卡一次
+      enum: [count, workout]
     Habit:
       type: object
       required:
@@ -283,6 +287,7 @@ components:
         id: { type: integer, format: int64 }
         name: { type: string }
         icon: { type: string }
+        kind: { $ref: "#/components/schemas/HabitKind" }
         color: { type: string }
         unit: { type: string }
         dailyTarget: { type: number, format: double }
@@ -306,6 +311,7 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
         icon: { type: string }
+        kind: { $ref: "#/components/schemas/HabitKind" }
         color: { type: string }
         unit: { type: string }
         dailyTarget: { type: number, format: double }
@@ -322,6 +328,7 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
         icon: { type: string }
+        kind: { $ref: "#/components/schemas/HabitKind" }
         color: { type: string }
         unit: { type: string }
         dailyTarget: { type: number, format: double }

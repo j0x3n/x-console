@@ -676,3 +676,37 @@
   z-index: 2;
   background: var(--xc-surface);
 }
+
+/* 新建和编辑日程 */
+.calendar-form-row.is-time {
+  grid-template-columns: 1.4fr 1fr 1fr;
+}
+.calendar-form-error {
+  margin: 4px 0 0;
+  color: var(--xc-danger);
+  font-size: 12.5px;
+}
+.calendar-form-delete {
+  margin-right: auto;
+}
+.calendar-kind-hint {
+  margin: -4px 0 12px;
+  color: var(--xc-muted);
+  font-size: 12.5px;
+}
+.calendar-col {
+  cursor: cell;
+}
+@media (max-width: 640px) {
+  .calendar-btn-text {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .calendar-form-row.is-time {
+    grid-template-columns: 1fr 1fr;
+  }
+  .calendar-form-row.is-time .xc-field:first-child {
+    grid-column: 1 / -1;
+  }
+}

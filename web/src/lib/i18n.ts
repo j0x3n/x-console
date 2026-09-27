@@ -43,7 +43,7 @@ registerZh({
   Calendar: "日历",
   Servers: "服务器",
   "This PC": "本机",
-  "Coding tasks": "编码任务",
+  "Coding tasks": "Agent 任务",
   Monitoring: "监控",
   "Smart home": "智能家居",
   Automations: "自动化",

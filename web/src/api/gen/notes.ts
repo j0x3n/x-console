@@ -41,6 +41,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notes/tag-colors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 设置一个标签的颜色。标签名可能带斜杠，所以放在请求体里。 */
+        put: operations["setNoteTagColor"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notes/{noteId}": {
         parameters: {
             query?: never;
@@ -213,6 +230,13 @@ export interface components {
         TagCount: {
             tag: string;
             count: number;
+            /** @description 用户给标签设的颜色，形如 */
+            color?: string;
+        };
+        TagColorInput: {
+            tag: string;
+            /** @description 形如 */
+            color: string;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -326,6 +350,29 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TagCount"][];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setNoteTagColor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TagColorInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
