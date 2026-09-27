@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -29,6 +30,18 @@ func main() {
 		fmt.Println(base64.StdEncoding.EncodeToString(key))
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "backup" {
+		if len(os.Args) != 3 {
+			fmt.Fprintln(os.Stderr, "用法: x-console-server backup <路径>")
+			os.Exit(2)
+		}
+		source := filepath.Join(envDataDir(), "x-console.db")
+		if err := store.Backup(context.Background(), source, os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	level := slog.LevelInfo
 	if os.Getenv("XC_DEBUG") == "1" {
 		level = slog.LevelDebug
@@ -38,6 +51,13 @@ func main() {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
+}
+
+func envDataDir() string {
+	if dir := os.Getenv("XC_DATA_DIR"); dir != "" {
+		return dir
+	}
+	return "./data"
 }
 
 func run() error {
