@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import {
+  ChevronRight,
   LogOut,
   Moon,
   PanelLeftClose,
@@ -13,6 +14,18 @@ import { navGroupLabels, navItems, type NavGroup } from "../../app/nav";
 import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
 import { usePreferencesStore } from "../../stores/preferences-store";
+import { useNavChildren } from "../../lib/navChildren";
+
+// 二级菜单展开了哪些，记在 localStorage。
+const OPEN_KEY = "xc.nav.open";
+function readOpen(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -26,6 +39,20 @@ export default function Sidebar({
   openPalette,
 }: SidebarProps) {
   const t = useT();
+  const children = useNavChildren();
+  const [open, setOpen] = useState<string[]>(readOpen);
+  const toggle = (path: string) =>
+    setOpen((prev) => {
+      const next = prev.includes(path)
+        ? prev.filter((p) => p !== path)
+        : [...prev, path];
+      try {
+        localStorage.setItem(OPEN_KEY, JSON.stringify(next));
+      } catch {
+        /* 记不住就算了 */
+      }
+      return next;
+    });
   const groups = (Object.keys(navGroupLabels) as NavGroup[]).map((group) => ({
     group,
     items: navItems.filter((item) => item.group === group),
@@ -71,20 +98,41 @@ export default function Sidebar({
               {navGroupLabels[group] && (
                 <div className="side-label">{t(navGroupLabels[group])}</div>
               )}
-              {items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.path === "/"}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    `nav-item ${isActive ? "selected" : ""}`
-                  }
-                >
-                  <item.icon size={17} strokeWidth={1.5} />
-                  <span>{t(item.label)}</span>
-                </NavLink>
-              ))}
+              {items.map((item) => {
+                const Children = children[item.path];
+                const isOpen = !!Children && open.includes(item.path);
+                return (
+                  <div key={item.path} className="nav-entry">
+                    <NavLink
+                      to={item.path}
+                      end={item.path === "/"}
+                      onClick={() => setMobileOpen(false)}
+                      className={({ isActive }) =>
+                        `nav-item ${isActive ? "selected" : ""}${Children ? " has-children" : ""}`
+                      }
+                    >
+                      <item.icon size={17} strokeWidth={1.5} />
+                      <span>{t(item.label)}</span>
+                    </NavLink>
+                    {Children && (
+                      <button
+                        type="button"
+                        className={`nav-toggle${isOpen ? " open" : ""}`}
+                        aria-expanded={isOpen}
+                        aria-label={`${isOpen ? t("Collapse menu") : t("Expand menu")} ${t(item.label)}`}
+                        onClick={() => toggle(item.path)}
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    )}
+                    {isOpen && (
+                      <div className="nav-children">
+                        <Children onNavigate={() => setMobileOpen(false)} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -96,6 +144,7 @@ export default function Sidebar({
 
 function ProfileMenu() {
   const t = useT();
+  const navigate = useNavigate();
   const auth = useAuthStatus();
   const logout = useLogout();
   const { language, setLanguage, themeMode, setThemeMode } =
@@ -115,6 +164,19 @@ function ProfileMenu() {
     <div className="profile-menu-wrap" ref={ref}>
       {open && (
         <div className="profile-popover" role="menu">
+          <div className="profile-menu-section">
+            <button
+              className="profile-menu-item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                navigate("/settings");
+              }}
+            >
+              <Settings2 size={15} />
+              <span>{t("Settings")}</span>
+            </button>
+          </div>
           <div className="profile-menu-section">
             <button
               className="profile-menu-item"

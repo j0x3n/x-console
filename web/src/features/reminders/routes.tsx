@@ -4,6 +4,11 @@ import { AlarmClockPlus, BellRing } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./reminders.css";
+import RemindersNavChildren from "./NavChildren";
+import { registerNavChildren } from "../../lib/navChildren";
+
+// 侧边栏“/reminders”的二级菜单。
+registerNavChildren("/reminders", RemindersNavChildren);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const RemindersPage = lazy(() => import("./RemindersPage"));

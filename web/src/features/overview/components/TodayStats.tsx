@@ -42,7 +42,7 @@ export default function TodayStats() {
   const next = events.data ? nextEvent(events.data, new Date()) : undefined;
 
   return (
-    <StatStrip label={t("Today at a glance")}>
+    <StatStrip size="large" label={t("Today at a glance")}>
       <StatCard
         label={t("To do today")}
         to="/projects"

@@ -127,7 +127,6 @@
 .auto-form {
   display: grid;
   gap: 12px;
-  max-width: 860px;
 }
 .auto-row {
   display: flex;
@@ -270,7 +269,6 @@
 .auto-runs {
   display: grid;
   gap: 6px;
-  max-width: 860px;
 }
 .auto-run {
   border: 1px solid var(--xc-border);

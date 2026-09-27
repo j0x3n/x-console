@@ -6,6 +6,18 @@ import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { matchPrefix, useCommands, type Command } from "../../lib/commands";
 
+/** 没输入时显示的常用命令，按这个顺序。输入后才搜全部页面和命令。 */
+const SUGGESTED = [
+  "notes.quick",
+  "notes.new",
+  "projects.new-issue",
+  "reminders.new",
+  "assistant.open",
+  "drive.search",
+  "calendar.today",
+  "settings.open",
+];
+
 /** ⌘K 命令面板：跳转页面和执行模块注册的命令。 */
 export default function CommandPalette({
   open,
@@ -41,11 +53,29 @@ export default function CommandPalette({
   const results = useMemo(() => {
     if (prefixed) return [prefixed.command];
     const q = query.trim().toLowerCase();
-    if (!q) return all.slice(0, 30);
+    // 没输入时只列几个常用的，不把所有页面和命令都摆出来。
+    if (!q) {
+      const byId = new Map(registered.map((c) => [c.id, c]));
+      const picked = SUGGESTED.map((id) => byId.get(id)).filter(
+        (c): c is Command => !!c,
+      );
+      return picked.length > 0 ? picked : registered.slice(0, SUGGESTED.length);
+    }
+    // 标题完全一样的排第一，标题开头一样的第二，其余按原来的顺序。
+    const score = (c: Command) => {
+      const title = c.title.toLowerCase();
+      if (title === q) return 0;
+      if (title.startsWith(q)) return 1;
+      if (title.includes(q)) return 2;
+      return 3;
+    };
     return all
       .filter((c) =>
         `${c.title} ${c.keywords ?? ""} ${c.group}`.toLowerCase().includes(q),
       )
+      .map((c, i) => ({ c, i, s: score(c) }))
+      .sort((a, b) => a.s - b.s || a.i - b.i)
+      .map((x) => x.c)
       .slice(0, 30);
   }, [all, query, prefixed]);
   useEffect(() => {

@@ -4,6 +4,11 @@ import { BellRing, TerminalSquare } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./servers.css";
+import ServersNavChildren from "./NavChildren";
+import { registerNavChildren } from "../../lib/navChildren";
+
+// 侧边栏“/servers”的二级菜单。
+registerNavChildren("/servers", ServersNavChildren);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const ServersPage = lazy(() => import("./ServersPage"));

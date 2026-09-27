@@ -5,6 +5,11 @@ import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./calendar.css";
 import { useFocusPanel } from "./hooks";
+import CalendarNavChildren from "./NavChildren";
+import { registerNavChildren } from "../../lib/navChildren";
+
+// 侧边栏“/calendar”的二级菜单。
+registerNavChildren("/calendar", CalendarNavChildren);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const CalendarShell = lazy(() => import("./CalendarShell"));

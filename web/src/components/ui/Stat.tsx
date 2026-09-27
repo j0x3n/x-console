@@ -9,12 +9,18 @@ import { Link } from "react-router";
 export function StatStrip({
   children,
   label,
+  size,
 }: {
   children: ReactNode;
   label?: string;
+  /** 默认是紧凑的卡片。今日页用 large。 */
+  size?: "large";
 }) {
   return (
-    <section className="xc-stats" aria-label={label}>
+    <section
+      className={`xc-stats${size === "large" ? " large" : ""}`}
+      aria-label={label}
+    >
       {children}
     </section>
   );
@@ -63,7 +69,7 @@ export function StatCard({
       {foot != null && <div className="xc-stat-foot">{foot}</div>}
     </>
   );
-  const cls = `xc-stat ${className}`;
+  const cls = `xc-stat${value == null ? " no-value" : ""} ${className}`;
   if (to)
     return (
       <Link className={cls} to={to}>
@@ -108,15 +114,18 @@ export function Ring({
           r={r}
           strokeWidth={stroke}
         />
-        <circle
-          className="bar"
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          strokeWidth={stroke}
-          strokeDasharray={`${c * ratio} ${c}`}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
+        {/* 比例为 0 时不画：圆头的线长度为 0 也会画出一个点 */}
+        {ratio > 0 && (
+          <circle
+            className="bar"
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            strokeWidth={stroke}
+            strokeDasharray={`${c * ratio} ${c}`}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        )}
       </svg>
       {children != null && <span className="xc-ring-label">{children}</span>}
     </span>

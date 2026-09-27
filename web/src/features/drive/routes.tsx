@@ -4,6 +4,11 @@ import { HardDrive, Search, Trash2 } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./drive.css";
+import DriveNavChildren from "./NavChildren";
+import { registerNavChildren } from "../../lib/navChildren";
+
+// 侧边栏“/drive”的二级菜单。
+registerNavChildren("/drive", DriveNavChildren);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const DrivePage = lazy(() => import("./DrivePage"));

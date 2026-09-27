@@ -11,7 +11,6 @@ import {
   NotebookPen,
   Radar,
   Server,
-  Settings2,
   SquareKanban,
   Sun,
   Workflow,
@@ -27,6 +26,7 @@ export interface NavItem {
 }
 
 // 侧边栏导航。每个模块一行，label 是英文原文，中文在 lib/i18n.ts。
+// 设置不在这里，入口在左下角的个人菜单（Sidebar 的 ProfileMenu）。
 export const navItems: NavItem[] = [
   { path: "/", label: "My day", icon: Sun, group: "main" },
   { path: "/projects", label: "Projects", icon: SquareKanban, group: "main" },
@@ -52,12 +52,6 @@ export const navItems: NavItem[] = [
     group: "integrations",
   },
   { path: "/github", label: "GitHub", icon: Github, group: "integrations" },
-  {
-    path: "/settings",
-    label: "Settings",
-    icon: Settings2,
-    group: "integrations",
-  },
 ];
 
 export const navGroupLabels: Record<NavGroup, string> = {

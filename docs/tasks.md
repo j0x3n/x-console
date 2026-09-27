@@ -23,7 +23,7 @@
 | B13 | 隐藏内容的后端：`/vault/*`、笔记的 `hidden` | [specs/B13.md](specs/B13.md) | |
 | B14 | 云盘后端：`modules/drive`、S3 同步 | [specs/B14.md](specs/B14.md) | |
 | B3 | AI 助手和自动化的后端 | [specs/M12.md](specs/M12.md) | |
-| B15 | B10 遗留：0% 进度环多一个点；提醒页和项目页的概要卡片和规格不一致，等用户决定按哪个做 | 见下方说明 | |
+| B15 | B10 遗留：提醒页和项目页的概要卡片和规格不一致，等用户决定按哪个做（0% 进度环的点已修） | 见下方说明 | |
 | B1 | 部署面板的主机自动加入代理，可手动移除 | [specs/B1.md](specs/B1.md) | |
 | B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
 | B8 | Playwright 端到端测试加进 CI | 见下方说明 | |
@@ -150,4 +150,6 @@
 | 2026-09-27 | `public/sw.js` 顶部加缓存逻辑；`index.html` 引用 manifest 和图标；`app/TopbarActions.tsx` 加 `InstallButton`；`auth/AuthGate.tsx` 断网时显示“网络断开了” | B5 PWA |
 | 2026-09-27 | `app/Layout.tsx` 的 `Outlet` 外面包 `Suspense`；`web/vite.config.ts` 加 `manualChunks`；各模块 `routes.tsx` 的页面改成 `lazy` | B6 |
 | 2026-09-27 | `PageHeading` 默认不显示大标题（加 `showTitle` 才显示），字符串标题写进新的 `stores/page-title.ts`，`Topbar` 在详情页显示“模块 / 名称”；`ui.css` 加 `.xc-sr-only` | 用户要求页面只用左上角小标题 |
+| 2026-09-27 | 新增 `lib/navChildren.ts`（`registerNavChildren`）和 `components/layout/NavChildLinks.tsx`，`Sidebar` 支持二级菜单；设置从 `app/nav.ts` 移到个人菜单；`StatStrip` 加 `size`，默认紧凑；命令面板没输入时只列常用命令，搜索按标题排序；`Ring` 比例为 0 时不画 | 用户要求的界面调整 |
+| 2026-09-27 | `ci.yml` 只改文档时不跑，同一分支连续推送时取消旧的检查 | 减少构建次数 |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |

@@ -114,6 +114,7 @@ export function useIssues(projectId: number) {
 | 弹窗 | `components/ui/Dialog` |
 | 加载、空、出错 | `components/ui/States` 里的 `Loading`、`EmptyState`、`ErrorState` |
 | 小图表 | `components/ui/LineChart`、`Progress`、`MetricCard` |
+| 概要卡片 | `components/ui/Stat` 的 `StatStrip` + `StatCard`。默认是紧凑的一排，只有今日页用 `size="large"` |
 | 时间和大小 | `lib/time.ts` 的 `relativeTime`、`formatDate`、`formatTime`、`formatBytes` |
 
 - 页面不显示大标题（2026-09-27 用户要求）。左上角的小标题就是页面名，来自路由的 `handle.title`。`PageHeading` 的 `title` 只给读屏软件，不显示；详情页传具体名称（比如项目名），左上角会显示成“项目 / XC 项目”。只有标题本身是内容时才加 `showTitle`，比如今日页的问候语。
@@ -128,7 +129,8 @@ export function useIssues(projectId: number) {
 - 页头按钮：在 `app/TopbarActions.tsx` 里加一行组件。
 - 全局浮层（AI 助手面板、番茄钟）：在 `app/GlobalPanels.tsx` 里加一行组件。
 - 设置页标签：在 `features/settings/tabs.tsx` 里加一行。
-- 侧边栏：`app/nav.ts` 已经列好所有模块，一般不用改。
+- 侧边栏：`app/nav.ts` 已经列好所有模块，一般不用改。设置不在侧边栏，入口在左下角的个人菜单里。
+- 侧边栏二级菜单：在 `routes.tsx` 里 `registerNavChildren("/模块路径", 组件)`。组件用 `components/layout/NavChildLinks` 列出最多 5 条，多的给“全部 N”链接。只在展开时渲染，这时才拉数据。
 
 ## 文案
 

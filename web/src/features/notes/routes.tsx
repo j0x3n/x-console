@@ -7,6 +7,11 @@ import { captureNote } from "./api";
 import "./i18n";
 import "./notes.css";
 import { useQuickNote } from "./QuickNote";
+import NotesNavChildren from "./NavChildren";
+import { registerNavChildren } from "../../lib/navChildren";
+
+// 侧边栏“/notes”的二级菜单。
+registerNavChildren("/notes", NotesNavChildren);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const NotesPage = lazy(() => import("./NotesPage"));

@@ -97,4 +97,8 @@ registerZh({
   Offline: "离线",
   "Just now": "刚刚",
   "type the text after the prefix": "在前缀后面输入内容",
+  "See all": "全部",
+  "Expand menu": "展开",
+  "Collapse menu": "收起",
+  "Open settings": "打开设置",
 });

@@ -835,3 +835,175 @@ button.xc-stat:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 做成按钮或标签样子的链接不要下划线 */
+a.xc-btn,
+a.xc-btn:hover,
+a.xc-badge,
+a.xc-badge:hover {
+  text-decoration: none;
+}
+
+/*
+ * 统计卡片默认是紧凑的一排（2026-09-27 用户要求，高度大约减半）。
+ * 今日页用大卡片：<StatStrip size="large">。
+ * 紧凑卡片：第一行标签和角标，第二行数字，右边放小图，最下面一行说明。
+ */
+.xc-stats:not(.large) {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-bottom: 14px;
+}
+.xc-stats:not(.large) .xc-stat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "top top"
+    "value visual"
+    "foot foot";
+  align-items: center;
+  column-gap: 12px;
+  min-height: 0;
+  padding: 8px 12px;
+}
+.xc-stats:not(.large) .xc-stat-top {
+  grid-area: top;
+}
+.xc-stats:not(.large) .xc-stat-value {
+  grid-area: value;
+  margin-top: 3px;
+  font-size: 18px;
+}
+.xc-stats:not(.large) .xc-stat-visual {
+  grid-area: visual;
+  justify-self: end;
+  width: 100%;
+  max-width: 140px;
+  margin-top: 3px;
+}
+.xc-stats:not(.large) .xc-stat.no-value .xc-stat-visual {
+  grid-column: 1 / -1;
+  max-width: none;
+}
+.xc-stats:not(.large) .xc-stat-foot {
+  grid-area: foot;
+  padding-top: 2px;
+}
+@media (max-width: 720px) {
+  .xc-stats:not(.large) .xc-stat {
+    min-height: 0;
+    padding: 7px 10px;
+  }
+  .xc-stats:not(.large) .xc-stat-value {
+    font-size: 17px;
+  }
+}
+
+/* 侧边栏二级菜单：右边的箭头展开，下面列最多 5 条，多了给“全部”链接 */
+.nav-entry {
+  position: relative;
+}
+.nav-item.has-children {
+  padding-right: 28px;
+}
+.nav-toggle {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-faint);
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    transform 0.12s;
+}
+.nav-entry:hover .nav-toggle,
+.nav-toggle:focus-visible,
+.nav-toggle.open {
+  opacity: 1;
+}
+.nav-toggle:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.nav-toggle svg {
+  transition: transform 0.15s;
+}
+.nav-toggle.open svg {
+  transform: rotate(90deg);
+}
+@media (hover: none) {
+  .nav-toggle {
+    opacity: 1;
+  }
+}
+.nav-children {
+  display: grid;
+  gap: 1px;
+  margin: 1px 0 4px 17px;
+  padding-left: 9px;
+  border-left: 1px solid var(--xc-border);
+}
+.nav-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  min-width: 0;
+  padding: 0 7px;
+  border-radius: 5px;
+  color: var(--xc-muted);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.nav-child > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-child small {
+  flex: none;
+  color: var(--xc-faint);
+  font-size: 11px;
+}
+.nav-child:hover,
+.nav-child.selected {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.nav-child.more {
+  color: var(--xc-faint);
+}
+.nav-child .xc-dot {
+  flex: none;
+}
+.nav-child-mark {
+  flex: none;
+  color: var(--xc-faint);
+}
+.nav-children-note {
+  padding: 4px 7px;
+  color: var(--xc-faint);
+  font-size: 12px;
+}
+.nav-child-swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+/* 命令面板：结果列表不超过屏幕的一半多一点，多了在里面滚动 */
+.command-results {
+  max-height: min(420px, 55vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

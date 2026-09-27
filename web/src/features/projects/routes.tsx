@@ -3,6 +3,11 @@ import type { RouteObject } from "react-router";
 import "./i18n";
 import "./projects.css";
 import "./commands";
+import ProjectsNavChildren from "./NavChildren";
+import { registerNavChildren } from "../../lib/navChildren";
+
+// 侧边栏“/projects”的二级菜单。
+registerNavChildren("/projects", ProjectsNavChildren);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const IssuePage = lazy(() => import("./IssuePage"));
