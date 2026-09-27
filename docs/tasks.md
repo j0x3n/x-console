@@ -26,7 +26,6 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B2 | 今日页后端：`GET/PUT /dashboard/layout`（卡片多了 `weather` 置顶和 `fitness`，见 `web/src/features/overview/layout.ts`） | [specs/M1.md](specs/M1.md) | |
 | B12 | 两步验证可选的后端 | [specs/B12.md](specs/B12.md) | |
 | B13 | 隐藏内容的后端：`/vault/*`、笔记的 `hidden`、隐藏空间自己的标签（`/notes/tags?hidden=true`） | [specs/B13.md](specs/B13.md) | |
 | B8 | Playwright 端到端测试加进 CI。先覆盖最常用的流程，以后每个新功能补一条 | 见下方说明 | |
@@ -46,9 +45,10 @@
 
 **演示数据（保留，D1 才删）**
 - `web/src/demo` 在浏览器里拦请求，返回假数据。`main.tsx` 第一行引入。
-- 常开的拦截（不管开关）：还没有后端的功能，`demo/dashboard.ts`（今日页布局）、`demo/vault.ts`（隐藏内容）、`demo/drive.ts`（云盘）、`demo/ai.ts`（AI 助手）、`demo/automations.ts`（自动化）。
+- 常开的拦截（不管开关）：还没有后端的功能，`demo/vault.ts`（隐藏内容）、`demo/drive.ts`（云盘）、`demo/ai.ts`（AI 助手）、`demo/automations.ts`（自动化）。
 - 演示开关：页面底部“演示数据：开/关”，存在浏览器的 `xc.demo.full` 里，默认开。开着时 `demo/full/*` 接管已有后端的模块（`demo/mode.ts` 的 `FULL_PREFIXES`），读写只动内存，刷新后恢复原样，不碰服务器上的真数据。关掉后回到真数据。`PASS_THROUGH` 里的接口（搜城市）始终走真实服务器。
-- **做后端时注意**：做完 B2、B13、B14、B3 中任何一个，要把上面对应的“常开拦截”改成只在开关打开时生效（文件开头判断 `demoFull`，或者挪进 `demo/full`），否则关掉开关也看不到真数据。改完在这里更新。
+- 今日页布局 B2 已接后端：`demo/dashboard.ts` 只在演示开关打开时拦截。
+- **做后端时注意**：做完 B13、B14、B3 中任何一个，要把上面对应的“常开拦截”改成只在开关打开时生效（文件开头判断 `demoFull`，或者挪进 `demo/full`），否则关掉开关也看不到真数据。改完在这里更新。
 - 做新的前端功能时，同时在 `demo/full` 里补假数据，保证演示模式下能用。
 - D1 删除时：删 `web/src/demo`、`main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
 
@@ -133,6 +133,7 @@
 | --- | --- |
 | B19 | 部署前备份数据库和失败回退（待合并） |
 | B11 后端 | 附件上传下载、缩略图、笔记删除时清理文件（待合并） |
+| B2 后端 | 今日页布局保存与跨设备读取（待合并） |
 | 0 | M0 基础（登录、TOTP、审计、加密设置、事件、调度、通知、代理配对与协议）、前端外壳、contracts、actions、文档 |
 | 1 | M2/M3 服务器和本机、M5 项目、M6 备忘、M7 提醒与通知、M8 习惯、M9 Home Assistant |
 | 2 | M4 编码任务、M10 运维监控、M11 日历早报番茄钟、M13 GitHub 和 Linear |
