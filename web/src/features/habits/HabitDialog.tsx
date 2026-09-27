@@ -71,7 +71,8 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
     event.preventDefault();
     const dailyTarget = Number(target);
     if (!name.trim()) return setError(t("Name is required"));
-    if (!(dailyTarget > 0)) return setError(t("The daily goal must be above 0"));
+    if (!(dailyTarget > 0))
+      return setError(t("The daily goal must be above 0"));
     const remindTimes = parseTimes(times);
     if (mode === "times" && (!remindTimes || remindTimes.length === 0))
       return setError(t("Write times like 08:00, 20:00"));
@@ -86,7 +87,8 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
       dailyTarget,
       remindMode: mode,
       remindIntervalMinutes: mode === "interval" ? minutes : 0,
-      remindWindow: mode === "interval" ? joinWindow(windowStart, windowEnd) : "",
+      remindWindow:
+        mode === "interval" ? joinWindow(windowStart, windowEnd) : "",
       remindTimes: mode === "times" ? (remindTimes ?? []) : [],
       haEntityId: entity.trim(),
     };
@@ -103,7 +105,10 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   const archive = async () => {
     if (!habit) return;
     try {
-      await update.mutateAsync({ id: habit.id, body: { archived: !habit.archived } });
+      await update.mutateAsync({
+        id: habit.id,
+        body: { archived: !habit.archived },
+      });
       toast(habit.archived ? t("Restored") : t("Archived"));
       onClose();
     } catch (err) {
@@ -112,7 +117,8 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   };
 
   const destroy = async () => {
-    if (!habit || !confirm(t("Delete this habit and all its check-ins?"))) return;
+    if (!habit || !confirm(t("Delete this habit and all its check-ins?")))
+      return;
     try {
       await remove.mutateAsync(habit.id);
       toast(t("Deleted"));
@@ -123,7 +129,11 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={habit ? t("Edit habit") : t("New habit")}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={habit ? t("Edit habit") : t("New habit")}
+    >
       <form onSubmit={submit}>
         <div className="habits-form-row habits-form-name">
           <label className="xc-field">
@@ -171,7 +181,11 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
           </label>
           <label className="xc-field">
             <span>{t("Color")}</span>
-            <select className="xc-select" value={color} onChange={(e) => setColor(e.target.value)}>
+            <select
+              className="xc-select"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+            >
               {colors.map((c) => (
                 <option key={c} value={c}>
                   {t(colorLabels[c])}
@@ -182,7 +196,11 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
         </div>
         <label className="xc-field">
           <span>{t("Reminders")}</span>
-          <select className="xc-select" value={mode} onChange={(e) => setMode(e.target.value as RemindMode)}>
+          <select
+            className="xc-select"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as RemindMode)}
+          >
             <option value="none">{t("No reminders")}</option>
             <option value="interval">{t("Every few minutes")}</option>
             <option value="times">{t("At set times")}</option>
@@ -203,11 +221,21 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
             </label>
             <label className="xc-field">
               <span>{t("From")}</span>
-              <input className="xc-input" type="time" value={windowStart} onChange={(e) => setWindowStart(e.target.value)} />
+              <input
+                className="xc-input"
+                type="time"
+                value={windowStart}
+                onChange={(e) => setWindowStart(e.target.value)}
+              />
             </label>
             <label className="xc-field">
               <span>{t("To")}</span>
-              <input className="xc-input" type="time" value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} />
+              <input
+                className="xc-input"
+                type="time"
+                value={windowEnd}
+                onChange={(e) => setWindowEnd(e.target.value)}
+              />
             </label>
           </div>
         )}
@@ -223,11 +251,14 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
           </label>
         )}
         {mode !== "none" && (
-          <p className="xc-muted habits-hint">{t("Reminders stop once today's goal is reached.")}</p>
+          <p className="xc-muted habits-hint">
+            {t("Reminders stop once today's goal is reached.")}
+          </p>
         )}
         <label className="xc-field">
           <span>
-            {t("Home Assistant entity")} <small className="xc-muted">· {t("optional")}</small>
+            {t("Home Assistant entity")}{" "}
+            <small className="xc-muted">· {t("optional")}</small>
           </span>
           <input
             className="xc-input xc-mono"
@@ -235,17 +266,31 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
             onChange={(e) => setEntity(e.target.value)}
             placeholder="binary_sensor.toothbrush"
           />
-          <small>{t("Each state change of this entity counts as one check-in.")}</small>
+          <small>
+            {t("Each state change of this entity counts as one check-in.")}
+          </small>
         </label>
         {error && <p className="xc-error-text">{error}</p>}
         <div className="xc-dialog-actions habits-dialog-actions">
           {habit && (
             <>
-              <button type="button" className="xc-btn ghost small" onClick={archive}>
-                {habit.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}{" "}
+              <button
+                type="button"
+                className="xc-btn ghost small"
+                onClick={archive}
+              >
+                {habit.archived ? (
+                  <ArchiveRestore size={14} />
+                ) : (
+                  <Archive size={14} />
+                )}{" "}
                 {habit.archived ? t("Restore") : t("Archive")}
               </button>
-              <button type="button" className="xc-btn danger small" onClick={destroy}>
+              <button
+                type="button"
+                className="xc-btn danger small"
+                onClick={destroy}
+              >
                 <Trash2 size={14} /> {t("Delete")}
               </button>
               <span className="xc-spacer" />

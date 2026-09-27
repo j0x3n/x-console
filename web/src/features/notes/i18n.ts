@@ -29,7 +29,8 @@ registerZh({
   Saved: "已保存",
   "Save failed. Retrying soon.": "保存失败，稍后会重试。",
   Edited: "编辑于",
-  "Delete this note? This cannot be undone.": "要删除这条笔记吗？删除后不能恢复。",
+  "Delete this note? This cannot be undone.":
+    "要删除这条笔记吗？删除后不能恢复。",
   "Turn into issue": "转成 Issue",
   "The note becomes the issue description. A link to the issue is added to the note.":
     "笔记内容会作为 Issue 的描述。笔记末尾会加上 Issue 的链接。",

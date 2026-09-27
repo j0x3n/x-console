@@ -140,4 +140,4 @@ export function useIssues(projectId: number) {
 
 - 纯逻辑（过滤、排序、分组、格式化、状态转换）写 Vitest 单元测试。
 - 组件测试用 `@testing-library/react`，文件顶部加 `// @vitest-environment jsdom`。
-- 提交前：`npm run typecheck`、`npm test`、`npm run build` 都通过。
+- 提交前：`npm run typecheck`、`npm test`、`npx prettier --check "src/**/*.{ts,tsx,css}"`、`npm run build` 都通过。`src/api/gen/` 已在 `.prettierignore` 中排除。

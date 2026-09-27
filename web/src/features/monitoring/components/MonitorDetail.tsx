@@ -66,7 +66,9 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
             </div>
             <div>
               <small>{t("Days left")}</small>
-              <strong className={`monitoring-tone-${expiryTone(monitor.kind, monitor.daysLeft)}`}>
+              <strong
+                className={`monitoring-tone-${expiryTone(monitor.kind, monitor.daysLeft)}`}
+              >
                 {Math.floor(monitor.daysLeft ?? 0)}
               </strong>
             </div>
@@ -87,15 +89,20 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
         <div className="monitoring-detail-bar">
           <nav className="xc-tabs monitoring-range">
             {ranges.map((r) => (
-              <button key={r} className={r === range ? "active" : ""} onClick={() => setRange(r)}>
+              <button
+                key={r}
+                className={r === range ? "active" : ""}
+                onClick={() => setRange(r)}
+              >
                 {r}
               </button>
             ))}
           </nav>
           {results.data && (
             <span className="xc-muted">
-              {t("Availability")} {results.data.uptime}% · {t("Average")} {Math.round(results.data.avgLatencyMs)} ms ·{" "}
-              {results.data.total} {t("checks")}
+              {t("Availability")} {results.data.uptime}% · {t("Average")}{" "}
+              {Math.round(results.data.avgLatencyMs)} ms · {results.data.total}{" "}
+              {t("checks")}
             </span>
           )}
         </div>
@@ -123,11 +130,16 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
                       <tr key={r.id ?? i}>
                         <td>{shortDateTime(r.at, language)}</td>
                         <td>
-                          <span className={`xc-dot ${r.ok ? "ok" : "danger"}`} /> {r.ok ? t("OK") : t("Failed")}
+                          <span
+                            className={`xc-dot ${r.ok ? "ok" : "danger"}`}
+                          />{" "}
+                          {r.ok ? t("OK") : t("Failed")}
                         </td>
                         <td>{r.statusCode ?? "—"}</td>
                         <td>{r.latencyMs} ms</td>
-                        <td className="monitoring-error-cell">{r.error || "—"}</td>
+                        <td className="monitoring-error-cell">
+                          {r.error || "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -165,21 +177,39 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
             onClick={() =>
               save.mutate(
                 { id: monitor.id, patch: { enabled: !monitor.enabled } },
-                { onSuccess: () => toast(monitor.enabled ? t("Paused") : t("Resumed")), onError: showError },
+                {
+                  onSuccess: () =>
+                    toast(monitor.enabled ? t("Paused") : t("Resumed")),
+                  onError: showError,
+                },
               )
             }
           >
-            {monitor.enabled ? <Pause size={14} /> : <Play size={14} />} {monitor.enabled ? t("Pause") : t("Resume")}
+            {monitor.enabled ? <Pause size={14} /> : <Play size={14} />}{" "}
+            {monitor.enabled ? t("Pause") : t("Resume")}
           </button>
           <button className="xc-btn" onClick={() => setEditing(true)}>
             <Pencil size={14} /> {t("Edit")}
           </button>
-          <button className="xc-btn primary" disabled={check.isPending} onClick={runCheck}>
-            <RefreshCw size={14} className={check.isPending ? "monitoring-spin" : ""} /> {t("Check now")}
+          <button
+            className="xc-btn primary"
+            disabled={check.isPending}
+            onClick={runCheck}
+          >
+            <RefreshCw
+              size={14}
+              className={check.isPending ? "monitoring-spin" : ""}
+            />{" "}
+            {t("Check now")}
           </button>
         </div>
       </Dialog>
-      <MonitorDialog open={editing} onClose={() => setEditing(false)} monitor={monitor} kinds={[monitor.kind]} />
+      <MonitorDialog
+        open={editing}
+        onClose={() => setEditing(false)}
+        monitor={monitor}
+        kinds={[monitor.kind]}
+      />
     </>
   );
 }

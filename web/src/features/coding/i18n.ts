@@ -30,20 +30,24 @@ registerZh({
   Discarded: "已丢弃",
   // 新建
   "New coding task": "新建编码任务",
-  "Its title and description are added to the prompt.": "它的标题和描述会自动加进需求。",
+  "Its title and description are added to the prompt.":
+    "它的标题和描述会自动加进需求。",
   "Register a repository first.": "先登记一个仓库。",
   "Manage repositories": "管理仓库",
   Repository: "仓库",
   offline: "离线",
-  "The machine is offline. The task waits in the queue.": "这台机器离线了。任务会排队等它上线。",
+  "The machine is offline. The task waits in the queue.":
+    "这台机器离线了。任务会排队等它上线。",
   Executor: "执行器",
   "not found": "没装",
-  "This executor is not installed on the machine.": "这台机器上没装这个执行器。",
+  "This executor is not installed on the machine.":
+    "这台机器上没装这个执行器。",
   "Base branch": "基础分支",
   "What should it do?": "要做什么？",
   "Anything to add? Optional.": "还有要补充的吗？可以不填。",
   "Describe the change you want.": "写下你想要的改动。",
-  "It runs in its own git worktree. Your checkout is not touched.": "任务在单独的 worktree 里跑，不会动你当前的代码。",
+  "It runs in its own git worktree. Your checkout is not touched.":
+    "任务在单独的 worktree 里跑，不会动你当前的代码。",
   "Start task": "开始",
   "Task queued": "已排队",
   "Task started": "已开始",
@@ -71,7 +75,8 @@ registerZh({
   "Changes are not available": "看不到改动",
   "No changes.": "没有改动。",
   binary: "二进制",
-  "The diff is larger than 2 MB. Only the first part is shown.": "diff 超过 2 MB，只显示前面一部分。",
+  "The diff is larger than 2 MB. Only the first part is shown.":
+    "diff 超过 2 MB，只显示前面一部分。",
   "Binary file, not shown.": "二进制文件，不显示。",
   "No text changes to show.": "没有可以显示的文字改动。",
   "File added": "新增",
@@ -87,11 +92,13 @@ registerZh({
   // 操作
   Stop: "停止",
   "Cancel task": "取消任务",
-  "Stop this task? Its changes are thrown away.": "要停止这个任务吗？它的改动会被扔掉。",
+  "Stop this task? Its changes are thrown away.":
+    "要停止这个任务吗？它的改动会被扔掉。",
   "Stopping...": "正在停止…",
   "Commit changes": "提交改动",
   "Commit message": "提交说明",
-  "Leave it empty to use the first line of the prompt.": "不填就用需求的第一行。",
+  "Leave it empty to use the first line of the prompt.":
+    "不填就用需求的第一行。",
   "Commit and push": "提交并推送",
   "Committed and pushed": "已提交并推送",
   Push: "推送",
@@ -105,17 +112,20 @@ registerZh({
   "The remote is not on GitHub.": "这个仓库的远端不在 GitHub 上。",
   "Connect GitHub to open pull requests.": "接上 GitHub 之后才能建 PR。",
   Discard: "丢弃",
-  "Discard this task? The worktree and the local branch are deleted.": "要丢弃这个任务吗？worktree 和本地分支都会删掉。",
+  "Discard this task? The worktree and the local branch are deleted.":
+    "要丢弃这个任务吗？worktree 和本地分支都会删掉。",
   // 仓库
   "Registered repositories": "已登记的仓库",
   "No repositories yet": "还没有仓库",
-  "Scan a machine below and register the repositories you want to work on.": "在下面扫描一台机器，把要用的仓库登记上。",
+  "Scan a machine below and register the repositories you want to work on.":
+    "在下面扫描一台机器，把要用的仓库登记上。",
   Name: "名称",
   Machine: "机器",
   "Default branch": "默认分支",
   Remove: "移除",
   Removed: "已移除",
-  "Its task history is deleted too. Files on disk stay.": "它的任务记录也会删掉。磁盘上的文件不动。",
+  "Its task history is deleted too. Files on disk stay.":
+    "它的任务记录也会删掉。磁盘上的文件不动。",
   "Find repositories": "查找仓库",
   "No machine can run coding tasks yet. Pair the agent on your PC, then install Claude Code or Codex there.":
     "还没有能跑编码任务的机器。先在电脑上配对代理，再装上 Claude Code 或 Codex。",

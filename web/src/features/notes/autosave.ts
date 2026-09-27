@@ -67,22 +67,20 @@ export class AutoSaver<T> {
     if (draft === null) return Promise.resolve();
     this.latest = null;
     this.setState("saving");
-    this.inFlight = this.opts
-      .save(draft)
-      .then(
-        () => {
-          this.inFlight = null;
-          if (this.latest !== null) return this.run();
-          this.setState("saved");
-        },
-        () => {
-          this.inFlight = null;
-          // 失败时，如果没有更新的内容，就把这次的放回去重试。
-          if (this.latest === null) this.latest = draft;
-          this.setState("error");
-          this.schedule(this.opts.retryDelay ?? 3000);
-        },
-      );
+    this.inFlight = this.opts.save(draft).then(
+      () => {
+        this.inFlight = null;
+        if (this.latest !== null) return this.run();
+        this.setState("saved");
+      },
+      () => {
+        this.inFlight = null;
+        // 失败时，如果没有更新的内容，就把这次的放回去重试。
+        if (this.latest === null) this.latest = draft;
+        this.setState("error");
+        this.schedule(this.opts.retryDelay ?? 3000);
+      },
+    );
     return this.inFlight;
   }
 }

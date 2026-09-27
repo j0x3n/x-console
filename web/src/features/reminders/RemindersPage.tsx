@@ -59,7 +59,10 @@ export default function RemindersPage() {
       <PageHeading
         title={t("Reminders")}
         aside={
-          <button className="xc-btn primary" onClick={() => setParam("new", "1")}>
+          <button
+            className="xc-btn primary"
+            onClick={() => setParam("new", "1")}
+          >
             <Plus size={15} /> {t("New reminder")}
           </button>
         }
@@ -69,7 +72,9 @@ export default function RemindersPage() {
           <button
             key={item.id}
             className={item.id === tab ? "active" : ""}
-            onClick={() => setParam("tab", item.id === "today" ? null : item.id)}
+            onClick={() =>
+              setParam("tab", item.id === "today" ? null : item.id)
+            }
           >
             {t(item.label)}
           </button>
@@ -184,7 +189,10 @@ function ReminderRow({
             onClick={() =>
               snooze.mutate(
                 { id: r.id, minutes: 10 },
-                { onSuccess: () => toast(t("Will remind you in 10 minutes")), onError },
+                {
+                  onSuccess: () => toast(t("Will remind you in 10 minutes")),
+                  onError,
+                },
               )
             }
           >
@@ -206,7 +214,10 @@ function ReminderRow({
           disabled={remove.isPending}
           onClick={() =>
             confirm(`${t("Delete")} “${r.title}”?`) &&
-            remove.mutate(r.id, { onSuccess: () => toast(t("Deleted")), onError })
+            remove.mutate(r.id, {
+              onSuccess: () => toast(t("Deleted")),
+              onError,
+            })
           }
         >
           <Trash2 size={14} />

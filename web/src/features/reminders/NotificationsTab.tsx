@@ -50,7 +50,8 @@ const fieldLabels: Record<string, string> = {
 
 const channelHelp: Record<ChannelName, string> = {
   webpush: "Push to this browser. Each browser is enabled on its own.",
-  telegram: "Create a bot with @BotFather. Send it a message, then use your chat id.",
+  telegram:
+    "Create a bot with @BotFather. Send it a message, then use your chat id.",
   bark: "Push to iPhone with the Bark app.",
   serverchan: "Push to WeChat through ServerChan.",
 };
@@ -70,7 +71,9 @@ export default function NotificationsTab() {
   const channels = useNotifyChannels();
   if (channels.isPending) return <Loading />;
   if (channels.isError)
-    return <ErrorState error={channels.error} onRetry={() => channels.refetch()} />;
+    return (
+      <ErrorState error={channels.error} onRetry={() => channels.refetch()} />
+    );
   return (
     <div className="xc-stack notify-settings">
       <div className="xc-grid notify-channels">
@@ -105,10 +108,9 @@ function ChannelCard({ channel }: { channel: NotifyChannel }) {
   const dirty = Object.keys(changed).length > 0;
 
   const save = () =>
-    withElevation(() => update.mutateAsync({ channel: name, values: changed })).then(
-      () => toast(t("Saved")),
-      onError,
-    );
+    withElevation(() =>
+      update.mutateAsync({ channel: name, values: changed }),
+    ).then(() => toast(t("Saved")), onError);
 
   return (
     <div className="xc-card notify-channel">
@@ -124,7 +126,9 @@ function ChannelCard({ channel }: { channel: NotifyChannel }) {
         <label className="xc-field" key={f.key}>
           <span>
             {t(fieldLabels[f.key] ?? f.key)}
-            {!f.required && <small className="xc-muted"> · {t("optional")}</small>}
+            {!f.required && (
+              <small className="xc-muted"> · {t("optional")}</small>
+            )}
           </span>
           <input
             className="xc-input"
@@ -179,7 +183,13 @@ function PushControls({ channel }: { channel: NotifyChannel }) {
     try {
       const next = await fn();
       setState(next);
-      if (next === "denied") toast({ message: t("The browser blocked notifications. Allow them in site settings."), tone: "error" });
+      if (next === "denied")
+        toast({
+          message: t(
+            "The browser blocked notifications. Allow them in site settings.",
+          ),
+          tone: "error",
+        });
     } catch (err) {
       onError(err);
     } finally {
@@ -206,7 +216,11 @@ function PushControls({ channel }: { channel: NotifyChannel }) {
         </span>
         <span className="xc-spacer" />
         {state === "enabled" ? (
-          <button className="xc-btn small" disabled={busy} onClick={() => run(disablePush)}>
+          <button
+            className="xc-btn small"
+            disabled={busy}
+            onClick={() => run(disablePush)}
+          >
             {t("Turn off")}
           </button>
         ) : (
@@ -231,7 +245,9 @@ function TelegramWebhook({ channel }: { channel: NotifyChannel }) {
     <div className="notify-webhook">
       <p className="xc-muted">
         {channel.webhookUrl
-          ? t("Buttons in Telegram need the webhook. Register it once after saving the token.")
+          ? t(
+              "Buttons in Telegram need the webhook. Register it once after saving the token.",
+            )
           : t("Set XC_PUBLIC_URL on the server to use Telegram buttons.")}
       </p>
       {channel.webhookUrl && (
@@ -282,7 +298,12 @@ function RoutesCard({ channels }: { channels: ChannelName[] }) {
           onClick={() =>
             setRows([
               ...rows,
-              { kindPattern: "*", minPriority: "normal", channels: [], enabled: true },
+              {
+                kindPattern: "*",
+                minPriority: "normal",
+                channels: [],
+                enabled: true,
+              },
             ])
           }
         >
@@ -290,7 +311,9 @@ function RoutesCard({ channels }: { channels: ChannelName[] }) {
         </button>
       </div>
       <p className="xc-muted notify-help">
-        {t("Rules are checked from top to bottom. The first match decides the channels. Without a match the notification stays in the app. * matches anything, for example host.alert*.")}
+        {t(
+          "Rules are checked from top to bottom. The first match decides the channels. Without a match the notification stays in the app. * matches anything, for example host.alert*.",
+        )}
       </p>
       {routes.isPending ? (
         <Loading />
@@ -323,7 +346,9 @@ function RoutesCard({ channels }: { channels: ChannelName[] }) {
                       className="xc-select"
                       value={r.minPriority}
                       onChange={(e) =>
-                        set(i, { minPriority: e.target.value as NotifyPriority })
+                        set(i, {
+                          minPriority: e.target.value as NotifyPriority,
+                        })
                       }
                     >
                       {priorities.map((p) => (
@@ -431,7 +456,9 @@ function QuietHoursCard() {
         <h2>{t("Quiet hours")}</h2>
       </div>
       <p className="xc-muted notify-help">
-        {t("During quiet hours only urgent notifications go to your phone. Others stay in the app.")}
+        {t(
+          "During quiet hours only urgent notifications go to your phone. Others stay in the app.",
+        )}
       </p>
       <label className="reminders-check">
         <input

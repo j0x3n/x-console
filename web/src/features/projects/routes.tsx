@@ -8,7 +8,11 @@ import ProjectsPage from "./ProjectsPage";
 
 // 模块入口：路由、命令、事件订阅都从这里注册。
 export const routes: RouteObject[] = [
-  { path: "projects", element: <ProjectsPage />, handle: { title: "Projects" } },
+  {
+    path: "projects",
+    element: <ProjectsPage />,
+    handle: { title: "Projects" },
+  },
   {
     path: "projects/:projectKey",
     element: <ProjectPage />,

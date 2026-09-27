@@ -211,11 +211,14 @@ export function parseInline(text: string): Inline[] {
     else if (m[8] !== undefined) {
       const href = safeHref(m[8]);
       const label = m[7] || m[8];
-      if (href)
-        push({ type: "link", href, children: parseInline(label) });
+      if (href) push({ type: "link", href, children: parseInline(label) });
       else push({ type: "text", text: label });
     } else if (m[9] !== undefined)
-      push({ type: "link", href: m[9], children: [{ type: "text", text: m[9] }] });
+      push({
+        type: "link",
+        href: m[9],
+        children: [{ type: "text", text: m[9] }],
+      });
   }
   if (last < text.length) push({ type: "text", text: text.slice(last) });
   return out;

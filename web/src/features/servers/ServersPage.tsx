@@ -28,10 +28,17 @@ export default function ServersPage() {
     <div className="xc-page">
       <PageHeading
         title={t("Servers")}
-        subtitle={hosts.data ? `${hosts.data.length} ${t("machines")} · ${online} ${t("online")}` : undefined}
+        subtitle={
+          hosts.data
+            ? `${hosts.data.length} ${t("machines")} · ${online} ${t("online")}`
+            : undefined
+        }
         aside={
           <>
-            <button className="xc-btn" onClick={() => setParams({ alerts: "1" })}>
+            <button
+              className="xc-btn"
+              onClick={() => setParams({ alerts: "1" })}
+            >
               <BellRing size={14} /> {t("Alerts")}
             </button>
             <button className="xc-btn" onClick={() => setSshOpen(true)}>

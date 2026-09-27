@@ -40,7 +40,9 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
   const sync = useSyncGitHub();
   const [token, setToken] = useState("");
   const [repos, setRepos] = useState(initial.repos.join("\n"));
-  const [apiUrl, setApiUrl] = useState(initial.apiUrl === DEFAULT_URL ? "" : initial.apiUrl);
+  const [apiUrl, setApiUrl] = useState(
+    initial.apiUrl === DEFAULT_URL ? "" : initial.apiUrl,
+  );
   const [result, setResult] = useState<GitHubTestResult | null>(null);
 
   useEffect(() => {
@@ -65,17 +67,25 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
           // 保存后马上同步一次，页面上很快就有数据。
           if (cfg.hasToken) sync.mutate();
         },
-        onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+        onError: (error) =>
+          toast({ message: errorMessage(error), tone: "error" }),
       },
     );
   };
 
   const onTest = () => {
     setResult(null);
-    const body = token.trim() || urlChanged ? { token: token.trim() || undefined, apiUrl: apiUrl.trim() || undefined } : null;
+    const body =
+      token.trim() || urlChanged
+        ? {
+            token: token.trim() || undefined,
+            apiUrl: apiUrl.trim() || undefined,
+          }
+        : null;
     test.mutate(body, {
       onSuccess: setResult,
-      onError: (error) => setResult({ ok: false, message: errorMessage(error) }),
+      onError: (error) =>
+        setResult({ ok: false, message: errorMessage(error) }),
     });
   };
 
@@ -84,7 +94,8 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
       { repos: parseRepos(repos), clearToken: true },
       {
         onSuccess: () => toast(t("Token removed")),
-        onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+        onError: (error) =>
+          toast({ message: errorMessage(error), tone: "error" }),
       },
     );
   };
@@ -101,12 +112,18 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
           type="password"
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          placeholder={initial.hasToken ? `${initial.token}（${t("leave empty to keep")}）` : "github_pat_..."}
+          placeholder={
+            initial.hasToken
+              ? `${initial.token}（${t("leave empty to keep")}）`
+              : "github_pat_..."
+          }
           autoComplete="new-password"
         />
         <small>
-          用细粒度令牌，在 GitHub 的 Settings → Developer settings 里创建。仓库只选要关注的。
-          权限选只读：Pull requests、Issues、Actions、Commit statuses。要建 PR，Pull requests 改成读写。
+          用细粒度令牌，在 GitHub 的 Settings → Developer settings
+          里创建。仓库只选要关注的。 权限选只读：Pull
+          requests、Issues、Actions、Commit statuses。要建 PR，Pull requests
+          改成读写。
         </small>
       </label>
       <label className="xc-field">
@@ -134,7 +151,10 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
         <small>一般留空。用 GitHub Enterprise 时填它的 API 地址。</small>
       </label>
       {result && (
-        <p className={`github-test-result ${result.ok ? "ok" : "fail"}`} role="status">
+        <p
+          className={`github-test-result ${result.ok ? "ok" : "fail"}`}
+          role="status"
+        >
           {result.ok
             ? `${t("Token works")}：${result.login ?? ""}${result.rateLimitRemaining != null ? ` · ${t("requests left")} ${result.rateLimitRemaining}` : ""}`
             : result.message}
@@ -142,7 +162,12 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
       )}
       <div className="xc-dialog-actions github-actions">
         {initial.hasToken && (
-          <button type="button" className="xc-btn ghost danger" onClick={onClear} disabled={save.isPending}>
+          <button
+            type="button"
+            className="xc-btn ghost danger"
+            onClick={onClear}
+            disabled={save.isPending}
+          >
             {t("Remove token")}
           </button>
         )}
@@ -153,7 +178,8 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
           disabled={test.isPending || (!initial.hasToken && !token.trim())}
           onClick={onTest}
         >
-          <PlugZap size={14} /> {test.isPending ? t("Testing") : t("Test token")}
+          <PlugZap size={14} />{" "}
+          {test.isPending ? t("Testing") : t("Test token")}
         </button>
         <button className="xc-btn primary" disabled={save.isPending}>
           {t("Save")}
@@ -181,7 +207,8 @@ function StatusCard() {
             disabled={busy}
             onClick={() =>
               sync.mutate(undefined, {
-                onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+                onError: (error) =>
+                  toast({ message: errorMessage(error), tone: "error" }),
               })
             }
           >
@@ -231,7 +258,8 @@ function StatusCard() {
                 {s.rateLimitResetAt && (
                   <span className="xc-muted">
                     {" "}
-                    · {t("Resets")}：{relativeTime(s.rateLimitResetAt, language)}
+                    · {t("Resets")}：
+                    {relativeTime(s.rateLimitResetAt, language)}
                   </span>
                 )}
               </dd>

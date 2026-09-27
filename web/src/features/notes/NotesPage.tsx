@@ -94,12 +94,20 @@ export default function NotesPage() {
               </button>
             )}
           </label>
-          <button className="xc-btn primary small" onClick={newNote} disabled={create.isPending}>
-            <Plus size={14} /> <span className="notes-btn-text">{t("New")}</span>
+          <button
+            className="xc-btn primary small"
+            onClick={newNote}
+            disabled={create.isPending}
+          >
+            <Plus size={14} />{" "}
+            <span className="notes-btn-text">{t("New")}</span>
           </button>
         </div>
         <div className="notes-tags" role="group" aria-label={t("Tags")}>
-          <button className={!tag && !archived ? "on" : ""} onClick={() => setSearch(q ? { q } : {}, { replace: true })}>
+          <button
+            className={!tag && !archived ? "on" : ""}
+            onClick={() => setSearch(q ? { q } : {}, { replace: true })}
+          >
             {t("All")}
           </button>
           {tags.data?.map((tc) => (
@@ -127,11 +135,24 @@ export default function NotesPage() {
             <ErrorState error={notes.error} onRetry={() => notes.refetch()} />
           ) : items.length === 0 ? (
             <EmptyState
-              title={q ? t("No matching notes") : archived ? t("No archived notes") : t("No notes yet")}
+              title={
+                q
+                  ? t("No matching notes")
+                  : archived
+                    ? t("No archived notes")
+                    : t("No notes yet")
+              }
               icon={<NotebookPen size={26} />}
             />
           ) : (
-            items.map((n) => <NoteItem key={n.id} note={n} active={n.id === id} query={query} />)
+            items.map((n) => (
+              <NoteItem
+                key={n.id}
+                note={n}
+                active={n.id === id}
+                query={query}
+              />
+            ))
           )}
           {notes.hasNextPage && (
             <button
@@ -148,7 +169,10 @@ export default function NotesPage() {
         {id ? (
           <NoteEditor id={id} backTo={`/notes${query}`} />
         ) : (
-          <EmptyState title={t("Pick a note or start a new one")} icon={<NotebookPen size={28} />}>
+          <EmptyState
+            title={t("Pick a note or start a new one")}
+            icon={<NotebookPen size={28} />}
+          >
             <button className="xc-btn small" onClick={newNote}>
               <Plus size={14} /> {t("New note")}
             </button>
@@ -159,7 +183,15 @@ export default function NotesPage() {
   );
 }
 
-function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean; query: string }) {
+function NoteItem({
+  note,
+  active,
+  query,
+}: {
+  note: NoteSummary;
+  active: boolean;
+  query: string;
+}) {
   const t = useT();
   const language = useLanguage();
   const title = noteTitle(note.title, note.excerpt) || t("Untitled note");
@@ -171,14 +203,22 @@ function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean;
       aria-current={active ? "page" : undefined}
     >
       <div className="notes-item-head">
-        {note.pinned && <Pin size={12} className="notes-pin" aria-label={t("Pinned")} />}
+        {note.pinned && (
+          <Pin size={12} className="notes-pin" aria-label={t("Pinned")} />
+        )}
         <strong>{title}</strong>
-        <time dateTime={note.updatedAt}>{relativeTime(note.updatedAt, language)}</time>
+        <time dateTime={note.updatedAt}>
+          {relativeTime(note.updatedAt, language)}
+        </time>
       </div>
       <p>
         {note.snippet
           ? snippetParts(note.snippet).map((part, i) =>
-              part.hit ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>,
+              part.hit ? (
+                <mark key={i}>{part.text}</mark>
+              ) : (
+                <span key={i}>{part.text}</span>
+              ),
             )
           : note.excerpt || <span className="xc-muted">{t("Empty note")}</span>}
       </p>

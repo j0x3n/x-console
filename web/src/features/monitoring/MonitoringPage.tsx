@@ -11,9 +11,24 @@ import SubscriptionsTab from "./components/SubscriptionsTab";
 
 const tabs = [
   { id: "", label: "Websites", to: "/monitoring", add: "New website" },
-  { id: "certs", label: "Certificates & domains", to: "/monitoring/certs", add: "New monitor" },
-  { id: "scripts", label: "Scripts", to: "/monitoring/scripts", add: "New script" },
-  { id: "subscriptions", label: "Subscriptions", to: "/monitoring/subscriptions", add: "New subscription" },
+  {
+    id: "certs",
+    label: "Certificates & domains",
+    to: "/monitoring/certs",
+    add: "New monitor",
+  },
+  {
+    id: "scripts",
+    label: "Scripts",
+    to: "/monitoring/scripts",
+    add: "New script",
+  },
+  {
+    id: "subscriptions",
+    label: "Subscriptions",
+    to: "/monitoring/subscriptions",
+    add: "New subscription",
+  },
 ];
 
 export default function MonitoringPage() {
@@ -22,12 +37,18 @@ export default function MonitoringPage() {
   const [, setCreating] = useParam("new");
   const current = tabs.find((x) => x.id === tab) ?? tabs[0];
   const monitors = useMonitors();
-  const down = (monitors.data ?? []).filter((m) => m.enabled && m.lastStatus === "down");
+  const down = (monitors.data ?? []).filter(
+    (m) => m.enabled && m.lastStatus === "down",
+  );
   return (
     <div className="xc-page">
       <PageHeading
         title={t("Monitoring")}
-        subtitle={down.length > 0 ? `${down.length} ${t("monitors are down")}` : undefined}
+        subtitle={
+          down.length > 0
+            ? `${down.length} ${t("monitors are down")}`
+            : undefined
+        }
         aside={
           <button className="xc-btn primary" onClick={() => setCreating("1")}>
             <Plus size={15} /> {t(current.add)}
@@ -36,11 +57,25 @@ export default function MonitoringPage() {
       />
       <nav className="xc-tabs monitoring-tabs">
         {tabs.map((item) => {
-          const count = item.id === "" ? down.filter((m) => m.kind === "http").length : item.id === "certs" ? down.filter((m) => m.kind !== "http").length : 0;
+          const count =
+            item.id === ""
+              ? down.filter((m) => m.kind === "http").length
+              : item.id === "certs"
+                ? down.filter((m) => m.kind !== "http").length
+                : 0;
           return (
-            <NavLink key={item.id} to={item.to} end className={item.id === current.id ? "active" : ""}>
+            <NavLink
+              key={item.id}
+              to={item.to}
+              end
+              className={item.id === current.id ? "active" : ""}
+            >
               {t(item.label)}
-              {count > 0 && <span className="xc-badge danger monitoring-tab-count">{count}</span>}
+              {count > 0 && (
+                <span className="xc-badge danger monitoring-tab-count">
+                  {count}
+                </span>
+              )}
             </NavLink>
           );
         })}

@@ -66,7 +66,8 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
         setToken("");
         toast(t("Saved"));
       },
-      onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+      onError: (error) =>
+        toast({ message: errorMessage(error), tone: "error" }),
     });
   };
 
@@ -99,7 +100,8 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
           autoComplete="off"
         />
         <small>
-          HA 有公网地址时填公网地址，比如 Nabu Casa 或自己的反向代理。只在家里能访问时，选“通过代理”，填家里的地址。
+          HA 有公网地址时填公网地址，比如 Nabu Casa
+          或自己的反向代理。只在家里能访问时，选“通过代理”，填家里的地址。
         </small>
       </label>
       <label className="xc-field">
@@ -116,7 +118,9 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
           }
           autoComplete="new-password"
         />
-        <small>在 HA 左下角点头像，打开“安全”页，在最下面创建长期访问令牌。</small>
+        <small>
+          在 HA 左下角点头像，打开“安全”页，在最下面创建长期访问令牌。
+        </small>
       </label>
       <label className="xc-field">
         <span>{t("Connection mode")}</span>
@@ -147,7 +151,8 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
           </select>
           <small>
             选一台和 HA 在同一个网络里的设备。代理只转发到内网地址。
-            {proxyAgents.length === 0 && " 还没有支持转发的代理，请先在“设备与代理”里配对，或升级代理程序。"}
+            {proxyAgents.length === 0 &&
+              " 还没有支持转发的代理，请先在“设备与代理”里配对，或升级代理程序。"}
           </small>
         </label>
       )}
@@ -168,7 +173,8 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
           disabled={test.isPending || !url.trim()}
           onClick={onTest}
         >
-          <PlugZap size={14} /> {test.isPending ? t("Testing") : t("Test connection")}
+          <PlugZap size={14} />{" "}
+          {test.isPending ? t("Testing") : t("Test connection")}
         </button>
         <button className="xc-btn primary" disabled={save.isPending}>
           {t("Save")}

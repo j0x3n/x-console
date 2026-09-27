@@ -88,7 +88,11 @@ export function rowActions(entityId: string, state?: EntityState): RowAction[] {
     ];
   if (tap.kind === "run")
     return [
-      { label: tap.service === "press" ? "Press" : "Run", domain, service: tap.service },
+      {
+        label: tap.service === "press" ? "Press" : "Run",
+        domain,
+        service: tap.service,
+      },
     ];
   if (domain === "lock")
     return state?.state === "locked"

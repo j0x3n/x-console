@@ -36,5 +36,9 @@ registerCommands([
 
 export const routes: RouteObject[] = [
   // 同一个路由，切换笔记时列表不会重新挂载。
-  { path: "notes/:noteId?", element: <NotesPage />, handle: { title: "Notes" } },
+  {
+    path: "notes/:noteId?",
+    element: <NotesPage />,
+    handle: { title: "Notes" },
+  },
 ];

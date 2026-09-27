@@ -176,7 +176,10 @@ export function breadcrumbs(
 }
 
 /** 本机页面默认选中的机器：优先在线的。 */
-export function pickDesktop(hosts: Host[], wanted?: string | null): Host | undefined {
+export function pickDesktop(
+  hosts: Host[],
+  wanted?: string | null,
+): Host | undefined {
   return (
     hosts.find((h) => h.id === wanted) ??
     hosts.find((h) => h.online) ??

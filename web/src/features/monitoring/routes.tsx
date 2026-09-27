@@ -49,6 +49,14 @@ registerCommands([
 ]);
 
 export const routes: RouteObject[] = [
-  { path: "monitoring", element: <MonitoringPage />, handle: { title: "Monitoring" } },
-  { path: "monitoring/:tab", element: <MonitoringPage />, handle: { title: "Monitoring" } },
+  {
+    path: "monitoring",
+    element: <MonitoringPage />,
+    handle: { title: "Monitoring" },
+  },
+  {
+    path: "monitoring/:tab",
+    element: <MonitoringPage />,
+    handle: { title: "Monitoring" },
+  },
 ];

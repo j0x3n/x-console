@@ -94,17 +94,33 @@ describe("live metrics", () => {
   });
   it("appends to the 1h series and drops old points", () => {
     const old = pointFromSample(sample("2026-01-01T00:00:00Z"));
-    const series: MetricsSeries = { range: "1h", stepSeconds: 10, points: [old] };
-    const next = appendPoint(series, pointFromSample(sample("2026-01-01T01:00:10Z", 50)))!;
+    const series: MetricsSeries = {
+      range: "1h",
+      stepSeconds: 10,
+      points: [old],
+    };
+    const next = appendPoint(
+      series,
+      pointFromSample(sample("2026-01-01T01:00:10Z", 50)),
+    )!;
     expect(next.points).toHaveLength(1);
     expect(next.points[0].cpu).toBe(50);
-    const kept = appendPoint(series, pointFromSample(sample("2026-01-01T00:00:10Z")))!;
+    const kept = appendPoint(
+      series,
+      pointFromSample(sample("2026-01-01T00:00:10Z")),
+    )!;
     expect(kept.points).toHaveLength(2);
     const day: MetricsSeries = { range: "24h", stepSeconds: 300, points: [] };
     expect(appendPoint(day, old)).toBe(day);
   });
   it("splits lines at gaps", () => {
-    const pts = ["00:00:00", "00:00:10", "00:00:20", "00:05:00", "00:05:10"].map((t) => ({ at: `2026-01-01T${t}Z` }));
+    const pts = [
+      "00:00:00",
+      "00:00:10",
+      "00:00:20",
+      "00:05:00",
+      "00:05:10",
+    ].map((t) => ({ at: `2026-01-01T${t}Z` }));
     expect(splitSegments(pts, 10).map((s) => s.length)).toEqual([3, 2]);
   });
 });
@@ -131,7 +147,11 @@ describe("files", () => {
 
 describe("tabs and filters", () => {
   it("shows only tabs the host supports", () => {
-    expect(tabsFor({ capabilities: ["pty"] }).map((t) => t.id)).toEqual(["overview", "terminal", "alerts"]);
+    expect(tabsFor({ capabilities: ["pty"] }).map((t) => t.id)).toEqual([
+      "overview",
+      "terminal",
+      "alerts",
+    ]);
   });
   it("picks the online desktop", () => {
     const hosts = [host("a"), host("b", true)];
@@ -141,23 +161,76 @@ describe("tabs and filters", () => {
   });
   it("filters processes and services", () => {
     const procs = [
-      { pid: 1, ppid: 0, name: "systemd", user: "root", cpu: 0, memRss: 0, memPercent: 0, cmdline: "/sbin/init", startedAt: "", status: "" },
-      { pid: 42, ppid: 1, name: "nginx", user: "www", cpu: 0, memRss: 0, memPercent: 0, cmdline: "nginx -g", startedAt: "", status: "" },
+      {
+        pid: 1,
+        ppid: 0,
+        name: "systemd",
+        user: "root",
+        cpu: 0,
+        memRss: 0,
+        memPercent: 0,
+        cmdline: "/sbin/init",
+        startedAt: "",
+        status: "",
+      },
+      {
+        pid: 42,
+        ppid: 1,
+        name: "nginx",
+        user: "www",
+        cpu: 0,
+        memRss: 0,
+        memPercent: 0,
+        cmdline: "nginx -g",
+        startedAt: "",
+        status: "",
+      },
     ];
     expect(filterProcesses(procs, "www").map((p) => p.pid)).toEqual([42]);
     expect(filterProcesses(procs, "42").map((p) => p.pid)).toEqual([42]);
     expect(filterProcesses(procs, "")).toHaveLength(2);
     const svcs = [
-      { name: "nginx.service", description: "web", state: "running", subState: "", enabled: true, startType: "" },
-      { name: "cron.service", description: "jobs", state: "failed", subState: "", enabled: true, startType: "" },
+      {
+        name: "nginx.service",
+        description: "web",
+        state: "running",
+        subState: "",
+        enabled: true,
+        startType: "",
+      },
+      {
+        name: "cron.service",
+        description: "jobs",
+        state: "failed",
+        subState: "",
+        enabled: true,
+        startType: "",
+      },
     ];
-    expect(filterServices(svcs, "", "failed").map((s) => s.name)).toEqual(["cron.service"]);
+    expect(filterServices(svcs, "", "failed").map((s) => s.name)).toEqual([
+      "cron.service",
+    ]);
     expect(filterServices(svcs, "web", "all")).toHaveLength(1);
   });
   it("describes rules", () => {
     const t = (s: string) => s;
-    expect(describeRule({ metric: "cpu", op: "gt", threshold: 90, durationSeconds: 300 }, t)).toBe("CPU > 90%，for 5 min");
-    expect(describeRule({ metric: "offline", op: "gt", threshold: 0, durationSeconds: 600 }, t)).toBe("Offline over 10 min");
-    expect(describeRule({ metric: "offline", op: "gt", threshold: 0, durationSeconds: 0 }, t)).toBe("Offline");
+    expect(
+      describeRule(
+        { metric: "cpu", op: "gt", threshold: 90, durationSeconds: 300 },
+        t,
+      ),
+    ).toBe("CPU > 90%，for 5 min");
+    expect(
+      describeRule(
+        { metric: "offline", op: "gt", threshold: 0, durationSeconds: 600 },
+        t,
+      ),
+    ).toBe("Offline over 10 min");
+    expect(
+      describeRule(
+        { metric: "offline", op: "gt", threshold: 0, durationSeconds: 0 },
+        t,
+      ),
+    ).toBe("Offline");
   });
 });

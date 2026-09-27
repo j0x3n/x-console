@@ -87,7 +87,9 @@ export function useRuns(enabled = true) {
   return useQuery({
     queryKey: githubKeys.runs,
     queryFn: () =>
-      unwrap(githubApi.GET("/github/runs", { params: { query: { limit: 100 } } })),
+      unwrap(
+        githubApi.GET("/github/runs", { params: { query: { limit: 100 } } }),
+      ),
     enabled,
   });
 }

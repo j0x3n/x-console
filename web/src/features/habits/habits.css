@@ -176,13 +176,25 @@
   visibility: hidden;
 }
 .habits-heat.l1 {
-  background: color-mix(in srgb, var(--habit-color, var(--xc-accent)) 25%, var(--xc-surface-2));
+  background: color-mix(
+    in srgb,
+    var(--habit-color, var(--xc-accent)) 25%,
+    var(--xc-surface-2)
+  );
 }
 .habits-heat.l2 {
-  background: color-mix(in srgb, var(--habit-color, var(--xc-accent)) 50%, var(--xc-surface-2));
+  background: color-mix(
+    in srgb,
+    var(--habit-color, var(--xc-accent)) 50%,
+    var(--xc-surface-2)
+  );
 }
 .habits-heat.l3 {
-  background: color-mix(in srgb, var(--habit-color, var(--xc-accent)) 75%, var(--xc-surface-2));
+  background: color-mix(
+    in srgb,
+    var(--habit-color, var(--xc-accent)) 75%,
+    var(--xc-surface-2)
+  );
 }
 .habits-heat.l4 {
   background: var(--habit-color, var(--xc-accent));
