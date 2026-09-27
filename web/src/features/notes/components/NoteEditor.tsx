@@ -497,7 +497,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
             <button type="button" title={t("Insert image")} aria-label={t("Insert image")} onMouseDown={(e) => e.preventDefault()} onClick={() => pickFiles(true)}>
               <ImagePlus size={15} />
             </button>
-            <button type="button" title={t("Attach a file")} aria-label={t("Attach a file")} onMouseDown={(e) => e.preventDefault()} onClick={() => pickFiles(false)}>
+            <button type="button" className="notes-tool-attach" title={t("Attach a file")} aria-label={t("Attach a file")} onMouseDown={(e) => e.preventDefault()} onClick={() => pickFiles(false)}>
               <Paperclip size={15} />
             </button>
           </div>

@@ -293,7 +293,7 @@ function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean;
       <div className="notes-item-text">
         <strong>
           {note.pinned && <Pin size={11} className="notes-pin" aria-label={t("Pinned")} />}
-          {title}
+          <span>{title}</span>
         </strong>
         <p>
           {note.snippet

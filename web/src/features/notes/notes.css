@@ -239,6 +239,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.notes-item strong span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .notes-pin {
   flex: none;
   color: var(--xc-accent-text);
@@ -667,6 +672,19 @@
   font-size: 11px;
 }
 
+/* 分栏模式下编辑区要宽一些：不够宽时收起分类栏，改用列表顶部那一行 */
+@media (max-width: 1599px) {
+  .notes-layout:has(.notes-editor.mode-split) {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+  .notes-layout:has(.notes-editor.mode-split) .notes-nav {
+    display: none;
+  }
+  .notes-layout:has(.notes-editor.mode-split) .notes-chips {
+    display: flex;
+  }
+}
+
 /* 中等宽度：分类栏收进列表顶部的一行 */
 @media (max-width: 1180px) {
   .notes-layout {
@@ -732,6 +750,11 @@
   }
   .notes-toolbar button {
     flex: none;
+    width: 28px;
+  }
+  /* 手机上附件从“更多”菜单里加，工具条一行放得下 */
+  .notes-toolbar .notes-tool-attach {
+    display: none;
   }
   .notes-editor-foot span:nth-child(2) {
     display: none;
