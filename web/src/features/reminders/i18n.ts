@@ -2,6 +2,12 @@ import { registerZh } from "../../lib/i18n";
 
 registerZh({
   // 提醒页
+  "Completed reminders": "完成过的提醒",
+  "Next reminder": "下一个提醒",
+  "Nothing scheduled": "没有安排",
+  "Reminders for today": "今天的提醒",
+  "due now": "个到点了",
+  repeating: "个重复提醒",
   Today: "今天",
   Upcoming: "即将到来",
   Done: "已完成",

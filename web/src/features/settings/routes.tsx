@@ -1,5 +1,6 @@
 import type { RouteObject } from "react-router";
 import "./i18n";
+import "./settings.css";
 import SettingsPage from "./SettingsPage";
 
 export const routes: RouteObject[] = [

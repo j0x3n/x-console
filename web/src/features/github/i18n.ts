@@ -1,6 +1,17 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 概要
+  "API quota": "API 额度",
+  "CI on default branch": "默认分支 CI",
+  "Open issues in watched repositories": "关注仓库里没关闭的 Issue",
+  "Requests left this hour": "这个小时还能请求的次数",
+  approved: "个已批准",
+  failing: "个失败",
+  passing: "个通过",
+  "repositories watched": "个关注的仓库",
+  "waiting for review": "个等评审",
+  workflows: "个工作流",
   // 页面
   "Pull requests": "PR",
   "CI runs": "CI 运行",

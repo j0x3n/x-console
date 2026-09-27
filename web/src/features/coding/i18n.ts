@@ -1,6 +1,13 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 概要
+  "Nothing to review": "没有要看的",
+  "Success rate": "成功率",
+  "Waiting for your decision": "等你决定",
+  finished: "个完成",
+  queued: "个排队中",
+  running: "个运行中",
   // 列表
   "Coding tasks": "编码任务",
   "Claude Code and Codex work on your repositories in separate worktrees.":

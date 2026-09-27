@@ -2,6 +2,15 @@ import { registerZh } from "../../lib/i18n";
 
 registerZh({
   // 列表
+  "All servers online": "全部在线",
+  "Average CPU": "平均 CPU",
+  "Average memory": "平均内存",
+  "Firing now": "正在告警",
+  "Fullest disk": "最满的磁盘",
+  "No active alerts": "没有告警",
+  "No data": "没有数据",
+  "active alerts": "条告警",
+  "machines offline": "台离线",
   machines: "台机器",
   online: "台在线",
   alerts: "条告警",

@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router";
 import PageHeading from "../../components/ui/PageHeading";
-import { useT } from "../../contexts/LanguageContext";
+import { useLanguage, useT } from "../../contexts/LanguageContext";
 
 const tabs = [
   { to: "/calendar", label: "Schedule", end: true },
@@ -12,9 +12,16 @@ const tabs = [
 /** 日历模块的外框：标题和四个标签。 */
 export default function CalendarShell() {
   const t = useT();
+  const language = useLanguage();
+  const today = new Date().toLocaleDateString(language === "zh" ? "zh-CN" : "en", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  });
   return (
     <div className="xc-page calendar-page">
-      <PageHeading title={t("Calendar")} />
+      <PageHeading title={t("Calendar")} subtitle={today} />
       <nav className="xc-tabs">
         {tabs.map((tab) => (
           <NavLink

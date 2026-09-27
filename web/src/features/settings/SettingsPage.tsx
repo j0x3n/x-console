@@ -12,19 +12,26 @@ export default function SettingsPage() {
   const Component = current.component;
   return (
     <div className="xc-page">
-      <PageHeading title={t("Settings")} />
-      <nav className="xc-tabs">
-        {settingsTabs.map((item) => (
-          <NavLink
-            key={item.id}
-            to={`/settings/${item.id}`}
-            className={({ isActive }) => (isActive ? "active" : "")}
-          >
-            {t(item.label)}
-          </NavLink>
-        ))}
-      </nav>
-      <Component />
+      <PageHeading
+        title={t("Settings")}
+        subtitle={t("Appearance, security, devices and integrations")}
+      />
+      <div className="settings-layout">
+        <nav className="settings-nav" aria-label={t("Settings")}>
+          {settingsTabs.map((item) => (
+            <NavLink
+              key={item.id}
+              to={`/settings/${item.id}`}
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+              {t(item.label)}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="settings-body">
+          <Component />
+        </div>
+      </div>
     </div>
   );
 }

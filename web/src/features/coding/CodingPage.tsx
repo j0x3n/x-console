@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Bot, FolderGit2, GitBranch, Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
+import { MiniBars, Segments, StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
@@ -101,6 +102,7 @@ export default function CodingPage() {
           </>
         }
       />
+      {!!tasks.data?.length && <CodingStats tasks={tasks.data} />}
       <div className="xc-tabs" role="tablist">
         {FILTERS.map((f) => (
           <button
@@ -139,5 +141,66 @@ export default function CodingPage() {
       )}
       <NewTaskDialog open={newOpen} onClose={closeNew} issueKey={issueKey} />
     </div>
+  );
+}
+
+function CodingStats({ tasks }: { tasks: Task[] }) {
+  const t = useT();
+  const language = useLanguage();
+  const count = (f: Filter) => filterTasks(tasks, f).length;
+  const running = tasks.filter((x) => x.status === "running").length;
+  const queued = tasks.filter((x) => x.status === "queued").length;
+  const done = count("done");
+  const failed = count("failed");
+  const finished = done + failed;
+  // 最近 7 天每天新建的任务数
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - (6 - i));
+    return d;
+  });
+  const perDay = days.map(
+    (d) =>
+      tasks.filter((x) => {
+        const c = new Date(x.createdAt);
+        return c >= d && c.getTime() < d.getTime() + 86_400_000;
+      }).length,
+  );
+  const labels = days.map((d) =>
+    d.toLocaleDateString(language === "zh" ? "zh-CN" : "en", { weekday: "narrow" }),
+  );
+  return (
+    <StatStrip label={t("Coding tasks")}>
+      <StatCard
+        label={t("In progress")}
+        value={running}
+        unit={t("running")}
+        tone={running ? "info" : undefined}
+        foot={`${queued} ${t("queued")}`}
+      />
+      <StatCard
+        label={t("Needs review")}
+        value={count("review")}
+        tone={count("review") ? "accent" : undefined}
+        foot={count("review") ? t("Waiting for your decision") : t("Nothing to review")}
+      />
+      <StatCard
+        label={t("Success rate")}
+        value={finished ? Math.round((done / finished) * 100) : "–"}
+        unit={finished ? "%" : undefined}
+        foot={`${done} ${t("finished")} · ${failed} ${t("failed")}`}
+      >
+        <Segments
+          parts={[
+            { value: done, tone: "ok" },
+            { value: failed, tone: "danger" },
+          ]}
+        />
+      </StatCard>
+      <StatCard label={t("Last 7 days")} caption={`${perDay.reduce((a, b) => a + b, 0)}`}>
+        <MiniBars values={perDay} labels={labels} />
+      </StatCard>
+    </StatStrip>
   );
 }

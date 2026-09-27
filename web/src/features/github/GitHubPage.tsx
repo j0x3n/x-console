@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
+import { Segments, StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
@@ -74,6 +75,7 @@ export default function GitHubPage() {
             </Link>
           </div>
         )}
+        <GitHubStats status={status.data} />
         <nav className="xc-tabs">
           <button className={tab === "pulls" ? "active" : ""} onClick={() => setTab("pulls")}>
             {t("Pull requests")}
@@ -95,10 +97,57 @@ export default function GitHubPage() {
     <div className="xc-page">
       <PageHeading
         title={t("GitHub")}
+        subtitle={
+          status.data?.configured
+            ? `${status.data.login ? `@${status.data.login} · ` : ""}${status.data.repoCount} ${t("repositories watched")}`
+            : undefined
+        }
         aside={status.data?.configured && <SyncControl status={status.data} />}
       />
       {content}
     </div>
+  );
+}
+
+function GitHubStats({ status }: { status: GitHubStatus }) {
+  const t = useT();
+  const pulls = usePulls().data ?? [];
+  const runs = useRuns().data ?? [];
+  const issues = useGitHubIssues().data ?? [];
+  const latest = latestDefaultRuns(runs);
+  const failing = latest.filter((r) => runOutcome(r).tone === "danger").length;
+  const passing = latest.filter((r) => runOutcome(r).tone === "ok").length;
+  const approved = pulls.filter((p) => p.reviewState === "approved").length;
+  const waiting = pulls.filter((p) => p.reviewState === "pending" || p.reviewState === "none").length;
+  return (
+    <StatStrip label={t("GitHub")}>
+      <StatCard
+        label={t("Pull requests")}
+        value={pulls.length}
+        foot={`${approved} ${t("approved")} · ${waiting} ${t("waiting for review")}`}
+      >
+        <Segments
+          parts={[
+            { value: approved, tone: "ok" },
+            { value: pulls.length - approved - waiting, tone: "warn" },
+            { value: waiting, tone: "muted" },
+          ]}
+        />
+      </StatCard>
+      <StatCard
+        label={t("CI on default branch")}
+        value={failing}
+        unit={t("failing")}
+        tone={failing ? "danger" : latest.length ? "ok" : undefined}
+        foot={`${passing} ${t("passing")} · ${latest.length} ${t("workflows")}`}
+      />
+      <StatCard label={t("Issues")} value={issues.length} foot={t("Open issues in watched repositories")} />
+      <StatCard
+        label={t("API quota")}
+        value={status.rateLimitRemaining ?? "–"}
+        foot={t("Requests left this hour")}
+      />
+    </StatStrip>
   );
 }
 

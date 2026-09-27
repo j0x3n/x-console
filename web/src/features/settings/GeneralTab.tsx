@@ -7,7 +7,8 @@ export default function GeneralTab() {
   const { language, setLanguage, themeMode, setThemeMode } =
     usePreferencesStore();
   return (
-    <div className="xc-card" style={{ maxWidth: 520 }}>
+    <div className="settings-grid">
+    <div className="xc-card">
       <div className="xc-card-head">
         <h2>{t("Appearance")}</h2>
       </div>
@@ -34,6 +35,7 @@ export default function GeneralTab() {
           <option value="en">English</option>
         </select>
       </label>
+    </div>
     </div>
   );
 }

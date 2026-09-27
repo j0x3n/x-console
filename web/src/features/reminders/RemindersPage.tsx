@@ -12,8 +12,10 @@ import {
 } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
+import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
+import { formatDate, formatTime } from "../../lib/time";
 import { toast } from "../../hooks/useToast";
 import {
   useCompleteReminder,
@@ -46,6 +48,18 @@ export default function RemindersPage() {
   const creating = params.get("new") === "1";
   const [editing, setEditing] = useState<Reminder | null>(null);
   const list = useReminders(tab);
+  const today = useReminders("today");
+  const upcoming = useReminders("upcoming");
+  const done = useReminders("done");
+  const language = useLanguage();
+  const dueNow = (today.data ?? []).filter((r) => r.status === "pending").length;
+  const repeating = [...(today.data ?? []), ...(upcoming.data ?? [])].filter(
+    (r) => r.rrule,
+  ).length;
+  const next = [...(today.data ?? []), ...(upcoming.data ?? [])]
+    .filter((r) => r.status !== "done" && r.status !== "ended")
+    .map((r) => r.dueAt ?? r.dtstart)
+    .sort()[0];
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(params);
@@ -58,12 +72,49 @@ export default function RemindersPage() {
     <div className="xc-page">
       <PageHeading
         title={t("Reminders")}
+        subtitle={
+          <>
+            {t("Today")} <strong>{today.data?.length ?? 0}</strong> ·{" "}
+            {t("Upcoming")} <strong>{upcoming.data?.length ?? 0}</strong>
+            {dueNow > 0 && (
+              <>
+                {" "}
+                · {dueNow} {t("due now")}
+              </>
+            )}
+          </>
+        }
         aside={
           <button className="xc-btn primary" onClick={() => setParam("new", "1")}>
             <Plus size={15} /> {t("New reminder")}
           </button>
         }
       />
+      <StatStrip label={t("Reminders")}>
+        <StatCard
+          label={t("Today")}
+          value={today.data?.length ?? "–"}
+          caption={dueNow ? `${dueNow} ${t("due now")}` : undefined}
+          tone={dueNow ? "warn" : undefined}
+          foot={t("Reminders for today")}
+        />
+        <StatCard
+          label={t("Next reminder")}
+          value={next ? formatTime(next, language) : "–"}
+          foot={next ? formatWhen(next, new Date(), language) : t("Nothing scheduled")}
+        />
+        <StatCard
+          label={t("Upcoming")}
+          value={upcoming.data?.length ?? "–"}
+          foot={`${repeating} ${t("repeating")}`}
+        />
+        <StatCard
+          label={t("Done")}
+          value={done.data?.length ?? "–"}
+          tone="ok"
+          foot={t("Completed reminders")}
+        />
+      </StatStrip>
       <nav className="xc-tabs">
         {tabs.map((item) => (
           <button
@@ -82,9 +133,16 @@ export default function RemindersPage() {
       ) : list.data.length === 0 ? (
         <EmptyState title={t(emptyText[tab])} icon={<AlarmClock size={28} />} />
       ) : (
-        <div className="xc-card reminders-list">
-          {list.data.map((r) => (
-            <ReminderRow key={r.id} reminder={r} onEdit={() => setEditing(r)} />
+        <div className="reminders-groups">
+          {groupByDay(list.data, tab, language).map((g) => (
+            <section key={g.key}>
+              {g.label && <h3 className="reminders-day">{g.label}</h3>}
+              <div className="xc-card reminders-list">
+                {g.items.map((r) => (
+                  <ReminderRow key={r.id} reminder={r} onEdit={() => setEditing(r)} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
@@ -98,6 +156,23 @@ export default function RemindersPage() {
       />
     </div>
   );
+}
+
+/** 即将到来的提醒按日期分组，其他标签页不分组。 */
+function groupByDay(items: Reminder[], tab: ReminderRange, language: "zh" | "en") {
+  if (tab !== "upcoming") return [{ key: "all", label: "", items }];
+  const groups: { key: string; label: string; items: Reminder[] }[] = [];
+  for (const r of items) {
+    const at = new Date(r.dueAt ?? r.dtstart);
+    const key = at.toDateString();
+    let g = groups.find((x) => x.key === key);
+    if (!g) {
+      g = { key, label: formatDate(at, language), items: [] };
+      groups.push(g);
+    }
+    g.items.push(r);
+  }
+  return groups;
 }
 
 function ReminderRow({

@@ -200,12 +200,58 @@
 .projects-card-link:hover {
   border-color: var(--xc-border-strong);
 }
+.projects-card-link {
+  padding: 14px 15px 12px;
+}
+.projects-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.projects-card-top .projects-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.projects-card-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.projects-card-name strong {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projects-card-name span {
+  font-size: 11px;
+}
+.projects-card-top .xc-ring small {
+  font-size: 10px;
+}
 .projects-card-desc {
   margin: 0;
   overflow: hidden;
   color: var(--xc-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.projects-card-foot {
+  display: flex;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--xc-border);
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.projects-card-foot strong {
+  color: var(--xc-text);
+  font-weight: 600;
 }
 .projects-progress {
   height: 4px;
@@ -223,16 +269,7 @@
   margin-top: 10px;
 }
 .projects-mine {
-  margin-top: 28px;
-}
-.projects-mine h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--xc-text);
-}
-.projects-mine > p {
-  margin: 4px 0 12px;
+  margin-top: 24px;
 }
 
 /* ---- 项目页工具栏和筛选 ---- */

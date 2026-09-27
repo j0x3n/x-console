@@ -1,6 +1,15 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 概要
+  "All lights off": "灯都关了",
+  Devices: "设备",
+  "Lights on": "开着的灯",
+  "Quick controls": "常用的开关",
+  "Some lights are on": "还有灯开着",
+  "Switches on": "开着的开关",
+  sensors: "个传感器",
+  unavailable: "个不可用",
   "Home Assistant": "Home Assistant",
   Favorites: "收藏",
   "All devices": "全部设备",

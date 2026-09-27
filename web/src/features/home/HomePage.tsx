@@ -2,9 +2,17 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { House, Settings, WifiOff } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
+import { Segments, StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
-import { isNotConfigured, useHAEvents, useHAStatus, type HAStatus } from "./api";
+import {
+  isNotConfigured,
+  useHAEvents,
+  useHAFavorites,
+  useHAStates,
+  useHAStatus,
+  type HAStatus,
+} from "./api";
 import EntitiesView from "./components/EntitiesView";
 import FavoritesView from "./components/FavoritesView";
 
@@ -46,6 +54,7 @@ export default function HomePage() {
     content = (
       <>
         {!status.data.connected && <OfflineNotice status={status.data} />}
+        <HomeStats />
         <nav className="xc-tabs">
           <button
             className={tab === "favorites" ? "active" : ""}
@@ -76,6 +85,47 @@ export default function HomePage() {
       />
       {content}
     </div>
+  );
+}
+
+function HomeStats() {
+  const t = useT();
+  const rawStates = useHAStates().data;
+  const rawFavorites = useHAFavorites().data;
+  const states = Array.isArray(rawStates) ? rawStates : [];
+  const favorites = Array.isArray(rawFavorites) ? rawFavorites : [];
+  const domain = (id: string) => id.split(".")[0];
+  const lights = states.filter((s) => domain(s.entityId) === "light");
+  const lightsOn = lights.filter((s) => s.state === "on").length;
+  const switches = states.filter((s) => domain(s.entityId) === "switch");
+  const switchesOn = switches.filter((s) => s.state === "on").length;
+  const unavailable = states.filter((s) => s.state === "unavailable").length;
+  const sensors = states.filter((s) => domain(s.entityId) === "sensor").length;
+  return (
+    <StatStrip label={t("Smart home")}>
+      <StatCard label={t("Devices")} value={states.length} foot={`${unavailable} ${t("unavailable")}`}>
+        <Segments
+          parts={[
+            { value: states.length - unavailable, tone: "ok" },
+            { value: unavailable, tone: "danger" },
+          ]}
+        />
+      </StatCard>
+      <StatCard
+        label={t("Lights on")}
+        caption={`${lightsOn}/${lights.length}`}
+        value={lightsOn}
+        tone={lightsOn ? "warn" : undefined}
+        foot={lightsOn ? t("Some lights are on") : t("All lights off")}
+      />
+      <StatCard
+        label={t("Switches on")}
+        caption={`${switchesOn}/${switches.length}`}
+        value={switchesOn}
+        foot={`${sensors} ${t("sensors")}`}
+      />
+      <StatCard label={t("Favorites")} value={favorites.length} foot={t("Quick controls")} />
+    </StatStrip>
   );
 }
 
