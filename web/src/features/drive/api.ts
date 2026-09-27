@@ -51,12 +51,23 @@ export function isNotLive(error: unknown) {
   );
 }
 
+// 演示数据（临时，见 src/demo）提供文件内容的本地地址。去掉演示数据时一起删。
+const demoFileUrl = (id: number) =>
+  (globalThis as { xcDemoFileUrl?: (id: number) => string | undefined })
+    .xcDemoFileUrl?.(id);
+
 export function contentUrl(id: number, inline = false) {
-  return `/api/v1/drive/items/${id}/content${inline ? "?inline=1" : ""}`;
+  return (
+    demoFileUrl(id) ??
+    `/api/v1/drive/items/${id}/content${inline ? "?inline=1" : ""}`
+  );
 }
 
 export function thumbnailUrl(item: DriveItem) {
-  return `/api/v1/drive/items/${item.id}/thumbnail?v=${encodeURIComponent(item.updatedAt)}`;
+  return (
+    demoFileUrl(item.id) ??
+    `/api/v1/drive/items/${item.id}/thumbnail?v=${encodeURIComponent(item.updatedAt)}`
+  );
 }
 
 export function useDriveItems(scope: DriveScope) {

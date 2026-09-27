@@ -11,12 +11,13 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B11 | 笔记后端：接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | Claude |
+| 演示 | 前端先用假数据给用户看效果（`web/src/demo`）。用户确认后删掉，再开始后端 | 见下方说明 | Claude |
 
 ## 待做
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
+| B11 | 笔记后端：接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | |
 | B2 | 今日页后端：`GET/PUT /dashboard/layout` | [specs/M1.md](specs/M1.md) | |
 | B12 | 两步验证可选的后端 | [specs/B12.md](specs/B12.md) | |
 | B13 | 隐藏内容的后端：`/vault/*`、笔记的 `hidden` | [specs/B13.md](specs/B13.md) | |
@@ -36,6 +37,11 @@
 - 这一轮由 Claude 一个人按顺序做，不开子代理。每个任务做完、全部检查通过后直接提交到 `develop`，不开 PR（2026-09-27 用户要求）。`main` 仍然要用户同意才动。
 
 ### 待做任务的说明
+
+**演示数据（临时）**
+- `web/src/demo` 在浏览器里拦下还没有后端的接口，返回假数据：今日页布局、隐藏内容和隐藏笔记、云盘、AI 助手、自动化。页面底部有“演示数据”的标记。
+- 不拦登录和两步验证、笔记图片附件。
+- 去掉时删 `web/src/demo`，以及 `main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
 
 **B15 B10 遗留**
 - `components/ui/Stat.tsx` 的 `Ring`：比例为 0 时不渲染 `.bar`。原因是 `stroke-linecap: round`，长度为 0 也会画一个点。

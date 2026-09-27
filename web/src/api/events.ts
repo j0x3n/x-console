@@ -59,6 +59,10 @@ function dispatch(event: ServerEvent) {
   listeners.forEach((fn) => fn(event));
 }
 
+/** 演示数据（临时，见 src/demo）用它在本地发事件。去掉演示数据时一起删。 */
+export const emitDemoEvent = (topic: string, data: unknown) =>
+  dispatch({ topic, data, at: new Date().toISOString() });
+
 /** 在已登录的布局里调用一次。断线后自动重连。 */
 export function useServerEvents() {
   useEffect(() => {
