@@ -12,12 +12,12 @@
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
 | B10 | 界面统一：内容占满右侧，页面按初版的样式统一 | [specs/B10.md](specs/B10.md) | Claude |
+| B11 | 备忘改名为笔记，重做列表和编辑器，支持图片和附件（前端已做，后端待做） | [specs/B11.md](specs/B11.md) | Claude |
 
 ## 待做
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B11 | 备忘改名为笔记，重做列表和编辑器，支持图片和附件 | [specs/B11.md](specs/B11.md) | |
 | B2 | 今日（首页），参考初版的“今日” | [specs/M1.md](specs/M1.md) | |
 | B12 | 两步验证改为设置里可选 | [specs/B12.md](specs/B12.md) | |
 | B13 | 隐藏内容：隐藏入口，输入密码后显示隐藏的笔记和文件 | [specs/B13.md](specs/B13.md) | |
@@ -120,4 +120,5 @@
 | 2026-09-27 | 数据库连接使用 `_txlock=immediate` | 文件数据库上并发的先读后写事务会报 SQLITE_BUSY |
 | 2026-09-27 | 新增 `proxy`、`open` 两个代理能力 | M9 访问内网 HA；M3 打开程序和网址 |
 | 2026-09-27 | `PageHeading` 加 `meta`，`title`、`subtitle` 可以传节点；新增 `components/ui/Stat.tsx`（`StatStrip`、`StatCard`、`Ring`、`Segments`、`MiniBars`、`Section`）；`.xc-page` 去掉最大宽度 | B10 界面统一 |
+| 2026-09-27 | Markdown 渲染器从 `features/projects` 挪到 `components/markdown`，支持图片、可勾选的待办；原路径保留转发 | B11 笔记要显示图片，别的模块也要用 |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |

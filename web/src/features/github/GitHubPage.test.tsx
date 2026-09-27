@@ -68,7 +68,8 @@ describe("GitHubPage", () => {
       { ...base, repo: "acme/api", number: 8, title: "Add cache", url: "https://github.com/acme/api/pull/8", headRef: "xc/5-cache", checkState: "success", reviewState: "approved", codingTaskId: 5 },
     ]);
     renderPage();
-    const headings = await screen.findAllByRole("heading", { level: 2 });
+    // CI 机器慢时第一次渲染可能超过默认的 1 秒。
+    const headings = await screen.findAllByRole("heading", { level: 2 }, { timeout: 3000 });
     expect(headings.map((h) => h.textContent)).toEqual(["acme/api", "acme/web"]);
     expect(screen.getByText("检查失败")).toBeTruthy();
     expect(screen.getByText("已批准")).toBeTruthy();

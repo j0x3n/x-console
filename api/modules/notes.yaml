@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: X Console notes API (M6)
+  title: X Console notes API (M6, B11)
   version: 0.1.0
 servers:
   - url: /api/v1
@@ -171,8 +171,73 @@ paths:
                   reminderId: { type: integer, format: int64 }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /notes/{noteId}/attachments:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    get:
+      operationId: listNoteAttachments
+      tags: [notes]
+      responses:
+        "200":
+          description: 这条笔记的附件，新的在前
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Attachment" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: uploadNoteAttachment
+      tags: [notes]
+      description: 上传一个文件，最大 50 MB。类型以服务端检测为准。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: 已上传
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Attachment" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/attachments/{attachmentId}:
+    parameters:
+      - $ref: "#/components/parameters/AttachmentId"
+    get:
+      operationId: downloadNoteAttachment
+      tags: [notes]
+      description: 图片内联显示，其他文件作为附件下载。SVG 一律作为附件。
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteNoteAttachment
+      tags: [notes]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
+    AttachmentId:
+      name: attachmentId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
     NoteId:
       name: noteId
       in: path
@@ -207,9 +272,23 @@ components:
         tags:
           type: array
           items: { type: string }
+        thumbnail:
+          type: string
+          description: 正文里第一张附件图片的地址，没有图片时不返回
         archivedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    Attachment:
+      type: object
+      required: [id, noteId, name, mime, size, url, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        noteId: { type: integer, format: int64 }
+        name: { type: string }
+        mime: { type: string }
+        size: { type: integer, format: int64 }
+        url: { type: string, description: 下载地址，例如 /api/v1/notes/attachments/3 }
+        createdAt: { type: string, format: date-time }
     CreateNote:
       type: object
       properties:

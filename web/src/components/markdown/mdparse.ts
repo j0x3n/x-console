@@ -1,6 +1,6 @@
 /*
  * 一个够用的 Markdown 解析器：标题、段落、列表（含任务列表和嵌套）、引用、代码块、
- * 分隔线，以及行内的代码、粗体、斜体、删除线、链接。输出结构化的节点，
+ * 分隔线，以及行内的代码、粗体、斜体、删除线、链接、图片。输出结构化的节点，
  * 由 Markdown.tsx 渲染成 React 元素，不用 innerHTML，所以不会有 XSS。
  */
 
@@ -9,6 +9,7 @@ export type Inline =
   | { type: "code"; text: string }
   | { type: "strong" | "em" | "del"; children: Inline[] }
   | { type: "link"; href: string; children: Inline[] }
+  | { type: "image"; src: string; alt: string }
   | { type: "br" };
 
 export interface ListItem {
@@ -177,6 +178,14 @@ function joinLines(lines: string[]): Inline[] {
   return out;
 }
 
+/** 图片地址只允许 http、https 和站内路径。 */
+export function safeSrc(src: string): string | null {
+  const url = src.trim();
+  if (/^https?:/i.test(url)) return url;
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  return null;
+}
+
 /** 只允许 http、https、mailto 和站内路径。 */
 export function safeHref(href: string): string | null {
   const url = href.trim();
@@ -187,7 +196,7 @@ export function safeHref(href: string): string | null {
 }
 
 const inlineRe =
-  /`([^`]+)`|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|\*([^*\s][^*]*?)\*|(?<![\w])_([^_\s][^_]*?)_(?![\w])|!?\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
+  /`([^`]+)`|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|\*([^*\s][^*]*?)\*|(?<![\w])_([^_\s][^_]*?)_(?![\w])|(!)?\[([^\]]*)\]\(([^)\s]*)(?:\s+"[^"]*")?\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
 
 export function parseInline(text: string): Inline[] {
   const out: Inline[] = [];
@@ -208,15 +217,68 @@ export function parseInline(text: string): Inline[] {
       push({ type: "del", children: parseInline(m[4]) });
     else if (m[5] !== undefined || m[6] !== undefined)
       push({ type: "em", children: parseInline(m[5] ?? m[6]) });
-    else if (m[8] !== undefined) {
-      const href = safeHref(m[8]);
-      const label = m[7] || m[8];
+    else if (m[9] !== undefined && m[7] === "!") {
+      const src = safeSrc(m[9]);
+      if (src) push({ type: "image", src, alt: m[8] });
+      else push({ type: "text", text: m[8] });
+    } else if (m[9] !== undefined) {
+      const href = safeHref(m[9]);
+      const label = m[8] || m[9];
       if (href)
         push({ type: "link", href, children: parseInline(label) });
       else push({ type: "text", text: label });
-    } else if (m[9] !== undefined)
-      push({ type: "link", href: m[9], children: [{ type: "text", text: m[9] }] });
+    } else if (m[10] !== undefined)
+      push({ type: "link", href: m[10], children: [{ type: "text", text: m[10] }] });
   }
   if (last < text.length) push({ type: "text", text: text.slice(last) });
+  return out;
+}
+
+const taskLineRe = /^(\s*(?:>\s*)*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])(\])/;
+
+/** 按预览里的顺序列出每个待办的勾选状态，和 Markdown.tsx 的编号一致。 */
+function taskStates(blocks: Block[], out: boolean[] = []): boolean[] {
+  for (const b of blocks) {
+    if (b.type === "quote") taskStates(b.blocks, out);
+    if (b.type !== "list") continue;
+    for (const item of b.items) {
+      if (item.checked !== null) out.push(item.checked);
+      taskStates(item.blocks, out);
+    }
+  }
+  return out;
+}
+
+/**
+ * 切换源码里第 index 个待办（从 0 开始，按预览里的顺序）。
+ * 预览里点勾选框时用它改正文。
+ * 像待办的行不一定被解析成待办（比如代码块里的、没有文字的 `- [ ]`），
+ * 所以逐行试着切换，重新解析后只有第 index 个待办变了才算找对了行。
+ */
+export function toggleTask(source: string, index: number): string {
+  const before = taskStates(parseMarkdown(source));
+  if (index < 0 || index >= before.length) return source;
+  const lines = source.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const m = taskLineRe.exec(lines[i]);
+    if (!m) continue;
+    const original = lines[i];
+    lines[i] = m[1] + (m[2] === " " ? "x" : " ") + m[3] + original.slice(m[0].length);
+    const next = lines.join("\n");
+    const after = taskStates(parseMarkdown(next));
+    if (after.length === before.length && after.every((c, k) => (k === index ? c !== before[k] : c === before[k])))
+      return next;
+    lines[i] = original;
+  }
+  return source;
+}
+
+/** 正文里的图片地址，按出现顺序。 */
+export function imageSources(source: string): string[] {
+  const out: string[] = [];
+  for (const m of source.matchAll(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) {
+    const src = safeSrc(m[1]);
+    if (src) out.push(src);
+  }
   return out;
 }

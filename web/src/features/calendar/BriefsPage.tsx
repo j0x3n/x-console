@@ -6,7 +6,7 @@ import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { formatTime } from "../../lib/time";
-import Markdown from "../projects/Markdown";
+import Markdown from "../../components/markdown/Markdown";
 import {
   useBrief,
   useBriefSettings,

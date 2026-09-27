@@ -11,7 +11,7 @@ registerCommands([
   {
     id: "notes.new",
     title: "新建笔记",
-    group: "备忘",
+    group: "笔记",
     keywords: "new note memo",
     icon: NotebookPen,
     run: ({ navigate }) => navigate("/notes?new=1"),
@@ -19,7 +19,7 @@ registerCommands([
   {
     id: "notes.quick",
     title: "快速记录",
-    group: "备忘",
+    group: "笔记",
     keywords: "quick note capture memo",
     icon: StickyNote,
     run: () => useQuickNote.getState().setOpen(true),
@@ -27,7 +27,7 @@ registerCommands([
   {
     id: "notes.search",
     title: "搜索笔记",
-    group: "备忘",
+    group: "笔记",
     keywords: "search notes find",
     icon: Search,
     run: ({ navigate }) => navigate("/notes?focus=search"),

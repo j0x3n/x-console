@@ -36,7 +36,7 @@ registerZh({
   Overview: "概览",
   "My day": "今日",
   Projects: "项目",
-  Notes: "备忘",
+  Notes: "笔记",
   Reminders: "提醒",
   Habits: "习惯",
   Calendar: "日历",
