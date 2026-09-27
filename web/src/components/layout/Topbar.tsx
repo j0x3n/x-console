@@ -6,6 +6,7 @@ import { useEventConnection } from "../../api/events";
 import { useT } from "../../contexts/LanguageContext";
 import NotificationsPopover from "./NotificationsPopover";
 import TopbarActions from "../../app/TopbarActions";
+import { usePageTitle } from "../../stores/page-title";
 
 interface RouteHandle {
   title?: string;
@@ -25,13 +26,17 @@ export default function Topbar({
       .reverse()
       .map((m) => (m.handle as RouteHandle | undefined)?.title)
       .find(Boolean) ?? "";
+  // 详情页的具体名称，比如项目名。和模块名一样时不重复显示。
+  const pageTitle = usePageTitle((s) => s.title);
+  const detail = pageTitle && pageTitle !== t(title) ? pageTitle : "";
   const connected = useEventConnection((s) => s.connected);
   const notifications = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    document.title = title ? `${t(title)} · X Console` : "X Console";
-  }, [title, t]);
+    const name = detail || (title ? t(title) : "");
+    document.title = name ? `${name} · X Console` : "X Console";
+  }, [title, detail, t]);
   useEffect(() => {
     if (!open) return;
     const onDown = (event: PointerEvent) => {
@@ -51,7 +56,17 @@ export default function Topbar({
         >
           <Menu size={18} />
         </button>
-        <span aria-current="page">{t(title)}</span>
+        {detail ? (
+          <>
+            <span className="breadcrumb-parent">{t(title)}</span>
+            <span className="breadcrumb-sep">/</span>
+            <span aria-current="page" className="breadcrumb-detail">
+              {detail}
+            </span>
+          </>
+        ) : (
+          <span aria-current="page">{t(title)}</span>
+        )}
         <span
           className={`xc-dot ${connected ? "ok" : "warn"}`}
           title={connected ? t("Online") : t("Offline")}

@@ -470,6 +470,12 @@
   font-weight: 600;
   line-height: 1.3;
 }
+/* 标题、正文、标签是直接在页面上写的，不要全局的橙色聚焦框，只留光标。 */
+.notes-title-input:focus-visible,
+.notes-body-input:focus-visible,
+.notes-tags-edit input:focus-visible {
+  outline: none;
+}
 .notes-title-input::placeholder,
 .notes-body-input::placeholder,
 .notes-tags-edit input::placeholder {

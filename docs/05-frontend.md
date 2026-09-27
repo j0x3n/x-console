@@ -104,7 +104,7 @@ export function useIssues(projectId: number) {
 
 | 需要 | 用这个 |
 | --- | --- |
-| 页面外框 | `<div className="xc-page">` + `<PageHeading title aside />` |
+| 页面外框 | `<div className="xc-page">` + `<PageHeading title subtitle aside />`。页面不显示大标题（见下） |
 | 按钮 | `xc-btn`，加 `primary`、`danger`、`ghost`、`small` |
 | 表单 | `xc-field` 包 `xc-input`、`xc-select`、`xc-textarea` |
 | 卡片 | `xc-card`、`xc-card-head` |
@@ -116,6 +116,7 @@ export function useIssues(projectId: number) {
 | 小图表 | `components/ui/LineChart`、`Progress`、`MetricCard` |
 | 时间和大小 | `lib/time.ts` 的 `relativeTime`、`formatDate`、`formatTime`、`formatBytes` |
 
+- 页面不显示大标题（2026-09-27 用户要求）。左上角的小标题就是页面名，来自路由的 `handle.title`。`PageHeading` 的 `title` 只给读屏软件，不显示；详情页传具体名称（比如项目名），左上角会显示成“项目 / XC 项目”。只有标题本身是内容时才加 `showTitle`，比如今日页的问候语。
 - 颜色只用 `styles/tokens.css` 里的 `--xc-*` 变量，这样深浅主题都对。
 - 模块样式的类名加模块前缀，比如 `.projects-board`。
 - 390px 宽度下页面不能横向滚动。表格放在 `xc-table-wrap` 里自己滚动。

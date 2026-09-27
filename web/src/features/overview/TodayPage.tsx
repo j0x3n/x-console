@@ -102,6 +102,7 @@ export default function TodayPage() {
   return (
     <div className="xc-page today-page">
       <PageHeading
+        showTitle
         title={greeting}
         subtitle={summary || undefined}
         aside={

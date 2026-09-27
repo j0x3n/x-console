@@ -143,4 +143,5 @@
 | 2026-09-27 | `lib/commands.ts` 的 `Command` 加可选的 `prefix`，`run` 的参数加可选的 `text`；新增 `matchPrefix`。命令面板支持前缀命令，底部显示可用前缀 | B4 |
 | 2026-09-27 | `public/sw.js` 顶部加缓存逻辑；`index.html` 引用 manifest 和图标；`app/TopbarActions.tsx` 加 `InstallButton`；`auth/AuthGate.tsx` 断网时显示“网络断开了” | B5 PWA |
 | 2026-09-27 | `app/Layout.tsx` 的 `Outlet` 外面包 `Suspense`；`web/vite.config.ts` 加 `manualChunks`；各模块 `routes.tsx` 的页面改成 `lazy` | B6 |
+| 2026-09-27 | `PageHeading` 默认不显示大标题（加 `showTitle` 才显示），字符串标题写进新的 `stores/page-title.ts`，`Topbar` 在详情页显示“模块 / 名称”；`ui.css` 加 `.xc-sr-only` | 用户要求页面只用左上角小标题 |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |

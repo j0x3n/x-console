@@ -17,6 +17,26 @@
 .xc-page-title {
   min-width: 0;
 }
+/* 页面不显示大标题，左上角已有模块名。标题只留给读屏软件。 */
+.xc-page-head {
+  align-items: center;
+  min-height: 32px;
+}
+.xc-page-head.empty {
+  min-height: 0;
+  margin: 0;
+}
+.xc-sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px !important;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .xc-page-head h1 {
   margin: 0 0 5px;
   font-size: 28px;
@@ -795,4 +815,23 @@ button.xc-stat:hover {
   .xc-stat-value {
     font-size: 21px;
   }
+}
+
+/* 左上角标题：详情页显示成“模块 / 名称” */
+.breadcrumbs {
+  min-width: 0;
+}
+.breadcrumbs .breadcrumb-parent {
+  flex: none;
+  color: var(--xc-muted);
+}
+.breadcrumbs .breadcrumb-sep {
+  flex: none;
+  color: var(--xc-faint);
+}
+.breadcrumbs .breadcrumb-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
