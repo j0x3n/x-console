@@ -1,0 +1,684 @@
+/* 云盘（B14） */
+.drive-muted {
+  color: var(--xc-muted);
+}
+.drive-hint {
+  margin: -4px 0 10px;
+  font-size: 12.5px;
+}
+.drive-card-note {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+/* 工具栏：左边分类标签，右边搜索和视图切换 */
+.drive-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 10px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.drive-tabs.xc-tabs {
+  border-bottom: 0;
+  margin: 0;
+}
+.drive-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.drive-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  min-width: 0;
+}
+.drive-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 240px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface);
+  color: var(--xc-muted);
+}
+.drive-search:focus-within {
+  border-color: var(--xc-accent);
+}
+.drive-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+}
+.drive-search button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--xc-muted);
+}
+.drive-layout {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface);
+}
+.drive-layout button {
+  display: inline-flex;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-muted);
+}
+.drive-layout button.on {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+
+/* 面包屑 */
+.drive-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 10px;
+  color: var(--xc-muted);
+  font-size: 13px;
+}
+.drive-crumbs > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.drive-crumbs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 220px;
+  padding: 3px 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-crumbs button:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.drive-crumbs strong {
+  padding: 3px 6px;
+  overflow: hidden;
+  color: var(--xc-text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-crumbs.small {
+  margin-bottom: 8px;
+}
+
+/* 多选后的操作条 */
+.drive-selection {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 9px;
+  background: var(--xc-elevated);
+}
+.drive-selection strong {
+  font-weight: 500;
+}
+
+/* 列表视图 */
+.drive-list {
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-surface);
+}
+.drive-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 100px 130px 34px 40px;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 6px;
+  border-top: 1px solid var(--xc-border);
+}
+.drive-row:first-child {
+  border-top: 0;
+}
+.drive-row > span {
+  min-width: 0;
+}
+.drive-row input[type="checkbox"] {
+  display: block;
+  margin: 0 auto;
+}
+.drive-row.selected {
+  background: var(--xc-accent-soft);
+}
+.drive-row:not(.drive-head):hover {
+  background: var(--xc-surface-2);
+}
+.drive-row.selected:hover {
+  background: var(--xc-accent-soft);
+}
+.drive-head {
+  min-height: 36px;
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.drive-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+.drive-col {
+  color: var(--xc-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.drive-name button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 100%;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  text-align: left;
+}
+.drive-name button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-name button:hover > span {
+  text-decoration: underline;
+}
+.drive-sub {
+  display: none;
+  color: var(--xc-muted);
+  font-size: 11.5px;
+}
+.drive-icon {
+  flex: none;
+  color: var(--xc-muted);
+}
+.drive-icon.folder {
+  color: var(--xc-accent);
+}
+.drive-icon.image {
+  color: var(--xc-ok);
+}
+.drive-icon.pdf {
+  color: var(--xc-danger);
+}
+.drive-icon.video,
+.drive-icon.audio {
+  color: var(--xc-info);
+}
+.drive-icon.archive {
+  color: var(--xc-warn);
+}
+.drive-sync {
+  display: inline-flex;
+  color: var(--xc-muted);
+}
+.drive-sync.ok {
+  color: var(--xc-ok);
+}
+.drive-sync.danger {
+  color: var(--xc-danger);
+}
+
+/* 网格视图 */
+.drive-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.drive-tile {
+  position: relative;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-surface);
+}
+.drive-tile.selected {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+}
+.drive-tile-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+}
+.drive-tile-menu {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+}
+.drive-tile-main {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px 10px;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  text-align: left;
+}
+.drive-thumb {
+  display: grid;
+  place-items: center;
+  height: 110px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+}
+.drive-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.drive-tile-name {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-tile small {
+  font-size: 11.5px;
+}
+
+/* 更多菜单 */
+.drive-menu-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.drive-more {
+  padding: 4px 6px;
+}
+.drive-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+}
+.drive-menu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 30;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 9px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.drive-menu-title {
+  display: none;
+}
+.drive-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-text-2);
+  font: inherit;
+  text-align: left;
+}
+.drive-menu button:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.drive-menu button.danger {
+  color: var(--xc-danger);
+}
+
+/* 拖文件进来时盖住整个页面的提示 */
+.drive-drop {
+  position: fixed;
+  inset: 12px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 2px dashed var(--xc-accent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--xc-panel) 88%, transparent);
+  color: var(--xc-text);
+  pointer-events: none;
+}
+
+/* 右下角的上传进度 */
+.drive-uploads {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 35;
+  width: 320px;
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 12px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.drive-uploads header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px 14px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.drive-uploads strong {
+  font-weight: 500;
+}
+.drive-uploads ul {
+  margin: 0;
+  padding: 6px 14px 10px;
+  overflow-y: auto;
+  list-style: none;
+}
+.drive-uploads li {
+  display: grid;
+  gap: 4px;
+  padding: 6px 0;
+}
+.drive-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drive-upload-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-uploads small {
+  font-size: 11.5px;
+}
+.drive-uploads .ok {
+  color: var(--xc-ok);
+}
+.drive-uploads .danger {
+  color: var(--xc-danger);
+}
+.drive-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--xc-surface-2);
+}
+.drive-bar i {
+  display: block;
+  height: 100%;
+  background: var(--xc-accent);
+  transition: width 0.2s;
+}
+.drive-uploads li.done .drive-bar i {
+  background: var(--xc-ok);
+}
+
+/* 预览 */
+.drive-preview {
+  display: grid;
+  place-items: center;
+  max-height: 70vh;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+}
+.drive-preview img,
+.drive-preview video {
+  max-width: 100%;
+  max-height: 70vh;
+}
+.drive-preview iframe {
+  width: 100%;
+  height: 70vh;
+  border: 0;
+  background: #fff;
+}
+.drive-preview.audio {
+  padding: 24px;
+}
+.drive-preview.audio audio {
+  width: 100%;
+}
+.drive-preview.text {
+  display: block;
+  place-items: initial;
+}
+.drive-preview pre {
+  margin: 0;
+  padding: 12px 14px;
+  font-family: var(--xc-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.drive-preview.text .drive-muted {
+  margin: 0;
+  padding: 0 14px 12px;
+}
+
+/* 移动对话框里的文件夹列表 */
+.drive-move-list {
+  display: grid;
+  max-height: 300px;
+  margin-bottom: 12px;
+  overflow-y: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+}
+.drive-move-list > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 0;
+  border-top: 1px solid var(--xc-border);
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  text-align: left;
+}
+.drive-move-list > button:first-child {
+  border-top: 0;
+}
+.drive-move-list > button:hover {
+  background: var(--xc-surface-2);
+}
+.drive-move-list > button span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drive-move-list > button svg:first-child {
+  color: var(--xc-accent);
+}
+.drive-move-list > .drive-muted {
+  margin: 0;
+  padding: 14px;
+}
+
+/* 设置 → 云盘同步 */
+.drive-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+.drive-check-hint {
+  display: block;
+  margin: -6px 0 10px 24px;
+}
+.drive-test {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.drive-test.ok {
+  background: var(--xc-ok-soft);
+  color: var(--xc-ok);
+}
+.drive-test.fail {
+  background: var(--xc-danger-soft);
+  color: var(--xc-danger);
+}
+.drive-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.drive-status {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.drive-status div {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+}
+.drive-status dt {
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.drive-status dd {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* 平板：隐藏同步列 */
+@media (max-width: 1000px) {
+  .drive-row {
+    grid-template-columns: 34px minmax(0, 1fr) 90px 110px 40px;
+  }
+  .drive-row > span:nth-child(5) {
+    display: none;
+  }
+}
+
+/* 手机：列表单列，大小和时间放到名称下面；菜单从底部弹出 */
+@media (max-width: 640px) {
+  .drive-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .drive-tools {
+    padding-bottom: 8px;
+  }
+  .drive-search {
+    flex: 1;
+    width: auto;
+  }
+  .drive-btn-text {
+    display: none;
+  }
+  .drive-row {
+    grid-template-columns: 32px minmax(0, 1fr) 40px;
+    min-height: 52px;
+  }
+  .drive-row > span:nth-child(3),
+  .drive-row > span:nth-child(4),
+  .drive-row > span:nth-child(5) {
+    display: none;
+  }
+  .drive-name button {
+    padding: 2px 0 0;
+  }
+  .drive-sub {
+    display: block;
+    padding-left: 25px;
+  }
+  .drive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .drive-menu-backdrop {
+    background: #0006;
+  }
+  .drive-menu {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
+    border-radius: 14px 14px 0 0;
+  }
+  .drive-menu-title {
+    display: block;
+    padding: 6px 10px 10px;
+    overflow: hidden;
+    color: var(--xc-muted);
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .drive-menu button {
+    padding: 12px 10px;
+  }
+  .drive-uploads {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+  }
+}

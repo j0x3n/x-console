@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Code2,
   Github,
+  HardDrive,
   HeartPulse,
   Home,
   Monitor,
@@ -34,6 +35,7 @@ export const navItems: NavItem[] = [
   { path: "/notes", label: "Notes", icon: NotebookPen, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
+  { path: "/drive", label: "Drive", icon: HardDrive, group: "personal" },
   {
     path: "/calendar",
     label: "Calendar",

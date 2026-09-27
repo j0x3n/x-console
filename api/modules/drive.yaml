@@ -1,0 +1,386 @@
+openapi: 3.0.3
+info:
+  title: X Console drive API (B14)
+  version: 0.1.0
+  description: |
+    云盘。文件按 sha256 存在 <数据目录>/drive/blobs/ 下，内容相同只存一份。
+    隐藏条目（B13）在没解锁时列表和搜索里都没有，按 id 取返回 404。
+    文件夹隐藏后，里面的内容都算隐藏。
+servers:
+  - url: /api/v1
+paths:
+  /drive/items:
+    get:
+      operationId: listDriveItems
+      tags: [drive]
+      description: |
+        某个目录的内容，文件夹在前，然后按名称排序。
+        有 q 时全盘搜名称，忽略 parent。trashed=true 时只看回收站。
+        hidden=true 时只看隐藏条目，要先解锁，没解锁时返回空列表。
+      parameters:
+        - name: parent
+          in: query
+          description: 目录 id，不传表示根目录
+          schema: { type: integer, format: int64 }
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: trashed
+          in: query
+          schema: { type: boolean }
+        - name: hidden
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 条目列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/DriveItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: getDriveItem
+      tags: [drive]
+      responses:
+        "200":
+          description: 条目，带从根目录开始的路径
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveItemWithPath" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateDriveItem
+      tags: [drive]
+      description: 改名、移动、设为隐藏。hidden 只有解锁后能改。同一目录下已有同名条目时回 409。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateDriveItem" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteDriveItem
+      tags: [drive]
+      description: 默认放进回收站，30 天后自动清掉。permanent=true 彻底删除，要提升权限。
+      parameters:
+        - name: permanent
+          in: query
+          schema: { type: boolean }
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}/restore:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      operationId: restoreDriveItem
+      tags: [drive]
+      description: 从回收站恢复到原来的目录。原目录没了就放到根目录，重名时自动加“ (1)”。
+      responses:
+        "200":
+          description: 已恢复
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}/content:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: getDriveItemContent
+      tags: [drive]
+      description: 下载文件，支持 Range。inline=1 时用于预览（Content-Disposition 为 inline）。
+      parameters:
+        - name: inline
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "206":
+          description: 部分内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}/thumbnail:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: getDriveItemThumbnail
+      tags: [drive]
+      description: 图片缩略图，最长边 320px，缓存到磁盘。不是图片时回 404。
+      responses:
+        "200":
+          description: 缩略图
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/folders:
+    post:
+      operationId: createDriveFolder
+      tags: [drive]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                parentId: { type: integer, format: int64 }
+                name: { type: string, minLength: 1 }
+                hidden: { type: boolean, description: 直接建成隐藏文件夹，要先解锁 }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/upload:
+    post:
+      operationId: uploadDriveFiles
+      tags: [drive]
+      description: |
+        multipart，字段名 file，一次可以多个。流式写盘，不整体读进内存。
+        同名时自动加“ (1)”。hidden=true 时上传成隐藏文件，要先解锁。
+      parameters:
+        - name: parent
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: hidden
+          in: query
+          schema: { type: boolean }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        "201":
+          description: 已上传
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/DriveItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/usage:
+    get:
+      operationId: getDriveUsage
+      tags: [drive]
+      responses:
+        "200":
+          description: 占用空间（不含隐藏条目，解锁后也不含）
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [files, bytes, trashBytes]
+                properties:
+                  files: { type: integer, format: int64 }
+                  bytes: { type: integer, format: int64 }
+                  trashBytes: { type: integer, format: int64 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/s3:
+    get:
+      operationId: getDriveS3Config
+      tags: [drive]
+      responses:
+        "200":
+          description: S3 配置。不返回 Secret Access Key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/S3Config" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putDriveS3Config
+      tags: [drive]
+      description: 要提升权限。secretAccessKey 不传表示不改，用 Settings.SetSecret 加密保存。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/S3ConfigInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/S3Config" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/s3/test:
+    post:
+      operationId: testDriveS3
+      tags: [drive]
+      description: 写一个小文件再删掉。传了请求体就用请求体里的配置测试（没传的字段用已保存的）。
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/S3ConfigInput" }
+      responses:
+        "200":
+          description: 测试结果
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, message]
+                properties:
+                  ok: { type: boolean }
+                  message: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/s3/sync:
+    post:
+      operationId: syncDriveS3
+      tags: [drive]
+      description: 立刻同步一次。已经在同步时直接返回。
+      responses:
+        "202":
+          description: 已开始
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/s3/status:
+    get:
+      operationId: getDriveS3Status
+      tags: [drive]
+      responses:
+        "200":
+          description: 同步状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/S3Status" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    DriveItem:
+      type: object
+      required: [id, name, isDir, size, hidden, syncState, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        parentId: { type: integer, format: int64, description: 不返回表示在根目录 }
+        name: { type: string }
+        isDir: { type: boolean }
+        size: { type: integer, format: int64, description: 文件夹为 0 }
+        mime: { type: string, description: 只有文件有 }
+        hidden: { type: boolean }
+        trashedAt: { type: string, format: date-time }
+        syncState:
+          type: string
+          enum: [synced, pending, failed, off]
+          description: off 表示没配置 S3、或者隐藏文件没打开 includeHidden
+        syncError: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DriveItemWithPath:
+      allOf:
+        - $ref: "#/components/schemas/DriveItem"
+        - type: object
+          required: [path]
+          properties:
+            path:
+              type: array
+              description: 从根目录下第一层到这个条目的上一层，不含自己
+              items:
+                type: object
+                required: [id, name]
+                properties:
+                  id: { type: integer, format: int64 }
+                  name: { type: string }
+    UpdateDriveItem:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        parentId:
+          type: integer
+          format: int64
+          description: 移动到这个目录。传 0 表示根目录
+        hidden: { type: boolean }
+    S3Config:
+      type: object
+      required: [endpoint, region, bucket, prefix, accessKeyId, hasSecret, pathStyle, enabled, includeHidden]
+      properties:
+        endpoint: { type: string, description: 例如 https://s3.amazonaws.com 或 https://<账号>.r2.cloudflarestorage.com }
+        region: { type: string }
+        bucket: { type: string }
+        prefix: { type: string }
+        accessKeyId: { type: string }
+        hasSecret: { type: boolean }
+        pathStyle: { type: boolean }
+        enabled: { type: boolean }
+        includeHidden: { type: boolean, description: 隐藏文件同步到 <prefix>/.hidden/ 下 }
+    S3ConfigInput:
+      type: object
+      properties:
+        endpoint: { type: string }
+        region: { type: string }
+        bucket: { type: string }
+        prefix: { type: string }
+        accessKeyId: { type: string }
+        secretAccessKey: { type: string, description: 只写。不传表示不改 }
+        pathStyle: { type: boolean }
+        enabled: { type: boolean }
+        includeHidden: { type: boolean }
+    S3Status:
+      type: object
+      required: [state, pending, synced, failed]
+      properties:
+        state:
+          type: string
+          enum: [off, idle, syncing, failed]
+          description: off 表示没配置或没启用
+        lastRunAt: { type: string, format: date-time }
+        lastError: { type: string }
+        pending: { type: integer }
+        synced: { type: integer }
+        failed: { type: integer }

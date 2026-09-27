@@ -8,6 +8,7 @@ import HASettingsTab from "../home/HASettingsTab";
 import GitHubSettingsTab from "../github/GitHubSettingsTab";
 import LinearSettingsTab from "../github/LinearSettingsTab";
 import BriefSettingsTab from "../calendar/BriefSettingsTab";
+import S3SettingsTab from "../drive/S3SettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -27,4 +28,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "github", label: "GitHub", component: GitHubSettingsTab },
   { id: "linear", label: "Linear", component: LinearSettingsTab },
   { id: "brief", label: "Daily brief", component: BriefSettingsTab },
+  { id: "drive-sync", label: "Drive sync", component: S3SettingsTab },
 ];

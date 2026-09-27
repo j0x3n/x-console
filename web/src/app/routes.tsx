@@ -3,6 +3,7 @@ import { routes as overview } from "../features/overview/routes";
 import { routes as projects } from "../features/projects/routes";
 import { routes as coding } from "../features/coding/routes";
 import { routes as notes } from "../features/notes/routes";
+import { routes as drive } from "../features/drive/routes";
 import { routes as reminders } from "../features/reminders/routes";
 import { routes as habits } from "../features/habits/routes";
 import { routes as calendar } from "../features/calendar/routes";
@@ -21,6 +22,7 @@ export const moduleRoutes: RouteObject[] = [
   ...projects,
   ...coding,
   ...notes,
+  ...drive,
   ...reminders,
   ...habits,
   ...calendar,

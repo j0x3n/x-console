@@ -37,6 +37,7 @@ registerZh({
   "My day": "今日",
   Projects: "项目",
   Notes: "笔记",
+  Drive: "云盘",
   Reminders: "提醒",
   Habits: "习惯",
   Calendar: "日历",
