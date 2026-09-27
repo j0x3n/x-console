@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/cookiejar"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/pquerna/otp/totp"
 
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
@@ -52,17 +55,119 @@ func TestAuthFlow(t *testing.T) {
 	env.MustDo(http.MethodGet, "/agents", nil, nil)
 }
 
-// B12 前端先做，这些接口先回 501 not_ready。
-func TestOptionalTotpNotReady(t *testing.T) {
+func TestOptionalTotpFlow(t *testing.T) {
 	env := testutil.New(t)
-	for _, path := range []string{"/auth/setup/skip-totp", "/auth/totp/enroll", "/auth/totp/confirm", "/auth/totp/disable", "/auth/password"} {
-		status, raw := env.Do(http.MethodPost, path, map[string]string{}, nil)
-		var e struct{ Code string }
-		_ = json.Unmarshal(raw, &e)
-		if status != http.StatusNotImplemented || e.Code != "not_ready" {
-			t.Fatalf("%s: %d %s", path, status, raw)
+	status, raw := env.Do(http.MethodPost, "/auth/setup/skip-totp", nil, nil)
+	if status != http.StatusConflict {
+		t.Fatalf("skip after setup: %d %s", status, raw)
+	}
+	env.MustDo(http.MethodPost, "/auth/logout", nil, nil)
+	var state struct {
+		Authenticated bool
+		TotpEnabled   *bool
+	}
+	env.MustDo(http.MethodGet, "/auth/status", nil, &state)
+	if state.Authenticated || state.TotpEnabled != nil {
+		t.Fatalf("logged out status: %+v", state)
+	}
+	env.MustDo(http.MethodPost, "/auth/login", map[string]string{"username": testutil.Username, "password": testutil.Password, "code": env.Code()}, nil)
+	env.MustDo(http.MethodGet, "/auth/status", nil, &state)
+	if !state.Authenticated || state.TotpEnabled == nil || !*state.TotpEnabled {
+		t.Fatalf("enabled status: %+v", state)
+	}
+	status, _ = env.Do(http.MethodPost, "/auth/totp/enroll", nil, nil)
+	if status != http.StatusForbidden {
+		t.Fatalf("enroll without elevation: %d", status)
+	}
+	env.Elevate()
+	status, _ = env.Do(http.MethodPost, "/auth/totp/enroll", nil, nil)
+	if status != http.StatusConflict {
+		t.Fatalf("enroll while enabled: %d", status)
+	}
+	for _, body := range []map[string]string{
+		{"password": "wrong", "code": env.Code()},
+		{"password": testutil.Password, "code": "000000"},
+	} {
+		status, _ = env.Do(http.MethodPost, "/auth/totp/disable", body, nil)
+		if status != http.StatusUnauthorized {
+			t.Fatalf("disable invalid credentials: %d", status)
 		}
 	}
+	env.MustDo(http.MethodPost, "/auth/totp/disable", map[string]string{"password": testutil.Password, "code": env.Code()}, nil)
+	env.MustDo(http.MethodGet, "/auth/status", nil, &state)
+	if state.TotpEnabled == nil || *state.TotpEnabled {
+		t.Fatalf("disabled status: %+v", state)
+	}
+	status, _ = env.Do(http.MethodPost, "/auth/elevate", map[string]string{"code": env.Code()}, nil)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("elevate with code while disabled: %d", status)
+	}
+	env.MustDo(http.MethodPost, "/auth/elevate", map[string]string{"password": testutil.Password}, nil)
+	var enrollment struct{ Secret string }
+	env.MustDo(http.MethodPost, "/auth/totp/enroll", nil, &enrollment)
+	if enrollment.Secret == "" {
+		t.Fatal("enrollment secret missing")
+	}
+	status, _ = env.Do(http.MethodPost, "/auth/totp/confirm", map[string]string{"code": "000000"}, nil)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("confirm invalid code: %d", status)
+	}
+	code, err := totp.GenerateCode(enrollment.Secret, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	env.MustDo(http.MethodPost, "/auth/totp/confirm", map[string]string{"code": code}, nil)
+	env.MustDo(http.MethodGet, "/auth/status", nil, &state)
+	if state.TotpEnabled == nil || !*state.TotpEnabled {
+		t.Fatalf("reenabled status: %+v", state)
+	}
+}
+
+func TestPasswordChangeRevokesOtherSessions(t *testing.T) {
+	env := testutil.New(t)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := &http.Client{Jar: jar}
+	req, err := http.NewRequest(http.MethodPost, env.URL("/auth/login"), strings.NewReader(`{"username":"`+testutil.Username+`","password":"`+testutil.Password+`","code":"`+env.Code()+`"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Requested-With", "x-console")
+	resp, err := other.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("other login: %d", resp.StatusCode)
+	}
+	status, _ := env.Do(http.MethodPost, "/auth/password", map[string]string{"oldPassword": "wrong", "newPassword": "new-password-2026"}, nil)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("invalid old password: %d", status)
+	}
+	env.MustDo(http.MethodPost, "/auth/password", map[string]string{"oldPassword": testutil.Password, "newPassword": "new-password-2026"}, nil)
+	req, err = http.NewRequest(http.MethodGet, env.URL("/agents"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = other.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("other session retained: %d", resp.StatusCode)
+	}
+	env.MustDo(http.MethodGet, "/agents", nil, nil)
+	env.MustDo(http.MethodPost, "/auth/logout", nil, nil)
+	status, _ = env.Do(http.MethodPost, "/auth/login", map[string]string{"username": testutil.Username, "password": testutil.Password, "code": env.Code()}, nil)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("old password accepted: %d", status)
+	}
+	env.MustDo(http.MethodPost, "/auth/login", map[string]string{"username": testutil.Username, "password": "new-password-2026", "code": env.Code()}, nil)
 }
 
 func TestCSRFHeaderRequired(t *testing.T) {

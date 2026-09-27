@@ -40,8 +40,14 @@ func (h *Handlers) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	out := api.AuthStatus{SetupRequired: required}
 	if s := auth.FromContext(r.Context()); s != nil {
+		enabled, err := h.Auth.TOTPEnabled(r.Context())
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
 		out.Authenticated = true
 		out.Username = &s.Username
+		out.TotpEnabled = &enabled
 		if s.Elevated() {
 			out.ElevatedUntil = s.ElevatedUntil
 		}
@@ -98,12 +104,12 @@ func (h *Handlers) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) Elevate(w http.ResponseWriter, r *http.Request) {
-	var body api.TotpCode
+	var body api.ElevateRequest
 	if err := httpx.Decode(r, &body); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	until, err := h.Auth.Elevate(r.Context(), body.Code)
+	until, err := h.Auth.Elevate(r.Context(), body.Code, body.Password)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

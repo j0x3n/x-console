@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
@@ -21,7 +22,7 @@ func toNote(n db.Note, tags []string) api.Note {
 	if tags == nil {
 		tags = []string{}
 	}
-	return api.Note{Id: n.ID, Title: n.Title, Body: n.Body, Pinned: n.Pinned != 0, Tags: tags,
+	return api.Note{Id: n.ID, Title: n.Title, Body: n.Body, Pinned: n.Pinned != 0, Hidden: hiddenField(n.Hidden), Tags: tags,
 		ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt}
 }
 
@@ -30,7 +31,7 @@ func toSummary(n db.Note, tags []string) api.NoteSummary {
 		tags = []string{}
 	}
 	return api.NoteSummary{Id: n.ID, Title: n.Title, Excerpt: truncate(plainText(n.Body), 160), Pinned: n.Pinned != 0,
-		Tags: tags, ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt}
+		Hidden: hiddenField(n.Hidden), Tags: tags, ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt}
 }
 
 func boolInt(b bool) int64 {
@@ -40,10 +41,36 @@ func boolInt(b bool) int64 {
 	return 0
 }
 
-func (m *Module) getNote(ctx context.Context, id int64) (api.Note, error) {
+func hiddenField(hidden int64) *bool {
+	if hidden == 0 {
+		return nil
+	}
+	v := true
+	return &v
+}
+
+func requireVault(ctx context.Context) error {
+	if !auth.VaultUnlocked(ctx) {
+		return httpx.NewError(403, "vault_locked", "先解锁隐藏内容")
+	}
+	return nil
+}
+
+func (m *Module) noteRow(ctx context.Context, id int64) (db.Note, error) {
 	n, err := m.q.GetNote(ctx, id)
 	if err != nil {
-		return api.Note{}, notFound(err)
+		return n, notFound(err)
+	}
+	if n.Hidden != 0 && !auth.VaultUnlocked(ctx) {
+		return n, httpx.ErrNotFound
+	}
+	return n, nil
+}
+
+func (m *Module) getNote(ctx context.Context, id int64) (api.Note, error) {
+	n, err := m.noteRow(ctx, id)
+	if err != nil {
+		return api.Note{}, err
 	}
 	tags, err := m.q.ListNoteTags(ctx, id)
 	if err != nil {
@@ -64,8 +91,13 @@ func setTags(ctx context.Context, q *db.Queries, id int64, tags []string) error 
 	return nil
 }
 
-func (m *Module) createNote(ctx context.Context, title, body string, tags []string, pinned bool) (out api.Note, err error) {
+func (m *Module) createNote(ctx context.Context, title, body string, tags []string, pinned, hidden bool) (out api.Note, err error) {
 	defer func() { m.d.Audit.Record(ctx, "note.create", strconv.FormatInt(out.Id, 10), nil, err) }()
+	if hidden {
+		if err = requireVault(ctx); err != nil {
+			return out, err
+		}
+	}
 	tags, err = cleanTags(tags)
 	if err != nil {
 		return out, err
@@ -74,7 +106,7 @@ func (m *Module) createNote(ctx context.Context, title, body string, tags []stri
 	var id int64
 	err = m.tx(ctx, func(q *db.Queries) error {
 		n, err := q.CreateNote(ctx, db.CreateNoteParams{Title: strings.TrimSpace(title), Body: body,
-			Pinned: boolInt(pinned), CreatedAt: now, UpdatedAt: now})
+			Pinned: boolInt(pinned), Hidden: boolInt(hidden), CreatedAt: now, UpdatedAt: now})
 		if err != nil {
 			return err
 		}
@@ -88,7 +120,10 @@ func (m *Module) createNote(ctx context.Context, title, body string, tags []stri
 	if err != nil {
 		return out, err
 	}
-	m.d.Bus.Publish("note.created", out)
+	if hidden {
+		m.d.Audit.Record(ctx, "note.hide", strconv.FormatInt(id, 10), nil, nil)
+	}
+	m.publishNote("note.created", out)
 	return out, nil
 }
 
@@ -97,6 +132,7 @@ type notePatch struct {
 	Title    *string
 	Body     *string
 	Pinned   *bool
+	Hidden   *bool
 	Archived *bool
 	Tags     *[]string
 }
@@ -109,10 +145,23 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 			return out, err
 		}
 	}
+	if p.Hidden != nil {
+		if err = requireVault(ctx); err != nil {
+			return out, err
+		}
+	}
+	var changedHidden *bool
 	err = m.tx(ctx, func(q *db.Queries) error {
 		n, err := q.GetNote(ctx, id)
 		if err != nil {
 			return notFound(err)
+		}
+		if n.Hidden != 0 && !auth.VaultUnlocked(ctx) {
+			return httpx.ErrNotFound
+		}
+		wasHidden := n.Hidden != 0
+		if p.Hidden != nil {
+			n.Hidden = boolInt(*p.Hidden)
 		}
 		now := m.now()
 		if p.Title != nil {
@@ -132,8 +181,12 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 			}
 		}
 		if err := q.UpdateNote(ctx, db.UpdateNoteParams{Title: n.Title, Body: n.Body, Pinned: n.Pinned,
-			ArchivedAt: n.ArchivedAt, UpdatedAt: now, ID: id}); err != nil {
+			ArchivedAt: n.ArchivedAt, Hidden: n.Hidden, UpdatedAt: now, ID: id}); err != nil {
 			return err
+		}
+		if p.Hidden != nil && wasHidden != *p.Hidden {
+			v := *p.Hidden
+			changedHidden = &v
 		}
 		if p.Tags != nil {
 			return setTags(ctx, q, id, tags)
@@ -143,11 +196,22 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 	if err != nil {
 		return out, err
 	}
+	if changedHidden != nil {
+		action := "note.hide"
+		if !*changedHidden {
+			action = "note.restore"
+		}
+		m.d.Audit.Record(ctx, action, strconv.FormatInt(id, 10), nil, nil)
+	}
 	out, err = m.getNote(ctx, id)
 	if err != nil {
 		return out, err
 	}
-	m.d.Bus.Publish("note.updated", out)
+	if changedHidden != nil {
+		m.d.Bus.Publish("note.updated", map[string]any{"id": id, "hidden": true})
+	} else {
+		m.publishNote("note.updated", out)
+	}
 	return out, nil
 }
 
@@ -170,6 +234,13 @@ func (m *Module) appendNote(ctx context.Context, id int64, text string) (api.Not
 
 func (m *Module) deleteNote(ctx context.Context, id int64) (err error) {
 	defer func() { m.d.Audit.Record(ctx, "note.delete", strconv.FormatInt(id, 10), nil, err) }()
+	note, err := m.noteRow(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := m.removeNoteFiles(ctx, id); err != nil {
+		return err
+	}
 	n, err := m.q.DeleteNote(ctx, id)
 	if err != nil {
 		return err
@@ -177,12 +248,33 @@ func (m *Module) deleteNote(ctx context.Context, id int64) (err error) {
 	if n == 0 {
 		return httpx.ErrNotFound
 	}
-	m.d.Bus.Publish("note.deleted", map[string]int64{"id": id})
+	if note.Hidden != 0 {
+		m.d.Bus.Publish("note.deleted", map[string]any{"id": id, "hidden": true})
+	} else {
+		m.d.Bus.Publish("note.deleted", map[string]int64{"id": id})
+	}
 	return nil
 }
 
-func (m *Module) tagCounts(ctx context.Context) ([]api.TagCount, error) {
-	rows, err := m.q.TagCounts(ctx)
+func (m *Module) publishNote(topic string, note api.Note) {
+	if note.Hidden != nil && *note.Hidden {
+		m.d.Bus.Publish(topic, map[string]any{"id": note.Id, "hidden": true})
+		return
+	}
+	m.d.Bus.Publish(topic, note)
+}
+
+func (m *Module) noteChanged(ctx context.Context, id int64) {
+	n, err := m.q.GetNote(ctx, id)
+	if err == nil && n.Hidden != 0 {
+		m.d.Bus.Publish("note.updated", map[string]any{"id": id, "hidden": true})
+		return
+	}
+	m.d.Bus.Publish("note.updated", map[string]int64{"id": id})
+}
+
+func (m *Module) tagCounts(ctx context.Context, hidden bool) ([]api.TagCount, error) {
+	rows, err := m.q.TagCounts(ctx, boolInt(hidden))
 	if err != nil {
 		return nil, err
 	}
@@ -229,16 +321,20 @@ func (m *Module) noteToIssue(ctx context.Context, id, projectID int64) (out toIs
 	defer func() {
 		m.d.Audit.Record(ctx, "note.to_issue", strconv.FormatInt(id, 10), map[string]any{"issue": out.IssueKey}, err)
 	}()
+	n, err := m.noteRow(ctx, id)
+	if err != nil {
+		return out, err
+	}
+	if n.Hidden != 0 {
+		return out, httpx.ErrNotFound
+	}
 	issues, ok := module.Lookup[contracts.Issues](m.d.Registry, contracts.IssuesKey)
 	if !ok {
 		return out, httpx.NewError(501, "feature_unavailable", "项目模块未启用")
 	}
-	n, err := m.getNote(ctx, id)
-	if err != nil {
-		return out, err
-	}
-	title := displayTitle(n.Title, n.Body)
-	ref, err := issues.Create(ctx, contracts.CreateIssue{ProjectID: projectID, Title: title, Description: n.Body})
+	note := toNote(n, nil)
+	title := displayTitle(note.Title, note.Body)
+	ref, err := issues.Create(ctx, contracts.CreateIssue{ProjectID: projectID, Title: title, Description: note.Body})
 	if err != nil {
 		return out, err
 	}
@@ -256,16 +352,19 @@ func (m *Module) noteToReminder(ctx context.Context, id int64, at time.Time, rru
 	defer func() {
 		m.d.Audit.Record(ctx, "note.to_reminder", strconv.FormatInt(id, 10), map[string]any{"reminderId": reminderID}, err)
 	}()
+	n, err := m.noteRow(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	if n.Hidden != 0 && !auth.VaultUnlocked(ctx) {
+		return 0, httpx.ErrNotFound
+	}
 	reminders, ok := module.Lookup[contracts.Reminders](m.d.Registry, contracts.RemindersKey)
 	if !ok {
 		return 0, httpx.NewError(501, "feature_unavailable", "提醒模块未启用")
 	}
 	if at.IsZero() {
 		return 0, httpx.Invalid("需要提醒时间")
-	}
-	n, err := m.getNote(ctx, id)
-	if err != nil {
-		return 0, err
 	}
 	return reminders.Create(ctx, contracts.CreateReminder{
 		Title: displayTitle(n.Title, n.Body), Body: truncate(plainText(n.Body), 200), At: at, RRule: rrule,

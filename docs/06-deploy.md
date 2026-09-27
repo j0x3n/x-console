@@ -116,15 +116,24 @@ docker compose up -d --build
 | `XC_PORT` | `17380` | 仅 docker compose 使用，面板在服务器本机监听的端口 |
 | `COMPOSE_PROFILES` | 空 | 设为 `caddy` 时启动自带的 Caddy |
 
-### 备份
+### 备份与回退
 
-数据库在 Docker 卷 `xc-data` 里。在部署目录下运行：
+每次部署前，脚本通过 SQLite 的 `VACUUM INTO` 生成一致的数据库副本。备份位于 `xc-data` 卷的 `/data/backups/`，文件名包含 UTC 时间和旧镜像版本，保留最近 10 份。首次部署没有旧容器时跳过备份。新版本 60 秒内未通过健康检查时，脚本会停止新容器，恢复数据库和旧镜像，并检查旧服务是否就绪。本次部署仍以失败退出。
+
+在服务器的部署目录里回退最近一次成功部署：
 
 ```bash
-docker compose exec -T x-console sh -c 'cat /data/x-console.db' > backup-$(date +%F).db
+sh remote-deploy.sh rollback
 ```
 
-服务运行时这样复制，极少数情况下会拿到写了一半的文件。更稳妥的做法是先停服务：`docker compose stop x-console`，复制完再 `docker compose start x-console`。同时备份 `.env`。
+只恢复数据库并重启当前镜像：
+
+```bash
+docker compose exec -T x-console ls -1 /data/backups/
+sh remote-deploy.sh restore x-console-20260927-153000-sha-8fed186.db
+```
+
+恢复数据库会丢失该备份之后写入的数据。请单独保存 `.env`，以免丢失解密令牌所需的主密钥。
 
 ## 代理
 

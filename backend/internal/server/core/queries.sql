@@ -2,8 +2,8 @@
 SELECT count(*) FROM users;
 
 -- name: CreateUser :one
-INSERT INTO users (username, password_hash, totp_secret, created_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO users (username, password_hash, totp_secret, created_at, setup_completed)
+VALUES (?, ?, ?, ?, 0)
 RETURNING *;
 
 -- name: GetUserByUsername :one
@@ -15,8 +15,23 @@ SELECT * FROM users WHERE id = ?;
 -- name: GetFirstUser :one
 SELECT * FROM users ORDER BY id LIMIT 1;
 
--- name: EnableTOTP :exec
-UPDATE users SET totp_enabled = 1 WHERE id = ?;
+-- name: EnableTOTP :execrows
+UPDATE users SET totp_enabled = 1, setup_completed = 1 WHERE id = ? AND setup_completed = 0 AND totp_enabled = 0 AND totp_secret <> '';
+
+-- name: FinishSetupWithoutTOTP :execrows
+UPDATE users SET totp_secret = '', setup_completed = 1 WHERE id = ? AND setup_completed = 0 AND totp_enabled = 0;
+
+-- name: ConfirmPendingTOTP :execrows
+UPDATE users SET totp_enabled = 1, totp_secret = ? WHERE id = ? AND setup_completed = 1 AND totp_enabled = 0;
+
+-- name: DisableTOTP :exec
+UPDATE users SET totp_enabled = 0, totp_secret = '' WHERE id = ?;
+
+-- name: UpdatePassword :exec
+UPDATE users SET password_hash = ? WHERE id = ?;
+
+-- name: DeleteOtherSessions :exec
+DELETE FROM sessions WHERE user_id = ? AND id <> ?;
 
 -- name: CreateSession :exec
 INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip)
@@ -33,6 +48,12 @@ UPDATE sessions SET expires_at = ? WHERE id = ?;
 -- name: ElevateSession :exec
 UPDATE sessions SET elevated_until = ? WHERE id = ?;
 
+-- name: SetVaultUntil :exec
+UPDATE sessions SET vault_until = ? WHERE id = ?;
+
+-- name: ClearVaultSessions :exec
+UPDATE sessions SET vault_until = NULL WHERE vault_until IS NOT NULL;
+
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?;
 
@@ -48,6 +69,11 @@ SELECT * FROM audit_log WHERE id < ? ORDER BY id DESC LIMIT ?;
 
 -- name: GetSetting :one
 SELECT * FROM settings WHERE key = ?;
+
+-- name: InsertVaultPassword :execrows
+INSERT INTO settings (key, value, encrypted, updated_at)
+VALUES ('vault.password_hash', ?, 0, ?)
+ON CONFLICT (key) DO NOTHING;
 
 -- name: UpsertSetting :exec
 INSERT INTO settings (key, value, encrypted, updated_at) VALUES (?, ?, ?, ?)

@@ -11,7 +11,7 @@
 
 - 前端已经做完四轮，线上是 `develop` 最新的部署（带部署标记的提交会部署，见 AGENTS.md）。
 - 演示数据保留（用户要求），页面底部的“演示数据：开/关”可以切换。说明见下方“演示数据”。
-- **下一步：Codex 在 `codex` 分支上做后端，从 B19（部署前备份和回退）开始，然后 B11，按“待做”表的顺序往下做。** 做法见 AGENTS.md 的“流程”。
+- **下一步：Codex 在 `codex` 分支上做后端，从 B2 开始，按“待做”表的顺序往下做。** 做法见 AGENTS.md 的“流程”。
 - `frontend-done` 分支是交给 Codex 之前的版本，需要时可以回到这里。
 
 ## 进行中
@@ -26,11 +26,6 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B19 | 部署前自动备份数据库，健康检查不过自动回退到旧版本和旧数据。后端这一轮要加很多迁移，先做它 | [specs/B19.md](specs/B19.md) | |
-| B11 | 笔记后端：附件接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | |
-| B2 | 今日页后端：`GET/PUT /dashboard/layout`（卡片多了 `weather` 置顶和 `fitness`，见 `web/src/features/overview/layout.ts`） | [specs/M1.md](specs/M1.md) | |
-| B12 | 两步验证可选的后端 | [specs/B12.md](specs/B12.md) | |
-| B13 | 隐藏内容的后端：`/vault/*`、笔记的 `hidden`、隐藏空间自己的标签（`/notes/tags?hidden=true`） | [specs/B13.md](specs/B13.md) | |
 | B8 | Playwright 端到端测试加进 CI。先覆盖最常用的流程，以后每个新功能补一条 | 见下方说明 | |
 | B14 | 云盘后端：`modules/drive`、S3 同步、隐藏空间（记住原位置，还原放回） | [specs/B14.md](specs/B14.md) | |
 | B3 | AI 助手和自动化的后端 | [specs/M12.md](specs/M12.md) | |
@@ -48,9 +43,11 @@
 
 **演示数据（保留，D1 才删）**
 - `web/src/demo` 在浏览器里拦请求，返回假数据。`main.tsx` 第一行引入。
-- 常开的拦截（不管开关）：还没有后端的功能，`demo/dashboard.ts`（今日页布局）、`demo/vault.ts`（隐藏内容）、`demo/drive.ts`（云盘）、`demo/ai.ts`（AI 助手）、`demo/automations.ts`（自动化）。
+- 常开的拦截（不管开关）：还没有后端的功能，`demo/drive.ts`（云盘）、`demo/ai.ts`（AI 助手）、`demo/automations.ts`（自动化）。
+- 隐藏内容 B13 已接后端：`demo/vault.ts` 和隐藏笔记只在演示开关打开时拦截。关掉开关后走真实接口。
 - 演示开关：页面底部“演示数据：开/关”，存在浏览器的 `xc.demo.full` 里，默认开。开着时 `demo/full/*` 接管已有后端的模块（`demo/mode.ts` 的 `FULL_PREFIXES`），读写只动内存，刷新后恢复原样，不碰服务器上的真数据。关掉后回到真数据。`PASS_THROUGH` 里的接口（搜城市）始终走真实服务器。
-- **做后端时注意**：做完 B2、B13、B14、B3 中任何一个，要把上面对应的“常开拦截”改成只在开关打开时生效（文件开头判断 `demoFull`，或者挪进 `demo/full`），否则关掉开关也看不到真数据。改完在这里更新。
+- 今日页布局 B2 已接后端：`demo/dashboard.ts` 只在演示开关打开时拦截。
+- **做后端时注意**：做完 B14、B3 中任何一个，要把上面对应的“常开拦截”改成只在开关打开时生效（文件开头判断 `demoFull`，或者挪进 `demo/full`），否则关掉开关也看不到真数据。改完在这里更新。B13 已改。
 - 做新的前端功能时，同时在 `demo/full` 里补假数据，保证演示模式下能用。
 - D1 删除时：删 `web/src/demo`、`main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
 
@@ -133,6 +130,11 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B19 | 部署前备份数据库和失败回退（待合并） |
+| B11 后端 | 附件上传下载、缩略图、笔记删除时清理文件（待合并） |
+| B13 后端 | 隐藏内容：隐藏密码、会话解锁、隐藏笔记不出现在列表搜索和动作里（待合并） |
+| B12 后端 | 两步验证可选：跳过绑定、启用或关闭、密码修改和重新验证（待合并） |
+| B2 后端 | 今日页布局保存与跨设备读取（待合并） |
 | 0 | M0 基础（登录、TOTP、审计、加密设置、事件、调度、通知、代理配对与协议）、前端外壳、contracts、actions、文档 |
 | 1 | M2/M3 服务器和本机、M5 项目、M6 备忘、M7 提醒与通知、M8 习惯、M9 Home Assistant |
 | 2 | M4 编码任务、M10 运维监控、M11 日历早报番茄钟、M13 GitHub 和 Linear |
@@ -159,6 +161,8 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-28 | `auth` 增加 `VaultUnlocked`、`WithoutVault`；会话增加 `vault_until` | B13 隐藏内容 |
+| 2026-09-28 | `auth` 用 `setup_completed` 区分初始化和启用两步验证；按账号设置改用密码或验证码提升权限，新增安全设置操作 | B12 两步验证可选 |
 | 2026-09-27 | 新增 `contracts.IssueSync`、`HomeAssistant.WatchEntity` | Linear 同步和 HA 联动需要 |
 | 2026-09-27 | `app.New` 对重复的模块构造函数去重 | 测试里可以再传一次已注册的模块 |
 | 2026-09-27 | `rpc` 写入不再使用可取消的 context；`shutdown` 修复 inflight 数据竞争 | 负载高时代理连接会被误断开 |

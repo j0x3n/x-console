@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/db"
 )
@@ -26,6 +27,7 @@ type listFilter struct {
 	Tag      string
 	Pinned   *bool
 	Archived bool
+	Hidden   bool
 	Limit    int
 	Offset   int
 }
@@ -34,6 +36,9 @@ type listFilter struct {
 func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary, int, error) {
 	if f.Limit <= 0 {
 		f.Limit = 50
+	}
+	if f.Hidden && !auth.VaultUnlocked(ctx) {
+		return []api.NoteSummary{}, 0, nil
 	}
 	var (
 		notes    []db.Note
@@ -44,10 +49,10 @@ func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary
 	switch {
 	case len(terms) == 0:
 		notes, err = m.plainList(ctx, f)
-	case useFTS(terms):
-		notes, snippets, err = m.ftsSearch(ctx, f, terms)
-	default:
+	case f.Hidden || !useFTS(terms):
 		notes, snippets, err = m.likeSearch(ctx, f, terms)
+	default:
+		notes, snippets, err = m.ftsSearch(ctx, f, terms)
 	}
 	if err != nil {
 		return nil, 0, err
@@ -74,6 +79,7 @@ func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary
 	out := make([]api.NoteSummary, len(notes))
 	for i, n := range notes {
 		out[i] = toSummary(n, tags[n.ID])
+		out[i].Thumbnail = m.thumbnail(ctx, n.ID, n.Body)
 		if i < len(snippets) && snippets[i] != "" {
 			s := snippets[i]
 			out[i].Snippet = &s
@@ -93,7 +99,7 @@ func useFTS(terms []string) bool {
 }
 
 func (m *Module) plainList(ctx context.Context, f listFilter) ([]db.Note, error) {
-	p := db.ListNotesParams{Archived: f.Archived, Lim: int64(f.Limit + 1), Off: int64(f.Offset)}
+	p := db.ListNotesParams{Archived: f.Archived, Hidden: boolInt(f.Hidden), Lim: int64(f.Limit + 1), Off: int64(f.Offset)}
 	if f.Pinned != nil {
 		p.Pinned = boolInt(*f.Pinned)
 	}
@@ -105,8 +111,8 @@ func (m *Module) plainList(ctx context.Context, f listFilter) ([]db.Note, error)
 
 // filters builds the WHERE conditions shared by both searches.
 func filters(f listFilter) ([]string, []any) {
-	where := []string{"(n.archived_at IS NOT NULL) = ?"}
-	args := []any{f.Archived}
+	where := []string{"(n.archived_at IS NOT NULL) = ?", "n.hidden = ?"}
+	args := []any{f.Archived, boolInt(f.Hidden)}
 	if f.Pinned != nil {
 		where = append(where, "n.pinned = ?")
 		args = append(args, boolInt(*f.Pinned))
@@ -118,7 +124,7 @@ func filters(f listFilter) ([]string, []any) {
 	return where, args
 }
 
-const noteColumns = "n.id, n.title, n.body, n.pinned, n.archived_at, n.created_at, n.updated_at"
+const noteColumns = "n.id, n.title, n.body, n.pinned, n.archived_at, n.created_at, n.updated_at, n.hidden"
 
 func (m *Module) ftsSearch(ctx context.Context, f listFilter, terms []string) ([]db.Note, []string, error) {
 	quoted := make([]string, len(terms))
@@ -161,7 +167,7 @@ func (m *Module) query(ctx context.Context, query string, args []any, withSnippe
 	var snippets []string
 	for rows.Next() {
 		var n db.Note
-		dest := []any{&n.ID, &n.Title, &n.Body, &n.Pinned, &n.ArchivedAt, &n.CreatedAt, &n.UpdatedAt}
+		dest := []any{&n.ID, &n.Title, &n.Body, &n.Pinned, &n.ArchivedAt, &n.CreatedAt, &n.UpdatedAt, &n.Hidden}
 		var snip string
 		if withSnippet {
 			dest = append(dest, &snip)

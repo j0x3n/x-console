@@ -5,6 +5,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
@@ -15,6 +16,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
 )
 
 // constructors lists every feature module. Add one line per module:
@@ -23,6 +25,7 @@ import (
 //
 // Keep the list sorted by module number (M1..M13) to make merges easy.
 var constructors = []func(*module.Deps) (module.Module, error){
+	dashboard.New,
 	hosts.New,         // M2/M3
 	coding.New,        // M4
 	projects.New,      // M5
@@ -36,4 +39,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	brief.New,         // M11
 	github.New,        // M13
 	linear.New,        // M13
+	vault.New,
 }

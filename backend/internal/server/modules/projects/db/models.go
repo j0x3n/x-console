@@ -385,6 +385,17 @@ type Note struct {
 	ArchivedAt *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	Hidden     int64
+}
+
+type NoteAttachment struct {
+	ID        int64
+	NoteID    int64
+	Name      string
+	Mime      string
+	Size      int64
+	Sha256    string
+	CreatedAt time.Time
 }
 
 type NoteTag struct {
@@ -494,6 +505,7 @@ type Session struct {
 	ElevatedUntil *time.Time
 	UserAgent     string
 	Ip            string
+	VaultUntil    *time.Time
 }
 
 type Setting struct {
@@ -543,12 +555,13 @@ type SubscriptionEvent struct {
 }
 
 type User struct {
-	ID           int64
-	Username     string
-	PasswordHash string
-	TotpSecret   string
-	TotpEnabled  int64
-	CreatedAt    time.Time
+	ID             int64
+	Username       string
+	PasswordHash   string
+	TotpSecret     string
+	TotpEnabled    int64
+	CreatedAt      time.Time
+	SetupCompleted int64
 }
 
 type WebpushSubscription struct {

@@ -5,6 +5,7 @@
 -- name: ListNotes :many
 SELECT * FROM notes
 WHERE (archived_at IS NOT NULL) = CAST(sqlc.arg(archived) AS BOOLEAN)
+  AND hidden = sqlc.arg(hidden)
   AND (sqlc.narg(pinned) IS NULL OR pinned = sqlc.narg(pinned))
   AND (sqlc.narg(tag) IS NULL OR id IN (SELECT note_id FROM note_tags WHERE note_tags.tag = sqlc.narg(tag)))
 ORDER BY pinned DESC, updated_at DESC, id DESC
@@ -14,10 +15,10 @@ LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 SELECT * FROM notes WHERE id = ?;
 
 -- name: CreateNote :one
-INSERT INTO notes (title, body, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *;
+INSERT INTO notes (title, body, pinned, hidden, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *;
 
 -- name: UpdateNote :exec
-UPDATE notes SET title = ?, body = ?, pinned = ?, archived_at = ?, updated_at = ? WHERE id = ?;
+UPDATE notes SET title = ?, body = ?, pinned = ?, archived_at = ?, hidden = ?, updated_at = ? WHERE id = ?;
 
 -- name: DeleteNote :execrows
 DELETE FROM notes WHERE id = ?;
@@ -39,7 +40,7 @@ SELECT note_tags.tag, count(*) AS count, CAST(coalesce(max(note_tag_colors.color
 FROM note_tags
 JOIN notes ON notes.id = note_tags.note_id
 LEFT JOIN note_tag_colors ON note_tag_colors.tag = note_tags.tag
-WHERE notes.archived_at IS NULL
+WHERE notes.archived_at IS NULL AND notes.hidden = sqlc.arg(hidden)
 GROUP BY note_tags.tag
 ORDER BY count(*) DESC, note_tags.tag;
 

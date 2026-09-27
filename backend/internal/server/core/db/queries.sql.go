@@ -10,6 +10,32 @@ import (
 	"time"
 )
 
+const clearVaultSessions = `-- name: ClearVaultSessions :exec
+UPDATE sessions SET vault_until = NULL WHERE vault_until IS NOT NULL
+`
+
+func (q *Queries) ClearVaultSessions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, clearVaultSessions)
+	return err
+}
+
+const confirmPendingTOTP = `-- name: ConfirmPendingTOTP :execrows
+UPDATE users SET totp_enabled = 1, totp_secret = ? WHERE id = ? AND setup_completed = 1 AND totp_enabled = 0
+`
+
+type ConfirmPendingTOTPParams struct {
+	TotpSecret string
+	ID         int64
+}
+
+func (q *Queries) ConfirmPendingTOTP(ctx context.Context, arg ConfirmPendingTOTPParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, confirmPendingTOTP, arg.TotpSecret, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const countUnreadNotifications = `-- name: CountUnreadNotifications :one
 SELECT count(*) FROM notifications WHERE read_at IS NULL
 `
@@ -114,9 +140,9 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 }
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, password_hash, totp_secret, created_at)
-VALUES (?, ?, ?, ?)
-RETURNING id, username, password_hash, totp_secret, totp_enabled, created_at
+INSERT INTO users (username, password_hash, totp_secret, created_at, setup_completed)
+VALUES (?, ?, ?, ?, 0)
+RETURNING id, username, password_hash, totp_secret, totp_enabled, created_at, setup_completed
 `
 
 type CreateUserParams struct {
@@ -141,6 +167,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.CreatedAt,
+		&i.SetupCompleted,
 	)
 	return i, err
 }
@@ -175,6 +202,20 @@ func (q *Queries) DeleteNotification(ctx context.Context, id int64) (int64, erro
 	return result.RowsAffected()
 }
 
+const deleteOtherSessions = `-- name: DeleteOtherSessions :exec
+DELETE FROM sessions WHERE user_id = ? AND id <> ?
+`
+
+type DeleteOtherSessionsParams struct {
+	UserID int64
+	ID     string
+}
+
+func (q *Queries) DeleteOtherSessions(ctx context.Context, arg DeleteOtherSessionsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteOtherSessions, arg.UserID, arg.ID)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?
 `
@@ -193,6 +234,15 @@ func (q *Queries) DeleteSetting(ctx context.Context, key string) error {
 	return err
 }
 
+const disableTOTP = `-- name: DisableTOTP :exec
+UPDATE users SET totp_enabled = 0, totp_secret = '' WHERE id = ?
+`
+
+func (q *Queries) DisableTOTP(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, disableTOTP, id)
+	return err
+}
+
 const elevateSession = `-- name: ElevateSession :exec
 UPDATE sessions SET elevated_until = ? WHERE id = ?
 `
@@ -207,13 +257,28 @@ func (q *Queries) ElevateSession(ctx context.Context, arg ElevateSessionParams) 
 	return err
 }
 
-const enableTOTP = `-- name: EnableTOTP :exec
-UPDATE users SET totp_enabled = 1 WHERE id = ?
+const enableTOTP = `-- name: EnableTOTP :execrows
+UPDATE users SET totp_enabled = 1, setup_completed = 1 WHERE id = ? AND setup_completed = 0 AND totp_enabled = 0 AND totp_secret <> ''
 `
 
-func (q *Queries) EnableTOTP(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, enableTOTP, id)
-	return err
+func (q *Queries) EnableTOTP(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, enableTOTP, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const finishSetupWithoutTOTP = `-- name: FinishSetupWithoutTOTP :execrows
+UPDATE users SET totp_secret = '', setup_completed = 1 WHERE id = ? AND setup_completed = 0 AND totp_enabled = 0
+`
+
+func (q *Queries) FinishSetupWithoutTOTP(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, finishSetupWithoutTOTP, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getAgent = `-- name: GetAgent :one
@@ -265,7 +330,7 @@ func (q *Queries) GetAgentByTokenHash(ctx context.Context, tokenHash string) (Ag
 }
 
 const getFirstUser = `-- name: GetFirstUser :one
-SELECT id, username, password_hash, totp_secret, totp_enabled, created_at FROM users ORDER BY id LIMIT 1
+SELECT id, username, password_hash, totp_secret, totp_enabled, created_at, setup_completed FROM users ORDER BY id LIMIT 1
 `
 
 func (q *Queries) GetFirstUser(ctx context.Context) (User, error) {
@@ -278,12 +343,13 @@ func (q *Queries) GetFirstUser(ctx context.Context) (User, error) {
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.CreatedAt,
+		&i.SetupCompleted,
 	)
 	return i, err
 }
 
 const getSession = `-- name: GetSession :one
-SELECT sessions.id, sessions.user_id, sessions.created_at, sessions.expires_at, sessions.elevated_until, sessions.user_agent, sessions.ip, users.username
+SELECT sessions.id, sessions.user_id, sessions.created_at, sessions.expires_at, sessions.elevated_until, sessions.user_agent, sessions.ip, sessions.vault_until, users.username
 FROM sessions JOIN users ON users.id = sessions.user_id
 WHERE sessions.id = ? AND sessions.expires_at > ?
 `
@@ -301,6 +367,7 @@ type GetSessionRow struct {
 	ElevatedUntil *time.Time
 	UserAgent     string
 	Ip            string
+	VaultUntil    *time.Time
 	Username      string
 }
 
@@ -315,6 +382,7 @@ func (q *Queries) GetSession(ctx context.Context, arg GetSessionParams) (GetSess
 		&i.ElevatedUntil,
 		&i.UserAgent,
 		&i.Ip,
+		&i.VaultUntil,
 		&i.Username,
 	)
 	return i, err
@@ -337,7 +405,7 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (Setting, error) {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, password_hash, totp_secret, totp_enabled, created_at FROM users WHERE id = ?
+SELECT id, username, password_hash, totp_secret, totp_enabled, created_at, setup_completed FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
@@ -350,12 +418,13 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.CreatedAt,
+		&i.SetupCompleted,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password_hash, totp_secret, totp_enabled, created_at FROM users WHERE username = ?
+SELECT id, username, password_hash, totp_secret, totp_enabled, created_at, setup_completed FROM users WHERE username = ?
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -368,6 +437,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.CreatedAt,
+		&i.SetupCompleted,
 	)
 	return i, err
 }
@@ -440,6 +510,25 @@ func (q *Queries) InsertNotification(ctx context.Context, arg InsertNotification
 		&i.ReadAt,
 	)
 	return i, err
+}
+
+const insertVaultPassword = `-- name: InsertVaultPassword :execrows
+INSERT INTO settings (key, value, encrypted, updated_at)
+VALUES ('vault.password_hash', ?, 0, ?)
+ON CONFLICT (key) DO NOTHING
+`
+
+type InsertVaultPasswordParams struct {
+	Value     string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) InsertVaultPassword(ctx context.Context, arg InsertVaultPasswordParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, insertVaultPassword, arg.Value, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const listAgents = `-- name: ListAgents :many
@@ -643,6 +732,20 @@ func (q *Queries) RevokeAgent(ctx context.Context, arg RevokeAgentParams) (int64
 	return result.RowsAffected()
 }
 
+const setVaultUntil = `-- name: SetVaultUntil :exec
+UPDATE sessions SET vault_until = ? WHERE id = ?
+`
+
+type SetVaultUntilParams struct {
+	VaultUntil *time.Time
+	ID         string
+}
+
+func (q *Queries) SetVaultUntil(ctx context.Context, arg SetVaultUntilParams) error {
+	_, err := q.db.ExecContext(ctx, setVaultUntil, arg.VaultUntil, arg.ID)
+	return err
+}
+
 const touchSession = `-- name: TouchSession :exec
 UPDATE sessions SET expires_at = ? WHERE id = ?
 `
@@ -681,6 +784,20 @@ func (q *Queries) UpdateAgentSeen(ctx context.Context, arg UpdateAgentSeenParams
 		arg.Capabilities,
 		arg.ID,
 	)
+	return err
+}
+
+const updatePassword = `-- name: UpdatePassword :exec
+UPDATE users SET password_hash = ? WHERE id = ?
+`
+
+type UpdatePasswordParams struct {
+	PasswordHash string
+	ID           int64
+}
+
+func (q *Queries) UpdatePassword(ctx context.Context, arg UpdatePasswordParams) error {
+	_, err := q.db.ExecContext(ctx, updatePassword, arg.PasswordHash, arg.ID)
 	return err
 }
 
