@@ -1,0 +1,22 @@
+{
+  "name": "X Console",
+  "short_name": "X Console",
+  "description": "个人控制台：服务器、本机、项目、笔记、提醒、习惯、日历、智能家居。",
+  "lang": "zh-CN",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "今日", "url": "/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "笔记", "url": "/notes", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "提醒", "url": "/reminders", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

@@ -157,6 +157,25 @@ describe("login", () => {
   });
 });
 
+describe("offline", () => {
+  it("says the network is down instead of spinning", async () => {
+    api.routes.set("GET /auth/status", () => {
+      throw new TypeError("Failed to fetch");
+    });
+    const spy = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={qc}>
+        <AuthGate>面板内容</AuthGate>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(/网络断开了/)).toBeTruthy();
+    spy.mockRestore();
+  });
+});
+
 describe("setup", () => {
   async function createAccount() {
     wrap(<AuthGate>面板内容</AuthGate>);

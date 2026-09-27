@@ -6,11 +6,121 @@
  * Clicking a button calls POST /api/v1/notify/actions with the action id,
  * for example "reminder.done:42" or "habit.checkin:3:1".
  *
- * Task card J (PWA) merges its caching logic into this file.
+ * PWA caching (B5) is below: the app opens offline with the last shell it
+ * saw. API requests are never cached.
  */
 
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+// ---- PWA caching (B5) ----
+// Bump SHELL_CACHE when the list below changes.
+const SHELL_CACHE = "xc-shell-v1";
+const ASSET_CACHE = "xc-assets";
+const SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/favicon.svg",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+];
+// Built files under /assets/ have a content hash in the name, so a cached
+// copy never goes stale. Keep the newest ones only.
+const MAX_ASSETS = 80;
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => cache.addAll(SHELL))
+      .catch(() => undefined)
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k.startsWith("xc-shell-") && k !== SHELL_CACHE)
+            .map((k) => caches.delete(k)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  );
+});
+
+async function trimAssets() {
+  const cache = await caches.open(ASSET_CACHE);
+  const keys = await cache.keys();
+  for (const key of keys.slice(0, Math.max(0, keys.length - MAX_ASSETS)))
+    await cache.delete(key);
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  // API, WebSocket upgrades and uploads/downloads always go to the server.
+  if (url.pathname.startsWith("/api/")) return;
+
+  // Pages: network first so a new deploy shows up at once; offline falls back
+  // to the last shell.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put("/", copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match("/").then((r) => r || Response.error())),
+    );
+    return;
+  }
+
+  // Hashed build files: cache first.
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      caches.match(request).then(
+        (hit) =>
+          hit ||
+          fetch(request).then((response) => {
+            if (response.ok) {
+              const copy = response.clone();
+              caches
+                .open(ASSET_CACHE)
+                .then((cache) => cache.put(request, copy))
+                .then(trimAssets);
+            }
+            return response;
+          }),
+      ),
+    );
+    return;
+  }
+
+  // Icons, manifest and the rest: use the cache, refresh it in the background.
+  if (SHELL.includes(url.pathname) || url.pathname.startsWith("/icons/")) {
+    event.respondWith(
+      caches.open(SHELL_CACHE).then((cache) =>
+        cache.match(request).then((hit) => {
+          const refresh = fetch(request)
+            .then((response) => {
+              if (response.ok) cache.put(request, response.clone());
+              return response;
+            })
+            .catch(() => hit || Response.error());
+          return hit || refresh;
+        }),
+      ),
+    );
+  }
+});
+// ---- end of PWA caching ----
 
 self.addEventListener("push", (event) => {
   let data = {};
@@ -35,9 +145,15 @@ self.addEventListener("push", (event) => {
 
 async function openLink(link) {
   const url = new URL(link || "/", self.location.origin).href;
-  const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  const windows = await self.clients.matchAll({
+    type: "window",
+    includeUncontrolled: true,
+  });
   for (const client of windows) {
-    if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+    if (
+      new URL(client.url).origin === self.location.origin &&
+      "focus" in client
+    ) {
       await client.focus();
       if ("navigate" in client) {
         try {
@@ -57,7 +173,10 @@ async function runAction(actionId, link) {
     const response = await fetch("/api/v1/notify/actions", {
       method: "POST",
       credentials: "same-origin",
-      headers: { "Content-Type": "application/json", "X-Requested-With": "x-console" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "x-console",
+      },
       body: JSON.stringify({ actionId }),
     });
     if (response.status === 401) {

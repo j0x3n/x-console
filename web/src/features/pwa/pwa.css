@@ -1,0 +1,24 @@
+/* 安装应用（B5） */
+.pwa-note {
+  margin: 0 0 12px;
+  color: var(--xc-muted);
+  line-height: 1.55;
+}
+.pwa-note.small {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+}
+.pwa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pwa-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--xc-text-2);
+  line-height: 1.8;
+}
+.pwa-steps svg {
+  vertical-align: -2px;
+}

@@ -1,6 +1,7 @@
 import { useT } from "../../contexts/LanguageContext";
 import { usePreferencesStore } from "../../stores/preferences-store";
 import type { Language, ThemeMode } from "../../types/domain";
+import InstallCard from "../pwa/InstallCard";
 
 export default function GeneralTab() {
   const t = useT();
@@ -36,6 +37,7 @@ export default function GeneralTab() {
         </select>
       </label>
     </div>
+    <InstallCard />
     </div>
   );
 }

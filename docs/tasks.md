@@ -11,13 +11,12 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B5 | PWA：manifest、图标、安装提示 | 见下方说明 | Claude |
+| B6 | 路由懒加载，消除主包超过 500 kB 的构建警告 | 见下方说明 | Claude |
 
 ## 待做
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B6 | 路由懒加载，消除主包超过 500 kB 的构建警告 | 见下方说明 | |
 | B11 | 笔记后端：接口现在返回 501。做完后验收“刷新后图片还在”“删笔记时删附件” | [specs/B11.md](specs/B11.md) | |
 | B2 | 今日页后端：`GET/PUT /dashboard/layout` | [specs/M1.md](specs/M1.md) | |
 | B12 | 两步验证可选的后端 | [specs/B12.md](specs/B12.md) | |
@@ -119,6 +118,7 @@
 | B14 前端 | 云盘：列表和网格、多选、拖拽上传和进度、预览、移动改名、回收站、隐藏分类、设置里的“云盘同步” |
 | B3 界面 | AI 助手浮窗（右下角按钮、⌘J、可拖动和放大、手机全屏、历史对话、动作卡片和确认）、设置里的“AI 助手”、自动化的规则列表、编辑器和运行记录 |
 | B4 | 命令面板前缀：`Command.prefix`，笔记注册 `>`，输入“> 内容”回车直接存成笔记 |
+| B5 | PWA：manifest 和图标、SW 离线缓存（接口不缓存）、页头“安装应用”按钮、设置 → 通用里的安装说明、断网提示 |
 | B2 前端 | 今日页规格和前端（[#14](https://github.com/j0x3n/x-console/pull/14)、[#15](https://github.com/j0x3n/x-console/pull/15)） |
 
 ## 接口变更记录
@@ -140,4 +140,5 @@
 | 2026-09-27 | `app/nav.ts` 在“个人”组加“云盘”（`/drive`）；`app/routes.tsx` 加 drive 路由；新增 `api/modules/drive.yaml` | B14 云盘 |
 | 2026-09-27 | `app/nav.ts` 去掉“AI 助手”入口（改成全局浮窗）；`app/GlobalPanels.tsx` 加 `AssistantPanel`；新增 `api/modules/ai.yaml`、`automations.yaml`。比规格多了 `/ai/tools`、`/ai/conversations/{id}/stop` 和事件 `ai.message_saved`，已写进 M12 规格 | B3 界面 |
 | 2026-09-27 | `lib/commands.ts` 的 `Command` 加可选的 `prefix`，`run` 的参数加可选的 `text`；新增 `matchPrefix`。命令面板支持前缀命令，底部显示可用前缀 | B4 |
+| 2026-09-27 | `public/sw.js` 顶部加缓存逻辑；`index.html` 引用 manifest 和图标；`app/TopbarActions.tsx` 加 `InstallButton`；`auth/AuthGate.tsx` 断网时显示“网络断开了” | B5 PWA |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |

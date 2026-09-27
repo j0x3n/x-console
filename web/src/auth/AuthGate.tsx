@@ -20,6 +20,19 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       onUnauthorized(() => qc.invalidateQueries({ queryKey: coreKeys.auth })),
     [qc],
   );
+  // 断网时不要一直转圈，也不要显示看不懂的错误。连上网后会自动重试。
+  const offline =
+    status.fetchStatus === "paused" ||
+    (typeof navigator !== "undefined" && navigator.onLine === false);
+  if ((status.isPending || status.isError) && offline)
+    return (
+      <div className="xc-auth">
+        <div className="xc-auth-card">
+          <Brand />
+          <p>网络断开了。连上网后会自动继续。</p>
+        </div>
+      </div>
+    );
   if (status.isPending) return <Loading />;
   if (status.isError)
     return <ErrorState error={status.error} onRetry={() => status.refetch()} />;
