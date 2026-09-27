@@ -2,7 +2,7 @@
 
 ## 服务端：GitHub Actions 自动部署（推荐）
 
-`.github/workflows/deploy.yml` 会依次做：跑测试，构建 amd64 镜像推到 `ghcr.io/j0x3n/x-console`，构建代理程序（Linux 和 Windows），然后 SSH 到服务器更新。
+`.github/workflows/deploy.yml` 会同时跑测试和构建 amd64 镜像（推到 `ghcr.io/j0x3n/x-console`，先只带 `sha-<提交号>` 标签）。两个都成功后，SSH 到服务器更新，并把这个镜像标成 `latest`。测试没过时不会上线，`latest` 也不变。代理程序（Linux 和 Windows）在测试通过后构建。整个流程大约 3 分多钟。
 
 测试和构建都在 GitHub 的机器上跑，不占你服务器的资源。服务器每次部署只拉镜像、重启容器，前后几十秒。
 

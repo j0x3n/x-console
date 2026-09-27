@@ -1,7 +1,8 @@
 name: Deploy
 
 # main 是线上版本。推送到 main（或在 Actions 页面手动运行）时：
-# 测试 → 构建镜像推到 ghcr.io → 构建代理程序 → 部署到服务器。
+# 测试和构建镜像同时跑 → 两个都成功后部署到服务器，并把镜像标成 latest。
+# 镜像先只带 sha 标签，测试没过不会上线，latest 也不会变。
 # 服务器相关的 Secrets 没配置时，只构建不部署。配置方法见 docs/06-deploy.md。
 on:
   push:
@@ -23,8 +24,8 @@ jobs:
   test:
     uses: ./.github/workflows/ci.yml
 
+  # 不等测试，和测试同时跑，省下约 1 分半钟。
   image:
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -48,9 +49,7 @@ jobs:
           platforms: linux/amd64
           push: true
           build-args: VERSION=${{ steps.version.outputs.short }}
-          tags: |
-            ${{ env.IMAGE }}:sha-${{ steps.version.outputs.short }}
-            ${{ env.IMAGE }}:latest
+          tags: ${{ env.IMAGE }}:sha-${{ steps.version.outputs.short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -80,8 +79,24 @@ jobs:
           name: x-console-agent-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/x-console-agent${{ matrix.ext }}
 
+  # 测试和镜像都成功后，才把这个镜像标成 latest。只改标签，不重新构建。
+  latest:
+    needs: [test, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: docker buildx imagetools create -t "$IMAGE:latest" "${{ needs.image.outputs.ref }}"
+
   deploy:
-    needs: image
+    needs: [test, image]
     runs-on: ubuntu-latest
     permissions:
       contents: read

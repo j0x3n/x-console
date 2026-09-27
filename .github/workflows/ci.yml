@@ -14,19 +14,33 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    env:
+      SQLC_VERSION: v1.31.1
+      OAPI_CODEGEN_VERSION: v2.8.0
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
+        id: go
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      # 两个代码生成工具每次从源码编译要 1 分多钟。按版本缓存编好的程序。
+      - name: Cache code generators
+        id: codegen
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/bin/sqlc
+            ~/go/bin/oapi-codegen
+          key: codegen-${{ runner.os }}-go${{ steps.go.outputs.go-version }}-sqlc-${{ env.SQLC_VERSION }}-oapi-${{ env.OAPI_CODEGEN_VERSION }}
       - name: Install code generators
+        if: steps.codegen.outputs.cache-hit != 'true'
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
-          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@$SQLC_VERSION
+          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$OAPI_CODEGEN_VERSION
       - name: Generated code is up to date
         run: |
           go generate ./...
