@@ -449,6 +449,7 @@
   gap: 6px;
   color: var(--xc-muted);
   font-size: 11px;
+  white-space: nowrap;
 }
 .projects-card-labels {
   display: flex;

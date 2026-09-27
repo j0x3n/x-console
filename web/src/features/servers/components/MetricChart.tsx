@@ -62,12 +62,15 @@ export default function MetricChart({
     return nice(m * 1.1);
   }, [points, series, max, nice]);
 
-  const plotW = Math.max(0, width - PAD.left - PAD.right);
+  const ticks = [0, top / 2, top];
+  // 纵轴留白按最长的刻度文字算，网速这类长数字不会被截掉。
+  const left = Math.max(PAD.left, Math.max(...ticks.map((v) => format(v).length)) * 6.5 + 10);
+  const plotW = Math.max(0, width - left - PAD.right);
   const plotH = HEIGHT - PAD.top - PAD.bottom;
   const t0 = times[0] ?? 0;
   const t1 = times[times.length - 1] ?? 1;
   const span = Math.max(t1 - t0, 1);
-  const x = (time: number) => PAD.left + ((time - t0) / span) * plotW;
+  const x = (time: number) => left + ((time - t0) / span) * plotW;
   const y = (v: number) => PAD.top + plotH - (Math.min(v, top) / top) * plotH;
 
   const segments = useMemo(() => splitSegments(points, stepSeconds), [points, stepSeconds]);
@@ -84,7 +87,7 @@ export default function MetricChart({
   const onMove = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!points.length) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const time = t0 + ((event.clientX - rect.left - PAD.left) / plotW) * span;
+    const time = t0 + ((event.clientX - rect.left - left) / plotW) * span;
     let best = 0;
     for (let i = 1; i < times.length; i++) {
       if (Math.abs(times[i] - time) < Math.abs(times[best] - time)) best = i;
@@ -94,7 +97,6 @@ export default function MetricChart({
 
   const hp = hover !== null ? points[hover] : undefined;
   const hx = hp ? x(times[hover!]) : 0;
-  const ticks = [0, top / 2, top];
   const showDate = span > 36 * 3600_000;
   const timeLabel = (ms: number) =>
     showDate
@@ -132,13 +134,13 @@ export default function MetricChart({
             >
               {ticks.map((v) => (
                 <g key={v}>
-                  <line className="servers-gridline" x1={PAD.left} x2={width - PAD.right} y1={y(v)} y2={y(v)} />
-                  <text className="servers-axis" x={PAD.left - 6} y={y(v) + 4} textAnchor="end">
+                  <line className="servers-gridline" x1={left} x2={width - PAD.right} y1={y(v)} y2={y(v)} />
+                  <text className="servers-axis" x={left - 6} y={y(v) + 4} textAnchor="end">
                     {format(v)}
                   </text>
                 </g>
               ))}
-              <text className="servers-axis" x={PAD.left} y={HEIGHT - 4}>
+              <text className="servers-axis" x={left} y={HEIGHT - 4}>
                 {timeLabel(t0)}
               </text>
               <text className="servers-axis" x={width - PAD.right} y={HEIGHT - 4} textAnchor="end">

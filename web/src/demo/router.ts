@@ -36,16 +36,18 @@ export function route(method: string, path: string, handler: DemoHandler) {
   routes.push({ method, pattern, keys, handler });
 }
 
-export function findRoute(method: string, path: string) {
+/** 找出所有匹配的处理函数，按登记顺序。前一个返回 undefined 时交给下一个。 */
+export function findRoutes(method: string, path: string) {
+  const out: { handler: DemoHandler; params: Record<string, string> }[] = [];
   for (const r of routes) {
     if (r.method !== method) continue;
     const m = r.pattern.exec(path);
     if (!m) continue;
     const params: Record<string, string> = {};
     r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
-    return { handler: r.handler, params };
+    out.push({ handler: r.handler, params });
   }
-  return null;
+  return out;
 }
 
 export const json = (body: unknown, status = 200) =>

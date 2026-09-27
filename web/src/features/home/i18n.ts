@@ -70,6 +70,7 @@ registerZh({
   "Turn on": "打开",
   "Turn off": "关闭",
   Run: "执行",
+  "Tap to run": "点一下执行",
   Press: "按下",
   Lock: "上锁",
   Unlock: "开锁",

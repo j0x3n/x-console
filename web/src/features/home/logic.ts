@@ -131,6 +131,9 @@ const stateLabels: Record<string, string> = {
 
 /** 常见状态的英文原文，交给 t() 翻译；其余原样返回（数值会带单位）。 */
 export function stateLabel(state: EntityState): string {
+  // 场景和按钮的状态是上次运行的时间，对用户没有意义。
+  const domain = state.entityId.split(".")[0];
+  if ((domain === "scene" || domain === "button") && !isUnavailable(state)) return "Tap to run";
   return stateLabels[state.state] ?? formatState(state);
 }
 

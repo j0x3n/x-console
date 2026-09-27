@@ -8,13 +8,15 @@
  * 覆盖：今日页布局、隐藏内容（含隐藏笔记）、云盘、AI 助手、自动化。
  * 不覆盖：登录和两步验证（假的会让人误以为安全设置生效了）、笔记图片附件。
  */
-import { findRoute } from "./router";
+import { fail, findRoutes } from "./router";
+import { demoFull, isFullPath, setDemoFull } from "./mode";
 import { fileUrl } from "./files";
 import { demoUpload } from "./drive";
 import "./vault";
 import "./ai";
 import "./automations";
 import "./dashboard";
+import "./full";
 
 const API = "/api/v1";
 const realFetch = globalThis.fetch.bind(globalThis);
@@ -27,8 +29,14 @@ async function handle(input: RequestInfo | URL, init?: RequestInit) {
   if (url.origin !== location.origin || !url.pathname.startsWith(`${API}/`))
     return undefined;
   const path = url.pathname.slice(API.length);
-  const hit = findRoute(method, path);
-  if (!hit) return undefined;
+  const hits = findRoutes(method, path);
+  // 演示打开时，这些模块里没模拟到的请求也不发到服务器，免得改到真实数据。
+  const blocked = () =>
+    method === "GET"
+      ? fail(404, "not_found", "演示数据里没有这一项")
+      : fail(501, "not_ready", "演示模式下不支持这个操作");
+  const full = demoFull && isFullPath(path);
+  if (hits.length === 0) return full ? blocked() : undefined;
   let body: unknown = undefined;
   if (method !== "GET") {
     const copy = isReq ? input.clone() : new Request(url, init);
@@ -41,15 +49,20 @@ async function handle(input: RequestInfo | URL, init?: RequestInit) {
       }
     }
   }
-  const res = await hit.handler({
-    method,
-    path,
-    query: url.searchParams,
-    params: hit.params,
-    body,
-  });
-  if (res) await new Promise((r) => setTimeout(r, 120)); // 像真的请求一样有一点延迟
-  return res;
+  for (const hit of hits) {
+    const res = await hit.handler({
+      method,
+      path,
+      query: url.searchParams,
+      params: hit.params,
+      body,
+    });
+    if (res) {
+      await new Promise((r) => setTimeout(r, 120)); // 像真的请求一样有一点延迟
+      return res;
+    }
+  }
+  return full ? blocked() : undefined;
 }
 
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) =>
@@ -110,17 +123,21 @@ class DemoXHR extends RealXHR {
 }
 globalThis.XMLHttpRequest = DemoXHR as typeof XMLHttpRequest;
 
-// 页面左下角的小标记，提醒这些是假数据。
+// 页面底部的开关：演示数据开 / 关。
 function badge() {
-  const el = document.createElement("div");
-  el.textContent = "演示数据";
-  el.title =
-    "云盘、AI 助手、自动化、隐藏内容、今日页布局用的是假数据，刷新页面会重置。";
+  const el = document.createElement("button");
+  el.type = "button";
+  el.textContent = demoFull ? "演示数据：开" : "演示数据：关";
+  el.title = demoFull
+    ? "所有页面都在用假数据，页面上的改动只改假数据，刷新后复原。点一下换回真实数据。"
+    : "现在是真实数据。云盘、AI 助手、自动化、隐藏内容、今日页布局还没有后端，仍然是假的。点一下打开演示数据。";
   el.setAttribute(
     "style",
-    "position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:60;padding:3px 8px;border-radius:999px;" +
-      "background:#e8b454;color:#1d1d21;font:500 11px/1.4 system-ui,sans-serif;opacity:.85;pointer-events:auto;cursor:help",
+    "position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:60;padding:3px 10px;border-radius:999px;border:0;" +
+      `background:${demoFull ? "#e8b454" : "#6b7280"};color:${demoFull ? "#1d1d21" : "#fff"};` +
+      "font:500 11px/1.4 system-ui,sans-serif;opacity:.9;cursor:pointer",
   );
+  el.addEventListener("click", () => setDemoFull(!demoFull));
   document.body.appendChild(el);
 }
 if (document.readyState === "loading")
