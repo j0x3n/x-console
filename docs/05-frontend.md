@@ -142,3 +142,5 @@ export function useIssues(projectId: number) {
 - 纯逻辑（过滤、排序、分组、格式化、状态转换）写 Vitest 单元测试。
 - 组件测试用 `@testing-library/react`，文件顶部加 `// @vitest-environment jsdom`。
 - 提交前：`npm run typecheck`、`npm test`、`npm run build` 都通过。
+- 端到端测试先把 Go 服务端和代理编译到 `backend/bin/e2e-server`、`backend/bin/e2e-agent`。Windows 文件名加 `.exe`。然后在 `web` 目录运行 `npx playwright install chromium` 和 `npm run test:e2e`。
+- Playwright 会用独立的临时数据目录启动服务端，再运行 Vite。测试会新建账号并配对真实代理。CI 在 Linux 上执行同一流程。

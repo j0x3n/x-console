@@ -51,6 +51,10 @@ export class AutoSaver<T> {
     clearTimeout(this.timer);
   }
 
+  resume() {
+    this.disposed = false;
+  }
+
   private schedule(delay: number) {
     clearTimeout(this.timer);
     if (!this.disposed) this.timer = setTimeout(() => void this.run(), delay);

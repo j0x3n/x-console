@@ -4,6 +4,8 @@ dist/
 # 本地运行数据和编译产物
 data/
 backend/bin/
+web/playwright-report/
+web/test-results/
 *.db
 *.db-wal
 *.db-shm
