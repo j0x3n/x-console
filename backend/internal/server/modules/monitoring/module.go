@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/api"
@@ -63,6 +64,7 @@ var (
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, busy: map[int64]*sync.Mutex{}}
 	module.Provide(d.Registry, selfKey, m)
+	module.Provide[contracts.Renewals](d.Registry, contracts.RenewalsKey, m)
 	m.registerActions()
 	return m, nil
 }
