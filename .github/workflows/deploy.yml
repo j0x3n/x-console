@@ -2,9 +2,9 @@ name: Deploy
 
 # 什么时候构建并部署到线上服务器：
 #   - 推送到 main；
-#   - 推送到 develop，且最后一个提交的信息里带 [deploy]（用户说“构建”“部署”时这样做）；
+#   - 推送到 develop 或 codex，且最后一个提交的信息里带 [deploy]（用户说“构建”“部署”时这样做）；
 #   - 在 Actions 页面手动运行（可以选分支）。
-# 推送到 develop 但没带 [deploy] 时，所有任务都跳过，不占构建额度。
+# 推送到 develop、codex 但没带 [deploy] 时，所有任务都跳过，不占构建额度。
 # 流程：测试和构建镜像同时跑 → 两个都成功后部署，并把镜像标成 latest。
 # 镜像先只带 sha 标签，测试没过不会上线，latest 也不会变。
 # 服务器相关的 Secrets 没配置时，只构建不部署。配置方法见 docs/06-deploy.md。
@@ -13,6 +13,7 @@ on:
     branches:
       - main
       - develop
+      - codex
   workflow_dispatch:
 
 concurrency:
