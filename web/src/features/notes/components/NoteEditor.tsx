@@ -88,6 +88,8 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   // 离开时把没保存的内容存掉。页面关闭用 keepalive 请求。
   useEffect(() => {
     const s = saver.current!;
+    // StrictMode 在开发环境会先清理再重新挂载同一个组件。
+    s.resume();
     const onHide = () => {
       if (s.unsaved) patchNoteKeepalive(note.id, s.unsaved);
     };

@@ -8,6 +8,7 @@
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "gen:api": "node scripts/gen-api.mjs"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.3",
     "@types/qrcode": "^1.5.6",
