@@ -2,8 +2,8 @@
 SELECT count(*) FROM users;
 
 -- name: CreateUser :one
-INSERT INTO users (username, password_hash, totp_secret, created_at)
-VALUES (?, ?, ?, ?)
+INSERT INTO users (username, password_hash, totp_secret, created_at, setup_completed)
+VALUES (?, ?, ?, ?, 0)
 RETURNING *;
 
 -- name: GetUserByUsername :one
@@ -15,8 +15,23 @@ SELECT * FROM users WHERE id = ?;
 -- name: GetFirstUser :one
 SELECT * FROM users ORDER BY id LIMIT 1;
 
--- name: EnableTOTP :exec
-UPDATE users SET totp_enabled = 1 WHERE id = ?;
+-- name: EnableTOTP :execrows
+UPDATE users SET totp_enabled = 1, setup_completed = 1 WHERE id = ? AND setup_completed = 0 AND totp_enabled = 0 AND totp_secret <> '';
+
+-- name: FinishSetupWithoutTOTP :execrows
+UPDATE users SET totp_secret = '', setup_completed = 1 WHERE id = ? AND setup_completed = 0 AND totp_enabled = 0;
+
+-- name: ConfirmPendingTOTP :execrows
+UPDATE users SET totp_enabled = 1, totp_secret = ? WHERE id = ? AND setup_completed = 1 AND totp_enabled = 0;
+
+-- name: DisableTOTP :exec
+UPDATE users SET totp_enabled = 0, totp_secret = '' WHERE id = ?;
+
+-- name: UpdatePassword :exec
+UPDATE users SET password_hash = ? WHERE id = ?;
+
+-- name: DeleteOtherSessions :exec
+DELETE FROM sessions WHERE user_id = ? AND id <> ?;
 
 -- name: CreateSession :exec
 INSERT INTO sessions (id, user_id, created_at, expires_at, user_agent, ip)

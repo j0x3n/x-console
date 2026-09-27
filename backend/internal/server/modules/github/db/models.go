@@ -553,12 +553,13 @@ type SubscriptionEvent struct {
 }
 
 type User struct {
-	ID           int64
-	Username     string
-	PasswordHash string
-	TotpSecret   string
-	TotpEnabled  int64
-	CreatedAt    time.Time
+	ID             int64
+	Username       string
+	PasswordHash   string
+	TotpSecret     string
+	TotpEnabled    int64
+	CreatedAt      time.Time
+	SetupCompleted int64
 }
 
 type WebpushSubscription struct {

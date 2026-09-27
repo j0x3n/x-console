@@ -17,6 +17,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/core/db"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/secrets"
+	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
 const (
@@ -58,9 +59,6 @@ func WithSession(ctx context.Context, s *Session) context.Context {
 	return audit.WithActor(ctx, s.Username)
 }
 
-// RequireElevated returns ErrElevationRequired unless the user confirmed
-// TOTP in the last 5 minutes. Call it at the top of dangerous handlers:
-// revoking agents, running scripts, opening terminals, deleting data in bulk.
 func RequireElevated(ctx context.Context) error {
 	s := FromContext(ctx)
 	if s == nil {
@@ -74,17 +72,18 @@ func RequireElevated(ctx context.Context) error {
 
 // Service owns users and sessions.
 type Service struct {
-	q      *db.Queries
-	box    *secrets.Box
-	audit  *audit.Log
-	secure bool
-	fails  *limiter
-	now    func() time.Time
+	q        *db.Queries
+	settings *settings.Store
+	box      *secrets.Box
+	audit    *audit.Log
+	secure   bool
+	fails    *limiter
+	now      func() time.Time
 }
 
 // NewService builds the auth service. secureCookies should be false only in dev.
 func NewService(conn *sql.DB, box *secrets.Box, log *audit.Log, secureCookies bool) *Service {
-	return &Service{q: db.New(conn), box: box, audit: log, secure: secureCookies,
+	return &Service{q: db.New(conn), settings: settings.New(conn, box), box: box, audit: log, secure: secureCookies,
 		fails: newLimiter(loginFailLimit, 15*time.Minute), now: func() time.Time { return time.Now().UTC() }}
 }
 
@@ -97,7 +96,7 @@ func (s *Service) SetupRequired(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return u.TotpEnabled == 0, nil
+	return u.SetupCompleted == 0, nil
 }
 
 // Setup creates the user (or replaces an unconfirmed one) and returns the TOTP enrollment.
@@ -145,14 +144,21 @@ func (s *Service) ConfirmSetup(ctx context.Context, w http.ResponseWriter, r *ht
 	if err != nil {
 		return err
 	}
-	if u.TotpEnabled == 1 {
+	if u.SetupCompleted == 1 {
 		return httpx.NewError(http.StatusConflict, "already_setup", "已经初始化过了")
+	}
+	if u.TotpSecret == "" {
+		return httpx.NewError(http.StatusConflict, "already_setup", "请先完成初始化")
 	}
 	if !s.checkTOTP(u, code) {
 		return httpx.NewError(http.StatusUnauthorized, "invalid_code", "验证码不正确")
 	}
-	if err := s.q.EnableTOTP(ctx, u.ID); err != nil {
+	n, err := s.q.EnableTOTP(ctx, u.ID)
+	if err != nil {
 		return err
+	}
+	if n != 1 {
+		return httpx.NewError(http.StatusConflict, "already_setup", "已经初始化过了")
 	}
 	s.audit.Record(audit.WithActor(ctx, u.Username), "auth.setup", u.Username, nil, nil)
 	return s.startSession(ctx, w, r, u)
@@ -165,7 +171,7 @@ func (s *Service) Login(ctx context.Context, w http.ResponseWriter, r *http.Requ
 		return httpx.ErrTooManyRequests
 	}
 	u, err := s.q.GetUserByUsername(ctx, username)
-	ok := err == nil && u.TotpEnabled == 1
+	ok := err == nil && u.SetupCompleted == 1
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -175,12 +181,12 @@ func (s *Service) Login(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			return err
 		}
 	}
-	if ok && code == "" {
+	if ok && u.TotpEnabled == 1 && code == "" {
 		// Password is right but no code yet: the login page asks for it next.
 		// Not counted as a failure.
 		return httpx.NewError(http.StatusUnauthorized, "totp_required", "请输入两步验证码")
 	}
-	if ok {
+	if ok && u.TotpEnabled == 1 {
 		ok = s.checkTOTP(u, code)
 	}
 	if !ok {
@@ -205,22 +211,32 @@ func (s *Service) Logout(ctx context.Context, w http.ResponseWriter) error {
 }
 
 // Elevate checks a TOTP code and opens a 5 minute elevated window.
-func (s *Service) Elevate(ctx context.Context, code string) (time.Time, error) {
+func (s *Service) Elevate(ctx context.Context, code, password string) (time.Time, error) {
 	sess := FromContext(ctx)
 	if sess == nil {
 		return time.Time{}, httpx.ErrUnauthorized
 	}
-	if !s.fails.allowed("elevate") {
+	if !s.fails.allowed("elevate:" + sess.ID) {
 		return time.Time{}, httpx.ErrTooManyRequests
 	}
 	u, err := s.q.GetUser(ctx, sess.UserID)
 	if err != nil {
 		return time.Time{}, err
 	}
-	if !s.checkTOTP(u, code) {
-		s.fails.fail("elevate")
-		return time.Time{}, httpx.NewError(http.StatusUnauthorized, "invalid_code", "验证码不正确")
+	valid := false
+	if u.TotpEnabled == 1 {
+		valid = s.checkTOTP(u, code)
+	} else {
+		valid, err = CheckPassword(u.PasswordHash, password)
+		if err != nil {
+			return time.Time{}, err
+		}
 	}
+	if !valid {
+		s.fails.fail("elevate:" + sess.ID)
+		return time.Time{}, httpx.NewError(http.StatusUnauthorized, "invalid_credentials", "验证信息不正确")
+	}
+	s.fails.reset("elevate:" + sess.ID)
 	until := s.now().Add(elevationTTL)
 	if err := s.q.ElevateSession(ctx, db.ElevateSessionParams{ElevatedUntil: &until, ID: sess.ID}); err != nil {
 		return time.Time{}, err

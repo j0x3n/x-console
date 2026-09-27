@@ -39,7 +39,7 @@ import (
 const APIPrefix = "/api/v1"
 
 // corePublic are core routes reachable without a session.
-var corePublic = []string{"/health", "/auth/status", "/auth/setup", "/auth/login", "/agent/pair", "/agent/connect"}
+var corePublic = []string{"/health", "/auth/status", "/auth/setup", "/auth/setup/skip-totp", "/auth/login", "/agent/pair", "/agent/connect"}
 
 // App is a built server.
 type App struct {

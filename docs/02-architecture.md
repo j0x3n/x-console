@@ -64,8 +64,8 @@
 | 风险 | 做法 |
 | --- | --- |
 | 密码被猜 | argon2id 存储；同一 IP 15 分钟内失败 5 次就锁住 |
-| 密码泄露 | 登录必须带 TOTP |
-| 会话被偷后做坏事 | 高危操作要求 5 分钟内重新验证 TOTP（`auth.RequireElevated`） |
+| 密码泄露 | 两步验证可选；开启后登录还需 TOTP 验证码 |
+| 会话被偷后做坏事 | 高危操作要求 5 分钟内重新验证（已开启两步验证用验证码，否则用密码；`auth.RequireElevated`） |
 | CSRF | Cookie 设 SameSite=Strict；所有写请求必须带 `X-Requested-With: x-console` |
 | 跨站 WebSocket | `websocket.Accept` 默认校验 Origin |
 | 代理令牌泄露 | 每台一个令牌，库里只存哈希，设置页可以一键吊销 |
