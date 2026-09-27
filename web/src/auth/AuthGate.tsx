@@ -1,9 +1,15 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import QRCode from "qrcode";
 import { coreApi, coreKeys, useAuthStatus } from "../api/core";
-import { errorMessage, onUnauthorized, unwrap } from "../api/client";
+import { ApiError, errorMessage, onUnauthorized, unwrap } from "../api/client";
 import { Loading, ErrorState } from "../components/ui/States";
+import TotpQr from "./TotpQr";
 
 /** 未初始化显示初始化页，未登录显示登录页，已登录渲染 children。 */
 export default function AuthGate({ children }: { children: ReactNode }) {
@@ -30,20 +36,41 @@ function Brand() {
   );
 }
 
+/*
+ * 登录分两步：先交用户名和密码。开了两步验证的账号，服务端回 totp_required，
+ * 这时才显示验证码输入框，再交一次。
+ */
 function LoginPage() {
   const qc = useQueryClient();
   const [form, setForm] = useState({ username: "", password: "", code: "" });
+  const [needCode, setNeedCode] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const codeRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (needCode) codeRef.current?.focus();
+  }, [needCode]);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
-      await unwrap(coreApi.POST("/auth/login", { body: form }));
+      await unwrap(
+        coreApi.POST("/auth/login", {
+          body: {
+            username: form.username,
+            password: form.password,
+            code: needCode ? form.code : undefined,
+          },
+        }),
+      );
       await qc.invalidateQueries({ queryKey: coreKeys.auth });
     } catch (err) {
-      setError(errorMessage(err));
+      if (err instanceof ApiError && err.code === "totp_required") {
+        setNeedCode(true);
+      } else {
+        setError(errorMessage(err));
+      }
       setForm((f) => ({ ...f, code: "" }));
     } finally {
       setBusy(false);
@@ -76,19 +103,25 @@ function LoginPage() {
             required
           />
         </label>
-        <label className="xc-field">
-          <span>两步验证码</span>
-          <input
-            className="xc-input xc-mono"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]{6}"
-            maxLength={6}
-            value={form.code}
-            onChange={(e) => setForm({ ...form, code: e.target.value.trim() })}
-            required
-          />
-        </label>
+        {needCode && (
+          <label className="xc-field">
+            <span>两步验证码</span>
+            <input
+              ref={codeRef}
+              className="xc-input xc-mono"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              value={form.code}
+              onChange={(e) =>
+                setForm({ ...form, code: e.target.value.trim() })
+              }
+              required
+            />
+            <small>这个账号开了两步验证，输入验证器 App 里的 6 位数字。</small>
+          </label>
+        )}
         {error && <p className="xc-error-text">{error}</p>}
         <button className="xc-btn primary" disabled={busy}>
           登录
@@ -105,7 +138,6 @@ function SetupPage() {
   const [enrollment, setEnrollment] = useState<{
     secret: string;
     otpauthUrl: string;
-    qr: string;
   } | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -125,11 +157,7 @@ function SetupPage() {
           body: { username: form.username, password: form.password },
         }),
       );
-      const qr = await QRCode.toDataURL(result.otpauthUrl, {
-        margin: 1,
-        width: 200,
-      });
-      setEnrollment({ ...result, qr });
+      setEnrollment(result);
       setStep("totp");
     } catch (err) {
       setError(errorMessage(err));
@@ -152,23 +180,34 @@ function SetupPage() {
     }
   };
 
+  // 跳过两步验证，直接登录。以后可以在设置的“安全”标签里开。
+  const skip = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await unwrap(coreApi.POST("/auth/setup/skip-totp"));
+      await qc.invalidateQueries({ queryKey: coreKeys.auth });
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (step === "totp" && enrollment)
     return (
       <div className="xc-auth">
         <form className="xc-auth-card" onSubmit={confirm}>
           <Brand />
           <p>
-            用验证器 App（比如 Google Authenticator 或
-            1Password）扫描二维码，再输入它显示的 6 位数字。
+            开启两步验证：用验证器 App（比如 Google Authenticator 或
+            1Password）扫描二维码，再输入它显示的 6
+            位数字。不想开可以跳过，以后在设置里也能开。
           </p>
-          <img
-            src={enrollment.qr}
-            alt="TOTP QR code"
-            width={200}
-            height={200}
-            style={{ display: "block", margin: "0 auto 12px", borderRadius: 6 }}
+          <TotpQr
+            otpauthUrl={enrollment.otpauthUrl}
+            secret={enrollment.secret}
           />
-          <code className="xc-secret">{enrollment.secret}</code>
           <label className="xc-field">
             <span>验证码</span>
             <input
@@ -183,9 +222,19 @@ function SetupPage() {
             />
           </label>
           {error && <p className="xc-error-text">{error}</p>}
-          <button className="xc-btn primary" disabled={busy}>
-            完成设置
-          </button>
+          <div className="xc-auth-actions">
+            <button className="xc-btn primary" disabled={busy}>
+              开启并进入
+            </button>
+            <button
+              type="button"
+              className="xc-btn ghost"
+              disabled={busy}
+              onClick={skip}
+            >
+              跳过，以后再开
+            </button>
+          </div>
         </form>
       </div>
     );

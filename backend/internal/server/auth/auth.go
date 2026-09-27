@@ -175,6 +175,11 @@ func (s *Service) Login(ctx context.Context, w http.ResponseWriter, r *http.Requ
 			return err
 		}
 	}
+	if ok && code == "" {
+		// Password is right but no code yet: the login page asks for it next.
+		// Not counted as a failure.
+		return httpx.NewError(http.StatusUnauthorized, "totp_required", "请输入两步验证码")
+	}
 	if ok {
 		ok = s.checkTOTP(u, code)
 	}

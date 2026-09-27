@@ -45,7 +45,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 仅在还没有用户时可用。创建用户并返回 TOTP 密钥，需再调用 /auth/setup/confirm 完成。 */
+        /** @description 仅在还没有用户时可用。创建用户并返回 TOTP 密钥。之后调用 /auth/setup/confirm 开启两步验证，或调用 /auth/setup/skip-totp 跳过。 */
         post: operations["setupAccount"];
         delete?: never;
         options?: never;
@@ -69,6 +69,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/setup/skip-totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 初始化时跳过两步验证，直接登录。之后可以在设置里开启。 */
+        post: operations["skipSetupTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -78,6 +95,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description 开了两步验证但没带 code 时回 401，错误码 totp_required，不计入失败次数。 */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -110,8 +128,75 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 用 TOTP 再验证一次，之后 5 分钟内可以执行高危操作。 */
+        /** @description 再验证一次，之后 5 分钟内可以执行高危操作。开了两步验证时传 code，没开时传 password。 */
         post: operations["elevate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 需要提升权限。生成新的密钥，调用 /auth/totp/confirm 之后才生效。 */
+        post: operations["enrollTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 输入一次验证码，确认后开启两步验证。 */
+        post: operations["confirmTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/totp/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disableTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 修改登录密码。成功后其他会话全部退出，当前会话保留。 */
+        post: operations["changePassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -280,6 +365,8 @@ export interface components {
             setupRequired: boolean;
             authenticated: boolean;
             username?: string;
+            /** @description 是否开了两步验证。只在已登录时返回 */
+            totpEnabled?: boolean;
             /** Format: date-time */
             elevatedUntil?: string;
         };
@@ -297,7 +384,13 @@ export interface components {
         LoginRequest: {
             username: string;
             password: string;
-            code: string;
+            /** @description 两步验证码。没开两步验证时不传 */
+            code?: string;
+        };
+        /** @description 开了两步验证时传 code，没开时传 password */
+        ElevateRequest: {
+            code?: string;
+            password?: string;
         };
         AuditEntry: {
             /** Format: int64 */
@@ -478,6 +571,25 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    skipSetupTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已登录，账号没有两步验证 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -528,7 +640,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TotpCode"];
+                "application/json": components["schemas"]["ElevateRequest"];
             };
         };
         responses: {
@@ -543,6 +655,102 @@ export interface operations {
                         elevatedUntil: string;
                     };
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    enrollTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 新的密钥和 otpauth 地址 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpEnrollment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    confirmTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpCode"];
+            };
+        };
+        responses: {
+            /** @description 已开启两步验证 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disableTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    password: string;
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已关闭两步验证 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    oldPassword: string;
+                    newPassword: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已修改 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

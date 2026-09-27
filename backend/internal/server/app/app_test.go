@@ -38,8 +38,31 @@ func TestAuthFlow(t *testing.T) {
 	if status, _ := env.Do(http.MethodPost, "/auth/login", map[string]string{"username": testutil.Username, "password": "wrong-password", "code": env.Code()}, nil); status != http.StatusUnauthorized {
 		t.Fatalf("bad password: %d", status)
 	}
+	// Right password without a code: ask for the code, and do not count it as a
+	// failure (six in a row would otherwise lock the IP).
+	for i := 0; i < 6; i++ {
+		status, raw := env.Do(http.MethodPost, "/auth/login", map[string]string{"username": testutil.Username, "password": testutil.Password}, nil)
+		var e struct{ Code string }
+		_ = json.Unmarshal(raw, &e)
+		if status != http.StatusUnauthorized || e.Code != "totp_required" {
+			t.Fatalf("login without code: %d %s", status, raw)
+		}
+	}
 	env.MustDo(http.MethodPost, "/auth/login", map[string]string{"username": testutil.Username, "password": testutil.Password, "code": env.Code()}, nil)
 	env.MustDo(http.MethodGet, "/agents", nil, nil)
+}
+
+// B12 前端先做，这些接口先回 501 not_ready。
+func TestOptionalTotpNotReady(t *testing.T) {
+	env := testutil.New(t)
+	for _, path := range []string{"/auth/setup/skip-totp", "/auth/totp/enroll", "/auth/totp/confirm", "/auth/totp/disable", "/auth/password"} {
+		status, raw := env.Do(http.MethodPost, path, map[string]string{}, nil)
+		var e struct{ Code string }
+		_ = json.Unmarshal(raw, &e)
+		if status != http.StatusNotImplemented || e.Code != "not_ready" {
+			t.Fatalf("%s: %d %s", path, status, raw)
+		}
+	}
 }
 
 func TestCSRFHeaderRequired(t *testing.T) {

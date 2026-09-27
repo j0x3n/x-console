@@ -91,8 +91,11 @@ type AuthStatus struct {
 	ElevatedUntil *time.Time `json:"elevatedUntil,omitempty"`
 
 	// SetupRequired 还没有用户，需要先走初始化
-	SetupRequired bool    `json:"setupRequired"`
-	Username      *string `json:"username,omitempty"`
+	SetupRequired bool `json:"setupRequired"`
+
+	// TotpEnabled 是否开了两步验证。只在已登录时返回
+	TotpEnabled *bool   `json:"totpEnabled,omitempty"`
+	Username    *string `json:"username,omitempty"`
 }
 
 // Credentials defines model for Credentials.
@@ -101,9 +104,16 @@ type Credentials struct {
 	Username string `json:"username"`
 }
 
+// ElevateRequest 开了两步验证时传 code，没开时传 password
+type ElevateRequest struct {
+	Code     string `json:"code,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
-	Code     string `json:"code"`
+	// Code 两步验证码。没开两步验证时不传
+	Code     string `json:"code,omitempty"`
 	Password string `json:"password"`
 	Username string `json:"username"`
 }
@@ -163,6 +173,18 @@ type ListAuditParams struct {
 	Cursor *externalRef0.Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ChangePasswordJSONBody defines parameters for ChangePassword.
+type ChangePasswordJSONBody struct {
+	NewPassword string `json:"newPassword"`
+	OldPassword string `json:"oldPassword"`
+}
+
+// DisableTotpJSONBody defines parameters for DisableTotp.
+type DisableTotpJSONBody struct {
+	Code     string `json:"code"`
+	Password string `json:"password"`
+}
+
 // ListNotificationsParams defines parameters for ListNotifications.
 type ListNotificationsParams struct {
 	Unread *bool                `form:"unread,omitempty" json:"unread,omitempty"`
@@ -177,16 +199,25 @@ type PairAgentJSONRequestBody = PairRequest
 type CreatePairingCodeJSONRequestBody CreatePairingCodeJSONBody
 
 // ElevateJSONRequestBody defines body for Elevate for application/json ContentType.
-type ElevateJSONRequestBody = TotpCode
+type ElevateJSONRequestBody = ElevateRequest
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody ChangePasswordJSONBody
 
 // SetupAccountJSONRequestBody defines body for SetupAccount for application/json ContentType.
 type SetupAccountJSONRequestBody = Credentials
 
 // ConfirmSetupJSONRequestBody defines body for ConfirmSetup for application/json ContentType.
 type ConfirmSetupJSONRequestBody = TotpCode
+
+// ConfirmTotpJSONRequestBody defines body for ConfirmTotp for application/json ContentType.
+type ConfirmTotpJSONRequestBody = TotpCode
+
+// DisableTotpJSONRequestBody defines body for DisableTotp for application/json ContentType.
+type DisableTotpJSONRequestBody DisableTotpJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -215,14 +246,29 @@ type ServerInterface interface {
 	// (POST /auth/logout)
 	Logout(w http.ResponseWriter, r *http.Request)
 
+	// (POST /auth/password)
+	ChangePassword(w http.ResponseWriter, r *http.Request)
+
 	// (POST /auth/setup)
 	SetupAccount(w http.ResponseWriter, r *http.Request)
 
 	// (POST /auth/setup/confirm)
 	ConfirmSetup(w http.ResponseWriter, r *http.Request)
 
+	// (POST /auth/setup/skip-totp)
+	SkipSetupTotp(w http.ResponseWriter, r *http.Request)
+
 	// (GET /auth/status)
 	GetAuthStatus(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/totp/confirm)
+	ConfirmTotp(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/totp/disable)
+	DisableTotp(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/totp/enroll)
+	EnrollTotp(w http.ResponseWriter, r *http.Request)
 
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -284,6 +330,11 @@ func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /auth/password)
+func (_ Unimplemented) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /auth/setup)
 func (_ Unimplemented) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -294,8 +345,28 @@ func (_ Unimplemented) ConfirmSetup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /auth/setup/skip-totp)
+func (_ Unimplemented) SkipSetupTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /auth/status)
 func (_ Unimplemented) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/totp/confirm)
+func (_ Unimplemented) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/totp/disable)
+func (_ Unimplemented) DisableTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /auth/totp/enroll)
+func (_ Unimplemented) EnrollTotp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -489,6 +560,20 @@ func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request
 	handler.ServeHTTP(w, r)
 }
 
+// ChangePassword operation middleware
+func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SetupAccount operation middleware
 func (siw *ServerInterfaceWrapper) SetupAccount(w http.ResponseWriter, r *http.Request) {
 
@@ -517,11 +602,67 @@ func (siw *ServerInterfaceWrapper) ConfirmSetup(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// SkipSetupTotp operation middleware
+func (siw *ServerInterfaceWrapper) SkipSetupTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SkipSetupTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAuthStatus operation middleware
 func (siw *ServerInterfaceWrapper) GetAuthStatus(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAuthStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmTotp operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisableTotp operation middleware
+func (siw *ServerInterfaceWrapper) DisableTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnrollTotp operation middleware
+func (siw *ServerInterfaceWrapper) EnrollTotp(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnrollTotp(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -796,6 +937,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/auth/setup/confirm", wrapper.ConfirmSetup)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/setup/skip-totp", wrapper.SkipSetupTotp)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/login", wrapper.Login)
 	})
 	r.Group(func(r chi.Router) {
@@ -803,6 +947,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/elevate", wrapper.Elevate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/totp/enroll", wrapper.EnrollTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/totp/confirm", wrapper.ConfirmTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/totp/disable", wrapper.DisableTotp)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/password", wrapper.ChangePassword)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/audit", wrapper.ListAudit)
