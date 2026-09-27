@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { CornerDownLeft, Search } from "lucide-react";
 import { navItems } from "../../app/nav";
 import { useT } from "../../contexts/LanguageContext";
-import { useCommands, type Command } from "../../lib/commands";
+import { toast } from "../../hooks/useToast";
+import { matchPrefix, useCommands, type Command } from "../../lib/commands";
 
 /** ⌘K 命令面板：跳转页面和执行模块注册的命令。 */
 export default function CommandPalette({
@@ -32,7 +33,13 @@ export default function CommandPalette({
     ],
     [registered, navigate, t],
   );
+  const prefixed = useMemo(
+    () => matchPrefix(query, registered),
+    [query, registered],
+  );
+  const prefixes = registered.filter((c) => c.prefix);
   const results = useMemo(() => {
+    if (prefixed) return [prefixed.command];
     const q = query.trim().toLowerCase();
     if (!q) return all.slice(0, 30);
     return all
@@ -40,7 +47,7 @@ export default function CommandPalette({
         `${c.title} ${c.keywords ?? ""} ${c.group}`.toLowerCase().includes(q),
       )
       .slice(0, 30);
-  }, [all, query]);
+  }, [all, query, prefixed]);
   useEffect(() => {
     if (open) {
       setQuery("");
@@ -51,6 +58,24 @@ export default function CommandPalette({
   if (!open) return null;
   const run = async (command?: Command) => {
     if (!command) return;
+    if (command.prefix) {
+      // 带前缀的命令要有文字。还没输入时，把前缀填进输入框。
+      const text = prefixed?.command.id === command.id ? prefixed.text : "";
+      if (!text) {
+        setQuery(`${command.prefix} `);
+        return;
+      }
+      onClose();
+      try {
+        await command.run({ navigate, text });
+      } catch (error) {
+        toast({
+          message: error instanceof Error ? error.message : String(error),
+          tone: "error",
+        });
+      }
+      return;
+    }
     onClose();
     await command.run({ navigate });
   };
@@ -98,7 +123,15 @@ export default function CommandPalette({
               onClick={() => run(command)}
             >
               {command.icon && <command.icon size={15} />}
-              <span>{command.title}</span>
+              <span>
+                {command.prefix && prefixed?.command.id === command.id
+                  ? prefixed.text
+                    ? `${command.title}：${prefixed.text}`
+                    : `${command.title}：${t("type the text after the prefix")}`
+                  : command.prefix
+                    ? `${command.title}（${command.prefix} …）`
+                    : command.title}
+              </span>
               <small className="command-caption">{command.group}</small>
               {index === active && <CornerDownLeft size={13} />}
             </button>
@@ -107,6 +140,16 @@ export default function CommandPalette({
             <div className="empty-result">{t("No results found")}</div>
           )}
         </div>
+        {prefixes.length > 0 && !prefixed && (
+          <div className="command-footer">
+            {prefixes.map((c) => (
+              <span key={c.id}>
+                <kbd>{c.prefix}</kbd>
+                {c.title}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -12,7 +12,32 @@ export interface Command {
   group: string;
   keywords?: string;
   icon?: LucideIcon;
-  run: (ctx: { navigate: NavigateFunction }) => void | Promise<void>;
+  /**
+   * 可选的前缀，比如 ">"。输入框里的内容以它开头时，面板只显示这个命令，
+   * 回车后把前缀后面的文字作为 text 传给 run。
+   */
+  prefix?: string;
+  run: (ctx: {
+    navigate: NavigateFunction;
+    text?: string;
+  }) => void | Promise<void>;
+}
+
+/** 输入内容匹配到带前缀的命令时，返回命令和前缀后面的文字。 */
+export function matchPrefix(
+  query: string,
+  list: Command[],
+): { command: Command; text: string } | null {
+  const q = query.trimStart();
+  // 前缀长的先比，免得 ">>" 被 ">" 抢走。
+  const withPrefix = list
+    .filter((c) => c.prefix)
+    .sort((a, b) => b.prefix!.length - a.prefix!.length);
+  for (const command of withPrefix) {
+    if (q.startsWith(command.prefix!))
+      return { command, text: q.slice(command.prefix!.length).trim() };
+  }
+  return null;
 }
 
 let commands: Command[] = [];

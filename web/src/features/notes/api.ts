@@ -8,6 +8,7 @@ import { apiFetch, createApi, errorMessage, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import type { components, paths } from "../../api/gen/notes";
 import { toast } from "../../hooks/useToast";
+import { queryClient } from "../../api/query";
 
 export const notesApi = createApi<paths>();
 
@@ -176,4 +177,12 @@ export async function uploadAttachment(noteId: number, file: File): Promise<Atta
   form.append("file", file, file.name || "image.png");
   const res = await apiFetch(`/notes/${noteId}/attachments`, { method: "POST", body: form });
   return (await res.json()) as Attachment;
+}
+
+/** 命令面板的 "> 内容"：直接存成一条新笔记（B4）。 */
+export async function captureNote(text: string) {
+  const note = await unwrap(notesApi.POST("/notes", { body: { body: text } }));
+  queryClient.setQueryData(notesKeys.note(note.id), note);
+  queryClient.invalidateQueries({ queryKey: notesKeys.lists });
+  return note;
 }
