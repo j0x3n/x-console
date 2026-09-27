@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
-  Bot,
   CalendarDays,
   Code2,
   Github,
@@ -53,7 +52,6 @@ export const navItems: NavItem[] = [
     group: "integrations",
   },
   { path: "/github", label: "GitHub", icon: Github, group: "integrations" },
-  { path: "/assistant", label: "Assistant", icon: Bot, group: "integrations" },
   {
     path: "/settings",
     label: "Settings",

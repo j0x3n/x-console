@@ -397,7 +397,7 @@
 .drive-uploads {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  bottom: 80px;
   z-index: 35;
   width: 320px;
   max-height: 50vh;
@@ -677,7 +677,7 @@
   }
   .drive-uploads {
     right: 8px;
-    bottom: 8px;
+    bottom: 76px;
     left: 8px;
     width: auto;
   }

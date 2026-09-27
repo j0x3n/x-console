@@ -1,11 +1,19 @@
 import type { RouteObject } from "react-router";
-import ComingSoon from "../../components/ComingSoon";
+import { Sparkles } from "lucide-react";
+import { registerCommands } from "../../lib/commands";
+import "./i18n";
+import { useAssistant } from "./store";
 
-// 模块入口：路由、命令、事件订阅都从这里注册。开发这个模块时替换占位页面。
-export const routes: RouteObject[] = [
+// 助手是全局浮窗（见 AssistantPanel），没有自己的页面。
+registerCommands([
   {
-    path: "assistant/*",
-    element: <ComingSoon title="Assistant" />,
-    handle: { title: "Assistant" },
+    id: "assistant.open",
+    title: "打开 AI 助手",
+    group: "AI 助手",
+    keywords: "ai assistant claude chat ⌘J",
+    icon: Sparkles,
+    run: () => useAssistant.getState().setOpen(true),
   },
-];
+]);
+
+export const routes: RouteObject[] = [];

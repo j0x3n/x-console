@@ -1,0 +1,278 @@
+openapi: 3.0.3
+info:
+  title: X Console AI assistant API (M12, B3)
+  version: 0.1.0
+  description: |
+    AI 助手。工具来自动作目录，隐藏内容（B13）对助手不可见。
+    发消息后接口立即返回，回复通过事件推送：
+    - ai.delta：{conversationId, text} 文本增量
+    - ai.message_saved：{conversationId} 存了一条新消息（比如工具调用和结果），前端重新拉对话
+    - ai.action_pending：{conversationId, action: PendingAction} 有动作等确认
+    - ai.message_done：{conversationId} 这一轮回复结束
+    - ai.error：{conversationId, message}
+servers:
+  - url: /api/v1
+paths:
+  /ai/conversations:
+    get:
+      operationId: listAiConversations
+      tags: [ai]
+      responses:
+        "200":
+          description: 对话列表，按更新时间倒序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Conversation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createAiConversation
+      tags: [ai]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conversation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/conversations/{conversationId}:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    get:
+      operationId: getAiConversation
+      tags: [ai]
+      responses:
+        "200":
+          description: 对话、全部消息、待确认的动作
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteAiConversation
+      tags: [ai]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/conversations/{conversationId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    post:
+      operationId: sendAiMessage
+      tags: [ai]
+      description: 发送后立即返回。这一轮还没结束时再发，回 409。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 1 }
+                context:
+                  type: object
+                  description: 用户发消息时所在的页面，写进这条消息的上下文
+                  properties:
+                    path: { type: string, description: 例如 /projects/XC/12 }
+                    title: { type: string }
+      responses:
+        "202":
+          description: 已收到，回复通过事件推送
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/conversations/{conversationId}/stop:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    post:
+      operationId: stopAiReply
+      tags: [ai]
+      description: 停止正在生成的回复。待确认的动作全部当作拒绝。
+      responses:
+        "204":
+          description: 已停止
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/actions/{actionId}/approve:
+    parameters:
+      - $ref: "#/components/parameters/ActionId"
+    post:
+      operationId: approveAiAction
+      tags: [ai]
+      description: 确认执行。dangerous 动作要求提升权限。
+      responses:
+        "204":
+          description: 已确认，执行结果通过事件推送
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/actions/{actionId}/reject:
+    parameters:
+      - $ref: "#/components/parameters/ActionId"
+    post:
+      operationId: rejectAiAction
+      tags: [ai]
+      description: 拒绝执行。模型会收到“用户拒绝了”。
+      responses:
+        "204":
+          description: 已拒绝
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/tools:
+    get:
+      operationId: listAiTools
+      tags: [ai]
+      description: 助手能用的动作，前端用来显示中文名和风险等级
+      responses:
+        "200":
+          description: 动作列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Tool" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/settings:
+    get:
+      operationId: getAiSettings
+      tags: [ai]
+      responses:
+        "200":
+          description: 设置。不返回 API Key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putAiSettings
+      tags: [ai]
+      description: 要提升权限。apiKey 不传表示不改，传空字符串表示删除。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                apiKey: { type: string }
+                model: { type: string }
+                confirmAllWrites: { type: boolean }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    ActionId:
+      name: actionId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    Conversation:
+      type: object
+      required: [id, title, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string, description: 第一条消息的开头，空对话为空字符串 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ConversationDetail:
+      type: object
+      required: [conversation, messages, pendingActions, running]
+      properties:
+        conversation: { $ref: "#/components/schemas/Conversation" }
+        messages:
+          type: array
+          items: { $ref: "#/components/schemas/Message" }
+        pendingActions:
+          type: array
+          description: 这个对话里所有需要确认的动作，包括已经处理过的
+          items: { $ref: "#/components/schemas/PendingAction" }
+        running:
+          type: boolean
+          description: 这一轮回复还没结束
+    Message:
+      type: object
+      required: [id, seq, role, content, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        seq: { type: integer }
+        role: { type: string, enum: [user, assistant] }
+        content:
+          type: array
+          description: 原样保存 Anthropic API 的 content blocks
+          items: { $ref: "#/components/schemas/ContentBlock" }
+        createdAt: { type: string, format: date-time }
+    ContentBlock:
+      type: object
+      required: [type]
+      description: |
+        常见的几种：
+        {type: text, text}；{type: tool_use, id, name, input}；
+        {type: tool_result, tool_use_id, content, is_error}；{type: thinking, thinking}。
+        用户消息里的页面上下文放在 {type: text, text, context: true}，前端不显示。
+      properties:
+        type: { type: string }
+        text: { type: string }
+        context: { type: boolean }
+        id: { type: string }
+        name: { type: string }
+        input: { type: object, additionalProperties: true }
+        tool_use_id: { type: string }
+        content: {}
+        is_error: { type: boolean }
+      additionalProperties: true
+    PendingAction:
+      type: object
+      required: [id, conversationId, toolUseId, action, input, status]
+      properties:
+        id: { type: integer, format: int64 }
+        conversationId: { type: integer, format: int64 }
+        toolUseId: { type: string }
+        action: { type: string, description: 动作名，例如 notes.delete }
+        input: { type: object, additionalProperties: true }
+        status:
+          type: string
+          enum: [pending, approved, rejected, done, failed]
+        result: { description: 执行结果或错误信息 }
+    Tool:
+      type: object
+      required: [name, action, title, effect]
+      properties:
+        name: { type: string, description: 给模型的工具名，. 换成 __ }
+        action: { type: string }
+        title: { type: string, description: 中文名 }
+        effect: { type: string, enum: [read, write, dangerous] }
+    AiSettings:
+      type: object
+      required: [hasApiKey, model, confirmAllWrites]
+      properties:
+        hasApiKey: { type: boolean }
+        model: { type: string, description: 默认 claude-opus-5-5 }
+        confirmAllWrites:
+          type: boolean
+          description: 打开后所有写操作都先确认。关闭时只有删除类和 dangerous 动作要确认

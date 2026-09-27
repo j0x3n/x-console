@@ -1,0 +1,269 @@
+openapi: 3.0.3
+info:
+  title: X Console automations API (M12, B3)
+  version: 0.1.0
+  description: |
+    自动化规则：触发器 + 条件 + 一串动作。以 actor automation:<id> 运行。
+    事件：automation.updated、automation.run（{automationId, runId, status}）。
+servers:
+  - url: /api/v1
+paths:
+  /automations:
+    get:
+      operationId: listAutomations
+      tags: [automations]
+      responses:
+        "200":
+          description: 规则列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Automation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createAutomation
+      tags: [automations]
+      description: 动作里有 dangerous 动作时要提升权限，规则记为已授权。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AutomationInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Automation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /automations/catalog:
+    get:
+      operationId: getAutomationCatalog
+      tags: [automations]
+      responses:
+        "200":
+          description: 可用的触发器类型、事件主题、动作及其输入 schema
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Catalog" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /automations/{automationId}:
+    parameters:
+      - $ref: "#/components/parameters/AutomationId"
+    get:
+      operationId: getAutomation
+      tags: [automations]
+      responses:
+        "200":
+          description: 规则
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Automation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: updateAutomation
+      tags: [automations]
+      description: 整体替换。动作里有 dangerous 动作时要提升权限，重新授权。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AutomationInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Automation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: toggleAutomation
+      tags: [automations]
+      description: 只改开关
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Automation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteAutomation
+      tags: [automations]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /automations/{automationId}/run:
+    parameters:
+      - $ref: "#/components/parameters/AutomationId"
+    post:
+      operationId: runAutomation
+      tags: [automations]
+      description: 手动运行一次，不看冷却时间。触发数据为空对象。
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runId]
+                properties:
+                  runId: { type: integer, format: int64 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /automations/{automationId}/runs:
+    parameters:
+      - $ref: "#/components/parameters/AutomationId"
+    get:
+      operationId: listAutomationRuns
+      tags: [automations]
+      parameters:
+        - $ref: "../common.yaml#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 运行记录，按时间倒序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Run" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    AutomationId:
+      name: automationId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    Trigger:
+      type: object
+      required: [type]
+      description: |
+        schedule：{cron}；event：{topic, match?}；metric：{hostId?, metric, op, value}；
+        ha_state：{entityId, to?}；webhook：{}（保存后返回 webhookPath）。
+      properties:
+        type:
+          type: string
+          enum: [schedule, event, metric, ha_state, webhook]
+        cron: { type: string, description: 5 段 cron，按用户时区 }
+        topic: { type: string, description: 事件主题前缀，例如 monitor.down }
+        match: { type: string, description: 可选，例如 data.hostId == "abc" }
+        hostId: { type: string }
+        metric: { type: string, enum: [cpu, mem, disk] }
+        op: { type: string, enum: [">", ">=", "<", "<="] }
+        value: { type: number }
+        entityId: { type: string }
+        to: { type: string, description: 目标状态，不填表示任何变化 }
+        webhookPath: { type: string, description: 只读，例如 /hooks/3f9a…，完整地址 = 面板地址 + /api/v1 + 这个路径 }
+    Condition:
+      type: object
+      required: [field, op, value]
+      properties:
+        field: { type: string, description: 触发数据里的字段路径，例如 data.cpu }
+        op:
+          type: string
+          enum: ["==", "!=", ">", ">=", "<", "<=", contains]
+        value: { type: string, description: 按字符串填写，数字比较时服务端转成数字 }
+    Step:
+      type: object
+      required: [action, input]
+      properties:
+        action: { type: string, description: 动作名，或 ai.ask }
+        input:
+          type: object
+          additionalProperties: true
+          description: 字符串里可以用 {{trigger.data.xxx}} 和 {{steps.0.result}}
+    AutomationInput:
+      type: object
+      required: [name, enabled, trigger, conditions, actions, cooldownSeconds]
+      properties:
+        name: { type: string, minLength: 1 }
+        enabled: { type: boolean }
+        trigger: { $ref: "#/components/schemas/Trigger" }
+        conditions:
+          type: array
+          items: { $ref: "#/components/schemas/Condition" }
+        actions:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/Step" }
+        cooldownSeconds: { type: integer, minimum: 0 }
+    Automation:
+      allOf:
+        - $ref: "#/components/schemas/AutomationInput"
+        - type: object
+          required: [id, authorized, createdAt, updatedAt]
+          properties:
+            id: { type: integer, format: int64 }
+            authorized: { type: boolean, description: 有 dangerous 动作时，保存时是否已提升权限 }
+            lastRun: { $ref: "#/components/schemas/Run" }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    RunStep:
+      type: object
+      required: [action, input]
+      properties:
+        action: { type: string }
+        input: { type: object, additionalProperties: true }
+        result: {}
+        error: { type: string }
+    Run:
+      type: object
+      required: [id, automationId, startedAt, status, steps]
+      properties:
+        id: { type: integer, format: int64 }
+        automationId: { type: integer, format: int64 }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        status: { type: string, enum: [running, ok, failed, skipped] }
+        triggerData: {}
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/RunStep" }
+    CatalogAction:
+      type: object
+      required: [name, title, effect, input]
+      properties:
+        name: { type: string }
+        title: { type: string }
+        description: { type: string }
+        effect: { type: string, enum: [read, write, dangerous] }
+        input: { type: object, additionalProperties: true, description: JSON Schema }
+    Catalog:
+      type: object
+      required: [actions, topics]
+      properties:
+        actions:
+          type: array
+          description: 包括 ai.ask
+          items: { $ref: "#/components/schemas/CatalogAction" }
+        topics:
+          type: array
+          description: 可以订阅的事件主题
+          items:
+            type: object
+            required: [topic, title]
+            properties:
+              topic: { type: string }
+              title: { type: string }

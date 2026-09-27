@@ -1,11 +1,31 @@
 import type { RouteObject } from "react-router";
-import ComingSoon from "../../components/ComingSoon";
+import { Workflow } from "lucide-react";
+import { registerCommands } from "../../lib/commands";
+import "./i18n";
+import "./automations.css";
+import AutomationsPage from "./AutomationsPage";
+import AutomationEditor from "./AutomationEditor";
 
-// 模块入口：路由、命令、事件订阅都从这里注册。开发这个模块时替换占位页面。
+registerCommands([
+  {
+    id: "automations.new",
+    title: "新建自动化规则",
+    group: "自动化",
+    keywords: "automation rule new trigger",
+    icon: Workflow,
+    run: ({ navigate }) => navigate("/automations/new"),
+  },
+]);
+
 export const routes: RouteObject[] = [
   {
-    path: "automations/*",
-    element: <ComingSoon title="Automations" />,
+    path: "automations",
+    element: <AutomationsPage />,
+    handle: { title: "Automations" },
+  },
+  {
+    path: "automations/:id",
+    element: <AutomationEditor />,
     handle: { title: "Automations" },
   },
 ];
