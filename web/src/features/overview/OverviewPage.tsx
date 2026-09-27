@@ -7,7 +7,6 @@ import {
   Save,
   X,
 } from "lucide-react";
-import PageHeading from "../../components/ui/PageHeading";
 import { ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { errorMessage } from "../../api/client";
@@ -96,9 +95,9 @@ export default function OverviewPage() {
 
   return (
     <div className="xc-page overview-page">
-      <PageHeading
-        title={t("Overview")}
-        aside={
+      <h1 className="overview-accessible-title">{t("Overview")}</h1>
+      <div className="overview-actions">
+        {
           draft ? (
             <>
               <button className="xc-btn small" onClick={() => setDraft(null)}>
@@ -123,7 +122,7 @@ export default function OverviewPage() {
             </button>
           )
         }
-      />
+      </div>
 
       {draft && (
         <div className="xc-card overview-editor" aria-label="卡片布局">
@@ -196,12 +195,14 @@ export default function OverviewPage() {
             return (
               <section
                 key={card.id}
-                className={`xc-card overview-card overview-${card.id}`}
+                className={`overview-card overview-${card.id}`}
                 aria-label={t(cardLabels[card.id as CardID])}
               >
-                <div className="xc-card-head">
-                  <h2>{t(cardLabels[card.id as CardID])}</h2>
-                </div>
+                {card.id !== "greeting" && (
+                  <div className="overview-card-heading">
+                    <h2>{t(cardLabels[card.id as CardID])}</h2>
+                  </div>
+                )}
                 <CardBoundary>
                   <Content />
                 </CardBoundary>
