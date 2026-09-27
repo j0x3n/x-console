@@ -1,6 +1,6 @@
 /*
  * 一个够用的 Markdown 解析器：标题、段落、列表（含任务列表和嵌套）、引用、代码块、
- * 分隔线，以及行内的代码、粗体、斜体、删除线、链接。输出结构化的节点，
+ * 分隔线，以及行内的代码、粗体、斜体、删除线、链接、图片。输出结构化的节点，
  * 由 Markdown.tsx 渲染成 React 元素，不用 innerHTML，所以不会有 XSS。
  */
 
@@ -9,6 +9,7 @@ export type Inline =
   | { type: "code"; text: string }
   | { type: "strong" | "em" | "del"; children: Inline[] }
   | { type: "link"; href: string; children: Inline[] }
+  | { type: "image"; src: string; alt: string }
   | { type: "br" };
 
 export interface ListItem {
@@ -177,6 +178,14 @@ function joinLines(lines: string[]): Inline[] {
   return out;
 }
 
+/** 图片地址只允许 http、https 和站内路径。 */
+export function safeSrc(src: string): string | null {
+  const url = src.trim();
+  if (/^https?:/i.test(url)) return url;
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+  return null;
+}
+
 /** 只允许 http、https、mailto 和站内路径。 */
 export function safeHref(href: string): string | null {
   const url = href.trim();
@@ -187,7 +196,7 @@ export function safeHref(href: string): string | null {
 }
 
 const inlineRe =
-  /`([^`]+)`|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|\*([^*\s][^*]*?)\*|(?<![\w])_([^_\s][^_]*?)_(?![\w])|!?\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
+  /`([^`]+)`|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|\*([^*\s][^*]*?)\*|(?<![\w])_([^_\s][^_]*?)_(?![\w])|(!)?\[([^\]]*)\]\(([^)\s]*)(?:\s+"[^"]*")?\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
 
 export function parseInline(text: string): Inline[] {
   const out: Inline[] = [];
@@ -208,15 +217,59 @@ export function parseInline(text: string): Inline[] {
       push({ type: "del", children: parseInline(m[4]) });
     else if (m[5] !== undefined || m[6] !== undefined)
       push({ type: "em", children: parseInline(m[5] ?? m[6]) });
-    else if (m[8] !== undefined) {
-      const href = safeHref(m[8]);
-      const label = m[7] || m[8];
+    else if (m[9] !== undefined && m[7] === "!") {
+      const src = safeSrc(m[9]);
+      if (src) push({ type: "image", src, alt: m[8] });
+      else push({ type: "text", text: m[8] });
+    } else if (m[9] !== undefined) {
+      const href = safeHref(m[9]);
+      const label = m[8] || m[9];
       if (href)
         push({ type: "link", href, children: parseInline(label) });
       else push({ type: "text", text: label });
-    } else if (m[9] !== undefined)
-      push({ type: "link", href: m[9], children: [{ type: "text", text: m[9] }] });
+    } else if (m[10] !== undefined)
+      push({ type: "link", href: m[10], children: [{ type: "text", text: m[10] }] });
   }
   if (last < text.length) push({ type: "text", text: text.slice(last) });
+  return out;
+}
+
+const taskLineRe = /^(\s*(?:>\s*)*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])(\])/;
+
+/**
+ * 切换源码里第 index 个待办（从 0 开始，按出现顺序，跳过代码块）。
+ * 预览里点勾选框时用它改正文。
+ */
+export function toggleTask(source: string, index: number): string {
+  const lines = source.split("\n");
+  let fence: string | null = null;
+  let n = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const f = fenceRe.exec(lines[i]);
+    if (f) {
+      if (fence === null) fence = f[1];
+      else if (lines[i].trim().startsWith(fence)) fence = null;
+      continue;
+    }
+    if (fence !== null) continue;
+    const m = taskLineRe.exec(lines[i]);
+    if (!m) continue;
+    if (n === index) {
+      const mark = m[2] === " " ? "x" : " ";
+      lines[i] = m[1] + mark + m[3] + lines[i].slice(m[0].length);
+      return lines.join("\n");
+    }
+    n++;
+  }
+  return source;
+}
+
+/** 正文里的图片地址，按出现顺序。 */
+export function imageSources(source: string): string[] {
+  const out: string[] = [];
+  for (const m of source.matchAll(/!\[[^\]]*\]\(([^)\s]+)[^)]*\)/g)) {
+    const src = safeSrc(m[1]);
+    if (src) out.push(src);
+  }
   return out;
 }

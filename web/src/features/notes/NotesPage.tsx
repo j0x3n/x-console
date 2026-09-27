@@ -1,12 +1,29 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import { Archive, NotebookPen, Pin, Plus, Search, X } from "lucide-react";
+import {
+  Archive,
+  Hash,
+  NotebookPen,
+  Notebook,
+  Pin,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
 import { useCreateNote, useNotes, useTags, type NoteSummary } from "./api";
 import NoteEditor from "./components/NoteEditor";
-import { noteTitle, snippetParts } from "./logic";
+import {
+  DATE_GROUP_LABELS,
+  dateGroup,
+  noteTitle,
+  snippetParts,
+  type DateGroup,
+} from "./logic";
+
+type View = "all" | "pinned" | "archived" | "tag";
 
 export default function NotesPage() {
   const t = useT();
@@ -16,11 +33,13 @@ export default function NotesPage() {
   const q = search.get("q") ?? "";
   const tag = search.get("tag") ?? "";
   const archived = search.get("archived") === "1";
+  const pinned = search.get("pinned") === "1";
+  const view: View = tag ? "tag" : archived ? "archived" : pinned ? "pinned" : "all";
   const [input, setInput] = useState(q);
   const searchRef = useRef<HTMLInputElement>(null);
   const create = useCreateNote();
   const tags = useTags();
-  const notes = useNotes({ q, tag, archived });
+  const notes = useNotes({ q, tag, archived, pinned });
   const id = noteId ? Number(noteId) : null;
 
   // 地址栏的 q 变了（比如后退），同步到输入框。
@@ -45,6 +64,18 @@ export default function NotesPage() {
       },
       { replace: true },
     );
+  const setView = (next: View, nextTag = "") =>
+    setSearch(
+      () => {
+        const p = new URLSearchParams();
+        if (q) p.set("q", q);
+        if (next === "pinned") p.set("pinned", "1");
+        if (next === "archived") p.set("archived", "1");
+        if (next === "tag" && nextTag) p.set("tag", nextTag);
+        return p;
+      },
+      { replace: true },
+    );
   const query = (() => {
     const p = new URLSearchParams(search);
     p.delete("new");
@@ -55,7 +86,7 @@ export default function NotesPage() {
 
   const newNote = () =>
     create.mutate(
-      { tags: tag ? [tag] : [] },
+      { tags: tag ? [tag] : [], pinned: pinned || undefined },
       { onSuccess: (note) => navigate(`/notes/${note.id}${query}`) },
     );
 
@@ -75,50 +106,85 @@ export default function NotesPage() {
   }, [search]);
 
   const items = notes.data?.pages.flatMap((p) => p.items) ?? [];
+  const groups = useMemo(() => groupNotes(items, !!q, view), [items, q, view]);
+  const viewTitle =
+    view === "tag"
+      ? `#${tag}`
+      : view === "pinned"
+        ? t("Pinned notes")
+        : view === "archived"
+          ? t("Archived")
+          : t("All notes");
+
+  const navItem = (key: string, active: boolean, onClick: () => void, icon: ReactNode, label: string, count?: number) => (
+    <button key={key} className={active ? "active" : ""} aria-pressed={active} onClick={onClick}>
+      {icon}
+      <span>{label}</span>
+      {count != null && <small>{count}</small>}
+    </button>
+  );
+
+  const views = [
+    navItem("all", view === "all", () => setView("all"), <Notebook size={15} />, t("All notes")),
+    navItem("pinned", view === "pinned", () => setView("pinned"), <Pin size={15} />, t("Pinned notes")),
+    navItem("archived", view === "archived", () => setView("archived"), <Archive size={15} />, t("Archived")),
+  ];
+  const tagItems =
+    tags.data?.map((tc) =>
+      navItem(
+        `tag-${tc.tag}`,
+        tag === tc.tag,
+        () => setView(tag === tc.tag ? "all" : "tag", tc.tag),
+        <Hash size={14} />,
+        tc.tag,
+        tc.count,
+      ),
+    ) ?? [];
+
   return (
     <div className={`notes-layout ${id ? "has-note" : ""}`}>
-      <aside className="notes-sidebar">
-        <div className="notes-sidebar-head">
-          <label className="notes-search">
-            <Search size={14} />
-            <input
-              ref={searchRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={t("Search notes")}
-              aria-label={t("Search notes")}
-            />
-            {input && (
-              <button aria-label={t("Clear")} onClick={() => setInput("")}>
-                <X size={13} />
-              </button>
-            )}
-          </label>
-          <button className="xc-btn primary small" onClick={newNote} disabled={create.isPending}>
+      <nav className="notes-nav" aria-label={t("Note categories")}>
+        <div className="notes-nav-group">{views}</div>
+        {tagItems.length > 0 && (
+          <div className="notes-nav-group">
+            <div className="notes-nav-label">{t("Tags")}</div>
+            {tagItems}
+          </div>
+        )}
+      </nav>
+      <aside className="notes-list-pane">
+        <div className="notes-list-head">
+          <div className="notes-list-title">
+            <h1>{viewTitle}</h1>
+            <span>{items.length > 0 ? `${items.length}${notes.hasNextPage ? "+" : ""}` : ""}</span>
+          </div>
+          <button
+            className="xc-btn primary small"
+            onClick={newNote}
+            disabled={create.isPending}
+            title={t("New note")}
+          >
             <Plus size={14} /> <span className="notes-btn-text">{t("New")}</span>
           </button>
         </div>
-        <div className="notes-tags" role="group" aria-label={t("Tags")}>
-          <button className={!tag && !archived ? "on" : ""} onClick={() => setSearch(q ? { q } : {}, { replace: true })}>
-            {t("All")}
-          </button>
-          {tags.data?.map((tc) => (
-            <button
-              key={tc.tag}
-              className={tag === tc.tag ? "on" : ""}
-              aria-pressed={tag === tc.tag}
-              onClick={() => setParam("tag", tag === tc.tag ? "" : tc.tag)}
-            >
-              #{tc.tag} <small>{tc.count}</small>
+        <label className="notes-search">
+          <Search size={14} />
+          <input
+            ref={searchRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={t("Search notes")}
+            aria-label={t("Search notes")}
+          />
+          {input && (
+            <button aria-label={t("Clear")} onClick={() => setInput("")}>
+              <X size={13} />
             </button>
-          ))}
-          <button
-            className={archived ? "on" : ""}
-            aria-pressed={archived}
-            onClick={() => setParam("archived", archived ? "" : "1")}
-          >
-            <Archive size={12} /> {t("Archived")}
-          </button>
+          )}
+        </label>
+        <div className="notes-chips" role="group" aria-label={t("Tags")}>
+          {views}
+          {tagItems}
         </div>
         <div className="notes-list" role="list">
           {notes.isPending ? (
@@ -127,11 +193,32 @@ export default function NotesPage() {
             <ErrorState error={notes.error} onRetry={() => notes.refetch()} />
           ) : items.length === 0 ? (
             <EmptyState
-              title={q ? t("No matching notes") : archived ? t("No archived notes") : t("No notes yet")}
+              title={
+                q
+                  ? t("No matching notes")
+                  : view === "archived"
+                    ? t("No archived notes")
+                    : view === "pinned"
+                      ? t("No pinned notes")
+                      : t("No notes yet")
+              }
               icon={<NotebookPen size={26} />}
-            />
+            >
+              {!q && view !== "archived" && (
+                <button className="xc-btn small" onClick={newNote}>
+                  <Plus size={14} /> {t("New note")}
+                </button>
+              )}
+            </EmptyState>
           ) : (
-            items.map((n) => <NoteItem key={n.id} note={n} active={n.id === id} query={query} />)
+            groups.map((g) => (
+              <section key={g.key} className="notes-group">
+                {g.label && <h2 className="notes-group-label">{t(g.label)}</h2>}
+                {g.items.map((n) => (
+                  <NoteItem key={n.id} note={n} active={n.id === id} query={query} />
+                ))}
+              </section>
+            ))
           )}
           {notes.hasNextPage && (
             <button
@@ -148,21 +235,54 @@ export default function NotesPage() {
         {id ? (
           <NoteEditor id={id} backTo={`/notes${query}`} />
         ) : (
-          <EmptyState title={t("Pick a note or start a new one")} icon={<NotebookPen size={28} />}>
-            <button className="xc-btn small" onClick={newNote}>
+          <div className="notes-blank">
+            <NotebookPen size={30} />
+            <strong>{t("Pick a note or start a new one")}</strong>
+            <span>{t("Paste or drag images straight into a note.")}</span>
+            <button className="xc-btn primary small" onClick={newNote}>
               <Plus size={14} /> {t("New note")}
             </button>
-          </EmptyState>
+          </div>
         )}
       </main>
     </div>
   );
 }
 
+interface Group {
+  key: string;
+  label: string;
+  items: NoteSummary[];
+}
+
+/** 置顶的在最上面一组，其余按更新时间分组。搜索时按相关度，不分组。 */
+function groupNotes(items: NoteSummary[], searching: boolean, view: View): Group[] {
+  if (searching) return [{ key: "search", label: "", items }];
+  const groups: Group[] = [];
+  const add = (key: string, label: string, note: NoteSummary) => {
+    let g = groups.find((x) => x.key === key);
+    if (!g) {
+      g = { key, label, items: [] };
+      groups.push(g);
+    }
+    g.items.push(note);
+  };
+  const now = new Date();
+  for (const n of items) {
+    if (n.pinned && view !== "pinned" && view !== "archived") add("pinned", "Pinned notes", n);
+    else {
+      const g: DateGroup = dateGroup(n.updatedAt, now);
+      add(g, DATE_GROUP_LABELS[g], n);
+    }
+  }
+  return groups;
+}
+
 function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean; query: string }) {
   const t = useT();
   const language = useLanguage();
   const title = noteTitle(note.title, note.excerpt) || t("Untitled note");
+  const body = note.title.trim() ? note.excerpt : note.excerpt.slice(title.length).trim();
   return (
     <Link
       to={`/notes/${note.id}${query}`}
@@ -170,25 +290,29 @@ function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean;
       className={`notes-item${active ? " active" : ""}`}
       aria-current={active ? "page" : undefined}
     >
-      <div className="notes-item-head">
-        {note.pinned && <Pin size={12} className="notes-pin" aria-label={t("Pinned")} />}
-        <strong>{title}</strong>
-        <time dateTime={note.updatedAt}>{relativeTime(note.updatedAt, language)}</time>
-      </div>
-      <p>
-        {note.snippet
-          ? snippetParts(note.snippet).map((part, i) =>
-              part.hit ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>,
-            )
-          : note.excerpt || <span className="xc-muted">{t("Empty note")}</span>}
-      </p>
-      {note.tags.length > 0 && (
-        <div className="notes-item-tags">
-          {note.tags.map((tag) => (
-            <span key={tag}>#{tag}</span>
+      <div className="notes-item-text">
+        <strong>
+          {note.pinned && <Pin size={11} className="notes-pin" aria-label={t("Pinned")} />}
+          {title}
+        </strong>
+        <p>
+          {note.snippet
+            ? snippetParts(note.snippet).map((part, i) =>
+                part.hit ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>,
+              )
+            : body || <span className="notes-item-empty">{t("No more text")}</span>}
+        </p>
+        <div className="notes-item-foot">
+          <time dateTime={note.updatedAt}>{relativeTime(note.updatedAt, language)}</time>
+          {note.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="notes-item-tag">
+              #{tag}
+            </span>
           ))}
+          {note.tags.length > 3 && <span className="notes-item-tag">+{note.tags.length - 3}</span>}
         </div>
-      )}
+      </div>
+      {note.thumbnail && <img className="notes-thumb" src={note.thumbnail} alt="" loading="lazy" />}
     </Link>
   );
 }

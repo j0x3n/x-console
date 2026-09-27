@@ -97,6 +97,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notes/{noteId}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listNoteAttachments"];
+        put?: never;
+        /** @description 上传一个文件，最大 50 MB。类型以服务端检测为准。 */
+        post: operations["uploadNoteAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notes/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        /** @description 图片内联显示，其他文件作为附件下载。SVG 一律作为附件。 */
+        get: operations["downloadNoteAttachment"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteNoteAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -126,12 +164,28 @@ export interface components {
             snippet?: string;
             pinned: boolean;
             tags: string[];
+            /** @description 正文里第一张附件图片的地址，没有图片时不返回 */
+            thumbnail?: string;
             /** Format: date-time */
             archivedAt?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        Attachment: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            noteId: number;
+            name: string;
+            mime: string;
+            /** Format: int64 */
+            size: number;
+            /** @description 下载地址，例如 /api/v1/notes/attachments/3 */
+            url: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         CreateNote: {
             title?: string;
@@ -173,6 +227,7 @@ export interface components {
         };
     };
     parameters: {
+        AttachmentId: number;
         NoteId: number;
         Limit: number;
         Cursor: string;
@@ -398,6 +453,103 @@ export interface operations {
                         reminderId: number;
                     };
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listNoteAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 这条笔记的附件，新的在前 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadNoteAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已上传 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadNoteAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteNoteAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

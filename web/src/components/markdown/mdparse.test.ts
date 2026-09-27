@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseInline, parseMarkdown, safeHref } from "./mdparse";
+import { imageSources, parseInline, parseMarkdown, safeHref, toggleTask } from "./mdparse";
 
 describe("parseMarkdown", () => {
   it("parses headings, paragraphs and rules", () => {
@@ -55,5 +55,31 @@ describe("parseInline", () => {
     expect(parseInline("[x](javascript:alert(1))")[0]).toMatchObject({ type: "text" });
     expect(safeHref("//evil.com")).toBeNull();
     expect(safeHref("mailto:a@b.c")).toBe("mailto:a@b.c");
+  });
+});
+
+describe("images and tasks", () => {
+  it("parses images and keeps unsafe ones as text", () => {
+    expect(parseInline("![cat](/api/v1/notes/attachments/3)")).toEqual([
+      { type: "image", src: "/api/v1/notes/attachments/3", alt: "cat" },
+    ]);
+    expect(parseInline("![x](javascript:alert(1))")[0]).toMatchObject({ type: "text" });
+    expect(parseInline("![上传中…]()")).toEqual([{ type: "text", text: "上传中…" }]);
+    expect(parseInline("[link](/notes/1)")[0]).toMatchObject({ type: "link", href: "/notes/1" });
+  });
+
+  it("toggles the nth task and skips code blocks", () => {
+    const src = "- [ ] a\n```\n- [ ] not a task\n```\n- [x] b\n  - [ ] c";
+    expect(toggleTask(src, 0)).toBe(src.replace("- [ ] a", "- [x] a"));
+    expect(toggleTask(src, 1)).toBe(src.replace("- [x] b", "- [ ] b"));
+    expect(toggleTask(src, 2)).toBe(src.replace("  - [ ] c", "  - [x] c"));
+    expect(toggleTask(src, 3)).toBe(src);
+  });
+
+  it("lists image sources", () => {
+    expect(imageSources("a ![x](/a.png) b ![y](https://e.com/b.png \"t\") ![z](bad:1)")).toEqual([
+      "/a.png",
+      "https://e.com/b.png",
+    ]);
   });
 });

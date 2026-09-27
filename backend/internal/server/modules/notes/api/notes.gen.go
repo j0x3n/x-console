@@ -12,7 +12,21 @@ import (
 	"github.com/go-chi/chi/v5"
 	externalRef0 "github.com/j0x3n/x-console/backend/internal/server/apigen/common"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Attachment defines model for Attachment.
+type Attachment struct {
+	CreatedAt time.Time `json:"createdAt"`
+	Id        int64     `json:"id"`
+	Mime      string    `json:"mime"`
+	Name      string    `json:"name"`
+	NoteId    int64     `json:"noteId"`
+	Size      int64     `json:"size"`
+
+	// Url 下载地址，例如 /api/v1/notes/attachments/3
+	Url string `json:"url"`
+}
 
 // CreateNote defines model for CreateNote.
 type CreateNote struct {
@@ -47,8 +61,11 @@ type NoteSummary struct {
 	Pinned  bool   `json:"pinned"`
 
 	// Snippet 搜索时的命中片段，命中的部分用 U+E000 和 U+E001 包住
-	Snippet   *string   `json:"snippet,omitempty"`
-	Tags      []string  `json:"tags"`
+	Snippet *string  `json:"snippet,omitempty"`
+	Tags    []string `json:"tags"`
+
+	// Thumbnail 正文里第一张附件图片的地址，没有图片时不返回
+	Thumbnail *string   `json:"thumbnail,omitempty"`
 	Title     string    `json:"title"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
@@ -70,6 +87,9 @@ type UpdateNote struct {
 	Title *string   `json:"title,omitempty"`
 }
 
+// AttachmentId defines model for AttachmentId.
+type AttachmentId = int64
+
 // NoteId defines model for NoteId.
 type NoteId = int64
 
@@ -83,6 +103,11 @@ type ListNotesParams struct {
 	Archived *bool                `form:"archived,omitempty" json:"archived,omitempty"`
 	Limit    *externalRef0.Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor   *externalRef0.Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// UploadNoteAttachmentMultipartBody defines parameters for UploadNoteAttachment.
+type UploadNoteAttachmentMultipartBody struct {
+	File openapi_types.File `json:"file"`
 }
 
 // NoteToIssueJSONBody defines parameters for NoteToIssue.
@@ -104,6 +129,9 @@ type CreateNoteJSONRequestBody = CreateNote
 // UpdateNoteJSONRequestBody defines body for UpdateNote for application/json ContentType.
 type UpdateNoteJSONRequestBody = UpdateNote
 
+// UploadNoteAttachmentMultipartRequestBody defines body for UploadNoteAttachment for multipart/form-data ContentType.
+type UploadNoteAttachmentMultipartRequestBody UploadNoteAttachmentMultipartBody
+
 // NoteToIssueJSONRequestBody defines body for NoteToIssue for application/json ContentType.
 type NoteToIssueJSONRequestBody NoteToIssueJSONBody
 
@@ -119,6 +147,12 @@ type ServerInterface interface {
 	// (POST /notes)
 	CreateNote(w http.ResponseWriter, r *http.Request)
 
+	// (DELETE /notes/attachments/{attachmentId})
+	DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId)
+
+	// (GET /notes/attachments/{attachmentId})
+	DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId)
+
 	// (GET /notes/tags)
 	ListNoteTags(w http.ResponseWriter, r *http.Request)
 
@@ -130,6 +164,12 @@ type ServerInterface interface {
 
 	// (PATCH /notes/{noteId})
 	UpdateNote(w http.ResponseWriter, r *http.Request, noteId NoteId)
+
+	// (GET /notes/{noteId}/attachments)
+	ListNoteAttachments(w http.ResponseWriter, r *http.Request, noteId NoteId)
+
+	// (POST /notes/{noteId}/attachments)
+	UploadNoteAttachment(w http.ResponseWriter, r *http.Request, noteId NoteId)
 
 	// (POST /notes/{noteId}/to-issue)
 	NoteToIssue(w http.ResponseWriter, r *http.Request, noteId NoteId)
@@ -152,6 +192,16 @@ func (_ Unimplemented) CreateNote(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (DELETE /notes/attachments/{attachmentId})
+func (_ Unimplemented) DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /notes/attachments/{attachmentId})
+func (_ Unimplemented) DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /notes/tags)
 func (_ Unimplemented) ListNoteTags(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -169,6 +219,16 @@ func (_ Unimplemented) GetNote(w http.ResponseWriter, r *http.Request, noteId No
 
 // (PATCH /notes/{noteId})
 func (_ Unimplemented) UpdateNote(w http.ResponseWriter, r *http.Request, noteId NoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /notes/{noteId}/attachments)
+func (_ Unimplemented) ListNoteAttachments(w http.ResponseWriter, r *http.Request, noteId NoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notes/{noteId}/attachments)
+func (_ Unimplemented) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, noteId NoteId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -303,6 +363,58 @@ func (siw *ServerInterfaceWrapper) CreateNote(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteNoteAttachment operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNoteAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "attachmentId" -------------
+	var attachmentId AttachmentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "attachmentId", chi.URLParam(r, "attachmentId"), &attachmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "attachmentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNoteAttachment(w, r, attachmentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadNoteAttachment operation middleware
+func (siw *ServerInterfaceWrapper) DownloadNoteAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "attachmentId" -------------
+	var attachmentId AttachmentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "attachmentId", chi.URLParam(r, "attachmentId"), &attachmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "attachmentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadNoteAttachment(w, r, attachmentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListNoteTags operation middleware
 func (siw *ServerInterfaceWrapper) ListNoteTags(w http.ResponseWriter, r *http.Request) {
 
@@ -386,6 +498,58 @@ func (siw *ServerInterfaceWrapper) UpdateNote(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateNote(w, r, noteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNoteAttachments operation middleware
+func (siw *ServerInterfaceWrapper) ListNoteAttachments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "noteId" -------------
+	var noteId NoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "noteId", chi.URLParam(r, "noteId"), &noteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "noteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNoteAttachments(w, r, noteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadNoteAttachment operation middleware
+func (siw *ServerInterfaceWrapper) UploadNoteAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "noteId" -------------
+	var noteId NoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "noteId", chi.URLParam(r, "noteId"), &noteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "noteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadNoteAttachment(w, r, noteId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -583,6 +747,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notes/{noteId}/to-reminder", wrapper.NoteToReminder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notes/{noteId}/attachments", wrapper.ListNoteAttachments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notes/{noteId}/attachments", wrapper.UploadNoteAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/notes/attachments/{attachmentId}", wrapper.DeleteNoteAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notes/attachments/{attachmentId}", wrapper.DownloadNoteAttachment)
 	})
 
 	return r

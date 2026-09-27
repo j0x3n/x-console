@@ -1,0 +1,107 @@
+/* Markdown 渲染结果的样式。各模块共用。 */
+.xc-md {
+  color: var(--xc-text-2);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.xc-md > :first-child {
+  margin-top: 0;
+}
+.xc-md > :last-child {
+  margin-bottom: 0;
+}
+.xc-md h2,
+.xc-md h3,
+.xc-md h4,
+.xc-md h5,
+.xc-md h6 {
+  margin: 1.1em 0 0.4em;
+  color: var(--xc-text);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.xc-md h2 {
+  font-size: 18px;
+}
+.xc-md h3 {
+  font-size: 16px;
+}
+.xc-md h4,
+.xc-md h5,
+.xc-md h6 {
+  font-size: 14px;
+}
+.xc-md p,
+.xc-md ul,
+.xc-md ol,
+.xc-md pre,
+.xc-md blockquote {
+  margin: 0 0 0.75em;
+}
+.xc-md ul,
+.xc-md ol {
+  padding-left: 1.4em;
+}
+.xc-md li.task {
+  list-style: none;
+  margin-left: -1.3em;
+}
+.xc-md li.task input {
+  margin: 0 6px 0 0;
+  vertical-align: -1px;
+}
+.xc-md code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--xc-surface-2);
+  font-family: var(--xc-mono);
+  font-size: 0.9em;
+}
+.xc-md pre {
+  overflow-x: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: 6px;
+  background: var(--xc-panel);
+}
+.xc-md pre code {
+  padding: 0;
+  background: none;
+}
+.xc-md blockquote {
+  padding-left: 12px;
+  border-left: 3px solid var(--xc-border-strong);
+  color: var(--xc-muted);
+}
+.xc-md hr {
+  border: 0;
+  border-top: 1px solid var(--xc-border);
+  margin: 1em 0;
+}
+.xc-md a {
+  color: var(--xc-accent-text);
+}
+
+.xc-md img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.4em 0;
+  border-radius: 8px;
+  border: 1px solid var(--xc-border);
+  cursor: zoom-in;
+}
+.xc-md p > img:only-child {
+  margin: 0;
+}
+.xc-md li.task input:not([readonly]) {
+  cursor: pointer;
+}
+.xc-md li.task.done > span {
+  color: var(--xc-muted);
+  text-decoration: line-through;
+}
+.xc-md table {
+  border-collapse: collapse;
+  margin: 0 0 0.75em;
+}

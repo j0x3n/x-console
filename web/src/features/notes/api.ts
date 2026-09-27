@@ -15,11 +15,13 @@ export type Note = components["schemas"]["Note"];
 export type NoteSummary = components["schemas"]["NoteSummary"];
 export type TagCount = components["schemas"]["TagCount"];
 export type UpdateNote = components["schemas"]["UpdateNote"];
+export type Attachment = components["schemas"]["Attachment"];
 
 export interface NotesFilter {
   q: string;
   tag: string;
   archived: boolean;
+  pinned: boolean;
 }
 
 export const notesKeys = {
@@ -44,6 +46,7 @@ export function useNotes(filter: NotesFilter) {
               q: filter.q || undefined,
               tag: filter.tag || undefined,
               archived: filter.archived || undefined,
+              pinned: filter.pinned || undefined,
               limit: 50,
               cursor: pageParam || undefined,
             },
@@ -159,4 +162,15 @@ export function useNoteToReminder() {
         }),
       ),
   });
+}
+
+/** 附件最大 50 MB，和服务端一致。 */
+export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+
+/** 上传一个附件，返回附件信息。 */
+export async function uploadAttachment(noteId: number, file: File): Promise<Attachment> {
+  const form = new FormData();
+  form.append("file", file, file.name || "image.png");
+  const res = await apiFetch(`/notes/${noteId}/attachments`, { method: "POST", body: form });
+  return (await res.json()) as Attachment;
 }
