@@ -43,7 +43,7 @@
 - 演示开关：页面底部“演示数据：开/关”，存在浏览器的 `xc.demo.full` 里，默认开。开着时 `web/src/demo/full` 接管已有后端的模块（项目、笔记、提醒、习惯、日历、服务器、监控、编码任务、智能家居、GitHub 等，见 `demo/mode.ts` 的 `FULL_PREFIXES`），读写都只动内存里的假数据，刷新后恢复原样，不会碰服务器上的真数据。关掉后这些模块回到真数据，没有后端的功能照样是假数据。
 - 不拦登录和两步验证、笔记图片附件。
 - 去掉时删 `web/src/demo`，以及 `main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
-- 2026-09-27 部署到线上给用户看效果（develop 上带 `[deploy]` 的提交）。
+- 2026-09-27 部署到线上给用户看效果（develop 上带部署标记的提交）。同一天又部署了一次，加上全部页面的假数据和演示开关。
 
 **B15 B10 遗留**
 - `components/ui/Stat.tsx` 的 `Ring`：比例为 0 时不渲染 `.bar`。原因是 `stroke-linecap: round`，长度为 0 也会画一个点。
