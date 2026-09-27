@@ -23,7 +23,7 @@
 | B10 | 页面内容占满右侧面板 | 见下方说明 | Codex |
 | B11 | 统一页头并重做笔记页面 | [specs/B11.md](specs/B11.md) | Codex |
 
-以上改动统一汇总在 `dev-codex` 分支，等待合并到 `develop`。
+以上改动统一汇总在 `dev-codex` 分支，通过 [PR #11](https://github.com/j0x3n/x-console/pull/11) 等待合并到 `develop`。原 B1 至 B10 的 `task/*` 分支已追加还原提交，文件内容与 `develop` 一致。对应的旧 PR #1 至 #10 已关闭。
 
 ## 待做
 
