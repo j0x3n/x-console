@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -186,8 +187,8 @@ func (fakeHabits) Today(context.Context) ([]contracts.HabitProgress, error) {
 
 type fakeRenewals struct{}
 
-func (fakeRenewals) UpcomingRenewals(context.Context, time.Time) ([]brief.Renewal, error) {
-	return []brief.Renewal{{Name: "域名 example.com", Date: at(30, 0, 0), Amount: 68, Currency: "CNY"}}, nil
+func (fakeRenewals) Upcoming(context.Context, time.Time) ([]contracts.RenewalRef, error) {
+	return []contracts.RenewalRef{{Name: "域名 example.com", Date: at(30, 0, 0), Amount: 68, Currency: "CNY"}}, nil
 }
 
 type fakePolisher struct{}
@@ -206,7 +207,7 @@ func fakeRegistry(failHosts bool) *module.Registry {
 	module.Provide[contracts.Reminders](reg, contracts.RemindersKey, fakeReminders{})
 	module.Provide[contracts.Hosts](reg, contracts.HostsKey, fakeHosts{fail: failHosts})
 	module.Provide[contracts.Habits](reg, contracts.HabitsKey, fakeHabits{})
-	module.Provide[brief.RenewalSource](reg, brief.RenewalsKey, fakeRenewals{})
+	module.Provide[contracts.Renewals](reg, contracts.RenewalsKey, fakeRenewals{})
 	module.Provide[brief.Polisher](reg, brief.PolisherKey, fakePolisher{})
 	return reg
 }
@@ -272,6 +273,31 @@ func TestBriefWithFakeProviders(t *testing.T) {
 	_, keys, _ = brief.Generate(m, context.Background(), fakeRegistry(true), at(27, 8, 0))
 	if strings.Join(keys, ",") != "calendar,habits" {
 		t.Fatalf("keys with failing hosts: %v", keys)
+	}
+}
+
+func TestRenewalsFromMonitoring(t *testing.T) {
+	env, m, ws := setup(t)
+	settings := baseSettings(ws)
+	settings["sections"] = []string{"renewals"}
+	putSettings(t, env, settings)
+	create := func(name, date string) int64 {
+		var result struct{ Id int64 }
+		env.MustDo(http.MethodPost, "/subscriptions", map[string]any{
+			"name": name, "amount": 68, "cycle": "yearly", "category": "domain", "nextRenewal": date,
+		}, &result)
+		return result.Id
+	}
+	create("到期域名", "2026-10-30")
+	create("下周以后", "2026-11-05")
+	archived := create("已归档", "2026-10-29")
+	env.MustDo(http.MethodPatch, "/subscriptions/"+strconv.FormatInt(archived, 10), map[string]any{"archived": true}, nil)
+	content, keys, err := brief.Generate(m, context.Background(), env.App.Deps.Registry, at(27, 8, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(keys, ",") != "renewals" || !strings.Contains(content, "10-30 到期域名 68 CNY") || strings.Contains(content, "下周以后") || strings.Contains(content, "已归档") {
+		t.Fatalf("renewal section: keys=%v content=%s", keys, content)
 	}
 }
 

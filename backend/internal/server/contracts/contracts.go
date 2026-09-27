@@ -30,6 +30,7 @@ const (
 	HomeAssistantKey = "homeassistant.ha"    // M9 provides
 	CodingKey        = "coding.launcher"     // M4 provides
 	CalendarKey      = "calendar.calendar"   // M11 provides
+	RenewalsKey      = "monitoring.renewals" // M10 provides, M11 uses
 	GitHubKey        = "github.github"       // M13 provides
 )
 
@@ -134,6 +135,21 @@ type ReminderRef struct {
 type Reminders interface {
 	Create(ctx context.Context, in CreateReminder) (int64, error)
 	Upcoming(ctx context.Context, until time.Time) ([]ReminderRef, error)
+}
+
+// ---- M10 subscriptions ----
+
+// RenewalRef is one active subscription due before the requested date.
+type RenewalRef struct {
+	Name     string    `json:"name"`
+	Date     time.Time `json:"date"`
+	Amount   float64   `json:"amount"`
+	Currency string    `json:"currency"`
+}
+
+// Renewals is provided by M10 for the daily brief.
+type Renewals interface {
+	Upcoming(ctx context.Context, until time.Time) ([]RenewalRef, error)
 }
 
 // ---- M8 habits ----
