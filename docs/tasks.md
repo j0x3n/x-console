@@ -39,8 +39,10 @@
 ### 待做任务的说明
 
 **B2 今日（首页）**
-- `web/src/features/overview`：版式照初版“今日”，数据来自各模块已有的 hooks。每张卡片包错误边界，一张出错不影响别的。卡片布局存服务端。
-- 要显示的卡片和布局接口见规格。
+- 依赖 B10 的 `StatStrip`、`Section`。
+- 第一轮前端：`web/src/features/overview` 做今日页，侧边栏改名“今日”。数据用各模块已有的接口，不用改后端。每个分区包错误边界。写好布局接口契约 `api/modules/dashboard.yaml`；接口没上线时布局先存在本地，并提示“还没上线”。
+- 第二轮后端：新建 `modules/dashboard`，实现 `GET/PUT /dashboard/layout`。
+- 做法、要调的接口和验收标准见规格。
 
 **B3 AI 助手与自动化**
 - 用官方 Go SDK `github.com/anthropics/anthropic-sdk-go`。默认模型 `claude-opus-5-5`，adaptive thinking，流式输出，开启服务端 refusal fallback（`fallbacks: "default"` 加 beta 头 `server-side-fallback-2026-07-01`）。写代码前查官方 SDK 文档确认用法，不要凭记忆。
