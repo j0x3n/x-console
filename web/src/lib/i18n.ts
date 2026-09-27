@@ -86,6 +86,7 @@ registerZh({
   "Verify it's you": "再次验证",
   "Enter the 6-digit code from your authenticator app.":
     "输入验证器 App 里的 6 位验证码。",
+  "Enter your login password.": "输入登录密码。",
   "Verification code": "验证码",
   Verify: "验证",
   Username: "用户名",

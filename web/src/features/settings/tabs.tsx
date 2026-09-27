@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import GeneralTab from "./GeneralTab";
 import DevicesTab from "./DevicesTab";
 import AuditTab from "./AuditTab";
+import SecurityTab from "./SecurityTab";
 import NotificationsTab from "../reminders/NotificationsTab";
 import HASettingsTab from "../home/HASettingsTab";
 import GitHubSettingsTab from "../github/GitHubSettingsTab";
@@ -18,6 +19,7 @@ export interface SettingsTab {
 // 例如 { id: "notifications", label: "Notifications", component: NotificationSettings }。
 export const settingsTabs: SettingsTab[] = [
   { id: "general", label: "General", component: GeneralTab },
+  { id: "security", label: "Security", component: SecurityTab },
   { id: "devices", label: "Devices & agents", component: DevicesTab },
   { id: "audit", label: "Audit log", component: AuditTab },
   { id: "notifications", label: "Notifications", component: NotificationsTab },

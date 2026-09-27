@@ -60,6 +60,16 @@
 .settings-row small {
   color: var(--xc-muted);
 }
+.settings-note {
+  margin: 0 0 12px;
+  color: var(--xc-muted);
+  line-height: 1.5;
+}
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
 @media (max-width: 900px) {
   .settings-layout {
     grid-template-columns: minmax(0, 1fr);

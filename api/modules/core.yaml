@@ -38,7 +38,7 @@ paths:
       operationId: setupAccount
       tags: [auth]
       security: []
-      description: 仅在还没有用户时可用。创建用户并返回 TOTP 密钥，需再调用 /auth/setup/confirm 完成。
+      description: 仅在还没有用户时可用。创建用户并返回 TOTP 密钥。之后调用 /auth/setup/confirm 开启两步验证，或调用 /auth/setup/skip-totp 跳过。
       requestBody:
         required: true
         content:
@@ -70,6 +70,17 @@ paths:
           description: 启用两步验证并登录
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /auth/setup/skip-totp:
+    post:
+      operationId: skipSetupTotp
+      tags: [auth]
+      security: []
+      description: 初始化时跳过两步验证，直接登录。之后可以在设置里开启。
+      responses:
+        "204":
+          description: 已登录，账号没有两步验证
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /auth/login:
     post:
       operationId: login
@@ -81,6 +92,7 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/LoginRequest"
+      description: 开了两步验证但没带 code 时回 401，错误码 totp_required，不计入失败次数。
       responses:
         "204":
           description: 登录成功，设置会话 Cookie
@@ -97,13 +109,13 @@ paths:
     post:
       operationId: elevate
       tags: [auth]
-      description: 用 TOTP 再验证一次，之后 5 分钟内可以执行高危操作。
+      description: 再验证一次，之后 5 分钟内可以执行高危操作。开了两步验证时传 code，没开时传 password。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TotpCode"
+              $ref: "#/components/schemas/ElevateRequest"
       responses:
         "200":
           description: 已提升权限
@@ -114,6 +126,75 @@ paths:
                 required: [elevatedUntil]
                 properties:
                   elevatedUntil: { type: string, format: date-time }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /auth/totp/enroll:
+    post:
+      operationId: enrollTotp
+      tags: [auth]
+      description: 需要提升权限。生成新的密钥，调用 /auth/totp/confirm 之后才生效。
+      responses:
+        "200":
+          description: 新的密钥和 otpauth 地址
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpEnrollment"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /auth/totp/confirm:
+    post:
+      operationId: confirmTotp
+      tags: [auth]
+      description: 输入一次验证码，确认后开启两步验证。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TotpCode"
+      responses:
+        "204":
+          description: 已开启两步验证
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /auth/totp/disable:
+    post:
+      operationId: disableTotp
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password, code]
+              properties:
+                password: { type: string }
+                code: { type: string, pattern: "^[0-9]{6}$" }
+      responses:
+        "204":
+          description: 已关闭两步验证
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /auth/password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      description: 修改登录密码。成功后其他会话全部退出，当前会话保留。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: { type: string }
+                newPassword: { type: string, minLength: 10 }
+      responses:
+        "204":
+          description: 已修改
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /audit:
@@ -286,6 +367,9 @@ components:
           description: 还没有用户，需要先走初始化
         authenticated: { type: boolean }
         username: { type: string }
+        totpEnabled:
+          type: boolean
+          description: 是否开了两步验证。只在已登录时返回
         elevatedUntil: { type: string, format: date-time }
     Credentials:
       type: object
@@ -306,11 +390,25 @@ components:
         code: { type: string, pattern: "^[0-9]{6}$" }
     LoginRequest:
       type: object
-      required: [username, password, code]
+      required: [username, password]
       properties:
         username: { type: string }
         password: { type: string }
-        code: { type: string }
+        code:
+          type: string
+          description: 两步验证码。没开两步验证时不传
+          x-go-type-skip-optional-pointer: true
+    ElevateRequest:
+      type: object
+      description: 开了两步验证时传 code，没开时传 password
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          x-go-type-skip-optional-pointer: true
+        password:
+          type: string
+          x-go-type-skip-optional-pointer: true
     AuditEntry:
       type: object
       required: [id, at, actor, action, target, result]
