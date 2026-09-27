@@ -1007,3 +1007,244 @@ a.xc-badge:hover {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* ---- 公共组件（components/ui/Toolbar、MoreMenu、Switch）---- */
+
+/* 工具栏：左边标签或筛选，右边搜索和视图切换。窄屏上下两行。 */
+.xc-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 12px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.xc-toolbar-start {
+  min-width: 0;
+}
+.xc-toolbar-start .xc-tabs {
+  margin: 0;
+  border-bottom: 0;
+}
+.xc-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 6px;
+}
+@media (max-width: 640px) {
+  .xc-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .xc-toolbar-end {
+    padding-bottom: 8px;
+  }
+  .xc-toolbar-end .xc-search {
+    flex: 1;
+    width: auto;
+  }
+}
+
+/* 搜索框 */
+.xc-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 240px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface);
+  color: var(--xc-muted);
+}
+.xc-search:focus-within {
+  border-color: var(--xc-accent);
+}
+.xc-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+}
+.xc-search input:focus-visible {
+  outline: none;
+}
+.xc-search button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--xc-muted);
+}
+
+/* 分段切换 */
+.xc-segmented {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface);
+}
+.xc-segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-muted);
+  font: inherit;
+  font-size: 12.5px;
+}
+.xc-segmented button.on {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+
+/* 更多菜单：桌面下拉，手机底部弹出 */
+.xc-more {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.xc-more-button {
+  padding: 4px 6px;
+}
+.xc-more-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+}
+.xc-more-menu {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 30;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 9px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.xc-more-title {
+  display: none;
+}
+.xc-more-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--xc-text-2);
+  font: inherit;
+  text-align: left;
+}
+.xc-more-menu button:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.xc-more-menu button.danger {
+  color: var(--xc-danger);
+}
+@media (max-width: 640px) {
+  .xc-more-backdrop {
+    background: #0006;
+  }
+  .xc-more-menu {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
+    border-radius: 14px 14px 0 0;
+  }
+  .xc-more-title {
+    display: block;
+    padding: 6px 10px 10px;
+    overflow: hidden;
+    color: var(--xc-muted);
+    font-size: 12.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .xc-more-menu button {
+    padding: 12px 10px;
+  }
+}
+
+/* 开关 */
+.xc-switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 34px;
+  height: 20px;
+}
+.xc-switch input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.xc-switch i {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: var(--xc-border-strong);
+  transition: background 0.15s;
+}
+.xc-switch i::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.xc-switch input:checked + i {
+  background: var(--xc-accent);
+}
+.xc-switch input:checked + i::after {
+  transform: translateX(14px);
+}
+.xc-switch input:focus-visible + i {
+  outline: 2px solid var(--xc-accent);
+  outline-offset: 2px;
+}
+.xc-switch input:disabled + i {
+  opacity: 0.5;
+}
+
+/* 勾选框：<label className="xc-check"><input type="checkbox"/><span>文字</span></label>
+   下面要补一句说明时，紧跟 <small className="xc-check-hint"> */
+.xc-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+.xc-check-hint {
+  display: block;
+  margin: -6px 0 12px 24px;
+  color: var(--xc-muted);
+  line-height: 1.5;
+}

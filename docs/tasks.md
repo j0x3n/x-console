@@ -152,4 +152,6 @@
 | 2026-09-27 | `PageHeading` 默认不显示大标题（加 `showTitle` 才显示），字符串标题写进新的 `stores/page-title.ts`，`Topbar` 在详情页显示“模块 / 名称”；`ui.css` 加 `.xc-sr-only` | 用户要求页面只用左上角小标题 |
 | 2026-09-27 | 新增 `lib/navChildren.ts`（`registerNavChildren`）和 `components/layout/NavChildLinks.tsx`，`Sidebar` 支持二级菜单；设置从 `app/nav.ts` 移到个人菜单；`StatStrip` 加 `size`，默认紧凑；命令面板没输入时只列常用命令，搜索按标题排序；`Ring` 比例为 0 时不画 | 用户要求的界面调整 |
 | 2026-09-27 | `ci.yml` 只改文档时不跑，同一分支连续推送时取消旧的检查 | 减少构建次数 |
+| 2026-09-27 | 新增公共组件 `components/ui/Toolbar.tsx`（`Toolbar`、`SearchBox`、`Segmented`）、`MoreMenu.tsx`、`Switch.tsx`，`States` 加 `NotLive`，`ui.css` 加 `.xc-check`；云盘、自动化、AI 助手设置改用它们。新增 `docs/07-design.md` 和 `npm run shots`（`web/scripts/shots.mjs`，开发依赖 `playwright-core`） | 让别的开发者照着做出一样的界面 |
+| 2026-09-27 | 平时推送 develop 不跑 CI；develop 上最后一个提交带 `[deploy]` 时构建并部署（见 AGENTS.md“构建和部署”） | 用户要求省构建额度 |
 | 2026-09-27 | 中文词典冲突检查（`web/src/lib/i18n.test.ts`） | 不同模块用同一个英文键注册了不同中文，互相覆盖 |

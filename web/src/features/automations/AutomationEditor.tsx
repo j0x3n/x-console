@@ -253,7 +253,7 @@ function Editor({
                 </small>
               </label>
             </div>
-            <label className="auto-check">
+            <label className="xc-check">
               <input
                 type="checkbox"
                 checked={form.enabled}

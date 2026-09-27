@@ -406,17 +406,6 @@
 }
 
 /* 设置 → AI 助手 */
-.ai-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0 6px;
-}
-.ai-check-hint {
-  display: block;
-  margin: 0 0 12px 24px;
-  line-height: 1.5;
-}
 .ai-form-actions {
   display: flex;
   justify-content: flex-end;

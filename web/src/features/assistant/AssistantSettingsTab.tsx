@@ -128,7 +128,7 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
           />
         </label>
       )}
-      <label className="ai-check">
+      <label className="xc-check">
         <input
           type="checkbox"
           checked={confirmAll}
@@ -136,7 +136,7 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
         />
         <span>{t("Confirm every write")}</span>
       </label>
-      <small className="ai-muted ai-check-hint">
+      <small className="xc-check-hint">
         关着时，新建和修改直接执行，删除和高危操作先问你。打开后所有改动都先问你。
       </small>
       <div className="ai-form-actions">

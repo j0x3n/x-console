@@ -60,12 +60,13 @@ WebSocket（终端、实时推送）不用额外配置，Caddy 会自动处理�
 
 ### 3. 触发部署
 
-只有两种情况会部署：
+以下三种情况会构建并部署：
 
 - 推送到 `main`，通常是把 `develop` 合并进 `main`。
-- 在 Actions 页面选 Deploy，点 Run workflow 手动运行。
+- 推送到 `develop`，且最后一个提交的信息里带 `[deploy]`。用户说“构建”“部署”时这样做，用来在线上看开发中的效果。
+- 在 Actions 页面选 Deploy，点 Run workflow 手动运行，可以选分支。
 
-其他分支的推送和 PR 只跑测试，不构建镜像，也不部署。
+平时推送到 `develop` 不跑任何构建。PR 上会跑测试（只改文档的 PR 不跑），不构建镜像，也不部署。
 
 回滚：在 Actions 页面找到上一次成功的 Deploy，点 Re-run all jobs。
 

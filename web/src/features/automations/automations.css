@@ -18,12 +18,6 @@
   color: var(--xc-danger);
   font-style: normal;
 }
-.auto-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 2px 0 10px;
-}
 
 /* 规则列表 */
 .auto-list {
@@ -73,51 +67,6 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-}
-
-/* 开关 */
-.auto-switch {
-  position: relative;
-  display: inline-block;
-  flex: none;
-  width: 34px;
-  height: 20px;
-}
-.auto-switch input {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.auto-switch i {
-  position: absolute;
-  inset: 0;
-  border-radius: 10px;
-  background: var(--xc-border-strong);
-  transition: background 0.15s;
-}
-.auto-switch i::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.15s;
-}
-.auto-switch input:checked + i {
-  background: var(--xc-accent);
-}
-.auto-switch input:checked + i::after {
-  transform: translateX(14px);
-}
-.auto-switch input:focus-visible + i {
-  outline: 2px solid var(--xc-accent);
-  outline-offset: 2px;
 }
 
 /* 编辑器 */

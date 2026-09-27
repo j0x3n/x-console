@@ -11,82 +11,6 @@
   line-height: 1.5;
 }
 
-/* 工具栏：左边分类标签，右边搜索和视图切换 */
-.drive-toolbar {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 18px 0 10px;
-  border-bottom: 1px solid var(--xc-border);
-}
-.drive-tabs.xc-tabs {
-  border-bottom: 0;
-  margin: 0;
-}
-.drive-tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.drive-tools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 6px;
-  min-width: 0;
-}
-.drive-search {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 240px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--xc-border);
-  border-radius: 8px;
-  background: var(--xc-surface);
-  color: var(--xc-muted);
-}
-.drive-search:focus-within {
-  border-color: var(--xc-accent);
-}
-.drive-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: none;
-  color: var(--xc-text);
-  font: inherit;
-}
-.drive-search button {
-  display: inline-flex;
-  padding: 2px;
-  border: 0;
-  background: none;
-  color: var(--xc-muted);
-}
-.drive-layout {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--xc-border);
-  border-radius: 8px;
-  background: var(--xc-surface);
-}
-.drive-layout button {
-  display: inline-flex;
-  padding: 4px 6px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--xc-muted);
-}
-.drive-layout button.on {
-  background: var(--xc-surface-2);
-  color: var(--xc-text);
-}
-
 /* 面包屑 */
 .drive-crumbs {
   display: flex;
@@ -326,56 +250,6 @@
   font-size: 11.5px;
 }
 
-/* 更多菜单 */
-.drive-menu-wrap {
-  position: relative;
-  display: flex;
-  justify-content: center;
-}
-.drive-more {
-  padding: 4px 6px;
-}
-.drive-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 29;
-}
-.drive-menu {
-  position: absolute;
-  top: 30px;
-  right: 0;
-  z-index: 30;
-  min-width: 180px;
-  padding: 4px;
-  border: 1px solid var(--xc-border-strong);
-  border-radius: 9px;
-  background: var(--xc-elevated);
-  box-shadow: var(--xc-shadow);
-}
-.drive-menu-title {
-  display: none;
-}
-.drive-menu button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 8px 9px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--xc-text-2);
-  font: inherit;
-  text-align: left;
-}
-.drive-menu button:hover {
-  background: var(--xc-surface-2);
-  color: var(--xc-text);
-}
-.drive-menu button.danger {
-  color: var(--xc-danger);
-}
-
 /* 拖文件进来时盖住整个页面的提示 */
 .drive-drop {
   position: fixed;
@@ -554,16 +428,6 @@
 }
 
 /* 设置 → 云盘同步 */
-.drive-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0 10px;
-}
-.drive-check-hint {
-  display: block;
-  margin: -6px 0 10px 24px;
-}
 .drive-test {
   margin: 0 0 10px;
   padding: 8px 10px;
@@ -617,18 +481,6 @@
 
 /* 手机：列表单列，大小和时间放到名称下面；菜单从底部弹出 */
 @media (max-width: 640px) {
-  .drive-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-  .drive-tools {
-    padding-bottom: 8px;
-  }
-  .drive-search {
-    flex: 1;
-    width: auto;
-  }
   .drive-btn-text {
     display: none;
   }
@@ -650,30 +502,6 @@
   }
   .drive-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .drive-menu-backdrop {
-    background: #0006;
-  }
-  .drive-menu {
-    position: fixed;
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    padding: 8px 8px calc(10px + env(safe-area-inset-bottom));
-    border-radius: 14px 14px 0 0;
-  }
-  .drive-menu-title {
-    display: block;
-    padding: 6px 10px 10px;
-    overflow: hidden;
-    color: var(--xc-muted);
-    font-size: 12.5px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .drive-menu button {
-    padding: 12px 10px;
   }
   .drive-uploads {
     right: 8px;

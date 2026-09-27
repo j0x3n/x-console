@@ -100,7 +100,7 @@ export function useIssues(projectId: number) {
 
 ## 组件和样式
 
-先用现成的：
+页面怎么排、用哪个组件、间距字号多少，先看 [07-design.md](07-design.md)。下面是常用的：
 
 | 需要 | 用这个 |
 | --- | --- |

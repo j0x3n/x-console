@@ -12,12 +12,12 @@ import {
   LayoutGrid,
   List,
   RotateCcw,
-  Search,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
+import { SearchBox, Segmented, Toolbar } from "../../components/ui/Toolbar";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
@@ -374,67 +374,64 @@ function DriveBrowser() {
         language={language}
       />
 
-      <div className="drive-toolbar">
-        <nav className="xc-tabs drive-tabs" aria-label={t("Drive")}>
-          <button
-            className={!trash && !hidden ? "active" : ""}
-            onClick={() => go({ view: null, folder: null, q: null })}
-          >
-            {t("Files")}
-          </button>
-          {vaultUnlocked && (
+      <Toolbar
+        start={
+          <nav className="xc-tabs drive-tabs" aria-label={t("Drive")}>
             <button
-              className={hidden ? "active" : ""}
-              onClick={() => go({ view: "hidden", folder: null, q: null })}
+              className={!trash && !hidden ? "active" : ""}
+              onClick={() => go({ view: null, folder: null, q: null })}
             >
-              <EyeOff size={13} /> {t("Hidden items")}
+              {t("Files")}
             </button>
-          )}
-          <button
-            className={trash ? "active" : ""}
-            onClick={() => go({ view: "trash", folder: null, q: null })}
-          >
-            <Trash2 size={13} /> {t("Trash")}
-          </button>
-        </nav>
-        <div className="drive-tools">
-          {!trash && (
-            <label className="drive-search">
-              <Search size={14} />
-              <input
+            {vaultUnlocked && (
+              <button
+                className={hidden ? "active" : ""}
+                onClick={() => go({ view: "hidden", folder: null, q: null })}
+              >
+                <EyeOff size={13} /> {t("Hidden items")}
+              </button>
+            )}
+            <button
+              className={trash ? "active" : ""}
+              onClick={() => go({ view: "trash", folder: null, q: null })}
+            >
+              <Trash2 size={13} /> {t("Trash")}
+            </button>
+          </nav>
+        }
+        end={
+          <>
+            {!trash && (
+              <SearchBox
                 ref={searchRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={setInput}
                 placeholder={t("Search files")}
-                aria-label={t("Search files")}
+                clearLabel={t("Clear")}
               />
-              {input && (
-                <button aria-label={t("Clear")} onClick={() => setInput("")}>
-                  <X size={13} />
-                </button>
-              )}
-            </label>
-          )}
-          <div className="drive-layout" role="group" aria-label={t("View")}>
-            <button
-              className={layout === "list" ? "on" : ""}
-              aria-pressed={layout === "list"}
-              title={t("List view")}
-              onClick={() => setLayout("list")}
-            >
-              <List size={15} />
-            </button>
-            <button
-              className={layout === "grid" ? "on" : ""}
-              aria-pressed={layout === "grid"}
-              title={t("Grid view")}
-              onClick={() => setLayout("grid")}
-            >
-              <LayoutGrid size={15} />
-            </button>
-          </div>
-        </div>
-      </div>
+            )}
+            <Segmented
+              label={t("View")}
+              value={layout}
+              onChange={setLayout}
+              options={[
+                {
+                  value: "list",
+                  label: t("List view"),
+                  icon: List,
+                  iconOnly: true,
+                },
+                {
+                  value: "grid",
+                  label: t("Grid view"),
+                  icon: LayoutGrid,
+                  iconOnly: true,
+                },
+              ]}
+            />
+          </>
+        }
+      />
 
       {!trash && !q && (
         <nav className="drive-crumbs" aria-label={t("Path")}>

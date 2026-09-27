@@ -1,13 +1,18 @@
 name: Deploy
 
-# main 是线上版本。推送到 main（或在 Actions 页面手动运行）时：
-# 测试和构建镜像同时跑 → 两个都成功后部署到服务器，并把镜像标成 latest。
+# 什么时候构建并部署到线上服务器：
+#   - 推送到 main；
+#   - 推送到 develop，且最后一个提交的信息里带 [deploy]（用户说“构建”“部署”时这样做）；
+#   - 在 Actions 页面手动运行（可以选分支）。
+# 推送到 develop 但没带 [deploy] 时，所有任务都跳过，不占构建额度。
+# 流程：测试和构建镜像同时跑 → 两个都成功后部署，并把镜像标成 latest。
 # 镜像先只带 sha 标签，测试没过不会上线，latest 也不会变。
 # 服务器相关的 Secrets 没配置时，只构建不部署。配置方法见 docs/06-deploy.md。
 on:
   push:
     branches:
       - main
+      - develop
   workflow_dispatch:
 
 concurrency:
@@ -22,10 +27,12 @@ env:
 
 jobs:
   test:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy]')
     uses: ./.github/workflows/ci.yml
 
   # 不等测试，和测试同时跑，省下约 1 分半钟。
   image:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy]')
     runs-on: ubuntu-latest
     permissions:
       contents: read

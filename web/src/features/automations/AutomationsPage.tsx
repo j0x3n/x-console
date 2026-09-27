@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { Play, Plus, ShieldAlert, Workflow } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
+import Switch from "../../components/ui/Switch";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
@@ -96,20 +97,11 @@ export default function AutomationsPage() {
         <div className="auto-list">
           {rules.map((r) => (
             <div key={r.id} className={`auto-card${r.enabled ? "" : " off"}`}>
-              <label
-                className="auto-switch"
-                title={r.enabled ? t("Turn off") : t("Turn on")}
-              >
-                <input
-                  type="checkbox"
-                  checked={r.enabled}
-                  aria-label={`${r.name} ${t("enabled")}`}
-                  onChange={(e) =>
-                    toggle.mutate({ id: r.id, enabled: e.target.checked })
-                  }
-                />
-                <i />
-              </label>
+              <Switch
+                checked={r.enabled}
+                label={`${r.name} ${t("enabled")}`}
+                onChange={(enabled) => toggle.mutate({ id: r.id, enabled })}
+              />
               <Link to={`/automations/${r.id}`} className="auto-card-main">
                 <strong>{r.name}</strong>
                 <span className="auto-muted">

@@ -116,7 +116,7 @@ function S3Form({ initial }: { initial: S3Config }) {
         面板里的文件单向备份到 S3。支持 AWS S3、Cloudflare R2、MinIO、阿里云 OSS
         等兼容存储。
       </p>
-      <label className="drive-check">
+      <label className="xc-check">
         <input
           type="checkbox"
           checked={form.enabled}
@@ -145,7 +145,7 @@ function S3Form({ initial }: { initial: S3Config }) {
           autoComplete="new-password"
         />
       </label>
-      <label className="drive-check">
+      <label className="xc-check">
         <input
           type="checkbox"
           checked={form.pathStyle}
@@ -153,8 +153,8 @@ function S3Form({ initial }: { initial: S3Config }) {
         />
         <span>{t("Path-style URLs")}</span>
       </label>
-      <small className="drive-muted drive-check-hint">MinIO 一般要勾上。</small>
-      <label className="drive-check">
+      <small className="xc-check-hint">MinIO 一般要勾上。</small>
+      <label className="xc-check">
         <input
           type="checkbox"
           checked={form.includeHidden}
@@ -162,7 +162,7 @@ function S3Form({ initial }: { initial: S3Config }) {
         />
         <span>{t("Also sync hidden files")}</span>
       </label>
-      <small className="drive-muted drive-check-hint">
+      <small className="xc-check-hint">
         放在前缀下的 .hidden 目录里。桶的权限要自己管好。
       </small>
       {result && (

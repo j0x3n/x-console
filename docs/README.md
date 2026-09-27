@@ -12,6 +12,7 @@
 | [04-agent-protocol.md](04-agent-protocol.md) | 代理配对、连接、请求、流、事件 | 写代理或调用代理之前 |
 | [05-frontend.md](05-frontend.md) | 前端约定：模块结构、调接口、组件和样式 | 写前端之前 |
 | [06-deploy.md](06-deploy.md) | 部署、代理安装、本地联调 | 部署或排查线上问题时 |
+| [07-design.md](07-design.md) | 界面设计规范：页面结构、组件清单、数值、自查和截图 | 做任何界面之前 |
 
 ## 仓库结构
 

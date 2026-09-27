@@ -53,8 +53,9 @@ export function isNotLive(error: unknown) {
 
 // 演示数据（临时，见 src/demo）提供文件内容的本地地址。去掉演示数据时一起删。
 const demoFileUrl = (id: number) =>
-  (globalThis as { xcDemoFileUrl?: (id: number) => string | undefined })
-    .xcDemoFileUrl?.(id);
+  (
+    globalThis as { xcDemoFileUrl?: (id: number) => string | undefined }
+  ).xcDemoFileUrl?.(id);
 
 export function contentUrl(id: number, inline = false) {
   return (

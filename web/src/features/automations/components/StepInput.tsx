@@ -75,7 +75,7 @@ function FieldInput({
   );
   if (field.kind === "boolean")
     return (
-      <label className="auto-check">
+      <label className="xc-check">
         <input
           type="checkbox"
           checked={value === true}

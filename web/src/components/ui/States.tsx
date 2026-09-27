@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, Inbox } from "lucide-react";
+import { AlertTriangle, Construction, Inbox } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import { useT } from "../../contexts/LanguageContext";
 
@@ -51,6 +51,20 @@ export function ErrorState({
           {t("Retry")}
         </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * 后端还没做的功能：接口返回 404 或 501 时整页显示这个，不要显示成“出错了”。
+ * name 写功能名，比如“云盘”。
+ */
+export function NotLive({ name, icon }: { name: string; icon?: ReactNode }) {
+  return (
+    <div className="xc-empty">
+      {icon ?? <Construction size={28} />}
+      <strong>{name}还没上线</strong>
+      <span>界面已经做好，服务端还在开发。</span>
     </div>
   );
 }

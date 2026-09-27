@@ -1,7 +1,6 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   Download,
-  Ellipsis,
   Eye,
   EyeOff,
   FolderInput,
@@ -10,6 +9,7 @@ import {
   RotateCcw,
   Trash2,
 } from "lucide-react";
+import MoreMenu from "../../../components/ui/MoreMenu";
 import { useT } from "../../../contexts/LanguageContext";
 import type { DriveItem } from "../api";
 
@@ -63,9 +63,7 @@ const ICONS: Record<ItemAction, ReactNode> = {
   "delete-forever": <Trash2 size={14} />,
 };
 
-/*
- * “更多”菜单。桌面上是按钮下方的下拉，手机上是底部弹出的菜单（见 drive.css）。
- */
+/** 条目的“更多”菜单，用公共的 MoreMenu。 */
 export default function ItemMenu({
   item,
   actions,
@@ -76,57 +74,17 @@ export default function ItemMenu({
   onAction: (action: ItemAction, item: DriveItem) => void;
 }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
   return (
-    <div className="drive-menu-wrap">
-      <button
-        type="button"
-        className="xc-btn ghost small drive-more"
-        aria-label={`${t("More")}: ${item.name}`}
-        aria-expanded={open}
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-      >
-        <Ellipsis size={15} />
-      </button>
-      {open && (
-        <>
-          <div
-            className="drive-menu-backdrop"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-            }}
-          />
-          <div
-            className="drive-menu"
-            role="menu"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="drive-menu-title">{item.name}</div>
-            {actions.map((action) => (
-              <button
-                key={action}
-                role="menuitem"
-                className={
-                  action === "trash" || action === "delete-forever"
-                    ? "danger"
-                    : ""
-                }
-                onClick={() => {
-                  setOpen(false);
-                  onAction(action, item);
-                }}
-              >
-                {ICONS[action]}
-                {t(LABELS[action])}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+    <MoreMenu
+      title={item.name}
+      label={`${t("More")}: ${item.name}`}
+      items={actions.map((action) => ({
+        key: action,
+        label: t(LABELS[action]),
+        icon: ICONS[action],
+        danger: action === "trash" || action === "delete-forever",
+        onSelect: () => onAction(action, item),
+      }))}
+    />
   );
 }
