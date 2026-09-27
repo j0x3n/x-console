@@ -1,6 +1,14 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 概要
+  "All websites up": "网站全部正常",
+  "No renewals coming up": "近期没有续费",
+  "Nothing to check": "还没有要检查的",
+  "Saved commands": "保存的常用命令",
+  "expires soonest": "最先到期",
+  "per month": "每月",
+  "sites up": "个正常",
   // 页面和标签
   Monitoring: "监控",
   Websites: "网站",

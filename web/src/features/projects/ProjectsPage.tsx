@@ -3,6 +3,13 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { FolderKanban, Plus } from "lucide-react";
 import Dialog from "../../components/ui/Dialog";
 import PageHeading from "../../components/ui/PageHeading";
+import {
+  Ring,
+  Section,
+  Segments,
+  StatCard,
+  StatStrip,
+} from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { useMyIssues, useProjects, type Project } from "./api";
@@ -11,7 +18,14 @@ import { ProjectBadge } from "./components/Icons";
 import IssueList from "./components/IssueList";
 import NewIssueDialog from "./components/NewIssueDialog";
 import ProjectDialog from "./components/ProjectDialog";
-import { issuePath, parseIssueKey, type IssueGroup } from "./logic";
+import {
+  dueState,
+  issuePath,
+  localDate,
+  parseIssueKey,
+  type Issue,
+  type IssueGroup,
+} from "./logic";
 
 export default function ProjectsPage() {
   const t = useT();
@@ -38,10 +52,27 @@ export default function ProjectsPage() {
   );
 
   const list = showArchived ? archived : projects;
+  const open = myIssues.data ?? [];
+  const summary = summarize(open);
+  const projectCount = projects.data?.length ?? 0;
   return (
     <div className="xc-page projects-page">
       <PageHeading
         title={t("Projects")}
+        subtitle={
+          projectCount > 0 ? (
+            <>
+              {projectCount} {t("projects")} · <strong>{open.length}</strong>{" "}
+              {t("open issues")}
+              {summary.overdue > 0 && (
+                <>
+                  {" "}
+                  · {summary.overdue} {t("overdue")}
+                </>
+              )}
+            </>
+          ) : undefined
+        }
         aside={
           <>
             <button className="xc-btn small" onClick={() => setProjectDialog(true)}>
@@ -60,6 +91,43 @@ export default function ProjectsPage() {
           </>
         }
       />
+      {projectCount > 0 && (
+        <StatStrip label={t("Projects")}>
+          <StatCard
+            label={t("Open issues")}
+            caption={t("Across projects")}
+            value={open.length}
+            foot={`${summary.inProgress} ${t("in progress")} · ${summary.inReview} ${t("in review")}`}
+          >
+            <Segments
+              parts={[
+                { value: summary.backlog, tone: "muted", label: t("Backlog") },
+                { value: summary.todo, tone: "info", label: t("Todo") },
+                { value: summary.inProgress, tone: "warn", label: t("In progress") },
+                { value: summary.inReview, tone: "ok", label: t("In review") },
+              ]}
+            />
+          </StatCard>
+          <StatCard
+            label={t("Due today")}
+            value={summary.today}
+            tone={summary.today ? "accent" : undefined}
+            foot={t("Issues due today")}
+          />
+          <StatCard
+            label={t("Due this week")}
+            caption={t("Next 7 days")}
+            value={summary.week}
+            foot={t("Including today")}
+          />
+          <StatCard
+            label={t("Overdue")}
+            value={summary.overdue}
+            tone={summary.overdue ? "danger" : "ok"}
+            foot={summary.overdue ? t("Past the due date") : t("Nothing overdue")}
+          />
+        </StatStrip>
+      )}
       {list.isPending ? (
         <Loading />
       ) : list.isError ? (
@@ -84,9 +152,12 @@ export default function ProjectsPage() {
       )}
 
       {!!projects.data?.length && (
-        <section className="projects-mine">
-          <h2>{t("My open issues")}</h2>
-          <p className="xc-muted">{t("Open issues in all projects. The ones due soonest come first.")}</p>
+        <Section
+          className="projects-mine"
+          title={t("My open issues")}
+          count={open.length}
+          aside={<span className="xc-muted projects-hint">{t("Due soonest first")}</span>}
+        >
           {myIssues.isPending ? (
             <Loading />
           ) : myIssues.isError ? (
@@ -100,7 +171,7 @@ export default function ProjectsPage() {
               showProject
             />
           )}
-        </section>
+        </Section>
       )}
 
       <ProjectDialog
@@ -121,25 +192,52 @@ export default function ProjectsPage() {
   );
 }
 
+function summarize(issues: Issue[]) {
+  const today = localDate();
+  const weekEnd = localDate(new Date(Date.now() + 6 * 86_400_000));
+  const s = { backlog: 0, todo: 0, inProgress: 0, inReview: 0, today: 0, week: 0, overdue: 0 };
+  for (const issue of issues) {
+    if (issue.status === "backlog") s.backlog++;
+    else if (issue.status === "todo") s.todo++;
+    else if (issue.status === "in_progress") s.inProgress++;
+    else if (issue.status === "in_review") s.inReview++;
+    const due = dueState(issue.dueDate, today, issue.status);
+    if (due === "overdue") s.overdue++;
+    if (due === "today") s.today++;
+    if (issue.dueDate && issue.dueDate >= today && issue.dueDate <= weekEnd) s.week++;
+  }
+  return s;
+}
+
 function ProjectCard({ project }: { project: Project }) {
   const t = useT();
   const done = project.issueCount - project.openCount;
   const pct = project.issueCount ? Math.round((done / project.issueCount) * 100) : 0;
   return (
     <Link to={`/projects/${project.key}`} className="xc-card projects-card-link">
-      <div className="xc-row">
+      <div className="projects-card-top">
         <ProjectBadge projectKey={project.key} color={project.color} />
-        <strong>{project.name}</strong>
+        <div className="projects-card-name">
+          <strong>{project.name}</strong>
+          <span className="xc-mono xc-muted">{project.key}</span>
+        </div>
+        <Ring value={done} max={project.issueCount} size={40} tone={pct === 100 ? "ok" : "accent"}>
+          <small>{pct}%</small>
+        </Ring>
+      </div>
+      <p className="projects-card-desc">{project.description || t("No description")}</p>
+      <div className="projects-card-foot">
+        <span>
+          <strong>{project.openCount}</strong> {t("open")}
+        </span>
+        <span>
+          <strong>{done}</strong> {t("done")}
+        </span>
         <span className="xc-spacer" />
-        <span className="xc-mono xc-muted">{project.key}</span>
+        <span>
+          {project.issueCount} {t("total")}
+        </span>
       </div>
-      {project.description && <p className="projects-card-desc">{project.description}</p>}
-      <div className="projects-progress" aria-label={`${pct}%`}>
-        <i style={{ width: `${pct}%`, background: project.color || undefined }} />
-      </div>
-      <small className="xc-muted">
-        {project.openCount} {t("open")} · {project.issueCount} {t("total")}
-      </small>
     </Link>
   );
 }

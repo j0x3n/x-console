@@ -2,6 +2,7 @@ import { registerZh } from "../../lib/i18n";
 
 registerZh({
   General: "通用",
+  "Appearance, security, devices and integrations": "外观、安全、设备和集成",
   "Devices & agents": "设备与代理",
   "Audit log": "审计日志",
   Appearance: "外观",

@@ -1,6 +1,16 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 习惯页的概要
+  "All habits": "所有习惯",
+  "All reached": "全部达标",
+  "Best streak": "最长连续",
+  "Check-ins today": "今天打卡",
+  "Days in a row, counting today": "连续达标的天数，含今天",
+  "Needs attention": "还差得多",
+  "Today's progress": "今天的进度",
+  "habits reached": "个习惯已达标",
+  "to go": "个没达标",
   Today: "今天",
   Stats: "统计",
   Workout: "健身",

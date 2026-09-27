@@ -1,6 +1,23 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 项目列表的概要
+  "Across projects": "全部项目",
+  "Due soonest first": "快到期的在前",
+  "Due this week": "本周到期",
+  "Due today": "今天到期",
+  "Including today": "包括今天",
+  "Issues due today": "今天要完成的 Issue",
+  "Next 7 days": "7 天内",
+  "No description": "没有描述",
+  "Nothing overdue": "没有逾期",
+  "Past the due date": "已过截止日期",
+  done: "已完成",
+  "in progress": "进行中",
+  "in review": "待审核",
+  "open issues": "个未完成的 Issue",
+  overdue: "已逾期",
+  projects: "个项目",
   // 状态和优先级
   Backlog: "待规划",
   Todo: "待办",

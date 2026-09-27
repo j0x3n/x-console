@@ -298,3 +298,11 @@
 .habits-time {
   width: 110px;
 }
+
+.habits-stat-ring {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--xc-muted);
+  font-size: 12px;
+}

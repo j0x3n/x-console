@@ -189,3 +189,15 @@
 .notify-quiet {
   max-width: 520px;
 }
+
+.reminders-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.reminders-day {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--xc-muted);
+}
