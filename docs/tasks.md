@@ -43,11 +43,12 @@
 
 **演示数据（保留，D1 才删）**
 - `web/src/demo` 在浏览器里拦请求，返回假数据。`main.tsx` 第一行引入。
-- 常开的拦截（不管开关）：还没有后端的功能，`demo/drive.ts`（云盘）、`demo/ai.ts`（AI 助手）、`demo/automations.ts`（自动化）。
+- 常开的拦截（不管开关）：还没有后端的功能，`demo/ai.ts`（AI 助手）、`demo/automations.ts`（自动化）。
+- 云盘还没有后端。演示开关关掉后不再拦截，页面显示“云盘还没上线”。开关打开时仍用 `demo/drive.ts` 的假数据，刷新后会回到最初的文件。
 - 隐藏内容 B13 已接后端：`demo/vault.ts` 和隐藏笔记只在演示开关打开时拦截。关掉开关后走真实接口。
 - 演示开关：页面底部“演示数据：开/关”，存在浏览器的 `xc.demo.full` 里，默认开。开着时 `demo/full/*` 接管已有后端的模块（`demo/mode.ts` 的 `FULL_PREFIXES`），读写只动内存，刷新后恢复原样，不碰服务器上的真数据。关掉后回到真数据。`PASS_THROUGH` 里的接口（搜城市）始终走真实服务器。
 - 今日页布局 B2 已接后端：`demo/dashboard.ts` 只在演示开关打开时拦截。
-- **做后端时注意**：做完 B14、B3 中任何一个，要把上面对应的“常开拦截”改成只在开关打开时生效（文件开头判断 `demoFull`，或者挪进 `demo/full`），否则关掉开关也看不到真数据。改完在这里更新。B13 已改。
+- **做后端时注意**：做完 B3 后，把 AI 助手和自动化的常开拦截改成只在开关打开时生效（文件开头判断 `demoFull`，或者挪进 `demo/full`），否则关掉开关也看不到真数据。改完在这里更新。B13、云盘的拦截已经只在开关打开时生效。
 - 做新的前端功能时，同时在 `demo/full` 里补假数据，保证演示模式下能用。
 - D1 删除时：删 `web/src/demo`、`main.tsx` 第一行、`api/events.ts` 的 `emitDemoEvent`、`features/drive/api.ts` 的 `demoFileUrl`。
 

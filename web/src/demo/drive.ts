@@ -1,6 +1,11 @@
 import { fileUrl, pdfFile, setFileUrl, svgImage, textFile } from "./files";
-import { ago, fail, json, noContent, now, route } from "./router";
+import { demoFull } from "./mode";
+import { ago, fail, json, noContent, now, route as addRoute, type DemoHandler } from "./router";
 import { vault } from "./vault";
+
+function route(method: string, path: string, handler: DemoHandler) {
+  addRoute(method, path, (req) => (demoFull ? handler(req) : undefined));
+}
 
 /* 云盘：整个目录树在内存里，刷新页面就回到初始状态。 */
 interface Node {
