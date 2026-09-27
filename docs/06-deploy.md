@@ -80,6 +80,8 @@ WebSocket（终端、实时推送）不用额外配置，Caddy 会自动处理�
 
 部署完打开 `https://你的域名`，按提示创建账号并绑定两步验证。
 
+自动部署会在面板所在服务器上安装代理。这台服务器随后会出现在“服务器”页面。代理连接本机的面板端口，不经过公网。首次安装需要主机使用 systemd。安装失败只会在部署日志里显示警告，不影响面板启动。
+
 代理程序在每次运行的 Artifacts 里下载：`x-console-agent-linux-amd64`、`x-console-agent-windows-amd64`。
 
 ### 镜像是私有的
@@ -113,6 +115,7 @@ docker compose up -d --build
 | `XC_DEBUG` | 空 | 设为 `1` 输出调试日志 |
 | `XC_IMAGE` | `ghcr.io/j0x3n/x-console:latest` | 仅 docker compose 使用，自动部署会写入具体版本 |
 | `XC_PORT` | `17380` | 仅 docker compose 使用，面板在服务器本机监听的端口 |
+| `XC_LOCAL_AGENT` | `1` | 自动安装并更新本机代理。设为 `0` 后再部署一次，会卸载自动安装的代理 |
 | `COMPOSE_PROFILES` | 空 | 设为 `caddy` 时启动自带的 Caddy |
 
 ### 备份
@@ -129,6 +132,8 @@ docker compose exec -T x-console sh -c 'cat /data/x-console.db' > backup-$(date 
 
 ### Linux 服务器
 
+自动部署的面板主机无需手动安装。其他 Linux 服务器可按下面的步骤配对。
+
 ```bash
 # 编译（在开发机上）
 cd backend && GOOS=linux GOARCH=amd64 go build -o x-console-agent ./cmd/agent
@@ -138,6 +143,8 @@ sudo x-console-agent pair --server https://console.example.com --code <配对码
 sudo cp deploy/x-console-agent.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now x-console-agent
 ```
+
+在“设置 → 设备与代理”里吊销面板主机的代理后，代理会停止。后续部署不会重新配对它。要彻底卸载，在服务器部署目录的 `.env` 里设置 `XC_LOCAL_AGENT=0`，再部署一次。要重新加入，先用 `0` 部署完成卸载，再改回 `1` 部署一次。
 
 ### Windows 本机
 

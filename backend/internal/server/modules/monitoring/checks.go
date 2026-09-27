@@ -283,9 +283,9 @@ func netError(err error) string {
 		return "超时"
 	case errors.As(err, &dnsErr):
 		return "域名解析失败：" + dnsErr.Name
-	case errors.Is(err, syscall.ECONNREFUSED):
+	case errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.Errno(10061)): // WSAECONNREFUSED on Windows
 		return "连接被拒绝"
-	case errors.Is(err, syscall.ECONNRESET):
+	case errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.Errno(10054)): // WSAECONNRESET on Windows
 		return "连接被重置"
 	case errors.As(err, &certErr):
 		return "证书无效：" + certErr.Err.Error()

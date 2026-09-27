@@ -2,6 +2,7 @@
 //
 //	x-console-server            run the server (configured by XC_* env vars)
 //	x-console-server gen-key    print a new XC_MASTER_KEY
+//	x-console-server pairing-code --name <name> --kind server
 package main
 
 import (
@@ -9,7 +10,9 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,8 +20,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/agenthub"
 	"github.com/j0x3n/x-console/backend/internal/server/app"
+	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/config"
+	"github.com/j0x3n/x-console/backend/internal/server/events"
 	"github.com/j0x3n/x-console/backend/internal/server/store"
 )
 
@@ -27,6 +33,13 @@ func main() {
 		key := make([]byte, 32)
 		_, _ = rand.Read(key)
 		fmt.Println(base64.StdEncoding.EncodeToString(key))
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "pairing-code" {
+		if err := pairingCode(os.Args[2:], os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		return
 	}
 	level := slog.LevelInfo
@@ -38,6 +51,35 @@ func main() {
 		slog.Error("server stopped", "err", err)
 		os.Exit(1)
 	}
+}
+
+func pairingCode(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("pairing-code", flag.ContinueOnError)
+	name := fs.String("name", "", "agent name")
+	kind := fs.String("kind", "server", "agent kind")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("unexpected arguments: %v", fs.Args())
+	}
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	ctx := audit.WithActor(context.Background(), "system:deploy")
+	db, err := store.Open(ctx, cfg.DBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	hub := agenthub.New(db, events.NewBus(), audit.New(db))
+	code, _, err := hub.CreatePairingCode(ctx, *name, *kind)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(out, code)
+	return err
 }
 
 func run() error {
