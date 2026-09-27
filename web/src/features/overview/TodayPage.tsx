@@ -1,0 +1,263 @@
+import { useState, type ReactNode } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  GripVertical,
+  Pencil,
+  X,
+} from "lucide-react";
+import { errorMessage } from "../../api/client";
+import { useAuthStatus } from "../../api/core";
+import PageHeading from "../../components/ui/PageHeading";
+import { Section } from "../../components/ui/Stat";
+import { useLanguage, useT } from "../../contexts/LanguageContext";
+import { toast } from "../../hooks/useToast";
+import { formatDate, formatTime } from "../../lib/time";
+import { useNow } from "../calendar/hooks";
+import { useHosts } from "../servers/api";
+import { useDashboardLayout, useSaveLayout } from "./api";
+import CardBoundary from "./components/CardBoundary";
+import { DecisionsCard, TodosCard, useTodoCount } from "./components/MainCards";
+import {
+  ActivityCard,
+  HabitsCard,
+  HomeCard,
+  ScheduleCard,
+  WeatherCard,
+} from "./components/SideCards";
+import { MoreLink } from "./components/shared";
+import TodayStats from "./components/TodayStats";
+import {
+  cardDefs,
+  columnCards,
+  defaultLayout,
+  moveCard,
+  shiftCard,
+  toggleCard,
+  type Column,
+  type LayoutCard,
+} from "./layout";
+import { greetingKey, summaryLine } from "./today";
+
+const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
+  todos: { body: () => <TodosCard />, more: "/projects" },
+  decisions: { body: () => <DecisionsCard />, more: "/coding" },
+  schedule: { body: () => <ScheduleCard />, more: "/calendar" },
+  habits: { body: () => <HabitsCard />, more: "/habits" },
+  weather: { body: () => <WeatherCard /> },
+  home: { body: () => <HomeCard />, more: "/home" },
+  activity: { body: () => <ActivityCard /> },
+};
+
+export default function TodayPage() {
+  const t = useT();
+  const language = useLanguage();
+  const now = useNow(30_000);
+  const auth = useAuthStatus();
+  const todo = useTodoCount();
+  const hosts = useHosts("server");
+  const layout = useDashboardLayout();
+  const save = useSaveLayout();
+  const [draft, setDraft] = useState<LayoutCard[] | null>(null);
+  // 服务端还没有布局接口时，改动只留在这次打开的页面里。
+  const [local, setLocal] = useState<LayoutCard[] | null>(null);
+  const editing = draft !== null;
+  const cards = draft ?? local ?? layout.data?.cards ?? defaultLayout();
+  const unavailable = layout.data?.unavailable ?? false;
+
+  const servers = hosts.data ?? [];
+  const summary = summaryLine(
+    {
+      dueToday: todo.issues,
+      reminders: todo.reminders,
+      serversTotal: servers.length,
+      serversOffline: servers.filter((h) => !h.online).length,
+      alerts: servers.reduce((sum, h) => sum + h.activeAlerts, 0),
+    },
+    language,
+  );
+  const name = auth.data?.username;
+  const greeting =
+    t(greetingKey(now)) +
+    (name ? `${language === "zh" ? "，" : ", "}${name}` : "");
+
+  const finish = () => {
+    if (!draft) return;
+    if (unavailable) {
+      setLocal(draft);
+      setDraft(null);
+      return;
+    }
+    save.mutate(draft, {
+      onSuccess: () => {
+        setDraft(null);
+        toast(t("Saved"));
+      },
+      onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
+    });
+  };
+
+  return (
+    <div className="xc-page today-page">
+      <PageHeading
+        title={greeting}
+        subtitle={summary || undefined}
+        aside={
+          editing ? (
+            <>
+              <button
+                className="xc-btn small ghost"
+                onClick={() => setDraft(null)}
+              >
+                <X size={14} /> {t("Cancel")}
+              </button>
+              <button
+                className="xc-btn small primary"
+                disabled={save.isPending}
+                onClick={finish}
+              >
+                {t("Done editing")}
+              </button>
+            </>
+          ) : (
+            <button
+              className="xc-btn small ghost"
+              onClick={() => setDraft(cards)}
+            >
+              <Pencil size={14} /> {t("Edit layout")}
+            </button>
+          )
+        }
+        meta={
+          <time dateTime={now.toISOString()}>
+            {formatDate(now, language)} · {formatTime(now, language)}
+          </time>
+        }
+      />
+      {editing && (
+        <div className={`today-edit-note${unavailable ? " is-warn" : ""}`}>
+          {unavailable
+            ? t(
+                "Saving the layout is not live yet. Changes last until you leave this page.",
+              )
+            : t(
+                "Drag cards to reorder. Hidden cards stay hidden until you show them again.",
+              )}
+        </div>
+      )}
+      <TodayStats />
+      <div className="xc-split today-columns">
+        {(["main", "side"] as Column[]).map((column) => (
+          <div className="today-column" key={column}>
+            {columnCards(cards, column)
+              .filter((c) => editing || c.visible)
+              .map((c) => (
+                <TodayCard
+                  key={c.id}
+                  card={c}
+                  editing={editing}
+                  onToggle={() => setDraft(toggleCard(cards, c.id))}
+                  onShift={(delta) => setDraft(shiftCard(cards, c.id, delta))}
+                  onDrop={(from) => setDraft(moveCard(cards, from, c.id))}
+                />
+              ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TodayCard({
+  card,
+  editing,
+  onToggle,
+  onShift,
+  onDrop,
+}: {
+  card: LayoutCard;
+  editing: boolean;
+  onToggle: () => void;
+  onShift: (delta: -1 | 1) => void;
+  onDrop: (fromId: string) => void;
+}) {
+  const t = useT();
+  const [over, setOver] = useState(false);
+  const def = cardDefs.find((d) => d.id === card.id);
+  const entry = cardBodies[card.id];
+  if (!def || !entry) return null;
+  const title = t(def.title);
+
+  const aside = editing ? (
+    <>
+      <button
+        className="xc-btn small ghost"
+        aria-label={t("Move up")}
+        title={t("Move up")}
+        onClick={() => onShift(-1)}
+      >
+        <ChevronUp size={14} />
+      </button>
+      <button
+        className="xc-btn small ghost"
+        aria-label={t("Move down")}
+        title={t("Move down")}
+        onClick={() => onShift(1)}
+      >
+        <ChevronDown size={14} />
+      </button>
+      <button
+        className="xc-btn small ghost"
+        aria-pressed={card.visible}
+        aria-label={card.visible ? t("Hide card") : t("Show card")}
+        title={card.visible ? t("Hide card") : t("Show card")}
+        onClick={onToggle}
+      >
+        {card.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+      </button>
+    </>
+  ) : entry.more ? (
+    <MoreLink to={entry.more} />
+  ) : undefined;
+
+  return (
+    <div
+      className={`today-card${editing ? " is-editing" : ""}${editing && !card.visible ? " is-hidden" : ""}${over ? " is-over" : ""}`}
+      draggable={editing}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("text/x-today-card", card.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragOver={(e) => {
+        if (!editing || !e.dataTransfer.types.includes("text/x-today-card"))
+          return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        setOver(false);
+        const from = e.dataTransfer.getData("text/x-today-card");
+        if (from) onDrop(from);
+      }}
+    >
+      <Section
+        title={
+          <>
+            {editing && <GripVertical size={14} className="today-grip" />}
+            {title}
+          </>
+        }
+        aside={aside}
+      >
+        {editing ? null : (
+          <CardBoundary title={title} retryLabel={t("Retry")}>
+            {entry.body()}
+          </CardBoundary>
+        )}
+      </Section>
+    </div>
+  );
+}

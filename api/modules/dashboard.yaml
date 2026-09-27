@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: X Console dashboard API (M1)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /dashboard/layout:
+    get:
+      operationId: getDashboardLayout
+      tags: [dashboard]
+      description: |
+        “今日”页的卡片布局，存在 settings 的 dashboard.layout 键。
+        没保存过时返回空的 cards，前端用默认布局。
+        cards 里没有的卡片按默认显示，排在已有卡片后面。
+      responses:
+        "200":
+          description: 布局
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardLayout" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putDashboardLayout
+      tags: [dashboard]
+      description: 整体替换布局。未知的卡片 id 原样保存，前端忽略。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DashboardLayout" }
+      responses:
+        "200":
+          description: 保存后的布局
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardLayout" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    DashboardLayout:
+      type: object
+      required: [cards]
+      properties:
+        cards:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/DashboardCard" }
+    DashboardCard:
+      type: object
+      required: [id, visible, order]
+      properties:
+        id:
+          type: string
+          maxLength: 40
+          description: 卡片 id，例如 todos、decisions、schedule、habits、activity、weather、home
+        visible: { type: boolean }
+        order:
+          type: integer
+          description: 同一栏里的顺序，小的在上

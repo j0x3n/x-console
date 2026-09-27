@@ -1,0 +1,311 @@
+/* “今日”首页。版式照初版：问候、一排概要、左宽右窄两栏。 */
+
+.today-column {
+  min-width: 0;
+}
+
+.today-card .xc-section {
+  margin-bottom: 20px;
+}
+.today-card.is-editing {
+  cursor: grab;
+}
+.today-card.is-editing .xc-section {
+  padding: 8px 10px;
+  border: 1px dashed var(--xc-border-strong);
+  border-radius: var(--xc-radius-lg);
+  margin-bottom: 10px;
+}
+.today-card.is-editing .xc-section-head {
+  margin-bottom: 0;
+}
+.today-card.is-hidden {
+  opacity: 0.45;
+}
+.today-card.is-over .xc-section {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+}
+.today-grip {
+  margin-right: 6px;
+  color: var(--xc-faint);
+}
+
+.today-edit-note {
+  margin: -6px 0 14px;
+  padding: 8px 12px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
+  font-size: 12px;
+}
+.today-edit-note.is-warn {
+  background: var(--xc-warn-soft);
+  color: var(--xc-warn);
+}
+
+.today-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--xc-muted);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.today-more:hover {
+  color: var(--xc-text);
+}
+
+/* 卡片里的一行：图标、标题和说明、右侧标记 */
+.today-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 12px;
+  color: var(--xc-text);
+  text-decoration: none;
+}
+a.today-row:hover {
+  background: var(--xc-surface-2);
+}
+.today-row-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--xc-surface-2);
+  color: var(--xc-muted);
+}
+.today-row-icon.accent {
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.today-row-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+}
+.today-row-main strong,
+.today-row-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.today-row-main strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.today-row-main small {
+  color: var(--xc-muted);
+  font-size: 11px;
+}
+.today-row > .xc-badge {
+  flex: none;
+}
+.today-row-time {
+  flex: none;
+  color: var(--xc-faint);
+  font-size: 11px;
+}
+
+/* 日程 */
+.today-event-time {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: 44px;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.today-event-time small {
+  color: var(--xc-faint);
+  font-size: 11px;
+  font-weight: 400;
+}
+.today-event-bar {
+  flex: none;
+  align-self: stretch;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--xc-accent);
+}
+.today-event.is-past {
+  opacity: 0.5;
+}
+
+.today-habit-icon {
+  margin-right: 5px;
+}
+
+.today-stat-ring {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* 天气 */
+.today-weather {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  color: var(--xc-muted);
+}
+.today-weather-now {
+  display: flex;
+  flex-direction: column;
+}
+.today-weather-now strong {
+  color: var(--xc-text);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+.today-weather-now span {
+  font-size: 12px;
+}
+.today-weather-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-left: auto;
+  min-width: 0;
+  font-size: 12px;
+}
+.today-weather-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.today-weather-meta small {
+  color: var(--xc-faint);
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 智能家居 */
+.today-home {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.today-home-tile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+  color: var(--xc-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.today-home-tile:hover:not(:disabled) {
+  border-color: var(--xc-border-strong);
+}
+.today-home-tile:disabled {
+  cursor: default;
+}
+.today-home-tile.is-on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.today-home-tile > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.today-home-tile strong,
+.today-home-tile small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.today-home-tile strong {
+  color: var(--xc-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.today-home-tile small {
+  font-size: 11px;
+}
+
+/* 加载、空、出错、没配置 */
+.today-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px dashed var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.today-note + .today-note,
+.today-note + .xc-list {
+  margin-top: 6px;
+}
+.today-note.is-error {
+  border-style: solid;
+  border-color: var(--xc-danger-soft);
+  color: var(--xc-danger);
+}
+.today-broken {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  color: var(--xc-danger);
+}
+.today-broken > span {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.today-broken small {
+  color: var(--xc-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+  .today-home {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.today-note a.xc-btn {
+  text-decoration: none;
+}
+
+/* 概要卡片：宽屏一排六张，中等宽度两排三张 */
+@media (min-width: 1300px) {
+  .today-page .xc-stats {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@media (min-width: 721px) and (max-width: 1299px) {
+  .today-page .xc-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

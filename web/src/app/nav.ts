@@ -7,13 +7,13 @@ import {
   Github,
   HeartPulse,
   Home,
-  LayoutDashboard,
   Monitor,
   NotebookPen,
   Radar,
   Server,
   Settings2,
   SquareKanban,
+  Sun,
   Workflow,
 } from "lucide-react";
 
@@ -28,7 +28,7 @@ export interface NavItem {
 
 // 侧边栏导航。每个模块一行，label 是英文原文，中文在 lib/i18n.ts。
 export const navItems: NavItem[] = [
-  { path: "/", label: "Overview", icon: LayoutDashboard, group: "main" },
+  { path: "/", label: "My day", icon: Sun, group: "main" },
   { path: "/projects", label: "Projects", icon: SquareKanban, group: "main" },
   { path: "/coding", label: "Coding tasks", icon: Code2, group: "main" },
   { path: "/notes", label: "Notes", icon: NotebookPen, group: "personal" },
