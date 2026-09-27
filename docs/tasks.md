@@ -16,13 +16,13 @@
 | B3 | AI 助手与自动化 | [specs/M12.md](specs/M12.md) | Codex |
 | B4 | 命令面板支持前缀输入：`> 内容` 直接存成笔记 | 见下方说明 | Codex |
 | B5 | PWA：manifest、图标、安装提示 | 见下方说明 | Codex |
+| B6 | 路由懒加载，消除主包超过 500 kB 的构建警告 | 见下方说明 | Codex |
 | B11 | 统一页头并重做笔记页面 | [specs/B11.md](specs/B11.md) | GPT |
 
 ## 待做
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B6 | 路由懒加载，消除主包超过 500 kB 的构建警告 | 见下方说明 | |
 | B7 | 早报的“续费”部分接上运维监控 | 见下方说明 | |
 | B8 | Playwright 端到端测试加进 CI | 见下方说明 | |
 | B9 | 前端统一跑一遍 prettier，并在 CI 里检查 | 见下方说明 | |
@@ -102,10 +102,14 @@
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
 <<<<<<< HEAD
+<<<<<<< HEAD
 | 2026-09-27 | 命令注册表 `Command` 增加可选 `prefix`，`run` 参数增加 `input` | 命令面板直接传入前缀后的文字 |
 =======
 | 2026-09-27 | `app/Layout.tsx` 增加 PWA 安装提示，`main.tsx` 注册现有 Service Worker | 全局显示安装入口并启用离线页面缓存 |
 >>>>>>> task/B5-pwa
+=======
+| 2026-09-27 | `app/Layout.tsx` 为路由页面增加 Suspense 边界 | 页面组件按需加载时显示加载状态 |
+>>>>>>> task/B6-lazy-routes
 | 2026-09-27 | 新增 `contracts.IssueSync`、`HomeAssistant.WatchEntity` | Linear 同步和 HA 联动需要 |
 | 2026-09-27 | `app.New` 对重复的模块构造函数去重 | 测试里可以再传一次已注册的模块 |
 | 2026-09-27 | `rpc` 写入不再使用可取消的 context；`shutdown` 修复 inflight 数据竞争 | 负载高时代理连接会被误断开 |

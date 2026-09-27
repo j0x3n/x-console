@@ -55,11 +55,18 @@ const calls = vi.hoisted(() => {
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
-import { routes } from "./routes";
+import ProjectsPage from "./ProjectsPage";
+import ProjectPage from "./ProjectPage";
+import IssuePage from "./IssuePage";
+import "./i18n";
 
 function renderAt(path: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createMemoryRouter(routes, { initialEntries: [path] });
+  const router = createMemoryRouter([
+    { path: "projects", element: <ProjectsPage /> },
+    { path: "projects/:projectKey", element: <ProjectPage /> },
+    { path: "projects/:projectKey/:number", element: <IssuePage /> },
+  ], { initialEntries: [path] });
   render(
     <QueryClientProvider client={qc}>
       <RouterProvider router={router} />

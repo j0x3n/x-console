@@ -1,14 +1,16 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { CalendarDays, CalendarPlus, Newspaper, Timer } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./calendar.css";
-import CalendarShell from "./CalendarShell";
-import CalendarView from "./CalendarView";
-import BriefsPage from "./BriefsPage";
-import FocusPage from "./FocusPage";
-import CalendarsManager from "./CalendarsManager";
 import { useFocusPanel } from "./hooks";
+
+const CalendarShell = lazy(() => import("./CalendarShell"));
+const CalendarView = lazy(() => import("./CalendarView"));
+const BriefsPage = lazy(() => import("./BriefsPage"));
+const FocusPage = lazy(() => import("./FocusPage"));
+const CalendarsManager = lazy(() => import("./CalendarsManager"));
 
 // M11：日历、每日早报、番茄钟。后端是 calendar、brief、focus 三个模块。
 registerCommands([

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useServerEvents } from "../api/events";
 import ElevationDialog from "../auth/ElevationDialog";
@@ -6,6 +6,7 @@ import CommandPalette from "../components/command/CommandPalette";
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
 import Toast from "../components/ui/Toast";
+import { Loading } from "../components/ui/States";
 import { useToastStore } from "../hooks/useToast";
 import GlobalPanels from "./GlobalPanels";
 import InstallPrompt from "../features/pwa/InstallPrompt";
@@ -41,7 +42,9 @@ export default function Layout() {
             openMobile={() => setMobileOpen(true)}
             openPalette={() => setPaletteOpen(true)}
           />
-          <Outlet />
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </div>
       </main>
       <GlobalPanels />

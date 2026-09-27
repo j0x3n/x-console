@@ -1,9 +1,11 @@
+import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { GitPullRequest, Settings } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./github.css";
-import GitHubPage from "./GitHubPage";
+
+const GitHubPage = lazy(() => import("./GitHubPage"));
 
 registerCommands([
   {
