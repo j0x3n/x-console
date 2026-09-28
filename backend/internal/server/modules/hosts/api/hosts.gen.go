@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	externalRef0 "github.com/j0x3n/x-console/backend/internal/server/apigen/common"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AlertMetric.
@@ -179,6 +180,54 @@ func (e SshAuth) Valid() bool {
 	}
 }
 
+// Defines values for TrafficCountMode.
+const (
+	Both TrafficCountMode = "both"
+	In   TrafficCountMode = "in"
+	Max  TrafficCountMode = "max"
+	Out  TrafficCountMode = "out"
+)
+
+// Valid indicates whether the value is a known member of the TrafficCountMode enum.
+func (e TrafficCountMode) Valid() bool {
+	switch e {
+	case Both:
+		return true
+	case In:
+		return true
+	case Max:
+		return true
+	case Out:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TrafficPlanPeriodMonths.
+const (
+	N1  TrafficPlanPeriodMonths = 1
+	N12 TrafficPlanPeriodMonths = 12
+	N3  TrafficPlanPeriodMonths = 3
+	N6  TrafficPlanPeriodMonths = 6
+)
+
+// Valid indicates whether the value is a known member of the TrafficPlanPeriodMonths enum.
+func (e TrafficPlanPeriodMonths) Valid() bool {
+	switch e {
+	case N1:
+		return true
+	case N12:
+		return true
+	case N3:
+		return true
+	case N6:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetHostMetricsParamsRange.
 const (
 	N1h  GetHostMetricsParamsRange = "1h"
@@ -218,6 +267,24 @@ func (e ListProcessesParamsSort) Valid() bool {
 	case ListProcessesParamsSortName:
 		return true
 	case ListProcessesParamsSortPid:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetHostTrafficParamsCycle.
+const (
+	Current  GetHostTrafficParamsCycle = "current"
+	Previous GetHostTrafficParamsCycle = "previous"
+)
+
+// Valid indicates whether the value is a known member of the GetHostTrafficParamsCycle enum.
+func (e GetHostTrafficParamsCycle) Valid() bool {
+	switch e {
+	case Current:
+		return true
+	case Previous:
 		return true
 	default:
 		return false
@@ -405,6 +472,7 @@ type HostListItem struct {
 	Online       bool             `json:"online"`
 	Os           string           `json:"os"`
 	Source       HostSource       `json:"source"`
+	Traffic      *TrafficBrief    `json:"traffic,omitempty"`
 }
 
 // HostListMetrics defines model for HostListMetrics.
@@ -418,6 +486,34 @@ type HostListMetrics struct {
 
 // HostSource defines model for HostSource.
 type HostSource string
+
+// HostTraffic defines model for HostTraffic.
+type HostTraffic struct {
+	// CycleEnd 周期最后一天（含）
+	CycleEnd openapi_types.Date `json:"cycleEnd"`
+
+	// CycleStart 周期第一天
+	CycleStart openapi_types.Date `json:"cycleStart"`
+
+	// Days 周期里每一天，没有数据的天也给出来（rx、tx 为 0），今天以后的不给
+	Days []TrafficDay `json:"days"`
+
+	// Estimated 有一部分数据是用网速估算的（老代理没有累计字节数）
+	Estimated bool        `json:"estimated"`
+	Plan      TrafficPlan `json:"plan"`
+
+	// ProjectedBytes 按这个周期到今天的平均速度估算到期末的用量。previous 周期不给
+	ProjectedBytes *int64 `json:"projectedBytes,omitempty"`
+
+	// Rx 流入字节数
+	Rx int64 `json:"rx"`
+
+	// Tx 流出字节数
+	Tx int64 `json:"tx"`
+
+	// UsedBytes 按 countMode 算出的用量
+	UsedBytes int64 `json:"usedBytes"`
+}
 
 // MetricsPoint defines model for MetricsPoint.
 type MetricsPoint struct {
@@ -600,6 +696,41 @@ type SystemInfo struct {
 	UptimeSeconds   int64  `json:"uptimeSeconds"`
 }
 
+// TrafficBrief defines model for TrafficBrief.
+type TrafficBrief struct {
+	LimitBytes int64 `json:"limitBytes"`
+	UsedBytes  int64 `json:"usedBytes"`
+}
+
+// TrafficCountMode both 流入加流出；out 只算流出；in 只算流入；max 两者取大。不同云厂商算法不一样
+type TrafficCountMode string
+
+// TrafficDay defines model for TrafficDay.
+type TrafficDay struct {
+	Day openapi_types.Date `json:"day"`
+	Rx  int64              `json:"rx"`
+	Tx  int64              `json:"tx"`
+}
+
+// TrafficPlan defines model for TrafficPlan.
+type TrafficPlan struct {
+	// AlertPercent 用到多少提醒，0 表示不提醒
+	AlertPercent int `json:"alertPercent"`
+
+	// CountMode both 流入加流出；out 只算流出；in 只算流入；max 两者取大。不同云厂商算法不一样
+	CountMode TrafficCountMode `json:"countMode"`
+
+	// LimitBytes 0 表示不限
+	LimitBytes   int64                   `json:"limitBytes"`
+	PeriodMonths TrafficPlanPeriodMonths `json:"periodMonths"`
+
+	// StartDay 每月几号开始。那个月没有这一天时按月末算
+	StartDay int `json:"startDay"`
+}
+
+// TrafficPlanPeriodMonths defines model for TrafficPlan.PeriodMonths.
+type TrafficPlanPeriodMonths int
+
 // HostId defines model for HostId.
 type HostId = string
 
@@ -691,6 +822,15 @@ type OpenTerminalParams struct {
 	Rows *int `form:"rows,omitempty" json:"rows,omitempty"`
 }
 
+// GetHostTrafficParams defines parameters for GetHostTraffic.
+type GetHostTrafficParams struct {
+	// Cycle current 当前周期；previous 上一个周期
+	Cycle *GetHostTrafficParamsCycle `form:"cycle,omitempty" json:"cycle,omitempty"`
+}
+
+// GetHostTrafficParamsCycle defines parameters for GetHostTraffic.
+type GetHostTrafficParamsCycle string
+
 // CreateAlertRuleJSONRequestBody defines body for CreateAlertRule for application/json ContentType.
 type CreateAlertRuleJSONRequestBody = AlertRuleInput
 
@@ -717,6 +857,9 @@ type PowerActionJSONRequestBody PowerActionJSONBody
 
 // KillProcessJSONRequestBody defines body for KillProcess for application/json ContentType.
 type KillProcessJSONRequestBody KillProcessJSONBody
+
+// PutHostTrafficPlanJSONRequestBody defines body for PutHostTrafficPlan for application/json ContentType.
+type PutHostTrafficPlanJSONRequestBody = TrafficPlan
 
 // CreateSshHostJSONRequestBody defines body for CreateSshHost for application/json ContentType.
 type CreateSshHostJSONRequestBody = SshHostInput
@@ -804,6 +947,12 @@ type ServerInterface interface {
 
 	// (GET /hosts/{hostId}/terminal)
 	OpenTerminal(w http.ResponseWriter, r *http.Request, hostId HostId, params OpenTerminalParams)
+
+	// (GET /hosts/{hostId}/traffic)
+	GetHostTraffic(w http.ResponseWriter, r *http.Request, hostId HostId, params GetHostTrafficParams)
+
+	// (PUT /hosts/{hostId}/traffic/plan)
+	PutHostTrafficPlan(w http.ResponseWriter, r *http.Request, hostId HostId)
 
 	// (GET /ssh-hosts)
 	ListSshHosts(w http.ResponseWriter, r *http.Request)
@@ -953,6 +1102,16 @@ func (_ Unimplemented) ServiceAction(w http.ResponseWriter, r *http.Request, hos
 
 // (GET /hosts/{hostId}/terminal)
 func (_ Unimplemented) OpenTerminal(w http.ResponseWriter, r *http.Request, hostId HostId, params OpenTerminalParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /hosts/{hostId}/traffic)
+func (_ Unimplemented) GetHostTraffic(w http.ResponseWriter, r *http.Request, hostId HostId, params GetHostTrafficParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /hosts/{hostId}/traffic/plan)
+func (_ Unimplemented) PutHostTrafficPlan(w http.ResponseWriter, r *http.Request, hostId HostId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1882,6 +2041,74 @@ func (siw *ServerInterfaceWrapper) OpenTerminal(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetHostTraffic operation middleware
+func (siw *ServerInterfaceWrapper) GetHostTraffic(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetHostTrafficParams
+
+	// ------------- Optional query parameter "cycle" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cycle", r.URL.Query(), &params.Cycle, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cycle"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cycle", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHostTraffic(w, r, hostId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutHostTrafficPlan operation middleware
+func (siw *ServerInterfaceWrapper) PutHostTrafficPlan(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutHostTrafficPlan(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListSshHosts operation middleware
 func (siw *ServerInterfaceWrapper) ListSshHosts(w http.ResponseWriter, r *http.Request) {
 
@@ -2149,6 +2376,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hosts/{hostId}/metrics", wrapper.GetHostMetrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hosts/{hostId}/traffic", wrapper.GetHostTraffic)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/hosts/{hostId}/traffic/plan", wrapper.PutHostTrafficPlan)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hosts/{hostId}/processes", wrapper.ListProcesses)

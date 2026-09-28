@@ -186,3 +186,50 @@ export function pickDesktop(
     hosts[0]
   );
 }
+
+// ---- 流量（B27） ----
+
+type CountMode = "both" | "out" | "in" | "max";
+
+/** 按计算方式算出一天或一段时间的用量。 */
+export function trafficUsed(rx: number, tx: number, mode: CountMode): number {
+  switch (mode) {
+    case "out":
+      return tx;
+    case "in":
+      return rx;
+    case "max":
+      return Math.max(rx, tx);
+    default:
+      return rx + tx;
+  }
+}
+
+/** 每天累计的用量。“取大”要按累计值比较，不能每天各取各的。 */
+export function cumulativeUsed(
+  days: { rx: number; tx: number }[],
+  mode: CountMode,
+): number[] {
+  let rx = 0;
+  let tx = 0;
+  return days.map((d) => {
+    rx += d.rx;
+    tx += d.tx;
+    return trafficUsed(rx, tx, mode);
+  });
+}
+
+/** 周期标题：每月 1 号开始、一个月一个周期叫“本月流量”，其他叫“本期流量”。 */
+export function trafficTitle(plan: { startDay: number; periodMonths: number }) {
+  return plan.startDay === 1 && plan.periodMonths === 1
+    ? "Traffic this month"
+    : "Traffic this cycle";
+}
+
+/** 从 today 到周期最后一天（含）还有几天。 */
+export function daysLeft(cycleEnd: string, today: Date = new Date()): number {
+  const [y, m, d] = cycleEnd.split("-").map(Number);
+  const end = Date.UTC(y, m - 1, d);
+  const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.round((end - now) / 86_400_000) + 1);
+}

@@ -583,3 +583,113 @@ button.servers-file:hover {
   flex: none;
   white-space: nowrap;
 }
+
+/* 流量（B27） */
+.servers-stat .servers-bar {
+  margin-top: 4px;
+}
+.servers-traffic-limit {
+  color: var(--xc-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.servers-traffic-switch {
+  margin-bottom: 12px;
+}
+.servers-traffic-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px 16px;
+  margin: 0 0 14px;
+}
+.servers-traffic-summary div {
+  display: grid;
+  gap: 2px;
+}
+.servers-traffic-summary dt {
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.servers-traffic-summary dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.servers-traffic-summary dd.over {
+  color: var(--xc-danger);
+}
+.servers-traffic-estimated {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+}
+.servers-traffic-chart {
+  position: relative;
+  margin: 0 0 12px;
+}
+.servers-traffic-chart figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+  color: var(--xc-text-2);
+}
+.servers-traffic-chart .servers-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.servers-traffic-chart .servers-legend i.dashed {
+  width: 12px;
+  height: 0;
+  border-top: 2px dashed var(--xc-danger);
+  border-radius: 0;
+}
+.servers-traffic-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.servers-limit {
+  stroke: var(--xc-danger);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.servers-traffic-tip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 6px;
+  background: var(--xc-elevated);
+  color: var(--xc-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.servers-traffic-plan {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--xc-border);
+}
+.servers-traffic-plan h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.servers-traffic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0 12px;
+}
+.servers-traffic-limit-row {
+  display: flex;
+  gap: 6px;
+}
+.servers-traffic-limit-row .xc-input {
+  min-width: 0;
+}
+.servers-traffic-limit-row .xc-select {
+  width: 70px;
+}

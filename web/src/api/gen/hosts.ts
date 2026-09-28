@@ -59,6 +59,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hosts/{hostId}/traffic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        /** @description 流量统计（B27）。按统计周期算，周期由 PUT /hosts/{hostId}/traffic/plan 设置，默认每月 1 号开始、一个月一个周期 */
+        get: operations["getHostTraffic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hosts/{hostId}/traffic/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 保存统计周期、上限和提醒比例。改了开始日或周期后，当前周期的起止日期重新计算，已有的每日数据不变 */
+        put: operations["putHostTrafficPlan"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/hosts/{hostId}/processes": {
         parameters: {
             query?: never;
@@ -501,6 +541,78 @@ export interface components {
             /** Format: double */
             disk?: number;
             metrics?: components["schemas"]["HostListMetrics"];
+            /** @description 设了流量上限的机器才有（B27）。列表卡片上显示一条用量条 */
+            traffic?: components["schemas"]["TrafficBrief"];
+        };
+        /**
+         * @description both 流入加流出；out 只算流出；in 只算流入；max 两者取大。不同云厂商算法不一样
+         * @enum {string}
+         */
+        TrafficCountMode: "both" | "out" | "in" | "max";
+        TrafficPlan: {
+            /** @description 每月几号开始。那个月没有这一天时按月末算 */
+            startDay: number;
+            /** @enum {integer} */
+            periodMonths: 1 | 3 | 6 | 12;
+            /**
+             * Format: int64
+             * @description 0 表示不限
+             */
+            limitBytes: number;
+            countMode: components["schemas"]["TrafficCountMode"];
+            /** @description 用到多少提醒，0 表示不提醒 */
+            alertPercent: number;
+        };
+        TrafficDay: {
+            /** Format: date */
+            day: string;
+            /** Format: int64 */
+            rx: number;
+            /** Format: int64 */
+            tx: number;
+        };
+        TrafficBrief: {
+            /** Format: int64 */
+            usedBytes: number;
+            /** Format: int64 */
+            limitBytes: number;
+        };
+        HostTraffic: {
+            plan: components["schemas"]["TrafficPlan"];
+            /**
+             * Format: date
+             * @description 周期第一天
+             */
+            cycleStart: string;
+            /**
+             * Format: date
+             * @description 周期最后一天（含）
+             */
+            cycleEnd: string;
+            /**
+             * Format: int64
+             * @description 流入字节数
+             */
+            rx: number;
+            /**
+             * Format: int64
+             * @description 流出字节数
+             */
+            tx: number;
+            /**
+             * Format: int64
+             * @description 按 countMode 算出的用量
+             */
+            usedBytes: number;
+            /**
+             * Format: int64
+             * @description 按这个周期到今天的平均速度估算到期末的用量。previous 周期不给
+             */
+            projectedBytes?: number;
+            /** @description 周期里每一天，没有数据的天也给出来（rx、tx 为 0），今天以后的不给 */
+            days: components["schemas"]["TrafficDay"][];
+            /** @description 有一部分数据是用网速估算的（老代理没有累计字节数） */
+            estimated: boolean;
         };
         /** @enum {string} */
         HostKind: "server" | "desktop";
@@ -929,6 +1041,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetricsSeries"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHostTraffic: {
+        parameters: {
+            query?: {
+                /** @description current 当前周期；previous 上一个周期 */
+                cycle?: "current" | "previous";
+            };
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 这个周期的用量和每天的明细 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostTraffic"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putHostTrafficPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrafficPlan"];
+            };
+        };
+        responses: {
+            /** @description 保存后的统计 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostTraffic"];
                 };
             };
             default: components["responses"]["Error"];

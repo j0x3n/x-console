@@ -15,6 +15,10 @@ import {
   splitSegments,
   usageTone,
   withSample,
+  cumulativeUsed,
+  daysLeft,
+  trafficTitle,
+  trafficUsed,
 } from "./lib";
 import { tabsFor } from "./tabs";
 import { filterProcesses } from "./components/ProcessesTab";
@@ -229,5 +233,31 @@ describe("tabs and filters", () => {
         t,
       ),
     ).toBe("Offline");
+  });
+
+  it("counts traffic by the plan (B27)", () => {
+    expect(trafficUsed(10, 3, "both")).toBe(13);
+    expect(trafficUsed(10, 3, "out")).toBe(3);
+    expect(trafficUsed(10, 3, "in")).toBe(10);
+    expect(trafficUsed(10, 3, "max")).toBe(10);
+    // 取大按累计比较：前两天流入多，第三天流出追上来
+    expect(
+      cumulativeUsed(
+        [
+          { rx: 5, tx: 1 },
+          { rx: 1, tx: 3 },
+          { rx: 0, tx: 5 },
+        ],
+        "max",
+      ),
+    ).toEqual([5, 6, 9]);
+    expect(trafficTitle({ startDay: 1, periodMonths: 1 })).toBe(
+      "Traffic this month",
+    );
+    expect(trafficTitle({ startDay: 4, periodMonths: 1 })).toBe(
+      "Traffic this cycle",
+    );
+    expect(daysLeft("2026-10-03", new Date(2026, 8, 28))).toBe(6);
+    expect(daysLeft("2026-09-01", new Date(2026, 8, 28))).toBe(0);
   });
 });

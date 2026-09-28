@@ -1,6 +1,7 @@
 import { usePageStatus } from "../../../stores/page-title";
 import { Link } from "react-router";
 import { AlertTriangle, TerminalSquare } from "lucide-react";
+import { formatBytes } from "../../../lib/time";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { relativeTime } from "../../../lib/time";
 import type { Host } from "../api";
@@ -92,6 +93,13 @@ export default function HostCard({ host }: { host: Host }) {
         <UsageBar label={t("CPU")} value={host.cpu} />
         <UsageBar label={t("Memory")} value={host.memory} />
         <UsageBar label={t("Disk")} value={host.disk} />
+        {host.traffic && host.traffic.limitBytes > 0 && (
+          <UsageBar
+            label={t("Traffic")}
+            value={(host.traffic.usedBytes / host.traffic.limitBytes) * 100}
+            detail={`${formatBytes(host.traffic.usedBytes)} / ${formatBytes(host.traffic.limitBytes)}`}
+          />
+        )}
       </div>
       <div className="servers-card-foot xc-muted">
         {m ? (

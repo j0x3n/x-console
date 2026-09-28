@@ -19,6 +19,9 @@ export type HostDetail = S["HostDetail"];
 export type HostKind = S["HostKind"];
 export type MetricsSample = S["MetricsSample"];
 export type MetricsPoint = S["MetricsPoint"];
+export type HostTraffic = S["HostTraffic"];
+export type TrafficPlan = S["TrafficPlan"];
+export type TrafficCountMode = S["TrafficCountMode"];
 export type MetricsSeries = S["MetricsSeries"];
 export type MetricsRange = "1h" | "24h" | "7d";
 export type Process = S["Process"];
@@ -50,6 +53,8 @@ export const hostsKeys = {
   alerts: ["hosts", "alerts"] as const,
   rules: ["hosts", "rules"] as const,
   ssh: ["hosts", "ssh"] as const,
+  traffic: (id: string, cycle: "current" | "previous") =>
+    ["hosts", "traffic", id, cycle] as const,
 };
 
 // 代理上线、下线，SSH 主机增删，告警变化时刷新列表和详情。
@@ -242,4 +247,38 @@ export async function uploadFile(hostId: string, path: string, file: File) {
 /** 下载地址。GET 请求带 Cookie 就行。 */
 export function downloadUrl(hostId: string, path: string) {
   return `/api/v1/hosts/${encodeURIComponent(hostId)}/files/content?path=${encodeURIComponent(path)}`;
+}
+
+/** 流量统计（B27）。接口还没上线时回 501，卡片显示“还没上线”。 */
+export function useHostTraffic(id: string, cycle: "current" | "previous") {
+  return useQuery({
+    queryKey: hostsKeys.traffic(id, cycle),
+    queryFn: () =>
+      unwrap(
+        hostsApi.GET("/hosts/{hostId}/traffic", {
+          params: { path: { hostId: id }, query: { cycle } },
+        }),
+      ),
+    retry: false,
+    staleTime: 60_000,
+    refetchInterval: cycle === "current" ? 60_000 : false,
+  });
+}
+
+export function useSaveTrafficPlan(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (plan: TrafficPlan) =>
+      unwrap(
+        hostsApi.PUT("/hosts/{hostId}/traffic/plan", {
+          params: { path: { hostId: id } },
+          body: plan,
+        }),
+      ),
+    onSuccess: (data) => {
+      qc.setQueryData(hostsKeys.traffic(id, "current"), data);
+      qc.invalidateQueries({ queryKey: ["hosts", "traffic", id, "previous"] });
+      qc.invalidateQueries({ queryKey: hostsKeys.lists });
+    },
+  });
 }

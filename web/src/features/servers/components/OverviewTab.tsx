@@ -22,6 +22,7 @@ import {
   pointFromSample,
 } from "../lib";
 import MetricChart from "./MetricChart";
+import { TrafficCard } from "./Traffic";
 import UsageBar from "./UsageBar";
 
 const S1 = "var(--servers-series-1)";
@@ -142,6 +143,7 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
           value={m ? `↓ ${formatRate(m.netRx)}` : "—"}
           sub={m ? `↑ ${formatRate(m.netTx)}` : undefined}
         />
+        <TrafficCard hostId={host.id} />
         <Stat
           label={t("Uptime")}
           value={m ? formatUptime(m.uptimeSeconds, language === "zh") : "—"}
