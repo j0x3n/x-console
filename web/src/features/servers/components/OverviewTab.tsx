@@ -1,9 +1,26 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  useMetricsInterval,
+  useServerEvent,
+  type ServerEvent,
+} from "../../../api/events";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatBytes } from "../../../lib/time";
 import { ErrorState, Loading } from "../../../components/ui/States";
-import { useHostMetrics, type HostDetail, type MetricsRange } from "../api";
-import { formatRate, formatUptime, niceRateMax, percent } from "../lib";
+import {
+  useHostMetrics,
+  type HostDetail,
+  type MetricsPoint,
+  type MetricsRange,
+  type MetricsSample,
+} from "../api";
+import {
+  formatRate,
+  formatUptime,
+  niceRateMax,
+  percent,
+  pointFromSample,
+} from "../lib";
 import MetricChart from "./MetricChart";
 import UsageBar from "./UsageBar";
 
@@ -11,23 +28,84 @@ const S1 = "var(--servers-series-1)";
 const S2 = "var(--servers-series-2)";
 const pct = (v: number) => `${Math.round(v)}%`;
 
+/** 刷新周期（B26）。存在 localStorage，所有机器共用。 */
+const REFRESH_KEY = "xc.hosts.refresh";
+const refreshChoices = [1000, 5000, 30000] as const;
+function readRefresh(): number {
+  try {
+    const v = Number(localStorage.getItem(REFRESH_KEY));
+    return (refreshChoices as readonly number[]).includes(v) ? v : 5000;
+  } catch {
+    return 5000;
+  }
+}
+
+/** 1 秒刷新时，趋势图只画浏览器里收到的最近 5 分钟。 */
+function useLivePoints(hostId: string, enabled: boolean) {
+  const [points, setPoints] = useState<MetricsPoint[]>([]);
+  const onEvent = useCallback(
+    (event: ServerEvent) => {
+      if (!enabled) return;
+      const data = event.data as { hostId?: string; sample?: MetricsSample };
+      if (data.hostId !== hostId || !data.sample) return;
+      const point = pointFromSample(data.sample);
+      setPoints((prev) => [...prev.slice(-299), point]);
+    },
+    [hostId, enabled],
+  );
+  useServerEvent("host.metrics", onEvent);
+  useEffect(() => {
+    if (!enabled) setPoints([]);
+  }, [enabled]);
+  return points;
+}
+
 export default function OverviewTab({ host }: { host: HostDetail }) {
   const t = useT();
   const language = useLanguage();
   const [range, setRange] = useState<MetricsRange>("1h");
+  const [refresh, setRefreshState] = useState(readRefresh);
+  const [disksOpen, setDisksOpen] = useState(false);
+  const setRefresh = (ms: number) => {
+    setRefreshState(ms);
+    try {
+      localStorage.setItem(REFRESH_KEY, String(ms));
+    } catch {
+      /* 记不住就算了 */
+    }
+  };
+  useMetricsInterval(host.id, refresh);
+  const live = refresh === 1000;
+  const livePoints = useLivePoints(host.id, live);
   const metrics = useHostMetrics(host.id, range);
   const m = host.metrics;
   const info = host.systemInfo;
-  const points = metrics.data?.points ?? [];
-  const step = metrics.data?.stepSeconds ?? 10;
+  const points = live ? livePoints : (metrics.data?.points ?? []);
+  const step = live ? 1 : (metrics.data?.stepSeconds ?? 10);
+  const disks = m?.disks ?? [];
+  const fullest = [...disks].sort(
+    (a, b) => percent(b.used, b.total) - percent(a.used, a.total),
+  )[0];
+  const system = info
+    ? `${info.platform} ${info.platformVersion}`.trim() || info.os
+    : host.os;
+  const agent = host.source === "ssh" ? t("SSH only") : host.version;
 
   return (
     <div className="xc-stack">
-      <div className="servers-stats">
+      <div className="servers-stats servers-stats-6">
         <Stat
           label={t("CPU")}
           value={m ? pct(m.cpu) : "—"}
-          sub={info ? `${info.cpuCores} ${t("cores")}` : undefined}
+          sub={
+            info
+              ? [info.cpuModel, `${info.cpuCores} ${t("cores")}`]
+                  .filter(Boolean)
+                  .join(" · ")
+              : undefined
+          }
+          sub2={m ? `${t("Load")} ${m.load1.toFixed(2)}` : undefined}
+          title={info?.cpuModel}
         />
         <Stat
           label={t("Memory")}
@@ -37,11 +115,27 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
               ? `${formatBytes(m.memUsed)} / ${formatBytes(m.memTotal)}`
               : undefined
           }
+          sub2={
+            m && m.swapTotal
+              ? `${t("Swap")} ${formatBytes(m.swapUsed)} / ${formatBytes(m.swapTotal)}`
+              : undefined
+          }
         />
         <Stat
-          label={t("Load")}
-          value={m ? m.load1.toFixed(2) : "—"}
-          sub={m ? `${m.load5.toFixed(2)} · ${m.load15.toFixed(2)}` : undefined}
+          label={t("Disk")}
+          value={fullest ? pct(percent(fullest.used, fullest.total)) : "—"}
+          sub={
+            fullest
+              ? `${fullest.mount} · ${disks.length} ${t("disks")}`
+              : undefined
+          }
+          sub2={
+            fullest
+              ? `${formatBytes(fullest.used)} / ${formatBytes(fullest.total)}`
+              : undefined
+          }
+          onClick={disks.length > 0 ? () => setDisksOpen((v) => !v) : undefined}
+          expanded={disksOpen}
         />
         <Stat
           label={t("Network")}
@@ -51,30 +145,88 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
         <Stat
           label={t("Uptime")}
           value={m ? formatUptime(m.uptimeSeconds, language === "zh") : "—"}
-          sub={m ? `${m.procs} ${t("processes")}` : undefined}
+          sub={system}
+          sub2={[
+            info?.kernelVersion && `${t("Kernel")} ${info.kernelVersion}`,
+            agent && `${t("Agent")} ${agent}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          title={[
+            info?.hostname || host.hostname,
+            host.address,
+            info && `${formatBytes(info.memoryTotal)} ${t("Memory")}`,
+            m && `${m.procs} ${t("processes")}`,
+          ]
+            .filter(Boolean)
+            .join("\n")}
         />
       </div>
+      {disksOpen && disks.length > 0 && (
+        <div className="xc-card servers-disks">
+          {disks.map((d) => (
+            <UsageBar
+              key={d.mount}
+              label={d.mount}
+              value={percent(d.used, d.total)}
+              detail={`${formatBytes(d.used)} / ${formatBytes(d.total)}`}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="xc-card">
         <div className="xc-card-head">
           <h2>{t("Trends")}</h2>
-          <div className="servers-segmented" role="tablist">
-            {(["1h", "24h", "7d"] as MetricsRange[]).map((r) => (
-              <button
-                key={r}
-                role="tab"
-                aria-selected={range === r}
-                className={range === r ? "active" : ""}
-                onClick={() => setRange(r)}
-              >
-                {t(r === "1h" ? "1 hour" : r === "24h" ? "24 hours" : "7 days")}
-              </button>
-            ))}
+          <div className="servers-trend-controls">
+            <div
+              className="servers-segmented"
+              role="radiogroup"
+              aria-label={t("Refresh every")}
+              title={t("Refresh every")}
+            >
+              {refreshChoices.map((ms) => (
+                <button
+                  key={ms}
+                  role="radio"
+                  aria-checked={refresh === ms}
+                  className={refresh === ms ? "active" : ""}
+                  onClick={() => setRefresh(ms)}
+                >
+                  {ms / 1000} {t("sec")}
+                </button>
+              ))}
+            </div>
+            {live ? (
+              <span className="xc-muted servers-live-note">
+                {t("Last 5 minutes, live")}
+              </span>
+            ) : (
+              <div className="servers-segmented" role="tablist">
+                {(["1h", "24h", "7d"] as MetricsRange[]).map((r) => (
+                  <button
+                    key={r}
+                    role="tab"
+                    aria-selected={range === r}
+                    className={range === r ? "active" : ""}
+                    onClick={() => setRange(r)}
+                  >
+                    {t(
+                      r === "1h"
+                        ? "1 hour"
+                        : r === "24h"
+                          ? "24 hours"
+                          : "7 days",
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-        {metrics.isPending ? (
+        {!live && metrics.isPending ? (
           <Loading />
-        ) : metrics.isError ? (
+        ) : !live && metrics.isError ? (
           <ErrorState error={metrics.error} onRetry={() => metrics.refetch()} />
         ) : (
           <div className="servers-charts">
@@ -120,117 +272,41 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
         )}
       </div>
 
-      <div className="servers-two">
-        <div className="xc-card">
-          <div className="xc-card-head">
-            <h2>{t("Disks")}</h2>
+      {m &&
+        (m.cpuPerCore.length > 1 ||
+          (m.netInterfaces && m.netInterfaces.length > 0)) && (
+          <div className="servers-two">
+            {m.cpuPerCore.length > 1 && (
+              <div className="xc-card">
+                <div className="xc-card-head">
+                  <h2>{t("Per core")}</h2>
+                </div>
+                <div className="servers-cores">
+                  {m.cpuPerCore.map((v, i) => (
+                    <UsageBar key={i} label={`#${i}`} value={v} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {m.netInterfaces && m.netInterfaces.length > 0 && (
+              <div className="xc-card">
+                <div className="xc-card-head">
+                  <h2>{t("Network interfaces")}</h2>
+                </div>
+                <div className="xc-stack">
+                  {m.netInterfaces.map((nic) => (
+                    <div className="servers-nic" key={nic.name}>
+                      <span className="xc-mono">{nic.name}</span>
+                      <span className="xc-muted">
+                        ↓ {formatRate(nic.rx)} ↑ {formatRate(nic.tx)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          {m && m.disks.length > 0 ? (
-            <div className="xc-stack">
-              {m.disks.map((d) => (
-                <UsageBar
-                  key={d.mount}
-                  label={d.mount}
-                  value={percent(d.used, d.total)}
-                  detail={`${formatBytes(d.used)} / ${formatBytes(d.total)}`}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="xc-muted">{t("No data yet")}</p>
-          )}
-          {m && m.cpuPerCore.length > 1 && (
-            <>
-              <div className="xc-card-head servers-subhead">
-                <h3>{t("Per core")}</h3>
-              </div>
-              <div className="servers-cores">
-                {m.cpuPerCore.map((v, i) => (
-                  <UsageBar key={i} label={`#${i}`} value={v} />
-                ))}
-              </div>
-            </>
-          )}
-          {m && m.netInterfaces && m.netInterfaces.length > 0 && (
-            <>
-              <div className="xc-card-head servers-subhead">
-                <h3>{t("Network interfaces")}</h3>
-              </div>
-              <div className="xc-stack">
-                {m.netInterfaces.map((nic) => (
-                  <div
-                    className="xc-row"
-                    key={nic.name}
-                    style={{ minWidth: 0 }}
-                  >
-                    <span
-                      className="xc-mono"
-                      style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        flex: "1 1 0",
-                        minWidth: 0,
-                      }}
-                    >
-                      {nic.name}
-                    </span>
-                    <span
-                      className="xc-muted"
-                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-                    >
-                      ↓ {formatRate(nic.rx)} ↑ {formatRate(nic.tx)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        <div className="xc-card">
-          <div className="xc-card-head">
-            <h2>{t("System")}</h2>
-          </div>
-          <dl className="servers-facts">
-            <dt>{t("Hostname")}</dt>
-            <dd>{info?.hostname || host.hostname}</dd>
-            <dt>{t("System")}</dt>
-            <dd>
-              {info
-                ? `${info.platform} ${info.platformVersion}`.trim() || info.os
-                : host.os}
-            </dd>
-            {info?.kernelVersion && (
-              <>
-                <dt>{t("Kernel")}</dt>
-                <dd className="xc-mono">{info.kernelVersion}</dd>
-              </>
-            )}
-            <dt>{t("Architecture")}</dt>
-            <dd>{info?.arch || host.arch}</dd>
-            {info?.cpuModel && (
-              <>
-                <dt>{t("CPU")}</dt>
-                <dd>{info.cpuModel}</dd>
-              </>
-            )}
-            {info && (
-              <>
-                <dt>{t("Memory")}</dt>
-                <dd>{formatBytes(info.memoryTotal)}</dd>
-              </>
-            )}
-            {host.address && (
-              <>
-                <dt>{t("Address")}</dt>
-                <dd className="xc-mono">{host.address}</dd>
-              </>
-            )}
-            <dt>{t("Agent")}</dt>
-            <dd>{host.source === "ssh" ? t("SSH only") : host.version}</dd>
-          </dl>
-        </div>
-      </div>
+        )}
     </div>
   );
 }
@@ -239,16 +315,40 @@ function Stat({
   label,
   value,
   sub,
+  sub2,
+  title,
+  onClick,
+  expanded,
 }: {
   label: string;
   value: string;
   sub?: string;
+  sub2?: string;
+  title?: string;
+  onClick?: () => void;
+  expanded?: boolean;
 }) {
-  return (
-    <div className="servers-stat">
+  const body = (
+    <>
       <span>{label}</span>
       <strong>{value}</strong>
       {sub && <small>{sub}</small>}
+      {sub2 && <small>{sub2}</small>}
+    </>
+  );
+  return onClick ? (
+    <button
+      type="button"
+      className="servers-stat clickable"
+      title={title}
+      aria-expanded={expanded}
+      onClick={onClick}
+    >
+      {body}
+    </button>
+  ) : (
+    <div className="servers-stat" title={title}>
+      {body}
     </div>
   );
 }

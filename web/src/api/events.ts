@@ -31,6 +31,29 @@ function sendTopics() {
   sendControl({ type: "subscribe", topics: [...topics.keys()] });
 }
 
+/*
+ * 主机详情的刷新周期（B26）：1 秒、5 秒、30 秒。服务端对同一台机器取所有浏览器里最小的，
+ * 告诉代理按这个周期上报。旧服务端不认识这条消息，会忽略，按 5 秒刷新。
+ */
+const intervals = new Map<string, number>();
+
+function sendInterval(hostId: string, ms: number) {
+  sendControl({ type: "interval", hostId, ms });
+}
+
+/** 组件挂载期间把这台机器的刷新周期设成 ms，离开时恢复默认。 */
+export function useMetricsInterval(hostId: string, ms: number) {
+  useEffect(() => {
+    if (!hostId) return;
+    intervals.set(hostId, ms);
+    sendInterval(hostId, ms);
+    return () => {
+      intervals.delete(hostId);
+      sendInterval(hostId, 0);
+    };
+  }, [hostId, ms]);
+}
+
 /** 组件挂载期间订阅高频主题，离开时释放。 */
 export function useEventTopic(topic: string) {
   useEffect(() => {
@@ -134,6 +157,7 @@ export function useServerEvents() {
       socket.onopen = () => {
         activeSocket = socket;
         sendTopics();
+        intervals.forEach((ms, hostId) => sendInterval(hostId, ms));
         if (document.hidden) sendControl({ type: "pause" });
         delay = 1000;
         useEventConnection.getState().setConnected(true);

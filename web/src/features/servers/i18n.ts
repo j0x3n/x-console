@@ -187,4 +187,9 @@ registerZh({
   "The service is unavailable for a moment.": "服务会短暂不可用。",
   "Force end": "强制结束",
   "Unsaved work in it may be lost.": "进程里没保存的内容可能会丢失。",
+  Swap: "交换",
+  disks: "块",
+  "Refresh every": "刷新间隔",
+  sec: "秒",
+  "Last 5 minutes, live": "最近 5 分钟，实时",
 });

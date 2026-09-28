@@ -1601,3 +1601,6 @@ a.xc-badge:hover {
   color: var(--xc-faint);
   font-size: 11px;
 }
+.topbar-subtitle:empty {
+  display: none;
+}

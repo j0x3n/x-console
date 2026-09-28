@@ -515,3 +515,71 @@ button.servers-file:hover {
     max-width: 200px;
   }
 }
+
+/* 详情页（B26） */
+.servers-stats-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+@media (max-width: 1280px) {
+  .servers-stats-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .servers-stats-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.servers-stat.clickable {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.servers-stat.clickable:hover,
+.servers-stat.clickable[aria-expanded="true"] {
+  border-color: var(--xc-border-strong);
+}
+.servers-disks {
+  display: grid;
+  gap: 10px;
+}
+.servers-tabs-platform {
+  margin-left: auto;
+  align-self: center;
+  color: var(--xc-muted);
+  font-family: var(--xc-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .servers-tabs-platform {
+    display: none;
+  }
+}
+.servers-trend-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.servers-live-note {
+  font-size: 12px;
+}
+.servers-nic {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.servers-nic .xc-mono {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.servers-nic .xc-muted {
+  flex: none;
+  white-space: nowrap;
+}

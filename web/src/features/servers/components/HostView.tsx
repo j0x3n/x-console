@@ -67,6 +67,11 @@ export default function HostView({
             {t(x.label)}
           </NavLink>
         ))}
+        {h.os && (
+          <span className="servers-tabs-platform">
+            {h.os}/{h.arch}
+          </span>
+        )}
       </nav>
       <Suspense fallback={<Loading />}>
         <Component key={`${h.id}-${current.id}`} host={h} />
