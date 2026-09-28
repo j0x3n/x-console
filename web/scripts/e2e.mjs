@@ -123,7 +123,8 @@ try {
 
   browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 1360, height: 860 } });
-  await context.addInitScript(() => localStorage.setItem("xc.demo.full", "off"));
+  // 旧浏览器可能留有演示开关；正式页面仍应读写真实接口。
+  await context.addInitScript(() => localStorage.setItem("xc.demo.full", "on"));
   page = await context.newPage();
   const eventFrames = { sent: [], received: [] };
   page.on("websocket", (socket) => {
@@ -147,6 +148,7 @@ try {
   await page.getByRole("button", { name: "下一步" }).click();
   await page.getByRole("button", { name: "跳过，以后再开" }).click();
   await page.locator(".sidebar").waitFor();
+  assert.equal(await page.getByText(/演示数据：/).count(), 0);
   assert.equal((await api("/auth/status")).authenticated, true);
 
   stage = "退出和登录";
