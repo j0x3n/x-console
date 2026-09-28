@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
+import { useInvalidate } from "../../api/useInvalidate";
 import type { components, paths } from "../../api/gen/monitoring";
 import type { paths as hostPaths } from "../../api/gen/hosts";
 
@@ -56,11 +57,6 @@ invalidateOn("script_run.", monitoringKeys.scripts);
 invalidateOn("subscription.", monitoringKeys.subscriptions);
 invalidateOn("agent.", monitoringKeys.hosts);
 invalidateOn("docker.", ["monitoring", "docker"]);
-
-function useInvalidate(key: readonly unknown[]) {
-  const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: key });
-}
 
 // ---- 监控 ----
 

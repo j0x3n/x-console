@@ -450,6 +450,19 @@ try {
     await page.goto(`${base}${path}`);
     await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
   }
+  stage = "手机命令面板";
+  await page.setViewportSize({ width: 390, height: 180 });
+  await page.keyboard.press("Control+k");
+  await page.locator(".command-dialog").waitFor();
+  const paletteBounds = await page.evaluate(() => {
+    const dialog = document.querySelector(".command-dialog").getBoundingClientRect();
+    const footer = document.querySelector(".command-footer").getBoundingClientRect();
+    return { dialogBottom: dialog.bottom, footerBottom: footer.bottom, viewport: innerHeight };
+  });
+  assert.ok(paletteBounds.dialogBottom <= paletteBounds.viewport - 4, `命令面板超出屏幕：${JSON.stringify(paletteBounds)}`);
+  assert.ok(paletteBounds.footerBottom <= paletteBounds.viewport - 4, `前缀提示超出屏幕：${JSON.stringify(paletteBounds)}`);
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1360, height: 860 });
   stage = "吊销代理并停止进程";
   await page.goto(`${base}/settings/devices`);
   const agentRow = page.locator("tr").filter({ hasText: "e2e-linux" });

@@ -1,11 +1,7 @@
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
+import { useInvalidate } from "../../api/useInvalidate";
 import type {
   components as CalendarComponents,
   paths as CalendarPaths,
@@ -61,11 +57,6 @@ invalidateOn("calendar.", calendarKeys.calendars);
 invalidateOn("calendar.", calendarKeys.eventsAll);
 invalidateOn("brief.", calendarKeys.briefs);
 invalidateOn("focus.", calendarKeys.focus);
-
-function useInvalidate(key: readonly unknown[]) {
-  const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: key });
-}
 
 // ---- calendars ----
 

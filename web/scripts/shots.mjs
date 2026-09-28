@@ -24,8 +24,10 @@ const arg = (name, fallback) => {
 const BASE = arg("base", "http://127.0.0.1:5173");
 const ONLY = arg("only", "")?.split(",").filter(Boolean) ?? [];
 const REAL = args.includes("--real");
+const THEME = arg("theme", "");
+if (THEME && !["dark", "light"].includes(THEME)) throw new Error("theme 只能是 dark 或 light");
 const WIDTHS = arg("widths", "1360,390").split(",").map(Number);
-const OUT = join(import.meta.dirname, "..", "screenshots");
+const OUT = join(import.meta.dirname, "..", "screenshots", THEME || "");
 const USER = process.env.XC_SHOTS_USER ?? "demo";
 const PASSWORD = process.env.XC_SHOTS_PASSWORD ?? "demo-password-123";
 let totpSecret = process.env.XC_SHOTS_TOTP ?? "";
@@ -51,7 +53,10 @@ const browser = await chromium.launch(
 
 // ---- 登录（没有账号时先建一个）----
 const ctx = await browser.newContext({ viewport: { width: 1360, height: 860 } });
-if (REAL) await ctx.addInitScript(() => localStorage.setItem("xc.demo.full", "off"));
+if (REAL || THEME) await ctx.addInitScript(({ real, theme }) => {
+  if (real) localStorage.setItem("xc.demo.full", "off");
+  if (theme) localStorage.setItem("x-console-theme", theme);
+}, { real: REAL, theme: THEME });
 const page = await ctx.newPage();
 await page.goto(BASE);
 const status = await page.evaluate(() => fetch("/api/v1/auth/status").then((r) => r.json()));
@@ -148,7 +153,10 @@ const problems = [];
 for (const width of WIDTHS) {
   mkdirSync(join(OUT, String(width)), { recursive: true });
   const c = await browser.newContext({ viewport: { width, height: 860 } });
-  if (REAL) await c.addInitScript(() => localStorage.setItem("xc.demo.full", "off"));
+  if (REAL || THEME) await c.addInitScript(({ real, theme }) => {
+    if (real) localStorage.setItem("xc.demo.full", "off");
+    if (theme) localStorage.setItem("x-console-theme", theme);
+  }, { real: REAL, theme: THEME });
   await c.addCookies(cookies);
   const p = await c.newPage();
   let errors = [];

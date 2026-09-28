@@ -1021,6 +1021,29 @@ a.xc-badge:hover {
   overscroll-behavior: contain;
 }
 
+@media (max-width: 640px) {
+  .command-backdrop {
+    height: 100dvh;
+    box-sizing: border-box;
+    padding: min(8dvh, 48px) 12px 12px;
+  }
+  .command-dialog {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+  }
+  .command-input,
+  .command-footer {
+    flex: none;
+  }
+  .command-results {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
 /* ---- 公共组件（components/ui/Toolbar、MoreMenu、Switch）---- */
 
 /* 工具栏：左边标签或筛选，右边搜索和视图切换。窄屏上下两行。 */

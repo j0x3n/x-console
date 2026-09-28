@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
+import { useInvalidate } from "../../api/useInvalidate";
 import type { components, paths } from "../../api/gen/habits";
 
 export const habitsApi = createApi<paths>();
@@ -34,11 +35,6 @@ export const habitKeys = {
 invalidateOn("habit.", habitKeys.all);
 invalidateOn("workout.", ["habits", "workouts"]);
 
-function useInvalidateAll() {
-  const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: habitKeys.all });
-}
-
 export function useHabitsToday() {
   return useQuery({
     queryKey: habitKeys.today,
@@ -70,7 +66,7 @@ export function useHabitStats(id: number | null, days = 30) {
 }
 
 export function useCheckin() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: ({ id, amount }: { id: number; amount?: number }) =>
       unwrap(
@@ -84,7 +80,7 @@ export function useCheckin() {
 }
 
 export function useUndoCheckin() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: (logId: number) =>
       unwrap(
@@ -97,7 +93,7 @@ export function useUndoCheckin() {
 }
 
 export function useCreateHabit() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: (body: HabitInput) =>
       unwrap(habitsApi.POST("/habits", { body })),
@@ -106,7 +102,7 @@ export function useCreateHabit() {
 }
 
 export function useUpdateHabit() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: ({ id, body }: { id: number; body: HabitPatch }) =>
       unwrap(
@@ -120,7 +116,7 @@ export function useUpdateHabit() {
 }
 
 export function useDeleteHabit() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: (id: number) =>
       unwrap(
@@ -142,7 +138,7 @@ export function useWorkoutPlans() {
 }
 
 export function useSavePlans() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: (plans: WorkoutPlan[]) =>
       unwrap(habitsApi.PUT("/workouts/plans", { body: plans })),
@@ -159,7 +155,7 @@ export function useWorkoutLogs(days = 30) {
 }
 
 export function useLogWorkout() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: (body: WorkoutLogInput) =>
       unwrap(habitsApi.POST("/workouts/logs", { body })),
@@ -168,7 +164,7 @@ export function useLogWorkout() {
 }
 
 export function useDeleteWorkoutLog() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: (logId: number) =>
       unwrap(
@@ -188,7 +184,7 @@ export function useWorkoutSettings() {
 }
 
 export function useSaveWorkoutSettings() {
-  const invalidate = useInvalidateAll();
+  const invalidate = useInvalidate(habitKeys.all);
   return useMutation({
     mutationFn: (body: WorkoutSettings) =>
       unwrap(habitsApi.PUT("/workouts/settings", { body })),
