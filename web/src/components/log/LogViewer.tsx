@@ -48,6 +48,9 @@ interface Props {
   /** 框的高度，默认 60vh。 */
   height?: string;
   empty?: ReactNode;
+  /** 级别由外面控制（系统日志按级别向服务端查询）。不传时在前端过滤。 */
+  level?: LevelFilter;
+  onLevelChange?: (level: LevelFilter) => void;
 }
 
 const ROW = 20;
@@ -76,9 +79,13 @@ export default function LogViewer({
   toolbarEnd,
   height = "60vh",
   empty,
+  level: levelProp,
+  onLevelChange,
 }: Props) {
   const t = useT();
-  const [level, setLevel] = useState<LevelFilter>("all");
+  const [levelState, setLevelState] = useState<LevelFilter>("all");
+  const level = levelProp ?? levelState;
+  const setLevel = onLevelChange ?? setLevelState;
   const [stream, setStream] = useState<"all" | "stdout" | "stderr">("all");
   const [query, setQuery] = useState("");
   const box = useRef<HTMLDivElement>(null);
@@ -195,13 +202,13 @@ export default function LogViewer({
             <option value="stderr">{t("Error output")}</option>
           </select>
         )}
+        {toolbarEnd}
         <span className="xc-log-count">
           {shown.length === lines.length
             ? lines.length
             : `${shown.length} / ${lines.length}`}{" "}
           {t("lines")}
         </span>
-        {toolbarEnd}
       </div>
       <div
         ref={box}

@@ -795,3 +795,25 @@ button.servers-file:hover {
   display: inline-block;
   vertical-align: middle;
 }
+
+/* 系统日志（B29） */
+.servers-syslog-unit {
+  max-width: 180px;
+}
+.servers-syslog-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.servers-syslog-perm {
+  display: grid;
+  gap: 6px;
+}
+.servers-syslog-perm p {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--xc-mono);
+  font-size: 12px;
+}

@@ -16,6 +16,11 @@ export interface HostTab {
   label: string; // 英文原文，中文在 i18n
   /** 机器需要上报这个能力才显示 */
   cap?: string;
+  /**
+   * 代理还没有这个能力时也显示（新功能，旧代理升级后才能用）。
+   * 标签页自己处理接口回 501 的情况。只对通过代理接入的机器生效。
+   */
+  preview?: boolean;
   component: TabComponent | LazyExoticComponent<TabComponent>;
 }
 
@@ -43,12 +48,24 @@ export const hostTabs: HostTab[] = [
     cap: "docker",
     component: lazy(() => import("../monitoring/DockerTab")),
   },
+  {
+    id: "logs",
+    label: "System logs",
+    cap: "syslog",
+    preview: true,
+    component: lazy(() => import("./components/SyslogTab")),
+  },
   { id: "alerts", label: "Alerts", component: AlertsTab },
 ];
 
 /** 这台机器能用的标签。 */
-export function tabsFor(host: Pick<HostDetail, "capabilities">): HostTab[] {
+export function tabsFor(
+  host: Pick<HostDetail, "capabilities"> & Partial<Pick<HostDetail, "source">>,
+): HostTab[] {
   return hostTabs.filter(
-    (tab) => !tab.cap || host.capabilities.includes(tab.cap),
+    (tab) =>
+      !tab.cap ||
+      host.capabilities.includes(tab.cap) ||
+      (tab.preview && host.source === "agent"),
   );
 }

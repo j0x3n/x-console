@@ -200,6 +200,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hosts/{hostId}/syslog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description 系统日志（B29）。Linux 读 systemd journal，没有 journal 时读 /var/log/syslog 或 /var/log/messages；
+         *     Windows 读事件查看器的“系统”和“应用程序”。按时间倒序取 limit 条，返回时按时间正序。
+         *     代理没有 syslog 能力时回 501；代理没有读取权限时回 403，code 是 syslog_permission，message 里写怎么加权限
+         */
+        get: operations["getSyslog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hosts/{hostId}/syslog/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        /** @description 最近 7 天出现过的 unit 或来源，按出现次数从多到少，最多 300 个 */
+        get: operations["listSyslogUnits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hosts/{hostId}/syslog/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        /** @description WebSocket（B29）。参数和 /syslog 一样（不含 until、limit、cursor）。每个文本帧是 SyslogEntry 数组，只推新产生的日志 */
+        get: operations["followSyslog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/hosts/{hostId}/terminal": {
         parameters: {
             query?: never;
@@ -613,6 +677,21 @@ export interface components {
             days: components["schemas"]["TrafficDay"][];
             /** @description 有一部分数据是用网速估算的（老代理没有累计字节数） */
             estimated: boolean;
+        };
+        SyslogEntry: {
+            /** Format: date-time */
+            time: string;
+            /** @description 0 到 7，Windows 的级别也换成这个 */
+            priority: number;
+            /** @description unit 或来源，没有时是空字符串 */
+            unit: string;
+            pid?: number;
+            message: string;
+        };
+        SyslogPage: {
+            items: components["schemas"]["SyslogEntry"][];
+            /** @description 还有更早的日志时给出 */
+            cursor?: string;
         };
         /** @enum {string} */
         HostKind: "server" | "desktop";
@@ -1229,6 +1308,94 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ServiceLogs"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSyslog: {
+        parameters: {
+            query?: {
+                since?: string;
+                until?: string;
+                /** @description 最低级别，0 到 7，和 journal 一样（3 错误，4 警告，6 信息，7 调试）。只返回小于等于它的 */
+                priority?: number;
+                /** @description Linux 的 systemd unit，Windows 的事件来源 */
+                unit?: string;
+                /** @description 关键字，不区分大小写 */
+                grep?: string;
+                limit?: number;
+                /** @description 上一页返回的 cursor，取更早的一页 */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 日志 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyslogPage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSyslogUnits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description unit 列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: string[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    followSyslog: {
+        parameters: {
+            query?: {
+                priority?: number;
+                unit?: string;
+                grep?: string;
+            };
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 升级为 WebSocket */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

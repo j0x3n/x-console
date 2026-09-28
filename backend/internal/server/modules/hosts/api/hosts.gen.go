@@ -682,6 +682,26 @@ type SshTestResult struct {
 	Ok          bool    `json:"ok"`
 }
 
+// SyslogEntry defines model for SyslogEntry.
+type SyslogEntry struct {
+	Message string `json:"message"`
+	Pid     *int   `json:"pid,omitempty"`
+
+	// Priority 0 到 7，Windows 的级别也换成这个
+	Priority int       `json:"priority"`
+	Time     time.Time `json:"time"`
+
+	// Unit unit 或来源，没有时是空字符串
+	Unit string `json:"unit"`
+}
+
+// SyslogPage defines model for SyslogPage.
+type SyslogPage struct {
+	// Cursor 还有更早的日志时给出
+	Cursor *string       `json:"cursor,omitempty"`
+	Items  []SyslogEntry `json:"items"`
+}
+
 // SystemInfo defines model for SystemInfo.
 type SystemInfo struct {
 	Arch            string `json:"arch"`
@@ -816,6 +836,32 @@ type GetServiceLogsParams struct {
 	Lines *int `form:"lines,omitempty" json:"lines,omitempty"`
 }
 
+// GetSyslogParams defines parameters for GetSyslog.
+type GetSyslogParams struct {
+	Since *time.Time `form:"since,omitempty" json:"since,omitempty"`
+	Until *time.Time `form:"until,omitempty" json:"until,omitempty"`
+
+	// Priority 最低级别，0 到 7，和 journal 一样（3 错误，4 警告，6 信息，7 调试）。只返回小于等于它的
+	Priority *int `form:"priority,omitempty" json:"priority,omitempty"`
+
+	// Unit Linux 的 systemd unit，Windows 的事件来源
+	Unit *string `form:"unit,omitempty" json:"unit,omitempty"`
+
+	// Grep 关键字，不区分大小写
+	Grep  *string `form:"grep,omitempty" json:"grep,omitempty"`
+	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor 上一页返回的 cursor，取更早的一页
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// FollowSyslogParams defines parameters for FollowSyslog.
+type FollowSyslogParams struct {
+	Priority *int    `form:"priority,omitempty" json:"priority,omitempty"`
+	Unit     *string `form:"unit,omitempty" json:"unit,omitempty"`
+	Grep     *string `form:"grep,omitempty" json:"grep,omitempty"`
+}
+
 // OpenTerminalParams defines parameters for OpenTerminal.
 type OpenTerminalParams struct {
 	Cols *int `form:"cols,omitempty" json:"cols,omitempty"`
@@ -944,6 +990,15 @@ type ServerInterface interface {
 
 	// (POST /hosts/{hostId}/services/{name}/{action})
 	ServiceAction(w http.ResponseWriter, r *http.Request, hostId HostId, name string, action ServiceAction)
+
+	// (GET /hosts/{hostId}/syslog)
+	GetSyslog(w http.ResponseWriter, r *http.Request, hostId HostId, params GetSyslogParams)
+
+	// (GET /hosts/{hostId}/syslog/follow)
+	FollowSyslog(w http.ResponseWriter, r *http.Request, hostId HostId, params FollowSyslogParams)
+
+	// (GET /hosts/{hostId}/syslog/units)
+	ListSyslogUnits(w http.ResponseWriter, r *http.Request, hostId HostId)
 
 	// (GET /hosts/{hostId}/terminal)
 	OpenTerminal(w http.ResponseWriter, r *http.Request, hostId HostId, params OpenTerminalParams)
@@ -1097,6 +1152,21 @@ func (_ Unimplemented) GetServiceLogs(w http.ResponseWriter, r *http.Request, ho
 
 // (POST /hosts/{hostId}/services/{name}/{action})
 func (_ Unimplemented) ServiceAction(w http.ResponseWriter, r *http.Request, hostId HostId, name string, action ServiceAction) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /hosts/{hostId}/syslog)
+func (_ Unimplemented) GetSyslog(w http.ResponseWriter, r *http.Request, hostId HostId, params GetSyslogParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /hosts/{hostId}/syslog/follow)
+func (_ Unimplemented) FollowSyslog(w http.ResponseWriter, r *http.Request, hostId HostId, params FollowSyslogParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /hosts/{hostId}/syslog/units)
+func (_ Unimplemented) ListSyslogUnits(w http.ResponseWriter, r *http.Request, hostId HostId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1986,6 +2056,220 @@ func (siw *ServerInterfaceWrapper) ServiceAction(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// GetSyslog operation middleware
+func (siw *ServerInterfaceWrapper) GetSyslog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetSyslogParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "priority" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "priority", r.URL.Query(), &params.Priority, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "priority"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "priority", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "unit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "unit", r.URL.Query(), &params.Unit, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "grep" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "grep", r.URL.Query(), &params.Grep, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "grep"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grep", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSyslog(w, r, hostId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FollowSyslog operation middleware
+func (siw *ServerInterfaceWrapper) FollowSyslog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FollowSyslogParams
+
+	// ------------- Optional query parameter "priority" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "priority", r.URL.Query(), &params.Priority, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "priority"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "priority", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "unit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "unit", r.URL.Query(), &params.Unit, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "unit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "unit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "grep" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "grep", r.URL.Query(), &params.Grep, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "grep"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grep", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FollowSyslog(w, r, hostId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSyslogUnits operation middleware
+func (siw *ServerInterfaceWrapper) ListSyslogUnits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSyslogUnits(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // OpenTerminal operation middleware
 func (siw *ServerInterfaceWrapper) OpenTerminal(w http.ResponseWriter, r *http.Request) {
 
@@ -2397,6 +2681,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hosts/{hostId}/services/{name}/logs", wrapper.GetServiceLogs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hosts/{hostId}/syslog", wrapper.GetSyslog)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hosts/{hostId}/syslog/units", wrapper.ListSyslogUnits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hosts/{hostId}/syslog/follow", wrapper.FollowSyslog)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hosts/{hostId}/terminal", wrapper.OpenTerminal)
