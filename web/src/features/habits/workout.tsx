@@ -17,6 +17,7 @@ import {
   type WorkoutPlan,
 } from "./api";
 import { describeItem, plansToSave, weekPlans, type DayPlan } from "./progress";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 const onError = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
@@ -305,8 +306,8 @@ export function RecentLogs() {
                 className="xc-btn ghost small"
                 aria-label={t("Delete")}
                 disabled={remove.isPending}
-                onClick={() =>
-                  confirm(t("Delete this workout?")) &&
+                onClick={async () =>
+                  (await confirmAction({ title: t("Delete this workout?") })) &&
                   remove.mutate(l.id, { onError })
                 }
               >

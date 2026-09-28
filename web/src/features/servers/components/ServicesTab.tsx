@@ -16,6 +16,7 @@ import {
   type Service,
   type ServiceAction,
 } from "../api";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 type StateFilter = "all" | "running" | "stopped" | "failed";
 
@@ -41,6 +42,12 @@ const stateTone: Record<string, string> = {
   stopping: "warn",
 };
 
+const serviceTitle: Partial<Record<ServiceAction, string>> = {
+  stop: "Stop service",
+  restart: "Restart service",
+  disable: "Disable service",
+};
+
 export default function ServicesTab({ host }: { host: HostDetail }) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -62,10 +69,21 @@ export default function ServicesTab({ host }: { host: HostDetail }) {
     () => filterServices(services.data?.items ?? [], query, state),
     [services.data, query, state],
   );
-  const run = (s: Service, act: ServiceAction) => {
+  const run = async (s: Service, act: ServiceAction) => {
     if (
-      (act === "stop" || act === "disable") &&
-      !confirm(`${t(act === "stop" ? "Stop" : "Disable")} ${s.name}?`)
+      (act === "stop" || act === "disable" || act === "restart") &&
+      !(await confirmAction({
+        title: `${t(serviceTitle[act] ?? "")} ${s.name}？`,
+        description:
+          act === "disable"
+            ? t("It no longer starts with the system.")
+            : act === "stop"
+              ? t("The service stops until you start it again.")
+              : t("The service is unavailable for a moment."),
+        confirmLabel: t(
+          act === "stop" ? "Stop" : act === "disable" ? "Disable" : "Restart",
+        ),
+      }))
     )
       return;
     action.mutate(

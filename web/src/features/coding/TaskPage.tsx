@@ -34,6 +34,7 @@ import DiffView from "./components/DiffView";
 import OutputView from "./components/OutputView";
 import StatusBadge from "./components/StatusBadge";
 import { actionsFor, formatDuration, isActive, taskTitle } from "./logic";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now());
@@ -212,10 +213,13 @@ function Actions({ task }: { task: Task }) {
         <button
           className="xc-btn danger"
           disabled={cancel.isPending}
-          onClick={() => {
+          onClick={async () => {
             if (
               task.status === "running" &&
-              !confirm(t("Stop this task? Its changes are thrown away."))
+              !(await confirmAction({
+                title: t("Stop this task? Its changes are thrown away."),
+                confirmLabel: t("Stop"),
+              }))
             )
               return;
             cancel.mutate(task.id, {
@@ -273,13 +277,14 @@ function Actions({ task }: { task: Task }) {
         <button
           className="xc-btn ghost danger"
           disabled={discard.isPending}
-          onClick={() => {
+          onClick={async () => {
             if (
-              !confirm(
-                t(
+              !(await confirmAction({
+                title: t(
                   "Discard this task? The worktree and the local branch are deleted.",
                 ),
-              )
+                confirmLabel: t("Discard"),
+              }))
             )
               return;
             guarded(() => discard.mutateAsync(task.id), t("Discarded"));

@@ -27,6 +27,7 @@ import {
 } from "./api";
 import ReminderDialog from "./ReminderDialog";
 import { describeRule, formatWhen } from "./rrule";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 const tabs: { id: ReminderRange; label: string }[] = [
   { id: "today", label: "Today" },
@@ -301,8 +302,8 @@ function ReminderRow({
           aria-label={t("Delete")}
           title={t("Delete")}
           disabled={remove.isPending}
-          onClick={() =>
-            confirm(`${t("Delete")} “${r.title}”?`) &&
+          onClick={async () =>
+            (await confirmAction({ title: `${t("Delete")}“${r.title}”？` })) &&
             remove.mutate(r.id, {
               onSuccess: () => toast(t("Deleted")),
               onError,

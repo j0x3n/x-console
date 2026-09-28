@@ -72,6 +72,7 @@ import {
 } from "../logic";
 import ToIssueDialog from "./ToIssueDialog";
 import ToReminderDialog from "./ToReminderDialog";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 interface Draft {
   title: string;
@@ -609,8 +610,12 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                 <button
                   role="menuitem"
                   className="danger"
-                  onClick={() => {
-                    if (!confirm(t("Delete this note? This cannot be undone.")))
+                  onClick={async () => {
+                    if (
+                      !(await confirmAction({
+                        title: t("Delete this note? This cannot be undone."),
+                      }))
+                    )
                       return;
                     saver.current!.dispose();
                     remove.mutate(note.id, {

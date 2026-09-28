@@ -35,4 +35,6 @@ registerZh({
   "New password": "新密码",
   "Repeat new password": "再输一次新密码",
   "Change password": "修改密码",
+  "The agent is disconnected and cannot reconnect until it is paired again.":
+    "代理会断开，重新配对之前连不上。",
 });

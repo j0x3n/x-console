@@ -28,6 +28,7 @@ import {
   type HostDetail,
 } from "../api";
 import { breadcrumbs, joinPath } from "../lib";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 const MAX_UPLOAD = 1 << 30;
 
@@ -87,12 +88,15 @@ export default function FilesTab({ host }: { host: HostDetail }) {
     }
     if (input.current) input.current.value = "";
   };
-  const onDelete = (e: FileEntry) => {
+  const onDelete = async (e: FileEntry) => {
     const dir = e.type === "dir";
     if (
-      !confirm(
-        dir ? `删除文件夹 ${e.name} 和里面的所有内容？` : `删除 ${e.name}？`,
-      )
+      !(await confirmAction({
+        title: dir
+          ? `删除文件夹 ${e.name} 和里面的所有内容？`
+          : `删除 ${e.name}？`,
+        description: "服务器上的文件会直接删除，不能恢复。",
+      }))
     )
       return;
     void guard(

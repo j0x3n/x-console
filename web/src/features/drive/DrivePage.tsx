@@ -60,6 +60,7 @@ import {
   type SortKey,
 } from "./logic";
 import { useUploads } from "./upload";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 type Layout = "list" | "grid";
 const LAYOUT_KEY = "xc.drive.layout";
@@ -268,7 +269,7 @@ function DriveBrowser() {
     if (failed < total) toast(label);
   };
 
-  const onAction = (action: ItemAction, item: DriveItem) => {
+  const onAction = async (action: ItemAction, item: DriveItem) => {
     switch (action) {
       case "download":
         return download([item]);
@@ -297,6 +298,13 @@ function DriveBrowser() {
           },
         );
       case "trash":
+        if (
+          !(await confirmAction({
+            title: `${t("Delete")}“${item.name}”？`,
+            description: t("It goes to the trash. You can restore it there."),
+          }))
+        )
+          return;
         return trashItems.mutate([item.id], {
           onSuccess: doneBatch(t("Moved to trash"), 1),
         });
@@ -305,7 +313,13 @@ function DriveBrowser() {
           onSuccess: doneBatch(t("Restored"), 1),
         });
       case "delete-forever":
-        if (!confirm(`彻底删除“${item.name}”？删除后不能恢复。`)) return;
+        if (
+          !(await confirmAction({
+            title: `彻底删除“${item.name}”？`,
+            description: "删除后不能恢复。",
+          }))
+        )
+          return;
         return destroy.mutate([item.id], {
           onSuccess: doneBatch(t("Deleted"), 1),
         });
@@ -487,11 +501,12 @@ function DriveBrowser() {
               </button>
               <button
                 className="xc-btn small danger"
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    !confirm(
-                      `彻底删除选中的 ${selected.size} 项？删除后不能恢复。`,
-                    )
+                    !(await confirmAction({
+                      title: `彻底删除选中的 ${selected.size} 项？`,
+                      description: "删除后不能恢复。",
+                    }))
                   )
                     return;
                   destroy.mutate([...selected], {
@@ -520,7 +535,13 @@ function DriveBrowser() {
               </button>
               <button
                 className="xc-btn small danger"
-                onClick={() =>
+                onClick={async () =>
+                  (await confirmAction({
+                    title: `${t("Delete")} ${selected.size} ${t("selected items")}？`,
+                    description: t(
+                      "It goes to the trash. You can restore it there.",
+                    ),
+                  })) &&
                   trashItems.mutate([...selected], {
                     onSuccess: doneBatch(t("Moved to trash"), selected.size),
                   })

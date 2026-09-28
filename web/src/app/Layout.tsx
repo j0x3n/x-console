@@ -2,6 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useServerEvents } from "../api/events";
 import ElevationDialog from "../auth/ElevationDialog";
+import { ConfirmHost } from "../components/ui/ConfirmDialog";
 import CommandPalette from "../components/command/CommandPalette";
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
@@ -58,6 +59,7 @@ export default function Layout() {
         onClose={() => setPaletteOpen(false)}
       />
       <ElevationDialog />
+      <ConfirmHost />
       {toast && <Toast key={toast.id} toast={toast} hideToast={hideToast} />}
     </div>
   );

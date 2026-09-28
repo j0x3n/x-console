@@ -178,4 +178,13 @@ registerZh({
   "Key passphrase (optional)": "私钥密码（可不填）",
   "Leave empty to keep": "不填就不改",
   "Test connection": "测试连接",
+  "Stop service": "停止服务",
+  "Restart service": "重启服务",
+  "Disable service": "禁用服务",
+  "It no longer starts with the system.": "开机后不会再自动启动。",
+  "The service stops until you start it again.":
+    "服务会一直停着，直到你再启动它。",
+  "The service is unavailable for a moment.": "服务会短暂不可用。",
+  "Force end": "强制结束",
+  "Unsaved work in it may be lost.": "进程里没保存的内容可能会丢失。",
 });

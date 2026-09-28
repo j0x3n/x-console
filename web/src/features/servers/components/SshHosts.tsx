@@ -14,6 +14,7 @@ import {
   type SshHost,
   type SshHostInput,
 } from "../api";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 /** SSH 主机管理：列表、添加、修改、删除、测试连接。 */
 export default function SshHostsDialog({
@@ -28,7 +29,8 @@ export default function SshHostsDialog({
   const list = useSshHosts();
   const [editing, setEditing] = useState<SshHost | "new" | null>(null);
   const remove = async (h: SshHost) => {
-    if (!confirm(`${t("Delete")} ${h.name}?`)) return;
+    if (!(await confirmAction({ title: `${t("Delete")}“${h.name}”？` })))
+      return;
     try {
       await withElevation(() =>
         unwrap(

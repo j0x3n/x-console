@@ -98,4 +98,8 @@ registerZh({
   "Choose a team and a project in every row": "每一行都要选团队和项目",
   "Each team and each project can be used only once":
     "一个团队或项目只能用一次",
+  "Remove the GitHub token?": "删除 GitHub 令牌？",
+  "Sync stops until you add a token again.": "重新填写令牌之前不会再同步。",
+  "Remove the Linear key?": "删除 Linear 密钥？",
+  "Sync stops until you add a key again.": "重新填写密钥之前不会再同步。",
 });

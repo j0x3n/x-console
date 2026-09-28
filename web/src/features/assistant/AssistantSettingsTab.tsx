@@ -11,6 +11,7 @@ import {
 } from "./api";
 import "./i18n";
 import "./assistant.css";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 export const MODELS = [
   { id: "claude-opus-5-5", label: "Claude Opus 5.5（默认，最强）" },
@@ -65,7 +66,12 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
       },
     );
   };
-  const clearKey = () =>
+  const clearKey = async () =>
+    (await confirmAction({
+      title: t("Remove the API key?"),
+      description: t("AI stops working until you add a key again."),
+      confirmLabel: t("Remove"),
+    })) &&
     save.mutate(
       { apiKey: "" },
       {

@@ -20,6 +20,7 @@ import {
 import { mappingProblem } from "./logic";
 import "./i18n";
 import "./github.css";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 const DEFAULT_URL = "https://api.linear.app/graphql";
 
@@ -130,7 +131,15 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
     });
   };
 
-  const onClear = () => {
+  const onClear = async () => {
+    if (
+      !(await confirmAction({
+        title: t("Remove the Linear key?"),
+        description: t("Sync stops until you add a key again."),
+        confirmLabel: t("Remove key"),
+      }))
+    )
+      return;
     save.mutate(
       { clearKey: true, mappings: mappings() },
       {

@@ -11,6 +11,7 @@ import {
   type Project,
 } from "../api";
 import { LabelChip, PROJECT_COLORS } from "./Icons";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 /** 管理项目的标签、里程碑，以及归档。 */
 export default function ProjectSettingsDialog({
@@ -55,9 +56,11 @@ export default function ProjectSettingsDialog({
               <button
                 className="xc-btn ghost small"
                 aria-label={t("Delete")}
-                onClick={() =>
-                  confirm(`${t("Delete label")} ${label.name}?`) &&
-                  labelOps.remove.mutate(label.id)
+                onClick={async () =>
+                  (await confirmAction({
+                    title: `${t("Delete label")}“${label.name}”？`,
+                    description: t("It is removed from every issue."),
+                  })) && labelOps.remove.mutate(label.id)
                 }
               >
                 <Trash2 size={14} />
@@ -138,9 +141,10 @@ export default function ProjectSettingsDialog({
               <button
                 className="xc-btn ghost small"
                 aria-label={t("Delete")}
-                onClick={() =>
-                  confirm(`${t("Delete milestone")} ${ms.name}?`) &&
-                  milestoneOps.remove.mutate(ms.id)
+                onClick={async () =>
+                  (await confirmAction({
+                    title: `${t("Delete milestone")}“${ms.name}”？`,
+                  })) && milestoneOps.remove.mutate(ms.id)
                 }
               >
                 <Trash2 size={14} />
@@ -190,10 +194,13 @@ export default function ProjectSettingsDialog({
         <button
           className={`xc-btn ${archived ? "" : "danger"}`}
           disabled={updateProject.isPending}
-          onClick={() => {
+          onClick={async () => {
             if (
               !archived &&
-              !confirm(t("Archive this project? You can restore it later."))
+              !(await confirmAction({
+                title: t("Archive this project? You can restore it later."),
+                confirmLabel: t("Archive project"),
+              }))
             )
               return;
             updateProject.mutate(

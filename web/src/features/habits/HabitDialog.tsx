@@ -15,6 +15,7 @@ import {
   type RemindMode,
 } from "./api";
 import { joinWindow, parseTimes, splitWindow } from "./progress";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 /** 常用图标，也可以自己输入一个。 */
 export const iconChoices = [
@@ -152,7 +153,12 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   };
 
   const destroy = async () => {
-    if (!habit || !confirm(t("Delete this habit and all its check-ins?")))
+    if (
+      !habit ||
+      !(await confirmAction({
+        title: t("Delete this habit and all its check-ins?"),
+      }))
+    )
       return;
     try {
       await remove.mutateAsync(habit.id);

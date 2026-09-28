@@ -61,6 +61,7 @@
 | 按钮 | `.xc-btn`，加 `primary` / `danger` / `ghost` / `small` | 链接做成按钮也用它，不会有下划线 |
 | 状态标签 | `.xc-badge ok / warn / danger / info / accent` | 状态点 `.xc-dot ok / warn / danger` |
 | 弹窗 | `components/ui/Dialog` | 底部按钮放 `.xc-dialog-actions`，取消在左、确认在右 |
+| 二次确认 | `components/ui/ConfirmDialog` 的 `confirmAction` | 返回 Promise；`typeToConfirm` 要求输入文字才能确认 |
 | 加载、空、出错 | `components/ui/States`：`Loading`、`EmptyState`、`ErrorState` | |
 | 还没上线 | `components/ui/States` 的 `NotLive` | 接口回 404 或 501 时整页显示它，不要显示成“出错了” |
 | 提示 | `toast("已保存")`、`toast({ message, tone: "error" })` | |
@@ -92,7 +93,7 @@
 - **数字对齐**：数字用 `font-variant-numeric: tabular-nums`。大小写成 `formatBytes`，时间写成 `relativeTime`（“3 分钟前”），不要直接显示 ISO 时间。
 - **长文字**：单行的名称用省略号（`overflow: hidden; text-overflow: ellipsis; white-space: nowrap`），外层要有 `min-width: 0`。
 - **空状态要有下一步**：写清楚为什么空，给一个按钮（“新建”“去设置”）。
-- **危险操作**：删除用 `danger` 样式，彻底删除先 `confirm`，高危操作包 `withElevation`。
+- **危险操作**：删除用 `danger` 样式。所有删除、停止、重启、结束进程、吊销、卸载、清空先调用 `confirmAction`（`components/ui/ConfirmDialog`），不要用浏览器自带的 `confirm`。标题写清对象，说明写后果，批量操作写数量。高危操作再包 `withElevation`（先确认，再要求提升权限）。
 - **手机（390px）**：
   - 整页不能横向滚动。表格和看板在自己的容器里滚动。
   - 列表变单列，次要信息（大小、时间）放到名称下面一行。

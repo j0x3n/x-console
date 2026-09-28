@@ -148,6 +148,8 @@ describe("DrivePage", () => {
   });
 
   it("selects items and moves them to the trash", async () => {
+    // 没挂 ConfirmHost 时 confirmAction 用浏览器自带的确认框。
+    vi.stubGlobal("confirm", () => true);
     live();
     renderAt("/drive");
     fireEvent.click(await screen.findByLabelText("选择 报告.pdf"));
@@ -162,6 +164,7 @@ describe("DrivePage", () => {
       ).toBe(true),
     );
     await waitFor(() => expect(screen.queryByRole("toolbar")).toBeNull());
+    vi.unstubAllGlobals();
   });
 
   it("shows the hidden tab only while the vault is unlocked", async () => {

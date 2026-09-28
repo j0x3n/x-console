@@ -25,6 +25,7 @@ import { runTone } from "../lib";
 import { shortDateTime, showError, useIdParam, useParam } from "./common";
 import HostPicker from "./HostPicker";
 import ScriptDialog from "./ScriptDialog";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 /** 脚本库：列表、新建、执行、运行记录。 */
 export default function ScriptsTab() {
@@ -206,8 +207,10 @@ function ScriptDetail({
           <button
             className="xc-btn ghost danger"
             disabled={remove.isPending}
-            onClick={() =>
-              confirm(`${t("Delete")} “${script.name}”?`) &&
+            onClick={async () =>
+              (await confirmAction({
+                title: `${t("Delete")}“${script.name}”？`,
+              })) &&
               remove.mutate(script.id, {
                 onSuccess: () => {
                   toast(t("Deleted"));

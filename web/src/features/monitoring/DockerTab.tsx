@@ -33,8 +33,22 @@ import {
   mergeStats,
   type ContainerRow,
 } from "./lib";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 /** 服务器详情页的“容器”标签。机器上报了 docker 能力才显示。 */
+const containerTitle: Record<ContainerAction, string> = {
+  start: "Start container",
+  stop: "Stop container",
+  restart: "Restart container",
+  remove: "Delete container",
+};
+const containerVerb: Record<ContainerAction, string> = {
+  start: "Start",
+  stop: "Stop",
+  restart: "Restart",
+  remove: "Delete",
+};
+
 export default function DockerTab({ host }: { host: { id: string } }) {
   const t = useT();
   const [all, setAll] = useState(false);
@@ -49,11 +63,20 @@ export default function DockerTab({ host }: { host: { id: string } }) {
     [containers.data, stats.data],
   );
 
-  const run = (c: ContainerRow, act: ContainerAction) => {
-    const danger = act === "stop" || act === "remove";
+  const run = async (c: ContainerRow, act: ContainerAction) => {
+    const danger = act !== "start";
     if (
       danger &&
-      !confirm(`${t(act === "stop" ? "Stop" : "Remove")} ${c.name}?`)
+      !(await confirmAction({
+        title: `${t(containerTitle[act])} ${c.name}？`,
+        description:
+          act === "remove"
+            ? t("Data not in a mounted volume is lost.")
+            : act === "stop"
+              ? t("Services in it stop working.")
+              : t("Services in it are unavailable for a moment."),
+        confirmLabel: t(containerVerb[act]),
+      }))
     )
       return;
     const call = () => action.mutateAsync({ id: c.id, action: act });

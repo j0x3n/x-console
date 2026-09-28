@@ -130,4 +130,7 @@ registerZh({
   "Issue key": "Issue 编号",
   Open: "打开",
   Saved: "已保存",
+  "It is removed from every issue.": "所有 Issue 上的这个标签都会去掉。",
+  "Its comments and links are deleted too.": "它的评论和关联也会一起删除。",
+  "Delete this link?": "删除这条关联？",
 });

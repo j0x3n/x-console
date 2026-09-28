@@ -18,6 +18,7 @@ import { longDate, shortDateTime, showError } from "./common";
 import HistoryChart from "./HistoryChart";
 import MonitorDialog from "./MonitorDialog";
 import { StatusBadge } from "./StatusBadge";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 const ranges: ResultRange[] = ["24h", "7d", "30d"];
 
@@ -157,8 +158,10 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
           <button
             className="xc-btn ghost danger"
             disabled={remove.isPending}
-            onClick={() =>
-              confirm(`${t("Delete")} “${monitor.name}”?`) &&
+            onClick={async () =>
+              (await confirmAction({
+                title: `${t("Delete")}“${monitor.name}”？`,
+              })) &&
               remove.mutate(monitor.id, {
                 onSuccess: () => {
                   toast(t("Deleted"));

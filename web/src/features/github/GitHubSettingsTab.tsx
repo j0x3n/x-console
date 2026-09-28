@@ -17,6 +17,7 @@ import {
 import { parseRepos } from "./logic";
 import "./i18n";
 import "./github.css";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 const DEFAULT_URL = "https://api.github.com";
 
@@ -89,7 +90,15 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
     });
   };
 
-  const onClear = () => {
+  const onClear = async () => {
+    if (
+      !(await confirmAction({
+        title: t("Remove the GitHub token?"),
+        description: t("Sync stops until you add a token again."),
+        confirmLabel: t("Remove token"),
+      }))
+    )
+      return;
     save.mutate(
       { repos: parseRepos(repos), clearToken: true },
       {

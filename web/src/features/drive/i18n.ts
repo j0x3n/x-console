@@ -76,4 +76,7 @@ registerZh({
   "Originally in": "原来在",
   "Restores to this folder": "还原时放回这个文件夹",
   "Restored to": "已还原到",
+  "It goes to the trash. You can restore it there.":
+    "会移到回收站，可以在那里还原。",
+  "selected items": "项",
 });

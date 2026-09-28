@@ -16,6 +16,7 @@ import {
   type AlertRule,
   type AlertRuleInput,
 } from "../api";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 const metricLabels: Record<string, string> = {
   cpu: "CPU",
@@ -51,7 +52,7 @@ export function AlertRulesCard({ hostId }: { hostId?: string }) {
     (r) => !hostId || !r.hostId || r.hostId === hostId,
   );
   const remove = async (r: AlertRule) => {
-    if (!confirm(t("Delete this rule?"))) return;
+    if (!(await confirmAction({ title: t("Delete this rule?") }))) return;
     try {
       await unwrap(
         hostsApi.DELETE("/alert-rules/{ruleId}", {

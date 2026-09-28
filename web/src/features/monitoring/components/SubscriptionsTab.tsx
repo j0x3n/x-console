@@ -38,6 +38,7 @@ import SubscriptionDialog, {
   categoryLabels,
   cycleLabels,
 } from "./SubscriptionDialog";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 /** 订阅与续费：支出汇总、列表、详情。 */
 export default function SubscriptionsTab() {
@@ -290,8 +291,10 @@ function SubscriptionDetail({
           <button
             className="xc-btn ghost danger"
             disabled={remove.isPending}
-            onClick={() =>
-              confirm(`${t("Delete")} “${sub.name}”?`) &&
+            onClick={async () =>
+              (await confirmAction({
+                title: `${t("Delete")}“${sub.name}”？`,
+              })) &&
               remove.mutate(sub.id, {
                 onSuccess: () => {
                   toast(t("Deleted"));

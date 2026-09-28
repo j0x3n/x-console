@@ -15,6 +15,7 @@ import {
   useRepos,
   useUpdateCodingSettings,
 } from "./api";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 function RepoList() {
   const t = useT();
@@ -69,11 +70,15 @@ function RepoList() {
                   className="xc-btn ghost small"
                   aria-label={`${t("Remove")} ${r.name}`}
                   disabled={remove.isPending}
-                  onClick={() => {
+                  onClick={async () => {
                     if (
-                      !confirm(
-                        `${t("Remove")} ${r.name}? ${t("Its task history is deleted too. Files on disk stay.")}`,
-                      )
+                      !(await confirmAction({
+                        title: `${t("Remove")}“${r.name}”？`,
+                        description: t(
+                          "Its task history is deleted too. Files on disk stay.",
+                        ),
+                        confirmLabel: t("Remove"),
+                      }))
                     )
                       return;
                     remove.mutate(r.id, {

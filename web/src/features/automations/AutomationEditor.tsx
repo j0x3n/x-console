@@ -37,6 +37,7 @@ import {
   schemaFields,
   validateAutomation,
 } from "./logic";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 export default function AutomationEditor() {
   const { id: idParam } = useParams();
@@ -173,8 +174,13 @@ function Editor({
               <button
                 type="button"
                 className="xc-btn danger"
-                onClick={() => {
-                  if (!confirm(`删除规则“${form.name}”？`)) return;
+                onClick={async () => {
+                  if (
+                    !(await confirmAction({
+                      title: `删除规则“${form.name}”？`,
+                    }))
+                  )
+                    return;
                   remove.mutate(id, {
                     onSuccess: () => navigate("/automations"),
                   });

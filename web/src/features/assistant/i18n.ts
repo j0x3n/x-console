@@ -27,4 +27,6 @@ registerZh({
   "Remove API key": "删除 Key",
   "API key removed": "已删除 API Key",
   "leave empty to keep": "留空表示不改",
+  "Remove the API key?": "删除 API Key？",
+  "AI stops working until you add a key again.": "重新填写之前 AI 不能使用。",
 });

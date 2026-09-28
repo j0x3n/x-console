@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { relativeTime } from "../../lib/time";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 export default function DevicesTab() {
   const t = useT();
@@ -83,9 +84,14 @@ export default function DevicesTab() {
                     <button
                       className="xc-btn small danger"
                       disabled={revoke.isPending}
-                      onClick={() =>
-                        confirm(`${t("Revoke")} ${agent.name}?`) &&
-                        revoke.mutate(agent.id)
+                      onClick={async () =>
+                        (await confirmAction({
+                          title: `${t("Revoke")}“${agent.name}”？`,
+                          description: t(
+                            "The agent is disconnected and cannot reconnect until it is paired again.",
+                          ),
+                          confirmLabel: t("Revoke"),
+                        })) && revoke.mutate(agent.id)
                       }
                     >
                       <Trash2 size={13} /> {t("Revoke")}

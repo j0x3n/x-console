@@ -14,6 +14,7 @@ import {
   type EventInput,
 } from "./api";
 import { addDays, dayKey, parseDayKey } from "./dates";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 const hm = (d: Date) =>
   `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -153,7 +154,8 @@ export default function EventForm({
     }
   };
   const del = async () => {
-    if (!event || !confirm(t("Delete this event?"))) return;
+    if (!event || !(await confirmAction({ title: t("Delete this event?") })))
+      return;
     try {
       await remove.mutateAsync(event.eventId);
       toast(t("Deleted"));

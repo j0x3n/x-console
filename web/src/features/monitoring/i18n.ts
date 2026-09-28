@@ -198,4 +198,11 @@ registerZh({
   // 通用
   Saved: "已保存",
   Deleted: "已删除",
+  "Start container": "启动容器",
+  "Stop container": "停止容器",
+  "Restart container": "重启容器",
+  "Delete container": "删除容器",
+  "Data not in a mounted volume is lost.": "没有挂载出去的数据会丢失。",
+  "Services in it stop working.": "容器里的服务会停止。",
+  "Services in it are unavailable for a moment.": "容器里的服务会短暂不可用。",
 });

@@ -15,6 +15,7 @@ import {
   type Process,
   type ProcessSort,
 } from "../api";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 export function filterProcesses(items: Process[], query: string): Process[] {
   const q = query.trim().toLowerCase();
@@ -50,12 +51,19 @@ export default function ProcessesTab({ host }: { host: HostDetail }) {
     () => filterProcesses(procs.data?.items ?? [], query),
     [procs.data, query],
   );
-  const onKill = (p: Process, signal: string) => {
+  const onKill = async (p: Process, signal: string) => {
     const msg =
       signal === "KILL"
         ? `强制结束 ${p.name}（${p.pid}）？`
         : `结束 ${p.name}（${p.pid}）？`;
-    if (!confirm(msg)) return;
+    if (
+      !(await confirmAction({
+        title: msg,
+        description: t("Unsaved work in it may be lost."),
+        confirmLabel: signal === "KILL" ? t("Force end") : t("End process"),
+      }))
+    )
+      return;
     kill.mutate(
       { pid: p.pid, signal },
       {

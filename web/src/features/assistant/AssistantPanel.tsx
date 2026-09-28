@@ -43,6 +43,7 @@ import { buildTimeline, conversationTitle } from "./logic";
 import { clampOffset, useAssistant } from "./store";
 import "./i18n";
 import "./assistant.css";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 const PANEL = { width: 400, height: 600 };
 
@@ -308,7 +309,10 @@ function Panel() {
                       type="button"
                       className="ai-icon-btn"
                       aria-label={`${t("Delete")} ${conversationTitle(c.title)}`}
-                      onClick={() =>
+                      onClick={async () =>
+                        (await confirmAction({
+                          title: `${t("Delete")}“${conversationTitle(c.title)}”？`,
+                        })) &&
                         remove.mutate(c.id, {
                           onSuccess: () => {
                             if (c.id === conversationId) setConversation(null);

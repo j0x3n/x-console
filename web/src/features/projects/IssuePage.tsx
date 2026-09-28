@@ -42,6 +42,7 @@ import {
   type IssueStatus,
 } from "./logic";
 import { useShortcuts } from "./useShortcuts";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 export default function IssuePage() {
   const t = useT();
@@ -412,8 +413,14 @@ function Properties({
       <button
         className="xc-btn danger small"
         disabled={remove.isPending}
-        onClick={() => {
-          if (!confirm(`${t("Delete")} ${issue.key}?`)) return;
+        onClick={async () => {
+          if (
+            !(await confirmAction({
+              title: `${t("Delete")} ${issue.key}？`,
+              description: t("Its comments and links are deleted too."),
+            }))
+          )
+            return;
           remove.mutate(issue.key, {
             onSuccess: () => navigate(`/projects/${issue.projectKey}`),
           });
@@ -474,7 +481,10 @@ function Links({ issueKey }: { issueKey: string }) {
           <LinkRow
             key={link.id}
             link={link}
-            onDelete={() => remove.mutate(link.id)}
+            onDelete={async () =>
+              (await confirmAction({ title: t("Delete this link?") })) &&
+              remove.mutate(link.id)
+            }
           />
         ))}
       </ul>
@@ -573,8 +583,9 @@ function Comments({ issueKey }: { issueKey: string }) {
               <button
                 className="xc-btn ghost small"
                 aria-label={t("Delete comment")}
-                onClick={() =>
-                  confirm(t("Delete this comment?")) && remove.mutate(c.id)
+                onClick={async () =>
+                  (await confirmAction({ title: t("Delete this comment?") })) &&
+                  remove.mutate(c.id)
                 }
               >
                 <Trash2 size={13} />

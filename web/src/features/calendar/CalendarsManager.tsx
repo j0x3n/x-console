@@ -16,6 +16,7 @@ import {
   type Calendar,
   type CalendarPatch,
 } from "./api";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 const onError = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
@@ -183,8 +184,12 @@ function CalendarRow({
           title={t("Delete")}
           aria-label={t("Delete")}
           disabled={remove.isPending}
-          onClick={() => {
-            if (!confirm(t("Delete this calendar and its synced events?")))
+          onClick={async () => {
+            if (
+              !(await confirmAction({
+                title: t("Delete this calendar and its synced events?"),
+              }))
+            )
               return;
             remove.mutate(c.id, {
               onSuccess: () => toast(t("Deleted")),

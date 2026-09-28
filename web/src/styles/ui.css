@@ -1505,3 +1505,13 @@ a.xc-badge:hover {
 .topbar-subtitle .xc-badge {
   vertical-align: 1px;
 }
+
+/* 确认框里的危险按钮（B21） */
+.xc-btn.danger.solid {
+  color: #fff;
+  background: var(--xc-danger);
+  border-color: var(--xc-danger);
+}
+.xc-btn.danger.solid:hover:not(:disabled) {
+  filter: brightness(1.08);
+}

@@ -81,6 +81,7 @@ registerZh({
   Confirm: "确认",
   Save: "保存",
   Delete: "删除",
+  "Type this to confirm:": "输入这几个字确认：",
   Edit: "编辑",
   Create: "新建",
   Loading: "加载中",
