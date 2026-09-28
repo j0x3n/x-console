@@ -89,4 +89,12 @@ registerZh({
   "Moved to hidden": "已隐藏",
   "No longer hidden": "已还原到原来的位置",
   "Tag color": "标签颜色",
+  "Select all": "全选",
+  "Select notes": "选择多条笔记",
+  Select: "选择",
+  "Delete selected": "删除选中的笔记",
+  notes: "条笔记",
+  "selected notes": "条选中的笔记",
+  "This cannot be undone.": "删除后不能恢复。",
+  "notes could not be deleted": "条笔记没删掉",
 });

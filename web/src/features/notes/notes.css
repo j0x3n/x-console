@@ -831,3 +831,76 @@
   background: var(--xc-surface-2);
   color: var(--xc-text);
 }
+
+/* 列表每行的删除、选择模式、手机左滑（B23） */
+.notes-item-row {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 4px;
+  border-radius: 10px;
+}
+.notes-item-row > .notes-item {
+  margin-bottom: 0;
+  transition:
+    transform 0.18s,
+    background 0.12s;
+}
+.notes-item-row.swiped > .notes-item {
+  transform: translateX(-84px);
+}
+.notes-item-more {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+}
+.notes-item-row:hover .notes-item-more,
+.notes-item-more:focus-within {
+  opacity: 1;
+}
+.notes-item-swipe-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--xc-danger);
+  color: #fff;
+  font-size: 12.5px;
+  transform: translateX(100%);
+  transition: transform 0.18s;
+}
+.notes-item-row.swiped .notes-item-swipe-delete {
+  transform: translateX(0);
+}
+.notes-item.selecting {
+  cursor: pointer;
+}
+.notes-item.selecting.checked {
+  background: var(--xc-accent-soft);
+}
+.notes-item-check {
+  flex: none;
+  margin-top: 3px;
+  accent-color: var(--xc-accent);
+}
+.notes-select-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.notes-select-bar .xc-check {
+  margin: 0;
+  font-size: 12.5px;
+}
+@media (hover: none) {
+  .notes-item-more {
+    display: none;
+  }
+}

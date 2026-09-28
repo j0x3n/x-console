@@ -430,6 +430,69 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /subscription-categories:
+    get:
+      operationId: listSubscriptionCategories
+      tags: [subscriptions]
+      description: 订阅分类（B23）。默认有“服务器、域名、软件、其他”四个，用户可以自己加。按 position 排序
+      responses:
+        "200":
+          description: 分类列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SubscriptionCategoryItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createSubscriptionCategory
+      tags: [subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionCategoryInput" }
+      responses:
+        "201":
+          description: 已创建。名字重复时回 409
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionCategoryItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /subscription-categories/{categoryId}:
+    parameters:
+      - name: categoryId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    patch:
+      operationId: updateSubscriptionCategory
+      tags: [subscriptions]
+      description: 改名或调整顺序
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SubscriptionCategoryInput" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SubscriptionCategoryItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteSubscriptionCategory
+      tags: [subscriptions]
+      description: 删除分类，这个分类下的订阅改到“其他”。“其他”本身不能删（回 400）
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /subscriptions/{subscriptionId}/events:
     parameters:
       - $ref: "#/components/parameters/SubscriptionId"
@@ -766,6 +829,28 @@ components:
     SubscriptionCycle:
       type: string
       enum: [monthly, yearly, custom_days]
+    SubscriptionCycleUnit:
+      type: string
+      description: 周期单位（B23），和 cycleCount 一起表示“每 N 个单位”。月和年按日历算，1 月 31 日加 1 个月是 2 月最后一天
+      enum: [minute, hour, day, week, month, year]
+    SubscriptionCategoryItem:
+      type: object
+      required: [id, name, position, count]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        builtin:
+          $ref: "#/components/schemas/SubscriptionCategory"
+          description: 默认的四个分类带这个字段，对应旧的 category 值。用户自己加的没有
+        position: { type: integer }
+        count:
+          type: integer
+          description: 这个分类下未归档的订阅数
+    SubscriptionCategoryInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 30 }
+        position: { type: integer }
     Subscription:
       type: object
       required: [id, name, category, amount, currency, cycle, cycleDays, nextRenewal, remindDaysBefore, url, note, autoRenew, daysLeft, monthlyCost, createdAt, updatedAt]
@@ -779,6 +864,15 @@ components:
         cycleDays:
           type: integer
           description: cycle 是 custom_days 时的天数
+        categoryId:
+          type: integer
+          format: int64
+          description: 分类（B23）。以它为准，category 只保留给旧前端
+        categoryName: { type: string }
+        cycleCount:
+          type: integer
+          description: 每几个 cycleUnit 续一次（B23）。以它和 cycleUnit 为准，cycle、cycleDays 只保留给旧前端
+        cycleUnit: { $ref: "#/components/schemas/SubscriptionCycleUnit" }
         nextRenewal: { type: string, format: date }
         remindDaysBefore:
           type: array
@@ -808,6 +902,14 @@ components:
           description: 默认 CNY
         cycle: { $ref: "#/components/schemas/SubscriptionCycle" }
         cycleDays: { type: integer, minimum: 1, maximum: 3660 }
+        categoryId:
+          type: integer
+          format: int64
+          description: 给了就以它为准，忽略 category
+        cycleCount: { type: integer, minimum: 1, maximum: 1000 }
+        cycleUnit:
+          $ref: "#/components/schemas/SubscriptionCycleUnit"
+          description: 和 cycleCount 一起给时以它们为准，忽略 cycle、cycleDays
         nextRenewal: { type: string, format: date }
         remindDaysBefore:
           type: array
@@ -825,6 +927,14 @@ components:
         currency: { type: string }
         cycle: { $ref: "#/components/schemas/SubscriptionCycle" }
         cycleDays: { type: integer, minimum: 1, maximum: 3660 }
+        categoryId:
+          type: integer
+          format: int64
+          description: 给了就以它为准，忽略 category
+        cycleCount: { type: integer, minimum: 1, maximum: 1000 }
+        cycleUnit:
+          $ref: "#/components/schemas/SubscriptionCycleUnit"
+          description: 和 cycleCount 一起给时以它们为准，忽略 cycle、cycleDays
         nextRenewal: { type: string, format: date }
         remindDaysBefore:
           type: array
@@ -860,6 +970,11 @@ components:
       required: [category, currency, monthly, yearly]
       properties:
         category: { $ref: "#/components/schemas/SubscriptionCategory" }
+        categoryId:
+          type: integer
+          format: int64
+          description: 按 categoryId 分组（B23）。有它时前端按它显示
+        categoryName: { type: string }
         currency: { type: string }
         monthly: { type: number, format: double }
         yearly: { type: number, format: double }

@@ -75,4 +75,6 @@ registerZh({
   "When the chance of rain reaches": "降雨概率达到",
   "Current location": "当前位置",
   "Set a place": "设置地区",
+  "Updated at": "更新于",
+  "Refresh weather": "刷新天气",
 });

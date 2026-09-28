@@ -5,11 +5,15 @@ import { useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
 import {
   useSaveSubscription,
+  useSubscriptionCategories,
+  type CycleUnit,
   type Subscription,
   type SubscriptionCategory,
+  type SubscriptionCategoryItem,
   type SubscriptionCycle,
 } from "../api";
-import { parseRemindDays } from "../lib";
+import { cycleOf, legacyCycle, unitLabels } from "../lib";
+import CategoryManager from "./CategoryManager";
 
 export const categoryLabels: Record<SubscriptionCategory, string> = {
   server: "Server",
@@ -24,11 +28,33 @@ export const cycleLabels: Record<SubscriptionCycle, string> = {
   custom_days: "Every N days",
 };
 
+/** 常用币种（B23）。其他的选“其他”后手动填。 */
+export const currencies = ["CNY", "USD", "EUR", "HKD", "JPY", "GBP", "SGD"];
+const OTHER = "__other";
+const MANAGE = "__manage";
+const units: CycleUnit[] = ["minute", "hour", "day", "week", "month", "year"];
+/** 提前提醒只给两个选项（B23）。 */
+const remindChoices = [1, 7];
+
+/** 订阅显示用的分类名：新接口有 categoryName，旧接口用固定的四个。 */
+export function categoryName(
+  sub: Pick<Subscription, "category" | "categoryName">,
+  t: (key: string) => string,
+): string {
+  return sub.categoryName || t(categoryLabels[sub.category]);
+}
+
 function todayPlus(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** 旧接口要 cycleDays 时的近似天数。 */
+function approxDays(count: number, unit: CycleUnit): number {
+  const perUnit = { minute: 1, hour: 1, day: 1, week: 7, month: 30, year: 365 };
+  return Math.min(3660, Math.max(1, count * perUnit[unit]));
 }
 
 interface Props {
@@ -44,55 +70,98 @@ export default function SubscriptionDialog({
 }: Props) {
   const t = useT();
   const save = useSaveSubscription();
+  const categories = useSubscriptionCategories();
+  // 分类接口上线了，说明后端也认识新的周期写法。
+  const live = categories.isSuccess;
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<SubscriptionCategory>("other");
+  const [category, setCategory] = useState<string>("other");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("CNY");
-  const [cycle, setCycle] = useState<SubscriptionCycle>("monthly");
-  const [cycleDays, setCycleDays] = useState("30");
+  const [customCurrency, setCustomCurrency] = useState("");
+  const [count, setCount] = useState("1");
+  const [unit, setUnit] = useState<CycleUnit>("month");
   const [next, setNext] = useState("");
-  const [remind, setRemind] = useState("7, 1");
+  const [remind, setRemind] = useState<number[]>([7, 1]);
   const [autoRenew, setAutoRenew] = useState(false);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [managing, setManaging] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setError("");
     setName(sub?.name ?? "");
-    setCategory(sub?.category ?? "other");
+    setCategory(
+      sub?.categoryId ? String(sub.categoryId) : (sub?.category ?? "other"),
+    );
     setAmount(sub ? String(sub.amount) : "");
-    setCurrency(sub?.currency ?? "CNY");
-    setCycle(sub?.cycle ?? "monthly");
-    setCycleDays(String(sub?.cycleDays || 30));
+    const cur = sub?.currency ?? "CNY";
+    setCurrency(currencies.includes(cur) ? cur : OTHER);
+    setCustomCurrency(currencies.includes(cur) ? "" : cur);
+    const c = sub ? cycleOf(sub) : { count: 1, unit: "month" as const };
+    setCount(String(c.count));
+    setUnit(c.unit);
     setNext(sub?.nextRenewal ?? todayPlus(30));
-    setRemind(sub ? sub.remindDaysBefore.join(", ") : "7, 1");
+    setRemind(sub ? sub.remindDaysBefore : [7, 1]);
     setAutoRenew(sub?.autoRenew ?? false);
     setUrl(sub?.url ?? "");
     setNote(sub?.note ?? "");
   }, [open, sub]);
 
+  // 新接口：分类的值是 id。旧分类（server 这种）换成对应的 id。
+  const items: SubscriptionCategoryItem[] = categories.data ?? [];
+  useEffect(() => {
+    if (!live || /^\d+$/.test(category)) return;
+    const match = items.find((c) => c.builtin === category);
+    if (match) setCategory(String(match.id));
+  }, [live, items, category]);
+
+  const toggleRemind = (day: number) =>
+    setRemind((prev) =>
+      prev.includes(day)
+        ? prev.filter((d) => d !== day)
+        : [...prev, day].sort((a, b) => b - a),
+    );
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     const value = Number(amount);
-    const days = parseRemindDays(remind);
+    const n = Number(count);
     if (!name.trim()) return setError(t("Please enter a name"));
     if (amount.trim() === "" || !Number.isFinite(value) || value < 0)
       return setError(t("Please enter the amount"));
+    if (!Number.isInteger(n) || n < 1 || n > 1000)
+      return setError(t("The cycle should be a whole number from 1 to 1000"));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(next))
       return setError(t("Please pick the next renewal date"));
-    if (days === null)
-      return setError(t("Reminder days look wrong, for example 7, 1"));
+    const code =
+      currency === OTHER ? customCurrency.trim().toUpperCase() : currency;
+    if (!/^[A-Z]{3}$/.test(code))
+      return setError(t("Enter a three-letter currency code, like THB"));
+    const legacy = legacyCycle({ count: n, unit });
+    if (!live && !legacy)
+      return setError(
+        t(
+          "Until the server is updated, only days, weeks, one month or one year can be saved.",
+        ),
+      );
+    const byId = /^\d+$/.test(category)
+      ? items.find((c) => String(c.id) === category)
+      : undefined;
     const fields = {
       name: name.trim(),
-      category,
+      category: (byId
+        ? (byId.builtin ?? "other")
+        : category) as SubscriptionCategory,
+      ...(byId ? { categoryId: byId.id } : {}),
       amount: value,
-      currency: currency.trim().toUpperCase() || "CNY",
-      cycle,
-      cycleDays: cycle === "custom_days" ? Number(cycleDays) || 30 : undefined,
+      currency: code,
+      cycle: legacy?.cycle ?? ("custom_days" as const),
+      cycleDays: legacy ? legacy.cycleDays : approxDays(n, unit),
+      ...(live ? { cycleCount: n, cycleUnit: unit } : {}),
       nextRenewal: next,
-      remindDaysBefore: days,
+      remindDaysBefore: remind,
       autoRenew,
       url: url.trim(),
       note,
@@ -106,6 +175,8 @@ export default function SubscriptionDialog({
       setError(errorMessage(err));
     }
   };
+
+  const extraRemind = remind.filter((d) => !remindChoices.includes(d));
 
   return (
     <Dialog
@@ -132,15 +203,26 @@ export default function SubscriptionDialog({
               className="xc-select"
               value={category}
               onChange={(e) =>
-                setCategory(e.target.value as SubscriptionCategory)
+                e.target.value === MANAGE
+                  ? setManaging(true)
+                  : setCategory(e.target.value)
               }
             >
-              {(Object.keys(categoryLabels) as SubscriptionCategory[]).map(
-                (c) => (
-                  <option key={c} value={c}>
-                    {t(categoryLabels[c])}
-                  </option>
-                ),
+              {live
+                ? items.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.builtin ? t(categoryLabels[c.builtin]) : c.name}
+                    </option>
+                  ))
+                : (Object.keys(categoryLabels) as SubscriptionCategory[]).map(
+                    (c) => (
+                      <option key={c} value={c}>
+                        {t(categoryLabels[c])}
+                      </option>
+                    ),
+                  )}
+              {live && (
+                <option value={MANAGE}>{t("Manage categories…")}</option>
               )}
             </select>
           </label>
@@ -156,50 +238,60 @@ export default function SubscriptionDialog({
               placeholder="99"
             />
           </label>
-          <label className="xc-field monitoring-narrow-field">
+          <div className="xc-field monitoring-narrow-field">
             <span>{t("Currency")}</span>
+            <div className="monitoring-currency">
+              <select
+                className="xc-select"
+                aria-label={t("Currency")}
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+              >
+                {currencies.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+                <option value={OTHER}>{t("Other…")}</option>
+              </select>
+              {currency === OTHER && (
+                <input
+                  className="xc-input"
+                  aria-label={t("Currency code")}
+                  value={customCurrency}
+                  onChange={(e) => setCustomCurrency(e.target.value)}
+                  maxLength={3}
+                  placeholder="THB"
+                  autoFocus
+                />
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="xc-field">
+          <span>{t("Billing cycle")}</span>
+          <div className="monitoring-cycle">
+            <span className="monitoring-cycle-every">{t("Every")}</span>
             <input
               className="xc-input"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              maxLength={8}
-              list="monitoring-currencies"
+              inputMode="numeric"
+              aria-label={t("How many")}
+              value={count}
+              onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))}
             />
-            <datalist id="monitoring-currencies">
-              {["CNY", "USD", "EUR", "HKD", "JPY", "GBP"].map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-        <div className="monitoring-form-row">
-          <label className="xc-field">
-            <span>{t("Billing cycle")}</span>
             <select
               className="xc-select"
-              value={cycle}
-              onChange={(e) => setCycle(e.target.value as SubscriptionCycle)}
+              aria-label={t("Unit")}
+              value={unit}
+              onChange={(e) => setUnit(e.target.value as CycleUnit)}
             >
-              {(Object.keys(cycleLabels) as SubscriptionCycle[]).map((c) => (
-                <option key={c} value={c}>
-                  {t(cycleLabels[c])}
+              {units.map((u) => (
+                <option key={u} value={u}>
+                  {t(unitLabels[u])}
                 </option>
               ))}
             </select>
-          </label>
-          {cycle === "custom_days" && (
-            <label className="xc-field monitoring-narrow-field">
-              <span>{t("Days")}</span>
-              <input
-                className="xc-input"
-                inputMode="numeric"
-                value={cycleDays}
-                onChange={(e) =>
-                  setCycleDays(e.target.value.replace(/\D/g, ""))
-                }
-              />
-            </label>
-          )}
+          </div>
         </div>
         <div className="monitoring-form-row">
           <label className="xc-field">
@@ -211,15 +303,25 @@ export default function SubscriptionDialog({
               onChange={(e) => setNext(e.target.value)}
             />
           </label>
-          <label className="xc-field">
-            <span>{t("Remind days before")}</span>
-            <input
-              className="xc-input"
-              value={remind}
-              onChange={(e) => setRemind(e.target.value)}
-              placeholder="7, 1"
-            />
-          </label>
+          <div className="xc-field">
+            <span>{t("Remind before renewal")}</span>
+            <div className="monitoring-remind">
+              {[...remindChoices, ...extraRemind]
+                .sort((a, b) => a - b)
+                .map((day) => (
+                  <label key={day} className="xc-check">
+                    <input
+                      type="checkbox"
+                      checked={remind.includes(day)}
+                      onChange={() => toggleRemind(day)}
+                    />
+                    <span>
+                      {t("Ahead by")} {day} {t("days")}
+                    </span>
+                  </label>
+                ))}
+            </div>
+          </div>
         </div>
         <label className="monitoring-check">
           <input
@@ -264,6 +366,12 @@ export default function SubscriptionDialog({
           </button>
         </div>
       </form>
+      {managing && (
+        <CategoryManager
+          categories={items}
+          onClose={() => setManaging(false)}
+        />
+      )}
     </Dialog>
   );
 }

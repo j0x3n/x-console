@@ -28,6 +28,8 @@ export type SubscriptionEvent = S["SubscriptionEvent"];
 export type SubscriptionSummary = S["SubscriptionSummary"];
 export type SubscriptionCycle = S["SubscriptionCycle"];
 export type SubscriptionCategory = S["SubscriptionCategory"];
+export type SubscriptionCategoryItem = S["SubscriptionCategoryItem"];
+export type CycleUnit = S["SubscriptionCycleUnit"];
 export type DockerContainer = S["DockerContainer"];
 export type DockerStats = S["DockerStats"];
 export type DockerImage = S["DockerImage"];
@@ -44,6 +46,7 @@ export const monitoringKeys = {
   subscriptionList: (archived: boolean) =>
     ["monitoring", "subscriptions", "list", archived] as const,
   summary: ["monitoring", "subscriptions", "summary"] as const,
+  categories: ["monitoring", "subscriptions", "categories"] as const,
   events: (id: number) =>
     ["monitoring", "subscriptions", id, "events"] as const,
   hosts: ["monitoring", "hosts"] as const,
@@ -229,6 +232,49 @@ export function useSubscriptions(archived: boolean) {
           params: { query: { archived } },
         }),
       ),
+  });
+}
+
+/**
+ * 自定义分类（B23）。接口还没上线时回 404 或 501，
+ * 这时表单只用默认的四个分类，周期也只能存旧接口认识的几种。
+ */
+export function useSubscriptionCategories() {
+  return useQuery({
+    queryKey: monitoringKeys.categories,
+    queryFn: () => unwrap(monitoringApi.GET("/subscription-categories")),
+    retry: false,
+  });
+}
+
+export function useSaveSubscriptionCategory() {
+  const invalidate = useInvalidate(monitoringKeys.subscriptions);
+  return useMutation({
+    mutationFn: ({ id, name }: { id?: number; name: string }) =>
+      id
+        ? unwrap(
+            monitoringApi.PATCH("/subscription-categories/{categoryId}", {
+              params: { path: { categoryId: id } },
+              body: { name },
+            }),
+          )
+        : unwrap(
+            monitoringApi.POST("/subscription-categories", { body: { name } }),
+          ),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteSubscriptionCategory() {
+  const invalidate = useInvalidate(monitoringKeys.subscriptions);
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        monitoringApi.DELETE("/subscription-categories/{categoryId}", {
+          params: { path: { categoryId: id } },
+        }),
+      ),
+    onSuccess: invalidate,
   });
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Bell, CloudSun, Droplets, Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Bell, CloudSun, Droplets, Plus, RefreshCw } from "lucide-react";
 import { errorMessage } from "../../../api/client";
 import { useMarkNotificationRead, useNotifications } from "../../../api/core";
 import { Ring } from "../../../components/ui/Stat";
@@ -20,7 +21,7 @@ import {
   stateLabel,
   tapAction,
 } from "../../home/logic";
-import { useWeather } from "../api";
+import { refreshWeather, useWeather } from "../api";
 import { sortEvents } from "../today";
 import { Empty, isSetupNeeded, MoreLink, QueryState } from "./shared";
 import WeatherDialog, { loadWeatherShow } from "./WeatherDialog";
@@ -152,8 +153,11 @@ export function HabitsCard() {
 /** 标题右下的一行天气。点一下打开天气设置。 */
 export function WeatherStrip() {
   const t = useT();
+  const language = useLanguage();
   const weather = useWeather();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [spinning, setSpinning] = useState(false);
   const [show, setShow] = useState(loadWeatherShow);
   useEffect(() => {
     const onChange = () => setShow(loadWeatherShow());
@@ -164,12 +168,28 @@ export function WeatherStrip() {
   const setup = weather.isError && isSetupNeeded(weather.error);
   if (weather.isError && !setup) return null;
   const w = weather.data;
+  const refresh = async () => {
+    if (spinning) return;
+    setSpinning(true);
+    // 至少转一圈，太快看不出点过了。
+    const turn = new Promise((r) => setTimeout(r, 700));
+    try {
+      await Promise.all([refreshWeather(qc), turn]);
+    } catch (err) {
+      toast({ message: errorMessage(err), tone: "error" });
+    } finally {
+      setSpinning(false);
+    }
+  };
+  // 鼠标移到整个天气上时显示更新时间。
+  const updated = w?.fetchedAt
+    ? `${t("Updated at")} ${formatTime(w.fetchedAt, language)}（${relativeTime(w.fetchedAt, language)}）`
+    : undefined;
   return (
-    <>
+    <span className="today-weather" title={updated}>
       <button
         type="button"
         className={`today-weather-strip${setup ? " is-setup" : ""}`}
-        title={t("Weather settings")}
         onClick={() => setOpen(true)}
       >
         <CloudSun size={14} />
@@ -195,8 +215,19 @@ export function WeatherStrip() {
           </>
         )}
       </button>
+      {w && (
+        <button
+          type="button"
+          className={`today-weather-refresh${spinning ? " is-spinning" : ""}`}
+          aria-label={t("Refresh weather")}
+          disabled={spinning}
+          onClick={refresh}
+        >
+          <RefreshCw size={13} />
+        </button>
+      )}
       <WeatherDialog open={open} onClose={() => setOpen(false)} />
-    </>
+    </span>
   );
 }
 

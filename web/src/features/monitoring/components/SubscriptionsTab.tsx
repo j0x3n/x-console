@@ -22,8 +22,10 @@ import {
   type Subscription,
 } from "../api";
 import {
+  addCycle,
+  cycleOf,
+  cycleText,
   formatMoney,
-  nextRenewal,
   renewalTone,
   sortSubscriptions,
 } from "../lib";
@@ -34,10 +36,7 @@ import {
   useIdParam,
   useParam,
 } from "./common";
-import SubscriptionDialog, {
-  categoryLabels,
-  cycleLabels,
-} from "./SubscriptionDialog";
+import SubscriptionDialog, { categoryName } from "./SubscriptionDialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 /** 订阅与续费：支出汇总、列表、详情。 */
@@ -149,14 +148,10 @@ function SubscriptionRow({
     <button className="monitoring-row" onClick={onOpen}>
       <span className="monitoring-row-main">
         <strong>
-          {s.name}{" "}
-          <span className="xc-badge">{t(categoryLabels[s.category])}</span>
+          {s.name} <span className="xc-badge">{categoryName(s, t)}</span>
         </strong>
         <small>
-          {formatMoney(s.amount, s.currency)} ·{" "}
-          {s.cycle === "custom_days"
-            ? `${s.cycleDays} ${t("days")}`
-            : t(cycleLabels[s.cycle])}
+          {formatMoney(s.amount, s.currency)} · {cycleText(cycleOf(s), t)}
           {s.autoRenew && ` · ${t("auto renew")}`}
         </small>
       </span>
@@ -201,7 +196,7 @@ function SubscriptionDetail({
       {
         id: sub.id,
         patch: {
-          nextRenewal: nextRenewal(sub.nextRenewal, sub.cycle, sub.cycleDays),
+          nextRenewal: addCycle(sub.nextRenewal, cycleOf(sub)),
         },
       },
       {
@@ -231,11 +226,7 @@ function SubscriptionDetail({
           </div>
           <div>
             <small>{t("Billing cycle")}</small>
-            <strong>
-              {sub.cycle === "custom_days"
-                ? `${sub.cycleDays} ${t("days")}`
-                : t(cycleLabels[sub.cycle])}
-            </strong>
+            <strong>{cycleText(cycleOf(sub), t)}</strong>
           </div>
           <div>
             <small>{t("Next renewal")}</small>

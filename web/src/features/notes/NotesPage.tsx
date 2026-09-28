@@ -10,11 +10,13 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Archive,
   EyeOff,
+  ListChecks,
   NotebookPen,
   Notebook,
   Pin,
   Plus,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
@@ -22,6 +24,7 @@ import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
 import {
   useCreateNote,
+  useDeleteNote,
   useNotes,
   useSetTagColor,
   useTags,
@@ -38,6 +41,9 @@ import {
   type DateGroup,
 } from "./logic";
 import PageActions from "../../components/layout/PageActions";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
+import MoreMenu from "../../components/ui/MoreMenu";
+import { toast } from "../../hooks/useToast";
 
 type View = "all" | "pinned" | "archived" | "tag" | "hidden";
 
@@ -66,6 +72,10 @@ export default function NotesPage() {
   const [input, setInput] = useState(q);
   const searchRef = useRef<HTMLInputElement>(null);
   const create = useCreateNote();
+  const remove = useDeleteNote();
+  // 选择模式（B23）：勾选多条后一起删除。
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const tags = useTags(hidden);
   const notes = useNotes({
     q,
@@ -120,6 +130,65 @@ export default function NotesPage() {
     const s = p.toString();
     return s ? `?${s}` : "";
   })();
+
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  const toggle = (noteId: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(noteId)) next.delete(noteId);
+      else next.add(noteId);
+      return next;
+    });
+  const afterDelete = (ids: number[]) => {
+    if (id && ids.includes(id)) navigate(`/notes${query}`);
+  };
+  const deleteOne = async (n: NoteSummary) => {
+    const name = noteTitle(n.title, n.excerpt) || t("Untitled note");
+    if (
+      !(await confirmAction({
+        title: `${t("Delete")}“${name}”？`,
+        description: t("This cannot be undone."),
+      }))
+    )
+      return;
+    remove.mutate(n.id, {
+      onSuccess: () => {
+        toast(t("Deleted"));
+        afterDelete([n.id]);
+      },
+    });
+  };
+  const deleteSelected = async () => {
+    const ids = [...selected];
+    if (
+      !(await confirmAction({
+        title: `${t("Delete")} ${ids.length} ${t("selected notes")}？`,
+        description: t("This cannot be undone."),
+      }))
+    )
+      return;
+    let failed = 0;
+    for (const noteId of ids) {
+      try {
+        await remove.mutateAsync(noteId);
+      } catch {
+        failed++;
+      }
+    }
+    toast(
+      failed
+        ? {
+            message: `${failed} ${t("notes could not be deleted")}`,
+            tone: "error",
+          }
+        : t("Deleted"),
+    );
+    afterDelete(ids);
+    stopSelecting();
+  };
 
   const newNote = () =>
     create.mutate(
@@ -253,15 +322,56 @@ export default function NotesPage() {
                 : ""}
             </span>
           </div>
+          {items.length > 0 &&
+            (selecting ? (
+              <div className="notes-select-bar">
+                <label className="xc-check">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === items.length}
+                    onChange={(e) =>
+                      setSelected(
+                        e.target.checked
+                          ? new Set(items.map((n) => n.id))
+                          : new Set(),
+                      )
+                    }
+                  />
+                  <span>{t("Select all")}</span>
+                </label>
+                <button className="xc-btn ghost small" onClick={stopSelecting}>
+                  {t("Cancel")}
+                </button>
+              </div>
+            ) : (
+              <button
+                className="xc-btn ghost small"
+                onClick={() => setSelecting(true)}
+                title={t("Select notes")}
+              >
+                <ListChecks size={14} /> {t("Select")}
+              </button>
+            ))}
           <PageActions>
-            <button
-              className="xc-btn primary small"
-              onClick={newNote}
-              disabled={create.isPending}
-              title={t("New note")}
-            >
-              <Plus size={14} /> {t("New note")}
-            </button>
+            {selecting ? (
+              <button
+                className="xc-btn danger small"
+                disabled={selected.size === 0 || remove.isPending}
+                onClick={deleteSelected}
+                title={t("Delete selected")}
+              >
+                <Trash2 size={14} /> {t("Delete")} {selected.size} {t("notes")}
+              </button>
+            ) : (
+              <button
+                className="xc-btn primary small"
+                onClick={newNote}
+                disabled={create.isPending}
+                title={t("New note")}
+              >
+                <Plus size={14} /> {t("New note")}
+              </button>
+            )}
           </PageActions>
         </div>
         <label className="notes-search">
@@ -319,6 +429,10 @@ export default function NotesPage() {
                     note={n}
                     active={n.id === id}
                     query={query}
+                    selecting={selecting}
+                    checked={selected.has(n.id)}
+                    onToggle={() => toggle(n.id)}
+                    onDelete={() => deleteOne(n)}
                   />
                 ))}
               </section>
@@ -391,27 +505,42 @@ function NoteItem({
   note,
   active,
   query,
+  selecting,
+  checked,
+  onToggle,
+  onDelete,
 }: {
   note: NoteSummary;
   active: boolean;
   query: string;
+  selecting: boolean;
+  checked: boolean;
+  onToggle: () => void;
+  onDelete: () => void;
 }) {
   const tags = useTags();
   const colorOf = (tag: string) =>
     tagColor(tag, tags.data?.find((tc) => tc.tag === tag)?.color);
   const t = useT();
   const language = useLanguage();
+  const [swiped, setSwiped] = useState(false);
+  const touch = useRef<{ x: number; y: number } | null>(null);
   const title = noteTitle(note.title, note.excerpt) || t("Untitled note");
   const body = note.title.trim()
     ? note.excerpt
     : note.excerpt.slice(title.length).trim();
-  return (
-    <Link
-      to={`/notes/${note.id}${query}`}
-      role="listitem"
-      className={`notes-item${active ? " active" : ""}`}
-      aria-current={active ? "page" : undefined}
-    >
+  const content = (
+    <>
+      {selecting && (
+        <input
+          type="checkbox"
+          className="notes-item-check"
+          checked={checked}
+          aria-label={`${t("Select")} ${title}`}
+          onChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
       <div className="notes-item-text">
         <strong>
           {note.pinned && (
@@ -458,7 +587,76 @@ function NoteItem({
           loading="lazy"
         />
       )}
-    </Link>
+    </>
+  );
+  if (selecting)
+    return (
+      <div
+        role="listitem"
+        className={`notes-item selecting${checked ? " checked" : ""}`}
+        onClick={onToggle}
+      >
+        {content}
+      </div>
+    );
+  // 手机上左滑露出“删除”。
+  return (
+    <div
+      role="listitem"
+      className={`notes-item-row${swiped ? " swiped" : ""}`}
+      onTouchStart={(e) => {
+        touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }}
+      onTouchMove={(e) => {
+        const start = touch.current;
+        if (!start) return;
+        const dx = e.touches[0].clientX - start.x;
+        const dy = e.touches[0].clientY - start.y;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 2) {
+          setSwiped(dx < 0);
+          touch.current = null;
+        }
+      }}
+    >
+      <Link
+        to={`/notes/${note.id}${query}`}
+        className={`notes-item${active ? " active" : ""}`}
+        aria-current={active ? "page" : undefined}
+        onClick={(e) => {
+          if (swiped) {
+            e.preventDefault();
+            setSwiped(false);
+          }
+        }}
+      >
+        {content}
+      </Link>
+      <MoreMenu
+        className="notes-item-more"
+        label={`${t("More")}：${title}`}
+        title={title}
+        items={[
+          {
+            key: "delete",
+            label: t("Delete"),
+            icon: <Trash2 size={14} />,
+            danger: true,
+            onSelect: onDelete,
+          },
+        ]}
+      />
+      <button
+        className="notes-item-swipe-delete"
+        tabIndex={swiped ? 0 : -1}
+        aria-hidden={!swiped}
+        onClick={() => {
+          setSwiped(false);
+          onDelete();
+        }}
+      >
+        <Trash2 size={15} /> {t("Delete")}
+      </button>
+    </div>
   );
 }
 

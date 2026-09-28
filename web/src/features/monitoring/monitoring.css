@@ -496,3 +496,66 @@ button.monitoring-row:hover,
     min-width: 36px;
   }
 }
+
+/* 订阅表单（B23） */
+.monitoring-currency {
+  display: flex;
+  gap: 6px;
+}
+.monitoring-currency .xc-input {
+  width: 72px;
+  text-transform: uppercase;
+}
+.monitoring-cycle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.monitoring-cycle-every {
+  color: var(--xc-text-2);
+}
+.monitoring-cycle .xc-input {
+  width: 72px;
+}
+.monitoring-cycle .xc-select {
+  width: 110px;
+}
+.monitoring-remind {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  min-height: 32px;
+  align-items: center;
+}
+.monitoring-remind .xc-check {
+  margin: 0;
+}
+.monitoring-categories {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.monitoring-categories li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.monitoring-categories li .xc-input {
+  flex: 1;
+}
+.monitoring-category-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.monitoring-category-add {
+  display: flex;
+  gap: 6px;
+}
+.monitoring-category-add .xc-input {
+  flex: 1;
+}

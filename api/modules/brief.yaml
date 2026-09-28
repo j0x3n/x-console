@@ -96,8 +96,11 @@ paths:
     get:
       operationId: getWeather
       tags: [brief]
-      description: 当前天气和今天的预报（Open-Meteo）。不传经纬度时用早报设置里的位置，没设置位置时返回 412。结果缓存 10 分钟。
+      description: 当前天气和今天的预报（Open-Meteo）。不传经纬度时用早报设置里的位置，没设置位置时返回 412。结果缓存 10 分钟。refresh=true 时跳过缓存重新拉取（B23），同一位置 1 分钟内最多真正拉一次，其余返回缓存。
       parameters:
+        - name: refresh
+          in: query
+          schema: { type: boolean }
         - name: lat
           in: query
           schema: { type: number, format: double }

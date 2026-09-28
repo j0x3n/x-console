@@ -684,45 +684,47 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
             </div>
           </div>
 
-          <div
-            className="notes-toolbar"
-            role="toolbar"
-            aria-label={t("Formatting")}
-          >
-            {tools.map((tool) => (
+          {/* 预览时只显示渲染后的内容，不显示格式按钮（B23） */}
+          {mode !== "preview" && (
+            <div
+              className="notes-toolbar"
+              role="toolbar"
+              aria-label={t("Formatting")}
+            >
+              {tools.map((tool) => (
+                <button
+                  key={tool.key}
+                  type="button"
+                  title={tool.label}
+                  aria-label={tool.label}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={tool.run}
+                >
+                  {tool.icon}
+                </button>
+              ))}
+              <span className="notes-toolbar-sep" />
               <button
-                key={tool.key}
                 type="button"
-                title={tool.label}
-                aria-label={tool.label}
+                title={t("Insert image")}
+                aria-label={t("Insert image")}
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={tool.run}
+                onClick={() => pickFiles(true)}
               >
-                {tool.icon}
+                <ImagePlus size={15} />
               </button>
-            ))}
-            <span className="notes-toolbar-sep" />
-            <button
-              type="button"
-              title={t("Insert image")}
-              aria-label={t("Insert image")}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pickFiles(true)}
-            >
-              <ImagePlus size={15} />
-            </button>
-            <button
-              type="button"
-              className="notes-tool-attach"
-              title={t("Attach a file")}
-              aria-label={t("Attach a file")}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pickFiles(false)}
-            >
-              <Paperclip size={15} />
-            </button>
-          </div>
-
+              <button
+                type="button"
+                className="notes-tool-attach"
+                title={t("Attach a file")}
+                aria-label={t("Attach a file")}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pickFiles(false)}
+              >
+                <Paperclip size={15} />
+              </button>
+            </div>
+          )}
           {mode === "edit" && textarea}
           {mode === "preview" && preview}
           {mode === "split" && (

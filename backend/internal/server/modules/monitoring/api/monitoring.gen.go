@@ -189,6 +189,36 @@ func (e SubscriptionCycle) Valid() bool {
 	}
 }
 
+// Defines values for SubscriptionCycleUnit.
+const (
+	Day    SubscriptionCycleUnit = "day"
+	Hour   SubscriptionCycleUnit = "hour"
+	Minute SubscriptionCycleUnit = "minute"
+	Month  SubscriptionCycleUnit = "month"
+	Week   SubscriptionCycleUnit = "week"
+	Year   SubscriptionCycleUnit = "year"
+)
+
+// Valid indicates whether the value is a known member of the SubscriptionCycleUnit enum.
+func (e SubscriptionCycleUnit) Valid() bool {
+	switch e {
+	case Day:
+		return true
+	case Hour:
+		return true
+	case Minute:
+		return true
+	case Month:
+		return true
+	case Week:
+		return true
+	case Year:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SubscriptionEventKind.
 const (
 	Created  SubscriptionEventKind = "created"
@@ -237,9 +267,13 @@ func (e GetMonitorResultsParamsRange) Valid() bool {
 // CategorySpend defines model for CategorySpend.
 type CategorySpend struct {
 	Category SubscriptionCategory `json:"category"`
-	Currency string               `json:"currency"`
-	Monthly  float64              `json:"monthly"`
-	Yearly   float64              `json:"yearly"`
+
+	// CategoryId 按 categoryId 分组（B23）。有它时前端按它显示
+	CategoryId   *int64  `json:"categoryId,omitempty"`
+	CategoryName *string `json:"categoryName,omitempty"`
+	Currency     string  `json:"currency"`
+	Monthly      float64 `json:"monthly"`
+	Yearly       float64 `json:"yearly"`
 }
 
 // DockerContainer defines model for DockerContainer.
@@ -516,12 +550,22 @@ type Subscription struct {
 	ArchivedAt *time.Time           `json:"archivedAt,omitempty"`
 	AutoRenew  bool                 `json:"autoRenew"`
 	Category   SubscriptionCategory `json:"category"`
-	CreatedAt  time.Time            `json:"createdAt"`
-	Currency   string               `json:"currency"`
-	Cycle      SubscriptionCycle    `json:"cycle"`
+
+	// CategoryId 分类（B23）。以它为准，category 只保留给旧前端
+	CategoryId   *int64            `json:"categoryId,omitempty"`
+	CategoryName *string           `json:"categoryName,omitempty"`
+	CreatedAt    time.Time         `json:"createdAt"`
+	Currency     string            `json:"currency"`
+	Cycle        SubscriptionCycle `json:"cycle"`
+
+	// CycleCount 每几个 cycleUnit 续一次（B23）。以它和 cycleUnit 为准，cycle、cycleDays 只保留给旧前端
+	CycleCount *int `json:"cycleCount,omitempty"`
 
 	// CycleDays cycle 是 custom_days 时的天数
 	CycleDays int `json:"cycleDays"`
+
+	// CycleUnit 周期单位（B23），和 cycleCount 一起表示“每 N 个单位”。月和年按日历算，1 月 31 日加 1 个月是 2 月最后一天
+	CycleUnit *SubscriptionCycleUnit `json:"cycleUnit,omitempty"`
 
 	// DaysLeft 离下次续费还有几天，按你的时区算。负数表示已过期
 	DaysLeft int   `json:"daysLeft"`
@@ -540,8 +584,28 @@ type Subscription struct {
 // SubscriptionCategory defines model for SubscriptionCategory.
 type SubscriptionCategory string
 
+// SubscriptionCategoryInput defines model for SubscriptionCategoryInput.
+type SubscriptionCategoryInput struct {
+	Name     *string `json:"name,omitempty"`
+	Position *int    `json:"position,omitempty"`
+}
+
+// SubscriptionCategoryItem defines model for SubscriptionCategoryItem.
+type SubscriptionCategoryItem struct {
+	Builtin *SubscriptionCategory `json:"builtin,omitempty"`
+
+	// Count 这个分类下未归档的订阅数
+	Count    int    `json:"count"`
+	Id       int64  `json:"id"`
+	Name     string `json:"name"`
+	Position int    `json:"position"`
+}
+
 // SubscriptionCycle defines model for SubscriptionCycle.
 type SubscriptionCycle string
+
+// SubscriptionCycleUnit 周期单位（B23），和 cycleCount 一起表示“每 N 个单位”。月和年按日历算，1 月 31 日加 1 个月是 2 月最后一天
+type SubscriptionCycleUnit string
 
 // SubscriptionEvent defines model for SubscriptionEvent.
 type SubscriptionEvent struct {
@@ -563,13 +627,20 @@ type SubscriptionInput struct {
 	AutoRenew *bool                 `json:"autoRenew,omitempty"`
 	Category  *SubscriptionCategory `json:"category,omitempty"`
 
+	// CategoryId 给了就以它为准，忽略 category
+	CategoryId *int64 `json:"categoryId,omitempty"`
+
 	// Currency 默认 CNY
-	Currency    *string            `json:"currency,omitempty"`
-	Cycle       SubscriptionCycle  `json:"cycle"`
-	CycleDays   *int               `json:"cycleDays,omitempty"`
-	Name        string             `json:"name"`
-	NextRenewal openapi_types.Date `json:"nextRenewal"`
-	Note        *string            `json:"note,omitempty"`
+	Currency   *string           `json:"currency,omitempty"`
+	Cycle      SubscriptionCycle `json:"cycle"`
+	CycleCount *int              `json:"cycleCount,omitempty"`
+	CycleDays  *int              `json:"cycleDays,omitempty"`
+
+	// CycleUnit 周期单位（B23），和 cycleCount 一起表示“每 N 个单位”。月和年按日历算，1 月 31 日加 1 个月是 2 月最后一天
+	CycleUnit   *SubscriptionCycleUnit `json:"cycleUnit,omitempty"`
+	Name        string                 `json:"name"`
+	NextRenewal openapi_types.Date     `json:"nextRenewal"`
+	Note        *string                `json:"note,omitempty"`
 
 	// RemindDaysBefore 默认 [7, 1]
 	RemindDaysBefore *[]int  `json:"remindDaysBefore,omitempty"`
@@ -581,17 +652,24 @@ type SubscriptionPatch struct {
 	Amount *float64 `json:"amount,omitempty"`
 
 	// Archived true 归档，false 取消归档
-	Archived         *bool                 `json:"archived,omitempty"`
-	AutoRenew        *bool                 `json:"autoRenew,omitempty"`
-	Category         *SubscriptionCategory `json:"category,omitempty"`
-	Currency         *string               `json:"currency,omitempty"`
-	Cycle            *SubscriptionCycle    `json:"cycle,omitempty"`
-	CycleDays        *int                  `json:"cycleDays,omitempty"`
-	Name             *string               `json:"name,omitempty"`
-	NextRenewal      *openapi_types.Date   `json:"nextRenewal,omitempty"`
-	Note             *string               `json:"note,omitempty"`
-	RemindDaysBefore *[]int                `json:"remindDaysBefore,omitempty"`
-	Url              *string               `json:"url,omitempty"`
+	Archived  *bool                 `json:"archived,omitempty"`
+	AutoRenew *bool                 `json:"autoRenew,omitempty"`
+	Category  *SubscriptionCategory `json:"category,omitempty"`
+
+	// CategoryId 给了就以它为准，忽略 category
+	CategoryId *int64             `json:"categoryId,omitempty"`
+	Currency   *string            `json:"currency,omitempty"`
+	Cycle      *SubscriptionCycle `json:"cycle,omitempty"`
+	CycleCount *int               `json:"cycleCount,omitempty"`
+	CycleDays  *int               `json:"cycleDays,omitempty"`
+
+	// CycleUnit 周期单位（B23），和 cycleCount 一起表示“每 N 个单位”。月和年按日历算，1 月 31 日加 1 个月是 2 月最后一天
+	CycleUnit        *SubscriptionCycleUnit `json:"cycleUnit,omitempty"`
+	Name             *string                `json:"name,omitempty"`
+	NextRenewal      *openapi_types.Date    `json:"nextRenewal,omitempty"`
+	Note             *string                `json:"note,omitempty"`
+	RemindDaysBefore *[]int                 `json:"remindDaysBefore,omitempty"`
+	Url              *string                `json:"url,omitempty"`
 }
 
 // SubscriptionSummary defines model for SubscriptionSummary.
@@ -674,6 +752,12 @@ type UpdateScriptJSONRequestBody = ScriptPatch
 // RunScriptJSONRequestBody defines body for RunScript for application/json ContentType.
 type RunScriptJSONRequestBody = RunScriptRequest
 
+// CreateSubscriptionCategoryJSONRequestBody defines body for CreateSubscriptionCategory for application/json ContentType.
+type CreateSubscriptionCategoryJSONRequestBody = SubscriptionCategoryInput
+
+// UpdateSubscriptionCategoryJSONRequestBody defines body for UpdateSubscriptionCategory for application/json ContentType.
+type UpdateSubscriptionCategoryJSONRequestBody = SubscriptionCategoryInput
+
 // CreateSubscriptionJSONRequestBody defines body for CreateSubscription for application/json ContentType.
 type CreateSubscriptionJSONRequestBody = SubscriptionInput
 
@@ -745,6 +829,18 @@ type ServerInterface interface {
 
 	// (GET /scripts/{scriptId}/runs)
 	ListScriptRuns(w http.ResponseWriter, r *http.Request, scriptId ScriptId, params ListScriptRunsParams)
+
+	// (GET /subscription-categories)
+	ListSubscriptionCategories(w http.ResponseWriter, r *http.Request)
+
+	// (POST /subscription-categories)
+	CreateSubscriptionCategory(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /subscription-categories/{categoryId})
+	DeleteSubscriptionCategory(w http.ResponseWriter, r *http.Request, categoryId int64)
+
+	// (PATCH /subscription-categories/{categoryId})
+	UpdateSubscriptionCategory(w http.ResponseWriter, r *http.Request, categoryId int64)
 
 	// (GET /subscriptions)
 	ListSubscriptions(w http.ResponseWriter, r *http.Request, params ListSubscriptionsParams)
@@ -874,6 +970,26 @@ func (_ Unimplemented) RunScript(w http.ResponseWriter, r *http.Request, scriptI
 
 // (GET /scripts/{scriptId}/runs)
 func (_ Unimplemented) ListScriptRuns(w http.ResponseWriter, r *http.Request, scriptId ScriptId, params ListScriptRunsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /subscription-categories)
+func (_ Unimplemented) ListSubscriptionCategories(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /subscription-categories)
+func (_ Unimplemented) CreateSubscriptionCategory(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /subscription-categories/{categoryId})
+func (_ Unimplemented) DeleteSubscriptionCategory(w http.ResponseWriter, r *http.Request, categoryId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /subscription-categories/{categoryId})
+func (_ Unimplemented) UpdateSubscriptionCategory(w http.ResponseWriter, r *http.Request, categoryId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1567,6 +1683,86 @@ func (siw *ServerInterfaceWrapper) ListScriptRuns(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListSubscriptionCategories operation middleware
+func (siw *ServerInterfaceWrapper) ListSubscriptionCategories(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSubscriptionCategories(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSubscriptionCategory operation middleware
+func (siw *ServerInterfaceWrapper) CreateSubscriptionCategory(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSubscriptionCategory(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteSubscriptionCategory operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSubscriptionCategory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "categoryId" -------------
+	var categoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryId", chi.URLParam(r, "categoryId"), &categoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteSubscriptionCategory(w, r, categoryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSubscriptionCategory operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSubscriptionCategory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "categoryId" -------------
+	var categoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryId", chi.URLParam(r, "categoryId"), &categoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSubscriptionCategory(w, r, categoryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListSubscriptions operation middleware
 func (siw *ServerInterfaceWrapper) ListSubscriptions(w http.ResponseWriter, r *http.Request) {
 
@@ -1925,6 +2121,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/subscriptions/{subscriptionId}", wrapper.UpdateSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/subscription-categories", wrapper.ListSubscriptionCategories)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/subscription-categories", wrapper.CreateSubscriptionCategory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/subscription-categories/{categoryId}", wrapper.DeleteSubscriptionCategory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/subscription-categories/{categoryId}", wrapper.UpdateSubscriptionCategory)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/subscriptions/{subscriptionId}/events", wrapper.ListSubscriptionEvents)

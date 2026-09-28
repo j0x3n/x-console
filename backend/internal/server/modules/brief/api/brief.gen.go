@@ -194,8 +194,9 @@ type GenerateBriefJSONBody struct {
 
 // GetWeatherParams defines parameters for GetWeather.
 type GetWeatherParams struct {
-	Lat *float64 `form:"lat,omitempty" json:"lat,omitempty"`
-	Lon *float64 `form:"lon,omitempty" json:"lon,omitempty"`
+	Refresh *bool    `form:"refresh,omitempty" json:"refresh,omitempty"`
+	Lat     *float64 `form:"lat,omitempty" json:"lat,omitempty"`
+	Lon     *float64 `form:"lon,omitempty" json:"lon,omitempty"`
 }
 
 // SearchWeatherPlacesParams defines parameters for SearchWeatherPlaces.
@@ -423,6 +424,19 @@ func (siw *ServerInterfaceWrapper) GetWeather(w http.ResponseWriter, r *http.Req
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetWeatherParams
+
+	// ------------- Optional query parameter "refresh" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "refresh", r.URL.Query(), &params.Refresh, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "refresh"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "refresh", Err: err})
+		}
+		return
+	}
 
 	// ------------- Optional query parameter "lat" -------------
 

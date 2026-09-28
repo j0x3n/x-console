@@ -338,6 +338,43 @@ export interface paths {
         patch: operations["updateSubscription"];
         trace?: never;
     };
+    "/subscription-categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 订阅分类（B23）。默认有“服务器、域名、软件、其他”四个，用户可以自己加。按 position 排序 */
+        get: operations["listSubscriptionCategories"];
+        put?: never;
+        post: operations["createSubscriptionCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscription-categories/{categoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 删除分类，这个分类下的订阅改到“其他”。“其他”本身不能删（回 400） */
+        delete: operations["deleteSubscriptionCategory"];
+        options?: never;
+        head?: never;
+        /** @description 改名或调整顺序 */
+        patch: operations["updateSubscriptionCategory"];
+        trace?: never;
+    };
     "/subscriptions/{subscriptionId}/events": {
         parameters: {
             query?: never;
@@ -602,6 +639,25 @@ export interface components {
         SubscriptionCategory: "server" | "domain" | "saas" | "other";
         /** @enum {string} */
         SubscriptionCycle: "monthly" | "yearly" | "custom_days";
+        /**
+         * @description 周期单位（B23），和 cycleCount 一起表示“每 N 个单位”。月和年按日历算，1 月 31 日加 1 个月是 2 月最后一天
+         * @enum {string}
+         */
+        SubscriptionCycleUnit: "minute" | "hour" | "day" | "week" | "month" | "year";
+        SubscriptionCategoryItem: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description 默认的四个分类带这个字段，对应旧的 category 值。用户自己加的没有 */
+            builtin?: components["schemas"]["SubscriptionCategory"];
+            position: number;
+            /** @description 这个分类下未归档的订阅数 */
+            count: number;
+        };
+        SubscriptionCategoryInput: {
+            name?: string;
+            position?: number;
+        };
         Subscription: {
             /** Format: int64 */
             id: number;
@@ -613,6 +669,15 @@ export interface components {
             cycle: components["schemas"]["SubscriptionCycle"];
             /** @description cycle 是 custom_days 时的天数 */
             cycleDays: number;
+            /**
+             * Format: int64
+             * @description 分类（B23）。以它为准，category 只保留给旧前端
+             */
+            categoryId?: number;
+            categoryName?: string;
+            /** @description 每几个 cycleUnit 续一次（B23）。以它和 cycleUnit 为准，cycle、cycleDays 只保留给旧前端 */
+            cycleCount?: number;
+            cycleUnit?: components["schemas"]["SubscriptionCycleUnit"];
             /** Format: date */
             nextRenewal: string;
             remindDaysBefore: number[];
@@ -642,6 +707,14 @@ export interface components {
             currency?: string;
             cycle: components["schemas"]["SubscriptionCycle"];
             cycleDays?: number;
+            /**
+             * Format: int64
+             * @description 给了就以它为准，忽略 category
+             */
+            categoryId?: number;
+            cycleCount?: number;
+            /** @description 和 cycleCount 一起给时以它们为准，忽略 cycle、cycleDays */
+            cycleUnit?: components["schemas"]["SubscriptionCycleUnit"];
             /** Format: date */
             nextRenewal: string;
             /** @description 默认 [7, 1] */
@@ -658,6 +731,14 @@ export interface components {
             currency?: string;
             cycle?: components["schemas"]["SubscriptionCycle"];
             cycleDays?: number;
+            /**
+             * Format: int64
+             * @description 给了就以它为准，忽略 category
+             */
+            categoryId?: number;
+            cycleCount?: number;
+            /** @description 和 cycleCount 一起给时以它们为准，忽略 cycle、cycleDays */
+            cycleUnit?: components["schemas"]["SubscriptionCycleUnit"];
             /** Format: date */
             nextRenewal?: string;
             remindDaysBefore?: number[];
@@ -691,6 +772,12 @@ export interface components {
         };
         CategorySpend: {
             category: components["schemas"]["SubscriptionCategory"];
+            /**
+             * Format: int64
+             * @description 按 categoryId 分组（B23）。有它时前端按它显示
+             */
+            categoryId?: number;
+            categoryName?: string;
             currency: string;
             /** Format: double */
             monthly: number;
@@ -1383,6 +1470,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Subscription"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSubscriptionCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 分类列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionCategoryItem"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createSubscriptionCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionCategoryInput"];
+            };
+        };
+        responses: {
+            /** @description 已创建。名字重复时回 409 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionCategoryItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteSubscriptionCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateSubscriptionCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionCategoryInput"];
+            };
+        };
+        responses: {
+            /** @description 已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionCategoryItem"];
                 };
             };
             default: components["responses"]["Error"];

@@ -79,7 +79,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 当前天气和今天的预报（Open-Meteo）。不传经纬度时用早报设置里的位置，没设置位置时返回 412。结果缓存 10 分钟。 */
+        /** @description 当前天气和今天的预报（Open-Meteo）。不传经纬度时用早报设置里的位置，没设置位置时返回 412。结果缓存 10 分钟。refresh=true 时跳过缓存重新拉取（B23），同一位置 1 分钟内最多真正拉一次，其余返回缓存。 */
         get: operations["getWeather"];
         put?: never;
         post?: never;
@@ -384,6 +384,7 @@ export interface operations {
     getWeather: {
         parameters: {
             query?: {
+                refresh?: boolean;
                 lat?: number;
                 lon?: number;
             };

@@ -400,3 +400,31 @@ a.today-row:hover {
   color: var(--xc-danger);
   font-size: 12.5px;
 }
+
+/* 天气后面不显眼的刷新按钮（B23） */
+.today-weather {
+  display: inline-flex;
+  align-items: center;
+}
+.today-weather-refresh {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-faint);
+  cursor: pointer;
+}
+.today-weather:hover .today-weather-refresh {
+  color: var(--xc-muted);
+}
+.today-weather-refresh:hover:not(:disabled) {
+  color: var(--xc-text);
+  background: var(--xc-surface-2);
+}
+.today-weather-refresh.is-spinning svg {
+  animation: xc-spin 0.7s linear infinite;
+}

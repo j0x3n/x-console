@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { ApiError, createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/dashboard";
 import { briefApi, calendarKeys } from "../calendar/api";
@@ -54,6 +59,15 @@ export function useSaveLayout() {
 }
 
 /** 天气。没设置位置时服务端返回 412，由卡片显示“去设置”。 */
+/** 跳过服务端缓存重新拉天气（B23），结果直接写进缓存。 */
+export async function refreshWeather(qc: QueryClient) {
+  const data = await unwrap(
+    briefApi.GET("/weather", { params: { query: { refresh: true } } }),
+  );
+  qc.setQueryData(calendarKeys.weather, data);
+  return data;
+}
+
 export function useWeather() {
   return useQuery({
     queryKey: calendarKeys.weather,

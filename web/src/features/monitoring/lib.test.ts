@@ -12,6 +12,10 @@ import {
   mergeStats,
   monitorTone,
   nextRenewal,
+  addCycle,
+  cycleOf,
+  cycleText,
+  legacyCycle,
   niceCeil,
   parseRemindDays,
   renewalTone,
@@ -181,5 +185,59 @@ describe("docker", () => {
     expect(buf).toEqual({ lines: ["one", "two", "three"], partial: "" });
     expect(logText(appendLog(buf, "four"))).toBe("one\ntwo\nthree\nfour");
     expect(appendLog(buf, "x\ny\n", 2).lines).toEqual(["x", "y"]);
+  });
+
+  it("reads and converts subscription cycles (B23)", () => {
+    const base = { cycle: "monthly" as const, cycleDays: 0 };
+    expect(cycleOf(base)).toEqual({ count: 1, unit: "month" });
+    expect(cycleOf({ ...base, cycle: "custom_days", cycleDays: 14 })).toEqual({
+      count: 2,
+      unit: "week",
+    });
+    expect(cycleOf({ ...base, cycle: "custom_days", cycleDays: 10 })).toEqual({
+      count: 10,
+      unit: "day",
+    });
+    expect(cycleOf({ ...base, cycleCount: 3, cycleUnit: "month" })).toEqual({
+      count: 3,
+      unit: "month",
+    });
+    expect(legacyCycle({ count: 1, unit: "year" })).toEqual({
+      cycle: "yearly",
+    });
+    expect(legacyCycle({ count: 2, unit: "week" })).toEqual({
+      cycle: "custom_days",
+      cycleDays: 14,
+    });
+    expect(legacyCycle({ count: 3, unit: "month" })).toBeNull();
+    expect(legacyCycle({ count: 5, unit: "minute" })).toBeNull();
+  });
+
+  it("moves the renewal date by a cycle (B23)", () => {
+    expect(addCycle("2026-01-31", { count: 1, unit: "month" })).toBe(
+      "2026-02-28",
+    );
+    expect(addCycle("2026-01-31", { count: 3, unit: "month" })).toBe(
+      "2026-04-30",
+    );
+    expect(addCycle("2028-02-29", { count: 2, unit: "year" })).toBe(
+      "2030-02-28",
+    );
+    expect(addCycle("2026-10-01", { count: 2, unit: "week" })).toBe(
+      "2026-10-15",
+    );
+    // 分钟和小时至少推一天
+    expect(addCycle("2026-10-01", { count: 30, unit: "minute" })).toBe(
+      "2026-10-02",
+    );
+    expect(addCycle("2026-10-01", { count: 49, unit: "hour" })).toBe(
+      "2026-10-04",
+    );
+  });
+
+  it("writes the cycle in words (B23)", () => {
+    const t = (key: string) => key;
+    expect(cycleText({ count: 1, unit: "month" }, t)).toBe("Every month");
+    expect(cycleText({ count: 3, unit: "month" }, t)).toBe("Every 3 Month(s)");
   });
 });

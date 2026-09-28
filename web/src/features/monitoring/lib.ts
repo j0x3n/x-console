@@ -1,4 +1,5 @@
 import type {
+  CycleUnit,
   DockerContainer,
   DockerStats,
   Monitor,
@@ -96,12 +97,96 @@ export function nextRenewal(
   cycleDays: number,
 ): string {
   if (cycle === "yearly") return addMonths(value, 12);
-  if (cycle === "custom_days") {
-    const date = parseDay(value);
-    date.setUTCDate(date.getUTCDate() + Math.max(cycleDays, 1));
-    return formatDay(date);
-  }
+  if (cycle === "custom_days") return addDays(value, Math.max(cycleDays, 1));
   return addMonths(value, 1);
+}
+
+function addDays(value: string, n: number): string {
+  const date = parseDay(value);
+  date.setUTCDate(date.getUTCDate() + n);
+  return formatDay(date);
+}
+
+export interface Cycle {
+  count: number;
+  unit: CycleUnit;
+}
+
+/** 订阅的周期（B23）。新接口有 cycleCount、cycleUnit；旧接口从 cycle 推出来。 */
+export function cycleOf(
+  sub: Pick<Subscription, "cycle" | "cycleDays" | "cycleCount" | "cycleUnit">,
+): Cycle {
+  if (sub.cycleUnit && sub.cycleCount)
+    return { count: sub.cycleCount, unit: sub.cycleUnit };
+  if (sub.cycle === "yearly") return { count: 1, unit: "year" };
+  if (sub.cycle === "custom_days") {
+    const days = Math.max(sub.cycleDays, 1);
+    return days % 7 === 0
+      ? { count: days / 7, unit: "week" }
+      : { count: days, unit: "day" };
+  }
+  return { count: 1, unit: "month" };
+}
+
+/**
+ * 换成旧接口认识的 cycle。旧接口只有每月、每年、每隔几天，
+ * 对不上时返回 null（比如每 3 个月、每小时）。
+ */
+export function legacyCycle({
+  count,
+  unit,
+}: Cycle): { cycle: SubscriptionCycle; cycleDays?: number } | null {
+  if (unit === "month" && count === 1) return { cycle: "monthly" };
+  if (unit === "year" && count === 1) return { cycle: "yearly" };
+  if (unit === "day") return { cycle: "custom_days", cycleDays: count };
+  if (unit === "week") return { cycle: "custom_days", cycleDays: count * 7 };
+  return null;
+}
+
+/**
+ * 往后推 N 个单位，结果只保留日期。分钟和小时至少推一天，
+ * 不然“已续费”按了没变化。
+ */
+export function addCycle(value: string, { count, unit }: Cycle): string {
+  const n = Math.max(count, 1);
+  switch (unit) {
+    case "year":
+      return addMonths(value, 12 * n);
+    case "month":
+      return addMonths(value, n);
+    case "week":
+      return addDays(value, 7 * n);
+    case "day":
+      return addDays(value, n);
+    case "hour":
+      return addDays(value, Math.max(1, Math.ceil(n / 24)));
+    default:
+      return addDays(value, Math.max(1, Math.ceil(n / 1440)));
+  }
+}
+
+const everyOne: Record<CycleUnit, string> = {
+  minute: "Every minute",
+  hour: "Every hour",
+  day: "Every day",
+  week: "Every week",
+  month: "Every month",
+  year: "Every year",
+};
+export const unitLabels: Record<CycleUnit, string> = {
+  minute: "Minute(s)",
+  hour: "Hour(s)",
+  day: "Day(s)",
+  week: "Week(s)",
+  month: "Month(s)",
+  year: "Year(s)",
+};
+
+/** “每月”“每 3 个月”。t 是翻译函数。 */
+export function cycleText(c: Cycle, t: (key: string) => string): string {
+  return c.count === 1
+    ? t(everyOne[c.unit])
+    : `${t("Every")} ${c.count} ${t(unitLabels[c.unit])}`;
 }
 
 /** 把 "7, 1" 这样的输入变成去重、从大到小的天数。无效输入返回 null。 */

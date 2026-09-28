@@ -13,7 +13,12 @@ import { MemoryRouter } from "react-router";
 // openapi-fetch 在建客户端时就取走 fetch，所以要在 import 页面之前替换。
 const api = vi.hoisted(() => {
   const routes = new Map<string, { status: number; body: unknown }>();
-  const calls: Array<{ method: string; path: string; body: unknown }> = [];
+  const calls: Array<{
+    method: string;
+    path: string;
+    search: string;
+    body: unknown;
+  }> = [];
   const BaseRequest = globalThis.Request;
   globalThis.Request = class extends BaseRequest {
     constructor(input: RequestInfo | URL, init?: RequestInit) {
@@ -53,11 +58,13 @@ const api = vi.hoisted(() => {
   };
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const req = input as Request;
-    const path = new URL(req.url).pathname.replace("/api/v1", "");
+    const url = new URL(req.url);
+    const path = url.pathname.replace("/api/v1", "");
     const text = await req.text();
     calls.push({
       method: req.method,
       path,
+      search: url.search,
       body: text ? JSON.parse(text) : null,
     });
     const hit = routes.get(`${req.method} ${path}`);
@@ -132,6 +139,20 @@ describe("TodayPage", () => {
     ).toBeTruthy();
     expect(await screen.findByText("今天没有待办")).toBeTruthy();
     expect(await screen.findByText("今天没有日程")).toBeTruthy();
+  });
+
+  it("refreshes the weather and shows when it was updated", async () => {
+    renderPage();
+    const refresh = await screen.findByRole("button", { name: "刷新天气" });
+    expect(refresh.parentElement?.getAttribute("title")).toMatch(/^更新于/);
+    fireEvent.click(refresh);
+    await waitFor(() =>
+      expect(
+        api.calls.some(
+          (c) => c.path === "/weather" && c.search.includes("refresh=true"),
+        ),
+      ).toBe(true),
+    );
   });
 
   it("keeps other cards working when one module fails", async () => {
