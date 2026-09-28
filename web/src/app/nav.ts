@@ -42,7 +42,7 @@ export const navItems: NavItem[] = [
     group: "personal",
   },
   { path: "/servers", label: "Servers", icon: Server, group: "machines" },
-  { path: "/pc", label: "This PC", icon: Monitor, group: "machines" },
+  { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
   {

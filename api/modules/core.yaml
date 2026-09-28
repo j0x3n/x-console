@@ -327,6 +327,101 @@ paths:
                   token: { type: string }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /agent/install.sh:
+    get:
+      operationId: getAgentInstallScript
+      tags: [agents]
+      security: []
+      description: |
+        Linux 一键安装脚本（B30）。不需要登录，但要带有效的配对码；码无效或过期回 404（不说明原因）。
+        脚本里写好面板地址和配对码。用法：curl -fsSL <面板>/api/v1/agent/install.sh?code=XXXX | sudo sh
+        按 IP 限流，每分钟 10 次
+      parameters:
+        - $ref: "#/components/parameters/PairingCode"
+      responses:
+        "200":
+          description: shell 脚本
+          content:
+            text/x-shellscript:
+              schema: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agent/install.ps1:
+    get:
+      operationId: getAgentInstallPowerShell
+      tags: [agents]
+      security: []
+      description: |
+        Windows 一键安装脚本（B30）。用法：irm "<面板>/api/v1/agent/install.ps1?code=XXXX" | iex
+        码无效回 404，按 IP 限流
+      parameters:
+        - $ref: "#/components/parameters/PairingCode"
+      responses:
+        "200":
+          description: PowerShell 脚本
+          content:
+            text/plain:
+              schema: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agent/uninstall.sh:
+    get:
+      operationId: getAgentUninstallScript
+      tags: [agents]
+      security: []
+      description: Linux 卸载脚本（B30），不需要配对码。只删本机的代理文件和服务，面板上的记录由用户在界面上吊销
+      responses:
+        "200":
+          description: shell 脚本
+          content:
+            text/x-shellscript:
+              schema: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agent/download/{os}/{arch}:
+    get:
+      operationId: downloadAgent
+      tags: [agents]
+      security: []
+      description: 下载代理程序（B30）。要带有效的配对码，或者已登录。响应头带 X-Checksum-Sha256
+      parameters:
+        - name: os
+          in: path
+          required: true
+          schema: { type: string, enum: [linux, windows] }
+        - name: arch
+          in: path
+          required: true
+          schema: { type: string, enum: [amd64, arm64] }
+        - name: code
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: 代理程序
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agent/setup.exe:
+    get:
+      operationId: downloadAgentSetup
+      tags: [agents]
+      security: []
+      description: |
+        Windows 安装程序（B30）。就是 windows/amd64 的代理，下载的文件名是 x-console-agent-setup-<配对码>.exe，
+        双击时代理从文件名读出配对码和面板地址（面板地址写在文件末尾的一段数据里），自动配对并装好登录启动
+      parameters:
+        - $ref: "#/components/parameters/PairingCode"
+      responses:
+        "200":
+          description: 安装程序
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /notifications:
     get:
       operationId: listNotifications
@@ -387,6 +482,12 @@ paths:
         default:
           $ref: "../common.yaml#/components/responses/Error"
 components:
+  parameters:
+    PairingCode:
+      name: code
+      in: query
+      required: true
+      schema: { type: string }
   schemas:
     Preferences:
       type: object

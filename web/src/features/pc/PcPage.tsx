@@ -11,7 +11,7 @@ import { pickDesktop } from "../servers/lib";
 import { PcQuickBar } from "./QuickCards";
 import { loadSelectedHost, saveSelectedHost } from "./recent";
 
-/** 本机：只看 kind=desktop 的机器，通常只有一台，直接进详情。 */
+/** 电脑（原“本机”）：只看 kind=desktop 的机器，通常只有一台，直接进详情。 */
 export default function PcPage() {
   const t = useT();
   const { tab } = useParams();
@@ -34,13 +34,13 @@ export default function PcPage() {
   if (!host)
     return (
       <div className="xc-page">
-        <PageHeading title={t("This PC")} />
+        <PageHeading title={t("Computer")} />
         <EmptyState title={t("No PC paired yet")} icon={<Monitor size={28} />}>
           <span>
-            {t("Install the agent on your Windows PC and pair it as a PC.")}
+            {t("Run one command on your Windows computer and it connects.")}
           </span>
-          <Link className="xc-btn primary" to="/settings/devices">
-            {t("Pair a device")}
+          <Link className="xc-btn primary" to="/settings/devices?add=desktop">
+            {t("Add a computer")}
           </Link>
         </EmptyState>
       </div>
@@ -57,8 +57,7 @@ export default function PcPage() {
         basePath="/pc"
         heading={(h) => (
           <PageHeading
-            title={t("This PC")}
-            subtitle={[h.name, h.hostname, h.os].filter(Boolean).join(" · ")}
+            title={h.name}
             meta={<HostHeadStatus host={h} />}
             aside={
               <>

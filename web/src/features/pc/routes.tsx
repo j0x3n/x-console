@@ -22,6 +22,6 @@ registerCommands([
 ]);
 
 export const routes: RouteObject[] = [
-  { path: "pc", element: <PcPage />, handle: { title: "This PC" } },
-  { path: "pc/:tab", element: <PcPage />, handle: { title: "This PC" } },
+  { path: "pc", element: <PcPage />, handle: { title: "Computer" } },
+  { path: "pc/:tab", element: <PcPage />, handle: { title: "Computer" } },
 ];

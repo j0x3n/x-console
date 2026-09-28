@@ -136,7 +136,7 @@ registerZh({
   "Find repositories": "查找仓库",
   "No machine can run coding tasks yet. Pair the agent on your PC, then install Claude Code or Codex there.":
     "还没有能跑 Agent 任务的机器。先在电脑上配对代理，再装上 Claude Code 或 Codex。",
-  "Pair a device": "去配对",
+  "Add a computer": "添加电脑",
   "Folder to scan": "要扫描的目录",
   "Empty means the folders in the agent config": "不填就扫描代理配置里的目录",
   Scan: "扫描",

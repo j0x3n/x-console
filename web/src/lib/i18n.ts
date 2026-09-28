@@ -42,7 +42,7 @@ registerZh({
   Habits: "习惯",
   Calendar: "日历",
   Servers: "服务器",
-  "This PC": "本机",
+  Computer: "电脑",
   "Coding tasks": "Agent 任务",
   "Not found": "页面不存在",
   "Live updates disconnected. Reconnecting.": "实时连接断开了，正在重连",

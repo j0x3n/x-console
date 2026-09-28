@@ -137,7 +137,7 @@ function Discover() {
         {t(
           "No machine can run coding tasks yet. Pair the agent on your PC, then install Claude Code or Codex there.",
         )}{" "}
-        <Link to="/settings/devices">{t("Pair a device")}</Link>
+        <Link to="/settings/devices?add=desktop">{t("Add a computer")}</Link>
       </p>
     );
   }

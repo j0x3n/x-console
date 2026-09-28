@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Copy, Download, Plus, Trash2 } from "lucide-react";
 import { coreApi, coreKeys, useAgents, type AgentKind } from "../../api/core";
 import { errorMessage, unwrap } from "../../api/client";
 import { withElevation } from "../../auth/elevation";
@@ -8,7 +9,7 @@ import Dialog from "../../components/ui/Dialog";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
-import { relativeTime } from "../../lib/time";
+import { formatTime, relativeTime } from "../../lib/time";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 export default function DevicesTab() {
@@ -16,7 +17,12 @@ export default function DevicesTab() {
   const language = useLanguage();
   const qc = useQueryClient();
   const agents = useAgents();
-  const [pairOpen, setPairOpen] = useState(false);
+  // 服务器页、电脑页的“添加”跳过来时带 ?add=server 或 ?add=desktop。
+  const [params, setParams] = useSearchParams();
+  const add = params.get("add");
+  const [pairOpen, setPairOpen] = useState(
+    add === "server" || add === "desktop",
+  );
   const revoke = useMutation({
     mutationFn: (id: string) =>
       withElevation(() =>
@@ -35,7 +41,7 @@ export default function DevicesTab() {
       <div className="xc-card-head">
         <h2>{t("Devices & agents")}</h2>
         <button className="xc-btn small" onClick={() => setPairOpen(true)}>
-          <Plus size={14} /> {t("Pair a new device")}
+          <Plus size={14} /> {t("Add a device")}
         </button>
       </div>
       {agents.isPending ? (
@@ -69,7 +75,7 @@ export default function DevicesTab() {
                   <td>
                     {agent.kind === "server"
                       ? t("Linux server")
-                      : t("Windows PC")}{" "}
+                      : t("Windows computer")}{" "}
                     · {agent.os}/{agent.arch}
                   </td>
                   <td className="xc-mono">{agent.version}</td>
@@ -103,15 +109,71 @@ export default function DevicesTab() {
           </table>
         </div>
       )}
-      <PairDialog open={pairOpen} onClose={() => setPairOpen(false)} />
+      <PairDialog
+        open={pairOpen}
+        initialKind={add === "desktop" ? "desktop" : "server"}
+        onClose={() => {
+          setPairOpen(false);
+          if (add) setParams({}, { replace: true });
+        }}
+      />
     </div>
   );
 }
 
-function PairDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** 一条可以复制的命令。 */
+function CommandBox({ label, command }: { label: string; command: string }) {
   const t = useT();
+  return (
+    <div className="xc-field">
+      <span>{label}</span>
+      <div className="devices-command">
+        <code>{command}</code>
+        <button
+          type="button"
+          className="xc-btn small"
+          onClick={() =>
+            navigator.clipboard
+              .writeText(command)
+              .then(() => toast(t("Copied")))
+              .catch(() =>
+                toast({ message: t("Could not copy"), tone: "error" }),
+              )
+          }
+          aria-label={`${t("Copy")} ${label}`}
+        >
+          <Copy size={13} /> {t("Copy")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/*
+ * 添加设备（B30）：生成配对码后给一条安装命令。Linux 是 curl | sudo sh，
+ * Windows 是 PowerShell 一条命令或者下载安装程序。弹窗开着时等设备连上来，
+ * 连上后显示“打开”。
+ */
+function PairDialog({
+  open,
+  onClose,
+  initialKind = "server",
+}: {
+  open: boolean;
+  onClose: () => void;
+  initialKind?: AgentKind;
+}) {
+  const t = useT();
+  const language = useLanguage();
+  const navigate = useNavigate();
+  const agents = useAgents();
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<AgentKind>("server");
+  const [kind, setKind] = useState<AgentKind>(initialKind);
+  useEffect(() => {
+    if (open) setKind(initialKind);
+  }, [open, initialKind]);
+  const [known, setKnown] = useState<string[]>([]);
+  const [manual, setManual] = useState(false);
   const [result, setResult] = useState<{
     code: string;
     expiresAt: string;
@@ -122,46 +184,141 @@ function PairDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
       withElevation(() =>
         unwrap(coreApi.POST("/agents/pairing-codes", { body: { name, kind } })),
       ),
-    onSuccess: (data) => setResult(data),
+    onSuccess: (data) => {
+      setKnown((agents.data ?? []).map((a) => a.id));
+      setResult(data);
+    },
     onError: (err) => setError(errorMessage(err)),
   });
+  // 等待期间每 3 秒看一次有没有新设备（代理上线也会发事件，这里再兜底）。
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!result) return;
+    const timer = setInterval(
+      () => qc.invalidateQueries({ queryKey: coreKeys.agents }),
+      3000,
+    );
+    return () => clearInterval(timer);
+  }, [result, qc]);
+  const joined = result
+    ? (agents.data ?? []).find((a) => !known.includes(a.id))
+    : undefined;
   const close = () => {
     setResult(null);
     setName("");
     setError("");
+    setManual(false);
     onClose();
   };
   const server = location.origin;
-  const command =
+  const code = result?.code ?? "";
+  const q = encodeURIComponent(code);
+  const linux = `curl -fsSL "${server}/api/v1/agent/install.sh?code=${q}" | sudo sh`;
+  const windows = `irm "${server}/api/v1/agent/install.ps1?code=${q}" | iex`;
+  const manualCommand =
     kind === "server"
-      ? `sudo x-console-agent pair --server ${server} --code ${result?.code} --config /etc/x-console-agent/config.json`
-      : `x-console-agent.exe pair --server ${server} --code ${result?.code}`;
+      ? `sudo x-console-agent pair --server ${server} --code ${code} --config /etc/x-console-agent/config.json`
+      : `x-console-agent.exe pair --server ${server} --code ${code}`;
   return (
     <Dialog
       open={open}
       onClose={close}
-      title={t("Pair a new device")}
-      description="在要管理的机器上安装 x-console-agent，然后用配对码完成绑定。配对码 10 分钟内有效，只能用一次。"
+      title={kind === "server" ? t("Add a server") : t("Add a computer")}
+      description={
+        result
+          ? undefined
+          : "生成一个配对码，在设备上执行一条命令就能接入。机器能访问面板地址就行，不用开端口，内网机器也可以。"
+      }
     >
       {result ? (
         <>
-          <label className="xc-field">
-            <span>{t("Pairing code")}</span>
-            <code
-              className="xc-secret"
-              style={{ fontSize: 20, textAlign: "center" }}
-            >
-              {result.code}
-            </code>
-          </label>
-          <label className="xc-field">
-            <span>在设备上运行</span>
-            <code className="xc-secret">{command}</code>
-          </label>
+          {kind === "server" ? (
+            <CommandBox
+              label={t("Run this on the server as root")}
+              command={linux}
+            />
+          ) : (
+            <>
+              <CommandBox
+                label={t("Run this in PowerShell")}
+                command={windows}
+              />
+              <div className="xc-field">
+                <span>
+                  {t("Or download the installer and double-click it")}
+                </span>
+                <a
+                  className="xc-btn"
+                  href={`/api/v1/agent/setup.exe?code=${q}`}
+                  download={`x-console-agent-setup-${code}.exe`}
+                >
+                  <Download size={14} /> {t("Download the installer")}
+                </a>
+              </div>
+            </>
+          )}
+          <p className="devices-note">
+            {t("The code is")} <code>{code}</code>，
+            {t("valid for one use until")}{" "}
+            {formatTime(result.expiresAt, language)}。
+          </p>
+          <div className={`devices-wait${joined ? " ok" : ""}`} role="status">
+            {joined ? (
+              <>
+                <span className="xc-dot ok" /> {joined.name} {t("is connected")}
+              </>
+            ) : (
+              <>
+                <span className="devices-spinner" />{" "}
+                {t("Waiting for the device to connect…")}
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            className="devices-manual-toggle"
+            aria-expanded={manual}
+            onClick={() => setManual((v) => !v)}
+          >
+            {t("Install by hand")}
+          </button>
+          {manual && (
+            <>
+              <p className="devices-note">
+                {kind === "server"
+                  ? "把 x-console-agent 复制到 /usr/local/bin 后执行："
+                  : "把 x-console-agent.exe 放到任意目录后执行："}
+              </p>
+              <CommandBox label={t("Pair")} command={manualCommand} />
+            </>
+          )}
+          {kind === "server" && (
+            <p className="devices-note">
+              {t("To uninstall:")}{" "}
+              <code>
+                curl -fsSL {server}/api/v1/agent/uninstall.sh | sudo sh
+              </code>
+            </p>
+          )}
           <div className="xc-dialog-actions">
-            <button className="xc-btn primary" onClick={close}>
+            <button className="xc-btn" onClick={close}>
               {t("Close")}
             </button>
+            {joined && (
+              <button
+                className="xc-btn primary"
+                onClick={() => {
+                  close();
+                  navigate(
+                    joined.kind === "server"
+                      ? `/servers/${encodeURIComponent(joined.id)}`
+                      : "/pc",
+                  );
+                }}
+              >
+                {t("Open it")}
+              </button>
+            )}
           </div>
         </>
       ) : (
@@ -190,7 +347,7 @@ function PairDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
               onChange={(e) => setKind(e.target.value as AgentKind)}
             >
               <option value="server">{t("Linux server")}</option>
-              <option value="desktop">{t("Windows PC")}</option>
+              <option value="desktop">{t("Windows computer")}</option>
             </select>
           </label>
           {error && <p className="xc-error-text">{error}</p>}

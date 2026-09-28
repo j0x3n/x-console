@@ -125,6 +125,42 @@ func (e PreferencesNightMode) Valid() bool {
 	}
 }
 
+// Defines values for DownloadAgentParamsOs.
+const (
+	Linux   DownloadAgentParamsOs = "linux"
+	Windows DownloadAgentParamsOs = "windows"
+)
+
+// Valid indicates whether the value is a known member of the DownloadAgentParamsOs enum.
+func (e DownloadAgentParamsOs) Valid() bool {
+	switch e {
+	case Linux:
+		return true
+	case Windows:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DownloadAgentParamsArch.
+const (
+	Amd64 DownloadAgentParamsArch = "amd64"
+	Arm64 DownloadAgentParamsArch = "arm64"
+)
+
+// Valid indicates whether the value is a known member of the DownloadAgentParamsArch enum.
+func (e DownloadAgentParamsArch) Valid() bool {
+	switch e {
+	case Amd64:
+		return true
+	case Arm64:
+		return true
+	default:
+		return false
+	}
+}
+
 // Agent defines model for Agent.
 type Agent struct {
 	Arch         string     `json:"arch"`
@@ -252,6 +288,35 @@ type TotpEnrollment struct {
 	Secret     string `json:"secret"`
 }
 
+// PairingCode defines model for PairingCode.
+type PairingCode = string
+
+// DownloadAgentParams defines parameters for DownloadAgent.
+type DownloadAgentParams struct {
+	Code *string `form:"code,omitempty" json:"code,omitempty"`
+}
+
+// DownloadAgentParamsOs defines parameters for DownloadAgent.
+type DownloadAgentParamsOs string
+
+// DownloadAgentParamsArch defines parameters for DownloadAgent.
+type DownloadAgentParamsArch string
+
+// GetAgentInstallPowerShellParams defines parameters for GetAgentInstallPowerShell.
+type GetAgentInstallPowerShellParams struct {
+	Code PairingCode `form:"code" json:"code"`
+}
+
+// GetAgentInstallScriptParams defines parameters for GetAgentInstallScript.
+type GetAgentInstallScriptParams struct {
+	Code PairingCode `form:"code" json:"code"`
+}
+
+// DownloadAgentSetupParams defines parameters for DownloadAgentSetup.
+type DownloadAgentSetupParams struct {
+	Code PairingCode `form:"code" json:"code"`
+}
+
 // CreatePairingCodeJSONBody defines parameters for CreatePairingCode.
 type CreatePairingCodeJSONBody struct {
 	Kind AgentKind `json:"kind"`
@@ -316,8 +381,23 @@ type PutPreferencesJSONRequestBody = Preferences
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /agent/download/{os}/{arch})
+	DownloadAgent(w http.ResponseWriter, r *http.Request, os DownloadAgentParamsOs, arch DownloadAgentParamsArch, params DownloadAgentParams)
+
+	// (GET /agent/install.ps1)
+	GetAgentInstallPowerShell(w http.ResponseWriter, r *http.Request, params GetAgentInstallPowerShellParams)
+
+	// (GET /agent/install.sh)
+	GetAgentInstallScript(w http.ResponseWriter, r *http.Request, params GetAgentInstallScriptParams)
+
 	// (POST /agent/pair)
 	PairAgent(w http.ResponseWriter, r *http.Request)
+
+	// (GET /agent/setup.exe)
+	DownloadAgentSetup(w http.ResponseWriter, r *http.Request, params DownloadAgentSetupParams)
+
+	// (GET /agent/uninstall.sh)
+	GetAgentUninstallScript(w http.ResponseWriter, r *http.Request)
 
 	// (GET /agents)
 	ListAgents(w http.ResponseWriter, r *http.Request)
@@ -390,8 +470,33 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// (GET /agent/download/{os}/{arch})
+func (_ Unimplemented) DownloadAgent(w http.ResponseWriter, r *http.Request, os DownloadAgentParamsOs, arch DownloadAgentParamsArch, params DownloadAgentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /agent/install.ps1)
+func (_ Unimplemented) GetAgentInstallPowerShell(w http.ResponseWriter, r *http.Request, params GetAgentInstallPowerShellParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /agent/install.sh)
+func (_ Unimplemented) GetAgentInstallScript(w http.ResponseWriter, r *http.Request, params GetAgentInstallScriptParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /agent/pair)
 func (_ Unimplemented) PairAgent(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /agent/setup.exe)
+func (_ Unimplemented) DownloadAgentSetup(w http.ResponseWriter, r *http.Request, params DownloadAgentSetupParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /agent/uninstall.sh)
+func (_ Unimplemented) GetAgentUninstallScript(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -514,11 +619,175 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// DownloadAgent operation middleware
+func (siw *ServerInterfaceWrapper) DownloadAgent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "os" -------------
+	var os DownloadAgentParamsOs
+
+	err = runtime.BindStyledParameterWithOptions("simple", "os", chi.URLParam(r, "os"), &os, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "os", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "arch" -------------
+	var arch DownloadAgentParamsArch
+
+	err = runtime.BindStyledParameterWithOptions("simple", "arch", chi.URLParam(r, "arch"), &arch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "arch", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadAgentParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadAgent(w, r, os, arch, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgentInstallPowerShell operation middleware
+func (siw *ServerInterfaceWrapper) GetAgentInstallPowerShell(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAgentInstallPowerShellParams
+
+	// ------------- Required query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgentInstallPowerShell(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgentInstallScript operation middleware
+func (siw *ServerInterfaceWrapper) GetAgentInstallScript(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAgentInstallScriptParams
+
+	// ------------- Required query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgentInstallScript(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PairAgent operation middleware
 func (siw *ServerInterfaceWrapper) PairAgent(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PairAgent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadAgentSetup operation middleware
+func (siw *ServerInterfaceWrapper) DownloadAgentSetup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadAgentSetupParams
+
+	// ------------- Required query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadAgentSetup(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgentUninstallScript operation middleware
+func (siw *ServerInterfaceWrapper) GetAgentUninstallScript(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgentUninstallScript(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1118,6 +1387,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/agent/pair", wrapper.PairAgent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agent/install.sh", wrapper.GetAgentInstallScript)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agent/install.ps1", wrapper.GetAgentInstallPowerShell)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agent/uninstall.sh", wrapper.GetAgentUninstallScript)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agent/download/{os}/{arch}", wrapper.DownloadAgent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agent/setup.exe", wrapper.DownloadAgentSetup)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/notifications", wrapper.ListNotifications)

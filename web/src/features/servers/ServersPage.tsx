@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { BellRing, Plus, Server } from "lucide-react";
+import { BellRing, Plus, Server, TerminalSquare } from "lucide-react";
 import { useEventTopic, useServerEvent } from "../../api/events";
 import Dialog from "../../components/ui/Dialog";
 import PageHeading from "../../components/ui/PageHeading";
@@ -65,8 +65,15 @@ export default function ServersPage() {
               <BellRing size={14} /> {t("Alerts")}
             </button>
             <button className="xc-btn" onClick={() => setSshOpen(true)}>
-              <Plus size={14} /> {t("SSH hosts")}
+              <TerminalSquare size={14} /> {t("SSH hosts")}
             </button>
+            <Link
+              className="xc-btn primary"
+              to="/settings/devices?add=server"
+              title={t("Add a server")}
+            >
+              <Plus size={14} /> {t("Add a server")}
+            </Link>
           </>
         }
       />
@@ -76,10 +83,14 @@ export default function ServersPage() {
         <ErrorState error={hosts.error} onRetry={() => hosts.refetch()} />
       ) : hosts.data.length === 0 ? (
         <EmptyState title={t("No servers yet")} icon={<Server size={28} />}>
-          <span>{t("Pair a server agent, or add a server over SSH.")}</span>
+          <span>
+            {t(
+              "Run one command on the server to connect it, or add it over SSH.",
+            )}
+          </span>
           <div className="xc-row">
-            <Link className="xc-btn primary" to="/settings/devices">
-              {t("Pair a device")}
+            <Link className="xc-btn primary" to="/settings/devices?add=server">
+              {t("Add a server")}
             </Link>
             <button className="xc-btn" onClick={() => setSshOpen(true)}>
               {t("Add SSH host")}

@@ -1,10 +1,7 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
-  "This PC": "本机",
   "No PC paired yet": "还没有配对电脑",
-  "Install the agent on your Windows PC and pair it as a PC.":
-    "在 Windows 电脑上装代理，配对时选 Windows 电脑。",
   "Choose a PC": "选择电脑",
   Clipboard: "剪贴板",
   "Type or paste text to send to the PC": "输入或粘贴要发到电脑的文字",
@@ -29,4 +26,7 @@ registerZh({
     "这台电脑会重启，没保存的内容会丢：",
   "This PC will shut down. Unsaved work will be lost:":
     "这台电脑会关机，没保存的内容会丢：",
+  "Add a computer": "添加电脑",
+  "Run one command on your Windows computer and it connects.":
+    "在 Windows 电脑上执行一条命令就能接入。",
 });

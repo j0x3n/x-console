@@ -17,9 +17,6 @@ registerZh({
   Alerts: "告警",
   "SSH hosts": "SSH 主机",
   "No servers yet": "还没有服务器",
-  "Pair a server agent, or add a server over SSH.":
-    "在服务器上装代理并配对，或者用 SSH 登记。",
-  "Pair a device": "去配对",
   "Waiting for the first metrics": "等待第一批数据",
   "SSH only": "仅 SSH",
   // 详情
@@ -255,4 +252,7 @@ registerZh({
   "Last hour": "最近 1 小时",
   Today: "今天",
   Live: "实时",
+  "Add a server": "添加服务器",
+  "Run one command on the server to connect it, or add it over SSH.":
+    "在服务器上执行一条命令就能接入，也可以用 SSH 添加。",
 });
