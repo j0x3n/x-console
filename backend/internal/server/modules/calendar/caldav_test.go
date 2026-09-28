@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,10 +17,13 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
 
-// fakeCalDAV is an in-memory, read-only CalDAV backend with one principal,
+// fakeCalDAV is an in-memory CalDAV backend with one principal,
 // one event calendar and one task list.
 type fakeCalDAV struct {
-	objects map[string][]caldav.CalendarObject // calendar path -> objects
+	mu        sync.Mutex
+	objects   map[string][]caldav.CalendarObject // calendar path -> objects
+	lastMatch string
+	reject    bool
 }
 
 const (
@@ -53,6 +57,8 @@ func (b *fakeCalDAV) GetCalendar(ctx context.Context, p string) (*caldav.Calenda
 }
 
 func (b *fakeCalDAV) GetCalendarObject(_ context.Context, p string, _ *caldav.CalendarCompRequest) (*caldav.CalendarObject, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	for _, objs := range b.objects {
 		for _, o := range objs {
 			if o.Path == p {
@@ -64,19 +70,56 @@ func (b *fakeCalDAV) GetCalendarObject(_ context.Context, p string, _ *caldav.Ca
 }
 
 func (b *fakeCalDAV) ListCalendarObjects(_ context.Context, p string, _ *caldav.CalendarCompRequest) ([]caldav.CalendarObject, error) {
-	return b.objects[strings.TrimSuffix(p, "/")+"/"], nil
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]caldav.CalendarObject(nil), b.objects[strings.TrimSuffix(p, "/")+"/"]...), nil
 }
 
 func (b *fakeCalDAV) QueryCalendarObjects(ctx context.Context, p string, _ *caldav.CalendarQuery) ([]caldav.CalendarObject, error) {
 	return b.ListCalendarObjects(ctx, p, nil)
 }
 
-func (b *fakeCalDAV) PutCalendarObject(context.Context, string, *ical.Calendar, *caldav.PutCalendarObjectOptions) (*caldav.CalendarObject, error) {
-	return nil, webdav.NewHTTPError(http.StatusForbidden, nil)
+func (b *fakeCalDAV) PutCalendarObject(_ context.Context, p string, data *ical.Calendar, opts *caldav.PutCalendarObjectOptions) (*caldav.CalendarObject, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.lastMatch = string(opts.IfMatch)
+	if b.reject {
+		return nil, webdav.NewHTTPError(http.StatusForbidden, nil)
+	}
+	for key, objects := range b.objects {
+		for i, object := range objects {
+			if object.Path != p {
+				continue
+			}
+			if opts.IfNoneMatch == "*" || opts.IfMatch != "" && string(opts.IfMatch) != object.ETag {
+				return nil, webdav.NewHTTPError(http.StatusPreconditionFailed, nil)
+			}
+			object.ETag = `"updated"`
+			object.Data = data
+			b.objects[key][i] = object
+			return &object, nil
+		}
+	}
+	if opts.IfMatch != "" {
+		return nil, webdav.NewHTTPError(http.StatusPreconditionFailed, nil)
+	}
+	object := caldav.CalendarObject{Path: p, ETag: `"created"`, Data: data, ModTime: time.Now()}
+	b.objects[workPath] = append(b.objects[workPath], object)
+	return &object, nil
 }
 
-func (b *fakeCalDAV) DeleteCalendarObject(context.Context, string) error {
-	return webdav.NewHTTPError(http.StatusForbidden, nil)
+func (b *fakeCalDAV) DeleteCalendarObject(_ context.Context, p string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for key, objects := range b.objects {
+		for i, object := range objects {
+			if object.Path == p {
+				b.objects[key] = append(objects[:i], objects[i+1:]...)
+				return nil
+			}
+		}
+	}
+	return webdav.NewHTTPError(http.StatusNotFound, nil)
 }
 
 func mustICal(t *testing.T, s string) *ical.Calendar {

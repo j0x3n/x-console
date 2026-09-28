@@ -24,6 +24,7 @@ import (
 )
 
 const (
+	kindLocal  = "local"
 	kindICS    = "ics"
 	kindCalDAV = "caldav"
 )

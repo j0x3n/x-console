@@ -78,6 +78,18 @@ func (q *Queries) DeleteCalendar(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteCalendarEvent = `-- name: DeleteCalendarEvent :execrows
+DELETE FROM calendar_events WHERE id = ?
+`
+
+func (q *Queries) DeleteCalendarEvent(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteCalendarEvent, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteCalendarEvents = `-- name: DeleteCalendarEvents :exec
 DELETE FROM calendar_events WHERE calendar_id = ?
 `
@@ -110,10 +122,39 @@ func (q *Queries) GetCalendar(ctx context.Context, id int64) (Calendar, error) {
 	return i, err
 }
 
-const insertCalendarEvent = `-- name: InsertCalendarEvent :exec
+const getCalendarEvent = `-- name: GetCalendarEvent :one
+SELECT id, calendar_id, uid, title, starts_at, ends_at, all_day, tzid, location, description, rrule, rdates, exdates, recurrence_id, href, etag FROM calendar_events WHERE id = ?
+`
+
+func (q *Queries) GetCalendarEvent(ctx context.Context, id int64) (CalendarEvent, error) {
+	row := q.db.QueryRowContext(ctx, getCalendarEvent, id)
+	var i CalendarEvent
+	err := row.Scan(
+		&i.ID,
+		&i.CalendarID,
+		&i.Uid,
+		&i.Title,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.AllDay,
+		&i.Tzid,
+		&i.Location,
+		&i.Description,
+		&i.Rrule,
+		&i.Rdates,
+		&i.Exdates,
+		&i.RecurrenceID,
+		&i.Href,
+		&i.Etag,
+	)
+	return i, err
+}
+
+const insertCalendarEvent = `-- name: InsertCalendarEvent :one
 INSERT INTO calendar_events (calendar_id, uid, title, starts_at, ends_at, all_day, tzid, location,
-                             description, rrule, rdates, exdates, recurrence_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                             description, rrule, rdates, exdates, recurrence_id, href, etag)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, calendar_id, uid, title, starts_at, ends_at, all_day, tzid, location, description, rrule, rdates, exdates, recurrence_id, href, etag
 `
 
 type InsertCalendarEventParams struct {
@@ -130,10 +171,12 @@ type InsertCalendarEventParams struct {
 	Rdates       string
 	Exdates      string
 	RecurrenceID *time.Time
+	Href         string
+	Etag         string
 }
 
-func (q *Queries) InsertCalendarEvent(ctx context.Context, arg InsertCalendarEventParams) error {
-	_, err := q.db.ExecContext(ctx, insertCalendarEvent,
+func (q *Queries) InsertCalendarEvent(ctx context.Context, arg InsertCalendarEventParams) (CalendarEvent, error) {
+	row := q.db.QueryRowContext(ctx, insertCalendarEvent,
 		arg.CalendarID,
 		arg.Uid,
 		arg.Title,
@@ -147,8 +190,29 @@ func (q *Queries) InsertCalendarEvent(ctx context.Context, arg InsertCalendarEve
 		arg.Rdates,
 		arg.Exdates,
 		arg.RecurrenceID,
+		arg.Href,
+		arg.Etag,
 	)
-	return err
+	var i CalendarEvent
+	err := row.Scan(
+		&i.ID,
+		&i.CalendarID,
+		&i.Uid,
+		&i.Title,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.AllDay,
+		&i.Tzid,
+		&i.Location,
+		&i.Description,
+		&i.Rrule,
+		&i.Rdates,
+		&i.Exdates,
+		&i.RecurrenceID,
+		&i.Href,
+		&i.Etag,
+	)
+	return i, err
 }
 
 const listCalendars = `-- name: ListCalendars :many
@@ -191,7 +255,7 @@ func (q *Queries) ListCalendars(ctx context.Context) ([]Calendar, error) {
 }
 
 const listEventCandidates = `-- name: ListEventCandidates :many
-SELECT e.id, e.calendar_id, e.uid, e.title, e.starts_at, e.ends_at, e.all_day, e.tzid, e.location, e.description, e.rrule, e.rdates, e.exdates, e.recurrence_id, c.name AS calendar_name, c.color AS calendar_color
+SELECT e.id, e.calendar_id, e.uid, e.title, e.starts_at, e.ends_at, e.all_day, e.tzid, e.location, e.description, e.rrule, e.rdates, e.exdates, e.recurrence_id, e.href, e.etag, c.name AS calendar_name, c.color AS calendar_color, c.kind AS calendar_kind
 FROM calendar_events e
 JOIN calendars c ON c.id = e.calendar_id
 WHERE c.enabled = 1
@@ -219,8 +283,11 @@ type ListEventCandidatesRow struct {
 	Rdates        string
 	Exdates       string
 	RecurrenceID  *time.Time
+	Href          string
+	Etag          string
 	CalendarName  string
 	CalendarColor string
+	CalendarKind  string
 }
 
 // Every repeating event plus single events near the range. Times are wall
@@ -250,8 +317,11 @@ func (q *Queries) ListEventCandidates(ctx context.Context, arg ListEventCandidat
 			&i.Rdates,
 			&i.Exdates,
 			&i.RecurrenceID,
+			&i.Href,
+			&i.Etag,
 			&i.CalendarName,
 			&i.CalendarColor,
+			&i.CalendarKind,
 		); err != nil {
 			return nil, err
 		}
@@ -336,6 +406,61 @@ func (q *Queries) UpdateCalendar(ctx context.Context, arg UpdateCalendarParams) 
 		&i.LastSyncedAt,
 		&i.LastError,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateCalendarEvent = `-- name: UpdateCalendarEvent :one
+UPDATE calendar_events SET calendar_id = ?, title = ?, starts_at = ?, ends_at = ?, all_day = ?,
+  tzid = ?, location = ?, description = ?, href = ?, etag = ? WHERE id = ? RETURNING id, calendar_id, uid, title, starts_at, ends_at, all_day, tzid, location, description, rrule, rdates, exdates, recurrence_id, href, etag
+`
+
+type UpdateCalendarEventParams struct {
+	CalendarID  int64
+	Title       string
+	StartsAt    time.Time
+	EndsAt      time.Time
+	AllDay      int64
+	Tzid        string
+	Location    string
+	Description string
+	Href        string
+	Etag        string
+	ID          int64
+}
+
+func (q *Queries) UpdateCalendarEvent(ctx context.Context, arg UpdateCalendarEventParams) (CalendarEvent, error) {
+	row := q.db.QueryRowContext(ctx, updateCalendarEvent,
+		arg.CalendarID,
+		arg.Title,
+		arg.StartsAt,
+		arg.EndsAt,
+		arg.AllDay,
+		arg.Tzid,
+		arg.Location,
+		arg.Description,
+		arg.Href,
+		arg.Etag,
+		arg.ID,
+	)
+	var i CalendarEvent
+	err := row.Scan(
+		&i.ID,
+		&i.CalendarID,
+		&i.Uid,
+		&i.Title,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.AllDay,
+		&i.Tzid,
+		&i.Location,
+		&i.Description,
+		&i.Rrule,
+		&i.Rdates,
+		&i.Exdates,
+		&i.RecurrenceID,
+		&i.Href,
+		&i.Etag,
 	)
 	return i, err
 }

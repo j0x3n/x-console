@@ -211,6 +211,51 @@ try {
   const reminder = reminders.find((item) => item.title === "端到端提醒");
   assert.ok(reminder, "真实接口里没有新建的提醒");
 
+  stage = "本地日历写入";
+  const calendarResponse = await page
+    .context()
+    .request.post(`${base}/api/v1/calendars`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { name: "端到端日历", kind: "local", url: "" },
+    });
+  assert.equal(calendarResponse.status(), 201, await calendarResponse.text());
+  const calendar = await calendarResponse.json();
+  assert.equal(calendar.writable, true);
+  const eventStart = new Date(Date.now() + 10 * 60_000);
+  const eventEnd = new Date(eventStart.getTime() + 30 * 60_000);
+  const eventResponse = await page
+    .context()
+    .request.post(`${base}/api/v1/calendar/events`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: {
+        calendarId: calendar.id,
+        title: "端到端日程",
+        allDay: false,
+        start: eventStart.toISOString(),
+        end: eventEnd.toISOString(),
+      },
+    });
+  assert.equal(eventResponse.status(), 201, await eventResponse.text());
+  const calendarEvent = await eventResponse.json();
+  const dateKey = `${eventStart.getFullYear()}-${String(eventStart.getMonth() + 1).padStart(2, "0")}-${String(eventStart.getDate()).padStart(2, "0")}`;
+  await page.goto(`${base}/calendar?view=day&date=${dateKey}`);
+  await page.getByText("端到端日程").first().waitFor();
+  const movedResponse = await page
+    .context()
+    .request.patch(`${base}/api/v1/calendar/events/${calendarEvent.eventId}`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { title: "端到端日程已修改" },
+    });
+  assert.equal(movedResponse.status(), 200, await movedResponse.text());
+  await page.reload();
+  await page.getByText("端到端日程已修改").first().waitFor();
+  const deleteResponse = await page
+    .context()
+    .request.delete(`${base}/api/v1/calendar/events/${calendarEvent.eventId}`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+  assert.equal(deleteResponse.status(), 204, await deleteResponse.text());
+
   stage = "自动化规则运行";
   const automationResponse = await page.context().request.post(`${base}/api/v1/automations`, {
     headers: { "X-Requested-With": "x-console" },

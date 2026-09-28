@@ -147,6 +147,8 @@ type CalendarEvent struct {
 	Rdates       string
 	Exdates      string
 	RecurrenceID *time.Time
+	Href         string
+	Etag         string
 }
 
 type CodingRepo struct {
