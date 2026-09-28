@@ -40,6 +40,7 @@ registerZh({
   Disks: "磁盘",
   Load: "负载",
   Network: "网络",
+  "Network interfaces": "网卡",
   Download: "下载",
   Received: "接收",
   Sent: "发送",

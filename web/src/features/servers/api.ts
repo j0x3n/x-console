@@ -14,7 +14,7 @@ import { appendPoint, pointFromSample, withSample } from "./lib";
 export const hostsApi = createApi<paths>();
 
 type S = components["schemas"];
-export type Host = S["Host"];
+export type Host = S["HostListItem"];
 export type HostDetail = S["HostDetail"];
 export type HostKind = S["HostKind"];
 export type MetricsSample = S["MetricsSample"];

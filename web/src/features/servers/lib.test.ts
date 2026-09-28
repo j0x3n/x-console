@@ -51,10 +51,7 @@ const host = (id: string, online = false): Host => ({
   source: "agent",
   online,
   os: "linux",
-  arch: "amd64",
   hostname: id,
-  version: "1",
-  capabilities: ["metrics", "pty"],
   activeAlerts: 0,
 });
 

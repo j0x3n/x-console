@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { NavLink, Navigate } from "react-router";
 import { WifiOff } from "lucide-react";
-import { useServerEvent } from "../../../api/events";
+import { useEventTopic, useServerEvent } from "../../../api/events";
 import { ErrorState, Loading } from "../../../components/ui/States";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { relativeTime } from "../../../lib/time";
@@ -31,6 +31,7 @@ export default function HostView({
   const language = useLanguage();
   const host = useHost(hostId);
   useServerEvent("host.metrics", applyMetricsEvent);
+  useEventTopic(`host.metrics:${hostId}`);
 
   if (host.isPending) return <Loading />;
   if (host.isError)

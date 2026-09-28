@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BellRing, Plus, Server } from "lucide-react";
-import { useServerEvent } from "../../api/events";
+import { useEventTopic, useServerEvent } from "../../api/events";
 import Dialog from "../../components/ui/Dialog";
 import PageHeading from "../../components/ui/PageHeading";
 import {
@@ -22,6 +22,7 @@ export default function ServersPage() {
   const [params, setParams] = useSearchParams();
   const hosts = useHosts("server");
   useServerEvent("host.metrics", applyMetricsEvent);
+  useEventTopic("host.metrics");
   const [sshOpen, setSshOpen] = useState(params.get("ssh") === "1");
   const alertsOpen = params.get("alerts") === "1";
   const closeAlerts = () => {

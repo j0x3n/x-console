@@ -151,6 +151,41 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
               </div>
             </>
           )}
+          {m && m.netInterfaces && m.netInterfaces.length > 0 && (
+            <>
+              <div className="xc-card-head servers-subhead">
+                <h3>{t("Network interfaces")}</h3>
+              </div>
+              <div className="xc-stack">
+                {m.netInterfaces.map((nic) => (
+                  <div
+                    className="xc-row"
+                    key={nic.name}
+                    style={{ minWidth: 0 }}
+                  >
+                    <span
+                      className="xc-mono"
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        flex: "1 1 0",
+                        minWidth: 0,
+                      }}
+                    >
+                      {nic.name}
+                    </span>
+                    <span
+                      className="xc-muted"
+                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                    >
+                      ↓ {formatRate(nic.rx)} ↑ {formatRate(nic.tx)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         <div className="xc-card">
           <div className="xc-card-head">

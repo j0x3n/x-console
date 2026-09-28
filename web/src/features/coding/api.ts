@@ -8,6 +8,7 @@ import {
 import { createApi, unwrap } from "../../api/client";
 import {
   invalidateOn,
+  useEventTopic,
   useServerEvent,
   type ServerEvent,
 } from "../../api/events";
@@ -112,6 +113,7 @@ interface OutputPayload {
  * 发现缺口（断线漏了批次）时重新取一次。
  */
 export function useTaskEvents(id: number) {
+  useEventTopic(id > 0 ? `coding_task.output:${id}` : "");
   const qc = useQueryClient();
   const query = useQuery({
     queryKey: codingKeys.events(id),

@@ -8,6 +8,7 @@ import {
 import { ApiError, createApi, unwrap } from "../../api/client";
 import {
   invalidateOn,
+  useEventTopic,
   useServerEvent,
   type ServerEvent,
 } from "../../api/events";
@@ -85,6 +86,7 @@ export function writeState(qc: QueryClient, state: HAState) {
 
 /** 页面打开时接收 ha.state_changed，直接更新缓存，不重新请求。 */
 export function useHAEvents() {
+  useEventTopic("ha.");
   const qc = useQueryClient();
   const onEvent = useCallback(
     (event: ServerEvent) => {

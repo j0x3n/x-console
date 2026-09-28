@@ -9,7 +9,7 @@ paths:
     get:
       operationId: listHosts
       tags: [hosts]
-      description: 所有机器（代理和 SSH 主机）及最新指标。
+      description: 机器列表卡片所需的概要字段。
       parameters:
         - name: kind
           in: query
@@ -21,7 +21,7 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: "#/components/schemas/Host" }
+                items: { $ref: "#/components/schemas/HostListItem" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /hosts/{hostId}:
@@ -597,6 +597,32 @@ components:
       description: 代理 id，SSH 主机是 ssh:<数字>
       schema: { type: string }
   schemas:
+    HostListMetrics:
+      type: object
+      required: [at, load1, netRx, netTx, uptimeSeconds]
+      properties:
+        at: { type: string, format: date-time }
+        load1: { type: number, format: double }
+        netRx: { type: number, format: double }
+        netTx: { type: number, format: double }
+        uptimeSeconds: { type: integer, format: int64 }
+    HostListItem:
+      type: object
+      required: [id, name, kind, source, online, hostname, os, activeAlerts]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/HostKind" }
+        source: { $ref: "#/components/schemas/HostSource" }
+        online: { type: boolean }
+        hostname: { type: string }
+        os: { type: string }
+        lastSeenAt: { type: string, format: date-time }
+        activeAlerts: { type: integer }
+        cpu: { type: number, format: double }
+        memory: { type: number, format: double }
+        disk: { type: number, format: double }
+        metrics: { $ref: "#/components/schemas/HostListMetrics" }
     HostKind:
       type: string
       enum: [server, desktop]
@@ -611,6 +637,13 @@ components:
         fsType: { type: string }
         used: { type: integer, format: int64 }
         total: { type: integer, format: int64 }
+    NetInterface:
+      type: object
+      required: [name, rx, tx]
+      properties:
+        name: { type: string }
+        rx: { type: number, format: double, description: 字节/秒 }
+        tx: { type: number, format: double, description: 字节/秒 }
     MetricsSample:
       type: object
       required: [at, cpu, cpuPerCore, memUsed, memTotal, swapUsed, swapTotal, disks, netRx, netTx, diskRead, diskWrite, load1, load5, load15, uptimeSeconds, procs]
@@ -629,6 +662,9 @@ components:
           items: { $ref: "#/components/schemas/DiskUsage" }
         netRx: { type: number, format: double, description: 字节/秒 }
         netTx: { type: number, format: double, description: 字节/秒 }
+        netInterfaces:
+          type: array
+          items: { $ref: "#/components/schemas/NetInterface" }
         diskRead: { type: number, format: double, description: 字节/秒 }
         diskWrite: { type: number, format: double, description: 字节/秒 }
         load1: { type: number, format: double }

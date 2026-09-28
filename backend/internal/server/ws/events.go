@@ -1,6 +1,6 @@
 // Package ws serves the browser event stream (GET /api/v1/events).
-// Every events.Bus event is forwarded as {"topic","data","at"}; the frontend
-// uses the topic to invalidate TanStack Query caches.
+// Browser connections subscribe to high-volume events. Small events are
+// forwarded by default so alarms and notifications remain real-time.
 package ws
 
 import (
@@ -10,42 +10,86 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-
-	"github.com/j0x3n/x-console/backend/internal/server/events"
 )
 
-// Events returns the handler. Authentication is done by the auth middleware;
-// websocket.Accept rejects cross-origin requests.
-func Events(bus *events.Bus) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			return
-		}
-		ctx := c.CloseRead(context.WithoutCancel(r.Context()))
-		ch, cancel := bus.Subscribe("", 256)
-		defer cancel()
-		ping := time.NewTicker(30 * time.Second)
-		defer ping.Stop()
+// ServeHTTP handles one authenticated browser connection.
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	c, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer c.Close(websocket.StatusNormalClosure, "")
+	c.SetReadLimit(4096)
+	ctx, stop := context.WithCancel(context.WithoutCancel(r.Context()))
+	defer stop()
+	ch, cancel := h.bus.Subscribe("", 256)
+	defer cancel()
+	commands := make(chan command, 8)
+	go func() {
+		defer stop()
 		for {
-			select {
-			case <-ctx.Done():
-				c.Close(websocket.StatusNormalClosure, "")
+			var msg command
+			if wsjson.Read(ctx, c, &msg) != nil {
 				return
-			case ev := <-ch:
-				wctx, done := context.WithTimeout(ctx, 10*time.Second)
-				err := wsjson.Write(wctx, c, ev)
-				done()
-				if err != nil {
-					return
+			}
+			select {
+			case commands <- msg:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	topics := map[string]bool{}
+	paused := false
+	defer func() {
+		if !paused {
+			h.updateDetail(topics, nil)
+		}
+	}()
+	ping := time.NewTicker(30 * time.Second)
+	defer ping.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-commands:
+			switch msg.Type {
+			case "subscribe":
+				next := validTopics(msg.Topics)
+				if !paused {
+					h.updateDetail(topics, next)
 				}
-			case <-ping.C:
-				pctx, done := context.WithTimeout(ctx, 10*time.Second)
-				err := c.Ping(pctx)
-				done()
-				if err != nil {
-					return
+				topics = next
+			case "pause":
+				if !paused {
+					h.updateDetail(topics, nil)
+					paused = true
 				}
+			case "resume":
+				if paused {
+					paused = false
+					h.updateDetail(nil, topics)
+				}
+			}
+		case ev := <-ch:
+			if ev.Topic == "agent.online" && !paused && subscribedAgent(topics, ev.Data) {
+				h.setDetail(agentID(ev.Data), true)
+			}
+			if !wanted(ev, topics, paused) {
+				continue
+			}
+			wctx, done := context.WithTimeout(ctx, 10*time.Second)
+			err := wsjson.Write(wctx, c, ev)
+			done()
+			if err != nil {
+				return
+			}
+		case <-ping.C:
+			pctx, done := context.WithTimeout(ctx, 10*time.Second)
+			err := c.Ping(pctx)
+			done()
+			if err != nil {
+				return
 			}
 		}
 	}

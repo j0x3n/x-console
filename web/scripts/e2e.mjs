@@ -125,6 +125,16 @@ try {
   const context = await browser.newContext({ viewport: { width: 1360, height: 860 } });
   await context.addInitScript(() => localStorage.setItem("xc.demo.full", "off"));
   page = await context.newPage();
+  const eventFrames = { sent: [], received: [] };
+  page.on("websocket", (socket) => {
+    if (!socket.url().endsWith("/events")) return;
+    socket.on("framesent", ({ payload }) => {
+      try { eventFrames.sent.push(JSON.parse(payload)); } catch { /* binary frame */ }
+    });
+    socket.on("framereceived", ({ payload }) => {
+      try { eventFrames.received.push(JSON.parse(payload)); } catch { /* binary frame */ }
+    });
+  });
   page.setDefaultTimeout(10_000);
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -356,10 +366,32 @@ try {
   await run("pair-agent", binary("agent"), ["pair", "--server", serverUrl, "--code", code, "--config", agentConfig]);
   start("agent", binary("agent"), ["run", "--config", agentConfig]);
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
+  assert.equal("capabilities" in host, false, "列表接口带了详情字段");
 
-  stage = "查看服务器并打开终端";
+  stage = "按需订阅服务器指标";
   await page.goto(`${base}/servers`);
   await page.locator(".servers-card").filter({ hasText: "e2e-linux" }).getByText("在线").waitFor();
+  await until("列表指标订阅", () => eventFrames.sent.some((frame) => frame.type === "subscribe" && frame.topics?.includes("host.metrics")));
+  await page.goto(`${base}/servers/${host.id}`);
+  await until("详情指标订阅", () => eventFrames.sent.some((frame) => frame.type === "subscribe" && frame.topics?.includes(`host.metrics:${host.id}`)));
+  const beforeDetail = eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length;
+  await until("详情 5 秒指标", () => eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length >= beforeDetail + 2, 15_000);
+  const detailFrame = [...eventFrames.received].reverse().find((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id);
+  assert.ok(Array.isArray(detailFrame.data.sample.netInterfaces), "详情指标缺少逐网卡速率");
+  await page.getByRole("heading", { name: "网卡" }).waitFor();
+  await page.screenshot({ path: join(artifacts, "server-detail-1360.png"), fullPage: true });
+  await page.getByRole("heading", { name: "网卡" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(artifacts, "server-network-1360.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.locator(".servers-stats").waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "手机服务器详情横向溢出");
+  await page.screenshot({ path: join(artifacts, "server-detail-390.png"), fullPage: true });
+  await page.getByRole("heading", { name: "网卡" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: join(artifacts, "server-network-390.png") });
+  await page.setViewportSize({ width: 1360, height: 860 });
+
+  stage = "查看服务器并打开终端";
   await page.goto(`${base}/servers/${host.id}/terminal`);
   await page.getByRole("button", { name: "连接", exact: true }).click();
   await verifyIfAsked();

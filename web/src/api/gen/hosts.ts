@@ -11,7 +11,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 所有机器（代理和 SSH 主机）及最新指标。 */
+        /** @description 机器列表卡片所需的概要字段。 */
         get: operations["listHosts"];
         put?: never;
         post?: never;
@@ -471,6 +471,37 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        HostListMetrics: {
+            /** Format: date-time */
+            at: string;
+            /** Format: double */
+            load1: number;
+            /** Format: double */
+            netRx: number;
+            /** Format: double */
+            netTx: number;
+            /** Format: int64 */
+            uptimeSeconds: number;
+        };
+        HostListItem: {
+            id: string;
+            name: string;
+            kind: components["schemas"]["HostKind"];
+            source: components["schemas"]["HostSource"];
+            online: boolean;
+            hostname: string;
+            os: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            activeAlerts: number;
+            /** Format: double */
+            cpu?: number;
+            /** Format: double */
+            memory?: number;
+            /** Format: double */
+            disk?: number;
+            metrics?: components["schemas"]["HostListMetrics"];
+        };
         /** @enum {string} */
         HostKind: "server" | "desktop";
         /** @enum {string} */
@@ -482,6 +513,19 @@ export interface components {
             used: number;
             /** Format: int64 */
             total: number;
+        };
+        NetInterface: {
+            name: string;
+            /**
+             * Format: double
+             * @description 字节/秒
+             */
+            rx: number;
+            /**
+             * Format: double
+             * @description 字节/秒
+             */
+            tx: number;
         };
         MetricsSample: {
             /** Format: date-time */
@@ -511,6 +555,7 @@ export interface components {
              * @description 字节/秒
              */
             netTx: number;
+            netInterfaces?: components["schemas"]["NetInterface"][];
             /**
              * Format: double
              * @description 字节/秒
@@ -833,7 +878,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Host"][];
+                    "application/json": components["schemas"]["HostListItem"][];
                 };
             };
             default: components["responses"]["Error"];
