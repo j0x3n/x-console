@@ -59,6 +59,7 @@ export default function PcPage() {
           <PageHeading
             title={t("This PC")}
             subtitle={[h.name, h.hostname, h.os].filter(Boolean).join(" · ")}
+            meta={<HostHeadStatus host={h} />}
             aside={
               <>
                 {hosts.data.length > 1 && (
@@ -75,7 +76,6 @@ export default function PcPage() {
                     ))}
                   </select>
                 )}
-                <HostHeadStatus host={h} />
                 <PcQuickBar host={h} />
               </>
             }

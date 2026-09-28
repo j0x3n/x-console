@@ -62,6 +62,8 @@ registerZh({
   "Go to": "跳转",
   "No results found": "没有找到结果",
   "Open navigation": "打开导航",
+  "Collapse sidebar": "折叠侧边栏",
+  "Expand sidebar": "展开侧边栏",
   "Close navigation": "关闭导航",
   Main: "主导航",
   Notifications: "通知",

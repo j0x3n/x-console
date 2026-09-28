@@ -32,6 +32,7 @@ import {
   type CalendarView as View,
 } from "./dates";
 import { useMediaQuery, useNow } from "./hooks";
+import PageActions from "../../components/layout/PageActions";
 
 const HOUR = 48; // 每小时的高度，像素
 
@@ -116,14 +117,15 @@ export default function CalendarView() {
           {events.isFetching && <Spinner />}
         </div>
         <div className="xc-row">
-          <button
-            className="xc-btn small primary"
-            onClick={() => newEvent(null)}
-            title={t("New event")}
-          >
-            <Plus size={14} />{" "}
-            <span className="calendar-btn-text">{t("New event")}</span>
-          </button>
+          <PageActions>
+            <button
+              className="xc-btn small primary"
+              onClick={() => newEvent(null)}
+              title={t("New event")}
+            >
+              <Plus size={14} /> {t("New event")}
+            </button>
+          </PageActions>
           <div className="calendar-switch" role="group" aria-label={t("View")}>
             {(["day", "week"] as const).map((v) => (
               <button

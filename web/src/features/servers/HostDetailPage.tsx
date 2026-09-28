@@ -24,7 +24,7 @@ export default function HostDetailPage() {
               ]
                 .filter(Boolean)
                 .join(" · ")}
-              aside={<HostHeadStatus host={h} />}
+              meta={<HostHeadStatus host={h} />}
             />
           </>
         )}

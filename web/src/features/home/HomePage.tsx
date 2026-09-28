@@ -81,7 +81,7 @@ export default function HomePage() {
     <div className="xc-page">
       <PageHeading
         title={t("Smart home")}
-        aside={status.data?.configured && <StatusBadge status={status.data} />}
+        meta={status.data?.configured && <StatusBadge status={status.data} />}
       />
       {content}
     </div>

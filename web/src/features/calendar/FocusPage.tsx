@@ -8,6 +8,7 @@ import { useFocusStats } from "./api";
 import { dayKey, formatDuration, parseDayKey } from "./dates";
 import { issuePath } from "../projects/logic";
 import { useFocusPanel } from "./hooks";
+import PageActions from "../../components/layout/PageActions";
 
 const ranges = [7, 30];
 
@@ -42,10 +43,15 @@ export default function FocusPage() {
             </button>
           ))}
         </div>
-        <span className="xc-spacer" />
-        <button className="xc-btn primary small" onClick={() => openFor("")}>
-          <Play size={14} /> {t("Start focus")}
-        </button>
+        <PageActions>
+          <button
+            className="xc-btn primary small"
+            onClick={() => openFor("")}
+            title={t("Start focus")}
+          >
+            <Play size={14} /> {t("Start focus")}
+          </button>
+        </PageActions>
       </div>
 
       <div className="focus-tiles">

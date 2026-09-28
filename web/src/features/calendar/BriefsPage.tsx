@@ -15,6 +15,7 @@ import {
   type Brief,
 } from "./api";
 import { dayKey, parseDayKey } from "./dates";
+import PageActions from "../../components/layout/PageActions";
 
 /** 早报历史：左边按日期列出，右边显示内容。也能立即预览或发送一份。 */
 export default function BriefsPage() {
@@ -58,24 +59,31 @@ export default function BriefsPage() {
               ? `${t("Next brief")}: ${describeNext(next, language)}`
               : ""}
         </span>
-        <span className="xc-spacer" />
-        <Link className="xc-btn ghost small" to="/settings/brief">
-          <Settings2 size={14} /> {t("Brief settings")}
-        </Link>
-        <button
-          className="xc-btn small"
-          disabled={generate.isPending}
-          onClick={() => run(false)}
-        >
-          <Eye size={14} /> {t("Preview")}
-        </button>
-        <button
-          className="xc-btn small primary"
-          disabled={generate.isPending}
-          onClick={() => run(true)}
-        >
-          <Send size={14} /> {t("Send now")}
-        </button>
+        <PageActions>
+          <Link
+            className="xc-btn small"
+            to="/settings/brief"
+            title={t("Brief settings")}
+          >
+            <Settings2 size={14} /> {t("Brief settings")}
+          </Link>
+          <button
+            className="xc-btn small"
+            disabled={generate.isPending}
+            onClick={() => run(false)}
+            title={t("Preview")}
+          >
+            <Eye size={14} /> {t("Preview")}
+          </button>
+          <button
+            className="xc-btn small primary"
+            disabled={generate.isPending}
+            onClick={() => run(true)}
+            title={t("Send now")}
+          >
+            <Send size={14} /> {t("Send now")}
+          </button>
+        </PageActions>
       </div>
 
       {list.isPending ? (

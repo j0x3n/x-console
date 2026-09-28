@@ -253,6 +253,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-28 | 新增 `components/layout/PageActions.tsx`（顶栏页面按钮）、`stores/sidebar.ts`（侧边栏折叠，`⌘B`）；`stores/page-title.ts` 加 `subtitle`；`PageHeading` 的 `subtitle`、`meta` 显示到顶栏，`aside` 转成 `PageActions`；`Topbar` 加折叠按钮和页面按钮位置 | B20 页面按钮移到顶栏 |
 | 2026-09-28 | 新增前端公共 `api/useInvalidate.ts`，日历、提醒、习惯、监控共用查询刷新 Hook；命令面板在窄屏使用动态视口高度；截图脚本支持 `--theme dark` | C2 去重并修复手机命令面板溢出，补深色主题自查 |
 | 2026-09-28 | 新增 `contracts.Renewals`、`RenewalRef` 和 `RenewalsKey`，早报通过统一契约读取运维监控订阅 | B7 接通续费部分 |
 | 2026-09-28 | 服务端新增 `pairing-code` 子命令，代理连接增加 `ErrRevoked` 与退出码 3；部署镜像和脚本管理本机代理 | B1 自动配对面板所在服务器，并在吊销后保持停用 |

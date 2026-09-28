@@ -1360,3 +1360,148 @@ a.xc-badge:hover {
     height: 30px;
   }
 }
+
+/* ---- 顶栏三段（B20）：标题和概况 | 页面按钮 │ 全局按钮 ---- */
+.topbar .breadcrumbs {
+  flex: 1;
+  min-width: 0;
+}
+.topbar .breadcrumbs > * {
+  flex: none;
+}
+.topbar .header-actions {
+  flex: none;
+}
+.topbar-subtitle {
+  flex: 0 1 auto !important;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xc-muted);
+  font-size: 12.5px;
+  font-weight: 400;
+}
+.topbar-subtitle::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--xc-faint);
+}
+.topbar-subtitle strong {
+  color: var(--xc-text-2);
+  font-weight: 500;
+}
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.page-actions:empty {
+  display: none;
+}
+.page-actions::after {
+  content: "";
+  width: 1px;
+  height: 18px;
+  margin: 0 2px 0 4px;
+  background: var(--xc-border-strong);
+}
+.page-actions .xc-btn {
+  height: 28px;
+  padding: 0 9px;
+  font-size: 12.5px;
+}
+.page-actions .xc-select {
+  height: 28px;
+}
+.sidebar-toggle {
+  margin-left: -6px;
+}
+.sidebar-toggle > span {
+  display: inline-flex;
+}
+.sidebar-toggle > .sidebar-toggle-mobile {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .topbar-subtitle {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .sidebar-toggle-desktop {
+    display: none !important;
+  }
+  .sidebar-toggle > .sidebar-toggle-mobile {
+    display: inline-flex;
+  }
+  /* 手机上页面按钮只显示图标 */
+  .page-actions .xc-btn {
+    width: 30px;
+    padding: 0;
+    gap: 0;
+    font-size: 0;
+  }
+  .page-actions .xc-btn > svg {
+    flex: none;
+  }
+  .page-actions .xc-select {
+    max-width: 96px;
+  }
+  .topbar .command-button {
+    display: none;
+  }
+}
+
+/* ---- 侧边栏折叠（B20） ---- */
+@media (min-width: 721px) {
+  .sidebar .sidebar-collapse {
+    display: none;
+  }
+  .sidebar.collapsed {
+    width: 56px;
+  }
+  .sidebar.collapsed .workspace-switch > span:not(.brand-mark),
+  .sidebar.collapsed .side-label,
+  .sidebar.collapsed .sidebar-search span,
+  .sidebar.collapsed .sidebar-search kbd,
+  .sidebar.collapsed .nav-toggle,
+  .sidebar.collapsed .nav-children,
+  .sidebar.collapsed .nav-item span,
+  .sidebar.collapsed .nav-item em,
+  .sidebar.collapsed .profile > span:not(.profile-avatar),
+  .sidebar.collapsed .profile > svg {
+    display: none;
+  }
+  .sidebar.collapsed .workspace-switch {
+    justify-content: center;
+    padding: 0;
+  }
+  .sidebar.collapsed .sidebar-search,
+  .sidebar.collapsed .nav-item,
+  .sidebar.collapsed .profile {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .sidebar.collapsed .side-label + * {
+    margin-top: 0;
+  }
+  .sidebar.collapsed .nav-groups > div + div {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--xc-border);
+  }
+  .sidebar.collapsed .profile-popover {
+    width: 220px;
+  }
+}
+@media (max-width: 720px) {
+  .page-actions kbd,
+  .page-actions > .xc-muted {
+    display: none;
+  }
+}
+.topbar-subtitle .xc-badge {
+  vertical-align: 1px;
+}

@@ -37,6 +37,7 @@ import {
   snippetParts,
   type DateGroup,
 } from "./logic";
+import PageActions from "../../components/layout/PageActions";
 
 type View = "all" | "pinned" | "archived" | "tag" | "hidden";
 
@@ -252,15 +253,16 @@ export default function NotesPage() {
                 : ""}
             </span>
           </div>
-          <button
-            className="xc-btn primary small"
-            onClick={newNote}
-            disabled={create.isPending}
-            title={t("New note")}
-          >
-            <Plus size={14} />{" "}
-            <span className="notes-btn-text">{t("New")}</span>
-          </button>
+          <PageActions>
+            <button
+              className="xc-btn primary small"
+              onClick={newNote}
+              disabled={create.isPending}
+              title={t("New note")}
+            >
+              <Plus size={14} /> {t("New note")}
+            </button>
+          </PageActions>
         </div>
         <label className="notes-search">
           <Search size={14} />

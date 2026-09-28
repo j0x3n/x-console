@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { create } from "zustand";
 
 /*
@@ -7,6 +7,7 @@ import { create } from "zustand";
  * 这里记下来，左上角显示成“项目 / XC 项目”。中间还有一层时用 parents，
  * 比如 Issue 页是“项目 / XC / XC-1”。
  * status 只给有设备状态的页面用（服务器详情、本机），左上角显示一个状态点。
+ * subtitle 是这一页的概况灰字，显示在左上角标题后面（B20）。
  */
 export interface Crumb {
   label: string;
@@ -19,8 +20,10 @@ interface PageTitleState {
   parents: Crumb[];
   status: PageStatus | null;
   statusLabel: string;
+  subtitle: ReactNode;
   setTitle: (title: string, parents?: Crumb[]) => void;
   setStatus: (status: PageStatus | null, label?: string) => void;
+  setSubtitle: (subtitle: ReactNode) => void;
 }
 
 export const usePageTitle = create<PageTitleState>()((set) => ({
@@ -28,8 +31,10 @@ export const usePageTitle = create<PageTitleState>()((set) => ({
   parents: [],
   status: null,
   statusLabel: "",
+  subtitle: null,
   setTitle: (title, parents = []) => set({ title, parents }),
   setStatus: (status, statusLabel = "") => set({ status, statusLabel }),
+  setSubtitle: (subtitle) => set({ subtitle }),
 }));
 
 /** 不用 PageHeading 的详情页直接调它。离开页面时清空。 */

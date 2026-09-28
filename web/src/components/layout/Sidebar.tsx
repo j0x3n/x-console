@@ -15,6 +15,7 @@ import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
 import { usePreferencesStore } from "../../stores/preferences-store";
 import { useNavChildren } from "../../lib/navChildren";
+import { useSidebar } from "../../stores/sidebar";
 
 // 二级菜单展开了哪些，记在 localStorage。
 const OPEN_KEY = "xc.nav.open";
@@ -40,6 +41,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const t = useT();
   const children = useNavChildren();
+  const collapsed = useSidebar((s) => s.collapsed);
   const [open, setOpen] = useState<string[]>(readOpen);
   const location = useLocation();
   const atRoot = (path: string) => location.pathname === path;
@@ -69,7 +71,7 @@ export default function Sidebar({
         />
       )}
       <nav
-        className={`sidebar ${mobileOpen ? "open" : ""}`}
+        className={`sidebar${mobileOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`}
         aria-label={t("Main")}
       >
         <div className="workspace-switch">
@@ -91,7 +93,11 @@ export default function Sidebar({
             <PanelLeftClose size={15} />
           </button>
         </div>
-        <button className="sidebar-search" onClick={openPalette}>
+        <button
+          className="sidebar-search"
+          onClick={openPalette}
+          title={collapsed ? t("Search or run a command...") : undefined}
+        >
           <Search size={15} />
           <span>{t("Search or run a command...")}</span>
           <kbd>⌘K</kbd>
@@ -110,6 +116,7 @@ export default function Sidebar({
                     <NavLink
                       to={item.path}
                       end={item.path === "/"}
+                      title={collapsed ? t(item.label) : undefined}
                       onClick={() => {
                         // 从别的页面点过来时展开；已经在这一页、已经展开时再点一下收起。
                         if (Children)

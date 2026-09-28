@@ -9,6 +9,7 @@ import { Loading } from "../components/ui/States";
 import Toast from "../components/ui/Toast";
 import { useToastStore } from "../hooks/useToast";
 import GlobalPanels from "./GlobalPanels";
+import { useSidebar } from "../stores/sidebar";
 
 export default function Layout() {
   useServerEvents();
@@ -23,6 +24,10 @@ export default function Layout() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setPaletteOpen((open) => !open);
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        useSidebar.getState().toggle();
       }
     };
     document.addEventListener("keydown", onKey);

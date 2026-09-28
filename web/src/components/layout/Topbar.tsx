@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useMatches } from "react-router";
-import { Bell, Command, Menu } from "lucide-react";
+import { Bell, Command, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useNotifications } from "../../api/core";
 import { useEventConnection } from "../../api/events";
 import { useT } from "../../contexts/LanguageContext";
 import NotificationsPopover from "./NotificationsPopover";
 import TopbarActions from "../../app/TopbarActions";
 import { usePageTitle } from "../../stores/page-title";
+import { useSidebar } from "../../stores/sidebar";
+import { PageActionsSlot } from "./PageActions";
 import { navItems } from "../../app/nav";
 
 interface RouteHandle {
@@ -32,6 +34,9 @@ export default function Topbar({
   const parents = usePageTitle((s) => s.parents);
   const status = usePageTitle((s) => s.status);
   const statusLabel = usePageTitle((s) => s.statusLabel);
+  const subtitle = usePageTitle((s) => s.subtitle);
+  const collapsed = useSidebar((s) => s.collapsed);
+  const toggleSidebar = useSidebar((s) => s.toggle);
   const detail = pageTitle && pageTitle !== t(title) ? pageTitle : "";
   const connected = useEventConnection((s) => s.connected);
   const location = useLocation();
@@ -57,12 +62,27 @@ export default function Topbar({
   return (
     <header className="topbar">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
+        {/* 桌面上折叠侧边栏，手机上打开抽屉（B20） */}
         <button
-          className="mobile-menu icon-button"
-          onClick={openMobile}
-          aria-label={t("Open navigation")}
+          className="sidebar-toggle icon-button"
+          onClick={() =>
+            window.matchMedia("(max-width: 720px)").matches
+              ? openMobile()
+              : toggleSidebar()
+          }
+          aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
+          title={`${collapsed ? t("Expand sidebar") : t("Collapse sidebar")} (⌘B)`}
         >
-          <Menu size={18} />
+          <span className="sidebar-toggle-desktop">
+            {collapsed ? (
+              <PanelLeftOpen size={16} />
+            ) : (
+              <PanelLeftClose size={16} />
+            )}
+          </span>
+          <span className="sidebar-toggle-mobile">
+            <PanelLeftOpen size={17} />
+          </span>
         </button>
         {atModule ? (
           <span aria-current="page">{t(title)}</span>
@@ -95,8 +115,10 @@ export default function Topbar({
             title={t("Live updates disconnected. Reconnecting.")}
           />
         )}
+        {subtitle && <span className="topbar-subtitle">{subtitle}</span>}
       </nav>
       <div className="header-actions">
+        <PageActionsSlot />
         <TopbarActions />
         <div
           className="notifications-wrap"
