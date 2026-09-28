@@ -9,7 +9,12 @@ import { invalidateOn } from "../../api/events";
 import type { components } from "../../api/gen/projects";
 import type { paths } from "../../api/gen/projects";
 import { toast } from "../../hooks/useToast";
-import { applyMove, type Issue, type IssueStatus, type MovePlan } from "./logic";
+import {
+  applyMove,
+  type Issue,
+  type IssueStatus,
+  type MovePlan,
+} from "./logic";
 
 export const projectsApi = createApi<paths>();
 
@@ -33,7 +38,8 @@ export const projectKeys = {
   labels: (projectId: number) => ["projects", "labels", projectId] as const,
   milestones: (projectId: number) =>
     ["projects", "milestones", projectId] as const,
-  comments: (key: string) => ["projects", "comments", key.toUpperCase()] as const,
+  comments: (key: string) =>
+    ["projects", "comments", key.toUpperCase()] as const,
   links: (key: string) => ["projects", "links", key.toUpperCase()] as const,
 };
 
@@ -76,7 +82,9 @@ export function useProjectByKey(key: string | undefined) {
 }
 
 /** 一次取完一个项目的全部 Issue，筛选在前端做。 */
-async function fetchAllIssues(query: Record<string, unknown>): Promise<Issue[]> {
+async function fetchAllIssues(
+  query: Record<string, unknown>,
+): Promise<Issue[]> {
   const all: Issue[] = [];
   let cursor: string | undefined;
   do {
@@ -162,7 +170,9 @@ export function useComments(key: string) {
     queryKey: projectKeys.comments(key),
     queryFn: () =>
       unwrap(
-        projectsApi.GET("/issues/{key}/comments", { params: { path: { key } } }),
+        projectsApi.GET("/issues/{key}/comments", {
+          params: { path: { key } },
+        }),
       ),
   });
 }
@@ -215,7 +225,13 @@ export function useUpdateProject() {
 export function useCreateIssue() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ projectId, body }: { projectId: number; body: CreateIssue }) =>
+    mutationFn: ({
+      projectId,
+      body,
+    }: {
+      projectId: number;
+      body: CreateIssue;
+    }) =>
       unwrap(
         projectsApi.POST("/projects/{projectId}/issues", {
           params: { path: { projectId } },
@@ -235,7 +251,14 @@ export function useCreateIssue() {
 export function useUpdateIssue() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ key, body }: { issue: Issue; key: string; body: UpdateIssue }) =>
+    mutationFn: ({
+      key,
+      body,
+    }: {
+      issue: Issue;
+      key: string;
+      body: UpdateIssue;
+    }) =>
       unwrap(
         projectsApi.PATCH("/issues/{key}", { params: { path: { key } }, body }),
       ),
@@ -247,10 +270,14 @@ export function useUpdateIssue() {
       const patched: Issue = {
         ...issue,
         ...(body.title !== undefined && { title: body.title }),
-        ...(body.description !== undefined && { description: body.description }),
+        ...(body.description !== undefined && {
+          description: body.description,
+        }),
         ...(body.status !== undefined && { status: body.status }),
         ...(body.priority !== undefined && { priority: body.priority }),
-        ...(body.dueDate !== undefined && { dueDate: body.dueDate ?? undefined }),
+        ...(body.dueDate !== undefined && {
+          dueDate: body.dueDate ?? undefined,
+        }),
         ...(body.milestoneId !== undefined && {
           milestoneId: body.milestoneId ?? undefined,
         }),
@@ -274,7 +301,14 @@ export function useUpdateIssue() {
 export function useMoveIssue() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ key, plan }: { projectId: number; key: string; plan: MovePlan }) =>
+    mutationFn: ({
+      key,
+      plan,
+    }: {
+      projectId: number;
+      key: string;
+      plan: MovePlan;
+    }) =>
       unwrap(
         projectsApi.POST("/issues/{key}/move", {
           params: { path: { key } },
@@ -305,7 +339,9 @@ export function useDeleteIssue() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (key: string) =>
-      unwrap(projectsApi.DELETE("/issues/{key}", { params: { path: { key } } })),
+      unwrap(
+        projectsApi.DELETE("/issues/{key}", { params: { path: { key } } }),
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.all }),
     onError: fail,
   });
@@ -321,7 +357,8 @@ export function useAddComment(key: string) {
           body: { body },
         }),
       ),
-    onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.comments(key) }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: projectKeys.comments(key) }),
     onError: fail,
   });
 }
@@ -335,7 +372,8 @@ export function useDeleteComment(key: string) {
           params: { path: { key, commentId } },
         }),
       ),
-    onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.comments(key) }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: projectKeys.comments(key) }),
     onError: fail,
   });
 }
@@ -345,7 +383,10 @@ export function useAddLink(key: string) {
   return useMutation({
     mutationFn: (body: components["schemas"]["CreateIssueLink"]) =>
       unwrap(
-        projectsApi.POST("/issues/{key}/links", { params: { path: { key } }, body }),
+        projectsApi.POST("/issues/{key}/links", {
+          params: { path: { key } },
+          body,
+        }),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: projectKeys.links(key) }),
     onError: fail,
@@ -381,7 +422,13 @@ export function useLabelMutations(projectId: number) {
     onError: fail,
   });
   const update = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: components["schemas"]["UpdateLabel"] }) =>
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: components["schemas"]["UpdateLabel"];
+    }) =>
       unwrap(
         projectsApi.PATCH("/projects/{projectId}/labels/{labelId}", {
           params: { path: { projectId, labelId: id } },
@@ -419,7 +466,13 @@ export function useMilestoneMutations(projectId: number) {
     onError: fail,
   });
   const update = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: components["schemas"]["UpdateMilestone"] }) =>
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: components["schemas"]["UpdateMilestone"];
+    }) =>
       unwrap(
         projectsApi.PATCH("/projects/{projectId}/milestones/{milestoneId}", {
           params: { path: { projectId, milestoneId: id } },

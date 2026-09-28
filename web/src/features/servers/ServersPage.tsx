@@ -4,7 +4,12 @@ import { BellRing, Plus, Server } from "lucide-react";
 import { useServerEvent } from "../../api/events";
 import Dialog from "../../components/ui/Dialog";
 import PageHeading from "../../components/ui/PageHeading";
-import { MiniBars, Segments, StatCard, StatStrip } from "../../components/ui/Stat";
+import {
+  MiniBars,
+  Segments,
+  StatCard,
+  StatStrip,
+} from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { applyMetricsEvent, useHosts, type Host } from "./api";
@@ -31,11 +36,17 @@ export default function ServersPage() {
     <div className="xc-page">
       <PageHeading
         title={t("Servers")}
-        subtitle={hosts.data ? `${hosts.data.length} ${t("machines")} · ${online} ${t("online")}` : undefined}
+        subtitle={
+          hosts.data
+            ? `${hosts.data.length} ${t("machines")} · ${online} ${t("online")}`
+            : undefined
+        }
         meta={
           list.length > 0 && (
             <>
-              <span className={`xc-dot ${alerts ? "danger" : online === list.length ? "ok" : "warn"}`} />
+              <span
+                className={`xc-dot ${alerts ? "danger" : online === list.length ? "ok" : "warn"}`}
+              />
               {alerts
                 ? `${alerts} ${t("active alerts")}`
                 : online === list.length
@@ -46,7 +57,10 @@ export default function ServersPage() {
         }
         aside={
           <>
-            <button className="xc-btn" onClick={() => setParams({ alerts: "1" })}>
+            <button
+              className="xc-btn"
+              onClick={() => setParams({ alerts: "1" })}
+            >
               <BellRing size={14} /> {t("Alerts")}
             </button>
             <button className="xc-btn" onClick={() => setSshOpen(true)}>
@@ -73,12 +87,12 @@ export default function ServersPage() {
         </EmptyState>
       ) : (
         <>
-        <ServerStats hosts={list} />
-        <div className="servers-grid">
-          {hosts.data.map((h) => (
-            <HostCard key={h.id} host={h} />
-          ))}
-        </div>
+          <ServerStats hosts={list} />
+          <div className="servers-grid">
+            {hosts.data.map((h) => (
+              <HostCard key={h.id} host={h} />
+            ))}
+          </div>
         </>
       )}
       <SshHostsDialog open={sshOpen} onClose={() => setSshOpen(false)} />
@@ -108,7 +122,8 @@ function ServerStats({ hosts }: { hosts: Host[] }) {
   const mem = live.map((h) => h.memory ?? 0);
   const fullest = [...live].sort((a, b) => (b.disk ?? 0) - (a.disk ?? 0))[0];
   const alerts = hosts.reduce((sum, h) => sum + h.activeAlerts, 0);
-  const level = (v: number) => (v >= 90 ? "danger" : v >= 75 ? "warn" : undefined);
+  const level = (v: number) =>
+    v >= 90 ? "danger" : v >= 75 ? "warn" : undefined;
   return (
     <StatStrip label={t("Servers")}>
       <StatCard
@@ -116,12 +131,20 @@ function ServerStats({ hosts }: { hosts: Host[] }) {
         caption={`${online}/${hosts.length}`}
         value={online}
         unit={t("machines")}
-        foot={online === hosts.length ? t("All servers online") : `${hosts.length - online} ${t("machines offline")}`}
+        foot={
+          online === hosts.length
+            ? t("All servers online")
+            : `${hosts.length - online} ${t("machines offline")}`
+        }
       >
         <Segments
           parts={[
             { value: online, tone: "ok", label: t("Online") },
-            { value: hosts.length - online, tone: "danger", label: t("Offline") },
+            {
+              value: hosts.length - online,
+              tone: "danger",
+              label: t("Offline"),
+            },
           ]}
         />
       </StatCard>
@@ -131,7 +154,11 @@ function ServerStats({ hosts }: { hosts: Host[] }) {
         unit="%"
         tone={level(avg(cpu))}
       >
-        <MiniBars values={cpu.map((v) => Math.round(v))} max={100} labels={live.map((h) => h.name.slice(0, 3))} />
+        <MiniBars
+          values={cpu.map((v) => Math.round(v))}
+          max={100}
+          labels={live.map((h) => h.name.slice(0, 3))}
+        />
       </StatCard>
       <StatCard
         label={t("Average memory")}
@@ -139,7 +166,12 @@ function ServerStats({ hosts }: { hosts: Host[] }) {
         unit="%"
         tone={level(avg(mem))}
       >
-        <MiniBars values={mem.map((v) => Math.round(v))} max={100} tone="info" labels={live.map((h) => h.name.slice(0, 3))} />
+        <MiniBars
+          values={mem.map((v) => Math.round(v))}
+          max={100}
+          tone="info"
+          labels={live.map((h) => h.name.slice(0, 3))}
+        />
       </StatCard>
       <StatCard
         label={t("Fullest disk")}

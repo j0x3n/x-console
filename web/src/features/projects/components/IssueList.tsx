@@ -30,7 +30,9 @@ export default function IssueList({
           {groups.length > 1 && (
             <header>
               {group.status && <StatusIcon status={group.status} size={14} />}
-              {group.priority !== undefined && <PriorityIcon priority={group.priority} size={14} />}
+              {group.priority !== undefined && (
+                <PriorityIcon priority={group.priority} size={14} />
+              )}
               <b>{t(group.label)}</b>
               <span>{group.issues.length}</span>
             </header>
@@ -47,7 +49,8 @@ export default function IssueList({
                 onOpen(issue.key);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && e.target === e.currentTarget) onOpen(issue.key);
+                if (e.key === "Enter" && e.target === e.currentTarget)
+                  onOpen(issue.key);
               }}
             >
               <PriorityIcon priority={issue.priority} size={14} />

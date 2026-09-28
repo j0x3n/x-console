@@ -1,3 +1,5 @@
+import { demoFull } from "./mode";
+
 /*
  * 演示数据的小路由。handler 返回 undefined 表示不拦，交给真实服务端。
  */
@@ -35,6 +37,10 @@ export function route(method: string, path: string, handler: DemoHandler) {
   );
   routes.push({ method, pattern, keys, handler });
 }
+
+/** 演示关闭时，让请求直接进入真实服务端。 */
+export const routeFull: typeof route = (method, path, handler) =>
+  route(method, path, (request) => (demoFull ? handler(request) : undefined));
 
 /** 找出所有匹配的处理函数，按登记顺序。前一个返回 undefined 时交给下一个。 */
 export function findRoutes(method: string, path: string) {

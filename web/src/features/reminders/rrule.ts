@@ -121,10 +121,13 @@ export function describeRule(
       return every("天", "day");
     case "WEEKLY": {
       const names = days.map((i) => (zh ? DAY_NAMES_ZH : DAY_NAMES_EN)[i]);
-      const base = interval === 1 ? (zh ? "每周" : "Weekly on ") : every("周", "week") + (zh ? "的周" : " on ");
-      return zh
-        ? `${base}${names.join("、")}`
-        : `${base}${names.join(", ")}`;
+      const base =
+        interval === 1
+          ? zh
+            ? "每周"
+            : "Weekly on "
+          : every("周", "week") + (zh ? "的周" : " on ");
+      return zh ? `${base}${names.join("、")}` : `${base}${names.join(", ")}`;
     }
     case "MONTHLY": {
       const day = p.get("BYMONTHDAY") ?? String(start.getDate());

@@ -8,7 +8,9 @@ export interface RepoGroup<T> {
 }
 
 /** 按仓库分组，仓库按名字排序，组内保持原来的顺序。 */
-export function groupByRepo<T extends { repo: string }>(items: T[]): RepoGroup<T>[] {
+export function groupByRepo<T extends { repo: string }>(
+  items: T[],
+): RepoGroup<T>[] {
   const map = new Map<string, T[]>();
   for (const item of items) {
     const list = map.get(item.repo);
@@ -67,7 +69,10 @@ export function runOutcome(run: Pick<GitHubRun, "status" | "conclusion">): {
   tone: Tone;
 } {
   if (run.status !== "completed") {
-    return { label: run.status === "queued" ? "Queued" : "Running", tone: "warn" };
+    return {
+      label: run.status === "queued" ? "Queued" : "Running",
+      tone: "warn",
+    };
   }
   switch (run.conclusion) {
     case "success":
@@ -118,11 +123,14 @@ export function sortPulls(pulls: GitHubPull[]): GitHubPull[] {
 }
 
 /** 团队和项目的对应关系有什么问题；没问题返回 null。返回英文原文，给 t() 用。 */
-export function mappingProblem(rows: { teamId: string; projectId: number }[]): string | null {
+export function mappingProblem(
+  rows: { teamId: string; projectId: number }[],
+): string | null {
   const teams = new Set<string>();
   const projects = new Set<number>();
   for (const r of rows) {
-    if (!r.teamId || !r.projectId) return "Choose a team and a project in every row";
+    if (!r.teamId || !r.projectId)
+      return "Choose a team and a project in every row";
     if (teams.has(r.teamId) || projects.has(r.projectId))
       return "Each team and each project can be used only once";
     teams.add(r.teamId);

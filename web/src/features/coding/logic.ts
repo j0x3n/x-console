@@ -40,12 +40,24 @@ export function isActive(status: TaskStatus) {
 /** 列表上的筛选。 */
 export type Filter = "all" | "active" | "review" | "done" | "failed";
 
-export const FILTERS: Array<{ id: Filter; label: string; statuses?: TaskStatus[] }> = [
+export const FILTERS: Array<{
+  id: Filter;
+  label: string;
+  statuses?: TaskStatus[];
+}> = [
   { id: "all", label: "All" },
   { id: "active", label: "In progress", statuses: ["queued", "running"] },
   { id: "review", label: "Needs review", statuses: ["review"] },
-  { id: "done", label: "Finished tasks", statuses: ["committed", "pushed", "pr_opened"] },
-  { id: "failed", label: "Failed or canceled", statuses: ["failed", "canceled", "discarded"] },
+  {
+    id: "done",
+    label: "Finished tasks",
+    statuses: ["committed", "pushed", "pr_opened"],
+  },
+  {
+    id: "failed",
+    label: "Failed or canceled",
+    statuses: ["failed", "canceled", "discarded"],
+  },
 ];
 
 export function filterTasks(tasks: Task[], filter: Filter): Task[] {
@@ -82,10 +94,15 @@ export function actionsFor(task: Pick<Task, "status">, prAvailable: boolean) {
 /* ---- 输出 ---- */
 
 /** 按 seq 合并新事件，去掉重复的。 */
-export function mergeEvents(current: TaskEvent[], incoming: TaskEvent[]): TaskEvent[] {
+export function mergeEvents(
+  current: TaskEvent[],
+  incoming: TaskEvent[],
+): TaskEvent[] {
   if (incoming.length === 0) return current;
   const last = current.length ? current[current.length - 1].seq : 0;
-  const fresh = incoming.filter((e) => e.seq > last).sort((a, b) => a.seq - b.seq);
+  const fresh = incoming
+    .filter((e) => e.seq > last)
+    .sort((a, b) => a.seq - b.seq);
   return fresh.length ? [...current, ...fresh] : current;
 }
 
@@ -109,7 +126,13 @@ export interface ToolCall {
 
 export type OutputBlock =
   | { type: "text"; seq: number; text: string; stderr: boolean }
-  | { type: "status"; seq: number; code: string; text: string; data: Record<string, unknown> }
+  | {
+      type: "status";
+      seq: number;
+      code: string;
+      text: string;
+      data: Record<string, unknown>;
+    }
   | { type: "error"; seq: number; text: string }
   | { type: "done"; seq: number; exitCode?: number; reason: string }
   | { type: "tools"; seq: number; calls: ToolCall[] };
@@ -163,16 +186,32 @@ export function buildBlocks(events: TaskEvent[]): OutputBlock[] {
     group = null;
     switch (ev.kind) {
       case "text":
-        blocks.push({ type: "text", seq: ev.seq, text: ev.text, stderr: data.stream === "stderr" });
+        blocks.push({
+          type: "text",
+          seq: ev.seq,
+          text: ev.text,
+          stderr: data.stream === "stderr",
+        });
         break;
       case "status":
-        blocks.push({ type: "status", seq: ev.seq, code: str(data.code), text: ev.text, data });
+        blocks.push({
+          type: "status",
+          seq: ev.seq,
+          code: str(data.code),
+          text: ev.text,
+          data,
+        });
         break;
       case "error":
         blocks.push({ type: "error", seq: ev.seq, text: ev.text });
         break;
       case "done":
-        blocks.push({ type: "done", seq: ev.seq, exitCode: ev.exitCode, reason: str(data.reason) || ev.text });
+        blocks.push({
+          type: "done",
+          seq: ev.seq,
+          exitCode: ev.exitCode,
+          reason: str(data.reason) || ev.text,
+        });
         break;
     }
   }
@@ -206,7 +245,13 @@ export function parseDiff(diff: string): DiffFile[] {
   for (const raw of diff.split("\n")) {
     if (raw.startsWith("diff --git ")) {
       const m = /^diff --git a\/(.*) b\/(.*)$/.exec(raw);
-      file = { path: m ? m[2] : raw.slice(11), lines: [], additions: 0, deletions: 0, binary: false };
+      file = {
+        path: m ? m[2] : raw.slice(11),
+        lines: [],
+        additions: 0,
+        deletions: 0,
+        binary: false,
+      };
       files.push(file);
       inHunk = false;
       continue;
@@ -232,7 +277,12 @@ export function parseDiff(diff: string): DiffFile[] {
       file.lines.push({ kind: "del", text: raw.slice(1), oldNo: oldNo++ });
       file.deletions++;
     } else if (raw.startsWith(" ")) {
-      file.lines.push({ kind: "ctx", text: raw.slice(1), oldNo: oldNo++, newNo: newNo++ });
+      file.lines.push({
+        kind: "ctx",
+        text: raw.slice(1),
+        oldNo: oldNo++,
+        newNo: newNo++,
+      });
     } else if (raw.startsWith("\\")) {
       file.lines.push({ kind: "meta", text: raw });
     }

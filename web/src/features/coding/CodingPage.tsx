@@ -2,14 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Bot, FolderGit2, GitBranch, Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
-import { MiniBars, Segments, StatCard, StatStrip } from "../../components/ui/Stat";
+import {
+  MiniBars,
+  Segments,
+  StatCard,
+  StatStrip,
+} from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
 import { useTasks } from "./api";
 import NewTaskDialog from "./components/NewTaskDialog";
 import StatusBadge from "./components/StatusBadge";
-import { FILTERS, filterTasks, sortTasks, taskTitle, type Filter, type Task } from "./logic";
+import {
+  FILTERS,
+  filterTasks,
+  sortTasks,
+  taskTitle,
+  type Filter,
+  type Task,
+} from "./logic";
 
 const FILTER_KEY = "xc.coding.filter";
 
@@ -25,7 +37,10 @@ function readFilter(): Filter {
 function TaskRow({ task }: { task: Task }) {
   const t = useT();
   const language = useLanguage();
-  const when = task.status === "running" && task.startedAt ? task.startedAt : task.finishedAt ?? task.createdAt;
+  const when =
+    task.status === "running" && task.startedAt
+      ? task.startedAt
+      : (task.finishedAt ?? task.createdAt);
   return (
     <Link to={`/coding/${task.id}`} className="coding-row">
       <StatusBadge status={task.status} />
@@ -52,7 +67,9 @@ function TaskRow({ task }: { task: Task }) {
         </small>
       </div>
       <div className="coding-row-side">
-        <span className="coding-executor">{task.executor === "claude" ? "Claude Code" : "Codex"}</span>
+        <span className="coding-executor">
+          {task.executor === "claude" ? "Claude Code" : "Codex"}
+        </span>
         <small title={when}>{relativeTime(when, language)}</small>
       </div>
     </Link>
@@ -89,10 +106,14 @@ export default function CodingPage() {
     params.delete("issue");
     setParams(params, { replace: true });
   };
-  const visible = useMemo(() => sortTasks(filterTasks(tasks.data ?? [], filter)), [tasks.data, filter]);
+  const visible = useMemo(
+    () => sortTasks(filterTasks(tasks.data ?? [], filter)),
+    [tasks.data, filter],
+  );
   const counts = useMemo(() => {
     const out: Partial<Record<Filter, number>> = {};
-    for (const f of FILTERS) out[f.id] = filterTasks(tasks.data ?? [], f.id).length;
+    for (const f of FILTERS)
+      out[f.id] = filterTasks(tasks.data ?? [], f.id).length;
     return out;
   }, [tasks.data]);
 
@@ -100,13 +121,18 @@ export default function CodingPage() {
     <div className="xc-page coding-page">
       <PageHeading
         title={t("Coding tasks")}
-        subtitle={t("Claude Code and Codex work on your repositories in separate worktrees.")}
+        subtitle={t(
+          "Claude Code and Codex work on your repositories in separate worktrees.",
+        )}
         aside={
           <>
             <Link className="xc-btn" to="/coding/repos">
               <FolderGit2 size={14} /> {t("Repositories")}
             </Link>
-            <button className="xc-btn primary" onClick={() => setParams({ new: "1" })}>
+            <button
+              className="xc-btn primary"
+              onClick={() => setParams({ new: "1" })}
+            >
               <Plus size={14} /> {t("New task")}
             </button>
           </>
@@ -123,7 +149,9 @@ export default function CodingPage() {
             onClick={() => setFilter(f.id)}
           >
             {t(f.label)}
-            {counts[f.id] ? <span className="coding-count">{counts[f.id]}</span> : null}
+            {counts[f.id] ? (
+              <span className="coding-count">{counts[f.id]}</span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -132,11 +160,23 @@ export default function CodingPage() {
       ) : tasks.isError ? (
         <ErrorState error={tasks.error} onRetry={() => tasks.refetch()} />
       ) : visible.length === 0 ? (
-        <EmptyState title={filter === "all" ? t("No coding tasks yet") : t("Nothing here")} icon={<Bot size={28} />}>
+        <EmptyState
+          title={
+            filter === "all" ? t("No coding tasks yet") : t("Nothing here")
+          }
+          icon={<Bot size={28} />}
+        >
           {filter === "all" && (
             <>
-              <span>{t("Pick a repository, describe the change, and let the assistant work on it.")}</span>
-              <button className="xc-btn primary" onClick={() => setParams({ new: "1" })}>
+              <span>
+                {t(
+                  "Pick a repository, describe the change, and let the assistant work on it.",
+                )}
+              </span>
+              <button
+                className="xc-btn primary"
+                onClick={() => setParams({ new: "1" })}
+              >
                 <Plus size={14} /> {t("New task")}
               </button>
             </>
@@ -178,7 +218,9 @@ function CodingStats({ tasks }: { tasks: Task[] }) {
       }).length,
   );
   const labels = days.map((d) =>
-    d.toLocaleDateString(language === "zh" ? "zh-CN" : "en", { weekday: "narrow" }),
+    d.toLocaleDateString(language === "zh" ? "zh-CN" : "en", {
+      weekday: "narrow",
+    }),
   );
   return (
     <StatStrip label={t("Coding tasks")}>
@@ -193,7 +235,11 @@ function CodingStats({ tasks }: { tasks: Task[] }) {
         label={t("Needs review")}
         value={count("review")}
         tone={count("review") ? "accent" : undefined}
-        foot={count("review") ? t("Waiting for your decision") : t("Nothing to review")}
+        foot={
+          count("review")
+            ? t("Waiting for your decision")
+            : t("Nothing to review")
+        }
       />
       <StatCard
         label={t("Success rate")}
@@ -208,7 +254,10 @@ function CodingStats({ tasks }: { tasks: Task[] }) {
           ]}
         />
       </StatCard>
-      <StatCard label={t("Last 7 days")} caption={`${perDay.reduce((a, b) => a + b, 0)}`}>
+      <StatCard
+        label={t("Last 7 days")}
+        caption={`${perDay.reduce((a, b) => a + b, 0)}`}
+      >
         <MiniBars values={perDay} labels={labels} />
       </StatCard>
     </StatStrip>

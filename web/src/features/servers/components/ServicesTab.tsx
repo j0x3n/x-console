@@ -19,16 +19,27 @@ import {
 
 type StateFilter = "all" | "running" | "stopped" | "failed";
 
-export function filterServices(items: Service[], query: string, state: StateFilter): Service[] {
+export function filterServices(
+  items: Service[],
+  query: string,
+  state: StateFilter,
+): Service[] {
   const q = query.trim().toLowerCase();
   return items.filter(
     (s) =>
       (state === "all" || s.state === state) &&
-      (!q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q)),
+      (!q ||
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q)),
   );
 }
 
-const stateTone: Record<string, string> = { running: "ok", failed: "danger", starting: "info", stopping: "warn" };
+const stateTone: Record<string, string> = {
+  running: "ok",
+  failed: "danger",
+  starting: "info",
+  stopping: "warn",
+};
 
 export default function ServicesTab({ host }: { host: HostDetail }) {
   const t = useT();
@@ -47,9 +58,16 @@ export default function ServicesTab({ host }: { host: HostDetail }) {
       ),
     [hostsKeys.services(host.id)],
   );
-  const items = useMemo(() => filterServices(services.data?.items ?? [], query, state), [services.data, query, state]);
+  const items = useMemo(
+    () => filterServices(services.data?.items ?? [], query, state),
+    [services.data, query, state],
+  );
   const run = (s: Service, act: ServiceAction) => {
-    if ((act === "stop" || act === "disable") && !confirm(`${t(act === "stop" ? "Stop" : "Disable")} ${s.name}?`)) return;
+    if (
+      (act === "stop" || act === "disable") &&
+      !confirm(`${t(act === "stop" ? "Stop" : "Disable")} ${s.name}?`)
+    )
+      return;
     action.mutate(
       { name: s.name, act },
       {
@@ -64,15 +82,33 @@ export default function ServicesTab({ host }: { host: HostDetail }) {
       <div className="xc-card-head">
         <h2>{t("Services")}</h2>
         <div className="xc-row servers-wrap">
-          <input className="xc-input servers-search" placeholder={t("Filter services")} value={query} onChange={(e) => setQuery(e.target.value)} />
-          <select className="xc-select servers-narrow" value={state} onChange={(e) => setState(e.target.value as StateFilter)} aria-label={t("State")}>
+          <input
+            className="xc-input servers-search"
+            placeholder={t("Filter services")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <select
+            className="xc-select servers-narrow"
+            value={state}
+            onChange={(e) => setState(e.target.value as StateFilter)}
+            aria-label={t("State")}
+          >
             <option value="all">{t("All")}</option>
             <option value="running">{t("Running")}</option>
             <option value="stopped">{t("Stopped")}</option>
             <option value="failed">{t("Failed")}</option>
           </select>
-          <button className="xc-btn small" onClick={() => services.refetch()} disabled={services.isFetching} aria-label={t("Refresh")}>
-            <RefreshCw size={14} className={services.isFetching ? "servers-spin" : ""} />
+          <button
+            className="xc-btn small"
+            onClick={() => services.refetch()}
+            disabled={services.isFetching}
+            aria-label={t("Refresh")}
+          >
+            <RefreshCw
+              size={14}
+              className={services.isFetching ? "servers-spin" : ""}
+            />
           </button>
         </div>
       </div>
@@ -98,10 +134,14 @@ export default function ServicesTab({ host }: { host: HostDetail }) {
                 <tr key={s.name}>
                   <td className="servers-cmd">
                     <strong>{s.name}</strong>
-                    {s.description && <small className="xc-muted">{s.description}</small>}
+                    {s.description && (
+                      <small className="xc-muted">{s.description}</small>
+                    )}
                   </td>
                   <td>
-                    <span className={`xc-badge ${stateTone[s.state] ?? ""}`}>{t(stateLabel(s.state))}</span>
+                    <span className={`xc-badge ${stateTone[s.state] ?? ""}`}>
+                      {t(stateLabel(s.state))}
+                    </span>
                   </td>
                   <td>
                     <button
@@ -111,25 +151,43 @@ export default function ServicesTab({ host }: { host: HostDetail }) {
                       title={t(s.enabled ? "Disable" : "Enable")}
                     >
                       {s.enabled ? t("Yes") : t("No")}
-                      {s.startType && <small className="xc-muted"> · {s.startType}</small>}
+                      {s.startType && (
+                        <small className="xc-muted"> · {s.startType}</small>
+                      )}
                     </button>
                   </td>
                   <td className="servers-actions">
                     {s.state === "running" ? (
                       <>
-                        <button className="xc-btn small" disabled={action.isPending} onClick={() => run(s, "restart")}>
+                        <button
+                          className="xc-btn small"
+                          disabled={action.isPending}
+                          onClick={() => run(s, "restart")}
+                        >
                           <RotateCw size={13} /> {t("Restart")}
                         </button>
-                        <button className="xc-btn small danger" disabled={action.isPending} onClick={() => run(s, "stop")}>
+                        <button
+                          className="xc-btn small danger"
+                          disabled={action.isPending}
+                          onClick={() => run(s, "stop")}
+                        >
                           <Square size={12} /> {t("Stop")}
                         </button>
                       </>
                     ) : (
-                      <button className="xc-btn small" disabled={action.isPending} onClick={() => run(s, "start")}>
+                      <button
+                        className="xc-btn small"
+                        disabled={action.isPending}
+                        onClick={() => run(s, "start")}
+                      >
                         <Play size={13} /> {t("Start")}
                       </button>
                     )}
-                    <button className="xc-btn small ghost" onClick={() => setLogsFor(s.name)} aria-label={t("Logs")}>
+                    <button
+                      className="xc-btn small ghost"
+                      onClick={() => setLogsFor(s.name)}
+                      aria-label={t("Logs")}
+                    >
                       <FileText size={13} />
                     </button>
                   </td>
@@ -139,7 +197,11 @@ export default function ServicesTab({ host }: { host: HostDetail }) {
           </table>
         </div>
       )}
-      <LogsDialog hostId={host.id} name={logsFor} onClose={() => setLogsFor(null)} />
+      <LogsDialog
+        hostId={host.id}
+        name={logsFor}
+        onClose={() => setLogsFor(null)}
+      />
     </div>
   );
 }
@@ -160,11 +222,24 @@ function stateLabel(state: string) {
   return "Other";
 }
 
-function LogsDialog({ hostId, name, onClose }: { hostId: string; name: string | null; onClose: () => void }) {
+function LogsDialog({
+  hostId,
+  name,
+  onClose,
+}: {
+  hostId: string;
+  name: string | null;
+  onClose: () => void;
+}) {
   const t = useT();
   const logs = useServiceLogs(hostId, name);
   return (
-    <Dialog open={!!name} onClose={onClose} title={`${t("Logs")} · ${name ?? ""}`} wide>
+    <Dialog
+      open={!!name}
+      onClose={onClose}
+      title={`${t("Logs")} · ${name ?? ""}`}
+      wide
+    >
       {logs.isPending ? (
         <Loading />
       ) : logs.isError ? (
@@ -175,7 +250,11 @@ function LogsDialog({ hostId, name, onClose }: { hostId: string; name: string | 
         <pre className="servers-logs">{logs.data.lines.join("\n")}</pre>
       )}
       <div className="xc-dialog-actions">
-        <button className="xc-btn" onClick={() => logs.refetch()} disabled={logs.isFetching}>
+        <button
+          className="xc-btn"
+          onClick={() => logs.refetch()}
+          disabled={logs.isFetching}
+        >
           <RefreshCw size={14} /> {t("Refresh")}
         </button>
         <button className="xc-btn primary" onClick={onClose}>

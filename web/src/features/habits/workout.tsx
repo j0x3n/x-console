@@ -18,9 +18,18 @@ import {
 } from "./api";
 import { describeItem, plansToSave, weekPlans, type DayPlan } from "./progress";
 
-const onError = (err: unknown) => toast({ message: errorMessage(err), tone: "error" });
+const onError = (err: unknown) =>
+  toast({ message: errorMessage(err), tone: "error" });
 
-export const weekdayLabels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+export const weekdayLabels = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
 
 export function toItem(i: WorkoutItem) {
   return {
@@ -35,14 +44,21 @@ export function toItem(i: WorkoutItem) {
 export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
   const t = useT();
   const save = useSavePlans();
-  const initial = useMemo(() => weekPlans(plans.map((p) => ({ ...p, items: p.items.map(toItem) }))), [plans]);
+  const initial = useMemo(
+    () => weekPlans(plans.map((p) => ({ ...p, items: p.items.map(toItem) }))),
+    [plans],
+  );
   const [week, setWeek] = useState<DayPlan[]>(initial);
   useEffect(() => setWeek(initial), [initial]);
 
   const setDay = (i: number, patch: Partial<DayPlan>) =>
     setWeek(week.map((d, j) => (j === i ? { ...d, ...patch } : d)));
   const setItem = (day: number, idx: number, patch: Record<string, unknown>) =>
-    setDay(day, { items: week[day].items.map((it, j) => (j === idx ? { ...it, ...patch } : it)) });
+    setDay(day, {
+      items: week[day].items.map((it, j) =>
+        j === idx ? { ...it, ...patch } : it,
+      ),
+    });
   const num = (v: string) => (v === "" ? undefined : Math.max(0, Number(v)));
 
   return (
@@ -54,7 +70,11 @@ export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
           disabled={save.isPending}
           onClick={() =>
             save.mutate(
-              plansToSave(week).map((d) => ({ weekday: d.weekday, title: d.title, items: d.items })),
+              plansToSave(week).map((d) => ({
+                weekday: d.weekday,
+                title: d.title,
+                items: d.items,
+              })),
               { onSuccess: () => toast(t("Saved")), onError },
             )
           }
@@ -75,7 +95,10 @@ export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
               />
             </div>
             {d.items.length > 0 && (
-              <div className="habits-item-row habits-item-head" aria-hidden="true">
+              <div
+                className="habits-item-row habits-item-head"
+                aria-hidden="true"
+              >
                 <span>{t("Exercise")}</span>
                 <span>{t("Sets")}</span>
                 <span>{t("Reps")}</span>
@@ -117,12 +140,16 @@ export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
                   value={it.weight ?? ""}
                   placeholder="kg"
                   aria-label={t("Weight (kg)")}
-                  onChange={(e) => setItem(i, j, { weight: num(e.target.value) })}
+                  onChange={(e) =>
+                    setItem(i, j, { weight: num(e.target.value) })
+                  }
                 />
                 <button
                   className="xc-btn ghost small"
                   aria-label={t("Delete")}
-                  onClick={() => setDay(i, { items: d.items.filter((_, k) => k !== j) })}
+                  onClick={() =>
+                    setDay(i, { items: d.items.filter((_, k) => k !== j) })
+                  }
                 >
                   <Trash2 size={13} />
                 </button>
@@ -188,7 +215,9 @@ export function LogDialog({
               <input
                 type="checkbox"
                 checked={done[i] ?? true}
-                onChange={(e) => setDone(done.map((v, j) => (j === i ? e.target.checked : v)))}
+                onChange={(e) =>
+                  setDone(done.map((v, j) => (j === i ? e.target.checked : v)))
+                }
               />
               {describeItem(it)}
             </label>
@@ -197,17 +226,32 @@ export function LogDialog({
       )}
       <label className="xc-field">
         <span>{t("Duration (minutes)")}</span>
-        <input className="xc-input" type="number" min="0" value={duration} onChange={(e) => setDuration(e.target.value)} />
+        <input
+          className="xc-input"
+          type="number"
+          min="0"
+          value={duration}
+          onChange={(e) => setDuration(e.target.value)}
+        />
       </label>
       <label className="xc-field">
         <span>{t("Workout note")}</span>
-        <textarea className="xc-textarea" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+        <textarea
+          className="xc-textarea"
+          rows={2}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
       </label>
       <div className="xc-dialog-actions">
         <button className="xc-btn ghost" onClick={onClose}>
           {t("Cancel")}
         </button>
-        <button className="xc-btn primary" disabled={log.isPending} onClick={submit}>
+        <button
+          className="xc-btn primary"
+          disabled={log.isPending}
+          onClick={submit}
+        >
           {t("Save")}
         </button>
       </div>
@@ -235,19 +279,25 @@ export function RecentLogs() {
       ) : logs.isError ? (
         <ErrorState error={logs.error} onRetry={() => logs.refetch()} />
       ) : logs.data.length === 0 ? (
-        <p className="xc-muted habits-plan-empty">{t("No workouts logged yet")}</p>
+        <p className="xc-muted habits-plan-empty">
+          {t("No workouts logged yet")}
+        </p>
       ) : (
         <div className="habits-logs">
           {logs.data.map((l) => (
             <div className="habits-log" key={l.id}>
               <div>
-                <strong>{formatDate(new Date(`${l.date}T00:00:00`), language)}</strong>
+                <strong>
+                  {formatDate(new Date(`${l.date}T00:00:00`), language)}
+                </strong>
                 <span className="xc-muted">
                   {" "}
                   · {l.durationMinutes} {t("min")}
                 </span>
                 {l.items.length > 0 && (
-                  <div className="xc-muted habits-log-detail">{l.items.map((i) => describeItem(toItem(i))).join("，")}</div>
+                  <div className="xc-muted habits-log-detail">
+                    {l.items.map((i) => describeItem(toItem(i))).join("，")}
+                  </div>
                 )}
                 {l.note && <div className="habits-log-detail">{l.note}</div>}
               </div>
@@ -255,7 +305,10 @@ export function RecentLogs() {
                 className="xc-btn ghost small"
                 aria-label={t("Delete")}
                 disabled={remove.isPending}
-                onClick={() => confirm(t("Delete this workout?")) && remove.mutate(l.id, { onError })}
+                onClick={() =>
+                  confirm(t("Delete this workout?")) &&
+                  remove.mutate(l.id, { onError })
+                }
               >
                 <Trash2 size={13} />
               </button>
@@ -285,16 +338,28 @@ export function NoticeSettings() {
       </div>
       <div className="xc-row habits-notice-row">
         <label className="habits-check">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+          />
           {t("On days with a plan, send it at")}
         </label>
-        <input className="xc-input habits-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+        <input
+          className="xc-input habits-time"
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+        />
         <span className="xc-spacer" />
         <button
           className="xc-btn small primary"
           disabled={save.isPending || !settings.data}
           onClick={() =>
-            save.mutate({ notifyEnabled: enabled, notifyTime: time }, { onSuccess: () => toast(t("Saved")), onError })
+            save.mutate(
+              { notifyEnabled: enabled, notifyTime: time },
+              { onSuccess: () => toast(t("Saved")), onError },
+            )
           }
         >
           {t("Save")}

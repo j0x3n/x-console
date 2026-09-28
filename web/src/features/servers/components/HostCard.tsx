@@ -7,7 +7,11 @@ import type { Host } from "../api";
 import { formatRate, formatUptime } from "../lib";
 import UsageBar from "./UsageBar";
 
-export function HostStatus({ host }: { host: Pick<Host, "online" | "lastSeenAt" | "activeAlerts"> }) {
+export function HostStatus({
+  host,
+}: {
+  host: Pick<Host, "online" | "lastSeenAt" | "activeAlerts">;
+}) {
   const t = useT();
   const language = useLanguage();
   return (
@@ -32,13 +36,20 @@ export function HostStatus({ host }: { host: Pick<Host, "online" | "lastSeenAt" 
 /**
  * 详情页用：在线状态显示成左上角标题后面的小点，页头只在有告警或离线时显示标签。
  */
-export function HostHeadStatus({ host }: { host: Pick<Host, "online" | "lastSeenAt" | "activeAlerts"> }) {
+export function HostHeadStatus({
+  host,
+}: {
+  host: Pick<Host, "online" | "lastSeenAt" | "activeAlerts">;
+}) {
   const t = useT();
   const language = useLanguage();
   const offline = host.lastSeenAt
     ? `${t("Offline")} · ${relativeTime(host.lastSeenAt, language)}`
     : t("Offline");
-  usePageStatus(host.online ? "ok" : "danger", host.online ? t("Online") : offline);
+  usePageStatus(
+    host.online ? "ok" : "danger",
+    host.online ? t("Online") : offline,
+  );
   if (host.online && host.activeAlerts === 0) return null;
   return (
     <span className="xc-row">
@@ -58,7 +69,10 @@ export default function HostCard({ host }: { host: Host }) {
   const language = useLanguage();
   const m = host.metrics;
   return (
-    <Link to={`/servers/${encodeURIComponent(host.id)}`} className={`xc-card servers-card${host.online ? "" : " offline"}`}>
+    <Link
+      to={`/servers/${encodeURIComponent(host.id)}`}
+      className={`xc-card servers-card${host.online ? "" : " offline"}`}
+    >
       <div className="servers-card-head">
         <div>
           <strong>{host.name}</strong>

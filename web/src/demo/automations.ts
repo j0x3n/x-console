@@ -1,9 +1,5 @@
 import { emitDemoEvent } from "../api/events";
-import { ago, fail, json, noContent, now, route as addRoute } from "./router";
-import { demoFull } from "./mode";
-
-const route: typeof addRoute = (method, path, handler) =>
-  addRoute(method, path, (request) => (demoFull ? handler(request) : undefined));
+import { ago, fail, json, noContent, now, routeFull as route } from "./router";
 
 /* 自动化：规则和运行记录都在内存里。“立即运行”一秒后给出一条成功的记录。 */
 const catalog = {

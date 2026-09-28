@@ -294,6 +294,41 @@ try {
   await page.getByRole("button", { name: "连接", exact: true }).click();
   await verifyIfAsked();
   await page.locator(".servers-terminal-card .xc-badge.ok").getByText("已连接").waitFor();
+
+  // C1：每个路由页面都要在真实服务端上至少完成一次渲染。
+  for (const path of [
+    "/",
+    "/projects",
+    "/projects/EET",
+    `/projects/EET/${issueKey.split("-")[1]}`,
+    "/coding",
+    "/coding/repos",
+    "/coding/999999",
+    "/notes",
+    `/notes/${noteId}`,
+    "/reminders",
+    "/habits",
+    "/drive",
+    "/calendar",
+    "/calendar/briefs",
+    "/calendar/focus",
+    "/calendar/calendars",
+    "/servers",
+    `/servers/${host.id}`,
+    "/pc",
+    "/monitoring",
+    "/home",
+    "/automations",
+    `/automations/${automation.id}`,
+    "/automations/new",
+    "/github",
+    "/settings/general",
+    "/settings/security",
+  ]) {
+    stage = `页面渲染 ${path}`;
+    await page.goto(`${base}${path}`);
+    await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
+  }
   assert.deepEqual(pageErrors, [], `浏览器异常：${pageErrors.join("；")}`);
 
   console.log("B8 端到端主流程通过");

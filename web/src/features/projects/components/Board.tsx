@@ -56,7 +56,9 @@ export default function Board({
         const others = cards.filter((i) => i.key !== dragKey);
         const dropIndex = drop?.status === status ? drop.index : -1;
         const line = (i: number) =>
-          dropIndex === i ? <div className="projects-drop-line" key={`line-${i}`} /> : null;
+          dropIndex === i ? (
+            <div className="projects-drop-line" key={`line-${i}`} />
+          ) : null;
         return (
           <section
             key={status}
@@ -66,7 +68,12 @@ export default function Board({
               e.preventDefault();
               e.dataTransfer.dropEffect = "move";
               // Over empty space: drop at the end of the column.
-              if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("projects-lane-list"))
+              if (
+                e.target === e.currentTarget ||
+                (e.target as HTMLElement).classList.contains(
+                  "projects-lane-list",
+                )
+              )
                 setDrop({ status, index: others.length });
             }}
             onDrop={finish}

@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, FileCode2, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileCode2,
+  Pencil,
+  Play,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { withElevation } from "../../../auth/elevation";
 import Dialog from "../../../components/ui/Dialog";
 import { EmptyState, ErrorState, Loading } from "../../../components/ui/States";
@@ -35,8 +43,13 @@ export default function ScriptsTab() {
         <ErrorState error={scripts.error} onRetry={() => scripts.refetch()} />
       ) : scripts.data.length === 0 ? (
         <EmptyState title={t("No scripts yet")} icon={<FileCode2 size={28} />}>
-          <span>{t("Save a script once. Run it on many machines at the same time.")}</span>
-          <button className="xc-btn primary small" onClick={() => setCreating("1")}>
+          <span>
+            {t("Save a script once. Run it on many machines at the same time.")}
+          </span>
+          <button
+            className="xc-btn primary small"
+            onClick={() => setCreating("1")}
+          >
             <Plus size={14} /> {t("New script")}
           </button>
         </EmptyState>
@@ -44,7 +57,10 @@ export default function ScriptsTab() {
         <div className="xc-card monitoring-list">
           {scripts.data.map((s) => (
             <div key={s.id} className="monitoring-row monitoring-row-static">
-              <button className="monitoring-row-main monitoring-link" onClick={() => setOpenId(s.id)}>
+              <button
+                className="monitoring-row-main monitoring-link"
+                onClick={() => setOpenId(s.id)}
+              >
                 <strong>
                   {s.name} <span className="xc-badge">{s.shell}</span>
                 </strong>
@@ -59,8 +75,16 @@ export default function ScriptsTab() {
           ))}
         </div>
       )}
-      <ScriptDialog open={creating === "1"} onClose={() => setCreating(null)} onSaved={(s) => setOpenId(s.id)} />
-      <ScriptDetail script={open} onClose={() => setOpenId(null)} onRun={setRunning} />
+      <ScriptDialog
+        open={creating === "1"}
+        onClose={() => setCreating(null)}
+        onSaved={(s) => setOpenId(s.id)}
+      />
+      <ScriptDetail
+        script={open}
+        onClose={() => setOpenId(null)}
+        onRun={setRunning}
+      />
       <RunDialog
         script={running}
         onClose={() => setRunning(null)}
@@ -95,7 +119,9 @@ function RunDialog({
   if (!script) return null;
   const start = async () => {
     try {
-      await withElevation(() => run.mutateAsync({ id: script.id, hostIds: hosts }));
+      await withElevation(() =>
+        run.mutateAsync({ id: script.id, hostIds: hosts }),
+      );
       toast(t("Run started"));
       onStarted(script);
     } catch (err) {
@@ -107,7 +133,9 @@ function RunDialog({
       open
       onClose={onClose}
       title={`${t("Run")} · ${script.name}`}
-      description={t("The machines run it at the same time. You need to verify first.")}
+      description={t(
+        "The machines run it at the same time. You need to verify first.",
+      )}
     >
       <div className="xc-field">
         <span>{t("Run on these machines")}</span>
@@ -118,8 +146,13 @@ function RunDialog({
         <button className="xc-btn" onClick={onClose}>
           {t("Cancel")}
         </button>
-        <button className="xc-btn primary" disabled={hosts.length === 0 || run.isPending} onClick={start}>
-          <Play size={14} /> {t("Run on {n} machines").replace("{n}", String(hosts.length))}
+        <button
+          className="xc-btn primary"
+          disabled={hosts.length === 0 || run.isPending}
+          onClick={start}
+        >
+          <Play size={14} />{" "}
+          {t("Run on {n} machines").replace("{n}", String(hosts.length))}
         </button>
       </div>
     </Dialog>
@@ -142,7 +175,13 @@ function ScriptDetail({
   if (!script) return null;
   return (
     <>
-      <Dialog open={!editing} onClose={onClose} title={script.name} description={script.description || undefined} wide>
+      <Dialog
+        open={!editing}
+        onClose={onClose}
+        title={script.name}
+        description={script.description || undefined}
+        wide
+      >
         <pre className="monitoring-code-view">{script.body}</pre>
         <div className="monitoring-detail-bar">
           <strong>{t("Run history")}</strong>
@@ -189,24 +228,46 @@ function ScriptDetail({
           </button>
         </div>
       </Dialog>
-      <ScriptDialog open={editing} onClose={() => setEditing(false)} script={script} />
+      <ScriptDialog
+        open={editing}
+        onClose={() => setEditing(false)}
+        script={script}
+      />
     </>
   );
 }
 
-const statusLabel: Record<ScriptRun["status"], string> = { running: "Running", ok: "Succeeded", failed: "Failed" };
+const statusLabel: Record<ScriptRun["status"], string> = {
+  running: "Running",
+  ok: "Succeeded",
+  failed: "Failed",
+};
 
 function RunRow({ run }: { run: ScriptRun }) {
   const t = useT();
   const language = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const seconds =
-    run.finishedAt && Math.max(0, Math.round((new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime()) / 1000));
+    run.finishedAt &&
+    Math.max(
+      0,
+      Math.round(
+        (new Date(run.finishedAt).getTime() -
+          new Date(run.startedAt).getTime()) /
+          1000,
+      ),
+    );
   return (
     <div className="monitoring-run">
-      <button className="monitoring-run-head" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
+      <button
+        className="monitoring-run-head"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+      >
         {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <span className={`xc-badge ${runTone(run)}`}>{t(statusLabel[run.status])}</span>
+        <span className={`xc-badge ${runTone(run)}`}>
+          {t(statusLabel[run.status])}
+        </span>
         <strong>{run.hostName || run.hostId}</strong>
         <span className="xc-spacer" />
         <small className="xc-muted">
@@ -219,9 +280,13 @@ function RunRow({ run }: { run: ScriptRun }) {
         <div className="monitoring-run-body">
           {run.error && <p className="xc-error-text">{run.error}</p>}
           {run.stdout && <pre className="monitoring-output">{run.stdout}</pre>}
-          {run.stderr && <pre className="monitoring-output stderr">{run.stderr}</pre>}
+          {run.stderr && (
+            <pre className="monitoring-output stderr">{run.stderr}</pre>
+          )}
           {!run.error && !run.stdout && !run.stderr && (
-            <p className="xc-muted monitoring-small">{run.status === "running" ? t("Still running") : t("No output")}</p>
+            <p className="xc-muted monitoring-small">
+              {run.status === "running" ? t("Still running") : t("No output")}
+            </p>
           )}
         </div>
       )}

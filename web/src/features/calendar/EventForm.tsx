@@ -135,7 +135,8 @@ export default function EventForm({
     // 只在打开时重置
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, event, start]);
-  const set = (patch: Partial<Draft>) => setD((prev) => ({ ...prev, ...patch }));
+  const set = (patch: Partial<Draft>) =>
+    setD((prev) => ({ ...prev, ...patch }));
   const pending = create.isPending || update.isPending || remove.isPending;
 
   const submit = async (e: FormEvent) => {

@@ -105,7 +105,9 @@ export function compareIssues(sort: SortKey) {
         if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate)
           return a.dueDate.localeCompare(b.dueDate);
         if (!a.dueDate !== !b.dueDate) return a.dueDate ? -1 : 1;
-        return priorityRank(a.priority) - priorityRank(b.priority) || a.id - b.id;
+        return (
+          priorityRank(a.priority) - priorityRank(b.priority) || a.id - b.id
+        );
       }
     }
   };
@@ -201,9 +203,7 @@ export function planMove(
     afterKey: above?.key,
     beforeKey: below?.key,
     sortOrder:
-      above || below
-        ? sortOrderBetween(above?.sortOrder, below?.sortOrder)
-        : 0,
+      above || below ? sortOrderBetween(above?.sortOrder, below?.sortOrder) : 0,
   };
 }
 

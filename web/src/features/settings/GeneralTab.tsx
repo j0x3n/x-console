@@ -9,35 +9,35 @@ export default function GeneralTab() {
     usePreferencesStore();
   return (
     <div className="settings-grid">
-    <div className="xc-card">
-      <div className="xc-card-head">
-        <h2>{t("Appearance")}</h2>
+      <div className="xc-card">
+        <div className="xc-card-head">
+          <h2>{t("Appearance")}</h2>
+        </div>
+        <label className="xc-field">
+          <span>{t("Theme")}</span>
+          <select
+            className="xc-select"
+            value={themeMode}
+            onChange={(e) => setThemeMode(e.target.value as ThemeMode)}
+          >
+            <option value="system">{t("Follow system")}</option>
+            <option value="dark">{t("Dark")}</option>
+            <option value="light">{t("Light")}</option>
+          </select>
+        </label>
+        <label className="xc-field">
+          <span>{t("Language")}</span>
+          <select
+            className="xc-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as Language)}
+          >
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select>
+        </label>
       </div>
-      <label className="xc-field">
-        <span>{t("Theme")}</span>
-        <select
-          className="xc-select"
-          value={themeMode}
-          onChange={(e) => setThemeMode(e.target.value as ThemeMode)}
-        >
-          <option value="system">{t("Follow system")}</option>
-          <option value="dark">{t("Dark")}</option>
-          <option value="light">{t("Light")}</option>
-        </select>
-      </label>
-      <label className="xc-field">
-        <span>{t("Language")}</span>
-        <select
-          className="xc-select"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value as Language)}
-        >
-          <option value="zh">中文</option>
-          <option value="en">English</option>
-        </select>
-      </label>
-    </div>
-    <InstallCard />
+      <InstallCard />
     </div>
   );
 }

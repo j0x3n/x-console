@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Archive,
@@ -13,7 +20,13 @@ import {
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
-import { useCreateNote, useNotes, useSetTagColor, useTags, type NoteSummary } from "./api";
+import {
+  useCreateNote,
+  useNotes,
+  useSetTagColor,
+  useTags,
+  type NoteSummary,
+} from "./api";
 import { tagColor, TAG_COLORS } from "./tagColor";
 import { useVaultStatus } from "../vault/api";
 import NoteEditor from "./components/NoteEditor";
@@ -93,7 +106,8 @@ export default function NotesPage() {
         if (next === "archived") p.set("archived", "1");
         if (next === "tag" && nextTag) p.set("tag", nextTag);
         // 隐藏空间里点标签，还留在隐藏空间
-        if (next === "hidden" || (next === "tag" && hidden)) p.set("hidden", "1");
+        if (next === "hidden" || (next === "tag" && hidden))
+          p.set("hidden", "1");
         return p;
       },
       { replace: true },
@@ -131,19 +145,30 @@ export default function NotesPage() {
 
   const items = notes.data?.pages.flatMap((p) => p.items) ?? [];
   const groups = useMemo(() => groupNotes(items, !!q, view), [items, q, view]);
-  const viewTitle =
-    tag
-      ? `#${tag}`
-      : view === "pinned"
-        ? t("Pinned notes")
-        : view === "archived"
-          ? t("Archived")
-          : view === "hidden"
-            ? t("Hidden notes")
-            : t("All notes");
+  const viewTitle = tag
+    ? `#${tag}`
+    : view === "pinned"
+      ? t("Pinned notes")
+      : view === "archived"
+        ? t("Archived")
+        : view === "hidden"
+          ? t("Hidden notes")
+          : t("All notes");
 
-  const navItem = (key: string, active: boolean, onClick: () => void, icon: ReactNode, label: string, count?: number) => (
-    <button key={key} className={active ? "active" : ""} aria-pressed={active} onClick={onClick}>
+  const navItem = (
+    key: string,
+    active: boolean,
+    onClick: () => void,
+    icon: ReactNode,
+    label: string,
+    count?: number,
+  ) => (
+    <button
+      key={key}
+      className={active ? "active" : ""}
+      aria-pressed={active}
+      onClick={onClick}
+    >
       {icon}
       <span>{label}</span>
       {count != null && <small>{count}</small>}
@@ -151,11 +176,37 @@ export default function NotesPage() {
   );
 
   const views = [
-    navItem("all", view === "all", () => setView("all"), <Notebook size={15} />, t("All notes")),
-    navItem("pinned", view === "pinned", () => setView("pinned"), <Pin size={15} />, t("Pinned notes")),
-    navItem("archived", view === "archived", () => setView("archived"), <Archive size={15} />, t("Archived")),
+    navItem(
+      "all",
+      view === "all",
+      () => setView("all"),
+      <Notebook size={15} />,
+      t("All notes"),
+    ),
+    navItem(
+      "pinned",
+      view === "pinned",
+      () => setView("pinned"),
+      <Pin size={15} />,
+      t("Pinned notes"),
+    ),
+    navItem(
+      "archived",
+      view === "archived",
+      () => setView("archived"),
+      <Archive size={15} />,
+      t("Archived"),
+    ),
     ...(vaultUnlocked
-      ? [navItem("hidden", view === "hidden", () => setView("hidden"), <EyeOff size={15} />, t("Hidden notes"))]
+      ? [
+          navItem(
+            "hidden",
+            view === "hidden",
+            () => setView("hidden"),
+            <EyeOff size={15} />,
+            t("Hidden notes"),
+          ),
+        ]
       : []),
   ];
   const tagItems =
@@ -163,8 +214,12 @@ export default function NotesPage() {
       navItem(
         `tag-${tc.tag}`,
         tag === tc.tag,
-        () => setView(tag === tc.tag ? (hidden ? "hidden" : "all") : "tag", tc.tag),
-        <i className="notes-tag-dot" style={{ background: tagColor(tc.tag, tc.color) }} />,
+        () =>
+          setView(tag === tc.tag ? (hidden ? "hidden" : "all") : "tag", tc.tag),
+        <i
+          className="notes-tag-dot"
+          style={{ background: tagColor(tc.tag, tc.color) }}
+        />,
         tc.tag,
         tc.count,
       ),
@@ -185,10 +240,17 @@ export default function NotesPage() {
         <div className="notes-list-head">
           <div className="notes-list-title">
             {tag && (
-              <TagColorPicker tag={tag} color={tags.data?.find((tc) => tc.tag === tag)?.color} />
+              <TagColorPicker
+                tag={tag}
+                color={tags.data?.find((tc) => tc.tag === tag)?.color}
+              />
             )}
             <h1>{viewTitle}</h1>
-            <span>{items.length > 0 ? `${items.length}${notes.hasNextPage ? "+" : ""}` : ""}</span>
+            <span>
+              {items.length > 0
+                ? `${items.length}${notes.hasNextPage ? "+" : ""}`
+                : ""}
+            </span>
           </div>
           <button
             className="xc-btn primary small"
@@ -196,7 +258,8 @@ export default function NotesPage() {
             disabled={create.isPending}
             title={t("New note")}
           >
-            <Plus size={14} /> <span className="notes-btn-text">{t("New")}</span>
+            <Plus size={14} />{" "}
+            <span className="notes-btn-text">{t("New")}</span>
           </button>
         </div>
         <label className="notes-search">
@@ -232,9 +295,9 @@ export default function NotesPage() {
                     ? t("No archived notes")
                     : view === "hidden"
                       ? t("No hidden notes")
-                    : view === "pinned"
-                      ? t("No pinned notes")
-                      : t("No notes yet")
+                      : view === "pinned"
+                        ? t("No pinned notes")
+                        : t("No notes yet")
               }
               icon={<NotebookPen size={26} />}
             >
@@ -249,7 +312,12 @@ export default function NotesPage() {
               <section key={g.key} className="notes-group">
                 {g.label && <h2 className="notes-group-label">{t(g.label)}</h2>}
                 {g.items.map((n) => (
-                  <NoteItem key={n.id} note={n} active={n.id === id} query={query} />
+                  <NoteItem
+                    key={n.id}
+                    note={n}
+                    active={n.id === id}
+                    query={query}
+                  />
                 ))}
               </section>
             ))
@@ -290,7 +358,11 @@ interface Group {
 }
 
 /** 置顶的在最上面一组，其余按更新时间分组。搜索时按相关度，不分组。 */
-function groupNotes(items: NoteSummary[], searching: boolean, view: View): Group[] {
+function groupNotes(
+  items: NoteSummary[],
+  searching: boolean,
+  view: View,
+): Group[] {
   if (searching) return [{ key: "search", label: "", items }];
   const groups: Group[] = [];
   const add = (key: string, label: string, note: NoteSummary) => {
@@ -303,7 +375,8 @@ function groupNotes(items: NoteSummary[], searching: boolean, view: View): Group
   };
   const now = new Date();
   for (const n of items) {
-    if (n.pinned && view !== "pinned" && view !== "archived") add("pinned", "Pinned notes", n);
+    if (n.pinned && view !== "pinned" && view !== "archived")
+      add("pinned", "Pinned notes", n);
     else {
       const g: DateGroup = dateGroup(n.updatedAt, now);
       add(g, DATE_GROUP_LABELS[g], n);
@@ -312,13 +385,24 @@ function groupNotes(items: NoteSummary[], searching: boolean, view: View): Group
   return groups;
 }
 
-function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean; query: string }) {
+function NoteItem({
+  note,
+  active,
+  query,
+}: {
+  note: NoteSummary;
+  active: boolean;
+  query: string;
+}) {
   const tags = useTags();
-  const colorOf = (tag: string) => tagColor(tag, tags.data?.find((tc) => tc.tag === tag)?.color);
+  const colorOf = (tag: string) =>
+    tagColor(tag, tags.data?.find((tc) => tc.tag === tag)?.color);
   const t = useT();
   const language = useLanguage();
   const title = noteTitle(note.title, note.excerpt) || t("Untitled note");
-  const body = note.title.trim() ? note.excerpt : note.excerpt.slice(title.length).trim();
+  const body = note.title.trim()
+    ? note.excerpt
+    : note.excerpt.slice(title.length).trim();
   return (
     <Link
       to={`/notes/${note.id}${query}`}
@@ -328,27 +412,50 @@ function NoteItem({ note, active, query }: { note: NoteSummary; active: boolean;
     >
       <div className="notes-item-text">
         <strong>
-          {note.pinned && <Pin size={11} className="notes-pin" aria-label={t("Pinned")} />}
+          {note.pinned && (
+            <Pin size={11} className="notes-pin" aria-label={t("Pinned")} />
+          )}
           <span>{title}</span>
         </strong>
         <p>
           {note.snippet
             ? snippetParts(note.snippet).map((part, i) =>
-                part.hit ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>,
+                part.hit ? (
+                  <mark key={i}>{part.text}</mark>
+                ) : (
+                  <span key={i}>{part.text}</span>
+                ),
               )
-            : body || <span className="notes-item-empty">{t("No more text")}</span>}
+            : body || (
+                <span className="notes-item-empty">{t("No more text")}</span>
+              )}
         </p>
         <div className="notes-item-foot">
-          <time dateTime={note.updatedAt}>{relativeTime(note.updatedAt, language)}</time>
+          <time dateTime={note.updatedAt}>
+            {relativeTime(note.updatedAt, language)}
+          </time>
           {note.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="notes-item-tag" style={{ "--tag": colorOf(tag) } as CSSProperties}>
+            <span
+              key={tag}
+              className="notes-item-tag"
+              style={{ "--tag": colorOf(tag) } as CSSProperties}
+            >
               #{tag}
             </span>
           ))}
-          {note.tags.length > 3 && <span className="notes-item-tag">+{note.tags.length - 3}</span>}
+          {note.tags.length > 3 && (
+            <span className="notes-item-tag">+{note.tags.length - 3}</span>
+          )}
         </div>
       </div>
-      {note.thumbnail && <img className="notes-thumb" src={note.thumbnail} alt="" loading="lazy" />}
+      {note.thumbnail && (
+        <img
+          className="notes-thumb"
+          src={note.thumbnail}
+          alt=""
+          loading="lazy"
+        />
+      )}
     </Link>
   );
 }
@@ -397,7 +504,11 @@ function TagColorPicker({ tag, color }: { tag: string; color?: string }) {
             />
           ))}
           {color && (
-            <button role="menuitem" className="notes-tag-color-reset" onClick={() => pick("")}>
+            <button
+              role="menuitem"
+              className="notes-tag-color-reset"
+              onClick={() => pick("")}
+            >
               {t("Default color")}
             </button>
           )}

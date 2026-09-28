@@ -75,7 +75,10 @@ export default function ProjectsPage() {
         }
         aside={
           <>
-            <button className="xc-btn small" onClick={() => setProjectDialog(true)}>
+            <button
+              className="xc-btn small"
+              onClick={() => setProjectDialog(true)}
+            >
               <FolderKanban size={14} /> {t("New project")}
             </button>
             <button
@@ -103,7 +106,11 @@ export default function ProjectsPage() {
               parts={[
                 { value: summary.backlog, tone: "muted", label: t("Backlog") },
                 { value: summary.todo, tone: "info", label: t("Todo") },
-                { value: summary.inProgress, tone: "warn", label: t("In progress") },
+                {
+                  value: summary.inProgress,
+                  tone: "warn",
+                  label: t("In progress"),
+                },
                 { value: summary.inReview, tone: "ok", label: t("In review") },
               ]}
             />
@@ -124,7 +131,9 @@ export default function ProjectsPage() {
             label={t("Overdue")}
             value={summary.overdue}
             tone={summary.overdue ? "danger" : "ok"}
-            foot={summary.overdue ? t("Past the due date") : t("Nothing overdue")}
+            foot={
+              summary.overdue ? t("Past the due date") : t("Nothing overdue")
+            }
           />
         </StatStrip>
       )}
@@ -133,8 +142,14 @@ export default function ProjectsPage() {
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => list.refetch()} />
       ) : list.data.length === 0 && !showArchived ? (
-        <EmptyState title={t("No projects yet")} icon={<FolderKanban size={28} />}>
-          <button className="xc-btn primary small" onClick={() => setProjectDialog(true)}>
+        <EmptyState
+          title={t("No projects yet")}
+          icon={<FolderKanban size={28} />}
+        >
+          <button
+            className="xc-btn primary small"
+            onClick={() => setProjectDialog(true)}
+          >
             <Plus size={14} /> {t("Create your first project")}
           </button>
         </EmptyState>
@@ -146,8 +161,13 @@ export default function ProjectsPage() {
         </div>
       )}
       {!!archived.data?.length && (
-        <button className="xc-btn ghost small projects-archived-toggle" onClick={() => setShowArchived((v) => !v)}>
-          {showArchived ? t("Show active projects") : `${t("Show archived projects")} (${archived.data.length})`}
+        <button
+          className="xc-btn ghost small projects-archived-toggle"
+          onClick={() => setShowArchived((v) => !v)}
+        >
+          {showArchived
+            ? t("Show active projects")
+            : `${t("Show archived projects")} (${archived.data.length})`}
         </button>
       )}
 
@@ -156,12 +176,19 @@ export default function ProjectsPage() {
           className="projects-mine"
           title={t("My open issues")}
           count={open.length}
-          aside={<span className="xc-muted projects-hint">{t("Due soonest first")}</span>}
+          aside={
+            <span className="xc-muted projects-hint">
+              {t("Due soonest first")}
+            </span>
+          }
         >
           {myIssues.isPending ? (
             <Loading />
           ) : myIssues.isError ? (
-            <ErrorState error={myIssues.error} onRetry={() => myIssues.refetch()} />
+            <ErrorState
+              error={myIssues.error}
+              onRetry={() => myIssues.refetch()}
+            />
           ) : (
             <IssueList
               groups={groups}
@@ -195,7 +222,15 @@ export default function ProjectsPage() {
 function summarize(issues: Issue[]) {
   const today = localDate();
   const weekEnd = localDate(new Date(Date.now() + 6 * 86_400_000));
-  const s = { backlog: 0, todo: 0, inProgress: 0, inReview: 0, today: 0, week: 0, overdue: 0 };
+  const s = {
+    backlog: 0,
+    todo: 0,
+    inProgress: 0,
+    inReview: 0,
+    today: 0,
+    week: 0,
+    overdue: 0,
+  };
   for (const issue of issues) {
     if (issue.status === "backlog") s.backlog++;
     else if (issue.status === "todo") s.todo++;
@@ -204,7 +239,8 @@ function summarize(issues: Issue[]) {
     const due = dueState(issue.dueDate, today, issue.status);
     if (due === "overdue") s.overdue++;
     if (due === "today") s.today++;
-    if (issue.dueDate && issue.dueDate >= today && issue.dueDate <= weekEnd) s.week++;
+    if (issue.dueDate && issue.dueDate >= today && issue.dueDate <= weekEnd)
+      s.week++;
   }
   return s;
 }
@@ -212,20 +248,32 @@ function summarize(issues: Issue[]) {
 function ProjectCard({ project }: { project: Project }) {
   const t = useT();
   const done = project.issueCount - project.openCount;
-  const pct = project.issueCount ? Math.round((done / project.issueCount) * 100) : 0;
+  const pct = project.issueCount
+    ? Math.round((done / project.issueCount) * 100)
+    : 0;
   return (
-    <Link to={`/projects/${project.key}`} className="xc-card projects-card-link">
+    <Link
+      to={`/projects/${project.key}`}
+      className="xc-card projects-card-link"
+    >
       <div className="projects-card-top">
         <ProjectBadge projectKey={project.key} color={project.color} />
         <div className="projects-card-name">
           <strong>{project.name}</strong>
           <span className="xc-mono xc-muted">{project.key}</span>
         </div>
-        <Ring value={done} max={project.issueCount} size={40} tone={pct === 100 ? "ok" : "accent"}>
+        <Ring
+          value={done}
+          max={project.issueCount}
+          size={40}
+          tone={pct === 100 ? "ok" : "accent"}
+        >
           <small>{pct}%</small>
         </Ring>
       </div>
-      <p className="projects-card-desc">{project.description || t("No description")}</p>
+      <p className="projects-card-desc">
+        {project.description || t("No description")}
+      </p>
       <div className="projects-card-foot">
         <span>
           <strong>{project.openCount}</strong> {t("open")}
@@ -243,7 +291,13 @@ function ProjectCard({ project }: { project: Project }) {
 }
 
 /** 输入 key（比如 XC-12）跳到 Issue。 */
-function GotoIssueDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+function GotoIssueDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const t = useT();
   const navigate = useNavigate();
   const [value, setValue] = useState("");

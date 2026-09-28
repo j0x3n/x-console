@@ -49,25 +49,45 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
   const teams = useLinearTeams(initial.hasKey);
   const projects = useProjects();
   const [apiKey, setApiKey] = useState("");
-  const [apiUrl, setApiUrl] = useState(initial.apiUrl === DEFAULT_URL ? "" : initial.apiUrl);
-  const [rows, setRows] = useState<Row[]>(() => initial.mappings.map((m) => ({ teamId: m.teamId, projectId: m.projectId })));
+  const [apiUrl, setApiUrl] = useState(
+    initial.apiUrl === DEFAULT_URL ? "" : initial.apiUrl,
+  );
+  const [rows, setRows] = useState<Row[]>(() =>
+    initial.mappings.map((m) => ({ teamId: m.teamId, projectId: m.projectId })),
+  );
   const [result, setResult] = useState<LinearTestResult | null>(null);
 
   useEffect(() => {
     setApiUrl(initial.apiUrl === DEFAULT_URL ? "" : initial.apiUrl);
-    setRows(initial.mappings.map((m) => ({ teamId: m.teamId, projectId: m.projectId })));
+    setRows(
+      initial.mappings.map((m) => ({
+        teamId: m.teamId,
+        projectId: m.projectId,
+      })),
+    );
   }, [initial]);
 
   const urlChanged = (apiUrl.trim() || DEFAULT_URL) !== initial.apiUrl;
   const problem = mappingProblem(rows);
 
   // 团队列表取不到时（比如 key 失效），用已保存的名字显示。
-  const teamOptions = teams.data ?? initial.mappings.map((m) => ({ id: m.teamId, key: m.teamKey, name: m.teamName }));
+  const teamOptions =
+    teams.data ??
+    initial.mappings.map((m) => ({
+      id: m.teamId,
+      key: m.teamKey,
+      name: m.teamName,
+    }));
 
   const mappings = (): LinearMappingInput[] =>
     rows.map((r) => {
       const team = teamOptions.find((x) => x.id === r.teamId);
-      return { teamId: r.teamId, projectId: r.projectId, teamKey: team?.key, teamName: team?.name };
+      return {
+        teamId: r.teamId,
+        projectId: r.projectId,
+        teamKey: team?.key,
+        teamName: team?.name,
+      };
     });
 
   const onSave = (e: FormEvent) => {
@@ -77,24 +97,36 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
       return;
     }
     save.mutate(
-      { apiKey: apiKey.trim() || undefined, apiUrl: urlChanged ? apiUrl.trim() : undefined, mappings: mappings() },
+      {
+        apiKey: apiKey.trim() || undefined,
+        apiUrl: urlChanged ? apiUrl.trim() : undefined,
+        mappings: mappings(),
+      },
       {
         onSuccess: (cfg) => {
           setApiKey("");
           toast(t("Saved"));
           if (cfg.hasKey && cfg.mappings.length > 0) sync.mutate();
         },
-        onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+        onError: (error) =>
+          toast({ message: errorMessage(error), tone: "error" }),
       },
     );
   };
 
   const onTest = () => {
     setResult(null);
-    const body = apiKey.trim() || urlChanged ? { apiKey: apiKey.trim() || undefined, apiUrl: apiUrl.trim() || undefined } : null;
+    const body =
+      apiKey.trim() || urlChanged
+        ? {
+            apiKey: apiKey.trim() || undefined,
+            apiUrl: apiUrl.trim() || undefined,
+          }
+        : null;
     test.mutate(body, {
       onSuccess: setResult,
-      onError: (error) => setResult({ ok: false, message: errorMessage(error) }),
+      onError: (error) =>
+        setResult({ ok: false, message: errorMessage(error) }),
     });
   };
 
@@ -103,7 +135,8 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
       { clearKey: true, mappings: mappings() },
       {
         onSuccess: () => toast(t("Key removed")),
-        onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+        onError: (error) =>
+          toast({ message: errorMessage(error), tone: "error" }),
       },
     );
   };
@@ -123,10 +156,16 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
           type="password"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          placeholder={initial.hasKey ? `${initial.apiKey}（${t("leave empty to keep")}）` : "lin_api_..."}
+          placeholder={
+            initial.hasKey
+              ? `${initial.apiKey}（${t("leave empty to keep")}）`
+              : "lin_api_..."
+          }
           autoComplete="new-password"
         />
-        <small>在 Linear 的 Settings → Security &amp; access 里创建个人 API key。</small>
+        <small>
+          在 Linear 的 Settings → Security &amp; access 里创建个人 API key。
+        </small>
       </label>
       <label className="xc-field">
         <span>{t("API address")}</span>
@@ -147,7 +186,11 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
           <small>先保存 API key，再选团队。</small>
         ) : (
           <>
-            {teams.isError && <small className="xc-error-text">{errorMessage(teams.error)}</small>}
+            {teams.isError && (
+              <small className="xc-error-text">
+                {errorMessage(teams.error)}
+              </small>
+            )}
             <div className="linear-rows">
               {rows.map((r, i) => (
                 <div className="linear-row" key={i}>
@@ -171,7 +214,9 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
                     className="xc-select"
                     aria-label={t("Local project")}
                     value={r.projectId || ""}
-                    onChange={(e) => update(i, { projectId: Number(e.target.value) })}
+                    onChange={(e) =>
+                      update(i, { projectId: Number(e.target.value) })
+                    }
                   >
                     <option value="">{t("Choose a project")}</option>
                     {(projects.data ?? []).map((p) => (
@@ -184,7 +229,9 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
                     type="button"
                     className="xc-btn ghost small"
                     aria-label={t("Remove")}
-                    onClick={() => setRows((list) => list.filter((_, j) => j !== i))}
+                    onClick={() =>
+                      setRows((list) => list.filter((_, j) => j !== i))
+                    }
                   >
                     <Trash2 size={14} />
                   </button>
@@ -195,7 +242,9 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
               <button
                 type="button"
                 className="xc-btn small"
-                onClick={() => setRows((list) => [...list, { teamId: "", projectId: 0 }])}
+                onClick={() =>
+                  setRows((list) => [...list, { teamId: "", projectId: 0 }])
+                }
               >
                 <Plus size={14} /> {t("Add a pair")}
               </button>
@@ -209,13 +258,23 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
       </div>
 
       {result && (
-        <p className={`github-test-result ${result.ok ? "ok" : "fail"}`} role="status">
-          {result.ok ? `${t("Key works")}：${result.user ?? ""}` : result.message}
+        <p
+          className={`github-test-result ${result.ok ? "ok" : "fail"}`}
+          role="status"
+        >
+          {result.ok
+            ? `${t("Key works")}：${result.user ?? ""}`
+            : result.message}
         </p>
       )}
       <div className="xc-dialog-actions github-actions">
         {initial.hasKey && (
-          <button type="button" className="xc-btn ghost danger" onClick={onClear} disabled={save.isPending}>
+          <button
+            type="button"
+            className="xc-btn ghost danger"
+            onClick={onClear}
+            disabled={save.isPending}
+          >
             {t("Remove key")}
           </button>
         )}
@@ -255,7 +314,8 @@ function StatusCard() {
             disabled={busy}
             onClick={() =>
               sync.mutate(undefined, {
-                onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+                onError: (error) =>
+                  toast({ message: errorMessage(error), tone: "error" }),
               })
             }
           >
@@ -289,7 +349,8 @@ function StatusCard() {
             <>
               <dt>{t("Changes")}</dt>
               <dd>
-                {t("Imported")} {last.created} · {t("Pulled")} {last.pulled} · {t("Pushed")} {last.pushed}
+                {t("Imported")} {last.created} · {t("Pulled")} {last.pulled} ·{" "}
+                {t("Pushed")} {last.pushed}
                 {last.conflicts > 0 && ` · ${t("Conflicts")} ${last.conflicts}`}
               </dd>
             </>

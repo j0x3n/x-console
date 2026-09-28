@@ -52,7 +52,9 @@ export default function RemindersPage() {
   const upcoming = useReminders("upcoming");
   const done = useReminders("done");
   const language = useLanguage();
-  const dueNow = (today.data ?? []).filter((r) => r.status === "pending").length;
+  const dueNow = (today.data ?? []).filter(
+    (r) => r.status === "pending",
+  ).length;
   const repeating = [...(today.data ?? []), ...(upcoming.data ?? [])].filter(
     (r) => r.rrule,
   ).length;
@@ -85,7 +87,10 @@ export default function RemindersPage() {
           </>
         }
         aside={
-          <button className="xc-btn primary" onClick={() => setParam("new", "1")}>
+          <button
+            className="xc-btn primary"
+            onClick={() => setParam("new", "1")}
+          >
             <Plus size={15} /> {t("New reminder")}
           </button>
         }
@@ -101,7 +106,11 @@ export default function RemindersPage() {
         <StatCard
           label={t("Next reminder")}
           value={next ? formatTime(next, language) : "–"}
-          foot={next ? formatWhen(next, new Date(), language) : t("Nothing scheduled")}
+          foot={
+            next
+              ? formatWhen(next, new Date(), language)
+              : t("Nothing scheduled")
+          }
         />
         <StatCard
           label={t("Upcoming")}
@@ -120,7 +129,9 @@ export default function RemindersPage() {
           <button
             key={item.id}
             className={item.id === tab ? "active" : ""}
-            onClick={() => setParam("tab", item.id === "today" ? null : item.id)}
+            onClick={() =>
+              setParam("tab", item.id === "today" ? null : item.id)
+            }
           >
             {t(item.label)}
           </button>
@@ -139,7 +150,11 @@ export default function RemindersPage() {
               {g.label && <h3 className="reminders-day">{g.label}</h3>}
               <div className="xc-card reminders-list">
                 {g.items.map((r) => (
-                  <ReminderRow key={r.id} reminder={r} onEdit={() => setEditing(r)} />
+                  <ReminderRow
+                    key={r.id}
+                    reminder={r}
+                    onEdit={() => setEditing(r)}
+                  />
                 ))}
               </div>
             </section>
@@ -159,7 +174,11 @@ export default function RemindersPage() {
 }
 
 /** 即将到来的提醒按日期分组，其他标签页不分组。 */
-function groupByDay(items: Reminder[], tab: ReminderRange, language: "zh" | "en") {
+function groupByDay(
+  items: Reminder[],
+  tab: ReminderRange,
+  language: "zh" | "en",
+) {
   if (tab !== "upcoming") return [{ key: "all", label: "", items }];
   const groups: { key: string; label: string; items: Reminder[] }[] = [];
   for (const r of items) {
@@ -259,7 +278,10 @@ function ReminderRow({
             onClick={() =>
               snooze.mutate(
                 { id: r.id, minutes: 10 },
-                { onSuccess: () => toast(t("Will remind you in 10 minutes")), onError },
+                {
+                  onSuccess: () => toast(t("Will remind you in 10 minutes")),
+                  onError,
+                },
               )
             }
           >
@@ -281,7 +303,10 @@ function ReminderRow({
           disabled={remove.isPending}
           onClick={() =>
             confirm(`${t("Delete")} “${r.title}”?`) &&
-            remove.mutate(r.id, { onSuccess: () => toast(t("Deleted")), onError })
+            remove.mutate(r.id, {
+              onSuccess: () => toast(t("Deleted")),
+              onError,
+            })
           }
         >
           <Trash2 size={14} />

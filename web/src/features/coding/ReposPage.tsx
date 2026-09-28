@@ -21,11 +21,19 @@ function RepoList() {
   const repos = useRepos();
   const remove = useDeleteRepo();
   if (repos.isPending) return <Loading />;
-  if (repos.isError) return <ErrorState error={repos.error} onRetry={() => repos.refetch()} />;
+  if (repos.isError)
+    return <ErrorState error={repos.error} onRetry={() => repos.refetch()} />;
   if (repos.data.length === 0) {
     return (
-      <EmptyState title={t("No repositories yet")} icon={<FolderGit2 size={28} />}>
-        <span>{t("Scan a machine below and register the repositories you want to work on.")}</span>
+      <EmptyState
+        title={t("No repositories yet")}
+        icon={<FolderGit2 size={28} />}
+      >
+        <span>
+          {t(
+            "Scan a machine below and register the repositories you want to work on.",
+          )}
+        </span>
       </EmptyState>
     );
   }
@@ -62,10 +70,16 @@ function RepoList() {
                   aria-label={`${t("Remove")} ${r.name}`}
                   disabled={remove.isPending}
                   onClick={() => {
-                    if (!confirm(`${t("Remove")} ${r.name}? ${t("Its task history is deleted too. Files on disk stay.")}`)) return;
+                    if (
+                      !confirm(
+                        `${t("Remove")} ${r.name}? ${t("Its task history is deleted too. Files on disk stay.")}`,
+                      )
+                    )
+                      return;
                     remove.mutate(r.id, {
                       onSuccess: () => toast(t("Removed")),
-                      onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
+                      onError: (e) =>
+                        toast({ message: errorMessage(e), tone: "error" }),
                     });
                   }}
                 >
@@ -83,10 +97,14 @@ function RepoList() {
 function Discover() {
   const t = useT();
   const agents = useAgents();
-  const coding = (agents.data ?? []).filter((a) => a.capabilities.includes("coding"));
+  const coding = (agents.data ?? []).filter((a) =>
+    a.capabilities.includes("coding"),
+  );
   const [agentId, setAgentId] = useState("");
   const [root, setRoot] = useState("");
-  const [scan, setScan] = useState<{ agentId: string; root: string } | null>(null);
+  const [scan, setScan] = useState<{ agentId: string; root: string } | null>(
+    null,
+  );
   const [path, setPath] = useState("");
   const found = useDiscover(scan?.agentId ?? "", scan?.root ?? "", !!scan);
   const create = useCreateRepo();
@@ -111,7 +129,9 @@ function Discover() {
   if (agents.isSuccess && coding.length === 0) {
     return (
       <p className="xc-muted">
-        {t("No machine can run coding tasks yet. Pair the agent on your PC, then install Claude Code or Codex there.")}{" "}
+        {t(
+          "No machine can run coding tasks yet. Pair the agent on your PC, then install Claude Code or Codex there.",
+        )}{" "}
         <Link to="/settings/devices">{t("Pair a device")}</Link>
       </p>
     );
@@ -121,7 +141,11 @@ function Discover() {
       <div className="coding-form-row">
         <label className="xc-field">
           <span>{t("Machine")}</span>
-          <select className="xc-select" value={agent} onChange={(e) => setAgentId(e.target.value)}>
+          <select
+            className="xc-select"
+            value={agent}
+            onChange={(e) => setAgentId(e.target.value)}
+          >
             {coding.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -141,7 +165,11 @@ function Discover() {
         </label>
         <div className="xc-field coding-field-button">
           <span aria-hidden>&nbsp;</span>
-          <button className="xc-btn" disabled={!agent} onClick={() => setScan({ agentId: agent, root: root.trim() })}>
+          <button
+            className="xc-btn"
+            disabled={!agent}
+            onClick={() => setScan({ agentId: agent, root: root.trim() })}
+          >
             <FolderSearch size={14} /> {t("Scan")}
           </button>
         </div>
@@ -168,7 +196,11 @@ function Discover() {
                   {r.repoId ? (
                     <span className="xc-badge ok">{t("Registered")}</span>
                   ) : (
-                    <button className="xc-btn small" disabled={create.isPending} onClick={() => register(r.path)}>
+                    <button
+                      className="xc-btn small"
+                      disabled={create.isPending}
+                      onClick={() => register(r.path)}
+                    >
                       <Plus size={13} /> {t("Register")}
                     </button>
                   )}
@@ -195,7 +227,11 @@ function Discover() {
         </label>
         <div className="xc-field coding-field-button">
           <span aria-hidden>&nbsp;</span>
-          <button type="submit" className="xc-btn" disabled={!agent || !path.trim() || create.isPending}>
+          <button
+            type="submit"
+            className="xc-btn"
+            disabled={!agent || !path.trim() || create.isPending}
+          >
             <Plus size={14} /> {t("Register")}
           </button>
         </div>
@@ -217,24 +253,38 @@ function RunnerSettings() {
     }
   }, [settings.data]);
   if (settings.isPending) return <Loading />;
-  if (settings.isError) return <ErrorState error={settings.error} onRetry={() => settings.refetch()} />;
+  if (settings.isError)
+    return (
+      <ErrorState error={settings.error} onRetry={() => settings.refetch()} />
+    );
   return (
     <form
       className="coding-form-row"
       onSubmit={(e) => {
         e.preventDefault();
         update.mutate(
-          { maxConcurrent: Number(max), defaultTimeoutMinutes: Number(timeout) },
+          {
+            maxConcurrent: Number(max),
+            defaultTimeoutMinutes: Number(timeout),
+          },
           {
             onSuccess: () => toast(t("Saved")),
-            onError: (err) => toast({ message: errorMessage(err), tone: "error" }),
+            onError: (err) =>
+              toast({ message: errorMessage(err), tone: "error" }),
           },
         );
       }}
     >
       <label className="xc-field">
         <span>{t("Tasks at the same time")}</span>
-        <input className="xc-input" type="number" min={1} max={10} value={max} onChange={(e) => setMax(e.target.value)} />
+        <input
+          className="xc-input"
+          type="number"
+          min={1}
+          max={10}
+          value={max}
+          onChange={(e) => setMax(e.target.value)}
+        />
         <small>{t("More tasks wait in the queue.")}</small>
       </label>
       <label className="xc-field">
@@ -251,7 +301,11 @@ function RunnerSettings() {
       </label>
       <div className="xc-field coding-field-button">
         <span aria-hidden>&nbsp;</span>
-        <button type="submit" className="xc-btn primary" disabled={update.isPending}>
+        <button
+          type="submit"
+          className="xc-btn primary"
+          disabled={update.isPending}
+        >
           {t("Save")}
         </button>
       </div>
@@ -263,9 +317,7 @@ export default function ReposPage() {
   const t = useT();
   return (
     <div className="xc-page coding-page">
-      <PageHeading
-        title={t("Repositories")}
-      />
+      <PageHeading title={t("Repositories")} />
       <div className="xc-stack">
         <section className="xc-card">
           <div className="xc-card-head">

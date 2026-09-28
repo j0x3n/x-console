@@ -42,7 +42,7 @@ const unlock = () => {
   persist();
 };
 
-route("GET", "/vault/status", () => demoFull ? json(status()) : undefined);
+route("GET", "/vault/status", () => (demoFull ? json(status()) : undefined));
 route("POST", "/vault/setup", ({ body }) => {
   if (!demoFull) return undefined;
   if (vault.configured) return fail(409, "conflict", "已经设置过隐藏密码");

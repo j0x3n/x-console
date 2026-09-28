@@ -44,7 +44,8 @@ registerZh({
   "Show active projects": "查看进行中的项目",
   "Archive project": "归档项目",
   "Restore project": "恢复项目",
-  "Archive this project? You can restore it later.": "要归档这个项目吗？以后可以恢复。",
+  "Archive this project? You can restore it later.":
+    "要归档这个项目吗？以后可以恢复。",
   "My open issues": "我的未完成 Issue",
   "Open issues in all projects. The ones due soonest come first.":
     "所有项目里没做完的 Issue。快到期的排在前面。",
@@ -76,7 +77,8 @@ registerZh({
   "Any label": "所有标签",
   "Any milestone": "所有里程碑",
   Clear: "清除",
-  "C new · J/K move · Enter open · 1-6 status": "C 新建 · J/K 上下 · Enter 打开 · 1-6 改状态",
+  "C new · J/K move · Enter open · 1-6 status":
+    "C 新建 · J/K 上下 · Enter 打开 · 1-6 改状态",
 
   // Issue 详情
   Title: "标题",
@@ -116,7 +118,8 @@ registerZh({
   Links: "关联",
   "Add link": "添加链接",
   "Remove link": "移除链接",
-  "Pull requests, coding tasks and notes show up here.": "PR、Agent 任务和笔记会显示在这里。",
+  "Pull requests, coding tasks and notes show up here.":
+    "PR、Agent 任务和笔记会显示在这里。",
   Comments: "评论",
   Comment: "评论",
   "Write a progress note…": "记录一下进展…",

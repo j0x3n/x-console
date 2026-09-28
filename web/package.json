@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "gen:api": "node scripts/gen-api.mjs",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "shots": "node scripts/shots.mjs",
     "e2e": "node scripts/e2e.mjs"
   },
@@ -32,6 +33,7 @@
     "@types/react-dom": "^19.3.0",
     "jsdom": "^30.1.1",
     "playwright-core": "^1.63.0",
+    "prettier": "^3.6.2",
     "typescript": "^7.0.2",
     "vite": "^6.0.0",
     "vitest": "^4.1.11"

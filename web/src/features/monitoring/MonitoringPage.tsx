@@ -3,7 +3,12 @@ import { Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { Segments, StatCard, StatStrip } from "../../components/ui/Stat";
 import { useT } from "../../contexts/LanguageContext";
-import { useMonitors, useScripts, useSubscriptions, useSubscriptionSummary } from "./api";
+import {
+  useMonitors,
+  useScripts,
+  useSubscriptions,
+  useSubscriptionSummary,
+} from "./api";
 import CertsTab from "./components/CertsTab";
 import { useParam } from "./components/common";
 import ScriptsTab from "./components/ScriptsTab";
@@ -12,9 +17,24 @@ import SubscriptionsTab from "./components/SubscriptionsTab";
 
 const tabs = [
   { id: "", label: "Websites", to: "/monitoring", add: "New website" },
-  { id: "certs", label: "Certificates & domains", to: "/monitoring/certs", add: "New monitor" },
-  { id: "scripts", label: "Scripts", to: "/monitoring/scripts", add: "New script" },
-  { id: "subscriptions", label: "Subscriptions", to: "/monitoring/subscriptions", add: "New subscription" },
+  {
+    id: "certs",
+    label: "Certificates & domains",
+    to: "/monitoring/certs",
+    add: "New monitor",
+  },
+  {
+    id: "scripts",
+    label: "Scripts",
+    to: "/monitoring/scripts",
+    add: "New script",
+  },
+  {
+    id: "subscriptions",
+    label: "Subscriptions",
+    to: "/monitoring/subscriptions",
+    add: "New subscription",
+  },
 ];
 
 export default function MonitoringPage() {
@@ -23,12 +43,18 @@ export default function MonitoringPage() {
   const [, setCreating] = useParam("new");
   const current = tabs.find((x) => x.id === tab) ?? tabs[0];
   const monitors = useMonitors();
-  const down = (monitors.data ?? []).filter((m) => m.enabled && m.lastStatus === "down");
+  const down = (monitors.data ?? []).filter(
+    (m) => m.enabled && m.lastStatus === "down",
+  );
   return (
     <div className="xc-page">
       <PageHeading
         title={t("Monitoring")}
-        subtitle={down.length > 0 ? `${down.length} ${t("monitors are down")}` : undefined}
+        subtitle={
+          down.length > 0
+            ? `${down.length} ${t("monitors are down")}`
+            : undefined
+        }
         aside={
           <button className="xc-btn primary" onClick={() => setCreating("1")}>
             <Plus size={15} /> {t(current.add)}
@@ -38,11 +64,25 @@ export default function MonitoringPage() {
       <MonitoringStats />
       <nav className="xc-tabs monitoring-tabs">
         {tabs.map((item) => {
-          const count = item.id === "" ? down.filter((m) => m.kind === "http").length : item.id === "certs" ? down.filter((m) => m.kind !== "http").length : 0;
+          const count =
+            item.id === ""
+              ? down.filter((m) => m.kind === "http").length
+              : item.id === "certs"
+                ? down.filter((m) => m.kind !== "http").length
+                : 0;
           return (
-            <NavLink key={item.id} to={item.to} end className={item.id === current.id ? "active" : ""}>
+            <NavLink
+              key={item.id}
+              to={item.to}
+              end
+              className={item.id === current.id ? "active" : ""}
+            >
               {t(item.label)}
-              {count > 0 && <span className="xc-badge danger monitoring-tab-count">{count}</span>}
+              {count > 0 && (
+                <span className="xc-badge danger monitoring-tab-count">
+                  {count}
+                </span>
+              )}
             </NavLink>
           );
         })}
@@ -80,7 +120,13 @@ function MonitoringStats() {
         value={sites.length ? up : "–"}
         unit={sites.length ? t("sites up") : undefined}
         tone={down ? "danger" : sites.length ? "ok" : undefined}
-        foot={down ? `${down} ${t("monitors are down")}` : sites.length ? t("All websites up") : t("No websites yet")}
+        foot={
+          down
+            ? `${down} ${t("monitors are down")}`
+            : sites.length
+              ? t("All websites up")
+              : t("No websites yet")
+        }
       >
         {sites.length > 0 && (
           <Segments
@@ -96,16 +142,36 @@ function MonitoringStats() {
         label={t("Certificates & domains")}
         value={soonest ? soonest.daysLeft : "–"}
         unit={soonest ? t("days") : undefined}
-        tone={soonest ? ((soonest.daysLeft ?? 99) <= 3 ? "danger" : (soonest.daysLeft ?? 99) <= 14 ? "warn" : "ok") : undefined}
-        foot={soonest ? `${soonest.name} ${t("expires soonest")}` : t("Nothing to check")}
+        tone={
+          soonest
+            ? (soonest.daysLeft ?? 99) <= 3
+              ? "danger"
+              : (soonest.daysLeft ?? 99) <= 14
+                ? "warn"
+                : "ok"
+            : undefined
+        }
+        foot={
+          soonest
+            ? `${soonest.name} ${t("expires soonest")}`
+            : t("Nothing to check")
+        }
       />
-      <StatCard label={t("Scripts")} value={scripts.length} foot={t("Saved commands")} />
+      <StatCard
+        label={t("Scripts")}
+        value={scripts.length}
+        foot={t("Saved commands")}
+      />
       <StatCard
         label={t("Subscriptions")}
         caption={total ? total.currency : undefined}
         value={total ? Math.round(total.monthly) : subs.length}
         unit={total ? t("per month") : undefined}
-        foot={nextSub ? `${nextSub.name} · ${nextSub.daysLeft} ${t("days left")}` : t("No renewals coming up")}
+        foot={
+          nextSub
+            ? `${nextSub.name} · ${nextSub.daysLeft} ${t("days left")}`
+            : t("No renewals coming up")
+        }
       />
     </StatStrip>
   );

@@ -5,7 +5,12 @@ import { errorMessage } from "../../../api/client";
 import Dialog from "../../../components/ui/Dialog";
 import { useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
-import { useCreateTask, useExecutors, useRepos, type ExecutorName } from "../api";
+import {
+  useCreateTask,
+  useExecutors,
+  useRepos,
+  type ExecutorName,
+} from "../api";
 
 const LAST_KEY = "xc.coding.last";
 
@@ -81,14 +86,19 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
     }
   };
 
-  const canSubmit = !!repo && (prompt.trim() !== "" || !!issueKey) && !create.isPending;
+  const canSubmit =
+    !!repo && (prompt.trim() !== "" || !!issueKey) && !create.isPending;
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title={t("New coding task")}
-      description={issueKey ? `${issueKey} · ${t("Its title and description are added to the prompt.")}` : undefined}
+      description={
+        issueKey
+          ? `${issueKey} · ${t("Its title and description are added to the prompt.")}`
+          : undefined
+      }
       wide
     >
       {repos.isSuccess && list.length === 0 ? (
@@ -98,7 +108,11 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
             <button className="xc-btn" onClick={onClose}>
               {t("Cancel")}
             </button>
-            <Link className="xc-btn primary" to="/coding/repos" onClick={onClose}>
+            <Link
+              className="xc-btn primary"
+              to="/coding/repos"
+              onClick={onClose}
+            >
               {t("Manage repositories")}
             </Link>
           </div>
@@ -120,7 +134,11 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
                   </option>
                 ))}
               </select>
-              {repo && !repo.agentOnline && <small>{t("The machine is offline. The task waits in the queue.")}</small>}
+              {repo && !repo.agentOnline && (
+                <small>
+                  {t("The machine is offline. The task waits in the queue.")}
+                </small>
+              )}
             </label>
             <label className="xc-field">
               <span>{t("Executor")}</span>
@@ -134,12 +152,20 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
                   return (
                     <option key={name} value={name}>
                       {name === "claude" ? "Claude Code" : "Codex"}
-                      {info && !info.available ? ` (${t("not found")})` : info?.version ? ` · ${info.version}` : ""}
+                      {info && !info.available
+                        ? ` (${t("not found")})`
+                        : info?.version
+                          ? ` · ${info.version}`
+                          : ""}
                     </option>
                   );
                 })}
               </select>
-              {chosen && !chosen.available && <small className="xc-error-text">{t("This executor is not installed on the machine.")}</small>}
+              {chosen && !chosen.available && (
+                <small className="xc-error-text">
+                  {t("This executor is not installed on the machine.")}
+                </small>
+              )}
             </label>
             <label className="xc-field">
               <span>{t("Base branch")}</span>
@@ -159,16 +185,28 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
               onChange={setPrompt}
               autoFocus
               minRows={6}
-              placeholder={issueKey ? t("Anything to add? Optional.") : t("Describe the change you want.")}
+              placeholder={
+                issueKey
+                  ? t("Anything to add? Optional.")
+                  : t("Describe the change you want.")
+              }
               onSubmit={() => canSubmit && submit({ preventDefault: () => {} })}
             />
-            <small>{t("It runs in its own git worktree. Your checkout is not touched.")}</small>
+            <small>
+              {t(
+                "It runs in its own git worktree. Your checkout is not touched.",
+              )}
+            </small>
           </div>
           <div className="xc-dialog-actions">
             <button type="button" className="xc-btn" onClick={onClose}>
               {t("Cancel")}
             </button>
-            <button type="submit" className="xc-btn primary" disabled={!canSubmit}>
+            <button
+              type="submit"
+              className="xc-btn primary"
+              disabled={!canSubmit}
+            >
               {t("Start task")}
             </button>
           </div>

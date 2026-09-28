@@ -42,7 +42,8 @@ export default function FilesTab({ host }: { host: HostDetail }) {
   const files = useFiles(host.id, path);
   const list = files.data;
   const sep = list?.sep ?? "/";
-  const refresh = () => qc.invalidateQueries({ queryKey: hostsKeys.files(host.id) });
+  const refresh = () =>
+    qc.invalidateQueries({ queryKey: hostsKeys.files(host.id) });
   // 路径框跟着实际打开的目录走（空路径会被代理换成主目录）。
   useEffect(() => {
     if (list?.path) setTyped(list.path);
@@ -52,7 +53,11 @@ export default function FilesTab({ host }: { host: HostDetail }) {
     setPath(p);
     setTyped(p);
   };
-  const guard = async (label: string, fn: () => Promise<unknown>, done: string) => {
+  const guard = async (
+    label: string,
+    fn: () => Promise<unknown>,
+    done: string,
+  ) => {
     setBusy(label);
     try {
       await withElevation(fn);
@@ -68,22 +73,37 @@ export default function FilesTab({ host }: { host: HostDetail }) {
     if (!fileList || !list) return;
     for (const f of Array.from(fileList)) {
       if (f.size > MAX_UPLOAD) {
-        toast({ message: `${f.name}: ${t("Files larger than 1 GB are not supported")}`, tone: "error" });
+        toast({
+          message: `${f.name}: ${t("Files larger than 1 GB are not supported")}`,
+          tone: "error",
+        });
         continue;
       }
-      await guard(f.name, () => uploadFile(host.id, joinPath(list.path, f.name, sep), f), `${t("Uploaded")} ${f.name}`);
+      await guard(
+        f.name,
+        () => uploadFile(host.id, joinPath(list.path, f.name, sep), f),
+        `${t("Uploaded")} ${f.name}`,
+      );
     }
     if (input.current) input.current.value = "";
   };
   const onDelete = (e: FileEntry) => {
     const dir = e.type === "dir";
-    if (!confirm(dir ? `删除文件夹 ${e.name} 和里面的所有内容？` : `删除 ${e.name}？`)) return;
+    if (
+      !confirm(
+        dir ? `删除文件夹 ${e.name} 和里面的所有内容？` : `删除 ${e.name}？`,
+      )
+    )
+      return;
     void guard(
       e.name,
       () =>
         unwrap(
           hostsApi.DELETE("/hosts/{hostId}/files", {
-            params: { path: { hostId: host.id }, query: { path: e.path, recursive: dir } },
+            params: {
+              path: { hostId: host.id },
+              query: { path: e.path, recursive: dir },
+            },
           }),
         ),
       t("Deleted"),
@@ -125,7 +145,12 @@ export default function FilesTab({ host }: { host: HostDetail }) {
     <div className="xc-card">
       <div className="xc-card-head servers-wrap">
         <div className="xc-row servers-crumbs">
-          <button className="xc-btn small ghost" disabled={!list?.parent} onClick={() => list && go(list.parent)} aria-label={t("Up")}>
+          <button
+            className="xc-btn small ghost"
+            disabled={!list?.parent}
+            onClick={() => list && go(list.parent)}
+            aria-label={t("Up")}
+          >
             <ArrowUp size={14} />
           </button>
           {host.os === "windows" && (
@@ -135,7 +160,9 @@ export default function FilesTab({ host }: { host: HostDetail }) {
           )}
           {crumbs.map((c, i) => (
             <span key={c.path} className="xc-row">
-              {i > 0 && sep === "/" && crumbs[i - 1].label !== "/" && <span className="xc-muted">/</span>}
+              {i > 0 && sep === "/" && crumbs[i - 1].label !== "/" && (
+                <span className="xc-muted">/</span>
+              )}
               {i > 0 && sep !== "/" && <span className="xc-muted">\</span>}
               <button className="servers-crumb" onClick={() => go(c.path)}>
                 {c.label}
@@ -144,15 +171,36 @@ export default function FilesTab({ host }: { host: HostDetail }) {
           ))}
         </div>
         <div className="xc-row">
-          <button className="xc-btn small" onClick={onMkdir} disabled={!list || (list.path === "/" && host.os === "windows")}>
+          <button
+            className="xc-btn small"
+            onClick={onMkdir}
+            disabled={!list || (list.path === "/" && host.os === "windows")}
+          >
             <FolderPlus size={14} /> {t("New folder")}
           </button>
-          <button className="xc-btn small primary" onClick={() => input.current?.click()} disabled={!list || !!busy}>
+          <button
+            className="xc-btn small primary"
+            onClick={() => input.current?.click()}
+            disabled={!list || !!busy}
+          >
             <Upload size={14} /> {busy ? t("Working") : t("Upload")}
           </button>
-          <input ref={input} type="file" multiple hidden onChange={(e) => onUpload(e.target.files)} />
-          <button className="xc-btn small" onClick={refresh} aria-label={t("Refresh")}>
-            <RefreshCw size={14} className={files.isFetching ? "servers-spin" : ""} />
+          <input
+            ref={input}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => onUpload(e.target.files)}
+          />
+          <button
+            className="xc-btn small"
+            onClick={refresh}
+            aria-label={t("Refresh")}
+          >
+            <RefreshCw
+              size={14}
+              className={files.isFetching ? "servers-spin" : ""}
+            />
           </button>
         </div>
       </div>
@@ -163,12 +211,21 @@ export default function FilesTab({ host }: { host: HostDetail }) {
           go(typed.trim());
         }}
       >
-        <input className="xc-input xc-mono" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={t("Path")} aria-label={t("Path")} />
+        <input
+          className="xc-input xc-mono"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={t("Path")}
+          aria-label={t("Path")}
+        />
       </form>
       {files.isPending ? (
         <Loading />
       ) : files.isError ? (
-        <ErrorState error={files.error} onRetry={() => (list ? go(list.path) : go(""))} />
+        <ErrorState
+          error={files.error}
+          onRetry={() => (list ? go(list.path) : go(""))}
+        />
       ) : list!.entries.length === 0 ? (
         <EmptyState title={t("This folder is empty")} />
       ) : (
@@ -186,12 +243,19 @@ export default function FilesTab({ host }: { host: HostDetail }) {
             <tbody>
               {list!.entries.map((e) => {
                 const isDir = e.type === "dir" || e.type === "symlink_dir";
-                const Icon = isDir ? Folder : e.type === "symlink" ? Link2 : FileIcon;
+                const Icon = isDir
+                  ? Folder
+                  : e.type === "symlink"
+                    ? Link2
+                    : FileIcon;
                 return (
                   <tr key={e.path}>
                     <td>
                       {isDir ? (
-                        <button className="servers-file" onClick={() => go(e.path)}>
+                        <button
+                          className="servers-file"
+                          onClick={() => go(e.path)}
+                        >
                           <Icon size={15} /> {e.name}
                         </button>
                       ) : (
@@ -200,21 +264,42 @@ export default function FilesTab({ host }: { host: HostDetail }) {
                         </span>
                       )}
                     </td>
-                    <td className="servers-num">{isDir ? "—" : formatBytes(e.size)}</td>
-                    <td className="xc-muted">
-                      {e.modTime.startsWith("0001") ? "—" : `${formatDate(e.modTime, language)} ${formatTime(e.modTime, language)}`}
+                    <td className="servers-num">
+                      {isDir ? "—" : formatBytes(e.size)}
                     </td>
-                    <td className="xc-mono xc-muted servers-hide-sm">{e.mode}</td>
+                    <td className="xc-muted">
+                      {e.modTime.startsWith("0001")
+                        ? "—"
+                        : `${formatDate(e.modTime, language)} ${formatTime(e.modTime, language)}`}
+                    </td>
+                    <td className="xc-mono xc-muted servers-hide-sm">
+                      {e.mode}
+                    </td>
                     <td className="servers-actions">
                       {e.type === "file" && (
-                        <a className="xc-btn small ghost" href={downloadUrl(host.id, e.path)} download={e.name} aria-label={t("Download")}>
+                        <a
+                          className="xc-btn small ghost"
+                          href={downloadUrl(host.id, e.path)}
+                          download={e.name}
+                          aria-label={t("Download")}
+                        >
                           <Download size={13} />
                         </a>
                       )}
-                      <button className="xc-btn small ghost" onClick={() => onRename(e)} disabled={!!busy} aria-label={t("Rename")}>
+                      <button
+                        className="xc-btn small ghost"
+                        onClick={() => onRename(e)}
+                        disabled={!!busy}
+                        aria-label={t("Rename")}
+                      >
                         <Pencil size={13} />
                       </button>
-                      <button className="xc-btn small ghost" onClick={() => onDelete(e)} disabled={!!busy} aria-label={t("Delete")}>
+                      <button
+                        className="xc-btn small ghost"
+                        onClick={() => onDelete(e)}
+                        disabled={!!busy}
+                        aria-label={t("Delete")}
+                      >
                         <Trash2 size={13} />
                       </button>
                     </td>

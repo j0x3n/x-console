@@ -122,10 +122,14 @@ describe("TodayPage", () => {
       const hrefs = screen
         .getAllByRole("link", { name: /去设置/ })
         .map((a) => a.getAttribute("href"));
-      expect(hrefs).toEqual(expect.arrayContaining(["/settings/homeassistant"]));
+      expect(hrefs).toEqual(
+        expect.arrayContaining(["/settings/homeassistant"]),
+      );
     });
     // 天气没设置地区时，点天气打开设置弹窗。
-    expect(await screen.findByRole("button", { name: /设置地区/ })).toBeTruthy();
+    expect(
+      await screen.findByRole("button", { name: /设置地区/ }),
+    ).toBeTruthy();
     expect(await screen.findByText("今天没有待办")).toBeTruthy();
     expect(await screen.findByText("今天没有日程")).toBeTruthy();
   });

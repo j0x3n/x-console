@@ -28,9 +28,19 @@ const placeholders: Record<MonitorKind, string> = {
 };
 
 // 默认检查间隔，和服务端一致。
-const defaultIntervals: Record<MonitorKind, number> = { http: 60, tls: 21600, domain: 86400 };
+const defaultIntervals: Record<MonitorKind, number> = {
+  http: 60,
+  tls: 21600,
+  domain: 86400,
+};
 
-export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }: Props) {
+export default function MonitorDialog({
+  open,
+  onClose,
+  monitor,
+  kinds,
+  onSaved,
+}: Props) {
   const t = useT();
   const save = useSaveMonitor();
   const [kind, setKind] = useState<MonitorKind>(kinds[0]);
@@ -50,7 +60,11 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
     setName(monitor?.name ?? "");
     setTarget(monitor?.target ?? "");
     setIntervalSec(String(monitor?.intervalSeconds ?? defaultIntervals[k]));
-    setExpected(monitor && monitor.expectedStatus > 0 ? String(monitor.expectedStatus) : "");
+    setExpected(
+      monitor && monitor.expectedStatus > 0
+        ? String(monitor.expectedStatus)
+        : "",
+    );
     setKeyword(monitor?.keyword ?? "");
     setTimeoutMs(String(monitor?.timeoutMs ?? 10000));
   }, [open, monitor, kinds]);
@@ -86,7 +100,11 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
 
   const minutes = Math.round((Number(interval) || 0) / 60);
   return (
-    <Dialog open={open} onClose={onClose} title={monitor ? t("Edit monitor") : t("New monitor")}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={monitor ? t("Edit monitor") : t("New monitor")}
+    >
       <form onSubmit={submit}>
         {!monitor && kinds.length > 1 && (
           <div className="xc-field">
@@ -109,10 +127,22 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
         )}
         <label className="xc-field">
           <span>{t("Name")}</span>
-          <input className="xc-input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} autoFocus />
+          <input
+            className="xc-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={100}
+            autoFocus
+          />
         </label>
         <label className="xc-field">
-          <span>{kind === "http" ? t("URL") : kind === "tls" ? t("Host") : t("Domain")}</span>
+          <span>
+            {kind === "http"
+              ? t("URL")
+              : kind === "tls"
+                ? t("Host")
+                : t("Domain")}
+          </span>
           <input
             className="xc-input"
             value={target}
@@ -120,7 +150,11 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
             placeholder={placeholders[kind]}
             spellCheck={false}
           />
-          {kind === "domain" && <small>{t("The expiry date comes from RDAP. It is checked once a day.")}</small>}
+          {kind === "domain" && (
+            <small>
+              {t("The expiry date comes from RDAP. It is checked once a day.")}
+            </small>
+          )}
         </label>
         {kind === "http" && (
           <div className="monitoring-form-row">
@@ -136,7 +170,12 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
             </label>
             <label className="xc-field">
               <span>{t("Keyword")}</span>
-              <input className="xc-input" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder={t("optional")} />
+              <input
+                className="xc-input"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder={t("optional")}
+              />
             </label>
           </div>
         )}
@@ -147,9 +186,18 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
               className="xc-input"
               inputMode="numeric"
               value={interval}
-              onChange={(e) => setIntervalSec(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) =>
+                setIntervalSec(e.target.value.replace(/\D/g, ""))
+              }
             />
-            {minutes >= 1 && <small>≈ {minutes >= 60 ? `${Math.round(minutes / 60)} h` : `${minutes} min`}</small>}
+            {minutes >= 1 && (
+              <small>
+                ≈{" "}
+                {minutes >= 60
+                  ? `${Math.round(minutes / 60)} h`
+                  : `${minutes} min`}
+              </small>
+            )}
           </label>
           <label className="xc-field">
             <span>{t("Timeout (ms)")}</span>
@@ -161,12 +209,22 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
             />
           </label>
         </div>
-        {kind === "http" && <p className="monitoring-hint">{t("Two failed checks in a row send an alert. You get another message when it is back.")}</p>}
+        {kind === "http" && (
+          <p className="monitoring-hint">
+            {t(
+              "Two failed checks in a row send an alert. You get another message when it is back.",
+            )}
+          </p>
+        )}
         {kind !== "http" && (
           <p className="monitoring-hint">
             {kind === "tls"
-              ? t("You get a reminder 14, 7 and 3 days before the certificate expires.")
-              : t("You get a reminder 30 and 7 days before the domain expires.")}
+              ? t(
+                  "You get a reminder 14, 7 and 3 days before the certificate expires.",
+                )
+              : t(
+                  "You get a reminder 30 and 7 days before the domain expires.",
+                )}
           </p>
         )}
         {error && <p className="xc-error-text">{error}</p>}
@@ -174,7 +232,11 @@ export default function MonitorDialog({ open, onClose, monitor, kinds, onSaved }
           <button type="button" className="xc-btn" onClick={onClose}>
             {t("Cancel")}
           </button>
-          <button type="submit" className="xc-btn primary" disabled={save.isPending}>
+          <button
+            type="submit"
+            className="xc-btn primary"
+            disabled={save.isPending}
+          >
             {t("Save")}
           </button>
         </div>

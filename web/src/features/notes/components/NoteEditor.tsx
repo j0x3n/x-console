@@ -94,10 +94,17 @@ function readMode(): Mode {
 const sameDraft = (a: Draft, b: Draft) =>
   a.title === b.title && a.body === b.body && sameTags(a.tags, b.tags);
 
-export default function NoteEditor({ id, backTo }: { id: number; backTo: string }) {
+export default function NoteEditor({
+  id,
+  backTo,
+}: {
+  id: number;
+  backTo: string;
+}) {
   const note = useNote(id);
   if (note.isPending) return <Loading />;
-  if (note.isError) return <ErrorState error={note.error} onRetry={() => note.refetch()} />;
+  if (note.isError)
+    return <ErrorState error={note.error} onRetry={() => note.refetch()} />;
   return <EditorBody key={id} note={note.data} backTo={backTo} />;
 }
 
@@ -109,7 +116,11 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const update = useUpdateNote();
   const vaultUnlocked = useVaultUnlocked();
   const remove = useDeleteNote();
-  const [draft, setDraft] = useState<Draft>({ title: note.title, body: note.body, tags: note.tags });
+  const [draft, setDraft] = useState<Draft>({
+    title: note.title,
+    body: note.body,
+    tags: note.tags,
+  });
   // 左上角显示“笔记 / 标题”，边打字边更新
   usePageCrumb(draft.title.trim() || t("Untitled note"));
   const draftRef = useRef(draft);
@@ -119,12 +130,18 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialog, setDialog] = useState<"issue" | "reminder" | null>(null);
-  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
+    null,
+  );
   const [uploading, setUploading] = useState(0);
   const [dragging, setDragging] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const lastSaved = useRef<Draft>({ title: note.title, body: note.body, tags: note.tags });
+  const lastSaved = useRef<Draft>({
+    title: note.title,
+    body: note.body,
+    tags: note.tags,
+  });
   const saver = useRef<AutoSaver<Draft>>(null);
   if (!saver.current)
     saver.current = new AutoSaver<Draft>({
@@ -150,8 +167,17 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
 
   // 另一个窗口改了这条笔记：本地没有未保存的改动时，采用新内容。
   useEffect(() => {
-    const server: Draft = { title: note.title, body: note.body, tags: note.tags };
-    if (saver.current?.dirty || uploading > 0 || sameDraft(server, lastSaved.current)) return;
+    const server: Draft = {
+      title: note.title,
+      body: note.body,
+      tags: note.tags,
+    };
+    if (
+      saver.current?.dirty ||
+      uploading > 0 ||
+      sameDraft(server, lastSaved.current)
+    )
+      return;
     lastSaved.current = server;
     setDraft(server);
   }, [note.title, note.body, note.tags]);
@@ -169,6 +195,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   // 离开时把没保存的内容存掉。页面关闭用 keepalive 请求。
   useEffect(() => {
     const s = saver.current!;
+    s.resume();
     const onHide = () => {
       if (s.unsaved) patchNoteKeepalive(note.id, s.unsaved);
     };
@@ -201,7 +228,10 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   };
   const addTags = (input: string) => {
     const tags = parseTags(input);
-    if (tags.length) edit({ tags: [...draft.tags, ...tags.filter((x) => !draft.tags.includes(x))] });
+    if (tags.length)
+      edit({
+        tags: [...draft.tags, ...tags.filter((x) => !draft.tags.includes(x))],
+      });
     setTagInput("");
   };
   // 服务端改了正文（比如转 Issue 后加了链接），直接采用。
@@ -233,14 +263,56 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
     });
   };
 
-  const tools: { key: string; icon: ReactNode; label: string; run: () => void }[] = [
-    { key: "h", icon: <Heading2 size={15} />, label: t("Heading"), run: () => apply((x, s, e) => prefixLines(x, s, e, "## ")) },
-    { key: "b", icon: <Bold size={15} />, label: t("Bold"), run: () => apply((x, s, e) => wrapSelection(x, s, e, "**", "**", t("bold text"))) },
-    { key: "i", icon: <Italic size={15} />, label: t("Italic"), run: () => apply((x, s, e) => wrapSelection(x, s, e, "*", "*", t("italic text"))) },
-    { key: "ul", icon: <List size={15} />, label: t("Bulleted list"), run: () => apply((x, s, e) => prefixLines(x, s, e, "- ")) },
-    { key: "ol", icon: <ListOrdered size={15} />, label: t("Numbered list"), run: () => apply((x, s, e) => prefixLines(x, s, e, "", true)) },
-    { key: "task", icon: <ListChecks size={15} />, label: t("Checklist"), run: () => apply((x, s, e) => prefixLines(x, s, e, "- [ ] ")) },
-    { key: "quote", icon: <Quote size={15} />, label: t("Quote"), run: () => apply((x, s, e) => prefixLines(x, s, e, "> ")) },
+  const tools: {
+    key: string;
+    icon: ReactNode;
+    label: string;
+    run: () => void;
+  }[] = [
+    {
+      key: "h",
+      icon: <Heading2 size={15} />,
+      label: t("Heading"),
+      run: () => apply((x, s, e) => prefixLines(x, s, e, "## ")),
+    },
+    {
+      key: "b",
+      icon: <Bold size={15} />,
+      label: t("Bold"),
+      run: () =>
+        apply((x, s, e) => wrapSelection(x, s, e, "**", "**", t("bold text"))),
+    },
+    {
+      key: "i",
+      icon: <Italic size={15} />,
+      label: t("Italic"),
+      run: () =>
+        apply((x, s, e) => wrapSelection(x, s, e, "*", "*", t("italic text"))),
+    },
+    {
+      key: "ul",
+      icon: <List size={15} />,
+      label: t("Bulleted list"),
+      run: () => apply((x, s, e) => prefixLines(x, s, e, "- ")),
+    },
+    {
+      key: "ol",
+      icon: <ListOrdered size={15} />,
+      label: t("Numbered list"),
+      run: () => apply((x, s, e) => prefixLines(x, s, e, "", true)),
+    },
+    {
+      key: "task",
+      icon: <ListChecks size={15} />,
+      label: t("Checklist"),
+      run: () => apply((x, s, e) => prefixLines(x, s, e, "- [ ] ")),
+    },
+    {
+      key: "quote",
+      icon: <Quote size={15} />,
+      label: t("Quote"),
+      run: () => apply((x, s, e) => prefixLines(x, s, e, "> ")),
+    },
     {
       key: "code",
       icon: <Code size={15} />,
@@ -252,8 +324,21 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
             : wrapSelection(x, s, e, "`"),
         ),
     },
-    { key: "link", icon: <Link2 size={15} />, label: t("Link"), run: () => apply((x, s, e) => wrapSelection(x, s, e, "[", "](https://)", t("link text"))) },
-    { key: "hr", icon: <Minus size={15} />, label: t("Divider"), run: () => apply((x, s, e) => insertBlock(x, s, e, "---")) },
+    {
+      key: "link",
+      icon: <Link2 size={15} />,
+      label: t("Link"),
+      run: () =>
+        apply((x, s, e) =>
+          wrapSelection(x, s, e, "[", "](https://)", t("link text")),
+        ),
+    },
+    {
+      key: "hr",
+      icon: <Minus size={15} />,
+      label: t("Divider"),
+      run: () => apply((x, s, e) => insertBlock(x, s, e, "---")),
+    },
   ];
 
   /* ---- 图片和附件 ---- */
@@ -261,24 +346,39 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const upload = async (files: File[]) => {
     const list = files.filter((f) => {
       if (f.size > MAX_ATTACHMENT_BYTES) {
-        toast({ message: `${f.name}: ${t("File is larger than 50 MB")}`, tone: "error" });
+        toast({
+          message: `${f.name}: ${t("File is larger than 50 MB")}`,
+          tone: "error",
+        });
         return false;
       }
       return true;
     });
     if (!list.length) return;
     // 先在光标处放占位文字，上传完成后换成真正的地址。
-    const tokens = list.map((f) => uploadPlaceholder(f.name || "image", Math.random().toString(36).slice(2, 7)));
+    const tokens = list.map((f) =>
+      uploadPlaceholder(
+        f.name || "image",
+        Math.random().toString(36).slice(2, 7),
+      ),
+    );
     apply((x, _s, e) => insertBlock(x, e, e, tokens.join("\n\n")));
     setUploading((n) => n + list.length);
     await Promise.all(
       list.map(async (file, i) => {
         try {
           const a = await uploadAttachment(note.id, file);
-          edit({ body: draftRef.current.body.replace(tokens[i], () => attachmentMarkdown(a)) });
+          edit({
+            body: draftRef.current.body.replace(tokens[i], () =>
+              attachmentMarkdown(a),
+            ),
+          });
         } catch (err) {
           edit({ body: removeBlock(draftRef.current.body, tokens[i]) });
-          toast({ message: `${file.name}: ${errorMessage(err)}`, tone: "error" });
+          toast({
+            message: `${file.name}: ${errorMessage(err)}`,
+            tone: "error",
+          });
         } finally {
           setUploading((n) => n - 1);
         }
@@ -367,38 +467,67 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
       onDragLeave={(e) => {
         // 移到编辑区里的子元素时不关；移出编辑区或拖出窗口（relatedTarget 为空）时关掉遮罩。
         const to = e.relatedTarget;
-        if (!(to instanceof Node) || !e.currentTarget.contains(to)) setDragging(false);
+        if (!(to instanceof Node) || !e.currentTarget.contains(to))
+          setDragging(false);
       }}
       onDrop={onDrop}
     >
       <header className="notes-editor-bar">
-        <Link to={backTo} className="xc-btn ghost small notes-back" aria-label={t("Back to list")}>
+        <Link
+          to={backTo}
+          className="xc-btn ghost small notes-back"
+          aria-label={t("Back to list")}
+        >
           <ArrowLeft size={15} />
         </Link>
-        <span className={`notes-save-state ${uploading ? "saving" : saveState}`} role="status">
+        <span
+          className={`notes-save-state ${uploading ? "saving" : saveState}`}
+          role="status"
+        >
           <i />
           {status}
         </span>
         <span className="xc-spacer" />
-        {note.hidden && <span className="xc-badge accent">{t("Hidden note")}</span>}
-        {note.archivedAt && <span className="xc-badge warn">{t("Archived")}</span>}
+        {note.hidden && (
+          <span className="xc-badge accent">{t("Hidden note")}</span>
+        )}
+        {note.archivedAt && (
+          <span className="xc-badge warn">{t("Archived")}</span>
+        )}
         <div className="notes-modes" role="group" aria-label={t("View")}>
-          <button className={mode === "edit" ? "on" : ""} aria-pressed={mode === "edit"} onClick={() => setMode("edit")} title={t("Edit")}>
+          <button
+            className={mode === "edit" ? "on" : ""}
+            aria-pressed={mode === "edit"}
+            onClick={() => setMode("edit")}
+            title={t("Edit")}
+          >
             <Pencil size={14} />
             <span>{t("Edit")}</span>
           </button>
-          <button className={`notes-mode-split ${mode === "split" ? "on" : ""}`} aria-pressed={mode === "split"} onClick={() => setMode("split")} title={t("Side by side")}>
+          <button
+            className={`notes-mode-split ${mode === "split" ? "on" : ""}`}
+            aria-pressed={mode === "split"}
+            onClick={() => setMode("split")}
+            title={t("Side by side")}
+          >
             <Columns2 size={14} />
             <span>{t("Side by side")}</span>
           </button>
-          <button className={mode === "preview" ? "on" : ""} aria-pressed={mode === "preview"} onClick={() => setMode("preview")} title={t("Preview")}>
+          <button
+            className={mode === "preview" ? "on" : ""}
+            aria-pressed={mode === "preview"}
+            onClick={() => setMode("preview")}
+            title={t("Preview")}
+          >
             <Eye size={14} />
             <span>{t("Preview")}</span>
           </button>
         </div>
         <button
           className={`xc-btn ghost small ${note.pinned ? "notes-pinned" : ""}`}
-          onClick={() => update.mutate({ id: note.id, body: { pinned: !note.pinned } })}
+          onClick={() =>
+            update.mutate({ id: note.id, body: { pinned: !note.pinned } })
+          }
           aria-pressed={note.pinned}
           title={note.pinned ? t("Unpin") : t("Pin")}
         >
@@ -415,22 +544,44 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
           </button>
           {menuOpen && (
             <>
-              <div className="notes-menu-backdrop" onClick={() => setMenuOpen(false)} />
-              <div className="notes-menu" role="menu" onClick={() => setMenuOpen(false)}>
+              <div
+                className="notes-menu-backdrop"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div
+                className="notes-menu"
+                role="menu"
+                onClick={() => setMenuOpen(false)}
+              >
                 <button role="menuitem" onClick={() => pickFiles(false)}>
                   <Paperclip size={14} /> {t("Attach a file")}
                 </button>
-                <button role="menuitem" onClick={() => flushThen(() => setDialog("issue"))}>
+                <button
+                  role="menuitem"
+                  onClick={() => flushThen(() => setDialog("issue"))}
+                >
                   <SquareKanban size={14} /> {t("Turn into issue")}
                 </button>
-                <button role="menuitem" onClick={() => flushThen(() => setDialog("reminder"))}>
+                <button
+                  role="menuitem"
+                  onClick={() => flushThen(() => setDialog("reminder"))}
+                >
                   <AlarmClock size={14} /> {t("Remind me")}
                 </button>
                 <button
                   role="menuitem"
-                  onClick={() => update.mutate({ id: note.id, body: { archived: !note.archivedAt } })}
+                  onClick={() =>
+                    update.mutate({
+                      id: note.id,
+                      body: { archived: !note.archivedAt },
+                    })
+                  }
                 >
-                  {note.archivedAt ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+                  {note.archivedAt ? (
+                    <ArchiveRestore size={14} />
+                  ) : (
+                    <Archive size={14} />
+                  )}
                   {note.archivedAt ? t("Unarchive") : t("Archive")}
                 </button>
                 {/* 只有解锁隐藏内容后才能改（B13） */}
@@ -440,7 +591,14 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                     onClick={() =>
                       update.mutate(
                         { id: note.id, body: { hidden: !note.hidden } },
-                        { onSuccess: (n) => toast(n.hidden ? t("Moved to hidden") : t("No longer hidden")) },
+                        {
+                          onSuccess: (n) =>
+                            toast(
+                              n.hidden
+                                ? t("Moved to hidden")
+                                : t("No longer hidden"),
+                            ),
+                        },
                       )
                     }
                   >
@@ -452,9 +610,12 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                   role="menuitem"
                   className="danger"
                   onClick={() => {
-                    if (!confirm(t("Delete this note? This cannot be undone."))) return;
+                    if (!confirm(t("Delete this note? This cannot be undone.")))
+                      return;
                     saver.current!.dispose();
-                    remove.mutate(note.id, { onSuccess: () => navigate(backTo) });
+                    remove.mutate(note.id, {
+                      onSuccess: () => navigate(backTo),
+                    });
                   }}
                 >
                   <Trash2 size={14} /> {t("Delete")}
@@ -486,7 +647,12 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
               {draft.tags.map((tag) => (
                 <span key={tag} className="notes-tag">
                   #{tag}
-                  <button aria-label={`${t("Remove tag")} ${tag}`} onClick={() => edit({ tags: draft.tags.filter((x) => x !== tag) })}>
+                  <button
+                    aria-label={`${t("Remove tag")} ${tag}`}
+                    onClick={() =>
+                      edit({ tags: draft.tags.filter((x) => x !== tag) })
+                    }
+                  >
                     <X size={11} />
                   </button>
                 </span>
@@ -500,7 +666,11 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                   if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
                     e.preventDefault();
                     addTags(tagInput);
-                  } else if (e.key === "Backspace" && !tagInput && draft.tags.length) {
+                  } else if (
+                    e.key === "Backspace" &&
+                    !tagInput &&
+                    draft.tags.length
+                  ) {
                     edit({ tags: draft.tags.slice(0, -1) });
                   }
                 }}
@@ -509,17 +679,41 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
             </div>
           </div>
 
-          <div className="notes-toolbar" role="toolbar" aria-label={t("Formatting")}>
+          <div
+            className="notes-toolbar"
+            role="toolbar"
+            aria-label={t("Formatting")}
+          >
             {tools.map((tool) => (
-              <button key={tool.key} type="button" title={tool.label} aria-label={tool.label} onMouseDown={(e) => e.preventDefault()} onClick={tool.run}>
+              <button
+                key={tool.key}
+                type="button"
+                title={tool.label}
+                aria-label={tool.label}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={tool.run}
+              >
                 {tool.icon}
               </button>
             ))}
             <span className="notes-toolbar-sep" />
-            <button type="button" title={t("Insert image")} aria-label={t("Insert image")} onMouseDown={(e) => e.preventDefault()} onClick={() => pickFiles(true)}>
+            <button
+              type="button"
+              title={t("Insert image")}
+              aria-label={t("Insert image")}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pickFiles(true)}
+            >
               <ImagePlus size={15} />
             </button>
-            <button type="button" className="notes-tool-attach" title={t("Attach a file")} aria-label={t("Attach a file")} onMouseDown={(e) => e.preventDefault()} onClick={() => pickFiles(false)}>
+            <button
+              type="button"
+              className="notes-tool-attach"
+              title={t("Attach a file")}
+              aria-label={t("Attach a file")}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pickFiles(false)}
+            >
               <Paperclip size={15} />
             </button>
           </div>
@@ -544,7 +738,8 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
         </span>
         <span className="xc-spacer" />
         <span>
-          {t("Updated on")} {formatDate(note.updatedAt, language)} {formatTime(note.updatedAt, language)}
+          {t("Updated on")} {formatDate(note.updatedAt, language)}{" "}
+          {formatTime(note.updatedAt, language)}
         </span>
       </footer>
 
@@ -568,19 +763,37 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
       />
 
       {lightbox && (
-        <div className="notes-lightbox" role="dialog" aria-label={lightbox.alt || t("Image")} onClick={() => setLightbox(null)}>
+        <div
+          className="notes-lightbox"
+          role="dialog"
+          aria-label={lightbox.alt || t("Image")}
+          onClick={() => setLightbox(null)}
+        >
           <img src={lightbox.src} alt={lightbox.alt} />
-          <button className="xc-btn small" onClick={() => setLightbox(null)} aria-label={t("Close")}>
+          <button
+            className="xc-btn small"
+            onClick={() => setLightbox(null)}
+            aria-label={t("Close")}
+          >
             <X size={15} />
           </button>
         </div>
       )}
 
       {dialog === "issue" && (
-        <ToIssueDialog open onClose={() => setDialog(null)} noteId={note.id} onDone={adopt} />
+        <ToIssueDialog
+          open
+          onClose={() => setDialog(null)}
+          noteId={note.id}
+          onDone={adopt}
+        />
       )}
       {dialog === "reminder" && (
-        <ToReminderDialog open onClose={() => setDialog(null)} noteId={note.id} />
+        <ToReminderDialog
+          open
+          onClose={() => setDialog(null)}
+          noteId={note.id}
+        />
       )}
     </div>
   );

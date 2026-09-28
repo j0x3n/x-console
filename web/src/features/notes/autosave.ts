@@ -51,6 +51,13 @@ export class AutoSaver<T> {
     clearTimeout(this.timer);
   }
 
+  /** React StrictMode may replay an effect without remounting this saver. */
+  resume() {
+    if (!this.disposed) return;
+    this.disposed = false;
+    if (this.latest !== null && !this.inFlight) this.schedule(this.opts.delay);
+  }
+
   private schedule(delay: number) {
     clearTimeout(this.timer);
     if (!this.disposed) this.timer = setTimeout(() => void this.run(), delay);
@@ -67,22 +74,20 @@ export class AutoSaver<T> {
     if (draft === null) return Promise.resolve();
     this.latest = null;
     this.setState("saving");
-    this.inFlight = this.opts
-      .save(draft)
-      .then(
-        () => {
-          this.inFlight = null;
-          if (this.latest !== null) return this.run();
-          this.setState("saved");
-        },
-        () => {
-          this.inFlight = null;
-          // 失败时，如果没有更新的内容，就把这次的放回去重试。
-          if (this.latest === null) this.latest = draft;
-          this.setState("error");
-          this.schedule(this.opts.retryDelay ?? 3000);
-        },
-      );
+    this.inFlight = this.opts.save(draft).then(
+      () => {
+        this.inFlight = null;
+        if (this.latest !== null) return this.run();
+        this.setState("saved");
+      },
+      () => {
+        this.inFlight = null;
+        // 失败时，如果没有更新的内容，就把这次的放回去重试。
+        if (this.latest === null) this.latest = draft;
+        this.setState("error");
+        this.schedule(this.opts.retryDelay ?? 3000);
+      },
+    );
     return this.inFlight;
   }
 }

@@ -1,9 +1,5 @@
 import { emitDemoEvent } from "../api/events";
-import { ago, fail, json, noContent, now, route as addRoute } from "./router";
-import { demoFull } from "./mode";
-
-const route: typeof addRoute = (method, path, handler) =>
-  addRoute(method, path, (request) => (demoFull ? handler(request) : undefined));
+import { ago, fail, json, noContent, now, routeFull as route } from "./router";
 
 /*
  * AI 助手：不接真的模型，按关键词给固定的回复，文字一段段推过来。

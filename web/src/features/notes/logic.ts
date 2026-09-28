@@ -83,20 +83,23 @@ export const DATE_GROUP_LABELS: Record<DateGroup, string> = {
 /** 按更新时间分组。一周从周一算。 */
 export function dateGroup(value: string | Date, now = new Date()): DateGroup {
   const d = typeof value === "string" ? new Date(value) : value;
-  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const day = (x: Date) =>
+    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diff = Math.round((day(now) - day(d)) / 86_400_000);
   if (diff <= 0) return "today";
   if (diff === 1) return "yesterday";
   const weekday = (now.getDay() + 6) % 7; // 周一是 0
   if (diff <= weekday) return "week";
-  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return "month";
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth())
+    return "month";
   return "earlier";
 }
 
 /** 字数：中文按字算，英文按词算。 */
 export function countWords(text: string): number {
   const cjk = text.match(/[㐀-鿿豈-﫿]/g)?.length ?? 0;
-  const words = text.replace(/[㐀-鿿豈-﫿]/g, " ").match(/[A-Za-z0-9_'-]+/g)?.length ?? 0;
+  const words =
+    text.replace(/[㐀-鿿豈-﫿]/g, " ").match(/[A-Za-z0-9_'-]+/g)?.length ?? 0;
   return cjk + words;
 }
 
@@ -106,7 +109,11 @@ export function uploadPlaceholder(name: string, id: string): string {
 }
 
 /** 上传完成后插入的 Markdown：图片用 ![]()，其他文件用 []()。 */
-export function attachmentMarkdown(a: { name: string; mime: string; url: string }): string {
+export function attachmentMarkdown(a: {
+  name: string;
+  mime: string;
+  url: string;
+}): string {
   const name = a.name.replace(/[[\]]/g, "");
   return a.mime.startsWith("image/") && a.mime !== "image/svg+xml"
     ? `![${name}](${a.url})`

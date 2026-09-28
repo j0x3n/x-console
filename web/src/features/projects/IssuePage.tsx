@@ -52,12 +52,19 @@ export default function IssuePage() {
   usePageCrumb(
     issue.data?.key ?? "",
     issue.data
-      ? [{ label: issue.data.projectKey, to: `/projects/${issue.data.projectKey}` }]
+      ? [
+          {
+            label: issue.data.projectKey,
+            to: `/projects/${issue.data.projectKey}`,
+          },
+        ]
       : undefined,
   );
   const update = useUpdateIssue();
   const [search, setSearch] = useSearchParams();
-  const [editingTitle, setEditingTitle] = useState(search.get("edit") === "title");
+  const [editingTitle, setEditingTitle] = useState(
+    search.get("edit") === "title",
+  );
 
   useEffect(() => {
     if (search.get("edit") === "title") {
@@ -68,7 +75,8 @@ export default function IssuePage() {
   }, [search, setSearch]);
 
   const save = (body: UpdateIssue) =>
-    issue.data && update.mutate({ issue: issue.data, key: issue.data.key, body });
+    issue.data &&
+    update.mutate({ issue: issue.data, key: issue.data.key, body });
 
   useShortcuts(
     {
@@ -92,7 +100,9 @@ export default function IssuePage() {
       <div className="xc-page">
         {issue.error instanceof ApiError && issue.error.status === 404 ? (
           <EmptyState title={t("Issue not found")}>
-            <Link to={`/projects/${projectKey.toUpperCase()}`}>{t("Back to project")}</Link>
+            <Link to={`/projects/${projectKey.toUpperCase()}`}>
+              {t("Back to project")}
+            </Link>
           </EmptyState>
         ) : (
           <ErrorState error={issue.error} onRetry={() => issue.refetch()} />
@@ -116,7 +126,10 @@ export default function IssuePage() {
             setEditing={setEditingTitle}
             onSave={(title) => save({ title })}
           />
-          <Description issue={data} onSave={(description) => save({ description })} />
+          <Description
+            issue={data}
+            onSave={(description) => save({ description })}
+          />
           <Links issueKey={data.key} />
           <Comments issueKey={data.key} />
         </main>
@@ -170,13 +183,23 @@ function IssueTitle({
       />
     );
   return (
-    <h1 className="projects-issue-title" onClick={() => setEditing(true)} title={t("Click or press E to edit")}>
+    <h1
+      className="projects-issue-title"
+      onClick={() => setEditing(true)}
+      title={t("Click or press E to edit")}
+    >
       {issue.title}
     </h1>
   );
 }
 
-function Description({ issue, onSave }: { issue: Issue; onSave: (description: string) => void }) {
+function Description({
+  issue,
+  onSave,
+}: {
+  issue: Issue;
+  onSave: (description: string) => void;
+}) {
   const t = useT();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(issue.description);
@@ -189,17 +212,26 @@ function Description({ issue, onSave }: { issue: Issue; onSave: (description: st
   };
   if (!editing)
     return (
-      <section className="projects-description" onDoubleClick={() => setEditing(true)}>
+      <section
+        className="projects-description"
+        onDoubleClick={() => setEditing(true)}
+      >
         <Markdown
           source={issue.description}
           empty={
-            <button className="projects-placeholder" onClick={() => setEditing(true)}>
+            <button
+              className="projects-placeholder"
+              onClick={() => setEditing(true)}
+            >
               {t("Add a description…")}
             </button>
           }
         />
         {issue.description && (
-          <button className="xc-btn ghost small" onClick={() => setEditing(true)}>
+          <button
+            className="xc-btn ghost small"
+            onClick={() => setEditing(true)}
+          >
             {t("Edit description")}
           </button>
         )}
@@ -245,7 +277,13 @@ function Description({ issue, onSave }: { issue: Issue; onSave: (description: st
   );
 }
 
-function Properties({ issue, onSave }: { issue: Issue; onSave: (body: UpdateIssue) => void }) {
+function Properties({
+  issue,
+  onSave,
+}: {
+  issue: Issue;
+  onSave: (body: UpdateIssue) => void;
+}) {
   const t = useT();
   const language = useLanguage();
   const navigate = useNavigate();
@@ -303,7 +341,11 @@ function Properties({ issue, onSave }: { issue: Issue; onSave: (body: UpdateIssu
         <select
           className="xc-select"
           value={issue.milestoneId ?? ""}
-          onChange={(e) => onSave({ milestoneId: e.target.value ? Number(e.target.value) : null })}
+          onChange={(e) =>
+            onSave({
+              milestoneId: e.target.value ? Number(e.target.value) : null,
+            })
+          }
         >
           <option value="">{t("None")}</option>
           {milestones.data?.map((m) => (
@@ -325,7 +367,9 @@ function Properties({ issue, onSave }: { issue: Issue; onSave: (body: UpdateIssu
                 aria-pressed={on}
                 onClick={() =>
                   onSave({
-                    labelIds: on ? labelIds.filter((id) => id !== label.id) : [...labelIds, label.id],
+                    labelIds: on
+                      ? labelIds.filter((id) => id !== label.id)
+                      : [...labelIds, label.id],
                   })
                 }
               >
@@ -333,23 +377,34 @@ function Properties({ issue, onSave }: { issue: Issue; onSave: (body: UpdateIssu
               </button>
             );
           })}
-          {labels.data?.length === 0 && <span className="xc-muted">{t("No labels yet")}</span>}
+          {labels.data?.length === 0 && (
+            <span className="xc-muted">{t("No labels yet")}</span>
+          )}
         </div>
       </div>
       <dl className="projects-meta">
         <dt>{t("Created")}</dt>
-        <dd title={issue.createdAt}>{relativeTime(issue.createdAt, language)}</dd>
+        <dd title={issue.createdAt}>
+          {relativeTime(issue.createdAt, language)}
+        </dd>
         <dt>{t("Updated")}</dt>
-        <dd title={issue.updatedAt}>{relativeTime(issue.updatedAt, language)}</dd>
+        <dd title={issue.updatedAt}>
+          {relativeTime(issue.updatedAt, language)}
+        </dd>
         {issue.completedAt && (
           <>
             <dt>{t("Completed")}</dt>
-            <dd title={issue.completedAt}>{relativeTime(issue.completedAt, language)}</dd>
+            <dd title={issue.completedAt}>
+              {relativeTime(issue.completedAt, language)}
+            </dd>
           </>
         )}
       </dl>
       <div className="projects-coding">
-        <Link className="xc-btn" to={`/coding?new=1&issue=${encodeURIComponent(issue.key)}`}>
+        <Link
+          className="xc-btn"
+          to={`/coding?new=1&issue=${encodeURIComponent(issue.key)}`}
+        >
           <Bot size={14} /> {t("Hand to coding assistant")}
         </Link>
       </div>
@@ -402,16 +457,25 @@ function Links({ issueKey }: { issueKey: string }) {
     <section className="projects-section">
       <header>
         <h2>{t("Links")}</h2>
-        <button className="xc-btn ghost small" onClick={() => setAdding((v) => !v)}>
+        <button
+          className="xc-btn ghost small"
+          onClick={() => setAdding((v) => !v)}
+        >
           <Plus size={14} /> {t("Add link")}
         </button>
       </header>
       {links.data?.length === 0 && !adding && (
-        <p className="xc-muted projects-section-empty">{t("Pull requests, coding tasks and notes show up here.")}</p>
+        <p className="xc-muted projects-section-empty">
+          {t("Pull requests, coding tasks and notes show up here.")}
+        </p>
       )}
       <ul className="projects-links">
         {links.data?.map((link) => (
-          <LinkRow key={link.id} link={link} onDelete={() => remove.mutate(link.id)} />
+          <LinkRow
+            key={link.id}
+            link={link}
+            onDelete={() => remove.mutate(link.id)}
+          />
         ))}
       </ul>
       {adding && (
@@ -437,7 +501,10 @@ function Links({ issueKey }: { issueKey: string }) {
             placeholder={t("Title (optional)")}
             aria-label={t("Title")}
           />
-          <button className="xc-btn small primary" disabled={!url.trim() || add.isPending}>
+          <button
+            className="xc-btn small primary"
+            disabled={!url.trim() || add.isPending}
+          >
             {t("Add")}
           </button>
         </form>
@@ -446,7 +513,13 @@ function Links({ issueKey }: { issueKey: string }) {
   );
 }
 
-function LinkRow({ link, onDelete }: { link: IssueLink; onDelete: () => void }) {
+function LinkRow({
+  link,
+  onDelete,
+}: {
+  link: IssueLink;
+  onDelete: () => void;
+}) {
   const t = useT();
   const Icon = linkIcons[link.kind] ?? Link2;
   const internal = link.url.startsWith("/");
@@ -462,7 +535,11 @@ function LinkRow({ link, onDelete }: { link: IssueLink; onDelete: () => void }) 
       )}
       {link.ref && <span className="xc-muted xc-mono">{link.ref}</span>}
       <span className="xc-spacer" />
-      <button className="xc-btn ghost small" aria-label={t("Remove link")} onClick={onDelete}>
+      <button
+        className="xc-btn ghost small"
+        aria-label={t("Remove link")}
+        onClick={onDelete}
+      >
         <Trash2 size={13} />
       </button>
     </li>
@@ -496,7 +573,9 @@ function Comments({ issueKey }: { issueKey: string }) {
               <button
                 className="xc-btn ghost small"
                 aria-label={t("Delete comment")}
-                onClick={() => confirm(t("Delete this comment?")) && remove.mutate(c.id)}
+                onClick={() =>
+                  confirm(t("Delete this comment?")) && remove.mutate(c.id)
+                }
               >
                 <Trash2 size={13} />
               </button>
@@ -523,7 +602,10 @@ function Comments({ issueKey }: { issueKey: string }) {
         <div className="xc-row">
           <span className="xc-muted projects-hint">⌘/Ctrl + Enter</span>
           <span className="xc-spacer" />
-          <button className="xc-btn small primary" disabled={!body.trim() || add.isPending}>
+          <button
+            className="xc-btn small primary"
+            disabled={!body.trim() || add.isPending}
+          >
             {t("Comment")}
           </button>
         </div>

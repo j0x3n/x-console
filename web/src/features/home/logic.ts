@@ -88,7 +88,11 @@ export function rowActions(entityId: string, state?: EntityState): RowAction[] {
     ];
   if (tap.kind === "run")
     return [
-      { label: tap.service === "press" ? "Press" : "Run", domain, service: tap.service },
+      {
+        label: tap.service === "press" ? "Press" : "Run",
+        domain,
+        service: tap.service,
+      },
     ];
   if (domain === "lock")
     return state?.state === "locked"
@@ -133,7 +137,8 @@ const stateLabels: Record<string, string> = {
 export function stateLabel(state: EntityState): string {
   // 场景和按钮的状态是上次运行的时间，对用户没有意义。
   const domain = state.entityId.split(".")[0];
-  if ((domain === "scene" || domain === "button") && !isUnavailable(state)) return "Tap to run";
+  if ((domain === "scene" || domain === "button") && !isUnavailable(state))
+    return "Tap to run";
   return stateLabels[state.state] ?? formatState(state);
 }
 

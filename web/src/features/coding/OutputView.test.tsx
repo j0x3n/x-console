@@ -8,7 +8,13 @@ import type { TaskEvent } from "./logic";
 
 afterEach(cleanup);
 
-const ev = (seq: number, kind: TaskEvent["kind"], text = "", data?: Record<string, unknown>, exitCode?: number): TaskEvent => ({
+const ev = (
+  seq: number,
+  kind: TaskEvent["kind"],
+  text = "",
+  data?: Record<string, unknown>,
+  exitCode?: number,
+): TaskEvent => ({
   seq,
   kind,
   text,
@@ -23,9 +29,16 @@ describe("OutputView", () => {
       <OutputView
         running={false}
         events={[
-          ev(1, "status", "worktree ready", { code: "worktree_ready", branch: "xc/1-demo" }),
+          ev(1, "status", "worktree ready", {
+            code: "worktree_ready",
+            branch: "xc/1-demo",
+          }),
           ev(2, "text", "Working on it."),
-          ev(3, "tool", "Write: hello.txt", { id: "t1", name: "Write", input: { file_path: "hello.txt" } }),
+          ev(3, "tool", "Write: hello.txt", {
+            id: "t1",
+            name: "Write",
+            input: { file_path: "hello.txt" },
+          }),
           ev(4, "tool", "File written", { id: "t1", result: true }),
           ev(5, "done", "exited", { reason: "exited" }, 0),
         ]}
