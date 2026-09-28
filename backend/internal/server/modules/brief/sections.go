@@ -47,26 +47,6 @@ var sections = []section{
 	{"renewals", "续费", buildRenewals},
 }
 
-// ---- optional providers without a contract yet ----
-
-// RenewalsKey is where a subscriptions module (M10) can register a
-// RenewalSource. The brief lists renewals due within 7 days.
-const RenewalsKey = "monitoring.renewals"
-
-// Renewal is one upcoming renewal. It is an alias of an unnamed struct so a
-// provider can implement RenewalSource without importing this package.
-type Renewal = struct {
-	Name     string
-	Date     time.Time
-	Amount   float64
-	Currency string
-}
-
-// RenewalSource lists renewals due before until.
-type RenewalSource interface {
-	UpcomingRenewals(ctx context.Context, until time.Time) ([]Renewal, error)
-}
-
 // PolisherKey is where the AI module (M12) can register a Polisher. When it
 // is present and brief.ai_polish is on, the brief starts with its summary.
 const PolisherKey = "ai.brief_polisher"
@@ -248,11 +228,11 @@ func buildHabits(ctx context.Context, in input) (string, error) {
 }
 
 func buildRenewals(ctx context.Context, in input) (string, error) {
-	src, ok := module.Lookup[RenewalSource](in.reg, RenewalsKey)
+	src, ok := module.Lookup[contracts.Renewals](in.reg, contracts.RenewalsKey)
 	if !ok {
 		return "", errSkip
 	}
-	list, err := src.UpcomingRenewals(ctx, in.today.AddDate(0, 0, 8))
+	list, err := src.Upcoming(ctx, in.today.AddDate(0, 0, 8))
 	if err != nil {
 		return "", err
 	}
@@ -261,7 +241,7 @@ func buildRenewals(ctx context.Context, in input) (string, error) {
 	}
 	var b strings.Builder
 	for _, r := range list {
-		fmt.Fprintf(&b, "- %s %s", r.Date.In(in.loc).Format("01-02"), r.Name)
+		fmt.Fprintf(&b, "- %s %s", r.Date.UTC().Format("01-02"), r.Name)
 		if r.Amount > 0 {
 			fmt.Fprintf(&b, " %s %s", num(r.Amount), r.Currency)
 		}

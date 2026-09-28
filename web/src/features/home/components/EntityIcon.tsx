@@ -34,7 +34,8 @@ function pick(entityId: string, state?: EntityState): LucideIcon {
       return Thermometer;
     case "sensor": {
       const cls = state?.attributes.device_class;
-      return cls === "temperature" || state?.attributes.unit_of_measurement === "°C"
+      return cls === "temperature" ||
+        state?.attributes.unit_of_measurement === "°C"
         ? Thermometer
         : Gauge;
     }

@@ -188,7 +188,18 @@ func (m *Module) ListHosts(w http.ResponseWriter, r *http.Request, params api.Li
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, hosts)
+	items := make([]api.HostListItem, 0, len(hosts))
+	for _, h := range hosts {
+		item := api.HostListItem{Id: h.Id, Name: h.Name, Kind: h.Kind, Source: h.Source,
+			Online: h.Online, Hostname: h.Hostname, Os: h.Os, LastSeenAt: h.LastSeenAt,
+			Cpu: h.Cpu, Memory: h.Memory, Disk: h.Disk, ActiveAlerts: h.ActiveAlerts}
+		if x := h.Metrics; x != nil {
+			item.Metrics = &api.HostListMetrics{At: x.At, Load1: x.Load1, NetRx: x.NetRx,
+				NetTx: x.NetTx, UptimeSeconds: x.UptimeSeconds}
+		}
+		items = append(items, item)
+	}
+	httpx.JSON(w, http.StatusOK, items)
 }
 
 // GetHost is GET /hosts/{hostId}.

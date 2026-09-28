@@ -54,17 +54,24 @@ export default function MetricChart({
     return () => ro.disconnect();
   }, []);
 
-  const times = useMemo(() => points.map((p) => new Date(p.at).getTime()), [points]);
+  const times = useMemo(
+    () => points.map((p) => new Date(p.at).getTime()),
+    [points],
+  );
   const top = useMemo(() => {
     if (max !== undefined) return max;
     let m = 0;
-    for (const p of points) for (const s of series) m = Math.max(m, Number(p[s.key]));
+    for (const p of points)
+      for (const s of series) m = Math.max(m, Number(p[s.key]));
     return nice(m * 1.1);
   }, [points, series, max, nice]);
 
   const ticks = [0, top / 2, top];
   // 纵轴留白按最长的刻度文字算，网速这类长数字不会被截掉。
-  const left = Math.max(PAD.left, Math.max(...ticks.map((v) => format(v).length)) * 6.5 + 10);
+  const left = Math.max(
+    PAD.left,
+    Math.max(...ticks.map((v) => format(v).length)) * 6.5 + 10,
+  );
   const plotW = Math.max(0, width - left - PAD.right);
   const plotH = HEIGHT - PAD.top - PAD.bottom;
   const t0 = times[0] ?? 0;
@@ -73,12 +80,18 @@ export default function MetricChart({
   const x = (time: number) => left + ((time - t0) / span) * plotW;
   const y = (v: number) => PAD.top + plotH - (Math.min(v, top) / top) * plotH;
 
-  const segments = useMemo(() => splitSegments(points, stepSeconds), [points, stepSeconds]);
+  const segments = useMemo(
+    () => splitSegments(points, stepSeconds),
+    [points, stepSeconds],
+  );
   const paths = series.map((s) =>
     segments
       .map((seg) =>
         seg
-          .map((p, i) => `${i ? "L" : "M"}${x(new Date(p.at).getTime()).toFixed(1)},${y(Number(p[s.key])).toFixed(1)}`)
+          .map(
+            (p, i) =>
+              `${i ? "L" : "M"}${x(new Date(p.at).getTime()).toFixed(1)},${y(Number(p[s.key])).toFixed(1)}`,
+          )
           .join(""),
       )
       .join(""),
@@ -100,7 +113,10 @@ export default function MetricChart({
   const showDate = span > 36 * 3600_000;
   const timeLabel = (ms: number) =>
     showDate
-      ? new Date(ms).toLocaleDateString(language === "zh" ? "zh-CN" : "en", { month: "numeric", day: "numeric" })
+      ? new Date(ms).toLocaleDateString(language === "zh" ? "zh-CN" : "en", {
+          month: "numeric",
+          day: "numeric",
+        })
       : formatTime(new Date(ms), language);
 
   return (
@@ -117,7 +133,9 @@ export default function MetricChart({
             ))}
           </div>
         )}
-        {current && <strong className="servers-chart-current">{current}</strong>}
+        {current && (
+          <strong className="servers-chart-current">{current}</strong>
+        )}
       </div>
       <div className="servers-chart-plot" ref={box}>
         {points.length < 2 ? (
@@ -134,8 +152,19 @@ export default function MetricChart({
             >
               {ticks.map((v) => (
                 <g key={v}>
-                  <line className="servers-gridline" x1={left} x2={width - PAD.right} y1={y(v)} y2={y(v)} />
-                  <text className="servers-axis" x={left - 6} y={y(v) + 4} textAnchor="end">
+                  <line
+                    className="servers-gridline"
+                    x1={left}
+                    x2={width - PAD.right}
+                    y1={y(v)}
+                    y2={y(v)}
+                  />
+                  <text
+                    className="servers-axis"
+                    x={left - 6}
+                    y={y(v) + 4}
+                    textAnchor="end"
+                  >
                     {format(v)}
                   </text>
                 </g>
@@ -143,17 +172,43 @@ export default function MetricChart({
               <text className="servers-axis" x={left} y={HEIGHT - 4}>
                 {timeLabel(t0)}
               </text>
-              <text className="servers-axis" x={width - PAD.right} y={HEIGHT - 4} textAnchor="end">
+              <text
+                className="servers-axis"
+                x={width - PAD.right}
+                y={HEIGHT - 4}
+                textAnchor="end"
+              >
                 {timeLabel(t1)}
               </text>
               {paths.map((d, i) => (
-                <path key={series[i].key} d={d} fill="none" stroke={series[i].color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                <path
+                  key={series[i].key}
+                  d={d}
+                  fill="none"
+                  stroke={series[i].color}
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
               ))}
               {hp && (
                 <g>
-                  <line className="servers-crosshair" x1={hx} x2={hx} y1={PAD.top} y2={PAD.top + plotH} />
+                  <line
+                    className="servers-crosshair"
+                    x1={hx}
+                    x2={hx}
+                    y1={PAD.top}
+                    y2={PAD.top + plotH}
+                  />
                   {series.map((s) => (
-                    <circle key={s.key} cx={hx} cy={y(Number(hp[s.key]))} r={4} fill={s.color} className="servers-dot" />
+                    <circle
+                      key={s.key}
+                      cx={hx}
+                      cy={y(Number(hp[s.key]))}
+                      r={4}
+                      fill={s.color}
+                      className="servers-dot"
+                    />
                   ))}
                 </g>
               )}
@@ -167,7 +222,15 @@ export default function MetricChart({
           >
             <small>
               {showDate
-                ? new Date(hp.at).toLocaleString(language === "zh" ? "zh-CN" : "en", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+                ? new Date(hp.at).toLocaleString(
+                    language === "zh" ? "zh-CN" : "en",
+                    {
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    },
+                  )
                 : formatTime(hp.at, language)}
             </small>
             {series.map((s) => (

@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 
 /** 焦点在输入框、或者有弹窗打开时，单键快捷键不生效。 */
 export function shouldIgnoreKey(event: KeyboardEvent): boolean {
-  if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return true;
+  if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing)
+    return true;
   const target = event.target as HTMLElement | null;
   if (
     target &&
@@ -32,7 +33,10 @@ export function useShortcuts(
       if (event.key === "Escape") {
         const target = event.target as HTMLElement | null;
         if (document.querySelector(".modal-backdrop")) return;
-        if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) {
+        if (
+          target &&
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+        ) {
           target.blur();
           return;
         }

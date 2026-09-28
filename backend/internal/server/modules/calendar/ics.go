@@ -34,6 +34,8 @@ type parsedEvent struct {
 	RDates       []time.Time // wall clock in TZID
 	ExDates      []time.Time // wall clock in TZID
 	RecurrenceID *time.Time  // wall clock in TZID
+	Href         string
+	ETag         string
 }
 
 // icalTime is a parsed DATE or DATE-TIME value.

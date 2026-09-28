@@ -1,7 +1,7 @@
 -- name: CreateHabit :one
 INSERT INTO habits (name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes,
-                    remind_window, remind_times, ha_entity_id, sort_order, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetHabit :one
@@ -16,7 +16,7 @@ ORDER BY sort_order, id;
 UPDATE habits
 SET name = ?, icon = ?, color = ?, unit = ?, daily_target = ?, remind_mode = ?,
     remind_interval_minutes = ?, remind_window = ?, remind_times = ?, ha_entity_id = ?,
-    archived_at = ?, sort_order = ?
+    archived_at = ?, sort_order = ?, kind = ?
 WHERE id = ?
 RETURNING *;
 
@@ -35,9 +35,12 @@ SELECT CAST(coalesce(max(sort_order), 0) AS INTEGER) FROM habits;
 -- name: ListHabitsByEntity :many
 SELECT * FROM habits WHERE ha_entity_id = ? AND archived_at IS NULL;
 
+-- name: ListActiveWorkoutHabits :many
+SELECT * FROM habits WHERE kind = 'workout' AND archived_at IS NULL ORDER BY id;
+
 -- name: CreateHabitLog :one
-INSERT INTO habit_logs (habit_id, at, amount, source, note)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO habit_logs (habit_id, at, amount, source, note, workout_log_id)
+VALUES (?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetHabitLog :one
@@ -45,6 +48,9 @@ SELECT * FROM habit_logs WHERE id = ?;
 
 -- name: DeleteHabitLog :execrows
 DELETE FROM habit_logs WHERE id = ?;
+
+-- name: DeleteWorkoutCheckins :many
+DELETE FROM habit_logs WHERE workout_log_id = ? RETURNING id, habit_id;
 
 -- name: ListHabitLogsSince :many
 SELECT * FROM habit_logs WHERE at >= ? ORDER BY at DESC, id DESC;

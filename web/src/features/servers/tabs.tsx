@@ -23,15 +23,32 @@ export interface HostTab {
 // { id: "docker", label: "Containers", cap: "docker", component: DockerTab }。
 export const hostTabs: HostTab[] = [
   { id: "overview", label: "Overview", component: OverviewTab },
-  { id: "processes", label: "Processes", cap: "processes", component: ProcessesTab },
-  { id: "services", label: "Services", cap: "services", component: ServicesTab },
+  {
+    id: "processes",
+    label: "Processes",
+    cap: "processes",
+    component: ProcessesTab,
+  },
+  {
+    id: "services",
+    label: "Services",
+    cap: "services",
+    component: ServicesTab,
+  },
   { id: "terminal", label: "Terminal", cap: "pty", component: TerminalTab },
   { id: "files", label: "Files", cap: "files", component: FilesTab },
-  { id: "docker", label: "Containers", cap: "docker", component: lazy(() => import("../monitoring/DockerTab")) },
+  {
+    id: "docker",
+    label: "Containers",
+    cap: "docker",
+    component: lazy(() => import("../monitoring/DockerTab")),
+  },
   { id: "alerts", label: "Alerts", component: AlertsTab },
 ];
 
 /** 这台机器能用的标签。 */
 export function tabsFor(host: Pick<HostDetail, "capabilities">): HostTab[] {
-  return hostTabs.filter((tab) => !tab.cap || host.capabilities.includes(tab.cap));
+  return hostTabs.filter(
+    (tab) => !tab.cap || host.capabilities.includes(tab.cap),
+  );
 }

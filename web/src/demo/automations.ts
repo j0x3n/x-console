@@ -1,5 +1,5 @@
 import { emitDemoEvent } from "../api/events";
-import { ago, fail, json, noContent, now, route } from "./router";
+import { ago, fail, json, noContent, now, routeFull as route } from "./router";
 
 /* 自动化：规则和运行记录都在内存里。“立即运行”一秒后给出一条成功的记录。 */
 const catalog = {

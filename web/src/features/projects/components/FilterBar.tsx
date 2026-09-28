@@ -47,7 +47,11 @@ export default function FilterBar({
         />
       </label>
       {showStatus && (
-        <div className="projects-status-filter" role="group" aria-label={t("Status")}>
+        <div
+          className="projects-status-filter"
+          role="group"
+          aria-label={t("Status")}
+        >
           {STATUSES.map((s) => (
             <button
               key={s}
@@ -66,7 +70,10 @@ export default function FilterBar({
         value={filter.priority ?? ""}
         aria-label={t("Priority")}
         onChange={(e) =>
-          onChange({ ...filter, priority: e.target.value === "" ? null : Number(e.target.value) })
+          onChange({
+            ...filter,
+            priority: e.target.value === "" ? null : Number(e.target.value),
+          })
         }
       >
         <option value="">{t("Any priority")}</option>
@@ -82,7 +89,10 @@ export default function FilterBar({
           value={filter.labelId ?? ""}
           aria-label={t("Label")}
           onChange={(e) =>
-            onChange({ ...filter, labelId: e.target.value ? Number(e.target.value) : null })
+            onChange({
+              ...filter,
+              labelId: e.target.value ? Number(e.target.value) : null,
+            })
           }
         >
           <option value="">{t("Any label")}</option>
@@ -99,7 +109,10 @@ export default function FilterBar({
           value={filter.milestoneId ?? ""}
           aria-label={t("Milestone")}
           onChange={(e) =>
-            onChange({ ...filter, milestoneId: e.target.value ? Number(e.target.value) : null })
+            onChange({
+              ...filter,
+              milestoneId: e.target.value ? Number(e.target.value) : null,
+            })
           }
         >
           <option value="">{t("Any milestone")}</option>
@@ -111,7 +124,10 @@ export default function FilterBar({
         </select>
       )}
       {isFilterActive(filter) && (
-        <button className="xc-btn ghost small" onClick={() => onChange(emptyFilter)}>
+        <button
+          className="xc-btn ghost small"
+          onClick={() => onChange(emptyFilter)}
+        >
           <X size={13} /> {t("Clear")}
         </button>
       )}

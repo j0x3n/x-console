@@ -27,6 +27,7 @@ const (
 	RemindersKey     = "reminders.reminders" // M7 provides
 	HabitsKey        = "habits.habits"       // M8 provides
 	HostsKey         = "hosts.hosts"         // M2/M3 provides
+	RenewalsKey      = "monitoring.renewals" // M10 provides
 	HomeAssistantKey = "homeassistant.ha"    // M9 provides
 	CodingKey        = "coding.launcher"     // M4 provides
 	CalendarKey      = "calendar.calendar"   // M11 provides
@@ -134,6 +135,23 @@ type ReminderRef struct {
 type Reminders interface {
 	Create(ctx context.Context, in CreateReminder) (int64, error)
 	Upcoming(ctx context.Context, until time.Time) ([]ReminderRef, error)
+}
+
+// ---- M10 monitoring ----
+
+// RenewalRef is a subscription's next renewal. Date is a civil date at UTC
+// midnight; consumers must not shift it into the user's time zone.
+type RenewalRef struct {
+	Name     string
+	Date     time.Time
+	Amount   float64
+	Currency string
+}
+
+// Renewals is provided by M10. Upcoming includes overdue, unarchived
+// subscriptions and excludes dates on or after until.
+type Renewals interface {
+	Upcoming(ctx context.Context, until time.Time) ([]RenewalRef, error)
 }
 
 // ---- M8 habits ----

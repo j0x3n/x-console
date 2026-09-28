@@ -6,53 +6,122 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const calls = vi.hoisted(() => {
   const calls: { method: string; url: string; body: unknown }[] = [];
   const issue = (n: number, status: string, sortOrder: number) => ({
-    id: n, key: `XC-${n}`, projectId: 1, projectKey: "XC", number: n, title: `Issue ${n}`,
-    description: "", status, priority: 0, sortOrder, labels: [], externalSource: "", externalId: "",
-    createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-01T00:00:00Z",
+    id: n,
+    key: `XC-${n}`,
+    projectId: 1,
+    projectKey: "XC",
+    number: n,
+    title: `Issue ${n}`,
+    description: "",
+    status,
+    priority: 0,
+    sortOrder,
+    labels: [],
+    externalSource: "",
+    externalId: "",
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
   });
-  const issues = [issue(1, "todo", 1), issue(2, "todo", 2), issue(3, "done", 1)];
-  const project = { id: 1, key: "XC", name: "X Console", description: "", color: "", icon: "",
-    createdAt: "2026-09-01T00:00:00Z", updatedAt: "2026-09-01T00:00:00Z", issueCount: 3, openCount: 2 };
+  const issues = [
+    issue(1, "todo", 1),
+    issue(2, "todo", 2),
+    issue(3, "done", 1),
+    issue(4, "in_progress", 1),
+  ];
+  const project = {
+    id: 1,
+    key: "XC",
+    name: "X Console",
+    description: "",
+    color: "",
+    icon: "",
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+    issueCount: 4,
+    openCount: 3,
+  };
   // Node's Request needs absolute URLs; the app uses relative ones.
   const NativeRequest = globalThis.Request;
   globalThis.Request = class extends NativeRequest {
     constructor(input: RequestInfo | URL, init?: RequestInit) {
-      super(typeof input === "string" && input.startsWith("/") ? `http://localhost${input}` : input, init);
+      super(
+        typeof input === "string" && input.startsWith("/")
+          ? `http://localhost${input}`
+          : input,
+        init,
+      );
     }
   } as typeof Request;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const req = input instanceof NativeRequest ? input : new Request(String(input), init);
+    const req =
+      input instanceof NativeRequest ? input : new Request(String(input), init);
     const url = new URL(req.url);
-    const body = req.method === "GET" ? undefined : await req.clone().json().catch(() => undefined);
+    const body =
+      req.method === "GET"
+        ? undefined
+        : await req
+            .clone()
+            .json()
+            .catch(() => undefined);
     calls.push({ method: req.method, url: url.pathname + url.search, body });
     const json = (data: unknown) =>
-      new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json" } });
+      new Response(JSON.stringify(data), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     const path = url.pathname.replace("/api/v1", "");
-    if (path === "/projects") return json(url.searchParams.get("archived") ? [] : [project]);
-    if (path === "/issues") return json({ items: issues });
+    if (path === "/projects")
+      return json(url.searchParams.get("archived") ? [] : [project]);
+    if (path === "/issues") {
+      const statuses = url.searchParams.getAll("status");
+      return json({
+        items: statuses.length
+          ? issues.filter((item) => statuses.includes(item.status))
+          : issues,
+      });
+    }
     if (path.endsWith("/comments") || path.endsWith("/links")) return json([]);
     if (path.startsWith("/issues/") && req.method === "GET")
       return json(issues.find((i) => i.key === path.split("/")[2]));
-    if (path.endsWith("/labels") || path.endsWith("/milestones")) return json([]);
+    if (path.endsWith("/labels") || path.endsWith("/milestones"))
+      return json([]);
     if (path.endsWith("/move")) {
-      const move = body as { status: string; afterKey?: string; beforeKey?: string };
+      const move = body as {
+        status: string;
+        afterKey?: string;
+        beforeKey?: string;
+      };
       const target = issues.find((i) => i.key === path.split("/")[2])!;
       const after = issues.find((i) => i.key === move.afterKey);
       const before = issues.find((i) => i.key === move.beforeKey);
       target.status = move.status;
-      target.sortOrder = after ? after.sortOrder + 1 : before ? before.sortOrder - 1 : 0;
+      target.sortOrder = after
+        ? after.sortOrder + 1
+        : before
+          ? before.sortOrder - 1
+          : 0;
       return json(target);
     }
     if (path.startsWith("/issues/") && req.method === "PATCH") {
       const key = path.split("/")[2];
-      return json({ ...issues.find((i) => i.key === key), ...(body as object) });
+      return json({
+        ...issues.find((i) => i.key === key),
+        ...(body as object),
+      });
     }
     return json({});
   }) as typeof fetch;
   return calls;
 });
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { routes } from "./routes";
@@ -71,6 +140,18 @@ function renderAt(path: string) {
 afterEach(() => {
   cleanup();
   calls.length = 0;
+});
+
+describe("ProjectsPage", () => {
+  it("shows in-progress issues in their own summary card", async () => {
+    renderAt("/projects");
+    const stats = await screen.findByRole("region", { name: "项目" });
+    await within(stats).findByText("3");
+    const cards = stats.querySelectorAll(".xc-stat");
+    expect(cards).toHaveLength(5);
+    const inProgress = within(stats).getByText("进行中").closest(".xc-stat");
+    expect(inProgress?.querySelector(".xc-stat-value")?.textContent).toBe("1");
+  });
 });
 
 describe("ProjectPage", () => {
@@ -95,14 +176,18 @@ describe("ProjectPage", () => {
     fireEvent.keyDown(document.body, { key: "j" });
     fireEvent.keyDown(document.body, { key: "j" });
     fireEvent.keyDown(document.body, { key: "Enter" });
-    await waitFor(() => expect(router.state.location.pathname).toBe("/projects/XC/2"));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/projects/XC/2"),
+    );
   });
 
   it("opens the new issue dialog with C", async () => {
     renderAt("/projects/XC");
     await screen.findByText("Issue 1");
     fireEvent.keyDown(document.body, { key: "c" });
-    expect(await screen.findByRole("dialog", { name: "新建 Issue" })).toBeTruthy();
+    expect(
+      await screen.findByRole("dialog", { name: "新建 Issue" }),
+    ).toBeTruthy();
   });
 });
 
@@ -110,7 +195,8 @@ describe("Board drag and drop", () => {
   it("moves a card below another one, optimistically", async () => {
     renderAt("/projects/XC");
     await screen.findByText("Issue 1");
-    const card = (key: string) => document.querySelector(`[data-issue-key="${key}"]`)!;
+    const card = (key: string) =>
+      document.querySelector(`[data-issue-key="${key}"]`)!;
     const data = new Map<string, string>();
     const dataTransfer = {
       setData: (k: string, v: string) => data.set(k, v),
@@ -130,7 +216,9 @@ describe("Board drag and drop", () => {
       }),
     );
     const todo = [...document.querySelectorAll(".projects-lane")][1];
-    const order = [...todo.querySelectorAll("[data-issue-key]")].map((el) => el.getAttribute("data-issue-key"));
+    const order = [...todo.querySelectorAll("[data-issue-key]")].map((el) =>
+      el.getAttribute("data-issue-key"),
+    );
     expect(order).toEqual(["XC-2", "XC-1"]);
   });
 });
@@ -138,19 +226,27 @@ describe("Board drag and drop", () => {
 describe("IssuePage", () => {
   it("shows the issue, a coding link, and edits with the keyboard", async () => {
     renderAt("/projects/XC/1");
-    expect(await screen.findByRole("heading", { name: "Issue 1" })).toBeTruthy();
-    const coding = screen.getByRole("link", { name: /交给 Agent/ }) as HTMLAnchorElement;
+    expect(
+      await screen.findByRole("heading", { name: "Issue 1" }),
+    ).toBeTruthy();
+    const coding = screen.getByRole("link", {
+      name: /交给 Agent/,
+    }) as HTMLAnchorElement;
     expect(coding.getAttribute("href")).toBe("/coding?new=1&issue=XC-1");
     fireEvent.keyDown(document.body, { key: "4" });
     await waitFor(() =>
-      expect(calls.find((c) => c.method === "PATCH")).toMatchObject({ body: { status: "in_review" } }),
+      expect(calls.find((c) => c.method === "PATCH")).toMatchObject({
+        body: { status: "in_review" },
+      }),
     );
     fireEvent.keyDown(document.body, { key: "e" });
     const input = (await screen.findByLabelText("标题")) as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Renamed" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>
-      expect(calls.filter((c) => c.method === "PATCH").at(-1)).toMatchObject({ body: { title: "Renamed" } }),
+      expect(calls.filter((c) => c.method === "PATCH").at(-1)).toMatchObject({
+        body: { title: "Renamed" },
+      }),
     );
   });
 });

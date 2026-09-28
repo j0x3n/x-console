@@ -103,7 +103,11 @@ function HomeStats() {
   const sensors = states.filter((s) => domain(s.entityId) === "sensor").length;
   return (
     <StatStrip label={t("Smart home")}>
-      <StatCard label={t("Devices")} value={states.length} foot={`${unavailable} ${t("unavailable")}`}>
+      <StatCard
+        label={t("Devices")}
+        value={states.length}
+        foot={`${unavailable} ${t("unavailable")}`}
+      >
         <Segments
           parts={[
             { value: states.length - unavailable, tone: "ok" },
@@ -124,7 +128,11 @@ function HomeStats() {
         value={switchesOn}
         foot={`${sensors} ${t("sensors")}`}
       />
-      <StatCard label={t("Favorites")} value={favorites.length} foot={t("Quick controls")} />
+      <StatCard
+        label={t("Favorites")}
+        value={favorites.length}
+        foot={t("Quick controls")}
+      />
     </StatStrip>
   );
 }
@@ -132,7 +140,10 @@ function HomeStats() {
 function StatusBadge({ status }: { status: HAStatus }) {
   const t = useT();
   return status.connected ? (
-    <span className="xc-badge ok" title={`Home Assistant ${status.version ?? ""}`}>
+    <span
+      className="xc-badge ok"
+      title={`Home Assistant ${status.version ?? ""}`}
+    >
       <span className="xc-dot ok" /> {t("Connected")}
     </span>
   ) : (
@@ -163,11 +174,10 @@ function OfflineNotice({ status }: { status: HAStatus }) {
 function SetupGuide() {
   const t = useT();
   return (
-    <EmptyState
-      title={t("Connect Home Assistant")}
-      icon={<House size={28} />}
-    >
-      <span>填好 Home Assistant 的地址和长期访问令牌，就能在这里控制家里的设备。</span>
+    <EmptyState title={t("Connect Home Assistant")} icon={<House size={28} />}>
+      <span>
+        填好 Home Assistant 的地址和长期访问令牌，就能在这里控制家里的设备。
+      </span>
       <Link className="xc-btn small primary" to="/settings/homeassistant">
         <Settings size={14} /> {t("Go to settings")}
       </Link>

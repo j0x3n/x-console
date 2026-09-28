@@ -93,9 +93,9 @@ client.HandleStream(protocol.MethodPTYOpen, func(ctx context.Context, raw json.R
 代理主动上报，没有 id，不需要回复。
 
 ```go
-// 代理端，连上后每 10 秒推一次
+// 代理端，默认每 30 秒推概要；收到 metrics.detail {on:true} 后每 5 秒推详情
 client.OnConnect(func(ctx context.Context) {
-    t := time.NewTicker(10 * time.Second)
+    t := time.NewTicker(30 * time.Second)
     for { select { case <-ctx.Done(): return; case <-t.C: client.Emit(ctx, protocol.EventMetrics, sample()) } }
 })
 
@@ -104,6 +104,8 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 ```
 
 事件处理函数在连接的读循环里执行，必须很快返回。耗时的工作丢到 channel 里异步处理。
+
+`metrics.detail` 是服务端发给代理的请求。参数为 `{ "on": true }` 或 `{ "on": false }`。详情指标包含每块磁盘和每张非回环网卡的速率。服务端在最后一个详情订阅者离开 60 秒后关闭详情模式。代理重连后先上报概要，服务端会按当前订阅状态重新开启详情。
 
 ## 能力
 

@@ -15,12 +15,15 @@ const tabs = [
 export default function CalendarShell() {
   const t = useT();
   const language = useLanguage();
-  const today = new Date().toLocaleDateString(language === "zh" ? "zh-CN" : "en", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  });
+  const today = new Date().toLocaleDateString(
+    language === "zh" ? "zh-CN" : "en",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "long",
+    },
+  );
   return (
     <div className="xc-page calendar-page">
       <PageHeading title={t("Calendar")} subtitle={today} />

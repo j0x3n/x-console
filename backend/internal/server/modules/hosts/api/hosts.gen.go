@@ -390,6 +390,32 @@ type HostDetail struct {
 // HostKind defines model for HostKind.
 type HostKind string
 
+// HostListItem defines model for HostListItem.
+type HostListItem struct {
+	ActiveAlerts int              `json:"activeAlerts"`
+	Cpu          *float64         `json:"cpu,omitempty"`
+	Disk         *float64         `json:"disk,omitempty"`
+	Hostname     string           `json:"hostname"`
+	Id           string           `json:"id"`
+	Kind         HostKind         `json:"kind"`
+	LastSeenAt   *time.Time       `json:"lastSeenAt,omitempty"`
+	Memory       *float64         `json:"memory,omitempty"`
+	Metrics      *HostListMetrics `json:"metrics,omitempty"`
+	Name         string           `json:"name"`
+	Online       bool             `json:"online"`
+	Os           string           `json:"os"`
+	Source       HostSource       `json:"source"`
+}
+
+// HostListMetrics defines model for HostListMetrics.
+type HostListMetrics struct {
+	At            time.Time `json:"at"`
+	Load1         float64   `json:"load1"`
+	NetRx         float64   `json:"netRx"`
+	NetTx         float64   `json:"netTx"`
+	UptimeSeconds int64     `json:"uptimeSeconds"`
+}
+
 // HostSource defines model for HostSource.
 type HostSource string
 
@@ -422,13 +448,14 @@ type MetricsSample struct {
 	DiskRead float64 `json:"diskRead"`
 
 	// DiskWrite 字节/秒
-	DiskWrite float64     `json:"diskWrite"`
-	Disks     []DiskUsage `json:"disks"`
-	Load1     float64     `json:"load1"`
-	Load15    float64     `json:"load15"`
-	Load5     float64     `json:"load5"`
-	MemTotal  int64       `json:"memTotal"`
-	MemUsed   int64       `json:"memUsed"`
+	DiskWrite     float64         `json:"diskWrite"`
+	Disks         []DiskUsage     `json:"disks"`
+	Load1         float64         `json:"load1"`
+	Load15        float64         `json:"load15"`
+	Load5         float64         `json:"load5"`
+	MemTotal      int64           `json:"memTotal"`
+	MemUsed       int64           `json:"memUsed"`
+	NetInterfaces *[]NetInterface `json:"netInterfaces,omitempty"`
 
 	// NetRx 字节/秒
 	NetRx float64 `json:"netRx"`
@@ -446,6 +473,17 @@ type MetricsSeries struct {
 	Points      []MetricsPoint `json:"points"`
 	Range       string         `json:"range"`
 	StepSeconds int            `json:"stepSeconds"`
+}
+
+// NetInterface defines model for NetInterface.
+type NetInterface struct {
+	Name string `json:"name"`
+
+	// Rx 字节/秒
+	Rx float64 `json:"rx"`
+
+	// Tx 字节/秒
+	Tx float64 `json:"tx"`
 }
 
 // OpenRequest defines model for OpenRequest.

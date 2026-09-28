@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
+import { useInvalidate } from "../../api/useInvalidate";
 import type { components, paths } from "../../api/gen/reminders";
 
 export const remindersApi = createApi<paths>();
@@ -40,11 +41,6 @@ export function useReminders(range: ReminderRange) {
       unwrap(remindersApi.GET("/reminders", { params: { query: { range } } })),
     select: (data) => data.items,
   });
-}
-
-function useInvalidate(key: readonly unknown[]) {
-  const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: key });
 }
 
 export function useCreateReminder() {

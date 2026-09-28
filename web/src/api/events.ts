@@ -19,6 +19,32 @@ export interface ServerEvent<T = unknown> {
 type Listener = (event: ServerEvent) => void;
 const listeners = new Set<Listener>();
 const invalidations: Array<[string, QueryKey]> = [];
+const topics = new Map<string, number>();
+let activeSocket: WebSocket | null = null;
+
+function sendControl(message: object) {
+  if (activeSocket?.readyState === WebSocket.OPEN)
+    activeSocket.send(JSON.stringify(message));
+}
+
+function sendTopics() {
+  sendControl({ type: "subscribe", topics: [...topics.keys()] });
+}
+
+/** 组件挂载期间订阅高频主题，离开时释放。 */
+export function useEventTopic(topic: string) {
+  useEffect(() => {
+    if (!topic) return;
+    topics.set(topic, (topics.get(topic) ?? 0) + 1);
+    sendTopics();
+    return () => {
+      const count = (topics.get(topic) ?? 1) - 1;
+      if (count > 0) topics.set(topic, count);
+      else topics.delete(topic);
+      sendTopics();
+    };
+  }, [topic]);
+}
 
 export function onServerEvent(fn: Listener) {
   listeners.add(fn);
@@ -61,9 +87,22 @@ const backgroundSkip: Array<[string, QueryKey]> = [
 const skipped = new Set<string>();
 if (typeof document !== "undefined")
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden || skipped.size === 0) return;
+    sendControl({ type: document.hidden ? "pause" : "resume" });
+    if (document.hidden) return;
     for (const [prefix, key] of backgroundSkip)
-      if (skipped.has(prefix)) queryClient.invalidateQueries({ queryKey: key });
+      if (
+        skipped.has(prefix) ||
+        (prefix === "host.metrics"
+          ? [...topics.keys()].some((topic) => topic.startsWith("host.metrics"))
+          : topics.has("ha."))
+      )
+        queryClient.invalidateQueries({ queryKey: key });
+    if (
+      [...topics.keys()].some((topic) =>
+        topic.startsWith("coding_task.output:"),
+      )
+    )
+      queryClient.invalidateQueries({ queryKey: ["coding", "events"] });
     skipped.clear();
   });
 
@@ -97,6 +136,9 @@ export function useServerEvents() {
     const connect = () => {
       socket = new WebSocket(wsUrl("/events"));
       socket.onopen = () => {
+        activeSocket = socket;
+        sendTopics();
+        if (document.hidden) sendControl({ type: "pause" });
         delay = 1000;
         useEventConnection.getState().setConnected(true);
         // 断线期间可能漏了事件，重连后整体刷新一次。
@@ -110,6 +152,7 @@ export function useServerEvents() {
         }
       };
       socket.onclose = () => {
+        if (activeSocket === socket) activeSocket = null;
         useEventConnection.getState().setConnected(false);
         if (stopped) return;
         timer = window.setTimeout(connect, delay);
@@ -121,6 +164,7 @@ export function useServerEvents() {
       stopped = true;
       window.clearTimeout(timer);
       socket?.close();
+      if (activeSocket === socket) activeSocket = null;
     };
   }, []);
 }

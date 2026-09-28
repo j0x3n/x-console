@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	rawCapacity     = 360 // one hour of 10 second samples
-	publishInterval = 9 * time.Second
+	rawCapacity     = 720 // one hour of 5 second detail samples
+	publishInterval = 4 * time.Second
 	keep1m          = 7 * 24 * time.Hour
 	keep1h          = 90 * 24 * time.Hour
 	keepAlerts      = 90 * 24 * time.Hour
@@ -40,7 +40,7 @@ func newMetricStore(capacity int) *metricStore {
 }
 
 // add stores a sample and reports whether it should be pushed to browsers
-// (at most one host.metrics event per host every ~10 seconds).
+// (at most one host.metrics event per host every 4 seconds).
 func (s *metricStore) add(id string, x protocol.MetricsSample) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -123,7 +123,7 @@ type hostMetricsEvent struct {
 	Sample api.MetricsSample `json:"sample"`
 }
 
-// recordSample stores a sample (agents every 10s, SSH hosts every minute)
+// recordSample stores a sample (agents every 5s or 30s, SSH every minute)
 // and publishes host.metrics when due.
 func (m *Module) recordSample(hostID string, x protocol.MetricsSample) {
 	if x.At.IsZero() {
@@ -155,12 +155,20 @@ func toAPISample(x protocol.MetricsSample) api.MetricsSample {
 	if cores == nil {
 		cores = []float64{}
 	}
-	return api.MetricsSample{
+	out := api.MetricsSample{
 		At: x.At, Cpu: x.CPU, CpuPerCore: cores, MemUsed: int64(x.MemUsed), MemTotal: int64(x.MemTotal),
 		SwapUsed: int64(x.SwapUsed), SwapTotal: int64(x.SwapTotal), Disks: disks, NetRx: x.NetRxRate, NetTx: x.NetTxRate,
 		DiskRead: x.DiskReadRate, DiskWrite: x.DiskWriteRate, Load1: x.Load1, Load5: x.Load5, Load15: x.Load15,
 		UptimeSeconds: int64(x.UptimeSeconds), Procs: x.Procs,
 	}
+	if len(x.NetInterfaces) > 0 {
+		interfaces := make([]api.NetInterface, 0, len(x.NetInterfaces))
+		for _, nic := range x.NetInterfaces {
+			interfaces = append(interfaces, api.NetInterface{Name: nic.Name, Rx: nic.RxRate, Tx: nic.TxRate})
+		}
+		out.NetInterfaces = &interfaces
+	}
+	return out
 }
 
 func percent(used, total uint64) float64 {
@@ -330,11 +338,13 @@ func (m *Module) series(ctx context.Context, hostID, rng string) (api.MetricsSer
 	out := api.MetricsSeries{Range: rng, Points: []api.MetricsPoint{}}
 	switch rng {
 	case "", "1h":
-		out.Range, out.StepSeconds = "1h", 10
+		out.Range, out.StepSeconds = "1h", 5
 		xs := m.metrics.between(hostID, now.Add(-time.Hour), now.Add(time.Second))
 		if len(xs) >= 2 {
-			if len(xs) >= 2 && xs[1].At.Sub(xs[0].At) > 30*time.Second {
+			if gap := xs[len(xs)-1].At.Sub(xs[len(xs)-2].At); gap > 45*time.Second {
 				out.StepSeconds = 60 // SSH hosts are polled every minute
+			} else if gap > 20*time.Second {
+				out.StepSeconds = 30
 			}
 			for _, x := range xs {
 				out.Points = append(out.Points, pointFromSample(x))

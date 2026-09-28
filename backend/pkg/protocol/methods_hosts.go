@@ -4,8 +4,9 @@ import "time"
 
 // Methods and events of M2 servers / M3 this PC. See docs/specs/M2-M3.md.
 const (
-	// EventMetrics is pushed by the agent every 10 seconds. Params: MetricsSample.
-	EventMetrics = "metrics"
+	// EventMetrics is pushed by the agent every 30 seconds, or 5 seconds in detail mode.
+	EventMetrics        = "metrics"
+	MethodMetricsDetail = "metrics.detail" // MetricsDetailParams -> nil
 
 	MethodProcList = "proc.list" // ProcListParams -> ProcessList
 	MethodProcKill = "proc.kill" // ProcKillParams -> nil
@@ -34,6 +35,11 @@ const (
 	MethodAppOpen      = "app.open"      // AppOpenParams -> nil (desktop only)
 )
 
+// MetricsDetailParams enables detailed sampling while a host is viewed.
+type MetricsDetailParams struct {
+	On bool `json:"on"`
+}
+
 // CapOpen is announced by agents that implement MethodAppOpen (desktop only).
 const CapOpen = "open"
 
@@ -49,23 +55,45 @@ const FileChunkSize = 64 << 10
 
 // MetricsSample is one EventMetrics push.
 type MetricsSample struct {
+	At            time.Time      `json:"at"`
+	CPU           float64        `json:"cpu"` // percent of all cores
+	CPUPerCore    []float64      `json:"cpuPerCore"`
+	MemUsed       uint64         `json:"memUsed"`
+	MemTotal      uint64         `json:"memTotal"`
+	SwapUsed      uint64         `json:"swapUsed"`
+	SwapTotal     uint64         `json:"swapTotal"`
+	Disks         []DiskUsage    `json:"disks"`
+	NetRxRate     float64        `json:"netRx"` // bytes per second, all interfaces except loopback
+	NetTxRate     float64        `json:"netTx"`
+	NetInterfaces []NetInterface `json:"netInterfaces,omitempty"`
+	DiskReadRate  float64        `json:"diskRead"` // bytes per second
+	DiskWriteRate float64        `json:"diskWrite"`
+	Load1         float64        `json:"load1"`
+	Load5         float64        `json:"load5"`
+	Load15        float64        `json:"load15"`
+	UptimeSeconds uint64         `json:"uptimeSeconds"`
+	Procs         int            `json:"procs"`
+}
+
+// MetricsSummary is the small default metrics event sent when no detail is open.
+// Missing fields decode to zero in MetricsSample on the server.
+type MetricsSummary struct {
 	At            time.Time   `json:"at"`
-	CPU           float64     `json:"cpu"` // percent of all cores
-	CPUPerCore    []float64   `json:"cpuPerCore"`
+	CPU           float64     `json:"cpu"`
 	MemUsed       uint64      `json:"memUsed"`
 	MemTotal      uint64      `json:"memTotal"`
-	SwapUsed      uint64      `json:"swapUsed"`
-	SwapTotal     uint64      `json:"swapTotal"`
 	Disks         []DiskUsage `json:"disks"`
-	NetRxRate     float64     `json:"netRx"` // bytes per second, all interfaces except loopback
+	NetRxRate     float64     `json:"netRx"`
 	NetTxRate     float64     `json:"netTx"`
-	DiskReadRate  float64     `json:"diskRead"` // bytes per second
-	DiskWriteRate float64     `json:"diskWrite"`
 	Load1         float64     `json:"load1"`
-	Load5         float64     `json:"load5"`
-	Load15        float64     `json:"load15"`
 	UptimeSeconds uint64      `json:"uptimeSeconds"`
-	Procs         int         `json:"procs"`
+}
+
+// NetInterface is one non-loopback interface's receive and send rate.
+type NetInterface struct {
+	Name   string  `json:"name"`
+	RxRate float64 `json:"rx"`
+	TxRate float64 `json:"tx"`
 }
 
 // DiskUsage is one mounted file system.

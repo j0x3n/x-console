@@ -24,6 +24,7 @@ func decodeInput(raw json.RawMessage, v any) error {
 }
 
 func (m *Module) registerActions() {
+	m.registerExtraActions()
 	m.d.Actions.Register(actions.Action{
 		Name:        "reminders.list",
 		Title:       "查看提醒",

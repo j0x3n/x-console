@@ -35,6 +35,14 @@ registerCommands([
 
 export const routes: RouteObject[] = [
   { path: "servers", element: <ServersPage />, handle: { title: "Servers" } },
-  { path: "servers/:hostId", element: <HostDetailPage />, handle: { title: "Servers" } },
-  { path: "servers/:hostId/:tab", element: <HostDetailPage />, handle: { title: "Servers" } },
+  {
+    path: "servers/:hostId",
+    element: <HostDetailPage />,
+    handle: { title: "Servers" },
+  },
+  {
+    path: "servers/:hostId/:tab",
+    element: <HostDetailPage />,
+    handle: { title: "Servers" },
+  },
 ];

@@ -111,7 +111,7 @@ export default function CommandPalette({
   };
   return (
     <div
-      className="modal-backdrop"
+      className="modal-backdrop command-backdrop"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div

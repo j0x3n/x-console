@@ -31,7 +31,7 @@ func (m *Module) syncAll(ctx context.Context) error {
 		return err
 	}
 	for _, c := range cals {
-		if c.Enabled == 1 {
+		if c.Enabled == 1 && c.Kind != kindLocal {
 			if _, err := m.syncOne(ctx, c.ID); err != nil && ctx.Err() != nil {
 				return err
 			}
@@ -48,6 +48,9 @@ func (m *Module) syncOne(ctx context.Context, id int64) (db.Calendar, error) {
 	cal, err := m.q.GetCalendar(ctx, id)
 	if err != nil {
 		return cal, notFound(err)
+	}
+	if cal.Kind == kindLocal {
+		return cal, nil
 	}
 	events, fetchErr := m.fetch(ctx, cal)
 	if fetchErr == nil {
@@ -82,10 +85,11 @@ func (m *Module) replaceEvents(ctx context.Context, calendarID int64, events []p
 		if e.AllDay {
 			allDay = 1
 		}
-		if err := q.InsertCalendarEvent(ctx, db.InsertCalendarEventParams{
+		if _, err := q.InsertCalendarEvent(ctx, db.InsertCalendarEventParams{
 			CalendarID: calendarID, Uid: e.UID, Title: e.Title, StartsAt: e.Start, EndsAt: e.End, AllDay: allDay,
 			Tzid: e.TZID, Location: e.Location, Description: e.Description, Rrule: e.RRule,
 			Rdates: encodeTimes(e.RDates), Exdates: encodeTimes(e.ExDates), RecurrenceID: e.RecurrenceID,
+			Href: e.Href, Etag: e.ETag,
 		}); err != nil {
 			return err
 		}
@@ -233,6 +237,9 @@ func (m *Module) fetchCalDAV(ctx context.Context, rawURL, username, password str
 			events, err := parseICS(buf.Bytes())
 			if err != nil {
 				continue
+			}
+			for i := range events {
+				events[i].Href, events[i].ETag = o.Path, o.ETag
 			}
 			out = append(out, events...)
 		}

@@ -11,7 +11,9 @@ import { ensureElevated, type HostDetail } from "../api";
 type Status = "idle" | "connecting" | "open" | "closed";
 
 function cssVar(name: string, fallback: string) {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
   return v || fallback;
 }
 
@@ -66,7 +68,11 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
     term.current = xterm;
     fitRef.current = fit;
 
-    const ws = new WebSocket(wsUrl(`/hosts/${encodeURIComponent(host.id)}/terminal?cols=${xterm.cols}&rows=${xterm.rows}`));
+    const ws = new WebSocket(
+      wsUrl(
+        `/hosts/${encodeURIComponent(host.id)}/terminal?cols=${xterm.cols}&rows=${xterm.rows}`,
+      ),
+    );
     ws.binaryType = "arraybuffer";
     socket.current = ws;
     const encoder = new TextEncoder();
@@ -75,13 +81,19 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
       xterm.focus();
     };
     ws.onmessage = (event) => {
-      if (event.data instanceof ArrayBuffer) xterm.write(new Uint8Array(event.data));
+      if (event.data instanceof ArrayBuffer)
+        xterm.write(new Uint8Array(event.data));
     };
     ws.onclose = (event) => {
       if (socket.current !== ws) return;
       setStatus("closed");
-      const reason = event.reason && event.reason !== "terminal closed" ? `: ${event.reason}` : "";
-      xterm.write(`\r\n\x1b[90m[${t("Connection closed")}${reason}]\x1b[0m\r\n`);
+      const reason =
+        event.reason && event.reason !== "terminal closed"
+          ? `: ${event.reason}`
+          : "";
+      xterm.write(
+        `\r\n\x1b[90m[${t("Connection closed")}${reason}]\x1b[0m\r\n`,
+      );
     };
     xterm.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(encoder.encode(data));
@@ -92,7 +104,8 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
       ws.send(bytes);
     });
     xterm.onResize(({ cols, rows }) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "resize", cols, rows }));
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: "resize", cols, rows }));
     });
   }, [host.id, disconnect, t]);
 
@@ -119,24 +132,58 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
       <div className="xc-card-head">
         <h2>{t("Terminal")}</h2>
         <div className="xc-row">
-          <span className={`xc-badge ${status === "open" ? "ok" : status === "connecting" ? "info" : ""}`}>
-            {t(status === "open" ? "Connected" : status === "connecting" ? "Connecting" : status === "closed" ? "Disconnected" : "Not connected")}
+          <span
+            className={`xc-badge ${status === "open" ? "ok" : status === "connecting" ? "info" : ""}`}
+          >
+            {t(
+              status === "open"
+                ? "Connected"
+                : status === "connecting"
+                  ? "Connecting"
+                  : status === "closed"
+                    ? "Disconnected"
+                    : "Not connected",
+            )}
           </span>
           {status === "open" || status === "connecting" ? (
-            <button className="xc-btn small" onClick={() => { disconnect(); setStatus("closed"); }}>
+            <button
+              className="xc-btn small"
+              onClick={() => {
+                disconnect();
+                setStatus("closed");
+              }}
+            >
               {t("Disconnect")}
             </button>
           ) : (
-            <button className="xc-btn small primary" onClick={connect} disabled={!host.online}>
-              {status === "closed" ? <RotateCw size={13} /> : <Plug size={13} />} {t(status === "closed" ? "Reconnect" : "Connect")}
+            <button
+              className="xc-btn small primary"
+              onClick={connect}
+              disabled={!host.online}
+            >
+              {status === "closed" ? (
+                <RotateCw size={13} />
+              ) : (
+                <Plug size={13} />
+              )}{" "}
+              {t(status === "closed" ? "Reconnect" : "Connect")}
             </button>
           )}
         </div>
       </div>
       {error && <p className="xc-error-text">{error}</p>}
-      {!host.online && <p className="xc-muted">{t("The machine is offline.")}</p>}
-      {status === "idle" && <p className="xc-muted">{t("Opening a terminal needs your verification code.")}</p>}
-      <div className={`servers-terminal${status === "idle" ? " idle" : ""}`} ref={el} />
+      {!host.online && (
+        <p className="xc-muted">{t("The machine is offline.")}</p>
+      )}
+      {status === "idle" && (
+        <p className="xc-muted">
+          {t("Opening a terminal needs your verification code.")}
+        </p>
+      )}
+      <div
+        className={`servers-terminal${status === "idle" ? " idle" : ""}`}
+        ref={el}
+      />
     </div>
   );
 }

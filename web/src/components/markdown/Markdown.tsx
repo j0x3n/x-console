@@ -25,7 +25,9 @@ export default function Markdown({
   const blocks = useMemo(() => parseMarkdown(source), [source]);
   if (blocks.length === 0 && empty) return <>{empty}</>;
   const ctx: Ctx = { task: 0, onToggleTask, onImageClick };
-  return <div className={`xc-md ${className}`}>{renderBlocks(blocks, ctx)}</div>;
+  return (
+    <div className={`xc-md ${className}`}>{renderBlocks(blocks, ctx)}</div>
+  );
 }
 
 interface Ctx extends Options {
@@ -33,7 +35,9 @@ interface Ctx extends Options {
 }
 
 function renderBlocks(blocks: Block[], ctx: Ctx): ReactNode {
-  return blocks.map((block, i) => <Fragment key={i}>{renderBlock(block, ctx)}</Fragment>);
+  return blocks.map((block, i) => (
+    <Fragment key={i}>{renderBlock(block, ctx)}</Fragment>
+  ));
 }
 
 function renderBlock(block: Block, ctx: Ctx): ReactNode {
@@ -68,7 +72,11 @@ function renderBlock(block: Block, ctx: Ctx): ReactNode {
         return (
           <li
             key={i}
-            className={item.checked !== null ? `task${item.checked ? " done" : ""}` : undefined}
+            className={
+              item.checked !== null
+                ? `task${item.checked ? " done" : ""}`
+                : undefined
+            }
           >
             {item.checked !== null && (
               <input
@@ -114,7 +122,11 @@ function renderInline(nodes: Inline[], ctx: Ctx): ReactNode {
             src={node.src}
             alt={node.alt}
             loading="lazy"
-            onClick={ctx.onImageClick ? () => ctx.onImageClick!(node.src, node.alt) : undefined}
+            onClick={
+              ctx.onImageClick
+                ? () => ctx.onImageClick!(node.src, node.alt)
+                : undefined
+            }
           />
         );
       case "link":

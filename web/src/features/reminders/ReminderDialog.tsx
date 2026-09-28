@@ -4,11 +4,7 @@ import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
-import {
-  useCreateReminder,
-  useUpdateReminder,
-  type Reminder,
-} from "./api";
+import { useCreateReminder, useUpdateReminder, type Reminder } from "./api";
 import {
   buildRRule,
   defaultStart,
@@ -84,16 +80,31 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
     if (!title.trim()) return setError(t("Title is required"));
     if (!start) return setError(t("Pick a valid time"));
     if (preset === "custom" && (!rule || !isValidRule(rule)))
-      return setError(t("The RRULE looks wrong, for example FREQ=WEEKLY;BYDAY=MO"));
+      return setError(
+        t("The RRULE looks wrong, for example FREQ=WEEKLY;BYDAY=MO"),
+      );
     const at = start.toISOString();
     try {
       if (reminder) {
         await update.mutateAsync({
           id: reminder.id,
-          body: { title: title.trim(), at, rrule: rule, link: link.trim(), body, enabled },
+          body: {
+            title: title.trim(),
+            at,
+            rrule: rule,
+            link: link.trim(),
+            body,
+            enabled,
+          },
         });
       } else {
-        await create.mutateAsync({ title: title.trim(), at, rrule: rule, link: link.trim(), body });
+        await create.mutateAsync({
+          title: title.trim(),
+          at,
+          rrule: rule,
+          link: link.trim(),
+          body,
+        });
       }
       toast(t("Saved"));
       onClose();

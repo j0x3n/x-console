@@ -24,11 +24,11 @@ func TestRing(t *testing.T) {
 	if x, ok := s.latest("a"); !ok || x.CPU != 4 {
 		t.Fatalf("latest: %+v", x)
 	}
-	// Throttle: two samples 5s apart publish once.
-	if !s.add("b", protocol.MetricsSample{At: base}) || s.add("b", protocol.MetricsSample{At: base.Add(5 * time.Second)}) {
+	// Throttle: two samples 2s apart publish once.
+	if !s.add("b", protocol.MetricsSample{At: base}) || s.add("b", protocol.MetricsSample{At: base.Add(2 * time.Second)}) {
 		t.Fatal("throttle")
 	}
-	if !s.add("b", protocol.MetricsSample{At: base.Add(10 * time.Second)}) {
+	if !s.add("b", protocol.MetricsSample{At: base.Add(5 * time.Second)}) {
 		t.Fatal("publish after interval")
 	}
 }

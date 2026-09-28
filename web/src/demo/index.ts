@@ -81,7 +81,7 @@ class DemoXHR extends RealXHR {
   private demoText = "";
   open(method: string, url: string | URL, ...rest: unknown[]) {
     const u = new URL(String(url), location.href);
-    if (method === "POST" && u.pathname === `${API}/drive/upload`)
+    if (demoFull && method === "POST" && u.pathname === `${API}/drive/upload`)
       this.demoUrl = u;
     else (super.open as (...a: unknown[]) => void)(method, url, ...rest);
   }
@@ -130,7 +130,7 @@ function badge() {
   el.textContent = demoFull ? "演示数据：开" : "演示数据：关";
   el.title = demoFull
     ? "所有页面都在用假数据，页面上的改动只改假数据，刷新后复原。点一下换回真实数据。"
-    : "现在是真实数据。云盘、AI 助手、自动化、隐藏内容还没有后端，仍然是假的。点一下打开演示数据。";
+    : "现在是真实数据。AI 助手和自动化还没有后端，仍然是假的。点一下打开演示数据。";
   el.setAttribute(
     "style",
     "position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:60;padding:3px 10px;border-radius:999px;border:0;" +

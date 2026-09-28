@@ -83,6 +83,10 @@ WebSocket（终端、实时推送）不用额外配置，Caddy 会自动处理�
 
 代理程序在每次运行的 Artifacts 里下载：`x-console-agent-linux-amd64`、`x-console-agent-windows-amd64`。
 
+自动部署会把同版本的代理装到面板所在的 Linux 服务器。安装成功后，这台机器会自动出现在“服务器”页面。代理使用本机地址连接面板，不经过公网域名。部署用户需在 docker 组，主机需使用 systemd。安装失败只会在部署日志里警告，不会撤回已经就绪的面板。
+
+在设置 → 设备与代理里吊销这台机器后，代理会停止，后续部署不会把它重新加回来。要彻底卸载，在服务器部署目录的 `.env` 中设 `XC_LOCAL_AGENT=0`，再部署一次。此操作会停止服务，并删除代理程序、systemd 单元和配置。想重新加入，先设为 `0` 部署一次，再设为 `1` 部署一次。
+
 ### 镜像是私有的
 
 私有仓库推到 ghcr.io 的镜像默认也是私有的。自动部署时工作流会临时登录拉取镜像，不用你管。要在服务器上手动拉取，先用一个有 `read:packages` 权限的 GitHub 令牌 `docker login ghcr.io`。
@@ -114,6 +118,7 @@ docker compose up -d --build
 | `XC_DEBUG` | 空 | 设为 `1` 输出调试日志 |
 | `XC_IMAGE` | `ghcr.io/j0x3n/x-console:latest` | 仅 docker compose 使用，自动部署会写入具体版本 |
 | `XC_PORT` | `17380` | 仅 docker compose 使用，面板在服务器本机监听的端口 |
+| `XC_LOCAL_AGENT` | `1` | 自动安装并更新面板所在服务器的代理；设为 `0` 并部署一次可卸载 |
 | `COMPOSE_PROFILES` | 空 | 设为 `caddy` 时启动自带的 Caddy |
 
 ### 备份与回退

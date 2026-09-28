@@ -40,6 +40,7 @@ registerZh({
   Disks: "磁盘",
   Load: "负载",
   Network: "网络",
+  "Network interfaces": "网卡",
   Download: "下载",
   Received: "接收",
   Sent: "发送",
@@ -104,7 +105,8 @@ registerZh({
   "Not connected": "未连接",
   "Connection closed": "连接已断开",
   "The machine is offline.": "机器离线，暂时连不上。",
-  "Opening a terminal needs your verification code.": "打开终端前要再输一次验证码。",
+  "Opening a terminal needs your verification code.":
+    "打开终端前要再输一次验证码。",
   // 文件
   Up: "上一级",
   Drives: "所有盘",

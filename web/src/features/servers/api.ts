@@ -14,7 +14,7 @@ import { appendPoint, pointFromSample, withSample } from "./lib";
 export const hostsApi = createApi<paths>();
 
 type S = components["schemas"];
-export type Host = S["Host"];
+export type Host = S["HostListItem"];
 export type HostDetail = S["HostDetail"];
 export type HostKind = S["HostKind"];
 export type MetricsSample = S["MetricsSample"];
@@ -99,7 +99,9 @@ export function useHost(id: string) {
   return useQuery({
     queryKey: hostsKeys.detail(id),
     queryFn: () =>
-      unwrap(hostsApi.GET("/hosts/{hostId}", { params: { path: { hostId: id } } })),
+      unwrap(
+        hostsApi.GET("/hosts/{hostId}", { params: { path: { hostId: id } } }),
+      ),
   });
 }
 
@@ -216,7 +218,9 @@ export function useHostMutation<TVars, TData = unknown>(
  */
 export async function ensureElevated(): Promise<void> {
   const status = await unwrap(coreApi.GET("/auth/status"));
-  const until = status.elevatedUntil ? new Date(status.elevatedUntil).getTime() : 0;
+  const until = status.elevatedUntil
+    ? new Date(status.elevatedUntil).getTime()
+    : 0;
   if (until - Date.now() < 10_000) {
     throw new ApiError(403, "elevation_required", "需要再次验证");
   }

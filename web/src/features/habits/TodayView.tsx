@@ -282,7 +282,7 @@ function HabitCard({
               <Plus size={14} /> 1 {h.unit}
             </button>
           )}
-          {last && (
+          {last && last.source !== "workout" && (
             <button
               className="xc-btn ghost small"
               disabled={undo.isPending}

@@ -61,7 +61,9 @@ export default function GitHubPage() {
   let content;
   if (status.isPending) content = <Loading />;
   else if (status.isError)
-    content = <ErrorState error={status.error} onRetry={() => status.refetch()} />;
+    content = (
+      <ErrorState error={status.error} onRetry={() => status.refetch()} />
+    );
   else if (!configured) content = <SetupGuide />;
   else
     content = (
@@ -77,13 +79,22 @@ export default function GitHubPage() {
         )}
         <GitHubStats status={status.data} />
         <nav className="xc-tabs">
-          <button className={tab === "pulls" ? "active" : ""} onClick={() => setTab("pulls")}>
+          <button
+            className={tab === "pulls" ? "active" : ""}
+            onClick={() => setTab("pulls")}
+          >
             {t("Pull requests")}
           </button>
-          <button className={tab === "runs" ? "active" : ""} onClick={() => setTab("runs")}>
+          <button
+            className={tab === "runs" ? "active" : ""}
+            onClick={() => setTab("runs")}
+          >
             {t("CI runs")}
           </button>
-          <button className={tab === "issues" ? "active" : ""} onClick={() => setTab("issues")}>
+          <button
+            className={tab === "issues" ? "active" : ""}
+            onClick={() => setTab("issues")}
+          >
             {t("Issues")}
           </button>
         </nav>
@@ -118,7 +129,9 @@ function GitHubStats({ status }: { status: GitHubStatus }) {
   const failing = latest.filter((r) => runOutcome(r).tone === "danger").length;
   const passing = latest.filter((r) => runOutcome(r).tone === "ok").length;
   const approved = pulls.filter((p) => p.reviewState === "approved").length;
-  const waiting = pulls.filter((p) => p.reviewState === "pending" || p.reviewState === "none").length;
+  const waiting = pulls.filter(
+    (p) => p.reviewState === "pending" || p.reviewState === "none",
+  ).length;
   return (
     <StatStrip label={t("GitHub")}>
       <StatCard
@@ -141,7 +154,11 @@ function GitHubStats({ status }: { status: GitHubStatus }) {
         tone={failing ? "danger" : latest.length ? "ok" : undefined}
         foot={`${passing} ${t("passing")} · ${latest.length} ${t("workflows")}`}
       />
-      <StatCard label={t("Issues")} value={issues.length} foot={t("Open issues in watched repositories")} />
+      <StatCard
+        label={t("Issues")}
+        value={issues.length}
+        foot={t("Open issues in watched repositories")}
+      />
       <StatCard
         label={t("API quota")}
         value={status.rateLimitRemaining ?? "–"}
@@ -162,7 +179,8 @@ function SyncControl({ status }: { status: GitHubStatus }) {
         s.lastError
           ? toast({ message: s.lastError, tone: "error" })
           : toast(t("Synced")),
-      onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
+      onError: (error) =>
+        toast({ message: errorMessage(error), tone: "error" }),
     });
   return (
     <>
@@ -196,7 +214,9 @@ function SetupGuide() {
   const t = useT();
   return (
     <EmptyState title={t("Connect GitHub")} icon={<Github size={28} />}>
-      <span>填一个 GitHub 令牌和要关注的仓库，就能在这里看 PR、CI 和 Issue。</span>
+      <span>
+        填一个 GitHub 令牌和要关注的仓库，就能在这里看 PR、CI 和 Issue。
+      </span>
       <Link className="xc-btn small primary" to="/settings/github">
         <Settings size={14} /> {t("Go to settings")}
       </Link>
@@ -207,7 +227,11 @@ function SetupGuide() {
 function CheckIcon({ state }: { state: CheckState }) {
   const t = useT();
   const label = t(checkLabel[state]);
-  const props = { size: 15, "aria-label": label, className: `github-check ${checkTone(state)}` };
+  const props = {
+    size: 15,
+    "aria-label": label,
+    className: `github-check ${checkTone(state)}`,
+  };
   switch (state) {
     case "success":
       return <CircleCheck {...props} />;
@@ -220,7 +244,18 @@ function CheckIcon({ state }: { state: CheckState }) {
   }
 }
 
-function ListState({ query, empty }: { query: { isPending: boolean; isError: boolean; error: unknown; refetch: () => unknown }; empty: string }) {
+function ListState({
+  query,
+  empty,
+}: {
+  query: {
+    isPending: boolean;
+    isError: boolean;
+    error: unknown;
+    refetch: () => unknown;
+  };
+  empty: string;
+}) {
   const t = useT();
   if (query.isPending) return <Loading />;
   if (query.isError)
@@ -262,20 +297,32 @@ function PullRow({ pull }: { pull: GitHubPull }) {
     <li className="github-item">
       <CheckIcon state={pull.checkState} />
       <div className="github-item-main">
-        <a className="github-title" href={pull.url} target="_blank" rel="noreferrer">
+        <a
+          className="github-title"
+          href={pull.url}
+          target="_blank"
+          rel="noreferrer"
+        >
           {pull.title} <span className="xc-muted">#{pull.number}</span>
         </a>
         <div className="github-meta">
           <span>{pull.author}</span>
-          <span className="xc-mono github-branch" title={`${pull.headRef} → ${pull.baseRef}`}>
+          <span
+            className="xc-mono github-branch"
+            title={`${pull.headRef} → ${pull.baseRef}`}
+          >
             {pull.headRef} → {pull.baseRef}
           </span>
           <span>{relativeTime(pull.updatedAt, language)}</span>
         </div>
         <div className="github-badges">
           {pull.draft && <span className="xc-badge">{t("Draft")}</span>}
-          <span className={`xc-badge ${reviewTone(pull.reviewState)}`}>{t(reviewLabel[pull.reviewState])}</span>
-          <span className={`xc-badge ${checkTone(pull.checkState)}`}>{t(checkLabel[pull.checkState])}</span>
+          <span className={`xc-badge ${reviewTone(pull.reviewState)}`}>
+            {t(reviewLabel[pull.reviewState])}
+          </span>
+          <span className={`xc-badge ${checkTone(pull.checkState)}`}>
+            {t(checkLabel[pull.checkState])}
+          </span>
           {pull.issueKeys.map((key) => (
             <Link key={key} className="xc-badge accent" to={issuePath(key)}>
               {key}
@@ -283,7 +330,8 @@ function PullRow({ pull }: { pull: GitHubPull }) {
           ))}
           {pull.codingTaskId != null && (
             <Link className="xc-badge info" to={`/coding/${pull.codingTaskId}`}>
-              <Bot size={12} aria-hidden /> {t("Coding task")} #{pull.codingTaskId}
+              <Bot size={12} aria-hidden /> {t("Coding task")} #
+              {pull.codingTaskId}
             </Link>
           )}
         </div>
@@ -309,7 +357,13 @@ function RunsView() {
             {heads.map((r) => {
               const o = runOutcome(r);
               return (
-                <a key={r.id} className={`xc-badge ${o.tone}`} href={r.url} target="_blank" rel="noreferrer">
+                <a
+                  key={r.id}
+                  className={`xc-badge ${o.tone}`}
+                  href={r.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {r.repo} · {r.name} · {t(o.label)}
                 </a>
               );
@@ -348,7 +402,12 @@ function RunRow({ run }: { run: GitHubRun }) {
   return (
     <tr>
       <td>
-        <a href={run.url} target="_blank" rel="noreferrer" className="github-title">
+        <a
+          href={run.url}
+          target="_blank"
+          rel="noreferrer"
+          className="github-title"
+        >
           {run.name} <ExternalLink size={12} aria-hidden />
         </a>
         <div className="xc-muted github-small">{run.event}</div>
@@ -356,7 +415,9 @@ function RunRow({ run }: { run: GitHubRun }) {
       <td className="xc-mono">{run.repo}</td>
       <td className="xc-mono">
         {run.branch}
-        {run.defaultBranch && <span className="xc-badge github-inline">{t("default")}</span>}
+        {run.defaultBranch && (
+          <span className="xc-badge github-inline">{t("default")}</span>
+        )}
       </td>
       <td>
         <span className={`xc-badge ${o.tone}`}>{t(o.label)}</span>
@@ -391,7 +452,12 @@ function IssuesView() {
               <li className="github-item" key={is.number}>
                 <CircleDot size={15} className="github-check ok" aria-hidden />
                 <div className="github-item-main">
-                  <a className="github-title" href={is.url} target="_blank" rel="noreferrer">
+                  <a
+                    className="github-title"
+                    href={is.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {is.title} <span className="xc-muted">#{is.number}</span>
                   </a>
                   <div className="github-meta">
@@ -399,7 +465,9 @@ function IssuesView() {
                     <span>{relativeTime(is.updatedAt, language)}</span>
                   </div>
                   <div className="github-badges">
-                    <span className="xc-badge info">{t(relationLabel[is.relation])}</span>
+                    <span className="xc-badge info">
+                      {t(relationLabel[is.relation])}
+                    </span>
                     {is.labels.map((l) => (
                       <span className="xc-badge" key={l}>
                         {l}

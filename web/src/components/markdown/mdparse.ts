@@ -224,11 +224,14 @@ export function parseInline(text: string): Inline[] {
     } else if (m[9] !== undefined) {
       const href = safeHref(m[9]);
       const label = m[8] || m[9];
-      if (href)
-        push({ type: "link", href, children: parseInline(label) });
+      if (href) push({ type: "link", href, children: parseInline(label) });
       else push({ type: "text", text: label });
     } else if (m[10] !== undefined)
-      push({ type: "link", href: m[10], children: [{ type: "text", text: m[10] }] });
+      push({
+        type: "link",
+        href: m[10],
+        children: [{ type: "text", text: m[10] }],
+      });
   }
   if (last < text.length) push({ type: "text", text: text.slice(last) });
   return out;
@@ -263,10 +266,14 @@ export function toggleTask(source: string, index: number): string {
     const m = taskLineRe.exec(lines[i]);
     if (!m) continue;
     const original = lines[i];
-    lines[i] = m[1] + (m[2] === " " ? "x" : " ") + m[3] + original.slice(m[0].length);
+    lines[i] =
+      m[1] + (m[2] === " " ? "x" : " ") + m[3] + original.slice(m[0].length);
     const next = lines.join("\n");
     const after = taskStates(parseMarkdown(next));
-    if (after.length === before.length && after.every((c, k) => (k === index ? c !== before[k] : c === before[k])))
+    if (
+      after.length === before.length &&
+      after.every((c, k) => (k === index ? c !== before[k] : c === before[k]))
+    )
       return next;
     lines[i] = original;
   }

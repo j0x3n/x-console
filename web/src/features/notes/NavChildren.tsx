@@ -8,10 +8,9 @@ import { tagColor } from "./tagColor";
 export default function NotesNavChildren({ onNavigate }: NavChildrenProps) {
   const tags = useTags();
   const location = useLocation();
-  const current =
-    location.pathname.startsWith("/notes")
-      ? new URLSearchParams(location.search).get("tag")
-      : null;
+  const current = location.pathname.startsWith("/notes")
+    ? new URLSearchParams(location.search).get("tag")
+    : null;
   return (
     <NavChildLinks
       links={(tags.data ?? []).map((tc) => ({

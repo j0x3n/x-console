@@ -164,13 +164,18 @@ func TestHostListDetailAndMetrics(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 
-	var hosts []api.Host
+	var hosts []api.HostListItem
 	env.MustDo(http.MethodGet, "/hosts", nil, &hosts)
 	if len(hosts) != 1 || hosts[0].Id != id || !hosts[0].Online || hosts[0].Source != api.Agent || hosts[0].Metrics == nil {
 		t.Fatalf("hosts: %+v", hosts)
 	}
 	if *hosts[0].Cpu != 43 || *hosts[0].Memory != 50 || *hosts[0].Disk != 92 {
 		t.Fatalf("summary: cpu %v mem %v disk %v", *hosts[0].Cpu, *hosts[0].Memory, *hosts[0].Disk)
+	}
+	var raw []map[string]any
+	env.MustDo(http.MethodGet, "/hosts", nil, &raw)
+	if _, hasDetails := raw[0]["capabilities"]; hasDetails {
+		t.Fatal("list response includes detail fields")
 	}
 	env.MustDo(http.MethodGet, "/hosts?kind=desktop", nil, &hosts)
 	if len(hosts) != 0 {
@@ -185,7 +190,7 @@ func TestHostListDetailAndMetrics(t *testing.T) {
 
 	var s api.MetricsSeries
 	env.MustDo(http.MethodGet, "/hosts/"+id+"/metrics?range=1h", nil, &s)
-	if len(s.Points) != 2 || s.StepSeconds != 10 || s.Points[1].Cpu != 43 || s.Points[0].Disk != 92 {
+	if len(s.Points) != 2 || s.StepSeconds != 5 || s.Points[1].Cpu != 43 || s.Points[0].Disk != 92 {
 		t.Fatalf("1h series: %+v", s)
 	}
 	expectStatus(t, env, http.MethodGet, "/hosts/"+id+"/metrics?range=2d", nil, http.StatusBadRequest, "")

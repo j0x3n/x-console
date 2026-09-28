@@ -351,7 +351,7 @@ components:
         amount: { type: number, format: double }
         source:
           type: string
-          description: web、telegram、webpush、ha、ai、automation
+          description: web、telegram、webpush、ha、ai、automation、workout
         note: { type: string }
     HabitToday:
       type: object

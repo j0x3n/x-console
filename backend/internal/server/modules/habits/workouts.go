@@ -150,14 +150,63 @@ func (m *Module) logWorkout(ctx context.Context, in api.WorkoutLogInput, now tim
 		note = strings.TrimSpace(*in.Note)
 	}
 	raw, _ := json.Marshal(items)
-	row, err := m.q.CreateWorkoutLog(ctx, db.CreateWorkoutLogParams{
+	tx, err := m.d.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return db.WorkoutLog{}, err
+	}
+	defer tx.Rollback()
+	q := m.q.WithTx(tx)
+	row, err := q.CreateWorkoutLog(ctx, db.CreateWorkoutLogParams{
 		Date: date, PlanID: in.PlanId, Items: string(raw), DurationMinutes: int64(duration), Note: note, CreatedAt: now.UTC(),
 	})
-	m.d.Audit.Record(ctx, "workout.log", date, map[string]any{"minutes": duration}, err)
 	if err != nil {
 		return row, err
 	}
+	habits, err := q.ListActiveWorkoutHabits(ctx)
+	if err != nil {
+		return row, err
+	}
+	when := now.UTC()
+	if date != dateKey(now, m.d.Config.Location) {
+		d, _ := time.Parse(time.DateOnly, date)
+		when = time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, m.d.Config.Location).UTC()
+	}
+	type checkin struct {
+		habit db.Habit
+		log   db.HabitLog
+	}
+	checkins := make([]checkin, 0, len(habits))
+	for _, h := range habits {
+		log, err := q.CreateHabitLog(ctx, db.CreateHabitLogParams{
+			HabitID: h.ID, At: when, Amount: 1, Source: "workout", WorkoutLogID: &row.ID,
+		})
+		if err != nil {
+			return row, err
+		}
+		checkins = append(checkins, checkin{h, log})
+	}
+	if err := tx.Commit(); err != nil {
+		return row, err
+	}
+	m.d.Audit.Record(ctx, "workout.log", date, map[string]any{"minutes": duration}, nil)
 	m.d.Bus.Publish("workout.logged", workoutLogToAPI(row))
+	for _, item := range checkins {
+		p, err := m.progressOf(ctx, item.habit, now)
+		if err != nil {
+			m.d.Log.Warn("workout habit progress", "habit", item.habit.ID, "err", err)
+			continue
+		}
+		m.d.Bus.Publish("habit.checked_in", map[string]any{
+			"habitId": item.habit.ID, "name": item.habit.Name, "log": logToAPI(item.log),
+			"done": p.Done, "target": item.habit.DailyTarget, "source": "workout",
+		})
+		if date == dateKey(now, m.d.Config.Location) && p.Reached && p.Done-1 < item.habit.DailyTarget {
+			m.d.Bus.Publish("habit.goal_reached", map[string]any{
+				"habitId": item.habit.ID, "name": item.habit.Name, "done": p.Done,
+				"target": item.habit.DailyTarget, "streak": p.Streak,
+			})
+		}
+	}
 	return row, nil
 }
 
@@ -311,16 +360,35 @@ func (m *Module) CreateWorkoutLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) DeleteWorkoutLog(w http.ResponseWriter, r *http.Request, logID int64) {
-	n, err := m.q.DeleteWorkoutLog(r.Context(), logID)
-	if err == nil && n == 0 {
-		err = httpx.ErrNotFound
-	}
-	m.d.Audit.Record(r.Context(), "workout.log_delete", strconv.FormatInt(logID, 10), nil, err)
+	tx, err := m.d.DB.BeginTx(r.Context(), nil)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
+	defer tx.Rollback()
+	q := m.q.WithTx(tx)
+	checkins, err := q.DeleteWorkoutCheckins(r.Context(), &logID)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	n, err := q.DeleteWorkoutLog(r.Context(), logID)
+	if err == nil && n == 0 {
+		err = httpx.ErrNotFound
+	}
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	m.d.Audit.Record(r.Context(), "workout.log_delete", strconv.FormatInt(logID, 10), nil, nil)
 	m.d.Bus.Publish("workout.log_deleted", map[string]int64{"id": logID})
+	for _, item := range checkins {
+		m.d.Bus.Publish("habit.log_deleted", map[string]int64{"habitId": item.HabitID, "logId": item.ID})
+	}
 	httpx.NoContent(w)
 }
 

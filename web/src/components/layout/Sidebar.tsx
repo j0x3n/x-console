@@ -113,7 +113,10 @@ export default function Sidebar({
                       onClick={() => {
                         // 从别的页面点过来时展开；已经在这一页、已经展开时再点一下收起。
                         if (Children)
-                          setItemOpen(item.path, !(isOpen && atRoot(item.path)));
+                          setItemOpen(
+                            item.path,
+                            !(isOpen && atRoot(item.path)),
+                          );
                         setMobileOpen(false);
                       }}
                       className={({ isActive }) =>

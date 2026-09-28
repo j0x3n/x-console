@@ -88,9 +88,7 @@ export default function Topbar({
             </span>
           </>
         )}
-        {status && (
-          <span className={`xc-dot ${status}`} title={statusLabel} />
-        )}
+        {status && <span className={`xc-dot ${status}`} title={statusLabel} />}
         {!connected && (
           <span
             className="xc-dot warn breadcrumb-offline"

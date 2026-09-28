@@ -20,18 +20,20 @@ import (
 
 func (m *Module) toAPI(ctx context.Context, c db.Calendar) api.Calendar {
 	count, _ := m.q.CountCalendarEvents(ctx, c.ID)
+	writable := c.Kind == kindLocal || c.Kind == kindCalDAV
 	return api.Calendar{
 		Id: c.ID, Name: c.Name, Kind: api.CalendarKind(c.Kind), Url: c.Url, Username: c.Username,
 		HasPassword: c.Secret != "", Color: c.Color, Enabled: c.Enabled == 1, LastSyncedAt: c.LastSyncedAt,
-		LastError: c.LastError, EventCount: int(count), CreatedAt: c.CreatedAt,
+		LastError: c.LastError, EventCount: int(count), CreatedAt: c.CreatedAt, Writable: &writable,
 	}
 }
 
 func occurrenceToAPI(o occurrence) api.CalendarEvent {
+	writable := (o.row.CalendarKind == kindLocal || o.row.CalendarKind == kindCalDAV) && !o.recurring && o.row.Rrule == "" && o.row.RecurrenceID == nil && o.row.Rdates == "[]"
 	ev := api.CalendarEvent{
 		Id: eventKey(o), EventId: o.row.ID, CalendarId: o.row.CalendarID, Calendar: o.row.CalendarName,
 		Color: o.row.CalendarColor, Title: o.row.Title, Start: o.start, End: o.end, AllDay: o.row.AllDay == 1,
-		Location: o.row.Location, Description: o.row.Description, Recurring: o.recurring,
+		Location: o.row.Location, Description: o.row.Description, Recurring: o.recurring, Writable: &writable,
 	}
 	if ev.AllDay {
 		s, e := o.start.Format(time.DateOnly), o.end.Format(time.DateOnly)
@@ -102,19 +104,19 @@ func boolInt(b bool) int64 {
 // ---- business methods ----
 
 func (m *Module) create(ctx context.Context, in api.CalendarInput) (db.Calendar, error) {
-	if in.Kind == "local" {
-		return db.Calendar{}, httpx.NewError(http.StatusNotImplemented, "not_ready", "本地日历还没上线")
-	}
-	if in.Kind != kindICS && in.Kind != kindCalDAV {
-		return db.Calendar{}, httpx.Invalid("类型只能是 ics 或 caldav")
+	if in.Kind != kindLocal && in.Kind != kindICS && in.Kind != kindCalDAV {
+		return db.Calendar{}, httpx.Invalid("类型只能是 local、ics 或 caldav")
 	}
 	name, err := cleanName(in.Name)
 	if err != nil {
 		return db.Calendar{}, err
 	}
-	u, err := cleanURL(string(in.Kind), in.Url)
-	if err != nil {
-		return db.Calendar{}, err
+	u := ""
+	if in.Kind != kindLocal {
+		u, err = cleanURL(string(in.Kind), in.Url)
+		if err != nil {
+			return db.Calendar{}, err
+		}
 	}
 	color, err := cleanColor(deref(in.Color))
 	if err != nil {
@@ -148,7 +150,9 @@ func (m *Module) update(ctx context.Context, id int64, p api.CalendarPatch) (row
 		}
 	}
 	if p.Url != nil {
-		if next.Url, err = cleanURL(cur.Kind, *p.Url); err != nil {
+		if cur.Kind == kindLocal && strings.TrimSpace(*p.Url) == "" {
+			next.Url = ""
+		} else if next.Url, err = cleanURL(cur.Kind, *p.Url); err != nil {
 			return cur, false, err
 		}
 	}
@@ -173,7 +177,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.CalendarPatch) (row
 	if err != nil {
 		return row, false, err
 	}
-	resync = next.Enabled == 1 && (next.Url != cur.Url || next.Username != cur.Username || p.Password != nil || cur.Enabled == 0)
+	resync = cur.Kind != kindLocal && next.Enabled == 1 && (next.Url != cur.Url || next.Username != cur.Username || p.Password != nil || cur.Enabled == 0)
 	return row, resync, nil
 }
 
@@ -213,7 +217,7 @@ func (m *Module) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 	}
 	out := m.toAPI(r.Context(), row)
 	m.d.Bus.Publish("calendar.created", out)
-	if row.Enabled == 1 {
+	if row.Enabled == 1 && row.Kind != kindLocal {
 		m.syncLater(row.ID)
 	}
 	httpx.JSON(w, http.StatusCreated, out)
@@ -329,19 +333,4 @@ func (m *Module) actionEvents(ctx context.Context, raw json.RawMessage) (any, er
 		to = from.AddDate(0, 0, 1)
 	}
 	return m.events(ctx, from, to)
-}
-
-// 新建和修改事件还没做完（本地日历、CalDAV 写回），先回 501，前端显示“还没上线”。
-var errEventsNotReady = httpx.NewError(http.StatusNotImplemented, "not_ready", "新建和修改日程还没上线")
-
-func (m *Module) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, errEventsNotReady)
-}
-
-func (m *Module) UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, _ int64) {
-	httpx.Fail(w, r, errEventsNotReady)
-}
-
-func (m *Module) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request, _ int64) {
-	httpx.Fail(w, r, errEventsNotReady)
 }

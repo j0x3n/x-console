@@ -23,6 +23,32 @@ type Agent struct {
 	RevokedAt    *time.Time
 }
 
+type AiConversation struct {
+	ID        int64
+	Title     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type AiMessage struct {
+	ID             int64
+	ConversationID int64
+	Seq            int64
+	Role           string
+	Content        string
+	CreatedAt      time.Time
+}
+
+type AiPendingAction struct {
+	ID             int64
+	ConversationID int64
+	ToolUseID      string
+	Action         string
+	Input          string
+	Status         string
+	Result         *string
+}
+
 type AlertEvent struct {
 	ID         int64
 	RuleID     *int64
@@ -56,6 +82,31 @@ type AuditLog struct {
 	Target string
 	Detail string
 	Result string
+}
+
+type Automation struct {
+	ID               int64
+	Name             string
+	Enabled          int64
+	Trigger          string
+	Conditions       string
+	Actions          string
+	CooldownSeconds  int64
+	Authorized       int64
+	WebhookTokenHash *string
+	WebhookTokenEnc  *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type AutomationRun struct {
+	ID           int64
+	AutomationID int64
+	StartedAt    time.Time
+	FinishedAt   *time.Time
+	TriggerData  string
+	Steps        string
+	Status       string
 }
 
 type Brief struct {
@@ -96,6 +147,8 @@ type CalendarEvent struct {
 	Rdates       string
 	Exdates      string
 	RecurrenceID *time.Time
+	Href         string
+	Etag         string
 }
 
 type CodingRepo struct {
@@ -139,6 +192,31 @@ type CodingTaskEvent struct {
 	Kind   string
 	Text   string
 	Data   string
+}
+
+type DriveItem struct {
+	ID         int64
+	ParentID   *int64
+	Name       string
+	IsDir      int64
+	Size       int64
+	Mime       string
+	Sha256     string
+	Hidden     int64
+	HiddenFrom *int64
+	TrashedAt  *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	S3SyncedAt *time.Time
+	S3Etag     *string
+	S3Error    *string
+	S3Key      *string
+	S3Hash     *string
+}
+
+type DriveS3Deletion struct {
+	Key       string
+	CreatedAt time.Time
 }
 
 type FocusSession struct {
@@ -239,15 +317,17 @@ type Habit struct {
 	CreatedAt             time.Time
 	LastRemindedAt        *time.Time
 	QuietUntil            *time.Time
+	Kind                  string
 }
 
 type HabitLog struct {
-	ID      int64
-	HabitID int64
-	At      time.Time
-	Amount  float64
-	Source  string
-	Note    string
+	ID           int64
+	HabitID      int64
+	At           time.Time
+	Amount       float64
+	Source       string
+	Note         string
+	WorkoutLogID *int64
 }
 
 type HostMetrics1h struct {

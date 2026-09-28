@@ -45,9 +45,16 @@ interface ViewPrefs {
 const PREFS_KEY = "projects.view";
 
 function loadPrefs(): ViewPrefs {
-  const fallback: ViewPrefs = { view: "board", groupBy: "status", sort: "manual" };
+  const fallback: ViewPrefs = {
+    view: "board",
+    groupBy: "status",
+    sort: "manual",
+  };
   try {
-    return { ...fallback, ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") };
+    return {
+      ...fallback,
+      ...JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}"),
+    };
   } catch {
     return fallback;
   }
@@ -101,7 +108,10 @@ export default function ProjectPage() {
     [visible, prefs],
   );
   // J/K 按屏幕上的顺序移动。
-  const order = useMemo(() => groups.flatMap((g) => g.issues.map((i) => i.key)), [groups]);
+  const order = useMemo(
+    () => groups.flatMap((g) => g.issues.map((i) => i.key)),
+    [groups],
+  );
 
   const selectedIssue = issues.data?.find((i) => i.key === selected);
   const open = (key: string) => navigate(issuePath(key));
@@ -123,7 +133,8 @@ export default function ProjectPage() {
         selected && !(event.target as HTMLElement).closest?.("[data-issue-key]")
           ? open(selected)
           : false,
-      e: () => (selected ? navigate(`${issuePath(selected)}?edit=title`) : false),
+      e: () =>
+        selected ? navigate(`${issuePath(selected)}?edit=title`) : false,
       escape: () => setSelected(null),
       ...Object.fromEntries(
         STATUSES.map((status, i) => [
@@ -131,7 +142,11 @@ export default function ProjectPage() {
           () => {
             if (!selectedIssue) return false;
             if (selectedIssue.status !== status)
-              update.mutate({ issue: selectedIssue, key: selectedIssue.key, body: { status } });
+              update.mutate({
+                issue: selectedIssue,
+                key: selectedIssue.key,
+                body: { status },
+              });
           },
         ]),
       ),
@@ -204,7 +219,9 @@ export default function ProjectPage() {
               className="xc-select projects-filter-select"
               value={prefs.groupBy}
               aria-label={t("Group by")}
-              onChange={(e) => changePrefs({ groupBy: e.target.value as GroupBy })}
+              onChange={(e) =>
+                changePrefs({ groupBy: e.target.value as GroupBy })
+              }
             >
               <option value="status">{t("Group by status")}</option>
               <option value="priority">{t("Group by priority")}</option>
@@ -224,7 +241,9 @@ export default function ProjectPage() {
           </>
         )}
         <span className="xc-spacer" />
-        <span className="xc-muted projects-hint">{t("C new · J/K move · Enter open · 1-6 status")}</span>
+        <span className="xc-muted projects-hint">
+          {t("C new · J/K move · Enter open · 1-6 status")}
+        </span>
       </div>
       <FilterBar
         filter={filter}
@@ -244,10 +263,17 @@ export default function ProjectPage() {
           onSelect={setSelected}
           onOpen={open}
           onAdd={(status) => setNewIssue(status)}
-          onMove={(key, plan) => move.mutate({ projectId: project.id, key, plan })}
+          onMove={(key, plan) =>
+            move.mutate({ projectId: project.id, key, plan })
+          }
         />
       ) : (
-        <IssueList groups={groups} selectedKey={selected} onSelect={setSelected} onOpen={open} />
+        <IssueList
+          groups={groups}
+          selectedKey={selected}
+          onSelect={setSelected}
+          onOpen={open}
+        />
       )}
       <NewIssueDialog
         open={newIssue !== null}
@@ -256,7 +282,11 @@ export default function ProjectPage() {
         status={newIssue ?? "todo"}
         onCreated={(issue) => setSelected(issue.key)}
       />
-      <ProjectDialog open={editOpen} onClose={() => setEditOpen(false)} project={project} />
+      <ProjectDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        project={project}
+      />
       <ProjectSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

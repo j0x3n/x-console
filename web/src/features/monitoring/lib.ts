@@ -16,7 +16,9 @@ import type {
 export type Tone = "ok" | "warn" | "danger" | "";
 
 /** 网站状态的颜色：挂了红色，失败过一次黄色。 */
-export function monitorTone(m: Pick<Monitor, "enabled" | "lastStatus" | "consecutiveFailures">): Tone {
+export function monitorTone(
+  m: Pick<Monitor, "enabled" | "lastStatus" | "consecutiveFailures">,
+): Tone {
   if (!m.enabled) return "";
   if (m.lastStatus === "down") return "danger";
   if (m.consecutiveFailures > 0) return "warn";
@@ -25,7 +27,10 @@ export function monitorTone(m: Pick<Monitor, "enabled" | "lastStatus" | "consecu
 }
 
 /** 证书剩 14 天内、域名剩 30 天内算快到期。 */
-export function expiryTone(kind: Monitor["kind"], daysLeft: number | undefined): Tone {
+export function expiryTone(
+  kind: Monitor["kind"],
+  daysLeft: number | undefined,
+): Tone {
   if (daysLeft === undefined) return "";
   if (daysLeft <= 0) return "danger";
   const soon = kind === "domain" ? 30 : 14;
@@ -44,9 +49,21 @@ export function renewalTone(daysLeft: number): Tone {
 
 /** 金额，保留两位小数，去掉多余的 0。 */
 export function formatMoney(amount: number, currency: string): string {
-  const text = amount.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
-  const symbol: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
-  return symbol[currency] ? `${symbol[currency]}${text}` : `${text} ${currency}`;
+  const text = amount
+    .toFixed(2)
+    .replace(/\.00$/, "")
+    .replace(/(\.\d)0$/, "$1");
+  const symbol: Record<string, string> = {
+    CNY: "¥",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    JPY: "¥",
+    HKD: "HK$",
+  };
+  return symbol[currency]
+    ? `${symbol[currency]}${text}`
+    : `${text} ${currency}`;
 }
 
 function parseDay(value: string): Date {
@@ -62,14 +79,22 @@ function formatDay(date: Date): string {
 export function addMonths(value: string, n: number): string {
   const date = parseDay(value);
   const day = date.getUTCDate();
-  const first = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + n, 1));
-  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  const first = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + n, 1),
+  );
+  const last = new Date(
+    Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0),
+  ).getUTCDate();
   first.setUTCDate(Math.min(day, last));
   return formatDay(first);
 }
 
 /** 下一个续费日：往后推一个周期。“已续费”按钮用它。 */
-export function nextRenewal(value: string, cycle: SubscriptionCycle, cycleDays: number): string {
+export function nextRenewal(
+  value: string,
+  cycle: SubscriptionCycle,
+  cycleDays: number,
+): string {
   if (cycle === "yearly") return addMonths(value, 12);
   if (cycle === "custom_days") {
     const date = parseDay(value);
@@ -97,7 +122,9 @@ export function parseRemindDays(text: string): number[] | null {
 
 /** 按下次续费日排序，已过期的排最前。 */
 export function sortSubscriptions(items: Subscription[]): Subscription[] {
-  return [...items].sort((a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name));
+  return [...items].sort(
+    (a, b) => a.daysLeft - b.daysLeft || a.name.localeCompare(b.name),
+  );
 }
 
 /** 运行结果的颜色。 */
@@ -161,17 +188,25 @@ export interface ContainerRow extends DockerContainer {
 }
 
 /** 把资源占用合进容器列表。运行中的排前面。 */
-export function mergeStats(containers: DockerContainer[], stats: DockerStats[] | undefined): ContainerRow[] {
+export function mergeStats(
+  containers: DockerContainer[],
+  stats: DockerStats[] | undefined,
+): ContainerRow[] {
   const byId = new Map((stats ?? []).map((s) => [s.id, s]));
   return containers
     .map((c) => ({ ...c, stats: byId.get(c.id) }))
-    .sort((a, b) => Number(b.state === "running") - Number(a.state === "running") || a.name.localeCompare(b.name));
+    .sort(
+      (a, b) =>
+        Number(b.state === "running") - Number(a.state === "running") ||
+        a.name.localeCompare(b.name),
+    );
 }
 
 /** 容器状态的颜色。 */
 export function containerTone(state: string): Tone {
   if (state === "running") return "ok";
-  if (state === "restarting" || state === "paused" || state === "created") return "warn";
+  if (state === "restarting" || state === "paused" || state === "created")
+    return "warn";
   if (state === "dead") return "danger";
   return "";
 }
@@ -180,7 +215,11 @@ export function containerTone(state: string): Tone {
 export function formatPorts(ports: DockerContainer["ports"]): string {
   const seen = new Set<string>();
   for (const p of ports) {
-    seen.add(p.publicPort ? `${p.publicPort}→${p.privatePort}/${p.type}` : `${p.privatePort}/${p.type}`);
+    seen.add(
+      p.publicPort
+        ? `${p.publicPort}→${p.privatePort}/${p.type}`
+        : `${p.privatePort}/${p.type}`,
+    );
   }
   return [...seen].join(", ");
 }
@@ -194,7 +233,11 @@ export interface LogBuffer {
 export const emptyLog: LogBuffer = { lines: [], partial: "" };
 
 /** 追加一段日志文本。只留最后 max 行，避免页面越来越慢。 */
-export function appendLog(buf: LogBuffer, chunk: string, max = 2000): LogBuffer {
+export function appendLog(
+  buf: LogBuffer,
+  chunk: string,
+  max = 2000,
+): LogBuffer {
   const parts = (buf.partial + chunk).replace(/\r\n/g, "\n").split("\n");
   const partial = parts.pop() ?? "";
   let lines = buf.lines.concat(parts);
@@ -204,5 +247,7 @@ export function appendLog(buf: LogBuffer, chunk: string, max = 2000): LogBuffer 
 
 /** 缓冲里的全部文本，用于显示。 */
 export function logText(buf: LogBuffer): string {
-  return buf.partial ? [...buf.lines, buf.partial].join("\n") : buf.lines.join("\n");
+  return buf.partial
+    ? [...buf.lines, buf.partial].join("\n")
+    : buf.lines.join("\n");
 }

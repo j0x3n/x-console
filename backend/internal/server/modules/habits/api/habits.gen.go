@@ -119,7 +119,7 @@ type HabitLog struct {
 	Id      int64     `json:"id"`
 	Note    string    `json:"note"`
 
-	// Source web、telegram、webpush、ha、ai、automation
+	// Source web、telegram、webpush、ha、ai、automation、workout
 	Source string `json:"source"`
 }
 

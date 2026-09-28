@@ -11,13 +11,25 @@ import {
 
 describe("wrapSelection", () => {
   it("wraps the selection and keeps it selected", () => {
-    expect(wrapSelection("hello world", 6, 11, "**")).toEqual({ text: "hello **world**", start: 8, end: 13 });
+    expect(wrapSelection("hello world", 6, 11, "**")).toEqual({
+      text: "hello **world**",
+      start: 8,
+      end: 13,
+    });
   });
   it("inserts a placeholder when nothing is selected", () => {
-    expect(wrapSelection("ab", 1, 1, "*", "*", "text")).toEqual({ text: "a*text*b", start: 2, end: 6 });
+    expect(wrapSelection("ab", 1, 1, "*", "*", "text")).toEqual({
+      text: "a*text*b",
+      start: 2,
+      end: 6,
+    });
   });
   it("removes the marks when they are already there", () => {
-    expect(wrapSelection("hello **world**", 8, 13, "**")).toEqual({ text: "hello world", start: 6, end: 11 });
+    expect(wrapSelection("hello **world**", 8, 13, "**")).toEqual({
+      text: "hello world",
+      start: 6,
+      end: 11,
+    });
   });
 });
 
@@ -49,7 +61,12 @@ describe("insertBlock", () => {
 
 describe("removeBlock", () => {
   it("undoes insertBlock without leaving blank lines", () => {
-    for (const [text, pos] of [["abc", 3], ["", 0], ["a\n\nb", 1], ["a\n\nb", 3]] as const) {
+    for (const [text, pos] of [
+      ["abc", 3],
+      ["", 0],
+      ["a\n\nb", 1],
+      ["a\n\nb", 3],
+    ] as const) {
       const inserted = insertBlock(text, pos, pos, "TOKEN").text;
       expect(removeBlock(inserted, "TOKEN")).toBe(text);
     }
@@ -78,8 +95,18 @@ describe("countWords", () => {
 
 describe("attachmentMarkdown", () => {
   it("uses image syntax for images but not svg", () => {
-    expect(attachmentMarkdown({ name: "a.png", mime: "image/png", url: "/x" })).toBe("![a.png](/x)");
-    expect(attachmentMarkdown({ name: "a.svg", mime: "image/svg+xml", url: "/x" })).toBe("[a.svg](/x)");
-    expect(attachmentMarkdown({ name: "r[1].pdf", mime: "application/pdf", url: "/y" })).toBe("[r1.pdf](/y)");
+    expect(
+      attachmentMarkdown({ name: "a.png", mime: "image/png", url: "/x" }),
+    ).toBe("![a.png](/x)");
+    expect(
+      attachmentMarkdown({ name: "a.svg", mime: "image/svg+xml", url: "/x" }),
+    ).toBe("[a.svg](/x)");
+    expect(
+      attachmentMarkdown({
+        name: "r[1].pdf",
+        mime: "application/pdf",
+        url: "/y",
+      }),
+    ).toBe("[r1.pdf](/y)");
   });
 });

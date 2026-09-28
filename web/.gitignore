@@ -3,3 +3,4 @@ dist/
 .vite/
 # npm run shots 的截图
 screenshots/
+e2e-artifacts/

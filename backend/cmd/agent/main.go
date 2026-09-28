@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -55,6 +56,9 @@ func main() {
 	}
 	if err != nil {
 		slog.Error("agent failed", "err", err)
+		if errors.Is(err, conn.ErrRevoked) {
+			os.Exit(3)
+		}
 		os.Exit(1)
 	}
 }
@@ -105,7 +109,7 @@ func register(c *conn.Client, cfg config.Config) {
 	c.Handle(protocol.MethodPing, sysinfo.Ping)
 	c.Handle(protocol.MethodSystemInfo, sysinfo.SystemInfo)
 	sysinfo.Info = metrics.SystemInfo                   // M2/M3: full system.info via gopsutil
-	metrics.Register(c)                                 // M2/M3: metrics event every 10s
+	metrics.Register(c)                                 // M2/M3: metrics event every 30s or 5s on demand
 	proc.Register(c)                                    // M2/M3
 	svc.Register(c)                                     // M2/M3
 	pty.Register(c)                                     // M2/M3

@@ -23,8 +23,11 @@ const arg = (name, fallback) => {
 };
 const BASE = arg("base", "http://127.0.0.1:5173");
 const ONLY = arg("only", "")?.split(",").filter(Boolean) ?? [];
+const REAL = args.includes("--real");
+const THEME = arg("theme", "");
+if (THEME && !["dark", "light"].includes(THEME)) throw new Error("theme 只能是 dark 或 light");
 const WIDTHS = arg("widths", "1360,390").split(",").map(Number);
-const OUT = join(import.meta.dirname, "..", "screenshots");
+const OUT = join(import.meta.dirname, "..", "screenshots", THEME || "");
 const USER = process.env.XC_SHOTS_USER ?? "demo";
 const PASSWORD = process.env.XC_SHOTS_PASSWORD ?? "demo-password-123";
 let totpSecret = process.env.XC_SHOTS_TOTP ?? "";
@@ -50,6 +53,10 @@ const browser = await chromium.launch(
 
 // ---- 登录（没有账号时先建一个）----
 const ctx = await browser.newContext({ viewport: { width: 1360, height: 860 } });
+if (REAL || THEME) await ctx.addInitScript(({ real, theme }) => {
+  if (real) localStorage.setItem("xc.demo.full", "off");
+  if (theme) localStorage.setItem("x-console-theme", theme);
+}, { real: REAL, theme: THEME });
 const page = await ctx.newPage();
 await page.goto(BASE);
 const status = await page.evaluate(() => fetch("/api/v1/auth/status").then((r) => r.json()));
@@ -58,9 +65,7 @@ if (status.setupRequired) {
   await page.getByLabel(/^密码/).fill(PASSWORD);
   await page.getByLabel("再输一次密码").fill(PASSWORD);
   await page.getByRole("button", { name: "下一步" }).click();
-  totpSecret = (await page.locator("code.xc-secret").textContent()).trim();
-  await page.getByLabel("验证码").fill(totp(totpSecret));
-  await page.getByRole("button", { name: "开启并进入" }).click();
+  await page.getByRole("button", { name: "跳过，以后再开" }).click();
 } else if (!status.authenticated) {
   await page.getByLabel("用户名").fill(USER);
   await page.getByLabel("密码").fill(PASSWORD);
@@ -101,6 +106,8 @@ const ids = await page.evaluate(async () => {
     for (const [title, hours] of [["交电费", 3], ["组会", 26], ["体检", 50]])
       await post("/reminders", { title, at: at(hours) });
     await post("/habits", { name: "跑步", unit: "次", dailyTarget: 1 });
+    await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
+    await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
   }
   const notes = (await get("/notes"))?.items ?? [];
   const hosts = (await get("/hosts")) ?? [];
@@ -130,6 +137,10 @@ const routes = [
   ["home", "/home"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
+  ["coding-repos", "/coding/repos"],
+  ["calendar-briefs", "/calendar/briefs"],
+  ["calendar-focus", "/calendar/focus"],
+  ["calendar-manage", "/calendar/calendars"],
   ["github", "/github"],
   ["settings", "/settings/general"],
   ["settings-security", "/settings/security"],
@@ -142,6 +153,10 @@ const problems = [];
 for (const width of WIDTHS) {
   mkdirSync(join(OUT, String(width)), { recursive: true });
   const c = await browser.newContext({ viewport: { width, height: 860 } });
+  if (REAL || THEME) await c.addInitScript(({ real, theme }) => {
+    if (real) localStorage.setItem("xc.demo.full", "off");
+    if (theme) localStorage.setItem("x-console-theme", theme);
+  }, { real: REAL, theme: THEME });
   await c.addCookies(cookies);
   const p = await c.newPage();
   let errors = [];

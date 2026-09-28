@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -21,6 +22,12 @@ func TestNetError(t *testing.T) {
 	_, err = http.Get("http://" + addr + "/")
 	if got := netError(err); got != "连接被拒绝" {
 		t.Fatalf("refused: %q", got)
+	}
+	if got := netError(&url.Error{Op: "Get", URL: "x", Err: syscall.Errno(10061)}); got != "连接被拒绝" {
+		t.Fatalf("windows refused: %q", got)
+	}
+	if got := netError(&url.Error{Op: "Get", URL: "x", Err: syscall.Errno(10054)}); got != "连接被重置" {
+		t.Fatalf("windows reset: %q", got)
 	}
 	if got := netError(&url.Error{Op: "Get", URL: "x", Err: &net.DNSError{Name: "nope.invalid"}}); got != "域名解析失败：nope.invalid" {
 		t.Fatalf("dns: %q", got)

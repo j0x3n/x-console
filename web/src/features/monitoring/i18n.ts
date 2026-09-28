@@ -32,11 +32,14 @@ registerZh({
   "Check every (seconds)": "检查间隔（秒）",
   "Timeout (ms)": "超时（毫秒）",
   "Please enter what to check": "请填写要检查的地址",
-  "The expiry date comes from RDAP. It is checked once a day.": "到期时间从 RDAP 查询，每天查一次。",
+  "The expiry date comes from RDAP. It is checked once a day.":
+    "到期时间从 RDAP 查询，每天查一次。",
   "Two failed checks in a row send an alert. You get another message when it is back.":
     "连续两次失败会发告警。恢复后会再通知你。",
-  "You get a reminder 14, 7 and 3 days before the certificate expires.": "证书到期前 14 天、7 天、3 天各提醒一次。",
-  "You get a reminder 30 and 7 days before the domain expires.": "域名到期前 30 天、7 天各提醒一次。",
+  "You get a reminder 14, 7 and 3 days before the certificate expires.":
+    "证书到期前 14 天、7 天、3 天各提醒一次。",
+  "You get a reminder 30 and 7 days before the domain expires.":
+    "域名到期前 30 天、7 天各提醒一次。",
   "No websites yet": "还没有网站监控",
   "Add a site and it is checked every minute.": "添加后每分钟检查一次。",
   "No certificates or domains yet": "还没有证书或域名监控",
@@ -81,14 +84,17 @@ registerZh({
   "Timeout (seconds)": "超时（秒）",
   "The script is empty": "脚本内容是空的",
   "Timeout must be 1 to 1800 seconds": "超时要在 1 到 1800 秒之间",
-  "bash and sh run on Linux. PowerShell runs on Windows.": "bash 和 sh 在 Linux 上运行。PowerShell 在 Windows 上运行。",
+  "bash and sh run on Linux. PowerShell runs on Windows.":
+    "bash 和 sh 在 Linux 上运行。PowerShell 在 Windows 上运行。",
   "No scripts yet": "还没有脚本",
-  "Save a script once. Run it on many machines at the same time.": "保存一次，就能在多台机器上同时运行。",
+  "Save a script once. Run it on many machines at the same time.":
+    "保存一次，就能在多台机器上同时运行。",
   "No machines yet": "还没有机器",
   "Run on these machines": "执行的机器",
   "Run on {n} machines": "在 {n} 台机器上执行",
   "Run started": "已开始运行",
-  "The machines run it at the same time. You need to verify first.": "选中的机器会同时运行。运行前要再次验证。",
+  "The machines run it at the same time. You need to verify first.":
+    "选中的机器会同时运行。运行前要再次验证。",
   "Run history": "运行记录",
   "Not run yet": "还没运行过",
   timeout: "超时",
@@ -116,7 +122,8 @@ registerZh({
   "Next renewal": "下次续费",
   "Remind days before": "提前几天提醒",
   "Renews automatically": "自动续费",
-  "The date moves to the next cycle by itself.": "到期后日期会自动顺延一个周期。",
+  "The date moves to the next cycle by itself.":
+    "到期后日期会自动顺延一个周期。",
   "auto renew": "自动续费",
   Link: "链接",
   Remark: "备注",
@@ -124,7 +131,8 @@ registerZh({
   "Please enter a name": "请填写名称",
   "Please enter the amount": "请填写金额",
   "Please pick the next renewal date": "请选择下次续费日期",
-  "Reminder days look wrong, for example 7, 1": "提醒天数格式不对，可以写成 7, 1",
+  "Reminder days look wrong, for example 7, 1":
+    "提醒天数格式不对，可以写成 7, 1",
   "Show archived": "显示已归档",
   "Nothing archived": "没有已归档的订阅",
   "No subscriptions yet": "还没有订阅",

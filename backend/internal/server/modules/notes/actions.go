@@ -11,6 +11,7 @@ import (
 )
 
 func (m *Module) registerActions() {
+	m.registerExtraActions()
 	m.d.Actions.Register(actions.Action{
 		Name:  "notes.search",
 		Title: "搜索笔记",

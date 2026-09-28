@@ -164,6 +164,9 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 			n.Hidden = boolInt(*p.Hidden)
 		}
 		now := m.now()
+		if !now.After(n.UpdatedAt) {
+			now = n.UpdatedAt.Add(time.Millisecond)
+		}
 		if p.Title != nil {
 			n.Title = strings.TrimSpace(*p.Title)
 		}

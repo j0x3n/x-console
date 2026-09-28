@@ -30,7 +30,8 @@ type Effect string
 const (
 	// Read has no side effects. The AI may run it without asking.
 	Read Effect = "read"
-	// Write changes data. The AI must show it and wait for the user to confirm.
+	// Write changes data. The AI executes it directly unless it is destructive
+	// or the owner has enabled confirmation for all writes.
 	Write Effect = "write"
 	// Dangerous runs commands or controls machines. Needs confirmation and a
 	// fresh TOTP elevation of the user who confirms it.
@@ -49,6 +50,8 @@ type Action struct {
 	Input json.RawMessage `json:"input"`
 	// Effect decides confirmation and elevation rules.
 	Effect Effect `json:"effect"`
+	// Destructive asks the assistant to confirm a write before executing it.
+	Destructive bool `json:"destructive,omitempty"`
 	// Run executes the action. ctx carries the acting user or automation.
 	Run func(ctx context.Context, input json.RawMessage) (any, error) `json:"-"`
 }

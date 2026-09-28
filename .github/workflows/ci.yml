@@ -58,6 +58,12 @@ jobs:
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Local agent deploy script
+        working-directory: deploy
+        run: |
+          sh -n remote-deploy.sh
+          sh -n local-agent.sh
+          sh local-agent_test.sh
       - name: Windows agent builds
         run: |
           GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent
@@ -81,5 +87,21 @@ jobs:
           npm run gen:api
           git diff --exit-code -- src/api/gen
       - run: npm run typecheck
+      - run: npm run format:check
       - run: npm test
       - run: npm run build
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: npx playwright-core install --with-deps chromium
+      - run: npm run e2e
+        env:
+          XC_E2E_USE_BUILD: "1"
+      - name: Upload failed test evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: web/e2e-artifacts/
+          if-no-files-found: ignore

@@ -1,5 +1,5 @@
 import { fileUrl, pdfFile, setFileUrl, svgImage, textFile } from "./files";
-import { ago, fail, json, noContent, now, route } from "./router";
+import { ago, fail, json, noContent, now, routeFull as route } from "./router";
 import { vault } from "./vault";
 
 /* 云盘：整个目录树在内存里，刷新页面就回到初始状态。 */

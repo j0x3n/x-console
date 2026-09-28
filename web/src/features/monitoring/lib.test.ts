@@ -22,11 +22,33 @@ import type { DockerContainer, DockerStats, Subscription } from "./api";
 
 describe("tones", () => {
   it("colors monitors by status and failures", () => {
-    expect(monitorTone({ enabled: true, lastStatus: "down", consecutiveFailures: 3 })).toBe("danger");
-    expect(monitorTone({ enabled: true, lastStatus: "up", consecutiveFailures: 1 })).toBe("warn");
-    expect(monitorTone({ enabled: true, lastStatus: "up", consecutiveFailures: 0 })).toBe("ok");
-    expect(monitorTone({ enabled: false, lastStatus: "down", consecutiveFailures: 3 })).toBe("");
-    expect(monitorTone({ enabled: true, lastStatus: "unknown", consecutiveFailures: 0 })).toBe("");
+    expect(
+      monitorTone({
+        enabled: true,
+        lastStatus: "down",
+        consecutiveFailures: 3,
+      }),
+    ).toBe("danger");
+    expect(
+      monitorTone({ enabled: true, lastStatus: "up", consecutiveFailures: 1 }),
+    ).toBe("warn");
+    expect(
+      monitorTone({ enabled: true, lastStatus: "up", consecutiveFailures: 0 }),
+    ).toBe("ok");
+    expect(
+      monitorTone({
+        enabled: false,
+        lastStatus: "down",
+        consecutiveFailures: 3,
+      }),
+    ).toBe("");
+    expect(
+      monitorTone({
+        enabled: true,
+        lastStatus: "unknown",
+        consecutiveFailures: 0,
+      }),
+    ).toBe("");
   });
 
   it("uses different windows for certificates and domains", () => {
@@ -72,8 +94,13 @@ describe("money and dates", () => {
   });
 
   it("sorts subscriptions by days left", () => {
-    const sub = (name: string, daysLeft: number) => ({ name, daysLeft }) as Subscription;
-    expect(sortSubscriptions([sub("b", 5), sub("a", -2), sub("c", 5)]).map((s) => s.name)).toEqual(["a", "b", "c"]);
+    const sub = (name: string, daysLeft: number) =>
+      ({ name, daysLeft }) as Subscription;
+    expect(
+      sortSubscriptions([sub("b", 5), sub("a", -2), sub("c", 5)]).map(
+        (s) => s.name,
+      ),
+    ).toEqual(["a", "b", "c"]);
   });
 });
 
@@ -112,7 +139,11 @@ describe("chart", () => {
 });
 
 describe("docker", () => {
-  const container = (id: string, name: string, state: string): DockerContainer => ({
+  const container = (
+    id: string,
+    name: string,
+    state: string,
+  ): DockerContainer => ({
     id,
     name,
     state,
@@ -124,7 +155,10 @@ describe("docker", () => {
 
   it("merges stats and puts running containers first", () => {
     const stats = [{ id: "b", cpuPercent: 5 } as DockerStats];
-    const rows = mergeStats([container("a", "zeta", "exited"), container("b", "beta", "running")], stats);
+    const rows = mergeStats(
+      [container("a", "zeta", "exited"), container("b", "beta", "running")],
+      stats,
+    );
     expect(rows.map((r) => r.name)).toEqual(["beta", "zeta"]);
     expect(rows[0].stats?.cpuPercent).toBe(5);
     expect(rows[1].stats).toBeUndefined();

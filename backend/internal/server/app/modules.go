@@ -2,10 +2,13 @@ package app
 
 import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/automations"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
@@ -37,7 +40,10 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	calendar.New,      // M11
 	focus.New,         // M11
 	brief.New,         // M11
+	ai.New,            // M12
+	automations.New,   // M12
 	github.New,        // M13
 	linear.New,        // M13
 	vault.New,
+	drive.New, // M14
 }

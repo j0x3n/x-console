@@ -10,6 +10,7 @@ import (
 )
 
 func (m *Module) registerActions() {
+	m.registerExtraActions()
 	m.d.Actions.Register(actions.Action{
 		Name:        "projects.list",
 		Title:       "列出项目",

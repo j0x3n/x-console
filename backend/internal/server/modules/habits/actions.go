@@ -13,6 +13,7 @@ import (
 )
 
 func (m *Module) registerActions() {
+	m.registerExtraActions()
 	m.d.Actions.Register(actions.Action{
 		Name:        "habits.today",
 		Title:       "今天的习惯",

@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
+import { useInvalidate } from "../../api/useInvalidate";
 import type { components, paths } from "../../api/gen/monitoring";
 import type { paths as hostPaths } from "../../api/gen/hosts";
 
@@ -43,7 +44,8 @@ export const monitoringKeys = {
   subscriptionList: (archived: boolean) =>
     ["monitoring", "subscriptions", "list", archived] as const,
   summary: ["monitoring", "subscriptions", "summary"] as const,
-  events: (id: number) => ["monitoring", "subscriptions", id, "events"] as const,
+  events: (id: number) =>
+    ["monitoring", "subscriptions", id, "events"] as const,
   hosts: ["monitoring", "hosts"] as const,
   docker: (hostId: string) => ["monitoring", "docker", hostId] as const,
 };
@@ -55,11 +57,6 @@ invalidateOn("script_run.", monitoringKeys.scripts);
 invalidateOn("subscription.", monitoringKeys.subscriptions);
 invalidateOn("agent.", monitoringKeys.hosts);
 invalidateOn("docker.", ["monitoring", "docker"]);
-
-function useInvalidate(key: readonly unknown[]) {
-  const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: key });
-}
 
 // ---- 监控 ----
 
@@ -86,7 +83,15 @@ export function useMonitorResults(id: number | null, range: ResultRange) {
 export function useSaveMonitor() {
   const invalidate = useInvalidate(monitoringKeys.monitors);
   return useMutation({
-    mutationFn: ({ id, create, patch }: { id?: number; create?: MonitorInput; patch?: MonitorPatch }) =>
+    mutationFn: ({
+      id,
+      create,
+      patch,
+    }: {
+      id?: number;
+      create?: MonitorInput;
+      patch?: MonitorPatch;
+    }) =>
       id
         ? unwrap(
             monitoringApi.PATCH("/monitors/{monitorId}", {
@@ -150,7 +155,15 @@ export function useScriptRuns(id: number | null) {
 export function useSaveScript() {
   const invalidate = useInvalidate(monitoringKeys.scripts);
   return useMutation({
-    mutationFn: ({ id, create, patch }: { id?: number; create?: ScriptInput; patch?: ScriptPatch }) =>
+    mutationFn: ({
+      id,
+      create,
+      patch,
+    }: {
+      id?: number;
+      create?: ScriptInput;
+      patch?: ScriptPatch;
+    }) =>
       id
         ? unwrap(
             monitoringApi.PATCH("/scripts/{scriptId}", {
@@ -196,7 +209,12 @@ export function useHostOptions() {
     queryKey: monitoringKeys.hosts,
     queryFn: () => unwrap(hostsApi.GET("/hosts")),
     select: (hosts) =>
-      hosts.map((h) => ({ id: h.id, name: h.name, online: h.online, kind: h.kind })),
+      hosts.map((h) => ({
+        id: h.id,
+        name: h.name,
+        online: h.online,
+        kind: h.kind,
+      })),
   });
 }
 
@@ -206,7 +224,11 @@ export function useSubscriptions(archived: boolean) {
   return useQuery({
     queryKey: monitoringKeys.subscriptionList(archived),
     queryFn: () =>
-      unwrap(monitoringApi.GET("/subscriptions", { params: { query: { archived } } })),
+      unwrap(
+        monitoringApi.GET("/subscriptions", {
+          params: { query: { archived } },
+        }),
+      ),
   });
 }
 
@@ -285,7 +307,11 @@ export function useDockerStats(hostId: string) {
   return useQuery({
     queryKey: [...monitoringKeys.docker(hostId), "stats"],
     queryFn: () =>
-      unwrap(monitoringApi.GET("/hosts/{hostId}/docker/stats", { params: { path: { hostId } } })),
+      unwrap(
+        monitoringApi.GET("/hosts/{hostId}/docker/stats", {
+          params: { path: { hostId } },
+        }),
+      ),
   });
 }
 
@@ -293,7 +319,11 @@ export function useDockerImages(hostId: string, enabled: boolean) {
   return useQuery({
     queryKey: [...monitoringKeys.docker(hostId), "images"],
     queryFn: () =>
-      unwrap(monitoringApi.GET("/hosts/{hostId}/docker/images", { params: { path: { hostId } } })),
+      unwrap(
+        monitoringApi.GET("/hosts/{hostId}/docker/images", {
+          params: { path: { hostId } },
+        }),
+      ),
     enabled,
   });
 }
@@ -303,9 +333,12 @@ export function useContainerAction(hostId: string) {
   return useMutation({
     mutationFn: ({ id, action }: { id: string; action: ContainerAction }) =>
       unwrap(
-        monitoringApi.POST("/hosts/{hostId}/docker/containers/{containerId}/{action}", {
-          params: { path: { hostId, containerId: id, action } },
-        }),
+        monitoringApi.POST(
+          "/hosts/{hostId}/docker/containers/{containerId}/{action}",
+          {
+            params: { path: { hostId, containerId: id, action } },
+          },
+        ),
       ),
     onSuccess: invalidate,
   });

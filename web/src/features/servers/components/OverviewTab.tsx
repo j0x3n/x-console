@@ -24,19 +24,35 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
   return (
     <div className="xc-stack">
       <div className="servers-stats">
-        <Stat label={t("CPU")} value={m ? pct(m.cpu) : "—"} sub={info ? `${info.cpuCores} ${t("cores")}` : undefined} />
+        <Stat
+          label={t("CPU")}
+          value={m ? pct(m.cpu) : "—"}
+          sub={info ? `${info.cpuCores} ${t("cores")}` : undefined}
+        />
         <Stat
           label={t("Memory")}
           value={m ? pct(percent(m.memUsed, m.memTotal)) : "—"}
-          sub={m ? `${formatBytes(m.memUsed)} / ${formatBytes(m.memTotal)}` : undefined}
+          sub={
+            m
+              ? `${formatBytes(m.memUsed)} / ${formatBytes(m.memTotal)}`
+              : undefined
+          }
         />
-        <Stat label={t("Load")} value={m ? m.load1.toFixed(2) : "—"} sub={m ? `${m.load5.toFixed(2)} · ${m.load15.toFixed(2)}` : undefined} />
+        <Stat
+          label={t("Load")}
+          value={m ? m.load1.toFixed(2) : "—"}
+          sub={m ? `${m.load5.toFixed(2)} · ${m.load15.toFixed(2)}` : undefined}
+        />
         <Stat
           label={t("Network")}
           value={m ? `↓ ${formatRate(m.netRx)}` : "—"}
           sub={m ? `↑ ${formatRate(m.netTx)}` : undefined}
         />
-        <Stat label={t("Uptime")} value={m ? formatUptime(m.uptimeSeconds, language === "zh") : "—"} sub={m ? `${m.procs} ${t("processes")}` : undefined} />
+        <Stat
+          label={t("Uptime")}
+          value={m ? formatUptime(m.uptimeSeconds, language === "zh") : "—"}
+          sub={m ? `${m.procs} ${t("processes")}` : undefined}
+        />
       </div>
 
       <div className="xc-card">
@@ -44,7 +60,13 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
           <h2>{t("Trends")}</h2>
           <div className="servers-segmented" role="tablist">
             {(["1h", "24h", "7d"] as MetricsRange[]).map((r) => (
-              <button key={r} role="tab" aria-selected={range === r} className={range === r ? "active" : ""} onClick={() => setRange(r)}>
+              <button
+                key={r}
+                role="tab"
+                aria-selected={range === r}
+                className={range === r ? "active" : ""}
+                onClick={() => setRange(r)}
+              >
                 {t(r === "1h" ? "1 hour" : r === "24h" ? "24 hours" : "7 days")}
               </button>
             ))}
@@ -56,9 +78,33 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
           <ErrorState error={metrics.error} onRetry={() => metrics.refetch()} />
         ) : (
           <div className="servers-charts">
-            <MetricChart title={t("CPU")} points={points} stepSeconds={step} max={100} format={pct} series={[{ key: "cpu", label: t("CPU"), color: S1 }]} current={m ? pct(m.cpu) : undefined} />
-            <MetricChart title={t("Memory")} points={points} stepSeconds={step} max={100} format={pct} series={[{ key: "memory", label: t("Memory"), color: S1 }]} current={m ? pct(percent(m.memUsed, m.memTotal)) : undefined} />
-            <MetricChart title={t("Disk (fullest)")} points={points} stepSeconds={step} max={100} format={pct} series={[{ key: "disk", label: t("Disk"), color: S1 }]} current={host.disk !== undefined ? pct(host.disk) : undefined} />
+            <MetricChart
+              title={t("CPU")}
+              points={points}
+              stepSeconds={step}
+              max={100}
+              format={pct}
+              series={[{ key: "cpu", label: t("CPU"), color: S1 }]}
+              current={m ? pct(m.cpu) : undefined}
+            />
+            <MetricChart
+              title={t("Memory")}
+              points={points}
+              stepSeconds={step}
+              max={100}
+              format={pct}
+              series={[{ key: "memory", label: t("Memory"), color: S1 }]}
+              current={m ? pct(percent(m.memUsed, m.memTotal)) : undefined}
+            />
+            <MetricChart
+              title={t("Disk (fullest)")}
+              points={points}
+              stepSeconds={step}
+              max={100}
+              format={pct}
+              series={[{ key: "disk", label: t("Disk"), color: S1 }]}
+              current={host.disk !== undefined ? pct(host.disk) : undefined}
+            />
             <MetricChart
               title={t("Network")}
               points={points}
@@ -82,7 +128,12 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
           {m && m.disks.length > 0 ? (
             <div className="xc-stack">
               {m.disks.map((d) => (
-                <UsageBar key={d.mount} label={d.mount} value={percent(d.used, d.total)} detail={`${formatBytes(d.used)} / ${formatBytes(d.total)}`} />
+                <UsageBar
+                  key={d.mount}
+                  label={d.mount}
+                  value={percent(d.used, d.total)}
+                  detail={`${formatBytes(d.used)} / ${formatBytes(d.total)}`}
+                />
               ))}
             </div>
           ) : (
@@ -100,6 +151,41 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
               </div>
             </>
           )}
+          {m && m.netInterfaces && m.netInterfaces.length > 0 && (
+            <>
+              <div className="xc-card-head servers-subhead">
+                <h3>{t("Network interfaces")}</h3>
+              </div>
+              <div className="xc-stack">
+                {m.netInterfaces.map((nic) => (
+                  <div
+                    className="xc-row"
+                    key={nic.name}
+                    style={{ minWidth: 0 }}
+                  >
+                    <span
+                      className="xc-mono"
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        flex: "1 1 0",
+                        minWidth: 0,
+                      }}
+                    >
+                      {nic.name}
+                    </span>
+                    <span
+                      className="xc-muted"
+                      style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                    >
+                      ↓ {formatRate(nic.rx)} ↑ {formatRate(nic.tx)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         <div className="xc-card">
           <div className="xc-card-head">
@@ -109,7 +195,11 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
             <dt>{t("Hostname")}</dt>
             <dd>{info?.hostname || host.hostname}</dd>
             <dt>{t("System")}</dt>
-            <dd>{info ? `${info.platform} ${info.platformVersion}`.trim() || info.os : host.os}</dd>
+            <dd>
+              {info
+                ? `${info.platform} ${info.platformVersion}`.trim() || info.os
+                : host.os}
+            </dd>
             {info?.kernelVersion && (
               <>
                 <dt>{t("Kernel")}</dt>
@@ -145,7 +235,15 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Stat({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
   return (
     <div className="servers-stat">
       <span>{label}</span>

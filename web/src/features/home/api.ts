@@ -6,7 +6,12 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { ApiError, createApi, unwrap } from "../../api/client";
-import { invalidateOn, useServerEvent, type ServerEvent } from "../../api/events";
+import {
+  invalidateOn,
+  useEventTopic,
+  useServerEvent,
+  type ServerEvent,
+} from "../../api/events";
 import { withElevation } from "../../auth/elevation";
 import type { components, paths } from "../../api/gen/homeassistant";
 import { applyStateChange } from "./logic";
@@ -81,6 +86,7 @@ export function writeState(qc: QueryClient, state: HAState) {
 
 /** 页面打开时接收 ha.state_changed，直接更新缓存，不重新请求。 */
 export function useHAEvents() {
+  useEventTopic("ha.");
   const qc = useQueryClient();
   const onEvent = useCallback(
     (event: ServerEvent) => {

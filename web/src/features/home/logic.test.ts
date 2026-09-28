@@ -80,9 +80,9 @@ describe("display", () => {
     expect(displayName("light.a")).toBe("light.a");
   });
   it("adds the unit to sensor values", () => {
-    expect(formatState(s("sensor.t", "21.5", { unit_of_measurement: "°C" }))).toBe(
-      "21.5 °C",
-    );
+    expect(
+      formatState(s("sensor.t", "21.5", { unit_of_measurement: "°C" })),
+    ).toBe("21.5 °C");
     expect(formatState(s("light.a", "on"))).toBe("on");
   });
   it("searches id and name", () => {

@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { NavLink, Navigate } from "react-router";
 import { WifiOff } from "lucide-react";
-import { useServerEvent } from "../../../api/events";
+import { useEventTopic, useServerEvent } from "../../../api/events";
 import { ErrorState, Loading } from "../../../components/ui/States";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { relativeTime } from "../../../lib/time";
@@ -20,14 +20,22 @@ interface HostViewProps {
 }
 
 /** 一台机器的详情：页头、离线提示、标签页。服务器和本机共用。 */
-export default function HostView({ hostId, basePath, tab, heading, extra }: HostViewProps) {
+export default function HostView({
+  hostId,
+  basePath,
+  tab,
+  heading,
+  extra,
+}: HostViewProps) {
   const t = useT();
   const language = useLanguage();
   const host = useHost(hostId);
   useServerEvent("host.metrics", applyMetricsEvent);
+  useEventTopic(`host.metrics:${hostId}`);
 
   if (host.isPending) return <Loading />;
-  if (host.isError) return <ErrorState error={host.error} onRetry={() => host.refetch()} />;
+  if (host.isError)
+    return <ErrorState error={host.error} onRetry={() => host.refetch()} />;
   const h = host.data;
   const tabs = tabsFor(h);
   const current = tabs.find((x) => x.id === (tab ?? tabs[0].id));
@@ -41,7 +49,9 @@ export default function HostView({ hostId, basePath, tab, heading, extra }: Host
           <WifiOff size={16} />
           <span>
             {t("This machine is offline.")}{" "}
-            {h.lastSeenAt ? `${t("Last seen")} ${relativeTime(h.lastSeenAt, language)}` : t("It has never connected.")}
+            {h.lastSeenAt
+              ? `${t("Last seen")} ${relativeTime(h.lastSeenAt, language)}`
+              : t("It has never connected.")}
           </span>
         </div>
       )}
