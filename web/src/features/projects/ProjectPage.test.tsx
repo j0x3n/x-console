@@ -26,6 +26,7 @@ const calls = vi.hoisted(() => {
     issue(1, "todo", 1),
     issue(2, "todo", 2),
     issue(3, "done", 1),
+    issue(4, "in_progress", 1),
   ];
   const project = {
     id: 1,
@@ -36,8 +37,8 @@ const calls = vi.hoisted(() => {
     icon: "",
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
-    issueCount: 3,
-    openCount: 2,
+    issueCount: 4,
+    openCount: 3,
   };
   // Node's Request needs absolute URLs; the app uses relative ones.
   const NativeRequest = globalThis.Request;
@@ -71,7 +72,14 @@ const calls = vi.hoisted(() => {
     const path = url.pathname.replace("/api/v1", "");
     if (path === "/projects")
       return json(url.searchParams.get("archived") ? [] : [project]);
-    if (path === "/issues") return json({ items: issues });
+    if (path === "/issues") {
+      const statuses = url.searchParams.getAll("status");
+      return json({
+        items: statuses.length
+          ? issues.filter((item) => statuses.includes(item.status))
+          : issues,
+      });
+    }
     if (path.endsWith("/comments") || path.endsWith("/links")) return json([]);
     if (path.startsWith("/issues/") && req.method === "GET")
       return json(issues.find((i) => i.key === path.split("/")[2]));
@@ -112,6 +120,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -131,6 +140,18 @@ function renderAt(path: string) {
 afterEach(() => {
   cleanup();
   calls.length = 0;
+});
+
+describe("ProjectsPage", () => {
+  it("shows in-progress issues in their own summary card", async () => {
+    renderAt("/projects");
+    const stats = await screen.findByRole("region", { name: "项目" });
+    await within(stats).findByText("3");
+    const cards = stats.querySelectorAll(".xc-stat");
+    expect(cards).toHaveLength(5);
+    const inProgress = within(stats).getByText("进行中").closest(".xc-stat");
+    expect(inProgress?.querySelector(".xc-stat-value")?.textContent).toBe("1");
+  });
 });
 
 describe("ProjectPage", () => {

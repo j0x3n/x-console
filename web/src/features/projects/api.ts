@@ -81,7 +81,7 @@ export function useProjectByKey(key: string | undefined) {
   };
 }
 
-/** 一次取完一个项目的全部 Issue，筛选在前端做。 */
+/** 分页取完符合条件的 Issue，筛选在前端做。 */
 async function fetchAllIssues(
   query: Record<string, unknown>,
 ): Promise<Issue[]> {
@@ -111,20 +111,11 @@ export function useIssues(projectId: number | undefined) {
 export function useMyIssues() {
   return useQuery({
     queryKey: projectKeys.myIssues,
-    queryFn: async () =>
-      (
-        await unwrap(
-          projectsApi.GET("/issues", {
-            params: {
-              query: {
-                status: ["backlog", "todo", "in_progress", "in_review"],
-                sort: "due",
-                limit: 50,
-              },
-            },
-          }),
-        )
-      ).items,
+    queryFn: () =>
+      fetchAllIssues({
+        status: ["backlog", "todo", "in_progress", "in_review"],
+        sort: "due",
+      }),
   });
 }
 

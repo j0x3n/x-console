@@ -176,6 +176,20 @@ try {
   await page.waitForURL(/\/projects\/EET\/\d+$/);
   const issueKey = `EET-${page.url().split("/").at(-1)}`;
   assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
+  const progressResponse = await page
+    .context()
+    .request.patch(`${base}/api/v1/issues/${issueKey}`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { status: "in_progress" },
+    });
+  assert.equal(progressResponse.status(), 200, await progressResponse.text());
+  await page.goto(`${base}/projects`);
+  const projectStats = page.locator('section.xc-stats[aria-label="项目"]');
+  await until("项目概要", async () =>
+    (await projectStats.locator(".xc-stat").count()) === 5,
+  );
+  const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的 Issue" });
+  assert.equal((await progressCard.locator(".xc-stat-value").textContent()).trim(), "1");
 
   stage = "写笔记";
   const noteResponses = [];
@@ -210,6 +224,14 @@ try {
 
   stage = "新建提醒";
   await page.goto(`${base}/reminders`);
+  await page
+    .locator('section.xc-stats[aria-label="提醒"] .xc-stat')
+    .first()
+    .waitFor();
+  const reminderLabels = await page
+    .locator('section.xc-stats[aria-label="提醒"] .xc-stat-top span:first-child')
+    .allTextContents();
+  assert.deepEqual(reminderLabels, ["今天", "下一个提醒", "即将到来", "已完成"]);
   await page.getByRole("button", { name: "新建提醒" }).click();
   await dialog("新建提醒").getByRole("textbox", { name: "标题" }).fill("端到端提醒");
   await dialog("新建提醒").getByRole("button", { name: "保存" }).click();

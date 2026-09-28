@@ -100,7 +100,7 @@ export default function ProjectsPage() {
             label={t("Open issues")}
             caption={t("Across projects")}
             value={open.length}
-            foot={`${summary.inProgress} ${t("in progress")} · ${summary.inReview} ${t("in review")}`}
+            foot={`${summary.inReview} ${t("in review")}`}
           >
             <Segments
               parts={[
@@ -115,6 +115,11 @@ export default function ProjectsPage() {
               ]}
             />
           </StatCard>
+          <StatCard
+            label={t("In progress")}
+            value={summary.inProgress}
+            foot={t("Issues in progress")}
+          />
           <StatCard
             label={t("Due today")}
             value={summary.today}

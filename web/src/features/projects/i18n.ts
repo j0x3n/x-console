@@ -8,6 +8,7 @@ registerZh({
   "Due today": "今天到期",
   "Including today": "包括今天",
   "Issues due today": "今天要完成的 Issue",
+  "Issues in progress": "正在处理的 Issue",
   "Next 7 days": "7 天内",
   "No description": "没有描述",
   "Nothing overdue": "没有逾期",
