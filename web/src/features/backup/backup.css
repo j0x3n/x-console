@@ -1,0 +1,105 @@
+/* 设置 → 备份（B25） */
+.backup-note {
+  margin: 0 0 12px;
+  color: var(--xc-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.backup-job {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  font-size: 12.5px;
+}
+.backup-job.failed strong {
+  color: var(--xc-danger);
+}
+.backup-job.done strong {
+  color: var(--xc-ok);
+}
+.backup-job .xc-btn {
+  justify-self: start;
+}
+.backup-warn {
+  margin: 0;
+  color: var(--xc-warn);
+}
+.backup-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--xc-border);
+}
+.backup-bar i {
+  display: block;
+  height: 100%;
+  background: var(--xc-accent);
+  transition: width 0.3s;
+}
+.backup-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0 10px;
+}
+.backup-runs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+.backup-runs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+.backup-runs small {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backup-list-card {
+  grid-column: 1 / -1;
+}
+.backup-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.backup-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.backup-list-main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.backup-list-main strong {
+  overflow: hidden;
+  font-family: var(--xc-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .backup-list li .xc-badge {
+    display: none;
+  }
+}

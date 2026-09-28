@@ -1,0 +1,96 @@
+/* 设置 → 存储（B24） */
+.storage-note {
+  margin: 0 0 12px;
+  color: var(--xc-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.storage-note code {
+  font-family: var(--xc-mono);
+  font-size: 12px;
+  color: var(--xc-text-2);
+}
+.storage-legacy-note {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
+  font-size: 12.5px;
+}
+.storage-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.storage-migration {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+}
+.storage-migration-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.storage-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--xc-border);
+}
+.storage-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--xc-accent);
+  transition: width 0.3s;
+}
+.storage-test {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+}
+.storage-test.ok {
+  color: var(--xc-ok);
+}
+.storage-test.fail {
+  color: var(--xc-danger);
+}
+.storage-usage {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.storage-usage li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--xc-border);
+  font-variant-numeric: tabular-nums;
+}
+.storage-usage li > span {
+  flex: 1;
+  min-width: 0;
+}
+.storage-usage li > svg {
+  color: var(--xc-muted);
+}
+.storage-cache {
+  margin-top: 12px;
+}
+.storage-cache-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.storage-cache-row .xc-input {
+  width: 90px;
+}

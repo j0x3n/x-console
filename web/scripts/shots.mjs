@@ -148,6 +148,8 @@ const routes = [
   ["calendar-manage", "/calendar/calendars"],
   ["github", "/github"],
   ["settings", "/settings/security"],
+  ["settings-storage", "/settings/storage"],
+  ["settings-backup", "/settings/backup"],
 ].filter(Boolean).filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));
 
 // ---- 截图和检查 ----

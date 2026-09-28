@@ -1,0 +1,264 @@
+openapi: 3.0.3
+info:
+  title: X Console backup API (B25)
+  version: 0.1.0
+  description: |
+    整站导出、导入和自动备份。备份包是 .tar.gz：数据库的一致副本（VACUUM INTO）、
+    files/ 下的全部文件、manifest.json。令牌和密钥在包里仍是加密的，要同一个主密钥才能解开。
+servers:
+  - url: /api/v1
+paths:
+  /backups:
+    get:
+      operationId: listBackups
+      tags: [backup]
+      responses:
+        "200":
+          description: 本机和 S3 上的备份，新的在前
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Backup" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/export:
+    post:
+      operationId: exportBackup
+      tags: [backup]
+      description: 开始导出一份。要提升权限。后台进行，进度看 GET /backups/job。同时只能有一个导出或恢复，否则 409
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupJob" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/job:
+    get:
+      operationId: getBackupJob
+      tags: [backup]
+      responses:
+        "200":
+          description: 最近一次导出或恢复的状态。没有过任务时 state 是 idle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupJob" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/{backupId}/download:
+    parameters:
+      - $ref: "#/components/parameters/BackupId"
+    get:
+      operationId: downloadBackup
+      tags: [backup]
+      description: 下载备份文件。要提升权限（提升后 15 分钟内有效）。S3 上的备份由服务端转发，不暴露 S3 地址
+      responses:
+        "200":
+          description: 备份文件
+          content:
+            application/gzip:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/{backupId}:
+    parameters:
+      - $ref: "#/components/parameters/BackupId"
+    delete:
+      operationId: deleteBackup
+      tags: [backup]
+      description: 删除一份备份。要提升权限
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/{backupId}/restore:
+    parameters:
+      - $ref: "#/components/parameters/BackupId"
+    post:
+      operationId: restoreBackup
+      tags: [backup]
+      description: |
+        用列表里的一份备份恢复全部数据。要提升权限，并且 confirm 必须是“恢复”。
+        先校验 manifest，版本比当前新时回 400。恢复前自动再备份一次当前数据（kind=pre-restore）。
+        后台进行，完成后服务重新加载数据，前端收到 backup.restored 事件后刷新页面
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RestoreInput" }
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupJob" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/upload:
+    post:
+      operationId: uploadBackup
+      tags: [backup]
+      description: 上传一个备份包，存到本机备份目录，出现在列表里（kind=uploaded）。之后用 /backups/{id}/restore 恢复。要提升权限。最大 20 GB
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: 已上传并校验过 manifest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Backup" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/settings:
+    get:
+      operationId: getBackupSettings
+      tags: [backup]
+      responses:
+        "200":
+          description: 自动备份设置。不返回 S3 密钥
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putBackupSettings
+      tags: [backup]
+      description: 要提升权限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BackupSettingsInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/run:
+    post:
+      operationId: runBackupNow
+      tags: [backup]
+      description: 按自动备份的设置立刻备份一次（传到 S3）。和导出一样在后台进行，进度看 /backups/job
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupJob" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    BackupId:
+      name: backupId
+      in: path
+      required: true
+      description: 备份文件名，比如 x-console-20260928-0300-sha-8fed186.tar.gz
+      schema: { type: string }
+  schemas:
+    Backup:
+      type: object
+      required: [id, name, createdAt, sizeBytes, location, kind]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+        sizeBytes: { type: integer, format: int64 }
+        location:
+          type: string
+          enum: [local, s3]
+        kind:
+          type: string
+          description: manual 手动导出；auto 自动备份；pre-restore 恢复前自动备份；uploaded 上传的
+          enum: [manual, auto, pre-restore, uploaded]
+        version: { type: string, description: 导出时的程序版本 }
+        files: { type: integer, format: int64, description: 包里的文件数 }
+    BackupJob:
+      type: object
+      required: [state]
+      properties:
+        kind:
+          type: string
+          enum: [export, restore, auto]
+        state:
+          type: string
+          enum: [idle, running, done, failed]
+        step: { type: string, description: 现在在做什么，中文，比如“正在打包文件（120/800）” }
+        doneBytes: { type: integer, format: int64 }
+        totalBytes: { type: integer, format: int64 }
+        backupId: { type: string, description: 导出完成后生成的备份 }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        error: { type: string }
+        secretsUnreadable:
+          type: array
+          description: 恢复后解不开的设置（主密钥不同），比如 github.token。用户要重新填写
+          items: { type: string }
+    RestoreInput:
+      type: object
+      required: [confirm]
+      properties:
+        confirm: { type: string, description: 必须是“恢复” }
+    BackupSettings:
+      type: object
+      required: [enabled, frequency, time, weekday, keep, target, lastRuns]
+      properties:
+        enabled: { type: boolean }
+        frequency:
+          type: string
+          enum: [daily, weekly]
+        time: { type: string, description: 每天几点，HH:MM，服务器时区。默认 03:00 }
+        weekday: { type: integer, minimum: 0, maximum: 6, description: 每周备份时是周几，0 是周日 }
+        keep: { type: integer, minimum: 1, maximum: 365, description: S3 上保留几份，默认 14 }
+        target:
+          type: string
+          enum: [storage, custom]
+          description: storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+        s3:
+          $ref: "storage.yaml#/components/schemas/StorageS3"
+        nextRunAt: { type: string, format: date-time }
+        lastRuns:
+          type: array
+          description: 最近 10 次自动备份的结果，新的在前
+          items:
+            type: object
+            required: [at, ok]
+            properties:
+              at: { type: string, format: date-time }
+              ok: { type: boolean }
+              backupId: { type: string }
+              sizeBytes: { type: integer, format: int64 }
+              error: { type: string }
+    BackupSettingsInput:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        frequency:
+          type: string
+          enum: [daily, weekly]
+        time: { type: string }
+        weekday: { type: integer, minimum: 0, maximum: 6 }
+        keep: { type: integer, minimum: 1, maximum: 365 }
+        target:
+          type: string
+          enum: [storage, custom]
+        s3:
+          $ref: "storage.yaml#/components/schemas/StorageS3Input"

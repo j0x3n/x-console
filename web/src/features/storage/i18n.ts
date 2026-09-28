@@ -1,0 +1,37 @@
+import { registerZh } from "../../lib/i18n";
+
+registerZh({
+  Storage: "存储",
+  "Storage location": "存储位置",
+  "Local disk": "本机磁盘",
+  "Switch to S3": "切换到 S3",
+  "Switch to local disk": "切换到本机磁盘",
+  "Delete the files in the old place after switching":
+    "切换成功后删除原位置的文件",
+  "Moving files": "正在搬文件",
+  "Moving stopped": "搬迁已停止",
+  "Moving failed": "搬迁失败",
+  "Stop moving": "停止搬迁",
+  "Try again": "重试",
+  "S3 settings": "S3 设置",
+  "Test connection": "测试连接",
+  Endpoint: "服务地址",
+  Region: "区域",
+  Bucket: "桶",
+  "Path prefix": "路径前缀",
+  "Path-style URLs": "使用路径形式的地址",
+  "leave empty to keep": "留空表示不改",
+  Usage: "用量",
+  "Local cache": "本机缓存",
+  "Cache limit (GB)": "缓存上限（GB）",
+  "File history": "云盘历史版本",
+  "Note attachments": "笔记附件",
+  "Project images": "项目图片",
+  "AI attachments": "AI 附件",
+  files: "个文件",
+  Saved: "已保存",
+  "Set up S3 first": "先填好 S3 设置",
+  "The new storage settings are not live yet.": "新的存储设置还没上线。",
+  "Until then, the drive keeps using its S3 sync below.":
+    "上线之前，云盘继续用下面原来的 S3 同步。",
+});

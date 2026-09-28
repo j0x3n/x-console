@@ -1,0 +1,189 @@
+openapi: 3.0.3
+info:
+  title: X Console storage API (B24)
+  version: 0.1.0
+  description: |
+    整站文件存储。所有模块的文件（云盘、笔记附件、项目图片、云盘历史版本……）
+    都通过 internal/server/files.Store 读写，放在本机 data/files/ 或 S3。
+    这里是存储位置的设置、切换和用量。取代云盘原来的“S3 同步”（/drive/s3*）。
+servers:
+  - url: /api/v1
+paths:
+  /storage:
+    get:
+      operationId: getStorage
+      tags: [storage]
+      responses:
+        "200":
+          description: 当前存储位置、S3 配置（不含密钥）、缓存、用量和切换进度
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StorageStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /storage/s3:
+    put:
+      operationId: putStorageS3
+      tags: [storage]
+      description: 保存 S3 配置。要提升权限。secretAccessKey 不传表示不改，加密保存。正在用 S3 时改配置，先测试连接，失败回 400 不保存
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StorageS3Input" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StorageStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /storage/s3/test:
+    post:
+      operationId: testStorageS3
+      tags: [storage]
+      description: 写一个小文件、读回来、再删掉。传了请求体就用请求体里的配置（没传的字段用已保存的）
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StorageS3Input" }
+      responses:
+        "200":
+          description: 测试结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TestResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /storage/switch:
+    post:
+      operationId: switchStorage
+      tags: [storage]
+      description: |
+        开始把全部文件搬到另一个位置。要提升权限。后台进行，进度看 GET /storage 的 migration。
+        全部搬完并校验大小后才切换，失败时不切换、不删原文件，可以再次调用重试（已搬过的跳过）。
+        已经在搬时回 409。目标和当前一样时回 400。切到 s3 但没配置时回 412
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target: { $ref: "#/components/schemas/StorageBackend" }
+                deleteSource:
+                  type: boolean
+                  description: 切换成功后删除原位置的文件。默认 false，保留一份
+      responses:
+        "202":
+          description: 已开始
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /storage/switch/cancel:
+    post:
+      operationId: cancelStorageSwitch
+      tags: [storage]
+      description: 停止正在进行的搬迁。已经搬过去的文件留着，下次重试时跳过
+      responses:
+        "204":
+          description: 已停止
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /storage/cache:
+    put:
+      operationId: putStorageCache
+      tags: [storage]
+      description: 用 S3 时本机缓存的上限。超出时按最久没读的顺序删
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [limitBytes]
+              properties:
+                limitBytes:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                  description: 0 表示不缓存
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StorageStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    StorageBackend:
+      type: string
+      enum: [local, s3]
+    StorageS3:
+      type: object
+      required: [endpoint, region, bucket, prefix, accessKeyId, hasSecret, pathStyle]
+      properties:
+        endpoint: { type: string, description: 例如 https://s3.amazonaws.com 或 https://<账号>.r2.cloudflarestorage.com }
+        region: { type: string }
+        bucket: { type: string }
+        prefix: { type: string, description: 桶里的目录前缀，比如 x-console/ }
+        accessKeyId: { type: string }
+        hasSecret: { type: boolean }
+        pathStyle: { type: boolean, description: MinIO 等自建服务通常要打开 }
+    StorageS3Input:
+      type: object
+      properties:
+        endpoint: { type: string }
+        region: { type: string }
+        bucket: { type: string }
+        prefix: { type: string }
+        accessKeyId: { type: string }
+        secretAccessKey: { type: string, description: 只写。不传表示不改 }
+        pathStyle: { type: boolean }
+    ModuleUsage:
+      type: object
+      required: [module, files, bytes]
+      properties:
+        module:
+          type: string
+          description: files.Store 里 key 的第一段，比如 drive、notes、projects、drive-versions
+        files: { type: integer, format: int64 }
+        bytes: { type: integer, format: int64 }
+    StorageMigration:
+      type: object
+      required: [state, target, totalFiles, doneFiles, totalBytes, doneBytes]
+      properties:
+        state:
+          type: string
+          enum: [idle, running, failed, done, canceled]
+        target: { $ref: "#/components/schemas/StorageBackend" }
+        totalFiles: { type: integer, format: int64 }
+        doneFiles: { type: integer, format: int64 }
+        totalBytes: { type: integer, format: int64 }
+        doneBytes: { type: integer, format: int64 }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        error: { type: string, description: 失败时的原因，比如第一个出错的文件和错误 }
+    StorageStatus:
+      type: object
+      required: [backend, localPath, cacheLimitBytes, cacheBytes, usage, migration]
+      properties:
+        backend: { $ref: "#/components/schemas/StorageBackend" }
+        localPath: { type: string, description: 本机文件目录，比如 /data/files }
+        s3: { $ref: "#/components/schemas/StorageS3" }
+        cacheLimitBytes: { type: integer, format: int64 }
+        cacheBytes: { type: integer, format: int64, description: 本机缓存现在占多少 }
+        usage:
+          type: array
+          description: 按模块统计。统计结果缓存 10 分钟
+          items: { $ref: "#/components/schemas/ModuleUsage" }
+        migration: { $ref: "#/components/schemas/StorageMigration" }
+    TestResult:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        message: { type: string }

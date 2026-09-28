@@ -253,6 +253,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-28 | 新增契约 `storage.yaml`、`backup.yaml`（后端模块还没建，请求回 404）；设置的“云盘同步”标签换成“存储”，新增“备份”；新增 `features/storage/S3Fields.tsx` 公共 S3 输入框 | B24、B25 前端 |
 | 2026-09-28 | `brief.yaml` 的 `/weather` 加 `refresh`；`monitoring.yaml` 加订阅分类接口和 `cycleCount`、`cycleUnit`、`categoryId`（后端占位在 `monitoring/pending.go`）；契约里有、后端没做的接口统一放在各模块的 `pending.go`，回 `httpx.ErrNotLive` | B23 天气刷新、订阅表单 |
 | 2026-09-28 | `core.yaml` 加 `GET/PUT /me/preferences`（后端先回 501，占位在 `core/pending.go`）；`httpx` 加 `ErrNotLive`（501）；`api/client.ts` 加公共的 `isNotLive`；偏好加主题色 `accent`，`html` 上写 `data-accent`；`tokens.css` 加五套白天主题色；设置去掉“通用”标签，安装应用挪到个人菜单（`features/pwa/InstallMenu.tsx`），顶栏去掉安装按钮 | B22 主题色、夜间开关、设置整理 |
 | 2026-09-28 | 新增 `components/ui/ConfirmDialog.tsx`（`confirmAction`、`useConfirm`、`ConfirmHost`），`Layout` 挂载 `ConfirmHost`；`ui.css` 加 `.xc-btn.danger.solid` | B21 统一二次确认 |

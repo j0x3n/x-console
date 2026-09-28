@@ -872,7 +872,7 @@ function DriveSummary({
         <span className={`drive-summary-s3 is-${state}`}>
           <Cloud size={13} />{" "}
           {state === "off" ? (
-            <Link to="/settings/drive-sync">{t("Set up S3 sync")}</Link>
+            <Link to="/settings/storage">{t("Set up S3 sync")}</Link>
           ) : (
             <>
               {t(S3_LABELS[state])}
