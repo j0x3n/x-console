@@ -2,6 +2,7 @@
 //
 //	x-console-server            run the server (configured by XC_* env vars)
 //	x-console-server gen-key    print a new XC_MASTER_KEY
+//	x-console-server pairing-code --name <host> --kind server
 package main
 
 import (
@@ -9,6 +10,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -21,9 +23,12 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/j0x3n/x-console/backend/internal/server/agenthub"
 	"github.com/j0x3n/x-console/backend/internal/server/app"
+	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/config"
+	"github.com/j0x3n/x-console/backend/internal/server/events"
 	"github.com/j0x3n/x-console/backend/internal/server/store"
 )
 
@@ -41,6 +46,13 @@ func main() {
 		}
 		source := filepath.Join(envDataDir(), "x-console.db")
 		if err := store.Backup(context.Background(), source, os.Args[2]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "pairing-code" {
+		if err := runPairingCode(os.Args[2:]); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
@@ -73,6 +85,36 @@ func envDataDir() string {
 		return dir
 	}
 	return "./data"
+}
+
+func runPairingCode(args []string) error {
+	fs := flag.NewFlagSet("pairing-code", flag.ContinueOnError)
+	name := fs.String("name", "", "host name")
+	kind := fs.String("kind", "server", "agent kind")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 || *name == "" {
+		return errors.New("用法: x-console-server pairing-code --name <名称> --kind server")
+	}
+	code, err := pairingCode(context.Background(), filepath.Join(envDataDir(), "x-console.db"), *name, *kind)
+	if err != nil {
+		return err
+	}
+	fmt.Println(code)
+	return nil
+}
+
+func pairingCode(ctx context.Context, path, name, kind string) (string, error) {
+	conn, err := store.Open(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	log := audit.New(conn)
+	hub := agenthub.New(conn, events.NewBus(), log)
+	code, _, err := hub.CreatePairingCode(audit.WithActor(ctx, "system:deploy"), name, kind)
+	return code, err
 }
 
 func resetVaultPassword() error {

@@ -149,7 +149,7 @@ jobs:
           SSH="ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT -o StrictHostKeyChecking=$STRICT"
           $SSH "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
           scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" -o StrictHostKeyChecking=$STRICT \
-            deploy/docker-compose.yml deploy/Caddyfile deploy/remote-deploy.sh \
+            deploy/docker-compose.yml deploy/Caddyfile deploy/remote-deploy.sh deploy/local-agent.sh deploy/x-console-agent.service \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
       - name: Deploy
         if: steps.check.outputs.enabled == 'true'

@@ -364,7 +364,7 @@ try {
   const code = (await dialog("配对新设备").locator("code.xc-secret").first().textContent()).trim();
   const agentConfig = join(temp, "agent.json");
   await run("pair-agent", binary("agent"), ["pair", "--server", serverUrl, "--code", code, "--config", agentConfig]);
-  start("agent", binary("agent"), ["run", "--config", agentConfig]);
+  const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
 
@@ -431,6 +431,15 @@ try {
     await page.goto(`${base}${path}`);
     await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
   }
+  stage = "吊销代理并停止进程";
+  await page.goto(`${base}/settings/devices`);
+  const agentRow = page.locator("tr").filter({ hasText: "e2e-linux" });
+  await agentRow.waitFor();
+  page.once("dialog", (prompt) => prompt.accept());
+  await agentRow.getByRole("button", { name: "吊销" }).click();
+  await verifyIfAsked();
+  await until("代理以吊销状态退出", () => agentProcess.exitCode === 3, 10_000);
+  await until("代理从列表移除", async () => !(await api("/hosts")).some((item) => item.id === host.id));
   assert.deepEqual(pageErrors, [], `浏览器异常：${pageErrors.join("；")}`);
 
   console.log("B8 端到端主流程通过");

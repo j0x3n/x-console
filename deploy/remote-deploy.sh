@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")"
+. ./local-agent.sh
 
 set_image() {
 	if grep -q '^XC_IMAGE=' .env; then
@@ -104,6 +105,7 @@ if [ ! -f .env ]; then
 		echo "XC_MASTER_KEY=$KEY"
 		echo "XC_TZ=${XC_TZ:-Asia/Shanghai}"
 		echo "XC_PORT=${XC_PORT:-17380}"
+		echo "XC_LOCAL_AGENT=1"
 	} >.env
 	echo "已创建 .env。请立即备份其中的 XC_MASTER_KEY：$(pwd)/.env"
 fi
@@ -146,6 +148,9 @@ fi
 if [ -n "$BACKUP" ]; then
 	printf '%s\n%s\n' "$OLD_IMAGE" "$BACKUP" >.previous-deploy
 	docker compose exec -T x-console sh -c 'ls -1t /data/backups/x-console-*.db | tail -n +11 | xargs -r rm --'
+fi
+if ! manage_local_agent; then
+	echo "警告：本机代理安装或更新失败，面板部署已完成" >&2
 fi
 PORT=$(sed -n 's/^XC_PORT=//p' .env)
 echo "部署完成，面板在 127.0.0.1:${PORT:-17380}：$(docker compose exec -T x-console wget -qO- http://127.0.0.1:8080/api/v1/health)"

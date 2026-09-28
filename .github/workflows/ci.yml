@@ -58,6 +58,12 @@ jobs:
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Local agent deploy script
+        working-directory: deploy
+        run: |
+          sh -n remote-deploy.sh
+          sh -n local-agent.sh
+          sh local-agent_test.sh
       - name: Windows agent builds
         run: |
           GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent

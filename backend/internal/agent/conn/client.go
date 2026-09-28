@@ -103,6 +103,10 @@ func (c *Client) Run(ctx context.Context) error {
 type fatalError struct{ err error }
 
 func (f *fatalError) Error() string { return f.err.Error() }
+func (f *fatalError) Unwrap() error { return f.err }
+
+// ErrRevoked means the server has rejected this agent token permanently.
+var ErrRevoked = errors.New("server rejected the agent token; pair again")
 
 func (c *Client) runOnce(ctx context.Context) error {
 	u, err := wsURL(c.Server)
@@ -116,7 +120,7 @@ func (c *Client) runOnce(ctx context.Context) error {
 	cancel()
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusUnauthorized {
-			return &fatalError{errors.New("server rejected the agent token (revoked?); pair again")}
+			return &fatalError{ErrRevoked}
 		}
 		return err
 	}
@@ -160,6 +164,10 @@ func (c *Client) runOnce(ctx context.Context) error {
 		go fn(runCtx)
 	}
 	err = peer.Run(runCtx)
+	var closed websocket.CloseError
+	if errors.As(err, &closed) && closed.Code == websocket.StatusPolicyViolation && closed.Reason == "revoked" {
+		err = &fatalError{ErrRevoked}
+	}
 	c.mu.Lock()
 	c.peer = nil
 	c.mu.Unlock()
