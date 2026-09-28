@@ -48,10 +48,16 @@ func parseTimes(raw string) []string {
 func toAPI(h db.Habit) api.Habit {
 	return api.Habit{
 		Id: h.ID, Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, DailyTarget: h.DailyTarget,
+		Kind:       habitKindPtr(h.Kind),
 		RemindMode: api.RemindMode(h.RemindMode), RemindIntervalMinutes: int(h.RemindIntervalMinutes),
 		RemindWindow: h.RemindWindow, RemindTimes: parseTimes(h.RemindTimes), HaEntityId: h.HaEntityID,
 		Archived: h.ArchivedAt != nil, SortOrder: int(h.SortOrder), CreatedAt: h.CreatedAt,
 	}
+}
+
+func habitKindPtr(kind string) *api.HabitKind {
+	k := api.HabitKind(kind)
+	return &k
 }
 
 func logToAPI(l db.HabitLog) api.HabitLog {
@@ -60,14 +66,14 @@ func logToAPI(l db.HabitLog) api.HabitLog {
 
 // habitFields is the editable part of a habit, shared by create and update.
 type habitFields struct {
-	Name, Icon, Color, Unit string
-	Target                  float64
-	Mode                    string
-	Interval                int
-	Window                  string
-	Times                   []string
-	Entity                  string
-	SortOrder               int
+	Name, Icon, Color, Unit, Kind string
+	Target                        float64
+	Mode                          string
+	Interval                      int
+	Window                        string
+	Times                         []string
+	Entity                        string
+	SortOrder                     int
 }
 
 // validate cleans the fields and checks the reminder settings.
@@ -81,6 +87,15 @@ func (f *habitFields) validate() error {
 	}
 	f.Unit = strings.TrimSpace(f.Unit)
 	if f.Unit == "" {
+		f.Unit = "次"
+	}
+	if f.Kind == "" {
+		f.Kind = "count"
+	}
+	if f.Kind != "count" && f.Kind != "workout" {
+		return httpx.Invalid("习惯类型只能是普通或健身")
+	}
+	if f.Kind == "workout" {
 		f.Unit = "次"
 	}
 	if f.Target <= 0 || f.Target > 100000 || math.IsNaN(f.Target) {
@@ -128,6 +143,9 @@ func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error
 	setIf(&f.Icon, in.Icon)
 	setIf(&f.Color, in.Color)
 	setIf(&f.Unit, in.Unit)
+	if in.Kind != nil {
+		f.Kind = string(*in.Kind)
+	}
 	setIf(&f.Target, in.DailyTarget)
 	setIf(&f.Interval, in.RemindIntervalMinutes)
 	setIf(&f.Window, in.RemindWindow)
@@ -153,6 +171,7 @@ func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error
 		Name: f.Name, Icon: f.Icon, Color: f.Color, Unit: f.Unit, DailyTarget: f.Target, RemindMode: f.Mode,
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, SortOrder: int64(f.SortOrder), CreatedAt: time.Now().UTC(),
+		Kind: f.Kind,
 	})
 	m.d.Audit.Record(ctx, "habit.create", strconv.FormatInt(h.ID, 10), map[string]any{"name": f.Name}, err)
 	if err != nil {
@@ -175,7 +194,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		return h, err
 	}
 	f := habitFields{
-		Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, Target: h.DailyTarget, Mode: h.RemindMode,
+		Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, Kind: h.Kind, Target: h.DailyTarget, Mode: h.RemindMode,
 		Interval: int(h.RemindIntervalMinutes), Window: h.RemindWindow, Times: parseTimes(h.RemindTimes),
 		Entity: h.HaEntityID, SortOrder: int(h.SortOrder),
 	}
@@ -183,6 +202,9 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 	setIf(&f.Icon, p.Icon)
 	setIf(&f.Color, p.Color)
 	setIf(&f.Unit, p.Unit)
+	if p.Kind != nil {
+		f.Kind = string(*p.Kind)
+	}
 	setIf(&f.Target, p.DailyTarget)
 	setIf(&f.Interval, p.RemindIntervalMinutes)
 	setIf(&f.Window, p.RemindWindow)
@@ -210,6 +232,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		Name: f.Name, Icon: f.Icon, Color: f.Color, Unit: f.Unit, DailyTarget: f.Target, RemindMode: f.Mode,
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, ArchivedAt: archived, SortOrder: int64(f.SortOrder), ID: id,
+		Kind: f.Kind,
 	})
 	m.d.Audit.Record(ctx, "habit.update", strconv.FormatInt(id, 10), nil, err)
 	if err != nil {
@@ -316,6 +339,9 @@ func (m *Module) checkin(ctx context.Context, id int64, amount float64, note, so
 	if h.ArchivedAt != nil {
 		return db.HabitLog{}, api.HabitToday{}, httpx.NewError(409, "conflict", "这个习惯已经归档")
 	}
+	if h.Kind == "workout" {
+		return db.HabitLog{}, api.HabitToday{}, httpx.Invalid("健身类习惯要记一次训练")
+	}
 	before, err := m.progressOf(ctx, h, now)
 	if err != nil {
 		return db.HabitLog{}, api.HabitToday{}, err
@@ -346,6 +372,9 @@ func (m *Module) undo(ctx context.Context, logID int64) error {
 	l, err := m.q.GetHabitLog(ctx, logID)
 	if err != nil {
 		return notFound(err)
+	}
+	if l.WorkoutLogID != nil {
+		return httpx.Invalid("训练产生的打卡请删除训练记录")
 	}
 	_, err = m.q.DeleteHabitLog(ctx, logID)
 	m.d.Audit.Record(ctx, "habit.checkin_undo", strconv.FormatInt(l.HabitID, 10), map[string]any{"logId": logID}, err)

@@ -320,6 +320,31 @@ try {
     return habit?.reached && habit.logs.length === 1;
   });
 
+  stage = "训练自动打卡";
+  const workoutHabitResponse = await page.context().request.post(`${base}/api/v1/habits`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端健身", kind: "workout", dailyTarget: 1 },
+  });
+  assert.equal(workoutHabitResponse.status(), 201, await workoutHabitResponse.text());
+  const workoutHabit = await workoutHabitResponse.json();
+  assert.equal(workoutHabit.kind, "workout");
+  const workoutLogResponse = await page.context().request.post(`${base}/api/v1/workouts/logs`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { durationMinutes: 20, items: [{ name: "端到端深蹲" }] },
+  });
+  assert.equal(workoutLogResponse.status(), 201, await workoutLogResponse.text());
+  const workoutLog = await workoutLogResponse.json();
+  await page.reload();
+  const workoutCard = page.locator(".habits-card").filter({ hasText: "端到端健身" });
+  await workoutCard.waitFor();
+  assert.equal(await workoutCard.getByRole("button", { name: "撤销" }).count(), 0);
+  assert.equal((await api("/habits/today")).find((item) => item.habit.id === workoutHabit.id).done, 1);
+  const removeWorkoutResponse = await page.context().request.delete(`${base}/api/v1/workouts/logs/${workoutLog.id}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(removeWorkoutResponse.status(), 204, await removeWorkoutResponse.text());
+  assert.equal((await api("/habits/today")).find((item) => item.habit.id === workoutHabit.id).done, 0);
+
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
   await page.getByRole("button", { name: "配对新设备" }).click();

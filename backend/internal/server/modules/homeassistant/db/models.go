@@ -317,15 +317,17 @@ type Habit struct {
 	CreatedAt             time.Time
 	LastRemindedAt        *time.Time
 	QuietUntil            *time.Time
+	Kind                  string
 }
 
 type HabitLog struct {
-	ID      int64
-	HabitID int64
-	At      time.Time
-	Amount  float64
-	Source  string
-	Note    string
+	ID           int64
+	HabitID      int64
+	At           time.Time
+	Amount       float64
+	Source       string
+	Note         string
+	WorkoutLogID *int64
 }
 
 type HostMetrics1h struct {

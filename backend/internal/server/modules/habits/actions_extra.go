@@ -22,7 +22,7 @@ func (m *Module) registerExtraActions() {
 		}
 		return m.stats(ctx, in.ID, in.Days, time.Now())
 	}})
-	m.d.Actions.Register(actions.Action{Name: "habits.create", Title: "新建习惯", Description: "Create a habit with name and optional daily target and unit.", Input: actions.Schema(`{"type":"object","properties":{"name":{"type":"string"},"dailyTarget":{"type":"number"},"unit":{"type":"string"}},"required":["name"]}`), Effect: actions.Write, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	m.d.Actions.Register(actions.Action{Name: "habits.create", Title: "新建习惯", Description: "Create a count or workout habit with a name and optional daily target and unit.", Input: actions.Schema(`{"type":"object","properties":{"name":{"type":"string"},"kind":{"type":"string","enum":["count","workout"]},"dailyTarget":{"type":"number"},"unit":{"type":"string"}},"required":["name"]}`), Effect: actions.Write, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in api.HabitInput
 		if err := decodeStrict(raw, &in); err != nil {
 			return nil, err

@@ -253,7 +253,7 @@ export interface components {
             at: string;
             /** Format: double */
             amount: number;
-            /** @description web、telegram、webpush、ha、ai、automation */
+            /** @description web、telegram、webpush、ha、ai、automation、workout */
             source: string;
             note: string;
         };
