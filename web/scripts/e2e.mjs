@@ -355,6 +355,25 @@ try {
   assert.equal(removeWorkoutResponse.status(), 204, await removeWorkoutResponse.text());
   assert.equal((await api("/habits/today")).find((item) => item.habit.id === workoutHabit.id).done, 0);
 
+  stage = "续费进入早报";
+  const dateParts = Object.fromEntries(
+    new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(new Date(Date.now() + 3 * 86_400_000)).map(({ type, value }) => [type, value]),
+  );
+  const renewalDate = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  const subscriptionResponse = await page.context().request.post(`${base}/api/v1/subscriptions`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端续费", amount: 68, currency: "CNY", cycle: "monthly", nextRenewal: renewalDate },
+  });
+  assert.equal(subscriptionResponse.status(), 201, await subscriptionResponse.text());
+  const briefResponse = await page.context().request.post(`${base}/api/v1/briefs/generate`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { send: false },
+  });
+  assert.equal(briefResponse.status(), 200, await briefResponse.text());
+  const generatedBrief = await briefResponse.json();
+  assert.ok(generatedBrief.sections.some((section) => section.key === "renewals" && section.markdown.includes("端到端续费")));
+
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
   await page.getByRole("button", { name: "配对新设备" }).click();

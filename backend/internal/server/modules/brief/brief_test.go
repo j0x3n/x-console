@@ -207,8 +207,8 @@ func (fakeHabits) Today(context.Context) ([]contracts.HabitProgress, error) {
 
 type fakeRenewals struct{}
 
-func (fakeRenewals) UpcomingRenewals(context.Context, time.Time) ([]brief.Renewal, error) {
-	return []brief.Renewal{{Name: "域名 example.com", Date: at(30, 0, 0), Amount: 68, Currency: "CNY"}}, nil
+func (fakeRenewals) Upcoming(context.Context, time.Time) ([]contracts.RenewalRef, error) {
+	return []contracts.RenewalRef{{Name: "域名 example.com", Date: time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC), Amount: 68, Currency: "CNY"}}, nil
 }
 
 type fakePolisher struct{}
@@ -227,9 +227,24 @@ func fakeRegistry(failHosts bool) *module.Registry {
 	module.Provide[contracts.Reminders](reg, contracts.RemindersKey, fakeReminders{})
 	module.Provide[contracts.Hosts](reg, contracts.HostsKey, fakeHosts{fail: failHosts})
 	module.Provide[contracts.Habits](reg, contracts.HabitsKey, fakeHabits{})
-	module.Provide[brief.RenewalSource](reg, brief.RenewalsKey, fakeRenewals{})
+	module.Provide[contracts.Renewals](reg, contracts.RenewalsKey, fakeRenewals{})
 	module.Provide[brief.Polisher](reg, brief.PolisherKey, fakePolisher{})
 	return reg
+}
+
+func TestRenewalDateUsesCivilDay(t *testing.T) {
+	env, m, _ := setup(t)
+	loc := time.FixedZone("Pacific", -8*60*60)
+	env.App.Deps.Config.Location = loc
+	reg := module.NewRegistry()
+	module.Provide[contracts.Renewals](reg, contracts.RenewalsKey, fakeRenewals{})
+	content, _, err := brief.Generate(m, context.Background(), reg, time.Date(2026, 10, 27, 8, 0, 0, 0, loc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(content, "- 10-30 域名 example.com 68 CNY") {
+		t.Fatalf("renewal date shifted by time zone: %s", content)
+	}
 }
 
 func TestBriefWithFakeProviders(t *testing.T) {

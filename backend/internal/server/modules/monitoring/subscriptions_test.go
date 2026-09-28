@@ -10,12 +10,49 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/api"
 )
 
 func day(s string) openapi_types.Date {
 	t, _ := time.Parse("2006-01-02", s)
 	return openapi_types.Date{Time: t}
+}
+
+func TestRenewalsContract(t *testing.T) {
+	env, _ := setup(t)
+	for _, item := range []struct {
+		name string
+		date string
+	}{
+		{"overdue", "2026-10-01"},
+		{"within", "2026-10-07"},
+		{"boundary", "2026-10-08"},
+		{"archived", "2026-10-06"},
+	} {
+		var created api.Subscription
+		env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+			Name: item.name, Amount: 12.5, Currency: ptr("USD"), Cycle: "monthly", NextRenewal: day(item.date),
+		}, &created)
+		if item.name == "archived" {
+			env.MustDo(http.MethodPatch, fmt.Sprintf("/subscriptions/%d", created.Id), api.SubscriptionPatch{Archived: ptr(true)}, &created)
+		}
+	}
+	svc, ok := module.Lookup[contracts.Renewals](env.App.Deps.Registry, contracts.RenewalsKey)
+	if !ok {
+		t.Fatal("renewals provider missing")
+	}
+	until := time.Date(2026, 10, 8, 0, 0, 0, 0, env.App.Deps.Config.Location)
+	refs, err := svc.Upcoming(context.Background(), until)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refs) != 2 || refs[0].Name != "overdue" || refs[1].Name != "within" ||
+		refs[1].Amount != 12.5 || refs[1].Currency != "USD" ||
+		refs[1].Date.Format(time.DateOnly) != "2026-10-07" || refs[1].Date.Location() != time.UTC {
+		t.Fatalf("upcoming renewals: %+v", refs)
+	}
 }
 
 func TestSubscriptionReminders(t *testing.T) {
