@@ -125,13 +125,13 @@ export function useHostMetrics(id: string, range: MetricsRange) {
   });
 }
 
-export function useProcesses(id: string, sort: ProcessSort) {
+export function useProcesses(id: string, sort: ProcessSort, limit = 300) {
   return useQuery({
-    queryKey: [...hostsKeys.processes(id), sort],
+    queryKey: [...hostsKeys.processes(id), sort, limit],
     queryFn: () =>
       unwrap(
         hostsApi.GET("/hosts/{hostId}/processes", {
-          params: { path: { hostId: id }, query: { sort, limit: 300 } },
+          params: { path: { hostId: id }, query: { sort, limit } },
         }),
       ),
     placeholderData: keepPreviousData,

@@ -8,7 +8,8 @@ import {
   formatMoney,
   formatPorts,
   latencyPoints,
-  logText,
+  parseLogFrame,
+  appendLogLines,
   mergeStats,
   monitorTone,
   nextRenewal,
@@ -179,12 +180,31 @@ describe("docker", () => {
   });
 
   it("buffers log lines", () => {
+    const logText = (b: typeof emptyLog) =>
+      [...b.lines.map((l) => l.text), ...(b.partial ? [b.partial] : [])].join(
+        "\n",
+      );
     let buf = appendLog(emptyLog, "one\ntw");
-    expect(buf).toEqual({ lines: ["one"], partial: "tw" });
+    expect(buf.lines.map((l) => l.text)).toEqual(["one"]);
+    expect(buf.partial).toBe("tw");
     buf = appendLog(buf, "o\r\nthree\n");
-    expect(buf).toEqual({ lines: ["one", "two", "three"], partial: "" });
+    expect(buf.lines.map((l) => l.text)).toEqual(["one", "two", "three"]);
+    expect(buf.partial).toBe("");
     expect(logText(appendLog(buf, "four"))).toBe("one\ntwo\nthree\nfour");
-    expect(appendLog(buf, "x\ny\n", 2).lines).toEqual(["x", "y"]);
+    expect(appendLog(buf, "x\ny\n", 2).lines.map((l) => l.text)).toEqual([
+      "x",
+      "y",
+    ]);
+    const json = parseLogFrame(
+      '[{"stream":"stderr","text":"boom"},{"stream":"stdout","text":"ok"}]',
+    );
+    expect(json?.length).toBe(2);
+    expect(parseLogFrame("[2026] plain text")).toBeNull();
+    const mixed = appendLogLines(buf, json!);
+    expect(mixed.lines.at(-2)).toMatchObject({
+      text: "boom",
+      stream: "stderr",
+    });
   });
 
   it("reads and converts subscription cycles (B23)", () => {

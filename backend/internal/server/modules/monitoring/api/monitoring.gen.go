@@ -243,6 +243,24 @@ func (e SubscriptionEventKind) Valid() bool {
 	}
 }
 
+// Defines values for FollowContainerLogsParamsFormat.
+const (
+	Json FollowContainerLogsParamsFormat = "json"
+	Text FollowContainerLogsParamsFormat = "text"
+)
+
+// Valid indicates whether the value is a known member of the FollowContainerLogsParamsFormat enum.
+func (e FollowContainerLogsParamsFormat) Valid() bool {
+	switch e {
+	case Json:
+		return true
+	case Text:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetMonitorResultsParamsRange.
 const (
 	N24h GetMonitorResultsParamsRange = "24h"
@@ -709,8 +727,12 @@ type GetContainerLogsParams struct {
 
 // FollowContainerLogsParams defines parameters for FollowContainerLogs.
 type FollowContainerLogsParams struct {
-	Tail *Tail `form:"tail,omitempty" json:"tail,omitempty"`
+	Format *FollowContainerLogsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+	Tail   *Tail                            `form:"tail,omitempty" json:"tail,omitempty"`
 }
+
+// FollowContainerLogsParamsFormat defines parameters for FollowContainerLogs.
+type FollowContainerLogsParamsFormat string
 
 // ListMonitorsParams defines parameters for ListMonitors.
 type ListMonitorsParams struct {
@@ -781,6 +803,12 @@ type ServerInterface interface {
 
 	// (GET /hosts/{hostId}/docker/images)
 	ListImages(w http.ResponseWriter, r *http.Request, hostId HostId)
+
+	// (POST /hosts/{hostId}/docker/images/prune)
+	PruneImages(w http.ResponseWriter, r *http.Request, hostId HostId)
+
+	// (DELETE /hosts/{hostId}/docker/images/{imageId})
+	RemoveImage(w http.ResponseWriter, r *http.Request, hostId HostId, imageId string)
 
 	// (GET /hosts/{hostId}/docker/stats)
 	GetDockerStats(w http.ResponseWriter, r *http.Request, hostId HostId)
@@ -890,6 +918,16 @@ func (_ Unimplemented) ContainerAction(w http.ResponseWriter, r *http.Request, h
 
 // (GET /hosts/{hostId}/docker/images)
 func (_ Unimplemented) ListImages(w http.ResponseWriter, r *http.Request, hostId HostId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /hosts/{hostId}/docker/images/prune)
+func (_ Unimplemented) PruneImages(w http.ResponseWriter, r *http.Request, hostId HostId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /hosts/{hostId}/docker/images/{imageId})
+func (_ Unimplemented) RemoveImage(w http.ResponseWriter, r *http.Request, hostId HostId, imageId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1157,6 +1195,19 @@ func (siw *ServerInterfaceWrapper) FollowContainerLogs(w http.ResponseWriter, r 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params FollowContainerLogsParams
 
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "tail" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "tail", r.URL.Query(), &params.Tail, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -1242,6 +1293,67 @@ func (siw *ServerInterfaceWrapper) ListImages(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListImages(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PruneImages operation middleware
+func (siw *ServerInterfaceWrapper) PruneImages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PruneImages(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveImage operation middleware
+func (siw *ServerInterfaceWrapper) RemoveImage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "imageId" -------------
+	var imageId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "imageId", chi.URLParam(r, "imageId"), &imageId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "imageId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveImage(w, r, hostId, imageId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2058,6 +2170,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hosts/{hostId}/docker/images", wrapper.ListImages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/hosts/{hostId}/docker/images/{imageId}", wrapper.RemoveImage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/hosts/{hostId}/docker/images/prune", wrapper.PruneImages)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/scripts", wrapper.ListScripts)

@@ -7,6 +7,7 @@ import { errorMessage, wsUrl } from "../../../api/client";
 import { withElevation } from "../../../auth/elevation";
 import { useT } from "../../../contexts/LanguageContext";
 import { ensureElevated, type HostDetail } from "../api";
+import TerminalScripts from "./TerminalScripts";
 
 type Status = "idle" | "connecting" | "open" | "closed";
 
@@ -109,6 +110,14 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
     });
   }, [host.id, disconnect, t]);
 
+  // 脚本面板把一段输入送进终端，和键盘输入走同一条路。
+  const send = useCallback((text: string) => {
+    const ws = socket.current;
+    if (ws?.readyState !== WebSocket.OPEN) return;
+    ws.send(new TextEncoder().encode(text));
+    term.current?.focus();
+  }, []);
+
   // 跟着容器大小调整终端。
   useEffect(() => {
     const node = el.current;
@@ -180,10 +189,17 @@ export default function TerminalTab({ host }: { host: HostDetail }) {
           {t("Opening a terminal needs your verification code.")}
         </p>
       )}
-      <div
-        className={`servers-terminal${status === "idle" ? " idle" : ""}`}
-        ref={el}
-      />
+      <div className="servers-terminal-body">
+        <div
+          className={`servers-terminal${status === "idle" ? " idle" : ""}`}
+          ref={el}
+        />
+        <TerminalScripts
+          host={host}
+          connected={status === "open"}
+          send={send}
+        />
+      </div>
     </div>
   );
 }

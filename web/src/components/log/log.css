@@ -1,0 +1,135 @@
+/* 日志查看（components/log/LogViewer） */
+.xc-log {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.xc-log-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.xc-log-toolbar .xc-select {
+  width: auto;
+  height: 30px;
+}
+.xc-log-search {
+  display: flex;
+  flex: 1 1 180px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 6px;
+  background: var(--xc-surface);
+  color: var(--xc-muted);
+}
+.xc-log-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--xc-text);
+  font: inherit;
+}
+.xc-log-search button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--xc-muted);
+}
+.xc-log-count {
+  margin-left: auto;
+  color: var(--xc-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.xc-log-box {
+  overflow: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+  font-family: var(--xc-mono);
+  font-size: 12px;
+  line-height: 20px;
+  overscroll-behavior: contain;
+}
+.xc-log-line {
+  display: flex;
+  gap: 8px;
+  height: 20px;
+  padding: 0 10px 0 8px;
+  border-left: 2px solid transparent;
+  white-space: pre;
+  color: var(--xc-text-2);
+}
+.xc-log-line:hover {
+  background: var(--xc-surface-2);
+}
+.xc-log-line.stderr {
+  border-left-color: var(--xc-danger);
+}
+.xc-log-line.lv-error .xc-log-text {
+  color: var(--xc-danger);
+}
+.xc-log-line.lv-warn .xc-log-text {
+  color: var(--xc-warn);
+}
+.xc-log-time,
+.xc-log-source {
+  flex: none;
+  color: var(--xc-muted);
+}
+.xc-log-level {
+  flex: none;
+  width: 42px;
+  color: var(--xc-muted);
+  text-transform: uppercase;
+  font-size: 10.5px;
+}
+.lv-error .xc-log-level {
+  color: var(--xc-danger);
+}
+.lv-warn .xc-log-level {
+  color: var(--xc-warn);
+}
+.xc-log-text mark {
+  border-radius: 2px;
+  background: #f5c54266;
+  color: inherit;
+}
+.xc-log-empty,
+.xc-log-older {
+  padding: 16px;
+  color: var(--xc-muted);
+  font-family: inherit;
+  text-align: center;
+}
+.xc-log-older {
+  padding: 4px;
+  font-size: 12px;
+}
+.xc-log-jump {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 999px;
+  background: var(--xc-elevated);
+  color: var(--xc-text);
+  font-size: 12px;
+  box-shadow: var(--xc-shadow);
+}

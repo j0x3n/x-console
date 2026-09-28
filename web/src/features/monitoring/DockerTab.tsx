@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ChevronRight,
+  Eraser,
   FileText,
   Play,
   RefreshCw,
@@ -7,6 +9,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
+import LogViewer from "../../components/log/LogViewer";
 import { wsUrl } from "../../api/client";
 import { withElevation } from "../../auth/elevation";
 import Dialog from "../../components/ui/Dialog";
@@ -17,21 +20,27 @@ import { formatBytes } from "../../lib/time";
 import "./i18n";
 import "./monitoring.css";
 import {
+  usePruneImages,
+  useRemoveImage,
   useContainerAction,
   useContainers,
   useDockerImages,
   useDockerStats,
   type ContainerAction,
+  type DockerImage,
 } from "./api";
 import { showError } from "./components/common";
 import {
   appendLog,
+  appendLogLines,
   containerTone,
   emptyLog,
   formatPorts,
-  logText,
   mergeStats,
+  parseLogFrame,
+  sortContainers,
   type ContainerRow,
+  type ContainerSort,
 } from "./lib";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 
@@ -52,15 +61,72 @@ const containerVerb: Record<ContainerAction, string> = {
 export default function DockerTab({ host }: { host: { id: string } }) {
   const t = useT();
   const [all, setAll] = useState(false);
-  const [showImages, setShowImages] = useState(false);
+  // 镜像默认展开（B28）。
+  const [showImages, setShowImages] = useState(true);
+  const [sort, setSort] = useState<ContainerSort>("name");
   const [logsFor, setLogsFor] = useState<ContainerRow | null>(null);
   const containers = useContainers(host.id, all);
   const stats = useDockerStats(host.id);
   const images = useDockerImages(host.id, showImages);
   const action = useContainerAction(host.id);
+  const removeImage = useRemoveImage(host.id);
+  const prune = usePruneImages(host.id);
   const rows = useMemo(
-    () => mergeStats(containers.data?.items ?? [], stats.data?.items),
-    [containers.data, stats.data],
+    () =>
+      sortContainers(
+        mergeStats(containers.data?.items ?? [], stats.data?.items),
+        sort,
+      ),
+    [containers.data, stats.data, sort],
+  );
+  const imageName = (img: DockerImage) =>
+    img.tags.join(", ") || img.id.replace("sha256:", "").slice(0, 12);
+  const usersOf = (img: DockerImage) =>
+    (containers.data?.items ?? [])
+      .filter((c) => img.tags.includes(c.image) || c.image === img.id)
+      .map((c) => c.name);
+  const onRemoveImage = async (img: DockerImage) => {
+    if (
+      !(await confirmAction({
+        title: `${t("Delete image")} ${imageName(img)}？`,
+        description: `${t("Frees")} ${formatBytes(img.size)}。`,
+      }))
+    )
+      return;
+    removeImage.mutate(img.id, {
+      onSuccess: () => toast(t("Deleted")),
+      onError: showError,
+    });
+  };
+  const unused = (images.data?.items ?? []).filter((i) => i.containers === 0);
+  const onPrune = async () => {
+    const bytes = unused.reduce((sum, i) => sum + i.size, 0);
+    if (
+      !(await confirmAction({
+        title: `${t("Delete")} ${unused.length} ${t("unused images")}？`,
+        description: `${t("Frees about")} ${formatBytes(bytes)}。`,
+        confirmLabel: t("Clean up"),
+      }))
+    )
+      return;
+    prune.mutate(undefined, {
+      onSuccess: (r) =>
+        toast(
+          `${t("Deleted")} ${r.deleted} · ${formatBytes(r.spaceReclaimed)}`,
+        ),
+      onError: showError,
+    });
+  };
+  const sortHead = (key: ContainerSort, label: string) => (
+    <th>
+      <button
+        className={`monitoring-sort${sort === key ? " active" : ""}`}
+        aria-pressed={sort === key}
+        onClick={() => setSort(key)}
+      >
+        {label}
+      </button>
+    </th>
   );
 
   const run = async (c: ContainerRow, act: ContainerAction) => {
@@ -92,6 +158,17 @@ export default function DockerTab({ host }: { host: { id: string } }) {
         <div className="xc-card-head">
           <h2>{t("Containers")}</h2>
           <div className="xc-row monitoring-wrap">
+            <select
+              className="xc-select monitoring-sort-select"
+              aria-label={t("Sort by")}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as ContainerSort)}
+            >
+              <option value="name">{t("Name")}</option>
+              <option value="state">{t("State")}</option>
+              <option value="cpu">CPU</option>
+              <option value="mem">{t("Memory")}</option>
+            </select>
             <label className="monitoring-check">
               <input
                 type="checkbox"
@@ -136,11 +213,11 @@ export default function DockerTab({ host }: { host: { id: string } }) {
             <table className="xc-table monitoring-table">
               <thead>
                 <tr>
-                  <th>{t("Name")}</th>
-                  <th>{t("State")}</th>
+                  {sortHead("name", t("Name"))}
+                  {sortHead("state", t("State"))}
                   <th>{t("Ports")}</th>
-                  <th>CPU</th>
-                  <th>{t("Memory")}</th>
+                  {sortHead("cpu", "CPU")}
+                  {sortHead("mem", t("Memory"))}
                   <th />
                 </tr>
               </thead>
@@ -239,13 +316,26 @@ export default function DockerTab({ host }: { host: { id: string } }) {
 
       <div className="xc-card">
         <div className="xc-card-head">
-          <h2>{t("Images")}</h2>
           <button
-            className="xc-btn small ghost"
+            className="monitoring-collapse"
+            aria-expanded={showImages}
             onClick={() => setShowImages(!showImages)}
           >
-            {showImages ? t("Hide") : t("Show")}
+            <ChevronRight size={14} />
+            <h2>{t("Images")}</h2>
+            {images.data && (
+              <span className="xc-muted">{images.data.items.length}</span>
+            )}
           </button>
+          {showImages && unused.length > 0 && (
+            <button
+              className="xc-btn small"
+              disabled={prune.isPending}
+              onClick={onPrune}
+            >
+              <Eraser size={13} /> {t("Clean up unused images")}
+            </button>
+          )}
         </div>
         {showImages &&
           (images.isPending ? (
@@ -262,19 +352,40 @@ export default function DockerTab({ host }: { host: { id: string } }) {
                     <th>{t("Tag")}</th>
                     <th>{t("Size")}</th>
                     <th>{t("Used by")}</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {images.data.items.map((img) => (
-                    <tr key={img.id}>
-                      <td className="xc-mono monitoring-small">
-                        {img.tags.join(", ") ||
-                          img.id.replace("sha256:", "").slice(0, 12)}
-                      </td>
-                      <td>{formatBytes(img.size)}</td>
-                      <td>{img.containers >= 0 ? img.containers : "—"}</td>
-                    </tr>
-                  ))}
+                  {images.data.items.map((img) => {
+                    const users = usersOf(img);
+                    const inUse = img.containers > 0 || users.length > 0;
+                    return (
+                      <tr key={img.id}>
+                        <td className="xc-mono monitoring-small">
+                          {imageName(img)}
+                        </td>
+                        <td>{formatBytes(img.size)}</td>
+                        <td title={users.join(", ")}>
+                          {img.containers >= 0 ? img.containers : "—"}
+                        </td>
+                        <td className="monitoring-cell-actions">
+                          <button
+                            className="xc-btn small danger"
+                            disabled={inUse || removeImage.isPending}
+                            title={
+                              inUse
+                                ? `${t("Delete the containers using it first")}${users.length ? `：${users.join(", ")}` : ""}`
+                                : t("Delete image")
+                            }
+                            aria-label={`${t("Delete image")} ${imageName(img)}`}
+                            onClick={() => onRemoveImage(img)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -292,7 +403,7 @@ export default function DockerTab({ host }: { host: { id: string } }) {
 
 type LogStatus = "connecting" | "following" | "ended" | "error";
 
-/** 跟随容器日志。关闭弹窗就断开。 */
+/** 跟随容器日志（B28 起用公共的 LogViewer，可以按级别、输出、关键字过滤）。 */
 function LogsDialog({
   hostId,
   container,
@@ -304,19 +415,20 @@ function LogsDialog({
 }) {
   const t = useT();
   const [buf, setBuf] = useState(emptyLog);
+  const [structured, setStructured] = useState(false);
   const [status, setStatus] = useState<LogStatus>("connecting");
   const [error, setError] = useState("");
-  const box = useRef<HTMLPreElement>(null);
   const id = container?.id;
 
   useEffect(() => {
     if (!id) return;
     setBuf(emptyLog);
+    setStructured(false);
     setStatus("connecting");
     setError("");
     const ws = new WebSocket(
       wsUrl(
-        `/hosts/${encodeURIComponent(hostId)}/docker/containers/${encodeURIComponent(id)}/logs/follow?tail=300`,
+        `/hosts/${encodeURIComponent(hostId)}/docker/containers/${encodeURIComponent(id)}/logs/follow?tail=500&format=json`,
       ),
     );
     let opened = false;
@@ -325,8 +437,12 @@ function LogsDialog({
       setStatus("following");
     };
     ws.onmessage = (event) => {
-      if (typeof event.data === "string")
-        setBuf((b) => appendLog(b, event.data));
+      if (typeof event.data !== "string") return;
+      const items = parseLogFrame(event.data);
+      if (items) {
+        setStructured(true);
+        setBuf((b) => appendLogLines(b, items));
+      } else setBuf((b) => appendLog(b, event.data));
     };
     ws.onclose = (event) => {
       if (event.code === 1000) setStatus("ended");
@@ -341,13 +457,9 @@ function LogsDialog({
     return () => ws.close();
   }, [hostId, id]);
 
-  // 新日志到来时滚到底部，除非你往上翻了。
-  useEffect(() => {
-    const el = box.current;
-    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 80)
-      el.scrollTop = el.scrollHeight;
-  }, [buf]);
-
+  const lines = buf.partial
+    ? [...buf.lines, { id: buf.nextId, text: buf.partial }]
+    : buf.lines;
   const statusText: Record<LogStatus, string> = {
     connecting: "Connecting",
     following: "Following",
@@ -361,17 +473,20 @@ function LogsDialog({
       title={`${t("Logs")} · ${container?.name ?? ""}`}
       wide
     >
-      <div className="monitoring-detail-bar">
-        <span
-          className={`xc-badge ${status === "following" ? "ok" : status === "error" ? "danger" : ""}`}
-        >
-          {t(statusText[status])}
-        </span>
-        {error && <span className="xc-muted monitoring-small">{t(error)}</span>}
-      </div>
-      <pre ref={box} className="monitoring-output monitoring-logs">
-        {logText(buf) || (status === "following" ? t("No log lines yet") : "")}
-      </pre>
+      <LogViewer
+        lines={lines}
+        hasStream={structured}
+        height="min(60vh, 520px)"
+        empty={status === "following" ? t("No log lines yet") : undefined}
+        toolbarEnd={
+          <span
+            className={`xc-badge ${status === "following" ? "ok" : status === "error" ? "danger" : ""}`}
+            title={error ? t(error) : undefined}
+          >
+            {t(statusText[status])}
+          </span>
+        }
+      />
       <div className="xc-dialog-actions">
         <button className="xc-btn primary" onClick={onClose}>
           {t("Close")}

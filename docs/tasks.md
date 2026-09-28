@@ -253,6 +253,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-28 | 新增公共组件 `components/log/LogViewer.tsx`（虚拟列表、级别、输出、关键字过滤）和 `components/log/levels.ts`；`monitoring.yaml` 容器日志加 `format=json`、镜像删除和清理 | B28 容器日志、B29 系统日志、B31 日志文件共用 |
 | 2026-09-28 | `api/events.ts` 加 `useMetricsInterval`，WebSocket 控制消息加 `{"type":"interval","hostId","ms"}`（旧服务端忽略） | B26 刷新周期 |
 | 2026-09-28 | 新增契约 `storage.yaml`、`backup.yaml`（后端模块还没建，请求回 404）；设置的“云盘同步”标签换成“存储”，新增“备份”；新增 `features/storage/S3Fields.tsx` 公共 S3 输入框 | B24、B25 前端 |
 | 2026-09-28 | `brief.yaml` 的 `/weather` 加 `refresh`；`monitoring.yaml` 加订阅分类接口和 `cycleCount`、`cycleUnit`、`categoryId`（后端占位在 `monitoring/pending.go`）；契约里有、后端没做的接口统一放在各模块的 `pending.go`，回 `httpx.ErrNotLive` | B23 天气刷新、订阅表单 |

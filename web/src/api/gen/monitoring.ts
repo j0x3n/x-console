@@ -78,6 +78,8 @@ export interface paths {
         /**
          * @description WebSocket。先发最近 tail 行，然后持续推送新日志。每个文本帧是一段日志文本。
          *     容器日志结束时服务端正常关闭连接。
+         *     format=json 时（B28）每个文本帧是一个 JSON 数组，每项是 DockerLogLine，带上是标准输出还是错误输出。
+         *     旧服务端不认识 format，照旧发纯文本，前端两种都能处理。
          */
         get: operations["followContainerLogs"];
         put?: never;
@@ -119,6 +121,46 @@ export interface paths {
         get: operations["listImages"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hosts/{hostId}/docker/images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hostId: components["parameters"]["HostId"];
+                /** @description 镜像 ID（sha256:… 或前 12 位） */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 删除一个镜像（B28），等同 docker image rm。要提升权限。有容器在用时回 409，消息里写出在用的容器名 */
+        delete: operations["removeImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hosts/{hostId}/docker/images/prune": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 删除所有没有容器在用的镜像（B28），等同 docker image prune -a。要提升权限 */
+        post: operations["pruneImages"];
         delete?: never;
         options?: never;
         head?: never;
@@ -422,6 +464,17 @@ export interface components {
         DockerContainerAction: "start" | "stop" | "restart" | "remove";
         DockerLogs: {
             lines: string[];
+        };
+        DockerLogLine: {
+            /** @enum {string} */
+            stream: "stdout" | "stderr";
+            /** @description 一行日志，不带换行 */
+            text: string;
+            /**
+             * Format: date-time
+             * @description Docker 记录的时间
+             */
+            time?: string;
         };
         DockerStats: {
             id: string;
@@ -906,6 +959,7 @@ export interface operations {
     followContainerLogs: {
         parameters: {
             query?: {
+                format?: "text" | "json";
                 tail?: components["parameters"]["Tail"];
             };
             header?: never;
@@ -969,6 +1023,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DockerImageList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hostId: components["parameters"]["HostId"];
+                /** @description 镜像 ID（sha256:… 或前 12 位） */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    pruneImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 清理结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description 删掉的镜像数 */
+                        deleted: number;
+                        /**
+                         * Format: int64
+                         * @description 释放的字节数
+                         */
+                        spaceReclaimed: number;
+                    };
                 };
             };
             default: components["responses"]["Error"];

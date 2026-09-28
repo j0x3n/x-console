@@ -226,4 +226,23 @@ registerZh({
   "The larger one": "两者取大",
   "Remind at": "用到多少提醒",
   "Do not remind": "不提醒",
+  "Merge same names": "合并同名进程",
+  "processes could not be ended": "个进程没能结束",
+  "Collapse group": "收起",
+  "Expand group": "展开",
+  "End all": "结束这一组",
+  More: "更多",
+  Run: "执行",
+  "The script looks like it deletes data or restarts the machine.":
+    "这个脚本看起来会删除数据或者重启机器。",
+  "Started. See the result in Monitoring → Scripts.":
+    "已开始，结果在“监控 → 脚本”里看。",
+  Scripts: "脚本",
+  "Show all": "显示全部",
+  Loading: "加载中",
+  "No scripts linked to this machine yet.": "还没有关联这台机器的脚本。",
+  "Connect the terminal first": "先连接终端",
+  "Run in terminal": "在终端运行",
+  "Run in background": "后台运行",
+  "Manage scripts": "管理脚本",
 });

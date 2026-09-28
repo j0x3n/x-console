@@ -1,5 +1,7 @@
+import type { LogLine } from "../../components/log/LogViewer";
 import type {
   CycleUnit,
+  DockerLogLine,
   DockerContainer,
   DockerStats,
   Monitor,
@@ -309,30 +311,93 @@ export function formatPorts(ports: DockerContainer["ports"]): string {
   return [...seen].join(", ");
 }
 
-/** 跟随日志的缓冲：完整的行和还没收到换行的半行。 */
+/** 跟随日志的缓冲（B28）：完整的行和还没收到换行的半行。 */
 export interface LogBuffer {
-  lines: string[];
+  lines: LogLine[];
   partial: string;
+  nextId: number;
 }
 
-export const emptyLog: LogBuffer = { lines: [], partial: "" };
+export const emptyLog: LogBuffer = { lines: [], partial: "", nextId: 1 };
 
-/** 追加一段日志文本。只留最后 max 行，避免页面越来越慢。 */
+function keepLast(lines: LogLine[], max: number) {
+  return lines.length > max ? lines.slice(lines.length - max) : lines;
+}
+
+/** 追加一段纯文本日志（旧服务端）。只留最后 max 行，避免页面越来越慢。 */
 export function appendLog(
   buf: LogBuffer,
   chunk: string,
-  max = 2000,
+  max = 5000,
 ): LogBuffer {
   const parts = (buf.partial + chunk).replace(/\r\n/g, "\n").split("\n");
   const partial = parts.pop() ?? "";
-  let lines = buf.lines.concat(parts);
-  if (lines.length > max) lines = lines.slice(lines.length - max);
-  return { lines, partial };
+  let id = buf.nextId;
+  const added = parts.map((text) => ({ id: id++, text }));
+  return {
+    lines: keepLast(buf.lines.concat(added), max),
+    partial,
+    nextId: id,
+  };
 }
 
-/** 缓冲里的全部文本，用于显示。 */
-export function logText(buf: LogBuffer): string {
-  return buf.partial
-    ? [...buf.lines, buf.partial].join("\n")
-    : buf.lines.join("\n");
+/** 追加 format=json 的一批日志行，带标准输出和错误输出。 */
+export function appendLogLines(
+  buf: LogBuffer,
+  items: DockerLogLine[],
+  max = 5000,
+): LogBuffer {
+  let id = buf.nextId;
+  const added = items.map((l) => ({
+    id: id++,
+    text: l.text,
+    stream: l.stream,
+    time: l.time,
+  }));
+  return {
+    lines: keepLast(buf.lines.concat(added), max),
+    partial: buf.partial,
+    nextId: id,
+  };
+}
+
+/** 一帧日志：新服务端发 JSON 数组，旧服务端发纯文本。 */
+export function parseLogFrame(data: string): DockerLogLine[] | null {
+  if (!data.startsWith("[")) return null;
+  try {
+    const v = JSON.parse(data);
+    return Array.isArray(v) && v.every((x) => typeof x?.text === "string")
+      ? v
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export type ContainerSort = "name" | "state" | "cpu" | "mem";
+
+/** 容器排序（B28）：CPU 和内存从大到小，没有统计的排最后。 */
+export function sortContainers(
+  rows: ContainerRow[],
+  sort: ContainerSort,
+): ContainerRow[] {
+  const out = [...rows];
+  switch (sort) {
+    case "cpu":
+      return out.sort(
+        (a, b) => (b.stats?.cpuPercent ?? -1) - (a.stats?.cpuPercent ?? -1),
+      );
+    case "mem":
+      return out.sort(
+        (a, b) => (b.stats?.memUsage ?? -1) - (a.stats?.memUsage ?? -1),
+      );
+    case "state":
+      return out.sort(
+        (a, b) =>
+          (a.state === "running" ? 0 : 1) - (b.state === "running" ? 0 : 1) ||
+          a.name.localeCompare(b.name),
+      );
+    default:
+      return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
 }

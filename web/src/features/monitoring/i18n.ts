@@ -236,4 +236,12 @@ registerZh({
   "New category, like Cloud storage": "新分类，比如 云存储",
   "subscriptions in it move to Other.": "个订阅会改到“其他”。",
   Rename: "改名",
+  "Delete image": "删除镜像",
+  Frees: "可以释放",
+  "Frees about": "大约可以释放",
+  "unused images": "个没有容器在用的镜像",
+  "Clean up": "清理",
+  "Clean up unused images": "清理没用的镜像",
+  "Delete the containers using it first": "先删除使用它的容器",
+  "Sort by": "排序",
 });

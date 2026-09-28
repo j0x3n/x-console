@@ -559,3 +559,48 @@ button.monitoring-row:hover,
 .monitoring-category-add .xc-input {
   flex: 1;
 }
+
+/* 容器排序、镜像折叠（B28） */
+.monitoring-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.monitoring-sort.active {
+  color: var(--xc-text);
+}
+.monitoring-sort.active::after {
+  content: " ↓";
+}
+.monitoring-sort-select {
+  width: auto;
+  height: 28px;
+}
+@media (min-width: 721px) {
+  .monitoring-sort-select {
+    display: none;
+  }
+}
+.monitoring-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.monitoring-collapse h2 {
+  margin: 0;
+}
+.monitoring-collapse svg {
+  transition: transform 0.15s;
+}
+.monitoring-collapse[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}

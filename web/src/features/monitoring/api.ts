@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import { useInvalidate } from "../../api/useInvalidate";
+import { withElevation } from "../../auth/elevation";
 import type { components, paths } from "../../api/gen/monitoring";
 import type { paths as hostPaths } from "../../api/gen/hosts";
 
@@ -33,6 +34,7 @@ export type CycleUnit = S["SubscriptionCycleUnit"];
 export type DockerContainer = S["DockerContainer"];
 export type DockerStats = S["DockerStats"];
 export type DockerImage = S["DockerImage"];
+export type DockerLogLine = S["DockerLogLine"];
 export type ContainerAction = S["DockerContainerAction"];
 
 export const monitoringKeys = {
@@ -371,6 +373,36 @@ export function useDockerImages(hostId: string, enabled: boolean) {
         }),
       ),
     enabled,
+  });
+}
+
+export function useRemoveImage(hostId: string) {
+  const invalidate = useInvalidate(monitoringKeys.docker(hostId));
+  return useMutation({
+    mutationFn: (imageId: string) =>
+      withElevation(() =>
+        unwrap(
+          monitoringApi.DELETE("/hosts/{hostId}/docker/images/{imageId}", {
+            params: { path: { hostId, imageId } },
+          }),
+        ),
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+export function usePruneImages(hostId: string) {
+  const invalidate = useInvalidate(monitoringKeys.docker(hostId));
+  return useMutation({
+    mutationFn: () =>
+      withElevation(() =>
+        unwrap(
+          monitoringApi.POST("/hosts/{hostId}/docker/images/prune", {
+            params: { path: { hostId } },
+          }),
+        ),
+      ),
+    onSuccess: invalidate,
   });
 }
 

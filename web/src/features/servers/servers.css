@@ -693,3 +693,105 @@ button.servers-file:hover {
 .servers-traffic-limit-row .xc-select {
   width: 70px;
 }
+
+/* 合并同名进程（B28） */
+.servers-merge {
+  margin: 0;
+  white-space: nowrap;
+}
+.servers-proc-group {
+  cursor: pointer;
+}
+.servers-proc-group:hover {
+  background: var(--xc-surface-2);
+}
+.servers-proc-chevron {
+  transition: transform 0.15s;
+}
+.servers-proc-chevron.open {
+  transform: rotate(90deg);
+}
+.servers-proc-child td:first-child {
+  padding-left: 22px;
+}
+.servers-proc-child {
+  background: var(--xc-surface-2);
+}
+
+/* 终端右边的脚本面板（B28） */
+.servers-terminal-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+}
+.servers-scripts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-height: min(62vh, 560px);
+  overflow: auto;
+}
+.servers-scripts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.servers-scripts-head .xc-check {
+  margin: 0;
+  font-size: 12px;
+}
+.servers-scripts ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.servers-scripts li {
+  display: grid;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.servers-scripts-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.servers-scripts-name span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.servers-scripts-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.servers-scripts-empty {
+  margin: 0;
+  font-size: 12.5px;
+}
+.servers-scripts-manage {
+  font-size: 12.5px;
+  color: var(--xc-accent-text);
+  text-decoration: none;
+}
+@media (max-width: 900px) {
+  .servers-terminal-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .servers-scripts {
+    max-height: none;
+  }
+}
+.servers-proc-group .servers-actions {
+  white-space: nowrap;
+}
+.servers-proc-group .servers-actions .xc-more {
+  display: inline-block;
+  vertical-align: middle;
+}

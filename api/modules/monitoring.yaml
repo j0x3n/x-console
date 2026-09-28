@@ -69,7 +69,15 @@ paths:
       description: |
         WebSocket。先发最近 tail 行，然后持续推送新日志。每个文本帧是一段日志文本。
         容器日志结束时服务端正常关闭连接。
+        format=json 时（B28）每个文本帧是一个 JSON 数组，每项是 DockerLogLine，带上是标准输出还是错误输出。
+        旧服务端不认识 format，照旧发纯文本，前端两种都能处理。
       parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [text, json]
+            default: text
         - $ref: "#/components/parameters/Tail"
       responses:
         "101":
@@ -106,6 +114,43 @@ paths:
         default:
           $ref: "../common.yaml#/components/responses/Error"
 
+  /hosts/{hostId}/docker/images/{imageId}:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+      - name: imageId
+        in: path
+        required: true
+        description: 镜像 ID（sha256:… 或前 12 位）
+        schema: { type: string }
+    delete:
+      operationId: removeImage
+      tags: [docker]
+      description: 删除一个镜像（B28），等同 docker image rm。要提升权限。有容器在用时回 409，消息里写出在用的容器名
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/docker/images/prune:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    post:
+      operationId: pruneImages
+      tags: [docker]
+      description: 删除所有没有容器在用的镜像（B28），等同 docker image prune -a。要提升权限
+      responses:
+        "200":
+          description: 清理结果
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, spaceReclaimed]
+                properties:
+                  deleted: { type: integer, description: 删掉的镜像数 }
+                  spaceReclaimed: { type: integer, format: int64, description: 释放的字节数 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   # ---- scripts ----
   /scripts:
     get:
@@ -586,6 +631,15 @@ components:
         lines:
           type: array
           items: { type: string }
+    DockerLogLine:
+      type: object
+      required: [stream, text]
+      properties:
+        stream:
+          type: string
+          enum: [stdout, stderr]
+        text: { type: string, description: 一行日志，不带换行 }
+        time: { type: string, format: date-time, description: Docker 记录的时间 }
     DockerStats:
       type: object
       required: [id, name, cpuPercent, memUsage, memLimit, memPercent, netRx, netTx, blockRead, blockWrite, pids]
