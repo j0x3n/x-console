@@ -29,6 +29,9 @@ var (
 	ErrTooManyRequests    = &Error{Status: http.StatusTooManyRequests, Code: "rate_limited", Message: "请求太频繁，请稍后再试"}
 	ErrAgentOffline       = &Error{Status: http.StatusServiceUnavailable, Code: "agent_offline", Message: "代理不在线"}
 	ErrIntegrationMissing = &Error{Status: http.StatusPreconditionFailed, Code: "integration_not_configured", Message: "集成还没有配置"}
+	// ErrNotLive marks an endpoint that is in the contract but not built yet.
+	// The web app shows "还没上线" for it.
+	ErrNotLive = &Error{Status: http.StatusNotImplemented, Code: "not_implemented", Message: "这个功能还没上线"}
 )
 
 // NewError builds an error with a custom status and code.

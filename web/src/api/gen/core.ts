@@ -203,6 +203,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 界面偏好（B22），换一台浏览器登录也一样。没保存过时返回默认值 nightMode=auto、accent=ember、language=zh，不带 updatedAt。 */
+        get: operations["getPreferences"];
+        /** @description 保存界面偏好。整份替换，缺的字段用默认值。 */
+        put: operations["putPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit": {
         parameters: {
             query?: never;
@@ -360,6 +378,25 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Preferences: {
+            /**
+             * @description 夜间模式。auto 跟随系统
+             * @enum {string}
+             */
+            nightMode: "on" | "off" | "auto";
+            /**
+             * @description 主题色，只在白天生效。ember 是默认的橙色
+             * @enum {string}
+             */
+            accent: "ember" | "violet" | "mint" | "ocean" | "rose" | "graphite";
+            /** @enum {string} */
+            language: "zh" | "en";
+            /**
+             * Format: date-time
+             * @description 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来
+             */
+            updatedAt?: string;
+        };
         AuthStatus: {
             /** @description 还没有用户，需要先走初始化 */
             setupRequired: boolean;
@@ -751,6 +788,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 界面偏好 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Preferences"];
+            };
+        };
+        responses: {
+            /** @description 保存后的偏好 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
             };
             default: components["responses"]["Error"];
         };

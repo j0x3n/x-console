@@ -197,6 +197,36 @@ paths:
           description: 已修改
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /me/preferences:
+    get:
+      operationId: getPreferences
+      tags: [auth]
+      description: 界面偏好（B22），换一台浏览器登录也一样。没保存过时返回默认值 nightMode=auto、accent=ember、language=zh，不带 updatedAt。
+      responses:
+        "200":
+          description: 界面偏好
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putPreferences
+      tags: [auth]
+      description: 保存界面偏好。整份替换，缺的字段用默认值。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Preferences" }
+      responses:
+        "200":
+          description: 保存后的偏好
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /audit:
     get:
       operationId: listAudit
@@ -358,6 +388,25 @@ paths:
           $ref: "../common.yaml#/components/responses/Error"
 components:
   schemas:
+    Preferences:
+      type: object
+      required: [nightMode, accent, language]
+      properties:
+        nightMode:
+          type: string
+          enum: ["on", "off", "auto"]
+          description: 夜间模式。auto 跟随系统
+        accent:
+          type: string
+          enum: [ember, violet, mint, ocean, rose, graphite]
+          description: 主题色，只在白天生效。ember 是默认的橙色
+        language:
+          type: string
+          enum: [zh, en]
+        updatedAt:
+          type: string
+          format: date-time
+          description: 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来
     AuthStatus:
       type: object
       required: [setupRequired, authenticated]

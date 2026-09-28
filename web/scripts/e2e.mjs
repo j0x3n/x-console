@@ -467,7 +467,6 @@ try {
     `/automations/${automation.id}`,
     "/automations/new",
     "/github",
-    "/settings/general",
     "/settings/security",
   ]) {
     stage = `页面渲染 ${path}`;

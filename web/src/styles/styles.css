@@ -83,7 +83,10 @@ svg {
   font-size: 9px;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #b84c22, #ed8444 55%, #49302d);
+  background: var(
+    --xc-brand-grad,
+    linear-gradient(135deg, #b84c22, #ed8444 55%, #49302d)
+  );
   box-shadow: inset 0 0 0 1px #ffffff28;
 }
 .sidebar-collapse {

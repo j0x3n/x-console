@@ -4,16 +4,21 @@ import {
   ChevronRight,
   LogOut,
   Moon,
+  Palette,
   PanelLeftClose,
   Search,
   Settings2,
-  Sun,
   Languages,
 } from "lucide-react";
 import { navGroupLabels, navItems, type NavGroup } from "../../app/nav";
 import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
-import { usePreferencesStore } from "../../stores/preferences-store";
+import { accents, usePreferencesStore } from "../../stores/preferences-store";
+import type { Accent } from "../../types/domain";
+import {
+  InstallHelpDialog,
+  InstallMenuItem,
+} from "../../features/pwa/InstallMenu";
 import { useNavChildren } from "../../lib/navChildren";
 import { useSidebar } from "../../stores/sidebar";
 
@@ -161,12 +166,21 @@ export default function Sidebar({
   );
 }
 
+const accentLabels: Record<Accent, string> = {
+  ember: "Ember",
+  violet: "Violet",
+  mint: "Mint",
+  ocean: "Ocean",
+  rose: "Rose",
+  graphite: "Graphite",
+};
+
 function ProfileMenu() {
   const t = useT();
   const navigate = useNavigate();
   const auth = useAuthStatus();
   const logout = useLogout();
-  const { language, setLanguage, themeMode, setThemeMode } =
+  const { language, setLanguage, themeMode, setThemeMode, accent, setAccent } =
     usePreferencesStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -181,6 +195,7 @@ function ProfileMenu() {
   const username = auth.data?.username ?? "";
   return (
     <div className="profile-menu-wrap" ref={ref}>
+      <InstallHelpDialog />
       {open && (
         <div className="profile-popover" role="menu">
           <div className="profile-menu-section">
@@ -197,31 +212,61 @@ function ProfileMenu() {
             </button>
           </div>
           <div className="profile-menu-section">
-            <button
-              className="profile-menu-item"
-              role="menuitem"
-              onClick={() =>
-                setThemeMode(
-                  themeMode === "dark"
-                    ? "light"
-                    : themeMode === "light"
-                      ? "system"
-                      : "dark",
-                )
-              }
+            <div className="profile-menu-row">
+              <Moon size={15} />
+              <span>{t("Night mode")}</span>
+            </div>
+            <div
+              className="profile-segmented"
+              role="radiogroup"
+              aria-label={t("Night mode")}
             >
-              {themeMode === "light" ? <Sun size={15} /> : <Moon size={15} />}
-              <span>{t("Theme")}</span>
-              <small>
-                {t(
-                  themeMode === "system"
-                    ? "Follow system"
-                    : themeMode === "dark"
-                      ? "Dark"
-                      : "Light",
-                )}
+              {(
+                [
+                  ["dark", "On"],
+                  ["light", "Off"],
+                  ["system", "Auto"],
+                ] as const
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  role="radio"
+                  aria-checked={themeMode === mode}
+                  className={themeMode === mode ? "active" : ""}
+                  onClick={() => setThemeMode(mode)}
+                >
+                  {t(label)}
+                </button>
+              ))}
+            </div>
+            <div className="profile-menu-row">
+              <Palette size={15} />
+              <span>{t("Theme color")}</span>
+            </div>
+            <div
+              className="profile-accents"
+              role="radiogroup"
+              aria-label={t("Theme color")}
+            >
+              {accents.map((a) => (
+                <button
+                  key={a}
+                  role="radio"
+                  aria-checked={accent === a}
+                  aria-label={t(accentLabels[a])}
+                  title={t(accentLabels[a])}
+                  className={`profile-accent accent-${a}${accent === a ? " active" : ""}`}
+                  onClick={() => setAccent(a)}
+                />
+              ))}
+            </div>
+            {themeMode === "dark" && (
+              <small className="profile-menu-hint">
+                {t("Theme colors apply in the daytime.")}
               </small>
-            </button>
+            )}
+          </div>
+          <div className="profile-menu-section">
             <button
               className="profile-menu-item"
               role="menuitem"
@@ -231,6 +276,7 @@ function ProfileMenu() {
               <span>{t("Language")}</span>
               <small>{language === "zh" ? "中文" : "English"}</small>
             </button>
+            <InstallMenuItem onDone={() => setOpen(false)} />
           </div>
           <div className="profile-menu-section">
             <button

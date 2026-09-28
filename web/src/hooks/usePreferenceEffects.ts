@@ -5,6 +5,7 @@ import { usePreferencesStore } from "../stores/preferences-store";
 export function usePreferenceEffects() {
   const language = usePreferencesStore((s) => s.language);
   const themeMode = usePreferencesStore((s) => s.themeMode);
+  const accent = usePreferencesStore((s) => s.accent);
   const [systemDark, setSystemDark] = useState(
     () => window.matchMedia("(prefers-color-scheme: dark)").matches,
   );
@@ -23,6 +24,9 @@ export function usePreferenceEffects() {
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", resolved === "dark" ? "#0a0a0b" : "#f3f3f4");
   }, [themeMode, systemDark]);
+  useEffect(() => {
+    document.documentElement.dataset.accent = accent;
+  }, [accent]);
   useEffect(() => {
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   }, [language]);

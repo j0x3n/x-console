@@ -178,9 +178,9 @@ describe("assistant panel", () => {
   it("opens with ⌘J and says when the server has no assistant", async () => {
     renderPanel();
     fireEvent.keyDown(document, { key: "j", metaKey: true });
-    expect(await screen.findByText("AI 助手还没上线")).toBeTruthy();
+    expect(await screen.findByText("AI 还没上线")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-    expect(screen.getByRole("button", { name: /AI 助手/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^AI/ })).toBeTruthy();
   });
 
   it("asks for an API key first", async () => {
@@ -194,14 +194,14 @@ describe("assistant panel", () => {
       },
     }));
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: /AI 助手/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^AI/ }));
     expect(await screen.findByText("还没有填 API Key")).toBeTruthy();
   });
 
   it("sends with the page context, streams, then confirms an action", async () => {
     const server = live();
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: /AI 助手/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^AI/ }));
     const box = await screen.findByLabelText("消息");
     await screen.findByText("有什么要我做的？");
     fireEvent.change(box, { target: { value: "删掉周报笔记" } });
@@ -270,7 +270,7 @@ describe("assistant panel", () => {
   it("does not send while the input method is composing", async () => {
     live();
     renderPanel();
-    fireEvent.click(screen.getByRole("button", { name: /AI 助手/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^AI/ }));
     const box = await screen.findByLabelText("消息");
     fireEvent.change(box, { target: { value: "你好" } });
     fireEvent.keyDown(box, { key: "Enter", isComposing: true });

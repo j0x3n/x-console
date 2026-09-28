@@ -56,6 +56,75 @@ func (e NotificationPriority) Valid() bool {
 	}
 }
 
+// Defines values for PreferencesAccent.
+const (
+	Ember    PreferencesAccent = "ember"
+	Graphite PreferencesAccent = "graphite"
+	Mint     PreferencesAccent = "mint"
+	Ocean    PreferencesAccent = "ocean"
+	Rose     PreferencesAccent = "rose"
+	Violet   PreferencesAccent = "violet"
+)
+
+// Valid indicates whether the value is a known member of the PreferencesAccent enum.
+func (e PreferencesAccent) Valid() bool {
+	switch e {
+	case Ember:
+		return true
+	case Graphite:
+		return true
+	case Mint:
+		return true
+	case Ocean:
+		return true
+	case Rose:
+		return true
+	case Violet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreferencesLanguage.
+const (
+	En PreferencesLanguage = "en"
+	Zh PreferencesLanguage = "zh"
+)
+
+// Valid indicates whether the value is a known member of the PreferencesLanguage enum.
+func (e PreferencesLanguage) Valid() bool {
+	switch e {
+	case En:
+		return true
+	case Zh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreferencesNightMode.
+const (
+	Auto PreferencesNightMode = "auto"
+	Off  PreferencesNightMode = "off"
+	On   PreferencesNightMode = "on"
+)
+
+// Valid indicates whether the value is a known member of the PreferencesNightMode enum.
+func (e PreferencesNightMode) Valid() bool {
+	switch e {
+	case Auto:
+		return true
+	case Off:
+		return true
+	case On:
+		return true
+	default:
+		return false
+	}
+}
+
 // Agent defines model for Agent.
 type Agent struct {
 	Arch         string     `json:"arch"`
@@ -150,6 +219,28 @@ type PairRequest struct {
 	Version      string    `json:"version"`
 }
 
+// Preferences defines model for Preferences.
+type Preferences struct {
+	// Accent 主题色，只在白天生效。ember 是默认的橙色
+	Accent   PreferencesAccent   `json:"accent"`
+	Language PreferencesLanguage `json:"language"`
+
+	// NightMode 夜间模式。auto 跟随系统
+	NightMode PreferencesNightMode `json:"nightMode"`
+
+	// UpdatedAt 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+}
+
+// PreferencesAccent 主题色，只在白天生效。ember 是默认的橙色
+type PreferencesAccent string
+
+// PreferencesLanguage defines model for Preferences.Language.
+type PreferencesLanguage string
+
+// PreferencesNightMode 夜间模式。auto 跟随系统
+type PreferencesNightMode string
+
 // TotpCode defines model for TotpCode.
 type TotpCode struct {
 	Code string `json:"code"`
@@ -219,6 +310,9 @@ type ConfirmTotpJSONRequestBody = TotpCode
 // DisableTotpJSONRequestBody defines body for DisableTotp for application/json ContentType.
 type DisableTotpJSONRequestBody DisableTotpJSONBody
 
+// PutPreferencesJSONRequestBody defines body for PutPreferences for application/json ContentType.
+type PutPreferencesJSONRequestBody = Preferences
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -272,6 +366,12 @@ type ServerInterface interface {
 
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+
+	// (GET /me/preferences)
+	GetPreferences(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /me/preferences)
+	PutPreferences(w http.ResponseWriter, r *http.Request)
 
 	// (GET /notifications)
 	ListNotifications(w http.ResponseWriter, r *http.Request, params ListNotificationsParams)
@@ -372,6 +472,16 @@ func (_ Unimplemented) EnrollTotp(w http.ResponseWriter, r *http.Request) {
 
 // (GET /health)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /me/preferences)
+func (_ Unimplemented) GetPreferences(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /me/preferences)
+func (_ Unimplemented) PutPreferences(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -686,6 +796,34 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetPreferences operation middleware
+func (siw *ServerInterfaceWrapper) GetPreferences(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPreferences(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutPreferences operation middleware
+func (siw *ServerInterfaceWrapper) PutPreferences(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutPreferences(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListNotifications operation middleware
 func (siw *ServerInterfaceWrapper) ListNotifications(w http.ResponseWriter, r *http.Request) {
 
@@ -959,6 +1097,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/password", wrapper.ChangePassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/preferences", wrapper.GetPreferences)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/me/preferences", wrapper.PutPreferences)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/audit", wrapper.ListAudit)

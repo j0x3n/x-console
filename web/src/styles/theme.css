@@ -6,11 +6,11 @@ html[data-theme="light"] {
 
 html[data-theme="light"] .app-shell,
 html[data-theme="light"] .sidebar {
-  background: #f3f3f4;
+  background: var(--xc-bg);
 }
 
 html[data-theme="light"] .main-panel {
-  background: #fafafa;
+  background: var(--xc-panel);
   box-shadow:
     0 0 0 1px #e2e2e5,
     0 8px 30px #17171a0c;

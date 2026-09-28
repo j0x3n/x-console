@@ -9,22 +9,12 @@ export interface InstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-const DISMISS_KEY = "xc.pwa.dismissed";
-
 interface InstallState {
   prompt: InstallPromptEvent | null;
   installed: boolean;
-  dismissed: boolean;
-  dismiss: () => void;
+  /** 个人菜单里点“安装应用”但浏览器不能直接装时，弹出说明。 */
+  helpOpen: boolean;
   install: () => Promise<boolean>;
-}
-
-function readDismissed() {
-  try {
-    return localStorage.getItem(DISMISS_KEY) === "1";
-  } catch {
-    return false;
-  }
 }
 
 export function isStandalone(): boolean {
@@ -48,15 +38,7 @@ export function isIOS(ua = navigator.userAgent): boolean {
 export const useInstall = create<InstallState>()((set, get) => ({
   prompt: null,
   installed: isStandalone(),
-  dismissed: readDismissed(),
-  dismiss: () => {
-    try {
-      localStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      /* 记不住就算了 */
-    }
-    set({ dismissed: true });
-  },
+  helpOpen: false,
   install: async () => {
     const event = get().prompt;
     if (!event) return false;

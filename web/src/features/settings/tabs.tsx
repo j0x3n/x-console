@@ -1,5 +1,4 @@
 import type { ComponentType } from "react";
-import GeneralTab from "./GeneralTab";
 import DevicesTab from "./DevicesTab";
 import AuditTab from "./AuditTab";
 import SecurityTab from "./SecurityTab";
@@ -20,7 +19,6 @@ export interface SettingsTab {
 // 设置页的标签。模块有自己的配置页时在这里加一行，
 // 例如 { id: "notifications", label: "Notifications", component: NotificationSettings }。
 export const settingsTabs: SettingsTab[] = [
-  { id: "general", label: "General", component: GeneralTab },
   { id: "security", label: "Security", component: SecurityTab },
   { id: "devices", label: "Devices & agents", component: DevicesTab },
   { id: "audit", label: "Audit log", component: AuditTab },
@@ -30,5 +28,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "linear", label: "Linear", component: LinearSettingsTab },
   { id: "brief", label: "Daily brief", component: BriefSettingsTab },
   { id: "drive-sync", label: "Drive sync", component: S3SettingsTab },
-  { id: "assistant", label: "AI assistant", component: AssistantSettingsTab },
+  { id: "assistant", label: "AI", component: AssistantSettingsTab },
 ];

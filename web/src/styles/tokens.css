@@ -58,3 +58,48 @@ html[data-theme="light"] {
   --xc-info-soft: #2f7fd116;
   --xc-shadow: 0 18px 50px #17171a1f;
 }
+
+/*
+ * 主题色（B22）。只在白天生效，夜间固定用上面的深色配色。
+ * 每套只改强调色和一点底色，组件不用改。html 上的 data-accent 由偏好设置写入。
+ */
+html[data-theme="light"][data-accent="violet"] {
+  --xc-bg: #f3f2f8;
+  --xc-panel: #fbfbfe;
+  --xc-accent: #6d5dfc;
+  --xc-accent-soft: #6d5dfc1a;
+  --xc-accent-text: #5143d9;
+  --xc-brand-grad: linear-gradient(135deg, #5b4bf0, #9b8cff 55%, #2f2a5a);
+}
+html[data-theme="light"][data-accent="mint"] {
+  --xc-bg: #eff5f2;
+  --xc-panel: #fafcfb;
+  --xc-accent: #08805f;
+  --xc-accent-soft: #08805f1a;
+  --xc-accent-text: #07694f;
+  --xc-brand-grad: linear-gradient(135deg, #07694f, #34d399 55%, #12352c);
+}
+html[data-theme="light"][data-accent="ocean"] {
+  --xc-bg: #f0f3f8;
+  --xc-panel: #fafbfd;
+  --xc-accent: #2563eb;
+  --xc-accent-soft: #2563eb18;
+  --xc-accent-text: #1d4ed8;
+  --xc-brand-grad: linear-gradient(135deg, #1d4ed8, #60a5fa 55%, #172554);
+}
+html[data-theme="light"][data-accent="rose"] {
+  --xc-bg: #f7f1f3;
+  --xc-panel: #fdfafb;
+  --xc-accent: #d0336b;
+  --xc-accent-soft: #d0336b16;
+  --xc-accent-text: #b02a5a;
+  --xc-brand-grad: linear-gradient(135deg, #b02a5a, #fb7faa 55%, #4a1d2c);
+}
+html[data-theme="light"][data-accent="graphite"] {
+  --xc-bg: #efefef;
+  --xc-panel: #fafafa;
+  --xc-accent: #27272a;
+  --xc-accent-soft: #27272a12;
+  --xc-accent-text: #18181b;
+  --xc-brand-grad: linear-gradient(135deg, #18181b, #71717a 55%, #09090b);
+}

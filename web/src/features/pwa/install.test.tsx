@@ -7,8 +7,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import InstallButton from "./InstallButton";
-import InstallCard from "./InstallCard";
+import { InstallHelpDialog, InstallMenuItem } from "./InstallMenu";
 import { isIOS, useInstall } from "./install";
 
 function fakePrompt(outcome: "accepted" | "dismissed") {
@@ -24,7 +23,7 @@ function fakePrompt(outcome: "accepted" | "dismissed") {
 afterEach(() => {
   cleanup();
   localStorage.clear();
-  useInstall.setState({ prompt: null, installed: false, dismissed: false });
+  useInstall.setState({ prompt: null, installed: false, helpOpen: false });
 });
 
 describe("install", () => {
@@ -35,34 +34,36 @@ describe("install", () => {
     expect(isIOS("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")).toBe(false);
   });
 
-  it("shows the header button once the browser allows installing", async () => {
-    render(<InstallButton />);
-    expect(screen.queryByRole("button")).toBeNull();
+  it("installs from the profile menu when the browser allows it", async () => {
+    const onDone = vi.fn();
     const e = fakePrompt("accepted");
     act(() => {
       window.dispatchEvent(e);
     });
-    const button = screen.getByRole("button", { name: "安装应用" });
+    render(<InstallMenuItem onDone={onDone} />);
     await act(async () => {
-      fireEvent.click(button);
+      fireEvent.click(screen.getByRole("menuitem", { name: "安装应用" }));
     });
     expect(e.prompt).toHaveBeenCalled();
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(onDone).toHaveBeenCalled();
   });
 
-  it("can hide the header button from settings", () => {
-    act(() => {
-      window.dispatchEvent(fakePrompt("dismissed"));
-    });
+  it("explains how to install when the browser cannot do it directly", () => {
     render(
       <>
-        <InstallButton />
-        <InstallCard />
+        <InstallMenuItem onDone={() => {}} />
+        <InstallHelpDialog />
       </>,
     );
-    expect(screen.getAllByRole("button", { name: /安装应用/ })).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "页头不再显示" }));
-    expect(screen.getAllByRole("button", { name: /安装应用/ })).toHaveLength(1);
-    expect(localStorage.getItem("xc.pwa.dismissed")).toBe("1");
+    fireEvent.click(screen.getByRole("menuitem", { name: "安装应用" }));
+    expect(screen.getByRole("dialog", { name: "安装应用" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "知道了" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("hides the menu item once installed", () => {
+    useInstall.setState({ installed: true });
+    render(<InstallMenuItem onDone={() => {}} />);
+    expect(screen.queryByRole("menuitem")).toBeNull();
   });
 });

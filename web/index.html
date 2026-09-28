@@ -25,6 +25,11 @@
         (savedTheme === "system" &&
           matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
+      try {
+        document.documentElement.dataset.accent = localStorage.getItem("x-console-accent") || "ember";
+      } catch {
+        document.documentElement.dataset.accent = "ember";
+      }
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
       if (savedLanguage === "en") {
         document.documentElement.lang = "en";

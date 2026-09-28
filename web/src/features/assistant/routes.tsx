@@ -8,8 +8,8 @@ import { useAssistant } from "./store";
 registerCommands([
   {
     id: "assistant.open",
-    title: "打开 AI 助手",
-    group: "AI 助手",
+    title: "打开 AI",
+    group: "AI",
     keywords: "ai assistant claude chat ⌘J",
     icon: Sparkles,
     run: () => useAssistant.getState().setOpen(true),

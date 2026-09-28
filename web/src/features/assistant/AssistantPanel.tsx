@@ -48,7 +48,7 @@ import { confirmAction } from "../../components/ui/ConfirmDialog";
 const PANEL = { width: 400, height: 600 };
 
 /*
- * AI 助手（B3）：右下角的圆形按钮，点开是浮窗。⌘J 开关。
+ * AI（B3，原名 AI 助手）：右下角的圆形按钮，点开是浮窗。⌘J 开关。
  * 浮窗可以拖动，也可以放大成右侧整列。手机上是全屏的底部弹层。
  */
 export default function AssistantPanel() {
@@ -74,8 +74,8 @@ export default function AssistantPanel() {
         <button
           type="button"
           className="ai-fab"
-          aria-label={`${t("AI assistant")} (⌘J)`}
-          title={`${t("AI assistant")} (⌘J)`}
+          aria-label={`${t("AI")} (⌘J)`}
+          title={`${t("AI")} (⌘J)`}
           onClick={toggle}
         >
           <Sparkles size={20} />
@@ -260,7 +260,7 @@ function Panel() {
       className={`ai-panel${expanded ? " expanded" : ""}`}
       style={style}
       role="dialog"
-      aria-label={t("AI assistant")}
+      aria-label={t("AI")}
     >
       <header
         className="ai-head"
@@ -366,7 +366,7 @@ function Panel() {
         {notLive ? (
           <div className="ai-empty">
             <Sparkles size={26} />
-            <strong>AI 助手还没上线</strong>
+            <strong>AI 还没上线</strong>
             <p>界面已经做好，服务端还在开发。</p>
           </div>
         ) : settings.data && !settings.data.hasApiKey ? (
@@ -374,8 +374,8 @@ function Panel() {
             <Sparkles size={26} />
             <strong>还没有填 API Key</strong>
             <p>
-              去 <Link to="/settings/assistant">设置 → AI 助手</Link> 填上
-              Anthropic 的 API Key 就能用了。
+              去 <Link to="/settings/assistant">设置 → AI</Link> 填上 Anthropic
+              的 API Key 就能用了。
             </p>
           </div>
         ) : conversationId && detail.isPending ? (

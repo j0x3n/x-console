@@ -19,13 +19,13 @@ export const MODELS = [
   { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5（最快）" },
 ];
 
-/** 设置 → AI 助手：API Key、模型、写操作是否都要确认。 */
+/** 设置 → AI：API Key、模型、写操作是否都要确认。 */
 export default function AssistantSettingsTab() {
   const settings = useAiSettings();
   if (settings.isPending) return <Loading />;
   if (settings.isError)
     return isNotLive(settings.error) ? (
-      <EmptyState title="AI 助手还没上线" />
+      <EmptyState title="AI 还没上线" />
     ) : (
       <ErrorState error={settings.error} onRetry={() => settings.refetch()} />
     );
@@ -84,7 +84,7 @@ function SettingsForm({ initial }: { initial: AiSettings }) {
   return (
     <form className="xc-card" onSubmit={submit}>
       <div className="xc-card-head">
-        <h2>{t("AI assistant")}</h2>
+        <h2>{t("AI")}</h2>
         <span className={`xc-badge ${initial.hasApiKey ? "ok" : ""}`}>
           {initial.hasApiKey ? t("Key saved") : t("No key yet")}
         </span>

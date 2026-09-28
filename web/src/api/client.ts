@@ -108,3 +108,10 @@ export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
 }
+
+/** 接口在契约里有、后端还没做（404 或 501）。页面显示“还没上线”。 */
+export function isNotLive(error: unknown): boolean {
+  return (
+    error instanceof ApiError && (error.status === 404 || error.status === 501)
+  );
+}

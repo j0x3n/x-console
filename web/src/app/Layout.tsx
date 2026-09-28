@@ -11,9 +11,11 @@ import Toast from "../components/ui/Toast";
 import { useToastStore } from "../hooks/useToast";
 import GlobalPanels from "./GlobalPanels";
 import { useSidebar } from "../stores/sidebar";
+import { usePreferencesSync } from "../hooks/usePreferencesSync";
 
 export default function Layout() {
   useServerEvents();
+  usePreferencesSync();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const toast = useToastStore((s) => s.current);

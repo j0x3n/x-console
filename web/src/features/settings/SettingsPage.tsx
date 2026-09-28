@@ -22,7 +22,7 @@ export default function SettingsPage() {
     <div className="xc-page">
       <PageHeading
         title={t("Settings")}
-        subtitle={t("Appearance, security, devices and integrations")}
+        subtitle={t("Security, devices and integrations")}
       />
       <nav
         ref={navRef}

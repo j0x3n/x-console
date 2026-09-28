@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import { resolveUpdate } from "./update";
-import type { Language, Setter, ThemeMode } from "../types/domain";
+import type { Accent, Language, Setter, ThemeMode } from "../types/domain";
+
+export const accents: Accent[] = [
+  "ember",
+  "violet",
+  "mint",
+  "ocean",
+  "rose",
+  "graphite",
+];
 
 function readPreference(key: string): string | null {
   try {
@@ -24,17 +33,22 @@ function savePreference(key: string, value: string) {
     /* Preferences still work in memory when storage is unavailable. */
   }
 }
-interface PreferencesState {
+export interface PreferencesState {
   language: Language;
+  /** dark 就是夜间模式“开”，light 是“关”，system 是“自动”。 */
   themeMode: ThemeMode;
+  accent: Accent;
   setLanguage: Setter<Language>;
   setThemeMode: Setter<ThemeMode>;
+  setAccent: (accent: Accent) => void;
 }
 const savedTheme = readBrandPreference("theme");
+const savedAccent = readPreference("x-console-accent") as Accent | null;
 export const usePreferencesStore = create<PreferencesState>()((set) => ({
   language: readBrandPreference("language") === "en" ? "en" : "zh",
   themeMode:
     savedTheme === "dark" || savedTheme === "light" ? savedTheme : "system",
+  accent: savedAccent && accents.includes(savedAccent) ? savedAccent : "ember",
   setLanguage: (update) =>
     set((state) => {
       const language = resolveUpdate(update, state.language);
@@ -47,4 +61,8 @@ export const usePreferencesStore = create<PreferencesState>()((set) => ({
       savePreference("x-console-theme", themeMode);
       return { themeMode };
     }),
+  setAccent: (accent) => {
+    savePreference("x-console-accent", accent);
+    set({ accent });
+  },
 }));

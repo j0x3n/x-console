@@ -25,8 +25,10 @@ const BASE = arg("base", "http://127.0.0.1:5173");
 const ONLY = arg("only", "")?.split(",").filter(Boolean) ?? [];
 const THEME = arg("theme", "");
 if (THEME && !["dark", "light"].includes(THEME)) throw new Error("theme 只能是 dark 或 light");
+// 主题色（B22）：ember、violet、mint、ocean、rose、graphite。只在白天生效。
+const ACCENT = arg("accent", "");
 const WIDTHS = arg("widths", "1360,390").split(",").map(Number);
-const OUT = join(import.meta.dirname, "..", "screenshots", THEME || "");
+const OUT = join(import.meta.dirname, "..", "screenshots", THEME || "", ACCENT || "");
 const USER = process.env.XC_SHOTS_USER ?? "demo";
 const PASSWORD = process.env.XC_SHOTS_PASSWORD ?? "demo-password-123";
 let totpSecret = process.env.XC_SHOTS_TOTP ?? "";
@@ -56,6 +58,10 @@ if (THEME)
   await ctx.addInitScript((theme) => {
     localStorage.setItem("x-console-theme", theme);
   }, THEME);
+if (ACCENT)
+  await ctx.addInitScript((accent) => {
+    localStorage.setItem("x-console-accent", accent);
+  }, ACCENT);
 const page = await ctx.newPage();
 await page.goto(BASE);
 const status = await page.evaluate(() => fetch("/api/v1/auth/status").then((r) => r.json()));
@@ -141,8 +147,7 @@ const routes = [
   ["calendar-focus", "/calendar/focus"],
   ["calendar-manage", "/calendar/calendars"],
   ["github", "/github"],
-  ["settings", "/settings/general"],
-  ["settings-security", "/settings/security"],
+  ["settings", "/settings/security"],
 ].filter(Boolean).filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));
 
 // ---- 截图和检查 ----

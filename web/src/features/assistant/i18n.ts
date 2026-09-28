@@ -1,7 +1,7 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
-  "AI assistant": "AI 助手",
+  AI: "AI",
   "New conversation": "新对话",
   "No conversations yet": "还没有对话",
   Expand: "放大",

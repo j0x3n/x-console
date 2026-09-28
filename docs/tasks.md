@@ -253,6 +253,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-28 | `core.yaml` 加 `GET/PUT /me/preferences`（后端先回 501，占位在 `core/pending.go`）；`httpx` 加 `ErrNotLive`（501）；`api/client.ts` 加公共的 `isNotLive`；偏好加主题色 `accent`，`html` 上写 `data-accent`；`tokens.css` 加五套白天主题色；设置去掉“通用”标签，安装应用挪到个人菜单（`features/pwa/InstallMenu.tsx`），顶栏去掉安装按钮 | B22 主题色、夜间开关、设置整理 |
 | 2026-09-28 | 新增 `components/ui/ConfirmDialog.tsx`（`confirmAction`、`useConfirm`、`ConfirmHost`），`Layout` 挂载 `ConfirmHost`；`ui.css` 加 `.xc-btn.danger.solid` | B21 统一二次确认 |
 | 2026-09-28 | 新增 `components/layout/PageActions.tsx`（顶栏页面按钮）、`stores/sidebar.ts`（侧边栏折叠，`⌘B`）；`stores/page-title.ts` 加 `subtitle`；`PageHeading` 的 `subtitle`、`meta` 显示到顶栏，`aside` 转成 `PageActions`；`Topbar` 加折叠按钮和页面按钮位置 | B20 页面按钮移到顶栏 |
 | 2026-09-28 | 新增前端公共 `api/useInvalidate.ts`，日历、提醒、习惯、监控共用查询刷新 Hook；命令面板在窄屏使用动态视口高度；截图脚本支持 `--theme dark` | C2 去重并修复手机命令面板溢出，补深色主题自查 |
