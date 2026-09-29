@@ -188,6 +188,11 @@ func (m *Module) ListHosts(w http.ResponseWriter, r *http.Request, params api.Li
 		httpx.Fail(w, r, err)
 		return
 	}
+	briefs, err := m.trafficBriefs(r.Context())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	items := make([]api.HostListItem, 0, len(hosts))
 	for _, h := range hosts {
 		item := api.HostListItem{Id: h.Id, Name: h.Name, Kind: h.Kind, Source: h.Source,
@@ -196,6 +201,9 @@ func (m *Module) ListHosts(w http.ResponseWriter, r *http.Request, params api.Li
 		if x := h.Metrics; x != nil {
 			item.Metrics = &api.HostListMetrics{At: x.At, Load1: x.Load1, NetRx: x.NetRx,
 				NetTx: x.NetTx, UptimeSeconds: x.UptimeSeconds}
+		}
+		if b, ok := briefs[h.Id]; ok {
+			item.Traffic = &b
 		}
 		items = append(items, item)
 	}

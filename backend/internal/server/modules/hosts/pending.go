@@ -9,7 +9,7 @@ import (
 
 // 接口契约里已经有、后端还没做的接口。前端看到 501 会显示“还没上线”。
 // 实现某个接口时，把它从这个文件删掉，写到正式的文件里。全部实现后删掉这个文件。
-// 对应任务：B27、B29、B33（docs/specs/B27.md、B29.md、B33.md）
+// 对应任务：B29、B33（docs/specs/B27.md、B29.md、B33.md）
 
 func (m *Module) GetSyslog(w http.ResponseWriter, r *http.Request, hostId api.HostId, params api.GetSyslogParams) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
@@ -20,14 +20,6 @@ func (m *Module) FollowSyslog(w http.ResponseWriter, r *http.Request, hostId api
 }
 
 func (m *Module) ListSyslogUnits(w http.ResponseWriter, r *http.Request, hostId api.HostId) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) GetHostTraffic(w http.ResponseWriter, r *http.Request, hostId api.HostId, params api.GetHostTrafficParams) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) PutHostTrafficPlan(w http.ResponseWriter, r *http.Request, hostId api.HostId) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
 

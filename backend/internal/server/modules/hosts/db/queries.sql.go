@@ -10,6 +10,56 @@ import (
 	"time"
 )
 
+const addTrafficDaily = `-- name: AddTrafficDaily :exec
+INSERT INTO host_traffic_daily (host_id, day, rx, tx, estimated) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (host_id, day) DO UPDATE SET
+    rx = rx + excluded.rx, tx = tx + excluded.tx, estimated = MAX(estimated, excluded.estimated)
+`
+
+type AddTrafficDailyParams struct {
+	HostID    string
+	Day       string
+	Rx        int64
+	Tx        int64
+	Estimated int64
+}
+
+func (q *Queries) AddTrafficDaily(ctx context.Context, arg AddTrafficDailyParams) error {
+	_, err := q.db.ExecContext(ctx, addTrafficDaily,
+		arg.HostID,
+		arg.Day,
+		arg.Rx,
+		arg.Tx,
+		arg.Estimated,
+	)
+	return err
+}
+
+const addTrafficHourly = `-- name: AddTrafficHourly :exec
+INSERT INTO host_traffic_hourly (host_id, hour, rx, tx, estimated) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (host_id, hour) DO UPDATE SET
+    rx = rx + excluded.rx, tx = tx + excluded.tx, estimated = MAX(estimated, excluded.estimated)
+`
+
+type AddTrafficHourlyParams struct {
+	HostID    string
+	Hour      string
+	Rx        int64
+	Tx        int64
+	Estimated int64
+}
+
+func (q *Queries) AddTrafficHourly(ctx context.Context, arg AddTrafficHourlyParams) error {
+	_, err := q.db.ExecContext(ctx, addTrafficHourly,
+		arg.HostID,
+		arg.Hour,
+		arg.Rx,
+		arg.Tx,
+		arg.Estimated,
+	)
+	return err
+}
+
 const createAlertRule = `-- name: CreateAlertRule :one
 INSERT INTO alert_rules (host_id, metric, op, threshold, duration_seconds, severity, enabled, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -145,6 +195,42 @@ func (q *Queries) DeleteSSHHost(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteTrafficHostDaily = `-- name: DeleteTrafficHostDaily :exec
+DELETE FROM host_traffic_daily WHERE host_id = ?
+`
+
+func (q *Queries) DeleteTrafficHostDaily(ctx context.Context, hostID string) error {
+	_, err := q.db.ExecContext(ctx, deleteTrafficHostDaily, hostID)
+	return err
+}
+
+const deleteTrafficHostHourly = `-- name: DeleteTrafficHostHourly :exec
+DELETE FROM host_traffic_hourly WHERE host_id = ?
+`
+
+func (q *Queries) DeleteTrafficHostHourly(ctx context.Context, hostID string) error {
+	_, err := q.db.ExecContext(ctx, deleteTrafficHostHourly, hostID)
+	return err
+}
+
+const deleteTrafficHourlyBefore = `-- name: DeleteTrafficHourlyBefore :exec
+DELETE FROM host_traffic_hourly WHERE hour < ?
+`
+
+func (q *Queries) DeleteTrafficHourlyBefore(ctx context.Context, hour string) error {
+	_, err := q.db.ExecContext(ctx, deleteTrafficHourlyBefore, hour)
+	return err
+}
+
+const deleteTrafficPlan = `-- name: DeleteTrafficPlan :exec
+DELETE FROM host_traffic_plans WHERE host_id = ?
+`
+
+func (q *Queries) DeleteTrafficPlan(ctx context.Context, hostID string) error {
+	_, err := q.db.ExecContext(ctx, deleteTrafficPlan, hostID)
+	return err
+}
+
 const getAlertRule = `-- name: GetAlertRule :one
 SELECT id, host_id, metric, op, threshold, duration_seconds, severity, enabled, created_at FROM alert_rules WHERE id = ?
 `
@@ -183,6 +269,27 @@ func (q *Queries) GetSSHHost(ctx context.Context, id int64) (SshHost, error) {
 		&i.Secret,
 		&i.HostKey,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getTrafficPlan = `-- name: GetTrafficPlan :one
+SELECT host_id, start_day, period_months, limit_bytes, count_mode, alert_percent, alerted_cycle, alerted_level, updated_at FROM host_traffic_plans WHERE host_id = ?
+`
+
+func (q *Queries) GetTrafficPlan(ctx context.Context, hostID string) (HostTrafficPlan, error) {
+	row := q.db.QueryRowContext(ctx, getTrafficPlan, hostID)
+	var i HostTrafficPlan
+	err := row.Scan(
+		&i.HostID,
+		&i.StartDay,
+		&i.PeriodMonths,
+		&i.LimitBytes,
+		&i.CountMode,
+		&i.AlertPercent,
+		&i.AlertedCycle,
+		&i.AlertedLevel,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -567,6 +674,84 @@ func (q *Queries) ListSSHHosts(ctx context.Context) ([]SshHost, error) {
 	return items, nil
 }
 
+const listTrafficDays = `-- name: ListTrafficDays :many
+SELECT host_id, day, rx, tx, estimated FROM host_traffic_daily
+WHERE host_id = ?1 AND day >= ?2 AND day <= ?3
+ORDER BY day
+`
+
+type ListTrafficDaysParams struct {
+	HostID  string
+	FromDay string
+	ToDay   string
+}
+
+func (q *Queries) ListTrafficDays(ctx context.Context, arg ListTrafficDaysParams) ([]HostTrafficDaily, error) {
+	rows, err := q.db.QueryContext(ctx, listTrafficDays, arg.HostID, arg.FromDay, arg.ToDay)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HostTrafficDaily
+	for rows.Next() {
+		var i HostTrafficDaily
+		if err := rows.Scan(
+			&i.HostID,
+			&i.Day,
+			&i.Rx,
+			&i.Tx,
+			&i.Estimated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTrafficPlansWithLimit = `-- name: ListTrafficPlansWithLimit :many
+SELECT host_id, start_day, period_months, limit_bytes, count_mode, alert_percent, alerted_cycle, alerted_level, updated_at FROM host_traffic_plans WHERE limit_bytes > 0
+`
+
+func (q *Queries) ListTrafficPlansWithLimit(ctx context.Context) ([]HostTrafficPlan, error) {
+	rows, err := q.db.QueryContext(ctx, listTrafficPlansWithLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HostTrafficPlan
+	for rows.Next() {
+		var i HostTrafficPlan
+		if err := rows.Scan(
+			&i.HostID,
+			&i.StartDay,
+			&i.PeriodMonths,
+			&i.LimitBytes,
+			&i.CountMode,
+			&i.AlertPercent,
+			&i.AlertedCycle,
+			&i.AlertedLevel,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resolveAlertEvent = `-- name: ResolveAlertEvent :one
 UPDATE alert_events SET resolved_at = ? WHERE id = ? AND resolved_at IS NULL
 RETURNING id, rule_id, host_id, host_name, metric, severity, value, message, fired_at, resolved_at
@@ -606,6 +791,21 @@ type SetSSHHostKeyParams struct {
 
 func (q *Queries) SetSSHHostKey(ctx context.Context, arg SetSSHHostKeyParams) error {
 	_, err := q.db.ExecContext(ctx, setSSHHostKey, arg.HostKey, arg.ID)
+	return err
+}
+
+const setTrafficAlerted = `-- name: SetTrafficAlerted :exec
+UPDATE host_traffic_plans SET alerted_cycle = ?, alerted_level = ? WHERE host_id = ?
+`
+
+type SetTrafficAlertedParams struct {
+	AlertedCycle string
+	AlertedLevel int64
+	HostID       string
+}
+
+func (q *Queries) SetTrafficAlerted(ctx context.Context, arg SetTrafficAlertedParams) error {
+	_, err := q.db.ExecContext(ctx, setTrafficAlerted, arg.AlertedCycle, arg.AlertedLevel, arg.HostID)
 	return err
 }
 
@@ -761,6 +961,42 @@ func (q *Queries) UpsertMetric1m(ctx context.Context, arg UpsertMetric1mParams) 
 		arg.NetRx,
 		arg.NetTx,
 		arg.Load1,
+	)
+	return err
+}
+
+const upsertTrafficPlan = `-- name: UpsertTrafficPlan :exec
+INSERT INTO host_traffic_plans (host_id, start_day, period_months, limit_bytes, count_mode, alert_percent, alerted_cycle, alerted_level, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (host_id) DO UPDATE SET
+    start_day = excluded.start_day, period_months = excluded.period_months, limit_bytes = excluded.limit_bytes,
+    count_mode = excluded.count_mode, alert_percent = excluded.alert_percent,
+    alerted_cycle = excluded.alerted_cycle, alerted_level = excluded.alerted_level, updated_at = excluded.updated_at
+`
+
+type UpsertTrafficPlanParams struct {
+	HostID       string
+	StartDay     int64
+	PeriodMonths int64
+	LimitBytes   int64
+	CountMode    string
+	AlertPercent int64
+	AlertedCycle string
+	AlertedLevel int64
+	UpdatedAt    time.Time
+}
+
+func (q *Queries) UpsertTrafficPlan(ctx context.Context, arg UpsertTrafficPlanParams) error {
+	_, err := q.db.ExecContext(ctx, upsertTrafficPlan,
+		arg.HostID,
+		arg.StartDay,
+		arg.PeriodMonths,
+		arg.LimitBytes,
+		arg.CountMode,
+		arg.AlertPercent,
+		arg.AlertedCycle,
+		arg.AlertedLevel,
+		arg.UpdatedAt,
 	)
 	return err
 }

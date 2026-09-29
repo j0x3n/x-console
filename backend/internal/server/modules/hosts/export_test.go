@@ -2,6 +2,7 @@ package hosts
 
 import (
 	"context"
+	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts/db"
@@ -32,3 +33,7 @@ func (m *Module) LatestSample(id string) (protocol.MetricsSample, bool) { return
 func (m *Module) Series(ctx context.Context, id, rng string) (api.MetricsSeries, error) {
 	return m.series(ctx, id, rng)
 }
+
+func (m *Module) SetNow(now time.Time)                   { m.now = func() time.Time { return now } }
+func (m *Module) FlushTraffic(ctx context.Context) error { return m.flushTraffic(ctx) }
+func (m *Module) CheckTraffic(ctx context.Context) error { return m.checkTraffic(ctx) }

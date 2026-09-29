@@ -354,6 +354,34 @@ type HostMetrics1m struct {
 	Load1    float64
 }
 
+type HostTrafficDaily struct {
+	HostID    string
+	Day       string
+	Rx        int64
+	Tx        int64
+	Estimated int64
+}
+
+type HostTrafficHourly struct {
+	HostID    string
+	Hour      string
+	Rx        int64
+	Tx        int64
+	Estimated int64
+}
+
+type HostTrafficPlan struct {
+	HostID       string
+	StartDay     int64
+	PeriodMonths int64
+	LimitBytes   int64
+	CountMode    string
+	AlertPercent int64
+	AlertedCycle string
+	AlertedLevel int64
+	UpdatedAt    time.Time
+}
+
 type Issue struct {
 	ID             int64
 	ProjectID      int64

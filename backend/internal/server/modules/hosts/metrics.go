@@ -158,6 +158,7 @@ func (m *Module) recordSample(hostID string, x protocol.MetricsSample) {
 	if x.At.IsZero() {
 		x.At = m.now()
 	}
+	m.traffic.observe(hostID, x, m.d.Config.Location)
 	if m.metrics.add(hostID, x) {
 		m.d.Bus.Publish("host.metrics", hostMetricsEvent{HostID: hostID, Sample: toAPISample(x)})
 	}
@@ -356,6 +357,9 @@ func (m *Module) cleanup(ctx context.Context) error {
 		return err
 	}
 	if err := m.q.DeleteMetrics1hBefore(ctx, now.Add(-keep1h)); err != nil {
+		return err
+	}
+	if err := m.q.DeleteTrafficHourlyBefore(ctx, now.Add(-keepTrafficHours).Format(hourLayout)); err != nil {
 		return err
 	}
 	return m.q.DeleteAlertEventsBefore(ctx, now.Add(-keepAlerts))

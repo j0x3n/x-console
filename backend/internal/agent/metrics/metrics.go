@@ -127,7 +127,7 @@ func summaryPayload(s protocol.MetricsSample) protocol.MetricsSummary {
 	return protocol.MetricsSummary{
 		At: s.At, CPU: s.CPU, MemUsed: s.MemUsed, MemTotal: s.MemTotal,
 		Disks: s.Disks, NetRxRate: s.NetRxRate, NetTxRate: s.NetTxRate,
-		Load1: s.Load1, UptimeSeconds: s.UptimeSeconds,
+		NetRxTotal: s.NetRxTotal, NetTxTotal: s.NetTxTotal, Load1: s.Load1, UptimeSeconds: s.UptimeSeconds,
 	}
 }
 
@@ -169,8 +169,11 @@ type counters struct {
 	cpuTotal cpu.TimesStat
 	netRx    uint64
 	netTx    uint64
-	diskR    uint64
-	diskW    uint64
+	// counted are the bytes of the interfaces that count as traffic.
+	countedRx uint64
+	countedTx uint64
+	diskR     uint64
+	diskW     uint64
 }
 
 // heavyCounters are read only by full samples, with their own time, so rates
@@ -196,7 +199,7 @@ func (c *counters) read(ctx context.Context) {
 	if t, err := cpu.TimesWithContext(ctx, false); err == nil && len(t) > 0 {
 		c.cpuTotal = t[0]
 	}
-	c.netRx, c.netTx = totalNetCounters(ctx)
+	c.netRx, c.netTx, c.countedRx, c.countedTx = totalNetCounters(ctx)
 	c.diskR, c.diskW = diskCounters(ctx)
 }
 
@@ -240,6 +243,7 @@ func (c *Collector) sample(ctx context.Context, detailed bool) (protocol.Metrics
 	}
 	s.NetRxRate = Rate(prev.netRx, cur.netRx, elapsed)
 	s.NetTxRate = Rate(prev.netTx, cur.netTx, elapsed)
+	s.NetRxTotal, s.NetTxTotal = cur.countedRx, cur.countedTx
 	if detailed {
 		s.NetInterfaces = interfaceRates(prevHeavy.nics, curHeavy.nics, heavyElapsed)
 	}
@@ -306,6 +310,7 @@ func (c *Collector) SampleFast(ctx context.Context) (protocol.MetricsSample, err
 	s.CPU = round1(BusyPercent(prev.cpuTotal, cur.cpuTotal))
 	s.NetRxRate = Rate(prev.netRx, cur.netRx, elapsed)
 	s.NetTxRate = Rate(prev.netTx, cur.netTx, elapsed)
+	s.NetRxTotal, s.NetTxTotal = cur.countedRx, cur.countedTx
 	s.DiskReadRate = Rate(prev.diskR, cur.diskR, elapsed)
 	s.DiskWriteRate = Rate(prev.diskW, cur.diskW, elapsed)
 	if vm, err := mem.VirtualMemoryWithContext(ctx); err == nil {
@@ -364,9 +369,25 @@ func interfaceRates(prev, cur map[string]nicCounters, seconds float64) []protoco
 	return out
 }
 
-func totalNetCounters(ctx context.Context) (rx, tx uint64) {
-	rx, tx, _ = netCounters(ctx)
-	return rx, tx
+// totalNetCounters returns the bytes of all non-loopback interfaces (for the
+// speed) and of the interfaces that count as traffic (for the monthly total).
+func totalNetCounters(ctx context.Context) (rx, tx, countedRx, countedTx uint64) {
+	nics, err := net.IOCountersWithContext(ctx, true)
+	if err != nil {
+		return 0, 0, 0, 0
+	}
+	for _, n := range nics {
+		if isLoopback(n.Name) {
+			continue
+		}
+		rx += n.BytesRecv
+		tx += n.BytesSent
+		if protocol.CountedInterface(n.Name) {
+			countedRx += n.BytesRecv
+			countedTx += n.BytesSent
+		}
+	}
+	return rx, tx, countedRx, countedTx
 }
 
 func netCounters(ctx context.Context) (rx, tx uint64, perNIC map[string]nicCounters) {
