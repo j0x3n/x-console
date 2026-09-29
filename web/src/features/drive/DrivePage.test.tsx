@@ -354,4 +354,127 @@ describe("DrivePage", () => {
     expect(second.headers.get("If-Match")).toBe('"v2"');
     expect(within(viewer).getByRole("button", { name: "覆盖" })).toBeTruthy();
   });
+
+  it("copies selected items and asks what to do with same names", async () => {
+    live();
+    api.routes.set("GET /drive/tasks", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("POST /drive/batch/copy", () => ({
+      status: 202,
+      body: {
+        id: "t1",
+        kind: "copy",
+        state: "running",
+        title: "复制 1 项到 /",
+        doneItems: 0,
+        totalItems: 1,
+        doneBytes: 0,
+        totalBytes: 2048,
+        createdAt: "2026-09-29T00:00:00Z",
+      },
+    }));
+    renderAt("/drive");
+    fireEvent.click(await screen.findByLabelText("选择 报告.pdf"));
+    fireEvent.click(
+      within(screen.getByRole("toolbar", { name: "已选" })).getByRole(
+        "button",
+        { name: /复制到/ },
+      ),
+    );
+    // 根目录里已经有“报告.pdf”，复制到根目录会重名。
+    fireEvent.click(await screen.findByRole("button", { name: "复制到这里" }));
+    expect(await screen.findByText("有重名的文件")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "保留两个" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find(
+          (c) => c.method === "POST" && c.path === "/drive/batch/copy",
+        )?.body,
+      ).toEqual({ ids: [2], targetId: 0, conflict: "rename" }),
+    );
+    expect(await screen.findByText("复制 1 项到 /")).toBeTruthy();
+  });
+
+  it("moves one by one when the server has no batch move yet", async () => {
+    live();
+    api.routes.set("PATCH /drive/items/2", () => ({
+      status: 200,
+      body: { ...root[0], parentId: 1 },
+    }));
+    renderAt("/drive");
+    fireEvent.click(await screen.findByLabelText("选择 报告.pdf"));
+    fireEvent.click(
+      within(screen.getByRole("toolbar", { name: "已选" })).getByRole(
+        "button",
+        { name: /移动/ },
+      ),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "移动到" });
+    fireEvent.click(await within(dialog).findByText("照片"));
+    await waitFor(() =>
+      expect(
+        api.calls.some((c) => c.path.startsWith("/drive/items?parent=1")),
+      ).toBe(true),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "移到这里" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find(
+          (c) => c.method === "PATCH" && c.path === "/drive/items/2",
+        )?.body,
+      ).toEqual({ parentId: 1 }),
+    );
+    expect(api.calls.some((c) => c.path === "/drive/batch/move")).toBe(false);
+  });
+
+  it("says share links are not live on the shares tab", async () => {
+    live();
+    renderAt("/drive");
+    fireEvent.click(await screen.findByRole("button", { name: /分享/ }));
+    expect(await screen.findByText("分享链接还没上线")).toBeTruthy();
+  });
+
+  it("creates a share link with an access code", async () => {
+    live();
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    api.routes.set("GET /drive/shares", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("POST /drive/shares", (_url, body) => ({
+      status: 201,
+      body: {
+        id: 5,
+        itemId: 2,
+        itemName: "报告.pdf",
+        isDir: false,
+        token: "abc",
+        url: "https://x.example/s/abc",
+        code: (body as { code?: string }).code,
+        visits: 0,
+        downloads: 0,
+        active: true,
+        createdAt: "2026-09-29T00:00:00Z",
+      },
+    }));
+    renderAt("/drive");
+    fireEvent.click(await screen.findByLabelText(/: 报告\.pdf$/));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /分享/ }));
+    const dialog = await screen.findByRole("dialog", { name: "分享" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /生成链接/ }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const sent = api.calls.find(
+      (c) => c.method === "POST" && c.path === "/drive/shares",
+    )!.body as Record<string, unknown>;
+    expect(sent.itemId).toBe(2);
+    expect(sent.expiresIn).toBe("7d");
+    expect(String(sent.code)).toMatch(/^[2-9a-z]{4}$/);
+    expect(String(writeText.mock.calls[0])).toContain("提取码");
+  });
 });

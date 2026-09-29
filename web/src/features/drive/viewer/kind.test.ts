@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendLog,
   canEdit,
   clampZoom,
   concatBytes,
@@ -94,5 +95,22 @@ describe("clampZoom", () => {
     expect(clampZoom(20)).toBe(8);
     expect(clampZoom(0.01)).toBe(0.1);
     expect(clampZoom(1.234)).toBe(1.23);
+  });
+});
+
+describe("appendLog", () => {
+  it("adds whole lines and keeps a partial last line open", () => {
+    const r = appendLog([{ id: 0, text: "a" }], false, "b\nc", 1);
+    expect(r.lines.map((l) => l.text)).toEqual(["a", "b", "c"]);
+    expect(r.openLast).toBe(true);
+    const r2 = appendLog(r.lines, r.openLast, "d\ne\n", r.nextId);
+    expect(r2.lines.map((l) => l.text)).toEqual(["a", "b", "cd", "e"]);
+    expect(r2.openLast).toBe(false);
+    expect(new Set(r2.lines.map((l) => l.id)).size).toBe(4);
+  });
+
+  it("ignores empty data", () => {
+    const lines = [{ id: 0, text: "a" }];
+    expect(appendLog(lines, true, "", 1).lines).toBe(lines);
   });
 });

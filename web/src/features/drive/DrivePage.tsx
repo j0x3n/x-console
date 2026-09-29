@@ -3,6 +3,9 @@ import { Link, useSearchParams } from "react-router";
 import {
   ArrowDown,
   Cloud,
+  Copy,
+  FileArchive,
+  Link2,
   ArrowUp,
   ChevronRight,
   Download,
@@ -31,8 +34,14 @@ import {
   contentUrl,
   isNotLive,
   thumbnailUrl,
+  useArchive,
+  useBatchLive,
+  useBatchMove,
+  useCopyItems,
   useCreateFolder,
   useDeleteForever,
+  useExtract,
+  zipUrl,
   useDriveItem,
   useDriveItems,
   useDriveUsage,
@@ -47,11 +56,18 @@ import {
 } from "./api";
 import FileIcon from "./components/FileIcon";
 import ItemMenu, { itemActions, type ItemAction } from "./components/ItemMenu";
-import MoveDialog from "./components/MoveDialog";
+import ArchiveDialog from "./components/ArchiveDialog";
+import ExtractDialog from "./components/ExtractDialog";
 import NameDialog from "./components/NameDialog";
+import ShareDialog from "./components/ShareDialog";
+import SharesView from "./components/SharesView";
+import TaskPanel from "./components/TaskPanel";
+import TransferDialog from "./components/TransferDialog";
+import VersionsDialog from "./components/VersionsDialog";
 import SyncIcon from "./components/SyncIcon";
 import UploadPanel from "./components/UploadPanel";
 import {
+  archiveName,
   daysLeftInTrash,
   fileKind,
   nextSort,
@@ -78,7 +94,9 @@ function readLayout(): Layout {
 type DialogState =
   | { kind: "new-folder" }
   | { kind: "rename"; item: DriveItem }
-  | { kind: "move"; ids: number[] }
+  | { kind: "move" | "copy" | "compress"; ids: number[]; names: string[] }
+  | { kind: "extract" | "extract-pick"; item: DriveItem }
+  | { kind: "share" | "versions"; item: DriveItem }
   | { kind: "view"; id: number; edit: boolean }
   | null;
 
@@ -109,6 +127,8 @@ function DriveBrowser() {
   const q = search.get("q") ?? "";
   const tab = search.get("view");
   const trash = tab === "trash";
+  // 分享管理（B31）是单独的一个标签，不看文件列表。
+  const sharesTab = tab === "shares";
   // 隐藏区只在解锁后出现。锁定后地址栏还带着 view=hidden 时当作普通文件。
   const hidden = tab === "hidden" && vaultUnlocked;
   const scope: DriveScope = {
@@ -128,6 +148,11 @@ function DriveBrowser() {
   const trashItems = useTrashItems();
   const restore = useRestoreItems();
   const destroy = useDeleteForever();
+  const batchLive = useBatchLive();
+  const batchMove = useBatchMove();
+  const copy = useCopyItems();
+  const archive = useArchive();
+  const extract = useExtract();
   const addUploads = useUploads((s) => s.add);
 
   const [layout, setLayoutState] = useState<Layout>(readLayout);
@@ -256,6 +281,15 @@ function DriveBrowser() {
   };
 
   const download = (targets: DriveItem[]) => {
+    // 服务端能打包（B31）时，多个文件或有文件夹就打成一个 zip。
+    if (batchLive && (targets.length > 1 || targets.some((i) => i.isDir))) {
+      const a = document.createElement("a");
+      a.href = zipUrl(targets.map((i) => i.id));
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return;
+    }
     // 浏览器会拦截太快的连续下载，间隔一下。
     targets
       .filter((i) => !i.isDir)
@@ -290,7 +324,13 @@ function DriveBrowser() {
       case "rename":
         return setDialog({ kind: "rename", item });
       case "move":
-        return setDialog({ kind: "move", ids: [item.id] });
+      case "copy":
+      case "compress":
+        return setDialog({ kind: action, ids: [item.id], names: [item.name] });
+      case "extract":
+      case "share":
+      case "versions":
+        return setDialog({ kind: action, item });
       case "copy-link":
         return navigator.clipboard
           .writeText(new URL(contentUrl(item.id), location.href).href)
@@ -340,6 +380,37 @@ function DriveBrowser() {
     }
   };
 
+  const pick = (kind: "move" | "copy" | "compress") =>
+    setDialog({
+      kind,
+      ids: selectedItems.map((i) => i.id),
+      names: selectedItems.map((i) => i.name),
+    });
+
+  const transfer = (
+    kind: "move" | "copy",
+    ids: number[],
+    targetId: number,
+    conflict: "skip" | "overwrite" | "rename",
+  ) => {
+    const after = {
+      onSuccess: () => (setDialog(null), setSelected(new Set())),
+    };
+    if (kind === "copy") return copy.mutate({ ids, targetId, conflict }, after);
+    // 服务端还没有批量移动时，退回到一个一个改 parentId。
+    if (!batchLive)
+      return move.mutate(
+        { ids, parentId: targetId },
+        {
+          onSuccess: (failed) => {
+            after.onSuccess();
+            if (failed < ids.length) toast(t("Moved"));
+          },
+        },
+      );
+    batchMove.mutate({ ids, targetId, conflict }, after);
+  };
+
   const toggle = (id: number) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -373,7 +444,8 @@ function DriveBrowser() {
           />
         }
         aside={
-          !trash && (
+          !trash &&
+          !sharesTab && (
             <>
               <button
                 className="xc-btn"
@@ -410,7 +482,7 @@ function DriveBrowser() {
         start={
           <nav className="xc-tabs drive-tabs" aria-label={t("Drive")}>
             <button
-              className={!trash && !hidden ? "active" : ""}
+              className={!trash && !hidden && !sharesTab ? "active" : ""}
               onClick={() => go({ view: null, folder: null, q: null })}
             >
               {t("Files")}
@@ -424,6 +496,12 @@ function DriveBrowser() {
               </button>
             )}
             <button
+              className={sharesTab ? "active" : ""}
+              onClick={() => go({ view: "shares", folder: null, q: null })}
+            >
+              <Link2 size={13} /> {t("Shares")}
+            </button>
+            <button
               className={trash ? "active" : ""}
               onClick={() => go({ view: "trash", folder: null, q: null })}
             >
@@ -432,40 +510,42 @@ function DriveBrowser() {
           </nav>
         }
         end={
-          <>
-            {!trash && (
-              <SearchBox
-                ref={searchRef}
-                value={input}
-                onChange={setInput}
-                placeholder={t("Search files")}
-                clearLabel={t("Clear")}
+          !sharesTab && (
+            <>
+              {!trash && (
+                <SearchBox
+                  ref={searchRef}
+                  value={input}
+                  onChange={setInput}
+                  placeholder={t("Search files")}
+                  clearLabel={t("Clear")}
+                />
+              )}
+              <Segmented
+                label={t("View")}
+                value={layout}
+                onChange={setLayout}
+                options={[
+                  {
+                    value: "list",
+                    label: t("List view"),
+                    icon: List,
+                    iconOnly: true,
+                  },
+                  {
+                    value: "grid",
+                    label: t("Grid view"),
+                    icon: LayoutGrid,
+                    iconOnly: true,
+                  },
+                ]}
               />
-            )}
-            <Segmented
-              label={t("View")}
-              value={layout}
-              onChange={setLayout}
-              options={[
-                {
-                  value: "list",
-                  label: t("List view"),
-                  icon: List,
-                  iconOnly: true,
-                },
-                {
-                  value: "grid",
-                  label: t("Grid view"),
-                  icon: LayoutGrid,
-                  iconOnly: true,
-                },
-              ]}
-            />
-          </>
+            </>
+          )
         }
       />
 
-      {!trash && !q && (
+      {!trash && !q && !sharesTab && (
         <nav className="drive-crumbs" aria-label={t("Path")}>
           <button onClick={() => go({ folder: null })}>
             {hidden ? <EyeOff size={13} /> : <HardDrive size={13} />}
@@ -491,7 +571,7 @@ function DriveBrowser() {
         </p>
       )}
 
-      {selected.size > 0 && (
+      {selected.size > 0 && !sharesTab && (
         <div
           className="drive-selection"
           role="toolbar"
@@ -553,7 +633,7 @@ function DriveBrowser() {
                   <SquarePen size={14} /> {t("Edit")}
                 </button>
               )}
-              {selectedItems.some((i) => !i.isDir) && (
+              {(batchLive || selectedItems.some((i) => !i.isDir)) && (
                 <button
                   className="xc-btn small"
                   onClick={() => download(selectedItems)}
@@ -561,11 +641,14 @@ function DriveBrowser() {
                   <Download size={14} /> {t("Download")}
                 </button>
               )}
-              <button
-                className="xc-btn small"
-                onClick={() => setDialog({ kind: "move", ids: [...selected] })}
-              >
+              <button className="xc-btn small" onClick={() => pick("move")}>
                 <FolderInput size={14} /> {t("Move")}
+              </button>
+              <button className="xc-btn small" onClick={() => pick("copy")}>
+                <Copy size={14} /> {t("Copy to")}
+              </button>
+              <button className="xc-btn small" onClick={() => pick("compress")}>
+                <FileArchive size={14} /> {t("Compress")}
               </button>
               <button
                 className="xc-btn small danger"
@@ -596,7 +679,9 @@ function DriveBrowser() {
       )}
 
       <section className="drive-body" aria-label={where}>
-        {items.isPending ? (
+        {sharesTab ? (
+          <SharesView />
+        ) : items.isPending ? (
           <Loading />
         ) : items.isError ? (
           <ErrorState error={items.error} onRetry={() => items.refetch()} />
@@ -701,7 +786,12 @@ function DriveBrowser() {
                 <span role="cell">
                   <ItemMenu
                     item={item}
-                    actions={itemActions(item, { trash, vaultUnlocked })}
+                    actions={itemActions(item, {
+                      trash,
+                      vaultUnlocked,
+                      hiddenView: hidden,
+                      batchLive,
+                    })}
                     onAction={onAction}
                   />
                 </span>
@@ -743,7 +833,12 @@ function DriveBrowser() {
                 <div className="drive-tile-menu">
                   <ItemMenu
                     item={item}
-                    actions={itemActions(item, { trash, vaultUnlocked })}
+                    actions={itemActions(item, {
+                      trash,
+                      vaultUnlocked,
+                      hiddenView: hidden,
+                      batchLive,
+                    })}
                     onAction={onAction}
                   />
                 </div>
@@ -759,7 +854,12 @@ function DriveBrowser() {
           <strong>松开上传到“{where}”</strong>
         </div>
       )}
-      <UploadPanel />
+      <div className="drive-dock">
+        <TaskPanel
+          onOpenFolder={(id) => go({ folder: id || null, view: null, q: null })}
+        />
+        <UploadPanel />
+      </div>
 
       {dialog?.kind === "new-folder" && (
         <NameDialog
@@ -795,26 +895,80 @@ function DriveBrowser() {
           }
         />
       )}
-      {dialog?.kind === "move" && (
-        <MoveDialog
-          count={dialog.ids.length}
+      {(dialog?.kind === "move" || dialog?.kind === "copy") && (
+        <TransferDialog
+          mode={dialog.kind}
+          names={dialog.names}
           exclude={dialog.ids}
           hidden={hidden}
-          busy={move.isPending}
+          busy={move.isPending || batchMove.isPending || copy.isPending}
           onClose={() => setDialog(null)}
-          onMove={(parentId) =>
-            move.mutate(
-              { ids: dialog.ids, parentId },
+          onSubmit={(targetId, conflict) =>
+            transfer(
+              dialog.kind === "copy" ? "copy" : "move",
+              dialog.ids,
+              targetId,
+              conflict,
+            )
+          }
+        />
+      )}
+      {dialog?.kind === "compress" && (
+        <ArchiveDialog
+          count={dialog.ids.length}
+          initialName={archiveName(dialog.names)}
+          busy={archive.isPending}
+          onClose={() => setDialog(null)}
+          onSubmit={(name, format) =>
+            archive.mutate(
               {
-                onSuccess: (failed) => {
-                  setDialog(null);
-                  setSelected(new Set());
-                  if (failed < dialog.ids.length) toast(t("Moved"));
-                },
+                ids: dialog.ids,
+                name,
+                format,
+                parentId: (q ? undefined : folder) ?? undefined,
+              },
+              {
+                onSuccess: () => (setDialog(null), setSelected(new Set())),
               },
             )
           }
         />
+      )}
+      {dialog?.kind === "extract" && (
+        <ExtractDialog
+          name={dialog.item.name}
+          busy={extract.isPending}
+          onClose={() => setDialog(null)}
+          onPick={() => setDialog({ kind: "extract-pick", item: dialog.item })}
+          onHere={() =>
+            extract.mutate(
+              { id: dialog.item.id },
+              { onSuccess: () => setDialog(null) },
+            )
+          }
+        />
+      )}
+      {dialog?.kind === "extract-pick" && (
+        <TransferDialog
+          mode="extract"
+          names={[dialog.item.name]}
+          exclude={[]}
+          hidden={hidden}
+          busy={extract.isPending}
+          onClose={() => setDialog(null)}
+          onSubmit={(targetId, conflict) =>
+            extract.mutate(
+              { id: dialog.item.id, targetId, conflict },
+              { onSuccess: () => setDialog(null) },
+            )
+          }
+        />
+      )}
+      {dialog?.kind === "share" && (
+        <ShareDialog item={dialog.item} onClose={() => setDialog(null)} />
+      )}
+      {dialog?.kind === "versions" && (
+        <VersionsDialog item={dialog.item} onClose={() => setDialog(null)} />
       )}
       {dialog?.kind === "view" && (
         <FileViewer

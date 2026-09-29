@@ -20,6 +20,7 @@
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
 | B31（预览部分） | 云盘统一查看器：图片缩放、音视频、PDF、文本编辑保存（带版本号，冲突回 409）、Markdown、日志分段读、全屏、左右切换。分支 `claude/project-thread-sssfqr`，用户 2026-09-29 让 Claude 直接写。复制、压缩、分享、历史版本、日志实时模式、任务进度下一个 PR 做 | [B31](specs/B31.md) | Claude |
+| B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
 
 ## 待做
 
@@ -254,6 +255,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-29 | `app/App.tsx`：路径是 `/s/<token>` 时渲染云盘分享页，不经过登录检查；`drive.yaml` 新增公开入口 `/public/shares/*`（`security: []`），云盘模块的 `PublicPaths` 先放在 `drive/pending.go` | B31 外链分享 |
 | 2026-09-28 | `core.yaml` 加代理一键安装的 5 个公开接口（后端占位在 `core/pending.go`）；服务器详情标签支持 `preview`（旧代理也显示新标签）；导航“本机”改名“电脑”（英文键 `Computer`） | B29、B30 |
 | 2026-09-28 | 新增公共组件 `components/log/LogViewer.tsx`（虚拟列表、级别、输出、关键字过滤）和 `components/log/levels.ts`；`monitoring.yaml` 容器日志加 `format=json`、镜像删除和清理 | B28 容器日志、B29 系统日志、B31 日志文件共用 |
 | 2026-09-28 | `api/events.ts` 加 `useMetricsInterval`，WebSocket 控制消息加 `{"type":"interval","hostId","ms"}`（旧服务端忽略） | B26 刷新周期 |

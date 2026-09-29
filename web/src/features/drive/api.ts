@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   keepPreviousData,
   useMutation,
@@ -11,7 +12,7 @@ import {
   errorMessage,
   unwrap,
 } from "../../api/client";
-import { invalidateOn } from "../../api/events";
+import { invalidateOn, onServerEvent } from "../../api/events";
 import type { components, paths } from "../../api/gen/drive";
 import { withElevation } from "../../auth/elevation";
 import { toast } from "../../hooks/useToast";
@@ -310,4 +311,277 @@ export async function saveContent(
     item: (await res.json()) as DriveItem,
     etag: res.headers.get("ETag") ?? "",
   };
+}
+
+/* ---------- B31：批量操作、压缩解压、后台任务 ---------- */
+
+export type DriveTask = components["schemas"]["DriveTask"];
+export type ConflictPolicy = components["schemas"]["ConflictPolicy"];
+export type DriveVersion = components["schemas"]["DriveVersion"];
+export type DriveVersionSettings =
+  components["schemas"]["DriveVersionSettings"];
+export type DriveShare = components["schemas"]["DriveShare"];
+export type DriveShareInput = components["schemas"]["DriveShareInput"];
+export type DriveFollowFrame = components["schemas"]["DriveFollowFrame"];
+
+export const taskKeys = {
+  all: ["drive", "tasks"] as const,
+  versions: (id: number) => ["drive", "versions", id] as const,
+  versionSettings: ["drive", "version-settings"] as const,
+  shares: (itemId?: number) => ["drive", "shares", itemId ?? 0] as const,
+  allShares: ["drive", "shares"] as const,
+};
+
+invalidateOn("drive_share.", taskKeys.allShares);
+
+/** 多个文件打包下载的地址。 */
+export function zipUrl(ids: number[]) {
+  const q = new URLSearchParams();
+  ids.forEach((id) => q.append("ids", String(id)));
+  return `/api/v1/drive/zip?${q}`;
+}
+
+function isRunning(task: DriveTask) {
+  return task.state === "running";
+}
+
+/**
+ * 后台任务列表。有任务在跑时每秒刷新一次，事件到得慢也不会卡住。
+ * 这个接口回 404 或 501 时，说明服务端还没有批量操作（B31 后端没上线）。
+ */
+export function useDriveTasks() {
+  return useQuery({
+    queryKey: taskKeys.all,
+    queryFn: () => unwrap(driveApi.GET("/drive/tasks")).then((r) => r.items),
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.some(isRunning) ? 1000 : false,
+  });
+}
+
+/** 服务端有没有 B31 的批量接口。还不知道时当作有。 */
+export function useBatchLive() {
+  const tasks = useDriveTasks();
+  return !(tasks.isError && isNotLive(tasks.error));
+}
+
+/** 事件推来的任务状态写进缓存；任务结束时刷新文件列表。 */
+export function useTaskEvents() {
+  const qc = useQueryClient();
+  useEffect(
+    () =>
+      onServerEvent((event) => {
+        if (event.topic !== "drive_task.updated") return;
+        const task = event.data as DriveTask;
+        qc.setQueryData<DriveTask[]>(taskKeys.all, (cur) => upsert(cur, task));
+        if (!isRunning(task))
+          void qc.invalidateQueries({ queryKey: driveKeys.all });
+      }),
+    [qc],
+  );
+}
+
+export function upsert(list: DriveTask[] | undefined, task: DriveTask) {
+  const cur = list ?? [];
+  const i = cur.findIndex((x) => x.id === task.id);
+  if (i < 0) return [task, ...cur];
+  const next = cur.slice();
+  next[i] = task;
+  return next;
+}
+
+/** 服务端还没上线时的提示。 */
+export function notLiveToast() {
+  toast({ message: "服务端还没上线这个功能。", tone: "error" });
+}
+
+/** 开一个后台任务：成功后放进任务列表，后面由任务面板显示进度。 */
+function useStartTask<T>(start: (body: T) => Promise<DriveTask>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: start,
+    onSuccess: (task) => {
+      qc.setQueryData<DriveTask[]>(taskKeys.all, (cur) => upsert(cur, task));
+      if (isRunning(task)) return;
+      // 很快的操作（比如同一个盘里移动）返回时已经做完了，任务面板不会显示，这里直接提示。
+      void qc.invalidateQueries({ queryKey: driveKeys.all });
+      if (task.state === "failed")
+        toast({ message: `${task.title}：${task.error ?? ""}`, tone: "error" });
+      else toast(`${task.title}：已完成`);
+    },
+    onError: (error) => (isNotLive(error) ? notLiveToast() : fail(error)),
+  });
+}
+
+export interface TransferBody {
+  ids: number[];
+  targetId: number;
+  conflict: ConflictPolicy;
+}
+
+export function useCopyItems() {
+  return useStartTask((body: TransferBody) =>
+    unwrap(driveApi.POST("/drive/batch/copy", { body })),
+  );
+}
+
+export function useBatchMove() {
+  return useStartTask((body: TransferBody) =>
+    unwrap(driveApi.POST("/drive/batch/move", { body })),
+  );
+}
+
+export function useArchive() {
+  return useStartTask((body: components["schemas"]["ArchiveRequest"]) =>
+    unwrap(driveApi.POST("/drive/archive", { body })),
+  );
+}
+
+export function useExtract() {
+  return useStartTask(
+    ({
+      id,
+      ...body
+    }: { id: number } & components["schemas"]["ExtractRequest"]) =>
+      unwrap(
+        driveApi.POST("/drive/items/{itemId}/extract", {
+          params: { path: { itemId: id } },
+          body,
+        }),
+      ),
+  );
+}
+
+export function useCancelTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      unwrap(
+        driveApi.POST("/drive/tasks/{taskId}/cancel", {
+          params: { path: { taskId: id } },
+        }),
+      ),
+    onSuccess: (task) =>
+      qc.setQueryData<DriveTask[]>(taskKeys.all, (cur) => upsert(cur, task)),
+    onError: fail,
+  });
+}
+
+/** 目标文件夹里已有的名字，用来在复制、移动前判断有没有重名。 */
+export async function namesIn(parent: number, hidden: boolean) {
+  const r = await unwrap(
+    driveApi.GET("/drive/items", {
+      params: {
+        query: {
+          parent: parent || undefined,
+          hidden: hidden || undefined,
+        },
+      },
+    }),
+  );
+  return new Set(r.items.map((i) => i.name));
+}
+
+/* ---------- B31：历史版本 ---------- */
+
+export function useDriveVersions(id: number) {
+  return useQuery({
+    queryKey: taskKeys.versions(id),
+    queryFn: () =>
+      unwrap(
+        driveApi.GET("/drive/items/{itemId}/versions", {
+          params: { path: { itemId: id } },
+        }),
+      ).then((r) => r.items),
+    retry: false,
+  });
+}
+
+/** 读某个历史版本的文本。 */
+export async function readVersion(id: number, versionId: number) {
+  const res = await apiFetch(
+    `/drive/items/${id}/versions/${versionId}/content`,
+    { cache: "no-store" },
+  );
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+export function useRestoreVersion(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (versionId: number) =>
+      unwrap(
+        driveApi.POST("/drive/items/{itemId}/versions/{versionId}/restore", {
+          params: { path: { itemId: id, versionId } },
+        }),
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.versions(id) });
+      void qc.invalidateQueries({ queryKey: driveKeys.all });
+    },
+    onError: fail,
+  });
+}
+
+export function useVersionSettings() {
+  return useQuery({
+    queryKey: taskKeys.versionSettings,
+    queryFn: () => unwrap(driveApi.GET("/drive/version-settings")),
+    retry: false,
+  });
+}
+
+export function useSaveVersionSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DriveVersionSettings) =>
+      unwrap(driveApi.PUT("/drive/version-settings", { body })),
+    onSuccess: (data) => qc.setQueryData(taskKeys.versionSettings, data),
+    onError: fail,
+  });
+}
+
+/* ---------- B31：外链分享 ---------- */
+
+export function useDriveShares(itemId?: number) {
+  return useQuery({
+    queryKey: taskKeys.shares(itemId),
+    queryFn: () =>
+      unwrap(
+        driveApi.GET("/drive/shares", {
+          params: { query: { itemId } },
+        }),
+      ).then((r) => r.items),
+    retry: false,
+  });
+}
+
+export function useCreateShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DriveShareInput) =>
+      unwrap(driveApi.POST("/drive/shares", { body })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.allShares });
+      void qc.invalidateQueries({ queryKey: driveKeys.lists });
+    },
+    onError: (error) => (isNotLive(error) ? notLiveToast() : fail(error)),
+  });
+}
+
+export function useDeleteShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        driveApi.DELETE("/drive/shares/{shareId}", {
+          params: { path: { shareId: id } },
+        }),
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.allShares });
+      void qc.invalidateQueries({ queryKey: driveKeys.lists });
+    },
+    onError: fail,
+  });
 }
