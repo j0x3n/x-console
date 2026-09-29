@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
@@ -56,5 +57,49 @@ func TestAiLLMSelectionAndUsage(t *testing.T) {
 	if usage.Calls != 1 || usage.InputTokens != 100 || usage.OutputTokens != 50 || usage.Cost == nil || math.Abs(float64(*usage.Cost)-0.0004) > 0.0000001 || len(usage.ByModel) != 1 || usage.ByModel[0].Purpose == nil || *usage.ByModel[0].Purpose != "fast" {
 		raw, _ := json.Marshal(usage)
 		t.Fatalf("usage: %s", raw)
+	}
+}
+
+func TestAiReasoningFallbackPersists(t *testing.T) {
+	var rejected, accepted atomic.Int32
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"data":[{"id":"test-model"}]}`)
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if body["reasoning_effort"] != nil {
+			rejected.Add(1)
+			w.WriteHeader(400)
+			fmt.Fprint(w, `{"error":{"message":"reasoning_effort unsupported"}}`)
+			return
+		}
+		accepted.Add(1)
+		fmt.Fprint(w, `{"id":"chat_1","object":"chat.completion","created":1,"model":"test-model","choices":[{"index":0,"message":{"role":"assistant","content":"好"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`)
+	}))
+	defer remote.Close()
+	env := testutil.New(t)
+	env.Elevate()
+	var provider api.AiProvider
+	env.MustDo("POST", "/ai/providers", map[string]any{"name": "Test", "baseUrl": remote.URL + "/v1"}, &provider)
+	env.MustDo("POST", fmt.Sprintf("/ai/providers/%d/models", provider.Id), nil, nil)
+	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}, "reasoningEffort": "high"}, nil)
+	built, err := ai.New(env.App.Deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := built.(*ai.Module).LLMForTest()
+	for range 2 {
+		if _, err := client.Complete(context.Background(), llm.Request{Purpose: "agent", Messages: []llm.Message{{Role: "user", Content: "测试"}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var settings api.AiModelSettings
+	env.MustDo("GET", "/ai/model-settings", nil, &settings)
+	if rejected.Load() != 1 || accepted.Load() != 2 || !settings.ReasoningUnsupported {
+		t.Fatalf("reasoning fallback rejected=%d accepted=%d settings=%+v", rejected.Load(), accepted.Load(), settings)
 	}
 }

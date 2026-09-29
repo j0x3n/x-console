@@ -2,6 +2,8 @@ package ai
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"reflect"
@@ -111,37 +113,56 @@ func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
 	if m.fail(w, r, err) {
 		return
 	}
+	tx, err := m.d.DB.BeginTx(ctx, nil)
+	if m.fail(w, r, err) {
+		return
+	}
+	defer tx.Rollback()
 	for _, item := range []struct {
 		key   string
 		value *api.ModelRef
 	}{{"ai.agent_model", body.Agent}, {"ai.fast_model", body.Fast}} {
 		if item.value == nil {
-			err = m.d.Settings.Delete(ctx, item.key)
+			_, err = tx.ExecContext(ctx, `DELETE FROM settings WHERE key=?`, item.key)
 		} else {
-			err = m.d.Settings.Set(ctx, item.key, item.value)
+			err = setAISetting(ctx, tx, item.key, item.value)
 		}
 		if m.fail(w, r, err) {
 			return
 		}
 	}
 	if body.ReasoningEffort != nil {
-		if m.fail(w, r, m.d.Settings.Set(ctx, "ai.reasoning_effort", body.ReasoningEffort)) {
+		if m.fail(w, r, setAISetting(ctx, tx, "ai.reasoning_effort", body.ReasoningEffort)) {
 			return
 		}
 	}
 	if body.ConfirmAllWrites != nil {
-		if m.fail(w, r, m.d.Settings.Set(ctx, confirmSetting, body.ConfirmAllWrites)) {
+		if m.fail(w, r, setAISetting(ctx, tx, confirmSetting, body.ConfirmAllWrites)) {
 			return
 		}
 	}
 	if !reflect.DeepEqual(previous.Agent, body.Agent) || body.ReasoningEffort != nil && previous.ReasoningEffort != *body.ReasoningEffort {
-		if m.fail(w, r, m.d.Settings.Delete(ctx, "ai.reasoning_unsupported")) {
+		_, err = tx.ExecContext(ctx, `DELETE FROM settings WHERE key='ai.reasoning_unsupported'`)
+		if m.fail(w, r, err) {
 			return
 		}
+	}
+	if m.fail(w, r, tx.Commit()) {
+		return
 	}
 	m.d.Audit.Record(ctx, "ai.settings.update", "", map[string]any{"agent": body.Agent, "fast": body.Fast}, nil)
 	m.d.Bus.Publish("ai.provider_changed", nil)
 	m.GetAiModelSettings(w, r)
+}
+
+func setAISetting(ctx context.Context, tx *sql.Tx, key string, value any) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO settings(key,value,encrypted,updated_at) VALUES(?,?,0,?)
+ ON CONFLICT(key) DO UPDATE SET value=excluded.value,encrypted=0,updated_at=excluded.updated_at`, key, string(raw), time.Now().UTC())
+	return err
 }
 
 func monthBounds(value string, location *time.Location) (string, time.Time, time.Time, error) {

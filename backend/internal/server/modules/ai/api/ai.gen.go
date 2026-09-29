@@ -388,7 +388,7 @@ type HostAgentPermission string
 
 // Message defines model for Message.
 type Message struct {
-	// Content 原样保存 Anthropic API 的 content blocks
+	// Content 保存供前端展示的对话内容块，旧对话格式也能读取
 	Content   []ContentBlock `json:"content"`
 	CreatedAt time.Time      `json:"createdAt"`
 	Id        int64          `json:"id"`

@@ -2,7 +2,7 @@
 
 ## 进度区（谁做谁更新，每做完一小步就改这里）
 
-接手的人先看这一节。分支 `claude/project-thread-37jvjz`，草稿 PR 到 `develop`。用户 2026-09-29 定：先做前一半（第一组到第三组），做到哪算哪。
+接手的人先看这一节。工作分支是 `claude/project-thread-37jvjz`，目标分支是 `develop`。PR #24 已合并；后续提交继续推到原工作分支。用户 2026-09-29 定：先做前一半（第一组到第三组），做到哪算哪。
 
 状态只有三种：没开始 / 在做 / 做完。
 
@@ -42,7 +42,8 @@
 | 13e1 | B32 调用层接入 AI 模块 | 做完 | `modules/ai/llm_config.go`、`llm_config_test.go`、`module.go` | 按用途选模型、解密 Key、思考不兼容标记、用量和价格入库已测；接浮窗和自动化 |
 | 13e2 | B32 浮窗、自动化和早报接入 | 做完 | `modules/ai/worker.go`、`handlers.go`、`service.go`、`polisher.go`、`automations/engine.go`、`contracts/contracts.go`、`web/scripts/e2e.mjs` | 流式回复、工具执行和确认、多轮历史、旧内容块兼容、早报快速模型、自动化 Agent 模型和浏览器主流程已测；接笔记自动标题和标签 |
 | 13f | B32 笔记自动标题和标签 | 做完 | `modules/notes/ai.go`、`ai_test.go`、`service.go`、`module.go`、迁移 `20260930000200`、`web/scripts/e2e.mjs` | 10 秒延时、隐藏笔记跳过、内容变化门槛、标题保护、建议和直接加标签、设置及浏览器主流程已测；接 B32 收尾检查 |
-| 13g 起 | B32 收尾及以后 | 没开始 | | 核对契约、旧依赖、生成代码和端到端后继续 B33 |
+| 13g | B32 收尾 | 做完 | `modules/ai/model_settings.go`、`llm_config_test.go`、`api/modules/ai.yaml` | 模型设置改成事务，思考参数不兼容后续调用不再发送；旧 SDK 依赖已移除，契约错误码已对齐；接 B33 |
+| 14 起 | B33 及以后 | 没开始 | | 按 B33 规格实现服务器 Agent 标签 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
@@ -59,15 +60,15 @@
 | 文件 | 接口数 | 任务 |
 | --- | --- | --- |
 | `modules/monitoring/pending.go` | 已删除 | B23、B28 都做完了 |
-| `modules/hosts/pending.go` | 2 | B33 |
-| `modules/drive/pending.go` | 21 | B31 |
-| `modules/ai/pending.go` | 14 | B32、B33 |
-| `modules/notes/pending.go` | 3 | B32 |
-| `modules/reminders/pending.go` | 4 | B34、B37 |
-| `modules/github/pending.go` | 1 | B35 |
+| `modules/hosts/pending.go` | 已删除 | B33 远端日志接口已做 |
+| `modules/drive/pending.go` | 已删除 | B31 已做完 |
+| `modules/ai/pending.go` | 3 | B33 |
+| `modules/notes/pending.go` | 已删除 | B32 已做完 |
+| `modules/reminders/pending.go` | 1 | B37 |
+| `modules/github/pending.go` | 已删除 | B35 已做完 |
 | `modules/projects/pending.go` | 12 | B36 |
 
-`drive/pending.go` 里还有一个 `PublicPaths`，登记分享页不用登录的路径。做完 B31 以后它要留着，挪到模块的正式文件里。
+云盘公开分享路径已登记在 `drive/module.go`。
 
 - 还有两个契约没有后端模块，现在回 404：`api/modules/storage.yaml`（B24、B25）和 `api/modules/files.yaml`（B36 的公共上传）。
 - 迁移只加不删。文件名里的时间按实际写，要晚于当时最新的迁移。规格里写的文件名只是示意。
