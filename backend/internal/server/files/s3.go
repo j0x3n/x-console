@@ -165,7 +165,13 @@ func (s *S3) Put(ctx context.Context, key string, r io.Reader, size int64) error
 	if err != nil {
 		return err
 	}
-	_, err = s.Client.PutObject(ctx, s.Bucket, obj, r, size, minio.PutObjectOptions{})
+	opts := minio.PutObjectOptions{}
+	if size < 0 {
+		// Unknown size: without a part size the client reserves memory for
+		// the largest possible part. 16 MiB parts allow objects up to 160 GB.
+		opts.PartSize = 16 << 20
+	}
+	_, err = s.Client.PutObject(ctx, s.Bucket, obj, r, size, opts)
 	return err
 }
 

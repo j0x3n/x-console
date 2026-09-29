@@ -4,6 +4,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/automations"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
@@ -48,4 +49,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	vault.New,
 	drive.New,   // M14
 	storage.New, // B24
+	backup.New,  // B25
 }

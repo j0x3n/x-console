@@ -321,6 +321,7 @@ func TestMoveBackToLocalAndDeleteSource(t *testing.T) {
 	srv := fakes3.New(t, bucket)
 	srv.Set("drive/blobs/aa/1", []byte("in the bucket"))
 	srv.Set("notes/attachments/2", []byte("also there"))
+	srv.Set("backups/x-console-1.tar.gz", []byte("a backup"))
 	env.Elevate()
 	env.MustDo(http.MethodPut, "/storage/s3", s3Body(srv), nil)
 	env.MustDo(http.MethodPost, "/storage/switch", map[string]any{"target": "s3"}, nil)
@@ -335,8 +336,17 @@ func TestMoveBackToLocalAndDeleteSource(t *testing.T) {
 	if got := read(t, env.App.Deps.Files.Store(), "drive/blobs/aa/1"); got != "in the bucket" {
 		t.Fatalf("local copy: %q", got)
 	}
-	if n := len(srv.Objects()); n != 0 {
-		t.Fatalf("bucket still holds %d files", n)
+	// Backups share the bucket but are not site files: they stay put.
+	if left := srv.Objects(); len(left) != 1 || string(left["backups/x-console-1.tar.gz"]) != "a backup" {
+		t.Fatalf("bucket after delete: %v", left)
+	}
+	if _, err := os.Stat(filepath.Join(env.App.Deps.Config.FilesDir(), "backups")); err == nil {
+		t.Fatal("a backup was moved to the local directory")
+	}
+	for _, u := range st.Usage {
+		if u.Module == "backups" {
+			t.Fatal("backups counted as site files")
+		}
 	}
 }
 

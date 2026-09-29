@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -140,12 +141,30 @@ func (m *Module) migrateDriveSettings(ctx context.Context) error {
 }
 
 func (m *Module) s3Settings(ctx context.Context) (s3Settings, string, error) {
+	return loadS3(ctx, m.d.Settings, m.d.Log)
+}
+
+// loadS3 reads the saved bucket setup. A secret that cannot be decrypted
+// (the site was restored with another master key) counts as not set, so the
+// user can type it again.
+func loadS3(ctx context.Context, st *settings.Store, log *slog.Logger) (s3Settings, string, error) {
 	var s s3Settings
 	var secret string
-	if err := m.get(ctx, keyS3, &s); err != nil {
+	if err := st.Get(ctx, keyS3, &s); err != nil && !errors.Is(err, settings.ErrNotSet) {
 		return s, "", err
 	}
-	return s, secret, m.get(ctx, keyS3Secret, &secret)
+	if err := st.Get(ctx, keyS3Secret, &secret); err != nil && !errors.Is(err, settings.ErrNotSet) {
+		log.Warn("storage: S3 secret cannot be read, treating it as not set", "error", err)
+		secret = ""
+	}
+	return s, secret, nil
+}
+
+// S3Config returns the S3 setup saved for the site, and whether it is
+// complete. The backup module uses it to store backups next to the files.
+func S3Config(ctx context.Context, st *settings.Store, log *slog.Logger) (files.S3Config, bool, error) {
+	s, secret, err := loadS3(ctx, st, log)
+	return s.config(secret), s.complete(secret), err
 }
 
 func (m *Module) cacheLimit(ctx context.Context) (int64, error) {
@@ -176,6 +195,13 @@ func (m *Module) load(ctx context.Context) error {
 		}
 	}
 	raw, cache, err := m.build(ctx, backend)
+	if err != nil && backend == api.S3 {
+		// Do not stop the whole site because the bucket cannot be reached
+		// right now: run from the local directory until it is fixed.
+		m.d.Log.Error("storage: S3 is not usable, using the local directory", "error", err)
+		backend = api.Local
+		raw, cache, err = m.local(), nil, nil
+	}
 	if err != nil {
 		return err
 	}

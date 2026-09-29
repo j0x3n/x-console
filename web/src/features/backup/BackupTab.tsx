@@ -108,10 +108,15 @@ function ExportCard() {
   const fileRef = useRef<HTMLInputElement>(null);
   const running = job.data?.state === "running";
   // 恢复完成后重新加载页面，拿到恢复后的数据。
-  const finishedRestore =
-    job.data?.kind === "restore" && job.data.state === "done";
+  // 只在这个页面亲眼看到恢复在进行时才刷新，否则重新登录后打开页面会一直刷新。
+  const sawRestore = useRef(false);
+  const restoreState = job.data?.kind === "restore" ? job.data.state : null;
   useEffect(() => {
-    if (!finishedRestore) return;
+    if (restoreState === "running") sawRestore.current = true;
+  }, [restoreState]);
+  const finishedRestore = restoreState === "done";
+  useEffect(() => {
+    if (!finishedRestore || !sawRestore.current) return;
     toast(t("Restored. Reloading."));
     const timer = setTimeout(() => window.location.reload(), 1500);
     return () => clearTimeout(timer);

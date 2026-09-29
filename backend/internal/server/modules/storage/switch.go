@@ -188,7 +188,7 @@ func (m *Module) settle(ctx context.Context, mv *move, err error) api.StorageMig
 func (m *Module) copyAll(ctx context.Context, mv *move, src, dst files.Store) error {
 	var list []files.Info
 	var totalBytes int64
-	for info, err := range src.List(ctx, "") {
+	for info, err := range siteFiles(ctx, src) {
 		if err != nil {
 			return fmt.Errorf("读取原位置的文件列表失败：%w", err)
 		}
@@ -256,13 +256,13 @@ func (m *Module) finish(ctx context.Context, mv *move, dst files.Store, target a
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	have := map[string]int64{}
-	for info, err := range dst.List(ctx, "") {
+	for info, err := range siteFiles(ctx, dst) {
 		if err != nil {
 			return fmt.Errorf("核对新位置的文件失败：%w", err)
 		}
 		have[info.Key] = info.Size
 	}
-	for info, err := range m.raw.List(ctx, "") {
+	for info, err := range siteFiles(ctx, m.raw) {
 		if err != nil {
 			return fmt.Errorf("核对原位置的文件失败：%w", err)
 		}
@@ -291,7 +291,7 @@ func (m *Module) finish(ctx context.Context, mv *move, dst files.Store, target a
 // deleteAll removes every file of a location that was just left.
 func deleteAll(ctx context.Context, s files.Store) error {
 	var keys []string
-	for info, err := range s.List(ctx, "") {
+	for info, err := range siteFiles(ctx, s) {
 		if err != nil {
 			return err
 		}
