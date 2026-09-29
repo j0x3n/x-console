@@ -715,6 +715,29 @@ func (q *Queries) MarkNotificationRead(ctx context.Context, arg MarkNotification
 	return result.RowsAffected()
 }
 
+const peekPairingCode = `-- name: PeekPairingCode :one
+SELECT code_hash, name, kind, expires_at, used_at FROM pairing_codes
+WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?
+`
+
+type PeekPairingCodeParams struct {
+	CodeHash  string
+	ExpiresAt time.Time
+}
+
+func (q *Queries) PeekPairingCode(ctx context.Context, arg PeekPairingCodeParams) (PairingCode, error) {
+	row := q.db.QueryRowContext(ctx, peekPairingCode, arg.CodeHash, arg.ExpiresAt)
+	var i PairingCode
+	err := row.Scan(
+		&i.CodeHash,
+		&i.Name,
+		&i.Kind,
+		&i.ExpiresAt,
+		&i.UsedAt,
+	)
+	return i, err
+}
+
 const revokeAgent = `-- name: RevokeAgent :execrows
 UPDATE agents SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL
 `

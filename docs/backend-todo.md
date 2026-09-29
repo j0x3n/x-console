@@ -22,7 +22,7 @@
 | 7 | B27 月流量 | 做完 | `hosts/traffic.go`、`pkg/protocol/methods_hosts.go`、`agent/metrics/metrics.go`、迁移 `20260929000300` | 无。删除代理主机时没清流量表（代理没有删除事件），只清了 SSH 主机的 |
 | 8 | B28 容器日志、镜像清理 | 做完 | `agent/docker/lines.go`、`agent/docker/docker.go`、`monitoring/docker.go`、`monitoring/images.go`、`protocol/methods_docker.go` | 无。B28 里“进程合并、终端脚本、容器排序”前端已做完，后端不用动 |
 | 9 | B29 系统日志 | 做完 | `agent/syslog/`（journal、textlog、wevt）、`hosts/syslog.go`、`protocol/methods_syslog.go` | 无。只用假输出测过，没在真实 systemd 和 Windows 上跑，记进了已知问题 |
-| 10 | B30 一条命令添加服务器 | 没开始 | | |
+| 10 | B30 一条命令添加服务器 | 在做（代码写完，检查没跑完） | `core/agentinstall/`（脚本模板）、`core/agentdist.go`、`agenthub/hub.go`（`PairingCodeValid`）、`agent/setup/`、`cmd/agent/main.go`、`deploy/Dockerfile`、`.github/workflows/ci.yml`（shellcheck）、`config.AgentsDir` | 1. 跑全部检查（`go generate`、gofmt、vet、`go test -race ./...`、Windows 构建和 vet），已确认 `go build` 和相关包的 vet 通过。2. 把这批改动合成一个提交 `B30: 一条命令添加服务器`。3. 在 `docs/06-deploy.md` 补代理内存和 CPU 实测数字（目标：空闲不超过 30 MB、CPU 不超过 0.5%），上次测量被中断，没有数字。4. Docker 构建、systemd、Windows 安装都没在真实环境跑过，已记进 `docs/tasks.md` 已知问题 |
 | 11 | B33 远端日志部分 | 没开始 | | |
 | 12 起 | B31 及以后 | 不在前一半 | | |
 

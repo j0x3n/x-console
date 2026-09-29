@@ -3,6 +3,9 @@
 //
 //	x-console-agent pair --server https://console.example.com --code ABCD-EFGH [--kind desktop]
 //	x-console-agent run [--config path]
+//
+// On Windows the program under the name x-console-agent-setup-ABCD-EFGH.exe,
+// started without arguments, installs itself (B30).
 package main
 
 import (
@@ -28,6 +31,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/power"
 	"github.com/j0x3n/x-console/backend/internal/agent/proc"
 	"github.com/j0x3n/x-console/backend/internal/agent/pty"
+	"github.com/j0x3n/x-console/backend/internal/agent/setup"
 	"github.com/j0x3n/x-console/backend/internal/agent/svc"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
 	"github.com/j0x3n/x-console/backend/internal/agent/syslog"
@@ -45,7 +49,15 @@ func main() {
 		cmd, args = args[0], args[1:]
 	}
 	var err error
+	if len(args) == 0 && cmd == "run" && setup.IsSetup() {
+		// Started by double click under the name the panel gave the download.
+		cmd = "setup"
+	}
 	switch cmd {
+	case "setup":
+		err = setup.Run(setup.Options{ConfigPath: config.DefaultPath(), Pair: func(server, code string) error {
+			return doPair(server, code, config.DefaultPath())
+		}})
 	case "pair":
 		err = pair(args)
 	case "run":
@@ -78,14 +90,19 @@ func pair(args []string) error {
 	if *server == "" || *code == "" {
 		return fmt.Errorf("--server and --code are required")
 	}
-	id, token, err := conn.Pair(context.Background(), *server, *code, hello())
+	return doPair(*server, *code, *path)
+}
+
+// doPair exchanges a pairing code for a token and saves the config file.
+func doPair(server, code, path string) error {
+	id, token, err := conn.Pair(context.Background(), server, code, hello())
 	if err != nil {
 		return err
 	}
-	if err := config.Save(*path, config.Config{Server: *server, AgentID: id, Token: token}); err != nil {
+	if err := config.Save(path, config.Config{Server: server, AgentID: id, Token: token}); err != nil {
 		return err
 	}
-	fmt.Printf("paired as %s, config saved to %s\n", id, *path)
+	fmt.Printf("paired as %s, config saved to %s\n", id, path)
 	return nil
 }
 

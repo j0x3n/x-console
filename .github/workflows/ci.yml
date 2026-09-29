@@ -64,6 +64,8 @@ jobs:
           sh -n remote-deploy.sh
           sh -n local-agent.sh
           sh local-agent_test.sh
+      - name: Install scripts pass shellcheck
+        run: shellcheck --shell=sh internal/server/core/agentinstall/install.sh.tmpl internal/server/core/agentinstall/uninstall.sh
       - name: Windows agent builds
         run: |
           GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent

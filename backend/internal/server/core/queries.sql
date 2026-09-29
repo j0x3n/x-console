@@ -93,6 +93,10 @@ UPDATE pairing_codes SET used_at = ?
 WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?
 RETURNING *;
 
+-- name: PeekPairingCode :one
+SELECT * FROM pairing_codes
+WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?;
+
 -- name: CreateAgent :exec
 INSERT INTO agents (id, name, kind, os, arch, hostname, version, capabilities, token_hash, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);

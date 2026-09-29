@@ -47,6 +47,12 @@ type Env struct {
 // New starts a server with the given extra modules and logs in.
 func New(t testing.TB, modules ...func(*module.Deps) (module.Module, error)) *Env {
 	t.Helper()
+	return NewWithConfig(t, nil, modules...)
+}
+
+// NewWithConfig is New with a chance to change the server configuration.
+func NewWithConfig(t testing.TB, tune func(*config.Config), modules ...func(*module.Deps) (module.Module, error)) *Env {
+	t.Helper()
 	ctx := context.Background()
 	conn, err := store.Open(ctx, ":memory:")
 	if err != nil {
@@ -54,6 +60,9 @@ func New(t testing.TB, modules ...func(*module.Deps) (module.Module, error)) *En
 	}
 	loc, _ := time.LoadLocation("Asia/Shanghai")
 	cfg := config.Config{MasterKey: bytes.Repeat([]byte{7}, 32), Dev: true, Location: loc, DataDir: t.TempDir()}
+	if tune != nil {
+		tune(&cfg)
+	}
 	a, err := app.New(cfg, conn, modules...)
 	if err != nil {
 		t.Fatal(err)
