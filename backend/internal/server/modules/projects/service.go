@@ -135,6 +135,9 @@ type issueInput struct {
 	Status         string
 	Priority       int
 	DueDate        *string
+	DueAt          *time.Time
+	DueRemind      string
+	CategoryID     *int64
 	MilestoneID    *int64
 	LabelIDs       []int64
 	ExternalSource string
@@ -151,6 +154,11 @@ type issuePatch struct {
 	Priority       *int
 	DueDate        *string
 	ClearDueDate   bool
+	DueAt          *time.Time
+	ClearDueAt     bool
+	DueRemind      *string
+	CategoryID     *int64
+	ClearCategory  bool
 	MilestoneID    *int64
 	ClearMilestone bool
 	LabelIDs       *[]int64
@@ -185,6 +193,17 @@ func checkRefs(ctx context.Context, q *db.Queries, projectID int64, milestoneID 
 		if err != nil || (l.ProjectID != nil && *l.ProjectID != projectID) {
 			return httpx.Invalid("标签不属于这个项目")
 		}
+	}
+	return nil
+}
+
+func checkCategory(ctx context.Context, q *db.Queries, projectID int64, categoryID *int64) error {
+	if categoryID == nil {
+		return nil
+	}
+	owner, err := q.GetCategoryProject(ctx, *categoryID)
+	if err != nil || owner != projectID {
+		return httpx.NewError(400, "invalid_category", "分类不属于这个项目")
 	}
 	return nil
 }
@@ -282,6 +301,22 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 			return api.Issue{}, err
 		}
 	}
+	if in.DueAt == nil && in.DueDate != nil {
+		var err error
+		in.DueAt, err = m.dueAtForDate(*in.DueDate)
+		if err != nil {
+			return api.Issue{}, err
+		}
+	}
+	if in.DueAt != nil {
+		in.DueDate = m.dateOf(in.DueAt)
+	}
+	if in.DueRemind == "" {
+		in.DueRemind = "at_due"
+	}
+	if !validDueRemind(in.DueRemind) {
+		return api.Issue{}, httpx.Invalid("到期提醒设置无效")
+	}
 	now := m.now()
 	updated := in.UpdatedAt.UTC()
 	if in.UpdatedAt.IsZero() {
@@ -303,6 +338,9 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 		if err := checkRefs(ctx, q, projectID, in.MilestoneID, in.LabelIDs); err != nil {
 			return err
 		}
+		if err := checkCategory(ctx, q, projectID, in.CategoryID); err != nil {
+			return err
+		}
 		next, err := q.TakeIssueNumber(ctx, projectID)
 		if err != nil {
 			return err
@@ -320,6 +358,7 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 			Priority: int64(in.Priority), DueDate: in.DueDate, MilestoneID: in.MilestoneID, SortOrder: sort,
 			ExternalSource: in.ExternalSource, ExternalID: in.ExternalID,
 			CreatedAt: created, UpdatedAt: updated, CompletedAt: completed,
+			CategoryID: in.CategoryID, DueAt: dueString(in.DueAt), DueRemind: in.DueRemind,
 		})
 		if err != nil {
 			return err
@@ -372,13 +411,36 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 			}
 			i.Priority = int64(*p.Priority)
 		}
-		if p.ClearDueDate {
-			i.DueDate = nil
+		if p.ClearDueAt || p.DueAt != nil {
+			i.DueAt = dueString(p.DueAt)
+			i.DueDate = m.dateOf(p.DueAt)
+			i.DueNotifiedAt = nil
+		} else if p.ClearDueDate {
+			i.DueDate, i.DueAt, i.DueNotifiedAt = nil, nil, nil
 		} else if p.DueDate != nil {
 			if err := validDate(*p.DueDate); err != nil {
 				return err
 			}
 			i.DueDate = p.DueDate
+			when, err := m.dueAtForDate(*p.DueDate)
+			if err != nil {
+				return err
+			}
+			i.DueAt, i.DueNotifiedAt = dueString(when), nil
+		}
+		if p.DueRemind != nil {
+			if !validDueRemind(*p.DueRemind) {
+				return httpx.Invalid("到期提醒设置无效")
+			}
+			i.DueRemind, i.DueNotifiedAt = *p.DueRemind, nil
+		}
+		if p.ClearCategory {
+			i.CategoryID = nil
+		} else if p.CategoryID != nil {
+			if err := checkCategory(ctx, q, i.ProjectID, p.CategoryID); err != nil {
+				return err
+			}
+			i.CategoryID = p.CategoryID
 		}
 		if p.ClearMilestone {
 			i.MilestoneID = nil
@@ -411,6 +473,7 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 		if err := q.UpdateIssue(ctx, db.UpdateIssueParams{
 			Title: i.Title, Description: i.Description, Status: i.Status, Priority: i.Priority, DueDate: i.DueDate,
 			MilestoneID: i.MilestoneID, SortOrder: i.SortOrder, UpdatedAt: updated, CompletedAt: i.CompletedAt, ID: i.ID,
+			CategoryID: i.CategoryID, DueAt: i.DueAt, DueRemind: i.DueRemind, DueNotifiedAt: i.DueNotifiedAt,
 		}); err != nil {
 			return err
 		}

@@ -61,10 +61,12 @@ func toIssue(i db.Issue, projectKey string, labels []api.Label) api.Issue {
 	if labels == nil {
 		labels = []api.Label{}
 	}
+	remind := api.DueRemind(i.DueRemind)
 	return api.Issue{
 		Id: i.ID, Key: issueKey(projectKey, i.Number), ProjectId: i.ProjectID, ProjectKey: projectKey, Number: i.Number,
 		Title: i.Title, Description: i.Description, Status: api.IssueStatus(i.Status), Priority: int(i.Priority),
 		DueDate: toDate(i.DueDate), MilestoneId: i.MilestoneID, SortOrder: i.SortOrder, Labels: labels,
+		CategoryId: i.CategoryID, DueAt: parseDue(i.DueAt), DueRemind: &remind,
 		ExternalSource: i.ExternalSource, ExternalId: i.ExternalID,
 		CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt,
 	}
@@ -102,9 +104,26 @@ func toIssues(ctx context.Context, q *db.Queries, rows []issueRow) ([]api.Issue,
 	if err != nil {
 		return nil, err
 	}
+	progress := map[int64][2]int{}
+	if len(ids) > 0 {
+		rows, err := q.ChecklistProgressForIssues(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			done := 0
+			if row.Done != nil {
+				done = int(*row.Done)
+			}
+			progress[row.IssueID] = [2]int{done, int(row.Total)}
+		}
+	}
 	out := make([]api.Issue, len(rows))
 	for i, r := range rows {
 		out[i] = toIssue(r.Issue, r.ProjectKey, labels[r.Issue.ID])
+		counts := progress[r.Issue.ID]
+		out[i].ChecklistDone = &counts[0]
+		out[i].ChecklistTotal = &counts[1]
 	}
 	return out, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects/api"
@@ -20,6 +21,7 @@ type issueFilter struct {
 	Priority    *int
 	LabelID     *int64
 	MilestoneID *int64
+	CategoryID  *int64
 	Due         string // today, week, overdue
 	Q           string
 	Sort        string // updated, priority, due, manual
@@ -28,7 +30,8 @@ type issueFilter struct {
 }
 
 const issueColumns = `i.id, i.project_id, i.number, i.title, i.description, i.status, i.priority, i.due_date,
-	i.milestone_id, i.sort_order, i.external_source, i.external_id, i.created_at, i.updated_at, i.completed_at, p.key`
+	i.milestone_id, i.sort_order, i.external_source, i.external_id, i.created_at, i.updated_at, i.completed_at,
+	i.category_id, i.due_at, i.due_remind, i.due_notified_at, p.key`
 
 // listIssues returns one page and the offset of the next page (0 when done).
 func (m *Module) listIssues(ctx context.Context, f issueFilter) ([]api.Issue, int, error) {
@@ -63,15 +66,24 @@ func (m *Module) listIssues(ctx context.Context, f issueFilter) ([]api.Issue, in
 	if f.MilestoneID != nil {
 		add("i.milestone_id = ?", *f.MilestoneID)
 	}
+	if f.CategoryID != nil {
+		if *f.CategoryID == 0 {
+			add("i.category_id IS NULL")
+		} else {
+			add("i.category_id IN (SELECT id FROM project_categories WHERE id=? OR parent_id=?)", *f.CategoryID, *f.CategoryID)
+		}
+	}
 	today := m.today()
+	start := today.UTC().Format(time.RFC3339)
+	tomorrow := today.AddDate(0, 0, 1).UTC().Format(time.RFC3339)
 	switch f.Due {
 	case "":
 	case "today":
-		add("i.due_date = ?", today.Format(dateLayout))
+		add("i.due_at >= ? AND i.due_at < ?", start, tomorrow)
 	case "week":
-		add("i.due_date >= ? AND i.due_date <= ?", today.Format(dateLayout), today.AddDate(0, 0, 6).Format(dateLayout))
+		add("i.due_at >= ? AND i.due_at < ?", start, today.AddDate(0, 0, 7).UTC().Format(time.RFC3339))
 	case "overdue":
-		add("i.due_date < ? AND i.status NOT IN ('done', 'canceled')", today.Format(dateLayout))
+		add("i.due_at < ? AND i.status NOT IN ('done', 'canceled')", m.now().UTC().Format(time.RFC3339))
 	default:
 		return nil, 0, httpx.Invalid("due 只能是 today、week 或 overdue")
 	}
@@ -93,7 +105,7 @@ func (m *Module) listIssues(ctx context.Context, f issueFilter) ([]api.Issue, in
 	case "priority":
 		order = "CASE i.priority WHEN 0 THEN 5 ELSE i.priority END, i.updated_at DESC, i.id DESC"
 	case "due":
-		order = "i.due_date IS NULL, i.due_date, CASE i.priority WHEN 0 THEN 5 ELSE i.priority END, i.id"
+		order = "i.due_at IS NULL, i.due_at, CASE i.priority WHEN 0 THEN 5 ELSE i.priority END, i.id"
 	case "manual":
 		order = "i.sort_order, i.id"
 	default:
@@ -120,7 +132,7 @@ func (m *Module) listIssues(ctx context.Context, f issueFilter) ([]api.Issue, in
 		i := &r.Issue
 		if err := rows.Scan(&i.ID, &i.ProjectID, &i.Number, &i.Title, &i.Description, &i.Status, &i.Priority,
 			&i.DueDate, &i.MilestoneID, &i.SortOrder, &i.ExternalSource, &i.ExternalID, &i.CreatedAt, &i.UpdatedAt,
-			&i.CompletedAt, &r.ProjectKey); err != nil {
+			&i.CompletedAt, &i.CategoryID, &i.DueAt, &i.DueRemind, &i.DueNotifiedAt, &r.ProjectKey); err != nil {
 			return nil, 0, err
 		}
 		list = append(list, r)

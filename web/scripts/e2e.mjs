@@ -262,6 +262,29 @@ try {
   await page.waitForURL(/\/projects\/EET\/\d+$/);
   const issueKey = `EET-${page.url().split("/").at(-1)}`;
   assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
+  stage = "B36 分类和截止时间";
+  const categoryResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/categories`, {
+    headers: { "X-Requested-With": "x-console" }, data: { name: "后端" },
+  });
+  assert.equal(categoryResponse.status(), 201, await categoryResponse.text());
+  const parentCategory = await categoryResponse.json();
+  const childResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/categories`, {
+    headers: { "X-Requested-With": "x-console" }, data: { name: "服务器", parentId: parentCategory.id },
+  });
+  assert.equal(childResponse.status(), 201, await childResponse.text());
+  const childCategory = await childResponse.json();
+  const dueAt = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60 * 60 * 1000).toISOString();
+  const dueResponse = await page.context().request.patch(`${base}/api/v1/issues/${issueKey}`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { categoryId: childCategory.id, dueAt, dueRemind: "15m" },
+  });
+  assert.equal(dueResponse.status(), 200, await dueResponse.text());
+  const dueIssue = await dueResponse.json();
+  assert.equal(dueIssue.categoryId, childCategory.id);
+  assert.equal(dueIssue.dueRemind, "15m");
+  assert.equal(new Date(dueIssue.dueAt).getTime(), new Date(dueAt).getTime());
+  await page.reload();
+  await page.getByText("服务器", { exact: true }).first().waitFor();
   const progressResponse = await page
     .context()
     .request.patch(`${base}/api/v1/issues/${issueKey}`, {
