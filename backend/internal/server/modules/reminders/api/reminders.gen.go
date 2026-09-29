@@ -13,6 +13,33 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ExternalReminderSource.
+const (
+	ExternalReminderSourceCertificate  ExternalReminderSource = "certificate"
+	ExternalReminderSourceDomain       ExternalReminderSource = "domain"
+	ExternalReminderSourceIssue        ExternalReminderSource = "issue"
+	ExternalReminderSourceOther        ExternalReminderSource = "other"
+	ExternalReminderSourceSubscription ExternalReminderSource = "subscription"
+)
+
+// Valid indicates whether the value is a known member of the ExternalReminderSource enum.
+func (e ExternalReminderSource) Valid() bool {
+	switch e {
+	case ExternalReminderSourceCertificate:
+		return true
+	case ExternalReminderSourceDomain:
+		return true
+	case ExternalReminderSourceIssue:
+		return true
+	case ExternalReminderSourceOther:
+		return true
+	case ExternalReminderSourceSubscription:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NotifyPriority.
 const (
 	High   NotifyPriority = "high"
@@ -66,25 +93,25 @@ func (e ReminderStatus) Valid() bool {
 
 // Defines values for WebPushService.
 const (
-	Apple     WebPushService = "apple"
-	Google    WebPushService = "google"
-	Microsoft WebPushService = "microsoft"
-	Mozilla   WebPushService = "mozilla"
-	Other     WebPushService = "other"
+	WebPushServiceApple     WebPushService = "apple"
+	WebPushServiceGoogle    WebPushService = "google"
+	WebPushServiceMicrosoft WebPushService = "microsoft"
+	WebPushServiceMozilla   WebPushService = "mozilla"
+	WebPushServiceOther     WebPushService = "other"
 )
 
 // Valid indicates whether the value is a known member of the WebPushService enum.
 func (e WebPushService) Valid() bool {
 	switch e {
-	case Apple:
+	case WebPushServiceApple:
 		return true
-	case Google:
+	case WebPushServiceGoogle:
 		return true
-	case Microsoft:
+	case WebPushServiceMicrosoft:
 		return true
-	case Mozilla:
+	case WebPushServiceMozilla:
 		return true
-	case Other:
+	case WebPushServiceOther:
 		return true
 	default:
 		return false
@@ -136,6 +163,24 @@ func (e ListRemindersParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for ListExternalRemindersParamsRange.
+const (
+	ListExternalRemindersParamsRangeToday    ListExternalRemindersParamsRange = "today"
+	ListExternalRemindersParamsRangeUpcoming ListExternalRemindersParamsRange = "upcoming"
+)
+
+// Valid indicates whether the value is a known member of the ListExternalRemindersParamsRange enum.
+func (e ListExternalRemindersParamsRange) Valid() bool {
+	switch e {
+	case ListExternalRemindersParamsRangeToday:
+		return true
+	case ListExternalRemindersParamsRangeUpcoming:
+		return true
+	default:
+		return false
+	}
+}
+
 // ChannelField defines model for ChannelField.
 type ChannelField struct {
 	Key         string  `json:"key"`
@@ -149,6 +194,31 @@ type ChannelField struct {
 	// Value 当前值。令牌字段只返回打码后的值
 	Value string `json:"value"`
 }
+
+// ExternalReminder defines model for ExternalReminder.
+type ExternalReminder struct {
+	// At 到期时间
+	At time.Time `json:"at"`
+
+	// Done 来源里已经处理了（续费了、Issue 完成了）
+	Done bool `json:"done"`
+
+	// Id 在来源里唯一，比如 subscription:12、issue:XC-3
+	Id string `json:"id"`
+
+	// Link 面板里的路径，比如 /monitoring/subscriptions
+	Link string `json:"link"`
+
+	// Source 来源。前端按它显示标签，不认识的用 sourceLabel
+	Source ExternalReminderSource `json:"source"`
+
+	// SourceLabel 服务端写好的中文标签，比如“订阅”“证书”“Issue”
+	SourceLabel string `json:"sourceLabel"`
+	Title       string `json:"title"`
+}
+
+// ExternalReminderSource 来源。前端按它显示标签，不认识的用 sourceLabel
+type ExternalReminderSource string
 
 // NotifyChannel defines model for NotifyChannel.
 type NotifyChannel struct {
@@ -320,6 +390,14 @@ type ListRemindersParams struct {
 // ListRemindersParamsRange defines parameters for ListReminders.
 type ListRemindersParamsRange string
 
+// ListExternalRemindersParams defines parameters for ListExternalReminders.
+type ListExternalRemindersParams struct {
+	Range ListExternalRemindersParamsRange `form:"range" json:"range"`
+}
+
+// ListExternalRemindersParamsRange defines parameters for ListExternalReminders.
+type ListExternalRemindersParamsRange string
+
 // SnoozeReminderJSONBody defines parameters for SnoozeReminder.
 type SnoozeReminderJSONBody struct {
 	Minutes int `json:"minutes"`
@@ -411,6 +489,9 @@ type ServerInterface interface {
 
 	// (POST /reminders)
 	CreateReminder(w http.ResponseWriter, r *http.Request)
+
+	// (GET /reminders/external)
+	ListExternalReminders(w http.ResponseWriter, r *http.Request, params ListExternalRemindersParams)
 
 	// (DELETE /reminders/{reminderId})
 	DeleteReminder(w http.ResponseWriter, r *http.Request, reminderId ReminderId)
@@ -524,6 +605,11 @@ func (_ Unimplemented) ListReminders(w http.ResponseWriter, r *http.Request, par
 
 // (POST /reminders)
 func (_ Unimplemented) CreateReminder(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /reminders/external)
+func (_ Unimplemented) ListExternalReminders(w http.ResponseWriter, r *http.Request, params ListExternalRemindersParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -913,6 +999,39 @@ func (siw *ServerInterfaceWrapper) CreateReminder(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListExternalReminders operation middleware
+func (siw *ServerInterfaceWrapper) ListExternalReminders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListExternalRemindersParams
+
+	// ------------- Required query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListExternalReminders(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteReminder operation middleware
 func (siw *ServerInterfaceWrapper) DeleteReminder(w http.ResponseWriter, r *http.Request) {
 
@@ -1161,6 +1280,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/reminders", wrapper.CreateReminder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/reminders/external", wrapper.ListExternalReminders)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/reminders/{reminderId}", wrapper.DeleteReminder)

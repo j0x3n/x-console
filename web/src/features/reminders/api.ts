@@ -22,6 +22,8 @@ export type ReminderRange = "today" | "upcoming" | "done";
 export const reminderKeys = {
   all: ["reminders"] as const,
   list: (range: ReminderRange) => ["reminders", "list", range] as const,
+  external: (range: "today" | "upcoming") =>
+    ["reminders", "external", range] as const,
 };
 
 export const notifyKeys = {
@@ -236,5 +238,28 @@ export function useTestWebPush() {
       }
     },
     onSettled: invalidate,
+  });
+}
+
+/* ---- B37：其他模块的到期事项 ---- */
+
+export type ExternalReminder = components["schemas"]["ExternalReminder"];
+
+/** 回 404 或 501 表示后端还没做，页面当作没有。 */
+export function useExternalReminders(
+  range: "today" | "upcoming",
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: reminderKeys.external(range),
+    queryFn: () =>
+      unwrap(
+        remindersApi.GET("/reminders/external", {
+          params: { query: { range } },
+        }),
+      ).then((r) => r.items),
+    retry: (count, error) => !isNotLive(error) && count < 2,
+    staleTime: 60_000,
+    enabled,
   });
 }

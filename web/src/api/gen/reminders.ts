@@ -20,6 +20,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/reminders/external": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B37。其他模块的到期事项（订阅续费、证书到期、域名到期、Issue 截止），只读。
+         *     来自注册表 reminders.sources 里的所有实现。today 是今天结束前的（包括已过期没完成的）；
+         *     upcoming 是明天起 30 天内的。按时间排序。
+         */
+        get: operations["listExternalReminders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reminders/{reminderId}": {
         parameters: {
             query?: never;
@@ -325,6 +346,27 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        ExternalReminder: {
+            /** @description 在来源里唯一，比如 subscription:12、issue:XC-3 */
+            id: string;
+            /**
+             * @description 来源。前端按它显示标签，不认识的用 sourceLabel
+             * @enum {string}
+             */
+            source: "subscription" | "certificate" | "domain" | "issue" | "other";
+            /** @description 服务端写好的中文标签，比如“订阅”“证书”“Issue” */
+            sourceLabel: string;
+            title: string;
+            /**
+             * Format: date-time
+             * @description 到期时间
+             */
+            at: string;
+            /** @description 面板里的路径，比如 /monitoring/subscriptions */
+            link: string;
+            /** @description 来源里已经处理了（续费了、Issue 完成了） */
+            done: boolean;
+        };
         ReminderInput: {
             title: string;
             body?: string;
@@ -500,6 +542,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Reminder"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listExternalReminders: {
+        parameters: {
+            query: {
+                range: "today" | "upcoming";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 条目列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["ExternalReminder"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

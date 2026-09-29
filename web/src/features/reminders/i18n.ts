@@ -144,4 +144,11 @@ registerZh({
     "已经在本机弹了一条通知。没看到的话，是系统没允许这个浏览器显示通知。",
   "Turn on browser push first.": "先开启浏览器推送。",
   "The browser could not show a notification.": "浏览器没能弹出通知。",
+  // B37：其他模块的到期事项
+  "Show other modules": "显示其他模块",
+  Subscription: "订阅",
+  Certificate: "证书",
+  Domain: "域名",
+  Issue: "Issue",
+  Overdue: "已过期",
 });
