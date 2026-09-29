@@ -1,5 +1,6 @@
 // Package metrics collects system metrics with gopsutil, pushes them to the
-// server every 30 seconds, or every 5 seconds while its detail is open.
+// server every 30 seconds, or while its detail is open every 1, 5 or 30
+// seconds as the server asks (metrics.detail intervalMs, default 5).
 package metrics
 
 import (
@@ -31,6 +32,20 @@ import (
 var Interval = 30 * time.Second
 var DetailInterval = 5 * time.Second
 
+// slowEvery is how often the parts that are costly to read (per core CPU,
+// disks, network cards, process count) are refreshed in the 1 second mode.
+// The samples in between repeat the last values.
+const slowEvery = 5 * time.Second
+
+// detailInterval maps the interval a server asked for to one we accept.
+func detailInterval(ms int) time.Duration {
+	switch ms {
+	case 1000, 5000, 30000:
+		return time.Duration(ms) * time.Millisecond
+	}
+	return DetailInterval
+}
+
 // maxDisks caps the mounts reported per sample.
 const maxDisks = 24
 
@@ -38,11 +53,16 @@ const maxDisks = 24
 func Register(c *conn.Client) {
 	col := NewCollector()
 	var detail atomic.Bool
+	var every atomic.Int64 // detail interval in nanoseconds
+	every.Store(int64(DetailInterval))
 	changed := make(chan struct{}, 1)
 	c.Handle(protocol.MethodMetricsDetail, func(_ context.Context, raw json.RawMessage) (any, error) {
 		var p protocol.MetricsDetailParams
 		if err := rpcutil.Decode(raw, &p); err != nil {
 			return nil, err
+		}
+		if p.On {
+			every.Store(int64(detailInterval(p.IntervalMs)))
 		}
 		detail.Store(p.On)
 		select {
@@ -57,7 +77,9 @@ func Register(c *conn.Client) {
 			var s protocol.MetricsSample
 			var err error
 			detailed := detail.Load()
-			if detailed {
+			if detailed && time.Duration(every.Load()) <= time.Second {
+				s, err = col.SampleFast(ctx)
+			} else if detailed {
 				s, err = col.Sample(ctx)
 			} else {
 				s, err = col.SampleSummary(ctx)
@@ -93,7 +115,7 @@ func Register(c *conn.Client) {
 				}
 			}
 			if detail.Load() {
-				t.Reset(DetailInterval)
+				t.Reset(time.Duration(every.Load()))
 			} else {
 				t.Reset(Interval)
 			}
@@ -105,7 +127,7 @@ func summaryPayload(s protocol.MetricsSample) protocol.MetricsSummary {
 	return protocol.MetricsSummary{
 		At: s.At, CPU: s.CPU, MemUsed: s.MemUsed, MemTotal: s.MemTotal,
 		Disks: s.Disks, NetRxRate: s.NetRxRate, NetTxRate: s.NetTxRate,
-		Load1: s.Load1, UptimeSeconds: s.UptimeSeconds,
+		NetRxTotal: s.NetRxTotal, NetTxTotal: s.NetTxTotal, Load1: s.Load1, UptimeSeconds: s.UptimeSeconds,
 	}
 }
 
@@ -132,19 +154,34 @@ func (c *Collector) SampleSummary(ctx context.Context) (protocol.MetricsSample, 
 
 // Collector turns cumulative counters into rates between two samples.
 type Collector struct {
-	mu   sync.Mutex
-	last counters
+	mu    sync.Mutex
+	last  counters // read at every sample
+	heavy heavyCounters
+
+	// slow is the last full sample. SampleFast repeats its costly parts.
+	slow   protocol.MetricsSample
+	slowAt time.Time
 }
 
+// counters are cheap to read, so every sample reads them.
 type counters struct {
 	at       time.Time
 	cpuTotal cpu.TimesStat
-	cpuCores []cpu.TimesStat
 	netRx    uint64
 	netTx    uint64
+	// counted are the bytes of the interfaces that count as traffic.
+	countedRx uint64
+	countedTx uint64
+	diskR     uint64
+	diskW     uint64
+}
+
+// heavyCounters are read only by full samples, with their own time, so rates
+// stay right when light samples run in between.
+type heavyCounters struct {
+	at       time.Time
+	cpuCores []cpu.TimesStat
 	nics     map[string]nicCounters
-	diskR    uint64
-	diskW    uint64
 }
 
 type nicCounters struct{ rx, tx uint64 }
@@ -153,6 +190,7 @@ type nicCounters struct{ rx, tx uint64 }
 func NewCollector() *Collector {
 	c := &Collector{}
 	c.last.read(context.Background())
+	c.heavy.read(context.Background())
 	return c
 }
 
@@ -161,11 +199,16 @@ func (c *counters) read(ctx context.Context) {
 	if t, err := cpu.TimesWithContext(ctx, false); err == nil && len(t) > 0 {
 		c.cpuTotal = t[0]
 	}
-	if t, err := cpu.TimesWithContext(ctx, true); err == nil {
-		c.cpuCores = t
-	}
-	c.netRx, c.netTx, c.nics = netCounters(ctx)
+	c.netRx, c.netTx, c.countedRx, c.countedTx = totalNetCounters(ctx)
 	c.diskR, c.diskW = diskCounters(ctx)
+}
+
+func (h *heavyCounters) read(ctx context.Context) {
+	h.at = time.Now()
+	if t, err := cpu.TimesWithContext(ctx, true); err == nil {
+		h.cpuCores = t
+	}
+	_, _, h.nics = netCounters(ctx)
 }
 
 // Sample reads all metrics. CPU and rates are averages since the previous
@@ -184,22 +227,25 @@ func (c *Collector) sample(ctx context.Context, detailed bool) (protocol.Metrics
 			return protocol.MetricsSample{}, ctx.Err()
 		}
 	}
-	prev := c.last
+	prev, prevHeavy := c.last, c.heavy
 	c.last.read(ctx)
-	cur := c.last
+	c.heavy.read(ctx)
+	cur, curHeavy := c.last, c.heavy
 	elapsed := cur.at.Sub(prev.at).Seconds()
+	heavyElapsed := curHeavy.at.Sub(prevHeavy.at).Seconds()
 
 	s := protocol.MetricsSample{At: cur.at.UTC(), CPUPerCore: []float64{}, Disks: []protocol.DiskUsage{}}
 	s.CPU = round1(BusyPercent(prev.cpuTotal, cur.cpuTotal))
-	if detailed && len(prev.cpuCores) == len(cur.cpuCores) {
-		for i := range cur.cpuCores {
-			s.CPUPerCore = append(s.CPUPerCore, round1(BusyPercent(prev.cpuCores[i], cur.cpuCores[i])))
+	if detailed && len(prevHeavy.cpuCores) == len(curHeavy.cpuCores) {
+		for i := range curHeavy.cpuCores {
+			s.CPUPerCore = append(s.CPUPerCore, round1(BusyPercent(prevHeavy.cpuCores[i], curHeavy.cpuCores[i])))
 		}
 	}
 	s.NetRxRate = Rate(prev.netRx, cur.netRx, elapsed)
 	s.NetTxRate = Rate(prev.netTx, cur.netTx, elapsed)
+	s.NetRxTotal, s.NetTxTotal = cur.countedRx, cur.countedTx
 	if detailed {
-		s.NetInterfaces = interfaceRates(prev.nics, cur.nics, elapsed)
+		s.NetInterfaces = interfaceRates(prevHeavy.nics, curHeavy.nics, heavyElapsed)
 	}
 	s.DiskReadRate = Rate(prev.diskR, cur.diskR, elapsed)
 	s.DiskWriteRate = Rate(prev.diskW, cur.diskW, elapsed)
@@ -228,6 +274,52 @@ func (c *Collector) sample(ctx context.Context, detailed bool) (protocol.Metrics
 		}
 	}
 	s.Disks = Disks(ctx)
+	if detailed {
+		c.slow, c.slowAt = s, time.Now()
+	}
+	return s, nil
+}
+
+// SampleFast is the sample of the 1 second mode. CPU, memory and the network
+// and disk speeds are read fresh. Per core CPU, disks, network cards, swap and
+// the process count are read every 5 seconds, and the samples in between
+// repeat the last values.
+func (c *Collector) SampleFast(ctx context.Context) (protocol.MetricsSample, error) {
+	c.mu.Lock()
+	full := time.Since(c.slowAt) >= slowEvery
+	c.mu.Unlock()
+	if full {
+		return c.Sample(ctx)
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if wait := time.Second - time.Since(c.last.at); wait > 0 {
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return protocol.MetricsSample{}, ctx.Err()
+		}
+	}
+	prev := c.last
+	c.last.read(ctx)
+	cur := c.last
+	elapsed := cur.at.Sub(prev.at).Seconds()
+
+	s := c.slow
+	s.At = cur.at.UTC()
+	s.CPU = round1(BusyPercent(prev.cpuTotal, cur.cpuTotal))
+	s.NetRxRate = Rate(prev.netRx, cur.netRx, elapsed)
+	s.NetTxRate = Rate(prev.netTx, cur.netTx, elapsed)
+	s.NetRxTotal, s.NetTxTotal = cur.countedRx, cur.countedTx
+	s.DiskReadRate = Rate(prev.diskR, cur.diskR, elapsed)
+	s.DiskWriteRate = Rate(prev.diskW, cur.diskW, elapsed)
+	if vm, err := mem.VirtualMemoryWithContext(ctx); err == nil {
+		s.MemTotal = vm.Total
+		s.MemUsed = vm.Total - vm.Available
+		if vm.Available > vm.Total {
+			s.MemUsed = vm.Used
+		}
+	}
 	return s, nil
 }
 
@@ -275,6 +367,27 @@ func interfaceRates(prev, cur map[string]nicCounters, seconds float64) []protoco
 		out = append(out, nic)
 	}
 	return out
+}
+
+// totalNetCounters returns the bytes of all non-loopback interfaces (for the
+// speed) and of the interfaces that count as traffic (for the monthly total).
+func totalNetCounters(ctx context.Context) (rx, tx, countedRx, countedTx uint64) {
+	nics, err := net.IOCountersWithContext(ctx, true)
+	if err != nil {
+		return 0, 0, 0, 0
+	}
+	for _, n := range nics {
+		if isLoopback(n.Name) {
+			continue
+		}
+		rx += n.BytesRecv
+		tx += n.BytesSent
+		if protocol.CountedInterface(n.Name) {
+			countedRx += n.BytesRecv
+			countedTx += n.BytesSent
+		}
+	}
+	return rx, tx, countedRx, countedTx
 }
 
 func netCounters(ctx context.Context) (rx, tx uint64, perNIC map[string]nicCounters) {

@@ -90,12 +90,15 @@ const (
 	CapProcesses  = "processes"
 	CapServices   = "services" // systemd on Linux, SCM on Windows
 	CapDocker     = "docker"
-	CapPTY        = "pty"
-	CapFiles      = "files"
-	CapExec       = "exec"
-	CapClipboard  = "clipboard" // desktop only
-	CapPower      = "power"     // lock/sleep/shutdown, desktop only
-	CapCoding     = "coding"    // Claude Code / Codex runner, desktop only
+	// CapDockerLines: docker.logs understands DockerLogsParams.Lines, and the
+	// docker.image_remove and docker.image_prune methods exist (B28).
+	CapDockerLines = "docker.lines"
+	CapPTY         = "pty"
+	CapFiles       = "files"
+	CapExec        = "exec"
+	CapClipboard   = "clipboard" // desktop only
+	CapPower       = "power"     // lock/sleep/shutdown, desktop only
+	CapCoding      = "coding"    // Claude Code / Codex runner, desktop only
 )
 
 // Methods implemented in batch 0. Modules add their own method constants in

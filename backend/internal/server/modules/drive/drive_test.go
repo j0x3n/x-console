@@ -79,7 +79,7 @@ func TestFilesFoldersAndHidden(t *testing.T) {
 	if second.Name != "a (1).txt" {
 		t.Fatalf("duplicate name: %q", second.Name)
 	}
-	blobs, err := filepath.Glob(filepath.Join(env.App.Deps.Config.DataDir, "drive", "blobs", "*", "*"))
+	blobs, err := filepath.Glob(filepath.Join(env.App.Deps.Config.FilesDir(), "drive", "blobs", "*", "*"))
 	if err != nil || len(blobs) != 1 {
 		t.Fatalf("blob dedup: %v %v", blobs, err)
 	}
@@ -149,7 +149,7 @@ func TestFilesFoldersAndHidden(t *testing.T) {
 	if status != 404 {
 		t.Fatalf("child survived folder deletion: %d", status)
 	}
-	blobs, err = filepath.Glob(filepath.Join(env.App.Deps.Config.DataDir, "drive", "blobs", "*", "*"))
+	blobs, err = filepath.Glob(filepath.Join(env.App.Deps.Config.FilesDir(), "drive", "blobs", "*", "*"))
 	if err != nil || len(blobs) != 0 {
 		t.Fatalf("unreferenced blob remains: %v %v", blobs, err)
 	}

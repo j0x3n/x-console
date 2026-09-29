@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 )
@@ -43,9 +44,8 @@ type attachmentRow struct {
 	CreatedAt time.Time
 }
 
-func (m *Module) attachmentPath(id int64) string {
-	return filepath.Join(m.d.Config.DataDir, "notes", "attachments", strconv.FormatInt(id, 10))
-}
+// attachmentKey is the key of an attachment's content in the notes' store.
+func attachmentKey(id int64) string { return "attachments/" + strconv.FormatInt(id, 10) }
 
 func attachmentURL(id int64) string {
 	return "/api/v1/notes/attachments/" + strconv.FormatInt(id, 10)
@@ -106,12 +106,7 @@ func (m *Module) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, no
 		httpx.Fail(w, r, httpx.Invalid("文件名不能为空"))
 		return
 	}
-	dir := filepath.Join(m.d.Config.DataDir, "notes", "attachments")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-	tmp, err := os.CreateTemp(dir, ".upload-")
+	tmp, err := os.CreateTemp(m.d.Config.TmpDir(), "note-upload-")
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -135,10 +130,6 @@ func (m *Module) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, no
 		httpx.Fail(w, r, httpx.NewError(http.StatusRequestEntityTooLarge, "too_large", "文件不能超过 50 MB"))
 		return
 	}
-	if err := tmp.Close(); err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
 	var id int64
 	now := m.now()
 	tx, err := m.d.DB.BeginTx(r.Context(), nil)
@@ -156,14 +147,17 @@ func (m *Module) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, no
 		}
 	}
 	if err == nil {
-		err = os.Rename(tmp.Name(), m.attachmentPath(id))
+		_, err = tmp.Seek(0, io.SeekStart)
+	}
+	if err == nil {
+		err = m.files.Put(r.Context(), attachmentKey(id), tmp, written)
 	}
 	if err == nil {
 		err = tx.Commit()
 	}
 	if err != nil {
 		if id != 0 {
-			os.Remove(m.attachmentPath(id))
+			_ = m.files.Delete(context.WithoutCancel(r.Context()), attachmentKey(id))
 		}
 		if errors.Is(err, sql.ErrNoRows) {
 			err = httpx.ErrNotFound
@@ -200,9 +194,9 @@ func (m *Module) DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, 
 		httpx.Fail(w, r, err)
 		return
 	}
-	file, err := os.Open(m.attachmentPath(attachmentID))
+	file, _, err := files.OpenSeeker(r.Context(), m.files, attachmentKey(attachmentID))
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, files.ErrNotFound) {
 			err = httpx.ErrNotFound
 		}
 		httpx.Fail(w, r, err)
@@ -233,7 +227,7 @@ func (m *Module) DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, at
 		httpx.Fail(w, r, err)
 		return
 	}
-	if err := os.Remove(m.attachmentPath(attachmentID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := m.files.Delete(r.Context(), attachmentKey(attachmentID)); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
@@ -257,7 +251,7 @@ func (m *Module) removeNoteFiles(ctx context.Context, id int64) error {
 		if err := rows.Scan(&fileID); err != nil {
 			return err
 		}
-		if err := os.Remove(m.attachmentPath(fileID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := m.files.Delete(ctx, attachmentKey(fileID)); err != nil {
 			return err
 		}
 	}

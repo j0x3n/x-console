@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -384,7 +383,7 @@ func (m *Module) syncItem(ctx context.Context, client *minio.Client, c api.S3Con
 		}
 	}
 	if !copied {
-		f, e := os.Open(m.blobPath(item.Sha256))
+		f, _, e := m.store.Get(ctx, blobKey(item.Sha256))
 		if e != nil {
 			return e
 		}

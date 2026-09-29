@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/db"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 )
@@ -27,3 +28,5 @@ func CompleteAt(m *Module, ctx context.Context, id int64, now time.Time) (db.Rem
 func Router(m *Module) notify.Router { return &router{m: m} }
 
 func SetPublicURL(m *Module, u string) { m.d.Config.PublicURL = u }
+
+func PushService(endpoint string) api.WebPushService { return pushService(endpoint) }

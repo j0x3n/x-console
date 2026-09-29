@@ -39,9 +39,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
+	connID := h.newConn()
 	topics := map[string]bool{}
+	asked := map[string]int{} // host -> interval this browser asked for
 	paused := false
+	// publishWants tells the handler which intervals this connection wants
+	// right now: only for hosts it watches, and not while it is paused.
+	publishWants := func() {
+		next := map[string]int{}
+		if !paused {
+			for host, ms := range asked {
+				if topics["host.metrics:"+host] {
+					next[host] = ms
+				}
+			}
+		}
+		h.setWants(connID, next)
+	}
 	defer func() {
+		h.setWants(connID, nil)
 		if !paused {
 			h.updateDetail(topics, nil)
 		}
@@ -55,24 +71,43 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case msg := <-commands:
 			switch msg.Type {
 			case "subscribe":
+				prev := topics
 				next := validTopics(msg.Topics)
-				if !paused {
-					h.updateDetail(topics, next)
-				}
 				topics = next
+				// The interval goes in first, so the agent's first call has it.
+				publishWants()
+				if !paused {
+					h.updateDetail(prev, next)
+				}
+			case "interval":
+				if msg.HostID == "" || len(msg.HostID) > 128 {
+					break
+				}
+				if validInterval(msg.Ms) {
+					if len(asked) < 64 || asked[msg.HostID] > 0 {
+						asked[msg.HostID] = msg.Ms
+					}
+				} else {
+					delete(asked, msg.HostID) // 0 and unknown values mean "no longer asking"
+				}
+				publishWants()
 			case "pause":
 				if !paused {
-					h.updateDetail(topics, nil)
 					paused = true
+					publishWants()
+					h.updateDetail(topics, nil)
 				}
 			case "resume":
 				if paused {
 					paused = false
+					publishWants()
 					h.updateDetail(nil, topics)
 				}
 			}
 		case ev := <-ch:
 			if ev.Topic == "agent.online" && !paused && subscribedAgent(topics, ev.Data) {
+				// The agent lost its state when it reconnected: tell it again.
+				h.forget(agentID(ev.Data))
 				h.setDetail(agentID(ev.Data), true)
 			}
 			if !wanted(ev, topics, paused) {

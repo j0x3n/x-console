@@ -1,6 +1,9 @@
 package protocol
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Methods and events of M2 servers / M3 this PC. See docs/specs/M2-M3.md.
 const (
@@ -38,6 +41,10 @@ const (
 // MetricsDetailParams enables detailed sampling while a host is viewed.
 type MetricsDetailParams struct {
 	On bool `json:"on"`
+	// IntervalMs is how often to report while On: 1000, 5000 or 30000. 0 or
+	// missing means 5000. An agent that does not know the field reports every
+	// 5 seconds, which is the default.
+	IntervalMs int `json:"intervalMs,omitempty"`
 }
 
 // CapOpen is announced by agents that implement MethodAppOpen (desktop only).
@@ -55,16 +62,21 @@ const FileChunkSize = 64 << 10
 
 // MetricsSample is one EventMetrics push.
 type MetricsSample struct {
-	At            time.Time      `json:"at"`
-	CPU           float64        `json:"cpu"` // percent of all cores
-	CPUPerCore    []float64      `json:"cpuPerCore"`
-	MemUsed       uint64         `json:"memUsed"`
-	MemTotal      uint64         `json:"memTotal"`
-	SwapUsed      uint64         `json:"swapUsed"`
-	SwapTotal     uint64         `json:"swapTotal"`
-	Disks         []DiskUsage    `json:"disks"`
-	NetRxRate     float64        `json:"netRx"` // bytes per second, all interfaces except loopback
-	NetTxRate     float64        `json:"netTx"`
+	At         time.Time   `json:"at"`
+	CPU        float64     `json:"cpu"` // percent of all cores
+	CPUPerCore []float64   `json:"cpuPerCore"`
+	MemUsed    uint64      `json:"memUsed"`
+	MemTotal   uint64      `json:"memTotal"`
+	SwapUsed   uint64      `json:"swapUsed"`
+	SwapTotal  uint64      `json:"swapTotal"`
+	Disks      []DiskUsage `json:"disks"`
+	NetRxRate  float64     `json:"netRx"` // bytes per second, all interfaces except loopback
+	NetTxRate  float64     `json:"netTx"`
+	// NetRxTotal and NetTxTotal are the bytes received and sent since boot on
+	// the interfaces CountedInterface accepts. The server turns them into
+	// traffic per day. Older agents leave them out.
+	NetRxTotal    uint64         `json:"netRxTotal,omitempty"`
+	NetTxTotal    uint64         `json:"netTxTotal,omitempty"`
 	NetInterfaces []NetInterface `json:"netInterfaces,omitempty"`
 	DiskReadRate  float64        `json:"diskRead"` // bytes per second
 	DiskWriteRate float64        `json:"diskWrite"`
@@ -85,8 +97,32 @@ type MetricsSummary struct {
 	Disks         []DiskUsage `json:"disks"`
 	NetRxRate     float64     `json:"netRx"`
 	NetTxRate     float64     `json:"netTx"`
+	NetRxTotal    uint64      `json:"netRxTotal,omitempty"`
+	NetTxTotal    uint64      `json:"netTxTotal,omitempty"`
 	Load1         float64     `json:"load1"`
 	UptimeSeconds uint64      `json:"uptimeSeconds"`
+}
+
+// CountedInterface reports whether the bytes of a network interface count
+// towards the traffic of a host. Loopback, container and virtual bridges,
+// tunnels and VPNs are left out, because their bytes are counted again on the
+// physical interface they run over.
+func CountedInterface(name string) bool {
+	l := strings.ToLower(strings.TrimSpace(name))
+	if l == "" || l == "lo" {
+		return false
+	}
+	for _, prefix := range []string{"docker", "veth", "br-", "virbr", "cni", "flannel", "tun", "tap", "wg"} {
+		if strings.HasPrefix(l, prefix) {
+			return false
+		}
+	}
+	for _, part := range []string{"loopback", "vethernet", "virtualbox", "vmware", "hyper-v"} {
+		if strings.Contains(l, part) {
+			return false
+		}
+	}
+	return true
 }
 
 // NetInterface is one non-loopback interface's receive and send rate.

@@ -36,3 +36,6 @@ func Generate(m *Module, ctx context.Context, reg *module.Registry, now time.Tim
 	}
 	return res.content, keys, nil
 }
+
+// SetNow replaces the clock the weather cache uses.
+func SetNow(m *Module, now func() time.Time) { m.now = now }

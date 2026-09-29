@@ -10,8 +10,10 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/core/api"
 	"github.com/j0x3n/x-console/backend/internal/server/core/db"
+	"github.com/j0x3n/x-console/backend/internal/server/events"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
+	"github.com/j0x3n/x-console/backend/internal/server/settings"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
 
@@ -24,6 +26,9 @@ type Handlers struct {
 	Agents *agenthub.Hub
 	Notify *notify.Service
 	Q      *db.Queries
+	// Settings and Bus back the UI preferences (B22).
+	Settings *settings.Store
+	Bus      *events.Bus
 }
 
 var _ api.ServerInterface = (*Handlers)(nil)

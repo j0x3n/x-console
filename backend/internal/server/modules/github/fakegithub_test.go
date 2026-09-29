@@ -35,6 +35,9 @@ type fakeGitHub struct {
 	notModified   int
 	rateLimited   bool
 	nextPR        int
+	userRepos     []map[string]any // GET /user/repos
+	remaining     int              // X-RateLimit-Remaining, 4999 when zero
+	limit         int              // X-RateLimit-Limit, 5000 when zero
 }
 
 func newFakeGitHub(t *testing.T) *fakeGitHub {
@@ -95,7 +98,15 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, `{"message":"API rate limit exceeded"}`)
 		return
 	}
-	w.Header().Set("X-RateLimit-Remaining", "4999")
+	remaining, limit := 4999, 5000
+	if f.remaining != 0 {
+		remaining = f.remaining
+	}
+	if f.limit != 0 {
+		limit = f.limit
+	}
+	w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
+	w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
 	if r.Header.Get("Authorization") != "Bearer "+f.token {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = io.WriteString(w, `{"message":"Bad credentials"}`)
@@ -120,8 +131,10 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(p)
 		return
+	case r.URL.Path == "/user/repos":
+		body = f.page(w, r, f.userRepos)
 	case len(parts) == 4 && parts[3] == "pulls":
-		body = orEmpty(f.pulls[parts[1]+"/"+parts[2]])
+		body = f.page(w, r, f.pulls[parts[1]+"/"+parts[2]])
 	case len(parts) == 6 && parts[3] == "pulls" && parts[5] == "reviews":
 		body = orEmpty(f.reviews[parts[1]+"/"+parts[2]+"#"+parts[4]])
 	case len(parts) == 6 && parts[3] == "commits" && parts[5] == "status":
@@ -171,6 +184,25 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(raw)
+}
+
+// page cuts list by the page and per_page query parameters and sets the Link
+// header when more follows, like GitHub does.
+func (f *fakeGitHub) page(w http.ResponseWriter, r *http.Request, list []map[string]any) []map[string]any {
+	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if perPage <= 0 {
+		perPage = 30
+	}
+	if page <= 0 {
+		page = 1
+	}
+	from := min((page-1)*perPage, len(list))
+	to := min(from+perPage, len(list))
+	if to < len(list) {
+		w.Header().Set("Link", fmt.Sprintf(`<%s%s?page=%d>; rel="next"`, f.srv.URL, r.URL.Path, page+1))
+	}
+	return orEmpty(list[from:to])
 }
 
 func orEmpty(list []map[string]any) []map[string]any {

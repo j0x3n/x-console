@@ -21,6 +21,7 @@ import (
 type fakeDockerAgent struct {
 	mu        sync.Mutex
 	actions   []protocol.DockerActionParams
+	removed   []string
 	logParams []protocol.DockerLogsParams
 	followEnd chan struct{} // closed when a follow stream ends
 }
@@ -29,7 +30,7 @@ func (f *fakeDockerAgent) register(c *conn.Client) {
 	c.Handle(protocol.MethodDockerPS, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var p protocol.DockerPSParams
 		_ = json.Unmarshal(raw, &p)
-		items := []protocol.DockerContainer{{ID: "c1", Name: "web", Image: "nginx", State: "running", Status: "Up 1 hour",
+		items := []protocol.DockerContainer{{ID: "c1", Name: "web", Image: "nginx:1", State: "running", Status: "Up 1 hour",
 			Created: time.Unix(1700000000, 0).UTC(), Ports: []protocol.DockerPort{{PrivatePort: 80, PublicPort: 8080, Type: "tcp", IP: "0.0.0.0"}}}}
 		if p.All {
 			items = append(items, protocol.DockerContainer{ID: "c2", Name: "old", Image: "redis", State: "exited", Ports: []protocol.DockerPort{}})
@@ -53,6 +54,23 @@ func (f *fakeDockerAgent) register(c *conn.Client) {
 	c.Handle(protocol.MethodDockerImages, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		return protocol.DockerImageList{Items: []protocol.DockerImage{{ID: "sha256:1", Tags: []string{"nginx:1"}, Size: 42}}}, nil
 	})
+	c.Handle(protocol.MethodDockerImageRemove, func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var p protocol.DockerImageRemoveParams
+		_ = json.Unmarshal(raw, &p)
+		switch p.ID {
+		case "sha256:1":
+			return nil, &protocol.Error{Code: protocol.CodeExists, Message: "conflict: image is being used by running container c1"}
+		case "sha256:ghost":
+			return nil, &protocol.Error{Code: protocol.CodeNotFound, Message: "No such image: sha256:ghost"}
+		}
+		f.mu.Lock()
+		f.removed = append(f.removed, p.ID)
+		f.mu.Unlock()
+		return nil, nil
+	})
+	c.Handle(protocol.MethodDockerImagePrune, func(ctx context.Context, raw json.RawMessage) (any, error) {
+		return protocol.DockerImagePruneResult{Deleted: 3, SpaceReclaimed: 1 << 30}, nil
+	})
 	c.HandleStream(protocol.MethodDockerLogs, func(ctx context.Context, raw json.RawMessage, s *rpc.Stream) error {
 		var p protocol.DockerLogsParams
 		_ = json.Unmarshal(raw, &p)
@@ -61,6 +79,18 @@ func (f *fakeDockerAgent) register(c *conn.Client) {
 		f.mu.Unlock()
 		if p.ID == "ghost" {
 			return &protocol.Error{Code: protocol.CodeNotFound, Message: "No such container: ghost"}
+		}
+		if p.Lines {
+			// A new agent: one frame of lines with their stream.
+			if err := s.Send(ctx, []byte(`[{"stream":"stdout","text":"out","time":"2026-09-29T10:00:00Z"},{"stream":"stderr","text":"err"}]`)); err != nil {
+				return err
+			}
+			if !p.Follow {
+				return nil
+			}
+			<-s.Context().Done()
+			close(f.followEnd)
+			return nil
 		}
 		if err := s.Send(ctx, []byte("line 1\nline 2\r\n")); err != nil {
 			return err

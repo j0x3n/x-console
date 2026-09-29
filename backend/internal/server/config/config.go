@@ -33,6 +33,21 @@ type Config struct {
 // DBPath is the SQLite database file.
 func (c Config) DBPath() string { return filepath.Join(c.DataDir, "x-console.db") }
 
+// FilesDir is where uploaded files live: <DataDir>/files/<module>/... (B24).
+func (c Config) FilesDir() string { return filepath.Join(c.DataDir, "files") }
+
+// BackupsDir holds backup packages made on this machine (B25).
+func (c Config) BackupsDir() string { return filepath.Join(c.DataDir, "backups") }
+
+// RestoreDir is where a backup waits to be applied when the server restarts (B25).
+func (c Config) RestoreDir() string { return filepath.Join(c.DataDir, "restore-tmp") }
+
+// FilesCacheDir keeps local copies of files while the site stores them in S3.
+func (c Config) FilesCacheDir() string { return filepath.Join(c.DataDir, "files-cache") }
+
+// TmpDir holds files that are still being received. It is emptied at start.
+func (c Config) TmpDir() string { return filepath.Join(c.DataDir, "tmp") }
+
 // FromEnv loads the configuration and validates it.
 func FromEnv() (Config, error) {
 	c := Config{

@@ -1,5 +1,34 @@
 # 后端待做总清单（B22 到 B37）
 
+## 进度区（谁做谁更新，每做完一小步就改这里）
+
+接手的人先看这一节。分支 `claude/project-thread-37jvjz`，草稿 PR 到 `develop`。用户 2026-09-29 定：先做前一半（第一组到第三组），做到哪算哪。
+
+状态只有三种：没开始 / 在做 / 做完。
+
+已知的偶发失败：全量 `go test -race ./...` 时 `hosts` 包的 `TestHostListDetailAndMetrics` 偶尔报 `rpc: connection closed`，单独跑是好的，机器忙的时候才出现。不是这批改动引起的。
+
+| 序号 | 任务 | 状态 | 在做的文件 | 下一步 |
+| --- | --- | --- | --- | --- |
+| 1 | B22 偏好设置 | 做完 | `core/preferences.go` | 无 |
+| 2 | B23 天气、订阅分类、周期 | 做完 | `brief/weather.go`、`monitoring/categories.go`、`monitoring/subscriptions.go`、迁移 `20260929000100` | 无 |
+| 3 | B34 推送自检 | 做完 | `reminders/delivery.go`、`reminders/notify_handlers.go`、迁移 `20260929000200` | 无 |
+| 4 | B35 GitHub | 做完 | `modules/github/repos.go`、`client.go`、`sync.go`、`module.go` | 无。PR 只存打开的（表和契约都没有状态字段），所以规格里“加上最近 7 天关闭的”没做，需要时要先加字段 |
+| 5a | B24 `files` 包、旧目录搬迁、云盘和笔记改用 | 做完 | `internal/server/files/`、`drive/`、`notes/attachments.go` | 无 |
+| 5b | B24 S3 实现和本机缓存 `Cached` | 做完 | `files/s3.go`、`files/cached.go`、假 S3 `files/fakes3/`（别的模块的测试也能用） | 无 |
+| 5c | B24 存储模块 `modules/storage`（设置、用量、切换、搬迁） | 做完 | `modules/storage/`（module、handlers、switch、usage）、`files/cached.go`、`config.FilesCacheDir` | 云盘旧的 `/drive/s3*` 按规格第 4 节留到下个版本删。搬迁只搬 `files.Store` 里的文件 |
+| 5d | B25 备份模块 `modules/backup` | 做完 | `modules/backup/`（archive、export、handlers、restore、auto）、`cmd/server/main.go` | 恢复走“解包 → 停进程 → 重启时换数据库”，见 `docs/06-deploy.md`。没做“恢复期间新请求回 503”，因为进程马上停止 |
+| 6 | B26 服务器详情刷新周期 | 做完 | `ws/events.go`、`ws/subscriptions.go`、`hosts/interval.go`、`hosts/metrics.go`、`agent/metrics/metrics.go`、`protocol.MetricsDetailParams` | “没有实时刷新”要在线上查，记进了已知问题 |
+| 7 | B27 月流量 | 做完 | `hosts/traffic.go`、`pkg/protocol/methods_hosts.go`、`agent/metrics/metrics.go`、迁移 `20260929000300` | 无。删除代理主机时没清流量表（代理没有删除事件），只清了 SSH 主机的 |
+| 8 | B28 容器日志、镜像清理 | 做完 | `agent/docker/lines.go`、`agent/docker/docker.go`、`monitoring/docker.go`、`monitoring/images.go`、`protocol/methods_docker.go` | 无。B28 里“进程合并、终端脚本、容器排序”前端已做完，后端不用动 |
+| 9 | B29 系统日志 | 没开始 | | |
+| 10 | B30 一条命令添加服务器 | 没开始 | | |
+| 11 | B33 远端日志部分 | 没开始 | | |
+| 12 起 | B31 及以后 | 不在前一半 | | |
+
+本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
+
+
 2026-09-29 整理。这一批的前端都已经做完，后端还没做的接口现在回 501，前端显示“还没上线”或者退回旧的做法。开发者按下面的顺序做，每个任务的细节在对应规格的“后端（待做，给开发者）”一节。
 
 规则照 `AGENTS.md`：在 `codex` 分支上做，一个任务一个提交，提交信息以编号开头。做完一个接口，把它从对应的 `pending.go` 删掉；一个模块的都做完了，删掉整个 `pending.go`。
@@ -11,7 +40,7 @@
 
 | 文件 | 接口数 | 任务 |
 | --- | --- | --- |
-| `modules/monitoring/pending.go` | 6 | B23、B28 |
+| `modules/monitoring/pending.go` | 已删除 | B23、B28 都做完了 |
 | `modules/hosts/pending.go` | 7 | B27、B29、B33 |
 | `modules/drive/pending.go` | 21 | B31 |
 | `modules/ai/pending.go` | 14 | B32、B33 |

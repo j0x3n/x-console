@@ -441,6 +441,7 @@ func parseProcSnapshot(out string) (protocol.MetricsSample, error) {
 	}
 	rx1, tx1 := netDev(sections["net1"])
 	rx2, tx2 := netDev(sections["net2"])
+	x.NetRxTotal, x.NetTxTotal = netDevCounted(sections["net2"])
 	if rx2 >= rx1 {
 		x.NetRxRate = float64(rx2 - rx1)
 	}
@@ -535,6 +536,25 @@ func netDev(lines []string) (rx, tx uint64) {
 	for _, l := range lines {
 		name, rest, ok := strings.Cut(l, ":")
 		if !ok || strings.TrimSpace(name) == "lo" {
+			continue
+		}
+		f := strings.Fields(rest)
+		if len(f) < 9 {
+			continue
+		}
+		r, _ := strconv.ParseUint(f[0], 10, 64)
+		t, _ := strconv.ParseUint(f[8], 10, 64)
+		rx += r
+		tx += t
+	}
+	return rx, tx
+}
+
+// netDevCounted sums the bytes of the interfaces that count as traffic.
+func netDevCounted(lines []string) (rx, tx uint64) {
+	for _, l := range lines {
+		name, rest, ok := strings.Cut(l, ":")
+		if !ok || !protocol.CountedInterface(name) {
 			continue
 		}
 		f := strings.Fields(rest)
@@ -751,6 +771,7 @@ func (m *Module) DeleteSshHost(w http.ResponseWriter, r *http.Request, id int64)
 	}
 	m.ssh.forget(id)
 	m.metrics.drop(sshHostID(id))
+	m.dropTraffic(ctx, sshHostID(id))
 	m.d.Bus.Publish("host.ssh.deleted", map[string]string{"hostId": sshHostID(id)})
 	httpx.NoContent(w)
 }

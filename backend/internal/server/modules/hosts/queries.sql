@@ -97,3 +97,47 @@ LIMIT sqlc.arg(lim);
 
 -- name: DeleteAlertEventsBefore :exec
 DELETE FROM alert_events WHERE fired_at < ? AND resolved_at IS NOT NULL;
+
+-- name: AddTrafficHourly :exec
+INSERT INTO host_traffic_hourly (host_id, hour, rx, tx, estimated) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (host_id, hour) DO UPDATE SET
+    rx = rx + excluded.rx, tx = tx + excluded.tx, estimated = MAX(estimated, excluded.estimated);
+
+-- name: AddTrafficDaily :exec
+INSERT INTO host_traffic_daily (host_id, day, rx, tx, estimated) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT (host_id, day) DO UPDATE SET
+    rx = rx + excluded.rx, tx = tx + excluded.tx, estimated = MAX(estimated, excluded.estimated);
+
+-- name: ListTrafficDays :many
+SELECT * FROM host_traffic_daily
+WHERE host_id = sqlc.arg(host_id) AND day >= sqlc.arg(from_day) AND day <= sqlc.arg(to_day)
+ORDER BY day;
+
+-- name: DeleteTrafficHourlyBefore :exec
+DELETE FROM host_traffic_hourly WHERE hour < ?;
+
+-- name: DeleteTrafficHostHourly :exec
+DELETE FROM host_traffic_hourly WHERE host_id = ?;
+
+-- name: DeleteTrafficHostDaily :exec
+DELETE FROM host_traffic_daily WHERE host_id = ?;
+
+-- name: DeleteTrafficPlan :exec
+DELETE FROM host_traffic_plans WHERE host_id = ?;
+
+-- name: GetTrafficPlan :one
+SELECT * FROM host_traffic_plans WHERE host_id = ?;
+
+-- name: ListTrafficPlansWithLimit :many
+SELECT * FROM host_traffic_plans WHERE limit_bytes > 0;
+
+-- name: UpsertTrafficPlan :exec
+INSERT INTO host_traffic_plans (host_id, start_day, period_months, limit_bytes, count_mode, alert_percent, alerted_cycle, alerted_level, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (host_id) DO UPDATE SET
+    start_day = excluded.start_day, period_months = excluded.period_months, limit_bytes = excluded.limit_bytes,
+    count_mode = excluded.count_mode, alert_percent = excluded.alert_percent,
+    alerted_cycle = excluded.alerted_cycle, alerted_level = excluded.alerted_level, updated_at = excluded.updated_at;
+
+-- name: SetTrafficAlerted :exec
+UPDATE host_traffic_plans SET alerted_cycle = ?, alerted_level = ? WHERE host_id = ?;

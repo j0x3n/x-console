@@ -7,15 +7,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
+	"syscall"
+	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/db"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
@@ -220,23 +225,18 @@ type pushAction struct {
 	Title  string `json:"title"`
 }
 
-func (c *webPushChannel) Send(ctx context.Context, n notify.Stored) error {
+// pushSettings holds what every push of one message shares.
+type pushSettings struct {
+	keys    vapidKeys
+	subject string
+	urgency webpush.Urgency
+}
+
+func (c *webPushChannel) settings(ctx context.Context, priority string) (pushSettings, error) {
 	keys, err := c.keys(ctx)
 	if err != nil {
-		return err
+		return pushSettings{}, err
 	}
-	subs, err := c.m.q.ListPushSubscriptions(ctx)
-	if err != nil {
-		return err
-	}
-	if len(subs) == 0 {
-		return httpx.ErrIntegrationMissing
-	}
-	p := pushPayload{ID: n.ID, Kind: n.Kind, Title: n.Title, Body: n.Body, Link: n.Link, Priority: n.Priority}
-	for _, a := range n.Actions {
-		p.Actions = append(p.Actions, pushAction{Action: a.ID, Title: a.Label})
-	}
-	payload, _ := json.Marshal(p)
 	subject, _ := c.m.value(ctx, "webpush", "subject")
 	subject = strings.TrimPrefix(subject, "mailto:")
 	if subject == "" {
@@ -246,42 +246,149 @@ func (c *webPushChannel) Send(ctx context.Context, n notify.Stored) error {
 		}
 	}
 	urgency := webpush.UrgencyNormal
-	if n.Priority == notify.PriorityUrgent || n.Priority == notify.PriorityHigh {
+	if priority == notify.PriorityUrgent || priority == notify.PriorityHigh {
 		urgency = webpush.UrgencyHigh
 	}
+	return pushSettings{keys: keys, subject: subject, urgency: urgency}, nil
+}
+
+func (c *webPushChannel) Send(ctx context.Context, n notify.Stored) error {
+	subs, err := c.m.q.ListPushSubscriptions(ctx)
+	if err != nil {
+		return err
+	}
+	if len(subs) == 0 {
+		return httpx.ErrIntegrationMissing
+	}
+	set, err := c.settings(ctx, n.Priority)
+	if err != nil {
+		return err
+	}
+	p := pushPayload{ID: n.ID, Kind: n.Kind, Title: n.Title, Body: n.Body, Link: n.Link, Priority: n.Priority}
+	for _, a := range n.Actions {
+		p.Actions = append(p.Actions, pushAction{Action: a.ID, Title: a.Label})
+	}
+	payload, _ := json.Marshal(p)
 	var errs []error
 	for _, s := range subs {
-		errs = append(errs, c.sendOne(ctx, s, payload, keys, subject, urgency))
+		// A subscription the browser dropped is cleaned up, not a failure.
+		if out := c.sendOne(ctx, s, payload, set); out.err != "" && !out.removed {
+			errs = append(errs, errors.New("webpush: "+out.err))
+		}
 	}
 	return errors.Join(errs...)
 }
 
-func (c *webPushChannel) sendOne(ctx context.Context, s db.WebpushSubscription, payload []byte, keys vapidKeys, subject string, urgency webpush.Urgency) error {
-	resp, err := webpush.SendNotificationWithContext(ctx, payload,
+// pushOutcome is the result of one push to one browser.
+type pushOutcome struct {
+	status  int    // HTTP status of the push service, 0 when it could not be reached
+	err     string // short reason in Chinese, empty on success
+	removed bool   // the push service said the subscription is gone
+}
+
+// maxPushError is the longest error kept per subscription.
+const maxPushError = 200
+
+// sendOne pushes payload to one browser and records the result on the
+// subscription: last_ok_at on 2xx, last_error otherwise. The write ignores
+// cancellation so a push that went out is recorded even if the request ended.
+func (c *webPushChannel) sendOne(ctx context.Context, s db.WebpushSubscription, payload []byte, set pushSettings) pushOutcome {
+	// webpush-go appends to the message buffer, so parallel pushes need a copy each.
+	resp, err := webpush.SendNotificationWithContext(ctx, slices.Clone(payload),
 		&webpush.Subscription{Endpoint: s.Endpoint, Keys: webpush.Keys{P256dh: s.P256dh, Auth: s.Auth}},
 		&webpush.Options{
-			HTTPClient: c.m.http, Subscriber: subject, TTL: 12 * 3600, Urgency: urgency,
-			VAPIDPublicKey: keys.Public, VAPIDPrivateKey: keys.Private,
+			HTTPClient: c.m.http, Subscriber: set.subject, TTL: 12 * 3600, Urgency: set.urgency,
+			VAPIDPublicKey: set.keys.Public, VAPIDPrivateKey: set.keys.Private,
 		})
+	var out pushOutcome
 	if err != nil {
-		var uerr *url.Error
-		if errors.As(err, &uerr) {
-			err = uerr.Err
+		out.err = pushErrorText(err, s.Endpoint)
+	} else {
+		defer resp.Body.Close()
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+		out.status = resp.StatusCode
+		switch {
+		case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone:
+			out.removed = true
+			out.err = resp.Status
+		case resp.StatusCode >= 300:
+			out.err = resp.Status
 		}
-		return fmt.Errorf("webpush: %w", err)
 	}
-	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+	c.record(ctx, s, out)
+	return out
+}
+
+func (c *webPushChannel) record(ctx context.Context, s db.WebpushSubscription, out pushOutcome) {
+	ctx = context.WithoutCancel(ctx)
+	now := time.Now().UTC()
+	var err error
 	switch {
-	case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone:
+	case out.removed:
 		// The browser dropped the subscription.
-		if _, err := c.m.q.DeletePushSubscription(context.WithoutCancel(ctx), s.Endpoint); err != nil {
-			return err
+		if _, err = c.m.q.DeletePushSubscription(ctx, s.Endpoint); err == nil {
+			c.m.d.Bus.Publish("notify.subscription_removed", map[string]any{"endpoint": s.Endpoint})
+			c.m.d.Bus.Publish("notify.channel_updated", map[string]string{"name": "webpush"})
 		}
-		c.m.d.Bus.Publish("notify.subscription_removed", map[string]any{"endpoint": s.Endpoint})
-		return nil
-	case resp.StatusCode >= 300:
-		return fmt.Errorf("webpush: %s", resp.Status)
+	case out.err == "":
+		err = c.m.q.MarkPushOK(ctx, db.MarkPushOKParams{ID: s.ID, LastOkAt: &now})
+	default:
+		msg := truncateRunes(out.err, maxPushError)
+		err = c.m.q.MarkPushError(ctx, db.MarkPushErrorParams{ID: s.ID, LastError: &msg, LastErrorAt: &now})
 	}
-	return nil
+	if err != nil {
+		c.m.d.Log.Warn("record webpush result", "subscription", s.ID, "err", err)
+	}
+}
+
+func truncateRunes(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n])
+	}
+	return s
+}
+
+// pushErrorText turns a transport error into a short Chinese sentence naming
+// the push service host. Other errors keep their original text.
+func pushErrorText(err error, endpoint string) string {
+	var uerr *url.Error
+	if errors.As(err, &uerr) {
+		err = uerr.Err
+	}
+	host := endpoint
+	if u, perr := url.Parse(endpoint); perr == nil && u.Hostname() != "" {
+		host = u.Hostname()
+	}
+	var dns *net.DNSError
+	var nerr net.Error
+	switch {
+	case errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &nerr) && nerr.Timeout()):
+		return "连接 " + host + " 超时"
+	case errors.As(err, &dns):
+		return "解析不了 " + host
+	case errors.Is(err, syscall.ECONNREFUSED):
+		return host + " 拒绝连接"
+	}
+	return err.Error()
+}
+
+// pushService tells which browser vendor's push service an endpoint belongs
+// to. The rules match web/src/features/reminders/push.ts.
+func pushService(endpoint string) api.WebPushService {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return api.WebPushServiceOther
+	}
+	host := u.Hostname()
+	switch {
+	case host == "fcm.googleapis.com" || strings.HasSuffix(host, ".googleapis.com"):
+		return api.WebPushServiceGoogle
+	case strings.HasSuffix(host, ".notify.windows.com"):
+		return api.WebPushServiceMicrosoft
+	case strings.HasSuffix(host, ".mozilla.com") || strings.HasSuffix(host, ".mozaws.net"):
+		return api.WebPushServiceMozilla
+	case strings.HasSuffix(host, ".push.apple.com"):
+		return api.WebPushServiceApple
+	}
+	return api.WebPushServiceOther
 }

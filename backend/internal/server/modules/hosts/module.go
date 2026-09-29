@@ -27,6 +27,8 @@ type Module struct {
 	metrics *metricStore
 	ssh     *sshPool
 	alerts  *alertState
+	traffic *trafficTracker
+	briefs  *briefCache
 
 	infoMu sync.Mutex
 	info   map[string]protocol.SystemInfo
@@ -44,6 +46,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
 		d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() },
 		metrics: newMetricStore(rawCapacity), ssh: newSSHPool(), alerts: newAlertState(),
+		traffic: newTrafficTracker(), briefs: &briefCache{from: map[string]cachedBrief{}},
 		info: map[string]protocol.SystemInfo{},
 	}
 	d.Agents.OnEvent(protocol.EventMetrics, m.onMetrics)
@@ -66,9 +69,12 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("hosts.alerts", 15*time.Second, m.evaluateAlerts)
 	m.d.Scheduler.Every("hosts.ssh_metrics", time.Minute, m.pollSSH)
 	m.d.Scheduler.Every("hosts.cleanup", time.Hour, m.cleanup)
+	m.d.Scheduler.Every("hosts.traffic_flush", time.Minute, m.flushTraffic)
+	m.d.Scheduler.Every("hosts.traffic_alerts", 5*time.Minute, m.checkTraffic)
 	go func() {
 		<-ctx.Done()
 		m.ssh.closeAll()
 	}()
+	m.followIntervals(ctx)
 	return nil
 }

@@ -233,24 +233,79 @@ func addMonths(t time.Time, n int) time.Time {
 	return time.Date(first.Year(), first.Month(), min(d, last), 0, 0, 0, 0, time.UTC)
 }
 
-// advance moves a renewal date forward by one cycle.
-func advance(t time.Time, cycle string, days int) time.Time {
-	switch cycle {
-	case cycleYearly:
-		return addMonths(t, 12)
-	case cycleCustom:
-		return t.AddDate(0, 0, max(days, 1))
+// Subscription cycle units (B23). A cycle is "every count units".
+const (
+	unitMinute = "minute"
+	unitHour   = "hour"
+	unitDay    = "day"
+	unitWeek   = "week"
+	unitMonth  = "month"
+	unitYear   = "year"
+)
+
+var cycleUnits = []string{unitMinute, unitHour, unitDay, unitWeek, unitMonth, unitYear}
+
+// advance moves a renewal date forward by one cycle. Months and years follow
+// the calendar. next_renewal is a date, so minutes and hours round up to whole
+// days, at least one, or renewing would not move the date.
+func advance(t time.Time, count int, unit string) time.Time {
+	n := max(count, 1)
+	switch unit {
+	case unitYear:
+		return addMonths(t, 12*n)
+	case unitMonth:
+		return addMonths(t, n)
+	case unitWeek:
+		return t.AddDate(0, 0, 7*n)
+	case unitDay:
+		return t.AddDate(0, 0, n)
+	case unitHour:
+		return t.AddDate(0, 0, max(1, (n+23)/24))
 	default:
-		return addMonths(t, 1)
+		return t.AddDate(0, 0, max(1, (n+1439)/1440))
 	}
 }
 
 // renewUntil advances an auto-renewing date until it is not before day.
-func renewUntil(next, day time.Time, cycle string, days int) time.Time {
+func renewUntil(next, day time.Time, count int, unit string) time.Time {
 	for i := 0; next.Before(day) && i < 10000; i++ {
-		next = advance(next, cycle, days)
+		next = advance(next, count, unit)
 	}
 	return next
+}
+
+// legacyCycle turns a cycle into the old cycle and cycleDays fields, for
+// clients that predate cycleCount and cycleUnit. Months and years other than
+// one are approximated (30 and 365 days), minutes and hours count as a day.
+func legacyCycle(count int, unit string) (cycle string, days int) {
+	switch {
+	case unit == unitMonth && count == 1:
+		return cycleMonthly, 0
+	case unit == unitYear && count == 1:
+		return cycleYearly, 0
+	case unit == unitDay:
+		return cycleCustom, count
+	case unit == unitWeek:
+		return cycleCustom, count * 7
+	case unit == unitMonth:
+		return cycleCustom, count * 30
+	case unit == unitYear:
+		return cycleCustom, count * 365
+	}
+	return cycleCustom, 1
+}
+
+// cycleFromLegacy is the reverse of legacyCycle for requests that only carry
+// the old fields.
+func cycleFromLegacy(cycle string, days int) (count int, unit string) {
+	switch cycle {
+	case cycleYearly:
+		return 1, unitYear
+	case cycleCustom:
+		return days, unitDay
+	default:
+		return 1, unitMonth
+	}
 }
 
 // reminderHour is the local hour from which renewal reminders go out, so
@@ -278,16 +333,24 @@ func reminderDue(left int, remind, reminded []int) (bool, []int) {
 }
 
 // monthlyCost converts an amount per cycle to an amount per month.
-func monthlyCost(amount float64, cycle string, days int) float64 {
-	switch cycle {
-	case cycleYearly:
-		return amount / 12
-	case cycleCustom:
-		if days <= 0 {
-			return 0
-		}
-		return amount * (365.25 / 12) / float64(days)
-	default:
-		return amount
+func monthlyCost(amount float64, count int, unit string) float64 {
+	if count <= 0 {
+		return 0
 	}
+	n := float64(count)
+	switch unit {
+	case unitYear:
+		return amount / (12 * n)
+	case unitMonth:
+		return amount / n
+	case unitWeek:
+		return amount * 30.4375 / (7 * n)
+	case unitDay:
+		return amount * 30.4375 / n
+	case unitHour:
+		return amount * 730.5 / n
+	case unitMinute:
+		return amount * 43830 / n
+	}
+	return 0
 }

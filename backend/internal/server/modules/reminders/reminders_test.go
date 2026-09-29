@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -534,5 +535,145 @@ func TestActions(t *testing.T) {
 	}
 	if _, err := env.App.Deps.Actions.Run(ctx, "reminders.create", json.RawMessage(`{"title":"x"}`)); err == nil {
 		t.Fatal("missing time accepted")
+	}
+}
+
+func TestPushService(t *testing.T) {
+	cases := map[string]api.WebPushService{
+		"https://fcm.googleapis.com/fcm/send/abc":                api.WebPushServiceGoogle,
+		"https://android.googleapis.com/gcm/send/abc":            api.WebPushServiceGoogle,
+		"https://hk2p.notify.windows.com/w/?token=abc":           api.WebPushServiceMicrosoft,
+		"https://updates.push.services.mozilla.com/wpush/v2/abc": api.WebPushServiceMozilla,
+		"https://autopush.prod.mozaws.net/wpush/v1/abc":          api.WebPushServiceMozilla,
+		"https://web.push.apple.com/abc":                         api.WebPushServiceApple,
+		"https://example.com/push":                               api.WebPushServiceOther,
+		"https://evilgoogleapis.com/push":                        api.WebPushServiceOther,
+		"not a url":                                              api.WebPushServiceOther,
+	}
+	for endpoint, want := range cases {
+		if got := reminders.PushService(endpoint); got != want {
+			t.Errorf("%s: got %s, want %s", endpoint, got, want)
+		}
+	}
+}
+
+func TestWebPushStatusAndTest(t *testing.T) {
+	env, _ := setup(t)
+	var mu sync.Mutex
+	replies := map[string]int{"/push/ok": http.StatusCreated, "/push/denied": http.StatusForbidden, "/push/gone": http.StatusGone}
+	push := newFake(t, func(path string) (int, string) {
+		mu.Lock()
+		defer mu.Unlock()
+		return replies[path], ""
+	})
+	subscribe := func(path string) {
+		priv, err := ecdh.P256().GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		auth := make([]byte, 16)
+		_, _ = rand.Read(auth)
+		env.MustDo(http.MethodPost, "/notify/webpush/subscriptions", map[string]any{
+			"endpoint": push.URL + path, "userAgent": "Test/1.0",
+			"keys": map[string]string{"p256dh": b64(priv.PublicKey().Bytes()), "auth": b64(auth)},
+		}, nil)
+	}
+	var none []api.WebPushTestResult
+	env.MustDo(http.MethodPost, "/notify/webpush/test", nil, &none)
+	if len(none) != 0 {
+		t.Fatalf("no subscriptions: %+v", none)
+	}
+
+	subscribe("/push/ok")
+	subscribe("/push/denied")
+	subscribe("/push/gone")
+	var results []api.WebPushTestResult
+	env.MustDo(http.MethodPost, "/notify/webpush/test", nil, &results)
+	if len(results) != 3 {
+		t.Fatalf("results: %+v", results)
+	}
+	byID := map[int64]api.WebPushTestResult{}
+	for _, r := range results {
+		byID[r.Id] = r
+	}
+	var subs []api.WebPushSubscriptionInfo
+	env.MustDo(http.MethodGet, "/notify/webpush/subscriptions", nil, &subs)
+	if len(subs) != 2 {
+		t.Fatalf("410 should remove its subscription: %+v", subs)
+	}
+	for _, s := range subs {
+		r := byID[s.Id]
+		switch {
+		case strings.HasSuffix(s.Endpoint, "/push/ok"):
+			if !r.Ok || r.Status == nil || *r.Status != 201 || s.LastOkAt == nil || s.LastError != nil {
+				t.Fatalf("ok subscription: %+v %+v", r, s)
+			}
+		case strings.HasSuffix(s.Endpoint, "/push/denied"):
+			if r.Ok || r.Status == nil || *r.Status != 403 || r.Error == nil || *r.Error != "403 Forbidden" ||
+				s.LastError == nil || *s.LastError != "403 Forbidden" || s.LastErrorAt == nil || s.LastOkAt != nil {
+				t.Fatalf("denied subscription: %+v %+v", r, s)
+			}
+		default:
+			t.Fatalf("unexpected subscription %s", s.Endpoint)
+		}
+		if s.Service != api.WebPushServiceOther || s.UserAgent != "Test/1.0" {
+			t.Fatalf("info: %+v", s)
+		}
+	}
+	gone := 0
+	for _, r := range results {
+		if !r.Ok && r.Status != nil && *r.Status == 410 {
+			gone++
+		}
+	}
+	if gone != 1 {
+		t.Fatalf("410 result missing: %+v", results)
+	}
+
+	// A later success clears the error.
+	mu.Lock()
+	replies["/push/denied"] = http.StatusCreated
+	mu.Unlock()
+	env.MustDo(http.MethodPost, "/notify/webpush/test", nil, &results)
+	subs = nil // decoding into old elements would keep their omitted fields
+	env.MustDo(http.MethodGet, "/notify/webpush/subscriptions", nil, &subs)
+	for _, s := range subs {
+		if s.LastError != nil || s.LastErrorAt != nil || s.LastOkAt == nil {
+			t.Fatalf("after recovery: %+v", s)
+		}
+	}
+
+	// Delete by id.
+	env.MustDo(http.MethodDelete, fmt.Sprintf("/notify/webpush/subscriptions/%d", subs[0].Id), nil, nil)
+	if status, _ := env.Do(http.MethodDelete, fmt.Sprintf("/notify/webpush/subscriptions/%d", subs[0].Id), nil, nil); status != http.StatusNotFound {
+		t.Fatalf("delete twice: %d", status)
+	}
+	env.MustDo(http.MethodGet, "/notify/webpush/subscriptions", nil, &subs)
+	if len(subs) != 1 {
+		t.Fatalf("after delete: %+v", subs)
+	}
+}
+
+func TestWebPushConnectionError(t *testing.T) {
+	env, _ := setup(t)
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpoint := "http://" + l.Addr().String() + "/push/x"
+	_ = l.Close() // nothing listens here any more
+	priv, err := ecdh.P256().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth := make([]byte, 16)
+	_, _ = rand.Read(auth)
+	env.MustDo(http.MethodPost, "/notify/webpush/subscriptions", map[string]any{
+		"endpoint": endpoint, "keys": map[string]string{"p256dh": b64(priv.PublicKey().Bytes()), "auth": b64(auth)},
+	}, nil)
+	var results []api.WebPushTestResult
+	env.MustDo(http.MethodPost, "/notify/webpush/test", nil, &results)
+	if len(results) != 1 || results[0].Ok || results[0].Status != nil || results[0].Error == nil || *results[0].Error != "127.0.0.1 拒绝连接" {
+		t.Fatalf("refused: %+v", results)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -90,6 +91,40 @@ func TestSampleOnThisMachine(t *testing.T) {
 	}
 	if s.Disks == nil {
 		t.Fatal("disks must not be nil")
+	}
+}
+
+func TestSampleFastRepeatsTheCostlyFields(t *testing.T) {
+	c := NewCollector()
+	full, err := c.Sample(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fast, err := c.SampleFast(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fast.At.After(full.At) || fast.MemTotal == 0 || fast.MemUsed == 0 {
+		t.Fatalf("fast sample: %+v", fast)
+	}
+	if !reflect.DeepEqual(fast.Disks, full.Disks) || len(fast.CPUPerCore) != len(full.CPUPerCore) || fast.Procs != full.Procs {
+		t.Fatalf("costly fields differ: %+v vs %+v", fast, full)
+	}
+	// Once the last full sample is older than 5 seconds, the next one is full.
+	c.slowAt = c.slowAt.Add(-2 * slowEvery)
+	if _, err := c.SampleFast(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if time.Since(c.slowAt) > slowEvery {
+		t.Fatal("the full sample was not refreshed")
+	}
+}
+
+func TestDetailInterval(t *testing.T) {
+	for ms, want := range map[int]time.Duration{0: DetailInterval, 1000: time.Second, 5000: 5 * time.Second, 30000: 30 * time.Second, 2000: DetailInterval, -1: DetailInterval} {
+		if got := detailInterval(ms); got != want {
+			t.Errorf("detailInterval(%d) = %v, want %v", ms, got, want)
+		}
 	}
 }
 

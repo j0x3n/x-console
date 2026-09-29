@@ -1,6 +1,5 @@
 // Package github is the GitHub half of M13: a cache of open pull requests,
-// workflow runs and issues of watched repositories, refreshed every five
-// minutes, CI failure notifications, links from pull requests to local
+// workflow runs and issues of watched repositories, refreshed every minute, CI failure notifications, links from pull requests to local
 // issues and coding tasks, and contracts.GitHub for opening pull requests.
 // See docs/specs/M13.md.
 package github
@@ -37,8 +36,10 @@ const (
 
 const (
 	defaultAPIURL = "https://api.github.com"
-	syncInterval  = 5 * time.Minute
-	maxRepos      = 50
+	syncInterval  = time.Minute
+	// slowSyncInterval is used while the rate limit is nearly used up.
+	slowSyncInterval = 5 * time.Minute
+	maxRepos         = 50
 )
 
 // Module implements the HTTP API and contracts.GitHub.
@@ -50,6 +51,8 @@ type Module struct {
 	rate *rateState
 	etag *etagCache
 	now  func() time.Time
+
+	repos repoCache
 
 	syncMu  sync.Mutex // one sync at a time
 	stateMu sync.Mutex
@@ -84,16 +87,41 @@ func (m *Module) Mount(r chi.Router) {
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
 }
 
-// Start schedules the sync every five minutes.
+// Start schedules the sync every minute.
 func (m *Module) Start(ctx context.Context) error {
-	m.d.Scheduler.Every("github.sync", syncInterval, func(ctx context.Context) error {
-		err := m.sync(ctx)
-		if errors.Is(err, httpx.ErrIntegrationMissing) {
+	m.d.Scheduler.Every("github.sync", syncInterval, m.scheduledSync)
+	return nil
+}
+
+// scheduledSync is one tick of the scheduler. While the rate limit is nearly
+// used up it syncs at most every five minutes.
+func (m *Module) scheduledSync(ctx context.Context) error {
+	if m.lowQuota() {
+		var last lastSync
+		if err := m.d.Settings.Get(ctx, keyLastSync, &last); err == nil && m.now().Sub(last.At) < slowSyncInterval {
 			return nil
 		}
-		return err
-	})
-	return nil
+	}
+	err := m.sync(ctx)
+	if errors.Is(err, httpx.ErrIntegrationMissing) {
+		return nil
+	}
+	return err
+}
+
+// lowQuota reports whether less than a tenth of the hourly rate limit is
+// left and the limit has not reset yet.
+func (m *Module) lowQuota() bool {
+	remaining, limit, reset := m.rate.info()
+	return remaining >= 0 && limit > 0 && remaining < limit/10 && reset.After(m.now())
+}
+
+// currentSyncInterval is how often the scheduled sync effectively runs now.
+func (m *Module) currentSyncInterval() time.Duration {
+	if m.lowQuota() {
+		return slowSyncInterval
+	}
+	return syncInterval
 }
 
 // config is the stored setup.

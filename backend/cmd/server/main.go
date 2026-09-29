@@ -29,6 +29,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/config"
 	"github.com/j0x3n/x-console/backend/internal/server/events"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/store"
 )
 
@@ -163,6 +164,14 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// A restore staged by the backup module replaces the database here,
+	// before anything opens it.
+	if applied, err := backup.ApplyPending(cfg.DataDir); err != nil {
+		return err
+	} else if applied {
+		slog.Info("restore: the database of the backup is in place")
+	}
 
 	conn, err := store.Open(ctx, cfg.DBPath())
 	if err != nil {

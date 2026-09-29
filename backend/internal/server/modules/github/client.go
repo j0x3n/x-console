@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -71,6 +72,7 @@ func statusOf(err error) int {
 type rateState struct {
 	mu           sync.Mutex
 	remaining    int // -1 unknown
+	limit        int // 0 unknown
 	reset        time.Time
 	blockedUntil time.Time
 }
@@ -79,6 +81,13 @@ func (r *rateState) snapshot() (remaining int, reset time.Time) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.remaining, r.reset
+}
+
+// info is snapshot plus the total limit per hour.
+func (r *rateState) info() (remaining, limit int, reset time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.remaining, r.limit, r.reset
 }
 
 func (r *rateState) blocked(now time.Time) (time.Time, bool) {
@@ -99,6 +108,9 @@ func (r *rateState) observe(h http.Header, status int, now time.Time) bool {
 	if v, err := strconv.Atoi(h.Get("X-RateLimit-Remaining")); err == nil {
 		remaining = v
 		r.remaining = v
+	}
+	if v, err := strconv.Atoi(h.Get("X-RateLimit-Limit")); err == nil && v > 0 {
+		r.limit = v
 	}
 	if v, err := strconv.ParseInt(h.Get("X-RateLimit-Reset"), 10, 64); err == nil {
 		r.reset = time.Unix(v, 0).UTC()
@@ -129,6 +141,7 @@ type etagCache struct {
 type etagEntry struct {
 	etag string
 	body []byte
+	next bool // the Link header had rel="next"
 }
 
 const maxETagEntries = 2000
@@ -159,16 +172,33 @@ func (c *etagCache) clear() {
 
 // get fetches path with query into out.
 func (c *restClient) get(ctx context.Context, path string, query url.Values, out any) error {
+	_, err := c.do(ctx, http.MethodGet, path, query, nil, out)
+	return err
+}
+
+// getPage is get that also reports whether GitHub has a next page.
+func (c *restClient) getPage(ctx context.Context, path string, query url.Values, out any) (hasNext bool, err error) {
 	return c.do(ctx, http.MethodGet, path, query, nil, out)
 }
 
 func (c *restClient) post(ctx context.Context, path string, body, out any) error {
-	return c.do(ctx, http.MethodPost, path, nil, body, out)
+	_, err := c.do(ctx, http.MethodPost, path, nil, body, out)
+	return err
 }
 
-func (c *restClient) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
+// linkNext reports whether a Link header has a rel="next" entry.
+func linkNext(link string) bool {
+	for _, part := range strings.Split(link, ",") {
+		if strings.Contains(part, `rel="next"`) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *restClient) do(ctx context.Context, method, path string, query url.Values, body, out any) (bool, error) {
 	if until, ok := c.rate.blocked(c.now()); ok {
-		return &rateLimitError{Until: until}
+		return false, &rateLimitError{Until: until}
 	}
 	u := c.base + path
 	if len(query) > 0 {
@@ -178,13 +208,13 @@ func (c *restClient) do(ctx context.Context, method, path string, query url.Valu
 	if body != nil {
 		raw, err := json.Marshal(body)
 		if err != nil {
-			return err
+			return false, err
 		}
 		rd = bytes.NewReader(raw)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, u, rd)
 	if err != nil {
-		return err
+		return false, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
@@ -203,38 +233,39 @@ func (c *restClient) do(ctx context.Context, method, path string, query url.Valu
 	}
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return fmt.Errorf("连不上 GitHub：%w", err)
+		return false, fmt.Errorf("连不上 GitHub：%w", err)
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
 	if err != nil {
-		return err
+		return false, err
 	}
 	if c.rate.observe(resp.Header, resp.StatusCode, c.now()) {
 		until, _ := c.rate.blocked(c.now())
-		return &rateLimitError{Until: until}
+		return false, &rateLimitError{Until: until}
 	}
+	hasNext := linkNext(resp.Header.Get("Link"))
 	switch {
 	case resp.StatusCode == http.StatusNotModified && haveCached:
-		raw = cached.body
+		raw, hasNext = cached.body, cached.next
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		if tag := resp.Header.Get("ETag"); tag != "" && method == http.MethodGet && c.etag != nil {
-			c.etag.put(cacheKey, etagEntry{etag: tag, body: raw})
+			c.etag.put(cacheKey, etagEntry{etag: tag, body: raw, next: hasNext})
 		}
 	default:
 		var e struct {
 			Message string `json:"message"`
 		}
 		_ = json.Unmarshal(raw, &e)
-		return &apiError{Status: resp.StatusCode, Message: e.Message}
+		return false, &apiError{Status: resp.StatusCode, Message: e.Message}
 	}
 	if out == nil || len(raw) == 0 {
-		return nil
+		return hasNext, nil
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("GitHub 返回的数据看不懂：%w", err)
+		return false, fmt.Errorf("GitHub 返回的数据看不懂：%w", err)
 	}
-	return nil
+	return hasNext, nil
 }
 
 // ---- response shapes ----

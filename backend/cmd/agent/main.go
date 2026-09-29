@@ -147,7 +147,7 @@ func capabilities() []string {
 		caps = append(caps, protocol.CapCoding)
 	}
 	if docker.Available() {
-		caps = append(caps, protocol.CapDocker) // M10: only when the Docker socket answers
+		caps = append(caps, protocol.CapDocker, protocol.CapDockerLines) // M10: only when the Docker socket answers
 	}
 	return caps
 }

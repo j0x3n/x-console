@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"errors"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -159,26 +160,59 @@ func date(s string) time.Time {
 
 func TestAdvance(t *testing.T) {
 	cases := []struct {
-		from, cycle string
-		days        int
-		want        string
+		from  string
+		count int
+		unit  string
+		want  string
 	}{
-		{"2026-01-31", cycleMonthly, 0, "2026-02-28"},
-		{"2028-01-31", cycleMonthly, 0, "2028-02-29"},
-		{"2026-12-15", cycleMonthly, 0, "2027-01-15"},
-		{"2028-02-29", cycleYearly, 0, "2029-02-28"},
-		{"2026-10-01", cycleCustom, 90, "2026-12-30"},
+		{"2026-01-31", 1, unitMonth, "2026-02-28"},
+		{"2028-01-31", 1, unitMonth, "2028-02-29"},
+		{"2026-12-15", 1, unitMonth, "2027-01-15"},
+		{"2026-01-31", 3, unitMonth, "2026-04-30"},
+		{"2028-02-29", 1, unitYear, "2029-02-28"},
+		{"2028-02-29", 2, unitYear, "2030-02-28"},
+		{"2026-10-01", 90, unitDay, "2026-12-30"},
+		{"2026-10-01", 2, unitWeek, "2026-10-15"},
+		{"2026-10-01", 30, unitMinute, "2026-10-02"},
+		{"2026-10-01", 49, unitHour, "2026-10-04"},
 	}
 	for _, c := range cases {
-		if got := advance(date(c.from), c.cycle, c.days).Format(dateLayout); got != c.want {
-			t.Errorf("%s %s: got %s, want %s", c.from, c.cycle, got, c.want)
+		if got := advance(date(c.from), c.count, c.unit).Format(dateLayout); got != c.want {
+			t.Errorf("%s +%d %s: got %s, want %s", c.from, c.count, c.unit, got, c.want)
 		}
 	}
-	if got := renewUntil(date("2026-01-10"), date("2026-04-02"), cycleMonthly, 0).Format(dateLayout); got != "2026-04-10" {
+	if got := renewUntil(date("2026-01-10"), date("2026-04-02"), 1, unitMonth).Format(dateLayout); got != "2026-04-10" {
 		t.Fatalf("renewUntil: %s", got)
 	}
-	if got := renewUntil(date("2026-05-10"), date("2026-04-02"), cycleMonthly, 0).Format(dateLayout); got != "2026-05-10" {
+	if got := renewUntil(date("2026-05-10"), date("2026-04-02"), 1, unitMonth).Format(dateLayout); got != "2026-05-10" {
 		t.Fatalf("renewUntil future: %s", got)
+	}
+}
+
+func TestLegacyCycle(t *testing.T) {
+	cases := []struct {
+		count int
+		unit  string
+		cycle string
+		days  int
+	}{
+		{1, unitMonth, cycleMonthly, 0},
+		{1, unitYear, cycleYearly, 0},
+		{14, unitDay, cycleCustom, 14},
+		{2, unitWeek, cycleCustom, 14},
+		{3, unitMonth, cycleCustom, 90},
+		{2, unitYear, cycleCustom, 730},
+		{5, unitMinute, cycleCustom, 1},
+		{6, unitHour, cycleCustom, 1},
+	}
+	for _, c := range cases {
+		cycle, days := legacyCycle(c.count, c.unit)
+		if cycle != c.cycle || days != c.days {
+			t.Errorf("%d %s: got %s %d, want %s %d", c.count, c.unit, cycle, days, c.cycle, c.days)
+		}
+	}
+	if n, u := cycleFromLegacy(cycleCustom, 14); n != 14 || u != unitDay {
+		t.Fatalf("from legacy: %d %s", n, u)
 	}
 }
 
@@ -213,11 +247,25 @@ func TestReminderDue(t *testing.T) {
 }
 
 func TestMonthlyCost(t *testing.T) {
-	if monthlyCost(120, cycleYearly, 0) != 10 || monthlyCost(9, cycleMonthly, 0) != 9 || monthlyCost(1, cycleCustom, 0) != 0 {
-		t.Fatal("monthly cost")
+	cases := []struct {
+		amount float64
+		count  int
+		unit   string
+		want   float64
+	}{
+		{120, 1, unitYear, 10},
+		{9, 1, unitMonth, 9},
+		{30, 3, unitMonth, 10},
+		{120, 2, unitYear, 5},
+		{30, 30, unitDay, 30.44},
+		{10, 1, unitWeek, 43.48},
+		{1, 730, unitHour, 1.0007},
+		{1, 0, unitMonth, 0},
 	}
-	if got := round2(monthlyCost(30, cycleCustom, 30)); got != 30.44 {
-		t.Fatalf("custom: %v", got)
+	for _, c := range cases {
+		if got := monthlyCost(c.amount, c.count, c.unit); math.Abs(got-c.want) > 0.01 {
+			t.Errorf("%v/%d %s: got %v, want %v", c.amount, c.count, c.unit, got, c.want)
+		}
 	}
 }
 

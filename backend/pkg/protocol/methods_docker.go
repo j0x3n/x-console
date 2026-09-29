@@ -10,10 +10,20 @@ const (
 	MethodDockerStats  = "docker.stats"  // DockerStatsParams -> DockerStatsList
 	MethodDockerImages = "docker.images" // nil -> DockerImageList
 
+	// MethodDockerImageRemove deletes one image (docker image rm, no force).
+	// A 409 from Docker comes back as CodeExists with Docker's message.
+	MethodDockerImageRemove = "docker.image_remove" // DockerImageRemoveParams -> nil
+	// MethodDockerImagePrune deletes every image no container uses
+	// (docker image prune -a).
+	MethodDockerImagePrune = "docker.image_prune" // nil -> DockerImagePruneResult
+
 	// MethodDockerLogs is a stream. The agent sends log text (stdout and
 	// stderr merged, Docker's multiplexing headers removed) and ends the
 	// stream when the container's log ends. With Follow it keeps sending
 	// until either side closes the stream.
+	//
+	// With Lines set, and only if the agent announced CapDockerLines, every
+	// frame is instead a JSON array of DockerLogLine (at most 200 lines).
 	MethodDockerLogs = "docker.logs" // DockerLogsParams
 )
 
@@ -68,6 +78,28 @@ type DockerLogsParams struct {
 	Tail       int    `json:"tail,omitempty"`
 	Follow     bool   `json:"follow,omitempty"`
 	Timestamps bool   `json:"timestamps,omitempty"`
+	// Lines asks for frames of DockerLogLine. Docker's time stamps are always
+	// requested in this mode and cut off the text.
+	Lines bool `json:"lines,omitempty"`
+}
+
+// DockerLogLine is one log line with the stream it was written to.
+type DockerLogLine struct {
+	Stream string `json:"stream"` // "stdout" or "stderr"
+	Text   string `json:"text"`
+	Time   string `json:"time,omitempty"` // RFC 3339, as Docker wrote it
+}
+
+// DockerImageRemoveParams names the image to delete: an ID (sha256:...) or a
+// tag.
+type DockerImageRemoveParams struct {
+	ID string `json:"id"`
+}
+
+// DockerImagePruneResult answers MethodDockerImagePrune.
+type DockerImagePruneResult struct {
+	Deleted        int   `json:"deleted"`
+	SpaceReclaimed int64 `json:"spaceReclaimed"`
 }
 
 // DockerStatsParams selects containers. Empty ID means every running one.

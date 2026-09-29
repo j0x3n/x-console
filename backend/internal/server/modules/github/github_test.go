@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github/api"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
@@ -396,5 +398,131 @@ func TestRateLimit(t *testing.T) {
 	}
 	if st.LastError == nil || st.RateLimitRemaining == nil || *st.RateLimitRemaining != 0 {
 		t.Fatalf("status: %+v", st)
+	}
+}
+
+func githubModule(t *testing.T, env *testutil.Env) *github.Module {
+	t.Helper()
+	svc, ok := module.Lookup[contracts.GitHub](env.App.Deps.Registry, contracts.GitHubKey)
+	if !ok {
+		t.Fatal("contracts.GitHub not provided")
+	}
+	return svc.(*github.Module)
+}
+
+func TestAvailableRepos(t *testing.T) {
+	// Without a token it is a 412 like the other endpoints.
+	bare := testutil.New(t)
+	if code, raw := bare.Do(http.MethodGet, "/github/available-repos", nil, nil); code != http.StatusPreconditionFailed || errCode(raw) != "integration_not_configured" {
+		t.Fatalf("no token: %d %s", code, raw)
+	}
+
+	env, gh := setup(t)
+	gh.set(func(f *fakeGitHub) {
+		for i := 0; i < 250; i++ {
+			r := map[string]any{"full_name": fmt.Sprintf("acme/repo-%03d", i), "private": i%2 == 0, "description": nil, "pushed_at": "2026-09-20T10:00:00Z"}
+			if i == 0 {
+				r["description"] = strings.Repeat("长", 300)
+			}
+			f.userRepos = append(f.userRepos, r)
+		}
+	})
+	var list api.GitHubAvailableRepos
+	env.MustDo(http.MethodGet, "/github/available-repos", nil, &list)
+	if len(list.Repos) != 250 || list.Repos[0].FullName != "acme/repo-000" || !list.Repos[0].Private || list.Repos[1].Private {
+		t.Fatalf("repos: %d %+v", len(list.Repos), list.Repos[:2])
+	}
+	if d := list.Repos[0].Description; d == nil || len([]rune(*d)) != 200 || list.Repos[1].Description != nil || list.Repos[0].PushedAt == nil {
+		t.Fatalf("description or pushedAt: %+v", list.Repos[0])
+	}
+	requests, _ := gh.counts()
+	if requests < 3 {
+		t.Fatalf("expected three pages, got %d requests", requests)
+	}
+
+	// Within ten minutes the list comes from memory.
+	env.MustDo(http.MethodGet, "/github/available-repos", nil, &list)
+	if again, _ := gh.counts(); again != requests {
+		t.Fatalf("cached list asked GitHub again: %d -> %d", requests, again)
+	}
+	// refresh=true asks again, and unchanged pages come back as 304.
+	_, notModified := gh.counts()
+	env.MustDo(http.MethodGet, "/github/available-repos?refresh=true", nil, &list)
+	if again, nm := gh.counts(); again != requests+3 || nm != notModified+3 {
+		t.Fatalf("refresh: requests %d -> %d, 304s %d -> %d", requests, again, notModified, nm)
+	}
+
+	// After ten minutes the cache expires by itself.
+	m := githubModule(t, env)
+	future := time.Now().Add(11 * time.Minute)
+	m.SetNow(func() time.Time { return future })
+	env.MustDo(http.MethodGet, "/github/available-repos", nil, &list)
+	if again, _ := gh.counts(); again != requests+6 {
+		t.Fatalf("expired list not refetched: %d", again)
+	}
+}
+
+func TestPullsAllPages(t *testing.T) {
+	env, gh := setup(t)
+	gh.set(func(f *fakeGitHub) {
+		for i := 1; i <= 150; i++ {
+			f.pulls[repo] = append(f.pulls[repo], pull(i, fmt.Sprintf("PR %d", i), fmt.Sprintf("branch-%d", i), fmt.Sprintf("sha%d", i)))
+		}
+	})
+	if st := syncNow(t, env); st.LastError != nil {
+		t.Fatalf("sync: %+v", st)
+	}
+	if got := len(pulls(t, env)); got != 150 {
+		t.Fatalf("pulls: %d", got)
+	}
+}
+
+func TestSlowSyncWhenQuotaLow(t *testing.T) {
+	env, gh := setup(t)
+	m := githubModule(t, env)
+	clock := time.Now().UTC()
+	m.SetNow(func() time.Time { return clock })
+
+	var st api.GitHubStatus
+	env.MustDo(http.MethodPost, "/github/sync", nil, &st)
+	if st.SyncIntervalSeconds == nil || *st.SyncIntervalSeconds != 60 || st.RateLimitLimit == nil || *st.RateLimitLimit != 5000 {
+		t.Fatalf("healthy status: %+v", st)
+	}
+	requests, _ := gh.counts()
+	clock = clock.Add(time.Minute)
+	if err := m.ScheduledSync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := gh.counts(); again == requests {
+		t.Fatal("with plenty of quota the scheduled sync should run every minute")
+	}
+
+	// 400 of 5000 left: below a tenth.
+	gh.set(func(f *fakeGitHub) { f.remaining = 400 })
+	env.MustDo(http.MethodPost, "/github/sync", nil, &st)
+	if st.SyncIntervalSeconds == nil || *st.SyncIntervalSeconds != 300 || st.RateLimitRemaining == nil || *st.RateLimitRemaining != 400 {
+		t.Fatalf("low quota status: %+v", st)
+	}
+	requests, _ = gh.counts()
+	clock = clock.Add(time.Minute)
+	if err := m.ScheduledSync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := gh.counts(); again != requests {
+		t.Fatalf("low quota should skip after one minute: %d -> %d", requests, again)
+	}
+	clock = clock.Add(4*time.Minute + time.Second)
+	if err := m.ScheduledSync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := gh.counts(); again == requests {
+		t.Fatal("low quota should sync again after five minutes")
+	}
+
+	// The limit resets: back to every minute.
+	clock = clock.Add(2 * time.Hour)
+	env.MustDo(http.MethodGet, "/github/status", nil, &st)
+	if st.SyncIntervalSeconds == nil || *st.SyncIntervalSeconds != 60 {
+		t.Fatalf("after reset: %+v", st)
 	}
 }

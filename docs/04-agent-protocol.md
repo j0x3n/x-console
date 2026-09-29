@@ -93,7 +93,7 @@ client.HandleStream(protocol.MethodPTYOpen, func(ctx context.Context, raw json.R
 代理主动上报，没有 id，不需要回复。
 
 ```go
-// 代理端，默认每 30 秒推概要；收到 metrics.detail {on:true} 后每 5 秒推详情
+// 代理端，默认每 30 秒推概要；收到 metrics.detail {on:true} 后按 intervalMs（默认 5 秒）推详情
 client.OnConnect(func(ctx context.Context) {
     t := time.NewTicker(30 * time.Second)
     for { select { case <-ctx.Done(): return; case <-t.C: client.Emit(ctx, protocol.EventMetrics, sample()) } }
@@ -105,7 +105,9 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 
 事件处理函数在连接的读循环里执行，必须很快返回。耗时的工作丢到 channel 里异步处理。
 
-`metrics.detail` 是服务端发给代理的请求。参数为 `{ "on": true }` 或 `{ "on": false }`。详情指标包含每块磁盘和每张非回环网卡的速率。服务端在最后一个详情订阅者离开 60 秒后关闭详情模式。代理重连后先上报概要，服务端会按当前订阅状态重新开启详情。
+样本和概要里的 `netRxTotal`、`netTxTotal` 是开机以来的累计收发字节，只算真实网卡（排除 `lo`、docker、veth、网桥、虚拟机和隧道网卡，规则在 `protocol.CountedInterface`）。服务端用相邻两次的差算月流量：计数变小说明重启过，这一步算 0；两次之间超过 10 Gbit/s 的差值丢弃；服务端重启后的第一个样本只当起点。不带这两个字段的旧代理，服务端按网速估算，最多补 60 秒，并标成“估算”。
+
+`metrics.detail` 是服务端发给代理的请求。参数为 `{ "on": true, "intervalMs": 1000 }` 或 `{ "on": false }`。`intervalMs` 只接受 1000、5000、30000，不传、为 0 或别的值都按 5000。不认识这个字段的旧代理一直按 5 秒上报，服务端不需要特殊处理。1 秒模式下代理每秒只重新读 CPU、内存、网速和磁盘读写，每核 CPU、磁盘容量、网卡列表、交换区和进程数每 5 秒读一次，中间的样本沿用上一次的值。详情指标包含每块磁盘和每张非回环网卡的速率。服务端在最后一个详情订阅者离开 60 秒后关闭详情模式。代理重连后先上报概要，服务端会按当前订阅状态重新开启详情。
 
 ## 能力
 
@@ -116,8 +118,16 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | system.info、metrics、processes、files、exec、pty | 有 | 有 |
 | services | systemd | Windows 服务 |
 | docker | 装了 Docker 才有 | 一般没有 |
+| docker.lines | 和 docker 一起 | 一般没有 |
 | clipboard、power、coding | 没有 | 有 |
 | proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
+
+### Docker 日志和镜像（B28）
+
+- `docker.logs` 参数加 `lines`。代理有能力 `docker.lines` 时才认，这时每个流帧是一个 JSON 数组，每项 `{stream, text, time}`，`stream` 是 `stdout` 或 `stderr`（有 TTY 的容器都算 `stdout`），`time` 是 Docker 写的时间，一帧最多 200 行，一行最多 16 KB，超过的截断并加 `…`。代理在这个模式下总是向 Docker 要时间戳，并把它从文本里去掉。
+- 服务端的 `logs/follow?format=json` 遇到没有 `docker.lines` 的旧代理时，自己把纯文本按行切开，当作 `stdout` 发给浏览器。不带 `format` 时不变，还是纯文本。
+- `docker.image_remove {id}`：删一个镜像，不加 `force`。Docker 回 409 时代理回 `CodeExists`，消息是 Docker 原话。
+- `docker.image_prune`：等同 `docker image prune -a`，返回 `{deleted, spaceReclaimed}`。
 
 ## 新增方法的步骤
 

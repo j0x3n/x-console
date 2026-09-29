@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -186,11 +187,18 @@ func (m *Module) status(ctx context.Context) (api.GitHubStatus, error) {
 	} else if !errors.Is(err, settings.ErrNotSet) {
 		return out, err
 	}
-	if remaining, reset := m.rate.snapshot(); remaining >= 0 {
+	if remaining, limit, reset := m.rate.info(); remaining >= 0 {
 		out.RateLimitRemaining = &remaining
+		if limit > 0 {
+			out.RateLimitLimit = &limit
+		}
 		if !reset.IsZero() {
 			out.RateLimitResetAt = &reset
 		}
+	}
+	if cfg.configured() {
+		seconds := int(m.currentSyncInterval() / time.Second)
+		out.SyncIntervalSeconds = &seconds
 	}
 	return out, nil
 }

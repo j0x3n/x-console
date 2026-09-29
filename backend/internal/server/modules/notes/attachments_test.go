@@ -87,7 +87,7 @@ func TestAttachmentsPersistAndDeleteWithNote(t *testing.T) {
 	if public.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("anonymous download: %d", public.StatusCode)
 	}
-	file := filepath.Join(env.App.Deps.Config.DataDir, "notes", "attachments", fmt.Sprint(image.Id))
+	file := filepath.Join(env.App.Deps.Config.FilesDir(), "notes", "attachments", fmt.Sprint(image.Id))
 	if _, err := os.Stat(file); err != nil {
 		t.Fatal(err)
 	}

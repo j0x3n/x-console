@@ -21,6 +21,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/config"
 	"github.com/j0x3n/x-console/backend/internal/server/events"
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/scheduler"
 	"github.com/j0x3n/x-console/backend/internal/server/secrets"
@@ -40,6 +41,9 @@ type Deps struct {
 	Notify    *notify.Service
 	Agents    *agenthub.Hub
 	Scheduler *scheduler.Scheduler
+	// Files is where uploaded files are kept (B24). Take a module's own Store
+	// with Files.For("notes"); do not build paths under DataDir.
+	Files *files.Manager
 	// Actions is the catalog used by the AI assistant and automations (M12).
 	// Register every operation that makes sense to trigger by name.
 	Actions *actions.Registry

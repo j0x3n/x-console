@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
@@ -301,6 +303,88 @@ func (m *Module) DeletePushSubscription(w http.ResponseWriter, r *http.Request, 
 	}
 	m.d.Bus.Publish("notify.channel_updated", map[string]string{"name": "webpush"})
 	httpx.NoContent(w)
+}
+
+// ListPushSubscriptions is GET /notify/webpush/subscriptions. It lists every
+// subscribed browser with the result of its last push.
+func (m *Module) ListPushSubscriptions(w http.ResponseWriter, r *http.Request) {
+	rows, err := m.q.ListPushSubscriptionsNewestFirst(r.Context())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	out := make([]api.WebPushSubscriptionInfo, 0, len(rows))
+	for _, s := range rows {
+		out = append(out, api.WebPushSubscriptionInfo{Id: s.ID, Endpoint: s.Endpoint, Service: pushService(s.Endpoint),
+			UserAgent: s.UserAgent, CreatedAt: s.CreatedAt, LastOkAt: s.LastOkAt, LastError: s.LastError, LastErrorAt: s.LastErrorAt})
+	}
+	httpx.JSON(w, http.StatusOK, out)
+}
+
+// DeletePushSubscriptionById is DELETE /notify/webpush/subscriptions/{subscriptionId}.
+func (m *Module) DeletePushSubscriptionById(w http.ResponseWriter, r *http.Request, id int64) {
+	n, err := m.q.DeletePushSubscriptionByID(r.Context(), id)
+	if err == nil && n == 0 {
+		err = httpx.ErrNotFound
+	}
+	m.d.Audit.Record(r.Context(), "notify.webpush.unsubscribe", strconv.FormatInt(id, 10), nil, err)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	m.d.Bus.Publish("notify.channel_updated", map[string]string{"name": "webpush"})
+	httpx.NoContent(w)
+}
+
+// testPushTimeout and testPushParallel bound the manual push test.
+const (
+	testPushTimeout  = 15 * time.Second
+	testPushParallel = 5
+)
+
+// TestWebPush is POST /notify/webpush/test. It pushes one test message to
+// every subscription, skipping routing and quiet hours, and reports each
+// result so a broken browser can be told apart from a working one.
+func (m *Module) TestWebPush(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	subs, err := m.q.ListPushSubscriptionsNewestFirst(ctx)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	results := make([]api.WebPushTestResult, len(subs))
+	if len(subs) > 0 {
+		set, err := m.push.settings(ctx, notify.PriorityNormal)
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		payload, _ := json.Marshal(pushPayload{Kind: "test", Title: "X Console 测试消息", Body: "收到这条说明浏览器推送能用。", Priority: notify.PriorityNormal})
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, testPushParallel)
+		for i, s := range subs {
+			wg.Add(1)
+			sem <- struct{}{}
+			go func() {
+				defer wg.Done()
+				defer func() { <-sem }()
+				pctx, cancel := context.WithTimeout(ctx, testPushTimeout)
+				defer cancel()
+				out := m.push.sendOne(pctx, s, payload, set)
+				res := api.WebPushTestResult{Id: s.ID, Service: pushService(s.Endpoint), Ok: out.err == ""}
+				if out.status != 0 {
+					res.Status = &out.status
+				}
+				if out.err != "" {
+					res.Error = &out.err
+				}
+				results[i] = res
+			}()
+		}
+		wg.Wait()
+	}
+	m.d.Audit.Record(ctx, "notify.webpush.test", "", map[string]any{"subscriptions": len(subs)}, nil)
+	httpx.JSON(w, http.StatusOK, results)
 }
 
 // ---- Telegram ----

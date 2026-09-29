@@ -354,6 +354,34 @@ type HostMetrics1m struct {
 	Load1    float64
 }
 
+type HostTrafficDaily struct {
+	HostID    string
+	Day       string
+	Rx        int64
+	Tx        int64
+	Estimated int64
+}
+
+type HostTrafficHourly struct {
+	HostID    string
+	Hour      string
+	Rx        int64
+	Tx        int64
+	Estimated int64
+}
+
+type HostTrafficPlan struct {
+	HostID       string
+	StartDay     int64
+	PeriodMonths int64
+	LimitBytes   int64
+	CountMode    string
+	AlertPercent int64
+	AlertedCycle string
+	AlertedLevel int64
+	UpdatedAt    time.Time
+}
+
 type Issue struct {
 	ID             int64
 	ProjectID      int64
@@ -624,6 +652,17 @@ type Subscription struct {
 	ArchivedAt       *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	CategoryID       *int64
+	CycleCount       int64
+	CycleUnit        string
+}
+
+type SubscriptionCategory struct {
+	ID        int64
+	Name      string
+	Builtin   *string
+	Position  int64
+	CreatedAt time.Time
 }
 
 type SubscriptionEvent struct {
@@ -645,12 +684,15 @@ type User struct {
 }
 
 type WebpushSubscription struct {
-	ID        int64
-	Endpoint  string
-	P256dh    string
-	Auth      string
-	UserAgent string
-	CreatedAt time.Time
+	ID          int64
+	Endpoint    string
+	P256dh      string
+	Auth        string
+	UserAgent   string
+	CreatedAt   time.Time
+	LastOkAt    *time.Time
+	LastError   *string
+	LastErrorAt *time.Time
 }
 
 type WorkoutLog struct {

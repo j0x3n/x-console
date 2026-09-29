@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 	"github.com/j0x3n/x-console/backend/pkg/rpc"
@@ -94,6 +95,13 @@ func (f *fakeDocker) handler(w http.ResponseWriter, r *http.Request) {
 	case path == "/images/json":
 		_, _ = w.Write([]byte(`[{"Id":"sha256:1","RepoTags":["nginx:1","nginx:latest"],"Size":1234,"Created":1700000000,"Containers":1},
 			{"Id":"sha256:2","RepoTags":["<none>:<none>"],"Size":10,"Created":1600000000,"Containers":-1}]`))
+	case path == "/images/sha256:busy" && r.Method == http.MethodDelete:
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"message":"conflict: unable to delete sha256:busy (must be forced) - image is being used by running container aaa111"}`))
+	case strings.HasPrefix(path, "/images/") && r.Method == http.MethodDelete:
+		_, _ = w.Write([]byte(`[{"Untagged":"redis:7"},{"Deleted":"sha256:free"}]`))
+	case path == "/images/prune" && r.Method == http.MethodPost:
+		_, _ = w.Write([]byte(`{"ImagesDeleted":[{"Untagged":"a:1"},{"Deleted":"sha256:a"},{"Deleted":"sha256:b"}],"SpaceReclaimed":4096}`))
 	default:
 		http.NotFound(w, r)
 	}
@@ -321,7 +329,7 @@ func TestRegisterClient(t *testing.T) {
 	_, c := startFake(t)
 	reg := &registrar{h: map[string]rpc.Handler{}, s: map[string]rpc.StreamHandler{}}
 	RegisterClient(reg, c)
-	for _, m := range []string{protocol.MethodDockerPS, protocol.MethodDockerAction, protocol.MethodDockerStats, protocol.MethodDockerImages} {
+	for _, m := range []string{protocol.MethodDockerPS, protocol.MethodDockerAction, protocol.MethodDockerStats, protocol.MethodDockerImages, protocol.MethodDockerImageRemove, protocol.MethodDockerImagePrune} {
 		if reg.h[m] == nil {
 			t.Fatalf("%s not registered", m)
 		}
@@ -336,5 +344,123 @@ func TestRegisterClient(t *testing.T) {
 	var pe *protocol.Error
 	if _, err := reg.h[protocol.MethodDockerAction](context.Background(), json.RawMessage(`{"id":1}`)); !errors.As(err, &pe) || pe.Code != protocol.CodeBadParams {
 		t.Fatalf("bad params: %v", err)
+	}
+}
+
+type frameCollector struct{ frames [][]protocol.DockerLogLine }
+
+func (c *frameCollector) Write(b []byte) (int, error) {
+	var lines []protocol.DockerLogLine
+	if err := json.Unmarshal(b, &lines); err != nil {
+		return 0, err
+	}
+	c.frames = append(c.frames, lines)
+	return len(b), nil
+}
+
+func TestLogLinesKeepStreamAndTime(t *testing.T) {
+	var in bytes.Buffer
+	in.Write(frame(1, "2026-09-29T10:00:00.123456789Z hello\n"))
+	in.Write(frame(2, "2026-09-29T10:00:01Z boom\r\n"))
+	// One line split over two frames, and a line without a time stamp.
+	in.Write(frame(1, "2026-09-29T10:00:02Z par"))
+	in.Write(frame(1, "tial\nplain text\n"))
+	// The last line has no newline.
+	in.Write(frame(2, "tail"))
+	var out frameCollector
+	if err := logLines(&in, &out, false); err != nil {
+		t.Fatal(err)
+	}
+	var all []protocol.DockerLogLine
+	for _, f := range out.frames {
+		all = append(all, f...)
+	}
+	want := []protocol.DockerLogLine{
+		{Stream: "stdout", Text: "hello", Time: "2026-09-29T10:00:00.123456789Z"},
+		{Stream: "stderr", Text: "boom", Time: "2026-09-29T10:00:01Z"},
+		{Stream: "stdout", Text: "partial", Time: "2026-09-29T10:00:02Z"},
+		{Stream: "stdout", Text: "plain text"},
+		{Stream: "stderr", Text: "tail"},
+	}
+	if fmt.Sprint(all) != fmt.Sprint(want) {
+		t.Fatalf("lines:\n got %+v\nwant %+v", all, want)
+	}
+	// What was buffered goes out together; the unfinished last line follows.
+	if len(out.frames) != 2 || len(out.frames[0]) != 4 {
+		t.Fatalf("frames: %+v", out.frames)
+	}
+}
+
+func TestLogLinesBatchesAndCutsLongLines(t *testing.T) {
+	var in bytes.Buffer
+	var text strings.Builder
+	for i := 0; i < 450; i++ {
+		fmt.Fprintf(&text, "line %d\n", i)
+	}
+	in.Write(frame(1, text.String()))
+	in.Write(frame(1, strings.Repeat("字", 10000)+"\n"))
+	var out frameCollector
+	if err := logLines(&in, &out, false); err != nil {
+		t.Fatal(err)
+	}
+	sizes := []int{}
+	for _, f := range out.frames {
+		sizes = append(sizes, len(f))
+	}
+	if fmt.Sprint(sizes) != "[200 200 51]" {
+		t.Fatalf("frame sizes: %v", sizes)
+	}
+	long := out.frames[2][50].Text
+	if !strings.HasSuffix(long, "…") || len(long) > maxLogLine+len("…") || !utf8.ValidString(long) {
+		t.Fatalf("long line: %d bytes", len(long))
+	}
+}
+
+func TestLogLinesTTYAndLinesMode(t *testing.T) {
+	var out frameCollector
+	if err := logLines(strings.NewReader("a\nb\nc"), &out, true); err != nil {
+		t.Fatal(err)
+	}
+	var flat []protocol.DockerLogLine
+	for _, f := range out.frames {
+		flat = append(flat, f...)
+	}
+	if len(flat) != 3 || flat[2].Stream != "stdout" || flat[2].Text != "c" {
+		t.Fatalf("tty: %+v", out.frames)
+	}
+	f, c := startFake(t)
+	var got frameCollector
+	if err := c.Logs(context.Background(), protocol.DockerLogsParams{ID: "aaa111", Lines: true}, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.frames) != 1 || len(got.frames[0]) != 3 || got.frames[0][1].Stream != "stderr" || got.frames[0][1].Text != "an error" {
+		t.Fatalf("lines mode: %+v", got.frames)
+	}
+	if !f.seen("GET /containers/aaa111/logs?") || !strings.Contains(f.calls[len(f.calls)-1], "timestamps=1") {
+		t.Fatalf("no time stamps requested: %v", f.calls)
+	}
+}
+
+func TestRemoveAndPruneImages(t *testing.T) {
+	f, c := startFake(t)
+	ctx := context.Background()
+	var pe *protocol.Error
+	if err := c.RemoveImage(ctx, "sha256:busy"); !errors.As(err, &pe) || pe.Code != protocol.CodeExists || !strings.Contains(pe.Message, "being used") {
+		t.Fatalf("busy image: %v", err)
+	}
+	if err := c.RemoveImage(ctx, "library/redis:7"); err != nil || !f.seen("DELETE /images/library/redis:7") {
+		t.Fatalf("remove: %v %v", err, f.calls)
+	}
+	for _, bad := range []string{"", "a b", "../x", "x?force=1", "a;b"} {
+		if err := c.RemoveImage(ctx, bad); !errors.As(err, &pe) || pe.Code != protocol.CodeBadParams {
+			t.Fatalf("%q accepted: %v", bad, err)
+		}
+	}
+	res, err := c.PruneImages(ctx)
+	if err != nil || res.Deleted != 2 || res.SpaceReclaimed != 4096 {
+		t.Fatalf("prune: %+v %v", res, err)
+	}
+	if !f.seen("POST /images/prune?filters=") || !strings.Contains(f.calls[len(f.calls)-1], "dangling") {
+		t.Fatalf("prune request: %v", f.calls)
 	}
 }
