@@ -33,6 +33,49 @@ func TestRing(t *testing.T) {
 	}
 }
 
+func TestRingKeepsAnHourAtOneSecondSampling(t *testing.T) {
+	s := newMetricStore(rawCapacity)
+	base := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
+	s.setFast("a", true)
+	for i := 0; i < 3600; i++ {
+		s.add("a", protocol.MetricsSample{At: base.Add(time.Duration(i) * time.Second), CPU: float64(i)})
+	}
+	all := s.between("a", base, base.Add(2*time.Hour))
+	if len(all) != rawCapacity {
+		t.Fatalf("slots: %d", len(all))
+	}
+	if gap := all[1].At.Sub(all[0].At); gap < 4*time.Second || gap > 6*time.Second {
+		t.Fatalf("gap between slots: %v", gap)
+	}
+	// The newest sample is never lost to the thinning.
+	if x, ok := s.latest("a"); !ok || x.CPU != 3599 {
+		t.Fatalf("latest: %+v", x)
+	}
+	// Outside the 1 second mode every sample is kept.
+	s.setFast("b", false)
+	for i := 0; i < 100; i++ {
+		s.add("b", protocol.MetricsSample{At: base.Add(time.Duration(i) * time.Second)})
+	}
+	if got := len(s.between("b", base, base.Add(time.Hour))); got != 100 {
+		t.Fatalf("samples kept: %d", got)
+	}
+}
+
+func TestFastModePublishesEverySample(t *testing.T) {
+	s := newMetricStore(10)
+	base := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
+	s.setFast("a", true)
+	for i := 0; i < 5; i++ {
+		if !s.add("a", protocol.MetricsSample{At: base.Add(time.Duration(i) * time.Second)}) {
+			t.Fatalf("sample %d was throttled in the 1 second mode", i)
+		}
+	}
+	s.setFast("a", false)
+	if s.add("a", protocol.MetricsSample{At: base.Add(5 * time.Second)}) {
+		t.Fatal("throttle not back")
+	}
+}
+
 func TestParseProcSnapshot(t *testing.T) {
 	x, err := parseProcSnapshot(cannedProc)
 	if err != nil {

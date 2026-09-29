@@ -70,5 +70,6 @@ func (m *Module) Start(ctx context.Context) error {
 		<-ctx.Done()
 		m.ssh.closeAll()
 	}()
+	m.followIntervals(ctx)
 	return nil
 }

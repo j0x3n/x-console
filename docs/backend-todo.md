@@ -18,7 +18,7 @@
 | 5b | B24 S3 实现和本机缓存 `Cached` | 做完 | `files/s3.go`、`files/cached.go`、假 S3 `files/fakes3/`（别的模块的测试也能用） | 无 |
 | 5c | B24 存储模块 `modules/storage`（设置、用量、切换、搬迁） | 做完 | `modules/storage/`（module、handlers、switch、usage）、`files/cached.go`、`config.FilesCacheDir` | 云盘旧的 `/drive/s3*` 按规格第 4 节留到下个版本删。搬迁只搬 `files.Store` 里的文件 |
 | 5d | B25 备份模块 `modules/backup` | 做完 | `modules/backup/`（archive、export、handlers、restore、auto）、`cmd/server/main.go` | 恢复走“解包 → 停进程 → 重启时换数据库”，见 `docs/06-deploy.md`。没做“恢复期间新请求回 503”，因为进程马上停止 |
-| 6 | B26 服务器详情 | 没开始 | | |
+| 6 | B26 服务器详情刷新周期 | 做完 | `ws/events.go`、`ws/subscriptions.go`、`hosts/interval.go`、`hosts/metrics.go`、`agent/metrics/metrics.go`、`protocol.MetricsDetailParams` | “没有实时刷新”要在线上查，记进了已知问题 |
 | 7 | B27 月流量 | 没开始 | | |
 | 8 | B28 容器日志、镜像清理 | 没开始 | | |
 | 9 | B29 系统日志 | 没开始 | | |

@@ -93,7 +93,7 @@ client.HandleStream(protocol.MethodPTYOpen, func(ctx context.Context, raw json.R
 代理主动上报，没有 id，不需要回复。
 
 ```go
-// 代理端，默认每 30 秒推概要；收到 metrics.detail {on:true} 后每 5 秒推详情
+// 代理端，默认每 30 秒推概要；收到 metrics.detail {on:true} 后按 intervalMs（默认 5 秒）推详情
 client.OnConnect(func(ctx context.Context) {
     t := time.NewTicker(30 * time.Second)
     for { select { case <-ctx.Done(): return; case <-t.C: client.Emit(ctx, protocol.EventMetrics, sample()) } }
@@ -105,7 +105,7 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 
 事件处理函数在连接的读循环里执行，必须很快返回。耗时的工作丢到 channel 里异步处理。
 
-`metrics.detail` 是服务端发给代理的请求。参数为 `{ "on": true }` 或 `{ "on": false }`。详情指标包含每块磁盘和每张非回环网卡的速率。服务端在最后一个详情订阅者离开 60 秒后关闭详情模式。代理重连后先上报概要，服务端会按当前订阅状态重新开启详情。
+`metrics.detail` 是服务端发给代理的请求。参数为 `{ "on": true, "intervalMs": 1000 }` 或 `{ "on": false }`。`intervalMs` 只接受 1000、5000、30000，不传、为 0 或别的值都按 5000。不认识这个字段的旧代理一直按 5 秒上报，服务端不需要特殊处理。1 秒模式下代理每秒只重新读 CPU、内存、网速和磁盘读写，每核 CPU、磁盘容量、网卡列表、交换区和进程数每 5 秒读一次，中间的样本沿用上一次的值。详情指标包含每块磁盘和每张非回环网卡的速率。服务端在最后一个详情订阅者离开 60 秒后关闭详情模式。代理重连后先上报概要，服务端会按当前订阅状态重新开启详情。
 
 ## 能力
 

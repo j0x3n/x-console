@@ -27,20 +27,28 @@ type metricStore struct {
 	mu    sync.RWMutex
 	cap   int
 	hosts map[string]*ring
+	fast  map[string]bool // hosts in the 1 second mode: every sample is pushed
 }
 
 type ring struct {
 	buf         []protocol.MetricsSample
 	next        int
+	slotAt      time.Time // when the newest slot of buf was started
 	lastPublish time.Time
 }
 
+// slotGap is the shortest distance between two slots of the ring in the
+// 1 second mode. Samples closer together replace the newest slot, so the ring
+// still holds an hour of history.
+const slotGap = 4500 * time.Millisecond
+
 func newMetricStore(capacity int) *metricStore {
-	return &metricStore{cap: capacity, hosts: map[string]*ring{}}
+	return &metricStore{cap: capacity, hosts: map[string]*ring{}, fast: map[string]bool{}}
 }
 
-// add stores a sample and reports whether it should be pushed to browsers
-// (at most one host.metrics event per host every 4 seconds).
+// add stores a sample and reports whether it should be pushed to browsers:
+// at most one host.metrics event per host every 4 seconds, or every sample
+// while the host runs in the 1 second mode.
 func (s *metricStore) add(id string, x protocol.MetricsSample) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -49,17 +57,37 @@ func (s *metricStore) add(id string, x protocol.MetricsSample) bool {
 		r = &ring{}
 		s.hosts[id] = r
 	}
-	if len(r.buf) < s.cap {
+	switch {
+	case s.fast[id] && len(r.buf) > 0 && x.At.After(r.slotAt) && x.At.Sub(r.slotAt) < slotGap:
+		newest := len(r.buf) - 1
+		if len(r.buf) >= s.cap {
+			newest = (r.next - 1 + s.cap) % s.cap
+		}
+		r.buf[newest] = x
+	case len(r.buf) < s.cap:
 		r.buf = append(r.buf, x)
-	} else {
+		r.slotAt = x.At
+	default:
 		r.buf[r.next] = x
 		r.next = (r.next + 1) % s.cap
+		r.slotAt = x.At
 	}
-	if x.At.Sub(r.lastPublish) >= publishInterval {
+	if s.fast[id] || x.At.Sub(r.lastPublish) >= publishInterval {
 		r.lastPublish = x.At
 		return true
 	}
 	return false
+}
+
+// setFast turns the every-sample push on or off for a host.
+func (s *metricStore) setFast(id string, fast bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if fast {
+		s.fast[id] = true
+	} else {
+		delete(s.fast, id)
+	}
 }
 
 // ordered returns the samples of r oldest first. Caller holds the lock.
@@ -114,6 +142,7 @@ func (s *metricStore) ids() []string {
 func (s *metricStore) drop(id string) {
 	s.mu.Lock()
 	delete(s.hosts, id)
+	delete(s.fast, id)
 	s.mu.Unlock()
 }
 

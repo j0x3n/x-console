@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
 	agentexec "github.com/j0x3n/x-console/backend/internal/agent/exec"
 	"github.com/j0x3n/x-console/backend/internal/agent/files"
+	"github.com/j0x3n/x-console/backend/internal/agent/metrics"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts/db"
@@ -202,6 +204,43 @@ func TestHostListDetailAndMetrics(t *testing.T) {
 	if err != nil || len(sums) != 1 || sums[0].CPU != 43 || !sums[0].Online {
 		t.Fatalf("summaries: %+v %v", sums, err)
 	}
+}
+
+func TestOneSecondDetailMode(t *testing.T) {
+	env, _ := setup(t)
+	id, _, _ := startAgent(t, env, "fast", "server", nil, metrics.Register)
+	var reports atomic.Int32
+	env.App.Deps.Agents.OnEvent(protocol.EventMetrics, func(agentID string, _ json.RawMessage) {
+		if agentID == id {
+			reports.Add(1)
+		}
+	})
+	pushed, cancel := env.App.Deps.Bus.Subscribe("host.metrics", 64)
+	defer cancel()
+
+	// What the browser connection handler does when someone picks 1 second.
+	env.App.Deps.Bus.Publish("host.metrics_interval", map[string]any{"hostId": id, "ms": 1000})
+	setDetail := func(p protocol.MetricsDetailParams) {
+		t.Helper()
+		ctx, stop := context.WithTimeout(context.Background(), 3*time.Second)
+		defer stop()
+		if err := env.App.Deps.Agents.Call(ctx, id, protocol.MethodMetricsDetail, p, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	setDetail(protocol.MetricsDetailParams{On: true, IntervalMs: 1000})
+	start := time.Now()
+	time.Sleep(3200 * time.Millisecond)
+	if n := reports.Load(); n < 3 {
+		t.Fatalf("agent reported %d times in %v", n, time.Since(start))
+	}
+	if n := len(pushed); n < 3 {
+		t.Fatalf("browsers got %d host.metrics events", n)
+	}
+
+	// An interval the agent does not know is answered like the default one.
+	setDetail(protocol.MetricsDetailParams{On: true, IntervalMs: 7})
+	setDetail(protocol.MetricsDetailParams{On: false})
 }
 
 func TestRollupAndRanges(t *testing.T) {

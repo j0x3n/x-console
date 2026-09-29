@@ -38,6 +38,10 @@ const (
 // MetricsDetailParams enables detailed sampling while a host is viewed.
 type MetricsDetailParams struct {
 	On bool `json:"on"`
+	// IntervalMs is how often to report while On: 1000, 5000 or 30000. 0 or
+	// missing means 5000. An agent that does not know the field reports every
+	// 5 seconds, which is the default.
+	IntervalMs int `json:"intervalMs,omitempty"`
 }
 
 // CapOpen is announced by agents that implement MethodAppOpen (desktop only).
