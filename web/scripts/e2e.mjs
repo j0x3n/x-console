@@ -326,6 +326,26 @@ try {
   const driveFile = await until("云盘上传", async () =>
     (await api("/drive/items")).items.find((item) => item.name === "端到端文件.txt"),
   );
+  stage = "云盘历史版本";
+  const savedVersion = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "历史版本测试",
+    },
+  );
+  assert.equal(savedVersion.status(), 200, await savedVersion.text());
+  const previousVersion = (await api(`/drive/items/${driveFile.id}/versions`)).items[0];
+  assert.ok(previousVersion?.id);
+  const restoredVersion = await page.context().request.post(
+    `${base}/api/v1/drive/items/${driveFile.id}/versions/${previousVersion.id}/restore`,
+    { headers: { "X-Requested-With": "x-console" } },
+  );
+  assert.equal(restoredVersion.status(), 200, await restoredVersion.text());
+  const restoredContent = await page.context().request.get(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+  );
+  assert.equal(await restoredContent.text(), "云盘内容可以预览。");
   stage = "云盘打包下载";
   const zipResponse = await page.context().request.get(`${base}/api/v1/drive/zip?ids=${driveFile.id}`);
   assert.equal(zipResponse.status(), 200);

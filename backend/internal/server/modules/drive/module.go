@@ -67,6 +67,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("drive.sync", 10*time.Minute, m.syncAll)
 	m.d.Scheduler.Every("drive.purge", 24*time.Hour, m.purgeOldTrash)
 	m.d.Scheduler.Every("drive.tasks.cleanup", time.Minute, m.pruneTasks)
+	m.d.Scheduler.Every("drive.versions.prune", 24*time.Hour, m.pruneVersions)
 	return nil
 }
 

@@ -18,18 +18,6 @@ func (m *Module) FollowDriveItem(w http.ResponseWriter, r *http.Request, itemId 
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
 
-func (m *Module) ListDriveVersions(w http.ResponseWriter, r *http.Request, itemId api.ItemId) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) GetDriveVersionContent(w http.ResponseWriter, r *http.Request, itemId api.ItemId, versionId api.VersionId) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) RestoreDriveVersion(w http.ResponseWriter, r *http.Request, itemId api.ItemId, versionId api.VersionId) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
 func (m *Module) ListDriveShares(w http.ResponseWriter, r *http.Request, params api.ListDriveSharesParams) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
@@ -39,14 +27,6 @@ func (m *Module) CreateDriveShare(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) DeleteDriveShare(w http.ResponseWriter, r *http.Request, shareId int64) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) GetDriveVersionSettings(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) PutDriveVersionSettings(w http.ResponseWriter, r *http.Request) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
 
