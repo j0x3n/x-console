@@ -331,6 +331,43 @@ try {
   assert.equal(zipResponse.status(), 200);
   assert.equal(zipResponse.headers()["content-type"], "application/zip");
   assert.equal((await zipResponse.body()).subarray(0, 2).toString(), "PK");
+  stage = "云盘批量复制和移动";
+  const transferFolderResponse = await page.context().request.post(`${base}/api/v1/drive/folders`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端目标" },
+  });
+  assert.equal(transferFolderResponse.status(), 201, await transferFolderResponse.text());
+  const transferFolder = await transferFolderResponse.json();
+  const copyResponse = await page.context().request.post(`${base}/api/v1/drive/batch/copy`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { ids: [driveFile.id], targetId: transferFolder.id, conflict: "rename" },
+  });
+  assert.equal(copyResponse.status(), 202, await copyResponse.text());
+  const copyTask = await copyResponse.json();
+  await until("云盘复制", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === copyTask.id)?.state === "done",
+  );
+  const copiedFile = (await api(`/drive/items?parent=${transferFolder.id}`)).items.find(
+    (item) => item.name === driveFile.name,
+  );
+  assert.ok(copiedFile && copiedFile.id !== driveFile.id);
+  const movedFolderResponse = await page.context().request.post(`${base}/api/v1/drive/folders`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端移动目标" },
+  });
+  assert.equal(movedFolderResponse.status(), 201, await movedFolderResponse.text());
+  const movedFolder = await movedFolderResponse.json();
+  const moveResponse = await page.context().request.post(`${base}/api/v1/drive/batch/move`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { ids: [copiedFile.id], targetId: movedFolder.id, conflict: "rename" },
+  });
+  assert.equal(moveResponse.status(), 202, await moveResponse.text());
+  const moveTask = await moveResponse.json();
+  await until("云盘移动", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === moveTask.id)?.state === "done",
+  );
+  assert.equal((await api(`/drive/items?parent=${transferFolder.id}`)).items.length, 0);
+  assert.equal((await api(`/drive/items?parent=${movedFolder.id}`)).items[0]?.id, copiedFile.id);
   stage = "手机云盘上传、预览和删除";
   const driveRow = page.locator(".drive-row").filter({ hasText: "端到端文件.txt" });
   await driveRow.getByRole("button", { name: "端到端文件.txt", exact: true }).click();

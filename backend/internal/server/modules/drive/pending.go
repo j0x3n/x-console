@@ -18,14 +18,6 @@ func (m *Module) ArchiveDriveItems(w http.ResponseWriter, r *http.Request) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
 
-func (m *Module) CopyDriveItems(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) MoveDriveItems(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
 func (m *Module) ExtractDriveItem(w http.ResponseWriter, r *http.Request, itemId api.ItemId) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
