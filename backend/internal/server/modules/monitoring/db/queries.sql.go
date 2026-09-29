@@ -167,19 +167,22 @@ func (q *Queries) CreateScriptRun(ctx context.Context, arg CreateScriptRunParams
 
 const createSubscription = `-- name: CreateSubscription :one
 
-INSERT INTO subscriptions (name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before,
-                           url, note, auto_renew, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at
+INSERT INTO subscriptions (name, category, category_id, amount, currency, cycle, cycle_days, cycle_count, cycle_unit,
+                           next_renewal, remind_days_before, url, note, auto_renew, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit
 `
 
 type CreateSubscriptionParams struct {
 	Name             string
 	Category         string
+	CategoryID       *int64
 	Amount           float64
 	Currency         string
 	Cycle            string
 	CycleDays        int64
+	CycleCount       int64
+	CycleUnit        string
 	NextRenewal      string
 	RemindDaysBefore string
 	Url              string
@@ -194,10 +197,13 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 	row := q.db.QueryRowContext(ctx, createSubscription,
 		arg.Name,
 		arg.Category,
+		arg.CategoryID,
 		arg.Amount,
 		arg.Currency,
 		arg.Cycle,
 		arg.CycleDays,
+		arg.CycleCount,
+		arg.CycleUnit,
 		arg.NextRenewal,
 		arg.RemindDaysBefore,
 		arg.Url,
@@ -224,6 +230,33 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CategoryID,
+		&i.CycleCount,
+		&i.CycleUnit,
+	)
+	return i, err
+}
+
+const createSubscriptionCategory = `-- name: CreateSubscriptionCategory :one
+INSERT INTO subscription_categories (name, position, created_at) VALUES (?, ?, ?)
+RETURNING id, name, builtin, position, created_at
+`
+
+type CreateSubscriptionCategoryParams struct {
+	Name      string
+	Position  int64
+	CreatedAt time.Time
+}
+
+func (q *Queries) CreateSubscriptionCategory(ctx context.Context, arg CreateSubscriptionCategoryParams) (SubscriptionCategory, error) {
+	row := q.db.QueryRowContext(ctx, createSubscriptionCategory, arg.Name, arg.Position, arg.CreatedAt)
+	var i SubscriptionCategory
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Builtin,
+		&i.Position,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -270,6 +303,18 @@ DELETE FROM subscriptions WHERE id = ?
 
 func (q *Queries) DeleteSubscription(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteSubscription, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteSubscriptionCategory = `-- name: DeleteSubscriptionCategory :execrows
+DELETE FROM subscription_categories WHERE id = ?
+`
+
+func (q *Queries) DeleteSubscriptionCategory(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteSubscriptionCategory, id)
 	if err != nil {
 		return 0, err
 	}
@@ -391,7 +436,7 @@ func (q *Queries) GetScriptRun(ctx context.Context, id int64) (ScriptRun, error)
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at FROM subscriptions WHERE id = ?
+SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit FROM subscriptions WHERE id = ?
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, error) {
@@ -414,6 +459,43 @@ func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, 
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CategoryID,
+		&i.CycleCount,
+		&i.CycleUnit,
+	)
+	return i, err
+}
+
+const getSubscriptionCategory = `-- name: GetSubscriptionCategory :one
+SELECT id, name, builtin, position, created_at FROM subscription_categories WHERE id = ?
+`
+
+func (q *Queries) GetSubscriptionCategory(ctx context.Context, id int64) (SubscriptionCategory, error) {
+	row := q.db.QueryRowContext(ctx, getSubscriptionCategory, id)
+	var i SubscriptionCategory
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Builtin,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getSubscriptionCategoryByBuiltin = `-- name: GetSubscriptionCategoryByBuiltin :one
+SELECT id, name, builtin, position, created_at FROM subscription_categories WHERE builtin = ?
+`
+
+func (q *Queries) GetSubscriptionCategoryByBuiltin(ctx context.Context, builtin *string) (SubscriptionCategory, error) {
+	row := q.db.QueryRowContext(ctx, getSubscriptionCategoryByBuiltin, builtin)
+	var i SubscriptionCategory
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Builtin,
+		&i.Position,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -704,6 +786,52 @@ func (q *Queries) ListScripts(ctx context.Context) ([]Script, error) {
 	return items, nil
 }
 
+const listSubscriptionCategories = `-- name: ListSubscriptionCategories :many
+
+SELECT c.id, c.name, c.builtin, c.position,
+       (SELECT COUNT(*) FROM subscriptions s WHERE s.category_id = c.id AND s.archived_at IS NULL) AS count
+FROM subscription_categories c
+ORDER BY c.position, c.id
+`
+
+type ListSubscriptionCategoriesRow struct {
+	ID       int64
+	Name     string
+	Builtin  *string
+	Position int64
+	Count    int64
+}
+
+// ---- subscription categories ----
+func (q *Queries) ListSubscriptionCategories(ctx context.Context) ([]ListSubscriptionCategoriesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSubscriptionCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSubscriptionCategoriesRow
+	for rows.Next() {
+		var i ListSubscriptionCategoriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Builtin,
+			&i.Position,
+			&i.Count,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSubscriptionEvents = `-- name: ListSubscriptionEvents :many
 SELECT id, subscription_id, at, kind, detail FROM subscription_events WHERE subscription_id = ? ORDER BY id DESC LIMIT 100
 `
@@ -738,7 +866,7 @@ func (q *Queries) ListSubscriptionEvents(ctx context.Context, subscriptionID int
 }
 
 const listSubscriptions = `-- name: ListSubscriptions :many
-SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at FROM subscriptions ORDER BY next_renewal, id
+SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit FROM subscriptions ORDER BY next_renewal, id
 `
 
 func (q *Queries) ListSubscriptions(ctx context.Context) ([]Subscription, error) {
@@ -767,6 +895,9 @@ func (q *Queries) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CategoryID,
+			&i.CycleCount,
+			&i.CycleUnit,
 		); err != nil {
 			return nil, err
 		}
@@ -779,6 +910,38 @@ func (q *Queries) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const moveSubscriptionsToCategory = `-- name: MoveSubscriptionsToCategory :exec
+UPDATE subscriptions SET category_id = ?, category = ?, updated_at = ? WHERE category_id = ?
+`
+
+type MoveSubscriptionsToCategoryParams struct {
+	CategoryID   *int64
+	Category     string
+	UpdatedAt    time.Time
+	CategoryID_2 *int64
+}
+
+func (q *Queries) MoveSubscriptionsToCategory(ctx context.Context, arg MoveSubscriptionsToCategoryParams) error {
+	_, err := q.db.ExecContext(ctx, moveSubscriptionsToCategory,
+		arg.CategoryID,
+		arg.Category,
+		arg.UpdatedAt,
+		arg.CategoryID_2,
+	)
+	return err
+}
+
+const nextSubscriptionCategoryPosition = `-- name: NextSubscriptionCategoryPosition :one
+SELECT CAST(COALESCE(MAX(position), -1) + 1 AS INTEGER) FROM subscription_categories
+`
+
+func (q *Queries) NextSubscriptionCategoryPosition(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, nextSubscriptionCategoryPosition)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const resetMonitorState = `-- name: ResetMonitorState :exec
@@ -940,19 +1103,23 @@ func (q *Queries) UpdateScript(ctx context.Context, arg UpdateScriptParams) (Scr
 
 const updateSubscription = `-- name: UpdateSubscription :one
 UPDATE subscriptions
-SET name = ?, category = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, next_renewal = ?,
+SET name = ?, category = ?, category_id = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, cycle_count = ?,
+    cycle_unit = ?, next_renewal = ?,
     remind_days_before = ?, reminded = ?, url = ?, note = ?, auto_renew = ?, archived_at = ?, updated_at = ?
 WHERE id = ?
-RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at
+RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit
 `
 
 type UpdateSubscriptionParams struct {
 	Name             string
 	Category         string
+	CategoryID       *int64
 	Amount           float64
 	Currency         string
 	Cycle            string
 	CycleDays        int64
+	CycleCount       int64
+	CycleUnit        string
 	NextRenewal      string
 	RemindDaysBefore string
 	Reminded         string
@@ -968,10 +1135,13 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 	row := q.db.QueryRowContext(ctx, updateSubscription,
 		arg.Name,
 		arg.Category,
+		arg.CategoryID,
 		arg.Amount,
 		arg.Currency,
 		arg.Cycle,
 		arg.CycleDays,
+		arg.CycleCount,
+		arg.CycleUnit,
 		arg.NextRenewal,
 		arg.RemindDaysBefore,
 		arg.Reminded,
@@ -1000,6 +1170,33 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CategoryID,
+		&i.CycleCount,
+		&i.CycleUnit,
+	)
+	return i, err
+}
+
+const updateSubscriptionCategory = `-- name: UpdateSubscriptionCategory :one
+UPDATE subscription_categories SET name = ?, position = ? WHERE id = ?
+RETURNING id, name, builtin, position, created_at
+`
+
+type UpdateSubscriptionCategoryParams struct {
+	Name     string
+	Position int64
+	ID       int64
+}
+
+func (q *Queries) UpdateSubscriptionCategory(ctx context.Context, arg UpdateSubscriptionCategoryParams) (SubscriptionCategory, error) {
+	row := q.db.QueryRowContext(ctx, updateSubscriptionCategory, arg.Name, arg.Position, arg.ID)
+	var i SubscriptionCategory
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Builtin,
+		&i.Position,
+		&i.CreatedAt,
 	)
 	return i, err
 }

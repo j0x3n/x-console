@@ -274,7 +274,9 @@ func (m *Module) generate(ctx context.Context, cfg config, reg *module.Registry,
 	today := time.Date(l.Year(), l.Month(), l.Day(), 0, 0, 0, 0, loc)
 	in := input{
 		now: l, loc: loc, today: today, tomorrow: today.AddDate(0, 0, 1), yesterday: today.AddDate(0, 0, -1),
-		reg: reg, cfg: cfg, weather: m.fetchWeather,
+		reg: reg, cfg: cfg, weather: func(ctx context.Context, base string, loc api.BriefLocation) (api.Weather, error) {
+			return m.fetchWeather(ctx, base, loc, false)
+		},
 	}
 	out := result{date: today.Format(time.DateOnly), sections: []api.BriefSection{}}
 	var b strings.Builder

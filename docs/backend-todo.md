@@ -9,7 +9,7 @@
 | 序号 | 任务 | 状态 | 在做的文件 | 下一步 |
 | --- | --- | --- | --- | --- |
 | 1 | B22 偏好设置 | 做完 | `core/preferences.go` | 无 |
-| 2 | B23 天气、订阅分类、周期 | 没开始 | | 读 `specs/B23.md` |
+| 2 | B23 天气、订阅分类、周期 | 做完 | `brief/weather.go`、`monitoring/categories.go`、`monitoring/subscriptions.go`、迁移 `20260929000100` | 无 |
 | 3 | B34 推送自检 | 没开始 | | |
 | 4 | B35 GitHub | 没开始 | | |
 | 5 | B24、B25 文件目录和备份 | 没开始 | | |

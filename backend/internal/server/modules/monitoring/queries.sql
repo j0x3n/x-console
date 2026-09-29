@@ -96,9 +96,9 @@ DELETE FROM monitor_results WHERE at < ?;
 -- ---- subscriptions ----
 
 -- name: CreateSubscription :one
-INSERT INTO subscriptions (name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before,
-                           url, note, auto_renew, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO subscriptions (name, category, category_id, amount, currency, cycle, cycle_days, cycle_count, cycle_unit,
+                           next_renewal, remind_days_before, url, note, auto_renew, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSubscription :one
@@ -109,7 +109,8 @@ SELECT * FROM subscriptions ORDER BY next_renewal, id;
 
 -- name: UpdateSubscription :one
 UPDATE subscriptions
-SET name = ?, category = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, next_renewal = ?,
+SET name = ?, category = ?, category_id = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, cycle_count = ?,
+    cycle_unit = ?, next_renewal = ?,
     remind_days_before = ?, reminded = ?, url = ?, note = ?, auto_renew = ?, archived_at = ?, updated_at = ?
 WHERE id = ?
 RETURNING *;
@@ -124,3 +125,34 @@ RETURNING *;
 
 -- name: ListSubscriptionEvents :many
 SELECT * FROM subscription_events WHERE subscription_id = ? ORDER BY id DESC LIMIT 100;
+
+-- ---- subscription categories ----
+
+-- name: ListSubscriptionCategories :many
+SELECT c.id, c.name, c.builtin, c.position,
+       (SELECT COUNT(*) FROM subscriptions s WHERE s.category_id = c.id AND s.archived_at IS NULL) AS count
+FROM subscription_categories c
+ORDER BY c.position, c.id;
+
+-- name: GetSubscriptionCategory :one
+SELECT * FROM subscription_categories WHERE id = ?;
+
+-- name: GetSubscriptionCategoryByBuiltin :one
+SELECT * FROM subscription_categories WHERE builtin = ?;
+
+-- name: NextSubscriptionCategoryPosition :one
+SELECT CAST(COALESCE(MAX(position), -1) + 1 AS INTEGER) FROM subscription_categories;
+
+-- name: CreateSubscriptionCategory :one
+INSERT INTO subscription_categories (name, position, created_at) VALUES (?, ?, ?)
+RETURNING *;
+
+-- name: UpdateSubscriptionCategory :one
+UPDATE subscription_categories SET name = ?, position = ? WHERE id = ?
+RETURNING *;
+
+-- name: MoveSubscriptionsToCategory :exec
+UPDATE subscriptions SET category_id = ?, category = ?, updated_at = ? WHERE category_id = ?;
+
+-- name: DeleteSubscriptionCategory :execrows
+DELETE FROM subscription_categories WHERE id = ?;

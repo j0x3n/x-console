@@ -205,12 +205,16 @@ func (m *Module) actionListSubscriptions(ctx context.Context, _ json.RawMessage)
 	if err != nil {
 		return nil, err
 	}
+	cats, err := m.categoryNames(ctx)
+	if err != nil {
+		return nil, err
+	}
 	day := today(m.now(), m.loc())
 	items := make([]api.Subscription, 0, len(rows))
 	for _, s := range rows {
 		if s.ArchivedAt == nil {
-			items = append(items, toAPISubscription(s, day))
+			items = append(items, toAPISubscription(s, day, cats))
 		}
 	}
-	return map[string]any{"items": items, "summary": summary(rows)}, nil
+	return map[string]any{"items": items, "summary": summary(rows, cats)}, nil
 }

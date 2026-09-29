@@ -392,7 +392,7 @@ func TestScheduledBriefIsSentOncePerDay(t *testing.T) {
 }
 
 func TestPreviewSendSettingsAndWeather(t *testing.T) {
-	env, _, ws := setup(t)
+	env, m, ws := setup(t)
 
 	var view api.BriefSettingsView
 	env.MustDo(http.MethodGet, "/briefs/settings", nil, &view)
@@ -433,6 +433,21 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 	}
 	if status, _ := env.Do(http.MethodGet, "/weather?lat=39.9", nil, nil); status != http.StatusBadRequest {
 		t.Fatalf("lat only: %d", status)
+	}
+
+	// refresh=true skips the cache, but not more than once a minute.
+	clock := time.Date(2026, 10, 27, 10, 0, 0, 0, time.UTC)
+	brief.SetNow(m, func() time.Time { return clock })
+	env.MustDo(http.MethodGet, "/weather?refresh=true", nil, &w)
+	hits = ws.hits.Load()
+	env.MustDo(http.MethodGet, "/weather?refresh=true", nil, &w)
+	if ws.hits.Load() != hits {
+		t.Fatal("second refresh within a minute should use the cache")
+	}
+	clock = clock.Add(61 * time.Second)
+	env.MustDo(http.MethodGet, "/weather?refresh=true", nil, &w)
+	if ws.hits.Load() != hits+1 {
+		t.Fatalf("refresh after a minute should fetch: %d vs %d", ws.hits.Load(), hits)
 	}
 
 	// Preview is not stored; send stores and sends today's brief.

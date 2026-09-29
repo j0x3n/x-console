@@ -179,3 +179,115 @@ func TestSubscriptionReminders(t *testing.T) {
 	env.MustDo(http.MethodDelete, fmt.Sprintf("/subscriptions/%d", usd.Id), nil, nil)
 	expectStatus(t, env, http.MethodGet, fmt.Sprintf("/subscriptions/%d/events", usd.Id), nil, 404, "not_found")
 }
+
+func TestSubscriptionCategories(t *testing.T) {
+	env, _ := setup(t)
+
+	var cats []api.SubscriptionCategoryItem
+	env.MustDo(http.MethodGet, "/subscription-categories", nil, &cats)
+	if len(cats) != 4 || cats[0].Builtin == nil || *cats[0].Builtin != "server" || cats[3].Builtin == nil || *cats[3].Builtin != "other" {
+		t.Fatalf("default categories: %+v", cats)
+	}
+	other := cats[3]
+
+	var storage api.SubscriptionCategoryItem
+	env.MustDo(http.MethodPost, "/subscription-categories", api.SubscriptionCategoryInput{Name: ptr(" 云存储 ")}, &storage)
+	if storage.Name != "云存储" || storage.Position != 4 || storage.Builtin != nil {
+		t.Fatalf("created: %+v", storage)
+	}
+	if status, _ := env.Do(http.MethodPost, "/subscription-categories", api.SubscriptionCategoryInput{Name: ptr("云存储")}, nil); status != http.StatusConflict {
+		t.Fatalf("duplicate name: %d", status)
+	}
+	if status, _ := env.Do(http.MethodPost, "/subscription-categories", api.SubscriptionCategoryInput{Name: ptr("  ")}, nil); status != http.StatusBadRequest {
+		t.Fatalf("blank name: %d", status)
+	}
+
+	var sub api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "网盘", Amount: 30, Cycle: "monthly", NextRenewal: day("2026-10-20"), CategoryId: &storage.Id,
+	}, &sub)
+	if sub.CategoryId == nil || *sub.CategoryId != storage.Id || sub.CategoryName == nil || *sub.CategoryName != "云存储" || sub.Category != "other" {
+		t.Fatalf("subscription category: %+v", sub)
+	}
+	var sum api.SubscriptionSummary
+	env.MustDo(http.MethodGet, "/subscriptions/summary", nil, &sum)
+	if len(sum.ByCategory) != 1 || sum.ByCategory[0].CategoryName == nil || *sum.ByCategory[0].CategoryName != "云存储" {
+		t.Fatalf("summary: %+v", sum.ByCategory)
+	}
+	env.MustDo(http.MethodGet, "/subscription-categories", nil, &cats)
+	if cats[4].Count != 1 {
+		t.Fatalf("count: %+v", cats)
+	}
+
+	var renamed api.SubscriptionCategoryItem
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/subscription-categories/%d", storage.Id), api.SubscriptionCategoryInput{Name: ptr("云盘")}, &renamed)
+	if renamed.Name != "云盘" || renamed.Count != 1 {
+		t.Fatalf("renamed: %+v", renamed)
+	}
+	if status, _ := env.Do(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "x", Cycle: "monthly", NextRenewal: day("2026-10-20"), CategoryId: ptr(int64(999)),
+	}, nil); status != http.StatusBadRequest {
+		t.Fatalf("unknown category: %d", status)
+	}
+
+	if status, _ := env.Do(http.MethodDelete, fmt.Sprintf("/subscription-categories/%d", other.Id), nil, nil); status != http.StatusBadRequest {
+		t.Fatalf("delete other: %d", status)
+	}
+	env.MustDo(http.MethodDelete, fmt.Sprintf("/subscription-categories/%d", storage.Id), nil, nil)
+	env.MustDo(http.MethodGet, fmt.Sprintf("/subscriptions/%d", sub.Id), nil, &sub)
+	if sub.CategoryId == nil || *sub.CategoryId != other.Id || sub.Category != "other" {
+		t.Fatalf("after delete: %+v", sub)
+	}
+	if status, _ := env.Do(http.MethodDelete, fmt.Sprintf("/subscription-categories/%d", storage.Id), nil, nil); status != http.StatusNotFound {
+		t.Fatalf("delete twice: %d", status)
+	}
+}
+
+func TestSubscriptionCycle(t *testing.T) {
+	env, m := setup(t)
+	ctx := context.Background()
+
+	var sub api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "季付", Amount: 90, Cycle: "monthly", CycleCount: ptr(3), CycleUnit: ptr(api.Month),
+		NextRenewal: day("2026-10-01"), AutoRenew: ptr(true),
+	}, &sub)
+	if sub.CycleCount == nil || *sub.CycleCount != 3 || *sub.CycleUnit != "month" || sub.Cycle != "custom_days" || sub.CycleDays != 90 || sub.MonthlyCost != 30 {
+		t.Fatalf("three months: %+v", sub)
+	}
+	// Auto renew moves the date by whole cycles.
+	if err := m.ScanSubscriptions(ctx, time.Date(2026, 10, 2, 1, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+	env.MustDo(http.MethodGet, fmt.Sprintf("/subscriptions/%d", sub.Id), nil, &sub)
+	if sub.NextRenewal.Format("2006-01-02") != "2027-01-01" {
+		t.Fatalf("auto renewed to %s", sub.NextRenewal.Format("2006-01-02"))
+	}
+
+	for _, bad := range []api.SubscriptionInput{
+		{Name: "a", Cycle: "monthly", CycleCount: ptr(0), CycleUnit: ptr(api.Month), NextRenewal: day("2026-10-01")},
+		{Name: "a", Cycle: "monthly", CycleCount: ptr(1001), CycleUnit: ptr(api.Day), NextRenewal: day("2026-10-01")},
+		{Name: "a", Cycle: "monthly", CycleCount: ptr(2), NextRenewal: day("2026-10-01")},
+		{Name: "a", Cycle: "monthly", CycleCount: ptr(2), CycleUnit: ptr(api.SubscriptionCycleUnit("second")), NextRenewal: day("2026-10-01")},
+	} {
+		if status, raw := env.Do(http.MethodPost, "/subscriptions", bad, nil); status != http.StatusBadRequest {
+			t.Fatalf("%+v: %d %s", bad, status, raw)
+		}
+	}
+
+	// An old client sends only cycle and category. Both old and new fields come back.
+	server := api.SubscriptionCategory("server")
+	var old api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "旧前端", Amount: 12, Cycle: "custom_days", CycleDays: ptr(14), Category: &server, NextRenewal: day("2026-10-01"),
+	}, &old)
+	if old.Category != "server" || old.CategoryName == nil || *old.CategoryName != "服务器" || old.Cycle != "custom_days" || old.CycleDays != 14 ||
+		*old.CycleCount != 14 || *old.CycleUnit != "day" {
+		t.Fatalf("old client: %+v", old)
+	}
+	var yearly api.Subscription
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/subscriptions/%d", old.Id), api.SubscriptionPatch{Cycle: ptr(api.Yearly)}, &yearly)
+	if yearly.Cycle != "yearly" || *yearly.CycleCount != 1 || *yearly.CycleUnit != "year" {
+		t.Fatalf("patched to yearly: %+v", yearly)
+	}
+}

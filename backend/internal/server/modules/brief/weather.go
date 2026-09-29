@@ -18,6 +18,10 @@ import (
 // weatherTTL is how long a forecast is reused. The home page asks often.
 const weatherTTL = 10 * time.Minute
 
+// weatherForceGap is the shortest gap between forced refreshes of one place.
+// Clicking refresh many times must not hammer Open-Meteo.
+const weatherForceGap = time.Minute
+
 type cachedWeather struct {
 	w  api.Weather
 	at time.Time
@@ -38,11 +42,15 @@ type openMeteo struct {
 }
 
 // fetchWeather returns the current weather and today's forecast, cached per
-// place and API address.
-func (m *Module) fetchWeather(ctx context.Context, base string, loc api.BriefLocation) (api.Weather, error) {
+// place and API address. force skips the cache unless it is under a minute old.
+func (m *Module) fetchWeather(ctx context.Context, base string, loc api.BriefLocation, force bool) (api.Weather, error) {
 	key := fmt.Sprintf("%s|%.3f|%.3f", base, loc.Lat, loc.Lon)
+	ttl := weatherTTL
+	if force {
+		ttl = weatherForceGap
+	}
 	m.weatherMu.Lock()
-	if c, ok := m.weatherCache[key]; ok && time.Since(c.at) < weatherTTL {
+	if c, ok := m.weatherCache[key]; ok && m.now().Sub(c.at) < ttl {
 		m.weatherMu.Unlock()
 		w := c.w
 		w.Location = loc.Name
@@ -84,13 +92,13 @@ func (m *Module) fetchWeather(ctx context.Context, base string, loc api.BriefLoc
 	w := api.Weather{
 		Latitude: loc.Lat, Longitude: loc.Lon, Temperature: round1(raw.Current.Temperature), WeatherCode: raw.Current.WeatherCode,
 		Summary: weatherText(raw.Current.WeatherCode), High: round1(raw.Daily.Max[0]), Low: round1(raw.Daily.Min[0]),
-		FetchedAt: time.Now().UTC(), Location: loc.Name,
+		FetchedAt: m.now().UTC(), Location: loc.Name,
 	}
 	if len(raw.Daily.Precip) > 0 && raw.Daily.Precip[0] != nil {
 		w.PrecipitationChance = int(math.Round(*raw.Daily.Precip[0]))
 	}
 	m.weatherMu.Lock()
-	m.weatherCache[key] = cachedWeather{w: w, at: time.Now()}
+	m.weatherCache[key] = cachedWeather{w: w, at: m.now()}
 	m.weatherMu.Unlock()
 	return w, nil
 }

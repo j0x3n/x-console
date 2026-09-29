@@ -27,7 +27,33 @@ const (
 	cycleCustom  = "custom_days"
 )
 
-var categories = []string{"server", "domain", "saas", "other"}
+// categoryOther is the built-in category that deleted categories fall back to.
+const categoryOther = "other"
+
+// maxCycleCount is the largest "every N units" a subscription accepts.
+const maxCycleCount = 1000
+
+// catInfo is what a subscription needs to show its category.
+type catInfo struct {
+	name    string
+	builtin string
+}
+
+func (m *Module) categoryNames(ctx context.Context) (map[int64]catInfo, error) {
+	rows, err := m.q.ListSubscriptionCategories(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]catInfo, len(rows))
+	for _, c := range rows {
+		info := catInfo{name: c.Name}
+		if c.Builtin != nil {
+			info.builtin = *c.Builtin
+		}
+		out[c.ID] = info
+	}
+	return out, nil
+}
 
 // Subscription history kinds.
 const (
@@ -50,12 +76,20 @@ func (m *Module) loc() *time.Location {
 	return time.UTC
 }
 
-func toAPISubscription(s db.Subscription, day time.Time) api.Subscription {
+func toAPISubscription(s db.Subscription, day time.Time, cats map[int64]catInfo) api.Subscription {
+	legacy, legacyDays := legacyCycle(int(s.CycleCount), s.CycleUnit)
+	count, unit := int(s.CycleCount), api.SubscriptionCycleUnit(s.CycleUnit)
 	out := api.Subscription{Id: s.ID, Name: s.Name, Category: api.SubscriptionCategory(s.Category), Amount: s.Amount,
-		Currency: s.Currency, Cycle: api.SubscriptionCycle(s.Cycle), CycleDays: int(s.CycleDays),
+		Currency: s.Currency, Cycle: api.SubscriptionCycle(legacy), CycleDays: legacyDays, CycleCount: &count, CycleUnit: &unit,
 		RemindDaysBefore: intList(s.RemindDaysBefore), Url: s.Url, Note: s.Note, AutoRenew: s.AutoRenew == 1,
 		ArchivedAt: s.ArchivedAt, CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt,
-		MonthlyCost: round2(monthlyCost(s.Amount, s.Cycle, int(s.CycleDays)))}
+		MonthlyCost: round2(monthlyCost(s.Amount, count, s.CycleUnit))}
+	if s.CategoryID != nil {
+		out.CategoryId = s.CategoryID
+		if c, ok := cats[*s.CategoryID]; ok {
+			out.CategoryName = &c.name
+		}
+	}
 	if next, err := parseDate(s.NextRenewal); err == nil {
 		out.NextRenewal = openapi_types.Date{Time: next}
 		out.DaysLeft = daysBetween(day, next)
@@ -65,12 +99,15 @@ func toAPISubscription(s db.Subscription, day time.Time) api.Subscription {
 
 // subFields is a validated subscription.
 type subFields struct {
-	name, category, currency, cycle, url, note string
-	amount                                     float64
-	cycleDays                                  int
-	next                                       time.Time
-	remind                                     []int
-	autoRenew                                  bool
+	name, currency, url, note string
+	categoryID                int64
+	builtin                   string // built-in key of the category, or "other" for custom ones
+	amount                    float64
+	cycleCount                int
+	cycleUnit                 string
+	next                      time.Time
+	remind                    []int
+	autoRenew                 bool
 }
 
 func (f *subFields) validate() error {
@@ -83,20 +120,12 @@ func (f *subFields) validate() error {
 		return httpx.Invalid("金额不能是负数")
 	case f.currency == "" || len(f.currency) > 8:
 		return httpx.Invalid("请填写币种，例如 CNY")
-	case !slices.Contains(categories, f.category):
-		return httpx.Invalid("分类只能是 server、domain、saas 或 other")
 	case f.next.IsZero():
 		return httpx.Invalid("请填写下次续费日期")
-	}
-	switch f.cycle {
-	case cycleMonthly, cycleYearly:
-		f.cycleDays = 0
-	case cycleCustom:
-		if f.cycleDays < 1 || f.cycleDays > 3660 {
-			return httpx.Invalid("自定义周期要在 1 到 3660 天之间")
-		}
-	default:
-		return httpx.Invalid("周期只能是 monthly、yearly 或 custom_days")
+	case !slices.Contains(cycleUnits, f.cycleUnit):
+		return httpx.Invalid("周期单位只能是分钟、小时、天、周、月或年")
+	case f.cycleCount < 1 || f.cycleCount > maxCycleCount:
+		return httpx.Invalid("周期数字要在 1 到 1000 之间")
 	}
 	clean := []int{}
 	for _, d := range f.remind {
@@ -110,6 +139,71 @@ func (f *subFields) validate() error {
 	sort.Sort(sort.Reverse(sort.IntSlice(clean)))
 	f.remind = clean
 	return nil
+}
+
+// resolveCategory finds the category a request means. categoryId wins over
+// the old category field. With neither, current (or "other" when zero) stays.
+func (m *Module) resolveCategory(ctx context.Context, id *int64, builtin *api.SubscriptionCategory) (db.SubscriptionCategory, bool, error) {
+	var c db.SubscriptionCategory
+	var err error
+	switch {
+	case id != nil:
+		c, err = m.q.GetSubscriptionCategory(ctx, *id)
+	case builtin != nil:
+		name := string(*builtin)
+		c, err = m.q.GetSubscriptionCategoryByBuiltin(ctx, &name)
+	default:
+		return c, false, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return c, false, httpx.Invalid("分类不存在")
+	}
+	return c, true, err
+}
+
+func (f *subFields) setCategory(c db.SubscriptionCategory) {
+	f.categoryID = c.ID
+	f.builtin = categoryOther
+	if c.Builtin != nil {
+		f.builtin = *c.Builtin
+	}
+}
+
+// legacyOrNew picks the cycle of a request. cycleCount and cycleUnit win;
+// otherwise the old cycle and cycleDays are converted. changed is false when
+// the request carries no cycle at all.
+func legacyOrNew(count *int, unit *api.SubscriptionCycleUnit, cycle *api.SubscriptionCycle, days *int, curCount int, curUnit string) (int, string, bool, error) {
+	switch {
+	case count != nil || unit != nil:
+		if count == nil || unit == nil {
+			return 0, "", false, httpx.Invalid("周期的数字和单位要一起填")
+		}
+		return *count, string(*unit), true, nil
+	case cycle != nil || days != nil:
+		_, curDays := legacyCycle(curCount, curUnit)
+		c := cycleMonthly
+		if cycle != nil {
+			c = string(*cycle)
+		} else if lc, _ := legacyCycle(curCount, curUnit); lc != "" {
+			c = lc
+		}
+		d := curDays
+		if days != nil {
+			d = *days
+		}
+		switch c {
+		case cycleMonthly, cycleYearly:
+		case cycleCustom:
+			if d < 1 || d > 3660 {
+				return 0, "", false, httpx.Invalid("自定义周期要在 1 到 3660 天之间")
+			}
+		default:
+			return 0, "", false, httpx.Invalid("周期只能是 monthly、yearly 或 custom_days")
+		}
+		n, u := cycleFromLegacy(c, d)
+		return n, u, true, nil
+	}
+	return curCount, curUnit, false, nil
 }
 
 func (m *Module) getSubscription(ctx context.Context, id int64) (db.Subscription, error) {
@@ -133,6 +227,11 @@ func (m *Module) ListSubscriptions(w http.ResponseWriter, r *http.Request, param
 		httpx.Fail(w, r, err)
 		return
 	}
+	cats, err := m.categoryNames(r.Context())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	archived := params.Archived != nil && *params.Archived
 	day := today(m.now(), m.loc())
 	out := make([]api.Subscription, 0, len(rows))
@@ -140,7 +239,7 @@ func (m *Module) ListSubscriptions(w http.ResponseWriter, r *http.Request, param
 		if (s.ArchivedAt != nil) != archived {
 			continue
 		}
-		out = append(out, toAPISubscription(s, day))
+		out = append(out, toAPISubscription(s, day, cats))
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }
@@ -152,16 +251,26 @@ func (m *Module) CreateSubscription(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	f := subFields{name: body.Name, category: "other", currency: "CNY", cycle: string(body.Cycle), amount: body.Amount,
-		next: body.NextRenewal.Time, remind: []int{7, 1}}
-	if body.Category != nil {
-		f.category = string(*body.Category)
+	ctx := r.Context()
+	f := subFields{name: body.Name, currency: "CNY", amount: body.Amount, next: body.NextRenewal.Time, remind: []int{7, 1}}
+	other := api.SubscriptionCategory(categoryOther)
+	if body.CategoryId == nil && body.Category == nil {
+		body.Category = &other
+	}
+	cat, _, err := m.resolveCategory(ctx, body.CategoryId, body.Category)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	f.setCategory(cat)
+	cycle := body.Cycle
+	f.cycleCount, f.cycleUnit, _, err = legacyOrNew(body.CycleCount, body.CycleUnit, &cycle, body.CycleDays, 1, unitMonth)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
 	}
 	if body.Currency != nil {
 		f.currency = *body.Currency
-	}
-	if body.CycleDays != nil {
-		f.cycleDays = *body.CycleDays
 	}
 	if body.RemindDaysBefore != nil {
 		f.remind = *body.RemindDaysBefore
@@ -180,16 +289,23 @@ func (m *Module) CreateSubscription(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := m.now()
-	s, err := m.q.CreateSubscription(r.Context(), db.CreateSubscriptionParams{Name: f.name, Category: f.category, Amount: f.amount,
-		Currency: f.currency, Cycle: f.cycle, CycleDays: int64(f.cycleDays), NextRenewal: f.next.Format(dateLayout),
-		RemindDaysBefore: mustJSON(f.remind), Url: f.url, Note: f.note, AutoRenew: boolInt(f.autoRenew), CreatedAt: now, UpdatedAt: now})
-	m.d.Audit.Record(r.Context(), "subscription.create", "", map[string]any{"name": f.name}, err)
+	legacy, legacyDays := legacyCycle(f.cycleCount, f.cycleUnit)
+	s, err := m.q.CreateSubscription(ctx, db.CreateSubscriptionParams{Name: f.name, Category: f.builtin, CategoryID: &f.categoryID,
+		Amount: f.amount, Currency: f.currency, Cycle: legacy, CycleDays: int64(legacyDays), CycleCount: int64(f.cycleCount),
+		CycleUnit: f.cycleUnit, NextRenewal: f.next.Format(dateLayout), RemindDaysBefore: mustJSON(f.remind), Url: f.url,
+		Note: f.note, AutoRenew: boolInt(f.autoRenew), CreatedAt: now, UpdatedAt: now})
+	m.d.Audit.Record(ctx, "subscription.create", "", map[string]any{"name": f.name}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	m.subEvent(r.Context(), s.ID, now, eventCreated, "下次续费 "+s.NextRenewal)
-	out := toAPISubscription(s, today(now, m.loc()))
+	m.subEvent(ctx, s.ID, now, eventCreated, "下次续费 "+s.NextRenewal)
+	cats, err := m.categoryNames(ctx)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	out := toAPISubscription(s, today(now, m.loc()), cats)
 	m.d.Bus.Publish("subscription.created", out)
 	httpx.JSON(w, http.StatusCreated, out)
 }
@@ -201,7 +317,12 @@ func (m *Module) GetSubscription(w http.ResponseWriter, r *http.Request, id int6
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, toAPISubscription(s, today(m.now(), m.loc())))
+	cats, err := m.categoryNames(r.Context())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, toAPISubscription(s, today(m.now(), m.loc()), cats))
 }
 
 // UpdateSubscription is PATCH /subscriptions/{subscriptionId}.
@@ -218,13 +339,22 @@ func (m *Module) UpdateSubscription(w http.ResponseWriter, r *http.Request, id i
 		return
 	}
 	next, _ := parseDate(cur.NextRenewal)
-	f := subFields{name: cur.Name, category: cur.Category, currency: cur.Currency, cycle: cur.Cycle, url: cur.Url, note: cur.Note,
-		amount: cur.Amount, cycleDays: int(cur.CycleDays), next: next, remind: intList(cur.RemindDaysBefore), autoRenew: cur.AutoRenew == 1}
+	f := subFields{name: cur.Name, builtin: cur.Category, currency: cur.Currency, url: cur.Url, note: cur.Note,
+		amount: cur.Amount, cycleCount: int(cur.CycleCount), cycleUnit: cur.CycleUnit, next: next,
+		remind: intList(cur.RemindDaysBefore), autoRenew: cur.AutoRenew == 1}
+	if cur.CategoryID != nil {
+		f.categoryID = *cur.CategoryID
+	}
 	if body.Name != nil {
 		f.name = *body.Name
 	}
-	if body.Category != nil {
-		f.category = string(*body.Category)
+	cat, found, err := m.resolveCategory(ctx, body.CategoryId, body.Category)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if found {
+		f.setCategory(cat)
 	}
 	if body.Amount != nil {
 		f.amount = *body.Amount
@@ -232,11 +362,10 @@ func (m *Module) UpdateSubscription(w http.ResponseWriter, r *http.Request, id i
 	if body.Currency != nil {
 		f.currency = *body.Currency
 	}
-	if body.Cycle != nil {
-		f.cycle = string(*body.Cycle)
-	}
-	if body.CycleDays != nil {
-		f.cycleDays = *body.CycleDays
+	f.cycleCount, f.cycleUnit, _, err = legacyOrNew(body.CycleCount, body.CycleUnit, body.Cycle, body.CycleDays, f.cycleCount, f.cycleUnit)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
 	}
 	if body.NextRenewal != nil {
 		f.next = body.NextRenewal.Time
@@ -272,9 +401,11 @@ func (m *Module) UpdateSubscription(w http.ResponseWriter, r *http.Request, id i
 	if nextStr != cur.NextRenewal {
 		reminded = "[]" // a new renewal date gets its own reminders
 	}
-	s, err := m.q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{ID: id, Name: f.name, Category: f.category, Amount: f.amount,
-		Currency: f.currency, Cycle: f.cycle, CycleDays: int64(f.cycleDays), NextRenewal: nextStr, RemindDaysBefore: mustJSON(f.remind),
-		Reminded: reminded, Url: f.url, Note: f.note, AutoRenew: boolInt(f.autoRenew), ArchivedAt: archived, UpdatedAt: now})
+	legacy, legacyDays := legacyCycle(f.cycleCount, f.cycleUnit)
+	s, err := m.q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{ID: id, Name: f.name, Category: f.builtin, CategoryID: &f.categoryID,
+		Amount: f.amount, Currency: f.currency, Cycle: legacy, CycleDays: int64(legacyDays), CycleCount: int64(f.cycleCount),
+		CycleUnit: f.cycleUnit, NextRenewal: nextStr, RemindDaysBefore: mustJSON(f.remind), Reminded: reminded, Url: f.url,
+		Note: f.note, AutoRenew: boolInt(f.autoRenew), ArchivedAt: archived, UpdatedAt: now})
 	m.d.Audit.Record(ctx, "subscription.update", itoa(id), map[string]any{"name": f.name, "nextRenewal": nextStr}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -283,7 +414,12 @@ func (m *Module) UpdateSubscription(w http.ResponseWriter, r *http.Request, id i
 	if nextStr != cur.NextRenewal {
 		m.subEvent(ctx, id, now, eventUpdated, "续费日期 "+cur.NextRenewal+" → "+nextStr)
 	}
-	out := toAPISubscription(s, today(now, m.loc()))
+	cats, err := m.categoryNames(ctx)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	out := toAPISubscription(s, today(now, m.loc()), cats)
 	m.d.Bus.Publish("subscription.updated", out)
 	httpx.JSON(w, http.StatusOK, out)
 }
@@ -320,15 +456,18 @@ func (m *Module) ListSubscriptionEvents(w http.ResponseWriter, r *http.Request, 
 }
 
 // summary adds up active subscriptions per currency and category.
-func summary(rows []db.Subscription) api.SubscriptionSummary {
-	type key struct{ cat, cur string }
+func summary(rows []db.Subscription, cats map[int64]catInfo) api.SubscriptionSummary {
+	type key struct {
+		cat int64
+		cur string
+	}
 	totals := map[string]*api.SpendTotal{}
-	cats := map[key]*api.CategorySpend{}
+	by := map[key]*api.CategorySpend{}
 	for _, s := range rows {
 		if s.ArchivedAt != nil {
 			continue
 		}
-		mo := monthlyCost(s.Amount, s.Cycle, int(s.CycleDays))
+		mo := monthlyCost(s.Amount, int(s.CycleCount), s.CycleUnit)
 		t, ok := totals[s.Currency]
 		if !ok {
 			t = &api.SpendTotal{Currency: s.Currency}
@@ -336,11 +475,21 @@ func summary(rows []db.Subscription) api.SubscriptionSummary {
 		}
 		t.Monthly += mo
 		t.Count++
-		k := key{s.Category, s.Currency}
-		c, ok := cats[k]
+		var id int64
+		if s.CategoryID != nil {
+			id = *s.CategoryID
+		}
+		k := key{id, s.Currency}
+		c, ok := by[k]
 		if !ok {
 			c = &api.CategorySpend{Category: api.SubscriptionCategory(s.Category), Currency: s.Currency}
-			cats[k] = c
+			if s.CategoryID != nil {
+				c.CategoryId = s.CategoryID
+				if info, ok := cats[id]; ok {
+					c.CategoryName = &info.name
+				}
+			}
+			by[k] = c
 		}
 		c.Monthly += mo
 	}
@@ -350,7 +499,7 @@ func summary(rows []db.Subscription) api.SubscriptionSummary {
 		t.Monthly = round2(t.Monthly)
 		out.Totals = append(out.Totals, *t)
 	}
-	for _, c := range cats {
+	for _, c := range by {
 		c.Yearly = round2(c.Monthly * 12)
 		c.Monthly = round2(c.Monthly)
 		out.ByCategory = append(out.ByCategory, *c)
@@ -373,7 +522,12 @@ func (m *Module) GetSubscriptionSummary(w http.ResponseWriter, r *http.Request) 
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, summary(rows))
+	cats, err := m.categoryNames(r.Context())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, summary(rows, cats))
 }
 
 // scanSubscriptions moves auto-renewing subscriptions past their renewal
@@ -381,6 +535,10 @@ func (m *Module) GetSubscriptionSummary(w http.ResponseWriter, r *http.Request) 
 // running it many times a day sends each reminder once.
 func (m *Module) scanSubscriptions(ctx context.Context, now time.Time) error {
 	rows, err := m.q.ListSubscriptions(ctx)
+	if err != nil {
+		return err
+	}
+	cats, err := m.categoryNames(ctx)
 	if err != nil {
 		return err
 	}
@@ -400,7 +558,7 @@ func (m *Module) scanSubscriptions(ctx context.Context, now time.Time) error {
 		var renewedFrom string
 		if s.AutoRenew == 1 && next.Before(day) {
 			renewedFrom = s.NextRenewal
-			next = renewUntil(next, day, s.Cycle, int(s.CycleDays))
+			next = renewUntil(next, day, int(s.CycleCount), s.CycleUnit)
 			reminded = []int{}
 			changed = true
 		}
@@ -416,14 +574,15 @@ func (m *Module) scanSubscriptions(ctx context.Context, now time.Time) error {
 		if !changed {
 			continue
 		}
-		s, err = m.q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{ID: s.ID, Name: s.Name, Category: s.Category, Amount: s.Amount,
-			Currency: s.Currency, Cycle: s.Cycle, CycleDays: s.CycleDays, NextRenewal: next.Format(dateLayout),
+		s, err = m.q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{ID: s.ID, Name: s.Name, Category: s.Category,
+			CategoryID: s.CategoryID, Amount: s.Amount, Currency: s.Currency, Cycle: s.Cycle, CycleDays: s.CycleDays,
+			CycleCount: s.CycleCount, CycleUnit: s.CycleUnit, NextRenewal: next.Format(dateLayout),
 			RemindDaysBefore: s.RemindDaysBefore, Reminded: mustJSON(reminded), Url: s.Url, Note: s.Note, AutoRenew: s.AutoRenew,
 			ArchivedAt: s.ArchivedAt, UpdatedAt: now})
 		if err != nil {
 			return err
 		}
-		out := toAPISubscription(s, day)
+		out := toAPISubscription(s, day, cats)
 		if renewedFrom != "" {
 			m.subEvent(ctx, s.ID, now, eventRenewed, "自动续期 "+renewedFrom+" → "+s.NextRenewal)
 			m.d.Bus.Publish("subscription.renewed", out)

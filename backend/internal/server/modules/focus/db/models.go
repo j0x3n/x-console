@@ -624,6 +624,17 @@ type Subscription struct {
 	ArchivedAt       *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	CategoryID       *int64
+	CycleCount       int64
+	CycleUnit        string
+}
+
+type SubscriptionCategory struct {
+	ID        int64
+	Name      string
+	Builtin   *string
+	Position  int64
+	CreatedAt time.Time
 }
 
 type SubscriptionEvent struct {
