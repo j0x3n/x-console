@@ -32,7 +32,7 @@
 | 12e1 | B31 历史版本存储 | 做完 | `drive/versions.go`、`drive/content.go`、`drive/actions.go`、`drive/items.go`、迁移 `20260930000000`、sqlc 生成模型 | 保存旧内容、引用计数、动作写入和永久删除通过测试；接 12e2 |
 | 12e2 | B31 历史版本接口和保留规则 | 做完 | `drive/versions.go`、`drive/versions_api_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 列表、Range 读取、恢复、设置、保留数量清理和浏览器主流程已测；接 12f |
 | 12f1 | B31 分享管理 | 做完 | `drive/share.go`、`drive/share_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 创建、列表、删除、加密提取码、分享状态和浏览器主流程已测；接 12f2 |
-| 12f2 | B31 公开分享 | 没开始 | | 公开入口逐项校验 |
+| 12f2 | B31 公开分享 | 做完 | `drive/share_public.go`、`drive/share_public_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 匿名访问、限流、提取码锁定、范围校验、Range 下载计数、上限、ZIP 和浏览器主流程已测；接 12g |
 | 12g | B31 日志实时 | 没开始 | | 共用 `logfollow` 帧 |
 | 13 起 | B32 及以后 | 没开始 | | 按下面的顺序继续 |
 

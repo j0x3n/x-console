@@ -35,6 +35,9 @@ type Module struct {
 	taskSlots  chan struct{}
 	taskBase   context.Context
 	taskNow    func() time.Time
+	shareMu    sync.Mutex
+	shareHits  map[string]shareRate
+	shareFails map[string]shareFailure
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -44,7 +47,7 @@ func New(d *module.Deps) (module.Module, error) {
 	if err := os.MkdirAll(d.Config.TmpDir(), 0700); err != nil {
 		return nil, err
 	}
-	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now}
+	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure)}
 	m.registerActions()
 	return m, nil
 }
@@ -69,6 +72,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("drive.tasks.cleanup", time.Minute, m.pruneTasks)
 	m.d.Scheduler.Every("drive.versions.prune", 24*time.Hour, m.pruneVersions)
 	m.d.Scheduler.Every("drive.shares.prune", 24*time.Hour, m.pruneShares)
+	m.d.Scheduler.Every("drive.shares.rate_cleanup", time.Minute, m.pruneShareRates)
 	return nil
 }
 

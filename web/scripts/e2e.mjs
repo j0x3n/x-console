@@ -354,6 +354,15 @@ try {
   assert.equal(shareResponse.status(), 201, await shareResponse.text());
   const driveShare = await shareResponse.json();
   assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0]?.id, driveShare.id);
+  const publicShare = await page.context().request.get(
+    `${base}/api/v1/public/shares/${driveShare.token}`,
+  );
+  assert.equal(publicShare.status(), 200, await publicShare.text());
+  const publicContent = await page.context().request.get(
+    `${base}/api/v1/public/shares/${driveShare.token}/content`,
+  );
+  assert.equal(publicContent.status(), 200);
+  assert.equal(await publicContent.text(), "云盘内容可以预览。");
   const unshareResponse = await page.context().request.delete(
     `${base}/api/v1/drive/shares/${driveShare.id}`,
     { headers: { "X-Requested-With": "x-console" } },
