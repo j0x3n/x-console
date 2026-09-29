@@ -18,6 +18,7 @@ import { StatusIcon } from "./Icons";
 /** 看板：六列状态，拖动卡片改状态和顺序。 */
 export default function Board({
   issues,
+  categoryNames,
   selectedKey,
   onSelect,
   onOpen,
@@ -25,6 +26,8 @@ export default function Board({
   onAdd,
 }: {
   issues: Issue[];
+  /** 分类 id → “一级 / 二级” */
+  categoryNames?: Map<number, string>;
   selectedKey: string | null;
   onSelect: (key: string) => void;
   onOpen: (key: string) => void;
@@ -99,6 +102,11 @@ export default function Board({
                   <IssueCard
                     key={issue.key}
                     issue={issue}
+                    category={
+                      issue.categoryId
+                        ? categoryNames?.get(issue.categoryId)
+                        : undefined
+                    }
                     selected={issue.key === selectedKey}
                     dragging={issue.key === dragKey}
                     onClick={() => {

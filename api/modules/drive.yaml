@@ -319,6 +319,452 @@ paths:
               schema: { $ref: "#/components/schemas/S3Status" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /drive/zip:
+    get:
+      operationId: downloadDriveZip
+      tags: [drive]
+      description: |
+        B31。把选中的文件和文件夹打成一个 zip 边打包边下载，不落盘，不建任务。
+        文件夹递归打包，zip 里的路径从选中条目的名字开始。隐藏条目没解锁时回 404。
+        文件名默认“下载.zip”，只选一个条目时用它的名字。
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: zip 文件流
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/batch/copy:
+    post:
+      operationId: copyDriveItems
+      tags: [drive]
+      description: |
+        B31。复制到目标文件夹，在后台做，马上回 202 和任务。进度通过事件 drive_task.updated 推送。
+        同名时按 conflict 处理：skip 跳过，overwrite 覆盖（覆盖的旧文件进回收站），rename 加“ (1)”。
+        文件夹递归复制。目标是被复制的文件夹自己或它的子文件夹时回 400 invalid_target。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BatchTransfer" }
+      responses:
+        "202":
+          description: 任务已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveTask" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/batch/move:
+    post:
+      operationId: moveDriveItems
+      tags: [drive]
+      description: |
+        B31。批量移动，规则和复制一样。同一个存储里移动只改 parent_id，很快，但仍然返回任务，前端统一处理。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BatchTransfer" }
+      responses:
+        "202":
+          description: 任务已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveTask" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/archive:
+    post:
+      operationId: archiveDriveItems
+      tags: [drive]
+      description: |
+        B31。把选中的条目压缩成 zip 或 tar.gz，放在 parentId 目录（不传是根目录）。后台任务。
+        name 不带扩展名时服务端补上。重名时自动加“ (1)”。完成后任务的 resultId 是新文件。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArchiveRequest" }
+      responses:
+        "202":
+          description: 任务已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveTask" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}/extract:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      operationId: extractDriveItem
+      tags: [drive]
+      description: |
+        B31。解压 zip、tar、tar.gz、tgz。后台任务。
+        不传 targetId：在压缩包所在目录建一个同名文件夹（去掉扩展名，重名加“ (1)”），解压到里面。
+        传了 targetId（0 是根目录）：直接解压到那个文件夹，同名按 conflict 处理。
+        安全：有 .. 或绝对路径的条目直接让任务失败（error_code archive_unsafe_path）；
+        解压后总大小超过 10 GB 或条目超过 10 万个时停止（archive_too_large）；符号链接和设备文件跳过。
+        不支持的格式回 400 archive_unsupported。
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExtractRequest" }
+      responses:
+        "202":
+          description: 任务已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveTask" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/tasks:
+    get:
+      operationId: listDriveTasks
+      tags: [drive]
+      description: B31。正在跑的任务，加上最近 10 分钟内结束的任务，新的在前。只存在内存里，重启后清空。
+      responses:
+        "200":
+          description: 任务列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/DriveTask" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/tasks/{taskId}/cancel:
+    parameters:
+      - name: taskId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: cancelDriveTask
+      tags: [drive]
+      description: B31。取消任务。已经做完的部分保留（复制出来的文件不删），压缩和解压的半成品删掉。任务已结束时原样返回。
+      responses:
+        "200":
+          description: 任务当前状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveTask" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}/versions:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: listDriveVersions
+      tags: [drive]
+      description: B31。文件的历史版本，新的在前。不含当前版本。文件夹回 400。
+      responses:
+        "200":
+          description: 版本列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/DriveVersion" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}/versions/{versionId}/content:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+      - $ref: "#/components/parameters/VersionId"
+    get:
+      operationId: getDriveVersionContent
+      tags: [drive]
+      description: B31。某个历史版本的内容，支持 Range。
+      responses:
+        "200":
+          description: 内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/items/{itemId}/versions/{versionId}/restore:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+      - $ref: "#/components/parameters/VersionId"
+    post:
+      operationId: restoreDriveVersion
+      tags: [drive]
+      description: B31。用这个版本替换当前内容。替换前当前内容先存成一个新版本。响应头 ETag 是新版本。
+      responses:
+        "200":
+          description: 已恢复
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/version-settings:
+    get:
+      operationId: getDriveVersionSettings
+      tags: [drive]
+      responses:
+        "200":
+          description: 历史版本的保留规则
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveVersionSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putDriveVersionSettings
+      tags: [drive]
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveVersionSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DriveVersionSettings" }
+  /drive/items/{itemId}/follow:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: followDriveItem
+      tags: [drive]
+      description: |
+        B31 日志实时模式，WebSocket。offset 是前端已经读到的字节位置（一般是文件大小）。
+        服务端每秒看一次文件大小：变大就把新增部分推过来；变小（日志被轮转）先推 reset 再从 0 开始推。
+        每个文本帧是 DriveFollowFrame 的 JSON。一帧最多 256 KB，多的分几帧。
+      parameters:
+        - name: offset
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+      responses:
+        "101":
+          description: 升级为 WebSocket
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/shares:
+    get:
+      operationId: listDriveShares
+      tags: [drive]
+      description: B31。全部分享链接，新的在前。传 itemId 时只看这个条目的。
+      parameters:
+        - name: itemId
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 分享列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/DriveShare" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createDriveShare
+      tags: [drive]
+      description: |
+        B31。给文件或文件夹建分享链接。隐藏条目、回收站里的条目回 400 share_not_allowed。
+        同一个条目可以有多条链接。记审计 drive.share.create。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DriveShareInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveShare" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/shares/{shareId}:
+    parameters:
+      - name: shareId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      operationId: deleteDriveShare
+      tags: [drive]
+      description: B31。取消分享，链接马上失效。记审计 drive.share.delete。
+      responses:
+        "204":
+          description: 已取消
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/shares/{token}:
+    parameters:
+      - $ref: "#/components/parameters/ShareToken"
+    get:
+      operationId: getPublicShare
+      security: []
+      tags: [drive]
+      description: |
+        B31 公开入口，不用登录。链接不存在、已取消、已过期、条目被删或进了回收站、条目变成隐藏，一律回 404 share_not_found。
+        有提取码且没带有效的 t 时回 401 share_code_required（body 里没有文件信息）。
+        按 IP 限流：每分钟 60 次，超出回 429。
+      parameters:
+        - $ref: "#/components/parameters/ShareAccess"
+      responses:
+        "200":
+          description: 分享的基本信息
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicShare" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/shares/{token}/unlock:
+    parameters:
+      - $ref: "#/components/parameters/ShareToken"
+    post:
+      operationId: unlockPublicShare
+      security: []
+      tags: [drive]
+      description: |
+        B31。校验提取码，成功时发一个 1 小时有效的访问令牌 t，后面的请求都带上。
+        错了回 403 share_code_wrong，message 里写还能试几次。同一个 IP 对同一条链接错 5 次锁 10 分钟，锁住时回 429 share_locked。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200":
+          description: 通过
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access, expiresAt]
+                properties:
+                  access: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/shares/{token}/items:
+    parameters:
+      - $ref: "#/components/parameters/ShareToken"
+    get:
+      operationId: listPublicShareItems
+      security: []
+      tags: [drive]
+      description: |
+        B31。文件夹分享时列出内容。folder 不传是分享的那个文件夹本身；传了必须在分享的文件夹里面，否则 404。
+        隐藏条目和回收站里的条目不出现。
+      parameters:
+        - $ref: "#/components/parameters/ShareAccess"
+        - name: folder
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 条目
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, path]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PublicShareItem" }
+                  path:
+                    type: array
+                    description: 从分享的文件夹下面第一层到 folder 自己，不含分享的文件夹
+                    items:
+                      type: object
+                      required: [id, name]
+                      properties:
+                        id: { type: integer, format: int64 }
+                        name: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/shares/{token}/content:
+    parameters:
+      - $ref: "#/components/parameters/ShareToken"
+    get:
+      operationId: getPublicShareContent
+      security: []
+      tags: [drive]
+      description: |
+        B31。下载分享的文件。文件分享时不传 item；文件夹分享时 item 是里面的某个文件。支持 Range。
+        inline=1 用于预览（图片、视频、PDF）。不带 Range 或从 0 开始的请求才算一次下载。
+        下载次数到了上限回 410 share_limit_reached。
+      parameters:
+        - $ref: "#/components/parameters/ShareAccess"
+        - name: item
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: inline
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "206":
+          description: 部分内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/shares/{token}/zip:
+    parameters:
+      - $ref: "#/components/parameters/ShareToken"
+    get:
+      operationId: downloadPublicShareZip
+      security: []
+      tags: [drive]
+      description: B31。文件夹分享时把整个文件夹打包下载，边打包边传。算一次下载。
+      parameters:
+        - $ref: "#/components/parameters/ShareAccess"
+      responses:
+        "200":
+          description: zip 文件流
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     ItemId:
@@ -326,6 +772,22 @@ components:
       in: path
       required: true
       schema: { type: integer, format: int64 }
+    VersionId:
+      name: versionId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    ShareToken:
+      name: token
+      in: path
+      required: true
+      description: 链接里 /s/ 后面那 22 位
+      schema: { type: string }
+    ShareAccess:
+      name: t
+      in: query
+      description: unlock 发的访问令牌。没有提取码的分享不用传
+      schema: { type: string }
   schemas:
     DriveItem:
       type: object
@@ -347,6 +809,7 @@ components:
           enum: [synced, pending, failed, off]
           description: off 表示没配置 S3、或者隐藏文件没打开 includeHidden
         syncError: { type: string }
+        shared: { type: boolean, description: B31。有还在生效的分享链接 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     DriveItemWithPath:
@@ -416,3 +879,121 @@ components:
         pending: { type: integer }
         synced: { type: integer }
         failed: { type: integer }
+    ConflictPolicy:
+      type: string
+      enum: [skip, overwrite, rename]
+      description: 同名时怎么办。skip 跳过，overwrite 覆盖（旧的进回收站），rename 新的加“ (1)”
+    BatchTransfer:
+      type: object
+      required: [ids, targetId, conflict]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          items: { type: integer, format: int64 }
+        targetId: { type: integer, format: int64, description: 目标文件夹，0 是根目录 }
+        conflict: { $ref: "#/components/schemas/ConflictPolicy" }
+    ArchiveRequest:
+      type: object
+      required: [ids, name, format]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          items: { type: integer, format: int64 }
+        name: { type: string, minLength: 1, description: 压缩包名字，可以不带扩展名 }
+        format: { type: string, enum: [zip, tar.gz] }
+        parentId: { type: integer, format: int64, description: 放在哪个目录，不传是根目录 }
+    ExtractRequest:
+      type: object
+      properties:
+        targetId: { type: integer, format: int64, description: 不传就解压到同名的新文件夹 }
+        conflict: { $ref: "#/components/schemas/ConflictPolicy" }
+    DriveTask:
+      type: object
+      required: [id, kind, state, title, doneItems, totalItems, doneBytes, totalBytes, createdAt]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [copy, move, archive, extract] }
+        state: { type: string, enum: [running, done, failed, canceled] }
+        title: { type: string, description: 服务端写好的说明，比如“复制 3 项到 /照片” }
+        doneItems: { type: integer }
+        totalItems: { type: integer, description: 还没数完时是 0 }
+        doneBytes: { type: integer, format: int64 }
+        totalBytes: { type: integer, format: int64 }
+        current: { type: string, description: 正在处理的文件名 }
+        skipped: { type: integer, description: 因为同名跳过的数量 }
+        error: { type: string }
+        errorCode: { type: string, description: 比如 archive_unsafe_path、archive_too_large }
+        resultId: { type: integer, format: int64, description: 压缩出来的文件、解压出来的文件夹 }
+        targetId: { type: integer, format: int64, description: 目标文件夹，0 是根目录，完成后前端可以跳过去 }
+        createdAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+    DriveVersion:
+      type: object
+      required: [id, size, sha256, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        sha256: { type: string }
+        createdAt: { type: string, format: date-time, description: 这个版本被替换下来的时间 }
+    DriveVersionSettings:
+      type: object
+      required: [keepCount, keepDays]
+      properties:
+        keepCount: { type: integer, minimum: 1, maximum: 500, description: 每个文件最多留几个版本，默认 50 }
+        keepDays: { type: integer, minimum: 1, maximum: 3650, description: 最多留多少天，默认 30 }
+    DriveFollowFrame:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [append, reset] }
+        offset: { type: integer, format: int64, description: append 时这段内容在文件里的起始位置 }
+        data: { type: string, description: append 时新增的内容，按 UTF-8 解码，解不开的字节换成 U+FFFD }
+    DriveShareInput:
+      type: object
+      required: [itemId, expiresIn]
+      properties:
+        itemId: { type: integer, format: int64 }
+        expiresIn: { type: string, enum: [1d, 7d, 30d, never] }
+        code: { type: string, pattern: "^[A-Za-z0-9]{4,8}$", description: 提取码，不传就不用提取码 }
+        maxDownloads: { type: integer, minimum: 1, description: 下载次数上限，不传就不限 }
+    DriveShare:
+      type: object
+      required: [id, itemId, itemName, isDir, token, url, visits, downloads, createdAt, active]
+      properties:
+        id: { type: integer, format: int64 }
+        itemId: { type: integer, format: int64 }
+        itemName: { type: string }
+        isDir: { type: boolean }
+        token: { type: string }
+        url: { type: string, description: 完整链接，https://<面板>/s/<token> }
+        code: { type: string, description: 提取码，只有主人能看到。没设就不返回 }
+        expiresAt: { type: string, format: date-time, description: 不返回表示永久 }
+        maxDownloads: { type: integer }
+        visits: { type: integer }
+        downloads: { type: integer }
+        active: { type: boolean, description: false 表示已过期、次数用完、条目被删或隐藏。列表里保留 7 天方便查看，之后清掉 }
+        createdAt: { type: string, format: date-time }
+        lastAccessAt: { type: string, format: date-time }
+    PublicShare:
+      type: object
+      required: [name, isDir, size]
+      properties:
+        name: { type: string }
+        isDir: { type: boolean }
+        size: { type: integer, format: int64, description: 文件夹是里面所有文件的总大小 }
+        mime: { type: string }
+        updatedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        downloadsLeft: { type: integer, description: 还能下载几次，不限时不返回 }
+    PublicShareItem:
+      type: object
+      required: [id, name, isDir, size, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        isDir: { type: boolean }
+        size: { type: integer, format: int64 }
+        mime: { type: string }
+        updatedAt: { type: string, format: date-time }

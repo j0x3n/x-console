@@ -368,6 +368,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hosts/{hostId}/files/range": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description B33。读远端文件的一段，给“文件”标签的日志查看器用。响应头 X-File-Size 是文件当前的大小。
+         *     代理没有 files.range 能力（旧版代理）时回 501。
+         */
+        get: operations["readFileRange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hosts/{hostId}/files/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description B33。远端文件的实时模式，WebSocket，和云盘的 /drive/items/{itemId}/follow 一样。
+         *     offset 是前端已经读到的位置。服务端每秒看一次文件大小：变大就推新增的部分；变小先推 reset 再从 0 开始推。
+         *     每个文本帧是 HostFileFollowFrame 的 JSON，一帧最多 256 KB。
+         */
+        get: operations["followHostFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/hosts/{hostId}/exec": {
         parameters: {
             query?: never;
@@ -889,6 +936,17 @@ export interface components {
         };
         ServiceLogs: {
             lines: string[];
+        };
+        HostFileFollowFrame: {
+            /** @enum {string} */
+            type: "append" | "reset";
+            /**
+             * Format: int64
+             * @description append 时这段内容在文件里的起始位置
+             */
+            offset?: number;
+            /** @description append 时新增的内容，按 UTF-8 解码，解不开的字节换成 U+FFFD */
+            data?: string;
         };
         FileEntry: {
             name: string;
@@ -1590,6 +1648,61 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FileEntry"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    readFileRange: {
+        parameters: {
+            query: {
+                path: string;
+                offset: number;
+                /** @description 最多 1 MB */
+                length: number;
+            };
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 这一段的内容，可能比 length 短（到了文件结尾） */
+            200: {
+                headers: {
+                    "X-File-Size"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    followHostFile: {
+        parameters: {
+            query: {
+                path: string;
+                offset: number;
+            };
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 升级为 WebSocket */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

@@ -96,3 +96,38 @@ export function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
 export function clampZoom(zoom: number): number {
   return Math.min(8, Math.max(0.1, Math.round(zoom * 100) / 100));
 }
+
+/** 实时模式下最多留多少行，多了从前面丢掉。 */
+export const LIVE_MAX_LINES = 50_000;
+
+/**
+ * 实时模式收到新内容时接到已有的行后面（B31）。
+ * openLast 表示最后一行还没遇到换行，新内容的第一段要接在它后面。
+ */
+export function appendLog(
+  lines: { id: number; text: string }[],
+  openLast: boolean,
+  data: string,
+  nextId: number,
+): {
+  lines: { id: number; text: string }[];
+  openLast: boolean;
+  nextId: number;
+} {
+  if (data === "") return { lines, openLast, nextId };
+  const parts = data.split("\n");
+  const endsOpen = parts[parts.length - 1] !== "";
+  if (!endsOpen) parts.pop();
+  const out = lines.slice();
+  let id = nextId;
+  let i = 0;
+  if (openLast && out.length > 0) {
+    const last = out[out.length - 1];
+    out[out.length - 1] = { ...last, text: last.text + parts[0] };
+    i = 1;
+  }
+  for (; i < parts.length; i++) out.push({ id: id++, text: parts[i] });
+  const trimmed =
+    out.length > LIVE_MAX_LINES ? out.slice(out.length - LIVE_MAX_LINES) : out;
+  return { lines: trimmed, openLast: endsOpen, nextId: id };
+}

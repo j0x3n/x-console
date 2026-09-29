@@ -101,4 +101,54 @@ registerZh({
   "Turn on quiet hours": "开启免打扰",
   From: "开始",
   To: "结束",
+  // B34：浏览器推送自检
+  Remove: "移除",
+  "X Console test": "X Console 测试",
+  "This one comes from the page itself.": "这条是页面自己弹的，没经过服务器。",
+  "Chrome pushes through Google. It may not arrive on networks in mainland China. Try Edge or Safari.":
+    "Chrome 的推送走谷歌的服务器，国内网络可能收不到。可以换 Edge 或 Safari。",
+  "Check on this device": "本机检查",
+  "Push from the server": "服务器推送",
+  Sending: "发送中",
+  Browser: "浏览器",
+  "Accepted by the push service": "推送服务已接收",
+  "Can I get pushes when the panel is closed?": "关掉面板还能收到吗？",
+  "Yes, as long as the browser is still running. On a computer, keep the browser running in the background.":
+    "能，只要浏览器还在运行。电脑上要让浏览器在后台运行。",
+  "iPhone needs iOS 16.4 or later. Add the panel to the Home Screen and turn on push from there.":
+    "iPhone 要 iOS 16.4 以上。先把面板添加到主屏幕，从主屏幕打开后再开启推送。",
+  "Chrome on Android needs Google services.": "安卓上的 Chrome 需要谷歌服务。",
+  "For more reliable alerts, also turn on Bark or Telegram.":
+    "想要更稳，可以同时开 Bark 或 Telegram。",
+  "No browser is subscribed yet.": "还没有浏览器订阅。",
+  "This browser": "这个浏览器",
+  "Last delivered": "上次送达",
+  "That browser stops getting push notifications.":
+    "那个浏览器就收不到推送了。",
+  "Google (Chrome)": "谷歌（Chrome）",
+  "Microsoft (Edge)": "微软（Edge）",
+  "Mozilla (Firefox)": "Mozilla（Firefox）",
+  "Apple (Safari)": "苹果（Safari）",
+  "Other push service": "其他推送服务",
+  "Windows: open Settings, System, Notifications, turn on this browser, and turn off Do not disturb.":
+    "Windows：打开 设置 → 系统 → 通知，打开这个浏览器，再关掉“请勿打扰”。",
+  "macOS: open System Settings, Notifications, find this browser and allow notifications.":
+    "macOS：打开 系统设置 → 通知，找到这个浏览器，允许通知。",
+  "Android: open Settings, Apps, this browser, Notifications, and turn them all on.":
+    "Android：打开 设置 → 应用 → 这个浏览器 → 通知，全部打开。",
+  "iPhone: add the panel to the Home Screen, open it from there, then turn on push. Then allow it in Settings, Notifications.":
+    "iPhone：先把面板添加到主屏幕，从主屏幕打开后开启推送，再到 设置 → 通知 里允许。",
+  "Allow notifications for this browser in your system settings.":
+    "在系统的通知设置里允许这个浏览器显示通知。",
+  "A local notification was sent. If you did not see it, the system is not letting this browser show notifications.":
+    "已经在本机弹了一条通知。没看到的话，是系统没允许这个浏览器显示通知。",
+  "Turn on browser push first.": "先开启浏览器推送。",
+  "The browser could not show a notification.": "浏览器没能弹出通知。",
+  // B37：其他模块的到期事项
+  "Show other modules": "显示其他模块",
+  Subscription: "订阅",
+  Certificate: "证书",
+  Domain: "域名",
+  Issue: "Issue",
+  Overdue: "已过期",
 });

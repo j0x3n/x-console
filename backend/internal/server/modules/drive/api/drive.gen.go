@@ -14,6 +14,45 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ArchiveRequestFormat.
+const (
+	TarGz ArchiveRequestFormat = "tar.gz"
+	Zip   ArchiveRequestFormat = "zip"
+)
+
+// Valid indicates whether the value is a known member of the ArchiveRequestFormat enum.
+func (e ArchiveRequestFormat) Valid() bool {
+	switch e {
+	case TarGz:
+		return true
+	case Zip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ConflictPolicy.
+const (
+	Overwrite ConflictPolicy = "overwrite"
+	Rename    ConflictPolicy = "rename"
+	Skip      ConflictPolicy = "skip"
+)
+
+// Valid indicates whether the value is a known member of the ConflictPolicy enum.
+func (e ConflictPolicy) Valid() bool {
+	switch e {
+	case Overwrite:
+		return true
+	case Rename:
+		return true
+	case Skip:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DriveItemSyncState.
 const (
 	DriveItemSyncStateFailed  DriveItemSyncState = "failed"
@@ -62,6 +101,78 @@ func (e DriveItemWithPathSyncState) Valid() bool {
 	}
 }
 
+// Defines values for DriveShareInputExpiresIn.
+const (
+	N1d   DriveShareInputExpiresIn = "1d"
+	N30d  DriveShareInputExpiresIn = "30d"
+	N7d   DriveShareInputExpiresIn = "7d"
+	Never DriveShareInputExpiresIn = "never"
+)
+
+// Valid indicates whether the value is a known member of the DriveShareInputExpiresIn enum.
+func (e DriveShareInputExpiresIn) Valid() bool {
+	switch e {
+	case N1d:
+		return true
+	case N30d:
+		return true
+	case N7d:
+		return true
+	case Never:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DriveTaskKind.
+const (
+	Archive DriveTaskKind = "archive"
+	Copy    DriveTaskKind = "copy"
+	Extract DriveTaskKind = "extract"
+	Move    DriveTaskKind = "move"
+)
+
+// Valid indicates whether the value is a known member of the DriveTaskKind enum.
+func (e DriveTaskKind) Valid() bool {
+	switch e {
+	case Archive:
+		return true
+	case Copy:
+		return true
+	case Extract:
+		return true
+	case Move:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DriveTaskState.
+const (
+	DriveTaskStateCanceled DriveTaskState = "canceled"
+	DriveTaskStateDone     DriveTaskState = "done"
+	DriveTaskStateFailed   DriveTaskState = "failed"
+	DriveTaskStateRunning  DriveTaskState = "running"
+)
+
+// Valid indicates whether the value is a known member of the DriveTaskState enum.
+func (e DriveTaskState) Valid() bool {
+	switch e {
+	case DriveTaskStateCanceled:
+		return true
+	case DriveTaskStateDone:
+		return true
+	case DriveTaskStateFailed:
+		return true
+	case DriveTaskStateRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for S3StatusState.
 const (
 	S3StatusStateFailed  S3StatusState = "failed"
@@ -86,6 +197,34 @@ func (e S3StatusState) Valid() bool {
 	}
 }
 
+// ArchiveRequest defines model for ArchiveRequest.
+type ArchiveRequest struct {
+	Format ArchiveRequestFormat `json:"format"`
+	Ids    []int64              `json:"ids"`
+
+	// Name 压缩包名字，可以不带扩展名
+	Name string `json:"name"`
+
+	// ParentId 放在哪个目录，不传是根目录
+	ParentId *int64 `json:"parentId,omitempty"`
+}
+
+// ArchiveRequestFormat defines model for ArchiveRequest.Format.
+type ArchiveRequestFormat string
+
+// BatchTransfer defines model for BatchTransfer.
+type BatchTransfer struct {
+	// Conflict 同名时怎么办。skip 跳过，overwrite 覆盖（旧的进回收站），rename 新的加“ (1)”
+	Conflict ConflictPolicy `json:"conflict"`
+	Ids      []int64        `json:"ids"`
+
+	// TargetId 目标文件夹，0 是根目录
+	TargetId int64 `json:"targetId"`
+}
+
+// ConflictPolicy 同名时怎么办。skip 跳过，overwrite 覆盖（旧的进回收站），rename 新的加“ (1)”
+type ConflictPolicy string
+
 // DriveItem defines model for DriveItem.
 type DriveItem struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -102,6 +241,9 @@ type DriveItem struct {
 
 	// RestoreTo 隐藏空间最上层的条目才有：隐藏前所在文件夹的路径，比如 /项目资料，根目录是 /
 	RestoreTo *string `json:"restoreTo,omitempty"`
+
+	// Shared B31。有还在生效的分享链接
+	Shared *bool `json:"shared,omitempty"`
 
 	// Size 文件夹为 0
 	Size      int64   `json:"size"`
@@ -139,6 +281,9 @@ type DriveItemWithPath struct {
 	// RestoreTo 隐藏空间最上层的条目才有：隐藏前所在文件夹的路径，比如 /项目资料，根目录是 /
 	RestoreTo *string `json:"restoreTo,omitempty"`
 
+	// Shared B31。有还在生效的分享链接
+	Shared *bool `json:"shared,omitempty"`
+
 	// Size 文件夹为 0
 	Size      int64   `json:"size"`
 	SyncError *string `json:"syncError,omitempty"`
@@ -151,6 +296,136 @@ type DriveItemWithPath struct {
 
 // DriveItemWithPathSyncState off 表示没配置 S3、或者隐藏文件没打开 includeHidden
 type DriveItemWithPathSyncState string
+
+// DriveShare defines model for DriveShare.
+type DriveShare struct {
+	// Active false 表示已过期、次数用完、条目被删或隐藏。列表里保留 7 天方便查看，之后清掉
+	Active bool `json:"active"`
+
+	// Code 提取码，只有主人能看到。没设就不返回
+	Code      *string   `json:"code,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	Downloads int       `json:"downloads"`
+
+	// ExpiresAt 不返回表示永久
+	ExpiresAt    *time.Time `json:"expiresAt,omitempty"`
+	Id           int64      `json:"id"`
+	IsDir        bool       `json:"isDir"`
+	ItemId       int64      `json:"itemId"`
+	ItemName     string     `json:"itemName"`
+	LastAccessAt *time.Time `json:"lastAccessAt,omitempty"`
+	MaxDownloads *int       `json:"maxDownloads,omitempty"`
+	Token        string     `json:"token"`
+
+	// Url 完整链接，https://<面板>/s/<token>
+	Url    string `json:"url"`
+	Visits int    `json:"visits"`
+}
+
+// DriveShareInput defines model for DriveShareInput.
+type DriveShareInput struct {
+	// Code 提取码，不传就不用提取码
+	Code      *string                  `json:"code,omitempty"`
+	ExpiresIn DriveShareInputExpiresIn `json:"expiresIn"`
+	ItemId    int64                    `json:"itemId"`
+
+	// MaxDownloads 下载次数上限，不传就不限
+	MaxDownloads *int `json:"maxDownloads,omitempty"`
+}
+
+// DriveShareInputExpiresIn defines model for DriveShareInput.ExpiresIn.
+type DriveShareInputExpiresIn string
+
+// DriveTask defines model for DriveTask.
+type DriveTask struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Current 正在处理的文件名
+	Current   *string `json:"current,omitempty"`
+	DoneBytes int64   `json:"doneBytes"`
+	DoneItems int     `json:"doneItems"`
+	Error     *string `json:"error,omitempty"`
+
+	// ErrorCode 比如 archive_unsafe_path、archive_too_large
+	ErrorCode  *string       `json:"errorCode,omitempty"`
+	FinishedAt *time.Time    `json:"finishedAt,omitempty"`
+	Id         string        `json:"id"`
+	Kind       DriveTaskKind `json:"kind"`
+
+	// ResultId 压缩出来的文件、解压出来的文件夹
+	ResultId *int64 `json:"resultId,omitempty"`
+
+	// Skipped 因为同名跳过的数量
+	Skipped *int           `json:"skipped,omitempty"`
+	State   DriveTaskState `json:"state"`
+
+	// TargetId 目标文件夹，0 是根目录，完成后前端可以跳过去
+	TargetId *int64 `json:"targetId,omitempty"`
+
+	// Title 服务端写好的说明，比如“复制 3 项到 /照片”
+	Title      string `json:"title"`
+	TotalBytes int64  `json:"totalBytes"`
+
+	// TotalItems 还没数完时是 0
+	TotalItems int `json:"totalItems"`
+}
+
+// DriveTaskKind defines model for DriveTask.Kind.
+type DriveTaskKind string
+
+// DriveTaskState defines model for DriveTask.State.
+type DriveTaskState string
+
+// DriveVersion defines model for DriveVersion.
+type DriveVersion struct {
+	// CreatedAt 这个版本被替换下来的时间
+	CreatedAt time.Time `json:"createdAt"`
+	Id        int64     `json:"id"`
+	Sha256    string    `json:"sha256"`
+	Size      int64     `json:"size"`
+}
+
+// DriveVersionSettings defines model for DriveVersionSettings.
+type DriveVersionSettings struct {
+	// KeepCount 每个文件最多留几个版本，默认 50
+	KeepCount int `json:"keepCount"`
+
+	// KeepDays 最多留多少天，默认 30
+	KeepDays int `json:"keepDays"`
+}
+
+// ExtractRequest defines model for ExtractRequest.
+type ExtractRequest struct {
+	// Conflict 同名时怎么办。skip 跳过，overwrite 覆盖（旧的进回收站），rename 新的加“ (1)”
+	Conflict *ConflictPolicy `json:"conflict,omitempty"`
+
+	// TargetId 不传就解压到同名的新文件夹
+	TargetId *int64 `json:"targetId,omitempty"`
+}
+
+// PublicShare defines model for PublicShare.
+type PublicShare struct {
+	// DownloadsLeft 还能下载几次，不限时不返回
+	DownloadsLeft *int       `json:"downloadsLeft,omitempty"`
+	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
+	IsDir         bool       `json:"isDir"`
+	Mime          *string    `json:"mime,omitempty"`
+	Name          string     `json:"name"`
+
+	// Size 文件夹是里面所有文件的总大小
+	Size      int64      `json:"size"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+}
+
+// PublicShareItem defines model for PublicShareItem.
+type PublicShareItem struct {
+	Id        int64     `json:"id"`
+	IsDir     bool      `json:"isDir"`
+	Mime      *string   `json:"mime,omitempty"`
+	Name      string    `json:"name"`
+	Size      int64     `json:"size"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
 
 // S3Config defines model for S3Config.
 type S3Config struct {
@@ -214,6 +489,15 @@ type UpdateDriveItem struct {
 // ItemId defines model for ItemId.
 type ItemId = int64
 
+// ShareAccess defines model for ShareAccess.
+type ShareAccess = string
+
+// ShareToken defines model for ShareToken.
+type ShareToken = string
+
+// VersionId defines model for VersionId.
+type VersionId = int64
+
 // CreateDriveFolderJSONBody defines parameters for CreateDriveFolder.
 type CreateDriveFolderJSONBody struct {
 	// Hidden 直接建成隐藏文件夹，要先解锁
@@ -249,6 +533,16 @@ type SaveDriveItemContentParams struct {
 	IfMatch *string `json:"If-Match,omitempty"`
 }
 
+// FollowDriveItemParams defines parameters for FollowDriveItem.
+type FollowDriveItemParams struct {
+	Offset int64 `form:"offset" json:"offset"`
+}
+
+// ListDriveSharesParams defines parameters for ListDriveShares.
+type ListDriveSharesParams struct {
+	ItemId *int64 `form:"itemId,omitempty" json:"itemId,omitempty"`
+}
+
 // UploadDriveFilesMultipartBody defines parameters for UploadDriveFiles.
 type UploadDriveFilesMultipartBody struct {
 	File *[]openapi_types.File `json:"file,omitempty"`
@@ -260,6 +554,52 @@ type UploadDriveFilesParams struct {
 	Hidden *bool  `form:"hidden,omitempty" json:"hidden,omitempty"`
 }
 
+// DownloadDriveZipParams defines parameters for DownloadDriveZip.
+type DownloadDriveZipParams struct {
+	Ids []int64 `form:"ids" json:"ids"`
+}
+
+// GetPublicShareParams defines parameters for GetPublicShare.
+type GetPublicShareParams struct {
+	// T unlock 发的访问令牌。没有提取码的分享不用传
+	T *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
+}
+
+// GetPublicShareContentParams defines parameters for GetPublicShareContent.
+type GetPublicShareContentParams struct {
+	// T unlock 发的访问令牌。没有提取码的分享不用传
+	T      *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
+	Item   *int64       `form:"item,omitempty" json:"item,omitempty"`
+	Inline *bool        `form:"inline,omitempty" json:"inline,omitempty"`
+}
+
+// ListPublicShareItemsParams defines parameters for ListPublicShareItems.
+type ListPublicShareItemsParams struct {
+	// T unlock 发的访问令牌。没有提取码的分享不用传
+	T      *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
+	Folder *int64       `form:"folder,omitempty" json:"folder,omitempty"`
+}
+
+// UnlockPublicShareJSONBody defines parameters for UnlockPublicShare.
+type UnlockPublicShareJSONBody struct {
+	Code string `json:"code"`
+}
+
+// DownloadPublicShareZipParams defines parameters for DownloadPublicShareZip.
+type DownloadPublicShareZipParams struct {
+	// T unlock 发的访问令牌。没有提取码的分享不用传
+	T *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
+}
+
+// ArchiveDriveItemsJSONRequestBody defines body for ArchiveDriveItems for application/json ContentType.
+type ArchiveDriveItemsJSONRequestBody = ArchiveRequest
+
+// CopyDriveItemsJSONRequestBody defines body for CopyDriveItems for application/json ContentType.
+type CopyDriveItemsJSONRequestBody = BatchTransfer
+
+// MoveDriveItemsJSONRequestBody defines body for MoveDriveItems for application/json ContentType.
+type MoveDriveItemsJSONRequestBody = BatchTransfer
+
 // CreateDriveFolderJSONRequestBody defines body for CreateDriveFolder for application/json ContentType.
 type CreateDriveFolderJSONRequestBody CreateDriveFolderJSONBody
 
@@ -269,17 +609,38 @@ type UpdateDriveItemJSONRequestBody = UpdateDriveItem
 // SaveDriveItemContentTextRequestBody defines body for SaveDriveItemContent for text/plain ContentType.
 type SaveDriveItemContentTextRequestBody = SaveDriveItemContentTextBody
 
+// ExtractDriveItemJSONRequestBody defines body for ExtractDriveItem for application/json ContentType.
+type ExtractDriveItemJSONRequestBody = ExtractRequest
+
 // PutDriveS3ConfigJSONRequestBody defines body for PutDriveS3Config for application/json ContentType.
 type PutDriveS3ConfigJSONRequestBody = S3ConfigInput
 
 // TestDriveS3JSONRequestBody defines body for TestDriveS3 for application/json ContentType.
 type TestDriveS3JSONRequestBody = S3ConfigInput
 
+// CreateDriveShareJSONRequestBody defines body for CreateDriveShare for application/json ContentType.
+type CreateDriveShareJSONRequestBody = DriveShareInput
+
 // UploadDriveFilesMultipartRequestBody defines body for UploadDriveFiles for multipart/form-data ContentType.
 type UploadDriveFilesMultipartRequestBody UploadDriveFilesMultipartBody
 
+// PutDriveVersionSettingsJSONRequestBody defines body for PutDriveVersionSettings for application/json ContentType.
+type PutDriveVersionSettingsJSONRequestBody = DriveVersionSettings
+
+// UnlockPublicShareJSONRequestBody defines body for UnlockPublicShare for application/json ContentType.
+type UnlockPublicShareJSONRequestBody UnlockPublicShareJSONBody
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (POST /drive/archive)
+	ArchiveDriveItems(w http.ResponseWriter, r *http.Request)
+
+	// (POST /drive/batch/copy)
+	CopyDriveItems(w http.ResponseWriter, r *http.Request)
+
+	// (POST /drive/batch/move)
+	MoveDriveItems(w http.ResponseWriter, r *http.Request)
 
 	// (POST /drive/folders)
 	CreateDriveFolder(w http.ResponseWriter, r *http.Request)
@@ -302,11 +663,26 @@ type ServerInterface interface {
 	// (PUT /drive/items/{itemId}/content)
 	SaveDriveItemContent(w http.ResponseWriter, r *http.Request, itemId ItemId, params SaveDriveItemContentParams)
 
+	// (POST /drive/items/{itemId}/extract)
+	ExtractDriveItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
+
+	// (GET /drive/items/{itemId}/follow)
+	FollowDriveItem(w http.ResponseWriter, r *http.Request, itemId ItemId, params FollowDriveItemParams)
+
 	// (POST /drive/items/{itemId}/restore)
 	RestoreDriveItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
 
 	// (GET /drive/items/{itemId}/thumbnail)
 	GetDriveItemThumbnail(w http.ResponseWriter, r *http.Request, itemId ItemId)
+
+	// (GET /drive/items/{itemId}/versions)
+	ListDriveVersions(w http.ResponseWriter, r *http.Request, itemId ItemId)
+
+	// (GET /drive/items/{itemId}/versions/{versionId}/content)
+	GetDriveVersionContent(w http.ResponseWriter, r *http.Request, itemId ItemId, versionId VersionId)
+
+	// (POST /drive/items/{itemId}/versions/{versionId}/restore)
+	RestoreDriveVersion(w http.ResponseWriter, r *http.Request, itemId ItemId, versionId VersionId)
 
 	// (GET /drive/s3)
 	GetDriveS3Config(w http.ResponseWriter, r *http.Request)
@@ -323,16 +699,70 @@ type ServerInterface interface {
 	// (POST /drive/s3/test)
 	TestDriveS3(w http.ResponseWriter, r *http.Request)
 
+	// (GET /drive/shares)
+	ListDriveShares(w http.ResponseWriter, r *http.Request, params ListDriveSharesParams)
+
+	// (POST /drive/shares)
+	CreateDriveShare(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /drive/shares/{shareId})
+	DeleteDriveShare(w http.ResponseWriter, r *http.Request, shareId int64)
+
+	// (GET /drive/tasks)
+	ListDriveTasks(w http.ResponseWriter, r *http.Request)
+
+	// (POST /drive/tasks/{taskId}/cancel)
+	CancelDriveTask(w http.ResponseWriter, r *http.Request, taskId string)
+
 	// (POST /drive/upload)
 	UploadDriveFiles(w http.ResponseWriter, r *http.Request, params UploadDriveFilesParams)
 
 	// (GET /drive/usage)
 	GetDriveUsage(w http.ResponseWriter, r *http.Request)
+
+	// (GET /drive/version-settings)
+	GetDriveVersionSettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /drive/version-settings)
+	PutDriveVersionSettings(w http.ResponseWriter, r *http.Request)
+
+	// (GET /drive/zip)
+	DownloadDriveZip(w http.ResponseWriter, r *http.Request, params DownloadDriveZipParams)
+
+	// (GET /public/shares/{token})
+	GetPublicShare(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicShareParams)
+
+	// (GET /public/shares/{token}/content)
+	GetPublicShareContent(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicShareContentParams)
+
+	// (GET /public/shares/{token}/items)
+	ListPublicShareItems(w http.ResponseWriter, r *http.Request, token ShareToken, params ListPublicShareItemsParams)
+
+	// (POST /public/shares/{token}/unlock)
+	UnlockPublicShare(w http.ResponseWriter, r *http.Request, token ShareToken)
+
+	// (GET /public/shares/{token}/zip)
+	DownloadPublicShareZip(w http.ResponseWriter, r *http.Request, token ShareToken, params DownloadPublicShareZipParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// (POST /drive/archive)
+func (_ Unimplemented) ArchiveDriveItems(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /drive/batch/copy)
+func (_ Unimplemented) CopyDriveItems(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /drive/batch/move)
+func (_ Unimplemented) MoveDriveItems(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // (POST /drive/folders)
 func (_ Unimplemented) CreateDriveFolder(w http.ResponseWriter, r *http.Request) {
@@ -369,6 +799,16 @@ func (_ Unimplemented) SaveDriveItemContent(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /drive/items/{itemId}/extract)
+func (_ Unimplemented) ExtractDriveItem(w http.ResponseWriter, r *http.Request, itemId ItemId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /drive/items/{itemId}/follow)
+func (_ Unimplemented) FollowDriveItem(w http.ResponseWriter, r *http.Request, itemId ItemId, params FollowDriveItemParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /drive/items/{itemId}/restore)
 func (_ Unimplemented) RestoreDriveItem(w http.ResponseWriter, r *http.Request, itemId ItemId) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -376,6 +816,21 @@ func (_ Unimplemented) RestoreDriveItem(w http.ResponseWriter, r *http.Request, 
 
 // (GET /drive/items/{itemId}/thumbnail)
 func (_ Unimplemented) GetDriveItemThumbnail(w http.ResponseWriter, r *http.Request, itemId ItemId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /drive/items/{itemId}/versions)
+func (_ Unimplemented) ListDriveVersions(w http.ResponseWriter, r *http.Request, itemId ItemId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /drive/items/{itemId}/versions/{versionId}/content)
+func (_ Unimplemented) GetDriveVersionContent(w http.ResponseWriter, r *http.Request, itemId ItemId, versionId VersionId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /drive/items/{itemId}/versions/{versionId}/restore)
+func (_ Unimplemented) RestoreDriveVersion(w http.ResponseWriter, r *http.Request, itemId ItemId, versionId VersionId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -404,6 +859,31 @@ func (_ Unimplemented) TestDriveS3(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /drive/shares)
+func (_ Unimplemented) ListDriveShares(w http.ResponseWriter, r *http.Request, params ListDriveSharesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /drive/shares)
+func (_ Unimplemented) CreateDriveShare(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /drive/shares/{shareId})
+func (_ Unimplemented) DeleteDriveShare(w http.ResponseWriter, r *http.Request, shareId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /drive/tasks)
+func (_ Unimplemented) ListDriveTasks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /drive/tasks/{taskId}/cancel)
+func (_ Unimplemented) CancelDriveTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /drive/upload)
 func (_ Unimplemented) UploadDriveFiles(w http.ResponseWriter, r *http.Request, params UploadDriveFilesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -411,6 +891,46 @@ func (_ Unimplemented) UploadDriveFiles(w http.ResponseWriter, r *http.Request, 
 
 // (GET /drive/usage)
 func (_ Unimplemented) GetDriveUsage(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /drive/version-settings)
+func (_ Unimplemented) GetDriveVersionSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /drive/version-settings)
+func (_ Unimplemented) PutDriveVersionSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /drive/zip)
+func (_ Unimplemented) DownloadDriveZip(w http.ResponseWriter, r *http.Request, params DownloadDriveZipParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/shares/{token})
+func (_ Unimplemented) GetPublicShare(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicShareParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/shares/{token}/content)
+func (_ Unimplemented) GetPublicShareContent(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicShareContentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/shares/{token}/items)
+func (_ Unimplemented) ListPublicShareItems(w http.ResponseWriter, r *http.Request, token ShareToken, params ListPublicShareItemsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /public/shares/{token}/unlock)
+func (_ Unimplemented) UnlockPublicShare(w http.ResponseWriter, r *http.Request, token ShareToken) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/shares/{token}/zip)
+func (_ Unimplemented) DownloadPublicShareZip(w http.ResponseWriter, r *http.Request, token ShareToken, params DownloadPublicShareZipParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -422,6 +942,48 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ArchiveDriveItems operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveDriveItems(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveDriveItems(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CopyDriveItems operation middleware
+func (siw *ServerInterfaceWrapper) CopyDriveItems(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CopyDriveItems(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MoveDriveItems operation middleware
+func (siw *ServerInterfaceWrapper) MoveDriveItems(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveDriveItems(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // CreateDriveFolder operation middleware
 func (siw *ServerInterfaceWrapper) CreateDriveFolder(w http.ResponseWriter, r *http.Request) {
@@ -695,6 +1257,74 @@ func (siw *ServerInterfaceWrapper) SaveDriveItemContent(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// ExtractDriveItem operation middleware
+func (siw *ServerInterfaceWrapper) ExtractDriveItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExtractDriveItem(w, r, itemId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FollowDriveItem operation middleware
+func (siw *ServerInterfaceWrapper) FollowDriveItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FollowDriveItemParams
+
+	// ------------- Required query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FollowDriveItem(w, r, itemId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RestoreDriveItem operation middleware
 func (siw *ServerInterfaceWrapper) RestoreDriveItem(w http.ResponseWriter, r *http.Request) {
 
@@ -738,6 +1368,102 @@ func (siw *ServerInterfaceWrapper) GetDriveItemThumbnail(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDriveItemThumbnail(w, r, itemId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDriveVersions operation middleware
+func (siw *ServerInterfaceWrapper) ListDriveVersions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDriveVersions(w, r, itemId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDriveVersionContent operation middleware
+func (siw *ServerInterfaceWrapper) GetDriveVersionContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "versionId" -------------
+	var versionId VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "versionId", chi.URLParam(r, "versionId"), &versionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "versionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDriveVersionContent(w, r, itemId, versionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreDriveVersion operation middleware
+func (siw *ServerInterfaceWrapper) RestoreDriveVersion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "versionId" -------------
+	var versionId VersionId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "versionId", chi.URLParam(r, "versionId"), &versionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "versionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreDriveVersion(w, r, itemId, versionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -817,6 +1543,119 @@ func (siw *ServerInterfaceWrapper) TestDriveS3(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ListDriveShares operation middleware
+func (siw *ServerInterfaceWrapper) ListDriveShares(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDriveSharesParams
+
+	// ------------- Optional query parameter "itemId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "itemId", r.URL.Query(), &params.ItemId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "itemId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDriveShares(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateDriveShare operation middleware
+func (siw *ServerInterfaceWrapper) CreateDriveShare(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateDriveShare(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteDriveShare operation middleware
+func (siw *ServerInterfaceWrapper) DeleteDriveShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "shareId" -------------
+	var shareId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "shareId", chi.URLParam(r, "shareId"), &shareId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "shareId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteDriveShare(w, r, shareId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDriveTasks operation middleware
+func (siw *ServerInterfaceWrapper) ListDriveTasks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDriveTasks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelDriveTask operation middleware
+func (siw *ServerInterfaceWrapper) CancelDriveTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelDriveTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UploadDriveFiles operation middleware
 func (siw *ServerInterfaceWrapper) UploadDriveFiles(w http.ResponseWriter, r *http.Request) {
 
@@ -868,6 +1707,300 @@ func (siw *ServerInterfaceWrapper) GetDriveUsage(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDriveUsage(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDriveVersionSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetDriveVersionSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDriveVersionSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutDriveVersionSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutDriveVersionSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutDriveVersionSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadDriveZip operation middleware
+func (siw *ServerInterfaceWrapper) DownloadDriveZip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadDriveZipParams
+
+	// ------------- Required query parameter "ids" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "ids", r.URL.Query(), &params.Ids, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ids"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ids", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadDriveZip(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicShare operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicShareParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicShare(w, r, token, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicShareContent operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicShareContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicShareContentParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "item" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "item", r.URL.Query(), &params.Item, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "item"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "item", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "inline" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "inline", r.URL.Query(), &params.Inline, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "inline"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "inline", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicShareContent(w, r, token, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPublicShareItems operation middleware
+func (siw *ServerInterfaceWrapper) ListPublicShareItems(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPublicShareItemsParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "folder" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "folder", r.URL.Query(), &params.Folder, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "folder"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "folder", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPublicShareItems(w, r, token, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlockPublicShare operation middleware
+func (siw *ServerInterfaceWrapper) UnlockPublicShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlockPublicShare(w, r, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadPublicShareZip operation middleware
+func (siw *ServerInterfaceWrapper) DownloadPublicShareZip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadPublicShareZipParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadPublicShareZip(w, r, token, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1037,6 +2170,69 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/drive/s3/status", wrapper.GetDriveS3Status)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/zip", wrapper.DownloadDriveZip)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/drive/batch/copy", wrapper.CopyDriveItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/drive/batch/move", wrapper.MoveDriveItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/drive/archive", wrapper.ArchiveDriveItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/drive/items/{itemId}/extract", wrapper.ExtractDriveItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/tasks", wrapper.ListDriveTasks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/drive/tasks/{taskId}/cancel", wrapper.CancelDriveTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/items/{itemId}/versions", wrapper.ListDriveVersions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/items/{itemId}/versions/{versionId}/content", wrapper.GetDriveVersionContent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/drive/items/{itemId}/versions/{versionId}/restore", wrapper.RestoreDriveVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/version-settings", wrapper.GetDriveVersionSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/drive/version-settings", wrapper.PutDriveVersionSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/items/{itemId}/follow", wrapper.FollowDriveItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/shares", wrapper.ListDriveShares)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/drive/shares", wrapper.CreateDriveShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/drive/shares/{shareId}", wrapper.DeleteDriveShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/shares/{token}", wrapper.GetPublicShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/public/shares/{token}/unlock", wrapper.UnlockPublicShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/shares/{token}/items", wrapper.ListPublicShareItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/shares/{token}/content", wrapper.GetPublicShareContent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/shares/{token}/zip", wrapper.DownloadPublicShareZip)
 	})
 
 	return r

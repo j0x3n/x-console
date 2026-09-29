@@ -10,6 +10,9 @@ info:
     - ai.action_pending：{conversationId, action: PendingAction} 有动作等确认
     - ai.message_done：{conversationId} 这一轮回复结束
     - ai.error：{conversationId, message}
+    B32 起调用 OpenAI 兼容接口（Chat Completions），可以配多个供应商，分快速模型和 Agent 模型。
+    /ai/settings 是旧的 Anthropic 设置，B32 后端上线后不再使用，下个版本删。
+    B33 起对话可以属于一台机器（hostId），在这台机器上执行操作。
 servers:
   - url: /api/v1
 paths:
@@ -145,6 +148,252 @@ paths:
                 items: { $ref: "#/components/schemas/Tool" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /ai/providers:
+    get:
+      operationId: listAiProviders
+      tags: [ai]
+      description: B32。OpenAI 兼容接口的供应商，不返回 API Key
+      responses:
+        "200":
+          description: 供应商列表，按创建时间
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiProvider" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createAiProvider
+      tags: [ai]
+      description: 要提升权限。保存后在后台拉一次模型列表。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiProviderInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiProvider" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/providers/{providerId}:
+    parameters:
+      - $ref: "#/components/parameters/ProviderId"
+    patch:
+      operationId: updateAiProvider
+      tags: [ai]
+      description: 要提升权限。apiKey 不传表示不改，传空字符串表示删除。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiProviderPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiProvider" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteAiProvider
+      tags: [ai]
+      description: 要提升权限。快速模型或 Agent 模型正在用它时，那一项被清空。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/providers/{providerId}/test:
+    parameters:
+      - $ref: "#/components/parameters/ProviderId"
+    post:
+      operationId: testAiProvider
+      tags: [ai]
+      description: 调一次 GET /models 看能不能连上。连不上也回 200，ok 为 false。
+      responses:
+        "200":
+          description: 测试结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiProviderTest" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/providers/{providerId}/models:
+    parameters:
+      - $ref: "#/components/parameters/ProviderId"
+    post:
+      operationId: refreshAiModels
+      tags: [ai]
+      description: 重新拉这个供应商的模型列表，返回它的全部模型
+      responses:
+        "200":
+          description: 模型列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiModel" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/models:
+    get:
+      operationId: listAiModels
+      tags: [ai]
+      description: 所有供应商的模型和规格（来自 models.dev，或者手动填的）
+      parameters:
+        - name: providerId
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 模型列表，按供应商和模型 id 排序
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiModel" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/model-specs:
+    put:
+      operationId: setAiModelSpec
+      tags: [ai]
+      description: 规格未知的模型，手动填上下文长度和是否支持工具。模型 id 里可能有斜杠，所以放在请求体里。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiModelSpecInput" }
+      responses:
+        "200":
+          description: 更新后的模型
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiModel" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/model-settings:
+    get:
+      operationId: getAiModelSettings
+      tags: [ai]
+      description: B32。快速模型、Agent 模型、思考程度、写操作确认
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiModelSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putAiModelSettings
+      tags: [ai]
+      description: 要提升权限。Agent 模型必须支持工具调用（规格未知的允许），否则 400 model_without_tools。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiModelSettingsInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiModelSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/usage:
+    get:
+      operationId: getAiUsage
+      tags: [ai]
+      description: B32。某个月的调用次数、token 和估算费用（按 models.dev 价格，美元）
+      parameters:
+        - name: month
+          in: query
+          description: YYYY-MM，默认本月（服务器时区）
+          schema: { type: string, pattern: "^\\d{4}-\\d{2}$" }
+      responses:
+        "200":
+          description: 用量
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiUsage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/host-agent/{hostId}/conversations:
+    parameters:
+      - name: hostId
+        in: path
+        required: true
+        description: 机器 id，和 /hosts/{hostId} 一样
+        schema: { type: string }
+    get:
+      operationId: listHostAgentConversations
+      tags: [host-agent]
+      description: B33。这台机器的 Agent 会话，按更新时间倒序。AI 浮窗的列表里不显示这些。
+      responses:
+        "200":
+          description: 会话列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Conversation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createHostAgentConversation
+      tags: [host-agent]
+      description: 新会话的权限是 confirm（每步确认）。消息、停止、确认和拒绝用 /ai/conversations 下的接口。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conversation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/conversations/{conversationId}/permission:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    put:
+      operationId: setAiConversationPermission
+      tags: [host-agent]
+      description: B33。只对机器的会话有效，其他会话回 400。all_auto 要提升权限，只在内存里生效，服务重启或 2 小时没有消息后回到 confirm。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { $ref: "#/components/schemas/HostAgentPermission" }
+      responses:
+        "200":
+          description: 当前权限
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mode]
+                properties:
+                  mode: { $ref: "#/components/schemas/HostAgentPermission" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /ai/settings:
     get:
       operationId: getAiSettings
@@ -191,6 +440,11 @@ components:
       in: path
       required: true
       schema: { type: integer, format: int64 }
+    ProviderId:
+      name: providerId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
   schemas:
     Conversation:
       type: object
@@ -198,6 +452,8 @@ components:
       properties:
         id: { type: integer, format: int64 }
         title: { type: string, description: 第一条消息的开头，空对话为空字符串 }
+        hostId: { type: string, description: B33。机器的 Agent 会话才有 }
+        permission: { $ref: "#/components/schemas/HostAgentPermission" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     ConversationDetail:
@@ -259,6 +515,10 @@ components:
           type: string
           enum: [pending, approved, rejected, done, failed]
         result: { description: 执行结果或错误信息 }
+        effect:
+          type: string
+          description: B33。这一次调用的风险，机器 Agent 的 run_command 按命令判断。没有时按工具列表
+          enum: [read, write, dangerous]
     Tool:
       type: object
       required: [name, action, title, effect]
@@ -276,3 +536,122 @@ components:
         confirmAllWrites:
           type: boolean
           description: 打开后所有写操作都先确认。关闭时只有删除类和 dangerous 动作要确认
+    ReasoningEffort:
+      type: string
+      description: B32。思考程度，off 表示不传 reasoning_effort
+      enum: [off, low, medium, high]
+    AiProvider:
+      type: object
+      required: [id, name, baseUrl, hasApiKey, modelCount, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        baseUrl: { type: string, description: 例如 https://api.openai.com/v1 }
+        hasApiKey: { type: boolean }
+        modelCount: { type: integer }
+        modelsRefreshedAt: { type: string, format: date-time }
+        lastError: { type: string, description: 上次拉模型列表失败的原因，成功后清空 }
+        createdAt: { type: string, format: date-time }
+    AiProviderInput:
+      type: object
+      required: [name, baseUrl]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 40 }
+        baseUrl: { type: string, minLength: 1, description: http 或 https 地址 }
+        apiKey: { type: string, description: 可以不填，本地模型不需要 }
+    AiProviderPatch:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 40 }
+        baseUrl: { type: string, minLength: 1 }
+        apiKey: { type: string, description: 不传表示不改，空字符串表示删除 }
+    AiProviderTest:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        message: { type: string, description: 成功时写“找到 N 个模型”，失败时是原因 }
+        modelCount: { type: integer }
+        latencyMs: { type: integer }
+    AiModel:
+      type: object
+      required: [providerId, id, specSource]
+      properties:
+        providerId: { type: integer, format: int64 }
+        id: { type: string, description: 接口返回的模型 id，例如 deepseek-chat、openai/gpt-5 }
+        name: { type: string, description: models.dev 里的名字 }
+        contextWindow: { type: integer }
+        maxOutput: { type: integer }
+        toolCall: { type: boolean }
+        reasoning: { type: boolean }
+        imageInput: { type: boolean }
+        inputPrice: { type: number, description: 每百万输入 token 的美元价格 }
+        outputPrice: { type: number, description: 每百万输出 token 的美元价格 }
+        specSource:
+          type: string
+          description: exact 按供应商和 id 匹配；stripped 去掉前缀后匹配；manual 手动填的；unknown 规格未知
+          enum: [exact, stripped, manual, unknown]
+    AiModelSpecInput:
+      type: object
+      required: [providerId, modelId]
+      properties:
+        providerId: { type: integer, format: int64 }
+        modelId: { type: string, minLength: 1 }
+        contextWindow: { type: integer, minimum: 1 }
+        toolCall: { type: boolean }
+        reasoning: { type: boolean }
+    ModelRef:
+      type: object
+      required: [providerId, model]
+      properties:
+        providerId: { type: integer, format: int64 }
+        model: { type: string }
+    AiModelSettings:
+      type: object
+      required: [confirmAllWrites, reasoningEffort, reasoningUnsupported]
+      properties:
+        fast: { $ref: "#/components/schemas/ModelRef" }
+        agent: { $ref: "#/components/schemas/ModelRef" }
+        reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
+        reasoningUnsupported:
+          type: boolean
+          description: 上次调用时接口不认 reasoning_effort，已自动去掉重试
+        confirmAllWrites: { type: boolean }
+        modelsDevSyncedAt: { type: string, format: date-time, description: 上次从 models.dev 同步规格的时间 }
+        legacyAnthropic:
+          type: boolean
+          description: 旧版的 Anthropic 设置还在，但已不再使用，界面提示重新配置
+    AiModelSettingsInput:
+      type: object
+      properties:
+        fast: { nullable: true, allOf: [{ $ref: "#/components/schemas/ModelRef" }], description: 传 null 表示清空 }
+        agent: { nullable: true, allOf: [{ $ref: "#/components/schemas/ModelRef" }], description: 传 null 表示清空 }
+        reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
+        confirmAllWrites: { type: boolean }
+    AiUsage:
+      type: object
+      required: [month, calls, inputTokens, outputTokens, byModel]
+      properties:
+        month: { type: string, description: YYYY-MM }
+        calls: { type: integer }
+        inputTokens: { type: integer, format: int64 }
+        outputTokens: { type: integer, format: int64 }
+        cost: { type: number, description: 估算的美元费用。有模型没有价格时只算有价格的部分 }
+        byModel:
+          type: array
+          items:
+            type: object
+            required: [providerId, providerName, model, calls, inputTokens, outputTokens]
+            properties:
+              providerId: { type: integer, format: int64 }
+              providerName: { type: string }
+              model: { type: string }
+              purpose: { type: string, enum: [fast, agent], description: 用在哪 }
+              calls: { type: integer }
+              inputTokens: { type: integer, format: int64 }
+              outputTokens: { type: integer, format: int64 }
+              cost: { type: number }
+    HostAgentPermission:
+      type: string
+      description: B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
+      enum: [confirm, read_auto, all_auto]

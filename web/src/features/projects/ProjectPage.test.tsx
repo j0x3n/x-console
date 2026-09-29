@@ -3,8 +3,25 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // openapi-fetch reads globalThis.fetch when the client is created, so the
 // mock must exist before the modules are imported.
-const calls = vi.hoisted(() => {
+const { calls, state } = vi.hoisted(() => {
   const calls: { method: string; url: string; body: unknown }[] = [];
+  // live 为 true 时模拟 B36 后端已上线：有分类和检查清单接口。
+  const state = {
+    live: false,
+    checklists: [] as {
+      id: number;
+      issueId: number;
+      title: string;
+      position: number;
+      items: {
+        id: number;
+        checklistId: number;
+        text: string;
+        done: boolean;
+        position: number;
+      }[];
+    }[],
+  };
   const issue = (n: number, status: string, sortOrder: number) => ({
     id: n,
     key: `XC-${n}`,
@@ -22,11 +39,27 @@ const calls = vi.hoisted(() => {
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
   });
-  const issues = [
+  const issues: (ReturnType<typeof issue> & {
+    categoryId?: number;
+    checklistDone?: number;
+    checklistTotal?: number;
+  })[] = [
     issue(1, "todo", 1),
     issue(2, "todo", 2),
     issue(3, "done", 1),
     issue(4, "in_progress", 1),
+  ];
+  const categories = [
+    { id: 10, projectId: 1, name: "后端", position: 1, issueCount: 0 },
+    {
+      id: 11,
+      projectId: 1,
+      parentId: 10,
+      name: "云盘",
+      position: 1,
+      issueCount: 1,
+    },
+    { id: 20, projectId: 1, name: "前端", position: 2, issueCount: 1 },
   ];
   const project = {
     id: 1,
@@ -70,14 +103,40 @@ const calls = vi.hoisted(() => {
         headers: { "Content-Type": "application/json" },
       });
     const path = url.pathname.replace("/api/v1", "");
+    const notLive = () =>
+      new Response(JSON.stringify({ error: "not_live" }), {
+        status: 501,
+        headers: { "Content-Type": "application/json" },
+      });
+    if (path.endsWith("/categories"))
+      return state.live ? json(categories) : notLive();
+    if (path.endsWith("/checklists") && req.method === "GET")
+      return state.live ? json(state.checklists) : notLive();
+    if (path.includes("/checklist-items/") && req.method === "PATCH") {
+      const id = Number(path.split("/")[4]);
+      const item = state.checklists
+        .flatMap((l) => l.items)
+        .find((i) => i.id === id)!;
+      Object.assign(item, body);
+      return json(item);
+    }
     if (path === "/projects")
       return json(url.searchParams.get("archived") ? [] : [project]);
     if (path === "/issues") {
       const statuses = url.searchParams.getAll("status");
+      const items = state.live
+        ? issues.map((i) =>
+            i.key === "XC-1"
+              ? { ...i, categoryId: 11, checklistDone: 3, checklistTotal: 5 }
+              : i.key === "XC-2"
+                ? { ...i, categoryId: 20 }
+                : i,
+          )
+        : issues;
       return json({
         items: statuses.length
-          ? issues.filter((item) => statuses.includes(item.status))
-          : issues,
+          ? items.filter((item) => statuses.includes(item.status))
+          : items,
       });
     }
     if (path.endsWith("/comments") || path.endsWith("/links")) return json([]);
@@ -111,7 +170,7 @@ const calls = vi.hoisted(() => {
     }
     return json({});
   }) as typeof fetch;
-  return calls;
+  return { calls, state };
 });
 
 import {
@@ -140,6 +199,8 @@ function renderAt(path: string) {
 afterEach(() => {
   cleanup();
   calls.length = 0;
+  state.live = false;
+  state.checklists = [];
 });
 
 describe("ProjectsPage", () => {
@@ -247,6 +308,87 @@ describe("IssuePage", () => {
       expect(calls.filter((c) => c.method === "PATCH").at(-1)).toMatchObject({
         body: { title: "Renamed" },
       }),
+    );
+  });
+});
+
+describe("B36 before the backend is live", () => {
+  it("keeps the old fields and says checklists are not live", async () => {
+    renderAt("/projects/XC/1");
+    await screen.findByRole("heading", { name: "Issue 1" });
+    expect(await screen.findByText("检查清单还没上线。")).toBeTruthy();
+    expect(screen.queryByLabelText("分类")).toBeNull();
+    expect(screen.queryByLabelText("截止时刻")).toBeNull();
+    fireEvent.change(screen.getByLabelText("截止日期"), {
+      target: { value: "2026-10-03" },
+    });
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({
+        dueDate: "2026-10-03",
+      }),
+    );
+  });
+});
+
+describe("B36 with the backend live", () => {
+  it("shows category and checklist progress and filters by category", async () => {
+    state.live = true;
+    renderAt("/projects/XC");
+    const card = await screen.findByText("Issue 1");
+    const article = card.closest("article")!;
+    expect(within(article).getByText("后端 / 云盘")).toBeTruthy();
+    expect(within(article).getByText("3/5")).toBeTruthy();
+    // 选一级分类“后端”，包含二级分类“云盘”里的 XC-1，不包含“前端”的 XC-2。
+    fireEvent.change(await screen.findByLabelText("分类"), {
+      target: { value: "10" },
+    });
+    await waitFor(() => expect(screen.queryByText("Issue 2")).toBeNull());
+    expect(screen.getByText("Issue 1")).toBeTruthy();
+  });
+
+  it("opens with ?category= from the sidebar link", async () => {
+    state.live = true;
+    renderAt("/projects/XC?category=20");
+    expect(await screen.findByText("Issue 2")).toBeTruthy();
+    expect(screen.queryByText("Issue 1")).toBeNull();
+  });
+
+  it("ticks a checklist item and saves the due time with minutes", async () => {
+    state.live = true;
+    state.checklists = [
+      {
+        id: 1,
+        issueId: 1,
+        title: "上线前",
+        position: 1,
+        items: [
+          { id: 7, checklistId: 1, text: "写迁移", done: true, position: 1 },
+          { id: 8, checklistId: 1, text: "补测试", done: false, position: 2 },
+        ],
+      },
+    ];
+    renderAt("/projects/XC/1");
+    const box = (await screen.findByLabelText("补测试")) as HTMLInputElement;
+    expect(screen.getAllByText("1/2").length).toBeGreaterThan(0);
+    fireEvent.click(box);
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.url.includes("/checklist-items/")),
+      ).toMatchObject({
+        method: "PATCH",
+        url: "/api/v1/issues/XC-1/checklist-items/8",
+        body: { done: true },
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("截止日期"), {
+      target: { value: "2026-10-03" },
+    });
+    await waitFor(() =>
+      expect(
+        calls.find(
+          (c) => c.url === "/api/v1/issues/XC-1" && c.method === "PATCH",
+        )?.body,
+      ).toEqual({ dueAt: new Date("2026-10-03T23:59:00").toISOString() }),
     );
   });
 });

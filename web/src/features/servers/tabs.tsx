@@ -56,6 +56,11 @@ export const hostTabs: HostTab[] = [
     component: lazy(() => import("./components/SyslogTab")),
   },
   { id: "alerts", label: "Alerts", component: AlertsTab },
+  {
+    id: "agent",
+    label: "AI agent",
+    component: lazy(() => import("./components/HostAgentTab")),
+  },
 ];
 
 /** 这台机器能用的标签。 */

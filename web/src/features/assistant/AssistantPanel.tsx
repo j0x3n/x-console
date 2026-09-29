@@ -29,10 +29,12 @@ import { useT } from "../../contexts/LanguageContext";
 import {
   aiKeys,
   isNotLive,
+  useAiProviders,
   useAiSettings,
   useConversation,
   useConversations,
   useDeleteConversation,
+  useModelSettings,
   useSendMessage,
   useStopReply,
   useTools,
@@ -117,6 +119,7 @@ function useAssistantEvents() {
             s.clearStreaming(id);
             refresh();
             qc.invalidateQueries({ queryKey: aiKeys.conversations });
+            qc.invalidateQueries({ queryKey: ["ai", "host-conversations"] });
             break;
           case "ai.error":
             s.setError(id, data.message ?? "出错了");
@@ -152,7 +155,14 @@ function Panel() {
 
   const conversations = useConversations();
   const notLive = conversations.isError && isNotLive(conversations.error);
-  const settings = useAiSettings(!notLive);
+  // B32 上线后看有没有选 Agent 模型，没上线时看旧设置里有没有 Key。
+  const providers = useAiProviders(!notLive);
+  const b32 = !!providers.data;
+  const legacy = useAiSettings(!notLive && providers.isError);
+  const models = useModelSettings(b32);
+  const noKey = b32
+    ? models.data !== undefined && !models.data.agent
+    : legacy.data !== undefined && !legacy.data.hasApiKey;
   const tools = useTools(!notLive);
   const detail = useConversation(notLive ? null : conversationId);
   const send = useSendMessage();
@@ -369,14 +379,26 @@ function Panel() {
             <strong>AI 还没上线</strong>
             <p>界面已经做好，服务端还在开发。</p>
           </div>
-        ) : settings.data && !settings.data.hasApiKey ? (
+        ) : noKey ? (
           <div className="ai-empty">
             <Sparkles size={26} />
-            <strong>还没有填 API Key</strong>
-            <p>
-              去 <Link to="/settings/assistant">设置 → AI</Link> 填上 Anthropic
-              的 API Key 就能用了。
-            </p>
+            {b32 ? (
+              <>
+                <strong>还没有选 Agent 模型</strong>
+                <p>
+                  去 <Link to="/settings/assistant">设置 → AI</Link>{" "}
+                  添加供应商，再选一个 Agent 模型就能用了。
+                </p>
+              </>
+            ) : (
+              <>
+                <strong>还没有填 API Key</strong>
+                <p>
+                  去 <Link to="/settings/assistant">设置 → AI</Link> 填上
+                  Anthropic 的 API Key 就能用了。
+                </p>
+              </>
+            )}
           </div>
         ) : conversationId && detail.isPending ? (
           <Loading />

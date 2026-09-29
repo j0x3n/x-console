@@ -13,6 +13,33 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ExternalReminderSource.
+const (
+	ExternalReminderSourceCertificate  ExternalReminderSource = "certificate"
+	ExternalReminderSourceDomain       ExternalReminderSource = "domain"
+	ExternalReminderSourceIssue        ExternalReminderSource = "issue"
+	ExternalReminderSourceOther        ExternalReminderSource = "other"
+	ExternalReminderSourceSubscription ExternalReminderSource = "subscription"
+)
+
+// Valid indicates whether the value is a known member of the ExternalReminderSource enum.
+func (e ExternalReminderSource) Valid() bool {
+	switch e {
+	case ExternalReminderSourceCertificate:
+		return true
+	case ExternalReminderSourceDomain:
+		return true
+	case ExternalReminderSourceIssue:
+		return true
+	case ExternalReminderSourceOther:
+		return true
+	case ExternalReminderSourceSubscription:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NotifyPriority.
 const (
 	High   NotifyPriority = "high"
@@ -64,6 +91,33 @@ func (e ReminderStatus) Valid() bool {
 	}
 }
 
+// Defines values for WebPushService.
+const (
+	WebPushServiceApple     WebPushService = "apple"
+	WebPushServiceGoogle    WebPushService = "google"
+	WebPushServiceMicrosoft WebPushService = "microsoft"
+	WebPushServiceMozilla   WebPushService = "mozilla"
+	WebPushServiceOther     WebPushService = "other"
+)
+
+// Valid indicates whether the value is a known member of the WebPushService enum.
+func (e WebPushService) Valid() bool {
+	switch e {
+	case WebPushServiceApple:
+		return true
+	case WebPushServiceGoogle:
+		return true
+	case WebPushServiceMicrosoft:
+		return true
+	case WebPushServiceMozilla:
+		return true
+	case WebPushServiceOther:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Channel.
 const (
 	Bark       Channel = "bark"
@@ -109,6 +163,24 @@ func (e ListRemindersParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for ListExternalRemindersParamsRange.
+const (
+	ListExternalRemindersParamsRangeToday    ListExternalRemindersParamsRange = "today"
+	ListExternalRemindersParamsRangeUpcoming ListExternalRemindersParamsRange = "upcoming"
+)
+
+// Valid indicates whether the value is a known member of the ListExternalRemindersParamsRange enum.
+func (e ListExternalRemindersParamsRange) Valid() bool {
+	switch e {
+	case ListExternalRemindersParamsRangeToday:
+		return true
+	case ListExternalRemindersParamsRangeUpcoming:
+		return true
+	default:
+		return false
+	}
+}
+
 // ChannelField defines model for ChannelField.
 type ChannelField struct {
 	Key         string  `json:"key"`
@@ -122,6 +194,31 @@ type ChannelField struct {
 	// Value 当前值。令牌字段只返回打码后的值
 	Value string `json:"value"`
 }
+
+// ExternalReminder defines model for ExternalReminder.
+type ExternalReminder struct {
+	// At 到期时间
+	At time.Time `json:"at"`
+
+	// Done 来源里已经处理了（续费了、Issue 完成了）
+	Done bool `json:"done"`
+
+	// Id 在来源里唯一，比如 subscription:12、issue:XC-3
+	Id string `json:"id"`
+
+	// Link 面板里的路径，比如 /monitoring/subscriptions
+	Link string `json:"link"`
+
+	// Source 来源。前端按它显示标签，不认识的用 sourceLabel
+	Source ExternalReminderSource `json:"source"`
+
+	// SourceLabel 服务端写好的中文标签，比如“订阅”“证书”“Issue”
+	SourceLabel string `json:"sourceLabel"`
+	Title       string `json:"title"`
+}
+
+// ExternalReminderSource 来源。前端按它显示标签，不认识的用 sourceLabel
+type ExternalReminderSource string
 
 // NotifyChannel defines model for NotifyChannel.
 type NotifyChannel struct {
@@ -221,6 +318,42 @@ type ReminderPatch struct {
 // ReminderStatus scheduled 等待到点；pending 已到点未处理；snoozed 稍后提醒；done 已完成；ended 重复规则已结束
 type ReminderStatus string
 
+// WebPushService 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+type WebPushService string
+
+// WebPushSubscriptionInfo defines model for WebPushSubscriptionInfo.
+type WebPushSubscriptionInfo struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Endpoint 前端用它判断是不是现在这个浏览器
+	Endpoint string `json:"endpoint"`
+	Id       int64  `json:"id"`
+
+	// LastError 上次失败的原因，成功后清空
+	LastError   *string    `json:"lastError,omitempty"`
+	LastErrorAt *time.Time `json:"lastErrorAt,omitempty"`
+
+	// LastOkAt 上次推送服务回 2xx 的时间
+	LastOkAt *time.Time `json:"lastOkAt,omitempty"`
+
+	// Service 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+	Service   WebPushService `json:"service"`
+	UserAgent string         `json:"userAgent"`
+}
+
+// WebPushTestResult defines model for WebPushTestResult.
+type WebPushTestResult struct {
+	Error *string `json:"error,omitempty"`
+	Id    int64   `json:"id"`
+	Ok    bool    `json:"ok"`
+
+	// Service 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+	Service WebPushService `json:"service"`
+
+	// Status 推送服务返回的 HTTP 状态码，连不上时没有
+	Status *int `json:"status,omitempty"`
+}
+
 // Channel defines model for Channel.
 type Channel string
 
@@ -256,6 +389,14 @@ type ListRemindersParams struct {
 
 // ListRemindersParamsRange defines parameters for ListReminders.
 type ListRemindersParamsRange string
+
+// ListExternalRemindersParams defines parameters for ListExternalReminders.
+type ListExternalRemindersParams struct {
+	Range ListExternalRemindersParamsRange `form:"range" json:"range"`
+}
+
+// ListExternalRemindersParamsRange defines parameters for ListExternalReminders.
+type ListExternalRemindersParamsRange string
 
 // SnoozeReminderJSONBody defines parameters for SnoozeReminder.
 type SnoozeReminderJSONBody struct {
@@ -328,8 +469,17 @@ type ServerInterface interface {
 	// (DELETE /notify/webpush/subscriptions)
 	DeletePushSubscription(w http.ResponseWriter, r *http.Request, params DeletePushSubscriptionParams)
 
+	// (GET /notify/webpush/subscriptions)
+	ListPushSubscriptions(w http.ResponseWriter, r *http.Request)
+
 	// (POST /notify/webpush/subscriptions)
 	AddPushSubscription(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /notify/webpush/subscriptions/{subscriptionId})
+	DeletePushSubscriptionById(w http.ResponseWriter, r *http.Request, subscriptionId int64)
+
+	// (POST /notify/webpush/test)
+	TestWebPush(w http.ResponseWriter, r *http.Request)
 
 	// (GET /notify/webpush/vapid-public-key)
 	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
@@ -339,6 +489,9 @@ type ServerInterface interface {
 
 	// (POST /reminders)
 	CreateReminder(w http.ResponseWriter, r *http.Request)
+
+	// (GET /reminders/external)
+	ListExternalReminders(w http.ResponseWriter, r *http.Request, params ListExternalRemindersParams)
 
 	// (DELETE /reminders/{reminderId})
 	DeleteReminder(w http.ResponseWriter, r *http.Request, reminderId ReminderId)
@@ -420,8 +573,23 @@ func (_ Unimplemented) DeletePushSubscription(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /notify/webpush/subscriptions)
+func (_ Unimplemented) ListPushSubscriptions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /notify/webpush/subscriptions)
 func (_ Unimplemented) AddPushSubscription(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /notify/webpush/subscriptions/{subscriptionId})
+func (_ Unimplemented) DeletePushSubscriptionById(w http.ResponseWriter, r *http.Request, subscriptionId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notify/webpush/test)
+func (_ Unimplemented) TestWebPush(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -437,6 +605,11 @@ func (_ Unimplemented) ListReminders(w http.ResponseWriter, r *http.Request, par
 
 // (POST /reminders)
 func (_ Unimplemented) CreateReminder(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /reminders/external)
+func (_ Unimplemented) ListExternalReminders(w http.ResponseWriter, r *http.Request, params ListExternalRemindersParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -697,11 +870,65 @@ func (siw *ServerInterfaceWrapper) DeletePushSubscription(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListPushSubscriptions operation middleware
+func (siw *ServerInterfaceWrapper) ListPushSubscriptions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPushSubscriptions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AddPushSubscription operation middleware
 func (siw *ServerInterfaceWrapper) AddPushSubscription(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddPushSubscription(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePushSubscriptionById operation middleware
+func (siw *ServerInterfaceWrapper) DeletePushSubscriptionById(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionId" -------------
+	var subscriptionId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionId", chi.URLParam(r, "subscriptionId"), &subscriptionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePushSubscriptionById(w, r, subscriptionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestWebPush operation middleware
+func (siw *ServerInterfaceWrapper) TestWebPush(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestWebPush(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -763,6 +990,39 @@ func (siw *ServerInterfaceWrapper) CreateReminder(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateReminder(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListExternalReminders operation middleware
+func (siw *ServerInterfaceWrapper) ListExternalReminders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListExternalRemindersParams
+
+	// ------------- Required query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListExternalReminders(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1022,6 +1282,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/reminders", wrapper.CreateReminder)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/reminders/external", wrapper.ListExternalReminders)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/reminders/{reminderId}", wrapper.DeleteReminder)
 	})
 	r.Group(func(r chi.Router) {
@@ -1070,7 +1333,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/notify/webpush/subscriptions", wrapper.DeletePushSubscription)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notify/webpush/subscriptions", wrapper.ListPushSubscriptions)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notify/webpush/subscriptions", wrapper.AddPushSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/notify/webpush/subscriptions/{subscriptionId}", wrapper.DeletePushSubscriptionById)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notify/webpush/test", wrapper.TestWebPush)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notify/telegram/register-webhook", wrapper.RegisterTelegramWebhook)

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Message, PendingAction, Tool } from "./api";
-import { actionName, buildTimeline, resultText, summarizeInput } from "./logic";
+import {
+  actionName,
+  buildTimeline,
+  foldLines,
+  HOST_TOOLS,
+  resultText,
+  summarizeInput,
+} from "./logic";
 import { clampOffset } from "./store";
 
 const tools: Tool[] = [
@@ -174,6 +181,59 @@ describe("helpers", () => {
     expect(clampOffset({ x: 100, y: 100 }, panel, view)).toEqual({
       x: 100,
       y: 100,
+    });
+  });
+});
+
+describe("host agent (B33)", () => {
+  it("folds results over 200 lines", () => {
+    const text = Array.from({ length: 250 }, (_, i) => `line ${i + 1}`).join(
+      "\n",
+    );
+    const folded = foldLines(text);
+    const lines = folded.text.split("\n");
+    expect(folded.hidden).toBe(50);
+    expect(lines).toHaveLength(201);
+    expect(lines[0]).toBe("line 1");
+    expect(lines[99]).toBe("line 100");
+    expect(lines[100]).toBe("…… 省略 50 行 ……");
+    expect(lines[200]).toBe("line 250");
+    expect(foldLines("a\nb")).toEqual({ text: "a\nb", hidden: 0 });
+  });
+
+  it("uses the risk the server judged for this command", () => {
+    const items = buildTimeline(
+      [
+        msg(1, "user", [{ type: "text", text: "清理一下" }]),
+        msg(2, "assistant", [
+          {
+            type: "tool_use",
+            id: "t1",
+            name: "host__run_command",
+            input: { command: "rm -rf /tmp/x", reason: "删掉临时文件" },
+          },
+        ]),
+      ],
+      [
+        {
+          id: 9,
+          conversationId: 1,
+          toolUseId: "t1",
+          action: "host.run_command",
+          input: { command: "rm -rf /tmp/x" },
+          status: "pending",
+          effect: "dangerous",
+        },
+      ],
+      HOST_TOOLS,
+      { running: true },
+    );
+    const action = items.find((i) => i.kind === "action");
+    expect(action).toMatchObject({
+      action: "host.run_command",
+      title: "Run command",
+      effect: "dangerous",
+      status: "waiting",
     });
   });
 });

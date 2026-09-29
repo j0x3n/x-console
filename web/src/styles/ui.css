@@ -1604,3 +1604,16 @@ a.xc-badge:hover {
 .topbar-subtitle:empty {
   display: none;
 }
+
+/* Markdown 编辑框上传状态（B36） */
+.xc-mde-status {
+  padding: 0 6px;
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+
+/* 二级菜单里缩进的子链接，比如项目下面的分类（B36） */
+.nav-child.nested {
+  padding-left: 22px;
+  font-size: 12px;
+}

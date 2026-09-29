@@ -133,4 +133,10 @@ registerZh({
   "Expand menu": "展开",
   "Collapse menu": "收起",
   "Open settings": "打开设置",
+  // Markdown 编辑框贴图（B36）
+  "Insert image": "插入图片",
+  "Uploading…": "上传中…",
+  "Only images can be added here": "这里只能加图片",
+  "Image is larger than 20 MB": "图片超过 20 MB",
+  "Image upload is not live yet": "图片上传还没上线",
 });

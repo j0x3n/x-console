@@ -435,6 +435,64 @@ paths:
               schema: { $ref: "#/components/schemas/FileEntry" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/files/range:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: readFileRange
+      tags: [hosts]
+      description: |
+        B33。读远端文件的一段，给“文件”标签的日志查看器用。响应头 X-File-Size 是文件当前的大小。
+        代理没有 files.range 能力（旧版代理）时回 501。
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+        - name: offset
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+        - name: length
+          in: query
+          required: true
+          description: 最多 1 MB
+          schema: { type: integer, minimum: 1, maximum: 1048576 }
+      responses:
+        "200":
+          description: 这一段的内容，可能比 length 短（到了文件结尾）
+          headers:
+            X-File-Size:
+              schema: { type: integer, format: int64 }
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /hosts/{hostId}/files/follow:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: followHostFile
+      tags: [hosts]
+      description: |
+        B33。远端文件的实时模式，WebSocket，和云盘的 /drive/items/{itemId}/follow 一样。
+        offset 是前端已经读到的位置。服务端每秒看一次文件大小：变大就推新增的部分；变小先推 reset 再从 0 开始推。
+        每个文本帧是 HostFileFollowFrame 的 JSON，一帧最多 256 KB。
+      parameters:
+        - name: path
+          in: query
+          required: true
+          schema: { type: string }
+        - name: offset
+          in: query
+          required: true
+          schema: { type: integer, format: int64, minimum: 0 }
+      responses:
+        "101":
+          description: 升级为 WebSocket
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /hosts/{hostId}/exec:
     parameters:
       - $ref: "#/components/parameters/HostId"
@@ -984,6 +1042,13 @@ components:
         lines:
           type: array
           items: { type: string }
+    HostFileFollowFrame:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [append, reset] }
+        offset: { type: integer, format: int64, description: append 时这段内容在文件里的起始位置 }
+        data: { type: string, description: append 时新增的内容，按 UTF-8 解码，解不开的字节换成 U+FFFD }
     FileEntry:
       type: object
       required: [name, path, type, size, modTime, mode]

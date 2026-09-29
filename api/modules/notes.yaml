@@ -139,6 +139,47 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /notes/ai-settings:
+    get:
+      operationId: getNoteAiSettings
+      tags: [notes]
+      description: B32。笔记自动起标题、自动加标签。available 为 false 表示没配 AI（没有快速模型也没有 Agent 模型），界面不显示这两个开关。
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NoteAiSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putNoteAiSettings
+      tags: [notes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NoteAiSettingsInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NoteAiSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/{noteId}/suggested-tags:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    delete:
+      operationId: dismissNoteSuggestedTags
+      tags: [notes]
+      description: B32。不要这次的建议标签。内容大改之前不会再建议。
+      responses:
+        "204":
+          description: 已清除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /notes/{noteId}/to-issue:
     parameters:
       - $ref: "#/components/parameters/NoteId"
@@ -283,6 +324,10 @@ components:
           type: array
           items: { type: string }
         hidden: { type: boolean, description: B13 隐藏笔记，只在解锁后出现 }
+        suggestedTags:
+          type: array
+          description: B32。AI 建议的标签，用户点了才加上。加上的标签后端自动从这里去掉
+          items: { type: string }
         archivedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -357,3 +402,20 @@ components:
         color:
           type: string
           description: 形如 #cc7752，空字符串表示恢复默认
+    NoteAiSettings:
+      type: object
+      required: [available, autoTitle, autoTags, tagMode]
+      properties:
+        available: { type: boolean, description: 配了 AI 模型 }
+        autoTitle: { type: boolean }
+        autoTags: { type: boolean }
+        tagMode:
+          type: string
+          description: suggest 先作为建议显示；apply 直接加上
+          enum: [suggest, apply]
+    NoteAiSettingsInput:
+      type: object
+      properties:
+        autoTitle: { type: boolean }
+        autoTags: { type: boolean }
+        tagMode: { type: string, enum: [suggest, apply] }

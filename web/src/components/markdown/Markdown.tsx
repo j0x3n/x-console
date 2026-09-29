@@ -2,6 +2,7 @@ import { Fragment, useMemo, type ReactNode } from "react";
 import { Link } from "react-router";
 import { parseMarkdown, type Block, type Inline } from "./mdparse";
 import "./markdown.css";
+import { isUploadedFile, thumbnailSrc } from "./upload";
 
 interface Options {
   /** 传了就能在预览里勾选待办，参数是第几个待办（从 0 开始）。 */
@@ -116,6 +117,13 @@ function renderInline(nodes: Inline[], ctx: Ctx): ReactNode {
       case "del":
         return <del key={i}>{renderInline(node.children, ctx)}</del>;
       case "image":
+        // 公共上传的图片显示缩略图，点开新标签页看原图（B36）。
+        if (!ctx.onImageClick && isUploadedFile(node.src))
+          return (
+            <a key={i} href={node.src} target="_blank" rel="noreferrer">
+              <img src={thumbnailSrc(node.src)} alt={node.alt} loading="lazy" />
+            </a>
+          );
         return (
           <img
             key={i}

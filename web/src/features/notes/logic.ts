@@ -103,19 +103,8 @@ export function countWords(text: string): number {
   return cjk + words;
 }
 
-/** 上传中的占位文字，完成后换成真正的图片或链接。 */
-export function uploadPlaceholder(name: string, id: string): string {
-  return `![上传中 ${name.replace(/[[\]]/g, "")} ${id}…]()`;
-}
-
-/** 上传完成后插入的 Markdown：图片用 ![]()，其他文件用 []()。 */
-export function attachmentMarkdown(a: {
-  name: string;
-  mime: string;
-  url: string;
-}): string {
-  const name = a.name.replace(/[[\]]/g, "");
-  return a.mime.startsWith("image/") && a.mime !== "image/svg+xml"
-    ? `![${name}](${a.url})`
-    : `[${name}](${a.url})`;
-}
+// 上传占位和插入文字挪到了公共编辑框（B36），这里转发，笔记的代码不用改。
+export {
+  attachmentMarkdown,
+  uploadPlaceholder,
+} from "../../components/markdown/upload";
