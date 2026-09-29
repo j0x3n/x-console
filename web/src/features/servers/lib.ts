@@ -233,3 +233,49 @@ export function daysLeft(cycleEnd: string, today: Date = new Date()): number {
   const now = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   return Math.max(0, Math.round((end - now) / 86_400_000) + 1);
 }
+
+const TEXT_EXTENSIONS = new Set([
+  "log",
+  "txt",
+  "out",
+  "err",
+  "json",
+  "jsonl",
+  "yaml",
+  "yml",
+  "toml",
+  "conf",
+  "cfg",
+  "ini",
+  "env",
+  "md",
+  "csv",
+  "tsv",
+  "xml",
+  "html",
+  "sh",
+  "py",
+  "js",
+  "ts",
+  "go",
+  "rs",
+  "java",
+  "sql",
+  "service",
+  "timer",
+  "properties",
+]);
+
+/**
+ * 能不能用日志查看器打开：常见的文本扩展名、没有扩展名的文件，
+ * 以及轮转出来的日志（syslog.1、app.log.2）。压缩过的（.gz）不行。
+ */
+export function canViewAsText(name: string): boolean {
+  const lower = name.toLowerCase();
+  if (/\.(gz|zip|bz2|xz|zst|tar|tgz|7z)$/.test(lower)) return false;
+  const parts = lower.split(".");
+  if (parts.length === 1) return true;
+  if (/^\d+$/.test(parts[parts.length - 1]))
+    return parts.length === 2 || TEXT_EXTENSIONS.has(parts[parts.length - 2]);
+  return TEXT_EXTENSIONS.has(parts[parts.length - 1]);
+}

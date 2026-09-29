@@ -77,6 +77,42 @@ export interface paths {
         patch: operations["updateNote"];
         trace?: never;
     };
+    "/notes/ai-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B32。笔记自动起标题、自动加标签。available 为 false 表示没配 AI（没有快速模型也没有 Agent 模型），界面不显示这两个开关。 */
+        get: operations["getNoteAiSettings"];
+        put: operations["putNoteAiSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notes/{noteId}/suggested-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description B32。不要这次的建议标签。内容大改之前不会再建议。 */
+        delete: operations["dismissNoteSuggestedTags"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notes/{noteId}/to-issue": {
         parameters: {
             query?: never;
@@ -167,6 +203,8 @@ export interface components {
             tags: string[];
             /** @description B13 隐藏笔记，只在解锁后出现 */
             hidden?: boolean;
+            /** @description B32。AI 建议的标签，用户点了才加上。加上的标签后端自动从这里去掉 */
+            suggestedTags?: string[];
             /** Format: date-time */
             archivedAt?: string;
             /** Format: date-time */
@@ -237,6 +275,23 @@ export interface components {
             tag: string;
             /** @description 形如 */
             color: string;
+        };
+        NoteAiSettings: {
+            /** @description 配了 AI 模型 */
+            available: boolean;
+            autoTitle: boolean;
+            autoTags: boolean;
+            /**
+             * @description suggest 先作为建议显示；apply 直接加上
+             * @enum {string}
+             */
+            tagMode: "suggest" | "apply";
+        };
+        NoteAiSettingsInput: {
+            autoTitle?: boolean;
+            autoTags?: boolean;
+            /** @enum {string} */
+            tagMode?: "suggest" | "apply";
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -447,6 +502,73 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Note"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNoteAiSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteAiSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putNoteAiSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteAiSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteAiSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    dismissNoteSuggestedTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已清除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

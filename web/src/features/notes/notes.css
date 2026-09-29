@@ -904,3 +904,37 @@
     display: none;
   }
 }
+
+/* B32：AI 建议的标签，虚线框，点一下才加上 */
+.notes-suggested {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--xc-muted);
+}
+.notes-tag.suggested {
+  padding: 0 9px;
+  border: 1px dashed var(--xc-border-strong);
+  background: none;
+  color: var(--xc-text-2);
+  cursor: pointer;
+}
+.notes-tag.suggested:hover {
+  border-color: var(--xc-accent);
+  color: var(--xc-text);
+}
+.notes-suggested-dismiss {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--xc-muted);
+  cursor: pointer;
+}
+.notes-suggested-dismiss:hover {
+  background: var(--xc-surface-2);
+}

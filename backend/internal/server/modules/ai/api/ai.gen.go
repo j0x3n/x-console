@@ -5,6 +5,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,6 +13,69 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for AiModelSpecSource.
+const (
+	Exact    AiModelSpecSource = "exact"
+	Manual   AiModelSpecSource = "manual"
+	Stripped AiModelSpecSource = "stripped"
+	Unknown  AiModelSpecSource = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the AiModelSpecSource enum.
+func (e AiModelSpecSource) Valid() bool {
+	switch e {
+	case Exact:
+		return true
+	case Manual:
+		return true
+	case Stripped:
+		return true
+	case Unknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiUsageByModelPurpose.
+const (
+	Agent AiUsageByModelPurpose = "agent"
+	Fast  AiUsageByModelPurpose = "fast"
+)
+
+// Valid indicates whether the value is a known member of the AiUsageByModelPurpose enum.
+func (e AiUsageByModelPurpose) Valid() bool {
+	switch e {
+	case Agent:
+		return true
+	case Fast:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostAgentPermission.
+const (
+	AllAuto  HostAgentPermission = "all_auto"
+	Confirm  HostAgentPermission = "confirm"
+	ReadAuto HostAgentPermission = "read_auto"
+)
+
+// Valid indicates whether the value is a known member of the HostAgentPermission enum.
+func (e HostAgentPermission) Valid() bool {
+	switch e {
+	case AllAuto:
+		return true
+	case Confirm:
+		return true
+	case ReadAuto:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for MessageRole.
 const (
@@ -25,6 +89,27 @@ func (e MessageRole) Valid() bool {
 	case Assistant:
 		return true
 	case User:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PendingActionEffect.
+const (
+	PendingActionEffectDangerous PendingActionEffect = "dangerous"
+	PendingActionEffectRead      PendingActionEffect = "read"
+	PendingActionEffectWrite     PendingActionEffect = "write"
+)
+
+// Valid indicates whether the value is a known member of the PendingActionEffect enum.
+func (e PendingActionEffect) Valid() bool {
+	switch e {
+	case PendingActionEffectDangerous:
+		return true
+	case PendingActionEffectRead:
+		return true
+	case PendingActionEffectWrite:
 		return true
 	default:
 		return false
@@ -58,25 +143,161 @@ func (e PendingActionStatus) Valid() bool {
 	}
 }
 
+// Defines values for ReasoningEffort.
+const (
+	High   ReasoningEffort = "high"
+	Low    ReasoningEffort = "low"
+	Medium ReasoningEffort = "medium"
+	Off    ReasoningEffort = "off"
+)
+
+// Valid indicates whether the value is a known member of the ReasoningEffort enum.
+func (e ReasoningEffort) Valid() bool {
+	switch e {
+	case High:
+		return true
+	case Low:
+		return true
+	case Medium:
+		return true
+	case Off:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ToolEffect.
 const (
-	Dangerous ToolEffect = "dangerous"
-	Read      ToolEffect = "read"
-	Write     ToolEffect = "write"
+	ToolEffectDangerous ToolEffect = "dangerous"
+	ToolEffectRead      ToolEffect = "read"
+	ToolEffectWrite     ToolEffect = "write"
 )
 
 // Valid indicates whether the value is a known member of the ToolEffect enum.
 func (e ToolEffect) Valid() bool {
 	switch e {
-	case Dangerous:
+	case ToolEffectDangerous:
 		return true
-	case Read:
+	case ToolEffectRead:
 		return true
-	case Write:
+	case ToolEffectWrite:
 		return true
 	default:
 		return false
 	}
+}
+
+// AiModel defines model for AiModel.
+type AiModel struct {
+	ContextWindow *int `json:"contextWindow,omitempty"`
+
+	// Id 接口返回的模型 id，例如 deepseek-chat、openai/gpt-5
+	Id         string `json:"id"`
+	ImageInput *bool  `json:"imageInput,omitempty"`
+
+	// InputPrice 每百万输入 token 的美元价格
+	InputPrice *float32 `json:"inputPrice,omitempty"`
+	MaxOutput  *int     `json:"maxOutput,omitempty"`
+
+	// Name models.dev 里的名字
+	Name *string `json:"name,omitempty"`
+
+	// OutputPrice 每百万输出 token 的美元价格
+	OutputPrice *float32 `json:"outputPrice,omitempty"`
+	ProviderId  int64    `json:"providerId"`
+	Reasoning   *bool    `json:"reasoning,omitempty"`
+
+	// SpecSource exact 按供应商和 id 匹配；stripped 去掉前缀后匹配；manual 手动填的；unknown 规格未知
+	SpecSource AiModelSpecSource `json:"specSource"`
+	ToolCall   *bool             `json:"toolCall,omitempty"`
+}
+
+// AiModelSpecSource exact 按供应商和 id 匹配；stripped 去掉前缀后匹配；manual 手动填的；unknown 规格未知
+type AiModelSpecSource string
+
+// AiModelSettings defines model for AiModelSettings.
+type AiModelSettings struct {
+	Agent            *ModelRef `json:"agent,omitempty"`
+	ConfirmAllWrites bool      `json:"confirmAllWrites"`
+	Fast             *ModelRef `json:"fast,omitempty"`
+
+	// LegacyAnthropic 旧版的 Anthropic 设置还在，但已不再使用，界面提示重新配置
+	LegacyAnthropic *bool `json:"legacyAnthropic,omitempty"`
+
+	// ModelsDevSyncedAt 上次从 models.dev 同步规格的时间
+	ModelsDevSyncedAt *time.Time `json:"modelsDevSyncedAt,omitempty"`
+
+	// ReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
+	ReasoningEffort ReasoningEffort `json:"reasoningEffort"`
+
+	// ReasoningUnsupported 上次调用时接口不认 reasoning_effort，已自动去掉重试
+	ReasoningUnsupported bool `json:"reasoningUnsupported"`
+}
+
+// AiModelSettingsInput defines model for AiModelSettingsInput.
+type AiModelSettingsInput struct {
+	// Agent 传 null 表示清空
+	Agent            *ModelRef `json:"agent,omitempty"`
+	ConfirmAllWrites *bool     `json:"confirmAllWrites,omitempty"`
+
+	// Fast 传 null 表示清空
+	Fast *ModelRef `json:"fast,omitempty"`
+
+	// ReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
+	ReasoningEffort *ReasoningEffort `json:"reasoningEffort,omitempty"`
+}
+
+// AiModelSpecInput defines model for AiModelSpecInput.
+type AiModelSpecInput struct {
+	ContextWindow *int   `json:"contextWindow,omitempty"`
+	ModelId       string `json:"modelId"`
+	ProviderId    int64  `json:"providerId"`
+	Reasoning     *bool  `json:"reasoning,omitempty"`
+	ToolCall      *bool  `json:"toolCall,omitempty"`
+}
+
+// AiProvider defines model for AiProvider.
+type AiProvider struct {
+	// BaseUrl 例如 https://api.openai.com/v1
+	BaseUrl   string    `json:"baseUrl"`
+	CreatedAt time.Time `json:"createdAt"`
+	HasApiKey bool      `json:"hasApiKey"`
+	Id        int64     `json:"id"`
+
+	// LastError 上次拉模型列表失败的原因，成功后清空
+	LastError         *string    `json:"lastError,omitempty"`
+	ModelCount        int        `json:"modelCount"`
+	ModelsRefreshedAt *time.Time `json:"modelsRefreshedAt,omitempty"`
+	Name              string     `json:"name"`
+}
+
+// AiProviderInput defines model for AiProviderInput.
+type AiProviderInput struct {
+	// ApiKey 可以不填，本地模型不需要
+	ApiKey *string `json:"apiKey,omitempty"`
+
+	// BaseUrl http 或 https 地址
+	BaseUrl string `json:"baseUrl"`
+	Name    string `json:"name"`
+}
+
+// AiProviderPatch defines model for AiProviderPatch.
+type AiProviderPatch struct {
+	// ApiKey 不传表示不改，空字符串表示删除
+	ApiKey  *string `json:"apiKey,omitempty"`
+	BaseUrl *string `json:"baseUrl,omitempty"`
+	Name    *string `json:"name,omitempty"`
+}
+
+// AiProviderTest defines model for AiProviderTest.
+type AiProviderTest struct {
+	LatencyMs *int `json:"latencyMs,omitempty"`
+
+	// Message 成功时写“找到 N 个模型”，失败时是原因
+	Message    string `json:"message"`
+	ModelCount *int   `json:"modelCount,omitempty"`
+	Ok         bool   `json:"ok"`
 }
 
 // AiSettings defines model for AiSettings.
@@ -88,6 +309,34 @@ type AiSettings struct {
 	// Model 默认 claude-opus-5-5
 	Model string `json:"model"`
 }
+
+// AiUsage defines model for AiUsage.
+type AiUsage struct {
+	ByModel []struct {
+		Calls        int      `json:"calls"`
+		Cost         *float32 `json:"cost,omitempty"`
+		InputTokens  int64    `json:"inputTokens"`
+		Model        string   `json:"model"`
+		OutputTokens int64    `json:"outputTokens"`
+		ProviderId   int64    `json:"providerId"`
+		ProviderName string   `json:"providerName"`
+
+		// Purpose 用在哪
+		Purpose *AiUsageByModelPurpose `json:"purpose,omitempty"`
+	} `json:"byModel"`
+	Calls int `json:"calls"`
+
+	// Cost 估算的美元费用。有模型没有价格时只算有价格的部分
+	Cost        *float32 `json:"cost,omitempty"`
+	InputTokens int64    `json:"inputTokens"`
+
+	// Month YYYY-MM
+	Month        string `json:"month"`
+	OutputTokens int64  `json:"outputTokens"`
+}
+
+// AiUsageByModelPurpose 用在哪
+type AiUsageByModelPurpose string
 
 // ContentBlock 常见的几种：
 // {type: text, text}；{type: tool_use, id, name, input}；
@@ -109,7 +358,13 @@ type ContentBlock struct {
 // Conversation defines model for Conversation.
 type Conversation struct {
 	CreatedAt time.Time `json:"createdAt"`
-	Id        int64     `json:"id"`
+
+	// HostId B33。机器的 Agent 会话才有
+	HostId *string `json:"hostId,omitempty"`
+	Id     int64   `json:"id"`
+
+	// Permission B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
+	Permission *HostAgentPermission `json:"permission,omitempty"`
 
 	// Title 第一条消息的开头，空对话为空字符串
 	Title     string    `json:"title"`
@@ -128,6 +383,9 @@ type ConversationDetail struct {
 	Running bool `json:"running"`
 }
 
+// HostAgentPermission B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
+type HostAgentPermission string
+
 // Message defines model for Message.
 type Message struct {
 	// Content 原样保存 Anthropic API 的 content blocks
@@ -141,13 +399,22 @@ type Message struct {
 // MessageRole defines model for Message.Role.
 type MessageRole string
 
+// ModelRef defines model for ModelRef.
+type ModelRef struct {
+	Model      string `json:"model"`
+	ProviderId int64  `json:"providerId"`
+}
+
 // PendingAction defines model for PendingAction.
 type PendingAction struct {
 	// Action 动作名，例如 notes.delete
-	Action         string                 `json:"action"`
-	ConversationId int64                  `json:"conversationId"`
-	Id             int64                  `json:"id"`
-	Input          map[string]interface{} `json:"input"`
+	Action         string `json:"action"`
+	ConversationId int64  `json:"conversationId"`
+
+	// Effect B33。这一次调用的风险，机器 Agent 的 run_command 按命令判断。没有时按工具列表
+	Effect *PendingActionEffect   `json:"effect,omitempty"`
+	Id     int64                  `json:"id"`
+	Input  map[string]interface{} `json:"input"`
 
 	// Result 执行结果或错误信息
 	Result    interface{}         `json:"result,omitempty"`
@@ -155,8 +422,14 @@ type PendingAction struct {
 	ToolUseId string              `json:"toolUseId"`
 }
 
+// PendingActionEffect B33。这一次调用的风险，机器 Agent 的 run_command 按命令判断。没有时按工具列表
+type PendingActionEffect string
+
 // PendingActionStatus defines model for PendingAction.Status.
 type PendingActionStatus string
+
+// ReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
+type ReasoningEffort string
 
 // Tool defines model for Tool.
 type Tool struct {
@@ -179,6 +452,9 @@ type ActionId = int64
 // ConversationId defines model for ConversationId.
 type ConversationId = int64
 
+// ProviderId defines model for ProviderId.
+type ProviderId = int64
+
 // CreateAiConversationJSONBody defines parameters for CreateAiConversation.
 type CreateAiConversationJSONBody struct {
 	Title *string `json:"title,omitempty"`
@@ -195,6 +471,22 @@ type SendAiMessageJSONBody struct {
 	Text string `json:"text"`
 }
 
+// SetAiConversationPermissionJSONBody defines parameters for SetAiConversationPermission.
+type SetAiConversationPermissionJSONBody struct {
+	// Mode B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
+	Mode HostAgentPermission `json:"mode"`
+}
+
+// CreateHostAgentConversationJSONBody defines parameters for CreateHostAgentConversation.
+type CreateHostAgentConversationJSONBody struct {
+	Title *string `json:"title,omitempty"`
+}
+
+// ListAiModelsParams defines parameters for ListAiModels.
+type ListAiModelsParams struct {
+	ProviderId *int64 `form:"providerId,omitempty" json:"providerId,omitempty"`
+}
+
 // PutAiSettingsJSONBody defines parameters for PutAiSettings.
 type PutAiSettingsJSONBody struct {
 	ApiKey           *string `json:"apiKey,omitempty"`
@@ -202,11 +494,35 @@ type PutAiSettingsJSONBody struct {
 	Model            *string `json:"model,omitempty"`
 }
 
+// GetAiUsageParams defines parameters for GetAiUsage.
+type GetAiUsageParams struct {
+	// Month YYYY-MM，默认本月（服务器时区）
+	Month *string `form:"month,omitempty" json:"month,omitempty"`
+}
+
 // CreateAiConversationJSONRequestBody defines body for CreateAiConversation for application/json ContentType.
 type CreateAiConversationJSONRequestBody CreateAiConversationJSONBody
 
 // SendAiMessageJSONRequestBody defines body for SendAiMessage for application/json ContentType.
 type SendAiMessageJSONRequestBody SendAiMessageJSONBody
+
+// SetAiConversationPermissionJSONRequestBody defines body for SetAiConversationPermission for application/json ContentType.
+type SetAiConversationPermissionJSONRequestBody SetAiConversationPermissionJSONBody
+
+// CreateHostAgentConversationJSONRequestBody defines body for CreateHostAgentConversation for application/json ContentType.
+type CreateHostAgentConversationJSONRequestBody CreateHostAgentConversationJSONBody
+
+// PutAiModelSettingsJSONRequestBody defines body for PutAiModelSettings for application/json ContentType.
+type PutAiModelSettingsJSONRequestBody = AiModelSettingsInput
+
+// SetAiModelSpecJSONRequestBody defines body for SetAiModelSpec for application/json ContentType.
+type SetAiModelSpecJSONRequestBody = AiModelSpecInput
+
+// CreateAiProviderJSONRequestBody defines body for CreateAiProvider for application/json ContentType.
+type CreateAiProviderJSONRequestBody = AiProviderInput
+
+// UpdateAiProviderJSONRequestBody defines body for UpdateAiProvider for application/json ContentType.
+type UpdateAiProviderJSONRequestBody = AiProviderPatch
 
 // PutAiSettingsJSONRequestBody defines body for PutAiSettings for application/json ContentType.
 type PutAiSettingsJSONRequestBody PutAiSettingsJSONBody
@@ -419,8 +735,47 @@ type ServerInterface interface {
 	// (POST /ai/conversations/{conversationId}/messages)
 	SendAiMessage(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
 
+	// (PUT /ai/conversations/{conversationId}/permission)
+	SetAiConversationPermission(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
+
 	// (POST /ai/conversations/{conversationId}/stop)
 	StopAiReply(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
+
+	// (GET /ai/host-agent/{hostId}/conversations)
+	ListHostAgentConversations(w http.ResponseWriter, r *http.Request, hostId string)
+
+	// (POST /ai/host-agent/{hostId}/conversations)
+	CreateHostAgentConversation(w http.ResponseWriter, r *http.Request, hostId string)
+
+	// (GET /ai/model-settings)
+	GetAiModelSettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /ai/model-settings)
+	PutAiModelSettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /ai/model-specs)
+	SetAiModelSpec(w http.ResponseWriter, r *http.Request)
+
+	// (GET /ai/models)
+	ListAiModels(w http.ResponseWriter, r *http.Request, params ListAiModelsParams)
+
+	// (GET /ai/providers)
+	ListAiProviders(w http.ResponseWriter, r *http.Request)
+
+	// (POST /ai/providers)
+	CreateAiProvider(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /ai/providers/{providerId})
+	DeleteAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId)
+
+	// (PATCH /ai/providers/{providerId})
+	UpdateAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId)
+
+	// (POST /ai/providers/{providerId}/models)
+	RefreshAiModels(w http.ResponseWriter, r *http.Request, providerId ProviderId)
+
+	// (POST /ai/providers/{providerId}/test)
+	TestAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId)
 
 	// (GET /ai/settings)
 	GetAiSettings(w http.ResponseWriter, r *http.Request)
@@ -430,6 +785,9 @@ type ServerInterface interface {
 
 	// (GET /ai/tools)
 	ListAiTools(w http.ResponseWriter, r *http.Request)
+
+	// (GET /ai/usage)
+	GetAiUsage(w http.ResponseWriter, r *http.Request, params GetAiUsageParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -471,8 +829,73 @@ func (_ Unimplemented) SendAiMessage(w http.ResponseWriter, r *http.Request, con
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /ai/conversations/{conversationId}/permission)
+func (_ Unimplemented) SetAiConversationPermission(w http.ResponseWriter, r *http.Request, conversationId ConversationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /ai/conversations/{conversationId}/stop)
 func (_ Unimplemented) StopAiReply(w http.ResponseWriter, r *http.Request, conversationId ConversationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/host-agent/{hostId}/conversations)
+func (_ Unimplemented) ListHostAgentConversations(w http.ResponseWriter, r *http.Request, hostId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/host-agent/{hostId}/conversations)
+func (_ Unimplemented) CreateHostAgentConversation(w http.ResponseWriter, r *http.Request, hostId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/model-settings)
+func (_ Unimplemented) GetAiModelSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /ai/model-settings)
+func (_ Unimplemented) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /ai/model-specs)
+func (_ Unimplemented) SetAiModelSpec(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/models)
+func (_ Unimplemented) ListAiModels(w http.ResponseWriter, r *http.Request, params ListAiModelsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/providers)
+func (_ Unimplemented) ListAiProviders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/providers)
+func (_ Unimplemented) CreateAiProvider(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /ai/providers/{providerId})
+func (_ Unimplemented) DeleteAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /ai/providers/{providerId})
+func (_ Unimplemented) UpdateAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/providers/{providerId}/models)
+func (_ Unimplemented) RefreshAiModels(w http.ResponseWriter, r *http.Request, providerId ProviderId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/providers/{providerId}/test)
+func (_ Unimplemented) TestAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -488,6 +911,11 @@ func (_ Unimplemented) PutAiSettings(w http.ResponseWriter, r *http.Request) {
 
 // (GET /ai/tools)
 func (_ Unimplemented) ListAiTools(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/usage)
+func (_ Unimplemented) GetAiUsage(w http.ResponseWriter, r *http.Request, params GetAiUsageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -658,6 +1086,32 @@ func (siw *ServerInterfaceWrapper) SendAiMessage(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// SetAiConversationPermission operation middleware
+func (siw *ServerInterfaceWrapper) SetAiConversationPermission(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "conversationId" -------------
+	var conversationId ConversationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "conversationId", chi.URLParam(r, "conversationId"), &conversationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "conversationId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAiConversationPermission(w, r, conversationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // StopAiReply operation middleware
 func (siw *ServerInterfaceWrapper) StopAiReply(w http.ResponseWriter, r *http.Request) {
 
@@ -675,6 +1129,265 @@ func (siw *ServerInterfaceWrapper) StopAiReply(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.StopAiReply(w, r, conversationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListHostAgentConversations operation middleware
+func (siw *ServerInterfaceWrapper) ListHostAgentConversations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListHostAgentConversations(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateHostAgentConversation operation middleware
+func (siw *ServerInterfaceWrapper) CreateHostAgentConversation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateHostAgentConversation(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAiModelSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetAiModelSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAiModelSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAiModelSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAiModelSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAiModelSpec operation middleware
+func (siw *ServerInterfaceWrapper) SetAiModelSpec(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAiModelSpec(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAiModels operation middleware
+func (siw *ServerInterfaceWrapper) ListAiModels(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAiModelsParams
+
+	// ------------- Optional query parameter "providerId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "providerId", r.URL.Query(), &params.ProviderId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "providerId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiModels(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAiProviders operation middleware
+func (siw *ServerInterfaceWrapper) ListAiProviders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiProviders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAiProvider operation middleware
+func (siw *ServerInterfaceWrapper) CreateAiProvider(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAiProvider(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAiProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAiProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId ProviderId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAiProvider(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAiProvider operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAiProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId ProviderId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAiProvider(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshAiModels operation middleware
+func (siw *ServerInterfaceWrapper) RefreshAiModels(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId ProviderId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshAiModels(w, r, providerId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestAiProvider operation middleware
+func (siw *ServerInterfaceWrapper) TestAiProvider(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "providerId" -------------
+	var providerId ProviderId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "providerId", chi.URLParam(r, "providerId"), &providerId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "providerId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestAiProvider(w, r, providerId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -717,6 +1430,39 @@ func (siw *ServerInterfaceWrapper) ListAiTools(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAiTools(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAiUsage operation middleware
+func (siw *ServerInterfaceWrapper) GetAiUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAiUsageParams
+
+	// ------------- Optional query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAiUsage(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -865,6 +1611,48 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/tools", wrapper.ListAiTools)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/providers", wrapper.ListAiProviders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/providers", wrapper.CreateAiProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/ai/providers/{providerId}", wrapper.DeleteAiProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/ai/providers/{providerId}", wrapper.UpdateAiProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/providers/{providerId}/test", wrapper.TestAiProvider)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/providers/{providerId}/models", wrapper.RefreshAiModels)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/models", wrapper.ListAiModels)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/ai/model-specs", wrapper.SetAiModelSpec)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/model-settings", wrapper.GetAiModelSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/ai/model-settings", wrapper.PutAiModelSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/usage", wrapper.GetAiUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/host-agent/{hostId}/conversations", wrapper.ListHostAgentConversations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/host-agent/{hostId}/conversations", wrapper.CreateHostAgentConversation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/ai/conversations/{conversationId}/permission", wrapper.SetAiConversationPermission)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/settings", wrapper.GetAiSettings)

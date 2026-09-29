@@ -13,6 +13,8 @@ export interface NavChildLink {
   hint?: string;
   /** 链接带查询参数时自己判断是否选中；不传就按路径判断。 */
   active?: boolean;
+  /** 缩进一级，比如项目下面的分类。 */
+  nested?: boolean;
 }
 
 /**
@@ -27,9 +29,12 @@ export default function NavChildLinks({
   error,
   empty,
   onNavigate,
+  limit = NAV_CHILD_LIMIT,
 }: {
   links: NavChildLink[];
   total?: number;
+  /** 最多显示几条，默认 NAV_CHILD_LIMIT。插了缩进的子链接时调大，“全部”仍按 total 判断。 */
+  limit?: number;
   allTo: string;
   loading?: boolean;
   error?: boolean;
@@ -45,14 +50,14 @@ export default function NavChildLinks({
     return <div className="nav-children-note">{empty}</div>;
   return (
     <>
-      {links.slice(0, NAV_CHILD_LIMIT).map((l) => (
+      {links.slice(0, limit).map((l) => (
         <NavLink
           key={l.key}
           to={l.to}
           end
           onClick={onNavigate}
           className={({ isActive }) =>
-            `nav-child${(l.active ?? isActive) ? " selected" : ""}`
+            `nav-child${l.nested ? " nested" : ""}${(l.active ?? isActive) ? " selected" : ""}`
           }
           title={l.label}
         >

@@ -3,9 +3,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // openapi-fetch 在建客户端时就取走 fetch，所以要在 import 页面之前替换。
 const api = vi.hoisted(() => {
-  type Reply = { status: number; body?: unknown };
-  const routes = new Map<string, (url: URL, body: unknown) => Reply>();
-  const calls: Array<{ method: string; path: string; body: unknown }> = [];
+  type Reply = {
+    status: number;
+    body?: unknown;
+    text?: string;
+    headers?: Record<string, string>;
+  };
+  const routes = new Map<
+    string,
+    (url: URL, body: unknown, req: Request) => Reply
+  >();
+  const calls: Array<{
+    method: string;
+    path: string;
+    body: unknown;
+    headers: Headers;
+  }> = [];
   const BaseRequest = globalThis.Request;
   globalThis.Request = class extends BaseRequest {
     constructor(input: RequestInfo | URL, init?: RequestInit) {
@@ -17,22 +30,37 @@ const api = vi.hoisted(() => {
       );
     }
   } as typeof Request;
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const req = input as Request;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const req = input instanceof Request ? input : new Request(input, init);
     const url = new URL(req.url);
     const path = url.pathname.replace("/api/v1", "");
     const text = await req.text();
-    const body = text ? JSON.parse(text) : null;
-    calls.push({ method: req.method, path: path + url.search, body });
+    let body: unknown = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+    calls.push({
+      method: req.method,
+      path: path + url.search,
+      body,
+      headers: req.headers,
+    });
     const handler = routes.get(`${req.method} ${path}`);
-    const reply = handler
-      ? handler(url, body)
+    const reply: Reply = handler
+      ? handler(url, body, req)
       : { status: 404, body: { code: "not_found", message: "not found" } };
+    if (reply.text !== undefined)
+      return new Response(reply.text, {
+        status: reply.status,
+        headers: reply.headers,
+      });
     if (reply.body === undefined)
       return new Response(null, { status: reply.status });
     return new Response(JSON.stringify(reply.body), {
       status: reply.status,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...reply.headers },
     });
   }) as typeof fetch;
   return { routes, calls };
@@ -48,7 +76,13 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { EditorView } from "@codemirror/view";
 import { routes } from "./routes";
+
+// jsdom 没有 Range 的布局接口，CodeMirror 量光标位置时会用到。
+Range.prototype.getClientRects = () =>
+  Object.assign([], { item: () => null }) as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect = () => new DOMRect();
 
 const base = {
   size: 0,
@@ -207,5 +241,240 @@ describe("DrivePage", () => {
     );
     expect(await screen.findByText("上传完成")).toBeTruthy();
     vi.unstubAllGlobals();
+  });
+
+  it("opens files in the viewer and switches with the arrow keys", async () => {
+    live();
+    const files = [
+      { ...base, id: 10, name: "config.yaml", isDir: false, size: 5 },
+      {
+        ...base,
+        id: 11,
+        name: "photo.png",
+        isDir: false,
+        size: 9,
+        mime: "image/png",
+      },
+    ];
+    api.routes.set("GET /drive/items", () => ({
+      status: 200,
+      body: { items: files },
+    }));
+    api.routes.set("GET /drive/items/10/content", () => ({
+      status: 200,
+      text: "a: 1\n",
+      headers: { ETag: '"v1"' },
+    }));
+    renderAt("/drive");
+    fireEvent.click(await screen.findByText("config.yaml"));
+    const viewer = await screen.findByRole("dialog", { name: "config.yaml" });
+    await waitFor(() =>
+      expect(viewer.querySelector(".cm-content")?.textContent).toContain(
+        "a: 1",
+      ),
+    );
+    expect(within(viewer).getByText(/1 \/ 2/)).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: "ArrowRight" });
+    const next = await screen.findByRole("dialog", { name: "photo.png" });
+    expect(within(next).getByAltText("photo.png")).toBeTruthy();
+    // 图片没有编辑入口。
+    expect(within(next).queryByRole("button", { name: /编辑/ })).toBeNull();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("saves edits with the version and reports conflicts", async () => {
+    live();
+    api.routes.set("GET /drive/items", () => ({
+      status: 200,
+      body: {
+        items: [
+          { ...base, id: 10, name: "config.yaml", isDir: false, size: 5 },
+        ],
+      },
+    }));
+    api.routes.set("GET /drive/items/10/content", () => ({
+      status: 200,
+      text: "a: 1\n",
+      headers: { ETag: '"v1"' },
+    }));
+    let saves = 0;
+    api.routes.set("PUT /drive/items/10/content", () =>
+      ++saves === 1
+        ? {
+            status: 200,
+            body: { ...base, id: 10, name: "config.yaml", isDir: false },
+            headers: { ETag: '"v2"' },
+          }
+        : {
+            status: 409,
+            body: { code: "version_conflict", message: "文件在别处改过了" },
+          },
+    );
+    renderAt("/drive");
+    await screen.findByText("config.yaml");
+    fireEvent.click(screen.getByLabelText("选择 config.yaml"));
+    fireEvent.click(
+      within(screen.getByRole("toolbar", { name: "已选" })).getByRole(
+        "button",
+        { name: /编辑/ },
+      ),
+    );
+    const viewer = await screen.findByRole("dialog", { name: "config.yaml" });
+    const type = async (text: string) => {
+      await waitFor(() =>
+        expect(viewer.querySelector(".cm-content")?.textContent).toContain(
+          "a:",
+        ),
+      );
+      const view = EditorView.findFromDOM(
+        viewer.querySelector(".cm-editor") as HTMLElement,
+      )!;
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+      });
+    };
+    await type("a: 2\n");
+    const saveButton = within(viewer).getByRole("button", {
+      name: "保存",
+    }) as HTMLButtonElement;
+    await waitFor(() => expect(saveButton.disabled).toBe(false));
+    fireEvent.click(saveButton);
+    await waitFor(() => expect(saves).toBe(1));
+    const first = api.calls.find((c) => c.method === "PUT")!;
+    expect(first.body).toBe("a: 2\n");
+    expect(first.headers.get("If-Match")).toBe('"v1"');
+    expect(await within(viewer).findByText("没有改动")).toBeTruthy();
+
+    await type("a: 3\n");
+    await within(viewer).findByText("有改动没保存");
+    fireEvent.keyDown(document.body, { key: "s", ctrlKey: true });
+    expect(await within(viewer).findByText("文件在别处改过了")).toBeTruthy();
+    const second = api.calls.filter((c) => c.method === "PUT")[1];
+    expect(second.headers.get("If-Match")).toBe('"v2"');
+    expect(within(viewer).getByRole("button", { name: "覆盖" })).toBeTruthy();
+  });
+
+  it("copies selected items and asks what to do with same names", async () => {
+    live();
+    api.routes.set("GET /drive/tasks", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("POST /drive/batch/copy", () => ({
+      status: 202,
+      body: {
+        id: "t1",
+        kind: "copy",
+        state: "running",
+        title: "复制 1 项到 /",
+        doneItems: 0,
+        totalItems: 1,
+        doneBytes: 0,
+        totalBytes: 2048,
+        createdAt: "2026-09-29T00:00:00Z",
+      },
+    }));
+    renderAt("/drive");
+    fireEvent.click(await screen.findByLabelText("选择 报告.pdf"));
+    fireEvent.click(
+      within(screen.getByRole("toolbar", { name: "已选" })).getByRole(
+        "button",
+        { name: /复制到/ },
+      ),
+    );
+    // 根目录里已经有“报告.pdf”，复制到根目录会重名。
+    fireEvent.click(await screen.findByRole("button", { name: "复制到这里" }));
+    expect(await screen.findByText("有重名的文件")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "保留两个" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find(
+          (c) => c.method === "POST" && c.path === "/drive/batch/copy",
+        )?.body,
+      ).toEqual({ ids: [2], targetId: 0, conflict: "rename" }),
+    );
+    expect(await screen.findByText("复制 1 项到 /")).toBeTruthy();
+  });
+
+  it("moves one by one when the server has no batch move yet", async () => {
+    live();
+    api.routes.set("PATCH /drive/items/2", () => ({
+      status: 200,
+      body: { ...root[0], parentId: 1 },
+    }));
+    renderAt("/drive");
+    fireEvent.click(await screen.findByLabelText("选择 报告.pdf"));
+    fireEvent.click(
+      within(screen.getByRole("toolbar", { name: "已选" })).getByRole(
+        "button",
+        { name: /移动/ },
+      ),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "移动到" });
+    fireEvent.click(await within(dialog).findByText("照片"));
+    await waitFor(() =>
+      expect(
+        api.calls.some((c) => c.path.startsWith("/drive/items?parent=1")),
+      ).toBe(true),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "移到这里" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find(
+          (c) => c.method === "PATCH" && c.path === "/drive/items/2",
+        )?.body,
+      ).toEqual({ parentId: 1 }),
+    );
+    expect(api.calls.some((c) => c.path === "/drive/batch/move")).toBe(false);
+  });
+
+  it("says share links are not live on the shares tab", async () => {
+    live();
+    renderAt("/drive");
+    fireEvent.click(await screen.findByRole("button", { name: /分享/ }));
+    expect(await screen.findByText("分享链接还没上线")).toBeTruthy();
+  });
+
+  it("creates a share link with an access code", async () => {
+    live();
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    api.routes.set("GET /drive/shares", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("POST /drive/shares", (_url, body) => ({
+      status: 201,
+      body: {
+        id: 5,
+        itemId: 2,
+        itemName: "报告.pdf",
+        isDir: false,
+        token: "abc",
+        url: "https://x.example/s/abc",
+        code: (body as { code?: string }).code,
+        visits: 0,
+        downloads: 0,
+        active: true,
+        createdAt: "2026-09-29T00:00:00Z",
+      },
+    }));
+    renderAt("/drive");
+    fireEvent.click(await screen.findByLabelText(/: 报告\.pdf$/));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /分享/ }));
+    const dialog = await screen.findByRole("dialog", { name: "分享" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /生成链接/ }));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const sent = api.calls.find(
+      (c) => c.method === "POST" && c.path === "/drive/shares",
+    )!.body as Record<string, unknown>;
+    expect(sent.itemId).toBe(2);
+    expect(sent.expiresIn).toBe("7d");
+    expect(String(sent.code)).toMatch(/^[2-9a-z]{4}$/);
+    expect(String(writeText.mock.calls[0])).toContain("提取码");
   });
 });

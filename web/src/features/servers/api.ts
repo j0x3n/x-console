@@ -245,6 +245,30 @@ export async function uploadFile(hostId: string, path: string, file: File) {
 }
 
 /** 下载地址。GET 请求带 Cookie 就行。 */
+/** 读远端文件的一段（B33 日志查看）。旧后端和旧代理回 404 或 501。 */
+export async function readFileRange(
+  hostId: string,
+  path: string,
+  offset: number,
+  length: number,
+): Promise<Uint8Array> {
+  const q = new URLSearchParams({
+    path,
+    offset: String(offset),
+    length: String(length),
+  });
+  const res = await apiFetch(
+    `/hosts/${encodeURIComponent(hostId)}/files/range?${q}`,
+    { cache: "no-store" },
+  );
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+export function followFilePath(hostId: string, path: string, offset: number) {
+  const q = new URLSearchParams({ path, offset: String(offset) });
+  return `/hosts/${encodeURIComponent(hostId)}/files/follow?${q}`;
+}
+
 export function downloadUrl(hostId: string, path: string) {
   return `/api/v1/hosts/${encodeURIComponent(hostId)}/files/content?path=${encodeURIComponent(path)}`;
 }

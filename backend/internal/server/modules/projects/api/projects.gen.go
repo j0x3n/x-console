@@ -15,6 +15,33 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for DueRemind.
+const (
+	AtDue DueRemind = "at_due"
+	N15m  DueRemind = "15m"
+	N1d   DueRemind = "1d"
+	N1h   DueRemind = "1h"
+	None  DueRemind = "none"
+)
+
+// Valid indicates whether the value is a known member of the DueRemind enum.
+func (e DueRemind) Valid() bool {
+	switch e {
+	case AtDue:
+		return true
+	case N15m:
+		return true
+	case N1d:
+		return true
+	case N1h:
+		return true
+	case None:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IssueLinkKind.
 const (
 	CodingTask  IssueLinkKind = "coding_task"
@@ -114,6 +141,30 @@ func (e ListIssuesParamsSort) Valid() bool {
 	}
 }
 
+// Checklist defines model for Checklist.
+type Checklist struct {
+	Id       int64           `json:"id"`
+	IssueId  int64           `json:"issueId"`
+	Items    []ChecklistItem `json:"items"`
+	Position float64         `json:"position"`
+	Title    string          `json:"title"`
+}
+
+// ChecklistInput defines model for ChecklistInput.
+type ChecklistInput struct {
+	Title string `json:"title"`
+}
+
+// ChecklistItem defines model for ChecklistItem.
+type ChecklistItem struct {
+	ChecklistId int64      `json:"checklistId"`
+	Done        bool       `json:"done"`
+	DoneAt      *time.Time `json:"doneAt,omitempty"`
+	Id          int64      `json:"id"`
+	Position    float64    `json:"position"`
+	Text        string     `json:"text"`
+}
+
 // Comment defines model for Comment.
 type Comment struct {
 	// Body Markdown
@@ -123,6 +174,13 @@ type Comment struct {
 	IssueId   int64     `json:"issueId"`
 }
 
+// CreateChecklistItem defines model for CreateChecklistItem.
+type CreateChecklistItem struct {
+	// AfterId 放在这个条目后面
+	AfterId *int64 `json:"afterId,omitempty"`
+	Text    string `json:"text"`
+}
+
 // CreateComment defines model for CreateComment.
 type CreateComment struct {
 	Body string `json:"body"`
@@ -130,13 +188,22 @@ type CreateComment struct {
 
 // CreateIssue defines model for CreateIssue.
 type CreateIssue struct {
-	Description *string             `json:"description,omitempty"`
-	DueDate     *openapi_types.Date `json:"dueDate,omitempty"`
-	LabelIds    *[]int64            `json:"labelIds,omitempty"`
-	MilestoneId *int64              `json:"milestoneId,omitempty"`
-	Priority    *int                `json:"priority,omitempty"`
-	Status      *IssueStatus        `json:"status,omitempty"`
-	Title       string              `json:"title"`
+	// CategoryId B36
+	CategoryId  *int64  `json:"categoryId,omitempty"`
+	Description *string `json:"description,omitempty"`
+
+	// DueAt B36
+	DueAt *time.Time `json:"dueAt,omitempty"`
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	DueDate *openapi_types.Date `json:"dueDate,omitempty"`
+
+	// DueRemind B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
+	DueRemind   *DueRemind   `json:"dueRemind,omitempty"`
+	LabelIds    *[]int64     `json:"labelIds,omitempty"`
+	MilestoneId *int64       `json:"milestoneId,omitempty"`
+	Priority    *int         `json:"priority,omitempty"`
+	Status      *IssueStatus `json:"status,omitempty"`
+	Title       string       `json:"title"`
 }
 
 // CreateIssueLink defines model for CreateIssueLink.
@@ -171,15 +238,41 @@ type CreateProject struct {
 	Name        string  `json:"name"`
 }
 
+// CreateProjectCategory defines model for CreateProjectCategory.
+type CreateProjectCategory struct {
+	Name     string `json:"name"`
+	ParentId *int64 `json:"parentId,omitempty"`
+}
+
+// DueRemind B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
+type DueRemind string
+
 // Issue defines model for Issue.
 type Issue struct {
-	CompletedAt *time.Time `json:"completedAt,omitempty"`
-	CreatedAt   time.Time  `json:"createdAt"`
+	// CategoryId B36。没有表示未分类
+	CategoryId *int64 `json:"categoryId,omitempty"`
+
+	// ChecklistDone B36。所有清单里已完成的条目数
+	ChecklistDone *int `json:"checklistDone,omitempty"`
+
+	// ChecklistTotal B36。所有清单的条目总数，0 表示没有清单条目
+	ChecklistTotal *int       `json:"checklistTotal,omitempty"`
+	CompletedAt    *time.Time `json:"completedAt,omitempty"`
+	CreatedAt      time.Time  `json:"createdAt"`
 
 	// Description Markdown
-	Description string              `json:"description"`
-	DueDate     *openapi_types.Date `json:"dueDate,omitempty"`
-	ExternalId  string              `json:"externalId"`
+	Description string `json:"description"`
+
+	// DueAt B36。截止时间，精确到分钟
+	DueAt *time.Time `json:"dueAt,omitempty"`
+
+	// DueDate 旧字段，B36 起用 dueAt，下个版本删
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	DueDate *openapi_types.Date `json:"dueDate,omitempty"`
+
+	// DueRemind B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
+	DueRemind  *DueRemind `json:"dueRemind,omitempty"`
+	ExternalId string     `json:"externalId"`
 
 	// ExternalSource 外部来源，例如 linear，空表示本地
 	ExternalSource string `json:"externalSource"`
@@ -276,12 +369,48 @@ type Project struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// ProjectCategory defines model for ProjectCategory.
+type ProjectCategory struct {
+	Id int64 `json:"id"`
+
+	// IssueCount 直接归在这个分类下的 Issue 数，不含二级分类
+	IssueCount int    `json:"issueCount"`
+	Name       string `json:"name"`
+
+	// ParentId 没有表示一级分类
+	ParentId *int64 `json:"parentId,omitempty"`
+
+	// Position 同级里的顺序，小的在前
+	Position  float64 `json:"position"`
+	ProjectId int64   `json:"projectId"`
+}
+
+// UpdateChecklistItem defines model for UpdateChecklistItem.
+type UpdateChecklistItem struct {
+	AfterId  *int64 `json:"afterId,omitempty"`
+	BeforeId *int64 `json:"beforeId,omitempty"`
+
+	// ChecklistId 挪到另一个清单
+	ChecklistId *int64  `json:"checklistId,omitempty"`
+	Done        *bool   `json:"done,omitempty"`
+	Text        *string `json:"text,omitempty"`
+}
+
 // UpdateIssue defines model for UpdateIssue.
 type UpdateIssue struct {
+	// CategoryId B36。null 表示未分类
+	CategoryId  *int64  `json:"categoryId,omitempty"`
 	Description *string `json:"description,omitempty"`
 
+	// DueAt B36。null 表示清除
+	DueAt *time.Time `json:"dueAt,omitempty"`
+
 	// DueDate null 表示清除
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	DueDate *openapi_types.Date `json:"dueDate,omitempty"`
+
+	// DueRemind B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
+	DueRemind *DueRemind `json:"dueRemind,omitempty"`
 
 	// LabelIds 传了就整体替换
 	LabelIds *[]int64 `json:"labelIds,omitempty"`
@@ -316,6 +445,22 @@ type UpdateProject struct {
 	Name        *string `json:"name,omitempty"`
 }
 
+// UpdateProjectCategory defines model for UpdateProjectCategory.
+type UpdateProjectCategory struct {
+	// AfterId 同级里落点上方的分类
+	AfterId *int64 `json:"afterId,omitempty"`
+
+	// BeforeId 同级里落点下方的分类
+	BeforeId *int64  `json:"beforeId,omitempty"`
+	Name     *string `json:"name,omitempty"`
+}
+
+// ChecklistId defines model for ChecklistId.
+type ChecklistId = int64
+
+// ChecklistItemId defines model for ChecklistItemId.
+type ChecklistItemId = int64
+
 // IssueKey defines model for IssueKey.
 type IssueKey = string
 
@@ -327,11 +472,14 @@ type ListIssuesParams struct {
 	ProjectId *int64 `form:"projectId,omitempty" json:"projectId,omitempty"`
 
 	// Status 可以传多个
-	Status      *[]IssueStatus       `form:"status,omitempty" json:"status,omitempty"`
-	Priority    *int                 `form:"priority,omitempty" json:"priority,omitempty"`
-	LabelId     *int64               `form:"labelId,omitempty" json:"labelId,omitempty"`
-	MilestoneId *int64               `form:"milestoneId,omitempty" json:"milestoneId,omitempty"`
-	Due         *ListIssuesParamsDue `form:"due,omitempty" json:"due,omitempty"`
+	Status      *[]IssueStatus `form:"status,omitempty" json:"status,omitempty"`
+	Priority    *int           `form:"priority,omitempty" json:"priority,omitempty"`
+	LabelId     *int64         `form:"labelId,omitempty" json:"labelId,omitempty"`
+	MilestoneId *int64         `form:"milestoneId,omitempty" json:"milestoneId,omitempty"`
+
+	// CategoryId B36。一级分类包含它下面的二级分类；0 表示未分类
+	CategoryId *int64               `form:"categoryId,omitempty" json:"categoryId,omitempty"`
+	Due        *ListIssuesParamsDue `form:"due,omitempty" json:"due,omitempty"`
 
 	// Q 按标题或 key 搜索
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
@@ -357,6 +505,18 @@ type ListProjectsParams struct {
 // UpdateIssueJSONRequestBody defines body for UpdateIssue for application/json ContentType.
 type UpdateIssueJSONRequestBody = UpdateIssue
 
+// UpdateChecklistItemJSONRequestBody defines body for UpdateChecklistItem for application/json ContentType.
+type UpdateChecklistItemJSONRequestBody = UpdateChecklistItem
+
+// CreateChecklistJSONRequestBody defines body for CreateChecklist for application/json ContentType.
+type CreateChecklistJSONRequestBody = ChecklistInput
+
+// UpdateChecklistJSONRequestBody defines body for UpdateChecklist for application/json ContentType.
+type UpdateChecklistJSONRequestBody = ChecklistInput
+
+// CreateChecklistItemJSONRequestBody defines body for CreateChecklistItem for application/json ContentType.
+type CreateChecklistItemJSONRequestBody = CreateChecklistItem
+
 // CreateCommentJSONRequestBody defines body for CreateComment for application/json ContentType.
 type CreateCommentJSONRequestBody = CreateComment
 
@@ -371,6 +531,12 @@ type CreateProjectJSONRequestBody = CreateProject
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProject
+
+// CreateProjectCategoryJSONRequestBody defines body for CreateProjectCategory for application/json ContentType.
+type CreateProjectCategoryJSONRequestBody = CreateProjectCategory
+
+// UpdateProjectCategoryJSONRequestBody defines body for UpdateProjectCategory for application/json ContentType.
+type UpdateProjectCategoryJSONRequestBody = UpdateProjectCategory
 
 // CreateIssueJSONRequestBody defines body for CreateIssue for application/json ContentType.
 type CreateIssueJSONRequestBody = CreateIssue
@@ -401,6 +567,30 @@ type ServerInterface interface {
 
 	// (PATCH /issues/{key})
 	UpdateIssue(w http.ResponseWriter, r *http.Request, key IssueKey)
+
+	// (DELETE /issues/{key}/checklist-items/{itemId})
+	DeleteChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, itemId ChecklistItemId)
+
+	// (PATCH /issues/{key}/checklist-items/{itemId})
+	UpdateChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, itemId ChecklistItemId)
+
+	// (POST /issues/{key}/checklist-items/{itemId}/convert)
+	ConvertChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, itemId ChecklistItemId)
+
+	// (GET /issues/{key}/checklists)
+	ListChecklists(w http.ResponseWriter, r *http.Request, key IssueKey)
+
+	// (POST /issues/{key}/checklists)
+	CreateChecklist(w http.ResponseWriter, r *http.Request, key IssueKey)
+
+	// (DELETE /issues/{key}/checklists/{checklistId})
+	DeleteChecklist(w http.ResponseWriter, r *http.Request, key IssueKey, checklistId ChecklistId)
+
+	// (PATCH /issues/{key}/checklists/{checklistId})
+	UpdateChecklist(w http.ResponseWriter, r *http.Request, key IssueKey, checklistId ChecklistId)
+
+	// (POST /issues/{key}/checklists/{checklistId}/items)
+	CreateChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, checklistId ChecklistId)
 
 	// (GET /issues/{key}/comments)
 	ListComments(w http.ResponseWriter, r *http.Request, key IssueKey)
@@ -437,6 +627,18 @@ type ServerInterface interface {
 
 	// (PATCH /projects/{projectId})
 	UpdateProject(w http.ResponseWriter, r *http.Request, projectId ProjectId)
+
+	// (GET /projects/{projectId}/categories)
+	ListProjectCategories(w http.ResponseWriter, r *http.Request, projectId ProjectId)
+
+	// (POST /projects/{projectId}/categories)
+	CreateProjectCategory(w http.ResponseWriter, r *http.Request, projectId ProjectId)
+
+	// (DELETE /projects/{projectId}/categories/{categoryId})
+	DeleteProjectCategory(w http.ResponseWriter, r *http.Request, projectId ProjectId, categoryId int64)
+
+	// (PATCH /projects/{projectId}/categories/{categoryId})
+	UpdateProjectCategory(w http.ResponseWriter, r *http.Request, projectId ProjectId, categoryId int64)
 
 	// (POST /projects/{projectId}/issues)
 	CreateIssue(w http.ResponseWriter, r *http.Request, projectId ProjectId)
@@ -487,6 +689,46 @@ func (_ Unimplemented) GetIssue(w http.ResponseWriter, r *http.Request, key Issu
 
 // (PATCH /issues/{key})
 func (_ Unimplemented) UpdateIssue(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /issues/{key}/checklist-items/{itemId})
+func (_ Unimplemented) DeleteChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, itemId ChecklistItemId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /issues/{key}/checklist-items/{itemId})
+func (_ Unimplemented) UpdateChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, itemId ChecklistItemId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /issues/{key}/checklist-items/{itemId}/convert)
+func (_ Unimplemented) ConvertChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, itemId ChecklistItemId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /issues/{key}/checklists)
+func (_ Unimplemented) ListChecklists(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /issues/{key}/checklists)
+func (_ Unimplemented) CreateChecklist(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /issues/{key}/checklists/{checklistId})
+func (_ Unimplemented) DeleteChecklist(w http.ResponseWriter, r *http.Request, key IssueKey, checklistId ChecklistId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /issues/{key}/checklists/{checklistId})
+func (_ Unimplemented) UpdateChecklist(w http.ResponseWriter, r *http.Request, key IssueKey, checklistId ChecklistId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /issues/{key}/checklists/{checklistId}/items)
+func (_ Unimplemented) CreateChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, checklistId ChecklistId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -547,6 +789,26 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, projec
 
 // (PATCH /projects/{projectId})
 func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, projectId ProjectId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /projects/{projectId}/categories)
+func (_ Unimplemented) ListProjectCategories(w http.ResponseWriter, r *http.Request, projectId ProjectId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /projects/{projectId}/categories)
+func (_ Unimplemented) CreateProjectCategory(w http.ResponseWriter, r *http.Request, projectId ProjectId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /projects/{projectId}/categories/{categoryId})
+func (_ Unimplemented) DeleteProjectCategory(w http.ResponseWriter, r *http.Request, projectId ProjectId, categoryId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /projects/{projectId}/categories/{categoryId})
+func (_ Unimplemented) UpdateProjectCategory(w http.ResponseWriter, r *http.Request, projectId ProjectId, categoryId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -674,6 +936,19 @@ func (siw *ServerInterfaceWrapper) ListIssues(w http.ResponseWriter, r *http.Req
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "milestoneId"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "milestoneId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "categoryId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "categoryId", r.URL.Query(), &params.CategoryId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "categoryId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryId", Err: err})
 		}
 		return
 	}
@@ -823,6 +1098,268 @@ func (siw *ServerInterfaceWrapper) UpdateIssue(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteChecklistItem operation middleware
+func (siw *ServerInterfaceWrapper) DeleteChecklistItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ChecklistItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteChecklistItem(w, r, key, itemId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateChecklistItem operation middleware
+func (siw *ServerInterfaceWrapper) UpdateChecklistItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ChecklistItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateChecklistItem(w, r, key, itemId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConvertChecklistItem operation middleware
+func (siw *ServerInterfaceWrapper) ConvertChecklistItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ChecklistItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConvertChecklistItem(w, r, key, itemId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListChecklists operation middleware
+func (siw *ServerInterfaceWrapper) ListChecklists(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListChecklists(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateChecklist operation middleware
+func (siw *ServerInterfaceWrapper) CreateChecklist(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateChecklist(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteChecklist operation middleware
+func (siw *ServerInterfaceWrapper) DeleteChecklist(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId ChecklistId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", chi.URLParam(r, "checklistId"), &checklistId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "checklistId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteChecklist(w, r, key, checklistId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateChecklist operation middleware
+func (siw *ServerInterfaceWrapper) UpdateChecklist(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId ChecklistId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", chi.URLParam(r, "checklistId"), &checklistId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "checklistId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateChecklist(w, r, key, checklistId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateChecklistItem operation middleware
+func (siw *ServerInterfaceWrapper) CreateChecklistItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId ChecklistId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", chi.URLParam(r, "checklistId"), &checklistId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "checklistId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateChecklistItem(w, r, key, checklistId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1148,6 +1685,128 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListProjectCategories operation middleware
+func (siw *ServerInterfaceWrapper) ListProjectCategories(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId ProjectId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListProjectCategories(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateProjectCategory operation middleware
+func (siw *ServerInterfaceWrapper) CreateProjectCategory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId ProjectId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateProjectCategory(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteProjectCategory operation middleware
+func (siw *ServerInterfaceWrapper) DeleteProjectCategory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId ProjectId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "categoryId" -------------
+	var categoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryId", chi.URLParam(r, "categoryId"), &categoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteProjectCategory(w, r, projectId, categoryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateProjectCategory operation middleware
+func (siw *ServerInterfaceWrapper) UpdateProjectCategory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId ProjectId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "categoryId" -------------
+	var categoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryId", chi.URLParam(r, "categoryId"), &categoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateProjectCategory(w, r, projectId, categoryId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1583,6 +2242,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/projects/{projectId}/milestones/{milestoneId}", wrapper.UpdateMilestone)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/projects/{projectId}/categories", wrapper.ListProjectCategories)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/projects/{projectId}/categories", wrapper.CreateProjectCategory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/projects/{projectId}/categories/{categoryId}", wrapper.DeleteProjectCategory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/projects/{projectId}/categories/{categoryId}", wrapper.UpdateProjectCategory)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/issues", wrapper.ListIssues)
 	})
 	r.Group(func(r chi.Router) {
@@ -1614,6 +2285,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/issues/{key}/links/{linkId}", wrapper.DeleteLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/issues/{key}/checklists", wrapper.ListChecklists)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/issues/{key}/checklists", wrapper.CreateChecklist)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/issues/{key}/checklists/{checklistId}", wrapper.DeleteChecklist)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/issues/{key}/checklists/{checklistId}", wrapper.UpdateChecklist)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/issues/{key}/checklists/{checklistId}/items", wrapper.CreateChecklistItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/issues/{key}/checklist-items/{itemId}", wrapper.DeleteChecklistItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/issues/{key}/checklist-items/{itemId}", wrapper.UpdateChecklistItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/issues/{key}/checklist-items/{itemId}/convert", wrapper.ConvertChecklistItem)
 	})
 
 	return r

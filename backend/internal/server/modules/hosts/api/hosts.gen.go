@@ -792,9 +792,24 @@ type UploadFileParams struct {
 	Path string `form:"path" json:"path"`
 }
 
+// FollowHostFileParams defines parameters for FollowHostFile.
+type FollowHostFileParams struct {
+	Path   string `form:"path" json:"path"`
+	Offset int64  `form:"offset" json:"offset"`
+}
+
 // MakeDirectoryJSONBody defines parameters for MakeDirectory.
 type MakeDirectoryJSONBody struct {
 	Path string `json:"path"`
+}
+
+// ReadFileRangeParams defines parameters for ReadFileRange.
+type ReadFileRangeParams struct {
+	Path   string `form:"path" json:"path"`
+	Offset int64  `form:"offset" json:"offset"`
+
+	// Length 最多 1 MB
+	Length int `form:"length" json:"length"`
 }
 
 // RenameFileJSONBody defines parameters for RenameFile.
@@ -961,8 +976,14 @@ type ServerInterface interface {
 	// (PUT /hosts/{hostId}/files/content)
 	UploadFile(w http.ResponseWriter, r *http.Request, hostId HostId, params UploadFileParams)
 
+	// (GET /hosts/{hostId}/files/follow)
+	FollowHostFile(w http.ResponseWriter, r *http.Request, hostId HostId, params FollowHostFileParams)
+
 	// (POST /hosts/{hostId}/files/mkdir)
 	MakeDirectory(w http.ResponseWriter, r *http.Request, hostId HostId)
+
+	// (GET /hosts/{hostId}/files/range)
+	ReadFileRange(w http.ResponseWriter, r *http.Request, hostId HostId, params ReadFileRangeParams)
 
 	// (POST /hosts/{hostId}/files/rename)
 	RenameFile(w http.ResponseWriter, r *http.Request, hostId HostId)
@@ -1105,8 +1126,18 @@ func (_ Unimplemented) UploadFile(w http.ResponseWriter, r *http.Request, hostId
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /hosts/{hostId}/files/follow)
+func (_ Unimplemented) FollowHostFile(w http.ResponseWriter, r *http.Request, hostId HostId, params FollowHostFileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /hosts/{hostId}/files/mkdir)
 func (_ Unimplemented) MakeDirectory(w http.ResponseWriter, r *http.Request, hostId HostId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /hosts/{hostId}/files/range)
+func (_ Unimplemented) ReadFileRange(w http.ResponseWriter, r *http.Request, hostId HostId, params ReadFileRangeParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1699,6 +1730,61 @@ func (siw *ServerInterfaceWrapper) UploadFile(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// FollowHostFile operation middleware
+func (siw *ServerInterfaceWrapper) FollowHostFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FollowHostFileParams
+
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FollowHostFile(w, r, hostId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // MakeDirectory operation middleware
 func (siw *ServerInterfaceWrapper) MakeDirectory(w http.ResponseWriter, r *http.Request) {
 
@@ -1716,6 +1802,74 @@ func (siw *ServerInterfaceWrapper) MakeDirectory(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.MakeDirectory(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReadFileRange operation middleware
+func (siw *ServerInterfaceWrapper) ReadFileRange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReadFileRangeParams
+
+	// ------------- Required query parameter "path" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "path", r.URL.Query(), &params.Path, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "length" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "length", r.URL.Query(), &params.Length, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "length"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "length", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReadFileRange(w, r, hostId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2711,6 +2865,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/hosts/{hostId}/files/content", wrapper.UploadFile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hosts/{hostId}/files/range", wrapper.ReadFileRange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hosts/{hostId}/files/follow", wrapper.FollowHostFile)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/hosts/{hostId}/exec", wrapper.ExecCommand)

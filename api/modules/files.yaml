@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: X Console files API (B36)
+  version: 0.1.0
+  description: |
+    公共的文件上传，给 Markdown 编辑框贴图用（项目、日程、提醒、Agent 任务）。
+    笔记和云盘有自己的接口，不走这里。后端还没有这个模块，现在请求回 404，前端按“还没上线”处理。
+servers:
+  - url: /api/v1
+paths:
+  /files:
+    post:
+      operationId: uploadFile
+      tags: [files]
+      description: |
+        上传一个图片，最大 20 MB。类型以服务端检测为准，只收 png、jpeg、gif、webp。
+        刚上传的文件没有归属。保存 Markdown 时，后端从内容里找 /api/v1/files/<id> 认领它。
+        24 小时后还没被认领的文件由每天的清理任务删掉。
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/FileScope" }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: 已上传
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadedFile" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /files/{fileId}:
+    parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: downloadFile
+      tags: [files]
+      description: 要登录。图片内联显示。thumb=1 时，宽或高超过 1600 像素的图片返回缩略图，其他原样返回。
+      parameters:
+        - name: thumb
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    FileScope:
+      type: string
+      description: 文件属于哪个模块，决定存放目录 files/<scope>/
+      enum: [projects, calendar, reminders, coding]
+    UploadedFile:
+      type: object
+      required: [id, name, mime, size, url]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        mime: { type: string }
+        size: { type: integer, format: int64 }
+        url: { type: string, description: 站内地址，例如 /api/v1/files/12 }

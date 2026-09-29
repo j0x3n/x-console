@@ -4,13 +4,17 @@ import {
   useQueryClient,
   type QueryClient,
 } from "@tanstack/react-query";
-import { createApi, errorMessage, unwrap } from "../../api/client";
+import { createApi, errorMessage, isNotLive, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import type { components } from "../../api/gen/projects";
 import type { paths } from "../../api/gen/projects";
 import { toast } from "../../hooks/useToast";
 import {
+  applyItemMove,
   applyMove,
+  type Category,
+  type Checklist,
+  type ChecklistItem,
   type Issue,
   type IssueStatus,
   type MovePlan,
@@ -27,7 +31,7 @@ export type IssueLinkKind = components["schemas"]["IssueLinkKind"];
 export type CreateIssue = components["schemas"]["CreateIssue"];
 export type UpdateIssue = components["schemas"]["UpdateIssue"];
 export type UpdateProject = components["schemas"]["UpdateProject"];
-export type { Issue, IssueStatus };
+export type { Category, Checklist, ChecklistItem, Issue, IssueStatus };
 
 export const projectKeys = {
   all: ["projects"] as const,
@@ -41,6 +45,10 @@ export const projectKeys = {
   comments: (key: string) =>
     ["projects", "comments", key.toUpperCase()] as const,
   links: (key: string) => ["projects", "links", key.toUpperCase()] as const,
+  categories: (projectId: number) =>
+    ["projects", "categories", projectId] as const,
+  checklists: (key: string) =>
+    ["projects", "checklists", key.toUpperCase()] as const,
 };
 
 // 其他窗口或其他模块改了数据时，服务端会推事件，这里整体刷新。
@@ -51,6 +59,7 @@ for (const prefix of [
   "issue_link.",
   "label.",
   "milestone.",
+  "project_category.",
 ])
   invalidateOn(prefix, projectKeys.all);
 
@@ -269,6 +278,11 @@ export function useUpdateIssue() {
         ...(body.dueDate !== undefined && {
           dueDate: body.dueDate ?? undefined,
         }),
+        ...(body.dueAt !== undefined && { dueAt: body.dueAt ?? undefined }),
+        ...(body.dueRemind !== undefined && { dueRemind: body.dueRemind }),
+        ...(body.categoryId !== undefined && {
+          categoryId: body.categoryId ?? undefined,
+        }),
         ...(body.milestoneId !== undefined && {
           milestoneId: body.milestoneId ?? undefined,
         }),
@@ -484,4 +498,228 @@ export function useMilestoneMutations(projectId: number) {
     onError: fail,
   });
   return { create, update, remove };
+}
+
+/* ---- B36：分类和检查清单 ---- */
+
+/** 项目的分类。后端还没上线时 error 是 404 或 501，不重试。 */
+export function useCategories(projectId: number | undefined) {
+  return useQuery({
+    queryKey: projectKeys.categories(projectId ?? 0),
+    queryFn: () =>
+      unwrap(
+        projectsApi.GET("/projects/{projectId}/categories", {
+          params: { path: { projectId: projectId! } },
+        }),
+      ),
+    enabled: projectId !== undefined,
+    retry: (count, error) => !isNotLive(error) && count < 2,
+  });
+}
+
+/**
+ * B36 的后端（分类、检查清单、截止时间到分钟）上线没有。用分类接口判断：
+ * 没上线时只发旧字段，旧后端遇到不认识的字段会回 400。
+ */
+export function useB36Live(projectId: number | undefined): {
+  live: boolean;
+  categories: Category[];
+} {
+  const categories = useCategories(projectId);
+  return {
+    live: categories.isSuccess && Array.isArray(categories.data),
+    categories: Array.isArray(categories.data) ? categories.data : [],
+  };
+}
+
+export function useCategoryMutations(projectId: number) {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: projectKeys.all });
+  const create = useMutation({
+    mutationFn: (body: components["schemas"]["CreateProjectCategory"]) =>
+      unwrap(
+        projectsApi.POST("/projects/{projectId}/categories", {
+          params: { path: { projectId } },
+          body,
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  const update = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: components["schemas"]["UpdateProjectCategory"];
+    }) =>
+      unwrap(
+        projectsApi.PATCH("/projects/{projectId}/categories/{categoryId}", {
+          params: { path: { projectId, categoryId: id } },
+          body,
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  const remove = useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        projectsApi.DELETE("/projects/{projectId}/categories/{categoryId}", {
+          params: { path: { projectId, categoryId: id } },
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  return { create, update, remove };
+}
+
+export function useChecklists(key: string, enabled = true) {
+  return useQuery({
+    queryKey: projectKeys.checklists(key),
+    queryFn: () =>
+      unwrap(
+        projectsApi.GET("/issues/{key}/checklists", {
+          params: { path: { key } },
+        }),
+      ),
+    enabled,
+    retry: (count, error) => !isNotLive(error) && count < 2,
+  });
+}
+
+/** 检查清单的增删改。勾选和排序先改缓存，失败回滚。 */
+export function useChecklistMutations(key: string) {
+  const qc = useQueryClient();
+  const listKey = projectKeys.checklists(key);
+  // 卡片上的进度来自 Issue，改完一起刷新。
+  const done = () => qc.invalidateQueries({ queryKey: projectKeys.all });
+  const patchItem = (id: number, fn: (item: ChecklistItem) => ChecklistItem) =>
+    qc.setQueryData<Checklist[]>(listKey, (lists) =>
+      lists?.map((l) => ({
+        ...l,
+        items: l.items.map((i) => (i.id === id ? fn(i) : i)),
+      })),
+    );
+
+  const createList = useMutation({
+    mutationFn: (title: string) =>
+      unwrap(
+        projectsApi.POST("/issues/{key}/checklists", {
+          params: { path: { key } },
+          body: { title },
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  const renameList = useMutation({
+    mutationFn: ({ id, title }: { id: number; title: string }) =>
+      unwrap(
+        projectsApi.PATCH("/issues/{key}/checklists/{checklistId}", {
+          params: { path: { key, checklistId: id } },
+          body: { title },
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  const deleteList = useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        projectsApi.DELETE("/issues/{key}/checklists/{checklistId}", {
+          params: { path: { key, checklistId: id } },
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  const addItem = useMutation({
+    mutationFn: ({
+      checklistId,
+      text,
+      afterId,
+    }: {
+      checklistId: number;
+      text: string;
+      afterId?: number;
+    }) =>
+      unwrap(
+        projectsApi.POST("/issues/{key}/checklists/{checklistId}/items", {
+          params: { path: { key, checklistId } },
+          body: { text, afterId },
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  const updateItem = useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: components["schemas"]["UpdateChecklistItem"];
+    }) =>
+      unwrap(
+        projectsApi.PATCH("/issues/{key}/checklist-items/{itemId}", {
+          params: { path: { key, itemId: id } },
+          body,
+        }),
+      ),
+    onMutate: async ({ id, body }) => {
+      await qc.cancelQueries({ queryKey: listKey });
+      const prev = qc.getQueryData<Checklist[]>(listKey);
+      if (body.afterId !== undefined || body.beforeId !== undefined)
+        qc.setQueryData<Checklist[]>(listKey, (lists) =>
+          lists?.map((l) =>
+            l.items.some((i) => i.id === id)
+              ? { ...l, items: applyItemMove(l.items, id, body) }
+              : l,
+          ),
+        );
+      patchItem(id, (item) => ({
+        ...item,
+        ...(body.text !== undefined && { text: body.text }),
+        ...(body.done !== undefined && { done: body.done }),
+      }));
+      return { prev };
+    },
+    onError: (error, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(listKey, ctx.prev);
+      fail(error);
+    },
+    onSettled: done,
+  });
+  const deleteItem = useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        projectsApi.DELETE("/issues/{key}/checklist-items/{itemId}", {
+          params: { path: { key, itemId: id } },
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  const convertItem = useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        projectsApi.POST("/issues/{key}/checklist-items/{itemId}/convert", {
+          params: { path: { key, itemId: id } },
+        }),
+      ),
+    onSuccess: done,
+    onError: fail,
+  });
+  return {
+    createList,
+    renameList,
+    deleteList,
+    addItem,
+    updateItem,
+    deleteItem,
+    convertItem,
+  };
 }

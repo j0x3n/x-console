@@ -15,6 +15,42 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for NoteAiSettingsTagMode.
+const (
+	NoteAiSettingsTagModeApply   NoteAiSettingsTagMode = "apply"
+	NoteAiSettingsTagModeSuggest NoteAiSettingsTagMode = "suggest"
+)
+
+// Valid indicates whether the value is a known member of the NoteAiSettingsTagMode enum.
+func (e NoteAiSettingsTagMode) Valid() bool {
+	switch e {
+	case NoteAiSettingsTagModeApply:
+		return true
+	case NoteAiSettingsTagModeSuggest:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NoteAiSettingsInputTagMode.
+const (
+	NoteAiSettingsInputTagModeApply   NoteAiSettingsInputTagMode = "apply"
+	NoteAiSettingsInputTagModeSuggest NoteAiSettingsInputTagMode = "suggest"
+)
+
+// Valid indicates whether the value is a known member of the NoteAiSettingsInputTagMode enum.
+func (e NoteAiSettingsInputTagMode) Valid() bool {
+	switch e {
+	case NoteAiSettingsInputTagModeApply:
+		return true
+	case NoteAiSettingsInputTagModeSuggest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Attachment defines model for Attachment.
 type Attachment struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -48,13 +84,41 @@ type Note struct {
 	CreatedAt time.Time `json:"createdAt"`
 
 	// Hidden B13 隐藏笔记，只在解锁后出现
-	Hidden    *bool     `json:"hidden,omitempty"`
-	Id        int64     `json:"id"`
-	Pinned    bool      `json:"pinned"`
-	Tags      []string  `json:"tags"`
-	Title     string    `json:"title"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Hidden *bool `json:"hidden,omitempty"`
+	Id     int64 `json:"id"`
+	Pinned bool  `json:"pinned"`
+
+	// SuggestedTags B32。AI 建议的标签，用户点了才加上。加上的标签后端自动从这里去掉
+	SuggestedTags *[]string `json:"suggestedTags,omitempty"`
+	Tags          []string  `json:"tags"`
+	Title         string    `json:"title"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
+
+// NoteAiSettings defines model for NoteAiSettings.
+type NoteAiSettings struct {
+	AutoTags  bool `json:"autoTags"`
+	AutoTitle bool `json:"autoTitle"`
+
+	// Available 配了 AI 模型
+	Available bool `json:"available"`
+
+	// TagMode suggest 先作为建议显示；apply 直接加上
+	TagMode NoteAiSettingsTagMode `json:"tagMode"`
+}
+
+// NoteAiSettingsTagMode suggest 先作为建议显示；apply 直接加上
+type NoteAiSettingsTagMode string
+
+// NoteAiSettingsInput defines model for NoteAiSettingsInput.
+type NoteAiSettingsInput struct {
+	AutoTags  *bool                       `json:"autoTags,omitempty"`
+	AutoTitle *bool                       `json:"autoTitle,omitempty"`
+	TagMode   *NoteAiSettingsInputTagMode `json:"tagMode,omitempty"`
+}
+
+// NoteAiSettingsInputTagMode defines model for NoteAiSettingsInput.TagMode.
+type NoteAiSettingsInputTagMode string
 
 // NoteSummary defines model for NoteSummary.
 type NoteSummary struct {
@@ -157,6 +221,9 @@ type NoteToReminderJSONBody struct {
 // CreateNoteJSONRequestBody defines body for CreateNote for application/json ContentType.
 type CreateNoteJSONRequestBody = CreateNote
 
+// PutNoteAiSettingsJSONRequestBody defines body for PutNoteAiSettings for application/json ContentType.
+type PutNoteAiSettingsJSONRequestBody = NoteAiSettingsInput
+
 // SetNoteTagColorJSONRequestBody defines body for SetNoteTagColor for application/json ContentType.
 type SetNoteTagColorJSONRequestBody = TagColorInput
 
@@ -180,6 +247,12 @@ type ServerInterface interface {
 
 	// (POST /notes)
 	CreateNote(w http.ResponseWriter, r *http.Request)
+
+	// (GET /notes/ai-settings)
+	GetNoteAiSettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /notes/ai-settings)
+	PutNoteAiSettings(w http.ResponseWriter, r *http.Request)
 
 	// (DELETE /notes/attachments/{attachmentId})
 	DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId)
@@ -208,6 +281,9 @@ type ServerInterface interface {
 	// (POST /notes/{noteId}/attachments)
 	UploadNoteAttachment(w http.ResponseWriter, r *http.Request, noteId NoteId)
 
+	// (DELETE /notes/{noteId}/suggested-tags)
+	DismissNoteSuggestedTags(w http.ResponseWriter, r *http.Request, noteId NoteId)
+
 	// (POST /notes/{noteId}/to-issue)
 	NoteToIssue(w http.ResponseWriter, r *http.Request, noteId NoteId)
 
@@ -226,6 +302,16 @@ func (_ Unimplemented) ListNotes(w http.ResponseWriter, r *http.Request, params 
 
 // (POST /notes)
 func (_ Unimplemented) CreateNote(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /notes/ai-settings)
+func (_ Unimplemented) GetNoteAiSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /notes/ai-settings)
+func (_ Unimplemented) PutNoteAiSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -271,6 +357,11 @@ func (_ Unimplemented) ListNoteAttachments(w http.ResponseWriter, r *http.Reques
 
 // (POST /notes/{noteId}/attachments)
 func (_ Unimplemented) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, noteId NoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /notes/{noteId}/suggested-tags)
+func (_ Unimplemented) DismissNoteSuggestedTags(w http.ResponseWriter, r *http.Request, noteId NoteId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -409,6 +500,34 @@ func (siw *ServerInterfaceWrapper) CreateNote(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateNote(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNoteAiSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetNoteAiSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNoteAiSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutNoteAiSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutNoteAiSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutNoteAiSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -647,6 +766,32 @@ func (siw *ServerInterfaceWrapper) UploadNoteAttachment(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// DismissNoteSuggestedTags operation middleware
+func (siw *ServerInterfaceWrapper) DismissNoteSuggestedTags(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "noteId" -------------
+	var noteId NoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "noteId", chi.URLParam(r, "noteId"), &noteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "noteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissNoteSuggestedTags(w, r, noteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // NoteToIssue operation middleware
 func (siw *ServerInterfaceWrapper) NoteToIssue(w http.ResponseWriter, r *http.Request) {
 
@@ -832,6 +977,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/notes/{noteId}", wrapper.UpdateNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notes/ai-settings", wrapper.GetNoteAiSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/notes/ai-settings", wrapper.PutNoteAiSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/notes/{noteId}/suggested-tags", wrapper.DismissNoteSuggestedTags)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notes/{noteId}/to-issue", wrapper.NoteToIssue)

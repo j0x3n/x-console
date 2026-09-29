@@ -13,12 +13,21 @@
 - 演示数据已备份到 `demo-data-backup-20260929` 分支（提交 `f74744d`）。
 - D1 已合并。正式前端直接使用真实接口。
 - **下一批：B20 到 B37**（2026-09-28 用户提的一批需求），按“待做”表格的顺序做。
+- B31 到 B37 的前端已经做完，后端没做的接口回 501。后端的顺序和要删的 501 看 [backend-todo.md](backend-todo.md)。
 - `frontend-done` 分支是交给 Codex 之前的版本，需要时可以回到这里。
 
 ## 进行中
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
+| B31（预览部分） | 云盘统一查看器：图片缩放、音视频、PDF、文本编辑保存（带版本号，冲突回 409）、Markdown、日志分段读、全屏、左右切换。分支 `claude/project-thread-sssfqr`，用户 2026-09-29 让 Claude 直接写。复制、压缩、分享、历史版本、日志实时模式、任务进度下一个 PR 做 | [B31](specs/B31.md) | Claude |
+| B36 | 前端：分类（设置、筛选、分组、侧边栏）、检查清单、截止时间到分钟和提前提醒、公共编辑框贴图、工具栏合成一行。后端写成规格里的“后端（待做）”，项目的新接口先回 501，公共上传 `files.yaml` 还没有模块。分支 `claude/project-thread-o3tsew`，用户 2026-09-29 确认“二级分类”是 Issue 分两级 | [B36](specs/B36.md) | Claude（前端） |
+| B32 | 前端：设置 → AI 的供应商、模型选择（能搜索、显示规格和价格）、思考程度、本月用量、笔记自动标题和标签的开关，笔记编辑页的建议标签。后端没上线时还是旧的 Anthropic 表单。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B32](specs/B32.md) | Claude（前端） |
+| B33 | 前端：服务器和电脑详情的 Agent 标签（会话列表、对话、命令卡片、长输出折叠、权限下拉、停止），AI 浮窗按 B32 判断有没有选模型；文件标签里查看远端日志（B31 留下的）。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B33](specs/B33.md) | Claude（前端） |
+| B34 | 前端：浏览器推送卡片列出已订阅的浏览器（设备、推送服务、上次送达、上次错误，可以删除），测试分本机检查和服务器推送两步，谷歌推送的提示，后台通知的说明，`sw.js` 图标换 PNG。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B34](specs/B34.md) | Claude（前端） |
+| B35 | 前端：GitHub 关注的仓库改成从令牌能访问的仓库里多选（搜索、私有标记、刷新，没上线时退回文本框），同步状态显示总额度和同步间隔。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B35](specs/B35.md) | Claude（前端） |
+| B37 | 前端：提醒页“今天”“即将到来”混排其他模块的到期事项（来源标签、只读、点了跳转），“显示其他模块”开关，概要数字算上它们。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B37](specs/B37.md) | Claude（前端） |
+| B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
 
 ## 待做
 
@@ -42,11 +51,11 @@
 | B31 | 云盘：文本编辑和历史版本、批量操作、压缩解压、外链分享、预览、日志滚动 | [B31](specs/B31.md) | |
 | B32 | AI 改为 OpenAI 兼容接口，快速模型和 Agent 模型 | [B32](specs/B32.md) | |
 | B33 | 服务器的 Agent 标签 | [B33](specs/B33.md) | |
-| B34 | 浏览器推送自检和后台通知 | 见下 | |
-| B35 | GitHub 仓库下拉多选，同步加快 | 见下 | |
+| B34 | 浏览器推送自检和后台通知 | [B34](specs/B34.md) | |
+| B35 | GitHub 仓库下拉多选，同步加快 | [B35](specs/B35.md) | |
 | C5 | 清理轮 | 见下 | |
 | B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并 | [B36](specs/B36.md) | |
-| B37 | 提醒页汇总其他模块的提醒 | 见下 | |
+| B37 | 提醒页汇总其他模块的提醒 | [B37](specs/B37.md) | |
 
 ### 任务说明
 
@@ -55,7 +64,7 @@
 - B21 做完以后，新写的删除、停止、重启、结束进程、吊销这类操作都要用 `useConfirm`。
 - B24 定了文件目录 `data/files/<模块>/`。以后新模块存文件都走 `files.Store`，不要自己拼路径。
 - B32 替换 B3 里“用 Anthropic SDK”的做法。B33 依赖 B32。
-- 有几处是审查者按自己的理解写的，开工前和用户确认：B36 的“二级分类”，B31 的“外链分析”（按“外链分享”写的），B22 的“设置弹窗”（按个人菜单写的）。
+- 有几处是审查者按自己的理解写的，开工前和用户确认：B22 的“设置弹窗”（按个人菜单写的）。B36 的“二级分类”（Issue 分两级）和 B31 的“外链分析”（外链分享）用户 2026-09-29 已确认。
 
 **B21 高危操作统一二次确认**
 - 新增 `components/ui/ConfirmDialog.tsx` 和 `useConfirm()`：返回 Promise，确认为 true。参数：标题、说明、确认按钮文字、是否危险（危险时确认按钮用 `danger`）、可选的“要输入的文字”（比如 B25 的“恢复”）。样式用现有 `Dialog`，取消在左、确认在右，默认焦点在取消上。
@@ -203,7 +212,7 @@
 - 文件上传进度条。SSH 主机指纹变化后在界面上重新信任。
 - `features/reminders` 和 `features/habits` 的 `api.ts` 修改后自己刷新数据，同时又用了 `invalidateOn`，有重复。
 - Agent 任务（原“编码任务”）的运行设置在仓库页，没有单独的设置标签。
-- 公共的 Markdown 编辑框（`components/markdown/MarkdownEditor`）还不能贴图片，只有笔记能。B36 解决。
+- 公共的 Markdown 编辑框贴图的前端已做（B36），要等 `modules/files` 后端上线才能用。
 - 搜城市先查 Open-Meteo，查不到再查 OpenStreetMap（Nominatim），开发环境连不上外网，没在真实网络下验证过。
 
 ## 已完成
@@ -253,6 +262,9 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-29 | `components/markdown/MarkdownEditor.tsx` 加可选的 `uploadScope`（粘贴、拖入、选择图片）；新增 `components/markdown/upload.ts`（上传、占位、插入文字，笔记的 `logic.ts` 改成转发）；`Markdown.tsx` 显示 `/api/v1/files/<id>` 的图片时取缩略图并链接原图；`NavChildLinks` 加可选的 `limit` 和链接的 `nested`（`.nav-child.nested` 在 `ui.css`）；`lib/i18n.ts` 加编辑框贴图的文案；新增契约 `api/modules/files.yaml`（公共上传，后端模块待做） | B36 贴图、侧边栏显示项目分类 |
+| 2026-09-29 | `app/App.tsx`：路径是 `/s/<token>` 时渲染云盘分享页，不经过登录检查；`drive.yaml` 新增公开入口 `/public/shares/*`（`security: []`），云盘模块的 `PublicPaths` 先放在 `drive/pending.go` | B31 外链分享 |
+| 2026-09-29 | `drive/viewer/LogView.tsx` 拆出 `RangeLogView`（按段读和实时模式，不绑定云盘），服务器文件标签也用它；`assistant/components/Timeline.tsx` 的动作卡片显示命令和原因、长结果折叠；`hosts.yaml` 新增 `files/range`、`files/follow`（后端待做，代理要加 `files.range` 能力） | B33 Agent 标签、远端日志 |
 | 2026-09-28 | `core.yaml` 加代理一键安装的 5 个公开接口（后端占位在 `core/pending.go`）；服务器详情标签支持 `preview`（旧代理也显示新标签）；导航“本机”改名“电脑”（英文键 `Computer`） | B29、B30 |
 | 2026-09-28 | 新增公共组件 `components/log/LogViewer.tsx`（虚拟列表、级别、输出、关键字过滤）和 `components/log/levels.ts`；`monitoring.yaml` 容器日志加 `format=json`、镜像删除和清理 | B28 容器日志、B29 系统日志、B31 日志文件共用 |
 | 2026-09-28 | `api/events.ts` 加 `useMetricsInterval`，WebSocket 控制消息加 `{"type":"interval","hostId","ms"}`（旧服务端忽略） | B26 刷新周期 |

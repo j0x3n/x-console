@@ -20,11 +20,21 @@ import { toast } from "../../hooks/useToast";
 import {
   useCompleteReminder,
   useDeleteReminder,
+  useExternalReminders,
   useReminders,
   useSnoozeReminder,
+  type ExternalReminder,
   type Reminder,
   type ReminderRange,
 } from "./api";
+import {
+  mergeEntries,
+  readShowExternal,
+  SOURCE_LABELS,
+  writeShowExternal,
+  type Entry,
+} from "./external";
+import Switch from "../../components/ui/Switch";
 import ReminderDialog from "./ReminderDialog";
 import { describeRule, formatWhen } from "./rrule";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -53,16 +63,44 @@ export default function RemindersPage() {
   const upcoming = useReminders("upcoming");
   const done = useReminders("done");
   const language = useLanguage();
+  // B37：其他模块的到期事项，后端没上线时当作没有。
+  const [showExternal, setShowExternal] = useState(readShowExternal);
+  const extToday = useExternalReminders("today", showExternal);
+  const extUpcoming = useExternalReminders("upcoming", showExternal);
+  const external = {
+    today: showExternal ? (extToday.data ?? []) : [],
+    upcoming: showExternal ? (extUpcoming.data ?? []) : [],
+  };
+  const openExternal = (items: ExternalReminder[]) =>
+    items.filter((e) => !e.done);
+  const todayCount =
+    (today.data?.length ?? 0) + openExternal(external.today).length;
+  const upcomingCount =
+    (upcoming.data?.length ?? 0) + openExternal(external.upcoming).length;
   const dueNow = (today.data ?? []).filter(
     (r) => r.status === "pending",
   ).length;
   const repeating = [...(today.data ?? []), ...(upcoming.data ?? [])].filter(
     (r) => r.rrule,
   ).length;
-  const next = [...(today.data ?? []), ...(upcoming.data ?? [])]
-    .filter((r) => r.status !== "done" && r.status !== "ended")
-    .map((r) => r.dueAt ?? r.dtstart)
-    .sort()[0];
+  const next = [
+    ...[...(today.data ?? []), ...(upcoming.data ?? [])]
+      .filter((r) => r.status !== "done" && r.status !== "ended")
+      .map((r) => r.dueAt ?? r.dtstart),
+    ...openExternal([...external.today, ...external.upcoming])
+      .map((e) => e.at)
+      .filter((at) => Date.parse(at) >= Date.now()),
+  ].sort()[0];
+  const entries =
+    list.data &&
+    mergeEntries(
+      list.data,
+      tab === "done"
+        ? []
+        : tab === "today"
+          ? external.today
+          : external.upcoming,
+    );
 
   const setParam = (key: string, value: string | null) => {
     const next = new URLSearchParams(params);
@@ -77,8 +115,8 @@ export default function RemindersPage() {
         title={t("Reminders")}
         subtitle={
           <>
-            {t("Today")} <strong>{today.data?.length ?? 0}</strong> ·{" "}
-            {t("Upcoming")} <strong>{upcoming.data?.length ?? 0}</strong>
+            {t("Today")} <strong>{todayCount}</strong> · {t("Upcoming")}{" "}
+            <strong>{upcomingCount}</strong>
             {dueNow > 0 && (
               <>
                 {" "}
@@ -99,7 +137,7 @@ export default function RemindersPage() {
       <StatStrip label={t("Reminders")}>
         <StatCard
           label={t("Today")}
-          value={today.data?.length ?? "–"}
+          value={today.data ? todayCount : "–"}
           caption={dueNow ? `${dueNow} ${t("due now")}` : undefined}
           tone={dueNow ? "warn" : undefined}
           foot={t("Reminders for today")}
@@ -115,7 +153,7 @@ export default function RemindersPage() {
         />
         <StatCard
           label={t("Upcoming")}
-          value={upcoming.data?.length ?? "–"}
+          value={upcoming.data ? upcomingCount : "–"}
           foot={`${repeating} ${t("repeating")}`}
         />
         <StatCard
@@ -125,7 +163,7 @@ export default function RemindersPage() {
           foot={t("Completed reminders")}
         />
       </StatStrip>
-      <nav className="xc-tabs">
+      <nav className="xc-tabs reminders-tabs">
         {tabs.map((item) => (
           <button
             key={item.id}
@@ -137,26 +175,43 @@ export default function RemindersPage() {
             {t(item.label)}
           </button>
         ))}
+        {tab !== "done" && (
+          <span className="reminders-external-toggle">
+            <Switch
+              checked={showExternal}
+              label={t("Show other modules")}
+              onChange={(on) => {
+                setShowExternal(on);
+                writeShowExternal(on);
+              }}
+            />
+            <small>{t("Show other modules")}</small>
+          </span>
+        )}
       </nav>
       {list.isPending ? (
         <Loading />
       ) : list.isError ? (
         <ErrorState error={list.error} onRetry={() => list.refetch()} />
-      ) : list.data.length === 0 ? (
+      ) : !entries || entries.length === 0 ? (
         <EmptyState title={t(emptyText[tab])} icon={<AlarmClock size={28} />} />
       ) : (
         <div className="reminders-groups">
-          {groupByDay(list.data, tab, language).map((g) => (
+          {groupByDay(entries, tab, language).map((g) => (
             <section key={g.key}>
               {g.label && <h3 className="reminders-day">{g.label}</h3>}
               <div className="xc-card reminders-list">
-                {g.items.map((r) => (
-                  <ReminderRow
-                    key={r.id}
-                    reminder={r}
-                    onEdit={() => setEditing(r)}
-                  />
-                ))}
+                {g.items.map((e) =>
+                  e.kind === "reminder" ? (
+                    <ReminderRow
+                      key={e.key}
+                      reminder={e.reminder}
+                      onEdit={() => setEditing(e.reminder)}
+                    />
+                  ) : (
+                    <ExternalRow key={e.key} item={e.item} />
+                  ),
+                )}
               </div>
             </section>
           ))}
@@ -175,15 +230,11 @@ export default function RemindersPage() {
 }
 
 /** 即将到来的提醒按日期分组，其他标签页不分组。 */
-function groupByDay(
-  items: Reminder[],
-  tab: ReminderRange,
-  language: "zh" | "en",
-) {
+function groupByDay(items: Entry[], tab: ReminderRange, language: "zh" | "en") {
   if (tab !== "upcoming") return [{ key: "all", label: "", items }];
-  const groups: { key: string; label: string; items: Reminder[] }[] = [];
+  const groups: { key: string; label: string; items: Entry[] }[] = [];
   for (const r of items) {
-    const at = new Date(r.dueAt ?? r.dtstart);
+    const at = new Date(r.at);
     const key = at.toDateString();
     let g = groups.find((x) => x.key === key);
     if (!g) {
@@ -312,6 +363,34 @@ function ReminderRow({
         >
           <Trash2 size={14} />
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** 其他模块的到期事项：只读，点标题跳到来源页面。 */
+function ExternalRow({ item }: { item: ExternalReminder }) {
+  const t = useT();
+  const language = useLanguage();
+  const label = SOURCE_LABELS[item.source];
+  const overdue = !item.done && Date.parse(item.at) < Date.now();
+  return (
+    <div
+      className={`reminders-row reminders-external${item.done ? " is-done" : ""}`}
+    >
+      <span className="reminders-source xc-badge">
+        {label ? t(label) : item.sourceLabel}
+      </span>
+      <div className="reminders-main">
+        <div className="reminders-title">
+          <Link to={item.link}>{item.title}</Link>
+          {overdue && <span className="xc-badge warn">{t("Overdue")}</span>}
+        </div>
+        <div className="reminders-meta">
+          <span>
+            <Clock size={12} /> {formatWhen(item.at, new Date(), language)}
+          </span>
+        </div>
       </div>
     </div>
   );

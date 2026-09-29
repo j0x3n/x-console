@@ -46,6 +46,35 @@ paths:
               schema: { $ref: "#/components/schemas/Reminder" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /reminders/external:
+    get:
+      operationId: listExternalReminders
+      tags: [reminders]
+      description: |
+        B37。其他模块的到期事项（订阅续费、证书到期、域名到期、Issue 截止），只读。
+        来自注册表 reminders.sources 里的所有实现。today 是今天结束前的（包括已过期没完成的）；
+        upcoming 是明天起 30 天内的。按时间排序。
+      parameters:
+        - name: range
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [today, upcoming]
+      responses:
+        "200":
+          description: 条目列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ExternalReminder" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /reminders/{reminderId}:
     parameters:
       - $ref: "#/components/parameters/ReminderId"
@@ -277,6 +306,20 @@ paths:
                 properties:
                   publicKey: { type: string }
   /notify/webpush/subscriptions:
+    get:
+      operationId: listPushSubscriptions
+      tags: [notify]
+      description: B34。已订阅的浏览器，新的在前。
+      responses:
+        "200":
+          description: 订阅列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WebPushSubscriptionInfo" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
     post:
       operationId: addPushSubscription
       tags: [notify]
@@ -301,6 +344,36 @@ paths:
       responses:
         "204":
           description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notify/webpush/subscriptions/{subscriptionId}:
+    parameters:
+      - name: subscriptionId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      operationId: deletePushSubscriptionById
+      tags: [notify]
+      description: B34。在订阅列表里删掉某个浏览器（不一定是现在这个）。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notify/webpush/test:
+    post:
+      operationId: testWebPush
+      tags: [notify]
+      description: B34。给每个已订阅的浏览器发一条测试推送，返回每个推送服务的结果。
+      responses:
+        "200":
+          description: 每个订阅的结果
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WebPushTestResult" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /notify/telegram/register-webhook:
@@ -387,6 +460,20 @@ components:
         enabled: { type: boolean }
         status: { $ref: "#/components/schemas/ReminderStatus" }
         createdAt: { type: string, format: date-time }
+    ExternalReminder:
+      type: object
+      required: [id, source, sourceLabel, title, at, link, done]
+      properties:
+        id: { type: string, description: 在来源里唯一，比如 subscription:12、issue:XC-3 }
+        source:
+          type: string
+          description: 来源。前端按它显示标签，不认识的用 sourceLabel
+          enum: [subscription, certificate, domain, issue, other]
+        sourceLabel: { type: string, description: 服务端写好的中文标签，比如“订阅”“证书”“Issue” }
+        title: { type: string }
+        at: { type: string, format: date-time, description: 到期时间 }
+        link: { type: string, description: 面板里的路径，比如 /monitoring/subscriptions }
+        done: { type: boolean, description: 来源里已经处理了（续费了、Issue 完成了） }
     ReminderInput:
       type: object
       required: [title, at]
@@ -465,6 +552,31 @@ components:
         enabled: { type: boolean }
         start: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
         end: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+    WebPushService:
+      type: string
+      description: 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+      enum: [google, microsoft, mozilla, apple, other]
+    WebPushSubscriptionInfo:
+      type: object
+      required: [id, endpoint, service, userAgent, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        endpoint: { type: string, description: 前端用它判断是不是现在这个浏览器 }
+        service: { $ref: "#/components/schemas/WebPushService" }
+        userAgent: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastOkAt: { type: string, format: date-time, description: 上次推送服务回 2xx 的时间 }
+        lastError: { type: string, description: 上次失败的原因，成功后清空 }
+        lastErrorAt: { type: string, format: date-time }
+    WebPushTestResult:
+      type: object
+      required: [id, service, ok]
+      properties:
+        id: { type: integer, format: int64 }
+        service: { $ref: "#/components/schemas/WebPushService" }
+        ok: { type: boolean }
+        status: { type: integer, description: 推送服务返回的 HTTP 状态码，连不上时没有 }
+        error: { type: string }
     PushSubscription:
       type: object
       required: [endpoint, keys]

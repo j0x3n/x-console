@@ -78,8 +78,6 @@ registerZh({
   "Any label": "所有标签",
   "Any milestone": "所有里程碑",
   Clear: "清除",
-  "C new · J/K move · Enter open · 1-6 status":
-    "C 新建 · J/K 上下 · Enter 打开 · 1-6 改状态",
 
   // Issue 详情
   Title: "标题",
@@ -133,4 +131,65 @@ registerZh({
   "It is removed from every issue.": "所有 Issue 上的这个标签都会去掉。",
   "Its comments and links are deleted too.": "它的评论和关联也会一起删除。",
   "Delete this link?": "删除这条关联？",
+
+  // B36：工具栏和快捷键
+  "Any status": "所有状态",
+  "Any due date": "所有截止时间",
+  "Group by category": "按分类分组",
+  View: "视图",
+  "Keyboard shortcuts": "快捷键",
+  "Select next or previous issue": "选中下一个或上一个 Issue",
+  "Open the selected issue": "打开选中的 Issue",
+  "Edit the title": "改标题",
+  "Change status": "改状态",
+  "Clear selection": "取消选择",
+  "Show keyboard shortcuts": "显示快捷键",
+
+  // B36：分类
+  Category: "分类",
+  Categories: "分类",
+  "All categories": "所有分类",
+  Uncategorized: "未分类",
+  "Categories are not live yet.": "分类还没上线。",
+  "Delete category": "删除分类",
+  "Its subcategories are deleted too. Their issues become uncategorized.":
+    "它下面的二级分类也会删掉。里面的 Issue 会变成未分类。",
+  "Its issues become uncategorized.": "里面的 Issue 会变成未分类。",
+  "No categories yet. Group issues like Backend / Drive.":
+    "还没有分类。可以分两级，比如“后端 / 云盘”。",
+  "Category name": "分类名称",
+  "Parent category": "上级分类",
+  "Top level": "一级分类",
+  Under: "放在",
+  "Add subcategory": "添加二级分类",
+  "Click to rename": "点击改名",
+
+  // B36：截止时间
+  "Due at": "截止时间",
+  "Due time": "截止时刻",
+  "Overdue for": "已过期",
+  minutes: "分钟",
+  "Remind ahead": "提前提醒",
+  "No reminder": "不提醒",
+  "When due": "到期时提醒",
+  "15 minutes before": "提前 15 分钟",
+  "1 hour before": "提前 1 小时",
+  "1 day before": "提前 1 天",
+
+  // B36：检查清单
+  Checklists: "检查清单",
+  "Checklists are not live yet.": "检查清单还没上线。",
+  "Add checklist": "添加检查清单",
+  "Split the work into small steps and tick them off.":
+    "把事情拆成几步，做完一步勾一步。",
+  "Checklist title": "清单标题",
+  "Show done items": "显示已完成的条目",
+  "Hide done items": "隐藏已完成的条目",
+  "Delete checklist": "删除检查清单",
+  "All its items are deleted too.": "里面的条目也会一起删除。",
+  "Turn this item into an issue?": "把这一条转成 Issue？",
+  "Convert to issue": "转成 Issue",
+  "Add an item": "添加一条，回车保存",
+  "done items hidden": "条已完成的没有显示",
+  "Item text": "条目内容",
 });

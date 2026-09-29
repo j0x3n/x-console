@@ -73,9 +73,14 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description 下载文件，支持 Range。inline=1 时用于预览（Content-Disposition 为 inline）。 */
+        /** @description 下载文件，支持 Range。inline=1 时用于预览（Content-Disposition 为 inline）。响应头 ETag 是当前版本，保存时放进 If-Match。 */
         get: operations["getDriveItemContent"];
-        put?: never;
+        /**
+         * @description 用新内容替换文本文件，只收 UTF-8，最大 10 MB。
+         *     If-Match 写打开时拿到的 ETag（读内容时响应头里有）。文件在别处改过时回 409 version_conflict。
+         *     不带 If-Match 就直接覆盖。成功时响应头 ETag 是新版本。
+         */
+        put: operations["saveDriveItemContent"];
         post?: never;
         delete?: never;
         options?: never;
@@ -221,6 +226,399 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/drive/zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B31。把选中的文件和文件夹打成一个 zip 边打包边下载，不落盘，不建任务。
+         *     文件夹递归打包，zip 里的路径从选中条目的名字开始。隐藏条目没解锁时回 404。
+         *     文件名默认“下载.zip”，只选一个条目时用它的名字。
+         */
+        get: operations["downloadDriveZip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/batch/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B31。复制到目标文件夹，在后台做，马上回 202 和任务。进度通过事件 drive_task.updated 推送。
+         *     同名时按 conflict 处理：skip 跳过，overwrite 覆盖（覆盖的旧文件进回收站），rename 加“ (1)”。
+         *     文件夹递归复制。目标是被复制的文件夹自己或它的子文件夹时回 400 invalid_target。
+         */
+        post: operations["copyDriveItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/batch/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B31。批量移动，规则和复制一样。同一个存储里移动只改 parent_id，很快，但仍然返回任务，前端统一处理。 */
+        post: operations["moveDriveItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B31。把选中的条目压缩成 zip 或 tar.gz，放在 parentId 目录（不传是根目录）。后台任务。
+         *     name 不带扩展名时服务端补上。重名时自动加“ (1)”。完成后任务的 resultId 是新文件。
+         */
+        post: operations["archiveDriveItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/items/{itemId}/extract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B31。解压 zip、tar、tar.gz、tgz。后台任务。
+         *     不传 targetId：在压缩包所在目录建一个同名文件夹（去掉扩展名，重名加“ (1)”），解压到里面。
+         *     传了 targetId（0 是根目录）：直接解压到那个文件夹，同名按 conflict 处理。
+         *     安全：有 .. 或绝对路径的条目直接让任务失败（error_code archive_unsafe_path）；
+         *     解压后总大小超过 10 GB 或条目超过 10 万个时停止（archive_too_large）；符号链接和设备文件跳过。
+         *     不支持的格式回 400 archive_unsupported。
+         */
+        post: operations["extractDriveItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B31。正在跑的任务，加上最近 10 分钟内结束的任务，新的在前。只存在内存里，重启后清空。 */
+        get: operations["listDriveTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/tasks/{taskId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B31。取消任务。已经做完的部分保留（复制出来的文件不删），压缩和解压的半成品删掉。任务已结束时原样返回。 */
+        post: operations["cancelDriveTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/items/{itemId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        /** @description B31。文件的历史版本，新的在前。不含当前版本。文件夹回 400。 */
+        get: operations["listDriveVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/items/{itemId}/versions/{versionId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+                versionId: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        /** @description B31。某个历史版本的内容，支持 Range。 */
+        get: operations["getDriveVersionContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/items/{itemId}/versions/{versionId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+                versionId: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B31。用这个版本替换当前内容。替换前当前内容先存成一个新版本。响应头 ETag 是新版本。 */
+        post: operations["restoreDriveVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/version-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDriveVersionSettings"];
+        put: operations["putDriveVersionSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/items/{itemId}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description B31 日志实时模式，WebSocket。offset 是前端已经读到的字节位置（一般是文件大小）。
+         *     服务端每秒看一次文件大小：变大就把新增部分推过来；变小（日志被轮转）先推 reset 再从 0 开始推。
+         *     每个文本帧是 DriveFollowFrame 的 JSON。一帧最多 256 KB，多的分几帧。
+         */
+        get: operations["followDriveItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B31。全部分享链接，新的在前。传 itemId 时只看这个条目的。 */
+        get: operations["listDriveShares"];
+        put?: never;
+        /**
+         * @description B31。给文件或文件夹建分享链接。隐藏条目、回收站里的条目回 400 share_not_allowed。
+         *     同一个条目可以有多条链接。记审计 drive.share.create。
+         */
+        post: operations["createDriveShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/shares/{shareId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description B31。取消分享，链接马上失效。记审计 drive.share.delete。 */
+        delete: operations["deleteDriveShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shares/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description B31 公开入口，不用登录。链接不存在、已取消、已过期、条目被删或进了回收站、条目变成隐藏，一律回 404 share_not_found。
+         *     有提取码且没带有效的 t 时回 401 share_code_required（body 里没有文件信息）。
+         *     按 IP 限流：每分钟 60 次，超出回 429。
+         */
+        get: operations["getPublicShare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shares/{token}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B31。校验提取码，成功时发一个 1 小时有效的访问令牌 t，后面的请求都带上。
+         *     错了回 403 share_code_wrong，message 里写还能试几次。同一个 IP 对同一条链接错 5 次锁 10 分钟，锁住时回 429 share_locked。
+         */
+        post: operations["unlockPublicShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shares/{token}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description B31。文件夹分享时列出内容。folder 不传是分享的那个文件夹本身；传了必须在分享的文件夹里面，否则 404。
+         *     隐藏条目和回收站里的条目不出现。
+         */
+        get: operations["listPublicShareItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shares/{token}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description B31。下载分享的文件。文件分享时不传 item；文件夹分享时 item 是里面的某个文件。支持 Range。
+         *     inline=1 用于预览（图片、视频、PDF）。不带 Range 或从 0 开始的请求才算一次下载。
+         *     下载次数到了上限回 410 share_limit_reached。
+         */
+        get: operations["getPublicShareContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shares/{token}/zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        /** @description B31。文件夹分享时把整个文件夹打包下载，边打包边传。算一次下载。 */
+        get: operations["downloadPublicShareZip"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -253,6 +651,8 @@ export interface components {
              */
             syncState: "synced" | "pending" | "failed" | "off";
             syncError?: string;
+            /** @description B31。有还在生效的分享链接 */
+            shared?: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -318,6 +718,170 @@ export interface components {
             synced: number;
             failed: number;
         };
+        /**
+         * @description 同名时怎么办。skip 跳过，overwrite 覆盖（旧的进回收站），rename 新的加“ (1)”
+         * @enum {string}
+         */
+        ConflictPolicy: "skip" | "overwrite" | "rename";
+        BatchTransfer: {
+            ids: number[];
+            /**
+             * Format: int64
+             * @description 目标文件夹，0 是根目录
+             */
+            targetId: number;
+            conflict: components["schemas"]["ConflictPolicy"];
+        };
+        ArchiveRequest: {
+            ids: number[];
+            /** @description 压缩包名字，可以不带扩展名 */
+            name: string;
+            /** @enum {string} */
+            format: "zip" | "tar.gz";
+            /**
+             * Format: int64
+             * @description 放在哪个目录，不传是根目录
+             */
+            parentId?: number;
+        };
+        ExtractRequest: {
+            /**
+             * Format: int64
+             * @description 不传就解压到同名的新文件夹
+             */
+            targetId?: number;
+            conflict?: components["schemas"]["ConflictPolicy"];
+        };
+        DriveTask: {
+            id: string;
+            /** @enum {string} */
+            kind: "copy" | "move" | "archive" | "extract";
+            /** @enum {string} */
+            state: "running" | "done" | "failed" | "canceled";
+            /** @description 服务端写好的说明，比如“复制 3 项到 /照片” */
+            title: string;
+            doneItems: number;
+            /** @description 还没数完时是 0 */
+            totalItems: number;
+            /** Format: int64 */
+            doneBytes: number;
+            /** Format: int64 */
+            totalBytes: number;
+            /** @description 正在处理的文件名 */
+            current?: string;
+            /** @description 因为同名跳过的数量 */
+            skipped?: number;
+            error?: string;
+            /** @description 比如 archive_unsafe_path、archive_too_large */
+            errorCode?: string;
+            /**
+             * Format: int64
+             * @description 压缩出来的文件、解压出来的文件夹
+             */
+            resultId?: number;
+            /**
+             * Format: int64
+             * @description 目标文件夹，0 是根目录，完成后前端可以跳过去
+             */
+            targetId?: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        DriveVersion: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            size: number;
+            sha256: string;
+            /**
+             * Format: date-time
+             * @description 这个版本被替换下来的时间
+             */
+            createdAt: string;
+        };
+        DriveVersionSettings: {
+            /** @description 每个文件最多留几个版本，默认 50 */
+            keepCount: number;
+            /** @description 最多留多少天，默认 30 */
+            keepDays: number;
+        };
+        DriveFollowFrame: {
+            /** @enum {string} */
+            type: "append" | "reset";
+            /**
+             * Format: int64
+             * @description append 时这段内容在文件里的起始位置
+             */
+            offset?: number;
+            /** @description append 时新增的内容，按 UTF-8 解码，解不开的字节换成 U+FFFD */
+            data?: string;
+        };
+        DriveShareInput: {
+            /** Format: int64 */
+            itemId: number;
+            /** @enum {string} */
+            expiresIn: "1d" | "7d" | "30d" | "never";
+            /** @description 提取码，不传就不用提取码 */
+            code?: string;
+            /** @description 下载次数上限，不传就不限 */
+            maxDownloads?: number;
+        };
+        DriveShare: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            itemId: number;
+            itemName: string;
+            isDir: boolean;
+            token: string;
+            /** @description 完整链接，https://<面板>/s/<token> */
+            url: string;
+            /** @description 提取码，只有主人能看到。没设就不返回 */
+            code?: string;
+            /**
+             * Format: date-time
+             * @description 不返回表示永久
+             */
+            expiresAt?: string;
+            maxDownloads?: number;
+            visits: number;
+            downloads: number;
+            /** @description false 表示已过期、次数用完、条目被删或隐藏。列表里保留 7 天方便查看，之后清掉 */
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastAccessAt?: string;
+        };
+        PublicShare: {
+            name: string;
+            isDir: boolean;
+            /**
+             * Format: int64
+             * @description 文件夹是里面所有文件的总大小
+             */
+            size: number;
+            mime?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** @description 还能下载几次，不限时不返回 */
+            downloadsLeft?: number;
+        };
+        PublicShareItem: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            isDir: boolean;
+            /** Format: int64 */
+            size: number;
+            mime?: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;
@@ -341,6 +905,11 @@ export interface components {
     };
     parameters: {
         ItemId: number;
+        VersionId: number;
+        /** @description 链接里 /s/ 后面那 22 位 */
+        ShareToken: string;
+        /** @description unlock 发的访问令牌。没有提取码的分享不用传 */
+        ShareAccess: string;
     };
     requestBodies: never;
     headers: never;
@@ -502,6 +1071,35 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveDriveItemContent: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "text/plain": string;
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveItem"];
                 };
             };
             default: components["responses"]["Error"];
@@ -730,6 +1328,552 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["S3Status"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadDriveZip: {
+        parameters: {
+            query: {
+                ids: number[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description zip 文件流 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    copyDriveItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchTransfer"];
+            };
+        };
+        responses: {
+            /** @description 任务已开始 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveTask"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveDriveItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchTransfer"];
+            };
+        };
+        responses: {
+            /** @description 任务已开始 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveTask"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveDriveItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveRequest"];
+            };
+        };
+        responses: {
+            /** @description 任务已开始 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveTask"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    extractDriveItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExtractRequest"];
+            };
+        };
+        responses: {
+            /** @description 任务已开始 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveTask"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDriveTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 任务列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DriveTask"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelDriveTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 任务当前状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveTask"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDriveVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 版本列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DriveVersion"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDriveVersionContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+                versionId: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreDriveVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+                versionId: components["parameters"]["VersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已恢复 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDriveVersionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 历史版本的保留规则 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveVersionSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putDriveVersionSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriveVersionSettings"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveVersionSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    followDriveItem: {
+        parameters: {
+            query: {
+                offset: number;
+            };
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 升级为 WebSocket */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDriveShares: {
+        parameters: {
+            query?: {
+                itemId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 分享列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DriveShare"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createDriveShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DriveShareInput"];
+            };
+        };
+        responses: {
+            /** @description 已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveShare"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteDriveShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已取消 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicShare: {
+        parameters: {
+            query?: {
+                /** @description unlock 发的访问令牌。没有提取码的分享不用传 */
+                t?: components["parameters"]["ShareAccess"];
+            };
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 分享的基本信息 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicShare"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unlockPublicShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 通过 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPublicShareItems: {
+        parameters: {
+            query?: {
+                /** @description unlock 发的访问令牌。没有提取码的分享不用传 */
+                t?: components["parameters"]["ShareAccess"];
+                folder?: number;
+            };
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 条目 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["PublicShareItem"][];
+                        /** @description 从分享的文件夹下面第一层到 folder 自己，不含分享的文件夹 */
+                        path: {
+                            /** Format: int64 */
+                            id: number;
+                            name: string;
+                        }[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicShareContent: {
+        parameters: {
+            query?: {
+                /** @description unlock 发的访问令牌。没有提取码的分享不用传 */
+                t?: components["parameters"]["ShareAccess"];
+                item?: number;
+                inline?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description 部分内容 */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadPublicShareZip: {
+        parameters: {
+            query?: {
+                /** @description unlock 发的访问令牌。没有提取码的分享不用传 */
+                t?: components["parameters"]["ShareAccess"];
+            };
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description zip 文件流 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
                 };
             };
             default: components["responses"]["Error"];

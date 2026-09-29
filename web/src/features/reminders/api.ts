@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createApi, unwrap } from "../../api/client";
+import { createApi, isNotLive, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import { useInvalidate } from "../../api/useInvalidate";
 import type { components, paths } from "../../api/gen/reminders";
@@ -22,6 +22,8 @@ export type ReminderRange = "today" | "upcoming" | "done";
 export const reminderKeys = {
   all: ["reminders"] as const,
   list: (range: ReminderRange) => ["reminders", "list", range] as const,
+  external: (range: "today" | "upcoming") =>
+    ["reminders", "external", range] as const,
 };
 
 export const notifyKeys = {
@@ -29,6 +31,7 @@ export const notifyKeys = {
   channels: ["notify", "channels"] as const,
   routes: ["notify", "routes"] as const,
   quiet: ["notify", "quiet-hours"] as const,
+  subscriptions: ["notify", "webpush-subscriptions"] as const,
 };
 
 invalidateOn("reminder.", reminderKeys.all);
@@ -184,5 +187,79 @@ export function useSaveQuietHours() {
     mutationFn: (body: QuietHours) =>
       unwrap(remindersApi.PUT("/notify/quiet-hours", { body })),
     onSuccess: invalidate,
+  });
+}
+
+/* ---- B34：浏览器推送的订阅列表和测试 ---- */
+
+export type WebPushSubscriptionInfo =
+  components["schemas"]["WebPushSubscriptionInfo"];
+export type WebPushTestResult = components["schemas"]["WebPushTestResult"];
+
+/** 订阅列表。回 404 或 501 表示后端还没做，卡片只显示订阅数量。 */
+export function usePushSubscriptions() {
+  return useQuery({
+    queryKey: notifyKeys.subscriptions,
+    queryFn: () => unwrap(remindersApi.GET("/notify/webpush/subscriptions")),
+    retry: (count, error) => !isNotLive(error) && count < 2,
+  });
+}
+
+export function useDeletePushSubscription() {
+  const invalidate = useInvalidate(notifyKeys.all);
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        remindersApi.DELETE("/notify/webpush/subscriptions/{subscriptionId}", {
+          params: { path: { subscriptionId: id } },
+        }),
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * 服务端推送测试。新接口没上线时退回旧的渠道测试，结果为 null。
+ */
+export function useTestWebPush() {
+  const invalidate = useInvalidate(notifyKeys.subscriptions);
+  return useMutation({
+    mutationFn: async (): Promise<WebPushTestResult[] | null> => {
+      try {
+        return await unwrap(remindersApi.POST("/notify/webpush/test"));
+      } catch (err) {
+        if (!isNotLive(err)) throw err;
+        await unwrap(
+          remindersApi.POST("/notify/channels/{channel}/test", {
+            params: { path: { channel: "webpush" } },
+          }),
+        );
+        return null;
+      }
+    },
+    onSettled: invalidate,
+  });
+}
+
+/* ---- B37：其他模块的到期事项 ---- */
+
+export type ExternalReminder = components["schemas"]["ExternalReminder"];
+
+/** 回 404 或 501 表示后端还没做，页面当作没有。 */
+export function useExternalReminders(
+  range: "today" | "upcoming",
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: reminderKeys.external(range),
+    queryFn: () =>
+      unwrap(
+        remindersApi.GET("/reminders/external", {
+          params: { query: { range } },
+        }),
+      ).then((r) => r.items),
+    retry: (count, error) => !isNotLive(error) && count < 2,
+    staleTime: 60_000,
+    enabled,
   });
 }

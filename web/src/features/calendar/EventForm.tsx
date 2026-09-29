@@ -274,6 +274,7 @@ export default function EventForm({
         <div className="xc-field">
           <span>{t("Event notes")}</span>
           <MarkdownEditor
+            uploadScope="calendar"
             label={t("Event notes")}
             value={d.description}
             onChange={(v) => set({ description: v })}

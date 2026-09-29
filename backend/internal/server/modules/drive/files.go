@@ -129,6 +129,7 @@ func (m *Module) GetDriveItemContent(w http.ResponseWriter, r *http.Request, id 
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`%s; filename=%q`, disposition, name))
 	w.Header().Set("Content-Type", item.Mime)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("ETag", etag(item.Sha256))
 	if strings.Contains(item.Mime, "html") || strings.Contains(item.Mime, "svg") || strings.Contains(item.Mime, "xml") {
 		w.Header().Set("Content-Security-Policy", "sandbox")
 	}

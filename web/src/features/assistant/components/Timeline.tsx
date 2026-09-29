@@ -12,7 +12,7 @@ import { errorMessage } from "../../../api/client";
 import Markdown from "../../../components/markdown/Markdown";
 import { useT } from "../../../contexts/LanguageContext";
 import { useDecideAction } from "../api";
-import { summarizeInput, type TimelineItem } from "../logic";
+import { foldLines, summarizeInput, type TimelineItem } from "../logic";
 
 export default function Timeline({ items }: { items: TimelineItem[] }) {
   return (
@@ -53,8 +53,24 @@ function ActionCard({ item }: { item: ActionItem }) {
   const t = useT();
   const decide = useDecideAction();
   const [open, setOpen] = useState(false);
+  const [full, setFull] = useState(false);
   const waiting = item.status === "waiting" && item.pending;
   const expanded = open || !!waiting;
+  // 机器 Agent 的命令单独显示，其他参数照常列出来。
+  const command =
+    typeof item.input.command === "string" ? item.input.command : null;
+  const reason =
+    typeof item.input.reason === "string" ? item.input.reason : null;
+  const params = Object.entries(item.input).filter(
+    ([k]) => !(command && (k === "command" || k === "reason")),
+  );
+  const resultText =
+    item.result == null || item.result === ""
+      ? ""
+      : typeof item.result === "string"
+        ? item.result
+        : JSON.stringify(item.result, null, 2);
+  const folded = full ? { text: resultText, hidden: 0 } : foldLines(resultText);
   return (
     <div className={`ai-action ${item.status}${waiting ? " ask" : ""}`}>
       <button
@@ -65,7 +81,9 @@ function ActionCard({ item }: { item: ActionItem }) {
       >
         <StatusIcon status={item.status} />
         <strong>{item.title}</strong>
-        <span className="ai-action-sum">{summarizeInput(item.input)}</span>
+        <span className={`ai-action-sum${command ? " xc-mono" : ""}`}>
+          {command ?? summarizeInput(item.input)}
+        </span>
         {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
       </button>
       {expanded && (
@@ -78,29 +96,34 @@ function ActionCard({ item }: { item: ActionItem }) {
                   这是高危操作，确认后要再验证一次。
                 </>
               ) : (
-                "助手要执行这个操作，确认吗？"
+                "要执行这个操作，确认吗？"
               )}
             </p>
           )}
+          {reason && <p className="ai-action-reason">{reason}</p>}
+          {command && <pre className="ai-command">$ {command}</pre>}
           <dl className="ai-params">
-            {Object.entries(item.input).map(([k, v]) => (
+            {params.map(([k, v]) => (
               <div key={k}>
                 <dt>{k}</dt>
                 <dd>{typeof v === "string" ? v : JSON.stringify(v)}</dd>
               </div>
             ))}
-            {Object.keys(item.input).length === 0 && (
+            {params.length === 0 && !command && (
               <div>
                 <dd className="ai-muted">{t("No parameters")}</dd>
               </div>
             )}
           </dl>
-          {item.result != null && item.result !== "" && (
-            <pre className="ai-result">
-              {typeof item.result === "string"
-                ? item.result
-                : JSON.stringify(item.result, null, 2)}
-            </pre>
+          {resultText && <pre className="ai-result">{folded.text}</pre>}
+          {folded.hidden > 0 && (
+            <button
+              type="button"
+              className="xc-btn ghost small"
+              onClick={() => setFull(true)}
+            >
+              {t("Show all")}
+            </button>
           )}
           {waiting && (
             <>

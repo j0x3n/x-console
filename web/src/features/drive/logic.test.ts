@@ -2,12 +2,18 @@ import { describe, expect, it } from "vitest";
 import type { DriveItem } from "./api";
 import { itemActions } from "./components/ItemMenu";
 import {
-  canPreview,
+  archiveBase,
+  archiveName,
+  canExtract,
+  conflictNames,
   daysLeftInTrash,
   fileKind,
   nameError,
   nextSort,
+  randomCode,
+  shareText,
   sortItems,
+  taskPercent,
 } from "./logic";
 import { toInput } from "./S3SettingsTab";
 import { uploadUrl } from "./upload";
@@ -37,12 +43,6 @@ describe("fileKind", () => {
     expect(fileKind(item({ name: "backup.tar.gz" }))).toBe("archive");
     expect(fileKind(item({ name: "photo.jpeg" }))).toBe("image");
     expect(fileKind(item({ name: "setup.exe" }))).toBe("other");
-  });
-
-  it("previews only what the browser can show", () => {
-    expect(canPreview(item({ name: "a.md" }))).toBe(true);
-    expect(canPreview(item({ name: "a.zip" }))).toBe(false);
-    expect(canPreview(item({ name: "a.exe" }))).toBe(false);
   });
 });
 
@@ -120,10 +120,56 @@ describe("helpers", () => {
         trash: false,
         vaultUnlocked: false,
       }),
-    ).toEqual(["rename", "move", "trash"]);
+    ).toEqual(["share", "rename", "move", "copy", "compress", "trash"]);
     expect(itemActions(item({}), { trash: true, vaultUnlocked: true })).toEqual(
       ["restore", "delete-forever"],
     );
+  });
+  it("offers B31 actions only where they make sense", () => {
+    const opts = { trash: false, vaultUnlocked: true };
+    // 隐藏的东西不能分享。
+    expect(itemActions(item({ hidden: true }), opts)).not.toContain("share");
+    expect(itemActions(item({}), { ...opts, hiddenView: true })).not.toContain(
+      "share",
+    );
+    // 文件夹能打包下载要看服务端有没有 B31 的接口。
+    expect(itemActions(item({ isDir: true }), opts)).not.toContain("download");
+    expect(
+      itemActions(item({ isDir: true }), { ...opts, batchLive: true }),
+    ).toContain("download");
+    expect(itemActions(item({ isDir: true }), opts)).not.toContain("versions");
+    expect(itemActions(item({ name: "a.tar.gz" }), opts)).toContain("extract");
+    expect(itemActions(item({ name: "a.rar" }), opts)).not.toContain("extract");
+  });
+  it("finds name conflicts and default archive names", () => {
+    expect(conflictNames(["a", "b"], new Set(["b", "c"]))).toEqual(["b"]);
+    expect(archiveName(["报告.pdf"])).toBe("报告");
+    expect(archiveName(["报告.pdf", "图.png"])).toBe("报告 等 2 项");
+    expect(archiveBase("日志.tar.gz")).toBe("日志");
+    expect(archiveBase("备份.ZIP")).toBe("备份");
+    expect(canExtract({ isDir: false, name: "x.tgz" })).toBe(true);
+    expect(canExtract({ isDir: true, name: "x.zip" })).toBe(false);
+  });
+  it("computes task progress", () => {
+    const base = { doneBytes: 0, totalBytes: 0, doneItems: 0, totalItems: 0 };
+    expect(taskPercent(base)).toBeNull();
+    expect(taskPercent({ ...base, doneItems: 1, totalItems: 4 })).toBe(25);
+    expect(
+      taskPercent({
+        ...base,
+        doneBytes: 50,
+        totalBytes: 200,
+        doneItems: 3,
+        totalItems: 4,
+      }),
+    ).toBe(25);
+  });
+  it("puts the access code into shared text", () => {
+    expect(shareText({ url: "https://x/s/a" })).toBe("https://x/s/a");
+    expect(shareText({ url: "https://x/s/a", code: "ab12" })).toBe(
+      "https://x/s/a\n提取码：ab12",
+    );
+    expect(randomCode()).toMatch(/^[2-9a-z]{4}$/);
   });
   it("builds the upload address", () => {
     expect(uploadUrl({ parent: null, hidden: false })).toBe(
