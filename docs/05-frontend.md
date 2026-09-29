@@ -114,7 +114,6 @@ export function useIssues(projectId: number) {
 | 标签页 | `xc-tabs`，当前项加 `active` |
 | 弹窗 | `components/ui/Dialog` |
 | 加载、空、出错 | `components/ui/States` 里的 `Loading`、`EmptyState`、`ErrorState` |
-| 小图表 | `components/ui/LineChart`、`Progress`、`MetricCard` |
 | 概要卡片 | `components/ui/Stat` 的 `StatStrip` + `StatCard`。默认是紧凑的一排，只有今日页用 `size="large"` |
 | 时间和大小 | `lib/time.ts` 的 `relativeTime`、`formatDate`、`formatTime`、`formatBytes` |
 

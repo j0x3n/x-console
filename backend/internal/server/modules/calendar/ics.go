@@ -45,16 +45,6 @@ type icalTime struct {
 	dateOnly bool
 }
 
-// instant resolves the value to an absolute time. Floating values and dates
-// use userLoc.
-func (t icalTime) instant(userLoc *time.Location) time.Time {
-	loc := t.loc
-	if loc == nil || t.dateOnly {
-		loc = userLoc
-	}
-	return inZone(t.wall, loc)
-}
-
 // inZone reads the components of a wall clock value in loc.
 func inZone(wall time.Time, loc *time.Location) time.Time {
 	return time.Date(wall.Year(), wall.Month(), wall.Day(), wall.Hour(), wall.Minute(), wall.Second(), 0, loc)

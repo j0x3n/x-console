@@ -81,15 +81,6 @@ func parseIssueKey(key string) (string, int64, error) {
 	return strings.ToUpper(key[:i]), n, nil
 }
 
-// issuePath is the in-app page of an issue, for example /projects/XC/12.
-func issuePath(key string) string {
-	p, n, err := parseIssueKey(key)
-	if err != nil {
-		return "/projects"
-	}
-	return "/projects/" + p + "/" + strconv.FormatInt(n, 10)
-}
-
 // notFound turns sql.ErrNoRows into a 404.
 func notFound(err error) error {
 	if errors.Is(err, sql.ErrNoRows) {
