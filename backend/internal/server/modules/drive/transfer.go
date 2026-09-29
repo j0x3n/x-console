@@ -149,16 +149,8 @@ func (m *Module) transfer(w http.ResponseWriter, r *http.Request, kind api.Drive
 			m.triggerSync()
 		}
 		return err
-	})
-	m.changeTask(m.taskByID(task.Id), true, func(dto *api.DriveTask) { dto.TargetId = &body.TargetId })
-	task.TargetId = &body.TargetId
+	}, body.TargetId)
 	httpx.JSON(w, http.StatusAccepted, task)
-}
-
-func (m *Module) taskByID(id string) *driveTask {
-	m.tasksMu.Lock()
-	defer m.tasksMu.Unlock()
-	return m.tasks[id]
 }
 
 // transferName resolves conflicts inside the same transaction as the change.

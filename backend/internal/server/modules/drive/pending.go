@@ -14,10 +14,6 @@ import (
 // PublicPaths 让分享页的公开接口不用登录。实现分享时把它挪到 share.go。
 func (m *Module) PublicPaths() []string { return []string{"/public/shares"} }
 
-func (m *Module) ArchiveDriveItems(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
 func (m *Module) ExtractDriveItem(w http.ResponseWriter, r *http.Request, itemId api.ItemId) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }

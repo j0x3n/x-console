@@ -24,18 +24,23 @@ type taskJob func(context.Context, *driveTask) error
 
 // startTask detaches a job from the HTTP request. Jobs wait for one of two
 // slots; the queue stays visible as a running task with Current="等待中".
-func (m *Module) startTask(kind api.DriveTaskKind, title string, totalItems int, totalBytes int64, job taskJob) api.DriveTask {
+func (m *Module) startTask(kind api.DriveTaskKind, title string, totalItems int, totalBytes int64, job taskJob, targetID ...int64) api.DriveTask {
 	base := m.taskBase
 	if base == nil {
 		base = context.Background()
 	}
 	ctx, cancel := context.WithCancel(base)
 	queued := "等待中"
-	t := &driveTask{m: m, cancel: cancel, dto: api.DriveTask{
+	dto := api.DriveTask{
 		Id: secrets.RandomID(), Kind: kind, State: api.DriveTaskStateRunning,
 		Title: title, TotalItems: totalItems, TotalBytes: totalBytes,
 		CreatedAt: m.taskNow().UTC(), Current: &queued,
-	}}
+	}
+	if len(targetID) != 0 {
+		id := targetID[0]
+		dto.TargetId = &id
+	}
+	t := &driveTask{m: m, cancel: cancel, dto: dto}
 	m.tasksMu.Lock()
 	m.tasks[t.dto.Id] = t
 	m.tasksMu.Unlock()

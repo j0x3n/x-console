@@ -368,6 +368,27 @@ try {
   );
   assert.equal((await api(`/drive/items?parent=${transferFolder.id}`)).items.length, 0);
   assert.equal((await api(`/drive/items?parent=${movedFolder.id}`)).items[0]?.id, copiedFile.id);
+  stage = "云盘压缩";
+  const archiveResponse = await page.context().request.post(`${base}/api/v1/drive/archive`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { ids: [driveFile.id], name: "端到端压缩", format: "zip", parentId: transferFolder.id },
+  });
+  assert.equal(archiveResponse.status(), 202, await archiveResponse.text());
+  const archiveTask = await archiveResponse.json();
+  const finishedArchive = await until("云盘压缩", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === archiveTask.id && task.state === "done"),
+  );
+  const archived = await page.context().request.get(
+    `${base}/api/v1/drive/items/${finishedArchive.resultId}/content`,
+  );
+  assert.equal(archived.status(), 200);
+  assert.equal((await archived.body()).subarray(0, 2).toString(), "PK");
+  const finishedTasks = page.locator(".drive-tasks");
+  if (await finishedTasks.isVisible())
+    await finishedTasks.getByRole("button", { name: "关闭" }).click();
+  const finishedUploads = page.locator(".drive-uploads:not(.drive-tasks)");
+  if (await finishedUploads.isVisible())
+    await finishedUploads.getByRole("button", { name: "关闭" }).click();
   stage = "手机云盘上传、预览和删除";
   const driveRow = page.locator(".drive-row").filter({ hasText: "端到端文件.txt" });
   await driveRow.getByRole("button", { name: "端到端文件.txt", exact: true }).click();
