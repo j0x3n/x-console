@@ -131,6 +131,191 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B32。OpenAI 兼容接口的供应商，不返回 API Key */
+        get: operations["listAiProviders"];
+        put?: never;
+        /** @description 要提升权限。保存后在后台拉一次模型列表。 */
+        post: operations["createAiProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/providers/{providerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["ProviderId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 要提升权限。快速模型或 Agent 模型正在用它时，那一项被清空。 */
+        delete: operations["deleteAiProvider"];
+        options?: never;
+        head?: never;
+        /** @description 要提升权限。apiKey 不传表示不改，传空字符串表示删除。 */
+        patch: operations["updateAiProvider"];
+        trace?: never;
+    };
+    "/ai/providers/{providerId}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["ProviderId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 调一次 GET /models 看能不能连上。连不上也回 200，ok 为 false。 */
+        post: operations["testAiProvider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/providers/{providerId}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["ProviderId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 重新拉这个供应商的模型列表，返回它的全部模型 */
+        post: operations["refreshAiModels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 所有供应商的模型和规格（来自 models.dev，或者手动填的） */
+        get: operations["listAiModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/model-specs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 规格未知的模型，手动填上下文长度和是否支持工具。模型 id 里可能有斜杠，所以放在请求体里。 */
+        put: operations["setAiModelSpec"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/model-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B32。快速模型、Agent 模型、思考程度、写操作确认 */
+        get: operations["getAiModelSettings"];
+        /** @description 要提升权限。Agent 模型必须支持工具调用（规格未知的允许），否则 400 model_without_tools。 */
+        put: operations["putAiModelSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B32。某个月的调用次数、token 和估算费用（按 models.dev 价格，美元） */
+        get: operations["getAiUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/host-agent/{hostId}/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 机器 id，和 /hosts/{hostId} 一样 */
+                hostId: string;
+            };
+            cookie?: never;
+        };
+        /** @description B33。这台机器的 Agent 会话，按更新时间倒序。AI 浮窗的列表里不显示这些。 */
+        get: operations["listHostAgentConversations"];
+        put?: never;
+        /** @description 新会话的权限是 confirm（每步确认）。消息、停止、确认和拒绝用 /ai/conversations 下的接口。 */
+        post: operations["createHostAgentConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/conversations/{conversationId}/permission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description B33。只对机器的会话有效，其他会话回 400。all_auto 要提升权限，只在内存里生效，服务重启或 2 小时没有消息后回到 confirm。 */
+        put: operations["setAiConversationPermission"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/settings": {
         parameters: {
             query?: never;
@@ -157,6 +342,9 @@ export interface components {
             id: number;
             /** @description 第一条消息的开头，空对话为空字符串 */
             title: string;
+            /** @description B33。机器的 Agent 会话才有 */
+            hostId?: string;
+            permission?: components["schemas"]["HostAgentPermission"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -217,6 +405,11 @@ export interface components {
             status: "pending" | "approved" | "rejected" | "done" | "failed";
             /** @description 执行结果或错误信息 */
             result?: unknown;
+            /**
+             * @description B33。这一次调用的风险，机器 Agent 的 run_command 按命令判断。没有时按工具列表
+             * @enum {string}
+             */
+            effect?: "read" | "write" | "dangerous";
         };
         Tool: {
             /** @description 给模型的工具名，. 换成 __ */
@@ -234,6 +427,137 @@ export interface components {
             /** @description 打开后所有写操作都先确认。关闭时只有删除类和 dangerous 动作要确认 */
             confirmAllWrites: boolean;
         };
+        /**
+         * @description B32。思考程度，off 表示不传 reasoning_effort
+         * @enum {string}
+         */
+        ReasoningEffort: "off" | "low" | "medium" | "high";
+        AiProvider: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description 例如 https://api.openai.com/v1 */
+            baseUrl: string;
+            hasApiKey: boolean;
+            modelCount: number;
+            /** Format: date-time */
+            modelsRefreshedAt?: string;
+            /** @description 上次拉模型列表失败的原因，成功后清空 */
+            lastError?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AiProviderInput: {
+            name: string;
+            /** @description http 或 https 地址 */
+            baseUrl: string;
+            /** @description 可以不填，本地模型不需要 */
+            apiKey?: string;
+        };
+        AiProviderPatch: {
+            name?: string;
+            baseUrl?: string;
+            /** @description 不传表示不改，空字符串表示删除 */
+            apiKey?: string;
+        };
+        AiProviderTest: {
+            ok: boolean;
+            /** @description 成功时写“找到 N 个模型”，失败时是原因 */
+            message: string;
+            modelCount?: number;
+            latencyMs?: number;
+        };
+        AiModel: {
+            /** Format: int64 */
+            providerId: number;
+            /** @description 接口返回的模型 id，例如 deepseek-chat、openai/gpt-5 */
+            id: string;
+            /** @description models.dev 里的名字 */
+            name?: string;
+            contextWindow?: number;
+            maxOutput?: number;
+            toolCall?: boolean;
+            reasoning?: boolean;
+            imageInput?: boolean;
+            /** @description 每百万输入 token 的美元价格 */
+            inputPrice?: number;
+            /** @description 每百万输出 token 的美元价格 */
+            outputPrice?: number;
+            /**
+             * @description exact 按供应商和 id 匹配；stripped 去掉前缀后匹配；manual 手动填的；unknown 规格未知
+             * @enum {string}
+             */
+            specSource: "exact" | "stripped" | "manual" | "unknown";
+        };
+        AiModelSpecInput: {
+            /** Format: int64 */
+            providerId: number;
+            modelId: string;
+            contextWindow?: number;
+            toolCall?: boolean;
+            reasoning?: boolean;
+        };
+        ModelRef: {
+            /** Format: int64 */
+            providerId: number;
+            model: string;
+        };
+        AiModelSettings: {
+            fast?: components["schemas"]["ModelRef"];
+            agent?: components["schemas"]["ModelRef"];
+            reasoningEffort: components["schemas"]["ReasoningEffort"];
+            /** @description 上次调用时接口不认 reasoning_effort，已自动去掉重试 */
+            reasoningUnsupported: boolean;
+            confirmAllWrites: boolean;
+            /**
+             * Format: date-time
+             * @description 上次从 models.dev 同步规格的时间
+             */
+            modelsDevSyncedAt?: string;
+            /** @description 旧版的 Anthropic 设置还在，但已不再使用，界面提示重新配置 */
+            legacyAnthropic?: boolean;
+        };
+        AiModelSettingsInput: {
+            /** @description 传 null 表示清空 */
+            fast?: components["schemas"]["ModelRef"] | null;
+            /** @description 传 null 表示清空 */
+            agent?: components["schemas"]["ModelRef"] | null;
+            reasoningEffort?: components["schemas"]["ReasoningEffort"];
+            confirmAllWrites?: boolean;
+        };
+        AiUsage: {
+            /** @description YYYY-MM */
+            month: string;
+            calls: number;
+            /** Format: int64 */
+            inputTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** @description 估算的美元费用。有模型没有价格时只算有价格的部分 */
+            cost?: number;
+            byModel: {
+                /** Format: int64 */
+                providerId: number;
+                providerName: string;
+                model: string;
+                /**
+                 * @description 用在哪
+                 * @enum {string}
+                 */
+                purpose?: "fast" | "agent";
+                calls: number;
+                /** Format: int64 */
+                inputTokens: number;
+                /** Format: int64 */
+                outputTokens: number;
+                cost?: number;
+            }[];
+        };
+        /**
+         * @description B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
+         * @enum {string}
+         */
+        HostAgentPermission: "confirm" | "read_auto" | "all_auto";
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;
@@ -258,6 +582,7 @@ export interface components {
     parameters: {
         ConversationId: number;
         ActionId: number;
+        ProviderId: number;
     };
     requestBodies: never;
     headers: never;
@@ -469,6 +794,349 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Tool"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiProviders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 供应商列表，按创建时间 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiProvider"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createAiProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiProviderInput"];
+            };
+        };
+        responses: {
+            /** @description 已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiProvider"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAiProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["ProviderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAiProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["ProviderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiProviderPatch"];
+            };
+        };
+        responses: {
+            /** @description 已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiProvider"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testAiProvider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["ProviderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 测试结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiProviderTest"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshAiModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["ProviderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 模型列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModel"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiModels: {
+        parameters: {
+            query?: {
+                providerId?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 模型列表，按供应商和模型 id 排序 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModel"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setAiModelSpec: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiModelSpecInput"];
+            };
+        };
+        responses: {
+            /** @description 更新后的模型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModel"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAiModelSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putAiModelSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiModelSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModelSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAiUsage: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM，默认本月（服务器时区） */
+                month?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 用量 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listHostAgentConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 机器 id，和 /hosts/{hostId} 一样 */
+                hostId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 会话列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createHostAgentConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 机器 id，和 /hosts/{hostId} 一样 */
+                hostId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    title?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setAiConversationPermission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    mode: components["schemas"]["HostAgentPermission"];
+                };
+            };
+        };
+        responses: {
+            /** @description 当前权限 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        mode: components["schemas"]["HostAgentPermission"];
+                    };
                 };
             };
             default: components["responses"]["Error"];

@@ -5,6 +5,7 @@ import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import {
   isNotLive,
+  useAiProviders,
   useAiSettings,
   useSaveAiSettings,
   type AiSettings,
@@ -12,6 +13,7 @@ import {
 import "./i18n";
 import "./assistant.css";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
+import AiSettingsView from "./settings/AiSettingsView";
 
 export const MODELS = [
   { id: "claude-opus-5-5", label: "Claude Opus 5.5（默认，最强）" },
@@ -19,8 +21,20 @@ export const MODELS = [
   { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5（最快）" },
 ];
 
-/** 设置 → AI：API Key、模型、写操作是否都要确认。 */
+/** 设置 → AI。新后端（B32）上线后用供应商和模型选择，没上线时还是旧的 Anthropic 表单。 */
 export default function AssistantSettingsTab() {
+  const providers = useAiProviders();
+  if (providers.isPending) return <Loading />;
+  if (providers.isError && !isNotLive(providers.error))
+    return (
+      <ErrorState error={providers.error} onRetry={() => providers.refetch()} />
+    );
+  if (providers.data) return <AiSettingsView providers={providers.data} />;
+  return <LegacySettings />;
+}
+
+/** 旧版：API Key、模型、写操作是否都要确认。 */
+function LegacySettings() {
   const settings = useAiSettings();
   if (settings.isPending) return <Loading />;
   if (settings.isError)

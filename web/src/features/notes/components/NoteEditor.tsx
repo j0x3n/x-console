@@ -34,6 +34,7 @@ import {
   Pin,
   PinOff,
   Quote,
+  Sparkles,
   SquareKanban,
   Trash2,
   X,
@@ -53,6 +54,7 @@ import {
   patchNoteKeepalive,
   uploadAttachment,
   useDeleteNote,
+  useDismissSuggestedTags,
   useNote,
   useUpdateNote,
   type Note,
@@ -127,6 +129,11 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const [tagInput, setTagInput] = useState("");
+  // B32：AI 建议的标签，已经加上的不再显示。
+  const dismissSuggested = useDismissSuggestedTags();
+  const suggested = (note.suggestedTags ?? []).filter(
+    (tag) => !draft.tags.includes(tag),
+  );
   const [mode, setModeState] = useState<Mode>(readMode);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -681,6 +688,33 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                 }}
                 onBlur={() => tagInput.trim() && addTags(tagInput)}
               />
+              {suggested.length > 0 && (
+                <span
+                  className="notes-suggested"
+                  title={t("Tags suggested by AI")}
+                >
+                  <Sparkles size={12} />
+                  {suggested.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="notes-tag suggested"
+                      aria-label={`${t("Add tag")} ${tag}`}
+                      onClick={() => edit({ tags: [...draft.tags, tag] })}
+                    >
+                      + #{tag}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="notes-suggested-dismiss"
+                    aria-label={t("Dismiss suggested tags")}
+                    onClick={() => dismissSuggested.mutate(note.id)}
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              )}
             </div>
           </div>
 

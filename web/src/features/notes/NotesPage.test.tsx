@@ -17,6 +17,7 @@ const calls = vi.hoisted(() => {
     body: "第一行",
     pinned: false,
     tags: ["work"],
+    suggestedTags: ["work", "plan", "ideas"],
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
   };
@@ -150,6 +151,29 @@ describe("NotesPage", () => {
       expect(
         calls.find((c) => c.method === "POST" && c.path === "/notes")?.body,
       ).toEqual({ hidden: true }),
+    );
+  });
+
+  it("adds or dismisses tags suggested by AI", async () => {
+    renderAt("/notes/1");
+    // 已经有的 work 不再建议，只剩 plan。
+    const add = await screen.findByRole("button", { name: "加上标签 plan" });
+    expect(screen.queryByRole("button", { name: "加上标签 work" })).toBeNull();
+    fireEvent.click(add);
+    await waitFor(
+      () =>
+        expect(calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+          tags: ["work", "plan"],
+        }),
+      { timeout: 3000 },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "不要这些建议" }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) => c.method === "DELETE" && c.path === "/notes/1/suggested-tags",
+        ),
+      ).toBe(true),
     );
   });
 });

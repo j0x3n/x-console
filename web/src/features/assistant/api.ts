@@ -12,6 +12,18 @@ export type ContentBlock = components["schemas"]["ContentBlock"];
 export type PendingAction = components["schemas"]["PendingAction"];
 export type Tool = components["schemas"]["Tool"];
 export type AiSettings = components["schemas"]["AiSettings"];
+export type AiProvider = components["schemas"]["AiProvider"];
+export type AiProviderInput = components["schemas"]["AiProviderInput"];
+export type AiProviderPatch = components["schemas"]["AiProviderPatch"];
+export type AiModel = components["schemas"]["AiModel"];
+export type AiModelSettings = components["schemas"]["AiModelSettings"];
+export type AiModelSettingsInput =
+  components["schemas"]["AiModelSettingsInput"];
+export type AiModelSpecInput = components["schemas"]["AiModelSpecInput"];
+export type AiUsage = components["schemas"]["AiUsage"];
+export type ModelRef = components["schemas"]["ModelRef"];
+export type ReasoningEffort = components["schemas"]["ReasoningEffort"];
+export type HostAgentPermission = components["schemas"]["HostAgentPermission"];
 
 export const aiKeys = {
   all: ["ai"] as const,
@@ -19,7 +31,17 @@ export const aiKeys = {
   conversation: (id: number) => ["ai", "conversation", id] as const,
   tools: ["ai", "tools"] as const,
   settings: ["ai", "settings"] as const,
+  providers: ["ai", "providers"] as const,
+  models: ["ai", "models"] as const,
+  modelSettings: ["ai", "model-settings"] as const,
+  usage: (month: string) => ["ai", "usage", month] as const,
+  hostConversations: (hostId: string) =>
+    ["ai", "host-conversations", hostId] as const,
 };
+
+/** 后端还没做的接口不重试，其他的重试两次。 */
+const retryUnlessNotLive = (count: number, error: unknown) =>
+  !isNotLive(error) && count < 2;
 
 /** 服务端还没有助手接口（404 或 501）。只用在对话列表和设置上判断。 */
 export function isNotLive(error: unknown) {
@@ -170,5 +192,164 @@ export function useDecideAction() {
       qc.invalidateQueries({
         queryKey: aiKeys.conversation(action.conversationId),
       }),
+  });
+}
+
+/* ---- B32：OpenAI 兼容接口的供应商和模型 ---- */
+
+/** 供应商列表。回 404 或 501 表示 B32 后端还没上线，设置页退回旧的表单。 */
+export function useAiProviders(enabled = true) {
+  return useQuery({
+    queryKey: aiKeys.providers,
+    queryFn: () => unwrap(aiApi.GET("/ai/providers")),
+    retry: retryUnlessNotLive,
+    enabled,
+  });
+}
+
+export function useAiModels(enabled = true) {
+  return useQuery({
+    queryKey: aiKeys.models,
+    queryFn: () => unwrap(aiApi.GET("/ai/models")),
+    retry: retryUnlessNotLive,
+    enabled,
+  });
+}
+
+export function useModelSettings(enabled = true) {
+  return useQuery({
+    queryKey: aiKeys.modelSettings,
+    queryFn: () => unwrap(aiApi.GET("/ai/model-settings")),
+    retry: retryUnlessNotLive,
+    enabled,
+  });
+}
+
+export function useAiUsage(month: string, enabled = true) {
+  return useQuery({
+    queryKey: aiKeys.usage(month),
+    queryFn: () =>
+      unwrap(aiApi.GET("/ai/usage", { params: { query: { month } } })),
+    retry: retryUnlessNotLive,
+    enabled,
+  });
+}
+
+/** 供应商的增删改。都要提升权限。 */
+export function useProviderMutations() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: aiKeys.all });
+  const create = useMutation({
+    mutationFn: (body: AiProviderInput) =>
+      withElevation(() => unwrap(aiApi.POST("/ai/providers", { body }))),
+    onSuccess: done,
+  });
+  const update = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: AiProviderPatch }) =>
+      withElevation(() =>
+        unwrap(
+          aiApi.PATCH("/ai/providers/{providerId}", {
+            params: { path: { providerId: id } },
+            body,
+          }),
+        ),
+      ),
+    onSuccess: done,
+  });
+  const remove = useMutation({
+    mutationFn: (id: number) =>
+      withElevation(() =>
+        unwrap(
+          aiApi.DELETE("/ai/providers/{providerId}", {
+            params: { path: { providerId: id } },
+          }),
+        ),
+      ),
+    onSuccess: done,
+  });
+  const test = useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        aiApi.POST("/ai/providers/{providerId}/test", {
+          params: { path: { providerId: id } },
+        }),
+      ),
+  });
+  const refresh = useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        aiApi.POST("/ai/providers/{providerId}/models", {
+          params: { path: { providerId: id } },
+        }),
+      ),
+    onSuccess: done,
+  });
+  return { create, update, remove, test, refresh };
+}
+
+export function useSetModelSpec() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AiModelSpecInput) =>
+      unwrap(aiApi.PUT("/ai/model-specs", { body })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: aiKeys.models }),
+  });
+}
+
+export function useSaveModelSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AiModelSettingsInput) =>
+      withElevation(() => unwrap(aiApi.PUT("/ai/model-settings", { body }))),
+    onSuccess: (data) => qc.setQueryData(aiKeys.modelSettings, data),
+  });
+}
+
+/* ---- B33：机器的 Agent 会话 ---- */
+
+export function useHostConversations(hostId: string) {
+  return useQuery({
+    queryKey: aiKeys.hostConversations(hostId),
+    queryFn: () =>
+      unwrap(
+        aiApi.GET("/ai/host-agent/{hostId}/conversations", {
+          params: { path: { hostId } },
+        }),
+      ),
+    retry: retryUnlessNotLive,
+  });
+}
+
+export function useCreateHostConversation(hostId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      unwrap(
+        aiApi.POST("/ai/host-agent/{hostId}/conversations", {
+          params: { path: { hostId } },
+          body: {},
+        }),
+      ),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: aiKeys.hostConversations(hostId) }),
+  });
+}
+
+/** 改会话的权限。“全部自动”要提升权限。 */
+export function useSetPermission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, mode }: { id: number; mode: HostAgentPermission }) => {
+      const call = () =>
+        unwrap(
+          aiApi.PUT("/ai/conversations/{conversationId}/permission", {
+            params: { path: { conversationId: id } },
+            body: { mode },
+          }),
+        );
+      return mode === "all_auto" ? withElevation(call) : call();
+    },
+    onSettled: (_d, _e, { id }) =>
+      qc.invalidateQueries({ queryKey: aiKeys.conversation(id) }),
   });
 }
