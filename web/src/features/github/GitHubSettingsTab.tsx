@@ -14,7 +14,7 @@ import {
   type GitHubConfig,
   type GitHubTestResult,
 } from "./api";
-import { parseRepos } from "./logic";
+import RepoPicker from "./RepoPicker";
 import "./i18n";
 import "./github.css";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -40,14 +40,14 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
   const test = useTestGitHub();
   const sync = useSyncGitHub();
   const [token, setToken] = useState("");
-  const [repos, setRepos] = useState(initial.repos.join("\n"));
+  const [repos, setRepos] = useState<string[]>(initial.repos);
   const [apiUrl, setApiUrl] = useState(
     initial.apiUrl === DEFAULT_URL ? "" : initial.apiUrl,
   );
   const [result, setResult] = useState<GitHubTestResult | null>(null);
 
   useEffect(() => {
-    setRepos(initial.repos.join("\n"));
+    setRepos(initial.repos);
     setApiUrl(initial.apiUrl === DEFAULT_URL ? "" : initial.apiUrl);
   }, [initial]);
 
@@ -58,7 +58,7 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
     save.mutate(
       {
         token: token.trim() || undefined,
-        repos: parseRepos(repos),
+        repos,
         apiUrl: urlChanged ? apiUrl.trim() : undefined,
       },
       {
@@ -100,7 +100,7 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
     )
       return;
     save.mutate(
-      { repos: parseRepos(repos), clearToken: true },
+      { repos, clearToken: true },
       {
         onSuccess: () => toast(t("Token removed")),
         onError: (error) =>
@@ -135,18 +135,15 @@ function ConfigForm({ initial }: { initial: GitHubConfig }) {
           改成读写。
         </small>
       </label>
-      <label className="xc-field">
+      <div className="xc-field">
         <span>{t("Watched repositories")}</span>
-        <textarea
-          className="xc-textarea xc-mono"
-          rows={4}
+        <RepoPicker
+          key={initial.repos.join(",")}
           value={repos}
-          onChange={(e) => setRepos(e.target.value)}
-          placeholder={"owner/name\nowner/another"}
-          spellCheck={false}
+          onChange={setRepos}
+          hasToken={initial.hasToken}
         />
-        <small>一行一个，写成 owner/name。每 5 分钟同步一次。</small>
-      </label>
+      </div>
       <label className="xc-field">
         <span>{t("API address")}</span>
         <input
@@ -253,6 +250,22 @@ function StatusCard() {
               t("Never")
             )}
           </dd>
+          {s.syncIntervalSeconds && (
+            <>
+              <dt>{t("Sync interval")}</dt>
+              <dd>
+                {s.syncIntervalSeconds >= 120
+                  ? `${Math.round(s.syncIntervalSeconds / 60)} ${t("minutes")}`
+                  : `${s.syncIntervalSeconds} ${t("seconds")}`}
+                {s.syncIntervalSeconds >= 300 && (
+                  <span className="xc-muted">
+                    {" "}
+                    · {t("Slowed down because few requests are left")}
+                  </span>
+                )}
+              </dd>
+            </>
+          )}
           {s.lastError && (
             <>
               <dt>{t("Last error")}</dt>
@@ -264,6 +277,7 @@ function StatusCard() {
               <dt>{t("Requests left")}</dt>
               <dd>
                 {s.rateLimitRemaining}
+                {s.rateLimitLimit ? ` / ${s.rateLimitLimit}` : ""}
                 {s.rateLimitResetAt && (
                   <span className="xc-muted">
                     {" "}

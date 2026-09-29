@@ -87,6 +87,25 @@ paths:
                 $ref: "#/components/schemas/GitHubStatus"
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /github/available-repos:
+    get:
+      operationId: listGitHubAvailableRepos
+      tags: [github]
+      description: |
+        B35。令牌能访问的全部仓库（GET /user/repos 分页取全），按最近推送时间倒序。
+        结果缓存 10 分钟，refresh=true 时重新取。没有令牌时回 412。
+      parameters:
+        - name: refresh
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 仓库列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitHubAvailableRepos" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /github/pulls:
     get:
       operationId: listGitHubPulls
@@ -180,6 +199,21 @@ components:
         message: { type: string, description: 失败原因，给人看 }
         login: { type: string }
         rateLimitRemaining: { type: integer }
+    GitHubAvailableRepos:
+      type: object
+      required: [repos, fetchedAt]
+      properties:
+        fetchedAt: { type: string, format: date-time, description: 这份列表是什么时候从 GitHub 取的 }
+        repos:
+          type: array
+          items:
+            type: object
+            required: [fullName, private]
+            properties:
+              fullName: { type: string, description: owner/name }
+              private: { type: boolean }
+              description: { type: string }
+              pushedAt: { type: string, format: date-time }
     GitHubStatus:
       type: object
       required: [configured, syncing, repoCount]
@@ -192,6 +226,8 @@ components:
         lastError: { type: string, description: 最近一次同步的错误，成功时为空 }
         rateLimitRemaining: { type: integer }
         rateLimitResetAt: { type: string, format: date-time }
+        rateLimitLimit: { type: integer, description: B35。每小时的总额度，一般是 5000 }
+        syncIntervalSeconds: { type: integer, description: B35。现在的同步间隔。平时 60，剩余额度不足 10% 时 300 }
     GitHubReviewState:
       type: string
       enum: [approved, changes_requested, pending, commented, none]

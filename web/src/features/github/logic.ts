@@ -152,3 +152,24 @@ export function latestDefaultRuns(runs: GitHubRun[]): GitHubRun[] {
   }
   return out;
 }
+
+/** 关注的仓库最多 50 个，和接口的 maxItems 一致。 */
+export const MAX_REPOS = 50;
+
+/** owner/name 的格式。 */
+export function isRepoName(text: string): boolean {
+  return /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(text);
+}
+
+/** 搜索仓库：名字或说明里包含关键字，不区分大小写。 */
+export function filterRepos<
+  T extends { fullName: string; description?: string },
+>(repos: T[], q: string): T[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return repos;
+  return repos.filter(
+    (r) =>
+      r.fullName.toLowerCase().includes(s) ||
+      (r.description ?? "").toLowerCase().includes(s),
+  );
+}

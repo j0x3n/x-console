@@ -78,6 +78,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/github/available-repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B35。令牌能访问的全部仓库（GET /user/repos 分页取全），按最近推送时间倒序。
+         *     结果缓存 10 分钟，refresh=true 时重新取。没有令牌时回 412。
+         */
+        get: operations["listGitHubAvailableRepos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/github/pulls": {
         parameters: {
             query?: never;
@@ -164,6 +184,21 @@ export interface components {
             login?: string;
             rateLimitRemaining?: number;
         };
+        GitHubAvailableRepos: {
+            /**
+             * Format: date-time
+             * @description 这份列表是什么时候从 GitHub 取的
+             */
+            fetchedAt: string;
+            repos: {
+                /** @description owner/name */
+                fullName: string;
+                private: boolean;
+                description?: string;
+                /** Format: date-time */
+                pushedAt?: string;
+            }[];
+        };
         GitHubStatus: {
             configured: boolean;
             syncing: boolean;
@@ -176,6 +211,10 @@ export interface components {
             rateLimitRemaining?: number;
             /** Format: date-time */
             rateLimitResetAt?: string;
+            /** @description B35。每小时的总额度，一般是 5000 */
+            rateLimitLimit?: number;
+            /** @description B35。现在的同步间隔。平时 60，剩余额度不足 10% 时 300 */
+            syncIntervalSeconds?: number;
         };
         /**
          * @description pending 表示请了评审但还没人评
@@ -379,6 +418,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GitHubStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listGitHubAvailableRepos: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 仓库列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubAvailableRepos"];
                 };
             };
             default: components["responses"]["Error"];

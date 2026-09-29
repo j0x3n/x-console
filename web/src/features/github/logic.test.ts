@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { GitHubPull, GitHubRun } from "./api";
 import {
+  filterRepos,
+  isRepoName,
   checkTone,
   groupByRepo,
   issuePath,
@@ -148,5 +150,27 @@ describe("mappingProblem", () => {
         { teamId: "b", projectId: 1 },
       ]),
     ).toMatch(/once/);
+  });
+});
+
+describe("repository picker (B35)", () => {
+  it("checks owner/name", () => {
+    expect(isRepoName("j0x3n/x-console")).toBe(true);
+    expect(isRepoName("org/repo.name_2")).toBe(true);
+    expect(isRepoName("x-console")).toBe(false);
+    expect(isRepoName("a/b/c")).toBe(false);
+    expect(isRepoName("")).toBe(false);
+  });
+
+  it("searches names and descriptions", () => {
+    const repos = [
+      { fullName: "j0x3n/x-console", description: "个人控制台" },
+      { fullName: "j0x3n/dotfiles" },
+    ];
+    expect(filterRepos(repos, "CONSOLE").map((r) => r.fullName)).toEqual([
+      "j0x3n/x-console",
+    ]);
+    expect(filterRepos(repos, "控制台")).toHaveLength(1);
+    expect(filterRepos(repos, " ")).toHaveLength(2);
   });
 });

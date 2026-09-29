@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, createApi, unwrap } from "../../api/client";
+import { ApiError, createApi, isNotLive, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import { withElevation } from "../../auth/elevation";
 import type {
@@ -40,6 +40,7 @@ export const githubKeys = {
   pulls: ["github", "pulls"] as const,
   runs: ["github", "runs"] as const,
   issues: ["github", "issues"] as const,
+  availableRepos: ["github", "available-repos"] as const,
 };
 
 export const linearKeys = {
@@ -191,5 +192,36 @@ export function useSyncLinear() {
       // 拉回来的 Issue 在项目页里显示。
       qc.invalidateQueries({ queryKey: ["projects"] });
     },
+  });
+}
+
+/* ---- B35：令牌能访问的仓库 ---- */
+
+export type GitHubAvailableRepos =
+  ghComponents["schemas"]["GitHubAvailableRepos"];
+export type GitHubAvailableRepo = GitHubAvailableRepos["repos"][number];
+
+/** 回 404 或 501 表示后端还没做，设置页退回手动填写。 */
+export function useAvailableRepos(enabled: boolean) {
+  return useQuery({
+    queryKey: githubKeys.availableRepos,
+    queryFn: () => unwrap(githubApi.GET("/github/available-repos")),
+    retry: (count, error) =>
+      !isNotLive(error) && !isNotConfigured(error) && count < 2,
+    staleTime: 5 * 60_000,
+    enabled,
+  });
+}
+
+export function useRefreshAvailableRepos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      unwrap(
+        githubApi.GET("/github/available-repos", {
+          params: { query: { refresh: true } },
+        }),
+      ),
+    onSuccess: (data) => qc.setQueryData(githubKeys.availableRepos, data),
   });
 }

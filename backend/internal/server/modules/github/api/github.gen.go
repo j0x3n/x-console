@@ -86,6 +86,20 @@ func (e GitHubReviewState) Valid() bool {
 	}
 }
 
+// GitHubAvailableRepos defines model for GitHubAvailableRepos.
+type GitHubAvailableRepos struct {
+	// FetchedAt 这份列表是什么时候从 GitHub 取的
+	FetchedAt time.Time `json:"fetchedAt"`
+	Repos     []struct {
+		Description *string `json:"description,omitempty"`
+
+		// FullName owner/name
+		FullName string     `json:"fullName"`
+		Private  bool       `json:"private"`
+		PushedAt *time.Time `json:"pushedAt,omitempty"`
+	} `json:"repos"`
+}
+
 // GitHubCheckState defines model for GitHubCheckState.
 type GitHubCheckState string
 
@@ -186,13 +200,19 @@ type GitHubStatus struct {
 	Configured bool `json:"configured"`
 
 	// LastError 最近一次同步的错误，成功时为空
-	LastError          *string    `json:"lastError,omitempty"`
-	LastSyncAt         *time.Time `json:"lastSyncAt,omitempty"`
-	Login              *string    `json:"login,omitempty"`
+	LastError  *string    `json:"lastError,omitempty"`
+	LastSyncAt *time.Time `json:"lastSyncAt,omitempty"`
+	Login      *string    `json:"login,omitempty"`
+
+	// RateLimitLimit B35。每小时的总额度，一般是 5000
+	RateLimitLimit     *int       `json:"rateLimitLimit,omitempty"`
 	RateLimitRemaining *int       `json:"rateLimitRemaining,omitempty"`
 	RateLimitResetAt   *time.Time `json:"rateLimitResetAt,omitempty"`
 	RepoCount          int        `json:"repoCount"`
-	Syncing            bool       `json:"syncing"`
+
+	// SyncIntervalSeconds B35。现在的同步间隔。平时 60，剩余额度不足 10% 时 300
+	SyncIntervalSeconds *int `json:"syncIntervalSeconds,omitempty"`
+	Syncing             bool `json:"syncing"`
 }
 
 // GitHubTestInput defines model for GitHubTestInput.
@@ -211,6 +231,11 @@ type GitHubTestResult struct {
 	Message            *string `json:"message,omitempty"`
 	Ok                 bool    `json:"ok"`
 	RateLimitRemaining *int    `json:"rateLimitRemaining,omitempty"`
+}
+
+// ListGitHubAvailableReposParams defines parameters for ListGitHubAvailableRepos.
+type ListGitHubAvailableReposParams struct {
+	Refresh *bool `form:"refresh,omitempty" json:"refresh,omitempty"`
 }
 
 // ListGitHubPullsParams defines parameters for ListGitHubPulls.
@@ -233,6 +258,9 @@ type TestGitHubJSONRequestBody = GitHubTestInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (GET /github/available-repos)
+	ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request, params ListGitHubAvailableReposParams)
 
 	// (GET /github/config)
 	GetGitHubConfig(w http.ResponseWriter, r *http.Request)
@@ -262,6 +290,11 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// (GET /github/available-repos)
+func (_ Unimplemented) ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request, params ListGitHubAvailableReposParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // (GET /github/config)
 func (_ Unimplemented) GetGitHubConfig(w http.ResponseWriter, r *http.Request) {
@@ -311,6 +344,39 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListGitHubAvailableRepos operation middleware
+func (siw *ServerInterfaceWrapper) ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGitHubAvailableReposParams
+
+	// ------------- Optional query parameter "refresh" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "refresh", r.URL.Query(), &params.Refresh, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "refresh"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "refresh", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGitHubAvailableRepos(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetGitHubConfig operation middleware
 func (siw *ServerInterfaceWrapper) GetGitHubConfig(w http.ResponseWriter, r *http.Request) {
@@ -602,6 +668,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/github/sync", wrapper.SyncGitHub)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/github/available-repos", wrapper.ListGitHubAvailableRepos)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/github/pulls", wrapper.ListGitHubPulls)
