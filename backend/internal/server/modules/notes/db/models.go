@@ -28,6 +28,7 @@ type AiConversation struct {
 	Title     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	HostID    *string
 }
 
 type AiMessage struct {
@@ -55,6 +56,7 @@ type AiPendingAction struct {
 	Input          string
 	Status         string
 	Result         *string
+	Effect         *string
 }
 
 type AiProvider struct {

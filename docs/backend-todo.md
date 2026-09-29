@@ -43,7 +43,9 @@
 | 13e2 | B32 浮窗、自动化和早报接入 | 做完 | `modules/ai/worker.go`、`handlers.go`、`service.go`、`polisher.go`、`automations/engine.go`、`contracts/contracts.go`、`web/scripts/e2e.mjs` | 流式回复、工具执行和确认、多轮历史、旧内容块兼容、早报快速模型、自动化 Agent 模型和浏览器主流程已测；接笔记自动标题和标签 |
 | 13f | B32 笔记自动标题和标签 | 做完 | `modules/notes/ai.go`、`ai_test.go`、`service.go`、`module.go`、迁移 `20260930000200`、`web/scripts/e2e.mjs` | 10 秒延时、隐藏笔记跳过、内容变化门槛、标题保护、建议和直接加标签、设置及浏览器主流程已测；接 B32 收尾检查 |
 | 13g | B32 收尾 | 做完 | `modules/ai/model_settings.go`、`llm_config_test.go`、`api/modules/ai.yaml` | 模型设置改成事务，思考参数不兼容后续调用不再发送；旧 SDK 依赖已移除，契约错误码已对齐；接 B33 |
-| 14 起 | B33 及以后 | 没开始 | | 按 B33 规格实现服务器 Agent 标签 |
+| 14a | B33 会话和权限接口 | 做完 | `modules/ai/host_handlers.go`、`handlers.go`、`queries.sql`、迁移 `20260930000300` | 机器会话隔离、主机存在检查、权限内存状态和失效、审计事件已测；接命令分级 |
+| 14b | B33 命令分级、工具和执行 | 在做 | `modules/ai/hostagent/`、`worker.go` | 先做纯函数风险判断和绕过测试，再接代理工具 |
+| 15 起 | B36 及以后 | 没开始 | | 按 B36 规格继续 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
@@ -62,7 +64,7 @@
 | `modules/monitoring/pending.go` | 已删除 | B23、B28 都做完了 |
 | `modules/hosts/pending.go` | 已删除 | B33 远端日志接口已做 |
 | `modules/drive/pending.go` | 已删除 | B31 已做完 |
-| `modules/ai/pending.go` | 3 | B33 |
+| `modules/ai/pending.go` | 已删除 | B33 会话和权限接口已接通；工具执行仍在做 |
 | `modules/notes/pending.go` | 已删除 | B32 已做完 |
 | `modules/reminders/pending.go` | 1 | B37 |
 | `modules/github/pending.go` | 已删除 | B35 已做完 |

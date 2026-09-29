@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
@@ -23,19 +24,25 @@ const modelSetting = "ai.model"
 const confirmSetting = "ai.confirm_all_writes"
 
 type Module struct {
-	d        *module.Deps
-	q        *db.Queries
-	llm      llm.Client
-	mu       sync.Mutex
-	reasonMu sync.Mutex
-	running  map[int64]*generation
+	d           *module.Deps
+	q           *db.Queries
+	llm         llm.Client
+	mu          sync.Mutex
+	reasonMu    sync.Mutex
+	running     map[int64]*generation
+	permissions map[int64]hostPermission
+	now         func() time.Time
+}
+type hostPermission struct {
+	mode        api.HostAgentPermission
+	lastMessage time.Time
 }
 type generation struct{ cancel context.CancelFunc }
 
 var _ api.ServerInterface = (*Module)(nil)
 
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), running: map[int64]*generation{}}
+	m := &Module{d: d, q: db.New(d.DB), running: map[int64]*generation{}, permissions: map[int64]hostPermission{}, now: time.Now}
 	m.llm = llm.New(m.resolveLLM, m.recordLLM, m.markReasoningUnsupported)
 	module.Provide[brief.Polisher](d.Registry, brief.PolisherKey, m)
 	module.Provide[contracts.LLM](d.Registry, contracts.LLMKey, m)

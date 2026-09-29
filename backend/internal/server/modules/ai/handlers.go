@@ -19,7 +19,11 @@ import (
 )
 
 func conversation(row db.AiConversation) api.Conversation {
-	return api.Conversation{Id: row.ID, Title: row.Title, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	c := api.Conversation{Id: row.ID, Title: row.Title, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	if row.HostID != nil {
+		c.HostId = row.HostID
+	}
+	return c
 }
 
 func (m *Module) ListAiConversations(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +86,7 @@ func (m *Module) GetAiConversation(w http.ResponseWriter, r *http.Request, id ap
 	m.mu.Lock()
 	_, running := m.running[id]
 	m.mu.Unlock()
-	httpx.JSON(w, 200, api.ConversationDetail{Conversation: conversation(row), Messages: messages, PendingActions: pending, Running: running})
+	httpx.JSON(w, 200, api.ConversationDetail{Conversation: m.conversation(row), Messages: messages, PendingActions: pending, Running: running})
 }
 func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.ConversationId) {
 	ctx := r.Context()
@@ -95,8 +99,12 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		httpx.Fail(w, r, httpx.Invalid("消息不能为空，最多 20000 字符"))
 		return
 	}
-	if _, err := m.q.GetConversation(ctx, id); m.fail(w, r, notFound(err)) {
+	row, err := m.q.GetConversation(ctx, id)
+	if m.fail(w, r, notFound(err)) {
 		return
+	}
+	if row.HostID != nil {
+		m.touchPermission(id)
 	}
 	var waiting int
 	if err := m.d.DB.QueryRowContext(ctx, "SELECT count(*) FROM ai_pending_actions WHERE conversation_id=? AND status='pending'", id).Scan(&waiting); m.fail(w, r, err) {
@@ -281,7 +289,7 @@ func (m *Module) messages(ctx context.Context, id int64) ([]api.Message, error) 
 	return out, rows.Err()
 }
 func (m *Module) pendingActions(ctx context.Context, id int64) ([]api.PendingAction, error) {
-	rows, err := m.d.DB.QueryContext(ctx, "SELECT id,tool_use_id,action,input,status,result FROM ai_pending_actions WHERE conversation_id=? ORDER BY id", id)
+	rows, err := m.d.DB.QueryContext(ctx, "SELECT id,tool_use_id,action,input,status,result,effect FROM ai_pending_actions WHERE conversation_id=? ORDER BY id", id)
 	if err != nil {
 		return nil, err
 	}
@@ -291,8 +299,13 @@ func (m *Module) pendingActions(ctx context.Context, id int64) ([]api.PendingAct
 		p := api.PendingAction{ConversationId: id}
 		var input string
 		var result sql.NullString
-		if err = rows.Scan(&p.Id, &p.ToolUseId, &p.Action, &input, &p.Status, &result); err != nil {
+		var effect sql.NullString
+		if err = rows.Scan(&p.Id, &p.ToolUseId, &p.Action, &input, &p.Status, &result, &effect); err != nil {
 			return nil, err
+		}
+		if effect.Valid {
+			value := api.PendingActionEffect(effect.String)
+			p.Effect = &value
 		}
 		if err = json.Unmarshal([]byte(input), &p.Input); err != nil {
 			return nil, err
