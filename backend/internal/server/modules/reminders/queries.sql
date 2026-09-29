@@ -45,6 +45,18 @@ ON CONFLICT (endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.a
 -- name: ListPushSubscriptions :many
 SELECT * FROM webpush_subscriptions ORDER BY id;
 
+-- name: ListPushSubscriptionsNewestFirst :many
+SELECT * FROM webpush_subscriptions ORDER BY created_at DESC, id DESC;
+
+-- name: MarkPushOK :exec
+UPDATE webpush_subscriptions SET last_ok_at = ?, last_error = NULL, last_error_at = NULL WHERE id = ?;
+
+-- name: MarkPushError :exec
+UPDATE webpush_subscriptions SET last_error = ?, last_error_at = ? WHERE id = ?;
+
+-- name: DeletePushSubscriptionByID :execrows
+DELETE FROM webpush_subscriptions WHERE id = ?;
+
 -- name: CountPushSubscriptions :one
 SELECT count(*) FROM webpush_subscriptions;
 

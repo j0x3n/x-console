@@ -6,12 +6,14 @@
 
 状态只有三种：没开始 / 在做 / 做完。
 
+已知的偶发失败：全量 `go test -race ./...` 时 `hosts` 包的 `TestHostListDetailAndMetrics` 偶尔报 `rpc: connection closed`，单独跑是好的，机器忙的时候才出现。不是这批改动引起的。
+
 | 序号 | 任务 | 状态 | 在做的文件 | 下一步 |
 | --- | --- | --- | --- | --- |
 | 1 | B22 偏好设置 | 做完 | `core/preferences.go` | 无 |
 | 2 | B23 天气、订阅分类、周期 | 做完 | `brief/weather.go`、`monitoring/categories.go`、`monitoring/subscriptions.go`、迁移 `20260929000100` | 无 |
-| 3 | B34 推送自检 | 没开始 | | |
-| 4 | B35 GitHub | 没开始 | | |
+| 3 | B34 推送自检 | 做完 | `reminders/delivery.go`、`reminders/notify_handlers.go`、迁移 `20260929000200` | 无 |
+| 4 | B35 GitHub | 在做 | `modules/github/` | 先做仓库列表 `repos.go`，再做同步间隔，最后 PR 分页（规格里的顺序） |
 | 5 | B24、B25 文件目录和备份 | 没开始 | | |
 | 6 | B26 服务器详情 | 没开始 | | |
 | 7 | B27 月流量 | 没开始 | | |

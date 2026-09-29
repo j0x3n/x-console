@@ -77,6 +77,18 @@ func (q *Queries) DeletePushSubscription(ctx context.Context, endpoint string) (
 	return result.RowsAffected()
 }
 
+const deletePushSubscriptionByID = `-- name: DeletePushSubscriptionByID :execrows
+DELETE FROM webpush_subscriptions WHERE id = ?
+`
+
+func (q *Queries) DeletePushSubscriptionByID(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deletePushSubscriptionByID, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteReminder = `-- name: DeleteReminder :execrows
 DELETE FROM reminders WHERE id = ?
 `
@@ -200,7 +212,7 @@ func (q *Queries) ListDueReminders(ctx context.Context, now *time.Time) ([]Remin
 }
 
 const listPushSubscriptions = `-- name: ListPushSubscriptions :many
-SELECT id, endpoint, p256dh, auth, user_agent, created_at FROM webpush_subscriptions ORDER BY id
+SELECT id, endpoint, p256dh, auth, user_agent, created_at, last_ok_at, last_error, last_error_at FROM webpush_subscriptions ORDER BY id
 `
 
 func (q *Queries) ListPushSubscriptions(ctx context.Context) ([]WebpushSubscription, error) {
@@ -219,6 +231,46 @@ func (q *Queries) ListPushSubscriptions(ctx context.Context) ([]WebpushSubscript
 			&i.Auth,
 			&i.UserAgent,
 			&i.CreatedAt,
+			&i.LastOkAt,
+			&i.LastError,
+			&i.LastErrorAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPushSubscriptionsNewestFirst = `-- name: ListPushSubscriptionsNewestFirst :many
+SELECT id, endpoint, p256dh, auth, user_agent, created_at, last_ok_at, last_error, last_error_at FROM webpush_subscriptions ORDER BY created_at DESC, id DESC
+`
+
+func (q *Queries) ListPushSubscriptionsNewestFirst(ctx context.Context) ([]WebpushSubscription, error) {
+	rows, err := q.db.QueryContext(ctx, listPushSubscriptionsNewestFirst)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WebpushSubscription
+	for rows.Next() {
+		var i WebpushSubscription
+		if err := rows.Scan(
+			&i.ID,
+			&i.Endpoint,
+			&i.P256dh,
+			&i.Auth,
+			&i.UserAgent,
+			&i.CreatedAt,
+			&i.LastOkAt,
+			&i.LastError,
+			&i.LastErrorAt,
 		); err != nil {
 			return nil, err
 		}
@@ -306,6 +358,35 @@ func (q *Queries) ListRoutes(ctx context.Context) ([]NotificationRoute, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const markPushError = `-- name: MarkPushError :exec
+UPDATE webpush_subscriptions SET last_error = ?, last_error_at = ? WHERE id = ?
+`
+
+type MarkPushErrorParams struct {
+	LastError   *string
+	LastErrorAt *time.Time
+	ID          int64
+}
+
+func (q *Queries) MarkPushError(ctx context.Context, arg MarkPushErrorParams) error {
+	_, err := q.db.ExecContext(ctx, markPushError, arg.LastError, arg.LastErrorAt, arg.ID)
+	return err
+}
+
+const markPushOK = `-- name: MarkPushOK :exec
+UPDATE webpush_subscriptions SET last_ok_at = ?, last_error = NULL, last_error_at = NULL WHERE id = ?
+`
+
+type MarkPushOKParams struct {
+	LastOkAt *time.Time
+	ID       int64
+}
+
+func (q *Queries) MarkPushOK(ctx context.Context, arg MarkPushOKParams) error {
+	_, err := q.db.ExecContext(ctx, markPushOK, arg.LastOkAt, arg.ID)
+	return err
 }
 
 const updateReminder = `-- name: UpdateReminder :one

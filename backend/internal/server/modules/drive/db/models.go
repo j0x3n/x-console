@@ -656,12 +656,15 @@ type User struct {
 }
 
 type WebpushSubscription struct {
-	ID        int64
-	Endpoint  string
-	P256dh    string
-	Auth      string
-	UserAgent string
-	CreatedAt time.Time
+	ID          int64
+	Endpoint    string
+	P256dh      string
+	Auth        string
+	UserAgent   string
+	CreatedAt   time.Time
+	LastOkAt    *time.Time
+	LastError   *string
+	LastErrorAt *time.Time
 }
 
 type WorkoutLog struct {
