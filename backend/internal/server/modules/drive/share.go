@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/db"
@@ -122,6 +123,9 @@ func (m *Module) shareDTO(ctx context.Context, r *http.Request, share db.DriveSh
 
 func (m *Module) CreateDriveShare(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	if fail(w, r, auth.RequireElevated(ctx)) {
+		return
+	}
 	var body api.DriveShareInput
 	if fail(w, r, httpx.Decode(r, &body)) {
 		return

@@ -347,6 +347,11 @@ try {
   );
   assert.equal(await restoredContent.text(), "云盘内容可以预览。");
   stage = "云盘分享管理";
+  const shareElevation = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { password },
+  });
+  assert.equal(shareElevation.status(), 200, await shareElevation.text());
   const shareResponse = await page.context().request.post(`${base}/api/v1/drive/shares`, {
     headers: { "X-Requested-With": "x-console" },
     data: { itemId: driveFile.id, expiresIn: "7d" },
@@ -368,6 +373,52 @@ try {
     { headers: { "X-Requested-With": "x-console" } },
   );
   assert.equal(unshareResponse.status(), 204);
+  stage = "云盘日志实时";
+  await page.evaluate(
+    ({ id, offset }) =>
+      new Promise((resolve, reject) => {
+        window.__driveFollowFrames = [];
+        const socket = new WebSocket(
+          `${location.origin.replace(/^http/, "ws")}/api/v1/drive/items/${id}/follow?offset=${offset}`,
+        );
+        window.__driveFollowSocket = socket;
+        socket.onmessage = (event) => window.__driveFollowFrames.push(JSON.parse(event.data));
+        socket.onopen = resolve;
+        socket.onerror = reject;
+      }),
+    { id: driveFile.id, offset: Buffer.byteLength("云盘内容可以预览。") },
+  );
+  const appendLog = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "云盘内容可以预览。\n实时追加",
+    },
+  );
+  assert.equal(appendLog.status(), 200, await appendLog.text());
+  await until("云盘日志追加", async () =>
+    page.evaluate(() => window.__driveFollowFrames.some((frame) => frame.type === "append" && frame.data === "\n实时追加")),
+  );
+  const resetLog = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "短",
+    },
+  );
+  assert.equal(resetLog.status(), 200, await resetLog.text());
+  await until("云盘日志重置", async () =>
+    page.evaluate(() => window.__driveFollowFrames.some((frame) => frame.type === "reset")),
+  );
+  await page.evaluate(() => window.__driveFollowSocket.close());
+  const restoreLog = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "云盘内容可以预览。",
+    },
+  );
+  assert.equal(restoreLog.status(), 200, await restoreLog.text());
   stage = "云盘打包下载";
   const zipResponse = await page.context().request.get(`${base}/api/v1/drive/zip?ids=${driveFile.id}`);
   assert.equal(zipResponse.status(), 200);

@@ -14,6 +14,11 @@ import (
 func TestDriveShareCreateListDeleteAndState(t *testing.T) {
 	env := testutil.New(t, drive.New)
 	file := upload(t, env, "公开.txt", "hello", false)
+	status, _ := env.Do(http.MethodPost, "/drive/shares", map[string]any{"itemId": file.Id, "expiresIn": "7d"}, nil)
+	if status != http.StatusForbidden {
+		t.Fatalf("share without elevation: %d", status)
+	}
+	env.Elevate()
 	var share api.DriveShare
 	status, raw := env.Do(http.MethodPost, "/drive/shares", map[string]any{"itemId": file.Id, "expiresIn": "7d", "code": "Ab1234", "maxDownloads": 2}, &share)
 	if status != http.StatusCreated || share.Id == 0 || len(share.Token) != 22 || share.Code == nil || *share.Code != "Ab1234" || !share.Active || !strings.HasSuffix(share.Url, "/s/"+share.Token) {
@@ -56,6 +61,7 @@ func TestDriveShareCreateListDeleteAndState(t *testing.T) {
 func TestDriveShareRejectsHiddenAndBadInput(t *testing.T) {
 	env := testutil.New(t, drive.New)
 	file := upload(t, env, "普通.txt", "x", false)
+	env.Elevate()
 	for _, body := range []map[string]any{
 		{"itemId": file.Id, "expiresIn": "oops"},
 		{"itemId": file.Id, "expiresIn": "never", "code": "bad!"},

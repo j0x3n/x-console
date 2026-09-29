@@ -317,3 +317,41 @@ func TestDriveExtractHiddenArchiveStaysHidden(t *testing.T) {
 		t.Fatalf("locked extracted folder: %d", status)
 	}
 }
+
+func TestDriveExtractRejectsDeclaredTwentyGB(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	var raw bytes.Buffer
+	zw := zip.NewWriter(&raw)
+	header := &zip.FileHeader{Name: "large.bin", Method: zip.Store, UncompressedSize64: 20 << 30, CompressedSize64: 0}
+	if _, err := zw.CreateRaw(header); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	archive := upload(t, env, "huge.zip", raw.String(), false)
+	var task api.DriveTask
+	env.MustDo(http.MethodPost, "/drive/items/"+strconv.FormatInt(archive.Id, 10)+"/extract", nil, &task)
+	waitFailedExtract(t, env, task.Id, "archive_too_large")
+	var count int
+	if err := env.App.Deps.DB.QueryRow("SELECT count(*) FROM drive_items WHERE name='huge'").Scan(&count); err != nil || count != 0 {
+		t.Fatalf("large archive wrote rows: %d %v", count, err)
+	}
+}
+
+func TestDriveExtractTarSkipsSymlink(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	var raw bytes.Buffer
+	tw := tar.NewWriter(&raw)
+	if err := tw.WriteHeader(&tar.Header{Name: "link", Typeflag: tar.TypeSymlink, Linkname: "outside.txt", Mode: 0o777}); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	archive := upload(t, env, "links.tar", raw.String(), false)
+	task := extractTask(t, env, archive.Id, nil)
+	if task.Skipped == nil || *task.Skipped != 1 || task.ResultId == nil || len(listTransfer(t, env, *task.ResultId)) != 0 {
+		t.Fatalf("tar symlink: %+v", task)
+	}
+}

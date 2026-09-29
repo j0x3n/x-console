@@ -49,6 +49,7 @@ func publicRequest(t *testing.T, env *testutil.Env, method, path string, body an
 
 func createPublicTestShare(t *testing.T, env *testutil.Env, itemID int64, code string, limit int) api.DriveShare {
 	t.Helper()
+	env.Elevate()
 	body := map[string]any{"itemId": itemID, "expiresIn": "never"}
 	if code != "" {
 		body["code"] = code

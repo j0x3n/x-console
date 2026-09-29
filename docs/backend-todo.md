@@ -33,7 +33,7 @@
 | 12e2 | B31 历史版本接口和保留规则 | 做完 | `drive/versions.go`、`drive/versions_api_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 列表、Range 读取、恢复、设置、保留数量清理和浏览器主流程已测；接 12f |
 | 12f1 | B31 分享管理 | 做完 | `drive/share.go`、`drive/share_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 创建、列表、删除、加密提取码、分享状态和浏览器主流程已测；接 12f2 |
 | 12f2 | B31 公开分享 | 做完 | `drive/share_public.go`、`drive/share_public_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 匿名访问、限流、提取码锁定、范围校验、Range 下载计数、上限、ZIP 和浏览器主流程已测；接 12g |
-| 12g | B31 日志实时 | 没开始 | | 共用 `logfollow` 帧 |
+| 12g | B31 日志实时 | 做完 | `drive/follow.go`、`drive/follow_test.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | WebSocket 追加、重置、UTF-8 分帧和关闭测试通过；分享创建补了提权校验；B31 的 501 已全部移除 |
 | 13 起 | B32 及以后 | 没开始 | | 按下面的顺序继续 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
