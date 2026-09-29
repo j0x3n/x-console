@@ -682,6 +682,58 @@ try {
   await dialog("e2e-remote.log").getByText("远端日志主流程").waitFor();
   await page.keyboard.press("Escape");
 
+  stage = "B33 服务器 Agent 只读命令";
+  const hostFake = http.createServer(async (request, response) => {
+    if (request.url === "/v1/models") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ data: [{ id: "e2e-model" }] }));
+      return;
+    }
+    if (request.url !== "/v1/chat/completions") { response.writeHead(404).end(); return; }
+    const parts = [];
+    for await (const part of request) parts.push(part);
+    const body = JSON.parse(Buffer.concat(parts).toString());
+    response.writeHead(200, { "Content-Type": "text/event-stream" });
+    const hasResult = body.messages?.some((message) => message.role === "tool");
+    const delta = hasResult
+      ? { content: "运行时间已读取" }
+      : { tool_calls: [{ index: 0, id: "host-e2e-tool", type: "function", function: { name: "host__run_command", arguments: JSON.stringify({ command: "uptime", reason: "检查运行时间" }) } }] };
+    response.write(`data: ${JSON.stringify({ id: "host_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [{ index: 0, delta }] })}\n\n`);
+    response.write(`data: ${JSON.stringify({ id: "host_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [], usage: { prompt_tokens: 4, completion_tokens: 5 } })}\n\n`);
+    response.end("data: [DONE]\n\n");
+  });
+  await new Promise((ready) => hostFake.listen(0, "127.0.0.1", ready));
+  try {
+    const created = await page.context().request.post(`${base}/api/v1/ai/providers`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { name: "机器 Agent 测试模型", baseUrl: `http://127.0.0.1:${hostFake.address().port}/v1` },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    const provider = await created.json();
+    const refreshed = await page.context().request.post(`${base}/api/v1/ai/providers/${provider.id}/models`, { headers: { "X-Requested-With": "x-console" } });
+    assert.equal(refreshed.status(), 200, await refreshed.text());
+    const settings = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
+      headers: { "X-Requested-With": "x-console" }, data: { agent: { providerId: provider.id, model: "e2e-model" } },
+    });
+    assert.equal(settings.status(), 200, await settings.text());
+    await page.goto(`${base}/servers/${host.id}/agent`);
+    await page.locator(".hagent-mode select").selectOption("read_auto");
+    await page.locator(".hagent-composer textarea").fill("uptime");
+    await page.locator(".hagent-composer textarea").press("Enter");
+    await page.locator(".hagent-body").getByText("运行时间已读取").waitFor();
+    const hostConversations = await api(`/ai/host-agent/${host.id}/conversations`);
+    assert.equal(hostConversations.length, 1);
+    const hostDetail = await api(`/ai/conversations/${hostConversations[0].id}`);
+    assert.equal(hostDetail.pendingActions[0]?.action, "host.run_command");
+    assert.equal(hostDetail.pendingActions[0]?.status, "done");
+    assert.equal(hostDetail.pendingActions[0]?.effect, "read");
+    assert.equal((await api("/ai/conversations")).some((item) => item.id === hostConversations[0].id), false);
+    const removeProvider = await page.context().request.delete(`${base}/api/v1/ai/providers/${provider.id}`, { headers: { "X-Requested-With": "x-console" } });
+    assert.equal(removeProvider.status(), 204, await removeProvider.text());
+  } finally {
+    await new Promise((done) => hostFake.close(done));
+  }
+
   stage = "按需订阅服务器指标";
   await page.goto(`${base}/servers`);
   await page.locator(".servers-card").filter({ hasText: "e2e-linux" }).getByText("在线").waitFor();

@@ -12,10 +12,14 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
+	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/hostagent"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
+	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
 
 const systemPrompt = `你是 X Console 助手。用户是这个面板的唯一主人。可用工具由面板提供。
@@ -109,6 +113,11 @@ func (m *Module) run(ctx context.Context, id int64, session *auth.Session, state
 	}
 }
 func (m *Module) generate(ctx context.Context, id int64) error {
+	row, err := m.q.GetConversation(ctx, id)
+	if err != nil {
+		return err
+	}
+	hostID := row.HostID
 	settings, err := m.modelSettings(ctx)
 	if err != nil {
 		return err
@@ -118,7 +127,11 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 		if err != nil {
 			return err
 		}
-		stream, err := m.llm.Stream(ctx, llm.Request{Purpose: "agent", System: m.system(ctx), Messages: history, Tools: m.tools()})
+		prompt, tools := m.system(ctx), m.tools()
+		if hostID != nil {
+			prompt, tools = m.hostSystem(ctx, *hostID), hostagent.Tools()
+		}
+		stream, err := m.llm.Stream(ctx, llm.Request{Purpose: "agent", System: prompt, Messages: history, Tools: tools})
 		if err != nil {
 			return err
 		}
@@ -153,6 +166,45 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 		results := []map[string]any{}
 		pending := false
 		for _, use := range message.ToolCalls {
+			if hostID != nil {
+				input := use.Arguments
+				if len(input) == 0 {
+					input = []byte("{}")
+				}
+				if !strings.HasPrefix(use.Name, "host__") {
+					results = append(results, toolResult(use.ID, "机器会话只能使用机器工具", true))
+					continue
+				}
+				effect := hostagent.Classify(use.Name, input)
+				mode := m.permission(id)
+				confirm := effect == hostagent.Dangerous || mode == api.Confirm || mode == api.ReadAuto && effect != hostagent.Read
+				name := strings.ReplaceAll(use.Name, "__", ".")
+				if confirm {
+					p, err := m.recordAction(ctx, id, use.ID, name, input, "pending", nil, effect)
+					if err != nil {
+						return err
+					}
+					m.d.Bus.Publish("ai.action_pending", map[string]any{"conversationId": id, "action": p})
+					pending = true
+					continue
+				}
+				result, runErr := m.runHostAction(ctx, *hostID, use.Name, input)
+				if ctx.Err() != nil {
+					stopped := "用户已停止生成"
+					_, _ = m.recordAction(context.WithoutCancel(ctx), id, use.ID, name, input, "rejected", stopped, effect)
+					_ = m.saveMessage(context.WithoutCancel(ctx), id, "user", []map[string]any{toolResult(use.ID, stopped, true)})
+					return ctx.Err()
+				}
+				state := "done"
+				if runErr != nil {
+					state, result = "failed", runErr.Error()
+				}
+				if _, err := m.recordAction(ctx, id, use.ID, name, input, state, result, effect); err != nil {
+					return err
+				}
+				results = append(results, toolResult(use.ID, result, runErr != nil))
+				continue
+			}
 			name := strings.ReplaceAll(use.Name, "__", ".")
 			action, found := m.d.Actions.Get(name)
 			input := use.Arguments
@@ -207,25 +259,57 @@ func toolResult(id string, result any, isError bool) map[string]any {
 func (m *Module) runAction(ctx context.Context, a actions.Action, input json.RawMessage) (any, error) {
 	return a.Run(auth.WithoutVault(ctx), input)
 }
-func (m *Module) recordAction(ctx context.Context, conversationID int64, toolID, name string, input json.RawMessage, status string, result any) (api.PendingAction, error) {
+func (m *Module) recordAction(ctx context.Context, conversationID int64, toolID, name string, input json.RawMessage, status string, result any, effects ...hostagent.Effect) (api.PendingAction, error) {
 	if len(input) == 0 {
 		input = []byte("{}")
 	}
 	raw, _ := json.Marshal(result)
+	var effect any
+	if len(effects) > 0 {
+		effect = string(effects[0])
+	}
 	var id int64
-	err := m.d.DB.QueryRowContext(ctx, "INSERT INTO ai_pending_actions(conversation_id,tool_use_id,action,input,status,result) VALUES(?,?,?,?,?,?) RETURNING id", conversationID, toolID, name, string(input), status, string(raw)).Scan(&id)
+	err := m.d.DB.QueryRowContext(ctx, "INSERT INTO ai_pending_actions(conversation_id,tool_use_id,action,input,status,result,effect) VALUES(?,?,?,?,?,?,?) RETURNING id", conversationID, toolID, name, string(input), status, string(raw), effect).Scan(&id)
 	if err != nil {
 		return api.PendingAction{}, err
 	}
 	var in map[string]any
 	_ = json.Unmarshal(input, &in)
-	return api.PendingAction{Id: id, ConversationId: conversationID, ToolUseId: toolID, Action: name, Input: in, Status: api.PendingActionStatus(status), Result: result}, nil
+	p := api.PendingAction{Id: id, ConversationId: conversationID, ToolUseId: toolID, Action: name, Input: in, Status: api.PendingActionStatus(status), Result: result}
+	if len(effects) > 0 {
+		value := api.PendingActionEffect(effects[0])
+		p.Effect = &value
+	}
+	return p, nil
+}
+
+func (m *Module) runHostAction(ctx context.Context, hostID, name string, input json.RawMessage) (any, error) {
+	start := time.Now()
+	result, err := (hostagent.Runner{Deps: m.d, HostID: hostID}).Run(ctx, name, input)
+	var args map[string]any
+	_ = json.Unmarshal(input, &args)
+	detail := map[string]any{"tool": name, "durationMs": time.Since(start).Milliseconds()}
+	for _, key := range []string{"command", "path", "name", "id", "action"} {
+		if value, ok := args[key].(string); ok {
+			detail[key] = value
+		}
+	}
+	switch out := result.(type) {
+	case protocol.ExecResult:
+		detail["exitCode"] = out.ExitCode
+		detail["durationMs"] = out.DurationMs
+	case contracts.ExecResult:
+		detail["exitCode"] = out.ExitCode
+	}
+	m.d.Audit.Record(audit.WithActor(ctx, "ai:host-agent"), "ai.host_agent.exec", hostID, detail, err)
+	return result, err
 }
 func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, approve bool) {
 	ctx := r.Context()
 	var conversationID int64
 	var toolID, name, input, status string
-	err := m.d.DB.QueryRowContext(ctx, "SELECT conversation_id,tool_use_id,action,input,status FROM ai_pending_actions WHERE id=?", actionID).Scan(&conversationID, &toolID, &name, &input, &status)
+	var hostID, effect sql.NullString
+	err := m.d.DB.QueryRowContext(ctx, "SELECT p.conversation_id,p.tool_use_id,p.action,p.input,p.status,c.host_id,p.effect FROM ai_pending_actions p JOIN ai_conversations c ON c.id=p.conversation_id WHERE p.id=?", actionID).Scan(&conversationID, &toolID, &name, &input, &status, &hostID, &effect)
 	if m.fail(w, r, notFound(err)) {
 		return
 	}
@@ -233,12 +317,13 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 		httpx.Fail(w, r, httpx.ErrConflict)
 		return
 	}
+	hostAction := hostID.Valid && strings.HasPrefix(name, "host.")
 	a, found := m.d.Actions.Get(name)
-	if !found {
+	if !hostAction && !found {
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
-	if approve && a.Effect == actions.Dangerous && m.fail(w, r, auth.RequireElevated(ctx)) {
+	if approve && (hostAction && effect.String == string(hostagent.Dangerous) || !hostAction && a.Effect == actions.Dangerous) && m.fail(w, r, auth.RequireElevated(ctx)) {
 		return
 	}
 	workCtx := context.WithoutCancel(ctx)
@@ -258,7 +343,20 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 	result := any("用户拒绝了")
 	next := "rejected"
 	if approve {
-		result, err = m.runAction(workCtx, a, json.RawMessage(input))
+		if hostAction {
+			var cancel context.CancelFunc
+			workCtx, cancel = context.WithCancel(workCtx)
+			m.mu.Lock()
+			m.running[conversationID] = &generation{cancel: cancel}
+			m.mu.Unlock()
+			result, err = m.runHostAction(workCtx, hostID.String, strings.ReplaceAll(name, ".", "__"), json.RawMessage(input))
+			if workCtx.Err() != nil {
+				httpx.NoContent(w)
+				return
+			}
+		} else {
+			result, err = m.runAction(workCtx, a, json.RawMessage(input))
+		}
 		next = "done"
 		if err != nil {
 			result = err.Error()
@@ -266,14 +364,14 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 		}
 	}
 	raw, _ := json.Marshal(result)
-	_, e = m.d.DB.ExecContext(workCtx, "UPDATE ai_pending_actions SET status=?,result=? WHERE id=?", next, string(raw), actionID)
+	_, e = m.d.DB.ExecContext(context.WithoutCancel(ctx), "UPDATE ai_pending_actions SET status=?,result=? WHERE id=? AND status=?", next, string(raw), actionID, state)
 	if m.fail(w, r, e) {
 		return
 	}
 	m.stop(conversationID)
 	m.d.Bus.Publish("ai.message_saved", map[string]any{"conversationId": conversationID})
 	m.d.Audit.Record(workCtx, "ai.action."+next, strconv.FormatInt(actionID, 10), map[string]any{"action": name}, err)
-	if e = m.resumeAfterDecisions(workCtx, conversationID); m.fail(w, r, e) {
+	if e = m.resumeAfterDecisions(context.WithoutCancel(ctx), conversationID); m.fail(w, r, e) {
 		return
 	}
 	httpx.NoContent(w)

@@ -46,8 +46,9 @@
 | 14a | B33 会话和权限接口 | 做完 | `modules/ai/host_handlers.go`、`handlers.go`、`queries.sql`、迁移 `20260930000300` | 机器会话隔离、主机存在检查、权限内存状态和失效、审计事件已测；接命令分级 |
 | 14b | B33 命令分级 | 做完 | `modules/ai/hostagent/classify.go`、`classify_test.go` | 只读白名单、写命令降级、高危规则和绕过写法已测；全量后端检查通过 |
 | 14c | B33 代理工具 | 做完 | `modules/ai/hostagent/tools.go`、`tools_test.go` | 10 个工具走现有代理能力，文件读写走流接口，旧文件先备份；能力检查、输出截断已测 |
-| 14d | B33 会话执行和确认 | 在做 | `modules/ai/worker.go`、`hostagent/` | 机器专属工具、权限矩阵、高危确认、审计、停止与端到端主流程 |
-| 15 起 | B36 及以后 | 没开始 | | 按 B36 规格继续 |
+| 14d | B33 会话执行和确认 | 做完 | `modules/ai/worker.go`、`host_handlers.go`、`host_agent_test.go`、`web/scripts/e2e.mjs` | 机器专属工具、权限矩阵、高危提权、审计、停止取消、两小时失效、文件备份和浏览器主流程已测；全量后端检查通过 |
+| 15 | B36 项目 | 没开始 | | 按 B36 规格做分类、Issue 字段、检查清单、到期提醒和公共上传 |
+| 16 | B37 提醒页汇总 | 没开始 | | B36 到期提醒完成后接入 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 

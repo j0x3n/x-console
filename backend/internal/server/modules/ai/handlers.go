@@ -67,6 +67,9 @@ func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
+	m.mu.Lock()
+	delete(m.permissions, id)
+	m.mu.Unlock()
 	m.d.Audit.Record(r.Context(), "ai.conversation.delete", strconv.FormatInt(id, 10), nil, nil)
 	httpx.NoContent(w)
 }
@@ -102,9 +105,6 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 	row, err := m.q.GetConversation(ctx, id)
 	if m.fail(w, r, notFound(err)) {
 		return
-	}
-	if row.HostID != nil {
-		m.touchPermission(id)
 	}
 	var waiting int
 	if err := m.d.DB.QueryRowContext(ctx, "SELECT count(*) FROM ai_pending_actions WHERE conversation_id=? AND status='pending'", id).Scan(&waiting); m.fail(w, r, err) {
@@ -143,6 +143,9 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		httpx.Fail(w, r, err)
 		return
 	}
+	if row.HostID != nil {
+		m.touchPermission(id)
+	}
 	if err := m.setTitle(ctx, id, text); err != nil {
 		m.stop(id)
 		httpx.Fail(w, r, err)
@@ -157,7 +160,7 @@ func (m *Module) StopAiReply(w http.ResponseWriter, r *http.Request, id api.Conv
 		return
 	}
 	m.stop(id)
-	_, err := m.d.DB.ExecContext(r.Context(), "UPDATE ai_pending_actions SET status='rejected',result=? WHERE conversation_id=? AND status='pending'", `"用户已停止生成"`, id)
+	_, err := m.d.DB.ExecContext(r.Context(), "UPDATE ai_pending_actions SET status='rejected',result=? WHERE conversation_id=? AND status IN ('pending','approved')", `"用户已停止生成"`, id)
 	if m.fail(w, r, err) {
 		return
 	}

@@ -2,6 +2,8 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/db"
+	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
 
 func (m *Module) hostExists(ctx context.Context, hostID string) error {
@@ -61,6 +64,33 @@ func (m *Module) conversation(row db.AiConversation) api.Conversation {
 		c.Permission = &mode
 	}
 	return c
+}
+
+func (m *Module) hostSystem(ctx context.Context, hostID string) string {
+	base := m.system(ctx) + "\n你只能通过给你的机器工具操作当前这台机器。先看再改；改文件前说明原因；每一步都填写 reason。"
+	a, err := m.d.Agents.Get(ctx, hostID)
+	if err == nil {
+		base += fmt.Sprintf("\n当前机器：名称 %s，主机名 %s，系统 %s，架构 %s，在线 %t，能力 %v。", a.Name, a.Hostname, a.Os, a.Arch, a.Online, a.Capabilities)
+		if a.Online && a.Has(protocol.CapSystemInfo) {
+			callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			var info protocol.SystemInfo
+			if m.d.Agents.Call(callCtx, a.ID, protocol.MethodSystemInfo, nil, &info) == nil {
+				base += fmt.Sprintf(" CPU %d 核，内存总量 %d 字节。", info.CPUCores, info.MemoryTotal)
+			}
+			cancel()
+		}
+	} else {
+		base += "\n当前机器 ID：" + hostID + "。若机器离线，说明操作无法执行。"
+	}
+	var cpu float64
+	var memUsed, memTotal uint64
+	var diskJSON string
+	if m.d.DB.QueryRowContext(ctx, "SELECT cpu,mem_used,mem_total,disk_json FROM host_metrics_1m WHERE host_id=? ORDER BY at DESC LIMIT 1", hostID).Scan(&cpu, &memUsed, &memTotal, &diskJSON) == nil {
+		var disks []protocol.DiskUsage
+		_ = json.Unmarshal([]byte(diskJSON), &disks)
+		base += fmt.Sprintf(" 最近指标：CPU %.1f%%，内存 %d/%d 字节，磁盘 %v。", cpu, memUsed, memTotal, disks)
+	}
+	return base
 }
 
 func (m *Module) ListHostAgentConversations(w http.ResponseWriter, r *http.Request, hostID string) {

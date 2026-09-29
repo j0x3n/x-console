@@ -3,8 +3,13 @@ package ai_test
 import (
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
@@ -45,5 +50,31 @@ func TestHostConversationAndPermission(t *testing.T) {
 	env.MustDo("POST", "/ai/conversations", map[string]any{}, &floatingCreated)
 	if status, _ := env.Do("PUT", fmt.Sprintf("/ai/conversations/%d/permission", floatingCreated.Id), map[string]any{"mode": "read_auto"}, nil); status != http.StatusBadRequest {
 		t.Fatalf("floating permission: %d", status)
+	}
+}
+
+func TestHostPermissionExpiresWithoutNewMessages(t *testing.T) {
+	env := testutil.New(t)
+	svc, ok := module.Lookup[contracts.LLM](env.App.Deps.Registry, contracts.LLMKey)
+	if !ok {
+		t.Fatal("AI module missing")
+	}
+	var clock atomic.Int64
+	clock.Store(time.Now().Unix())
+	svc.(*ai.Module).SetNowForTest(func() time.Time { return time.Unix(clock.Load(), 0) })
+	hostID := env.Agent("server", nil, nil)
+	var conversation api.Conversation
+	env.MustDo("POST", "/ai/host-agent/"+hostID+"/conversations", map[string]any{}, &conversation)
+	path := fmt.Sprintf("/ai/conversations/%d", conversation.Id)
+	env.MustDo("PUT", path+"/permission", map[string]any{"mode": "all_auto"}, nil)
+	var detail api.ConversationDetail
+	env.MustDo("GET", path, nil, &detail)
+	if detail.Conversation.Permission == nil || *detail.Conversation.Permission != api.AllAuto {
+		t.Fatalf("mode before expiry: %+v", detail.Conversation.Permission)
+	}
+	clock.Add(int64(2 * time.Hour / time.Second))
+	env.MustDo("GET", path, nil, &detail)
+	if detail.Conversation.Permission == nil || *detail.Conversation.Permission != api.Confirm {
+		t.Fatalf("mode after expiry: %+v", detail.Conversation.Permission)
 	}
 }
