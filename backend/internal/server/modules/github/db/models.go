@@ -39,6 +39,14 @@ type AiMessage struct {
 	CreatedAt      time.Time
 }
 
+type AiModelSpec struct {
+	ProviderID    int64
+	ModelID       string
+	ContextWindow *int64
+	ToolCall      *int64
+	Reasoning     *int64
+}
+
 type AiPendingAction struct {
 	ID             int64
 	ConversationID int64
@@ -47,6 +55,34 @@ type AiPendingAction struct {
 	Input          string
 	Status         string
 	Result         *string
+}
+
+type AiProvider struct {
+	ID                int64
+	Name              string
+	BaseUrl           string
+	ApiKeyEnc         *string
+	ModelsRefreshedAt *time.Time
+	LastError         *string
+	CreatedAt         time.Time
+}
+
+type AiProviderModel struct {
+	ProviderID int64
+	ModelID    string
+}
+
+type AiUsage struct {
+	ID           int64
+	ProviderID   *int64
+	ProviderName string
+	Model        string
+	Purpose      string
+	InputTokens  int64
+	OutputTokens int64
+	DurationMs   int64
+	Cost         *float64
+	CreatedAt    time.Time
 }
 
 type AlertEvent struct {
