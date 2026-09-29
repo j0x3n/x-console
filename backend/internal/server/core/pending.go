@@ -9,7 +9,7 @@ import (
 
 // 接口契约里已经有、后端还没做的接口。前端看到 501 会显示“还没上线”。
 // 实现某个接口时，把它从这个文件删掉，写到正式的文件里。全部实现后删掉这个文件。
-// 对应任务：B22、B30（docs/specs/B22.md、B30.md）
+// 对应任务：B30（docs/specs/B22.md、B30.md）
 
 func (h *Handlers) DownloadAgent(w http.ResponseWriter, r *http.Request, os api.DownloadAgentParamsOs, arch api.DownloadAgentParamsArch, params api.DownloadAgentParams) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
@@ -28,13 +28,5 @@ func (h *Handlers) DownloadAgentSetup(w http.ResponseWriter, r *http.Request, pa
 }
 
 func (h *Handlers) GetAgentUninstallScript(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (h *Handlers) GetPreferences(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (h *Handlers) PutPreferences(w http.ResponseWriter, r *http.Request) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }

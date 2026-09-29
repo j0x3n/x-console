@@ -141,7 +141,7 @@ func (a *App) routes() http.Handler {
 		api.Use(d.Auth.Middleware(isPublic))
 		api.Get("/agent/connect", d.Agents.ServeConnect)
 		api.Get("/events", ws.New(d.Bus, d.Agents).ServeHTTP)
-		coreapi.HandlerWithOptions(&core.Handlers{Auth: d.Auth, Agents: d.Agents, Notify: d.Notify, Q: db.New(d.DB)},
+		coreapi.HandlerWithOptions(&core.Handlers{Auth: d.Auth, Agents: d.Agents, Notify: d.Notify, Q: db.New(d.DB), Settings: d.Settings, Bus: d.Bus},
 			coreapi.ChiServerOptions{BaseRouter: api, ErrorHandlerFunc: httpx.BadParam})
 		for _, m := range a.modules {
 			m.Mount(api)
