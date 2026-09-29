@@ -208,7 +208,8 @@ try {
       noteResponses.push(`failed ${request.failure()?.errorText}`);
   });
   await page.goto(`${base}/notes`);
-  await page.locator(".notes-list-head button").click();
+  // B20 以后“新建笔记”在顶栏。
+  await page.getByRole("button", { name: "新建笔记" }).first().click();
   await page.waitForURL(/\/notes\/\d+/);
   const noteId = page.url().match(/\/notes\/(\d+)/)[1];
   await page.getByRole("textbox", { name: "标题" }).fill("端到端笔记");
@@ -336,6 +337,8 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await driveRow.getByRole("button", { name: /更多.*端到端文件\.txt/ }).click();
   await page.getByRole("menuitem", { name: "删除" }).click();
+  // B21 以后删除要在确认框里再点一次。
+  await dialog("删除“端到端文件.txt”？").getByRole("button", { name: "删除", exact: true }).click();
   await until("云盘删除", async () =>
     !(await api("/drive/items")).items.some((item) => item.id === driveFile.id),
   );
@@ -400,11 +403,14 @@ try {
 
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
-  await page.getByRole("button", { name: "配对新设备" }).click();
-  await dialog("配对新设备").getByLabel("设备名称").fill("e2e-linux");
-  await dialog("配对新设备").getByRole("button", { name: "生成配对码" }).click();
+  // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。
+  await page.getByRole("button", { name: "添加设备" }).click();
+  await dialog("添加服务器").getByLabel("设备名称").fill("e2e-linux");
+  await dialog("添加服务器").getByRole("button", { name: "生成配对码" }).click();
   await verifyIfAsked();
-  const code = (await dialog("配对新设备").locator("code.xc-secret").first().textContent()).trim();
+  const code = (
+    await dialog("添加服务器").locator("p", { hasText: "配对码是" }).locator("code").first().textContent()
+  ).trim();
   const agentConfig = join(temp, "agent.json");
   await run("pair-agent", binary("agent"), ["pair", "--server", serverUrl, "--code", code, "--config", agentConfig]);
   const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
@@ -490,8 +496,9 @@ try {
   await page.goto(`${base}/settings/devices`);
   const agentRow = page.locator("tr").filter({ hasText: "e2e-linux" });
   await agentRow.waitFor();
-  page.once("dialog", (prompt) => prompt.accept());
   await agentRow.getByRole("button", { name: "吊销" }).click();
+  // B21 以后用页面里的确认框，不再是浏览器自带的。
+  await dialog("吊销“e2e-linux”？").getByRole("button", { name: "吊销", exact: true }).click();
   await verifyIfAsked();
   await until("代理以吊销状态退出", () => agentProcess.exitCode === 3, 10_000);
   await until("代理从列表移除", async () => !(await api("/hosts")).some((item) => item.id === host.id));
