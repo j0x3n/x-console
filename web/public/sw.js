@@ -134,8 +134,8 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body || "",
     tag: data.id ? `xc-${data.id}` : undefined,
-    icon: "/favicon.svg",
-    badge: "/favicon.svg",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
     data: { link: data.link || "/", actions },
     actions: actions.map((a) => ({ action: a.action, title: a.title })),
     requireInteraction: data.priority === "urgent" || actions.length > 0,

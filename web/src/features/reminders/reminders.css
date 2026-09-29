@@ -201,3 +201,83 @@
   font-weight: 500;
   color: var(--xc-muted);
 }
+
+/* B34：推送订阅列表和自检结果 */
+.notify-subs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.notify-subs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+}
+.notify-subs li > div {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.notify-subs strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.notify-subs small {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.notify-push-warn {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-warn-soft);
+  color: var(--xc-text);
+  font-size: 12.5px;
+}
+.notify-push-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+.notify-push-steps > li {
+  display: grid;
+  gap: 2px;
+}
+.notify-push-steps small {
+  color: var(--xc-muted);
+  font-size: 12px;
+}
+.notify-push-steps ul {
+  margin: 2px 0 0;
+  padding-left: 16px;
+}
+.notify-push-steps li.ok {
+  color: var(--xc-ok);
+}
+.notify-push-steps li.bad {
+  color: var(--xc-danger);
+}
+.notify-push-help {
+  font-size: 12.5px;
+  color: var(--xc-text-2);
+}
+.notify-push-help summary {
+  cursor: pointer;
+  color: var(--xc-muted);
+}
+.notify-push-help ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}

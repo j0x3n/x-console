@@ -91,3 +91,108 @@ export async function disablePush(): Promise<PushState> {
   }
   return "disabled";
 }
+
+/* ---- B34：推送自检 ---- */
+
+export type PushService =
+  | "google"
+  | "microsoft"
+  | "mozilla"
+  | "apple"
+  | "other";
+
+/** 按 endpoint 的域名判断推送服务。 */
+export function pushService(endpoint: string): PushService {
+  let host = "";
+  try {
+    host = new URL(endpoint).hostname;
+  } catch {
+    return "other";
+  }
+  if (host === "fcm.googleapis.com" || host.endsWith(".googleapis.com"))
+    return "google";
+  if (host.endsWith(".notify.windows.com")) return "microsoft";
+  if (host.endsWith(".mozilla.com") || host.endsWith(".mozaws.net"))
+    return "mozilla";
+  if (host.endsWith(".push.apple.com")) return "apple";
+  return "other";
+}
+
+export type Platform =
+  | "windows"
+  | "macos"
+  | "android"
+  | "ios"
+  | "linux"
+  | "other";
+
+export function platformOf(ua: string): Platform {
+  if (/iPhone|iPad|iPod/.test(ua)) return "ios";
+  if (/Android/.test(ua)) return "android";
+  if (/Windows/.test(ua)) return "windows";
+  if (/Mac OS X|Macintosh/.test(ua)) return "macos";
+  if (/Linux/.test(ua)) return "linux";
+  return "other";
+}
+
+/** 从 User-Agent 看出浏览器和系统，比如“Edge · Windows”。 */
+export function deviceName(ua: string): string {
+  const browser = /Edg\//.test(ua)
+    ? "Edge"
+    : /Firefox\//.test(ua)
+      ? "Firefox"
+      : /OPR\//.test(ua)
+        ? "Opera"
+        : /Chrome\//.test(ua)
+          ? "Chrome"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : "";
+  const os: Record<Platform, string> = {
+    windows: "Windows",
+    macos: "macOS",
+    android: "Android",
+    ios: "iOS",
+    linux: "Linux",
+    other: "",
+  };
+  return [browser, os[platformOf(ua)]].filter(Boolean).join(" · ");
+}
+
+export async function currentEndpoint(): Promise<string | null> {
+  if (!pushSupported()) return null;
+  return (await existingSubscription())?.endpoint ?? null;
+}
+
+export type LocalTest =
+  | "shown"
+  | "blocked"
+  | "not-asked"
+  | "unsupported"
+  | "failed";
+
+/**
+ * 本机检查：不经过服务端，直接让 service worker 弹一条通知。
+ * 返回 shown 只说明浏览器接受了，系统层面关了通知时浏览器也不知道。
+ */
+export async function localTestNotification(
+  title: string,
+  body: string,
+): Promise<LocalTest> {
+  if (!pushSupported()) return "unsupported";
+  if (Notification.permission === "denied") return "blocked";
+  if (Notification.permission !== "granted") return "not-asked";
+  try {
+    const reg =
+      (await navigator.serviceWorker.getRegistration(SW_URL)) ??
+      (await navigator.serviceWorker.register(SW_URL, { scope: "/" }));
+    await reg.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      tag: "xc-local-test",
+    });
+    return "shown";
+  } catch {
+    return "failed";
+  }
+}

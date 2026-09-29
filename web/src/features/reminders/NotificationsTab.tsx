@@ -11,25 +11,45 @@ import {
 import { errorMessage } from "../../api/client";
 import { withElevation } from "../../auth/elevation";
 import { ErrorState, Loading } from "../../components/ui/States";
-import { useT } from "../../contexts/LanguageContext";
+import { useLanguage, useT } from "../../contexts/LanguageContext";
+import { relativeTime } from "../../lib/time";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 import { toast } from "../../hooks/useToast";
 import {
+  useDeletePushSubscription,
   useNotifyChannels,
   useNotifyRoutes,
+  usePushSubscriptions,
   useQuietHours,
   useRegisterTelegramWebhook,
   useSaveQuietHours,
   useSaveRoutes,
   useTestChannel,
+  useTestWebPush,
   useUpdateChannel,
   type ChannelName,
   type NotifyChannel,
   type NotifyPriority,
   type NotifyRoute,
+  type WebPushSubscriptionInfo,
+  type WebPushTestResult,
 } from "./api";
 import "./i18n";
 import "./reminders.css";
-import { disablePush, enablePush, pushState, type PushState } from "./push";
+import {
+  currentEndpoint,
+  deviceName,
+  disablePush,
+  enablePush,
+  localTestNotification,
+  platformOf,
+  pushService,
+  pushState,
+  type LocalTest,
+  type Platform,
+  type PushService,
+  type PushState,
+} from "./push";
 
 export const channelLabels: Record<ChannelName, string> = {
   webpush: "Browser push",
@@ -146,18 +166,20 @@ function ChannelCard({ channel }: { channel: NotifyChannel }) {
       ))}
       {name === "telegram" && <TelegramWebhook channel={channel} />}
       <div className="xc-row notify-channel-actions">
-        <button
-          className="xc-btn small"
-          disabled={!channel.configured || test.isPending}
-          onClick={() =>
-            test.mutate(name, {
-              onSuccess: () => toast(t("Test message sent")),
-              onError,
-            })
-          }
-        >
-          <Send size={13} /> {t("Send test")}
-        </button>
+        {name !== "webpush" && (
+          <button
+            className="xc-btn small"
+            disabled={!channel.configured || test.isPending}
+            onClick={() =>
+              test.mutate(name, {
+                onSuccess: () => toast(t("Test message sent")),
+                onError,
+              })
+            }
+          >
+            <Send size={13} /> {t("Send test")}
+          </button>
+        )}
         <span className="xc-spacer" />
         <button
           className="xc-btn small primary"
@@ -171,18 +193,58 @@ function ChannelCard({ channel }: { channel: NotifyChannel }) {
   );
 }
 
+const serviceLabels: Record<PushService, string> = {
+  google: "Google (Chrome)",
+  microsoft: "Microsoft (Edge)",
+  mozilla: "Mozilla (Firefox)",
+  apple: "Apple (Safari)",
+  other: "Other push service",
+};
+
+/** 系统里打开浏览器通知的方法，按平台写一句。 */
+const platformHints: Record<Platform, string> = {
+  windows:
+    "Windows: open Settings, System, Notifications, turn on this browser, and turn off Do not disturb.",
+  macos:
+    "macOS: open System Settings, Notifications, find this browser and allow notifications.",
+  android:
+    "Android: open Settings, Apps, this browser, Notifications, and turn them all on.",
+  ios: "iPhone: add the panel to the Home Screen, open it from there, then turn on push. Then allow it in Settings, Notifications.",
+  linux: "Allow notifications for this browser in your system settings.",
+  other: "Allow notifications for this browser in your system settings.",
+};
+
+const localMessages: Record<LocalTest, string> = {
+  shown:
+    "A local notification was sent. If you did not see it, the system is not letting this browser show notifications.",
+  blocked: "The browser blocked notifications. Allow them in site settings.",
+  "not-asked": "Turn on browser push first.",
+  unsupported: "This browser does not support push",
+  failed: "The browser could not show a notification.",
+};
+
 function PushControls({ channel }: { channel: NotifyChannel }) {
   const t = useT();
   const [state, setState] = useState<PushState | "loading">("loading");
   const [busy, setBusy] = useState(false);
+  const [endpoint, setEndpoint] = useState<string | null>(null);
+  const [local, setLocal] = useState<LocalTest | null>(null);
+  const [server, setServer] = useState<
+    WebPushTestResult[] | null | "sent" | { error: string }
+  >(null);
+  const subs = usePushSubscriptions();
+  const testPush = useTestWebPush();
+  const platform = platformOf(navigator.userAgent);
   useEffect(() => {
     pushState().then(setState, () => setState("unsupported"));
+    currentEndpoint().then(setEndpoint, () => setEndpoint(null));
   }, []);
   const run = async (fn: () => Promise<PushState>) => {
     setBusy(true);
     try {
       const next = await fn();
       setState(next);
+      setEndpoint(await currentEndpoint());
       if (next === "denied")
         toast({
           message: t(
@@ -196,6 +258,26 @@ function PushControls({ channel }: { channel: NotifyChannel }) {
       setBusy(false);
     }
   };
+  // 两步：先在本机弹一条，再让服务端推一条。
+  const runTest = async () => {
+    setServer(null);
+    setLocal(
+      await localTestNotification(
+        t("X Console test"),
+        t("This one comes from the page itself."),
+      ),
+    );
+    testPush.mutate(undefined, {
+      onSuccess: (results) => setServer(results ?? "sent"),
+      onError: (err) => setServer({ error: errorMessage(err) }),
+    });
+  };
+  const live = !!subs.data;
+  const list = subs.data ?? [];
+  const hasGoogle =
+    list.some((s) => s.service === "google") ||
+    (!!endpoint && pushService(endpoint) === "google");
+
   return (
     <div className="notify-push">
       <div className="xc-row">
@@ -208,11 +290,6 @@ function PushControls({ channel }: { channel: NotifyChannel }) {
               : state === "unsupported"
                 ? t("This browser does not support push")
                 : t("This browser is not subscribed")}
-        </span>
-      </div>
-      <div className="xc-row">
-        <span className="xc-muted">
-          {t("Subscribed browsers")}: {channel.subscriptions ?? 0}
         </span>
         <span className="xc-spacer" />
         {state === "enabled" ? (
@@ -233,7 +310,148 @@ function PushControls({ channel }: { channel: NotifyChannel }) {
           </button>
         )}
       </div>
+      {live ? (
+        <PushSubscriptionList list={list} current={endpoint} />
+      ) : (
+        <span className="xc-muted">
+          {t("Subscribed browsers")}: {channel.subscriptions ?? 0}
+        </span>
+      )}
+      {hasGoogle && (
+        <p className="notify-push-warn">
+          {t(
+            "Chrome pushes through Google. It may not arrive on networks in mainland China. Try Edge or Safari.",
+          )}
+        </p>
+      )}
+      <div className="xc-row">
+        <button
+          className="xc-btn small"
+          disabled={!channel.configured || testPush.isPending}
+          onClick={() => void runTest()}
+        >
+          <Send size={13} /> {t("Send test")}
+        </button>
+      </div>
+      {local && (
+        <ol className="notify-push-steps">
+          <li>
+            <strong>{t("Check on this device")}</strong>
+            <span>{t(localMessages[local])}</span>
+            {(local === "shown" || local === "blocked") && (
+              <small>{t(platformHints[platform])}</small>
+            )}
+          </li>
+          <li>
+            <strong>{t("Push from the server")}</strong>
+            {server === null ? (
+              <span className="xc-muted">{t("Sending")}…</span>
+            ) : server === "sent" ? (
+              <span>{t("Test message sent")}</span>
+            ) : "error" in server ? (
+              <span className="xc-error-text">{server.error}</span>
+            ) : (
+              <ul>
+                {server.map((r) => {
+                  const sub = list.find((s) => s.id === r.id);
+                  return (
+                    <li key={r.id} className={r.ok ? "ok" : "bad"}>
+                      {sub
+                        ? deviceName(sub.userAgent) || t("Browser")
+                        : `#${r.id}`}
+                      {" · "}
+                      {t(serviceLabels[r.service])}
+                      {" · "}
+                      {r.ok
+                        ? t("Accepted by the push service")
+                        : `${r.status ?? ""} ${r.error ?? ""}`.trim()}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </li>
+        </ol>
+      )}
+      <details className="notify-push-help">
+        <summary>{t("Can I get pushes when the panel is closed?")}</summary>
+        <ul>
+          <li>
+            {t(
+              "Yes, as long as the browser is still running. On a computer, keep the browser running in the background.",
+            )}
+          </li>
+          <li>
+            {t(
+              "iPhone needs iOS 16.4 or later. Add the panel to the Home Screen and turn on push from there.",
+            )}
+          </li>
+          <li>{t("Chrome on Android needs Google services.")}</li>
+          <li>
+            {t("For more reliable alerts, also turn on Bark or Telegram.")}
+          </li>
+        </ul>
+      </details>
     </div>
+  );
+}
+
+function PushSubscriptionList({
+  list,
+  current,
+}: {
+  list: WebPushSubscriptionInfo[];
+  current: string | null;
+}) {
+  const t = useT();
+  const language = useLanguage();
+  const remove = useDeletePushSubscription();
+  if (list.length === 0)
+    return (
+      <span className="xc-muted">{t("No browser is subscribed yet.")}</span>
+    );
+  return (
+    <ul className="notify-subs">
+      {list.map((s) => {
+        const name = deviceName(s.userAgent) || t("Browser");
+        return (
+          <li key={s.id}>
+            <div>
+              <strong>
+                {name}
+                {s.endpoint === current && (
+                  <span className="xc-badge">{t("This browser")}</span>
+                )}
+              </strong>
+              <small className="xc-muted">
+                {t(serviceLabels[s.service])}
+                {s.lastOkAt &&
+                  ` · ${t("Last delivered")} ${relativeTime(s.lastOkAt, language)}`}
+              </small>
+              {s.lastError && (
+                <small className="xc-error-text">{s.lastError}</small>
+              )}
+            </div>
+            <button
+              className="xc-btn small ghost"
+              aria-label={`${t("Remove")} ${name}`}
+              disabled={remove.isPending}
+              onClick={async () =>
+                (await confirmAction({
+                  title: `${t("Remove")} ${name}？`,
+                  description: t(
+                    "That browser stops getting push notifications.",
+                  ),
+                  confirmLabel: t("Remove"),
+                })) && remove.mutate(s.id, { onError })
+              }
+            >
+              <Trash2 size={13} />
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

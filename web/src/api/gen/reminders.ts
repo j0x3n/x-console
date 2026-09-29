@@ -202,10 +202,47 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description B34。已订阅的浏览器，新的在前。 */
+        get: operations["listPushSubscriptions"];
         put?: never;
         post: operations["addPushSubscription"];
         delete: operations["deletePushSubscription"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/webpush/subscriptions/{subscriptionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscriptionId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description B34。在订阅列表里删掉某个浏览器（不一定是现在这个）。 */
+        delete: operations["deletePushSubscriptionById"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/webpush/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B34。给每个已订阅的浏览器发一条测试推送，返回每个推送服务的结果。 */
+        post: operations["testWebPush"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -344,6 +381,39 @@ export interface components {
             enabled: boolean;
             start: string;
             end: string;
+        };
+        /**
+         * @description 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+         * @enum {string}
+         */
+        WebPushService: "google" | "microsoft" | "mozilla" | "apple" | "other";
+        WebPushSubscriptionInfo: {
+            /** Format: int64 */
+            id: number;
+            /** @description 前端用它判断是不是现在这个浏览器 */
+            endpoint: string;
+            service: components["schemas"]["WebPushService"];
+            userAgent: string;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description 上次推送服务回 2xx 的时间
+             */
+            lastOkAt?: string;
+            /** @description 上次失败的原因，成功后清空 */
+            lastError?: string;
+            /** Format: date-time */
+            lastErrorAt?: string;
+        };
+        WebPushTestResult: {
+            /** Format: int64 */
+            id: number;
+            service: components["schemas"]["WebPushService"];
+            ok: boolean;
+            /** @description 推送服务返回的 HTTP 状态码，连不上时没有 */
+            status?: number;
+            error?: string;
         };
         PushSubscription: {
             endpoint: string;
@@ -790,6 +860,27 @@ export interface operations {
             };
         };
     };
+    listPushSubscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 订阅列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebPushSubscriptionInfo"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     addPushSubscription: {
         parameters: {
             query?: never;
@@ -830,6 +921,48 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deletePushSubscriptionById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscriptionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testWebPush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 每个订阅的结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebPushTestResult"][];
+                };
             };
             default: components["responses"]["Error"];
         };

@@ -64,6 +64,33 @@ func (e ReminderStatus) Valid() bool {
 	}
 }
 
+// Defines values for WebPushService.
+const (
+	Apple     WebPushService = "apple"
+	Google    WebPushService = "google"
+	Microsoft WebPushService = "microsoft"
+	Mozilla   WebPushService = "mozilla"
+	Other     WebPushService = "other"
+)
+
+// Valid indicates whether the value is a known member of the WebPushService enum.
+func (e WebPushService) Valid() bool {
+	switch e {
+	case Apple:
+		return true
+	case Google:
+		return true
+	case Microsoft:
+		return true
+	case Mozilla:
+		return true
+	case Other:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Channel.
 const (
 	Bark       Channel = "bark"
@@ -221,6 +248,42 @@ type ReminderPatch struct {
 // ReminderStatus scheduled 等待到点；pending 已到点未处理；snoozed 稍后提醒；done 已完成；ended 重复规则已结束
 type ReminderStatus string
 
+// WebPushService 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+type WebPushService string
+
+// WebPushSubscriptionInfo defines model for WebPushSubscriptionInfo.
+type WebPushSubscriptionInfo struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Endpoint 前端用它判断是不是现在这个浏览器
+	Endpoint string `json:"endpoint"`
+	Id       int64  `json:"id"`
+
+	// LastError 上次失败的原因，成功后清空
+	LastError   *string    `json:"lastError,omitempty"`
+	LastErrorAt *time.Time `json:"lastErrorAt,omitempty"`
+
+	// LastOkAt 上次推送服务回 2xx 的时间
+	LastOkAt *time.Time `json:"lastOkAt,omitempty"`
+
+	// Service 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+	Service   WebPushService `json:"service"`
+	UserAgent string         `json:"userAgent"`
+}
+
+// WebPushTestResult defines model for WebPushTestResult.
+type WebPushTestResult struct {
+	Error *string `json:"error,omitempty"`
+	Id    int64   `json:"id"`
+	Ok    bool    `json:"ok"`
+
+	// Service 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
+	Service WebPushService `json:"service"`
+
+	// Status 推送服务返回的 HTTP 状态码，连不上时没有
+	Status *int `json:"status,omitempty"`
+}
+
 // Channel defines model for Channel.
 type Channel string
 
@@ -328,8 +391,17 @@ type ServerInterface interface {
 	// (DELETE /notify/webpush/subscriptions)
 	DeletePushSubscription(w http.ResponseWriter, r *http.Request, params DeletePushSubscriptionParams)
 
+	// (GET /notify/webpush/subscriptions)
+	ListPushSubscriptions(w http.ResponseWriter, r *http.Request)
+
 	// (POST /notify/webpush/subscriptions)
 	AddPushSubscription(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /notify/webpush/subscriptions/{subscriptionId})
+	DeletePushSubscriptionById(w http.ResponseWriter, r *http.Request, subscriptionId int64)
+
+	// (POST /notify/webpush/test)
+	TestWebPush(w http.ResponseWriter, r *http.Request)
 
 	// (GET /notify/webpush/vapid-public-key)
 	GetVapidPublicKey(w http.ResponseWriter, r *http.Request)
@@ -420,8 +492,23 @@ func (_ Unimplemented) DeletePushSubscription(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /notify/webpush/subscriptions)
+func (_ Unimplemented) ListPushSubscriptions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /notify/webpush/subscriptions)
 func (_ Unimplemented) AddPushSubscription(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /notify/webpush/subscriptions/{subscriptionId})
+func (_ Unimplemented) DeletePushSubscriptionById(w http.ResponseWriter, r *http.Request, subscriptionId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notify/webpush/test)
+func (_ Unimplemented) TestWebPush(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -697,11 +784,65 @@ func (siw *ServerInterfaceWrapper) DeletePushSubscription(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListPushSubscriptions operation middleware
+func (siw *ServerInterfaceWrapper) ListPushSubscriptions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPushSubscriptions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AddPushSubscription operation middleware
 func (siw *ServerInterfaceWrapper) AddPushSubscription(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddPushSubscription(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePushSubscriptionById operation middleware
+func (siw *ServerInterfaceWrapper) DeletePushSubscriptionById(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionId" -------------
+	var subscriptionId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionId", chi.URLParam(r, "subscriptionId"), &subscriptionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePushSubscriptionById(w, r, subscriptionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestWebPush operation middleware
+func (siw *ServerInterfaceWrapper) TestWebPush(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestWebPush(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1070,7 +1211,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/notify/webpush/subscriptions", wrapper.DeletePushSubscription)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notify/webpush/subscriptions", wrapper.ListPushSubscriptions)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notify/webpush/subscriptions", wrapper.AddPushSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/notify/webpush/subscriptions/{subscriptionId}", wrapper.DeletePushSubscriptionById)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notify/webpush/test", wrapper.TestWebPush)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notify/telegram/register-webhook", wrapper.RegisterTelegramWebhook)
