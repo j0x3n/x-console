@@ -7,6 +7,7 @@
 状态只有三种：没开始 / 在做 / 做完。
 
 已知的偶发失败：全量 `go test -race ./...` 时 `hosts` 包的 `TestHostListDetailAndMetrics` 偶尔报 `rpc: connection closed`，单独跑是好的，机器忙的时候才出现。不是这批改动引起的。
+2026-09-30 全量 race 测试首次编译 OpenAI SDK 时，`automations/TestMetricCooldownAndWebhookSecret` 也遇到一次后台任务未及时结束，重跑全量通过。
 
 | 序号 | 任务 | 状态 | 在做的文件 | 下一步 |
 | --- | --- | --- | --- | --- |
@@ -37,7 +38,8 @@
 | 13a | B32 供应商 | 做完 | `modules/ai/providers.go`、`providers_test.go`、迁移 `20260930000100` | 供应商增删改查、提权、Key 加密、连接测试、后台刷新已测；全量后端检查通过；接 models.dev 规格 |
 | 13b | B32 模型规格 | 做完 | `modules/ai/modelsdev.go`、`modelsdev_test.go`、`testdata/modelsdev.json`、`pending.go` | 每日同步及启动同步、20 MB 限制、缓存、精确和去前缀匹配、手动规格、模型列表与刷新已测；接模型设置 |
 | 13c | B32 模型设置和用量 | 做完 | `modules/ai/model_settings.go`、`model_settings_test.go`、`pending.go` | 快速和 Agent 模型、提权、工具能力校验、旧配置提示、供应商删除后清理、按月用量与费用汇总已测；接调用层 |
-| 13d 起 | B32 其余及以后 | 没开始 | | 接调用层、浮窗和自动化、笔记功能 |
+| 13d | B32 OpenAI 兼容调用层 | 做完 | `modules/ai/llm/`、`backend/go.mod`、`backend/go.sum` | 官方 Go SDK v3、Chat Completions、流式文本和工具调用、思考参数重试、JSON Schema 回退、用量回调、测试替身和多轮格式已测；接 AI 模块接入 |
+| 13e 起 | B32 其余及以后 | 没开始 | | 接浮窗和自动化、笔记功能 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
