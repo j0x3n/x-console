@@ -19,6 +19,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
 )
 
@@ -45,5 +46,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	github.New,        // M13
 	linear.New,        // M13
 	vault.New,
-	drive.New, // M14
+	drive.New,   // M14
+	storage.New, // B24
 }

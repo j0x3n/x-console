@@ -31,7 +31,7 @@ type Cached struct {
 var _ Store = (*Cached)(nil)
 
 // NewCached uses dir as the cache directory with limit bytes of room.
-// limit <= 0 means the cache may grow without bound.
+// limit < 0 means the cache may grow without bound, 0 keeps nothing.
 func NewCached(remote Store, dir string, limit int64) (*Cached, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (c *Cached) Trim(ctx context.Context) error {
 	c.mu.Lock()
 	limit, used := c.limit, c.used
 	c.mu.Unlock()
-	if limit <= 0 || used <= limit {
+	if limit < 0 || used <= limit {
 		return nil
 	}
 	var all []Info
@@ -102,7 +102,7 @@ func (c *Cached) Trim(ctx context.Context) error {
 func (c *Cached) add(n int64) {
 	c.mu.Lock()
 	c.used += n
-	over := c.limit > 0 && c.used > c.limit
+	over := c.limit >= 0 && c.used > c.limit
 	c.mu.Unlock()
 	if over {
 		_ = c.Trim(context.Background())

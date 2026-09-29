@@ -165,3 +165,20 @@ func TestCachedRemovesLeastRecentlyRead(t *testing.T) {
 		t.Fatalf("after SetLimit: %d files, %d bytes", n, size)
 	}
 }
+
+func TestCachedWithZeroLimitKeepsNothing(t *testing.T) {
+	ctx := context.Background()
+	remote, _ := newS3(t, "")
+	cache, err := files.NewCached(remote, t.TempDir(), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	put(t, cache, "a/1", "hello")
+	rc, _, err := cache.Get(ctx, "a/1")
+	if got := read(t, rc, err); got != "hello" {
+		t.Fatalf("read with no cache: %q", got)
+	}
+	if n, _, _ := cache.Usage(ctx); n != 0 {
+		t.Fatalf("cache should stay empty, has %d files", n)
+	}
+}

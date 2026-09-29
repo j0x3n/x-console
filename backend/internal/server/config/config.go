@@ -36,6 +36,9 @@ func (c Config) DBPath() string { return filepath.Join(c.DataDir, "x-console.db"
 // FilesDir is where uploaded files live: <DataDir>/files/<module>/... (B24).
 func (c Config) FilesDir() string { return filepath.Join(c.DataDir, "files") }
 
+// FilesCacheDir keeps local copies of files while the site stores them in S3.
+func (c Config) FilesCacheDir() string { return filepath.Join(c.DataDir, "files-cache") }
+
 // TmpDir holds files that are still being received. It is emptied at start.
 func (c Config) TmpDir() string { return filepath.Join(c.DataDir, "tmp") }
 
