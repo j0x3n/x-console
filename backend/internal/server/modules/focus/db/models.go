@@ -457,6 +457,26 @@ type Issue struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	CompletedAt    *time.Time
+	CategoryID     *int64
+	DueAt          *string
+	DueRemind      string
+	DueNotifiedAt  *string
+}
+
+type IssueChecklist struct {
+	ID       int64
+	IssueID  int64
+	Title    string
+	Position float64
+}
+
+type IssueChecklistItem struct {
+	ID          int64
+	ChecklistID int64
+	Text        string
+	Done        int64
+	Position    float64
+	DoneAt      *string
 }
 
 type IssueComment struct {
@@ -623,6 +643,14 @@ type Project struct {
 	NextNumber  int64
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type ProjectCategory struct {
+	ID        int64
+	ProjectID int64
+	ParentID  *int64
+	Name      string
+	Position  float64
 }
 
 type Reminder struct {

@@ -26,7 +26,7 @@ func (q *Queries) AddIssueLabel(ctx context.Context, arg AddIssueLabelParams) er
 }
 
 const changedSince = `-- name: ChangedSince :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.project_id IN (/*SLICE:project_ids*/?) AND issues.updated_at > ?2
 ORDER BY issues.updated_at, issues.id
@@ -78,6 +78,10 @@ func (q *Queries) ChangedSince(ctx context.Context, arg ChangedSinceParams) ([]C
 			&i.Issue.CreatedAt,
 			&i.Issue.UpdatedAt,
 			&i.Issue.CompletedAt,
+			&i.Issue.CategoryID,
+			&i.Issue.DueAt,
+			&i.Issue.DueRemind,
+			&i.Issue.DueNotifiedAt,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -345,7 +349,7 @@ func (q *Queries) FindLink(ctx context.Context, arg FindLinkParams) (IssueLink, 
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.id = ?
 `
@@ -374,13 +378,17 @@ func (q *Queries) GetIssue(ctx context.Context, id int64) (GetIssueRow, error) {
 		&i.Issue.CreatedAt,
 		&i.Issue.UpdatedAt,
 		&i.Issue.CompletedAt,
+		&i.Issue.CategoryID,
+		&i.Issue.DueAt,
+		&i.Issue.DueRemind,
+		&i.Issue.DueNotifiedAt,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByExternal = `-- name: GetIssueByExternal :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.external_source = ? AND issues.external_id = ?
 `
@@ -414,13 +422,17 @@ func (q *Queries) GetIssueByExternal(ctx context.Context, arg GetIssueByExternal
 		&i.Issue.CreatedAt,
 		&i.Issue.UpdatedAt,
 		&i.Issue.CompletedAt,
+		&i.Issue.CategoryID,
+		&i.Issue.DueAt,
+		&i.Issue.DueRemind,
+		&i.Issue.DueNotifiedAt,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByKey = `-- name: GetIssueByKey :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE projects.key = ? AND issues.number = ?
 `
@@ -454,6 +466,10 @@ func (q *Queries) GetIssueByKey(ctx context.Context, arg GetIssueByKeyParams) (G
 		&i.Issue.CreatedAt,
 		&i.Issue.UpdatedAt,
 		&i.Issue.CompletedAt,
+		&i.Issue.CategoryID,
+		&i.Issue.DueAt,
+		&i.Issue.DueRemind,
+		&i.Issue.DueNotifiedAt,
 		&i.ProjectKey,
 	)
 	return i, err
@@ -649,7 +665,7 @@ func (q *Queries) ListComments(ctx context.Context, issueID int64) ([]IssueComme
 }
 
 const listDue = `-- name: ListDue :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.due_date IS NOT NULL AND issues.due_date <= ?
   AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL
@@ -686,6 +702,10 @@ func (q *Queries) ListDue(ctx context.Context, dueDate *string) ([]ListDueRow, e
 			&i.Issue.CreatedAt,
 			&i.Issue.UpdatedAt,
 			&i.Issue.CompletedAt,
+			&i.Issue.CategoryID,
+			&i.Issue.DueAt,
+			&i.Issue.DueRemind,
+			&i.Issue.DueNotifiedAt,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
