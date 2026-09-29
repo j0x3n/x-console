@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"text/template"
 )
 
@@ -42,6 +43,7 @@ func CheckServer(server string) error {
 }
 
 func render(text, server, code string) ([]byte, error) {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
 	if err := CheckServer(server); err != nil {
 		return nil, err
 	}
@@ -66,7 +68,7 @@ func Script(server, code string) ([]byte, error) { return render(installSh, serv
 func PowerShell(server, code string) ([]byte, error) { return render(installPs1, server, code) }
 
 // Uninstall is uninstall.sh. It has no parameters.
-func Uninstall() []byte { return []byte(uninstallSh) }
+func Uninstall() []byte { return []byte(strings.ReplaceAll(uninstallSh, "\r\n", "\n")) }
 
 // AppendSetup adds the panel address to the end of a program file.
 func AppendSetup(exe []byte, server string) ([]byte, error) {

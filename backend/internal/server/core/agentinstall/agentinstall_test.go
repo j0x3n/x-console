@@ -20,7 +20,7 @@ func TestScriptsCarryServerAndCode(t *testing.T) {
 	if err != nil || !strings.Contains(string(ps), "$Server = 'http://10.0.0.5:8080'") || strings.Contains(string(ps), "{{") {
 		t.Fatalf("install.ps1: %v", err)
 	}
-	if !strings.HasPrefix(string(sh), "#!/bin/sh\n") || len(agentinstall.Uninstall()) == 0 {
+	if !strings.HasPrefix(string(sh), "#!/bin/sh\n") || !strings.HasPrefix(string(agentinstall.Uninstall()), "#!/bin/sh\n") {
 		t.Fatal("script shape")
 	}
 }
