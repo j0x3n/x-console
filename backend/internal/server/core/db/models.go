@@ -194,6 +194,14 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type DriveFileVersion struct {
+	ID        int64
+	ItemID    int64
+	Size      int64
+	Sha256    string
+	CreatedAt time.Time
+}
+
 type DriveItem struct {
 	ID         int64
 	ParentID   *int64
@@ -217,6 +225,19 @@ type DriveItem struct {
 type DriveS3Deletion struct {
 	Key       string
 	CreatedAt time.Time
+}
+
+type DriveShare struct {
+	ID           int64
+	ItemID       int64
+	Token        string
+	CodeSealed   *string
+	ExpiresAt    *time.Time
+	MaxDownloads *int64
+	Visits       int64
+	Downloads    int64
+	CreatedAt    time.Time
+	LastAccessAt *time.Time
 }
 
 type FocusSession struct {

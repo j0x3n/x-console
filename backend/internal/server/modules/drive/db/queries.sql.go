@@ -11,14 +11,15 @@ import (
 )
 
 const countBlobReferences = `-- name: CountBlobReferences :one
-SELECT count(*) FROM drive_items WHERE sha256 = ? AND is_dir = 0
+SELECT (SELECT count(*) FROM drive_items WHERE drive_items.sha256 = ?1 AND is_dir = 0)
+     + (SELECT count(*) FROM drive_file_versions WHERE drive_file_versions.sha256 = ?1)
 `
 
-func (q *Queries) CountBlobReferences(ctx context.Context, sha256 string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countBlobReferences, sha256)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+func (q *Queries) CountBlobReferences(ctx context.Context, hash string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countBlobReferences, hash)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const getItem = `-- name: GetItem :one

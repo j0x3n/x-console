@@ -16,6 +16,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/db"
 )
 
 // maxTextSave 是在线编辑能保存的最大文本。
@@ -89,6 +90,19 @@ func (m *Module) SaveDriveItemContent(w http.ResponseWriter, r *http.Request, id
 	}
 	err = m.write(ctx, func(tx *sql.Tx) error {
 		// 读和写之间别处可能保存过，这里再比一次。
+		current, err := db.New(tx).GetItem(ctx, id)
+		if err != nil {
+			return err
+		}
+		if current.TrashedAt != nil {
+			return httpx.ErrNotFound
+		}
+		if p.IfMatch != nil && current.Sha256 != item.Sha256 {
+			return errVersionConflict
+		}
+		if err := m.recordVersion(ctx, tx, current, hash); err != nil {
+			return err
+		}
 		query := "UPDATE drive_items SET size=?,sha256=?,updated_at=?,s3_synced_at=NULL,s3_error=NULL WHERE id=? AND trashed_at IS NULL"
 		args := []any{len(data), hash, time.Now().UTC(), id}
 		if p.IfMatch != nil {
