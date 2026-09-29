@@ -96,6 +96,7 @@ const (
 	CapSyslog      = "syslog" // B29: systemd journal, syslog files or the Windows event log
 	CapPTY         = "pty"
 	CapFiles       = "files"
+	CapFilesRange  = "files.range"
 	CapExec        = "exec"
 	CapClipboard   = "clipboard" // desktop only
 	CapPower       = "power"     // lock/sleep/shutdown, desktop only

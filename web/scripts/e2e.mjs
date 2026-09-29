@@ -417,6 +417,16 @@ try {
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
 
+  stage = "查看远端日志文件";
+  const remoteLog = join(temp, "e2e-remote.log");
+  writeFileSync(remoteLog, "远端日志主流程\n");
+  await page.goto(`${base}/servers/${host.id}/files`);
+  await page.getByRole("textbox", { name: "路径" }).fill(temp);
+  await page.getByRole("textbox", { name: "路径" }).press("Enter");
+  await page.getByRole("button", { name: "e2e-remote.log", exact: true }).click();
+  await dialog("e2e-remote.log").getByText("远端日志主流程").waitFor();
+  await page.keyboard.press("Escape");
+
   stage = "按需订阅服务器指标";
   await page.goto(`${base}/servers`);
   await page.locator(".servers-card").filter({ hasText: "e2e-linux" }).getByText("在线").waitFor();

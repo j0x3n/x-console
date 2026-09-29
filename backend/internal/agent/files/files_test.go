@@ -162,6 +162,48 @@ func TestUploadAndDownload(t *testing.T) {
 	}
 }
 
+func TestReadRange(t *testing.T) {
+	c := client(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	path := filepath.Join(t.TempDir(), "large.log")
+	data := bytes.Repeat([]byte("abc123\n"), 450000)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ offset, length int64 }{{int64(len(data)) - 1<<20, 1 << 20}, {17, 1234}, {int64(len(data)) + 10, 100}} {
+		s, err := c.Open(ctx, protocol.MethodFilesRead, protocol.FilesReadParams{Path: path, Offset: tc.offset, Length: tc.length})
+		if err != nil {
+			t.Fatal(err)
+		}
+		head, err := s.Recv(ctx)
+		var h protocol.FileHeader
+		if err != nil || json.Unmarshal(head, &h) != nil || h.Size != int64(len(data)) {
+			t.Fatalf("header: %s %v", head, err)
+		}
+		var got bytes.Buffer
+		for {
+			chunk, err := s.Recv(ctx)
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got.Write(chunk)
+		}
+		start := min(tc.offset, int64(len(data)))
+		end := min(start+tc.length, int64(len(data)))
+		if !bytes.Equal(got.Bytes(), data[start:end]) {
+			t.Fatalf("range %d:%d differs", tc.offset, tc.length)
+		}
+	}
+	s, _ := c.Open(ctx, protocol.MethodFilesRead, protocol.FilesReadParams{Path: path, Offset: -1, Length: 4})
+	if _, err := s.Recv(ctx); code(err) != protocol.CodeBadParams {
+		t.Fatalf("negative offset: %v", err)
+	}
+}
+
 func TestUploadAbortLeavesNothing(t *testing.T) {
 	c := client(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -148,7 +148,7 @@ func capabilities() []string {
 	// M2/M3: metrics, processes, files and exec work everywhere; terminal
 	// and services depend on the system; clipboard, power and open are
 	// Windows desktop only.
-	caps = append(caps, protocol.CapMetrics, protocol.CapProcesses, protocol.CapFiles, protocol.CapExec)
+	caps = append(caps, protocol.CapMetrics, protocol.CapProcesses, protocol.CapFiles, protocol.CapFilesRange, protocol.CapExec)
 	if pty.Available() {
 		caps = append(caps, protocol.CapPTY)
 	}

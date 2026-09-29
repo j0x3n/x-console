@@ -24,6 +24,7 @@ const (
 	MethodPTYOpen = "pty.open" // PTYOpenParams
 
 	MethodFilesList   = "files.list"   // FilesListParams -> FileList
+	MethodFilesStat   = "files.stat"   // FilesPathParams -> FileEntry
 	MethodFilesRead   = "files.read"   // stream, FilesReadParams; see below
 	MethodFilesWrite  = "files.write"  // stream, FilesWriteParams; see below
 	MethodFilesRemove = "files.remove" // FilesRemoveParams -> nil
@@ -263,7 +264,9 @@ type FileList struct {
 // FileHeader chunk first, then the content in FileChunkSize chunks, then
 // ends the stream.
 type FilesReadParams struct {
-	Path string `json:"path"`
+	Path   string `json:"path"`
+	Offset int64  `json:"offset,omitempty"`
+	Length int64  `json:"length,omitempty"`
 }
 
 // FileHeader is the first chunk of a files.read stream.

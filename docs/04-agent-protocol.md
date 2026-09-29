@@ -130,6 +130,12 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - `docker.image_remove {id}`：删一个镜像，不加 `force`。Docker 回 409 时代理回 `CodeExists`，消息是 Docker 原话。
 - `docker.image_prune`：等同 `docker image prune -a`，返回 `{deleted, spaceReclaimed}`。
 
+### 远端日志文件（B33）
+
+- 新代理上报 `files.range` 能力。旧代理没有这个能力，服务端的文件分段读取和实时跟随接口回 501。
+- `files.read` 参数增加可选的 `offset`、`length`，都是非负字节数。`length` 大于 0 时从 `offset` 开始读指定长度，文件不足时提前结束。流的第一个 `FileHeader.size` 仍是整个文件的大小。
+- `files.stat {path}` 返回普通文件的 `FileEntry`。它会跟随符号链接，和 `files.read` 一致。服务端实时模式每秒查询文件大小，再按段读取新增内容。
+
 ### 系统日志（B29）
 
 - `syslog.query {since, until, priority, unit, grep, limit, cursor}` 返回 `{items, cursor}`，`items` 按时间正序，是符合条件的最新 `limit` 条。有更早的日志时给 `cursor`，下一次原样传回来取更早的一页。
