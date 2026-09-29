@@ -24,7 +24,14 @@
 | 9 | B29 系统日志 | 做完 | `agent/syslog/`（journal、textlog、wevt）、`hosts/syslog.go`、`protocol/methods_syslog.go` | 无。只用假输出测过，没在真实 systemd 和 Windows 上跑，记进了已知问题 |
 | 10 | B30 一条命令添加服务器 | 做完 | `core/agentinstall/`（脚本模板）、`core/agentdist.go`、`agenthub/hub.go`（`PairingCodeValid`）、`agent/setup/`、`cmd/agent/main.go`、`deploy/Dockerfile`、`.github/workflows/ci.yml`（shellcheck）、`config.AgentsDir` | 全量后端检查通过；1 核、1 GB Linux 容器的资源实测写在 `docs/06-deploy.md`。真实 systemd 和 Windows 安装仍待验收，见已知问题 |
 | 11 | B33 远端日志部分 | 做完 | `agent/files/files.go`、`protocol/methods_hosts.go`、`hosts/file_range.go`、`logfollow/frame.go`、`web/scripts/e2e.mjs` | 分段读取、追加、轮转和旧代理 501 均已测试；真实服务端和代理的浏览器主流程通过 |
-| 12 起 | B31 及以后 | 不在前一半 | | |
+| 12a | B31 打包下载 | 做完 | `drive/zip.go`、`drive/zip_test.go`、`web/scripts/e2e.mjs` | 无，接 12b |
+| 12b | B31 后台任务 | 没开始 | | 接着做 `drive/tasks.go` |
+| 12c | B31 批量复制和移动 | 没开始 | | 依赖后台任务 |
+| 12d | B31 压缩和解压 | 没开始 | | 依赖后台任务 |
+| 12e | B31 历史版本 | 没开始 | | 先加迁移和 blob 引用计数 |
+| 12f | B31 外链分享 | 没开始 | | 公开入口逐项校验 |
+| 12g | B31 日志实时 | 没开始 | | 共用 `logfollow` 帧 |
+| 13 起 | B32 及以后 | 没开始 | | 按下面的顺序继续 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 

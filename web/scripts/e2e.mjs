@@ -326,6 +326,12 @@ try {
   const driveFile = await until("云盘上传", async () =>
     (await api("/drive/items")).items.find((item) => item.name === "端到端文件.txt"),
   );
+  stage = "云盘打包下载";
+  const zipResponse = await page.context().request.get(`${base}/api/v1/drive/zip?ids=${driveFile.id}`);
+  assert.equal(zipResponse.status(), 200);
+  assert.equal(zipResponse.headers()["content-type"], "application/zip");
+  assert.equal((await zipResponse.body()).subarray(0, 2).toString(), "PK");
+  stage = "手机云盘上传、预览和删除";
   const driveRow = page.locator(".drive-row").filter({ hasText: "端到端文件.txt" });
   await driveRow.getByRole("button", { name: "端到端文件.txt", exact: true }).click();
   await dialog("端到端文件.txt").getByText("云盘内容可以预览。").waitFor();

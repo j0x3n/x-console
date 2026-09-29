@@ -74,10 +74,6 @@ func (m *Module) PutDriveVersionSettings(w http.ResponseWriter, r *http.Request)
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
 
-func (m *Module) DownloadDriveZip(w http.ResponseWriter, r *http.Request, params api.DownloadDriveZipParams) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
 func (m *Module) GetPublicShare(w http.ResponseWriter, r *http.Request, token api.ShareToken, params api.GetPublicShareParams) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
