@@ -11,18 +11,6 @@ import (
 // 实现某个接口时，把它从这个文件删掉，写到正式的文件里。全部实现后删掉这个文件。
 // 对应任务：B32（docs/specs/B32.md）、B33（docs/specs/B33.md）的“后端（待做，给开发者）”
 
-func (m *Module) GetAiModelSettings(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) GetAiUsage(w http.ResponseWriter, r *http.Request, params api.GetAiUsageParams) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
 func (m *Module) ListHostAgentConversations(w http.ResponseWriter, r *http.Request, hostId string) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }

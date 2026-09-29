@@ -36,7 +36,8 @@
 | 12g | B31 日志实时 | 做完 | `drive/follow.go`、`drive/follow_test.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | WebSocket 追加、重置、UTF-8 分帧和关闭测试通过；分享创建补了提权校验；B31 的 501 已全部移除 |
 | 13a | B32 供应商 | 做完 | `modules/ai/providers.go`、`providers_test.go`、迁移 `20260930000100` | 供应商增删改查、提权、Key 加密、连接测试、后台刷新已测；全量后端检查通过；接 models.dev 规格 |
 | 13b | B32 模型规格 | 做完 | `modules/ai/modelsdev.go`、`modelsdev_test.go`、`testdata/modelsdev.json`、`pending.go` | 每日同步及启动同步、20 MB 限制、缓存、精确和去前缀匹配、手动规格、模型列表与刷新已测；接模型设置 |
-| 13c 起 | B32 其余及以后 | 没开始 | | 接模型设置、调用层、用量和笔记功能 |
+| 13c | B32 模型设置和用量 | 做完 | `modules/ai/model_settings.go`、`model_settings_test.go`、`pending.go` | 快速和 Agent 模型、提权、工具能力校验、旧配置提示、供应商删除后清理、按月用量与费用汇总已测；接调用层 |
+| 13d 起 | B32 其余及以后 | 没开始 | | 接调用层、浮窗和自动化、笔记功能 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
