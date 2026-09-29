@@ -58,14 +58,6 @@ func (m *Module) DeleteDriveShare(w http.ResponseWriter, r *http.Request, shareI
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
 
-func (m *Module) ListDriveTasks(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) CancelDriveTask(w http.ResponseWriter, r *http.Request, taskId string) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
 func (m *Module) GetDriveVersionSettings(w http.ResponseWriter, r *http.Request) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }

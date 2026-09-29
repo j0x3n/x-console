@@ -30,6 +30,11 @@ type Module struct {
 	syncMu     sync.Mutex
 	syncStatus api.S3Status
 	syncReq    chan struct{}
+	tasksMu    sync.Mutex
+	tasks      map[string]*driveTask
+	taskSlots  chan struct{}
+	taskBase   context.Context
+	taskNow    func() time.Time
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -39,7 +44,7 @@ func New(d *module.Deps) (module.Module, error) {
 	if err := os.MkdirAll(d.Config.TmpDir(), 0700); err != nil {
 		return nil, err
 	}
-	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}}
+	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now}
 	m.registerActions()
 	return m, nil
 }
@@ -48,6 +53,7 @@ func (m *Module) Mount(r chi.Router) {
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
 }
 func (m *Module) Start(ctx context.Context) error {
+	m.taskBase = ctx
 	go func() {
 		for {
 			select {
@@ -60,6 +66,7 @@ func (m *Module) Start(ctx context.Context) error {
 	}()
 	m.d.Scheduler.Every("drive.sync", 10*time.Minute, m.syncAll)
 	m.d.Scheduler.Every("drive.purge", 24*time.Hour, m.purgeOldTrash)
+	m.d.Scheduler.Every("drive.tasks.cleanup", time.Minute, m.pruneTasks)
 	return nil
 }
 

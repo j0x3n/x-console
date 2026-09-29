@@ -25,7 +25,7 @@
 | 10 | B30 一条命令添加服务器 | 做完 | `core/agentinstall/`（脚本模板）、`core/agentdist.go`、`agenthub/hub.go`（`PairingCodeValid`）、`agent/setup/`、`cmd/agent/main.go`、`deploy/Dockerfile`、`.github/workflows/ci.yml`（shellcheck）、`config.AgentsDir` | 全量后端检查通过；1 核、1 GB Linux 容器的资源实测写在 `docs/06-deploy.md`。真实 systemd 和 Windows 安装仍待验收，见已知问题 |
 | 11 | B33 远端日志部分 | 做完 | `agent/files/files.go`、`protocol/methods_hosts.go`、`hosts/file_range.go`、`logfollow/frame.go`、`web/scripts/e2e.mjs` | 分段读取、追加、轮转和旧代理 501 均已测试；真实服务端和代理的浏览器主流程通过 |
 | 12a | B31 打包下载 | 做完 | `drive/zip.go`、`drive/zip_test.go`、`web/scripts/e2e.mjs` | 无，接 12b |
-| 12b | B31 后台任务 | 没开始 | | 接着做 `drive/tasks.go` |
+| 12b | B31 后台任务 | 做完 | `drive/tasks.go`、`drive/tasks_unit_test.go`、`drive/tasks_api_test.go`、`drive/module.go` | 无，接 12c |
 | 12c | B31 批量复制和移动 | 没开始 | | 依赖后台任务 |
 | 12d | B31 压缩和解压 | 没开始 | | 依赖后台任务 |
 | 12e | B31 历史版本 | 没开始 | | 先加迁移和 blob 引用计数 |
