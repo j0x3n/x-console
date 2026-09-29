@@ -272,88 +272,44 @@
   margin-top: 24px;
 }
 
-/* ---- 项目页工具栏和筛选 ---- */
-.projects-toolbar,
+/* ---- 项目页工具栏和筛选（B36 合成一行，窄屏两行） ---- */
+.xc-toolbar.projects-toolbar {
+  align-items: center;
+  padding-bottom: 8px;
+}
+.projects-toolbar .xc-toolbar-start {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+}
+.projects-toolbar .xc-toolbar-end {
+  flex: none;
+  padding-bottom: 0;
+}
 .projects-filters {
   display: flex;
+  flex: 1;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
+  min-width: 0;
 }
-.projects-view-switch {
-  display: inline-flex;
-  padding: 2px;
-  border: 1px solid var(--xc-border);
-  border-radius: 7px;
-  background: var(--xc-surface);
-}
-.projects-view-switch button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 9px;
-  border: 0;
-  border-radius: 5px;
-  background: none;
-  color: var(--xc-muted);
-  font-size: 12px;
-}
-.projects-view-switch button.active {
-  background: var(--xc-surface-2);
-  color: var(--xc-text);
+.projects-filter-extra {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
 }
 .projects-filter-select {
   width: auto;
+  max-width: 150px;
   min-height: 28px;
   padding: 3px 8px;
   font-size: 12px;
 }
-.projects-search {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: 0 1 220px;
-  min-width: 140px;
+.xc-search.projects-search {
+  width: 200px;
   height: 28px;
-  padding: 0 9px;
-  border: 1px solid var(--xc-border-strong);
-  border-radius: 6px;
-  background: var(--xc-surface);
-  color: var(--xc-muted);
-}
-.projects-search:focus-within {
-  border-color: var(--xc-accent);
-}
-.projects-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: none;
-  color: var(--xc-text);
-  font: inherit;
-  font-size: 12px;
-}
-.projects-status-filter {
-  display: inline-flex;
-  gap: 2px;
-}
-.projects-status-filter button {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: none;
-  opacity: 0.5;
-}
-.projects-status-filter button.on {
-  border-color: var(--xc-border-strong);
-  background: var(--xc-surface-2);
-  opacity: 1;
 }
 
 /* ---- 看板 ---- */
@@ -454,7 +410,8 @@
 .projects-card-labels {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  gap: 4px 8px;
   margin-top: 8px;
 }
 .projects-drop-line {
@@ -751,10 +708,222 @@
   }
   .projects-hint,
   .projects-row-labels,
+  .projects-row-category,
   .projects-row-time {
     display: none;
   }
-  .projects-search {
+  /* 窄屏两行：搜索和视图切换一行，筛选一行（左右滑动） */
+  .xc-toolbar.projects-toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .projects-toolbar .xc-toolbar-start {
+    display: contents;
+  }
+  .xc-search.projects-search {
+    flex: 1;
+    width: auto;
+    order: 1;
+  }
+  .projects-toolbar .xc-toolbar-end {
+    order: 2;
+    padding-bottom: 0;
+  }
+  .projects-filters {
     flex: 1 1 100%;
+    flex-wrap: nowrap;
+    order: 3;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .projects-filters > *,
+  .projects-filter-extra {
+    flex: none;
+  }
+  .projects-filter-extra {
+    margin-left: 0;
+  }
+}
+
+/* ---- B36：分类、截止时间、检查清单 ---- */
+.projects-card-category {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--xc-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projects-row-category {
+  flex: none;
+  max-width: 160px;
+  overflow: hidden;
+  color: var(--xc-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projects-checklist-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--xc-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.projects-checklist-badge.complete {
+  color: var(--xc-ok);
+}
+.projects-due-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.projects-due-fields .xc-input {
+  flex: 1 1 130px;
+  min-width: 0;
+}
+.projects-due-fields .projects-time-input {
+  flex: 0 0 118px;
+}
+.projects-due-fields .xc-select {
+  flex: 1 1 100%;
+}
+.projects-section h2 .projects-checklist-count {
+  margin-left: 8px;
+}
+.projects-checklist-count {
+  color: var(--xc-muted);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.projects-checklist {
+  margin-bottom: 16px;
+}
+.projects-checklist-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+.projects-checklist-head h3 {
+  margin: 0;
+  color: var(--xc-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: text;
+}
+.projects-checklist-head .xc-input {
+  max-width: 320px;
+}
+.projects-checklist-bar {
+  height: 4px;
+  margin: 4px 0 6px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--xc-surface-2);
+}
+.projects-checklist-bar i {
+  display: block;
+  height: 100%;
+  background: var(--xc-accent);
+  transition: width 0.2s;
+}
+.projects-checklist-bar.complete i {
+  background: var(--xc-ok);
+}
+.projects-checklist-items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.projects-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 4px;
+  border-radius: 6px;
+}
+.projects-checklist-item:hover {
+  background: var(--xc-surface-2);
+}
+.projects-checklist-item.dragging {
+  opacity: 0.4;
+}
+.projects-checklist-item input[type="checkbox"] {
+  flex: none;
+  accent-color: var(--xc-accent);
+}
+.projects-checklist-item .xc-input {
+  flex: 1;
+}
+.projects-checklist-grip {
+  flex: none;
+  color: var(--xc-faint);
+  cursor: grab;
+}
+.projects-checklist-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--xc-text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+.projects-checklist-item.done .projects-checklist-text {
+  color: var(--xc-muted);
+  text-decoration: line-through;
+}
+.projects-checklist-actions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  opacity: 0;
+}
+.projects-checklist-item:hover .projects-checklist-actions,
+.projects-checklist-item:focus-within .projects-checklist-actions {
+  opacity: 1;
+}
+.projects-checklist-new {
+  padding: 4px 0 0 25px;
+}
+.projects-checklist-new .xc-input {
+  width: 100%;
+}
+.projects-category-child {
+  padding-left: 22px;
+}
+.projects-category-name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  cursor: text;
+}
+.projects-shortcuts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.projects-shortcuts > div {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+}
+.projects-shortcuts dd {
+  margin: 0;
+  color: var(--xc-text-2);
+}
+@media (hover: none) {
+  .projects-checklist-actions {
+    opacity: 1;
+  }
+  .projects-checklist-grip {
+    display: none;
   }
 }

@@ -18,6 +18,7 @@ import { relativeTime } from "../../lib/time";
 import {
   useAddComment,
   useAddLink,
+  useB36Live,
   useComments,
   useDeleteComment,
   useDeleteIssue,
@@ -32,6 +33,9 @@ import {
   type UpdateIssue,
 } from "./api";
 import { LabelChip, PriorityIcon, StatusIcon } from "./components/Icons";
+import CategorySelect from "./components/CategorySelect";
+import Checklists from "./components/Checklists";
+import DueFields from "./components/DueFields";
 import Markdown from "./Markdown";
 import StartFocusButton from "../calendar/StartFocusButton";
 import {
@@ -39,6 +43,8 @@ import {
   PRIORITY_LABELS,
   STATUSES,
   STATUS_LABELS,
+  joinDue,
+  splitDue,
   type IssueStatus,
 } from "./logic";
 import { useShortcuts } from "./useShortcuts";
@@ -66,6 +72,7 @@ export default function IssuePage() {
   const [editingTitle, setEditingTitle] = useState(
     search.get("edit") === "title",
   );
+  const [addingChecklist, setAddingChecklist] = useState(false);
 
   useEffect(() => {
     if (search.get("edit") === "title") {
@@ -130,6 +137,11 @@ export default function IssuePage() {
           <Description
             issue={data}
             onSave={(description) => save({ description })}
+          />
+          <Checklists
+            issueKey={data.key}
+            adding={addingChecklist}
+            onAddingChange={setAddingChecklist}
           />
           <Links issueKey={data.key} />
           <Comments issueKey={data.key} />
@@ -250,6 +262,7 @@ function Description({
       }}
     >
       <MarkdownEditor
+        uploadScope="projects"
         label={t("Description")}
         value={value}
         onChange={setValue}
@@ -290,6 +303,7 @@ function Properties({
   const navigate = useNavigate();
   const labels = useLabels(issue.projectId);
   const milestones = useMilestones(issue.projectId);
+  const { live, categories } = useB36Live(issue.projectId);
   const remove = useDeleteIssue();
   const labelIds = issue.labels.map((l) => l.id);
   return (
@@ -328,15 +342,34 @@ function Properties({
           </select>
         </div>
       </label>
-      <label className="projects-prop">
-        <span>{t("Due date")}</span>
-        <input
-          className="xc-input"
-          type="date"
-          value={issue.dueDate ?? ""}
-          onChange={(e) => onSave({ dueDate: e.target.value || null })}
+      {live && (
+        <label className="projects-prop">
+          <span>{t("Category")}</span>
+          <CategorySelect
+            mode="pick"
+            categories={categories}
+            value={issue.categoryId ?? null}
+            onChange={(categoryId) => onSave({ categoryId })}
+          />
+        </label>
+      )}
+      <div className="projects-prop">
+        <span>{live ? t("Due at") : t("Due date")}</span>
+        <DueFields
+          live={live}
+          value={splitDue(issue)}
+          onChange={(v) =>
+            // 后端没上线 B36 时只认 dueDate，多发字段会被拒绝。
+            onSave(
+              live
+                ? { dueAt: joinDue(v.date, v.time) }
+                : { dueDate: v.date || null },
+            )
+          }
+          remind={issue.dueRemind}
+          onRemindChange={(dueRemind) => onSave({ dueRemind })}
         />
-      </label>
+      </div>
       <label className="projects-prop">
         <span>{t("Milestone")}</span>
         <select
@@ -603,6 +636,7 @@ function Comments({ issueKey }: { issueKey: string }) {
         }}
       >
         <MarkdownEditor
+          uploadScope="projects"
           label={t("Comment")}
           value={body}
           onChange={setBody}

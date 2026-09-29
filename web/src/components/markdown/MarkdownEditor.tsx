@@ -1,9 +1,17 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 import {
   Bold,
   Code,
   Eye,
   Heading2,
+  ImagePlus,
   Italic,
   Link2,
   List,
@@ -13,10 +21,26 @@ import {
   Pencil,
   Quote,
 } from "lucide-react";
+import { errorMessage, isNotLive } from "../../api/client";
 import { useT } from "../../contexts/LanguageContext";
+import { toast } from "../../hooks/useToast";
 import Markdown from "./Markdown";
 import { toggleTask } from "./mdparse";
-import { insertBlock, prefixLines, wrapSelection, type Edit } from "./edit";
+import {
+  insertBlock,
+  prefixLines,
+  removeBlock,
+  wrapSelection,
+  type Edit,
+} from "./edit";
+import {
+  IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+  attachmentMarkdown,
+  uploadFile,
+  uploadPlaceholder,
+  type UploadScope,
+} from "./upload";
 
 interface MarkdownEditorProps {
   value: string;
@@ -31,6 +55,8 @@ interface MarkdownEditorProps {
   onSubmit?: () => void;
   /** 工具条右边额外的东西 */
   extra?: ReactNode;
+  /** 传了就能粘贴、拖入、选择图片，上传到公共文件接口的这个分类下 */
+  uploadScope?: UploadScope;
 }
 
 /**
@@ -46,12 +72,21 @@ export default function MarkdownEditor({
   autoFocus,
   onSubmit,
   extra,
+  uploadScope,
 }: MarkdownEditorProps) {
   const t = useT();
   const ref = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState(false);
+  const [uploading, setUploading] = useState(0);
   const valueRef = useRef(value);
   valueRef.current = value;
+
+  // 几张图同时传完时，父组件还没重新渲染，所以这里自己记住最新的内容。
+  const change = (text: string) => {
+    valueRef.current = text;
+    onChange(text);
+  };
 
   // 随内容长高
   useLayoutEffect(() => {
@@ -67,7 +102,7 @@ export default function MarkdownEditor({
     const start = el?.selectionStart ?? text.length;
     const end = el?.selectionEnd ?? text.length;
     const out = fn(text, start, end);
-    onChange(out.text);
+    change(out.text);
     setPreview(false);
     requestAnimationFrame(() => {
       const target = ref.current;
@@ -75,6 +110,74 @@ export default function MarkdownEditor({
       target.focus();
       target.setSelectionRange(out.start, out.end);
     });
+  };
+
+  const upload = async (files: File[]) => {
+    if (!uploadScope) return;
+    const list = files.filter((f) => {
+      if (!IMAGE_TYPES.includes(f.type)) {
+        toast({
+          message: `${f.name}: ${t("Only images can be added here")}`,
+          tone: "error",
+        });
+        return false;
+      }
+      if (f.size > MAX_IMAGE_BYTES) {
+        toast({
+          message: `${f.name}: ${t("Image is larger than 20 MB")}`,
+          tone: "error",
+        });
+        return false;
+      }
+      return true;
+    });
+    if (!list.length) return;
+    // 先在光标处放占位文字，上传完成后换成真正的地址。
+    const tokens = list.map((f) =>
+      uploadPlaceholder(
+        f.name || "image",
+        Math.random().toString(36).slice(2, 7),
+      ),
+    );
+    apply((x, _s, e) => insertBlock(x, e, e, tokens.join("\n\n")));
+    setUploading((n) => n + list.length);
+    await Promise.all(
+      list.map(async (file, i) => {
+        try {
+          const f = await uploadFile(uploadScope, file);
+          change(
+            valueRef.current.replace(tokens[i], () => attachmentMarkdown(f)),
+          );
+        } catch (err) {
+          change(removeBlock(valueRef.current, tokens[i]));
+          toast({
+            message: isNotLive(err)
+              ? t("Image upload is not live yet")
+              : `${file.name}: ${errorMessage(err)}`,
+            tone: "error",
+          });
+        } finally {
+          setUploading((n) => n - 1);
+        }
+      }),
+    );
+  };
+
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!uploadScope) return;
+    const files = Array.from(e.clipboardData.files);
+    // 从 Excel、Word 复制时剪贴板里同时有文字和图片，这时按文字粘贴。
+    if (!files.length || e.clipboardData.getData("text/plain")) return;
+    e.preventDefault();
+    void upload(files);
+  };
+
+  const onDrop = (e: DragEvent<HTMLTextAreaElement>) => {
+    if (!uploadScope) return;
+    const files = Array.from(e.dataTransfer.files);
+    if (!files.length) return;
+    e.preventDefault();
+    void upload(files);
   };
 
   const tools: {
@@ -174,7 +277,21 @@ export default function MarkdownEditor({
             {tool.icon}
           </button>
         ))}
+        {uploadScope && (
+          <button
+            type="button"
+            title={t("Insert image")}
+            aria-label={t("Insert image")}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => fileRef.current?.click()}
+          >
+            <ImagePlus size={15} />
+          </button>
+        )}
         <span className="xc-spacer" />
+        {uploading > 0 && (
+          <span className="xc-mde-status">{t("Uploading…")}</span>
+        )}
         {extra}
         <button
           type="button"
@@ -192,7 +309,7 @@ export default function MarkdownEditor({
           className="xc-mde-preview"
           source={value}
           empty={<span className="xc-muted">{t("Nothing to preview")}</span>}
-          onToggleTask={(i) => onChange(toggleTask(valueRef.current, i))}
+          onToggleTask={(i) => change(toggleTask(valueRef.current, i))}
         />
       ) : (
         <textarea
@@ -206,7 +323,9 @@ export default function MarkdownEditor({
           }
           aria-label={label}
           autoFocus={autoFocus}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => change(e.target.value)}
+          onPaste={onPaste}
+          onDrop={onDrop}
           onKeyDown={(e) => {
             const mod = e.metaKey || e.ctrlKey;
             if (mod && e.key === "Enter" && onSubmit) {
@@ -219,6 +338,20 @@ export default function MarkdownEditor({
               e.preventDefault();
               tools[2].run();
             }
+          }}
+        />
+      )}
+      {uploadScope && (
+        <input
+          ref={fileRef}
+          type="file"
+          accept={IMAGE_TYPES.join(",")}
+          multiple
+          hidden
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            void upload(files);
           }}
         />
       )}

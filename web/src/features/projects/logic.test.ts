@@ -12,6 +12,24 @@ import {
   sortIssues,
   sortOrderBetween,
   stepSelection,
+  UNCATEGORIZED,
+  applyItemMove,
+  categoryPaths,
+  categoryTree,
+  checklistProgress,
+  isNoopItemMove,
+  issueDue,
+  issueDueState,
+  joinDue,
+  localTime,
+  overdueBy,
+  planCategoryStep,
+  planItemMove,
+  sortItems,
+  splitDue,
+  type Category,
+  type Checklist,
+  type ChecklistItem,
   type Issue,
 } from "./logic";
 
@@ -221,5 +239,180 @@ describe("helpers", () => {
     expect(stepSelection(ks, "b", 1)).toBe("c");
     expect(stepSelection(ks, "c", 1)).toBe("c");
     expect(stepSelection([], "a", 1)).toBeNull();
+  });
+});
+
+describe("B36 categories", () => {
+  const cats: Category[] = [
+    { id: 1, projectId: 1, name: "后端", position: 2, issueCount: 0 },
+    { id: 2, projectId: 1, name: "前端", position: 1, issueCount: 0 },
+    {
+      id: 3,
+      projectId: 1,
+      parentId: 1,
+      name: "云盘",
+      position: 2,
+      issueCount: 0,
+    },
+    {
+      id: 4,
+      projectId: 1,
+      parentId: 1,
+      name: "服务器",
+      position: 1,
+      issueCount: 0,
+    },
+  ];
+  it("orders the tree and builds paths", () => {
+    expect(categoryTree(cats).map((n) => n.path)).toEqual([
+      "前端",
+      "后端",
+      "后端 / 服务器",
+      "后端 / 云盘",
+    ]);
+    expect(categoryPaths(cats).get(3)).toBe("后端 / 云盘");
+  });
+  it("filters a top-level category with its children, and uncategorized", () => {
+    const a = issue({ categoryId: 3 });
+    const b = issue({ categoryId: 2 });
+    const c = issue({});
+    const all = [a, b, c];
+    expect(
+      keys(filterIssues(all, { ...emptyFilter, categoryId: 1 }, cats)),
+    ).toBe(a.key);
+    expect(
+      keys(
+        filterIssues(all, { ...emptyFilter, categoryId: UNCATEGORIZED }, cats),
+      ),
+    ).toBe(c.key);
+  });
+  it("groups by category with uncategorized last", () => {
+    const a = issue({ categoryId: 3 });
+    const c = issue({});
+    const groups = groupIssues([a, c], "category", "manual", cats);
+    expect(groups.map((g) => g.label)).toEqual([
+      "前端",
+      "后端",
+      "后端 / 服务器",
+      "后端 / 云盘",
+      "Uncategorized",
+    ]);
+    expect(groups.at(-2)?.issues).toEqual([a]);
+    expect(groups.at(-1)?.issues).toEqual([c]);
+  });
+  it("plans moving a category up and down among its siblings", () => {
+    expect(planCategoryStep(cats, 3, -1)).toEqual({
+      afterId: undefined,
+      beforeId: 4,
+    });
+    expect(planCategoryStep(cats, 3, 1)).toBeNull();
+    expect(planCategoryStep(cats, 2, 1)).toEqual({
+      afterId: 1,
+      beforeId: undefined,
+    });
+  });
+});
+
+describe("B36 due time", () => {
+  const now = new Date(2026, 8, 29, 12, 0);
+  it("falls back to 23:59 for old date-only data", () => {
+    const at = issueDue({ dueDate: "2026-09-29" })!;
+    expect(localTime(at)).toBe("23:59");
+    expect(
+      issueDue({
+        dueAt: "2026-09-29T10:00:00Z",
+        dueDate: "2026-09-01",
+      })?.toISOString(),
+    ).toBe("2026-09-29T10:00:00.000Z");
+  });
+  it("classifies due times against the current minute", () => {
+    const at = (h: number, d = 29) => new Date(2026, 8, d, h, 0).toISOString();
+    expect(issueDueState(issue({ dueAt: at(10) }), now)).toBe("overdue");
+    expect(issueDueState(issue({ dueAt: at(18) }), now)).toBe("today");
+    expect(issueDueState(issue({ dueAt: at(18, 30) }), now)).toBe("soon");
+    expect(issueDueState(issue({ dueAt: at(10), status: "done" }), now)).toBe(
+      "later",
+    );
+  });
+  it("says how long ago it was due", () => {
+    const ago = (ms: number) => new Date(now.getTime() - ms);
+    expect(overdueBy(ago(5 * 60_000), now)).toEqual({
+      value: 5,
+      unit: "minutes",
+    });
+    expect(overdueBy(ago(2 * 3_600_000), now)).toEqual({
+      value: 2,
+      unit: "hours",
+    });
+    expect(overdueBy(ago(3 * 86_400_000), now)).toEqual({
+      value: 3,
+      unit: "days",
+    });
+  });
+  it("splits and joins local date and time", () => {
+    const iso = joinDue("2026-10-03", "18:30")!;
+    expect(splitDue({ dueAt: iso })).toEqual({
+      date: "2026-10-03",
+      time: "18:30",
+    });
+    expect(splitDue({ dueAt: joinDue("2026-10-03", "")! }).time).toBe("23:59");
+    expect(joinDue("", "18:30")).toBeNull();
+  });
+  it("filters today, this week and overdue", () => {
+    const at = (h: number, d = 29) => new Date(2026, 8, d, h, 0).toISOString();
+    const late = issue({ dueAt: at(10) });
+    const today = issue({ dueAt: at(18) });
+    const week = issue({ dueAt: at(9, 30) });
+    const done = issue({ dueAt: at(10), status: "done" });
+    const all = [late, today, week, done];
+    expect(
+      keys(filterIssues(all, { ...emptyFilter, due: "overdue" }, [], now)),
+    ).toBe(late.key);
+    expect(
+      keys(filterIssues(all, { ...emptyFilter, due: "today" }, [], now)),
+    ).toBe(`${late.key},${today.key}`);
+    expect(
+      keys(filterIssues(all, { ...emptyFilter, due: "week" }, [], now)),
+    ).toBe(`${late.key},${today.key},${week.key}`);
+  });
+  it("sorts by due time", () => {
+    const a = issue({ dueAt: "2026-10-01T09:00:00Z" });
+    const b = issue({ dueAt: "2026-10-01T08:00:00Z" });
+    const c = issue({});
+    expect(keys(sortIssues([c, a, b], "due"))).toBe(
+      `${b.key},${a.key},${c.key}`,
+    );
+  });
+});
+
+describe("B36 checklists", () => {
+  const item = (id: number, position: number, done = false): ChecklistItem => ({
+    id,
+    checklistId: 1,
+    text: `item ${id}`,
+    done,
+    position,
+  });
+  const items = [item(1, 1, true), item(2, 2), item(3, 3, true)];
+  it("counts progress across checklists", () => {
+    const list = (id: number, its: ChecklistItem[]): Checklist => ({
+      id,
+      issueId: 1,
+      title: "",
+      position: id,
+      items: its,
+    });
+    expect(checklistProgress([list(1, items), list(2, [item(4, 1)])])).toEqual({
+      done: 2,
+      total: 4,
+    });
+  });
+  it("plans and applies an item move", () => {
+    const plan = planItemMove(items, 3, 0);
+    expect(plan).toEqual({ afterId: undefined, beforeId: 1 });
+    expect(isNoopItemMove(items, 3, plan)).toBe(false);
+    expect(isNoopItemMove(items, 2, planItemMove(items, 2, 1))).toBe(true);
+    const moved = sortItems(applyItemMove(items, 3, plan)).map((i) => i.id);
+    expect(moved).toEqual([3, 1, 2]);
   });
 });

@@ -20,6 +20,7 @@
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
 | B31（预览部分） | 云盘统一查看器：图片缩放、音视频、PDF、文本编辑保存（带版本号，冲突回 409）、Markdown、日志分段读、全屏、左右切换。分支 `claude/project-thread-sssfqr`，用户 2026-09-29 让 Claude 直接写。复制、压缩、分享、历史版本、日志实时模式、任务进度下一个 PR 做 | [B31](specs/B31.md) | Claude |
+| B36 | 前端：分类（设置、筛选、分组、侧边栏）、检查清单、截止时间到分钟和提前提醒、公共编辑框贴图、工具栏合成一行。后端写成规格里的“后端（待做）”，项目的新接口先回 501，公共上传 `files.yaml` 还没有模块。分支 `claude/project-thread-o3tsew`，用户 2026-09-29 确认“二级分类”是 Issue 分两级 | [B36](specs/B36.md) | Claude（前端） |
 | B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
 
 ## 待做
@@ -57,7 +58,7 @@
 - B21 做完以后，新写的删除、停止、重启、结束进程、吊销这类操作都要用 `useConfirm`。
 - B24 定了文件目录 `data/files/<模块>/`。以后新模块存文件都走 `files.Store`，不要自己拼路径。
 - B32 替换 B3 里“用 Anthropic SDK”的做法。B33 依赖 B32。
-- 有几处是审查者按自己的理解写的，开工前和用户确认：B36 的“二级分类”，B31 的“外链分析”（按“外链分享”写的），B22 的“设置弹窗”（按个人菜单写的）。
+- 有几处是审查者按自己的理解写的，开工前和用户确认：B22 的“设置弹窗”（按个人菜单写的）。B36 的“二级分类”（Issue 分两级）和 B31 的“外链分析”（外链分享）用户 2026-09-29 已确认。
 
 **B21 高危操作统一二次确认**
 - 新增 `components/ui/ConfirmDialog.tsx` 和 `useConfirm()`：返回 Promise，确认为 true。参数：标题、说明、确认按钮文字、是否危险（危险时确认按钮用 `danger`）、可选的“要输入的文字”（比如 B25 的“恢复”）。样式用现有 `Dialog`，取消在左、确认在右，默认焦点在取消上。
@@ -205,7 +206,7 @@
 - 文件上传进度条。SSH 主机指纹变化后在界面上重新信任。
 - `features/reminders` 和 `features/habits` 的 `api.ts` 修改后自己刷新数据，同时又用了 `invalidateOn`，有重复。
 - Agent 任务（原“编码任务”）的运行设置在仓库页，没有单独的设置标签。
-- 公共的 Markdown 编辑框（`components/markdown/MarkdownEditor`）还不能贴图片，只有笔记能。B36 解决。
+- 公共的 Markdown 编辑框贴图的前端已做（B36），要等 `modules/files` 后端上线才能用。
 - 搜城市先查 Open-Meteo，查不到再查 OpenStreetMap（Nominatim），开发环境连不上外网，没在真实网络下验证过。
 
 ## 已完成
@@ -255,6 +256,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-29 | `components/markdown/MarkdownEditor.tsx` 加可选的 `uploadScope`（粘贴、拖入、选择图片）；新增 `components/markdown/upload.ts`（上传、占位、插入文字，笔记的 `logic.ts` 改成转发）；`Markdown.tsx` 显示 `/api/v1/files/<id>` 的图片时取缩略图并链接原图；`NavChildLinks` 加可选的 `limit` 和链接的 `nested`（`.nav-child.nested` 在 `ui.css`）；`lib/i18n.ts` 加编辑框贴图的文案；新增契约 `api/modules/files.yaml`（公共上传，后端模块待做） | B36 贴图、侧边栏显示项目分类 |
 | 2026-09-29 | `app/App.tsx`：路径是 `/s/<token>` 时渲染云盘分享页，不经过登录检查；`drive.yaml` 新增公开入口 `/public/shares/*`（`security: []`），云盘模块的 `PublicPaths` 先放在 `drive/pending.go` | B31 外链分享 |
 | 2026-09-28 | `core.yaml` 加代理一键安装的 5 个公开接口（后端占位在 `core/pending.go`）；服务器详情标签支持 `preview`（旧代理也显示新标签）；导航“本机”改名“电脑”（英文键 `Computer`） | B29、B30 |
 | 2026-09-28 | 新增公共组件 `components/log/LogViewer.tsx`（虚拟列表、级别、输出、关键字过滤）和 `components/log/levels.ts`；`monitoring.yaml` 容器日志加 `format=json`、镜像删除和清理 | B28 容器日志、B29 系统日志、B31 日志文件共用 |

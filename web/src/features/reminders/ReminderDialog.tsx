@@ -186,6 +186,7 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
         <div className="xc-field">
           <span>{t("Reminder note")}</span>
           <MarkdownEditor
+            uploadScope="reminders"
             label={t("Reminder note")}
             value={body}
             onChange={setBody}

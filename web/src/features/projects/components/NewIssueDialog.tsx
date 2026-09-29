@@ -5,6 +5,7 @@ import Dialog from "../../../components/ui/Dialog";
 import { useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
 import {
+  useB36Live,
   useCreateIssue,
   useLabels,
   useMilestones,
@@ -16,8 +17,12 @@ import {
   PRIORITY_LABELS,
   STATUSES,
   STATUS_LABELS,
+  joinDue,
+  type DueRemind,
   type IssueStatus,
 } from "../logic";
+import CategorySelect from "./CategorySelect";
+import DueFields, { type DueValue } from "./DueFields";
 import { LabelChip } from "./Icons";
 
 const LAST_PROJECT = "projects.lastProject";
@@ -45,12 +50,15 @@ export default function NewIssueDialog({
   onClose,
   projectId,
   status = "todo",
+  categoryId: initialCategory = null,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   projectId?: number;
   status?: IssueStatus;
+  /** 看板正按分类筛选时，默认放进这个分类 */
+  categoryId?: number | null;
   onCreated?: (issue: Issue) => void;
 }) {
   const t = useT();
@@ -60,12 +68,15 @@ export default function NewIssueDialog({
   const [description, setDescription] = useState("");
   const [issueStatus, setIssueStatus] = useState<IssueStatus>(status);
   const [priority, setPriority] = useState(0);
-  const [dueDate, setDueDate] = useState("");
+  const [due, setDue] = useState<DueValue>({ date: "", time: "" });
+  const [remind, setRemind] = useState<DueRemind>("at_due");
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [milestoneId, setMilestoneId] = useState<number | null>(null);
   const [labelIds, setLabelIds] = useState<number[]>([]);
   const [error, setError] = useState("");
   const labels = useLabels(pid);
   const milestones = useMilestones(pid);
+  const { live, categories } = useB36Live(pid);
   const create = useCreateIssue();
 
   useEffect(() => {
@@ -74,12 +85,14 @@ export default function NewIssueDialog({
     setDescription("");
     setIssueStatus(status);
     setPriority(0);
-    setDueDate("");
+    setDue({ date: "", time: "" });
+    setRemind("at_due");
+    setCategoryId(initialCategory || null);
     setMilestoneId(null);
     setLabelIds([]);
     setError("");
     setPid(projectId);
-  }, [open, projectId, status]);
+  }, [open, projectId, status, initialCategory]);
 
   // 没指定项目时，用上次的项目或第一个项目。
   useEffect(() => {
@@ -99,7 +112,14 @@ export default function NewIssueDialog({
           description,
           status: issueStatus,
           priority,
-          dueDate: dueDate || undefined,
+          // 后端没上线 B36 时只认旧字段，多发字段会被拒绝。
+          ...(live
+            ? {
+                dueAt: joinDue(due.date, due.time) ?? undefined,
+                dueRemind: due.date ? remind : undefined,
+                categoryId: categoryId ?? undefined,
+              }
+            : { dueDate: due.date || undefined }),
           milestoneId: milestoneId ?? undefined,
           labelIds,
         },
@@ -140,6 +160,7 @@ export default function NewIssueDialog({
                 setPid(Number(e.target.value));
                 setLabelIds([]);
                 setMilestoneId(null);
+                setCategoryId(null);
               }}
             >
               {projects.data?.map((p) => (
@@ -164,6 +185,7 @@ export default function NewIssueDialog({
         <div className="xc-field">
           <span>{t("Description")}</span>
           <MarkdownEditor
+            uploadScope="projects"
             label={t("Description")}
             value={description}
             onChange={setDescription}
@@ -200,15 +222,17 @@ export default function NewIssueDialog({
               ))}
             </select>
           </label>
-          <label className="xc-field">
-            <span>{t("Due date")}</span>
-            <input
-              className="xc-input"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </label>
+          {live && (
+            <label className="xc-field">
+              <span>{t("Category")}</span>
+              <CategorySelect
+                mode="pick"
+                categories={categories}
+                value={categoryId}
+                onChange={setCategoryId}
+              />
+            </label>
+          )}
           <label className="xc-field">
             <span>{t("Milestone")}</span>
             <select
@@ -226,6 +250,16 @@ export default function NewIssueDialog({
               ))}
             </select>
           </label>
+        </div>
+        <div className="xc-field">
+          <span>{live ? t("Due at") : t("Due date")}</span>
+          <DueFields
+            live={live}
+            value={due}
+            onChange={setDue}
+            remind={remind}
+            onRemindChange={setRemind}
+          />
         </div>
         {!!labels.data?.length && (
           <div className="xc-field">

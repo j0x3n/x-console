@@ -180,6 +180,7 @@ export default function NewTaskDialog({ open, onClose, issueKey }: Props) {
           <div className="xc-field">
             <span>{t("What should it do?")}</span>
             <MarkdownEditor
+              uploadScope="coding"
               label={t("What should it do?")}
               value={prompt}
               onChange={setPrompt}

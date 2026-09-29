@@ -97,6 +97,7 @@ export function useIssues(projectId: number) {
 - 高危操作包在 `withElevation(() => ...)` 里，它会自动弹出验证码框并重试。
 - 修改成功后用 `toast("已保存")` 提示，失败用 `toast({ message, tone: "error" })`。
 - WebSocket 流（终端、日志）用 `wsUrl("/hosts/1/terminal")` 拼地址。
+- 长文字里的图片（B36 定的）：用公共上传接口 `POST /files?scope=<模块>`（`api/modules/files.yaml`），不要每个模块自己做附件接口。`MarkdownEditor` 传 `uploadScope` 就能粘贴、拖入、选择图片，上传和占位的函数在 `components/markdown/upload.ts`。后端保存内容时从 Markdown 里认领图片，删除内容时一起删掉。笔记和云盘有自己的文件接口，不走这里。
 
 ## 组件和样式
 

@@ -133,6 +133,47 @@ export interface paths {
         patch: operations["updateMilestone"];
         trace?: never;
     };
+    "/projects/{projectId}/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** @description B36。项目里的分类，最多两级。按树的顺序返回：一级分类，然后是它下面的二级分类。 */
+        get: operations["listProjectCategories"];
+        put?: never;
+        /** @description 新分类放在同级的最后。parentId 必须是这个项目的一级分类，否则 400。 */
+        post: operations["createProjectCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{projectId}/categories/{categoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 删除分类和它的二级分类。里面的 Issue 变成未分类。 */
+        delete: operations["deleteProjectCategory"];
+        options?: never;
+        head?: never;
+        /** @description 改名或调整顺序。afterId、beforeId 是同级里落点上下的分类，和 Issue 拖动一样。 */
+        patch: operations["updateProjectCategory"];
+        trace?: never;
+    };
     "/issues": {
         parameters: {
             query?: never;
@@ -142,7 +183,7 @@ export interface paths {
         };
         /**
          * @description 跨项目查询 Issue。不带 projectId 时不包含已归档项目的 Issue。
-         *     due：today 今天到期；week 今天起 7 天内到期；overdue 已过期且未完成。日期按服务器时区算。
+         *     due：today 今天到期；week 今天起 7 天内到期；overdue 已过期且未完成。日期按服务器时区算。B36 起按 dueAt 算。
          */
         get: operations["listIssues"];
         put?: never;
@@ -271,6 +312,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/issues/{key}/checklists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        /** @description B36。这个 Issue 的检查清单，按 position 排好，条目也排好。 */
+        get: operations["listChecklists"];
+        put?: never;
+        /** @description 新清单放在最后。 */
+        post: operations["createChecklist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{key}/checklists/{checklistId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                checklistId: components["parameters"]["ChecklistId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 连同条目一起删除。 */
+        delete: operations["deleteChecklist"];
+        options?: never;
+        head?: never;
+        patch: operations["updateChecklist"];
+        trace?: never;
+    };
+    "/issues/{key}/checklists/{checklistId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                checklistId: components["parameters"]["ChecklistId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 不传 afterId 时放在最后。 */
+        post: operations["createChecklistItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{key}/checklist-items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                itemId: components["parameters"]["ChecklistItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteChecklistItem"];
+        options?: never;
+        head?: never;
+        /** @description 改文字、勾选、排序。排序用 afterId、beforeId，可以同时传 checklistId 挪到同一个 Issue 的另一个清单。 */
+        patch: operations["updateChecklistItem"];
+        trace?: never;
+    };
+    "/issues/{key}/checklist-items/{itemId}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                itemId: components["parameters"]["ChecklistItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 条目转成 Issue。新 Issue 在同一个项目、同一个分类，标题是条目文字，状态 todo。原条目删掉。在一个事务里做。 */
+        post: operations["convertChecklistItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -374,8 +520,27 @@ export interface components {
             status: components["schemas"]["IssueStatus"];
             /** @description 0 无，1 紧急，2 高，3 中，4 低 */
             priority: number;
-            /** Format: date */
+            /**
+             * Format: date
+             * @deprecated
+             * @description 旧字段，B36 起用 dueAt，下个版本删
+             */
             dueDate?: string;
+            /**
+             * Format: date-time
+             * @description B36。截止时间，精确到分钟
+             */
+            dueAt?: string;
+            dueRemind?: components["schemas"]["DueRemind"];
+            /**
+             * Format: int64
+             * @description B36。没有表示未分类
+             */
+            categoryId?: number;
+            /** @description B36。所有清单里已完成的条目数 */
+            checklistDone?: number;
+            /** @description B36。所有清单的条目总数，0 表示没有清单条目 */
+            checklistTotal?: number;
             /** Format: int64 */
             milestoneId?: number;
             /**
@@ -399,8 +564,22 @@ export interface components {
             description?: string;
             status?: components["schemas"]["IssueStatus"];
             priority?: number;
-            /** Format: date */
+            /**
+             * Format: date
+             * @deprecated
+             */
             dueDate?: string;
+            /**
+             * Format: date-time
+             * @description B36
+             */
+            dueAt?: string;
+            dueRemind?: components["schemas"]["DueRemind"];
+            /**
+             * Format: int64
+             * @description B36
+             */
+            categoryId?: number;
             /** Format: int64 */
             milestoneId?: number;
             labelIds?: number[];
@@ -412,9 +591,21 @@ export interface components {
             priority?: number;
             /**
              * Format: date
+             * @deprecated
              * @description null 表示清除
              */
             dueDate?: string | null;
+            /**
+             * Format: date-time
+             * @description B36。null 表示清除
+             */
+            dueAt?: string | null;
+            dueRemind?: components["schemas"]["DueRemind"];
+            /**
+             * Format: int64
+             * @description B36。null 表示未分类
+             */
+            categoryId?: number | null;
             /**
              * Format: int64
              * @description null 表示清除
@@ -422,6 +613,94 @@ export interface components {
             milestoneId?: number | null;
             /** @description 传了就整体替换 */
             labelIds?: number[];
+        };
+        /**
+         * @description B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
+         * @enum {string}
+         */
+        DueRemind: "none" | "at_due" | "15m" | "1h" | "1d";
+        ProjectCategory: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            projectId: number;
+            /**
+             * Format: int64
+             * @description 没有表示一级分类
+             */
+            parentId?: number;
+            name: string;
+            /**
+             * Format: double
+             * @description 同级里的顺序，小的在前
+             */
+            position: number;
+            /** @description 直接归在这个分类下的 Issue 数，不含二级分类 */
+            issueCount: number;
+        };
+        CreateProjectCategory: {
+            name: string;
+            /** Format: int64 */
+            parentId?: number;
+        };
+        UpdateProjectCategory: {
+            name?: string;
+            /**
+             * Format: int64
+             * @description 同级里落点上方的分类
+             */
+            afterId?: number;
+            /**
+             * Format: int64
+             * @description 同级里落点下方的分类
+             */
+            beforeId?: number;
+        };
+        Checklist: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            issueId: number;
+            title: string;
+            /** Format: double */
+            position: number;
+            items: components["schemas"]["ChecklistItem"][];
+        };
+        ChecklistInput: {
+            title: string;
+        };
+        ChecklistItem: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            checklistId: number;
+            text: string;
+            done: boolean;
+            /** Format: double */
+            position: number;
+            /** Format: date-time */
+            doneAt?: string;
+        };
+        CreateChecklistItem: {
+            text: string;
+            /**
+             * Format: int64
+             * @description 放在这个条目后面
+             */
+            afterId?: number;
+        };
+        UpdateChecklistItem: {
+            text?: string;
+            done?: boolean;
+            /**
+             * Format: int64
+             * @description 挪到另一个清单
+             */
+            checklistId?: number;
+            /** Format: int64 */
+            afterId?: number;
+            /** Format: int64 */
+            beforeId?: number;
         };
         MoveIssue: {
             status: components["schemas"]["IssueStatus"];
@@ -490,6 +769,8 @@ export interface components {
         ProjectId: number;
         /** @description 例如 XC-12 */
         IssueKey: string;
+        ChecklistId: number;
+        ChecklistItemId: number;
         Cursor: string;
     };
     requestBodies: never;
@@ -845,6 +1126,106 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listProjectCategories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 分类列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCategory"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createProjectCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectCategory"];
+            };
+        };
+        responses: {
+            /** @description 已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCategory"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteProjectCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateProjectCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+                categoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProjectCategory"];
+            };
+        };
+        responses: {
+            /** @description 已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectCategory"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listIssues: {
         parameters: {
             query?: {
@@ -854,6 +1235,8 @@ export interface operations {
                 priority?: number;
                 labelId?: number;
                 milestoneId?: number;
+                /** @description B36。一级分类包含它下面的二级分类；0 表示未分类 */
+                categoryId?: number;
                 due?: "today" | "week" | "overdue";
                 /** @description 按标题或 key 搜索 */
                 q?: string;
@@ -1131,6 +1514,216 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listChecklists: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 清单列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createChecklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChecklistInput"];
+            };
+        };
+        responses: {
+            /** @description 已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteChecklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                checklistId: components["parameters"]["ChecklistId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateChecklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                checklistId: components["parameters"]["ChecklistId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChecklistInput"];
+            };
+        };
+        responses: {
+            /** @description 已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checklist"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createChecklistItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                checklistId: components["parameters"]["ChecklistId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateChecklistItem"];
+            };
+        };
+        responses: {
+            /** @description 已创建 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteChecklistItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                itemId: components["parameters"]["ChecklistItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateChecklistItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                itemId: components["parameters"]["ChecklistItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateChecklistItem"];
+            };
+        };
+        responses: {
+            /** @description 已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecklistItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    convertChecklistItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+                itemId: components["parameters"]["ChecklistItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 新建的 Issue */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
             };
             default: components["responses"]["Error"];
         };
