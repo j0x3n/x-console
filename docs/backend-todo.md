@@ -41,7 +41,8 @@
 | 13d | B32 OpenAI 兼容调用层 | 做完 | `modules/ai/llm/`、`backend/go.mod`、`backend/go.sum` | 官方 Go SDK v3、Chat Completions、流式文本和工具调用、思考参数重试、JSON Schema 回退、用量回调、测试替身和多轮格式已测；接 AI 模块接入 |
 | 13e1 | B32 调用层接入 AI 模块 | 做完 | `modules/ai/llm_config.go`、`llm_config_test.go`、`module.go` | 按用途选模型、解密 Key、思考不兼容标记、用量和价格入库已测；接浮窗和自动化 |
 | 13e2 | B32 浮窗、自动化和早报接入 | 做完 | `modules/ai/worker.go`、`handlers.go`、`service.go`、`polisher.go`、`automations/engine.go`、`contracts/contracts.go`、`web/scripts/e2e.mjs` | 流式回复、工具执行和确认、多轮历史、旧内容块兼容、早报快速模型、自动化 Agent 模型和浏览器主流程已测；接笔记自动标题和标签 |
-| 13f 起 | B32 其余及以后 | 没开始 | | 接笔记自动标题和标签、端到端主流程 |
+| 13f | B32 笔记自动标题和标签 | 做完 | `modules/notes/ai.go`、`ai_test.go`、`service.go`、`module.go`、迁移 `20260930000200`、`web/scripts/e2e.mjs` | 10 秒延时、隐藏笔记跳过、内容变化门槛、标题保护、建议和直接加标签、设置及浏览器主流程已测；接 B32 收尾检查 |
+| 13g 起 | B32 收尾及以后 | 没开始 | | 核对契约、旧依赖、生成代码和端到端后继续 B33 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 

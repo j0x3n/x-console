@@ -44,7 +44,7 @@ func (q *Queries) ClearTagColor(ctx context.Context, tag string) error {
 }
 
 const createNote = `-- name: CreateNote :one
-INSERT INTO notes (title, body, pinned, hidden, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, title, body, pinned, archived_at, created_at, updated_at, hidden
+INSERT INTO notes (title, body, pinned, hidden, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash
 `
 
 type CreateNoteParams struct {
@@ -75,6 +75,8 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Hidden,
+		&i.SuggestedTags,
+		&i.AiCheckedHash,
 	)
 	return i, err
 }
@@ -92,7 +94,7 @@ func (q *Queries) DeleteNote(ctx context.Context, id int64) (int64, error) {
 }
 
 const getNote = `-- name: GetNote :one
-SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden FROM notes WHERE id = ?
+SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash FROM notes WHERE id = ?
 `
 
 func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
@@ -107,6 +109,8 @@ func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Hidden,
+		&i.SuggestedTags,
+		&i.AiCheckedHash,
 	)
 	return i, err
 }
@@ -140,7 +144,7 @@ func (q *Queries) ListNoteTags(ctx context.Context, noteID int64) ([]string, err
 
 const listNotes = `-- name: ListNotes :many
 
-SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden FROM notes
+SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash FROM notes
 WHERE (archived_at IS NOT NULL) = CAST(?1 AS BOOLEAN)
   AND hidden = ?2
   AND (?3 IS NULL OR pinned = ?3)
@@ -186,6 +190,8 @@ func (q *Queries) ListNotes(ctx context.Context, arg ListNotesParams) ([]Note, e
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Hidden,
+			&i.SuggestedTags,
+			&i.AiCheckedHash,
 		); err != nil {
 			return nil, err
 		}
@@ -235,6 +241,20 @@ func (q *Queries) ListTagsForNotes(ctx context.Context, ids []int64) ([]NoteTag,
 		return nil, err
 	}
 	return items, nil
+}
+
+const setSuggestedTags = `-- name: SetSuggestedTags :exec
+UPDATE notes SET suggested_tags = ? WHERE id = ?
+`
+
+type SetSuggestedTagsParams struct {
+	SuggestedTags *string
+	ID            int64
+}
+
+func (q *Queries) SetSuggestedTags(ctx context.Context, arg SetSuggestedTagsParams) error {
+	_, err := q.db.ExecContext(ctx, setSuggestedTags, arg.SuggestedTags, arg.ID)
+	return err
 }
 
 const setTagColor = `-- name: SetTagColor :exec

@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -26,24 +27,49 @@ import (
 
 // Module implements api.ServerInterface.
 type Module struct {
-	d     *module.Deps
-	q     *db.Queries
-	now   func() time.Time
-	files files.Store // the notes' own part of the site's file store
+	d        *module.Deps
+	q        *db.Queries
+	now      func() time.Time
+	files    files.Store // the notes' own part of the site's file store
+	aiMu     sync.Mutex
+	aiTimers map[int64]*aiTimer
+	aiDelay  func(time.Duration, func()) func()
+	aiCtx    context.Context
 }
 
 var _ api.ServerInterface = (*Module)(nil)
 
 // New builds the module and registers its contract and actions.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, files: d.Files.For("notes")}
+	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, files: d.Files.For("notes"), aiTimers: map[int64]*aiTimer{}, aiCtx: context.Background()}
+	m.aiDelay = func(delay time.Duration, fn func()) func() {
+		timer := time.AfterFunc(delay, fn)
+		return func() { timer.Stop() }
+	}
 	module.Provide[contracts.Notes](d.Registry, contracts.NotesKey, &notesService{m})
+	module.Provide[*Module](d.Registry, "notes.module", m)
 	m.registerActions()
 	return m, nil
 }
 
 // Name implements module.Module.
 func (m *Module) Name() string { return "notes" }
+
+func (m *Module) Start(ctx context.Context) error {
+	m.aiMu.Lock()
+	m.aiCtx = ctx
+	m.aiMu.Unlock()
+	go func() {
+		<-ctx.Done()
+		m.aiMu.Lock()
+		for id, timer := range m.aiTimers {
+			timer.cancel()
+			delete(m.aiTimers, id)
+		}
+		m.aiMu.Unlock()
+	}()
+	return nil
+}
 
 // Mount implements module.Module.
 func (m *Module) Mount(r chi.Router) {

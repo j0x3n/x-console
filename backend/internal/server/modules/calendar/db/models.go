@@ -543,14 +543,16 @@ type MonitorResult struct {
 }
 
 type Note struct {
-	ID         int64
-	Title      string
-	Body       string
-	Pinned     int64
-	ArchivedAt *time.Time
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	Hidden     int64
+	ID            int64
+	Title         string
+	Body          string
+	Pinned        int64
+	ArchivedAt    *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Hidden        int64
+	SuggestedTags *string
+	AiCheckedHash *string
 }
 
 type NoteAttachment struct {

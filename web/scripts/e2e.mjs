@@ -171,6 +171,14 @@ try {
       return;
     }
     if (request.url === "/v1/chat/completions") {
+      const parts = [];
+      for await (const part of request) parts.push(part);
+      const body = JSON.parse(Buffer.concat(parts).toString());
+      if (body.stream !== true) {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ id: "chat_note", object: "chat.completion", created: 1, model: "e2e-model", choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify({ title: "端到端标题", tags: ["测试标签"] }) }, finish_reason: "stop" }], usage: { prompt_tokens: 20, completion_tokens: 10 } }));
+        return;
+      }
       response.writeHead(200, { "Content-Type": "text/event-stream" });
       response.write(`data: ${JSON.stringify({ id: "chat_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [{ index: 0, delta: { content: "AI 已收到测试消息" } }] })}\n\n`);
       response.write(`data: ${JSON.stringify({ id: "chat_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [], usage: { prompt_tokens: 4, completion_tokens: 5 } })}\n\n`);
@@ -215,6 +223,25 @@ try {
       return !detail.running && detail.messages.some((message) => message.role === "assistant" && message.content.some((block) => block.text === "AI 已收到测试消息"));
     });
     assert.equal((await api("/ai/usage")).calls, 1);
+    stage = "B32 笔记自动标题和标签";
+    const aiNoteBody = "这是一篇用于端到端验证的笔记。".repeat(12);
+    const noteResponse = await page.context().request.post(`${base}/api/v1/notes`, {
+      headers: { "X-Requested-With": "x-console" }, data: { body: aiNoteBody },
+    });
+    assert.equal(noteResponse.status(), 201, await noteResponse.text());
+    const aiNote = await noteResponse.json();
+    await until("笔记自动标题和建议标签", async () => {
+      const note = await api(`/notes/${aiNote.id}`);
+      return note.title === "端到端标题" && note.suggestedTags?.[0] === "测试标签";
+    }, 20_000);
+    const removeNote = await page.context().request.delete(`${base}/api/v1/notes/${aiNote.id}`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(removeNote.status(), 204, await removeNote.text());
+    const removeProvider = await page.context().request.delete(`${base}/api/v1/ai/providers/${aiProvider.id}`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(removeProvider.status(), 204, await removeProvider.text());
   } finally {
     await new Promise((done) => aiFake.close(done));
   }
