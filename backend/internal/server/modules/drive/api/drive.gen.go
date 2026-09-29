@@ -241,6 +241,14 @@ type GetDriveItemContentParams struct {
 	Inline *bool `form:"inline,omitempty" json:"inline,omitempty"`
 }
 
+// SaveDriveItemContentTextBody defines parameters for SaveDriveItemContent.
+type SaveDriveItemContentTextBody = string
+
+// SaveDriveItemContentParams defines parameters for SaveDriveItemContent.
+type SaveDriveItemContentParams struct {
+	IfMatch *string `json:"If-Match,omitempty"`
+}
+
 // UploadDriveFilesMultipartBody defines parameters for UploadDriveFiles.
 type UploadDriveFilesMultipartBody struct {
 	File *[]openapi_types.File `json:"file,omitempty"`
@@ -257,6 +265,9 @@ type CreateDriveFolderJSONRequestBody CreateDriveFolderJSONBody
 
 // UpdateDriveItemJSONRequestBody defines body for UpdateDriveItem for application/json ContentType.
 type UpdateDriveItemJSONRequestBody = UpdateDriveItem
+
+// SaveDriveItemContentTextRequestBody defines body for SaveDriveItemContent for text/plain ContentType.
+type SaveDriveItemContentTextRequestBody = SaveDriveItemContentTextBody
 
 // PutDriveS3ConfigJSONRequestBody defines body for PutDriveS3Config for application/json ContentType.
 type PutDriveS3ConfigJSONRequestBody = S3ConfigInput
@@ -287,6 +298,9 @@ type ServerInterface interface {
 
 	// (GET /drive/items/{itemId}/content)
 	GetDriveItemContent(w http.ResponseWriter, r *http.Request, itemId ItemId, params GetDriveItemContentParams)
+
+	// (PUT /drive/items/{itemId}/content)
+	SaveDriveItemContent(w http.ResponseWriter, r *http.Request, itemId ItemId, params SaveDriveItemContentParams)
 
 	// (POST /drive/items/{itemId}/restore)
 	RestoreDriveItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
@@ -347,6 +361,11 @@ func (_ Unimplemented) UpdateDriveItem(w http.ResponseWriter, r *http.Request, i
 
 // (GET /drive/items/{itemId}/content)
 func (_ Unimplemented) GetDriveItemContent(w http.ResponseWriter, r *http.Request, itemId ItemId, params GetDriveItemContentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /drive/items/{itemId}/content)
+func (_ Unimplemented) SaveDriveItemContent(w http.ResponseWriter, r *http.Request, itemId ItemId, params SaveDriveItemContentParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -617,6 +636,56 @@ func (siw *ServerInterfaceWrapper) GetDriveItemContent(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDriveItemContent(w, r, itemId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveDriveItemContent operation middleware
+func (siw *ServerInterfaceWrapper) SaveDriveItemContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SaveDriveItemContentParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveDriveItemContent(w, r, itemId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -938,6 +1007,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/drive/items/{itemId}/content", wrapper.GetDriveItemContent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/drive/items/{itemId}/content", wrapper.SaveDriveItemContent)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/drive/items/{itemId}/thumbnail", wrapper.GetDriveItemThumbnail)

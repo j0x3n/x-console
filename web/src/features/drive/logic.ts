@@ -52,15 +52,6 @@ export function fileKind(
   return "other";
 }
 
-/** 能在弹窗里直接看的类型。其他只能下载。 */
-export function canPreview(item: DriveItem): boolean {
-  const kind = fileKind(item);
-  return kind !== "folder" && kind !== "archive" && kind !== "other";
-}
-
-/** 文本预览只取前 1 MB。 */
-export const TEXT_PREVIEW_BYTES = 1024 * 1024;
-
 export type SortKey = "name" | "size" | "updatedAt";
 export interface Sort {
   key: SortKey;

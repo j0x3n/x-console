@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { DriveItem } from "./api";
 import { itemActions } from "./components/ItemMenu";
 import {
-  canPreview,
   daysLeftInTrash,
   fileKind,
   nameError,
@@ -37,12 +36,6 @@ describe("fileKind", () => {
     expect(fileKind(item({ name: "backup.tar.gz" }))).toBe("archive");
     expect(fileKind(item({ name: "photo.jpeg" }))).toBe("image");
     expect(fileKind(item({ name: "setup.exe" }))).toBe("other");
-  });
-
-  it("previews only what the browser can show", () => {
-    expect(canPreview(item({ name: "a.md" }))).toBe(true);
-    expect(canPreview(item({ name: "a.zip" }))).toBe(false);
-    expect(canPreview(item({ name: "a.exe" }))).toBe(false);
   });
 });
 

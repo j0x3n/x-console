@@ -306,6 +306,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/install.sh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Linux 一键安装脚本（B30）。不需要登录，但要带有效的配对码；码无效或过期回 404（不说明原因）。
+         *     脚本里写好面板地址和配对码。用法：curl -fsSL <面板>/api/v1/agent/install.sh?code=XXXX | sudo sh
+         *     按 IP 限流，每分钟 10 次
+         */
+        get: operations["getAgentInstallScript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/install.ps1": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Windows 一键安装脚本（B30）。用法：irm "<面板>/api/v1/agent/install.ps1?code=XXXX" | iex
+         *     码无效回 404，按 IP 限流
+         */
+        get: operations["getAgentInstallPowerShell"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/uninstall.sh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Linux 卸载脚本（B30），不需要配对码。只删本机的代理文件和服务，面板上的记录由用户在界面上吊销 */
+        get: operations["getAgentUninstallScript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/download/{os}/{arch}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 下载代理程序（B30）。要带有效的配对码，或者已登录。响应头带 X-Checksum-Sha256 */
+        get: operations["downloadAgent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent/setup.exe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Windows 安装程序（B30）。就是 windows/amd64 的代理，下载的文件名是 x-console-agent-setup-<配对码>.exe，
+         *     双击时代理从文件名读出配对码和面板地址（面板地址写在文件末尾的一段数据里），自动配对并装好登录启动
+         */
+        get: operations["downloadAgentSetup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications": {
         parameters: {
             query?: never;
@@ -508,6 +603,7 @@ export interface components {
         };
     };
     parameters: {
+        PairingCode: string;
         Limit: number;
         Cursor: string;
     };
@@ -960,6 +1056,122 @@ export interface operations {
                         agentId: string;
                         token: string;
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAgentInstallScript: {
+        parameters: {
+            query: {
+                code: components["parameters"]["PairingCode"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description shell 脚本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/x-shellscript": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAgentInstallPowerShell: {
+        parameters: {
+            query: {
+                code: components["parameters"]["PairingCode"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description PowerShell 脚本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAgentUninstallScript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description shell 脚本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/x-shellscript": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadAgent: {
+        parameters: {
+            query?: {
+                code?: string;
+            };
+            header?: never;
+            path: {
+                os: "linux" | "windows";
+                arch: "amd64" | "arm64";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 代理程序 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadAgentSetup: {
+        parameters: {
+            query: {
+                code: components["parameters"]["PairingCode"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 安装程序 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             default: components["responses"]["Error"];

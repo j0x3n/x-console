@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import {
   Download,
   Eye,
+  FileText,
+  SquarePen,
   EyeOff,
   FolderInput,
   Link2,
@@ -12,8 +14,11 @@ import {
 import MoreMenu from "../../../components/ui/MoreMenu";
 import { useT } from "../../../contexts/LanguageContext";
 import type { DriveItem } from "../api";
+import { canEdit } from "../viewer/kind";
 
 export type ItemAction =
+  | "preview"
+  | "edit"
   | "download"
   | "rename"
   | "move"
@@ -31,6 +36,8 @@ export function itemActions(
 ): ItemAction[] {
   if (opts.trash) return ["restore", "delete-forever"];
   const out: ItemAction[] = [];
+  if (!item.isDir) out.push("preview");
+  if (canEdit(item)) out.push("edit");
   if (!item.isDir) out.push("download");
   out.push("rename", "move");
   if (!item.isDir) out.push("copy-link");
@@ -40,6 +47,8 @@ export function itemActions(
 }
 
 const LABELS: Record<ItemAction, string> = {
+  preview: "Preview",
+  edit: "Edit",
   download: "Download",
   rename: "Rename",
   move: "Move",
@@ -52,6 +61,8 @@ const LABELS: Record<ItemAction, string> = {
 };
 
 const ICONS: Record<ItemAction, ReactNode> = {
+  preview: <FileText size={14} />,
+  edit: <SquarePen size={14} />,
   download: <Download size={14} />,
   rename: <Pencil size={14} />,
   move: <FolderInput size={14} />,

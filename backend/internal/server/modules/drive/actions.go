@@ -3,16 +3,13 @@ package drive
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -187,17 +184,8 @@ func (m *Module) actionWriteText(ctx context.Context, raw json.RawMessage) (any,
 	if err != nil {
 		return nil, err
 	}
-	sum := sha256.Sum256([]byte(in.Text))
-	hash := hex.EncodeToString(sum[:])
-	dest := m.blobPath(hash)
-	if err = os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
-		return nil, err
-	}
-	if _, err = os.Stat(dest); errors.Is(err, os.ErrNotExist) {
-		if err = os.WriteFile(dest, []byte(in.Text), 0600); err != nil {
-			return nil, err
-		}
-	} else if err != nil {
+	hash, err := m.storeBlob([]byte(in.Text))
+	if err != nil {
 		return nil, err
 	}
 	var id int64
@@ -226,11 +214,8 @@ func (m *Module) actionWriteText(ctx context.Context, raw json.RawMessage) (any,
 	if err != nil {
 		return nil, err
 	}
-	if oldHash != "" && oldHash != hash {
-		count, e := m.q.CountBlobReferences(ctx, oldHash)
-		if e == nil && count == 0 {
-			_ = os.Remove(m.blobPath(oldHash))
-		}
+	if oldHash != hash {
+		m.dropBlob(ctx, oldHash)
 	}
 	item, err := m.row(ctx, id)
 	if err != nil {

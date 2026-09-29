@@ -4,7 +4,13 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { ApiError, createApi, errorMessage, unwrap } from "../../api/client";
+import {
+  ApiError,
+  apiFetch,
+  createApi,
+  errorMessage,
+  unwrap,
+} from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import type { components, paths } from "../../api/gen/drive";
 import { withElevation } from "../../auth/elevation";
@@ -267,4 +273,41 @@ export function useSyncS3() {
     onSuccess: () => qc.invalidateQueries({ queryKey: driveKeys.s3Status }),
     onError: fail,
   });
+}
+
+/** 读文件内容。range 是 HTTP Range 的值，比如 "bytes=-1048576"。 */
+export async function readContent(
+  id: number,
+  range?: string,
+): Promise<{ bytes: Uint8Array; etag: string }> {
+  const res = await apiFetch(`/drive/items/${id}/content?inline=1`, {
+    headers: range ? { Range: range } : undefined,
+    cache: "no-store",
+  });
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  return { bytes, etag: res.headers.get("ETag") ?? "" };
+}
+
+/**
+ * 保存文本。带上打开时的 etag，文件在别处改过时抛出 409 的 ApiError。
+ * etag 传空就是直接覆盖。
+ */
+export async function saveContent(
+  id: number,
+  text: string,
+  etag: string,
+): Promise<{ item: DriveItem; etag: string }> {
+  const headers: Record<string, string> = {
+    "Content-Type": "text/plain; charset=utf-8",
+  };
+  if (etag) headers["If-Match"] = etag;
+  const res = await apiFetch(`/drive/items/${id}/content`, {
+    method: "PUT",
+    headers,
+    body: text,
+  });
+  return {
+    item: (await res.json()) as DriveItem,
+    etag: res.headers.get("ETag") ?? "",
+  };
 }

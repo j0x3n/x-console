@@ -110,7 +110,7 @@ paths:
     get:
       operationId: getDriveItemContent
       tags: [drive]
-      description: 下载文件，支持 Range。inline=1 时用于预览（Content-Disposition 为 inline）。
+      description: 下载文件，支持 Range。inline=1 时用于预览（Content-Disposition 为 inline）。响应头 ETag 是当前版本，保存时放进 If-Match。
       parameters:
         - name: inline
           in: query
@@ -126,6 +126,30 @@ paths:
           content:
             application/octet-stream:
               schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: saveDriveItemContent
+      tags: [drive]
+      description: |
+        用新内容替换文本文件，只收 UTF-8，最大 10 MB。
+        If-Match 写打开时拿到的 ETag（读内容时响应头里有）。文件在别处改过时回 409 version_conflict。
+        不带 If-Match 就直接覆盖。成功时响应头 ETag 是新版本。
+      parameters:
+        - name: If-Match
+          in: header
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema: { type: string }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveItem" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /drive/items/{itemId}/thumbnail:

@@ -9,11 +9,13 @@ import {
   EyeOff,
   Files,
   FolderInput,
+  FileText,
   FolderPlus,
   HardDrive,
   LayoutGrid,
   List,
   RotateCcw,
+  SquarePen,
   Trash2,
   Upload,
   X,
@@ -47,11 +49,9 @@ import FileIcon from "./components/FileIcon";
 import ItemMenu, { itemActions, type ItemAction } from "./components/ItemMenu";
 import MoveDialog from "./components/MoveDialog";
 import NameDialog from "./components/NameDialog";
-import PreviewDialog from "./components/PreviewDialog";
 import SyncIcon from "./components/SyncIcon";
 import UploadPanel from "./components/UploadPanel";
 import {
-  canPreview,
   daysLeftInTrash,
   fileKind,
   nextSort,
@@ -60,6 +60,8 @@ import {
   type SortKey,
 } from "./logic";
 import { useUploads } from "./upload";
+import FileViewer from "./viewer/FileViewer";
+import { canEdit } from "./viewer/kind";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 type Layout = "list" | "grid";
@@ -77,7 +79,7 @@ type DialogState =
   | { kind: "new-folder" }
   | { kind: "rename"; item: DriveItem }
   | { kind: "move"; ids: number[] }
-  | { kind: "preview"; item: DriveItem }
+  | { kind: "view"; id: number; edit: boolean }
   | null;
 
 export default function DrivePage() {
@@ -194,6 +196,12 @@ function DriveBrowser() {
     [items.data, sort],
   );
   const selectedItems = list.filter((i) => selected.has(i.id));
+  // 查看器里左右切换的范围：当前列表里的文件。
+  const files = useMemo(() => list.filter((i) => !i.isDir), [list]);
+  const single =
+    selectedItems.length === 1 && !selectedItems[0].isDir
+      ? selectedItems[0]
+      : null;
 
   const upload = (files: File[]) => {
     if (files.length === 0 || trash) return;
@@ -244,8 +252,7 @@ function DriveBrowser() {
   const open = (item: DriveItem) => {
     if (trash) return;
     if (item.isDir) go({ folder: item.id, q: null });
-    else if (canPreview(item)) setDialog({ kind: "preview", item });
-    else download([item]);
+    else setDialog({ kind: "view", id: item.id, edit: false });
   };
 
   const download = (targets: DriveItem[]) => {
@@ -271,6 +278,13 @@ function DriveBrowser() {
 
   const onAction = async (action: ItemAction, item: DriveItem) => {
     switch (action) {
+      case "preview":
+      case "edit":
+        return setDialog({
+          kind: "view",
+          id: item.id,
+          edit: action === "edit",
+        });
       case "download":
         return download([item]);
       case "rename":
@@ -519,6 +533,26 @@ function DriveBrowser() {
             </>
           ) : (
             <>
+              {single && (
+                <button
+                  className="xc-btn small"
+                  onClick={() =>
+                    setDialog({ kind: "view", id: single.id, edit: false })
+                  }
+                >
+                  <FileText size={14} /> {t("Preview")}
+                </button>
+              )}
+              {single && canEdit(single) && (
+                <button
+                  className="xc-btn small"
+                  onClick={() =>
+                    setDialog({ kind: "view", id: single.id, edit: true })
+                  }
+                >
+                  <SquarePen size={14} /> {t("Edit")}
+                </button>
+              )}
               {selectedItems.some((i) => !i.isDir) && (
                 <button
                   className="xc-btn small"
@@ -782,8 +816,13 @@ function DriveBrowser() {
           }
         />
       )}
-      {dialog?.kind === "preview" && (
-        <PreviewDialog item={dialog.item} onClose={() => setDialog(null)} />
+      {dialog?.kind === "view" && (
+        <FileViewer
+          items={files}
+          initialId={dialog.id}
+          initialEdit={dialog.edit}
+          onClose={() => setDialog(null)}
+        />
       )}
     </div>
   );

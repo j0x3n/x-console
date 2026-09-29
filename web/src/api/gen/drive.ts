@@ -73,9 +73,14 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description 下载文件，支持 Range。inline=1 时用于预览（Content-Disposition 为 inline）。 */
+        /** @description 下载文件，支持 Range。inline=1 时用于预览（Content-Disposition 为 inline）。响应头 ETag 是当前版本，保存时放进 If-Match。 */
         get: operations["getDriveItemContent"];
-        put?: never;
+        /**
+         * @description 用新内容替换文本文件，只收 UTF-8，最大 10 MB。
+         *     If-Match 写打开时拿到的 ETag（读内容时响应头里有）。文件在别处改过时回 409 version_conflict。
+         *     不带 If-Match 就直接覆盖。成功时响应头 ETag 是新版本。
+         */
+        put: operations["saveDriveItemContent"];
         post?: never;
         delete?: never;
         options?: never;
@@ -502,6 +507,35 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveDriveItemContent: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "text/plain": string;
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveItem"];
                 };
             };
             default: components["responses"]["Error"];
