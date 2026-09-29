@@ -131,8 +131,8 @@ func (m *Module) syncRepo(ctx context.Context, c *restClient, repo, login string
 }
 
 func (m *Module) syncPulls(ctx context.Context, c *restClient, repo string) error {
-	var pulls []ghPull
-	if err := c.get(ctx, "/repos/"+repo+"/pulls", url.Values{"state": {"open"}, "per_page": {"100"}}, &pulls); err != nil {
+	pulls, err := m.openPulls(ctx, c, repo)
+	if err != nil {
 		return err
 	}
 	now := m.now()
@@ -174,6 +174,27 @@ func (m *Module) syncPulls(ctx context.Context, c *restClient, repo string) erro
 		}
 	}
 	return nil
+}
+
+// maxPullPages caps the open pull requests read per repository (2000).
+const maxPullPages = 20
+
+// openPulls reads every open pull request, page by page.
+func (m *Module) openPulls(ctx context.Context, c *restClient, repo string) ([]ghPull, error) {
+	var all []ghPull
+	for page := 1; page <= maxPullPages; page++ {
+		var batch []ghPull
+		q := url.Values{"state": {"open"}, "per_page": {"100"}, "page": {strconv.Itoa(page)}}
+		more, err := c.getPage(ctx, "/repos/"+repo+"/pulls", q, &batch)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, batch...)
+		if !more {
+			break
+		}
+	}
+	return all, nil
 }
 
 // reviewState sums up the latest review of every reviewer.

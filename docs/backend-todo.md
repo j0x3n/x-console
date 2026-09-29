@@ -13,7 +13,7 @@
 | 1 | B22 偏好设置 | 做完 | `core/preferences.go` | 无 |
 | 2 | B23 天气、订阅分类、周期 | 做完 | `brief/weather.go`、`monitoring/categories.go`、`monitoring/subscriptions.go`、迁移 `20260929000100` | 无 |
 | 3 | B34 推送自检 | 做完 | `reminders/delivery.go`、`reminders/notify_handlers.go`、迁移 `20260929000200` | 无 |
-| 4 | B35 GitHub | 在做 | `modules/github/` | 先做仓库列表 `repos.go`，再做同步间隔，最后 PR 分页（规格里的顺序） |
+| 4 | B35 GitHub | 做完 | `modules/github/repos.go`、`client.go`、`sync.go`、`module.go` | 无。PR 只存打开的（表和契约都没有状态字段），所以规格里“加上最近 7 天关闭的”没做，需要时要先加字段 |
 | 5 | B24、B25 文件目录和备份 | 没开始 | | |
 | 6 | B26 服务器详情 | 没开始 | | |
 | 7 | B27 月流量 | 没开始 | | |

@@ -202,7 +202,7 @@
 功能限制：
 - 同一个 TOTP 码在 30 秒窗口内可以重复使用。只支持一个用户。
 - HA 的 `WatchEntity` 注册只存在内存里，使用方要在 `Start` 里调用。
-- GitHub 每个仓库只拉第一页（100 个 PR）。Linear 不导入已完成或已取消的 Issue，本地新建的 Issue 不会自动建到 Linear。
+- Linear 不导入已完成或已取消的 Issue，本地新建的 Issue 不会自动建到 Linear。
 - 看板拖动只支持桌面。习惯的提醒时段不能跨午夜。番茄钟不能暂停。
 - 早报的习惯部分只显示今天，`contracts.Habits` 没有“昨天”的数据。
 - SSH 主机的最后在线时间只存在内存里。Windows 上 `svc.logs` 返回“不支持”。
