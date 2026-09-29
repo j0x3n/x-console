@@ -45,7 +45,8 @@
 | 13g | B32 收尾 | 做完 | `modules/ai/model_settings.go`、`llm_config_test.go`、`api/modules/ai.yaml` | 模型设置改成事务，思考参数不兼容后续调用不再发送；旧 SDK 依赖已移除，契约错误码已对齐；接 B33 |
 | 14a | B33 会话和权限接口 | 做完 | `modules/ai/host_handlers.go`、`handlers.go`、`queries.sql`、迁移 `20260930000300` | 机器会话隔离、主机存在检查、权限内存状态和失效、审计事件已测；接命令分级 |
 | 14b | B33 命令分级 | 做完 | `modules/ai/hostagent/classify.go`、`classify_test.go` | 只读白名单、写命令降级、高危规则和绕过写法已测；全量后端检查通过 |
-| 14c | B33 代理工具和执行 | 在做 | `modules/ai/hostagent/tools.go`、`worker.go` | 实现 10 个工具、能力检查、确认和审计 |
+| 14c | B33 代理工具 | 做完 | `modules/ai/hostagent/tools.go`、`tools_test.go` | 10 个工具走现有代理能力，文件读写走流接口，旧文件先备份；能力检查、输出截断已测 |
+| 14d | B33 会话执行和确认 | 在做 | `modules/ai/worker.go`、`hostagent/` | 机器专属工具、权限矩阵、高危确认、审计、停止与端到端主流程 |
 | 15 起 | B36 及以后 | 没开始 | | 按 B36 规格继续 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
