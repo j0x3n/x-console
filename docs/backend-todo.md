@@ -20,7 +20,7 @@
 | 5d | B25 备份模块 `modules/backup` | 做完 | `modules/backup/`（archive、export、handlers、restore、auto）、`cmd/server/main.go` | 恢复走“解包 → 停进程 → 重启时换数据库”，见 `docs/06-deploy.md`。没做“恢复期间新请求回 503”，因为进程马上停止 |
 | 6 | B26 服务器详情刷新周期 | 做完 | `ws/events.go`、`ws/subscriptions.go`、`hosts/interval.go`、`hosts/metrics.go`、`agent/metrics/metrics.go`、`protocol.MetricsDetailParams` | “没有实时刷新”要在线上查，记进了已知问题 |
 | 7 | B27 月流量 | 做完 | `hosts/traffic.go`、`pkg/protocol/methods_hosts.go`、`agent/metrics/metrics.go`、迁移 `20260929000300` | 无。删除代理主机时没清流量表（代理没有删除事件），只清了 SSH 主机的 |
-| 8 | B28 容器日志、镜像清理 | 没开始 | | |
+| 8 | B28 容器日志、镜像清理 | 做完 | `agent/docker/lines.go`、`agent/docker/docker.go`、`monitoring/docker.go`、`monitoring/images.go`、`protocol/methods_docker.go` | 无。B28 里“进程合并、终端脚本、容器排序”前端已做完，后端不用动 |
 | 9 | B29 系统日志 | 没开始 | | |
 | 10 | B30 一条命令添加服务器 | 没开始 | | |
 | 11 | B33 远端日志部分 | 没开始 | | |
@@ -40,7 +40,7 @@
 
 | 文件 | 接口数 | 任务 |
 | --- | --- | --- |
-| `modules/monitoring/pending.go` | 6 | B23、B28 |
+| `modules/monitoring/pending.go` | 已删除 | B23、B28 都做完了 |
 | `modules/hosts/pending.go` | 7 | B27、B29、B33 |
 | `modules/drive/pending.go` | 21 | B31 |
 | `modules/ai/pending.go` | 14 | B32、B33 |

@@ -109,6 +109,16 @@ func RegisterClient(c Registrar, cl *Client) {
 	c.Handle(protocol.MethodDockerImages, func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return cl.Images(ctx)
 	})
+	c.Handle(protocol.MethodDockerImageRemove, func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var p protocol.DockerImageRemoveParams
+		if err := rpcutil.Decode(raw, &p); err != nil {
+			return nil, err
+		}
+		return nil, cl.RemoveImage(ctx, p.ID)
+	})
+	c.Handle(protocol.MethodDockerImagePrune, func(ctx context.Context, _ json.RawMessage) (any, error) {
+		return cl.PruneImages(ctx)
+	})
 	c.HandleStream(protocol.MethodDockerLogs, func(ctx context.Context, raw json.RawMessage, s *rpc.Stream) error {
 		var p protocol.DockerLogsParams
 		if err := rpcutil.Decode(raw, &p); err != nil {
@@ -314,7 +324,7 @@ func (c *Client) Logs(ctx context.Context, p protocol.DockerLogsParams, w io.Wri
 	if p.Follow {
 		q.Set("follow", "1")
 	}
-	if p.Timestamps {
+	if p.Timestamps || p.Lines {
 		q.Set("timestamps", "1")
 	}
 	resp, err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(p.ID)+"/logs", q)
@@ -325,7 +335,9 @@ func (c *Client) Logs(ctx context.Context, p protocol.DockerLogsParams, w io.Wri
 	// Close the body when ctx ends so a blocked follow read returns.
 	stop := context.AfterFunc(ctx, func() { resp.Body.Close() })
 	defer stop()
-	if info.Config.Tty {
+	if p.Lines {
+		err = logLines(resp.Body, w, info.Config.Tty)
+	} else if info.Config.Tty {
 		err = copyRaw(resp.Body, w)
 	} else {
 		err = Demux(resp.Body, w)
@@ -570,4 +582,63 @@ func (c *Client) Images(ctx context.Context) (protocol.DockerImageList, error) {
 			Created: time.Unix(x.Created, 0).UTC(), Containers: x.Containers})
 	}
 	return out, nil
+}
+
+// ---- image cleanup ----
+
+// checkImageRef allows an image ID or a tag such as "library/nginx:1.27".
+func checkImageRef(ref string) error {
+	if ref == "" || len(ref) > 300 || strings.Contains(ref, "..") {
+		return rpcutil.BadParams("invalid image %q", ref)
+	}
+	for _, r := range ref {
+		ok := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune(":._/@-", r)
+		if !ok {
+			return rpcutil.BadParams("invalid image %q", ref)
+		}
+	}
+	return nil
+}
+
+// RemoveImage deletes an image without force. Docker answers 409 when a
+// container still uses it, which comes back as protocol.CodeExists.
+func (c *Client) RemoveImage(ctx context.Context, ref string) error {
+	if err := checkImageRef(ref); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	resp, err := c.do(ctx, http.MethodDelete, "/images/"+strings.ReplaceAll(url.PathEscape(ref), "%2F", "/"), nil)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
+}
+
+// PruneImages deletes every image no container uses, tagged or not.
+func (c *Client) PruneImages(ctx context.Context) (protocol.DockerImagePruneResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+	resp, err := c.do(ctx, http.MethodPost, "/images/prune", url.Values{"filters": {`{"dangling":["false"]}`}})
+	if err != nil {
+		return protocol.DockerImagePruneResult{}, err
+	}
+	defer resp.Body.Close()
+	var out struct {
+		ImagesDeleted []struct {
+			Deleted string `json:"Deleted"`
+		} `json:"ImagesDeleted"`
+		SpaceReclaimed int64 `json:"SpaceReclaimed"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return protocol.DockerImagePruneResult{}, rpcutil.Failed("docker: bad prune answer: %v", err)
+	}
+	res := protocol.DockerImagePruneResult{SpaceReclaimed: out.SpaceReclaimed}
+	for _, x := range out.ImagesDeleted {
+		if x.Deleted != "" {
+			res.Deleted++
+		}
+	}
+	return res, nil
 }

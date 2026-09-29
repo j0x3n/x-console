@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -153,21 +154,30 @@ func logTail(tail *int) int {
 	return min(*tail, 5000)
 }
 
-// openLogs starts a docker.logs stream.
-func (m *Module) openLogs(ctx context.Context, hostID string, p protocol.DockerLogsParams) (*rpc.Stream, error) {
+// openLogs starts a docker.logs stream. With p.Lines set, it asks the agent
+// for lines with their stream only if the agent can; structured tells which
+// it got.
+func (m *Module) openLogs(ctx context.Context, hostID string, p protocol.DockerLogsParams) (s *rpc.Stream, structured bool, err error) {
 	id, err := m.dockerAgent(ctx, hostID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	s, err := m.d.Agents.Open(ctx, id, protocol.MethodDockerLogs, p)
-	return s, dockerErr(err)
+	if p.Lines {
+		a, err := m.d.Agents.Get(ctx, id)
+		if err != nil {
+			return nil, false, err
+		}
+		p.Lines = a.Has(protocol.CapDockerLines)
+	}
+	s, err = m.d.Agents.Open(ctx, id, protocol.MethodDockerLogs, p)
+	return s, p.Lines, dockerErr(err)
 }
 
 // GetContainerLogs is GET /hosts/{hostId}/docker/containers/{containerId}/logs.
 func (m *Module) GetContainerLogs(w http.ResponseWriter, r *http.Request, hostID, container string, params api.GetContainerLogsParams) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	s, err := m.openLogs(ctx, hostID, protocol.DockerLogsParams{ID: container, Tail: logTail(params.Tail)})
+	s, _, err := m.openLogs(ctx, hostID, protocol.DockerLogsParams{ID: container, Tail: logTail(params.Tail)})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -208,7 +218,8 @@ func (m *Module) FollowContainerLogs(w http.ResponseWriter, r *http.Request, hos
 	// The stream lives as long as the socket, not the request bookkeeping.
 	ctx, cancel := context.WithCancel(context.WithoutCancel(r.Context()))
 	defer cancel()
-	s, err := m.openLogs(ctx, hostID, protocol.DockerLogsParams{ID: container, Tail: logTail(params.Tail), Follow: true})
+	asJSON := params.Format != nil && *params.Format == api.Json
+	s, structured, err := m.openLogs(ctx, hostID, protocol.DockerLogsParams{ID: container, Tail: logTail(params.Tail), Follow: true, Lines: asJSON})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -220,20 +231,84 @@ func (m *Module) FollowContainerLogs(w http.ResponseWriter, r *http.Request, hos
 	}
 	// The browser only listens; CloseRead ends ctx when it goes away.
 	ctx = ws.CloseRead(ctx)
+	// An agent that cannot send lines sends text; make the text into lines
+	// when the browser asked for JSON.
+	var text *textLines
+	if asJSON && !structured {
+		text = &textLines{}
+	}
+	send := func(frames ...[]byte) error {
+		for _, f := range frames {
+			if err := ws.Write(ctx, websocket.MessageText, f); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for {
 		b, err := s.Recv(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				if text != nil {
+					_ = send(text.finish()...)
+				}
 				_ = ws.Close(websocket.StatusNormalClosure, "log ended")
 			} else if ctx.Err() == nil {
 				_ = ws.Close(websocket.StatusInternalError, clip(errText(dockerErr(err)), 100))
 			}
 			return
 		}
-		if err := ws.Write(ctx, websocket.MessageText, []byte(strings.ToValidUTF8(string(b), "�"))); err != nil {
+		frames := [][]byte{[]byte(strings.ToValidUTF8(string(b), "�"))}
+		if text != nil {
+			frames = text.add(string(b))
+		}
+		if err := send(frames...); err != nil {
 			return
 		}
 	}
+}
+
+// maxFrameLines is the most lines the server puts in one JSON frame.
+const maxFrameLines = 200
+
+// textLines makes log text from an agent without CapDockerLines into frames
+// of api.DockerLogLine. All lines count as standard output, because the
+// agent does not tell.
+type textLines struct{ rest string }
+
+func (t *textLines) add(chunk string) [][]byte {
+	t.rest += strings.ToValidUTF8(chunk, "�")
+	i := strings.LastIndexByte(t.rest, '\n')
+	if i < 0 {
+		return nil
+	}
+	whole := t.rest[:i]
+	t.rest = t.rest[i+1:]
+	return packLines(strings.Split(whole, "\n"))
+}
+
+func (t *textLines) finish() [][]byte {
+	rest := t.rest
+	t.rest = ""
+	if rest == "" {
+		return nil
+	}
+	return packLines([]string{rest})
+}
+
+func packLines(lines []string) [][]byte {
+	var out [][]byte
+	for len(lines) > 0 {
+		n := min(len(lines), maxFrameLines)
+		batch := make([]protocol.DockerLogLine, 0, n)
+		for _, l := range lines[:n] {
+			batch = append(batch, protocol.DockerLogLine{Stream: "stdout", Text: strings.TrimSuffix(l, "\r")})
+		}
+		b, _ := json.Marshal(batch)
+		out = append(out, b)
+		lines = lines[n:]
+	}
+	return out
 }
 
 // GetDockerStats is GET /hosts/{hostId}/docker/stats.

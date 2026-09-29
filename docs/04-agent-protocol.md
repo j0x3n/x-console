@@ -118,8 +118,16 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | system.info、metrics、processes、files、exec、pty | 有 | 有 |
 | services | systemd | Windows 服务 |
 | docker | 装了 Docker 才有 | 一般没有 |
+| docker.lines | 和 docker 一起 | 一般没有 |
 | clipboard、power、coding | 没有 | 有 |
 | proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
+
+### Docker 日志和镜像（B28）
+
+- `docker.logs` 参数加 `lines`。代理有能力 `docker.lines` 时才认，这时每个流帧是一个 JSON 数组，每项 `{stream, text, time}`，`stream` 是 `stdout` 或 `stderr`（有 TTY 的容器都算 `stdout`），`time` 是 Docker 写的时间，一帧最多 200 行，一行最多 16 KB，超过的截断并加 `…`。代理在这个模式下总是向 Docker 要时间戳，并把它从文本里去掉。
+- 服务端的 `logs/follow?format=json` 遇到没有 `docker.lines` 的旧代理时，自己把纯文本按行切开，当作 `stdout` 发给浏览器。不带 `format` 时不变，还是纯文本。
+- `docker.image_remove {id}`：删一个镜像，不加 `force`。Docker 回 409 时代理回 `CodeExists`，消息是 Docker 原话。
+- `docker.image_prune`：等同 `docker image prune -a`，返回 `{deleted, spaceReclaimed}`。
 
 ## 新增方法的步骤
 
