@@ -198,6 +198,7 @@
 - B1 本机代理的自动安装、吊销后保持停用和卸载尚未在真实服务器验证。
 - 真实的 Home Assistant、Telegram、Bark、Server酱、Web Push、GitHub、Linear。测试全部用假服务器。
 - systemd 服务管理（开发环境没有 systemd）和真实的 SSH 主机。
+- B29 系统日志：`journalctl` 只用假输出测过，没在真实 systemd 机器上跑；Windows 事件日志（`wevtutil`）只测了 XML 解析和查询拼装，没在 Windows 上跑。没有 journal 的 Linux 读 syslog 文件时没有级别，按级别过滤会得到空列表。
 - 服务器详情页“没有实时刷新”的原因没查：代码和测试里数据流是通的（订阅、进入详情模式、代理重连后重发都有测试），要在线上按 `docs/specs/B26.md` 的“排查”一节看 WebSocket 里有没有 `host.metrics`、代理是不是旧版。B26 加了 1 秒模式和代理重连重发的测试。
 
 功能限制：
@@ -270,6 +271,7 @@
 | 2026-09-29 | `protocol.MetricsDetailParams` 加 `IntervalMs`（`omitempty`，旧代理忽略）；浏览器 WebSocket 加控制消息 `interval {hostId, ms}`（`ws/events.go`），`ws.Handler` 按各连接要求的最小值调用代理，并在进程内发事件 `host.metrics_interval {hostId, ms}`（不转发给浏览器）；`hosts` 模块订阅它，1 秒模式下每个样本都推，环形缓冲只在这个模式下每 4.5 秒合并成一格，保持一小时的历史；代理加 `Collector.SampleFast` | B26 刷新周期 |
 | 2026-09-29 | `protocol.MetricsSample` 和 `MetricsSummary` 加 `netRxTotal`、`netTxTotal`（`omitempty`，累计字节数，只算 `protocol.CountedInterface` 认可的网卡；旧代理不传）；新增迁移 `20260929000300` 三张表 `host_traffic_hourly`、`host_traffic_daily`、`host_traffic_plans`；`hosts` 模块每次样本进内存累加器，每分钟落库，进程内新事件 `host.traffic_plan_changed {hostId}`；`hosts.cleanup` 删 7 天前的小时表 | B27 月流量 |
 | 2026-09-29 | `protocol.DockerLogsParams` 加 `Lines`，新增 `DockerLogLine`、`DockerImageRemoveParams`、`DockerImagePruneResult`、方法 `docker.image_remove`、`docker.image_prune` 和能力 `docker.lines`（代理 `capabilities()` 在有 Docker 时一起报）；`monitoring/pending.go` 删除，`RemoveImage`、`PruneImages` 在 `monitoring/images.go` | B28 容器日志来源、镜像清理 |
+| 2026-09-29 | 新增协议 `pkg/protocol/methods_syslog.go`（`syslog.query`、`syslog.units`、`syslog.follow`、错误码 `syslog_permission`）和能力 `syslog`；新增代理包 `internal/agent/syslog`，`cmd/agent/main.go` 各加一行；`hosts` 模块的 `agentErr` 加一个错误码映射，`GetSyslog`、`ListSyslogUnits`、`FollowSyslog` 从 `pending.go` 挪到 `hosts/syslog.go` | B29 系统日志 |
 | 2026-09-29 | `components/markdown/MarkdownEditor.tsx` 加可选的 `uploadScope`（粘贴、拖入、选择图片）；新增 `components/markdown/upload.ts`（上传、占位、插入文字，笔记的 `logic.ts` 改成转发）；`Markdown.tsx` 显示 `/api/v1/files/<id>` 的图片时取缩略图并链接原图；`NavChildLinks` 加可选的 `limit` 和链接的 `nested`（`.nav-child.nested` 在 `ui.css`）；`lib/i18n.ts` 加编辑框贴图的文案；新增契约 `api/modules/files.yaml`（公共上传，后端模块待做） | B36 贴图、侧边栏显示项目分类 |
 | 2026-09-29 | `app/App.tsx`：路径是 `/s/<token>` 时渲染云盘分享页，不经过登录检查；`drive.yaml` 新增公开入口 `/public/shares/*`（`security: []`），云盘模块的 `PublicPaths` 先放在 `drive/pending.go` | B31 外链分享 |
 | 2026-09-29 | `drive/viewer/LogView.tsx` 拆出 `RangeLogView`（按段读和实时模式，不绑定云盘），服务器文件标签也用它；`assistant/components/Timeline.tsx` 的动作卡片显示命令和原因、长结果折叠；`hosts.yaml` 新增 `files/range`、`files/follow`（后端待做，代理要加 `files.range` 能力） | B33 Agent 标签、远端日志 |

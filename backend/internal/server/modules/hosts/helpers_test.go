@@ -248,3 +248,13 @@ func (f *fakeSSH) session(ch ssh.Channel, in <-chan *ssh.Request) {
 		}
 	}
 }
+
+// auditCount counts audit entries of one action.
+func auditCount(t *testing.T, env *testutil.Env, action string) int {
+	t.Helper()
+	var n int
+	if err := env.App.Deps.DB.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE action = ?`, action).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}

@@ -93,6 +93,7 @@ const (
 	// CapDockerLines: docker.logs understands DockerLogsParams.Lines, and the
 	// docker.image_remove and docker.image_prune methods exist (B28).
 	CapDockerLines = "docker.lines"
+	CapSyslog      = "syslog" // B29: systemd journal, syslog files or the Windows event log
 	CapPTY         = "pty"
 	CapFiles       = "files"
 	CapExec        = "exec"
