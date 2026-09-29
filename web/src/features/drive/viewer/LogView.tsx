@@ -7,6 +7,30 @@ import { useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
 import { formatBytes } from "../../../lib/time";
 import { readContent, type DriveFollowFrame, type DriveItem } from "../api";
+
+/** 读文件的 [start, end) 这一段，end 不传就读到结尾。 */
+export type ReadRange = (start: number, end?: number) => Promise<Uint8Array>;
+
+/** 云盘里的文件。 */
+export default function LogView({ item }: { item: DriveItem }) {
+  const read: ReadRange = (start, end) =>
+    readContent(
+      item.id,
+      end !== undefined
+        ? `bytes=${start}-${end - 1}`
+        : start > 0
+          ? `bytes=${start}-`
+          : undefined,
+    ).then((r) => r.bytes);
+  return (
+    <RangeLogView
+      fileKey={`drive-${item.id}`}
+      size={item.size}
+      read={read}
+      followPath={(offset) => `/drive/items/${item.id}/follow?offset=${offset}`}
+    />
+  );
+}
 import { appendLog, concatBytes, LOG_CHUNK_BYTES, splitChunk } from "./kind";
 
 /**
@@ -15,7 +39,19 @@ import { appendLog, concatBytes, LOG_CHUNK_BYTES, splitChunk } from "./kind";
  * “实时”打开后通过 WebSocket 接收追加的内容，接到最后并自动滚动；
  * 文件被轮转（变小）时从头开始。
  */
-export default function LogView({ item }: { item: DriveItem }) {
+export function RangeLogView({
+  fileKey,
+  size,
+  read,
+  followPath,
+}: {
+  /** 换文件时变，用来重新读。 */
+  fileKey: string;
+  size: number;
+  read: ReadRange;
+  /** 实时模式的 WebSocket 路径（不含 /api/v1）。 */
+  followPath: (offset: number) => string;
+}) {
   const t = useT();
   const [lines, setLines] = useState<LogLine[] | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -45,9 +81,9 @@ export default function LogView({ item }: { item: DriveItem }) {
     setLines(null);
     setError(null);
     setLive(false);
-    const start = Math.max(0, item.size - LOG_CHUNK_BYTES);
-    readContent(item.id, start > 0 ? `bytes=${start}-` : undefined)
-      .then(({ bytes }) => {
+    const start = Math.max(0, size - LOG_CHUNK_BYTES);
+    read(start)
+      .then((bytes) => {
         if (!alive) return;
         const { head, lines } = splitChunk(bytes, start === 0);
         state.current = {
@@ -65,14 +101,13 @@ export default function LogView({ item }: { item: DriveItem }) {
     return () => {
       alive = false;
     };
-  }, [item.id, item.size, attempt]);
+    // read 每次渲染都是新函数，只在换文件时重新读。
+  }, [fileKey, size, attempt]);
 
   // 实时模式。
   useEffect(() => {
     if (!live) return;
-    const ws = new WebSocket(
-      wsUrl(`/drive/items/${item.id}/follow?offset=${state.current.end}`),
-    );
+    const ws = new WebSocket(wsUrl(followPath(state.current.end)));
     let opened = false;
     ws.onopen = () => {
       opened = true;
@@ -115,15 +150,15 @@ export default function LogView({ item }: { item: DriveItem }) {
       });
     };
     return () => ws.close(1000);
-  }, [live, item.id]);
+  }, [live, fileKey]);
 
   const loadOlder = () => {
     const s = state.current;
     if (loading || s.start === 0) return;
     const from = Math.max(0, s.start - LOG_CHUNK_BYTES);
     setLoading(true);
-    readContent(item.id, `bytes=${from}-${s.start - 1}`)
-      .then(({ bytes }) => {
+    read(from, s.start)
+      .then((bytes) => {
         const all = concatBytes(bytes, s.head);
         const { head, lines } = splitChunk(all, from === 0);
         const first = s.nextId - lines.length;

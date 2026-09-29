@@ -693,3 +693,20 @@ button.ai-model-row:hover,
   color: var(--xc-muted);
   font-size: 12px;
 }
+
+/* B33：机器 Agent 的命令和原因 */
+.ai-command {
+  margin: 0 0 8px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+  font-family: var(--xc-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.ai-action-reason {
+  margin: 0 0 6px;
+  color: var(--xc-text-2);
+  font-size: 12.5px;
+}

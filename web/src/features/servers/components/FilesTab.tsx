@@ -8,6 +8,7 @@ import {
   Link2,
   Pencil,
   RefreshCw,
+  ScrollText,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -27,7 +28,8 @@ import {
   type FileEntry,
   type HostDetail,
 } from "../api";
-import { breadcrumbs, joinPath } from "../lib";
+import { breadcrumbs, canViewAsText, joinPath } from "../lib";
+import RemoteLogDialog from "./RemoteLogDialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 const MAX_UPLOAD = 1 << 30;
@@ -39,6 +41,7 @@ export default function FilesTab({ host }: { host: HostDetail }) {
   const [path, setPath] = useState("");
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState("");
+  const [viewing, setViewing] = useState<FileEntry | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const files = useFiles(host.id, path);
   const list = files.data;
@@ -262,6 +265,13 @@ export default function FilesTab({ host }: { host: HostDetail }) {
                         >
                           <Icon size={15} /> {e.name}
                         </button>
+                      ) : e.type === "file" && canViewAsText(e.name) ? (
+                        <button
+                          className="servers-file"
+                          onClick={() => setViewing(e)}
+                        >
+                          <Icon size={15} /> {e.name}
+                        </button>
                       ) : (
                         <span className="servers-file">
                           <Icon size={15} /> {e.name}
@@ -280,6 +290,16 @@ export default function FilesTab({ host }: { host: HostDetail }) {
                       {e.mode}
                     </td>
                     <td className="servers-actions">
+                      {e.type === "file" && canViewAsText(e.name) && (
+                        <button
+                          className="xc-btn small ghost"
+                          onClick={() => setViewing(e)}
+                          aria-label={`${t("Open file")} ${e.name}`}
+                          title={t("Open file")}
+                        >
+                          <ScrollText size={13} />
+                        </button>
+                      )}
                       {e.type === "file" && (
                         <a
                           className="xc-btn small ghost"
@@ -314,6 +334,11 @@ export default function FilesTab({ host }: { host: HostDetail }) {
           </table>
         </div>
       )}
+      <RemoteLogDialog
+        hostId={host.id}
+        file={viewing}
+        onClose={() => setViewing(null)}
+      />
     </div>
   );
 }

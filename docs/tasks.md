@@ -22,6 +22,7 @@
 | B31（预览部分） | 云盘统一查看器：图片缩放、音视频、PDF、文本编辑保存（带版本号，冲突回 409）、Markdown、日志分段读、全屏、左右切换。分支 `claude/project-thread-sssfqr`，用户 2026-09-29 让 Claude 直接写。复制、压缩、分享、历史版本、日志实时模式、任务进度下一个 PR 做 | [B31](specs/B31.md) | Claude |
 | B36 | 前端：分类（设置、筛选、分组、侧边栏）、检查清单、截止时间到分钟和提前提醒、公共编辑框贴图、工具栏合成一行。后端写成规格里的“后端（待做）”，项目的新接口先回 501，公共上传 `files.yaml` 还没有模块。分支 `claude/project-thread-o3tsew`，用户 2026-09-29 确认“二级分类”是 Issue 分两级 | [B36](specs/B36.md) | Claude（前端） |
 | B32 | 前端：设置 → AI 的供应商、模型选择（能搜索、显示规格和价格）、思考程度、本月用量、笔记自动标题和标签的开关，笔记编辑页的建议标签。后端没上线时还是旧的 Anthropic 表单。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B32](specs/B32.md) | Claude（前端） |
+| B33 | 前端：服务器和电脑详情的 Agent 标签（会话列表、对话、命令卡片、长输出折叠、权限下拉、停止），AI 浮窗按 B32 判断有没有选模型；文件标签里查看远端日志（B31 留下的）。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B33](specs/B33.md) | Claude（前端） |
 | B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
 
 ## 待做
@@ -259,6 +260,7 @@
 | --- | --- | --- |
 | 2026-09-29 | `components/markdown/MarkdownEditor.tsx` 加可选的 `uploadScope`（粘贴、拖入、选择图片）；新增 `components/markdown/upload.ts`（上传、占位、插入文字，笔记的 `logic.ts` 改成转发）；`Markdown.tsx` 显示 `/api/v1/files/<id>` 的图片时取缩略图并链接原图；`NavChildLinks` 加可选的 `limit` 和链接的 `nested`（`.nav-child.nested` 在 `ui.css`）；`lib/i18n.ts` 加编辑框贴图的文案；新增契约 `api/modules/files.yaml`（公共上传，后端模块待做） | B36 贴图、侧边栏显示项目分类 |
 | 2026-09-29 | `app/App.tsx`：路径是 `/s/<token>` 时渲染云盘分享页，不经过登录检查；`drive.yaml` 新增公开入口 `/public/shares/*`（`security: []`），云盘模块的 `PublicPaths` 先放在 `drive/pending.go` | B31 外链分享 |
+| 2026-09-29 | `drive/viewer/LogView.tsx` 拆出 `RangeLogView`（按段读和实时模式，不绑定云盘），服务器文件标签也用它；`assistant/components/Timeline.tsx` 的动作卡片显示命令和原因、长结果折叠；`hosts.yaml` 新增 `files/range`、`files/follow`（后端待做，代理要加 `files.range` 能力） | B33 Agent 标签、远端日志 |
 | 2026-09-28 | `core.yaml` 加代理一键安装的 5 个公开接口（后端占位在 `core/pending.go`）；服务器详情标签支持 `preview`（旧代理也显示新标签）；导航“本机”改名“电脑”（英文键 `Computer`） | B29、B30 |
 | 2026-09-28 | 新增公共组件 `components/log/LogViewer.tsx`（虚拟列表、级别、输出、关键字过滤）和 `components/log/levels.ts`；`monitoring.yaml` 容器日志加 `format=json`、镜像删除和清理 | B28 容器日志、B29 系统日志、B31 日志文件共用 |
 | 2026-09-28 | `api/events.ts` 加 `useMetricsInterval`，WebSocket 控制消息加 `{"type":"interval","hostId","ms"}`（旧服务端忽略） | B26 刷新周期 |

@@ -99,4 +99,5 @@ registerZh({
   "Suggested tags": "建议的标签",
   "Show as suggestions first": "先显示成建议",
   "Add them directly": "直接加上",
+  "Show all": "显示全部",
 });

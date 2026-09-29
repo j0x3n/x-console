@@ -98,7 +98,7 @@ export function buildTimeline(
         key: `a${b.id}`,
         action,
         title: tool?.title ?? action,
-        effect: tool?.effect ?? "unknown",
+        effect: p?.effect ?? tool?.effect ?? "unknown",
         input: (b.input ?? {}) as Record<string, unknown>,
         status,
         result: result ? resultText(result.content) : p?.result,
@@ -139,3 +139,93 @@ export function summarizeInput(
 export function conversationTitle(title: string) {
   return title.trim() || "新对话";
 }
+
+/*
+ * 很长的结果只显示开头和结尾，中间写省略了多少行。
+ * 超过 max 行时折叠，开头和结尾各留 max / 2 行。
+ */
+export function foldLines(
+  text: string,
+  max = 200,
+): { text: string; hidden: number } {
+  const lines = text.split("\n");
+  if (lines.length <= max) return { text, hidden: 0 };
+  const half = Math.floor(max / 2);
+  const hidden = lines.length - half * 2;
+  return {
+    text: [
+      ...lines.slice(0, half),
+      `…… 省略 ${hidden} 行 ……`,
+      ...lines.slice(-half),
+    ].join("\n"),
+    hidden,
+  };
+}
+
+/*
+ * 机器 Agent（B33）的工具。模型看到的名字是 host__run_command 这样，
+ * 界面上换回 host.run_command。effect 是默认的风险，run_command 由后端按命令判断，
+ * 放在待确认动作的 effect 里。
+ */
+export const HOST_TOOLS: Tool[] = [
+  {
+    name: "host__run_command",
+    action: "host.run_command",
+    title: "Run command",
+    effect: "write",
+  },
+  {
+    name: "host__read_file",
+    action: "host.read_file",
+    title: "Read file",
+    effect: "read",
+  },
+  {
+    name: "host__write_file",
+    action: "host.write_file",
+    title: "Write file",
+    effect: "write",
+  },
+  {
+    name: "host__list_dir",
+    action: "host.list_dir",
+    title: "List folder",
+    effect: "read",
+  },
+  {
+    name: "host__system_info",
+    action: "host.system_info",
+    title: "System info",
+    effect: "read",
+  },
+  {
+    name: "host__list_processes",
+    action: "host.list_processes",
+    title: "List processes",
+    effect: "read",
+  },
+  {
+    name: "host__list_services",
+    action: "host.list_services",
+    title: "List services",
+    effect: "read",
+  },
+  {
+    name: "host__list_containers",
+    action: "host.list_containers",
+    title: "List containers",
+    effect: "read",
+  },
+  {
+    name: "host__service_action",
+    action: "host.service_action",
+    title: "Service action",
+    effect: "write",
+  },
+  {
+    name: "host__container_action",
+    action: "host.container_action",
+    title: "Container action",
+    effect: "write",
+  },
+];

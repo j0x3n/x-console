@@ -255,4 +255,41 @@ registerZh({
   "Add a server": "添加服务器",
   "Run one command on the server to connect it, or add it over SSH.":
     "在服务器上执行一条命令就能接入，也可以用 SSH 添加。",
+  // B33：机器的 Agent 标签
+  "AI agent": "Agent",
+  Conversations: "会话",
+  Permission: "权限",
+  "Confirm each step": "每步确认",
+  "Run read-only commands": "只读命令自动执行",
+  "Run everything": "全部自动执行",
+  "Run everything without asking?": "全部自动执行，不再问你？",
+  "Dangerous commands still need your confirmation. This only lasts while this page is open.":
+    "高危命令还是要你确认。只在这次打开页面时有效。",
+  "No Agent model yet": "还没有选 Agent 模型",
+  "Choose one in": "去这里选一个：",
+  "Settings → AI": "设置 → AI",
+  "What should I do on this machine?": "要我在这台机器上做什么？",
+  "AI runs on the panel and works through the agent on this machine. Commands wait for you to confirm by default.":
+    "AI 跑在面板上，通过这台机器的代理执行操作。默认每条命令都要你确认。",
+  "This machine is offline. Commands will fail until it is back.":
+    "这台机器离线了。它重新连上之前，命令都会失败。",
+  "Tell the Agent what to do on this machine":
+    "告诉 Agent 要在这台机器上做什么",
+  "Why is the disk almost full?": "看看为什么磁盘快满了",
+  "Any errors in the logs in the last hour?": "最近一小时的日志里有没有报错",
+  "Why won't nginx start?": "nginx 为什么起不来",
+  "Run command": "执行命令",
+  "Read file": "读文件",
+  "Write file": "写文件",
+  "List folder": "列目录",
+  "System info": "系统信息",
+  "List processes": "列出进程",
+  "List services": "列出服务",
+  "List containers": "列出容器",
+  "Service action": "操作服务",
+  "Container action": "操作容器",
+  // B33：文件标签里查看远端日志
+  "Open file": "查看",
+  "Viewing remote files": "查看远端文件",
+  "Live mode disconnected": "实时连接断开了",
 });

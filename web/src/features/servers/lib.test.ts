@@ -21,6 +21,7 @@ import {
   trafficUsed,
 } from "./lib";
 import { tabsFor } from "./tabs";
+import { canViewAsText } from "./lib";
 import { filterProcesses } from "./components/ProcessesTab";
 import { filterServices } from "./components/ServicesTab";
 import { describeRule } from "./components/AlertRules";
@@ -152,6 +153,7 @@ describe("tabs and filters", () => {
       "overview",
       "terminal",
       "alerts",
+      "agent",
     ]);
   });
   it("picks the online desktop", () => {
@@ -259,5 +261,22 @@ describe("tabs and filters", () => {
     );
     expect(daysLeft("2026-10-03", new Date(2026, 8, 28))).toBe(6);
     expect(daysLeft("2026-09-01", new Date(2026, 8, 28))).toBe(0);
+  });
+});
+
+describe("remote text files (B33)", () => {
+  it("opens logs, config and rotated logs but not archives", () => {
+    for (const name of [
+      "syslog",
+      "syslog.1",
+      "app.log",
+      "app.log.2",
+      "nginx.conf",
+      "Dockerfile",
+      "config.YAML",
+    ])
+      expect(canViewAsText(name), name).toBe(true);
+    for (const name of ["app.log.gz", "photo.jpg", "backup.tar", "db.sqlite"])
+      expect(canViewAsText(name), name).toBe(false);
   });
 });
