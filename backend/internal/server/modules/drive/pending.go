@@ -18,18 +18,6 @@ func (m *Module) FollowDriveItem(w http.ResponseWriter, r *http.Request, itemId 
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }
 
-func (m *Module) ListDriveShares(w http.ResponseWriter, r *http.Request, params api.ListDriveSharesParams) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) CreateDriveShare(w http.ResponseWriter, r *http.Request) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
-func (m *Module) DeleteDriveShare(w http.ResponseWriter, r *http.Request, shareId int64) {
-	httpx.Fail(w, r, httpx.ErrNotLive)
-}
-
 func (m *Module) GetPublicShare(w http.ResponseWriter, r *http.Request, token api.ShareToken, params api.GetPublicShareParams) {
 	httpx.Fail(w, r, httpx.ErrNotLive)
 }

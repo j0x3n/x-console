@@ -68,6 +68,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("drive.purge", 24*time.Hour, m.purgeOldTrash)
 	m.d.Scheduler.Every("drive.tasks.cleanup", time.Minute, m.pruneTasks)
 	m.d.Scheduler.Every("drive.versions.prune", 24*time.Hour, m.pruneVersions)
+	m.d.Scheduler.Every("drive.shares.prune", 24*time.Hour, m.pruneShares)
 	return nil
 }
 
@@ -187,6 +188,14 @@ func (m *Module) restorePath(ctx context.Context, from *int64) string {
 
 func (m *Module) dto(ctx context.Context, item db.DriveItem) api.DriveItem {
 	out := api.DriveItem{Id: item.ID, ParentId: item.ParentID, Name: item.Name, IsDir: item.IsDir != 0, Size: item.Size, Hidden: item.Hidden != 0, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, TrashedAt: item.TrashedAt, SyncState: "off"}
+	shared := false
+	if m.shareable(ctx, item) {
+		var count int
+		if err := m.d.DB.QueryRowContext(ctx, `SELECT count(*) FROM drive_shares WHERE item_id=? AND (expires_at IS NULL OR expires_at>?) AND (max_downloads IS NULL OR downloads<max_downloads)`, item.ID, time.Now().UTC()).Scan(&count); err == nil {
+			shared = count > 0
+		}
+	}
+	out.Shared = &shared
 	if item.IsDir == 0 {
 		out.Mime = &item.Mime
 	}

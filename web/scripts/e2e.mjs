@@ -346,6 +346,19 @@ try {
     `${base}/api/v1/drive/items/${driveFile.id}/content`,
   );
   assert.equal(await restoredContent.text(), "云盘内容可以预览。");
+  stage = "云盘分享管理";
+  const shareResponse = await page.context().request.post(`${base}/api/v1/drive/shares`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { itemId: driveFile.id, expiresIn: "7d" },
+  });
+  assert.equal(shareResponse.status(), 201, await shareResponse.text());
+  const driveShare = await shareResponse.json();
+  assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0]?.id, driveShare.id);
+  const unshareResponse = await page.context().request.delete(
+    `${base}/api/v1/drive/shares/${driveShare.id}`,
+    { headers: { "X-Requested-With": "x-console" } },
+  );
+  assert.equal(unshareResponse.status(), 204);
   stage = "云盘打包下载";
   const zipResponse = await page.context().request.get(`${base}/api/v1/drive/zip?ids=${driveFile.id}`);
   assert.equal(zipResponse.status(), 200);
