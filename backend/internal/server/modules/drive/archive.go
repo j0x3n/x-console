@@ -77,7 +77,7 @@ func (m *Module) ArchiveDriveItems(w http.ResponseWriter, r *http.Request) {
 			items = append(items, item)
 		}
 	}
-	parent, err := m.parent(ctx, body.ParentId, *hidden)
+	parent, err := m.archiveParent(ctx, body.ParentId, *hidden)
 	if fail(w, r, err) {
 		return
 	}
@@ -121,6 +121,26 @@ func (m *Module) ArchiveDriveItems(w http.ResponseWriter, r *http.Request) {
 		return err
 	}, targetID)
 	httpx.JSON(w, http.StatusAccepted, task)
+}
+
+func (m *Module) archiveParent(ctx context.Context, id *int64, hidden bool) (*int64, error) {
+	if id == nil || *id == 0 {
+		return nil, nil
+	}
+	if *id < 0 {
+		return nil, httpx.NewError(400, "invalid_target", "目标文件夹不可用")
+	}
+	item, err := m.visibleRow(ctx, *id)
+	if err != nil {
+		return nil, err
+	}
+	if item.IsDir == 0 || item.TrashedAt != nil {
+		return nil, httpx.NewError(400, "invalid_target", "目标文件夹不可用")
+	}
+	if (item.Hidden != 0) != hidden {
+		return nil, httpx.NewError(400, "hidden_mismatch", "隐藏状态和目标文件夹不一致")
+	}
+	return &item.ID, nil
 }
 
 func (m *Module) collectArchive(ctx context.Context, item db.DriveItem, name string, depth int, out *[]archiveEntry) error {

@@ -383,6 +383,20 @@ try {
   );
   assert.equal(archived.status(), 200);
   assert.equal((await archived.body()).subarray(0, 2).toString(), "PK");
+  stage = "云盘解压";
+  const extractResponse = await page.context().request.post(
+    `${base}/api/v1/drive/items/${finishedArchive.resultId}/extract`,
+    { headers: { "X-Requested-With": "x-console" } },
+  );
+  assert.equal(extractResponse.status(), 202, await extractResponse.text());
+  const extractTask = await extractResponse.json();
+  const finishedExtract = await until("云盘解压", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === extractTask.id && task.state === "done"),
+  );
+  assert.equal(
+    (await api(`/drive/items?parent=${finishedExtract.resultId}`)).items[0]?.name,
+    driveFile.name,
+  );
   const finishedTasks = page.locator(".drive-tasks");
   if (await finishedTasks.isVisible())
     await finishedTasks.getByRole("button", { name: "关闭" }).click();

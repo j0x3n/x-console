@@ -28,7 +28,7 @@
 | 12b | B31 后台任务 | 做完 | `drive/tasks.go`、`drive/tasks_unit_test.go`、`drive/tasks_api_test.go`、`drive/module.go` | 无，接 12c |
 | 12c | B31 批量复制和移动 | 做完 | `drive/transfer.go`、`drive/transfer_test.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 请求校验、重名策略、分批复制和逐项移动均已测试；接 12d |
 | 12d1 | B31 压缩 | 做完 | `drive/archive.go`、`drive/archive_test.go`、`drive/tasks.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | ZIP、tar.gz、中文路径、重名、失败清理和浏览器主流程已测；临时文件用站点 `tmp`，再经 `files.Store` 存 blob，兼容 S3；接 12d2 |
-| 12d2 | B31 解压 | 没开始 | | 先检查路径和大小，再写入 |
+| 12d2 | B31 解压 | 做完 | `drive/extract.go`、`drive/extract_test.go`、`drive/archive.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | ZIP、tar、tar.gz、tgz、GBK 文件名、隐藏空间、危险路径、损坏内容清理和浏览器主流程已测；接 12e |
 | 12e | B31 历史版本 | 没开始 | | 先加迁移和 blob 引用计数 |
 | 12f | B31 外链分享 | 没开始 | | 公开入口逐项校验 |
 | 12g | B31 日志实时 | 没开始 | | 共用 `logfollow` 帧 |
