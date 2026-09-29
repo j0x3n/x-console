@@ -1,10 +1,13 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/cookiejar"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,8 +16,11 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
+	"github.com/j0x3n/x-console/backend/internal/server/app"
+	"github.com/j0x3n/x-console/backend/internal/server/config"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
+	"github.com/j0x3n/x-console/backend/internal/server/store"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
@@ -272,3 +278,43 @@ type fakeModule struct{}
 
 func (fakeModule) Name() string       { return "fake" }
 func (fakeModule) Mount(r chi.Router) {}
+
+func TestStartMovesOldFileDirectories(t *testing.T) {
+	dir := t.TempDir()
+	old := filepath.Join(dir, "drive", "blobs", "ab")
+	if err := os.MkdirAll(old, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(old, "abcdef"), []byte("blob"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "notes", "attachments"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "notes", "attachments", "7"), []byte("att"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	conn, err := store.Open(context.Background(), ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	a, err := app.New(config.Config{MasterKey: bytes.Repeat([]byte{7}, 32), Dev: true, Location: loc, DataDir: dir}, conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc, _, err := a.Deps.Files.For("drive").Get(context.Background(), "blobs/ab/abcdef")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rc.Close()
+	if _, err := a.Deps.Files.For("notes").Stat(context.Background(), "attachments/7"); err != nil {
+		t.Fatal(err)
+	}
+	for _, gone := range []string{"drive", "notes"} {
+		if _, err := os.Stat(filepath.Join(dir, gone)); !os.IsNotExist(err) {
+			t.Errorf("old %s directory still exists: %v", gone, err)
+		}
+	}
+}

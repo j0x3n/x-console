@@ -14,7 +14,10 @@
 | 2 | B23 天气、订阅分类、周期 | 做完 | `brief/weather.go`、`monitoring/categories.go`、`monitoring/subscriptions.go`、迁移 `20260929000100` | 无 |
 | 3 | B34 推送自检 | 做完 | `reminders/delivery.go`、`reminders/notify_handlers.go`、迁移 `20260929000200` | 无 |
 | 4 | B35 GitHub | 做完 | `modules/github/repos.go`、`client.go`、`sync.go`、`module.go` | 无。PR 只存打开的（表和契约都没有状态字段），所以规格里“加上最近 7 天关闭的”没做，需要时要先加字段 |
-| 5 | B24、B25 文件目录和备份 | 没开始 | | |
+| 5a | B24 `files` 包、旧目录搬迁、云盘和笔记改用 | 做完 | `internal/server/files/`、`drive/`、`notes/attachments.go` | 无 |
+| 5b | B24 S3 实现和本机缓存 `Cached` | 没开始 | | 在 `files/` 加 `s3.go`、`cached.go`，跑同一套 `runStoreTests`（用 `httptest` 假 S3） |
+| 5c | B24 存储模块 `modules/storage`（设置、用量、切换、搬迁） | 没开始 | | 按规格第 3 节，新建模块，`api/gen.go` 指向 `storage.yaml` |
+| 5d | B25 备份模块 `modules/backup` | 没开始 | | 按规格 B25 后端 |
 | 6 | B26 服务器详情 | 没开始 | | |
 | 7 | B27 月流量 | 没开始 | | |
 | 8 | B28 容器日志、镜像清理 | 没开始 | | |

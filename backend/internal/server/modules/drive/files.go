@@ -2,6 +2,8 @@ package drive
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -20,6 +22,7 @@ import (
 	"golang.org/x/image/draw"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
 )
@@ -59,7 +62,7 @@ func (m *Module) UploadDriveFiles(w http.ResponseWriter, r *http.Request, p api.
 			httpx.Fail(w, r, httpx.Invalid("文件名不正确"))
 			return
 		}
-		tmp, e := os.CreateTemp(m.root, "upload-*")
+		tmp, e := os.CreateTemp(m.tmpDir, "upload-*")
 		if fail(w, r, e) {
 			part.Close()
 			return
@@ -80,17 +83,8 @@ func (m *Module) UploadDriveFiles(w http.ResponseWriter, r *http.Request, p api.
 			return
 		}
 		digest := hex.EncodeToString(hash.Sum(nil))
-		dest := m.blobPath(digest)
-		if e = os.MkdirAll(filepath.Dir(dest), 0700); e != nil {
-			os.Remove(tmp.Name())
-			httpx.Fail(w, r, e)
-			return
-		}
-		if _, e = os.Stat(dest); errors.Is(e, os.ErrNotExist) {
-			e = os.Rename(tmp.Name(), dest)
-		} else {
-			os.Remove(tmp.Name())
-		}
+		e = m.putBlobFile(ctx, digest, tmp.Name(), size)
+		os.Remove(tmp.Name())
 		if fail(w, r, e) {
 			return
 		}
@@ -107,6 +101,22 @@ func (m *Module) UploadDriveFiles(w http.ResponseWriter, r *http.Request, p api.
 	httpx.JSON(w, http.StatusCreated, map[string]any{"items": items})
 }
 
+// putBlobFile stores the file at path as the content with this hash, unless
+// the same content is already there.
+func (m *Module) putBlobFile(ctx context.Context, hash, path string, size int64) error {
+	if _, err := m.store.Stat(ctx, blobKey(hash)); err == nil {
+		return nil
+	} else if !errors.Is(err, files.ErrNotFound) {
+		return err
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return m.store.Put(ctx, blobKey(hash), f, size)
+}
+
 func (m *Module) GetDriveItemContent(w http.ResponseWriter, r *http.Request, id api.ItemId, p api.GetDriveItemContentParams) {
 	item, err := m.visibleRow(r.Context(), id)
 	if fail(w, r, err) {
@@ -116,7 +126,10 @@ func (m *Module) GetDriveItemContent(w http.ResponseWriter, r *http.Request, id 
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
-	f, err := os.Open(m.blobPath(item.Sha256))
+	f, _, err := files.OpenSeeker(r.Context(), m.store, blobKey(item.Sha256))
+	if errors.Is(err, files.ErrNotFound) {
+		err = httpx.ErrNotFound
+	}
 	if fail(w, r, err) {
 		return
 	}
@@ -145,21 +158,24 @@ func (m *Module) GetDriveItemThumbnail(w http.ResponseWriter, r *http.Request, i
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
-	dest := filepath.Join(m.root, "thumbnails", item.Sha256+".jpg")
-	if _, err = os.Stat(dest); errors.Is(err, os.ErrNotExist) {
-		if err = m.makeThumbnail(item.Sha256, dest); fail(w, r, err) {
+	f, info, err := files.OpenSeeker(r.Context(), m.store, thumbnailKey(item.Sha256))
+	if errors.Is(err, files.ErrNotFound) {
+		if err = m.makeThumbnail(r.Context(), item.Sha256); fail(w, r, err) {
 			return
 		}
-	} else if fail(w, r, err) {
+		f, info, err = files.OpenSeeker(r.Context(), m.store, thumbnailKey(item.Sha256))
+	}
+	if fail(w, r, err) {
 		return
 	}
+	defer f.Close()
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("Cache-Control", "private, max-age=86400")
-	http.ServeFile(w, r, dest)
+	http.ServeContent(w, r, "", info.ModTime, f)
 }
 
-func (m *Module) makeThumbnail(hash, dest string) error {
-	src, err := os.Open(m.blobPath(hash))
+func (m *Module) makeThumbnail(ctx context.Context, hash string) error {
+	src, _, err := files.OpenSeeker(ctx, m.store, blobKey(hash))
 	if err != nil {
 		return err
 	}
@@ -194,17 +210,9 @@ func (m *Module) makeThumbnail(hash, dest string) error {
 	}
 	thumb := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.CatmullRom.Scale(thumb, thumb.Bounds(), imageData, imageData.Bounds(), draw.Over, nil)
-	tmp, err := os.CreateTemp(filepath.Dir(dest), "thumbnail-*")
-	if err != nil {
+	var out bytes.Buffer
+	if err = jpeg.Encode(&out, thumb, &jpeg.Options{Quality: 80}); err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
-	if err = jpeg.Encode(tmp, thumb, &jpeg.Options{Quality: 80}); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err = tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), dest)
+	return m.store.Put(ctx, thumbnailKey(hash), &out, int64(out.Len()))
 }

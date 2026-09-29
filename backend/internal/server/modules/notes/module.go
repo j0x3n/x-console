@@ -17,6 +17,7 @@ import (
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
@@ -25,16 +26,17 @@ import (
 
 // Module implements api.ServerInterface.
 type Module struct {
-	d   *module.Deps
-	q   *db.Queries
-	now func() time.Time
+	d     *module.Deps
+	q     *db.Queries
+	now   func() time.Time
+	files files.Store // the notes' own part of the site's file store
 }
 
 var _ api.ServerInterface = (*Module)(nil)
 
 // New builds the module and registers its contract and actions.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }}
+	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, files: d.Files.For("notes")}
 	module.Provide[contracts.Notes](d.Registry, contracts.NotesKey, &notesService{m})
 	m.registerActions()
 	return m, nil

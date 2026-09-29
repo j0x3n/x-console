@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -457,8 +456,8 @@ func (m *Module) permanentDelete(ctx context.Context, id int64) error {
 			return e
 		}
 		if count == 0 {
-			_ = os.Remove(m.blobPath(hash))
-			_ = os.Remove(filepath.Join(m.root, "thumbnails", hash+".jpg"))
+			_ = m.store.Delete(ctx, blobKey(hash))
+			_ = m.store.Delete(ctx, thumbnailKey(hash))
 		}
 	}
 	m.triggerSync()

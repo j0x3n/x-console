@@ -1,6 +1,7 @@
 package drive
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -8,12 +9,11 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
 )
@@ -38,31 +38,15 @@ func etagMatches(header, hash string) bool {
 }
 
 // storeBlob 按 sha256 存内容，已有同样内容时不重复写。
-func (m *Module) storeBlob(data []byte) (string, error) {
+func (m *Module) storeBlob(ctx context.Context, data []byte) (string, error) {
 	sum := sha256.Sum256(data)
 	hash := hex.EncodeToString(sum[:])
-	dest := m.blobPath(hash)
-	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+	if _, err := m.store.Stat(ctx, blobKey(hash)); err == nil {
+		return hash, nil
+	} else if !errors.Is(err, files.ErrNotFound) {
 		return "", err
 	}
-	if _, err := os.Stat(dest); errors.Is(err, os.ErrNotExist) {
-		tmp, err := os.CreateTemp(m.root, "save-*")
-		if err != nil {
-			return "", err
-		}
-		defer os.Remove(tmp.Name())
-		if _, err = tmp.Write(data); err != nil {
-			tmp.Close()
-			return "", err
-		}
-		if err = tmp.Close(); err != nil {
-			return "", err
-		}
-		return hash, os.Rename(tmp.Name(), dest)
-	} else if err != nil {
-		return "", err
-	}
-	return hash, nil
+	return hash, m.store.Put(ctx, blobKey(hash), bytes.NewReader(data), int64(len(data)))
 }
 
 // dropBlob 在没有条目再用这份内容时删掉它。
@@ -72,7 +56,7 @@ func (m *Module) dropBlob(ctx context.Context, hash string) {
 	}
 	count, err := m.q.CountBlobReferences(ctx, hash)
 	if err == nil && count == 0 {
-		_ = os.Remove(m.blobPath(hash))
+		_ = m.store.Delete(ctx, blobKey(hash))
 	}
 }
 
@@ -99,7 +83,7 @@ func (m *Module) SaveDriveItemContent(w http.ResponseWriter, r *http.Request, id
 		httpx.Fail(w, r, errVersionConflict)
 		return
 	}
-	hash, err := m.storeBlob(data)
+	hash, err := m.storeBlob(ctx, data)
 	if fail(w, r, err) {
 		return
 	}

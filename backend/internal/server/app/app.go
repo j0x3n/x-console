@@ -26,6 +26,7 @@ import (
 	coreapi "github.com/j0x3n/x-console/backend/internal/server/core/api"
 	"github.com/j0x3n/x-console/backend/internal/server/core/db"
 	"github.com/j0x3n/x-console/backend/internal/server/events"
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
@@ -57,6 +58,12 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 	}
 	bus := events.NewBus()
 	auditLog := audit.New(conn)
+	if err := files.MigrateLegacyLayout(slog.Default(), cfg.DataDir, cfg.FilesDir()); err != nil {
+		return nil, fmt.Errorf("move old files: %w", err)
+	}
+	if err := resetDir(cfg.TmpDir()); err != nil {
+		return nil, err
+	}
 	d := &module.Deps{
 		Config:    cfg,
 		DB:        conn,
@@ -69,6 +76,7 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 		Notify:    notify.New(conn, bus),
 		Agents:    agenthub.New(conn, bus, auditLog),
 		Scheduler: scheduler.New(cfg.Location),
+		Files:     files.NewManager(files.Local{Root: cfg.FilesDir()}),
 		Actions:   actions.NewRegistry(),
 		Registry:  module.NewRegistry(),
 	}
@@ -82,6 +90,14 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 	}
 	a.Handler = a.routes()
 	return a, nil
+}
+
+// resetDir empties dir and makes sure it exists.
+func resetDir(dir string) error {
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, 0700)
 }
 
 // dedupe drops repeated constructors, so tests can pass a module that is

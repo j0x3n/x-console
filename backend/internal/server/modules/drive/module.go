@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
@@ -23,7 +23,8 @@ import (
 type Module struct {
 	d          *module.Deps
 	q          *db.Queries
-	root       string
+	store      files.Store // the drive's own part of the site's file store
+	tmpDir     string      // uploads are received here before they get a name
 	mu         sync.Mutex
 	runMu      sync.Mutex
 	syncMu     sync.Mutex
@@ -35,14 +36,10 @@ var _ api.ServerInterface = (*Module)(nil)
 var _ module.Starter = (*Module)(nil)
 
 func New(d *module.Deps) (module.Module, error) {
-	root := filepath.Join(d.Config.DataDir, "drive")
-	if err := os.MkdirAll(filepath.Join(root, "blobs"), 0700); err != nil {
+	if err := os.MkdirAll(d.Config.TmpDir(), 0700); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(root, "thumbnails"), 0700); err != nil {
-		return nil, err
-	}
-	m := &Module{d: d, q: db.New(d.DB), root: root, syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}}
+	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}}
 	m.registerActions()
 	return m, nil
 }
@@ -66,7 +63,10 @@ func (m *Module) Start(ctx context.Context) error {
 	return nil
 }
 
-func (m *Module) blobPath(hash string) string { return filepath.Join(m.root, "blobs", hash[:2], hash) }
+// blobKey and thumbnailKey are the keys of a file's content and its preview
+// in the drive's store.
+func blobKey(hash string) string      { return "blobs/" + hash[:2] + "/" + hash }
+func thumbnailKey(hash string) string { return "thumbnails/" + hash + ".jpg" }
 
 func (m *Module) row(ctx context.Context, id int64) (db.DriveItem, error) {
 	if id <= 0 {

@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -86,7 +85,7 @@ func (m *Module) actionReadText(ctx context.Context, raw json.RawMessage) (any, 
 	if item.IsDir != 0 || item.TrashedAt != nil || !(strings.HasPrefix(item.Mime, "text/") || strings.Contains(item.Mime, "json") || strings.Contains(item.Mime, "xml")) {
 		return nil, httpx.Invalid("只支持文本文件")
 	}
-	f, err := os.Open(m.blobPath(item.Sha256))
+	f, _, err := m.store.Get(ctx, blobKey(item.Sha256))
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +183,7 @@ func (m *Module) actionWriteText(ctx context.Context, raw json.RawMessage) (any,
 	if err != nil {
 		return nil, err
 	}
-	hash, err := m.storeBlob([]byte(in.Text))
+	hash, err := m.storeBlob(ctx, []byte(in.Text))
 	if err != nil {
 		return nil, err
 	}
