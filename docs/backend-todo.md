@@ -39,7 +39,8 @@
 | 13b | B32 模型规格 | 做完 | `modules/ai/modelsdev.go`、`modelsdev_test.go`、`testdata/modelsdev.json`、`pending.go` | 每日同步及启动同步、20 MB 限制、缓存、精确和去前缀匹配、手动规格、模型列表与刷新已测；接模型设置 |
 | 13c | B32 模型设置和用量 | 做完 | `modules/ai/model_settings.go`、`model_settings_test.go`、`pending.go` | 快速和 Agent 模型、提权、工具能力校验、旧配置提示、供应商删除后清理、按月用量与费用汇总已测；接调用层 |
 | 13d | B32 OpenAI 兼容调用层 | 做完 | `modules/ai/llm/`、`backend/go.mod`、`backend/go.sum` | 官方 Go SDK v3、Chat Completions、流式文本和工具调用、思考参数重试、JSON Schema 回退、用量回调、测试替身和多轮格式已测；接 AI 模块接入 |
-| 13e 起 | B32 其余及以后 | 没开始 | | 接浮窗和自动化、笔记功能 |
+| 13e1 | B32 调用层接入 AI 模块 | 做完 | `modules/ai/llm_config.go`、`llm_config_test.go`、`module.go` | 按用途选模型、解密 Key、思考不兼容标记、用量和价格入库已测；接浮窗和自动化 |
+| 13e2 起 | B32 其余及以后 | 没开始 | | 接浮窗和自动化、笔记功能 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
