@@ -11,39 +11,35 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 )
 
 const systemPrompt = `你是 X Console 助手。用户是这个面板的唯一主人。可用工具由面板提供。
 先读现有数据再改，避免重复创建。可直接执行读取、新建和修改。删除和高危操作按面板确认流程处理。
 排期按用户时区从今天开始，跳过周末，除非用户另有要求。完成后用简短中文列出改动，并附面板内路径。隐藏内容不可访问。`
 
-func (m *Module) tools() []anthropic.BetaToolUnionParam {
+func (m *Module) tools() []llm.Tool {
 	all := m.d.Actions.List()
-	out := make([]anthropic.BetaToolUnionParam, 0, len(all))
+	out := make([]llm.Tool, 0, len(all))
 	for _, a := range all {
-		var schema map[string]any
-		if json.Unmarshal(a.Input, &schema) != nil {
+		if !json.Valid(a.Input) {
 			continue
 		}
-		tool := anthropic.BetaToolUnionParamOfTool(anthropic.BetaToolInputSchema(schema), strings.ReplaceAll(a.Name, ".", "__"))
-		tool.OfTool.Description = anthropic.String(a.Description)
-		out = append(out, tool)
+		out = append(out, llm.Tool{Name: strings.ReplaceAll(a.Name, ".", "__"), Description: a.Description, Parameters: a.Input})
 	}
 	return out
 }
-func (m *Module) history(ctx context.Context, id int64) ([]anthropic.BetaMessageParam, error) {
+func (m *Module) history(ctx context.Context, id int64) ([]llm.Message, error) {
 	rows, err := m.d.DB.QueryContext(ctx, "SELECT role,content FROM ai_messages WHERE conversation_id=? ORDER BY seq", id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []anthropic.BetaMessageParam{}
+	out := []llm.Message{}
 	for rows.Next() {
 		var role, content string
 		if err = rows.Scan(&role, &content); err != nil {
@@ -53,24 +49,47 @@ func (m *Module) history(ctx context.Context, id int64) ([]anthropic.BetaMessage
 		if err = json.Unmarshal([]byte(content), &blocks); err != nil {
 			return nil, err
 		}
+		msg := llm.Message{Role: role}
 		for _, block := range blocks {
-			delete(block, "context")
+			switch block["type"] {
+			case "text":
+				if value, ok := block["text"].(string); ok {
+					msg.Content += value + "\n"
+				}
+			case "tool_use":
+				input, _ := json.Marshal(block["input"])
+				msg.ToolCalls = append(msg.ToolCalls, llm.ToolCall{ID: stringValue(block["id"]), Name: stringValue(block["name"]), Arguments: input})
+			case "tool_calls":
+				for _, value := range listValue(block["calls"]) {
+					call := mapValue(value)
+					input, _ := json.Marshal(call["arguments"])
+					msg.ToolCalls = append(msg.ToolCalls, llm.ToolCall{ID: stringValue(call["id"]), Name: stringValue(call["name"]), Arguments: input})
+				}
+			case "tool_result":
+				value := block["content"]
+				content := stringValue(value)
+				if content == "" {
+					raw, _ := json.Marshal(value)
+					content = string(raw)
+				}
+				out = append(out, llm.Message{Role: "tool", ToolCallID: stringValue(block["tool_use_id"]), Content: content})
+			}
 		}
-		raw, _ := json.Marshal(map[string]any{"role": role, "content": blocks})
-		var msg anthropic.BetaMessageParam
-		if err = json.Unmarshal(raw, &msg); err != nil {
-			return nil, err
+		if msg.Content != "" || len(msg.ToolCalls) > 0 {
+			out = append(out, msg)
 		}
-		out = append(out, msg)
 	}
 	return out, rows.Err()
 }
-func (m *Module) system(ctx context.Context) []anthropic.BetaTextBlockParam {
+func stringValue(v any) string      { value, _ := v.(string); return value }
+func listValue(v any) []any         { value, _ := v.([]any); return value }
+func mapValue(v any) map[string]any { value, _ := v.(map[string]any); return value }
+func (m *Module) system(ctx context.Context) string {
 	devices, _ := m.d.Agents.List(ctx)
 	summary := fmt.Sprintf("当前时间：%s。时区：%s。已连接设备：%d。", time.Now().In(m.d.Config.Location).Format(time.RFC3339), m.d.Config.Location, len(devices))
-	return []anthropic.BetaTextBlockParam{{Text: systemPrompt}, {Text: summary}}
+	return systemPrompt + "\n" + summary
 }
-func (m *Module) run(ctx context.Context, id int64, key string, session *auth.Session, state *generation) {
+func (m *Module) run(ctx context.Context, id int64, session *auth.Session, state *generation) {
 	defer func() {
 		m.mu.Lock()
 		if m.running[id] == state {
@@ -83,67 +102,60 @@ func (m *Module) run(ctx context.Context, id int64, key string, session *auth.Se
 		ctx = auth.WithSession(ctx, session)
 	}
 	ctx = auth.WithoutVault(ctx)
-	err := m.generate(ctx, id, key)
+	err := m.generate(ctx, id)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		m.d.Log.Error("ai generation failed", "conversation", id, "err", err)
 		m.d.Bus.Publish("ai.error", map[string]any{"conversationId": id, "message": err.Error()})
 	}
 }
-func (m *Module) generate(ctx context.Context, id int64, key string) error {
-	settings, err := m.settings(ctx)
+func (m *Module) generate(ctx context.Context, id int64) error {
+	settings, err := m.modelSettings(ctx)
 	if err != nil {
 		return err
 	}
-	opts := []option.RequestOption{option.WithAPIKey(key)}
-	if m.baseURL != "" {
-		opts = append(opts, option.WithBaseURL(m.baseURL))
-	}
-	client := anthropic.NewClient(opts...)
 	for turn := 0; turn < 20; turn++ {
 		history, err := m.history(ctx, id)
 		if err != nil {
 			return err
 		}
-		params := anthropic.BetaMessageNewParams{
-			MaxTokens: 4096, Messages: history, Model: anthropic.Model(settings.Model),
-			System: m.system(ctx), Tools: m.tools(),
-			Thinking:  anthropic.BetaThinkingConfigParamUnion{OfAdaptive: &anthropic.BetaThinkingConfigAdaptiveParam{}},
-			Fallbacks: anthropic.BetaFallbacksParamOfDefault(),
-			Betas:     []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01},
+		stream, err := m.llm.Stream(ctx, llm.Request{Purpose: "agent", System: m.system(ctx), Messages: history, Tools: m.tools()})
+		if err != nil {
+			return err
 		}
-		stream := client.Beta.Messages.NewStreaming(ctx, params)
-		var message anthropic.BetaMessage
 		for stream.Next() {
-			ev := stream.Current()
-			if err = message.Accumulate(ev); err != nil {
-				stream.Close()
-				return err
-			}
-			if delta, ok := ev.AsAny().(anthropic.BetaRawContentBlockDeltaEvent); ok && delta.Delta.Text != "" {
-				m.d.Bus.Publish("ai.delta", map[string]any{"conversationId": id, "text": delta.Delta.Text})
+			if delta := stream.Current().Text; delta != "" {
+				m.d.Bus.Publish("ai.delta", map[string]any{"conversationId": id, "text": delta})
 			}
 		}
 		err = stream.Err()
-		stream.Close()
+		message := stream.Result()
+		_ = stream.Close()
 		if err != nil {
 			return err
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if err = m.saveMessage(ctx, id, "assistant", message.Content); err != nil {
+		blocks := []map[string]any{}
+		if message.Text != "" {
+			blocks = append(blocks, map[string]any{"type": "text", "text": message.Text})
+		}
+		for _, call := range message.ToolCalls {
+			var input any
+			if json.Unmarshal(call.Arguments, &input) != nil {
+				input = map[string]any{}
+			}
+			blocks = append(blocks, map[string]any{"type": "tool_use", "id": call.ID, "name": call.Name, "input": input})
+		}
+		if err = m.saveMessage(ctx, id, "assistant", blocks); err != nil {
 			return err
 		}
 		results := []map[string]any{}
 		pending := false
-		for _, block := range message.Content {
-			use, ok := block.AsAny().(anthropic.BetaToolUseBlock)
-			if !ok {
-				continue
-			}
+		for _, use := range message.ToolCalls {
 			name := strings.ReplaceAll(use.Name, "__", ".")
 			action, found := m.d.Actions.Get(name)
-			input := json.RawMessage(use.JSON.Input.Raw())
+			input := use.Arguments
 			if len(input) == 0 {
 				input = []byte("{}")
 			}
@@ -328,12 +340,8 @@ func (m *Module) completeAfterDecisions(ctx context.Context, id int64, resume bo
 	if !resume {
 		return nil
 	}
-	key, err := m.apiKey(ctx)
-	if err != nil {
+	if _, err := m.resolveLLM(ctx, "agent"); err != nil {
 		return err
-	}
-	if key == "" {
-		return httpx.ErrIntegrationMissing
 	}
 	m.mu.Lock()
 	if _, running := m.running[id]; running {
@@ -344,6 +352,6 @@ func (m *Module) completeAfterDecisions(ctx context.Context, id int64, resume bo
 	state := &generation{cancel: cancel}
 	m.running[id] = state
 	m.mu.Unlock()
-	go m.run(worker, id, key, auth.FromContext(ctx), state)
+	go m.run(worker, id, auth.FromContext(ctx), state)
 	return nil
 }

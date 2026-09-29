@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/go-chi/chi/v5"
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
@@ -339,29 +336,12 @@ func (m *Module) ask(ctx context.Context, input, data map[string]any) (any, erro
 	if strings.TrimSpace(prompt) == "" {
 		return nil, fmt.Errorf("ai.ask 缺少 prompt")
 	}
-	var key string
-	if err := m.d.Settings.Get(ctx, "ai.api_key", &key); err != nil {
-		return nil, err
+	client, ok := module.Lookup[contracts.LLM](m.d.Registry, contracts.LLMKey)
+	if !ok {
+		return nil, fmt.Errorf("AI 模块未启用")
 	}
-	model := "claude-opus-5-5"
-	_ = m.d.Settings.Get(ctx, "ai.model", &model)
-	opts := []option.RequestOption{option.WithAPIKey(key)}
-	if base := os.Getenv("XC_ANTHROPIC_BASE_URL"); base != "" {
-		opts = append(opts, option.WithBaseURL(base))
-	}
-	client := anthropic.NewClient(opts...)
 	raw, _ := json.Marshal(data)
-	res, err := client.Beta.Messages.New(ctx, anthropic.BetaMessageNewParams{Model: anthropic.Model(model), MaxTokens: 1024, Messages: []anthropic.BetaMessageParam{anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(prompt + "\n触发数据: " + string(raw)))}, Thinking: anthropic.BetaThinkingConfigParamUnion{OfAdaptive: &anthropic.BetaThinkingConfigAdaptiveParam{}}, Fallbacks: anthropic.BetaFallbacksParamOfDefault(), Betas: []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01}})
-	if err != nil {
-		return nil, err
-	}
-	var text strings.Builder
-	for _, block := range res.Content {
-		if block.Text != "" {
-			text.WriteString(block.Text)
-		}
-	}
-	return text.String(), nil
+	return client.CompleteText(ctx, "agent", "按自动化规则处理触发数据，简短回答。", prompt+"\n触发数据: "+string(raw))
 }
 func (m *Module) hook(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")

@@ -14,6 +14,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/db"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
@@ -105,12 +106,10 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		httpx.Fail(w, r, httpx.ErrConflict)
 		return
 	}
-	key, err := m.apiKey(ctx)
-	if m.fail(w, r, err) {
+	if _, err := m.resolveLLM(ctx, "agent"); errors.Is(err, llm.ErrNotConfigured) {
+		httpx.Fail(w, r, httpx.NewError(409, "ai_not_configured", "请先配置 Agent 模型"))
 		return
-	}
-	if key == "" {
-		httpx.Fail(w, r, httpx.ErrIntegrationMissing)
+	} else if m.fail(w, r, err) {
 		return
 	}
 	m.mu.Lock()
@@ -131,18 +130,18 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		}
 		blocks = append(blocks, map[string]any{"type": "text", "text": "当前页面: " + title + " " + *body.Context.Path, "context": true})
 	}
-	if err = m.saveMessage(ctx, id, "user", blocks); err != nil {
+	if err := m.saveMessage(ctx, id, "user", blocks); err != nil {
 		m.stop(id)
 		httpx.Fail(w, r, err)
 		return
 	}
-	if err = m.setTitle(ctx, id, text); err != nil {
+	if err := m.setTitle(ctx, id, text); err != nil {
 		m.stop(id)
 		httpx.Fail(w, r, err)
 		return
 	}
 	session := auth.FromContext(ctx)
-	go m.run(worker, id, key, session, state)
+	go m.run(worker, id, session, state)
 	httpx.JSON(w, 202, nil)
 }
 func (m *Module) StopAiReply(w http.ResponseWriter, r *http.Request, id api.ConversationId) {

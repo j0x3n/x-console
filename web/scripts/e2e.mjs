@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
+import http from "node:http";
 import os from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
@@ -161,6 +162,62 @@ try {
   await page.getByLabel("密码").fill(password);
   await page.getByRole("button", { name: "登录" }).click();
   await page.locator(".sidebar").waitFor();
+
+  stage = "B32 AI 供应商和浮窗";
+  const aiFake = http.createServer(async (request, response) => {
+    if (request.url === "/v1/models") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ data: [{ id: "e2e-model" }] }));
+      return;
+    }
+    if (request.url === "/v1/chat/completions") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.write(`data: ${JSON.stringify({ id: "chat_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [{ index: 0, delta: { content: "AI 已收到测试消息" } }] })}\n\n`);
+      response.write(`data: ${JSON.stringify({ id: "chat_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [], usage: { prompt_tokens: 4, completion_tokens: 5 } })}\n\n`);
+      response.end("data: [DONE]\n\n");
+      return;
+    }
+    response.writeHead(404).end();
+  });
+  await new Promise((ready) => aiFake.listen(0, "127.0.0.1", ready));
+  const aiFakePort = aiFake.address().port;
+  try {
+    const elevated = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+      headers: { "X-Requested-With": "x-console" }, data: { password },
+    });
+    assert.equal(elevated.status(), 200, await elevated.text());
+    const created = await page.context().request.post(`${base}/api/v1/ai/providers`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { name: "端到端模型", baseUrl: `http://127.0.0.1:${aiFakePort}/v1` },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    const aiProvider = await created.json();
+    const refreshed = await page.context().request.post(`${base}/api/v1/ai/providers/${aiProvider.id}/models`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(refreshed.status(), 200, await refreshed.text());
+    const settings = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { agent: { providerId: aiProvider.id, model: "e2e-model" }, fast: null, reasoningEffort: "off" },
+    });
+    assert.equal(settings.status(), 200, await settings.text());
+    const conversation = await page.context().request.post(`${base}/api/v1/ai/conversations`, {
+      headers: { "X-Requested-With": "x-console" }, data: {},
+    });
+    assert.equal(conversation.status(), 201, await conversation.text());
+    const aiConversation = await conversation.json();
+    const sent = await page.context().request.post(`${base}/api/v1/ai/conversations/${aiConversation.id}/messages`, {
+      headers: { "X-Requested-With": "x-console" }, data: { text: "你好" },
+    });
+    assert.equal(sent.status(), 202, await sent.text());
+    await until("AI 浮窗回复", async () => {
+      const detail = await api(`/ai/conversations/${aiConversation.id}`);
+      return !detail.running && detail.messages.some((message) => message.role === "assistant" && message.content.some((block) => block.text === "AI 已收到测试消息"));
+    });
+    assert.equal((await api("/ai/usage")).calls, 1);
+  } finally {
+    await new Promise((done) => aiFake.close(done));
+  }
 
   stage = "新建项目和 Issue";
   await page.goto(`${base}/projects`);

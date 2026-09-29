@@ -16,6 +16,7 @@ package contracts
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -32,7 +33,15 @@ const (
 	CodingKey        = "coding.launcher"     // M4 provides
 	CalendarKey      = "calendar.calendar"   // M11 provides
 	GitHubKey        = "github.github"       // M13 provides
+	LLMKey           = "ai.llm"              // M12 provides
 )
+
+// LLM is the AI call boundary used by notes and automations.
+type LLM interface {
+	Available(ctx context.Context) bool
+	CompleteJSON(ctx context.Context, purpose, system, user string, schema json.RawMessage, out any) error
+	CompleteText(ctx context.Context, purpose, system, user string) (string, error)
+}
 
 // ---- M5 projects ----
 

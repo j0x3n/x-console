@@ -41,24 +41,21 @@ func withActions(d *module.Deps) (module.Module, error) {
 	}
 	return testActions{}, nil
 }
-func sendEvent(w http.ResponseWriter, kind string, data any) {
+func sendEvent(w http.ResponseWriter, data any) {
 	raw, _ := json.Marshal(data)
-	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", kind, raw)
+	fmt.Fprintf(w, "data: %s\n\n", raw)
 }
 func streamText(w http.ResponseWriter, text string) {
-	sendEvent(w, "message_start", map[string]any{"type": "message_start", "message": map[string]any{"id": "msg_2", "type": "message", "role": "assistant", "model": "claude-opus-5-5", "content": []any{}, "stop_reason": nil, "usage": map[string]any{"input_tokens": 1, "output_tokens": 1}}})
-	sendEvent(w, "content_block_start", map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}})
-	sendEvent(w, "content_block_delta", map[string]any{"type": "content_block_delta", "index": 0, "delta": map[string]any{"type": "text_delta", "text": text}})
-	sendEvent(w, "content_block_stop", map[string]any{"type": "content_block_stop", "index": 0})
-	sendEvent(w, "message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": "end_turn"}, "usage": map[string]any{"output_tokens": 1}})
-	sendEvent(w, "message_stop", map[string]any{"type": "message_stop"})
+	w.Header().Set("Content-Type", "text/event-stream")
+	sendEvent(w, map[string]any{"id": "chat_2", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"content": text}}}})
+	sendEvent(w, map[string]any{"id": "chat_2", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{}, "usage": map[string]any{"prompt_tokens": 1, "completion_tokens": 1}})
+	fmt.Fprint(w, "data: [DONE]\n\n")
 }
 func streamTool(w http.ResponseWriter, name string) {
-	sendEvent(w, "message_start", map[string]any{"type": "message_start", "message": map[string]any{"id": "msg_1", "type": "message", "role": "assistant", "model": "claude-opus-5-5", "content": []any{}, "stop_reason": nil, "usage": map[string]any{"input_tokens": 1, "output_tokens": 1}}})
-	sendEvent(w, "content_block_start", map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "tool_use", "id": "toolu_1", "name": name, "input": map[string]any{}}})
-	sendEvent(w, "content_block_stop", map[string]any{"type": "content_block_stop", "index": 0})
-	sendEvent(w, "message_delta", map[string]any{"type": "message_delta", "delta": map[string]any{"stop_reason": "tool_use"}, "usage": map[string]any{"output_tokens": 1}})
-	sendEvent(w, "message_stop", map[string]any{"type": "message_stop"})
+	w.Header().Set("Content-Type", "text/event-stream")
+	sendEvent(w, map[string]any{"id": "chat_1", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"tool_calls": []any{map[string]any{"index": 0, "id": "toolu_1", "type": "function", "function": map[string]any{"name": name, "arguments": "{}"}}}}}}})
+	sendEvent(w, map[string]any{"id": "chat_1", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{}, "usage": map[string]any{"prompt_tokens": 1, "completion_tokens": 1}})
+	fmt.Fprint(w, "data: [DONE]\n\n")
 }
 func await(t *testing.T, env *testutil.Env, id int64, pred func(api.ConversationDetail) bool) api.ConversationDetail {
 	t.Helper()
@@ -85,6 +82,11 @@ func TestToolExecutionAndRejection(t *testing.T) {
 			var requests atomic.Int32
 			var sawRejection atomic.Bool
 			fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/v1/models" {
+					w.Header().Set("Content-Type", "application/json")
+					fmt.Fprint(w, `{"data":[{"id":"test-model"}]}`)
+					return
+				}
 				var body map[string]any
 				_ = json.NewDecoder(r.Body).Decode(&body)
 				if requests.Add(1) == 1 {
@@ -98,10 +100,12 @@ func TestToolExecutionAndRejection(t *testing.T) {
 				streamText(w, "完成")
 			}))
 			defer fake.Close()
-			t.Setenv("XC_ANTHROPIC_BASE_URL", fake.URL)
 			env := testutil.New(t, withActions)
 			env.Elevate()
-			env.MustDo("PUT", "/ai/settings", map[string]any{"apiKey": "fake-key"}, nil)
+			var provider api.AiProvider
+			env.MustDo("POST", "/ai/providers", map[string]any{"name": "Test", "baseUrl": fake.URL + "/v1", "apiKey": "fake-key"}, &provider)
+			env.MustDo("POST", fmt.Sprintf("/ai/providers/%d/models", provider.Id), nil, nil)
+			env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}}, nil)
 			var conversation api.Conversation
 			env.MustDo("POST", "/ai/conversations", map[string]any{}, &conversation)
 			env.MustDo("POST", fmt.Sprintf("/ai/conversations/%d/messages", conversation.Id), map[string]any{"text": "测试"}, nil)
@@ -131,5 +135,54 @@ func TestToolExecutionAndRejection(t *testing.T) {
 				t.Fatalf("writes=%d, want %d", writes.Load(), tc.wantWrites)
 			}
 		})
+	}
+}
+
+func TestOldConversationToolHistory(t *testing.T) {
+	var sawHistory atomic.Bool
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"data":[{"id":"test-model"}]}`)
+			return
+		}
+		var body struct {
+			Messages []map[string]any `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		for _, message := range body.Messages {
+			if message["role"] == "assistant" && message["tool_calls"] != nil {
+				for _, other := range body.Messages {
+					if other["role"] == "tool" && other["tool_call_id"] == "old_call" {
+						sawHistory.Store(true)
+					}
+				}
+			}
+		}
+		streamText(w, "继续")
+	}))
+	defer fake.Close()
+	env := testutil.New(t)
+	env.Elevate()
+	var provider api.AiProvider
+	env.MustDo("POST", "/ai/providers", map[string]any{"name": "Test", "baseUrl": fake.URL + "/v1"}, &provider)
+	env.MustDo("POST", fmt.Sprintf("/ai/providers/%d/models", provider.Id), nil, nil)
+	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}}, nil)
+	var conversation api.Conversation
+	env.MustDo("POST", "/ai/conversations", map[string]any{}, &conversation)
+	for index, entry := range []struct{ role, content string }{
+		{"user", `[{"type":"text","text":"旧问题"}]`},
+		{"assistant", `[{"type":"tool_use","id":"old_call","name":"test__read","input":{}}]`},
+		{"user", `[{"type":"tool_result","tool_use_id":"old_call","content":"旧结果"}]`},
+	} {
+		_, err := env.App.Deps.DB.Exec(`INSERT INTO ai_messages(conversation_id,seq,role,content,created_at) VALUES(?,?,?,?,?)`, conversation.Id, index+1, entry.role, entry.content, time.Now().UTC())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	env.MustDo("POST", fmt.Sprintf("/ai/conversations/%d/messages", conversation.Id), map[string]any{"text": "继续"}, nil)
+	await(t, env, conversation.Id, func(detail api.ConversationDetail) bool { return !detail.Running && len(detail.Messages) >= 5 })
+	if !sawHistory.Load() {
+		t.Fatal("旧工具消息未转换成 OpenAI 对话格式")
 	}
 }
