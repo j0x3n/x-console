@@ -275,3 +275,27 @@ export function useDismissSuggestedTags() {
     onError: (error) => toast({ message: errorMessage(error), tone: "error" }),
   });
 }
+
+/* ---- B40：编辑器里手动点的 AI 功能，只返回结果，不保存 ---- */
+
+export function useNoteAiTools() {
+  const onError = (error: unknown) =>
+    toast({ message: errorMessage(error), tone: "error" });
+  return {
+    polish: useMutation({
+      mutationFn: ({ body, prompt }: { body: string; prompt?: string }) =>
+        unwrap(notesApi.POST("/notes/ai/polish", { body: { body, prompt } })),
+      onError,
+    }),
+    title: useMutation({
+      mutationFn: (body: string) =>
+        unwrap(notesApi.POST("/notes/ai/title", { body: { body } })),
+      onError,
+    }),
+    tags: useMutation({
+      mutationFn: (body: string) =>
+        unwrap(notesApi.POST("/notes/ai/tags", { body: { body } })),
+      onError,
+    }),
+  };
+}

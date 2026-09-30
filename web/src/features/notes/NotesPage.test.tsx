@@ -65,6 +65,9 @@ const calls = vi.hoisted(() => {
     if (path === "/notes" && req.method === "POST")
       return json({ ...note, id: 2, hidden: true });
     if (path === "/notes/tags") return json([{ tag: "work", count: 1 }]);
+    if (path === "/notes/ai/polish")
+      return json({ body: "# 第一行\n\n- 润色后" });
+    if (path === "/notes/ai/title") return json({ title: "AI 标题" });
     if (path === "/notes/1" && req.method === "GET") return json(note);
     if (path === "/notes/1" && req.method === "PATCH") {
       Object.assign(note, body, { updatedAt: new Date().toISOString() });
@@ -99,6 +102,7 @@ function renderAt(path: string) {
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   calls.length = 0;
   vault.unlocked = false;
 });
@@ -106,6 +110,7 @@ afterEach(() => {
 describe("NotesPage", () => {
   it("autosaves the last text once typing stops", async () => {
     renderAt("/notes/1");
+    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
     const body = (await screen.findByLabelText("笔记")) as HTMLTextAreaElement;
     expect(body.value).toBe("第一行");
     for (const text of ["第一行\n第", "第一行\n第二", "第一行\n第二行"])
@@ -175,5 +180,61 @@ describe("NotesPage", () => {
         ),
       ).toBe(true),
     );
+  });
+
+  it("opens a note with text in reading mode", async () => {
+    renderAt("/notes/1");
+    await screen.findByRole("heading", { name: "学习笔记" });
+    expect(screen.queryByLabelText("笔记")).toBeNull();
+    expect(screen.queryByRole("toolbar")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    expect(await screen.findByLabelText("笔记")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "完成" }));
+    await screen.findByRole("heading", { name: "学习笔记" });
+  });
+
+  it("replaces the body with the polished text and fills the title", async () => {
+    renderAt("/notes/1");
+    fireEvent.click(await screen.findByRole("button", { name: "编辑" }));
+    fireEvent.click(await screen.findByRole("button", { name: "AI 润色" }));
+    fireEvent.change(screen.getByLabelText("润色要求"), {
+      target: { value: "改成列表" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /开始润色/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "替换正文" }));
+    const body = screen.getByLabelText("笔记") as HTMLTextAreaElement;
+    expect(body.value).toBe("# 第一行\n\n- 润色后");
+    expect(
+      calls.find((c) => c.path === "/notes/ai/polish")?.body,
+    ).toMatchObject({ prompt: "改成列表" });
+    fireEvent.click(screen.getByRole("button", { name: "用 AI 生成标题" }));
+    await waitFor(() =>
+      expect(
+        document.querySelector<HTMLInputElement>(".notes-title-input")?.value,
+      ).toBe("AI 标题"),
+    );
+    await waitFor(
+      () =>
+        expect(
+          calls.filter((c) => c.method === "PATCH").at(-1)?.body,
+        ).toMatchObject({ title: "AI 标题", body: "# 第一行\n\n- 润色后" }),
+      { timeout: 3000 },
+    );
+  });
+
+  it("keeps the pane widths after a reload", async () => {
+    renderAt("/notes");
+    const [nav] = await screen.findAllByRole("separator");
+    fireEvent.keyDown(nav, { key: "ArrowRight" });
+    expect(JSON.parse(localStorage.getItem("xc.notes.panes")!)).toEqual({
+      nav: 212,
+      list: 340,
+    });
+    cleanup();
+    renderAt("/notes");
+    const [again] = await screen.findAllByRole("separator");
+    expect(again.getAttribute("aria-valuenow")).toBe("212");
+    fireEvent.doubleClick(again);
+    expect(JSON.parse(localStorage.getItem("xc.notes.panes")!).nav).toBe(196);
   });
 });

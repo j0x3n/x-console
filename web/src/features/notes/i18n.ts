@@ -100,4 +100,22 @@ registerZh({
   "selected notes": "条选中的笔记",
   "This cannot be undone.": "删除后不能恢复。",
   "notes could not be deleted": "条笔记没删掉",
+  // B40
+  "Drag to resize": "拖动调整宽度",
+  "Drag to resize, double-click to reset": "拖动调整宽度，双击恢复默认",
+  "Done editing": "完成",
+  "AI polish": "AI 润色",
+  "Leave it empty to fix wording and layout automatically.":
+    "不填就自动改错字、整理格式和排版。",
+  "Polish instructions": "润色要求",
+  "Optional. For example: turn it into a bullet list":
+    "可以不填。比如：改成要点列表",
+  "Polished text": "润色结果",
+  "Polishing…": "正在润色…",
+  "Start polishing": "开始润色",
+  "Polish again": "重新润色",
+  "Replace text": "替换正文",
+  "Note polished": "已替换成润色后的正文",
+  "Generate title with AI": "用 AI 生成标题",
+  "Generate tags with AI": "用 AI 生成标签",
 });

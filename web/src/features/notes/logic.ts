@@ -108,3 +108,28 @@ export {
   attachmentMarkdown,
   uploadPlaceholder,
 } from "../../components/markdown/upload";
+
+/* B40：三栏宽度，存在 localStorage。 */
+export interface PaneWidths {
+  nav: number;
+  list: number;
+}
+export const PANE_KEY = "xc.notes.panes";
+export const DEFAULT_PANES: PaneWidths = { nav: 196, list: 340 };
+export const PANE_LIMITS = {
+  nav: { min: 150, max: 360 },
+  list: { min: 240, max: 600 },
+};
+
+export function readPanes(storage: Pick<Storage, "getItem">): PaneWidths {
+  try {
+    const raw = JSON.parse(storage.getItem(PANE_KEY) ?? "null");
+    const pick = (v: unknown, key: keyof PaneWidths) =>
+      typeof v === "number" && Number.isFinite(v)
+        ? Math.min(PANE_LIMITS[key].max, Math.max(PANE_LIMITS[key].min, v))
+        : DEFAULT_PANES[key];
+    return { nav: pick(raw?.nav, "nav"), list: pick(raw?.list, "list") };
+  } catch {
+    return DEFAULT_PANES;
+  }
+}

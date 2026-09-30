@@ -16,6 +16,7 @@ import {
   ArchiveRestore,
   ArrowLeft,
   Bold,
+  BookOpen,
   Code,
   Columns2,
   Ellipsis,
@@ -37,6 +38,7 @@ import {
   Sparkles,
   SquareKanban,
   Trash2,
+  WandSparkles,
   X,
 } from "lucide-react";
 import { errorMessage } from "../../../api/client";
@@ -56,6 +58,7 @@ import {
   useDeleteNote,
   useDismissSuggestedTags,
   useNote,
+  useNoteAiTools,
   useUpdateNote,
   type Note,
 } from "../api";
@@ -74,6 +77,7 @@ import {
 } from "../logic";
 import ToIssueDialog from "./ToIssueDialog";
 import ToReminderDialog from "./ToReminderDialog";
+import PolishDialog from "./PolishDialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 interface Draft {
@@ -135,6 +139,10 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
     (tag) => !draft.tags.includes(tag),
   );
   const [mode, setModeState] = useState<Mode>(readMode);
+  // B40：有内容的笔记打开时先是阅读模式，点“编辑”才进编辑。
+  const [reading, setReading] = useState(() => !!note.body.trim());
+  const [polishing, setPolishing] = useState(false);
+  const ai = useNoteAiTools();
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialog, setDialog] = useState<"issue" | "reminder" | null>(null);
@@ -226,7 +234,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
     if (!el || mode !== "edit") return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [draft.body, mode]);
+  }, [draft.body, mode, reading]);
 
   const edit = (next: Partial<Draft>) => {
     const merged = { ...draftRef.current, ...next };
@@ -251,6 +259,31 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const flushThen = async (fn: () => void) => {
     await saver.current!.flush();
     fn();
+  };
+
+  /* ---- B40：AI 生成标题、标签，润色正文 ---- */
+
+  const hasBody = !!draft.body.trim();
+  const genTitle = () =>
+    ai.title.mutate(draftRef.current.body, {
+      onSuccess: (out) => out.title && edit({ title: out.title }),
+    });
+  const genTags = () =>
+    ai.tags.mutate(draftRef.current.body, {
+      onSuccess: (out) => {
+        const current = draftRef.current.tags;
+        const added = out.tags.filter((tag) => !current.includes(tag));
+        if (added.length) edit({ tags: [...current, ...added] });
+      },
+    });
+  const applyPolish = (body: string) => {
+    const before = draftRef.current.body;
+    edit({ body });
+    setPolishing(false);
+    toast({
+      message: t("Note polished"),
+      onUndo: () => edit({ body: before }),
+    });
   };
 
   /* ---- 工具条 ---- */
@@ -465,7 +498,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
 
   return (
     <div
-      className={`notes-editor mode-${mode}${dragging ? " dragging" : ""}`}
+      className={`notes-editor ${reading ? "reading" : `mode-${mode}`}${dragging ? " dragging" : ""}`}
       onDragOver={(e) => {
         if (Array.from(e.dataTransfer.types).includes("Files")) {
           e.preventDefault();
@@ -502,35 +535,64 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
         {note.archivedAt && (
           <span className="xc-badge warn">{t("Archived")}</span>
         )}
-        <div className="notes-modes" role="group" aria-label={t("View")}>
+        {reading ? (
           <button
-            className={mode === "edit" ? "on" : ""}
-            aria-pressed={mode === "edit"}
-            onClick={() => setMode("edit")}
+            className="xc-btn small primary notes-edit-btn"
+            aria-label={t("Edit")}
             title={t("Edit")}
+            onClick={() => {
+              setReading(false);
+              requestAnimationFrame(() => bodyRef.current?.focus());
+            }}
           >
             <Pencil size={14} />
             <span>{t("Edit")}</span>
           </button>
+        ) : (
+          <div className="notes-modes" role="group" aria-label={t("View")}>
+            <button
+              className={mode === "edit" ? "on" : ""}
+              aria-pressed={mode === "edit"}
+              onClick={() => setMode("edit")}
+              title={t("Edit")}
+            >
+              <Pencil size={14} />
+              <span>{t("Edit")}</span>
+            </button>
+            <button
+              className={`notes-mode-split ${mode === "split" ? "on" : ""}`}
+              aria-pressed={mode === "split"}
+              onClick={() => setMode("split")}
+              title={t("Side by side")}
+            >
+              <Columns2 size={14} />
+              <span>{t("Side by side")}</span>
+            </button>
+            <button
+              className={mode === "preview" ? "on" : ""}
+              aria-pressed={mode === "preview"}
+              onClick={() => setMode("preview")}
+              title={t("Preview")}
+            >
+              <Eye size={14} />
+              <span>{t("Preview")}</span>
+            </button>
+          </div>
+        )}
+        {!reading && (
           <button
-            className={`notes-mode-split ${mode === "split" ? "on" : ""}`}
-            aria-pressed={mode === "split"}
-            onClick={() => setMode("split")}
-            title={t("Side by side")}
+            className="xc-btn small notes-done-btn"
+            aria-label={t("Done editing")}
+            title={t("Done editing")}
+            onClick={() => {
+              void saver.current!.flush();
+              setReading(true);
+            }}
           >
-            <Columns2 size={14} />
-            <span>{t("Side by side")}</span>
+            <BookOpen size={14} />
+            <span>{t("Done editing")}</span>
           </button>
-          <button
-            className={mode === "preview" ? "on" : ""}
-            aria-pressed={mode === "preview"}
-            onClick={() => setMode("preview")}
-            title={t("Preview")}
-          >
-            <Eye size={14} />
-            <span>{t("Preview")}</span>
-          </button>
-        </div>
+        )}
         <button
           className={`xc-btn ghost small ${note.pinned ? "notes-pinned" : ""}`}
           onClick={() =>
@@ -561,6 +623,13 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                 role="menu"
                 onClick={() => setMenuOpen(false)}
               >
+                <button
+                  role="menuitem"
+                  disabled={!hasBody}
+                  onClick={() => setPolishing(true)}
+                >
+                  <WandSparkles size={14} /> {t("AI polish")}
+                </button>
                 <button role="menuitem" onClick={() => pickFiles(false)}>
                   <Paperclip size={14} /> {t("Attach a file")}
                 </button>
@@ -640,86 +709,133 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
 
       <div className="notes-editor-scroll">
         <div className="notes-doc">
-          <input
-            className="notes-title-input"
-            value={draft.title}
-            placeholder={t("Title")}
-            aria-label={t("Title")}
-            autoFocus={!note.title && !note.body}
-            onChange={(e) => edit({ title: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                bodyRef.current?.focus();
-              }
-            }}
-          />
-          <div className="notes-meta">
-            <div className="notes-tags-edit">
-              {draft.tags.map((tag) => (
-                <span key={tag} className="notes-tag">
-                  #{tag}
-                  <button
-                    aria-label={`${t("Remove tag")} ${tag}`}
-                    onClick={() =>
-                      edit({ tags: draft.tags.filter((x) => x !== tag) })
-                    }
-                  >
-                    <X size={11} />
-                  </button>
-                </span>
-              ))}
+          {reading ? (
+            <h1
+              className={`notes-read-title${draft.title.trim() ? "" : " empty"}`}
+            >
+              {draft.title.trim() || t("Untitled note")}
+            </h1>
+          ) : (
+            <div className="notes-title-row">
               <input
-                value={tagInput}
-                placeholder={draft.tags.length ? t("Add") : t("Add tags")}
-                aria-label={t("Add tags")}
-                onChange={(e) => setTagInput(e.target.value)}
+                className="notes-title-input"
+                value={draft.title}
+                placeholder={t("Title")}
+                aria-label={t("Title")}
+                autoFocus={!note.title && !note.body}
+                onChange={(e) => edit({ title: e.target.value })}
                 onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === ",") && tagInput.trim()) {
+                  if (e.key === "Enter") {
                     e.preventDefault();
-                    addTags(tagInput);
-                  } else if (
-                    e.key === "Backspace" &&
-                    !tagInput &&
-                    draft.tags.length
-                  ) {
-                    edit({ tags: draft.tags.slice(0, -1) });
+                    bodyRef.current?.focus();
                   }
                 }}
-                onBlur={() => tagInput.trim() && addTags(tagInput)}
               />
-              {suggested.length > 0 && (
-                <span
-                  className="notes-suggested"
-                  title={t("Tags suggested by AI")}
-                >
-                  <Sparkles size={12} />
-                  {suggested.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      className="notes-tag suggested"
-                      aria-label={`${t("Add tag")} ${tag}`}
-                      onClick={() => edit({ tags: [...draft.tags, tag] })}
-                    >
-                      + #{tag}
-                    </button>
-                  ))}
+              <button
+                type="button"
+                className="xc-btn ghost small notes-ai-gen"
+                title={t("Generate title with AI")}
+                aria-label={t("Generate title with AI")}
+                disabled={!hasBody || ai.title.isPending}
+                onClick={genTitle}
+              >
+                <Sparkles
+                  size={15}
+                  className={ai.title.isPending ? "notes-spin" : ""}
+                />
+              </button>
+            </div>
+          )}
+          {(!reading || draft.tags.length > 0 || suggested.length > 0) && (
+            <div className="notes-meta">
+              <div className="notes-tags-edit">
+                {draft.tags.map((tag) => (
+                  <span key={tag} className="notes-tag">
+                    #{tag}
+                    {!reading && (
+                      <button
+                        aria-label={`${t("Remove tag")} ${tag}`}
+                        onClick={() =>
+                          edit({ tags: draft.tags.filter((x) => x !== tag) })
+                        }
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </span>
+                ))}
+                {!reading && (
+                  <input
+                    value={tagInput}
+                    placeholder={draft.tags.length ? t("Add") : t("Add tags")}
+                    aria-label={t("Add tags")}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        (e.key === "Enter" || e.key === ",") &&
+                        tagInput.trim()
+                      ) {
+                        e.preventDefault();
+                        addTags(tagInput);
+                      } else if (
+                        e.key === "Backspace" &&
+                        !tagInput &&
+                        draft.tags.length
+                      ) {
+                        edit({ tags: draft.tags.slice(0, -1) });
+                      }
+                    }}
+                    onBlur={() => tagInput.trim() && addTags(tagInput)}
+                  />
+                )}
+                {!reading && (
                   <button
                     type="button"
-                    className="notes-suggested-dismiss"
-                    aria-label={t("Dismiss suggested tags")}
-                    onClick={() => dismissSuggested.mutate(note.id)}
+                    className="xc-btn ghost small notes-ai-gen"
+                    title={t("Generate tags with AI")}
+                    aria-label={t("Generate tags with AI")}
+                    disabled={!hasBody || ai.tags.isPending}
+                    onClick={genTags}
                   >
-                    <X size={11} />
+                    <Sparkles
+                      size={13}
+                      className={ai.tags.isPending ? "notes-spin" : ""}
+                    />
                   </button>
-                </span>
-              )}
+                )}
+                {suggested.length > 0 && (
+                  <span
+                    className="notes-suggested"
+                    title={t("Tags suggested by AI")}
+                  >
+                    <Sparkles size={12} />
+                    {suggested.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        className="notes-tag suggested"
+                        aria-label={`${t("Add tag")} ${tag}`}
+                        onClick={() => edit({ tags: [...draft.tags, tag] })}
+                      >
+                        + #{tag}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="notes-suggested-dismiss"
+                      aria-label={t("Dismiss suggested tags")}
+                      onClick={() => dismissSuggested.mutate(note.id)}
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 预览时只显示渲染后的内容，不显示格式按钮（B23） */}
-          {mode !== "preview" && (
+          {!reading && mode !== "preview" && (
             <div
               className="notes-toolbar"
               role="toolbar"
@@ -757,11 +873,25 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
               >
                 <Paperclip size={15} />
               </button>
+              <span className="notes-toolbar-sep" />
+              <button
+                type="button"
+                className="notes-tool-ai"
+                title={t("AI polish")}
+                aria-label={t("AI polish")}
+                disabled={!hasBody}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setPolishing(true)}
+              >
+                <WandSparkles size={15} />
+                <span>{t("AI polish")}</span>
+              </button>
             </div>
           )}
-          {mode === "edit" && textarea}
-          {mode === "preview" && preview}
-          {mode === "split" && (
+          {reading && preview}
+          {!reading && mode === "edit" && textarea}
+          {!reading && mode === "preview" && preview}
+          {!reading && mode === "split" && (
             <div className="notes-split">
               {textarea}
               <div className="notes-split-preview">{preview}</div>
@@ -827,6 +957,13 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
           onClose={() => setDialog(null)}
           noteId={note.id}
           onDone={adopt}
+        />
+      )}
+      {polishing && (
+        <PolishDialog
+          body={draft.body}
+          onApply={applyPolish}
+          onClose={() => setPolishing(false)}
         />
       )}
       {dialog === "reminder" && (

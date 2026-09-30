@@ -33,12 +33,18 @@ import {
 import { tagColor, TAG_COLORS } from "./tagColor";
 import { useVaultStatus } from "../vault/api";
 import NoteEditor from "./components/NoteEditor";
+import PaneResizer from "./components/PaneResizer";
 import {
   DATE_GROUP_LABELS,
+  DEFAULT_PANES,
+  PANE_KEY,
+  PANE_LIMITS,
   dateGroup,
   noteTitle,
+  readPanes,
   snippetParts,
   type DateGroup,
+  type PaneWidths,
 } from "./logic";
 import PageActions from "../../components/layout/PageActions";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -58,6 +64,15 @@ export default function NotesPage() {
   const pinned = search.get("pinned") === "1";
   const vault = useVaultStatus();
   const vaultUnlocked = vault.data?.unlocked ?? false;
+  const [panes, setPanes] = useState<PaneWidths>(() => {
+    try {
+      return readPanes(localStorage);
+    } catch {
+      return DEFAULT_PANES;
+    }
+  });
+  const panesRef = useRef(panes);
+  panesRef.current = panes;
   // 隐藏分类只在解锁后出现。地址栏带着 hidden=1 但已锁定时，当作全部笔记。
   const hidden = search.get("hidden") === "1" && vaultUnlocked;
   const view: View = hidden
@@ -295,8 +310,44 @@ export default function NotesPage() {
       ),
     ) ?? [];
 
+  const savePane = (key: keyof PaneWidths, width: number) => {
+    const next = { ...panesRef.current, [key]: width };
+    setPanes(next);
+    try {
+      localStorage.setItem(PANE_KEY, JSON.stringify(next));
+    } catch {
+      /* 存不了就只在这次生效 */
+    }
+  };
+  const setPane = (key: keyof PaneWidths, width: number) =>
+    setPanes((p) => ({ ...p, [key]: width }));
+
   return (
-    <div className={`notes-layout ${id ? "has-note" : ""}`}>
+    <div
+      className={`notes-layout ${id ? "has-note" : ""}`}
+      style={
+        {
+          "--notes-nav-w": `${panes.nav}px`,
+          "--notes-list-w": `${panes.list}px`,
+        } as CSSProperties
+      }
+    >
+      <PaneResizer
+        className="notes-resizer-nav"
+        width={panes.nav}
+        {...PANE_LIMITS.nav}
+        onChange={(w) => setPane("nav", w)}
+        onDone={(w) => savePane("nav", w)}
+        onReset={() => savePane("nav", DEFAULT_PANES.nav)}
+      />
+      <PaneResizer
+        className="notes-resizer-list"
+        width={panes.list}
+        {...PANE_LIMITS.list}
+        onChange={(w) => setPane("list", w)}
+        onDone={(w) => savePane("list", w)}
+        onReset={() => savePane("list", DEFAULT_PANES.list)}
+      />
       <nav className="notes-nav" aria-label={t("Note categories")}>
         <div className="notes-nav-group">{views}</div>
         {tagItems.length > 0 && (

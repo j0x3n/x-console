@@ -3,10 +3,49 @@
 /* 三栏：分类、列表、编辑区 */
 .notes-layout {
   display: grid;
-  grid-template-columns: 196px 340px minmax(0, 1fr);
+  position: relative;
+  grid-template-columns:
+    var(--notes-nav-w, 196px) var(--notes-list-w, 340px)
+    minmax(0, 1fr);
   height: calc(100dvh - 72px);
   min-height: 420px;
   border-top: 1px solid var(--xc-border);
+}
+
+/* B40：栏之间的拖动条，盖在分隔线上 */
+.notes-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 9px;
+  margin-left: -5px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.notes-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 3px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.notes-resizer:hover::after,
+.notes-resizer:focus-visible::after,
+.notes-resizer:active::after {
+  background: var(--xc-accent);
+}
+.notes-resizer:focus-visible {
+  outline: none;
+}
+.notes-resizer-nav {
+  left: var(--notes-nav-w, 196px);
+}
+.notes-resizer-list {
+  left: calc(var(--notes-nav-w, 196px) + var(--notes-list-w, 340px));
 }
 
 /* ---- 分类栏 ---- */
@@ -425,6 +464,10 @@
   background: var(--xc-surface-2);
   color: var(--xc-text);
 }
+.notes-menu button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
 .notes-menu button.danger {
   color: var(--xc-danger);
 }
@@ -540,6 +583,19 @@
 .notes-toolbar button:hover {
   background: var(--xc-surface-2);
   color: var(--xc-text);
+}
+/* B40：工具条上的 AI 润色，带文字 */
+.notes-toolbar button.notes-tool-ai {
+  display: inline-flex;
+  gap: 5px;
+  width: auto;
+  padding: 0 8px;
+  color: var(--xc-accent-text);
+  font-size: 12px;
+}
+.notes-toolbar button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 .notes-toolbar-sep {
   width: 1px;
@@ -669,10 +725,14 @@
 /* 分栏模式下编辑区要宽一些：不够宽时收起分类栏，改用列表顶部那一行 */
 @media (max-width: 1599px) {
   .notes-layout:has(.notes-editor.mode-split) {
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: var(--notes-list-w, 320px) minmax(0, 1fr);
   }
-  .notes-layout:has(.notes-editor.mode-split) .notes-nav {
+  .notes-layout:has(.notes-editor.mode-split) .notes-nav,
+  .notes-layout:has(.notes-editor.mode-split) .notes-resizer-nav {
     display: none;
+  }
+  .notes-layout:has(.notes-editor.mode-split) .notes-resizer-list {
+    left: var(--notes-list-w, 320px);
   }
   .notes-layout:has(.notes-editor.mode-split) .notes-chips {
     display: flex;
@@ -682,10 +742,15 @@
 /* 中等宽度：分类栏收进列表顶部的一行 */
 @media (max-width: 1180px) {
   .notes-layout {
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: var(--notes-list-w, 320px) minmax(0, 1fr);
   }
-  .notes-nav {
+  .notes-nav,
+  .notes-resizer-nav {
     display: none;
+  }
+  .notes-resizer-list,
+  .notes-layout:has(.notes-editor.mode-split) .notes-resizer-list {
+    left: var(--notes-list-w, 320px);
   }
   .notes-chips {
     display: flex;
@@ -712,6 +777,9 @@
   .notes-list-pane {
     border-right: 0;
   }
+  .notes-resizer {
+    display: none;
+  }
   .notes-layout.has-note .notes-list-pane,
   .notes-layout:not(.has-note) .notes-main {
     display: none;
@@ -725,8 +793,12 @@
   .notes-doc {
     padding: 18px 16px 40px;
   }
-  .notes-title-input {
+  .notes-title-input,
+  .notes-read-title {
     font-size: 23px;
+  }
+  .notes-toolbar button.notes-tool-ai span {
+    display: none;
   }
   .notes-modes button span,
   .notes-btn-text,
@@ -937,4 +1009,78 @@
 }
 .notes-suggested-dismiss:hover {
   background: var(--xc-surface-2);
+}
+
+/* ---- B40：阅读模式、生成标题和标签、润色弹窗 ---- */
+.notes-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.notes-title-row .notes-title-input {
+  flex: 1;
+  min-width: 0;
+}
+.notes-title-row .notes-ai-gen {
+  margin-top: 4px;
+}
+.notes-ai-gen {
+  flex: none;
+  color: var(--xc-muted);
+}
+.notes-ai-gen:hover:not(:disabled) {
+  color: var(--xc-accent-text);
+}
+.notes-tags-edit .notes-ai-gen {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+.notes-read-title {
+  margin: 0 0 8px;
+  color: var(--xc-text);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.notes-read-title.empty {
+  color: var(--xc-faint);
+}
+.notes-editor.reading .notes-meta {
+  margin-bottom: 14px;
+}
+.notes-edit-btn,
+.notes-done-btn {
+  gap: 5px;
+  white-space: nowrap;
+}
+.notes-modes button {
+  white-space: nowrap;
+}
+.notes-polish-result {
+  max-height: 46vh;
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: 10px;
+  background: var(--xc-surface);
+}
+.notes-polish .xc-btn svg {
+  margin-right: 4px;
+}
+.notes-spin {
+  animation: notes-spin 1s linear infinite;
+}
+@keyframes notes-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 760px) {
+  .notes-edit-btn span,
+  .notes-done-btn span {
+    display: none;
+  }
 }

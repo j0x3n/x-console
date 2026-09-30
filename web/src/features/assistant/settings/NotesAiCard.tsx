@@ -19,7 +19,7 @@ export default function NotesAiCard() {
           <strong>{t("Title notes automatically")}</strong>
           <small>
             {t(
-              "Fills in an empty title 10 seconds after you stop typing. Hidden notes are never sent.",
+              "Fills in an empty title 3 seconds after saving. Hidden notes are never sent.",
             )}
           </small>
         </span>

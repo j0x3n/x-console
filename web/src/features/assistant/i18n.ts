@@ -92,8 +92,8 @@ registerZh({
     "按 models.dev 的价格估算，和实际账单可能不一样。",
   // B32：笔记
   "Title notes automatically": "自动起标题",
-  "Fills in an empty title 10 seconds after you stop typing. Hidden notes are never sent.":
-    "停止输入 10 秒后，给没标题的笔记补上标题。隐藏的笔记不会发给 AI。",
+  "Fills in an empty title 3 seconds after saving. Hidden notes are never sent.":
+    "保存 3 秒后，给没标题的笔记补上标题。隐藏的笔记不会发给 AI。",
   "Tag notes automatically": "自动加标签",
   "Picks up to 3 of your existing tags.": "从你已有的标签里最多挑 3 个。",
   "Suggested tags": "建议的标签",

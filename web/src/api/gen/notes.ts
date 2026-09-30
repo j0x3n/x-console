@@ -94,6 +94,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notes/ai/polish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B40。用快速模型润色、整理 Markdown 正文。只返回结果，不保存。prompt 为空时按内容自动润色。 */
+        post: operations["polishNoteBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notes/ai/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B40。根据正文生成一个标题。只返回，不保存。 */
+        post: operations["suggestNoteTitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notes/ai/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B40。根据正文生成最多 3 个标签，优先用已有标签。只返回，不保存。 */
+        post: operations["suggestNoteTags"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notes/{noteId}/suggested-tags": {
         parameters: {
             query?: never;
@@ -547,6 +598,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NoteAiSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    polishNoteBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description 最多 20000 字 */
+                    body: string;
+                    /** @description 用户自己写的要求，比如“改成要点列表” */
+                    prompt?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 润色后的正文 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        body: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    suggestNoteTitle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 标题 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        title: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    suggestNoteTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 标签 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tags: string[];
+                    };
                 };
             };
             default: components["responses"]["Error"];
