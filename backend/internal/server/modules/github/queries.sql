@@ -9,12 +9,12 @@ SELECT * FROM github_pulls WHERE repo = ? AND number = ?;
 
 -- name: UpsertPull :exec
 INSERT INTO github_pulls (repo, number, title, author, url, head_ref, head_sha, base_ref, draft,
-                          review_state, check_state, created_at, updated_at, synced_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          review_state, check_state, created_at, updated_at, synced_at, state)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (repo, number) DO UPDATE SET
     title = excluded.title, author = excluded.author, url = excluded.url, head_ref = excluded.head_ref,
     head_sha = excluded.head_sha, base_ref = excluded.base_ref, draft = excluded.draft,
-    review_state = excluded.review_state, check_state = excluded.check_state,
+    review_state = excluded.review_state, check_state = excluded.check_state, state = excluded.state,
     created_at = excluded.created_at, updated_at = excluded.updated_at, synced_at = excluded.synced_at;
 
 -- name: DeletePullsExcept :many

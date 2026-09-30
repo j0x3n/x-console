@@ -28,6 +28,7 @@ function pull(
     headRef: "x",
     baseRef: "main",
     draft: false,
+    state: "open",
     reviewState: "none",
     checkState: "none",
     issueKeys: [],
@@ -81,6 +82,13 @@ describe("sortPulls", () => {
       }),
     ]);
     expect(sorted.map((p) => p.number)).toEqual([3, 2, 1]);
+  });
+  it("keeps closed PRs after open PRs", () => {
+    const sorted = sortPulls([
+      pull("a/b", 2, { state: "merged", updatedAt: "2026-09-25T00:00:00Z" }),
+      pull("a/b", 1),
+    ]);
+    expect(sorted.map((p) => p.number)).toEqual([1, 2]);
   });
 });
 

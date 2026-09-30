@@ -131,35 +131,46 @@ func (m *Module) syncRepo(ctx context.Context, c *restClient, repo, login string
 }
 
 func (m *Module) syncPulls(ctx context.Context, c *restClient, repo string) error {
-	pulls, err := m.openPulls(ctx, c, repo)
+	pulls, err := m.recentPulls(ctx, c, repo)
 	if err != nil {
 		return err
 	}
 	now := m.now()
 	numbers := make([]int64, 0, len(pulls))
 	for _, p := range pulls {
-		review, err := m.reviewState(ctx, c, repo, p)
-		if err != nil {
-			return err
+		review, checks := "none", "none"
+		if p.State == "open" {
+			review, err = m.reviewState(ctx, c, repo, p)
+			if err != nil {
+				return err
+			}
+			checks, err = m.checkState(ctx, c, repo, p.Head.SHA)
+			if err != nil {
+				return err
+			}
 		}
-		checks, err := m.checkState(ctx, c, repo, p.Head.SHA)
-		if err != nil {
-			return err
+		state := p.State
+		if p.MergedAt != nil {
+			state = "merged"
 		}
 		if err := m.q.UpsertPull(ctx, db.UpsertPullParams{
 			Repo: repo, Number: int64(p.Number), Title: p.Title, Author: p.User.Login, Url: p.HTMLURL,
 			HeadRef: p.Head.Ref, HeadSha: p.Head.SHA, BaseRef: p.Base.Ref, Draft: p.Draft,
-			ReviewState: review, CheckState: checks, CreatedAt: p.CreatedAt.UTC(), UpdatedAt: p.UpdatedAt.UTC(), SyncedAt: now,
+			ReviewState: review, CheckState: checks, CreatedAt: p.CreatedAt.UTC(), UpdatedAt: p.UpdatedAt.UTC(), SyncedAt: now, State: state,
 		}); err != nil {
 			return err
 		}
 		numbers = append(numbers, int64(p.Number))
 		ref := fmt.Sprintf("%s#%d", repo, p.Number)
-		if err := m.ciTransition(ctx, "pr:"+ref, checks, notify.Notification{
-			Kind: "github.ci_failed", Title: "PR 检查失败：" + ref, Body: p.Title, Link: "/github",
-			Priority: notify.PriorityHigh, Source: "github",
-			Data: map[string]any{"repo": repo, "number": p.Number, "url": p.HTMLURL},
-		}); err != nil {
+		if p.State == "open" {
+			if err := m.ciTransition(ctx, "pr:"+ref, checks, notify.Notification{
+				Kind: "github.ci_failed", Title: "PR 检查失败：" + ref, Body: p.Title, Link: "/github",
+				Priority: notify.PriorityHigh, Source: "github",
+				Data: map[string]any{"repo": repo, "number": p.Number, "url": p.HTMLURL},
+			}); err != nil {
+				return err
+			}
+		} else if err := m.q.DeleteCIState(ctx, "pr:"+ref); err != nil {
 			return err
 		}
 		m.linkPull(ctx, repo, p.Number, p.Title, p.Head.Ref, p.HTMLURL)
@@ -176,22 +187,34 @@ func (m *Module) syncPulls(ctx context.Context, c *restClient, repo string) erro
 	return nil
 }
 
-// maxPullPages caps the open pull requests read per repository (2000).
+// maxPullPages caps each state at 2000 pull requests per repository.
 const maxPullPages = 20
 
-// openPulls reads every open pull request, page by page.
-func (m *Module) openPulls(ctx context.Context, c *restClient, repo string) ([]ghPull, error) {
+// recentPulls keeps every open PR and PRs closed in the last seven days.
+// Separate streams keep old closed PRs from filling pages ahead of open PRs.
+func (m *Module) recentPulls(ctx context.Context, c *restClient, repo string) ([]ghPull, error) {
 	var all []ghPull
-	for page := 1; page <= maxPullPages; page++ {
-		var batch []ghPull
-		q := url.Values{"state": {"open"}, "per_page": {"100"}, "page": {strconv.Itoa(page)}}
-		more, err := c.getPage(ctx, "/repos/"+repo+"/pulls", q, &batch)
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, batch...)
-		if !more {
-			break
+	cutoff := m.now().Add(-7 * 24 * time.Hour)
+	for _, state := range []string{"open", "closed"} {
+		for page := 1; page <= maxPullPages; page++ {
+			var batch []ghPull
+			q := url.Values{"state": {state}, "sort": {"updated"}, "direction": {"desc"}, "per_page": {"100"}, "page": {strconv.Itoa(page)}}
+			more, err := c.getPage(ctx, "/repos/"+repo+"/pulls", q, &batch)
+			if err != nil {
+				return nil, err
+			}
+			for _, p := range batch {
+				if state == "open" {
+					p.State = "open"
+					all = append(all, p)
+				} else if p.ClosedAt != nil && !p.ClosedAt.Before(cutoff) {
+					p.State = "closed"
+					all = append(all, p)
+				}
+			}
+			if !more {
+				break
+			}
 		}
 	}
 	return all, nil

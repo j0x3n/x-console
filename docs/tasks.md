@@ -51,7 +51,6 @@
 | B31 | 云盘：文本编辑和历史版本、批量操作、压缩解压、外链分享、预览、日志滚动 | [B31](specs/B31.md) | |
 | B33 | 服务器的 Agent 标签 | [B33](specs/B33.md) | |
 | B34 | 浏览器推送自检和后台通知 | [B34](specs/B34.md) | |
-| B35 | GitHub 仓库下拉多选，同步加快 | [B35](specs/B35.md) | |
 | C5 | 清理轮 | 见下 | |
 | B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并。后端已接通 | [B36](specs/B36.md) | |
 | B37 | 提醒页汇总其他模块的提醒。后端已接通 | [B37](specs/B37.md) | Codex |
@@ -198,7 +197,6 @@
 - 真实的 Home Assistant、Telegram、Bark、Server酱、Web Push、GitHub、Linear。测试全部用假服务器。
 - systemd 服务管理（开发环境没有 systemd）和真实的 SSH 主机。
 - B29 系统日志：`journalctl` 只用假输出测过，没在真实 systemd 机器上跑；Windows 事件日志（`wevtutil`）只测了 XML 解析和查询拼装，没在 Windows 上跑。没有 journal 的 Linux 读 syslog 文件时没有级别，按级别过滤会得到空列表。
-- 服务器详情页“没有实时刷新”的原因没查：代码和测试里数据流是通的（订阅、进入详情模式、代理重连后重发都有测试），要在线上按 `docs/specs/B26.md` 的“排查”一节看 WebSocket 里有没有 `host.metrics`、代理是不是旧版。B26 加了 1 秒模式和代理重连重发的测试。
 
 - B30 的 Windows 安装（`install.ps1`、`setup.exe` 的安装模式、任务计划程序）没在真实 Windows 上跑过，Linux 的 `install.sh` 在没有 systemd 的容器里跑过下载、校验、配对，没跑过 systemd 那一段；Docker 镜像四个平台的编译没在本机构建过。
 - B30 没做：托盘图标、代理自动更新。现在升级要再执行一次安装命令。`setup.exe` 没有代码签名，Windows SmartScreen 会提示。
@@ -223,6 +221,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B35 补全 | GitHub PR 加入最近 7 天关闭和合并的记录，并显示状态（本次提交） |
 | B32 后端 | OpenAI 兼容供应商、调用层、用量、笔记自动标题和标签已完成；进度见 [backend-todo.md](backend-todo.md)（`bfb7569`） |
 | B33 后端 | 服务器 Agent 的会话、权限、10 个代理工具、风险判断、确认、审计和停止已完成；浏览器主流程通过。提交包括 `bb7e20e`、`e2a040b`、`0551786` 和本次提交 |
 | D1 | 移除前端演示数据及开关，旧浏览器的演示设置不再影响真实接口；原版备份在 `demo-data-backup-20260929`（`f74744d`）；变更待合并 |

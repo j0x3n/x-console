@@ -2,7 +2,7 @@
 
 ## 进度区（谁做谁更新，每做完一小步就改这里）
 
-接手的人先看这一节。工作分支是 `claude/project-thread-37jvjz`，目标分支是 `develop`。PR #24 已合并；后续提交继续推到原工作分支。用户 2026-09-29 定：先做前一半（第一组到第三组），做到哪算哪。
+接手的人先看这一节。B22 到 B37 的后端已合并到 `develop`。后续清理在 `codex` 分支进行。用户 2026-09-29 定：先做前一半（第一组到第三组），做到哪算哪。
 
 状态只有三种：没开始 / 在做 / 做完。
 
@@ -14,12 +14,12 @@
 | 1 | B22 偏好设置 | 做完 | `core/preferences.go` | 无 |
 | 2 | B23 天气、订阅分类、周期 | 做完 | `brief/weather.go`、`monitoring/categories.go`、`monitoring/subscriptions.go`、迁移 `20260929000100` | 无 |
 | 3 | B34 推送自检 | 做完 | `reminders/delivery.go`、`reminders/notify_handlers.go`、迁移 `20260929000200` | 无 |
-| 4 | B35 GitHub | 做完 | `modules/github/repos.go`、`client.go`、`sync.go`、`module.go` | 无。PR 只存打开的（表和契约都没有状态字段），所以规格里“加上最近 7 天关闭的”没做，需要时要先加字段 |
+| 4 | B35 GitHub | 做完 | `modules/github/repos.go`、`client.go`、`sync.go`、`module.go`、PR 状态迁移与接口 | 已补最近 7 天关闭和合并的 PR，接口有状态字段 |
 | 5a | B24 `files` 包、旧目录搬迁、云盘和笔记改用 | 做完 | `internal/server/files/`、`drive/`、`notes/attachments.go` | 无 |
 | 5b | B24 S3 实现和本机缓存 `Cached` | 做完 | `files/s3.go`、`files/cached.go`、假 S3 `files/fakes3/`（别的模块的测试也能用） | 无 |
 | 5c | B24 存储模块 `modules/storage`（设置、用量、切换、搬迁） | 做完 | `modules/storage/`（module、handlers、switch、usage）、`files/cached.go`、`config.FilesCacheDir` | 云盘旧的 `/drive/s3*` 按规格第 4 节留到下个版本删。搬迁只搬 `files.Store` 里的文件 |
 | 5d | B25 备份模块 `modules/backup` | 做完 | `modules/backup/`（archive、export、handlers、restore、auto）、`cmd/server/main.go` | 恢复走“解包 → 停进程 → 重启时换数据库”，见 `docs/06-deploy.md`。没做“恢复期间新请求回 503”，因为进程马上停止 |
-| 6 | B26 服务器详情刷新周期 | 做完 | `ws/events.go`、`ws/subscriptions.go`、`hosts/interval.go`、`hosts/metrics.go`、`agent/metrics/metrics.go`、`protocol.MetricsDetailParams` | “没有实时刷新”要在线上查，记进了已知问题 |
+| 6 | B26 服务器详情刷新周期 | 做完 | `ws/events.go`、`ws/subscriptions.go`、`hosts/interval.go`、`hosts/metrics.go`、`agent/metrics/metrics.go`、`protocol.MetricsDetailParams` | 用户确认实时刷新正常 |
 | 7 | B27 月流量 | 做完 | `hosts/traffic.go`、`pkg/protocol/methods_hosts.go`、`agent/metrics/metrics.go`、迁移 `20260929000300` | 无。删除代理主机时没清流量表（代理没有删除事件），只清了 SSH 主机的 |
 | 8 | B28 容器日志、镜像清理 | 做完 | `agent/docker/lines.go`、`agent/docker/docker.go`、`monitoring/docker.go`、`monitoring/images.go`、`protocol/methods_docker.go` | 无。B28 里“进程合并、终端脚本、容器排序”前端已做完，后端不用动 |
 | 9 | B29 系统日志 | 做完 | `agent/syslog/`（journal、textlog、wevt）、`hosts/syslog.go`、`protocol/methods_syslog.go` | 无。只用假输出测过，没在真实 systemd 和 Windows 上跑，记进了已知问题 |

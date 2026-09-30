@@ -279,15 +279,18 @@ type ghRepo struct {
 }
 
 type ghPull struct {
-	Number             int       `json:"number"`
-	Title              string    `json:"title"`
-	HTMLURL            string    `json:"html_url"`
-	Draft              bool      `json:"draft"`
-	User               ghUser    `json:"user"`
-	RequestedReviewers []ghUser  `json:"requested_reviewers"`
-	RequestedTeams     []any     `json:"requested_teams"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	Number             int        `json:"number"`
+	Title              string     `json:"title"`
+	HTMLURL            string     `json:"html_url"`
+	Draft              bool       `json:"draft"`
+	State              string     `json:"state"`
+	ClosedAt           *time.Time `json:"closed_at"`
+	MergedAt           *time.Time `json:"merged_at"`
+	User               ghUser     `json:"user"`
+	RequestedReviewers []ghUser   `json:"requested_reviewers"`
+	RequestedTeams     []any      `json:"requested_teams"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 	Head               struct {
 		Ref string `json:"ref"`
 		SHA string `json:"sha"`

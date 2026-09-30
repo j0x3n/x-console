@@ -237,7 +237,7 @@ components:
       enum: [success, failure, pending, none]
     GitHubPull:
       type: object
-      required: [repo, number, title, author, url, headRef, baseRef, draft, reviewState, checkState, issueKeys, createdAt, updatedAt]
+      required: [repo, number, title, author, url, headRef, baseRef, draft, state, reviewState, checkState, issueKeys, createdAt, updatedAt]
       properties:
         repo: { type: string }
         number: { type: integer }
@@ -247,6 +247,7 @@ components:
         headRef: { type: string }
         baseRef: { type: string }
         draft: { type: boolean }
+        state: { type: string, enum: [open, closed, merged] }
         reviewState: { $ref: "#/components/schemas/GitHubReviewState" }
         checkState: { $ref: "#/components/schemas/GitHubCheckState" }
         issueKeys:

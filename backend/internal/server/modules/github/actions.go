@@ -100,7 +100,7 @@ func (m *Module) CreatePR(ctx context.Context, in contracts.CreatePR) (prURL str
 		if err := m.q.UpsertPull(ctx, db.UpsertPullParams{
 			Repo: repo, Number: int64(p.Number), Title: p.Title, Author: p.User.Login, Url: p.HTMLURL,
 			HeadRef: p.Head.Ref, HeadSha: p.Head.SHA, BaseRef: p.Base.Ref, Draft: p.Draft,
-			ReviewState: "none", CheckState: "none", CreatedAt: p.CreatedAt.UTC(), UpdatedAt: p.UpdatedAt.UTC(), SyncedAt: now,
+			ReviewState: "none", CheckState: "none", CreatedAt: p.CreatedAt.UTC(), UpdatedAt: p.UpdatedAt.UTC(), SyncedAt: now, State: "open",
 		}); err != nil {
 			m.log.Warn("github cache new pull", "err", err)
 		}

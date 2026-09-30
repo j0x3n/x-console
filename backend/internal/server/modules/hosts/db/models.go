@@ -335,6 +335,7 @@ type GithubPull struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	SyncedAt    time.Time
+	State       string
 }
 
 type GithubRun struct {

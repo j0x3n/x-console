@@ -69,7 +69,7 @@ func (f *fakeGitHub) set(fn func(f *fakeGitHub)) {
 func pull(number int, title, head, sha string) map[string]any {
 	return map[string]any{
 		"number": number, "title": title, "html_url": fmt.Sprintf("https://github.com/acme/app/pull/%d", number),
-		"draft": false, "user": map[string]any{"login": "jo"}, "requested_reviewers": []any{}, "requested_teams": []any{},
+		"draft": false, "state": "open", "user": map[string]any{"login": "jo"}, "requested_reviewers": []any{}, "requested_teams": []any{},
 		"created_at": "2026-09-20T10:00:00Z", "updated_at": "2026-09-25T10:00:00Z",
 		"head": map[string]any{"ref": head, "sha": sha}, "base": map[string]any{"ref": "main"},
 	}
@@ -134,7 +134,14 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/user/repos":
 		body = f.page(w, r, f.userRepos)
 	case len(parts) == 4 && parts[3] == "pulls":
-		body = f.page(w, r, f.pulls[parts[1]+"/"+parts[2]])
+		var filtered []map[string]any
+		state := r.URL.Query().Get("state")
+		for _, p := range f.pulls[parts[1]+"/"+parts[2]] {
+			if state == "all" || p["state"] == state {
+				filtered = append(filtered, p)
+			}
+		}
+		body = f.page(w, r, filtered)
 	case len(parts) == 6 && parts[3] == "pulls" && parts[5] == "reviews":
 		body = orEmpty(f.reviews[parts[1]+"/"+parts[2]+"#"+parts[4]])
 	case len(parts) == 6 && parts[3] == "commits" && parts[5] == "status":
