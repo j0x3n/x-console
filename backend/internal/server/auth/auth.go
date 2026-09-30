@@ -308,7 +308,9 @@ func (s *Service) Middleware(public func(path string) bool) func(http.Handler) h
 				httpx.Fail(w, r, httpx.NewError(http.StatusForbidden, "csrf", "缺少 X-Requested-With 请求头"))
 				return
 			}
-			if VaultUnlocked(r.Context()) {
+			// Sliding vault window. It is written at most once a minute, not on
+			// every request.
+			if VaultUnlocked(r.Context()) && sess.VaultUntil.Sub(s.now()) < vaultTTL-vaultRefresh {
 				until := s.now().Add(vaultTTL)
 				if err := s.q.SetVaultUntil(r.Context(), db.SetVaultUntilParams{VaultUntil: &until, ID: sess.ID}); err != nil {
 					httpx.Fail(w, r, err)

@@ -64,6 +64,18 @@ func TestVaultSessionLifecycle(t *testing.T) {
 	if status.UnlockedUntil.Before(time.Now().Add(14 * time.Minute)) {
 		t.Fatalf("vault window did not slide: %v", status.UnlockedUntil)
 	}
+	// A window refreshed less than a minute ago is not written again.
+	var before, after time.Time
+	if err := env.App.Deps.DB.QueryRow("SELECT vault_until FROM sessions WHERE id = ?", sessionID).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	checkStatus(t, env, true, true)
+	if err := env.App.Deps.DB.QueryRow("SELECT vault_until FROM sessions WHERE id = ?", sessionID).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if !after.Equal(before) {
+		t.Fatalf("vault window rewritten on every request: %v then %v", before, after)
+	}
 	past := time.Now().UTC().Add(-time.Second)
 	if _, err := env.App.Deps.DB.Exec("UPDATE sessions SET vault_until = ? WHERE id = ?", past, sessionID); err != nil {
 		t.Fatal(err)
