@@ -217,13 +217,15 @@ func (m *Module) createArchive(ctx context.Context, t *driveTask, entries []arch
 		return 0, err
 	}
 	digest := hex.EncodeToString(hash.Sum(nil))
-	if err := m.putBlobFile(ctx, digest, tmp.Name(), info.Size()); err != nil {
+	release, err := m.putBlobFile(ctx, digest, tmp.Name(), info.Size())
+	if err != nil {
 		return 0, err
 	}
+	defer release()
 	committed := false
 	defer func() {
 		if !committed {
-			m.dropBlob(context.WithoutCancel(ctx), digest)
+			m.dropBlobLocked(context.WithoutCancel(ctx), digest)
 		}
 	}()
 	var created db.DriveItem

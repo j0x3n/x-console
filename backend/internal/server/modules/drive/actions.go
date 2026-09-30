@@ -184,7 +184,7 @@ func (m *Module) actionWriteText(ctx context.Context, raw json.RawMessage) (any,
 	if err != nil {
 		return nil, err
 	}
-	hash, err := m.storeBlob(ctx, []byte(in.Text))
+	hash, release, err := m.storeBlob(ctx, []byte(in.Text))
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +215,10 @@ func (m *Module) actionWriteText(ctx context.Context, raw json.RawMessage) (any,
 		_, err = tx.ExecContext(ctx, "UPDATE drive_items SET size=?,mime=?,sha256=?,updated_at=?,s3_synced_at=NULL WHERE id=?", len(in.Text), "text/plain; charset=utf-8", hash, now, id)
 		return err
 	})
+	if err != nil {
+		m.dropBlobLocked(context.WithoutCancel(ctx), hash)
+	}
+	release()
 	if err != nil {
 		return nil, err
 	}

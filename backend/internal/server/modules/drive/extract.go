@@ -568,13 +568,15 @@ func (x *extractor) insertFile(parent *int64, name string, declared int64, reade
 		return copyErr
 	}
 	digest := hex.EncodeToString(hash.Sum(nil))
-	if err := x.m.putBlobFile(x.ctx, digest, tmp.Name(), n); err != nil {
+	release, err := x.m.putBlobFile(x.ctx, digest, tmp.Name(), n)
+	if err != nil {
 		return err
 	}
+	defer release()
 	committed := false
 	defer func() {
 		if !committed {
-			x.m.dropBlob(context.WithoutCancel(x.ctx), digest)
+			x.m.dropBlobLocked(context.WithoutCancel(x.ctx), digest)
 		}
 	}()
 	var id int64

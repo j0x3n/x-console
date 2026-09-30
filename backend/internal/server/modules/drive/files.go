@@ -83,12 +83,16 @@ func (m *Module) UploadDriveFiles(w http.ResponseWriter, r *http.Request, p api.
 			return
 		}
 		digest := hex.EncodeToString(hash.Sum(nil))
-		e = m.putBlobFile(ctx, digest, tmp.Name(), size)
+		release, e := m.putBlobFile(ctx, digest, tmp.Name(), size)
 		os.Remove(tmp.Name())
 		if fail(w, r, e) {
 			return
 		}
 		item, e := m.insert(ctx, parent, name, false, size, mime, digest, hidden, true)
+		if e != nil {
+			m.dropBlobLocked(context.WithoutCancel(ctx), digest)
+		}
+		release()
 		if fail(w, r, e) {
 			return
 		}
@@ -102,19 +106,32 @@ func (m *Module) UploadDriveFiles(w http.ResponseWriter, r *http.Request, p api.
 }
 
 // putBlobFile stores the file at path as the content with this hash, unless
-// the same content is already there.
-func (m *Module) putBlobFile(ctx context.Context, hash, path string, size int64) error {
-	if _, err := m.store.Stat(ctx, blobKey(hash)); err == nil {
-		return nil
+// the same content is already there. On success it holds the hash's lock
+// (see lockBlob); call release after the row that uses it is committed.
+func (m *Module) putBlobFile(ctx context.Context, hash, path string, size int64) (release func(), err error) {
+	release = m.lockBlob(hash)
+	defer func() {
+		if err != nil {
+			release()
+			release = nil
+		}
+	}()
+	if _, err = m.store.Stat(ctx, blobKey(hash)); err == nil {
+		afterBlobPut()
+		return release, nil
 	} else if !errors.Is(err, files.ErrNotFound) {
-		return err
+		return nil, err
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
-	return m.store.Put(ctx, blobKey(hash), f, size)
+	if err = m.store.Put(ctx, blobKey(hash), f, size); err != nil {
+		return nil, err
+	}
+	afterBlobPut()
+	return release, nil
 }
 
 func (m *Module) GetDriveItemContent(w http.ResponseWriter, r *http.Request, id api.ItemId, p api.GetDriveItemContentParams) {

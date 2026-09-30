@@ -466,17 +466,7 @@ func (m *Module) permanentDelete(ctx context.Context, id int64) error {
 		return err
 	}
 	for _, hash := range hashes {
-		if hash == "" {
-			continue
-		}
-		count, e := m.q.CountBlobReferences(ctx, hash)
-		if e != nil {
-			return e
-		}
-		if count == 0 {
-			_ = m.store.Delete(ctx, blobKey(hash))
-			_ = m.store.Delete(ctx, thumbnailKey(hash))
-		}
+		m.dropBlob(ctx, hash)
 	}
 	m.triggerSync()
 	return nil
