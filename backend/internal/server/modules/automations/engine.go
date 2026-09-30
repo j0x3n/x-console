@@ -214,6 +214,14 @@ func (m *Module) handleEvent(ctx context.Context, ev events.Event) {
 	m.mu.Unlock()
 	for _, candidate := range rules {
 		if !m.matches(candidate, ev) {
+			if candidate.Trigger.Type == api.Metric && ev.Topic == "host.metrics" {
+				m.setMetricHigh(candidate.Id, ev, false)
+			}
+			continue
+		}
+		// A metric rule fires when the value crosses the threshold, not on
+		// every sample while it stays above it.
+		if candidate.Trigger.Type == api.Metric && m.setMetricHigh(candidate.Id, ev, true) {
 			continue
 		}
 		r, e := m.readRule(ctx, candidate.Id)
@@ -229,6 +237,22 @@ func (m *Module) handleEvent(ctx context.Context, ev events.Event) {
 			m.d.Log.Error("automation start failed", "err", e)
 		}
 	}
+}
+
+// setMetricHigh records whether a metric rule's condition holds for the
+// sample's host and returns what it was before.
+func (m *Module) setMetricHigh(ruleID int64, ev events.Event, high bool) bool {
+	host, _ := anyMap(ev.Data)["hostId"].(string)
+	key := strconv.FormatInt(ruleID, 10) + ":" + host
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	was := m.metricHigh[key]
+	if high {
+		m.metricHigh[key] = true
+	} else {
+		delete(m.metricHigh, key)
+	}
+	return was
 }
 
 type runKind int

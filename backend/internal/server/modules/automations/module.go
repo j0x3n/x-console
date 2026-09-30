@@ -27,6 +27,8 @@ type Module struct {
 	eventRules []api.Automation
 	// eventRuns holds recent event-started run times per rule (see loopLimits).
 	eventRuns map[int64][]time.Time
+	// metricHigh: "rule:host" whose metric condition held on the last sample.
+	metricHigh map[string]bool
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -34,7 +36,7 @@ var _ module.Starter = (*Module)(nil)
 var _ module.PublicPather = (*Module)(nil)
 
 func New(d *module.Deps) (module.Module, error) {
-	return &Module{d: d, jobs: map[int64]scheduler.EntryID{}, last: map[int64]time.Time{}, eventRuns: map[int64][]time.Time{}}, nil
+	return &Module{d: d, jobs: map[int64]scheduler.EntryID{}, last: map[int64]time.Time{}, eventRuns: map[int64][]time.Time{}, metricHigh: map[string]bool{}}, nil
 }
 func (m *Module) Name() string          { return "automations" }
 func (m *Module) PublicPaths() []string { return []string{"/hooks"} }

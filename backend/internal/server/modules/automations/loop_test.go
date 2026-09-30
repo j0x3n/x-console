@@ -87,3 +87,28 @@ func TestEventRulesFollowToggle(t *testing.T) {
 	env.App.Deps.Bus.Publish("test.toggle", map[string]any{})
 	waitCount(t, 2)
 }
+
+func TestMetricRuleFiresOnCrossing(t *testing.T) {
+	count.Store(0)
+	env := testutil.New(t, counter)
+	env.MustDo("POST", "/automations", map[string]any{"name": "CPU 高", "enabled": true,
+		"trigger": map[string]any{"type": "metric", "metric": "cpu", "op": ">", "value": 90}, "conditions": []any{},
+		"actions": []any{map[string]any{"action": "test.count", "input": map[string]any{}}}, "cooldownSeconds": 0}, nil)
+	sample := func(host string, cpu float64) {
+		env.App.Deps.Bus.Publish("host.metrics", map[string]any{"hostId": host, "sample": map[string]any{"cpu": cpu}})
+		time.Sleep(20 * time.Millisecond)
+	}
+	for i := 0; i < 5; i++ {
+		sample("h1", 95) // stays high: one run, not five
+	}
+	waitCount(t, 1)
+	sample("h2", 95) // another host crosses on its own
+	waitCount(t, 2)
+	sample("h1", 50)
+	sample("h1", 96) // back down and up again
+	waitCount(t, 3)
+	time.Sleep(50 * time.Millisecond)
+	if count.Load() != 3 {
+		t.Fatalf("runs=%d", count.Load())
+	}
+}
