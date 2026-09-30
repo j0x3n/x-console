@@ -224,6 +224,7 @@
 - 脚本运行记录不会自动清理。Windows 主机上跑 bash 脚本会直接失败。订阅支出汇总没有汇率换算。
 
 可以改进：
+- B44 手机上的点击区域（按钮、图标按钮、列表行）还没统一到 44 × 44px，只放大了字号。
 - 文件上传进度条。SSH 主机指纹变化后在界面上重新信任。
 - `features/reminders` 和 `features/habits` 的 `api.ts` 修改后自己刷新数据，同时又用了 `invalidateOn`，有重复。
 - Agent 任务（原“编码任务”）的运行设置在仓库页，没有单独的设置标签。
@@ -285,6 +286,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | `styles/tokens.css` 加字号令牌 `--fs-9` 到 `--fs-19` 和 `--fs-input`，手机上放大；全部样式里 9 到 19px 的 `font-size` 换成令牌（`scripts/font-tokens.mjs`）；手机上输入框一律 16px；CI 加 `npm run lint:fonts`；`shots.mjs` 在 390px 下检查字号；`e2e.mjs` 支持 `XC_SHOTS_BROWSER` | B44 手机字号 |
 | 2026-09-30 | `index.html` 首屏脚本读 `?safari=` 测试开关，存 `sessionStorage`，写到 `<html data-safari>`；`styles/browser.css` 末尾加 C 到 F 的开关样式；`usePreferenceEffects` 在开关 B 下不写 `theme-color`；`Layout` 顶部加 `SafariProbe`。定稿后删掉没用的开关 | B45 第一步，真机测试用 |
 | 2026-09-30 | `httpx.Fail` 的报错 JSON 加 `requestId`，新增 `httpx.ExposeRequestID` 中间件写响应头 `X-Request-Id`；5xx 的业务错误也写日志。`api/common.yaml` 的 `Error` 加 `requestId`。前端 `ApiError` 加 `request`（方法、路径、响应、请求编号），`toast({tone:"error"})` 转到 `lib/errors.ts` 的报错列表，`api/query.ts` 加全局 `onError`，右下角提示改由 `app/NoticeStack.tsx` 渲染 | B41 报错统一显示 |
 | 2026-09-30 | `actions.Action` 加 `AliasOf`：别名照样能 `Get`、`Run`，但 `List` 不返回。项目模块的 `issues.list/get/create/update` 标成 `projects.*` 的别名 | 审查修复：AI 工具重复 |

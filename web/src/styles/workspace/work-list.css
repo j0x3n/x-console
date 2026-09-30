@@ -31,7 +31,7 @@
 }
 .ws-group-row td > b {
   margin: 0 7px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
 }
 .ws-group-row td > span:not(.ws-lane-dot) {
@@ -40,12 +40,12 @@
 .ws-group-row td > small {
   margin-left: 8px;
   color: var(--ws-faint);
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .ws-group-row td > strong {
   float: right;
   color: var(--ws-text);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-list-task,
 .ws-list-record,
@@ -63,14 +63,14 @@
 }
 .ws-list-task small {
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-list-record {
   padding: 0;
   border: 0;
   background: none;
   color: var(--ws-muted) !important;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-list-record:hover {
   color: var(--ws-text) !important;
@@ -87,7 +87,7 @@
   border-radius: 5px;
   background: #202023;
   color: #fff !important;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-list-action:hover {
   background: #37373b;
@@ -209,7 +209,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-forecast-filters button.active,
 .ws-forecast-filters button:hover {

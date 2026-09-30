@@ -64,7 +64,7 @@
   white-space: nowrap;
 }
 .coding-executor {
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-text-2);
 }
 .coding-count {
@@ -73,7 +73,7 @@
   border-radius: 9px;
   background: var(--xc-surface-2);
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .coding-status {
   justify-self: start;
@@ -195,7 +195,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--fs-13);
   line-height: 1.55;
 }
 .coding-text {
@@ -207,14 +207,14 @@
 .coding-text.stderr {
   color: var(--xc-muted);
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .coding-line {
   margin: 0;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-muted);
   overflow-wrap: anywhere;
 }
@@ -256,7 +256,7 @@
   border: 0;
   color: var(--xc-text-2);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-12);
   text-align: left;
   cursor: pointer;
   min-width: 0;
@@ -314,7 +314,7 @@
   background: var(--xc-surface);
   border: 1px solid var(--xc-border);
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--xc-text-2);
@@ -349,7 +349,7 @@
   width: 18px;
   text-align: center;
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   border-radius: 4px;
   color: var(--xc-muted);
   background: var(--xc-surface-2);
@@ -370,7 +370,7 @@
   flex: 1;
   min-width: 0;
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-text-2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -378,7 +378,7 @@
 }
 .coding-file-stat {
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 .coding-file-stat .add,
@@ -406,7 +406,7 @@
   padding: 7px 10px;
   background: var(--xc-surface-2);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-text-2);
   overflow-wrap: anywhere;
 }
@@ -421,7 +421,7 @@
   border-collapse: collapse;
   width: 100%;
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.5;
 }
 .coding-diff-body td {
@@ -488,7 +488,7 @@
   color: var(--xc-text-2);
 }
 .coding-path {
-  font-size: 12px;
+  font-size: var(--fs-12);
   overflow-wrap: anywhere;
 }
 .coding-repo-name {

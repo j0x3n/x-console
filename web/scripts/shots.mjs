@@ -179,6 +179,34 @@ for (const width of WIDTHS) {
     await p.screenshot({ path: join(OUT, String(width), `${name}.png`), fullPage: true });
     const bad = [];
     if (overflow > 0) bad.push(`横向溢出 ${overflow}px`);
+    // B44：手机宽度下检查字号。文字不小于 11px，输入框等于 16px。
+    if (width <= 720) {
+      const fonts = await p.evaluate(() => {
+        const small = new Set();
+        const inputs = new Set();
+        const visible = (el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+        };
+        const label = (el) =>
+          `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).join(".") : ""}`;
+        for (const el of document.querySelectorAll("#main *, .sidebar *")) {
+          const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+          if (!own || !visible(el)) continue;
+          const size = parseFloat(getComputedStyle(el).fontSize);
+          // 0 是手机上故意藏起文字、只显示图标的按钮。
+          if (size > 0 && size < 11) small.add(`${label(el)} ${size}px`);
+        }
+        for (const el of document.querySelectorAll("#main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), #main select, #main textarea")) {
+          if (!visible(el)) continue;
+          const size = parseFloat(getComputedStyle(el).fontSize);
+          if (size !== 16) inputs.add(`${label(el)} ${size}px`);
+        }
+        return { small: [...small].slice(0, 5), inputs: [...inputs].slice(0, 5) };
+      });
+      if (fonts.small.length) bad.push(`文字小于 11px：${fonts.small.join("、")}`);
+      if (fonts.inputs.length) bad.push(`输入框不是 16px：${fonts.inputs.join("、")}`);
+    }
     if (errors.length) bad.push(`页面报错：${errors.join("；")}`);
     console.log(`${bad.length ? "✗" : "✓"} ${String(width).padStart(4)}  ${path.padEnd(28)} ${bad.join("，")}`);
     if (bad.length) problems.push(`${width} ${path}：${bad.join("，")}`);

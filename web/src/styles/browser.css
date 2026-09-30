@@ -276,7 +276,7 @@ html .toast {
   border-radius: var(--xc-radius);
   background: var(--xc-warn-soft);
   color: var(--xc-text);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .safari-probe button {
   padding: 4px 10px;

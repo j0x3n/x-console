@@ -47,7 +47,7 @@
   border: 1px solid var(--xc-border-strong);
   border-radius: 10px;
   color: var(--xc-text-2);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .projects-label i {
@@ -65,7 +65,7 @@
   border-radius: 6px;
   background: var(--xc-accent);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -74,17 +74,17 @@
   padding: 0 4px;
   border-radius: 3px;
   background: #fff3;
-  font: 10px var(--xc-mono);
+  font: var(--fs-10) var(--xc-mono);
 }
 .projects-hint {
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .projects-due {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .projects-due.overdue {
@@ -167,7 +167,7 @@
 }
 .projects-settings-section h3 {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
 }
 .projects-settings-list {
@@ -212,7 +212,7 @@
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .projects-card-name {
   display: flex;
@@ -222,17 +222,17 @@
   min-width: 0;
 }
 .projects-card-name strong {
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .projects-card-name span {
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .projects-card-top .xc-ring small {
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .projects-card-desc {
   margin: 0;
@@ -247,7 +247,7 @@
   padding-top: 10px;
   border-top: 1px solid var(--xc-border);
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .projects-card-foot strong {
   color: var(--xc-text);
@@ -305,7 +305,7 @@
   max-width: 150px;
   min-height: 28px;
   padding: 3px 8px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .xc-search.projects-search {
   width: 200px;
@@ -343,13 +343,13 @@
 .projects-lane-head h2 {
   margin: 0;
   color: var(--xc-text);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   white-space: nowrap;
 }
 .projects-lane-head em {
   color: var(--xc-faint);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-style: normal;
 }
 .projects-lane-add {
@@ -394,7 +394,7 @@
 .projects-card h3 {
   margin: 6px 0 0;
   color: var(--xc-text);
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 500;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -404,7 +404,7 @@
   align-items: center;
   gap: 6px;
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .projects-card-labels {
@@ -423,7 +423,7 @@
 .projects-empty-lane {
   padding: 18px;
   color: var(--xc-faint);
-  font-size: 12px;
+  font-size: var(--fs-12);
   text-align: center;
 }
 
@@ -443,7 +443,7 @@
   border-bottom: 1px solid var(--xc-border);
   background: var(--xc-surface-2);
   color: var(--xc-text);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .projects-list-group > header span {
   color: var(--xc-faint);
@@ -475,7 +475,7 @@
   flex: none;
   width: 64px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .projects-row-title {
   flex: 1;
@@ -494,7 +494,7 @@
   flex: none;
   width: 72px;
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
   text-align: right;
 }
 
@@ -557,7 +557,7 @@
 .projects-md-editor {
   min-height: 240px;
   font-family: var(--xc-mono);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .projects-md-preview {
   min-height: 240px;
@@ -582,12 +582,12 @@
 .projects-section h2 {
   margin: 0;
   color: var(--xc-text);
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
 }
 .projects-section-empty {
   margin: 4px 0;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .projects-links {
   list-style: none;
@@ -627,7 +627,7 @@
   display: flex;
   align-items: center;
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .projects-comment-form .xc-textarea {
   min-height: 72px;
@@ -653,7 +653,7 @@
 }
 .projects-prop > span {
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .projects-prop-control {
   display: flex;
@@ -667,7 +667,7 @@
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid var(--xc-border);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .projects-meta dt {
   color: var(--xc-muted);
@@ -683,7 +683,7 @@
   gap: 5px;
 }
 .projects-coding small {
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 @media (max-width: 900px) {
@@ -751,7 +751,7 @@
   margin: 4px 0 0;
   overflow: hidden;
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -760,7 +760,7 @@
   max-width: 160px;
   overflow: hidden;
   color: var(--xc-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-11-5);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -769,7 +769,7 @@
   align-items: center;
   gap: 3px;
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -796,7 +796,7 @@
 }
 .projects-checklist-count {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
@@ -812,7 +812,7 @@
 .projects-checklist-head h3 {
   margin: 0;
   color: var(--xc-text);
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
   cursor: text;
 }
@@ -870,7 +870,7 @@
   flex: 1;
   min-width: 0;
   color: var(--xc-text);
-  font-size: 13px;
+  font-size: var(--fs-13);
   overflow-wrap: anywhere;
   cursor: text;
 }

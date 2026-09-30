@@ -35,7 +35,7 @@
   border-radius: 6px;
   background: #493820;
   color: #e7b65d;
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 700;
 }
 .overlay-agent-icon.scout {
@@ -62,7 +62,7 @@
   border-radius: 50%;
   background: #334657;
   color: #a8d8e4;
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 .draft-dialog-head {
   display: flex;
@@ -76,12 +76,12 @@
 .draft-dialog-head h2,
 .delegate-head h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--fs-16);
   font-weight: 600;
 }
 .draft-dialog-head p {
   margin: 3px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .draft-address {
   margin: 0 19px;
@@ -99,15 +99,15 @@
   width: 64px;
   flex: none;
   color: #9a9aa2;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .draft-address dd {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .draft-address dd small {
   color: #9a9aa2;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .draft-controls {
   display: flex;
@@ -135,7 +135,7 @@
 .draft-tones button {
   min-height: 27px;
   padding: 0 9px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .draft-tones button.selected {
   background: #151518;
@@ -147,7 +147,7 @@
   align-items: center;
   gap: 8px;
   color: #aaaab0;
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -200,7 +200,7 @@
   background: #17171a;
   color: #e9e9eb;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-13);
   line-height: 1.55;
 }
 .draft-message p {
@@ -233,7 +233,7 @@
   align-items: center;
   margin: 0 19px;
   color: #9999a1;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .draft-receipts span {
   display: inline-flex;
@@ -269,7 +269,7 @@
   flex: 1;
   min-width: 0;
   color: #9999a1;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .draft-dialog-footer button,
 .delegate-footer button {
@@ -280,7 +280,7 @@
   flex: none;
   min-height: 28px;
   padding: 0 9px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   cursor: pointer;
 }
 .draft-edit {
@@ -299,7 +299,7 @@
 .draft-send kbd,
 .delegate-submit kbd {
   margin-left: 4px;
-  font-size: 9px;
+  font-size: var(--fs-9);
   opacity: 0.7;
 }
 .delegate-head {
@@ -310,7 +310,7 @@
 }
 .delegate-intro {
   margin: 3px 19px 16px !important;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .delegate-body {
   padding: 0 19px 18px;
@@ -319,7 +319,7 @@
   display: block;
   margin: 15px 0 7px;
   color: #b2b2b8;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .assignee-grid {
   display: grid;
@@ -354,7 +354,7 @@
 .assignee-grid .overlay-agent-icon {
   width: 23px;
   height: 23px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .assignee-grid button span:last-child {
   display: flex;
@@ -365,7 +365,7 @@
 .assignee-grid button b {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
 }
 .assignee-grid button small {
@@ -373,7 +373,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #9999a1;
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 .teammates-grid button {
   min-height: 32px;
@@ -383,7 +383,7 @@
   align-items: center;
   gap: 9px;
   margin-top: 18px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .delegate-on > span {
   color: #b2b2b8;
@@ -429,7 +429,7 @@
   min-height: 80px;
   resize: vertical;
   padding: 10px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .delegate-suggestion {
   display: flex;
@@ -442,7 +442,7 @@
   background: transparent;
   color: #9999a1;
   text-align: left;
-  font-size: 10px;
+  font-size: var(--fs-10);
   line-height: 1.4;
   cursor: pointer;
 }
@@ -463,7 +463,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .delegate-sources button[aria-pressed="true"] {
   background: #3a3a40;
@@ -482,12 +482,12 @@
   gap: 3px;
 }
 .delegate-ask b {
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
 }
 .delegate-ask small {
   color: #96969e;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .delegate-submit:disabled {
   opacity: 0.48;

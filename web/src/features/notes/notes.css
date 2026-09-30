@@ -67,7 +67,7 @@
 .notes-nav-label {
   padding: 0 8px 6px;
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
 }
 .notes-nav button {
@@ -95,7 +95,7 @@
 }
 .notes-nav button small {
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .notes-nav button:hover {
   background: var(--xc-surface-2);
@@ -135,14 +135,14 @@
   margin: 0;
   overflow: hidden;
   color: var(--xc-text);
-  font-size: 17px;
+  font-size: var(--fs-17);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .notes-list-title span {
   color: var(--xc-faint);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notes-search {
   display: flex;
@@ -194,7 +194,7 @@
   border-radius: 13px;
   background: var(--xc-surface);
   color: var(--xc-text-2);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notes-chips button small {
   color: var(--xc-faint);
@@ -220,7 +220,7 @@
   padding: 12px 6px 6px;
   background: var(--xc-panel);
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
 }
 .notes-group:first-child .notes-group-label {
@@ -260,7 +260,7 @@
   gap: 5px;
   overflow: hidden;
   color: var(--xc-text);
-  font-size: 13.5px;
+  font-size: var(--fs-13-5);
   font-weight: 600;
   line-height: 1.4;
   text-overflow: ellipsis;
@@ -280,7 +280,7 @@
   margin: 3px 0 0;
   overflow: hidden;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -300,7 +300,7 @@
   gap: 8px;
   margin-top: 7px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .notes-item-foot time {
@@ -374,7 +374,7 @@
   align-items: center;
   gap: 6px;
   color: var(--xc-faint);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 .notes-save-state i {
@@ -418,7 +418,7 @@
   border-radius: 6px;
   background: none;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notes-modes button.on {
   background: var(--xc-surface);
@@ -531,7 +531,7 @@
   border-radius: 12px;
   background: var(--xc-info-soft);
   color: var(--xc-info);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notes-tag button {
   display: inline-flex;
@@ -553,7 +553,7 @@
   background: none;
   color: var(--xc-text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notes-toolbar {
   position: sticky;
@@ -591,7 +591,7 @@
   width: auto;
   padding: 0 8px;
   color: var(--xc-accent-text);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notes-toolbar button:disabled {
   opacity: 0.45;
@@ -615,21 +615,21 @@
   background: none;
   color: var(--xc-text);
   font: inherit;
-  font-size: 15px;
+  font-size: var(--fs-15);
   line-height: 1.75;
   resize: none;
 }
 .notes-preview {
   flex: 1;
   color: var(--xc-text);
-  font-size: 15px;
+  font-size: var(--fs-15);
   line-height: 1.75;
 }
 .notes-preview h2 {
   font-size: 21px;
 }
 .notes-preview h3 {
-  font-size: 18px;
+  font-size: var(--fs-18);
 }
 .notes-split {
   display: grid;
@@ -655,7 +655,7 @@
   padding: 8px 18px;
   border-top: 1px solid var(--xc-border);
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 /* 拖入文件时的遮罩 */
@@ -719,7 +719,7 @@
   box-shadow: var(--xc-shadow);
 }
 .notes-hint {
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 /* 分栏模式下编辑区要宽一些：不够宽时收起分类栏，改用列表顶部那一行 */
@@ -896,7 +896,7 @@
   background: none;
   color: var(--xc-muted);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-12);
   cursor: pointer;
 }
 .notes-tag-color-reset:hover {
@@ -944,7 +944,7 @@
   border-radius: 10px;
   background: var(--xc-danger);
   color: #fff;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   transform: translateX(100%);
   transition: transform 0.18s;
 }
@@ -969,7 +969,7 @@
 }
 .notes-select-bar .xc-check {
   margin: 0;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 @media (hover: none) {
   .notes-item-more {

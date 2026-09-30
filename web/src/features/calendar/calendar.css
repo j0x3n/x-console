@@ -87,7 +87,7 @@
 }
 .calendar-gutter {
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .calendar-head {
   border-bottom: 1px solid var(--xc-border);
@@ -99,12 +99,12 @@
   gap: 6px;
   padding: 8px 4px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   border-left: 1px solid var(--xc-border);
 }
 .calendar-dayhead b {
   color: var(--xc-text);
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 600;
 }
 .calendar-dayhead.is-today b {
@@ -150,7 +150,7 @@
 }
 .calendar-chip {
   padding: 2px 6px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,7 +186,7 @@
   gap: 1px;
   padding: 3px 6px;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.3;
 }
 .calendar-event:hover,
@@ -205,7 +205,7 @@
 }
 .calendar-event span {
   color: var(--xc-text-2);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .calendar-event.is-short {
@@ -298,7 +298,7 @@
 .calendar-item-url {
   margin-top: 2px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -306,7 +306,7 @@
 .calendar-item-meta {
   margin-top: 4px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .calendar-error {
   color: var(--xc-danger);
@@ -325,7 +325,7 @@
   gap: 4px;
   margin-right: 6px;
   color: var(--xc-text-2);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .calendar-spin {
   animation: calendar-spin 0.9s linear infinite;
@@ -404,7 +404,7 @@
 }
 .brief-settings-card h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 600;
 }
 .brief-settings-card .xc-field {
@@ -455,7 +455,7 @@
 }
 .focus-remaining {
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
 }
 .focus-panel {
@@ -536,7 +536,7 @@
   align-items: center;
   gap: 4px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   text-decoration: none;
 }
 .focus-stats-link:hover {
@@ -555,7 +555,7 @@
 }
 .focus-tile span {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .focus-tile strong {
   color: var(--xc-text);
@@ -600,7 +600,7 @@
 }
 .focus-chart-col span {
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .focus-columns {
@@ -653,7 +653,7 @@
     padding: 10px 12px;
   }
   .focus-tile strong {
-    font-size: 16px;
+    font-size: var(--fs-16);
   }
   .calendar-item {
     flex-wrap: wrap;
@@ -684,7 +684,7 @@
 .calendar-form-error {
   margin: 4px 0 0;
   color: var(--xc-danger);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .calendar-form-delete {
   margin-right: auto;
@@ -692,7 +692,7 @@
 .calendar-kind-hint {
   margin: -4px 0 12px;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .calendar-col {
   cursor: cell;

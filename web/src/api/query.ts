@@ -4,7 +4,7 @@ import { reportError } from "../lib/errors";
 
 /*
  * 全局兜底报错（B41）：
- * - 查询出错一律上报。接口还没上线（404、501）不报，页面会显示“还没上线”。
+ * - 查询出错一律上报。接口还没上线（404、501）、集成还没配置（412）不报，页面有自己的说明。
  *   meta: { silentError: true } 的查询只打印到控制台。
  * - 修改操作自己写了 onError 的，由它自己提示；没写的在这里上报。
  */
@@ -15,9 +15,12 @@ function silent(meta: Record<string, unknown> | undefined) {
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
+      // 接口还没上线（404、501）、集成还没配置（412）时页面有自己的说明。
       if (
         error instanceof ApiError &&
-        (error.status === 404 || error.status === 501)
+        (error.status === 404 ||
+          error.status === 501 ||
+          error.code === "integration_not_configured")
       )
         return;
       reportError(error, { silent: silent(query.meta) });

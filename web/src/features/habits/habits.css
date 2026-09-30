@@ -38,11 +38,11 @@
   line-height: 1.1;
 }
 .habits-ring-label strong {
-  font-size: 18px;
+  font-size: var(--fs-18);
   color: var(--xc-text);
 }
 .habits-ring-label small {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--xc-muted);
 }
 .habits-card-main {
@@ -64,7 +64,7 @@
   white-space: nowrap;
 }
 .habits-icon {
-  font-size: 16px;
+  font-size: var(--fs-16);
 }
 .habits-edit {
   flex: none;
@@ -75,7 +75,7 @@
   gap: 2px 10px;
   margin: 2px 0 8px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .habits-card-meta > span {
   display: inline-flex;
@@ -99,7 +99,7 @@
 }
 .habits-hint {
   margin: -6px 0 14px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .habits-dialog-actions {
   flex-wrap: wrap;
@@ -130,7 +130,7 @@
   color: var(--xc-text);
 }
 .habits-tile small {
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 400;
   color: var(--xc-muted);
 }
@@ -138,7 +138,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .habits-heatmap-wrap {
   display: flex;
@@ -149,7 +149,7 @@
   display: grid;
   grid-template-rows: repeat(7, 16px);
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--xc-muted);
   line-height: 16px;
 }
@@ -208,7 +208,7 @@
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--xc-muted);
 }
 
@@ -258,7 +258,7 @@
 }
 .habits-item-head {
   margin-bottom: 2px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--xc-muted);
 }
 .habits-item-head span:last-child {
@@ -298,7 +298,7 @@
 }
 .habits-log-detail {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   overflow-wrap: anywhere;
 }
 .habits-notice-row {
@@ -316,7 +316,7 @@
   align-items: center;
   gap: 12px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 /* 模块（健身） */
@@ -352,7 +352,7 @@
   margin-right: auto;
 }
 .habits-fitness-title strong {
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -360,7 +360,7 @@
 }
 .habits-fitness-title span {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
 }
 .habits-fitness-week {
@@ -379,7 +379,7 @@
   color: var(--xc-muted);
 }
 .habits-fitness-day small {
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .habits-fitness-day.is-today {
   background: var(--xc-surface-2);
@@ -418,13 +418,13 @@
   padding: 3px 9px;
   border: 1px solid var(--xc-border);
   border-radius: 999px;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   font-variant-numeric: tabular-nums;
 }
 .habits-fitness-empty {
   margin: 0;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .habits-fitness-foot {
   display: flex;
@@ -441,7 +441,7 @@
 .habits-kind-hint {
   margin: 8px 0 0;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .habits-icon-pick {
   width: 100%;
@@ -450,7 +450,7 @@
   border-radius: var(--xc-radius);
   background: var(--xc-surface);
   color: var(--xc-muted);
-  font-size: 17px;
+  font-size: var(--fs-17);
   cursor: pointer;
 }
 .habits-icon-pick.open,
@@ -472,7 +472,7 @@
   border: 1px solid transparent;
   border-radius: var(--xc-radius);
   background: none;
-  font-size: 17px;
+  font-size: var(--fs-17);
   cursor: pointer;
 }
 .habits-icon-grid button:hover {
@@ -489,7 +489,7 @@
 .habits-icon-grid .habits-icon-clear {
   grid-column: span 4;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .habits-trend .xc-minibars {
   height: 64px;

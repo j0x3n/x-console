@@ -2,7 +2,7 @@
 .backup-note {
   margin: 0 0 12px;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   line-height: 1.6;
 }
 .backup-actions {
@@ -19,7 +19,7 @@
   padding: 10px 12px;
   border-radius: var(--xc-radius);
   background: var(--xc-surface-2);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .backup-job.failed strong {
   color: var(--xc-danger);
@@ -55,7 +55,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .backup-runs li {
   display: flex;
@@ -93,7 +93,7 @@
 .backup-list-main strong {
   overflow: hidden;
   font-family: var(--xc-mono);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;

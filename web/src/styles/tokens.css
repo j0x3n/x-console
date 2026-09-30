@@ -33,6 +33,49 @@ html[data-theme="dark"] {
     ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
+/*
+ * 字号令牌（B44）。名字是桌面上的像素，手机上放大一档。
+ * 新写的样式只用这些，不要写死 font-size 像素（CI 会检查）。
+ */
+:root {
+  --fs-9: 9px;
+  --fs-10: 10px;
+  --fs-10-5: 10.5px;
+  --fs-11: 11px;
+  --fs-11-5: 11.5px;
+  --fs-12: 12px;
+  --fs-12-5: 12.5px;
+  --fs-13: 13px;
+  --fs-13-5: 13.5px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-17: 17px;
+  --fs-18: 18px;
+  --fs-19: 19px;
+  /* 手机上输入框固定 16px，小了 Safari 聚焦会放大页面 */
+  --fs-input: 16px;
+}
+@media (max-width: 720px) {
+  :root {
+    --fs-9: 11px;
+    --fs-10: 12px;
+    --fs-10-5: 12px;
+    --fs-11: 13px;
+    --fs-11-5: 13.5px;
+    --fs-12: 15px;
+    --fs-12-5: 15px;
+    --fs-13: 16px;
+    --fs-13-5: 16px;
+    --fs-14: 17px;
+    --fs-15: 17px;
+    --fs-16: 19px;
+    --fs-17: 20px;
+    --fs-18: 21px;
+    --fs-19: 22px;
+  }
+}
+
 html[data-theme="light"] {
   --xc-bg: #f3f3f4;
   --xc-panel: #fafafa;

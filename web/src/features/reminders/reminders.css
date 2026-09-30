@@ -59,7 +59,7 @@
   gap: 4px 12px;
   margin-top: 3px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .reminders-meta > * {
   display: inline-flex;
@@ -75,7 +75,7 @@
 .reminders-body {
   margin: 4px 0 0;
   color: var(--xc-text-2);
-  font-size: 13px;
+  font-size: var(--fs-13);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -91,7 +91,7 @@
 }
 .reminders-hint {
   margin: -6px 0 14px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .reminders-check {
   display: flex;
@@ -135,7 +135,7 @@
 }
 .notify-help {
   margin: -4px 0 12px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.5;
 }
 .notify-push {
@@ -152,7 +152,7 @@
 }
 .notify-webhook p {
   margin: 0 0 8px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notify-webhook .xc-row {
   flex-wrap: wrap;
@@ -160,7 +160,7 @@
 .notify-url {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--xc-text-2);
   overflow-wrap: anywhere;
 }
@@ -197,7 +197,7 @@
 }
 .reminders-day {
   margin: 0 0 8px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 500;
   color: var(--xc-muted);
 }
@@ -228,10 +228,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .notify-subs small {
-  font-size: 12px;
+  font-size: var(--fs-12);
   overflow-wrap: anywhere;
 }
 .notify-push-warn {
@@ -240,14 +240,14 @@
   border-radius: var(--xc-radius);
   background: var(--xc-warn-soft);
   color: var(--xc-text);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .notify-push-steps {
   margin: 0;
   padding-left: 20px;
   display: grid;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .notify-push-steps > li {
   display: grid;
@@ -255,7 +255,7 @@
 }
 .notify-push-steps small {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .notify-push-steps ul {
   margin: 2px 0 0;
@@ -268,7 +268,7 @@
   color: var(--xc-danger);
 }
 .notify-push-help {
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   color: var(--xc-text-2);
 }
 .notify-push-help summary {
@@ -294,7 +294,7 @@
   padding-left: 12px;
   white-space: nowrap;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .reminders-source {
   flex: none;

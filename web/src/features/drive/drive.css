@@ -4,7 +4,7 @@
 }
 .drive-hint {
   margin: -4px 0 10px;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .drive-card-note {
   margin: 0 0 12px;
@@ -19,7 +19,7 @@
   gap: 2px;
   margin-bottom: 10px;
   color: var(--xc-muted);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .drive-crumbs > span {
   display: inline-flex;
@@ -112,7 +112,7 @@
 .drive-head {
   min-height: 36px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .drive-sort {
   display: inline-flex;
@@ -126,7 +126,7 @@
 }
 .drive-col {
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   white-space: nowrap;
 }
 .drive-name button {
@@ -152,7 +152,7 @@
 .drive-sub {
   display: none;
   color: var(--xc-muted);
-  font-size: 11.5px;
+  font-size: var(--fs-11-5);
 }
 .drive-icon {
   flex: none;
@@ -242,12 +242,12 @@
 }
 .drive-tile-name {
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--fs-13);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .drive-tile small {
-  font-size: 11.5px;
+  font-size: var(--fs-11-5);
 }
 
 /* 拖文件进来时盖住整个页面的提示 */
@@ -328,12 +328,12 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--fs-13);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .drive-uploads small {
-  font-size: 11.5px;
+  font-size: var(--fs-11-5);
 }
 .drive-uploads .ok {
   color: var(--xc-ok);
@@ -405,7 +405,7 @@
   margin: 0 0 10px;
   padding: 8px 10px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .drive-test.ok {
   background: var(--xc-ok-soft);
@@ -434,11 +434,11 @@
 }
 .drive-status dt {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .drive-status dd {
   margin: 2px 0 0;
-  font-size: 16px;
+  font-size: var(--fs-16);
   font-weight: 500;
 }
 
@@ -520,7 +520,7 @@
 .drive-restore {
   flex: none;
   color: var(--xc-faint);
-  font-size: 11.5px;
+  font-size: var(--fs-11-5);
 }
 
 /* 统一查看器（B31 预览） */
@@ -562,14 +562,14 @@
 .drive-viewer-title h2 {
   margin: 0;
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .drive-viewer-title small {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
 }
 .drive-viewer-actions {
@@ -716,7 +716,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   padding: 6px 12px;
   border-bottom: 1px solid var(--xc-border);
   background: var(--xc-elevated);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .drive-text-warn {
   display: inline-flex;
@@ -839,7 +839,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   list-style: none;
   border: 1px solid var(--xc-border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .drive-conflicts li {
   padding: 3px 0;
@@ -897,12 +897,12 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 }
 .drive-extract-option strong {
   font-weight: 500;
-  font-size: 13.5px;
+  font-size: var(--fs-13-5);
   overflow-wrap: anywhere;
 }
 .drive-extract-option small {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 /* 后台任务面板（和上传面板同样式） */
@@ -945,7 +945,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   display: block;
   margin: -4px 0 8px;
   color: var(--xc-danger);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .drive-share-list {
   margin-top: 16px;
@@ -954,7 +954,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 }
 .drive-share-list h3 {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 600;
 }
 .drive-share-list ul {
@@ -977,7 +977,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 }
 .drive-share-list li small {
   grid-column: 1;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .drive-share-list .drive-share-actions {
   grid-column: 2;
@@ -986,7 +986,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 .drive-share-url {
   overflow: hidden;
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1009,7 +1009,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 13.5px;
+  font-size: var(--fs-13-5);
 }
 .drive-share-name > span:not(.xc-badge) {
   min-width: 0;
@@ -1051,7 +1051,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   background: none;
   color: var(--xc-text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-13);
   text-align: left;
   cursor: pointer;
 }
@@ -1065,7 +1065,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   background: var(--xc-accent-soft);
 }
 .drive-version-list small {
-  font-size: 11.5px;
+  font-size: var(--fs-11-5);
   font-variant-numeric: tabular-nums;
 }
 .drive-version-view {
@@ -1094,11 +1094,11 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 }
 .drive-retention {
   margin: 12px 0 0;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .drive-retention .drive-link {
   margin-left: 6px;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .drive-retention-form {
   display: flex;
@@ -1122,7 +1122,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-text-2);
 }
 
@@ -1163,7 +1163,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   max-width: 760px;
   margin: 0 auto 16px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 .share-head small {
   margin-left: 4px;
@@ -1186,7 +1186,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 .share-title strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1194,7 +1194,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 .share-meta {
   display: block;
   margin: 4px 0 14px;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .share-file {
   display: grid;
@@ -1258,7 +1258,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   background: none;
   color: var(--xc-text);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-13-5);
   text-align: left;
   cursor: pointer;
 }
@@ -1274,7 +1274,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 }
 .share-list small {
   flex: none;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 @media (max-width: 640px) {
   .share-card {

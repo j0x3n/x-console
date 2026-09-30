@@ -90,6 +90,7 @@ jobs:
           git diff --exit-code -- src/api/gen
       - run: npm run typecheck
       - run: npm run format:check
+      - run: npm run lint:fonts
       - run: npm test
       - run: npm run build
       - uses: actions/setup-go@v5

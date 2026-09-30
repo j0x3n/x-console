@@ -21,15 +21,15 @@
   line-height: 1.35;
 }
 .xc-md h2 {
-  font-size: 18px;
+  font-size: var(--fs-18);
 }
 .xc-md h3 {
-  font-size: 16px;
+  font-size: var(--fs-16);
 }
 .xc-md h4,
 .xc-md h5,
 .xc-md h6 {
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 .xc-md p,
 .xc-md ul,

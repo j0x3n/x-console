@@ -168,7 +168,7 @@
 .ai-empty p {
   margin: 0;
   line-height: 1.55;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .ai-muted {
   color: var(--xc-muted);
@@ -216,7 +216,7 @@
   border-radius: 8px;
   background: var(--xc-surface-2);
   color: var(--xc-text-2);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .ai-attach-chip > span {
   min-width: 0;
@@ -331,7 +331,7 @@
   border: 1px solid var(--xc-border);
   border-radius: 9px;
   background: var(--xc-surface);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .ai-action.ask {
   border-color: var(--xc-warn);
@@ -420,7 +420,7 @@
   border-radius: 6px;
   background: var(--xc-surface-2);
   font-family: var(--xc-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-11-5);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -556,7 +556,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .ai-provider-meta {
   color: var(--xc-muted);
@@ -575,7 +575,7 @@
   border-radius: var(--xc-radius);
   background: var(--xc-warn-soft);
   color: var(--xc-text);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .ai-notice svg {
   flex: none;
@@ -607,7 +607,7 @@
 }
 .ai-model-provider {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 .ai-model-caret {
@@ -627,7 +627,7 @@
 }
 .ai-model-list h3 {
   margin: 10px 0 4px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   color: var(--xc-muted);
 }
@@ -670,7 +670,7 @@ button.ai-model-row:hover,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .ai-model-badges {
   display: inline-flex;
@@ -678,7 +678,7 @@ button.ai-model-row:hover,
   gap: 6px;
   flex: none;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .ai-model-badges > span {
   display: inline-flex;
@@ -686,13 +686,13 @@ button.ai-model-row:hover,
 }
 .ai-model-unknown {
   flex: none;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-warn);
 }
 .ai-model-price {
   margin-left: auto;
   flex: none;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-muted);
   white-space: nowrap;
 }
@@ -702,7 +702,7 @@ button.ai-model-row:hover,
 }
 .ai-model-note {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 /* 用量 */
@@ -718,25 +718,25 @@ button.ai-model-row:hover,
   background: var(--xc-surface-2);
 }
 .ai-usage-sum dt {
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-muted);
 }
 .ai-usage-sum dd {
   margin: 2px 0 0;
-  font-size: 16px;
+  font-size: var(--fs-16);
   font-weight: 600;
 }
 .ai-usage-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-13);
   margin-bottom: 8px;
 }
 .ai-usage-table th {
   white-space: nowrap;
   text-align: left;
   font-weight: 500;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-muted);
   padding: 4px 6px 4px 0;
 }
@@ -769,7 +769,7 @@ button.ai-model-row:hover,
 }
 .ai-switch-row small {
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 /* B33：机器 Agent 的命令和原因 */
@@ -779,12 +779,12 @@ button.ai-model-row:hover,
   border-radius: 6px;
   background: var(--xc-surface-2);
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: pre-wrap;
   word-break: break-all;
 }
 .ai-action-reason {
   margin: 0 0 6px;
   color: var(--xc-text-2);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }

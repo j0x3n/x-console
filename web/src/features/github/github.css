@@ -1,7 +1,7 @@
 /* M13 GitHub 与 Linear */
 
 .github-synced {
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 .github-spin {
@@ -86,7 +86,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--xc-muted);
   min-width: 0;
 }
@@ -113,7 +113,7 @@
   text-overflow: ellipsis;
 }
 .github-small {
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .github-inline {
   margin-left: 6px;
@@ -216,7 +216,7 @@
 }
 .github-picked-none {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .github-picker-bar {
   display: flex;
@@ -248,7 +248,7 @@
   background: none;
   color: var(--xc-text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-13);
   text-align: left;
   cursor: pointer;
 }
@@ -268,9 +268,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .github-options-empty {
   padding: 10px 8px;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }

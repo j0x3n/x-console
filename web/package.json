@@ -12,7 +12,8 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "shots": "node scripts/shots.mjs",
     "browser:check": "node scripts/browser-compat.mjs",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "lint:fonts": "node scripts/font-tokens.mjs --check"
   },
   "dependencies": {
     "@codemirror/language": "^6.12.4",
