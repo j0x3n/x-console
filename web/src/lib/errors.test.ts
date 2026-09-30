@@ -71,6 +71,16 @@ describe("reportError", () => {
     expect(notices).toHaveLength(2);
   });
 
+  it("merges requests that differ only in query string", () => {
+    const a = apiError(503, "agent_offline", "代理不在线");
+    a.request!.path = "/api/v1/reminders?view=today";
+    const b = apiError(503, "agent_offline", "代理不在线");
+    b.request!.path = "/api/v1/reminders?view=upcoming";
+    reportError(a);
+    reportError(b);
+    expect(useErrorStore.getState().notices).toHaveLength(1);
+  });
+
   it("builds a copy text with request, status, id and page", () => {
     reportError(apiError(500, "internal", "database is locked"), {
       title: "保存笔记失败",

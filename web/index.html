@@ -45,6 +45,26 @@
         ? ["#0a0a0b", "#111113"]
         : accentColors[document.documentElement.dataset.accent] || ["#f3f3f4", "#fafafa"];
       document.querySelector('meta[name="theme-color"]').content = colors[mobile ? 1 : 0];
+      // B45 Safari 测试开关：?safari=A,B 或 all，off 关闭。存在 sessionStorage，关掉标签页就恢复。
+      let safari = "";
+      try {
+        const asked = new URLSearchParams(location.search).get("safari");
+        if (asked !== null) {
+          if (asked === "" || asked.toLowerCase() === "off") sessionStorage.removeItem("xc-safari");
+          else sessionStorage.setItem("xc-safari", asked);
+        }
+        safari = sessionStorage.getItem("xc-safari") || "";
+      } catch {
+        // 没有 sessionStorage 时不开任何开关。
+      }
+      const flags = new Set(safari.toUpperCase().split(/[\s,]+/).filter(Boolean));
+      if (flags.has("ALL")) "ABCDEF".split("").forEach((flag) => flags.add(flag));
+      const active = "ABCDEF".split("").filter((flag) => flags.has(flag));
+      if (active.length) document.documentElement.dataset.safari = active.join(" ");
+      if (flags.has("A"))
+        document.querySelector('meta[name="viewport"]').content = "width=device-width, initial-scale=1.0";
+      if (flags.has("B"))
+        document.querySelectorAll('meta[name="theme-color"], meta[name="color-scheme"]').forEach((meta) => meta.remove());
       if (savedLanguage === "en") {
         document.documentElement.lang = "en";
       }

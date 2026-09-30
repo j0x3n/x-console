@@ -27,6 +27,8 @@ export function usePreferenceEffects() {
   useEffect(() => {
     const mobile = window.matchMedia("(max-width: 720px)");
     const update = () => {
+      // B45 开关 B：测试去掉 theme-color 的效果，这时不再写回。
+      if (document.documentElement.dataset.safari?.includes("B")) return;
       const styles = getComputedStyle(document.documentElement);
       const color = styles
         .getPropertyValue(mobile.matches ? "--xc-panel" : "--xc-bg")

@@ -170,7 +170,9 @@ export function reportError(error: unknown, options: ReportOptions = {}) {
   console.error("[X Console]", title, message, error);
   if (options.silent) return;
 
-  const key = [info?.method, info?.path, api?.code, title, message].join("|");
+  // 去重不看查询参数：同一个列表的几个查询一起失败时只显示一条。
+  const pathname = info?.path.split("?")[0];
+  const key = [info?.method, pathname, api?.code, title, message].join("|");
   const state = useErrorStore.getState();
   const same = state.notices.find(
     (n) => n.key === key && at - n.lastAt < DEDUPE_MS,

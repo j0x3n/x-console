@@ -122,7 +122,10 @@ try {
   await until("服务端", async () => (await fetch(`${serverUrl}/api/v1/auth/status`)).ok);
   await until("前端", async () => (await fetch(base)).ok);
 
-  browser = await chromium.launch();
+  // 本地浏览器和 playwright-core 版本不一致时，用 XC_SHOTS_BROWSER 指定 Chromium（和 shots 一样）。
+  browser = await chromium.launch(
+    process.env.XC_SHOTS_BROWSER ? { executablePath: process.env.XC_SHOTS_BROWSER } : {},
+  );
   const context = await browser.newContext({ viewport: { width: 1360, height: 860 } });
   // 旧浏览器可能留有演示开关；正式页面仍应读写真实接口。
   await context.addInitScript(() => localStorage.setItem("xc.demo.full", "on"));
