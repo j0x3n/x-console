@@ -209,6 +209,12 @@ func (m *Module) DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, 
 		disposition = "inline"
 	}
 	w.Header().Set("Content-Type", row.Mime)
+	// Like the drive: never let the browser guess a type, and never run an
+	// uploaded page with the panel's origin.
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if strings.Contains(row.Mime, "html") || strings.Contains(row.Mime, "svg") || strings.Contains(row.Mime, "xml") {
+		w.Header().Set("Content-Security-Policy", "sandbox")
+	}
 	w.Header().Set("Content-Disposition", disposition+"; filename*=UTF-8''"+url.PathEscape(row.Name))
 	if hidden {
 		w.Header().Set("Cache-Control", "private, no-store")

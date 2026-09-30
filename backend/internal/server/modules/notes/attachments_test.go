@@ -76,7 +76,7 @@ func TestAttachmentsPersistAndDeleteWithNote(t *testing.T) {
 	}
 	got, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if err != nil || resp.StatusCode != 200 || !bytes.Equal(got, png) || !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "inline") || resp.Header.Get("Cache-Control") != "private, max-age=31536000" {
+	if err != nil || resp.StatusCode != 200 || !bytes.Equal(got, png) || !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "inline") || resp.Header.Get("Cache-Control") != "private, max-age=31536000" || resp.Header.Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatalf("download: %d %q %v", resp.StatusCode, resp.Header.Get("Content-Disposition"), err)
 	}
 	public, err := http.Get(env.Server.URL + image.Url)
