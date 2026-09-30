@@ -26,6 +26,13 @@ func TestClassifyCommand(t *testing.T) {
 		{"init 0", Dangerous}, {"init 6", Dangerous}, {":(){ :|:& };:", Dangerous},
 		{"iptables -F", Dangerous}, {"nft flush ruleset", Dangerous}, {"ufw disable", Dangerous},
 		{"chmod -R 777 /", Dangerous}, {"chown -R user /usr", Dangerous}, {"echo x > /dev/sda", Dangerous},
+		{"ls & rm -rf data", Write}, {"ls &rm -rf data", Write}, {"dir & del x", Write},
+		{"sed -n '10,20p' file", Read}, {"sed -n '/error/p' file", Read}, {"sed -n '$p' file", Read},
+		{"sed -n 's/a/b/w /etc/cron.d/x' file", Write}, {"sed '1e touch /tmp/x' file", Write}, {"sed -n 1e file", Write},
+		{"sed 10p file", Write}, {"sed -n -f script file", Write}, {"sed --in-place=.bak -n 1p file", Write},
+		{"uniq file", Read}, {"uniq -c -f 2 file", Read}, {"uniq file /tmp/out", Write},
+		{"find / -fprint /tmp/out", Write}, {"find / -fls /tmp/out", Write},
+		{"ss -tlnp", Read}, {"ss -K dst 1.2.3.4", Write}, {"file x", Read}, {"file -C -m magic", Write},
 		{"env rm -rf /tmp/x", Write}, {"date -s tomorrow", Write}, {"sort -o /tmp/x", Write}, {"journalctl --vacuum-time=1d", Write},
 	}
 	for _, tt := range tests {
