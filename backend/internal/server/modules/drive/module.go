@@ -30,16 +30,18 @@ type Module struct {
 	syncMu     sync.Mutex
 	syncStatus api.S3Status
 	syncReq    chan struct{}
-	tasksMu    sync.Mutex
-	tasks      map[string]*driveTask
-	taskSlots  chan struct{}
-	taskBase   context.Context
-	taskNow    func() time.Time
-	shareMu    sync.Mutex
-	shareHits  map[string]shareRate
-	shareFails map[string]shareFailure
-	blobMu     sync.Mutex
-	blobLocks  map[string]*blobLock // see lockBlob
+	// lastFullSync is when syncAll last checked every file; runMu guards it.
+	lastFullSync time.Time
+	tasksMu      sync.Mutex
+	tasks        map[string]*driveTask
+	taskSlots    chan struct{}
+	taskBase     context.Context
+	taskNow      func() time.Time
+	shareMu      sync.Mutex
+	shareHits    map[string]shareRate
+	shareFails   map[string]shareFailure
+	blobMu       sync.Mutex
+	blobLocks    map[string]*blobLock // see lockBlob
 }
 
 var _ api.ServerInterface = (*Module)(nil)
