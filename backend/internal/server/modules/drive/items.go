@@ -314,7 +314,9 @@ func (m *Module) DeleteDriveItem(w http.ResponseWriter, r *http.Request, id api.
 	} else {
 		err = m.write(ctx, func(tx *sql.Tx) error {
 			now := time.Now().UTC()
-			_, err := tx.ExecContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) UPDATE drive_items SET trashed_at=?,updated_at=? WHERE id IN (SELECT id FROM subtree)`, id, now, now)
+			// Items already in the trash keep their own time, so restoring
+			// this folder does not bring them back.
+			_, err := tx.ExecContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) UPDATE drive_items SET trashed_at=?,updated_at=? WHERE id IN (SELECT id FROM subtree) AND trashed_at IS NULL`, id, now, now)
 			return err
 		})
 	}
@@ -349,7 +351,9 @@ func (m *Module) RestoreDriveItem(w http.ResponseWriter, r *http.Request, id api
 		if err != nil {
 			return err
 		}
-		_, err = tx.ExecContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) UPDATE drive_items SET trashed_at=NULL,updated_at=? WHERE id IN (SELECT id FROM subtree)`, id, time.Now().UTC())
+		// Only what was deleted together with this item comes back. A file
+		// deleted earlier, then its folder, stays in the trash.
+		_, err = tx.ExecContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) UPDATE drive_items SET trashed_at=NULL,updated_at=? WHERE id IN (SELECT id FROM subtree) AND trashed_at=?`, id, time.Now().UTC(), item.TrashedAt)
 		if err != nil {
 			return err
 		}

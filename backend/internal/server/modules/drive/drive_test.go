@@ -388,3 +388,29 @@ func TestS3SettingsSaveDoesNotWaitForSync(t *testing.T) {
 		t.Fatalf("saving settings waited %v for the running sync", waited)
 	}
 }
+
+func TestRestoreFolderLeavesEarlierDeletedFileInTrash(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	var folder api.DriveItem
+	env.MustDo(http.MethodPost, "/drive/folders", map[string]any{"name": "资料"}, &folder)
+	early := upload(t, env, "先删.txt", "a", false)
+	kept := upload(t, env, "一起删.txt", "b", false)
+	for _, f := range []api.DriveItem{early, kept} {
+		env.MustDo(http.MethodPatch, "/drive/items/"+itoa(f.Id), map[string]any{"parentId": folder.Id}, nil)
+	}
+	env.MustDo(http.MethodDelete, "/drive/items/"+itoa(early.Id), nil, nil)
+	time.Sleep(5 * time.Millisecond)
+	env.MustDo(http.MethodDelete, "/drive/items/"+itoa(folder.Id), nil, nil)
+	env.MustDo(http.MethodPost, "/drive/items/"+itoa(folder.Id)+"/restore", nil, nil)
+	var listed struct {
+		Items []api.DriveItem `json:"items"`
+	}
+	env.MustDo(http.MethodGet, "/drive/items?parent="+itoa(folder.Id), nil, &listed)
+	if len(listed.Items) != 1 || listed.Items[0].Id != kept.Id {
+		t.Fatalf("restored folder: %+v", listed.Items)
+	}
+	env.MustDo(http.MethodGet, "/drive/items?trashed=true", nil, &listed)
+	if len(listed.Items) != 1 || listed.Items[0].Id != early.Id {
+		t.Fatalf("trash: %+v", listed.Items)
+	}
+}

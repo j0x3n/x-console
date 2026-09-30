@@ -190,7 +190,7 @@ func (m *Module) transferName(ctx context.Context, tx *sql.Tx, item db.DriveItem
 			return m.renamedTransfer(ctx, tx, item, parent)
 		}
 		now := time.Now().UTC()
-		_, err = tx.ExecContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) UPDATE drive_items SET trashed_at=?,updated_at=? WHERE id IN (SELECT id FROM subtree)`, existingID, now, now)
+		_, err = tx.ExecContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) UPDATE drive_items SET trashed_at=?,updated_at=? WHERE id IN (SELECT id FROM subtree) AND trashed_at IS NULL`, existingID, now, now)
 		return item.Name, false, err
 	}
 	return "", false, httpx.Invalid("冲突策略不正确")
