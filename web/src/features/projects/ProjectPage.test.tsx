@@ -22,8 +22,48 @@ const { calls, state } = vi.hoisted(() => {
       }[];
     }[],
   };
+  // B46：一个看板，6 个状态各一个列表，列表 id = 100 + 状态序号。
+  const statusList: Record<string, number> = {
+    backlog: 101,
+    todo: 102,
+    in_progress: 103,
+    in_review: 104,
+    done: 105,
+    canceled: 106,
+  };
+  const names: Record<string, string> = {
+    backlog: "待规划",
+    todo: "待办",
+    in_progress: "进行中",
+    in_review: "待审核",
+    done: "已完成",
+    canceled: "已取消",
+  };
+  const board = {
+    id: 1,
+    projectId: 1,
+    name: "开发进程",
+    icon: "🕹️",
+    position: 1,
+    starred: false,
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+    lists: Object.entries(statusList).map(([status, id], i) => ({
+      id,
+      boardId: 1,
+      name: names[status],
+      position: i + 1,
+      status,
+      color: "",
+      wipLimit: 0,
+      collapsed: false,
+      cardCount: 0,
+    })),
+  };
   const issue = (n: number, status: string, sortOrder: number) => ({
     id: n,
+    boardId: 1,
+    listId: statusList[status],
     key: `XC-${n}`,
     projectId: 1,
     projectKey: "XC",
@@ -122,6 +162,8 @@ const { calls, state } = vi.hoisted(() => {
     }
     if (path === "/projects")
       return json(url.searchParams.get("archived") ? [] : [project]);
+    if (path === "/projects/1/boards") return json([board]);
+    if (path === "/boards/starred") return json([]);
     if (path === "/issues") {
       const statuses = url.searchParams.getAll("status");
       const items = state.live
@@ -146,14 +188,17 @@ const { calls, state } = vi.hoisted(() => {
       return json([]);
     if (path.endsWith("/move")) {
       const move = body as {
-        status: string;
+        listId: number;
         afterKey?: string;
         beforeKey?: string;
       };
       const target = issues.find((i) => i.key === path.split("/")[2])!;
       const after = issues.find((i) => i.key === move.afterKey);
       const before = issues.find((i) => i.key === move.beforeKey);
-      target.status = move.status;
+      target.listId = move.listId;
+      target.status =
+        Object.entries(statusList).find(([, id]) => id === move.listId)?.[0] ??
+        target.status;
       target.sortOrder = after
         ? after.sortOrder + 1
         : before
@@ -247,7 +292,7 @@ describe("ProjectPage", () => {
     await screen.findByText("Issue 1");
     fireEvent.keyDown(document.body, { key: "c" });
     expect(
-      await screen.findByRole("dialog", { name: "新建 Issue" }),
+      await screen.findByRole("dialog", { name: "新建卡片" }),
     ).toBeTruthy();
   });
 });
@@ -273,7 +318,7 @@ describe("Board drag and drop", () => {
     await waitFor(() =>
       expect(calls.find((c) => c.url.endsWith("/move"))).toMatchObject({
         url: "/api/v1/issues/XC-1/move",
-        body: { status: "todo", afterKey: "XC-2" },
+        body: { listId: 102, afterKey: "XC-2" },
       }),
     );
     const todo = [...document.querySelectorAll(".projects-lane")][1];
@@ -330,27 +375,39 @@ describe("B36 before the backend is live", () => {
   });
 });
 
+describe("B46 boards", () => {
+  it("shows the board tab and its lists, and adds a card inline", async () => {
+    renderAt("/projects/XC");
+    await screen.findByText("Issue 1");
+    const tab = screen.getByRole("tab", { name: /开发进程/ });
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("heading", { name: "待审核" })).toBeTruthy();
+    fireEvent.click(screen.getAllByText("添加卡片")[1]);
+    const input = await screen.findByPlaceholderText("卡片标题，回车添加");
+    fireEvent.change(input, { target: { value: "新卡片" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.method === "POST" && c.url.endsWith("/issues")),
+      ).toMatchObject({ body: { title: "新卡片", listId: 102 } }),
+    );
+  });
+
+  it("filters to my cards with Q", async () => {
+    renderAt("/projects/XC");
+    await screen.findByText("Issue 1");
+    fireEvent.keyDown(document.body, { key: "q" });
+    await waitFor(() => expect(screen.queryByText("Issue 1")).toBeNull());
+  });
+});
+
 describe("B36 with the backend live", () => {
-  it("shows category and checklist progress and filters by category", async () => {
+  it("shows checklist progress on the card", async () => {
     state.live = true;
     renderAt("/projects/XC");
     const card = await screen.findByText("Issue 1");
     const article = card.closest("article")!;
-    expect(within(article).getByText("后端 / 云盘")).toBeTruthy();
     expect(within(article).getByText("3/5")).toBeTruthy();
-    // 选一级分类“后端”，包含二级分类“云盘”里的 XC-1，不包含“前端”的 XC-2。
-    fireEvent.change(await screen.findByLabelText("分类"), {
-      target: { value: "10" },
-    });
-    await waitFor(() => expect(screen.queryByText("Issue 2")).toBeNull());
-    expect(screen.getByText("Issue 1")).toBeTruthy();
-  });
-
-  it("opens with ?category= from the sidebar link", async () => {
-    state.live = true;
-    renderAt("/projects/XC?category=20");
-    expect(await screen.findByText("Issue 2")).toBeTruthy();
-    expect(screen.queryByText("Issue 1")).toBeNull();
   });
 
   it("ticks a checklist item and saves the due time with minutes", async () => {

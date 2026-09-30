@@ -34,9 +34,9 @@ registerZh({
   Edited: "编辑于",
   "Delete this note? This cannot be undone.":
     "要删除这条笔记吗？删除后不能恢复。",
-  "Turn into issue": "转成 Issue",
+  "Turn into issue": "转成卡片",
   "The note becomes the issue description. A link to the issue is added to the note.":
-    "笔记内容会作为 Issue 的描述。笔记末尾会加上 Issue 的链接。",
+    "笔记内容会作为卡片 的描述。笔记末尾会加上卡片 的链接。",
   "Remind me": "设为提醒",
   When: "提醒时间",
   Repeat: "重复",

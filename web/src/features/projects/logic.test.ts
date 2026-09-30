@@ -31,6 +31,11 @@ import {
   type Checklist,
   type ChecklistItem,
   type Issue,
+  applyListMove,
+  isNoopListMove,
+  listColumn,
+  planListMove,
+  toggleMember,
 } from "./logic";
 
 let seq = 0;
@@ -414,5 +419,55 @@ describe("B36 checklists", () => {
     expect(isNoopItemMove(items, 2, planItemMove(items, 2, 1))).toBe(true);
     const moved = sortItems(applyItemMove(items, 3, plan)).map((i) => i.id);
     expect(moved).toEqual([3, 1, 2]);
+  });
+});
+
+describe("B46 list moves", () => {
+  const a = issue({ listId: 1, sortOrder: 100 });
+  const b = issue({ listId: 1, sortOrder: 200 });
+  const c = issue({ listId: 2, sortOrder: 100, status: "in_progress" });
+  const all = [a, b, c];
+
+  it("plans a move between neighbours and into another list", () => {
+    expect(planListMove(all, a.key, { listId: 1, index: 1 })).toMatchObject({
+      listId: 1,
+      afterKey: b.key,
+      beforeKey: undefined,
+      sortOrder: 1224,
+    });
+    const plan = planListMove(
+      all,
+      a.key,
+      { listId: 2, index: 0 },
+      "in_progress",
+    );
+    expect(plan).toMatchObject({
+      listId: 2,
+      beforeKey: c.key,
+      status: "in_progress",
+    });
+    const moved = applyListMove(all, a.key, plan);
+    expect(keys(listColumn(moved, 2))).toBe(`${a.key},${c.key}`);
+    expect(moved.find((i) => i.key === a.key)?.status).toBe("in_progress");
+  });
+
+  it("keeps the status for a list without one and spots no-op moves", () => {
+    const plan = planListMove(all, c.key, { listId: 1, index: 0 });
+    expect(
+      applyListMove(all, c.key, plan).find((i) => i.key === c.key)?.status,
+    ).toBe("in_progress");
+    expect(
+      isNoopListMove(
+        all,
+        a.key,
+        planListMove(all, a.key, { listId: 1, index: 0 }),
+      ),
+    ).toBe(true);
+  });
+
+  it("toggles me as a member", () => {
+    const withMe = { ...a, members: [{ kind: "me" as const, id: "" }] };
+    expect(toggleMember(a, "me")).toEqual([{ kind: "me", id: "" }]);
+    expect(toggleMember(withMe, "me")).toEqual([]);
   });
 });

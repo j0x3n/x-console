@@ -149,6 +149,6 @@ registerZh({
   Subscription: "订阅",
   Certificate: "证书",
   Domain: "域名",
-  Issue: "Issue",
+  Issue: "卡片",
   Overdue: "已过期",
 });

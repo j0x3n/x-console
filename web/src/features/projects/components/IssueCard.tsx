@@ -1,5 +1,5 @@
 import type { DragEvent } from "react";
-import { CalendarDays, ListChecks } from "lucide-react";
+import { CalendarDays, ListChecks, MessageSquare } from "lucide-react";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatDate, formatTime } from "../../../lib/time";
 import {
@@ -60,6 +60,26 @@ export function ChecklistBadge({ issue }: { issue: Issue }) {
   );
 }
 
+/** 卡片成员的头像：“我”显示“我”，Agent 显示 A。B47 做完后换成 Agent 的 emoji。 */
+export function Members({ issue }: { issue: Issue }) {
+  const t = useT();
+  const members = issue.members ?? [];
+  if (!members.length) return null;
+  return (
+    <span className="projects-members">
+      {members.map((m) => (
+        <i
+          key={`${m.kind}:${m.id}`}
+          className={`projects-member ${m.kind}`}
+          title={m.kind === "me" ? t("Me") : `Agent ${m.id}`}
+        >
+          {m.kind === "me" ? t("Me") : "A"}
+        </i>
+      ))}
+    </span>
+  );
+}
+
 /** 看板上的一张卡片。 */
 export default function IssueCard({
   issue,
@@ -100,13 +120,22 @@ export default function IssueCard({
       {category && <p className="projects-card-category">{category}</p>}
       {(issue.labels.length > 0 ||
         !!issue.checklistTotal ||
+        !!issue.commentCount ||
+        !!issue.members?.length ||
         !!issueDue(issue)) && (
         <div className="projects-card-labels">
           <DueBadge issue={issue} />
           <ChecklistBadge issue={issue} />
+          {!!issue.commentCount && (
+            <span className="projects-card-count">
+              <MessageSquare size={12} />
+              {issue.commentCount}
+            </span>
+          )}
           {issue.labels.map((l) => (
             <LabelChip key={l.id} label={l} />
           ))}
+          <Members issue={issue} />
         </div>
       )}
     </article>

@@ -18,6 +18,8 @@ import {
   type Issue,
   type IssueStatus,
   type MovePlan,
+  applyListMove,
+  type ListMovePlan,
 } from "./logic";
 
 export const projectsApi = createApi<paths>();
@@ -31,6 +33,12 @@ export type IssueLinkKind = components["schemas"]["IssueLinkKind"];
 export type CreateIssue = components["schemas"]["CreateIssue"];
 export type UpdateIssue = components["schemas"]["UpdateIssue"];
 export type UpdateProject = components["schemas"]["UpdateProject"];
+export type Board = components["schemas"]["Board"];
+export type BoardList = components["schemas"]["BoardList"];
+export type IssueMember = components["schemas"]["IssueMember"];
+export type IssueActivity = components["schemas"]["IssueActivity"];
+export type UpdateBoard = components["schemas"]["UpdateBoard"];
+export type UpdateBoardList = components["schemas"]["UpdateBoardList"];
 export type { Category, Checklist, ChecklistItem, Issue, IssueStatus };
 
 export const projectKeys = {
@@ -49,6 +57,11 @@ export const projectKeys = {
     ["projects", "categories", projectId] as const,
   checklists: (key: string) =>
     ["projects", "checklists", key.toUpperCase()] as const,
+  boards: (projectId: number) => ["projects", "boards", projectId] as const,
+  starred: ["projects", "starred-boards"] as const,
+  archive: (boardId: number) => ["projects", "archive", boardId] as const,
+  activity: (key: string) =>
+    ["projects", "activity", key.toUpperCase()] as const,
 };
 
 // 其他窗口或其他模块改了数据时，服务端会推事件，这里整体刷新。
@@ -60,6 +73,7 @@ for (const prefix of [
   "label.",
   "milestone.",
   "project_category.",
+  "board.",
 ])
   invalidateOn(prefix, projectKeys.all);
 
@@ -721,5 +735,246 @@ export function useChecklistMutations(key: string) {
     updateItem,
     deleteItem,
     convertItem,
+  };
+}
+
+// ---- B46 看板和列表 ----
+
+export function useBoards(projectId: number | undefined) {
+  return useQuery({
+    queryKey: projectKeys.boards(projectId ?? 0),
+    queryFn: () =>
+      unwrap(
+        projectsApi.GET("/projects/{projectId}/boards", {
+          params: { path: { projectId: projectId! } },
+        }),
+      ),
+    enabled: projectId !== undefined,
+  });
+}
+
+export function useStarredBoards() {
+  return useQuery({
+    queryKey: projectKeys.starred,
+    queryFn: () => unwrap(projectsApi.GET("/boards/starred")),
+  });
+}
+
+export function useBoardArchive(boardId: number | undefined, enabled = true) {
+  return useQuery({
+    queryKey: projectKeys.archive(boardId ?? 0),
+    queryFn: () =>
+      unwrap(
+        projectsApi.GET("/boards/{boardId}/archive", {
+          params: { path: { boardId: boardId! } },
+        }),
+      ),
+    enabled: enabled && boardId !== undefined,
+  });
+}
+
+export function useIssueActivity(key: string) {
+  return useQuery({
+    queryKey: projectKeys.activity(key),
+    queryFn: () =>
+      unwrap(
+        projectsApi.GET("/issues/{key}/activity", {
+          params: { path: { key } },
+        }),
+      ),
+  });
+}
+
+/** 看板和列表的增删改。改完整体刷新项目相关的缓存。 */
+export function useBoardMutations(projectId: number) {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: projectKeys.all });
+  const opts = { onSuccess: done, onError: fail };
+  return {
+    createBoard: useMutation({
+      mutationFn: (body: components["schemas"]["CreateBoard"]) =>
+        unwrap(
+          projectsApi.POST("/projects/{projectId}/boards", {
+            params: { path: { projectId } },
+            body,
+          }),
+        ),
+      ...opts,
+    }),
+    updateBoard: useMutation({
+      mutationFn: ({ id, body }: { id: number; body: UpdateBoard }) =>
+        unwrap(
+          projectsApi.PATCH("/boards/{boardId}", {
+            params: { path: { boardId: id } },
+            body,
+          }),
+        ),
+      ...opts,
+    }),
+    deleteBoard: useMutation({
+      mutationFn: (id: number) =>
+        unwrap(
+          projectsApi.DELETE("/boards/{boardId}", {
+            params: { path: { boardId: id } },
+          }),
+        ),
+      ...opts,
+    }),
+    copyBoard: useMutation({
+      mutationFn: (id: number) =>
+        unwrap(
+          projectsApi.POST("/boards/{boardId}/copy", {
+            params: { path: { boardId: id } },
+            body: {},
+          }),
+        ),
+      ...opts,
+    }),
+    createList: useMutation({
+      mutationFn: ({
+        boardId,
+        name,
+        status,
+      }: {
+        boardId: number;
+        name: string;
+        status?: IssueStatus;
+      }) =>
+        unwrap(
+          projectsApi.POST("/boards/{boardId}/lists", {
+            params: { path: { boardId } },
+            body: { name, status },
+          }),
+        ),
+      ...opts,
+    }),
+    updateList: useMutation({
+      mutationFn: ({ id, body }: { id: number; body: UpdateBoardList }) =>
+        unwrap(
+          projectsApi.PATCH("/lists/{listId}", {
+            params: { path: { listId: id } },
+            body,
+          }),
+        ),
+      ...opts,
+    }),
+    deleteList: useMutation({
+      mutationFn: (id: number) =>
+        unwrap(
+          projectsApi.DELETE("/lists/{listId}", {
+            params: { path: { listId: id } },
+          }),
+        ),
+      ...opts,
+    }),
+    archiveListCards: useMutation({
+      mutationFn: (id: number) =>
+        unwrap(
+          projectsApi.POST("/lists/{listId}/archive-cards", {
+            params: { path: { listId: id } },
+          }),
+        ),
+      ...opts,
+    }),
+    moveListCards: useMutation({
+      mutationFn: ({ from, to }: { from: number; to: number }) =>
+        unwrap(
+          projectsApi.POST("/lists/{listId}/move-cards", {
+            params: { path: { listId: from } },
+            body: { toListId: to },
+          }),
+        ),
+      ...opts,
+    }),
+  };
+}
+
+/** 卡片拖到某个列表（可以是别的看板），乐观更新。 */
+export function useMoveCard() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      key,
+      plan,
+    }: {
+      projectId: number;
+      key: string;
+      plan: ListMovePlan;
+    }) =>
+      unwrap(
+        projectsApi.POST("/issues/{key}/move", {
+          params: { path: { key } },
+          body: {
+            listId: plan.listId,
+            afterKey: plan.afterKey,
+            beforeKey: plan.beforeKey,
+          },
+        }),
+      ),
+    onMutate: async ({ projectId, key, plan }) => {
+      const listKey = projectKeys.issues(projectId);
+      await qc.cancelQueries({ queryKey: listKey });
+      const prev = qc.getQueryData<Issue[]>(listKey);
+      if (prev) qc.setQueryData(listKey, applyListMove(prev, key, plan));
+      return { listKey, prev };
+    },
+    onError: (error, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(ctx.listKey, ctx.prev);
+      fail(error);
+    },
+    onSuccess: (issue) => storeIssue(qc, issue),
+    onSettled: () => qc.invalidateQueries({ queryKey: projectKeys.all }),
+  });
+}
+
+/** 卡片的归档、恢复、复制、成员。 */
+export function useCardActions() {
+  const qc = useQueryClient();
+  const done = (issue: Issue) => {
+    storeIssue(qc, issue);
+    return qc.invalidateQueries({ queryKey: projectKeys.all });
+  };
+  return {
+    archive: useMutation({
+      mutationFn: (key: string) =>
+        unwrap(
+          projectsApi.POST("/issues/{key}/archive", {
+            params: { path: { key } },
+          }),
+        ),
+      onSuccess: done,
+      onError: fail,
+    }),
+    restore: useMutation({
+      mutationFn: (key: string) =>
+        unwrap(
+          projectsApi.POST("/issues/{key}/restore", {
+            params: { path: { key } },
+          }),
+        ),
+      onSuccess: done,
+      onError: fail,
+    }),
+    copy: useMutation({
+      mutationFn: (key: string) =>
+        unwrap(
+          projectsApi.POST("/issues/{key}/copy", {
+            params: { path: { key } },
+          }),
+        ),
+      onSuccess: done,
+      onError: fail,
+    }),
+    members: useMutation({
+      mutationFn: ({ key, members }: { key: string; members: IssueMember[] }) =>
+        unwrap(
+          projectsApi.PUT("/issues/{key}/members", {
+            params: { path: { key } },
+            body: { members },
+          }),
+        ),
+      onSuccess: done,
+      onError: fail,
+    }),
   };
 }

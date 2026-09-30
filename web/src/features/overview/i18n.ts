@@ -36,7 +36,7 @@ registerZh({
   "No favorites yet": "还没有收藏",
   Unavailable: "不可用",
   "No servers yet": "还没有服务器",
-  "Issues due today": "今天要完成的 Issue",
+  "Issues due today": "今天要完成的卡片",
   "Reminders for today": "今天的提醒",
   "goals reached": "项达标",
   online: "台在线",

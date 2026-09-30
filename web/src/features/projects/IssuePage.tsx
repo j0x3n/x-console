@@ -3,7 +3,10 @@ import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { usePageCrumb } from "../../stores/page-title";
 import {
+  Archive,
+  ArchiveRestore,
   Bot,
+  Copy,
   ExternalLink,
   GitPullRequest,
   Link2,
@@ -19,7 +22,11 @@ import {
   useAddComment,
   useAddLink,
   useB36Live,
+  useBoards,
+  useCardActions,
   useComments,
+  useIssueActivity,
+  useMoveCard,
   useDeleteComment,
   useDeleteIssue,
   useDeleteLink,
@@ -33,7 +40,7 @@ import {
   type UpdateIssue,
 } from "./api";
 import { LabelChip, PriorityIcon, StatusIcon } from "./components/Icons";
-import CategorySelect from "./components/CategorySelect";
+import { ListSelect } from "./components/BoardDialogs";
 import Checklists from "./components/Checklists";
 import DueFields from "./components/DueFields";
 import Markdown from "./Markdown";
@@ -43,8 +50,11 @@ import {
   PRIORITY_LABELS,
   STATUSES,
   STATUS_LABELS,
+  hasMember,
+  issuePath,
   joinDue,
   splitDue,
+  toggleMember,
   type IssueStatus,
 } from "./logic";
 import { useShortcuts } from "./useShortcuts";
@@ -121,9 +131,14 @@ export default function IssuePage() {
   const data = issue.data;
   return (
     <div className="xc-page wide projects-issue-page">
-      {data.externalSource && (
+      {(data.externalSource || data.archivedAt) && (
         <nav className="projects-issue-crumbs">
-          <span className="xc-badge info">{data.externalSource}</span>
+          {data.externalSource && (
+            <span className="xc-badge info">{data.externalSource}</span>
+          )}
+          {data.archivedAt && (
+            <span className="xc-badge warn">{t("Archived")}</span>
+          )}
         </nav>
       )}
       <div className="projects-issue-layout">
@@ -145,6 +160,7 @@ export default function IssuePage() {
           />
           <Links issueKey={data.key} />
           <Comments issueKey={data.key} />
+          <Activity issueKey={data.key} />
         </main>
         <aside className="projects-issue-side">
           <Properties issue={data} onSave={save} />
@@ -303,7 +319,10 @@ function Properties({
   const navigate = useNavigate();
   const labels = useLabels(issue.projectId);
   const milestones = useMilestones(issue.projectId);
-  const { live, categories } = useB36Live(issue.projectId);
+  const { live } = useB36Live(issue.projectId);
+  const boards = useBoards(issue.projectId);
+  const move = useMoveCard();
+  const cards = useCardActions();
   const remove = useDeleteIssue();
   const labelIds = issue.labels.map((l) => l.id);
   return (
@@ -342,17 +361,44 @@ function Properties({
           </select>
         </div>
       </label>
-      {live && (
+      {boards.data && issue.listId !== undefined && (
         <label className="projects-prop">
-          <span>{t("Category")}</span>
-          <CategorySelect
-            mode="pick"
-            categories={categories}
-            value={issue.categoryId ?? null}
-            onChange={(categoryId) => onSave({ categoryId })}
+          <span>{t("Board and list")}</span>
+          <ListSelect
+            label={t("Board and list")}
+            boards={boards.data}
+            value={issue.listId}
+            onChange={(listId) => {
+              const list = boards.data
+                .flatMap((b) => b.lists)
+                .find((l) => l.id === listId);
+              move.mutate({
+                projectId: issue.projectId,
+                key: issue.key,
+                plan: { listId, status: list?.status, sortOrder: null },
+              });
+            }}
           />
         </label>
       )}
+      <div className="projects-prop">
+        <span>{t("Members")}</span>
+        <div className="projects-label-picker">
+          <button
+            className={hasMember(issue, "me") ? "on" : ""}
+            aria-pressed={hasMember(issue, "me")}
+            onClick={() =>
+              cards.members.mutate({
+                key: issue.key,
+                members: toggleMember(issue, "me"),
+              })
+            }
+          >
+            <i className="projects-member me">{t("Me")}</i>
+            {t("Me")}
+          </button>
+        </div>
+      </div>
       <div className="projects-prop">
         <span>{live ? t("Due at") : t("Due date")}</span>
         <DueFields
@@ -443,6 +489,36 @@ function Properties({
         </Link>
       </div>
       <StartFocusButton issueKey={issue.key} />
+      <div className="projects-card-actions">
+        <button
+          className="xc-btn small"
+          disabled={cards.copy.isPending}
+          onClick={() =>
+            cards.copy.mutate(issue.key, {
+              onSuccess: (copy) => navigate(issuePath(copy.key)),
+            })
+          }
+        >
+          <Copy size={14} /> {t("Copy card")}
+        </button>
+        {issue.archivedAt ? (
+          <button
+            className="xc-btn small"
+            disabled={cards.restore.isPending}
+            onClick={() => cards.restore.mutate(issue.key)}
+          >
+            <ArchiveRestore size={14} /> {t("Restore")}
+          </button>
+        ) : (
+          <button
+            className="xc-btn small"
+            disabled={cards.archive.isPending}
+            onClick={() => cards.archive.mutate(issue.key)}
+          >
+            <Archive size={14} /> {t("Archive")}
+          </button>
+        )}
+      </div>
       <button
         className="xc-btn danger small"
         disabled={remove.isPending}
@@ -655,6 +731,47 @@ function Comments({ issueKey }: { issueKey: string }) {
           </button>
         </div>
       </form>
+    </section>
+  );
+}
+
+const ACTIVITY_TEXT: Record<string, string> = {
+  created: "created this card",
+  moved: "moved it to",
+  archived: "archived it",
+  restored: "restored it",
+  members: "changed members",
+  copied: "copied it from",
+};
+
+/** 活动记录（B46）：谁在什么时候做了什么。 */
+function Activity({ issueKey }: { issueKey: string }) {
+  const t = useT();
+  const language = useLanguage();
+  const activity = useIssueActivity(issueKey);
+  const items = activity.data ?? [];
+  if (!items.length) return null;
+  const who = (actor: string) =>
+    actor === "me" || !actor.includes(":") ? t("Me") : actor;
+  return (
+    <section className="projects-activity">
+      <h2>{t("Activity")}</h2>
+      <ol>
+        {items.map((a) => (
+          <li key={a.id}>
+            <strong>{who(a.actor)}</strong> {t(ACTIVITY_TEXT[a.kind] ?? a.kind)}
+            {a.kind === "moved" && typeof a.data.toList === "string"
+              ? ` “${a.data.toList}”`
+              : ""}
+            {a.kind === "copied" && typeof a.data.from === "string"
+              ? ` ${a.data.from}`
+              : ""}
+            <time dateTime={a.at} title={a.at}>
+              {relativeTime(a.at, language)}
+            </time>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

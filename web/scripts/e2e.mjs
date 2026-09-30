@@ -249,7 +249,7 @@ try {
     await new Promise((done) => aiFake.close(done));
   }
 
-  stage = "新建项目和 Issue";
+  stage = "新建项目和卡片";
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();
   await dialog("新建项目").getByLabel("名称").fill("端到端项目");
@@ -260,8 +260,8 @@ try {
   const project = projects.find((item) => item.key === "EET");
   assert.ok(project, "真实接口里没有新建的项目");
   await page.goto(`${base}/projects?new=1`);
-  await dialog("新建 Issue").getByRole("textbox", { name: "标题" }).fill("端到端 Issue");
-  await dialog("新建 Issue").getByRole("button", { name: "创建 Issue" }).click();
+  await dialog("新建卡片").getByRole("textbox", { name: "标题" }).fill("端到端 Issue");
+  await dialog("新建卡片").getByRole("button", { name: "创建卡片" }).click();
   await page.waitForURL(/\/projects\/EET\/\d+$/);
   const issueKey = `EET-${page.url().split("/").at(-1)}`;
   assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
@@ -286,8 +286,7 @@ try {
   assert.equal(dueIssue.categoryId, childCategory.id);
   assert.equal(dueIssue.dueRemind, "15m");
   assert.equal(new Date(dueIssue.dueAt).getTime(), new Date(dueAt).getTime());
-  await page.reload();
-  await page.getByText("服务器", { exact: true }).first().waitFor();
+  // B46 起分类不在界面上显示，接口保留到下个版本。
   stage = "B36 检查清单";
   const checklistResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists`, {
     headers: { "X-Requested-With": "x-console" }, data: { title: "端到端检查" },
@@ -345,8 +344,35 @@ try {
   await until("项目概要", async () =>
     (await projectStats.locator(".xc-stat").count()) === 5,
   );
-  const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的 Issue" });
+  const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的卡片" });
   assert.equal((await progressCard.locator(".xc-stat-value").textContent()).trim(), "1");
+
+  stage = "B46 新建看板、加卡片、拖到另一个列表、加清单";
+  await page.goto(`${base}/projects/EET`);
+  await page.getByRole("button", { name: "新建看板" }).click();
+  await dialog("新建看板").getByLabel("名称").fill("端到端看板");
+  await dialog("新建看板").getByRole("button", { name: "创建看板" }).click();
+  await page.getByRole("tab", { name: /端到端看板/ }).waitFor();
+  assert.equal(await page.getByRole("tab", { name: /端到端看板/ }).getAttribute("aria-selected"), "true");
+  const lanes = page.locator(".projects-board.lists > section.projects-lane[data-list-id]");
+  await until("三个列表", async () => (await lanes.count()) === 3);
+  await lanes.nth(0).getByRole("button", { name: "添加卡片" }).click();
+  const cardInput = page.getByPlaceholder("卡片标题，回车添加");
+  await cardInput.fill("看板里的卡片");
+  await cardInput.press("Enter");
+  const boardCard = lanes.nth(0).locator("[data-issue-key]").filter({ hasText: "看板里的卡片" });
+  await boardCard.waitFor();
+  await cardInput.press("Escape");
+  const boardCardKey = await boardCard.getAttribute("data-issue-key");
+  assert.equal((await api(`/issues/${boardCardKey}`)).status, "todo");
+  await boardCard.dragTo(lanes.nth(1));
+  await until("拖到进行中", async () => (await api(`/issues/${boardCardKey}`)).status === "in_progress");
+  await lanes.nth(1).locator(`[data-issue-key="${boardCardKey}"]`).click();
+  await page.waitForURL(/\/projects\/EET\/\d+$/);
+  await page.getByRole("button", { name: "添加检查清单" }).click();
+  await page.getByLabel("清单标题").fill("看板清单");
+  await page.getByLabel("清单标题").press("Enter");
+  await until("清单已建", async () => (await api(`/issues/${boardCardKey}/checklists`)).length === 1);
 
   stage = "写笔记";
   const noteResponses = [];

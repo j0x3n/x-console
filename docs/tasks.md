@@ -218,12 +218,13 @@
 - 同一个 TOTP 码在 30 秒窗口内可以重复使用。只支持一个用户。
 - HA 的 `WatchEntity` 注册只存在内存里，使用方要在 `Start` 里调用。
 - Linear 不导入已完成或已取消的 Issue，本地新建的 Issue 不会自动建到 Linear。
-- 看板拖动只支持桌面。习惯的提醒时段不能跨午夜。番茄钟不能暂停。
+- 看板拖动只支持桌面（B46 后手机上用卡片详情里的“看板和列表”下拉移动）。习惯的提醒时段不能跨午夜。番茄钟不能暂停。
 - 早报的习惯部分只显示今天，`contracts.Habits` 没有“昨天”的数据。
 - SSH 主机的最后在线时间只存在内存里。Windows 上 `svc.logs` 返回“不支持”。
 - 脚本运行记录不会自动清理。Windows 主机上跑 bash 脚本会直接失败。订阅支出汇总没有汇率换算。
 
 可以改进：
+- B46 没做完的部分：手机上长按拖动卡片（手机上用卡片详情里的“看板和列表”下拉移动）、卡片封面图和附件区、看板页签拖动排序（接口已支持 `afterId`）、卡片详情做成弹窗（现在还是单独一页）、跨项目移动卡片的界面入口（接口已支持）。
 - B44 手机上的点击区域（按钮、图标按钮、列表行）还没统一到 44 × 44px，只放大了字号。
 - 文件上传进度条。SSH 主机指纹变化后在界面上重新信任。
 - `features/reminders` 和 `features/habits` 的 `api.ts` 修改后自己刷新数据，同时又用了 `invalidateOn`，有重复。
@@ -286,6 +287,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | 项目改成多看板：新表 `project_boards`、`board_lists`、`issue_members`、`issue_activity`，`issues` 加 `board_id`、`list_id`、`archived_at`、`cover_file_id`；`POST /issues/{key}/move` 可以只传 `listId`（`status` 变成可选）；`Issue` 加 `boardId`、`listId`、`archivedAt`、`members`、`commentCount`；归档的卡片不出现在列表、到期提醒和提醒页里；B36 的分类界面去掉，接口保留；界面上 Issue 改叫“卡片” | B46 多看板 |
 | 2026-09-30 | `auth.Session` 加 `ElevationMode`、`ViaToken`，`Elevated()` 按设置 `security.elevation_mode` 算；新增 `auth.RequireStrictElevated`（始终 5 分钟内验证过）；开启两步验证和从备份恢复改用它；`core.yaml` 加 `/auth/elevation-mode` | B48 二次验证可选 |
 | 2026-09-30 | `contracts` 加 `WithAIUsage`、`AIUsageFrom`（给 AI 调用标来源）和 `AIUsageRecorder`（键 `ai.usage`，记 Agent 任务等外部用量）；`llm.Result` 加缓存和思考 token；代理的 Claude Code 解析把 `usage` 带给服务端 | B42 AI 用量 |
 | 2026-09-30 | `styles/tokens.css` 加字号令牌 `--fs-9` 到 `--fs-19` 和 `--fs-input`，手机上放大；全部样式里 9 到 19px 的 `font-size` 换成令牌（`scripts/font-tokens.mjs`）；手机上输入框一律 16px；CI 加 `npm run lint:fonts`；`shots.mjs` 在 390px 下检查字号；`e2e.mjs` 支持 `XC_SHOTS_BROWSER` | B44 手机字号 |
