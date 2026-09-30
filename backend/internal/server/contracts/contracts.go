@@ -34,7 +34,14 @@ const (
 	CalendarKey      = "calendar.calendar"   // M11 provides
 	GitHubKey        = "github.github"       // M13 provides
 	LLMKey           = "ai.llm"              // M12 provides
+	FilesKey         = "files.files"         // B36 provides
 )
+
+// Files links uploaded Markdown images to their owner and removes them with it.
+type Files interface {
+	Claim(ctx context.Context, ownerKind string, ownerID int64, markdown string) error
+	DeleteOwned(ctx context.Context, ownerKind string, ownerID int64) error
+}
 
 // LLM is the AI call boundary used by notes and automations.
 type LLM interface {

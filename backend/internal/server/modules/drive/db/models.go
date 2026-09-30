@@ -762,6 +762,18 @@ type SubscriptionEvent struct {
 	Detail         string
 }
 
+type UploadedFile struct {
+	ID        int64
+	Scope     string
+	Name      string
+	Mime      string
+	Size      int64
+	Sha256    string
+	OwnerKind *string
+	OwnerID   *int64
+	CreatedAt time.Time
+}
+
 type User struct {
 	ID             int64
 	Username       string

@@ -231,6 +231,11 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 	if t, err = m.task(ctx, id); err != nil {
 		return t, err
 	}
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		if err = files.Claim(ctx, "coding", id, in.Prompt); err != nil {
+			return t, err
+		}
+	}
 	m.d.Bus.Publish("coding_task.created", t)
 	m.dispatch()
 	// Reload: it may be running already.

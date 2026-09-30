@@ -50,7 +50,7 @@
 | 15a | B36 分类接口和基础迁移 | 做完 | `modules/projects/categories.go`、`categories_test.go`、迁移 `20260930000400` | 两级分类、顺序、归档限制、删除后未分类和外键已测；接 Issue 新字段 |
 | 15b | B36 Issue 字段和到期提醒 | 做完 | `modules/projects/service.go`、`list.go`、`due.go`、`contracts.go`、`web/scripts/e2e.mjs` | categoryId、dueAt、dueRemind、清单计数、旧 dueDate 回填、筛选排序和一次性通知已测；全量检查与浏览器主流程通过 |
 | 15c | B36 检查清单 | 做完 | `modules/projects/checklists.go`、`checklists_test.go`、`web/scripts/e2e.mjs` | 8 个接口、排序、勾选时间、跨清单移动和事务内转 Issue 已测；全量后端检查与浏览器主流程通过 |
-| 15d | B36 公共上传 | 在做 | `modules/files/`、`contracts` | 新增模块，接文件认领、缩略图和删除 |
+| 15d | B36 公共上传 | 做完 | `modules/files/`、`contracts`、`projects/service.go`、`calendar/events_write.go`、`reminders/reminders.go`、`coding/tasks.go`、`web/scripts/e2e.mjs`、迁移 `20260930000500` | 图片大小和类型、登录读取、缩略图、Markdown 归属、删除及过期清理已测；B36 后端完成，接 B37 |
 | 16 | B37 提醒页汇总 | 没开始 | | B36 到期提醒完成后接入 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
@@ -78,7 +78,7 @@
 
 云盘公开分享路径已登记在 `drive/module.go`。
 
-- 还有两个契约没有后端模块，现在回 404：`api/modules/storage.yaml`（B24、B25）和 `api/modules/files.yaml`（B36 的公共上传）。
+- `api/modules/storage.yaml` 和 `api/modules/files.yaml` 已有后端模块。
 - 迁移只加不删。文件名里的时间按实际写，要晚于当时最新的迁移。规格里写的文件名只是示意。
 
 ## 顺序

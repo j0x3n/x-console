@@ -15,7 +15,9 @@ import (
 	"github.com/emersion/go-webdav/caldav"
 	"github.com/google/uuid"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar/db"
 )
@@ -146,6 +148,12 @@ func (m *Module) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := m.eventAPI(e, c)
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		if err := files.Claim(r.Context(), "calendar", e.ID, e.Description); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
 	m.d.Bus.Publish("calendar.event_changed", out)
 	httpx.JSON(w, http.StatusCreated, out)
 }
@@ -277,6 +285,12 @@ func (m *Module) UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, id 
 		return
 	}
 	out := m.eventAPI(updated, next)
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		if err := files.Claim(r.Context(), "calendar", id, updated.Description); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
 	m.d.Bus.Publish("calendar.event_changed", out)
 	httpx.JSON(w, http.StatusOK, out)
 }
@@ -305,6 +319,12 @@ func (m *Module) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request, id 
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
+	}
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		if err := files.DeleteOwned(r.Context(), "calendar", id); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
 	}
 	m.d.Bus.Publish("calendar.event_changed", map[string]any{"eventId": id, "calendarId": c.ID})
 	httpx.NoContent(w)

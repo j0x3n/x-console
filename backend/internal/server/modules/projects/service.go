@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects/db"
 )
@@ -16,6 +18,20 @@ import (
 // Methods publish their events after the transaction commits.
 
 // ---- projects ----
+
+func (m *Module) claimFiles(ctx context.Context, kind string, id int64, markdown string) error {
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		return files.Claim(ctx, kind, id, markdown)
+	}
+	return nil
+}
+
+func (m *Module) deleteOwnedFiles(ctx context.Context, kind string, id int64) error {
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		return files.DeleteOwned(ctx, kind, id)
+	}
+	return nil
+}
 
 func (m *Module) listProjects(ctx context.Context, archived bool) ([]api.Project, error) {
 	rows, err := m.q.ListProjects(ctx, archived)
@@ -72,6 +88,9 @@ func (m *Module) createProject(ctx context.Context, in api.CreateProject) (out a
 	if err != nil {
 		return out, err
 	}
+	if err = m.claimFiles(ctx, "project", id, deref(in.Description)); err != nil {
+		return out, err
+	}
 	m.d.Bus.Publish("project.created", out)
 	return out, nil
 }
@@ -116,6 +135,9 @@ func (m *Module) updateProject(ctx context.Context, id int64, in api.UpdateProje
 	}
 	out, err = m.getProject(ctx, id)
 	if err != nil {
+		return out, err
+	}
+	if err = m.claimFiles(ctx, "project", id, p.Description); err != nil {
 		return out, err
 	}
 	if !wasArchived && out.ArchivedAt != nil {
@@ -379,6 +401,9 @@ func (m *Module) createIssue(ctx context.Context, projectID int64, in issueInput
 	if err != nil {
 		return out, err
 	}
+	if err = m.claimFiles(ctx, "issue", out.Id, in.Description); err != nil {
+		return out, err
+	}
 	m.d.Bus.Publish("issue.created", out)
 	return out, nil
 }
@@ -501,6 +526,9 @@ func (m *Module) updateIssue(ctx context.Context, key string, p issuePatch) (out
 	defer func() { m.d.Audit.Record(ctx, "issue.update", key, nil, err) }()
 	out, from, err := m.patchIssue(ctx, key, p)
 	if err != nil {
+		return out, err
+	}
+	if err = m.claimFiles(ctx, "issue", out.Id, out.Description); err != nil {
 		return out, err
 	}
 	m.publishUpdate(out, from)
@@ -628,8 +656,20 @@ func (m *Module) deleteIssue(ctx context.Context, key string) (err error) {
 	if err != nil {
 		return err
 	}
+	comments, err := m.listComments(ctx, key)
+	if err != nil {
+		return err
+	}
 	if err := m.q.DeleteIssue(ctx, issue.Id); err != nil {
 		return err
+	}
+	if err := m.deleteOwnedFiles(ctx, "issue", issue.Id); err != nil {
+		return err
+	}
+	for _, comment := range comments {
+		if err := m.deleteOwnedFiles(ctx, "comment", comment.Id); err != nil {
+			return err
+		}
 	}
 	m.d.Bus.Publish("issue.deleted", issue)
 	return nil
@@ -673,6 +713,9 @@ func (m *Module) createComment(ctx context.Context, key, body string) (out api.C
 		return out, err
 	}
 	out = toComment(c)
+	if err = m.claimFiles(ctx, "comment", out.Id, body); err != nil {
+		return out, err
+	}
 	m.d.Bus.Publish("issue_comment.created", issueEvent{IssueKey: issueKey(r.ProjectKey, r.Issue.Number), Data: out})
 	return out, nil
 }
@@ -689,6 +732,9 @@ func (m *Module) deleteComment(ctx context.Context, key string, id int64) (err e
 	}
 	if n == 0 {
 		return httpx.ErrNotFound
+	}
+	if err := m.deleteOwnedFiles(ctx, "comment", id); err != nil {
+		return err
 	}
 	m.d.Bus.Publish("issue_comment.deleted", issueEvent{IssueKey: issueKey(r.ProjectKey, r.Issue.Number), Data: map[string]int64{"id": id}})
 	return nil

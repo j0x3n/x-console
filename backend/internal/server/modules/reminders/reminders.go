@@ -15,6 +15,7 @@ import (
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/db"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
@@ -192,6 +193,11 @@ func (m *Module) remove(ctx context.Context, id int64) error {
 	m.d.Audit.Record(ctx, "reminder.delete", strconv.FormatInt(id, 10), nil, err)
 	if err != nil {
 		return err
+	}
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		if err := files.DeleteOwned(ctx, "reminder", id); err != nil {
+			return err
+		}
 	}
 	m.d.Bus.Publish("reminder.deleted", map[string]int64{"id": id})
 	return nil
@@ -393,6 +399,12 @@ func (m *Module) CreateReminder(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		if err := files.Claim(r.Context(), "reminder", row.ID, row.Body); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
 	httpx.JSON(w, http.StatusCreated, toAPI(row))
 }
 
@@ -415,6 +427,12 @@ func (m *Module) UpdateReminder(w http.ResponseWriter, r *http.Request, id api.R
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
+	}
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		if err := files.Claim(r.Context(), "reminder", id, row.Body); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
 	}
 	httpx.JSON(w, http.StatusOK, toAPI(row))
 }

@@ -303,6 +303,33 @@ try {
   await until("检查清单进度", async () => (await api(`/issues/${issueKey}`)).checklistDone === 1);
   await page.reload();
   await page.getByText("核对接口").waitFor();
+  stage = "B36 图片上传和归属";
+  const sampleImage = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==", "base64");
+  const uploadImage = async (name) => {
+    const response = await page.context().request.post(`${base}/api/v1/files?scope=projects`, {
+      headers: { "X-Requested-With": "x-console" },
+      multipart: { file: { name, mimeType: "image/png", buffer: sampleImage } },
+    });
+    assert.equal(response.status(), 201, await response.text());
+    return response.json();
+  };
+  const issueImage = await uploadImage("issue.png");
+  const commentImage = await uploadImage("comment.png");
+  const imagePatch = await page.context().request.patch(`${base}/api/v1/issues/${issueKey}`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { description: `![截图](${issueImage.url})` },
+  });
+  assert.equal(imagePatch.status(), 200, await imagePatch.text());
+  const imageComment = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/comments`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { body: `![评论截图](${commentImage.url})` },
+  });
+  assert.equal(imageComment.status(), 201, await imageComment.text());
+  await page.reload();
+  await page.locator(`img[src*="/api/v1/files/${issueImage.id}"]`).waitFor();
+  assert.equal((await api(`/issues/${issueKey}`)).description.includes(issueImage.url), true);
+  assert.equal((await api(`/issues/${issueKey}/comments`)).some((item) => item.body.includes(commentImage.url)), true);
+  assert.equal((await page.context().request.get(`${base}${issueImage.url}`)).status(), 200);
   const progressResponse = await page
     .context()
     .request.patch(`${base}/api/v1/issues/${issueKey}`, {

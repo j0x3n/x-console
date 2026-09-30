@@ -28,7 +28,6 @@
 | B35 | 前端：GitHub 关注的仓库改成从令牌能访问的仓库里多选（搜索、私有标记、刷新，没上线时退回文本框），同步状态显示总额度和同步间隔。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B35](specs/B35.md) | Claude（前端） |
 | B37 | 前端：提醒页“今天”“即将到来”混排其他模块的到期事项（来源标签、只读、点了跳转），“显示其他模块”开关，概要数字算上它们。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B37](specs/B37.md) | Claude（前端） |
 | B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
-| B36（后端） | 分类接口已接通，继续做 Issue 字段、到期提醒、检查清单和公共上传。细节见 [backend-todo.md](backend-todo.md) | [B36](specs/B36.md) | Codex |
 
 ## 待做
 
@@ -54,7 +53,7 @@
 | B34 | 浏览器推送自检和后台通知 | [B34](specs/B34.md) | |
 | B35 | GitHub 仓库下拉多选，同步加快 | [B35](specs/B35.md) | |
 | C5 | 清理轮 | 见下 | |
-| B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并 | [B36](specs/B36.md) | |
+| B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并。后端已接通 | [B36](specs/B36.md) | |
 | B37 | 提醒页汇总其他模块的提醒 | [B37](specs/B37.md) | |
 
 ### 任务说明
@@ -269,6 +268,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | `contracts` 新增 `Files`、`FilesKey`（`files.files`）；公共上传模块提供 Markdown 图片认领和按归属清理，项目、日历、提醒、Agent 任务接入 | B36 公共图片上传 |
 | 2026-09-30 | `contracts` 新增 `LLM`、`LLMKey`（`ai.llm`）。AI 模块提供统一调用层，自动化和笔记按用途调用；浮窗、早报也使用同一调用层 | B32 OpenAI 兼容接口 |
 | 2026-09-30 | 云盘公开入口 `/public/shares` 已启用并自行校验令牌、提取码和范围；发 `drive_share.changed`、`drive_task.updated`、`drive_item.batch` 事件；云盘与远端文件日志共用 `logfollow` 帧 | B31 云盘后端 |
 | 2026-09-29 | 新增基础包 `internal/server/files`（`Store`、`Local`、`Scoped`、`Manager`、`OpenSeeker`、`MigrateLegacyLayout`）；`module.Deps` 加 `Files *files.Manager`；`config.Config` 加 `FilesDir()`、`TmpDir()`；`app.New` 启动时把旧目录 `data/drive`、`data/notes/attachments` 搬到 `data/files/`，并清空 `data/tmp/`；云盘和笔记改用 `d.Files.For(...)` | B24 统一文件目录 |
