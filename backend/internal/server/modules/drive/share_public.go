@@ -88,6 +88,11 @@ func (m *Module) pruneShareRates(context.Context) error {
 			delete(m.shareHits, ip)
 		}
 	}
+	for key, at := range m.shareFetches {
+		if now.Sub(at) >= shareFetchWindow {
+			delete(m.shareFetches, key)
+		}
+	}
 	for key, entry := range m.shareFails {
 		if entry.updated.Before(now.Add(-10*time.Minute)) && !entry.lockedUntil.After(now) {
 			delete(m.shareFails, key)
@@ -351,8 +356,24 @@ func (m *Module) incrementShareDownload(ctx context.Context, shareID int64) erro
 	return nil
 }
 
-func shareRangeCounts(value string) bool {
-	return value == "" || strings.HasPrefix(value, "bytes=0-")
+// shareFetchWindow is how long one client's requests for one file count as
+// the same download. A player asks for many ranges while seeking; skipping
+// the first byte must not make a download free.
+const shareFetchWindow = time.Hour
+
+// countedFetch reports whether this client already counted a download of
+// this file within the window.
+func (m *Module) countedFetch(key string) bool {
+	m.shareMu.Lock()
+	defer m.shareMu.Unlock()
+	at, ok := m.shareFetches[key]
+	return ok && time.Since(at) < shareFetchWindow
+}
+
+func (m *Module) markFetch(key string) {
+	m.shareMu.Lock()
+	m.shareFetches[key] = time.Now()
+	m.shareMu.Unlock()
 }
 
 func (m *Module) auditShareDownload(ctx context.Context, shareID, itemID int64, ip string, err error) {
@@ -374,10 +395,6 @@ func inlineShareType(value string) bool {
 func (m *Module) GetPublicShareContent(w http.ResponseWriter, r *http.Request, token api.ShareToken, params api.GetPublicShareContentParams) {
 	share, root, ok := m.publicShare(w, r, token, params.T)
 	if !ok {
-		return
-	}
-	if share.MaxDownloads != nil && share.Downloads >= *share.MaxDownloads {
-		httpx.Fail(w, r, errShareLimit)
 		return
 	}
 	id := root.ID
@@ -407,11 +424,14 @@ func (m *Module) GetPublicShareContent(w http.ResponseWriter, r *http.Request, t
 		return
 	}
 	defer stream.Close()
-	if shareRangeCounts(r.Header.Get("Range")) {
+	ip := publicClientIP(r)
+	fetchKey := fmt.Sprintf("%d:%d:%s", share.ID, item.ID, ip)
+	if !m.countedFetch(fetchKey) {
 		if err := m.incrementShareDownload(r.Context(), share.ID); fail(w, r, err) {
 			return
 		}
-		m.auditShareDownload(r.Context(), share.ID, item.ID, publicClientIP(r), nil)
+		m.markFetch(fetchKey)
+		m.auditShareDownload(r.Context(), share.ID, item.ID, ip, nil)
 	}
 	disposition := "attachment"
 	if params.Inline != nil && *params.Inline && inlineShareType(item.Mime) {

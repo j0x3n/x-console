@@ -40,6 +40,8 @@ type Module struct {
 	shareMu      sync.Mutex
 	shareHits    map[string]shareRate
 	shareFails   map[string]shareFailure
+	// shareFetches: "share:item:ip" -> when it last counted a download.
+	shareFetches map[string]time.Time
 	blobMu       sync.Mutex
 	blobLocks    map[string]*blobLock // see lockBlob
 }
@@ -51,7 +53,7 @@ func New(d *module.Deps) (module.Module, error) {
 	if err := os.MkdirAll(d.Config.TmpDir(), 0700); err != nil {
 		return nil, err
 	}
-	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure), blobLocks: make(map[string]*blobLock)}
+	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure), shareFetches: make(map[string]time.Time), blobLocks: make(map[string]*blobLock)}
 	m.registerActions()
 	return m, nil
 }
