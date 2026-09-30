@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -172,7 +173,16 @@ func (m *Module) save(w http.ResponseWriter, r *http.Request, id int64, create b
 		return
 	}
 	var hash, enc *string
-	if in.Trigger.Type == api.Webhook {
+	if in.Trigger.Type == api.Webhook && !create {
+		// Editing a webhook rule keeps its URL; callers outside have it.
+		if old, err := m.readRule(ctx, id); err == nil && old.tokenHash != "" {
+			hash, enc = &old.tokenHash, &old.tokenEnc
+		} else if err != nil && !errors.Is(err, httpx.ErrNotFound) {
+			m.fail(w, r, err)
+			return
+		}
+	}
+	if in.Trigger.Type == api.Webhook && hash == nil {
 		token := secrets.RandomToken(32)
 		digest := secrets.Hash(token)
 		hash = &digest

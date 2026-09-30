@@ -87,6 +87,13 @@ func TestMetricCooldownAndWebhookSecret(t *testing.T) {
 	if *fetched.Trigger.WebhookPath != *rule.Trigger.WebhookPath {
 		t.Fatal("webhook path changed")
 	}
+	// Editing the rule keeps the URL that outside systems already use.
+	input["name"] = "Webhook 改名"
+	var edited api.Automation
+	env.MustDo("PUT", fmt.Sprintf("/automations/%d", rule.Id), input, &edited)
+	if edited.Trigger.WebhookPath == nil || *edited.Trigger.WebhookPath != *rule.Trigger.WebhookPath {
+		t.Fatalf("webhook path changed on edit: %v", edited.Trigger.WebhookPath)
+	}
 	input["trigger"] = map[string]any{"type": "ha_state", "entityId": "switch.test", "to": "on"}
 	input["name"] = "智能家居状态"
 	env.MustDo("POST", "/automations", input, &rule)
