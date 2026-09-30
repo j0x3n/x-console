@@ -140,8 +140,10 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 		return err
 	}
 	prompt, tools := m.system(ctx), m.tools()
+	ctx = contracts.WithAIUsage(ctx, "assistant", strconv.FormatInt(id, 10))
 	if hostID != nil {
 		prompt, tools = m.hostSystem(ctx, *hostID), hostagent.Tools()
+		ctx = contracts.WithAIUsage(ctx, "host_agent", strconv.FormatInt(id, 10))
 	}
 	for turn := 0; turn < 20; turn++ {
 		history, err := m.history(ctx, id)

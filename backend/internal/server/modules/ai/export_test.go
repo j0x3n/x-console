@@ -13,3 +13,8 @@ func (m *Module) LLMForTest() llm.Client { return m.llm }
 
 // SetNowForTest lets external integration tests advance permission expiry.
 func (m *Module) SetNowForTest(now func() time.Time) { m.now = now }
+
+// UsageCostForTest exposes the B42 price calculation.
+func UsageCostForTest(input, cached, cacheWrite, output int64, in, out, read, write *float32) (*float64, bool) {
+	return usageCost(input, cached, cacheWrite, output, usagePrices{Input: in, Output: out, CacheRead: read, CacheWrite: write})
+}

@@ -312,6 +312,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B42。按天、模型、来源或供应商分组的用量。from 和 to 是服务器时区的日期，包含两端，最多跨 366 天。按天分组时没有调用的日子也返回，数字为 0。 */
+        get: operations["getAiUsageSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/usage/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B42。调用明细，按时间倒序。 */
+        get: operations["listAiUsageRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/usage/records.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B42。和 /ai/usage/records 一样的条件，导出 CSV（UTF-8，带 BOM，Excel 能直接打开）。 */
+        get: operations["exportAiUsageRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/host-agent/{hostId}/conversations": {
         parameters: {
             query?: never;
@@ -513,6 +564,10 @@ export interface components {
             inputPrice?: number;
             /** @description 每百万输出 token 的美元价格 */
             outputPrice?: number;
+            /** @description B42。每百万命中缓存的输入 token 的美元价格 */
+            cacheReadPrice?: number;
+            /** @description B42。每百万写入缓存的输入 token 的美元价格 */
+            cacheWritePrice?: number;
             /**
              * @description exact 按供应商和 id 匹配；stripped 去掉前缀后匹配；manual 手动填的；unknown 规格未知
              * @enum {string}
@@ -565,6 +620,18 @@ export interface components {
             inputTokens: number;
             /** Format: int64 */
             outputTokens: number;
+            /**
+             * Format: int64
+             * @description B42。命中缓存的输入 token
+             */
+            cachedInputTokens?: number;
+            /**
+             * Format: int64
+             * @description B42。写入缓存的输入 token
+             */
+            cacheWriteTokens?: number;
+            /** @description B42。命中缓存的输入 ÷ 全部输入，没有输入时不返回 */
+            cacheHitRate?: number;
             /** @description 估算的美元费用。有模型没有价格时只算有价格的部分 */
             cost?: number;
             byModel: {
@@ -584,6 +651,80 @@ export interface components {
                 outputTokens: number;
                 cost?: number;
             }[];
+        };
+        AiUsageTotals: {
+            calls: number;
+            /** @description 失败的调用次数 */
+            errors: number;
+            /**
+             * Format: int64
+             * @description 全部输入，包括命中和写入缓存的部分
+             */
+            inputTokens: number;
+            /** Format: int64 */
+            cachedInputTokens: number;
+            /** Format: int64 */
+            cacheWriteTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** Format: int64 */
+            reasoningTokens: number;
+            /** @description 美元，只算有价格的部分 */
+            cost?: number;
+            /** @description 有调用的模型缺缓存价，命中部分按原价估算了 */
+            costEstimated?: boolean;
+            avgDurationMs: number;
+            /** @description 命中缓存的输入 ÷ 全部输入，没有输入时不返回 */
+            cacheHitRate?: number;
+        };
+        AiUsageSummary: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @enum {string} */
+            groupBy: "day" | "model" | "source" | "provider";
+            total: components["schemas"]["AiUsageTotals"];
+            /** @description 紧挨着的前一个同样长度的时间段，用来比升降 */
+            previous?: components["schemas"]["AiUsageTotals"];
+            groups: components["schemas"]["AiUsageGroup"][];
+        };
+        AiUsageGroup: {
+            /** @description 按天时是 YYYY-MM-DD，按模型时是模型 id，按来源时是来源（空串表示未知），按供应商时是供应商名 */
+            key: string;
+            /** @description 按模型分组时的供应商名 */
+            providerName?: string;
+            totals: components["schemas"]["AiUsageTotals"];
+        };
+        AiUsageRecord: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            providerName: string;
+            model: string;
+            /** @enum {string} */
+            purpose: "fast" | "agent";
+            /** @description assistant、host_agent、notes、brief、automation、coding、mcp，空串表示未知 */
+            source: string;
+            /** @description 关联对象的 id，比如对话 id、笔记 id、Agent 任务 id */
+            ref: string;
+            /** @enum {string} */
+            status: "ok" | "error";
+            error?: string;
+            /** Format: int64 */
+            inputTokens: number;
+            /** Format: int64 */
+            cachedInputTokens: number;
+            /** Format: int64 */
+            cacheWriteTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** Format: int64 */
+            reasoningTokens: number;
+            durationMs: number;
+            cost?: number;
+            costEstimated?: boolean;
         };
         /**
          * @description B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
@@ -1139,6 +1280,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAiUsageSummary: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                groupBy: "day" | "model" | "source" | "provider";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 分组用量 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiUsageSummary"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiUsageRecords: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                model?: string;
+                source?: string;
+                status?: "ok" | "error";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 明细 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AiUsageRecord"][];
+                        nextCursor?: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportAiUsageRecords: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                model?: string;
+                source?: string;
+                status?: "ok" | "error";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
             default: components["responses"]["Error"];

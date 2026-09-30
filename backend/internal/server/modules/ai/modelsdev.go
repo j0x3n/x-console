@@ -33,8 +33,10 @@ type modelSpec struct {
 		Input []string `json:"input,omitempty"`
 	} `json:"modalities"`
 	Cost struct {
-		Input  *float32 `json:"input,omitempty"`
-		Output *float32 `json:"output,omitempty"`
+		Input      *float32 `json:"input,omitempty"`
+		Output     *float32 `json:"output,omitempty"`
+		CacheRead  *float32 `json:"cache_read,omitempty"`
+		CacheWrite *float32 `json:"cache_write,omitempty"`
 	} `json:"cost"`
 }
 
@@ -65,6 +67,7 @@ func (m *Module) Start(ctx context.Context) error {
 	}
 	m.d.Scheduler.Every("ai.modelsdev", 24*time.Hour, m.syncModelsDev)
 	m.d.Scheduler.Every("ai.attachments.cleanup", 24*time.Hour, m.cleanupAttachments)
+	m.d.Scheduler.Every("ai.usage.cleanup", 24*time.Hour, m.cleanupUsage)
 	go func() {
 		if err := m.syncModelsDev(ctx); err != nil && ctx.Err() == nil {
 			m.d.Log.Warn("models.dev sync failed", "err", err)
@@ -147,6 +150,7 @@ func applySpec(out *api.AiModel, spec modelSpec, source api.AiModelSpecSource) {
 	}
 	out.ImageInput = &image
 	out.InputPrice, out.OutputPrice = spec.Cost.Input, spec.Cost.Output
+	out.CacheReadPrice, out.CacheWritePrice = spec.Cost.CacheRead, spec.Cost.CacheWrite
 }
 
 func specFor(catalog modelCatalog, baseURL, id string) api.AiModel {

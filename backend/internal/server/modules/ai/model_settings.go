@@ -199,7 +199,7 @@ func (m *Module) GetAiUsage(w http.ResponseWriter, r *http.Request, params api.G
 		return
 	}
 	rows, err := m.d.DB.QueryContext(r.Context(), `SELECT COALESCE(provider_id,0),provider_name,model,purpose,
- count(*),sum(input_tokens),sum(output_tokens),sum(cost)
+ count(*),sum(input_tokens),sum(output_tokens),sum(cost),sum(cached_input_tokens),sum(cache_write_tokens)
  FROM ai_usage WHERE created_at>=? AND created_at<?
  GROUP BY provider_id,provider_name,model,purpose ORDER BY sum(cost) IS NULL,sum(cost) DESC,provider_name,model,purpose`, start, end)
 	if m.fail(w, r, err) {
@@ -207,6 +207,7 @@ func (m *Module) GetAiUsage(w http.ResponseWriter, r *http.Request, params api.G
 	}
 	defer rows.Close()
 	out := api.AiUsage{Month: month}
+	var totalCached, totalCacheWrite int64
 	out.ByModel = make([]struct {
 		Calls        int                        `json:"calls"`
 		Cost         *float32                   `json:"cost,omitempty"`
@@ -230,7 +231,8 @@ func (m *Module) GetAiUsage(w http.ResponseWriter, r *http.Request, params api.G
 		}
 		var cost *float32
 		var purpose api.AiUsageByModelPurpose
-		if err := rows.Scan(&item.ProviderId, &item.ProviderName, &item.Model, &purpose, &item.Calls, &item.InputTokens, &item.OutputTokens, &cost); err != nil {
+		var cached, cacheWrite int64
+		if err := rows.Scan(&item.ProviderId, &item.ProviderName, &item.Model, &purpose, &item.Calls, &item.InputTokens, &item.OutputTokens, &cost, &cached, &cacheWrite); err != nil {
 			httpx.Fail(w, r, err)
 			return
 		}
@@ -238,6 +240,8 @@ func (m *Module) GetAiUsage(w http.ResponseWriter, r *http.Request, params api.G
 		out.Calls += item.Calls
 		out.InputTokens += item.InputTokens
 		out.OutputTokens += item.OutputTokens
+		totalCached += cached
+		totalCacheWrite += cacheWrite
 		if cost != nil {
 			if out.Cost == nil {
 				out.Cost = new(float32)
@@ -248,6 +252,11 @@ func (m *Module) GetAiUsage(w http.ResponseWriter, r *http.Request, params api.G
 	}
 	if m.fail(w, r, rows.Err()) {
 		return
+	}
+	out.CachedInputTokens, out.CacheWriteTokens = &totalCached, &totalCacheWrite
+	if out.InputTokens > 0 {
+		rate := float32(float64(totalCached) / float64(out.InputTokens))
+		out.CacheHitRate = &rate
 	}
 	httpx.JSON(w, 200, out)
 }

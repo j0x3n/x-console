@@ -6,6 +6,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
@@ -60,6 +61,7 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 	for _, model := range models {
 		if model.Id == ref.Model {
 			cfg.InputPrice, cfg.OutputPrice = model.InputPrice, model.OutputPrice
+			cfg.CacheReadPrice, cfg.CacheWritePrice = model.CacheReadPrice, model.CacheWritePrice
 			return cfg, nil
 		}
 	}
@@ -99,13 +101,12 @@ func (m *Module) markReasoningUnsupported(ctx context.Context, providerID int64)
 }
 
 func (m *Module) recordLLM(ctx context.Context, cfg llm.Config, purpose string, result llm.Result, duration time.Duration, callErr error) {
-	var cost any
-	if cfg.InputPrice != nil && cfg.OutputPrice != nil {
-		cost = (float64(result.InputTokens)*float64(*cfg.InputPrice) + float64(result.OutputTokens)*float64(*cfg.OutputPrice)) / 1_000_000
-	}
-	_, err := m.d.DB.ExecContext(ctx, `INSERT INTO ai_usage(provider_id,provider_name,model,purpose,input_tokens,output_tokens,duration_ms,cost,created_at)
- VALUES(?,?,?,?,?,?,?,?,?)`, cfg.ProviderID, cfg.ProviderName, cfg.Model, purpose, result.InputTokens, result.OutputTokens, duration.Milliseconds(), cost, time.Now().UTC())
-	if err != nil {
-		m.d.Log.Error("AI usage write failed", "err", err, "callErr", callErr)
-	}
+	prices := usagePrices{Input: cfg.InputPrice, Output: cfg.OutputPrice, CacheRead: cfg.CacheReadPrice, CacheWrite: cfg.CacheWritePrice}
+	source := contracts.AIUsageFrom(ctx)
+	m.writeUsage(ctx, usageRow{
+		ProviderID: &cfg.ProviderID, ProviderName: cfg.ProviderName, Model: cfg.Model, Purpose: purpose,
+		Source: source.Source, Ref: source.Ref,
+		Input: result.InputTokens, Cached: result.CachedInputTokens, CacheWrite: result.CacheWriteTokens,
+		Output: result.OutputTokens, Reasoning: result.ReasoningTokens, Duration: duration, Err: callErr,
+	}, prices, nil)
 }

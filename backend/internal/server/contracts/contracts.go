@@ -34,6 +34,7 @@ const (
 	CalendarKey      = "calendar.calendar"   // M11 provides
 	GitHubKey        = "github.github"       // M13 provides
 	LLMKey           = "ai.llm"              // M12 provides
+	AIUsageKey       = "ai.usage"            // M12 provides, B42
 	FilesKey         = "files.files"         // B36 provides
 )
 
@@ -62,6 +63,35 @@ type LLM interface {
 	Available(ctx context.Context) bool
 	CompleteJSON(ctx context.Context, purpose, system, user string, schema json.RawMessage, out any) error
 	CompleteText(ctx context.Context, purpose, system, user string) (string, error)
+}
+
+// AIUsage says which feature made an AI call, for the usage records (B42).
+// Source is for example notes, brief, assistant, automation; Ref is the
+// object id inside it, such as the note id.
+type AIUsage struct {
+	Source string
+	Ref    string
+}
+
+// AIUsageRecorder stores AI usage that did not go through the LLM
+// boundary, such as Claude Code or Codex runs on an agent (B42). input
+// counts every input token including cached and cacheWrite. costUSD, when
+// known, wins over the price table.
+type AIUsageRecorder interface {
+	RecordExternalUsage(ctx context.Context, provider, model, source, ref string, input, cached, cacheWrite, output int64, duration time.Duration, costUSD *float64)
+}
+
+type aiUsageKey struct{}
+
+// WithAIUsage marks the AI calls made with ctx as coming from source/ref.
+func WithAIUsage(ctx context.Context, source, ref string) context.Context {
+	return context.WithValue(ctx, aiUsageKey{}, AIUsage{Source: source, Ref: ref})
+}
+
+// AIUsageFrom returns what WithAIUsage stored, or the zero value.
+func AIUsageFrom(ctx context.Context) AIUsage {
+	u, _ := ctx.Value(aiUsageKey{}).(AIUsage)
+	return u
 }
 
 // ---- M5 projects ----

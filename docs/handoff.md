@@ -21,7 +21,7 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 | B41 | 完成 | 全部检查、端到端、截图都过了 |
 | B45 | 第一步完成，等用户真机测试 | 开关 `?safari=all`、`A` 到 `F`、`off`。用户测完把结果发回来后做第三步（定稿） |
 | B44 | 完成 | 点击区域 44px 没做，记在“已知问题” |
-| B42 | 未开始 | |
+| B42 | 后端完成，前端进行中 | 后端：`modules/ai/usage.go`、`llm/usage.go`、`coding/usage.go`，迁移 `m12_b42`。前端要做：设置 → AI 里的“用量”页签 |
 | B48 | 未开始 | |
 | B46 | 未开始 | |
 | B43 | 未开始 | |
@@ -29,7 +29,8 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 
 ## 当前
 
-B42 AI 用量：开始。
+B42：后端已提交（缓存字段、按缓存价算费用、`/ai/usage/summary`、`/ai/usage/records`、`/ai/usage/records.csv`、Claude Code 和 Codex 的用量、来源标记 `contracts.WithAIUsage`）。
+下一步：前端 `features/assistant` 里的用量页签（时间范围、数字、按天柱状图、按模型和来源两张表、明细、导出 CSV）。
 B45 等用户说“部署”后带部署标记推送，用户真机测试。
 
 ## 接手时注意

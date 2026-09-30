@@ -266,7 +266,7 @@ func (m *Module) processNoteAI(ctx context.Context, id int64) error {
 	if runes := []rune(input); len(runes) > maxNoteAIInput {
 		input = string(runes[:maxNoteAIInput])
 	}
-	if err := client.CompleteJSON(ctx, "fast", system, input, json.RawMessage(noteAISchema), &answer); err != nil {
+	if err := client.CompleteJSON(contracts.WithAIUsage(ctx, "notes", ""), "fast", system, input, json.RawMessage(noteAISchema), &answer); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(answer.Title) > 20 {

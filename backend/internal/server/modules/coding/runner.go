@@ -25,6 +25,9 @@ import (
 // taskRun is a task whose coding.run stream is open.
 type taskRun struct {
 	id       int64
+	executor string
+	model    string // reported by the executor when the session starts
+	started  time.Time
 	stream   *rpc.Stream
 	seq      int64
 	canceled atomic.Bool
@@ -95,7 +98,7 @@ func (m *Module) start(ctx context.Context, id int64) {
 		m.finish(ctx, id, statusFailed, nil, "无法在代理上启动任务："+err.Error(), nil)
 		return
 	}
-	run := &taskRun{id: id, stream: st}
+	run := &taskRun{id: id, stream: st, executor: r.Executor, started: m.now()}
 	m.mu.Lock()
 	m.runs[id] = run
 	m.mu.Unlock()
@@ -277,6 +280,9 @@ func (m *Module) flush(ctx context.Context, run *taskRun, pending []protocol.Cod
 		return pending[:0]
 	}
 	m.d.Bus.Publish("coding_task.output", map[string]any{"taskId": run.id, "events": out})
+	for _, ev := range pending {
+		m.noteUsage(ctx, run, ev)
+	}
 	return pending[:0]
 }
 

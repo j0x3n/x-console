@@ -86,16 +86,24 @@ type AiProviderModel struct {
 }
 
 type AiUsage struct {
-	ID           int64
-	ProviderID   *int64
-	ProviderName string
-	Model        string
-	Purpose      string
-	InputTokens  int64
-	OutputTokens int64
-	DurationMs   int64
-	Cost         *float64
-	CreatedAt    time.Time
+	ID                int64
+	ProviderID        *int64
+	ProviderName      string
+	Model             string
+	Purpose           string
+	InputTokens       int64
+	OutputTokens      int64
+	DurationMs        int64
+	Cost              *float64
+	CreatedAt         time.Time
+	CachedInputTokens int64
+	CacheWriteTokens  int64
+	ReasoningTokens   int64
+	Source            string
+	Ref               string
+	Status            string
+	Error             string
+	CostEstimated     int64
 }
 
 type AlertEvent struct {

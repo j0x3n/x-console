@@ -439,7 +439,7 @@ func (m *Module) ask(ctx context.Context, input, data map[string]any) (any, erro
 		return nil, fmt.Errorf("AI 模块未启用")
 	}
 	raw, _ := json.Marshal(data)
-	return client.CompleteText(ctx, "agent", "按自动化规则处理触发数据，简短回答。", prompt+"\n触发数据: "+string(raw))
+	return client.CompleteText(contracts.WithAIUsage(ctx, "automation", ""), "agent", "按自动化规则处理触发数据，简短回答。", prompt+"\n触发数据: "+string(raw))
 }
 func (m *Module) hook(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")

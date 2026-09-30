@@ -139,8 +139,16 @@ type responseObject struct {
 		Arguments string `json:"arguments"`
 	} `json:"output"`
 	Usage struct {
-		InputTokens  int64 `json:"input_tokens"`
-		OutputTokens int64 `json:"output_tokens"`
+		InputTokens        int64 `json:"input_tokens"`
+		OutputTokens       int64 `json:"output_tokens"`
+		InputTokensDetails struct {
+			CachedTokens int64 `json:"cached_tokens"`
+		} `json:"input_tokens_details"`
+		OutputTokensDetails struct {
+			ReasoningTokens int64 `json:"reasoning_tokens"`
+		} `json:"output_tokens_details"`
+		CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+		CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
 	} `json:"usage"`
 	Error *struct {
 		Message string `json:"message"`
@@ -161,7 +169,8 @@ func (r responseObject) result() Result {
 			out.ToolCalls = append(out.ToolCalls, ToolCall{ID: item.CallID, Name: item.Name, Arguments: json.RawMessage(item.Arguments)})
 		}
 	}
-	out.InputTokens, out.OutputTokens = r.Usage.InputTokens, r.Usage.OutputTokens
+	u := r.Usage
+	out.setUsage(u.InputTokens, u.OutputTokens, u.InputTokensDetails.CachedTokens, u.OutputTokensDetails.ReasoningTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens)
 	out.Truncated = r.Status == "incomplete" && r.IncompleteDetails != nil && r.IncompleteDetails.Reason == "max_output_tokens"
 	return out
 }
@@ -327,6 +336,7 @@ func (s *responsesStream) Result() Result {
 			result.ToolCalls = s.final.ToolCalls
 		}
 		result.InputTokens, result.OutputTokens, result.Truncated = s.final.InputTokens, s.final.OutputTokens, s.final.Truncated
+		result.CachedInputTokens, result.CacheWriteTokens, result.ReasoningTokens = s.final.CachedInputTokens, s.final.CacheWriteTokens, s.final.ReasoningTokens
 	}
 	if s.fallbackJSON {
 		result.Text = extractJSON(result.Text)

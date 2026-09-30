@@ -128,7 +128,10 @@ type claudeLine struct {
 	NumTurns  int     `json:"num_turns"`
 	CostUSD   float64 `json:"total_cost_usd"`
 	Duration  int64   `json:"duration_ms"`
-	Message   struct {
+	// Usage is the token count of the whole run (B42), Anthropic style:
+	// input_tokens does not include cache reads and writes.
+	Usage   map[string]any `json:"usage"`
+	Message struct {
 		Content json.RawMessage `json:"content"`
 	} `json:"message"`
 }
@@ -164,6 +167,9 @@ func (claudeParser) line(b []byte) []protocol.CodingEvent {
 	case "result":
 		data := map[string]any{"code": "result", "subtype": l.Subtype, "isError": l.IsError,
 			"turns": l.NumTurns, "costUsd": l.CostUSD, "durationMs": l.Duration}
+		if l.Usage != nil {
+			data["usage"] = l.Usage
+		}
 		if l.IsError {
 			text := l.Result
 			if text == "" {

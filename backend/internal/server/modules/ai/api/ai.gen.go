@@ -59,16 +59,76 @@ func (e AiModelSpecSource) Valid() bool {
 
 // Defines values for AiUsageByModelPurpose.
 const (
-	Agent AiUsageByModelPurpose = "agent"
-	Fast  AiUsageByModelPurpose = "fast"
+	AiUsageByModelPurposeAgent AiUsageByModelPurpose = "agent"
+	AiUsageByModelPurposeFast  AiUsageByModelPurpose = "fast"
 )
 
 // Valid indicates whether the value is a known member of the AiUsageByModelPurpose enum.
 func (e AiUsageByModelPurpose) Valid() bool {
 	switch e {
-	case Agent:
+	case AiUsageByModelPurposeAgent:
 		return true
-	case Fast:
+	case AiUsageByModelPurposeFast:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiUsageRecordPurpose.
+const (
+	AiUsageRecordPurposeAgent AiUsageRecordPurpose = "agent"
+	AiUsageRecordPurposeFast  AiUsageRecordPurpose = "fast"
+)
+
+// Valid indicates whether the value is a known member of the AiUsageRecordPurpose enum.
+func (e AiUsageRecordPurpose) Valid() bool {
+	switch e {
+	case AiUsageRecordPurposeAgent:
+		return true
+	case AiUsageRecordPurposeFast:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiUsageRecordStatus.
+const (
+	AiUsageRecordStatusError AiUsageRecordStatus = "error"
+	AiUsageRecordStatusOk    AiUsageRecordStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the AiUsageRecordStatus enum.
+func (e AiUsageRecordStatus) Valid() bool {
+	switch e {
+	case AiUsageRecordStatusError:
+		return true
+	case AiUsageRecordStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiUsageSummaryGroupBy.
+const (
+	AiUsageSummaryGroupByDay      AiUsageSummaryGroupBy = "day"
+	AiUsageSummaryGroupByModel    AiUsageSummaryGroupBy = "model"
+	AiUsageSummaryGroupByProvider AiUsageSummaryGroupBy = "provider"
+	AiUsageSummaryGroupBySource   AiUsageSummaryGroupBy = "source"
+)
+
+// Valid indicates whether the value is a known member of the AiUsageSummaryGroupBy enum.
+func (e AiUsageSummaryGroupBy) Valid() bool {
+	switch e {
+	case AiUsageSummaryGroupByDay:
+		return true
+	case AiUsageSummaryGroupByModel:
+		return true
+	case AiUsageSummaryGroupByProvider:
+		return true
+	case AiUsageSummaryGroupBySource:
 		return true
 	default:
 		return false
@@ -225,6 +285,66 @@ func (e ToolEffect) Valid() bool {
 	}
 }
 
+// Defines values for ListAiUsageRecordsParamsStatus.
+const (
+	ListAiUsageRecordsParamsStatusError ListAiUsageRecordsParamsStatus = "error"
+	ListAiUsageRecordsParamsStatusOk    ListAiUsageRecordsParamsStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the ListAiUsageRecordsParamsStatus enum.
+func (e ListAiUsageRecordsParamsStatus) Valid() bool {
+	switch e {
+	case ListAiUsageRecordsParamsStatusError:
+		return true
+	case ListAiUsageRecordsParamsStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportAiUsageRecordsParamsStatus.
+const (
+	ExportAiUsageRecordsParamsStatusError ExportAiUsageRecordsParamsStatus = "error"
+	ExportAiUsageRecordsParamsStatusOk    ExportAiUsageRecordsParamsStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the ExportAiUsageRecordsParamsStatus enum.
+func (e ExportAiUsageRecordsParamsStatus) Valid() bool {
+	switch e {
+	case ExportAiUsageRecordsParamsStatusError:
+		return true
+	case ExportAiUsageRecordsParamsStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAiUsageSummaryParamsGroupBy.
+const (
+	GetAiUsageSummaryParamsGroupByDay      GetAiUsageSummaryParamsGroupBy = "day"
+	GetAiUsageSummaryParamsGroupByModel    GetAiUsageSummaryParamsGroupBy = "model"
+	GetAiUsageSummaryParamsGroupByProvider GetAiUsageSummaryParamsGroupBy = "provider"
+	GetAiUsageSummaryParamsGroupBySource   GetAiUsageSummaryParamsGroupBy = "source"
+)
+
+// Valid indicates whether the value is a known member of the GetAiUsageSummaryParamsGroupBy enum.
+func (e GetAiUsageSummaryParamsGroupBy) Valid() bool {
+	switch e {
+	case GetAiUsageSummaryParamsGroupByDay:
+		return true
+	case GetAiUsageSummaryParamsGroupByModel:
+		return true
+	case GetAiUsageSummaryParamsGroupByProvider:
+		return true
+	case GetAiUsageSummaryParamsGroupBySource:
+		return true
+	default:
+		return false
+	}
+}
+
 // AiAttachment defines model for AiAttachment.
 type AiAttachment struct {
 	Id   int64            `json:"id"`
@@ -239,7 +359,12 @@ type AiAttachmentKind string
 
 // AiModel defines model for AiModel.
 type AiModel struct {
-	ContextWindow *int `json:"contextWindow,omitempty"`
+	// CacheReadPrice B42。每百万命中缓存的输入 token 的美元价格
+	CacheReadPrice *float32 `json:"cacheReadPrice,omitempty"`
+
+	// CacheWritePrice B42。每百万写入缓存的输入 token 的美元价格
+	CacheWritePrice *float32 `json:"cacheWritePrice,omitempty"`
+	ContextWindow   *int     `json:"contextWindow,omitempty"`
 
 	// Id 接口返回的模型 id，例如 deepseek-chat、openai/gpt-5
 	Id         string `json:"id"`
@@ -378,7 +503,16 @@ type AiUsage struct {
 		// Purpose 用在哪
 		Purpose *AiUsageByModelPurpose `json:"purpose,omitempty"`
 	} `json:"byModel"`
-	Calls int `json:"calls"`
+
+	// CacheHitRate B42。命中缓存的输入 ÷ 全部输入，没有输入时不返回
+	CacheHitRate *float32 `json:"cacheHitRate,omitempty"`
+
+	// CacheWriteTokens B42。写入缓存的输入 token
+	CacheWriteTokens *int64 `json:"cacheWriteTokens,omitempty"`
+
+	// CachedInputTokens B42。命中缓存的输入 token
+	CachedInputTokens *int64 `json:"cachedInputTokens,omitempty"`
+	Calls             int    `json:"calls"`
 
 	// Cost 估算的美元费用。有模型没有价格时只算有价格的部分
 	Cost        *float32 `json:"cost,omitempty"`
@@ -391,6 +525,85 @@ type AiUsage struct {
 
 // AiUsageByModelPurpose 用在哪
 type AiUsageByModelPurpose string
+
+// AiUsageGroup defines model for AiUsageGroup.
+type AiUsageGroup struct {
+	// Key 按天时是 YYYY-MM-DD，按模型时是模型 id，按来源时是来源（空串表示未知），按供应商时是供应商名
+	Key string `json:"key"`
+
+	// ProviderName 按模型分组时的供应商名
+	ProviderName *string       `json:"providerName,omitempty"`
+	Totals       AiUsageTotals `json:"totals"`
+}
+
+// AiUsageRecord defines model for AiUsageRecord.
+type AiUsageRecord struct {
+	At                time.Time            `json:"at"`
+	CacheWriteTokens  int64                `json:"cacheWriteTokens"`
+	CachedInputTokens int64                `json:"cachedInputTokens"`
+	Cost              *float32             `json:"cost,omitempty"`
+	CostEstimated     *bool                `json:"costEstimated,omitempty"`
+	DurationMs        int                  `json:"durationMs"`
+	Error             *string              `json:"error,omitempty"`
+	Id                int64                `json:"id"`
+	InputTokens       int64                `json:"inputTokens"`
+	Model             string               `json:"model"`
+	OutputTokens      int64                `json:"outputTokens"`
+	ProviderName      string               `json:"providerName"`
+	Purpose           AiUsageRecordPurpose `json:"purpose"`
+	ReasoningTokens   int64                `json:"reasoningTokens"`
+
+	// Ref 关联对象的 id，比如对话 id、笔记 id、Agent 任务 id
+	Ref string `json:"ref"`
+
+	// Source assistant、host_agent、notes、brief、automation、coding、mcp，空串表示未知
+	Source string              `json:"source"`
+	Status AiUsageRecordStatus `json:"status"`
+}
+
+// AiUsageRecordPurpose defines model for AiUsageRecord.Purpose.
+type AiUsageRecordPurpose string
+
+// AiUsageRecordStatus defines model for AiUsageRecord.Status.
+type AiUsageRecordStatus string
+
+// AiUsageSummary defines model for AiUsageSummary.
+type AiUsageSummary struct {
+	From     openapi_types.Date    `json:"from"`
+	GroupBy  AiUsageSummaryGroupBy `json:"groupBy"`
+	Groups   []AiUsageGroup        `json:"groups"`
+	Previous *AiUsageTotals        `json:"previous,omitempty"`
+	To       openapi_types.Date    `json:"to"`
+	Total    AiUsageTotals         `json:"total"`
+}
+
+// AiUsageSummaryGroupBy defines model for AiUsageSummary.GroupBy.
+type AiUsageSummaryGroupBy string
+
+// AiUsageTotals defines model for AiUsageTotals.
+type AiUsageTotals struct {
+	AvgDurationMs int `json:"avgDurationMs"`
+
+	// CacheHitRate 命中缓存的输入 ÷ 全部输入，没有输入时不返回
+	CacheHitRate      *float32 `json:"cacheHitRate,omitempty"`
+	CacheWriteTokens  int64    `json:"cacheWriteTokens"`
+	CachedInputTokens int64    `json:"cachedInputTokens"`
+	Calls             int      `json:"calls"`
+
+	// Cost 美元，只算有价格的部分
+	Cost *float32 `json:"cost,omitempty"`
+
+	// CostEstimated 有调用的模型缺缓存价，命中部分按原价估算了
+	CostEstimated *bool `json:"costEstimated,omitempty"`
+
+	// Errors 失败的调用次数
+	Errors int `json:"errors"`
+
+	// InputTokens 全部输入，包括命中和写入缓存的部分
+	InputTokens     int64 `json:"inputTokens"`
+	OutputTokens    int64 `json:"outputTokens"`
+	ReasoningTokens int64 `json:"reasoningTokens"`
+}
 
 // ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
 type ApiStyle string
@@ -557,6 +770,42 @@ type GetAiUsageParams struct {
 	// Month YYYY-MM，默认本月（服务器时区）
 	Month *string `form:"month,omitempty" json:"month,omitempty"`
 }
+
+// ListAiUsageRecordsParams defines parameters for ListAiUsageRecords.
+type ListAiUsageRecordsParams struct {
+	From   openapi_types.Date              `form:"from" json:"from"`
+	To     openapi_types.Date              `form:"to" json:"to"`
+	Model  *string                         `form:"model,omitempty" json:"model,omitempty"`
+	Source *string                         `form:"source,omitempty" json:"source,omitempty"`
+	Status *ListAiUsageRecordsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Cursor *string                         `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                            `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAiUsageRecordsParamsStatus defines parameters for ListAiUsageRecords.
+type ListAiUsageRecordsParamsStatus string
+
+// ExportAiUsageRecordsParams defines parameters for ExportAiUsageRecords.
+type ExportAiUsageRecordsParams struct {
+	From   openapi_types.Date                `form:"from" json:"from"`
+	To     openapi_types.Date                `form:"to" json:"to"`
+	Model  *string                           `form:"model,omitempty" json:"model,omitempty"`
+	Source *string                           `form:"source,omitempty" json:"source,omitempty"`
+	Status *ExportAiUsageRecordsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ExportAiUsageRecordsParamsStatus defines parameters for ExportAiUsageRecords.
+type ExportAiUsageRecordsParamsStatus string
+
+// GetAiUsageSummaryParams defines parameters for GetAiUsageSummary.
+type GetAiUsageSummaryParams struct {
+	From    openapi_types.Date             `form:"from" json:"from"`
+	To      openapi_types.Date             `form:"to" json:"to"`
+	GroupBy GetAiUsageSummaryParamsGroupBy `form:"groupBy" json:"groupBy"`
+}
+
+// GetAiUsageSummaryParamsGroupBy defines parameters for GetAiUsageSummary.
+type GetAiUsageSummaryParamsGroupBy string
 
 // UploadAiAttachmentMultipartRequestBody defines body for UploadAiAttachment for multipart/form-data ContentType.
 type UploadAiAttachmentMultipartRequestBody UploadAiAttachmentMultipartBody
@@ -846,6 +1095,15 @@ type ServerInterface interface {
 
 	// (GET /ai/usage)
 	GetAiUsage(w http.ResponseWriter, r *http.Request, params GetAiUsageParams)
+
+	// (GET /ai/usage/records)
+	ListAiUsageRecords(w http.ResponseWriter, r *http.Request, params ListAiUsageRecordsParams)
+
+	// (GET /ai/usage/records.csv)
+	ExportAiUsageRecords(w http.ResponseWriter, r *http.Request, params ExportAiUsageRecordsParams)
+
+	// (GET /ai/usage/summary)
+	GetAiUsageSummary(w http.ResponseWriter, r *http.Request, params GetAiUsageSummaryParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -974,6 +1232,21 @@ func (_ Unimplemented) ListAiTools(w http.ResponseWriter, r *http.Request) {
 
 // (GET /ai/usage)
 func (_ Unimplemented) GetAiUsage(w http.ResponseWriter, r *http.Request, params GetAiUsageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/usage/records)
+func (_ Unimplemented) ListAiUsageRecords(w http.ResponseWriter, r *http.Request, params ListAiUsageRecordsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/usage/records.csv)
+func (_ Unimplemented) ExportAiUsageRecords(w http.ResponseWriter, r *http.Request, params ExportAiUsageRecordsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/usage/summary)
+func (_ Unimplemented) GetAiUsageSummary(w http.ResponseWriter, r *http.Request, params GetAiUsageSummaryParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1542,6 +1815,261 @@ func (siw *ServerInterfaceWrapper) GetAiUsage(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListAiUsageRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListAiUsageRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAiUsageRecordsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiUsageRecords(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportAiUsageRecords operation middleware
+func (siw *ServerInterfaceWrapper) ExportAiUsageRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAiUsageRecordsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportAiUsageRecords(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAiUsageSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetAiUsageSummary(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAiUsageSummaryParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "groupBy" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "groupBy", r.URL.Query(), &params.GroupBy, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "groupBy"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "groupBy", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAiUsageSummary(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1720,6 +2248,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/usage", wrapper.GetAiUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/usage/summary", wrapper.GetAiUsageSummary)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/usage/records", wrapper.ListAiUsageRecords)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/usage/records.csv", wrapper.ExportAiUsageRecords)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/host-agent/{hostId}/conversations", wrapper.ListHostAgentConversations)
