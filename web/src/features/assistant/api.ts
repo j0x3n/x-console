@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, createApi, unwrap } from "../../api/client";
+import { ApiError, apiFetch, createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/ai";
 import { withElevation } from "../../auth/elevation";
 
@@ -12,6 +12,8 @@ export type ContentBlock = components["schemas"]["ContentBlock"];
 export type PendingAction = components["schemas"]["PendingAction"];
 export type Tool = components["schemas"]["Tool"];
 export type AiProvider = components["schemas"]["AiProvider"];
+export type ApiStyle = components["schemas"]["ApiStyle"];
+export type AiAttachment = components["schemas"]["AiAttachment"];
 export type AiProviderInput = components["schemas"]["AiProviderInput"];
 export type AiProviderPatch = components["schemas"]["AiProviderPatch"];
 export type AiModel = components["schemas"]["AiModel"];
@@ -83,6 +85,18 @@ export interface PageContext {
   title: string;
 }
 
+/** B39：上传一个附件（图片或文本文件），发消息时带上它的 id。 */
+export async function uploadAttachment(file: File): Promise<AiAttachment> {
+  const form = new FormData();
+  form.append("file", file, file.name || "image.png");
+  const res = await apiFetch("/ai/attachments", { method: "POST", body: form });
+  return (await res.json()) as AiAttachment;
+}
+
+export function attachmentUrl(id: number) {
+  return `/api/v1/ai/attachments/${id}`;
+}
+
 /** 没有对话时先建一个，再发消息。返回对话 id。 */
 export function useSendMessage() {
   const qc = useQueryClient();
@@ -91,10 +105,12 @@ export function useSendMessage() {
       conversationId,
       text,
       context,
+      attachmentIds,
     }: {
       conversationId: number | null;
       text: string;
       context?: PageContext;
+      attachmentIds?: number[];
     }) => {
       let id = conversationId;
       if (id == null) {
@@ -106,7 +122,11 @@ export function useSendMessage() {
       await unwrap(
         aiApi.POST("/ai/conversations/{conversationId}/messages", {
           params: { path: { conversationId: id } },
-          body: { text, context },
+          body: {
+            text,
+            context,
+            attachmentIds: attachmentIds?.length ? attachmentIds : undefined,
+          },
         }),
       );
       return id;

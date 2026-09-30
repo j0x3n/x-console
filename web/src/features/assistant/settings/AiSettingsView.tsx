@@ -125,6 +125,7 @@ function ProvidersCard({ providers }: { providers: AiProvider[] }) {
                   {p.modelsRefreshedAt &&
                     ` · ${t("Refreshed")} ${relativeTime(p.modelsRefreshedAt, language)}`}
                   {!p.hasApiKey && ` · ${t("No key")}`}
+                  {p.apiStyle === "responses" && " · Responses"}
                 </span>
                 {p.lastError && (
                   <span className="xc-error-text ai-provider-error">
@@ -193,17 +194,24 @@ function ModelsCard({
   const [effort, setEffort] = useState<ReasoningEffort>(
     initial.reasoningEffort,
   );
+  const [fastEffort, setFastEffort] = useState<ReasoningEffort>(
+    initial.fastReasoningEffort,
+  );
   const [confirmAll, setConfirmAll] = useState(initial.confirmAllWrites);
   const [spec, setSpec] = useState<AiModel | null>(null);
   useEffect(() => {
     setFast(initial.fast);
     setAgent(initial.agent);
     setEffort(initial.reasoningEffort);
+    setFastEffort(initial.fastReasoningEffort);
     setConfirmAll(initial.confirmAllWrites);
   }, [initial]);
 
   const agentModel = findModel(models, agent);
   const noReasoning = agentModel?.reasoning === false;
+  // 快速模型不选时用 Agent 模型。
+  const fastModel = fast ? findModel(models, fast) : agentModel;
+  const fastNoReasoning = fastModel?.reasoning === false;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -212,6 +220,7 @@ function ModelsCard({
         fast: fast ?? null,
         agent: agent ?? null,
         reasoningEffort: noReasoning ? "off" : effort,
+        fastReasoningEffort: fastNoReasoning ? "off" : fastEffort,
         confirmAllWrites: confirmAll,
       },
       {
@@ -289,6 +298,27 @@ function ModelsCard({
         <small>
           {t("Used for note titles and tags, and to polish the daily brief.")}
         </small>
+      </div>
+      <div className="xc-field">
+        <span>{t("Fast model reasoning effort")}</span>
+        <div className={fastNoReasoning ? "ai-disabled" : undefined}>
+          <Segmented
+            label={t("Fast model reasoning effort")}
+            value={fastNoReasoning ? "off" : fastEffort}
+            onChange={(v) => !fastNoReasoning && setFastEffort(v)}
+            options={EFFORTS.map((o) => ({
+              value: o.value,
+              label: t(o.label),
+            }))}
+          />
+        </div>
+        {fastNoReasoning ? (
+          <small>{t("This model does not support reasoning.")}</small>
+        ) : (
+          <small>
+            {t("Off is quickest. Turn it up for polishing long notes.")}
+          </small>
+        )}
       </div>
       <label className="xc-check">
         <input

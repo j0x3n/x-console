@@ -13,14 +13,18 @@ import {
   ArrowUp,
   Bot,
   ChevronDown,
+  FileText,
+  Loader2,
   Maximize2,
   Minimize2,
+  Paperclip,
   Plus,
   Sparkles,
   Square,
   Trash2,
   X,
 } from "lucide-react";
+import { toast } from "../../hooks/useToast";
 import { useQueryClient } from "@tanstack/react-query";
 import { errorMessage } from "../../api/client";
 import { onServerEvent } from "../../api/events";
@@ -28,7 +32,9 @@ import { ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import {
   aiKeys,
+  attachmentUrl,
   isNotLive,
+  uploadAttachment,
   useAiProviders,
   useConversation,
   useConversations,
@@ -37,6 +43,7 @@ import {
   useSendMessage,
   useStopReply,
   useTools,
+  type AiAttachment,
   type PageContext,
 } from "./api";
 import Timeline from "./components/Timeline";
@@ -164,6 +171,9 @@ function Panel() {
   const remove = useDeleteConversation();
 
   const [text, setText] = useState("");
+  const [attachments, setAttachments] = useState<AiAttachment[]>([]);
+  const [uploading, setUploading] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -197,19 +207,35 @@ function Panel() {
     inputRef.current?.focus();
   }, [conversationId]);
 
+  // B39：图片和文本文件先上传，发消息时带上 id。
+  const addFiles = (files: File[]) => {
+    const room = 10 - attachments.length - uploading;
+    if (files.length > room)
+      toast({ message: t("Up to 10 attachments per message"), tone: "error" });
+    for (const file of files.slice(0, Math.max(room, 0))) {
+      setUploading((n) => n + 1);
+      uploadAttachment(file)
+        .then((a) => setAttachments((list) => [...list, a]))
+        .catch((err) => toast({ message: errorMessage(err), tone: "error" }))
+        .finally(() => setUploading((n) => n - 1));
+    }
+  };
+
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
     const value = text.trim();
-    if (!value || running) return;
+    if ((!value && !attachments.length) || running || uploading) return;
     send.mutate(
       {
         conversationId,
-        text: value,
+        text: value || t("Please look at the attachments."),
         context: pageContext(location.pathname),
+        attachmentIds: attachments.map((a) => a.id),
       },
       {
         onSuccess: (id) => {
           setText("");
+          setAttachments([]);
           if (id !== conversationId) setConversation(id);
         },
       },
@@ -421,7 +447,58 @@ function Panel() {
         )}
       </div>
 
+      {(attachments.length > 0 || uploading > 0) && (
+        <div className="ai-pending-attachments">
+          {attachments.map((a) => (
+            <span key={a.id} className="ai-attach-chip" title={a.name}>
+              {a.kind === "image" ? (
+                <img src={attachmentUrl(a.id)} alt="" />
+              ) : (
+                <FileText size={13} />
+              )}
+              <span>{a.name}</span>
+              <button
+                type="button"
+                className="ai-attach-remove"
+                aria-label={`${t("Remove attachment")} ${a.name}`}
+                onClick={() =>
+                  setAttachments((list) => list.filter((x) => x.id !== a.id))
+                }
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+          {uploading > 0 && (
+            <span className="ai-attach-chip" role="status">
+              <Loader2 size={13} className="ai-spin" />
+              <span>{t("Uploading…")}</span>
+            </span>
+          )}
+        </div>
+      )}
       <form className="ai-composer" onSubmit={submit}>
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          hidden
+          accept="image/png,image/jpeg,image/webp,image/gif,text/*,.md,.json,.yaml,.yml,.toml,.csv,.log,.go,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.java,.rs,.c,.h,.cpp,.css,.html,.xml,.ini,.conf"
+          onChange={(e) => {
+            addFiles(Array.from(e.target.files ?? []));
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          className="ai-attach-btn"
+          title={t("Attach images or text files")}
+          aria-label={t("Attach images or text files")}
+          disabled={notLive}
+          onClick={() => fileRef.current?.click()}
+        >
+          <Paperclip size={15} />
+        </button>
         <textarea
           ref={inputRef}
           rows={1}
@@ -431,6 +508,13 @@ function Panel() {
           aria-label={t("Message")}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={(e) => {
+            const files = Array.from(e.clipboardData.files);
+            if (files.length) {
+              e.preventDefault();
+              addFiles(files);
+            }
+          }}
         />
         {running && conversationId ? (
           <button
@@ -447,7 +531,9 @@ function Panel() {
             className="ai-send"
             title={t("Send")}
             aria-label={t("Send")}
-            disabled={!text.trim() || notLive}
+            disabled={
+              (!text.trim() && !attachments.length) || uploading > 0 || notLive
+            }
           >
             <ArrowUp size={16} />
           </button>

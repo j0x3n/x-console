@@ -4,6 +4,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  FileText,
   Loader2,
   ShieldAlert,
   X,
@@ -11,7 +12,7 @@ import {
 import { errorMessage } from "../../../api/client";
 import Markdown from "../../../components/markdown/Markdown";
 import { useT } from "../../../contexts/LanguageContext";
-import { useDecideAction } from "../api";
+import { attachmentUrl, useDecideAction } from "../api";
 import { foldLines, summarizeInput, type TimelineItem } from "../logic";
 
 export default function Timeline({ items }: { items: TimelineItem[] }) {
@@ -20,7 +21,33 @@ export default function Timeline({ items }: { items: TimelineItem[] }) {
       {items.map((item) =>
         item.kind === "user" ? (
           <div key={item.key} className="ai-msg user">
-            <div className="ai-bubble">{item.text}</div>
+            {item.attachments && (
+              <div className="ai-attachments">
+                {item.attachments.map((a) =>
+                  a.kind === "image" ? (
+                    <a
+                      key={a.id}
+                      href={attachmentUrl(a.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={a.name}
+                    >
+                      <img
+                        className="ai-attach-img"
+                        src={attachmentUrl(a.id)}
+                        alt={a.name}
+                      />
+                    </a>
+                  ) : (
+                    <span key={a.id} className="ai-attach-chip" title={a.name}>
+                      <FileText size={13} />
+                      <span>{a.name}</span>
+                    </span>
+                  ),
+                )}
+              </div>
+            )}
+            {item.text && <div className="ai-bubble">{item.text}</div>}
           </div>
         ) : item.kind === "assistant" ? (
           <div key={item.key} className="ai-msg assistant">

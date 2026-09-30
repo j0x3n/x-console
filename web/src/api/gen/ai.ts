@@ -57,6 +57,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B39。上传助手对话的附件。图片（PNG、JPEG、WebP、GIF）最大 10 MB；文本、代码文件最大 512 KB，必须是 UTF-8。其他类型回 415。 */
+        post: operations["uploadAiAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/attachments/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        /** @description B39。下载附件原文件 */
+        get: operations["downloadAiAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/conversations/{conversationId}/stop": {
         parameters: {
             query?: never;
@@ -408,12 +444,28 @@ export interface components {
          * @enum {string}
          */
         ReasoningEffort: "off" | "low" | "medium" | "high";
+        /**
+         * @description B39。chat 用 /chat/completions；responses 用 /responses
+         * @enum {string}
+         */
+        ApiStyle: "chat" | "responses";
+        AiAttachment: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            mime: string;
+            /** Format: int64 */
+            size: number;
+            /** @enum {string} */
+            kind: "image" | "text";
+        };
         AiProvider: {
             /** Format: int64 */
             id: number;
             name: string;
             /** @description 例如 https://api.openai.com/v1 */
             baseUrl: string;
+            apiStyle: components["schemas"]["ApiStyle"];
             hasApiKey: boolean;
             modelCount: number;
             /** Format: date-time */
@@ -429,12 +481,14 @@ export interface components {
             baseUrl: string;
             /** @description 可以不填，本地模型不需要 */
             apiKey?: string;
+            apiStyle?: components["schemas"]["ApiStyle"];
         };
         AiProviderPatch: {
             name?: string;
             baseUrl?: string;
             /** @description 不传表示不改，空字符串表示删除 */
             apiKey?: string;
+            apiStyle?: components["schemas"]["ApiStyle"];
         };
         AiProviderTest: {
             ok: boolean;
@@ -482,6 +536,7 @@ export interface components {
             fast?: components["schemas"]["ModelRef"];
             agent?: components["schemas"]["ModelRef"];
             reasoningEffort: components["schemas"]["ReasoningEffort"];
+            fastReasoningEffort: components["schemas"]["ReasoningEffort"];
             /** @description 上次调用时接口不认 reasoning_effort，已自动去掉重试 */
             reasoningUnsupported: boolean;
             confirmAllWrites: boolean;
@@ -499,6 +554,7 @@ export interface components {
             /** @description 传 null 表示清空 */
             agent?: components["schemas"]["ModelRef"] | null;
             reasoningEffort?: components["schemas"]["ReasoningEffort"];
+            fastReasoningEffort?: components["schemas"]["ReasoningEffort"];
             confirmAllWrites?: boolean;
         };
         AiUsage: {
@@ -671,6 +727,8 @@ export interface operations {
             content: {
                 "application/json": {
                     text: string;
+                    /** @description B39。先用 POST /ai/attachments 上传的附件，发出后归到这个对话 */
+                    attachmentIds?: number[];
                     /** @description 用户发消息时所在的页面，写进这条消息的上下文 */
                     context?: {
                         /** @description 例如 /projects/XC/12 */
@@ -687,6 +745,57 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadAiAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已上传 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAttachment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadAiAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachmentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
             };
             default: components["responses"]["Error"];
         };

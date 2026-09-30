@@ -2,8 +2,19 @@ import type { ContentBlock, Message, PendingAction, Tool } from "./api";
 
 export type ActionStatus = "running" | "waiting" | "ok" | "error" | "rejected";
 
+export interface MessageAttachment {
+  id: number;
+  name: string;
+  kind: "image" | "file";
+}
+
 export type TimelineItem =
-  | { kind: "user"; key: string; text: string }
+  | {
+      kind: "user";
+      key: string;
+      text: string;
+      attachments?: MessageAttachment[];
+    }
   | { kind: "assistant"; key: string; text: string; streaming?: boolean }
   | {
       kind: "action";
@@ -28,6 +39,21 @@ function textOf(blocks: ContentBlock[]) {
     .map((b) => b.text!.trim())
     .filter(Boolean)
     .join("\n\n");
+}
+
+/** B39：用户消息里的附件块。 */
+function attachmentsOf(blocks: ContentBlock[]): MessageAttachment[] {
+  return blocks
+    .filter(
+      (b) =>
+        (b.type === "image" || b.type === "file") &&
+        typeof b.attachmentId === "number",
+    )
+    .map((b) => ({
+      id: b.attachmentId as number,
+      name: String(b.name ?? ""),
+      kind: b.type as "image" | "file",
+    }));
 }
 
 /** 工具结果的内容可能是字符串，也可能是 content block 数组。 */
@@ -68,7 +94,14 @@ export function buildTimeline(
   for (const m of sorted) {
     if (m.role === "user") {
       const text = textOf(m.content);
-      if (text) items.push({ kind: "user", key: `m${m.id}`, text });
+      const attachments = attachmentsOf(m.content);
+      if (text || attachments.length)
+        items.push({
+          kind: "user",
+          key: `m${m.id}`,
+          text,
+          attachments: attachments.length ? attachments : undefined,
+        });
       continue;
     }
     // 助手的一条消息里，文字和工具调用按原来的顺序排。

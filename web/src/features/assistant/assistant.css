@@ -179,7 +179,85 @@
 }
 .ai-msg.user {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+/* B39：消息里的附件和输入框上方待发的附件 */
+.ai-attachments,
+.ai-pending-attachments {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 6px;
+  max-width: 85%;
+}
+.ai-pending-attachments {
+  justify-content: flex-start;
+  max-width: none;
+  margin: 6px 12px 0;
+}
+.ai-attach-img {
+  display: block;
+  max-width: 160px;
+  max-height: 120px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  object-fit: cover;
+}
+.ai-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 200px;
+  height: 28px;
+  padding: 0 4px 0 8px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
+  font-size: 12px;
+}
+.ai-attach-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-attach-chip img {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.ai-attach-remove {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-muted);
+}
+.ai-attach-remove:hover {
+  background: var(--xc-surface);
+  color: var(--xc-text);
+}
+.ai-attach-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--xc-muted);
+}
+.ai-attach-btn:hover:not(:disabled) {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
 }
 .ai-bubble {
   max-width: 85%;

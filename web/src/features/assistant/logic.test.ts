@@ -237,3 +237,48 @@ describe("host agent (B33)", () => {
     });
   });
 });
+
+describe("attachments", () => {
+  it("shows images and files of a user message, even without text", () => {
+    const items = buildTimeline(
+      [
+        {
+          id: 1,
+          seq: 1,
+          role: "user",
+          createdAt: "",
+          content: [
+            { type: "text", text: "" },
+            {
+              type: "image",
+              attachmentId: 7,
+              name: "图.png",
+              mime: "image/png",
+            },
+            {
+              type: "file",
+              attachmentId: 8,
+              name: "main.go",
+              mime: "text/plain",
+            },
+            { type: "text", text: "当前时间：…", context: true },
+          ],
+        },
+      ],
+      [],
+      [],
+      { running: false },
+    );
+    expect(items).toEqual([
+      {
+        kind: "user",
+        key: "m1",
+        text: "",
+        attachments: [
+          { id: 7, name: "图.png", kind: "image" },
+          { id: 8, name: "main.go", kind: "file" },
+        ],
+      },
+    ]);
+  });
+});

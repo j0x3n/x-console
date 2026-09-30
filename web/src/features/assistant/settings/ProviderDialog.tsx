@@ -3,7 +3,7 @@ import { errorMessage } from "../../../api/client";
 import Dialog from "../../../components/ui/Dialog";
 import { useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
-import { useProviderMutations, type AiProvider } from "../api";
+import { useProviderMutations, type AiProvider, type ApiStyle } from "../api";
 import { PROVIDER_PRESETS } from "./models";
 
 /** 新建或编辑一个 OpenAI 兼容接口的供应商。 */
@@ -22,6 +22,7 @@ export default function ProviderDialog({
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [apiStyle, setApiStyle] = useState<ApiStyle>("chat");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function ProviderDialog({
     setName(provider?.name ?? "");
     setBaseUrl(provider?.baseUrl ?? "");
     setApiKey("");
+    setApiStyle(provider?.apiStyle ?? "chat");
     setError("");
   }, [open, provider]);
 
@@ -54,6 +56,7 @@ export default function ProviderDialog({
             name: name.trim(),
             baseUrl: baseUrl.trim(),
             apiKey: apiKey.trim() || undefined,
+            apiStyle,
           },
         },
         done,
@@ -64,6 +67,7 @@ export default function ProviderDialog({
           name: name.trim(),
           baseUrl: baseUrl.trim(),
           apiKey: apiKey.trim() || undefined,
+          apiStyle,
         },
         done,
       );
@@ -136,6 +140,22 @@ export default function ProviderDialog({
           />
           <small>
             {t("Stored encrypted on the server. Local models need no key.")}
+          </small>
+        </label>
+        <label className="xc-field">
+          <span>{t("API type")}</span>
+          <select
+            className="xc-select"
+            value={apiStyle}
+            onChange={(e) => setApiStyle(e.target.value as ApiStyle)}
+          >
+            <option value="chat">Chat Completions</option>
+            <option value="responses">Responses</option>
+          </select>
+          <small>
+            {t(
+              "Most services support Chat Completions. Choose Responses if the service asks for it.",
+            )}
           </small>
         </label>
         {error && <p className="xc-error-text">{error}</p>}

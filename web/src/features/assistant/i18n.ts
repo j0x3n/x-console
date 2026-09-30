@@ -100,4 +100,15 @@ registerZh({
   "Show as suggestions first": "先显示成建议",
   "Add them directly": "直接加上",
   "Show all": "显示全部",
+  // B39
+  "API type": "接口类型",
+  "Most services support Chat Completions. Choose Responses if the service asks for it.":
+    "大多数服务支持 Chat Completions。服务要求用 Responses 时再选它。",
+  "Fast model reasoning effort": "快速模型思考程度",
+  "Attach images or text files": "添加图片或文本文件",
+  "Up to 10 attachments per message": "一条消息最多 10 个附件",
+  "Please look at the attachments.": "请看附件。",
+  "Remove attachment": "去掉附件",
+  "Off is quickest. Turn it up for polishing long notes.":
+    "关掉最快。润色长笔记时可以调高。",
 });
