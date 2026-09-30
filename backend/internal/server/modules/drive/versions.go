@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"net/http"
 	"time"
 
@@ -179,6 +180,15 @@ func (m *Module) PutDriveVersionSettings(w http.ResponseWriter, r *http.Request)
 	}
 	if value.KeepCount < 1 || value.KeepCount > 500 || value.KeepDays < 1 || value.KeepDays > 3650 {
 		httpx.Fail(w, r, httpx.Invalid("历史版本保留数量或天数不正确"))
+		return
+	}
+	// Keeping fewer versions deletes the others right away, so it needs the
+	// elevated window. Keeping more does not.
+	current, err := m.versionSettings(r.Context())
+	if fail(w, r, err) {
+		return
+	}
+	if (value.KeepCount < current.KeepCount || value.KeepDays < current.KeepDays) && fail(w, r, auth.RequireElevated(r.Context())) {
 		return
 	}
 	if fail(w, r, m.d.Settings.Set(r.Context(), versionSettingsKey, value)) {

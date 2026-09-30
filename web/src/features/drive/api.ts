@@ -534,8 +534,11 @@ export function useVersionSettings() {
 export function useSaveVersionSettings() {
   const qc = useQueryClient();
   return useMutation({
+    // 改小保留数量或天数会马上删掉旧版本，服务端要求提升权限。
     mutationFn: (body: DriveVersionSettings) =>
-      unwrap(driveApi.PUT("/drive/version-settings", { body })),
+      withElevation(() =>
+        unwrap(driveApi.PUT("/drive/version-settings", { body })),
+      ),
     onSuccess: (data) => qc.setQueryData(taskKeys.versionSettings, data),
     onError: fail,
   });
