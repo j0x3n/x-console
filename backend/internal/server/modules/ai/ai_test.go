@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -295,5 +296,59 @@ func TestTruncatedToolCallIsNotRun(t *testing.T) {
 	raw, _ := json.Marshal(detail.Messages[len(detail.Messages)-1])
 	if !strings.Contains(string(raw), "没有执行") {
 		t.Fatalf("no truncation note: %s", raw)
+	}
+}
+
+func TestPromptPrefixStaysTheSame(t *testing.T) {
+	var mu sync.Mutex
+	var systems []string
+	var lastUser atomic.Value
+	var requests atomic.Int32
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"data":[{"id":"test-model"}]}`)
+			return
+		}
+		var body struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content any    `json:"content"`
+			} `json:"messages"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		raw, _ := json.Marshal(body.Messages[0].Content)
+		mu.Lock()
+		systems = append(systems, string(raw))
+		mu.Unlock()
+		user, _ := json.Marshal(body.Messages[1].Content)
+		lastUser.Store(string(user))
+		if requests.Add(1) == 1 {
+			streamTool(w, "test__read") // a second turn in the same reply
+			return
+		}
+		streamText(w, "好")
+	}))
+	defer fake.Close()
+	env := testutil.New(t, withActions)
+	env.Elevate()
+	var provider api.AiProvider
+	env.MustDo("POST", "/ai/providers", map[string]any{"name": "Test", "baseUrl": fake.URL + "/v1", "apiKey": "fake-key"}, &provider)
+	env.MustDo("POST", fmt.Sprintf("/ai/providers/%d/models", provider.Id), nil, nil)
+	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}}, nil)
+	var conversation api.Conversation
+	env.MustDo("POST", "/ai/conversations", map[string]any{}, &conversation)
+	env.MustDo("POST", fmt.Sprintf("/ai/conversations/%d/messages", conversation.Id), map[string]any{"text": "你好"}, nil)
+	await(t, env, conversation.Id, func(d api.ConversationDetail) bool { return !d.Running && requests.Load() == 2 })
+	time.Sleep(1100 * time.Millisecond) // the clock moves on
+	env.MustDo("POST", fmt.Sprintf("/ai/conversations/%d/messages", conversation.Id), map[string]any{"text": "再说一句"}, nil)
+	await(t, env, conversation.Id, func(d api.ConversationDetail) bool { return !d.Running && requests.Load() == 3 })
+	mu.Lock()
+	defer mu.Unlock()
+	if len(systems) != 3 || systems[0] != systems[1] || systems[1] != systems[2] || strings.Contains(systems[0], "当前时间") {
+		t.Fatalf("system prompt changes between calls: %q", systems)
+	}
+	if user, _ := lastUser.Load().(string); !strings.Contains(user, "当前时间") {
+		t.Fatalf("time missing from the user message: %s", user)
 	}
 }

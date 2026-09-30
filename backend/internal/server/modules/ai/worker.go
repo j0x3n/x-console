@@ -89,10 +89,24 @@ func (m *Module) history(ctx context.Context, id int64) ([]llm.Message, error) {
 func stringValue(v any) string      { value, _ := v.(string); return value }
 func listValue(v any) []any         { value, _ := v.([]any); return value }
 func mapValue(v any) map[string]any { value, _ := v.(map[string]any); return value }
-func (m *Module) system(ctx context.Context) string {
+
+// system is the fixed system prompt. It must stay the same from call to
+// call: providers cache the longest unchanged prefix (tools, system prompt,
+// history), and anything that changes here makes every later token uncached.
+// Changing facts such as the time go into turnContext instead.
+func (m *Module) system(context.Context) string {
+	return systemPrompt + "\n" + fmt.Sprintf("时区：%s。每条用户消息后面附有发送时的时间等情况。", m.d.Config.Location)
+}
+
+// turnContext is saved with each user message as a hidden block, so the
+// history never changes afterwards and stays cacheable.
+func (m *Module) turnContext(ctx context.Context, hostID *string) string {
 	devices, _ := m.d.Agents.List(ctx)
-	summary := fmt.Sprintf("当前时间：%s。时区：%s。已连接设备：%d。", time.Now().In(m.d.Config.Location).Format(time.RFC3339), m.d.Config.Location, len(devices))
-	return systemPrompt + "\n" + summary
+	text := fmt.Sprintf("当前时间：%s。已连接设备：%d。", time.Now().In(m.d.Config.Location).Format(time.RFC3339), len(devices))
+	if hostID != nil {
+		text += m.hostState(ctx, *hostID)
+	}
+	return text
 }
 func (m *Module) run(ctx context.Context, id int64, session *auth.Session, state *generation) {
 	defer func() {
@@ -123,14 +137,14 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
+	prompt, tools := m.system(ctx), m.tools()
+	if hostID != nil {
+		prompt, tools = m.hostSystem(ctx, *hostID), hostagent.Tools()
+	}
 	for turn := 0; turn < 20; turn++ {
 		history, err := m.history(ctx, id)
 		if err != nil {
 			return err
-		}
-		prompt, tools := m.system(ctx), m.tools()
-		if hostID != nil {
-			prompt, tools = m.hostSystem(ctx, *hostID), hostagent.Tools()
 		}
 		stream, err := m.llm.Stream(ctx, llm.Request{Purpose: "agent", System: prompt, Messages: history, Tools: tools})
 		if err != nil {

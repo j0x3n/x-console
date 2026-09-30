@@ -66,11 +66,13 @@ func (m *Module) conversation(row db.AiConversation) api.Conversation {
 	return c
 }
 
+// hostSystem is the fixed system prompt of a machine conversation: what the
+// machine is. Whether it is online and its current load go into hostState.
 func (m *Module) hostSystem(ctx context.Context, hostID string) string {
 	base := m.system(ctx) + "\n你只能通过给你的机器工具操作当前这台机器。先看再改；改文件前说明原因；每一步都填写 reason。"
 	a, err := m.d.Agents.Get(ctx, hostID)
 	if err == nil {
-		base += fmt.Sprintf("\n当前机器：名称 %s，主机名 %s，系统 %s，架构 %s，在线 %t，能力 %v。", a.Name, a.Hostname, a.Os, a.Arch, a.Online, a.Capabilities)
+		base += fmt.Sprintf("\n当前机器：名称 %s，主机名 %s，系统 %s，架构 %s，能力 %v。", a.Name, a.Hostname, a.Os, a.Arch, a.Capabilities)
 		if a.Online && a.Has(protocol.CapSystemInfo) {
 			callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			var info protocol.SystemInfo
@@ -82,15 +84,24 @@ func (m *Module) hostSystem(ctx context.Context, hostID string) string {
 	} else {
 		base += "\n当前机器 ID：" + hostID + "。若机器离线，说明操作无法执行。"
 	}
+	return base
+}
+
+// hostState is the part of the machine that changes: online and recent load.
+func (m *Module) hostState(ctx context.Context, hostID string) string {
+	text := ""
+	if a, err := m.d.Agents.Get(ctx, hostID); err == nil {
+		text = fmt.Sprintf("机器在线：%t。", a.Online)
+	}
 	var cpu float64
 	var memUsed, memTotal uint64
 	var diskJSON string
 	if m.d.DB.QueryRowContext(ctx, "SELECT cpu,mem_used,mem_total,disk_json FROM host_metrics_1m WHERE host_id=? ORDER BY at DESC LIMIT 1", hostID).Scan(&cpu, &memUsed, &memTotal, &diskJSON) == nil {
 		var disks []protocol.DiskUsage
 		_ = json.Unmarshal([]byte(diskJSON), &disks)
-		base += fmt.Sprintf(" 最近指标：CPU %.1f%%，内存 %d/%d 字节，磁盘 %v。", cpu, memUsed, memTotal, disks)
+		text += fmt.Sprintf("最近指标：CPU %.1f%%，内存 %d/%d 字节，磁盘 %v。", cpu, memUsed, memTotal, disks)
 	}
-	return base
+	return text
 }
 
 func (m *Module) ListHostAgentConversations(w http.ResponseWriter, r *http.Request, hostID string) {

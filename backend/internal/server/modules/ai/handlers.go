@@ -138,6 +138,7 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		}
 		blocks = append(blocks, map[string]any{"type": "text", "text": "当前页面: " + title + " " + *body.Context.Path, "context": true})
 	}
+	blocks = append(blocks, map[string]any{"type": "text", "text": m.turnContext(ctx, row.HostID), "context": true})
 	if err := m.saveMessage(ctx, id, "user", blocks); err != nil {
 		m.stop(id)
 		httpx.Fail(w, r, err)
