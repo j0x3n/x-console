@@ -489,6 +489,10 @@ func (m *Module) deleteRemote(ctx context.Context, c db.Calendar, href, etag str
 	if resp.StatusCode == http.StatusPreconditionFailed {
 		return remoteError(fmt.Errorf("HTTP 412"))
 	}
+	// Already deleted elsewhere: what we wanted.
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+		return nil
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return remoteError(fmt.Errorf("HTTP %d", resp.StatusCode))
 	}

@@ -188,3 +188,40 @@ func TestReadOnlyAndRecurringEventsRejectWrites(t *testing.T) {
 	}
 	t.Fatal("recurring event missing")
 }
+
+func TestCalDAVDeleteOfEventGoneElsewhere(t *testing.T) {
+	env := testutil.New(t)
+	backend := &fakeCalDAV{objects: map[string][]caldav.CalendarObject{workPath: {}}}
+	h := &caldav.Handler{Backend: backend}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			backend.mu.Lock()
+			found := false
+			for _, obj := range backend.objects[workPath] {
+				found = found || obj.Path == r.URL.Path
+			}
+			backend.mu.Unlock()
+			if !found {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+		}
+		h.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	cal := createCalendar(t, env, map[string]any{"name": "远端", "kind": "caldav", "url": srv.URL + workPath,
+		"username": "alice", "password": "pw", "enabled": false})
+	var event api.CalendarEvent
+	start := time.Date(2026, 10, 20, 10, 0, 0, 0, shanghai)
+	env.MustDo(http.MethodPost, "/calendar/events", map[string]any{
+		"calendarId": cal.Id, "title": "别处删了", "allDay": false, "start": start, "end": start.Add(time.Hour),
+	}, &event)
+	backend.mu.Lock()
+	backend.objects[workPath] = nil // deleted on the phone
+	backend.mu.Unlock()
+	env.MustDo(http.MethodDelete, fmt.Sprintf("/calendar/events/%d", event.EventId), nil, nil)
+	var count int
+	if err := env.App.Deps.DB.QueryRow(`SELECT count(*) FROM calendar_events WHERE id = ?`, event.EventId).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("local event kept: %d %v", count, err)
+	}
+}
