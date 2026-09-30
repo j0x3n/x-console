@@ -40,7 +40,16 @@ func (m *Module) FollowDriveItem(w http.ResponseWriter, r *http.Request, itemID 
 	lastHash := ""
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	checked := time.Now()
 	for {
+		// End the follow when the user logs out or changes the password.
+		if time.Since(checked) >= 30*time.Second {
+			if !m.d.Auth.SessionActive(ctx) {
+				_ = ws.Close(websocket.StatusPolicyViolation, "登录已失效")
+				return
+			}
+			checked = time.Now()
+		}
 		current, err := m.row(ctx, itemID)
 		if err != nil || current.TrashedAt != nil || current.IsDir != 0 || (current.Hidden != 0 && !auth.VaultUnlocked(ctx)) || (current.Hidden != 0 && item.Hidden == 0) {
 			return

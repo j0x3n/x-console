@@ -267,6 +267,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | `auth.Service` 加 `SessionActive(ctx)`：会话还在且没过期时为真。远端日志跟随和云盘日志跟随每 30 秒查一次，退出登录或改密码后断开；远端日志跟随最长 1 小时 | 审查修复：日志跟随在退出登录后还在推送 |
 | 2026-09-30 | `protocol.FilesWriteParams` 加 `Private`（`omitempty`，新文件建成 0600）和能力 `files.private`；代理 `ServeWrite` 支持它，`cmd/agent/main.go` 加一行报这个能力；`hostagent.Runner` 加 `BackupBase`（测试用） | 审查修复：机器 Agent 的备份别人可读 |
 | 2026-09-30 | `logfollow` 加 `UTF8Prefix`，远端日志和云盘日志都只发完整字符，云盘去掉自己的 `utf8Prefix` | 审查修复：远端日志跟随中文乱码 |
 | 2026-09-30 | `contracts` 新增 `ExternalReminder`、`ReminderSource` 和注册表前缀 `reminders.sources.`；监控与项目提供到期事项，提醒模块按来源汇总 | B37 提醒页汇总 |

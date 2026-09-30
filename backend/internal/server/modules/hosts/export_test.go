@@ -34,6 +34,13 @@ func (m *Module) Series(ctx context.Context, id, rng string) (api.MetricsSeries,
 	return m.series(ctx, id, rng)
 }
 
+// SetFollowSessionCheck shortens how often a log follow checks the session.
+func SetFollowSessionCheck(d time.Duration) func() {
+	old := followSessionCheck
+	followSessionCheck = d
+	return func() { followSessionCheck = old }
+}
+
 func (m *Module) SetNow(now time.Time)                   { m.now = func() time.Time { return now } }
 func (m *Module) FlushTraffic(ctx context.Context) error { return m.flushTraffic(ctx) }
 func (m *Module) CheckTraffic(ctx context.Context) error { return m.checkTraffic(ctx) }
