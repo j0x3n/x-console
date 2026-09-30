@@ -306,36 +306,28 @@ func (m *Module) ListPublicShareItems(w http.ResponseWriter, r *http.Request, to
 		httpx.Fail(w, r, errPublicShare)
 		return
 	}
-	rows, err := m.d.DB.QueryContext(r.Context(), "SELECT id FROM drive_items WHERE parent_id=? AND hidden=0 AND trashed_at IS NULL ORDER BY is_dir DESC,name,id", folder.ID)
+	rows, err := m.d.DB.QueryContext(r.Context(), "SELECT "+itemColumns+" FROM drive_items WHERE parent_id=? AND hidden=0 AND trashed_at IS NULL ORDER BY is_dir DESC,name,id", folder.ID)
 	if fail(w, r, err) {
 		return
 	}
 	defer rows.Close()
-	ids := []int64{}
-	for rows.Next() {
-		var id int64
-		if err = rows.Scan(&id); err != nil {
-			break
-		}
-		ids = append(ids, id)
-	}
-	if err == nil {
-		err = rows.Err()
-	}
-	if fail(w, r, err) {
-		return
-	}
 	items := []api.PublicShareItem{}
-	for _, id := range ids {
-		item, err := m.row(r.Context(), id)
-		if fail(w, r, err) {
-			return
+	for rows.Next() {
+		var item db.DriveItem
+		if item, err = scanItem(rows); err != nil {
+			break
 		}
 		entry := api.PublicShareItem{Id: item.ID, Name: item.Name, IsDir: item.IsDir != 0, Size: item.Size, UpdatedAt: item.UpdatedAt}
 		if item.IsDir == 0 {
 			entry.Mime = &item.Mime
 		}
 		items = append(items, entry)
+	}
+	if err == nil {
+		err = rows.Err()
+	}
+	if fail(w, r, err) {
+		return
 	}
 	path := []map[string]any{}
 	for _, item := range pathItems {

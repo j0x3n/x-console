@@ -121,7 +121,7 @@ func (m *Module) ListDriveItems(w http.ResponseWriter, r *http.Request, p api.Li
 		}
 	}
 	var args []any
-	query := "SELECT id FROM drive_items WHERE hidden=?"
+	query := "SELECT " + itemColumns + " FROM drive_items WHERE hidden=?"
 	args = append(args, intBool(hidden))
 	if trashed {
 		query += " AND trashed_at IS NOT NULL AND (parent_id IS NULL OR parent_id NOT IN (SELECT id FROM drive_items WHERE trashed_at IS NOT NULL))"
@@ -141,13 +141,13 @@ func (m *Module) ListDriveItems(w http.ResponseWriter, r *http.Request, p api.Li
 	if fail(w, r, err) {
 		return
 	}
-	var ids []int64
+	var found []db.DriveItem
 	for rows.Next() {
-		var id int64
-		if err = rows.Scan(&id); err != nil {
+		var item db.DriveItem
+		if item, err = scanItem(rows); err != nil {
 			break
 		}
-		ids = append(ids, id)
+		found = append(found, item)
 	}
 	if err == nil {
 		err = rows.Err()
@@ -156,13 +156,9 @@ func (m *Module) ListDriveItems(w http.ResponseWriter, r *http.Request, p api.Li
 	if fail(w, r, err) {
 		return
 	}
-	items := make([]api.DriveItem, 0, len(ids))
-	for _, id := range ids {
-		item, e := m.row(ctx, id)
-		if fail(w, r, e) {
-			return
-		}
-		items = append(items, m.dto(ctx, item))
+	items, err := m.dtos(ctx, found)
+	if fail(w, r, err) {
+		return
 	}
 	httpx.JSON(w, 200, map[string]any{"items": items})
 }
