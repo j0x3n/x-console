@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"errors"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -32,15 +33,25 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 	if err != nil {
 		return llm.Config{}, err
 	}
-	cfg := llm.Config{ProviderID: p.Id, ProviderName: p.Name, BaseURL: p.BaseUrl, Model: ref.Model}
+	cfg := llm.Config{ProviderID: p.Id, ProviderName: p.Name, BaseURL: p.BaseUrl, Model: ref.Model, APIStyle: string(p.ApiStyle)}
 	if p.key.Valid && p.key.String != "" {
 		cfg.APIKey, err = m.d.Secrets.Open(p.key.String)
 		if err != nil {
 			return llm.Config{}, err
 		}
 	}
-	if purpose == "agent" && !selected.ReasoningUnsupported && selected.ReasoningEffort != "off" {
-		cfg.ReasoningEffort = string(selected.ReasoningEffort)
+	effort := selected.ReasoningEffort
+	if purpose == "fast" {
+		effort = selected.FastReasoningEffort
+	}
+	if effort != api.Off && effort != "" {
+		unsupported, err := m.reasoningUnsupported(ctx, p.Id)
+		if err != nil {
+			return llm.Config{}, err
+		}
+		if !unsupported {
+			cfg.ReasoningEffort = string(effort)
+		}
 	}
 	models, err := m.listModels(ctx, &p.Id)
 	if err != nil {
@@ -53,6 +64,21 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 		}
 	}
 	return llm.Config{}, llm.ErrNotConfigured
+}
+
+// reasoningUnsupported reports whether this provider rejected the reasoning
+// setting before (markReasoningUnsupported).
+func (m *Module) reasoningUnsupported(ctx context.Context, providerID int64) (bool, error) {
+	var ids []int64
+	if err := optionalSetting(ctx, m, "ai.reasoning_unsupported", &ids); err != nil {
+		return false, err
+	}
+	for _, id := range ids {
+		if id == providerID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (m *Module) markReasoningUnsupported(ctx context.Context, providerID int64) error {

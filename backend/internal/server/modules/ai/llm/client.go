@@ -31,6 +31,13 @@ type Message struct {
 	Content    string
 	ToolCallID string
 	ToolCalls  []ToolCall
+	// Images go with a user message to a model that can see them (B39).
+	Images []Image
+}
+
+type Image struct {
+	MIME string
+	Data []byte
 }
 
 type Tool struct {
@@ -89,8 +96,10 @@ type Config struct {
 	APIKey          string
 	Model           string
 	ReasoningEffort string
-	InputPrice      *float32
-	OutputPrice     *float32
+	// APIStyle is "chat" (/chat/completions) or "responses" (/responses).
+	APIStyle    string
+	InputPrice  *float32
+	OutputPrice *float32
 }
 
 type ResolveFunc func(context.Context, string) (Config, error)
@@ -118,7 +127,15 @@ func requestParams(cfg Config, req Request, fallbackJSON bool) (openai.ChatCompl
 	for _, message := range req.Messages {
 		switch message.Role {
 		case "user":
-			params.Messages = append(params.Messages, openai.UserMessage(message.Content))
+			if len(message.Images) == 0 {
+				params.Messages = append(params.Messages, openai.UserMessage(message.Content))
+				break
+			}
+			parts := []openai.ChatCompletionContentPartUnionParam{openai.TextContentPart(message.Content)}
+			for _, img := range message.Images {
+				parts = append(parts, openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{URL: dataURL(img)}))
+			}
+			params.Messages = append(params.Messages, openai.UserMessage(parts))
 		case "assistant":
 			assistant := openai.AssistantMessage(message.Content)
 			for _, call := range message.ToolCalls {
@@ -140,7 +157,7 @@ func requestParams(cfg Config, req Request, fallbackJSON bool) (openai.ChatCompl
 		}
 		params.Tools = append(params.Tools, openai.ChatCompletionFunctionTool(shared.FunctionDefinitionParam{Name: tool.Name, Description: param.NewOpt(tool.Description), Parameters: schema}))
 	}
-	if cfg.ReasoningEffort != "" && req.Purpose == "agent" {
+	if cfg.ReasoningEffort != "" {
 		params.ReasoningEffort = shared.ReasoningEffort(cfg.ReasoningEffort)
 	}
 	if len(req.JSONSchema) > 0 && !fallbackJSON {
@@ -163,7 +180,11 @@ func sdk(cfg Config) openai.Client {
 
 func unsupported(err error, field string) bool {
 	var apiErr *openai.Error
-	return errors.As(err, &apiErr) && apiErr.StatusCode == 400 && strings.Contains(strings.ToLower(apiErr.Error()), field)
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == 400 && strings.Contains(strings.ToLower(apiErr.Error()), field)
+	}
+	var respErr *APIError
+	return errors.As(err, &respErr) && respErr.StatusCode == 400 && strings.Contains(strings.ToLower(respErr.Body), field)
 }
 
 func (s *service) Complete(ctx context.Context, req Request) (result Result, err error) {
@@ -177,6 +198,9 @@ func (s *service) Complete(ctx context.Context, req Request) (result Result, err
 			s.record(context.WithoutCancel(ctx), cfg, req.Purpose, result, time.Since(start), err)
 		}
 	}()
+	if cfg.APIStyle == "responses" {
+		return s.completeResponses(ctx, cfg, req)
+	}
 	client := sdk(cfg)
 	fallbackJSON := false
 	for attempt := 0; attempt < 3; attempt++ {
@@ -251,6 +275,9 @@ func (s *service) Stream(ctx context.Context, req Request) (Stream, error) {
 	cfg, err := s.resolve(ctx, req.Purpose)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.APIStyle == "responses" {
+		return s.streamResponses(ctx, cfg, req)
 	}
 	start := time.Now()
 	client := sdk(cfg)

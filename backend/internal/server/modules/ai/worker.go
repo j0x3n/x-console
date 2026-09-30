@@ -57,6 +57,8 @@ func (m *Module) history(ctx context.Context, id int64) ([]llm.Message, error) {
 		msg := llm.Message{Role: role}
 		for _, block := range blocks {
 			switch block["type"] {
+			case "image", "file":
+				m.addAttachment(ctx, &msg, block)
 			case "text":
 				if value, ok := block["text"].(string); ok {
 					msg.Content += value + "\n"

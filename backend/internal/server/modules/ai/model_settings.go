@@ -24,7 +24,7 @@ func optionalSetting[T any](ctx context.Context, m *Module, key string, value *T
 }
 
 func (m *Module) modelSettings(ctx context.Context) (api.AiModelSettings, error) {
-	out := api.AiModelSettings{ReasoningEffort: api.Off}
+	out := api.AiModelSettings{ReasoningEffort: api.Off, FastReasoningEffort: api.Off}
 	if err := optionalSetting(ctx, m, "ai.fast_model", &out.Fast); err != nil {
 		return out, err
 	}
@@ -32,6 +32,9 @@ func (m *Module) modelSettings(ctx context.Context) (api.AiModelSettings, error)
 		return out, err
 	}
 	if err := optionalSetting(ctx, m, "ai.reasoning_effort", &out.ReasoningEffort); err != nil {
+		return out, err
+	}
+	if err := optionalSetting(ctx, m, "ai.fast_reasoning_effort", &out.FastReasoningEffort); err != nil {
 		return out, err
 	}
 	if err := optionalSetting(ctx, m, confirmSetting, &out.ConfirmAllWrites); err != nil {
@@ -102,7 +105,7 @@ func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
 	if m.fail(w, r, httpx.Decode(r, &body)) {
 		return
 	}
-	if body.ReasoningEffort != nil && !body.ReasoningEffort.Valid() {
+	if body.ReasoningEffort != nil && !body.ReasoningEffort.Valid() || body.FastReasoningEffort != nil && !body.FastReasoningEffort.Valid() {
 		httpx.Fail(w, r, httpx.Invalid("思考程度不正确"))
 		return
 	}
@@ -136,12 +139,19 @@ func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if body.FastReasoningEffort != nil {
+		if m.fail(w, r, setAISetting(ctx, tx, "ai.fast_reasoning_effort", body.FastReasoningEffort)) {
+			return
+		}
+	}
 	if body.ConfirmAllWrites != nil {
 		if m.fail(w, r, setAISetting(ctx, tx, confirmSetting, body.ConfirmAllWrites)) {
 			return
 		}
 	}
-	if !reflect.DeepEqual(previous.Agent, body.Agent) || body.ReasoningEffort != nil && previous.ReasoningEffort != *body.ReasoningEffort {
+	if !reflect.DeepEqual(previous.Agent, body.Agent) || !reflect.DeepEqual(previous.Fast, body.Fast) ||
+		body.ReasoningEffort != nil && previous.ReasoningEffort != *body.ReasoningEffort ||
+		body.FastReasoningEffort != nil && previous.FastReasoningEffort != *body.FastReasoningEffort {
 		_, err = tx.ExecContext(ctx, `DELETE FROM settings WHERE key='ai.reasoning_unsupported'`)
 		if m.fail(w, r, err) {
 			return

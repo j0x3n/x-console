@@ -59,6 +59,10 @@ func (m *Module) CreateAiConversation(w http.ResponseWriter, r *http.Request) {
 }
 func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id api.ConversationId) {
 	m.stop(id)
+	attachments, err := m.attachmentIDs(r.Context(), "SELECT id FROM ai_attachments WHERE conversation_id=?", id)
+	if m.fail(w, r, err) {
+		return
+	}
 	n, err := m.q.DeleteConversation(r.Context(), id)
 	if m.fail(w, r, err) {
 		return
@@ -67,6 +71,7 @@ func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
+	m.deleteAttachmentFiles(r.Context(), attachments) // rows went with the conversation
 	m.mu.Lock()
 	delete(m.permissions, id)
 	m.mu.Unlock()
@@ -120,6 +125,27 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 	} else if m.fail(w, r, err) {
 		return
 	}
+	var attachments []attachmentRow
+	if body.AttachmentIds != nil && len(*body.AttachmentIds) > 0 {
+		attachments, err = m.claimAttachments(ctx, id, *body.AttachmentIds)
+		if m.fail(w, r, err) {
+			return
+		}
+		for _, a := range attachments {
+			if a.kind != "image" {
+				continue
+			}
+			sees, err := m.modelSeesImages(ctx)
+			if m.fail(w, r, err) {
+				return
+			}
+			if !sees {
+				httpx.Fail(w, r, httpx.NewError(400, "model_without_images", "当前 Agent 模型不支持图片，换一个能看图的模型再发"))
+				return
+			}
+			break
+		}
+	}
 	m.mu.Lock()
 	if _, exists := m.running[id]; exists {
 		m.mu.Unlock()
@@ -130,7 +156,7 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 	state := &generation{cancel: cancel}
 	m.running[id] = state
 	m.mu.Unlock()
-	blocks := []map[string]any{{"type": "text", "text": text}}
+	blocks := append([]map[string]any{{"type": "text", "text": text}}, attachmentBlocks(attachments)...)
 	if body.Context != nil && body.Context.Path != nil && strings.HasPrefix(*body.Context.Path, "/") {
 		title := ""
 		if body.Context.Title != nil {

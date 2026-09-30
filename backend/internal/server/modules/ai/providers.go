@@ -24,13 +24,13 @@ type providerRow struct {
 }
 
 const providerColumns = `SELECT p.id,p.name,p.base_url,p.api_key_enc,p.models_refreshed_at,p.last_error,p.created_at,
- (SELECT count(*) FROM ai_provider_models WHERE provider_id=p.id) FROM ai_providers p`
+ (SELECT count(*) FROM ai_provider_models WHERE provider_id=p.id),p.api_style FROM ai_providers p`
 
 func scanProvider(s interface{ Scan(...any) error }) (providerRow, error) {
 	var p providerRow
 	var refreshed sql.NullTime
 	var lastError sql.NullString
-	err := s.Scan(&p.Id, &p.Name, &p.BaseUrl, &p.key, &refreshed, &lastError, &p.CreatedAt, &p.ModelCount)
+	err := s.Scan(&p.Id, &p.Name, &p.BaseUrl, &p.key, &refreshed, &lastError, &p.CreatedAt, &p.ModelCount, &p.ApiStyle)
 	if err != nil {
 		return p, err
 	}
@@ -55,6 +55,16 @@ func providerName(value string) (string, error) {
 		return "", httpx.Invalid("供应商名称长度应为 1 到 40 字")
 	}
 	return value, nil
+}
+
+func apiStyle(value *api.ApiStyle, current api.ApiStyle) (api.ApiStyle, error) {
+	if value == nil {
+		return current, nil
+	}
+	if !value.Valid() {
+		return "", httpx.Invalid("接口类型只能是 chat 或 responses")
+	}
+	return *value, nil
 }
 
 func providerURL(value string) (string, error) {
@@ -102,6 +112,10 @@ func (m *Module) CreateAiProvider(w http.ResponseWriter, r *http.Request) {
 	if m.fail(w, r, err) {
 		return
 	}
+	style, err := apiStyle(body.ApiStyle, api.Chat)
+	if m.fail(w, r, err) {
+		return
+	}
 	var sealed *string
 	if body.ApiKey != nil && *body.ApiKey != "" {
 		value, err := m.d.Secrets.Seal(*body.ApiKey)
@@ -110,7 +124,7 @@ func (m *Module) CreateAiProvider(w http.ResponseWriter, r *http.Request) {
 		}
 		sealed = &value
 	}
-	result, err := m.d.DB.ExecContext(ctx, `INSERT INTO ai_providers(name,base_url,api_key_enc,created_at) VALUES(?,?,?,?)`, name, baseURL, sealed, time.Now().UTC())
+	result, err := m.d.DB.ExecContext(ctx, `INSERT INTO ai_providers(name,base_url,api_key_enc,api_style,created_at) VALUES(?,?,?,?,?)`, name, baseURL, sealed, style, time.Now().UTC())
 	if m.fail(w, r, err) {
 		return
 	}
@@ -158,6 +172,10 @@ func (m *Module) UpdateAiProvider(w http.ResponseWriter, r *http.Request, id api
 	if m.fail(w, r, err) {
 		return
 	}
+	style, err := apiStyle(body.ApiStyle, p.ApiStyle)
+	if m.fail(w, r, err) {
+		return
+	}
 	var sealed any = p.key
 	if body.ApiKey != nil {
 		sealed = nil
@@ -168,7 +186,7 @@ func (m *Module) UpdateAiProvider(w http.ResponseWriter, r *http.Request, id api
 			}
 		}
 	}
-	_, err = m.d.DB.ExecContext(ctx, `UPDATE ai_providers SET name=?,base_url=?,api_key_enc=? WHERE id=?`, name, baseURL, sealed, id)
+	_, err = m.d.DB.ExecContext(ctx, `UPDATE ai_providers SET name=?,base_url=?,api_key_enc=?,api_style=? WHERE id=?`, name, baseURL, sealed, style, id)
 	if m.fail(w, r, err) {
 		return
 	}

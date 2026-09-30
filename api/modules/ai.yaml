@@ -85,6 +85,11 @@ paths:
               required: [text]
               properties:
                 text: { type: string, minLength: 1 }
+                attachmentIds:
+                  type: array
+                  maxItems: 10
+                  description: B39。先用 POST /ai/attachments 上传的附件，发出后归到这个对话
+                  items: { type: integer, format: int64 }
                 context:
                   type: object
                   description: 用户发消息时所在的页面，写进这条消息的上下文
@@ -94,6 +99,46 @@ paths:
       responses:
         "202":
           description: 已收到，回复通过事件推送
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/attachments:
+    post:
+      operationId: uploadAiAttachment
+      tags: [ai]
+      description: B39。上传助手对话的附件。图片（PNG、JPEG、WebP、GIF）最大 10 MB；文本、代码文件最大 512 KB，必须是 UTF-8。其他类型回 415。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: 已上传
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAttachment" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/attachments/{attachmentId}:
+    parameters:
+      - name: attachmentId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: downloadAiAttachment
+      tags: [ai]
+      description: B39。下载附件原文件
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /ai/conversations/{conversationId}/stop:
@@ -496,13 +541,27 @@ components:
       type: string
       description: B32。思考程度，off 表示不传 reasoning_effort
       enum: [off, low, medium, high]
+    ApiStyle:
+      type: string
+      description: B39。chat 用 /chat/completions；responses 用 /responses
+      enum: [chat, responses]
+    AiAttachment:
+      type: object
+      required: [id, name, mime, size, kind]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        mime: { type: string }
+        size: { type: integer, format: int64 }
+        kind: { type: string, enum: [image, text] }
     AiProvider:
       type: object
-      required: [id, name, baseUrl, hasApiKey, modelCount, createdAt]
+      required: [id, name, baseUrl, apiStyle, hasApiKey, modelCount, createdAt]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
         baseUrl: { type: string, description: 例如 https://api.openai.com/v1 }
+        apiStyle: { $ref: "#/components/schemas/ApiStyle" }
         hasApiKey: { type: boolean }
         modelCount: { type: integer }
         modelsRefreshedAt: { type: string, format: date-time }
@@ -515,12 +574,14 @@ components:
         name: { type: string, minLength: 1, maxLength: 40 }
         baseUrl: { type: string, minLength: 1, description: http 或 https 地址 }
         apiKey: { type: string, description: 可以不填，本地模型不需要 }
+        apiStyle: { $ref: "#/components/schemas/ApiStyle" }
     AiProviderPatch:
       type: object
       properties:
         name: { type: string, minLength: 1, maxLength: 40 }
         baseUrl: { type: string, minLength: 1 }
         apiKey: { type: string, description: 不传表示不改，空字符串表示删除 }
+        apiStyle: { $ref: "#/components/schemas/ApiStyle" }
     AiProviderTest:
       type: object
       required: [ok, message]
@@ -564,11 +625,12 @@ components:
         model: { type: string }
     AiModelSettings:
       type: object
-      required: [confirmAllWrites, reasoningEffort, reasoningUnsupported]
+      required: [confirmAllWrites, reasoningEffort, fastReasoningEffort, reasoningUnsupported]
       properties:
         fast: { $ref: "#/components/schemas/ModelRef" }
         agent: { $ref: "#/components/schemas/ModelRef" }
         reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
+        fastReasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         reasoningUnsupported:
           type: boolean
           description: 上次调用时接口不认 reasoning_effort，已自动去掉重试
@@ -583,6 +645,7 @@ components:
         fast: { nullable: true, allOf: [{ $ref: "#/components/schemas/ModelRef" }], description: 传 null 表示清空 }
         agent: { nullable: true, allOf: [{ $ref: "#/components/schemas/ModelRef" }], description: 传 null 表示清空 }
         reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
+        fastReasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         confirmAllWrites: { type: boolean }
     AiUsage:
       type: object

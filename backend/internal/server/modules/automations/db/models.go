@@ -23,6 +23,16 @@ type Agent struct {
 	RevokedAt    *time.Time
 }
 
+type AiAttachment struct {
+	ID             int64
+	ConversationID *int64
+	Name           string
+	Mime           string
+	Size           int64
+	Kind           string
+	CreatedAt      time.Time
+}
+
 type AiConversation struct {
 	ID        int64
 	Title     string
@@ -67,6 +77,7 @@ type AiProvider struct {
 	ModelsRefreshedAt *time.Time
 	LastError         *string
 	CreatedAt         time.Time
+	ApiStyle          string
 }
 
 type AiProviderModel struct {

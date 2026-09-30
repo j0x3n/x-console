@@ -12,7 +12,26 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AiAttachmentKind.
+const (
+	Image AiAttachmentKind = "image"
+	Text  AiAttachmentKind = "text"
+)
+
+// Valid indicates whether the value is a known member of the AiAttachmentKind enum.
+func (e AiAttachmentKind) Valid() bool {
+	switch e {
+	case Image:
+		return true
+	case Text:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for AiModelSpecSource.
 const (
@@ -50,6 +69,24 @@ func (e AiUsageByModelPurpose) Valid() bool {
 	case Agent:
 		return true
 	case Fast:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApiStyle.
+const (
+	Chat      ApiStyle = "chat"
+	Responses ApiStyle = "responses"
+)
+
+// Valid indicates whether the value is a known member of the ApiStyle enum.
+func (e ApiStyle) Valid() bool {
+	switch e {
+	case Chat:
+		return true
+	case Responses:
 		return true
 	default:
 		return false
@@ -188,6 +225,18 @@ func (e ToolEffect) Valid() bool {
 	}
 }
 
+// AiAttachment defines model for AiAttachment.
+type AiAttachment struct {
+	Id   int64            `json:"id"`
+	Kind AiAttachmentKind `json:"kind"`
+	Mime string           `json:"mime"`
+	Name string           `json:"name"`
+	Size int64            `json:"size"`
+}
+
+// AiAttachmentKind defines model for AiAttachment.Kind.
+type AiAttachmentKind string
+
 // AiModel defines model for AiModel.
 type AiModel struct {
 	ContextWindow *int `json:"contextWindow,omitempty"`
@@ -222,6 +271,9 @@ type AiModelSettings struct {
 	ConfirmAllWrites bool      `json:"confirmAllWrites"`
 	Fast             *ModelRef `json:"fast,omitempty"`
 
+	// FastReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
+	FastReasoningEffort ReasoningEffort `json:"fastReasoningEffort"`
+
 	// LegacyAnthropic 旧版的 Anthropic 设置还在，但已不再使用，界面提示重新配置
 	LegacyAnthropic *bool `json:"legacyAnthropic,omitempty"`
 
@@ -244,6 +296,9 @@ type AiModelSettingsInput struct {
 	// Fast 传 null 表示清空
 	Fast *ModelRef `json:"fast,omitempty"`
 
+	// FastReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
+	FastReasoningEffort *ReasoningEffort `json:"fastReasoningEffort,omitempty"`
+
 	// ReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
 	ReasoningEffort *ReasoningEffort `json:"reasoningEffort,omitempty"`
 }
@@ -259,6 +314,9 @@ type AiModelSpecInput struct {
 
 // AiProvider defines model for AiProvider.
 type AiProvider struct {
+	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+	ApiStyle ApiStyle `json:"apiStyle"`
+
 	// BaseUrl 例如 https://api.openai.com/v1
 	BaseUrl   string    `json:"baseUrl"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -277,6 +335,9 @@ type AiProviderInput struct {
 	// ApiKey 可以不填，本地模型不需要
 	ApiKey *string `json:"apiKey,omitempty"`
 
+	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+	ApiStyle *ApiStyle `json:"apiStyle,omitempty"`
+
 	// BaseUrl http 或 https 地址
 	BaseUrl string `json:"baseUrl"`
 	Name    string `json:"name"`
@@ -285,9 +346,12 @@ type AiProviderInput struct {
 // AiProviderPatch defines model for AiProviderPatch.
 type AiProviderPatch struct {
 	// ApiKey 不传表示不改，空字符串表示删除
-	ApiKey  *string `json:"apiKey,omitempty"`
-	BaseUrl *string `json:"baseUrl,omitempty"`
-	Name    *string `json:"name,omitempty"`
+	ApiKey *string `json:"apiKey,omitempty"`
+
+	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+	ApiStyle *ApiStyle `json:"apiStyle,omitempty"`
+	BaseUrl  *string   `json:"baseUrl,omitempty"`
+	Name     *string   `json:"name,omitempty"`
 }
 
 // AiProviderTest defines model for AiProviderTest.
@@ -327,6 +391,9 @@ type AiUsage struct {
 
 // AiUsageByModelPurpose 用在哪
 type AiUsageByModelPurpose string
+
+// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+type ApiStyle string
 
 // ContentBlock 常见的几种：
 // {type: text, text}；{type: tool_use, id, name, input}；
@@ -445,6 +512,11 @@ type ConversationId = int64
 // ProviderId defines model for ProviderId.
 type ProviderId = int64
 
+// UploadAiAttachmentMultipartBody defines parameters for UploadAiAttachment.
+type UploadAiAttachmentMultipartBody struct {
+	File openapi_types.File `json:"file"`
+}
+
 // CreateAiConversationJSONBody defines parameters for CreateAiConversation.
 type CreateAiConversationJSONBody struct {
 	Title *string `json:"title,omitempty"`
@@ -452,6 +524,9 @@ type CreateAiConversationJSONBody struct {
 
 // SendAiMessageJSONBody defines parameters for SendAiMessage.
 type SendAiMessageJSONBody struct {
+	// AttachmentIds B39。先用 POST /ai/attachments 上传的附件，发出后归到这个对话
+	AttachmentIds *[]int64 `json:"attachmentIds,omitempty"`
+
 	// Context 用户发消息时所在的页面，写进这条消息的上下文
 	Context *struct {
 		// Path 例如 /projects/XC/12
@@ -482,6 +557,9 @@ type GetAiUsageParams struct {
 	// Month YYYY-MM，默认本月（服务器时区）
 	Month *string `form:"month,omitempty" json:"month,omitempty"`
 }
+
+// UploadAiAttachmentMultipartRequestBody defines body for UploadAiAttachment for multipart/form-data ContentType.
+type UploadAiAttachmentMultipartRequestBody UploadAiAttachmentMultipartBody
 
 // CreateAiConversationJSONRequestBody defines body for CreateAiConversation for application/json ContentType.
 type CreateAiConversationJSONRequestBody CreateAiConversationJSONBody
@@ -700,6 +778,12 @@ type ServerInterface interface {
 	// (POST /ai/actions/{actionId}/reject)
 	RejectAiAction(w http.ResponseWriter, r *http.Request, actionId ActionId)
 
+	// (POST /ai/attachments)
+	UploadAiAttachment(w http.ResponseWriter, r *http.Request)
+
+	// (GET /ai/attachments/{attachmentId})
+	DownloadAiAttachment(w http.ResponseWriter, r *http.Request, attachmentId int64)
+
 	// (GET /ai/conversations)
 	ListAiConversations(w http.ResponseWriter, r *http.Request)
 
@@ -775,6 +859,16 @@ func (_ Unimplemented) ApproveAiAction(w http.ResponseWriter, r *http.Request, a
 
 // (POST /ai/actions/{actionId}/reject)
 func (_ Unimplemented) RejectAiAction(w http.ResponseWriter, r *http.Request, actionId ActionId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/attachments)
+func (_ Unimplemented) UploadAiAttachment(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/attachments/{attachmentId})
+func (_ Unimplemented) DownloadAiAttachment(w http.ResponseWriter, r *http.Request, attachmentId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -935,6 +1029,46 @@ func (siw *ServerInterfaceWrapper) RejectAiAction(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RejectAiAction(w, r, actionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadAiAttachment operation middleware
+func (siw *ServerInterfaceWrapper) UploadAiAttachment(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadAiAttachment(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadAiAttachment operation middleware
+func (siw *ServerInterfaceWrapper) DownloadAiAttachment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "attachmentId" -------------
+	var attachmentId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "attachmentId", chi.URLParam(r, "attachmentId"), &attachmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "attachmentId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadAiAttachment(w, r, attachmentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1535,6 +1669,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/ai/conversations/{conversationId}/messages", wrapper.SendAiMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/attachments", wrapper.UploadAiAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/attachments/{attachmentId}", wrapper.DownloadAiAttachment)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/ai/conversations/{conversationId}/stop", wrapper.StopAiReply)

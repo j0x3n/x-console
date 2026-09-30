@@ -64,6 +64,7 @@ func (m *Module) Start(ctx context.Context) error {
 		return err
 	}
 	m.d.Scheduler.Every("ai.modelsdev", 24*time.Hour, m.syncModelsDev)
+	m.d.Scheduler.Every("ai.attachments.cleanup", 24*time.Hour, m.cleanupAttachments)
 	go func() {
 		if err := m.syncModelsDev(ctx); err != nil && ctx.Err() == nil {
 			m.d.Log.Warn("models.dev sync failed", "err", err)
