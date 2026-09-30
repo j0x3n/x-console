@@ -33,6 +33,9 @@ func schema(fields map[string]string, required ...string) json.RawMessage {
 	for name, description := range fields {
 		properties[name] = map[string]any{"type": "string", "description": description}
 	}
+	if required == nil {
+		required = []string{} // "required": null is rejected by the API
+	}
 	raw, _ := json.Marshal(map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false})
 	return raw
 }

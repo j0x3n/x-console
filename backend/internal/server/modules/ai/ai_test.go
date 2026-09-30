@@ -352,3 +352,21 @@ func TestPromptPrefixStaysTheSame(t *testing.T) {
 		t.Fatalf("time missing from the user message: %s", user)
 	}
 }
+
+func TestActionSchemasHaveNoNulls(t *testing.T) {
+	env := testutil.New(t)
+	for _, a := range env.App.Deps.Actions.List() {
+		var schema map[string]any
+		if err := json.Unmarshal(a.Input, &schema); err != nil {
+			t.Fatalf("%s: %v", a.Name, err)
+		}
+		if required, ok := schema["required"]; ok {
+			if _, isArray := required.([]any); !isArray {
+				t.Fatalf("%s: required is %v", a.Name, required)
+			}
+		}
+		if strings.Contains(string(a.Input), "null") {
+			t.Fatalf("%s: null in schema: %s", a.Name, a.Input)
+		}
+	}
+}

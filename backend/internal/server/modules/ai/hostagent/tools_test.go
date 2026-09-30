@@ -173,3 +173,21 @@ func TestBackupRefusesSymlinkedDirectory(t *testing.T) {
 		t.Fatalf("written without backup: %q", current)
 	}
 }
+
+func TestToolSchemasHaveNoNulls(t *testing.T) {
+	for _, tool := range hostagent.Tools() {
+		var schema map[string]any
+		if err := json.Unmarshal(tool.Parameters, &schema); err != nil {
+			t.Fatalf("%s: %v", tool.Name, err)
+		}
+		// OpenAI compatible APIs reject null where they expect an array.
+		if required, ok := schema["required"]; ok {
+			if _, isArray := required.([]any); !isArray {
+				t.Fatalf("%s: required is %v", tool.Name, required)
+			}
+		}
+		if strings.Contains(string(tool.Parameters), "null") {
+			t.Fatalf("%s: null in schema: %s", tool.Name, tool.Parameters)
+		}
+	}
+}
