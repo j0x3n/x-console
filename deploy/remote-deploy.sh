@@ -46,6 +46,24 @@ restore_database() {
 	' sh "/data/backups/$backup"
 }
 
+# backup_offline 用镜像 $1 起一个临时容器备份数据库到 /data/backups/$2。
+# 面板容器不需要在运行。.env 里的 XC_IMAGE 事后恢复成旧值。
+backup_offline() {
+	set_image "$1"
+	ok=0
+	if fetch_image "$1" && docker compose run --rm --no-deps -T --entrypoint sh x-console -c '
+		set -e
+		mkdir -p /data/backups
+		chmod 700 /data/backups
+		x-console-server backup "$1"
+		chmod 600 "$1"
+	' sh "/data/backups/$2"; then
+		ok=1
+	fi
+	set_image "$OLD_IMAGE"
+	[ "$ok" = 1 ]
+}
+
 rollback_to() {
 	image=$1
 	backup=$2
@@ -114,25 +132,33 @@ OLD_IMAGE=$(sed -n 's/^XC_IMAGE=//p' .env)
 BACKUP=
 CURRENT_CONTAINER=$(docker compose ps -a -q x-console)
 RUNNING=$(docker compose ps --status running -q x-console)
-if [ -n "$RUNNING" ]; then
-	[ -n "$OLD_IMAGE" ] || { echo "运行中的容器缺少 XC_IMAGE，无法记录旧版本" >&2; exit 1; }
+if [ -n "$CURRENT_CONTAINER" ]; then
+	[ -n "$OLD_IMAGE" ] || { echo "已有容器缺少 XC_IMAGE，无法记录旧版本" >&2; exit 1; }
 	TAG=${OLD_IMAGE##*:}
 	TAG=$(printf '%s' "$TAG" | tr -c '[:alnum:]._-' '_')
 	BACKUP="x-console-$(date -u +%Y%m%d-%H%M%S)-$TAG.db"
-	docker compose exec -T x-console sh -c 'mkdir -p /data/backups && chmod 700 /data/backups'
-	if ! docker compose exec -T x-console x-console-server backup "/data/backups/$BACKUP"; then
-	set_image "$IMAGE"
-	if ! fetch_image "$IMAGE" || ! docker compose run --rm --no-deps -T x-console backup "/data/backups/$BACKUP"; then
-		set_image "$OLD_IMAGE"
-		exit 1
+	if [ -n "$RUNNING" ]; then
+		docker compose exec -T x-console sh -c 'mkdir -p /data/backups && chmod 700 /data/backups'
+		if docker compose exec -T x-console x-console-server backup "/data/backups/$BACKUP"; then
+			docker compose exec -T x-console chmod 600 "/data/backups/$BACKUP"
+		else
+			# 旧版本没有 backup 子命令时，用新镜像备份。
+			backup_offline "$IMAGE" "$BACKUP" || exit 1
+		fi
+	else
+		# 旧容器停了，或者在反复重启（比如上一个版本起不来）。
+		# 先停住它，不让它再写库，再离线备份，这样修复版本也能部署上去。
+		echo "旧容器没有在运行，先停下再备份数据库" >&2
+		docker compose stop x-console
+		if docker compose run --rm --no-deps -T --entrypoint sh x-console -c 'test -f /data/x-console.db'; then
+			backup_offline "$OLD_IMAGE" "$BACKUP" || backup_offline "$IMAGE" "$BACKUP" || exit 1
+		else
+			# 上一个版本从来没起来过，还没有数据库，没有可备份的。
+			echo "还没有数据库，跳过部署前备份" >&2
+			BACKUP=
+		fi
 	fi
-	set_image "$OLD_IMAGE"
-fi
-	docker compose exec -T x-console chmod 600 "/data/backups/$BACKUP"
-	echo "部署前数据库备份：$BACKUP"
-elif [ -n "$CURRENT_CONTAINER" ]; then
-	echo "旧容器没有运行，无法生成部署前备份" >&2
-	exit 1
+	[ -z "$BACKUP" ] || echo "部署前数据库备份：$BACKUP"
 fi
 
 set_image "$IMAGE"
