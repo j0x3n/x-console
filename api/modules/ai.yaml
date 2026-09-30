@@ -11,7 +11,6 @@ info:
     - ai.message_done：{conversationId} 这一轮回复结束
     - ai.error：{conversationId, message}
     B32 起调用 OpenAI 兼容接口（Chat Completions），可以配多个供应商，分快速模型和 Agent 模型。
-    /ai/settings 是旧的 Anthropic 设置，B32 后端上线后不再使用，下个版本删。
     B33 起对话可以属于一台机器（hostId），在这台机器上执行操作。
 servers:
   - url: /api/v1
@@ -394,40 +393,6 @@ paths:
                   mode: { $ref: "#/components/schemas/HostAgentPermission" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
-  /ai/settings:
-    get:
-      operationId: getAiSettings
-      tags: [ai]
-      responses:
-        "200":
-          description: 设置。不返回 API Key
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AiSettings" }
-        default:
-          $ref: "../common.yaml#/components/responses/Error"
-    put:
-      operationId: putAiSettings
-      tags: [ai]
-      description: 要提升权限。apiKey 不传表示不改，传空字符串表示删除。
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                apiKey: { type: string }
-                model: { type: string }
-                confirmAllWrites: { type: boolean }
-      responses:
-        "200":
-          description: 已保存
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AiSettings" }
-        default:
-          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     ConversationId:
@@ -527,15 +492,6 @@ components:
         action: { type: string }
         title: { type: string, description: 中文名 }
         effect: { type: string, enum: [read, write, dangerous] }
-    AiSettings:
-      type: object
-      required: [hasApiKey, model, confirmAllWrites]
-      properties:
-        hasApiKey: { type: boolean }
-        model: { type: string, description: 默认 claude-opus-5-5 }
-        confirmAllWrites:
-          type: boolean
-          description: 打开后所有写操作都先确认。关闭时只有删除类和 dangerous 动作要确认
     ReasoningEffort:
       type: string
       description: B32。思考程度，off 表示不传 reasoning_effort

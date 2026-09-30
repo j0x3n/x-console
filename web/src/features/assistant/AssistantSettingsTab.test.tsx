@@ -74,19 +74,11 @@ afterEach(() => {
 });
 
 describe("AI settings", () => {
-  it("keeps the old Anthropic form until providers are live", async () => {
+  it("shows an error when providers cannot load without calling old settings", async () => {
     api.routes.set("GET /ai/providers", notLive);
-    api.routes.set("GET /ai/settings", () => ({
-      status: 200,
-      body: {
-        hasApiKey: false,
-        model: "claude-opus-5-5",
-        confirmAllWrites: false,
-      },
-    }));
     renderTab();
-    expect(await screen.findByText("Anthropic API Key")).toBeTruthy();
-    expect(screen.queryByText("供应商")).toBeNull();
+    expect(await screen.findByText("not live")).toBeTruthy();
+    expect(api.calls.some((call) => call.path === "/ai/settings")).toBe(false);
   });
 
   it("shows providers, models and usage when live", async () => {

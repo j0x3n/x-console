@@ -15,6 +15,7 @@
 | 2 | B23 天气、订阅分类、周期 | 做完 | `brief/weather.go`、`monitoring/categories.go`、`monitoring/subscriptions.go`、迁移 `20260929000100` | 无 |
 | 3 | B34 推送自检 | 做完 | `reminders/delivery.go`、`reminders/notify_handlers.go`、迁移 `20260929000200` | 无 |
 | 4 | B35 GitHub | 做完 | `modules/github/repos.go`、`client.go`、`sync.go`、`module.go`、PR 状态迁移与接口 | 已补最近 7 天关闭和合并的 PR，接口有状态字段 |
+| C5 | 清理轮 | 做完 | `modules/ai/handlers.go`、`api/modules/ai.yaml`、`web/src/features/assistant/`、`docs/tasks.md` | 旧 AI 设置接口和回退表单已删；旧配置迁移提示保留。持久文件走 `files.Store`，备份恢复暂存文件属于恢复流程。所有模块有测试；26 个页面按桌面、手机各截图通过 |
 | 5a | B24 `files` 包、旧目录搬迁、云盘和笔记改用 | 做完 | `internal/server/files/`、`drive/`、`notes/attachments.go` | 无 |
 | 5b | B24 S3 实现和本机缓存 `Cached` | 做完 | `files/s3.go`、`files/cached.go`、假 S3 `files/fakes3/`（别的模块的测试也能用） | 无 |
 | 5c | B24 存储模块 `modules/storage`（设置、用量、切换、搬迁） | 做完 | `modules/storage/`（module、handlers、switch、usage）、`files/cached.go`、`config.FilesCacheDir` | 云盘旧的 `/drive/s3*` 按规格第 4 节留到下个版本删。搬迁只搬 `files.Store` 里的文件 |

@@ -187,63 +187,6 @@ func (m *Module) apiKey(ctx context.Context) (string, error) {
 	}
 	return key, err
 }
-func (m *Module) settings(ctx context.Context) (api.AiSettings, error) {
-	key, err := m.apiKey(ctx)
-	if err != nil {
-		return api.AiSettings{}, err
-	}
-	out := api.AiSettings{HasApiKey: key != "", Model: defaultModel}
-	if err = m.d.Settings.Get(ctx, modelSetting, &out.Model); err != nil && !errors.Is(err, settings.ErrNotSet) {
-		return out, err
-	}
-	if err = m.d.Settings.Get(ctx, confirmSetting, &out.ConfirmAllWrites); err != nil && !errors.Is(err, settings.ErrNotSet) {
-		return out, err
-	}
-	return out, nil
-}
-func (m *Module) GetAiSettings(w http.ResponseWriter, r *http.Request) {
-	out, err := m.settings(r.Context())
-	if m.fail(w, r, err) {
-		return
-	}
-	httpx.JSON(w, 200, out)
-}
-func (m *Module) PutAiSettings(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	if m.fail(w, r, auth.RequireElevated(ctx)) {
-		return
-	}
-	var body api.PutAiSettingsJSONRequestBody
-	if m.fail(w, r, httpx.Decode(r, &body)) {
-		return
-	}
-	if body.Model != nil {
-		model := strings.TrimSpace(*body.Model)
-		if model == "" || len(model) > 100 {
-			httpx.Fail(w, r, httpx.Invalid("模型名称不正确"))
-			return
-		}
-		if m.fail(w, r, m.d.Settings.Set(ctx, modelSetting, model)) {
-			return
-		}
-	}
-	if body.ConfirmAllWrites != nil && m.fail(w, r, m.d.Settings.Set(ctx, confirmSetting, *body.ConfirmAllWrites)) {
-		return
-	}
-	if body.ApiKey != nil {
-		var err error
-		if *body.ApiKey == "" {
-			err = m.d.Settings.Delete(ctx, keySetting)
-		} else {
-			err = m.d.Settings.SetSecret(ctx, keySetting, *body.ApiKey)
-		}
-		if m.fail(w, r, err) {
-			return
-		}
-	}
-	m.d.Audit.Record(ctx, "ai.settings.update", "", nil, nil)
-	m.GetAiSettings(w, r)
-}
 func (m *Module) ListAiTools(w http.ResponseWriter, r *http.Request) {
 	out := []api.Tool{}
 	for _, a := range m.d.Actions.List() {

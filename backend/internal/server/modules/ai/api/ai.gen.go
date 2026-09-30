@@ -300,16 +300,6 @@ type AiProviderTest struct {
 	Ok         bool   `json:"ok"`
 }
 
-// AiSettings defines model for AiSettings.
-type AiSettings struct {
-	// ConfirmAllWrites 打开后所有写操作都先确认。关闭时只有删除类和 dangerous 动作要确认
-	ConfirmAllWrites bool `json:"confirmAllWrites"`
-	HasApiKey        bool `json:"hasApiKey"`
-
-	// Model 默认 claude-opus-5-5
-	Model string `json:"model"`
-}
-
 // AiUsage defines model for AiUsage.
 type AiUsage struct {
 	ByModel []struct {
@@ -487,13 +477,6 @@ type ListAiModelsParams struct {
 	ProviderId *int64 `form:"providerId,omitempty" json:"providerId,omitempty"`
 }
 
-// PutAiSettingsJSONBody defines parameters for PutAiSettings.
-type PutAiSettingsJSONBody struct {
-	ApiKey           *string `json:"apiKey,omitempty"`
-	ConfirmAllWrites *bool   `json:"confirmAllWrites,omitempty"`
-	Model            *string `json:"model,omitempty"`
-}
-
 // GetAiUsageParams defines parameters for GetAiUsage.
 type GetAiUsageParams struct {
 	// Month YYYY-MM，默认本月（服务器时区）
@@ -523,9 +506,6 @@ type CreateAiProviderJSONRequestBody = AiProviderInput
 
 // UpdateAiProviderJSONRequestBody defines body for UpdateAiProvider for application/json ContentType.
 type UpdateAiProviderJSONRequestBody = AiProviderPatch
-
-// PutAiSettingsJSONRequestBody defines body for PutAiSettings for application/json ContentType.
-type PutAiSettingsJSONRequestBody PutAiSettingsJSONBody
 
 // Getter for additional properties for ContentBlock. Returns the specified
 // element and whether it was found
@@ -777,12 +757,6 @@ type ServerInterface interface {
 	// (POST /ai/providers/{providerId}/test)
 	TestAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId)
 
-	// (GET /ai/settings)
-	GetAiSettings(w http.ResponseWriter, r *http.Request)
-
-	// (PUT /ai/settings)
-	PutAiSettings(w http.ResponseWriter, r *http.Request)
-
 	// (GET /ai/tools)
 	ListAiTools(w http.ResponseWriter, r *http.Request)
 
@@ -896,16 +870,6 @@ func (_ Unimplemented) RefreshAiModels(w http.ResponseWriter, r *http.Request, p
 
 // (POST /ai/providers/{providerId}/test)
 func (_ Unimplemented) TestAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (GET /ai/settings)
-func (_ Unimplemented) GetAiSettings(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (PUT /ai/settings)
-func (_ Unimplemented) PutAiSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1397,34 +1361,6 @@ func (siw *ServerInterfaceWrapper) TestAiProvider(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// GetAiSettings operation middleware
-func (siw *ServerInterfaceWrapper) GetAiSettings(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAiSettings(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PutAiSettings operation middleware
-func (siw *ServerInterfaceWrapper) PutAiSettings(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PutAiSettings(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // ListAiTools operation middleware
 func (siw *ServerInterfaceWrapper) ListAiTools(w http.ResponseWriter, r *http.Request) {
 
@@ -1653,12 +1589,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/ai/conversations/{conversationId}/permission", wrapper.SetAiConversationPermission)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/ai/settings", wrapper.GetAiSettings)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/ai/settings", wrapper.PutAiSettings)
 	})
 
 	return r
