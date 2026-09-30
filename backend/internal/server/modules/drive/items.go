@@ -414,6 +414,24 @@ func (m *Module) purgeOldTrash(ctx context.Context) error {
 func (m *Module) permanentDelete(ctx context.Context, id int64) error {
 	var hashes, keys []string
 	err := m.write(ctx, func(tx *sql.Tx) error {
+		versionRows, err := tx.QueryContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) SELECT sha256 FROM drive_file_versions WHERE item_id IN (SELECT id FROM subtree)`, id)
+		if err != nil {
+			return err
+		}
+		for versionRows.Next() {
+			var hash string
+			if err = versionRows.Scan(&hash); err != nil {
+				break
+			}
+			hashes = append(hashes, hash)
+		}
+		if err == nil {
+			err = versionRows.Err()
+		}
+		versionRows.Close()
+		if err != nil {
+			return err
+		}
 		rows, err := tx.QueryContext(ctx, `WITH RECURSIVE subtree(id) AS (SELECT id FROM drive_items WHERE id=? UNION ALL SELECT d.id FROM drive_items d JOIN subtree s ON d.parent_id=s.id) SELECT sha256,s3_key FROM drive_items WHERE id IN (SELECT id FROM subtree) AND is_dir=0`, id)
 		if err != nil {
 			return err

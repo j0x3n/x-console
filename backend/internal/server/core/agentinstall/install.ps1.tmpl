@@ -1,0 +1,49 @@
+# X Console 代理安装脚本（Windows）。由面板生成，里面写了面板地址和一次性配对码。
+# 用法（普通 PowerShell，不需要管理员）：
+#   irm '<面板>/api/v1/agent/install.ps1?code=XXXX-XXXX' | iex
+# 已经装过的电脑再执行一次只会升级程序，不会再配对。
+$ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$Server = '{{.Server}}'
+$Code = '{{.Code}}'
+
+$arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+$dir = Join-Path $env:LOCALAPPDATA 'x-console-agent'
+$exe = Join-Path $dir 'x-console-agent.exe'
+$new = Join-Path $dir 'x-console-agent.exe.new'
+$config = Join-Path $env:APPDATA 'x-console-agent\config.json'
+New-Item -ItemType Directory -Force -Path $dir | Out-Null
+
+Write-Host "下载代理（windows/$arch）……"
+try {
+    $resp = Invoke-WebRequest -UseBasicParsing -Uri "$Server/api/v1/agent/download/windows/${arch}?code=$Code" -OutFile $new -PassThru
+} catch {
+    throw "下载失败。配对码可能已经用过或过期，请回到面板重新生成"
+}
+$want = [string]($resp.Headers['X-Checksum-Sha256'] | Select-Object -First 1)
+$have = (Get-FileHash -Algorithm SHA256 -Path $new).Hash
+if (-not $want -or $want.ToLower() -ne $have.ToLower()) {
+    Remove-Item -Force $new
+    throw "下载的文件校验不通过"
+}
+
+# 升级时先停掉正在运行的代理，才能替换文件。
+Stop-ScheduledTask -TaskName 'X Console Agent' -ErrorAction SilentlyContinue
+Get-Process -Name 'x-console-agent' -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 1
+Move-Item -Force $new $exe
+
+if (Test-Path $config) {
+    Write-Host '这台电脑已经配过对，只升级程序。'
+} else {
+    & $exe pair --server $Server --code $Code
+    if ($LASTEXITCODE -ne 0) { throw '配对失败。配对码可能已经用过或过期' }
+}
+
+# 用任务计划程序在登录时启动。它跑在你的用户会话里，能用剪贴板、git 凭据和 Claude Code 登录状态。
+$action = New-ScheduledTaskAction -Execute $exe -Argument 'run' -WorkingDirectory $dir
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
+Register-ScheduledTask -TaskName 'X Console Agent' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+Start-ScheduledTask -TaskName 'X Console Agent'
+Write-Host '代理已安装并启动。几秒后面板的设备列表里会出现这台电脑。任务名：X Console Agent'

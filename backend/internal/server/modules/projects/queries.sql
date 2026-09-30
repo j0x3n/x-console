@@ -38,8 +38,9 @@ RETURNING next_number;
 
 -- name: InsertIssue :one
 INSERT INTO issues (project_id, number, title, description, status, priority, due_date, milestone_id,
-                    sort_order, external_source, external_id, created_at, updated_at, completed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    sort_order, external_source, external_id, created_at, updated_at, completed_at,
+                    category_id, due_at, due_remind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: GetIssue :one
@@ -60,8 +61,16 @@ WHERE issues.external_source = ? AND issues.external_id = ?;
 -- name: UpdateIssue :exec
 UPDATE issues
 SET title = ?, description = ?, status = ?, priority = ?, due_date = ?, milestone_id = ?,
-    sort_order = ?, updated_at = ?, completed_at = ?
+    sort_order = ?, updated_at = ?, completed_at = ?, category_id = ?, due_at = ?, due_remind = ?, due_notified_at = ?
 WHERE id = ?;
+
+-- name: GetCategoryProject :one
+SELECT project_id FROM project_categories WHERE id=?;
+
+-- name: ChecklistProgressForIssues :many
+SELECT c.issue_id, count(it.id) AS total, sum(CASE WHEN it.done=1 THEN 1 ELSE 0 END) AS done
+FROM issue_checklists c JOIN issue_checklist_items it ON it.checklist_id=c.id
+WHERE c.issue_id IN (sqlc.slice(issue_ids)) GROUP BY c.issue_id;
 
 -- name: SetIssueExternal :execrows
 UPDATE issues SET external_source = ?, external_id = ? WHERE id = ?;
@@ -109,9 +118,9 @@ INSERT OR IGNORE INTO issue_labels (issue_id, label_id) VALUES (?, ?);
 -- name: ListDue :many
 SELECT sqlc.embed(issues), projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
-WHERE issues.due_date IS NOT NULL AND issues.due_date <= ?
+WHERE issues.due_at IS NOT NULL AND issues.due_at <= ?
   AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL
-ORDER BY issues.due_date, CASE issues.priority WHEN 0 THEN 5 ELSE issues.priority END, issues.id;
+ORDER BY issues.due_at, CASE issues.priority WHEN 0 THEN 5 ELSE issues.priority END, issues.id;
 
 -- name: ChangedSince :many
 SELECT sqlc.embed(issues), projects.key AS project_key

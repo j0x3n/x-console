@@ -30,6 +30,13 @@ func Register(c *conn.Client) {
 		}
 		return List(p.Path)
 	})
+	c.Handle(protocol.MethodFilesStat, func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var p protocol.FilesPathParams
+		if err := rpcutil.Decode(raw, &p); err != nil {
+			return nil, err
+		}
+		return ReadStat(p.Path)
+	})
 	c.Handle(protocol.MethodFilesRemove, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var p protocol.FilesRemoveParams
 		if err := rpcutil.Decode(raw, &p); err != nil {
@@ -149,6 +156,22 @@ func Stat(path string) (protocol.FileEntry, error) {
 	return entry(p, info), nil
 }
 
+// ReadStat follows a symlink, matching the behavior of files.read.
+func ReadStat(path string) (protocol.FileEntry, error) {
+	p, err := Resolve(path)
+	if err != nil {
+		return protocol.FileEntry{}, err
+	}
+	info, err := os.Stat(p)
+	if err != nil {
+		return protocol.FileEntry{}, rpcutil.FromOS(err)
+	}
+	if !info.Mode().IsRegular() {
+		return protocol.FileEntry{}, rpcutil.BadParams("%s is not a regular file", p)
+	}
+	return entry(p, info), nil
+}
+
 // isRoot is true for "/" or a drive root; those are never deleted or moved.
 func isRoot(p string) bool { return filepath.Dir(p) == p }
 
@@ -220,6 +243,9 @@ func ServeRead(ctx context.Context, raw json.RawMessage, s *rpc.Stream) error {
 	if err := rpcutil.Decode(raw, &p); err != nil {
 		return err
 	}
+	if p.Offset < 0 || p.Length < 0 {
+		return rpcutil.BadParams("offset and length must not be negative")
+	}
 	path, err := Resolve(p.Path)
 	if err != nil {
 		return err
@@ -236,13 +262,20 @@ func ServeRead(ctx context.Context, raw json.RawMessage, s *rpc.Stream) error {
 	if !info.Mode().IsRegular() {
 		return rpcutil.BadParams("%s is not a regular file", path)
 	}
+	if _, err := f.Seek(p.Offset, io.SeekStart); err != nil {
+		return rpcutil.FromOS(err)
+	}
 	header, _ := json.Marshal(protocol.FileHeader{Name: info.Name(), Size: info.Size(), ModTime: info.ModTime().UTC()})
 	if err := s.Send(ctx, header); err != nil {
 		return err
 	}
+	var reader io.Reader = f
+	if p.Length > 0 {
+		reader = io.LimitReader(f, p.Length)
+	}
 	buf := make([]byte, protocol.FileChunkSize)
 	for {
-		n, err := f.Read(buf)
+		n, err := reader.Read(buf)
 		if n > 0 {
 			chunk := make([]byte, n)
 			copy(chunk, buf[:n])

@@ -112,7 +112,8 @@ docker compose up -d --build
 | `XC_ADDR` | `127.0.0.1:8080` | 监听地址。Docker 里是 `0.0.0.0:8080` |
 | `XC_DATA_DIR` | `./data` | 数据库目录。Docker 里是 `/data` |
 | `XC_WEB_DIR` | 空 | 前端构建产物目录。空表示只提供 API |
-| `XC_PUBLIC_URL` | 空 | 外部访问地址，通知里的链接用它拼 |
+| `XC_PUBLIC_URL` | 空 | 外部访问地址，通知里的链接用它拼，一键安装脚本里的面板地址也用它。不设时用请求里的 `Host` 和 `X-Forwarded-Proto` |
+| `XC_AGENTS_DIR` | `/usr/share/x-console/agents` | 面板发给别的机器安装的代理程序。Docker 镜像里已经打包，本地开发没有这个目录，下载接口回 404 |
 | `XC_TZ` | `Asia/Shanghai` | 你的时区 |
 | `XC_DEV` | 空 | 设为 `1` 时 Cookie 不带 Secure，只用于本地 HTTP 调试 |
 | `XC_DEBUG` | 空 | 设为 `1` 输出调试日志 |
@@ -158,7 +159,24 @@ sh remote-deploy.sh restore x-console-20260927-153000-sha-8fed186.db
 
 ## 代理
 
-### Linux 服务器
+### 一条命令添加（推荐）
+
+在设置 → 设备与代理里点“添加设备”，填名称、选类型，面板生成配对码和命令。配对码 10 分钟内有效，只能用一次。
+
+- Linux 服务器：`curl -fsSL "<面板>/api/v1/agent/install.sh?code=XXXX-XXXX" | sudo sh`。脚本会判断 amd64 或 arm64，从面板下载代理并校验，装到 `/usr/local/bin/x-console-agent`，配对，写 systemd 服务（限制内存 128 MB、CPU 20%）并启动。没有 systemd 时装好程序和配对，打印手动启动命令。
+- Windows 电脑：PowerShell 里执行 `irm "<面板>/api/v1/agent/install.ps1?code=XXXX-XXXX" | iex`，或者下载 `<面板>/api/v1/agent/setup.exe?code=XXXX-XXXX` 双击。代理装到 `%LOCALAPPDATA%\x-console-agent`，用任务计划程序在登录时启动。
+- 已经装过的机器再执行一次命令只升级程序，不会再配对，也不会多出一条记录。要重新配对，在 `sh` 后面加 `-s -- --repair`（Windows 删掉 `%APPDATA%\x-console-agent\config.json` 再执行）。升级时也要在面板里生成一个新的配对码，用过的码会得到 404。
+- 卸载：`curl -fsSL "<面板>/api/v1/agent/uninstall.sh" | sudo sh`。面板里的记录要在设备页里吊销。
+- 代理是主动连面板的，内网机器只要能访问面板地址就行，不用开端口。
+- 资源实测（2026-09-30）：在限制为 1 核、1 GB 的 Linux 容器中，服务端和代理同容器运行。代理连接后预热 10 秒，再取 30 秒的进程 CPU 时间差和末尾 RSS。空闲时 RSS 11.1 MiB、平均 CPU 0.00%；通过 `/events` 订阅详情并要求 1 秒刷新时，RSS 13.8 MiB、平均 CPU 0.10%。CPU 读数精度约 0.03 个百分点。真实服务器上的 systemd 安装仍需验收。
+- 这些接口不用登录，但要带有效的配对码，无效、过期或用过的码一律回 404，同一个 IP 每分钟最多 10 次请求，超过回 429。脚本里的面板地址来自 `XC_PUBLIC_URL`，没设时来自请求的 `Host`，只接受字母、数字、`.`、`-`、`:` 组成的地址。
+- 代理程序在镜像里，四个平台各一份，在 `/usr/share/x-console/agents/<系统>-<架构>/`，旁边有 `SHA256SUMS`。下载接口的响应头 `X-Checksum-Sha256` 是文件的校验值，脚本用它检查。
+
+### 手动安装
+
+没法用一键脚本时（比如机器访问不了面板地址，只能自己拷文件），按下面的步骤。
+
+#### Linux 服务器
 
 ```bash
 # 编译（在开发机上）
@@ -170,7 +188,7 @@ sudo cp deploy/x-console-agent.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now x-console-agent
 ```
 
-### Windows 本机
+#### Windows 电脑
 
 ```powershell
 # 编译

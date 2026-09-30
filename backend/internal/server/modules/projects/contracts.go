@@ -50,8 +50,7 @@ func (s *issuesService) AttachLink(ctx context.Context, key string, link contrac
 }
 
 func (s *issuesService) ListDue(ctx context.Context, until time.Time) ([]contracts.IssueRef, error) {
-	day := s.m.dateOf(&until)
-	rows, err := s.m.q.ListDue(ctx, day)
+	rows, err := s.m.q.ListDue(ctx, dueString(&until))
 	if err != nil {
 		return nil, err
 	}

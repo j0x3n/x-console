@@ -2,6 +2,7 @@ package notes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -22,8 +23,15 @@ func toNote(n db.Note, tags []string) api.Note {
 	if tags == nil {
 		tags = []string{}
 	}
-	return api.Note{Id: n.ID, Title: n.Title, Body: n.Body, Pinned: n.Pinned != 0, Hidden: hiddenField(n.Hidden), Tags: tags,
+	out := api.Note{Id: n.ID, Title: n.Title, Body: n.Body, Pinned: n.Pinned != 0, Hidden: hiddenField(n.Hidden), Tags: tags,
 		ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt}
+	if n.SuggestedTags != nil {
+		var suggestions []string
+		if json.Unmarshal([]byte(*n.SuggestedTags), &suggestions) == nil && len(suggestions) > 0 {
+			out.SuggestedTags = &suggestions
+		}
+	}
+	return out
 }
 
 func toSummary(n db.Note, tags []string) api.NoteSummary {
@@ -124,6 +132,7 @@ func (m *Module) createNote(ctx context.Context, title, body string, tags []stri
 		m.d.Audit.Record(ctx, "note.hide", strconv.FormatInt(id, 10), nil, nil)
 	}
 	m.publishNote("note.created", out)
+	m.scheduleNoteAI(id, hidden)
 	return out, nil
 }
 
@@ -192,7 +201,28 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 			changedHidden = &v
 		}
 		if p.Tags != nil {
-			return setTags(ctx, q, id, tags)
+			if err := setTags(ctx, q, id, tags); err != nil {
+				return err
+			}
+			if n.SuggestedTags != nil {
+				var suggestions []string
+				if json.Unmarshal([]byte(*n.SuggestedTags), &suggestions) == nil {
+					selected := map[string]bool{}
+					for _, tag := range tags {
+						selected[tag] = true
+					}
+					remaining := []string{}
+					for _, tag := range suggestions {
+						if !selected[tag] {
+							remaining = append(remaining, tag)
+						}
+					}
+					raw, _ := json.Marshal(remaining)
+					if err := q.SetSuggestedTags(ctx, db.SetSuggestedTagsParams{SuggestedTags: new(string(raw)), ID: id}); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		return nil
 	})
@@ -214,6 +244,9 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 		m.d.Bus.Publish("note.updated", map[string]any{"id": id, "hidden": true})
 	} else {
 		m.publishNote("note.updated", out)
+	}
+	if p.Body != nil || p.Title != nil || p.Tags != nil || p.Hidden != nil {
+		m.scheduleNoteAI(id, out.Hidden != nil && *out.Hidden)
 	}
 	return out, nil
 }
@@ -256,6 +289,7 @@ func (m *Module) deleteNote(ctx context.Context, id int64) (err error) {
 	} else {
 		m.d.Bus.Publish("note.deleted", map[string]int64{"id": id})
 	}
+	m.scheduleNoteAI(id, true)
 	return nil
 }
 

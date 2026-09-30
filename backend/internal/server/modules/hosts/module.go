@@ -29,6 +29,7 @@ type Module struct {
 	alerts  *alertState
 	traffic *trafficTracker
 	briefs  *briefCache
+	units   unitCache
 
 	infoMu sync.Mutex
 	info   map[string]protocol.SystemInfo

@@ -364,7 +364,7 @@ export interface components {
             seq: number;
             /** @enum {string} */
             role: "user" | "assistant";
-            /** @description 原样保存 Anthropic API 的 content blocks */
+            /** @description 保存供前端展示的对话内容块，旧对话格式也能读取 */
             content: components["schemas"]["ContentBlock"][];
             /** Format: date-time */
             createdAt: string;

@@ -171,6 +171,16 @@ func (h *Hub) CreatePairingCode(ctx context.Context, name, kind string) (string,
 	return code, expires, nil
 }
 
+// PairingCodeValid reports whether a code exists, is unused and has not
+// expired. It does not use the code up; Pair does that.
+func (h *Hub) PairingCodeValid(ctx context.Context, code string) (bool, error) {
+	_, err := h.q.PeekPairingCode(ctx, db.PeekPairingCodeParams{CodeHash: secrets.Hash(normalizeCode(code)), ExpiresAt: h.now()})
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 // Pair exchanges a pairing code for an agent id and a long-lived token.
 func (h *Hub) Pair(ctx context.Context, code string, hello protocol.Hello) (string, string, error) {
 	pc, err := h.q.UsePairingCode(ctx, db.UsePairingCodeParams{UsedAt: ptr(h.now()), CodeHash: secrets.Hash(normalizeCode(code)), ExpiresAt: h.now()})

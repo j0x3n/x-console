@@ -26,7 +26,7 @@ func (q *Queries) AddIssueLabel(ctx context.Context, arg AddIssueLabelParams) er
 }
 
 const changedSince = `-- name: ChangedSince :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.project_id IN (/*SLICE:project_ids*/?) AND issues.updated_at > ?2
 ORDER BY issues.updated_at, issues.id
@@ -78,8 +78,57 @@ func (q *Queries) ChangedSince(ctx context.Context, arg ChangedSinceParams) ([]C
 			&i.Issue.CreatedAt,
 			&i.Issue.UpdatedAt,
 			&i.Issue.CompletedAt,
+			&i.Issue.CategoryID,
+			&i.Issue.DueAt,
+			&i.Issue.DueRemind,
+			&i.Issue.DueNotifiedAt,
 			&i.ProjectKey,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const checklistProgressForIssues = `-- name: ChecklistProgressForIssues :many
+SELECT c.issue_id, count(it.id) AS total, sum(CASE WHEN it.done=1 THEN 1 ELSE 0 END) AS done
+FROM issue_checklists c JOIN issue_checklist_items it ON it.checklist_id=c.id
+WHERE c.issue_id IN (/*SLICE:issue_ids*/?) GROUP BY c.issue_id
+`
+
+type ChecklistProgressForIssuesRow struct {
+	IssueID int64
+	Total   int64
+	Done    *float64
+}
+
+func (q *Queries) ChecklistProgressForIssues(ctx context.Context, issueIds []int64) ([]ChecklistProgressForIssuesRow, error) {
+	query := checklistProgressForIssues
+	var queryParams []interface{}
+	if len(issueIds) > 0 {
+		for _, v := range issueIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:issue_ids*/?", strings.Repeat(",?", len(issueIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:issue_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChecklistProgressForIssuesRow
+	for rows.Next() {
+		var i ChecklistProgressForIssuesRow
+		if err := rows.Scan(&i.IssueID, &i.Total, &i.Done); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -344,8 +393,19 @@ func (q *Queries) FindLink(ctx context.Context, arg FindLinkParams) (IssueLink, 
 	return i, err
 }
 
+const getCategoryProject = `-- name: GetCategoryProject :one
+SELECT project_id FROM project_categories WHERE id=?
+`
+
+func (q *Queries) GetCategoryProject(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getCategoryProject, id)
+	var project_id int64
+	err := row.Scan(&project_id)
+	return project_id, err
+}
+
 const getIssue = `-- name: GetIssue :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.id = ?
 `
@@ -374,13 +434,17 @@ func (q *Queries) GetIssue(ctx context.Context, id int64) (GetIssueRow, error) {
 		&i.Issue.CreatedAt,
 		&i.Issue.UpdatedAt,
 		&i.Issue.CompletedAt,
+		&i.Issue.CategoryID,
+		&i.Issue.DueAt,
+		&i.Issue.DueRemind,
+		&i.Issue.DueNotifiedAt,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByExternal = `-- name: GetIssueByExternal :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.external_source = ? AND issues.external_id = ?
 `
@@ -414,13 +478,17 @@ func (q *Queries) GetIssueByExternal(ctx context.Context, arg GetIssueByExternal
 		&i.Issue.CreatedAt,
 		&i.Issue.UpdatedAt,
 		&i.Issue.CompletedAt,
+		&i.Issue.CategoryID,
+		&i.Issue.DueAt,
+		&i.Issue.DueRemind,
+		&i.Issue.DueNotifiedAt,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByKey = `-- name: GetIssueByKey :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE projects.key = ? AND issues.number = ?
 `
@@ -454,6 +522,10 @@ func (q *Queries) GetIssueByKey(ctx context.Context, arg GetIssueByKeyParams) (G
 		&i.Issue.CreatedAt,
 		&i.Issue.UpdatedAt,
 		&i.Issue.CompletedAt,
+		&i.Issue.CategoryID,
+		&i.Issue.DueAt,
+		&i.Issue.DueRemind,
+		&i.Issue.DueNotifiedAt,
 		&i.ProjectKey,
 	)
 	return i, err
@@ -539,8 +611,9 @@ func (q *Queries) GetProjectIDByKey(ctx context.Context, key string) (int64, err
 
 const insertIssue = `-- name: InsertIssue :one
 INSERT INTO issues (project_id, number, title, description, status, priority, due_date, milestone_id,
-                    sort_order, external_source, external_id, created_at, updated_at, completed_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    sort_order, external_source, external_id, created_at, updated_at, completed_at,
+                    category_id, due_at, due_remind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -559,6 +632,9 @@ type InsertIssueParams struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	CompletedAt    *time.Time
+	CategoryID     *int64
+	DueAt          *string
+	DueRemind      string
 }
 
 func (q *Queries) InsertIssue(ctx context.Context, arg InsertIssueParams) (int64, error) {
@@ -577,6 +653,9 @@ func (q *Queries) InsertIssue(ctx context.Context, arg InsertIssueParams) (int64
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.CompletedAt,
+		arg.CategoryID,
+		arg.DueAt,
+		arg.DueRemind,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -649,11 +728,11 @@ func (q *Queries) ListComments(ctx context.Context, issueID int64) ([]IssueComme
 }
 
 const listDue = `-- name: ListDue :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
-WHERE issues.due_date IS NOT NULL AND issues.due_date <= ?
+WHERE issues.due_at IS NOT NULL AND issues.due_at <= ?
   AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL
-ORDER BY issues.due_date, CASE issues.priority WHEN 0 THEN 5 ELSE issues.priority END, issues.id
+ORDER BY issues.due_at, CASE issues.priority WHEN 0 THEN 5 ELSE issues.priority END, issues.id
 `
 
 type ListDueRow struct {
@@ -661,8 +740,8 @@ type ListDueRow struct {
 	ProjectKey string
 }
 
-func (q *Queries) ListDue(ctx context.Context, dueDate *string) ([]ListDueRow, error) {
-	rows, err := q.db.QueryContext(ctx, listDue, dueDate)
+func (q *Queries) ListDue(ctx context.Context, dueAt *string) ([]ListDueRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDue, dueAt)
 	if err != nil {
 		return nil, err
 	}
@@ -686,6 +765,10 @@ func (q *Queries) ListDue(ctx context.Context, dueDate *string) ([]ListDueRow, e
 			&i.Issue.CreatedAt,
 			&i.Issue.UpdatedAt,
 			&i.Issue.CompletedAt,
+			&i.Issue.CategoryID,
+			&i.Issue.DueAt,
+			&i.Issue.DueRemind,
+			&i.Issue.DueNotifiedAt,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -1049,21 +1132,25 @@ func (q *Queries) TakeIssueNumber(ctx context.Context, id int64) (int64, error) 
 const updateIssue = `-- name: UpdateIssue :exec
 UPDATE issues
 SET title = ?, description = ?, status = ?, priority = ?, due_date = ?, milestone_id = ?,
-    sort_order = ?, updated_at = ?, completed_at = ?
+    sort_order = ?, updated_at = ?, completed_at = ?, category_id = ?, due_at = ?, due_remind = ?, due_notified_at = ?
 WHERE id = ?
 `
 
 type UpdateIssueParams struct {
-	Title       string
-	Description string
-	Status      string
-	Priority    int64
-	DueDate     *string
-	MilestoneID *int64
-	SortOrder   float64
-	UpdatedAt   time.Time
-	CompletedAt *time.Time
-	ID          int64
+	Title         string
+	Description   string
+	Status        string
+	Priority      int64
+	DueDate       *string
+	MilestoneID   *int64
+	SortOrder     float64
+	UpdatedAt     time.Time
+	CompletedAt   *time.Time
+	CategoryID    *int64
+	DueAt         *string
+	DueRemind     string
+	DueNotifiedAt *string
+	ID            int64
 }
 
 func (q *Queries) UpdateIssue(ctx context.Context, arg UpdateIssueParams) error {
@@ -1077,6 +1164,10 @@ func (q *Queries) UpdateIssue(ctx context.Context, arg UpdateIssueParams) error 
 		arg.SortOrder,
 		arg.UpdatedAt,
 		arg.CompletedAt,
+		arg.CategoryID,
+		arg.DueAt,
+		arg.DueRemind,
+		arg.DueNotifiedAt,
 		arg.ID,
 	)
 	return err

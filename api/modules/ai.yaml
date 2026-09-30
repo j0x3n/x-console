@@ -480,7 +480,7 @@ components:
         role: { type: string, enum: [user, assistant] }
         content:
           type: array
-          description: 原样保存 Anthropic API 的 content blocks
+          description: 保存供前端展示的对话内容块，旧对话格式也能读取
           items: { $ref: "#/components/schemas/ContentBlock" }
         createdAt: { type: string, format: date-time }
     ContentBlock:

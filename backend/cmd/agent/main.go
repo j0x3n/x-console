@@ -3,6 +3,9 @@
 //
 //	x-console-agent pair --server https://console.example.com --code ABCD-EFGH [--kind desktop]
 //	x-console-agent run [--config path]
+//
+// On Windows the program under the name x-console-agent-setup-ABCD-EFGH.exe,
+// started without arguments, installs itself (B30).
 package main
 
 import (
@@ -28,8 +31,10 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/power"
 	"github.com/j0x3n/x-console/backend/internal/agent/proc"
 	"github.com/j0x3n/x-console/backend/internal/agent/pty"
+	"github.com/j0x3n/x-console/backend/internal/agent/setup"
 	"github.com/j0x3n/x-console/backend/internal/agent/svc"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
+	"github.com/j0x3n/x-console/backend/internal/agent/syslog"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
 
@@ -44,7 +49,15 @@ func main() {
 		cmd, args = args[0], args[1:]
 	}
 	var err error
+	if len(args) == 0 && cmd == "run" && setup.IsSetup() {
+		// Started by double click under the name the panel gave the download.
+		cmd = "setup"
+	}
 	switch cmd {
+	case "setup":
+		err = setup.Run(setup.Options{ConfigPath: config.DefaultPath(), Pair: func(server, code string) error {
+			return doPair(server, code, config.DefaultPath())
+		}})
 	case "pair":
 		err = pair(args)
 	case "run":
@@ -77,14 +90,19 @@ func pair(args []string) error {
 	if *server == "" || *code == "" {
 		return fmt.Errorf("--server and --code are required")
 	}
-	id, token, err := conn.Pair(context.Background(), *server, *code, hello())
+	return doPair(*server, *code, *path)
+}
+
+// doPair exchanges a pairing code for a token and saves the config file.
+func doPair(server, code, path string) error {
+	id, token, err := conn.Pair(context.Background(), server, code, hello())
 	if err != nil {
 		return err
 	}
-	if err := config.Save(*path, config.Config{Server: *server, AgentID: id, Token: token}); err != nil {
+	if err := config.Save(path, config.Config{Server: server, AgentID: id, Token: token}); err != nil {
 		return err
 	}
-	fmt.Printf("paired as %s, config saved to %s\n", id, *path)
+	fmt.Printf("paired as %s, config saved to %s\n", id, path)
 	return nil
 }
 
@@ -121,6 +139,7 @@ func register(c *conn.Client, cfg config.Config) {
 	c.HandleStream(protocol.MethodWSProxy, netproxy.WS) // M9
 	coding.Register(c, cfg.Coding)                      // M4: also adds the coding capability for configured executor paths
 	docker.Register(c)                                  // M10: docker.* over the Engine socket
+	syslog.Register(c)                                  // B29: system logs, only when there is something to read
 }
 
 // capabilities lists what this build supports on this OS.
@@ -129,7 +148,7 @@ func capabilities() []string {
 	// M2/M3: metrics, processes, files and exec work everywhere; terminal
 	// and services depend on the system; clipboard, power and open are
 	// Windows desktop only.
-	caps = append(caps, protocol.CapMetrics, protocol.CapProcesses, protocol.CapFiles, protocol.CapExec)
+	caps = append(caps, protocol.CapMetrics, protocol.CapProcesses, protocol.CapFiles, protocol.CapFilesRange, protocol.CapExec)
 	if pty.Available() {
 		caps = append(caps, protocol.CapPTY)
 	}
@@ -145,6 +164,9 @@ func capabilities() []string {
 	caps = append(caps, protocol.CapProxy) // M9: http.proxy and ws.proxy
 	if coding.Available() {                // M4: Windows desktop, or claude/codex on PATH
 		caps = append(caps, protocol.CapCoding)
+	}
+	if syslog.Available() {
+		caps = append(caps, protocol.CapSyslog) // B29
 	}
 	if docker.Available() {
 		caps = append(caps, protocol.CapDocker, protocol.CapDockerLines) // M10: only when the Docker socket answers

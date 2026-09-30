@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: |
     公共的文件上传，给 Markdown 编辑框贴图用（项目、日程、提醒、Agent 任务）。
-    笔记和云盘有自己的接口，不走这里。后端还没有这个模块，现在请求回 404，前端按“还没上线”处理。
+    笔记和云盘有自己的接口，不走这里。
 servers:
   - url: /api/v1
 paths:

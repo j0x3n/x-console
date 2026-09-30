@@ -2,11 +2,12 @@
 
 ## 进度区（谁做谁更新，每做完一小步就改这里）
 
-接手的人先看这一节。分支 `claude/project-thread-37jvjz`，草稿 PR 到 `develop`。用户 2026-09-29 定：先做前一半（第一组到第三组），做到哪算哪。
+接手的人先看这一节。工作分支是 `claude/project-thread-37jvjz`，目标分支是 `develop`。PR #24 已合并；后续提交继续推到原工作分支。用户 2026-09-29 定：先做前一半（第一组到第三组），做到哪算哪。
 
 状态只有三种：没开始 / 在做 / 做完。
 
 已知的偶发失败：全量 `go test -race ./...` 时 `hosts` 包的 `TestHostListDetailAndMetrics` 偶尔报 `rpc: connection closed`，单独跑是好的，机器忙的时候才出现。不是这批改动引起的。
+2026-09-30 全量 race 测试首次编译 OpenAI SDK 时，`automations/TestMetricCooldownAndWebhookSecret` 也遇到一次后台任务未及时结束，重跑全量通过。
 
 | 序号 | 任务 | 状态 | 在做的文件 | 下一步 |
 | --- | --- | --- | --- | --- |
@@ -21,37 +22,63 @@
 | 6 | B26 服务器详情刷新周期 | 做完 | `ws/events.go`、`ws/subscriptions.go`、`hosts/interval.go`、`hosts/metrics.go`、`agent/metrics/metrics.go`、`protocol.MetricsDetailParams` | “没有实时刷新”要在线上查，记进了已知问题 |
 | 7 | B27 月流量 | 做完 | `hosts/traffic.go`、`pkg/protocol/methods_hosts.go`、`agent/metrics/metrics.go`、迁移 `20260929000300` | 无。删除代理主机时没清流量表（代理没有删除事件），只清了 SSH 主机的 |
 | 8 | B28 容器日志、镜像清理 | 做完 | `agent/docker/lines.go`、`agent/docker/docker.go`、`monitoring/docker.go`、`monitoring/images.go`、`protocol/methods_docker.go` | 无。B28 里“进程合并、终端脚本、容器排序”前端已做完，后端不用动 |
-| 9 | B29 系统日志 | 没开始 | | |
-| 10 | B30 一条命令添加服务器 | 没开始 | | |
-| 11 | B33 远端日志部分 | 没开始 | | |
-| 12 起 | B31 及以后 | 不在前一半 | | |
+| 9 | B29 系统日志 | 做完 | `agent/syslog/`（journal、textlog、wevt）、`hosts/syslog.go`、`protocol/methods_syslog.go` | 无。只用假输出测过，没在真实 systemd 和 Windows 上跑，记进了已知问题 |
+| 10 | B30 一条命令添加服务器 | 做完 | `core/agentinstall/`（脚本模板）、`core/agentdist.go`、`agenthub/hub.go`（`PairingCodeValid`）、`agent/setup/`、`cmd/agent/main.go`、`deploy/Dockerfile`、`.github/workflows/ci.yml`（shellcheck）、`config.AgentsDir` | 全量后端检查通过，安装脚本的 shellcheck 问题已修；1 核、1 GB Linux 容器的资源实测写在 `docs/06-deploy.md`。真实 systemd 和 Windows 安装仍待验收，见已知问题 |
+| 11 | B33 远端日志部分 | 做完 | `agent/files/files.go`、`protocol/methods_hosts.go`、`hosts/file_range.go`、`logfollow/frame.go`、`web/scripts/e2e.mjs` | 分段读取、追加、轮转和旧代理 501 均已测试；真实服务端和代理的浏览器主流程通过 |
+| 12a | B31 打包下载 | 做完 | `drive/zip.go`、`drive/zip_test.go`、`web/scripts/e2e.mjs` | 无，接 12b |
+| 12b | B31 后台任务 | 做完 | `drive/tasks.go`、`drive/tasks_unit_test.go`、`drive/tasks_api_test.go`、`drive/module.go` | 无，接 12c |
+| 12c | B31 批量复制和移动 | 做完 | `drive/transfer.go`、`drive/transfer_test.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 请求校验、重名策略、分批复制和逐项移动均已测试；接 12d |
+| 12d1 | B31 压缩 | 做完 | `drive/archive.go`、`drive/archive_test.go`、`drive/tasks.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | ZIP、tar.gz、中文路径、重名、失败清理和浏览器主流程已测；临时文件用站点 `tmp`，再经 `files.Store` 存 blob，兼容 S3；接 12d2 |
+| 12d2 | B31 解压 | 做完 | `drive/extract.go`、`drive/extract_test.go`、`drive/archive.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | ZIP、tar、tar.gz、tgz、GBK 文件名、隐藏空间、危险路径、损坏内容清理和浏览器主流程已测；接 12e |
+| 12e1 | B31 历史版本存储 | 做完 | `drive/versions.go`、`drive/content.go`、`drive/actions.go`、`drive/items.go`、迁移 `20260930000000`、sqlc 生成模型 | 保存旧内容、引用计数、动作写入和永久删除通过测试；接 12e2 |
+| 12e2 | B31 历史版本接口和保留规则 | 做完 | `drive/versions.go`、`drive/versions_api_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 列表、Range 读取、恢复、设置、保留数量清理和浏览器主流程已测；接 12f |
+| 12f1 | B31 分享管理 | 做完 | `drive/share.go`、`drive/share_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 创建、列表、删除、加密提取码、分享状态和浏览器主流程已测；接 12f2 |
+| 12f2 | B31 公开分享 | 做完 | `drive/share_public.go`、`drive/share_public_test.go`、`drive/module.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | 匿名访问、限流、提取码锁定、范围校验、Range 下载计数、上限、ZIP 和浏览器主流程已测；接 12g |
+| 12g | B31 日志实时 | 做完 | `drive/follow.go`、`drive/follow_test.go`、`drive/pending.go`、`web/scripts/e2e.mjs` | WebSocket 追加、重置、UTF-8 分帧和关闭测试通过；分享创建补了提权校验；B31 的 501 已全部移除 |
+| 13a | B32 供应商 | 做完 | `modules/ai/providers.go`、`providers_test.go`、迁移 `20260930000100` | 供应商增删改查、提权、Key 加密、连接测试、后台刷新已测；全量后端检查通过；接 models.dev 规格 |
+| 13b | B32 模型规格 | 做完 | `modules/ai/modelsdev.go`、`modelsdev_test.go`、`testdata/modelsdev.json`、`pending.go` | 每日同步及启动同步、20 MB 限制、缓存、精确和去前缀匹配、手动规格、模型列表与刷新已测；接模型设置 |
+| 13c | B32 模型设置和用量 | 做完 | `modules/ai/model_settings.go`、`model_settings_test.go`、`pending.go` | 快速和 Agent 模型、提权、工具能力校验、旧配置提示、供应商删除后清理、按月用量与费用汇总已测；接调用层 |
+| 13d | B32 OpenAI 兼容调用层 | 做完 | `modules/ai/llm/`、`backend/go.mod`、`backend/go.sum` | 官方 Go SDK v3、Chat Completions、流式文本和工具调用、思考参数重试、JSON Schema 回退、用量回调、测试替身和多轮格式已测；接 AI 模块接入 |
+| 13e1 | B32 调用层接入 AI 模块 | 做完 | `modules/ai/llm_config.go`、`llm_config_test.go`、`module.go` | 按用途选模型、解密 Key、思考不兼容标记、用量和价格入库已测；接浮窗和自动化 |
+| 13e2 | B32 浮窗、自动化和早报接入 | 做完 | `modules/ai/worker.go`、`handlers.go`、`service.go`、`polisher.go`、`automations/engine.go`、`contracts/contracts.go`、`web/scripts/e2e.mjs` | 流式回复、工具执行和确认、多轮历史、旧内容块兼容、早报快速模型、自动化 Agent 模型和浏览器主流程已测；接笔记自动标题和标签 |
+| 13f | B32 笔记自动标题和标签 | 做完 | `modules/notes/ai.go`、`ai_test.go`、`service.go`、`module.go`、迁移 `20260930000200`、`web/scripts/e2e.mjs` | 10 秒延时、隐藏笔记跳过、内容变化门槛、标题保护、建议和直接加标签、设置及浏览器主流程已测；接 B32 收尾检查 |
+| 13g | B32 收尾 | 做完 | `modules/ai/model_settings.go`、`llm_config_test.go`、`api/modules/ai.yaml` | 模型设置改成事务，思考参数不兼容后续调用不再发送；旧 SDK 依赖已移除，契约错误码已对齐；接 B33 |
+| 14a | B33 会话和权限接口 | 做完 | `modules/ai/host_handlers.go`、`handlers.go`、`queries.sql`、迁移 `20260930000300` | 机器会话隔离、主机存在检查、权限内存状态和失效、审计事件已测；接命令分级 |
+| 14b | B33 命令分级 | 做完 | `modules/ai/hostagent/classify.go`、`classify_test.go` | 只读白名单、写命令降级、高危规则和绕过写法已测；全量后端检查通过 |
+| 14c | B33 代理工具 | 做完 | `modules/ai/hostagent/tools.go`、`tools_test.go` | 10 个工具走现有代理能力，文件读写走流接口，旧文件先备份；能力检查、输出截断已测 |
+| 14d | B33 会话执行和确认 | 做完 | `modules/ai/worker.go`、`host_handlers.go`、`host_agent_test.go`、`web/scripts/e2e.mjs` | 机器专属工具、权限矩阵、高危提权、审计、停止取消、两小时失效、文件备份和浏览器主流程已测；全量后端检查通过 |
+| 15a | B36 分类接口和基础迁移 | 做完 | `modules/projects/categories.go`、`categories_test.go`、迁移 `20260930000400` | 两级分类、顺序、归档限制、删除后未分类和外键已测；接 Issue 新字段 |
+| 15b | B36 Issue 字段和到期提醒 | 做完 | `modules/projects/service.go`、`list.go`、`due.go`、`contracts.go`、`web/scripts/e2e.mjs` | categoryId、dueAt、dueRemind、清单计数、旧 dueDate 回填、筛选排序和一次性通知已测；全量检查与浏览器主流程通过 |
+| 15c | B36 检查清单 | 做完 | `modules/projects/checklists.go`、`checklists_test.go`、`web/scripts/e2e.mjs` | 8 个接口、排序、勾选时间、跨清单移动和事务内转 Issue 已测；全量后端检查与浏览器主流程通过 |
+| 15d | B36 公共上传 | 做完 | `modules/files/`、`contracts`、`projects/service.go`、`calendar/events_write.go`、`reminders/reminders.go`、`coding/tasks.go`、`web/scripts/e2e.mjs`、迁移 `20260930000500` | 图片大小和类型、登录读取、缩略图、Markdown 归属、删除及过期清理已测；B36 后端完成，接 B37 |
+| 16 | B37 提醒页汇总 | 做完 | `modules/reminders/external.go`、`monitoring/reminder_source.go`、`projects/due.go`、`contracts`、`web/scripts/e2e.mjs` | 今天含过期、即将到来限 30 天；来源错误隔离、订阅、证书、域名、Issue 和浏览器主流程已测；全量检查通过 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
 
-2026-09-29 整理。这一批的前端都已经做完，后端还没做的接口现在回 501，前端显示“还没上线”或者退回旧的做法。开发者按下面的顺序做，每个任务的细节在对应规格的“后端（待做，给开发者）”一节。
+2026-09-30 更新。这一批的前端和后端已做完。每项实现和测试结果见上面的进度区。
 
-规则照 `AGENTS.md`：在 `codex` 分支上做，一个任务一个提交，提交信息以编号开头。做完一个接口，把它从对应的 `pending.go` 删掉；一个模块的都做完了，删掉整个 `pending.go`。
+本批后端提交在 PR #24 的原工作分支 `claude/project-thread-37jvjz`。PR #24 已合并，后续提交仍在原工作分支。
 
 ## 先看这里
 
 - 接口契约已经写好，在 `api/modules/*.yaml`，生成的代码已经提交。不要改契约里的字段名，前端按它写好了。确实要改时，先在 PR 里说明，前端一起改。
-- 501 的接口都在这几个文件里，数一数就知道还剩多少：
+- 本批接口的 501 占位已经全部删除：
 
 | 文件 | 接口数 | 任务 |
 | --- | --- | --- |
 | `modules/monitoring/pending.go` | 已删除 | B23、B28 都做完了 |
-| `modules/hosts/pending.go` | 7 | B27、B29、B33 |
-| `modules/drive/pending.go` | 21 | B31 |
-| `modules/ai/pending.go` | 14 | B32、B33 |
-| `modules/notes/pending.go` | 3 | B32 |
-| `modules/reminders/pending.go` | 4 | B34、B37 |
-| `modules/github/pending.go` | 1 | B35 |
-| `modules/projects/pending.go` | 12 | B36 |
+| `modules/hosts/pending.go` | 已删除 | B33 远端日志接口已做 |
+| `modules/drive/pending.go` | 已删除 | B31 已做完 |
+| `modules/ai/pending.go` | 已删除 | B33 会话、权限和工具执行都已做完 |
+| `modules/notes/pending.go` | 已删除 | B32 已做完 |
+| `modules/reminders/pending.go` | 已删除 | B37 已做完 |
+| `modules/github/pending.go` | 已删除 | B35 已做完 |
+| `modules/projects/pending.go` | 已删除 | B36 已做完 |
 
-`drive/pending.go` 里还有一个 `PublicPaths`，登记分享页不用登录的路径。做完 B31 以后它要留着，挪到模块的正式文件里。
+云盘公开分享路径已登记在 `drive/module.go`。
 
-- 还有两个契约没有后端模块，现在回 404：`api/modules/storage.yaml`（B24、B25）和 `api/modules/files.yaml`（B36 的公共上传）。
+- `api/modules/storage.yaml` 和 `api/modules/files.yaml` 已有后端模块。
 - 迁移只加不删。文件名里的时间按实际写，要晚于当时最新的迁移。规格里写的文件名只是示意。
 
 ## 顺序

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects/db"
 )
@@ -16,6 +18,20 @@ import (
 // Methods publish their events after the transaction commits.
 
 // ---- projects ----
+
+func (m *Module) claimFiles(ctx context.Context, kind string, id int64, markdown string) error {
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		return files.Claim(ctx, kind, id, markdown)
+	}
+	return nil
+}
+
+func (m *Module) deleteOwnedFiles(ctx context.Context, kind string, id int64) error {
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		return files.DeleteOwned(ctx, kind, id)
+	}
+	return nil
+}
 
 func (m *Module) listProjects(ctx context.Context, archived bool) ([]api.Project, error) {
 	rows, err := m.q.ListProjects(ctx, archived)
@@ -72,6 +88,9 @@ func (m *Module) createProject(ctx context.Context, in api.CreateProject) (out a
 	if err != nil {
 		return out, err
 	}
+	if err = m.claimFiles(ctx, "project", id, deref(in.Description)); err != nil {
+		return out, err
+	}
 	m.d.Bus.Publish("project.created", out)
 	return out, nil
 }
@@ -118,6 +137,9 @@ func (m *Module) updateProject(ctx context.Context, id int64, in api.UpdateProje
 	if err != nil {
 		return out, err
 	}
+	if err = m.claimFiles(ctx, "project", id, p.Description); err != nil {
+		return out, err
+	}
 	if !wasArchived && out.ArchivedAt != nil {
 		m.d.Bus.Publish("project.archived", out)
 	} else {
@@ -135,6 +157,9 @@ type issueInput struct {
 	Status         string
 	Priority       int
 	DueDate        *string
+	DueAt          *time.Time
+	DueRemind      string
+	CategoryID     *int64
 	MilestoneID    *int64
 	LabelIDs       []int64
 	ExternalSource string
@@ -151,6 +176,11 @@ type issuePatch struct {
 	Priority       *int
 	DueDate        *string
 	ClearDueDate   bool
+	DueAt          *time.Time
+	ClearDueAt     bool
+	DueRemind      *string
+	CategoryID     *int64
+	ClearCategory  bool
 	MilestoneID    *int64
 	ClearMilestone bool
 	LabelIDs       *[]int64
@@ -185,6 +215,17 @@ func checkRefs(ctx context.Context, q *db.Queries, projectID int64, milestoneID 
 		if err != nil || (l.ProjectID != nil && *l.ProjectID != projectID) {
 			return httpx.Invalid("标签不属于这个项目")
 		}
+	}
+	return nil
+}
+
+func checkCategory(ctx context.Context, q *db.Queries, projectID int64, categoryID *int64) error {
+	if categoryID == nil {
+		return nil
+	}
+	owner, err := q.GetCategoryProject(ctx, *categoryID)
+	if err != nil || owner != projectID {
+		return httpx.NewError(400, "invalid_category", "分类不属于这个项目")
 	}
 	return nil
 }
@@ -282,6 +323,22 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 			return api.Issue{}, err
 		}
 	}
+	if in.DueAt == nil && in.DueDate != nil {
+		var err error
+		in.DueAt, err = m.dueAtForDate(*in.DueDate)
+		if err != nil {
+			return api.Issue{}, err
+		}
+	}
+	if in.DueAt != nil {
+		in.DueDate = m.dateOf(in.DueAt)
+	}
+	if in.DueRemind == "" {
+		in.DueRemind = "at_due"
+	}
+	if !validDueRemind(in.DueRemind) {
+		return api.Issue{}, httpx.Invalid("到期提醒设置无效")
+	}
 	now := m.now()
 	updated := in.UpdatedAt.UTC()
 	if in.UpdatedAt.IsZero() {
@@ -303,6 +360,9 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 		if err := checkRefs(ctx, q, projectID, in.MilestoneID, in.LabelIDs); err != nil {
 			return err
 		}
+		if err := checkCategory(ctx, q, projectID, in.CategoryID); err != nil {
+			return err
+		}
 		next, err := q.TakeIssueNumber(ctx, projectID)
 		if err != nil {
 			return err
@@ -320,6 +380,7 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 			Priority: int64(in.Priority), DueDate: in.DueDate, MilestoneID: in.MilestoneID, SortOrder: sort,
 			ExternalSource: in.ExternalSource, ExternalID: in.ExternalID,
 			CreatedAt: created, UpdatedAt: updated, CompletedAt: completed,
+			CategoryID: in.CategoryID, DueAt: dueString(in.DueAt), DueRemind: in.DueRemind,
 		})
 		if err != nil {
 			return err
@@ -338,6 +399,9 @@ func (m *Module) createIssue(ctx context.Context, projectID int64, in issueInput
 	}()
 	out, err = m.insertIssue(ctx, projectID, in)
 	if err != nil {
+		return out, err
+	}
+	if err = m.claimFiles(ctx, "issue", out.Id, in.Description); err != nil {
 		return out, err
 	}
 	m.d.Bus.Publish("issue.created", out)
@@ -372,13 +436,36 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 			}
 			i.Priority = int64(*p.Priority)
 		}
-		if p.ClearDueDate {
-			i.DueDate = nil
+		if p.ClearDueAt || p.DueAt != nil {
+			i.DueAt = dueString(p.DueAt)
+			i.DueDate = m.dateOf(p.DueAt)
+			i.DueNotifiedAt = nil
+		} else if p.ClearDueDate {
+			i.DueDate, i.DueAt, i.DueNotifiedAt = nil, nil, nil
 		} else if p.DueDate != nil {
 			if err := validDate(*p.DueDate); err != nil {
 				return err
 			}
 			i.DueDate = p.DueDate
+			when, err := m.dueAtForDate(*p.DueDate)
+			if err != nil {
+				return err
+			}
+			i.DueAt, i.DueNotifiedAt = dueString(when), nil
+		}
+		if p.DueRemind != nil {
+			if !validDueRemind(*p.DueRemind) {
+				return httpx.Invalid("到期提醒设置无效")
+			}
+			i.DueRemind, i.DueNotifiedAt = *p.DueRemind, nil
+		}
+		if p.ClearCategory {
+			i.CategoryID = nil
+		} else if p.CategoryID != nil {
+			if err := checkCategory(ctx, q, i.ProjectID, p.CategoryID); err != nil {
+				return err
+			}
+			i.CategoryID = p.CategoryID
 		}
 		if p.ClearMilestone {
 			i.MilestoneID = nil
@@ -411,6 +498,7 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 		if err := q.UpdateIssue(ctx, db.UpdateIssueParams{
 			Title: i.Title, Description: i.Description, Status: i.Status, Priority: i.Priority, DueDate: i.DueDate,
 			MilestoneID: i.MilestoneID, SortOrder: i.SortOrder, UpdatedAt: updated, CompletedAt: i.CompletedAt, ID: i.ID,
+			CategoryID: i.CategoryID, DueAt: i.DueAt, DueRemind: i.DueRemind, DueNotifiedAt: i.DueNotifiedAt,
 		}); err != nil {
 			return err
 		}
@@ -438,6 +526,9 @@ func (m *Module) updateIssue(ctx context.Context, key string, p issuePatch) (out
 	defer func() { m.d.Audit.Record(ctx, "issue.update", key, nil, err) }()
 	out, from, err := m.patchIssue(ctx, key, p)
 	if err != nil {
+		return out, err
+	}
+	if err = m.claimFiles(ctx, "issue", out.Id, out.Description); err != nil {
 		return out, err
 	}
 	m.publishUpdate(out, from)
@@ -565,8 +656,20 @@ func (m *Module) deleteIssue(ctx context.Context, key string) (err error) {
 	if err != nil {
 		return err
 	}
+	comments, err := m.listComments(ctx, key)
+	if err != nil {
+		return err
+	}
 	if err := m.q.DeleteIssue(ctx, issue.Id); err != nil {
 		return err
+	}
+	if err := m.deleteOwnedFiles(ctx, "issue", issue.Id); err != nil {
+		return err
+	}
+	for _, comment := range comments {
+		if err := m.deleteOwnedFiles(ctx, "comment", comment.Id); err != nil {
+			return err
+		}
 	}
 	m.d.Bus.Publish("issue.deleted", issue)
 	return nil
@@ -610,6 +713,9 @@ func (m *Module) createComment(ctx context.Context, key, body string) (out api.C
 		return out, err
 	}
 	out = toComment(c)
+	if err = m.claimFiles(ctx, "comment", out.Id, body); err != nil {
+		return out, err
+	}
 	m.d.Bus.Publish("issue_comment.created", issueEvent{IssueKey: issueKey(r.ProjectKey, r.Issue.Number), Data: out})
 	return out, nil
 }
@@ -626,6 +732,9 @@ func (m *Module) deleteComment(ctx context.Context, key string, id int64) (err e
 	}
 	if n == 0 {
 		return httpx.ErrNotFound
+	}
+	if err := m.deleteOwnedFiles(ctx, "comment", id); err != nil {
+		return err
 	}
 	m.d.Bus.Publish("issue_comment.deleted", issueEvent{IssueKey: issueKey(r.ProjectKey, r.Issue.Number), Data: map[string]int64{"id": id}})
 	return nil

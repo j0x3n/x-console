@@ -119,6 +119,7 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | services | systemd | Windows 服务 |
 | docker | 装了 Docker 才有 | 一般没有 |
 | docker.lines | 和 docker 一起 | 一般没有 |
+| syslog | 有 journalctl，或有 /var/log/syslog、/var/log/messages | 事件查看器（System 和 Application） |
 | clipboard、power、coding | 没有 | 有 |
 | proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
 
@@ -128,6 +129,22 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - 服务端的 `logs/follow?format=json` 遇到没有 `docker.lines` 的旧代理时，自己把纯文本按行切开，当作 `stdout` 发给浏览器。不带 `format` 时不变，还是纯文本。
 - `docker.image_remove {id}`：删一个镜像，不加 `force`。Docker 回 409 时代理回 `CodeExists`，消息是 Docker 原话。
 - `docker.image_prune`：等同 `docker image prune -a`，返回 `{deleted, spaceReclaimed}`。
+
+### 远端日志文件（B33）
+
+- 新代理上报 `files.range` 能力。旧代理没有这个能力，服务端的文件分段读取和实时跟随接口回 501。
+- `files.read` 参数增加可选的 `offset`、`length`，都是非负字节数。`length` 大于 0 时从 `offset` 开始读指定长度，文件不足时提前结束。流的第一个 `FileHeader.size` 仍是整个文件的大小。
+- `files.stat {path}` 返回普通文件的 `FileEntry`。它会跟随符号链接，和 `files.read` 一致。服务端实时模式每秒查询文件大小，再按段读取新增内容。
+
+### 系统日志（B29）
+
+- `syslog.query {since, until, priority, unit, grep, limit, cursor}` 返回 `{items, cursor}`，`items` 按时间正序，是符合条件的最新 `limit` 条。有更早的日志时给 `cursor`，下一次原样传回来取更早的一页。
+- `syslog.units` 返回最近 7 天的 unit（Linux）或事件来源（Windows），按出现次数从多到少，最多 300 个。
+- `syslog.follow {priority, unit, grep}` 是流，每帧是 `SyslogEntry` 的 JSON 数组，每 200 毫秒或满 200 条发一帧，只发开始之后新产生的日志。
+- Linux 有 `journalctl` 时用它，所有过滤条件都是独立的参数，不经过 shell。`unit` 只允许字母、数字和 `._@:-`，不超过 128 个字符。systemd 244 以下的 `journalctl` 没有 `--grep`，关键字由代理自己过滤，代理会多读几倍的条数。名字带 `.service`、`.timer` 这类后缀的按 unit 过滤，其他名字按 `SYSLOG_IDENTIFIER` 过滤。
+- 没有 `journalctl` 时读 `/var/log/syslog` 或 `/var/log/messages`，从文件末尾往前读。这种日志没有级别，级别一律是 6，所以按低于 6 的级别过滤会得到空列表。`cursor` 是文件里的位置（`off:<字节数>`）。
+- Windows 用 `wevtutil qe`，读 System 和 Application，合并后按时间排序。Level 1 到 5 对应级别 2、3、4、6、7。`cursor` 是时间（`t:<RFC3339>`）。
+- 没有读取权限时返回错误码 `syslog_permission`，消息里写怎么加权限。服务端把它转成 HTTP 403，`code` 也是 `syslog_permission`。
 
 ## 新增方法的步骤
 

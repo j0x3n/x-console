@@ -29,6 +29,11 @@ type Handlers struct {
 	// Settings and Bus back the UI preferences (B22).
 	Settings *settings.Store
 	Bus      *events.Bus
+	// PublicURL and AgentsDir serve the install scripts and agent programs (B30).
+	PublicURL string
+	AgentsDir string
+
+	dist distState
 }
 
 var _ api.ServerInterface = (*Handlers)(nil)

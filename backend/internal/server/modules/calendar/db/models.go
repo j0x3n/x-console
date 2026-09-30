@@ -28,6 +28,7 @@ type AiConversation struct {
 	Title     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	HostID    *string
 }
 
 type AiMessage struct {
@@ -39,6 +40,14 @@ type AiMessage struct {
 	CreatedAt      time.Time
 }
 
+type AiModelSpec struct {
+	ProviderID    int64
+	ModelID       string
+	ContextWindow *int64
+	ToolCall      *int64
+	Reasoning     *int64
+}
+
 type AiPendingAction struct {
 	ID             int64
 	ConversationID int64
@@ -47,6 +56,35 @@ type AiPendingAction struct {
 	Input          string
 	Status         string
 	Result         *string
+	Effect         *string
+}
+
+type AiProvider struct {
+	ID                int64
+	Name              string
+	BaseUrl           string
+	ApiKeyEnc         *string
+	ModelsRefreshedAt *time.Time
+	LastError         *string
+	CreatedAt         time.Time
+}
+
+type AiProviderModel struct {
+	ProviderID int64
+	ModelID    string
+}
+
+type AiUsage struct {
+	ID           int64
+	ProviderID   *int64
+	ProviderName string
+	Model        string
+	Purpose      string
+	InputTokens  int64
+	OutputTokens int64
+	DurationMs   int64
+	Cost         *float64
+	CreatedAt    time.Time
 }
 
 type AlertEvent struct {
@@ -194,6 +232,14 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type DriveFileVersion struct {
+	ID        int64
+	ItemID    int64
+	Size      int64
+	Sha256    string
+	CreatedAt time.Time
+}
+
 type DriveItem struct {
 	ID         int64
 	ParentID   *int64
@@ -217,6 +263,19 @@ type DriveItem struct {
 type DriveS3Deletion struct {
 	Key       string
 	CreatedAt time.Time
+}
+
+type DriveShare struct {
+	ID           int64
+	ItemID       int64
+	Token        string
+	CodeSealed   *string
+	ExpiresAt    *time.Time
+	MaxDownloads *int64
+	Visits       int64
+	Downloads    int64
+	CreatedAt    time.Time
+	LastAccessAt *time.Time
 }
 
 type FocusSession struct {
@@ -398,6 +457,26 @@ type Issue struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	CompletedAt    *time.Time
+	CategoryID     *int64
+	DueAt          *string
+	DueRemind      string
+	DueNotifiedAt  *string
+}
+
+type IssueChecklist struct {
+	ID       int64
+	IssueID  int64
+	Title    string
+	Position float64
+}
+
+type IssueChecklistItem struct {
+	ID          int64
+	ChecklistID int64
+	Text        string
+	Done        int64
+	Position    float64
+	DoneAt      *string
 }
 
 type IssueComment struct {
@@ -486,14 +565,16 @@ type MonitorResult struct {
 }
 
 type Note struct {
-	ID         int64
-	Title      string
-	Body       string
-	Pinned     int64
-	ArchivedAt *time.Time
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	Hidden     int64
+	ID            int64
+	Title         string
+	Body          string
+	Pinned        int64
+	ArchivedAt    *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Hidden        int64
+	SuggestedTags *string
+	AiCheckedHash *string
 }
 
 type NoteAttachment struct {
@@ -562,6 +643,14 @@ type Project struct {
 	NextNumber  int64
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type ProjectCategory struct {
+	ID        int64
+	ProjectID int64
+	ParentID  *int64
+	Name      string
+	Position  float64
 }
 
 type Reminder struct {
@@ -671,6 +760,18 @@ type SubscriptionEvent struct {
 	At             time.Time
 	Kind           string
 	Detail         string
+}
+
+type UploadedFile struct {
+	ID        int64
+	Scope     string
+	Name      string
+	Mime      string
+	Size      int64
+	Sha256    string
+	OwnerKind *string
+	OwnerID   *int64
+	CreatedAt time.Time
 }
 
 type User struct {

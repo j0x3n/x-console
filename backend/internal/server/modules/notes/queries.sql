@@ -35,6 +35,9 @@ DELETE FROM note_tags WHERE note_id = ?;
 -- name: AddNoteTag :exec
 INSERT OR IGNORE INTO note_tags (note_id, tag) VALUES (?, ?);
 
+-- name: SetSuggestedTags :exec
+UPDATE notes SET suggested_tags = ? WHERE id = ?;
+
 -- name: TagCounts :many
 SELECT note_tags.tag, count(*) AS count, CAST(coalesce(max(note_tag_colors.color), '') AS TEXT) AS color
 FROM note_tags

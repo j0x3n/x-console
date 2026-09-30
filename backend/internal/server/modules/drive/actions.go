@@ -17,6 +17,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/db"
 )
 
 func (m *Module) registerActions() {
@@ -200,12 +201,16 @@ func (m *Module) actionWriteText(ctx context.Context, raw json.RawMessage) (any,
 		if id == 0 {
 			return tx.QueryRowContext(ctx, "INSERT INTO drive_items(parent_id,name,is_dir,size,mime,sha256,hidden,created_at,updated_at) VALUES(?,?,0,?,?,?,?,?,?) RETURNING id", parent, in.Name, len(in.Text), "text/plain; charset=utf-8", hash, 0, now, now).Scan(&id)
 		}
-		var isDir int64
-		if err := tx.QueryRowContext(ctx, "SELECT is_dir,sha256 FROM drive_items WHERE id=?", id).Scan(&isDir, &oldHash); err != nil {
+		current, err := db.New(tx).GetItem(ctx, id)
+		if err != nil {
 			return err
 		}
-		if isDir != 0 {
+		if current.IsDir != 0 {
 			return httpx.Invalid("同名条目是文件夹")
+		}
+		oldHash = current.Sha256
+		if err := m.recordVersion(ctx, tx, current, hash); err != nil {
+			return err
 		}
 		_, err = tx.ExecContext(ctx, "UPDATE drive_items SET size=?,mime=?,sha256=?,updated_at=?,s3_synced_at=NULL WHERE id=?", len(in.Text), "text/plain; charset=utf-8", hash, now, id)
 		return err

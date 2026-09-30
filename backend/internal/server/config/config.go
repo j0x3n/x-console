@@ -22,6 +22,9 @@ type Config struct {
 	WebDir string
 	// PublicURL is the external URL, used in links sent by notifications. XC_PUBLIC_URL.
 	PublicURL string
+	// AgentsDir holds the agent programs the panel hands out, one folder per
+	// <os>-<arch>. XC_AGENTS_DIR, default /usr/share/x-console/agents (B30).
+	AgentsDir string
 	// MasterKey encrypts stored secrets. XC_MASTER_KEY, base64 of 32 bytes.
 	MasterKey []byte
 	// Dev relaxes cookie security for plain-HTTP local development. XC_DEV=1.
@@ -55,6 +58,7 @@ func FromEnv() (Config, error) {
 		DataDir:   env("XC_DATA_DIR", "./data"),
 		WebDir:    os.Getenv("XC_WEB_DIR"),
 		PublicURL: strings.TrimRight(os.Getenv("XC_PUBLIC_URL"), "/"),
+		AgentsDir: env("XC_AGENTS_DIR", "/usr/share/x-console/agents"),
 		Dev:       os.Getenv("XC_DEV") == "1",
 	}
 	loc, err := time.LoadLocation(env("XC_TZ", "Asia/Shanghai"))

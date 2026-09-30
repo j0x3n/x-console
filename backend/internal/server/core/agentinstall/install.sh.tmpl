@@ -1,0 +1,107 @@
+#!/bin/sh
+# X Console 代理安装脚本。由面板生成，里面写了面板地址和一次性配对码。
+# 用法：curl -fsSL '<面板>/api/v1/agent/install.sh?code=XXXX-XXXX' | sudo sh
+# 已经装过的机器再执行一次只会升级程序，不会再配对。要重新配对，在 sh 后面加 -s -- --repair。
+set -eu
+
+SERVER='{{.Server}}'
+CODE='{{.Code}}'
+BIN=/usr/local/bin/x-console-agent
+CONFIG_DIR=/etc/x-console-agent
+CONFIG="$CONFIG_DIR/config.json"
+UNIT=/etc/systemd/system/x-console-agent.service
+REPAIR=0
+for arg in "$@"; do
+    [ "$arg" = "--repair" ] && REPAIR=1
+done
+
+say() { printf '%s\n' "$*"; }
+die() { printf '安装失败：%s\n' "$*" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "需要 root 权限，请这样运行：curl -fsSL '$SERVER/api/v1/agent/install.sh?code=$CODE' | sudo sh"
+command -v curl >/dev/null 2>&1 || die "没有找到 curl"
+
+case "$(uname -m)" in
+    x86_64 | amd64) ARCH=amd64 ;;
+    aarch64 | arm64) ARCH=arm64 ;;
+    *) die "不支持的架构：$(uname -m)，目前只支持 x86_64 和 arm64" ;;
+esac
+[ "$(uname -s)" = "Linux" ] || die "这个脚本只能在 Linux 上运行"
+
+sha256_of() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | cut -d ' ' -f 1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | cut -d ' ' -f 1
+    else
+        return 1
+    fi
+}
+
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT INT TERM
+
+say "下载代理（linux/$ARCH）……"
+curl -fsSL -D "$TMP/headers" -o "$TMP/agent" "$SERVER/api/v1/agent/download/linux/$ARCH?code=$CODE" \
+    || die "下载失败。配对码可能已经用过或过期，请回到面板重新生成"
+WANT=$(tr -d '\r' < "$TMP/headers" | awk 'tolower($1) == "x-checksum-sha256:" { print $2 }' | tail -n 1)
+HAVE=$(sha256_of "$TMP/agent") || die "没有 sha256sum 或 shasum，无法校验下载的文件"
+if [ -z "$WANT" ] || [ "$WANT" != "$HAVE" ]; then
+    die "下载的文件校验不通过"
+fi
+
+install -m 0755 "$TMP/agent" "$BIN.new"
+mv -f "$BIN.new" "$BIN"
+say "已安装到 $BIN"
+
+mkdir -p "$CONFIG_DIR"
+chmod 700 "$CONFIG_DIR"
+if [ -f "$CONFIG" ] && [ "$REPAIR" -eq 0 ]; then
+    say "这台机器已经配过对，只升级程序。"
+else
+    "$BIN" pair --server "$SERVER" --code "$CODE" --config "$CONFIG" || die "配对失败。配对码可能已经用过或过期"
+fi
+chmod 600 "$CONFIG"
+
+if ! command -v systemctl >/dev/null 2>&1 || [ ! -d /run/systemd/system ]; then
+    say "这台机器没有 systemd，请自己启动代理：" >&2
+    say "  $BIN run --config $CONFIG" >&2
+    exit 1
+fi
+
+cat > "$UNIT" <<'UNIT_EOF'
+[Unit]
+Description=X Console agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/x-console-agent run --config /etc/x-console-agent/config.json
+Restart=always
+RestartPreventExitStatus=3
+RestartSec=5
+# 代理需要管理 systemd 服务、读所有进程、开终端，所以以 root 运行。
+User=root
+MemoryMax=128M
+CPUQuota=20%
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
+UNIT_EOF
+
+systemctl daemon-reload
+systemctl enable x-console-agent >/dev/null 2>&1
+systemctl restart x-console-agent
+
+i=0
+while [ "$i" -lt 10 ]; do
+    if [ "$(systemctl is-active x-console-agent 2>/dev/null)" = "active" ]; then
+        say "代理已启动。几秒后面板的设备列表里会出现这台机器。"
+        say "卸载：curl -fsSL '$SERVER/api/v1/agent/uninstall.sh' | sudo sh"
+        exit 0
+    fi
+    i=$((i + 1))
+    sleep 1
+done
+die "代理服务没有起来，请看日志：journalctl -u x-console-agent -n 50"

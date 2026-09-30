@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
+import http from "node:http";
 import os from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
@@ -162,6 +163,89 @@ try {
   await page.getByRole("button", { name: "登录" }).click();
   await page.locator(".sidebar").waitFor();
 
+  stage = "B32 AI 供应商和浮窗";
+  const aiFake = http.createServer(async (request, response) => {
+    if (request.url === "/v1/models") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ data: [{ id: "e2e-model" }] }));
+      return;
+    }
+    if (request.url === "/v1/chat/completions") {
+      const parts = [];
+      for await (const part of request) parts.push(part);
+      const body = JSON.parse(Buffer.concat(parts).toString());
+      if (body.stream !== true) {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ id: "chat_note", object: "chat.completion", created: 1, model: "e2e-model", choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify({ title: "端到端标题", tags: ["测试标签"] }) }, finish_reason: "stop" }], usage: { prompt_tokens: 20, completion_tokens: 10 } }));
+        return;
+      }
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.write(`data: ${JSON.stringify({ id: "chat_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [{ index: 0, delta: { content: "AI 已收到测试消息" } }] })}\n\n`);
+      response.write(`data: ${JSON.stringify({ id: "chat_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [], usage: { prompt_tokens: 4, completion_tokens: 5 } })}\n\n`);
+      response.end("data: [DONE]\n\n");
+      return;
+    }
+    response.writeHead(404).end();
+  });
+  await new Promise((ready) => aiFake.listen(0, "127.0.0.1", ready));
+  const aiFakePort = aiFake.address().port;
+  try {
+    const elevated = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+      headers: { "X-Requested-With": "x-console" }, data: { password },
+    });
+    assert.equal(elevated.status(), 200, await elevated.text());
+    const created = await page.context().request.post(`${base}/api/v1/ai/providers`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { name: "端到端模型", baseUrl: `http://127.0.0.1:${aiFakePort}/v1` },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    const aiProvider = await created.json();
+    const refreshed = await page.context().request.post(`${base}/api/v1/ai/providers/${aiProvider.id}/models`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(refreshed.status(), 200, await refreshed.text());
+    const settings = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { agent: { providerId: aiProvider.id, model: "e2e-model" }, fast: null, reasoningEffort: "off" },
+    });
+    assert.equal(settings.status(), 200, await settings.text());
+    const conversation = await page.context().request.post(`${base}/api/v1/ai/conversations`, {
+      headers: { "X-Requested-With": "x-console" }, data: {},
+    });
+    assert.equal(conversation.status(), 201, await conversation.text());
+    const aiConversation = await conversation.json();
+    const sent = await page.context().request.post(`${base}/api/v1/ai/conversations/${aiConversation.id}/messages`, {
+      headers: { "X-Requested-With": "x-console" }, data: { text: "你好" },
+    });
+    assert.equal(sent.status(), 202, await sent.text());
+    await until("AI 浮窗回复", async () => {
+      const detail = await api(`/ai/conversations/${aiConversation.id}`);
+      return !detail.running && detail.messages.some((message) => message.role === "assistant" && message.content.some((block) => block.text === "AI 已收到测试消息"));
+    });
+    assert.equal((await api("/ai/usage")).calls, 1);
+    stage = "B32 笔记自动标题和标签";
+    const aiNoteBody = "这是一篇用于端到端验证的笔记。".repeat(12);
+    const noteResponse = await page.context().request.post(`${base}/api/v1/notes`, {
+      headers: { "X-Requested-With": "x-console" }, data: { body: aiNoteBody },
+    });
+    assert.equal(noteResponse.status(), 201, await noteResponse.text());
+    const aiNote = await noteResponse.json();
+    await until("笔记自动标题和建议标签", async () => {
+      const note = await api(`/notes/${aiNote.id}`);
+      return note.title === "端到端标题" && note.suggestedTags?.[0] === "测试标签";
+    }, 20_000);
+    const removeNote = await page.context().request.delete(`${base}/api/v1/notes/${aiNote.id}`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(removeNote.status(), 204, await removeNote.text());
+    const removeProvider = await page.context().request.delete(`${base}/api/v1/ai/providers/${aiProvider.id}`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(removeProvider.status(), 204, await removeProvider.text());
+  } finally {
+    await new Promise((done) => aiFake.close(done));
+  }
+
   stage = "新建项目和 Issue";
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();
@@ -178,6 +262,74 @@ try {
   await page.waitForURL(/\/projects\/EET\/\d+$/);
   const issueKey = `EET-${page.url().split("/").at(-1)}`;
   assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
+  stage = "B36 分类和截止时间";
+  const categoryResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/categories`, {
+    headers: { "X-Requested-With": "x-console" }, data: { name: "后端" },
+  });
+  assert.equal(categoryResponse.status(), 201, await categoryResponse.text());
+  const parentCategory = await categoryResponse.json();
+  const childResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/categories`, {
+    headers: { "X-Requested-With": "x-console" }, data: { name: "服务器", parentId: parentCategory.id },
+  });
+  assert.equal(childResponse.status(), 201, await childResponse.text());
+  const childCategory = await childResponse.json();
+  const dueAt = new Date(Math.ceil(Date.now() / 60_000) * 60_000 + 60 * 60 * 1000).toISOString();
+  const dueResponse = await page.context().request.patch(`${base}/api/v1/issues/${issueKey}`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { categoryId: childCategory.id, dueAt, dueRemind: "15m" },
+  });
+  assert.equal(dueResponse.status(), 200, await dueResponse.text());
+  const dueIssue = await dueResponse.json();
+  assert.equal(dueIssue.categoryId, childCategory.id);
+  assert.equal(dueIssue.dueRemind, "15m");
+  assert.equal(new Date(dueIssue.dueAt).getTime(), new Date(dueAt).getTime());
+  await page.reload();
+  await page.getByText("服务器", { exact: true }).first().waitFor();
+  stage = "B36 检查清单";
+  const checklistResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists`, {
+    headers: { "X-Requested-With": "x-console" }, data: { title: "端到端检查" },
+  });
+  assert.equal(checklistResponse.status(), 201, await checklistResponse.text());
+  const checklist = await checklistResponse.json();
+  const checklistItemResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists/${checklist.id}/items`, {
+    headers: { "X-Requested-With": "x-console" }, data: { text: "核对接口" },
+  });
+  assert.equal(checklistItemResponse.status(), 201, await checklistItemResponse.text());
+  const checklistItem = await checklistItemResponse.json();
+  const checkedResponse = await page.context().request.patch(`${base}/api/v1/issues/${issueKey}/checklist-items/${checklistItem.id}`, {
+    headers: { "X-Requested-With": "x-console" }, data: { done: true },
+  });
+  assert.equal(checkedResponse.status(), 200, await checkedResponse.text());
+  await until("检查清单进度", async () => (await api(`/issues/${issueKey}`)).checklistDone === 1);
+  await page.reload();
+  await page.getByText("核对接口").waitFor();
+  stage = "B36 图片上传和归属";
+  const sampleImage = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==", "base64");
+  const uploadImage = async (name) => {
+    const response = await page.context().request.post(`${base}/api/v1/files?scope=projects`, {
+      headers: { "X-Requested-With": "x-console" },
+      multipart: { file: { name, mimeType: "image/png", buffer: sampleImage } },
+    });
+    assert.equal(response.status(), 201, await response.text());
+    return response.json();
+  };
+  const issueImage = await uploadImage("issue.png");
+  const commentImage = await uploadImage("comment.png");
+  const imagePatch = await page.context().request.patch(`${base}/api/v1/issues/${issueKey}`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { description: `![截图](${issueImage.url})` },
+  });
+  assert.equal(imagePatch.status(), 200, await imagePatch.text());
+  const imageComment = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/comments`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { body: `![评论截图](${commentImage.url})` },
+  });
+  assert.equal(imageComment.status(), 201, await imageComment.text());
+  await page.reload();
+  await page.locator(`img[src*="/api/v1/files/${issueImage.id}"]`).waitFor();
+  assert.equal((await api(`/issues/${issueKey}`)).description.includes(issueImage.url), true);
+  assert.equal((await api(`/issues/${issueKey}/comments`)).some((item) => item.body.includes(commentImage.url)), true);
+  assert.equal((await page.context().request.get(`${base}${issueImage.url}`)).status(), 200);
   const progressResponse = await page
     .context()
     .request.patch(`${base}/api/v1/issues/${issueKey}`, {
@@ -326,6 +478,177 @@ try {
   const driveFile = await until("云盘上传", async () =>
     (await api("/drive/items")).items.find((item) => item.name === "端到端文件.txt"),
   );
+  stage = "云盘历史版本";
+  const savedVersion = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "历史版本测试",
+    },
+  );
+  assert.equal(savedVersion.status(), 200, await savedVersion.text());
+  const previousVersion = (await api(`/drive/items/${driveFile.id}/versions`)).items[0];
+  assert.ok(previousVersion?.id);
+  const restoredVersion = await page.context().request.post(
+    `${base}/api/v1/drive/items/${driveFile.id}/versions/${previousVersion.id}/restore`,
+    { headers: { "X-Requested-With": "x-console" } },
+  );
+  assert.equal(restoredVersion.status(), 200, await restoredVersion.text());
+  const restoredContent = await page.context().request.get(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+  );
+  assert.equal(await restoredContent.text(), "云盘内容可以预览。");
+  stage = "云盘分享管理";
+  const shareElevation = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { password },
+  });
+  assert.equal(shareElevation.status(), 200, await shareElevation.text());
+  const shareResponse = await page.context().request.post(`${base}/api/v1/drive/shares`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { itemId: driveFile.id, expiresIn: "7d" },
+  });
+  assert.equal(shareResponse.status(), 201, await shareResponse.text());
+  const driveShare = await shareResponse.json();
+  assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0]?.id, driveShare.id);
+  const publicShare = await page.context().request.get(
+    `${base}/api/v1/public/shares/${driveShare.token}`,
+  );
+  assert.equal(publicShare.status(), 200, await publicShare.text());
+  const publicContent = await page.context().request.get(
+    `${base}/api/v1/public/shares/${driveShare.token}/content`,
+  );
+  assert.equal(publicContent.status(), 200);
+  assert.equal(await publicContent.text(), "云盘内容可以预览。");
+  const unshareResponse = await page.context().request.delete(
+    `${base}/api/v1/drive/shares/${driveShare.id}`,
+    { headers: { "X-Requested-With": "x-console" } },
+  );
+  assert.equal(unshareResponse.status(), 204);
+  stage = "云盘日志实时";
+  await page.evaluate(
+    ({ id, offset }) =>
+      new Promise((resolve, reject) => {
+        window.__driveFollowFrames = [];
+        const socket = new WebSocket(
+          `${location.origin.replace(/^http/, "ws")}/api/v1/drive/items/${id}/follow?offset=${offset}`,
+        );
+        window.__driveFollowSocket = socket;
+        socket.onmessage = (event) => window.__driveFollowFrames.push(JSON.parse(event.data));
+        socket.onopen = resolve;
+        socket.onerror = reject;
+      }),
+    { id: driveFile.id, offset: Buffer.byteLength("云盘内容可以预览。") },
+  );
+  const appendLog = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "云盘内容可以预览。\n实时追加",
+    },
+  );
+  assert.equal(appendLog.status(), 200, await appendLog.text());
+  await until("云盘日志追加", async () =>
+    page.evaluate(() => window.__driveFollowFrames.some((frame) => frame.type === "append" && frame.data === "\n实时追加")),
+  );
+  const resetLog = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "短",
+    },
+  );
+  assert.equal(resetLog.status(), 200, await resetLog.text());
+  await until("云盘日志重置", async () =>
+    page.evaluate(() => window.__driveFollowFrames.some((frame) => frame.type === "reset")),
+  );
+  await page.evaluate(() => window.__driveFollowSocket.close());
+  const restoreLog = await page.context().request.put(
+    `${base}/api/v1/drive/items/${driveFile.id}/content`,
+    {
+      headers: { "X-Requested-With": "x-console", "Content-Type": "text/plain; charset=utf-8" },
+      data: "云盘内容可以预览。",
+    },
+  );
+  assert.equal(restoreLog.status(), 200, await restoreLog.text());
+  stage = "云盘打包下载";
+  const zipResponse = await page.context().request.get(`${base}/api/v1/drive/zip?ids=${driveFile.id}`);
+  assert.equal(zipResponse.status(), 200);
+  assert.equal(zipResponse.headers()["content-type"], "application/zip");
+  assert.equal((await zipResponse.body()).subarray(0, 2).toString(), "PK");
+  stage = "云盘批量复制和移动";
+  const transferFolderResponse = await page.context().request.post(`${base}/api/v1/drive/folders`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端目标" },
+  });
+  assert.equal(transferFolderResponse.status(), 201, await transferFolderResponse.text());
+  const transferFolder = await transferFolderResponse.json();
+  const copyResponse = await page.context().request.post(`${base}/api/v1/drive/batch/copy`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { ids: [driveFile.id], targetId: transferFolder.id, conflict: "rename" },
+  });
+  assert.equal(copyResponse.status(), 202, await copyResponse.text());
+  const copyTask = await copyResponse.json();
+  await until("云盘复制", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === copyTask.id)?.state === "done",
+  );
+  const copiedFile = (await api(`/drive/items?parent=${transferFolder.id}`)).items.find(
+    (item) => item.name === driveFile.name,
+  );
+  assert.ok(copiedFile && copiedFile.id !== driveFile.id);
+  const movedFolderResponse = await page.context().request.post(`${base}/api/v1/drive/folders`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端移动目标" },
+  });
+  assert.equal(movedFolderResponse.status(), 201, await movedFolderResponse.text());
+  const movedFolder = await movedFolderResponse.json();
+  const moveResponse = await page.context().request.post(`${base}/api/v1/drive/batch/move`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { ids: [copiedFile.id], targetId: movedFolder.id, conflict: "rename" },
+  });
+  assert.equal(moveResponse.status(), 202, await moveResponse.text());
+  const moveTask = await moveResponse.json();
+  await until("云盘移动", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === moveTask.id)?.state === "done",
+  );
+  assert.equal((await api(`/drive/items?parent=${transferFolder.id}`)).items.length, 0);
+  assert.equal((await api(`/drive/items?parent=${movedFolder.id}`)).items[0]?.id, copiedFile.id);
+  stage = "云盘压缩";
+  const archiveResponse = await page.context().request.post(`${base}/api/v1/drive/archive`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { ids: [driveFile.id], name: "端到端压缩", format: "zip", parentId: transferFolder.id },
+  });
+  assert.equal(archiveResponse.status(), 202, await archiveResponse.text());
+  const archiveTask = await archiveResponse.json();
+  const finishedArchive = await until("云盘压缩", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === archiveTask.id && task.state === "done"),
+  );
+  const archived = await page.context().request.get(
+    `${base}/api/v1/drive/items/${finishedArchive.resultId}/content`,
+  );
+  assert.equal(archived.status(), 200);
+  assert.equal((await archived.body()).subarray(0, 2).toString(), "PK");
+  stage = "云盘解压";
+  const extractResponse = await page.context().request.post(
+    `${base}/api/v1/drive/items/${finishedArchive.resultId}/extract`,
+    { headers: { "X-Requested-With": "x-console" } },
+  );
+  assert.equal(extractResponse.status(), 202, await extractResponse.text());
+  const extractTask = await extractResponse.json();
+  const finishedExtract = await until("云盘解压", async () =>
+    (await api("/drive/tasks")).items.find((task) => task.id === extractTask.id && task.state === "done"),
+  );
+  assert.equal(
+    (await api(`/drive/items?parent=${finishedExtract.resultId}`)).items[0]?.name,
+    driveFile.name,
+  );
+  const finishedTasks = page.locator(".drive-tasks");
+  if (await finishedTasks.isVisible())
+    await finishedTasks.getByRole("button", { name: "关闭" }).click();
+  const finishedUploads = page.locator(".drive-uploads:not(.drive-tasks)");
+  if (await finishedUploads.isVisible())
+    await finishedUploads.getByRole("button", { name: "关闭" }).click();
+  stage = "手机云盘上传、预览和删除";
   const driveRow = page.locator(".drive-row").filter({ hasText: "端到端文件.txt" });
   await driveRow.getByRole("button", { name: "端到端文件.txt", exact: true }).click();
   await dialog("端到端文件.txt").getByText("云盘内容可以预览。").waitFor();
@@ -401,6 +724,16 @@ try {
   const generatedBrief = await briefResponse.json();
   assert.ok(generatedBrief.sections.some((section) => section.key === "renewals" && section.markdown.includes("端到端续费")));
 
+  stage = "B37 提醒页汇总";
+  await page.goto(`${base}/reminders?tab=upcoming`);
+  const renewalRow = page.locator(".reminders-external").filter({ hasText: "端到端续费 续费" });
+  await renewalRow.waitFor();
+  await page.getByRole("checkbox", { name: "显示其他模块" }).uncheck();
+  await renewalRow.waitFor({ state: "hidden" });
+  await page.getByRole("checkbox", { name: "显示其他模块" }).check();
+  await renewalRow.getByRole("link", { name: "端到端续费 续费" }).click();
+  await page.waitForURL(/\/monitoring\/subscriptions$/);
+
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
   // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。
@@ -416,6 +749,68 @@ try {
   const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
+
+  stage = "查看远端日志文件";
+  const remoteLog = join(temp, "e2e-remote.log");
+  writeFileSync(remoteLog, "远端日志主流程\n");
+  await page.goto(`${base}/servers/${host.id}/files`);
+  await page.getByRole("textbox", { name: "路径" }).fill(temp);
+  await page.getByRole("textbox", { name: "路径" }).press("Enter");
+  await page.getByRole("button", { name: "e2e-remote.log", exact: true }).click();
+  await dialog("e2e-remote.log").getByText("远端日志主流程").waitFor();
+  await page.keyboard.press("Escape");
+
+  stage = "B33 服务器 Agent 只读命令";
+  const hostFake = http.createServer(async (request, response) => {
+    if (request.url === "/v1/models") {
+      response.writeHead(200, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ data: [{ id: "e2e-model" }] }));
+      return;
+    }
+    if (request.url !== "/v1/chat/completions") { response.writeHead(404).end(); return; }
+    const parts = [];
+    for await (const part of request) parts.push(part);
+    const body = JSON.parse(Buffer.concat(parts).toString());
+    response.writeHead(200, { "Content-Type": "text/event-stream" });
+    const hasResult = body.messages?.some((message) => message.role === "tool");
+    const delta = hasResult
+      ? { content: "运行时间已读取" }
+      : { tool_calls: [{ index: 0, id: "host-e2e-tool", type: "function", function: { name: "host__run_command", arguments: JSON.stringify({ command: "uptime", reason: "检查运行时间" }) } }] };
+    response.write(`data: ${JSON.stringify({ id: "host_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [{ index: 0, delta }] })}\n\n`);
+    response.write(`data: ${JSON.stringify({ id: "host_e2e", object: "chat.completion.chunk", created: 1, model: "e2e-model", choices: [], usage: { prompt_tokens: 4, completion_tokens: 5 } })}\n\n`);
+    response.end("data: [DONE]\n\n");
+  });
+  await new Promise((ready) => hostFake.listen(0, "127.0.0.1", ready));
+  try {
+    const created = await page.context().request.post(`${base}/api/v1/ai/providers`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { name: "机器 Agent 测试模型", baseUrl: `http://127.0.0.1:${hostFake.address().port}/v1` },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    const provider = await created.json();
+    const refreshed = await page.context().request.post(`${base}/api/v1/ai/providers/${provider.id}/models`, { headers: { "X-Requested-With": "x-console" } });
+    assert.equal(refreshed.status(), 200, await refreshed.text());
+    const settings = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
+      headers: { "X-Requested-With": "x-console" }, data: { agent: { providerId: provider.id, model: "e2e-model" } },
+    });
+    assert.equal(settings.status(), 200, await settings.text());
+    await page.goto(`${base}/servers/${host.id}/agent`);
+    await page.locator(".hagent-mode select").selectOption("read_auto");
+    await page.locator(".hagent-composer textarea").fill("uptime");
+    await page.locator(".hagent-composer textarea").press("Enter");
+    await page.locator(".hagent-body").getByText("运行时间已读取").waitFor();
+    const hostConversations = await api(`/ai/host-agent/${host.id}/conversations`);
+    assert.equal(hostConversations.length, 1);
+    const hostDetail = await api(`/ai/conversations/${hostConversations[0].id}`);
+    assert.equal(hostDetail.pendingActions[0]?.action, "host.run_command");
+    assert.equal(hostDetail.pendingActions[0]?.status, "done");
+    assert.equal(hostDetail.pendingActions[0]?.effect, "read");
+    assert.equal((await api("/ai/conversations")).some((item) => item.id === hostConversations[0].id), false);
+    const removeProvider = await page.context().request.delete(`${base}/api/v1/ai/providers/${provider.id}`, { headers: { "X-Requested-With": "x-console" } });
+    assert.equal(removeProvider.status(), 204, await removeProvider.text());
+  } finally {
+    await new Promise((done) => hostFake.close(done));
+  }
 
   stage = "按需订阅服务器指标";
   await page.goto(`${base}/servers`);

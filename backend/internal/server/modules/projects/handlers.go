@@ -91,7 +91,7 @@ func (m *Module) ArchiveProject(w http.ResponseWriter, r *http.Request, projectI
 func (m *Module) ListIssues(w http.ResponseWriter, r *http.Request, params api.ListIssuesParams) {
 	f := issueFilter{
 		ProjectID: params.ProjectId, Priority: params.Priority, LabelID: params.LabelId,
-		MilestoneID: params.MilestoneId, Q: deref(params.Q), Limit: deref(params.Limit),
+		MilestoneID: params.MilestoneId, CategoryID: params.CategoryId, Q: deref(params.Q), Limit: deref(params.Limit),
 	}
 	if params.Status != nil {
 		for _, s := range *params.Status {
@@ -135,7 +135,11 @@ func (m *Module) CreateIssue(w http.ResponseWriter, r *http.Request, projectID a
 	}
 	in := issueInput{
 		Title: body.Title, Description: deref(body.Description), Priority: deref(body.Priority),
-		DueDate: fromDate(body.DueDate), MilestoneID: body.MilestoneId, LabelIDs: deref(body.LabelIds),
+		DueDate: fromDate(body.DueDate), DueAt: body.DueAt, CategoryID: body.CategoryId,
+		MilestoneID: body.MilestoneId, LabelIDs: deref(body.LabelIds),
+	}
+	if body.DueRemind != nil {
+		in.DueRemind = string(*body.DueRemind)
 	}
 	if body.Status != nil {
 		in.Status = string(*body.Status)
@@ -166,8 +170,13 @@ func (m *Module) UpdateIssue(w http.ResponseWriter, r *http.Request, key api.Iss
 	}
 	p := issuePatch{
 		Title: body.Title, Description: body.Description, Priority: body.Priority,
-		DueDate: fromDate(body.DueDate), ClearDueDate: nulls["dueDate"],
+		DueDate: fromDate(body.DueDate), ClearDueDate: nulls["dueDate"], DueAt: body.DueAt, ClearDueAt: nulls["dueAt"],
+		CategoryID: body.CategoryId, ClearCategory: nulls["categoryId"],
 		MilestoneID: body.MilestoneId, ClearMilestone: nulls["milestoneId"], LabelIDs: body.LabelIds,
+	}
+	if body.DueRemind != nil {
+		value := string(*body.DueRemind)
+		p.DueRemind = &value
 	}
 	if body.Status != nil {
 		s := string(*body.Status)

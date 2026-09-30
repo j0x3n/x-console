@@ -10,6 +10,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
+	uploadfiles "github.com/j0x3n/x-console/backend/internal/server/modules/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
@@ -50,4 +51,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	drive.New,   // M14
 	storage.New, // B24
 	backup.New,  // B25
+
+	uploadfiles.New, // B36
 }

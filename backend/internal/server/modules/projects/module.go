@@ -29,18 +29,27 @@ type Module struct {
 }
 
 var _ api.ServerInterface = (*Module)(nil)
+var _ module.Starter = (*Module)(nil)
 
 // New builds the module and registers its contracts and actions.
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }}
+	if err := m.backfillDue(context.Background()); err != nil {
+		return nil, err
+	}
 	module.Provide[contracts.Issues](d.Registry, contracts.IssuesKey, &issuesService{m})
 	module.Provide[contracts.IssueSync](d.Registry, contracts.IssueSyncKey, &syncService{m})
+	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"projects", m)
 	m.registerActions()
 	return m, nil
 }
 
 // Name implements module.Module.
 func (m *Module) Name() string { return "projects" }
+func (m *Module) Start(context.Context) error {
+	m.d.Scheduler.Every("projects.due", time.Minute, m.sendDue)
+	return nil
+}
 
 // Mount implements module.Module.
 func (m *Module) Mount(r chi.Router) {

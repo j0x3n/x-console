@@ -21,12 +21,12 @@
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
 | B31（预览部分） | 云盘统一查看器：图片缩放、音视频、PDF、文本编辑保存（带版本号，冲突回 409）、Markdown、日志分段读、全屏、左右切换。分支 `claude/project-thread-sssfqr`，用户 2026-09-29 让 Claude 直接写。复制、压缩、分享、历史版本、日志实时模式、任务进度下一个 PR 做 | [B31](specs/B31.md) | Claude |
-| B36 | 前端：分类（设置、筛选、分组、侧边栏）、检查清单、截止时间到分钟和提前提醒、公共编辑框贴图、工具栏合成一行。后端写成规格里的“后端（待做）”，项目的新接口先回 501，公共上传 `files.yaml` 还没有模块。分支 `claude/project-thread-o3tsew`，用户 2026-09-29 确认“二级分类”是 Issue 分两级 | [B36](specs/B36.md) | Claude（前端） |
+| B36 | 前端：分类、检查清单、截止时间、公共编辑框贴图和工具栏。后端接口已接通。用户 2026-09-29 确认“二级分类”是 Issue 分两级 | [B36](specs/B36.md) | Claude（前端） |
 | B32 | 前端：设置 → AI 的供应商、模型选择（能搜索、显示规格和价格）、思考程度、本月用量、笔记自动标题和标签的开关，笔记编辑页的建议标签。后端没上线时还是旧的 Anthropic 表单。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B32](specs/B32.md) | Claude（前端） |
 | B33 | 前端：服务器和电脑详情的 Agent 标签（会话列表、对话、命令卡片、长输出折叠、权限下拉、停止），AI 浮窗按 B32 判断有没有选模型；文件标签里查看远端日志（B31 留下的）。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B33](specs/B33.md) | Claude（前端） |
 | B34 | 前端：浏览器推送卡片列出已订阅的浏览器（设备、推送服务、上次送达、上次错误，可以删除），测试分本机检查和服务器推送两步，谷歌推送的提示，后台通知的说明，`sw.js` 图标换 PNG。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B34](specs/B34.md) | Claude（前端） |
 | B35 | 前端：GitHub 关注的仓库改成从令牌能访问的仓库里多选（搜索、私有标记、刷新，没上线时退回文本框），同步状态显示总额度和同步间隔。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B35](specs/B35.md) | Claude（前端） |
-| B37 | 前端：提醒页“今天”“即将到来”混排其他模块的到期事项（来源标签、只读、点了跳转），“显示其他模块”开关，概要数字算上它们。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B37](specs/B37.md) | Claude（前端） |
+| B37 | 前端：提醒页混排其他模块到期事项，支持来源标签、跳转、显示开关和概要数字。后端接口已接通 | [B37](specs/B37.md) | Claude（前端） |
 | B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
 
 ## 待做
@@ -49,13 +49,12 @@
 | B30 | 一条命令添加服务器，“本机”改名“电脑”，Windows 客户端 | [B30](specs/B30.md) | |
 | C4 | 清理轮 | 见下 | |
 | B31 | 云盘：文本编辑和历史版本、批量操作、压缩解压、外链分享、预览、日志滚动 | [B31](specs/B31.md) | |
-| B32 | AI 改为 OpenAI 兼容接口，快速模型和 Agent 模型 | [B32](specs/B32.md) | |
 | B33 | 服务器的 Agent 标签 | [B33](specs/B33.md) | |
 | B34 | 浏览器推送自检和后台通知 | [B34](specs/B34.md) | |
 | B35 | GitHub 仓库下拉多选，同步加快 | [B35](specs/B35.md) | |
 | C5 | 清理轮 | 见下 | |
-| B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并 | [B36](specs/B36.md) | |
-| B37 | 提醒页汇总其他模块的提醒 | [B37](specs/B37.md) | |
+| B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并。后端已接通 | [B36](specs/B36.md) | |
+| B37 | 提醒页汇总其他模块的提醒。后端已接通 | [B37](specs/B37.md) | Codex |
 
 ### 任务说明
 
@@ -198,7 +197,11 @@
 - B1 本机代理的自动安装、吊销后保持停用和卸载尚未在真实服务器验证。
 - 真实的 Home Assistant、Telegram、Bark、Server酱、Web Push、GitHub、Linear。测试全部用假服务器。
 - systemd 服务管理（开发环境没有 systemd）和真实的 SSH 主机。
+- B29 系统日志：`journalctl` 只用假输出测过，没在真实 systemd 机器上跑；Windows 事件日志（`wevtutil`）只测了 XML 解析和查询拼装，没在 Windows 上跑。没有 journal 的 Linux 读 syslog 文件时没有级别，按级别过滤会得到空列表。
 - 服务器详情页“没有实时刷新”的原因没查：代码和测试里数据流是通的（订阅、进入详情模式、代理重连后重发都有测试），要在线上按 `docs/specs/B26.md` 的“排查”一节看 WebSocket 里有没有 `host.metrics`、代理是不是旧版。B26 加了 1 秒模式和代理重连重发的测试。
+
+- B30 的 Windows 安装（`install.ps1`、`setup.exe` 的安装模式、任务计划程序）没在真实 Windows 上跑过，Linux 的 `install.sh` 在没有 systemd 的容器里跑过下载、校验、配对，没跑过 systemd 那一段；Docker 镜像四个平台的编译没在本机构建过。
+- B30 没做：托盘图标、代理自动更新。现在升级要再执行一次安装命令。`setup.exe` 没有代码签名，Windows SmartScreen 会提示。
 
 功能限制：
 - 同一个 TOTP 码在 30 秒窗口内可以重复使用。只支持一个用户。
@@ -220,6 +223,8 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B32 后端 | OpenAI 兼容供应商、调用层、用量、笔记自动标题和标签已完成；进度见 [backend-todo.md](backend-todo.md)（`bfb7569`） |
+| B33 后端 | 服务器 Agent 的会话、权限、10 个代理工具、风险判断、确认、审计和停止已完成；浏览器主流程通过。提交包括 `bb7e20e`、`e2a040b`、`0551786` 和本次提交 |
 | D1 | 移除前端演示数据及开关，旧浏览器的演示设置不再影响真实接口；原版备份在 `demo-data-backup-20260929`（`f74744d`）；变更待合并 |
 | B15 | 提醒页保留四张概要卡片，项目页增加独立的“进行中”卡片并统计全部分页数据；完成端到端与深浅主题截图检查（待合并） |
 | C2 | 修复 Windows 网络错误归类与手机命令面板高度，合并四处查询刷新 Hook，核对模块接口测试和页面渲染覆盖，完成深浅主题截图及规格清理（待合并） |
@@ -263,6 +268,10 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | `contracts` 新增 `ExternalReminder`、`ReminderSource` 和注册表前缀 `reminders.sources.`；监控与项目提供到期事项，提醒模块按来源汇总 | B37 提醒页汇总 |
+| 2026-09-30 | `contracts` 新增 `Files`、`FilesKey`（`files.files`）；公共上传模块提供 Markdown 图片认领和按归属清理，项目、日历、提醒、Agent 任务接入 | B36 公共图片上传 |
+| 2026-09-30 | `contracts` 新增 `LLM`、`LLMKey`（`ai.llm`）。AI 模块提供统一调用层，自动化和笔记按用途调用；浮窗、早报也使用同一调用层 | B32 OpenAI 兼容接口 |
+| 2026-09-30 | 云盘公开入口 `/public/shares` 已启用并自行校验令牌、提取码和范围；发 `drive_share.changed`、`drive_task.updated`、`drive_item.batch` 事件；云盘与远端文件日志共用 `logfollow` 帧 | B31 云盘后端 |
 | 2026-09-29 | 新增基础包 `internal/server/files`（`Store`、`Local`、`Scoped`、`Manager`、`OpenSeeker`、`MigrateLegacyLayout`）；`module.Deps` 加 `Files *files.Manager`；`config.Config` 加 `FilesDir()`、`TmpDir()`；`app.New` 启动时把旧目录 `data/drive`、`data/notes/attachments` 搬到 `data/files/`，并清空 `data/tmp/`；云盘和笔记改用 `d.Files.For(...)` | B24 统一文件目录 |
 | 2026-09-29 | `core.Handlers` 加 `Settings`、`Bus`（偏好设置用）；`app.New` 传入 | B22 偏好设置后端 |
 | 2026-09-29 | 新增模块 `modules/storage`（`app/modules.go` 加一行）；`config.Config` 加 `FilesCacheDir()`；启动时把云盘旧的 S3 设置复制到 `storage.s3`；`files.NewCached` 的上限 0 表示不缓存、负数表示不限 | B24 存储位置设置和搬迁 |
@@ -270,6 +279,10 @@
 | 2026-09-29 | `protocol.MetricsDetailParams` 加 `IntervalMs`（`omitempty`，旧代理忽略）；浏览器 WebSocket 加控制消息 `interval {hostId, ms}`（`ws/events.go`），`ws.Handler` 按各连接要求的最小值调用代理，并在进程内发事件 `host.metrics_interval {hostId, ms}`（不转发给浏览器）；`hosts` 模块订阅它，1 秒模式下每个样本都推，环形缓冲只在这个模式下每 4.5 秒合并成一格，保持一小时的历史；代理加 `Collector.SampleFast` | B26 刷新周期 |
 | 2026-09-29 | `protocol.MetricsSample` 和 `MetricsSummary` 加 `netRxTotal`、`netTxTotal`（`omitempty`，累计字节数，只算 `protocol.CountedInterface` 认可的网卡；旧代理不传）；新增迁移 `20260929000300` 三张表 `host_traffic_hourly`、`host_traffic_daily`、`host_traffic_plans`；`hosts` 模块每次样本进内存累加器，每分钟落库，进程内新事件 `host.traffic_plan_changed {hostId}`；`hosts.cleanup` 删 7 天前的小时表 | B27 月流量 |
 | 2026-09-29 | `protocol.DockerLogsParams` 加 `Lines`，新增 `DockerLogLine`、`DockerImageRemoveParams`、`DockerImagePruneResult`、方法 `docker.image_remove`、`docker.image_prune` 和能力 `docker.lines`（代理 `capabilities()` 在有 Docker 时一起报）；`monitoring/pending.go` 删除，`RemoveImage`、`PruneImages` 在 `monitoring/images.go` | B28 容器日志来源、镜像清理 |
+| 2026-09-29 | 新增协议 `pkg/protocol/methods_syslog.go`（`syslog.query`、`syslog.units`、`syslog.follow`、错误码 `syslog_permission`）和能力 `syslog`；新增代理包 `internal/agent/syslog`，`cmd/agent/main.go` 各加一行；`hosts` 模块的 `agentErr` 加一个错误码映射，`GetSyslog`、`ListSyslogUnits`、`FollowSyslog` 从 `pending.go` 挪到 `hosts/syslog.go` | B29 系统日志 |
+| 2026-09-29 | `config.Config` 加 `AgentsDir`（`XC_AGENTS_DIR`）；`core.Handlers` 加 `PublicURL`、`AgentsDir`；`agenthub.Hub` 加 `PairingCodeValid`（只查不用掉）；新增 `core/agentinstall`（脚本模板和 `AppendSetup`）；`app.go` 的 `corePublic` 加 5 个路径；`core/pending.go` 删除；`testutil` 加 `NewWithConfig`；`deploy/Dockerfile` 打包四个平台的代理；CI 加 shellcheck；代理新增 `internal/agent/setup`（Windows 安装模式），`cmd/agent/main.go` 把 `pair` 的主体拆成 `doPair` | B30 一条命令添加服务器 |
+| 2026-09-30 | `files.read` 增加 `offset`、`length`，代理新增 `files.stat` 和 `files.range` 能力；服务器新增 `logfollow` 公共帧编码，供远端日志与云盘实时日志复用 | B33 远端日志 |
+| 2026-09-30 | 云盘新增内存后台任务，事件 `drive_task.updated` 和 `drive_item.batch`；任务最多同时运行两个，完成 10 分钟后清理 | B31 后台任务 |
 | 2026-09-29 | `components/markdown/MarkdownEditor.tsx` 加可选的 `uploadScope`（粘贴、拖入、选择图片）；新增 `components/markdown/upload.ts`（上传、占位、插入文字，笔记的 `logic.ts` 改成转发）；`Markdown.tsx` 显示 `/api/v1/files/<id>` 的图片时取缩略图并链接原图；`NavChildLinks` 加可选的 `limit` 和链接的 `nested`（`.nav-child.nested` 在 `ui.css`）；`lib/i18n.ts` 加编辑框贴图的文案；新增契约 `api/modules/files.yaml`（公共上传，后端模块待做） | B36 贴图、侧边栏显示项目分类 |
 | 2026-09-29 | `app/App.tsx`：路径是 `/s/<token>` 时渲染云盘分享页，不经过登录检查；`drive.yaml` 新增公开入口 `/public/shares/*`（`security: []`），云盘模块的 `PublicPaths` 先放在 `drive/pending.go` | B31 外链分享 |
 | 2026-09-29 | `drive/viewer/LogView.tsx` 拆出 `RangeLogView`（按段读和实时模式，不绑定云盘），服务器文件标签也用它；`assistant/components/Timeline.tsx` 的动作卡片显示命令和原因、长结果折叠；`hosts.yaml` 新增 `files/range`、`files/follow`（后端待做，代理要加 `files.range` 能力） | B33 Agent 标签、远端日志 |

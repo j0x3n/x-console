@@ -54,6 +54,8 @@ func agentErr(err error) error {
 		return httpx.NewError(http.StatusForbidden, "permission_denied", "代理没有权限: "+msg)
 	case protocol.CodeExists:
 		return httpx.NewError(http.StatusConflict, "conflict", msg)
+	case protocol.CodeSyslogPermission:
+		return httpx.NewError(http.StatusForbidden, "syslog_permission", msg)
 	case protocol.CodeUnsupported, protocol.CodeUnknownMethod:
 		return httpx.NewError(http.StatusNotImplemented, "agent_"+code, msg)
 	case protocol.CodeBadParams:

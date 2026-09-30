@@ -14,11 +14,16 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/db"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
 func conversation(row db.AiConversation) api.Conversation {
-	return api.Conversation{Id: row.ID, Title: row.Title, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	c := api.Conversation{Id: row.ID, Title: row.Title, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	if row.HostID != nil {
+		c.HostId = row.HostID
+	}
+	return c
 }
 
 func (m *Module) ListAiConversations(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +67,9 @@ func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
+	m.mu.Lock()
+	delete(m.permissions, id)
+	m.mu.Unlock()
 	m.d.Audit.Record(r.Context(), "ai.conversation.delete", strconv.FormatInt(id, 10), nil, nil)
 	httpx.NoContent(w)
 }
@@ -81,7 +89,7 @@ func (m *Module) GetAiConversation(w http.ResponseWriter, r *http.Request, id ap
 	m.mu.Lock()
 	_, running := m.running[id]
 	m.mu.Unlock()
-	httpx.JSON(w, 200, api.ConversationDetail{Conversation: conversation(row), Messages: messages, PendingActions: pending, Running: running})
+	httpx.JSON(w, 200, api.ConversationDetail{Conversation: m.conversation(row), Messages: messages, PendingActions: pending, Running: running})
 }
 func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.ConversationId) {
 	ctx := r.Context()
@@ -94,7 +102,8 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		httpx.Fail(w, r, httpx.Invalid("消息不能为空，最多 20000 字符"))
 		return
 	}
-	if _, err := m.q.GetConversation(ctx, id); m.fail(w, r, notFound(err)) {
+	row, err := m.q.GetConversation(ctx, id)
+	if m.fail(w, r, notFound(err)) {
 		return
 	}
 	var waiting int
@@ -105,12 +114,10 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		httpx.Fail(w, r, httpx.ErrConflict)
 		return
 	}
-	key, err := m.apiKey(ctx)
-	if m.fail(w, r, err) {
+	if _, err := m.resolveLLM(ctx, "agent"); errors.Is(err, llm.ErrNotConfigured) {
+		httpx.Fail(w, r, httpx.NewError(409, "ai_not_configured", "请先配置 Agent 模型"))
 		return
-	}
-	if key == "" {
-		httpx.Fail(w, r, httpx.ErrIntegrationMissing)
+	} else if m.fail(w, r, err) {
 		return
 	}
 	m.mu.Lock()
@@ -131,18 +138,21 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		}
 		blocks = append(blocks, map[string]any{"type": "text", "text": "当前页面: " + title + " " + *body.Context.Path, "context": true})
 	}
-	if err = m.saveMessage(ctx, id, "user", blocks); err != nil {
+	if err := m.saveMessage(ctx, id, "user", blocks); err != nil {
 		m.stop(id)
 		httpx.Fail(w, r, err)
 		return
 	}
-	if err = m.setTitle(ctx, id, text); err != nil {
+	if row.HostID != nil {
+		m.touchPermission(id)
+	}
+	if err := m.setTitle(ctx, id, text); err != nil {
 		m.stop(id)
 		httpx.Fail(w, r, err)
 		return
 	}
 	session := auth.FromContext(ctx)
-	go m.run(worker, id, key, session, state)
+	go m.run(worker, id, session, state)
 	httpx.JSON(w, 202, nil)
 }
 func (m *Module) StopAiReply(w http.ResponseWriter, r *http.Request, id api.ConversationId) {
@@ -150,7 +160,7 @@ func (m *Module) StopAiReply(w http.ResponseWriter, r *http.Request, id api.Conv
 		return
 	}
 	m.stop(id)
-	_, err := m.d.DB.ExecContext(r.Context(), "UPDATE ai_pending_actions SET status='rejected',result=? WHERE conversation_id=? AND status='pending'", `"用户已停止生成"`, id)
+	_, err := m.d.DB.ExecContext(r.Context(), "UPDATE ai_pending_actions SET status='rejected',result=? WHERE conversation_id=? AND status IN ('pending','approved')", `"用户已停止生成"`, id)
 	if m.fail(w, r, err) {
 		return
 	}
@@ -282,7 +292,7 @@ func (m *Module) messages(ctx context.Context, id int64) ([]api.Message, error) 
 	return out, rows.Err()
 }
 func (m *Module) pendingActions(ctx context.Context, id int64) ([]api.PendingAction, error) {
-	rows, err := m.d.DB.QueryContext(ctx, "SELECT id,tool_use_id,action,input,status,result FROM ai_pending_actions WHERE conversation_id=? ORDER BY id", id)
+	rows, err := m.d.DB.QueryContext(ctx, "SELECT id,tool_use_id,action,input,status,result,effect FROM ai_pending_actions WHERE conversation_id=? ORDER BY id", id)
 	if err != nil {
 		return nil, err
 	}
@@ -292,8 +302,13 @@ func (m *Module) pendingActions(ctx context.Context, id int64) ([]api.PendingAct
 		p := api.PendingAction{ConversationId: id}
 		var input string
 		var result sql.NullString
-		if err = rows.Scan(&p.Id, &p.ToolUseId, &p.Action, &input, &p.Status, &result); err != nil {
+		var effect sql.NullString
+		if err = rows.Scan(&p.Id, &p.ToolUseId, &p.Action, &input, &p.Status, &result, &effect); err != nil {
 			return nil, err
+		}
+		if effect.Valid {
+			value := api.PendingActionEffect(effect.String)
+			p.Effect = &value
 		}
 		if err = json.Unmarshal([]byte(input), &p.Input); err != nil {
 			return nil, err
