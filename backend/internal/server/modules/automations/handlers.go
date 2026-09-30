@@ -331,7 +331,7 @@ func (m *Module) RunAutomation(w http.ResponseWriter, r *http.Request, id api.Au
 	if m.fail(w, r, err) {
 		return
 	}
-	runID, err := m.startRun(r.Context(), row, map[string]any{}, true)
+	runID, err := m.startRun(r.Context(), row, map[string]any{}, runManual)
 	if m.fail(w, r, err) {
 		return
 	}

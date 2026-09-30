@@ -33,6 +33,7 @@ func (m *Module) reload(ctx context.Context) error {
 		m.d.Scheduler.Remove(job)
 	}
 	m.jobs = map[int64]scheduler.EntryID{}
+	m.eventRules = m.eventRules[:0:0]
 	for _, r := range rules {
 		if _, seen := m.last[r.Id]; !seen {
 			var last *time.Time
@@ -43,6 +44,10 @@ func (m *Module) reload(ctx context.Context) error {
 		if !r.Enabled {
 			continue
 		}
+		switch r.Trigger.Type {
+		case api.Event, api.Metric, api.HaState:
+			m.eventRules = append(m.eventRules, r)
+		}
 		if r.Trigger.Type == api.Schedule {
 			id := r.Id
 			entry, e := m.d.Scheduler.Cron("automation."+strconv.FormatInt(id, 10), *r.Trigger.Cron, func(ctx context.Context) error {
@@ -50,7 +55,7 @@ func (m *Module) reload(ctx context.Context) error {
 				if e != nil || !row.Enabled {
 					return e
 				}
-				_, e = m.startRun(ctx, row, map[string]any{"type": "schedule"}, false)
+				_, e = m.startRun(ctx, row, map[string]any{"type": "schedule"}, runOther)
 				return e
 			})
 			if e != nil {
@@ -204,13 +209,11 @@ func (m *Module) handleEvent(ctx context.Context, ev events.Event) {
 	if strings.HasPrefix(ev.Topic, "automation.") || strings.HasPrefix(ev.Topic, "ai.") {
 		return
 	}
-	rules, err := m.listRules(ctx)
-	if err != nil {
-		m.d.Log.Error("automation list failed", "err", err)
-		return
-	}
+	m.mu.Lock()
+	rules := m.eventRules
+	m.mu.Unlock()
 	for _, candidate := range rules {
-		if !candidate.Enabled || !m.matches(candidate, ev) {
+		if !m.matches(candidate, ev) {
 			continue
 		}
 		r, e := m.readRule(ctx, candidate.Id)
@@ -218,24 +221,95 @@ func (m *Module) handleEvent(ctx context.Context, ev events.Event) {
 			m.d.Log.Error("automation read failed", "err", e)
 			continue
 		}
-		_, e = m.startRun(ctx, r, map[string]any{"topic": ev.Topic, "data": anyMap(ev.Data)}, false)
+		if !r.Enabled {
+			continue
+		}
+		_, e = m.startRun(ctx, r, map[string]any{"topic": ev.Topic, "data": anyMap(ev.Data)}, runEvent)
 		if e != nil {
 			m.d.Log.Error("automation start failed", "err", e)
 		}
 	}
 }
-func (m *Module) startRun(ctx context.Context, r rule, data map[string]any, manual bool) (int64, error) {
+
+type runKind int
+
+const (
+	runOther  runKind = iota // schedule and webhook
+	runEvent                 // a bus event
+	runManual                // the run button; skips the cooldown
+)
+
+// loopLimits stop a rule whose own actions keep triggering it, for example a
+// rule on notification.* whose action sends a notification. A fast loop runs
+// many times a second; a slow one (with ai.ask) every few seconds. Metrics
+// arrive at most once a second, so a real rule stays under both.
+var loopLimits = []struct {
+	window time.Duration
+	runs   int
+}{{10 * time.Second, 20}, {time.Hour, 200}}
+
+// looping records an event-started run and reports whether the rule went over
+// a loop limit. Caller holds m.mu.
+func (m *Module) looping(id int64, now time.Time) bool {
+	longest := loopLimits[len(loopLimits)-1].window
+	kept := m.eventRuns[id][:0]
+	for _, at := range m.eventRuns[id] {
+		if now.Sub(at) < longest {
+			kept = append(kept, at)
+		}
+	}
+	kept = append(kept, now)
+	m.eventRuns[id] = kept
+	for _, limit := range loopLimits {
+		n := 0
+		for _, at := range kept {
+			if now.Sub(at) < limit.window {
+				n++
+			}
+		}
+		if n > limit.runs {
+			delete(m.eventRuns, id)
+			return true
+		}
+	}
+	return false
+}
+
+// stopLoop disables a looping rule and tells the user.
+func (m *Module) stopLoop(ctx context.Context, r rule) {
+	id := strconv.FormatInt(r.Id, 10)
+	_, err := m.d.DB.ExecContext(ctx, "UPDATE automations SET enabled=0,updated_at=? WHERE id=?", time.Now().UTC(), r.Id)
+	if err == nil {
+		err = m.reload(ctx)
+	}
+	m.d.Audit.Record(audit.WithActor(ctx, "automation:"+id), "automation.loop_stopped", id, nil, err)
+	if err != nil {
+		m.d.Log.Error("automation loop stop failed", "automation", r.Id, "err", err)
+		return
+	}
+	m.d.Bus.Publish("automation.updated", map[string]any{"automationId": r.Id})
+	_, _ = m.d.Notify.Send(ctx, notify.Notification{Kind: "automation.loop", Title: "自动化触发太频繁，已停用",
+		Body: r.Name + " 被事件触发的次数太多，可能是它的动作又触发了它自己。检查规则后再打开。", Link: "/automations",
+		Priority: notify.PriorityHigh, Source: "automation:" + id})
+}
+func (m *Module) startRun(ctx context.Context, r rule, data map[string]any, kind runKind) (int64, error) {
+	now := time.Now()
 	m.mu.Lock()
-	if !manual && r.CooldownSeconds > 0 && time.Since(m.last[r.Id]) < time.Duration(r.CooldownSeconds)*time.Second {
+	if kind != runManual && r.CooldownSeconds > 0 && now.Sub(m.last[r.Id]) < time.Duration(r.CooldownSeconds)*time.Second {
 		m.mu.Unlock()
 		return 0, nil
 	}
-	m.last[r.Id] = time.Now()
+	if kind == runEvent && m.looping(r.Id, now) {
+		m.mu.Unlock()
+		m.stopLoop(ctx, r)
+		return 0, nil
+	}
+	m.last[r.Id] = now
 	m.mu.Unlock()
 	raw, _ := json.Marshal(data)
-	now := time.Now().UTC()
+	started := now.UTC()
 	var id int64
-	err := m.d.DB.QueryRowContext(ctx, "INSERT INTO automation_runs(automation_id,started_at,trigger_data,steps,status) VALUES(?,?,?,'[]','running') RETURNING id", r.Id, now, string(raw)).Scan(&id)
+	err := m.d.DB.QueryRowContext(ctx, "INSERT INTO automation_runs(automation_id,started_at,trigger_data,steps,status) VALUES(?,?,?,'[]','running') RETURNING id", r.Id, started, string(raw)).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
@@ -373,7 +447,7 @@ func (m *Module) hook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	id, err = m.startRun(r.Context(), rule, data, false)
+	id, err = m.startRun(r.Context(), rule, data, runOther)
 	if err != nil {
 		http.Error(w, "触发失败", 500)
 		return
