@@ -23,7 +23,7 @@
 | 7 | B27 月流量 | 做完 | `hosts/traffic.go`、`pkg/protocol/methods_hosts.go`、`agent/metrics/metrics.go`、迁移 `20260929000300` | 无。删除代理主机时没清流量表（代理没有删除事件），只清了 SSH 主机的 |
 | 8 | B28 容器日志、镜像清理 | 做完 | `agent/docker/lines.go`、`agent/docker/docker.go`、`monitoring/docker.go`、`monitoring/images.go`、`protocol/methods_docker.go` | 无。B28 里“进程合并、终端脚本、容器排序”前端已做完，后端不用动 |
 | 9 | B29 系统日志 | 做完 | `agent/syslog/`（journal、textlog、wevt）、`hosts/syslog.go`、`protocol/methods_syslog.go` | 无。只用假输出测过，没在真实 systemd 和 Windows 上跑，记进了已知问题 |
-| 10 | B30 一条命令添加服务器 | 做完 | `core/agentinstall/`（脚本模板）、`core/agentdist.go`、`agenthub/hub.go`（`PairingCodeValid`）、`agent/setup/`、`cmd/agent/main.go`、`deploy/Dockerfile`、`.github/workflows/ci.yml`（shellcheck）、`config.AgentsDir` | 全量后端检查通过；1 核、1 GB Linux 容器的资源实测写在 `docs/06-deploy.md`。真实 systemd 和 Windows 安装仍待验收，见已知问题 |
+| 10 | B30 一条命令添加服务器 | 做完 | `core/agentinstall/`（脚本模板）、`core/agentdist.go`、`agenthub/hub.go`（`PairingCodeValid`）、`agent/setup/`、`cmd/agent/main.go`、`deploy/Dockerfile`、`.github/workflows/ci.yml`（shellcheck）、`config.AgentsDir` | 全量后端检查通过，安装脚本的 shellcheck 问题已修；1 核、1 GB Linux 容器的资源实测写在 `docs/06-deploy.md`。真实 systemd 和 Windows 安装仍待验收，见已知问题 |
 | 11 | B33 远端日志部分 | 做完 | `agent/files/files.go`、`protocol/methods_hosts.go`、`hosts/file_range.go`、`logfollow/frame.go`、`web/scripts/e2e.mjs` | 分段读取、追加、轮转和旧代理 501 均已测试；真实服务端和代理的浏览器主流程通过 |
 | 12a | B31 打包下载 | 做完 | `drive/zip.go`、`drive/zip_test.go`、`web/scripts/e2e.mjs` | 无，接 12b |
 | 12b | B31 后台任务 | 做完 | `drive/tasks.go`、`drive/tasks_unit_test.go`、`drive/tasks_api_test.go`、`drive/module.go` | 无，接 12c |

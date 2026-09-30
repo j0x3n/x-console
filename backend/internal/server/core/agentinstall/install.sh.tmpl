@@ -46,7 +46,9 @@ curl -fsSL -D "$TMP/headers" -o "$TMP/agent" "$SERVER/api/v1/agent/download/linu
     || die "下载失败。配对码可能已经用过或过期，请回到面板重新生成"
 WANT=$(tr -d '\r' < "$TMP/headers" | awk 'tolower($1) == "x-checksum-sha256:" { print $2 }' | tail -n 1)
 HAVE=$(sha256_of "$TMP/agent") || die "没有 sha256sum 或 shasum，无法校验下载的文件"
-[ -n "$WANT" ] && [ "$WANT" = "$HAVE" ] || die "下载的文件校验不通过"
+if [ -z "$WANT" ] || [ "$WANT" != "$HAVE" ]; then
+    die "下载的文件校验不通过"
+fi
 
 install -m 0755 "$TMP/agent" "$BIN.new"
 mv -f "$BIN.new" "$BIN"
