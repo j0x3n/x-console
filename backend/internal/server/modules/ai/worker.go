@@ -154,6 +154,16 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 		if message.Text != "" {
 			blocks = append(blocks, map[string]any{"type": "text", "text": message.Text})
 		}
+		if message.Truncated {
+			// The arguments of a cut-off tool call are incomplete; running it
+			// could do the wrong thing. Keep the text and stop here.
+			note := "（回复达到长度上限，后面被截断了）"
+			if len(message.ToolCalls) > 0 {
+				note = "（回复达到长度上限被截断，里面的动作没有执行。可以让助手分几步做。）"
+			}
+			blocks = append(blocks, map[string]any{"type": "text", "text": note})
+			return m.saveMessage(ctx, id, "assistant", blocks)
+		}
 		for _, call := range message.ToolCalls {
 			var input any
 			if json.Unmarshal(call.Arguments, &input) != nil {

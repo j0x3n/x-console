@@ -263,3 +263,37 @@ func TestConcurrentApprovalsWaitForEachOther(t *testing.T) {
 		t.Fatalf("resumed before both actions finished: %s", sent)
 	}
 }
+
+func TestTruncatedToolCallIsNotRun(t *testing.T) {
+	writes.Store(0)
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"data":[{"id":"test-model"}]}`)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		// The arguments stop in the middle: the model hit its output limit.
+		sendEvent(w, map[string]any{"id": "chat_t", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"tool_calls": []any{map[string]any{"index": 0, "id": "toolu_1", "type": "function", "function": map[string]any{"name": "test__write", "arguments": `{"title":"半`}}}}}}})
+		sendEvent(w, map[string]any{"id": "chat_t", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{}, "finish_reason": "length"}}})
+		fmt.Fprint(w, "data: [DONE]\n\n")
+	}))
+	defer fake.Close()
+	env := testutil.New(t, withActions)
+	env.Elevate()
+	var provider api.AiProvider
+	env.MustDo("POST", "/ai/providers", map[string]any{"name": "Test", "baseUrl": fake.URL + "/v1", "apiKey": "fake-key"}, &provider)
+	env.MustDo("POST", fmt.Sprintf("/ai/providers/%d/models", provider.Id), nil, nil)
+	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}}, nil)
+	var conversation api.Conversation
+	env.MustDo("POST", "/ai/conversations", map[string]any{}, &conversation)
+	env.MustDo("POST", fmt.Sprintf("/ai/conversations/%d/messages", conversation.Id), map[string]any{"text": "写一个"}, nil)
+	detail := await(t, env, conversation.Id, func(d api.ConversationDetail) bool { return !d.Running && len(d.Messages) >= 2 })
+	if writes.Load() != 0 || len(detail.PendingActions) != 0 {
+		t.Fatalf("cut-off tool call ran: writes=%d pending=%d", writes.Load(), len(detail.PendingActions))
+	}
+	raw, _ := json.Marshal(detail.Messages[len(detail.Messages)-1])
+	if !strings.Contains(string(raw), "没有执行") {
+		t.Fatalf("no truncation note: %s", raw)
+	}
+}

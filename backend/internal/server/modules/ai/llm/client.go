@@ -52,6 +52,9 @@ type Result struct {
 	ToolCalls    []ToolCall
 	InputTokens  int64
 	OutputTokens int64
+	// Truncated is set when the model stopped at its output limit
+	// (finish_reason "length"). Tool call arguments may then be cut off.
+	Truncated bool
 }
 
 type ToolCallDelta struct {
@@ -187,6 +190,7 @@ func (s *service) Complete(ctx context.Context, req Request) (result Result, err
 		if err == nil {
 			if len(response.Choices) > 0 {
 				result.Text = response.Choices[0].Message.Content
+				result.Truncated = response.Choices[0].FinishReason == "length"
 				for _, call := range response.Choices[0].Message.ToolCalls {
 					if call.Type == "function" {
 						result.ToolCalls = append(result.ToolCalls, ToolCall{ID: call.ID, Name: call.Function.Name, Arguments: json.RawMessage(call.Function.Arguments)})
@@ -312,6 +316,9 @@ func (s *stream) Next() bool {
 		s.result.InputTokens, s.result.OutputTokens = chunk.Usage.PromptTokens, chunk.Usage.CompletionTokens
 	}
 	for _, choice := range chunk.Choices {
+		if choice.FinishReason == "length" {
+			s.result.Truncated = true
+		}
 		s.current.Text += choice.Delta.Content
 		s.result.Text += choice.Delta.Content
 		for _, call := range choice.Delta.ToolCalls {
