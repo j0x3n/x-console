@@ -234,6 +234,273 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{projectId}/boards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        /** @description B46。项目的看板，每个带上它的列表。 */
+        get: operations["listBoards"];
+        put?: never;
+        post: operations["createBoard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/boards/starred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B46。标星的看板，侧边栏用。 */
+        get: operations["listStarredBoards"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/boards/{boardId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 删除看板。里面的卡片移到项目的第一个看板（按状态放进对应列表）。项目只剩这一个看板时不能删。 */
+        delete: operations["deleteBoard"];
+        options?: never;
+        head?: never;
+        patch: operations["updateBoard"];
+        trace?: never;
+    };
+    "/boards/{boardId}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 复制看板的列表结构，不复制卡片。 */
+        post: operations["copyBoard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/boards/{boardId}/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createBoardList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/boards/{boardId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        /** @description 归档的卡片（最多 200 张）和列表。 */
+        get: operations["listBoardArchive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{listId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 删除列表。里面还有卡片（包括归档的）时不能删，先移走或归档后再删。 */
+        delete: operations["deleteBoardList"];
+        options?: never;
+        head?: never;
+        patch: operations["updateBoardList"];
+        trace?: never;
+    };
+    "/lists/{listId}/archive-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveListCards"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lists/{listId}/move-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 把列表里全部卡片移到另一个列表的末尾。 */
+        post: operations["moveListCards"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{key}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B46。归档卡片。看板、提醒页、到期提醒都不再显示。 */
+        post: operations["archiveIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{key}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B46。恢复归档的卡片，回到原列表末尾；原列表没了就放到看板第一个列表。 */
+        post: operations["restoreIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{key}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B46。复制卡片：标题加“（副本）”，复制描述、标签、截止时间、检查清单，放在原卡片下面。 */
+        post: operations["copyIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{key}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description B46。整体替换成员。 */
+        put: operations["setIssueMembers"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/issues/{key}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        /** @description B46。活动记录，新的在前，最多 200 条。 */
+        get: operations["listIssueActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/issues/{key}/comments": {
         parameters: {
             query?: never;
@@ -558,6 +825,31 @@ export interface components {
             updatedAt: string;
             /** Format: date-time */
             completedAt?: string;
+            /**
+             * Format: int64
+             * @description B46。所在看板
+             */
+            boardId?: number;
+            /**
+             * Format: int64
+             * @description B46。所在列表
+             */
+            listId?: number;
+            /**
+             * Format: date-time
+             * @description B46。归档时间，没归档时不返回
+             */
+            archivedAt?: string;
+            /** @description B46。成员：me 是自己，agent 是 B47 的 Agent */
+            members?: components["schemas"]["IssueMember"][];
+            /** @description B46。评论数 */
+            commentCount?: number;
+        };
+        IssueMember: {
+            /** @enum {string} */
+            kind: "me" | "agent";
+            /** @description me 时为空串，agent 时是 Agent id */
+            id: string;
         };
         CreateIssue: {
             title: string;
@@ -583,6 +875,16 @@ export interface components {
             /** Format: int64 */
             milestoneId?: number;
             labelIds?: number[];
+            /**
+             * Format: int64
+             * @description B46。不传用项目的第一个看板
+             */
+            boardId?: number;
+            /**
+             * Format: int64
+             * @description B46。不传用看板里对应状态的列表，没有就用第一个列表。列表有对应状态时，卡片状态改成它
+             */
+            listId?: number;
         };
         UpdateIssue: {
             title?: string;
@@ -702,12 +1004,109 @@ export interface components {
             /** Format: int64 */
             beforeId?: number;
         };
+        /** @description B46 起可以只传 listId（可以是别的看板或别的项目的列表），这时 status 不用传，列表有对应状态时卡片状态跟着变。只传 status 时，放进卡片所在看板里对应这个状态的列表。 */
         MoveIssue: {
-            status: components["schemas"]["IssueStatus"];
+            status?: components["schemas"]["IssueStatus"];
+            /**
+             * Format: int64
+             * @description B46。目标列表
+             */
+            listId?: number;
             /** @description 落点上方的 Issue */
             afterKey?: string;
             /** @description 落点下方的 Issue */
             beforeKey?: string;
+        };
+        Board: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            projectId: number;
+            name: string;
+            /** @description 一个 emoji，可以为空 */
+            icon: string;
+            /** Format: double */
+            position: number;
+            starred: boolean;
+            /** Format: date-time */
+            archivedAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            lists: components["schemas"]["BoardList"][];
+        };
+        BoardList: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            boardId: number;
+            name: string;
+            /** Format: double */
+            position: number;
+            status?: components["schemas"]["IssueStatus"];
+            color: string;
+            /** @description 0 表示不限 */
+            wipLimit: number;
+            collapsed: boolean;
+            /** Format: date-time */
+            archivedAt?: string;
+            /** @description 没归档的卡片数 */
+            cardCount: number;
+        };
+        CreateBoard: {
+            name: string;
+            icon?: string;
+            /**
+             * @description statuses 按 6 个状态建列表（默认）；simple 待处理、进行中、已完成；empty 不建列表
+             * @enum {string}
+             */
+            preset?: "statuses" | "simple" | "empty";
+        };
+        UpdateBoard: {
+            name?: string;
+            icon?: string;
+            starred?: boolean;
+            archived?: boolean;
+            /**
+             * Format: int64
+             * @description 排序：放在这个看板后面，0 表示放到最前
+             */
+            afterId?: number;
+        };
+        CreateBoardList: {
+            name: string;
+            status?: components["schemas"]["IssueStatus"];
+        };
+        UpdateBoardList: {
+            name?: string;
+            /**
+             * @description null 表示不对应状态
+             * @enum {string|null}
+             */
+            status?: "backlog" | "todo" | "in_progress" | "in_review" | "done" | "canceled" | null;
+            color?: string;
+            wipLimit?: number;
+            collapsed?: boolean;
+            archived?: boolean;
+            /**
+             * Format: int64
+             * @description 排序：放在这个列表后面，0 表示放到最前
+             */
+            afterId?: number;
+        };
+        IssueActivity: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** @description me、agent:<id>、token:<名字>、automation:<id> */
+            actor: string;
+            /** @description created、moved、status、archived、restored、members、copied、title、due */
+            kind: string;
+            data: {
+                [key: string]: unknown;
+            };
         };
         Comment: {
             /** Format: int64 */
@@ -1232,6 +1631,8 @@ export interface operations {
         parameters: {
             query?: {
                 projectId?: number;
+                /** @description B46。只看这个看板的卡片 */
+                boardId?: number;
                 /** @description 可以传多个 */
                 status?: components["schemas"]["IssueStatus"][];
                 priority?: number;
@@ -1365,6 +1766,450 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Issue"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBoards: {
+        parameters: {
+            query?: {
+                /** @description 包含已归档的看板和列表 */
+                archived?: boolean;
+            };
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 看板 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: components["parameters"]["ProjectId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBoard"];
+            };
+        };
+        responses: {
+            /** @description 新看板 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listStarredBoards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 标星的看板 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        id: number;
+                        /** Format: int64 */
+                        projectId: number;
+                        projectKey: string;
+                        projectName: string;
+                        name: string;
+                        icon: string;
+                    }[];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBoard"];
+            };
+        };
+        responses: {
+            /** @description 改后的看板 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    copyBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 新看板 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createBoardList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBoardList"];
+            };
+        };
+        responses: {
+            /** @description 新列表，放在最后 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listBoardArchive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 归档内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        issues: components["schemas"]["Issue"][];
+                        lists: components["schemas"]["BoardList"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteBoardList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateBoardList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBoardList"];
+            };
+        };
+        responses: {
+            /** @description 改后的列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveListCards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 归档了几张 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    moveListCards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                listId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    toListId: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 移了几张 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        moved: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    archiveIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 归档后的卡片 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 恢复后的卡片 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    copyIssue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 新卡片 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setIssueMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    members: components["schemas"]["IssueMember"][];
+                };
+            };
+        };
+        responses: {
+            /** @description 改后的卡片 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Issue"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listIssueActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 例如 XC-12 */
+                key: components["parameters"]["IssueKey"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 活动 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueActivity"][];
                 };
             };
             default: components["responses"]["Error"];

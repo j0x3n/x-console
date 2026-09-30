@@ -15,6 +15,27 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for CreateBoardPreset.
+const (
+	Empty    CreateBoardPreset = "empty"
+	Simple   CreateBoardPreset = "simple"
+	Statuses CreateBoardPreset = "statuses"
+)
+
+// Valid indicates whether the value is a known member of the CreateBoardPreset enum.
+func (e CreateBoardPreset) Valid() bool {
+	switch e {
+	case Empty:
+		return true
+	case Simple:
+		return true
+	case Statuses:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DueRemind.
 const (
 	AtDue DueRemind = "at_due"
@@ -66,30 +87,81 @@ func (e IssueLinkKind) Valid() bool {
 	}
 }
 
+// Defines values for IssueMemberKind.
+const (
+	Agent IssueMemberKind = "agent"
+	Me    IssueMemberKind = "me"
+)
+
+// Valid indicates whether the value is a known member of the IssueMemberKind enum.
+func (e IssueMemberKind) Valid() bool {
+	switch e {
+	case Agent:
+		return true
+	case Me:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IssueStatus.
 const (
-	Backlog    IssueStatus = "backlog"
-	Canceled   IssueStatus = "canceled"
-	Done       IssueStatus = "done"
-	InProgress IssueStatus = "in_progress"
-	InReview   IssueStatus = "in_review"
-	Todo       IssueStatus = "todo"
+	IssueStatusBacklog    IssueStatus = "backlog"
+	IssueStatusCanceled   IssueStatus = "canceled"
+	IssueStatusDone       IssueStatus = "done"
+	IssueStatusInProgress IssueStatus = "in_progress"
+	IssueStatusInReview   IssueStatus = "in_review"
+	IssueStatusTodo       IssueStatus = "todo"
 )
 
 // Valid indicates whether the value is a known member of the IssueStatus enum.
 func (e IssueStatus) Valid() bool {
 	switch e {
-	case Backlog:
+	case IssueStatusBacklog:
 		return true
-	case Canceled:
+	case IssueStatusCanceled:
 		return true
-	case Done:
+	case IssueStatusDone:
 		return true
-	case InProgress:
+	case IssueStatusInProgress:
 		return true
-	case InReview:
+	case IssueStatusInReview:
 		return true
-	case Todo:
+	case IssueStatusTodo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateBoardListStatus.
+const (
+	UpdateBoardListStatusBacklog     UpdateBoardListStatus = "backlog"
+	UpdateBoardListStatusCanceled    UpdateBoardListStatus = "canceled"
+	UpdateBoardListStatusDone        UpdateBoardListStatus = "done"
+	UpdateBoardListStatusInProgress  UpdateBoardListStatus = "in_progress"
+	UpdateBoardListStatusInReview    UpdateBoardListStatus = "in_review"
+	UpdateBoardListStatusLessThannil UpdateBoardListStatus = "<nil>"
+	UpdateBoardListStatusTodo        UpdateBoardListStatus = "todo"
+)
+
+// Valid indicates whether the value is a known member of the UpdateBoardListStatus enum.
+func (e UpdateBoardListStatus) Valid() bool {
+	switch e {
+	case UpdateBoardListStatusBacklog:
+		return true
+	case UpdateBoardListStatusCanceled:
+		return true
+	case UpdateBoardListStatusDone:
+		return true
+	case UpdateBoardListStatusInProgress:
+		return true
+	case UpdateBoardListStatusInReview:
+		return true
+	case UpdateBoardListStatusLessThannil:
+		return true
+	case UpdateBoardListStatusTodo:
 		return true
 	default:
 		return false
@@ -141,6 +213,40 @@ func (e ListIssuesParamsSort) Valid() bool {
 	}
 }
 
+// Board defines model for Board.
+type Board struct {
+	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+
+	// Icon 一个 emoji，可以为空
+	Icon      string      `json:"icon"`
+	Id        int64       `json:"id"`
+	Lists     []BoardList `json:"lists"`
+	Name      string      `json:"name"`
+	Position  float64     `json:"position"`
+	ProjectId int64       `json:"projectId"`
+	Starred   bool        `json:"starred"`
+	UpdatedAt time.Time   `json:"updatedAt"`
+}
+
+// BoardList defines model for BoardList.
+type BoardList struct {
+	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
+	BoardId    int64      `json:"boardId"`
+
+	// CardCount 没归档的卡片数
+	CardCount int          `json:"cardCount"`
+	Collapsed bool         `json:"collapsed"`
+	Color     string       `json:"color"`
+	Id        int64        `json:"id"`
+	Name      string       `json:"name"`
+	Position  float64      `json:"position"`
+	Status    *IssueStatus `json:"status,omitempty"`
+
+	// WipLimit 0 表示不限
+	WipLimit int `json:"wipLimit"`
+}
+
 // Checklist defines model for Checklist.
 type Checklist struct {
 	Id       int64           `json:"id"`
@@ -174,6 +280,24 @@ type Comment struct {
 	IssueId   int64     `json:"issueId"`
 }
 
+// CreateBoard defines model for CreateBoard.
+type CreateBoard struct {
+	Icon *string `json:"icon,omitempty"`
+	Name string  `json:"name"`
+
+	// Preset statuses 按 6 个状态建列表（默认）；simple 待处理、进行中、已完成；empty 不建列表
+	Preset *CreateBoardPreset `json:"preset,omitempty"`
+}
+
+// CreateBoardPreset statuses 按 6 个状态建列表（默认）；simple 待处理、进行中、已完成；empty 不建列表
+type CreateBoardPreset string
+
+// CreateBoardList defines model for CreateBoardList.
+type CreateBoardList struct {
+	Name   string       `json:"name"`
+	Status *IssueStatus `json:"status,omitempty"`
+}
+
 // CreateChecklistItem defines model for CreateChecklistItem.
 type CreateChecklistItem struct {
 	// AfterId 放在这个条目后面
@@ -188,6 +312,9 @@ type CreateComment struct {
 
 // CreateIssue defines model for CreateIssue.
 type CreateIssue struct {
+	// BoardId B46。不传用项目的第一个看板
+	BoardId *int64 `json:"boardId,omitempty"`
+
 	// CategoryId B36
 	CategoryId  *int64  `json:"categoryId,omitempty"`
 	Description *string `json:"description,omitempty"`
@@ -198,8 +325,11 @@ type CreateIssue struct {
 	DueDate *openapi_types.Date `json:"dueDate,omitempty"`
 
 	// DueRemind B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
-	DueRemind   *DueRemind   `json:"dueRemind,omitempty"`
-	LabelIds    *[]int64     `json:"labelIds,omitempty"`
+	DueRemind *DueRemind `json:"dueRemind,omitempty"`
+	LabelIds  *[]int64   `json:"labelIds,omitempty"`
+
+	// ListId B46。不传用看板里对应状态的列表，没有就用第一个列表。列表有对应状态时，卡片状态改成它
+	ListId      *int64       `json:"listId,omitempty"`
 	MilestoneId *int64       `json:"milestoneId,omitempty"`
 	Priority    *int         `json:"priority,omitempty"`
 	Status      *IssueStatus `json:"status,omitempty"`
@@ -249,6 +379,12 @@ type DueRemind string
 
 // Issue defines model for Issue.
 type Issue struct {
+	// ArchivedAt B46。归档时间，没归档时不返回
+	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
+
+	// BoardId B46。所在看板
+	BoardId *int64 `json:"boardId,omitempty"`
+
 	// CategoryId B36。没有表示未分类
 	CategoryId *int64 `json:"categoryId,omitempty"`
 
@@ -256,9 +392,12 @@ type Issue struct {
 	ChecklistDone *int `json:"checklistDone,omitempty"`
 
 	// ChecklistTotal B36。所有清单的条目总数，0 表示没有清单条目
-	ChecklistTotal *int       `json:"checklistTotal,omitempty"`
-	CompletedAt    *time.Time `json:"completedAt,omitempty"`
-	CreatedAt      time.Time  `json:"createdAt"`
+	ChecklistTotal *int `json:"checklistTotal,omitempty"`
+
+	// CommentCount B46。评论数
+	CommentCount *int       `json:"commentCount,omitempty"`
+	CompletedAt  *time.Time `json:"completedAt,omitempty"`
+	CreatedAt    time.Time  `json:"createdAt"`
 
 	// Description Markdown
 	Description string `json:"description"`
@@ -279,10 +418,16 @@ type Issue struct {
 	Id             int64  `json:"id"`
 
 	// Key 例如 XC-12
-	Key         string  `json:"key"`
-	Labels      []Label `json:"labels"`
-	MilestoneId *int64  `json:"milestoneId,omitempty"`
-	Number      int64   `json:"number"`
+	Key    string  `json:"key"`
+	Labels []Label `json:"labels"`
+
+	// ListId B46。所在列表
+	ListId *int64 `json:"listId,omitempty"`
+
+	// Members B46。成员：me 是自己，agent 是 B47 的 Agent
+	Members     *[]IssueMember `json:"members,omitempty"`
+	MilestoneId *int64         `json:"milestoneId,omitempty"`
+	Number      int64          `json:"number"`
 
 	// Priority 0 无，1 紧急，2 高，3 中，4 低
 	Priority   int    `json:"priority"`
@@ -294,6 +439,18 @@ type Issue struct {
 	Status    IssueStatus `json:"status"`
 	Title     string      `json:"title"`
 	UpdatedAt time.Time   `json:"updatedAt"`
+}
+
+// IssueActivity defines model for IssueActivity.
+type IssueActivity struct {
+	// Actor me、agent:<id>、token:<名字>、automation:<id>
+	Actor string                 `json:"actor"`
+	At    time.Time              `json:"at"`
+	Data  map[string]interface{} `json:"data"`
+	Id    int64                  `json:"id"`
+
+	// Kind created、moved、status、archived、restored、members、copied、title、due
+	Kind string `json:"kind"`
 }
 
 // IssueLink defines model for IssueLink.
@@ -313,6 +470,16 @@ type IssueLink struct {
 
 // IssueLinkKind defines model for IssueLinkKind.
 type IssueLinkKind string
+
+// IssueMember defines model for IssueMember.
+type IssueMember struct {
+	// Id me 时为空串，agent 时是 Agent id
+	Id   string          `json:"id"`
+	Kind IssueMemberKind `json:"kind"`
+}
+
+// IssueMemberKind defines model for IssueMember.Kind.
+type IssueMemberKind string
 
 // IssueStatus defines model for IssueStatus.
 type IssueStatus string
@@ -336,14 +503,17 @@ type Milestone struct {
 	ProjectId int64               `json:"projectId"`
 }
 
-// MoveIssue defines model for MoveIssue.
+// MoveIssue B46 起可以只传 listId（可以是别的看板或别的项目的列表），这时 status 不用传，列表有对应状态时卡片状态跟着变。只传 status 时，放进卡片所在看板里对应这个状态的列表。
 type MoveIssue struct {
 	// AfterKey 落点上方的 Issue
 	AfterKey *string `json:"afterKey,omitempty"`
 
 	// BeforeKey 落点下方的 Issue
-	BeforeKey *string     `json:"beforeKey,omitempty"`
-	Status    IssueStatus `json:"status"`
+	BeforeKey *string `json:"beforeKey,omitempty"`
+
+	// ListId B46。目标列表
+	ListId *int64       `json:"listId,omitempty"`
+	Status *IssueStatus `json:"status,omitempty"`
 }
 
 // Project defines model for Project.
@@ -384,6 +554,33 @@ type ProjectCategory struct {
 	Position  float64 `json:"position"`
 	ProjectId int64   `json:"projectId"`
 }
+
+// UpdateBoard defines model for UpdateBoard.
+type UpdateBoard struct {
+	// AfterId 排序：放在这个看板后面，0 表示放到最前
+	AfterId  *int64  `json:"afterId,omitempty"`
+	Archived *bool   `json:"archived,omitempty"`
+	Icon     *string `json:"icon,omitempty"`
+	Name     *string `json:"name,omitempty"`
+	Starred  *bool   `json:"starred,omitempty"`
+}
+
+// UpdateBoardList defines model for UpdateBoardList.
+type UpdateBoardList struct {
+	// AfterId 排序：放在这个列表后面，0 表示放到最前
+	AfterId   *int64  `json:"afterId,omitempty"`
+	Archived  *bool   `json:"archived,omitempty"`
+	Collapsed *bool   `json:"collapsed,omitempty"`
+	Color     *string `json:"color,omitempty"`
+	Name      *string `json:"name,omitempty"`
+
+	// Status null 表示不对应状态
+	Status   *UpdateBoardListStatus `json:"status,omitempty"`
+	WipLimit *int                   `json:"wipLimit,omitempty"`
+}
+
+// UpdateBoardListStatus null 表示不对应状态
+type UpdateBoardListStatus string
 
 // UpdateChecklistItem defines model for UpdateChecklistItem.
 type UpdateChecklistItem struct {
@@ -467,9 +664,17 @@ type IssueKey = string
 // ProjectId defines model for ProjectId.
 type ProjectId = int64
 
+// CopyBoardJSONBody defines parameters for CopyBoard.
+type CopyBoardJSONBody struct {
+	Name *string `json:"name,omitempty"`
+}
+
 // ListIssuesParams defines parameters for ListIssues.
 type ListIssuesParams struct {
 	ProjectId *int64 `form:"projectId,omitempty" json:"projectId,omitempty"`
+
+	// BoardId B46。只看这个看板的卡片
+	BoardId *int64 `form:"boardId,omitempty" json:"boardId,omitempty"`
 
 	// Status 可以传多个
 	Status      *[]IssueStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -496,11 +701,36 @@ type ListIssuesParamsDue string
 // ListIssuesParamsSort defines parameters for ListIssues.
 type ListIssuesParamsSort string
 
+// SetIssueMembersJSONBody defines parameters for SetIssueMembers.
+type SetIssueMembersJSONBody struct {
+	Members []IssueMember `json:"members"`
+}
+
+// MoveListCardsJSONBody defines parameters for MoveListCards.
+type MoveListCardsJSONBody struct {
+	ToListId int64 `json:"toListId"`
+}
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
 	// Archived true 时只返回已归档的项目，默认只返回未归档的
 	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
 }
+
+// ListBoardsParams defines parameters for ListBoards.
+type ListBoardsParams struct {
+	// Archived 包含已归档的看板和列表
+	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
+}
+
+// UpdateBoardJSONRequestBody defines body for UpdateBoard for application/json ContentType.
+type UpdateBoardJSONRequestBody = UpdateBoard
+
+// CopyBoardJSONRequestBody defines body for CopyBoard for application/json ContentType.
+type CopyBoardJSONRequestBody CopyBoardJSONBody
+
+// CreateBoardListJSONRequestBody defines body for CreateBoardList for application/json ContentType.
+type CreateBoardListJSONRequestBody = CreateBoardList
 
 // UpdateIssueJSONRequestBody defines body for UpdateIssue for application/json ContentType.
 type UpdateIssueJSONRequestBody = UpdateIssue
@@ -523,14 +753,26 @@ type CreateCommentJSONRequestBody = CreateComment
 // CreateLinkJSONRequestBody defines body for CreateLink for application/json ContentType.
 type CreateLinkJSONRequestBody = CreateIssueLink
 
+// SetIssueMembersJSONRequestBody defines body for SetIssueMembers for application/json ContentType.
+type SetIssueMembersJSONRequestBody SetIssueMembersJSONBody
+
 // MoveIssueJSONRequestBody defines body for MoveIssue for application/json ContentType.
 type MoveIssueJSONRequestBody = MoveIssue
+
+// UpdateBoardListJSONRequestBody defines body for UpdateBoardList for application/json ContentType.
+type UpdateBoardListJSONRequestBody = UpdateBoardList
+
+// MoveListCardsJSONRequestBody defines body for MoveListCards for application/json ContentType.
+type MoveListCardsJSONRequestBody MoveListCardsJSONBody
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProject
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = UpdateProject
+
+// CreateBoardJSONRequestBody defines body for CreateBoard for application/json ContentType.
+type CreateBoardJSONRequestBody = CreateBoard
 
 // CreateProjectCategoryJSONRequestBody defines body for CreateProjectCategory for application/json ContentType.
 type CreateProjectCategoryJSONRequestBody = CreateProjectCategory
@@ -556,6 +798,24 @@ type UpdateMilestoneJSONRequestBody = UpdateMilestone
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /boards/starred)
+	ListStarredBoards(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /boards/{boardId})
+	DeleteBoard(w http.ResponseWriter, r *http.Request, boardId int64)
+
+	// (PATCH /boards/{boardId})
+	UpdateBoard(w http.ResponseWriter, r *http.Request, boardId int64)
+
+	// (GET /boards/{boardId}/archive)
+	ListBoardArchive(w http.ResponseWriter, r *http.Request, boardId int64)
+
+	// (POST /boards/{boardId}/copy)
+	CopyBoard(w http.ResponseWriter, r *http.Request, boardId int64)
+
+	// (POST /boards/{boardId}/lists)
+	CreateBoardList(w http.ResponseWriter, r *http.Request, boardId int64)
+
 	// (GET /issues)
 	ListIssues(w http.ResponseWriter, r *http.Request, params ListIssuesParams)
 
@@ -567,6 +827,12 @@ type ServerInterface interface {
 
 	// (PATCH /issues/{key})
 	UpdateIssue(w http.ResponseWriter, r *http.Request, key IssueKey)
+
+	// (GET /issues/{key}/activity)
+	ListIssueActivity(w http.ResponseWriter, r *http.Request, key IssueKey)
+
+	// (POST /issues/{key}/archive)
+	ArchiveIssue(w http.ResponseWriter, r *http.Request, key IssueKey)
 
 	// (DELETE /issues/{key}/checklist-items/{itemId})
 	DeleteChecklistItem(w http.ResponseWriter, r *http.Request, key IssueKey, itemId ChecklistItemId)
@@ -601,6 +867,9 @@ type ServerInterface interface {
 	// (DELETE /issues/{key}/comments/{commentId})
 	DeleteComment(w http.ResponseWriter, r *http.Request, key IssueKey, commentId int64)
 
+	// (POST /issues/{key}/copy)
+	CopyIssue(w http.ResponseWriter, r *http.Request, key IssueKey)
+
 	// (GET /issues/{key}/links)
 	ListLinks(w http.ResponseWriter, r *http.Request, key IssueKey)
 
@@ -610,8 +879,26 @@ type ServerInterface interface {
 	// (DELETE /issues/{key}/links/{linkId})
 	DeleteLink(w http.ResponseWriter, r *http.Request, key IssueKey, linkId int64)
 
+	// (PUT /issues/{key}/members)
+	SetIssueMembers(w http.ResponseWriter, r *http.Request, key IssueKey)
+
 	// (POST /issues/{key}/move)
 	MoveIssue(w http.ResponseWriter, r *http.Request, key IssueKey)
+
+	// (POST /issues/{key}/restore)
+	RestoreIssue(w http.ResponseWriter, r *http.Request, key IssueKey)
+
+	// (DELETE /lists/{listId})
+	DeleteBoardList(w http.ResponseWriter, r *http.Request, listId int64)
+
+	// (PATCH /lists/{listId})
+	UpdateBoardList(w http.ResponseWriter, r *http.Request, listId int64)
+
+	// (POST /lists/{listId}/archive-cards)
+	ArchiveListCards(w http.ResponseWriter, r *http.Request, listId int64)
+
+	// (POST /lists/{listId}/move-cards)
+	MoveListCards(w http.ResponseWriter, r *http.Request, listId int64)
 
 	// (GET /projects)
 	ListProjects(w http.ResponseWriter, r *http.Request, params ListProjectsParams)
@@ -627,6 +914,12 @@ type ServerInterface interface {
 
 	// (PATCH /projects/{projectId})
 	UpdateProject(w http.ResponseWriter, r *http.Request, projectId ProjectId)
+
+	// (GET /projects/{projectId}/boards)
+	ListBoards(w http.ResponseWriter, r *http.Request, projectId ProjectId, params ListBoardsParams)
+
+	// (POST /projects/{projectId}/boards)
+	CreateBoard(w http.ResponseWriter, r *http.Request, projectId ProjectId)
 
 	// (GET /projects/{projectId}/categories)
 	ListProjectCategories(w http.ResponseWriter, r *http.Request, projectId ProjectId)
@@ -672,6 +965,36 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// (GET /boards/starred)
+func (_ Unimplemented) ListStarredBoards(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /boards/{boardId})
+func (_ Unimplemented) DeleteBoard(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /boards/{boardId})
+func (_ Unimplemented) UpdateBoard(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /boards/{boardId}/archive)
+func (_ Unimplemented) ListBoardArchive(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /boards/{boardId}/copy)
+func (_ Unimplemented) CopyBoard(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /boards/{boardId}/lists)
+func (_ Unimplemented) CreateBoardList(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /issues)
 func (_ Unimplemented) ListIssues(w http.ResponseWriter, r *http.Request, params ListIssuesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -689,6 +1012,16 @@ func (_ Unimplemented) GetIssue(w http.ResponseWriter, r *http.Request, key Issu
 
 // (PATCH /issues/{key})
 func (_ Unimplemented) UpdateIssue(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /issues/{key}/activity)
+func (_ Unimplemented) ListIssueActivity(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /issues/{key}/archive)
+func (_ Unimplemented) ArchiveIssue(w http.ResponseWriter, r *http.Request, key IssueKey) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -747,6 +1080,11 @@ func (_ Unimplemented) DeleteComment(w http.ResponseWriter, r *http.Request, key
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /issues/{key}/copy)
+func (_ Unimplemented) CopyIssue(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /issues/{key}/links)
 func (_ Unimplemented) ListLinks(w http.ResponseWriter, r *http.Request, key IssueKey) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -762,8 +1100,38 @@ func (_ Unimplemented) DeleteLink(w http.ResponseWriter, r *http.Request, key Is
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /issues/{key}/members)
+func (_ Unimplemented) SetIssueMembers(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /issues/{key}/move)
 func (_ Unimplemented) MoveIssue(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /issues/{key}/restore)
+func (_ Unimplemented) RestoreIssue(w http.ResponseWriter, r *http.Request, key IssueKey) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /lists/{listId})
+func (_ Unimplemented) DeleteBoardList(w http.ResponseWriter, r *http.Request, listId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /lists/{listId})
+func (_ Unimplemented) UpdateBoardList(w http.ResponseWriter, r *http.Request, listId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /lists/{listId}/archive-cards)
+func (_ Unimplemented) ArchiveListCards(w http.ResponseWriter, r *http.Request, listId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /lists/{listId}/move-cards)
+func (_ Unimplemented) MoveListCards(w http.ResponseWriter, r *http.Request, listId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -789,6 +1157,16 @@ func (_ Unimplemented) GetProject(w http.ResponseWriter, r *http.Request, projec
 
 // (PATCH /projects/{projectId})
 func (_ Unimplemented) UpdateProject(w http.ResponseWriter, r *http.Request, projectId ProjectId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /projects/{projectId}/boards)
+func (_ Unimplemented) ListBoards(w http.ResponseWriter, r *http.Request, projectId ProjectId, params ListBoardsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /projects/{projectId}/boards)
+func (_ Unimplemented) CreateBoard(w http.ResponseWriter, r *http.Request, projectId ProjectId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -866,6 +1244,150 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// ListStarredBoards operation middleware
+func (siw *ServerInterfaceWrapper) ListStarredBoards(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStarredBoards(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBoard operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBoard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBoard(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBoard operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBoard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBoard(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBoardArchive operation middleware
+func (siw *ServerInterfaceWrapper) ListBoardArchive(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBoardArchive(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CopyBoard operation middleware
+func (siw *ServerInterfaceWrapper) CopyBoard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CopyBoard(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBoardList operation middleware
+func (siw *ServerInterfaceWrapper) CreateBoardList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBoardList(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListIssues operation middleware
 func (siw *ServerInterfaceWrapper) ListIssues(w http.ResponseWriter, r *http.Request) {
 
@@ -884,6 +1406,19 @@ func (siw *ServerInterfaceWrapper) ListIssues(w http.ResponseWriter, r *http.Req
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "projectId"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "boardId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "boardId", r.URL.Query(), &params.BoardId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "boardId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
 		}
 		return
 	}
@@ -1098,6 +1633,58 @@ func (siw *ServerInterfaceWrapper) UpdateIssue(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListIssueActivity operation middleware
+func (siw *ServerInterfaceWrapper) ListIssueActivity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListIssueActivity(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveIssue operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveIssue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveIssue(w, r, key)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1456,6 +2043,32 @@ func (siw *ServerInterfaceWrapper) DeleteComment(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// CopyIssue operation middleware
+func (siw *ServerInterfaceWrapper) CopyIssue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CopyIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListLinks operation middleware
 func (siw *ServerInterfaceWrapper) ListLinks(w http.ResponseWriter, r *http.Request) {
 
@@ -1543,6 +2156,32 @@ func (siw *ServerInterfaceWrapper) DeleteLink(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// SetIssueMembers operation middleware
+func (siw *ServerInterfaceWrapper) SetIssueMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetIssueMembers(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // MoveIssue operation middleware
 func (siw *ServerInterfaceWrapper) MoveIssue(w http.ResponseWriter, r *http.Request) {
 
@@ -1560,6 +2199,136 @@ func (siw *ServerInterfaceWrapper) MoveIssue(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.MoveIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreIssue operation middleware
+func (siw *ServerInterfaceWrapper) RestoreIssue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key IssueKey
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", chi.URLParam(r, "key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBoardList operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBoardList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "listId" -------------
+	var listId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listId", chi.URLParam(r, "listId"), &listId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBoardList(w, r, listId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBoardList operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBoardList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "listId" -------------
+	var listId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listId", chi.URLParam(r, "listId"), &listId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBoardList(w, r, listId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveListCards operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveListCards(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "listId" -------------
+	var listId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listId", chi.URLParam(r, "listId"), &listId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveListCards(w, r, listId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MoveListCards operation middleware
+func (siw *ServerInterfaceWrapper) MoveListCards(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "listId" -------------
+	var listId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "listId", chi.URLParam(r, "listId"), &listId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "listId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MoveListCards(w, r, listId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1685,6 +2454,74 @@ func (siw *ServerInterfaceWrapper) UpdateProject(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateProject(w, r, projectId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBoards operation middleware
+func (siw *ServerInterfaceWrapper) ListBoards(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId ProjectId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListBoardsParams
+
+	// ------------- Optional query parameter "archived" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "archived", r.URL.Query(), &params.Archived, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "archived"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "archived", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBoards(w, r, projectId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBoard operation middleware
+func (siw *ServerInterfaceWrapper) CreateBoard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "projectId" -------------
+	var projectId ProjectId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectId", chi.URLParam(r, "projectId"), &projectId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBoard(w, r, projectId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2267,6 +3104,57 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/issues/{key}/move", wrapper.MoveIssue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/projects/{projectId}/boards", wrapper.ListBoards)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/projects/{projectId}/boards", wrapper.CreateBoard)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/boards/starred", wrapper.ListStarredBoards)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/boards/{boardId}", wrapper.DeleteBoard)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/boards/{boardId}", wrapper.UpdateBoard)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/boards/{boardId}/copy", wrapper.CopyBoard)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/boards/{boardId}/lists", wrapper.CreateBoardList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/boards/{boardId}/archive", wrapper.ListBoardArchive)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/lists/{listId}", wrapper.DeleteBoardList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/lists/{listId}", wrapper.UpdateBoardList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/lists/{listId}/archive-cards", wrapper.ArchiveListCards)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/lists/{listId}/move-cards", wrapper.MoveListCards)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/issues/{key}/archive", wrapper.ArchiveIssue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/issues/{key}/restore", wrapper.RestoreIssue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/issues/{key}/copy", wrapper.CopyIssue)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/issues/{key}/members", wrapper.SetIssueMembers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/issues/{key}/activity", wrapper.ListIssueActivity)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/issues/{key}/comments", wrapper.ListComments)

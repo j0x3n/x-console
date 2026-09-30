@@ -11,6 +11,29 @@ import (
 	"time"
 )
 
+const addActivity = `-- name: AddActivity :exec
+INSERT INTO issue_activity (issue_id, at, actor, kind, data) VALUES (?, ?, ?, ?, ?)
+`
+
+type AddActivityParams struct {
+	IssueID int64
+	At      time.Time
+	Actor   string
+	Kind    string
+	Data    string
+}
+
+func (q *Queries) AddActivity(ctx context.Context, arg AddActivityParams) error {
+	_, err := q.db.ExecContext(ctx, addActivity,
+		arg.IssueID,
+		arg.At,
+		arg.Actor,
+		arg.Kind,
+		arg.Data,
+	)
+	return err
+}
+
 const addIssueLabel = `-- name: AddIssueLabel :exec
 INSERT OR IGNORE INTO issue_labels (issue_id, label_id) VALUES (?, ?)
 `
@@ -25,8 +48,41 @@ func (q *Queries) AddIssueLabel(ctx context.Context, arg AddIssueLabelParams) er
 	return err
 }
 
+const addIssueMember = `-- name: AddIssueMember :exec
+INSERT OR IGNORE INTO issue_members (issue_id, member_kind, member_id) VALUES (?, ?, ?)
+`
+
+type AddIssueMemberParams struct {
+	IssueID    int64
+	MemberKind string
+	MemberID   string
+}
+
+func (q *Queries) AddIssueMember(ctx context.Context, arg AddIssueMemberParams) error {
+	_, err := q.db.ExecContext(ctx, addIssueMember, arg.IssueID, arg.MemberKind, arg.MemberID)
+	return err
+}
+
+const archiveListCards = `-- name: ArchiveListCards :execrows
+UPDATE issues SET archived_at = ?, updated_at = ? WHERE list_id = ? AND archived_at IS NULL
+`
+
+type ArchiveListCardsParams struct {
+	ArchivedAt *time.Time
+	UpdatedAt  time.Time
+	ListID     *int64
+}
+
+func (q *Queries) ArchiveListCards(ctx context.Context, arg ArchiveListCardsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, archiveListCards, arg.ArchivedAt, arg.UpdatedAt, arg.ListID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const changedSince = `-- name: ChangedSince :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.project_id IN (/*SLICE:project_ids*/?) AND issues.updated_at > ?2
 ORDER BY issues.updated_at, issues.id
@@ -82,6 +138,10 @@ func (q *Queries) ChangedSince(ctx context.Context, arg ChangedSinceParams) ([]C
 			&i.Issue.DueAt,
 			&i.Issue.DueRemind,
 			&i.Issue.DueNotifiedAt,
+			&i.Issue.BoardID,
+			&i.Issue.ListID,
+			&i.Issue.ArchivedAt,
+			&i.Issue.CoverFileID,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -151,21 +211,198 @@ func (q *Queries) ClearIssueLabels(ctx context.Context, issueID int64) error {
 	return err
 }
 
-const countInColumn = `-- name: CountInColumn :one
-SELECT count(*) FROM issues WHERE project_id = ? AND status = ? AND id <> ?
+const clearIssueMembers = `-- name: ClearIssueMembers :exec
+DELETE FROM issue_members WHERE issue_id = ?
 `
 
-type CountInColumnParams struct {
-	ProjectID int64
-	Status    string
-	ID        int64
+func (q *Queries) ClearIssueMembers(ctx context.Context, issueID int64) error {
+	_, err := q.db.ExecContext(ctx, clearIssueMembers, issueID)
+	return err
 }
 
-func (q *Queries) CountInColumn(ctx context.Context, arg CountInColumnParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countInColumn, arg.ProjectID, arg.Status, arg.ID)
+const commentCountsForIssues = `-- name: CommentCountsForIssues :many
+SELECT issue_id, count(*) AS n FROM issue_comments WHERE issue_id IN (/*SLICE:issue_ids*/?) GROUP BY issue_id
+`
+
+type CommentCountsForIssuesRow struct {
+	IssueID int64
+	N       int64
+}
+
+func (q *Queries) CommentCountsForIssues(ctx context.Context, issueIds []int64) ([]CommentCountsForIssuesRow, error) {
+	query := commentCountsForIssues
+	var queryParams []interface{}
+	if len(issueIds) > 0 {
+		for _, v := range issueIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:issue_ids*/?", strings.Repeat(",?", len(issueIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:issue_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CommentCountsForIssuesRow
+	for rows.Next() {
+		var i CommentCountsForIssuesRow
+		if err := rows.Scan(&i.IssueID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const copyChecklistItems = `-- name: CopyChecklistItems :exec
+INSERT INTO issue_checklist_items (checklist_id, text, done, position, done_at)
+SELECT n.id, it.text, it.done, it.position, it.done_at
+FROM issue_checklist_items it
+JOIN issue_checklists o ON o.id = it.checklist_id AND o.issue_id = ?1
+JOIN issue_checklists n ON n.issue_id = ?2 AND n.position = o.position AND n.title = o.title
+`
+
+type CopyChecklistItemsParams struct {
+	FromIssue int64
+	ToIssue   int64
+}
+
+func (q *Queries) CopyChecklistItems(ctx context.Context, arg CopyChecklistItemsParams) error {
+	_, err := q.db.ExecContext(ctx, copyChecklistItems, arg.FromIssue, arg.ToIssue)
+	return err
+}
+
+const copyChecklists = `-- name: CopyChecklists :exec
+INSERT INTO issue_checklists (issue_id, title, position)
+SELECT CAST(?1 AS INTEGER), src.title, src.position FROM issue_checklists AS src
+WHERE src.issue_id = ?2
+`
+
+type CopyChecklistsParams struct {
+	ToIssue   int64
+	FromIssue int64
+}
+
+func (q *Queries) CopyChecklists(ctx context.Context, arg CopyChecklistsParams) error {
+	_, err := q.db.ExecContext(ctx, copyChecklists, arg.ToIssue, arg.FromIssue)
+	return err
+}
+
+const countAllInList = `-- name: CountAllInList :one
+SELECT count(*) FROM issues WHERE list_id = ?
+`
+
+func (q *Queries) CountAllInList(ctx context.Context, listID *int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAllInList, listID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countInColumn = `-- name: CountInColumn :one
+SELECT count(*) FROM issues WHERE list_id = ? AND id <> ? AND archived_at IS NULL
+`
+
+type CountInColumnParams struct {
+	ListID *int64
+	ID     int64
+}
+
+func (q *Queries) CountInColumn(ctx context.Context, arg CountInColumnParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countInColumn, arg.ListID, arg.ID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countListCards = `-- name: CountListCards :many
+SELECT list_id, count(*) AS n FROM issues
+WHERE board_id = ? AND archived_at IS NULL AND list_id IS NOT NULL GROUP BY list_id
+`
+
+type CountListCardsRow struct {
+	ListID *int64
+	N      int64
+}
+
+func (q *Queries) CountListCards(ctx context.Context, boardID *int64) ([]CountListCardsRow, error) {
+	rows, err := q.db.QueryContext(ctx, countListCards, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountListCardsRow
+	for rows.Next() {
+		var i CountListCardsRow
+		if err := rows.Scan(&i.ListID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countOpenInList = `-- name: CountOpenInList :one
+SELECT count(*) FROM issues WHERE list_id = ? AND archived_at IS NULL
+`
+
+func (q *Queries) CountOpenInList(ctx context.Context, listID *int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOpenInList, listID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createBoard = `-- name: CreateBoard :one
+INSERT INTO project_boards (project_id, name, icon, position, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?) RETURNING id, project_id, name, icon, position, starred, archived_at, created_at, updated_at
+`
+
+type CreateBoardParams struct {
+	ProjectID int64
+	Name      string
+	Icon      string
+	Position  float64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) CreateBoard(ctx context.Context, arg CreateBoardParams) (ProjectBoard, error) {
+	row := q.db.QueryRowContext(ctx, createBoard,
+		arg.ProjectID,
+		arg.Name,
+		arg.Icon,
+		arg.Position,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i ProjectBoard
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Icon,
+		&i.Position,
+		&i.Starred,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const createComment = `-- name: CreateComment :one
@@ -247,6 +484,47 @@ func (q *Queries) CreateLink(ctx context.Context, arg CreateLinkParams) (IssueLi
 	return i, err
 }
 
+const createList = `-- name: CreateList :one
+INSERT INTO board_lists (board_id, name, position, status, color, wip_limit, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, board_id, name, position, status, color, wip_limit, collapsed, archived_at, created_at
+`
+
+type CreateListParams struct {
+	BoardID   int64
+	Name      string
+	Position  float64
+	Status    *string
+	Color     string
+	WipLimit  int64
+	CreatedAt time.Time
+}
+
+func (q *Queries) CreateList(ctx context.Context, arg CreateListParams) (BoardList, error) {
+	row := q.db.QueryRowContext(ctx, createList,
+		arg.BoardID,
+		arg.Name,
+		arg.Position,
+		arg.Status,
+		arg.Color,
+		arg.WipLimit,
+		arg.CreatedAt,
+	)
+	var i BoardList
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Name,
+		&i.Position,
+		&i.Status,
+		&i.Color,
+		&i.WipLimit,
+		&i.Collapsed,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createMilestone = `-- name: CreateMilestone :one
 INSERT INTO milestones (project_id, name, due_date, created_at) VALUES (?, ?, ?, ?) RETURNING id, project_id, name, due_date, created_at
 `
@@ -307,6 +585,15 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (i
 	return id, err
 }
 
+const deleteBoard = `-- name: DeleteBoard :exec
+DELETE FROM project_boards WHERE id = ?
+`
+
+func (q *Queries) DeleteBoard(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteBoard, id)
+	return err
+}
+
 const deleteComment = `-- name: DeleteComment :execrows
 DELETE FROM issue_comments WHERE id = ? AND issue_id = ?
 `
@@ -359,6 +646,15 @@ func (q *Queries) DeleteLink(ctx context.Context, arg DeleteLinkParams) (int64, 
 	return result.RowsAffected()
 }
 
+const deleteList = `-- name: DeleteList :exec
+DELETE FROM board_lists WHERE id = ?
+`
+
+func (q *Queries) DeleteList(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteList, id)
+	return err
+}
+
 const deleteMilestone = `-- name: DeleteMilestone :exec
 DELETE FROM milestones WHERE id = ?
 `
@@ -393,6 +689,70 @@ func (q *Queries) FindLink(ctx context.Context, arg FindLinkParams) (IssueLink, 
 	return i, err
 }
 
+const firstBoard = `-- name: FirstBoard :one
+SELECT id, project_id, name, icon, position, starred, archived_at, created_at, updated_at FROM project_boards WHERE project_id = ? AND archived_at IS NULL ORDER BY position, id LIMIT 1
+`
+
+func (q *Queries) FirstBoard(ctx context.Context, projectID int64) (ProjectBoard, error) {
+	row := q.db.QueryRowContext(ctx, firstBoard, projectID)
+	var i ProjectBoard
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Icon,
+		&i.Position,
+		&i.Starred,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const firstList = `-- name: FirstList :one
+SELECT id, board_id, name, position, status, color, wip_limit, collapsed, archived_at, created_at FROM board_lists WHERE board_id = ? AND archived_at IS NULL ORDER BY position, id LIMIT 1
+`
+
+func (q *Queries) FirstList(ctx context.Context, boardID int64) (BoardList, error) {
+	row := q.db.QueryRowContext(ctx, firstList, boardID)
+	var i BoardList
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Name,
+		&i.Position,
+		&i.Status,
+		&i.Color,
+		&i.WipLimit,
+		&i.Collapsed,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getBoard = `-- name: GetBoard :one
+SELECT id, project_id, name, icon, position, starred, archived_at, created_at, updated_at FROM project_boards WHERE id = ?
+`
+
+func (q *Queries) GetBoard(ctx context.Context, id int64) (ProjectBoard, error) {
+	row := q.db.QueryRowContext(ctx, getBoard, id)
+	var i ProjectBoard
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Icon,
+		&i.Position,
+		&i.Starred,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getCategoryProject = `-- name: GetCategoryProject :one
 SELECT project_id FROM project_categories WHERE id=?
 `
@@ -405,7 +765,7 @@ func (q *Queries) GetCategoryProject(ctx context.Context, id int64) (int64, erro
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.id = ?
 `
@@ -438,13 +798,17 @@ func (q *Queries) GetIssue(ctx context.Context, id int64) (GetIssueRow, error) {
 		&i.Issue.DueAt,
 		&i.Issue.DueRemind,
 		&i.Issue.DueNotifiedAt,
+		&i.Issue.BoardID,
+		&i.Issue.ListID,
+		&i.Issue.ArchivedAt,
+		&i.Issue.CoverFileID,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByExternal = `-- name: GetIssueByExternal :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.external_source = ? AND issues.external_id = ?
 `
@@ -482,13 +846,17 @@ func (q *Queries) GetIssueByExternal(ctx context.Context, arg GetIssueByExternal
 		&i.Issue.DueAt,
 		&i.Issue.DueRemind,
 		&i.Issue.DueNotifiedAt,
+		&i.Issue.BoardID,
+		&i.Issue.ListID,
+		&i.Issue.ArchivedAt,
+		&i.Issue.CoverFileID,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByKey = `-- name: GetIssueByKey :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE projects.key = ? AND issues.number = ?
 `
@@ -526,6 +894,10 @@ func (q *Queries) GetIssueByKey(ctx context.Context, arg GetIssueByKeyParams) (G
 		&i.Issue.DueAt,
 		&i.Issue.DueRemind,
 		&i.Issue.DueNotifiedAt,
+		&i.Issue.BoardID,
+		&i.Issue.ListID,
+		&i.Issue.ArchivedAt,
+		&i.Issue.CoverFileID,
 		&i.ProjectKey,
 	)
 	return i, err
@@ -543,6 +915,44 @@ func (q *Queries) GetLabel(ctx context.Context, id int64) (Label, error) {
 		&i.ProjectID,
 		&i.Name,
 		&i.Color,
+	)
+	return i, err
+}
+
+const getList = `-- name: GetList :one
+SELECT board_lists.id, board_lists.board_id, board_lists.name, board_lists.position, board_lists.status, board_lists.color, board_lists.wip_limit, board_lists.collapsed, board_lists.archived_at, board_lists.created_at, project_boards.project_id FROM board_lists
+JOIN project_boards ON project_boards.id = board_lists.board_id WHERE board_lists.id = ?
+`
+
+type GetListRow struct {
+	ID         int64
+	BoardID    int64
+	Name       string
+	Position   float64
+	Status     *string
+	Color      string
+	WipLimit   int64
+	Collapsed  int64
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	ProjectID  int64
+}
+
+func (q *Queries) GetList(ctx context.Context, id int64) (GetListRow, error) {
+	row := q.db.QueryRowContext(ctx, getList, id)
+	var i GetListRow
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Name,
+		&i.Position,
+		&i.Status,
+		&i.Color,
+		&i.WipLimit,
+		&i.Collapsed,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.ProjectID,
 	)
 	return i, err
 }
@@ -612,8 +1022,8 @@ func (q *Queries) GetProjectIDByKey(ctx context.Context, key string) (int64, err
 const insertIssue = `-- name: InsertIssue :one
 INSERT INTO issues (project_id, number, title, description, status, priority, due_date, milestone_id,
                     sort_order, external_source, external_id, created_at, updated_at, completed_at,
-                    category_id, due_at, due_remind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    category_id, due_at, due_remind, board_id, list_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -635,6 +1045,8 @@ type InsertIssueParams struct {
 	CategoryID     *int64
 	DueAt          *string
 	DueRemind      string
+	BoardID        *int64
+	ListID         *int64
 }
 
 func (q *Queries) InsertIssue(ctx context.Context, arg InsertIssueParams) (int64, error) {
@@ -656,24 +1068,190 @@ func (q *Queries) InsertIssue(ctx context.Context, arg InsertIssueParams) (int64
 		arg.CategoryID,
 		arg.DueAt,
 		arg.DueRemind,
+		arg.BoardID,
+		arg.ListID,
 	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
 }
 
+const issueIDsOnBoard = `-- name: IssueIDsOnBoard :many
+SELECT id FROM issues WHERE board_id = ? ORDER BY sort_order, id
+`
+
+func (q *Queries) IssueIDsOnBoard(ctx context.Context, boardID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, issueIDsOnBoard, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActivity = `-- name: ListActivity :many
+SELECT id, issue_id, at, actor, kind, data FROM issue_activity WHERE issue_id = ? ORDER BY id DESC LIMIT 200
+`
+
+func (q *Queries) ListActivity(ctx context.Context, issueID int64) ([]IssueActivity, error) {
+	rows, err := q.db.QueryContext(ctx, listActivity, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IssueActivity
+	for rows.Next() {
+		var i IssueActivity
+		if err := rows.Scan(
+			&i.ID,
+			&i.IssueID,
+			&i.At,
+			&i.Actor,
+			&i.Kind,
+			&i.Data,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArchivedIssues = `-- name: ListArchivedIssues :many
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, projects.key AS project_key
+FROM issues JOIN projects ON projects.id = issues.project_id
+WHERE issues.board_id = ? AND issues.archived_at IS NOT NULL ORDER BY issues.archived_at DESC LIMIT 200
+`
+
+type ListArchivedIssuesRow struct {
+	Issue      Issue
+	ProjectKey string
+}
+
+func (q *Queries) ListArchivedIssues(ctx context.Context, boardID *int64) ([]ListArchivedIssuesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listArchivedIssues, boardID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListArchivedIssuesRow
+	for rows.Next() {
+		var i ListArchivedIssuesRow
+		if err := rows.Scan(
+			&i.Issue.ID,
+			&i.Issue.ProjectID,
+			&i.Issue.Number,
+			&i.Issue.Title,
+			&i.Issue.Description,
+			&i.Issue.Status,
+			&i.Issue.Priority,
+			&i.Issue.DueDate,
+			&i.Issue.MilestoneID,
+			&i.Issue.SortOrder,
+			&i.Issue.ExternalSource,
+			&i.Issue.ExternalID,
+			&i.Issue.CreatedAt,
+			&i.Issue.UpdatedAt,
+			&i.Issue.CompletedAt,
+			&i.Issue.CategoryID,
+			&i.Issue.DueAt,
+			&i.Issue.DueRemind,
+			&i.Issue.DueNotifiedAt,
+			&i.Issue.BoardID,
+			&i.Issue.ListID,
+			&i.Issue.ArchivedAt,
+			&i.Issue.CoverFileID,
+			&i.ProjectKey,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBoards = `-- name: ListBoards :many
+
+SELECT id, project_id, name, icon, position, starred, archived_at, created_at, updated_at FROM project_boards WHERE project_id = ? AND (archived_at IS NULL OR ?2 = 1)
+ORDER BY position, id
+`
+
+type ListBoardsParams struct {
+	ProjectID int64
+	Archived  interface{}
+}
+
+// ---- B46 boards and lists ----
+func (q *Queries) ListBoards(ctx context.Context, arg ListBoardsParams) ([]ProjectBoard, error) {
+	rows, err := q.db.QueryContext(ctx, listBoards, arg.ProjectID, arg.Archived)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectBoard
+	for rows.Next() {
+		var i ProjectBoard
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Icon,
+			&i.Position,
+			&i.Starred,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listColumn = `-- name: ListColumn :many
-SELECT id FROM issues WHERE project_id = ? AND status = ? AND id <> ? ORDER BY sort_order, id
+SELECT id FROM issues WHERE list_id = ? AND id <> ? AND archived_at IS NULL ORDER BY sort_order, id
 `
 
 type ListColumnParams struct {
-	ProjectID int64
-	Status    string
-	ID        int64
+	ListID *int64
+	ID     int64
 }
 
 func (q *Queries) ListColumn(ctx context.Context, arg ListColumnParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listColumn, arg.ProjectID, arg.Status, arg.ID)
+	rows, err := q.db.QueryContext(ctx, listColumn, arg.ListID, arg.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -728,10 +1306,10 @@ func (q *Queries) ListComments(ctx context.Context, issueID int64) ([]IssueComme
 }
 
 const listDue = `-- name: ListDue :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.due_at IS NOT NULL AND issues.due_at <= ?
-  AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL
+  AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL AND issues.archived_at IS NULL
 ORDER BY issues.due_at, CASE issues.priority WHEN 0 THEN 5 ELSE issues.priority END, issues.id
 `
 
@@ -769,6 +1347,10 @@ func (q *Queries) ListDue(ctx context.Context, dueAt *string) ([]ListDueRow, err
 			&i.Issue.DueAt,
 			&i.Issue.DueRemind,
 			&i.Issue.DueNotifiedAt,
+			&i.Issue.BoardID,
+			&i.Issue.ListID,
+			&i.Issue.ArchivedAt,
+			&i.Issue.CoverFileID,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -782,6 +1364,34 @@ func (q *Queries) ListDue(ctx context.Context, dueAt *string) ([]ListDueRow, err
 		return nil, err
 	}
 	return items, nil
+}
+
+const listForStatus = `-- name: ListForStatus :one
+SELECT id, board_id, name, position, status, color, wip_limit, collapsed, archived_at, created_at FROM board_lists WHERE board_id = ? AND status = ? AND archived_at IS NULL
+ORDER BY position, id LIMIT 1
+`
+
+type ListForStatusParams struct {
+	BoardID int64
+	Status  *string
+}
+
+func (q *Queries) ListForStatus(ctx context.Context, arg ListForStatusParams) (BoardList, error) {
+	row := q.db.QueryRowContext(ctx, listForStatus, arg.BoardID, arg.Status)
+	var i BoardList
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Name,
+		&i.Position,
+		&i.Status,
+		&i.Color,
+		&i.WipLimit,
+		&i.Collapsed,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const listLabels = `-- name: ListLabels :many
@@ -902,6 +1512,90 @@ func (q *Queries) ListLinks(ctx context.Context, issueID int64) ([]IssueLink, er
 	return items, nil
 }
 
+const listLists = `-- name: ListLists :many
+SELECT id, board_id, name, position, status, color, wip_limit, collapsed, archived_at, created_at FROM board_lists WHERE board_id = ? AND (archived_at IS NULL OR ?2 = 1)
+ORDER BY position, id
+`
+
+type ListListsParams struct {
+	BoardID  int64
+	Archived interface{}
+}
+
+func (q *Queries) ListLists(ctx context.Context, arg ListListsParams) ([]BoardList, error) {
+	rows, err := q.db.QueryContext(ctx, listLists, arg.BoardID, arg.Archived)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BoardList
+	for rows.Next() {
+		var i BoardList
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.Name,
+			&i.Position,
+			&i.Status,
+			&i.Color,
+			&i.WipLimit,
+			&i.Collapsed,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listListsForProject = `-- name: ListListsForProject :many
+SELECT board_lists.id, board_lists.board_id, board_lists.name, board_lists.position, board_lists.status, board_lists.color, board_lists.wip_limit, board_lists.collapsed, board_lists.archived_at, board_lists.created_at FROM board_lists JOIN project_boards ON project_boards.id = board_lists.board_id
+WHERE project_boards.project_id = ? AND board_lists.archived_at IS NULL
+ORDER BY board_lists.board_id, board_lists.position, board_lists.id
+`
+
+func (q *Queries) ListListsForProject(ctx context.Context, projectID int64) ([]BoardList, error) {
+	rows, err := q.db.QueryContext(ctx, listListsForProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BoardList
+	for rows.Next() {
+		var i BoardList
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.Name,
+			&i.Position,
+			&i.Status,
+			&i.Color,
+			&i.WipLimit,
+			&i.Collapsed,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMilestones = `-- name: ListMilestones :many
 SELECT id, project_id, name, due_date, created_at FROM milestones WHERE project_id = ?
 ORDER BY due_date IS NULL, due_date, name COLLATE NOCASE, id
@@ -990,35 +1684,94 @@ func (q *Queries) ListProjects(ctx context.Context, archived bool) ([]ListProjec
 	return items, nil
 }
 
-const maxSortOrder = `-- name: MaxSortOrder :one
-SELECT CAST(COALESCE(MAX(sort_order), 0) AS REAL) FROM issues WHERE project_id = ? AND status = ? AND id <> ?
+const maxBoardPosition = `-- name: MaxBoardPosition :one
+SELECT CAST(COALESCE(MAX(position), 0) AS REAL) FROM project_boards WHERE project_id = ?
 `
 
-type MaxSortOrderParams struct {
-	ProjectID int64
-	Status    string
-	ID        int64
-}
-
-func (q *Queries) MaxSortOrder(ctx context.Context, arg MaxSortOrderParams) (float64, error) {
-	row := q.db.QueryRowContext(ctx, maxSortOrder, arg.ProjectID, arg.Status, arg.ID)
+func (q *Queries) MaxBoardPosition(ctx context.Context, projectID int64) (float64, error) {
+	row := q.db.QueryRowContext(ctx, maxBoardPosition, projectID)
 	var column_1 float64
 	err := row.Scan(&column_1)
 	return column_1, err
 }
 
+const maxListPosition = `-- name: MaxListPosition :one
+SELECT CAST(COALESCE(MAX(position), 0) AS REAL) FROM board_lists WHERE board_id = ?
+`
+
+func (q *Queries) MaxListPosition(ctx context.Context, boardID int64) (float64, error) {
+	row := q.db.QueryRowContext(ctx, maxListPosition, boardID)
+	var column_1 float64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const maxSortOrder = `-- name: MaxSortOrder :one
+SELECT CAST(COALESCE(MAX(sort_order), 0) AS REAL) FROM issues WHERE list_id = ? AND id <> ? AND archived_at IS NULL
+`
+
+type MaxSortOrderParams struct {
+	ListID *int64
+	ID     int64
+}
+
+func (q *Queries) MaxSortOrder(ctx context.Context, arg MaxSortOrderParams) (float64, error) {
+	row := q.db.QueryRowContext(ctx, maxSortOrder, arg.ListID, arg.ID)
+	var column_1 float64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const membersForIssues = `-- name: MembersForIssues :many
+SELECT issue_id, member_kind, member_id FROM issue_members WHERE issue_id IN (/*SLICE:issue_ids*/?) ORDER BY member_kind DESC, member_id
+`
+
+func (q *Queries) MembersForIssues(ctx context.Context, issueIds []int64) ([]IssueMember, error) {
+	query := membersForIssues
+	var queryParams []interface{}
+	if len(issueIds) > 0 {
+		for _, v := range issueIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:issue_ids*/?", strings.Repeat(",?", len(issueIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:issue_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IssueMember
+	for rows.Next() {
+		var i IssueMember
+		if err := rows.Scan(&i.IssueID, &i.MemberKind, &i.MemberID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const minSortOrder = `-- name: MinSortOrder :one
-SELECT CAST(COALESCE(MIN(sort_order), 0) AS REAL) FROM issues WHERE project_id = ? AND status = ? AND id <> ?
+
+SELECT CAST(COALESCE(MIN(sort_order), 0) AS REAL) FROM issues WHERE list_id = ? AND id <> ? AND archived_at IS NULL
 `
 
 type MinSortOrderParams struct {
-	ProjectID int64
-	Status    string
-	ID        int64
+	ListID *int64
+	ID     int64
 }
 
+// B46: a column is a list (list_id), not a status. Archived cards do not count.
 func (q *Queries) MinSortOrder(ctx context.Context, arg MinSortOrderParams) (float64, error) {
-	row := q.db.QueryRowContext(ctx, minSortOrder, arg.ProjectID, arg.Status, arg.ID)
+	row := q.db.QueryRowContext(ctx, minSortOrder, arg.ListID, arg.ID)
 	var column_1 float64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -1026,24 +1779,18 @@ func (q *Queries) MinSortOrder(ctx context.Context, arg MinSortOrderParams) (flo
 
 const nextInColumn = `-- name: NextInColumn :one
 SELECT sort_order FROM issues
-WHERE project_id = ? AND status = ? AND id <> ? AND sort_order > ?
+WHERE list_id = ? AND id <> ? AND sort_order > ? AND archived_at IS NULL
 ORDER BY sort_order LIMIT 1
 `
 
 type NextInColumnParams struct {
-	ProjectID int64
-	Status    string
+	ListID    *int64
 	ID        int64
 	SortOrder float64
 }
 
 func (q *Queries) NextInColumn(ctx context.Context, arg NextInColumnParams) (float64, error) {
-	row := q.db.QueryRowContext(ctx, nextInColumn,
-		arg.ProjectID,
-		arg.Status,
-		arg.ID,
-		arg.SortOrder,
-	)
+	row := q.db.QueryRowContext(ctx, nextInColumn, arg.ListID, arg.ID, arg.SortOrder)
 	var sort_order float64
 	err := row.Scan(&sort_order)
 	return sort_order, err
@@ -1051,24 +1798,18 @@ func (q *Queries) NextInColumn(ctx context.Context, arg NextInColumnParams) (flo
 
 const prevInColumn = `-- name: PrevInColumn :one
 SELECT sort_order FROM issues
-WHERE project_id = ? AND status = ? AND id <> ? AND sort_order < ?
+WHERE list_id = ? AND id <> ? AND sort_order < ? AND archived_at IS NULL
 ORDER BY sort_order DESC LIMIT 1
 `
 
 type PrevInColumnParams struct {
-	ProjectID int64
-	Status    string
+	ListID    *int64
 	ID        int64
 	SortOrder float64
 }
 
 func (q *Queries) PrevInColumn(ctx context.Context, arg PrevInColumnParams) (float64, error) {
-	row := q.db.QueryRowContext(ctx, prevInColumn,
-		arg.ProjectID,
-		arg.Status,
-		arg.ID,
-		arg.SortOrder,
-	)
+	row := q.db.QueryRowContext(ctx, prevInColumn, arg.ListID, arg.ID, arg.SortOrder)
 	var sort_order float64
 	err := row.Scan(&sort_order)
 	return sort_order, err
@@ -1083,6 +1824,50 @@ func (q *Queries) ProjectKeyExists(ctx context.Context, key string) (int64, erro
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const removeForeignLabels = `-- name: RemoveForeignLabels :exec
+DELETE FROM issue_labels WHERE issue_id = ? AND label_id IN
+  (SELECT id FROM labels WHERE project_id IS NOT NULL AND project_id <> ?)
+`
+
+type RemoveForeignLabelsParams struct {
+	IssueID   int64
+	ProjectID *int64
+}
+
+func (q *Queries) RemoveForeignLabels(ctx context.Context, arg RemoveForeignLabelsParams) error {
+	_, err := q.db.ExecContext(ctx, removeForeignLabels, arg.IssueID, arg.ProjectID)
+	return err
+}
+
+const setBoardPosition = `-- name: SetBoardPosition :exec
+UPDATE project_boards SET position = ? WHERE id = ?
+`
+
+type SetBoardPositionParams struct {
+	Position float64
+	ID       int64
+}
+
+func (q *Queries) SetBoardPosition(ctx context.Context, arg SetBoardPositionParams) error {
+	_, err := q.db.ExecContext(ctx, setBoardPosition, arg.Position, arg.ID)
+	return err
+}
+
+const setIssueArchived = `-- name: SetIssueArchived :exec
+UPDATE issues SET archived_at = ?, updated_at = ? WHERE id = ?
+`
+
+type SetIssueArchivedParams struct {
+	ArchivedAt *time.Time
+	UpdatedAt  time.Time
+	ID         int64
+}
+
+func (q *Queries) SetIssueArchived(ctx context.Context, arg SetIssueArchivedParams) error {
+	_, err := q.db.ExecContext(ctx, setIssueArchived, arg.ArchivedAt, arg.UpdatedAt, arg.ID)
+	return err
 }
 
 const setIssueExternal = `-- name: SetIssueExternal :execrows
@@ -1103,6 +1888,53 @@ func (q *Queries) SetIssueExternal(ctx context.Context, arg SetIssueExternalPara
 	return result.RowsAffected()
 }
 
+const setIssuePlace = `-- name: SetIssuePlace :exec
+UPDATE issues SET project_id = ?, number = ?, board_id = ?, list_id = ?, status = ?, sort_order = ?,
+    completed_at = ?, updated_at = ?
+WHERE id = ?
+`
+
+type SetIssuePlaceParams struct {
+	ProjectID   int64
+	Number      int64
+	BoardID     *int64
+	ListID      *int64
+	Status      string
+	SortOrder   float64
+	CompletedAt *time.Time
+	UpdatedAt   time.Time
+	ID          int64
+}
+
+func (q *Queries) SetIssuePlace(ctx context.Context, arg SetIssuePlaceParams) error {
+	_, err := q.db.ExecContext(ctx, setIssuePlace,
+		arg.ProjectID,
+		arg.Number,
+		arg.BoardID,
+		arg.ListID,
+		arg.Status,
+		arg.SortOrder,
+		arg.CompletedAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const setListPosition = `-- name: SetListPosition :exec
+UPDATE board_lists SET position = ? WHERE id = ?
+`
+
+type SetListPositionParams struct {
+	Position float64
+	ID       int64
+}
+
+func (q *Queries) SetListPosition(ctx context.Context, arg SetListPositionParams) error {
+	_, err := q.db.ExecContext(ctx, setListPosition, arg.Position, arg.ID)
+	return err
+}
+
 const setSortOrder = `-- name: SetSortOrder :exec
 UPDATE issues SET sort_order = ? WHERE id = ?
 `
@@ -1117,6 +1949,62 @@ func (q *Queries) SetSortOrder(ctx context.Context, arg SetSortOrderParams) erro
 	return err
 }
 
+const starredBoards = `-- name: StarredBoards :many
+SELECT project_boards.id, project_boards.project_id, project_boards.name, project_boards.icon, project_boards.position, project_boards.starred, project_boards.archived_at, project_boards.created_at, project_boards.updated_at, projects.key AS project_key, projects.name AS project_name
+FROM project_boards JOIN projects ON projects.id = project_boards.project_id
+WHERE project_boards.starred = 1 AND project_boards.archived_at IS NULL AND projects.archived_at IS NULL
+ORDER BY project_boards.updated_at DESC LIMIT 20
+`
+
+type StarredBoardsRow struct {
+	ID          int64
+	ProjectID   int64
+	Name        string
+	Icon        string
+	Position    float64
+	Starred     int64
+	ArchivedAt  *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	ProjectKey  string
+	ProjectName string
+}
+
+func (q *Queries) StarredBoards(ctx context.Context) ([]StarredBoardsRow, error) {
+	rows, err := q.db.QueryContext(ctx, starredBoards)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StarredBoardsRow
+	for rows.Next() {
+		var i StarredBoardsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Icon,
+			&i.Position,
+			&i.Starred,
+			&i.ArchivedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ProjectKey,
+			&i.ProjectName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const takeIssueNumber = `-- name: TakeIssueNumber :one
 UPDATE projects SET next_number = next_number + 1 WHERE id = ?
 RETURNING next_number
@@ -1127,6 +2015,46 @@ func (q *Queries) TakeIssueNumber(ctx context.Context, id int64) (int64, error) 
 	var next_number int64
 	err := row.Scan(&next_number)
 	return next_number, err
+}
+
+const updateBoard = `-- name: UpdateBoard :one
+UPDATE project_boards SET name = ?, icon = ?, position = ?, starred = ?, archived_at = ?, updated_at = ?
+WHERE id = ? RETURNING id, project_id, name, icon, position, starred, archived_at, created_at, updated_at
+`
+
+type UpdateBoardParams struct {
+	Name       string
+	Icon       string
+	Position   float64
+	Starred    int64
+	ArchivedAt *time.Time
+	UpdatedAt  time.Time
+	ID         int64
+}
+
+func (q *Queries) UpdateBoard(ctx context.Context, arg UpdateBoardParams) (ProjectBoard, error) {
+	row := q.db.QueryRowContext(ctx, updateBoard,
+		arg.Name,
+		arg.Icon,
+		arg.Position,
+		arg.Starred,
+		arg.ArchivedAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	var i ProjectBoard
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Icon,
+		&i.Position,
+		&i.Starred,
+		&i.ArchivedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateIssue = `-- name: UpdateIssue :exec
@@ -1191,6 +2119,49 @@ func (q *Queries) UpdateLabel(ctx context.Context, arg UpdateLabelParams) (Label
 		&i.ProjectID,
 		&i.Name,
 		&i.Color,
+	)
+	return i, err
+}
+
+const updateList = `-- name: UpdateList :one
+UPDATE board_lists SET name = ?, position = ?, status = ?, color = ?, wip_limit = ?, collapsed = ?, archived_at = ?
+WHERE id = ? RETURNING id, board_id, name, position, status, color, wip_limit, collapsed, archived_at, created_at
+`
+
+type UpdateListParams struct {
+	Name       string
+	Position   float64
+	Status     *string
+	Color      string
+	WipLimit   int64
+	Collapsed  int64
+	ArchivedAt *time.Time
+	ID         int64
+}
+
+func (q *Queries) UpdateList(ctx context.Context, arg UpdateListParams) (BoardList, error) {
+	row := q.db.QueryRowContext(ctx, updateList,
+		arg.Name,
+		arg.Position,
+		arg.Status,
+		arg.Color,
+		arg.WipLimit,
+		arg.Collapsed,
+		arg.ArchivedAt,
+		arg.ID,
+	)
+	var i BoardList
+	err := row.Scan(
+		&i.ID,
+		&i.BoardID,
+		&i.Name,
+		&i.Position,
+		&i.Status,
+		&i.Color,
+		&i.WipLimit,
+		&i.Collapsed,
+		&i.ArchivedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

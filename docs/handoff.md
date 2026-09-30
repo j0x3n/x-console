@@ -23,13 +23,15 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 | B44 | 完成 | 点击区域 44px 没做，记在“已知问题” |
 | B42 | 完成 | 设置 → AI 用量；后端 `modules/ai/usage.go` |
 | B48 | 完成 | 设置 → 安全；`auth.RequireStrictElevated` 给 B43、B47 用 |
-| B46 | 未开始 | |
+| B46 | 后端完成，前端进行中 | 后端：迁移 `m5_b46_boards`，`projects/boards.go`、`boards_handlers.go`、`boards_actions.go`。前端要做：看板页签、自定义列表、卡片详情的成员/归档/复制/活动、星标、拖动 |
 | B43 | 未开始 | |
 | B47 | 未开始 | |
 
 ## 当前
 
-B46 项目多看板：开始。先做后端（迁移、看板和列表的接口、卡片移动），再做前端。
+B46：后端已提交（看板和列表的增删改、卡片按列表移动和跨项目移动、状态和列表联动、归档恢复、复制、成员、活动记录、看板动作 `projects.list_boards/get_board/create_card/move_card/comment/add_checklist_item/check_item/archive_card`）。
+顺手修了一个旧问题：以前拖动卡片会清掉截止时间和分类（旧的 moveIssue 没传这些字段）。
+下一步：前端 `features/projects`：项目页顶部看板页签、工具栏、自定义列表（改名、状态、WIP、归档）、卡片拖到任意列表、卡片详情加成员/归档/复制/活动；去掉 B36 的分类界面；侧边栏显示标星看板。
 B45 等用户说“部署”后带部署标记推送，用户真机测试。
 
 ## 接手时注意

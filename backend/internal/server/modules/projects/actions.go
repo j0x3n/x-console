@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -11,6 +12,7 @@ import (
 
 func (m *Module) registerActions() {
 	m.registerExtraActions()
+	m.registerBoardActions()
 	m.d.Actions.Register(actions.Action{
 		Name:        "projects.list",
 		Title:       "列出项目",
@@ -56,7 +58,10 @@ func (m *Module) registerActions() {
 			"description":{"type":"string"},
 			"status":{"type":"string","enum":["backlog","todo","in_progress","in_review","done","canceled"]},
 			"priority":{"type":"integer","minimum":0,"maximum":4},
-			"dueDate":{"type":"string","format":"date"}
+			"dueDate":{"type":"string","format":"date"},
+			"dueAt":{"type":"string","format":"date-time","description":"RFC 3339 with a time zone"},
+			"boardId":{"type":"integer"},
+			"listId":{"type":"integer"}
 		},"required":["title"],"additionalProperties":false}`),
 		Effect: actions.Write,
 		Run:    m.actionCreateIssue,
@@ -138,13 +143,16 @@ func (m *Module) actionGetIssue(ctx context.Context, input json.RawMessage) (any
 
 func (m *Module) actionCreateIssue(ctx context.Context, input json.RawMessage) (any, error) {
 	var in struct {
-		ProjectKey  string  `json:"projectKey"`
-		ProjectID   int64   `json:"projectId"`
-		Title       string  `json:"title"`
-		Description string  `json:"description"`
-		Status      string  `json:"status"`
-		Priority    int     `json:"priority"`
-		DueDate     *string `json:"dueDate"`
+		ProjectKey  string     `json:"projectKey"`
+		ProjectID   int64      `json:"projectId"`
+		Title       string     `json:"title"`
+		Description string     `json:"description"`
+		Status      string     `json:"status"`
+		Priority    int        `json:"priority"`
+		DueDate     *string    `json:"dueDate"`
+		DueAt       *time.Time `json:"dueAt"`
+		BoardID     *int64     `json:"boardId"`
+		ListID      *int64     `json:"listId"`
 	}
 	if err := decodeInput(input, &in); err != nil {
 		return nil, err
@@ -164,6 +172,7 @@ func (m *Module) actionCreateIssue(ctx context.Context, input json.RawMessage) (
 	}
 	return m.createIssue(ctx, in.ProjectID, issueInput{
 		Title: in.Title, Description: in.Description, Status: in.Status, Priority: in.Priority, DueDate: in.DueDate,
+		DueAt: in.DueAt, BoardID: in.BoardID, ListID: in.ListID,
 	})
 }
 

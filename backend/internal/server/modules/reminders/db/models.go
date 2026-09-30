@@ -166,6 +166,19 @@ type AutomationRun struct {
 	Status       string
 }
 
+type BoardList struct {
+	ID         int64
+	BoardID    int64
+	Name       string
+	Position   float64
+	Status     *string
+	Color      string
+	WipLimit   int64
+	Collapsed  int64
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+}
+
 type Brief struct {
 	ID        int64
 	Date      string
@@ -481,6 +494,19 @@ type Issue struct {
 	DueAt          *string
 	DueRemind      string
 	DueNotifiedAt  *string
+	BoardID        *int64
+	ListID         *int64
+	ArchivedAt     *time.Time
+	CoverFileID    *int64
+}
+
+type IssueActivity struct {
+	ID      int64
+	IssueID int64
+	At      time.Time
+	Actor   string
+	Kind    string
+	Data    string
 }
 
 type IssueChecklist struct {
@@ -519,6 +545,12 @@ type IssueLink struct {
 	Url       string
 	Ref       string
 	CreatedAt time.Time
+}
+
+type IssueMember struct {
+	IssueID    int64
+	MemberKind string
+	MemberID   string
 }
 
 type Label struct {
@@ -663,6 +695,18 @@ type Project struct {
 	NextNumber  int64
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type ProjectBoard struct {
+	ID         int64
+	ProjectID  int64
+	Name       string
+	Icon       string
+	Position   float64
+	Starred    int64
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type ProjectCategory struct {

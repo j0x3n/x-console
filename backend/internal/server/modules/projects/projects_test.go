@@ -208,23 +208,23 @@ func TestBoardMove(t *testing.T) {
 	}
 	// Move c (XC-1) between a (XC-3) and b (XC-2).
 	after, before := "XC-3", "XC-2"
-	env.MustDo(http.MethodPost, "/issues/XC-1/move", api.MoveIssue{Status: "todo", AfterKey: &after, BeforeKey: &before}, nil)
+	env.MustDo(http.MethodPost, "/issues/XC-1/move", api.MoveIssue{Status: st("todo"), AfterKey: &after, BeforeKey: &before}, nil)
 	if list, _ := listIssues(t, env, q); keys(list) != "XC-3,XC-1,XC-2" {
 		t.Fatalf("after move: %s", keys(list))
 	}
 	// Only afterKey: the server finds the next neighbour itself.
-	env.MustDo(http.MethodPost, "/issues/XC-2/move", api.MoveIssue{Status: "todo", AfterKey: &after}, nil)
+	env.MustDo(http.MethodPost, "/issues/XC-2/move", api.MoveIssue{Status: st("todo"), AfterKey: &after}, nil)
 	if list, _ := listIssues(t, env, q); keys(list) != "XC-3,XC-2,XC-1" {
 		t.Fatalf("after-only move: %s", keys(list))
 	}
 	// No anchors: end of another column; status changes and completedAt is set.
 	var moved api.Issue
-	env.MustDo(http.MethodPost, "/issues/XC-3/move", api.MoveIssue{Status: "done"}, &moved)
+	env.MustDo(http.MethodPost, "/issues/XC-3/move", api.MoveIssue{Status: st("done")}, &moved)
 	if moved.Status != "done" || moved.CompletedAt == nil {
 		t.Fatalf("to done: %+v", moved)
 	}
 	// An anchor from another column is rejected.
-	if status, _ := env.Do(http.MethodPost, "/issues/XC-1/move", api.MoveIssue{Status: "todo", AfterKey: &after}, nil); status != 400 {
+	if status, _ := env.Do(http.MethodPost, "/issues/XC-1/move", api.MoveIssue{Status: st("todo"), AfterKey: &after}, nil); status != 400 {
 		t.Fatalf("anchor in other column: %d", status)
 	}
 
@@ -237,7 +237,7 @@ func TestBoardMove(t *testing.T) {
 	// Column: RB-3, RB-2, RB-1.
 	lower, upper := "RB-1", "RB-2"
 	for i := 0; i < 60; i++ {
-		env.MustDo(http.MethodPost, "/issues/"+lower+"/move", api.MoveIssue{Status: "todo", AfterKey: strPtr("RB-3"), BeforeKey: &upper}, nil)
+		env.MustDo(http.MethodPost, "/issues/"+lower+"/move", api.MoveIssue{Status: st("todo"), AfterKey: strPtr("RB-3"), BeforeKey: &upper}, nil)
 		lower, upper = upper, lower
 	}
 	if list, _ := listIssues(t, env, fmt.Sprintf("projectId=%d&status=todo&sort=manual", rb.Id)); keys(list) != "RB-3,"+upper+","+lower {
@@ -255,7 +255,7 @@ func TestRebalanceTinyGap(t *testing.T) {
 	if _, err := env.App.Deps.DB.Exec(`UPDATE issues SET sort_order = 1.0 WHERE number = 2; UPDATE issues SET sort_order = 1.0000000001 WHERE number = 1`); err != nil {
 		t.Fatal(err)
 	}
-	env.MustDo(http.MethodPost, "/issues/XC-3/move", api.MoveIssue{Status: "todo", AfterKey: strPtr("XC-2"), BeforeKey: strPtr("XC-1")}, nil)
+	env.MustDo(http.MethodPost, "/issues/XC-3/move", api.MoveIssue{Status: st("todo"), AfterKey: strPtr("XC-2"), BeforeKey: strPtr("XC-1")}, nil)
 	if list, _ := listIssues(t, env, fmt.Sprintf("projectId=%d&status=todo&sort=manual", p.Id)); keys(list) != "XC-2,XC-3,XC-1" {
 		t.Fatalf("rebalanced: %s", keys(list))
 	}
@@ -577,4 +577,9 @@ func TestIssueToolsListedOnce(t *testing.T) {
 			t.Fatalf("%s missing", name)
 		}
 	}
+}
+
+func st(s string) *api.IssueStatus {
+	v := api.IssueStatus(s)
+	return &v
 }
