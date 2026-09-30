@@ -205,10 +205,16 @@ func (m *Module) ListDriveShares(w http.ResponseWriter, r *http.Request, params 
 		return
 	}
 	items := []api.DriveShare{}
+	unlocked := auth.VaultUnlocked(ctx)
 	for _, share := range shares {
 		item, err := m.row(ctx, share.ItemID)
 		if fail(w, r, err) {
 			return
+		}
+		// Hiding a shared item keeps the share for a while (pruneShares).
+		// Its name stays out of the list while the vault is locked.
+		if item.Hidden != 0 && !unlocked {
+			continue
 		}
 		dto, err := m.shareDTO(ctx, r, share, item)
 		if fail(w, r, err) {

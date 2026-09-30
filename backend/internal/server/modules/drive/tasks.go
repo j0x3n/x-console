@@ -15,6 +15,7 @@ import (
 
 type driveTask struct {
 	m       *Module
+	hidden  bool          // works on the vault: the title names no file and Current stays empty
 	dto     api.DriveTask // protected by tasksMu
 	cancel  context.CancelFunc
 	lastPub time.Time
@@ -25,6 +26,17 @@ type taskJob func(context.Context, *driveTask) error
 // startTask detaches a job from the HTTP request. Jobs wait for one of two
 // slots; the queue stays visible as a running task with Current="等待中".
 func (m *Module) startTask(kind api.DriveTaskKind, title string, totalItems int, totalBytes int64, job taskJob, targetID ...int64) api.DriveTask {
+	return m.newTask(kind, title, false, totalItems, totalBytes, job, targetID...)
+}
+
+// startHiddenTask is startTask for work on hidden items. Task events go to
+// every browser and the task list stays for 10 minutes after the vault
+// locks, so hiddenTitle must not contain file names.
+func (m *Module) startHiddenTask(kind api.DriveTaskKind, hiddenTitle string, totalItems int, totalBytes int64, job taskJob, targetID ...int64) api.DriveTask {
+	return m.newTask(kind, hiddenTitle, true, totalItems, totalBytes, job, targetID...)
+}
+
+func (m *Module) newTask(kind api.DriveTaskKind, title string, hidden bool, totalItems int, totalBytes int64, job taskJob, targetID ...int64) api.DriveTask {
 	base := m.taskBase
 	if base == nil {
 		base = context.Background()
@@ -40,7 +52,7 @@ func (m *Module) startTask(kind api.DriveTaskKind, title string, totalItems int,
 		id := targetID[0]
 		dto.TargetId = &id
 	}
-	t := &driveTask{m: m, cancel: cancel, dto: dto}
+	t := &driveTask{m: m, hidden: hidden, cancel: cancel, dto: dto}
 	m.tasksMu.Lock()
 	m.tasks[t.dto.Id] = t
 	m.tasksMu.Unlock()
@@ -74,7 +86,9 @@ func (t *driveTask) progress(current string, doneItems int, doneBytes int64) {
 		if dto.State != api.DriveTaskStateRunning {
 			return
 		}
-		dto.Current = &current
+		if !t.hidden {
+			dto.Current = &current
+		}
 		dto.DoneItems = doneItems
 		dto.DoneBytes = doneBytes
 	})

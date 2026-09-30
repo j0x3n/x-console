@@ -79,3 +79,24 @@ func TestDriveShareRejectsHiddenAndBadInput(t *testing.T) {
 		t.Fatalf("hidden share: %d %s", status, raw)
 	}
 }
+
+func TestHiddenSharedItemLeavesShareListWhileLocked(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	file := upload(t, env, "秘密合同.pdf", "x", false)
+	env.Elevate()
+	env.MustDo(http.MethodPost, "/drive/shares", map[string]any{"itemId": file.Id, "expiresIn": "7d"}, nil)
+	env.MustDo(http.MethodPost, "/vault/setup", map[string]string{"password": "secret123"}, nil)
+	env.MustDo(http.MethodPatch, "/drive/items/"+strconv.FormatInt(file.Id, 10), map[string]any{"hidden": true}, nil)
+	var out struct {
+		Items []api.DriveShare `json:"items"`
+	}
+	env.MustDo(http.MethodGet, "/drive/shares", nil, &out)
+	if len(out.Items) != 1 || out.Items[0].Active {
+		t.Fatalf("unlocked share list: %+v", out.Items)
+	}
+	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
+	_, raw := env.Do(http.MethodGet, "/drive/shares", nil, nil)
+	if strings.Contains(string(raw), "秘密") {
+		t.Fatalf("hidden name in locked share list: %s", raw)
+	}
+}

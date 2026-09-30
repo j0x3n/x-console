@@ -137,7 +137,14 @@ func (m *Module) transfer(w http.ResponseWriter, r *http.Request, kind api.Drive
 		verb = "移动"
 	}
 	title := fmt.Sprintf("%s %d 项到 %s", verb, len(sources), targetName)
-	task := m.startTask(kind, title, totalItems, totalBytes, func(jobCtx context.Context, t *driveTask) error {
+	start := m.startTask
+	for _, source := range sources {
+		if source.item.Hidden != 0 {
+			start, title = m.startHiddenTask, fmt.Sprintf("%s隐藏空间里的 %d 项", verb, len(sources))
+			break
+		}
+	}
+	task := start(kind, title, totalItems, totalBytes, func(jobCtx context.Context, t *driveTask) error {
 		var err error
 		if kind == api.Copy {
 			err = m.copyItems(jobCtx, t, sources, target, body.Conflict)

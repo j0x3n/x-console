@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -299,7 +300,17 @@ func TestDriveExtractHiddenArchiveStaysHidden(t *testing.T) {
 	env := testutil.New(t, drive.New)
 	env.MustDo(http.MethodPost, "/vault/setup", map[string]string{"password": "secret123"}, nil)
 	archive := upload(t, env, "秘密.zip", string(makeExtractArchive(t, "zip")), true)
+	events, cancel := env.App.Deps.Bus.Subscribe("drive_task.", 256)
+	defer cancel()
 	task := extractTask(t, env, archive.Id, nil)
+	// Task events reach every browser, so they name no hidden file.
+	for len(events) > 0 {
+		ev := <-events
+		dto, _ := ev.Data.(api.DriveTask)
+		if strings.Contains(dto.Title, "秘密") || dto.Current != nil && *dto.Current != "等待中" {
+			t.Fatalf("hidden name in task event: %+v", dto)
+		}
+	}
 	if task.ResultId == nil {
 		t.Fatalf("missing hidden folder: %+v", task)
 	}
@@ -312,6 +323,10 @@ func TestDriveExtractHiddenArchiveStaysHidden(t *testing.T) {
 		t.Fatalf("visible extracted children: %d %v", visibleChildren, err)
 	}
 	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
+	_, raw := env.Do(http.MethodGet, "/drive/tasks", nil, nil)
+	if strings.Contains(string(raw), "秘密") {
+		t.Fatalf("hidden name in task list: %s", raw)
+	}
 	status, _ := env.Do(http.MethodGet, "/drive/items/"+strconv.FormatInt(*task.ResultId, 10), nil, nil)
 	if status != http.StatusNotFound {
 		t.Fatalf("locked extracted folder: %d", status)

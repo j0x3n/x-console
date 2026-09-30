@@ -135,11 +135,15 @@ func (m *Module) ExtractDriveItem(w http.ResponseWriter, r *http.Request, itemID
 		m.d.Audit.Record(context.WithoutCancel(jobCtx), "drive.extract", strconv.FormatInt(item.ID, 10), map[string]any{"targetId": body.TargetId}, err)
 		return err
 	}
+	start := m.startTask
+	if item.Hidden != 0 {
+		start, title = m.startHiddenTask, "解压隐藏空间里的压缩包"
+	}
 	var task api.DriveTask
 	if body.TargetId != nil {
-		task = m.startTask(api.Extract, title, 0, 0, job, *body.TargetId)
+		task = start(api.Extract, title, 0, 0, job, *body.TargetId)
 	} else {
-		task = m.startTask(api.Extract, title, 0, 0, job)
+		task = start(api.Extract, title, 0, 0, job)
 	}
 	httpx.JSON(w, http.StatusAccepted, task)
 }
