@@ -94,3 +94,33 @@ func readFollowFrame(t *testing.T, ctx context.Context, ws *websocket.Conn) stru
 	}
 	return frame
 }
+
+func TestRemoteFollowKeepsChineseWhole(t *testing.T) {
+	env, _ := setup(t)
+	path := filepath.Join(t.TempDir(), "app.log")
+	// 3-byte runes after one ASCII byte: every 32 KiB chunk ends inside a rune.
+	data := append([]byte("x"), bytes.Repeat([]byte("中文日志\n"), 10000)...)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	id, _, _ := startAgent(t, env, "range", "server", []string{protocol.CapFiles, protocol.CapFilesRange}, func(c *conn.Client) { agentfiles.Register(c) })
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	ws, _, err := websocket.Dial(ctx, env.WSURL("/hosts/"+id+"/files/follow?path="+url.QueryEscape(path)+"&offset=0"), &websocket.DialOptions{HTTPHeader: wsHeader(env)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Close(websocket.StatusNormalClosure, "")
+	ws.SetReadLimit(1 << 20)
+	var got bytes.Buffer
+	for got.Len() < len(data) {
+		frame := readFollowFrame(t, ctx, ws)
+		if frame.Type != "append" || frame.Offset != int64(got.Len()) {
+			t.Fatalf("frame at %d: %s %d", got.Len(), frame.Type, frame.Offset)
+		}
+		got.WriteString(frame.Data)
+	}
+	if !bytes.Equal(got.Bytes(), data) {
+		t.Fatal("followed text differs from the file")
+	}
+}

@@ -148,13 +148,14 @@ func (m *Module) followFileOnce(ctx context.Context, ws *websocket.Conn, a agent
 			*offset = 0
 			return nil
 		}
-		if len(data) == 0 {
-			return nil
+		usable := logfollow.UTF8Prefix(data)
+		if usable == 0 {
+			return nil // empty, or a rune still being written; read it again next time
 		}
-		if err := ws.Write(context.Background(), websocket.MessageText, logfollow.Append(*offset, data)); err != nil {
+		if err := ws.Write(context.Background(), websocket.MessageText, logfollow.Append(*offset, data[:usable])); err != nil {
 			return err
 		}
-		*offset += int64(len(data))
+		*offset += int64(usable)
 	}
 	return nil
 }
