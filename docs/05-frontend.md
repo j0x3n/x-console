@@ -96,6 +96,10 @@ export function useIssues(projectId: number) {
 - 出错时 `ApiError` 带 `status` 和 `code`。`integration_not_configured` 显示“去设置”的链接。
 - 高危操作包在 `withElevation(() => ...)` 里，它会自动弹出验证码框并重试。
 - 修改成功后用 `toast("已保存")` 提示，失败用 `toast({ message, tone: "error" })`。
+- 报错（B41）：`toast({ tone: "error" })` 会自动转到 `lib/errors.ts` 的报错列表，不自动消失，可以复制完整内容。直接有错误对象时用 `reportError(error, { title })`，它会打印控制台、显示提示、写服务器日志。
+  - 查询出错由 `api/query.ts` 全局上报（404、501 除外），不需要页面自己弹提示。轮询、探测类的查询加 `meta: { silentError: true }`。
+  - 修改操作没写 `onError` 的也会全局上报。写了 `onError` 的由页面自己提示；同一个错误页面再报一次时，只把标题换成页面给的。
+  - 401、取消的请求、`elevation_required` 不算报错。
 - WebSocket 流（终端、日志）用 `wsUrl("/hosts/1/terminal")` 拼地址。
 - 长文字里的图片（B36 定的）：用公共上传接口 `POST /files?scope=<模块>`（`api/modules/files.yaml`），不要每个模块自己做附件接口。`MarkdownEditor` 传 `uploadScope` 就能粘贴、拖入、选择图片，上传和占位的函数在 `components/markdown/upload.ts`。后端保存内容时从 Markdown 里认领图片，删除内容时一起删掉。笔记和云盘有自己的文件接口，不走这里。
 

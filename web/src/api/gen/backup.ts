@@ -267,6 +267,8 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+            /** @description 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41） */
+            requestId?: string;
         };
         StorageS3: {
             /** @description 例如 https://s3.amazonaws.com 或 https://<账号>.r2.cloudflarestorage.com */

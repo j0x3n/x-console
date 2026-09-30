@@ -469,6 +469,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B41。前端显示过的报错写进服务器日志（级别 warn），手机上看不到控制台时靠它查。每个会话每分钟最多 30 条，超出的直接丢掉，仍回 204。 */
+        post: operations["reportClientError"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -589,6 +606,8 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+            /** @description 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41） */
+            requestId?: string;
         };
     };
     responses: {
@@ -1262,6 +1281,36 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    reportClientError: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    message: string;
+                    /** @description 复制用的完整文本 */
+                    detail?: string;
+                    page?: string;
+                    requestId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已记录 */
             204: {
                 headers: {
                     [name: string]: unknown;

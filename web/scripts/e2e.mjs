@@ -874,6 +874,34 @@ try {
     await page.goto(`${base}${path}`);
     await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
   }
+  stage = "B41 报错提示常驻、可以展开和复制";
+  {
+    const consoleErrors = [];
+    const onConsole = (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    };
+    page.on("console", onConsole);
+    await page.route(/\/api\/v1\/notes(\?|$)/, (route) =>
+      route.fulfill({
+        status: 500,
+        headers: { "Content-Type": "application/json", "X-Request-Id": "e2e-req-1" },
+        body: JSON.stringify({ code: "internal", message: "端到端假错误", requestId: "e2e-req-1" }),
+      }),
+    );
+    await page.goto(`${base}/notes`);
+    const notice = page.locator(".error-notice").filter({ hasText: "端到端假错误" }).first();
+    await notice.waitFor({ timeout: 20_000 });
+    await page.waitForTimeout(6_000);
+    assert.equal(await notice.isVisible(), true, "报错提示 6 秒后自己消失了");
+    await notice.locator(".error-notice-text").click();
+    const detail = await notice.locator(".error-notice-text").innerText();
+    assert.match(detail, /请求编号：e2e-req-1/);
+    assert.match(detail, /状态：500 internal/);
+    assert.ok(consoleErrors.some((text) => text.includes("[X Console]")), "控制台没有 [X Console] 输出");
+    await page.unroute(/\/api\/v1\/notes(\?|$)/);
+    page.off("console", onConsole);
+    await page.getByRole("button", { name: /全部关闭|关闭/ }).first().click();
+  }
   stage = "手机命令面板";
   await page.setViewportSize({ width: 390, height: 180 });
   await page.keyboard.press("Control+k");

@@ -29,8 +29,9 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 
 ## 当前
 
-B41 后端已完成（请求编号写进响应头 `X-Request-Id` 和报错 JSON 的 `requestId`；`POST /client-errors` 写服务器日志，每会话每分钟 30 条）。
-下一步：前端 `lib/errors.ts`（报错列表 store、`reportError`、复制文本）、`components/ui/ErrorNotices.tsx`、`api/client.ts` 的 `ApiError` 加请求信息、`api/query.ts` 的全局 `onError`、`toast({tone:"error"})` 转到报错列表、错误边界、设置里“最近的报错”。
+B41：后端、前端、单元测试都已完成并提交（`lib/errors.ts`、`components/ui/ErrorNotices.tsx`、`ErrorBoundary.tsx`、`app/NoticeStack.tsx`、设置里“最近的报错”标签）。
+正在跑端到端测试（`scripts/e2e.mjs` 新加了“B41 报错提示”一段，用拦截接口回 500 的办法测）。
+下一步：e2e 通过后跑 `npm run shots` 看 1360px 和 390px 的报错提示，然后把 B41 标为完成，开始 B45。
 
 ## 接手时注意
 

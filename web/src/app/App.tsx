@@ -8,6 +8,7 @@ import { LanguageContext } from "../contexts/LanguageContext";
 import { usePreferenceEffects } from "../hooks/usePreferenceEffects";
 import { useBrowserViewport } from "../hooks/useBrowserViewport";
 import Layout from "./Layout";
+import NoticeStack from "./NoticeStack";
 import { moduleRoutes } from "./routes";
 import { Loading } from "../components/ui/States";
 
@@ -48,6 +49,7 @@ export default function App() {
             <RouterProvider router={router} />
           </AuthGate>
         )}
+        <NoticeStack />
       </QueryClientProvider>
     </LanguageContext.Provider>
   );

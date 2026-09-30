@@ -7,8 +7,7 @@ import CommandPalette from "../components/command/CommandPalette";
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
 import { Loading } from "../components/ui/States";
-import Toast from "../components/ui/Toast";
-import { useToastStore } from "../hooks/useToast";
+import ErrorBoundary from "../components/ui/ErrorBoundary";
 import GlobalPanels from "./GlobalPanels";
 import { useSidebar } from "../stores/sidebar";
 import { usePreferencesSync } from "../hooks/usePreferencesSync";
@@ -18,8 +17,6 @@ export default function Layout() {
   usePreferencesSync();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const toast = useToastStore((s) => s.current);
-  const hideToast = useToastStore((s) => s.hide);
   const location = useLocation();
   useEffect(() => {
     setMobileOpen(false);
@@ -53,9 +50,11 @@ export default function Layout() {
             openPalette={() => setPaletteOpen(true)}
           />
           {/* 页面按需加载（B6），加载时显示转圈 */}
-          <Suspense fallback={<Loading />}>
-            <Outlet />
-          </Suspense>
+          <ErrorBoundary key={location.pathname}>
+            <Suspense fallback={<Loading />}>
+              <Outlet />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
       <GlobalPanels />
@@ -65,7 +64,6 @@ export default function Layout() {
       />
       <ElevationDialog />
       <ConfirmHost />
-      {toast && <Toast key={toast.id} toast={toast} hideToast={hideToast} />}
     </div>
   );
 }

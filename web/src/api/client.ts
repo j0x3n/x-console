@@ -7,10 +7,21 @@ import createClient, { type Middleware } from "openapi-fetch";
 
 export const API_BASE = "/api/v1";
 
+/** 出错请求的上下文，复制报错时用（B41）。 */
+export interface ApiRequestInfo {
+  method: string;
+  path: string;
+  /** 响应正文，最多 4 KB。 */
+  body?: string;
+  requestId?: string;
+  at: number;
+}
+
 export class ApiError extends Error {
   status: number;
   code: string;
   details?: Record<string, unknown>;
+  request?: ApiRequestInfo;
   constructor(
     status: number,
     code: string,
@@ -34,30 +45,58 @@ export function onUnauthorized(fn: () => void) {
   };
 }
 
-async function checkResponse(response: Response): Promise<Response> {
+/** 最近的接口报错，新的在前，最多 20 条。lib/errors 用它给页面的报错提示补上详情。 */
+export const recentApiErrors: ApiError[] = [];
+
+async function checkResponse(
+  response: Response,
+  method = "GET",
+): Promise<Response> {
   if (response.ok) return response;
   let body: {
     code?: string;
     message?: string;
     details?: Record<string, unknown>;
+    requestId?: string;
   } = {};
+  let text = "";
   try {
-    body = await response.clone().json();
+    text = await response.clone().text();
+    body = JSON.parse(text);
   } catch {
     /* 非 JSON 错误体 */
   }
   if (response.status === 401 && body.code === "unauthorized")
     listeners.forEach((fn) => fn());
-  throw new ApiError(
+  const error = new ApiError(
     response.status,
     body.code ?? "http_error",
     body.message ?? response.statusText,
     body.details,
   );
+  let path = response.url;
+  try {
+    const url = new URL(response.url);
+    path = url.pathname + url.search;
+  } catch {
+    /* 测试里的假响应没有地址 */
+  }
+  error.request = {
+    method,
+    path,
+    body: text.slice(0, 4096),
+    requestId:
+      body.requestId ?? response.headers?.get?.("X-Request-Id") ?? undefined,
+    at: Date.now(),
+  };
+  recentApiErrors.unshift(error);
+  recentApiErrors.length = Math.min(recentApiErrors.length, 20);
+  throw error;
 }
 
 const errorMiddleware: Middleware = {
-  onResponse: ({ response }) => checkResponse(response),
+  onResponse: ({ response, request }) =>
+    checkResponse(response, request.method),
 };
 
 export function createApi<Paths extends {}>() {
@@ -94,6 +133,7 @@ export async function apiFetch(
       headers,
       credentials: "same-origin",
     }),
+    init.method ?? "GET",
   );
 }
 

@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { useToastStore } from "../../hooks/useToast";
+import { useErrorStore } from "../../lib/errors";
 import MarkdownEditor from "./MarkdownEditor";
 
 let latest = "";
@@ -35,6 +36,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   useToastStore.setState({ current: null });
+  useErrorStore.setState({ notices: [], history: [] });
 });
 
 describe("MarkdownEditor image paste", () => {
@@ -73,7 +75,10 @@ describe("MarkdownEditor image paste", () => {
     render(<Editor />);
     paste([png()]);
     await waitFor(() => expect(latest).toBe("开头"));
-    expect(useToastStore.getState().current?.message).toBe("图片上传还没上线");
+    // 报错不走普通提示，进报错列表（B41）。
+    expect(useErrorStore.getState().notices[0]?.message).toBe(
+      "图片上传还没上线",
+    );
   });
 
   it("pastes text normally when the clipboard also has text", () => {

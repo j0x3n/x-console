@@ -140,3 +140,20 @@ registerZh({
   "Image is larger than 20 MB": "图片超过 20 MB",
   "Image upload is not live yet": "图片上传还没上线",
 });
+
+// B41 报错提示
+registerZh({
+  "Request failed": "请求失败",
+  Copy: "复制",
+  Copied: "已复制",
+  "Page error": "页面出错",
+  "Show more": "展开",
+  "Show less": "收起",
+  "{n} more errors": "还有 {n} 条报错",
+  "Dismiss all": "全部关闭",
+  "Recent errors": "最近的报错",
+  "Copy all": "全部复制",
+  "No errors since this page was opened": "打开页面以来没有报错",
+  "Something went wrong on this page": "这个页面出错了",
+  Reload: "重新加载",
+});
