@@ -33,7 +33,8 @@ type Handlers struct {
 	PublicURL string
 	AgentsDir string
 
-	dist distState
+	dist         distState
+	clientErrors clientErrorLog
 }
 
 var _ api.ServerInterface = (*Handlers)(nil)

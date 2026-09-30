@@ -346,6 +346,16 @@ type DisableTotpJSONBody struct {
 	Password string `json:"password"`
 }
 
+// ReportClientErrorJSONBody defines parameters for ReportClientError.
+type ReportClientErrorJSONBody struct {
+	// Detail 复制用的完整文本
+	Detail    *string `json:"detail,omitempty"`
+	Message   string  `json:"message"`
+	Page      *string `json:"page,omitempty"`
+	RequestId *string `json:"requestId,omitempty"`
+	Title     string  `json:"title"`
+}
+
 // ListNotificationsParams defines parameters for ListNotifications.
 type ListNotificationsParams struct {
 	Unread *bool                `form:"unread,omitempty" json:"unread,omitempty"`
@@ -382,6 +392,9 @@ type ConfirmTotpJSONRequestBody = TotpCode
 
 // DisableTotpJSONRequestBody defines body for DisableTotp for application/json ContentType.
 type DisableTotpJSONRequestBody DisableTotpJSONBody
+
+// ReportClientErrorJSONRequestBody defines body for ReportClientError for application/json ContentType.
+type ReportClientErrorJSONRequestBody ReportClientErrorJSONBody
 
 // PutPreferencesJSONRequestBody defines body for PutPreferences for application/json ContentType.
 type PutPreferencesJSONRequestBody = Preferences
@@ -451,6 +464,9 @@ type ServerInterface interface {
 
 	// (POST /auth/totp/enroll)
 	EnrollTotp(w http.ResponseWriter, r *http.Request)
+
+	// (POST /client-errors)
+	ReportClientError(w http.ResponseWriter, r *http.Request)
 
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -580,6 +596,11 @@ func (_ Unimplemented) DisableTotp(w http.ResponseWriter, r *http.Request) {
 
 // (POST /auth/totp/enroll)
 func (_ Unimplemented) EnrollTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /client-errors)
+func (_ Unimplemented) ReportClientError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1059,6 +1080,20 @@ func (siw *ServerInterfaceWrapper) EnrollTotp(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ReportClientError operation middleware
+func (siw *ServerInterfaceWrapper) ReportClientError(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportClientError(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -1422,6 +1457,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/notifications/{notificationId}", wrapper.DeleteNotification)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/client-errors", wrapper.ReportClientError)
 	})
 
 	return r

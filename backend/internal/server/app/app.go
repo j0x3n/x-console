@@ -153,7 +153,7 @@ func (a *App) routes() http.Handler {
 	}
 
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.Recoverer, requestLog)
+	r.Use(middleware.RequestID, httpx.ExposeRequestID, middleware.Recoverer, requestLog)
 	r.Route(APIPrefix, func(api chi.Router) {
 		api.Use(d.Auth.Middleware(isPublic))
 		api.Get("/agent/connect", d.Agents.ServeConnect)

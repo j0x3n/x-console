@@ -490,6 +490,29 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /client-errors:
+    post:
+      operationId: reportClientError
+      tags: [notifications]
+      description: B41。前端显示过的报错写进服务器日志（级别 warn），手机上看不到控制台时靠它查。每个会话每分钟最多 30 条，超出的直接丢掉，仍回 204。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, message]
+              properties:
+                title: { type: string, maxLength: 200 }
+                message: { type: string, maxLength: 2000 }
+                detail: { type: string, maxLength: 8192, description: 复制用的完整文本 }
+                page: { type: string, maxLength: 500 }
+                requestId: { type: string, maxLength: 100 }
+      responses:
+        "204":
+          description: 已记录
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     PairingCode:

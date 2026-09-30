@@ -29,7 +29,8 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 
 ## 当前
 
-B41：开始。
+B41 后端已完成（请求编号写进响应头 `X-Request-Id` 和报错 JSON 的 `requestId`；`POST /client-errors` 写服务器日志，每会话每分钟 30 条）。
+下一步：前端 `lib/errors.ts`（报错列表 store、`reportError`、复制文本）、`components/ui/ErrorNotices.tsx`、`api/client.ts` 的 `ApiError` 加请求信息、`api/query.ts` 的全局 `onError`、`toast({tone:"error"})` 转到报错列表、错误边界、设置里“最近的报错”。
 
 ## 接手时注意
 
