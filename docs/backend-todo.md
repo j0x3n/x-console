@@ -49,8 +49,8 @@
 | 14d | B33 会话执行和确认 | 做完 | `modules/ai/worker.go`、`host_handlers.go`、`host_agent_test.go`、`web/scripts/e2e.mjs` | 机器专属工具、权限矩阵、高危提权、审计、停止取消、两小时失效、文件备份和浏览器主流程已测；全量后端检查通过 |
 | 15a | B36 分类接口和基础迁移 | 做完 | `modules/projects/categories.go`、`categories_test.go`、迁移 `20260930000400` | 两级分类、顺序、归档限制、删除后未分类和外键已测；接 Issue 新字段 |
 | 15b | B36 Issue 字段和到期提醒 | 做完 | `modules/projects/service.go`、`list.go`、`due.go`、`contracts.go`、`web/scripts/e2e.mjs` | categoryId、dueAt、dueRemind、清单计数、旧 dueDate 回填、筛选排序和一次性通知已测；全量检查与浏览器主流程通过 |
-| 15c | B36 检查清单 | 在做 | `modules/projects/checklists.go` | 按规格接 8 个接口和转换成 Issue |
-| 15d | B36 公共上传 | 没开始 | | 新增 `modules/files`，文件认领与删除 |
+| 15c | B36 检查清单 | 做完 | `modules/projects/checklists.go`、`checklists_test.go`、`web/scripts/e2e.mjs` | 8 个接口、排序、勾选时间、跨清单移动和事务内转 Issue 已测；全量后端检查与浏览器主流程通过 |
+| 15d | B36 公共上传 | 在做 | `modules/files/`、`contracts` | 新增模块，接文件认领、缩略图和删除 |
 | 16 | B37 提醒页汇总 | 没开始 | | B36 到期提醒完成后接入 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
@@ -74,7 +74,7 @@
 | `modules/notes/pending.go` | 已删除 | B32 已做完 |
 | `modules/reminders/pending.go` | 1 | B37 |
 | `modules/github/pending.go` | 已删除 | B35 已做完 |
-| `modules/projects/pending.go` | 12 | B36 |
+| `modules/projects/pending.go` | 已删除 | B36 分类和检查清单接口已接通 |
 
 云盘公开分享路径已登记在 `drive/module.go`。
 

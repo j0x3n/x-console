@@ -285,6 +285,24 @@ try {
   assert.equal(new Date(dueIssue.dueAt).getTime(), new Date(dueAt).getTime());
   await page.reload();
   await page.getByText("服务器", { exact: true }).first().waitFor();
+  stage = "B36 检查清单";
+  const checklistResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists`, {
+    headers: { "X-Requested-With": "x-console" }, data: { title: "端到端检查" },
+  });
+  assert.equal(checklistResponse.status(), 201, await checklistResponse.text());
+  const checklist = await checklistResponse.json();
+  const checklistItemResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists/${checklist.id}/items`, {
+    headers: { "X-Requested-With": "x-console" }, data: { text: "核对接口" },
+  });
+  assert.equal(checklistItemResponse.status(), 201, await checklistItemResponse.text());
+  const checklistItem = await checklistItemResponse.json();
+  const checkedResponse = await page.context().request.patch(`${base}/api/v1/issues/${issueKey}/checklist-items/${checklistItem.id}`, {
+    headers: { "X-Requested-With": "x-console" }, data: { done: true },
+  });
+  assert.equal(checkedResponse.status(), 200, await checkedResponse.text());
+  await until("检查清单进度", async () => (await api(`/issues/${issueKey}`)).checklistDone === 1);
+  await page.reload();
+  await page.getByText("核对接口").waitFor();
   const progressResponse = await page
     .context()
     .request.patch(`${base}/api/v1/issues/${issueKey}`, {
