@@ -107,7 +107,7 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		return
 	}
 	var waiting int
-	if err := m.d.DB.QueryRowContext(ctx, "SELECT count(*) FROM ai_pending_actions WHERE conversation_id=? AND status='pending'", id).Scan(&waiting); m.fail(w, r, err) {
+	if err := m.d.DB.QueryRowContext(ctx, "SELECT count(*) FROM ai_pending_actions WHERE conversation_id=? AND status IN ('pending','approved')", id).Scan(&waiting); m.fail(w, r, err) {
 		return
 	}
 	if waiting > 0 {

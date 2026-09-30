@@ -58,6 +58,11 @@ func parseModelsDev(raw []byte) (modelCatalog, error) {
 }
 
 func (m *Module) Start(ctx context.Context) error {
+	// An action approved before a restart never finished. Mark it failed so
+	// the conversation can go on (approved ones block new messages).
+	if _, err := m.d.DB.ExecContext(ctx, "UPDATE ai_pending_actions SET status='failed',result=? WHERE status='approved'", `"服务重启，操作没有执行完，结果未知"`); err != nil {
+		return err
+	}
 	m.d.Scheduler.Every("ai.modelsdev", 24*time.Hour, m.syncModelsDev)
 	go func() {
 		if err := m.syncModelsDev(ctx); err != nil && ctx.Err() == nil {

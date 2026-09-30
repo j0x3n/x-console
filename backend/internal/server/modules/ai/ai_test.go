@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -184,5 +185,81 @@ func TestOldConversationToolHistory(t *testing.T) {
 	await(t, env, conversation.Id, func(detail api.ConversationDetail) bool { return !detail.Running && len(detail.Messages) >= 5 })
 	if !sawHistory.Load() {
 		t.Fatal("旧工具消息未转换成 OpenAI 对话格式")
+	}
+}
+
+type slowActions struct{}
+
+func (slowActions) Name() string     { return "ai-test-slow-actions" }
+func (slowActions) Mount(chi.Router) {}
+
+var slowDone atomic.Int32
+
+func withSlowDelete(d *module.Deps) (module.Module, error) {
+	d.Actions.Register(actions.Action{Name: "test.slow.delete", Title: "慢删除", Description: "Slow delete", Input: actions.Schema(`{"type":"object","properties":{},"additionalProperties":false}`), Effect: actions.Write, Run: func(context.Context, json.RawMessage) (any, error) {
+		time.Sleep(200 * time.Millisecond)
+		return map[string]any{"deleted": slowDone.Add(1)}, nil
+	}})
+	return slowActions{}, nil
+}
+
+func TestConcurrentApprovalsWaitForEachOther(t *testing.T) {
+	slowDone.Store(0)
+	var requests atomic.Int32
+	var resumedWith atomic.Value
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"data":[{"id":"test-model"}]}`)
+			return
+		}
+		raw, _ := io.ReadAll(r.Body)
+		if requests.Add(1) == 1 {
+			w.Header().Set("Content-Type", "text/event-stream")
+			var calls []any
+			for i := 0; i < 2; i++ {
+				calls = append(calls, map[string]any{"index": i, "id": fmt.Sprintf("toolu_%d", i+1), "type": "function", "function": map[string]any{"name": "test__slow__delete", "arguments": "{}"}})
+			}
+			sendEvent(w, map[string]any{"id": "chat_1", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"tool_calls": calls}}}})
+			sendEvent(w, map[string]any{"id": "chat_1", "object": "chat.completion.chunk", "created": 1, "model": "test-model", "choices": []any{}, "usage": map[string]any{"prompt_tokens": 1, "completion_tokens": 1}})
+			fmt.Fprint(w, "data: [DONE]\n\n")
+			return
+		}
+		resumedWith.Store(string(raw))
+		streamText(w, "完成")
+	}))
+	defer fake.Close()
+	env := testutil.New(t, withSlowDelete)
+	env.Elevate()
+	var provider api.AiProvider
+	env.MustDo("POST", "/ai/providers", map[string]any{"name": "Test", "baseUrl": fake.URL + "/v1", "apiKey": "fake-key"}, &provider)
+	env.MustDo("POST", fmt.Sprintf("/ai/providers/%d/models", provider.Id), nil, nil)
+	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}}, nil)
+	var conversation api.Conversation
+	env.MustDo("POST", "/ai/conversations", map[string]any{}, &conversation)
+	env.MustDo("POST", fmt.Sprintf("/ai/conversations/%d/messages", conversation.Id), map[string]any{"text": "删两个"}, nil)
+	detail := await(t, env, conversation.Id, func(d api.ConversationDetail) bool { return len(d.PendingActions) == 2 && !d.Running })
+	done := make(chan int, 2)
+	for _, action := range detail.PendingActions {
+		go func(id int64) {
+			status, _ := env.Do("POST", fmt.Sprintf("/ai/actions/%d/approve", id), map[string]any{}, nil)
+			done <- status
+		}(action.Id)
+	}
+	for i := 0; i < 2; i++ {
+		if status := <-done; status != http.StatusNoContent {
+			t.Fatalf("approve: %d", status)
+		}
+	}
+	detail = await(t, env, conversation.Id, func(d api.ConversationDetail) bool { return !d.Running && requests.Load() == 2 })
+	for _, action := range detail.PendingActions {
+		if action.Status != "done" {
+			t.Fatalf("action %d: %s", action.Id, action.Status)
+		}
+	}
+	// The model resumes once, after both actions finished, and sees both results.
+	sent, _ := resumedWith.Load().(string)
+	if strings.Count(sent, "deleted") != 2 {
+		t.Fatalf("resumed before both actions finished: %s", sent)
 	}
 }
