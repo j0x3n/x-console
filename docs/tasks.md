@@ -268,6 +268,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | `actions.Action` 加 `AliasOf`：别名照样能 `Get`、`Run`，但 `List` 不返回。项目模块的 `issues.list/get/create/update` 标成 `projects.*` 的别名 | 审查修复：AI 工具重复 |
 | 2026-09-30 | 新增 `useBrowserViewport` 和 `styles/browser.css`，统一动态高度及安全区；手机普通页面改为文档滚动，切换路由回到顶部；`usePreferenceEffects` 按 CSS 主题背景更新浏览器主题色 | B38 跨浏览器与主屏幕应用适配 |
 | 2026-09-30 | `auth.Service` 加 `SessionActive(ctx)`：会话还在且没过期时为真。远端日志跟随和云盘日志跟随每 30 秒查一次，退出登录或改密码后断开；远端日志跟随最长 1 小时 | 审查修复：日志跟随在退出登录后还在推送 |
 | 2026-09-30 | `protocol.FilesWriteParams` 加 `Private`（`omitempty`，新文件建成 0600）和能力 `files.private`；代理 `ServeWrite` 支持它，`cmd/agent/main.go` 加一行报这个能力；`hostagent.Runner` 加 `BackupBase`（测试用） | 审查修复：机器 Agent 的备份别人可读 |

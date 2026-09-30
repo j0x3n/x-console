@@ -10,8 +10,13 @@ import (
 )
 
 func (m *Module) registerExtraActions() {
+	// issues.list/get/create/update do the same as projects.list_issues,
+	// get_issue, create_issue and update_issue, which have fuller schemas.
+	// They stay for saved automation rules but are hidden from the lists.
+	aliases := map[string]string{"issues.list": "projects.list_issues", "issues.get": "projects.get_issue",
+		"issues.create": "projects.create_issue", "issues.update": "projects.update_issue"}
 	add := func(name, title, schema string, effect actions.Effect, run func(context.Context, json.RawMessage) (any, error)) {
-		m.d.Actions.Register(actions.Action{Name: name, Title: title, Description: title, Input: actions.Schema(schema), Effect: effect, Run: run})
+		m.d.Actions.Register(actions.Action{Name: name, Title: title, Description: title, Input: actions.Schema(schema), Effect: effect, Run: run, AliasOf: aliases[name]})
 	}
 	add("projects.get", "查看项目", `{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}`, actions.Read, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {

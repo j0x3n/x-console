@@ -22,6 +22,15 @@ func TestRegisterRunList(t *testing.T) {
 	if list := r.List(); len(list) != 2 || list[0].Name != "a.noop" {
 		t.Fatalf("list: %+v", list)
 	}
+	// An alias runs but is not listed.
+	r.Register(Action{Name: "c.echo", Input: Schema(`{"type":"object"}`), Effect: Read, AliasOf: "b.echo",
+		Run: func(ctx context.Context, in json.RawMessage) (any, error) { return "alias", nil }})
+	if out, err := r.Run(context.Background(), "c.echo", nil); err != nil || out != "alias" {
+		t.Fatalf("alias run: %v %v", out, err)
+	}
+	if list := r.List(); len(list) != 2 {
+		t.Fatalf("alias listed: %+v", list)
+	}
 	defer func() {
 		if recover() == nil {
 			t.Fatal("duplicate register should panic")

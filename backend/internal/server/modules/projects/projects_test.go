@@ -557,3 +557,24 @@ func TestManyIssues(t *testing.T) {
 		t.Fatalf("listing 500 issues took %v", d)
 	}
 }
+
+func TestIssueToolsListedOnce(t *testing.T) {
+	env := testutil.New(t)
+	names := map[string]bool{}
+	for _, a := range env.App.Deps.Actions.List() {
+		names[a.Name] = true
+	}
+	for _, alias := range []string{"issues.list", "issues.get", "issues.create", "issues.update"} {
+		if names[alias] {
+			t.Fatalf("%s is listed next to its projects.* twin", alias)
+		}
+		if _, ok := env.App.Deps.Actions.Get(alias); !ok {
+			t.Fatalf("%s no longer runs for saved automation rules", alias)
+		}
+	}
+	for _, name := range []string{"projects.list_issues", "projects.get_issue", "projects.create_issue", "projects.update_issue", "issues.move", "issues.delete"} {
+		if !names[name] {
+			t.Fatalf("%s missing", name)
+		}
+	}
+}

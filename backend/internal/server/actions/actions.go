@@ -52,6 +52,10 @@ type Action struct {
 	Effect Effect `json:"effect"`
 	// Destructive asks the assistant to confirm a write before executing it.
 	Destructive bool `json:"destructive,omitempty"`
+	// AliasOf names the action to use instead. An alias still runs (saved
+	// automation rules may use it), but List leaves it out, so the assistant
+	// and the automation editor see each operation once.
+	AliasOf string `json:"aliasOf,omitempty"`
 	// Run executes the action. ctx carries the acting user or automation.
 	Run func(ctx context.Context, input json.RawMessage) (any, error) `json:"-"`
 }
@@ -100,7 +104,9 @@ func (r *Registry) List() []Action {
 	defer r.mu.RUnlock()
 	out := make([]Action, 0, len(r.actions))
 	for _, a := range r.actions {
-		out = append(out, a)
+		if a.AliasOf == "" {
+			out = append(out, a)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
