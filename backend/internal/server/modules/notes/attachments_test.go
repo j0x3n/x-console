@@ -130,3 +130,32 @@ func TestAttachmentValidationAndIndividualDeletion(t *testing.T) {
 		t.Fatalf("delete twice: %d", code)
 	}
 }
+
+func TestFailedDeleteKeepsAttachmentFiles(t *testing.T) {
+	env := testutil.New(t)
+	note := createNote(t, env, api.CreateNote{Title: str("图片")})
+	png := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0}, 100)...)
+	_, image := uploadFile(t, env, note.Id, "photo.png", png)
+	fetch := func() int {
+		resp, err := env.Client.Get(env.Server.URL + image.Url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	// Make the database step fail. The files must stay, or the note shows
+	// a broken image.
+	if _, err := env.App.Deps.DB.Exec(`CREATE TRIGGER keep_rows BEFORE DELETE ON note_attachments BEGIN SELECT RAISE(ABORT, 'no'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if status, _ := env.Do(http.MethodDelete, fmt.Sprintf("/notes/attachments/%d", image.Id), nil, nil); status < 500 {
+		t.Fatalf("attachment delete: %d", status)
+	}
+	if status, _ := env.Do(http.MethodDelete, fmt.Sprintf("/notes/%d", note.Id), nil, nil); status < 500 {
+		t.Fatalf("note delete: %d", status)
+	}
+	if status := fetch(); status != http.StatusOK {
+		t.Fatalf("attachment after failed deletes: %d", status)
+	}
+}

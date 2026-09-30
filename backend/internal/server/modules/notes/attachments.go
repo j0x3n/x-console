@@ -227,35 +227,44 @@ func (m *Module) DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, at
 		httpx.Fail(w, r, err)
 		return
 	}
-	if err := m.files.Delete(r.Context(), attachmentKey(attachmentID)); err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
+	// The row goes first: if that fails the file is still there and the note
+	// still shows it. A file left after a failed delete is only wasted space.
 	if _, err := m.d.DB.ExecContext(r.Context(), `DELETE FROM note_attachments WHERE id = ?`, attachmentID); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
+	m.deleteAttachmentFiles(r.Context(), []int64{attachmentID})
 	m.d.Audit.Record(r.Context(), "note.attachment.delete", strconv.FormatInt(attachmentID, 10), nil, nil)
 	m.noteChanged(r.Context(), row.NoteID)
 	httpx.NoContent(w)
 }
 
-func (m *Module) removeNoteFiles(ctx context.Context, id int64) error {
+// noteAttachmentIDs lists a note's attachments, read before the note row
+// (and with it, by ON DELETE CASCADE, these rows) is deleted.
+func (m *Module) noteAttachmentIDs(ctx context.Context, id int64) ([]int64, error) {
 	rows, err := m.d.DB.QueryContext(ctx, `SELECT id FROM note_attachments WHERE note_id = ?`, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
+	var ids []int64
 	for rows.Next() {
 		var fileID int64
 		if err := rows.Scan(&fileID); err != nil {
-			return err
+			return nil, err
 		}
-		if err := m.files.Delete(ctx, attachmentKey(fileID)); err != nil {
-			return err
+		ids = append(ids, fileID)
+	}
+	return ids, rows.Err()
+}
+
+// deleteAttachmentFiles removes stored files whose rows are already gone.
+func (m *Module) deleteAttachmentFiles(ctx context.Context, ids []int64) {
+	for _, id := range ids {
+		if err := m.files.Delete(ctx, attachmentKey(id)); err != nil {
+			m.d.Log.Warn("note attachment file not deleted", "attachment", id, "err", err)
 		}
 	}
-	return rows.Err()
 }
 
 func (m *Module) thumbnail(ctx context.Context, noteID int64, body string) *string {

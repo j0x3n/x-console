@@ -274,7 +274,8 @@ func (m *Module) deleteNote(ctx context.Context, id int64) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := m.removeNoteFiles(ctx, id); err != nil {
+	files, err := m.noteAttachmentIDs(ctx, id)
+	if err != nil {
 		return err
 	}
 	n, err := m.q.DeleteNote(ctx, id)
@@ -284,6 +285,7 @@ func (m *Module) deleteNote(ctx context.Context, id int64) (err error) {
 	if n == 0 {
 		return httpx.ErrNotFound
 	}
+	m.deleteAttachmentFiles(ctx, files) // after the rows, see DeleteNoteAttachment
 	if note.Hidden != 0 {
 		m.d.Bus.Publish("note.deleted", map[string]any{"id": id, "hidden": true})
 	} else {
