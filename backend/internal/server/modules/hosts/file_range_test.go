@@ -15,8 +15,34 @@ import (
 	"github.com/coder/websocket"
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
 	agentfiles "github.com/j0x3n/x-console/backend/internal/agent/files"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
+
+func TestRemoteFollowEndsAfterLogout(t *testing.T) {
+	defer hosts.SetFollowSessionCheck(50 * time.Millisecond)()
+	env, _ := setup(t)
+	path := filepath.Join(t.TempDir(), "app.log")
+	if err := os.WriteFile(path, []byte("line\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	id, _, _ := startAgent(t, env, "range", "server", []string{protocol.CapFiles, protocol.CapFilesRange}, func(c *conn.Client) { agentfiles.Register(c) })
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	ws, _, err := websocket.Dial(ctx, env.WSURL("/hosts/"+id+"/files/follow?path="+url.QueryEscape(path)+"&offset=0"), &websocket.DialOptions{HTTPHeader: wsHeader(env)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Close(websocket.StatusNormalClosure, "")
+	if frame := readFollowFrame(t, ctx, ws); frame.Data != "line\n" {
+		t.Fatalf("first frame: %+v", frame)
+	}
+	env.MustDo(http.MethodPost, "/auth/logout", nil, nil)
+	_, _, err = ws.Read(ctx)
+	if websocket.CloseStatus(err) != websocket.StatusPolicyViolation {
+		t.Fatalf("follow after logout: %v", err)
+	}
+}
 
 func TestRemoteFileRangeAndFollow(t *testing.T) {
 	env, _ := setup(t)
@@ -93,4 +119,34 @@ func readFollowFrame(t *testing.T, ctx context.Context, ws *websocket.Conn) stru
 		t.Fatalf("frame: %q", b)
 	}
 	return frame
+}
+
+func TestRemoteFollowKeepsChineseWhole(t *testing.T) {
+	env, _ := setup(t)
+	path := filepath.Join(t.TempDir(), "app.log")
+	// 3-byte runes after one ASCII byte: every 32 KiB chunk ends inside a rune.
+	data := append([]byte("x"), bytes.Repeat([]byte("中文日志\n"), 10000)...)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	id, _, _ := startAgent(t, env, "range", "server", []string{protocol.CapFiles, protocol.CapFilesRange}, func(c *conn.Client) { agentfiles.Register(c) })
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	ws, _, err := websocket.Dial(ctx, env.WSURL("/hosts/"+id+"/files/follow?path="+url.QueryEscape(path)+"&offset=0"), &websocket.DialOptions{HTTPHeader: wsHeader(env)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Close(websocket.StatusNormalClosure, "")
+	ws.SetReadLimit(1 << 20)
+	var got bytes.Buffer
+	for got.Len() < len(data) {
+		frame := readFollowFrame(t, ctx, ws)
+		if frame.Type != "append" || frame.Offset != int64(got.Len()) {
+			t.Fatalf("frame at %d: %s %d", got.Len(), frame.Type, frame.Offset)
+		}
+		got.WriteString(frame.Data)
+	}
+	if !bytes.Equal(got.Bytes(), data) {
+		t.Fatal("followed text differs from the file")
+	}
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"net/http"
 	"strings"
 	"time"
@@ -204,6 +206,11 @@ func (m *Module) deleteRepo(ctx context.Context, id int64) error {
 	if active > 0 {
 		return httpx.NewError(http.StatusConflict, "conflict", "这个仓库还有排队或运行中的任务")
 	}
+	// The tasks go with the repo (ON DELETE CASCADE); their images must go too.
+	taskIDs, err := m.repoTaskIDs(ctx, id)
+	if err != nil {
+		return err
+	}
 	n, err := m.q.DeleteRepo(ctx, id)
 	if err != nil {
 		return err
@@ -211,5 +218,29 @@ func (m *Module) deleteRepo(ctx context.Context, id int64) error {
 	if n == 0 {
 		return httpx.ErrNotFound
 	}
+	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		for _, taskID := range taskIDs {
+			if err := files.DeleteOwned(ctx, "coding", taskID); err != nil {
+				m.d.Log.Error("coding task images not deleted", "task", taskID, "err", err)
+			}
+		}
+	}
 	return nil
+}
+
+func (m *Module) repoTaskIDs(ctx context.Context, repoID int64) ([]int64, error) {
+	rows, err := m.d.DB.QueryContext(ctx, "SELECT id FROM coding_tasks WHERE repo_id=?", repoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }

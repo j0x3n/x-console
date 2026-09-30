@@ -307,6 +307,9 @@ func ServeWrite(ctx context.Context, raw json.RawMessage, s *rpc.Stream) error {
 		return rpcutil.BadParams("size must not be negative")
 	}
 	mode := fs.FileMode(0o644)
+	if p.Private {
+		mode = 0o600
+	}
 	if info, err := os.Stat(path); err == nil {
 		if !info.Mode().IsRegular() {
 			return rpcutil.BadParams("%s exists and is not a regular file", path)

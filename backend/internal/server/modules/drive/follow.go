@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-	"unicode/utf8"
 
 	"github.com/coder/websocket"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
@@ -41,7 +40,16 @@ func (m *Module) FollowDriveItem(w http.ResponseWriter, r *http.Request, itemID 
 	lastHash := ""
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	checked := time.Now()
 	for {
+		// End the follow when the user logs out or changes the password.
+		if time.Since(checked) >= 30*time.Second {
+			if !m.d.Auth.SessionActive(ctx) {
+				_ = ws.Close(websocket.StatusPolicyViolation, "登录已失效")
+				return
+			}
+			checked = time.Now()
+		}
 		current, err := m.row(ctx, itemID)
 		if err != nil || current.TrashedAt != nil || current.IsDir != 0 || (current.Hidden != 0 && !auth.VaultUnlocked(ctx)) || (current.Hidden != 0 && item.Hidden == 0) {
 			return
@@ -93,7 +101,7 @@ func (m *Module) sendDriveFollow(ctx context.Context, ws *websocket.Conn, item d
 		if len(data) == 0 {
 			return nil
 		}
-		usable := utf8Prefix(data)
+		usable := logfollow.UTF8Prefix(data)
 		if usable == 0 {
 			return nil
 		}
@@ -103,16 +111,4 @@ func (m *Module) sendDriveFollow(ctx context.Context, ws *websocket.Conn, item d
 		*offset += int64(usable)
 	}
 	return nil
-}
-
-func utf8Prefix(data []byte) int {
-	i := 0
-	for i < len(data) {
-		if !utf8.FullRune(data[i:]) {
-			break
-		}
-		_, size := utf8.DecodeRune(data[i:])
-		i += size
-	}
-	return i
 }

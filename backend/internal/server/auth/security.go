@@ -28,7 +28,13 @@ func (s *Service) TOTPEnabled(ctx context.Context) (bool, error) {
 	return u.TotpEnabled == 1, nil
 }
 
-func (s *Service) SkipSetupTOTP(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
+// SkipSetupTOTP finishes setup without two-step login. It is a public
+// endpoint, so it asks for the password set a moment ago.
+func (s *Service) SkipSetupTOTP(ctx context.Context, w http.ResponseWriter, r *http.Request, password string) error {
+	ip := clientIP(r)
+	if !s.fails.allowed(ip) {
+		return httpx.ErrTooManyRequests
+	}
 	u, err := s.q.GetFirstUser(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return httpx.NewError(http.StatusConflict, "setup_not_started", "请先设置用户名和密码")
@@ -38,6 +44,14 @@ func (s *Service) SkipSetupTOTP(ctx context.Context, w http.ResponseWriter, r *h
 	}
 	if u.SetupCompleted == 1 {
 		return httpx.NewError(http.StatusConflict, "already_setup", "已经初始化过了")
+	}
+	valid, err := CheckPassword(u.PasswordHash, password)
+	if err != nil {
+		return err
+	}
+	if !valid {
+		s.fails.fail(ip)
+		return httpx.NewError(http.StatusUnauthorized, "invalid_credentials", "密码不正确")
 	}
 	n, err := s.q.FinishSetupWithoutTOTP(ctx, u.ID)
 	if err != nil {

@@ -5,8 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
 	"net/http"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
@@ -58,5 +61,41 @@ func TestDriveActionWriteTextCreatesVersion(t *testing.T) {
 	var count int
 	if err := env.App.Deps.DB.QueryRow("SELECT count(*) FROM drive_file_versions v JOIN drive_items i ON i.id=v.item_id WHERE i.name='action.txt'").Scan(&count); err != nil || count != 1 {
 		t.Fatalf("action version count: %d %v", count, err)
+	}
+}
+
+func TestUploadKeepsSharedContentWhenOldCopyIsDeleted(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	old := upload(t, env, "旧.txt", "same content", false)
+	env.MustDo(http.MethodDelete, "/drive/items/"+itoa(old.Id), nil, nil)
+	env.Elevate()
+	// Hold a second upload of the same content after it found the stored
+	// content and before it inserted its row.
+	paused, resume := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	restore := drive.SetAfterBlobPutForTest(func() {
+		once.Do(func() {
+			close(paused)
+			<-resume
+		})
+	})
+	defer restore()
+	uploaded := make(chan api.DriveItem)
+	go func() { uploaded <- upload(t, env, "新.txt", "same content", false) }()
+	<-paused
+	deleted := make(chan int)
+	go func() {
+		status, _ := env.Do(http.MethodDelete, "/drive/items/"+itoa(old.Id)+"?permanent=true", nil, nil)
+		deleted <- status
+	}()
+	time.Sleep(100 * time.Millisecond) // the delete counts references now, or waits for the upload
+	close(resume)
+	item := <-uploaded
+	if status := <-deleted; status != http.StatusNoContent {
+		t.Fatalf("permanent delete: %d", status)
+	}
+	status, body := env.Do(http.MethodGet, "/drive/items/"+itoa(item.Id)+"/content", nil, nil)
+	if status != http.StatusOK || string(body) != "same content" {
+		t.Fatalf("new upload lost its content: %d %q", status, body)
 	}
 }

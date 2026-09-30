@@ -23,6 +23,12 @@ const maxFileRange = 1 << 20
 // below the 256 KiB contract limit even for control-heavy input.
 const followChunk = 32 << 10
 
+// A follow ends after followLimit, like the drive's log viewer, and when the
+// session is gone (checked every followSessionCheck).
+const followLimit = time.Hour
+
+var followSessionCheck = 30 * time.Second // tests shorten it
+
 func (m *Module) ReadFileRange(w http.ResponseWriter, r *http.Request, hostID api.HostId, p api.ReadFileRangeParams) {
 	if p.Path == "" || p.Offset < 0 || p.Length <= 0 || p.Length > maxFileRange {
 		httpx.Fail(w, r, httpx.Invalid("文件路径、偏移或读取长度不对，最多读取 1 MB"))
@@ -105,11 +111,20 @@ func (m *Module) FollowHostFile(w http.ResponseWriter, r *http.Request, hostID a
 		return
 	}
 	defer ws.Close(websocket.StatusNormalClosure, "")
-	ctx := ws.CloseRead(r.Context())
+	ctx, cancel := context.WithTimeout(ws.CloseRead(r.Context()), followLimit)
+	defer cancel()
 	offset := p.Offset
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	checked := time.Now()
 	for {
+		if time.Since(checked) >= followSessionCheck {
+			if !m.d.Auth.SessionActive(ctx) {
+				_ = ws.Close(websocket.StatusPolicyViolation, "登录已失效")
+				return
+			}
+			checked = time.Now()
+		}
 		if err := m.followFileOnce(ctx, ws, a, p.Path, &offset); err != nil {
 			if ctx.Err() == nil {
 				_ = ws.Close(websocket.StatusInternalError, "读取文件失败")
@@ -148,13 +163,14 @@ func (m *Module) followFileOnce(ctx context.Context, ws *websocket.Conn, a agent
 			*offset = 0
 			return nil
 		}
-		if len(data) == 0 {
-			return nil
+		usable := logfollow.UTF8Prefix(data)
+		if usable == 0 {
+			return nil // empty, or a rune still being written; read it again next time
 		}
-		if err := ws.Write(context.Background(), websocket.MessageText, logfollow.Append(*offset, data)); err != nil {
+		if err := ws.Write(context.Background(), websocket.MessageText, logfollow.Append(*offset, data[:usable])); err != nil {
 			return err
 		}
-		*offset += int64(len(data))
+		*offset += int64(usable)
 	}
 	return nil
 }

@@ -16,6 +16,7 @@ import (
 const (
 	vaultPasswordKey = "vault.password_hash"
 	vaultTTL         = 15 * time.Minute
+	vaultRefresh     = time.Minute
 )
 
 func (s *Service) VaultStatus(ctx context.Context) (bool, *time.Time, error) {

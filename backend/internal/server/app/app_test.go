@@ -63,7 +63,7 @@ func TestAuthFlow(t *testing.T) {
 
 func TestOptionalTotpFlow(t *testing.T) {
 	env := testutil.New(t)
-	status, raw := env.Do(http.MethodPost, "/auth/setup/skip-totp", nil, nil)
+	status, raw := env.Do(http.MethodPost, "/auth/setup/skip-totp", map[string]string{"password": testutil.Password}, nil)
 	if status != http.StatusConflict {
 		t.Fatalf("skip after setup: %d %s", status, raw)
 	}

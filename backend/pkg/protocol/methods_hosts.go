@@ -283,6 +283,9 @@ type FileHeader struct {
 type FilesWriteParams struct {
 	Path string `json:"path"`
 	Size int64  `json:"size"`
+	// Private creates a new file readable by its owner only (0600). An
+	// existing file keeps its mode. Agents without CapFilesPrivate ignore it.
+	Private bool `json:"private,omitempty"`
 }
 
 // FilesRemoveParams deletes a file, or a directory when Recursive is set

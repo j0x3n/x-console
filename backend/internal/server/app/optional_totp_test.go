@@ -72,9 +72,10 @@ func TestSkipTOTPFromFreshSetup(t *testing.T) {
 		}
 		return raw
 	}
-	assertStatus(http.StatusConflict, "POST", "/auth/setup/skip-totp", nil)
+	assertStatus(http.StatusConflict, "POST", "/auth/setup/skip-totp", map[string]string{"password": "first-password-2026"})
 	assertStatus(http.StatusOK, "POST", "/auth/setup", map[string]string{"username": "first", "password": "first-password-2026"})
-	assertStatus(http.StatusNoContent, "POST", "/auth/setup/skip-totp", nil)
+	assertStatus(http.StatusUnauthorized, "POST", "/auth/setup/skip-totp", map[string]string{"password": "wrong-password"})
+	assertStatus(http.StatusNoContent, "POST", "/auth/setup/skip-totp", map[string]string{"password": "first-password-2026"})
 	var status struct {
 		SetupRequired bool
 		Authenticated bool
@@ -86,7 +87,7 @@ func TestSkipTOTPFromFreshSetup(t *testing.T) {
 	if status.SetupRequired || !status.Authenticated || status.TotpEnabled == nil || *status.TotpEnabled {
 		t.Fatalf("after skip: %+v", status)
 	}
-	assertStatus(http.StatusConflict, "POST", "/auth/setup/skip-totp", nil)
+	assertStatus(http.StatusConflict, "POST", "/auth/setup/skip-totp", map[string]string{"password": "first-password-2026"})
 	assertStatus(http.StatusNoContent, "POST", "/auth/logout", nil)
 	assertStatus(http.StatusNoContent, "POST", "/auth/login", map[string]string{"username": "first", "password": "first-password-2026"})
 	assertStatus(http.StatusForbidden, "POST", "/agents/pairing-codes", map[string]string{"name": "a", "kind": "server"})
@@ -117,7 +118,7 @@ func TestLoginFailureLimitWithoutTOTP(t *testing.T) {
 	for _, step := range []struct {
 		path string
 		body any
-	}{{"/auth/setup", map[string]string{"username": "first", "password": "first-password-2026"}}, {"/auth/setup/skip-totp", nil}} {
+	}{{"/auth/setup", map[string]string{"username": "first", "password": "first-password-2026"}}, {"/auth/setup/skip-totp", map[string]string{"password": "first-password-2026"}}} {
 		raw, _ := json.Marshal(step.body)
 		req, _ := http.NewRequest(http.MethodPost, server.URL+app.APIPrefix+step.path, bytes.NewReader(raw))
 		req.Header.Set("Content-Type", "application/json")

@@ -135,11 +135,15 @@ func (m *Module) ExtractDriveItem(w http.ResponseWriter, r *http.Request, itemID
 		m.d.Audit.Record(context.WithoutCancel(jobCtx), "drive.extract", strconv.FormatInt(item.ID, 10), map[string]any{"targetId": body.TargetId}, err)
 		return err
 	}
+	start := m.startTask
+	if item.Hidden != 0 {
+		start, title = m.startHiddenTask, "解压隐藏空间里的压缩包"
+	}
 	var task api.DriveTask
 	if body.TargetId != nil {
-		task = m.startTask(api.Extract, title, 0, 0, job, *body.TargetId)
+		task = start(api.Extract, title, 0, 0, job, *body.TargetId)
 	} else {
-		task = m.startTask(api.Extract, title, 0, 0, job)
+		task = start(api.Extract, title, 0, 0, job)
 	}
 	httpx.JSON(w, http.StatusAccepted, task)
 }
@@ -564,13 +568,15 @@ func (x *extractor) insertFile(parent *int64, name string, declared int64, reade
 		return copyErr
 	}
 	digest := hex.EncodeToString(hash.Sum(nil))
-	if err := x.m.putBlobFile(x.ctx, digest, tmp.Name(), n); err != nil {
+	release, err := x.m.putBlobFile(x.ctx, digest, tmp.Name(), n)
+	if err != nil {
 		return err
 	}
+	defer release()
 	committed := false
 	defer func() {
 		if !committed {
-			x.m.dropBlob(context.WithoutCancel(x.ctx), digest)
+			x.m.dropBlobLocked(context.WithoutCancel(x.ctx), digest)
 		}
 	}()
 	var id int64

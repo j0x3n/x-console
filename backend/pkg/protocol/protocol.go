@@ -97,10 +97,12 @@ const (
 	CapPTY         = "pty"
 	CapFiles       = "files"
 	CapFilesRange  = "files.range"
-	CapExec        = "exec"
-	CapClipboard   = "clipboard" // desktop only
-	CapPower       = "power"     // lock/sleep/shutdown, desktop only
-	CapCoding      = "coding"    // Claude Code / Codex runner, desktop only
+	// CapFilesPrivate: files.write understands FilesWriteParams.Private.
+	CapFilesPrivate = "files.private"
+	CapExec         = "exec"
+	CapClipboard    = "clipboard" // desktop only
+	CapPower        = "power"     // lock/sleep/shutdown, desktop only
+	CapCoding       = "coding"    // Claude Code / Codex runner, desktop only
 )
 
 // Methods implemented in batch 0. Modules add their own method constants in

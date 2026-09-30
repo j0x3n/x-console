@@ -78,7 +78,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 初始化时跳过两步验证，直接登录。之后可以在设置里开启。 */
+        /** @description 初始化时跳过两步验证，直接登录。之后可以在设置里开启。要带上刚设的密码，否则设完密码到点跳过之间，任何人都能调这个接口登录。 */
         post: operations["skipSetupTotp"];
         delete?: never;
         options?: never;
@@ -711,7 +711,13 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    password: string;
+                };
+            };
+        };
         responses: {
             /** @description 已登录，账号没有两步验证 */
             204: {

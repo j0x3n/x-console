@@ -22,6 +22,11 @@ type Module struct {
 	jobs map[int64]scheduler.EntryID
 	last map[int64]time.Time
 	ctx  context.Context
+	// eventRules are the enabled rules that bus events can start. reload
+	// refreshes them, so handling an event does not read the database.
+	eventRules []api.Automation
+	// eventRuns holds recent event-started run times per rule (see loopLimits).
+	eventRuns map[int64][]time.Time
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -29,7 +34,7 @@ var _ module.Starter = (*Module)(nil)
 var _ module.PublicPather = (*Module)(nil)
 
 func New(d *module.Deps) (module.Module, error) {
-	return &Module{d: d, jobs: map[int64]scheduler.EntryID{}, last: map[int64]time.Time{}}, nil
+	return &Module{d: d, jobs: map[int64]scheduler.EntryID{}, last: map[int64]time.Time{}, eventRuns: map[int64][]time.Time{}}, nil
 }
 func (m *Module) Name() string          { return "automations" }
 func (m *Module) PublicPaths() []string { return []string{"/hooks"} }
@@ -42,7 +47,7 @@ func (m *Module) Start(ctx context.Context) error {
 	if err := m.reload(ctx); err != nil {
 		return err
 	}
-	ch, cancel := m.d.Bus.Subscribe("", 128)
+	ch, cancel := m.d.Bus.Subscribe("", 512)
 	go func() {
 		defer cancel()
 		for {

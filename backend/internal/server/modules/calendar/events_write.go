@@ -149,9 +149,9 @@ func (m *Module) CreateCalendarEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	out := m.eventAPI(e, c)
 	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		// Saved already: log instead of failing, so the client does not retry.
 		if err := files.Claim(r.Context(), "calendar", e.ID, e.Description); err != nil {
-			httpx.Fail(w, r, err)
-			return
+			m.d.Log.Error("claim images failed", "id", e.ID, "err", err)
 		}
 	}
 	m.d.Bus.Publish("calendar.event_changed", out)
@@ -286,9 +286,9 @@ func (m *Module) UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, id 
 	}
 	out := m.eventAPI(updated, next)
 	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		// Saved already: log instead of failing, so the client does not retry.
 		if err := files.Claim(r.Context(), "calendar", id, updated.Description); err != nil {
-			httpx.Fail(w, r, err)
-			return
+			m.d.Log.Error("claim images failed", "id", id, "err", err)
 		}
 	}
 	m.d.Bus.Publish("calendar.event_changed", out)

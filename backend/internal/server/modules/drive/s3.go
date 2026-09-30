@@ -245,6 +245,9 @@ func (m *Module) SyncDriveS3(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// fullSyncEvery is how often syncAll checks every file against the bucket.
+const fullSyncEvery = 24 * time.Hour
+
 func (m *Module) triggerSync() {
 	select {
 	case m.syncReq <- struct{}{}:
@@ -281,7 +284,21 @@ func (m *Module) syncAll(ctx context.Context) error {
 		m.syncMu.Unlock()
 		m.d.Bus.Publish("drive.sync_status", map[string]any{"state": state})
 	}()
-	rows, err := m.d.DB.QueryContext(ctx, "SELECT id FROM drive_items WHERE is_dir=0 AND trashed_at IS NULL ORDER BY id")
+	// Only files that changed since their last upload, or failed, or are
+	// hidden and must leave the bucket. Renames and moves bump updated_at of
+	// the whole subtree, so a changed object key is caught too. Once a day
+	// every file is checked against the bucket as well.
+	full := time.Since(m.lastFullSync) >= fullSyncEvery
+	query := "SELECT id FROM drive_items WHERE is_dir=0 AND trashed_at IS NULL"
+	if !full {
+		changed := "(s3_synced_at IS NULL OR s3_synced_at<updated_at OR s3_hash IS NOT sha256 OR COALESCE(s3_error,'')<>'')"
+		if c.IncludeHidden {
+			query += " AND " + changed
+		} else {
+			query += " AND ((hidden=0 AND " + changed + ") OR (hidden=1 AND s3_key IS NOT NULL))"
+		}
+	}
+	rows, err := m.d.DB.QueryContext(ctx, query+" ORDER BY id")
 	if err != nil {
 		m.syncMu.Lock()
 		m.syncStatus.State = "failed"
@@ -332,7 +349,7 @@ func (m *Module) syncAll(ctx context.Context) error {
 				}
 			}
 		} else {
-			e = m.syncItem(ctx, client, c, item)
+			e = m.syncItem(ctx, client, c, item, full)
 		}
 		if e != nil {
 			msg := e.Error()
@@ -343,6 +360,9 @@ func (m *Module) syncAll(ctx context.Context) error {
 			m.syncMu.Unlock()
 			err = e
 		}
+	}
+	if err == nil && full {
+		m.lastFullSync = time.Now()
 	}
 	return err
 }
@@ -364,12 +384,18 @@ func (m *Module) objectKey(ctx context.Context, c api.S3Config, item db.DriveIte
 	parts = append(parts, item.Name)
 	return path.Join(parts...), nil
 }
-func (m *Module) syncItem(ctx context.Context, client *minio.Client, c api.S3Config, item db.DriveItem) error {
+
+// syncItem uploads one file. An up-to-date file is trusted without asking the
+// bucket, unless verify is set.
+func (m *Module) syncItem(ctx context.Context, client *minio.Client, c api.S3Config, item db.DriveItem, verify bool) error {
 	key, err := m.objectKey(ctx, c, item)
 	if err != nil {
 		return err
 	}
 	if item.S3Key != nil && *item.S3Key == key && item.S3Hash != nil && *item.S3Hash == item.Sha256 && item.S3SyncedAt != nil && !item.S3SyncedAt.Before(item.UpdatedAt) {
+		if !verify {
+			return nil
+		}
 		if _, e := client.StatObject(ctx, c.Bucket, key, minio.StatObjectOptions{}); e == nil {
 			return nil
 		}
@@ -396,8 +422,10 @@ func (m *Module) syncItem(ctx context.Context, client *minio.Client, c api.S3Con
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
-	_, err = m.d.DB.ExecContext(ctx, "UPDATE drive_items SET s3_key=?,s3_hash=?,s3_etag=?,s3_synced_at=?,s3_error=NULL WHERE id=?", key, item.Sha256, info.ETag, now, item.ID)
+	// Record the version that was uploaded, not the current time: if the
+	// file was renamed or changed meanwhile, updated_at is newer and the next
+	// run picks it up again.
+	_, err = m.d.DB.ExecContext(ctx, "UPDATE drive_items SET s3_key=?,s3_hash=?,s3_etag=?,s3_synced_at=?,s3_error=NULL WHERE id=?", key, item.Sha256, info.ETag, item.UpdatedAt, item.ID)
 	return err
 }
 func (m *Module) syncDeletes(ctx context.Context, client *minio.Client, c api.S3Config) error {

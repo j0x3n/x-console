@@ -196,6 +196,7 @@
 - B29 系统日志：`journalctl` 只用假输出测过，没在真实 systemd 机器上跑；Windows 事件日志（`wevtutil`）只测了 XML 解析和查询拼装，没在 Windows 上跑。没有 journal 的 Linux 读 syslog 文件时没有级别，按级别过滤会得到空列表。
 
 - B30 的 Windows 安装（`install.ps1`、`setup.exe` 的安装模式、任务计划程序）没在真实 Windows 上跑过，Linux 的 `install.sh` 在没有 systemd 的容器里跑过下载、校验、配对，没跑过 systemd 那一段；Docker 镜像四个平台的编译没在本机构建过。
+- 测试 `backup` 的 `TestAutomaticBackupToS3KeepsTheNewest` 在全量 `go test -race ./...` 下偶尔失败（2026-09-30 遇到一次：第 3 天的备份不在列表里，第 2 天的没被删）。单独跑这个包 6 次都通过。失败时日志里有 “database is closed”，像是后台备份任务在测试结束后还在跑。还没查原因。
 - B30 没做：托盘图标、代理自动更新。现在升级要再执行一次安装命令。`setup.exe` 没有代码签名，Windows SmartScreen 会提示。
 
 功能限制：
@@ -217,7 +218,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
-| B38 | Safari 标签页和主屏幕应用、跨浏览器动态高度、安全区、横屏、浮层及主题色适配；Chromium、Firefox、WebKit 交互检查通过，真机 iOS 浏览器栏待复核（本次提交，待合并） |
+| B38 | Safari 标签页和主屏幕应用、跨浏览器动态高度、安全区、横屏、浮层及主题色适配；Chromium、Firefox、WebKit 交互检查通过，真机 iOS 浏览器栏待复核（`46fec3d`） |
 | C4 | 核对电脑与服务器共用的详情页，补电脑代理的日志和 Agent 标签测试；页面截图已检查（本次核对） |
 | C3 | 核对页面顶栏动作、二次确认、测试覆盖和页面截图。功能页面无原生确认调用（本次核对） |
 | C5 | 移除旧 AI 设置界面和接口，保留旧配置迁移提示；核对文件存储、模块测试及页面截图（本次提交） |
@@ -268,6 +269,9 @@
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
 | 2026-09-30 | 新增 `useBrowserViewport` 和 `styles/browser.css`，统一动态高度及安全区；手机普通页面改为文档滚动，切换路由回到顶部；`usePreferenceEffects` 按 CSS 主题背景更新浏览器主题色 | B38 跨浏览器与主屏幕应用适配 |
+| 2026-09-30 | `auth.Service` 加 `SessionActive(ctx)`：会话还在且没过期时为真。远端日志跟随和云盘日志跟随每 30 秒查一次，退出登录或改密码后断开；远端日志跟随最长 1 小时 | 审查修复：日志跟随在退出登录后还在推送 |
+| 2026-09-30 | `protocol.FilesWriteParams` 加 `Private`（`omitempty`，新文件建成 0600）和能力 `files.private`；代理 `ServeWrite` 支持它，`cmd/agent/main.go` 加一行报这个能力；`hostagent.Runner` 加 `BackupBase`（测试用） | 审查修复：机器 Agent 的备份别人可读 |
+| 2026-09-30 | `logfollow` 加 `UTF8Prefix`，远端日志和云盘日志都只发完整字符，云盘去掉自己的 `utf8Prefix` | 审查修复：远端日志跟随中文乱码 |
 | 2026-09-30 | `contracts` 新增 `ExternalReminder`、`ReminderSource` 和注册表前缀 `reminders.sources.`；监控与项目提供到期事项，提醒模块按来源汇总 | B37 提醒页汇总 |
 | 2026-09-30 | `contracts` 新增 `Files`、`FilesKey`（`files.files`）；公共上传模块提供 Markdown 图片认领和按归属清理，项目、日历、提醒、Agent 任务接入 | B36 公共图片上传 |
 | 2026-09-30 | `contracts` 新增 `LLM`、`LLMKey`（`ai.llm`）。AI 模块提供统一调用层，自动化和笔记按用途调用；浮窗、早报也使用同一调用层 | B32 OpenAI 兼容接口 |

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
@@ -340,14 +341,31 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 		httpx.Fail(w, r, httpx.ErrConflict)
 		return
 	}
+	// Approved actions of one conversation run one at a time. Otherwise a
+	// second host command replaces the first in m.running and the first one
+	// cancels it when it finishes.
+	unlock := m.lockActions(conversationID)
+	defer unlock()
+	if approve {
+		var current string
+		if err := m.d.DB.QueryRowContext(workCtx, "SELECT status FROM ai_pending_actions WHERE id=?", actionID).Scan(&current); m.fail(w, r, err) {
+			return
+		}
+		if current != state { // the reply was stopped while this one waited
+			httpx.NoContent(w)
+			return
+		}
+	}
 	result := any("用户拒绝了")
 	next := "rejected"
+	var own *generation
 	if approve {
 		if hostAction {
 			var cancel context.CancelFunc
 			workCtx, cancel = context.WithCancel(workCtx)
+			own = &generation{cancel: cancel}
 			m.mu.Lock()
-			m.running[conversationID] = &generation{cancel: cancel}
+			m.running[conversationID] = own
 			m.mu.Unlock()
 			result, err = m.runHostAction(workCtx, hostID.String, strings.ReplaceAll(name, ".", "__"), json.RawMessage(input))
 			if workCtx.Err() != nil {
@@ -368,7 +386,14 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 	if m.fail(w, r, e) {
 		return
 	}
-	m.stop(conversationID)
+	if own != nil {
+		m.mu.Lock()
+		if m.running[conversationID] == own {
+			delete(m.running, conversationID)
+		}
+		m.mu.Unlock()
+		own.cancel()
+	}
 	m.d.Bus.Publish("ai.message_saved", map[string]any{"conversationId": conversationID})
 	m.d.Audit.Record(workCtx, "ai.action."+next, strconv.FormatInt(actionID, 10), map[string]any{"action": name}, err)
 	if e = m.resumeAfterDecisions(context.WithoutCancel(ctx), conversationID); m.fail(w, r, e) {
@@ -387,8 +412,9 @@ func (m *Module) resumeAfterDecisions(ctx context.Context, id int64) error {
 	return m.completeAfterDecisions(ctx, id, true)
 }
 func (m *Module) completeAfterDecisions(ctx context.Context, id int64, resume bool) error {
+	// An approved action is still running; its own decide call resumes.
 	var waiting int
-	if err := m.d.DB.QueryRowContext(ctx, "SELECT count(*) FROM ai_pending_actions WHERE conversation_id=? AND status='pending'", id).Scan(&waiting); err != nil {
+	if err := m.d.DB.QueryRowContext(ctx, "SELECT count(*) FROM ai_pending_actions WHERE conversation_id=? AND status IN ('pending','approved')", id).Scan(&waiting); err != nil {
 		return err
 	}
 	if waiting > 0 {
@@ -452,4 +478,17 @@ func (m *Module) completeAfterDecisions(ctx context.Context, id int64, resume bo
 	m.mu.Unlock()
 	go m.run(worker, id, auth.FromContext(ctx), state)
 	return nil
+}
+
+// lockActions serializes approved actions of one conversation.
+func (m *Module) lockActions(id int64) func() {
+	m.mu.Lock()
+	lock := m.actionLocks[id]
+	if lock == nil {
+		lock = &sync.Mutex{}
+		m.actionLocks[id] = lock
+	}
+	m.mu.Unlock()
+	lock.Lock()
+	return lock.Unlock
 }

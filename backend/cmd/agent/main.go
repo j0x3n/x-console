@@ -149,6 +149,7 @@ func capabilities() []string {
 	// and services depend on the system; clipboard, power and open are
 	// Windows desktop only.
 	caps = append(caps, protocol.CapMetrics, protocol.CapProcesses, protocol.CapFiles, protocol.CapFilesRange, protocol.CapExec)
+	caps = append(caps, protocol.CapFilesPrivate)
 	if pty.Available() {
 		caps = append(caps, protocol.CapPTY)
 	}

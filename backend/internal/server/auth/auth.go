@@ -308,7 +308,9 @@ func (s *Service) Middleware(public func(path string) bool) func(http.Handler) h
 				httpx.Fail(w, r, httpx.NewError(http.StatusForbidden, "csrf", "缺少 X-Requested-With 请求头"))
 				return
 			}
-			if VaultUnlocked(r.Context()) {
+			// Sliding vault window. It is written at most once a minute, not on
+			// every request.
+			if VaultUnlocked(r.Context()) && sess.VaultUntil.Sub(s.now()) < vaultTTL-vaultRefresh {
 				until := s.now().Add(vaultTTL)
 				if err := s.q.SetVaultUntil(r.Context(), db.SetVaultUntilParams{VaultUntil: &until, ID: sess.ID}); err != nil {
 					httpx.Fail(w, r, err)
@@ -319,6 +321,18 @@ func (s *Service) Middleware(public func(path string) bool) func(http.Handler) h
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// SessionActive reports whether the session in ctx still exists and has not
+// expired. Long-lived connections (log follow) call it now and then, so a
+// logout or a password change ends them.
+func (s *Service) SessionActive(ctx context.Context) bool {
+	sess := FromContext(ctx)
+	if sess == nil {
+		return false
+	}
+	_, err := s.q.GetSession(ctx, db.GetSessionParams{ID: sess.ID, ExpiresAt: s.now()})
+	return err == nil
 }
 
 // CleanupExpired deletes expired sessions. The scheduler calls it hourly.

@@ -400,9 +400,9 @@ func (m *Module) CreateReminder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		// Saved already: log instead of failing, so the client does not retry.
 		if err := files.Claim(r.Context(), "reminder", row.ID, row.Body); err != nil {
-			httpx.Fail(w, r, err)
-			return
+			m.d.Log.Error("claim images failed", "id", row.ID, "err", err)
 		}
 	}
 	httpx.JSON(w, http.StatusCreated, toAPI(row))
@@ -429,9 +429,9 @@ func (m *Module) UpdateReminder(w http.ResponseWriter, r *http.Request, id api.R
 		return
 	}
 	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
+		// Saved already: log instead of failing, so the client does not retry.
 		if err := files.Claim(r.Context(), "reminder", id, row.Body); err != nil {
-			httpx.Fail(w, r, err)
-			return
+			m.d.Log.Error("claim images failed", "id", id, "err", err)
 		}
 	}
 	httpx.JSON(w, http.StatusOK, toAPI(row))

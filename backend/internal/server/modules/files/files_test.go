@@ -178,3 +178,28 @@ func TestIssueDescriptionAndCommentImagesRemoved(t *testing.T) {
 		}
 	}
 }
+
+func TestCodingTaskImagesRemovedWithRepo(t *testing.T) {
+	env := testutil.New(t)
+	agentID := env.Agent("server", nil, nil)
+	_, image := upload(t, env, "coding", "task.png", picture(t, 2, 2))
+	now := time.Now().UTC()
+	res, err := env.App.Deps.DB.Exec("INSERT INTO coding_repos(agent_id,path,name,created_at) VALUES(?,?,?,?)", agentID, "/src/app", "app", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repoID, _ := res.LastInsertId()
+	res, err = env.App.Deps.DB.Exec("INSERT INTO coding_tasks(repo_id,executor,prompt,status,created_at,updated_at) VALUES(?,?,?,?,?,?)", repoID, "claude", "![a]("+image.Url+")", "review", now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	taskID, _ := res.LastInsertId()
+	claimer, _ := module.Lookup[contracts.Files](env.App.Deps.Registry, contracts.FilesKey)
+	if err := claimer.Claim(context.Background(), "coding", taskID, "![a]("+image.Url+")"); err != nil {
+		t.Fatal(err)
+	}
+	env.MustDo("DELETE", "/coding/repos/"+strconv.FormatInt(repoID, 10), nil, nil)
+	if status, _ := env.Do("GET", "/files/"+strconv.FormatInt(image.Id, 10), nil, nil); status != 404 {
+		t.Fatalf("task image after repo delete: %d", status)
+	}
+}

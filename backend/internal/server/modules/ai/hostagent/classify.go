@@ -65,7 +65,8 @@ func ClassifyCommand(command string) Effect {
 			return Dangerous
 		}
 	}
-	if strings.ContainsAny(command, "><;`\r\n\\") || strings.Contains(command, "&&") || strings.Contains(command, "||") || strings.Contains(command, "$(") {
+	// A single & also starts another command (background in sh, a separator in cmd.exe).
+	if strings.ContainsAny(command, "><;&`\r\n\\") || strings.Contains(command, "||") || strings.Contains(command, "$(") {
 		return Write
 	}
 	segments := strings.Split(command, "|")
@@ -92,7 +93,9 @@ func readSegment(name string, args []string) bool {
 	joined := strings.Join(args, " ")
 	switch name {
 	case "find":
-		return !strings.Contains(joined, "-delete") && !strings.Contains(joined, "-exec") && !strings.Contains(joined, "-ok")
+		// -fprint* and -fls write their output to a file.
+		return !strings.Contains(joined, "-delete") && !strings.Contains(joined, "-exec") && !strings.Contains(joined, "-ok") &&
+			!strings.Contains(joined, "-fprint") && !strings.Contains(joined, "-fls")
 	case "top":
 		return hasArg(args, "-b")
 	case "ip":
@@ -108,12 +111,13 @@ func readSegment(name string, args []string) bool {
 	case "awk":
 		return !strings.Contains(strings.ReplaceAll(joined, " ", ""), "system(")
 	case "sed":
-		for _, arg := range args {
-			if strings.HasPrefix(arg, "-") && strings.Contains(arg, "i") {
-				return false
-			}
-		}
-		return !regexp.MustCompile(`(^|[;\s])w\s+`).MatchString(joined)
+		return readSed(args)
+	case "uniq":
+		return readUniq(args)
+	case "ss":
+		return !hasArg(args, "-K") && !hasArg(args, "--kill")
+	case "file":
+		return !hasArg(args, "-C") && !hasArg(args, "--compile")
 	case "env", "hostname":
 		return len(args) == 0
 	case "date":
@@ -153,6 +157,46 @@ func readSegment(name string, args []string) bool {
 		return true
 	}
 	return strings.HasPrefix(name, "Get-") && len(name) > 4 && !strings.ContainsAny(joined, "$(){}@")
+}
+
+// sedPrint is a script that only prints lines picked by number or pattern,
+// such as 10,20p or /error/p.
+var sedPrint = regexp.MustCompile(`^(?:[0-9]+|\$|/[^/]*/)(?:,(?:[0-9]+|\$|/[^/]*/))?p$`)
+
+// readSed allows only sed -n with a print script. sed can also write files
+// (w, s///w) and run commands (e, s///e), so any other script is a write.
+func readSed(args []string) bool {
+	quiet, script := false, false
+	for _, arg := range args {
+		switch {
+		case arg == "-n" || arg == "--quiet" || arg == "--silent":
+			quiet = true
+		case arg == "-E" || arg == "-r":
+		case strings.HasPrefix(arg, "-"):
+			return false
+		case !script:
+			if !sedPrint.MatchString(strings.Trim(arg, `'"`)) {
+				return false
+			}
+			script = true
+		}
+	}
+	return quiet && script
+}
+
+// readUniq rejects a second file name, which uniq writes its output to.
+func readUniq(args []string) bool {
+	files := 0
+	for i := 0; i < len(args); i++ {
+		switch arg := args[i]; {
+		case in(arg, "-f", "-s", "-w", "--skip-fields", "--skip-chars", "--check-chars"):
+			i++
+		case strings.HasPrefix(arg, "-"):
+		default:
+			files++
+		}
+	}
+	return files <= 1
 }
 
 func hasArg(args []string, value string) bool {

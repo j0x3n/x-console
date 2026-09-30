@@ -115,7 +115,11 @@ func (m *Module) ArchiveDriveItems(w http.ResponseWriter, r *http.Request) {
 		targetID = *parent
 	}
 	title := fmt.Sprintf("压缩 %d 项为 %s", len(entries), name)
-	task := m.startTask(api.Archive, title, len(entries), totalBytes, func(jobCtx context.Context, t *driveTask) error {
+	start := m.startTask
+	if *hidden {
+		start, title = m.startHiddenTask, fmt.Sprintf("压缩隐藏空间里的 %d 项", len(entries))
+	}
+	task := start(api.Archive, title, len(entries), totalBytes, func(jobCtx context.Context, t *driveTask) error {
 		resultID, err := m.createArchive(jobCtx, t, entries, name, mime, body.Format, parent, *hidden)
 		m.d.Audit.Record(context.WithoutCancel(jobCtx), "drive.archive", strconv.FormatInt(resultID, 10), map[string]any{"items": len(entries), "format": body.Format, "targetId": targetID}, err)
 		return err
@@ -213,13 +217,15 @@ func (m *Module) createArchive(ctx context.Context, t *driveTask, entries []arch
 		return 0, err
 	}
 	digest := hex.EncodeToString(hash.Sum(nil))
-	if err := m.putBlobFile(ctx, digest, tmp.Name(), info.Size()); err != nil {
+	release, err := m.putBlobFile(ctx, digest, tmp.Name(), info.Size())
+	if err != nil {
 		return 0, err
 	}
+	defer release()
 	committed := false
 	defer func() {
 		if !committed {
-			m.dropBlob(context.WithoutCancel(ctx), digest)
+			m.dropBlobLocked(context.WithoutCancel(ctx), digest)
 		}
 	}()
 	var created db.DriveItem

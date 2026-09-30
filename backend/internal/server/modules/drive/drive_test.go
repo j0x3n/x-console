@@ -203,6 +203,7 @@ func TestS3SyncAndActions(t *testing.T) {
 	var mu sync.Mutex
 	objects := map[string][]byte{}
 	var sources []string
+	var heads int
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/testbucket" && r.Method == http.MethodHead {
 			w.WriteHeader(200)
@@ -239,6 +240,7 @@ func TestS3SyncAndActions(t *testing.T) {
 			delete(objects, key)
 			w.WriteHeader(204)
 		case http.MethodHead:
+			heads++
 			if _, ok := objects[key]; !ok {
 				http.Error(w, "missing", 404)
 				return
@@ -303,6 +305,20 @@ func TestS3SyncAndActions(t *testing.T) {
 		t.Fatalf("object %s want %v: %+v; copy=%v row key=%v error=%v", key, want, objects, sources, s3key, s3error)
 	}
 	waitObject("backup/项目/one.txt", true)
+	// Later runs skip files that did not change and do not ask the bucket.
+	mu.Lock()
+	before := heads
+	mu.Unlock()
+	for i := 0; i < 3; i++ {
+		env.MustDo(http.MethodPost, "/drive/s3/sync", nil, nil)
+		time.Sleep(50 * time.Millisecond)
+	}
+	mu.Lock()
+	after := heads
+	mu.Unlock()
+	if after != before {
+		t.Fatalf("unchanged files checked against the bucket: %d HEAD requests", after-before)
+	}
 	env.MustDo(http.MethodPatch, "/drive/items/"+itoa(item.Id), map[string]string{"name": "two.txt"}, nil)
 	waitObject("backup/项目/two.txt", true)
 	waitObject("backup/项目/one.txt", false)

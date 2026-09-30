@@ -30,14 +30,20 @@ type Module struct {
 	syncMu     sync.Mutex
 	syncStatus api.S3Status
 	syncReq    chan struct{}
-	tasksMu    sync.Mutex
-	tasks      map[string]*driveTask
-	taskSlots  chan struct{}
-	taskBase   context.Context
-	taskNow    func() time.Time
-	shareMu    sync.Mutex
-	shareHits  map[string]shareRate
-	shareFails map[string]shareFailure
+	// lastFullSync is when syncAll last checked every file; runMu guards it.
+	lastFullSync time.Time
+	tasksMu      sync.Mutex
+	tasks        map[string]*driveTask
+	taskSlots    chan struct{}
+	taskBase     context.Context
+	taskNow      func() time.Time
+	shareMu      sync.Mutex
+	shareHits    map[string]shareRate
+	shareFails   map[string]shareFailure
+	// shareFetches: "share:item:ip" -> when it last counted a download.
+	shareFetches map[string]time.Time
+	blobMu       sync.Mutex
+	blobLocks    map[string]*blobLock // see lockBlob
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -47,7 +53,7 @@ func New(d *module.Deps) (module.Module, error) {
 	if err := os.MkdirAll(d.Config.TmpDir(), 0700); err != nil {
 		return nil, err
 	}
-	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure)}
+	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure), shareFetches: make(map[string]time.Time), blobLocks: make(map[string]*blobLock)}
 	m.registerActions()
 	return m, nil
 }
@@ -191,33 +197,129 @@ func (m *Module) restorePath(ctx context.Context, from *int64) string {
 }
 
 func (m *Module) dto(ctx context.Context, item db.DriveItem) api.DriveItem {
-	out := api.DriveItem{Id: item.ID, ParentId: item.ParentID, Name: item.Name, IsDir: item.IsDir != 0, Size: item.Size, Hidden: item.Hidden != 0, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, TrashedAt: item.TrashedAt, SyncState: "off"}
-	shared := false
-	if m.shareable(ctx, item) {
-		var count int
-		if err := m.d.DB.QueryRowContext(ctx, `SELECT count(*) FROM drive_shares WHERE item_id=? AND (expires_at IS NULL OR expires_at>?) AND (max_downloads IS NULL OR downloads<max_downloads)`, item.ID, time.Now().UTC()).Scan(&count); err == nil {
-			shared = count > 0
-		}
-	}
-	out.Shared = &shared
-	if item.IsDir == 0 {
-		out.Mime = &item.Mime
-	}
-	if item.Hidden != 0 && item.ParentID == nil {
-		p := m.restorePath(ctx, item.HiddenFrom)
-		out.RestoreTo = &p
-	}
+	out, _ := m.dtos(ctx, []db.DriveItem{item})
+	return out[0]
+}
+
+// itemColumns selects a full db.DriveItem, in scanItem's order.
+const itemColumns = "id,parent_id,name,is_dir,size,mime,sha256,hidden,hidden_from,trashed_at,created_at,updated_at,s3_synced_at,s3_etag,s3_error,s3_key,s3_hash"
+
+func scanItem(s interface{ Scan(...any) error }) (db.DriveItem, error) {
+	var i db.DriveItem
+	err := s.Scan(&i.ID, &i.ParentID, &i.Name, &i.IsDir, &i.Size, &i.Mime, &i.Sha256, &i.Hidden, &i.HiddenFrom, &i.TrashedAt,
+		&i.CreatedAt, &i.UpdatedAt, &i.S3SyncedAt, &i.S3Etag, &i.S3Error, &i.S3Key, &i.S3Hash)
+	return i, err
+}
+
+// dtos converts a list with a fixed number of queries: the sync settings
+// once, the active shares in batches, and each distinct ancestor once.
+func (m *Module) dtos(ctx context.Context, items []db.DriveItem) ([]api.DriveItem, error) {
 	cfg, _ := m.config(ctx)
-	if cfg.Enabled && (!out.Hidden || cfg.IncludeHidden) && item.IsDir == 0 {
-		out.SyncState = "pending"
-		if item.S3Error != nil && *item.S3Error != "" {
-			out.SyncState = "failed"
-			out.SyncError = item.S3Error
-		} else if item.S3SyncedAt != nil && !item.S3SyncedAt.Before(item.UpdatedAt) {
-			out.SyncState = "synced"
+	ancestors := map[int64]bool{} // folder id -> it and its ancestors are neither hidden nor trashed
+	shareable := make([]bool, len(items))
+	var candidates []int64
+	for i, item := range items {
+		shareable[i] = m.shareableMemo(ctx, item, ancestors)
+		if shareable[i] {
+			candidates = append(candidates, item.ID)
 		}
 	}
-	return out
+	shared, err := m.activeShares(ctx, candidates)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]api.DriveItem, 0, len(items))
+	for i, item := range items {
+		d := api.DriveItem{Id: item.ID, ParentId: item.ParentID, Name: item.Name, IsDir: item.IsDir != 0, Size: item.Size, Hidden: item.Hidden != 0, CreatedAt: item.CreatedAt, UpdatedAt: item.UpdatedAt, TrashedAt: item.TrashedAt, SyncState: "off"}
+		isShared := shareable[i] && shared[item.ID]
+		d.Shared = &isShared
+		if item.IsDir == 0 {
+			d.Mime = &item.Mime
+		}
+		if item.Hidden != 0 && item.ParentID == nil {
+			p := m.restorePath(ctx, item.HiddenFrom)
+			d.RestoreTo = &p
+		}
+		if cfg.Enabled && (!d.Hidden || cfg.IncludeHidden) && item.IsDir == 0 {
+			d.SyncState = "pending"
+			if item.S3Error != nil && *item.S3Error != "" {
+				d.SyncState = "failed"
+				d.SyncError = item.S3Error
+			} else if item.S3SyncedAt != nil && !item.S3SyncedAt.Before(item.UpdatedAt) {
+				d.SyncState = "synced"
+			}
+		}
+		out = append(out, d)
+	}
+	return out, nil
+}
+
+// shareableMemo is shareable with the answer for each folder kept in memo,
+// so items in the same folder walk its ancestors once.
+func (m *Module) shareableMemo(ctx context.Context, item db.DriveItem, memo map[int64]bool) bool {
+	if item.Hidden != 0 || item.TrashedAt != nil {
+		return false
+	}
+	var path []int64
+	ok := true
+	for parent := item.ParentID; parent != nil; {
+		if known, seen := memo[*parent]; seen {
+			ok = known
+			break
+		}
+		if len(path) >= 64 {
+			ok = false
+			break
+		}
+		path = append(path, *parent)
+		row, err := m.row(ctx, *parent)
+		if err != nil || row.Hidden != 0 || row.TrashedAt != nil {
+			ok = false
+			break
+		}
+		parent = row.ParentID
+	}
+	// Every folder on the walked path shares the answer: above a bad folder
+	// nothing was walked, and everything below it is bad too.
+	for _, id := range path {
+		memo[id] = ok
+	}
+	return ok
+}
+
+// activeShares reports which of ids have a link that still works.
+func (m *Module) activeShares(ctx context.Context, ids []int64) (map[int64]bool, error) {
+	out := map[int64]bool{}
+	now := time.Now().UTC()
+	for len(ids) > 0 {
+		batch := ids[:min(len(ids), 500)]
+		ids = ids[len(batch):]
+		args := make([]any, 0, len(batch)+1)
+		for _, id := range batch {
+			args = append(args, id)
+		}
+		args = append(args, now)
+		rows, err := m.d.DB.QueryContext(ctx, `SELECT DISTINCT item_id FROM drive_shares WHERE item_id IN (?`+strings.Repeat(",?", len(batch)-1)+`)
+AND (expires_at IS NULL OR expires_at>?) AND (max_downloads IS NULL OR downloads<max_downloads)`, args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id int64
+			if err = rows.Scan(&id); err != nil {
+				break
+			}
+			out[id] = true
+		}
+		if err == nil {
+			err = rows.Err()
+		}
+		rows.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func (m *Module) audit(ctx context.Context, kind string, id int64, err error) {

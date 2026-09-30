@@ -98,6 +98,16 @@ func TestDriveVersionSettingsPruneAndVault(t *testing.T) {
 	if len(listVersions(t, env, file.Id)) != 3 {
 		t.Fatal("expected three old versions")
 	}
+	// Keeping more needs nothing; keeping fewer deletes, so it needs elevation.
+	env.MustDo(http.MethodPut, "/drive/version-settings", map[string]any{"keepCount": 60, "keepDays": 30}, nil)
+	status, _ = env.Do(http.MethodPut, "/drive/version-settings", map[string]any{"keepCount": 1, "keepDays": 30}, nil)
+	if status != http.StatusForbidden {
+		t.Fatalf("shrink without elevation: %d", status)
+	}
+	if len(listVersions(t, env, file.Id)) != 3 {
+		t.Fatal("versions deleted without elevation")
+	}
+	env.Elevate()
 	env.MustDo(http.MethodPut, "/drive/version-settings", map[string]any{"keepCount": 1, "keepDays": 30}, &settings)
 	if settings.KeepCount != 1 {
 		t.Fatalf("saved settings: %+v", settings)

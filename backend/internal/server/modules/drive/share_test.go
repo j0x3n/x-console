@@ -2,6 +2,7 @@ package drive_test
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -77,5 +78,54 @@ func TestDriveShareRejectsHiddenAndBadInput(t *testing.T) {
 	status, raw := env.Do(http.MethodPost, "/drive/shares", map[string]any{"itemId": hidden.Id, "expiresIn": "never"}, nil)
 	if status != http.StatusBadRequest || !strings.Contains(string(raw), "share_not_allowed") {
 		t.Fatalf("hidden share: %d %s", status, raw)
+	}
+}
+
+func TestHiddenSharedItemLeavesShareListWhileLocked(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	file := upload(t, env, "秘密合同.pdf", "x", false)
+	env.Elevate()
+	env.MustDo(http.MethodPost, "/drive/shares", map[string]any{"itemId": file.Id, "expiresIn": "7d"}, nil)
+	env.MustDo(http.MethodPost, "/vault/setup", map[string]string{"password": "secret123"}, nil)
+	env.MustDo(http.MethodPatch, "/drive/items/"+strconv.FormatInt(file.Id, 10), map[string]any{"hidden": true}, nil)
+	var out struct {
+		Items []api.DriveShare `json:"items"`
+	}
+	env.MustDo(http.MethodGet, "/drive/shares", nil, &out)
+	if len(out.Items) != 1 || out.Items[0].Active {
+		t.Fatalf("unlocked share list: %+v", out.Items)
+	}
+	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
+	_, raw := env.Do(http.MethodGet, "/drive/shares", nil, nil)
+	if strings.Contains(string(raw), "秘密") {
+		t.Fatalf("hidden name in locked share list: %s", raw)
+	}
+}
+
+func TestSharedFlagInFoldersAndSearch(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	var outer, inner api.DriveItem
+	env.MustDo(http.MethodPost, "/drive/folders", map[string]any{"name": "外"}, &outer)
+	env.MustDo(http.MethodPost, "/drive/folders", map[string]any{"name": "内", "parentId": outer.Id}, &inner)
+	shared := upload(t, env, "报告-已分享.txt", "a", false)
+	plain := upload(t, env, "报告-未分享.txt", "b", false)
+	for _, file := range []api.DriveItem{shared, plain} {
+		env.MustDo(http.MethodPatch, "/drive/items/"+itoa(file.Id), map[string]any{"parentId": inner.Id}, nil)
+	}
+	env.Elevate()
+	env.MustDo(http.MethodPost, "/drive/shares", map[string]any{"itemId": shared.Id, "expiresIn": "7d"}, nil)
+	for _, path := range []string{"/drive/items?parent=" + itoa(inner.Id), "/drive/items?q=" + url.QueryEscape("报告")} {
+		var out struct {
+			Items []api.DriveItem `json:"items"`
+		}
+		env.MustDo(http.MethodGet, path, nil, &out)
+		if len(out.Items) != 2 {
+			t.Fatalf("%s: %+v", path, out.Items)
+		}
+		for _, item := range out.Items {
+			if item.Shared == nil || *item.Shared != (item.Id == shared.Id) {
+				t.Fatalf("%s: shared flag of %s: %v", path, item.Name, item.Shared)
+			}
+		}
 	}
 }

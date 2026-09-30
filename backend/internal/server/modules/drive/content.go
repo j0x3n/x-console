@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -38,16 +39,61 @@ func etagMatches(header, hash string) bool {
 	return false
 }
 
-// storeBlob 按 sha256 存内容，已有同样内容时不重复写。
-func (m *Module) storeBlob(ctx context.Context, data []byte) (string, error) {
-	sum := sha256.Sum256(data)
-	hash := hex.EncodeToString(sum[:])
-	if _, err := m.store.Stat(ctx, blobKey(hash)); err == nil {
-		return hash, nil
-	} else if !errors.Is(err, files.ErrNotFound) {
-		return "", err
+type blobLock struct {
+	mu    sync.Mutex
+	users int
+}
+
+// lockBlob serializes work on one content hash. Content is shared by
+// hash, so an upload that finds it already stored must insert its row before
+// a delete counts the references, or the delete removes content the new row
+// needs. Writers hold the lock from storing the content until their row is
+// committed; deleters hold it while they count and delete. Take it before
+// m.mu (m.write), never inside.
+func (m *Module) lockBlob(hash string) func() {
+	m.blobMu.Lock()
+	l := m.blobLocks[hash]
+	if l == nil {
+		l = &blobLock{}
+		m.blobLocks[hash] = l
 	}
-	return hash, m.store.Put(ctx, blobKey(hash), bytes.NewReader(data), int64(len(data)))
+	l.users++
+	m.blobMu.Unlock()
+	l.mu.Lock()
+	return func() {
+		l.mu.Unlock()
+		m.blobMu.Lock()
+		l.users--
+		if l.users == 0 {
+			delete(m.blobLocks, hash)
+		}
+		m.blobMu.Unlock()
+	}
+}
+
+// afterBlobPut runs between storing content and inserting its row. Tests
+// use it to hold an upload there.
+var afterBlobPut = func() {}
+
+// storeBlob 按 sha256 存内容，已有同样内容时不重复写。成功时持有这份内容的锁，
+// 用它的条目提交以后调用 release。
+func (m *Module) storeBlob(ctx context.Context, data []byte) (hash string, release func(), err error) {
+	sum := sha256.Sum256(data)
+	hash = hex.EncodeToString(sum[:])
+	release = m.lockBlob(hash)
+	if _, err = m.store.Stat(ctx, blobKey(hash)); err == nil {
+		afterBlobPut()
+		return hash, release, nil
+	} else if !errors.Is(err, files.ErrNotFound) {
+		release()
+		return "", nil, err
+	}
+	if err = m.store.Put(ctx, blobKey(hash), bytes.NewReader(data), int64(len(data))); err != nil {
+		release()
+		return "", nil, err
+	}
+	afterBlobPut()
+	return hash, release, nil
 }
 
 // dropBlob 在没有条目再用这份内容时删掉它。
@@ -55,9 +101,17 @@ func (m *Module) dropBlob(ctx context.Context, hash string) {
 	if hash == "" {
 		return
 	}
+	release := m.lockBlob(hash)
+	defer release()
+	m.dropBlobLocked(ctx, hash)
+}
+
+// dropBlobLocked is dropBlob for a caller that holds the hash's lock.
+func (m *Module) dropBlobLocked(ctx context.Context, hash string) {
 	count, err := m.q.CountBlobReferences(ctx, hash)
 	if err == nil && count == 0 {
 		_ = m.store.Delete(ctx, blobKey(hash))
+		_ = m.store.Delete(ctx, thumbnailKey(hash))
 	}
 }
 
@@ -84,7 +138,7 @@ func (m *Module) SaveDriveItemContent(w http.ResponseWriter, r *http.Request, id
 		httpx.Fail(w, r, errVersionConflict)
 		return
 	}
-	hash, err := m.storeBlob(ctx, data)
+	hash, release, err := m.storeBlob(ctx, data)
 	if fail(w, r, err) {
 		return
 	}
@@ -119,7 +173,10 @@ func (m *Module) SaveDriveItemContent(w http.ResponseWriter, r *http.Request, id
 		return nil
 	})
 	if err != nil {
-		m.dropBlob(ctx, hash)
+		m.dropBlobLocked(ctx, hash)
+	}
+	release()
+	if err != nil {
 		m.audit(ctx, "drive.save_text", id, err)
 		httpx.Fail(w, r, err)
 		return

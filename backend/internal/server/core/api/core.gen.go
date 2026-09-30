@@ -335,6 +335,11 @@ type ChangePasswordJSONBody struct {
 	OldPassword string `json:"oldPassword"`
 }
 
+// SkipSetupTotpJSONBody defines parameters for SkipSetupTotp.
+type SkipSetupTotpJSONBody struct {
+	Password string `json:"password"`
+}
+
 // DisableTotpJSONBody defines parameters for DisableTotp.
 type DisableTotpJSONBody struct {
 	Code     string `json:"code"`
@@ -368,6 +373,9 @@ type SetupAccountJSONRequestBody = Credentials
 
 // ConfirmSetupJSONRequestBody defines body for ConfirmSetup for application/json ContentType.
 type ConfirmSetupJSONRequestBody = TotpCode
+
+// SkipSetupTotpJSONRequestBody defines body for SkipSetupTotp for application/json ContentType.
+type SkipSetupTotpJSONRequestBody SkipSetupTotpJSONBody
 
 // ConfirmTotpJSONRequestBody defines body for ConfirmTotp for application/json ContentType.
 type ConfirmTotpJSONRequestBody = TotpCode

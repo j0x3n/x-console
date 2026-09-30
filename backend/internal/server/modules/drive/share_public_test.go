@@ -75,15 +75,19 @@ func TestPublicShareContentRangeLimitAndHeaders(t *testing.T) {
 	if resp.StatusCode != http.StatusPartialContent || string(raw) != "scr" || !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "attachment") {
 		t.Fatalf("range content: %d %q %+v", resp.StatusCode, raw, resp.Header)
 	}
+	// A range that skips the first byte still counts as a download.
 	var downloads int
-	if err := env.App.Deps.DB.QueryRow("SELECT downloads FROM drive_shares WHERE id=?", share.Id).Scan(&downloads); err != nil || downloads != 0 {
-		t.Fatalf("nonzero range counted: %d %v", downloads, err)
+	if err := env.App.Deps.DB.QueryRow("SELECT downloads FROM drive_shares WHERE id=?", share.Id).Scan(&downloads); err != nil || downloads != 1 {
+		t.Fatalf("range download count: %d %v", downloads, err)
 	}
+	// The same client keeps its download: more ranges and the whole file
+	// are served and not counted again.
 	resp, raw = publicRequest(t, env, http.MethodGet, base+"/content", nil, nil)
 	if resp.StatusCode != http.StatusOK || !strings.Contains(string(raw), "alert") {
 		t.Fatalf("download: %d %s", resp.StatusCode, raw)
 	}
-	resp, raw = publicRequest(t, env, http.MethodGet, base+"/content", nil, map[string]string{"Range": "bytes=1-3"})
+	// Another client is over the limit.
+	resp, raw = publicRequest(t, env, http.MethodGet, base+"/content", nil, map[string]string{"Range": "bytes=1-3", "X-Forwarded-For": "203.0.113.9"})
 	if resp.StatusCode != http.StatusGone || !strings.Contains(string(raw), "share_limit_reached") {
 		t.Fatalf("limit: %d %s", resp.StatusCode, raw)
 	}
@@ -186,8 +190,10 @@ func TestPublicShareFolderScopeAndZip(t *testing.T) {
 	if resp.StatusCode != http.StatusOK || string(raw) != "hello" {
 		t.Fatalf("download after zip: %d %s", resp.StatusCode, raw)
 	}
+	// The file (once, the second fetch by the same client within an hour is
+	// the same download) and the zip.
 	var downloads int
-	if err := env.App.Deps.DB.QueryRow("SELECT downloads FROM drive_shares WHERE id=?", share.Id).Scan(&downloads); err != nil || downloads != 3 {
+	if err := env.App.Deps.DB.QueryRow("SELECT downloads FROM drive_shares WHERE id=?", share.Id).Scan(&downloads); err != nil || downloads != 2 {
 		t.Fatalf("folder downloads: %d %v", downloads, err)
 	}
 }

@@ -232,8 +232,11 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 		return t, err
 	}
 	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
-		if err = files.Claim(ctx, "coding", id, in.Prompt); err != nil {
-			return t, err
+		// The task is saved; a failed claim only leaves images to the
+		// unclaimed-file cleanup. Failing here would make the client retry
+		// and create the task twice.
+		if err := files.Claim(ctx, "coding", id, in.Prompt); err != nil {
+			m.d.Log.Error("claim task images failed", "task", id, "err", err)
 		}
 	}
 	m.d.Bus.Publish("coding_task.created", t)
