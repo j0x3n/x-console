@@ -39,7 +39,7 @@ type manualDelay struct {
 }
 
 func (d *manualDelay) Schedule(delay time.Duration, fn func()) func() {
-	if delay != 10*time.Second {
+	if delay != 3*time.Second {
 		panic("unexpected AI delay")
 	}
 	d.mu.Lock()
@@ -161,3 +161,38 @@ func TestNoteAIApplySettings(t *testing.T) {
 }
 
 func formatID(id int64) string { return strconv.FormatInt(id, 10) }
+
+func TestNoteAIToolsOnDemand(t *testing.T) {
+	env, _, fake := setupNoteAI(t)
+	fake.Queue(llm.Result{Text: "```markdown\n# 周报\n\n- 完成了接口\n```"}, nil)
+	var polished struct{ Body string }
+	env.MustDo(http.MethodPost, "/notes/ai/polish", map[string]any{"body": "周报 完成了接口", "prompt": "改成要点列表"}, &polished)
+	if polished.Body != "# 周报\n\n- 完成了接口" {
+		t.Fatalf("polish: %q", polished.Body)
+	}
+	call := fake.Calls[len(fake.Calls)-1]
+	if !strings.Contains(call.System, "改成要点列表") || call.Messages[0].Content != "周报 完成了接口" {
+		t.Fatalf("polish request: %+v", call)
+	}
+	fake.Queue(llm.Result{Text: `{"title":"本周工作总结和下周计划安排说明文档"}`}, nil)
+	var title struct{ Title string }
+	env.MustDo(http.MethodPost, "/notes/ai/title", map[string]any{"body": "完成了接口"}, &title)
+	if title.Title == "" || len([]rune(title.Title)) > 20 {
+		t.Fatalf("title: %q", title.Title)
+	}
+	fake.Queue(llm.Result{Text: `{"tags":["工作","周报","计划","多余"]}`}, nil)
+	var tags struct{ Tags []string }
+	env.MustDo(http.MethodPost, "/notes/ai/tags", map[string]any{"body": "完成了接口"}, &tags)
+	if len(tags.Tags) != 3 || tags.Tags[0] != "工作" {
+		t.Fatalf("tags: %+v", tags.Tags)
+	}
+	// Nothing was saved: the endpoints only answer.
+	var page struct{ Items []api.NoteSummary }
+	env.MustDo(http.MethodGet, "/notes", nil, &page)
+	if len(page.Items) != 0 {
+		t.Fatalf("notes created: %+v", page.Items)
+	}
+	if status, _ := env.Do(http.MethodPost, "/notes/ai/polish", map[string]any{"body": "   "}, nil); status != http.StatusBadRequest {
+		t.Fatalf("empty body: %d", status)
+	}
+}

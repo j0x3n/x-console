@@ -21,6 +21,10 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
+// minAutoAIRunes is how much text a note needs before a title and tags are
+// made for it automatically (B40: "有内容就生成", but not for one word).
+const minAutoAIRunes = 10
+
 const noteAISchema = `{"type":"object","properties":{"title":{"type":"string"},"tags":{"type":"array","items":{"type":"string"},"maxItems":3}},"required":["title","tags"],"additionalProperties":false}`
 
 type aiTimer struct{ cancel func() }
@@ -112,7 +116,9 @@ func (m *Module) scheduleNoteAI(id int64, hidden bool) {
 	}
 	timer := &aiTimer{}
 	m.aiTimers[id] = timer
-	timer.cancel = m.aiDelay(10*time.Second, func() {
+	// B40: a few seconds after the save, not 10. Saves come in bursts while
+	// typing; the timer restarts on each one.
+	timer.cancel = m.aiDelay(3*time.Second, func() {
 		m.aiMu.Lock()
 		if m.aiTimers[id] != timer {
 			m.aiMu.Unlock()
@@ -224,7 +230,7 @@ func (m *Module) processNoteAI(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if hidden != 0 || utf8.RuneCountInString(strings.Join(strings.Fields(body), "")) <= 50 {
+	if hidden != 0 || utf8.RuneCountInString(strings.Join(strings.Fields(body), "")) < minAutoAIRunes {
 		return nil
 	}
 	var tagCount int

@@ -168,6 +168,85 @@ paths:
               schema: { $ref: "#/components/schemas/NoteAiSettings" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /notes/ai/polish:
+    post:
+      operationId: polishNoteBody
+      tags: [notes]
+      description: B40。用快速模型润色、整理 Markdown 正文。只返回结果，不保存。prompt 为空时按内容自动润色。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 60000, description: 最多 20000 字 }
+                prompt: { type: string, maxLength: 500, description: 用户自己写的要求，比如“改成要点列表” }
+      responses:
+        "200":
+          description: 润色后的正文
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [body]
+                properties:
+                  body: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/ai/title:
+    post:
+      operationId: suggestNoteTitle
+      tags: [notes]
+      description: B40。根据正文生成一个标题。只返回，不保存。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 60000 }
+      responses:
+        "200":
+          description: 标题
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [title]
+                properties:
+                  title: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/ai/tags:
+    post:
+      operationId: suggestNoteTags
+      tags: [notes]
+      description: B40。根据正文生成最多 3 个标签，优先用已有标签。只返回，不保存。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 60000 }
+      responses:
+        "200":
+          description: 标签
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tags]
+                properties:
+                  tags: { type: array, items: { type: string } }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /notes/{noteId}/suggested-tags:
     parameters:
       - $ref: "#/components/parameters/NoteId"

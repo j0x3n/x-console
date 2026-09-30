@@ -194,6 +194,25 @@ type ListNotesParams struct {
 	Cursor *externalRef0.Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// PolishNoteBodyJSONBody defines parameters for PolishNoteBody.
+type PolishNoteBodyJSONBody struct {
+	// Body 最多 20000 字
+	Body string `json:"body"`
+
+	// Prompt 用户自己写的要求，比如“改成要点列表”
+	Prompt *string `json:"prompt,omitempty"`
+}
+
+// SuggestNoteTagsJSONBody defines parameters for SuggestNoteTags.
+type SuggestNoteTagsJSONBody struct {
+	Body string `json:"body"`
+}
+
+// SuggestNoteTitleJSONBody defines parameters for SuggestNoteTitle.
+type SuggestNoteTitleJSONBody struct {
+	Body string `json:"body"`
+}
+
 // ListNoteTagsParams defines parameters for ListNoteTags.
 type ListNoteTagsParams struct {
 	// Hidden true 时只数隐藏笔记的标签（隐藏空间自己的标签），要先解锁，没解锁时返回空数组
@@ -224,6 +243,15 @@ type CreateNoteJSONRequestBody = CreateNote
 // PutNoteAiSettingsJSONRequestBody defines body for PutNoteAiSettings for application/json ContentType.
 type PutNoteAiSettingsJSONRequestBody = NoteAiSettingsInput
 
+// PolishNoteBodyJSONRequestBody defines body for PolishNoteBody for application/json ContentType.
+type PolishNoteBodyJSONRequestBody PolishNoteBodyJSONBody
+
+// SuggestNoteTagsJSONRequestBody defines body for SuggestNoteTags for application/json ContentType.
+type SuggestNoteTagsJSONRequestBody SuggestNoteTagsJSONBody
+
+// SuggestNoteTitleJSONRequestBody defines body for SuggestNoteTitle for application/json ContentType.
+type SuggestNoteTitleJSONRequestBody SuggestNoteTitleJSONBody
+
 // SetNoteTagColorJSONRequestBody defines body for SetNoteTagColor for application/json ContentType.
 type SetNoteTagColorJSONRequestBody = TagColorInput
 
@@ -253,6 +281,15 @@ type ServerInterface interface {
 
 	// (PUT /notes/ai-settings)
 	PutNoteAiSettings(w http.ResponseWriter, r *http.Request)
+
+	// (POST /notes/ai/polish)
+	PolishNoteBody(w http.ResponseWriter, r *http.Request)
+
+	// (POST /notes/ai/tags)
+	SuggestNoteTags(w http.ResponseWriter, r *http.Request)
+
+	// (POST /notes/ai/title)
+	SuggestNoteTitle(w http.ResponseWriter, r *http.Request)
 
 	// (DELETE /notes/attachments/{attachmentId})
 	DeleteNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId)
@@ -312,6 +349,21 @@ func (_ Unimplemented) GetNoteAiSettings(w http.ResponseWriter, r *http.Request)
 
 // (PUT /notes/ai-settings)
 func (_ Unimplemented) PutNoteAiSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notes/ai/polish)
+func (_ Unimplemented) PolishNoteBody(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notes/ai/tags)
+func (_ Unimplemented) SuggestNoteTags(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notes/ai/title)
+func (_ Unimplemented) SuggestNoteTitle(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -528,6 +580,48 @@ func (siw *ServerInterfaceWrapper) PutNoteAiSettings(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutNoteAiSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PolishNoteBody operation middleware
+func (siw *ServerInterfaceWrapper) PolishNoteBody(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PolishNoteBody(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SuggestNoteTags operation middleware
+func (siw *ServerInterfaceWrapper) SuggestNoteTags(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SuggestNoteTags(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SuggestNoteTitle operation middleware
+func (siw *ServerInterfaceWrapper) SuggestNoteTitle(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SuggestNoteTitle(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -983,6 +1077,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/notes/ai-settings", wrapper.PutNoteAiSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notes/ai/polish", wrapper.PolishNoteBody)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notes/ai/title", wrapper.SuggestNoteTitle)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notes/ai/tags", wrapper.SuggestNoteTags)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/notes/{noteId}/suggested-tags", wrapper.DismissNoteSuggestedTags)
