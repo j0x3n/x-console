@@ -498,7 +498,7 @@ func (x *extractor) insertFolder(parent *int64, name string, alwaysNew bool) (in
 			id = existingID
 			return nil
 		}
-		if err == nil {
+		if err == nil || reservedName(parent, x.hidden, name) {
 			name, err = x.m.freeName(x.ctx, tx, parent, x.hidden, name, 0)
 			if err != nil {
 				return err

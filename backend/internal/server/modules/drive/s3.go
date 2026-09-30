@@ -404,7 +404,7 @@ func (m *Module) objectKey(ctx context.Context, c api.S3Config, item db.DriveIte
 		parts = append(parts, c.Prefix)
 	}
 	if item.Hidden != 0 {
-		parts = append(parts, ".hidden")
+		parts = append(parts, hiddenKeyName)
 	}
 	for _, part := range ancestors {
 		parts = append(parts, part.Name)

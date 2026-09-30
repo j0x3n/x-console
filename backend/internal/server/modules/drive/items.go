@@ -15,7 +15,21 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/db"
 )
 
+// hiddenKeyName is the first path segment of hidden files in the S3 bucket.
+// A visible top-level item with this name would share their keys, so the
+// name is taken at the root.
+const hiddenKeyName = ".hidden"
+
+func reservedName(parent *int64, hidden bool, name string) bool {
+	return parent == nil && !hidden && name == hiddenKeyName
+}
+
+var errReservedName = httpx.NewError(409, "name_reserved", "根目录不能用 .hidden 这个名字，它留给隐藏空间在 S3 上的备份")
+
 func (m *Module) nameTaken(ctx context.Context, q *sql.Tx, parent *int64, hidden bool, name string, except int64) (bool, error) {
+	if reservedName(parent, hidden, name) {
+		return true, nil
+	}
 	var count int
 	err := q.QueryRowContext(ctx, "SELECT count(*) FROM drive_items WHERE parent_id IS ? AND hidden=? AND name=? AND trashed_at IS NULL AND id<>?", parent, intBool(hidden), name, except).Scan(&count)
 	return count > 0, err
@@ -58,6 +72,9 @@ func (m *Module) insert(ctx context.Context, parent *int64, name string, isDir b
 		if unique {
 			name, err = m.freeName(ctx, tx, parent, hidden, name, 0)
 		} else {
+			if reservedName(parent, hidden, name) {
+				return errReservedName
+			}
 			var taken bool
 			taken, err = m.nameTaken(ctx, tx, parent, hidden, name, 0)
 			if taken {
@@ -261,6 +278,9 @@ func (m *Module) UpdateDriveItem(w http.ResponseWriter, r *http.Request, id api.
 		if body.Hidden != nil && *body.Hidden != (item.Hidden != 0) && !hidden {
 			name, err = m.freeName(ctx, tx, parent, hidden, name, id)
 		} else {
+			if reservedName(parent, hidden, name) {
+				return errReservedName
+			}
 			var taken bool
 			taken, err = m.nameTaken(ctx, tx, parent, hidden, name, id)
 			if taken {

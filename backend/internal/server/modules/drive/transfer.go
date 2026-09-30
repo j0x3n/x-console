@@ -163,6 +163,12 @@ func (m *Module) transfer(w http.ResponseWriter, r *http.Request, kind api.Drive
 // transferName resolves conflicts inside the same transaction as the change.
 // An existing item of a different type is renamed rather than sent to trash.
 func (m *Module) transferName(ctx context.Context, tx *sql.Tx, item db.DriveItem, parent *int64, policy api.ConflictPolicy, copying bool) (string, bool, error) {
+	if reservedName(parent, item.Hidden != 0, item.Name) {
+		if policy == api.Skip {
+			return item.Name, true, nil
+		}
+		return m.renamedTransfer(ctx, tx, item, parent)
+	}
 	var existingID, isDir int64
 	err := tx.QueryRowContext(ctx, "SELECT id,is_dir FROM drive_items WHERE parent_id IS ? AND hidden=? AND name=? AND trashed_at IS NULL LIMIT 1", parent, item.Hidden, item.Name).Scan(&existingID, &isDir)
 	if err != nil && err != sql.ErrNoRows {

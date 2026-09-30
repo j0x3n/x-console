@@ -414,3 +414,24 @@ func TestRestoreFolderLeavesEarlierDeletedFileInTrash(t *testing.T) {
 		t.Fatalf("trash: %+v", listed.Items)
 	}
 }
+
+func TestHiddenKeyNameReservedAtRoot(t *testing.T) {
+	env := testutil.New(t, drive.New)
+	status, raw := env.Do(http.MethodPost, "/drive/folders", map[string]any{"name": ".hidden"}, nil)
+	if status != http.StatusConflict || !strings.Contains(string(raw), "name_reserved") {
+		t.Fatalf("create .hidden at root: %d %s", status, raw)
+	}
+	file := upload(t, env, "a.txt", "a", false)
+	status, _ = env.Do(http.MethodPatch, "/drive/items/"+itoa(file.Id), map[string]any{"name": ".hidden"}, nil)
+	if status != http.StatusConflict {
+		t.Fatalf("rename to .hidden at root: %d", status)
+	}
+	// An upload named .hidden is renamed, like any name clash.
+	if got := upload(t, env, ".hidden", "b", false); got.Name == ".hidden" {
+		t.Fatalf("upload kept the reserved name: %+v", got)
+	}
+	// Inside a folder the name is fine.
+	var folder api.DriveItem
+	env.MustDo(http.MethodPost, "/drive/folders", map[string]any{"name": "资料"}, &folder)
+	env.MustDo(http.MethodPost, "/drive/folders", map[string]any{"name": ".hidden", "parentId": folder.Id}, nil)
+}
