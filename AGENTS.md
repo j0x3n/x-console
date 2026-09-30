@@ -4,7 +4,7 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
 
 ## 先读什么
 
-1. `docs/tasks.md`：任务看板，当前进度和下一步只看这里。
+1. `docs/tasks.md`：任务看板，当前进度和下一步只看这里。有 `docs/handoff.md` 时先读它，那是正在做的一批任务的交接状态。
 2. 要做的任务对应的规格：`docs/specs/`。
 3. 写代码前读相关的约定：后端 `docs/03-backend.md`，前端 `docs/05-frontend.md`，代理 `docs/04-agent-protocol.md`。其他文档见 `docs/README.md`。
 4. **做任何界面之前必读 `docs/07-design.md`**：页面结构、组件清单、具体数值、交活前自查。先复制最像的现有页面再改，用现成的公共组件，不要自己发明样式。
