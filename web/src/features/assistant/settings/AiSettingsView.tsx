@@ -1,3 +1,5 @@
+import { formatRate } from "../usage";
+import { Link } from "react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
@@ -465,6 +467,10 @@ function UsageCard() {
               <dt>{t("Output tokens")}</dt>
               <dd>{formatTokens(data.outputTokens)}</dd>
             </div>
+            <div>
+              <dt>{t("Cache hit rate")}</dt>
+              <dd>{formatRate(data.cacheHitRate)}</dd>
+            </div>
           </dl>
           <table className="ai-usage-table">
             <thead>
@@ -495,6 +501,9 @@ function UsageCard() {
           <small className="xc-muted">
             {t("Estimated from models.dev prices. Your bill may differ.")}
           </small>
+          <Link className="xc-btn small ai-usage-link" to="/settings/ai-usage">
+            {t("See usage details")}
+          </Link>
         </>
       )}
     </section>

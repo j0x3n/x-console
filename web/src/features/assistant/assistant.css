@@ -708,7 +708,7 @@ button.ai-model-row:hover,
 /* 用量 */
 .ai-usage-sum {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 8px;
   margin: 0 0 12px;
 }
@@ -787,4 +787,257 @@ button.ai-model-row:hover,
   margin: 0 0 6px;
   color: var(--xc-text-2);
   font-size: var(--fs-12-5);
+}
+
+/* ---- B42 AI 用量页 ---- */
+.ai-usage {
+  /* 两个系列的颜色，按 dataviz 校验过（浅色和深色分别过了色盲和对比度检查） */
+  --ai-usage-cached: #2f7fd1;
+  --ai-usage-miss: #c2653d;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+html[data-theme="dark"] .ai-usage {
+  --ai-usage-cached: #4f98e0;
+  --ai-usage-miss: #cc7752;
+}
+.ai-usage-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.ai-usage-bar > a {
+  margin-left: auto;
+}
+.ai-usage-dates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-usage-dates input {
+  width: 150px;
+}
+.ai-usage-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ai-usage-legend {
+  display: flex;
+  gap: 16px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12);
+}
+.ai-usage-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ai-usage-legend .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.swatch.cached,
+.ai-usage-plot .bar.cached {
+  background: var(--ai-usage-cached);
+  fill: var(--ai-usage-cached);
+}
+.swatch.miss,
+.ai-usage-plot .bar.miss {
+  background: var(--ai-usage-miss);
+  fill: var(--ai-usage-miss);
+}
+.ai-usage-plot {
+  position: relative;
+  overflow-x: auto;
+}
+.ai-usage-plot svg {
+  display: block;
+}
+.ai-usage-plot .grid {
+  stroke: var(--xc-border);
+  stroke-width: 1;
+}
+.ai-usage-plot .tick {
+  fill: var(--xc-muted);
+  font-size: var(--fs-10);
+  text-anchor: end;
+}
+.ai-usage-plot .tick.day {
+  text-anchor: middle;
+}
+.ai-usage-plot .hit {
+  fill: transparent;
+  cursor: pointer;
+}
+.ai-usage-plot g:hover .hit {
+  fill: var(--xc-surface-2);
+}
+.ai-usage-tip {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: var(--xc-radius);
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+  color: var(--xc-text-2);
+  font-size: var(--fs-12);
+  pointer-events: none;
+}
+.ai-usage-tip strong {
+  color: var(--xc-text);
+}
+.ai-usage-tables {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.ai-usage-group tr {
+  cursor: pointer;
+}
+.ai-usage-group tr.is-active td {
+  background: var(--xc-accent-soft);
+}
+.ai-usage-group td small {
+  display: block;
+}
+.ai-usage-pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ai-usage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ai-usage-records {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ai-usage-records li {
+  border-top: 1px solid var(--xc-border);
+}
+.ai-usage-row {
+  display: grid;
+  grid-template-columns: 130px 110px minmax(0, 1fr) 150px 70px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 4px;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: var(--fs-12);
+  text-align: left;
+  cursor: pointer;
+}
+.ai-usage-row:hover {
+  background: var(--xc-surface-2);
+}
+.ai-usage-row time,
+.ai-usage-src {
+  color: var(--xc-text-2);
+}
+.ai-usage-model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-usage-cost {
+  text-align: right;
+}
+.ai-usage-records li.is-error .ai-usage-model {
+  color: var(--xc-danger);
+}
+.ai-usage-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 0 4px 10px;
+  padding: 10px 12px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  font-size: var(--fs-12);
+}
+.ai-usage-detail dt {
+  color: var(--xc-muted);
+}
+.ai-usage-detail dd {
+  margin: 2px 0 0;
+  word-break: break-word;
+}
+.ai-usage-err {
+  color: var(--xc-danger);
+}
+.ai-usage-more {
+  margin-top: 12px;
+  text-align: center;
+}
+.ai-usage-link {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+@media (max-width: 720px) {
+  .ai-usage-bar > a {
+    margin-left: 0;
+  }
+  /* 手机上表格只留名字、次数、命中率、费用，不用横着滑 */
+  .ai-usage-group th:nth-child(3),
+  .ai-usage-group td:nth-child(3),
+  .ai-usage-group th:nth-child(4),
+  .ai-usage-group td:nth-child(4) {
+    display: none;
+  }
+  .xc-table.ai-usage-group {
+    min-width: 0;
+  }
+  .ai-usage-group th,
+  .ai-usage-group td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .ai-usage-tables {
+    grid-template-columns: 1fr;
+  }
+  .ai-usage-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "model cost"
+      "time tok"
+      "src src";
+    gap: 2px 8px;
+  }
+  .ai-usage-row time {
+    grid-area: time;
+  }
+  .ai-usage-src {
+    grid-area: src;
+  }
+  .ai-usage-model {
+    grid-area: model;
+  }
+  .ai-usage-tok {
+    grid-area: tok;
+    text-align: right;
+  }
+  .ai-usage-cost {
+    grid-area: cost;
+  }
 }

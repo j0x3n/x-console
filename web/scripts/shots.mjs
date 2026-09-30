@@ -149,6 +149,8 @@ const routes = [
   ["github", "/github"],
   ["settings", "/settings/security"],
   ["settings-ai", "/settings/assistant"],
+  ["settings-ai-usage", "/settings/ai-usage"],
+  ["settings-errors", "/settings/errors"],
   ["settings-storage", "/settings/storage"],
   ["settings-backup", "/settings/backup"],
 ].filter(Boolean).filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));

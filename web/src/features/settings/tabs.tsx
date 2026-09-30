@@ -11,6 +11,7 @@ import StorageTab from "../storage/StorageTab";
 import BackupTab from "../backup/BackupTab";
 import AssistantSettingsTab from "../assistant/AssistantSettingsTab";
 import ErrorsTab from "./ErrorsTab";
+import AiUsageTab from "../assistant/AiUsageTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -32,5 +33,6 @@ export const settingsTabs: SettingsTab[] = [
   { id: "storage", label: "Storage", component: StorageTab },
   { id: "backup", label: "Backup", component: BackupTab },
   { id: "assistant", label: "AI", component: AssistantSettingsTab },
+  { id: "ai-usage", label: "AI usage", component: AiUsageTab },
   { id: "errors", label: "Recent errors", component: ErrorsTab },
 ];

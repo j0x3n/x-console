@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ApiError, apiFetch, createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/ai";
 import { withElevation } from "../../auth/elevation";
@@ -22,6 +27,17 @@ export type AiModelSettingsInput =
   components["schemas"]["AiModelSettingsInput"];
 export type AiModelSpecInput = components["schemas"]["AiModelSpecInput"];
 export type AiUsage = components["schemas"]["AiUsage"];
+export type AiUsageSummary = components["schemas"]["AiUsageSummary"];
+export type AiUsageTotals = components["schemas"]["AiUsageTotals"];
+export type AiUsageRecord = components["schemas"]["AiUsageRecord"];
+export type UsageGroupBy = "day" | "model" | "source" | "provider";
+export interface UsageFilter {
+  from: string;
+  to: string;
+  model?: string;
+  source?: string;
+  status?: "ok" | "error";
+}
 export type ModelRef = components["schemas"]["ModelRef"];
 export type ReasoningEffort = components["schemas"]["ReasoningEffort"];
 export type HostAgentPermission = components["schemas"]["HostAgentPermission"];
@@ -35,6 +51,9 @@ export const aiKeys = {
   models: ["ai", "models"] as const,
   modelSettings: ["ai", "model-settings"] as const,
   usage: (month: string) => ["ai", "usage", month] as const,
+  usageSummary: (from: string, to: string, groupBy: UsageGroupBy) =>
+    ["ai", "usage-summary", from, to, groupBy] as const,
+  usageRecords: (f: UsageFilter) => ["ai", "usage-records", f] as const,
   hostConversations: (hostId: string) =>
     ["ai", "host-conversations", hostId] as const,
 };
@@ -231,6 +250,51 @@ export function useAiUsage(month: string, enabled = true) {
     retry: retryUnlessNotLive,
     enabled,
   });
+}
+
+/** B42：按天、模型、来源分组的用量。 */
+export function useAiUsageSummary(
+  from: string,
+  to: string,
+  groupBy: UsageGroupBy,
+) {
+  return useQuery({
+    queryKey: aiKeys.usageSummary(from, to, groupBy),
+    queryFn: () =>
+      unwrap(
+        aiApi.GET("/ai/usage/summary", {
+          params: { query: { from, to, groupBy } },
+        }),
+      ),
+    retry: retryUnlessNotLive,
+    enabled: Boolean(from && to && from <= to),
+  });
+}
+
+/** B42：调用明细，滚动加载。 */
+export function useAiUsageRecords(filter: UsageFilter) {
+  return useInfiniteQuery({
+    queryKey: aiKeys.usageRecords(filter),
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        aiApi.GET("/ai/usage/records", {
+          params: {
+            query: { ...filter, limit: 50, cursor: pageParam || undefined },
+          },
+        }),
+      ),
+    initialPageParam: "",
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    retry: retryUnlessNotLive,
+    enabled: Boolean(filter.from && filter.to && filter.from <= filter.to),
+  });
+}
+
+/** 导出 CSV 的地址，条件和明细一样。 */
+export function usageCsvUrl(filter: UsageFilter) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(filter)) if (v) q.set(k, v);
+  return `/api/v1/ai/usage/records.csv?${q.toString()}`;
 }
 
 /** 供应商的增删改。都要提升权限。 */

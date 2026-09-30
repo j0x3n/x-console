@@ -51,14 +51,17 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 import AssistantSettingsTab from "./AssistantSettingsTab";
 
 function renderTab() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={qc}>
-      <AssistantSettingsTab />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>
+        <AssistantSettingsTab />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
