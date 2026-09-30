@@ -29,6 +29,7 @@ type Module struct {
 	runMu      sync.Mutex
 	syncMu     sync.Mutex
 	syncStatus api.S3Status
+	syncCancel context.CancelFunc // cancels the running syncAll; syncMu guards it
 	syncReq    chan struct{}
 	// lastFullSync is when syncAll last checked every file; runMu guards it.
 	lastFullSync time.Time

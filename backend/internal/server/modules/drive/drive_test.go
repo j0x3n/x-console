@@ -349,3 +349,42 @@ func TestS3SyncAndActions(t *testing.T) {
 	env.MustDo(http.MethodDelete, "/drive/items/"+itoa(item.Id)+"?permanent=true", nil, nil)
 	waitObject("backup/three.txt", false)
 }
+
+func TestS3SettingsSaveDoesNotWaitForSync(t *testing.T) {
+	putStarted := make(chan struct{}, 1)
+	release := make(chan struct{})
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/testbucket/") {
+			select {
+			case putStarted <- struct{}{}:
+			default:
+			}
+			select { // a slow upload: hangs until the client gives up
+			case <-r.Context().Done():
+			case <-release:
+			}
+			return
+		}
+		if r.Method == http.MethodHead {
+			http.Error(w, "missing", 404)
+			return
+		}
+		w.WriteHeader(200)
+	}))
+	defer fake.Close()
+	defer close(release) // before fake.Close, which waits for the hanging upload
+	env := testutil.New(t, drive.New)
+	env.Elevate()
+	env.MustDo(http.MethodPut, "/drive/s3", map[string]any{"endpoint": fake.URL, "region": "us-east-1", "bucket": "testbucket", "accessKeyId": "key", "secretAccessKey": "secret", "pathStyle": true, "enabled": true}, nil)
+	upload(t, env, "big.bin", "data", false)
+	select {
+	case <-putStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("sync did not start")
+	}
+	start := time.Now()
+	env.MustDo(http.MethodPut, "/drive/s3", map[string]any{"prefix": "other"}, nil)
+	if waited := time.Since(start); waited > 2*time.Second {
+		t.Fatalf("saving settings waited %v for the running sync", waited)
+	}
+}

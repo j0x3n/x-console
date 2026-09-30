@@ -130,6 +130,7 @@ func (m *Module) PutDriveS3Config(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, httpx.Invalid("密钥不能为空"))
 		return
 	}
+	m.cancelSync()
 	m.runMu.Lock()
 	err = func() error {
 		if in.SecretAccessKey != nil {
@@ -245,6 +246,16 @@ func (m *Module) SyncDriveS3(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// cancelSync stops a running syncAll, if any.
+func (m *Module) cancelSync() {
+	m.syncMu.Lock()
+	cancel := m.syncCancel
+	m.syncMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
 // fullSyncEvery is how often syncAll checks every file against the bucket.
 const fullSyncEvery = 24 * time.Hour
 
@@ -257,6 +268,18 @@ func (m *Module) triggerSync() {
 func (m *Module) syncAll(ctx context.Context) error {
 	m.runMu.Lock()
 	defer m.runMu.Unlock()
+	// Saving the S3 settings cancels a run instead of waiting for it; a
+	// first sync of many files can take a long time.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	m.syncMu.Lock()
+	m.syncCancel = cancel
+	m.syncMu.Unlock()
+	defer func() {
+		m.syncMu.Lock()
+		m.syncCancel = nil
+		m.syncMu.Unlock()
+	}()
 	c, err := m.config(ctx)
 	if err != nil || !c.Enabled {
 		m.syncMu.Lock()
@@ -350,6 +373,11 @@ func (m *Module) syncAll(ctx context.Context) error {
 			}
 		} else {
 			e = m.syncItem(ctx, client, c, item, full)
+		}
+		if e != nil && ctx.Err() != nil {
+			// Canceled by a settings change: not a failure of this file.
+			err = ctx.Err()
+			break
 		}
 		if e != nil {
 			msg := e.Error()
