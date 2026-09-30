@@ -56,25 +56,25 @@
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
 
-2026-09-29 整理。这一批的前端都已经做完，后端还没做的接口现在回 501，前端显示“还没上线”或者退回旧的做法。开发者按下面的顺序做，每个任务的细节在对应规格的“后端（待做，给开发者）”一节。
+2026-09-30 更新。这一批的前端和后端已做完。每项实现和测试结果见上面的进度区。
 
-规则照 `AGENTS.md`：在 `codex` 分支上做，一个任务一个提交，提交信息以编号开头。做完一个接口，把它从对应的 `pending.go` 删掉；一个模块的都做完了，删掉整个 `pending.go`。
+本批后端提交在 PR #24 的原工作分支 `claude/project-thread-37jvjz`。PR #24 已合并，后续提交仍在原工作分支。
 
 ## 先看这里
 
 - 接口契约已经写好，在 `api/modules/*.yaml`，生成的代码已经提交。不要改契约里的字段名，前端按它写好了。确实要改时，先在 PR 里说明，前端一起改。
-- 501 的接口都在这几个文件里，数一数就知道还剩多少：
+- 本批接口的 501 占位已经全部删除：
 
 | 文件 | 接口数 | 任务 |
 | --- | --- | --- |
 | `modules/monitoring/pending.go` | 已删除 | B23、B28 都做完了 |
 | `modules/hosts/pending.go` | 已删除 | B33 远端日志接口已做 |
 | `modules/drive/pending.go` | 已删除 | B31 已做完 |
-| `modules/ai/pending.go` | 已删除 | B33 会话和权限接口已接通；工具执行仍在做 |
+| `modules/ai/pending.go` | 已删除 | B33 会话、权限和工具执行都已做完 |
 | `modules/notes/pending.go` | 已删除 | B32 已做完 |
-| `modules/reminders/pending.go` | 1 | B37 |
+| `modules/reminders/pending.go` | 已删除 | B37 已做完 |
 | `modules/github/pending.go` | 已删除 | B35 已做完 |
-| `modules/projects/pending.go` | 已删除 | B36 分类和检查清单接口已接通 |
+| `modules/projects/pending.go` | 已删除 | B36 已做完 |
 
 云盘公开分享路径已登记在 `drive/module.go`。
 
