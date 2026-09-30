@@ -8,7 +8,12 @@ import (
 )
 
 func (h *Handlers) SkipSetupTotp(w http.ResponseWriter, r *http.Request) {
-	if err := h.Auth.SkipSetupTOTP(r.Context(), w, r); err != nil {
+	var body api.SkipSetupTotpJSONBody
+	if err := httpx.Decode(r, &body); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if err := h.Auth.SkipSetupTOTP(r.Context(), w, r, body.Password); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}

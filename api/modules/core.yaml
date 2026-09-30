@@ -75,7 +75,16 @@ paths:
       operationId: skipSetupTotp
       tags: [auth]
       security: []
-      description: 初始化时跳过两步验证，直接登录。之后可以在设置里开启。
+      description: 初始化时跳过两步验证，直接登录。之后可以在设置里开启。要带上刚设的密码，否则设完密码到点跳过之间，任何人都能调这个接口登录。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
       responses:
         "204":
           description: 已登录，账号没有两步验证

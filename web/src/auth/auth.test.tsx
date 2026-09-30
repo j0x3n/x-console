@@ -202,12 +202,16 @@ describe("setup", () => {
       status: 200,
       body: { secret: "ABC", otpauthUrl: "otpauth://totp/x?secret=ABC" },
     }));
-    api.routes.set("POST /auth/setup/skip-totp", () => {
+    let sent: unknown;
+    api.routes.set("POST /auth/setup/skip-totp", (body) => {
+      sent = body;
       done = true;
       return { status: 204 };
     });
     fireEvent.click(await createAccount());
     expect(await screen.findByText("面板内容")).toBeTruthy();
+    // 公开接口，要带刚设的密码。
+    expect(sent).toEqual({ password: "0123456789" });
   });
 
   it("says so when skipping is not live yet", async () => {

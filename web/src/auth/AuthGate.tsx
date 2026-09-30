@@ -198,7 +198,11 @@ function SetupPage() {
     setBusy(true);
     setError("");
     try {
-      await unwrap(coreApi.POST("/auth/setup/skip-totp"));
+      await unwrap(
+        coreApi.POST("/auth/setup/skip-totp", {
+          body: { password: form.password },
+        }),
+      );
       await qc.invalidateQueries({ queryKey: coreKeys.auth });
     } catch (err) {
       setError(errorMessage(err));
