@@ -23,6 +23,9 @@ import (
 type Runner struct {
 	Deps   *module.Deps
 	HostID string
+	// BackupBase replaces /tmp as the parent of the backup directory on
+	// Linux and macOS. Tests set it; empty means /tmp.
+	BackupBase string
 }
 
 func schema(fields map[string]string, required ...string) json.RawMessage {
@@ -270,10 +273,14 @@ func (r Runner) readFile(ctx context.Context, filePath string, limit int64) ([]b
 }
 
 func (r Runner) writeFile(ctx context.Context, filePath string, data []byte) error {
+	return r.write(ctx, filePath, data, false)
+}
+
+func (r Runner) write(ctx context.Context, filePath string, data []byte, private bool) error {
 	if _, err := r.agent(ctx, protocol.CapFiles); err != nil {
 		return err
 	}
-	s, err := r.Deps.Agents.Open(ctx, r.HostID, protocol.MethodFilesWrite, protocol.FilesWriteParams{Path: filePath, Size: int64(len(data))})
+	s, err := r.Deps.Agents.Open(ctx, r.HostID, protocol.MethodFilesWrite, protocol.FilesWriteParams{Path: filePath, Size: int64(len(data)), Private: private})
 	if err != nil {
 		return err
 	}
@@ -308,6 +315,16 @@ func (r Runner) backup(ctx context.Context, filePath string) (string, error) {
 	if entry.Size > 10<<20 {
 		return "", errors.New("原文件超过 10 MB，无法安全备份")
 	}
+	a, err := r.Deps.Agents.Get(ctx, r.HostID)
+	if err != nil {
+		return "", err
+	}
+	// Old agents write the backup as 0644. That is only safe for a file
+	// everyone can read already.
+	private := a.Has(protocol.CapFilesPrivate)
+	if !private && a.Os != "windows" && !otherReadable(entry.Mode) {
+		return "", errors.New("这台机器的代理版本太旧，不能安全备份这个文件。请先更新代理")
+	}
 	original, size, err := r.readFile(ctx, filePath, 10<<20)
 	if err != nil {
 		return "", err
@@ -316,9 +333,8 @@ func (r Runner) backup(ctx context.Context, filePath string) (string, error) {
 		return "", errors.New("原文件读取不完整，已取消写入")
 	}
 	base := "/tmp"
-	a, err := r.Deps.Agents.Get(ctx, r.HostID)
-	if err != nil {
-		return "", err
+	if r.BackupBase != "" {
+		base = r.BackupBase
 	}
 	if a.Os == "windows" {
 		if _, err = r.agent(ctx, protocol.CapExec); err != nil {
@@ -343,9 +359,26 @@ func (r Runner) backup(ctx context.Context, filePath string) (string, error) {
 		if !agentCode(err, protocol.CodeExists) {
 			return "", err
 		}
+		// Anyone can create this path in /tmp first. A symlink would send
+		// the backup (as root) wherever it points. files.stat follows links
+		// and takes files only, so look the entry up in its parent.
+		var list protocol.FileList
+		if err = r.Deps.Agents.Call(ctx, r.HostID, protocol.MethodFilesList, protocol.FilesListParams{Path: base}, &list); err != nil {
+			return "", err
+		}
+		found := false
+		for _, e := range list.Entries {
+			if e.Name == "xc-agent-backup" {
+				found = e.Type == "dir"
+				break
+			}
+		}
+		if !found {
+			return "", errors.New("备份目录 " + dir + " 不是普通目录，已取消写入")
+		}
 	}
 	backupPath := dir + sep + time.Now().UTC().Format("20060102T150405.000000000") + "-" + path.Base(strings.ReplaceAll(filePath, "\\", "/"))
-	if err = r.writeFile(ctx, backupPath, original); err != nil {
+	if err = r.write(ctx, backupPath, original, private); err != nil {
 		return "", err
 	}
 	return backupPath, nil
@@ -358,4 +391,9 @@ func agentCode(err error, code string) bool {
 	}
 	var he *httpx.Error
 	return errors.As(err, &he) && he.Code == "agent_"+code
+}
+
+// otherReadable reports whether a mode such as "-rw-r--r--" lets everyone read.
+func otherReadable(mode string) bool {
+	return len(mode) >= 10 && mode[len(mode)-3] == 'r'
 }

@@ -68,7 +68,7 @@ func TestReadWriteFileBacksUpOriginal(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		kind = "desktop"
 	}
-	hostID := env.Agent(kind, []string{protocol.CapFiles, protocol.CapExec}, func(c *conn.Client) {
+	hostID := env.Agent(kind, []string{protocol.CapFiles, protocol.CapFilesPrivate, protocol.CapExec}, func(c *conn.Client) {
 		agentfiles.Register(c)
 		agentexec.Register(c)
 	})
@@ -95,8 +95,81 @@ func TestReadWriteFileBacksUpOriginal(t *testing.T) {
 	if err != nil || string(backup) != "原内容" {
 		t.Fatalf("backup=%q err=%v", backup, err)
 	}
+	if info, err := os.Stat(backupPath); runtime.GOOS != "windows" && (err != nil || info.Mode().Perm() != 0o600) {
+		t.Fatalf("backup mode: %v %v", info.Mode(), err)
+	}
 	current, err := os.ReadFile(filePath)
 	if err != nil || string(current) != "新内容" {
 		t.Fatalf("current=%q err=%v", current, err)
+	}
+}
+
+func TestOldAgentBacksUpOnlyPublicFiles(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows keeps backups in the user's own TEMP")
+	}
+	env := testutil.New(t)
+	dir := t.TempDir()
+	hostID := env.Agent("server", []string{protocol.CapFiles, protocol.CapExec}, func(c *conn.Client) {
+		agentfiles.Register(c)
+		agentexec.Register(c)
+	})
+	runner := hostagent.Runner{Deps: env.App.Deps, HostID: hostID}
+	for _, tc := range []struct {
+		mode os.FileMode
+		ok   bool
+	}{{0o600, false}, {0o644, true}} {
+		filePath := filepath.Join(dir, tc.mode.String()+".txt")
+		if err := os.WriteFile(filePath, []byte("原内容"), tc.mode); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(filePath, tc.mode); err != nil {
+			t.Fatal(err)
+		}
+		args, _ := json.Marshal(map[string]any{"path": filePath, "content": "新内容"})
+		written, err := runner.Run(context.Background(), "host__write_file", args)
+		if tc.ok {
+			if err != nil {
+				t.Fatalf("%v: %v", tc.mode, err)
+			}
+			t.Cleanup(func() { _ = os.Remove(written.(map[string]any)["backupPath"].(string)) })
+			continue
+		}
+		if err == nil || !strings.Contains(err.Error(), "代理版本太旧") {
+			t.Fatalf("%v: %v", tc.mode, err)
+		}
+		if current, _ := os.ReadFile(filePath); string(current) != "原内容" {
+			t.Fatalf("written without backup: %q", current)
+		}
+	}
+}
+
+func TestBackupRefusesSymlinkedDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("backups go to the user's own TEMP")
+	}
+	base, target := t.TempDir(), t.TempDir()
+	if err := os.Symlink(target, filepath.Join(base, "xc-agent-backup")); err != nil {
+		t.Fatal(err)
+	}
+	env := testutil.New(t)
+	hostID := env.Agent("server", []string{protocol.CapFiles, protocol.CapFilesPrivate, protocol.CapExec}, func(c *conn.Client) {
+		agentfiles.Register(c)
+		agentexec.Register(c)
+	})
+	filePath := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(filePath, []byte("原内容"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args, _ := json.Marshal(map[string]any{"path": filePath, "content": "新内容"})
+	_, err := hostagent.Runner{Deps: env.App.Deps, HostID: hostID, BackupBase: base}.Run(context.Background(), "host__write_file", args)
+	if err == nil || !strings.Contains(err.Error(), "不是普通目录") {
+		t.Fatalf("symlinked backup directory: %v", err)
+	}
+	if entries, _ := os.ReadDir(target); len(entries) != 0 {
+		t.Fatalf("backup written through the symlink: %v", entries)
+	}
+	if current, _ := os.ReadFile(filePath); string(current) != "原内容" {
+		t.Fatalf("written without backup: %q", current)
 	}
 }

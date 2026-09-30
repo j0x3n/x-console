@@ -266,6 +266,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | `protocol.FilesWriteParams` 加 `Private`（`omitempty`，新文件建成 0600）和能力 `files.private`；代理 `ServeWrite` 支持它，`cmd/agent/main.go` 加一行报这个能力；`hostagent.Runner` 加 `BackupBase`（测试用） | 审查修复：机器 Agent 的备份别人可读 |
 | 2026-09-30 | `logfollow` 加 `UTF8Prefix`，远端日志和云盘日志都只发完整字符，云盘去掉自己的 `utf8Prefix` | 审查修复：远端日志跟随中文乱码 |
 | 2026-09-30 | `contracts` 新增 `ExternalReminder`、`ReminderSource` 和注册表前缀 `reminders.sources.`；监控与项目提供到期事项，提醒模块按来源汇总 | B37 提醒页汇总 |
 | 2026-09-30 | `contracts` 新增 `Files`、`FilesKey`（`files.files`）；公共上传模块提供 Markdown 图片认领和按归属清理，项目、日历、提醒、Agent 任务接入 | B36 公共图片上传 |
