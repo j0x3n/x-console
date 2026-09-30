@@ -196,6 +196,7 @@
 - B29 系统日志：`journalctl` 只用假输出测过，没在真实 systemd 机器上跑；Windows 事件日志（`wevtutil`）只测了 XML 解析和查询拼装，没在 Windows 上跑。没有 journal 的 Linux 读 syslog 文件时没有级别，按级别过滤会得到空列表。
 
 - B30 的 Windows 安装（`install.ps1`、`setup.exe` 的安装模式、任务计划程序）没在真实 Windows 上跑过，Linux 的 `install.sh` 在没有 systemd 的容器里跑过下载、校验、配对，没跑过 systemd 那一段；Docker 镜像四个平台的编译没在本机构建过。
+- 测试 `backup` 的 `TestAutomaticBackupToS3KeepsTheNewest` 在全量 `go test -race ./...` 下偶尔失败（2026-09-30 遇到一次：第 3 天的备份不在列表里，第 2 天的没被删）。单独跑这个包 6 次都通过。失败时日志里有 “database is closed”，像是后台备份任务在测试结束后还在跑。还没查原因。
 - B30 没做：托盘图标、代理自动更新。现在升级要再执行一次安装命令。`setup.exe` 没有代码签名，Windows SmartScreen 会提示。
 
 功能限制：
