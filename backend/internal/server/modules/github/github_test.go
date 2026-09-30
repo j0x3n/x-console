@@ -244,13 +244,16 @@ func TestSyncRecentClosedPulls(t *testing.T) {
 		closed := pull(201, "Closed", "closed", "")
 		closed["state"] = "closed"
 		closed["closed_at"] = now.Add(-24 * time.Hour).Format(time.RFC3339)
+		closed["updated_at"] = closed["closed_at"]
 		merged := pull(202, "Merged", "merged", "")
 		merged["state"] = "closed"
 		merged["closed_at"] = now.Add(-2 * 24 * time.Hour).Format(time.RFC3339)
 		merged["merged_at"] = now.Add(-2 * 24 * time.Hour).Format(time.RFC3339)
+		merged["updated_at"] = merged["closed_at"]
 		old := pull(203, "Old", "old", "")
 		old["state"] = "closed"
 		old["closed_at"] = now.Add(-8 * 24 * time.Hour).Format(time.RFC3339)
+		old["updated_at"] = old["closed_at"]
 		f.pulls[repo] = append(open, closed, merged, old)
 	})
 	syncNow(t, env)
@@ -267,6 +270,29 @@ func TestSyncRecentClosedPulls(t *testing.T) {
 	}
 	if _, ok := states[203]; ok {
 		t.Fatal("PR closed eight days ago should not be cached")
+	}
+}
+
+func TestClosedPullsStopAtCutoff(t *testing.T) {
+	env, gh := setup(t)
+	now := time.Now().UTC()
+	gh.set(func(f *fakeGitHub) {
+		var list []map[string]any
+		// Newest update first, like GitHub with sort=updated&direction=desc.
+		for i := 0; i < 1000; i++ {
+			p := pull(1000+i, "Closed", "b", "")
+			at := now.Add(-time.Duration(i) * time.Hour).Format(time.RFC3339)
+			p["state"], p["closed_at"], p["updated_at"] = "closed", at, at
+			list = append(list, p)
+		}
+		f.pulls[repo] = list
+	})
+	syncNow(t, env)
+	if got := len(pulls(t, env)); got != 7*24 {
+		t.Fatalf("want the %d PRs closed in the last week, got %d", 7*24, got)
+	}
+	if requests, _ := gh.counts(); requests > 10 {
+		t.Fatalf("read old closed pages: %d requests", requests)
 	}
 }
 

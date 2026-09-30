@@ -212,7 +212,10 @@ func (m *Module) recentPulls(ctx context.Context, c *restClient, repo string) ([
 					all = append(all, p)
 				}
 			}
-			if !more {
+			// Closed PRs come newest update first, and a PR closes no later than
+			// its last update. Once a page reaches an update older than the
+			// cutoff, the rest were closed before it too.
+			if !more || state == "closed" && len(batch) > 0 && batch[len(batch)-1].UpdatedAt.Before(cutoff) {
 				break
 			}
 		}
