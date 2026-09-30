@@ -156,6 +156,15 @@ describe("tabs and filters", () => {
       "agent",
     ]);
   });
+  it("offers system logs and Agent on a paired desktop", () => {
+    const tabs = tabsFor({
+      capabilities: ["syslog", "files"],
+      source: "agent",
+    });
+    expect(tabs.map((tab) => tab.id)).toContain("logs");
+    expect(tabs.map((tab) => tab.id)).toContain("agent");
+    expect(tabs.map((tab) => tab.id)).toContain("files");
+  });
   it("picks the online desktop", () => {
     const hosts = [host("a"), host("b", true)];
     expect(pickDesktop(hosts)?.id).toBe("b");
