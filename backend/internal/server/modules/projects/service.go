@@ -19,9 +19,13 @@ import (
 
 // ---- projects ----
 
+// claimFiles runs after the record is saved. A failure is logged, not
+// returned: returning it would make the client retry and save twice.
 func (m *Module) claimFiles(ctx context.Context, kind string, id int64, markdown string) error {
 	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
-		return files.Claim(ctx, kind, id, markdown)
+		if err := files.Claim(ctx, kind, id, markdown); err != nil {
+			m.d.Log.Error("claim images failed", "kind", kind, "id", id, "err", err)
+		}
 	}
 	return nil
 }
