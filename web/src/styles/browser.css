@@ -1,0 +1,224 @@
+:root {
+  --xc-safe-top: env(safe-area-inset-top, 0px);
+  --xc-safe-right: env(safe-area-inset-right, 0px);
+  --xc-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --xc-safe-left: env(safe-area-inset-left, 0px);
+  --xc-viewport-height: var(--xc-window-height, 100vh);
+  --xc-visible-height: var(--xc-viewport-height);
+  --xc-visible-top: 0px;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --xc-viewport-height: 100dvh;
+  }
+}
+
+html,
+body {
+  background: var(--xc-bg);
+}
+
+#root {
+  min-height: var(--xc-viewport-height);
+}
+
+html .app-shell {
+  height: var(--xc-viewport-height);
+  min-height: 0;
+  padding: var(--xc-safe-top) var(--xc-safe-right) var(--xc-safe-bottom)
+    var(--xc-safe-left);
+}
+
+html .xc-auth,
+html .share-page {
+  min-height: var(--xc-viewport-height);
+  padding-top: calc(24px + var(--xc-safe-top));
+  padding-right: calc(16px + var(--xc-safe-right));
+  padding-bottom: calc(24px + var(--xc-safe-bottom));
+  padding-left: calc(16px + var(--xc-safe-left));
+}
+
+html .modal-backdrop,
+html .notes-lightbox {
+  top: var(--xc-visible-top);
+  bottom: auto;
+  height: var(--xc-visible-height);
+  padding: calc(min(8vh, 48px) + var(--xc-safe-top))
+    calc(16px + var(--xc-safe-right)) calc(16px + var(--xc-safe-bottom))
+    calc(16px + var(--xc-safe-left));
+}
+
+html .xc-dialog,
+html .form-dialog,
+html .draft-review-dialog,
+html .delegate-dialog,
+html .command-dialog {
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+html .command-dialog {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+html .command-input,
+html .command-footer {
+  flex: none;
+}
+
+html .command-results {
+  flex: 1;
+  min-height: 0;
+}
+
+html .drive-viewer-backdrop {
+  padding: calc(16px + var(--xc-safe-top)) calc(16px + var(--xc-safe-right))
+    calc(16px + var(--xc-safe-bottom)) calc(16px + var(--xc-safe-left));
+}
+
+html .drive-viewer-backdrop .drive-viewer {
+  height: 100%;
+  max-height: 900px;
+}
+
+html .notes-layout {
+  height: calc(
+    var(--xc-visible-height) - 72px - var(--xc-safe-top) - var(--xc-safe-bottom)
+  );
+  min-height: 0;
+}
+
+html .ai-fab {
+  right: calc(20px + var(--xc-safe-right));
+  bottom: calc(20px + var(--xc-safe-bottom));
+}
+
+html .ai-panel {
+  max-height: calc(
+    var(--xc-visible-height) - 40px - var(--xc-safe-top) - var(--xc-safe-bottom)
+  );
+}
+
+html .drive-dock {
+  right: calc(16px + var(--xc-safe-right));
+  bottom: calc(80px + var(--xc-safe-bottom));
+  max-width: calc(100% - 32px - var(--xc-safe-left) - var(--xc-safe-right));
+  max-height: calc(
+    var(--xc-visible-height) - 96px - var(--xc-safe-top) - var(--xc-safe-bottom)
+  );
+  overflow-y: auto;
+}
+
+html .toast {
+  right: calc(24px + var(--xc-safe-right));
+  bottom: calc(24px + var(--xc-safe-bottom));
+  max-width: calc(100% - 48px - var(--xc-safe-left) - var(--xc-safe-right));
+}
+
+@media (max-width: 760px) {
+  html .notes-layout {
+    height: calc(
+      var(--xc-visible-height) - 60px - var(--xc-safe-top) -
+        var(--xc-safe-bottom)
+    );
+  }
+}
+
+@media (max-width: 720px) {
+  html,
+  body {
+    background: var(--xc-panel);
+  }
+
+  html .app-shell {
+    height: auto;
+    min-height: var(--xc-viewport-height);
+    background: var(--xc-panel);
+  }
+
+  html .main-panel {
+    min-height: 0;
+    overflow: visible;
+  }
+
+  html .main-scroll {
+    height: auto;
+    overflow: visible;
+  }
+
+  html .sidebar {
+    top: var(--xc-visible-top);
+    height: var(--xc-visible-height);
+    padding-top: calc(8px + var(--xc-safe-top));
+    padding-bottom: calc(8px + var(--xc-safe-bottom));
+    padding-left: calc(8px + var(--xc-safe-left));
+    width: calc(232px + var(--xc-safe-left));
+    max-width: calc(100% - 32px - var(--xc-safe-right));
+  }
+
+  html .mobile-scrim {
+    top: var(--xc-visible-top);
+    bottom: auto;
+    height: var(--xc-visible-height);
+  }
+
+  html .toast {
+    right: calc(16px + var(--xc-safe-right));
+    bottom: calc(16px + var(--xc-safe-bottom));
+    max-width: calc(100% - 32px - var(--xc-safe-left) - var(--xc-safe-right));
+  }
+}
+
+@media (max-width: 640px) {
+  html .drive-viewer-backdrop {
+    padding: 0;
+    background: var(--xc-elevated);
+  }
+
+  html .drive-viewer-backdrop .drive-viewer {
+    max-height: none;
+    padding: var(--xc-safe-top) var(--xc-safe-right) var(--xc-safe-bottom)
+      var(--xc-safe-left);
+  }
+
+  html .drive-dock {
+    right: calc(8px + var(--xc-safe-right));
+    left: calc(8px + var(--xc-safe-left));
+    max-width: none;
+  }
+
+  html .command-backdrop {
+    height: var(--xc-visible-height);
+    padding: calc(min(8vh, 48px) + var(--xc-safe-top))
+      calc(12px + var(--xc-safe-right)) calc(12px + var(--xc-safe-bottom))
+      calc(12px + var(--xc-safe-left));
+  }
+
+  html .xc-more-pop {
+    right: var(--xc-safe-right);
+    left: var(--xc-safe-left);
+    padding-bottom: calc(10px + var(--xc-safe-bottom));
+  }
+
+  html .ai-fab {
+    right: calc(16px + var(--xc-safe-right));
+    bottom: calc(16px + var(--xc-safe-bottom));
+  }
+
+  html .ai-panel,
+  html .ai-panel.expanded {
+    top: calc(var(--xc-visible-top) + var(--xc-safe-top) + 12px);
+    right: var(--xc-safe-right) !important;
+    bottom: auto !important;
+    left: var(--xc-safe-left);
+    height: calc(var(--xc-visible-height) - var(--xc-safe-top) - 12px);
+    max-height: none;
+  }
+
+  html .ai-panel .ai-composer {
+    margin-bottom: calc(12px + var(--xc-safe-bottom));
+  }
+}

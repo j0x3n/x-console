@@ -6,6 +6,7 @@ import AuthGate from "../auth/AuthGate";
 import ComingSoon from "../components/ComingSoon";
 import { LanguageContext } from "../contexts/LanguageContext";
 import { usePreferenceEffects } from "../hooks/usePreferenceEffects";
+import { useBrowserViewport } from "../hooks/useBrowserViewport";
 import Layout from "./Layout";
 import { moduleRoutes } from "./routes";
 import { Loading } from "../components/ui/States";
@@ -33,6 +34,7 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
+  useBrowserViewport();
   const language = usePreferenceEffects();
   return (
     <LanguageContext.Provider value={language}>
