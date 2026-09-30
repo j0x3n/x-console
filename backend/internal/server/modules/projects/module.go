@@ -39,6 +39,7 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	module.Provide[contracts.Issues](d.Registry, contracts.IssuesKey, &issuesService{m})
 	module.Provide[contracts.IssueSync](d.Registry, contracts.IssueSyncKey, &syncService{m})
+	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"projects", m)
 	m.registerActions()
 	return m, nil
 }

@@ -5,10 +5,57 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 )
 
 const dueLayout = time.RFC3339
+
+type dueCandidate struct {
+	id, number                int64
+	key, title, dueAt, remind string
+	notified                  *string
+}
+
+func (m *Module) activeDue(ctx context.Context, until time.Time) ([]dueCandidate, error) {
+	rows, err := m.d.DB.QueryContext(ctx, `SELECT i.id,p.key,i.number,i.title,i.due_at,i.due_remind,i.due_notified_at
+FROM issues i JOIN projects p ON p.id=i.project_id
+WHERE i.due_at IS NOT NULL AND i.due_at<=? AND i.status NOT IN ('done','canceled')
+AND p.archived_at IS NULL ORDER BY i.due_at,i.id`, until.UTC().Format(dueLayout))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []dueCandidate{}
+	for rows.Next() {
+		var item dueCandidate
+		if err := rows.Scan(&item.id, &item.key, &item.number, &item.title, &item.dueAt, &item.remind, &item.notified); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (m *Module) Upcoming(ctx context.Context, from, until time.Time) ([]contracts.ExternalReminder, error) {
+	items, err := m.activeDue(ctx, until)
+	if err != nil {
+		return nil, err
+	}
+	out := []contracts.ExternalReminder{}
+	for _, item := range items {
+		at, err := time.Parse(dueLayout, item.dueAt)
+		if err != nil {
+			return nil, err
+		}
+		if !at.Before(until) {
+			continue
+		}
+		issue := issueKey(item.key, item.number)
+		out = append(out, contracts.ExternalReminder{ID: "issue:" + issue, Source: "issue", SourceLabel: "Issue", Title: issue + " " + item.title, At: at, Link: fmt.Sprintf("/projects/%s/%d", item.key, item.number)})
+	}
+	return out, nil
+}
 
 func (m *Module) dueAtForDate(date string) (*time.Time, error) {
 	if err := validDate(date); err != nil {
@@ -106,34 +153,14 @@ func reminderOffset(value string) time.Duration {
 // before delivery, so overlapping scheduler runs cannot send duplicates.
 func (m *Module) sendDue(ctx context.Context) error {
 	now := m.now().UTC()
-	rows, err := m.d.DB.QueryContext(ctx, `SELECT i.id,p.key,i.number,i.title,i.due_at,i.due_remind
-FROM issues i JOIN projects p ON p.id=i.project_id
-WHERE i.due_at IS NOT NULL AND i.due_remind<>'none' AND i.status NOT IN ('done','canceled')
-AND p.archived_at IS NULL AND (i.due_notified_at IS NULL OR i.due_notified_at<>i.due_at)
-AND i.due_at<=? ORDER BY i.due_at,i.id`, now.Add(24*time.Hour).Format(dueLayout))
-	if err != nil {
-		return err
-	}
-	type candidate struct {
-		id, number                int64
-		key, title, dueAt, remind string
-	}
-	var candidates []candidate
-	for rows.Next() {
-		var x candidate
-		if err = rows.Scan(&x.id, &x.key, &x.number, &x.title, &x.dueAt, &x.remind); err != nil {
-			break
-		}
-		candidates = append(candidates, x)
-	}
-	if err == nil {
-		err = rows.Err()
-	}
-	rows.Close()
+	candidates, err := m.activeDue(ctx, now.Add(24*time.Hour))
 	if err != nil {
 		return err
 	}
 	for _, x := range candidates {
+		if x.remind == "none" || (x.notified != nil && *x.notified == x.dueAt) {
+			continue
+		}
 		due, parseErr := time.Parse(dueLayout, x.dueAt)
 		if parseErr != nil {
 			return parseErr

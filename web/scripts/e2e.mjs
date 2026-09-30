@@ -724,6 +724,16 @@ try {
   const generatedBrief = await briefResponse.json();
   assert.ok(generatedBrief.sections.some((section) => section.key === "renewals" && section.markdown.includes("端到端续费")));
 
+  stage = "B37 提醒页汇总";
+  await page.goto(`${base}/reminders?tab=upcoming`);
+  const renewalRow = page.locator(".reminders-external").filter({ hasText: "端到端续费 续费" });
+  await renewalRow.waitFor();
+  await page.getByRole("checkbox", { name: "显示其他模块" }).uncheck();
+  await renewalRow.waitFor({ state: "hidden" });
+  await page.getByRole("checkbox", { name: "显示其他模块" }).check();
+  await renewalRow.getByRole("link", { name: "端到端续费 续费" }).click();
+  await page.waitForURL(/\/monitoring\/subscriptions$/);
+
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
   // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。

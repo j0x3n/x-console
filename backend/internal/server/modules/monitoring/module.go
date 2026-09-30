@@ -66,6 +66,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, busy: map[int64]*sync.Mutex{}}
 	module.Provide(d.Registry, selfKey, m)
 	module.Provide[contracts.Renewals](d.Registry, contracts.RenewalsKey, m)
+	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"monitoring", reminderSource{m})
 	m.registerActions()
 	return m, nil
 }

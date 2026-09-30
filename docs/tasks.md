@@ -54,7 +54,7 @@
 | B35 | GitHub 仓库下拉多选，同步加快 | [B35](specs/B35.md) | |
 | C5 | 清理轮 | 见下 | |
 | B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并。后端已接通 | [B36](specs/B36.md) | |
-| B37 | 提醒页汇总其他模块的提醒 | [B37](specs/B37.md) | |
+| B37 | 提醒页汇总其他模块的提醒。后端已接通 | [B37](specs/B37.md) | Codex |
 
 ### 任务说明
 
@@ -268,6 +268,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | `contracts` 新增 `ExternalReminder`、`ReminderSource` 和注册表前缀 `reminders.sources.`；监控与项目提供到期事项，提醒模块按来源汇总 | B37 提醒页汇总 |
 | 2026-09-30 | `contracts` 新增 `Files`、`FilesKey`（`files.files`）；公共上传模块提供 Markdown 图片认领和按归属清理，项目、日历、提醒、Agent 任务接入 | B36 公共图片上传 |
 | 2026-09-30 | `contracts` 新增 `LLM`、`LLMKey`（`ai.llm`）。AI 模块提供统一调用层，自动化和笔记按用途调用；浮窗、早报也使用同一调用层 | B32 OpenAI 兼容接口 |
 | 2026-09-30 | 云盘公开入口 `/public/shares` 已启用并自行校验令牌、提取码和范围；发 `drive_share.changed`、`drive_task.updated`、`drive_item.batch` 事件；云盘与远端文件日志共用 `logfollow` 帧 | B31 云盘后端 |

@@ -37,10 +37,24 @@ const (
 	FilesKey         = "files.files"         // B36 provides
 )
 
+const ReminderSourcePrefix = "reminders.sources."
+
 // Files links uploaded Markdown images to their owner and removes them with it.
 type Files interface {
 	Claim(ctx context.Context, ownerKind string, ownerID int64, markdown string) error
 	DeleteOwned(ctx context.Context, ownerKind string, ownerID int64) error
+}
+
+// ExternalReminder is a read-only due item from another module.
+type ExternalReminder struct {
+	ID, Source, SourceLabel, Title, Link string
+	At                                   time.Time
+	Done                                 bool
+}
+
+// ReminderSource lists due items, including unresolved overdue items.
+type ReminderSource interface {
+	Upcoming(ctx context.Context, from, until time.Time) ([]ExternalReminder, error)
 }
 
 // LLM is the AI call boundary used by notes and automations.

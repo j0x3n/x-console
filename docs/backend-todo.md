@@ -51,7 +51,7 @@
 | 15b | B36 Issue 字段和到期提醒 | 做完 | `modules/projects/service.go`、`list.go`、`due.go`、`contracts.go`、`web/scripts/e2e.mjs` | categoryId、dueAt、dueRemind、清单计数、旧 dueDate 回填、筛选排序和一次性通知已测；全量检查与浏览器主流程通过 |
 | 15c | B36 检查清单 | 做完 | `modules/projects/checklists.go`、`checklists_test.go`、`web/scripts/e2e.mjs` | 8 个接口、排序、勾选时间、跨清单移动和事务内转 Issue 已测；全量后端检查与浏览器主流程通过 |
 | 15d | B36 公共上传 | 做完 | `modules/files/`、`contracts`、`projects/service.go`、`calendar/events_write.go`、`reminders/reminders.go`、`coding/tasks.go`、`web/scripts/e2e.mjs`、迁移 `20260930000500` | 图片大小和类型、登录读取、缩略图、Markdown 归属、删除及过期清理已测；B36 后端完成，接 B37 |
-| 16 | B37 提醒页汇总 | 没开始 | | B36 到期提醒完成后接入 |
+| 16 | B37 提醒页汇总 | 做完 | `modules/reminders/external.go`、`monitoring/reminder_source.go`、`projects/due.go`、`contracts`、`web/scripts/e2e.mjs` | 今天含过期、即将到来限 30 天；来源错误隔离、订阅、证书、域名、Issue 和浏览器主流程已测；全量检查通过 |
 
 本地跑检查要装工具：`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`、`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0`，然后照 `AGENTS.md` 的命令跑。
 
