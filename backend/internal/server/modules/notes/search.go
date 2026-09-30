@@ -76,10 +76,11 @@ func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary
 			tags[r.NoteID] = append(tags[r.NoteID], r.Tag)
 		}
 	}
+	thumbs := m.thumbnails(ctx, notes)
 	out := make([]api.NoteSummary, len(notes))
 	for i, n := range notes {
 		out[i] = toSummary(n, tags[n.ID])
-		out[i].Thumbnail = m.thumbnail(ctx, n.ID, n.Body)
+		out[i].Thumbnail = thumbs[n.ID]
 		if i < len(snippets) && snippets[i] != "" {
 			s := snippets[i]
 			out[i].Snippet = &s

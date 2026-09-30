@@ -159,3 +159,25 @@ func TestFailedDeleteKeepsAttachmentFiles(t *testing.T) {
 		t.Fatalf("attachment after failed deletes: %d", status)
 	}
 }
+
+func TestThumbnailsForManyNotes(t *testing.T) {
+	env := testutil.New(t)
+	png := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0}, 100)...)
+	first := createNote(t, env, api.CreateNote{Title: str("甲")})
+	_, text := uploadFile(t, env, first.Id, "a.txt", []byte("hello"))
+	_, image := uploadFile(t, env, first.Id, "a.png", png)
+	// A text file linked as an image is skipped; the real image is used.
+	body := "![x](" + text.Url + ") ![y](" + image.Url + ")"
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/notes/%d", first.Id), api.UpdateNote{Body: &body}, nil)
+	// Another note linking the first note's image does not get it.
+	borrowed := "![z](" + image.Url + ")"
+	createNote(t, env, api.CreateNote{Title: str("乙"), Body: &borrowed})
+	page := search(t, env, "")
+	thumbs := map[string]*string{}
+	for _, item := range page.Items {
+		thumbs[item.Title] = item.Thumbnail
+	}
+	if thumbs["甲"] == nil || *thumbs["甲"] != image.Url || thumbs["乙"] != nil {
+		t.Fatalf("thumbnails: 甲=%v 乙=%v", thumbs["甲"], thumbs["乙"])
+	}
+}

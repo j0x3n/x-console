@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/db"
 	"io"
 	"net/http"
 	"net/url"
@@ -267,16 +268,58 @@ func (m *Module) deleteAttachmentFiles(ctx context.Context, ids []int64) {
 	}
 }
 
-func (m *Module) thumbnail(ctx context.Context, noteID int64, body string) *string {
-	for _, match := range attachmentImage.FindAllStringSubmatch(body, -1) {
-		id, err := strconv.ParseInt(match[2], 10, 64)
-		if err != nil {
-			continue
-		}
-		var kind string
-		if err := m.d.DB.QueryRowContext(ctx, `SELECT mime FROM note_attachments WHERE id = ? AND note_id = ?`, id, noteID).Scan(&kind); err == nil && inlineImage(kind) {
-			return &match[1]
+// thumbnails picks each note's first image attachment with one query for
+// the whole list, instead of one per image link.
+func (m *Module) thumbnails(ctx context.Context, notes []db.Note) map[int64]*string {
+	type candidate struct {
+		id  int64
+		url string
+	}
+	byNote := map[int64][]candidate{}
+	var ids []any
+	for _, n := range notes {
+		for _, match := range attachmentImage.FindAllStringSubmatch(n.Body, -1) {
+			id, err := strconv.ParseInt(match[2], 10, 64)
+			if err != nil {
+				continue
+			}
+			byNote[n.ID] = append(byNote[n.ID], candidate{id, match[1]})
+			ids = append(ids, id)
 		}
 	}
-	return nil
+	out := map[int64]*string{}
+	if len(ids) == 0 {
+		return out
+	}
+	type owner struct {
+		note  int64
+		image bool
+	}
+	found := map[int64]owner{}
+	for len(ids) > 0 {
+		batch := ids[:min(len(ids), 500)]
+		ids = ids[len(batch):]
+		rows, err := m.d.DB.QueryContext(ctx, `SELECT id, note_id, mime FROM note_attachments WHERE id IN (?`+strings.Repeat(",?", len(batch)-1)+`)`, batch...)
+		if err != nil {
+			return out
+		}
+		for rows.Next() {
+			var id, noteID int64
+			var kind string
+			if rows.Scan(&id, &noteID, &kind) == nil {
+				found[id] = owner{noteID, inlineImage(kind)}
+			}
+		}
+		rows.Close()
+	}
+	for noteID, candidates := range byNote {
+		for _, c := range candidates {
+			if o, ok := found[c.id]; ok && o.note == noteID && o.image {
+				url := c.url
+				out[noteID] = &url
+				break
+			}
+		}
+	}
+	return out
 }
