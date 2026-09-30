@@ -127,6 +127,11 @@ func (m *Module) scheduleNoteAI(id int64, hidden bool) {
 	})
 }
 
+// fingerprintSize caps the stored fingerprint. It keeps the smallest hashes
+// of the note's 3-rune pieces (a bottom-k sketch): a 100k-character note
+// stores 128 numbers instead of all of them.
+const fingerprintSize = 128
+
 func noteFingerprint(body string) string {
 	runes := []rune(strings.ToLower(strings.TrimSpace(body)))
 	set := map[uint64]bool{}
@@ -142,10 +147,14 @@ func noteFingerprint(body string) string {
 		values = append(values, value)
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
-	raw, _ := json.Marshal(values)
+	raw, _ := json.Marshal(values[:min(len(values), fingerprintSize)])
 	return string(raw)
 }
 
+// changedEnough reports whether more than 30% of the text changed. Both
+// sketches are compared on the smallest hashes of their union, which is a
+// fair sample of both notes. Older fingerprints held every hash in order,
+// so cutting them to the same size gives the same kind of sketch.
 func changedEnough(previous, current string) bool {
 	if previous == "" {
 		return true
@@ -157,19 +166,41 @@ func changedEnough(previous, current string) bool {
 	if len(oldValues) == 0 || len(newValues) == 0 {
 		return len(oldValues) != len(newValues)
 	}
-	old := map[uint64]bool{}
+	sort.Slice(oldValues, func(i, j int) bool { return oldValues[i] < oldValues[j] })
+	oldValues = oldValues[:min(len(oldValues), fingerprintSize)]
+	old, now := map[uint64]bool{}, map[uint64]bool{}
+	union := make([]uint64, 0, len(oldValues)+len(newValues))
 	for _, value := range oldValues {
 		old[value] = true
+		union = append(union, value)
 	}
-	common := 0
 	for _, value := range newValues {
+		now[value] = true
+		if !old[value] {
+			union = append(union, value)
+		}
+	}
+	sort.Slice(union, func(i, j int) bool { return union[i] < union[j] })
+	union = union[:min(len(union), fingerprintSize)]
+	common, inOld, inNew := 0, 0, 0
+	for _, value := range union {
 		if old[value] {
+			inOld++
+		}
+		if now[value] {
+			inNew++
+		}
+		if old[value] && now[value] {
 			common++
 		}
 	}
-	denominator := max(len(oldValues), len(newValues))
+	denominator := max(inOld, inNew)
 	return float64(denominator-common)/float64(denominator) > 0.30
 }
+
+// maxNoteAIInput caps what one call sends to the model. The title and tags
+// come from the start of a note; a long note must not cost a long prompt.
+const maxNoteAIInput = 4000
 
 func (m *Module) processNoteAI(ctx context.Context, id int64) error {
 	client, ok := module.Lookup[contracts.LLM](m.d.Registry, contracts.LLMKey)
@@ -225,7 +256,11 @@ func (m *Module) processNoteAI(ctx context.Context, id int64) error {
 		Tags  []string `json:"tags"`
 	}
 	system := "给笔记生成 20 字以内的中文标题和最多 3 个标签。尽量从已有标签中选，只有很确定时才新建。只返回 JSON。已有标签：" + strings.Join(names, "、")
-	if err := client.CompleteJSON(ctx, "fast", system, body, json.RawMessage(noteAISchema), &answer); err != nil {
+	input := body
+	if runes := []rune(input); len(runes) > maxNoteAIInput {
+		input = string(runes[:maxNoteAIInput])
+	}
+	if err := client.CompleteJSON(ctx, "fast", system, input, json.RawMessage(noteAISchema), &answer); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(answer.Title) > 20 {

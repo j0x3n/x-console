@@ -7,3 +7,6 @@ func (m *Module) SetAIDelayForTest(schedule func(time.Duration, func()) func()) 
 	defer m.aiMu.Unlock()
 	m.aiDelay = schedule
 }
+
+func NoteFingerprintForTest(body string) string          { return noteFingerprint(body) }
+func ChangedEnoughForTest(previous, current string) bool { return changedEnough(previous, current) }
