@@ -20,13 +20,32 @@ export function usePreferenceEffects() {
       themeMode === "system" ? (systemDark ? "dark" : "light") : themeMode;
     document.documentElement.dataset.theme = resolved;
     document.documentElement.style.colorScheme = resolved;
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", resolved === "dark" ? "#0a0a0b" : "#f3f3f4");
   }, [themeMode, systemDark]);
   useEffect(() => {
     document.documentElement.dataset.accent = accent;
   }, [accent]);
+  useEffect(() => {
+    const mobile = window.matchMedia("(max-width: 720px)");
+    const update = () => {
+      const styles = getComputedStyle(document.documentElement);
+      const color = styles
+        .getPropertyValue(mobile.matches ? "--xc-panel" : "--xc-bg")
+        .trim();
+      if (color)
+        document
+          .querySelector('meta[name="theme-color"]')
+          ?.setAttribute("content", color);
+    };
+    update();
+    const frame = requestAnimationFrame(update);
+    window.addEventListener("load", update);
+    mobile.addEventListener("change", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("load", update);
+      mobile.removeEventListener("change", update);
+    };
+  }, [themeMode, systemDark, accent]);
   useEffect(() => {
     document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   }, [language]);

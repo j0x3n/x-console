@@ -10,3 +10,4 @@
 /* 新模块的样式令牌和通用组件，放在最后以便覆盖旧规则 */
 @import "./tokens.css";
 @import "./ui.css";
+@import "./browser.css";

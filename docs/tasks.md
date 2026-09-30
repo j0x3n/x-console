@@ -218,6 +218,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B38 | Safari 标签页和主屏幕应用、跨浏览器动态高度、安全区、横屏、浮层及主题色适配；Chromium、Firefox、WebKit 交互检查通过，真机 iOS 浏览器栏待复核（`46fec3d`） |
 | C4 | 核对电脑与服务器共用的详情页，补电脑代理的日志和 Agent 标签测试；页面截图已检查（本次核对） |
 | C3 | 核对页面顶栏动作、二次确认、测试覆盖和页面截图。功能页面无原生确认调用（本次核对） |
 | C5 | 移除旧 AI 设置界面和接口，保留旧配置迁移提示；核对文件存储、模块测试及页面截图（本次提交） |
@@ -267,6 +268,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-09-30 | 新增 `useBrowserViewport` 和 `styles/browser.css`，统一动态高度及安全区；手机普通页面改为文档滚动，切换路由回到顶部；`usePreferenceEffects` 按 CSS 主题背景更新浏览器主题色 | B38 跨浏览器与主屏幕应用适配 |
 | 2026-09-30 | `auth.Service` 加 `SessionActive(ctx)`：会话还在且没过期时为真。远端日志跟随和云盘日志跟随每 30 秒查一次，退出登录或改密码后断开；远端日志跟随最长 1 小时 | 审查修复：日志跟随在退出登录后还在推送 |
 | 2026-09-30 | `protocol.FilesWriteParams` 加 `Private`（`omitempty`，新文件建成 0600）和能力 `files.private`；代理 `ServeWrite` 支持它，`cmd/agent/main.go` 加一行报这个能力；`hostagent.Runner` 加 `BackupBase`（测试用） | 审查修复：机器 Agent 的备份别人可读 |
 | 2026-09-30 | `logfollow` 加 `UTF8Prefix`，远端日志和云盘日志都只发完整字符，云盘去掉自己的 `utf8Prefix` | 审查修复：远端日志跟随中文乱码 |

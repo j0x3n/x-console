@@ -65,6 +65,10 @@ export function InstallHelpDialog() {
           <li>
             选 <SquarePlus size={14} aria-label="添加" /> “添加到主屏幕”。
           </li>
+          <li>
+            从主屏幕的 X Console
+            图标打开。地址栏会隐藏，页面会避开状态栏和底部手势条。
+          </li>
         </ol>
       ) : (
         <p className="pwa-note">

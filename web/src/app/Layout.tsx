@@ -21,7 +21,10 @@ export default function Layout() {
   const toast = useToastStore((s) => s.current);
   const hideToast = useToastStore((s) => s.hide);
   const location = useLocation();
-  useEffect(() => setMobileOpen(false), [location.pathname]);
+  useEffect(() => {
+    setMobileOpen(false);
+    if (window.matchMedia("(max-width: 720px)").matches) window.scrollTo(0, 0);
+  }, [location.pathname]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
