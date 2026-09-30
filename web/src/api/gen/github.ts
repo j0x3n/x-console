@@ -232,6 +232,8 @@ export interface components {
             headRef: string;
             baseRef: string;
             draft: boolean;
+            /** @enum {string} */
+            state: "open" | "closed" | "merged";
             reviewState: components["schemas"]["GitHubReviewState"];
             checkState: components["schemas"]["GitHubCheckState"];
             /** @description 标题或分支里出现、并已关联的本地 Issue，例如 XC-12 */

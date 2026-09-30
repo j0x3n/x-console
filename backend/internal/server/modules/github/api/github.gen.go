@@ -59,6 +59,27 @@ func (e GitHubIssueRelation) Valid() bool {
 	}
 }
 
+// Defines values for GitHubPullState.
+const (
+	Closed GitHubPullState = "closed"
+	Merged GitHubPullState = "merged"
+	Open   GitHubPullState = "open"
+)
+
+// Valid indicates whether the value is a known member of the GitHubPullState enum.
+func (e GitHubPullState) Valid() bool {
+	switch e {
+	case Closed:
+		return true
+	case Merged:
+		return true
+	case Open:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GitHubReviewState.
 const (
 	GitHubReviewStateApproved         GitHubReviewState = "approved"
@@ -166,10 +187,14 @@ type GitHubPull struct {
 
 	// ReviewState pending 表示请了评审但还没人评
 	ReviewState GitHubReviewState `json:"reviewState"`
+	State       GitHubPullState   `json:"state"`
 	Title       string            `json:"title"`
 	UpdatedAt   time.Time         `json:"updatedAt"`
 	Url         string            `json:"url"`
 }
+
+// GitHubPullState defines model for GitHubPull.State.
+type GitHubPullState string
 
 // GitHubReviewState pending 表示请了评审但还没人评
 type GitHubReviewState string

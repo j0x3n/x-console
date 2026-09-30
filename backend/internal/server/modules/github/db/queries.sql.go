@@ -200,7 +200,7 @@ func (q *Queries) GetCIState(ctx context.Context, key string) (string, error) {
 }
 
 const getPull = `-- name: GetPull :one
-SELECT id, repo, number, title, author, url, head_ref, head_sha, base_ref, draft, review_state, check_state, created_at, updated_at, synced_at FROM github_pulls WHERE repo = ? AND number = ?
+SELECT id, repo, number, title, author, url, head_ref, head_sha, base_ref, draft, review_state, check_state, created_at, updated_at, synced_at, state FROM github_pulls WHERE repo = ? AND number = ?
 `
 
 type GetPullParams struct {
@@ -227,6 +227,7 @@ func (q *Queries) GetPull(ctx context.Context, arg GetPullParams) (GithubPull, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SyncedAt,
+		&i.State,
 	)
 	return i, err
 }
@@ -391,7 +392,7 @@ func (q *Queries) ListLinksForPull(ctx context.Context, arg ListLinksForPullPara
 }
 
 const listPulls = `-- name: ListPulls :many
-SELECT id, repo, number, title, author, url, head_ref, head_sha, base_ref, draft, review_state, check_state, created_at, updated_at, synced_at FROM github_pulls ORDER BY repo, updated_at DESC, number DESC
+SELECT id, repo, number, title, author, url, head_ref, head_sha, base_ref, draft, review_state, check_state, created_at, updated_at, synced_at, state FROM github_pulls ORDER BY repo, updated_at DESC, number DESC
 `
 
 func (q *Queries) ListPulls(ctx context.Context) ([]GithubPull, error) {
@@ -419,6 +420,7 @@ func (q *Queries) ListPulls(ctx context.Context) ([]GithubPull, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SyncedAt,
+			&i.State,
 		); err != nil {
 			return nil, err
 		}
@@ -434,7 +436,7 @@ func (q *Queries) ListPulls(ctx context.Context) ([]GithubPull, error) {
 }
 
 const listPullsByRepo = `-- name: ListPullsByRepo :many
-SELECT id, repo, number, title, author, url, head_ref, head_sha, base_ref, draft, review_state, check_state, created_at, updated_at, synced_at FROM github_pulls WHERE repo = ? ORDER BY updated_at DESC, number DESC
+SELECT id, repo, number, title, author, url, head_ref, head_sha, base_ref, draft, review_state, check_state, created_at, updated_at, synced_at, state FROM github_pulls WHERE repo = ? ORDER BY updated_at DESC, number DESC
 `
 
 func (q *Queries) ListPullsByRepo(ctx context.Context, repo string) ([]GithubPull, error) {
@@ -462,6 +464,7 @@ func (q *Queries) ListPullsByRepo(ctx context.Context, repo string) ([]GithubPul
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SyncedAt,
+			&i.State,
 		); err != nil {
 			return nil, err
 		}
@@ -619,12 +622,12 @@ func (q *Queries) UpsertIssue(ctx context.Context, arg UpsertIssueParams) error 
 
 const upsertPull = `-- name: UpsertPull :exec
 INSERT INTO github_pulls (repo, number, title, author, url, head_ref, head_sha, base_ref, draft,
-                          review_state, check_state, created_at, updated_at, synced_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          review_state, check_state, created_at, updated_at, synced_at, state)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (repo, number) DO UPDATE SET
     title = excluded.title, author = excluded.author, url = excluded.url, head_ref = excluded.head_ref,
     head_sha = excluded.head_sha, base_ref = excluded.base_ref, draft = excluded.draft,
-    review_state = excluded.review_state, check_state = excluded.check_state,
+    review_state = excluded.review_state, check_state = excluded.check_state, state = excluded.state,
     created_at = excluded.created_at, updated_at = excluded.updated_at, synced_at = excluded.synced_at
 `
 
@@ -643,6 +646,7 @@ type UpsertPullParams struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	SyncedAt    time.Time
+	State       string
 }
 
 func (q *Queries) UpsertPull(ctx context.Context, arg UpsertPullParams) error {
@@ -661,6 +665,7 @@ func (q *Queries) UpsertPull(ctx context.Context, arg UpsertPullParams) error {
 		arg.CreatedAt,
 		arg.UpdatedAt,
 		arg.SyncedAt,
+		arg.State,
 	)
 	return err
 }

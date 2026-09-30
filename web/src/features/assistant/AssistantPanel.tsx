@@ -24,13 +24,12 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { errorMessage } from "../../api/client";
 import { onServerEvent } from "../../api/events";
-import { Loading } from "../../components/ui/States";
+import { ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import {
   aiKeys,
   isNotLive,
   useAiProviders,
-  useAiSettings,
   useConversation,
   useConversations,
   useDeleteConversation,
@@ -155,14 +154,9 @@ function Panel() {
 
   const conversations = useConversations();
   const notLive = conversations.isError && isNotLive(conversations.error);
-  // B32 上线后看有没有选 Agent 模型，没上线时看旧设置里有没有 Key。
   const providers = useAiProviders(!notLive);
-  const b32 = !!providers.data;
-  const legacy = useAiSettings(!notLive && providers.isError);
-  const models = useModelSettings(b32);
-  const noKey = b32
-    ? models.data !== undefined && !models.data.agent
-    : legacy.data !== undefined && !legacy.data.hasApiKey;
+  const models = useModelSettings(!notLive && !!providers.data);
+  const noKey = models.data !== undefined && !models.data.agent;
   const tools = useTools(!notLive);
   const detail = useConversation(notLive ? null : conversationId);
   const send = useSendMessage();
@@ -379,26 +373,19 @@ function Panel() {
             <strong>AI 还没上线</strong>
             <p>界面已经做好，服务端还在开发。</p>
           </div>
+        ) : providers.isError ? (
+          <ErrorState
+            error={providers.error}
+            onRetry={() => providers.refetch()}
+          />
         ) : noKey ? (
           <div className="ai-empty">
             <Sparkles size={26} />
-            {b32 ? (
-              <>
-                <strong>还没有选 Agent 模型</strong>
-                <p>
-                  去 <Link to="/settings/assistant">设置 → AI</Link>{" "}
-                  添加供应商，再选一个 Agent 模型就能用了。
-                </p>
-              </>
-            ) : (
-              <>
-                <strong>还没有填 API Key</strong>
-                <p>
-                  去 <Link to="/settings/assistant">设置 → AI</Link> 填上
-                  Anthropic 的 API Key 就能用了。
-                </p>
-              </>
-            )}
+            <strong>还没有选 Agent 模型</strong>
+            <p>
+              去 <Link to="/settings/assistant">设置 → AI</Link>{" "}
+              添加供应商，再选一个 Agent 模型就能用了。
+            </p>
           </div>
         ) : conversationId && detail.isPending ? (
           <Loading />

@@ -213,7 +213,7 @@ func TestSync(t *testing.T) {
 		t.Fatalf("issues: %+v", issues)
 	}
 
-	// Closed PRs leave the cache; unchanged data is revalidated with ETags.
+	// Deleted PRs leave the cache; unchanged data is revalidated with ETags.
 	gh.set(func(f *fakeGitHub) { f.pulls[repo] = f.pulls[repo][:1] })
 	_, before := gh.counts()
 	syncNow(t, env)
@@ -230,6 +230,43 @@ func TestSync(t *testing.T) {
 	syncNow(t, env)
 	if list := pulls(t, env); len(list) != 0 {
 		t.Fatalf("after unwatch: %+v", list)
+	}
+}
+
+func TestSyncRecentClosedPulls(t *testing.T) {
+	env, gh := setup(t)
+	now := time.Now().UTC()
+	gh.set(func(f *fakeGitHub) {
+		open := make([]map[string]any, 150)
+		for i := range open {
+			open[i] = pull(i+1, "Open", "branch", "")
+		}
+		closed := pull(201, "Closed", "closed", "")
+		closed["state"] = "closed"
+		closed["closed_at"] = now.Add(-24 * time.Hour).Format(time.RFC3339)
+		merged := pull(202, "Merged", "merged", "")
+		merged["state"] = "closed"
+		merged["closed_at"] = now.Add(-2 * 24 * time.Hour).Format(time.RFC3339)
+		merged["merged_at"] = now.Add(-2 * 24 * time.Hour).Format(time.RFC3339)
+		old := pull(203, "Old", "old", "")
+		old["state"] = "closed"
+		old["closed_at"] = now.Add(-8 * 24 * time.Hour).Format(time.RFC3339)
+		f.pulls[repo] = append(open, closed, merged, old)
+	})
+	syncNow(t, env)
+	got := pulls(t, env)
+	if len(got) != 152 {
+		t.Fatalf("want 150 open and 2 recent closed PRs, got %d", len(got))
+	}
+	states := map[int]api.GitHubPullState{}
+	for _, p := range got {
+		states[p.Number] = p.State
+	}
+	if states[1] != "open" || states[150] != "open" || states[201] != "closed" || states[202] != "merged" {
+		t.Fatalf("pull states: %+v", states)
+	}
+	if _, ok := states[203]; ok {
+		t.Fatal("PR closed eight days ago should not be cached")
 	}
 }
 

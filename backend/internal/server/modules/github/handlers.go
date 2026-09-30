@@ -277,7 +277,7 @@ func (m *Module) listPulls(ctx context.Context, repo string) ([]api.GitHubPull, 
 func pullToAPI(p db.GithubPull, links []db.GithubLink) api.GitHubPull {
 	out := api.GitHubPull{
 		Repo: p.Repo, Number: int(p.Number), Title: p.Title, Author: p.Author, Url: p.Url, HeadRef: p.HeadRef,
-		BaseRef: p.BaseRef, Draft: p.Draft, ReviewState: api.GitHubReviewState(p.ReviewState),
+		BaseRef: p.BaseRef, Draft: p.Draft, State: api.GitHubPullState(p.State), ReviewState: api.GitHubReviewState(p.ReviewState),
 		CheckState: api.GitHubCheckState(p.CheckState), IssueKeys: []string{}, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}
 	for _, l := range links {

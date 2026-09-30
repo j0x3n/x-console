@@ -122,7 +122,7 @@ export default function GitHubPage() {
 
 function GitHubStats({ status }: { status: GitHubStatus }) {
   const t = useT();
-  const pulls = usePulls().data ?? [];
+  const pulls = (usePulls().data ?? []).filter((p) => p.state === "open");
   const runs = useRuns().data ?? [];
   const issues = useGitHubIssues().data ?? [];
   const latest = latestDefaultRuns(runs);
@@ -270,7 +270,7 @@ function ListState({
 function PullsView() {
   const pulls = usePulls();
   if (!pulls.data || pulls.data.length === 0)
-    return <ListState query={pulls} empty="No open pull requests" />;
+    return <ListState query={pulls} empty="No recent pull requests" />;
   return (
     <div className="xc-stack">
       {groupByRepo(sortPulls(pulls.data)).map((g) => (
@@ -316,13 +316,22 @@ function PullRow({ pull }: { pull: GitHubPull }) {
           <span>{relativeTime(pull.updatedAt, language)}</span>
         </div>
         <div className="github-badges">
+          {pull.state !== "open" && (
+            <span className="xc-badge info">
+              {t(pull.state === "merged" ? "Merged" : "Closed")}
+            </span>
+          )}
           {pull.draft && <span className="xc-badge">{t("Draft")}</span>}
-          <span className={`xc-badge ${reviewTone(pull.reviewState)}`}>
-            {t(reviewLabel[pull.reviewState])}
-          </span>
-          <span className={`xc-badge ${checkTone(pull.checkState)}`}>
-            {t(checkLabel[pull.checkState])}
-          </span>
+          {pull.state === "open" && (
+            <>
+              <span className={`xc-badge ${reviewTone(pull.reviewState)}`}>
+                {t(reviewLabel[pull.reviewState])}
+              </span>
+              <span className={`xc-badge ${checkTone(pull.checkState)}`}>
+                {t(checkLabel[pull.checkState])}
+              </span>
+            </>
+          )}
           {pull.issueKeys.map((key) => (
             <Link key={key} className="xc-badge accent" to={issuePath(key)}>
               {key}

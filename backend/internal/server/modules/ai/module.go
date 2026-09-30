@@ -18,9 +18,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 )
 
-const defaultModel = "claude-opus-5-5"
 const keySetting = "ai.api_key"
-const modelSetting = "ai.model"
 const confirmSetting = "ai.confirm_all_writes"
 
 type Module struct {

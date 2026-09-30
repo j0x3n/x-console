@@ -11,7 +11,6 @@ export type Message = components["schemas"]["Message"];
 export type ContentBlock = components["schemas"]["ContentBlock"];
 export type PendingAction = components["schemas"]["PendingAction"];
 export type Tool = components["schemas"]["Tool"];
-export type AiSettings = components["schemas"]["AiSettings"];
 export type AiProvider = components["schemas"]["AiProvider"];
 export type AiProviderInput = components["schemas"]["AiProviderInput"];
 export type AiProviderPatch = components["schemas"]["AiProviderPatch"];
@@ -30,7 +29,6 @@ export const aiKeys = {
   conversations: ["ai", "conversations"] as const,
   conversation: (id: number) => ["ai", "conversation", id] as const,
   tools: ["ai", "tools"] as const,
-  settings: ["ai", "settings"] as const,
   providers: ["ai", "providers"] as const,
   models: ["ai", "models"] as const,
   modelSettings: ["ai", "model-settings"] as const,
@@ -77,26 +75,6 @@ export function useTools(enabled = true) {
     queryFn: () => unwrap(aiApi.GET("/ai/tools")),
     staleTime: 5 * 60_000,
     enabled,
-  });
-}
-
-export function useAiSettings(enabled = true) {
-  return useQuery({
-    queryKey: aiKeys.settings,
-    queryFn: () => unwrap(aiApi.GET("/ai/settings")),
-    enabled,
-  });
-}
-
-export function useSaveAiSettings() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: {
-      apiKey?: string;
-      model?: string;
-      confirmAllWrites?: boolean;
-    }) => withElevation(() => unwrap(aiApi.PUT("/ai/settings", { body }))),
-    onSuccess: (data) => qc.setQueryData(aiKeys.settings, data),
   });
 }
 

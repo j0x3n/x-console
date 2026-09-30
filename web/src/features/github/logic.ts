@@ -114,7 +114,8 @@ export function parseRepos(text: string): string[] {
 
 /** 失败的 PR 放前面，然后按更新时间倒序。 */
 export function sortPulls(pulls: GitHubPull[]): GitHubPull[] {
-  const rank = (p: GitHubPull) => (p.checkState === "failure" ? 0 : 1);
+  const rank = (p: GitHubPull) =>
+    p.state !== "open" ? 2 : p.checkState === "failure" ? 0 : 1;
   return [...pulls].sort(
     (a, b) =>
       rank(a) - rank(b) ||

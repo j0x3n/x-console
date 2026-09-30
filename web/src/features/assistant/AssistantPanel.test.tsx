@@ -93,11 +93,24 @@ function live() {
   let messages: unknown[] = [];
   let running = false;
   api.routes.set("GET /ai/conversations", () => ({ status: 200, body: [] }));
-  api.routes.set("GET /ai/settings", () => ({
+  api.routes.set("GET /ai/providers", () => ({
+    status: 200,
+    body: [
+      {
+        id: 1,
+        name: "Test",
+        baseUrl: "https://example.com/v1",
+        hasApiKey: true,
+        modelCount: 1,
+        createdAt: at,
+      },
+    ],
+  }));
+  api.routes.set("GET /ai/model-settings", () => ({
     status: 200,
     body: {
-      hasApiKey: true,
-      model: "claude-opus-5-5",
+      agent: { providerId: 1, model: "tools" },
+      reasoningEffort: "off",
       confirmAllWrites: false,
     },
   }));
@@ -183,19 +196,15 @@ describe("assistant panel", () => {
     expect(screen.getByRole("button", { name: /^AI/ })).toBeTruthy();
   });
 
-  it("asks for an API key first", async () => {
+  it("asks for an Agent model first", async () => {
     live();
-    api.routes.set("GET /ai/settings", () => ({
+    api.routes.set("GET /ai/model-settings", () => ({
       status: 200,
-      body: {
-        hasApiKey: false,
-        model: "claude-opus-5-5",
-        confirmAllWrites: false,
-      },
+      body: { agent: null, reasoningEffort: "off", confirmAllWrites: false },
     }));
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: /^AI/ }));
-    expect(await screen.findByText("还没有填 API Key")).toBeTruthy();
+    expect(await screen.findByText("还没有选 Agent 模型")).toBeTruthy();
   });
 
   it("sends with the page context, streams, then confirms an action", async () => {

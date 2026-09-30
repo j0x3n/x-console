@@ -1,6 +1,7 @@
 package ai_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -21,7 +22,12 @@ func TestAiModelSettings(t *testing.T) {
 		t.Fatalf("settings without elevation: %d", status)
 	}
 	env.Elevate()
-	env.MustDo("PUT", "/ai/settings", map[string]any{"apiKey": "old-secret"}, nil)
+	if status, _ := env.Do("GET", "/ai/settings", nil, nil); status != http.StatusNotFound {
+		t.Fatalf("legacy settings endpoint should be gone: %d", status)
+	}
+	if err := env.App.Deps.Settings.SetSecret(context.Background(), "ai.api_key", "old-secret"); err != nil {
+		t.Fatal(err)
+	}
 	var settings api.AiModelSettings
 	env.MustDo("GET", "/ai/model-settings", nil, &settings)
 	if settings.LegacyAnthropic == nil || !*settings.LegacyAnthropic {
