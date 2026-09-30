@@ -65,7 +65,7 @@ func (s *Service) SkipSetupTOTP(ctx context.Context, w http.ResponseWriter, r *h
 }
 
 func (s *Service) EnrollTOTP(ctx context.Context) (string, string, error) {
-	if err := RequireElevated(ctx); err != nil {
+	if err := RequireStrictElevated(ctx); err != nil {
 		return "", "", err
 	}
 	sess := FromContext(ctx)

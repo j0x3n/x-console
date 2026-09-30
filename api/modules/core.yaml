@@ -137,6 +137,36 @@ paths:
                   elevatedUntil: { type: string, format: date-time }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /auth/elevation-mode:
+    get:
+      operationId: getElevationMode
+      tags: [auth]
+      description: B48。敏感操作二次验证的方式。
+      responses:
+        "200":
+          description: 当前方式
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ElevationModeBody" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: setElevationMode
+      tags: [auth]
+      description: B48。修改二次验证方式。要求 5 分钟内验证过（不受当前方式影响），写审计日志。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ElevationModeBody" }
+      responses:
+        "200":
+          description: 修改后的方式
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ElevationModeBody" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /auth/totp/enroll:
     post:
       operationId: enrollTotp
@@ -521,6 +551,14 @@ components:
       required: true
       schema: { type: string }
   schemas:
+    ElevationModeBody:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [always, 30m, session, "off"]
+          description: always 每次（5 分钟内免验证）；30m 30 分钟内免验证；session 本次登录内免验证；off 关闭（改密码、两步验证、这个设置、API 令牌、Git 连接、从备份恢复仍然要验证）
     Preferences:
       type: object
       required: [nightMode, accent, language]

@@ -57,3 +57,24 @@ registerZh({
   "Open it": "打开",
   "Windows computer": "Windows 电脑",
 });
+
+// B48 二次验证方式
+registerZh({
+  Saved: "已保存",
+  "Verification for sensitive operations": "敏感操作二次验证",
+  "Terminal, commands, deleting files and similar operations ask for your password or code again.":
+    "开终端、执行命令、删除文件这类操作会再要一次密码或验证码。",
+  "Every time": "每次",
+  "Verification off": "关闭",
+  "Asks again 5 minutes after the last check.": "上次验证 5 分钟后再问。",
+  "Once per 30 minutes": "30 分钟内免验证",
+  "Asks again 30 minutes after the last check.": "上次验证 30 分钟后再问。",
+  "Once per login": "本次登录内免验证",
+  "Asks once, then not again until you log out.":
+    "验证一次，退出登录前不再问。",
+  "Never asks for ordinary operations.": "普通的敏感操作不再问。",
+  "If someone gets your login (an unlocked phone, a leaked cookie), they can open the terminal, delete files and delete backups without being asked for a password.":
+    "登录状态被别人拿到（比如手机没锁屏、Cookie 泄露）时，对方可以直接开终端、删文件、删备份，不会再要求输入密码。",
+  "Changing the password or two-step login, this setting, API tokens, Git connections and restoring a backup always ask.":
+    "改密码、开关两步验证、改这个设置、创建 API 令牌、改 Git 连接、从备份恢复，始终要验证。",
+});

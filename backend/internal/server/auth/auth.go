@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pquerna/otp/totp"
@@ -34,16 +35,61 @@ const (
 
 // Session is the authenticated session stored in the request context.
 type Session struct {
-	ID            string
-	UserID        int64
-	Username      string
+	ID       string
+	UserID   int64
+	Username string
+	// ElevatedUntil is the last verification plus elevationTTL. It stays set
+	// until the session ends, so "verified at least once" is ElevatedUntil != nil.
 	ElevatedUntil *time.Time
 	VaultUntil    *time.Time
+	// ElevationMode is the security.elevation_mode setting when the request
+	// came in (B48). Empty means ModeAlways.
+	ElevationMode string
+	// ViaToken is set for API token requests (B43); they are never elevated.
+	ViaToken bool
 }
 
-// Elevated reports whether dangerous operations are allowed right now.
+// Elevation modes (B48): how long one verification lasts.
+const (
+	ModeAlways  = "always"  // 5 minutes
+	Mode30m     = "30m"     // 30 minutes
+	ModeSession = "session" // until the session ends
+	ModeOff     = "off"     // never asked, except for strict operations
+)
+
+// ElevationModeKey is the setting that picks the mode.
+const ElevationModeKey = "security.elevation_mode"
+
+// ValidElevationMode reports whether m is one of the modes.
+func ValidElevationMode(m string) bool {
+	switch m {
+	case ModeAlways, Mode30m, ModeSession, ModeOff:
+		return true
+	}
+	return false
+}
+
+// Elevated reports whether dangerous operations are allowed right now,
+// under the session's elevation mode.
 func (s *Session) Elevated() bool {
-	return s.ElevatedUntil != nil && s.ElevatedUntil.After(time.Now())
+	if s.ViaToken {
+		return false
+	}
+	now := time.Now()
+	switch s.ElevationMode {
+	case ModeOff:
+		return true
+	case ModeSession:
+		return s.ElevatedUntil != nil
+	case Mode30m:
+		return s.ElevatedUntil != nil && s.ElevatedUntil.Add(30*time.Minute-elevationTTL).After(now)
+	}
+	return s.StrictlyElevated()
+}
+
+// StrictlyElevated ignores the mode: the user verified in the last 5 minutes.
+func (s *Session) StrictlyElevated() bool {
+	return !s.ViaToken && s.ElevatedUntil != nil && s.ElevatedUntil.After(time.Now())
 }
 
 func VaultUnlocked(ctx context.Context) bool {
@@ -82,6 +128,21 @@ func RequireElevated(ctx context.Context) error {
 	return nil
 }
 
+// RequireStrictElevated is RequireElevated that always asks within 5
+// minutes, whatever the elevation mode (B48). Use it for password and TOTP
+// changes, the mode itself, API tokens, Git connections and restoring a
+// backup.
+func RequireStrictElevated(ctx context.Context) error {
+	s := FromContext(ctx)
+	if s == nil {
+		return httpx.ErrUnauthorized
+	}
+	if !s.StrictlyElevated() {
+		return httpx.ErrElevationRequired
+	}
+	return nil
+}
+
 // Service owns users and sessions.
 type Service struct {
 	conn       *sql.DB
@@ -93,6 +154,48 @@ type Service struct {
 	fails      *limiter
 	vaultFails *limiter
 	now        func() time.Time
+
+	modeMu     sync.Mutex
+	mode       string
+	modeLoaded bool
+}
+
+// ElevationMode returns the current mode, read from settings once and cached.
+func (s *Service) ElevationMode(ctx context.Context) string {
+	s.modeMu.Lock()
+	defer s.modeMu.Unlock()
+	if s.modeLoaded {
+		return s.mode
+	}
+	var mode string
+	if err := s.settings.Get(ctx, ElevationModeKey, &mode); err != nil && !errors.Is(err, settings.ErrNotSet) {
+		return ModeAlways // keep the safe default while the store is unreadable
+	}
+	if !ValidElevationMode(mode) {
+		mode = ModeAlways
+	}
+	s.mode, s.modeLoaded = mode, true
+	return mode
+}
+
+// SetElevationMode changes the mode. It needs a strict elevation and is
+// written to the audit log with the old and new value.
+func (s *Service) SetElevationMode(ctx context.Context, mode string) error {
+	if !ValidElevationMode(mode) {
+		return httpx.Invalid("二次验证方式不正确")
+	}
+	if err := RequireStrictElevated(ctx); err != nil {
+		return err
+	}
+	old := s.ElevationMode(ctx)
+	if err := s.settings.Set(ctx, ElevationModeKey, mode); err != nil {
+		return err
+	}
+	s.modeMu.Lock()
+	s.mode, s.modeLoaded = mode, true
+	s.modeMu.Unlock()
+	s.audit.Record(ctx, "auth.elevation_mode", "", map[string]any{"from": old, "to": mode}, nil)
+	return nil
 }
 
 // NewService builds the auth service. secureCookies should be false only in dev.
@@ -279,7 +382,8 @@ func (s *Service) Authenticate(r *http.Request) (*Session, error) {
 	if row.ExpiresAt.Sub(s.now()) < sessionTTL-24*time.Hour {
 		_ = s.q.TouchSession(r.Context(), db.TouchSessionParams{ExpiresAt: s.now().Add(sessionTTL), ID: id})
 	}
-	return &Session{ID: id, UserID: row.UserID, Username: row.Username, ElevatedUntil: row.ElevatedUntil, VaultUntil: row.VaultUntil}, nil
+	return &Session{ID: id, UserID: row.UserID, Username: row.Username, ElevatedUntil: row.ElevatedUntil, VaultUntil: row.VaultUntil,
+		ElevationMode: s.ElevationMode(r.Context())}, nil
 }
 
 // Middleware attaches the session and rejects unauthenticated requests,

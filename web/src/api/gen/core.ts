@@ -136,6 +136,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/elevation-mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B48。敏感操作二次验证的方式。 */
+        get: operations["getElevationMode"];
+        /** @description B48。修改二次验证方式。要求 5 分钟内验证过（不受当前方式影响），写审计日志。 */
+        put: operations["setElevationMode"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/totp/enroll": {
         parameters: {
             query?: never;
@@ -490,6 +508,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ElevationModeBody: {
+            /**
+             * @description always 每次（5 分钟内免验证）；30m 30 分钟内免验证；session 本次登录内免验证；off 关闭（改密码、两步验证、这个设置、API 令牌、Git 连接、从备份恢复仍然要验证）
+             * @enum {string}
+             */
+            mode: "always" | "30m" | "session" | "off";
+        };
         Preferences: {
             /**
              * @description 夜间模式。auto 跟随系统
@@ -812,6 +837,52 @@ export interface operations {
                         /** Format: date-time */
                         elevatedUntil: string;
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getElevationMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前方式 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ElevationModeBody"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setElevationMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ElevationModeBody"];
+            };
+        };
+        responses: {
+            /** @description 修改后的方式 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ElevationModeBody"];
                 };
             };
             default: components["responses"]["Error"];

@@ -32,6 +32,30 @@ func (e AgentKind) Valid() bool {
 	}
 }
 
+// Defines values for ElevationModeBodyMode.
+const (
+	ElevationModeBodyModeAlways  ElevationModeBodyMode = "always"
+	ElevationModeBodyModeN30m    ElevationModeBodyMode = "30m"
+	ElevationModeBodyModeOff     ElevationModeBodyMode = "off"
+	ElevationModeBodyModeSession ElevationModeBodyMode = "session"
+)
+
+// Valid indicates whether the value is a known member of the ElevationModeBodyMode enum.
+func (e ElevationModeBodyMode) Valid() bool {
+	switch e {
+	case ElevationModeBodyModeAlways:
+		return true
+	case ElevationModeBodyModeN30m:
+		return true
+	case ElevationModeBodyModeOff:
+		return true
+	case ElevationModeBodyModeSession:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NotificationPriority.
 const (
 	High   NotificationPriority = "high"
@@ -106,19 +130,19 @@ func (e PreferencesLanguage) Valid() bool {
 
 // Defines values for PreferencesNightMode.
 const (
-	Auto PreferencesNightMode = "auto"
-	Off  PreferencesNightMode = "off"
-	On   PreferencesNightMode = "on"
+	PreferencesNightModeAuto PreferencesNightMode = "auto"
+	PreferencesNightModeOff  PreferencesNightMode = "off"
+	PreferencesNightModeOn   PreferencesNightMode = "on"
 )
 
 // Valid indicates whether the value is a known member of the PreferencesNightMode enum.
 func (e PreferencesNightMode) Valid() bool {
 	switch e {
-	case Auto:
+	case PreferencesNightModeAuto:
 		return true
-	case Off:
+	case PreferencesNightModeOff:
 		return true
-	case On:
+	case PreferencesNightModeOn:
 		return true
 	default:
 		return false
@@ -214,6 +238,15 @@ type ElevateRequest struct {
 	Code     string `json:"code,omitempty"`
 	Password string `json:"password,omitempty"`
 }
+
+// ElevationModeBody defines model for ElevationModeBody.
+type ElevationModeBody struct {
+	// Mode always 每次（5 分钟内免验证）；30m 30 分钟内免验证；session 本次登录内免验证；off 关闭（改密码、两步验证、这个设置、API 令牌、Git 连接、从备份恢复仍然要验证）
+	Mode ElevationModeBodyMode `json:"mode"`
+}
+
+// ElevationModeBodyMode always 每次（5 分钟内免验证）；30m 30 分钟内免验证；session 本次登录内免验证；off 关闭（改密码、两步验证、这个设置、API 令牌、Git 连接、从备份恢复仍然要验证）
+type ElevationModeBodyMode string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
@@ -372,6 +405,9 @@ type CreatePairingCodeJSONRequestBody CreatePairingCodeJSONBody
 // ElevateJSONRequestBody defines body for Elevate for application/json ContentType.
 type ElevateJSONRequestBody = ElevateRequest
 
+// SetElevationModeJSONRequestBody defines body for SetElevationMode for application/json ContentType.
+type SetElevationModeJSONRequestBody = ElevationModeBody
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -434,6 +470,12 @@ type ServerInterface interface {
 
 	// (POST /auth/elevate)
 	Elevate(w http.ResponseWriter, r *http.Request)
+
+	// (GET /auth/elevation-mode)
+	GetElevationMode(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /auth/elevation-mode)
+	SetElevationMode(w http.ResponseWriter, r *http.Request)
 
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -546,6 +588,16 @@ func (_ Unimplemented) ListAudit(w http.ResponseWriter, r *http.Request, params 
 
 // (POST /auth/elevate)
 func (_ Unimplemented) Elevate(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /auth/elevation-mode)
+func (_ Unimplemented) GetElevationMode(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /auth/elevation-mode)
+func (_ Unimplemented) SetElevationMode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -931,6 +983,34 @@ func (siw *ServerInterfaceWrapper) Elevate(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Elevate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetElevationMode operation middleware
+func (siw *ServerInterfaceWrapper) GetElevationMode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetElevationMode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetElevationMode operation middleware
+func (siw *ServerInterfaceWrapper) SetElevationMode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetElevationMode(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1397,6 +1477,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/elevate", wrapper.Elevate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/elevation-mode", wrapper.GetElevationMode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/auth/elevation-mode", wrapper.SetElevationMode)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/totp/enroll", wrapper.EnrollTotp)
