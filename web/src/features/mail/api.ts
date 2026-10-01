@@ -161,7 +161,11 @@ export function useUpdateMailMessage() {
 export function useMailSummary(enabled = true) {
   return useQuery({
     queryKey: mailKeys.summary,
-    queryFn: () => unwrap(mailApi.GET("/mail/summary")),
+    // 后端没有邮箱时 accounts、latest 是 null，这里统一成空数组
+    queryFn: async () => {
+      const s = await unwrap(mailApi.GET("/mail/summary"));
+      return { ...s, accounts: s.accounts ?? [], latest: s.latest ?? [] };
+    },
     retry: false,
     enabled,
     meta: { silentError: true },
