@@ -26,3 +26,7 @@ func (m *Module) CheckNow(ctx context.Context, id int64, now time.Time) (db.Moni
 func (m *Module) ScanSubscriptions(ctx context.Context, now time.Time) error {
 	return m.scanSubscriptions(ctx, now)
 }
+
+func (m *Module) RefreshRates(ctx context.Context, now time.Time) error {
+	return m.refreshRates(ctx, now)
+}

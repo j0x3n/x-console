@@ -97,8 +97,8 @@ DELETE FROM monitor_results WHERE at < ?;
 
 -- name: CreateSubscription :one
 INSERT INTO subscriptions (name, category, category_id, amount, currency, cycle, cycle_days, cycle_count, cycle_unit,
-                           next_renewal, remind_days_before, url, note, auto_renew, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           next_renewal, remind_days_before, url, note, account, auto_renew, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSubscription :one
@@ -111,7 +111,7 @@ SELECT * FROM subscriptions ORDER BY next_renewal, id;
 UPDATE subscriptions
 SET name = ?, category = ?, category_id = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, cycle_count = ?,
     cycle_unit = ?, next_renewal = ?,
-    remind_days_before = ?, reminded = ?, url = ?, note = ?, auto_renew = ?, archived_at = ?, updated_at = ?
+    remind_days_before = ?, reminded = ?, url = ?, note = ?, account = ?, auto_renew = ?, archived_at = ?, updated_at = ?
 WHERE id = ?
 RETURNING *;
 

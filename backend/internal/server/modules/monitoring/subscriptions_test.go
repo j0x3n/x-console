@@ -3,8 +3,11 @@ package monitoring_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,6 +15,7 @@ import (
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/api"
 )
 
@@ -71,7 +75,7 @@ func TestSubscriptionReminders(t *testing.T) {
 	var vps api.Subscription
 	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{Name: "VPS", Amount: 10, Cycle: "monthly", NextRenewal: day("2026-10-11"),
 		Category: ptr(api.SubscriptionCategoryServer)}, &vps)
-	if vps.Currency != "CNY" || len(vps.RemindDaysBefore) != 2 || vps.RemindDaysBefore[0] != 7 || vps.AutoRenew {
+	if vps.Currency != "CNY" || len(vps.RemindDaysBefore) != 3 || vps.RemindDaysBefore[0] != 7 || vps.RemindDaysBefore[1] != 3 || vps.AutoRenew {
 		t.Fatalf("created: %+v", vps)
 	}
 
@@ -147,6 +151,9 @@ func TestSubscriptionReminders(t *testing.T) {
 	if len(sum.ByCategory) != 3 {
 		t.Fatalf("by category: %+v", sum.ByCategory)
 	}
+	if sum.Converted != nil || sum.Unconverted != nil || sum.RatesAt != nil {
+		t.Fatalf("rates before any fetch: %+v", sum)
+	}
 
 	// Archived subscriptions leave the list and the totals.
 	env.MustDo(http.MethodPatch, fmt.Sprintf("/subscriptions/%d", usd.Id), api.SubscriptionPatch{Archived: ptr(true)}, &usd)
@@ -178,6 +185,87 @@ func TestSubscriptionReminders(t *testing.T) {
 
 	env.MustDo(http.MethodDelete, fmt.Sprintf("/subscriptions/%d", usd.Id), nil, nil)
 	expectStatus(t, env, http.MethodGet, fmt.Sprintf("/subscriptions/%d/events", usd.Id), nil, 404, "not_found")
+}
+
+func TestSubscriptionAccount(t *testing.T) {
+	env, _ := setup(t)
+	var created api.Subscription
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "邮箱", Amount: 1, Cycle: "monthly", NextRenewal: day("2026-11-01"), Account: ptr("  a@b.c  "),
+	}, &created)
+	if created.Account == nil || *created.Account != "a@b.c" {
+		t.Fatalf("created account: %+v", created.Account)
+	}
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/subscriptions/%d", created.Id), api.SubscriptionPatch{Name: ptr("邮箱2")}, &created)
+	if created.Account == nil || *created.Account != "a@b.c" || created.Name != "邮箱2" {
+		t.Fatalf("account changed with the name: %+v", created)
+	}
+	empty := ""
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/subscriptions/%d", created.Id), api.SubscriptionPatch{Account: &empty}, &created)
+	if created.Account != nil && *created.Account != "" {
+		t.Fatalf("cleared account: %+v", created.Account)
+	}
+	long := strings.Repeat("账", 201)
+	status, raw := env.Do(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "太长", Amount: 1, Cycle: "monthly", NextRenewal: day("2026-11-01"), Account: &long,
+	}, nil)
+	if status != http.StatusBadRequest || !strings.Contains(string(raw), "账号最多 200 个字") {
+		t.Fatalf("long account: %d %s", status, raw)
+	}
+}
+
+func TestExchangeRates(t *testing.T) {
+	env, m := setup(t)
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		_, _ = io.WriteString(w, `{"result":"success","time_last_update_unix":1,"rates":{"CNY":7.1,"USD":1,"EUR":0.9}}`)
+	}))
+	t.Cleanup(srv.Close)
+	ctx := context.Background()
+	if err := env.App.Deps.Settings.Set(ctx, monitoring.RatesURLKey, srv.URL); err != nil {
+		t.Fatal(err)
+	}
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "国内", Amount: 100, Currency: ptr("CNY"), Cycle: "monthly", NextRenewal: day("2026-12-01"),
+	}, nil)
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "国外", Amount: 10, Currency: ptr("USD"), Cycle: "monthly", NextRenewal: day("2026-12-01"),
+	}, nil)
+	env.MustDo(http.MethodPost, "/subscriptions", api.SubscriptionInput{
+		Name: "泰国", Amount: 30, Currency: ptr("THB"), Cycle: "monthly", NextRenewal: day("2026-12-01"),
+	}, nil)
+
+	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	if err := m.RefreshRates(ctx, now); err != nil {
+		t.Fatal(err)
+	}
+	if hits.Load() != 1 {
+		t.Fatalf("fetches: %d", hits.Load())
+	}
+	var sum api.SubscriptionSummary
+	env.MustDo(http.MethodGet, "/subscriptions/summary", nil, &sum)
+	if sum.Converted == nil || len(*sum.Converted) != 2 || sum.Unconverted == nil || sum.RatesAt == nil {
+		t.Fatalf("summary: %+v", sum)
+	}
+	cny, usd := (*sum.Converted)[0], (*sum.Converted)[1]
+	if cny.Currency != "CNY" || cny.Monthly != 171 || cny.Yearly != 2052 || cny.Count != 2 ||
+		usd.Currency != "USD" || usd.Monthly != 24.08 || usd.Yearly != 288.96 || usd.Count != 2 ||
+		len(*sum.Unconverted) != 1 || (*sum.Unconverted)[0] != "THB" {
+		t.Fatalf("converted: %+v unconverted %v", *sum.Converted, *sum.Unconverted)
+	}
+	if err := m.RefreshRates(ctx, now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if hits.Load() != 1 {
+		t.Fatalf("refetched inside 20h: %d", hits.Load())
+	}
+	if err := m.RefreshRates(ctx, now.Add(21*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if hits.Load() != 2 {
+		t.Fatalf("fetches after 21h: %d", hits.Load())
+	}
 }
 
 func TestSubscriptionCategories(t *testing.T) {

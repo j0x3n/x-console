@@ -96,6 +96,12 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("monitoring.cleanup", time.Hour, func(ctx context.Context) error {
 		return m.cleanup(ctx, m.now())
 	})
+	m.d.Scheduler.Every("monitoring.rates", ratesEvery, func(ctx context.Context) error {
+		if err := m.refreshRates(ctx, m.now()); err != nil {
+			m.d.Log.Warn("exchange rates", "err", err)
+		}
+		return nil
+	})
 	return nil
 }
 

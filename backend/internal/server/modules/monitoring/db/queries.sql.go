@@ -168,9 +168,9 @@ func (q *Queries) CreateScriptRun(ctx context.Context, arg CreateScriptRunParams
 const createSubscription = `-- name: CreateSubscription :one
 
 INSERT INTO subscriptions (name, category, category_id, amount, currency, cycle, cycle_days, cycle_count, cycle_unit,
-                           next_renewal, remind_days_before, url, note, auto_renew, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit
+                           next_renewal, remind_days_before, url, note, account, auto_renew, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account
 `
 
 type CreateSubscriptionParams struct {
@@ -187,6 +187,7 @@ type CreateSubscriptionParams struct {
 	RemindDaysBefore string
 	Url              string
 	Note             string
+	Account          string
 	AutoRenew        int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
@@ -208,6 +209,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		arg.RemindDaysBefore,
 		arg.Url,
 		arg.Note,
+		arg.Account,
 		arg.AutoRenew,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -233,6 +235,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.CategoryID,
 		&i.CycleCount,
 		&i.CycleUnit,
+		&i.Account,
 	)
 	return i, err
 }
@@ -436,7 +439,7 @@ func (q *Queries) GetScriptRun(ctx context.Context, id int64) (ScriptRun, error)
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit FROM subscriptions WHERE id = ?
+SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account FROM subscriptions WHERE id = ?
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, error) {
@@ -462,6 +465,7 @@ func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, 
 		&i.CategoryID,
 		&i.CycleCount,
 		&i.CycleUnit,
+		&i.Account,
 	)
 	return i, err
 }
@@ -866,7 +870,7 @@ func (q *Queries) ListSubscriptionEvents(ctx context.Context, subscriptionID int
 }
 
 const listSubscriptions = `-- name: ListSubscriptions :many
-SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit FROM subscriptions ORDER BY next_renewal, id
+SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account FROM subscriptions ORDER BY next_renewal, id
 `
 
 func (q *Queries) ListSubscriptions(ctx context.Context) ([]Subscription, error) {
@@ -898,6 +902,7 @@ func (q *Queries) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 			&i.CategoryID,
 			&i.CycleCount,
 			&i.CycleUnit,
+			&i.Account,
 		); err != nil {
 			return nil, err
 		}
@@ -1105,9 +1110,9 @@ const updateSubscription = `-- name: UpdateSubscription :one
 UPDATE subscriptions
 SET name = ?, category = ?, category_id = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, cycle_count = ?,
     cycle_unit = ?, next_renewal = ?,
-    remind_days_before = ?, reminded = ?, url = ?, note = ?, auto_renew = ?, archived_at = ?, updated_at = ?
+    remind_days_before = ?, reminded = ?, url = ?, note = ?, account = ?, auto_renew = ?, archived_at = ?, updated_at = ?
 WHERE id = ?
-RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit
+RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account
 `
 
 type UpdateSubscriptionParams struct {
@@ -1125,6 +1130,7 @@ type UpdateSubscriptionParams struct {
 	Reminded         string
 	Url              string
 	Note             string
+	Account          string
 	AutoRenew        int64
 	ArchivedAt       *time.Time
 	UpdatedAt        time.Time
@@ -1147,6 +1153,7 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		arg.Reminded,
 		arg.Url,
 		arg.Note,
+		arg.Account,
 		arg.AutoRenew,
 		arg.ArchivedAt,
 		arg.UpdatedAt,
@@ -1173,6 +1180,7 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		&i.CategoryID,
 		&i.CycleCount,
 		&i.CycleUnit,
+		&i.Account,
 	)
 	return i, err
 }

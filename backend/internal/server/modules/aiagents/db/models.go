@@ -870,6 +870,7 @@ type Subscription struct {
 	CategoryID       *int64
 	CycleCount       int64
 	CycleUnit        string
+	Account          string
 }
 
 type SubscriptionCategory struct {
