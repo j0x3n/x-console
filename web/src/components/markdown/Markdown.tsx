@@ -1,13 +1,14 @@
-import { Fragment, useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { parseMarkdown, type Block, type Inline } from "./mdparse";
 import "./markdown.css";
+import ImageLightbox, { type LightboxImage } from "../ui/ImageLightbox";
 import { isUploadedFile, thumbnailSrc } from "./upload";
 
 interface Options {
   /** 传了就能在预览里勾选待办，参数是第几个待办（从 0 开始）。 */
   onToggleTask?: (index: number) => void;
-  /** 点图片时调用，比如打开大图。 */
+  /** 点图片时调用。不传时在页内打开大图（B54）。 */
   onImageClick?: (src: string, alt: string) => void;
 }
 
@@ -24,10 +25,30 @@ export default function Markdown({
   className?: string;
 } & Options) {
   const blocks = useMemo(() => parseMarkdown(source), [source]);
+  const images = useMemo(() => collectImages(blocks), [blocks]);
+  const [open, setOpen] = useState<number | null>(null);
   if (blocks.length === 0 && empty) return <>{empty}</>;
-  const ctx: Ctx = { task: 0, onToggleTask, onImageClick };
+  const ctx: Ctx = {
+    task: 0,
+    onToggleTask,
+    onImageClick:
+      onImageClick ??
+      ((src) => {
+        const i = images.findIndex((x) => x.src === src);
+        setOpen(i < 0 ? 0 : i);
+      }),
+  };
   return (
-    <div className={`xc-md ${className}`}>{renderBlocks(blocks, ctx)}</div>
+    <div className={`xc-md ${className}`}>
+      {renderBlocks(blocks, ctx)}
+      {open !== null && (
+        <ImageLightbox
+          images={images}
+          start={open}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </div>
   );
 }
 
@@ -117,24 +138,19 @@ function renderInline(nodes: Inline[], ctx: Ctx): ReactNode {
       case "del":
         return <del key={i}>{renderInline(node.children, ctx)}</del>;
       case "image":
-        // 公共上传的图片显示缩略图，点开新标签页看原图（B36）。
-        if (!ctx.onImageClick && isUploadedFile(node.src))
-          return (
-            <a key={i} href={node.src} target="_blank" rel="noreferrer">
-              <img src={thumbnailSrc(node.src)} alt={node.alt} loading="lazy" />
-            </a>
-          );
+        // 公共上传的图片显示缩略图（B36），点开在页内看原图（B54）。
         return (
           <img
             key={i}
-            src={node.src}
+            src={isUploadedFile(node.src) ? thumbnailSrc(node.src) : node.src}
             alt={node.alt}
             loading="lazy"
-            onClick={
-              ctx.onImageClick
-                ? () => ctx.onImageClick!(node.src, node.alt)
-                : undefined
-            }
+            className="xc-md-zoom"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              ctx.onImageClick?.(node.src, node.alt);
+            }}
           />
         );
       case "link":
@@ -149,4 +165,22 @@ function renderInline(nodes: Inline[], ctx: Ctx): ReactNode {
         );
     }
   });
+}
+
+/** 按出现顺序取出全部图片，大图层里左右切换用。 */
+function collectImages(blocks: Block[]): LightboxImage[] {
+  const out: LightboxImage[] = [];
+  const seen = new Set<string>();
+  const walk = (value: unknown) => {
+    if (Array.isArray(value)) return value.forEach(walk);
+    if (!value || typeof value !== "object") return;
+    const node = value as { type?: string; src?: string; alt?: string };
+    if (node.type === "image" && node.src && !seen.has(node.src)) {
+      seen.add(node.src);
+      out.push({ src: node.src, alt: node.alt });
+    }
+    Object.values(value).forEach(walk);
+  };
+  walk(blocks);
+  return out;
 }

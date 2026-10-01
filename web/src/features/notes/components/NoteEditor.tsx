@@ -146,9 +146,6 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialog, setDialog] = useState<"issue" | "reminder" | null>(null);
-  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
-    null,
-  );
   const [uploading, setUploading] = useState(0);
   const [dragging, setDragging] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -197,16 +194,6 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
     lastSaved.current = server;
     setDraft(server);
   }, [note.title, note.body, note.tags]);
-
-  // 看大图时按 Esc 关闭。
-  useEffect(() => {
-    if (!lightbox) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightbox(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [lightbox]);
 
   // 离开时把没保存的内容存掉。页面关闭用 keepalive 请求。
   useEffect(() => {
@@ -467,7 +454,6 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
       source={draft.body}
       empty={<span className="xc-muted">{t("Nothing to preview")}</span>}
       onToggleTask={(i) => edit({ body: toggleTask(draftRef.current.body, i) })}
-      onImageClick={(src, alt) => setLightbox({ src, alt })}
     />
   );
   const textarea = (
@@ -932,24 +918,6 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
           void upload(files);
         }}
       />
-
-      {lightbox && (
-        <div
-          className="notes-lightbox"
-          role="dialog"
-          aria-label={lightbox.alt || t("Image")}
-          onClick={() => setLightbox(null)}
-        >
-          <img src={lightbox.src} alt={lightbox.alt} />
-          <button
-            className="xc-btn small"
-            onClick={() => setLightbox(null)}
-            aria-label={t("Close")}
-          >
-            <X size={15} />
-          </button>
-        </div>
-      )}
 
       {dialog === "issue" && (
         <ToIssueDialog

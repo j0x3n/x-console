@@ -290,14 +290,6 @@
   background: var(--xc-elevated);
   box-shadow: var(--xc-shadow);
 }
-@media (max-width: 640px) {
-  .drive-page .xc-more-backdrop {
-    z-index: 69;
-  }
-  .drive-page .xc-more-menu {
-    z-index: 70;
-  }
-}
 .drive-uploads header {
   display: flex;
   align-items: center;

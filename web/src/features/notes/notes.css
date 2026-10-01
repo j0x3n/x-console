@@ -676,29 +676,6 @@
 }
 
 /* 看大图 */
-.notes-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  background: #000000d0;
-  cursor: zoom-out;
-}
-.notes-lightbox img {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 8px;
-  box-shadow: var(--xc-shadow);
-}
-.notes-lightbox .xc-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-}
-
 /* 页头的快速记录 */
 .notes-quick-wrap {
   position: relative;
