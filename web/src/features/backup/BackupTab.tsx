@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router";
 import {
   Archive,
   Download,
@@ -31,12 +32,26 @@ import {
   useRestoreBackup,
   useRunBackupNow,
   useSaveBackupSettings,
+  useStartGdriveAuth,
+  useTestBackupTarget,
   useUploadBackup,
   type Backup,
   type BackupJob,
   type BackupSettings,
+  type BackupSettingsInput,
+  type BackupTargetTest,
 } from "./api";
 import S3Fields, { emptyS3, s3Input, type S3Form } from "../storage/S3Fields";
+import {
+  GdriveFields,
+  WebdavFields,
+  gdriveForm,
+  gdriveInput,
+  webdavForm,
+  webdavInput,
+  type GdriveForm,
+  type WebdavForm,
+} from "./TargetFields";
 import "./i18n";
 import "./backup.css";
 
@@ -177,18 +192,57 @@ const weekdays = [
   "Saturday",
 ];
 
+const targetHints: Record<BackupSettings["target"], string> = {
+  storage: "放在那个桶的 backups/ 目录下。超过保留份数时删最旧的。",
+  custom: "超过保留份数时删最旧的。",
+  webdav: "备份放在下面的目录里。超过保留份数时删最旧的。",
+  gdrive: "备份放在网盘的一个文件夹里。超过保留份数时删最旧的。",
+};
+
+/** Google 授权完跳回设置页时，地址里带着结果。提示一次，然后去掉参数。 */
+function useGdriveReturn() {
+  const [params, setParams] = useSearchParams();
+  const result = params.get("gdrive");
+  const message = params.get("message");
+  useEffect(() => {
+    if (!result) return;
+    if (result === "ok") toast("Google Drive 已授权");
+    else
+      toast({
+        message: `Google Drive 授权失败：${message || "未知原因"}`,
+        tone: "error",
+      });
+    setParams(
+      (p) => {
+        p.delete("gdrive");
+        p.delete("message");
+        return p;
+      },
+      { replace: true },
+    );
+  }, [result, message, setParams]);
+}
+
 function AutoCard() {
   const t = useT();
   const language = useLanguage();
   const settings = useBackupSettings();
   const save = useSaveBackupSettings();
   const run = useRunBackupNow();
+  const test = useTestBackupTarget();
+  const startAuth = useStartGdriveAuth();
   const [form, setForm] = useState<BackupSettings | null>(null);
   const [s3, setS3] = useState<S3Form>(() => emptyS3(undefined, "backups"));
+  const [webdav, setWebdav] = useState<WebdavForm>(() => webdavForm());
+  const [gdrive, setGdrive] = useState<GdriveForm>(() => gdriveForm());
+  const [tested, setTested] = useState<BackupTargetTest | null>(null);
+  useGdriveReturn();
   useEffect(() => {
     if (!settings.data) return;
     setForm(settings.data);
     setS3(emptyS3(settings.data.s3, "backups"));
+    setWebdav(webdavForm(settings.data.webdav));
+    setGdrive(gdriveForm(settings.data.gdrive));
   }, [settings.data]);
   if (settings.isPending) return <Loading />;
   if (settings.isError || !form)
@@ -197,6 +251,12 @@ function AutoCard() {
     );
   const set = <K extends keyof BackupSettings>(k: K, v: BackupSettings[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
+  const targetInput = (): BackupSettingsInput => ({
+    target: form.target,
+    ...(form.target === "custom" ? { s3: s3Input(s3) } : {}),
+    ...(form.target === "webdav" ? { webdav: webdavInput(webdav) } : {}),
+    ...(form.target === "gdrive" ? { gdrive: gdriveInput(gdrive) } : {}),
+  });
   const onSave = (e: FormEvent) => {
     e.preventDefault();
     save.mutate(
@@ -206,20 +266,39 @@ function AutoCard() {
         time: form.time,
         weekday: form.weekday,
         keep: form.keep,
-        target: form.target,
-        ...(form.target === "custom" ? { s3: s3Input(s3) } : {}),
+        ...targetInput(),
       },
       { onSuccess: () => toast(t("Saved")), onError: fail },
+    );
+  };
+  const onTest = () => {
+    setTested(null);
+    test.mutate(targetInput(), { onSuccess: setTested, onError: fail });
+  };
+  // 先只保存客户端（不改备份位置和开关），再跳到 Google 授权页。
+  const onAuthorize = () => {
+    save.mutate(
+      { gdrive: gdriveInput(gdrive) },
+      {
+        onSuccess: () =>
+          startAuth.mutate(undefined, {
+            onSuccess: (r) => {
+              window.location.href = r.url;
+            },
+            onError: fail,
+          }),
+        onError: fail,
+      },
     );
   };
   return (
     <form className="xc-card" onSubmit={onSave}>
       <div className="xc-card-head">
-        <h2>{t("Automatic backup to S3")}</h2>
+        <h2>{t("Automatic backup")}</h2>
         <Switch
           checked={form.enabled}
           onChange={(v) => set("enabled", v)}
-          label={t("Automatic backup to S3")}
+          label={t("Automatic backup")}
         />
       </div>
       <div className="backup-row">
@@ -278,21 +357,44 @@ function AutoCard() {
         <select
           className="xc-select"
           value={form.target}
-          onChange={(e) =>
-            set("target", e.target.value as BackupSettings["target"])
-          }
+          onChange={(e) => {
+            set("target", e.target.value as BackupSettings["target"]);
+            setTested(null);
+          }}
         >
           <option value="storage">{t("The S3 in Storage settings")}</option>
           <option value="custom">{t("Another S3")}</option>
+          <option value="webdav">WebDAV（坚果云、Nextcloud、alist 等）</option>
+          <option value="gdrive">Google Drive</option>
         </select>
-        <small>
-          {form.target === "storage"
-            ? "放在那个桶的 backups/ 目录下。超过保留份数时删最旧的。"
-            : "超过保留份数时删最旧的。"}
-        </small>
+        <small>{targetHints[form.target]}</small>
       </label>
       {form.target === "custom" && (
         <S3Fields value={s3} onChange={setS3} hasSecret={form.s3?.hasSecret} />
+      )}
+      {form.target === "webdav" && (
+        <WebdavFields
+          value={webdav}
+          onChange={setWebdav}
+          passwordSet={form.webdav?.passwordSet}
+        />
+      )}
+      {form.target === "gdrive" && (
+        <GdriveFields
+          value={gdrive}
+          onChange={setGdrive}
+          saved={settings.data?.gdrive}
+          authorizing={save.isPending || startAuth.isPending}
+          onAuthorize={onAuthorize}
+        />
+      )}
+      {tested && (
+        <p
+          className={`backup-test ${tested.ok ? "ok" : "failed"}`}
+          role="status"
+        >
+          {tested.message}
+        </p>
       )}
       {form.nextRunAt && form.enabled && (
         <p className="backup-note">
@@ -326,6 +428,14 @@ function AutoCard() {
         >
           <Play size={13} /> {t("Back up now")}
         </button>
+        <button
+          type="button"
+          className="xc-btn"
+          disabled={test.isPending}
+          onClick={onTest}
+        >
+          {test.isPending ? t("Testing") : t("Test connection")}
+        </button>
         <button className="xc-btn primary" disabled={save.isPending}>
           {t("Save")}
         </button>
@@ -333,6 +443,12 @@ function AutoCard() {
     </form>
   );
 }
+
+const locationLabels: Partial<Record<Backup["location"], string>> = {
+  s3: "S3",
+  webdav: "WebDAV",
+  gdrive: "Google Drive",
+};
 
 const kindLabels: Record<Backup["kind"], string> = {
   manual: "Manual",
@@ -390,7 +506,7 @@ function ListCard({ items }: { items: Backup[] }) {
                 </small>
               </div>
               <span className="xc-badge">
-                {b.location === "s3" ? "S3" : t("On this server")}
+                {locationLabels[b.location] ?? t("On this server")}
               </span>
               <span className="xc-badge">{t(kindLabels[b.kind])}</span>
               <MoreMenu

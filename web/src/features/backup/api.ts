@@ -12,6 +12,7 @@ export type Backup = S["Backup"];
 export type BackupJob = S["BackupJob"];
 export type BackupSettings = S["BackupSettings"];
 export type BackupSettingsInput = S["BackupSettingsInput"];
+export type BackupTargetTest = S["BackupTargetTest"];
 
 export const backupKeys = {
   all: ["backup"] as const,
@@ -107,6 +108,38 @@ export function useSaveBackupSettings() {
       withElevation(() => unwrap(backupApi.PUT("/backups/settings", { body }))),
     onSuccess: (data) => qc.setQueryData(backupKeys.settings, data),
   });
+}
+
+/** 用表单里的设置试一次备份位置，不保存（B63）。 */
+export function useTestBackupTarget() {
+  return useMutation({
+    mutationFn: (body: BackupSettingsInput) =>
+      withElevation(() =>
+        unwrap(backupApi.POST("/backups/target/test", { body })),
+      ),
+  });
+}
+
+/** 拿到 Google 授权页的地址（B63）。 */
+export function useStartGdriveAuth() {
+  return useMutation({
+    mutationFn: () =>
+      withElevation(() => unwrap(backupApi.GET("/backups/gdrive/auth"))),
+  });
+}
+
+export function useRevokeGdriveAuth() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: () =>
+      withElevation(() => unwrap(backupApi.DELETE("/backups/gdrive/auth"))),
+    onSuccess: refresh,
+  });
+}
+
+/** Google 授权完跳回来的地址，要填到 Google 的 OAuth 客户端里。 */
+export function gdriveRedirectUri() {
+  return `${window.location.origin}/api/v1/backups/gdrive/callback`;
 }
 
 /** 上传备份包。文件可能很大，用 fetch 直接发 multipart。 */

@@ -103,3 +103,47 @@
     display: none;
   }
 }
+/* B63：WebDAV 和 Google Drive */
+.backup-test {
+  margin: 0 0 12px;
+  font-size: var(--fs-12-5);
+}
+.backup-test.ok {
+  color: var(--xc-ok);
+}
+.backup-test.failed {
+  color: var(--xc-danger);
+}
+.backup-hint {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+  line-height: 1.6;
+}
+.backup-steps {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+  line-height: 1.7;
+}
+.backup-redirect {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.backup-redirect code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--xc-text);
+}
+.backup-gdrive-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: var(--fs-13);
+}
