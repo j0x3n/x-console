@@ -605,7 +605,8 @@
 }
 .notes-body-input {
   display: block;
-  flex: 1;
+  /* 高度由脚本按内容设置。flex: 1 的基准是 0，会把高度压回剩余空间，导致不能滚动（B72） */
+  flex: 1 0 auto;
   width: 100%;
   min-height: 360px;
   padding: 0;
