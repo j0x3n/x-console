@@ -66,11 +66,16 @@ type AIAgent struct {
 	BuildRetries  int
 	Enabled       bool
 	OverBudget    bool // this month's cost reached the budget
+	// HostIDs are the machines the panel AI may operate through this agent
+	// (B60).
+	HostIDs []string
 }
 
 // AIAgents is provided by B47 aiagents.
 type AIAgents interface {
 	Get(ctx context.Context, id int64) (AIAgent, error)
+	// ForHost lists the enabled agents bound to a machine, oldest first (B60).
+	ForHost(ctx context.Context, hostID string) ([]AIAgent, error)
 }
 
 // IssueWorkKey is provided by M5 for B47 agents working on cards.

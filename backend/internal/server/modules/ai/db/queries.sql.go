@@ -11,17 +11,27 @@ import (
 )
 
 const createConversation = `-- name: CreateConversation :one
-INSERT INTO ai_conversations(title,created_at,updated_at) VALUES(?,?,?) RETURNING id, title, created_at, updated_at, host_id
+INSERT INTO ai_conversations(title,created_at,updated_at,permission,model,effort) VALUES(?,?,?,?,?,?) RETURNING id, title, created_at, updated_at, host_id, permission, model, effort
 `
 
 type CreateConversationParams struct {
-	Title     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Title      string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Permission string
+	Model      string
+	Effort     string
 }
 
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (AiConversation, error) {
-	row := q.db.QueryRowContext(ctx, createConversation, arg.Title, arg.CreatedAt, arg.UpdatedAt)
+	row := q.db.QueryRowContext(ctx, createConversation,
+		arg.Title,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.Permission,
+		arg.Model,
+		arg.Effort,
+	)
 	var i AiConversation
 	err := row.Scan(
 		&i.ID,
@@ -29,6 +39,9 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HostID,
+		&i.Permission,
+		&i.Model,
+		&i.Effort,
 	)
 	return i, err
 }
@@ -46,7 +59,7 @@ func (q *Queries) DeleteConversation(ctx context.Context, id int64) (int64, erro
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, title, created_at, updated_at, host_id FROM ai_conversations WHERE id=? LIMIT 1
+SELECT id, title, created_at, updated_at, host_id, permission, model, effort FROM ai_conversations WHERE id=? LIMIT 1
 `
 
 func (q *Queries) GetConversation(ctx context.Context, id int64) (AiConversation, error) {
@@ -58,12 +71,15 @@ func (q *Queries) GetConversation(ctx context.Context, id int64) (AiConversation
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.HostID,
+		&i.Permission,
+		&i.Model,
+		&i.Effort,
 	)
 	return i, err
 }
 
 const listConversations = `-- name: ListConversations :many
-SELECT id, title, created_at, updated_at, host_id FROM ai_conversations WHERE host_id IS NULL ORDER BY updated_at DESC,id DESC
+SELECT id, title, created_at, updated_at, host_id, permission, model, effort FROM ai_conversations WHERE host_id IS NULL ORDER BY updated_at DESC,id DESC
 `
 
 func (q *Queries) ListConversations(ctx context.Context) ([]AiConversation, error) {
@@ -81,6 +97,9 @@ func (q *Queries) ListConversations(ctx context.Context) ([]AiConversation, erro
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.HostID,
+			&i.Permission,
+			&i.Model,
+			&i.Effort,
 		); err != nil {
 			return nil, err
 		}

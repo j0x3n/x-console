@@ -39,6 +39,9 @@ paths:
               type: object
               properties:
                 title: { type: string }
+                permission: { $ref: "#/components/schemas/AiPermission" }
+                model: { type: string, description: B60。providerId:modelId，空表示用设置里的默认 }
+                effort: { type: string, description: B60。off、low、medium、high，空表示用默认 }
       responses:
         "201":
           description: 已创建
@@ -605,6 +608,28 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /ai/conversations/{conversationId}/settings:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    patch:
+      operationId: setAiConversationSettings
+      tags: [ai]
+      description: |
+        B60。面板 AI 对话的权限、模型和思考程度，下一条消息生效。permission 为 all 要提升权限，不够时回 403。
+        机器会话回 400，机器会话改权限用 /permission。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiConversationSettings" }
+      responses:
+        "200":
+          description: 改后的对话
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conversation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     ConversationId:
@@ -678,8 +703,27 @@ components:
         title: { type: string, description: 第一条消息的开头，空对话为空字符串 }
         hostId: { type: string, description: B33。机器的 Agent 会话才有 }
         permission: { $ref: "#/components/schemas/HostAgentPermission" }
+        panelPermission: { $ref: "#/components/schemas/AiPermission" }
+        panelPermissionUntil:
+          type: string
+          format: date-time
+          description: B60。panelPermission 是 all 时，到这个时间没有新消息就回到 manual
+        model: { type: string, description: B60。这个对话用的模型，空表示默认 }
+        effort: { type: string, description: B60。这个对话的思考程度，空表示默认 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AiPermission:
+      type: string
+      enum: [manual, write, all]
+      description: |
+        B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+        all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+    AiConversationSettings:
+      type: object
+      properties:
+        permission: { $ref: "#/components/schemas/AiPermission" }
+        model: { type: string, description: providerId:modelId，空字符串表示用默认 }
+        effort: { type: string, description: off、low、medium、high，空字符串表示用默认 }
     ConversationDetail:
       type: object
       required: [conversation, messages, pendingActions, running]
@@ -851,6 +895,10 @@ components:
           type: boolean
           description: 上次调用时接口不认 reasoning_effort，已自动去掉重试
         confirmAllWrites: { type: boolean }
+        defaultPermission:
+          type: string
+          enum: [manual, write]
+          description: B60。新对话的默认权限档，all 不能当默认
         modelsDevSyncedAt: { type: string, format: date-time, description: 上次从 models.dev 同步规格的时间 }
         legacyAnthropic:
           type: boolean
@@ -863,6 +911,9 @@ components:
         reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         fastReasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         confirmAllWrites: { type: boolean }
+        defaultPermission:
+          type: string
+          enum: [manual, write]
     AiUsage:
       type: object
       required: [month, calls, inputTokens, outputTokens, byModel]

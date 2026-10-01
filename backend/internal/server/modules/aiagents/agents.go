@@ -98,6 +98,12 @@ func (m *Module) toAgent(ctx context.Context, a db.AiAgent, counts map[int64]tas
 		RunningTasks: counts[a.ID].running + m.busy(a.ID), QueuedTasks: counts[a.ID].queued}
 	over := a.MonthlyBudgetUsd != nil && cost >= *a.MonthlyBudgetUsd
 	out.OverBudget = &over
+	hostNames := m.hostNames(ctx)
+	out.HostIds = liveHosts(hostIDsOf(a.HostIds), hostNames)
+	out.HostNames = make([]string, 0, len(out.HostIds))
+	for _, id := range out.HostIds {
+		out.HostNames = append(out.HostNames, hostNames[id])
+	}
 	if a.RunnerAgentID != nil {
 		if name, ok := names[*a.RunnerAgentID]; ok {
 			out.RunnerName = &name
@@ -164,6 +170,7 @@ func (m *Module) GetAiAgent(w http.ResponseWriter, r *http.Request, id int64) {
 type fields struct {
 	db.AiAgent
 	repoIDs []int64
+	hostIDs []string
 }
 
 // apply copies the given input onto f. present holds the JSON keys that
@@ -199,6 +206,9 @@ func apply(f *fields, in api.AiAgentInput, present map[string]bool) {
 	}
 	if in.RepoIds != nil {
 		f.repoIDs = *in.RepoIds
+	}
+	if in.HostIds != nil {
+		f.hostIDs = *in.HostIds
 	}
 	if in.MaxParallel != nil {
 		f.MaxParallel = int64(*in.MaxParallel)
@@ -288,6 +298,9 @@ func (m *Module) validate(ctx context.Context, f *fields, before *fields) error 
 	}
 	raw, _ := json.Marshal(f.repoIDs)
 	f.RepoIds = string(raw)
+	if err := m.checkHosts(ctx, f, before); err != nil {
+		return err
+	}
 	// Sensitive changes need a fresh verification.
 	sensitive := f.CliPermission == "full" && (before == nil || before.CliPermission != "full")
 	if before == nil {
@@ -344,7 +357,7 @@ func (m *Module) CreateAiAgent(w http.ResponseWriter, r *http.Request) {
 		a, err := m.q.CreateAgent(ctx, db.CreateAgentParams{Name: f.Name, Avatar: f.Avatar, Color: f.Color, Kind: f.Kind,
 			Model: f.Model, Instructions: f.Instructions, RunnerAgentID: f.RunnerAgentID, Access: f.Access,
 			CliPermission: f.CliPermission, RepoIds: f.RepoIds, MaxParallel: f.MaxParallel, MonthlyBudgetUsd: f.MonthlyBudgetUsd,
-			AutoBuild: f.AutoBuild, BuildRetries: f.BuildRetries, Enabled: f.Enabled, CreatedAt: now, UpdatedAt: now})
+			AutoBuild: f.AutoBuild, BuildRetries: f.BuildRetries, Enabled: f.Enabled, CreatedAt: now, UpdatedAt: now, HostIds: f.HostIds})
 		id = a.ID
 		return err
 	}()
@@ -379,8 +392,8 @@ func (m *Module) UpdateAiAgent(w http.ResponseWriter, r *http.Request, id int64)
 		if in.Kind != nil && string(*in.Kind) != row.Kind {
 			return httpx.Invalid("类型建好后不能改")
 		}
-		before := fields{AiAgent: row, repoIDs: repoIDsOf(row.RepoIds)}
-		f := fields{AiAgent: row, repoIDs: repoIDsOf(row.RepoIds)}
+		before := fields{AiAgent: row, repoIDs: repoIDsOf(row.RepoIds), hostIDs: hostIDsOf(row.HostIds)}
+		f := fields{AiAgent: row, repoIDs: repoIDsOf(row.RepoIds), hostIDs: hostIDsOf(row.HostIds)}
 		apply(&f, in, present)
 		if err := m.validate(ctx, &f, &before); err != nil {
 			return err
@@ -388,7 +401,7 @@ func (m *Module) UpdateAiAgent(w http.ResponseWriter, r *http.Request, id int64)
 		_, err = m.q.UpdateAgent(ctx, db.UpdateAgentParams{Name: f.Name, Avatar: f.Avatar, Color: f.Color, Model: f.Model,
 			Instructions: f.Instructions, RunnerAgentID: f.RunnerAgentID, Access: f.Access, CliPermission: f.CliPermission,
 			RepoIds: f.RepoIds, MaxParallel: f.MaxParallel, MonthlyBudgetUsd: f.MonthlyBudgetUsd, AutoBuild: f.AutoBuild,
-			BuildRetries: f.BuildRetries, Enabled: f.Enabled, UpdatedAt: m.now(), ID: id})
+			BuildRetries: f.BuildRetries, Enabled: f.Enabled, UpdatedAt: m.now(), HostIds: f.HostIds, ID: id})
 		return err
 	}()
 	if err != nil {
@@ -449,7 +462,8 @@ func (m *Module) Get(ctx context.Context, id int64) (contracts.AIAgent, error) {
 	}
 	out := contracts.AIAgent{ID: a.ID, Name: a.Name, Kind: a.Kind, Model: a.Model, Instructions: a.Instructions,
 		CLIPermission: a.CliPermission, RepoIDs: repoIDsOf(a.RepoIds), MaxParallel: int(a.MaxParallel),
-		AutoBuild: a.AutoBuild == 1, BuildRetries: int(a.BuildRetries), Enabled: a.Enabled == 1}
+		AutoBuild: a.AutoBuild == 1, BuildRetries: int(a.BuildRetries), Enabled: a.Enabled == 1,
+		HostIDs: liveHosts(hostIDsOf(a.HostIds), m.hostNames(ctx))}
 	if a.RunnerAgentID != nil {
 		out.RunnerAgentID = *a.RunnerAgentID
 	}

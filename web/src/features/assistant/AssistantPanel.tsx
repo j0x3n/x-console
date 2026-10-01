@@ -41,12 +41,14 @@ import {
   useDeleteConversation,
   useModelSettings,
   useSendMessage,
+  type ChatSettings,
   useStopReply,
   useTools,
   type AiAttachment,
   type PageContext,
 } from "./api";
 import Timeline from "./components/Timeline";
+import ChatControls from "./components/ChatControls";
 import { buildTimeline, conversationTitle } from "./logic";
 import { clampOffset, useAssistant } from "./store";
 import "./i18n";
@@ -168,6 +170,22 @@ function Panel() {
   const detail = useConversation(notLive ? null : conversationId);
   const send = useSendMessage();
   const stop = useStopReply();
+  // B60：这个对话的权限、模型和思考程度。还没有对话时先记在这里。
+  const [draft, setDraft] = useState<ChatSettings | null>(null);
+  const current = detail.data?.conversation;
+  const chat: ChatSettings & { until?: string | null } =
+    conversationId && current
+      ? {
+          permission: current.panelPermission ?? "manual",
+          model: current.model ?? "",
+          effort: current.effort ?? "",
+          until: current.panelPermissionUntil,
+        }
+      : (draft ?? {
+          permission: models.data?.defaultPermission ?? "manual",
+          model: "",
+          effort: "",
+        });
   const remove = useDeleteConversation();
 
   const [text, setText] = useState("");
@@ -231,11 +249,13 @@ function Panel() {
         text: value || t("Please look at the attachments."),
         context: pageContext(location.pathname),
         attachmentIds: attachments.map((a) => a.id),
+        settings: conversationId ? undefined : chat,
       },
       {
         onSuccess: (id) => {
           setText("");
           setAttachments([]);
+          setDraft(null);
           if (id !== conversationId) setConversation(id);
         },
       },
@@ -495,6 +515,14 @@ function Panel() {
             </span>
           )}
         </div>
+      )}
+      {!notLive && !noKey && (
+        <ChatControls
+          conversationId={conversationId}
+          value={chat}
+          defaultModel={models.data?.agent?.model ?? ""}
+          onDraft={setDraft}
+        />
       )}
       <form className="ai-composer" onSubmit={submit}>
         <input

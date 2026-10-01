@@ -1091,3 +1091,65 @@ html[data-theme="dark"] .ai-usage {
 .ai-remembered:hover {
   color: var(--xc-text);
 }
+
+/* B60：输入框上方的权限、模型、思考程度 */
+.ai-controls {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 12px 0;
+  flex-wrap: wrap;
+}
+.ai-controls .ai-control {
+  width: auto;
+  flex: 0 1 auto;
+  height: 28px;
+  min-height: 28px;
+  min-width: 0;
+  max-width: 120px;
+  padding: 0 4px 0 8px;
+  font-size: var(--fs-12);
+}
+.ai-controls {
+  flex-wrap: nowrap;
+}
+.ai-controls .ai-control.warn,
+.ai-controls .icon-button.warn {
+  border-color: var(--xc-warn);
+  color: var(--xc-warn);
+}
+.ai-control-note {
+  font-size: var(--fs-12);
+  color: var(--xc-warn);
+}
+.ai-controls-pop {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--xc-surface);
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg, 10px);
+  box-shadow: var(--xc-shadow);
+}
+.ai-controls-pop .ai-control {
+  max-width: 220px;
+  width: 200px;
+}
+.ai-operate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 6px 22px;
+  font-size: var(--fs-12);
+  color: var(--xc-muted);
+}
+.ai-operate span {
+  flex: 1;
+  min-width: 0;
+}

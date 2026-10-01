@@ -42,6 +42,7 @@ type AiAgent struct {
 	Enabled          int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	HostIds          string
 }
 
 type AiAttachment struct {
@@ -55,11 +56,14 @@ type AiAttachment struct {
 }
 
 type AiConversation struct {
-	ID        int64
-	Title     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	HostID    *string
+	ID         int64
+	Title      string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	HostID     *string
+	Permission string
+	Model      string
+	Effort     string
 }
 
 type AiMemory struct {

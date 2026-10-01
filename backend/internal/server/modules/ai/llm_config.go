@@ -47,6 +47,8 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 	effort := selected.ReasoningEffort
 	if purpose == "fast" {
 		effort = selected.FastReasoningEffort
+	} else if e, ok := effortOverride(ctx); ok {
+		effort = e // B60: the conversation's own effort
 	}
 	if effort != api.Off && effort != "" {
 		unsupported, err := m.reasoningUnsupported(ctx, p.Id)

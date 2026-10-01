@@ -272,3 +272,35 @@ export function rememberedText(item: TimelineItem): string | null {
     ? item.input.text.trim()
     : null;
 }
+
+/** agents.operate_host 的结果：哪个 Agent、哪台机器、执行了几条命令（B60）。 */
+export interface OperateSummary {
+  agent: string;
+  host: string;
+  commands: number;
+  link: string;
+  waiting: number;
+}
+
+export function operateSummary(item: TimelineItem): OperateSummary | null {
+  if (item.kind !== "action" || item.action !== "agents.operate_host")
+    return null;
+  let r: unknown = item.result;
+  if (typeof r === "string") {
+    try {
+      r = JSON.parse(r);
+    } catch {
+      return null;
+    }
+  }
+  if (!r || typeof r !== "object") return null;
+  const o = r as Record<string, unknown>;
+  if (typeof o.agent !== "string" || typeof o.link !== "string") return null;
+  return {
+    agent: o.agent,
+    host: typeof o.host === "string" ? o.host : "",
+    commands: Array.isArray(o.commands) ? o.commands.length : 0,
+    link: o.link,
+    waiting: typeof o.waiting === "number" ? o.waiting : 0,
+  };
+}

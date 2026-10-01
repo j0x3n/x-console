@@ -58,3 +58,12 @@ export function costText(
   const cost = `$${a.monthCostUsd.toFixed(2)}`;
   return a.monthlyBudgetUsd != null ? `${cost} / $${a.monthlyBudgetUsd}` : cost;
 }
+
+/** Agent 卡片上绑定的机器：最多列 3 个，多了写“等 N 台”（B60）。 */
+export function hostsText(
+  names: string[],
+  more: (n: number) => string,
+): string {
+  if (names.length <= 3) return names.join("、");
+  return `${names.slice(0, 3).join("、")} ${more(names.length)}`;
+}

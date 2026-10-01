@@ -33,7 +33,7 @@ func (m *Module) ListAiConversations(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]api.Conversation, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, conversation(row))
+		out = append(out, m.conversation(row))
 	}
 	httpx.JSON(w, 200, out)
 }
@@ -49,13 +49,53 @@ func (m *Module) CreateAiConversation(w http.ResponseWriter, r *http.Request) {
 	if chars := []rune(title); len(chars) > 100 {
 		title = string(chars[:100])
 	}
-	now := time.Now().UTC()
-	row, err := m.q.CreateConversation(r.Context(), db.CreateConversationParams{Title: title, CreatedAt: now, UpdatedAt: now})
+	ctx := r.Context()
+	if m.fail(w, r, m.checkPanelSettings(ctx, body.Model, body.Effort)) {
+		return
+	}
+	// B60: a new conversation starts at the default level from the settings.
+	settings, err := m.modelSettings(ctx)
 	if m.fail(w, r, err) {
 		return
 	}
-	m.d.Audit.Record(r.Context(), "ai.conversation.create", strconv.FormatInt(row.ID, 10), nil, nil)
-	httpx.JSON(w, 201, conversation(row))
+	perm := permManual
+	if settings.DefaultPermission != nil {
+		perm = string(*settings.DefaultPermission)
+	}
+	if body.Permission != nil {
+		perm = string(*body.Permission)
+	}
+	if perm == permAll && m.fail(w, r, auth.RequireElevated(ctx)) {
+		return
+	}
+	stored := perm
+	if stored == permAll {
+		stored = permManual
+	}
+	if stored != permManual && stored != permWrite {
+		httpx.Fail(w, r, httpx.Invalid("权限只能是 manual、write 或 all"))
+		return
+	}
+	model, effort := "", ""
+	if body.Model != nil {
+		model = *body.Model
+	}
+	if body.Effort != nil {
+		effort = *body.Effort
+	}
+	now := time.Now().UTC()
+	row, err := m.q.CreateConversation(ctx, db.CreateConversationParams{Title: title, CreatedAt: now, UpdatedAt: now,
+		Permission: stored, Model: model, Effort: effort})
+	if m.fail(w, r, err) {
+		return
+	}
+	if perm == permAll {
+		m.mu.Lock()
+		m.panelAll[row.ID] = m.now()
+		m.mu.Unlock()
+	}
+	m.d.Audit.Record(ctx, "ai.conversation.create", strconv.FormatInt(row.ID, 10), map[string]any{"permission": perm}, nil)
+	httpx.JSON(w, 201, m.conversation(row))
 }
 func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id api.ConversationId) {
 	m.stop(id)
@@ -74,6 +114,8 @@ func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id
 	m.deleteAttachmentFiles(r.Context(), attachments) // rows went with the conversation
 	m.mu.Lock()
 	delete(m.permissions, id)
+	delete(m.panelAll, id)
+	delete(m.lastAgent, id)
 	m.mu.Unlock()
 	m.d.Audit.Record(r.Context(), "ai.conversation.delete", strconv.FormatInt(id, 10), nil, nil)
 	httpx.NoContent(w)
@@ -119,7 +161,7 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		httpx.Fail(w, r, httpx.ErrConflict)
 		return
 	}
-	if _, err := m.resolveLLM(ctx, "agent"); errors.Is(err, llm.ErrNotConfigured) {
+	if _, err := m.resolveLLM(convContext(ctx, row), "agent"); errors.Is(err, llm.ErrNotConfigured) {
 		httpx.Fail(w, r, httpx.NewError(409, "ai_not_configured", "请先配置 Agent 模型"))
 		return
 	} else if m.fail(w, r, err) {
@@ -172,6 +214,8 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 	}
 	if row.HostID != nil {
 		m.touchPermission(id)
+	} else {
+		m.touchPanel(id)
 	}
 	if err := m.setTitle(ctx, id, text); err != nil {
 		m.stop(id)

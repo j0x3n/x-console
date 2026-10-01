@@ -7,6 +7,7 @@ import { errorMessage } from "../../api/client";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { useRepos } from "../coding/api";
+import { useHosts } from "../servers/api";
 import { useAiModels, useAiProviders } from "../assistant/api";
 import ModelPicker from "../assistant/settings/ModelPicker";
 import {
@@ -50,6 +51,8 @@ export default function AgentDialog({
     agent?.cliPermission ?? "workspace",
   );
   const [repoIds, setRepoIds] = useState<number[]>(agent?.repoIds ?? []);
+  const [hostIds, setHostIds] = useState<string[]>(agent?.hostIds ?? []);
+  const hosts = useHosts();
   const [parallel, setParallel] = useState(agent?.maxParallel ?? 1);
   const [budget, setBudget] = useState(
     agent?.monthlyBudgetUsd != null ? String(agent.monthlyBudgetUsd) : "",
@@ -75,6 +78,7 @@ export default function AgentDialog({
       instructions,
       maxParallel: parallel,
       monthlyBudgetUsd: budget.trim() === "" ? null : Number(budget),
+      hostIds,
     };
     if (!agent) body.kind = kind;
     if (builtin) {
@@ -228,6 +232,44 @@ export default function AgentDialog({
               "Put at the top of every task. For example: You are the backend developer. Only change the backend folder and run go test before you finish.",
             )}
           />
+        </div>
+        <div className="xc-field">
+          <span>{t("Machines it may operate")}</span>
+          {(hosts.data ?? []).length === 0 ? (
+            <small>{t("No servers or computers yet.")}</small>
+          ) : (
+            <div className="aiagent-repos">
+              {(hosts.data ?? []).map((h) => (
+                <label key={h.id} className="xc-check">
+                  <input
+                    type="checkbox"
+                    checked={hostIds.includes(h.id)}
+                    onChange={(e) =>
+                      setHostIds(
+                        e.target.checked
+                          ? [...hostIds, h.id]
+                          : hostIds.filter((x) => x !== h.id),
+                      )
+                    }
+                  />
+                  <span>
+                    {h.name}
+                    <small className="xc-muted">
+                      {" "}
+                      · {h.kind === "desktop" ? t("Computer") : t("Server")}
+                      {" · "}
+                      {h.online ? t("Online") : t("Offline")}
+                    </small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          <small>
+            {t(
+              "The panel AI can only operate these machines through an agent that has them ticked here.",
+            )}
+          </small>
         </div>
         {builtin ? (
           <div className="xc-field">

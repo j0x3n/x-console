@@ -31,7 +31,7 @@ func (m *Module) tools(ctx context.Context) []llm.Tool {
 	all := m.d.Actions.List(ctx)
 	out := make([]llm.Tool, 0, len(all))
 	for _, a := range all {
-		if !json.Valid(a.Input) {
+		if !json.Valid(a.Input) || panelHostActions[a.Name] {
 			continue
 		}
 		out = append(out, llm.Tool{Name: strings.ReplaceAll(a.Name, ".", "__"), Description: a.Description, Parameters: a.Input})
@@ -150,10 +150,9 @@ func (m *Module) generate(ctx, visible context.Context, id int64) error {
 		return err
 	}
 	hostID := row.HostID
-	settings, err := m.modelSettings(ctx)
-	if err != nil {
-		return err
-	}
+	// B60: the conversation's own model and effort.
+	ctx, visible = convContext(ctx, row), convContext(visible, row)
+	perm, _ := m.panelPermission(row)
 	prompt, tools := m.panelSystem(ctx), m.tools(visible)
 	ctx = contracts.WithAIUsage(ctx, "assistant", strconv.FormatInt(id, 10))
 	if hostID != nil {
@@ -259,7 +258,12 @@ func (m *Module) generate(ctx, visible context.Context, id int64) error {
 				results = append(results, toolResult(use.ID, "未知动作", true))
 				continue
 			}
-			confirm := action.Effect == actions.Dangerous || action.Destructive || settings.ConfirmAllWrites && action.Effect == actions.Write || strings.HasSuffix(name, ".delete")
+			if panelHostActions[name] {
+				// B60: machines only through a bound agent.
+				results = append(results, toolResult(use.ID, "面板 AI 不能直接操作机器，用 agents__operate_host 交给绑定了这台机器的 Agent", true))
+				continue
+			}
+			confirm := panelConfirm(perm, action, name)
 			if confirm {
 				p, err := m.recordAction(ctx, id, use.ID, name, input, "pending", nil)
 				if err != nil {
@@ -269,7 +273,7 @@ func (m *Module) generate(ctx, visible context.Context, id int64) error {
 				pending = true
 				continue
 			}
-			result, err := m.runAction(ctx, action, input)
+			result, err := m.runAction(withPanel(ctx, id, perm), action, input)
 			state := "done"
 			if err != nil {
 				state = "failed"
@@ -416,7 +420,11 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 				return
 			}
 		} else {
-			result, err = m.runAction(workCtx, a, json.RawMessage(input))
+			perm := permManual
+			if row, err := m.q.GetConversation(workCtx, conversationID); err == nil {
+				perm, _ = m.panelPermission(row)
+			}
+			result, err = m.runAction(withPanel(workCtx, conversationID, perm), a, json.RawMessage(input))
 		}
 		next = "done"
 		if err != nil {

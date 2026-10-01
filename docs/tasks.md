@@ -63,7 +63,6 @@
 | B58 | 和风天气：分钟降水、天气预警、空气质量、生活指数、天文、历史对比，地震速报 | [B58](specs/B58.md) | Claude（前端） |
 | B53 | 邮件：IMAP 收 Gmail 和阿里企业邮箱，新邮件实时通知 | [B53](specs/B53.md) | Claude（前端） |
 | B59 | 今日页加预警、邮件、监控、Agent 任务卡片 | [B59](specs/B59.md) | Claude（前端） |
-| B60 | AI 操作机器必须经过绑定了这台机器的 Agent；AI 浮窗加权限档、模型和思考程度 | [B60](specs/B60.md) | 待分配（前后端） |
 | B63 | 备份到网盘：WebDAV 和 Google Drive（不做 OneDrive） | [B63](specs/B63.md) | 待分配（前后端） |
 | B64 | 服务器支持 Unraid（开工前和用户确认方案） | [B64](specs/B64.md) | 待分配 |
 | B65 | 集成 OpenWrt 主路由（开工前和用户确认方案） | [B65](specs/B65.md) | 待分配（前后端） |
@@ -257,6 +256,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B60 | 面板 AI 不再直接操作机器，要通过绑定了这台机器的 Agent（agents.operate_host）；Agent 可以勾选能操作的机器；浮窗加权限档（手动、写入、全部允许）、模型和思考程度；设置 → AI 加新对话的默认权限。规格见 [B60](specs/B60.md) |
 | B61 | AI 记忆：面板 AI 能记、改、删，编码 Agent 和机器会话只读，远程 AI 看不到；设置 → AI 有记忆卡片，浮窗里显示“已记住”。规格见 [B61](specs/B61.md) |
 | B62 | Git 账号统一：设置里一个“Git 与 GitHub”，GitHub 页面选一个 Git 账号同步，Agent 页不再单独管连接；老的 GitHub 令牌启动时自动变成一个 Git 账号。规格见 [B62](specs/B62.md) |
 | B66 | “日历”改名“日程”，二级菜单去掉早报；今日页右上角加“早报”按钮，早报页左上角是“今日 / 早报”，不跟着日程隐藏。规格见 [B66](specs/B66.md) |
@@ -321,6 +321,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-01 | `contracts.AIAgents` 加 `ForHost`，`AIAgent` 加 `HostIDs`。ai 模块加 `withEffort`（按会话覆盖思考程度），和 B47 的 `withModel` 一样走 context | B60 |
 | 2026-10-01 | `contracts` 加 `Memories`（`Prompt(ctx)`，键 `ai.memories`），ai 提供，aiagents 用。`actions.Action` 加 `PanelOnly`：只给面板 AI，`AllowedFor` 一律不给，自动化的目录和执行也跳过 | B61 |
 | 2026-10-01 | `contracts` 加 `GitAccounts`（`Account`、`Credentials`、`ImportGitHub`，键 `aiagents.accounts`），aiagents 提供，github 用。github 设置键加 `github.connection_id`、`github.migrated_b62`；`useGithubModule` 和 `/github/config` 的 token、clearToken、apiUrl 标成 deprecated | B62 |
 | 2026-10-01 | 前端 `moduleOfPath` 把 `/calendar/briefs` 算作不属于任何模块；左栏在早报页高亮“今日” | B66 |

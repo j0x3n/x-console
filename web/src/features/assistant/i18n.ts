@@ -1,6 +1,23 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 浮窗的权限、模型、思考程度（B60）
+  "Manual permission": "手动",
+  "Write permission": "写入",
+  "Allow all": "全部允许",
+  Permission: "权限",
+  "Valid for 2 hours": "2 小时内有效",
+  "Chat settings": "对话设置",
+  Default: "默认",
+  "ran N commands": "执行了 N 条命令",
+  "N waiting for you": "N 个等你确认",
+  "View the steps": "查看过程",
+  "Default permission for new chats": "新对话的默认权限",
+  "Manual: ask before every change": "手动：所有改动都先问你",
+  "Write: changes run, deletes and risky actions ask":
+    "写入：新建和修改直接执行，删除和高危操作先问你",
+  "Each chat can change it in the assistant. Allow all is never the default.":
+    "每个对话可以在 AI 浮窗里改。全部允许不能当默认。",
   // 记忆（B61）
   "AI memory": "记忆",
   "Turn on memory": "开启记忆",

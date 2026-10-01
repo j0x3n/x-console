@@ -201,14 +201,21 @@ function ModelsCard({
   const [fastEffort, setFastEffort] = useState<ReasoningEffort>(
     initial.fastReasoningEffort,
   );
-  const [confirmAll, setConfirmAll] = useState(initial.confirmAllWrites);
+  // B60：新对话的默认权限，替代原来的“所有写操作都先确认”。
+  const [defaultPerm, setDefaultPerm] = useState<"manual" | "write">(
+    initial.defaultPermission ??
+      (initial.confirmAllWrites ? "manual" : "write"),
+  );
   const [spec, setSpec] = useState<AiModel | null>(null);
   useEffect(() => {
     setFast(initial.fast);
     setAgent(initial.agent);
     setEffort(initial.reasoningEffort);
     setFastEffort(initial.fastReasoningEffort);
-    setConfirmAll(initial.confirmAllWrites);
+    setDefaultPerm(
+      initial.defaultPermission ??
+        (initial.confirmAllWrites ? "manual" : "write"),
+    );
   }, [initial]);
 
   const agentModel = findModel(models, agent);
@@ -225,7 +232,8 @@ function ModelsCard({
         agent: agent ?? null,
         reasoningEffort: noReasoning ? "off" : effort,
         fastReasoningEffort: fastNoReasoning ? "off" : fastEffort,
-        confirmAllWrites: confirmAll,
+        defaultPermission: defaultPerm,
+        confirmAllWrites: defaultPerm === "manual",
       },
       {
         onSuccess: () => toast(t("Saved")),
@@ -324,17 +332,24 @@ function ModelsCard({
           </small>
         )}
       </div>
-      <label className="xc-check">
-        <input
-          type="checkbox"
-          checked={confirmAll}
-          onChange={(e) => setConfirmAll(e.target.checked)}
-        />
-        <span>{t("Confirm every write")}</span>
+      <label className="xc-field">
+        <span>{t("Default permission for new chats")}</span>
+        <select
+          className="xc-select"
+          value={defaultPerm}
+          onChange={(e) => setDefaultPerm(e.target.value as "manual" | "write")}
+        >
+          <option value="manual">{t("Manual: ask before every change")}</option>
+          <option value="write">
+            {t("Write: changes run, deletes and risky actions ask")}
+          </option>
+        </select>
+        <small>
+          {t(
+            "Each chat can change it in the assistant. Allow all is never the default.",
+          )}
+        </small>
       </label>
-      <small className="xc-check-hint">
-        关着时，新建和修改直接执行，删除和高危操作先问你。打开后所有改动都先问你。
-      </small>
       <div className="ai-form-actions">
         <button className="xc-btn primary" disabled={save.isPending}>
           {t("Save")}

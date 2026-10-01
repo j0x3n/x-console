@@ -180,6 +180,10 @@ export interface components {
             access: components["schemas"]["AiAgentAccess"];
             cliPermission: components["schemas"]["CliPermission"];
             repoIds: number[];
+            /** @description B60。这个 Agent 能操作的机器（代理 id）。面板 AI 只能通过勾选了这台机器的 Agent 操作它 */
+            hostIds: string[];
+            /** @description hostIds 对应的机器名，顺序一样 */
+            hostNames: string[];
             maxParallel: number;
             /** Format: double */
             monthlyBudgetUsd?: number | null;
@@ -210,6 +214,8 @@ export interface components {
             access?: components["schemas"]["AiAgentAccess"];
             cliPermission?: components["schemas"]["CliPermission"];
             repoIds?: number[];
+            /** @description B60。能操作的机器。增加机器要提升权限 */
+            hostIds?: string[];
             maxParallel?: number;
             /** Format: double */
             monthlyBudgetUsd?: number | null;

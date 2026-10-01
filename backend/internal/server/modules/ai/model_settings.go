@@ -40,6 +40,16 @@ func (m *Module) modelSettings(ctx context.Context) (api.AiModelSettings, error)
 	if err := optionalSetting(ctx, m, confirmSetting, &out.ConfirmAllWrites); err != nil {
 		return out, err
 	}
+	// B60: until a default level is chosen, the old "confirm all writes"
+	// switch decides it, so nothing changes for existing setups.
+	def := api.AiModelSettingsDefaultPermission(permWrite)
+	if out.ConfirmAllWrites {
+		def = api.AiModelSettingsDefaultPermission(permManual)
+	}
+	if err := optionalSetting(ctx, m, defaultPermissionSetting, &def); err != nil {
+		return out, err
+	}
+	out.DefaultPermission = &def
 	if err := optionalSetting(ctx, m, "ai.modelsdev_synced_at", &out.ModelsDevSyncedAt); err != nil {
 		return out, err
 	}
@@ -146,6 +156,16 @@ func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.ConfirmAllWrites != nil {
 		if m.fail(w, r, setAISetting(ctx, tx, confirmSetting, body.ConfirmAllWrites)) {
+			return
+		}
+	}
+	if body.DefaultPermission != nil {
+		// B60: "all" is never a default; it needs elevation each time.
+		if p := string(*body.DefaultPermission); p != permManual && p != permWrite {
+			httpx.Fail(w, r, httpx.Invalid("默认权限只能是手动或写入"))
+			return
+		}
+		if m.fail(w, r, setAISetting(ctx, tx, defaultPermissionSetting, body.DefaultPermission)) {
 			return
 		}
 	}

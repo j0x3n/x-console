@@ -53,22 +53,79 @@ func (e AiMemorySource) Valid() bool {
 
 // Defines values for AiModelSpecSource.
 const (
-	Exact    AiModelSpecSource = "exact"
-	Manual   AiModelSpecSource = "manual"
-	Stripped AiModelSpecSource = "stripped"
-	Unknown  AiModelSpecSource = "unknown"
+	AiModelSpecSourceExact    AiModelSpecSource = "exact"
+	AiModelSpecSourceManual   AiModelSpecSource = "manual"
+	AiModelSpecSourceStripped AiModelSpecSource = "stripped"
+	AiModelSpecSourceUnknown  AiModelSpecSource = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the AiModelSpecSource enum.
 func (e AiModelSpecSource) Valid() bool {
 	switch e {
-	case Exact:
+	case AiModelSpecSourceExact:
 		return true
-	case Manual:
+	case AiModelSpecSourceManual:
 		return true
-	case Stripped:
+	case AiModelSpecSourceStripped:
 		return true
-	case Unknown:
+	case AiModelSpecSourceUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiModelSettingsDefaultPermission.
+const (
+	AiModelSettingsDefaultPermissionManual AiModelSettingsDefaultPermission = "manual"
+	AiModelSettingsDefaultPermissionWrite  AiModelSettingsDefaultPermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the AiModelSettingsDefaultPermission enum.
+func (e AiModelSettingsDefaultPermission) Valid() bool {
+	switch e {
+	case AiModelSettingsDefaultPermissionManual:
+		return true
+	case AiModelSettingsDefaultPermissionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiModelSettingsInputDefaultPermission.
+const (
+	AiModelSettingsInputDefaultPermissionManual AiModelSettingsInputDefaultPermission = "manual"
+	AiModelSettingsInputDefaultPermissionWrite  AiModelSettingsInputDefaultPermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the AiModelSettingsInputDefaultPermission enum.
+func (e AiModelSettingsInputDefaultPermission) Valid() bool {
+	switch e {
+	case AiModelSettingsInputDefaultPermissionManual:
+		return true
+	case AiModelSettingsInputDefaultPermissionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiPermission.
+const (
+	AiPermissionAll    AiPermission = "all"
+	AiPermissionManual AiPermission = "manual"
+	AiPermissionWrite  AiPermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the AiPermission enum.
+func (e AiPermission) Valid() bool {
+	switch e {
+	case AiPermissionAll:
+		return true
+	case AiPermissionManual:
+		return true
+	case AiPermissionWrite:
 		return true
 	default:
 		return false
@@ -408,6 +465,19 @@ type AiAttachment struct {
 // AiAttachmentKind defines model for AiAttachment.Kind.
 type AiAttachmentKind string
 
+// AiConversationSettings defines model for AiConversationSettings.
+type AiConversationSettings struct {
+	// Effort off、low、medium、high，空字符串表示用默认
+	Effort *string `json:"effort,omitempty"`
+
+	// Model providerId:modelId，空字符串表示用默认
+	Model *string `json:"model,omitempty"`
+
+	// Permission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+	// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+	Permission *AiPermission `json:"permission,omitempty"`
+}
+
 // AiMemories defines model for AiMemories.
 type AiMemories struct {
 	Enabled    bool       `json:"enabled"`
@@ -474,7 +544,10 @@ type AiModelSpecSource string
 type AiModelSettings struct {
 	Agent            *ModelRef `json:"agent,omitempty"`
 	ConfirmAllWrites bool      `json:"confirmAllWrites"`
-	Fast             *ModelRef `json:"fast,omitempty"`
+
+	// DefaultPermission B60。新对话的默认权限档，all 不能当默认
+	DefaultPermission *AiModelSettingsDefaultPermission `json:"defaultPermission,omitempty"`
+	Fast              *ModelRef                         `json:"fast,omitempty"`
 
 	// FastReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
 	FastReasoningEffort ReasoningEffort `json:"fastReasoningEffort"`
@@ -492,11 +565,15 @@ type AiModelSettings struct {
 	ReasoningUnsupported bool `json:"reasoningUnsupported"`
 }
 
+// AiModelSettingsDefaultPermission B60。新对话的默认权限档，all 不能当默认
+type AiModelSettingsDefaultPermission string
+
 // AiModelSettingsInput defines model for AiModelSettingsInput.
 type AiModelSettingsInput struct {
 	// Agent 传 null 表示清空
-	Agent            *ModelRef `json:"agent,omitempty"`
-	ConfirmAllWrites *bool     `json:"confirmAllWrites,omitempty"`
+	Agent             *ModelRef                              `json:"agent,omitempty"`
+	ConfirmAllWrites  *bool                                  `json:"confirmAllWrites,omitempty"`
+	DefaultPermission *AiModelSettingsInputDefaultPermission `json:"defaultPermission,omitempty"`
 
 	// Fast 传 null 表示清空
 	Fast *ModelRef `json:"fast,omitempty"`
@@ -508,6 +585,9 @@ type AiModelSettingsInput struct {
 	ReasoningEffort *ReasoningEffort `json:"reasoningEffort,omitempty"`
 }
 
+// AiModelSettingsInputDefaultPermission defines model for AiModelSettingsInput.DefaultPermission.
+type AiModelSettingsInputDefaultPermission string
+
 // AiModelSpecInput defines model for AiModelSpecInput.
 type AiModelSpecInput struct {
 	ContextWindow *int   `json:"contextWindow,omitempty"`
@@ -516,6 +596,10 @@ type AiModelSpecInput struct {
 	Reasoning     *bool  `json:"reasoning,omitempty"`
 	ToolCall      *bool  `json:"toolCall,omitempty"`
 }
+
+// AiPermission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+type AiPermission string
 
 // AiProvider defines model for AiProvider.
 type AiProvider struct {
@@ -709,9 +793,22 @@ type ContentBlock struct {
 type Conversation struct {
 	CreatedAt time.Time `json:"createdAt"`
 
+	// Effort B60。这个对话的思考程度，空表示默认
+	Effort *string `json:"effort,omitempty"`
+
 	// HostId B33。机器的 Agent 会话才有
 	HostId *string `json:"hostId,omitempty"`
 	Id     int64   `json:"id"`
+
+	// Model B60。这个对话用的模型，空表示默认
+	Model *string `json:"model,omitempty"`
+
+	// PanelPermission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+	// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+	PanelPermission *AiPermission `json:"panelPermission,omitempty"`
+
+	// PanelPermissionUntil B60。panelPermission 是 all 时，到这个时间没有新消息就回到 manual
+	PanelPermissionUntil *time.Time `json:"panelPermissionUntil,omitempty"`
 
 	// Permission B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
 	Permission *HostAgentPermission `json:"permission,omitempty"`
@@ -838,7 +935,16 @@ type UploadAiAttachmentMultipartBody struct {
 
 // CreateAiConversationJSONBody defines parameters for CreateAiConversation.
 type CreateAiConversationJSONBody struct {
-	Title *string `json:"title,omitempty"`
+	// Effort B60。off、low、medium、high，空表示用默认
+	Effort *string `json:"effort,omitempty"`
+
+	// Model B60。providerId:modelId，空表示用设置里的默认
+	Model *string `json:"model,omitempty"`
+
+	// Permission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+	// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+	Permission *AiPermission `json:"permission,omitempty"`
+	Title      *string       `json:"title,omitempty"`
 }
 
 // SendAiMessageJSONBody defines parameters for SendAiMessage.
@@ -929,6 +1035,9 @@ type SendAiMessageJSONRequestBody SendAiMessageJSONBody
 
 // SetAiConversationPermissionJSONRequestBody defines body for SetAiConversationPermission for application/json ContentType.
 type SetAiConversationPermissionJSONRequestBody SetAiConversationPermissionJSONBody
+
+// SetAiConversationSettingsJSONRequestBody defines body for SetAiConversationSettings for application/json ContentType.
+type SetAiConversationSettingsJSONRequestBody = AiConversationSettings
 
 // CreateHostAgentConversationJSONRequestBody defines body for CreateHostAgentConversation for application/json ContentType.
 type CreateHostAgentConversationJSONRequestBody CreateHostAgentConversationJSONBody
@@ -1174,6 +1283,9 @@ type ServerInterface interface {
 	// (PUT /ai/conversations/{conversationId}/permission)
 	SetAiConversationPermission(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
 
+	// (PATCH /ai/conversations/{conversationId}/settings)
+	SetAiConversationSettings(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
+
 	// (POST /ai/conversations/{conversationId}/stop)
 	StopAiReply(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
 
@@ -1298,6 +1410,11 @@ func (_ Unimplemented) SendAiMessage(w http.ResponseWriter, r *http.Request, con
 
 // (PUT /ai/conversations/{conversationId}/permission)
 func (_ Unimplemented) SetAiConversationPermission(w http.ResponseWriter, r *http.Request, conversationId ConversationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /ai/conversations/{conversationId}/settings)
+func (_ Unimplemented) SetAiConversationSettings(w http.ResponseWriter, r *http.Request, conversationId ConversationId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1645,6 +1762,32 @@ func (siw *ServerInterfaceWrapper) SetAiConversationPermission(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetAiConversationPermission(w, r, conversationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAiConversationSettings operation middleware
+func (siw *ServerInterfaceWrapper) SetAiConversationSettings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "conversationId" -------------
+	var conversationId ConversationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "conversationId", chi.URLParam(r, "conversationId"), &conversationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "conversationId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAiConversationSettings(w, r, conversationId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2563,6 +2706,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/ai/memories/{memoryId}", wrapper.UpdateAiMemory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/ai/conversations/{conversationId}/settings", wrapper.SetAiConversationSettings)
 	})
 
 	return r

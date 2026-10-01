@@ -108,9 +108,9 @@ func (q *Queries) AgentTaskCounts(ctx context.Context) ([]AgentTaskCountsRow, er
 
 const createAgent = `-- name: CreateAgent :one
 INSERT INTO ai_agents (name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission,
-    repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at
+    repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at, host_ids)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at, host_ids
 `
 
 type CreateAgentParams struct {
@@ -131,6 +131,7 @@ type CreateAgentParams struct {
 	Enabled          int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	HostIds          string
 }
 
 func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (AiAgent, error) {
@@ -152,6 +153,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (AiAge
 		arg.Enabled,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.HostIds,
 	)
 	var i AiAgent
 	err := row.Scan(
@@ -173,6 +175,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (AiAge
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HostIds,
 	)
 	return i, err
 }
@@ -263,7 +266,7 @@ func (q *Queries) DetachConnectionRepos(ctx context.Context, connectionID *int64
 }
 
 const getAgent = `-- name: GetAgent :one
-SELECT id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at FROM ai_agents WHERE id = ?
+SELECT id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at, host_ids FROM ai_agents WHERE id = ?
 `
 
 func (q *Queries) GetAgent(ctx context.Context, id int64) (AiAgent, error) {
@@ -288,6 +291,7 @@ func (q *Queries) GetAgent(ctx context.Context, id int64) (AiAgent, error) {
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HostIds,
 	)
 	return i, err
 }
@@ -317,7 +321,7 @@ func (q *Queries) GetConnection(ctx context.Context, id int64) (GitConnection, e
 
 const listAgents = `-- name: ListAgents :many
 
-SELECT id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at FROM ai_agents ORDER BY id
+SELECT id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at, host_ids FROM ai_agents ORDER BY id
 `
 
 // B47 AI agents and Git connections.
@@ -349,6 +353,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]AiAgent, error) {
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HostIds,
 		); err != nil {
 			return nil, err
 		}
@@ -514,9 +519,9 @@ func (q *Queries) TasksByPR(ctx context.Context, prUrl string) ([]TasksByPRRow, 
 const updateAgent = `-- name: UpdateAgent :one
 UPDATE ai_agents SET name = ?, avatar = ?, color = ?, model = ?, instructions = ?, runner_agent_id = ?, access = ?,
     cli_permission = ?, repo_ids = ?, max_parallel = ?, monthly_budget_usd = ?, auto_build = ?, build_retries = ?,
-    enabled = ?, updated_at = ?
+    enabled = ?, updated_at = ?, host_ids = ?
 WHERE id = ?
-RETURNING id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at
+RETURNING id, name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission, repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at, host_ids
 `
 
 type UpdateAgentParams struct {
@@ -535,6 +540,7 @@ type UpdateAgentParams struct {
 	BuildRetries     int64
 	Enabled          int64
 	UpdatedAt        time.Time
+	HostIds          string
 	ID               int64
 }
 
@@ -555,6 +561,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (AiAge
 		arg.BuildRetries,
 		arg.Enabled,
 		arg.UpdatedAt,
+		arg.HostIds,
 		arg.ID,
 	)
 	var i AiAgent
@@ -577,6 +584,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (AiAge
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HostIds,
 	)
 	return i, err
 }

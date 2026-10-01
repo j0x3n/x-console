@@ -2,6 +2,14 @@ import { registerZh } from "../../lib/i18n";
 
 // B47 Agent 管理。
 registerZh({
+  // 能操作的机器（B60）
+  "Machines it may operate": "能操作的机器",
+  "No servers or computers yet.": "还没有服务器或电脑。",
+  "The panel AI can only operate these machines through an agent that has them ticked here.":
+    "面板 AI 只能通过这里勾选的 Agent 操作这些机器。",
+  Operates: "管",
+  Server: "服务器",
+  "and N machines": "等 N 台",
   "AI agent": "Agent",
   Tasks: "任务",
   "Git connections": "Git 连接",

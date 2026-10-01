@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import {
   AlertTriangle,
+  Bot,
   Check,
   ChevronDown,
   ChevronRight,
@@ -16,6 +17,7 @@ import { useT } from "../../../contexts/LanguageContext";
 import { attachmentUrl, useDecideAction } from "../api";
 import {
   foldLines,
+  operateSummary,
   rememberedText,
   summarizeInput,
   type TimelineItem,
@@ -64,6 +66,7 @@ export default function Timeline({ items }: { items: TimelineItem[] }) {
           <div key={item.key}>
             <ActionCard item={item} />
             <Remembered item={item} />
+            <OperateCard item={item} />
           </div>
         ),
       )}
@@ -220,5 +223,25 @@ function Remembered({ item }: { item: TimelineItem }) {
     <Link className="ai-remembered" to="/settings/assistant#ai-memory">
       {t("Remembered")}：{text}
     </Link>
+  );
+}
+
+/** Agent 代为操作机器的结果：Agent、机器、几条命令、去看过程（B60）。 */
+function OperateCard({ item }: { item: TimelineItem }) {
+  const t = useT();
+  const s = operateSummary(item);
+  if (!s) return null;
+  return (
+    <div className="ai-operate">
+      <Bot size={14} />
+      <span>
+        <strong>{s.agent}</strong> · {s.host} ·{" "}
+        {t("ran N commands").replace("N", String(s.commands))}
+        {s.waiting > 0 && (
+          <> · {t("N waiting for you").replace("N", String(s.waiting))}</>
+        )}
+      </span>
+      <Link to={s.link}>{t("View the steps")}</Link>
+    </div>
   );
 }

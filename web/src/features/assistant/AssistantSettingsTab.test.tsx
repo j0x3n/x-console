@@ -181,6 +181,8 @@ describe("AI settings", () => {
       fast: null,
       agent: { providerId: 1, model: "gpt-5" },
       reasoningEffort: "medium",
+      // B60：没选过默认权限时按原来的开关，关着就是“写入”
+      defaultPermission: "write",
       confirmAllWrites: false,
     });
     // 没配笔记 AI 时不显示笔记卡片。

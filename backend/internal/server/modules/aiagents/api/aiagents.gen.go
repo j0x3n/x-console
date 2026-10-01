@@ -101,11 +101,17 @@ type AiAgent struct {
 	Color         string        `json:"color"`
 	CreatedAt     time.Time     `json:"createdAt"`
 	Enabled       bool          `json:"enabled"`
-	Id            int64         `json:"id"`
-	Instructions  string        `json:"instructions"`
-	Kind          AiAgentKind   `json:"kind"`
-	MaxParallel   int           `json:"maxParallel"`
-	Model         string        `json:"model"`
+
+	// HostIds B60。这个 Agent 能操作的机器（代理 id）。面板 AI 只能通过勾选了这台机器的 Agent 操作它
+	HostIds []string `json:"hostIds"`
+
+	// HostNames hostIds 对应的机器名，顺序一样
+	HostNames    []string    `json:"hostNames"`
+	Id           int64       `json:"id"`
+	Instructions string      `json:"instructions"`
+	Kind         AiAgentKind `json:"kind"`
+	MaxParallel  int         `json:"maxParallel"`
+	Model        string      `json:"model"`
 
 	// MonthCostUsd 本月费用，按 AI 用量记录算
 	MonthCostUsd     float64  `json:"monthCostUsd"`
@@ -127,21 +133,24 @@ type AiAgentAccess string
 
 // AiAgentInput defines model for AiAgentInput.
 type AiAgentInput struct {
-	Access           *AiAgentAccess `json:"access,omitempty"`
-	AutoBuild        *bool          `json:"autoBuild,omitempty"`
-	Avatar           *string        `json:"avatar,omitempty"`
-	BuildRetries     *int           `json:"buildRetries,omitempty"`
-	CliPermission    *CliPermission `json:"cliPermission,omitempty"`
-	Color            *string        `json:"color,omitempty"`
-	Enabled          *bool          `json:"enabled,omitempty"`
-	Instructions     *string        `json:"instructions,omitempty"`
-	Kind             *AiAgentKind   `json:"kind,omitempty"`
-	MaxParallel      *int           `json:"maxParallel,omitempty"`
-	Model            *string        `json:"model,omitempty"`
-	MonthlyBudgetUsd *float64       `json:"monthlyBudgetUsd,omitempty"`
-	Name             *string        `json:"name,omitempty"`
-	RepoIds          *[]int64       `json:"repoIds,omitempty"`
-	RunnerAgentId    *string        `json:"runnerAgentId,omitempty"`
+	Access        *AiAgentAccess `json:"access,omitempty"`
+	AutoBuild     *bool          `json:"autoBuild,omitempty"`
+	Avatar        *string        `json:"avatar,omitempty"`
+	BuildRetries  *int           `json:"buildRetries,omitempty"`
+	CliPermission *CliPermission `json:"cliPermission,omitempty"`
+	Color         *string        `json:"color,omitempty"`
+	Enabled       *bool          `json:"enabled,omitempty"`
+
+	// HostIds B60。能操作的机器。增加机器要提升权限
+	HostIds          *[]string    `json:"hostIds,omitempty"`
+	Instructions     *string      `json:"instructions,omitempty"`
+	Kind             *AiAgentKind `json:"kind,omitempty"`
+	MaxParallel      *int         `json:"maxParallel,omitempty"`
+	Model            *string      `json:"model,omitempty"`
+	MonthlyBudgetUsd *float64     `json:"monthlyBudgetUsd,omitempty"`
+	Name             *string      `json:"name,omitempty"`
+	RepoIds          *[]int64     `json:"repoIds,omitempty"`
+	RunnerAgentId    *string      `json:"runnerAgentId,omitempty"`
 }
 
 // AiAgentKind defines model for AiAgentKind.

@@ -62,6 +62,8 @@ func (m *Module) conversation(row db.AiConversation) api.Conversation {
 	if row.HostID != nil {
 		mode := m.permission(row.ID)
 		c.Permission = &mode
+	} else {
+		m.panelFields(&c, row)
 	}
 	return c
 }

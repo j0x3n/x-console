@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { authorAgentId, costText, findAgent, isCLI, kindLabel } from "./logic";
+import {
+  authorAgentId,
+  costText,
+  findAgent,
+  isCLI,
+  kindLabel,
+  hostsText,
+} from "./logic";
 
 describe("aiagents logic", () => {
   it("reads the agent id of a comment author", () => {
@@ -21,5 +28,13 @@ describe("aiagents logic", () => {
     const list = [{ id: 3 }, { id: 4 }] as never[];
     expect(findAgent(list, "4")).toEqual({ id: 4 });
     expect(findAgent(list, "")).toBeUndefined();
+  });
+});
+
+describe("绑定的机器（B60）", () => {
+  it("lists up to three machines", () => {
+    const more = (n: number) => `等 ${n} 台`;
+    expect(hostsText(["a", "b"], more)).toBe("a、b");
+    expect(hostsText(["a", "b", "c", "d"], more)).toBe("a、b、c 等 4 台");
   });
 });

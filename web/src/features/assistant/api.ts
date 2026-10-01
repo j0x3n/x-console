@@ -126,17 +126,22 @@ export function useSendMessage() {
       text,
       context,
       attachmentIds,
+      settings,
     }: {
       conversationId: number | null;
       text: string;
       context?: PageContext;
       attachmentIds?: number[];
+      settings?: ChatSettings;
     }) => {
       let id = conversationId;
       if (id == null) {
-        const created = await unwrap(
-          aiApi.POST("/ai/conversations", { body: {} }),
-        );
+        const create = () =>
+          unwrap(aiApi.POST("/ai/conversations", { body: settings ?? {} }));
+        const created =
+          settings?.permission === "all"
+            ? await withElevation(create)
+            : await create();
         id = created.id;
       }
       await unwrap(
@@ -467,4 +472,33 @@ export function useMemoryMutations() {
       onSuccess: (data) => qc.setQueryData(memoryKeys.all, data),
     }),
   };
+}
+
+// ---- 对话的权限、模型和思考程度（B60） ----
+
+export type AiPermission = components["schemas"]["AiPermission"];
+export interface ChatSettings {
+  permission: AiPermission;
+  model: string; // providerId:modelId，空表示默认
+  effort: string; // off、low、medium、high，空表示默认
+}
+
+/** 改对话的设置。切到“全部允许”要提升权限。 */
+export function useConversationSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: number; body: Partial<ChatSettings> }) => {
+      const call = () =>
+        unwrap(
+          aiApi.PATCH("/ai/conversations/{conversationId}/settings", {
+            params: { path: { conversationId: id } },
+            body,
+          }),
+        );
+      return body.permission === "all" ? withElevation(call) : call();
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: aiKeys.conversation(id) });
+    },
+  });
 }

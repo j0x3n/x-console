@@ -6,7 +6,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { ArrowUp, Bot, Plus, Square, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { errorMessage, unwrap } from "../../../api/client";
@@ -83,8 +83,13 @@ function AgentView({
   const t = useT();
   const language = useLanguage();
   const qc = useQueryClient();
+  // ?c=<会话 id>：面板 AI 交给 Agent 操作这台机器后，从回复里点过来（B60）
+  const [params] = useSearchParams();
+  const wanted = Number(params.get("c"));
   const [selected, setSelected] = useState<number | null>(
-    conversations[0]?.id ?? null,
+    conversations.some((c) => c.id === wanted)
+      ? wanted
+      : (conversations[0]?.id ?? null),
   );
   const [draftMode, setDraftMode] = useState<HostAgentPermission>("confirm");
   const [text, setText] = useState("");

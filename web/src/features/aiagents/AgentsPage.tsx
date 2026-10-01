@@ -14,7 +14,7 @@ import { useAgentMutations, useAiAgents, type AiAgent } from "./api";
 import AgentAvatar from "./AgentAvatar";
 import AgentDialog from "./AgentDialog";
 import AgentTabs from "./AgentTabs";
-import { costText, kindLabel } from "./logic";
+import { costText, kindLabel, hostsText } from "./logic";
 import "./i18n";
 import "./aiagents.css";
 
@@ -209,6 +209,14 @@ function AgentCard({
         {a.kind !== "builtin" && (
           <span className="xc-muted">
             {a.repoIds.length} {t("repositories")}
+          </span>
+        )}
+        {a.hostNames.length > 0 && (
+          <span className="xc-muted" title={a.hostNames.join("、")}>
+            {t("Operates")}{" "}
+            {hostsText(a.hostNames, (n) =>
+              t("and N machines").replace("N", String(n)),
+            )}
           </span>
         )}
         <span className="aiagent-card-cost" title={t("Cost this month")}>

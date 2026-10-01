@@ -8,14 +8,14 @@ SELECT * FROM ai_agents WHERE id = ?;
 
 -- name: CreateAgent :one
 INSERT INTO ai_agents (name, avatar, color, kind, model, instructions, runner_agent_id, access, cli_permission,
-    repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    repo_ids, max_parallel, monthly_budget_usd, auto_build, build_retries, enabled, created_at, updated_at, host_ids)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateAgent :one
 UPDATE ai_agents SET name = ?, avatar = ?, color = ?, model = ?, instructions = ?, runner_agent_id = ?, access = ?,
     cli_permission = ?, repo_ids = ?, max_parallel = ?, monthly_budget_usd = ?, auto_build = ?, build_retries = ?,
-    enabled = ?, updated_at = ?
+    enabled = ?, updated_at = ?, host_ids = ?
 WHERE id = ?
 RETURNING *;
 

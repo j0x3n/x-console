@@ -256,8 +256,8 @@ components:
       enum: [workspace, full]
     AiAgent:
       type: object
-      required: [id, name, avatar, color, kind, model, instructions, access, cliPermission, repoIds, maxParallel,
-        autoBuild, buildRetries, enabled, createdAt, updatedAt, monthCostUsd, runningTasks, queuedTasks]
+      required: [id, name, avatar, color, kind, model, instructions, access, cliPermission, repoIds, hostIds, hostNames,
+        maxParallel, autoBuild, buildRetries, enabled, createdAt, updatedAt, monthCostUsd, runningTasks, queuedTasks]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -273,6 +273,14 @@ components:
         repoIds:
           type: array
           items: { type: integer, format: int64 }
+        hostIds:
+          type: array
+          items: { type: string }
+          description: B60。这个 Agent 能操作的机器（代理 id）。面板 AI 只能通过勾选了这台机器的 Agent 操作它
+        hostNames:
+          type: array
+          items: { type: string }
+          description: hostIds 对应的机器名，顺序一样
         maxParallel: { type: integer }
         monthlyBudgetUsd: { type: number, format: double, nullable: true }
         autoBuild: { type: boolean }
@@ -299,6 +307,11 @@ components:
         repoIds:
           type: array
           items: { type: integer, format: int64 }
+        hostIds:
+          type: array
+          maxItems: 50
+          items: { type: string }
+          description: B60。能操作的机器。增加机器要提升权限
         maxParallel: { type: integer, minimum: 1, maximum: 10 }
         monthlyBudgetUsd: { type: number, format: double, nullable: true, minimum: 0 }
         autoBuild: { type: boolean }

@@ -473,6 +473,28 @@ export interface paths {
         patch: operations["updateAiMemory"];
         trace?: never;
     };
+    "/ai/conversations/{conversationId}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description B60。面板 AI 对话的权限、模型和思考程度，下一条消息生效。permission 为 all 要提升权限，不够时回 403。
+         *     机器会话回 400，机器会话改权限用 /permission。
+         */
+        patch: operations["setAiConversationSettings"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -527,10 +549,33 @@ export interface components {
             /** @description B33。机器的 Agent 会话才有 */
             hostId?: string;
             permission?: components["schemas"]["HostAgentPermission"];
+            panelPermission?: components["schemas"]["AiPermission"];
+            /**
+             * Format: date-time
+             * @description B60。panelPermission 是 all 时，到这个时间没有新消息就回到 manual
+             */
+            panelPermissionUntil?: string;
+            /** @description B60。这个对话用的模型，空表示默认 */
+            model?: string;
+            /** @description B60。这个对话的思考程度，空表示默认 */
+            effort?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        /**
+         * @description B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+         *     all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+         * @enum {string}
+         */
+        AiPermission: "manual" | "write" | "all";
+        AiConversationSettings: {
+            permission?: components["schemas"]["AiPermission"];
+            /** @description providerId:modelId，空字符串表示用默认 */
+            model?: string;
+            /** @description off、low、medium、high，空字符串表示用默认 */
+            effort?: string;
         };
         ConversationDetail: {
             conversation: components["schemas"]["Conversation"];
@@ -708,6 +753,11 @@ export interface components {
             reasoningUnsupported: boolean;
             confirmAllWrites: boolean;
             /**
+             * @description B60。新对话的默认权限档，all 不能当默认
+             * @enum {string}
+             */
+            defaultPermission?: "manual" | "write";
+            /**
              * Format: date-time
              * @description 上次从 models.dev 同步规格的时间
              */
@@ -723,6 +773,8 @@ export interface components {
             reasoningEffort?: components["schemas"]["ReasoningEffort"];
             fastReasoningEffort?: components["schemas"]["ReasoningEffort"];
             confirmAllWrites?: boolean;
+            /** @enum {string} */
+            defaultPermission?: "manual" | "write";
         };
         AiUsage: {
             /** @description YYYY-MM */
@@ -909,6 +961,11 @@ export interface operations {
             content: {
                 "application/json": {
                     title?: string;
+                    permission?: components["schemas"]["AiPermission"];
+                    /** @description B60。providerId:modelId，空表示用设置里的默认 */
+                    model?: string;
+                    /** @description B60。off、low、medium、high，空表示用默认 */
+                    effort?: string;
                 };
             };
         };
@@ -1707,6 +1764,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiMemory"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setAiConversationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiConversationSettings"];
+            };
+        };
+        responses: {
+            /** @description 改后的对话 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
                 };
             };
             default: components["responses"]["Error"];
