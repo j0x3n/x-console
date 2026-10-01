@@ -248,4 +248,23 @@ registerZh({
   "Login email or username. Optional.": "登录邮箱或用户名，可以不填",
   "Switch currency": "切换币种",
   "Exchange rates are not ready. Not counted:": "汇率还没拿到，没算进去的：",
+  "Without http:// it uses https:// for you.": "不写 http:// 时自动用 https://",
+  "Uses the domain if empty": "不填就用域名",
+  "What to check": "检查哪些",
+  "Also check": "同时检查",
+  "Certificate expiry": "证书到期",
+  "Domain expiry": "域名到期",
+  "Certificates are reminded 14, 7 and 3 days ahead. Domains 30 and 7 days ahead.":
+    "证书提前 14、7、3 天提醒，域名提前 30、7 天提醒。",
+  "Pick at least one thing to check": "至少勾选一项",
+  "These are already monitored": "这些已经在监控了",
+  "Some checks were not added": "有几项没加上",
+  "Expiry date (manual)": "到期日期（手动）",
+  "Used only when RDAP and WHOIS both have no answer. Leave empty to look it up.":
+    "只在 RDAP 和 WHOIS 都查不到时用。留空就自动查。",
+  "Lookup failed": "查不到",
+  "Looked up from": "查询来源",
+  "Entered by hand": "手动填写",
+  "This domain has no answer from RDAP or WHOIS. Edit it and enter the expiry date by hand.":
+    "RDAP 和 WHOIS 都查不到这个域名。可以点编辑，手动填到期日期。",
 });

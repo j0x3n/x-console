@@ -312,6 +312,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/monitors/{monitorId}/icon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                monitorId: components["parameters"]["MonitorId"];
+            };
+            cookie?: never;
+        };
+        /** @description B50。网站的站标。只有 http 监控有，没抓到时回 404。 */
+        get: operations["getMonitorIcon"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/monitors/{monitorId}/results": {
         parameters: {
             query?: never;
@@ -607,7 +626,7 @@ export interface components {
             id: number;
             kind: components["schemas"]["MonitorKind"];
             name: string;
-            /** @description http 是网址；tls 是 host 或 host:port（也可以填网址）；domain 是域名 */
+            /** @description http 是网址（B50 起只填域名时补 https://）；tls 是 host 或 host:port（也可以填网址）；domain 是域名 */
             target: string;
             intervalSeconds: number;
             /** @description 0 表示 200 到 399 都算正常 */
@@ -631,6 +650,21 @@ export interface components {
              * @description 离到期还有几天
              */
             daysLeft?: number;
+            /**
+             * @description B51。domain 的到期时间从哪里来。manual 是手动填的
+             * @enum {string}
+             */
+            expirySource?: "rdap" | "whois" | "manual";
+            /**
+             * Format: date
+             * @description B51。手动填的域名到期日期。RDAP 和 WHOIS 都查不到时用它
+             */
+            manualExpiresAt?: string;
+            /**
+             * Format: date-time
+             * @description B50。http 监控抓到站标的时间。没有站标时不返回。站标从 /monitors/{monitorId}/icon 取
+             */
+            iconAt?: string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -653,6 +687,13 @@ export interface components {
             keyword?: string;
             timeoutMs?: number;
             enabled?: boolean;
+            /**
+             * Format: date
+             * @description B51。只对 domain 有效。手动填的到期日期
+             */
+            manualExpiresAt?: string;
+            /** @description B51。true 时清掉手动填的到期日期 */
+            clearManualExpiry?: boolean;
         };
         MonitorResultDetail: {
             /** Format: date-time */
@@ -662,6 +703,11 @@ export interface components {
             subject?: string;
             issuer?: string;
             registrar?: string;
+            /**
+             * @description B51。domain 这次的到期时间从哪里查到的
+             * @enum {string}
+             */
+            source?: "rdap" | "whois" | "manual";
         };
         MonitorResult: {
             /** Format: int64 */
@@ -1440,6 +1486,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonitorResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMonitorIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                monitorId: components["parameters"]["MonitorId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 图片，Content-Type 按抓到的类型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
                 };
             };
             default: components["responses"]["Error"];

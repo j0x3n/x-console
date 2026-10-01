@@ -57,6 +57,27 @@ func (e DockerContainerAction) Valid() bool {
 	}
 }
 
+// Defines values for MonitorExpirySource.
+const (
+	MonitorExpirySourceManual MonitorExpirySource = "manual"
+	MonitorExpirySourceRdap   MonitorExpirySource = "rdap"
+	MonitorExpirySourceWhois  MonitorExpirySource = "whois"
+)
+
+// Valid indicates whether the value is a known member of the MonitorExpirySource enum.
+func (e MonitorExpirySource) Valid() bool {
+	switch e {
+	case MonitorExpirySourceManual:
+		return true
+	case MonitorExpirySourceRdap:
+		return true
+	case MonitorExpirySourceWhois:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MonitorKind.
 const (
 	MonitorKindDomain MonitorKind = "domain"
@@ -72,6 +93,27 @@ func (e MonitorKind) Valid() bool {
 	case MonitorKindHttp:
 		return true
 	case MonitorKindTls:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MonitorResultDetailSource.
+const (
+	MonitorResultDetailSourceManual MonitorResultDetailSource = "manual"
+	MonitorResultDetailSourceRdap   MonitorResultDetailSource = "rdap"
+	MonitorResultDetailSourceWhois  MonitorResultDetailSource = "whois"
+)
+
+// Valid indicates whether the value is a known member of the MonitorResultDetailSource enum.
+func (e MonitorResultDetailSource) Valid() bool {
+	switch e {
+	case MonitorResultDetailSourceManual:
+		return true
+	case MonitorResultDetailSourceRdap:
+		return true
+	case MonitorResultDetailSourceWhois:
 		return true
 	default:
 		return false
@@ -414,7 +456,13 @@ type Monitor struct {
 	ExpectedStatus int `json:"expectedStatus"`
 
 	// ExpiresAt 证书或域名的到期时间
-	ExpiresAt       *time.Time `json:"expiresAt,omitempty"`
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+
+	// ExpirySource B51。domain 的到期时间从哪里来。manual 是手动填的
+	ExpirySource *MonitorExpirySource `json:"expirySource,omitempty"`
+
+	// IconAt B50。http 监控抓到站标的时间。没有站标时不返回。站标从 /monitors/{monitorId}/icon 取
+	IconAt          *time.Time `json:"iconAt,omitempty"`
 	Id              int64      `json:"id"`
 	IntervalSeconds int        `json:"intervalSeconds"`
 
@@ -428,12 +476,18 @@ type Monitor struct {
 
 	// LastStatus unknown 还没检查；up 正常；down 连续 2 次失败
 	LastStatus MonitorStatus `json:"lastStatus"`
-	Name       string        `json:"name"`
 
-	// Target http 是网址；tls 是 host 或 host:port（也可以填网址）；domain 是域名
+	// ManualExpiresAt B51。手动填的域名到期日期。RDAP 和 WHOIS 都查不到时用它
+	ManualExpiresAt *openapi_types.Date `json:"manualExpiresAt,omitempty"`
+	Name            string              `json:"name"`
+
+	// Target http 是网址（B50 起只填域名时补 https://）；tls 是 host 或 host:port（也可以填网址）；domain 是域名
 	Target    string `json:"target"`
 	TimeoutMs int    `json:"timeoutMs"`
 }
+
+// MonitorExpirySource B51。domain 的到期时间从哪里来。manual 是手动填的
+type MonitorExpirySource string
 
 // MonitorInput defines model for MonitorInput.
 type MonitorInput struct {
@@ -456,13 +510,18 @@ type MonitorKind string
 
 // MonitorPatch defines model for MonitorPatch.
 type MonitorPatch struct {
-	Enabled         *bool   `json:"enabled,omitempty"`
-	ExpectedStatus  *int    `json:"expectedStatus,omitempty"`
-	IntervalSeconds *int    `json:"intervalSeconds,omitempty"`
-	Keyword         *string `json:"keyword,omitempty"`
-	Name            *string `json:"name,omitempty"`
-	Target          *string `json:"target,omitempty"`
-	TimeoutMs       *int    `json:"timeoutMs,omitempty"`
+	// ClearManualExpiry B51。true 时清掉手动填的到期日期
+	ClearManualExpiry *bool   `json:"clearManualExpiry,omitempty"`
+	Enabled           *bool   `json:"enabled,omitempty"`
+	ExpectedStatus    *int    `json:"expectedStatus,omitempty"`
+	IntervalSeconds   *int    `json:"intervalSeconds,omitempty"`
+	Keyword           *string `json:"keyword,omitempty"`
+
+	// ManualExpiresAt B51。只对 domain 有效。手动填的到期日期
+	ManualExpiresAt *openapi_types.Date `json:"manualExpiresAt,omitempty"`
+	Name            *string             `json:"name,omitempty"`
+	Target          *string             `json:"target,omitempty"`
+	TimeoutMs       *int                `json:"timeoutMs,omitempty"`
 }
 
 // MonitorResult defines model for MonitorResult.
@@ -482,8 +541,14 @@ type MonitorResultDetail struct {
 	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 	Issuer    *string    `json:"issuer,omitempty"`
 	Registrar *string    `json:"registrar,omitempty"`
-	Subject   *string    `json:"subject,omitempty"`
+
+	// Source B51。domain 这次的到期时间从哪里查到的
+	Source  *MonitorResultDetailSource `json:"source,omitempty"`
+	Subject *string                    `json:"subject,omitempty"`
 }
+
+// MonitorResultDetailSource B51。domain 这次的到期时间从哪里查到的
+type MonitorResultDetailSource string
 
 // MonitorResults defines model for MonitorResults.
 type MonitorResults struct {
@@ -876,6 +941,9 @@ type ServerInterface interface {
 	// (POST /monitors/{monitorId}/check)
 	CheckMonitor(w http.ResponseWriter, r *http.Request, monitorId MonitorId)
 
+	// (GET /monitors/{monitorId}/icon)
+	GetMonitorIcon(w http.ResponseWriter, r *http.Request, monitorId MonitorId)
+
 	// (GET /monitors/{monitorId}/results)
 	GetMonitorResults(w http.ResponseWriter, r *http.Request, monitorId MonitorId, params GetMonitorResultsParams)
 
@@ -1008,6 +1076,11 @@ func (_ Unimplemented) UpdateMonitor(w http.ResponseWriter, r *http.Request, mon
 
 // (POST /monitors/{monitorId}/check)
 func (_ Unimplemented) CheckMonitor(w http.ResponseWriter, r *http.Request, monitorId MonitorId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /monitors/{monitorId}/icon)
+func (_ Unimplemented) GetMonitorIcon(w http.ResponseWriter, r *http.Request, monitorId MonitorId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1576,6 +1649,32 @@ func (siw *ServerInterfaceWrapper) CheckMonitor(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CheckMonitor(w, r, monitorId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMonitorIcon operation middleware
+func (siw *ServerInterfaceWrapper) GetMonitorIcon(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "monitorId" -------------
+	var monitorId MonitorId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "monitorId", chi.URLParam(r, "monitorId"), &monitorId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "monitorId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMonitorIcon(w, r, monitorId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2263,6 +2362,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/monitors/{monitorId}/check", wrapper.CheckMonitor)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/monitors/{monitorId}/icon", wrapper.GetMonitorIcon)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/monitors/{monitorId}/results", wrapper.GetMonitorResults)

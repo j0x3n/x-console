@@ -85,8 +85,23 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
                 <strong>{detail.registrar}</strong>
               </div>
             )}
+            {monitor.expirySource && (
+              <div>
+                <small>{t("Looked up from")}</small>
+                <strong>{t(sourceLabels[monitor.expirySource])}</strong>
+              </div>
+            )}
           </div>
         )}
+        {monitor.kind === "domain" &&
+          !monitor.expiresAt &&
+          monitor.lastError && (
+            <p className="monitoring-hint">
+              {t(
+                "This domain has no answer from RDAP or WHOIS. Edit it and enter the expiry date by hand.",
+              )}
+            </p>
+          )}
         <div className="monitoring-detail-bar">
           <nav className="xc-tabs monitoring-range">
             {ranges.map((r) => (
@@ -216,3 +231,10 @@ export default function MonitorDetail({ monitor, onClose }: Props) {
     </>
   );
 }
+
+/** 域名到期时间的来源（B51）。 */
+const sourceLabels = {
+  rdap: "RDAP",
+  whois: "WHOIS",
+  manual: "Entered by hand",
+} as const;

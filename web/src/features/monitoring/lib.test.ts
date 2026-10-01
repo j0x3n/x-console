@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Monitor } from "./api";
 import {
   addMonths,
   appendLog,
@@ -21,6 +22,10 @@ import {
   parseRemindDays,
   renewalTone,
   spendView,
+  normalizeSiteUrl,
+  registrableDomain,
+  companionMonitors,
+  groupByDomain,
   sortSubscriptions,
   stripSegments,
 } from "./lib";
@@ -306,5 +311,57 @@ describe("spendView", () => {
   });
   it("没有订阅时为空", () => {
     expect(spendView({ totals: [], byCategory: [] }, "CNY")).toBeNull();
+  });
+});
+
+describe("网站和域名（B50）", () => {
+  it("只填域名时补 https", () => {
+    expect(normalizeSiteUrl("xcc.im")).toBe("https://xcc.im");
+    expect(normalizeSiteUrl(" http://a.com/x ")).toBe("http://a.com/x");
+    expect(normalizeSiteUrl("HTTPS://A.com")).toBe("HTTPS://A.com");
+  });
+  it("取主域名", () => {
+    expect(registrableDomain("https://www.xcc.im/a")).toBe("xcc.im");
+    expect(registrableDomain("blog.example.com.cn")).toBe("example.com.cn");
+    expect(registrableDomain("a.b.example.co.uk:8443")).toBe("example.co.uk");
+    expect(registrableDomain("xcc.im")).toBe("xcc.im");
+  });
+  it("顺带建的证书和域名，已有的跳过", () => {
+    expect(
+      companionMonitors("www.xcc.im:8443", [], { tls: true, domain: true }),
+    ).toEqual([
+      { kind: "tls", target: "www.xcc.im:8443" },
+      { kind: "domain", target: "xcc.im" },
+    ]);
+    expect(
+      companionMonitors(
+        "http://xcc.im",
+        [{ kind: "domain", target: "xcc.im" }],
+        {
+          tls: true,
+          domain: true,
+        },
+      ),
+    ).toEqual([]);
+  });
+  it("按主域名分组，快到期的在前", () => {
+    const m = (
+      id: number,
+      kind: Monitor["kind"],
+      target: string,
+      daysLeft?: number,
+    ) => ({ id, kind, target, daysLeft, enabled: true }) as Monitor;
+    const groups = groupByDomain([
+      m(1, "domain", "a.com", 300),
+      m(2, "tls", "www.a.com", 40),
+      m(3, "tls", "b.com", 5),
+      m(4, "http", "https://a.com"),
+    ]);
+    expect(
+      groups.map((g) => [g.domain, g.items.map((x) => x.id), g.daysLeft]),
+    ).toEqual([
+      ["b.com", [3], 5],
+      ["a.com", [2, 1], 40],
+    ]);
   });
 });

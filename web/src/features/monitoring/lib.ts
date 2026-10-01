@@ -445,3 +445,131 @@ export function sortContainers(
       return out.sort((a, b) => a.name.localeCompare(b.name));
   }
 }
+
+/** 只填了域名时补上 https://，手动写了 http:// 的保留（B50）。 */
+export function normalizeSiteUrl(input: string): string {
+  const v = input.trim();
+  if (!v || /^[a-z][a-z0-9+.-]*:\/\//i.test(v)) return v;
+  return `https://${v.replace(/^\/+/, "")}`;
+}
+
+/** 网址、host 或 host:port 里的主机名，小写。 */
+export function hostOf(target: string): string {
+  const v = target.trim().toLowerCase();
+  try {
+    if (v.includes("://")) return new URL(v).hostname;
+  } catch {
+    // 不是网址就按 host:port 处理
+  }
+  return v.replace(/\/.*$/, "").replace(/:\d+$/, "").replace(/\.$/, "");
+}
+
+/** 两段的公共后缀，主域名要再往前取一段。 */
+const secondLevel = new Set([
+  "com.cn",
+  "net.cn",
+  "org.cn",
+  "gov.cn",
+  "edu.cn",
+  "ac.cn",
+  "com.hk",
+  "org.hk",
+  "net.hk",
+  "com.tw",
+  "org.tw",
+  "co.uk",
+  "org.uk",
+  "co.jp",
+  "ne.jp",
+  "or.jp",
+  "com.au",
+  "net.au",
+  "org.au",
+  "co.kr",
+  "com.sg",
+  "com.my",
+  "co.nz",
+  "com.br",
+  "co.in",
+]);
+
+/** 查域名到期用的主域名：blog.example.com → example.com（B50）。 */
+export function registrableDomain(host: string): string {
+  const parts = hostOf(host).split(".").filter(Boolean);
+  if (parts.length <= 2) return parts.join(".");
+  if (/^\d+$/.test(parts[parts.length - 1])) return parts.join("."); // IP
+  const take = secondLevel.has(parts.slice(-2).join(".")) ? 3 : 2;
+  return parts.slice(-take).join(".");
+}
+
+/** 证书监控的目标：443 端口只写主机名，其他端口带上。 */
+export function tlsTarget(url: string): string {
+  try {
+    const u = new URL(normalizeSiteUrl(url));
+    return u.port && u.port !== "443" ? `${u.hostname}:${u.port}` : u.hostname;
+  } catch {
+    return hostOf(url);
+  }
+}
+
+/**
+ * 加网站或域名时顺带要建的证书和域名监控（B50）。已经有的跳过，
+ * http:// 的网站不建证书监控。
+ */
+export function companionMonitors(
+  target: string,
+  existing: Pick<Monitor, "kind" | "target">[],
+  want: { tls: boolean; domain: boolean },
+): { kind: "tls" | "domain"; target: string }[] {
+  const url = normalizeSiteUrl(target);
+  const out: { kind: "tls" | "domain"; target: string }[] = [];
+  const has = (kind: string, t: string) =>
+    existing.some((m) => m.kind === kind && m.target.toLowerCase() === t);
+  if (want.tls && !url.toLowerCase().startsWith("http://")) {
+    const t = tlsTarget(url);
+    if (t && !has("tls", t)) out.push({ kind: "tls", target: t });
+  }
+  if (want.domain) {
+    const d = registrableDomain(url);
+    if (d.includes(".") && !has("domain", d))
+      out.push({ kind: "domain", target: d });
+  }
+  return out;
+}
+
+export interface DomainGroup {
+  domain: string;
+  items: Monitor[];
+  /** 组里最近的到期天数，排序和颜色用 */
+  daysLeft: number | undefined;
+}
+
+/** 证书和域名监控按主域名合成一行（B50）。快到期的排前面。 */
+export function groupByDomain(monitors: Monitor[]): DomainGroup[] {
+  const map = new Map<string, Monitor[]>();
+  for (const m of monitors) {
+    if (m.kind === "http") continue;
+    const key = registrableDomain(m.target);
+    map.set(key, [...(map.get(key) ?? []), m]);
+  }
+  const groups = [...map.entries()].map(([domain, items]) => {
+    items.sort(
+      (a, b) =>
+        (a.kind === "domain" ? 1 : 0) - (b.kind === "domain" ? 1 : 0) ||
+        a.target.localeCompare(b.target),
+    );
+    const days = items
+      .filter((m) => m.enabled && m.daysLeft !== undefined)
+      .map((m) => m.daysLeft as number);
+    return {
+      domain,
+      items,
+      daysLeft: days.length ? Math.min(...days) : undefined,
+    };
+  });
+  return groups.sort(
+    (a, b) =>
+      (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity) ||
+      a.domain.localeCompare(b.domain),
+  );
+}

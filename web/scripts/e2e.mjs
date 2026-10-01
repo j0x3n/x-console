@@ -789,6 +789,20 @@ try {
   await renewalRow.getByRole("link", { name: "端到端续费 续费" }).click();
   await page.waitForURL(/\/monitoring\/subscriptions$/);
 
+  stage = "B50 只填域名添加网站，顺带建证书和域名监控";
+  await page.goto(`${base}/monitoring?new=1`);
+  await dialog("添加网站").getByLabel("网址").fill("www.e2e-site.example.com");
+  await dialog("添加网站").getByRole("button", { name: "保存" }).click();
+  await page.locator(".monitoring-row", { hasText: "https://www.e2e-site.example.com" }).waitFor();
+  const siteMonitors = (await api("/monitors")).filter((m) => m.name === "www.e2e-site.example.com");
+  assert.deepEqual(siteMonitors.map((m) => `${m.kind} ${m.target}`).sort(), [
+    "domain example.com",
+    "http https://www.e2e-site.example.com",
+    "tls www.e2e-site.example.com",
+  ]);
+  await page.goto(`${base}/monitoring/certs`);
+  await page.locator(".monitoring-row", { hasText: "example.com" }).getByRole("button", { name: /证书/ }).waitFor();
+
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
   // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。

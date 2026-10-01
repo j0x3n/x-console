@@ -603,3 +603,67 @@ button.monitoring-row:hover,
 .monitoring-collapse[aria-expanded="true"] svg {
   transform: rotate(90deg);
 }
+
+/* 站标（B50） */
+.monitoring-site-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  object-fit: contain;
+}
+.monitoring-site-icon.letter {
+  display: grid;
+  place-items: center;
+  background: var(--xc-surface-2);
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  font-weight: 600;
+}
+.monitoring-site-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+/* 证书和域名合成一行（B50） */
+.monitoring-expiry-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.monitoring-expiry-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--xc-border);
+  border-radius: 999px;
+  background: var(--xc-surface);
+  color: var(--xc-text-2);
+  font: inherit;
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.monitoring-expiry-chip:hover {
+  border-color: var(--xc-border-strong);
+}
+.monitoring-expiry-chip.danger {
+  border-color: var(--xc-danger);
+  color: var(--xc-danger);
+}
+.monitoring-expiry-chip.warn {
+  border-color: var(--xc-warn);
+  color: var(--xc-warn);
+}
+.monitoring-expiry-chip.off {
+  opacity: 0.55;
+}
+@media (max-width: 640px) {
+  .monitoring-expiry-chips {
+    justify-content: flex-start;
+  }
+}
