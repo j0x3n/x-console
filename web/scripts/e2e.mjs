@@ -542,6 +542,31 @@ try {
     assert.equal(removed.status(), 204, await removed.text());
   }
 
+  stage = "B74 笔记背景色 API 主流程";
+  {
+    const colored = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {
+      headers: { "X-Requested-With": "x-console" }, data: { color: "teal" },
+    });
+    assert.equal(colored.status(), 200, await colored.text());
+    assert.equal((await api(`/notes/${noteId}`)).color, "teal");
+    const invalid = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {
+      headers: { "X-Requested-With": "x-console" }, data: { color: "#ffffff" },
+    });
+    assert.equal(invalid.status(), 400, await invalid.text());
+    const shared = await page.context().request.put(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" }, data: { expiresIn: "1d" },
+    });
+    assert.equal(shared.status(), 200, await shared.text());
+    const share = await shared.json();
+    const publicNote = await fetch(`${base}/api/v1/public/notes/${share.token}`);
+    assert.equal(publicNote.status, 200);
+    assert.equal((await publicNote.json()).color, "teal");
+    const stopped = await page.context().request.delete(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(stopped.status(), 204, await stopped.text());
+  }
+
   stage = "新建提醒";
   await page.goto(`${base}/reminders`);
   await page

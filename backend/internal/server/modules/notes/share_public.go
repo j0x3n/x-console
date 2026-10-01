@@ -213,5 +213,5 @@ func (m *Module) GetPublicNote(w http.ResponseWriter, r *http.Request, token api
 		m.shareVisits[key] = now
 	}
 	m.shareMu.Unlock()
-	httpx.JSON(w, 200, api.PublicNote{Title: n.Title, Body: body, UpdatedAt: n.UpdatedAt})
+	httpx.JSON(w, 200, api.PublicNote{Title: n.Title, Body: body, Color: new(api.NoteColor(n.Color)), UpdatedAt: n.UpdatedAt})
 }

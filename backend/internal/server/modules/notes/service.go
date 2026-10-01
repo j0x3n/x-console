@@ -118,6 +118,9 @@ func (m *Module) createNote(ctx context.Context, title, body string, tags []stri
 	if !kind.Valid() {
 		return out, httpx.Invalid("笔记类型不正确")
 	}
+	if !color.Valid() {
+		return out, httpx.Invalid("背景色不正确")
+	}
 	if hidden {
 		if err = requireVault(ctx); err != nil {
 			return out, err
@@ -168,6 +171,9 @@ type notePatch struct {
 func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api.Note, err error) {
 	if p.Kind != nil && !p.Kind.Valid() {
 		return out, httpx.Invalid("笔记类型不正确")
+	}
+	if p.Color != nil && !p.Color.Valid() {
+		return out, httpx.Invalid("背景色不正确")
 	}
 	defer func() { m.d.Audit.Record(ctx, "note.update", strconv.FormatInt(id, 10), nil, err) }()
 	var tags []string
