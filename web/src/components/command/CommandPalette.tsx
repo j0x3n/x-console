@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { CornerDownLeft, Search } from "lucide-react";
 import { navItems } from "../../app/nav";
+import {
+  moduleOfCommandGroup,
+  moduleOfPath,
+  useModules,
+} from "../../app/modules";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { matchPrefix, useCommands, type Command } from "../../lib/commands";
@@ -28,22 +33,32 @@ export default function CommandPalette({
 }) {
   const t = useT();
   const navigate = useNavigate();
-  const registered = useCommands();
+  // B57：被隐藏的模块，它的页面和命令都不出现
+  const modules = useModules();
+  const allRegistered = useCommands();
+  const registered = useMemo(
+    () =>
+      allRegistered.filter((c) => modules.has(moduleOfCommandGroup(c.group))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allRegistered, modules.has],
+  );
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const all = useMemo<Command[]>(
     () => [
-      ...navItems.map((item) => ({
-        id: `nav:${item.path}`,
-        title: t(item.label),
-        group: t("Go to"),
-        keywords: item.label,
-        icon: item.icon,
-        run: () => navigate(item.path),
-      })),
+      ...navItems
+        .filter((item) => modules.has(moduleOfPath(item.path)))
+        .map((item) => ({
+          id: `nav:${item.path}`,
+          title: t(item.label),
+          group: t("Go to"),
+          keywords: item.label,
+          icon: item.icon,
+          run: () => navigate(item.path),
+        })),
       ...registered,
     ],
-    [registered, navigate, t],
+    [registered, navigate, t, modules.has],
   );
   const prefixed = useMemo(
     () => matchPrefix(query, registered),

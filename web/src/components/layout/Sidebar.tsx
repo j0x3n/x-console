@@ -11,6 +11,7 @@ import {
   Languages,
 } from "lucide-react";
 import { navGroupLabels, navItems, type NavGroup } from "../../app/nav";
+import { moduleOfPath, useModules } from "../../app/modules";
 import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
 import { accents, usePreferencesStore } from "../../stores/preferences-store";
@@ -62,10 +63,16 @@ export default function Sidebar({
       }
       return next;
     });
-  const groups = (Object.keys(navGroupLabels) as NavGroup[]).map((group) => ({
-    group,
-    items: navItems.filter((item) => item.group === group),
-  }));
+  // B57：锁定时被隐藏的模块不出现，分组空了整组不显示
+  const modules = useModules();
+  const groups = (Object.keys(navGroupLabels) as NavGroup[])
+    .map((group) => ({
+      group,
+      items: navItems.filter(
+        (item) => item.group === group && modules.has(moduleOfPath(item.path)),
+      ),
+    }))
+    .filter((g) => g.items.length > 0);
   return (
     <>
       {mobileOpen && (

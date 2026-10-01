@@ -8,7 +8,7 @@ import (
 )
 
 func (m *Module) registerExtraActions() {
-	m.d.Actions.Register(actions.Action{Name: "notes.get", Title: "查看笔记", Description: "Read a note by id, excluding hidden notes.", Input: actions.Schema(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}`), Effect: actions.Read, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	m.d.Actions.Register(actions.Action{Name: "notes.get", Title: "查看笔记", Description: "Read a note by id.", Input: actions.Schema(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}`), Effect: actions.Read, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			ID int64 `json:"id"`
 		}
@@ -28,7 +28,7 @@ func (m *Module) registerExtraActions() {
 		}
 		return m.updateNote(auth.WithoutVault(ctx), in.ID, notePatch{Title: in.Title, Body: in.Body, Tags: in.Tags})
 	}})
-	m.d.Actions.Register(actions.Action{Name: "notes.delete", Title: "删除笔记", Description: "Delete a note by id, excluding hidden notes.", Input: actions.Schema(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}`), Effect: actions.Write, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	m.d.Actions.Register(actions.Action{Name: "notes.delete", Title: "删除笔记", Description: "Delete a note by id.", Input: actions.Schema(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}`), Effect: actions.Write, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {
 			ID int64 `json:"id"`
 		}

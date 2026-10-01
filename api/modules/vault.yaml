@@ -89,8 +89,72 @@ paths:
           description: 已修改
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /vault/modules:
+    get:
+      operationId: getHiddenModules
+      tags: [vault]
+      description: |
+        B57。被隐藏的模块。只有解锁后能读，没解锁时回 404，和不存在的接口一样。
+      responses:
+        "200":
+          description: 被隐藏的模块
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HiddenModules" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: setHiddenModules
+      tags: [vault]
+      description: B57。设置被隐藏的模块。只有解锁后能改，没解锁时回 404。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HiddenModules" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HiddenModules" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /app/modules:
+    get:
+      operationId: getAvailableModules
+      tags: [vault]
+      description: |
+        B57。这个会话能用的模块。没解锁时不含被隐藏的模块，解锁后全部返回。
+        返回内容里不提隐藏，看起来就是普通的模块列表。
+      responses:
+        "200":
+          description: 能用的模块
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AvailableModules" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   schemas:
+    ModuleId:
+      type: string
+      description: B57。左栏的模块，和前端路由的第一段相同。今日页不能隐藏
+      enum: [projects, coding, notes, reminders, habits, drive, calendar, servers, pc, monitoring, home, automations, github]
+    HiddenModules:
+      type: object
+      required: [hidden]
+      properties:
+        hidden:
+          type: array
+          items: { $ref: "#/components/schemas/ModuleId" }
+    AvailableModules:
+      type: object
+      required: [modules]
+      properties:
+        modules:
+          type: array
+          items: { $ref: "#/components/schemas/ModuleId" }
     VaultStatus:
       type: object
       required: [configured, unlocked]

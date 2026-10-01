@@ -1,5 +1,8 @@
 import { Suspense, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Outlet, useLocation } from "react-router";
+import ComingSoon from "../components/ComingSoon";
+import { moduleOfPath, useModules } from "./modules";
 import { useServerEvents } from "../api/events";
 import ElevationDialog from "../auth/ElevationDialog";
 import { ConfirmHost } from "../components/ui/ConfirmDialog";
@@ -52,7 +55,9 @@ export default function Layout() {
           {/* 页面按需加载（B6），加载时显示转圈 */}
           <ErrorBoundary key={location.pathname}>
             <Suspense fallback={<Loading />}>
-              <Outlet />
+              <ModuleGate>
+                <Outlet />
+              </ModuleGate>
             </Suspense>
           </ErrorBoundary>
         </div>
@@ -66,4 +71,14 @@ export default function Layout() {
       <ConfirmHost />
     </div>
   );
+}
+
+/** B57：锁定时打开被隐藏的模块，和打开不存在的地址看到的一样。 */
+function ModuleGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const modules = useModules();
+  const id = moduleOfPath(location.pathname);
+  if (modules.has(id)) return <>{children}</>;
+  if (modules.pending) return <Loading />;
+  return <ComingSoon title="Not found" />;
 }

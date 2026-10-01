@@ -10,6 +10,7 @@ import { ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import VaultPasswordCard from "../vault/VaultPasswordCard";
+import HiddenModulesCard from "../vault/HiddenModulesCard";
 import ElevationModeCard from "./ElevationModeCard";
 import { MIN_PASSWORD, passwordFormError } from "./security";
 
@@ -27,6 +28,7 @@ export default function SecurityTab() {
       <PasswordCard />
       <ElevationModeCard />
       <VaultPasswordCard />
+      <HiddenModulesCard />
     </div>
   );
 }

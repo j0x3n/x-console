@@ -7,6 +7,7 @@ import { useT } from "../../contexts/LanguageContext";
 import NotificationsPopover from "./NotificationsPopover";
 import TopbarActions from "../../app/TopbarActions";
 import { usePageTitle } from "../../stores/page-title";
+import { moduleOfPath, useModules } from "../../app/modules";
 import { useSidebar } from "../../stores/sidebar";
 import { PageActionsSlot } from "./PageActions";
 import { navItems } from "../../app/nav";
@@ -24,11 +25,18 @@ export default function Topbar({
 }) {
   const t = useT();
   const matches = useMatches();
-  const title =
-    [...matches]
-      .reverse()
-      .map((m) => (m.handle as RouteHandle | undefined)?.title)
-      .find(Boolean) ?? "";
+  const location = useLocation();
+  // B57：被隐藏的模块按不存在的页面显示，标题也不能露出模块名
+  const modules = useModules();
+  const hiddenHere = !modules.has(moduleOfPath(location.pathname));
+  const title = hiddenHere
+    ? modules.pending
+      ? ""
+      : "Not found"
+    : ([...matches]
+        .reverse()
+        .map((m) => (m.handle as RouteHandle | undefined)?.title)
+        .find(Boolean) ?? "");
   // 详情页的具体名称，比如项目名。和模块名一样时不重复显示。
   const pageTitle = usePageTitle((s) => s.title);
   const parents = usePageTitle((s) => s.parents);
@@ -39,7 +47,6 @@ export default function Topbar({
   const toggleSidebar = useSidebar((s) => s.toggle);
   const detail = pageTitle && pageTitle !== t(title) ? pageTitle : "";
   const connected = useEventConnection((s) => s.connected);
-  const location = useLocation();
   // 模块首页：导航里同名的入口。找不到（比如 404 页）就不做成链接。
   const moduleTo = navItems.find((n) => n.label === title)?.path;
   const atModule = !moduleTo || (!detail && location.pathname === moduleTo);

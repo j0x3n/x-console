@@ -25,3 +25,19 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* 隐藏的模块（B57） */
+.vault-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px 12px;
+  margin: 4px 0 12px;
+}
+.vault-modules .xc-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.vault-modules svg {
+  color: var(--xc-muted);
+}

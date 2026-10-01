@@ -12,4 +12,7 @@ registerZh({
   "Current password": "当前密码",
   "New password": "新密码",
   "Repeat new password": "再输一次新密码",
+  "Hidden modules": "隐藏的模块",
+  "While locked, these leave the sidebar, My day and the command palette. Opening their address shows Not found. They come back when you unlock.":
+    "锁定后，勾选的模块从左栏、今日页和命令面板里消失，直接打开地址显示页面不存在。解锁后恢复。",
 });

@@ -86,10 +86,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vault/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B57。被隐藏的模块。只有解锁后能读，没解锁时回 404，和不存在的接口一样。 */
+        get: operations["getHiddenModules"];
+        /** @description B57。设置被隐藏的模块。只有解锁后能改，没解锁时回 404。 */
+        put: operations["setHiddenModules"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/app/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B57。这个会话能用的模块。没解锁时不含被隐藏的模块，解锁后全部返回。
+         *     返回内容里不提隐藏，看起来就是普通的模块列表。
+         */
+        get: operations["getAvailableModules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description B57。左栏的模块，和前端路由的第一段相同。今日页不能隐藏
+         * @enum {string}
+         */
+        ModuleId: "projects" | "coding" | "notes" | "reminders" | "habits" | "drive" | "calendar" | "servers" | "pc" | "monitoring" | "home" | "automations" | "github";
+        HiddenModules: {
+            hidden: components["schemas"]["ModuleId"][];
+        };
+        AvailableModules: {
+            modules: components["schemas"]["ModuleId"][];
+        };
         VaultStatus: {
             /** @description 是否设过隐藏密码 */
             configured: boolean;
@@ -245,6 +294,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHiddenModules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 被隐藏的模块 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiddenModules"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setHiddenModules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HiddenModules"];
+            };
+        };
+        responses: {
+            /** @description 保存后的设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HiddenModules"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAvailableModules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 能用的模块 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailableModules"];
+                };
             };
             default: components["responses"]["Error"];
         };

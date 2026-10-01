@@ -812,6 +812,29 @@ try {
   await page.goto(`${base}/monitoring/certs`);
   await page.locator(".monitoring-row", { hasText: "example.com" }).getByRole("button", { name: /证书/ }).waitFor();
 
+  stage = "B57 锁定后被隐藏的模块像不存在一样";
+  const send = async (method, path, data) => {
+    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
+      method,
+      headers: { "X-Requested-With": "x-console" },
+      data,
+    });
+    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
+  };
+  await send("POST", "/vault/setup", { password: "e2e-vault-secret" });
+  await send("PUT", "/vault/modules", { hidden: ["github"] });
+  await send("POST", "/vault/lock");
+  await page.goto(`${base}/`);
+  await page.locator(".sidebar").getByRole("link", { name: "项目" }).waitFor();
+  assert.equal(await page.locator(".sidebar").getByRole("link", { name: "GitHub" }).count(), 0);
+  await page.goto(`${base}/github`);
+  await page.getByText("页面不存在").first().waitFor();
+  assert.equal((await page.context().request.get(`${base}/api/v1/vault/modules`)).status(), 404);
+  // 恢复，后面的步骤还要打开 GitHub 页面
+  await send("POST", "/vault/unlock", { password: "e2e-vault-secret" });
+  await send("PUT", "/vault/modules", { hidden: [] });
+  await send("POST", "/vault/lock");
+
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
   // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。

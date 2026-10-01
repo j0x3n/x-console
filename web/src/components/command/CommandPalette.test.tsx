@@ -8,6 +8,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ALL_MODULES } from "../../app/modules";
 import { registerCommands } from "../../lib/commands";
 import CommandPalette from "./CommandPalette";
 
@@ -24,16 +26,28 @@ registerCommands([
 ]);
 
 function renderPalette(onClose = () => {}) {
+  // 可用模块的接口回 404：旧服务端，全部模块都能用（B57）
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("{}", { status: 404 })),
+  );
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(["app", "modules"], ALL_MODULES);
   render(
-    <MemoryRouter>
-      <CommandPalette open onClose={onClose} />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <CommandPalette open onClose={onClose} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
   return screen.getByPlaceholderText(/搜索|Search/);
 }
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   capture.mockReset();
 });
 
