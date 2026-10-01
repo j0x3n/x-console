@@ -165,3 +165,100 @@ func TestDomainWhoisAndManualExpiry(t *testing.T) {
 	env.MustDo(http.MethodPost, "/monitors", api.MonitorInput{Kind: "http", Name: "web", Target: rdap.URL}, &site)
 	expectStatus(t, env, http.MethodPatch, fmt.Sprintf("/monitors/%d", site.Id), api.MonitorPatch{ManualExpiresAt: &day}, 400, "validation_failed")
 }
+
+// A failed lookup keeps the last known date: the list still shows it and
+// the reminder already sent does not go out again.
+func TestDomainFailureKeepsExpiry(t *testing.T) {
+	env, m := setup(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	expiry := now.Add(20 * 24 * time.Hour).Truncate(time.Second)
+	var mu sync.Mutex
+	down := false
+	rdap := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		failing := down
+		mu.Unlock()
+		if failing {
+			http.Error(w, "busy", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/rdap+json")
+		fmt.Fprintf(w, `{"events":[{"eventAction":"expiration","eventDate":%q}]}`, expiry.Format(time.RFC3339))
+	}))
+	defer rdap.Close()
+	ianaAddr, _ := serveWhois(t, func(string) string { return "\r\n" })
+	if err := env.App.Deps.Settings.Set(ctx, monitoring.RDAPBaseKey, rdap.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.App.Deps.Settings.Set(ctx, monitoring.WhoisIANAKey, ianaAddr); err != nil {
+		t.Fatal(err)
+	}
+	var mon api.Monitor
+	env.MustDo(http.MethodPost, "/monitors", api.MonitorInput{Kind: "domain", Name: "E", Target: "example.com"}, &mon)
+	at := now.Add(time.Hour)
+	if _, err := m.CheckNow(ctx, mon.Id, at); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	down = true
+	mu.Unlock()
+	res, err := m.CheckNow(ctx, mon.Id, at.Add(time.Hour))
+	if err != nil || res.Ok == 1 {
+		t.Fatalf("failing check: %+v %v", res, err)
+	}
+	env.MustDo(http.MethodGet, fmt.Sprintf("/monitors/%d", mon.Id), nil, &mon)
+	if mon.ExpiresAt == nil || !mon.ExpiresAt.Equal(expiry) || mon.ExpirySource == nil || *mon.ExpirySource != api.MonitorExpirySourceRdap {
+		t.Fatalf("after failure: %+v", mon)
+	}
+	mu.Lock()
+	down = false
+	mu.Unlock()
+	if _, err := m.CheckNow(ctx, mon.Id, at.Add(2*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if sent := notifications(t, env, "monitor.expiring"); len(sent) != 1 {
+		t.Fatalf("expiring: %v", sent)
+	}
+}
+
+// A slow RDAP server leaves time for WHOIS, and a registrar answer without a
+// date falls back to the registry's.
+func TestDomainSlowRDAPAndReferralFallback(t *testing.T) {
+	env, _ := setup(t)
+	ctx := t.Context()
+	release := make(chan struct{})
+	defer close(release)
+	rdap := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer rdap.Close()
+	defer rdap.CloseClientConnections()
+	regAddr, regQueries := serveWhois(t, func(string) string { return "Registrar: Small Registrar\r\n" })
+	comAddr, _ := serveWhois(t, func(string) string {
+		return "Registrar WHOIS Server: " + regAddr + "\r\nRegistry Expiry Date: 2027-05-06T00:00:00Z\r\n"
+	})
+	ianaAddr, _ := serveWhois(t, func(string) string { return "whois: " + comAddr + "\r\n" })
+	if err := env.App.Deps.Settings.Set(ctx, monitoring.RDAPBaseKey, rdap.URL); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.App.Deps.Settings.Set(ctx, monitoring.WhoisIANAKey, ianaAddr); err != nil {
+		t.Fatal(err)
+	}
+	timeout := 1000
+	var mon api.Monitor
+	env.MustDo(http.MethodPost, "/monitors", api.MonitorInput{Kind: "domain", Name: "slow", Target: "slow.com", TimeoutMs: &timeout}, &mon)
+	var res api.MonitorResult
+	env.MustDo(http.MethodPost, fmt.Sprintf("/monitors/%d/check", mon.Id), nil, &res)
+	want := time.Date(2027, 5, 6, 0, 0, 0, 0, time.UTC)
+	if !res.Ok || res.Detail.ExpiresAt == nil || !res.Detail.ExpiresAt.Equal(want) ||
+		res.Detail.Source == nil || *res.Detail.Source != api.MonitorResultDetailSourceWhois {
+		t.Fatalf("slow rdap: %+v", res)
+	}
+	if len(regQueries()) == 0 {
+		t.Fatal("registrar was not asked")
+	}
+}

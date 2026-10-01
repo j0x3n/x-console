@@ -132,14 +132,20 @@ func (m *Module) check(ctx context.Context, id int64, now time.Time) (db.Monitor
 			expiring = &left
 			notified = marked
 		}
-	} else if x.Kind == kindDomain {
+	} else if x.Kind == kindDomain && x.ExpirySource == "manual" && x.ManualExpiresAt == nil {
+		// The manual date was cleared: drop the date it gave. Any other
+		// failed lookup keeps the last known date and the reminders sent.
 		expires = nil
 		notified = []int{}
+	}
+	source := p.Source
+	if p.Expires == nil && expires != nil {
+		source = x.ExpirySource
 	}
 
 	updated, err := m.q.SetMonitorState(ctx, db.SetMonitorStateParams{ID: x.ID, LastStatus: state.Status, LastCheckedAt: &now,
 		LastError: p.Err, ConsecutiveFailures: int64(state.Failures), ExpiresAt: expires, ExpiryNotified: mustJSON(notified),
-		ExpirySource: p.Source, ManualExpiresAt: x.ManualExpiresAt})
+		ExpirySource: source, ManualExpiresAt: x.ManualExpiresAt})
 	if err != nil {
 		return db.MonitorResult{}, err
 	}
@@ -369,8 +375,12 @@ type rdapDomain struct {
 	} `json:"entities"`
 }
 
+// probeDomain tries RDAP, then WHOIS, then the manual date. RDAP gets half
+// of the time budget so a slow RDAP server still leaves time for WHOIS.
 func (m *Module) probeDomain(ctx context.Context, x db.Monitor) probeResult {
-	res := m.probeRDAP(ctx, x.Target)
+	rdapCtx, cancel := context.WithTimeout(ctx, time.Duration(x.TimeoutMs)*time.Millisecond/2)
+	res := m.probeRDAP(rdapCtx, x.Target)
+	cancel()
 	if res.Expires != nil {
 		res.Source = "rdap"
 		res.OK = true

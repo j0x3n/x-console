@@ -40,8 +40,12 @@ func (m *Module) lookupWhois(ctx context.Context, domain string) (time.Time, str
 		return time.Time{}, "", false
 	}
 	if next := whoisReferral(body); next != "" && !sameWhoisHost(next, server) {
+		// The registrar's answer wins, but some registrars leave the date
+		// out: then the registry's answer is used.
 		if body2, err := queryWhois(ctx, whoisAddr(next), domain); err == nil {
-			body = body2
+			if exp, reg, ok := parseWhois(body2); ok {
+				return exp, reg, true
+			}
 		}
 	}
 	return parseWhois(body)
@@ -84,7 +88,11 @@ func queryWhois(ctx context.Context, addr, query string) (string, error) {
 		return "", err
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(whoisTimeout))
+	deadline := time.Now().Add(whoisTimeout)
+	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
+		deadline = d
+	}
+	_ = conn.SetDeadline(deadline)
 	if _, err := io.WriteString(conn, query+"\r\n"); err != nil {
 		return "", err
 	}
