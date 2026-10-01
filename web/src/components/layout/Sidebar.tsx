@@ -219,33 +219,16 @@ function ProfileMenu() {
             </button>
           </div>
           <div className="profile-menu-section">
-            <div className="profile-menu-row">
+            {/* 和语言一样：点一次换一个，当前值写在右边 */}
+            <button
+              className="profile-menu-item"
+              role="menuitem"
+              onClick={() => setThemeMode(nextThemeMode[themeMode])}
+            >
               <Moon size={15} />
               <span>{t("Night mode")}</span>
-            </div>
-            <div
-              className="profile-segmented"
-              role="radiogroup"
-              aria-label={t("Night mode")}
-            >
-              {(
-                [
-                  ["dark", "On"],
-                  ["light", "Off"],
-                  ["system", "Auto"],
-                ] as const
-              ).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  role="radio"
-                  aria-checked={themeMode === mode}
-                  className={themeMode === mode ? "active" : ""}
-                  onClick={() => setThemeMode(mode)}
-                >
-                  {t(label)}
-                </button>
-              ))}
-            </div>
+              <small>{t(themeModeLabels[themeMode])}</small>
+            </button>
             <div className="profile-menu-row">
               <Palette size={15} />
               <span>{t("Theme color")}</span>
@@ -315,3 +298,12 @@ function ProfileMenu() {
     </div>
   );
 }
+
+/** 夜间模式点一次换一个：关 → 开 → 自动 → 关。 */
+const nextThemeMode = {
+  light: "dark",
+  dark: "system",
+  system: "light",
+} as const;
+
+const themeModeLabels = { dark: "On", light: "Off", system: "Auto" } as const;

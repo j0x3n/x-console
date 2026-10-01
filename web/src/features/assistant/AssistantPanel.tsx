@@ -256,7 +256,16 @@ function Panel() {
   );
   const onPointerDown = (e: PointerEvent<HTMLElement>) => {
     if (expanded || window.innerWidth <= 640) return;
-    if ((e.target as HTMLElement).closest("button")) return;
+    // 按钮、历史菜单和它的遮罩上不开始拖动
+    if (
+      e.button !== 0 ||
+      (e.target as HTMLElement).closest(
+        "button, input, select, .ai-history-wrap",
+      )
+    )
+      return;
+    // 不让浏览器开始选中文字或拖拽，否则收不到松开事件，浮窗会一直跟着鼠标
+    e.preventDefault();
     drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -264,6 +273,11 @@ function Panel() {
     (e: PointerEvent<HTMLElement>) => {
       const d = drag.current;
       if (!d) return;
+      // 松开事件丢了（比如在窗口外松开）时，按键已经不在按着
+      if (e.buttons === 0) {
+        drag.current = null;
+        return;
+      }
       setOffset(
         clampOffset(
           { x: d.ox - (e.clientX - d.x), y: d.oy - (e.clientY - d.y) },
@@ -274,8 +288,11 @@ function Panel() {
     },
     [setOffset],
   );
-  const onPointerUp = () => {
+  const onPointerUp = (e: PointerEvent<HTMLElement>) => {
     drag.current = null;
+    const el = e.currentTarget as HTMLElement;
+    if (el.hasPointerCapture?.(e.pointerId))
+      el.releasePointerCapture(e.pointerId);
   };
 
   const title = detail.data
@@ -297,6 +314,8 @@ function Panel() {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onLostPointerCapture={() => (drag.current = null)}
       >
         <Bot size={16} className="ai-head-icon" />
         <div className="ai-history-wrap">
