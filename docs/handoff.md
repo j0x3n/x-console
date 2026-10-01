@@ -31,7 +31,7 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 
 **部署**：`92acccf` 那次已经成功。运行记录 https://github.com/j0x3n/x-console/actions/runs/36851153881 。前端、后端、镜像、两个代理、部署都过了。请用户在 iPhone 上测 B45（`?safari=A` 到 `F`、`all`、`off`）。
 
-**部署提速三件事都做了。** 用户 2026-10-01 让再部署一次看用时。对比上次 `92acccf`：整次大约 11 分钟，其中带 `-race` 的后端测试大约 9 分钟。
+**部署提速三件事都做了，并且已经再部署过一次。** 运行记录 https://github.com/j0x3n/x-console/actions/runs/36856004369 。整次 4 分 31 秒（上次 `92acccf` 是 10 分 22 秒）。最慢的后端测试组 3 分 19 秒，另外两组 2 分 55 秒和 2 分 9 秒。检查任务 1 分钟。现在整次在等前端测试（3 分 55 秒），不再等后端。
 
 1. `ci.yml` 的 `workflow_call` 加了输入 `race`（布尔，默认 true）。PR 和手动运行不传这个值，测试仍然带 `-race`。`deploy.yml` 的 `test` 任务传 `race: false`。
 2. 后端拆成两个任务。`backend-check` 只跑一次：生成代码、gofmt、vet、shellcheck、本机代理脚本、Windows 编译。`backend-test` 三组同时跑。第一组是 drive、hosts、ai、github、monitoring、homeassistant、reminders。第二组是 app、backup、coding、notes、projects、store。第三组用 `go list` 取剩下的包，新包不会漏。分组按这次带 `-race` 的包用时摊开。
