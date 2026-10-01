@@ -191,10 +191,11 @@ func (m *Module) actionListMonitors(ctx context.Context, raw json.RawMessage) (a
 		return nil, err
 	}
 	now := m.now()
+	times := m.iconTimes(ctx)
 	out := make([]api.Monitor, 0, len(rows))
 	for _, x := range rows {
 		if in.Kind == "" || x.Kind == in.Kind {
-			out = append(out, toAPIMonitor(x, now))
+			out = append(out, toAPIMonitor(x, now, lookupIconAt(times, x.ID)))
 		}
 	}
 	return out, nil

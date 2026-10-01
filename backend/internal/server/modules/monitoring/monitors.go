@@ -62,16 +62,44 @@ func toAPIDetail(raw string) api.MonitorResultDetail {
 	return out
 }
 
-func toAPIMonitor(x db.Monitor, now time.Time) api.Monitor {
+func toAPIMonitor(x db.Monitor, now time.Time, iconAt *time.Time) api.Monitor {
 	out := api.Monitor{Id: x.ID, Kind: api.MonitorKind(x.Kind), Name: x.Name, Target: x.Target,
 		IntervalSeconds: int(x.IntervalSeconds), ExpectedStatus: int(x.ExpectedStatus), Keyword: x.Keyword,
 		TimeoutMs: int(x.TimeoutMs), Enabled: x.Enabled == 1, LastStatus: api.MonitorStatus(x.LastStatus),
 		LastCheckedAt: x.LastCheckedAt, LastError: x.LastError, ConsecutiveFailures: int(x.ConsecutiveFailures),
-		ExpiresAt: x.ExpiresAt, CreatedAt: x.CreatedAt}
+		ExpiresAt: x.ExpiresAt, CreatedAt: x.CreatedAt, IconAt: iconAt}
 	if x.ExpiresAt != nil {
 		out.DaysLeft = ptr(daysLeft(*x.ExpiresAt, now))
 	}
 	return out
+}
+
+func (m *Module) iconAtOf(ctx context.Context, id int64) *time.Time {
+	at, err := m.q.GetMonitorIconTime(ctx, id)
+	if err != nil {
+		return nil
+	}
+	return &at
+}
+
+func (m *Module) iconTimes(ctx context.Context) map[int64]time.Time {
+	rows, err := m.q.ListMonitorIconTimes(ctx)
+	if err != nil {
+		return map[int64]time.Time{}
+	}
+	out := make(map[int64]time.Time, len(rows))
+	for _, row := range rows {
+		out[row.MonitorID] = row.FetchedAt
+	}
+	return out
+}
+
+func lookupIconAt(times map[int64]time.Time, id int64) *time.Time {
+	at, ok := times[id]
+	if !ok {
+		return nil
+	}
+	return &at
 }
 
 func toAPIResult(r db.MonitorResult) api.MonitorResult {
@@ -98,6 +126,9 @@ func normalizeTarget(kind, target string) (string, error) {
 	}
 	switch kind {
 	case kindHTTP:
+		if !strings.Contains(target, "://") {
+			target = "https://" + target
+		}
 		u, err := url.Parse(target)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			return "", httpx.Invalid("网址要以 http:// 或 https:// 开头")
@@ -205,12 +236,13 @@ func (m *Module) ListMonitors(w http.ResponseWriter, r *http.Request, params api
 		return
 	}
 	now := m.now()
+	times := m.iconTimes(r.Context())
 	out := make([]api.Monitor, 0, len(rows))
 	for _, x := range rows {
 		if params.Kind != nil && x.Kind != string(*params.Kind) {
 			continue
 		}
-		out = append(out, toAPIMonitor(x, now))
+		out = append(out, toAPIMonitor(x, now, lookupIconAt(times, x.ID)))
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }
@@ -251,7 +283,10 @@ func (m *Module) CreateMonitor(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out := toAPIMonitor(x, m.now())
+	if x.Kind == kindHTTP {
+		m.scheduleIcon(x.ID, x.Target)
+	}
+	out := toAPIMonitor(x, m.now(), nil)
 	m.d.Bus.Publish("monitor.created", out)
 	httpx.JSON(w, http.StatusCreated, out)
 }
@@ -263,7 +298,7 @@ func (m *Module) GetMonitor(w http.ResponseWriter, r *http.Request, id int64) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, toAPIMonitor(x, m.now()))
+	httpx.JSON(w, http.StatusOK, toAPIMonitor(x, m.now(), m.iconAtOf(r.Context(), x.ID)))
 }
 
 // UpdateMonitor is PATCH /monitors/{monitorId}.
@@ -321,7 +356,7 @@ func (m *Module) UpdateMonitor(w http.ResponseWriter, r *http.Request, id int64)
 		httpx.Fail(w, r, err)
 		return
 	}
-	out := toAPIMonitor(x, m.now())
+	out := toAPIMonitor(x, m.now(), m.iconAtOf(ctx, x.ID))
 	m.d.Bus.Publish("monitor.updated", out)
 	httpx.JSON(w, http.StatusOK, out)
 }

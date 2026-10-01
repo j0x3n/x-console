@@ -53,6 +53,9 @@ type Module struct {
 	// never process the same monitor at once.
 	busyMu sync.Mutex
 	busy   map[int64]*sync.Mutex
+
+	iconMu   sync.Mutex
+	iconBusy map[int64]struct{}
 }
 
 var (
@@ -63,7 +66,7 @@ var (
 
 // New builds the module and registers its actions.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, busy: map[int64]*sync.Mutex{}}
+	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, busy: map[int64]*sync.Mutex{}, iconBusy: map[int64]struct{}{}}
 	module.Provide(d.Registry, selfKey, m)
 	module.Provide[contracts.Renewals](d.Registry, contracts.RenewalsKey, m)
 	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"monitoring", reminderSource{m})

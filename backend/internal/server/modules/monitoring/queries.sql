@@ -93,6 +93,23 @@ SELECT * FROM monitor_results WHERE monitor_id = ? AND at >= ? ORDER BY at, id;
 -- name: DeleteMonitorResultsBefore :execrows
 DELETE FROM monitor_results WHERE at < ?;
 
+-- name: ListMonitorIconTimes :many
+SELECT monitor_id, fetched_at FROM monitor_icons;
+
+-- name: GetMonitorIconTime :one
+SELECT fetched_at FROM monitor_icons WHERE monitor_id = ?;
+
+-- name: GetMonitorIcon :one
+SELECT mime, data, fetched_at FROM monitor_icons WHERE monitor_id = ?;
+
+-- name: UpsertMonitorIcon :exec
+INSERT INTO monitor_icons (monitor_id, mime, data, fetched_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (monitor_id) DO UPDATE SET
+    mime = excluded.mime,
+    data = excluded.data,
+    fetched_at = excluded.fetched_at;
+
 -- ---- subscriptions ----
 
 -- name: CreateSubscription :one

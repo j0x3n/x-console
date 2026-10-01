@@ -667,6 +667,13 @@ type Monitor struct {
 	CreatedAt           time.Time
 }
 
+type MonitorIcon struct {
+	MonitorID int64
+	Mime      string
+	Data      []byte
+	FetchedAt time.Time
+}
+
 type MonitorResult struct {
 	ID         int64
 	MonitorID  int64

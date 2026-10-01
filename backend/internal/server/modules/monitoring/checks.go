@@ -138,7 +138,10 @@ func (m *Module) check(ctx context.Context, id int64, now time.Time) (db.Monitor
 	if err != nil {
 		return db.MonitorResult{}, err
 	}
-	out := toAPIMonitor(updated, now)
+	if x.Kind == kindHTTP && p.OK {
+		m.refreshIconIfStale(ctx, x.ID, x.Target, now)
+	}
+	out := toAPIMonitor(updated, now, m.iconAtOf(ctx, x.ID))
 	switch change {
 	case wentDown:
 		m.d.Bus.Publish("monitor.down", out)

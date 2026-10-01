@@ -394,6 +394,34 @@ func (q *Queries) GetMonitor(ctx context.Context, id int64) (Monitor, error) {
 	return i, err
 }
 
+const getMonitorIcon = `-- name: GetMonitorIcon :one
+SELECT mime, data, fetched_at FROM monitor_icons WHERE monitor_id = ?
+`
+
+type GetMonitorIconRow struct {
+	Mime      string
+	Data      []byte
+	FetchedAt time.Time
+}
+
+func (q *Queries) GetMonitorIcon(ctx context.Context, monitorID int64) (GetMonitorIconRow, error) {
+	row := q.db.QueryRowContext(ctx, getMonitorIcon, monitorID)
+	var i GetMonitorIconRow
+	err := row.Scan(&i.Mime, &i.Data, &i.FetchedAt)
+	return i, err
+}
+
+const getMonitorIconTime = `-- name: GetMonitorIconTime :one
+SELECT fetched_at FROM monitor_icons WHERE monitor_id = ?
+`
+
+func (q *Queries) GetMonitorIconTime(ctx context.Context, monitorID int64) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, getMonitorIconTime, monitorID)
+	var fetched_at time.Time
+	err := row.Scan(&fetched_at)
+	return fetched_at, err
+}
+
 const getScript = `-- name: GetScript :one
 SELECT id, name, description, shell, body, default_host_ids, timeout_seconds, created_at, updated_at FROM scripts WHERE id = ?
 `
@@ -606,6 +634,38 @@ func (q *Queries) ListEnabledMonitors(ctx context.Context) ([]Monitor, error) {
 			&i.ExpiryNotified,
 			&i.CreatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMonitorIconTimes = `-- name: ListMonitorIconTimes :many
+SELECT monitor_id, fetched_at FROM monitor_icons
+`
+
+type ListMonitorIconTimesRow struct {
+	MonitorID int64
+	FetchedAt time.Time
+}
+
+func (q *Queries) ListMonitorIconTimes(ctx context.Context) ([]ListMonitorIconTimesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMonitorIconTimes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMonitorIconTimesRow
+	for rows.Next() {
+		var i ListMonitorIconTimesRow
+		if err := rows.Scan(&i.MonitorID, &i.FetchedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1207,4 +1267,30 @@ func (q *Queries) UpdateSubscriptionCategory(ctx context.Context, arg UpdateSubs
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const upsertMonitorIcon = `-- name: UpsertMonitorIcon :exec
+INSERT INTO monitor_icons (monitor_id, mime, data, fetched_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (monitor_id) DO UPDATE SET
+    mime = excluded.mime,
+    data = excluded.data,
+    fetched_at = excluded.fetched_at
+`
+
+type UpsertMonitorIconParams struct {
+	MonitorID int64
+	Mime      string
+	Data      []byte
+	FetchedAt time.Time
+}
+
+func (q *Queries) UpsertMonitorIcon(ctx context.Context, arg UpsertMonitorIconParams) error {
+	_, err := q.db.ExecContext(ctx, upsertMonitorIcon,
+		arg.MonitorID,
+		arg.Mime,
+		arg.Data,
+		arg.FetchedAt,
+	)
+	return err
 }
