@@ -32,6 +32,9 @@ import {
 } from "./api";
 import DiffView from "./components/DiffView";
 import OutputView from "./components/OutputView";
+import BuildCard from "./components/BuildCard";
+import { useAiAgents } from "../aiagents/api";
+import AgentAvatar from "../aiagents/AgentAvatar";
 import StatusBadge from "./components/StatusBadge";
 import { actionsFor, formatDuration, isActive, taskTitle } from "./logic";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -296,7 +299,7 @@ function Actions({ task }: { task: Task }) {
       {!isActive(task.status) && (
         <Link
           className="xc-btn ghost"
-          to={`/coding?new=1${task.issueKey ? `&issue=${encodeURIComponent(task.issueKey)}` : ""}`}
+          to={`/coding/tasks?new=1${task.issueKey ? `&issue=${encodeURIComponent(task.issueKey)}` : ""}`}
         >
           <RotateCcw size={14} /> {t("New task")}
         </Link>
@@ -323,8 +326,24 @@ function Details({ task }: { task: Task }) {
     <dl className="coding-meta">
       <dt>{t("Repository")}</dt>
       <dd>{task.repoName}</dd>
+      {task.aiAgentId != null && (
+        <>
+          <dt>{t("AI agent")}</dt>
+          <dd>
+            <AgentLink id={task.aiAgentId} />
+          </dd>
+        </>
+      )}
       <dt>{t("Executor")}</dt>
-      <dd>{task.executor === "claude" ? "Claude Code" : "Codex"}</dd>
+      <dd>
+        {task.executor === "claude" ? "Claude Code" : "Codex"}
+        {task.model && (
+          <span className="xc-muted xc-mono"> · {task.model}</span>
+        )}
+        {task.permission === "full" && (
+          <span className="xc-badge warn"> {t("Full")}</span>
+        )}
+      </dd>
       <dt>{t("Branch")}</dt>
       <dd className="xc-mono">{task.branch}</dd>
       <dt>{t("Base branch")}</dt>
@@ -365,6 +384,17 @@ function Details({ task }: { task: Task }) {
         {task.timeoutMinutes} {t("min")}
       </dd>
     </dl>
+  );
+}
+
+function AgentLink({ id }: { id: number }) {
+  const agents = useAiAgents();
+  const a = agents.data?.find((x) => x.id === id);
+  return (
+    <Link to={`/coding/agents/${id}`} className="xc-row">
+      <AgentAvatar agent={a} size={18} />
+      {a?.name ?? `#${id}`}
+    </Link>
   );
 }
 
@@ -431,6 +461,7 @@ export default function TaskPage() {
           <section className="xc-card">
             <Actions task={data} />
           </section>
+          <BuildCard task={data} />
           <section className="xc-card">
             <Details task={data} />
           </section>

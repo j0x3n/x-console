@@ -45,7 +45,7 @@ import { greetingKey, summaryLine } from "./today";
 
 const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   todos: { body: () => <TodosCard />, more: "/projects" },
-  decisions: { body: () => <DecisionsCard />, more: "/coding" },
+  decisions: { body: () => <DecisionsCard />, more: "/coding/tasks" },
   schedule: { body: () => <ScheduleCard />, more: "/calendar" },
   habits: { body: () => <HabitsCard />, more: "/habits" },
   home: { body: () => <HomeCard />, more: "/home" },

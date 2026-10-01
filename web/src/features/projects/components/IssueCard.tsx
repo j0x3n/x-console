@@ -10,6 +10,7 @@ import {
   type Issue,
 } from "../logic";
 import { LabelChip, PriorityIcon } from "./Icons";
+import AgentMember from "../../aiagents/AgentMember";
 
 /** 截止时间：今天的写“今天 18:00”，过期的写“已过期 2 小时”。 */
 export function DueBadge({ issue }: { issue: Issue }) {
@@ -60,22 +61,24 @@ export function ChecklistBadge({ issue }: { issue: Issue }) {
   );
 }
 
-/** 卡片成员的头像：“我”显示“我”，Agent 显示 A。B47 做完后换成 Agent 的 emoji。 */
+/** 卡片成员的头像：“我”显示“我”，Agent 显示它的头像（B47）。 */
 export function Members({ issue }: { issue: Issue }) {
   const t = useT();
   const members = issue.members ?? [];
   if (!members.length) return null;
   return (
     <span className="projects-members">
-      {members.map((m) => (
-        <i
-          key={`${m.kind}:${m.id}`}
-          className={`projects-member ${m.kind}`}
-          title={m.kind === "me" ? t("Me") : `Agent ${m.id}`}
-        >
-          {m.kind === "me" ? t("Me") : "A"}
-        </i>
-      ))}
+      {members.map((m) =>
+        m.kind === "me" ? (
+          <i key="me" className="projects-member me" title={t("Me")}>
+            {t("Me")}
+          </i>
+        ) : (
+          <span key={`agent:${m.id}`} className="projects-member agent">
+            <AgentMember id={m.id} issueKey={issue.key} size={16} />
+          </span>
+        ),
+      )}
     </span>
   );
 }

@@ -6,6 +6,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
+import { withElevation } from "../../auth/elevation";
 import {
   invalidateOn,
   useEventTopic,
@@ -33,6 +34,8 @@ export type TaskDiff = S["TaskDiff"];
 export type CreateTask = S["CreateTask"];
 export type CodingSettings = S["CodingSettings"];
 export type UpdateCodingSettings = S["UpdateCodingSettings"];
+export type BuildConfig = S["BuildConfig"];
+export type BuildStep = S["BuildStep"];
 export type { Task, TaskEvent, TaskStatus };
 
 export const codingKeys = {
@@ -313,8 +316,8 @@ export function useDiscardTask() {
 export function useCreateRepo() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { agentId: string; path: string }) =>
-      unwrap(codingApi.POST("/coding/repos", { body })),
+    mutationFn: (body: S["CreateRepo"]) =>
+      withElevation(() => unwrap(codingApi.POST("/coding/repos", { body }))),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: codingKeys.repos });
       qc.invalidateQueries({ queryKey: ["coding", "discover"] });
@@ -344,5 +347,36 @@ export function useUpdateCodingSettings() {
     mutationFn: (body: UpdateCodingSettings) =>
       unwrap(codingApi.PUT("/coding/settings", { body })),
     onSuccess: (data) => qc.setQueryData(codingKeys.settings, data),
+  });
+}
+
+/** B47：仓库的构建步骤，要提升权限。 */
+export function useSetBuildConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, config }: { id: number; config: BuildConfig }) =>
+      withElevation(() =>
+        unwrap(
+          codingApi.PUT("/coding/repos/{repoId}/build-config", {
+            params: { path: { repoId: id } },
+            body: config,
+          }),
+        ),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: codingKeys.repos }),
+  });
+}
+
+/** B47：在任务的工作目录里构建一次。 */
+export function useBuildTask() {
+  const update = useTaskUpdate();
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        codingApi.POST("/coding/tasks/{taskId}/build", {
+          params: { path: { taskId: id } },
+        }),
+      ),
+    onSuccess: update,
   });
 }

@@ -44,6 +44,7 @@ registerZh({
   Servers: "服务器",
   Computer: "电脑",
   "Coding tasks": "Agent 任务",
+  Agents: "Agent",
   "Not found": "页面不存在",
   "Live updates disconnected. Reconnecting.": "实时连接断开了，正在重连",
   Monitoring: "监控",

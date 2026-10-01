@@ -555,3 +555,115 @@
 .coding-page a.xc-btn {
   text-decoration: none;
 }
+
+/* B47：从 Git 连接添加仓库、构建步骤、构建结果 */
+.coding-remote-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.coding-remote-bar .xc-select {
+  width: auto;
+  min-width: 140px;
+}
+.coding-remote-list {
+  max-height: 360px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.coding-remote-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.coding-remote-list li:first-child {
+  border-top: 0;
+}
+.coding-remote-list li > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.coding-remote-list strong {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coding-remote-list small {
+  overflow: hidden;
+  font-size: var(--fs-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coding-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+  padding-left: 20px;
+}
+.coding-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.coding-step-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.coding-step-row > .xc-input {
+  flex: 1;
+  min-width: 0;
+}
+.coding-step-row > .coding-step-timeout {
+  flex: 0 0 76px;
+}
+.coding-build {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.coding-build .xc-card-head {
+  align-self: stretch;
+}
+.coding-build-error {
+  margin: 0;
+  color: var(--xc-danger);
+  font-size: var(--fs-12-5);
+}
+.coding-artifacts {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.coding-artifacts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.coding-artifacts a {
+  min-width: 0;
+}
+.coding-artifacts a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coding-artifacts small {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}

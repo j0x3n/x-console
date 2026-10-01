@@ -374,6 +374,32 @@ try {
   await page.getByLabel("清单标题").press("Enter");
   await until("清单已建", async () => (await api(`/issues/${boardCardKey}/checklists`)).length === 1);
 
+  stage = "B47 新建 Agent，把卡片分配给内置 Agent";
+  await page.goto(`${base}/coding`);
+  await page.getByRole("button", { name: "新建 Agent" }).first().click();
+  await dialog("新建 Agent").getByLabel("名称").fill("端到端 Agent");
+  await dialog("新建 Agent").getByRole("button", { name: "创建 Agent" }).click();
+  await page.locator(".aiagent-card").filter({ hasText: "端到端 Agent" }).waitFor();
+  const e2eAgents = await api("/ai-agents");
+  assert.equal(e2eAgents.find((a) => a.name === "端到端 Agent")?.kind, "claude_code");
+  // 内置 Agent 要选模型，端到端环境没有 AI 供应商，直接用接口建。
+  const builtinResponse = await page.request.post(`${base}/api/v1/ai-agents`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端整理员", kind: "builtin", model: "1:none" },
+  });
+  assert.equal(builtinResponse.status(), 201, await builtinResponse.text());
+  await page.goto(`${base}/projects/EET/${boardCardKey.split("-")[1]}`);
+  await page.getByRole("button", { name: "分配给 Agent" }).click();
+  await dialog("分配给 Agent").getByRole("radio", { name: /端到端整理员/ }).check();
+  await dialog("分配给 Agent").getByRole("button", { name: "分配", exact: true }).click();
+  // 没有 AI 供应商：Agent 先说开始，再说没做完。
+  await until("Agent 的评论", async () => {
+    const list = await api(`/issues/${boardCardKey}/comments`);
+    return list.some((c) => c.author?.startsWith("agent:") && c.body.includes("开始处理")) &&
+      list.some((c) => c.author?.startsWith("agent:") && c.body.includes("没做完"));
+  });
+  assert.ok((await api(`/issues/${boardCardKey}`)).members.some((m) => m.kind === "agent"));
+
   stage = "写笔记";
   const noteResponses = [];
   page.on("request", (request) => {
@@ -877,6 +903,8 @@ try {
     "/projects/EET",
     `/projects/EET/${issueKey.split("-")[1]}`,
     "/coding",
+    "/coding/tasks",
+    "/coding/connections",
     "/coding/repos",
     "/coding/999999",
     "/notes",

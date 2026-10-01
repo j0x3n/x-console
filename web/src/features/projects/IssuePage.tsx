@@ -45,6 +45,8 @@ import Checklists from "./components/Checklists";
 import DueFields from "./components/DueFields";
 import Markdown from "./Markdown";
 import StartFocusButton from "../calendar/StartFocusButton";
+import AssignDialog from "../aiagents/AssignDialog";
+import AgentMember from "../aiagents/AgentMember";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -324,6 +326,7 @@ function Properties({
   const move = useMoveCard();
   const cards = useCardActions();
   const remove = useDeleteIssue();
+  const [assigning, setAssigning] = useState(false);
   const labelIds = issue.labels.map((l) => l.id);
   return (
     <div className="projects-props">
@@ -397,6 +400,24 @@ function Properties({
             <i className="projects-member me">{t("Me")}</i>
             {t("Me")}
           </button>
+          {(issue.members ?? [])
+            .filter((m) => m.kind === "agent")
+            .map((m) => (
+              <button
+                key={m.id}
+                className="on"
+                aria-pressed
+                title={t("Remove from the card")}
+                onClick={() =>
+                  cards.members.mutate({
+                    key: issue.key,
+                    members: toggleMember(issue, "agent", m.id),
+                  })
+                }
+              >
+                <AgentMember id={m.id} issueKey={issue.key} withName />
+              </button>
+            ))}
         </div>
       </div>
       <div className="projects-prop">
@@ -481,13 +502,22 @@ function Properties({
         )}
       </dl>
       <div className="projects-coding">
+        <button className="xc-btn" onClick={() => setAssigning(true)}>
+          <Bot size={14} /> {t("Assign to an agent")}
+        </button>
         <Link
-          className="xc-btn"
-          to={`/coding?new=1&issue=${encodeURIComponent(issue.key)}`}
+          className="xc-btn ghost small"
+          to={`/coding/tasks?new=1&issue=${encodeURIComponent(issue.key)}`}
         >
-          <Bot size={14} /> {t("Hand to coding assistant")}
+          {t("New coding task by hand")}
         </Link>
       </div>
+      {assigning && (
+        <AssignDialog
+          issueKey={issue.key}
+          onClose={() => setAssigning(false)}
+        />
+      )}
       <StartFocusButton issueKey={issue.key} />
       <div className="projects-card-actions">
         <button
@@ -685,6 +715,9 @@ function Comments({ issueKey }: { issueKey: string }) {
         {comments.data?.map((c) => (
           <li key={c.id}>
             <div className="projects-comment-head">
+              {c.author?.startsWith("agent:") && (
+                <AgentMember id={c.author.slice(6)} withName />
+              )}
               <time dateTime={c.createdAt} title={c.createdAt}>
                 {relativeTime(c.createdAt, language)}
               </time>

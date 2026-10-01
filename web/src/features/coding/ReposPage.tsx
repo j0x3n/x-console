@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { FolderGit2, FolderSearch, Plus, Trash2 } from "lucide-react";
+import { FolderGit2, FolderSearch, Hammer, Plus, Trash2 } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import { useAgents } from "../../api/core";
 import PageHeading from "../../components/ui/PageHeading";
+import { Toolbar } from "../../components/ui/Toolbar";
+import AgentTabs from "../aiagents/AgentTabs";
+import RemoteRepoAdd from "./components/RemoteRepoAdd";
+import BuildConfigDialog from "./components/BuildConfigDialog";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
@@ -14,13 +18,18 @@ import {
   useDiscover,
   useRepos,
   useUpdateCodingSettings,
+  type Repo,
 } from "./api";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
+
+const buildCount = (r: Repo) =>
+  (r.buildConfig?.linux.length ?? 0) + (r.buildConfig?.windows.length ?? 0);
 
 function RepoList() {
   const t = useT();
   const repos = useRepos();
   const remove = useDeleteRepo();
+  const [building, setBuilding] = useState<Repo | null>(null);
   if (repos.isPending) return <Loading />;
   if (repos.isError)
     return <ErrorState error={repos.error} onRetry={() => repos.refetch()} />;
@@ -54,7 +63,9 @@ function RepoList() {
           {repos.data.map((r) => (
             <tr key={r.id}>
               <td>
-                <strong className="coding-repo-name">{r.name}</strong>
+                <strong className="coding-repo-name">
+                  {r.remoteRepo ?? r.name}
+                </strong>
                 <div className="xc-mono xc-muted coding-path">{r.path}</div>
               </td>
               <td>
@@ -66,6 +77,17 @@ function RepoList() {
               <td className="xc-mono">{r.defaultBranch || "-"}</td>
               <td>{r.githubRepo || <span className="xc-muted">-</span>}</td>
               <td className="coding-cell-actions">
+                <button
+                  className="xc-btn ghost small"
+                  title={t("Build steps")}
+                  aria-label={`${t("Build steps")} ${r.name}`}
+                  onClick={() => setBuilding(r)}
+                >
+                  <Hammer size={14} />
+                  {buildCount(r) > 0 && (
+                    <span className="coding-count">{buildCount(r)}</span>
+                  )}
+                </button>
                 <button
                   className="xc-btn ghost small"
                   aria-label={`${t("Remove")} ${r.name}`}
@@ -95,6 +117,9 @@ function RepoList() {
           ))}
         </tbody>
       </table>
+      {building && (
+        <BuildConfigDialog repo={building} onClose={() => setBuilding(null)} />
+      )}
     </div>
   );
 }
@@ -323,6 +348,7 @@ export default function ReposPage() {
   return (
     <div className="xc-page coding-page">
       <PageHeading title={t("Repositories")} />
+      <Toolbar start={<AgentTabs />} />
       <div className="xc-stack">
         <section className="xc-card">
           <div className="xc-card-head">
@@ -332,7 +358,13 @@ export default function ReposPage() {
         </section>
         <section className="xc-card">
           <div className="xc-card-head">
-            <h2>{t("Find repositories")}</h2>
+            <h2>{t("Add from a Git connection")}</h2>
+          </div>
+          <RemoteRepoAdd />
+        </section>
+        <section className="xc-card">
+          <div className="xc-card-head">
+            <h2>{t("Find repositories on a machine")}</h2>
           </div>
           <Discover />
         </section>

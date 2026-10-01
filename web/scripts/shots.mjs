@@ -114,9 +114,31 @@ const ids = await page.evaluate(async () => {
     await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
     await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
   }
+  // B47 的示例 Agent，没有时才造。
+  if (((await get("/ai-agents")) ?? []).length === 0) {
+    await post("/ai-agents", {
+      name: "后端开发",
+      kind: "claude_code",
+      avatar: "🛠️",
+      color: "#2f7fd1",
+      instructions: "你是后端开发，只改 backend 目录，做完前跑 go test。",
+      monthlyBudgetUsd: 20,
+    });
+    await post("/ai-agents", { name: "前端", kind: "codex", avatar: "🚀", color: "#8a5cc7", model: "gpt-5-codex" });
+    await post("/ai-agents", {
+      name: "整理员",
+      kind: "builtin",
+      avatar: "🧹",
+      color: "#3a9a5b",
+      model: "1:gpt-5-mini",
+      instructions: "把卡片拆成清单，不改代码。",
+    });
+  }
+  const agents = (await get("/ai-agents")) ?? [];
   const notes = (await get("/notes"))?.items ?? [];
   const hosts = (await get("/hosts")) ?? [];
   return {
+    agent: agents[0]?.id,
     project: projects[0]?.key,
     note: notes[0]?.id,
     host: hosts.find((x) => x.kind === "server")?.id,
@@ -128,7 +150,10 @@ const routes = [
   ["projects", "/projects"],
   ids.project && ["project", `/projects/${ids.project}`],
   ids.project && ["issue", `/projects/${ids.project}/1`],
-  ["coding", "/coding"],
+  ["agents", "/coding"],
+  ["coding", "/coding/tasks"],
+  ids.agent && ["agent", `/coding/agents/${ids.agent}`],
+  ["coding-connections", "/coding/connections"],
   ["notes", "/notes"],
   ids.note && ["note", `/notes/${ids.note}`],
   ["reminders", "/reminders"],

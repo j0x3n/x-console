@@ -106,7 +106,7 @@ export default function TodayStats() {
       </StatCard>
       <StatCard
         label={t("Coding tasks")}
-        to="/coding"
+        to="/coding/tasks"
         value={tasks.data ? running : DASH}
         unit={tasks.data ? t("running") : undefined}
         caption={review ? `${review} ${t("to review")}` : undefined}

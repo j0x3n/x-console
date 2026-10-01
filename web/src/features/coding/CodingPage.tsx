@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Bot, FolderGit2, GitBranch, Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
+import { Toolbar } from "../../components/ui/Toolbar";
+import AgentTabs from "../aiagents/AgentTabs";
 import {
   MiniBars,
   Segments,
@@ -34,7 +36,7 @@ function readFilter(): Filter {
   }
 }
 
-function TaskRow({ task }: { task: Task }) {
+export function TaskRow({ task }: { task: Task }) {
   const t = useT();
   const language = useLanguage();
   const when =
@@ -125,19 +127,15 @@ export default function CodingPage() {
           "Claude Code and Codex work on your repositories in separate worktrees.",
         )}
         aside={
-          <>
-            <Link className="xc-btn" to="/coding/repos">
-              <FolderGit2 size={14} /> {t("Repositories")}
-            </Link>
-            <button
-              className="xc-btn primary"
-              onClick={() => setParams({ new: "1" })}
-            >
-              <Plus size={14} /> {t("New task")}
-            </button>
-          </>
+          <button
+            className="xc-btn primary"
+            onClick={() => setParams({ new: "1" })}
+          >
+            <Plus size={14} /> {t("New task")}
+          </button>
         }
       />
+      <Toolbar start={<AgentTabs />} />
       {!!tasks.data?.length && <CodingStats tasks={tasks.data} />}
       <div className="xc-tabs" role="tablist">
         {FILTERS.map((f) => (
