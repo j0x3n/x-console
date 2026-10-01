@@ -154,6 +154,8 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - `auth {username, token}` 只在这一次调用里有效。代理通过 `GIT_CONFIG_COUNT`、`GIT_CONFIG_KEY_0=http.extraHeader` 把令牌交给 git，不放在命令行，不写进 `.git/config`，错误信息里出现令牌时换成 `***`。
 - `coding.run` 新字段：`model`（传给执行器的 `--model`）、`permission`（`workspace` 或 `full`；`full` 时 Claude Code 用 `--permission-mode bypassPermissions`，Codex 用 `--sandbox danger-full-access`；配置里自己写了 `args` 的不受影响）、`preferRemote`（先用 `origin/<baseBranch>`，用于每次任务前 fetch 过的仓库）。
 - `coding.push` 新字段 `auth`，同上。推送仍然只允许 `xc/` 开头的分支，refspec 不带 `+`，不会强推。
+- `coding.build`（流，和 `coding.run` 一样的事件格式）：在任务的工作目录里按顺序跑构建步骤 `{name, command, timeoutSeconds, artifacts}`，一步失败就停。命令用系统的 shell（Linux `/bin/sh -c`，Windows `cmd.exe /C`），环境变量加 `CI=1` 和 `X_CONSOLE_TASK_ID`。状态事件 `build_step`、`build_step_done`，文本事件带 `{stream, index}`。最后的 done 事件是 `CodingBuildDone {reason, failedStep, artifacts}`，`reason` 是 `passed`、`failed`、`timeout`、`canceled`、`error`。产物按通配符在工作目录里找（`dir/**` 表示目录下全部文件），不出工作目录，最多 50 个，单个最大 2 GB；服务端再用 `files.read` 取回。
+- `coding.run` 新字段 `continue` 和 `baseCommit`：在已有的工作目录里再跑一次执行器（构建失败后让 Agent 修）。
 - 服务端只在代理上报了 `coding.remote` 能力时才发这些字段和方法。
 
 ## 新增方法的步骤

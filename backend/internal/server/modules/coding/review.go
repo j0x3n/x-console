@@ -175,6 +175,9 @@ func (m *Module) commit(ctx context.Context, id int64, msg string) (err error) {
 	if !oneOf(row.Status, statusReview, statusFailed) {
 		return conflict("只有等你决定或失败的任务可以提交")
 	}
+	if m.building(id) {
+		return conflict("正在构建，等构建结束再提交")
+	}
 	if strings.TrimSpace(msg) == "" {
 		msg = commitMessage(row.ID, stripIssueHeader(row.Prompt, row.IssueKey), row.IssueKey)
 	}
@@ -355,6 +358,9 @@ func (m *Module) discard(ctx context.Context, id int64) (err error) {
 	}()
 	if !oneOf(row.Status, statusReview, statusFailed, statusCanceled, statusCommitted) {
 		return conflict("这个任务现在不能丢弃")
+	}
+	if m.building(id) {
+		return conflict("正在构建，等构建结束再丢弃")
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()

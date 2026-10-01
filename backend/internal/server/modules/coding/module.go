@@ -40,7 +40,9 @@ type Module struct {
 	mu   sync.Mutex
 	ctx  context.Context // from Start; running tasks live as long as it
 	runs map[int64]*taskRun
-	wg   sync.WaitGroup
+	// builds are the open coding.build streams (B47).
+	builds map[int64]*taskRun
+	wg     sync.WaitGroup
 
 	dispatchMu sync.Mutex
 }
@@ -56,7 +58,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
 		d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() },
 		flushEvery: 200 * time.Millisecond, cancelWait: 30 * time.Second, overtime: 2 * time.Minute, timeoutUnit: time.Minute,
-		runs: map[int64]*taskRun{},
+		runs: map[int64]*taskRun{}, builds: map[int64]*taskRun{},
 	}
 	module.Provide[contracts.Coding](d.Registry, contracts.CodingKey, m)
 	m.registerActions()
@@ -115,7 +117,7 @@ func (m *Module) failStale(ctx context.Context) error {
 	if len(ids) > 0 {
 		slog.Info("coding: marked interrupted tasks as failed", "count", len(ids))
 	}
-	return nil
+	return m.q.FailRunningBuilds(ctx, db.FailRunningBuildsParams{Error: "服务重启了，构建被中断。", Now: m.now()})
 }
 
 // runCtx is the context running tasks use; nil before Start.

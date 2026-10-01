@@ -87,6 +87,7 @@ func (s *Service) Register(c *conn.Client) {
 		return s.Repos(ctx, p)
 	})
 	c.HandleStream(protocol.MethodCodingRun, s.serveRun)
+	c.HandleStream(protocol.MethodCodingBuild, s.serveBuild)
 	c.Handle(protocol.MethodCodingEnsureRepo, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var p protocol.CodingEnsureRepoParams
 		if err := rpcutil.Decode(raw, &p); err != nil {

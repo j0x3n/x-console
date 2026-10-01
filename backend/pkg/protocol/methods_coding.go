@@ -88,6 +88,10 @@ type CodingRunParams struct {
 	Model        string `json:"model,omitempty"`
 	Permission   string `json:"permission,omitempty"`
 	PreferRemote bool   `json:"preferRemote,omitempty"`
+	// Continue runs the executor again in the existing worktree of the task
+	// (to fix a failed build); BaseCommit must be the commit it started from.
+	Continue   bool   `json:"continue,omitempty"`
+	BaseCommit string `json:"baseCommit,omitempty"`
 }
 
 // Event kinds of a coding.run stream.

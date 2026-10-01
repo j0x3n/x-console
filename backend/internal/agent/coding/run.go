@@ -64,7 +64,13 @@ func (s *Service) Run(ctx context.Context, p protocol.CodingRunParams, emit func
 		fail(fmt.Errorf("%s is not installed or not on PATH: %v", p.Executor, err))
 		return
 	}
-	base, err := createWorktree(ctx, repo, wt, p.Branch, p.BaseBranch, p.PreferRemote)
+	var base string
+	if p.Continue {
+		// B47: run again in the kept worktree, to fix a failed build.
+		base, err = continueWorktree(ctx, wt, p.Branch, p.BaseCommit)
+	} else {
+		base, err = createWorktree(ctx, repo, wt, p.Branch, p.BaseBranch, p.PreferRemote)
+	}
 	if err != nil {
 		fail(err)
 		return
@@ -269,6 +275,25 @@ func createWorktree(ctx context.Context, repo, wt, branch, baseBranch string, pr
 		return "", err
 	}
 	return base, nil
+}
+
+// continueWorktree checks the kept worktree of a task and returns its base
+// commit.
+func continueWorktree(ctx context.Context, wt, branch, baseCommit string) (string, error) {
+	if st, err := os.Stat(wt); err != nil || !st.IsDir() {
+		return "", fmt.Errorf("worktree %s is gone", wt)
+	}
+	if cur, err := git(ctx, wt, "rev-parse", "--abbrev-ref", "HEAD"); err != nil || cur != branch {
+		return "", fmt.Errorf("worktree %s is not on %s", wt, branch)
+	}
+	if baseCommit == "" {
+		return "", errors.New("baseCommit is required to continue")
+	}
+	sha, err := git(ctx, wt, "rev-parse", "--verify", "--quiet", baseCommit+"^{commit}")
+	if err != nil {
+		return "", fmt.Errorf("base commit %s not found", baseCommit)
+	}
+	return sha, nil
 }
 
 // changedFiles lists changes. In a worktree it stages everything first and

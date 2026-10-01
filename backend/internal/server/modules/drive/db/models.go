@@ -298,6 +298,7 @@ type CodingTask struct {
 	BuildStatus    string
 	BuildAttempts  int64
 	Artifacts      string
+	BuildError     string
 }
 
 type CodingTaskEvent struct {

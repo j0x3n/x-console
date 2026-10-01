@@ -351,6 +351,11 @@ func (m *Module) finish(ctx context.Context, id int64, status string, exit *int6
 		return
 	}
 	m.d.Bus.Publish("coding_task.updated", t)
+	if status == statusReview {
+		if rctx := m.runCtx(); rctx != nil {
+			go m.afterReview(rctx, id) // B47 automatic build
+		}
+	}
 	switch status {
 	case statusReview:
 		body := t.Title

@@ -77,6 +77,26 @@ paths:
               schema: { $ref: "#/components/schemas/DiscoverResult" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /coding/repos/{repoId}/build-config:
+    parameters:
+      - $ref: "#/components/parameters/RepoId"
+    put:
+      operationId: setRepoBuildConfig
+      tags: [coding]
+      description: B47 设置构建步骤，要提升权限（这些命令会在机器上执行）。传空数组表示不构建。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BuildConfig" }
+      responses:
+        "200":
+          description: 仓库
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Repo" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /coding/repos/{repoId}:
     parameters:
       - $ref: "#/components/parameters/RepoId"
@@ -261,6 +281,37 @@ paths:
               schema: { $ref: "#/components/schemas/Task" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/build:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      operationId: buildTask
+      tags: [coding]
+      description: B47 在任务的工作目录里按仓库的构建步骤构建一次。只有待审查的任务能构建。
+      responses:
+        "200":
+          description: 任务，buildStatus 是 running
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /coding/tasks/{taskId}/artifacts/{index}:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+      - { name: index, in: path, required: true, schema: { type: integer, minimum: 0 } }
+    get:
+      operationId: downloadTaskArtifact
+      tags: [coding]
+      description: B47 下载构建产物。
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /coding/tasks/{taskId}/discard:
     parameters:
       - $ref: "#/components/parameters/TaskId"
@@ -345,6 +396,40 @@ components:
         createdAt: { type: string, format: date-time }
         connectionId: { type: integer, format: int64, description: B47 按 Git 连接登记时有 }
         remoteRepo: { type: string, description: B47 按 Git 连接登记时的 owner/name }
+        buildConfig: { $ref: "#/components/schemas/BuildConfig" }
+    BuildStep:
+      type: object
+      required: [name, command]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        command: { type: string, minLength: 1, maxLength: 4000 }
+        timeoutSeconds: { type: integer, minimum: 0, maximum: 21600, description: 0 或不传表示 30 分钟 }
+        artifacts:
+          type: array
+          maxItems: 20
+          description: 产物，相对工作目录的通配符，dir/** 表示目录下全部文件
+          items: { type: string }
+    BuildConfig:
+      type: object
+      required: [linux, windows]
+      additionalProperties: false
+      description: 按机器的系统选一套
+      properties:
+        linux:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/BuildStep" }
+        windows:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/BuildStep" }
+    Artifact:
+      type: object
+      required: [name, size]
+      properties:
+        name: { type: string }
+        size: { type: integer, format: int64 }
     CreateRepo:
       type: object
       required: [agentId]
@@ -420,6 +505,15 @@ components:
         aiAgentId: { type: integer, format: int64, description: B47 由哪个 Agent 执行 }
         model: { type: string, description: B47 传给执行器的模型，空表示执行器默认 }
         permission: { type: string, description: B47 workspace 或 full，空表示 workspace }
+        buildStatus:
+          type: string
+          enum: ["", running, passed, failed]
+          description: B47 最近一次构建，空表示没构建过
+        buildAttempts: { type: integer, description: B47 构建了几次 }
+        buildError: { type: string, description: B47 构建失败的原因 }
+        artifacts:
+          type: array
+          items: { $ref: "#/components/schemas/Artifact" }
     TaskList:
       type: object
       required: [items]

@@ -91,7 +91,7 @@ func (m *Module) toRepo(row db.CodingRepo, names map[string]string) api.Repo {
 		Id: row.ID, AgentId: row.AgentID, AgentName: names[row.AgentID], AgentOnline: m.d.Agents.Online(row.AgentID),
 		Path: row.Path, Name: row.Name, DefaultBranch: row.DefaultBranch, RemoteUrl: row.RemoteUrl,
 		GithubRepo: row.GithubRepo, CreatedAt: row.CreatedAt, ConnectionId: row.ConnectionID,
-		RemoteRepo: nonEmpty(remoteName(row)),
+		RemoteRepo: nonEmpty(remoteName(row)), BuildConfig: toAPIBuildConfig(row.BuildConfig),
 	}
 }
 
@@ -247,6 +247,7 @@ func (m *Module) deleteRepo(ctx context.Context, id int64) error {
 	if n == 0 {
 		return httpx.ErrNotFound
 	}
+	m.deleteArtifacts(ctx, taskIDs)
 	if files, ok := module.Lookup[contracts.Files](m.d.Registry, contracts.FilesKey); ok {
 		for _, taskID := range taskIDs {
 			if err := files.DeleteOwned(ctx, "coding", taskID); err != nil {

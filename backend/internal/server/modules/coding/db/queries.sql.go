@@ -247,6 +247,44 @@ func (q *Queries) FailRunning(ctx context.Context, arg FailRunningParams) ([]int
 	return items, nil
 }
 
+const failRunningBuilds = `-- name: FailRunningBuilds :exec
+UPDATE coding_tasks SET build_status = 'failed', build_error = ?1, updated_at = ?2
+WHERE build_status = 'running'
+`
+
+type FailRunningBuildsParams struct {
+	Error string
+	Now   time.Time
+}
+
+func (q *Queries) FailRunningBuilds(ctx context.Context, arg FailRunningBuildsParams) error {
+	_, err := q.db.ExecContext(ctx, failRunningBuilds, arg.Error, arg.Now)
+	return err
+}
+
+const finishBuild = `-- name: FinishBuild :exec
+UPDATE coding_tasks SET build_status = ?, build_error = ?, artifacts = ?, updated_at = ? WHERE id = ?
+`
+
+type FinishBuildParams struct {
+	BuildStatus string
+	BuildError  string
+	Artifacts   string
+	UpdatedAt   time.Time
+	ID          int64
+}
+
+func (q *Queries) FinishBuild(ctx context.Context, arg FinishBuildParams) error {
+	_, err := q.db.ExecContext(ctx, finishBuild,
+		arg.BuildStatus,
+		arg.BuildError,
+		arg.Artifacts,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
 const finishTask = `-- name: FinishTask :execrows
 UPDATE coding_tasks
 SET status = ?1, exit_code = ?2, error = ?3,
@@ -371,9 +409,10 @@ func (q *Queries) GetRepoByPath(ctx context.Context, arg GetRepoByPathParams) (C
 }
 
 const getTask = `-- name: GetTask :one
-SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
+SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_tasks.build_error, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
        coding_repos.agent_id, coding_repos.github_repo, coding_repos.connection_id AS repo_connection_id,
-       coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url
+       coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url,
+       coding_repos.build_config AS repo_build_config
 FROM coding_tasks JOIN coding_repos ON coding_repos.id = coding_tasks.repo_id
 WHERE coding_tasks.id = ?
 `
@@ -388,6 +427,7 @@ type GetTaskRow struct {
 	RepoOwner        string
 	RepoRepo         string
 	RepoCloneUrl     string
+	RepoBuildConfig  string
 }
 
 func (q *Queries) GetTask(ctx context.Context, id int64) (GetTaskRow, error) {
@@ -419,6 +459,7 @@ func (q *Queries) GetTask(ctx context.Context, id int64) (GetTaskRow, error) {
 		&i.CodingTask.BuildStatus,
 		&i.CodingTask.BuildAttempts,
 		&i.CodingTask.Artifacts,
+		&i.CodingTask.BuildError,
 		&i.RepoName,
 		&i.RepoPath,
 		&i.AgentID,
@@ -427,6 +468,7 @@ func (q *Queries) GetTask(ctx context.Context, id int64) (GetTaskRow, error) {
 		&i.RepoOwner,
 		&i.RepoRepo,
 		&i.RepoCloneUrl,
+		&i.RepoBuildConfig,
 	)
 	return i, err
 }
@@ -648,9 +690,10 @@ func (q *Queries) ListRunningIDs(ctx context.Context) ([]int64, error) {
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
+SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_tasks.build_error, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
        coding_repos.agent_id, coding_repos.github_repo, coding_repos.connection_id AS repo_connection_id,
-       coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url
+       coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url,
+       coding_repos.build_config AS repo_build_config
 FROM coding_tasks JOIN coding_repos ON coding_repos.id = coding_tasks.repo_id
 WHERE coding_tasks.status IN (SELECT value FROM json_each(?1))
   AND (?2 IS NULL OR coding_tasks.repo_id = ?2)
@@ -679,6 +722,7 @@ type ListTasksRow struct {
 	RepoOwner        string
 	RepoRepo         string
 	RepoCloneUrl     string
+	RepoBuildConfig  string
 }
 
 func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error) {
@@ -722,6 +766,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTas
 			&i.CodingTask.BuildStatus,
 			&i.CodingTask.BuildAttempts,
 			&i.CodingTask.Artifacts,
+			&i.CodingTask.BuildError,
 			&i.RepoName,
 			&i.RepoPath,
 			&i.AgentID,
@@ -730,6 +775,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTas
 			&i.RepoOwner,
 			&i.RepoRepo,
 			&i.RepoCloneUrl,
+			&i.RepoBuildConfig,
 		); err != nil {
 			return nil, err
 		}
@@ -755,6 +801,24 @@ func (q *Queries) QueuePosition(ctx context.Context, id int64) (int64, error) {
 	return count, err
 }
 
+const resumeForFix = `-- name: ResumeForFix :execrows
+UPDATE coding_tasks SET status = 'running', updated_at = ?1
+WHERE id = ?2 AND status = 'review' AND build_status != 'running'
+`
+
+type ResumeForFixParams struct {
+	Now time.Time
+	ID  int64
+}
+
+func (q *Queries) ResumeForFix(ctx context.Context, arg ResumeForFixParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, resumeForFix, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const setBaseCommit = `-- name: SetBaseCommit :exec
 UPDATE coding_tasks SET base_commit = ? WHERE id = ?
 `
@@ -767,6 +831,37 @@ type SetBaseCommitParams struct {
 func (q *Queries) SetBaseCommit(ctx context.Context, arg SetBaseCommitParams) error {
 	_, err := q.db.ExecContext(ctx, setBaseCommit, arg.BaseCommit, arg.ID)
 	return err
+}
+
+const setBuildConfig = `-- name: SetBuildConfig :one
+UPDATE coding_repos SET build_config = ? WHERE id = ?
+RETURNING id, agent_id, path, name, default_branch, remote_url, github_repo, created_at, connection_id, owner, repo, clone_url, build_config
+`
+
+type SetBuildConfigParams struct {
+	BuildConfig string
+	ID          int64
+}
+
+func (q *Queries) SetBuildConfig(ctx context.Context, arg SetBuildConfigParams) (CodingRepo, error) {
+	row := q.db.QueryRowContext(ctx, setBuildConfig, arg.BuildConfig, arg.ID)
+	var i CodingRepo
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.Path,
+		&i.Name,
+		&i.DefaultBranch,
+		&i.RemoteUrl,
+		&i.GithubRepo,
+		&i.CreatedAt,
+		&i.ConnectionID,
+		&i.Owner,
+		&i.Repo,
+		&i.CloneUrl,
+		&i.BuildConfig,
+	)
+	return i, err
 }
 
 const setCommitted = `-- name: SetCommitted :exec
@@ -848,6 +943,25 @@ func (q *Queries) SetTaskStatus(ctx context.Context, arg SetTaskStatusParams) (i
 		arg.ID,
 		arg.FromStatus,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const startBuild = `-- name: StartBuild :execrows
+UPDATE coding_tasks SET build_status = 'running', build_attempts = build_attempts + 1, build_error = '',
+    updated_at = ?1
+WHERE id = ?2 AND status = 'review' AND build_status != 'running'
+`
+
+type StartBuildParams struct {
+	Now time.Time
+	ID  int64
+}
+
+func (q *Queries) StartBuild(ctx context.Context, arg StartBuildParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, startBuild, arg.Now, arg.ID)
 	if err != nil {
 		return 0, err
 	}

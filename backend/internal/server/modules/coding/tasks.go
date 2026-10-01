@@ -28,6 +28,7 @@ type taskRow struct {
 	RepoOwner        string
 	RepoRepo         string
 	RepoCloneURL     string
+	RepoBuildConfig  string
 }
 
 func (m *Module) row(ctx context.Context, id int64) (taskRow, error) {
@@ -38,7 +39,7 @@ func (m *Module) row(ctx context.Context, id int64) (taskRow, error) {
 	if err != nil {
 		return taskRow{}, err
 	}
-	return taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo, r.RepoConnectionID, r.RepoOwner, r.RepoRepo, r.RepoCloneUrl}, nil
+	return taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo, r.RepoConnectionID, r.RepoOwner, r.RepoRepo, r.RepoCloneUrl, r.RepoBuildConfig}, nil
 }
 
 func (m *Module) task(ctx context.Context, id int64) (api.Task, error) {
@@ -59,6 +60,13 @@ func (m *Module) toTask(ctx context.Context, r taskRow) api.Task {
 		IssueKey: nonEmpty(r.IssueKey), BaseCommit: nonEmpty(r.BaseCommit),
 		AiAgentId: r.AiAgentID, Model: nonEmpty(r.Model), Permission: nonEmpty(r.Permission),
 	}
+	bs := api.TaskBuildStatus(r.BuildStatus)
+	attempts := int(r.BuildAttempts)
+	arts := []api.Artifact{}
+	for _, a := range artifactsOf(r.Artifacts) {
+		arts = append(arts, api.Artifact{Name: a.Name, Size: a.Size})
+	}
+	t.BuildStatus, t.BuildAttempts, t.BuildError, t.Artifacts = &bs, &attempts, nonEmpty(r.BuildError), &arts
 	if r.ExitCode != nil {
 		c := int(*r.ExitCode)
 		t.ExitCode = &c
@@ -118,7 +126,7 @@ func (m *Module) listTasks(ctx context.Context, params api.ListTasksParams) ([]a
 	}
 	out := make([]api.Task, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, m.toTask(ctx, taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo, r.RepoConnectionID, r.RepoOwner, r.RepoRepo, r.RepoCloneUrl}))
+		out = append(out, m.toTask(ctx, taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo, r.RepoConnectionID, r.RepoOwner, r.RepoRepo, r.RepoCloneUrl, r.RepoBuildConfig}))
 	}
 	return out, nil
 }
