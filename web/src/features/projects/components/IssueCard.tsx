@@ -128,11 +128,11 @@ export default function IssueCard({
           draggable={false}
         />
       )}
-      <div className="projects-card-meta">
+      {/* B77：不显示卡片编号，紧急度图标和标题放一行 */}
+      <h3 className="projects-card-title" title={issue.key}>
         <PriorityIcon priority={issue.priority} size={13} />
-        <span className="xc-mono">{issue.key}</span>
-      </div>
-      <h3>{issue.title}</h3>
+        <span>{issue.title}</span>
+      </h3>
       {category && <p className="projects-card-category">{category}</p>}
       {(issue.labels.length > 0 ||
         !!issue.checklistTotal ||

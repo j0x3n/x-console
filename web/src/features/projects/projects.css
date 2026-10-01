@@ -420,20 +420,25 @@
   background: var(--xc-surface-2);
 }
 .projects-card h3 {
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--xc-text);
   font-size: var(--fs-13);
   font-weight: 500;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.projects-card-meta {
+/* B77：紧急度图标 + 标题，图标和第一行文字对齐 */
+.projects-card-title {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
-  color: var(--xc-muted);
-  font-size: var(--fs-11);
-  white-space: nowrap;
+}
+.projects-card-title > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.projects-card-title > span {
+  min-width: 0;
 }
 .projects-card-labels {
   display: flex;
