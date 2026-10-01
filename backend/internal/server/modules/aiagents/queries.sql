@@ -67,3 +67,6 @@ DELETE FROM git_connections WHERE id = ?;
 
 -- name: DetachConnectionRepos :exec
 UPDATE coding_repos SET connection_id = NULL WHERE connection_id = ?;
+
+-- name: TasksByPR :many
+SELECT id, issue_key, ai_agent_id FROM coding_tasks WHERE pr_url = ? AND pr_url != '';

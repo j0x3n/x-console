@@ -1117,6 +1117,8 @@ export interface components {
             body: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description B47 空是自己，agent:<id> 是 Agent */
+            author?: string;
         };
         CreateComment: {
             body: string;

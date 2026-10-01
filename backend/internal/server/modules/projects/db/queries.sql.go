@@ -428,6 +428,35 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (I
 	return i, err
 }
 
+const createCommentBy = `-- name: CreateCommentBy :one
+INSERT INTO issue_comments (issue_id, body, created_at, author) VALUES (?, ?, ?, ?) RETURNING id, issue_id, body, created_at, author
+`
+
+type CreateCommentByParams struct {
+	IssueID   int64
+	Body      string
+	CreatedAt time.Time
+	Author    string
+}
+
+func (q *Queries) CreateCommentBy(ctx context.Context, arg CreateCommentByParams) (IssueComment, error) {
+	row := q.db.QueryRowContext(ctx, createCommentBy,
+		arg.IssueID,
+		arg.Body,
+		arg.CreatedAt,
+		arg.Author,
+	)
+	var i IssueComment
+	err := row.Scan(
+		&i.ID,
+		&i.IssueID,
+		&i.Body,
+		&i.CreatedAt,
+		&i.Author,
+	)
+	return i, err
+}
+
 const createLabel = `-- name: CreateLabel :one
 INSERT INTO labels (project_id, name, color) VALUES (?, ?, ?) RETURNING id, project_id, name, color
 `
@@ -1798,6 +1827,35 @@ func (q *Queries) NextInColumn(ctx context.Context, arg NextInColumnParams) (flo
 	return sort_order, err
 }
 
+const openChecklistItems = `-- name: OpenChecklistItems :many
+SELECT it.text FROM issue_checklist_items it JOIN issue_checklists c ON c.id = it.checklist_id
+WHERE c.issue_id = ? AND it.done = 0
+ORDER BY c.position, c.id, it.position, it.id
+`
+
+func (q *Queries) OpenChecklistItems(ctx context.Context, issueID int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, openChecklistItems, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var text string
+		if err := rows.Scan(&text); err != nil {
+			return nil, err
+		}
+		items = append(items, text)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const prevInColumn = `-- name: PrevInColumn :one
 SELECT sort_order FROM issues
 WHERE list_id = ? AND id <> ? AND sort_order < ? AND archived_at IS NULL
@@ -1826,6 +1884,39 @@ func (q *Queries) ProjectKeyExists(ctx context.Context, key string) (int64, erro
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const recentComments = `-- name: RecentComments :many
+SELECT id, issue_id, body, created_at, author FROM issue_comments WHERE issue_id = ? ORDER BY id DESC LIMIT 10
+`
+
+func (q *Queries) RecentComments(ctx context.Context, issueID int64) ([]IssueComment, error) {
+	rows, err := q.db.QueryContext(ctx, recentComments, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IssueComment
+	for rows.Next() {
+		var i IssueComment
+		if err := rows.Scan(
+			&i.ID,
+			&i.IssueID,
+			&i.Body,
+			&i.CreatedAt,
+			&i.Author,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const removeForeignLabels = `-- name: RemoveForeignLabels :exec

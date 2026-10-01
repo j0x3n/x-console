@@ -28,7 +28,12 @@ func toMilestone(ms db.Milestone) api.Milestone {
 }
 
 func toComment(c db.IssueComment) api.Comment {
-	return api.Comment{Id: c.ID, IssueId: c.IssueID, Body: c.Body, CreatedAt: c.CreatedAt}
+	out := api.Comment{Id: c.ID, IssueId: c.IssueID, Body: c.Body, CreatedAt: c.CreatedAt}
+	if c.Author != "" {
+		author := c.Author
+		out.Author = &author
+	}
+	return out
 }
 
 func toLink(l db.IssueLink) api.IssueLink {

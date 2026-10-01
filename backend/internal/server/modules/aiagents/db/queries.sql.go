@@ -468,6 +468,39 @@ func (q *Queries) SetConnectionToken(ctx context.Context, arg SetConnectionToken
 	return err
 }
 
+const tasksByPR = `-- name: TasksByPR :many
+SELECT id, issue_key, ai_agent_id FROM coding_tasks WHERE pr_url = ? AND pr_url != ''
+`
+
+type TasksByPRRow struct {
+	ID        int64
+	IssueKey  string
+	AiAgentID *int64
+}
+
+func (q *Queries) TasksByPR(ctx context.Context, prUrl string) ([]TasksByPRRow, error) {
+	rows, err := q.db.QueryContext(ctx, tasksByPR, prUrl)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TasksByPRRow
+	for rows.Next() {
+		var i TasksByPRRow
+		if err := rows.Scan(&i.ID, &i.IssueKey, &i.AiAgentID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateAgent = `-- name: UpdateAgent :one
 UPDATE ai_agents SET name = ?, avatar = ?, color = ?, model = ?, instructions = ?, runner_agent_id = ?, access = ?,
     cli_permission = ?, repo_ids = ?, max_parallel = ?, monthly_budget_usd = ?, auto_build = ?, build_retries = ?,

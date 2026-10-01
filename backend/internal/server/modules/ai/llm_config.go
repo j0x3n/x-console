@@ -24,6 +24,9 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 	if purpose == "fast" && selected.Fast != nil {
 		ref = selected.Fast
 	}
+	if o, ok := modelOverride(ctx); ok {
+		ref = &o // B47: a built-in agent's own model
+	}
 	if ref == nil {
 		return llm.Config{}, llm.ErrNotConfigured
 	}

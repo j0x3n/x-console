@@ -167,6 +167,17 @@ SELECT * FROM issue_comments WHERE issue_id = ? ORDER BY created_at, id;
 -- name: CreateComment :one
 INSERT INTO issue_comments (issue_id, body, created_at) VALUES (?, ?, ?) RETURNING *;
 
+-- name: CreateCommentBy :one
+INSERT INTO issue_comments (issue_id, body, created_at, author) VALUES (?, ?, ?, ?) RETURNING *;
+
+-- name: RecentComments :many
+SELECT * FROM issue_comments WHERE issue_id = ? ORDER BY id DESC LIMIT 10;
+
+-- name: OpenChecklistItems :many
+SELECT it.text FROM issue_checklist_items it JOIN issue_checklists c ON c.id = it.checklist_id
+WHERE c.issue_id = ? AND it.done = 0
+ORDER BY c.position, c.id, it.position, it.id;
+
 -- name: DeleteComment :execrows
 DELETE FROM issue_comments WHERE id = ? AND issue_id = ?;
 

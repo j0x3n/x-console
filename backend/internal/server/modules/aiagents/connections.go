@@ -112,7 +112,7 @@ func (m *Module) createConnection(ctx context.Context, body api.CreateGitConnect
 	defer func() {
 		m.d.Audit.Record(ctx, "git_connection.create", body.Name, map[string]any{"kind": body.Kind, "id": c.ID}, err)
 	}()
-	if err := auth.RequireElevated(ctx); err != nil {
+	if err := auth.RequireStrictElevated(ctx); err != nil {
 		return c, "", err
 	}
 	kind := string(body.Kind)
@@ -180,7 +180,11 @@ func (m *Module) updateConnection(ctx context.Context, id int64, body api.Update
 	defer func() {
 		m.d.Audit.Record(ctx, "git_connection.update", strconv.FormatInt(id, 10), map[string]any{"token": body.Token != nil}, err)
 	}()
-	if err := auth.RequireElevated(ctx); err != nil {
+	check := auth.RequireElevated
+	if body.Token != nil {
+		check = auth.RequireStrictElevated
+	}
+	if err := check(ctx); err != nil {
 		return c, err
 	}
 	if c, err = m.connection(ctx, id); err != nil {
@@ -291,7 +295,7 @@ func (m *Module) ListRemoteRepos(w http.ResponseWriter, r *http.Request, id int6
 
 func (m *Module) GetGitWebhook(w http.ResponseWriter, r *http.Request, id int64) {
 	ctx := r.Context()
-	if err := auth.RequireElevated(ctx); err != nil {
+	if err := auth.RequireStrictElevated(ctx); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}

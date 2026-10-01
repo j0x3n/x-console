@@ -225,6 +225,7 @@
 
 可以改进：
 - B43 只支持带令牌的本地客户端（Claude Code、Codex、Cursor）。网页版 claude.ai、ChatGPT 要 OAuth 登录，没做。MCP 只开放工具，没有资源和提示词。
+- B47 没做的部分：“只编译”任务（不经过 Agent 直接构建某个分支，`coding_tasks.executor` 有 CHECK 约束，要重建表）；PR 合并后编码任务的状态不变（状态也有 CHECK 约束，只把卡片移到“已完成”并写评论）；构建产物不进云盘目录，只能在任务详情里下载；Windows 上的 clone 和构建没在 CI 里跑过，要用户在自己电脑上验证；任务开始前的 fetch 是同步的，最多 3 分钟，这期间不派发别的任务。
 - B46 没做完的部分：手机上长按拖动卡片（手机上用卡片详情里的“看板和列表”下拉移动）、卡片封面图和附件区、看板页签拖动排序（接口已支持 `afterId`）、卡片详情做成弹窗（现在还是单独一页）、跨项目移动卡片的界面入口（接口已支持）。
 - B44 手机上的点击区域（按钮、图标按钮、列表行）还没统一到 44 × 44px，只放大了字号。
 - 文件上传进度条。SSH 主机指纹变化后在界面上重新信任。
@@ -293,6 +294,7 @@
 | 2026-10-01 | 新模块 `aiagents`：表 `ai_agents`、`git_connections`；`coding_repos` 加 `connection_id`、`owner`、`repo`、`clone_url`、`build_config`，`coding_tasks` 加 `ai_agent_id`、`model`、`permission`、`build_status`、`build_attempts`、`artifacts`，`issue_comments` 加 `author`（这两个 id 列没加外键，删除时由代码置空）；新接口在 `contracts/aiagents.go`：`GitConnections`、`AIAgents`、`GitHubCredentials`（GitHub 模块提供） | B47 Agent 管理 |
 | 2026-10-01 | 代理协议：能力 `coding.remote`，新方法 `coding.ensure_repo`，`CodingRunParams` 加 `model`、`permission`、`preferRemote`，`CodingPushParams` 加 `auth`（见 `docs/04-agent-protocol.md`）；`contracts.LaunchCoding` 加 `AIAgentID`、`AgentID`；coding 接口：`CreateRepo` 的 `path` 改成可选，加 `connectionId`、`remoteRepo`、`cloneUrl`，`CreateTask` 的 `executor` 改成可选，加 `aiAgentId`、`agentId` | B47 Agent 管理 |
 | 2026-10-01 | 代理协议：新方法 `coding.build`，`CodingRunParams` 加 `continue`、`baseCommit`；`coding_tasks` 加 `build_error`；coding 接口：`PUT /coding/repos/{id}/build-config`（要提升权限）、`POST /coding/tasks/{id}/build`、`GET /coding/tasks/{id}/artifacts/{index}`，`Repo` 加 `buildConfig`，`Task` 加 `buildStatus`、`buildAttempts`、`buildError`、`artifacts`；事件 `coding_task.build` | B47 Agent 管理 |
+| 2026-10-01 | `contracts/aiagents.go` 加 `IssueWork`（项目模块提供：卡片摘要、带作者的评论、加成员）和 `ToolRunner`（AI 模块提供：内置 Agent 按 B43 的权限过滤调用动作）；AI 模块 `resolveLLM` 支持用 context 覆盖模型；项目接口 `Comment` 加 `author`；`POST /ai-agents/{id}/assign`；公开入口 `POST /hooks/git/{connectionId}`（校验 GitHub、Forgejo、Gitea 的签名）；Git 连接的新建、换令牌、查看回调密钥改成“始终验证” | B47 Agent 管理 |
 | 2026-09-30 | `auth.Session` 加 `ElevationMode`、`ViaToken`，`Elevated()` 按设置 `security.elevation_mode` 算；新增 `auth.RequireStrictElevated`（始终 5 分钟内验证过）；开启两步验证和从备份恢复改用它；`core.yaml` 加 `/auth/elevation-mode` | B48 二次验证可选 |
 | 2026-09-30 | `contracts` 加 `WithAIUsage`、`AIUsageFrom`（给 AI 调用标来源）和 `AIUsageRecorder`（键 `ai.usage`，记 Agent 任务等外部用量）；`llm.Result` 加缓存和思考 token；代理的 Claude Code 解析把 `usage` 带给服务端 | B42 AI 用量 |
 | 2026-09-30 | `styles/tokens.css` 加字号令牌 `--fs-9` 到 `--fs-19` 和 `--fs-input`，手机上放大；全部样式里 9 到 19px 的 `font-size` 换成令牌（`scripts/font-tokens.mjs`）；手机上输入框一律 16px；CI 加 `npm run lint:fonts`；`shots.mjs` 在 390px 下检查字号；`e2e.mjs` 支持 `XC_SHOTS_BROWSER` | B44 手机字号 |

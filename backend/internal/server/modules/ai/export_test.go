@@ -18,3 +18,6 @@ func (m *Module) SetNowForTest(now func() time.Time) { m.now = now }
 func UsageCostForTest(input, cached, cacheWrite, output int64, in, out, read, write *float32) (*float64, bool) {
 	return usageCost(input, cached, cacheWrite, output, usagePrices{Input: in, Output: out, CacheRead: read, CacheWrite: write})
 }
+
+// SetLLMForTest replaces the call boundary, for example with llm.NewFake (B47).
+func (m *Module) SetLLMForTest(c llm.Client) { m.llm = c }

@@ -273,6 +273,9 @@ type ChecklistItem struct {
 
 // Comment defines model for Comment.
 type Comment struct {
+	// Author B47 空是自己，agent:<id> 是 Agent
+	Author *string `json:"author,omitempty"`
+
 	// Body Markdown
 	Body      string    `json:"body"`
 	CreatedAt time.Time `json:"createdAt"`

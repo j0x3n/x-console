@@ -70,7 +70,7 @@ export interface paths {
         };
         get: operations["listGitConnections"];
         put?: never;
-        /** @description 新建连接，要提升权限。保存时用令牌查一次用户名，失败也会保存并记下错误。回调密钥只在这次返回。 */
+        /** @description 新建连接，要求 5 分钟内验证过（不受二次验证设置影响）。保存时用令牌查一次用户名，失败也会保存并记下错误。回调密钥只在这次返回。 */
         post: operations["createGitConnection"];
         delete?: never;
         options?: never;
@@ -94,7 +94,7 @@ export interface paths {
         delete: operations["deleteGitConnection"];
         options?: never;
         head?: never;
-        /** @description 改名字或换令牌，要提升权限。换令牌后重新检查。 */
+        /** @description 改名字要提升权限，换令牌要求 5 分钟内验证过。换令牌后重新检查。 */
         patch: operations["updateGitConnection"];
         trace?: never;
     };
@@ -145,7 +145,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description 回调地址和签名密钥，要提升权限。 */
+        /** @description 回调地址和签名密钥，要求 5 分钟内验证过。 */
         get: operations["getGitWebhook"];
         put?: never;
         post?: never;

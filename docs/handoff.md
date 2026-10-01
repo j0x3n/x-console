@@ -34,7 +34,7 @@ B47 进行中，分 6 步，每步一个提交（都以 `B47：` 开头）：
 1. （已完成）后端：迁移 `m4_b47_ai_agents`（`ai_agents`、`git_connections`，`coding_repos`、`coding_tasks`、`issue_comments` 加列），新模块 `modules/aiagents`（Agent 增删改、Git 连接增删改和检查、列远端仓库），`contracts.GitConnections`。
 2. （已完成）仓库按远端登记：`coding` 模块按连接登记仓库，代理新方法 `coding.ensure_repo`（clone 或 fetch，令牌用 `GIT_ASKPASS` 传，不落盘），Forgejo 开 PR，任务带 Agent（固定说明、模型、权限）。
 3. （已完成）构建：仓库的构建步骤，代理新方法 `coding.build`，改完自动构建、失败带日志重试，产物用 `files.read` 拉回存云盘。
-4. 看板：卡片分配给 Agent（建任务、加成员、开始和结束写评论、移列表），Git 回调（PR 合并后卡片到“已完成”），内置 Agent（ai 模块提供 `contracts.ToolRunner`，按 B43 的 `actions.AllowedFor` 过滤工具）。
+4. （已完成）看板：卡片分配给 Agent（建任务、加成员、开始和结束写评论、移列表），Git 回调（PR 合并后卡片到“已完成”），内置 Agent（ai 模块提供 `contracts.ToolRunner`，按 B43 的 `actions.AllowedFor` 过滤工具）。
 5. 前端：左栏“Agent”，Agent 列表和表单、Git 连接、仓库按远端登记、任务详情的构建日志和产物、卡片上的“分配给 Agent”。
 6. 端到端和截图，更新文档。
 

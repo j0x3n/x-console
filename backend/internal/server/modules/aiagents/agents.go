@@ -95,7 +95,7 @@ func (m *Module) toAgent(ctx context.Context, a db.AiAgent, counts map[int64]tas
 		CliPermission: api.CliPermission(a.CliPermission), RepoIds: repoIDsOf(a.RepoIds), MaxParallel: int(a.MaxParallel),
 		MonthlyBudgetUsd: a.MonthlyBudgetUsd, AutoBuild: a.AutoBuild == 1, BuildRetries: int(a.BuildRetries),
 		Enabled: a.Enabled == 1, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt, MonthCostUsd: cost,
-		RunningTasks: counts[a.ID].running, QueuedTasks: counts[a.ID].queued}
+		RunningTasks: counts[a.ID].running + m.busy(a.ID), QueuedTasks: counts[a.ID].queued}
 	over := a.MonthlyBudgetUsd != nil && cost >= *a.MonthlyBudgetUsd
 	out.OverBudget = &over
 	if a.RunnerAgentID != nil {
@@ -461,9 +461,4 @@ func (m *Module) Get(ctx context.Context, id int64) (contracts.AIAgent, error) {
 		out.OverBudget = cost >= *a.MonthlyBudgetUsd
 	}
 	return out, nil
-}
-
-// AssignAiAgent is done in step 4 of B47 (board integration).
-func (m *Module) AssignAiAgent(w http.ResponseWriter, r *http.Request, id int64) {
-	httpx.Fail(w, r, httpx.NewError(http.StatusNotImplemented, "not_implemented", "还没做"))
 }

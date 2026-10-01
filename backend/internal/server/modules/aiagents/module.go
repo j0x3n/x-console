@@ -8,7 +8,9 @@
 package aiagents
 
 import (
+	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,18 +29,25 @@ type Module struct {
 	q   *db.Queries
 	hc  *http.Client
 	now func() time.Time
+
+	mu      sync.Mutex
+	ctx     context.Context // from Start
+	running map[int64]int   // built-in agent jobs by agent id
+	wg      sync.WaitGroup
 }
 
 var (
 	_ api.ServerInterface      = (*Module)(nil)
 	_ contracts.GitConnections = (*Module)(nil)
 	_ contracts.AIAgents       = (*Module)(nil)
+	_ module.Starter           = (*Module)(nil)
+	_ module.PublicPather      = (*Module)(nil)
 )
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), hc: &http.Client{Timeout: 30 * time.Second},
-		now: func() time.Time { return time.Now().UTC() }}
+		now: func() time.Time { return time.Now().UTC() }, running: map[int64]int{}}
 	module.Provide[contracts.GitConnections](d.Registry, contracts.GitConnectionsKey, m)
 	module.Provide[contracts.AIAgents](d.Registry, contracts.AIAgentsKey, m)
 	return m, nil
@@ -50,4 +59,24 @@ func (m *Module) Name() string { return "aiagents" }
 // Mount implements module.Module.
 func (m *Module) Mount(r chi.Router) {
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
+	r.Post("/hooks/git/{connectionId}", m.hook)
+}
+
+// PublicPaths implements module.PublicPather: Git services call the
+// webhook without a session; it checks their signature.
+func (m *Module) PublicPaths() []string { return []string{"/hooks/git/"} }
+
+// Start follows coding tasks to comment on their cards.
+func (m *Module) Start(ctx context.Context) error {
+	m.mu.Lock()
+	m.ctx = ctx
+	m.mu.Unlock()
+	go m.follow(ctx)
+	return nil
+}
+
+func (m *Module) base() context.Context {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.ctx
 }

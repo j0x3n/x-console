@@ -46,6 +46,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[brief.Polisher](d.Registry, brief.PolisherKey, m)
 	module.Provide[contracts.LLM](d.Registry, contracts.LLMKey, m)
 	module.Provide[contracts.AIUsageRecorder](d.Registry, contracts.AIUsageKey, m)
+	module.Provide[contracts.ToolRunner](d.Registry, contracts.ToolRunnerKey, m) // B47
 	return m, nil
 }
 func (m *Module) Name() string { return "ai" }

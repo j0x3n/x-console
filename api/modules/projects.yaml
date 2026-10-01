@@ -1292,6 +1292,7 @@ components:
         issueId: { type: integer, format: int64 }
         body: { type: string, description: Markdown }
         createdAt: { type: string, format: date-time }
+        author: { type: string, description: B47 空是自己，agent:<id> 是 Agent }
     CreateComment:
       type: object
       required: [body]
