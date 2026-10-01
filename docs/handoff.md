@@ -27,12 +27,22 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 | B43 | 完成 | 设置 → 远程访问；后端 `auth/tokens.go`、`modules/mcp`。网页版 AI 的 OAuth 没做，记在“已知问题” |
 | B47 | 完成 | 6 步都做完了，没做的部分记在 `docs/tasks.md`“已知问题” |
 
-## 当前
+## 当前（2026-10-01 额度用完时的状态）
 
-B41 到 B48 这一批的代码都写完了，提交在 `develop`。剩下的：
+**部署**：`92acccf` 带部署标记推送了，运行记录 https://github.com/j0x3n/x-console/actions/runs/36851153881 。前端测试和镜像已过，后端测试还在跑。接手后先看它成没成功；失败就看日志修好，再带部署标记推送到 `develop`。成功后让用户在 iPhone 上测 B45（`?safari=A` 到 `F`、`all`、`off`）。
 
-- 2026-10-01 用户说“部署”，整批从 `develop` 带部署标记推送部署。部署前跑过的检查：后端全量（vet、race 测试、Windows 编译）、前端测试、端到端、1360px 和 390px 截图。
-- B45 第三步：等用户在 iPhone 上用 `?safari=A` 到 `F`（或 `all`、`off`）测完，把哪个效果对发回来，再定稿：留下有用的开关，去掉其余的。
+**用户要求“都改”：让部署更快，三件事都做。**
+
+1. 部署时后端测试不带 `-race`，PR 检查里保留。改法：`.github/workflows/ci.yml` 加 `workflow_call` 输入 `race`（布尔，默认 true），`go test` 那步按它决定加不加 `-race`；`deploy.yml` 的 `test` 任务传 `race: false`。还没做。
+2. 后端测试拆成 2 到 3 个任务同时跑（matrix 按包分组）。生成代码检查、gofmt、vet、shellcheck、Windows 编译放进单独一个任务，只跑一次。还没做。参考数据（本地 4 核、不带 race）：drive 21 秒、hosts 13、ai 13、app 12、coding 11、notes 10、projects 9，其余都在 7 秒以下，全部加起来约 180 秒。
+3. 测试提速：已经写了，但**还没提交、没跑完测试**。
+   - 原因：带 `-race` 时每次新建测试环境要 3.6 秒，其中建表（跑迁移）占 2.8 到 3.2 秒；不带 race 时一共只要 0.46 秒。
+   - 改法：`store` 加 `Snapshot`、`OpenSnapshot`（用 modernc sqlite 的 Serialize/Deserialize）。`testutil.openDB` 每个测试进程只迁移一次，之后的测试都从这份快照复制。`store_test.go` 加了 `TestSnapshotCopiesAMigratedDatabase`，已经通过。
+   - 接手要做：跑 `go test -race ./...` 全量确认通过，比较改前改后的用时（改前本地全量带 race 约 3 分 40 秒）。然后提交，提交信息以“C”开头记成清理任务，并在 `docs/tasks.md`“接口变更记录”里记下 `store.Snapshot`、`store.OpenSnapshot`。
+   - 别的包里还有直接调 `store.Open(":memory:")` 的测试（`app`、`settings`、`projects/due_test.go`），数量少，可以不改。
+4. 三件都做完后，把 AGENTS.md“小修”一节里的测试用时更新成新的实测值。
+
+**之前约好的检查**：send_later 触发器 `trig_01DNcSTU2wAcFNEuTbAiwUE9` 会在 11:02 UTC 发消息回原会话检查部署结果。换了会话的话忽略它。
 
 B47 的设计取舍（和规格不同的地方）：
 - 构建产物存在 coding 模块自己的文件存储里（`artifacts/<任务 id>/`），在任务详情里下载，不进云盘的目录。云盘的目录有自己的数据库索引，要写进去得加一个云盘接口，这次没做。

@@ -10,12 +10,14 @@ package testutil
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -44,6 +46,32 @@ type Env struct {
 	Secret string // TOTP secret of the test user
 }
 
+// migrated is an empty, fully migrated database, made once per test binary.
+var migrated struct {
+	once  sync.Once
+	image []byte
+	err   error
+}
+
+// openDB returns a fresh in-memory database with every migration applied.
+// It copies a snapshot instead of migrating again: under -race the
+// migrations took about 3 seconds for every test (2026-10-01).
+func openDB(ctx context.Context) (*sql.DB, error) {
+	migrated.once.Do(func() {
+		db, err := store.Open(ctx, ":memory:")
+		if err != nil {
+			migrated.err = err
+			return
+		}
+		defer db.Close()
+		migrated.image, migrated.err = store.Snapshot(ctx, db)
+	})
+	if migrated.err != nil {
+		return nil, migrated.err
+	}
+	return store.OpenSnapshot(ctx, migrated.image)
+}
+
 // New starts a server with the given extra modules and logs in.
 func New(t testing.TB, modules ...func(*module.Deps) (module.Module, error)) *Env {
 	t.Helper()
@@ -54,7 +82,7 @@ func New(t testing.TB, modules ...func(*module.Deps) (module.Module, error)) *En
 func NewWithConfig(t testing.TB, tune func(*config.Config), modules ...func(*module.Deps) (module.Module, error)) *Env {
 	t.Helper()
 	ctx := context.Background()
-	conn, err := store.Open(ctx, ":memory:")
+	conn, err := openDB(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
