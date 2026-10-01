@@ -44,6 +44,16 @@ type Module struct {
 	now          func() time.Time // 测试里换成假时钟
 	geoBase      string           // Open-Meteo 地名接口，测试里换成假服务
 	osmBase      string           // OpenStreetMap 地名接口，Open-Meteo 查不到时用
+
+	// 和风天气和地震（B58）
+	qwHTTP     *http.Client
+	qwBase     func(host string) string // 测试里换成假服务
+	extraMu    sync.Mutex
+	extra      cachedExtra
+	daily      map[string]any    // 一天只变一次的数据，键以日期开头
+	lastSeen   map[string]string // 上次查到的预警、地震，变了才发事件
+	quakeMu    sync.Mutex
+	quakeCache cachedQuakes
 }
 
 var (
@@ -53,7 +63,9 @@ var (
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}, weatherCache: map[string]cachedWeather{}, now: time.Now, geoBase: defaultGeoBase, osmBase: defaultOSMBase}
+	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}, weatherCache: map[string]cachedWeather{}, now: time.Now, geoBase: defaultGeoBase, osmBase: defaultOSMBase,
+		qwHTTP: &http.Client{Timeout: 10 * time.Second}, qwBase: func(host string) string { return "https://" + host },
+		daily: map[string]any{}, lastSeen: map[string]string{}}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	m.registerActions()
 	return m, nil
@@ -75,6 +87,15 @@ func (m *Module) Start(context.Context) error {
 	})
 	m.d.Scheduler.Every("brief.rain", 30*time.Minute, func(ctx context.Context) error {
 		return m.checkRain(ctx, time.Now())
+	})
+	m.d.Scheduler.Every("brief.weather_minutely", 5*time.Minute, func(ctx context.Context) error {
+		return m.checkRainSoon(ctx, time.Now())
+	})
+	m.d.Scheduler.Every("brief.weather_alerts", 5*time.Minute, func(ctx context.Context) error {
+		return m.checkWarnings(ctx, time.Now())
+	})
+	m.d.Scheduler.Every("brief.quakes", 2*time.Minute, func(ctx context.Context) error {
+		return m.checkQuakes(ctx, time.Now())
 	})
 	return nil
 }
