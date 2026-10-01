@@ -39,12 +39,13 @@ export default function QuickNote() {
   const save = () => {
     if (!text.trim()) return;
     createNote.mutate(
-      { body: text, quick: true },
+      // B73：快速记录存成便签，AI 随后加标题和标签
+      { body: text, quick: true, kind: "memo" },
       {
         onSuccess: () => {
           setText("");
           setOpen(false);
-          toast(t("Saved to notes"));
+          toast(t("Saved to memos"));
         },
       },
     );
@@ -68,7 +69,7 @@ export default function QuickNote() {
             autoFocus
             rows={5}
             value={text}
-            placeholder={t("Write it down. It is saved as a new note.")}
+            placeholder={t("Write it down. It is saved as a memo.")}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
@@ -80,10 +81,10 @@ export default function QuickNote() {
               className="xc-btn ghost small"
               onClick={() => {
                 setOpen(false);
-                navigate("/notes");
+                navigate("/notes?view=memos");
               }}
             >
-              {t("All notes")}
+              {t("All memos")}
             </button>
             <span className="xc-spacer" />
             <span className="xc-muted notes-hint">⌘/Ctrl + Enter</span>

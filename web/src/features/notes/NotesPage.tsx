@@ -10,12 +10,14 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Archive,
   EyeOff,
+  Link2,
   ListChecks,
   NotebookPen,
   Notebook,
   Pin,
   Plus,
   Search,
+  StickyNote,
   Trash2,
   X,
 } from "lucide-react";
@@ -25,11 +27,16 @@ import { relativeTime } from "../../lib/time";
 import {
   useCreateNote,
   useDeleteNote,
+  useNoteCounts,
   useNotes,
   useSetTagColor,
   useTags,
+  type NoteKind,
   type NoteSummary,
 } from "./api";
+import { useFloatingNotes } from "./floating";
+import MemoBoard from "./MemoBoard";
+import { noteBgClass } from "./noteColors";
 import { tagColor, TAG_COLORS } from "./tagColor";
 import { useVaultStatus } from "../vault/api";
 import NoteEditor from "./components/NoteEditor";
@@ -51,7 +58,7 @@ import { confirmAction } from "../../components/ui/ConfirmDialog";
 import MoreMenu from "../../components/ui/MoreMenu";
 import { toast } from "../../hooks/useToast";
 
-type View = "all" | "pinned" | "archived" | "tag" | "hidden";
+type View = "all" | "pinned" | "memos" | "archived" | "tag" | "hidden";
 
 export default function NotesPage() {
   const t = useT();
@@ -62,6 +69,8 @@ export default function NotesPage() {
   const tag = search.get("tag") ?? "";
   const archived = search.get("archived") === "1";
   const pinned = search.get("pinned") === "1";
+  // B73：便签视图，右边是瀑布流
+  const memosView = search.get("view") === "memos";
   const vault = useVaultStatus();
   const vaultUnlocked = vault.data?.unlocked ?? false;
   const [panes, setPanes] = useState<PaneWidths>(() => {
@@ -83,7 +92,9 @@ export default function NotesPage() {
         ? "archived"
         : pinned
           ? "pinned"
-          : "all";
+          : memosView
+            ? "memos"
+            : "all";
   const [input, setInput] = useState(q);
   const searchRef = useRef<HTMLInputElement>(null);
   const create = useCreateNote();
@@ -92,13 +103,23 @@ export default function NotesPage() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const tags = useTags(hidden);
+  const counts = useNoteCounts();
+  const floatNote = useFloatingNotes((st) => st.open);
+  // 全部、置顶、标签视图的列表只列笔记，便签在右边的瀑布流里（B73）。
+  // 归档、隐藏和搜索时两种都列。
+  const listKind: NoteKind | undefined =
+    archived || hidden || q ? undefined : "note";
   const notes = useNotes({
     q,
     tag,
     archived: hidden ? false : archived,
     pinned: hidden ? false : pinned,
     hidden,
+    kind: listKind,
   });
+  const tagMemos = tag
+    ? (tags.data?.find((tc) => tc.tag === tag)?.memoCount ?? 0)
+    : 0;
   const id = noteId ? Number(noteId) : null;
 
   // 地址栏的 q 变了（比如后退），同步到输入框。
@@ -129,6 +150,7 @@ export default function NotesPage() {
         const p = new URLSearchParams();
         if (q) p.set("q", q);
         if (next === "pinned") p.set("pinned", "1");
+        if (next === "memos") p.set("view", "memos");
         if (next === "archived") p.set("archived", "1");
         if (next === "tag" && nextTag) p.set("tag", nextTag);
         // 隐藏空间里点标签，还留在隐藏空间
@@ -238,7 +260,9 @@ export default function NotesPage() {
         ? t("Archived")
         : view === "hidden"
           ? t("Hidden notes")
-          : t("All notes");
+          : view === "memos"
+            ? t("Memos")
+            : t("All notes");
 
   const navItem = (
     key: string,
@@ -267,6 +291,7 @@ export default function NotesPage() {
       () => setView("all"),
       <Notebook size={15} />,
       t("All notes"),
+      counts.data?.notes,
     ),
     navItem(
       "pinned",
@@ -274,6 +299,15 @@ export default function NotesPage() {
       () => setView("pinned"),
       <Pin size={15} />,
       t("Pinned notes"),
+      counts.data?.pinned,
+    ),
+    navItem(
+      "memos",
+      view === "memos",
+      () => setView("memos"),
+      <StickyNote size={15} />,
+      t("Memos"),
+      counts.data?.memos,
     ),
     navItem(
       "archived",
@@ -281,6 +315,7 @@ export default function NotesPage() {
       () => setView("archived"),
       <Archive size={15} />,
       t("Archived"),
+      counts.data?.archived,
     ),
     ...(vaultUnlocked
       ? [
@@ -324,7 +359,7 @@ export default function NotesPage() {
 
   return (
     <div
-      className={`notes-layout ${id ? "has-note" : ""}`}
+      className={`notes-layout ${id ? "has-note" : ""}${view === "memos" && !id ? " memos-view" : ""}`}
       style={
         {
           "--notes-nav-w": `${panes.nav}px`,
@@ -502,7 +537,18 @@ export default function NotesPage() {
       </aside>
       <main className="notes-main">
         {id ? (
-          <NoteEditor id={id} backTo={`/notes${query}`} />
+          <NoteEditor
+            id={id}
+            backTo={`/notes${query}`}
+            onPopOut={() => {
+              floatNote(id);
+              navigate(`/notes${query}`);
+            }}
+          />
+        ) : view === "memos" ? (
+          <MemoBoard hidden={hidden} />
+        ) : tag && tagMemos > 0 ? (
+          <MemoBoard tag={tag} hidden={hidden} />
         ) : (
           <div className="notes-blank">
             <NotebookPen size={30} />
@@ -597,7 +643,21 @@ function NoteItem({
           {note.pinned && (
             <Pin size={11} className="notes-pin" aria-label={t("Pinned")} />
           )}
+          {note.kind === "memo" && (
+            <StickyNote
+              size={11}
+              className="notes-pin"
+              aria-label={t("Memo")}
+            />
+          )}
           <span>{title}</span>
+          {note.shared && (
+            <Link2
+              size={11}
+              className="notes-item-shared"
+              aria-label={t("Shared by link")}
+            />
+          )}
         </strong>
         <p>
           {note.snippet
@@ -671,7 +731,7 @@ function NoteItem({
     >
       <Link
         to={`/notes/${note.id}${query}`}
-        className={`notes-item${active ? " active" : ""}`}
+        className={`notes-item${active ? " active" : ""} ${noteBgClass(note.color)}`}
         aria-current={active ? "page" : undefined}
         onClick={(e) => {
           if (swiped) {

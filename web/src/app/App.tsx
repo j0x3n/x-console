@@ -19,6 +19,15 @@ const shareToken =
     ? /^\/s\/([A-Za-z0-9_-]+)\/?$/.exec(location.pathname)?.[1]
     : undefined;
 
+// 笔记外链（B72）同样不用登录。
+const NoteSharePage = lazy(
+  () => import("../features/notes/share/NoteSharePage"),
+);
+const noteShareToken =
+  typeof location !== "undefined"
+    ? /^\/n\/([A-Za-z0-9_-]+)\/?$/.exec(location.pathname)?.[1]
+    : undefined;
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -43,6 +52,10 @@ export default function App() {
         {shareToken ? (
           <Suspense fallback={<Loading />}>
             <SharePage token={shareToken} />
+          </Suspense>
+        ) : noteShareToken ? (
+          <Suspense fallback={<Loading />}>
+            <NoteSharePage token={noteShareToken} />
           </Suspense>
         ) : (
           <AuthGate>

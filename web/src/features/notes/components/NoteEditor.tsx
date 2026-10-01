@@ -5,6 +5,7 @@ import {
   useState,
   type ClipboardEvent,
   type DragEvent,
+  type MouseEvent,
   type ReactNode,
 } from "react";
 import { Link, useNavigate } from "react-router";
@@ -32,11 +33,14 @@ import {
   Minus,
   Paperclip,
   Pencil,
+  PictureInPicture2,
   Pin,
   PinOff,
   Quote,
+  Share2,
   Sparkles,
   SquareKanban,
+  StickyNote,
   Trash2,
   WandSparkles,
   X,
@@ -61,10 +65,15 @@ import {
   useNoteAiTools,
   useUpdateNote,
   type Note,
+  type NoteColor,
 } from "../api";
+import ColorPicker from "../ColorPicker";
+import { noteBgClass } from "../noteColors";
+import ShareDialog from "./ShareDialog";
 import { AutoSaver, type SaveState } from "../autosave";
 import {
   attachmentMarkdown,
+  caretFor,
   countWords,
   insertBlock,
   parseTags,
@@ -104,18 +113,48 @@ const sameDraft = (a: Draft, b: Draft) =>
 export default function NoteEditor({
   id,
   backTo,
+  floating,
+  onClosed,
+  onPopOut,
 }: {
   id: number;
   backTo: string;
+  /** B72：在浮窗里。不显示返回和“在浮窗中打开” */
+  floating?: boolean;
+  /** 浮窗里删掉笔记以后关掉浮窗 */
+  onClosed?: () => void;
+  /** 点“在浮窗中打开” */
+  onPopOut?: () => void;
 }) {
   const note = useNote(id);
   if (note.isPending) return <Loading />;
   if (note.isError)
     return <ErrorState error={note.error} onRetry={() => note.refetch()} />;
-  return <EditorBody key={id} note={note.data} backTo={backTo} />;
+  return (
+    <EditorBody
+      key={id}
+      note={note.data}
+      backTo={backTo}
+      floating={floating}
+      onClosed={onClosed}
+      onPopOut={onPopOut}
+    />
+  );
 }
 
-function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
+function EditorBody({
+  note,
+  backTo,
+  floating,
+  onClosed,
+  onPopOut,
+}: {
+  note: Note;
+  backTo: string;
+  floating?: boolean;
+  onClosed?: () => void;
+  onPopOut?: () => void;
+}) {
   const t = useT();
   const language = useLanguage();
   const qc = useQueryClient();
@@ -128,8 +167,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
     body: note.body,
     tags: note.tags,
   });
-  // 左上角显示“笔记 / 标题”，边打字边更新
-  usePageCrumb(draft.title.trim() || t("Untitled note"));
+
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const [tagInput, setTagInput] = useState("");
@@ -145,10 +183,14 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
   const ai = useNoteAiTools();
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [dialog, setDialog] = useState<"issue" | "reminder" | null>(null);
+  const [dialog, setDialog] = useState<"issue" | "reminder" | "share" | null>(
+    null,
+  );
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [uploading, setUploading] = useState(0);
   const [dragging, setDragging] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const lastSaved = useRef<Draft>({
     title: note.title,
@@ -437,6 +479,58 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
     void upload(files);
   };
 
+  /* ---- B72：双击阅读或预览的内容进入编辑，光标放在双击的地方附近 ---- */
+
+  const onDoubleClick = (e: MouseEvent) => {
+    if (!reading && mode !== "preview") return;
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(
+        "a, button, input, img, video, audio, summary, .xc-md-code-head",
+      )
+    )
+      return;
+    const onTitle = !!target.closest(".notes-read-title");
+    const sel = window.getSelection();
+    const node = sel?.anchorNode;
+    const body = draftRef.current.body;
+    const caret =
+      node && node.nodeType === Node.TEXT_NODE
+        ? caretFor(body, node.textContent ?? "", sel?.anchorOffset ?? 0)
+        : body.length;
+    sel?.removeAllRanges();
+    const scroller = scrollRef.current;
+    const ratio =
+      scroller && scroller.scrollHeight > scroller.clientHeight
+        ? scroller.scrollTop / (scroller.scrollHeight - scroller.clientHeight)
+        : 0;
+    setReading(false);
+    if (mode === "preview") setMode("edit");
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (onTitle) {
+          titleRef.current?.focus();
+          return;
+        }
+        const el = bodyRef.current;
+        if (!el) return;
+        el.focus({ preventScroll: true });
+        el.setSelectionRange(caret, caret);
+        // 编辑框按内容长高，没有自己的滚动条。按光标在全文里的位置估算滚到哪里。
+        const sc = scrollRef.current;
+        if (sc) {
+          const at = body.length ? caret / body.length : ratio;
+          sc.scrollTop =
+            el.offsetTop + el.offsetHeight * at - sc.clientHeight / 3;
+        }
+      }),
+    );
+  };
+
+  const setColor = (color: NoteColor) =>
+    update.mutate({ id: note.id, body: { color } });
+  const isMemo = note.kind === "memo";
+
   const status =
     uploading > 0
       ? t("Uploading…")
@@ -484,7 +578,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
 
   return (
     <div
-      className={`notes-editor ${reading ? "reading" : `mode-${mode}`}${dragging ? " dragging" : ""}`}
+      className={`notes-editor ${reading ? "reading" : `mode-${mode}`}${dragging ? " dragging" : ""}${floating ? " floating" : ""} ${noteBgClass(note.color)}`}
       onDragOver={(e) => {
         if (Array.from(e.dataTransfer.types).includes("Files")) {
           e.preventDefault();
@@ -499,14 +593,20 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
       }}
       onDrop={onDrop}
     >
+      {/* 左上角显示“笔记 / 标题”。浮窗里不改页面标题 */}
+      {!floating && (
+        <PageCrumb title={draft.title.trim() || t("Untitled note")} />
+      )}
       <header className="notes-editor-bar">
-        <Link
-          to={backTo}
-          className="xc-btn ghost small notes-back"
-          aria-label={t("Back to list")}
-        >
-          <ArrowLeft size={15} />
-        </Link>
+        {!floating && (
+          <Link
+            to={backTo}
+            className="xc-btn ghost small notes-back"
+            aria-label={t("Back to list")}
+          >
+            <ArrowLeft size={15} />
+          </Link>
+        )}
         <span
           className={`notes-save-state ${uploading ? "saving" : saveState}`}
           role="status"
@@ -518,6 +618,18 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
         {note.hidden && (
           <span className="xc-badge accent">{t("Hidden note")}</span>
         )}
+        {note.shared && (
+          <button
+            type="button"
+            className="xc-btn ghost small notes-shared"
+            title={t("Shared by link")}
+            aria-label={t("Shared by link")}
+            onClick={() => setDialog("share")}
+          >
+            <Link2 size={14} />
+          </button>
+        )}
+        {isMemo && <span className="xc-badge">{t("Memo")}</span>}
         {note.archivedAt && (
           <span className="xc-badge warn">{t("Archived")}</span>
         )}
@@ -579,6 +691,19 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
             <span>{t("Done editing")}</span>
           </button>
         )}
+        {!floating && onPopOut && (
+          <button
+            className="xc-btn ghost small notes-popout"
+            title={t("Open in a floating window")}
+            aria-label={t("Open in a floating window")}
+            onClick={() => {
+              void saver.current!.flush();
+              onPopOut();
+            }}
+          >
+            <PictureInPicture2 size={15} />
+          </button>
+        )}
         <button
           className={`xc-btn ghost small ${note.pinned ? "notes-pinned" : ""}`}
           onClick={() =>
@@ -619,6 +744,38 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                 <button role="menuitem" onClick={() => pickFiles(false)}>
                   <Paperclip size={14} /> {t("Attach a file")}
                 </button>
+                {!note.hidden && (
+                  <button
+                    role="menuitem"
+                    onClick={() => flushThen(() => setDialog("share"))}
+                  >
+                    <Share2 size={14} /> {t("Share by link")}
+                  </button>
+                )}
+                <button
+                  role="menuitem"
+                  onClick={() =>
+                    update.mutate(
+                      {
+                        id: note.id,
+                        body: { kind: isMemo ? "note" : "memo" },
+                      },
+                      {
+                        onSuccess: (n) =>
+                          toast(
+                            n.kind === "memo"
+                              ? t("Turned into a memo")
+                              : t("Turned into a note"),
+                          ),
+                      },
+                    )
+                  }
+                >
+                  <StickyNote size={14} />
+                  {isMemo ? t("Turn into a note") : t("Turn into a memo")}
+                </button>
+                <div className="notes-menu-label">{t("Background")}</div>
+                <ColorPicker value={note.color} onChange={setColor} />
                 <button
                   role="menuitem"
                   onClick={() => flushThen(() => setDialog("issue"))}
@@ -681,7 +838,8 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                       return;
                     saver.current!.dispose();
                     remove.mutate(note.id, {
-                      onSuccess: () => navigate(backTo),
+                      onSuccess: () =>
+                        floating ? onClosed?.() : navigate(backTo),
                     });
                   }}
                 >
@@ -693,7 +851,11 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
         </div>
       </header>
 
-      <div className="notes-editor-scroll">
+      <div
+        className="notes-editor-scroll"
+        ref={scrollRef}
+        onDoubleClick={onDoubleClick}
+      >
         <div className="notes-doc">
           {reading ? (
             <h1
@@ -704,6 +866,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
           ) : (
             <div className="notes-title-row">
               <input
+                ref={titleRef}
                 className="notes-title-input"
                 value={draft.title}
                 placeholder={t("Title")}
@@ -935,6 +1098,9 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
           onClose={() => setPolishing(false)}
         />
       )}
+      {dialog === "share" && (
+        <ShareDialog noteId={note.id} onClose={() => setDialog(null)} />
+      )}
       {dialog === "reminder" && (
         <ToReminderDialog
           open
@@ -944,4 +1110,9 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
       )}
     </div>
   );
+}
+
+function PageCrumb({ title }: { title: string }) {
+  usePageCrumb(title);
+  return null;
 }

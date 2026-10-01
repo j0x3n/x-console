@@ -51,6 +51,93 @@ func (e NoteAiSettingsInputTagMode) Valid() bool {
 	}
 }
 
+// Defines values for NoteColor.
+const (
+	Blue   NoteColor = "blue"
+	Brown  NoteColor = "brown"
+	Empty  NoteColor = ""
+	Gray   NoteColor = "gray"
+	Green  NoteColor = "green"
+	Orange NoteColor = "orange"
+	Pink   NoteColor = "pink"
+	Purple NoteColor = "purple"
+	Red    NoteColor = "red"
+	Teal   NoteColor = "teal"
+	Yellow NoteColor = "yellow"
+)
+
+// Valid indicates whether the value is a known member of the NoteColor enum.
+func (e NoteColor) Valid() bool {
+	switch e {
+	case Blue:
+		return true
+	case Brown:
+		return true
+	case Empty:
+		return true
+	case Gray:
+		return true
+	case Green:
+		return true
+	case Orange:
+		return true
+	case Pink:
+		return true
+	case Purple:
+		return true
+	case Red:
+		return true
+	case Teal:
+		return true
+	case Yellow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NoteKind.
+const (
+	NoteKindMemo NoteKind = "memo"
+	NoteKindNote NoteKind = "note"
+)
+
+// Valid indicates whether the value is a known member of the NoteKind enum.
+func (e NoteKind) Valid() bool {
+	switch e {
+	case NoteKindMemo:
+		return true
+	case NoteKindNote:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NoteShareInputExpiresIn.
+const (
+	N1d   NoteShareInputExpiresIn = "1d"
+	N30d  NoteShareInputExpiresIn = "30d"
+	N7d   NoteShareInputExpiresIn = "7d"
+	Never NoteShareInputExpiresIn = "never"
+)
+
+// Valid indicates whether the value is a known member of the NoteShareInputExpiresIn enum.
+func (e NoteShareInputExpiresIn) Valid() bool {
+	switch e {
+	case N1d:
+		return true
+	case N30d:
+		return true
+	case N7d:
+		return true
+	case Never:
+		return true
+	default:
+		return false
+	}
+}
+
 // Attachment defines model for Attachment.
 type Attachment struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -68,9 +155,15 @@ type Attachment struct {
 type CreateNote struct {
 	Body *string `json:"body,omitempty"`
 
+	// Color B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+	Color *NoteColor `json:"color,omitempty"`
+
 	// Hidden 直接建成隐藏笔记，要先解锁
 	Hidden *bool `json:"hidden,omitempty"`
-	Pinned *bool `json:"pinned,omitempty"`
+
+	// Kind B73。note 是笔记；memo 是便签（快速记录存成便签，瀑布流显示）
+	Kind   *NoteKind `json:"kind,omitempty"`
+	Pinned *bool     `json:"pinned,omitempty"`
 
 	// Quick 快速记录。保存后马上生成标题和标签，标签直接加上，正文短也生成
 	Quick *bool     `json:"quick,omitempty"`
@@ -83,13 +176,22 @@ type Note struct {
 	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
 
 	// Body Markdown
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"createdAt"`
+	Body string `json:"body"`
+
+	// Color B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+	Color     *NoteColor `json:"color,omitempty"`
+	CreatedAt time.Time  `json:"createdAt"`
 
 	// Hidden B13 隐藏笔记，只在解锁后出现
 	Hidden *bool `json:"hidden,omitempty"`
 	Id     int64 `json:"id"`
-	Pinned bool  `json:"pinned"`
+
+	// Kind B73。note 是笔记；memo 是便签（快速记录存成便签，瀑布流显示）
+	Kind   *NoteKind `json:"kind,omitempty"`
+	Pinned bool      `json:"pinned"`
+
+	// Shared B72。有外链
+	Shared *bool `json:"shared,omitempty"`
 
 	// SuggestedTags B32。AI 建议的标签，用户点了才加上。加上的标签后端自动从这里去掉
 	SuggestedTags *[]string `json:"suggestedTags,omitempty"`
@@ -123,10 +225,60 @@ type NoteAiSettingsInput struct {
 // NoteAiSettingsInputTagMode defines model for NoteAiSettingsInput.TagMode.
 type NoteAiSettingsInputTagMode string
 
+// NoteColor B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+type NoteColor string
+
+// NoteCounts defines model for NoteCounts.
+type NoteCounts struct {
+	Archived int `json:"archived"`
+	Memos    int `json:"memos"`
+	Notes    int `json:"notes"`
+	Pinned   int `json:"pinned"`
+}
+
+// NoteKind B73。note 是笔记；memo 是便签（快速记录存成便签，瀑布流显示）
+type NoteKind string
+
+// NoteShare defines model for NoteShare.
+type NoteShare struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// ExpiresAt 不返回表示永久
+	ExpiresAt   *time.Time `json:"expiresAt,omitempty"`
+	HasPassword bool       `json:"hasPassword"`
+	LastVisitAt *time.Time `json:"lastVisitAt,omitempty"`
+	Token       string     `json:"token"`
+
+	// Url 完整链接，https://<面板>/n/<token>
+	Url    string `json:"url"`
+	Visits int    `json:"visits"`
+}
+
+// NoteShareInput defines model for NoteShareInput.
+type NoteShareInput struct {
+	ClearPassword *bool                   `json:"clearPassword,omitempty"`
+	ExpiresIn     NoteShareInputExpiresIn `json:"expiresIn"`
+
+	// Password 不传表示不改
+	Password *string `json:"password,omitempty"`
+}
+
+// NoteShareInputExpiresIn defines model for NoteShareInput.ExpiresIn.
+type NoteShareInputExpiresIn string
+
 // NoteSummary defines model for NoteSummary.
 type NoteSummary struct {
 	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
-	CreatedAt  time.Time  `json:"createdAt"`
+
+	// Body B73。只在 kind=memo 的列表里返回正文（瀑布流要渲染），最多 4000 字
+	Body *string `json:"body,omitempty"`
+
+	// BodyTruncated B73。body 截断了
+	BodyTruncated *bool `json:"bodyTruncated,omitempty"`
+
+	// Color B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+	Color     *NoteColor `json:"color,omitempty"`
+	CreatedAt time.Time  `json:"createdAt"`
 
 	// Excerpt 正文开头的一段纯文本
 	Excerpt string `json:"excerpt"`
@@ -134,7 +286,13 @@ type NoteSummary struct {
 	// Hidden B13 隐藏笔记，只在解锁后出现
 	Hidden *bool `json:"hidden,omitempty"`
 	Id     int64 `json:"id"`
-	Pinned bool  `json:"pinned"`
+
+	// Kind B73。note 是笔记；memo 是便签（快速记录存成便签，瀑布流显示）
+	Kind   *NoteKind `json:"kind,omitempty"`
+	Pinned bool      `json:"pinned"`
+
+	// Shared B72。有外链
+	Shared *bool `json:"shared,omitempty"`
 
 	// Snippet 搜索时的命中片段，命中的部分用 U+E000 和 U+E001 包住
 	Snippet *string  `json:"snippet,omitempty"`
@@ -144,6 +302,17 @@ type NoteSummary struct {
 	Thumbnail *string   `json:"thumbnail,omitempty"`
 	Title     string    `json:"title"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// PublicNote defines model for PublicNote.
+type PublicNote struct {
+	// Body Markdown，附件地址已经换成公开地址
+	Body string `json:"body"`
+
+	// Color B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+	Color     *NoteColor `json:"color,omitempty"`
+	Title     string     `json:"title"`
+	UpdatedAt time.Time  `json:"updatedAt"`
 }
 
 // TagColorInput defines model for TagColorInput.
@@ -158,7 +327,10 @@ type TagCount struct {
 	// Color 用户给标签设的颜色，形如
 	Color *string `json:"color,omitempty"`
 	Count int     `json:"count"`
-	Tag   string  `json:"tag"`
+
+	// MemoCount B73。这个标签下的便签数
+	MemoCount *int   `json:"memoCount,omitempty"`
+	Tag       string `json:"tag"`
 }
 
 // UpdateNote defines model for UpdateNote.
@@ -166,9 +338,15 @@ type UpdateNote struct {
 	Archived *bool   `json:"archived,omitempty"`
 	Body     *string `json:"body,omitempty"`
 
+	// Color B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+	Color *NoteColor `json:"color,omitempty"`
+
 	// Hidden 设为隐藏或取消隐藏，要先解锁
 	Hidden *bool `json:"hidden,omitempty"`
-	Pinned *bool `json:"pinned,omitempty"`
+
+	// Kind B73。note 是笔记；memo 是便签（快速记录存成便签，瀑布流显示）
+	Kind   *NoteKind `json:"kind,omitempty"`
+	Pinned *bool     `json:"pinned,omitempty"`
 
 	// Tags 传了就整体替换
 	Tags  *[]string `json:"tags,omitempty"`
@@ -181,6 +359,9 @@ type AttachmentId = int64
 // NoteId defines model for NoteId.
 type NoteId = int64
 
+// NoteShareToken defines model for NoteShareToken.
+type NoteShareToken = string
+
 // ListNotesParams defines parameters for ListNotes.
 type ListNotesParams struct {
 	Q      *string `form:"q,omitempty" json:"q,omitempty"`
@@ -192,7 +373,10 @@ type ListNotesParams struct {
 
 	// Hidden B13。true 时只返回隐藏笔记，要先解锁隐藏内容，没解锁时返回空列表。
 	// 不传时只返回普通笔记。隐藏笔记不进全文索引，搜索用 LIKE。
-	Hidden *bool                `form:"hidden,omitempty" json:"hidden,omitempty"`
+	Hidden *bool `form:"hidden,omitempty" json:"hidden,omitempty"`
+
+	// Kind B73。只看笔记或只看便签，不传时两种都返回
+	Kind   *NoteKind            `form:"kind,omitempty" json:"kind,omitempty"`
 	Limit  *externalRef0.Limit  `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *externalRef0.Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
@@ -240,6 +424,25 @@ type NoteToReminderJSONBody struct {
 	Rrule *string `json:"rrule,omitempty"`
 }
 
+// GetPublicNoteParams defines parameters for GetPublicNote.
+type GetPublicNoteParams struct {
+	// T 解锁后拿到的访问令牌
+	T *string `form:"t,omitempty" json:"t,omitempty"`
+}
+
+// GetPublicNoteFileParams defines parameters for GetPublicNoteFile.
+type GetPublicNoteFileParams struct {
+	T *string `form:"t,omitempty" json:"t,omitempty"`
+
+	// Thumb 图片取缩略图
+	Thumb *bool `form:"thumb,omitempty" json:"thumb,omitempty"`
+}
+
+// UnlockPublicNoteJSONBody defines parameters for UnlockPublicNote.
+type UnlockPublicNoteJSONBody struct {
+	Password string `json:"password"`
+}
+
 // CreateNoteJSONRequestBody defines body for CreateNote for application/json ContentType.
 type CreateNoteJSONRequestBody = CreateNote
 
@@ -264,11 +467,17 @@ type UpdateNoteJSONRequestBody = UpdateNote
 // UploadNoteAttachmentMultipartRequestBody defines body for UploadNoteAttachment for multipart/form-data ContentType.
 type UploadNoteAttachmentMultipartRequestBody UploadNoteAttachmentMultipartBody
 
+// PutNoteShareJSONRequestBody defines body for PutNoteShare for application/json ContentType.
+type PutNoteShareJSONRequestBody = NoteShareInput
+
 // NoteToIssueJSONRequestBody defines body for NoteToIssue for application/json ContentType.
 type NoteToIssueJSONRequestBody NoteToIssueJSONBody
 
 // NoteToReminderJSONRequestBody defines body for NoteToReminder for application/json ContentType.
 type NoteToReminderJSONRequestBody NoteToReminderJSONBody
+
+// UnlockPublicNoteJSONRequestBody defines body for UnlockPublicNote for application/json ContentType.
+type UnlockPublicNoteJSONRequestBody UnlockPublicNoteJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -300,6 +509,9 @@ type ServerInterface interface {
 	// (GET /notes/attachments/{attachmentId})
 	DownloadNoteAttachment(w http.ResponseWriter, r *http.Request, attachmentId AttachmentId)
 
+	// (GET /notes/counts)
+	GetNoteCounts(w http.ResponseWriter, r *http.Request)
+
 	// (PUT /notes/tag-colors)
 	SetNoteTagColor(w http.ResponseWriter, r *http.Request)
 
@@ -321,6 +533,15 @@ type ServerInterface interface {
 	// (POST /notes/{noteId}/attachments)
 	UploadNoteAttachment(w http.ResponseWriter, r *http.Request, noteId NoteId)
 
+	// (DELETE /notes/{noteId}/share)
+	DeleteNoteShare(w http.ResponseWriter, r *http.Request, noteId NoteId)
+
+	// (GET /notes/{noteId}/share)
+	GetNoteShare(w http.ResponseWriter, r *http.Request, noteId NoteId)
+
+	// (PUT /notes/{noteId}/share)
+	PutNoteShare(w http.ResponseWriter, r *http.Request, noteId NoteId)
+
 	// (DELETE /notes/{noteId}/suggested-tags)
 	DismissNoteSuggestedTags(w http.ResponseWriter, r *http.Request, noteId NoteId)
 
@@ -329,6 +550,15 @@ type ServerInterface interface {
 
 	// (POST /notes/{noteId}/to-reminder)
 	NoteToReminder(w http.ResponseWriter, r *http.Request, noteId NoteId)
+
+	// (GET /public/notes/{token})
+	GetPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken, params GetPublicNoteParams)
+
+	// (GET /public/notes/{token}/files/{attachmentId})
+	GetPublicNoteFile(w http.ResponseWriter, r *http.Request, token NoteShareToken, attachmentId AttachmentId, params GetPublicNoteFileParams)
+
+	// (POST /public/notes/{token}/unlock)
+	UnlockPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -380,6 +610,11 @@ func (_ Unimplemented) DownloadNoteAttachment(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /notes/counts)
+func (_ Unimplemented) GetNoteCounts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (PUT /notes/tag-colors)
 func (_ Unimplemented) SetNoteTagColor(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -415,6 +650,21 @@ func (_ Unimplemented) UploadNoteAttachment(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (DELETE /notes/{noteId}/share)
+func (_ Unimplemented) DeleteNoteShare(w http.ResponseWriter, r *http.Request, noteId NoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /notes/{noteId}/share)
+func (_ Unimplemented) GetNoteShare(w http.ResponseWriter, r *http.Request, noteId NoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /notes/{noteId}/share)
+func (_ Unimplemented) PutNoteShare(w http.ResponseWriter, r *http.Request, noteId NoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (DELETE /notes/{noteId}/suggested-tags)
 func (_ Unimplemented) DismissNoteSuggestedTags(w http.ResponseWriter, r *http.Request, noteId NoteId) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -427,6 +677,21 @@ func (_ Unimplemented) NoteToIssue(w http.ResponseWriter, r *http.Request, noteI
 
 // (POST /notes/{noteId}/to-reminder)
 func (_ Unimplemented) NoteToReminder(w http.ResponseWriter, r *http.Request, noteId NoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/notes/{token})
+func (_ Unimplemented) GetPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken, params GetPublicNoteParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/notes/{token}/files/{attachmentId})
+func (_ Unimplemented) GetPublicNoteFile(w http.ResponseWriter, r *http.Request, token NoteShareToken, attachmentId AttachmentId, params GetPublicNoteFileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /public/notes/{token}/unlock)
+func (_ Unimplemented) UnlockPublicNote(w http.ResponseWriter, r *http.Request, token NoteShareToken) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -509,6 +774,19 @@ func (siw *ServerInterfaceWrapper) ListNotes(w http.ResponseWriter, r *http.Requ
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hidden"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hidden", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
 		}
 		return
 	}
@@ -677,6 +955,20 @@ func (siw *ServerInterfaceWrapper) DownloadNoteAttachment(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DownloadNoteAttachment(w, r, attachmentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNoteCounts operation middleware
+func (siw *ServerInterfaceWrapper) GetNoteCounts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNoteCounts(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -863,6 +1155,84 @@ func (siw *ServerInterfaceWrapper) UploadNoteAttachment(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteNoteShare operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNoteShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "noteId" -------------
+	var noteId NoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "noteId", chi.URLParam(r, "noteId"), &noteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "noteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNoteShare(w, r, noteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNoteShare operation middleware
+func (siw *ServerInterfaceWrapper) GetNoteShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "noteId" -------------
+	var noteId NoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "noteId", chi.URLParam(r, "noteId"), &noteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "noteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNoteShare(w, r, noteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutNoteShare operation middleware
+func (siw *ServerInterfaceWrapper) PutNoteShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "noteId" -------------
+	var noteId NoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "noteId", chi.URLParam(r, "noteId"), &noteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "noteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutNoteShare(w, r, noteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DismissNoteSuggestedTags operation middleware
 func (siw *ServerInterfaceWrapper) DismissNoteSuggestedTags(w http.ResponseWriter, r *http.Request) {
 
@@ -932,6 +1302,138 @@ func (siw *ServerInterfaceWrapper) NoteToReminder(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.NoteToReminder(w, r, noteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicNote operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token NoteShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicNoteParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicNote(w, r, token, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicNoteFile operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicNoteFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token NoteShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "attachmentId" -------------
+	var attachmentId AttachmentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "attachmentId", chi.URLParam(r, "attachmentId"), &attachmentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "attachmentId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicNoteFileParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "thumb" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "thumb", r.URL.Query(), &params.Thumb, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "thumb"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "thumb", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicNoteFile(w, r, token, attachmentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlockPublicNote operation middleware
+func (siw *ServerInterfaceWrapper) UnlockPublicNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token NoteShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlockPublicNote(w, r, token)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1110,6 +1612,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/notes/attachments/{attachmentId}", wrapper.DownloadNoteAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notes/counts", wrapper.GetNoteCounts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/notes/{noteId}/share", wrapper.DeleteNoteShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notes/{noteId}/share", wrapper.GetNoteShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/notes/{noteId}/share", wrapper.PutNoteShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/notes/{token}", wrapper.GetPublicNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/public/notes/{token}/unlock", wrapper.UnlockPublicNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/notes/{token}/files/{attachmentId}", wrapper.GetPublicNoteFile)
 	})
 
 	return r

@@ -2,28 +2,48 @@
 
 额度用完或会话中断时，接手的 AI 先读这个文件，从“下一步”继续。
 
-## 第三批（B70 到 B83，2026-10-01 开始）
+## 第三批（B70 到 B83，2026-10-01 开始）— 接手的 AI 先看这里
 
-用户 2026-10-01 提了一批新需求。分工：Claude 只做前端，写规格、接口定义和后端占位（`pending.go` 回 501）；后端交给 GPT，照规格里“后端（待做）”做。规格在 `docs/specs/B70.md` 到 `B83.md`（B77 写在 `docs/tasks.md` 里）。
+用户 2026-10-01 提了一批新需求。规格在 `docs/specs/B70.md` 到 `B83.md`（B77 写在 `docs/tasks.md`）。
+原来的分工：Claude 做前端、接口定义（`api/modules/*.yaml`）和后端占位（`pending.go` 回 501），后端交给 GPT。Claude 额度用完，剩下的全部交给 GPT。
 
-前端开发顺序：B77、B76 → B70、B71 → B72 → B73、B74 → B75 → B79 → B80 → B82 → B83 → B81 → B78。
+### 进度
 
 | 任务 | 前端 | 后端 |
 | --- | --- | --- |
-| B70 仓库页 | 没开始 | 待做 |
-| B71 仓库通知 | 没开始 | 待做 |
-| B72 笔记分享、浮窗等 | 没开始 | 待做 |
-| B73 便签 | 没开始 | 待做 |
-| B74 编辑器 | 没开始 | 待做（一个字段） |
+| B77 看板卡片 | 完成（`e416f10`） | 不需要 |
+| B76 左栏数量、二级菜单选中 | 完成（`dedcd0f`、`216386b`） | 不需要 |
+| B70 仓库页 | 完成（`347a4ed`），用假数据截图看过 1360 和 390 | 待做，占位在 `modules/github/pending.go` |
+| B71 仓库通知 | 完成（`347a4ed`） | 待做，同上 |
+| B72 笔记 | 滚动修好（`6b3dc4d`）、左栏“+”（`a813007`）；外链分享、浮窗、双击编辑的代码写完了，**没测、没截图**（见下面“最后一个提交”） | 待做，占位在 `modules/notes/pending.go`（含 `PublicPaths`） |
+| B73 便签 | 代码写完了，**没测、没截图** | 待做，同上 |
+| B74 编辑器 | 只做了背景色（`ColorPicker`、`noteColors.ts`、`notes.css` 末尾）。Markdown 的代码块折叠复制、视频音频、隐藏块、提示块、高亮、表格、工具条“插入”菜单都**没做** | 待做（`color` 字段） |
 | B75 云盘分享页 | 没开始 | 待做 |
-| B76 左栏数量 | 二级菜单选中样式已改 | 不需要 |
-| B77 看板卡片 | 已改 | 不需要 |
 | B78 CI 提速 | 没开始 | 不需要 |
-| B79 版本号和维护 | 没开始 | 待做 |
+| B79 版本号和维护页 | 没开始 | 待做 |
 | B80 保留位置 | 没开始 | 不需要 |
 | B81 增量备份 | 没开始 | 待做 |
 | B82 服务器信息 | 没开始 | 待做 |
 | B83 健康提醒 | 没开始 | 待做 |
+
+### 最后一个提交（B72、B73 进行中）要先做的
+
+用户额度用完，最后一个提交是直接提交的，只跑过 `tsc --noEmit`（通过）。接手后：
+
+1. **补中文词条**：`web/src/features/notes/i18n.ts` 还没加这次新的键，界面上会显示英文。缺的键：Shared by link、Share by link、Share note、Link created、Could not copy. Copy it by hand.、Stop sharing this note?、The link stops working right away.、Stop sharing、Sharing stopped、Note sharing、Password set、No password、Opened times、Last opened、Change how long it works、Require a password、Leave empty to keep the old password、4 to 32 characters、People need this password to open the link. Send it separately.、The link shows only this note: the title, the text and its images. Hidden notes cannot be shared.、Shared with X Console、This note needs a password、Open in a floating window、Open in notes、Minimize、Restore window、Memos、Memo、All memos、No memos with this tag、No memos yet、Quick notes from the top bar are saved here.、Others、Take a memo…、Delete this memo?、Saved to memos、Write it down. It is saved as a memo.、Turned into a memo、Turned into a note、Turn into a note、Turn into a memo、Background、Teal、Purple、Pink、Brown、Gray。另外 `ShareDialog.tsx` 里 `t("Opened")} {current.visits} {t("times")` 改成 `t("Opened times")} {current.visits}`，`FloatingWindows.tsx` 的 `t("Restore")` 改成 `t("Restore window")`（“Restore”已经是“恢复”）。中文词典全局唯一，加完跑 `npx vitest run src/lib/i18n.test.ts`。
+2. 跑 `scripts/check-quick.sh` 和笔记的单元测试（`NotesPage.test.tsx` 可能要按新的左栏“便签”项改）。
+3. 起服务端和前端，打开笔记页看：左栏“便签”、`/notes?view=memos` 瀑布流（后端没上线时显示“还没上线”）、编辑区右上角“在浮窗中打开”、更多菜单里“分享外链”“转成便签”“背景色”、阅读模式双击进入编辑、`/n/<token>` 分享页（后端没上线时显示“服务端还没上线”）。手机 390px 也看一遍。
+4. 新文件：`features/notes/{MemoBoard,FloatingNotes,FloatingWindows,ColorPicker}.tsx`、`floating.ts`、`noteColors.ts`、`components/ShareDialog.tsx`、`share/NoteSharePage.tsx`；`app/App.tsx` 加了 `/n/<token>`，`app/GlobalPanels.tsx` 加了 `FloatingNotes`。这两处基础文件的改动还没记到 `docs/tasks.md` 的“接口变更记录”。
+5. 已知的小问题：便签视图在 1180px 以下的布局只写了 CSS，没看过效果。
+
+### 后端（GPT）
+
+照各规格的“后端（待做）”做。接口定义已经改好、生成代码已提交的有：B70、B71（`github.yaml`）、B72、B73（`notes.yaml`）。B74 到 B83 的接口还没写进 yaml，按规格里“契约”一节先写 yaml，再 `go generate ./...` 和 `npm run gen:api`。
+
+### 本地调试的方法
+
+- 截图和交互用 Playwright：`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`。没有 GitHub 账号时用 `page.route` 拦截 `/api/v1/github/**` 喂假数据看仓库页。
+- 发现的后端小问题：`/mail/summary` 没有邮箱时 `accounts`、`latest` 返回 `null`（前端已兼容，`d5577e3`），后端应该返回空数组。
 
 ## 上一批的收尾（2026-10-01 更新）
 

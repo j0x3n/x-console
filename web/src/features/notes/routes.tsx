@@ -53,10 +53,11 @@ registerCommands([
       if (!text) return;
       const note = await captureNote(text);
       toast({
-        message: "已存成笔记",
+        message: "已存到便签",
         subtitle: text.length > 40 ? `${text.slice(0, 39)}…` : text,
       });
-      if (location.pathname.startsWith("/notes")) navigate(`/notes/${note.id}`);
+      if (location.pathname.startsWith("/notes"))
+        navigate(`/notes/${note.id}?view=memos`);
     },
   },
   {

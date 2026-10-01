@@ -133,3 +133,19 @@ export function readPanes(storage: Pick<Storage, "getItem">): PaneWidths {
     return DEFAULT_PANES;
   }
 }
+
+/**
+ * 双击阅读模式的文字进入编辑时，光标放在原文里对应的位置（B72）。
+ * text 是双击处那段渲染后的文字，offset 是在它里面的位置。
+ * 找前后各 12 个字的片段，找不到再缩短；都找不到返回正文末尾。
+ */
+export function caretFor(body: string, text: string, offset: number): number {
+  for (const span of [12, 6, 3]) {
+    const start = Math.max(0, offset - span);
+    const piece = text.slice(start, offset + span);
+    if (piece.trim().length < 2) continue;
+    const i = body.indexOf(piece);
+    if (i >= 0) return Math.min(body.length, i + (offset - start));
+  }
+  return body.length;
+}

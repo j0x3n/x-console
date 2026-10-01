@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  ApiError,
   apiFetch,
   createApi,
   errorMessage,
@@ -15,6 +16,7 @@ import { invalidateOn } from "../../api/events";
 import type { components, paths } from "../../api/gen/notes";
 import { toast } from "../../hooks/useToast";
 import { queryClient } from "../../api/query";
+import { withElevation } from "../../auth/elevation";
 
 export const notesApi = createApi<paths>();
 
@@ -25,6 +27,11 @@ export type UpdateNote = components["schemas"]["UpdateNote"];
 export type Attachment = components["schemas"]["Attachment"];
 export type NoteAiSettings = components["schemas"]["NoteAiSettings"];
 export type NoteAiSettingsInput = components["schemas"]["NoteAiSettingsInput"];
+export type NoteKind = components["schemas"]["NoteKind"];
+export type NoteColor = components["schemas"]["NoteColor"];
+export type NoteShare = components["schemas"]["NoteShare"];
+export type NoteShareInput = components["schemas"]["NoteShareInput"];
+export type NoteCounts = components["schemas"]["NoteCounts"];
 
 export interface NotesFilter {
   q: string;
@@ -33,6 +40,8 @@ export interface NotesFilter {
   pinned: boolean;
   /** B13：只看隐藏笔记，要先解锁 */
   hidden: boolean;
+  /** B73：只看笔记或只看便签，不传时两种都要 */
+  kind?: NoteKind;
 }
 
 export const notesKeys = {
@@ -42,6 +51,8 @@ export const notesKeys = {
   note: (id: number) => ["notes", "note", id] as const,
   tags: ["notes", "tags"] as const,
   aiSettings: ["notes", "ai-settings"] as const,
+  counts: ["notes", "counts"] as const,
+  share: (id: number) => ["notes", "share", id] as const,
 };
 
 // 其他窗口改了笔记时刷新。编辑器自己决定要不要采用新内容（见 NoteEditor）。
@@ -60,6 +71,7 @@ export function useNotes(filter: NotesFilter) {
               archived: filter.archived || undefined,
               pinned: filter.pinned || undefined,
               hidden: filter.hidden || undefined,
+              kind: filter.kind,
               limit: 50,
               cursor: pageParam || undefined,
             },
@@ -137,6 +149,7 @@ export function useCreateNote() {
       qc.setQueryData(notesKeys.note(note.id), note);
       qc.invalidateQueries({ queryKey: notesKeys.lists });
       qc.invalidateQueries({ queryKey: notesKeys.tags });
+      qc.invalidateQueries({ queryKey: notesKeys.counts });
     },
     onError: fail,
   });
@@ -229,9 +242,13 @@ export async function uploadAttachment(
   return (await res.json()) as Attachment;
 }
 
-/** 命令面板的 "> 内容"：直接存成一条新笔记（B4）。 */
+/** 命令面板的 "> 内容"：直接存成一条便签（B4、B73），AI 随后加标题和标签。 */
 export async function captureNote(text: string) {
-  const note = await unwrap(notesApi.POST("/notes", { body: { body: text } }));
+  const note = await unwrap(
+    notesApi.POST("/notes", {
+      body: { body: text, kind: "memo", quick: true },
+    }),
+  );
   queryClient.setQueryData(notesKeys.note(note.id), note);
   queryClient.invalidateQueries({ queryKey: notesKeys.lists });
   return note;
@@ -298,4 +315,75 @@ export function useNoteAiTools() {
       onError,
     }),
   };
+}
+
+/* ---- B73：数量（左栏后面的数字）。回 404、501 表示便签还没上线 ---- */
+
+export function useNoteCounts() {
+  return useQuery({
+    queryKey: notesKeys.counts,
+    queryFn: () => unwrap(notesApi.GET("/notes/counts")),
+    retry: (count, error) => !isNotLive(error) && count < 2,
+    meta: { silentError: true },
+  });
+}
+
+/* ---- B72：外链分享 ---- */
+
+/** 这条笔记的外链。没分享时接口回 404，这里返回 null。 */
+export function useNoteShare(id: number) {
+  return useQuery({
+    queryKey: notesKeys.share(id),
+    queryFn: async () => {
+      try {
+        return await unwrap(
+          notesApi.GET("/notes/{noteId}/share", {
+            params: { path: { noteId: id } },
+          }),
+        );
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    retry: (count, error) => !isNotLive(error) && count < 2,
+  });
+}
+
+export function useSaveNoteShare(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: NoteShareInput) =>
+      withElevation(() =>
+        unwrap(
+          notesApi.PUT("/notes/{noteId}/share", {
+            params: { path: { noteId: id } },
+            body,
+          }),
+        ),
+      ),
+    onSuccess: (share) => {
+      qc.setQueryData(notesKeys.share(id), share);
+      qc.invalidateQueries({ queryKey: notesKeys.note(id) });
+      qc.invalidateQueries({ queryKey: notesKeys.lists });
+    },
+  });
+}
+
+export function useDeleteNoteShare(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      unwrap(
+        notesApi.DELETE("/notes/{noteId}/share", {
+          params: { path: { noteId: id } },
+        }),
+      ),
+    onSuccess: () => {
+      qc.setQueryData(notesKeys.share(id), null);
+      qc.invalidateQueries({ queryKey: notesKeys.note(id) });
+      qc.invalidateQueries({ queryKey: notesKeys.lists });
+    },
+    onError: fail,
+  });
 }
