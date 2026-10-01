@@ -1,6 +1,8 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  "WebDAV in Drive": "云盘里的 WebDAV",
+  "Google Drive in Drive": "云盘里的 Google Drive",
   "Hidden items": "隐藏内容",
   "Hidden items are showing": "隐藏内容已显示",
   "Lock vault": "锁定",

@@ -259,6 +259,7 @@
 | B61 | AI 记忆：面板 AI 能记、改、删，编码 Agent 和机器会话只读，远程 AI 看不到；设置 → AI 有记忆卡片，浮窗里显示“已记住”。规格见 [B61](specs/B61.md) |
 | B62 | Git 账号统一：设置里一个“Git 与 GitHub”，GitHub 页面选一个 Git 账号同步，Agent 页不再单独管连接；老的 GitHub 令牌启动时自动变成一个 Git 账号。规格见 [B62](specs/B62.md) |
 | B63 | 自动备份可以选 WebDAV（坚果云、Nextcloud、alist 等）和 Google Drive；设置页能测试连接，Google Drive 在面板里授权和撤销，授权过期时自动备份失败并推送通知。规格见 [B63](specs/B63.md) |
+| B68 | 云盘页给备份绑定的坚果云（WebDAV）和 Google Drive 各加一个标签，能浏览和下载，可以在隐藏的模块里单独隐藏，不影响备份；Google 授权多申请只读权限；隐藏密码卡片只在解锁时显示；左栏三级菜单默认收起。规格见 [B68](specs/B68.md) |
 | B66 | “日历”改名“日程”，二级菜单去掉早报；今日页右上角加“早报”按钮，早报页左上角是“今日 / 早报”，不跟着日程隐藏。规格见 [B66](specs/B66.md) |
 | B67 | 快速记录保存后马上用 AI 生成标题和标签，标签直接加上，正文短也生成。规格见 [B67](specs/B67.md) |
 | B45 | Safari 工具栏：真机上 `all` 和 `off` 都可以，A 到 F 单独开不行。页面保持原样，测试开关已删。规格见 [B45](specs/B45.md) |
@@ -325,6 +326,7 @@
 | 2026-10-01 | `contracts` 加 `Memories`（`Prompt(ctx)`，键 `ai.memories`），ai 提供，aiagents 用。`actions.Action` 加 `PanelOnly`：只给面板 AI，`AllowedFor` 一律不给，自动化的目录和执行也跳过 | B61 |
 | 2026-10-01 | `contracts` 加 `GitAccounts`（`Account`、`Credentials`、`ImportGitHub`，键 `aiagents.accounts`），aiagents 提供，github 用。github 设置键加 `github.connection_id`、`github.migrated_b62`；`useGithubModule` 和 `/github/config` 的 token、clearToken、apiUrl 标成 deprecated | B62 |
 | 2026-10-01 | 基础代码 `files` 加两个 `Store` 实现：`WebDAV`（`NewWebDAV`、`ValidateWebDAV`、`Check`）和 `GDrive`（`NewGDrive`、`Folder`、`Account`、`Check`），以及 Google OAuth 的 `GoogleAuthURL`、`GoogleExchange`、`GoogleRevoke`、`ErrGDriveAuth`。只加新文件，不改已有的。测试用的假 Drive 在 `files/fakegdrive` | B63 |
+| 2026-10-01 | `files.WebDAV` 加 `ReadDir`，`files.GDrive` 加 `ReadDir`、`Trail`、`OpenFile`，加 `DirEntry`。`GoogleExchange` 改成返回 `GoogleGrant`（带授权范围），授权地址多申请 `drive.readonly`。vault 的 `ModuleId` 加 `drive-webdav`、`drive-gdrive`。前端 `NavChildLinks` 的缩进子项默认收起，状态记在 localStorage 的 `xc.nav.open3` | B68 |
 | 2026-10-01 | 前端 `moduleOfPath` 把 `/calendar/briefs` 算作不属于任何模块；左栏在早报页高亮“今日” | B66 |
 | 2026-10-01 | `contracts` 加 `IgnoreHidden(ctx)`、`HidingIgnored(ctx)`。自动化执行步骤时带上这个标记，被隐藏模块的步骤照常执行。锁定时用到被隐藏模块的自动化规则在页面上按不存在处理 | B57 验收：自动化在后台没有会话，原来被隐藏模块的步骤一直失败 |
 | 2026-10-01 | `contracts` 加 `HiddenModules`（`Hidden(ctx, module) bool`，键 `vault.hidden`）。vault 模块提供。锁定时被隐藏的左栏模块接口回 404，动作目录、事件、通知和早报按同一张对应表跳过 | B57 隐藏模块 |

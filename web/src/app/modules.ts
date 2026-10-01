@@ -21,6 +21,8 @@ export const ALL_MODULES: ModuleId[] = [
   "reminders",
   "habits",
   "drive",
+  "drive-webdav",
+  "drive-gdrive",
   "calendar",
   "servers",
   "pc",

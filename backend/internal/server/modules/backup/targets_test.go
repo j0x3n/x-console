@@ -281,3 +281,96 @@ func TestChangingTheGoogleClientDropsTheToken(t *testing.T) {
 		t.Fatalf("after changing the client: %+v", s.Gdrive)
 	}
 }
+
+func TestBrowseRemoteDrives(t *testing.T) {
+	env, m := setup(t)
+	srv, fs := davServer(t)
+	fake := fakegdrive.New(t)
+	backup.SetGoogle(m, fake.Endpoints())
+	env.Elevate()
+
+	var drives struct{ Items []api.RemoteDrive }
+	env.MustDo(http.MethodGet, "/remote-drives", nil, &drives)
+	if len(drives.Items) != 0 {
+		t.Fatalf("nothing bound: %+v", drives.Items)
+	}
+	if code, _ := env.Do(http.MethodGet, "/remote-drives/webdav/items", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("unbound drive: %d", code)
+	}
+
+	// WebDAV: browse from the top of the address, not only the backup folder.
+	if err := fs.Mkdir(context.Background(), "/照片", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := fs.OpenFile(context.Background(), "/照片/a.jpg", os.O_CREATE|os.O_WRONLY, 0o644)
+	f.Write([]byte("jpeg bytes"))
+	f.Close()
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"webdav": map[string]any{"url": srv.URL + "/dav/", "username": "me", "password": "pw"}}, nil)
+	authorize(t, env, fake)
+	docs := fake.Add("root", "文档", fakegdrive.FolderMime, nil)
+	fake.Add(docs, "说明.txt", "", []byte("hello"))
+
+	env.MustDo(http.MethodGet, "/remote-drives", nil, &drives)
+	if len(drives.Items) != 2 || drives.Items[0].Id != api.RemoteDriveIdWebdav || drives.Items[1].Name != "Google Drive" || drives.Items[1].Limited {
+		t.Fatalf("drives: %+v", drives.Items)
+	}
+	var list api.RemoteDriveListing
+	env.MustDo(http.MethodGet, "/remote-drives/webdav/items?ref="+url.QueryEscape("照片"), nil, &list)
+	if len(list.Items) != 1 || list.Items[0].Ref != "照片/a.jpg" || len(list.Trail) != 1 || list.Trail[0].Name != "照片" {
+		t.Fatalf("webdav listing: %+v", list)
+	}
+	status, raw := rawGet(t, env, "/remote-drives/webdav/download?ref="+url.QueryEscape("照片/a.jpg"))
+	if status != http.StatusOK || string(raw) != "jpeg bytes" {
+		t.Fatalf("webdav download: %d %q", status, raw)
+	}
+
+	env.MustDo(http.MethodGet, "/remote-drives/gdrive/items", nil, &list)
+	var folder string
+	for _, it := range list.Items {
+		if it.Name == "文档" && it.IsDir {
+			folder = it.Ref
+		}
+	}
+	if folder == "" {
+		t.Fatalf("gdrive root: %+v", list.Items)
+	}
+	env.MustDo(http.MethodGet, "/remote-drives/gdrive/items?ref="+folder, nil, &list)
+	if len(list.Items) != 1 || list.Items[0].Name != "说明.txt" || !list.Items[0].Downloadable || len(list.Trail) != 1 {
+		t.Fatalf("gdrive folder: %+v", list)
+	}
+	status, raw = rawGet(t, env, "/remote-drives/gdrive/download?ref="+list.Items[0].Ref)
+	if status != http.StatusOK || string(raw) != "hello" {
+		t.Fatalf("gdrive download: %d %q", status, raw)
+	}
+
+	// Hidden and locked: the Google tab is gone, the backup still works.
+	env.MustDo(http.MethodPost, "/vault/setup", map[string]string{"password": "secret-one"}, nil)
+	env.MustDo(http.MethodPut, "/vault/modules", map[string]any{"hidden": []string{"drive-gdrive"}}, nil)
+	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
+	env.MustDo(http.MethodGet, "/remote-drives", nil, &drives)
+	if len(drives.Items) != 1 || drives.Items[0].Id != api.RemoteDriveIdWebdav {
+		t.Fatalf("locked drives: %+v", drives.Items)
+	}
+	if code, _ := env.Do(http.MethodGet, "/remote-drives/gdrive/items", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("hidden drive: %d", code)
+	}
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "gdrive"}, nil)
+	env.MustDo(http.MethodPost, "/backups/run", nil, nil)
+	if job := waitJob(t, env); job.State != api.Done {
+		t.Fatalf("backup while hidden: %+v %v", job, deref(job.Error))
+	}
+}
+
+func TestOldGoogleGrantIsLimited(t *testing.T) {
+	env, m := setup(t)
+	fake := fakegdrive.New(t)
+	fake.Scope = "https://www.googleapis.com/auth/drive.file"
+	backup.SetGoogle(m, fake.Endpoints())
+	env.Elevate()
+	authorize(t, env, fake)
+	var drives struct{ Items []api.RemoteDrive }
+	env.MustDo(http.MethodGet, "/remote-drives", nil, &drives)
+	if len(drives.Items) != 1 || !drives.Items[0].Limited {
+		t.Fatalf("drives: %+v", drives.Items)
+	}
+}

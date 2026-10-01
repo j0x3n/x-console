@@ -1984,3 +1984,10 @@ html {
     bottom: calc(16px + env(safe-area-inset-bottom));
   }
 }
+/* B68：三级菜单的展开箭头 */
+.nav-child-toggle svg {
+  transition: transform 0.15s;
+}
+.nav-child-toggle.open svg {
+  transform: rotate(90deg);
+}

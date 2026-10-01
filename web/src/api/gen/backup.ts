@@ -212,6 +212,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/remote-drives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B68。备份设置里绑定了的网盘，云盘页给每个显示一个标签。锁定时被隐藏的不返回 */
+        get: operations["listRemoteDrives"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-drives/{remote}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        /** @description B68。列网盘里的一个文件夹，文件夹在前 */
+        get: operations["listRemoteDriveItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-drives/{remote}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        /** @description B68。下载网盘里的一个文件，服务端转发 */
+        get: operations["downloadRemoteDriveFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backups/run": {
         parameters: {
             query?: never;
@@ -233,6 +288,35 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RemoteDrive: {
+            /** @enum {string} */
+            id: "webdav" | "gdrive";
+            /** @description 标签上的名字，比如“坚果云”“Google Drive” */
+            name: string;
+            account?: string;
+            /** @description Google Drive 授权里没有只读权限，只能看到面板自己建的文件，要重新授权 */
+            limited: boolean;
+        };
+        RemoteDriveEntry: {
+            ref: string;
+            name: string;
+            isDir: boolean;
+            /** Format: int64 */
+            size?: number;
+            /** Format: date-time */
+            modifiedAt?: string;
+            /** @description Google 文档这类在线文件是 false */
+            downloadable: boolean;
+        };
+        RemoteDriveListing: {
+            ref: string;
+            /** @description 从根目录下面一级到当前文件夹，用来显示路径 */
+            trail: {
+                ref: string;
+                name: string;
+            }[];
+            items: components["schemas"]["RemoteDriveEntry"][];
+        };
         Backup: {
             id: string;
             name: string;
@@ -412,6 +496,7 @@ export interface components {
     parameters: {
         /** @description 备份文件名，比如 x-console-20260928-0300-sha-8fed186.tar.gz */
         BackupId: string;
+        Remote: "webdav" | "gdrive";
     };
     requestBodies: never;
     headers: never;
@@ -721,6 +806,80 @@ export interface operations {
                 };
                 content?: never;
             };
+        };
+    };
+    listRemoteDrives: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 网盘列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RemoteDrive"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRemoteDriveItems: {
+        parameters: {
+            query?: {
+                /** @description 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录 */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件夹内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteDriveListing"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadRemoteDriveFile: {
+        parameters: {
+            query: {
+                ref: string;
+            };
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
         };
     };
     runBackupNow: {

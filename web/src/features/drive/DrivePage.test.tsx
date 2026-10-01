@@ -217,6 +217,51 @@ describe("DrivePage", () => {
     );
   });
 
+  it("browses a bound WebDAV drive on its own tab (B68)", async () => {
+    live();
+    api.routes.set("GET /remote-drives", () => ({
+      status: 200,
+      body: { items: [{ id: "webdav", name: "坚果云", limited: false }] },
+    }));
+    api.routes.set("GET /remote-drives/webdav/items", (url) => ({
+      status: 200,
+      body:
+        url.searchParams.get("ref") === "照片"
+          ? {
+              ref: "照片",
+              trail: [{ ref: "照片", name: "照片" }],
+              items: [
+                {
+                  ref: "照片/a.jpg",
+                  name: "a.jpg",
+                  isDir: false,
+                  size: 2048,
+                  downloadable: true,
+                },
+              ],
+            }
+          : {
+              ref: "",
+              trail: [],
+              items: [
+                { ref: "照片", name: "照片", isDir: true, downloadable: false },
+              ],
+            },
+    }));
+    const router = renderAt("/drive");
+    fireEvent.click(await screen.findByRole("button", { name: /坚果云/ }));
+    const row = await screen.findByRole("button", { name: "照片" });
+    // 网盘标签里没有上传和搜索
+    expect(screen.queryByRole("button", { name: /上传/ })).toBeNull();
+    fireEvent.click(row);
+    expect(
+      await screen.findByRole("button", { name: "下载 a.jpg" }),
+    ).toBeTruthy();
+    expect(router.state.location.search).toBe(
+      "?view=remote&remote=webdav&ref=%E7%85%A7%E7%89%87",
+    );
+  });
+
   it("uploads picked files to the current folder", async () => {
     live();
     const sent: string[] = [];

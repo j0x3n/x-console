@@ -215,6 +215,65 @@ paths:
       responses:
         "302":
           description: 跳回设置页
+  /remote-drives:
+    get:
+      operationId: listRemoteDrives
+      tags: [backup]
+      description: B68。备份设置里绑定了的网盘，云盘页给每个显示一个标签。锁定时被隐藏的不返回
+      responses:
+        "200":
+          description: 网盘列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/RemoteDrive" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /remote-drives/{remote}/items:
+    parameters:
+      - $ref: "#/components/parameters/Remote"
+    get:
+      operationId: listRemoteDriveItems
+      tags: [backup]
+      description: B68。列网盘里的一个文件夹，文件夹在前
+      parameters:
+        - name: ref
+          in: query
+          description: 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录
+          schema: { type: string }
+      responses:
+        "200":
+          description: 文件夹内容
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RemoteDriveListing" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /remote-drives/{remote}/download:
+    parameters:
+      - $ref: "#/components/parameters/Remote"
+    get:
+      operationId: downloadRemoteDriveFile
+      tags: [backup]
+      description: B68。下载网盘里的一个文件，服务端转发
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /backups/run:
     post:
       operationId: runBackupNow
@@ -236,7 +295,51 @@ components:
       required: true
       description: 备份文件名，比如 x-console-20260928-0300-sha-8fed186.tar.gz
       schema: { type: string }
+    Remote:
+      name: remote
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [webdav, gdrive]
   schemas:
+    RemoteDrive:
+      type: object
+      required: [id, name, limited]
+      properties:
+        id:
+          type: string
+          enum: [webdav, gdrive]
+        name: { type: string, description: 标签上的名字，比如“坚果云”“Google Drive” }
+        account: { type: string }
+        limited: { type: boolean, description: Google Drive 授权里没有只读权限，只能看到面板自己建的文件，要重新授权 }
+    RemoteDriveEntry:
+      type: object
+      required: [ref, name, isDir, downloadable]
+      properties:
+        ref: { type: string }
+        name: { type: string }
+        isDir: { type: boolean }
+        size: { type: integer, format: int64 }
+        modifiedAt: { type: string, format: date-time }
+        downloadable: { type: boolean, description: Google 文档这类在线文件是 false }
+    RemoteDriveListing:
+      type: object
+      required: [ref, trail, items]
+      properties:
+        ref: { type: string }
+        trail:
+          type: array
+          description: 从根目录下面一级到当前文件夹，用来显示路径
+          items:
+            type: object
+            required: [ref, name]
+            properties:
+              ref: { type: string }
+              name: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/RemoteDriveEntry" }
     Backup:
       type: object
       required: [id, name, createdAt, sizeBytes, location, kind]

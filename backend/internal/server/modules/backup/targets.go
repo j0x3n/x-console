@@ -49,6 +49,7 @@ type gdriveFields struct {
 	FolderName string `json:"folderName"`
 	FolderID   string `json:"folderId,omitempty"`
 	Account    string `json:"account,omitempty"`
+	Browse     bool   `json:"browse,omitempty"` // the grant can read every file (B68)
 }
 
 // newSecrets holds secrets typed in but not saved yet. "" means the saved one.

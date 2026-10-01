@@ -57,6 +57,9 @@ func (e GoogleEndpoints) withDefaults() GoogleEndpoints {
 // GoogleDriveScope only lets the app see the files it made itself.
 const GoogleDriveScope = "https://www.googleapis.com/auth/drive.file"
 
+// GoogleBrowseScope lets the drive page list and download every file (B68).
+const GoogleBrowseScope = "https://www.googleapis.com/auth/drive.readonly"
+
 // ErrGDriveAuth means the refresh token no longer works: it expired or was
 // revoked, and the user has to authorize again.
 var ErrGDriveAuth = errors.New("Google Drive 授权过期，请重新授权")
@@ -66,7 +69,7 @@ var ErrGDriveAuth = errors.New("Google Drive 授权过期，请重新授权")
 func GoogleAuthURL(e GoogleEndpoints, clientID, redirect, state string) string {
 	e = e.withDefaults()
 	q := url.Values{"client_id": {clientID}, "redirect_uri": {redirect}, "response_type": {"code"},
-		"scope": {GoogleDriveScope}, "state": {state}, "access_type": {"offline"}, "prompt": {"consent"}}
+		"scope": {GoogleDriveScope + " " + GoogleBrowseScope}, "state": {state}, "access_type": {"offline"}, "prompt": {"consent"}}
 	return e.Auth + "?" + q.Encode()
 }
 
@@ -74,6 +77,7 @@ type tokenAnswer struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"`
+	Scope        string `json:"scope"`
 	Error        string `json:"error"`
 	Description  string `json:"error_description"`
 }
@@ -109,21 +113,32 @@ func postToken(ctx context.Context, e GoogleEndpoints, form url.Values) (tokenAn
 	return out, nil
 }
 
+// GoogleGrant is what the user allowed.
+type GoogleGrant struct {
+	RefreshToken string
+	Scopes       []string
+}
+
+// CanBrowse tells whether the grant lets the app read every file.
+func (g GoogleGrant) CanBrowse() bool {
+	return slices.Contains(g.Scopes, GoogleBrowseScope) || slices.Contains(g.Scopes, "https://www.googleapis.com/auth/drive")
+}
+
 // GoogleExchange trades the code from the callback for a refresh token.
-func GoogleExchange(ctx context.Context, e GoogleEndpoints, clientID, secret, code, redirect string) (string, error) {
+func GoogleExchange(ctx context.Context, e GoogleEndpoints, clientID, secret, code, redirect string) (GoogleGrant, error) {
 	e = e.withDefaults()
 	out, err := postToken(ctx, e, url.Values{"grant_type": {"authorization_code"}, "code": {code},
 		"client_id": {clientID}, "client_secret": {secret}, "redirect_uri": {redirect}})
 	if errors.Is(err, ErrGDriveAuth) {
-		return "", errors.New("授权码无效或已过期，请重新授权")
+		return GoogleGrant{}, errors.New("授权码无效或已过期，请重新授权")
 	}
 	if err != nil {
-		return "", err
+		return GoogleGrant{}, err
 	}
 	if out.RefreshToken == "" {
-		return "", errors.New("Google 没有给出长期令牌，请在 Google 账号里移除这个应用的授权后重试")
+		return GoogleGrant{}, errors.New("Google 没有给出长期令牌，请在 Google 账号里移除这个应用的授权后重试")
 	}
-	return out.RefreshToken, nil
+	return GoogleGrant{RefreshToken: out.RefreshToken, Scopes: strings.Fields(out.Scope)}, nil
 }
 
 // GoogleRevoke tells Google to forget a token. A token Google does not know
@@ -680,4 +695,132 @@ func (g *GDrive) Check(ctx context.Context) error {
 		return explainNet(err)
 	}
 	return probe(ctx, g, explainNet)
+}
+
+// DirEntry is one item of a folder listing on the drive page (B68).
+type DirEntry struct {
+	Ref      string // WebDAV: the path; Google Drive: the file id
+	Name     string
+	Dir      bool
+	Size     int64
+	ModTime  time.Time
+	MimeType string
+}
+
+// Downloadable is false for Google Docs and other online-only files.
+func (e DirEntry) Downloadable() bool {
+	return !e.Dir && !strings.HasPrefix(e.MimeType, "application/vnd.google-apps.")
+}
+
+func sortEntries(list []DirEntry) {
+	slices.SortStableFunc(list, func(a, b DirEntry) int {
+		if a.Dir != b.Dir {
+			if a.Dir {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
+	})
+}
+
+const fileFields = "id,name,mimeType,size,modifiedTime,parents"
+
+type driveMeta struct {
+	driveFile
+	Parents []string `json:"parents"`
+}
+
+func (f driveMeta) entry() DirEntry {
+	return DirEntry{Ref: f.ID, Name: f.Name, Dir: f.MimeType == folderMime, Size: f.Size, ModTime: f.ModifiedTime, MimeType: f.MimeType}
+}
+
+func (g *GDrive) meta(ctx context.Context, id string) (driveMeta, error) {
+	var out driveMeta
+	err := g.callJSON(ctx, http.MethodGet, g.e.API+"/drive/v3/files/"+url.PathEscape(id)+"?fields="+fileFields, nil, &out)
+	var derr *driveError
+	if errors.As(err, &derr) && derr.Status == http.StatusNotFound {
+		return out, ErrNotFound
+	}
+	return out, err
+}
+
+// ReadDir lists a folder of the whole drive. "" is the root.
+func (g *GDrive) ReadDir(ctx context.Context, folder string) ([]DirEntry, error) {
+	if folder == "" {
+		folder = "root"
+	}
+	if strings.ContainsAny(folder, `'\`) {
+		return nil, ErrBadKey
+	}
+	var all []DirEntry
+	page := ""
+	for {
+		v := url.Values{"q": {quote(folder) + " in parents and trashed = false"}, "spaces": {"drive"}, "pageSize": {"1000"},
+			"fields": {"nextPageToken,files(" + fileFields + ")"}}
+		if page != "" {
+			v.Set("pageToken", page)
+		}
+		var out struct {
+			NextPageToken string      `json:"nextPageToken"`
+			Files         []driveMeta `json:"files"`
+		}
+		if err := g.callJSON(ctx, http.MethodGet, g.e.API+"/drive/v3/files?"+v.Encode(), nil, &out); err != nil {
+			return nil, err
+		}
+		for _, f := range out.Files {
+			all = append(all, f.entry())
+		}
+		if out.NextPageToken == "" {
+			break
+		}
+		page = out.NextPageToken
+	}
+	sortEntries(all)
+	return all, nil
+}
+
+// Trail returns the folders from below the root down to folder, for the
+// path above a listing.
+func (g *GDrive) Trail(ctx context.Context, folder string) ([]DirEntry, error) {
+	if folder == "" || folder == "root" {
+		return nil, nil
+	}
+	root, err := g.meta(ctx, "root")
+	if err != nil {
+		return nil, err
+	}
+	var out []DirEntry
+	for id := folder; id != "" && id != root.ID && len(out) < 32; {
+		f, err := g.meta(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out = append([]DirEntry{f.entry()}, out...)
+		id = ""
+		if len(f.Parents) > 0 {
+			id = f.Parents[0]
+		}
+	}
+	return out, nil
+}
+
+// OpenFile downloads a file of the whole drive by id.
+func (g *GDrive) OpenFile(ctx context.Context, id string) (io.ReadCloser, DirEntry, error) {
+	f, err := g.meta(ctx, id)
+	if err != nil {
+		return nil, DirEntry{}, err
+	}
+	e := f.entry()
+	if !e.Downloadable() {
+		return nil, e, errors.New("Google 文档这类在线文件不能直接下载，请在 Google Drive 里打开")
+	}
+	resp, err := g.call(ctx, http.MethodGet, g.e.API+"/drive/v3/files/"+url.PathEscape(id)+"?alt=media", nil, -1, nil)
+	if err != nil {
+		return nil, e, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, e, readDriveError(resp)
+	}
+	return resp.Body, e, nil
 }

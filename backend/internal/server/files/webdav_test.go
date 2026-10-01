@@ -2,6 +2,7 @@ package files_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -131,5 +132,24 @@ func TestWebDAVCheck(t *testing.T) {
 		if _, err := files.NewWebDAV(c); err == nil {
 			t.Errorf("config %+v should be rejected", c)
 		}
+	}
+}
+
+func TestWebDAVReadDir(t *testing.T) {
+	d := newDAV(t)
+	s := newWebDAV(t, d, "")
+	put(t, s, "照片/2026/a.jpg", "jpg")
+	put(t, s, "照片/readme.txt", "hi")
+	put(t, s, "top.txt", "x")
+	top, err := s.ReadDir(context.Background(), "")
+	if err != nil || len(top) != 2 || top[0].Name != "照片" || !top[0].Dir || top[1].Ref != "top.txt" {
+		t.Fatalf("top: %+v %v", top, err)
+	}
+	list, err := s.ReadDir(context.Background(), "照片")
+	if err != nil || len(list) != 2 || list[0].Ref != "照片/2026" || list[1].Name != "readme.txt" || list[1].Size != 2 {
+		t.Fatalf("photos: %+v %v", list, err)
+	}
+	if _, err := s.ReadDir(context.Background(), "nope"); !errors.Is(err, files.ErrNotFound) {
+		t.Fatalf("missing: %v", err)
 	}
 }

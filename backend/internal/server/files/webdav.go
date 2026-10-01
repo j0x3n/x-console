@@ -573,3 +573,29 @@ func explainNet(err error) error {
 	}
 	return err
 }
+
+// ReadDir lists one folder below the WebDAV address, for the drive page
+// (B68). "" is the top.
+func (w *WebDAV) ReadDir(ctx context.Context, dir string) ([]DirEntry, error) {
+	rel := ""
+	if dir != "" {
+		if err := CheckKey(dir); err != nil {
+			return nil, err
+		}
+		rel = dir + "/"
+	}
+	list, err := w.propfind(ctx, rel, "1")
+	if err != nil {
+		return nil, err
+	}
+	var out []DirEntry
+	for _, e := range list {
+		name := strings.TrimSuffix(strings.TrimPrefix(e.rel, rel), "/")
+		if e.rel == rel || !strings.HasPrefix(e.rel, rel) || name == "" || strings.Contains(name, "/") {
+			continue
+		}
+		out = append(out, DirEntry{Ref: strings.TrimSuffix(e.rel, "/"), Name: name, Dir: e.dir, Size: e.size, ModTime: e.modTime})
+	}
+	sortEntries(out)
+	return out, nil
+}

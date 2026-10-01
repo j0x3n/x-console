@@ -61,6 +61,8 @@ import ExtractDialog from "./components/ExtractDialog";
 import NameDialog from "./components/NameDialog";
 import ShareDialog from "./components/ShareDialog";
 import SharesView from "./components/SharesView";
+import RemoteView from "./components/RemoteView";
+import { useRemoteDrives } from "./remote";
 import TaskPanel from "./components/TaskPanel";
 import TransferDialog from "./components/TransferDialog";
 import VersionsDialog from "./components/VersionsDialog";
@@ -129,6 +131,15 @@ function DriveBrowser() {
   const trash = tab === "trash";
   // 分享管理（B31）是单独的一个标签，不看文件列表。
   const sharesTab = tab === "shares";
+  // 备份设置里绑定的网盘（B68），每个一个标签，只能浏览和下载。
+  const remotes = useRemoteDrives();
+  const remoteDrive =
+    tab === "remote"
+      ? remotes.data?.items.find((d) => d.id === search.get("remote"))
+      : undefined;
+  const remoteRef = search.get("ref") ?? "";
+  // 分享和网盘标签不看本地文件列表，上传、搜索这些按钮都不显示。
+  const special = sharesTab || !!remoteDrive;
   // 隐藏区只在解锁后出现。锁定后地址栏还带着 view=hidden 时当作普通文件。
   const hidden = tab === "hidden" && vaultUnlocked;
   const scope: DriveScope = {
@@ -177,6 +188,8 @@ function DriveBrowser() {
     folder?: number | null;
     q?: string | null;
     view?: string | null;
+    remote?: string | null;
+    ref?: string | null;
   }) =>
     setSearch((prev) => {
       const p = new URLSearchParams(prev);
@@ -188,6 +201,12 @@ function DriveBrowser() {
         set("folder", change.folder ? String(change.folder) : null);
       if ("q" in change) set("q", change.q);
       if ("view" in change) set("view", change.view);
+      if ("view" in change && change.view !== "remote") {
+        p.delete("remote");
+        p.delete("ref");
+      }
+      if ("remote" in change) set("remote", change.remote);
+      if ("ref" in change) set("ref", change.ref);
       return p;
     });
 
@@ -238,7 +257,7 @@ function DriveBrowser() {
 
   // 拖文件到页面任何位置就上传。
   useEffect(() => {
-    if (trash) return;
+    if (trash || remoteDrive) return;
     let depth = 0;
     const hasFiles = (e: DragEvent) =>
       Array.from(e.dataTransfer?.types ?? []).includes("Files");
@@ -272,7 +291,7 @@ function DriveBrowser() {
       window.removeEventListener("dragover", over);
       window.removeEventListener("drop", drop);
     };
-  }, [trash, folder, hidden, q]);
+  }, [trash, folder, hidden, q, remoteDrive]);
 
   const open = (item: DriveItem) => {
     if (trash) return;
@@ -445,7 +464,7 @@ function DriveBrowser() {
         }
         aside={
           !trash &&
-          !sharesTab && (
+          !special && (
             <>
               <button
                 className="xc-btn"
@@ -482,7 +501,7 @@ function DriveBrowser() {
         start={
           <nav className="xc-tabs drive-tabs" aria-label={t("Drive")}>
             <button
-              className={!trash && !hidden && !sharesTab ? "active" : ""}
+              className={!trash && !hidden && !special ? "active" : ""}
               onClick={() => go({ view: null, folder: null, q: null })}
             >
               {t("Files")}
@@ -507,10 +526,28 @@ function DriveBrowser() {
             >
               <Trash2 size={13} /> {t("Trash")}
             </button>
+            {(remotes.data?.items ?? []).map((d) => (
+              <button
+                key={d.id}
+                className={remoteDrive?.id === d.id ? "active" : ""}
+                title={d.account}
+                onClick={() =>
+                  go({
+                    view: "remote",
+                    remote: d.id,
+                    ref: null,
+                    folder: null,
+                    q: null,
+                  })
+                }
+              >
+                <Cloud size={13} /> {d.name}
+              </button>
+            ))}
           </nav>
         }
         end={
-          !sharesTab && (
+          !special && (
             <>
               {!trash && (
                 <SearchBox
@@ -545,7 +582,7 @@ function DriveBrowser() {
         }
       />
 
-      {!trash && !q && !sharesTab && (
+      {!trash && !q && !special && (
         <nav className="drive-crumbs" aria-label={t("Path")}>
           <button onClick={() => go({ folder: null })}>
             {hidden ? <EyeOff size={13} /> : <HardDrive size={13} />}
@@ -571,7 +608,7 @@ function DriveBrowser() {
         </p>
       )}
 
-      {selected.size > 0 && !sharesTab && (
+      {selected.size > 0 && !special && (
         <div
           className="drive-selection"
           role="toolbar"
@@ -678,175 +715,185 @@ function DriveBrowser() {
         </div>
       )}
 
-      <section className="drive-body" aria-label={where}>
-        {sharesTab ? (
-          <SharesView />
-        ) : items.isPending ? (
-          <Loading />
-        ) : items.isError ? (
-          <ErrorState error={items.error} onRetry={() => items.refetch()} />
-        ) : list.length === 0 ? (
-          <EmptyState
-            title={
-              q
-                ? t("No matching files")
-                : trash
-                  ? t("Trash is empty")
-                  : t("Nothing here yet")
-            }
-            icon={trash ? <Trash2 size={26} /> : <HardDrive size={26} />}
-          >
-            {!q && !trash && (
-              <span className="drive-muted">
-                把文件拖到这里，或者点“上传”。
-              </span>
-            )}
-          </EmptyState>
-        ) : layout === "list" ? (
-          <div className="drive-list" role="table" aria-label={where}>
-            <div className="drive-row drive-head" role="row">
-              <span role="columnheader">
-                <input
-                  type="checkbox"
-                  aria-label={t("Select all")}
-                  checked={allSelected}
-                  onChange={() =>
-                    setSelected(
-                      allSelected ? new Set() : new Set(list.map((i) => i.id)),
-                    )
-                  }
-                />
-              </span>
-              <SortHeader
-                label={t("Name")}
-                col="name"
-                sort={sort}
-                setSort={setSort}
-              />
-              <SortHeader
-                label={t("Size")}
-                col="size"
-                sort={sort}
-                setSort={setSort}
-              />
-              <SortHeader
-                label={trash ? t("Auto delete") : t("Modified")}
-                col="updatedAt"
-                sort={sort}
-                setSort={setSort}
-              />
-              <span role="columnheader" />
-              <span role="columnheader" />
-            </div>
-            {list.map((item) => (
-              <div
-                key={item.id}
-                className={`drive-row${selected.has(item.id) ? " selected" : ""}`}
-                role="row"
-              >
-                <span role="cell">
+      {remoteDrive ? (
+        <RemoteView
+          drive={remoteDrive}
+          folder={remoteRef}
+          onOpen={(ref) => go({ ref: ref || null })}
+        />
+      ) : (
+        <section className="drive-body" aria-label={where}>
+          {sharesTab ? (
+            <SharesView />
+          ) : items.isPending ? (
+            <Loading />
+          ) : items.isError ? (
+            <ErrorState error={items.error} onRetry={() => items.refetch()} />
+          ) : list.length === 0 ? (
+            <EmptyState
+              title={
+                q
+                  ? t("No matching files")
+                  : trash
+                    ? t("Trash is empty")
+                    : t("Nothing here yet")
+              }
+              icon={trash ? <Trash2 size={26} /> : <HardDrive size={26} />}
+            >
+              {!q && !trash && (
+                <span className="drive-muted">
+                  把文件拖到这里，或者点“上传”。
+                </span>
+              )}
+            </EmptyState>
+          ) : layout === "list" ? (
+            <div className="drive-list" role="table" aria-label={where}>
+              <div className="drive-row drive-head" role="row">
+                <span role="columnheader">
                   <input
                     type="checkbox"
+                    aria-label={t("Select all")}
+                    checked={allSelected}
+                    onChange={() =>
+                      setSelected(
+                        allSelected
+                          ? new Set()
+                          : new Set(list.map((i) => i.id)),
+                      )
+                    }
+                  />
+                </span>
+                <SortHeader
+                  label={t("Name")}
+                  col="name"
+                  sort={sort}
+                  setSort={setSort}
+                />
+                <SortHeader
+                  label={t("Size")}
+                  col="size"
+                  sort={sort}
+                  setSort={setSort}
+                />
+                <SortHeader
+                  label={trash ? t("Auto delete") : t("Modified")}
+                  col="updatedAt"
+                  sort={sort}
+                  setSort={setSort}
+                />
+                <span role="columnheader" />
+                <span role="columnheader" />
+              </div>
+              {list.map((item) => (
+                <div
+                  key={item.id}
+                  className={`drive-row${selected.has(item.id) ? " selected" : ""}`}
+                  role="row"
+                >
+                  <span role="cell">
+                    <input
+                      type="checkbox"
+                      aria-label={`${t("Select")} ${item.name}`}
+                      checked={selected.has(item.id)}
+                      onChange={() => toggle(item.id)}
+                    />
+                  </span>
+                  <span role="cell" className="drive-name">
+                    <button onClick={() => open(item)} title={item.name}>
+                      <FileIcon item={item} />
+                      <span>{item.name}</span>
+                      {hidden && item.restoreTo && (
+                        <small
+                          className="drive-restore"
+                          title={t("Restores to this folder")}
+                        >
+                          {t("Originally in")} {item.restoreTo}
+                        </small>
+                      )}
+                    </button>
+                    <small className="drive-sub">
+                      {item.isDir ? t("Folder") : formatBytes(item.size)} ·{" "}
+                      {trash && item.trashedAt
+                        ? `${daysLeftInTrash(item.trashedAt)} 天后清掉`
+                        : relativeTime(item.updatedAt, language)}
+                    </small>
+                  </span>
+                  <span role="cell" className="drive-col">
+                    {item.isDir ? "—" : formatBytes(item.size)}
+                  </span>
+                  <span role="cell" className="drive-col">
+                    {trash && item.trashedAt
+                      ? `${daysLeftInTrash(item.trashedAt)} 天后清掉`
+                      : relativeTime(item.updatedAt, language)}
+                  </span>
+                  <span role="cell" className="drive-col">
+                    <SyncIcon item={item} />
+                  </span>
+                  <span role="cell">
+                    <ItemMenu
+                      item={item}
+                      actions={itemActions(item, {
+                        trash,
+                        vaultUnlocked,
+                        hiddenView: hidden,
+                        batchLive,
+                      })}
+                      onAction={onAction}
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="drive-grid" role="list" aria-label={where}>
+              {list.map((item) => (
+                <div
+                  key={item.id}
+                  role="listitem"
+                  className={`drive-tile${selected.has(item.id) ? " selected" : ""}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="drive-tile-check"
                     aria-label={`${t("Select")} ${item.name}`}
                     checked={selected.has(item.id)}
                     onChange={() => toggle(item.id)}
                   />
-                </span>
-                <span role="cell" className="drive-name">
-                  <button onClick={() => open(item)} title={item.name}>
-                    <FileIcon item={item} />
-                    <span>{item.name}</span>
-                    {hidden && item.restoreTo && (
-                      <small
-                        className="drive-restore"
-                        title={t("Restores to this folder")}
-                      >
-                        {t("Originally in")} {item.restoreTo}
-                      </small>
-                    )}
+                  <button
+                    className="drive-tile-main"
+                    onClick={() => open(item)}
+                    title={item.name}
+                  >
+                    <span className="drive-thumb">
+                      {fileKind(item) === "image" && !trash ? (
+                        <Thumb item={item} />
+                      ) : (
+                        <FileIcon item={item} size={34} />
+                      )}
+                    </span>
+                    <span className="drive-tile-name">{item.name}</span>
+                    <small className="drive-muted">
+                      {item.isDir ? t("Folder") : formatBytes(item.size)}
+                    </small>
                   </button>
-                  <small className="drive-sub">
-                    {item.isDir ? t("Folder") : formatBytes(item.size)} ·{" "}
-                    {trash && item.trashedAt
-                      ? `${daysLeftInTrash(item.trashedAt)} 天后清掉`
-                      : relativeTime(item.updatedAt, language)}
-                  </small>
-                </span>
-                <span role="cell" className="drive-col">
-                  {item.isDir ? "—" : formatBytes(item.size)}
-                </span>
-                <span role="cell" className="drive-col">
-                  {trash && item.trashedAt
-                    ? `${daysLeftInTrash(item.trashedAt)} 天后清掉`
-                    : relativeTime(item.updatedAt, language)}
-                </span>
-                <span role="cell" className="drive-col">
-                  <SyncIcon item={item} />
-                </span>
-                <span role="cell">
-                  <ItemMenu
-                    item={item}
-                    actions={itemActions(item, {
-                      trash,
-                      vaultUnlocked,
-                      hiddenView: hidden,
-                      batchLive,
-                    })}
-                    onAction={onAction}
-                  />
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="drive-grid" role="list" aria-label={where}>
-            {list.map((item) => (
-              <div
-                key={item.id}
-                role="listitem"
-                className={`drive-tile${selected.has(item.id) ? " selected" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  className="drive-tile-check"
-                  aria-label={`${t("Select")} ${item.name}`}
-                  checked={selected.has(item.id)}
-                  onChange={() => toggle(item.id)}
-                />
-                <button
-                  className="drive-tile-main"
-                  onClick={() => open(item)}
-                  title={item.name}
-                >
-                  <span className="drive-thumb">
-                    {fileKind(item) === "image" && !trash ? (
-                      <Thumb item={item} />
-                    ) : (
-                      <FileIcon item={item} size={34} />
-                    )}
-                  </span>
-                  <span className="drive-tile-name">{item.name}</span>
-                  <small className="drive-muted">
-                    {item.isDir ? t("Folder") : formatBytes(item.size)}
-                  </small>
-                </button>
-                <div className="drive-tile-menu">
-                  <ItemMenu
-                    item={item}
-                    actions={itemActions(item, {
-                      trash,
-                      vaultUnlocked,
-                      hiddenView: hidden,
-                      batchLive,
-                    })}
-                    onAction={onAction}
-                  />
+                  <div className="drive-tile-menu">
+                    <ItemMenu
+                      item={item}
+                      actions={itemActions(item, {
+                        trash,
+                        vaultUnlocked,
+                        hiddenView: hidden,
+                        batchLive,
+                      })}
+                      onAction={onAction}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {dragging && (
         <div className="drive-drop" aria-hidden>

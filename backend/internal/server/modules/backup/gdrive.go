@@ -148,11 +148,11 @@ func (m *Module) authorize(ctx context.Context, code, redirect string) (string, 
 	if s.GDrive.ClientID == "" || secret == "" {
 		return "", errors.New("客户端 ID 和密钥没有保存")
 	}
-	token, err := files.GoogleExchange(ctx, m.google, s.GDrive.ClientID, secret, code, redirect)
+	grant, err := files.GoogleExchange(ctx, m.google, s.GDrive.ClientID, secret, code, redirect)
 	if err != nil {
 		return "", err
 	}
-	if err := m.d.Settings.SetSecret(ctx, keyGDriveToken, token); err != nil {
+	if err := m.d.Settings.SetSecret(ctx, keyGDriveToken, grant.RefreshToken); err != nil {
 		return "", err
 	}
 	s.GDrive.FolderID = "" // the folder may belong to another account
@@ -170,6 +170,7 @@ func (m *Module) authorize(ctx context.Context, code, redirect string) (string, 
 	}
 	err = m.update(ctx, func(cur *settingsData) {
 		cur.GDrive.Account = account
+		cur.GDrive.Browse = grant.CanBrowse()
 		if cur.GDrive.FolderName == s.GDrive.FolderName {
 			cur.GDrive.FolderID = folder
 		} else {
@@ -194,7 +195,7 @@ func (m *Module) RevokeGdriveAuth(w http.ResponseWriter, r *http.Request) {
 	}
 	err := m.d.Settings.Delete(ctx, keyGDriveToken)
 	if err == nil {
-		err = m.update(ctx, func(s *settingsData) { s.GDrive.Account, s.GDrive.FolderID = "", "" })
+		err = m.update(ctx, func(s *settingsData) { s.GDrive.Account, s.GDrive.FolderID, s.GDrive.Browse = "", "", false })
 	}
 	m.d.Audit.Record(ctx, "backup.gdrive.revoke", "", nil, err)
 	if err != nil {

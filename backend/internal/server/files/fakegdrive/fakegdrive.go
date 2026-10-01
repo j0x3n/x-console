@@ -47,6 +47,8 @@ type Server struct {
 	clock    time.Time
 	revoked  []string
 	expired  bool
+	// Scope is what the token answer says was granted.
+	Scope string
 }
 
 type session struct {
@@ -58,7 +60,8 @@ type session struct {
 func New(t *testing.T) *Server {
 	t.Helper()
 	s := &Server{ClientID: "client", Secret: "secret", Code: "code", RefreshToken: "refresh", Email: "me@gmail.com",
-		files: map[string]*File{}, sessions: map[string]*session{}, clock: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+		files: map[string]*File{}, sessions: map[string]*session{}, clock: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+		Scope: files.GoogleDriveScope + " " + files.GoogleBrowseScope}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	t.Cleanup(s.Close)
 	return s
@@ -193,6 +196,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		f := &File{ID: s.id(), Name: in.Name, Parent: in.Parents[0], Data: append([]byte(nil), src.Data...), Modified: s.tick()}
 		s.files[f.ID] = f
 		json.NewEncoder(w).Encode(map[string]string{"id": f.ID})
+	case p == "/drive/v3/files/root":
+		json.NewEncoder(w).Encode(map[string]any{"id": "root", "name": "我的云端硬盘", "mimeType": "application/vnd.google-apps.folder"})
 	case strings.HasPrefix(p, "/drive/v3/files/"):
 		f := s.files[strings.TrimPrefix(p, "/drive/v3/files/")]
 		if f == nil {
@@ -200,15 +205,15 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		switch r.Method {
+		case http.MethodGet:
+			if r.URL.Query().Get("alt") == "media" {
+				http.ServeContent(w, r, f.Name, f.Modified, strings.NewReader(string(f.Data)))
+				return
+			}
+			json.NewEncoder(w).Encode(s.item(f))
 		case http.MethodDelete:
 			delete(s.files, f.ID)
 			w.WriteHeader(http.StatusNoContent)
-		case http.MethodGet:
-			if r.URL.Query().Get("alt") != "media" {
-				fail(w, http.StatusBadRequest, "badRequest")
-				return
-			}
-			http.ServeContent(w, r, f.Name, f.Modified, strings.NewReader(string(f.Data)))
 		}
 	default:
 		fail(w, http.StatusNotFound, "notFound")
@@ -232,7 +237,7 @@ func (s *Server) token(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.expired = false
-		json.NewEncoder(w).Encode(map[string]any{"access_token": "access-" + s.RefreshToken, "refresh_token": s.RefreshToken, "expires_in": 3600})
+		json.NewEncoder(w).Encode(map[string]any{"access_token": "access-" + s.RefreshToken, "refresh_token": s.RefreshToken, "expires_in": 3600, "scope": s.Scope})
 	case "refresh_token":
 		if s.expired || f.Get("refresh_token") != s.RefreshToken {
 			w.WriteHeader(http.StatusBadRequest)
@@ -274,14 +279,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		if (name != nil && f.Name != *name) || (mime != nil && f.MimeType != *mime) || (parent != nil && f.Parent != *parent) {
 			continue
 		}
-		item := map[string]any{"id": f.ID, "name": f.Name, "modifiedTime": f.Modified.Format(time.RFC3339Nano)}
-		if f.MimeType != "" {
-			item["mimeType"] = f.MimeType
-		} else {
-			item["mimeType"] = "application/octet-stream"
-			item["size"] = strconv.Itoa(len(f.Data))
-		}
-		out = append(out, item)
+		out = append(out, s.item(f))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i]["id"].(string) < out[j]["id"].(string) })
 	// Two per page, so paging is tested.
@@ -293,6 +291,30 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(answer)
 }
+
+func (s *Server) item(f *File) map[string]any {
+	item := map[string]any{"id": f.ID, "name": f.Name, "modifiedTime": f.Modified.Format(time.RFC3339Nano), "parents": []string{f.Parent}}
+	if f.MimeType != "" {
+		item["mimeType"] = f.MimeType
+	} else {
+		item["mimeType"] = "application/octet-stream"
+		item["size"] = strconv.Itoa(len(f.Data))
+	}
+	return item
+}
+
+// Add puts a file in a folder ("root" for the top) and returns its id. An
+// empty mime makes a plain file; FolderMime makes a folder.
+func (s *Server) Add(parent, name, mime string, data []byte) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f := &File{ID: s.id(), Name: name, MimeType: mime, Parent: parent, Data: data, Modified: s.tick()}
+	s.files[f.ID] = f
+	return f.ID
+}
+
+// FolderMime is the mime type of a Drive folder.
+const FolderMime = "application/vnd.google-apps.folder"
 
 var contentRange = regexp.MustCompile(`^bytes (?:(\d+)-(\d+)|\*)/(\d+|\*)$`)
 

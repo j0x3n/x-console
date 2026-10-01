@@ -192,6 +192,42 @@ func (e BackupSettingsInputTarget) Valid() bool {
 	}
 }
 
+// Defines values for RemoteDriveId.
+const (
+	RemoteDriveIdGdrive RemoteDriveId = "gdrive"
+	RemoteDriveIdWebdav RemoteDriveId = "webdav"
+)
+
+// Valid indicates whether the value is a known member of the RemoteDriveId enum.
+func (e RemoteDriveId) Valid() bool {
+	switch e {
+	case RemoteDriveIdGdrive:
+		return true
+	case RemoteDriveIdWebdav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Remote.
+const (
+	RemoteGdrive Remote = "gdrive"
+	RemoteWebdav Remote = "webdav"
+)
+
+// Valid indicates whether the value is a known member of the Remote enum.
+func (e Remote) Valid() bool {
+	switch e {
+	case RemoteGdrive:
+		return true
+	case RemoteWebdav:
+		return true
+	default:
+		return false
+	}
+}
+
 // Backup defines model for Backup.
 type Backup struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -356,6 +392,44 @@ type BackupWebdavInput struct {
 	Username *string `json:"username,omitempty"`
 }
 
+// RemoteDrive defines model for RemoteDrive.
+type RemoteDrive struct {
+	Account *string       `json:"account,omitempty"`
+	Id      RemoteDriveId `json:"id"`
+
+	// Limited Google Drive 授权里没有只读权限，只能看到面板自己建的文件，要重新授权
+	Limited bool `json:"limited"`
+
+	// Name 标签上的名字，比如“坚果云”“Google Drive”
+	Name string `json:"name"`
+}
+
+// RemoteDriveId defines model for RemoteDrive.Id.
+type RemoteDriveId string
+
+// RemoteDriveEntry defines model for RemoteDriveEntry.
+type RemoteDriveEntry struct {
+	// Downloadable Google 文档这类在线文件是 false
+	Downloadable bool       `json:"downloadable"`
+	IsDir        bool       `json:"isDir"`
+	ModifiedAt   *time.Time `json:"modifiedAt,omitempty"`
+	Name         string     `json:"name"`
+	Ref          string     `json:"ref"`
+	Size         *int64     `json:"size,omitempty"`
+}
+
+// RemoteDriveListing defines model for RemoteDriveListing.
+type RemoteDriveListing struct {
+	Items []RemoteDriveEntry `json:"items"`
+	Ref   string             `json:"ref"`
+
+	// Trail 从根目录下面一级到当前文件夹，用来显示路径
+	Trail []struct {
+		Name string `json:"name"`
+		Ref  string `json:"ref"`
+	} `json:"trail"`
+}
+
 // RestoreInput defines model for RestoreInput.
 type RestoreInput struct {
 	// Confirm 必须是“恢复”
@@ -364,6 +438,9 @@ type RestoreInput struct {
 
 // BackupId defines model for BackupId.
 type BackupId = string
+
+// Remote defines model for Remote.
+type Remote string
 
 // GdriveCallbackParams defines parameters for GdriveCallback.
 type GdriveCallbackParams struct {
@@ -375,6 +452,17 @@ type GdriveCallbackParams struct {
 // UploadBackupMultipartBody defines parameters for UploadBackup.
 type UploadBackupMultipartBody struct {
 	File openapi_types.File `json:"file"`
+}
+
+// DownloadRemoteDriveFileParams defines parameters for DownloadRemoteDriveFile.
+type DownloadRemoteDriveFileParams struct {
+	Ref string `form:"ref" json:"ref"`
+}
+
+// ListRemoteDriveItemsParams defines parameters for ListRemoteDriveItems.
+type ListRemoteDriveItemsParams struct {
+	// Ref 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录
+	Ref *string `form:"ref,omitempty" json:"ref,omitempty"`
 }
 
 // PutBackupSettingsJSONRequestBody defines body for PutBackupSettings for application/json ContentType.
@@ -433,6 +521,15 @@ type ServerInterface interface {
 
 	// (POST /backups/{backupId}/restore)
 	RestoreBackup(w http.ResponseWriter, r *http.Request, backupId BackupId)
+
+	// (GET /remote-drives)
+	ListRemoteDrives(w http.ResponseWriter, r *http.Request)
+
+	// (GET /remote-drives/{remote}/download)
+	DownloadRemoteDriveFile(w http.ResponseWriter, r *http.Request, remote Remote, params DownloadRemoteDriveFileParams)
+
+	// (GET /remote-drives/{remote}/items)
+	ListRemoteDriveItems(w http.ResponseWriter, r *http.Request, remote Remote, params ListRemoteDriveItemsParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -506,6 +603,21 @@ func (_ Unimplemented) DownloadBackup(w http.ResponseWriter, r *http.Request, ba
 
 // (POST /backups/{backupId}/restore)
 func (_ Unimplemented) RestoreBackup(w http.ResponseWriter, r *http.Request, backupId BackupId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /remote-drives)
+func (_ Unimplemented) ListRemoteDrives(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /remote-drives/{remote}/download)
+func (_ Unimplemented) DownloadRemoteDriveFile(w http.ResponseWriter, r *http.Request, remote Remote, params DownloadRemoteDriveFileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /remote-drives/{remote}/items)
+func (_ Unimplemented) ListRemoteDriveItems(w http.ResponseWriter, r *http.Request, remote Remote, params ListRemoteDriveItemsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -795,6 +907,104 @@ func (siw *ServerInterfaceWrapper) RestoreBackup(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// ListRemoteDrives operation middleware
+func (siw *ServerInterfaceWrapper) ListRemoteDrives(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRemoteDrives(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadRemoteDriveFile operation middleware
+func (siw *ServerInterfaceWrapper) DownloadRemoteDriveFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remote" -------------
+	var remote Remote
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remote", chi.URLParam(r, "remote"), &remote, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remote", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadRemoteDriveFileParams
+
+	// ------------- Required query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadRemoteDriveFile(w, r, remote, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRemoteDriveItems operation middleware
+func (siw *ServerInterfaceWrapper) ListRemoteDriveItems(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remote" -------------
+	var remote Remote
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remote", chi.URLParam(r, "remote"), &remote, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remote", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRemoteDriveItemsParams
+
+	// ------------- Optional query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRemoteDriveItems(w, r, remote, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -946,6 +1156,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/backups/gdrive/callback", wrapper.GdriveCallback)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/remote-drives", wrapper.ListRemoteDrives)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/remote-drives/{remote}/items", wrapper.ListRemoteDriveItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/remote-drives/{remote}/download", wrapper.DownloadRemoteDriveFile)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/backups/run", wrapper.RunBackupNow)

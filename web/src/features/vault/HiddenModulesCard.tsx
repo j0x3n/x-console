@@ -41,7 +41,21 @@ export default function HiddenModulesCard() {
 
   const items = navItems
     .map((n) => ({ ...n, id: moduleOfPath(n.path) }))
-    .filter((n): n is typeof n & { id: ModuleId } => n.id !== null);
+    .filter((n): n is typeof n & { id: ModuleId } => n.id !== null)
+    .flatMap((n) =>
+      // 云盘页里的网盘标签可以单独隐藏（B68），备份不受影响
+      n.id === "drive"
+        ? [
+            n,
+            { ...n, id: "drive-webdav" as const, label: "WebDAV in Drive" },
+            {
+              ...n,
+              id: "drive-gdrive" as const,
+              label: "Google Drive in Drive",
+            },
+          ]
+        : [n],
+    );
   const toggle = (id: ModuleId) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const changed =

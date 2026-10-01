@@ -17,6 +17,8 @@ const (
 	Calendar    ModuleId = "calendar"
 	Coding      ModuleId = "coding"
 	Drive       ModuleId = "drive"
+	DriveGdrive ModuleId = "drive-gdrive"
+	DriveWebdav ModuleId = "drive-webdav"
 	Github      ModuleId = "github"
 	Habits      ModuleId = "habits"
 	Home        ModuleId = "home"
@@ -39,6 +41,10 @@ func (e ModuleId) Valid() bool {
 	case Coding:
 		return true
 	case Drive:
+		return true
+	case DriveGdrive:
+		return true
+	case DriveWebdav:
 		return true
 	case Github:
 		return true
@@ -75,7 +81,7 @@ type HiddenModules struct {
 	Hidden []ModuleId `json:"hidden"`
 }
 
-// ModuleId B57。左栏的模块，和前端路由的第一段相同。今日页不能隐藏
+// ModuleId B57。左栏的模块，和前端路由的第一段相同。今日页不能隐藏。drive-webdav、drive-gdrive 是云盘页里的网盘标签（B68）
 type ModuleId string
 
 // VaultPassword defines model for VaultPassword.

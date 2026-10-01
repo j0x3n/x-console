@@ -7,8 +7,8 @@ import { MIN_VAULT_PASSWORD, vaultPasswordError } from "./logic";
 import "./i18n";
 
 /*
- * 设置 → 安全里的“隐藏密码”卡片。只在设过隐藏密码后出现，
- * 没设过时不显示，免得暴露入口。
+ * 设置 → 安全里的“隐藏密码”卡片。只在设过隐藏密码、并且已经解锁时出现，
+ * 锁定或没设过时不显示，免得暴露入口（B68）。
  */
 export default function VaultPasswordCard() {
   const t = useT();
@@ -17,7 +17,12 @@ export default function VaultPasswordCard() {
   const empty = { oldPassword: "", newPassword: "", confirm: "" };
   const [form, setForm] = useState(empty);
   const [error, setError] = useState("");
-  if (!status.data?.available || !status.data.configured) return null;
+  if (
+    !status.data?.available ||
+    !status.data.configured ||
+    !status.data.unlocked
+  )
+    return null;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();

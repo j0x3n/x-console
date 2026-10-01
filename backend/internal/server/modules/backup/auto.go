@@ -347,7 +347,7 @@ func (m *Module) saveSettings(ctx context.Context, in api.BackupSettingsInput) (
 		if err := m.d.Settings.Delete(ctx, keyGDriveToken); err != nil {
 			return api.BackupSettings{}, err
 		}
-		s.GDrive.Account, s.GDrive.FolderID = "", ""
+		s.GDrive.Account, s.GDrive.FolderID, s.GDrive.Browse = "", "", false
 	}
 	if s.GDrive.FolderName != old.GDrive.FolderName {
 		s.GDrive.FolderID = ""
