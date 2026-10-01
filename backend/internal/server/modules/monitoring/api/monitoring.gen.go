@@ -15,6 +15,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ConvertedTotalCurrency.
+const (
+	CNY ConvertedTotalCurrency = "CNY"
+	USD ConvertedTotalCurrency = "USD"
+)
+
+// Valid indicates whether the value is a known member of the ConvertedTotalCurrency enum.
+func (e ConvertedTotalCurrency) Valid() bool {
+	switch e {
+	case CNY:
+		return true
+	case USD:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DockerContainerAction.
 const (
 	Remove  DockerContainerAction = "remove"
@@ -294,6 +312,18 @@ type CategorySpend struct {
 	Yearly       float64 `json:"yearly"`
 }
 
+// ConvertedTotal B49。全部未归档订阅按汇率换算成一种币种后的总额
+type ConvertedTotal struct {
+	// Count 算进去的订阅数。没有汇率的币种不算
+	Count    int                    `json:"count"`
+	Currency ConvertedTotalCurrency `json:"currency"`
+	Monthly  float64                `json:"monthly"`
+	Yearly   float64                `json:"yearly"`
+}
+
+// ConvertedTotalCurrency defines model for ConvertedTotal.Currency.
+type ConvertedTotalCurrency string
+
 // DockerContainer defines model for DockerContainer.
 type DockerContainer struct {
 	Created time.Time    `json:"created"`
@@ -564,6 +594,8 @@ type SpendTotal struct {
 
 // Subscription defines model for Subscription.
 type Subscription struct {
+	// Account B49。可选的账号，比如登录邮箱或用户名。旧数据是空字符串
+	Account    *string              `json:"account,omitempty"`
 	Amount     float64              `json:"amount"`
 	ArchivedAt *time.Time           `json:"archivedAt,omitempty"`
 	AutoRenew  bool                 `json:"autoRenew"`
@@ -641,6 +673,8 @@ type SubscriptionEventKind string
 
 // SubscriptionInput defines model for SubscriptionInput.
 type SubscriptionInput struct {
+	// Account B49。可选的账号，空字符串表示不填
+	Account   *string               `json:"account,omitempty"`
 	Amount    float64               `json:"amount"`
 	AutoRenew *bool                 `json:"autoRenew,omitempty"`
 	Category  *SubscriptionCategory `json:"category,omitempty"`
@@ -660,14 +694,16 @@ type SubscriptionInput struct {
 	NextRenewal openapi_types.Date     `json:"nextRenewal"`
 	Note        *string                `json:"note,omitempty"`
 
-	// RemindDaysBefore 默认 [7, 1]
+	// RemindDaysBefore 默认 [7, 3, 1]（B49 起）
 	RemindDaysBefore *[]int  `json:"remindDaysBefore,omitempty"`
 	Url              *string `json:"url,omitempty"`
 }
 
 // SubscriptionPatch defines model for SubscriptionPatch.
 type SubscriptionPatch struct {
-	Amount *float64 `json:"amount,omitempty"`
+	// Account B49。可选的账号，空字符串表示不填
+	Account *string  `json:"account,omitempty"`
+	Amount  *float64 `json:"amount,omitempty"`
 
 	// Archived true 归档，false 取消归档
 	Archived  *bool                 `json:"archived,omitempty"`
@@ -693,7 +729,16 @@ type SubscriptionPatch struct {
 // SubscriptionSummary defines model for SubscriptionSummary.
 type SubscriptionSummary struct {
 	ByCategory []CategorySpend `json:"byCategory"`
-	Totals     []SpendTotal    `json:"totals"`
+
+	// Converted B49。CNY 和 USD 各一条。没拿到过汇率时不返回这个字段
+	Converted *[]ConvertedTotal `json:"converted,omitempty"`
+
+	// RatesAt B49。汇率的更新时间
+	RatesAt *time.Time   `json:"ratesAt,omitempty"`
+	Totals  []SpendTotal `json:"totals"`
+
+	// Unconverted B49。没有汇率、没算进 converted 的币种
+	Unconverted *[]string `json:"unconverted,omitempty"`
 }
 
 // ContainerId defines model for ContainerId.

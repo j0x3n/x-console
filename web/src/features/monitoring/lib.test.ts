@@ -20,6 +20,7 @@ import {
   niceCeil,
   parseRemindDays,
   renewalTone,
+  spendView,
   sortSubscriptions,
   stripSegments,
 } from "./lib";
@@ -65,7 +66,10 @@ describe("tones", () => {
     expect(expiryTone("domain", -1)).toBe("danger");
     expect(expiryTone("tls", undefined)).toBe("");
     expect(renewalTone(-1)).toBe("danger");
-    expect(renewalTone(3)).toBe("warn");
+    expect(renewalTone(3)).toBe("danger");
+    expect(renewalTone(4)).toBe("warn");
+    expect(renewalTone(7)).toBe("warn");
+    expect(renewalTone(8)).toBe("");
     expect(renewalTone(30)).toBe("");
     expect(containerTone("running")).toBe("ok");
     expect(containerTone("restarting")).toBe("warn");
@@ -259,5 +263,48 @@ describe("docker", () => {
     const t = (key: string) => key;
     expect(cycleText({ count: 1, unit: "month" }, t)).toBe("Every month");
     expect(cycleText({ count: 3, unit: "month" }, t)).toBe("Every 3 Month(s)");
+  });
+});
+
+describe("spendView", () => {
+  const totals = [
+    { currency: "CNY", monthly: 100, yearly: 1200, count: 2 },
+    { currency: "USD", monthly: 10, yearly: 120, count: 1 },
+  ];
+  it("有换算结果时用换算结果", () => {
+    const v = spendView(
+      {
+        totals,
+        byCategory: [],
+        converted: [
+          { currency: "CNY", monthly: 172, yearly: 2064, count: 3 },
+          { currency: "USD", monthly: 24, yearly: 288, count: 3 },
+        ],
+        unconverted: [],
+      },
+      "USD",
+    );
+    expect(v).toEqual({
+      currency: "USD",
+      monthly: 24,
+      converted: true,
+      missing: [],
+    });
+  });
+  it("没有换算结果时退回同币种合计", () => {
+    const v = spendView({ totals, byCategory: [] }, "USD");
+    expect(v).toEqual({
+      currency: "USD",
+      monthly: 10,
+      converted: false,
+      missing: ["CNY"],
+    });
+  });
+  it("没有这个币种时用第一个", () => {
+    const v = spendView({ totals: [totals[1]], byCategory: [] }, "CNY");
+    expect(v?.currency).toBe("USD");
+  });
+  it("没有订阅时为空", () => {
+    expect(spendView({ totals: [], byCategory: [] }, "CNY")).toBeNull();
   });
 });

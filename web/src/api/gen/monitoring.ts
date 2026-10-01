@@ -715,6 +715,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
+            /** @description B49。可选的账号，比如登录邮箱或用户名。旧数据是空字符串 */
+            account?: string;
             category: components["schemas"]["SubscriptionCategory"];
             /** Format: double */
             amount: number;
@@ -770,11 +772,13 @@ export interface components {
             cycleUnit?: components["schemas"]["SubscriptionCycleUnit"];
             /** Format: date */
             nextRenewal: string;
-            /** @description 默认 [7, 1] */
+            /** @description 默认 [7, 3, 1]（B49 起） */
             remindDaysBefore?: number[];
             url?: string;
             note?: string;
             autoRenew?: boolean;
+            /** @description B49。可选的账号，空字符串表示不填 */
+            account?: string;
         };
         SubscriptionPatch: {
             name?: string;
@@ -798,6 +802,8 @@ export interface components {
             url?: string;
             note?: string;
             autoRenew?: boolean;
+            /** @description B49。可选的账号，空字符串表示不填 */
+            account?: string;
             /** @description true 归档，false 取消归档 */
             archived?: boolean;
         };
@@ -837,8 +843,28 @@ export interface components {
             /** Format: double */
             yearly: number;
         };
+        /** @description B49。全部未归档订阅按汇率换算成一种币种后的总额 */
+        ConvertedTotal: {
+            /** @enum {string} */
+            currency: "CNY" | "USD";
+            /** Format: double */
+            monthly: number;
+            /** Format: double */
+            yearly: number;
+            /** @description 算进去的订阅数。没有汇率的币种不算 */
+            count: number;
+        };
         SubscriptionSummary: {
             totals: components["schemas"]["SpendTotal"][];
+            /** @description B49。CNY 和 USD 各一条。没拿到过汇率时不返回这个字段 */
+            converted?: components["schemas"]["ConvertedTotal"][];
+            /** @description B49。没有汇率、没算进 converted 的币种 */
+            unconverted?: string[];
+            /**
+             * Format: date-time
+             * @description B49。汇率的更新时间
+             */
+            ratesAt?: string;
             byCategory: components["schemas"]["CategorySpend"][];
         };
         Error: {

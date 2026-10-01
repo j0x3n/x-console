@@ -425,24 +425,23 @@ button.monitoring-row:hover,
 }
 
 /* 订阅 */
-.monitoring-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+.monitoring-account {
+  overflow-wrap: anywhere;
 }
-.monitoring-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.monitoring-stat small {
-  color: var(--xc-muted);
-}
-.monitoring-stat strong {
-  font-size: 22px;
-  color: var(--xc-text);
+/* 顶部订阅卡片右上角的币种，点一下切换（B49） */
+.monitoring-currency {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.monitoring-currency:hover,
+.monitoring-currency:focus-visible {
+  outline: 0;
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
 }
 
 /* Docker */

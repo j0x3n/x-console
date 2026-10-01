@@ -18,7 +18,6 @@ import {
   useSaveSubscription,
   useSubscriptionEvents,
   useSubscriptions,
-  useSubscriptionSummary,
   type Subscription,
 } from "../api";
 import {
@@ -39,7 +38,7 @@ import {
 import SubscriptionDialog, { categoryName } from "./SubscriptionDialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
-/** 订阅与续费：支出汇总、列表、详情。 */
+/** 订阅与续费：列表、详情。总额在页面顶部的概要卡片里（B49）。 */
 export default function SubscriptionsTab() {
   const t = useT();
   const [archived, setArchived] = useState(false);
@@ -51,7 +50,6 @@ export default function SubscriptionsTab() {
 
   return (
     <>
-      {!archived && <SpendSummary />}
       <div className="monitoring-toolbar">
         <label className="monitoring-check">
           <input
@@ -107,28 +105,6 @@ export default function SubscriptionsTab() {
   );
 }
 
-function SpendSummary() {
-  const t = useT();
-  const summary = useSubscriptionSummary();
-  if (!summary.data || summary.data.totals.length === 0) return null;
-  return (
-    <div className="monitoring-summary">
-      {summary.data.totals.map((x) => (
-        <div key={x.currency} className="xc-card monitoring-stat">
-          <small>
-            {t("Per month")} · {x.currency}
-          </small>
-          <strong>{formatMoney(x.monthly, x.currency)}</strong>
-          <small className="xc-muted">
-            {t("Per year")} {formatMoney(x.yearly, x.currency)} · {x.count}{" "}
-            {t("items")}
-          </small>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function daysText(t: (s: string) => string, days: number) {
   if (days < 0) return `${t("Overdue")} ${-days} ${t("days")}`;
   if (days === 0) return t("Today");
@@ -153,6 +129,9 @@ function SubscriptionRow({
         <small>
           {formatMoney(s.amount, s.currency)} · {cycleText(cycleOf(s), t)}
           {s.autoRenew && ` · ${t("auto renew")}`}
+          {s.account && (
+            <span className="monitoring-account"> · {s.account}</span>
+          )}
         </small>
       </span>
       <span className="monitoring-row-side">
@@ -220,6 +199,12 @@ function SubscriptionDetail({
     <>
       <Dialog open={!editing} onClose={onClose} title={sub.name} wide>
         <div className="monitoring-facts">
+          {sub.account && (
+            <div>
+              <small>{t("Account")}</small>
+              <strong className="monitoring-account">{sub.account}</strong>
+            </div>
+          )}
           <div>
             <small>{t("Amount")}</small>
             <strong>{formatMoney(sub.amount, sub.currency)}</strong>

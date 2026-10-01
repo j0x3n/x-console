@@ -76,7 +76,10 @@ export default function MoreMenu({
     const m = menuRef.current?.getBoundingClientRect();
     if (!b || !m) return;
     setStyle(
-      menuPosition(b, m, { width: window.innerWidth, height: window.innerHeight }),
+      menuPosition(b, m, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }),
     );
   }, [open]);
 
@@ -84,7 +87,8 @@ export default function MoreMenu({
     if (!open) return;
     const close = (e: Event) => {
       // 菜单自己滚动时不关
-      if (e.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      if (e.target instanceof Node && menuRef.current?.contains(e.target))
+        return;
       setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);

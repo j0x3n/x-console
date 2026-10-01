@@ -9,6 +9,7 @@ import type {
   ScriptRun,
   Subscription,
   SubscriptionCycle,
+  SubscriptionSummary,
 } from "./api";
 
 /*
@@ -43,11 +44,54 @@ export function expiryTone(
   return "ok";
 }
 
-/** 续费还剩几天的颜色。 */
+/** 续费还剩几天的颜色：过期和 3 天内红，7 天内黄（B49）。 */
 export function renewalTone(daysLeft: number): Tone {
-  if (daysLeft < 0) return "danger";
+  if (daysLeft <= 3) return "danger";
   if (daysLeft <= 7) return "warn";
   return "";
+}
+
+/** 顶部订阅卡片能切换的币种。 */
+export const SPEND_CURRENCIES = ["CNY", "USD"] as const;
+export type SpendCurrency = (typeof SPEND_CURRENCIES)[number];
+
+export interface SpendView {
+  currency: string;
+  monthly: number;
+  /** 换算过汇率时为 true */
+  converted: boolean;
+  /** 没算进去的币种 */
+  missing: string[];
+}
+
+/**
+ * 顶部订阅卡片显示的总额（B49）。后端给了换算结果就用它；
+ * 还没有时退回同币种的合计，其他币种列为没算进去。
+ */
+export function spendView(
+  summary: SubscriptionSummary | undefined,
+  currency: SpendCurrency,
+): SpendView | null {
+  if (!summary) return null;
+  const conv = summary.converted?.find((x) => x.currency === currency);
+  if (conv)
+    return {
+      currency,
+      monthly: conv.monthly,
+      converted: true,
+      missing: summary.unconverted ?? [],
+    };
+  if (summary.totals.length === 0) return null;
+  const same =
+    summary.totals.find((x) => x.currency === currency) ?? summary.totals[0];
+  return {
+    currency: same.currency,
+    monthly: same.monthly,
+    converted: false,
+    missing: summary.totals
+      .map((x) => x.currency)
+      .filter((c) => c !== same.currency),
+  };
 }
 
 /** 金额，保留两位小数，去掉多余的 0。 */

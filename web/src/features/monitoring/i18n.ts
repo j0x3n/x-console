@@ -244,4 +244,8 @@ registerZh({
   "Clean up unused images": "清理没用的镜像",
   "Delete the containers using it first": "先删除使用它的容器",
   "Sort by": "排序",
+  Account: "账号",
+  "Login email or username. Optional.": "登录邮箱或用户名，可以不填",
+  "Switch currency": "切换币种",
+  "Exchange rates are not ready. Not counted:": "汇率还没拿到，没算进去的：",
 });
