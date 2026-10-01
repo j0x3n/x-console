@@ -39,7 +39,7 @@ export default function QuickNote() {
   const save = () => {
     if (!text.trim()) return;
     createNote.mutate(
-      { body: text },
+      { body: text, quick: true },
       {
         onSuccess: () => {
           setText("");

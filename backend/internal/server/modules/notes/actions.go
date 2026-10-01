@@ -98,7 +98,7 @@ func (m *Module) actionCreate(ctx context.Context, input json.RawMessage) (any, 
 	if strings.TrimSpace(in.Title) == "" && strings.TrimSpace(in.Body) == "" {
 		return nil, httpx.Invalid("笔记内容不能为空")
 	}
-	return m.createNote(auth.WithoutVault(ctx), in.Title, in.Body, in.Tags, false, false)
+	return m.createNote(auth.WithoutVault(ctx), in.Title, in.Body, in.Tags, false, false, false)
 }
 
 func (m *Module) actionAppend(ctx context.Context, input json.RawMessage) (any, error) {

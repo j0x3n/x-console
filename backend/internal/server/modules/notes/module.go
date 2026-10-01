@@ -80,7 +80,7 @@ func (m *Module) Mount(r chi.Router) {
 type notesService struct{ m *Module }
 
 func (s *notesService) Create(ctx context.Context, title, body string, tags []string) (int64, error) {
-	n, err := s.m.createNote(auth.WithoutVault(ctx), title, body, tags, false, false)
+	n, err := s.m.createNote(auth.WithoutVault(ctx), title, body, tags, false, false, false)
 	return n.Id, err
 }
 

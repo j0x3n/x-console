@@ -452,6 +452,9 @@ components:
           type: array
           items: { type: string }
         hidden: { type: boolean, description: 直接建成隐藏笔记，要先解锁 }
+        quick:
+          type: boolean
+          description: 快速记录。保存后马上生成标题和标签，标签直接加上，正文短也生成
     UpdateNote:
       type: object
       properties:

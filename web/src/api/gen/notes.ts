@@ -305,6 +305,8 @@ export interface components {
             tags?: string[];
             /** @description 直接建成隐藏笔记，要先解锁 */
             hidden?: boolean;
+            /** @description 快速记录。保存后马上生成标题和标签，标签直接加上，正文短也生成 */
+            quick?: boolean;
         };
         UpdateNote: {
             title?: string;

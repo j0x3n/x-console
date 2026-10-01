@@ -69,10 +69,13 @@ type CreateNote struct {
 	Body *string `json:"body,omitempty"`
 
 	// Hidden 直接建成隐藏笔记，要先解锁
-	Hidden *bool     `json:"hidden,omitempty"`
-	Pinned *bool     `json:"pinned,omitempty"`
-	Tags   *[]string `json:"tags,omitempty"`
-	Title  *string   `json:"title,omitempty"`
+	Hidden *bool `json:"hidden,omitempty"`
+	Pinned *bool `json:"pinned,omitempty"`
+
+	// Quick 快速记录。保存后马上生成标题和标签，标签直接加上，正文短也生成
+	Quick *bool     `json:"quick,omitempty"`
+	Tags  *[]string `json:"tags,omitempty"`
+	Title *string   `json:"title,omitempty"`
 }
 
 // Note defines model for Note.
