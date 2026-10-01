@@ -816,6 +816,13 @@ type Reminder struct {
 	CreatedAt    time.Time
 }
 
+type RouterTraffic struct {
+	At      int64
+	Seconds int64
+	Rx      int64
+	Tx      int64
+}
+
 type Script struct {
 	ID             int64
 	Name           string

@@ -12,6 +12,7 @@ import { routes as servers } from "../features/servers/routes";
 import { routes as pc } from "../features/pc/routes";
 import { routes as monitoring } from "../features/monitoring/routes";
 import { routes as home } from "../features/home/routes";
+import { routes as router } from "../features/router/routes";
 import { routes as automations } from "../features/automations/routes";
 import { routes as github } from "../features/github/routes";
 import { routes as assistant } from "../features/assistant/routes";
@@ -32,6 +33,7 @@ export const moduleRoutes: RouteObject[] = [
   ...pc,
   ...monitoring,
   ...home,
+  ...router,
   ...automations,
   ...github,
   ...assistant,

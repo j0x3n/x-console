@@ -11,6 +11,7 @@ import {
   Monitor,
   NotebookPen,
   Radar,
+  Router as RouterIcon,
   Server,
   SquareKanban,
   Sun,
@@ -47,6 +48,7 @@ export const navItems: NavItem[] = [
   { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
+  { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
   {
     path: "/automations",
     label: "Automations",

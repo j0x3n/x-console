@@ -1,0 +1,284 @@
+openapi: 3.0.3
+info:
+  title: X Console 路由器 API (B65)
+  version: 0.1.0
+  description: |
+    OpenWrt 主路由。面板通过路由器自带的 ubus（uhttpd-mod-ubus）读状态，路由器上不装代理。
+    面板访问不到家里的路由器时，可以让家里装了代理的机器转发（mode=agent，用代理的 http.proxy）。
+servers:
+  - url: /api/v1
+paths:
+  /router/config:
+    get:
+      operationId: getRouterConfig
+      tags: [router]
+      description: 当前配置。不返回密码。
+      responses:
+        "200":
+          description: 配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putRouterConfig
+      tags: [router]
+      description: |
+        保存前先登录一次路由器，登录不上就不保存。要提升权限（会把保存的密码发到新地址）。
+        url 留空表示删除整个配置。password 不传或为空表示不改。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterConfigInput"
+      responses:
+        "200":
+          description: 保存后的配置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/status:
+    get:
+      operationId: getRouterStatus
+      tags: [router]
+      description: |
+        系统信息、各接口、WAN 口和当前速率。没配置时回 412 integration_not_configured。
+        速率按这次和上一次读到的网卡计数算，页面每几秒刷新一次就是实时速率。
+      responses:
+        "200":
+          description: 状态
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterStatus"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/clients:
+    get:
+      operationId: getRouterClients
+      tags: [router]
+      description: 在线设备：合并 DHCP 租约和 host hints，按 IP 排序。
+      responses:
+        "200":
+          description: 设备列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RouterClient"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/traffic:
+    get:
+      operationId: getRouterTraffic
+      tags: [router]
+      description: WAN 口流量历史。后台每分钟采一次，留 30 天。24h 按 5 分钟一个点，7d 按 1 小时一个点。
+      parameters:
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["24h", "7d"]
+            default: "24h"
+      responses:
+        "200":
+          description: 流量
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterTraffic"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/interfaces/{name}/restart:
+    post:
+      operationId: restartRouterInterface
+      tags: [router]
+      description: 先 down 再 up 这个接口。要提升权限，路由器那边要允许 network.interface.* 的 up 和 down。
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: 已重启
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/reboot:
+    post:
+      operationId: rebootRouter
+      tags: [router]
+      description: 重启路由器。要提升权限，请求体要带 confirm 为“重启”。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm:
+                  type: string
+                  description: 固定填“重启”
+      responses:
+        "202":
+          description: 路由器已开始重启
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    RouterMode:
+      type: string
+      description: direct 面板直接访问；agent 让家里的代理转发
+      enum: [direct, agent]
+    RouterConfig:
+      type: object
+      required: [url, username, mode, hasPassword]
+      properties:
+        url:
+          type: string
+          description: 路由器地址，比如 http://192.168.1.1。没配置时为空
+        username: { type: string }
+        mode: { $ref: "#/components/schemas/RouterMode" }
+        agentId: { type: string }
+        hasPassword: { type: boolean }
+    RouterConfigInput:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string }
+        username: { type: string }
+        password:
+          type: string
+          description: 不传或为空表示不改
+        mode: { $ref: "#/components/schemas/RouterMode" }
+        agentId: { type: string }
+    RouterInterface:
+      type: object
+      required: [name, up, ipv4, ipv6]
+      properties:
+        name:
+          type: string
+          description: 接口名，比如 wan、lan、wan6
+        up: { type: boolean }
+        proto:
+          type: string
+          description: dhcp、pppoe、static 等
+        device:
+          type: string
+          description: 实际的网卡，比如 eth1、pppoe-wan
+        ipv4:
+          type: array
+          items: { type: string }
+          description: 带掩码，比如 192.168.1.1/24
+        ipv6:
+          type: array
+          items: { type: string }
+        uptimeSeconds:
+          type: integer
+          format: int64
+    RouterStatus:
+      type: object
+      required: [hostname, model, firmware, uptimeSeconds, interfaces, clientCount, checkedAt]
+      properties:
+        hostname: { type: string }
+        model: { type: string }
+        firmware:
+          type: string
+          description: 比如 OpenWrt 24.10.0
+        uptimeSeconds:
+          type: integer
+          format: int64
+        memoryTotal:
+          type: integer
+          format: int64
+        memoryAvailable:
+          type: integer
+          format: int64
+        load:
+          type: array
+          description: 1、5、15 分钟负载
+          items:
+            type: number
+            format: double
+        wan:
+          $ref: "#/components/schemas/RouterInterface"
+        interfaces:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouterInterface"
+        rxRate:
+          type: number
+          format: double
+          description: WAN 口下行速率（字节/秒）。第一次读时没有
+        txRate:
+          type: number
+          format: double
+          description: WAN 口上行速率（字节/秒）
+        clientCount:
+          type: integer
+          description: 在线设备数
+        checkedAt:
+          type: string
+          format: date-time
+    RouterClient:
+      type: object
+      required: [mac]
+      properties:
+        mac: { type: string }
+        name: { type: string }
+        ip: { type: string }
+        ipv6:
+          type: array
+          items: { type: string }
+        leaseExpiresAt:
+          type: string
+          format: date-time
+          description: DHCP 租约到期时间。静态地址没有
+        onlineSince:
+          type: string
+          format: date-time
+          description: 面板第一次连续看到它在线的时间。面板重启后重新算
+    RouterTrafficPoint:
+      type: object
+      required: [at, rxRate, txRate]
+      properties:
+        at:
+          type: string
+          format: date-time
+        rxRate:
+          type: number
+          format: double
+          description: 这段时间的平均下行速率（字节/秒）
+        txRate:
+          type: number
+          format: double
+    RouterTraffic:
+      type: object
+      required: [range, stepSeconds, points, rxBytes, txBytes]
+      properties:
+        range: { type: string }
+        stepSeconds: { type: integer }
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouterTrafficPoint"
+        rxBytes:
+          type: integer
+          format: int64
+          description: 这段时间的下行总字节数
+        txBytes:
+          type: integer
+          format: int64

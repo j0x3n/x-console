@@ -51,6 +51,13 @@ export const cardDefs: CardDef[] = [
     module: "home",
   },
   {
+    id: "network",
+    title: "Network",
+    column: "side",
+    weight: 1,
+    module: "router",
+  },
+  {
     id: "mail",
     title: "Mail",
     column: "side",

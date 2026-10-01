@@ -14,6 +14,7 @@ import ErrorsTab from "./ErrorsTab";
 import AiUsageTab from "../assistant/AiUsageTab";
 import RemoteAccessTab from "../mcp/RemoteAccessTab";
 import MailSettingsTab from "../mail/MailSettingsTab";
+import RouterSettingsTab from "../router/RouterSettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -39,4 +40,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "errors", label: "Recent errors", component: ErrorsTab },
   { id: "remote", label: "Remote access", component: RemoteAccessTab },
   { id: "mail", label: "Mail", component: MailSettingsTab },
+  { id: "router", label: "Router", component: RouterSettingsTab },
 ];

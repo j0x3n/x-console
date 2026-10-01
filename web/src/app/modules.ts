@@ -28,6 +28,7 @@ export const ALL_MODULES: ModuleId[] = [
   "pc",
   "monitoring",
   "home",
+  "router",
   "automations",
   "github",
 ];
@@ -62,6 +63,7 @@ const commandGroups: Record<string, ModuleId> = {
   本机: "pc",
   监控: "monitoring",
   智能家居: "home",
+  路由器: "router",
   自动化: "automations",
   GitHub: "github",
 };

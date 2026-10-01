@@ -249,6 +249,50 @@ try {
     await new Promise((done) => aiFake.close(done));
   }
 
+  stage = "B65 路由器";
+  // 假的 OpenWrt ubus：登录、系统信息、接口、网卡计数、DHCP 租约和 host hints。
+  const ubusFake = http.createServer(async (request, response) => {
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const { id, params } = JSON.parse(raw || "{}");
+    const [, object, method] = params ?? [];
+    const results = {
+      "session.login": [0, { ubus_rpc_session: "e".repeat(32), expires: 300 }],
+      "system.board": [0, { hostname: "OpenWrt", model: "端到端路由器", release: { description: "OpenWrt 24.10.0" } }],
+      "system.info": [0, { uptime: 7200, load: [0, 0, 0], memory: { total: 268435456, available: 134217728 } }],
+      "network.interface.dump": [0, { interface: [
+        { interface: "lan", up: true, uptime: 7200, proto: "static", device: "br-lan", "ipv4-address": [{ address: "192.168.1.1", mask: 24 }] },
+        { interface: "wan", up: true, uptime: 3600, proto: "dhcp", device: "eth1", "ipv4-address": [{ address: "100.64.9.9", mask: 32 }] },
+      ] }],
+      "network.device.status": [0, { statistics: { rx_bytes: 1000, tx_bytes: 100 } }],
+      "luci-rpc.getDHCPLeases": [0, { dhcp_leases: [{ expires: 600, hostname: "端到端手机", macaddr: "aa:bb:cc:dd:ee:01", ipaddr: "192.168.1.50" }] }],
+      "luci-rpc.getHostHints": [0, {}],
+    };
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ jsonrpc: "2.0", id, result: results[`${object}.${method}`] ?? [3] }));
+  });
+  await new Promise((ready) => ubusFake.listen(0, "127.0.0.1", ready));
+  try {
+    const elevatedForRouter = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+      headers: { "X-Requested-With": "x-console" }, data: { password },
+    });
+    assert.equal(elevatedForRouter.status(), 200, await elevatedForRouter.text());
+    const routerSaved = await page.context().request.put(`${base}/api/v1/router/config`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { url: `http://127.0.0.1:${ubusFake.address().port}`, username: "xconsole", password: "e2e", mode: "direct" },
+    });
+    assert.equal(routerSaved.status(), 200, await routerSaved.text());
+    await page.goto(`${base}/router`);
+    await page.getByText("100.64.9.9", { exact: true }).waitFor();
+    await page.getByText("端到端手机").waitFor();
+    const routerCleared = await page.context().request.put(`${base}/api/v1/router/config`, {
+      headers: { "X-Requested-With": "x-console" }, data: { url: "" },
+    });
+    assert.equal(routerCleared.status(), 200, await routerCleared.text());
+  } finally {
+    await new Promise((done) => ubusFake.close(done));
+  }
+
   stage = "新建项目和卡片";
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();

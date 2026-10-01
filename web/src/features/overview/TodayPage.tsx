@@ -47,6 +47,7 @@ import {
   cardModule,
 } from "./layout";
 import { greetingKey, summaryLine } from "./today";
+import TodayNetworkCard from "../router/TodayNetworkCard";
 
 const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   todos: { body: () => <TodosCard />, more: "/projects" },
@@ -54,6 +55,7 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   schedule: { body: () => <ScheduleCard />, more: "/calendar" },
   habits: { body: () => <HabitsCard />, more: "/habits" },
   home: { body: () => <HomeCard />, more: "/home" },
+  network: { body: () => <TodayNetworkCard />, more: "/router" }, // B65
   mail: { body: () => <MailCard />, more: "/mail" },
   monitoring: { body: () => <MonitoringCard />, more: "/monitoring" },
   activity: { body: () => <ActivityCard /> },

@@ -63,7 +63,6 @@
 | B58 | 和风天气：分钟降水、天气预警、空气质量、生活指数、天文、历史对比，地震速报 | [B58](specs/B58.md) | Claude（前端） |
 | B53 | 邮件：IMAP 收 Gmail 和阿里企业邮箱，新邮件实时通知 | [B53](specs/B53.md) | Claude（前端） |
 | B59 | 今日页加预警、邮件、监控、Agent 任务卡片 | [B59](specs/B59.md) | Claude（前端） |
-| B65 | 集成 OpenWrt 主路由（用户 2026-10-01 让直接做） | [B65](specs/B65.md) | Claude（前后端，会话 018jD7 在做，B64 之后） |
 
 ### 任务说明
 
@@ -254,6 +253,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B65 | OpenWrt 主路由：新模块 router，通过路由器的 ubus 读系统信息、接口、在线设备、WAN 口速率，每分钟存流量，WAN 掉线或连不上超过 2 分钟推送；可以直连或通过家里的代理转发；能重启接口和路由器；左栏“集成”加路由器，设置加路由器标签，今日页加网络卡片。规格见 [B65](specs/B65.md) |
 | B64 | 服务器支持 Unraid：安装脚本认出 Unraid 后把代理装在 U 盘上，开机由 /boot/config/go 启动，退出后自动重启；卸载脚本同样认 Unraid；添加服务器时多给一条不带 sudo 的命令。阵列状态没做。规格见 [B64](specs/B64.md) |
 | B60 | 面板 AI 不再直接操作机器，要通过绑定了这台机器的 Agent（agents.operate_host）；Agent 可以勾选能操作的机器；浮窗加权限档（手动、写入、全部允许）、模型和思考程度；设置 → AI 加新对话的默认权限。规格见 [B60](specs/B60.md) |
 | B61 | AI 记忆：面板 AI 能记、改、删，编码 Agent 和机器会话只读，远程 AI 看不到；设置 → AI 有记忆卡片，浮窗里显示“已记住”。规格见 [B61](specs/B61.md) |
@@ -322,6 +322,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-01 | `contracts/hidden.go` 加 `router`（接口、事件 `router.`、通知链接 `/router`、来源 `router`），`vault.yaml` 的 `ModuleId` 加 `router`。前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一行；今日页 `overview/layout.ts` 和 `TodayPage.tsx` 加 `network` 卡片；`scripts/shots.mjs` 加两个页面 | B65 |
 | 2026-10-01 | `contracts.AIAgents` 加 `ForHost`，`AIAgent` 加 `HostIDs`。ai 模块加 `withEffort`（按会话覆盖思考程度），和 B47 的 `withModel` 一样走 context | B60 |
 | 2026-10-01 | `contracts` 加 `Memories`（`Prompt(ctx)`，键 `ai.memories`），ai 提供，aiagents 用。`actions.Action` 加 `PanelOnly`：只给面板 AI，`AllowedFor` 一律不给，自动化的目录和执行也跳过 | B61 |
 | 2026-10-01 | `contracts` 加 `GitAccounts`（`Account`、`Credentials`、`ImportGitHub`，键 `aiagents.accounts`），aiagents 提供，github 用。github 设置键加 `github.connection_id`、`github.migrated_b62`；`useGithubModule` 和 `/github/config` 的 token、clearToken、apiUrl 标成 deprecated | B62 |

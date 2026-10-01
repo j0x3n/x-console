@@ -165,6 +165,7 @@ const routes = [
   ["pc", "/pc"],
   ["monitoring", "/monitoring"],
   ["home", "/home"],
+  ["router", "/router"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],
@@ -179,6 +180,7 @@ const routes = [
   ["settings-remote", "/settings/remote"],
   ["settings-storage", "/settings/storage"],
   ["settings-backup", "/settings/backup"],
+  ["settings-router", "/settings/router"],
 ].filter(Boolean).filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));
 
 // ---- 截图和检查 ----

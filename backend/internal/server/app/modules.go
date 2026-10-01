@@ -24,6 +24,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/router"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
 )
@@ -60,4 +61,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 
 	aiagents.New, // B47
 	mail.New,     // B53
+	router.New,   // B65
 }
