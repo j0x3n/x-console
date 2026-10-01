@@ -151,6 +151,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/backups/target/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description 用请求体里的设置（结构和保存时一样，没传的字段用已保存的）试一次备份位置：
+         *     建目录、写一个小文件、读回来、删掉。不保存设置。要提升权限
+         */
+        post: operations["testBackupTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/backups/gdrive/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description 返回 Google 授权页的地址，前端跳过去。要先保存客户端 ID 和密钥。要提升权限。
+         *     地址里的 state 是一次性的，10 分钟内有效
+         */
+        get: operations["startGdriveAuth"];
+        put?: never;
+        post?: never;
+        /** @description 撤销 Google Drive 授权：通知 Google 作废令牌，删掉本地保存的令牌。要提升权限 */
+        delete: operations["revokeGdriveAuth"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/backups/gdrive/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Google 授权完跳回来的地址，不用登录，靠 state 校验。用 code 换令牌并保存，
+         *     然后跳到 /settings/backup?gdrive=ok，失败时跳到 /settings/backup?gdrive=error&message=原因
+         */
+        get: operations["gdriveCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backups/run": {
         parameters: {
             query?: never;
@@ -180,7 +241,7 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
             /** @enum {string} */
-            location: "local" | "s3";
+            location: "local" | "s3" | "webdav" | "gdrive";
             /**
              * @description manual 手动导出；auto 自动备份；pre-restore 恢复前自动备份；uploaded 上传的
              * @enum {string}
@@ -230,11 +291,14 @@ export interface components {
             /** @description S3 上保留几份，默认 14 */
             keep: number;
             /**
-             * @description storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+             * @description storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+             *     webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
              * @enum {string}
              */
-            target: "storage" | "custom";
+            target: "storage" | "custom" | "webdav" | "gdrive";
             s3?: components["schemas"]["StorageS3"];
+            webdav?: components["schemas"]["BackupWebdav"];
+            gdrive?: components["schemas"]["BackupGdrive"];
             /** Format: date-time */
             nextRunAt?: string;
             /** @description 最近 10 次自动备份的结果，新的在前 */
@@ -256,8 +320,49 @@ export interface components {
             weekday?: number;
             keep?: number;
             /** @enum {string} */
-            target?: "storage" | "custom";
+            target?: "storage" | "custom" | "webdav" | "gdrive";
             s3?: components["schemas"]["StorageS3Input"];
+            webdav?: components["schemas"]["BackupWebdavInput"];
+            gdrive?: components["schemas"]["BackupGdriveInput"];
+        };
+        BackupWebdav: {
+            /** @description 比如 https://dav.jianguoyun.com/dav/ */
+            url: string;
+            username: string;
+            /** @description 备份放在这个目录下，默认 x-console-backups */
+            folder: string;
+            /** @description 已经保存过密码 */
+            passwordSet: boolean;
+        };
+        BackupWebdavInput: {
+            url?: string;
+            username?: string;
+            /** @description 不传或传空表示不改 */
+            password?: string;
+            folder?: string;
+        };
+        BackupGdrive: {
+            clientId: string;
+            /** @description 网盘根目录下的文件夹，默认“X Console 备份” */
+            folderName: string;
+            /** @description 已经保存过客户端密钥 */
+            secretSet: boolean;
+            /** @description 已经授权，有长期令牌 */
+            authorized: boolean;
+            /** @description 授权的 Google 账号邮箱 */
+            account?: string;
+        };
+        BackupGdriveInput: {
+            /** @description 改了客户端 ID 会清掉原来的授权 */
+            clientId?: string;
+            /** @description 不传或传空表示不改 */
+            clientSecret?: string;
+            /** @description 改了文件夹名，下次备份时按新名字找或新建文件夹 */
+            folderName?: string;
+        };
+        BackupTargetTest: {
+            ok: boolean;
+            message: string;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -525,6 +630,97 @@ export interface operations {
                 };
             };
             default: components["responses"]["Error"];
+        };
+    };
+    testBackupTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description 测试结果。连不上时 ok 是 false，message 写原因 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupTargetTest"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startGdriveAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 授权地址 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                        /** @description 这次用的重定向地址，要和 Google 里填的一样 */
+                        redirectUri: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeGdriveAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已撤销 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    gdriveCallback: {
+        parameters: {
+            query?: {
+                state?: string;
+                code?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 跳回设置页 */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     runBackupNow: {

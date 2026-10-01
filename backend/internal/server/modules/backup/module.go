@@ -72,6 +72,10 @@ type Module struct {
 	busy bool
 
 	settingsMu sync.Mutex // serialises read-modify-write of the settings
+
+	google   files.GoogleEndpoints // zero means the real Google
+	statesMu sync.Mutex
+	states   map[string]oauthState // Google authorizations in progress, by state
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -79,7 +83,8 @@ var _ api.ServerInterface = (*Module)(nil)
 // New builds the module. When a restore is waiting for its file phase, that
 // starts here.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, local: files.Local{Root: d.Config.BackupsDir()}, now: time.Now, exit: stopProcess}
+	m := &Module{d: d, local: files.Local{Root: d.Config.BackupsDir()}, now: time.Now, exit: stopProcess,
+		states: map[string]oauthState{}}
 	if pending(d.Config.RestoreDir()) {
 		m.startFinishRestore()
 	}

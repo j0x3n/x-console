@@ -196,15 +196,15 @@ func scan(ctx context.Context, s files.Store, prefix string, loc api.BackupLocat
 // entries lists every package: this machine first, then the S3 folder when
 // the automatic backup has one. An S3 that does not answer is left out.
 func (m *Module) entries(ctx context.Context) ([]entry, error) {
-	out, err := scan(ctx, m.local, "", api.Local)
+	out, err := scan(ctx, m.local, "", api.BackupLocationLocal)
 	if err != nil {
 		return nil, err
 	}
 	if remote, err := m.remote(ctx); err == nil {
-		if more, err := scan(ctx, remote, remoteFolder, api.S3); err == nil {
+		if more, err := scan(ctx, remote.store, remoteFolder, remote.loc); err == nil {
 			out = append(out, more...)
 		} else {
-			m.log().Warn("backup: list S3 backups", "error", err)
+			m.log().Warn("backup: list remote backups", "location", remote.loc, "error", err)
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].createdAt().After(out[j].createdAt()) })
@@ -217,14 +217,14 @@ func (m *Module) find(ctx context.Context, id string) (entry, error) {
 		return entry{}, errBadID
 	}
 	if info, err := m.local.Stat(ctx, id); err == nil {
-		e := entry{store: m.local, key: id, location: api.Local, info: info}
+		e := entry{store: m.local, key: id, location: api.BackupLocationLocal, info: info}
 		e.meta, e.hasMeta = readSidecar(ctx, m.local, id)
 		return e, nil
 	}
 	if remote, err := m.remote(ctx); err == nil {
-		if info, err := remote.Stat(ctx, remoteFolder+id); err == nil {
-			e := entry{store: remote, key: remoteFolder + id, location: api.S3, info: info}
-			e.meta, e.hasMeta = readSidecar(ctx, remote, remoteFolder+id)
+		if info, err := remote.store.Stat(ctx, remoteFolder+id); err == nil {
+			e := entry{store: remote.store, key: remoteFolder + id, location: remote.loc, info: info}
+			e.meta, e.hasMeta = readSidecar(ctx, remote.store, remoteFolder+id)
 			return e, nil
 		}
 	}
@@ -239,7 +239,7 @@ func (e entry) remove(ctx context.Context) error {
 // pruneLocal keeps the newest packages of each kind that only lives on this
 // machine. Uploaded packages are never removed.
 func (m *Module) pruneLocal(ctx context.Context) {
-	all, err := scan(ctx, m.local, "", api.Local)
+	all, err := scan(ctx, m.local, "", api.BackupLocationLocal)
 	if err != nil {
 		m.log().Warn("backup: prune local", "error", err)
 		return

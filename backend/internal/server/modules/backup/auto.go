@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
@@ -14,17 +15,12 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/api"
-	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	storageapi "github.com/j0x3n/x-console/backend/internal/server/modules/storage/api"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
-const (
-	targetStorage = "storage" // the S3 of the storage settings
-	targetCustom  = "custom"  // an S3 of its own
-	maxRuns       = 10
-)
+const maxRuns = 10
 
 var clockText = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
 
@@ -49,13 +45,15 @@ type runRecord struct {
 
 // settingsData is stored under keySettings.
 type settingsData struct {
-	Enabled   bool     `json:"enabled"`
-	Frequency string   `json:"frequency"`
-	Time      string   `json:"time"`
-	Weekday   int      `json:"weekday"`
-	Keep      int      `json:"keep"`
-	Target    string   `json:"target"`
-	S3        s3Fields `json:"s3"`
+	Enabled   bool         `json:"enabled"`
+	Frequency string       `json:"frequency"`
+	Time      string       `json:"time"`
+	Weekday   int          `json:"weekday"`
+	Keep      int          `json:"keep"`
+	Target    string       `json:"target"`
+	S3        s3Fields     `json:"s3"`
+	WebDAV    webdavFields `json:"webdav"`
+	GDrive    gdriveFields `json:"gdrive"`
 	// LastAttemptAt is when the last automatic run started, successful or not.
 	// A run is due when the latest scheduled time is after it.
 	LastAttemptAt time.Time   `json:"lastAttemptAt"`
@@ -63,7 +61,8 @@ type settingsData struct {
 }
 
 func defaultSettings() settingsData {
-	return settingsData{Frequency: "daily", Time: "03:00", Keep: 14, Target: targetStorage}
+	return settingsData{Frequency: "daily", Time: "03:00", Keep: 14, Target: targetStorage,
+		WebDAV: webdavFields{Folder: defaultWebDAVFolder}, GDrive: gdriveFields{FolderName: defaultGDriveFolder}}
 }
 
 func (m *Module) loadSettings(ctx context.Context) (settingsData, error) {
@@ -74,48 +73,15 @@ func (m *Module) loadSettings(ctx context.Context) (settingsData, error) {
 	return s, nil
 }
 
-func (m *Module) customSecret(ctx context.Context) string {
-	var secret string
-	if err := m.d.Settings.Get(ctx, keyS3Secret, &secret); err != nil && !errors.Is(err, settings.ErrNotSet) {
-		m.log().Warn("backup: S3 secret cannot be read, treating it as not set", "error", err)
-	}
-	return secret
-}
-
 var errNoS3 = httpx.NewError(http.StatusPreconditionFailed, "integration_not_configured", "还没有可用的 S3，请先在存储设置或这里填写")
 
-// s3Config is the bucket the automatic backups go to.
-// secret is a new secret key that is not saved yet, or "" to use the saved one.
-func (m *Module) s3Config(ctx context.Context, s settingsData, secret string) (files.S3Config, bool, error) {
-	if s.Target == targetCustom {
-		if secret == "" {
-			secret = m.customSecret(ctx)
-		}
-		c := files.S3Config{Endpoint: s.S3.Endpoint, Region: s.S3.Region, Bucket: s.S3.Bucket, Prefix: s.S3.Prefix,
-			AccessKeyID: s.S3.AccessKeyID, SecretAccessKey: secret, PathStyle: s.S3.PathStyle}
-		return c, c.Endpoint != "" && c.Bucket != "" && c.AccessKeyID != "" && secret != "", nil
-	}
-	return storage.S3Config(ctx, m.d.Settings, m.log())
-}
-
-// remote opens the bucket for automatic backups.
-func (m *Module) remote(ctx context.Context) (files.Store, error) {
+// remote opens the location of the automatic backups.
+func (m *Module) remote(ctx context.Context) (target, error) {
 	s, err := m.loadSettings(ctx)
 	if err != nil {
-		return nil, err
+		return target{}, err
 	}
-	return m.remoteFor(ctx, s)
-}
-
-func (m *Module) remoteFor(ctx context.Context, s settingsData) (files.Store, error) {
-	cfg, ok, err := m.s3Config(ctx, s, "")
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, errNoS3
-	}
-	return files.NewS3(cfg)
+	return m.open(ctx, s, newSecrets{})
 }
 
 // slot is the latest time a run was due at or before now.
@@ -170,7 +136,7 @@ func (m *Module) runAuto(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	dest, err := m.remoteFor(ctx, s)
+	dest, err := m.open(ctx, s, newSecrets{})
 	if err != nil {
 		return err
 	}
@@ -184,10 +150,11 @@ func (m *Module) runAuto(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		name, size, err := m.create(bg, kindAuto, dest, remoteFolder, true, j)
+		name, size, err := m.create(bg, kindAuto, dest.store, remoteFolder, true, j)
 		if err == nil {
 			j.set(func(v *api.BackupJob) { v.BackupId = &name })
 			m.pruneRemote(bg, dest, s.Keep)
+			m.rememberFolder(bg, s, dest.gdrive)
 		}
 		m.recordRun(bg, name, size, err)
 		m.d.Audit.Record(bg, "backup.auto", name, map[string]any{"bytes": size}, err)
@@ -230,7 +197,11 @@ func (m *Module) recordRun(ctx context.Context, name string, size int64, runErr 
 }
 
 func (m *Module) notifyFailure(ctx context.Context, cause error) {
-	_, err := m.d.Notify.Send(ctx, notify.Notification{Kind: "backup.failed", Title: "自动备份失败", Body: cause.Error(),
+	title := "自动备份失败"
+	if errors.Is(cause, files.ErrGDriveAuth) {
+		title = files.ErrGDriveAuth.Error()
+	}
+	_, err := m.d.Notify.Send(ctx, notify.Notification{Kind: "backup.failed", Title: title, Body: cause.Error(),
 		Link: "/settings/backup", Priority: notify.PriorityNormal, Source: "backup"})
 	if err != nil {
 		m.log().Warn("backup: send failure notice", "error", err)
@@ -238,10 +209,10 @@ func (m *Module) notifyFailure(ctx context.Context, cause error) {
 }
 
 // pruneRemote deletes the oldest automatic backups beyond keep.
-func (m *Module) pruneRemote(ctx context.Context, dest files.Store, keep int) {
-	all, err := scan(ctx, dest, remoteFolder, api.S3)
+func (m *Module) pruneRemote(ctx context.Context, dest target, keep int) {
+	all, err := scan(ctx, dest.store, remoteFolder, dest.loc)
 	if err != nil {
-		m.log().Warn("backup: prune S3", "error", err)
+		m.log().Warn("backup: prune remote", "location", dest.loc, "error", err)
 		return
 	}
 	var autos []entry
@@ -253,7 +224,7 @@ func (m *Module) pruneRemote(ctx context.Context, dest files.Store, keep int) {
 	sort.Slice(autos, func(i, j int) bool { return autos[i].createdAt().After(autos[j].createdAt()) })
 	for i := keep; i < len(autos); i++ {
 		if err := autos[i].remove(ctx); err != nil {
-			m.log().Warn("backup: remove old S3 backup", "name", autos[i].key, "error", err)
+			m.log().Warn("backup: remove old remote backup", "name", autos[i].key, "error", err)
 		}
 	}
 }
@@ -279,13 +250,28 @@ type lastRun = struct {
 	SizeBytes *int64    `json:"sizeBytes,omitempty"`
 }
 
+// secretsSet says which secrets are saved.
+type secretsSet struct {
+	s3, webdav, gdrive, token bool
+}
+
+func (m *Module) secretsSet(ctx context.Context) secretsSet {
+	return secretsSet{s3: m.secret(ctx, keyS3Secret) != "", webdav: m.secret(ctx, keyWebDAVPassword) != "",
+		gdrive: m.secret(ctx, keyGDriveSecret) != "", token: m.secret(ctx, keyGDriveToken) != ""}
+}
+
 // view turns saved settings into the API answer.
-func (m *Module) view(s settingsData, secret string, now time.Time) api.BackupSettings {
+func (m *Module) view(s settingsData, set secretsSet, now time.Time) api.BackupSettings {
 	out := api.BackupSettings{Enabled: s.Enabled, Frequency: api.BackupSettingsFrequency(s.Frequency), Time: s.Time,
 		Weekday: s.Weekday, Keep: s.Keep, Target: api.BackupSettingsTarget(s.Target)}
-	if s.S3 != (s3Fields{}) || secret != "" {
+	if s.S3 != (s3Fields{}) || set.s3 {
 		out.S3 = &storageapi.StorageS3{Endpoint: s.S3.Endpoint, Region: s.S3.Region, Bucket: s.S3.Bucket, Prefix: s.S3.Prefix,
-			AccessKeyId: s.S3.AccessKeyID, HasSecret: secret != "", PathStyle: s.S3.PathStyle}
+			AccessKeyId: s.S3.AccessKeyID, HasSecret: set.s3, PathStyle: s.S3.PathStyle}
+	}
+	out.Webdav = &api.BackupWebdav{Url: s.WebDAV.URL, Username: s.WebDAV.Username, Folder: s.WebDAV.Folder, PasswordSet: set.webdav}
+	out.Gdrive = &api.BackupGdrive{ClientId: s.GDrive.ClientID, FolderName: s.GDrive.FolderName, SecretSet: set.gdrive, Authorized: set.token}
+	if set.token && s.GDrive.Account != "" {
+		out.Gdrive.Account = ptr(s.GDrive.Account)
 	}
 	if s.Enabled {
 		next := s.nextSlot(now, m.d.Config.Location).UTC()
@@ -316,7 +302,7 @@ func (m *Module) GetBackupSettings(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, m.view(s, m.customSecret(ctx), m.now()))
+	httpx.JSON(w, http.StatusOK, m.view(s, m.secretsSet(ctx), m.now()))
 }
 
 // PutBackupSettings is PUT /backups/settings.
@@ -347,8 +333,42 @@ func (m *Module) saveSettings(ctx context.Context, in api.BackupSettingsInput) (
 	if err != nil {
 		return api.BackupSettings{}, err
 	}
-	wasEnabled := s.Enabled
-	secret := m.customSecret(ctx)
+	old := s
+	p := apply(&s, in)
+	if err := m.validate(ctx, s, p); err != nil {
+		return api.BackupSettings{}, err
+	}
+	if s.Enabled && !old.Enabled {
+		// Switching it on does not start a backup for a time that has already passed.
+		s.LastAttemptAt = m.now()
+	}
+	if s.GDrive.ClientID != old.GDrive.ClientID {
+		// The token belongs to the old client.
+		if err := m.d.Settings.Delete(ctx, keyGDriveToken); err != nil {
+			return api.BackupSettings{}, err
+		}
+		s.GDrive.Account, s.GDrive.FolderID = "", ""
+	}
+	if s.GDrive.FolderName != old.GDrive.FolderName {
+		s.GDrive.FolderID = ""
+	}
+	for key, v := range map[string]string{keyS3Secret: p.s3, keyWebDAVPassword: p.webdav, keyGDriveSecret: p.gdrive} {
+		if v == "" {
+			continue
+		}
+		if err := m.d.Settings.SetSecret(ctx, key, v); err != nil {
+			return api.BackupSettings{}, err
+		}
+	}
+	if err := m.d.Settings.Set(ctx, keySettings, s); err != nil {
+		return api.BackupSettings{}, err
+	}
+	return m.view(s, m.secretsSet(ctx), m.now()), nil
+}
+
+// apply copies the fields of in onto s and returns the new secrets in it.
+func apply(s *settingsData, in api.BackupSettingsInput) newSecrets {
+	var p newSecrets
 	if in.Enabled != nil {
 		s.Enabled = *in.Enabled
 	}
@@ -367,30 +387,38 @@ func (m *Module) saveSettings(ctx context.Context, in api.BackupSettingsInput) (
 	if in.Target != nil {
 		s.Target = string(*in.Target)
 	}
-	newSecret := ""
 	if in.S3 != nil {
 		applyS3(&s.S3, *in.S3)
-		if in.S3.SecretAccessKey != nil && *in.S3.SecretAccessKey != "" {
-			newSecret = *in.S3.SecretAccessKey
-			secret = newSecret
+		if in.S3.SecretAccessKey != nil {
+			p.s3 = *in.S3.SecretAccessKey
 		}
 	}
-	if err := m.validate(ctx, s, secret); err != nil {
-		return api.BackupSettings{}, err
-	}
-	if s.Enabled && !wasEnabled {
-		// Switching it on does not start a backup for a time that has already passed.
-		s.LastAttemptAt = m.now()
-	}
-	if newSecret != "" {
-		if err := m.d.Settings.SetSecret(ctx, keyS3Secret, newSecret); err != nil {
-			return api.BackupSettings{}, err
+	if w := in.Webdav; w != nil {
+		set(&s.WebDAV.URL, w.Url)
+		set(&s.WebDAV.Username, w.Username)
+		set(&s.WebDAV.Folder, w.Folder)
+		if w.Password != nil {
+			p.webdav = *w.Password
 		}
 	}
-	if err := m.d.Settings.Set(ctx, keySettings, s); err != nil {
-		return api.BackupSettings{}, err
+	if g := in.Gdrive; g != nil {
+		set(&s.GDrive.ClientID, g.ClientId)
+		set(&s.GDrive.FolderName, g.FolderName)
+		if g.ClientSecret != nil {
+			p.gdrive = strings.TrimSpace(*g.ClientSecret)
+		}
 	}
-	return m.view(s, secret, m.now()), nil
+	s.WebDAV.URL = strings.TrimSpace(s.WebDAV.URL)
+	s.WebDAV.Folder = strings.Trim(strings.TrimSpace(s.WebDAV.Folder), "/")
+	s.GDrive.ClientID = strings.TrimSpace(s.GDrive.ClientID)
+	s.GDrive.FolderName = strings.TrimSpace(s.GDrive.FolderName)
+	return p
+}
+
+func set(dst *string, v *string) {
+	if v != nil {
+		*dst = *v
+	}
 }
 
 func applyS3(dst *s3Fields, in storageapi.StorageS3Input) {
@@ -414,9 +442,9 @@ func applyS3(dst *s3Fields, in storageapi.StorageS3Input) {
 	}
 }
 
-// validate rejects settings that cannot work. A bucket is only tried when the
-// automatic backup is on.
-func (m *Module) validate(ctx context.Context, s settingsData, customSecret string) error {
+// validate rejects settings that cannot work. The location is only tried
+// when the automatic backup is on.
+func (m *Module) validate(ctx context.Context, s settingsData, p newSecrets) error {
 	if s.Frequency != "daily" && s.Frequency != "weekly" {
 		return httpx.Invalid("频率只能是每天或每周")
 	}
@@ -429,28 +457,72 @@ func (m *Module) validate(ctx context.Context, s settingsData, customSecret stri
 	if s.Keep < 1 || s.Keep > 365 {
 		return httpx.Invalid("保留份数要在 1 到 365 之间")
 	}
-	if s.Target != targetStorage && s.Target != targetCustom {
+	switch s.Target {
+	case targetStorage, targetCustom, targetWebDAV, targetGDrive:
+	default:
 		return httpx.Invalid("备份位置不正确")
+	}
+	if s.WebDAV.URL != "" {
+		if err := files.ValidateWebDAV(files.WebDAVConfig{URL: s.WebDAV.URL, Folder: s.WebDAV.Folder}); err != nil {
+			return httpx.Invalid(err.Error())
+		}
+	}
+	if s.GDrive.FolderName == "" {
+		return httpx.Invalid("Google Drive 的文件夹名不能为空")
 	}
 	if !s.Enabled {
 		return nil
 	}
-	cfg, ok, err := m.s3Config(ctx, s, customSecret)
+	if err := m.tryTarget(ctx, s, p); err != nil {
+		return httpx.Invalid(err.Error())
+	}
+	return nil
+}
+
+// tryTarget opens the location and writes, reads and deletes a small file.
+// The error is a short message for the settings page.
+func (m *Module) tryTarget(ctx context.Context, s settingsData, p newSecrets) error {
+	t, err := m.open(ctx, s, p)
+	if errors.Is(err, errNoS3) {
+		if s.Target == targetStorage {
+			return errors.New("存储设置里还没有 S3")
+		}
+		return errors.New("自动备份的 S3 设置没有填完整")
+	}
+	var herr *httpx.Error
+	if errors.As(err, &herr) {
+		return errors.New(herr.Message)
+	}
 	if err != nil {
 		return err
 	}
-	if !ok {
-		if s.Target == targetStorage {
-			return httpx.Invalid("存储设置里还没有 S3")
-		}
-		return httpx.Invalid("自动备份的 S3 设置没有填完整")
-	}
-	remote, err := files.NewS3(cfg)
-	if err != nil {
-		return httpx.Invalid(err.Error())
-	}
-	if err := remote.Check(ctx); err != nil {
-		return httpx.Invalid("连接测试没通过：" + err.Error())
+	if err := t.check(ctx); err != nil {
+		return errors.New("连接测试没通过：" + err.Error())
 	}
 	return nil
+}
+
+// TestBackupTarget is POST /backups/target/test.
+func (m *Module) TestBackupTarget(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if err := auth.RequireElevated(ctx); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	var in api.BackupSettingsInput
+	if err := httpx.Decode(r, &in); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	s, err := m.loadSettings(ctx)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	p := apply(&s, in)
+	out := api.BackupTargetTest{Ok: true, Message: "连接正常，可以读写"}
+	if err := m.tryTarget(ctx, s, p); err != nil {
+		out = api.BackupTargetTest{Ok: false, Message: err.Error()}
+	}
+	httpx.JSON(w, http.StatusOK, out)
 }

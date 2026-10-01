@@ -229,7 +229,9 @@ func (e *driveError) Error() string {
 	return fmt.Sprintf("Google Drive 请求失败：%d", e.Status)
 }
 
-func (e *driveError) Is(target error) bool { return target == ErrGDriveAuth && e.Status == http.StatusUnauthorized }
+func (e *driveError) Is(target error) bool {
+	return target == ErrGDriveAuth && e.Status == http.StatusUnauthorized
+}
 
 func readDriveError(resp *http.Response) error {
 	defer drain(resp)

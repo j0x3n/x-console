@@ -188,7 +188,7 @@ func TestExportListDownloadAndDelete(t *testing.T) {
 	var list struct{ Items []api.Backup }
 	env.MustDo(http.MethodGet, "/backups", nil, &list)
 	if len(list.Items) != 1 || list.Items[0].Id != id || list.Items[0].Kind != api.BackupKindManual ||
-		list.Items[0].Location != api.Local || list.Items[0].Files == nil || *list.Items[0].Files != 2 {
+		list.Items[0].Location != api.BackupLocationLocal || list.Items[0].Files == nil || *list.Items[0].Files != 2 {
 		t.Fatalf("list: %+v", list.Items)
 	}
 
@@ -536,7 +536,7 @@ func TestAutomaticBackupToS3KeepsTheNewest(t *testing.T) {
 		t.Fatalf("kept: %+v", list.Items)
 	}
 	for _, b := range list.Items {
-		if b.Location != api.S3 || b.Kind != api.BackupKindAuto {
+		if b.Location != api.BackupLocationS3 || b.Kind != api.BackupKindAuto {
 			t.Fatalf("item: %+v", b)
 		}
 	}

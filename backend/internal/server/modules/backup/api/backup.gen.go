@@ -4,6 +4,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -40,16 +41,22 @@ func (e BackupKind) Valid() bool {
 
 // Defines values for BackupLocation.
 const (
-	Local BackupLocation = "local"
-	S3    BackupLocation = "s3"
+	BackupLocationGdrive BackupLocation = "gdrive"
+	BackupLocationLocal  BackupLocation = "local"
+	BackupLocationS3     BackupLocation = "s3"
+	BackupLocationWebdav BackupLocation = "webdav"
 )
 
 // Valid indicates whether the value is a known member of the BackupLocation enum.
 func (e BackupLocation) Valid() bool {
 	switch e {
-	case Local:
+	case BackupLocationGdrive:
 		return true
-	case S3:
+	case BackupLocationLocal:
+		return true
+	case BackupLocationS3:
+		return true
+	case BackupLocationWebdav:
 		return true
 	default:
 		return false
@@ -122,7 +129,9 @@ func (e BackupSettingsFrequency) Valid() bool {
 // Defines values for BackupSettingsTarget.
 const (
 	BackupSettingsTargetCustom  BackupSettingsTarget = "custom"
+	BackupSettingsTargetGdrive  BackupSettingsTarget = "gdrive"
 	BackupSettingsTargetStorage BackupSettingsTarget = "storage"
+	BackupSettingsTargetWebdav  BackupSettingsTarget = "webdav"
 )
 
 // Valid indicates whether the value is a known member of the BackupSettingsTarget enum.
@@ -130,7 +139,11 @@ func (e BackupSettingsTarget) Valid() bool {
 	switch e {
 	case BackupSettingsTargetCustom:
 		return true
+	case BackupSettingsTargetGdrive:
+		return true
 	case BackupSettingsTargetStorage:
+		return true
+	case BackupSettingsTargetWebdav:
 		return true
 	default:
 		return false
@@ -158,7 +171,9 @@ func (e BackupSettingsInputFrequency) Valid() bool {
 // Defines values for BackupSettingsInputTarget.
 const (
 	BackupSettingsInputTargetCustom  BackupSettingsInputTarget = "custom"
+	BackupSettingsInputTargetGdrive  BackupSettingsInputTarget = "gdrive"
 	BackupSettingsInputTargetStorage BackupSettingsInputTarget = "storage"
+	BackupSettingsInputTargetWebdav  BackupSettingsInputTarget = "webdav"
 )
 
 // Valid indicates whether the value is a known member of the BackupSettingsInputTarget enum.
@@ -166,7 +181,11 @@ func (e BackupSettingsInputTarget) Valid() bool {
 	switch e {
 	case BackupSettingsInputTargetCustom:
 		return true
+	case BackupSettingsInputTargetGdrive:
+		return true
 	case BackupSettingsInputTargetStorage:
+		return true
+	case BackupSettingsInputTargetWebdav:
 		return true
 	default:
 		return false
@@ -197,6 +216,34 @@ type BackupKind string
 // BackupLocation defines model for Backup.Location.
 type BackupLocation string
 
+// BackupGdrive defines model for BackupGdrive.
+type BackupGdrive struct {
+	// Account 授权的 Google 账号邮箱
+	Account *string `json:"account,omitempty"`
+
+	// Authorized 已经授权，有长期令牌
+	Authorized bool   `json:"authorized"`
+	ClientId   string `json:"clientId"`
+
+	// FolderName 网盘根目录下的文件夹，默认“X Console 备份”
+	FolderName string `json:"folderName"`
+
+	// SecretSet 已经保存过客户端密钥
+	SecretSet bool `json:"secretSet"`
+}
+
+// BackupGdriveInput defines model for BackupGdriveInput.
+type BackupGdriveInput struct {
+	// ClientId 改了客户端 ID 会清掉原来的授权
+	ClientId *string `json:"clientId,omitempty"`
+
+	// ClientSecret 不传或传空表示不改
+	ClientSecret *string `json:"clientSecret,omitempty"`
+
+	// FolderName 改了文件夹名，下次备份时按新名字找或新建文件夹
+	FolderName *string `json:"folderName,omitempty"`
+}
+
 // BackupJob defines model for BackupJob.
 type BackupJob struct {
 	// BackupId 导出完成后生成的备份
@@ -226,6 +273,7 @@ type BackupJobState string
 type BackupSettings struct {
 	Enabled   bool                    `json:"enabled"`
 	Frequency BackupSettingsFrequency `json:"frequency"`
+	Gdrive    *BackupGdrive           `json:"gdrive,omitempty"`
 
 	// Keep S3 上保留几份，默认 14
 	Keep int `json:"keep"`
@@ -241,11 +289,13 @@ type BackupSettings struct {
 	NextRunAt *time.Time              `json:"nextRunAt,omitempty"`
 	S3        *externalRef1.StorageS3 `json:"s3,omitempty"`
 
-	// Target storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+	// Target storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+	// webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
 	Target BackupSettingsTarget `json:"target"`
 
 	// Time 每天几点，HH:MM，服务器时区。默认 03:00
-	Time string `json:"time"`
+	Time   string        `json:"time"`
+	Webdav *BackupWebdav `json:"webdav,omitempty"`
 
 	// Weekday 每周备份时是周几，0 是周日
 	Weekday int `json:"weekday"`
@@ -254,17 +304,20 @@ type BackupSettings struct {
 // BackupSettingsFrequency defines model for BackupSettings.Frequency.
 type BackupSettingsFrequency string
 
-// BackupSettingsTarget storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+// BackupSettingsTarget storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+// webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
 type BackupSettingsTarget string
 
 // BackupSettingsInput defines model for BackupSettingsInput.
 type BackupSettingsInput struct {
 	Enabled   *bool                         `json:"enabled,omitempty"`
 	Frequency *BackupSettingsInputFrequency `json:"frequency,omitempty"`
+	Gdrive    *BackupGdriveInput            `json:"gdrive,omitempty"`
 	Keep      *int                          `json:"keep,omitempty"`
 	S3        *externalRef1.StorageS3Input  `json:"s3,omitempty"`
 	Target    *BackupSettingsInputTarget    `json:"target,omitempty"`
 	Time      *string                       `json:"time,omitempty"`
+	Webdav    *BackupWebdavInput            `json:"webdav,omitempty"`
 	Weekday   *int                          `json:"weekday,omitempty"`
 }
 
@@ -273,6 +326,35 @@ type BackupSettingsInputFrequency string
 
 // BackupSettingsInputTarget defines model for BackupSettingsInput.Target.
 type BackupSettingsInputTarget string
+
+// BackupTargetTest defines model for BackupTargetTest.
+type BackupTargetTest struct {
+	Message string `json:"message"`
+	Ok      bool   `json:"ok"`
+}
+
+// BackupWebdav defines model for BackupWebdav.
+type BackupWebdav struct {
+	// Folder 备份放在这个目录下，默认 x-console-backups
+	Folder string `json:"folder"`
+
+	// PasswordSet 已经保存过密码
+	PasswordSet bool `json:"passwordSet"`
+
+	// Url 比如 https://dav.jianguoyun.com/dav/
+	Url      string `json:"url"`
+	Username string `json:"username"`
+}
+
+// BackupWebdavInput defines model for BackupWebdavInput.
+type BackupWebdavInput struct {
+	Folder *string `json:"folder,omitempty"`
+
+	// Password 不传或传空表示不改
+	Password *string `json:"password,omitempty"`
+	Url      *string `json:"url,omitempty"`
+	Username *string `json:"username,omitempty"`
+}
 
 // RestoreInput defines model for RestoreInput.
 type RestoreInput struct {
@@ -283,6 +365,13 @@ type RestoreInput struct {
 // BackupId defines model for BackupId.
 type BackupId = string
 
+// GdriveCallbackParams defines parameters for GdriveCallback.
+type GdriveCallbackParams struct {
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // UploadBackupMultipartBody defines parameters for UploadBackup.
 type UploadBackupMultipartBody struct {
 	File openapi_types.File `json:"file"`
@@ -290,6 +379,9 @@ type UploadBackupMultipartBody struct {
 
 // PutBackupSettingsJSONRequestBody defines body for PutBackupSettings for application/json ContentType.
 type PutBackupSettingsJSONRequestBody = BackupSettingsInput
+
+// TestBackupTargetJSONRequestBody defines body for TestBackupTarget for application/json ContentType.
+type TestBackupTargetJSONRequestBody = BackupSettingsInput
 
 // UploadBackupMultipartRequestBody defines body for UploadBackup for multipart/form-data ContentType.
 type UploadBackupMultipartRequestBody UploadBackupMultipartBody
@@ -306,6 +398,15 @@ type ServerInterface interface {
 	// (POST /backups/export)
 	ExportBackup(w http.ResponseWriter, r *http.Request)
 
+	// (DELETE /backups/gdrive/auth)
+	RevokeGdriveAuth(w http.ResponseWriter, r *http.Request)
+
+	// (GET /backups/gdrive/auth)
+	StartGdriveAuth(w http.ResponseWriter, r *http.Request)
+
+	// (GET /backups/gdrive/callback)
+	GdriveCallback(w http.ResponseWriter, r *http.Request, params GdriveCallbackParams)
+
 	// (GET /backups/job)
 	GetBackupJob(w http.ResponseWriter, r *http.Request)
 
@@ -317,6 +418,9 @@ type ServerInterface interface {
 
 	// (PUT /backups/settings)
 	PutBackupSettings(w http.ResponseWriter, r *http.Request)
+
+	// (POST /backups/target/test)
+	TestBackupTarget(w http.ResponseWriter, r *http.Request)
 
 	// (POST /backups/upload)
 	UploadBackup(w http.ResponseWriter, r *http.Request)
@@ -345,6 +449,21 @@ func (_ Unimplemented) ExportBackup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (DELETE /backups/gdrive/auth)
+func (_ Unimplemented) RevokeGdriveAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /backups/gdrive/auth)
+func (_ Unimplemented) StartGdriveAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /backups/gdrive/callback)
+func (_ Unimplemented) GdriveCallback(w http.ResponseWriter, r *http.Request, params GdriveCallbackParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /backups/job)
 func (_ Unimplemented) GetBackupJob(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -362,6 +481,11 @@ func (_ Unimplemented) GetBackupSettings(w http.ResponseWriter, r *http.Request)
 
 // (PUT /backups/settings)
 func (_ Unimplemented) PutBackupSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /backups/target/test)
+func (_ Unimplemented) TestBackupTarget(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -422,6 +546,93 @@ func (siw *ServerInterfaceWrapper) ExportBackup(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// RevokeGdriveAuth operation middleware
+func (siw *ServerInterfaceWrapper) RevokeGdriveAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeGdriveAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartGdriveAuth operation middleware
+func (siw *ServerInterfaceWrapper) StartGdriveAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartGdriveAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GdriveCallback operation middleware
+func (siw *ServerInterfaceWrapper) GdriveCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GdriveCallbackParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GdriveCallback(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetBackupJob operation middleware
 func (siw *ServerInterfaceWrapper) GetBackupJob(w http.ResponseWriter, r *http.Request) {
 
@@ -469,6 +680,20 @@ func (siw *ServerInterfaceWrapper) PutBackupSettings(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutBackupSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestBackupTarget operation middleware
+func (siw *ServerInterfaceWrapper) TestBackupTarget(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestBackupTarget(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -709,6 +934,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/backups/settings", wrapper.PutBackupSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/backups/target/test", wrapper.TestBackupTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/backups/gdrive/auth", wrapper.RevokeGdriveAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/backups/gdrive/auth", wrapper.StartGdriveAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/backups/gdrive/callback", wrapper.GdriveCallback)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/backups/run", wrapper.RunBackupNow)

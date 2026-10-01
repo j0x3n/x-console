@@ -152,6 +152,69 @@ paths:
               schema: { $ref: "#/components/schemas/BackupSettings" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /backups/target/test:
+    post:
+      operationId: testBackupTarget
+      tags: [backup]
+      description: |
+        用请求体里的设置（结构和保存时一样，没传的字段用已保存的）试一次备份位置：
+        建目录、写一个小文件、读回来、删掉。不保存设置。要提升权限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BackupSettingsInput" }
+      responses:
+        "200":
+          description: 测试结果。连不上时 ok 是 false，message 写原因
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupTargetTest" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/gdrive/auth:
+    get:
+      operationId: startGdriveAuth
+      tags: [backup]
+      description: |
+        返回 Google 授权页的地址，前端跳过去。要先保存客户端 ID 和密钥。要提升权限。
+        地址里的 state 是一次性的，10 分钟内有效
+      responses:
+        "200":
+          description: 授权地址
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, redirectUri]
+                properties:
+                  url: { type: string }
+                  redirectUri: { type: string, description: 这次用的重定向地址，要和 Google 里填的一样 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: revokeGdriveAuth
+      tags: [backup]
+      description: 撤销 Google Drive 授权：通知 Google 作废令牌，删掉本地保存的令牌。要提升权限
+      responses:
+        "204":
+          description: 已撤销
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/gdrive/callback:
+    get:
+      operationId: gdriveCallback
+      tags: [backup]
+      description: |
+        Google 授权完跳回来的地址，不用登录，靠 state 校验。用 code 换令牌并保存，
+        然后跳到 /settings/backup?gdrive=ok，失败时跳到 /settings/backup?gdrive=error&message=原因
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "302":
+          description: 跳回设置页
   /backups/run:
     post:
       operationId: runBackupNow
@@ -184,7 +247,7 @@ components:
         sizeBytes: { type: integer, format: int64 }
         location:
           type: string
-          enum: [local, s3]
+          enum: [local, s3, webdav, gdrive]
         kind:
           type: string
           description: manual 手动导出；auto 自动备份；pre-restore 恢复前自动备份；uploaded 上传的
@@ -230,10 +293,14 @@ components:
         keep: { type: integer, minimum: 1, maximum: 365, description: S3 上保留几份，默认 14 }
         target:
           type: string
-          enum: [storage, custom]
-          description: storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+          enum: [storage, custom, webdav, gdrive]
+          description: |
+            storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+            webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
         s3:
           $ref: "storage.yaml#/components/schemas/StorageS3"
+        webdav: { $ref: "#/components/schemas/BackupWebdav" }
+        gdrive: { $ref: "#/components/schemas/BackupGdrive" }
         nextRunAt: { type: string, format: date-time }
         lastRuns:
           type: array
@@ -259,6 +326,44 @@ components:
         keep: { type: integer, minimum: 1, maximum: 365 }
         target:
           type: string
-          enum: [storage, custom]
+          enum: [storage, custom, webdav, gdrive]
         s3:
           $ref: "storage.yaml#/components/schemas/StorageS3Input"
+        webdav: { $ref: "#/components/schemas/BackupWebdavInput" }
+        gdrive: { $ref: "#/components/schemas/BackupGdriveInput" }
+    BackupWebdav:
+      type: object
+      required: [url, username, folder, passwordSet]
+      properties:
+        url: { type: string, description: 比如 https://dav.jianguoyun.com/dav/ }
+        username: { type: string }
+        folder: { type: string, description: 备份放在这个目录下，默认 x-console-backups }
+        passwordSet: { type: boolean, description: 已经保存过密码 }
+    BackupWebdavInput:
+      type: object
+      properties:
+        url: { type: string }
+        username: { type: string }
+        password: { type: string, description: 不传或传空表示不改 }
+        folder: { type: string }
+    BackupGdrive:
+      type: object
+      required: [clientId, folderName, secretSet, authorized]
+      properties:
+        clientId: { type: string }
+        folderName: { type: string, description: 网盘根目录下的文件夹，默认“X Console 备份” }
+        secretSet: { type: boolean, description: 已经保存过客户端密钥 }
+        authorized: { type: boolean, description: 已经授权，有长期令牌 }
+        account: { type: string, description: 授权的 Google 账号邮箱 }
+    BackupGdriveInput:
+      type: object
+      properties:
+        clientId: { type: string, description: 改了客户端 ID 会清掉原来的授权 }
+        clientSecret: { type: string, description: 不传或传空表示不改 }
+        folderName: { type: string, description: 改了文件夹名，下次备份时按新名字找或新建文件夹 }
+    BackupTargetTest:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        message: { type: string }
