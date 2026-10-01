@@ -100,6 +100,20 @@ func (m *Module) system(context.Context) string {
 	return systemPrompt + "\n" + fmt.Sprintf("时区：%s。每条用户消息后面附有发送时的时间等情况。", m.d.Config.Location)
 }
 
+// panelSystem is the system prompt of the panel AI: the base, when to write
+// memory, and the memory itself (B61).
+func (m *Module) panelSystem(ctx context.Context) string {
+	out := m.system(ctx)
+	if !m.memoryEnabled(ctx) {
+		return out
+	}
+	out += "\n\n" + memoryRules
+	if mem := m.Prompt(ctx); mem != "" {
+		out += "\n\n" + mem
+	}
+	return out
+}
+
 // turnContext is saved with each user message as a hidden block, so the
 // history never changes afterwards and stays cacheable.
 func (m *Module) turnContext(ctx context.Context, hostID *string) string {
@@ -140,7 +154,7 @@ func (m *Module) generate(ctx, visible context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	prompt, tools := m.system(ctx), m.tools(visible)
+	prompt, tools := m.panelSystem(ctx), m.tools(visible)
 	ctx = contracts.WithAIUsage(ctx, "assistant", strconv.FormatInt(id, 10))
 	if hostID != nil {
 		prompt, tools = m.hostSystem(ctx, *hostID), hostagent.Tools()

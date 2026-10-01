@@ -101,6 +101,12 @@ func TestTokensAndMCPFlow(t *testing.T) {
 	if !names["reminders_create"] || !names["notes_search"] || names["notes_delete"] || names["hosts_exec"] {
 		t.Fatalf("write tools: %v", names)
 	}
+	// B61: remote AI never sees the AI memory.
+	for name := range names {
+		if strings.HasPrefix(name, "memory_") {
+			t.Fatalf("mcp lists %s", name)
+		}
+	}
 
 	// Call a tool: the reminder shows up, audited as the token.
 	status, out = rpc(t, env, w.Secret, map[string]any{"jsonrpc": "2.0", "id": 3, "method": "tools/call",
@@ -117,6 +123,11 @@ func TestTokensAndMCPFlow(t *testing.T) {
 	env.MustDo(http.MethodGet, "/api-tokens/calls", nil, &calls)
 	if len(calls) != 1 || calls[0].Tool != "notes_create" || calls[0].Result != "ok" {
 		t.Fatalf("calls: %+v", calls)
+	}
+	_, out = rpc(t, env, w.Secret, map[string]any{"jsonrpc": "2.0", "id": 30, "method": "tools/call",
+		"params": map[string]any{"name": "memory_save", "arguments": map[string]any{"text": "x"}}})
+	if out["error"] == nil {
+		t.Fatalf("memory_save over mcp: %+v", out)
 	}
 
 	// A tool the token was not shown is refused and not run.

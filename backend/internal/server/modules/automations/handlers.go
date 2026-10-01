@@ -156,6 +156,7 @@ func (m *Module) validate(ctx context.Context, in api.AutomationInput) (bool, er
 			continue
 		}
 		a, ok := m.d.Actions.Get(ctx, s.Action)
+		ok = ok && !a.PanelOnly
 		if !ok {
 			return false, httpx.Invalid("未知动作: " + s.Action)
 		}
@@ -308,6 +309,9 @@ func (m *Module) GetAutomationCatalog(w http.ResponseWriter, r *http.Request) {
 		Topic string `json:"topic"`
 	}{}}
 	for _, a := range m.d.Actions.List(r.Context()) {
+		if a.PanelOnly {
+			continue
+		}
 		var schema map[string]any
 		_ = json.Unmarshal(a.Input, &schema)
 		desc := a.Description

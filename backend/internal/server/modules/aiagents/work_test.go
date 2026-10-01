@@ -175,6 +175,7 @@ func TestAssignBuiltinAgent(t *testing.T) {
 	env := testutil.New(t)
 	runner := &fakeRunner{release: make(chan struct{})}
 	module.Provide[contracts.ToolRunner](env.App.Deps.Registry, contracts.ToolRunnerKey, runner)
+	env.MustDo(http.MethodPost, "/ai/memories", map[string]any{"text": "仓库在 Forgejo 上"}, nil) // B61
 	c := newCard(t, env)
 	var a agent
 	env.MustDo(http.MethodPost, "/ai-agents", map[string]any{"name": "整理员", "kind": "builtin", "model": "3:gpt-5-mini",
@@ -193,7 +194,7 @@ func TestAssignBuiltinAgent(t *testing.T) {
 	}
 	run := runner.runs[0]
 	if run.Model != "3:gpt-5-mini" || run.Access != "read" || run.Source != "ai_agent" || run.Ref != fmt.Sprint(a.ID) ||
-		!strings.Contains(run.System, "只拆清单。") || !strings.Contains(run.Prompt, "加一个测试") {
+		!strings.Contains(run.System, "只拆清单。") || !strings.Contains(run.System, "仓库在 Forgejo 上") || !strings.Contains(run.Prompt, "加一个测试") {
 		t.Fatalf("run: %+v", run)
 	}
 	// The agent never has the user's elevation.

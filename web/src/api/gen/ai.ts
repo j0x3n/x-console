@@ -420,10 +420,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/memories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B61。全部记忆、开关和字数。面板 AI 和 Agent 读，远程 AI（MCP）看不到 */
+        get: operations["listAiMemories"];
+        put?: never;
+        /** @description 加一条。总字数超过上限时回 400 */
+        post: operations["createAiMemory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/memories/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 开关。关掉后谁都不带记忆，已有的不删 */
+        put: operations["setAiMemoryEnabled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/memories/{memoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memoryId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAiMemory"];
+        options?: never;
+        head?: never;
+        patch: operations["updateAiMemory"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AiMemory: {
+            /** Format: int64 */
+            id: number;
+            /** @description 1 到 500 字 */
+            text: string;
+            /**
+             * @description user 是手动加的，ai 是面板 AI 记的
+             * @enum {string}
+             */
+            source: "user" | "ai";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AiMemoryInput: {
+            text: string;
+        };
+        AiMemories: {
+            enabled: boolean;
+            items: components["schemas"]["AiMemory"][];
+            usedChars: number;
+            limitChars: number;
+        };
         /**
          * @description B56。润色的场景，决定提示词：
          *     note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
@@ -1509,6 +1586,127 @@ export interface operations {
                     "application/json": {
                         mode: components["schemas"]["HostAgentPermission"];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiMemories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 记忆 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemories"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createAiMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiMemoryInput"];
+            };
+        };
+        responses: {
+            /** @description 新的记忆 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemory"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setAiMemoryEnabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description 当前记忆 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemories"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAiMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAiMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiMemoryInput"];
+            };
+        };
+        responses: {
+            /** @description 改后的记忆 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemory"];
                 };
             };
             default: components["responses"]["Error"];

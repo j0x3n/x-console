@@ -35,6 +35,7 @@ const (
 	CalendarKey      = "calendar.calendar"   // M11 provides
 	GitHubKey        = "github.github"       // M13 provides
 	LLMKey           = "ai.llm"              // M12 provides
+	MemoriesKey      = "ai.memories"         // B61 ai provides, aiagents uses
 	AIUsageKey       = "ai.usage"            // M12 provides, B42
 	FilesKey         = "files.files"         // B36 provides
 )
@@ -57,6 +58,13 @@ type ExternalReminder struct {
 // ReminderSource lists due items, including unresolved overdue items.
 type ReminderSource interface {
 	Upcoming(ctx context.Context, from, until time.Time) ([]ExternalReminder, error)
+}
+
+// Memories gives the AI memory to agents, read only (B61). Provided by ai.
+type Memories interface {
+	// Prompt returns the memory as a block for a system prompt, or "" when
+	// memory is off or empty.
+	Prompt(ctx context.Context) string
 }
 
 // LLM is the AI call boundary used by notes and automations.

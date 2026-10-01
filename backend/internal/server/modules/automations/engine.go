@@ -397,6 +397,7 @@ func (m *Module) execute(ctx context.Context, id int64, r rule, data map[string]
 			result, err = m.ask(ctx, input, data)
 		} else {
 			a, ok := m.d.Actions.Get(ctx, s.Action)
+			ok = ok && !a.PanelOnly
 			if !ok {
 				err = fmt.Errorf("未知动作: %s", s.Action)
 			} else if string(a.Effect) == "dangerous" && !r.Authorized {

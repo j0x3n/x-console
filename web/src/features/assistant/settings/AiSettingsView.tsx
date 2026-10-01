@@ -32,6 +32,7 @@ import {
 } from "../api";
 import ModelPicker from "./ModelPicker";
 import NotesAiCard from "./NotesAiCard";
+import MemoryCard from "./MemoryCard";
 import ProviderDialog from "./ProviderDialog";
 import {
   canUseTools,
@@ -67,6 +68,7 @@ export default function AiSettingsView({
         />
       )}
       <UsageCard />
+      <MemoryCard />
       <NotesAiCard />
     </div>
   );

@@ -62,6 +62,14 @@ type AiConversation struct {
 	HostID    *string
 }
 
+type AiMemory struct {
+	ID        int64
+	Text      string
+	Source    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type AiMessage struct {
 	ID             int64
 	ConversationID int64

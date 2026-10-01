@@ -1,6 +1,20 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 记忆（B61）
+  "AI memory": "记忆",
+  "Turn on memory": "开启记忆",
+  "The panel AI and agents read these. Only the panel AI can change them. Remote AI cannot see them.":
+    "面板 AI 和 Agent 都会读到这些。只有面板 AI 能改。远程 AI 看不到。",
+  "Nothing remembered yet.": "还没有记忆。",
+  "Add a memory": "添加一条记忆",
+  "Edit memory": "编辑记忆",
+  "Saved by AI": "AI 记的",
+  "Delete this memory?": "删除这条记忆？",
+  characters: "字",
+  "Not live yet": "还没上线",
+  Add: "添加",
+  Remembered: "已记住",
   AI: "AI",
   "New conversation": "新对话",
   "No conversations yet": "还没有对话",

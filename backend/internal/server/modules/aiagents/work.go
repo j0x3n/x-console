@@ -170,6 +170,12 @@ func (m *Module) startBuiltin(ctx context.Context, a contracts.AIAgent, brief co
 	system := fmt.Sprintf("你是 X Console 里的 Agent“%s”。用户是这个面板的唯一主人。\n%s\n\n"+
 		"你在处理卡片 %s。用工具读取和修改数据，先读再改，不要重复创建。不要删除东西，除非卡片里明确要求。"+
 		"完成后用简短的中文说明做了什么，这段话会作为你的评论贴在卡片上。", a.Name, row.Instructions, brief.Key)
+	// B61: agents read the AI memory; their tools cannot change it.
+	if mem, ok := module.Lookup[contracts.Memories](m.d.Registry, contracts.MemoriesKey); ok {
+		if text := mem.Prompt(base); text != "" {
+			system += "\n\n" + text
+		}
+	}
 	prompt := fmt.Sprintf("卡片 %s：%s\n\n%s\n\n%s%s", brief.Key, brief.Title, brief.Description, briefText(brief), note)
 	m.wg.Add(1)
 	go func() {

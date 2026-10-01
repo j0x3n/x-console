@@ -122,7 +122,7 @@ func (m *Module) RevokeApiToken(w http.ResponseWriter, r *http.Request, id int64
 func (m *Module) modules(ctx context.Context) []string {
 	seen := map[string]bool{}
 	for _, a := range m.d.Actions.List(ctx) {
-		if a.Effect != actions.Dangerous {
+		if a.Effect != actions.Dangerous && !a.PanelOnly {
 			seen[actions.Module(a.Name)] = true
 		}
 	}

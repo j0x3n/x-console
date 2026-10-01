@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message, PendingAction, Tool } from "./api";
 import {
+  rememberedText,
   actionName,
   buildTimeline,
   foldLines,
@@ -280,5 +281,27 @@ describe("attachments", () => {
         ],
       },
     ]);
+  });
+});
+
+describe("已记住（B61）", () => {
+  const action = (action: string, status: "ok" | "error", text?: string) =>
+    ({
+      kind: "action",
+      key: "a",
+      action,
+      title: action,
+      effect: "write",
+      input: text ? { text } : {},
+      status,
+    }) as const;
+  it("shows saved and updated memories that succeeded", () => {
+    expect(rememberedText(action("memory.save", "ok", " 周报周五写 "))).toBe(
+      "周报周五写",
+    );
+    expect(rememberedText(action("memory.update", "ok", "改了"))).toBe("改了");
+    expect(rememberedText(action("memory.save", "error", "失败的"))).toBeNull();
+    expect(rememberedText(action("memory.delete", "ok"))).toBeNull();
+    expect(rememberedText(action("notes.create", "ok", "笔记"))).toBeNull();
   });
 });

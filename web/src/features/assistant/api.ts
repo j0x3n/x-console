@@ -7,6 +7,7 @@ import {
 import { ApiError, apiFetch, createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/ai";
 import { withElevation } from "../../auth/elevation";
+import { invalidateOn } from "../../api/events";
 
 export const aiApi = createApi<paths>();
 
@@ -414,4 +415,56 @@ export function useSetPermission() {
     onSettled: (_d, _e, { id }) =>
       qc.invalidateQueries({ queryKey: aiKeys.conversation(id) }),
   });
+}
+
+// ---- 记忆（B61） ----
+
+export type AiMemory = components["schemas"]["AiMemory"];
+export type AiMemories = components["schemas"]["AiMemories"];
+export const memoryKeys = { all: ["ai", "memories"] as const };
+invalidateOn("ai.memory_changed", memoryKeys.all);
+
+export function useMemories(enabled = true) {
+  return useQuery({
+    queryKey: memoryKeys.all,
+    queryFn: () => unwrap(aiApi.GET("/ai/memories")),
+    enabled,
+    retry: retryUnlessNotLive,
+  });
+}
+
+export function useMemoryMutations() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: memoryKeys.all });
+  return {
+    add: useMutation({
+      mutationFn: (text: string) =>
+        unwrap(aiApi.POST("/ai/memories", { body: { text } })),
+      onSuccess: done,
+    }),
+    update: useMutation({
+      mutationFn: ({ id, text }: { id: number; text: string }) =>
+        unwrap(
+          aiApi.PATCH("/ai/memories/{memoryId}", {
+            params: { path: { memoryId: id } },
+            body: { text },
+          }),
+        ),
+      onSuccess: done,
+    }),
+    remove: useMutation({
+      mutationFn: (id: number) =>
+        unwrap(
+          aiApi.DELETE("/ai/memories/{memoryId}", {
+            params: { path: { memoryId: id } },
+          }),
+        ),
+      onSuccess: done,
+    }),
+    setEnabled: useMutation({
+      mutationFn: (enabled: boolean) =>
+        unwrap(aiApi.PUT("/ai/memories/enabled", { body: { enabled } })),
+      onSuccess: (data) => qc.setQueryData(memoryKeys.all, data),
+    }),
+  };
 }

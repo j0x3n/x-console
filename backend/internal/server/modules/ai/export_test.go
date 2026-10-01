@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 	"time"
@@ -26,4 +27,9 @@ func (m *Module) SetLLMForTest(c llm.Client) { m.llm = c }
 // PolishPromptForTest exposes the B56 prompt builder.
 func PolishPromptForTest(scene, request string) (string, bool) {
 	return polishPrompt(api.PolishScene(scene), request)
+}
+
+// HostSystemForTest exposes the machine conversation prompt (B61).
+func (m *Module) HostSystemForTest(ctx context.Context, hostID string) string {
+	return m.hostSystem(ctx, hostID)
 }

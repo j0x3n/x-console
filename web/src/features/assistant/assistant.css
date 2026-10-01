@@ -1041,3 +1041,53 @@ html[data-theme="dark"] .ai-usage {
     grid-area: cost;
   }
 }
+
+/* 设置 → AI 的记忆（B61） */
+.ai-memory-list {
+  margin: 4px 0 10px;
+}
+.ai-memory-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+}
+.ai-memory-row:hover {
+  background: var(--xc-surface-2);
+}
+.ai-memory-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ai-memory-edit {
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--xc-text);
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+.ai-memory-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ai-memory-add .xc-input {
+  flex: 1;
+  min-width: 0;
+}
+.ai-remembered {
+  display: block;
+  margin: 2px 0 6px 22px;
+  font-size: var(--fs-12);
+  color: var(--xc-muted);
+  text-decoration: none;
+}
+.ai-remembered:hover {
+  color: var(--xc-text);
+}

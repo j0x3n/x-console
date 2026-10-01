@@ -262,3 +262,13 @@ export const HOST_TOOLS: Tool[] = [
     effect: "write",
   },
 ];
+
+/** AI 记下或改了一条记忆时，回复里显示“已记住：……”（B61）。 */
+export function rememberedText(item: TimelineItem): string | null {
+  if (item.kind !== "action" || item.status !== "ok") return null;
+  if (item.action !== "memory.save" && item.action !== "memory.update")
+    return null;
+  return typeof item.input.text === "string" && item.input.text.trim()
+    ? item.input.text.trim()
+    : null;
+}

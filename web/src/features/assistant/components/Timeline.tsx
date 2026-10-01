@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import {
   AlertTriangle,
   Check,
@@ -13,7 +14,12 @@ import { errorMessage } from "../../../api/client";
 import Markdown from "../../../components/markdown/Markdown";
 import { useT } from "../../../contexts/LanguageContext";
 import { attachmentUrl, useDecideAction } from "../api";
-import { foldLines, summarizeInput, type TimelineItem } from "../logic";
+import {
+  foldLines,
+  rememberedText,
+  summarizeInput,
+  type TimelineItem,
+} from "../logic";
 
 export default function Timeline({ items }: { items: TimelineItem[] }) {
   return (
@@ -55,7 +61,10 @@ export default function Timeline({ items }: { items: TimelineItem[] }) {
             {item.streaming && <span className="ai-caret" aria-hidden />}
           </div>
         ) : (
-          <ActionCard key={item.key} item={item} />
+          <div key={item.key}>
+            <ActionCard item={item} />
+            <Remembered item={item} />
+          </div>
         ),
       )}
     </>
@@ -200,4 +209,16 @@ function StatusIcon({ status }: { status: ActionItem["status"] }) {
   if (status === "rejected")
     return <X size={13} className="muted" aria-label={label} />;
   return <AlertTriangle size={13} className="danger" aria-label={label} />;
+}
+
+/** “已记住：……”，点了去设置 → AI 的记忆卡片（B61）。 */
+function Remembered({ item }: { item: TimelineItem }) {
+  const t = useT();
+  const text = rememberedText(item);
+  if (!text) return null;
+  return (
+    <Link className="ai-remembered" to="/settings/assistant#ai-memory">
+      {t("Remembered")}：{text}
+    </Link>
+  );
 }

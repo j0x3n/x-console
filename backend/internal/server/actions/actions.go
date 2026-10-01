@@ -58,6 +58,9 @@ type Action struct {
 	// automation rules may use it), but List leaves it out, so the assistant
 	// and the automation editor see each operation once.
 	AliasOf string `json:"aliasOf,omitempty"`
+	// PanelOnly keeps the action to the panel assistant (B61: writing the AI
+	// memory). Remote AI (MCP), agents and automations never see it.
+	PanelOnly bool `json:"panelOnly,omitempty"`
 	// Run executes the action. ctx carries the acting user or automation.
 	Run func(ctx context.Context, input json.RawMessage) (any, error) `json:"-"`
 }
@@ -172,7 +175,7 @@ const (
 // module list (empty means all) may see and run the action. Dangerous
 // actions are never allowed.
 func AllowedFor(a Action, access string, modules []string) bool {
-	if a.Effect == Dangerous || a.AliasOf != "" {
+	if a.Effect == Dangerous || a.AliasOf != "" || a.PanelOnly {
 		return false
 	}
 	switch access {

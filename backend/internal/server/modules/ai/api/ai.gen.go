@@ -33,6 +33,24 @@ func (e AiAttachmentKind) Valid() bool {
 	}
 }
 
+// Defines values for AiMemorySource.
+const (
+	AiMemorySourceAi   AiMemorySource = "ai"
+	AiMemorySourceUser AiMemorySource = "user"
+)
+
+// Valid indicates whether the value is a known member of the AiMemorySource enum.
+func (e AiMemorySource) Valid() bool {
+	switch e {
+	case AiMemorySourceAi:
+		return true
+	case AiMemorySourceUser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AiModelSpecSource.
 const (
 	Exact    AiModelSpecSource = "exact"
@@ -176,16 +194,16 @@ func (e HostAgentPermission) Valid() bool {
 
 // Defines values for MessageRole.
 const (
-	Assistant MessageRole = "assistant"
-	User      MessageRole = "user"
+	MessageRoleAssistant MessageRole = "assistant"
+	MessageRoleUser      MessageRole = "user"
 )
 
 // Valid indicates whether the value is a known member of the MessageRole enum.
 func (e MessageRole) Valid() bool {
 	switch e {
-	case Assistant:
+	case MessageRoleAssistant:
 		return true
-	case User:
+	case MessageRoleUser:
 		return true
 	default:
 		return false
@@ -389,6 +407,35 @@ type AiAttachment struct {
 
 // AiAttachmentKind defines model for AiAttachment.Kind.
 type AiAttachmentKind string
+
+// AiMemories defines model for AiMemories.
+type AiMemories struct {
+	Enabled    bool       `json:"enabled"`
+	Items      []AiMemory `json:"items"`
+	LimitChars int        `json:"limitChars"`
+	UsedChars  int        `json:"usedChars"`
+}
+
+// AiMemory defines model for AiMemory.
+type AiMemory struct {
+	CreatedAt time.Time `json:"createdAt"`
+	Id        int64     `json:"id"`
+
+	// Source user 是手动加的，ai 是面板 AI 记的
+	Source AiMemorySource `json:"source"`
+
+	// Text 1 到 500 字
+	Text      string    `json:"text"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// AiMemorySource user 是手动加的，ai 是面板 AI 记的
+type AiMemorySource string
+
+// AiMemoryInput defines model for AiMemoryInput.
+type AiMemoryInput struct {
+	Text string `json:"text"`
+}
 
 // AiModel defines model for AiModel.
 type AiModel struct {
@@ -819,6 +866,11 @@ type CreateHostAgentConversationJSONBody struct {
 	Title *string `json:"title,omitempty"`
 }
 
+// SetAiMemoryEnabledJSONBody defines parameters for SetAiMemoryEnabled.
+type SetAiMemoryEnabledJSONBody struct {
+	Enabled bool `json:"enabled"`
+}
+
 // ListAiModelsParams defines parameters for ListAiModels.
 type ListAiModelsParams struct {
 	ProviderId *int64 `form:"providerId,omitempty" json:"providerId,omitempty"`
@@ -880,6 +932,15 @@ type SetAiConversationPermissionJSONRequestBody SetAiConversationPermissionJSONB
 
 // CreateHostAgentConversationJSONRequestBody defines body for CreateHostAgentConversation for application/json ContentType.
 type CreateHostAgentConversationJSONRequestBody CreateHostAgentConversationJSONBody
+
+// CreateAiMemoryJSONRequestBody defines body for CreateAiMemory for application/json ContentType.
+type CreateAiMemoryJSONRequestBody = AiMemoryInput
+
+// SetAiMemoryEnabledJSONRequestBody defines body for SetAiMemoryEnabled for application/json ContentType.
+type SetAiMemoryEnabledJSONRequestBody SetAiMemoryEnabledJSONBody
+
+// UpdateAiMemoryJSONRequestBody defines body for UpdateAiMemory for application/json ContentType.
+type UpdateAiMemoryJSONRequestBody = AiMemoryInput
 
 // PutAiModelSettingsJSONRequestBody defines body for PutAiModelSettings for application/json ContentType.
 type PutAiModelSettingsJSONRequestBody = AiModelSettingsInput
@@ -1122,6 +1183,21 @@ type ServerInterface interface {
 	// (POST /ai/host-agent/{hostId}/conversations)
 	CreateHostAgentConversation(w http.ResponseWriter, r *http.Request, hostId string)
 
+	// (GET /ai/memories)
+	ListAiMemories(w http.ResponseWriter, r *http.Request)
+
+	// (POST /ai/memories)
+	CreateAiMemory(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /ai/memories/enabled)
+	SetAiMemoryEnabled(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /ai/memories/{memoryId})
+	DeleteAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64)
+
+	// (PATCH /ai/memories/{memoryId})
+	UpdateAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64)
+
 	// (GET /ai/model-settings)
 	GetAiModelSettings(w http.ResponseWriter, r *http.Request)
 
@@ -1237,6 +1313,31 @@ func (_ Unimplemented) ListHostAgentConversations(w http.ResponseWriter, r *http
 
 // (POST /ai/host-agent/{hostId}/conversations)
 func (_ Unimplemented) CreateHostAgentConversation(w http.ResponseWriter, r *http.Request, hostId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/memories)
+func (_ Unimplemented) ListAiMemories(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/memories)
+func (_ Unimplemented) CreateAiMemory(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /ai/memories/enabled)
+func (_ Unimplemented) SetAiMemoryEnabled(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /ai/memories/{memoryId})
+func (_ Unimplemented) DeleteAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /ai/memories/{memoryId})
+func (_ Unimplemented) UpdateAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1622,6 +1723,100 @@ func (siw *ServerInterfaceWrapper) CreateHostAgentConversation(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateHostAgentConversation(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAiMemories operation middleware
+func (siw *ServerInterfaceWrapper) ListAiMemories(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiMemories(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAiMemory operation middleware
+func (siw *ServerInterfaceWrapper) CreateAiMemory(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAiMemory(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAiMemoryEnabled operation middleware
+func (siw *ServerInterfaceWrapper) SetAiMemoryEnabled(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAiMemoryEnabled(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAiMemory operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAiMemory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "memoryId" -------------
+	var memoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memoryId", chi.URLParam(r, "memoryId"), &memoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAiMemory(w, r, memoryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAiMemory operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAiMemory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "memoryId" -------------
+	var memoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memoryId", chi.URLParam(r, "memoryId"), &memoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAiMemory(w, r, memoryId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2353,6 +2548,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/ai/conversations/{conversationId}/permission", wrapper.SetAiConversationPermission)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/memories", wrapper.ListAiMemories)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/memories", wrapper.CreateAiMemory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/ai/memories/enabled", wrapper.SetAiMemoryEnabled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/ai/memories/{memoryId}", wrapper.DeleteAiMemory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/ai/memories/{memoryId}", wrapper.UpdateAiMemory)
 	})
 
 	return r
