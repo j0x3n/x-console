@@ -5,6 +5,20 @@ import (
 	"strings"
 )
 
+type ignoreHiddenKey struct{}
+
+// IgnoreHidden marks work the user set up in advance, such as automation
+// steps. It runs in the background without a session, so it would otherwise
+// always count as locked and lose every hidden module.
+func IgnoreHidden(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ignoreHiddenKey{}, true)
+}
+
+// HidingIgnored reports whether ctx was marked by IgnoreHidden.
+func HidingIgnored(ctx context.Context) bool {
+	return ctx.Value(ignoreHiddenKey{}) != nil
+}
+
 func BackendBlocked(ctx context.Context, h HiddenModules, backend, path string) bool {
 	if h == nil {
 		return false

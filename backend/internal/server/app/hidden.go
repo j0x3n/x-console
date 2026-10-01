@@ -33,6 +33,16 @@ func (a *App) allowEvent(ctx context.Context, topic string, data any) bool {
 	if !ok {
 		return true
 	}
+	// Without a session Hidden only reads the cached list. When the topic's
+	// module is not on it, skip the session lookup below.
+	bg := context.Background()
+	if strings.HasPrefix(topic, "host.") {
+		if !h.Hidden(bg, "servers") && !h.Hidden(bg, "pc") {
+			return true
+		}
+	} else if !contracts.EventHidden(bg, h, topic) {
+		return true
+	}
 	ctx = a.Deps.Auth.FreshVault(ctx)
 	if strings.HasPrefix(topic, "host.") {
 		return !a.hostEventHidden(ctx, h, data)

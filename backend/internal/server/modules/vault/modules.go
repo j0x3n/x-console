@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault/api"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
@@ -84,7 +85,7 @@ func (m *Module) SetHiddenModules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) Hidden(ctx context.Context, module string) bool {
-	if auth.VaultUnlocked(ctx) || module == "" {
+	if auth.VaultUnlocked(ctx) || module == "" || contracts.HidingIgnored(ctx) {
 		return false
 	}
 	set, ok := m.hiddenSet(ctx)

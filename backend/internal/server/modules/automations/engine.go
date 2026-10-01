@@ -378,6 +378,9 @@ func interpolate(value any, scope map[string]any) any {
 	}
 }
 func (m *Module) execute(ctx context.Context, id int64, r rule, data map[string]any) {
+	// Steps the user set up run whether or not their module is hidden; the
+	// run history hides them while locked (maskRun).
+	ctx = contracts.IgnoreHidden(ctx)
 	ctx = audit.WithActor(auth.WithoutVault(ctx), "automation:"+strconv.FormatInt(r.Id, 10))
 	steps := []api.RunStep{}
 	scope := map[string]any{"trigger": data, "steps": []any{}}

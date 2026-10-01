@@ -12,7 +12,9 @@ import (
 
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/automations/api"
 	"github.com/j0x3n/x-console/backend/internal/server/secrets"
 )
@@ -58,6 +60,7 @@ func (m *Module) readRule(ctx context.Context, id int64) (rule, error) {
 	if err == nil {
 		_ = json.Unmarshal([]byte(data), &run.TriggerData)
 		_ = json.Unmarshal([]byte(runSteps), &run.Steps)
+		m.maskRun(ctx, r.Automation, &run)
 		r.LastRun = &run
 	} else if err != sql.ErrNoRows {
 		return r, err
@@ -304,7 +307,8 @@ func (m *Module) GetAutomationCatalog(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, 200, out)
 }
 func (m *Module) ListAutomationRuns(w http.ResponseWriter, r *http.Request, id api.AutomationId, params api.ListAutomationRunsParams) {
-	if _, err := m.readRule(r.Context(), id); m.fail(w, r, err) {
+	rule, err := m.readRule(r.Context(), id)
+	if m.fail(w, r, err) {
 		return
 	}
 	limit := 50
@@ -326,6 +330,7 @@ func (m *Module) ListAutomationRuns(w http.ResponseWriter, r *http.Request, id a
 		}
 		_ = json.Unmarshal([]byte(data), &row.TriggerData)
 		_ = json.Unmarshal([]byte(steps), &row.Steps)
+		m.maskRun(r.Context(), rule.Automation, &row)
 		out = append(out, row)
 	}
 	if m.fail(w, r, err) {
@@ -346,4 +351,22 @@ func (m *Module) RunAutomation(w http.ResponseWriter, r *http.Request, id api.Au
 		return
 	}
 	httpx.JSON(w, 202, map[string]any{"runId": runID})
+}
+
+// maskRun blanks the trigger data and the steps of hidden modules while the
+// vault is locked. Those steps still ran: the user set them up beforehand.
+func (m *Module) maskRun(ctx context.Context, a api.Automation, run *api.Run) {
+	h, ok := module.Lookup[contracts.HiddenModules](m.d.Registry, contracts.HiddenModulesKey)
+	if !ok {
+		return
+	}
+	if a.Trigger.Topic != nil && contracts.EventHidden(ctx, h, *a.Trigger.Topic) {
+		run.TriggerData = map[string]any{}
+	}
+	for i := range run.Steps {
+		if contracts.ActionHidden(ctx, h, run.Steps[i].Action) {
+			run.Steps[i].Input = map[string]any{}
+			run.Steps[i].Result = nil
+		}
+	}
 }

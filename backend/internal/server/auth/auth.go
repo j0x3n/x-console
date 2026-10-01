@@ -452,9 +452,8 @@ func (s *Service) Middleware(public func(path string) bool) func(http.Handler) h
 	}
 }
 
-// SessionActive reports whether the session in ctx still exists and has not
-// expired. Long-lived connections (log follow) call it now and then, so a
-// logout or a password change ends them.
+// FreshVault re-reads the vault unlock time of the session in ctx, for
+// long-lived connections that outlast a lock or an unlock.
 func (s *Service) FreshVault(ctx context.Context) context.Context {
 	sess := FromContext(ctx)
 	if sess == nil || sess.ViaToken || sess.ID == "" {
@@ -470,6 +469,9 @@ func (s *Service) FreshVault(ctx context.Context) context.Context {
 	return WithSession(ctx, &next)
 }
 
+// SessionActive reports whether the session in ctx still exists and has not
+// expired. Long-lived connections (log follow) call it now and then, so a
+// logout or a password change ends them.
 func (s *Service) SessionActive(ctx context.Context) bool {
 	sess := FromContext(ctx)
 	if sess == nil {
