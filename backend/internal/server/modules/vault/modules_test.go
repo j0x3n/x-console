@@ -13,7 +13,7 @@ func TestHiddenModules(t *testing.T) {
 	env := testutil.New(t)
 	var avail api.AvailableModules
 	env.MustDo(http.MethodGet, "/app/modules", nil, &avail)
-	if len(avail.Modules) != 13 {
+	if len(avail.Modules) != 14 {
 		t.Fatalf("all modules before any setting: %v", avail.Modules)
 	}
 	// 没解锁时读写隐藏模块都像接口不存在
@@ -29,12 +29,12 @@ func TestHiddenModules(t *testing.T) {
 	}
 	// 解锁时全部可用
 	env.MustDo(http.MethodGet, "/app/modules", nil, &avail)
-	if len(avail.Modules) != 13 {
+	if len(avail.Modules) != 14 {
 		t.Fatalf("unlocked: %v", avail.Modules)
 	}
 	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
 	env.MustDo(http.MethodGet, "/app/modules", nil, &avail)
-	if len(avail.Modules) != 11 || slices.Contains(avail.Modules, api.Notes) || slices.Contains(avail.Modules, api.Github) {
+	if len(avail.Modules) != 12 || slices.Contains(avail.Modules, api.Notes) || slices.Contains(avail.Modules, api.Github) {
 		t.Fatalf("locked: %v", avail.Modules)
 	}
 	checkCode(t, env, http.MethodGet, "/vault/modules", nil, 404, "not_found")

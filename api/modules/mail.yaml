@@ -1,0 +1,314 @@
+openapi: 3.0.3
+info:
+  title: X Console mail API (B53)
+  version: 0.1.0
+  description: |
+    邮件：用 IMAP 收 Gmail、阿里企业邮箱等邮箱的信，新邮件实时通知。第一版只收不发。
+    密码用主密钥加密存储，接口不返回。
+servers:
+  - url: /api/v1
+paths:
+  /mail/accounts:
+    get:
+      operationId: listMailAccounts
+      tags: [mail]
+      responses:
+        "200":
+          description: 邮箱账号
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MailAccount" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createMailAccount
+      tags: [mail]
+      description: 添加邮箱。先用填的信息连一次 IMAP 并登录，失败回 400 并写明原因，不保存。要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailAccountInput" }
+      responses:
+        "201":
+          description: 添加好的账号
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailAccount" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/accounts/{accountId}:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    patch:
+      operationId: updateMailAccount
+      tags: [mail]
+      description: 改名称、通知开关，或者换密码（换密码时先验证登录）。改服务器和密码要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailAccountPatch" }
+      responses:
+        "200":
+          description: 改好的账号
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailAccount" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteMailAccount
+      tags: [mail]
+      description: 删除账号和本地缓存的邮件。邮箱里的信不受影响。要提升权限。
+      responses:
+        "204": { description: 已删除 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/accounts/{accountId}/sync:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    post:
+      operationId: syncMailAccount
+      tags: [mail]
+      description: 马上同步一次收件箱。同步在后台做，接口立刻返回。
+      responses:
+        "202": { description: 已开始同步 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/messages:
+    get:
+      operationId: listMailMessages
+      tags: [mail]
+      description: 收件箱里的邮件，新的在前。只同步收件箱。
+      parameters:
+        - name: accountId
+          in: query
+          description: 不传表示所有账号
+          schema: { type: integer, format: int64 }
+        - name: unread
+          in: query
+          description: true 只看未读
+          schema: { type: boolean }
+        - name: q
+          in: query
+          description: 搜发件人和主题
+          schema: { type: string, maxLength: 100 }
+        - name: before
+          in: query
+          description: 翻页，传上一页最后一封的 date
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        "200":
+          description: 邮件列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/messages/{messageId}:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+    get:
+      operationId: getMailMessage
+      tags: [mail]
+      description: 一封邮件的正文。第一次打开时从 IMAP 取，之后用本地缓存。打开不会自动标成已读，前端另外调 PATCH。
+      responses:
+        "200":
+          description: 邮件
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailMessage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateMailMessage
+      tags: [mail]
+      description: 标记已读、未读、星标。同时改邮箱服务器上的状态。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailMessagePatch" }
+      responses:
+        "200":
+          description: 改好的邮件摘要
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/messages/{messageId}/attachments/{index}:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+      - name: index
+        in: path
+        required: true
+        schema: { type: integer, minimum: 0 }
+    get:
+      operationId: downloadMailAttachment
+      tags: [mail]
+      description: 下载附件。正文里 cid 引用的内嵌图片也走这里。
+      responses:
+        "200":
+          description: 文件
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/summary:
+    get:
+      operationId: getMailSummary
+      tags: [mail]
+      description: 今日页用：未读数和最近几封未读。
+      responses:
+        "200":
+          description: 概要
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailSummaryView" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    MessageId:
+      name: messageId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    MailProvider:
+      type: string
+      description: gmail 和 aliyun 有预设的服务器地址，other 要自己填
+      enum: [gmail, aliyun, other]
+    MailAccountStatus:
+      type: string
+      description: ok 连着；connecting 正在连；error 连不上或登录失败，原因在 lastError
+      enum: [ok, connecting, error]
+    MailAccount:
+      type: object
+      required: [id, name, email, provider, imapHost, imapPort, username, notify, status, lastError, unread, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, description: 显示用的名字，比如 个人 Gmail }
+        email: { type: string }
+        provider: { $ref: "#/components/schemas/MailProvider" }
+        imapHost: { type: string }
+        imapPort: { type: integer }
+        username: { type: string, description: 登录名，一般就是邮箱地址 }
+        notify: { type: boolean, description: 新邮件时推送 }
+        status: { $ref: "#/components/schemas/MailAccountStatus" }
+        lastError: { type: string }
+        idle: { type: boolean, description: 服务器支持 IDLE，新邮件几秒内就能收到。不支持时每分钟查一次 }
+        lastSyncAt: { type: string, format: date-time }
+        unread: { type: integer, description: 收件箱未读数 }
+        createdAt: { type: string, format: date-time }
+    MailAccountInput:
+      type: object
+      required: [name, email, provider, password]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+        email: { type: string, maxLength: 200 }
+        provider: { $ref: "#/components/schemas/MailProvider" }
+        imapHost: { type: string, maxLength: 200, description: provider 是 other 时必填 }
+        imapPort: { type: integer, minimum: 1, maximum: 65535, description: 默认 993 }
+        username: { type: string, maxLength: 200, description: 默认用 email }
+        password: { type: string, minLength: 1, maxLength: 500, description: Gmail 要用应用专用密码 }
+        notify: { type: boolean, description: 默认 true }
+    MailAccountPatch:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+        notify: { type: boolean }
+        imapHost: { type: string, maxLength: 200 }
+        imapPort: { type: integer, minimum: 1, maximum: 65535 }
+        username: { type: string, maxLength: 200 }
+        password: { type: string, minLength: 1, maxLength: 500 }
+    MailAddress:
+      type: object
+      required: [address]
+      properties:
+        name: { type: string }
+        address: { type: string }
+    MailSummary:
+      type: object
+      required: [id, accountId, from, subject, snippet, date, unread, flagged, hasAttachments]
+      properties:
+        id: { type: integer, format: int64 }
+        accountId: { type: integer, format: int64 }
+        from: { $ref: "#/components/schemas/MailAddress" }
+        subject: { type: string }
+        snippet: { type: string, description: 正文开头的纯文字，最多 160 字 }
+        date: { type: string, format: date-time }
+        unread: { type: boolean }
+        flagged: { type: boolean }
+        hasAttachments: { type: boolean }
+    MailPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/MailSummary" }
+        nextBefore: { type: string, format: date-time, description: 还有更早的邮件时给 }
+    MailAttachment:
+      type: object
+      required: [index, name, size, mime]
+      properties:
+        index: { type: integer }
+        name: { type: string }
+        size: { type: integer, format: int64 }
+        mime: { type: string }
+        contentId: { type: string, description: 内嵌图片的 cid，正文里写成 cid:<contentId> }
+    MailMessage:
+      allOf:
+        - $ref: "#/components/schemas/MailSummary"
+        - type: object
+          required: [to, cc, text, attachments]
+          properties:
+            to:
+              type: array
+              items: { $ref: "#/components/schemas/MailAddress" }
+            cc:
+              type: array
+              items: { $ref: "#/components/schemas/MailAddress" }
+            html: { type: string, description: 原始 HTML 正文，最多 2 MB。前端放在沙盒 iframe 里显示 }
+            text: { type: string, description: 纯文字正文。没有时从 HTML 转 }
+            attachments:
+              type: array
+              items: { $ref: "#/components/schemas/MailAttachment" }
+    MailMessagePatch:
+      type: object
+      properties:
+        unread: { type: boolean }
+        flagged: { type: boolean }
+    MailSummaryView:
+      type: object
+      required: [unread, accounts, latest]
+      properties:
+        unread: { type: integer, description: 所有账号的未读总数 }
+        accounts:
+          type: array
+          items:
+            type: object
+            required: [id, name, unread, status]
+            properties:
+              id: { type: integer, format: int64 }
+              name: { type: string }
+              unread: { type: integer }
+              status: { $ref: "#/components/schemas/MailAccountStatus" }
+        latest:
+          type: array
+          description: 最近 5 封未读
+          items: { $ref: "#/components/schemas/MailSummary" }

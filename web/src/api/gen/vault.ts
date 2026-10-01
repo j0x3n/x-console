@@ -132,7 +132,7 @@ export interface components {
          * @description B57。左栏的模块，和前端路由的第一段相同。今日页不能隐藏
          * @enum {string}
          */
-        ModuleId: "projects" | "coding" | "notes" | "reminders" | "habits" | "drive" | "calendar" | "servers" | "pc" | "monitoring" | "home" | "automations" | "github";
+        ModuleId: "projects" | "coding" | "notes" | "mail" | "reminders" | "habits" | "drive" | "calendar" | "servers" | "pc" | "monitoring" | "home" | "automations" | "github";
         HiddenModules: {
             hidden: components["schemas"]["ModuleId"][];
         };
