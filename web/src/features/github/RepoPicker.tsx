@@ -16,15 +16,23 @@ export default function RepoPicker({
   value,
   onChange,
   hasToken,
+  connectionId,
+  hidePicked,
+  max = MAX_REPOS,
 }: {
   value: string[];
   onChange: (repos: string[]) => void;
   hasToken: boolean;
+  /** B70：列这个 Git 账号的仓库。不传时用旧的 GitHub 设置 */
+  connectionId?: number;
+  /** 已选的标签由外面显示（B70 按账号分组显示） */
+  hidePicked?: boolean;
+  max?: number;
 }) {
   const t = useT();
   const language = useLanguage();
-  const available = useAvailableRepos(hasToken);
-  const refresh = useRefreshAvailableRepos();
+  const available = useAvailableRepos(hasToken, connectionId);
+  const refresh = useRefreshAvailableRepos(connectionId);
   const [q, setQ] = useState("");
   const [text, setText] = useState(value.join("\n"));
 
@@ -72,7 +80,7 @@ export default function RepoPicker({
     );
   }
 
-  const full = value.length >= MAX_REPOS;
+  const full = value.length >= max;
   const add = (name: string) => {
     if (full || selected.has(name.toLowerCase())) return;
     onChange([...value, name]);
@@ -92,7 +100,7 @@ export default function RepoPicker({
 
   return (
     <div className="github-picker">
-      {value.length > 0 ? (
+      {hidePicked ? null : value.length > 0 ? (
         <ul className="github-picked" aria-label={t("Watched repositories")}>
           {value.map((name) => (
             <li key={name} className="xc-badge">
@@ -187,7 +195,7 @@ export default function RepoPicker({
       </ul>
       <small className="xc-muted">
         {full
-          ? t("You can watch up to 50 repositories.")
+          ? `${t("You can watch up to")} ${max} ${t("repositories")}`
           : `${repos.length} ${t("repositories")} · ${t("list from")} ${relativeTime(available.data.fetchedAt, language)}`}
       </small>
     </div>

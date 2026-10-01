@@ -134,6 +134,8 @@ export function useIssues(projectId: number) {
 - 全局浮层（AI 助手面板、番茄钟）：在 `app/GlobalPanels.tsx` 里加一行组件。
 - 设置页标签：在 `features/settings/tabs.tsx` 里加一行。
 - 侧边栏：`app/nav.ts` 已经列好所有模块，一般不用改。设置不在侧边栏，入口在左下角的个人菜单里。
+- 侧边栏一级菜单右边的数量（B76）：在 `routes.tsx` 里 `registerNavBadge("/模块路径", useXxxBadge)`。Hook 返回 `{ count, tone, title }` 或 `null`，只用已有的查询，不要轮询。1 到 9 显示数字，10 以上显示圆点。
+- 侧边栏一级菜单行内按钮（B72，比如笔记的“+”）：`registerNavAction("/模块路径", { icon, label, run })`。
 - 侧边栏二级菜单：在 `routes.tsx` 里 `registerNavChildren("/模块路径", 组件)`。组件用 `components/layout/NavChildLinks` 列出最多 5 条，多的给“全部 N”链接。只在展开时渲染，这时才拉数据。
 
 ## 文案

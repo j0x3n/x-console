@@ -1,33 +1,53 @@
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
   AlertTriangle,
+  Bell,
+  BellOff,
   Bot,
+  ChevronRight,
   CircleCheck,
   CircleDashed,
   CircleDot,
+  CircleMinus,
   CircleX,
   ExternalLink,
+  GitBranch,
+  GitCommitHorizontal,
   GitPullRequest,
   Github,
+  Layers,
+  Loader,
+  Lock,
   RefreshCw,
   Settings,
 } from "lucide-react";
-import { errorMessage } from "../../api/client";
+import { errorMessage, isNotLive } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
 import { Segments, StatCard, StatStrip } from "../../components/ui/Stat";
-import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
+import {
+  EmptyState,
+  ErrorState,
+  Loading,
+  NotLive,
+} from "../../components/ui/States";
+import { SearchBox } from "../../components/ui/Toolbar";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { relativeTime } from "../../lib/time";
 import {
   isNotConfigured,
+  useCommits,
   useGitHubIssues,
   useGitHubStatus,
   usePulls,
+  useRunJobs,
   useRuns,
   useSyncGitHub,
   type CheckState,
+  type GitHubCommit,
   type GitHubIssue,
+  type GitHubJob,
   type GitHubPull,
   type GitHubRun,
   type GitHubStatus,
@@ -35,17 +55,35 @@ import {
 import {
   checkLabel,
   checkTone,
-  groupByRepo,
+  duration,
+  filterRepoRows,
+  groupByOwner,
   issuePath,
+  jobsProgress,
   latestDefaultRuns,
+  parseRepoKey,
+  repoKey,
   reviewLabel,
   reviewTone,
   runOutcome,
+  sameRepo,
   sortPulls,
+  splitRepo,
+  stepState,
+  type RepoRow,
 } from "./logic";
+import { useRepoList } from "./useRepoList";
+import NotifyDialog from "./NotifyDialog";
+import { ForgeIcon, RepoSwatch } from "./RepoBits";
 
-type Tab = "pulls" | "runs" | "issues";
-const tabs: Tab[] = ["pulls", "runs", "issues"];
+type Tab = "pulls" | "commits" | "runs" | "issues";
+const tabs: Tab[] = ["pulls", "commits", "runs", "issues"];
+
+/** 选中的仓库。null 表示“全部仓库”。 */
+type Selection = { connectionId: number; repo: string } | null;
+
+/** 仓库多于这个数时，左栏按 owner 分组。 */
+const GROUP_THRESHOLD = 8;
 
 export default function GitHubPage() {
   const t = useT();
@@ -54,8 +92,23 @@ export default function GitHubPage() {
   const tab: Tab = tabs.includes(params.get("tab") as Tab)
     ? (params.get("tab") as Tab)
     : "pulls";
-  const setTab = (next: Tab) =>
-    setParams(next === "pulls" ? {} : { tab: next }, { replace: true });
+  const repoParam = params.get("repo") ?? "";
+  const sel: Selection = repoParam ? parseRepoKey(repoParam) : null;
+  const setView = (next: { tab?: Tab; repo?: string | null }) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        const nextTab = next.tab ?? tab;
+        if (nextTab === "pulls") p.delete("tab");
+        else p.set("tab", nextTab);
+        if (next.repo !== undefined) {
+          if (next.repo) p.set("repo", next.repo);
+          else p.delete("repo");
+        }
+        return p;
+      },
+      { replace: true },
+    );
 
   const configured = status.data?.configured === true;
   let content;
@@ -71,43 +124,28 @@ export default function GitHubPage() {
         {status.data.lastError && <SyncError message={status.data.lastError} />}
         {status.data.repoCount === 0 && (
           <div className="xc-card github-notice" role="status">
-            <span>还没有关注的仓库。在设置里加上 owner/name 形式的仓库。</span>
+            <span>
+              {t("No watched repositories yet. Pick some in settings.")}
+            </span>
             <Link className="xc-btn small" to="/settings/git">
               {t("Settings")}
             </Link>
           </div>
         )}
         <GitHubStats status={status.data} />
-        <nav className="xc-tabs">
-          <button
-            className={tab === "pulls" ? "active" : ""}
-            onClick={() => setTab("pulls")}
-          >
-            {t("Pull requests")}
-          </button>
-          <button
-            className={tab === "runs" ? "active" : ""}
-            onClick={() => setTab("runs")}
-          >
-            {t("CI runs")}
-          </button>
-          <button
-            className={tab === "issues" ? "active" : ""}
-            onClick={() => setTab("issues")}
-          >
-            {t("Issues")}
-          </button>
-        </nav>
-        {tab === "pulls" && <PullsView />}
-        {tab === "runs" && <RunsView />}
-        {tab === "issues" && <IssuesView />}
+        <ReposBody
+          sel={sel}
+          tab={tab}
+          onSelect={(repo) => setView({ repo })}
+          onTab={(next) => setView({ tab: next })}
+        />
       </>
     );
 
   return (
     <div className="xc-page">
       <PageHeading
-        title={t("GitHub")}
+        title={t("Repositories")}
         subtitle={
           status.data?.configured
             ? `${status.data.login ? `@${status.data.login} · ` : ""}${status.data.repoCount} ${t("repositories watched")}`
@@ -119,6 +157,335 @@ export default function GitHubPage() {
     </div>
   );
 }
+
+function ReposBody({
+  sel,
+  tab,
+  onSelect,
+  onTab,
+}: {
+  sel: Selection;
+  tab: Tab;
+  onSelect: (key: string | null) => void;
+  onTab: (tab: Tab) => void;
+}) {
+  const t = useT();
+  const list = useRepoList();
+  const current = sel
+    ? (list.rows.find((r) => sameRepo(r, sel)) ?? null)
+    : null;
+  const pulls = usePulls();
+  const issues = useGitHubIssues();
+  const openPulls = (pulls.data ?? []).filter(
+    (p) => p.state === "open" && (!sel || sameRepo(p, sel)),
+  ).length;
+  const openIssues = (issues.data ?? []).filter(
+    (i) => !sel || sameRepo(i, sel),
+  ).length;
+  return (
+    <div className="repos-layout">
+      <RepoSidebar
+        list={list}
+        selected={
+          current?.key ?? (sel ? repoKey(sel.connectionId, sel.repo) : "")
+        }
+        onSelect={onSelect}
+      />
+      <section className="repos-main">
+        <RepoHeader sel={sel} row={current} total={list.rows.length} />
+        <nav className="xc-tabs repos-tabs">
+          {(
+            [
+              ["pulls", t("Pull requests"), openPulls],
+              ["commits", t("Commits"), null],
+              ["runs", t("CI runs"), null],
+              ["issues", t("Issues"), openIssues],
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              className={tab === key ? "active" : ""}
+              onClick={() => onTab(key)}
+            >
+              {label}
+              {count ? (
+                <small className="repos-tab-count">{count}</small>
+              ) : null}
+            </button>
+          ))}
+        </nav>
+        {tab === "pulls" && <PullsView sel={sel} />}
+        {tab === "commits" && <CommitsView sel={sel} />}
+        {tab === "runs" && <RunsView sel={sel} />}
+        {tab === "issues" && <IssuesView sel={sel} />}
+      </section>
+    </div>
+  );
+}
+
+/* ---- 左栏：仓库列表 ---- */
+
+function RepoSidebar({
+  list,
+  selected,
+  onSelect,
+}: {
+  list: ReturnType<typeof useRepoList>;
+  selected: string;
+  onSelect: (key: string | null) => void;
+}) {
+  const t = useT();
+  const [q, setQ] = useState("");
+  const [folded, setFolded] = useState<string[]>([]);
+  const rows = filterRepoRows(list.rows, q);
+  const grouped = !q && list.rows.length > GROUP_THRESHOLD;
+  const renderRow = (r: RepoRow) => (
+    <RepoListRow
+      key={r.key}
+      row={r}
+      active={r.key === selected}
+      onClick={() => onSelect(r.key)}
+    />
+  );
+  return (
+    <aside className="repos-side" aria-label={t("Repositories")}>
+      {/* 窄屏：左栏变成一个下拉框 */}
+      <select
+        className="xc-select repos-side-select"
+        value={selected}
+        aria-label={t("Repository")}
+        onChange={(e) => onSelect(e.target.value || null)}
+      >
+        <option value="">
+          {t("All repositories")} ({list.rows.length})
+        </option>
+        {list.rows.map((r) => (
+          <option key={r.key} value={r.key}>
+            {r.repo}
+          </option>
+        ))}
+      </select>
+      <div className="repos-side-panel">
+        <SearchBox
+          value={q}
+          onChange={setQ}
+          placeholder={t("Search repositories")}
+          clearLabel={t("Clear")}
+        />
+        <button
+          type="button"
+          className={`repos-row all${selected ? "" : " active"}`}
+          onClick={() => onSelect(null)}
+        >
+          <Layers size={14} className="repos-row-all-icon" />
+          <span className="repos-row-name">{t("All repositories")}</span>
+          <small className="repos-row-count">{list.rows.length}</small>
+        </button>
+        {list.isPending ? (
+          <Loading />
+        ) : list.isError ? (
+          <ErrorState error={list.error} onRetry={() => list.refetch()} />
+        ) : rows.length === 0 ? (
+          <p className="xc-muted repos-side-empty">
+            {q ? t("No matching repositories") : t("No watched repositories")}
+          </p>
+        ) : grouped ? (
+          groupByOwner(rows).map((g) => {
+            const isFolded = folded.includes(g.owner);
+            const failing = g.rows.filter(
+              (r) => r.ci && runOutcome(r.ci).tone === "danger",
+            ).length;
+            return (
+              <div key={g.owner} className="repos-group">
+                <button
+                  type="button"
+                  className={`repos-group-head${isFolded ? "" : " open"}`}
+                  aria-expanded={!isFolded}
+                  onClick={() =>
+                    setFolded((f) =>
+                      isFolded
+                        ? f.filter((x) => x !== g.owner)
+                        : [...f, g.owner],
+                    )
+                  }
+                >
+                  <ChevronRight size={12} />
+                  <span>{g.owner || t("Other")}</span>
+                  {failing > 0 && <i className="xc-dot danger" />}
+                  <small>{g.rows.length}</small>
+                </button>
+                {!isFolded && g.rows.map(renderRow)}
+              </div>
+            );
+          })
+        ) : (
+          rows.map(renderRow)
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function RepoListRow({
+  row,
+  active,
+  onClick,
+}: {
+  row: RepoRow;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const t = useT();
+  const { owner, name } = splitRepo(row.repo);
+  const o = row.ci ? runOutcome(row.ci) : null;
+  return (
+    <button
+      type="button"
+      className={`repos-row${active ? " active" : ""}`}
+      onClick={onClick}
+      title={row.repo}
+    >
+      <RepoSwatch repo={row.repo} />
+      <span className="repos-row-name">
+        <strong>{name}</strong>
+        <small>{owner}</small>
+      </span>
+      <ForgeIcon forge={row.forge} size={12} />
+      {row.openPulls > 0 && (
+        <small
+          className="repos-row-count"
+          title={`${row.openPulls} ${t("open pull requests")}`}
+        >
+          <GitPullRequest size={11} />
+          {row.openPulls}
+        </small>
+      )}
+      {o && (
+        <span
+          className={`xc-dot ${o.tone === "ok" ? "ok" : o.tone === "danger" ? "danger" : o.tone === "warn" ? "warn" : ""}`}
+          title={`CI：${t(o.label)}`}
+        />
+      )}
+    </button>
+  );
+}
+
+/** 一个仓库的小标题：颜色块 + owner/name。“全部仓库”时每组的标题用它。 */
+function RepoHead({
+  repo,
+  count,
+  children,
+}: {
+  repo: string;
+  count?: number;
+  children?: ReactNode;
+}) {
+  const { owner, name } = splitRepo(repo);
+  return (
+    <h2 className="repos-group-title">
+      <RepoSwatch repo={repo} />
+      <span className="xc-mono">
+        <span className="xc-muted">{owner}/</span>
+        {name}
+      </span>
+      {count != null && <span className="xc-badge">{count}</span>}
+      {children}
+    </h2>
+  );
+}
+
+/* ---- 右边的标题行 ---- */
+
+function RepoHeader({
+  sel,
+  row,
+  total,
+}: {
+  sel: Selection;
+  row: RepoRow | null;
+  total: number;
+}) {
+  const t = useT();
+  const language = useLanguage();
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  if (!sel)
+    return (
+      <header className="repos-head">
+        <Layers size={16} className="xc-muted" />
+        <strong>{t("All repositories")}</strong>
+        <span className="xc-muted">
+          {total} {t("repositories")}
+        </span>
+      </header>
+    );
+  const repo = row?.repo ?? sel.repo;
+  const { owner, name } = splitRepo(repo);
+  return (
+    <header className="repos-head">
+      <RepoSwatch repo={repo} />
+      <strong className="repos-head-name">
+        <span className="xc-muted">{owner}/</span>
+        {name}
+      </strong>
+      {row?.private && (
+        <Lock size={12} className="xc-muted" aria-label={t("Private")} />
+      )}
+      <span className="xc-badge repos-head-account">
+        <ForgeIcon forge={row?.forge} size={11} />
+        {row?.connectionName ??
+          (row?.forge === "forgejo" ? "Forgejo" : "GitHub")}
+      </span>
+      {row?.defaultBranch && (
+        <span className="xc-mono xc-muted repos-head-branch">
+          <GitBranch size={12} /> {row.defaultBranch}
+        </span>
+      )}
+      {row?.pushedAt && (
+        <span className="xc-muted repos-head-time">
+          {t("Last push")} {relativeTime(row.pushedAt, language)}
+        </span>
+      )}
+      <span className="xc-spacer" />
+      {row && (
+        <button
+          type="button"
+          className={`xc-btn small ghost repos-bell${row.notifyCustom ? " custom" : ""}`}
+          title={
+            row.notifyOff
+              ? t("Notifications are off for this repository")
+              : row.notifyCustom
+                ? t("This repository has its own notification settings")
+                : t("Notifications")
+          }
+          aria-label={t("Notifications")}
+          onClick={() => setNotifyOpen(true)}
+        >
+          {row.notifyOff ? <BellOff size={14} /> : <Bell size={14} />}
+        </button>
+      )}
+      {row?.url && (
+        <a
+          className="xc-btn small ghost"
+          href={row.url}
+          target="_blank"
+          rel="noreferrer"
+          title={t("Open in browser")}
+        >
+          <ExternalLink size={14} />
+          <span className="repos-btn-text">{t("Open")}</span>
+        </a>
+      )}
+      {row?.syncError && (
+        <p className="xc-error-text repos-head-error">{row.syncError}</p>
+      )}
+      {notifyOpen && row && (
+        <NotifyDialog row={row} onClose={() => setNotifyOpen(false)} />
+      )}
+    </header>
+  );
+}
+
+/* ---- 概要 ---- */
 
 function GitHubStats({ status }: { status: GitHubStatus }) {
   const t = useT();
@@ -133,7 +500,7 @@ function GitHubStats({ status }: { status: GitHubStatus }) {
     (p) => p.reviewState === "pending" || p.reviewState === "none",
   ).length;
   return (
-    <StatStrip label={t("GitHub")}>
+    <StatStrip label={t("Repositories")}>
       <StatCard
         label={t("Pull requests")}
         value={pulls.length}
@@ -189,7 +556,12 @@ function SyncControl({ status }: { status: GitHubStatus }) {
           {t("Synced")} {relativeTime(status.lastSyncAt, language)}
         </span>
       )}
-      <button className="xc-btn small" onClick={onSync} disabled={busy}>
+      <button
+        className="xc-btn small"
+        onClick={onSync}
+        disabled={busy}
+        title={t("Sync now")}
+      >
         <RefreshCw size={14} className={busy ? "github-spin" : undefined} />
         {busy ? t("Syncing") : t("Sync now")}
       </button>
@@ -213,9 +585,10 @@ function SyncError({ message }: { message: string }) {
 function SetupGuide() {
   const t = useT();
   return (
-    <EmptyState title={t("Connect GitHub")} icon={<Github size={28} />}>
+    <EmptyState title={t("Connect a Git account")} icon={<Github size={28} />}>
       <span>
-        填一个 GitHub 令牌和要关注的仓库，就能在这里看 PR、CI 和 Issue。
+        在设置里添加 GitHub 或 Forgejo 账号，选好要关注的仓库，就能在这里看
+        PR、提交、CI 和 Issue。
       </span>
       <Link className="xc-btn small primary" to="/settings/git">
         <Settings size={14} /> {t("Go to settings")}
@@ -267,26 +640,64 @@ function ListState({
   return <EmptyState title={t(empty)} icon={<GitPullRequest size={28} />} />;
 }
 
-function PullsView() {
-  const pulls = usePulls();
-  if (!pulls.data || pulls.data.length === 0)
-    return <ListState query={pulls} empty="No recent pull requests" />;
+/** 按仓库分组的列表。选了一个仓库时只有一组，不显示组标题。 */
+function Grouped<T extends { repo: string; connectionId?: number }>({
+  items,
+  sel,
+  render,
+}: {
+  items: T[];
+  sel: Selection;
+  render: (item: T) => ReactNode;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, T[]>();
+    for (const item of items) {
+      const k = repoKey(item.connectionId, item.repo);
+      const list = map.get(k);
+      if (list) list.push(item);
+      else map.set(k, [item]);
+    }
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [items]);
+  if (sel)
+    return (
+      <section className="xc-card repos-card">
+        <ul className="github-list">{items.map(render)}</ul>
+      </section>
+    );
   return (
     <div className="xc-stack">
-      {groupByRepo(sortPulls(pulls.data)).map((g) => (
-        <section className="xc-card" key={g.repo}>
-          <div className="xc-card-head">
-            <h2 className="xc-mono">{g.repo}</h2>
-            <span className="xc-badge">{g.items.length}</span>
-          </div>
-          <ul className="github-list">
-            {g.items.map((p) => (
-              <PullRow key={p.number} pull={p} />
-            ))}
-          </ul>
+      {groups.map(([k, list]) => (
+        <section className="xc-card repos-card" key={k}>
+          <RepoHead repo={list[0].repo} count={list.length} />
+          <ul className="github-list">{list.map(render)}</ul>
         </section>
       ))}
     </div>
+  );
+}
+
+/* ---- PR ---- */
+
+function PullsView({ sel }: { sel: Selection }) {
+  const pulls = usePulls();
+  const items = sortPulls(
+    (pulls.data ?? []).filter((p) => !sel || sameRepo(p, sel)),
+  );
+  if (items.length === 0)
+    return (
+      <ListState
+        query={{ ...pulls, isPending: pulls.isPending }}
+        empty="No recent pull requests"
+      />
+    );
+  return (
+    <Grouped
+      items={items}
+      sel={sel}
+      render={(p) => <PullRow key={`${p.repo}#${p.number}`} pull={p} />}
+    />
   );
 }
 
@@ -349,12 +760,82 @@ function PullRow({ pull }: { pull: GitHubPull }) {
   );
 }
 
-function RunsView() {
+/* ---- 提交 ---- */
+
+function CommitsView({ sel }: { sel: Selection }) {
+  const t = useT();
+  const commits = useCommits(sel?.repo ?? "", sel?.connectionId ?? 0);
+  if (commits.isError && isNotLive(commits.error))
+    return (
+      <NotLive name={t("Commits")} icon={<GitCommitHorizontal size={28} />} />
+    );
+  if (!commits.data || commits.data.length === 0)
+    return <ListState query={commits} empty="No commits yet" />;
+  // 全部仓库时按时间混排，每行前面带仓库名
+  return (
+    <section className="xc-card repos-card">
+      <ul className="github-list">
+        {commits.data.map((c) => (
+          <CommitRow key={`${c.repo}@${c.sha}`} commit={c} showRepo={!sel} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function CommitRow({
+  commit: c,
+  showRepo,
+}: {
+  commit: GitHubCommit;
+  showRepo: boolean;
+}) {
+  const language = useLanguage();
+  const title = c.message.split("\n")[0];
+  return (
+    <li className="github-item repos-commit">
+      <CheckIcon state={c.checkState} />
+      <div className="github-item-main">
+        <span className="github-title repos-commit-title" title={c.message}>
+          {showRepo && (
+            <span className="repos-commit-repo">
+              <RepoSwatch repo={c.repo} />
+              {splitRepo(c.repo).name}
+            </span>
+          )}
+          {title}
+        </span>
+        <div className="github-meta">
+          <a
+            className="xc-mono repos-sha"
+            href={c.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {c.sha.slice(0, 7)}
+          </a>
+          <span>{c.author}</span>
+          <span>{relativeTime(c.committedAt, language)}</span>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/* ---- CI ---- */
+
+/** “第 3 / 8 步”。 */
+function stepText(language: string, n: number, total: number) {
+  return language === "zh" ? `第 ${n} / ${total} 步` : `step ${n} of ${total}`;
+}
+
+function RunsView({ sel }: { sel: Selection }) {
   const t = useT();
   const runs = useRuns();
-  if (!runs.data || runs.data.length === 0)
+  const items = (runs.data ?? []).filter((r) => !sel || sameRepo(r, sel));
+  if (items.length === 0)
     return <ListState query={runs} empty="No workflow runs yet" />;
-  const heads = latestDefaultRuns(runs.data);
+  const heads = latestDefaultRuns(items);
   return (
     <div className="xc-stack">
       {heads.length > 0 && (
@@ -373,68 +854,188 @@ function RunsView() {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {r.repo} · {r.name} · {t(o.label)}
+                  {!sel && <RepoSwatch repo={r.repo} />}
+                  {!sel && `${splitRepo(r.repo).name} · `}
+                  {r.name} · {t(o.label)}
                 </a>
               );
             })}
           </div>
         </section>
       )}
-      <section className="xc-card">
-        <div className="xc-table-wrap">
-          <table className="xc-table">
-            <thead>
-              <tr>
-                <th>{t("Workflow")}</th>
-                <th>{t("Repository")}</th>
-                <th>{t("Branch")}</th>
-                <th>{t("Result")}</th>
-                <th>{t("Started at")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.data.map((r) => (
-                <RunRow key={r.id} run={r} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <section className="xc-card repos-card">
+        <ul className="github-list repos-runs">
+          {items.map((r) => (
+            <RunItem key={r.id} run={r} showRepo={!sel} />
+          ))}
+        </ul>
       </section>
     </div>
   );
 }
 
-function RunRow({ run }: { run: GitHubRun }) {
+function RunIcon({ state }: { state: ReturnType<typeof stepState> }) {
+  switch (state) {
+    case "done":
+      return <CircleCheck size={14} className="github-check ok" />;
+    case "failed":
+      return <CircleX size={14} className="github-check danger" />;
+    case "running":
+      return <Loader size={14} className="github-check warn github-spin" />;
+    case "skipped":
+      return <CircleMinus size={14} className="github-check" />;
+    default:
+      return <CircleDashed size={14} className="github-check" />;
+  }
+}
+
+function RunItem({ run, showRepo }: { run: GitHubRun; showRepo: boolean }) {
   const t = useT();
   const language = useLanguage();
   const o = runOutcome(run);
+  const running = run.status !== "completed";
+  const [open, setOpen] = useState(false);
   return (
-    <tr>
-      <td>
-        <a
-          href={run.url}
-          target="_blank"
-          rel="noreferrer"
-          className="github-title"
-        >
-          {run.name} <ExternalLink size={12} aria-hidden />
-        </a>
-        <div className="xc-muted github-small">{run.event}</div>
-      </td>
-      <td className="xc-mono">{run.repo}</td>
-      <td className="xc-mono">
-        {run.branch}
-        {run.defaultBranch && (
-          <span className="xc-badge github-inline">{t("default")}</span>
-        )}
-      </td>
-      <td>
-        <span className={`xc-badge ${o.tone}`}>{t(o.label)}</span>
-      </td>
-      <td className="xc-muted">{relativeTime(run.createdAt, language)}</td>
-    </tr>
+    <li className={`repos-run${open ? " open" : ""}`}>
+      <button
+        type="button"
+        className="repos-run-head"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ChevronRight size={13} className="repos-run-chevron" />
+        <RunIcon state={stepState(run)} />
+        <span className="repos-run-main">
+          <span className="repos-run-title">
+            {showRepo && (
+              <span className="repos-commit-repo">
+                <RepoSwatch repo={run.repo} />
+                {splitRepo(run.repo).name}
+              </span>
+            )}
+            {run.name}
+          </span>
+          <span className="github-meta">
+            <span className="xc-mono github-branch">{run.branch}</span>
+            {run.defaultBranch && (
+              <span className="xc-badge github-inline">{t("default")}</span>
+            )}
+            <span>{run.event}</span>
+            {run.headSha && (
+              <span className="xc-mono">{run.headSha.slice(0, 7)}</span>
+            )}
+            <span>{relativeTime(run.createdAt, language)}</span>
+          </span>
+        </span>
+        <span className={`xc-badge ${o.tone} repos-run-result`}>
+          {t(o.label)}
+          {running && run.stepsTotal
+            ? ` · ${stepText(language, Math.min((run.stepsDone ?? 0) + 1, run.stepsTotal), run.stepsTotal)}`
+            : ""}
+        </span>
+      </button>
+      {running && run.currentStep && !open && (
+        <p className="repos-run-current xc-muted">
+          <Loader size={11} className="github-spin" /> {run.currentStep}
+        </p>
+      )}
+      {open && <RunJobs run={run} />}
+    </li>
   );
 }
+
+function RunJobs({ run }: { run: GitHubRun }) {
+  const t = useT();
+  const language = useLanguage();
+  const jobs = useRunJobs(run, true);
+  if (jobs.isPending) return <Loading />;
+  if (jobs.isError)
+    return (
+      <div className="repos-jobs-note xc-muted">
+        {isNotLive(jobs.error)
+          ? t("Step details are not live yet.")
+          : errorMessage(jobs.error)}{" "}
+        <a href={run.url} target="_blank" rel="noreferrer">
+          {t("Open in browser")}
+        </a>
+      </div>
+    );
+  if (jobs.data.length === 0)
+    return (
+      <div className="repos-jobs-note xc-muted">
+        {t("This server does not report step details.")}
+      </div>
+    );
+  const p = jobsProgress(jobs.data);
+  return (
+    <div className="repos-jobs">
+      {run.status !== "completed" && p.total > 0 && (
+        <div className="repos-progress">
+          <div className="repos-progress-text">
+            {p.current
+              ? `${stepText(language, p.currentIndex ?? 0, p.total)}：${p.current}`
+              : `${p.done} / ${p.total}`}
+          </div>
+          <div className="repos-bar">
+            <span style={{ width: `${(p.done / p.total) * 100}%` }} />
+          </div>
+        </div>
+      )}
+      {jobs.data.map((job) => (
+        <JobBlock key={job.id} job={job} />
+      ))}
+    </div>
+  );
+}
+
+function JobBlock({ job }: { job: GitHubJob }) {
+  const language = useLanguage();
+  const state = stepState(job);
+  // 正在跑的和失败的 job 默认展开
+  const [open, setOpen] = useState(state === "running" || state === "failed");
+  const done = job.steps.filter((s) => s.status === "completed").length;
+  const current = job.steps.find((s) => s.status === "in_progress");
+  return (
+    <div className={`repos-job ${state}`}>
+      <button
+        type="button"
+        className="repos-job-head"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ChevronRight size={12} className="repos-run-chevron" />
+        <RunIcon state={state} />
+        <span className="repos-job-name">{job.name}</span>
+        <small className="xc-muted">
+          {state === "running" && current
+            ? stepText(language, current.number, job.steps.length)
+            : `${done} / ${job.steps.length}`}
+        </small>
+        <small className="xc-muted repos-job-time">
+          {duration(job.startedAt, job.completedAt)}
+        </small>
+      </button>
+      {open && (
+        <ol className="repos-steps">
+          {job.steps.map((s) => {
+            const st = stepState(s);
+            return (
+              <li key={s.number} className={`repos-step ${st}`}>
+                <RunIcon state={st} />
+                <span className="repos-step-name">{s.name}</span>
+                <small className="xc-muted">
+                  {duration(s.startedAt, s.completedAt)}
+                </small>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/* ---- Issue ---- */
 
 const relationLabel: Record<GitHubIssue["relation"], string> = {
   assigned: "Assigned to me",
@@ -442,53 +1043,46 @@ const relationLabel: Record<GitHubIssue["relation"], string> = {
   both: "Mine",
 };
 
-function IssuesView() {
+function IssuesView({ sel }: { sel: Selection }) {
   const t = useT();
   const language = useLanguage();
   const issues = useGitHubIssues();
-  if (!issues.data || issues.data.length === 0)
+  const items = (issues.data ?? []).filter((i) => !sel || sameRepo(i, sel));
+  if (items.length === 0)
     return <ListState query={issues} empty="No open issues for you" />;
   return (
-    <div className="xc-stack">
-      {groupByRepo(issues.data).map((g) => (
-        <section className="xc-card" key={g.repo}>
-          <div className="xc-card-head">
-            <h2 className="xc-mono">{g.repo}</h2>
-            <span className="xc-badge">{g.items.length}</span>
+    <Grouped
+      items={items}
+      sel={sel}
+      render={(is) => (
+        <li className="github-item" key={`${is.repo}#${is.number}`}>
+          <CircleDot size={15} className="github-check ok" aria-hidden />
+          <div className="github-item-main">
+            <a
+              className="github-title"
+              href={is.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {is.title} <span className="xc-muted">#{is.number}</span>
+            </a>
+            <div className="github-meta">
+              <span>{is.author}</span>
+              <span>{relativeTime(is.updatedAt, language)}</span>
+            </div>
+            <div className="github-badges">
+              <span className="xc-badge info">
+                {t(relationLabel[is.relation])}
+              </span>
+              {is.labels.map((l) => (
+                <span className="xc-badge" key={l}>
+                  {l}
+                </span>
+              ))}
+            </div>
           </div>
-          <ul className="github-list">
-            {g.items.map((is) => (
-              <li className="github-item" key={is.number}>
-                <CircleDot size={15} className="github-check ok" aria-hidden />
-                <div className="github-item-main">
-                  <a
-                    className="github-title"
-                    href={is.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {is.title} <span className="xc-muted">#{is.number}</span>
-                  </a>
-                  <div className="github-meta">
-                    <span>{is.author}</span>
-                    <span>{relativeTime(is.updatedAt, language)}</span>
-                  </div>
-                  <div className="github-badges">
-                    <span className="xc-badge info">
-                      {t(relationLabel[is.relation])}
-                    </span>
-                    {is.labels.map((l) => (
-                      <span className="xc-badge" key={l}>
-                        {l}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
+        </li>
+      )}
+    />
   );
 }

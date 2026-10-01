@@ -174,3 +174,287 @@ export function filterRepos<
       (r.description ?? "").toLowerCase().includes(s),
   );
 }
+
+/* ---- B70：多仓库 ---- */
+
+/** 一个仓库在页面里的唯一键：Git 账号 + owner/name。GitHub 和 Forgejo 可能有同名仓库。 */
+export function repoKey(connectionId: number | undefined, repo: string) {
+  return `${connectionId ?? 0}:${repo}`;
+}
+
+/** 地址栏里的 ?repo=3:owner/name。没有冒号时当作旧链接，账号是 0。 */
+export function parseRepoKey(key: string): {
+  connectionId: number;
+  repo: string;
+} {
+  const i = key.indexOf(":");
+  if (i < 0) return { connectionId: 0, repo: key };
+  const id = Number(key.slice(0, i));
+  return { connectionId: Number.isFinite(id) ? id : 0, repo: key.slice(i + 1) };
+}
+
+/** 列表里的条目是不是这个仓库。账号是 0（不知道账号）时只比仓库名。 */
+export function sameRepo(
+  item: { repo: string; connectionId?: number },
+  sel: { repo: string; connectionId: number },
+) {
+  if (item.repo.toLowerCase() !== sel.repo.toLowerCase()) return false;
+  return !sel.connectionId || !item.connectionId
+    ? true
+    : item.connectionId === sel.connectionId;
+}
+
+export function splitRepo(repo: string): { owner: string; name: string } {
+  const i = repo.indexOf("/");
+  return i < 0
+    ? { owner: "", name: repo }
+    : { owner: repo.slice(0, i), name: repo.slice(i + 1) };
+}
+
+// 仓库颜色：按名字算一个固定的颜色，同一个仓库每次都一样，深浅主题都看得清。
+const REPO_COLORS = [
+  "#e0663f",
+  "#3f8fd8",
+  "#2f9e66",
+  "#9b6bd6",
+  "#d2558a",
+  "#c9a227",
+  "#20a5b5",
+  "#6b6fd6",
+  "#a0785a",
+  "#7a9a2e",
+];
+
+export function repoColor(repo: string): string {
+  let h = 0;
+  for (const c of repo.toLowerCase()) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return REPO_COLORS[h % REPO_COLORS.length];
+}
+
+/** 仓库列表里的一行，接口没上线时由旧数据拼出来，字段和 WatchedRepo 一样。 */
+export interface RepoRow {
+  key: string;
+  connectionId: number;
+  connectionName?: string;
+  forge: "github" | "forgejo";
+  repo: string;
+  url: string;
+  defaultBranch: string;
+  private: boolean;
+  description?: string;
+  openPulls: number;
+  openIssues: number;
+  pushedAt?: string;
+  ci?: { status: string; conclusion: string; runId?: number };
+  lastCommit?: { sha: string; message: string; author: string; at: string };
+  notifyCustom: boolean;
+  notifyOff: boolean;
+  syncError?: string;
+}
+
+/** CI 状态的分数，失败的排前面。 */
+function ciRank(row: Pick<RepoRow, "ci">): number {
+  if (!row.ci) return 2;
+  const tone = runOutcome(row.ci).tone;
+  return tone === "danger" ? 0 : tone === "warn" ? 1 : 2;
+}
+
+/** CI 失败的在前，然后按最近活动（推送、最新提交）倒序，最后按名字。 */
+export function sortRepos<T extends RepoRow>(rows: T[]): T[] {
+  const at = (r: RepoRow) =>
+    new Date(r.pushedAt ?? r.lastCommit?.at ?? 0).getTime() || 0;
+  return [...rows].sort(
+    (a, b) =>
+      ciRank(a) - ciRank(b) || at(b) - at(a) || a.repo.localeCompare(b.repo),
+  );
+}
+
+/** 搜索仓库列表：仓库名、说明、账号名里包含关键字。 */
+export function filterRepoRows<T extends RepoRow>(rows: T[], q: string): T[] {
+  const s = q.trim().toLowerCase();
+  if (!s) return rows;
+  return rows.filter(
+    (r) =>
+      r.repo.toLowerCase().includes(s) ||
+      (r.description ?? "").toLowerCase().includes(s) ||
+      (r.connectionName ?? "").toLowerCase().includes(s),
+  );
+}
+
+/** 仓库多的时候按 owner 分组，组按名字排，组内保持原顺序。 */
+export function groupByOwner<T extends RepoRow>(
+  rows: T[],
+): { owner: string; rows: T[] }[] {
+  const map = new Map<string, T[]>();
+  for (const r of rows) {
+    const owner = splitRepo(r.repo).owner;
+    const list = map.get(owner);
+    if (list) list.push(r);
+    else map.set(owner, [r]);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([owner, list]) => ({ owner, rows: list }));
+}
+
+/**
+ * /github/repos 还没上线时，用配置、PR 和运行记录拼出仓库列表。
+ * 关注的仓库来自 watches（新）或 repos（旧，账号是 connectionId）。
+ */
+export function fallbackRepoRows(
+  config: {
+    repos: string[];
+    connectionId?: number;
+    watches?: { connectionId: number; repo: string }[];
+  },
+  pulls: GitHubPull[],
+  runs: GitHubRun[],
+  apiUrl = "https://api.github.com",
+): RepoRow[] {
+  const watches =
+    config.watches ??
+    config.repos.map((repo) => ({
+      connectionId: config.connectionId ?? 0,
+      repo,
+    }));
+  const web = apiUrl.includes("api.github.com")
+    ? "https://github.com"
+    : apiUrl.replace(/\/api(\/v\d+)?\/?$/, "");
+  const heads = latestDefaultRuns(runs);
+  return watches.map((w) => {
+    const sel = { repo: w.repo, connectionId: w.connectionId };
+    const head = heads.find((r) => sameRepo(r, sel));
+    const defaultRun = runs.find((r) => r.defaultBranch && sameRepo(r, sel));
+    return {
+      key: repoKey(w.connectionId, w.repo),
+      connectionId: w.connectionId,
+      forge: "github",
+      repo: w.repo,
+      url: `${web}/${w.repo}`,
+      defaultBranch: defaultRun?.branch ?? "",
+      private: false,
+      openPulls: pulls.filter((p) => p.state === "open" && sameRepo(p, sel))
+        .length,
+      openIssues: 0,
+      pushedAt: defaultRun?.createdAt,
+      ci: head
+        ? { status: head.status, conclusion: head.conclusion, runId: head.id }
+        : undefined,
+      notifyCustom: false,
+      notifyOff: false,
+    };
+  });
+}
+
+/** 一条运行所有 job 的步骤进度：做完几步、一共几步、正在跑哪一步。 */
+export function jobsProgress(
+  jobs: {
+    status: string;
+    steps: { name: string; status: string; number: number }[];
+  }[],
+): { done: number; total: number; current?: string; currentIndex?: number } {
+  let done = 0;
+  let total = 0;
+  let current: string | undefined;
+  let currentIndex: number | undefined;
+  for (const job of jobs) {
+    for (const step of job.steps) {
+      total++;
+      if (step.status === "completed") done++;
+      else if (step.status === "in_progress" && current == null) {
+        current = step.name;
+        currentIndex = total;
+      }
+    }
+  }
+  return { done, total, current, currentIndex };
+}
+
+/** 一步或一个 job 的状态，给图标用。 */
+export function stepState(s: {
+  status: string;
+  conclusion: string;
+}): "done" | "failed" | "running" | "waiting" | "skipped" {
+  if (s.status === "in_progress") return "running";
+  if (s.status !== "completed") return "waiting";
+  switch (s.conclusion) {
+    case "success":
+      return "done";
+    case "skipped":
+    case "cancelled":
+    case "neutral":
+      return "skipped";
+    default:
+      return "failed";
+  }
+}
+
+/** 用了多久：“1 分 20 秒”。没开始返回空。 */
+export function duration(
+  start?: string,
+  end?: string,
+  now = Date.now(),
+): string {
+  if (!start) return "";
+  const ms = (end ? new Date(end).getTime() : now) - new Date(start).getTime();
+  if (!(ms >= 0)) return "";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s} 秒`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} 分 ${s % 60} 秒`;
+  return `${Math.floor(m / 60)} 小时 ${m % 60} 分`;
+}
+
+/* ---- B71：通知事件 ---- */
+
+export const NOTIFY_GROUPS: { label: string; events: string[] }[] = [
+  {
+    label: "CI",
+    events: [
+      "ci_started",
+      "ci_succeeded",
+      "ci_failed",
+      "ci_cancelled",
+      "ci_recovered",
+    ],
+  },
+  { label: "Commits", events: ["push"] },
+  {
+    label: "Pull requests",
+    events: ["pr_opened", "pr_merged", "pr_closed", "pr_review"],
+  },
+  {
+    label: "Issues and releases",
+    events: ["issue_opened", "issue_assigned", "release"],
+  },
+];
+
+export const NOTIFY_LABELS: Record<string, string> = {
+  ci_started: "CI started",
+  ci_succeeded: "CI passed",
+  ci_failed: "CI failed",
+  ci_cancelled: "CI cancelled",
+  ci_recovered: "CI fixed again",
+  push: "New commits",
+  pr_opened: "Pull request opened",
+  pr_merged: "Pull request merged",
+  pr_closed: "Pull request closed without merging",
+  pr_review: "Review result",
+  issue_opened: "New issue",
+  issue_assigned: "Issue assigned to me",
+  release: "New release",
+};
+
+/** 规格 B71 的默认值。 */
+export const DEFAULT_NOTIFY = {
+  events: [
+    "ci_failed",
+    "ci_recovered",
+    "pr_opened",
+    "pr_merged",
+    "pr_review",
+    "issue_assigned",
+    "release",
+  ],
+  ciBranches: "default" as const,
+};

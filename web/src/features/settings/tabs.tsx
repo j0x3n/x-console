@@ -30,7 +30,7 @@ export const settingsTabs: SettingsTab[] = [
   { id: "audit", label: "Audit log", component: AuditTab },
   { id: "notifications", label: "Notifications", component: NotificationsTab },
   { id: "homeassistant", label: "Home Assistant", component: HASettingsTab },
-  { id: "git", label: "Git & GitHub", component: GitSettingsTab },
+  { id: "git", label: "Git & repositories", component: GitSettingsTab },
   { id: "linear", label: "Linear", component: LinearSettingsTab },
   { id: "brief", label: "Daily brief", component: BriefSettingsTab },
   { id: "storage", label: "Storage", component: StorageTab },

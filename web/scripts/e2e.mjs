@@ -896,7 +896,7 @@ try {
   await send("POST", "/vault/lock");
   await page.goto(`${base}/`);
   await page.locator(".sidebar").getByRole("link", { name: "项目" }).waitFor();
-  assert.equal(await page.locator(".sidebar").getByRole("link", { name: "GitHub" }).count(), 0);
+  assert.equal(await page.locator(".sidebar").getByRole("link", { name: "仓库" }).count(), 0);
   await page.goto(`${base}/github`);
   await page.getByText("页面不存在").first().waitFor();
   assert.equal((await page.context().request.get(`${base}/api/v1/vault/modules`)).status(), 404);

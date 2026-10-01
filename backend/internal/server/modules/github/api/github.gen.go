@@ -14,6 +14,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for Forge.
+const (
+	Forgejo Forge = "forgejo"
+	Github  Forge = "github"
+)
+
+// Valid indicates whether the value is a known member of the Forge enum.
+func (e Forge) Valid() bool {
+	switch e {
+	case Forgejo:
+		return true
+	case Github:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GitHubCheckState.
 const (
 	GitHubCheckStateFailure GitHubCheckState = "failure"
@@ -107,6 +125,27 @@ func (e GitHubReviewState) Valid() bool {
 	}
 }
 
+// Defines values for RepoNotifyCiBranches.
+const (
+	All     RepoNotifyCiBranches = "all"
+	Default RepoNotifyCiBranches = "default"
+)
+
+// Valid indicates whether the value is a known member of the RepoNotifyCiBranches enum.
+func (e RepoNotifyCiBranches) Valid() bool {
+	switch e {
+	case All:
+		return true
+	case Default:
+		return true
+	default:
+		return false
+	}
+}
+
+// Forge B70。仓库在哪种服务上
+type Forge string
+
 // GitHubAvailableRepos defines model for GitHubAvailableRepos.
 type GitHubAvailableRepos struct {
 	// FetchedAt 这份列表是什么时候从 GitHub 取的
@@ -124,12 +163,36 @@ type GitHubAvailableRepos struct {
 // GitHubCheckState defines model for GitHubCheckState.
 type GitHubCheckState string
 
+// GitHubCommit defines model for GitHubCommit.
+type GitHubCommit struct {
+	// Author 用户名，没有时是 git 里的名字
+	Author       string           `json:"author"`
+	AvatarUrl    *string          `json:"avatarUrl,omitempty"`
+	CheckState   GitHubCheckState `json:"checkState"`
+	CommittedAt  time.Time        `json:"committedAt"`
+	ConnectionId int64            `json:"connectionId"`
+
+	// Forge B70。仓库在哪种服务上
+	Forge Forge `json:"forge"`
+
+	// Message 完整的提交信息，前端只显示第一行
+	Message string `json:"message"`
+	Repo    string `json:"repo"`
+
+	// RunId 对上的那条运行，有时才返回
+	RunId *int64 `json:"runId,omitempty"`
+
+	// Sha 完整的 40 位
+	Sha string `json:"sha"`
+	Url string `json:"url"`
+}
+
 // GitHubConfig defines model for GitHubConfig.
 type GitHubConfig struct {
 	// ApiUrl REST API 地址，默认 https://api.github.com
 	ApiUrl string `json:"apiUrl"`
 
-	// ConnectionId B62：GitHub 页面用哪个 Git 账号。有值时令牌和 API 地址都从这个账号取
+	// ConnectionId B62：GitHub 页面用哪个 Git 账号。B70 起改用 watches，这个字段只为兼容
 	ConnectionId *int64 `json:"connectionId,omitempty"`
 	HasToken     bool   `json:"hasToken"`
 
@@ -141,6 +204,9 @@ type GitHubConfig struct {
 
 	// Token 打码后的令牌，例如 ••••••••x9Qa
 	Token string `json:"token"`
+
+	// Watches B70。关注的仓库，每个带 Git 账号。旧数据由后端换算成这个
+	Watches *[]RepoWatch `json:"watches,omitempty"`
 }
 
 // GitHubConfigInput defines model for GitHubConfigInput.
@@ -153,20 +219,32 @@ type GitHubConfigInput struct {
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	ClearToken *bool `json:"clearToken,omitempty"`
 
-	// ConnectionId B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号
-	ConnectionId *int64   `json:"connectionId,omitempty"`
-	Repos        []string `json:"repos"`
+	// ConnectionId B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号。B70 起传 watches
+	ConnectionId *int64 `json:"connectionId,omitempty"`
+
+	// Repos B70 起改传 watches
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Repos []string `json:"repos"`
 
 	// Token B62 起不用，令牌填在 Git 账号里。留空表示保留原令牌
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Token *string `json:"token,omitempty"`
+
+	// Watches B70。传了就以它为准，repos 和 connectionId 不再用
+	Watches *[]RepoWatch `json:"watches,omitempty"`
 }
 
 // GitHubIssue defines model for GitHubIssue.
 type GitHubIssue struct {
-	Assignees []string            `json:"assignees"`
-	Author    string              `json:"author"`
-	CreatedAt time.Time           `json:"createdAt"`
+	Assignees []string `json:"assignees"`
+	Author    string   `json:"author"`
+
+	// ConnectionId B70。哪个 Git 账号
+	ConnectionId *int64    `json:"connectionId,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+
+	// Forge B70。仓库在哪种服务上
+	Forge     *Forge              `json:"forge,omitempty"`
 	Labels    []string            `json:"labels"`
 	Number    int                 `json:"number"`
 	Relation  GitHubIssueRelation `json:"relation"`
@@ -179,6 +257,24 @@ type GitHubIssue struct {
 // GitHubIssueRelation defines model for GitHubIssueRelation.
 type GitHubIssueRelation string
 
+// GitHubJob defines model for GitHubJob.
+type GitHubJob struct {
+	CompletedAt *time.Time   `json:"completedAt,omitempty"`
+	Conclusion  string       `json:"conclusion"`
+	Id          int64        `json:"id"`
+	Name        string       `json:"name"`
+	StartedAt   *time.Time   `json:"startedAt,omitempty"`
+	Status      string       `json:"status"`
+	Steps       []GitHubStep `json:"steps"`
+	Url         string       `json:"url"`
+}
+
+// GitHubNotifySettings defines model for GitHubNotifySettings.
+type GitHubNotifySettings struct {
+	Defaults RepoNotify           `json:"defaults"`
+	Repos    []RepoNotifyOverride `json:"repos"`
+}
+
 // GitHubPull defines model for GitHubPull.
 type GitHubPull struct {
 	Author     string           `json:"author"`
@@ -186,10 +282,16 @@ type GitHubPull struct {
 	CheckState GitHubCheckState `json:"checkState"`
 
 	// CodingTaskId 分支是 xc/<任务id>-... 时对应的编码任务
-	CodingTaskId *int64    `json:"codingTaskId,omitempty"`
+	CodingTaskId *int64 `json:"codingTaskId,omitempty"`
+
+	// ConnectionId B70。哪个 Git 账号
+	ConnectionId *int64    `json:"connectionId,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	Draft        bool      `json:"draft"`
-	HeadRef      string    `json:"headRef"`
+
+	// Forge B70。仓库在哪种服务上
+	Forge   *Forge `json:"forge,omitempty"`
+	HeadRef string `json:"headRef"`
 
 	// IssueKeys 标题或分支里出现、并已关联的本地 Issue，例如 XC-12
 	IssueKeys []string `json:"issueKeys"`
@@ -215,20 +317,38 @@ type GitHubRun struct {
 	Branch string `json:"branch"`
 
 	// Conclusion success、failure、cancelled 等，没结束时为空
-	Conclusion string    `json:"conclusion"`
-	CreatedAt  time.Time `json:"createdAt"`
+	Conclusion string `json:"conclusion"`
+
+	// ConnectionId B70。哪个 Git 账号
+	ConnectionId *int64    `json:"connectionId,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
+
+	// CurrentStep B70。进行中的运行正在跑的步骤名
+	CurrentStep *string `json:"currentStep,omitempty"`
 
 	// DefaultBranch 是否在默认分支上
 	DefaultBranch bool   `json:"defaultBranch"`
 	Event         string `json:"event"`
-	Id            int64  `json:"id"`
-	Name          string `json:"name"`
-	Repo          string `json:"repo"`
+
+	// Forge B70。仓库在哪种服务上
+	Forge *Forge `json:"forge,omitempty"`
+
+	// HeadSha B70。这条运行对应的提交
+	HeadSha *string `json:"headSha,omitempty"`
+	Id      int64   `json:"id"`
+	Name    string  `json:"name"`
+	Repo    string  `json:"repo"`
 
 	// Status queued、in_progress、completed 等
-	Status    string    `json:"status"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	Url       string    `json:"url"`
+	Status string `json:"status"`
+
+	// StepsDone B70。进行中的运行做完了几步（所有 job 加起来）
+	StepsDone *int `json:"stepsDone,omitempty"`
+
+	// StepsTotal B70。进行中的运行一共几步
+	StepsTotal *int      `json:"stepsTotal,omitempty"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	Url        string    `json:"url"`
 }
 
 // GitHubStatus defines model for GitHubStatus.
@@ -251,6 +371,20 @@ type GitHubStatus struct {
 	Syncing             bool `json:"syncing"`
 }
 
+// GitHubStep defines model for GitHubStep.
+type GitHubStep struct {
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+
+	// Conclusion success、failure、skipped、cancelled，没结束时为空
+	Conclusion string     `json:"conclusion"`
+	Name       string     `json:"name"`
+	Number     int        `json:"number"`
+	StartedAt  *time.Time `json:"startedAt,omitempty"`
+
+	// Status queued、in_progress、completed
+	Status string `json:"status"`
+}
+
 // GitHubTestInput defines model for GitHubTestInput.
 type GitHubTestInput struct {
 	ApiUrl *string `json:"apiUrl,omitempty"`
@@ -269,25 +403,140 @@ type GitHubTestResult struct {
 	RateLimitRemaining *int    `json:"rateLimitRemaining,omitempty"`
 }
 
+// RepoNotify defines model for RepoNotify.
+type RepoNotify struct {
+	// CiBranches CI 事件看哪些分支。default 只看默认分支
+	CiBranches RepoNotifyCiBranches `json:"ciBranches"`
+
+	// Events 开着的事件：ci_started、ci_succeeded、ci_failed、ci_cancelled、ci_recovered、push、
+	// pr_opened、pr_merged、pr_closed、pr_review、issue_opened、issue_assigned、release
+	Events []string `json:"events"`
+}
+
+// RepoNotifyCiBranches CI 事件看哪些分支。default 只看默认分支
+type RepoNotifyCiBranches string
+
+// RepoNotifyOverride defines model for RepoNotifyOverride.
+type RepoNotifyOverride struct {
+	ConnectionId int64      `json:"connectionId"`
+	Notify       RepoNotify `json:"notify"`
+	Repo         string     `json:"repo"`
+}
+
+// RepoWatch defines model for RepoWatch.
+type RepoWatch struct {
+	ConnectionId int64 `json:"connectionId"`
+
+	// Repo owner/name
+	Repo string `json:"repo"`
+}
+
+// WatchedRepo defines model for WatchedRepo.
+type WatchedRepo struct {
+	// Ci 默认分支最新一条运行，没有运行时不返回
+	Ci *struct {
+		Conclusion string     `json:"conclusion"`
+		RunId      *int64     `json:"runId,omitempty"`
+		Status     string     `json:"status"`
+		UpdatedAt  *time.Time `json:"updatedAt,omitempty"`
+	} `json:"ci,omitempty"`
+	ConnectionId int64 `json:"connectionId"`
+
+	// ConnectionName Git 账号的名字
+	ConnectionName *string `json:"connectionName,omitempty"`
+	DefaultBranch  string  `json:"defaultBranch"`
+	Description    *string `json:"description,omitempty"`
+
+	// Forge B70。仓库在哪种服务上
+	Forge      Forge `json:"forge"`
+	LastCommit *struct {
+		At     time.Time `json:"at"`
+		Author string    `json:"author"`
+
+		// Message 第一行
+		Message string `json:"message"`
+		Sha     string `json:"sha"`
+	} `json:"lastCommit,omitempty"`
+
+	// NotifyCustom B71。这个仓库单独设置过通知
+	NotifyCustom bool `json:"notifyCustom"`
+
+	// NotifyOff B71。单独设置成全部关闭
+	NotifyOff  bool       `json:"notifyOff"`
+	OpenIssues int        `json:"openIssues"`
+	OpenPulls  int        `json:"openPulls"`
+	Private    bool       `json:"private"`
+	PushedAt   *time.Time `json:"pushedAt,omitempty"`
+
+	// Repo owner/name
+	Repo string `json:"repo"`
+
+	// SyncError 这个仓库最近一次同步的错误，比如没有权限
+	SyncError *string `json:"syncError,omitempty"`
+
+	// Url 网页地址
+	Url string `json:"url"`
+}
+
+// ConnectionQuery defines model for ConnectionQuery.
+type ConnectionQuery = int64
+
 // ListGitHubAvailableReposParams defines parameters for ListGitHubAvailableRepos.
 type ListGitHubAvailableReposParams struct {
 	Refresh *bool `form:"refresh,omitempty" json:"refresh,omitempty"`
+
+	// ConnectionId B70。列哪个 Git 账号能访问的仓库（GitHub 或 Forgejo）。不传时用旧的 github.connection_id
+	ConnectionId *int64 `form:"connectionId,omitempty" json:"connectionId,omitempty"`
+}
+
+// ListGitHubCommitsParams defines parameters for ListGitHubCommits.
+type ListGitHubCommitsParams struct {
+	Repo *string `form:"repo,omitempty" json:"repo,omitempty"`
+
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery    `form:"connectionId,omitempty" json:"connectionId,omitempty"`
+	Limit        *externalRef0.Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListGitHubIssuesParams defines parameters for ListGitHubIssues.
+type ListGitHubIssuesParams struct {
+	Repo *string `form:"repo,omitempty" json:"repo,omitempty"`
+
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery `form:"connectionId,omitempty" json:"connectionId,omitempty"`
 }
 
 // ListGitHubPullsParams defines parameters for ListGitHubPulls.
 type ListGitHubPullsParams struct {
 	// Repo 只看某个仓库，owner/name
 	Repo *string `form:"repo,omitempty" json:"repo,omitempty"`
+
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery `form:"connectionId,omitempty" json:"connectionId,omitempty"`
 }
 
 // ListGitHubRunsParams defines parameters for ListGitHubRuns.
 type ListGitHubRunsParams struct {
-	Repo  *string             `form:"repo,omitempty" json:"repo,omitempty"`
-	Limit *externalRef0.Limit `form:"limit,omitempty" json:"limit,omitempty"`
+	Repo *string `form:"repo,omitempty" json:"repo,omitempty"`
+
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery    `form:"connectionId,omitempty" json:"connectionId,omitempty"`
+	Limit        *externalRef0.Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListGitHubRunJobsParams defines parameters for ListGitHubRunJobs.
+type ListGitHubRunJobsParams struct {
+	Repo string `form:"repo" json:"repo"`
+
+	// ConnectionId B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+	ConnectionId *ConnectionQuery `form:"connectionId,omitempty" json:"connectionId,omitempty"`
 }
 
 // PutGitHubConfigJSONRequestBody defines body for PutGitHubConfig for application/json ContentType.
 type PutGitHubConfigJSONRequestBody = GitHubConfigInput
+
+// PutGitHubNotifyJSONRequestBody defines body for PutGitHubNotify for application/json ContentType.
+type PutGitHubNotifyJSONRequestBody = GitHubNotifySettings
 
 // TestGitHubJSONRequestBody defines body for TestGitHub for application/json ContentType.
 type TestGitHubJSONRequestBody = GitHubTestInput
@@ -298,6 +547,9 @@ type ServerInterface interface {
 	// (GET /github/available-repos)
 	ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request, params ListGitHubAvailableReposParams)
 
+	// (GET /github/commits)
+	ListGitHubCommits(w http.ResponseWriter, r *http.Request, params ListGitHubCommitsParams)
+
 	// (GET /github/config)
 	GetGitHubConfig(w http.ResponseWriter, r *http.Request)
 
@@ -305,13 +557,25 @@ type ServerInterface interface {
 	PutGitHubConfig(w http.ResponseWriter, r *http.Request)
 
 	// (GET /github/issues)
-	ListGitHubIssues(w http.ResponseWriter, r *http.Request)
+	ListGitHubIssues(w http.ResponseWriter, r *http.Request, params ListGitHubIssuesParams)
+
+	// (GET /github/notify)
+	GetGitHubNotify(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /github/notify)
+	PutGitHubNotify(w http.ResponseWriter, r *http.Request)
 
 	// (GET /github/pulls)
 	ListGitHubPulls(w http.ResponseWriter, r *http.Request, params ListGitHubPullsParams)
 
+	// (GET /github/repos)
+	ListGitHubWatchedRepos(w http.ResponseWriter, r *http.Request)
+
 	// (GET /github/runs)
 	ListGitHubRuns(w http.ResponseWriter, r *http.Request, params ListGitHubRunsParams)
+
+	// (GET /github/runs/{runId}/jobs)
+	ListGitHubRunJobs(w http.ResponseWriter, r *http.Request, runId int64, params ListGitHubRunJobsParams)
 
 	// (GET /github/status)
 	GetGitHubStatus(w http.ResponseWriter, r *http.Request)
@@ -332,6 +596,11 @@ func (_ Unimplemented) ListGitHubAvailableRepos(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /github/commits)
+func (_ Unimplemented) ListGitHubCommits(w http.ResponseWriter, r *http.Request, params ListGitHubCommitsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /github/config)
 func (_ Unimplemented) GetGitHubConfig(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -343,7 +612,17 @@ func (_ Unimplemented) PutGitHubConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // (GET /github/issues)
-func (_ Unimplemented) ListGitHubIssues(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListGitHubIssues(w http.ResponseWriter, r *http.Request, params ListGitHubIssuesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /github/notify)
+func (_ Unimplemented) GetGitHubNotify(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /github/notify)
+func (_ Unimplemented) PutGitHubNotify(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -352,8 +631,18 @@ func (_ Unimplemented) ListGitHubPulls(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /github/repos)
+func (_ Unimplemented) ListGitHubWatchedRepos(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /github/runs)
 func (_ Unimplemented) ListGitHubRuns(w http.ResponseWriter, r *http.Request, params ListGitHubRunsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /github/runs/{runId}/jobs)
+func (_ Unimplemented) ListGitHubRunJobs(w http.ResponseWriter, r *http.Request, runId int64, params ListGitHubRunJobsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -403,8 +692,80 @@ func (siw *ServerInterfaceWrapper) ListGitHubAvailableRepos(w http.ResponseWrite
 		return
 	}
 
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListGitHubAvailableRepos(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListGitHubCommits operation middleware
+func (siw *ServerInterfaceWrapper) ListGitHubCommits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGitHubCommitsParams
+
+	// ------------- Optional query parameter "repo" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "repo", r.URL.Query(), &params.Repo, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "repo"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repo", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGitHubCommits(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -445,8 +806,68 @@ func (siw *ServerInterfaceWrapper) PutGitHubConfig(w http.ResponseWriter, r *htt
 // ListGitHubIssues operation middleware
 func (siw *ServerInterfaceWrapper) ListGitHubIssues(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGitHubIssuesParams
+
+	// ------------- Optional query parameter "repo" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "repo", r.URL.Query(), &params.Repo, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "repo"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repo", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListGitHubIssues(w, r)
+		siw.Handler.ListGitHubIssues(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGitHubNotify operation middleware
+func (siw *ServerInterfaceWrapper) GetGitHubNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGitHubNotify(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutGitHubNotify operation middleware
+func (siw *ServerInterfaceWrapper) PutGitHubNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutGitHubNotify(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -478,8 +899,35 @@ func (siw *ServerInterfaceWrapper) ListGitHubPulls(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListGitHubPulls(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListGitHubWatchedRepos operation middleware
+func (siw *ServerInterfaceWrapper) ListGitHubWatchedRepos(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGitHubWatchedRepos(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -511,6 +959,19 @@ func (siw *ServerInterfaceWrapper) ListGitHubRuns(w http.ResponseWriter, r *http
 		return
 	}
 
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -526,6 +987,61 @@ func (siw *ServerInterfaceWrapper) ListGitHubRuns(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListGitHubRuns(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListGitHubRunJobs operation middleware
+func (siw *ServerInterfaceWrapper) ListGitHubRunJobs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", chi.URLParam(r, "runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListGitHubRunJobsParams
+
+	// ------------- Required query parameter "repo" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "repo", r.URL.Query(), &params.Repo, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "repo"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repo", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "connectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "connectionId", r.URL.Query(), &params.ConnectionId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "connectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "connectionId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListGitHubRunJobs(w, r, runId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -716,6 +1232,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/github/issues", wrapper.ListGitHubIssues)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/github/repos", wrapper.ListGitHubWatchedRepos)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/github/commits", wrapper.ListGitHubCommits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/github/runs/{runId}/jobs", wrapper.ListGitHubRunJobs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/github/notify", wrapper.GetGitHubNotify)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/github/notify", wrapper.PutGitHubNotify)
 	})
 
 	return r

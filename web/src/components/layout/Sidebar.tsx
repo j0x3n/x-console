@@ -202,7 +202,7 @@ function NavBadgeMark({ hook }: { hook: NavBadgeHook }) {
     <i
       className={`nav-badge ${badge.tone ?? "danger"}${label ? "" : " dot"}`}
       title={badge.title}
-      aria-label={badge.title}
+      aria-hidden
     >
       {label}
     </i>

@@ -119,14 +119,20 @@
   margin-left: 6px;
 }
 
-/* 设置页 */
+/* 设置页（B70）：两栏，每栏里的卡片上下排，不会因为另一栏的卡片高而留空 */
 .github-settings {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(0, 560px) minmax(0, 340px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
 }
-@media (max-width: 900px) {
+.github-settings-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+@media (max-width: 960px) {
   .github-settings {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -303,4 +309,491 @@
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* ---- B70：设置页按账号分组的已选仓库 ---- */
+.git-watch-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.git-watch-account {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  font-weight: 500;
+}
+.github-picked .repos-swatch {
+  width: 7px;
+  height: 7px;
+}
+
+/* ---- B70：仓库页 ---- */
+.repos-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.repos-side {
+  position: sticky;
+  top: 12px;
+  min-width: 0;
+}
+.repos-side-select {
+  display: none;
+}
+.repos-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-surface);
+  scrollbar-width: thin;
+}
+.repos-side-panel .xc-search {
+  width: auto;
+  margin-bottom: 6px;
+}
+.repos-side-empty {
+  margin: 8px;
+  font-size: var(--fs-12-5);
+}
+.repos-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--xc-text-2);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.repos-row:hover {
+  background: var(--xc-surface-2);
+}
+.repos-row.active {
+  background: var(--xc-accent-soft);
+  color: var(--xc-text);
+}
+.repos-row-all-icon {
+  flex: none;
+  color: var(--xc-muted);
+}
+.repos-row-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.repos-row-name strong,
+.repos-row-name small,
+.repos-row.all .repos-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repos-row-name strong {
+  color: var(--xc-text);
+  font-size: var(--fs-13);
+  font-weight: 500;
+}
+.repos-row-name small {
+  color: var(--xc-faint);
+  font-size: var(--fs-11);
+}
+.repos-row-count {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  font-variant-numeric: tabular-nums;
+}
+.repos-row .xc-dot {
+  flex: none;
+}
+.repos-forge {
+  flex: none;
+  color: var(--xc-faint);
+}
+.repos-swatch {
+  flex: none;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--repo);
+}
+.repos-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.repos-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 4px;
+  border: 0;
+  background: none;
+  color: var(--xc-faint);
+  font: inherit;
+  font-size: var(--fs-11);
+  font-weight: 500;
+  cursor: pointer;
+}
+.repos-group-head > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repos-group-head svg {
+  transition: transform 0.15s;
+}
+.repos-group-head.open svg {
+  transform: rotate(90deg);
+}
+
+.repos-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.repos-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-height: 32px;
+}
+.repos-head > strong,
+.repos-head-name {
+  color: var(--xc-text);
+  font-size: var(--fs-15);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.repos-head .repos-swatch {
+  width: 12px;
+  height: 12px;
+}
+.repos-head-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.repos-head-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-12);
+}
+.repos-head-time {
+  font-size: var(--fs-12);
+}
+.repos-head-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--fs-12);
+}
+.repos-bell.custom {
+  color: var(--xc-accent-text);
+}
+.repos-tabs {
+  margin-bottom: 0;
+}
+.repos-tab-count {
+  margin-left: 5px;
+  color: var(--xc-faint);
+  font-size: var(--fs-11);
+}
+.repos-card {
+  padding-top: 12px;
+}
+.repos-group-title {
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--xc-border);
+  color: var(--xc-text);
+  font-size: var(--fs-13-5);
+  font-weight: 600;
+}
+.repos-group-title .repos-swatch {
+  width: 11px;
+  height: 11px;
+}
+
+/* 提交 */
+.repos-commit-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.repos-commit-repo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12);
+  font-weight: 500;
+}
+.repos-sha {
+  color: var(--xc-accent-text);
+  text-decoration: none;
+}
+.repos-sha:hover {
+  text-decoration: underline;
+}
+
+/* CI 运行和步骤 */
+.repos-runs {
+  display: flex;
+  flex-direction: column;
+}
+.repos-run {
+  border-top: 1px solid var(--xc-border);
+}
+.repos-run:first-child {
+  border-top: 0;
+}
+.repos-run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.repos-run-head:hover {
+  background: var(--xc-surface-2);
+}
+.repos-run-chevron {
+  flex: none;
+  color: var(--xc-faint);
+  transition: transform 0.15s;
+}
+.repos-run.open > .repos-run-head .repos-run-chevron,
+.repos-job-head[aria-expanded="true"] .repos-run-chevron {
+  transform: rotate(90deg);
+}
+.repos-run-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.repos-run-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: var(--xc-text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.repos-run-result {
+  flex: none;
+  white-space: nowrap;
+}
+.repos-run-current {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: -4px 0 8px 48px;
+  font-size: var(--fs-12);
+}
+.repos-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px 26px;
+}
+.repos-jobs-note {
+  margin: 0 0 12px 26px;
+  font-size: var(--fs-12-5);
+}
+.repos-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+.repos-progress-text {
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+}
+.repos-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--xc-surface-2);
+}
+.repos-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--xc-accent);
+  transition: width 0.3s;
+}
+.repos-job {
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+}
+.repos-job.failed {
+  border-color: var(--xc-danger-soft);
+}
+.repos-job-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: var(--fs-13);
+  text-align: left;
+  cursor: pointer;
+}
+.repos-job-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repos-job-time {
+  min-width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.repos-steps {
+  margin: 0;
+  padding: 0 10px 8px 40px;
+  list-style: none;
+}
+.repos-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+}
+.repos-step.waiting,
+.repos-step.skipped {
+  color: var(--xc-faint);
+}
+.repos-step.running {
+  color: var(--xc-text);
+  font-weight: 500;
+}
+.repos-step.failed {
+  color: var(--xc-danger);
+}
+.repos-step-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* B71：通知勾选 */
+.repos-notify {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px 20px;
+}
+.repos-notify-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.repos-notify-group legend {
+  margin-bottom: 4px;
+  padding: 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  font-weight: 500;
+}
+.repos-notify-group .xc-check {
+  margin: 0;
+}
+.repos-notify-branches {
+  grid-column: 1 / -1;
+  max-width: 320px;
+}
+.repos-notify-follow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .repos-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .repos-side {
+    position: static;
+  }
+  .repos-side-select {
+    display: block;
+    width: 100%;
+  }
+  .repos-side-panel {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .repos-btn-text,
+  .repos-head-time {
+    display: none;
+  }
+  .repos-jobs,
+  .repos-jobs-note {
+    margin-left: 0;
+  }
+  .repos-run-current {
+    margin-left: 26px;
+  }
+  .repos-steps {
+    padding-left: 24px;
+  }
 }

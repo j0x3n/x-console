@@ -343,7 +343,7 @@ func (m *Module) ListGitHubRuns(w http.ResponseWriter, r *http.Request, params a
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-func (m *Module) ListGitHubIssues(w http.ResponseWriter, r *http.Request) {
+func (m *Module) ListGitHubIssues(w http.ResponseWriter, r *http.Request, _ api.ListGitHubIssuesParams) {
 	ctx := r.Context()
 	if _, err := m.requireConfigured(ctx); err != nil {
 		httpx.Fail(w, r, err)

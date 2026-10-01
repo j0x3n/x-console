@@ -108,10 +108,9 @@ describe("GitHubPage", () => {
       { level: 2 },
       { timeout: 3000 },
     );
-    expect(headings.map((h) => h.textContent)).toEqual([
-      "acme/api",
-      "acme/web",
-    ]);
+    expect(
+      headings.map((h) => h.querySelector(".xc-mono")?.textContent),
+    ).toEqual(["acme/api", "acme/web"]);
     expect(screen.getByText("检查失败")).toBeTruthy();
     expect(screen.getByText("已批准")).toBeTruthy();
     expect(

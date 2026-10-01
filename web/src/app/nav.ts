@@ -3,7 +3,7 @@ import {
   Bell,
   CalendarDays,
   Bot,
-  Github,
+  FolderGit2,
   HardDrive,
   HeartPulse,
   Home,
@@ -33,6 +33,13 @@ export const navItems: NavItem[] = [
   { path: "/", label: "My day", icon: Sun, group: "main" },
   { path: "/projects", label: "Projects", icon: SquareKanban, group: "main" },
   { path: "/coding", label: "Agents", icon: Bot, group: "main" },
+  // B70：GitHub 改名“仓库”，挪到 Agent 下面。地址还是 /github
+  {
+    path: "/github",
+    label: "Repositories",
+    icon: FolderGit2,
+    group: "main",
+  },
   { path: "/notes", label: "Notes", icon: NotebookPen, group: "personal" },
   { path: "/mail", label: "Mail", icon: Mail, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
@@ -55,7 +62,6 @@ export const navItems: NavItem[] = [
     icon: Workflow,
     group: "integrations",
   },
-  { path: "/github", label: "GitHub", icon: Github, group: "integrations" },
 ];
 
 export const navGroupLabels: Record<NavGroup, string> = {

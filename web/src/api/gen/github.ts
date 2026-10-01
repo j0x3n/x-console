@@ -149,10 +149,206 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/github/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B70。关注的仓库和它们的概况（从缓存出，不现查）。GitHub 和 Forgejo 的都在里面。
+         *     未配置时返回 412。
+         */
+        get: operations["listGitHubWatchedRepos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/github/commits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B70。默认分支最近的提交，新的在前。不传 repo 时是所有关注仓库的提交按时间混排。 */
+        get: operations["listGitHubCommits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/github/runs/{runId}/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B70。一条运行的 job 和步骤。现查，结果在内存里缓存 5 秒。
+         *     服务器不提供步骤详情时（老的 Forgejo）回 501。
+         */
+        get: operations["listGitHubRunJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/github/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B71。仓库事件通知的设置。没保存过时返回默认值 */
+        get: operations["getGitHubNotify"];
+        /** @description B71。整份替换。repos 里没有的仓库跟随 defaults */
+        put: operations["putGitHubNotify"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description B70。仓库在哪种服务上
+         * @enum {string}
+         */
+        Forge: "github" | "forgejo";
+        RepoWatch: {
+            /** Format: int64 */
+            connectionId: number;
+            /** @description owner/name */
+            repo: string;
+        };
+        WatchedRepo: {
+            /** Format: int64 */
+            connectionId: number;
+            /** @description Git 账号的名字 */
+            connectionName?: string;
+            forge: components["schemas"]["Forge"];
+            /** @description owner/name */
+            repo: string;
+            /** @description 网页地址 */
+            url: string;
+            defaultBranch: string;
+            private: boolean;
+            description?: string;
+            openPulls: number;
+            openIssues: number;
+            /** Format: date-time */
+            pushedAt?: string;
+            /** @description 默认分支最新一条运行，没有运行时不返回 */
+            ci?: {
+                status: string;
+                conclusion: string;
+                /** Format: int64 */
+                runId?: number;
+                /** Format: date-time */
+                updatedAt?: string;
+            };
+            lastCommit?: {
+                sha: string;
+                /** @description 第一行 */
+                message: string;
+                author: string;
+                /** Format: date-time */
+                at: string;
+            };
+            /** @description B71。这个仓库单独设置过通知 */
+            notifyCustom: boolean;
+            /** @description B71。单独设置成全部关闭 */
+            notifyOff: boolean;
+            /** @description 这个仓库最近一次同步的错误，比如没有权限 */
+            syncError?: string;
+        };
+        GitHubCommit: {
+            /** Format: int64 */
+            connectionId: number;
+            forge: components["schemas"]["Forge"];
+            repo: string;
+            /** @description 完整的 40 位 */
+            sha: string;
+            /** @description 完整的提交信息，前端只显示第一行 */
+            message: string;
+            /** @description 用户名，没有时是 git 里的名字 */
+            author: string;
+            avatarUrl?: string;
+            url: string;
+            /** Format: date-time */
+            committedAt: string;
+            checkState: components["schemas"]["GitHubCheckState"];
+            /**
+             * Format: int64
+             * @description 对上的那条运行，有时才返回
+             */
+            runId?: number;
+        };
+        GitHubStep: {
+            number: number;
+            name: string;
+            /** @description queued、in_progress、completed */
+            status: string;
+            /** @description success、failure、skipped、cancelled，没结束时为空 */
+            conclusion: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            completedAt?: string;
+        };
+        GitHubJob: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            status: string;
+            conclusion: string;
+            url: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            completedAt?: string;
+            steps: components["schemas"]["GitHubStep"][];
+        };
+        RepoNotify: {
+            /**
+             * @description 开着的事件：ci_started、ci_succeeded、ci_failed、ci_cancelled、ci_recovered、push、
+             *     pr_opened、pr_merged、pr_closed、pr_review、issue_opened、issue_assigned、release
+             */
+            events: string[];
+            /**
+             * @description CI 事件看哪些分支。default 只看默认分支
+             * @enum {string}
+             */
+            ciBranches: "default" | "all";
+        };
+        RepoNotifyOverride: {
+            /** Format: int64 */
+            connectionId: number;
+            repo: string;
+            notify: components["schemas"]["RepoNotify"];
+        };
+        GitHubNotifySettings: {
+            defaults: components["schemas"]["RepoNotify"];
+            repos: components["schemas"]["RepoNotifyOverride"][];
+        };
         GitHubConfig: {
             hasToken: boolean;
             /** @description 打码后的令牌，例如 ••••••••x9Qa */
@@ -165,9 +361,11 @@ export interface components {
             login?: string;
             /**
              * Format: int64
-             * @description B62：GitHub 页面用哪个 Git 账号。有值时令牌和 API 地址都从这个账号取
+             * @description B62：GitHub 页面用哪个 Git 账号。B70 起改用 watches，这个字段只为兼容
              */
             connectionId?: number;
+            /** @description B70。关注的仓库，每个带 Git 账号。旧数据由后端换算成这个 */
+            watches?: components["schemas"]["RepoWatch"][];
         };
         GitHubConfigInput: {
             /**
@@ -180,6 +378,10 @@ export interface components {
              * @description B62 起不用
              */
             clearToken?: boolean;
+            /**
+             * @deprecated
+             * @description B70 起改传 watches
+             */
             repos: string[];
             /**
              * @deprecated
@@ -188,9 +390,11 @@ export interface components {
             apiUrl?: string;
             /**
              * Format: int64
-             * @description B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号
+             * @description B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号。B70 起传 watches
              */
             connectionId?: number;
+            /** @description B70。传了就以它为准，repos 和 connectionId 不再用 */
+            watches?: components["schemas"]["RepoWatch"][];
         };
         GitHubTestInput: {
             /** @description 留空表示用已保存的令牌 */
@@ -244,6 +448,12 @@ export interface components {
         /** @enum {string} */
         GitHubCheckState: "success" | "failure" | "pending" | "none";
         GitHubPull: {
+            /**
+             * Format: int64
+             * @description B70。哪个 Git 账号
+             */
+            connectionId?: number;
+            forge?: components["schemas"]["Forge"];
             repo: string;
             number: number;
             title: string;
@@ -269,6 +479,12 @@ export interface components {
             updatedAt: string;
         };
         GitHubRun: {
+            /**
+             * Format: int64
+             * @description B70。哪个 Git 账号
+             */
+            connectionId?: number;
+            forge?: components["schemas"]["Forge"];
             /** Format: int64 */
             id: number;
             repo: string;
@@ -282,6 +498,14 @@ export interface components {
             url: string;
             /** @description 是否在默认分支上 */
             defaultBranch: boolean;
+            /** @description B70。这条运行对应的提交 */
+            headSha?: string;
+            /** @description B70。进行中的运行做完了几步（所有 job 加起来） */
+            stepsDone?: number;
+            /** @description B70。进行中的运行一共几步 */
+            stepsTotal?: number;
+            /** @description B70。进行中的运行正在跑的步骤名 */
+            currentStep?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -290,6 +514,12 @@ export interface components {
         /** @enum {string} */
         GitHubIssueRelation: "assigned" | "created" | "both";
         GitHubIssue: {
+            /**
+             * Format: int64
+             * @description B70。哪个 Git 账号
+             */
+            connectionId?: number;
+            forge?: components["schemas"]["Forge"];
             repo: string;
             number: number;
             title: string;
@@ -327,6 +557,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+        ConnectionQuery: number;
         Limit: number;
     };
     requestBodies: never;
@@ -451,6 +683,8 @@ export interface operations {
         parameters: {
             query?: {
                 refresh?: boolean;
+                /** @description B70。列哪个 Git 账号能访问的仓库（GitHub 或 Forgejo）。不传时用旧的 github.connection_id */
+                connectionId?: number;
             };
             header?: never;
             path?: never;
@@ -475,6 +709,8 @@ export interface operations {
             query?: {
                 /** @description 只看某个仓库，owner/name */
                 repo?: string;
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
             };
             header?: never;
             path?: never;
@@ -498,6 +734,8 @@ export interface operations {
         parameters: {
             query?: {
                 repo?: string;
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
                 limit?: components["parameters"]["Limit"];
             };
             header?: never;
@@ -520,7 +758,11 @@ export interface operations {
     };
     listGitHubIssues: {
         parameters: {
-            query?: never;
+            query?: {
+                repo?: string;
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -534,6 +776,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GitHubIssue"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listGitHubWatchedRepos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 关注的仓库 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchedRepo"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listGitHubCommits: {
+        parameters: {
+            query?: {
+                repo?: string;
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 提交 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubCommit"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listGitHubRunJobs: {
+        parameters: {
+            query: {
+                repo: string;
+                /** @description B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库） */
+                connectionId?: components["parameters"]["ConnectionQuery"];
+            };
+            header?: never;
+            path: {
+                runId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description job 和步骤 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubJob"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getGitHubNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 通知设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubNotifySettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putGitHubNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubNotifySettings"];
+            };
+        };
+        responses: {
+            /** @description 保存后的设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubNotifySettings"];
                 };
             };
             default: components["responses"]["Error"];
