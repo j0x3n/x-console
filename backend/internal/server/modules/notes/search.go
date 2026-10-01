@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/db"
 )
@@ -24,6 +25,7 @@ const (
 // listFilter is the input of listNotes.
 type listFilter struct {
 	Q        string
+	Kind     api.NoteKind
 	Tag      string
 	Pinned   *bool
 	Archived bool
@@ -34,6 +36,9 @@ type listFilter struct {
 
 // listNotes returns one page and the offset of the next page (0 when done).
 func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary, int, error) {
+	if f.Kind != "" && !f.Kind.Valid() {
+		return nil, 0, httpx.Invalid("笔记类型不正确")
+	}
 	if f.Limit <= 0 {
 		f.Limit = 50
 	}
@@ -86,6 +91,11 @@ func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary
 		out[i] = toSummary(n, tags[n.ID])
 		out[i].Thumbnail = thumbs[n.ID]
 		out[i].Shared = new(shared[n.ID])
+		if f.Kind == api.NoteKindMemo {
+			runes := []rune(n.Body)
+			out[i].Body = new(string(runes[:min(len(runes), 4000)]))
+			out[i].BodyTruncated = new(len(runes) > 4000)
+		}
 		if i < len(snippets) && snippets[i] != "" {
 			s := snippets[i]
 			out[i].Snippet = &s
@@ -106,6 +116,9 @@ func useFTS(terms []string) bool {
 
 func (m *Module) plainList(ctx context.Context, f listFilter) ([]db.Note, error) {
 	p := db.ListNotesParams{Archived: f.Archived, Hidden: boolInt(f.Hidden), Lim: int64(f.Limit + 1), Off: int64(f.Offset)}
+	if f.Kind != "" {
+		p.Kind = string(f.Kind)
+	}
 	if f.Pinned != nil {
 		p.Pinned = boolInt(*f.Pinned)
 	}
@@ -123,6 +136,10 @@ func filters(f listFilter) ([]string, []any) {
 		where = append(where, "n.pinned = ?")
 		args = append(args, boolInt(*f.Pinned))
 	}
+	if f.Kind != "" {
+		where = append(where, "n.kind = ?")
+		args = append(args, string(f.Kind))
+	}
 	if f.Tag != "" {
 		where = append(where, "n.id IN (SELECT note_id FROM note_tags WHERE tag = ?)")
 		args = append(args, f.Tag)
@@ -130,7 +147,7 @@ func filters(f listFilter) ([]string, []any) {
 	return where, args
 }
 
-const noteColumns = "n.id, n.title, n.body, n.pinned, n.archived_at, n.created_at, n.updated_at, n.hidden"
+const noteColumns = "n.id, n.title, n.body, n.pinned, n.archived_at, n.created_at, n.updated_at, n.hidden, n.kind, n.color"
 
 func (m *Module) ftsSearch(ctx context.Context, f listFilter, terms []string) ([]db.Note, []string, error) {
 	quoted := make([]string, len(terms))
@@ -173,7 +190,7 @@ func (m *Module) query(ctx context.Context, query string, args []any, withSnippe
 	var snippets []string
 	for rows.Next() {
 		var n db.Note
-		dest := []any{&n.ID, &n.Title, &n.Body, &n.Pinned, &n.ArchivedAt, &n.CreatedAt, &n.UpdatedAt, &n.Hidden}
+		dest := []any{&n.ID, &n.Title, &n.Body, &n.Pinned, &n.ArchivedAt, &n.CreatedAt, &n.UpdatedAt, &n.Hidden, &n.Kind, &n.Color}
 		var snip string
 		if withSnippet {
 			dest = append(dest, &snip)

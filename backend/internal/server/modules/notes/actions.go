@@ -8,10 +8,16 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 )
 
 func (m *Module) registerActions() {
 	m.registerExtraActions()
+	m.d.Actions.Register(actions.Action{
+		Name: "notes.list", Title: "列出笔记和便签", Description: "List notes or memos, optionally filtered by kind, tag, pinning or archive status.",
+		Input:  actions.Schema(`{"type":"object","properties":{"q":{"type":"string"},"tag":{"type":"string"},"kind":{"type":"string","enum":["note","memo"]},"pinned":{"type":"boolean"},"archived":{"type":"boolean"},"limit":{"type":"integer","minimum":1,"maximum":50}},"additionalProperties":false}`),
+		Effect: actions.Read, Run: m.actionSearch,
+	})
 	m.d.Actions.Register(actions.Action{
 		Name:  "notes.search",
 		Title: "搜索笔记",
@@ -20,6 +26,9 @@ func (m *Module) registerActions() {
 		Input: actions.Schema(`{"type":"object","properties":{
 			"q":{"type":"string"},
 			"tag":{"type":"string"},
+			"kind":{"type":"string","enum":["note","memo"]},
+			"pinned":{"type":"boolean"},
+			"archived":{"type":"boolean"},
 			"limit":{"type":"integer","minimum":1,"maximum":50}
 		},"additionalProperties":false}`),
 		Effect: actions.Read,
@@ -32,7 +41,8 @@ func (m *Module) registerActions() {
 		Input: actions.Schema(`{"type":"object","properties":{
 			"title":{"type":"string"},
 			"body":{"type":"string"},
-			"tags":{"type":"array","items":{"type":"string"}}
+			"tags":{"type":"array","items":{"type":"string"}},
+			"kind":{"type":"string","enum":["note","memo"]}
 		},"required":["body"],"additionalProperties":false}`),
 		Effect: actions.Write,
 		Run:    m.actionCreate,
@@ -62,9 +72,12 @@ func decodeInput(input json.RawMessage, v any) error {
 func (m *Module) actionSearch(ctx context.Context, input json.RawMessage) (any, error) {
 	ctx = auth.WithoutVault(ctx)
 	var in struct {
-		Q     string `json:"q"`
-		Tag   string `json:"tag"`
-		Limit int    `json:"limit"`
+		Q        string       `json:"q"`
+		Tag      string       `json:"tag"`
+		Kind     api.NoteKind `json:"kind"`
+		Pinned   *bool        `json:"pinned"`
+		Archived bool         `json:"archived"`
+		Limit    int          `json:"limit"`
 	}
 	if err := decodeInput(input, &in); err != nil {
 		return nil, err
@@ -72,7 +85,7 @@ func (m *Module) actionSearch(ctx context.Context, input json.RawMessage) (any, 
 	if in.Limit <= 0 || in.Limit > 50 {
 		in.Limit = 20
 	}
-	items, _, err := m.listNotes(auth.WithoutVault(ctx), listFilter{Q: in.Q, Tag: in.Tag, Limit: in.Limit})
+	items, _, err := m.listNotes(auth.WithoutVault(ctx), listFilter{Q: in.Q, Tag: in.Tag, Kind: in.Kind, Pinned: in.Pinned, Archived: in.Archived, Limit: in.Limit})
 	if err != nil {
 		return nil, err
 	}
@@ -88,9 +101,10 @@ func (m *Module) actionSearch(ctx context.Context, input json.RawMessage) (any, 
 
 func (m *Module) actionCreate(ctx context.Context, input json.RawMessage) (any, error) {
 	var in struct {
-		Title string   `json:"title"`
-		Body  string   `json:"body"`
-		Tags  []string `json:"tags"`
+		Title string       `json:"title"`
+		Body  string       `json:"body"`
+		Tags  []string     `json:"tags"`
+		Kind  api.NoteKind `json:"kind"`
 	}
 	if err := decodeInput(input, &in); err != nil {
 		return nil, err
@@ -98,7 +112,7 @@ func (m *Module) actionCreate(ctx context.Context, input json.RawMessage) (any, 
 	if strings.TrimSpace(in.Title) == "" && strings.TrimSpace(in.Body) == "" {
 		return nil, httpx.Invalid("笔记内容不能为空")
 	}
-	return m.createNote(auth.WithoutVault(ctx), in.Title, in.Body, in.Tags, false, false, false)
+	return m.createNote(auth.WithoutVault(ctx), in.Title, in.Body, in.Tags, false, false, false, in.Kind, "")
 }
 
 func (m *Module) actionAppend(ctx context.Context, input json.RawMessage) (any, error) {

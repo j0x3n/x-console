@@ -742,6 +742,8 @@ type Note struct {
 	Hidden        int64
 	SuggestedTags *string
 	AiCheckedHash *string
+	Kind          string
+	Color         string
 }
 
 type NoteAttachment struct {

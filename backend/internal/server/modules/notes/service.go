@@ -24,7 +24,7 @@ func toNote(n db.Note, tags []string) api.Note {
 		tags = []string{}
 	}
 	out := api.Note{Id: n.ID, Title: n.Title, Body: n.Body, Pinned: n.Pinned != 0, Hidden: hiddenField(n.Hidden), Tags: tags,
-		ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt}
+		ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt, Kind: new(api.NoteKind(n.Kind)), Color: new(api.NoteColor(n.Color))}
 	if n.SuggestedTags != nil {
 		var suggestions []string
 		if json.Unmarshal([]byte(*n.SuggestedTags), &suggestions) == nil && len(suggestions) > 0 {
@@ -39,7 +39,7 @@ func toSummary(n db.Note, tags []string) api.NoteSummary {
 		tags = []string{}
 	}
 	return api.NoteSummary{Id: n.ID, Title: n.Title, Excerpt: truncate(plainText(n.Body), 160), Pinned: n.Pinned != 0,
-		Hidden: hiddenField(n.Hidden), Tags: tags, ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt}
+		Hidden: hiddenField(n.Hidden), Tags: tags, ArchivedAt: n.ArchivedAt, CreatedAt: n.CreatedAt, UpdatedAt: n.UpdatedAt, Kind: new(api.NoteKind(n.Kind)), Color: new(api.NoteColor(n.Color))}
 }
 
 func boolInt(b bool) int64 {
@@ -107,8 +107,17 @@ func setTags(ctx context.Context, q *db.Queries, id int64, tags []string) error 
 
 // createNote adds a note. quick is the quick-note box (B67): the title and
 // tags are made right away, see scheduleNoteAI.
-func (m *Module) createNote(ctx context.Context, title, body string, tags []string, pinned, hidden, quick bool) (out api.Note, err error) {
+func (m *Module) createNote(ctx context.Context, title, body string, tags []string, pinned, hidden, quick bool, kind api.NoteKind, color api.NoteColor) (out api.Note, err error) {
 	defer func() { m.d.Audit.Record(ctx, "note.create", strconv.FormatInt(out.Id, 10), nil, err) }()
+	if kind == "" {
+		kind = api.NoteKindNote
+		if quick {
+			kind = api.NoteKindMemo
+		}
+	}
+	if !kind.Valid() {
+		return out, httpx.Invalid("笔记类型不正确")
+	}
 	if hidden {
 		if err = requireVault(ctx); err != nil {
 			return out, err
@@ -122,7 +131,7 @@ func (m *Module) createNote(ctx context.Context, title, body string, tags []stri
 	var id int64
 	err = m.tx(ctx, func(q *db.Queries) error {
 		n, err := q.CreateNote(ctx, db.CreateNoteParams{Title: strings.TrimSpace(title), Body: body,
-			Pinned: boolInt(pinned), Hidden: boolInt(hidden), CreatedAt: now, UpdatedAt: now})
+			Pinned: boolInt(pinned), Hidden: boolInt(hidden), CreatedAt: now, UpdatedAt: now, Kind: string(kind), Color: string(color)})
 		if err != nil {
 			return err
 		}
@@ -152,9 +161,14 @@ type notePatch struct {
 	Hidden   *bool
 	Archived *bool
 	Tags     *[]string
+	Kind     *api.NoteKind
+	Color    *api.NoteColor
 }
 
 func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api.Note, err error) {
+	if p.Kind != nil && !p.Kind.Valid() {
+		return out, httpx.Invalid("笔记类型不正确")
+	}
 	defer func() { m.d.Audit.Record(ctx, "note.update", strconv.FormatInt(id, 10), nil, err) }()
 	var tags []string
 	if p.Tags != nil {
@@ -190,6 +204,12 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 		if p.Body != nil {
 			n.Body = *p.Body
 		}
+		if p.Kind != nil {
+			n.Kind = string(*p.Kind)
+		}
+		if p.Color != nil {
+			n.Color = string(*p.Color)
+		}
 		if p.Pinned != nil {
 			n.Pinned = boolInt(*p.Pinned)
 		}
@@ -201,7 +221,7 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 			}
 		}
 		if err := q.UpdateNote(ctx, db.UpdateNoteParams{Title: n.Title, Body: n.Body, Pinned: n.Pinned,
-			ArchivedAt: n.ArchivedAt, Hidden: n.Hidden, UpdatedAt: now, ID: id}); err != nil {
+			ArchivedAt: n.ArchivedAt, Hidden: n.Hidden, UpdatedAt: now, Kind: n.Kind, Color: n.Color, ID: id}); err != nil {
 			return err
 		}
 		if n.Hidden != 0 {
@@ -332,7 +352,7 @@ func (m *Module) tagCounts(ctx context.Context, hidden bool) ([]api.TagCount, er
 	}
 	out := make([]api.TagCount, len(rows))
 	for i, r := range rows {
-		out[i] = api.TagCount{Tag: r.Tag, Count: int(r.Count)}
+		out[i] = api.TagCount{Tag: r.Tag, Count: int(r.Count), MemoCount: new(int(r.MemoCount))}
 		if r.Color != "" {
 			out[i].Color = &r.Color
 		}

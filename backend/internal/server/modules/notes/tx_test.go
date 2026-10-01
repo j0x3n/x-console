@@ -23,7 +23,7 @@ func TestConcurrentUpdatesOnFileDB(t *testing.T) {
 	}
 	defer conn.Close()
 	now := time.Now().UTC()
-	n, err := db.New(conn).CreateNote(ctx, db.CreateNoteParams{Body: "start", CreatedAt: now, UpdatedAt: now})
+	n, err := db.New(conn).CreateNote(ctx, db.CreateNoteParams{Body: "start", Kind: "note", CreatedAt: now, UpdatedAt: now})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestConcurrentUpdatesOnFileDB(t *testing.T) {
 					return err
 				}
 				return q.UpdateNote(ctx, db.UpdateNoteParams{Title: note.Title, Body: note.Body + " 追加", Pinned: note.Pinned,
-					UpdatedAt: time.Now().UTC(), ID: n.ID}) // then write
+					UpdatedAt: time.Now().UTC(), Kind: note.Kind, Color: note.Color, ID: n.ID}) // then write
 			})
 		}()
 	}

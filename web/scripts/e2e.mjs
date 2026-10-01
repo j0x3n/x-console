@@ -518,6 +518,30 @@ try {
     assert.equal((await fetch(publicBase)).status, 404);
   }
 
+  stage = "B73 便签 API 主流程";
+  {
+    const created = await page.context().request.post(`${base}/api/v1/notes`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { title: "便签主流程", body: "便签检索主流程", kind: "memo", tags: ["便签主流程"] },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    const memo = await created.json();
+    assert.equal(memo.kind, "memo");
+    const listed = await api("/notes?kind=memo&tag=" + encodeURIComponent("便签主流程"));
+    assert.equal(listed.items[0].body, memo.body);
+    assert.ok((await api("/notes/counts")).memos > 0);
+    const converted = await page.context().request.patch(`${base}/api/v1/notes/${memo.id}`, {
+      headers: { "X-Requested-With": "x-console" }, data: { kind: "note" },
+    });
+    assert.equal(converted.status(), 200, await converted.text());
+    assert.equal((await converted.json()).kind, "note");
+    assert.equal((await api("/notes?kind=memo&tag=" + encodeURIComponent("便签主流程"))).items.length, 0);
+    const removed = await page.context().request.delete(`${base}/api/v1/notes/${memo.id}`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(removed.status(), 204, await removed.text());
+  }
+
   stage = "新建提醒";
   await page.goto(`${base}/reminders`);
   await page
