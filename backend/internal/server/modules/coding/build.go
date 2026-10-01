@@ -236,14 +236,20 @@ func (m *Module) building(id int64) bool {
 	return ok
 }
 
+// releaseBuild frees the build slot of the task if it still holds this run.
+// A later build of the same task keeps its own slot.
+func (m *Module) releaseBuild(run *taskRun) {
+	m.mu.Lock()
+	if m.builds[run.id] == run {
+		delete(m.builds, run.id)
+	}
+	m.mu.Unlock()
+}
+
 // consumeBuild stores the build output and records the result.
 func (m *Module) consumeBuild(ctx context.Context, run *taskRun, row taskRow, limit time.Duration) {
 	defer m.wg.Done()
-	defer func() {
-		m.mu.Lock()
-		delete(m.builds, run.id)
-		m.mu.Unlock()
-	}()
+	defer m.releaseBuild(run)
 	events := make(chan protocol.CodingEvent, 256)
 	go func() {
 		defer close(events)
@@ -301,6 +307,9 @@ loop:
 		return
 	}
 	m.flush(ctx, run, pending)
+	// The task reads as building until its result is stored, so free the
+	// slot first: a commit right after the result shows must not get 409.
+	m.releaseBuild(run)
 	switch {
 	case done == nil:
 		m.finishBuild(ctx, row, buildFailed, "代理没有报告构建结果就断开了。", nil, tail)
