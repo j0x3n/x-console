@@ -27,22 +27,18 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 | B43 | 完成 | 设置 → 远程访问；后端 `auth/tokens.go`、`modules/mcp`。网页版 AI 的 OAuth 没做，记在“已知问题” |
 | B47 | 完成 | 6 步都做完了，没做的部分记在 `docs/tasks.md`“已知问题” |
 
-## 当前（2026-10-01 额度用完时的状态）
+## 当前（2026-10-01）
 
-**部署**：`92acccf` 带部署标记推送了，运行记录 https://github.com/j0x3n/x-console/actions/runs/36851153881 。前端测试和镜像已过，后端测试还在跑。接手后先看它成没成功；失败就看日志修好，再带部署标记推送到 `develop`。成功后让用户在 iPhone 上测 B45（`?safari=A` 到 `F`、`all`、`off`）。
+**部署**：`92acccf` 那次已经成功。运行记录 https://github.com/j0x3n/x-console/actions/runs/36851153881 。前端、后端、镜像、两个代理、部署都过了。请用户在 iPhone 上测 B45（`?safari=A` 到 `F`、`all`、`off`）。
 
-**用户要求“都改”：让部署更快，三件事都做。**
+**部署提速三件事都做了**（还没带部署标记推上去，所以线上 CI 还没跑到这版）。
 
-1. 部署时后端测试不带 `-race`，PR 检查里保留。改法：`.github/workflows/ci.yml` 加 `workflow_call` 输入 `race`（布尔，默认 true），`go test` 那步按它决定加不加 `-race`；`deploy.yml` 的 `test` 任务传 `race: false`。还没做。
-2. 后端测试拆成 2 到 3 个任务同时跑（matrix 按包分组）。生成代码检查、gofmt、vet、shellcheck、Windows 编译放进单独一个任务，只跑一次。还没做。参考数据（本地 4 核、不带 race）：drive 21 秒、hosts 13、ai 13、app 12、coding 11、notes 10、projects 9，其余都在 7 秒以下，全部加起来约 180 秒。
-3. 测试提速：已经写了，但**还没提交、没跑完测试**。
-   - 原因：带 `-race` 时每次新建测试环境要 3.6 秒，其中建表（跑迁移）占 2.8 到 3.2 秒；不带 race 时一共只要 0.46 秒。
-   - 改法：`store` 加 `Snapshot`、`OpenSnapshot`（用 modernc sqlite 的 Serialize/Deserialize）。`testutil.openDB` 每个测试进程只迁移一次，之后的测试都从这份快照复制。`store_test.go` 加了 `TestSnapshotCopiesAMigratedDatabase`，已经通过。
-   - 接手要做：跑 `go test -race ./...` 全量确认通过，比较改前改后的用时（改前本地全量带 race 约 3 分 40 秒）。然后提交，提交信息以“C”开头记成清理任务，并在 `docs/tasks.md`“接口变更记录”里记下 `store.Snapshot`、`store.OpenSnapshot`。
-   - 别的包里还有直接调 `store.Open(":memory:")` 的测试（`app`、`settings`、`projects/due_test.go`），数量少，可以不改。
-4. 三件都做完后，把 AGENTS.md“小修”一节里的测试用时更新成新的实测值。
+1. `ci.yml` 的 `workflow_call` 加了输入 `race`（布尔，默认 true）。PR 和手动运行不传这个值，测试仍然带 `-race`。`deploy.yml` 的 `test` 任务传 `race: false`。
+2. 后端拆成两个任务。`backend-check` 只跑一次：生成代码、gofmt、vet、shellcheck、本机代理脚本、Windows 编译。`backend-test` 三组同时跑。第一组是 drive、hosts、ai、github、monitoring、homeassistant、reminders。第二组是 app、backup、coding、notes、projects、store。第三组用 `go list` 取剩下的包，新包不会漏。分组按这次带 `-race` 的包用时摊开。
+3. 快照复制已经在 `5450571`。Linux 容器里 `go test -race ./...` 通过，用时 3 分 33 秒，含第一次编译。改前本机全量带 `-race` 约 3 分 40 秒。`docs/tasks.md` 接口变更记录已写上 `store.Snapshot`、`store.OpenSnapshot`。直接 `store.Open(":memory:")` 的测试没改。
+4. `AGENTS.md`“小修”一节的用时已改成这次的实测。
 
-**之前约好的检查**：send_later 触发器 `trig_01DNcSTU2wAcFNEuTbAiwUE9` 会在 11:02 UTC 发消息回原会话检查部署结果。换了会话的话忽略它。
+**之前约好的检查**：send_later 触发器 `trig_01DNcSTU2wAcFNEuTbAiwUE9` 会在 11:02 UTC 发消息回原会话。部署结果已经在上面，换了会话就忽略它。
 
 B47 的设计取舍（和规格不同的地方）：
 - 构建产物存在 coding 模块自己的文件存储里（`artifacts/<任务 id>/`），在任务详情里下载，不进云盘的目录。云盘的目录有自己的数据库索引，要写进去得加一个云盘接口，这次没做。

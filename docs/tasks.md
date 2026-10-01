@@ -289,6 +289,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-01 | `store` 加 `Snapshot`、`OpenSnapshot`（把已经迁移好的内存库复制出来）。`testutil.openDB` 每个测试进程只迁移一次，后面的测试从这份快照复制。测试里直接调用 `store.Open(":memory:")` 的没有改 | 带 -race 时每次迁移要几秒 |
 | 2026-09-30 | 项目改成多看板：新表 `project_boards`、`board_lists`、`issue_members`、`issue_activity`，`issues` 加 `board_id`、`list_id`、`archived_at`、`cover_file_id`；`POST /issues/{key}/move` 可以只传 `listId`（`status` 变成可选）；`Issue` 加 `boardId`、`listId`、`archivedAt`、`members`、`commentCount`；归档的卡片不出现在列表、到期提醒和提醒页里；B36 的分类界面去掉，接口保留；界面上 Issue 改叫“卡片” | B46 多看板 |
 | 2026-10-01 | 认证中间件只在 `/api/v1/mcp` 上接受 `Authorization: Bearer xc_…` 的 API 令牌，别的路径照旧（代理的 `/agent/connect` 也用 Bearer，不受影响）；`auth.Session` 加 `Token *TokenInfo`，`auth.TokenFrom(ctx)` 取令牌；`actions` 加 `Module`、`Deletes`、`AllowedFor`（危险动作和别名永远不开放）；新模块 `mcp`：`/api-tokens` 增删查、`/api-tokens/tools`、`/api-tokens/calls`、`POST /mcp`；设置加“远程访问”页签 | B43 远程 AI 操作 |
 | 2026-10-01 | 新模块 `aiagents`：表 `ai_agents`、`git_connections`；`coding_repos` 加 `connection_id`、`owner`、`repo`、`clone_url`、`build_config`，`coding_tasks` 加 `ai_agent_id`、`model`、`permission`、`build_status`、`build_attempts`、`artifacts`，`issue_comments` 加 `author`（这两个 id 列没加外键，删除时由代码置空）；新接口在 `contracts/aiagents.go`：`GitConnections`、`AIAgents`、`GitHubCredentials`（GitHub 模块提供） | B47 Agent 管理 |
