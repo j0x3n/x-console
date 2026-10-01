@@ -35,6 +35,12 @@ export const moduleKeys = { available: ["app", "modules"] as const };
 
 /** 地址属于哪个模块。今日页、设置这类不属于可隐藏模块的返回 null。 */
 export function moduleOfPath(pathname: string): ModuleId | null {
+  // 早报的地址在 /calendar 下面，但属于今日页，不跟着日程隐藏（B66）
+  if (
+    pathname === "/calendar/briefs" ||
+    pathname.startsWith("/calendar/briefs/")
+  )
+    return null;
   const first = pathname.split("/")[1] ?? "";
   return (ALL_MODULES as string[]).includes(first) ? (first as ModuleId) : null;
 }

@@ -139,7 +139,7 @@ export default function Sidebar({
                         setMobileOpen(false);
                       }}
                       className={({ isActive }) =>
-                        `nav-item ${isActive ? "selected" : ""}${Children ? " has-children" : ""}`
+                        `nav-item ${selectedFor(item.path, isActive, location.pathname) ? "selected" : ""}${Children ? " has-children" : ""}`
                       }
                     >
                       <item.icon size={17} strokeWidth={1.5} />
@@ -307,3 +307,9 @@ const nextThemeMode = {
 } as const;
 
 const themeModeLabels = { dark: "On", light: "Off", system: "Auto" } as const;
+
+/** 早报的地址在 /calendar 下面，但属于今日页（B66）：这时高亮“今日”。 */
+function selectedFor(path: string, isActive: boolean, pathname: string) {
+  if (pathname.startsWith("/calendar/briefs")) return path === "/";
+  return isActive;
+}

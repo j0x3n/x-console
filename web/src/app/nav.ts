@@ -39,7 +39,7 @@ export const navItems: NavItem[] = [
   { path: "/drive", label: "Drive", icon: HardDrive, group: "personal" },
   {
     path: "/calendar",
-    label: "Calendar",
+    label: "Schedule & focus",
     icon: CalendarDays,
     group: "personal",
   },

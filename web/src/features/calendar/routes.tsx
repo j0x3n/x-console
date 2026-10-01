@@ -14,7 +14,7 @@ registerNavChildren("/calendar", CalendarNavChildren);
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const CalendarShell = lazy(() => import("./CalendarShell"));
 const CalendarView = lazy(() => import("./CalendarView"));
-const BriefsPage = lazy(() => import("./BriefsPage"));
+const BriefsRoute = lazy(() => import("./BriefsRoute"));
 const FocusPage = lazy(() => import("./FocusPage"));
 const CalendarsManager = lazy(() => import("./CalendarsManager"));
 
@@ -39,7 +39,8 @@ registerCommands([
   {
     id: "calendar.brief",
     title: "查看早报",
-    group: "日历",
+    // 早报属于今日页（B66）：日程被隐藏时它还在
+    group: "今日",
     icon: Newspaper,
     keywords: "brief morning daily weather",
     run: ({ navigate }) => navigate("/calendar/briefs"),
@@ -55,13 +56,18 @@ registerCommands([
 ]);
 
 export const routes: RouteObject[] = [
+  // 早报挂在今日下面（B66），所以单独一条路由，标题是 My day
+  {
+    path: "calendar/briefs",
+    element: <BriefsRoute />,
+    handle: { title: "My day" },
+  },
   {
     path: "calendar",
     element: <CalendarShell />,
-    handle: { title: "Calendar" },
+    handle: { title: "Schedule & focus" },
     children: [
       { index: true, element: <CalendarView /> },
-      { path: "briefs", element: <BriefsPage /> },
       { path: "focus", element: <FocusPage /> },
       { path: "calendars", element: <CalendarsManager /> },
     ],

@@ -8,6 +8,11 @@ describe("模块归属（B57）", () => {
     expect(moduleOfPath("/")).toBeNull();
     expect(moduleOfPath("/settings/security")).toBeNull();
   });
+  it("早报属于今日页，不跟着日程隐藏（B66）", () => {
+    expect(moduleOfPath("/calendar/briefs")).toBeNull();
+    expect(moduleOfPath("/calendar/focus")).toBe("calendar");
+    expect(moduleOfCommandGroup("今日")).toBeNull();
+  });
   it("按命令分组认模块", () => {
     expect(moduleOfCommandGroup("笔记")).toBe("notes");
     expect(moduleOfCommandGroup("Issue")).toBe("projects");

@@ -3,6 +3,8 @@ import { registerZh } from "../../lib/i18n";
 registerZh({
   // 标签
   Schedule: "日程",
+  // 左栏模块名（B66）。不改 Calendar 的中文，别处还在用“日历”
+  "Schedule & focus": "日程",
   "Daily brief": "早报",
   Focus: "专注",
   Calendars: "日历管理",

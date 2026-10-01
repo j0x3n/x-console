@@ -1,12 +1,14 @@
 import { MailCard, MonitoringCard } from "./components/ExtraCards";
 import { useModules, type ModuleId } from "../../app/modules";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import {
   ChevronDown,
   ChevronUp,
   Eye,
   EyeOff,
   GripVertical,
+  Newspaper,
   Pencil,
   X,
 } from "lucide-react";
@@ -169,12 +171,17 @@ export default function TodayPage() {
               </button>
             </>
           ) : (
-            <button
-              className="xc-btn small ghost"
-              onClick={() => setDraft(cards)}
-            >
-              <Pencil size={14} /> {t("Edit layout")}
-            </button>
+            <>
+              <Link className="xc-btn small ghost" to="/calendar/briefs">
+                <Newspaper size={14} /> {t("Daily brief")}
+              </Link>
+              <button
+                className="xc-btn small ghost"
+                onClick={() => setDraft(cards)}
+              >
+                <Pencil size={14} /> {t("Edit layout")}
+              </button>
+            </>
           )
         }
         meta={

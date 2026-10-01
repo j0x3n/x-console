@@ -5,13 +5,12 @@ import { Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 
 const tabs = [
-  { to: "/calendar", label: "Schedule", end: true },
-  { to: "/calendar/briefs", label: "Daily brief", end: false },
+  { to: "/calendar", label: "Calendar", end: true },
   { to: "/calendar/focus", label: "Focus", end: false },
   { to: "/calendar/calendars", label: "Calendars", end: false },
 ];
 
-/** 日历模块的外框：标题和四个标签。 */
+/** 日程模块的外框：标题和三个标签。早报不在这里，见 BriefsRoute（B66）。 */
 export default function CalendarShell() {
   const t = useT();
   const language = useLanguage();
@@ -26,7 +25,7 @@ export default function CalendarShell() {
   );
   return (
     <div className="xc-page calendar-page">
-      <PageHeading title={t("Calendar")} subtitle={today} />
+      <PageHeading title={t("Schedule & focus")} subtitle={today} />
       <nav className="xc-tabs">
         {tabs.map((tab) => (
           <NavLink
