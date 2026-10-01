@@ -130,6 +130,11 @@ func (m *Module) PutDriveS3Config(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, httpx.Invalid("密钥不能为空"))
 		return
 	}
+	// A queued sync could take runMu right after the running one is
+	// canceled and upload again; configuring makes it return at once.
+	m.syncMu.Lock()
+	m.configuring++
+	m.syncMu.Unlock()
 	m.cancelSync()
 	m.runMu.Lock()
 	err = func() error {
@@ -149,6 +154,9 @@ func (m *Module) PutDriveS3Config(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}()
 	m.runMu.Unlock()
+	m.syncMu.Lock()
+	m.configuring--
+	m.syncMu.Unlock()
 	if fail(w, r, err) {
 		return
 	}
@@ -273,6 +281,11 @@ func (m *Module) syncAll(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	m.syncMu.Lock()
+	if m.configuring > 0 {
+		// The settings are being saved; the save starts a new run.
+		m.syncMu.Unlock()
+		return nil
+	}
 	m.syncCancel = cancel
 	m.syncMu.Unlock()
 	defer func() {
