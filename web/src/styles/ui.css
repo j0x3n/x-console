@@ -1388,6 +1388,28 @@ a.xc-badge:hover {
 .topbar .breadcrumbs > * {
   flex: none;
 }
+/* 设备状态：小点，离线时后面跟一行字 */
+.topbar .breadcrumbs > .breadcrumb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.breadcrumb-status small {
+  font-size: var(--fs-12);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.breadcrumb-status.danger small {
+  color: var(--xc-danger);
+}
+.breadcrumb-status.warn small {
+  color: var(--xc-warn);
+}
+@media (max-width: 720px) {
+  .breadcrumb-status small {
+    display: none;
+  }
+}
 /* 当前页名字放不下时省略，不被右边的按钮压住（B55） */
 .topbar .breadcrumbs > .breadcrumb-detail,
 .topbar .breadcrumbs > [aria-current="page"] {

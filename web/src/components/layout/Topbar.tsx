@@ -115,7 +115,13 @@ export default function Topbar({
             </span>
           </>
         )}
-        {status && <span className={`xc-dot ${status}`} title={statusLabel} />}
+        {status && (
+          // 离线、异常时把状态直接写在小点后面，不用悬停才看得到
+          <span className={`breadcrumb-status ${status}`} title={statusLabel}>
+            <span className={`xc-dot ${status}`} />
+            {status !== "ok" && statusLabel && <small>{statusLabel}</small>}
+          </span>
+        )}
         {!connected && (
           <span
             className="xc-dot warn breadcrumb-offline"

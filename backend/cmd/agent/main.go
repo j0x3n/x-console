@@ -61,6 +61,7 @@ func main() {
 	case "pair":
 		err = pair(args)
 	case "run":
+		hideOwnConsole() // 任务计划启动时不显示黑窗口
 		err = run(args)
 	case "version":
 		fmt.Println(Version)
