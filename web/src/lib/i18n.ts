@@ -93,6 +93,18 @@ registerZh({
   Close: "关闭",
   Image: "图片",
   "Open original": "打开原图",
+  "AI polish": "AI 润色",
+  "Leave it empty to fix wording and layout automatically.":
+    "不填就自动改错字、整理格式和排版。",
+  "Polish instructions": "润色要求",
+  "Optional. For example: turn it into a bullet list":
+    "可以不填。比如：改成要点列表",
+  "Polished text": "润色结果",
+  "Polishing…": "正在润色…",
+  "Start polishing": "开始润色",
+  "Polish again": "重新润色",
+  "Replace text": "替换正文",
+  "Write something first": "先写点内容",
   "Previous image": "上一张",
   "Next image": "下一张",
   Confirm: "确认",

@@ -1035,26 +1035,6 @@
 .notes-modes button {
   white-space: nowrap;
 }
-.notes-polish-result {
-  max-height: 46vh;
-  margin: 4px 0 12px;
-  padding: 12px 14px;
-  overflow: auto;
-  border: 1px solid var(--xc-border);
-  border-radius: 10px;
-  background: var(--xc-surface);
-}
-.notes-polish .xc-btn svg {
-  margin-right: 4px;
-}
-.notes-spin {
-  animation: notes-spin 1s linear infinite;
-}
-@keyframes notes-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 @media (max-width: 760px) {
   .notes-edit-btn span,
   .notes-done-btn span {

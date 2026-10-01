@@ -77,7 +77,7 @@ import {
 } from "../logic";
 import ToIssueDialog from "./ToIssueDialog";
 import ToReminderDialog from "./ToReminderDialog";
-import PolishDialog from "./PolishDialog";
+import PolishDialog from "../../../components/markdown/PolishDialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 interface Draft {
@@ -727,7 +727,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
               >
                 <Sparkles
                   size={15}
-                  className={ai.title.isPending ? "notes-spin" : ""}
+                  className={ai.title.isPending ? "xc-spin" : ""}
                 />
               </button>
             </div>
@@ -785,7 +785,7 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
                   >
                     <Sparkles
                       size={13}
-                      className={ai.tags.isPending ? "notes-spin" : ""}
+                      className={ai.tags.isPending ? "xc-spin" : ""}
                     />
                   </button>
                 )}
@@ -929,7 +929,8 @@ function EditorBody({ note, backTo }: { note: Note; backTo: string }) {
       )}
       {polishing && (
         <PolishDialog
-          body={draft.body}
+          text={draft.body}
+          scene="note"
           onApply={applyPolish}
           onClose={() => setPolishing(false)}
         />

@@ -326,6 +326,22 @@
     transform: rotate(360deg);
   }
 }
+.xc-spin {
+  animation: xc-spin 1s linear infinite;
+}
+/* AI 润色弹窗（B56，components/markdown/PolishDialog） */
+.xc-polish-result {
+  max-height: 46vh;
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: 10px;
+  background: var(--xc-surface);
+}
+.xc-polish .xc-btn svg {
+  margin-right: 4px;
+}
 
 /* 弹窗 */
 .xc-dialog {

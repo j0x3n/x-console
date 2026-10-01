@@ -159,6 +159,7 @@ export default function AssignDialog({
           <div className="xc-field">
             <span>{t("Extra notes")}</span>
             <MarkdownEditor
+              polish="task"
               label={t("Extra notes")}
               value={note}
               onChange={setNote}

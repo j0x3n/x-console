@@ -6,6 +6,7 @@ import {
   type DragEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Bold,
   Code,
@@ -20,11 +21,14 @@ import {
   Minus,
   Pencil,
   Quote,
+  WandSparkles,
 } from "lucide-react";
 import { errorMessage, isNotLive } from "../../api/client";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import Markdown from "./Markdown";
+import PolishDialog from "./PolishDialog";
+import type { PolishScene } from "./polish";
 import { toggleTask } from "./mdparse";
 import {
   insertBlock,
@@ -57,6 +61,8 @@ interface MarkdownEditorProps {
   extra?: ReactNode;
   /** 传了就能粘贴、拖入、选择图片，上传到公共文件接口的这个分类下 */
   uploadScope?: UploadScope;
+  /** 传了就有“AI 润色”按钮，按这个场景用不同的提示词（B56） */
+  polish?: PolishScene;
 }
 
 /**
@@ -73,12 +79,14 @@ export default function MarkdownEditor({
   onSubmit,
   extra,
   uploadScope,
+  polish,
 }: MarkdownEditorProps) {
   const t = useT();
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState(false);
   const [uploading, setUploading] = useState(0);
+  const [polishing, setPolishing] = useState(false);
   const valueRef = useRef(value);
   valueRef.current = value;
 
@@ -293,6 +301,21 @@ export default function MarkdownEditor({
           <span className="xc-mde-status">{t("Uploading…")}</span>
         )}
         {extra}
+        {polish && (
+          <button
+            type="button"
+            title={t("AI polish")}
+            aria-label={t("AI polish")}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() =>
+              valueRef.current.trim()
+                ? setPolishing(true)
+                : toast(t("Write something first"))
+            }
+          >
+            <WandSparkles size={15} />
+          </button>
+        )}
         <button
           type="button"
           className="xc-mde-mode"
@@ -355,6 +378,29 @@ export default function MarkdownEditor({
           }}
         />
       )}
+      {polishing &&
+        polish &&
+        // 挂到 body 上：编辑框常在别的弹窗里，避免被外层的定位和表单影响
+        createPortal(
+          // 按键不冒泡到外层：外层弹窗按 Esc 会关掉，卡片描述按 Esc 会放弃修改
+          <div
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape") setPolishing(false);
+            }}
+          >
+            <PolishDialog
+              text={valueRef.current}
+              scene={polish}
+              onApply={(text) => {
+                change(text);
+                setPolishing(false);
+              }}
+              onClose={() => setPolishing(false)}
+            />
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

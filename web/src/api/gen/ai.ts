@@ -295,6 +295,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/polish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B56。用快速模型润色一段 Markdown，只返回结果，不保存。按 scene 用不同的提示词。 */
+        post: operations["polishText"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/usage": {
         parameters: {
             query?: never;
@@ -407,6 +424,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description B56。润色的场景，决定提示词：
+         *     note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
+         *     task 交给 Agent 的任务，写成目标、改动、验收标准；reminder 提醒备注；
+         *     event 日程备注；general 其他
+         * @enum {string}
+         */
+        PolishScene: "note" | "card" | "comment" | "task" | "reminder" | "event" | "general";
+        PolishRequest: {
+            /** @description 最多 20000 字 */
+            text: string;
+            scene: components["schemas"]["PolishScene"];
+            /** @description 用户自己写的要求，比如“改成要点列表” */
+            prompt?: string;
+        };
+        PolishResult: {
+            text: string;
+        };
         Conversation: {
             /** Format: int64 */
             id: number;
@@ -1256,6 +1291,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiModelSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    polishText: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolishRequest"];
+            };
+        };
+        responses: {
+            /** @description 润色后的文字 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolishResult"];
                 };
             };
             default: components["responses"]["Error"];

@@ -240,6 +240,39 @@ func (e PendingActionStatus) Valid() bool {
 	}
 }
 
+// Defines values for PolishScene.
+const (
+	Card     PolishScene = "card"
+	Comment  PolishScene = "comment"
+	Event    PolishScene = "event"
+	General  PolishScene = "general"
+	Note     PolishScene = "note"
+	Reminder PolishScene = "reminder"
+	Task     PolishScene = "task"
+)
+
+// Valid indicates whether the value is a known member of the PolishScene enum.
+func (e PolishScene) Valid() bool {
+	switch e {
+	case Card:
+		return true
+	case Comment:
+		return true
+	case Event:
+		return true
+	case General:
+		return true
+	case Note:
+		return true
+	case Reminder:
+		return true
+	case Task:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReasoningEffort.
 const (
 	High   ReasoningEffort = "high"
@@ -698,6 +731,32 @@ type PendingActionEffect string
 // PendingActionStatus defines model for PendingAction.Status.
 type PendingActionStatus string
 
+// PolishRequest defines model for PolishRequest.
+type PolishRequest struct {
+	// Prompt 用户自己写的要求，比如“改成要点列表”
+	Prompt *string `json:"prompt,omitempty"`
+
+	// Scene B56。润色的场景，决定提示词：
+	// note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
+	// task 交给 Agent 的任务，写成目标、改动、验收标准；reminder 提醒备注；
+	// event 日程备注；general 其他
+	Scene PolishScene `json:"scene"`
+
+	// Text 最多 20000 字
+	Text string `json:"text"`
+}
+
+// PolishResult defines model for PolishResult.
+type PolishResult struct {
+	Text string `json:"text"`
+}
+
+// PolishScene B56。润色的场景，决定提示词：
+// note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
+// task 交给 Agent 的任务，写成目标、改动、验收标准；reminder 提醒备注；
+// event 日程备注；general 其他
+type PolishScene string
+
 // ReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
 type ReasoningEffort string
 
@@ -827,6 +886,9 @@ type PutAiModelSettingsJSONRequestBody = AiModelSettingsInput
 
 // SetAiModelSpecJSONRequestBody defines body for SetAiModelSpec for application/json ContentType.
 type SetAiModelSpecJSONRequestBody = AiModelSpecInput
+
+// PolishTextJSONRequestBody defines body for PolishText for application/json ContentType.
+type PolishTextJSONRequestBody = PolishRequest
 
 // CreateAiProviderJSONRequestBody defines body for CreateAiProvider for application/json ContentType.
 type CreateAiProviderJSONRequestBody = AiProviderInput
@@ -1072,6 +1134,9 @@ type ServerInterface interface {
 	// (GET /ai/models)
 	ListAiModels(w http.ResponseWriter, r *http.Request, params ListAiModelsParams)
 
+	// (POST /ai/polish)
+	PolishText(w http.ResponseWriter, r *http.Request)
+
 	// (GET /ai/providers)
 	ListAiProviders(w http.ResponseWriter, r *http.Request)
 
@@ -1192,6 +1257,11 @@ func (_ Unimplemented) SetAiModelSpec(w http.ResponseWriter, r *http.Request) {
 
 // (GET /ai/models)
 func (_ Unimplemented) ListAiModels(w http.ResponseWriter, r *http.Request, params ListAiModelsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/polish)
+func (_ Unimplemented) PolishText(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1627,6 +1697,20 @@ func (siw *ServerInterfaceWrapper) ListAiModels(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAiModels(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PolishText operation middleware
+func (siw *ServerInterfaceWrapper) PolishText(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PolishText(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2245,6 +2329,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/ai/model-settings", wrapper.PutAiModelSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/polish", wrapper.PolishText)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/usage", wrapper.GetAiUsage)

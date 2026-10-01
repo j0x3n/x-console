@@ -98,3 +98,42 @@ describe("MarkdownEditor image paste", () => {
     expect(latest).toBe("开头");
   });
 });
+
+describe("AI 润色（B56）", () => {
+  it("按场景润色，替换后改掉编辑框内容，Esc 不影响外层", async () => {
+    const calls: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        calls.push(JSON.parse(String(init.body)));
+        return new Response(JSON.stringify({ text: "润色后" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+    const outer = vi.fn();
+    function Polished() {
+      const [value, setValue] = useState("原来的");
+      latest = value;
+      return (
+        <div onKeyDown={outer}>
+          <MarkdownEditor
+            label="描述"
+            value={value}
+            onChange={setValue}
+            polish="card"
+          />
+        </div>
+      );
+    }
+    render(<Polished />);
+    fireEvent.click(screen.getByRole("button", { name: "AI 润色" }));
+    fireEvent.keyDown(screen.getByLabelText("润色要求"), { key: "a" });
+    expect(outer).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /开始润色/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "替换正文" }));
+    await waitFor(() => expect(latest).toBe("润色后"));
+    expect(calls[0]).toEqual({ text: "原来的", scene: "card" });
+  });
+});

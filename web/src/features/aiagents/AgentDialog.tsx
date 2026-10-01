@@ -219,6 +219,7 @@ export default function AgentDialog({
         <div className="xc-field">
           <span>{t("Instructions")}</span>
           <MarkdownEditor
+            polish="general"
             label={t("Instructions")}
             value={instructions}
             onChange={setInstructions}

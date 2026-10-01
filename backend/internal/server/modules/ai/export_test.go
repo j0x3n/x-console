@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 	"time"
 )
@@ -21,3 +22,8 @@ func UsageCostForTest(input, cached, cacheWrite, output int64, in, out, read, wr
 
 // SetLLMForTest replaces the call boundary, for example with llm.NewFake (B47).
 func (m *Module) SetLLMForTest(c llm.Client) { m.llm = c }
+
+// PolishPromptForTest exposes the B56 prompt builder.
+func PolishPromptForTest(scene, request string) (string, bool) {
+	return polishPrompt(api.PolishScene(scene), request)
+}

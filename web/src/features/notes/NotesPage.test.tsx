@@ -65,8 +65,7 @@ const calls = vi.hoisted(() => {
     if (path === "/notes" && req.method === "POST")
       return json({ ...note, id: 2, hidden: true });
     if (path === "/notes/tags") return json([{ tag: "work", count: 1 }]);
-    if (path === "/notes/ai/polish")
-      return json({ body: "# 第一行\n\n- 润色后" });
+    if (path === "/ai/polish") return json({ text: "# 第一行\n\n- 润色后" });
     if (path === "/notes/ai/title") return json({ title: "AI 标题" });
     if (path === "/notes/1" && req.method === "GET") return json(note);
     if (path === "/notes/1" && req.method === "PATCH") {
@@ -204,9 +203,10 @@ describe("NotesPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "替换正文" }));
     const body = screen.getByLabelText("笔记") as HTMLTextAreaElement;
     expect(body.value).toBe("# 第一行\n\n- 润色后");
-    expect(
-      calls.find((c) => c.path === "/notes/ai/polish")?.body,
-    ).toMatchObject({ prompt: "改成列表" });
+    expect(calls.find((c) => c.path === "/ai/polish")?.body).toMatchObject({
+      scene: "note",
+      prompt: "改成列表",
+    });
     fireEvent.click(screen.getByRole("button", { name: "用 AI 生成标题" }));
     await waitFor(() =>
       expect(

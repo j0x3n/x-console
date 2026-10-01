@@ -281,6 +281,7 @@ function Description({
       }}
     >
       <MarkdownEditor
+        polish="card"
         uploadScope="projects"
         label={t("Description")}
         value={value}
@@ -751,6 +752,7 @@ function Comments({ issueKey }: { issueKey: string }) {
         }}
       >
         <MarkdownEditor
+          polish="comment"
           uploadScope="projects"
           label={t("Comment")}
           value={body}

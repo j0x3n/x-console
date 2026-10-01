@@ -37,6 +37,7 @@ const SOURCES: Record<string, string> = {
   automation: "Automations",
   coding: "Agent tasks",
   mcp: "Remote AI",
+  polish: "AI polish",
   "": "Other",
 };
 
