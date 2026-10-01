@@ -50,6 +50,20 @@ export const cardDefs: CardDef[] = [
     weight: 2,
     module: "home",
   },
+  {
+    id: "mail",
+    title: "Mail",
+    column: "side",
+    weight: 2,
+    module: "mail",
+  },
+  {
+    id: "monitoring",
+    title: "Monitoring",
+    column: "side",
+    weight: 2,
+    module: "monitoring",
+  },
   { id: "activity", title: "Recent activity", column: "side", weight: 3 },
   {
     id: "fitness",

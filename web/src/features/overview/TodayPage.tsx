@@ -1,3 +1,4 @@
+import { MailCard, MonitoringCard } from "./components/ExtraCards";
 import { useModules, type ModuleId } from "../../app/modules";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -51,6 +52,8 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   schedule: { body: () => <ScheduleCard />, more: "/calendar" },
   habits: { body: () => <HabitsCard />, more: "/habits" },
   home: { body: () => <HomeCard />, more: "/home" },
+  mail: { body: () => <MailCard />, more: "/mail" },
+  monitoring: { body: () => <MonitoringCard />, more: "/monitoring" },
   activity: { body: () => <ActivityCard /> },
   fitness: { body: () => <FitnessSummary compact />, more: "/habits" },
 };

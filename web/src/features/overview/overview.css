@@ -636,3 +636,22 @@ a.today-row:hover {
     white-space: normal;
   }
 }
+
+/* 今日页邮件和监控卡片（B59） */
+.today-row-icon.today-tone-danger {
+  background: color-mix(in srgb, var(--xc-danger) 14%, transparent);
+  color: var(--xc-danger);
+}
+.today-row-icon.today-tone-warn {
+  background: color-mix(in srgb, var(--xc-warn) 16%, transparent);
+  color: var(--xc-warn);
+}
+.today-tone-text-danger {
+  color: var(--xc-danger) !important;
+}
+.today-tone-text-warn {
+  color: var(--xc-warn) !important;
+}
+.today-row-more {
+  min-height: 36px;
+}

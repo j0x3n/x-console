@@ -108,4 +108,13 @@ registerZh({
   "and above": "以上",
   "Add a QWeather key to see warnings, rain by the minute, air quality and more.":
     "填好和风天气的 key 后，这里能看到预警、分钟降水、空气质量等。",
+  // B59 今日页邮件和监控卡片
+  "Mail is not live yet": "邮件还没上线",
+  "cannot connect": "连不上",
+  "No unread mail": "没有未读邮件",
+  "All unread": "全部未读",
+  "Websites, certificates and renewals are all fine": "网站、证书和订阅都正常",
+  "Website is down": "网站打不开",
+  "Renewal overdue": "已过续费日",
+  "Renews today": "今天续费",
 });
