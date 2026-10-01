@@ -21,9 +21,12 @@ const (
 	ratesKey        = "monitoring.rates"
 	defaultRatesURL = "https://open.er-api.com/v6/latest/USD"
 	ratesFreshFor   = 20 * time.Hour
-	ratesEvery      = 6 * time.Hour
-	ratesTimeout    = 15 * time.Second
-	ratesMaxBody    = 1 << 20
+	// The job runs every hour and skips while the stored rates are fresh.
+	// The timer starts over on every restart, so a long interval could miss
+	// the refresh for days on a server that is deployed often.
+	ratesEvery   = time.Hour
+	ratesTimeout = 15 * time.Second
+	ratesMaxBody = 1 << 20
 )
 
 type rateTable struct {

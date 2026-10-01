@@ -50,3 +50,5 @@ func (m *Module) WaitIcons(ctx context.Context) error {
 		}
 	}
 }
+
+const RatesEvery = ratesEvery

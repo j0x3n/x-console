@@ -215,6 +215,10 @@ func TestSubscriptionAccount(t *testing.T) {
 }
 
 func TestExchangeRates(t *testing.T) {
+	// Restarts reset the job timer: it has to come round well inside a day.
+	if monitoring.RatesEvery > time.Hour {
+		t.Fatalf("rates job every %s", monitoring.RatesEvery)
+	}
 	env, m := setup(t)
 	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
