@@ -142,6 +142,9 @@ func (m *Module) begin(kind api.BackupJobKind) (*job, error) {
 
 // end finishes a job with the result of its work and remembers it.
 func (m *Module) end(j *job, err error) {
+	// The job reads as finished and a new one may start at the same moment:
+	// a client that sees "done" can start the next job right away.
+	m.mu.Lock()
 	j.set(func(v *api.BackupJob) {
 		v.FinishedAt = ptr(m.now().UTC())
 		if err != nil {
@@ -152,13 +155,12 @@ func (m *Module) end(j *job, err error) {
 			v.Step = nil
 		}
 	})
+	m.busy = false
+	m.mu.Unlock()
 	final := j.snapshot()
 	if perr := m.d.Settings.Set(context.Background(), keyJob, final); perr != nil {
 		m.log().Warn("backup: save job state", "error", perr)
 	}
-	m.mu.Lock()
-	m.busy = false
-	m.mu.Unlock()
 	m.d.Bus.Publish("backup.job", final)
 }
 
