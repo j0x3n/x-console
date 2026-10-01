@@ -50,6 +50,84 @@ export async function pushState(): Promise<PushState> {
   return (await existingSubscription()) ? "enabled" : "disabled";
 }
 
+/** 用户开过推送（B52）。关掉时清除，自动同步只在开着时重新订阅。 */
+const ENABLED_KEY = "xc.push.enabled";
+/** 上次同步的时间和 endpoint，1 小时内同一个订阅不重复提交。 */
+const SYNCED_KEY = "xc.push.synced";
+const SYNC_EVERY = 3600_000;
+
+function store(key: string, value: string | null) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // 存不了就每次都同步
+  }
+}
+
+function load(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/** 两个公钥是否相同。浏览器给的是 ArrayBuffer，服务端给的是 base64url。 */
+function sameKey(current: ArrayBuffer | null | undefined, publicKey: string) {
+  if (!current) return true; // 读不到就当相同，不去动它
+  const want = urlBase64ToUint8Array(publicKey);
+  const have = new Uint8Array(current);
+  return have.length === want.length && have.every((b, i) => b === want[i]);
+}
+
+/** 订阅需不需要提交：换了 endpoint 或者超过 1 小时（B52）。 */
+export function shouldSync(
+  endpoint: string,
+  last: string | null,
+  now: number,
+): boolean {
+  if (!last) return true;
+  const [at, prev] = [
+    Number(last.split(" ")[0]),
+    last.slice(last.indexOf(" ") + 1),
+  ];
+  return prev !== endpoint || !(now - at < SYNC_EVERY);
+}
+
+/**
+ * 打开面板时把这个浏览器的订阅交给服务端（B52）。
+ * 浏览器换了订阅、服务端删掉了（410）、或者服务端换了密钥时，都能自动接上。
+ * 没开过推送、没给权限时什么都不做。
+ */
+export async function syncPush(now = Date.now()): Promise<void> {
+  if (!pushSupported() || Notification.permission !== "granted") return;
+  const reg = await navigator.serviceWorker.getRegistration(SW_URL);
+  if (!reg) return;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub && load(ENABLED_KEY) !== "1") return;
+  if (sub && !shouldSync(sub.endpoint, load(SYNCED_KEY), now)) return;
+  const { publicKey } = await unwrap(
+    remindersApi.GET("/notify/webpush/vapid-public-key"),
+  );
+  if (sub && !sameKey(sub.options?.applicationServerKey, publicKey)) {
+    await sub.unsubscribe();
+    sub = null;
+  }
+  if (!sub)
+    sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+  store(ENABLED_KEY, "1");
+  await unwrap(
+    remindersApi.POST("/notify/webpush/subscriptions", {
+      body: subscriptionBody(sub.toJSON(), navigator.userAgent),
+    }),
+  );
+  store(SYNCED_KEY, `${now} ${sub.endpoint}`);
+}
+
 export async function enablePush(): Promise<PushState> {
   if (!pushSupported()) return "unsupported";
   const permission = await Notification.requestPermission();
@@ -71,6 +149,8 @@ export async function enablePush(): Promise<PushState> {
       body: subscriptionBody(sub.toJSON(), navigator.userAgent),
     }),
   );
+  store(ENABLED_KEY, "1");
+  store(SYNCED_KEY, `${Date.now()} ${sub.endpoint}`);
   return "enabled";
 }
 
@@ -89,6 +169,8 @@ export async function disablePush(): Promise<PushState> {
     }
     await sub.unsubscribe();
   }
+  store(ENABLED_KEY, null);
+  store(SYNCED_KEY, null);
   return "disabled";
 }
 

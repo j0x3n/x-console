@@ -131,8 +131,21 @@ self.addEventListener("push", (event) => {
   }
   const title = data.title || "X Console";
   const actions = Array.isArray(data.actions) ? data.actions.slice(0, 2) : [];
+  // B52：服务端带上发送时间。晚到 10 分钟以上的，正文后面写上原来的时间。
+  const sentAt = data.sentAt ? Date.parse(data.sentAt) : NaN;
+  let body = data.body || "";
+  if (!Number.isNaN(sentAt) && Date.now() - sentAt > 10 * 60 * 1000) {
+    const when = new Date(sentAt).toLocaleString("zh-CN", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    body = `${body}${body ? "\n" : ""}（发送于 ${when}）`;
+  }
   const options = {
-    body: data.body || "",
+    body,
+    timestamp: Number.isNaN(sentAt) ? undefined : sentAt,
     tag: data.id ? `xc-${data.id}` : undefined,
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
@@ -202,4 +215,58 @@ self.addEventListener("notificationclick", (event) => {
   } else {
     event.waitUntil(openLink(link));
   }
+});
+
+// B52：浏览器自己换了推送订阅时，把新订阅交给服务端，删掉旧的。
+// 面板打开时 PushSync 也会再同步一次，这里只是尽量早一点接上。
+function b64ToBytes(base64) {
+  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4))
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+  const raw = atob(padded);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+self.addEventListener("pushsubscriptionchange", (event) => {
+  const headers = {
+    "Content-Type": "application/json",
+    "X-Requested-With": "x-console",
+  };
+  event.waitUntil(
+    (async () => {
+      let sub = event.newSubscription;
+      if (!sub) {
+        const res = await fetch("/api/v1/notify/webpush/vapid-public-key", {
+          credentials: "same-origin",
+          headers,
+        });
+        if (!res.ok) return;
+        const { publicKey } = await res.json();
+        sub = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: b64ToBytes(publicKey),
+        });
+      }
+      const json = sub.toJSON();
+      await fetch("/api/v1/notify/webpush/subscriptions", {
+        method: "POST",
+        credentials: "same-origin",
+        headers,
+        body: JSON.stringify({
+          endpoint: json.endpoint,
+          keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+          userAgent: self.navigator.userAgent,
+        }),
+      });
+      const old = event.oldSubscription;
+      if (old && old.endpoint !== json.endpoint)
+        await fetch(
+          "/api/v1/notify/webpush/subscriptions?endpoint=" +
+            encodeURIComponent(old.endpoint),
+          { method: "DELETE", credentials: "same-origin", headers },
+        );
+    })().catch(() => {}),
+  );
 });
