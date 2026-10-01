@@ -63,12 +63,20 @@
 | B58 | 和风天气：分钟降水、天气预警、空气质量、生活指数、天文、历史对比，地震速报 | [B58](specs/B58.md) | Claude（前端） |
 | B53 | 邮件：IMAP 收 Gmail 和阿里企业邮箱，新邮件实时通知 | [B53](specs/B53.md) | Claude（前端） |
 | B59 | 今日页加预警、邮件、监控、Agent 任务卡片 | [B59](specs/B59.md) | Claude（前端） |
-| B60 | AI 操作机器必须经过绑定了这台机器的 Agent；AI 浮窗加权限档、模型和思考程度 | 待写 | Claude（前端） |
-| B61 | AI 记忆：面板 AI 可读写，Agent 只读，远程 AI（MCP）不给 | 待写 | Claude（前端） |
-| B62 | Git 账号统一：设置里一个“Git 与 GitHub”，Agent 的 Git 连接和 GitHub 模块共用 | 待写 | Claude（前端） |
-| B63 | 备份到网盘：WebDAV 和 Google Drive（不做 OneDrive） | 待写 | Claude（前端） |
+| B60 | AI 操作机器必须经过绑定了这台机器的 Agent；AI 浮窗加权限档、模型和思考程度 | [B60](specs/B60.md) | 待分配（前后端） |
+| B61 | AI 记忆：面板 AI 可读写，Agent 只读，远程 AI（MCP）不给 | [B61](specs/B61.md) | 待分配（前后端） |
+| B62 | Git 账号统一：设置里一个“Git 与 GitHub”，Agent 的 Git 连接和 GitHub 模块共用 | [B62](specs/B62.md) | 待分配（前后端） |
+| B63 | 备份到网盘：WebDAV 和 Google Drive（不做 OneDrive） | [B63](specs/B63.md) | 待分配（前后端） |
+| B64 | 服务器支持 Unraid（开工前和用户确认方案） | [B64](specs/B64.md) | 待分配 |
+| B65 | 集成 OpenWrt 主路由（开工前和用户确认方案） | [B65](specs/B65.md) | 待分配（前后端） |
+| B66 | “日历”改名“日程”，早报挪到今日页（开工前和用户确认方案） | [B66](specs/B66.md) | 待分配（前端） |
 
 ### 任务说明
+
+**2026-10-01 第二批（B60 到 B66）的说明**
+- 用户额度不够，Claude 只写了规格，前后端都交给 GPT 分别做。每个规格里都有“前端（待做）”和“后端（待做）”，接口以“契约”一节为准，先改契约再分头写。
+- B64、B65、B66 是 Claude 的建议方案，用户还没确认，开工前先问用户。
+- 几个任务会改同一批共享文件（`app/modules.go`、`features/settings/tabs.tsx`、`app/nav.ts`、`app/modules.ts`），并行做时按 AGENTS.md 的规则只加行，合并时注意冲突。
 
 **2026-10-01 这一批（B49 到 B59）的说明**
 - 前端已经全部做完并提交到 `develop`（Claude）。后端按各规格的“后端（待做）”一节做，B56 已经前后端都做完，B57 的设置和 `/app/modules` 已做完，剩下接口拦截。
