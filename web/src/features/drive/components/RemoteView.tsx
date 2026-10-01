@@ -48,9 +48,9 @@ export default function RemoteView({
           ),
         )}
       </nav>
-      {drive.limited && (
+      {drive.gdrive?.limited && (
         <p className="drive-muted drive-hint">
-          现在只能看到面板自己建的文件。到设置 → 备份里重新授权 Google
+          现在只能看到面板自己建的文件。到 设置 → 存储 里重新授权 Google
           Drive，就能看到网盘里的全部文件。
         </p>
       )}

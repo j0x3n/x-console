@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/secrets"
 )
 
@@ -28,5 +27,5 @@ func UnreadableSecrets(ctx context.Context, db *sql.DB, box *secrets.Box) ([]str
 	return unreadableSecrets(ctx, db, box)
 }
 
-// SetGoogle points the module at a fake Google.
-func SetGoogle(m *Module, e files.GoogleEndpoints) { m.google = e }
+// MigrateRemotes runs the B69 move of the B63 drive accounts.
+func MigrateRemotes(m *Module, ctx context.Context) error { return m.migrateRemotes(ctx) }

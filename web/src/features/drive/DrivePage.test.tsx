@@ -217,13 +217,33 @@ describe("DrivePage", () => {
     );
   });
 
-  it("browses a bound WebDAV drive on its own tab (B68)", async () => {
+  it("browses a drive account on its own tab (B68, B69)", async () => {
     live();
-    api.routes.set("GET /remote-drives", () => ({
+    api.routes.set("GET /storage/remotes", (url) => ({
       status: 200,
-      body: { items: [{ id: "webdav", name: "坚果云", limited: false }] },
+      body: {
+        items:
+          url.searchParams.get("drive") === "true"
+            ? [
+                {
+                  id: 7,
+                  kind: "webdav",
+                  name: "坚果云",
+                  showInDrive: true,
+                  ready: true,
+                  usedByBackup: false,
+                  createdAt: "2026-10-01T00:00:00Z",
+                  webdav: {
+                    url: "https://dav.jianguoyun.com/dav/",
+                    username: "me",
+                    passwordSet: true,
+                  },
+                },
+              ]
+            : [],
+      },
     }));
-    api.routes.set("GET /remote-drives/webdav/items", (url) => ({
+    api.routes.set("GET /storage/remotes/7/items", (url) => ({
       status: 200,
       body:
         url.searchParams.get("ref") === "照片"
@@ -258,7 +278,7 @@ describe("DrivePage", () => {
       await screen.findByRole("button", { name: "下载 a.jpg" }),
     ).toBeTruthy();
     expect(router.state.location.search).toBe(
-      "?view=remote&remote=webdav&ref=%E7%85%A7%E7%89%87",
+      "?view=remote&remote=7&ref=%E7%85%A7%E7%89%87",
     );
   });
 

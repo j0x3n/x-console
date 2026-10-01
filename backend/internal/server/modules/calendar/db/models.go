@@ -911,6 +911,16 @@ type SshHost struct {
 	CreatedAt time.Time
 }
 
+type StorageRemote struct {
+	ID          int64
+	Kind        string
+	Name        string
+	Config      string
+	ShowInDrive int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type Subscription struct {
 	ID               int64
 	Name             string

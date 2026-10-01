@@ -179,13 +179,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description 返回 Google 授权页的地址，前端跳过去。要先保存客户端 ID 和密钥。要提升权限。
-         *     地址里的 state 是一次性的，10 分钟内有效
+         * @description B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉。
+         *     新代码用 /storage/remotes/{remoteId}/gdrive/auth
          */
         get: operations["startGdriveAuth"];
         put?: never;
         post?: never;
-        /** @description 撤销 Google Drive 授权：通知 Google 作废令牌，删掉本地保存的令牌。要提升权限 */
+        /** @description B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉 */
         delete: operations["revokeGdriveAuth"];
         options?: never;
         head?: never;
@@ -200,8 +200,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description Google 授权完跳回来的地址，不用登录，靠 state 校验。用 code 换令牌并保存，
-         *     然后跳到 /settings/backup?gdrive=ok，失败时跳到 /settings/backup?gdrive=error&message=原因
+         * @description B63 时填到 Google 的重定向地址，B69 起转给存储模块处理（从 B63 迁过来的账号继续用它）。
+         *     跳到 /settings/storage?gdrive=ok，失败时跳到 /settings/storage?gdrive=error&message=原因
          */
         get: operations["gdriveCallback"];
         put?: never;
@@ -219,7 +219,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description B68。备份设置里绑定了的网盘，云盘页给每个显示一个标签。锁定时被隐藏的不返回 */
+        /** @description B68。B69 起已过时，每种只返回第一个账号，下个版本删掉。新代码用 /storage/remotes?drive=true */
         get: operations["listRemoteDrives"];
         put?: never;
         post?: never;
@@ -238,7 +238,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description B68。列网盘里的一个文件夹，文件夹在前 */
+        /** @description B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/items */
         get: operations["listRemoteDriveItems"];
         put?: never;
         post?: never;
@@ -257,7 +257,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description B68。下载网盘里的一个文件，服务端转发 */
+        /** @description B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/download */
         get: operations["downloadRemoteDriveFile"];
         put?: never;
         post?: never;
@@ -376,10 +376,16 @@ export interface components {
             keep: number;
             /**
              * @description storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
-             *     webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
+             *     remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+             *     webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
              * @enum {string}
              */
-            target: "storage" | "custom" | "webdav" | "gdrive";
+            target: "storage" | "custom" | "remote" | "webdav" | "gdrive";
+            /**
+             * Format: int64
+             * @description B69。target 是 remote 时用的网盘账号
+             */
+            remoteId?: number;
             s3?: components["schemas"]["StorageS3"];
             webdav?: components["schemas"]["BackupWebdav"];
             gdrive?: components["schemas"]["BackupGdrive"];
@@ -404,43 +410,39 @@ export interface components {
             weekday?: number;
             keep?: number;
             /** @enum {string} */
-            target?: "storage" | "custom" | "webdav" | "gdrive";
+            target?: "storage" | "custom" | "remote";
+            /** Format: int64 */
+            remoteId?: number;
             s3?: components["schemas"]["StorageS3Input"];
             webdav?: components["schemas"]["BackupWebdavInput"];
             gdrive?: components["schemas"]["BackupGdriveInput"];
         };
+        /** @description B69 起只用 folder，其余字段不再返回 */
         BackupWebdav: {
             /** @description 比如 https://dav.jianguoyun.com/dav/ */
-            url: string;
-            username: string;
+            url?: string;
+            username?: string;
             /** @description 备份放在这个目录下，默认 x-console-backups */
             folder: string;
             /** @description 已经保存过密码 */
-            passwordSet: boolean;
+            passwordSet?: boolean;
         };
         BackupWebdavInput: {
-            url?: string;
-            username?: string;
-            /** @description 不传或传空表示不改 */
-            password?: string;
             folder?: string;
         };
+        /** @description B69 起只用 folderName，其余字段不再返回 */
         BackupGdrive: {
-            clientId: string;
+            clientId?: string;
             /** @description 网盘根目录下的文件夹，默认“X Console 备份” */
             folderName: string;
             /** @description 已经保存过客户端密钥 */
-            secretSet: boolean;
+            secretSet?: boolean;
             /** @description 已经授权，有长期令牌 */
-            authorized: boolean;
+            authorized?: boolean;
             /** @description 授权的 Google 账号邮箱 */
             account?: string;
         };
         BackupGdriveInput: {
-            /** @description 改了客户端 ID 会清掉原来的授权 */
-            clientId?: string;
-            /** @description 不传或传空表示不改 */
-            clientSecret?: string;
             /** @description 改了文件夹名，下次备份时按新名字找或新建文件夹 */
             folderName?: string;
         };

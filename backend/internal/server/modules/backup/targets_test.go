@@ -2,6 +2,7 @@ package backup_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,8 +16,10 @@ import (
 	"golang.org/x/net/webdav"
 
 	"github.com/j0x3n/x-console/backend/internal/server/files/fakegdrive"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
 
@@ -108,35 +111,83 @@ func checkRemote(t *testing.T, env *testutil.Env, m *backup.Module, loc api.Back
 	}
 }
 
+// storageModule is the storage module, which owns the drive accounts.
+func storageModule(t *testing.T, env *testutil.Env) *storage.Module {
+	t.Helper()
+	sm, ok := module.Lookup[*storage.Module](env.App.Deps.Registry, storage.ServiceKey)
+	if !ok {
+		t.Fatal("storage module not registered")
+	}
+	return sm
+}
+
+// addWebDAV adds a WebDAV account in the storage settings.
+func addWebDAV(t *testing.T, env *testutil.Env, srv *httptest.Server) int64 {
+	t.Helper()
+	var out struct{ Id int64 }
+	env.MustDo(http.MethodPost, "/storage/remotes", map[string]any{"kind": "webdav",
+		"webdav": map[string]any{"url": srv.URL + "/dav/", "username": "me", "password": "pw"}}, &out)
+	return out.Id
+}
+
+// addGDrive adds a Google Drive account and goes through the authorization.
+func addGDrive(t *testing.T, env *testutil.Env, fake *fakegdrive.Server) int64 {
+	t.Helper()
+	var out struct{ Id int64 }
+	env.MustDo(http.MethodPost, "/storage/remotes", map[string]any{"kind": "gdrive",
+		"gdrive": map[string]any{"clientId": fake.ClientID, "clientSecret": fake.Secret}}, &out)
+	var start struct{ Url string }
+	env.MustDo(http.MethodGet, fmt.Sprintf("/storage/remotes/%d/gdrive/auth", out.Id), nil, &start)
+	state := fakegdrive.AuthURL(t, start.Url).Get("state")
+	if got := callback(t, env, "/storage/remotes/gdrive/callback", url.Values{"state": {state}, "code": {fake.Code}}); got.Get("gdrive") != "ok" {
+		t.Fatalf("callback: %v", got)
+	}
+	return out.Id
+}
+
+// noRedirect is a client that shows redirects instead of following them.
+var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
+func callback(t *testing.T, env *testutil.Env, path string, query url.Values) url.Values {
+	t.Helper()
+	resp, err := noRedirect.Get(env.URL(path + "?" + query.Encode()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("callback: %d", resp.StatusCode)
+	}
+	u, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil || u.Path != "/settings/storage" {
+		t.Fatalf("callback went to %q", resp.Header.Get("Location"))
+	}
+	return u.Query()
+}
+
 func TestBackupToWebDAV(t *testing.T) {
 	env, m := setup(t)
 	srv, fs := davServer(t)
 	putFile(t, env, "notes/attachments/1", "picture")
 	env.Elevate()
 
-	dav := map[string]any{"url": srv.URL + "/dav/", "username": "me", "password": "wrong"}
+	if code, _ := env.Do(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("remote without an account: %d", code)
+	}
+	id := addWebDAV(t, env, srv)
 	var test api.BackupTargetTest
-	env.MustDo(http.MethodPost, "/backups/target/test", map[string]any{"target": "webdav", "webdav": dav}, &test)
-	if test.Ok || !strings.Contains(test.Message, "用户名或密码不对") {
-		t.Fatalf("wrong password: %+v", test)
-	}
-	if code, _ := env.Do(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "webdav", "webdav": dav}, nil); code != http.StatusBadRequest {
-		t.Fatalf("saving a wrong password: %d", code)
-	}
-	dav["password"] = "pw"
-	env.MustDo(http.MethodPost, "/backups/target/test", map[string]any{"target": "webdav", "webdav": dav}, &test)
+	env.MustDo(http.MethodPost, "/backups/target/test", map[string]any{"target": "remote", "remoteId": id}, &test)
 	if !test.Ok {
 		t.Fatalf("test: %+v", test)
 	}
 	var s api.BackupSettings
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "webdav", "keep": 2, "webdav": dav}, &s)
-	if s.Webdav == nil || !s.Webdav.PasswordSet || s.Webdav.Folder != "x-console-backups" || s.Webdav.Url != srv.URL+"/dav/" {
-		t.Fatalf("settings: %+v", s.Webdav)
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote", "remoteId": id, "keep": 2}, &s)
+	if s.Target != "remote" || s.RemoteId == nil || *s.RemoteId != id || s.Webdav == nil || s.Webdav.Folder != "x-console-backups" {
+		t.Fatalf("settings: %+v", s)
 	}
-	// Leaving the password out keeps the saved one.
-	env.MustDo(http.MethodPost, "/backups/target/test", map[string]any{"webdav": map[string]any{"folder": "other"}}, &test)
-	if !test.Ok {
-		t.Fatalf("test with the saved password: %+v", test)
+	// 自动备份在用的账号不能删
+	if code, body := env.Do(http.MethodDelete, fmt.Sprintf("/storage/remotes/%d", id), nil, nil); code != http.StatusConflict || !strings.Contains(string(body), "设置 → 备份") {
+		t.Fatalf("delete while used: %d %s", code, body)
 	}
 
 	runThree(t, env, m)
@@ -148,76 +199,24 @@ func TestBackupToWebDAV(t *testing.T) {
 	checkRemote(t, env, m, api.BackupLocationWebdav)
 }
 
-// noRedirect is a client that shows redirects instead of following them.
-var noRedirect = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-
-func callback(t *testing.T, env *testutil.Env, query url.Values) url.Values {
-	t.Helper()
-	resp, err := noRedirect.Get(env.URL("/backups/gdrive/callback?" + query.Encode()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusFound {
-		t.Fatalf("callback: %d", resp.StatusCode)
-	}
-	u, err := url.Parse(resp.Header.Get("Location"))
-	if err != nil || u.Path != "/settings/backup" {
-		t.Fatalf("callback went to %q", resp.Header.Get("Location"))
-	}
-	return u.Query()
-}
-
 func TestBackupToGoogleDrive(t *testing.T) {
 	env, m := setup(t)
 	fake := fakegdrive.New(t)
-	backup.SetGoogle(m, fake.Endpoints())
+	storageModule(t, env).UseGoogle(fake.Endpoints())
 	putFile(t, env, "notes/attachments/1", "picture")
-
-	if code, _ := env.Do(http.MethodGet, "/backups/gdrive/auth", nil, nil); code != http.StatusForbidden {
-		t.Fatalf("auth without elevation: %d", code)
-	}
 	env.Elevate()
-	if code, _ := env.Do(http.MethodGet, "/backups/gdrive/auth", nil, nil); code != http.StatusBadRequest {
-		t.Fatalf("auth without a client: %d", code)
-	}
-	// Turning it on before the authorization is refused.
-	gd := map[string]any{"clientId": fake.ClientID, "clientSecret": fake.Secret}
-	if code, _ := env.Do(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "gdrive", "gdrive": gd}, nil); code != http.StatusBadRequest {
+
+	// 没授权时打不开
+	var acc struct{ Id int64 }
+	env.MustDo(http.MethodPost, "/storage/remotes", map[string]any{"kind": "gdrive",
+		"gdrive": map[string]any{"clientId": fake.ClientID, "clientSecret": fake.Secret}}, &acc)
+	if code, _ := env.Do(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote", "remoteId": acc.Id}, nil); code != http.StatusBadRequest {
 		t.Fatalf("on without authorization: %d", code)
 	}
-	var s api.BackupSettings
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"gdrive": gd}, &s)
-	if s.Gdrive == nil || !s.Gdrive.SecretSet || s.Gdrive.Authorized || s.Gdrive.FolderName != "X Console 备份" {
-		t.Fatalf("settings: %+v", s.Gdrive)
-	}
+	env.MustDo(http.MethodDelete, fmt.Sprintf("/storage/remotes/%d", acc.Id), nil, nil)
 
-	var start struct{ Url, RedirectUri string }
-	env.MustDo(http.MethodGet, "/backups/gdrive/auth", nil, &start)
-	q := fakegdrive.AuthURL(t, start.Url)
-	if q.Get("client_id") != fake.ClientID || q.Get("redirect_uri") != start.RedirectUri ||
-		!strings.HasSuffix(start.RedirectUri, "/api/v1/backups/gdrive/callback") || q.Get("state") == "" {
-		t.Fatalf("auth url: %s %s", start.Url, start.RedirectUri)
-	}
-	// A wrong state is refused, and the right one works once.
-	if got := callback(t, env, url.Values{"state": {"forged"}, "code": {fake.Code}}); got.Get("gdrive") != "error" {
-		t.Fatalf("forged state: %v", got)
-	}
-	if got := callback(t, env, url.Values{"state": {q.Get("state")}, "code": {fake.Code}}); got.Get("gdrive") != "ok" {
-		t.Fatalf("callback: %v", got)
-	}
-	if got := callback(t, env, url.Values{"state": {q.Get("state")}, "code": {fake.Code}}); got.Get("gdrive") != "error" {
-		t.Fatalf("state used twice: %v", got)
-	}
-	env.MustDo(http.MethodGet, "/backups/settings", nil, &s)
-	if !s.Gdrive.Authorized || s.Gdrive.Account == nil || *s.Gdrive.Account != fake.Email {
-		t.Fatalf("after authorization: %+v", s.Gdrive)
-	}
-	if got := fake.Folders(); len(got) != 1 || got[0] != "X Console 备份" {
-		t.Fatalf("folders: %v", got)
-	}
-
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "gdrive", "keep": 2}, nil)
+	id := addGDrive(t, env, fake)
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote", "remoteId": id, "keep": 2}, nil)
 	runThree(t, env, m)
 	if names := fake.Names("X Console 备份"); len(names) != 4 {
 		t.Fatalf("drive folder: %v", names)
@@ -225,24 +224,13 @@ func TestBackupToGoogleDrive(t *testing.T) {
 	checkRemote(t, env, m, api.BackupLocationGdrive)
 }
 
-// authorize goes through the Google authorization with the fake.
-func authorize(t *testing.T, env *testutil.Env, fake *fakegdrive.Server) {
-	t.Helper()
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"gdrive": map[string]any{"clientId": fake.ClientID, "clientSecret": fake.Secret}}, nil)
-	var start struct{ Url string }
-	env.MustDo(http.MethodGet, "/backups/gdrive/auth", nil, &start)
-	if got := callback(t, env, url.Values{"state": {fakegdrive.AuthURL(t, start.Url).Get("state")}, "code": {fake.Code}}); got.Get("gdrive") != "ok" {
-		t.Fatalf("callback: %v", got)
-	}
-}
-
-func TestGoogleDriveExpiredTokenAndRevoke(t *testing.T) {
-	env, m := setup(t)
+func TestGoogleDriveExpiredToken(t *testing.T) {
+	env, _ := setup(t)
 	fake := fakegdrive.New(t)
-	backup.SetGoogle(m, fake.Endpoints())
+	storageModule(t, env).UseGoogle(fake.Endpoints())
 	env.Elevate()
-	authorize(t, env, fake)
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "gdrive"}, nil)
+	id := addGDrive(t, env, fake)
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote", "remoteId": id}, nil)
 
 	// The token expires: the run fails and a notification says so.
 	fake.Expire()
@@ -257,36 +245,90 @@ func TestGoogleDriveExpiredTokenAndRevoke(t *testing.T) {
 	if len(notes.Items) == 0 || notes.Items[0].Kind != "backup.failed" || notes.Items[0].Title != "Google Drive 授权过期，请重新授权" {
 		t.Fatalf("notifications: %+v", notes.Items)
 	}
+}
 
-	env.MustDo(http.MethodDelete, "/backups/gdrive/auth", nil, nil)
-	if got := fake.Revoked(); len(got) != 1 || got[0] != fake.RefreshToken {
-		t.Fatalf("revoked: %v", got)
+// TestMoveB63Accounts: settings saved by B63 become storage accounts, the
+// backups keep going, and the old Google callback address still works.
+func TestMoveB63Accounts(t *testing.T) {
+	env, m := setup(t)
+	srv, _ := davServer(t)
+	fake := fakegdrive.New(t)
+	storageModule(t, env).UseGoogle(fake.Endpoints())
+	putFile(t, env, "notes/attachments/1", "picture")
+	ctx := context.Background()
+	st := env.App.Deps.Settings
+	old := map[string]any{
+		"enabled": true, "frequency": "daily", "time": "03:00", "keep": 2, "target": "gdrive",
+		"webdav": map[string]any{"url": srv.URL + "/dav/", "username": "me", "folder": "x-console-backups"},
+		"gdrive": map[string]any{"clientId": fake.ClientID, "folderName": "X Console 备份", "account": fake.Email, "browse": true},
+	}
+	for key, v := range map[string]any{"backup.settings": old, "storage.migrated_b69": false} {
+		if err := st.Set(ctx, key, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for key, v := range map[string]string{"backup.webdav_password": "pw", "backup.gdrive_client_secret": fake.Secret, "backup.gdrive_refresh_token": fake.RefreshToken} {
+		if err := st.SetSecret(ctx, key, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := backup.MigrateRemotes(m, ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := backup.MigrateRemotes(m, ctx); err != nil { // 第二次什么都不做
+		t.Fatal(err)
+	}
+
+	var list struct {
+		Items []struct {
+			Id           int64
+			Kind, Name   string
+			Ready        bool
+			UsedByBackup bool
+			Gdrive       *struct {
+				Authorized  bool
+				Account     *string
+				RedirectUri string
+			}
+		}
+	}
+	env.MustDo(http.MethodGet, "/storage/remotes", nil, &list)
+	if len(list.Items) != 2 || list.Items[0].Kind != "webdav" || list.Items[0].Name != "127.0.0.1" || !list.Items[0].Ready {
+		t.Fatalf("accounts: %+v", list.Items)
+	}
+	g := list.Items[1]
+	if g.Kind != "gdrive" || !g.Ready || !g.UsedByBackup || g.Gdrive == nil || !g.Gdrive.Authorized ||
+		g.Gdrive.Account == nil || *g.Gdrive.Account != fake.Email || !strings.HasSuffix(g.Gdrive.RedirectUri, "/api/v1/backups/gdrive/callback") {
+		t.Fatalf("google account: %+v %+v", g, g.Gdrive)
 	}
 	var s api.BackupSettings
 	env.MustDo(http.MethodGet, "/backups/settings", nil, &s)
-	if s.Gdrive.Authorized || s.Gdrive.Account != nil {
-		t.Fatalf("after revoke: %+v", s.Gdrive)
+	if s.Target != "remote" || s.RemoteId == nil || *s.RemoteId != g.Id || !s.Enabled {
+		t.Fatalf("backup settings: %+v", s)
 	}
-}
+	runThree(t, env, m)
+	if names := fake.Names("X Console 备份"); len(names) != 4 {
+		t.Fatalf("drive folder: %v", names)
+	}
 
-func TestChangingTheGoogleClientDropsTheToken(t *testing.T) {
-	env, m := setup(t)
-	fake := fakegdrive.New(t)
-	backup.SetGoogle(m, fake.Endpoints())
+	// 迁过来的账号重新授权，Google 跳回旧地址
 	env.Elevate()
-	authorize(t, env, fake)
-	var s api.BackupSettings
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"gdrive": map[string]any{"clientId": "another"}}, &s)
-	if s.Gdrive.Authorized || s.Gdrive.ClientId != "another" {
-		t.Fatalf("after changing the client: %+v", s.Gdrive)
+	var start struct{ Url, RedirectUri string }
+	env.MustDo(http.MethodGet, fmt.Sprintf("/storage/remotes/%d/gdrive/auth", g.Id), nil, &start)
+	if !strings.HasSuffix(start.RedirectUri, "/api/v1/backups/gdrive/callback") {
+		t.Fatalf("redirect: %s", start.RedirectUri)
+	}
+	state := fakegdrive.AuthURL(t, start.Url).Get("state")
+	if got := callback(t, env, "/backups/gdrive/callback", url.Values{"state": {state}, "code": {fake.Code}}); got.Get("gdrive") != "ok" {
+		t.Fatalf("old callback: %v", got)
 	}
 }
 
-func TestBrowseRemoteDrives(t *testing.T) {
-	env, m := setup(t)
+func TestOldRemoteDriveAddresses(t *testing.T) {
+	env, _ := setup(t)
 	srv, fs := davServer(t)
 	fake := fakegdrive.New(t)
-	backup.SetGoogle(m, fake.Endpoints())
+	storageModule(t, env).UseGoogle(fake.Endpoints())
 	env.Elevate()
 
 	var drives struct{ Items []api.RemoteDrive }
@@ -297,80 +339,33 @@ func TestBrowseRemoteDrives(t *testing.T) {
 	if code, _ := env.Do(http.MethodGet, "/remote-drives/webdav/items", nil, nil); code != http.StatusNotFound {
 		t.Fatalf("unbound drive: %d", code)
 	}
-
-	// WebDAV: browse from the top of the address, not only the backup folder.
 	if err := fs.Mkdir(context.Background(), "/照片", 0o755); err != nil {
 		t.Fatal(err)
 	}
 	f, _ := fs.OpenFile(context.Background(), "/照片/a.jpg", os.O_CREATE|os.O_WRONLY, 0o644)
 	f.Write([]byte("jpeg bytes"))
 	f.Close()
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"webdav": map[string]any{"url": srv.URL + "/dav/", "username": "me", "password": "pw"}}, nil)
-	authorize(t, env, fake)
-	docs := fake.Add("root", "文档", fakegdrive.FolderMime, nil)
-	fake.Add(docs, "说明.txt", "", []byte("hello"))
+	addWebDAV(t, env, srv)
+	addWebDAV(t, env, srv) // 第二个不出现在旧接口里
+	addGDrive(t, env, fake)
 
 	env.MustDo(http.MethodGet, "/remote-drives", nil, &drives)
-	if len(drives.Items) != 2 || drives.Items[0].Id != api.RemoteDriveIdWebdav || drives.Items[1].Name != "Google Drive" || drives.Items[1].Limited {
+	if len(drives.Items) != 2 || drives.Items[0].Id != api.RemoteDriveIdWebdav || drives.Items[1].Name != "Google Drive" {
 		t.Fatalf("drives: %+v", drives.Items)
 	}
 	var list api.RemoteDriveListing
 	env.MustDo(http.MethodGet, "/remote-drives/webdav/items?ref="+url.QueryEscape("照片"), nil, &list)
-	if len(list.Items) != 1 || list.Items[0].Ref != "照片/a.jpg" || len(list.Trail) != 1 || list.Trail[0].Name != "照片" {
+	if len(list.Items) != 1 || list.Items[0].Ref != "照片/a.jpg" {
 		t.Fatalf("webdav listing: %+v", list)
 	}
 	status, raw := rawGet(t, env, "/remote-drives/webdav/download?ref="+url.QueryEscape("照片/a.jpg"))
 	if status != http.StatusOK || string(raw) != "jpeg bytes" {
 		t.Fatalf("webdav download: %d %q", status, raw)
 	}
-
-	env.MustDo(http.MethodGet, "/remote-drives/gdrive/items", nil, &list)
-	var folder string
-	for _, it := range list.Items {
-		if it.Name == "文档" && it.IsDir {
-			folder = it.Ref
-		}
-	}
-	if folder == "" {
-		t.Fatalf("gdrive root: %+v", list.Items)
-	}
-	env.MustDo(http.MethodGet, "/remote-drives/gdrive/items?ref="+folder, nil, &list)
-	if len(list.Items) != 1 || list.Items[0].Name != "说明.txt" || !list.Items[0].Downloadable || len(list.Trail) != 1 {
-		t.Fatalf("gdrive folder: %+v", list)
-	}
-	status, raw = rawGet(t, env, "/remote-drives/gdrive/download?ref="+list.Items[0].Ref)
-	if status != http.StatusOK || string(raw) != "hello" {
-		t.Fatalf("gdrive download: %d %q", status, raw)
-	}
-
-	// Hidden and locked: the Google tab is gone, the backup still works.
-	env.MustDo(http.MethodPost, "/vault/setup", map[string]string{"password": "secret-one"}, nil)
-	env.MustDo(http.MethodPut, "/vault/modules", map[string]any{"hidden": []string{"drive-gdrive"}}, nil)
-	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
-	env.MustDo(http.MethodGet, "/remote-drives", nil, &drives)
-	if len(drives.Items) != 1 || drives.Items[0].Id != api.RemoteDriveIdWebdav {
-		t.Fatalf("locked drives: %+v", drives.Items)
-	}
-	if code, _ := env.Do(http.MethodGet, "/remote-drives/gdrive/items", nil, nil); code != http.StatusNotFound {
-		t.Fatalf("hidden drive: %d", code)
-	}
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "gdrive"}, nil)
-	env.MustDo(http.MethodPost, "/backups/run", nil, nil)
-	if job := waitJob(t, env); job.State != api.Done {
-		t.Fatalf("backup while hidden: %+v %v", job, deref(job.Error))
-	}
-}
-
-func TestOldGoogleGrantIsLimited(t *testing.T) {
-	env, m := setup(t)
-	fake := fakegdrive.New(t)
-	fake.Scope = "https://www.googleapis.com/auth/drive.file"
-	backup.SetGoogle(m, fake.Endpoints())
-	env.Elevate()
-	authorize(t, env, fake)
-	var drives struct{ Items []api.RemoteDrive }
-	env.MustDo(http.MethodGet, "/remote-drives", nil, &drives)
-	if len(drives.Items) != 1 || !drives.Items[0].Limited {
-		t.Fatalf("drives: %+v", drives.Items)
+	// 旧的授权地址转给备份在用的或第一个 Google 账号
+	var start struct{ Url, RedirectUri string }
+	env.MustDo(http.MethodGet, "/backups/gdrive/auth", nil, &start)
+	if !strings.HasSuffix(start.RedirectUri, "/api/v1/storage/remotes/gdrive/callback") {
+		t.Fatalf("old auth: %+v", start)
 	}
 }

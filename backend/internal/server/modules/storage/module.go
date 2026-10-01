@@ -15,10 +15,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/storage/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/storage/db"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
@@ -60,9 +62,19 @@ func (s s3Settings) complete(secret string) bool {
 	return s.Endpoint != "" && s.Bucket != "" && s.AccessKeyID != "" && secret != ""
 }
 
+// ServiceKey finds the module in module.Registry, for tests.
+const ServiceKey = "storage.service"
+
 // Module implements api.ServerInterface.
 type Module struct {
-	d *module.Deps
+	d   *module.Deps
+	q   *db.Queries
+	now func() time.Time
+
+	// 网盘账号的 Google 授权（B69）
+	google   files.GoogleEndpoints // zero means the real Google
+	statesMu sync.Mutex
+	states   map[string]oauthState
 
 	mu      sync.Mutex // guards everything below
 	backend api.StorageBackend
@@ -77,7 +89,10 @@ var _ api.ServerInterface = (*Module)(nil)
 
 // New reads the settings and puts the right Store into d.Files.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, last: api.StorageMigration{State: api.Idle, Target: api.Local}}
+	m := &Module{d: d, q: db.New(d.DB), now: time.Now, states: map[string]oauthState{},
+		last: api.StorageMigration{State: api.Idle, Target: api.Local}}
+	module.Provide[contracts.RemoteDrives](d.Registry, contracts.RemoteDrivesKey, remotes{m})
+	module.Provide[*Module](d.Registry, ServiceKey, m)
 	ctx := context.Background()
 	if err := m.migrateDriveSettings(ctx); err != nil {
 		return nil, fmt.Errorf("storage: copy drive S3 settings: %w", err)
@@ -95,6 +110,10 @@ func (m *Module) Name() string { return "storage" }
 func (m *Module) Mount(r chi.Router) {
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
 }
+
+// UseGoogle points the Google Drive accounts at other Google endpoints.
+// Tests use it with a fake Google.
+func (m *Module) UseGoogle(e files.GoogleEndpoints) { m.google = e }
 
 func (m *Module) local() files.Local { return files.Local{Root: m.d.Config.FilesDir()} }
 

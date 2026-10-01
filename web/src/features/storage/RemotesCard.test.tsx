@@ -58,19 +58,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
-import BackupTab from "./BackupTab";
-
-const settings = {
-  enabled: false,
-  frequency: "daily",
-  time: "03:00",
-  weekday: 0,
-  keep: 14,
-  target: "storage",
-  lastRuns: [],
-  webdav: { folder: "x-console-backups" },
-  gdrive: { folderName: "X Console 备份" },
-};
+import RemotesCard from "./RemotesCard";
 
 const accounts = [
   {
@@ -79,7 +67,7 @@ const accounts = [
     name: "坚果云",
     showInDrive: true,
     ready: true,
-    usedByBackup: false,
+    usedByBackup: true,
     createdAt: "2026-10-01T00:00:00Z",
     webdav: {
       url: "https://dav.jianguoyun.com/dav/",
@@ -91,7 +79,7 @@ const accounts = [
     id: 4,
     kind: "gdrive",
     name: "Google Drive",
-    showInDrive: true,
+    showInDrive: false,
     ready: false,
     usedByBackup: false,
     createdAt: "2026-10-01T00:00:00Z",
@@ -100,47 +88,18 @@ const accounts = [
       secretSet: true,
       authorized: false,
       limited: false,
-      redirectUri: "x",
+      redirectUri:
+        "https://x.example.com/api/v1/storage/remotes/gdrive/callback",
     },
   },
 ];
 
-function serve() {
-  api.routes.set("GET /backups", () => ({
-    status: 200,
-    body: {
-      items: [
-        {
-          id: "a.tar.gz",
-          name: "a.tar.gz",
-          createdAt: "2026-10-01T03:00:00Z",
-          sizeBytes: 1024,
-          location: "gdrive",
-          kind: "auto",
-        },
-      ],
-    },
-  }));
-  api.routes.set("GET /backups/job", () => ({
-    status: 200,
-    body: { state: "idle" },
-  }));
-  api.routes.set("GET /backups/settings", () => ({
-    status: 200,
-    body: settings,
-  }));
-  api.routes.set("GET /storage/remotes", () => ({
-    status: 200,
-    body: { items: accounts },
-  }));
-}
-
-function show(path = "/settings/backup") {
+function show() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={["/settings/storage"]}>
       <QueryClientProvider client={qc}>
-        <BackupTab />
+        <RemotesCard />
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -153,44 +112,71 @@ afterEach(() => {
   toasts.length = 0;
 });
 
-describe("backup tab (B63, B69)", () => {
-  it("picks a drive account and sends only its folder", async () => {
-    serve();
-    api.routes.set("POST /backups/target/test", () => ({
+describe("drive accounts card (B69)", () => {
+  it("lists accounts and starts the Google authorization", async () => {
+    api.routes.set("GET /storage/remotes", () => ({
       status: 200,
-      body: { ok: true, message: "连接正常，可以读写" },
+      body: { items: accounts },
+    }));
+    api.routes.set("GET /storage/remotes/4/gdrive/auth", () => ({
+      status: 500,
+      body: { code: "internal", message: "stop here" },
     }));
     show();
-    const where = await screen.findByLabelText(/^备份到/);
-    expect(
-      await screen.findByRole("option", { name: "坚果云（WebDAV）" }),
-    ).toBeTruthy();
-    fireEvent.change(where, { target: { value: "remote:3" } });
-    const folder = await screen.findByLabelText("文件夹");
-    fireEvent.change(folder, { target: { value: "/my-backups/" } });
-    fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
-    await screen.findByText("连接正常，可以读写");
-    const sent = api.calls.find((c) => c.path === "/backups/target/test");
-    expect(sent?.body).toEqual({
-      target: "remote",
-      remoteId: 3,
-      webdav: { folder: "my-backups" },
-    });
-
-    // Google 账号没授权时提示去存储设置
-    fireEvent.change(where, { target: { value: "remote:4" } });
-    expect(await screen.findByLabelText(/^文件夹名称/)).toBeTruthy();
-    expect(screen.getByText(/这个账号还没授权/)).toBeTruthy();
+    expect(await screen.findByText("坚果云")).toBeTruthy();
+    expect(screen.getByText("备份在用")).toBeTruthy();
+    expect(screen.getByText("云盘页不显示")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "授权" }));
+    await waitFor(() =>
+      expect(
+        api.calls.some((c) => c.path === "/storage/remotes/4/gdrive/auth"),
+      ).toBe(true),
+    );
   });
 
-  it("points to the storage settings when there is no account", async () => {
-    serve();
+  it("adds a WebDAV account after testing it", async () => {
     api.routes.set("GET /storage/remotes", () => ({
       status: 200,
       body: { items: [] },
     }));
+    api.routes.set("POST /storage/remotes/test", () => ({
+      status: 200,
+      body: { ok: true, message: "连接正常，可以读写" },
+    }));
+    api.routes.set("POST /storage/remotes", () => ({
+      status: 201,
+      body: accounts[0],
+    }));
     show();
-    const link = await screen.findByRole("link", { name: "设置 → 存储" });
-    expect(link.getAttribute("href")).toBe("/settings/storage");
+    expect(await screen.findByText("还没有网盘账号")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: /添加网盘账号/ })[0]);
+    fireEvent.change(await screen.findByLabelText(/^地址/), {
+      target: { value: " https://dav.jianguoyun.com/dav/ " },
+    });
+    fireEvent.change(screen.getByLabelText("用户名"), {
+      target: { value: "me" },
+    });
+    fireEvent.change(screen.getByLabelText(/^密码/), {
+      target: { value: "app-pw" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "测试连接" }));
+    await screen.findByText("连接正常，可以读写");
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find(
+          (c) => c.method === "POST" && c.path === "/storage/remotes",
+        )?.body,
+      ).toEqual({
+        name: "",
+        showInDrive: true,
+        kind: "webdav",
+        webdav: {
+          url: "https://dav.jianguoyun.com/dav/",
+          username: "me",
+          password: "app-pw",
+        },
+      }),
+    );
   });
 });

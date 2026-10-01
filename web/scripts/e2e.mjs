@@ -103,6 +103,7 @@ try {
   stage = "编译服务端和代理";
   await run("build-server", "go", ["build", "-o", binary("server"), "./cmd/server"], { cwd: backendDir });
   await run("build-agent", "go", ["build", "-o", binary("agent"), "./cmd/agent"], { cwd: backendDir });
+  await run("build-fakedav", "go", ["build", "-o", binary("fakedav"), "./cmd/fakedav"], { cwd: backendDir });
   if (process.env.XC_E2E_USE_BUILD !== "1")
     await run("build-web", process.execPath, [join(webDir, "node_modules/vite/bin/vite.js"), "build"], { cwd: webDir });
 
@@ -778,6 +779,26 @@ try {
   );
   await page.setViewportSize({ width: 1360, height: 860 });
 
+  stage = "B69 在存储页加 WebDAV 账号，云盘页出现标签";
+  const davPort = await freePort();
+  start("fakedav", binary("fakedav"), ["-addr", `127.0.0.1:${davPort}`, "-user", "me", "-password", "dav-pw"]);
+  await until("WebDAV", async () => (await fetch(`http://127.0.0.1:${davPort}/dav/`)).status === 401);
+  await page.goto(`${base}/settings/storage`);
+  await page.getByRole("button", { name: "添加网盘账号" }).first().click();
+  const davDialog = dialog("添加网盘账号");
+  await davDialog.getByLabel("名称").fill("端到端网盘");
+  await davDialog.getByLabel(/^地址/).fill(`http://127.0.0.1:${davPort}/dav/`);
+  await davDialog.getByLabel("用户名").fill("me");
+  await davDialog.getByLabel(/^密码/).fill("dav-pw");
+  await davDialog.getByRole("button", { name: "保存" }).click();
+  await verifyIfAsked();
+  await davDialog.waitFor({ state: "hidden" });
+  await page.locator(".storage-remote-row").filter({ hasText: "端到端网盘" }).waitFor();
+  await page.goto(`${base}/drive`);
+  await page.getByRole("button", { name: "端到端网盘" }).click();
+  await page.getByRole("button", { name: "docs", exact: true }).click();
+  await page.getByText("hello.txt").first().waitFor();
+
   stage = "习惯打卡";
   await page.goto(`${base}/habits`);
   await page.getByRole("button", { name: "新建习惯" }).click();
@@ -879,13 +900,13 @@ try {
   await page.goto(`${base}/github`);
   await page.getByText("页面不存在").first().waitFor();
   assert.equal((await page.context().request.get(`${base}/api/v1/vault/modules`)).status(), 404);
-  // B68：锁定时设置里看不到隐藏密码卡片，云盘的网盘接口照常回空列表
+  // B68：锁定时设置里看不到隐藏密码卡片；没隐藏云盘时网盘标签照常（B69 前面加了一个）
   await page.goto(`${base}/settings/security`);
   await page.getByRole("heading", { name: /安全|Security/ }).first().waitFor().catch(() => {});
   await page.waitForLoadState("networkidle").catch(() => {});
   assert.equal(await page.getByRole("heading", { name: "隐藏密码" }).count(), 0);
-  const remotes = await page.context().request.get(`${base}/api/v1/remote-drives`);
-  assert.deepEqual(await remotes.json(), { items: [] });
+  const remotes = await api("/storage/remotes?drive=true");
+  assert.deepEqual(remotes.items.map((item) => item.name), ["端到端网盘"]);
   // 恢复，后面的步骤还要打开 GitHub 页面
   await send("POST", "/vault/unlock", { password: "e2e-vault-secret" });
   await send("PUT", "/vault/modules", { hidden: [] });

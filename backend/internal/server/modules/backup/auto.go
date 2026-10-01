@@ -51,6 +51,7 @@ type settingsData struct {
 	Weekday   int          `json:"weekday"`
 	Keep      int          `json:"keep"`
 	Target    string       `json:"target"`
+	RemoteID  int64        `json:"remoteId,omitempty"` // B69, for targetRemote
 	S3        s3Fields     `json:"s3"`
 	WebDAV    webdavFields `json:"webdav"`
 	GDrive    gdriveFields `json:"gdrive"`
@@ -252,12 +253,11 @@ type lastRun = struct {
 
 // secretsSet says which secrets are saved.
 type secretsSet struct {
-	s3, webdav, gdrive, token bool
+	s3 bool
 }
 
 func (m *Module) secretsSet(ctx context.Context) secretsSet {
-	return secretsSet{s3: m.secret(ctx, keyS3Secret) != "", webdav: m.secret(ctx, keyWebDAVPassword) != "",
-		gdrive: m.secret(ctx, keyGDriveSecret) != "", token: m.secret(ctx, keyGDriveToken) != ""}
+	return secretsSet{s3: m.secret(ctx, keyS3Secret) != ""}
 }
 
 // view turns saved settings into the API answer.
@@ -268,11 +268,11 @@ func (m *Module) view(s settingsData, set secretsSet, now time.Time) api.BackupS
 		out.S3 = &storageapi.StorageS3{Endpoint: s.S3.Endpoint, Region: s.S3.Region, Bucket: s.S3.Bucket, Prefix: s.S3.Prefix,
 			AccessKeyId: s.S3.AccessKeyID, HasSecret: set.s3, PathStyle: s.S3.PathStyle}
 	}
-	out.Webdav = &api.BackupWebdav{Url: s.WebDAV.URL, Username: s.WebDAV.Username, Folder: s.WebDAV.Folder, PasswordSet: set.webdav}
-	out.Gdrive = &api.BackupGdrive{ClientId: s.GDrive.ClientID, FolderName: s.GDrive.FolderName, SecretSet: set.gdrive, Authorized: set.token}
-	if set.token && s.GDrive.Account != "" {
-		out.Gdrive.Account = ptr(s.GDrive.Account)
+	if s.RemoteID != 0 {
+		out.RemoteId = ptr(s.RemoteID)
 	}
+	out.Webdav = &api.BackupWebdav{Folder: s.WebDAV.Folder}
+	out.Gdrive = &api.BackupGdrive{FolderName: s.GDrive.FolderName}
 	if s.Enabled {
 		next := s.nextSlot(now, m.d.Config.Location).UTC()
 		out.NextRunAt = &next
@@ -342,21 +342,12 @@ func (m *Module) saveSettings(ctx context.Context, in api.BackupSettingsInput) (
 		// Switching it on does not start a backup for a time that has already passed.
 		s.LastAttemptAt = m.now()
 	}
-	if s.GDrive.ClientID != old.GDrive.ClientID {
-		// The token belongs to the old client.
-		if err := m.d.Settings.Delete(ctx, keyGDriveToken); err != nil {
-			return api.BackupSettings{}, err
-		}
-		s.GDrive.Account, s.GDrive.FolderID, s.GDrive.Browse = "", "", false
-	}
-	if s.GDrive.FolderName != old.GDrive.FolderName {
+	if s.GDrive.FolderName != old.GDrive.FolderName || s.RemoteID != old.RemoteID {
+		// The folder id belongs to the old name or the old account.
 		s.GDrive.FolderID = ""
 	}
-	for key, v := range map[string]string{keyS3Secret: p.s3, keyWebDAVPassword: p.webdav, keyGDriveSecret: p.gdrive} {
-		if v == "" {
-			continue
-		}
-		if err := m.d.Settings.SetSecret(ctx, key, v); err != nil {
+	if p.s3 != "" {
+		if err := m.d.Settings.SetSecret(ctx, keyS3Secret, p.s3); err != nil {
 			return api.BackupSettings{}, err
 		}
 	}
@@ -387,6 +378,9 @@ func apply(s *settingsData, in api.BackupSettingsInput) newSecrets {
 	if in.Target != nil {
 		s.Target = string(*in.Target)
 	}
+	if in.RemoteId != nil {
+		s.RemoteID = *in.RemoteId
+	}
 	if in.S3 != nil {
 		applyS3(&s.S3, *in.S3)
 		if in.S3.SecretAccessKey != nil {
@@ -394,23 +388,12 @@ func apply(s *settingsData, in api.BackupSettingsInput) newSecrets {
 		}
 	}
 	if w := in.Webdav; w != nil {
-		set(&s.WebDAV.URL, w.Url)
-		set(&s.WebDAV.Username, w.Username)
 		set(&s.WebDAV.Folder, w.Folder)
-		if w.Password != nil {
-			p.webdav = *w.Password
-		}
 	}
 	if g := in.Gdrive; g != nil {
-		set(&s.GDrive.ClientID, g.ClientId)
 		set(&s.GDrive.FolderName, g.FolderName)
-		if g.ClientSecret != nil {
-			p.gdrive = strings.TrimSpace(*g.ClientSecret)
-		}
 	}
-	s.WebDAV.URL = strings.TrimSpace(s.WebDAV.URL)
 	s.WebDAV.Folder = strings.Trim(strings.TrimSpace(s.WebDAV.Folder), "/")
-	s.GDrive.ClientID = strings.TrimSpace(s.GDrive.ClientID)
 	s.GDrive.FolderName = strings.TrimSpace(s.GDrive.FolderName)
 	return p
 }
@@ -458,13 +441,24 @@ func (m *Module) validate(ctx context.Context, s settingsData, p newSecrets) err
 		return httpx.Invalid("保留份数要在 1 到 365 之间")
 	}
 	switch s.Target {
-	case targetStorage, targetCustom, targetWebDAV, targetGDrive:
+	case targetStorage, targetCustom:
+	case targetRemote:
+		if s.RemoteID == 0 {
+			return httpx.Invalid("请选一个网盘账号")
+		}
+		rd, err := m.remotes()
+		if err != nil {
+			return err
+		}
+		if _, err := rd.Get(ctx, s.RemoteID); err != nil {
+			return httpx.Invalid("找不到这个网盘账号")
+		}
 	default:
 		return httpx.Invalid("备份位置不正确")
 	}
-	if s.WebDAV.URL != "" {
-		if err := files.ValidateWebDAV(files.WebDAVConfig{URL: s.WebDAV.URL, Folder: s.WebDAV.Folder}); err != nil {
-			return httpx.Invalid(err.Error())
+	if s.WebDAV.Folder != "" {
+		if err := files.CheckKey(s.WebDAV.Folder); err != nil {
+			return httpx.Invalid("WebDAV 目录不正确")
 		}
 	}
 	if s.GDrive.FolderName == "" {

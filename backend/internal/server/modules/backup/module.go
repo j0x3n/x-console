@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
@@ -72,25 +73,34 @@ type Module struct {
 	busy bool
 
 	settingsMu sync.Mutex // serialises read-modify-write of the settings
-
-	google   files.GoogleEndpoints // zero means the real Google
-	statesMu sync.Mutex
-	states   map[string]oauthState // Google authorizations in progress, by state
 }
 
-var _ api.ServerInterface = (*Module)(nil)
+var (
+	_ api.ServerInterface = (*Module)(nil)
+	_ module.Starter      = (*Module)(nil)
+)
 
 // New builds the module. When a restore is waiting for its file phase, that
 // starts here.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, local: files.Local{Root: d.Config.BackupsDir()}, now: time.Now, exit: stopProcess,
-		states: map[string]oauthState{}}
+	m := &Module{d: d, local: files.Local{Root: d.Config.BackupsDir()}, now: time.Now, exit: stopProcess}
 	if pending(d.Config.RestoreDir()) {
 		m.startFinishRestore()
 	}
 	d.Scheduler.Every("backup.auto", time.Minute, m.tick)
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.RemoteUser](d.Registry, contracts.RemoteUserKey, m)
 	return m, nil
+}
+
+// Start moves the B63 drive accounts to the storage module once (B69). It
+// runs after every module was built, so the storage accounts are there.
+func (m *Module) Start(ctx context.Context) error {
+	if err := m.migrateRemotes(ctx); err != nil {
+		// 迁移失败不影响启动，下次启动再试
+		m.log().Error("backup: move the drive accounts to storage", "error", err)
+	}
+	return nil
 }
 
 // stopProcess asks the server to shut down as it does on Ctrl-C.

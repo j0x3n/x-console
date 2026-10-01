@@ -177,8 +177,8 @@ paths:
       operationId: startGdriveAuth
       tags: [backup]
       description: |
-        返回 Google 授权页的地址，前端跳过去。要先保存客户端 ID 和密钥。要提升权限。
-        地址里的 state 是一次性的，10 分钟内有效
+        B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉。
+        新代码用 /storage/remotes/{remoteId}/gdrive/auth
       responses:
         "200":
           description: 授权地址
@@ -195,7 +195,7 @@ paths:
     delete:
       operationId: revokeGdriveAuth
       tags: [backup]
-      description: 撤销 Google Drive 授权：通知 Google 作废令牌，删掉本地保存的令牌。要提升权限
+      description: B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉
       responses:
         "204":
           description: 已撤销
@@ -206,8 +206,8 @@ paths:
       operationId: gdriveCallback
       tags: [backup]
       description: |
-        Google 授权完跳回来的地址，不用登录，靠 state 校验。用 code 换令牌并保存，
-        然后跳到 /settings/backup?gdrive=ok，失败时跳到 /settings/backup?gdrive=error&message=原因
+        B63 时填到 Google 的重定向地址，B69 起转给存储模块处理（从 B63 迁过来的账号继续用它）。
+        跳到 /settings/storage?gdrive=ok，失败时跳到 /settings/storage?gdrive=error&message=原因
       parameters:
         - { name: state, in: query, schema: { type: string } }
         - { name: code, in: query, schema: { type: string } }
@@ -219,7 +219,7 @@ paths:
     get:
       operationId: listRemoteDrives
       tags: [backup]
-      description: B68。备份设置里绑定了的网盘，云盘页给每个显示一个标签。锁定时被隐藏的不返回
+      description: B68。B69 起已过时，每种只返回第一个账号，下个版本删掉。新代码用 /storage/remotes?drive=true
       responses:
         "200":
           description: 网盘列表
@@ -240,7 +240,7 @@ paths:
     get:
       operationId: listRemoteDriveItems
       tags: [backup]
-      description: B68。列网盘里的一个文件夹，文件夹在前
+      description: B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/items
       parameters:
         - name: ref
           in: query
@@ -260,7 +260,7 @@ paths:
     get:
       operationId: downloadRemoteDriveFile
       tags: [backup]
-      description: B68。下载网盘里的一个文件，服务端转发
+      description: B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/download
       parameters:
         - name: ref
           in: query
@@ -396,10 +396,12 @@ components:
         keep: { type: integer, minimum: 1, maximum: 365, description: S3 上保留几份，默认 14 }
         target:
           type: string
-          enum: [storage, custom, webdav, gdrive]
+          enum: [storage, custom, remote, webdav, gdrive]
           description: |
             storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
-            webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
+            remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+            webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
+        remoteId: { type: integer, format: int64, description: B69。target 是 remote 时用的网盘账号 }
         s3:
           $ref: "storage.yaml#/components/schemas/StorageS3"
         webdav: { $ref: "#/components/schemas/BackupWebdav" }
@@ -429,14 +431,16 @@ components:
         keep: { type: integer, minimum: 1, maximum: 365 }
         target:
           type: string
-          enum: [storage, custom, webdav, gdrive]
+          enum: [storage, custom, remote]
+        remoteId: { type: integer, format: int64 }
         s3:
           $ref: "storage.yaml#/components/schemas/StorageS3Input"
         webdav: { $ref: "#/components/schemas/BackupWebdavInput" }
         gdrive: { $ref: "#/components/schemas/BackupGdriveInput" }
     BackupWebdav:
       type: object
-      required: [url, username, folder, passwordSet]
+      required: [folder]
+      description: B69 起只用 folder，其余字段不再返回
       properties:
         url: { type: string, description: 比如 https://dav.jianguoyun.com/dav/ }
         username: { type: string }
@@ -445,13 +449,11 @@ components:
     BackupWebdavInput:
       type: object
       properties:
-        url: { type: string }
-        username: { type: string }
-        password: { type: string, description: 不传或传空表示不改 }
         folder: { type: string }
     BackupGdrive:
       type: object
-      required: [clientId, folderName, secretSet, authorized]
+      required: [folderName]
+      description: B69 起只用 folderName，其余字段不再返回
       properties:
         clientId: { type: string }
         folderName: { type: string, description: 网盘根目录下的文件夹，默认“X Console 备份” }
@@ -461,8 +463,6 @@ components:
     BackupGdriveInput:
       type: object
       properties:
-        clientId: { type: string, description: 改了客户端 ID 会清掉原来的授权 }
-        clientSecret: { type: string, description: 不传或传空表示不改 }
         folderName: { type: string, description: 改了文件夹名，下次备份时按新名字找或新建文件夹 }
     BackupTargetTest:
       type: object

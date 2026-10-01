@@ -28,7 +28,6 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B69 | 网盘账号（坚果云等 WebDAV、Google Drive）挪到设置 → 存储，可以加多个，备份和云盘页共用 | [B69](specs/B69.md) | 待做（前后端） |
 
 ### 任务说明
 
@@ -222,6 +221,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B69 | 网盘账号挪到 设置 → 存储：WebDAV 和 Google Drive 都能加多个，能测试、授权、撤销；备份设置从账号里选一个，只填目录；云盘页按账号出标签。启动时把 B63 的设置自动变成账号，Google 旧回调地址继续能用。和规格不同的地方写在规格开头。规格见 [B69](specs/B69.md) |
 | B53 | 邮件后端：IMAP 收 Gmail、阿里企业邮箱和其他邮箱，保存前先试登录；每个账号一条常连的连接，用 IDLE 几秒内收到新邮件并推送，不支持 IDLE 的每分钟查一次；断线按 10 秒到 5 分钟重连；已读和星标双向同步；正文第一次打开时取，附件存文件存储；GBK 编码能正确显示。和规格不同的地方写在规格的“后端”一节。规格见 [B53](specs/B53.md) |
 | B58 | 和风天气和地震：设置里填 Host 和 key，保存前试调一次；天气详情有预警、两小时降水、空气、日出日落月相、生活指数、和昨天比、附近地震（中国地震台网，取不到用美国地质调查局）；快下雨、天气预警、附近地震三种推送。和规格不同的地方写在规格的“后端”一节。规格见 [B58](specs/B58.md) |
 | B65 | OpenWrt 主路由：新模块 router，通过路由器的 ubus 读系统信息、接口、在线设备、WAN 口速率，每分钟存流量，WAN 掉线或连不上超过 2 分钟推送；可以直连或通过家里的代理转发；能重启接口和路由器；左栏“集成”加路由器，设置加路由器标签，今日页加网络卡片。规格见 [B65](specs/B65.md) |
@@ -293,6 +293,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-01 | `contracts` 加 `remotes.go`：`RemoteDrives`（键 `storage.remotes`，storage 提供，backup 用）和 `RemoteUser`（键 `backup.remote_user`，backup 提供，storage 用来拦删除）。storage 模块加表 `storage_remotes`、`ServiceKey`、`UseGoogle`（测试用）。备份设置的 `target` 加 `remote` 和 `remoteId`，`webdav`、`gdrive` 两段只返回目录；`/remote-drives*`、`/backups/gdrive/auth` 标成过时，下个版本删。新加开发工具 `backend/cmd/fakedav`（端到端测试用的内存 WebDAV，不进发布） | B69 |
 | 2026-10-01 | `contracts/hidden.go` 加 `router`（接口、事件 `router.`、通知链接 `/router`、来源 `router`），`vault.yaml` 的 `ModuleId` 加 `router`。前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一行；今日页 `overview/layout.ts` 和 `TodayPage.tsx` 加 `network` 卡片；`scripts/shots.mjs` 加两个页面 | B65 |
 | 2026-10-01 | `contracts.AIAgents` 加 `ForHost`，`AIAgent` 加 `HostIDs`。ai 模块加 `withEffort`（按会话覆盖思考程度），和 B47 的 `withModel` 一样走 context | B60 |
 | 2026-10-01 | `contracts` 加 `Memories`（`Prompt(ctx)`，键 `ai.memories`），ai 提供，aiagents 用。`actions.Action` 加 `PanelOnly`：只给面板 AI，`AllowedFor` 一律不给，自动化的目录和执行也跳过 | B61 |

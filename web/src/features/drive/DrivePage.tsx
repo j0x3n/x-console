@@ -135,7 +135,7 @@ function DriveBrowser() {
   const remotes = useRemoteDrives();
   const remoteDrive =
     tab === "remote"
-      ? remotes.data?.items.find((d) => d.id === search.get("remote"))
+      ? remotes.data?.items.find((d) => String(d.id) === search.get("remote"))
       : undefined;
   const remoteRef = search.get("ref") ?? "";
   // 分享和网盘标签不看本地文件列表，上传、搜索这些按钮都不显示。
@@ -530,11 +530,11 @@ function DriveBrowser() {
               <button
                 key={d.id}
                 className={remoteDrive?.id === d.id ? "active" : ""}
-                title={d.account}
+                title={d.gdrive?.account ?? d.webdav?.username}
                 onClick={() =>
                   go({
                     view: "remote",
-                    remote: d.id,
+                    remote: String(d.id),
                     ref: null,
                     folder: null,
                     q: null,

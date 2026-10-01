@@ -109,10 +109,216 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/storage/remotes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B69。网盘账号（WebDAV、Google Drive），备份和云盘页共用。
+         *     drive=true 时只返回云盘页要显示的：打开了“在云盘页显示”、能连、锁定时没被隐藏的
+         */
+        get: operations["listStorageRemotes"];
+        put?: never;
+        /** @description 添加网盘账号。WebDAV 保存前先连一次。要提升权限 */
+        post: operations["createStorageRemote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage/remotes/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 用请求里的设置连一次，不保存。传 id 时没填的密码用已保存的。要提升权限 */
+        post: operations["testStorageRemote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage/remotes/gdrive/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Google 授权完跳回来的地址，不用登录，靠一次性 state 校验。
+         *     然后跳到 /settings/storage?gdrive=ok，失败时跳到 /settings/storage?gdrive=error&message=原因
+         */
+        get: operations["storageGdriveCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage/remotes/{remoteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 删除账号。自动备份正在用它时回 409。要提升权限 */
+        delete: operations["deleteStorageRemote"];
+        options?: never;
+        head?: never;
+        /** @description 改账号。改了 Google 的客户端 ID 会清掉授权。要提升权限 */
+        patch: operations["updateStorageRemote"];
+        trace?: never;
+    };
+    "/storage/remotes/{remoteId}/gdrive/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        /** @description 返回 Google 授权页的地址，前端跳过去。state 一次性，10 分钟内有效。要提升权限 */
+        get: operations["startStorageGdriveAuth"];
+        put?: never;
+        post?: never;
+        /** @description 撤销 Google Drive 授权。要提升权限 */
+        delete: operations["revokeStorageGdriveAuth"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage/remotes/{remoteId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        /** @description 列网盘里的一个文件夹，文件夹在前。锁定时被隐藏的回 404 */
+        get: operations["listStorageRemoteItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage/remotes/{remoteId}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        /** @description 下载网盘里的一个文件，服务端转发 */
+        get: operations["downloadStorageRemoteFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        StorageRemoteKind: "webdav" | "gdrive";
+        StorageRemote: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["StorageRemoteKind"];
+            name: string;
+            /** @description 在云盘页显示一个标签 */
+            showInDrive: boolean;
+            /** @description 能连。WebDAV 是填好了地址和密码，Google Drive 是已授权 */
+            ready: boolean;
+            /** @description 自动备份正在用它，不能删 */
+            usedByBackup: boolean;
+            webdav?: {
+                url: string;
+                username: string;
+                passwordSet: boolean;
+            };
+            gdrive?: {
+                clientId: string;
+                secretSet: boolean;
+                authorized: boolean;
+                /** @description 授权的 Google 账号邮箱 */
+                account?: string;
+                /** @description 授权里没有只读权限，只能看到面板自己建的文件，要重新授权 */
+                limited: boolean;
+                /** @description 要填到 Google 控制台的重定向地址。B63 时授权的账号继续用旧地址 */
+                redirectUri: string;
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        StorageRemoteInput: {
+            kind?: components["schemas"]["StorageRemoteKind"];
+            /** @description 空时按类型取默认名，坚果云、主机名或 Google Drive */
+            name?: string;
+            showInDrive?: boolean;
+            webdav?: {
+                /** @description 比如 https://dav.jianguoyun.com/dav/ */
+                url?: string;
+                username?: string;
+                /** @description 不传或空表示不改 */
+                password?: string;
+            };
+            gdrive?: {
+                clientId?: string;
+                /** @description 不传或空表示不改 */
+                clientSecret?: string;
+            };
+        };
+        StorageRemoteEntry: {
+            ref: string;
+            name: string;
+            isDir: boolean;
+            /** Format: int64 */
+            size?: number;
+            /** Format: date-time */
+            modifiedAt?: string;
+            /** @description Google 文档这类在线文件是 false */
+            downloadable: boolean;
+        };
+        StorageRemoteListing: {
+            ref: string;
+            /** @description 从根目录下面一级到当前文件夹 */
+            trail: {
+                ref: string;
+                name: string;
+            }[];
+            items: components["schemas"]["StorageRemoteEntry"][];
+        };
         /** @enum {string} */
         StorageBackend: "local" | "s3";
         StorageS3: {
@@ -207,7 +413,9 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        RemoteId: number;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -357,6 +565,251 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StorageStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listStorageRemotes: {
+        parameters: {
+            query?: {
+                drive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 账号列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["StorageRemote"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createStorageRemote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageRemoteInput"];
+            };
+        };
+        responses: {
+            /** @description 添加好的账号 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageRemote"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testStorageRemote: {
+        parameters: {
+            query?: {
+                id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageRemoteInput"];
+            };
+        };
+        responses: {
+            /** @description 结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    storageGdriveCallback: {
+        parameters: {
+            query?: {
+                state?: string;
+                code?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 跳回设置页 */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteStorageRemote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateStorageRemote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageRemoteInput"];
+            };
+        };
+        responses: {
+            /** @description 改好的账号 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageRemote"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startStorageGdriveAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 授权地址 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                        redirectUri: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeStorageGdriveAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已撤销 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listStorageRemoteItems: {
+        parameters: {
+            query?: {
+                /** @description 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录 */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件夹内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageRemoteListing"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadStorageRemoteFile: {
+        parameters: {
+            query: {
+                ref: string;
+            };
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             default: components["responses"]["Error"];

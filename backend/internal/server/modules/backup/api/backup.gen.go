@@ -130,6 +130,7 @@ func (e BackupSettingsFrequency) Valid() bool {
 const (
 	BackupSettingsTargetCustom  BackupSettingsTarget = "custom"
 	BackupSettingsTargetGdrive  BackupSettingsTarget = "gdrive"
+	BackupSettingsTargetRemote  BackupSettingsTarget = "remote"
 	BackupSettingsTargetStorage BackupSettingsTarget = "storage"
 	BackupSettingsTargetWebdav  BackupSettingsTarget = "webdav"
 )
@@ -140,6 +141,8 @@ func (e BackupSettingsTarget) Valid() bool {
 	case BackupSettingsTargetCustom:
 		return true
 	case BackupSettingsTargetGdrive:
+		return true
+	case BackupSettingsTargetRemote:
 		return true
 	case BackupSettingsTargetStorage:
 		return true
@@ -171,9 +174,8 @@ func (e BackupSettingsInputFrequency) Valid() bool {
 // Defines values for BackupSettingsInputTarget.
 const (
 	BackupSettingsInputTargetCustom  BackupSettingsInputTarget = "custom"
-	BackupSettingsInputTargetGdrive  BackupSettingsInputTarget = "gdrive"
+	BackupSettingsInputTargetRemote  BackupSettingsInputTarget = "remote"
 	BackupSettingsInputTargetStorage BackupSettingsInputTarget = "storage"
-	BackupSettingsInputTargetWebdav  BackupSettingsInputTarget = "webdav"
 )
 
 // Valid indicates whether the value is a known member of the BackupSettingsInputTarget enum.
@@ -181,11 +183,9 @@ func (e BackupSettingsInputTarget) Valid() bool {
 	switch e {
 	case BackupSettingsInputTargetCustom:
 		return true
-	case BackupSettingsInputTargetGdrive:
+	case BackupSettingsInputTargetRemote:
 		return true
 	case BackupSettingsInputTargetStorage:
-		return true
-	case BackupSettingsInputTargetWebdav:
 		return true
 	default:
 		return false
@@ -252,30 +252,24 @@ type BackupKind string
 // BackupLocation defines model for Backup.Location.
 type BackupLocation string
 
-// BackupGdrive defines model for BackupGdrive.
+// BackupGdrive B69 起只用 folderName，其余字段不再返回
 type BackupGdrive struct {
 	// Account 授权的 Google 账号邮箱
 	Account *string `json:"account,omitempty"`
 
 	// Authorized 已经授权，有长期令牌
-	Authorized bool   `json:"authorized"`
-	ClientId   string `json:"clientId"`
+	Authorized *bool   `json:"authorized,omitempty"`
+	ClientId   *string `json:"clientId,omitempty"`
 
 	// FolderName 网盘根目录下的文件夹，默认“X Console 备份”
 	FolderName string `json:"folderName"`
 
 	// SecretSet 已经保存过客户端密钥
-	SecretSet bool `json:"secretSet"`
+	SecretSet *bool `json:"secretSet,omitempty"`
 }
 
 // BackupGdriveInput defines model for BackupGdriveInput.
 type BackupGdriveInput struct {
-	// ClientId 改了客户端 ID 会清掉原来的授权
-	ClientId *string `json:"clientId,omitempty"`
-
-	// ClientSecret 不传或传空表示不改
-	ClientSecret *string `json:"clientSecret,omitempty"`
-
 	// FolderName 改了文件夹名，下次备份时按新名字找或新建文件夹
 	FolderName *string `json:"folderName,omitempty"`
 }
@@ -309,7 +303,9 @@ type BackupJobState string
 type BackupSettings struct {
 	Enabled   bool                    `json:"enabled"`
 	Frequency BackupSettingsFrequency `json:"frequency"`
-	Gdrive    *BackupGdrive           `json:"gdrive,omitempty"`
+
+	// Gdrive B69 起只用 folderName，其余字段不再返回
+	Gdrive *BackupGdrive `json:"gdrive,omitempty"`
 
 	// Keep S3 上保留几份，默认 14
 	Keep int `json:"keep"`
@@ -322,15 +318,21 @@ type BackupSettings struct {
 		Ok        bool      `json:"ok"`
 		SizeBytes *int64    `json:"sizeBytes,omitempty"`
 	} `json:"lastRuns"`
-	NextRunAt *time.Time              `json:"nextRunAt,omitempty"`
-	S3        *externalRef1.StorageS3 `json:"s3,omitempty"`
+	NextRunAt *time.Time `json:"nextRunAt,omitempty"`
+
+	// RemoteId B69。target 是 remote 时用的网盘账号
+	RemoteId *int64                  `json:"remoteId,omitempty"`
+	S3       *externalRef1.StorageS3 `json:"s3,omitempty"`
 
 	// Target storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
-	// webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
+	// remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+	// webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
 	Target BackupSettingsTarget `json:"target"`
 
 	// Time 每天几点，HH:MM，服务器时区。默认 03:00
-	Time   string        `json:"time"`
+	Time string `json:"time"`
+
+	// Webdav B69 起只用 folder，其余字段不再返回
 	Webdav *BackupWebdav `json:"webdav,omitempty"`
 
 	// Weekday 每周备份时是周几，0 是周日
@@ -341,7 +343,8 @@ type BackupSettings struct {
 type BackupSettingsFrequency string
 
 // BackupSettingsTarget storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
-// webdav 用下面的 WebDAV；gdrive 用下面的 Google Drive（B63）
+// remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+// webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
 type BackupSettingsTarget string
 
 // BackupSettingsInput defines model for BackupSettingsInput.
@@ -350,6 +353,7 @@ type BackupSettingsInput struct {
 	Frequency *BackupSettingsInputFrequency `json:"frequency,omitempty"`
 	Gdrive    *BackupGdriveInput            `json:"gdrive,omitempty"`
 	Keep      *int                          `json:"keep,omitempty"`
+	RemoteId  *int64                        `json:"remoteId,omitempty"`
 	S3        *externalRef1.StorageS3Input  `json:"s3,omitempty"`
 	Target    *BackupSettingsInputTarget    `json:"target,omitempty"`
 	Time      *string                       `json:"time,omitempty"`
@@ -369,27 +373,22 @@ type BackupTargetTest struct {
 	Ok      bool   `json:"ok"`
 }
 
-// BackupWebdav defines model for BackupWebdav.
+// BackupWebdav B69 起只用 folder，其余字段不再返回
 type BackupWebdav struct {
 	// Folder 备份放在这个目录下，默认 x-console-backups
 	Folder string `json:"folder"`
 
 	// PasswordSet 已经保存过密码
-	PasswordSet bool `json:"passwordSet"`
+	PasswordSet *bool `json:"passwordSet,omitempty"`
 
 	// Url 比如 https://dav.jianguoyun.com/dav/
-	Url      string `json:"url"`
-	Username string `json:"username"`
+	Url      *string `json:"url,omitempty"`
+	Username *string `json:"username,omitempty"`
 }
 
 // BackupWebdavInput defines model for BackupWebdavInput.
 type BackupWebdavInput struct {
 	Folder *string `json:"folder,omitempty"`
-
-	// Password 不传或传空表示不改
-	Password *string `json:"password,omitempty"`
-	Url      *string `json:"url,omitempty"`
-	Username *string `json:"username,omitempty"`
 }
 
 // RemoteDrive defines model for RemoteDrive.

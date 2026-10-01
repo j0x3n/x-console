@@ -2,129 +2,121 @@ package backup
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"errors"
 	"net/http"
-	"net/url"
 	"strings"
-	"time"
 
-	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
-	"github.com/j0x3n/x-console/backend/internal/server/files"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/api"
 )
 
-// gdriveCallbackPath is where Google sends the browser back. It is public:
-// the one-time state proves the request started from a signed-in session.
+// B69：网盘账号挪到了存储模块。这里留着 B63 的几个地址，转给存储模块，
+// 下个版本删掉。回调地址一直保留：从 B63 迁过来的账号还用它。
+
+// gdriveCallbackPath is the address B63 asked people to enter at Google.
 const gdriveCallbackPath = "/backups/gdrive/callback"
 
-const stateTTL = 10 * time.Minute
-
-// oauthState is one authorization that was started and not finished yet.
-type oauthState struct {
-	expires  time.Time
-	redirect string
-	actor    string
-}
+// keyMigrated records that the B63 accounts were moved (B69).
+const keyMigrated = "storage.migrated_b69"
 
 // PublicPaths implements module.PublicPather.
 func (m *Module) PublicPaths() []string { return []string{gdriveCallbackPath} }
 
-// redirectURI is the callback address Google must send the browser to. It
-// must match the one in the OAuth client.
-func (m *Module) redirectURI(r *http.Request) string {
-	base := strings.TrimRight(m.d.Config.PublicURL, "/")
-	if base == "" {
-		proto := "http"
-		if r.TLS != nil {
-			proto = "https"
-		}
-		if forwarded := r.Header.Get("X-Forwarded-Proto"); forwarded == "http" || forwarded == "https" {
-			proto = forwarded
-		}
-		base = proto + "://" + r.Host
+func siteBase(public string, r *http.Request) string {
+	if base := strings.TrimRight(public, "/"); base != "" {
+		return base
 	}
-	return base + "/api/v1" + gdriveCallbackPath
+	proto := "http"
+	if r.TLS != nil {
+		proto = "https"
+	}
+	if forwarded := r.Header.Get("X-Forwarded-Proto"); forwarded == "http" || forwarded == "https" {
+		proto = forwarded
+	}
+	return proto + "://" + r.Host
 }
 
-// StartGdriveAuth is GET /backups/gdrive/auth.
+// legacyGDrive is the Google account the old addresses mean: the one the
+// backups use, or else the first one.
+func (m *Module) legacyGDrive(ctx context.Context) (contracts.RemoteDrives, int64, error) {
+	rd, err := m.remotes()
+	if err != nil {
+		return nil, 0, err
+	}
+	s, err := m.loadSettings(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	list, err := rd.List(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	var first int64
+	for _, a := range list {
+		if a.Kind != contracts.RemoteGDrive {
+			continue
+		}
+		if s.Target == targetRemote && s.RemoteID == a.ID {
+			return rd, a.ID, nil
+		}
+		if first == 0 {
+			first = a.ID
+		}
+	}
+	if first == 0 {
+		return nil, 0, httpx.Invalid("先到 设置 → 存储 添加 Google Drive 账号")
+	}
+	return rd, first, nil
+}
+
+// StartGdriveAuth is GET /backups/gdrive/auth (old, B63).
 func (m *Module) StartGdriveAuth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if err := auth.RequireElevated(ctx); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	s, err := m.loadSettings(ctx)
+	rd, id, err := m.legacyGDrive(ctx)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	if s.GDrive.ClientID == "" || m.secret(ctx, keyGDriveSecret) == "" {
-		httpx.Fail(w, r, httpx.Invalid("先填好客户端 ID 和密钥并保存，再授权"))
-		return
-	}
-	raw := make([]byte, 24)
-	if _, err := rand.Read(raw); err != nil {
+	u, redirect, err := rd.StartGDriveAuth(ctx, id, siteBase(m.d.Config.PublicURL, r))
+	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	state := hex.EncodeToString(raw)
-	redirect := m.redirectURI(r)
-	now := m.now()
-	m.statesMu.Lock()
-	for k, v := range m.states {
-		if now.After(v.expires) {
-			delete(m.states, k)
-		}
-	}
-	m.states[state] = oauthState{expires: now.Add(stateTTL), redirect: redirect, actor: audit.Actor(ctx)}
-	m.statesMu.Unlock()
-	httpx.JSON(w, http.StatusOK, map[string]string{
-		"url": files.GoogleAuthURL(m.google, s.GDrive.ClientID, redirect, state), "redirectUri": redirect})
+	httpx.JSON(w, http.StatusOK, map[string]string{"url": u, "redirectUri": redirect})
 }
 
-// takeState returns and forgets a state that is still valid.
-func (m *Module) takeState(state string) (oauthState, bool) {
-	m.statesMu.Lock()
-	defer m.statesMu.Unlock()
-	st, ok := m.states[state]
-	delete(m.states, state)
-	if !ok || m.now().After(st.expires) {
-		return oauthState{}, false
+// RevokeGdriveAuth is DELETE /backups/gdrive/auth (old, B63).
+func (m *Module) RevokeGdriveAuth(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if err := auth.RequireElevated(ctx); err != nil {
+		httpx.Fail(w, r, err)
+		return
 	}
-	return st, true
+	rd, id, err := m.legacyGDrive(ctx)
+	if err == nil {
+		err = rd.RevokeGDrive(ctx, id)
+	}
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.NoContent(w)
 }
 
-// GdriveCallback is GET /backups/gdrive/callback.
+// GdriveCallback is GET /backups/gdrive/callback. The storage module checks
+// the state and saves the token.
 func (m *Module) GdriveCallback(w http.ResponseWriter, r *http.Request, params api.GdriveCallbackParams) {
-	back := func(err error) {
-		target := "/settings/backup?gdrive=ok"
-		if err != nil {
-			target = "/settings/backup?" + url.Values{"gdrive": {"error"}, "message": {err.Error()}}.Encode()
-		}
-		w.Header().Set("Cache-Control", "no-store")
-		http.Redirect(w, r, target, http.StatusFound)
+	target := "/settings/storage?gdrive=error&message=" + "存储模块没有启用"
+	if rd, err := m.remotes(); err == nil {
+		target = rd.FinishGDriveAuth(r.Context(), value(params.State), value(params.Code), value(params.Error))
 	}
-	st, ok := m.takeState(value(params.State))
-	if !ok {
-		back(errors.New("授权链接已失效，请回到设置页重新点授权"))
-		return
-	}
-	ctx := audit.WithActor(r.Context(), st.actor)
-	if e := value(params.Error); e != "" {
-		if e == "access_denied" {
-			back(errors.New("你在 Google 页面取消了授权"))
-		} else {
-			back(errors.New("Google 授权失败：" + e))
-		}
-		return
-	}
-	account, err := m.authorize(ctx, value(params.Code), st.redirect)
-	m.d.Audit.Record(ctx, "backup.gdrive.authorize", account, nil, err)
-	back(err)
+	w.Header().Set("Cache-Control", "no-store")
+	http.Redirect(w, r, target, http.StatusFound)
 }
 
 func value(p *string) string {
@@ -134,73 +126,68 @@ func value(p *string) string {
 	return *p
 }
 
-// authorize trades the code for a refresh token, saves it, and finds the
-// account and the folder.
-func (m *Module) authorize(ctx context.Context, code, redirect string) (string, error) {
-	if code == "" {
-		return "", errors.New("Google 没有返回授权码")
+// UsesRemote implements contracts.RemoteUser: the automatic backups go to
+// this account.
+func (m *Module) UsesRemote(ctx context.Context, id int64) (bool, error) {
+	s, err := m.loadSettings(ctx)
+	if err != nil {
+		return false, err
+	}
+	return s.Target == targetRemote && s.RemoteID == id, nil
+}
+
+// migrateRemotes moves the B63 WebDAV and Google Drive setup to the storage
+// accounts once (B69). The old keys stay for one version.
+func (m *Module) migrateRemotes(ctx context.Context) error {
+	var done bool
+	if err := m.d.Settings.Get(ctx, keyMigrated, &done); err == nil && done {
+		return nil
+	}
+	rd, err := m.remotes()
+	if err != nil {
+		return nil // 没有存储模块时不迁
 	}
 	s, err := m.loadSettings(ctx)
 	if err != nil {
-		return "", err
+		return err
 	}
-	secret := m.secret(ctx, keyGDriveSecret)
-	if s.GDrive.ClientID == "" || secret == "" {
-		return "", errors.New("客户端 ID 和密钥没有保存")
+	var webdavID, gdriveID int64
+	if s.WebDAV.URL != "" {
+		webdavID, err = rd.Import(ctx, contracts.RemoteImport{
+			Kind: contracts.RemoteWebDAV, URL: s.WebDAV.URL, Username: s.WebDAV.Username, Password: m.secret(ctx, keyWebDAVPassword),
+		})
+		if err != nil {
+			return err
+		}
 	}
-	grant, err := files.GoogleExchange(ctx, m.google, s.GDrive.ClientID, secret, code, redirect)
-	if err != nil {
-		return "", err
-	}
-	if err := m.d.Settings.SetSecret(ctx, keyGDriveToken, grant.RefreshToken); err != nil {
-		return "", err
-	}
-	s.GDrive.FolderID = "" // the folder may belong to another account
-	g, err := m.openGDrive(ctx, s, "")
-	if err != nil {
-		return "", err
-	}
-	account, err := g.Account(ctx)
-	if err != nil {
-		return "", errors.New("已授权，但读不到账号：" + err.Error())
-	}
-	folder, err := g.Folder(ctx)
-	if err != nil {
-		return account, errors.New("已授权，但建不了备份文件夹：" + err.Error())
+	if s.GDrive.ClientID != "" {
+		token := m.secret(ctx, keyGDriveToken)
+		in := contracts.RemoteImport{
+			Kind: contracts.RemoteGDrive, ClientID: s.GDrive.ClientID, ClientSecret: m.secret(ctx, keyGDriveSecret),
+			RefreshToken: token, Browse: s.GDrive.Browse, LegacyCallback: true,
+		}
+		if token != "" {
+			in.Account = s.GDrive.Account
+		}
+		if gdriveID, err = rd.Import(ctx, in); err != nil {
+			return err
+		}
 	}
 	err = m.update(ctx, func(cur *settingsData) {
-		cur.GDrive.Account = account
-		cur.GDrive.Browse = grant.CanBrowse()
-		if cur.GDrive.FolderName == s.GDrive.FolderName {
-			cur.GDrive.FolderID = folder
-		} else {
-			cur.GDrive.FolderID = ""
+		switch {
+		case cur.Target == targetWebDAV && webdavID != 0:
+			cur.Target, cur.RemoteID = targetRemote, webdavID
+		case cur.Target == targetGDrive && gdriveID != 0:
+			cur.Target, cur.RemoteID = targetRemote, gdriveID
+		case cur.Target == targetWebDAV || cur.Target == targetGDrive:
+			cur.Target, cur.Enabled = targetStorage, false
 		}
 	})
-	return account, err
-}
-
-// RevokeGdriveAuth is DELETE /backups/gdrive/auth.
-func (m *Module) RevokeGdriveAuth(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	if err := auth.RequireElevated(ctx); err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-	if token := m.secret(ctx, keyGDriveToken); token != "" {
-		if err := files.GoogleRevoke(ctx, m.google, token); err != nil {
-			// The local token goes anyway; Google drops unused ones in time.
-			m.log().Warn("backup: revoke Google token", "error", err)
-		}
-	}
-	err := m.d.Settings.Delete(ctx, keyGDriveToken)
-	if err == nil {
-		err = m.update(ctx, func(s *settingsData) { s.GDrive.Account, s.GDrive.FolderID, s.GDrive.Browse = "", "", false })
-	}
-	m.d.Audit.Record(ctx, "backup.gdrive.revoke", "", nil, err)
 	if err != nil {
-		httpx.Fail(w, r, err)
-		return
+		return err
 	}
-	httpx.NoContent(w)
+	if webdavID != 0 || gdriveID != 0 {
+		m.log().Info("backup: moved the B63 drive accounts to storage", "webdav", webdavID, "gdrive", gdriveID)
+	}
+	return m.d.Settings.Set(ctx, keyMigrated, true)
 }

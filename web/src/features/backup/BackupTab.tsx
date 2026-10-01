@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router";
+import { Link } from "react-router";
 import {
   Archive,
   Download,
@@ -32,7 +32,6 @@ import {
   useRestoreBackup,
   useRunBackupNow,
   useSaveBackupSettings,
-  useStartGdriveAuth,
   useTestBackupTarget,
   useUploadBackup,
   type Backup,
@@ -42,16 +41,7 @@ import {
   type BackupTargetTest,
 } from "./api";
 import S3Fields, { emptyS3, s3Input, type S3Form } from "../storage/S3Fields";
-import {
-  GdriveFields,
-  WebdavFields,
-  gdriveForm,
-  gdriveInput,
-  webdavForm,
-  webdavInput,
-  type GdriveForm,
-  type WebdavForm,
-} from "./TargetFields";
+import { useRemotes } from "../storage/api";
 import "./i18n";
 import "./backup.css";
 
@@ -195,32 +185,15 @@ const weekdays = [
 const targetHints: Record<BackupSettings["target"], string> = {
   storage: "放在那个桶的 backups/ 目录下。超过保留份数时删最旧的。",
   custom: "超过保留份数时删最旧的。",
-  webdav: "备份放在下面的目录里。超过保留份数时删最旧的。",
-  gdrive: "备份放在网盘的一个文件夹里。超过保留份数时删最旧的。",
+  remote: "备份放在网盘账号的一个文件夹里。超过保留份数时删最旧的。",
+  webdav: "",
+  gdrive: "",
 };
 
-/** Google 授权完跳回设置页时，地址里带着结果。提示一次，然后去掉参数。 */
-function useGdriveReturn() {
-  const [params, setParams] = useSearchParams();
-  const result = params.get("gdrive");
-  const message = params.get("message");
-  useEffect(() => {
-    if (!result) return;
-    if (result === "ok") toast("Google Drive 已授权");
-    else
-      toast({
-        message: `Google Drive 授权失败：${message || "未知原因"}`,
-        tone: "error",
-      });
-    setParams(
-      (p) => {
-        p.delete("gdrive");
-        p.delete("message");
-        return p;
-      },
-      { replace: true },
-    );
-  }, [result, message, setParams]);
+/** “备份到”下拉框的值：storage、custom，或者 remote:<账号 id>。 */
+function targetValue(s: BackupSettings): string {
+  if (s.target === "remote" && s.remoteId) return `remote:${s.remoteId}`;
+  return s.target === "custom" ? "custom" : "storage";
 }
 
 function AutoCard() {
@@ -230,19 +203,18 @@ function AutoCard() {
   const save = useSaveBackupSettings();
   const run = useRunBackupNow();
   const test = useTestBackupTarget();
-  const startAuth = useStartGdriveAuth();
+  const remotes = useRemotes();
   const [form, setForm] = useState<BackupSettings | null>(null);
   const [s3, setS3] = useState<S3Form>(() => emptyS3(undefined, "backups"));
-  const [webdav, setWebdav] = useState<WebdavForm>(() => webdavForm());
-  const [gdrive, setGdrive] = useState<GdriveForm>(() => gdriveForm());
+  const [folder, setFolder] = useState("x-console-backups");
+  const [folderName, setFolderName] = useState("X Console 备份");
   const [tested, setTested] = useState<BackupTargetTest | null>(null);
-  useGdriveReturn();
   useEffect(() => {
     if (!settings.data) return;
     setForm(settings.data);
     setS3(emptyS3(settings.data.s3, "backups"));
-    setWebdav(webdavForm(settings.data.webdav));
-    setGdrive(gdriveForm(settings.data.gdrive));
+    setFolder(settings.data.webdav?.folder ?? "x-console-backups");
+    setFolderName(settings.data.gdrive?.folderName ?? "X Console 备份");
   }, [settings.data]);
   if (settings.isPending) return <Loading />;
   if (settings.isError || !form)
@@ -251,12 +223,31 @@ function AutoCard() {
     );
   const set = <K extends keyof BackupSettings>(k: K, v: BackupSettings[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
-  const targetInput = (): BackupSettingsInput => ({
-    target: form.target,
-    ...(form.target === "custom" ? { s3: s3Input(s3) } : {}),
-    ...(form.target === "webdav" ? { webdav: webdavInput(webdav) } : {}),
-    ...(form.target === "gdrive" ? { gdrive: gdriveInput(gdrive) } : {}),
-  });
+  const accounts = remotes.data?.items ?? [];
+  const account =
+    form.target === "remote"
+      ? accounts.find((a) => a.id === form.remoteId)
+      : undefined;
+  const pickTarget = (value: string) => {
+    setTested(null);
+    setForm((f) => {
+      if (!f) return f;
+      if (value.startsWith("remote:"))
+        return { ...f, target: "remote", remoteId: Number(value.slice(7)) };
+      return { ...f, target: value === "custom" ? "custom" : "storage" };
+    });
+  };
+  const targetInput = (): BackupSettingsInput => {
+    if (form.target === "custom") return { target: "custom", s3: s3Input(s3) };
+    if (form.target !== "remote") return { target: "storage" };
+    return {
+      target: "remote",
+      remoteId: form.remoteId,
+      ...(account?.kind === "gdrive"
+        ? { gdrive: { folderName: folderName.trim() } }
+        : { webdav: { folder: folder.trim().replace(/^\/+|\/+$/g, "") } }),
+    };
+  };
   const onSave = (e: FormEvent) => {
     e.preventDefault();
     save.mutate(
@@ -274,22 +265,6 @@ function AutoCard() {
   const onTest = () => {
     setTested(null);
     test.mutate(targetInput(), { onSuccess: setTested, onError: fail });
-  };
-  // 先只保存客户端（不改备份位置和开关），再跳到 Google 授权页。
-  const onAuthorize = () => {
-    save.mutate(
-      { gdrive: gdriveInput(gdrive) },
-      {
-        onSuccess: () =>
-          startAuth.mutate(undefined, {
-            onSuccess: (r) => {
-              window.location.href = r.url;
-            },
-            onError: fail,
-          }),
-        onError: fail,
-      },
-    );
   };
   return (
     <form className="xc-card" onSubmit={onSave}>
@@ -356,37 +331,62 @@ function AutoCard() {
         <span>{t("Where to")}</span>
         <select
           className="xc-select"
-          value={form.target}
-          onChange={(e) => {
-            set("target", e.target.value as BackupSettings["target"]);
-            setTested(null);
-          }}
+          value={targetValue(form)}
+          onChange={(e) => pickTarget(e.target.value)}
         >
           <option value="storage">{t("The S3 in Storage settings")}</option>
           <option value="custom">{t("Another S3")}</option>
-          <option value="webdav">WebDAV（坚果云、Nextcloud、alist 等）</option>
-          <option value="gdrive">Google Drive</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={`remote:${a.id}`}>
+              {a.name}（{a.kind === "gdrive" ? "Google Drive" : "WebDAV"}）
+            </option>
+          ))}
         </select>
-        <small>{targetHints[form.target]}</small>
+        <small>
+          {targetHints[form.target]}
+          {accounts.length === 0 && !remotes.isPending && (
+            <>
+              {" "}
+              要备份到坚果云、Google Drive 这类网盘，先到{" "}
+              <Link to="/settings/storage">设置 → 存储</Link> 添加网盘账号。
+            </>
+          )}
+        </small>
       </label>
       {form.target === "custom" && (
         <S3Fields value={s3} onChange={setS3} hasSecret={form.s3?.hasSecret} />
       )}
-      {form.target === "webdav" && (
-        <WebdavFields
-          value={webdav}
-          onChange={setWebdav}
-          passwordSet={form.webdav?.passwordSet}
-        />
+      {account && !account.ready && (
+        <p className="backup-warn">
+          {account.kind === "gdrive"
+            ? "这个账号还没授权，"
+            : "这个账号还没填完整，"}
+          到 <Link to="/settings/storage">设置 → 存储</Link> 处理。
+        </p>
       )}
-      {form.target === "gdrive" && (
-        <GdriveFields
-          value={gdrive}
-          onChange={setGdrive}
-          saved={settings.data?.gdrive}
-          authorizing={save.isPending || startAuth.isPending}
-          onAuthorize={onAuthorize}
-        />
+      {account?.kind === "webdav" && (
+        <label className="xc-field">
+          <span>{t("Folder")}</span>
+          <input
+            className="xc-input"
+            value={folder}
+            onChange={(e) => setFolder(e.target.value)}
+            placeholder="x-console-backups"
+            spellCheck={false}
+          />
+        </label>
+      )}
+      {account?.kind === "gdrive" && (
+        <label className="xc-field">
+          <span>{t("Folder name")}</span>
+          <input
+            className="xc-input"
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+            placeholder="X Console 备份"
+          />
+          <small>放在网盘根目录下，没有就新建。</small>
+        </label>
       )}
       {tested && (
         <p
