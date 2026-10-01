@@ -23,6 +23,27 @@ type Agent struct {
 	RevokedAt    *time.Time
 }
 
+type AiAgent struct {
+	ID               int64
+	Name             string
+	Avatar           string
+	Color            string
+	Kind             string
+	Model            string
+	Instructions     string
+	RunnerAgentID    *string
+	Access           string
+	CliPermission    string
+	RepoIds          string
+	MaxParallel      int64
+	MonthlyBudgetUsd *float64
+	AutoBuild        int64
+	BuildRetries     int64
+	Enabled          int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
 type AiAttachment struct {
 	ID             int64
 	ConversationID *int64
@@ -244,6 +265,11 @@ type CodingRepo struct {
 	RemoteUrl     string
 	GithubRepo    string
 	CreatedAt     time.Time
+	ConnectionID  *int64
+	Owner         string
+	Repo          string
+	CloneUrl      string
+	BuildConfig   string
 }
 
 type CodingTask struct {
@@ -266,6 +292,12 @@ type CodingTask struct {
 	StartedAt      *time.Time
 	FinishedAt     *time.Time
 	UpdatedAt      time.Time
+	AiAgentID      *int64
+	Model          string
+	Permission     string
+	BuildStatus    string
+	BuildAttempts  int64
+	Artifacts      string
 }
 
 type CodingTaskEvent struct {
@@ -334,6 +366,20 @@ type FocusSession struct {
 	Completed      int64
 	Note           string
 	NotifiedAt     *time.Time
+}
+
+type GitConnection struct {
+	ID               int64
+	Kind             string
+	Name             string
+	BaseUrl          string
+	Username         string
+	TokenEnc         string
+	UseGithubModule  int64
+	WebhookSecretEnc string
+	CreatedAt        time.Time
+	LastCheckedAt    *time.Time
+	LastError        string
 }
 
 type GithubCiState struct {
@@ -544,6 +590,7 @@ type IssueComment struct {
 	IssueID   int64
 	Body      string
 	CreatedAt time.Time
+	Author    string
 }
 
 type IssueLabel struct {

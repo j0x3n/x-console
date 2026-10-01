@@ -406,7 +406,7 @@ func (q *Queries) CreateBoard(ctx context.Context, arg CreateBoardParams) (Proje
 }
 
 const createComment = `-- name: CreateComment :one
-INSERT INTO issue_comments (issue_id, body, created_at) VALUES (?, ?, ?) RETURNING id, issue_id, body, created_at
+INSERT INTO issue_comments (issue_id, body, created_at) VALUES (?, ?, ?) RETURNING id, issue_id, body, created_at, author
 `
 
 type CreateCommentParams struct {
@@ -423,6 +423,7 @@ func (q *Queries) CreateComment(ctx context.Context, arg CreateCommentParams) (I
 		&i.IssueID,
 		&i.Body,
 		&i.CreatedAt,
+		&i.Author,
 	)
 	return i, err
 }
@@ -1274,7 +1275,7 @@ func (q *Queries) ListColumn(ctx context.Context, arg ListColumnParams) ([]int64
 }
 
 const listComments = `-- name: ListComments :many
-SELECT id, issue_id, body, created_at FROM issue_comments WHERE issue_id = ? ORDER BY created_at, id
+SELECT id, issue_id, body, created_at, author FROM issue_comments WHERE issue_id = ? ORDER BY created_at, id
 `
 
 func (q *Queries) ListComments(ctx context.Context, issueID int64) ([]IssueComment, error) {
@@ -1291,6 +1292,7 @@ func (q *Queries) ListComments(ctx context.Context, issueID int64) ([]IssueComme
 			&i.IssueID,
 			&i.Body,
 			&i.CreatedAt,
+			&i.Author,
 		); err != nil {
 			return nil, err
 		}

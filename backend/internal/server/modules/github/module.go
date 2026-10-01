@@ -75,6 +75,7 @@ func New(d *module.Deps) (module.Module, error) {
 		now:  func() time.Time { return time.Now().UTC() },
 	}
 	module.Provide[contracts.GitHub](d.Registry, contracts.GitHubKey, m)
+	module.Provide[contracts.GitHubCredentials](d.Registry, contracts.GitHubCredentialsKey, m) // B47
 	m.registerActions()
 	return m, nil
 }
@@ -166,6 +167,15 @@ func (m *Module) requireConfigured(ctx context.Context) (config, error) {
 		return config{}, httpx.ErrIntegrationMissing
 	}
 	return cfg, nil
+}
+
+// Credentials implements contracts.GitHubCredentials (B47).
+func (m *Module) Credentials(ctx context.Context) (string, string, error) {
+	cfg, err := m.requireConfigured(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	return cfg.APIURL, cfg.Token, nil
 }
 
 func (m *Module) client(cfg config) *restClient {

@@ -138,3 +138,11 @@ sql:
         package: db
         out: internal/server/modules/automations/db
         emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/aiagents/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/aiagents/db
+        emit_pointers_for_null_types: true

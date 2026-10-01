@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/aiagents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/automations"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
@@ -55,4 +56,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	backup.New,  // B25
 
 	uploadfiles.New, // B36
+
+	aiagents.New, // B47
 }
