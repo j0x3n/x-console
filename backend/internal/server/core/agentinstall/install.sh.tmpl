@@ -10,6 +10,8 @@ BIN=/usr/local/bin/x-console-agent
 CONFIG_DIR=/etc/x-console-agent
 CONFIG="$CONFIG_DIR/config.json"
 UNIT=/etc/systemd/system/x-console-agent.service
+# B64：Unraid 的路径前面加上这个前缀。只给测试用，平时为空。
+ROOT="${XC_UNRAID_ROOT:-}"
 REPAIR=0
 for arg in "$@"; do
     [ "$arg" = "--repair" ] && REPAIR=1
@@ -48,6 +50,83 @@ WANT=$(tr -d '\r' < "$TMP/headers" | awk 'tolower($1) == "x-checksum-sha256:" { 
 HAVE=$(sha256_of "$TMP/agent") || die "没有 sha256sum 或 shasum，无法校验下载的文件"
 if [ -z "$WANT" ] || [ "$WANT" != "$HAVE" ]; then
     die "下载的文件校验不通过"
+fi
+
+# B64：Unraid 没有 systemd，系统盘每次开机重置，只有 U 盘上的 /boot 会保留。
+# 程序和配置放在 U 盘上，开机时由 /boot/config/go 复制到内存里再运行。
+install_unraid() {
+    UDIR="$ROOT/boot/config/plugins/x-console-agent"
+    UBIN="$ROOT/usr/local/bin/x-console-agent"
+    UCONFIG="$UDIR/agent.json"
+    URUN="$UDIR/run.sh"
+    GOFILE="$ROOT/boot/config/go"
+    LOG="$ROOT/var/log/x-console-agent.log"
+
+    mkdir -p "$UDIR" "$(dirname "$UBIN")" "$(dirname "$LOG")"
+    cp -f "$TMP/agent" "$UDIR/x-console-agent.new"
+    mv -f "$UDIR/x-console-agent.new" "$UDIR/x-console-agent"
+    install -m 0755 "$TMP/agent" "$UBIN.new"
+    mv -f "$UBIN.new" "$UBIN"
+    say "已安装到 $UDIR"
+
+    if [ -f "$UCONFIG" ] && [ "$REPAIR" -eq 0 ]; then
+        say "这台机器已经配过对，只升级程序。"
+    else
+        "$UBIN" pair --server "$SERVER" --code "$CODE" --config "$UCONFIG" || die "配对失败。配对码可能已经用过或过期"
+    fi
+    chmod 600 "$UCONFIG" 2>/dev/null || true
+
+    # U 盘是 FAT32，不能直接执行，所以开机时先复制到 /usr/local/bin。
+    # 代理退出后 5 秒重启；退出码 3 表示被吊销，不再重启。日志超过 1 MB 时换一个文件。
+    cat > "$URUN" <<RUN_EOF
+#!/bin/sh
+# X Console 代理的启动脚本，由安装脚本生成。Unraid 开机时 /boot/config/go 调用它。
+cp -f '$UDIR/x-console-agent' '$UBIN.new' && chmod 755 '$UBIN.new' && mv -f '$UBIN.new' '$UBIN'
+while :; do
+    if [ -f '$LOG' ] && [ "\$(wc -c < '$LOG')" -gt 1048576 ]; then
+        mv -f '$LOG' '$LOG.1'
+    fi
+    '$UBIN' run --config '$UCONFIG' >> '$LOG' 2>&1
+    [ \$? -eq 3 ] && break
+    sleep 5
+done
+RUN_EOF
+
+    # 开机启动：在 /boot/config/go 末尾加一段，重复安装时先删掉旧的那段。
+    if [ -f "$GOFILE" ]; then
+        sed '/^# >>> x-console-agent >>>$/,/^# <<< x-console-agent <<<$/d' "$GOFILE" > "$TMP/go"
+        cat "$TMP/go" > "$GOFILE"
+    else
+        mkdir -p "$(dirname "$GOFILE")"
+        printf '#!/bin/bash\n' > "$GOFILE"
+    fi
+    {
+        printf '# >>> x-console-agent >>>\n'
+        printf "nohup sh '%s' >/dev/null 2>&1 &\n" "$URUN"
+        printf '# <<< x-console-agent <<<\n'
+    } >> "$GOFILE"
+
+    # 停掉旧的，按开机时的方式启动一次。
+    pkill -f "sh $URUN" 2>/dev/null || true
+    pkill -f "$UBIN run" 2>/dev/null || true
+    nohup sh "$URUN" >/dev/null 2>&1 &
+
+    i=0
+    while [ "$i" -lt 10 ]; do
+        sleep 1
+        if pgrep -f "$UBIN run" >/dev/null 2>&1; then
+            say "代理已启动，重启 Unraid 后会自动启动。几秒后面板的设备列表里会出现这台机器。"
+            say "卸载：curl -fsSL '$SERVER/api/v1/agent/uninstall.sh' | sh"
+            exit 0
+        fi
+        i=$((i + 1))
+    done
+    die "代理没有起来，请看日志：tail -n 50 $LOG"
+}
+
+if [ -f "$ROOT/etc/unraid-version" ]; then
+    say "这是 Unraid，代理装在 U 盘上。"
+    install_unraid
 fi
 
 install -m 0755 "$TMP/agent" "$BIN.new"

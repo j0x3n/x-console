@@ -44,6 +44,7 @@ registerZh({
   "Add a computer": "添加电脑",
   "Add a device": "添加设备",
   "Run this on the server as root": "在服务器上用 root 执行",
+  "On Unraid, run this in its terminal": "Unraid 在它的终端里执行这条",
   "Run this in PowerShell": "在 PowerShell 里执行",
   "Or download the installer and double-click it": "或者下载安装程序，双击运行",
   "Download the installer": "下载安装程序",
