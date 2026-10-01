@@ -209,6 +209,8 @@ func (c *webPushChannel) keys(ctx context.Context) (vapidKeys, error) {
 	return k, c.m.d.Settings.SetSecret(ctx, vapidKey, k)
 }
 
+const pushTTL = 3 * 24 * 3600
+
 // pushPayload is what web/public/sw.js receives.
 type pushPayload struct {
 	ID       int64        `json:"id"`
@@ -217,7 +219,17 @@ type pushPayload struct {
 	Body     string       `json:"body,omitempty"`
 	Link     string       `json:"link,omitempty"`
 	Priority string       `json:"priority"`
+	SentAt   string       `json:"sentAt,omitempty"`
 	Actions  []pushAction `json:"actions,omitempty"`
+}
+
+func withSentAt(p pushPayload, now time.Time) pushPayload {
+	p.SentAt = now.UTC().Format(time.RFC3339)
+	return p
+}
+
+func testPushBody(now time.Time, loc *time.Location) string {
+	return "收到这条说明浏览器推送能用。发送时间 " + now.In(loc).Format("15:04:05")
 }
 
 type pushAction struct {
@@ -264,7 +276,7 @@ func (c *webPushChannel) Send(ctx context.Context, n notify.Stored) error {
 	if err != nil {
 		return err
 	}
-	p := pushPayload{ID: n.ID, Kind: n.Kind, Title: n.Title, Body: n.Body, Link: n.Link, Priority: n.Priority}
+	p := withSentAt(pushPayload{ID: n.ID, Kind: n.Kind, Title: n.Title, Body: n.Body, Link: n.Link, Priority: n.Priority}, time.Now())
 	for _, a := range n.Actions {
 		p.Actions = append(p.Actions, pushAction{Action: a.ID, Title: a.Label})
 	}
@@ -297,7 +309,7 @@ func (c *webPushChannel) sendOne(ctx context.Context, s db.WebpushSubscription, 
 	resp, err := webpush.SendNotificationWithContext(ctx, slices.Clone(payload),
 		&webpush.Subscription{Endpoint: s.Endpoint, Keys: webpush.Keys{P256dh: s.P256dh, Auth: s.Auth}},
 		&webpush.Options{
-			HTTPClient: c.m.http, Subscriber: set.subject, TTL: 12 * 3600, Urgency: set.urgency,
+			HTTPClient: c.m.http, Subscriber: set.subject, TTL: pushTTL, Urgency: set.urgency,
 			VAPIDPublicKey: set.keys.Public, VAPIDPrivateKey: set.keys.Private,
 		})
 	var out pushOutcome
