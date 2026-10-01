@@ -25,27 +25,22 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 | B48 | 完成 | 设置 → 安全；`auth.RequireStrictElevated` 给 B43、B47 用 |
 | B46 | 完成 | 没做完的几项记在 `docs/tasks.md`“已知问题”里 |
 | B43 | 完成 | 设置 → 远程访问；后端 `auth/tokens.go`、`modules/mcp`。网页版 AI 的 OAuth 没做，记在“已知问题” |
-| B47 | 进行中 | 见下面“当前” |
+| B47 | 完成 | 6 步都做完了，没做的部分记在 `docs/tasks.md`“已知问题” |
 
 ## 当前
 
-B47 进行中，分 6 步，每步一个提交（都以 `B47：` 开头）：
+B41 到 B48 这一批的代码都写完了，提交在 `develop`。剩下的：
 
-1. （已完成）后端：迁移 `m4_b47_ai_agents`（`ai_agents`、`git_connections`，`coding_repos`、`coding_tasks`、`issue_comments` 加列），新模块 `modules/aiagents`（Agent 增删改、Git 连接增删改和检查、列远端仓库），`contracts.GitConnections`。
-2. （已完成）仓库按远端登记：`coding` 模块按连接登记仓库，代理新方法 `coding.ensure_repo`（clone 或 fetch，令牌用 `GIT_ASKPASS` 传，不落盘），Forgejo 开 PR，任务带 Agent（固定说明、模型、权限）。
-3. （已完成）构建：仓库的构建步骤，代理新方法 `coding.build`，改完自动构建、失败带日志重试，产物用 `files.read` 拉回存云盘。
-4. （已完成）看板：卡片分配给 Agent（建任务、加成员、开始和结束写评论、移列表），Git 回调（PR 合并后卡片到“已完成”），内置 Agent（ai 模块提供 `contracts.ToolRunner`，按 B43 的 `actions.AllowedFor` 过滤工具）。
-5. （已完成）前端：左栏“Agent”，Agent 列表和表单、Git 连接、仓库按远端登记、任务详情的构建日志和产物、卡片上的“分配给 Agent”。
-6. （已完成）端到端和截图，更新文档。
+- B45 第三步：用户说“部署”后带部署标记推送，用户在 iPhone 上用 `?safari=A` 到 `F` 测，按结果定稿。
+- 整批还没部署过。部署前跑一遍完整检查（AGENTS.md“常用命令”）。
 
-设计取舍（和规格不同的地方）：
+B47 的设计取舍（和规格不同的地方）：
 - 构建产物存在 coding 模块自己的文件存储里（`artifacts/<任务 id>/`），在任务详情里下载，不进云盘的目录。云盘的目录有自己的数据库索引，要写进去得加一个云盘接口，这次没做。
 - 构建只能在“等你决定”（review）状态跑，提交以后工作目录就删了。
 - 任务开始前的 fetch 在派发任务时同步做（最多 3 分钟），这期间别的任务不会被派发。以后再改成异步。
 - 内置 Agent 的模型存成 `providerId:modelId`，ai 模块通过 context 覆盖 B32 的模型选择。
 - “只编译”任务（不经过 Agent 直接构建某个分支）这次不做，`coding_tasks.executor` 有 CHECK 约束，改它要重建表。记到“已知问题”。
 
-B45 等用户说“部署”后带部署标记推送，用户真机测试。
 
 ## 接手时注意
 
