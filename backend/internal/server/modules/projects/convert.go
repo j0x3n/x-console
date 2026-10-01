@@ -12,10 +12,11 @@ import (
 )
 
 func toProject(p db.Project, issueCount, openCount int64) api.Project {
+	locked := p.LayoutLocked != 0
 	return api.Project{
 		Id: p.ID, Key: p.Key, Name: p.Name, Description: p.Description, Color: p.Color, Icon: p.Icon,
 		ArchivedAt: p.ArchivedAt, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
-		IssueCount: int(issueCount), OpenCount: int(openCount),
+		IssueCount: int(issueCount), OpenCount: int(openCount), LayoutLocked: &locked,
 	}
 }
 

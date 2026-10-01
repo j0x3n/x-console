@@ -465,6 +465,21 @@ func cleanName(s string, what string) (string, error) {
 	return s, nil
 }
 
+func errLayoutLocked() error {
+	return httpx.NewError(409, "layout_locked", "看板结构已锁定，先在项目页解锁")
+}
+
+func (m *Module) ensureLayoutOpen(ctx context.Context, q *db.Queries, projectID int64) error {
+	p, err := q.GetProject(ctx, projectID)
+	if err != nil {
+		return notFound(err)
+	}
+	if p.Project.LayoutLocked != 0 {
+		return errLayoutLocked()
+	}
+	return nil
+}
+
 func (m *Module) createBoard(ctx context.Context, projectID int64, in api.CreateBoard) (out api.Board, err error) {
 	defer func() { m.d.Audit.Record(ctx, "board.create", in.Name, map[string]any{"projectId": projectID}, err) }()
 	name, err := cleanName(in.Name, "看板")
@@ -482,6 +497,9 @@ func (m *Module) createBoard(ctx context.Context, projectID int64, in api.Create
 		}
 		if p.Project.ArchivedAt != nil {
 			return httpx.Invalid("项目已归档")
+		}
+		if p.Project.LayoutLocked != 0 {
+			return errLayoutLocked()
 		}
 		b, err := m.createBoardTx(ctx, q, projectID, name, deref(in.Icon), preset)
 		if err != nil {
@@ -527,6 +545,11 @@ func (m *Module) updateBoard(ctx context.Context, id int64, in api.UpdateBoard) 
 		b, err := q.GetBoard(ctx, id)
 		if err != nil {
 			return notFound(err)
+		}
+		if in.Name != nil || in.Icon != nil || in.Archived != nil || in.AfterId != nil {
+			if err := m.ensureLayoutOpen(ctx, q, b.ProjectID); err != nil {
+				return err
+			}
 		}
 		if in.Name != nil {
 			if b.Name, err = cleanName(*in.Name, "看板"); err != nil {
@@ -603,6 +626,9 @@ func (m *Module) deleteBoard(ctx context.Context, id int64) (err error) {
 			return notFound(err)
 		}
 		projectID = b.ProjectID
+		if err := m.ensureLayoutOpen(ctx, q, projectID); err != nil {
+			return err
+		}
 		boards, err := q.ListBoards(ctx, db.ListBoardsParams{ProjectID: b.ProjectID})
 		if err != nil {
 			return err
@@ -657,6 +683,9 @@ func (m *Module) copyBoard(ctx context.Context, id int64, name string) (out api.
 		if err != nil {
 			return notFound(err)
 		}
+		if err := m.ensureLayoutOpen(ctx, q, b.ProjectID); err != nil {
+			return err
+		}
 		if strings.TrimSpace(name) == "" {
 			name = b.Name + "（副本）"
 		}
@@ -709,6 +738,9 @@ func (m *Module) createList(ctx context.Context, boardID int64, in api.CreateBoa
 			return notFound(err)
 		}
 		projectID = b.ProjectID
+		if err := m.ensureLayoutOpen(ctx, q, projectID); err != nil {
+			return err
+		}
 		pos, err := q.MaxListPosition(ctx, boardID)
 		if err != nil {
 			return err
@@ -736,6 +768,11 @@ func (m *Module) updateList(ctx context.Context, id int64, in api.UpdateBoardLis
 			return notFound(err)
 		}
 		projectID = r.ProjectID
+		if in.Name != nil || in.Status != nil || nulls["status"] || in.Color != nil || in.WipLimit != nil || in.Archived != nil || in.AfterId != nil {
+			if err := m.ensureLayoutOpen(ctx, q, projectID); err != nil {
+				return err
+			}
+		}
 		l := listOf(r)
 		if in.Name != nil {
 			if l.Name, err = cleanName(*in.Name, "列表"); err != nil {
@@ -821,6 +858,9 @@ func (m *Module) deleteList(ctx context.Context, id int64) (err error) {
 			return notFound(err)
 		}
 		projectID = r.ProjectID
+		if err := m.ensureLayoutOpen(ctx, q, projectID); err != nil {
+			return err
+		}
 		n, err := q.CountAllInList(ctx, &id)
 		if err != nil {
 			return err

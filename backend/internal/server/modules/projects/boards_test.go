@@ -253,3 +253,43 @@ func TestBoardActions(t *testing.T) {
 		t.Fatalf("comment count: %+v", got.CommentCount)
 	}
 }
+
+func TestLayoutLock(t *testing.T) {
+	env := newEnv(t)
+	p := createProject(t, env, "XC")
+	if p.LayoutLocked == nil || *p.LayoutLocked {
+		t.Fatalf("new project lock: %+v", p.LayoutLocked)
+	}
+	board := boards(t, env, p.Id)[0]
+	todo := listNamed(t, board, "待办")
+	doing := listNamed(t, board, "进行中")
+
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/projects/%d", p.Id), map[string]any{"layoutLocked": true}, &p)
+	if p.LayoutLocked == nil || !*p.LayoutLocked {
+		t.Fatalf("locked: %+v", p.LayoutLocked)
+	}
+	status, raw := env.Do(http.MethodPost, fmt.Sprintf("/boards/%d/lists", board.Id), map[string]any{"name": "新列表"}, nil)
+	if status != http.StatusConflict || errCode(t, raw) != "layout_locked" || !strings.Contains(string(raw), "看板结构已锁定") {
+		t.Fatalf("create list while locked: %d %s", status, raw)
+	}
+	card := createIssue(t, env, p.Id, map[string]any{"title": "还能加卡片", "listId": todo.Id})
+	var moved api.Issue
+	env.MustDo(http.MethodPost, "/issues/"+card.Key+"/move", map[string]any{"listId": doing.Id}, &moved)
+	if moved.ListId == nil || *moved.ListId != doing.Id {
+		t.Fatalf("move while locked: %+v", moved)
+	}
+	var collapsed api.BoardList
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/lists/%d", todo.Id), map[string]any{"collapsed": true}, &collapsed)
+	if !collapsed.Collapsed {
+		t.Fatalf("collapse while locked: %+v", collapsed)
+	}
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/projects/%d", p.Id), map[string]any{"layoutLocked": false}, &p)
+	if p.LayoutLocked == nil || *p.LayoutLocked {
+		t.Fatalf("unlocked: %+v", p.LayoutLocked)
+	}
+	var created api.BoardList
+	env.MustDo(http.MethodPost, fmt.Sprintf("/boards/%d/lists", board.Id), map[string]any{"name": "新列表"}, &created)
+	if created.Name != "新列表" {
+		t.Fatalf("list after unlock: %+v", created)
+	}
+}

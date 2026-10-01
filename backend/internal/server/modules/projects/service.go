@@ -130,6 +130,12 @@ func (m *Module) updateProject(ctx context.Context, id int64, in api.UpdateProje
 	if in.Icon != nil {
 		p.Icon = *in.Icon
 	}
+	if in.LayoutLocked != nil {
+		p.LayoutLocked = 0
+		if *in.LayoutLocked {
+			p.LayoutLocked = 1
+		}
+	}
 	now := m.now()
 	if in.Archived != nil {
 		if *in.Archived && p.ArchivedAt == nil {
@@ -140,7 +146,7 @@ func (m *Module) updateProject(ctx context.Context, id int64, in api.UpdateProje
 	}
 	if err := m.q.UpdateProject(ctx, db.UpdateProjectParams{
 		Name: p.Name, Description: p.Description, Color: p.Color, Icon: p.Icon, ArchivedAt: p.ArchivedAt,
-		UpdatedAt: now, ID: id,
+		LayoutLocked: p.LayoutLocked, UpdatedAt: now, ID: id,
 	}); err != nil {
 		return out, err
 	}

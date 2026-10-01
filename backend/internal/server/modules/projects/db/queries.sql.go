@@ -1005,7 +1005,7 @@ func (q *Queries) GetMilestone(ctx context.Context, id int64) (Milestone, error)
 }
 
 const getProject = `-- name: GetProject :one
-SELECT projects.id, projects."key", projects.name, projects.description, projects.color, projects.icon, projects.archived_at, projects.next_number, projects.created_at, projects.updated_at,
+SELECT projects.id, projects."key", projects.name, projects.description, projects.color, projects.icon, projects.archived_at, projects.next_number, projects.created_at, projects.updated_at, projects.layout_locked,
     CAST((SELECT count(*) FROM issues i WHERE i.project_id = projects.id) AS INTEGER) AS issue_count,
     CAST((SELECT count(*) FROM issues i WHERE i.project_id = projects.id AND i.status NOT IN ('done', 'canceled')) AS INTEGER) AS open_count
 FROM projects
@@ -1032,6 +1032,7 @@ func (q *Queries) GetProject(ctx context.Context, id int64) (GetProjectRow, erro
 		&i.Project.NextNumber,
 		&i.Project.CreatedAt,
 		&i.Project.UpdatedAt,
+		&i.Project.LayoutLocked,
 		&i.IssueCount,
 		&i.OpenCount,
 	)
@@ -1663,7 +1664,7 @@ func (q *Queries) ListMilestones(ctx context.Context, projectID int64) ([]Milest
 
 const listProjects = `-- name: ListProjects :many
 
-SELECT projects.id, projects."key", projects.name, projects.description, projects.color, projects.icon, projects.archived_at, projects.next_number, projects.created_at, projects.updated_at,
+SELECT projects.id, projects."key", projects.name, projects.description, projects.color, projects.icon, projects.archived_at, projects.next_number, projects.created_at, projects.updated_at, projects.layout_locked,
     CAST((SELECT count(*) FROM issues i WHERE i.project_id = projects.id) AS INTEGER) AS issue_count,
     CAST((SELECT count(*) FROM issues i WHERE i.project_id = projects.id AND i.status NOT IN ('done', 'canceled')) AS INTEGER) AS open_count
 FROM projects
@@ -1699,6 +1700,7 @@ func (q *Queries) ListProjects(ctx context.Context, archived bool) ([]ListProjec
 			&i.Project.NextNumber,
 			&i.Project.CreatedAt,
 			&i.Project.UpdatedAt,
+			&i.Project.LayoutLocked,
 			&i.IssueCount,
 			&i.OpenCount,
 		); err != nil {
@@ -2284,18 +2286,19 @@ func (q *Queries) UpdateMilestone(ctx context.Context, arg UpdateMilestoneParams
 
 const updateProject = `-- name: UpdateProject :exec
 UPDATE projects
-SET name = ?, description = ?, color = ?, icon = ?, archived_at = ?, updated_at = ?
+SET name = ?, description = ?, color = ?, icon = ?, archived_at = ?, layout_locked = ?, updated_at = ?
 WHERE id = ?
 `
 
 type UpdateProjectParams struct {
-	Name        string
-	Description string
-	Color       string
-	Icon        string
-	ArchivedAt  *time.Time
-	UpdatedAt   time.Time
-	ID          int64
+	Name         string
+	Description  string
+	Color        string
+	Icon         string
+	ArchivedAt   *time.Time
+	LayoutLocked int64
+	UpdatedAt    time.Time
+	ID           int64
 }
 
 func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) error {
@@ -2305,6 +2308,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) er
 		arg.Color,
 		arg.Icon,
 		arg.ArchivedAt,
+		arg.LayoutLocked,
 		arg.UpdatedAt,
 		arg.ID,
 	)

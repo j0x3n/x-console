@@ -747,16 +747,17 @@ type PairingCode struct {
 }
 
 type Project struct {
-	ID          int64
-	Key         string
-	Name        string
-	Description string
-	Color       string
-	Icon        string
-	ArchivedAt  *time.Time
-	NextNumber  int64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           int64
+	Key          string
+	Name         string
+	Description  string
+	Color        string
+	Icon         string
+	ArchivedAt   *time.Time
+	NextNumber   int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	LayoutLocked int64
 }
 
 type ProjectBoard struct {

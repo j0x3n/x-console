@@ -29,7 +29,7 @@ RETURNING id;
 
 -- name: UpdateProject :exec
 UPDATE projects
-SET name = ?, description = ?, color = ?, icon = ?, archived_at = ?, updated_at = ?
+SET name = ?, description = ?, color = ?, icon = ?, archived_at = ?, layout_locked = ?, updated_at = ?
 WHERE id = ?;
 
 -- name: TakeIssueNumber :one
