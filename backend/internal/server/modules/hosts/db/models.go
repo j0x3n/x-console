@@ -652,6 +652,38 @@ type LinearTeam struct {
 	CreatedAt time.Time
 }
 
+type MailAccount struct {
+	ID          int64
+	Name        string
+	Email       string
+	Provider    string
+	ImapHost    string
+	ImapPort    int64
+	Username    string
+	PasswordEnc string
+	Notify      int64
+	UidValidity int64
+	LastUid     int64
+	LastSyncAt  *time.Time
+	CreatedAt   time.Time
+}
+
+type MailMessage struct {
+	ID             int64
+	AccountID      int64
+	Uid            int64
+	MessageID      string
+	FromName       string
+	FromAddress    string
+	Subject        string
+	Snippet        string
+	Date           time.Time
+	Unread         int64
+	Flagged        int64
+	HasAttachments int64
+	BodyJson       *string
+}
+
 type Milestone struct {
 	ID        int64
 	ProjectID int64
