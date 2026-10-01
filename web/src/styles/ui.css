@@ -801,6 +801,9 @@ button.xc-stat:hover {
 
 /* 列表容器：一组行放在一张卡片里 */
 .xc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   background: var(--xc-surface);
   border: 1px solid var(--xc-border);
   border-radius: var(--xc-radius-lg);
@@ -999,10 +1002,32 @@ a.xc-badge:hover {
   color: var(--xc-faint);
   font-size: var(--fs-11);
 }
-.nav-child:hover,
-.nav-child.selected {
+.nav-child:hover {
   background: var(--xc-surface-2);
   color: var(--xc-text);
+}
+/* B76：选中的二级菜单用强调色，左边的竖线上加一段强调色 */
+.nav-child {
+  position: relative;
+}
+.nav-child.selected {
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+  font-weight: 500;
+}
+.nav-child.selected::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: -10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--xc-accent);
+}
+.nav-child.selected small,
+.nav-child.selected .nav-child-mark {
+  color: var(--xc-accent-text);
 }
 .nav-child.more {
   color: var(--xc-faint);
