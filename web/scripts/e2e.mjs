@@ -353,7 +353,10 @@ try {
   await dialog("新建看板").getByLabel("名称").fill("端到端看板");
   await dialog("新建看板").getByRole("button", { name: "创建看板" }).click();
   await page.getByRole("tab", { name: /端到端看板/ }).waitFor();
-  assert.equal(await page.getByRole("tab", { name: /端到端看板/ }).getAttribute("aria-selected"), "true");
+  // 新看板的标签先出现，切过去要等页面拿到新看板
+  await until("切到新看板", async () =>
+    (await page.getByRole("tab", { name: /端到端看板/ }).getAttribute("aria-selected")) === "true",
+  );
   const lanes = page.locator(".projects-board.lists > section.projects-lane[data-list-id]");
   await until("三个列表", async () => (await lanes.count()) === 3);
   await lanes.nth(0).getByRole("button", { name: "添加卡片" }).click();
@@ -803,6 +806,8 @@ try {
   await dialog("添加网站").getByLabel("网址").fill("www.e2e-site.example.com");
   await dialog("添加网站").getByRole("button", { name: "保存" }).click();
   await page.locator(".monitoring-row", { hasText: "https://www.e2e-site.example.com" }).waitFor();
+  // 证书和域名监控在网站存好以后才建，建完弹窗才关
+  await dialog("添加网站").waitFor({ state: "hidden" });
   const siteMonitors = (await api("/monitors")).filter((m) => m.name === "www.e2e-site.example.com");
   assert.deepEqual(siteMonitors.map((m) => `${m.kind} ${m.target}`).sort(), [
     "domain example.com",
@@ -830,6 +835,13 @@ try {
   await page.goto(`${base}/github`);
   await page.getByText("页面不存在").first().waitFor();
   assert.equal((await page.context().request.get(`${base}/api/v1/vault/modules`)).status(), 404);
+  // B68：锁定时设置里看不到隐藏密码卡片，云盘的网盘接口照常回空列表
+  await page.goto(`${base}/settings/security`);
+  await page.getByRole("heading", { name: /安全|Security/ }).first().waitFor().catch(() => {});
+  await page.waitForLoadState("networkidle").catch(() => {});
+  assert.equal(await page.getByRole("heading", { name: "隐藏密码" }).count(), 0);
+  const remotes = await page.context().request.get(`${base}/api/v1/remote-drives`);
+  assert.deepEqual(await remotes.json(), { items: [] });
   // 恢复，后面的步骤还要打开 GitHub 页面
   await send("POST", "/vault/unlock", { password: "e2e-vault-secret" });
   await send("PUT", "/vault/modules", { hidden: [] });
