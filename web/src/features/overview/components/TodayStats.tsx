@@ -11,6 +11,7 @@ import { useCalendarEvents } from "../../calendar/api";
 import { addDays, startOfDay } from "../../calendar/dates";
 import { useTasks } from "../../coding/api";
 import { useHabitsToday } from "../../habits/api";
+import { todayProgress } from "../../habits/progress";
 import { useHosts } from "../../servers/api";
 import { nextEvent } from "../today";
 import { useTodoCount } from "./MainCards";
@@ -28,8 +29,10 @@ export default function TodayStats() {
   const from = startOfDay(new Date());
   const events = useCalendarEvents(from, addDays(from, 1));
 
-  const habitTotal = habits.data?.length ?? 0;
-  const habitDone = habits.data?.filter((h) => h.reached).length ?? 0;
+  // 按完成比例算，开始了一点的习惯也算进度
+  const habit = todayProgress(habits.data ?? []);
+  const habitTotal = habit.total;
+  const habitDone = habit.reached;
   const bestStreak = Math.max(0, ...(habits.data ?? []).map((h) => h.streak));
 
   const servers = hosts.data ?? [];
@@ -73,22 +76,23 @@ export default function TodayStats() {
           caption={bestStreak > 0 ? `${bestStreak} ${t("days")}` : undefined}
           foot={
             habitTotal
-              ? `${habitDone}/${habitTotal} ${t("goals reached")}`
+              ? `${habitDone}/${habitTotal} ${t("goals reached")}` +
+                (habit.started
+                  ? ` · ${habit.started} ${t("habits in progress")}`
+                  : "")
               : t("No habits yet")
           }
         >
           <div className="today-stat-ring">
             <Ring
-              value={habitDone}
-              max={habitTotal}
+              value={habit.ratio * 100}
+              max={100}
               size={46}
               tone={
                 habitTotal > 0 && habitDone === habitTotal ? "ok" : "accent"
               }
             >
-              {habitTotal
-                ? `${Math.round((habitDone / habitTotal) * 100)}%`
-                : DASH}
+              {habitTotal ? `${Math.round(habit.ratio * 100)}%` : DASH}
             </Ring>
           </div>
         </StatCard>

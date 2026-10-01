@@ -13,6 +13,7 @@ import {
   ringGeometry,
   splitWindow,
   weekPlans,
+  todayProgress,
 } from "./progress";
 
 describe("progress math", () => {
@@ -147,5 +148,19 @@ describe("weeklyWorkouts", () => {
     expect(weeks[6].count).toBe(1);
     expect(weeks[0].count).toBe(1);
     expect(weeks.reduce((s, w) => s + w.count, 0)).toBe(4);
+  });
+});
+
+describe("todayProgress", () => {
+  it("没达标的按比例算", () => {
+    const h = (done: number, target: number, reached = done >= target) => ({
+      done,
+      reached,
+      habit: { dailyTarget: target },
+    });
+    const p = todayProgress([h(1, 8), h(0, 1), h(1, 1)]);
+    expect(p).toMatchObject({ total: 3, reached: 1, started: 1 });
+    expect(p.ratio).toBeCloseTo((1 / 8 + 0 + 1) / 3);
+    expect(todayProgress([]).ratio).toBe(0);
   });
 });

@@ -7,7 +7,11 @@ import { formatTime, relativeTime } from "../../../lib/time";
 import { useTasks } from "../../coding/api";
 import { useMyIssues, type Issue } from "../../projects/api";
 import { PRIORITY_LABELS } from "../../projects/logic";
-import { useCompleteReminder, useReminders } from "../../reminders/api";
+import {
+  useCompleteReminder,
+  useReminderCounts,
+  useReminders,
+} from "../../reminders/api";
 import { daysLate, dueToday, overdue } from "../today";
 import { Empty, MoreLink, Pending, QueryState } from "./shared";
 
@@ -51,12 +55,15 @@ export function TodosCard() {
   const issues = useMyIssues();
   const reminders = useReminders("today");
   const complete = useCompleteReminder();
+  const counts = useReminderCounts();
   const now = new Date();
   const todayIssues = dueToday(issues.data ?? [], now);
   const todayReminders = (reminders.data ?? []).filter(
     (r) => r.status !== "done" && r.status !== "ended",
   );
-  const total = todayIssues.length + todayReminders.length;
+  // 其他模块今天到期的事项（订阅续费、证书到期这类），点了去来源页面
+  const external = counts.externalToday;
+  const total = todayIssues.length + todayReminders.length + external.length;
   const loading = issues.isPending || reminders.isPending;
 
   return (
@@ -101,6 +108,19 @@ export function TodosCard() {
                     </button>
                   </div>
                 ))}
+                {external.slice(0, LIMIT).map((x) => (
+                  <Link className="today-row" key={`x${x.id}`} to={x.link}>
+                    <span className="today-row-icon">
+                      <AlarmClock size={15} />
+                    </span>
+                    <span className="today-row-main">
+                      <strong>{x.title}</strong>
+                      <small>
+                        {x.sourceLabel} · {formatTime(x.at, language)}
+                      </small>
+                    </span>
+                  </Link>
+                ))}
                 {todayIssues.slice(0, LIMIT).map((i) => (
                   <IssueRow key={`i${i.id}`} issue={i} />
                 ))}
@@ -115,14 +135,13 @@ export function TodosCard() {
 
 export function useTodoCount() {
   const issues = useMyIssues();
-  const reminders = useReminders("today");
+  // 和提醒页“今天”标签的数一致，包括其他模块今天到期的事项
+  const reminders = useReminderCounts();
   const now = new Date();
   return {
     issues: issues.data ? dueToday(issues.data, now).length : undefined,
     overdue: issues.data ? overdue(issues.data, now).length : undefined,
-    reminders: reminders.data?.filter(
-      (r) => r.status !== "done" && r.status !== "ended",
-    ).length,
+    reminders: reminders.loading ? undefined : reminders.today,
   };
 }
 

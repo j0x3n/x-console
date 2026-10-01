@@ -117,4 +117,5 @@ registerZh({
   "Website is down": "网站打不开",
   "Renewal overdue": "已过续费日",
   "Renews today": "今天续费",
+  "habits in progress": "项进行中",
 });

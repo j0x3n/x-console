@@ -3,6 +3,7 @@ import { createApi, isNotLive, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import { useInvalidate } from "../../api/useInvalidate";
 import type { components, paths } from "../../api/gen/reminders";
+import { readShowExternal } from "./external";
 
 export const remindersApi = createApi<paths>();
 
@@ -262,4 +263,28 @@ export function useExternalReminders(
     staleTime: 60_000,
     enabled,
   });
+}
+
+/**
+ * 今天和即将到来的数量，和提醒页标签上的数一致：自己的提醒加上其他模块的
+ * 到期事项（提醒页“显示其他模块”关掉时不算）。二级菜单和今日页用。
+ */
+export function useReminderCounts() {
+  const showExternal = readShowExternal();
+  const today = useReminders("today");
+  const upcoming = useReminders("upcoming");
+  const extToday = useExternalReminders("today", showExternal);
+  const extUpcoming = useExternalReminders("upcoming", showExternal);
+  const open = (rs: Reminder[] | undefined) =>
+    (rs ?? []).filter((r) => r.status !== "done" && r.status !== "ended");
+  const openExt = (xs: ExternalReminder[] | undefined) =>
+    showExternal ? (xs ?? []).filter((x) => !x.done) : [];
+  return {
+    loading: today.isPending || upcoming.isPending,
+    error: today.isError && upcoming.isError,
+    today: open(today.data).length + openExt(extToday.data).length,
+    upcoming: open(upcoming.data).length + openExt(extUpcoming.data).length,
+    /** 今天其他模块的到期事项，今日页“今天要做”里列出来 */
+    externalToday: openExt(extToday.data),
+  };
 }

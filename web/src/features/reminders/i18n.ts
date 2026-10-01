@@ -10,6 +10,7 @@ registerZh({
   repeating: "个重复提醒",
   Today: "今天",
   Upcoming: "即将到来",
+  "Nothing coming up": "没有要到的提醒",
   Done: "已完成",
   "New reminder": "新建提醒",
   "Edit reminder": "编辑提醒",
