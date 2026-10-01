@@ -382,7 +382,7 @@ export interface components {
              * @deprecated
              * @description B70 起改传 watches
              */
-            repos: string[];
+            repos?: string[];
             /**
              * @deprecated
              * @description B62 起不用。留空表示用默认地址
@@ -390,6 +390,7 @@ export interface components {
             apiUrl?: string;
             /**
              * Format: int64
+             * @deprecated
              * @description B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号。B70 起传 watches
              */
             connectionId?: number;

@@ -542,6 +542,23 @@ try {
     assert.equal(removed.status(), 204, await removed.text());
   }
 
+  stage = "B70 仓库关注 API 主流程";
+  {
+    const original = await api("/github/config");
+    const saved = await page.context().request.put(`${base}/api/v1/github/config`, {
+      headers: { "X-Requested-With": "x-console" }, data: { watches: [] },
+    });
+    assert.equal(saved.status(), 200, await saved.text());
+    assert.deepEqual((await saved.json()).watches, []);
+    assert.deepEqual(await api("/github/repos"), []);
+    assert.deepEqual(await api("/github/commits"), []);
+    assert.deepEqual(await api("/github/pulls"), []);
+    const restored = await page.context().request.put(`${base}/api/v1/github/config`, {
+      headers: { "X-Requested-With": "x-console" }, data: { repos: original.repos, connectionId: original.connectionId ?? 0 },
+    });
+    assert.equal(restored.status(), 200, await restored.text());
+  }
+
   stage = "B74 笔记背景色 API 主流程";
   {
     const colored = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {

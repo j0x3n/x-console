@@ -35,6 +35,8 @@ const (
 	// B62: the Git account (aiagents connection) whose token this module uses.
 	keyConnectionID = "github.connection_id"
 	keyMigratedB62  = "github.migrated_b62"
+	keyWatches      = "github.watches"
+	keyMigratedB70  = "github.migrated_b70"
 )
 
 const (
@@ -55,7 +57,11 @@ type Module struct {
 	etag *etagCache
 	now  func() time.Time
 
-	repos repoCache
+	repos       repoCache
+	migrationMu sync.Mutex
+	accountMu   sync.Mutex
+	accounts    map[int64]*accountState
+	jobs        jobsCache
 
 	syncMu  sync.Mutex // one sync at a time
 	stateMu sync.Mutex
@@ -72,10 +78,12 @@ var (
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
 		d: d, q: db.New(d.DB), log: d.Log.With("module", "github"),
-		hc:   &http.Client{Timeout: 15 * time.Second},
-		rate: &rateState{remaining: -1},
-		etag: newETagCache(),
-		now:  func() time.Time { return time.Now().UTC() },
+		hc:       &http.Client{Timeout: 15 * time.Second},
+		rate:     &rateState{remaining: -1},
+		etag:     newETagCache(),
+		accounts: map[int64]*accountState{},
+		jobs:     jobsCache{entries: map[string]jobsEntry{}},
+		now:      func() time.Time { return time.Now().UTC() },
 	}
 	module.Provide[contracts.GitHub](d.Registry, contracts.GitHubKey, m)
 	module.Provide[contracts.GitHubCredentials](d.Registry, contracts.GitHubCredentialsKey, m) // B47
@@ -96,6 +104,9 @@ func (m *Module) Start(ctx context.Context) error {
 	if err := m.migrateB62(ctx); err != nil {
 		m.log.Warn("github: moving the token into a Git account failed", "err", err)
 	}
+	if err := m.migrateB70(ctx); err != nil {
+		return err
+	}
 	m.d.Scheduler.Every("github.sync", syncInterval, m.scheduledSync)
 	return nil
 }
@@ -103,13 +114,7 @@ func (m *Module) Start(ctx context.Context) error {
 // scheduledSync is one tick of the scheduler. While the rate limit is nearly
 // used up it syncs at most every five minutes.
 func (m *Module) scheduledSync(ctx context.Context) error {
-	if m.lowQuota() {
-		var last lastSync
-		if err := m.d.Settings.Get(ctx, keyLastSync, &last); err == nil && m.now().Sub(last.At) < slowSyncInterval {
-			return nil
-		}
-	}
-	err := m.sync(ctx)
+	err := m.syncAccounts(ctx, true)
 	if errors.Is(err, httpx.ErrIntegrationMissing) {
 		return nil
 	}
@@ -139,11 +144,36 @@ type config struct {
 	APIURL       string
 	Login        string
 	ConnectionID int64
+	Watches      []api.RepoWatch
+	HasWatches   bool
+	Forge        string
+	Name         string
 }
 
-func (c config) configured() bool { return c.Token != "" }
+func (c config) configured() bool { return c.Token != "" || len(c.Watches) > 0 }
 
 func (m *Module) loadConfig(ctx context.Context) (config, error) {
+	c, err := m.loadLegacyConfig(ctx)
+	if err != nil {
+		return c, err
+	}
+	err = m.d.Settings.Get(ctx, keyWatches, &c.Watches)
+	if err != nil && !errors.Is(err, settings.ErrNotSet) {
+		return c, err
+	}
+	c.HasWatches = err == nil
+	if !c.HasWatches {
+		for _, r := range c.Repos {
+			c.Watches = append(c.Watches, api.RepoWatch{ConnectionId: c.ConnectionID, Repo: r})
+		}
+	}
+	if c.Watches == nil {
+		c.Watches = []api.RepoWatch{}
+	}
+	return c, nil
+}
+
+func (m *Module) loadLegacyConfig(ctx context.Context) (config, error) {
 	var c config
 	get := func(key string, dst any) error {
 		if err := m.d.Settings.Get(ctx, key, dst); err != nil && !errors.Is(err, settings.ErrNotSet) {
@@ -242,7 +272,8 @@ func (m *Module) Credentials(ctx context.Context) (string, string, error) {
 }
 
 func (m *Module) client(cfg config) *restClient {
-	return &restClient{base: cfg.APIURL, token: cfg.Token, hc: m.hc, rate: m.rate, etag: m.etag, now: m.now}
+	state := m.accountState(cfg)
+	return &restClient{base: cfg.APIURL, token: cfg.Token, forge: cfg.Forge, hc: m.hc, rate: state.rate, etag: m.etag, now: m.now}
 }
 
 // normalizeAPIURL validates the REST base URL. Empty means the default.

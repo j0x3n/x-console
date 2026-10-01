@@ -40,54 +40,7 @@ func (m *Module) isSyncing() bool {
 
 // sync refreshes every watched repository. Errors of single repositories
 // do not stop the others; they are joined into the stored result.
-func (m *Module) sync(ctx context.Context) error {
-	m.syncMu.Lock()
-	defer m.syncMu.Unlock()
-	cfg, err := m.requireConfigured(ctx)
-	if err != nil {
-		return err
-	}
-	m.setSyncing(true)
-	defer m.setSyncing(false)
-
-	c := m.client(cfg)
-	var errs []string
-	var me ghUser
-	if err := c.get(ctx, "/user", nil, &me); err != nil {
-		errs = append(errs, err.Error())
-	} else if me.Login != cfg.Login {
-		cfg.Login = me.Login
-		if err := m.d.Settings.Set(ctx, keyLogin, me.Login); err != nil {
-			return err
-		}
-	}
-	if len(errs) == 0 {
-		if err := m.dropUnwatched(ctx, cfg.Repos); err != nil {
-			return err
-		}
-		for _, repo := range cfg.Repos {
-			if err := m.syncRepo(ctx, c, repo, cfg.Login); err != nil {
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
-				m.log.Warn("github sync failed", "repo", repo, "err", err)
-				errs = append(errs, repo+"："+err.Error())
-				if isRateLimited(err) {
-					break
-				}
-			}
-		}
-	}
-	result := lastSync{At: m.now(), Error: strings.Join(errs, "；")}
-	if err := m.d.Settings.Set(ctx, keyLastSync, result); err != nil {
-		return err
-	}
-	m.d.Bus.Publish("github.synced", map[string]any{"at": result.At, "error": result.Error})
-	if result.Error != "" {
-		return errors.New(result.Error)
-	}
-	return nil
-}
+func (m *Module) sync(ctx context.Context) error { return m.syncAccounts(ctx, false) }
 
 // dropUnwatched removes cached rows of repositories no longer watched.
 func (m *Module) dropUnwatched(ctx context.Context, repos []string) error {
@@ -198,7 +151,14 @@ func (m *Module) recentPulls(ctx context.Context, c *restClient, repo string) ([
 	for _, state := range []string{"open", "closed"} {
 		for page := 1; page <= maxPullPages; page++ {
 			var batch []ghPull
-			q := url.Values{"state": {state}, "sort": {"updated"}, "direction": {"desc"}, "per_page": {"100"}, "page": {strconv.Itoa(page)}}
+			q := pageQuery(c, 100, page)
+			q.Set("state", state)
+			if c.forge == "forgejo" {
+				q.Set("sort", "recentupdate")
+			} else {
+				q.Set("sort", "updated")
+				q.Set("direction", "desc")
+			}
 			more, err := c.getPage(ctx, "/repos/"+repo+"/pulls", q, &batch)
 			if err != nil {
 				return nil, err
@@ -215,7 +175,7 @@ func (m *Module) recentPulls(ctx context.Context, c *restClient, repo string) ([
 			// Closed PRs come newest update first, and a PR closes no later than
 			// its last update. Once a page reaches an update older than the
 			// cutoff, the rest were closed before it too.
-			if !more || state == "closed" && len(batch) > 0 && batch[len(batch)-1].UpdatedAt.Before(cutoff) {
+			if !more && (c.forge != "forgejo" || len(batch) < 100) || state == "closed" && len(batch) > 0 && batch[len(batch)-1].UpdatedAt.Before(cutoff) {
 				break
 			}
 		}
@@ -227,19 +187,19 @@ func (m *Module) recentPulls(ctx context.Context, c *restClient, repo string) ([
 func (m *Module) reviewState(ctx context.Context, c *restClient, repo string, p ghPull) (string, error) {
 	var reviews []ghReview
 	path := fmt.Sprintf("/repos/%s/pulls/%d/reviews", repo, p.Number)
-	if err := c.get(ctx, path, url.Values{"per_page": {"100"}}, &reviews); err != nil {
+	if err := c.get(ctx, path, pageQuery(c, 100, 1), &reviews); err != nil {
 		return "", err
 	}
-	return summarizeReviews(reviews, len(p.RequestedReviewers)+len(p.RequestedTeams) > 0), nil
+	return summarizeReviews(reviews, len(p.RequestedReviewers)+len(p.RequestedTeams)+len(p.RequestedReviewerTeams) > 0), nil
 }
 
 func summarizeReviews(reviews []ghReview, requested bool) string {
 	latest := map[string]string{}
 	commented := false
 	for _, r := range reviews { // oldest first
-		switch r.State {
+		switch strings.ToUpper(r.State) {
 		case "APPROVED", "CHANGES_REQUESTED", "DISMISSED":
-			latest[r.User.Login] = r.State
+			latest[r.User.Login] = strings.ToUpper(r.State)
 		case "COMMENTED":
 			commented = true
 		}
@@ -275,8 +235,10 @@ func (m *Module) checkState(ctx context.Context, c *restClient, repo, sha string
 	if err := c.get(ctx, "/repos/"+repo+"/commits/"+sha+"/status", nil, &st); err != nil && !ignorable(err) {
 		return "", err
 	}
-	if err := c.get(ctx, "/repos/"+repo+"/commits/"+sha+"/check-runs", url.Values{"per_page": {"100"}}, &runs); err != nil && !ignorable(err) {
-		return "", err
+	if c.forge != "forgejo" {
+		if err := c.get(ctx, "/repos/"+repo+"/commits/"+sha+"/check-runs", url.Values{"per_page": {"100"}}, &runs); err != nil && !ignorable(err) {
+			return "", err
+		}
 	}
 	var states []string
 	if st.TotalCount > 0 {

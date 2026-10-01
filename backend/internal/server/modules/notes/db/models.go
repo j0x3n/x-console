@@ -395,6 +395,15 @@ type GitConnection struct {
 	LastError        string
 }
 
+type GithubCacheV2 struct {
+	ConnectionID int64
+	Repo         string
+	Kind         string
+	ObjectID     string
+	Data         string
+	UpdatedAt    time.Time
+}
+
 type GithubCiState struct {
 	Key       string
 	State     string
@@ -457,6 +466,13 @@ type GithubRun struct {
 	DefaultBranch bool
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+}
+
+type GithubSyntheticRun struct {
+	ID           int64
+	ConnectionID int64
+	Repo         string
+	Sha          string
 }
 
 type HaFavorite struct {

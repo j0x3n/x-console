@@ -3,8 +3,7 @@ package github
 import (
 	"context"
 	"net/http"
-	"net/url"
-	"strconv"
+	"sort"
 	"sync"
 	"time"
 
@@ -34,24 +33,30 @@ type availableRepos struct {
 // repoCache keeps the last list for one token and API address. A different
 // token or address never sees it, which is also how changing them clears it.
 type repoCache struct {
-	mu   sync.Mutex
-	key  string
-	list availableRepos
+	mu      sync.Mutex
+	entries map[string]availableRepos
 }
 
 func (c *repoCache) get(key string, now time.Time) (availableRepos, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.key != key || c.list.FetchedAt.IsZero() || now.Sub(c.list.FetchedAt) >= repoListTTL {
+	list, ok := c.entries[key]
+	if !ok || now.Sub(list.FetchedAt) >= repoListTTL {
 		return availableRepos{}, false
 	}
-	return c.list, true
+	return list, true
 }
 
 func (c *repoCache) put(key string, list availableRepos) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.key, c.list = key, list
+	if c.entries == nil {
+		c.entries = map[string]availableRepos{}
+	}
+	if len(c.entries) > 100 {
+		c.entries = map[string]availableRepos{}
+	}
+	c.entries[key] = list
 }
 
 type ghUserRepo struct {
@@ -67,9 +72,10 @@ func (m *Module) fetchRepos(ctx context.Context, c *restClient) (availableRepos,
 	out := availableRepos{FetchedAt: m.now(), Repos: []availableRepo{}}
 	for page := 1; page <= repoListPages; page++ {
 		var batch []ghUserRepo
-		q := url.Values{
-			"per_page": {"100"}, "page": {strconv.Itoa(page)}, "sort": {"pushed"},
-			"affiliation": {"owner,collaborator,organization_member"},
+		q := pageQuery(c, 100, page)
+		if c.forge != "forgejo" {
+			q.Set("sort", "pushed")
+			q.Set("affiliation", "owner,collaborator,organization_member")
 		}
 		more, err := c.getPage(ctx, "/user/repos", q, &batch)
 		if err != nil {
@@ -83,10 +89,20 @@ func (m *Module) fetchRepos(ctx context.Context, c *restClient) (availableRepos,
 			}
 			out.Repos = append(out.Repos, item)
 		}
-		if !more {
+		if !more && (c.forge != "forgejo" || len(batch) < 100) {
 			break
 		}
 	}
+	sort.SliceStable(out.Repos, func(i, j int) bool {
+		a, b := out.Repos[i].PushedAt, out.Repos[j].PushedAt
+		if a == nil {
+			return false
+		}
+		if b == nil {
+			return true
+		}
+		return a.After(*b)
+	})
 	return out, nil
 }
 
@@ -99,7 +115,15 @@ func truncateRunes(s string, n int) string {
 
 // ListGitHubAvailableRepos is GET /github/available-repos.
 func (m *Module) ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request, params api.ListGitHubAvailableReposParams) {
-	cfg, err := m.requireConfigured(r.Context())
+	legacy, err := m.loadLegacyConfig(r.Context())
+	id := legacy.ConnectionID
+	if params.ConnectionId != nil {
+		id = *params.ConnectionId
+	}
+	cfg, err := m.accountConfig(r.Context(), id)
+	if err == nil && cfg.Token == "" {
+		err = httpx.ErrIntegrationMissing
+	}
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
