@@ -1,12 +1,6 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router";
-import {
-  NotebookPen,
-  Plus,
-  Search,
-  SquarePen,
-  StickyNote,
-} from "lucide-react";
+import { NotebookPen, Plus, Search, SquarePen, StickyNote } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { toast } from "../../hooks/useToast";
 import { captureNote } from "./api";
