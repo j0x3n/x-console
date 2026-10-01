@@ -754,6 +754,16 @@ type NoteAttachment struct {
 	CreatedAt time.Time
 }
 
+type NoteShare struct {
+	NoteID       int64
+	Token        string
+	PasswordHash *string
+	ExpiresAt    *time.Time
+	Visits       int64
+	LastVisitAt  *time.Time
+	CreatedAt    time.Time
+}
+
 type NoteTag struct {
 	NoteID int64
 	Tag    string

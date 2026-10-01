@@ -53,3 +53,6 @@ ON CONFLICT (tag) DO UPDATE SET color = excluded.color;
 
 -- name: ClearTagColor :exec
 DELETE FROM note_tag_colors WHERE tag = ?;
+
+-- name: DeleteNoteShare :execrows
+DELETE FROM note_shares WHERE note_id = ?;

@@ -93,6 +93,18 @@ func (q *Queries) DeleteNote(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteNoteShare = `-- name: DeleteNoteShare :execrows
+DELETE FROM note_shares WHERE note_id = ?
+`
+
+func (q *Queries) DeleteNoteShare(ctx context.Context, noteID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteNoteShare, noteID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getNote = `-- name: GetNote :one
 SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash FROM notes WHERE id = ?
 `

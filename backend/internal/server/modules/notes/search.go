@@ -76,11 +76,16 @@ func (m *Module) listNotes(ctx context.Context, f listFilter) ([]api.NoteSummary
 			tags[r.NoteID] = append(tags[r.NoteID], r.Tag)
 		}
 	}
+	shared, err := m.sharesForNotes(ctx, ids)
+	if err != nil {
+		return nil, 0, err
+	}
 	thumbs := m.thumbnails(ctx, notes)
 	out := make([]api.NoteSummary, len(notes))
 	for i, n := range notes {
 		out[i] = toSummary(n, tags[n.ID])
 		out[i].Thumbnail = thumbs[n.ID]
+		out[i].Shared = new(shared[n.ID])
 		if i < len(snippets) && snippets[i] != "" {
 			s := snippets[i]
 			out[i].Snippet = &s

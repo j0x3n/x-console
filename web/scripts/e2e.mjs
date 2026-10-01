@@ -489,6 +489,35 @@ try {
     throw new Error(`${error.message}\n当前笔记：${JSON.stringify(currentNote)}\n请求：${noteResponses.join(", ")}\n页面异常：${pageErrors.join("；")}`);
   }
 
+  stage = "B72 笔记外链分享";
+  {
+    const elevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+      headers: { "X-Requested-With": "x-console" }, data: { password },
+    });
+    assert.equal(elevate.status(), 200, await elevate.text());
+    const shared = await page.context().request.put(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" }, data: { expiresIn: "7d", password: "e2e-note" },
+    });
+    assert.equal(shared.status(), 200, await shared.text());
+    const share = await shared.json();
+    const publicBase = `${base}/api/v1/public/notes/${share.token}`;
+    assert.equal((await fetch(publicBase)).status, 401);
+    const unlocked = await fetch(`${publicBase}/unlock`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "e2e-note" }),
+    });
+    assert.equal(unlocked.status, 200);
+    const access = (await unlocked.json()).access;
+    const publicNote = await fetch(`${publicBase}?t=${encodeURIComponent(access)}`);
+    assert.equal(publicNote.status, 200);
+    assert.equal((await publicNote.json()).body, currentNote.body);
+    assert.equal((await api(`/notes/${noteId}`)).shared, true);
+    const stopped = await page.context().request.delete(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(stopped.status(), 204, await stopped.text());
+    assert.equal((await fetch(publicBase)).status, 404);
+  }
+
   stage = "新建提醒";
   await page.goto(`${base}/reminders`);
   await page

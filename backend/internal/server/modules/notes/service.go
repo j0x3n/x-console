@@ -84,7 +84,13 @@ func (m *Module) getNote(ctx context.Context, id int64) (api.Note, error) {
 	if err != nil {
 		return api.Note{}, err
 	}
-	return toNote(n, tags), nil
+	shared, err := m.sharesForNotes(ctx, []int64{id})
+	if err != nil {
+		return api.Note{}, err
+	}
+	out := toNote(n, tags)
+	out.Shared = new(shared[id])
+	return out, nil
 }
 
 func setTags(ctx context.Context, q *db.Queries, id int64, tags []string) error {
@@ -197,6 +203,11 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 		if err := q.UpdateNote(ctx, db.UpdateNoteParams{Title: n.Title, Body: n.Body, Pinned: n.Pinned,
 			ArchivedAt: n.ArchivedAt, Hidden: n.Hidden, UpdatedAt: now, ID: id}); err != nil {
 			return err
+		}
+		if n.Hidden != 0 {
+			if _, err := q.DeleteNoteShare(ctx, id); err != nil {
+				return err
+			}
 		}
 		if p.Hidden != nil && wasHidden != *p.Hidden {
 			v := *p.Hidden

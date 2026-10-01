@@ -27,14 +27,19 @@ import (
 
 // Module implements api.ServerInterface.
 type Module struct {
-	d        *module.Deps
-	q        *db.Queries
-	now      func() time.Time
-	files    files.Store // the notes' own part of the site's file store
-	aiMu     sync.Mutex
-	aiTimers map[int64]*aiTimer
-	aiDelay  func(time.Duration, func()) func()
-	aiCtx    context.Context
+	d             *module.Deps
+	q             *db.Queries
+	now           func() time.Time
+	files         files.Store // the notes' own part of the site's file store
+	aiMu          sync.Mutex
+	aiTimers      map[int64]*aiTimer
+	aiDelay       func(time.Duration, func()) func()
+	aiCtx         context.Context
+	shareMu       sync.Mutex
+	shareRates    map[string]noteShareRate
+	shareFailures map[string]noteShareFailure
+	shareVisits   map[[32]byte]time.Time
+	shareNow      func() time.Time
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -42,6 +47,9 @@ var _ api.ServerInterface = (*Module)(nil)
 // New builds the module and registers its contract and actions.
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, files: d.Files.For("notes"), aiTimers: map[int64]*aiTimer{}, aiCtx: context.Background()}
+	m.shareRates = map[string]noteShareRate{}
+	m.shareFailures = map[string]noteShareFailure{}
+	m.shareVisits = map[[32]byte]time.Time{}
 	m.aiDelay = func(delay time.Duration, fn func()) func() {
 		timer := time.AfterFunc(delay, fn)
 		return func() { timer.Stop() }
