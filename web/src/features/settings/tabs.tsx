@@ -12,6 +12,7 @@ import BackupTab from "../backup/BackupTab";
 import AssistantSettingsTab from "../assistant/AssistantSettingsTab";
 import ErrorsTab from "./ErrorsTab";
 import AiUsageTab from "../assistant/AiUsageTab";
+import RemoteAccessTab from "../mcp/RemoteAccessTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -35,4 +36,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "assistant", label: "AI", component: AssistantSettingsTab },
   { id: "ai-usage", label: "AI usage", component: AiUsageTab },
   { id: "errors", label: "Recent errors", component: ErrorsTab },
+  { id: "remote", label: "Remote access", component: RemoteAccessTab },
 ];
