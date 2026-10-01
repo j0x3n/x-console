@@ -34,6 +34,8 @@ type Handler struct {
 	wants     map[int64]map[string]int // connection -> host -> interval asked for
 	sent      map[string]int           // host -> interval the agent was last told, 0 when off
 	announced map[string]int           // host -> interval last published on the bus
+
+	Allow func(ctx context.Context, topic string, data any) bool
 }
 
 func New(bus *events.Bus, agents agentCaller) *Handler {

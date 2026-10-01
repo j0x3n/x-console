@@ -83,6 +83,9 @@ func decodeInput(raw json.RawMessage, v any) error {
 // desktopFor resolves an optional host reference; empty means the first
 // online agent with capability c.
 func (m *Module) desktopFor(ctx context.Context, ref, c string) (string, error) {
+	if m.kindHidden(ctx, "desktop") {
+		return "", httpx.ErrNotFound
+	}
 	if ref != "" {
 		return m.resolveRef(ctx, ref)
 	}

@@ -122,7 +122,7 @@ func (m *Module) handle(ctx context.Context, tok *auth.TokenInfo, req rpcRequest
 	case "ping":
 		result = map[string]any{}
 	case "tools/list":
-		result = m.listTools(tok)
+		result = m.listTools(ctx, tok)
 	case "tools/call":
 		result, rerr = m.callTool(ctx, tok, req.Params)
 	default:
@@ -173,9 +173,9 @@ type tool struct {
 }
 
 // allowed lists the actions this token may use, by MCP tool name.
-func (m *Module) allowed(tok *auth.TokenInfo) map[string]actions.Action {
+func (m *Module) allowed(ctx context.Context, tok *auth.TokenInfo) map[string]actions.Action {
 	out := map[string]actions.Action{}
-	for _, a := range m.d.Actions.List() {
+	for _, a := range m.d.Actions.List(ctx) {
 		if actions.AllowedFor(a, tok.Access, tok.Modules) {
 			out[toolName(a.Name)] = a
 		}
@@ -183,9 +183,9 @@ func (m *Module) allowed(tok *auth.TokenInfo) map[string]actions.Action {
 	return out
 }
 
-func (m *Module) listTools(tok *auth.TokenInfo) any {
+func (m *Module) listTools(ctx context.Context, tok *auth.TokenInfo) any {
 	tools := []tool{}
-	for _, a := range m.d.Actions.List() {
+	for _, a := range m.d.Actions.List(ctx) {
 		if !actions.AllowedFor(a, tok.Access, tok.Modules) {
 			continue
 		}
@@ -222,7 +222,7 @@ func (m *Module) callTool(ctx context.Context, tok *auth.TokenInfo, params json.
 		return nil, &rpcError{codeInvalidParams, "tools/call 需要 name"}
 	}
 	// Check again: the client may call a tool it was never shown.
-	a, ok := m.allowed(tok)[p.Name]
+	a, ok := m.allowed(ctx, tok)[p.Name]
 	if !ok {
 		m.d.Audit.Record(ctx, "mcp.call", p.Name, nil, errors.New("这个令牌不能用这个工具"))
 		return nil, &rpcError{codeInvalidParams, "没有这个工具，或这个令牌不能用它: " + p.Name}

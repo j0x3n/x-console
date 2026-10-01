@@ -46,8 +46,18 @@ func errUnsupported(msg string) error {
 	return httpx.NewError(http.StatusNotImplemented, "feature_unavailable", msg)
 }
 
-// host resolves an id to an agent or SSH host; unknown ids are 404.
 func (m *Module) host(ctx context.Context, id string) (hostRef, error) {
+	ref, err := m.lookupHost(ctx, id)
+	if err != nil {
+		return hostRef{}, err
+	}
+	if m.kindHidden(ctx, ref.Kind) {
+		return hostRef{}, httpx.ErrNotFound
+	}
+	return ref, nil
+}
+
+func (m *Module) lookupHost(ctx context.Context, id string) (hostRef, error) {
 	if n, ok := parseSSHID(id); ok {
 		row, err := m.q.GetSSHHost(ctx, n)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -133,8 +143,29 @@ func (m *Module) sshHost(row db.SshHost, now time.Time) api.Host {
 	return h
 }
 
-// listHosts returns every agent and SSH host with its latest metrics.
 func (m *Module) listHosts(ctx context.Context, kind string) ([]api.Host, error) {
+	kind = canonicalHostKind(kind)
+	if kind != "" && m.kindHidden(ctx, kind) {
+		return []api.Host{}, nil
+	}
+	all, err := m.gatherHosts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]api.Host, 0, len(all))
+	for _, h := range all {
+		if m.kindHidden(ctx, string(h.Kind)) {
+			continue
+		}
+		if kind != "" && string(h.Kind) != kind {
+			continue
+		}
+		filtered = append(filtered, h)
+	}
+	return filtered, nil
+}
+
+func (m *Module) gatherHosts(ctx context.Context) ([]api.Host, error) {
 	now := m.now()
 	agents, err := m.d.Agents.List(ctx)
 	if err != nil {
@@ -159,22 +190,17 @@ func (m *Module) listHosts(ctx context.Context, kind string) ([]api.Host, error)
 	for _, row := range sshRows {
 		out = append(out, m.sshHost(row, now))
 	}
-	filtered := out[:0]
-	for _, h := range out {
-		if kind != "" && string(h.Kind) != kind {
-			continue
-		}
-		h.ActiveAlerts = active[h.Id]
-		m.withMetrics(&h)
-		filtered = append(filtered, h)
+	for i := range out {
+		out[i].ActiveAlerts = active[out[i].Id]
+		m.withMetrics(&out[i])
 	}
-	sort.SliceStable(filtered, func(i, j int) bool {
-		if filtered[i].Kind != filtered[j].Kind {
-			return filtered[i].Kind > filtered[j].Kind // servers first
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind > out[j].Kind
 		}
-		return strings.ToLower(filtered[i].Name) < strings.ToLower(filtered[j].Name)
+		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
-	return filtered, nil
+	return out, nil
 }
 
 // ListHosts is GET /hosts.
@@ -296,7 +322,7 @@ func (m *Module) GetHostMetrics(w http.ResponseWriter, r *http.Request, hostID s
 
 // Summaries implements contracts.Hosts.
 func (m *Module) Summaries(ctx context.Context) ([]contracts.HostSummary, error) {
-	hosts, err := m.listHosts(ctx, "")
+	hosts, err := m.gatherHosts(ctx)
 	if err != nil {
 		return nil, err
 	}

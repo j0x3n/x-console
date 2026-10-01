@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -48,6 +49,10 @@ type App struct {
 	Deps    *module.Deps
 	Handler http.Handler
 	modules []module.Module
+
+	kindMu sync.Mutex
+	kindAt time.Time
+	kinds  map[string]string
 }
 
 // New builds shared services and every module on an open database.
@@ -157,12 +162,17 @@ func (a *App) routes() http.Handler {
 	r.Route(APIPrefix, func(api chi.Router) {
 		api.Use(d.Auth.Middleware(isPublic))
 		api.Get("/agent/connect", d.Agents.ServeConnect)
-		api.Get("/events", ws.New(d.Bus, d.Agents).ServeHTTP)
+		events := ws.New(d.Bus, d.Agents)
+		events.Allow = a.allowEvent
+		api.Get("/events", events.ServeHTTP)
 		coreapi.HandlerWithOptions(&core.Handlers{Auth: d.Auth, Agents: d.Agents, Notify: d.Notify, Q: db.New(d.DB), Settings: d.Settings, Bus: d.Bus,
-			PublicURL: d.Config.PublicURL, AgentsDir: d.Config.AgentsDir},
+			PublicURL: d.Config.PublicURL, AgentsDir: d.Config.AgentsDir, Registry: d.Registry},
 			coreapi.ChiServerOptions{BaseRouter: api, ErrorHandlerFunc: httpx.BadParam})
 		for _, m := range a.modules {
-			m.Mount(api)
+			api.Group(func(g chi.Router) {
+				g.Use(hiddenGate(d, m.Name()))
+				m.Mount(g)
+			})
 		}
 		api.NotFound(func(w http.ResponseWriter, r *http.Request) { httpx.Fail(w, r, httpx.ErrNotFound) })
 	})

@@ -139,7 +139,7 @@ func (m *Module) evaluateAlerts(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	hosts, err := m.listHosts(ctx, "")
+	hosts, err := m.gatherHosts(ctx)
 	if err != nil {
 		return err
 	}
@@ -248,6 +248,9 @@ func (m *Module) Alerts(ctx context.Context, since time.Time) ([]contracts.HostA
 	}
 	out := make([]contracts.HostAlert, 0, len(rows))
 	for _, e := range rows {
+		if !m.alertVisible(ctx, e.HostID) {
+			continue
+		}
 		out = append(out, contracts.HostAlert{HostID: e.HostID, HostName: e.HostName, Rule: e.Metric, Message: e.Message,
 			FiredAt: e.FiredAt, Resolved: e.ResolvedAt})
 	}
@@ -276,6 +279,9 @@ func (m *Module) ListAlerts(w http.ResponseWriter, r *http.Request, params api.L
 	}
 	items := make([]api.AlertEvent, 0, len(rows))
 	for _, e := range rows {
+		if !m.alertVisible(r.Context(), e.HostID) {
+			continue
+		}
 		items = append(items, toAPIAlert(e))
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})

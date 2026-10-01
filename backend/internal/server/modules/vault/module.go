@@ -2,21 +2,29 @@ package vault
 
 import (
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault/api"
 )
 
 type Module struct {
-	d *module.Deps
+	d        *module.Deps
+	mu       sync.Mutex
+	hidden   map[string]struct{}
+	hiddenOK bool
 }
 
 var _ api.ServerInterface = (*Module)(nil)
 
 func New(d *module.Deps) (module.Module, error) {
-	return &Module{d: d}, nil
+	m := &Module{d: d}
+	module.Provide[contracts.HiddenModules](d.Registry, contracts.HiddenModulesKey, m)
+	d.Actions.SetHidden(m)
+	return m, nil
 }
 
 func (m *Module) Name() string { return "vault" }

@@ -3,6 +3,7 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
@@ -83,7 +84,7 @@ func (m *Module) CreateApiToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	known := map[string]bool{}
-	for _, mod := range m.modules() {
+	for _, mod := range m.modules(r.Context()) {
 		known[mod] = true
 	}
 	for _, mod := range body.Modules {
@@ -118,9 +119,9 @@ func (m *Module) RevokeApiToken(w http.ResponseWriter, r *http.Request, id int64
 }
 
 // modules lists the modules that have actions an outside caller could use.
-func (m *Module) modules() []string {
+func (m *Module) modules(ctx context.Context) []string {
 	seen := map[string]bool{}
-	for _, a := range m.d.Actions.List() {
+	for _, a := range m.d.Actions.List(ctx) {
 		if a.Effect != actions.Dangerous {
 			seen[actions.Module(a.Name)] = true
 		}
@@ -145,12 +146,12 @@ func (m *Module) ListApiTokenTools(w http.ResponseWriter, r *http.Request, param
 		Deletes bool   `json:"deletes,omitempty"`
 	}
 	tools := []tool{}
-	for _, a := range m.d.Actions.List() {
+	for _, a := range m.d.Actions.List(r.Context()) {
 		if actions.AllowedFor(a, string(params.Access), mods) {
 			tools = append(tools, tool{toolName(a.Name), a.Title, string(a.Effect), actions.Deletes(a)})
 		}
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"tools": tools, "modules": m.modules()})
+	httpx.JSON(w, http.StatusOK, map[string]any{"tools": tools, "modules": m.modules(r.Context())})
 }
 
 func (m *Module) ListApiTokenCalls(w http.ResponseWriter, r *http.Request) {

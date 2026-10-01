@@ -645,6 +645,10 @@ func (m *Module) sealSecret(s sshSecret) (string, error) {
 
 // ListSshHosts is GET /ssh-hosts.
 func (m *Module) ListSshHosts(w http.ResponseWriter, r *http.Request) {
+	if m.kindHidden(r.Context(), "server") {
+		httpx.JSON(w, http.StatusOK, []api.SshHost{})
+		return
+	}
 	rows, err := m.q.ListSSHHosts(r.Context())
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -658,6 +662,9 @@ func (m *Module) ListSshHosts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) getSSH(ctx context.Context, id int64) (db.SshHost, error) {
+	if m.kindHidden(ctx, "server") {
+		return db.SshHost{}, httpx.ErrNotFound
+	}
 	row, err := m.q.GetSSHHost(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return row, httpx.ErrNotFound
@@ -678,6 +685,10 @@ func (m *Module) GetSshHost(w http.ResponseWriter, r *http.Request, id int64) {
 // CreateSshHost is POST /ssh-hosts.
 func (m *Module) CreateSshHost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	if m.kindHidden(ctx, "server") {
+		httpx.Fail(w, r, httpx.ErrNotFound)
+		return
+	}
 	if err := auth.RequireElevated(ctx); err != nil {
 		httpx.Fail(w, r, err)
 		return

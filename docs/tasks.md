@@ -79,7 +79,7 @@
 - 几个任务会改同一批共享文件（`app/modules.go`、`features/settings/tabs.tsx`、`app/nav.ts`、`app/modules.ts`），并行做时按 AGENTS.md 的规则只加行，合并时注意冲突。
 
 **2026-10-01 这一批（B49 到 B59）的说明**
-- 前端已经全部做完并提交到 `develop`（Claude）。后端按各规格的“后端（待做）”一节做，B56 已经前后端都做完，B52、B49、B55、B50、B51 的后端已做，B57 的设置和 `/app/modules` 已做完，剩下接口拦截。
+- 前端已经全部做完并提交到 `develop`（Claude）。后端按各规格的“后端（待做）”一节做，B56 已经前后端都做完，B52、B49、B55、B50、B51、B57 的后端已做。
 - 用户 2026-10-01 定的分工：Claude 在 `develop` 上写前端、接口定义和规格，新接口在各模块的 `pending.go` 先回 501。后端由别的开发者照规格里的“后端（待做）”做。
 - 表里的顺序就是前端的开发顺序。后端可以按编号做，互相不依赖。B59 的邮件卡片依赖 B53。
 - 用户已确认：新订阅默认提前 7、3、1 天提醒；过期和 3 天内标红，7 天内标黄；服务器在国外，能直接连 Gmail；邮件第一版只收不发；推送保留 3 天；拖动不加新的库；和风天气的 key 由用户在设置里填。
@@ -320,6 +320,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-01 | `contracts` 加 `HiddenModules`（`Hidden(ctx, module) bool`，键 `vault.hidden`）。vault 模块提供。锁定时被隐藏的左栏模块接口回 404，动作目录、事件、通知和早报按同一张对应表跳过 | B57 隐藏模块 |
 | 2026-10-01 | 删掉 B45 的 `?safari=` 测试开关、`SafariProbe` 和 `browser.css` 里 C 到 F 的试验样式。页面样式保持测试前的样子 | 真机上 `all` 和 `off` 都可以，A 到 F 单独开不行 |
 | 2026-10-01 | `store` 加 `Snapshot`、`OpenSnapshot`（把已经迁移好的内存库复制出来）。`testutil.openDB` 每个测试进程只迁移一次，后面的测试从这份快照复制。测试里直接调用 `store.Open(":memory:")` 的没有改 | 带 -race 时每次迁移要几秒 |
 | 2026-09-30 | 项目改成多看板：新表 `project_boards`、`board_lists`、`issue_members`、`issue_activity`，`issues` 加 `board_id`、`list_id`、`archived_at`、`cover_file_id`；`POST /issues/{key}/move` 可以只传 `listId`（`status` 变成可选）；`Issue` 加 `boardId`、`listId`、`archivedAt`、`members`、`commentCount`；归档的卡片不出现在列表、到期提醒和提醒页里；B36 的分类界面去掉，接口保留；界面上 Issue 改叫“卡片” | B46 多看板 |

@@ -110,6 +110,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				h.forget(agentID(ev.Data))
 				h.setDetail(agentID(ev.Data), true)
 			}
+			if h.Allow != nil && !h.Allow(ctx, ev.Topic, ev.Data) {
+				continue
+			}
 			if !wanted(ev, topics, paused) {
 				continue
 			}

@@ -2,16 +2,19 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/agenthub"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/core/api"
 	"github.com/j0x3n/x-console/backend/internal/server/core/db"
 	"github.com/j0x3n/x-console/backend/internal/server/events"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
@@ -32,6 +35,7 @@ type Handlers struct {
 	// PublicURL and AgentsDir serve the install scripts and agent programs (B30).
 	PublicURL string
 	AgentsDir string
+	Registry  *module.Registry
 
 	dist         distState
 	clientErrors clientErrorLog
@@ -236,18 +240,30 @@ func (h *Handlers) ListNotifications(w http.ResponseWriter, r *http.Request, par
 	if params.Unread != nil && *params.Unread {
 		unread = 1
 	}
-	rows, err := h.Q.ListNotifications(r.Context(), db.ListNotificationsParams{Before: before, UnreadOnly: unread, Lim: limit})
+	ctx := r.Context()
+	rows, err := h.Q.ListNotifications(ctx, db.ListNotificationsParams{Before: before, UnreadOnly: unread, Lim: limit})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	count, err := h.Q.CountUnreadNotifications(r.Context())
+	count, err := h.Q.CountUnreadNotifications(ctx)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
+	}
+	hider, haveHider := h.noticeHider(ctx)
+	if haveHider {
+		count, err = h.countVisibleUnread(ctx, hider)
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
 	}
 	items := make([]notify.API, 0, len(rows))
 	for _, row := range rows {
+		if haveHider && contracts.NoticeHidden(ctx, hider, row.Source, row.Link) {
+			continue
+		}
 		items = append(items, notify.ToAPI(row))
 	}
 	out := map[string]any{"items": items, "unreadCount": count}
@@ -255,6 +271,40 @@ func (h *Handlers) ListNotifications(w http.ResponseWriter, r *http.Request, par
 		out["nextCursor"] = httpx.EncodeIDCursor(rows[len(rows)-1].ID)
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+func (h *Handlers) noticeHider(ctx context.Context) (contracts.HiddenModules, bool) {
+	if h.Registry == nil || auth.VaultUnlocked(ctx) {
+		return nil, false
+	}
+	hider, ok := module.Lookup[contracts.HiddenModules](h.Registry, contracts.HiddenModulesKey)
+	if !ok || !hidesAny(ctx, hider) {
+		return nil, false
+	}
+	return hider, true
+}
+
+func hidesAny(ctx context.Context, h contracts.HiddenModules) bool {
+	for _, id := range []string{"projects", "coding", "notes", "mail", "reminders", "habits", "drive", "calendar", "servers", "pc", "monitoring", "home", "automations", "github"} {
+		if h.Hidden(ctx, id) {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handlers) countVisibleUnread(ctx context.Context, hider contracts.HiddenModules) (int64, error) {
+	rows, err := h.Q.ListNotifications(ctx, db.ListNotificationsParams{Before: httpx.MaxID, UnreadOnly: 1, Lim: 500})
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	for _, row := range rows {
+		if !contracts.NoticeHidden(ctx, hider, row.Source, row.Link) {
+			n++
+		}
+	}
+	return n, nil
 }
 
 func (h *Handlers) MarkAllNotificationsRead(w http.ResponseWriter, r *http.Request) {

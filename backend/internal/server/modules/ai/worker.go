@@ -27,8 +27,8 @@ const systemPrompt = `你是 X Console 助手。用户是这个面板的唯一�
 先读现有数据再改，避免重复创建。可直接执行读取、新建和修改。删除和高危操作按面板确认流程处理。
 排期按用户时区从今天开始，跳过周末，除非用户另有要求。完成后用简短中文列出改动，并附面板内路径。`
 
-func (m *Module) tools() []llm.Tool {
-	all := m.d.Actions.List()
+func (m *Module) tools(ctx context.Context) []llm.Tool {
+	all := m.d.Actions.List(ctx)
 	out := make([]llm.Tool, 0, len(all))
 	for _, a := range all {
 		if !json.Valid(a.Input) {
@@ -122,14 +122,15 @@ func (m *Module) run(ctx context.Context, id int64, session *auth.Session, state
 	if session != nil {
 		ctx = auth.WithSession(ctx, session)
 	}
+	visible := ctx
 	ctx = auth.WithoutVault(ctx)
-	err := m.generate(ctx, id)
+	err := m.generate(ctx, visible, id)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		m.d.Log.Error("ai generation failed", "conversation", id, "err", err)
 		m.d.Bus.Publish("ai.error", map[string]any{"conversationId": id, "message": err.Error()})
 	}
 }
-func (m *Module) generate(ctx context.Context, id int64) error {
+func (m *Module) generate(ctx, visible context.Context, id int64) error {
 	row, err := m.q.GetConversation(ctx, id)
 	if err != nil {
 		return err
@@ -139,7 +140,7 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	prompt, tools := m.system(ctx), m.tools()
+	prompt, tools := m.system(ctx), m.tools(visible)
 	ctx = contracts.WithAIUsage(ctx, "assistant", strconv.FormatInt(id, 10))
 	if hostID != nil {
 		prompt, tools = m.hostSystem(ctx, *hostID), hostagent.Tools()
@@ -235,7 +236,7 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 				continue
 			}
 			name := strings.ReplaceAll(use.Name, "__", ".")
-			action, found := m.d.Actions.Get(name)
+			action, found := m.d.Actions.Get(visible, name)
 			input := use.Arguments
 			if len(input) == 0 {
 				input = []byte("{}")
@@ -347,7 +348,7 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 		return
 	}
 	hostAction := hostID.Valid && strings.HasPrefix(name, "host.")
-	a, found := m.d.Actions.Get(name)
+	a, found := m.d.Actions.Get(ctx, name)
 	if !hostAction && !found {
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return

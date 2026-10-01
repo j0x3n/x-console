@@ -41,10 +41,11 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 	}
 	ctx = withModel(ctx, api.ModelRef{ProviderId: pid, Model: model})
 	ctx = contracts.WithAIUsage(ctx, in.Source, in.Ref)
+	visible := ctx
 	ctx = auth.WithoutVault(ctx)
 	allowed := map[string]actions.Action{}
 	var tools []llm.Tool
-	for _, a := range m.d.Actions.List() {
+	for _, a := range m.d.Actions.List(visible) {
 		if !json.Valid(a.Input) || !actions.AllowedFor(a, in.Access, nil) {
 			continue
 		}

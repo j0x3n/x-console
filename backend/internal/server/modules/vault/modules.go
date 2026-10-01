@@ -79,7 +79,46 @@ func (m *Module) SetHiddenModules(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+	m.clearHidden()
 	m.GetHiddenModules(w, r)
+}
+
+func (m *Module) Hidden(ctx context.Context, module string) bool {
+	if auth.VaultUnlocked(ctx) || module == "" {
+		return false
+	}
+	set, ok := m.hiddenSet(ctx)
+	if !ok {
+		return false
+	}
+	_, hit := set[module]
+	return hit
+}
+
+func (m *Module) hiddenSet(ctx context.Context) (map[string]struct{}, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.hiddenOK {
+		return m.hidden, true
+	}
+	list, err := m.hiddenModules(ctx)
+	if err != nil {
+		return nil, false
+	}
+	set := make(map[string]struct{}, len(list))
+	for _, id := range list {
+		set[string(id)] = struct{}{}
+	}
+	m.hidden = set
+	m.hiddenOK = true
+	return set, true
+}
+
+func (m *Module) clearHidden() {
+	m.mu.Lock()
+	m.hidden = nil
+	m.hiddenOK = false
+	m.mu.Unlock()
 }
 
 // GetAvailableModules is GET /app/modules: every module, minus the hidden

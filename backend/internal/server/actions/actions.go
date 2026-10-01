@@ -22,6 +22,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 )
 
@@ -73,6 +74,7 @@ func Schema(s string) json.RawMessage {
 type Registry struct {
 	mu      sync.RWMutex
 	actions map[string]Action
+	hidden  contracts.HiddenModules
 }
 
 // NewRegistry builds an empty registry.
@@ -91,32 +93,49 @@ func (r *Registry) Register(a Action) {
 	r.actions[a.Name] = a
 }
 
-// Get returns an action by name.
-func (r *Registry) Get(name string) (Action, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	a, ok := r.actions[name]
-	return a, ok
+func (r *Registry) SetHidden(h contracts.HiddenModules) {
+	r.mu.Lock()
+	r.hidden = h
+	r.mu.Unlock()
 }
 
-// List returns all actions sorted by name.
-func (r *Registry) List() []Action {
+// Get returns an action by name when this request may see it.
+func (r *Registry) Get(ctx context.Context, name string) (Action, bool) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
+	a, ok := r.actions[name]
+	h := r.hidden
+	r.mu.RUnlock()
+	if !ok || contracts.ActionHidden(ctx, h, name) {
+		return Action{}, false
+	}
+	return a, true
+}
+
+// List returns the actions this request may see, sorted by name.
+func (r *Registry) List(ctx context.Context) []Action {
+	r.mu.RLock()
 	out := make([]Action, 0, len(r.actions))
 	for _, a := range r.actions {
 		if a.AliasOf == "" {
 			out = append(out, a)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
+	h := r.hidden
+	r.mu.RUnlock()
+	kept := out[:0]
+	for _, a := range out {
+		if !contracts.ActionHidden(ctx, h, a.Name) {
+			kept = append(kept, a)
+		}
+	}
+	sort.Slice(kept, func(i, j int) bool { return kept[i].Name < kept[j].Name })
+	return kept
 }
 
 // Run looks up and executes an action. It does not check confirmation or
 // elevation; callers (the AI assistant, the automation engine) do that.
 func (r *Registry) Run(ctx context.Context, name string, input json.RawMessage) (any, error) {
-	a, ok := r.Get(name)
+	a, ok := r.Get(ctx, name)
 	if !ok {
 		return nil, httpx.NewError(404, "unknown_action", "没有这个动作: "+name)
 	}

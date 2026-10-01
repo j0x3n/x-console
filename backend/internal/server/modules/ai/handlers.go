@@ -216,7 +216,7 @@ func (m *Module) apiKey(ctx context.Context) (string, error) {
 }
 func (m *Module) ListAiTools(w http.ResponseWriter, r *http.Request) {
 	out := []api.Tool{}
-	for _, a := range m.d.Actions.List() {
+	for _, a := range m.d.Actions.List(r.Context()) {
 		out = append(out, api.Tool{Name: strings.ReplaceAll(a.Name, ".", "__"), Action: a.Name, Title: a.Title, Effect: api.ToolEffect(a.Effect)})
 	}
 	httpx.JSON(w, 200, out)

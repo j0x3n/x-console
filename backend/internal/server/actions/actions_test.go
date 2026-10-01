@@ -19,7 +19,7 @@ func TestRegisterRunList(t *testing.T) {
 	if _, err := r.Run(context.Background(), "missing", nil); err == nil {
 		t.Fatal("want error for unknown action")
 	}
-	if list := r.List(); len(list) != 2 || list[0].Name != "a.noop" {
+	if list := r.List(context.Background()); len(list) != 2 || list[0].Name != "a.noop" {
 		t.Fatalf("list: %+v", list)
 	}
 	// An alias runs but is not listed.
@@ -28,7 +28,7 @@ func TestRegisterRunList(t *testing.T) {
 	if out, err := r.Run(context.Background(), "c.echo", nil); err != nil || out != "alias" {
 		t.Fatalf("alias run: %v %v", out, err)
 	}
-	if list := r.List(); len(list) != 2 {
+	if list := r.List(context.Background()); len(list) != 2 {
 		t.Fatalf("alias listed: %+v", list)
 	}
 	defer func() {

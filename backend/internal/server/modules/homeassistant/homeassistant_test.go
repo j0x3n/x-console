@@ -409,7 +409,7 @@ func TestActions(t *testing.T) {
 	reg := env.App.Deps.Actions
 	ctx := context.Background()
 	for name, effect := range map[string]string{"ha.list_entities": "read", "ha.get_state": "read", "ha.call_service": "write", "ha.call_dangerous_service": "dangerous"} {
-		a, ok := reg.Get(name)
+		a, ok := reg.Get(ctx, name)
 		if !ok || string(a.Effect) != effect {
 			t.Fatalf("action %s: %v %s", name, ok, a.Effect)
 		}

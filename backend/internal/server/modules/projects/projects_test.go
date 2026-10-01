@@ -561,14 +561,14 @@ func TestManyIssues(t *testing.T) {
 func TestIssueToolsListedOnce(t *testing.T) {
 	env := testutil.New(t)
 	names := map[string]bool{}
-	for _, a := range env.App.Deps.Actions.List() {
+	for _, a := range env.App.Deps.Actions.List(context.Background()) {
 		names[a.Name] = true
 	}
 	for _, alias := range []string{"issues.list", "issues.get", "issues.create", "issues.update"} {
 		if names[alias] {
 			t.Fatalf("%s is listed next to its projects.* twin", alias)
 		}
-		if _, ok := env.App.Deps.Actions.Get(alias); !ok {
+		if _, ok := env.App.Deps.Actions.Get(context.Background(), alias); !ok {
 			t.Fatalf("%s no longer runs for saved automation rules", alias)
 		}
 	}

@@ -29,6 +29,7 @@ const (
 	HabitsKey        = "habits.habits"       // M8 provides
 	HostsKey         = "hosts.hosts"         // M2/M3 provides
 	RenewalsKey      = "monitoring.renewals" // M10 provides
+	HiddenModulesKey = "vault.hidden"        // B57 provides
 	HomeAssistantKey = "homeassistant.ha"    // M9 provides
 	CodingKey        = "coding.launcher"     // M4 provides
 	CalendarKey      = "calendar.calendar"   // M11 provides
@@ -212,6 +213,10 @@ type RenewalRef struct {
 // subscriptions and excludes dates on or after until.
 type Renewals interface {
 	Upcoming(ctx context.Context, until time.Time) ([]RenewalRef, error)
+}
+
+type HiddenModules interface {
+	Hidden(ctx context.Context, module string) bool
 }
 
 // ---- M8 habits ----
