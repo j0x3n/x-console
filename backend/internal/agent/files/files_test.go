@@ -17,10 +17,14 @@ import (
 )
 
 func client(t *testing.T) *rpc.Peer {
+	return clientWithWrite(t, ServeWrite)
+}
+
+func clientWithWrite(t *testing.T, write rpc.StreamHandler) *rpc.Peer {
 	a, b := rpc.Pipe()
 	agent := rpc.NewPeer(a, "a")
 	agent.HandleStream(protocol.MethodFilesRead, ServeRead)
-	agent.HandleStream(protocol.MethodFilesWrite, ServeWrite)
+	agent.HandleStream(protocol.MethodFilesWrite, write)
 	c := rpc.NewPeer(b, "s")
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -205,25 +209,52 @@ func TestReadRange(t *testing.T) {
 }
 
 func TestUploadAbortLeavesNothing(t *testing.T) {
-	c := client(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	dir := t.TempDir()
-	s, err := c.Open(ctx, protocol.MethodFilesWrite, protocol.FilesWriteParams{Path: filepath.Join(dir, "x"), Size: 1000})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = s.Send(ctx, make([]byte, 10))
-	s.Close(nil)
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		entries, _ := os.ReadDir(dir)
-		if len(entries) == 0 {
-			return
+	for _, delayed := range []bool{false, true} {
+		name := "partial upload"
+		if delayed {
+			name = "abort before handler starts"
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("left behind: %v", entries)
-		}
-		time.Sleep(10 * time.Millisecond)
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			start := make(chan struct{})
+			finished := make(chan error, 1)
+			c := clientWithWrite(t, func(ctx context.Context, raw json.RawMessage, s *rpc.Stream) error {
+				<-start
+				err := ServeWrite(ctx, raw, s)
+				finished <- err
+				return err
+			})
+			if !delayed {
+				close(start)
+			}
+			s, err := c.Open(ctx, protocol.MethodFilesWrite, protocol.FilesWriteParams{Path: filepath.Join(dir, "x"), Size: 1000})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.Send(ctx, make([]byte, 10)); err != nil {
+				t.Fatal(err)
+			}
+			s.Close(nil)
+			if delayed {
+				close(start)
+			}
+			select {
+			case err := <-finished:
+				if code(err) != protocol.CodeFailed {
+					t.Fatalf("aborted upload: %v", err)
+				}
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) != 0 {
+				t.Fatalf("left behind: %v", entries)
+			}
+		})
 	}
 }
