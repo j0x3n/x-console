@@ -287,11 +287,25 @@ export interface components {
             githubRepo: string;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: int64
+             * @description B47 按 Git 连接登记时有
+             */
+            connectionId?: number;
+            /** @description B47 按 Git 连接登记时的 owner/name */
+            remoteRepo?: string;
         };
+        /** @description 两种登记方式。按本地路径：传 path。按 Git 连接（B47）：传 connectionId、remoteRepo、cloneUrl，代理会 clone 到自己的仓库目录。 */
         CreateRepo: {
             agentId: string;
             /** @description 仓库根目录的绝对路径 */
-            path: string;
+            path?: string;
+            /** Format: int64 */
+            connectionId?: number;
+            /** @description owner/name */
+            remoteRepo?: string;
+            /** @description https 地址，不能带用户名和密码 */
+            cloneUrl?: string;
         };
         DiscoveredRepo: {
             path: string;
@@ -353,6 +367,15 @@ export interface components {
             finishedAt?: string;
             /** Format: date-time */
             updatedAt: string;
+            /**
+             * Format: int64
+             * @description B47 由哪个 Agent 执行
+             */
+            aiAgentId?: number;
+            /** @description B47 传给执行器的模型，空表示执行器默认 */
+            model?: string;
+            /** @description B47 workspace 或 full，空表示 workspace */
+            permission?: string;
         };
         TaskList: {
             items: components["schemas"]["Task"][];
@@ -360,7 +383,14 @@ export interface components {
         CreateTask: {
             /** Format: int64 */
             repoId: number;
-            executor: components["schemas"]["ExecutorName"];
+            executor?: components["schemas"]["ExecutorName"];
+            /**
+             * Format: int64
+             * @description B47 交给这个 Agent。传了就不用传 executor
+             */
+            aiAgentId?: number;
+            /** @description B47 在哪台机器上跑。不传用仓库所在的机器；按 Git 连接登记的仓库可以换机器 */
+            agentId?: string;
             /** @description 有 issueKey 时可以留空 */
             prompt?: string;
             /** @description 留空用仓库的默认分支 */
@@ -574,6 +604,8 @@ export interface operations {
                 status?: components["schemas"]["TaskStatus"][];
                 repoId?: number;
                 issueKey?: string;
+                /** @description B47 只看这个 Agent 的任务 */
+                aiAgentId?: number;
                 limit?: number;
             };
             header?: never;

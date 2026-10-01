@@ -90,8 +90,17 @@ func (m *Module) toRepo(row db.CodingRepo, names map[string]string) api.Repo {
 	return api.Repo{
 		Id: row.ID, AgentId: row.AgentID, AgentName: names[row.AgentID], AgentOnline: m.d.Agents.Online(row.AgentID),
 		Path: row.Path, Name: row.Name, DefaultBranch: row.DefaultBranch, RemoteUrl: row.RemoteUrl,
-		GithubRepo: row.GithubRepo, CreatedAt: row.CreatedAt,
+		GithubRepo: row.GithubRepo, CreatedAt: row.CreatedAt, ConnectionId: row.ConnectionID,
+		RemoteRepo: nonEmpty(remoteName(row)),
 	}
+}
+
+// remoteName is owner/name of a repository registered from a Git connection.
+func remoteName(row db.CodingRepo) string {
+	if row.ConnectionID == nil {
+		return ""
+	}
+	return row.Owner + "/" + row.Repo
 }
 
 // DiscoverRepos implements GET /coding/repos/discover.
@@ -144,8 +153,28 @@ func (m *Module) CreateRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	repo, err := m.createRepo(ctx, body.AgentId, strings.TrimSpace(body.Path))
-	m.d.Audit.Record(ctx, "coding_repo.create", body.Path, map[string]any{"agentId": body.AgentId}, err)
+	var repo api.Repo
+	var err error
+	target := ""
+	if body.ConnectionId != nil {
+		remote, cloneURL := "", ""
+		if body.RemoteRepo != nil {
+			remote = *body.RemoteRepo
+		}
+		if body.CloneUrl != nil {
+			cloneURL = *body.CloneUrl
+		}
+		target = remote
+		repo, err = m.createRemoteRepo(ctx, body.AgentId, *body.ConnectionId, remote, cloneURL)
+	} else {
+		path := ""
+		if body.Path != nil {
+			path = strings.TrimSpace(*body.Path)
+		}
+		target = path
+		repo, err = m.createRepo(ctx, body.AgentId, path)
+	}
+	m.d.Audit.Record(ctx, "coding_repo.create", target, map[string]any{"agentId": body.AgentId, "connectionId": body.ConnectionId}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

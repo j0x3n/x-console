@@ -120,7 +120,9 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | docker | 装了 Docker 才有 | 一般没有 |
 | docker.lines | 和 docker 一起 | 一般没有 |
 | syslog | 有 journalctl，或有 /var/log/syslog、/var/log/messages | 事件查看器（System 和 Application） |
-| clipboard、power、coding | 没有 | 有 |
+| clipboard、power | 没有 | 有 |
+| coding | 装了 claude 或 codex 才有 | 有 |
+| coding.remote（B47：`coding.ensure_repo`，以及下面说的新字段） | 和 coding 一起 | 和 coding 一起 |
 | proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
 
 ### Docker 日志和镜像（B28）
@@ -145,6 +147,14 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - 没有 `journalctl` 时读 `/var/log/syslog` 或 `/var/log/messages`，从文件末尾往前读。这种日志没有级别，级别一律是 6，所以按低于 6 的级别过滤会得到空列表。`cursor` 是文件里的位置（`off:<字节数>`）。
 - Windows 用 `wevtutil qe`，读 System 和 Application，合并后按时间排序。Level 1 到 5 对应级别 2、3、4、6、7。`cursor` 是时间（`t:<RFC3339>`）。
 - 没有读取权限时返回错误码 `syslog_permission`，消息里写怎么加权限。服务端把它转成 HTTP 403，`code` 也是 `syslog_permission`。
+
+### 按 Git 连接登记的仓库（B47）
+
+- `coding.ensure_repo {dir, cloneUrl, auth}`：在代理的仓库目录（配置 `coding.reposDir`，默认家目录下的 `x-console/repos`）下的 `dir` 里 clone，已经有了就 `fetch --prune`。`dir` 是 `<连接 id>/<owner>/<repo>`，每段只能有字母、数字、`.`、`_`、`-`。`cloneUrl` 只接受不带用户名密码的 http(s) 地址。返回 `CodingRepo`。
+- `auth {username, token}` 只在这一次调用里有效。代理通过 `GIT_CONFIG_COUNT`、`GIT_CONFIG_KEY_0=http.extraHeader` 把令牌交给 git，不放在命令行，不写进 `.git/config`，错误信息里出现令牌时换成 `***`。
+- `coding.run` 新字段：`model`（传给执行器的 `--model`）、`permission`（`workspace` 或 `full`；`full` 时 Claude Code 用 `--permission-mode bypassPermissions`，Codex 用 `--sandbox danger-full-access`；配置里自己写了 `args` 的不受影响）、`preferRemote`（先用 `origin/<baseBranch>`，用于每次任务前 fetch 过的仓库）。
+- `coding.push` 新字段 `auth`，同上。推送仍然只允许 `xc/` 开头的分支，refspec 不带 `+`，不会强推。
+- 服务端只在代理上报了 `coding.remote` 能力时才发这些字段和方法。
 
 ## 新增方法的步骤
 

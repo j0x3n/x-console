@@ -302,6 +302,11 @@ type LaunchCoding struct {
 	Prompt     string `json:"prompt"`
 	BaseBranch string `json:"baseBranch"` // empty means the repo default
 	IssueKey   string `json:"issueKey"`   // optional
+
+	// B47: the AI agent that runs the task, and the machine to run on
+	// (empty: the repository's machine).
+	AIAgentID int64  `json:"aiAgentId,omitempty"`
+	AgentID   string `json:"agentId,omitempty"`
 }
 
 // Coding is provided by M4.

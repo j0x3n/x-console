@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
@@ -22,6 +23,11 @@ type taskRow struct {
 	RepoPath   string
 	AgentID    string
 	GithubRepo string
+	// B47: set when the repository was registered from a Git connection.
+	RepoConnectionID *int64
+	RepoOwner        string
+	RepoRepo         string
+	RepoCloneURL     string
 }
 
 func (m *Module) row(ctx context.Context, id int64) (taskRow, error) {
@@ -32,7 +38,7 @@ func (m *Module) row(ctx context.Context, id int64) (taskRow, error) {
 	if err != nil {
 		return taskRow{}, err
 	}
-	return taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo}, nil
+	return taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo, r.RepoConnectionID, r.RepoOwner, r.RepoRepo, r.RepoCloneUrl}, nil
 }
 
 func (m *Module) task(ctx context.Context, id int64) (api.Task, error) {
@@ -51,6 +57,7 @@ func (m *Module) toTask(ctx context.Context, r taskRow) api.Task {
 		TimeoutMinutes: int(r.TimeoutMinutes), CreatedAt: r.CreatedAt, StartedAt: r.StartedAt,
 		FinishedAt: r.FinishedAt, UpdatedAt: r.UpdatedAt, ChangedFiles: []api.ChangedFile{},
 		IssueKey: nonEmpty(r.IssueKey), BaseCommit: nonEmpty(r.BaseCommit),
+		AiAgentId: r.AiAgentID, Model: nonEmpty(r.Model), Permission: nonEmpty(r.Permission),
 	}
 	if r.ExitCode != nil {
 		c := int(*r.ExitCode)
@@ -102,13 +109,16 @@ func (m *Module) listTasks(ctx context.Context, params api.ListTasksParams) ([]a
 	if params.IssueKey != nil && *params.IssueKey != "" {
 		p.IssueKey = strings.ToUpper(*params.IssueKey)
 	}
+	if params.AiAgentId != nil {
+		p.AiAgentID = *params.AiAgentId
+	}
 	rows, err := m.q.ListTasks(ctx, p)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]api.Task, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, m.toTask(ctx, taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo}))
+		out = append(out, m.toTask(ctx, taskRow{r.CodingTask, r.RepoName, r.RepoPath, r.AgentID, r.GithubRepo, r.RepoConnectionID, r.RepoOwner, r.RepoRepo, r.RepoCloneUrl}))
 	}
 	return out, nil
 }
@@ -130,7 +140,16 @@ func (m *Module) CreateTask(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	in := contracts.LaunchCoding{RepoID: body.RepoId, Executor: string(body.Executor)}
+	in := contracts.LaunchCoding{RepoID: body.RepoId}
+	if body.Executor != nil {
+		in.Executor = string(*body.Executor)
+	}
+	if body.AiAgentId != nil {
+		in.AIAgentID = *body.AiAgentId
+	}
+	if body.AgentId != nil {
+		in.AgentID = *body.AgentId
+	}
 	if body.Prompt != nil {
 		in.Prompt = *body.Prompt
 	}
@@ -162,8 +181,17 @@ func (m *Module) Launch(ctx context.Context, in contracts.LaunchCoding) (int64, 
 func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutMinutes int) (t api.Task, err error) {
 	defer func() {
 		m.d.Audit.Record(ctx, "coding_task.create", itoa(t.Id), map[string]any{
-			"repoId": in.RepoID, "executor": in.Executor, "issueKey": in.IssueKey}, err)
+			"repoId": in.RepoID, "executor": in.Executor, "issueKey": in.IssueKey, "aiAgentId": in.AIAgentID}, err)
 	}()
+	var agent *contracts.AIAgent
+	if in.AIAgentID != 0 {
+		a, err := m.aiAgent(ctx, in.AIAgentID, in.RepoID)
+		if err != nil {
+			return t, err
+		}
+		agent = &a
+		in.Executor = executorOf(a.Kind)
+	}
 	if !api.ExecutorName(in.Executor).Valid() {
 		return t, httpx.Invalid("执行器只能是 claude 或 codex")
 	}
@@ -178,6 +206,14 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 		return t, httpx.Invalid("仓库不存在")
 	}
 	if err != nil {
+		return t, err
+	}
+	runner := in.AgentID
+	if runner == "" && agent != nil && repo.ConnectionID != nil {
+		// The agent's default machine, when the repository can move there.
+		runner = agent.RunnerAgentID
+	}
+	if repo, err = m.repoOn(ctx, repo, runner); err != nil {
 		return t, err
 	}
 	prompt := strings.TrimSpace(in.Prompt)
@@ -203,6 +239,14 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 	if prompt == "" {
 		return t, httpx.Invalid("请填写需求")
 	}
+	var aiAgentID *int64
+	model, permission := "", ""
+	if agent != nil {
+		aiAgentID, model, permission = &agent.ID, agent.Model, agent.CLIPermission
+		if agent.Instructions != "" {
+			prompt = agent.Instructions + "\n\n---\n\n" + prompt
+		}
+	}
 	if len(prompt) > 100_000 {
 		return t, httpx.Invalid("需求太长了")
 	}
@@ -218,7 +262,8 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 	defer tx.Rollback()
 	q := m.q.WithTx(tx)
 	id, err := q.CreateTask(ctx, db.CreateTaskParams{RepoID: repo.ID, IssueKey: issueKey, Executor: in.Executor,
-		Prompt: prompt, BaseBranch: base, TimeoutMinutes: int64(timeoutMinutes), CreatedAt: now, UpdatedAt: now})
+		Prompt: prompt, BaseBranch: base, TimeoutMinutes: int64(timeoutMinutes), CreatedAt: now, UpdatedAt: now,
+		AiAgentID: aiAgentID, Model: model, Permission: permission})
 	if err != nil {
 		return t, err
 	}
@@ -294,4 +339,42 @@ func toEvent(e db.CodingTaskEvent) api.TaskEvent {
 		}
 	}
 	return ev
+}
+
+// executorOf maps an AI agent kind to its executor (B47).
+func executorOf(kind string) string {
+	switch kind {
+	case "claude_code":
+		return "claude"
+	case "codex":
+		return "codex"
+	}
+	return ""
+}
+
+// aiAgent loads an AI agent that may take a new task on repoID (B47).
+func (m *Module) aiAgent(ctx context.Context, id, repoID int64) (contracts.AIAgent, error) {
+	agents, ok := module.Lookup[contracts.AIAgents](m.d.Registry, contracts.AIAgentsKey)
+	if !ok {
+		return contracts.AIAgent{}, httpx.NewError(http.StatusNotImplemented, "feature_unavailable", "Agent 模块没有启用")
+	}
+	a, err := agents.Get(ctx, id)
+	var he *httpx.Error
+	if errors.As(err, &he) && he.Status == http.StatusNotFound {
+		return a, httpx.Invalid("Agent 不存在")
+	}
+	if err != nil {
+		return a, err
+	}
+	switch {
+	case executorOf(a.Kind) == "":
+		return a, httpx.Invalid("内置 Agent 不改代码，不能建编码任务")
+	case !a.Enabled:
+		return a, conflict("Agent “" + a.Name + "” 已停用")
+	case a.OverBudget:
+		return a, conflict("Agent “" + a.Name + "” 本月费用已经到预算了")
+	case !slices.Contains(a.RepoIDs, repoID):
+		return a, httpx.Invalid("Agent “" + a.Name + "” 不能操作这个仓库，先在 Agent 设置里允许")
+	}
+	return a, nil
 }

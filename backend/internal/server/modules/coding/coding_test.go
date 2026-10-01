@@ -78,10 +78,10 @@ func TestReposAndExecutors(t *testing.T) {
 	if found.Items[0].RepoId == nil || *found.Items[0].RepoId != repo.Id {
 		t.Fatalf("discover after register %+v", found.Items)
 	}
-	if status, raw := env.Do(http.MethodPost, "/coding/repos", api.CreateRepo{AgentId: agentID, Path: repoPath}, nil); status != http.StatusConflict {
+	if status, raw := env.Do(http.MethodPost, "/coding/repos", api.CreateRepo{AgentId: agentID, Path: &repoPath}, nil); status != http.StatusConflict {
 		t.Fatalf("duplicate: %d %s", status, raw)
 	}
-	if status, _ := env.Do(http.MethodPost, "/coding/repos", api.CreateRepo{AgentId: agentID, Path: root}, nil); status != http.StatusBadRequest {
+	if status, _ := env.Do(http.MethodPost, "/coding/repos", api.CreateRepo{AgentId: agentID, Path: &root}, nil); status != http.StatusBadRequest {
 		t.Fatalf("not a repo: %d", status)
 	}
 	var repos []api.Repo
@@ -104,7 +104,7 @@ func TestTaskLifecycle(t *testing.T) {
 	output, cancel := env.App.Deps.Bus.Subscribe("coding_task.output", 256)
 	defer cancel()
 
-	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("Add a hello file\nwith details")})
+	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("Add a hello file\nwith details")})
 	if task.Branch != "xc/"+itoa(task.Id)+"-add-a-hello-file" || task.BaseBranch != "main" || task.Title != "Add a hello file" || task.TimeoutMinutes != 60 {
 		t.Fatalf("task %+v", task)
 	}
@@ -229,7 +229,7 @@ func TestDiscardAndFailure(t *testing.T) {
 	agentID, _ := startAgent(t, env)
 	repo := register(t, env, agentID, repoPath)
 
-	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("please FAIL")})
+	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("please FAIL")})
 	task = waitStatus(t, env, task.Id, "failed")
 	if task.ExitCode == nil || *task.ExitCode != 3 || !strings.Contains(task.Error, "3") {
 		t.Fatalf("failed task %+v", task)
@@ -259,7 +259,7 @@ func TestDiscardAndFailure(t *testing.T) {
 	}
 
 	// A task whose executor changes nothing cannot be committed.
-	task = createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("NOEDIT")})
+	task = createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("NOEDIT")})
 	task = waitStatus(t, env, task.Id, "review")
 	if len(task.ChangedFiles) != 0 {
 		t.Fatalf("files %+v", task.ChangedFiles)
@@ -269,7 +269,7 @@ func TestDiscardAndFailure(t *testing.T) {
 	}
 
 	// Codex is not installed on the agent: the task fails to start.
-	task = createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "codex", Prompt: ptr("x")})
+	task = createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("codex")), Prompt: ptr("x")})
 	task = waitStatus(t, env, task.Id, "failed")
 	if !strings.Contains(task.Error, "无法启动") {
 		t.Fatalf("codex task %+v", task)
@@ -285,7 +285,7 @@ func TestQueueLimitAndCancel(t *testing.T) {
 
 	var ids []int64
 	for i := 0; i < 3; i++ {
-		ids = append(ids, createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("SLEEP " + itoa(int64(i)))}).Id)
+		ids = append(ids, createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("SLEEP " + itoa(int64(i)))}).Id)
 	}
 	waitStatus(t, env, ids[0], "running")
 	waitStatus(t, env, ids[1], "running")
@@ -312,7 +312,7 @@ func TestQueueLimitAndCancel(t *testing.T) {
 	waitStatus(t, env, ids[2], "running")
 
 	// Canceling a queued task needs no agent.
-	fourth := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("SLEEP 4")})
+	fourth := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("SLEEP 4")})
 	if fourth.Status != "queued" {
 		t.Fatalf("fourth %+v", fourth)
 	}
@@ -346,7 +346,7 @@ func TestTimeout(t *testing.T) {
 	_, repoPath, _ := newRepo(t)
 	agentID, _ := startAgent(t, env)
 	repo := register(t, env, agentID, repoPath)
-	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("SLEEP"), TimeoutMinutes: ptr(1)})
+	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("SLEEP"), TimeoutMinutes: ptr(1)})
 	task = waitStatus(t, env, task.Id, "failed")
 	if !strings.Contains(task.Error, "超过") {
 		t.Fatalf("timeout task %+v", task)
@@ -362,7 +362,7 @@ func TestAgentOffline(t *testing.T) {
 	_, repoPath, _ := newRepo(t)
 	agentID, stop := startAgent(t, env)
 	repo := register(t, env, agentID, repoPath)
-	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("SLEEP")})
+	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("SLEEP")})
 	waitFor(t, "executor output", func() bool { return len(events(t, env, task.Id)) >= 4 })
 	stop()
 	task = waitStatus(t, env, task.Id, "failed")
@@ -373,7 +373,7 @@ func TestAgentOffline(t *testing.T) {
 	waitFor(t, "worktree removed", func() bool { return !exists(agentcoding.WorktreePath(repoPath, task.Id)) })
 
 	// Tasks for an offline agent wait in the queue.
-	queued := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", Prompt: ptr("NOEDIT")})
+	queued := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), Prompt: ptr("NOEDIT")})
 	if queued.Status != "queued" {
 		t.Fatalf("queued %+v", queued)
 	}
@@ -399,10 +399,10 @@ func TestIssueLinking(t *testing.T) {
 	agentID, _ := startAgent(t, env)
 	repo := register(t, env, agentID, repoPath)
 
-	if status, _ := env.Do(http.MethodPost, "/coding/tasks", api.CreateTask{RepoId: repo.Id, Executor: "claude", IssueKey: ptr("XC-404")}, nil); status != http.StatusBadRequest {
+	if status, _ := env.Do(http.MethodPost, "/coding/tasks", api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), IssueKey: ptr("XC-404")}, nil); status != http.StatusBadRequest {
 		t.Fatalf("unknown issue: %d", status)
 	}
-	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: "claude", IssueKey: ptr("xc-7")})
+	task := createTask(t, env, api.CreateTask{RepoId: repo.Id, Executor: ptr(api.ExecutorName("claude")), IssueKey: ptr("xc-7")})
 	if task.IssueKey == nil || *task.IssueKey != "XC-7" || task.Title != "XC-7: Fix the login bug" ||
 		!strings.Contains(task.Prompt, "Users cannot log in.") || task.Branch != "xc/"+itoa(task.Id)+"-fix-the-login-bug" {
 		t.Fatalf("task %+v", task)

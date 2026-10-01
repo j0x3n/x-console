@@ -68,6 +68,9 @@ func Register(c *conn.Client, raw json.RawMessage) {
 	if !slices.Contains(c.Hello.Capabilities, protocol.CapCoding) && s.anyExecutor() {
 		c.Hello.Capabilities = append(c.Hello.Capabilities, protocol.CapCoding)
 	}
+	if slices.Contains(c.Hello.Capabilities, protocol.CapCoding) && !slices.Contains(c.Hello.Capabilities, protocol.CapCodingRemote) {
+		c.Hello.Capabilities = append(c.Hello.Capabilities, protocol.CapCodingRemote)
+	}
 	s.Register(c)
 }
 
@@ -84,6 +87,13 @@ func (s *Service) Register(c *conn.Client) {
 		return s.Repos(ctx, p)
 	})
 	c.HandleStream(protocol.MethodCodingRun, s.serveRun)
+	c.Handle(protocol.MethodCodingEnsureRepo, func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var p protocol.CodingEnsureRepoParams
+		if err := rpcutil.Decode(raw, &p); err != nil {
+			return nil, err
+		}
+		return s.EnsureRepo(ctx, p)
+	})
 	c.Handle(protocol.MethodCodingDiff, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var p protocol.CodingTaskParams
 		if err := rpcutil.Decode(raw, &p); err != nil {

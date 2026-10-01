@@ -108,6 +108,10 @@ paths:
         - name: issueKey
           in: query
           schema: { type: string }
+        - name: aiAgentId
+          in: query
+          description: B47 只看这个 Agent 的任务
+          schema: { type: integer, format: int64 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
@@ -339,13 +343,19 @@ components:
         remoteUrl: { type: string }
         githubRepo: { type: string, description: owner/name，从 GitHub 远端地址解析，不是 GitHub 时为空 }
         createdAt: { type: string, format: date-time }
+        connectionId: { type: integer, format: int64, description: B47 按 Git 连接登记时有 }
+        remoteRepo: { type: string, description: B47 按 Git 连接登记时的 owner/name }
     CreateRepo:
       type: object
-      required: [agentId, path]
+      required: [agentId]
       additionalProperties: false
+      description: 两种登记方式。按本地路径：传 path。按 Git 连接（B47）：传 connectionId、remoteRepo、cloneUrl，代理会 clone 到自己的仓库目录。
       properties:
         agentId: { type: string }
         path: { type: string, description: 仓库根目录的绝对路径 }
+        connectionId: { type: integer, format: int64 }
+        remoteRepo: { type: string, description: owner/name }
+        cloneUrl: { type: string, description: https 地址，不能带用户名和密码 }
     DiscoveredRepo:
       type: object
       required: [path, name, currentBranch, defaultBranch, remoteUrl]
@@ -407,6 +417,9 @@ components:
         startedAt: { type: string, format: date-time }
         finishedAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        aiAgentId: { type: integer, format: int64, description: B47 由哪个 Agent 执行 }
+        model: { type: string, description: B47 传给执行器的模型，空表示执行器默认 }
+        permission: { type: string, description: B47 workspace 或 full，空表示 workspace }
     TaskList:
       type: object
       required: [items]
@@ -416,11 +429,13 @@ components:
           items: { $ref: "#/components/schemas/Task" }
     CreateTask:
       type: object
-      required: [repoId, executor]
+      required: [repoId]
       additionalProperties: false
       properties:
         repoId: { type: integer, format: int64 }
         executor: { $ref: "#/components/schemas/ExecutorName" }
+        aiAgentId: { type: integer, format: int64, description: B47 交给这个 Agent。传了就不用传 executor }
+        agentId: { type: string, description: B47 在哪台机器上跑。不传用仓库所在的机器；按 Git 连接登记的仓库可以换机器 }
         prompt: { type: string, description: 有 issueKey 时可以留空 }
         baseBranch: { type: string, description: 留空用仓库的默认分支 }
         issueKey: { type: string }

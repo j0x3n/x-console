@@ -126,20 +126,33 @@ type CommitRequest struct {
 	Push    *bool   `json:"push,omitempty"`
 }
 
-// CreateRepo defines model for CreateRepo.
+// CreateRepo 两种登记方式。按本地路径：传 path。按 Git 连接（B47）：传 connectionId、remoteRepo、cloneUrl，代理会 clone 到自己的仓库目录。
 type CreateRepo struct {
 	AgentId string `json:"agentId"`
 
+	// CloneUrl https 地址，不能带用户名和密码
+	CloneUrl     *string `json:"cloneUrl,omitempty"`
+	ConnectionId *int64  `json:"connectionId,omitempty"`
+
 	// Path 仓库根目录的绝对路径
-	Path string `json:"path"`
+	Path *string `json:"path,omitempty"`
+
+	// RemoteRepo owner/name
+	RemoteRepo *string `json:"remoteRepo,omitempty"`
 }
 
 // CreateTask defines model for CreateTask.
 type CreateTask struct {
+	// AgentId B47 在哪台机器上跑。不传用仓库所在的机器；按 Git 连接登记的仓库可以换机器
+	AgentId *string `json:"agentId,omitempty"`
+
+	// AiAgentId B47 交给这个 Agent。传了就不用传 executor
+	AiAgentId *int64 `json:"aiAgentId,omitempty"`
+
 	// BaseBranch 留空用仓库的默认分支
-	BaseBranch *string      `json:"baseBranch,omitempty"`
-	Executor   ExecutorName `json:"executor"`
-	IssueKey   *string      `json:"issueKey,omitempty"`
+	BaseBranch *string       `json:"baseBranch,omitempty"`
+	Executor   *ExecutorName `json:"executor,omitempty"`
+	IssueKey   *string       `json:"issueKey,omitempty"`
 
 	// Prompt 有 issueKey 时可以留空
 	Prompt *string `json:"prompt,omitempty"`
@@ -190,9 +203,12 @@ type PullRequestRequest struct {
 
 // Repo defines model for Repo.
 type Repo struct {
-	AgentId       string    `json:"agentId"`
-	AgentName     string    `json:"agentName"`
-	AgentOnline   bool      `json:"agentOnline"`
+	AgentId     string `json:"agentId"`
+	AgentName   string `json:"agentName"`
+	AgentOnline bool   `json:"agentOnline"`
+
+	// ConnectionId B47 按 Git 连接登记时有
+	ConnectionId  *int64    `json:"connectionId,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 	DefaultBranch string    `json:"defaultBranch"`
 
@@ -201,12 +217,18 @@ type Repo struct {
 	Id         int64  `json:"id"`
 	Name       string `json:"name"`
 	Path       string `json:"path"`
-	RemoteUrl  string `json:"remoteUrl"`
+
+	// RemoteRepo B47 按 Git 连接登记时的 owner/name
+	RemoteRepo *string `json:"remoteRepo,omitempty"`
+	RemoteUrl  string  `json:"remoteUrl"`
 }
 
 // Task defines model for Task.
 type Task struct {
-	AgentId      string        `json:"agentId"`
+	AgentId string `json:"agentId"`
+
+	// AiAgentId B47 由哪个 Agent 执行
+	AiAgentId    *int64        `json:"aiAgentId,omitempty"`
 	BaseBranch   string        `json:"baseBranch"`
 	BaseCommit   *string       `json:"baseCommit,omitempty"`
 	Branch       string        `json:"branch"`
@@ -221,7 +243,13 @@ type Task struct {
 	FinishedAt *time.Time   `json:"finishedAt,omitempty"`
 	Id         int64        `json:"id"`
 	IssueKey   *string      `json:"issueKey,omitempty"`
-	PrUrl      string       `json:"prUrl"`
+
+	// Model B47 传给执行器的模型，空表示执行器默认
+	Model *string `json:"model,omitempty"`
+
+	// Permission B47 workspace 或 full，空表示 workspace
+	Permission *string `json:"permission,omitempty"`
+	PrUrl      string  `json:"prUrl"`
 
 	// Prompt 发给执行器的完整需求
 	Prompt string `json:"prompt"`
@@ -303,7 +331,10 @@ type ListTasksParams struct {
 	Status   *[]TaskStatus `form:"status,omitempty" json:"status,omitempty"`
 	RepoId   *int64        `form:"repoId,omitempty" json:"repoId,omitempty"`
 	IssueKey *string       `form:"issueKey,omitempty" json:"issueKey,omitempty"`
-	Limit    *int          `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// AiAgentId B47 只看这个 Agent 的任务
+	AiAgentId *int64 `form:"aiAgentId,omitempty" json:"aiAgentId,omitempty"`
+	Limit     *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListTaskEventsParams defines parameters for ListTaskEvents.
@@ -685,6 +716,19 @@ func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Requ
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "issueKey"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "issueKey", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "aiAgentId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "aiAgentId", r.URL.Query(), &params.AiAgentId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "aiAgentId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "aiAgentId", Err: err})
 		}
 		return
 	}
