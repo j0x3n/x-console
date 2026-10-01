@@ -60,7 +60,6 @@ func (m *Module) readRule(ctx context.Context, id int64) (rule, error) {
 	if err == nil {
 		_ = json.Unmarshal([]byte(data), &run.TriggerData)
 		_ = json.Unmarshal([]byte(runSteps), &run.Steps)
-		m.maskRun(ctx, r.Automation, &run)
 		r.LastRun = &run
 	} else if err != sql.ErrNoRows {
 		return r, err
@@ -98,14 +97,20 @@ func (m *Module) listRules(ctx context.Context) ([]api.Automation, error) {
 	return out, nil
 }
 func (m *Module) ListAutomations(w http.ResponseWriter, r *http.Request) {
-	out, err := m.listRules(r.Context())
+	all, err := m.listRules(r.Context())
 	if m.fail(w, r, err) {
 		return
+	}
+	out := all[:0]
+	for _, a := range all {
+		if !m.ruleHidden(r.Context(), a) {
+			out = append(out, a)
+		}
 	}
 	httpx.JSON(w, 200, out)
 }
 func (m *Module) GetAutomation(w http.ResponseWriter, r *http.Request, id api.AutomationId) {
-	row, err := m.readRule(r.Context(), id)
+	row, err := m.visibleRule(r.Context(), id)
 	if m.fail(w, r, err) {
 		return
 	}
@@ -167,6 +172,11 @@ func (m *Module) validate(ctx context.Context, in api.AutomationInput) (bool, er
 }
 func (m *Module) save(w http.ResponseWriter, r *http.Request, id int64, create bool) {
 	ctx := r.Context()
+	if !create {
+		if _, err := m.visibleRule(ctx, id); m.fail(w, r, err) {
+			return
+		}
+	}
 	var in api.AutomationInput
 	if m.fail(w, r, httpx.Decode(r, &in)) {
 		return
@@ -249,6 +259,9 @@ func (m *Module) ToggleAutomation(w http.ResponseWriter, r *http.Request, id api
 	if m.fail(w, r, httpx.Decode(r, &in)) {
 		return
 	}
+	if _, err := m.visibleRule(r.Context(), id); m.fail(w, r, err) {
+		return
+	}
 	result, err := m.d.DB.ExecContext(r.Context(), "UPDATE automations SET enabled=?,updated_at=? WHERE id=?", in.Enabled, time.Now().UTC(), id)
 	if m.fail(w, r, err) {
 		return
@@ -270,6 +283,9 @@ func (m *Module) ToggleAutomation(w http.ResponseWriter, r *http.Request, id api
 	httpx.JSON(w, 200, row.Automation)
 }
 func (m *Module) DeleteAutomation(w http.ResponseWriter, r *http.Request, id api.AutomationId) {
+	if _, err := m.visibleRule(r.Context(), id); m.fail(w, r, err) {
+		return
+	}
 	res, err := m.d.DB.ExecContext(r.Context(), "DELETE FROM automations WHERE id=?", id)
 	if m.fail(w, r, err) {
 		return
@@ -298,7 +314,11 @@ func (m *Module) GetAutomationCatalog(w http.ResponseWriter, r *http.Request) {
 		out.Actions = append(out.Actions, api.CatalogAction{Name: a.Name, Title: a.Title, Description: &desc, Effect: api.CatalogActionEffect(a.Effect), Input: schema})
 	}
 	out.Actions = append(out.Actions, api.CatalogAction{Name: "ai.ask", Title: "询问 AI", Effect: api.Write, Input: map[string]any{"type": "object", "properties": map[string]any{"prompt": map[string]any{"type": "string"}}, "required": []string{"prompt"}}})
+	h, _ := module.Lookup[contracts.HiddenModules](m.d.Registry, contracts.HiddenModulesKey)
 	for _, item := range [][2]string{{"host.metrics", "主机指标"}, {"ha.state_changed", "智能家居状态"}, {"monitor.down", "监控异常"}, {"issue.updated", "Issue 更新"}, {"reminder.due", "提醒到期"}} {
+		if h != nil && topicHidden(r.Context(), h, item[0]) {
+			continue
+		}
 		out.Topics = append(out.Topics, struct {
 			Title string `json:"title"`
 			Topic string `json:"topic"`
@@ -307,8 +327,7 @@ func (m *Module) GetAutomationCatalog(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, 200, out)
 }
 func (m *Module) ListAutomationRuns(w http.ResponseWriter, r *http.Request, id api.AutomationId, params api.ListAutomationRunsParams) {
-	rule, err := m.readRule(r.Context(), id)
-	if m.fail(w, r, err) {
+	if _, err := m.visibleRule(r.Context(), id); m.fail(w, r, err) {
 		return
 	}
 	limit := 50
@@ -330,7 +349,6 @@ func (m *Module) ListAutomationRuns(w http.ResponseWriter, r *http.Request, id a
 		}
 		_ = json.Unmarshal([]byte(data), &row.TriggerData)
 		_ = json.Unmarshal([]byte(steps), &row.Steps)
-		m.maskRun(r.Context(), rule.Automation, &row)
 		out = append(out, row)
 	}
 	if m.fail(w, r, err) {
@@ -342,7 +360,7 @@ func (m *Module) ListAutomationRuns(w http.ResponseWriter, r *http.Request, id a
 	httpx.JSON(w, 200, out)
 }
 func (m *Module) RunAutomation(w http.ResponseWriter, r *http.Request, id api.AutomationId) {
-	row, err := m.readRule(r.Context(), id)
+	row, err := m.visibleRule(r.Context(), id)
 	if m.fail(w, r, err) {
 		return
 	}
@@ -353,20 +371,37 @@ func (m *Module) RunAutomation(w http.ResponseWriter, r *http.Request, id api.Au
 	httpx.JSON(w, 202, map[string]any{"runId": runID})
 }
 
-// maskRun blanks the trigger data and the steps of hidden modules while the
-// vault is locked. Those steps still ran: the user set them up beforehand.
-func (m *Module) maskRun(ctx context.Context, a api.Automation, run *api.Run) {
+// ruleHidden reports whether a rule uses a module that is hidden for this
+// request: a step's action, the event it listens to, or Home Assistant. While
+// locked such a rule does not exist for the pages. It still runs (B57).
+func (m *Module) ruleHidden(ctx context.Context, a api.Automation) bool {
 	h, ok := module.Lookup[contracts.HiddenModules](m.d.Registry, contracts.HiddenModulesKey)
 	if !ok {
-		return
+		return false
 	}
-	if a.Trigger.Topic != nil && contracts.EventHidden(ctx, h, *a.Trigger.Topic) {
-		run.TriggerData = map[string]any{}
-	}
-	for i := range run.Steps {
-		if contracts.ActionHidden(ctx, h, run.Steps[i].Action) {
-			run.Steps[i].Input = map[string]any{}
-			run.Steps[i].Result = nil
+	for _, s := range a.Actions {
+		if contracts.ActionHidden(ctx, h, s.Action) {
+			return true
 		}
 	}
+	if a.Trigger.Type == api.HaState && h.Hidden(ctx, "home") {
+		return true
+	}
+	return a.Trigger.Topic != nil && topicHidden(ctx, h, *a.Trigger.Topic)
+}
+
+func topicHidden(ctx context.Context, h contracts.HiddenModules, topic string) bool {
+	if strings.HasPrefix(topic, "host.") {
+		return h.Hidden(ctx, "servers") && h.Hidden(ctx, "pc")
+	}
+	return contracts.EventHidden(ctx, h, topic)
+}
+
+// visibleRule reads a rule for a page: a hidden one is not found.
+func (m *Module) visibleRule(ctx context.Context, id int64) (rule, error) {
+	r, err := m.readRule(ctx, id)
+	if err == nil && m.ruleHidden(ctx, r.Automation) {
+		return rule{}, httpx.ErrNotFound
+	}
+	return r, err
 }

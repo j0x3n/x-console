@@ -212,7 +212,7 @@ func actionErr(t *testing.T, env *testutil.Env, ctx context.Context, name string
 }
 
 // Automation steps the user set up keep running while their module is
-// hidden, and the run history does not show them while locked.
+// hidden. While locked, a rule that uses a hidden module is not shown.
 func TestHiddenModuleAutomation(t *testing.T) {
 	env := testutil.New(t)
 	env.MustDo(http.MethodPost, "/vault/setup", map[string]string{"password": "secret-one"}, nil)
@@ -223,27 +223,68 @@ func TestHiddenModuleAutomation(t *testing.T) {
 	env.MustDo(http.MethodPost, "/automations", map[string]any{"name": "自动记笔记", "enabled": true,
 		"trigger": map[string]any{"type": "webhook"}, "conditions": []any{},
 		"actions": []any{map[string]any{"action": "notes.create", "input": map[string]any{"title": "自动笔记", "body": "正文"}}}}, &rule)
+	var plain struct {
+		ID int64 `json:"id"`
+	}
+	env.MustDo(http.MethodPost, "/automations", map[string]any{"name": "普通规则", "enabled": true,
+		"trigger": map[string]any{"type": "webhook"}, "conditions": []any{},
+		"actions": []any{map[string]any{"action": "notify.send", "input": map[string]any{"title": "x"}}}}, &plain)
 
+	ids := func() []int64 {
+		t.Helper()
+		var list []struct {
+			ID int64 `json:"id"`
+		}
+		env.MustDo(http.MethodGet, "/automations", nil, &list)
+		out := []int64{}
+		for _, a := range list {
+			out = append(out, a.ID)
+		}
+		return out
+	}
+	path := "/automations/" + itoa(rule.ID)
+	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
+	if got := ids(); len(got) != 1 || got[0] != plain.ID {
+		t.Fatalf("locked list: %v", got)
+	}
+	checkCode(t, env, http.MethodGet, path, nil, 404, "not_found")
+	checkCode(t, env, http.MethodGet, path+"/runs", nil, 404, "not_found")
+	checkCode(t, env, http.MethodPost, path+"/run", nil, 404, "not_found")
+	checkCode(t, env, http.MethodPatch, path, map[string]any{"enabled": false}, 404, "not_found")
+	checkCode(t, env, http.MethodDelete, path, nil, 404, "not_found")
+
+	// The rule still runs while locked: here through its webhook.
+	env.MustDo(http.MethodPost, "/vault/unlock", map[string]string{"password": "secret-one"}, nil)
+	var full struct {
+		Trigger struct {
+			WebhookPath string `json:"webhookPath"`
+		} `json:"trigger"`
+	}
+	env.MustDo(http.MethodGet, path, nil, &full)
+	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
+	req, _ := http.NewRequest(http.MethodPost, env.URL(full.Trigger.WebhookPath), strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := env.Client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("webhook: %d", resp.StatusCode)
+	}
+
+	env.MustDo(http.MethodPost, "/vault/unlock", map[string]string{"password": "secret-one"}, nil)
 	type run struct {
 		Status string `json:"status"`
 		Steps  []struct {
-			Input  map[string]any `json:"input"`
-			Result any            `json:"result"`
-			Error  *string        `json:"error"`
+			Result any     `json:"result"`
+			Error  *string `json:"error"`
 		} `json:"steps"`
 	}
-	runs := func() []run {
-		t.Helper()
-		var out []run
-		env.MustDo(http.MethodGet, "/automations/"+itoa(rule.ID)+"/runs", nil, &out)
-		return out
-	}
-	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
-	env.MustDo(http.MethodPost, "/automations/"+itoa(rule.ID)+"/run", nil, nil)
 	deadline := time.Now().Add(5 * time.Second)
 	var got []run
 	for {
-		got = runs()
+		env.MustDo(http.MethodGet, path+"/runs", nil, &got)
 		if len(got) == 1 && got[0].Status != "running" {
 			break
 		}
@@ -252,17 +293,11 @@ func TestHiddenModuleAutomation(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if got[0].Status != "ok" || len(got[0].Steps) != 1 || got[0].Steps[0].Error != nil {
-		t.Fatalf("locked run: %+v", got)
+	if got[0].Status != "ok" || len(got[0].Steps) != 1 || got[0].Steps[0].Error != nil || got[0].Steps[0].Result == nil {
+		t.Fatalf("run: %+v", got)
 	}
-	if len(got[0].Steps[0].Input) != 0 || got[0].Steps[0].Result != nil {
-		t.Fatalf("locked run shows the hidden step: %+v", got[0].Steps[0])
-	}
-
-	env.MustDo(http.MethodPost, "/vault/unlock", map[string]string{"password": "secret-one"}, nil)
-	got = runs()
-	if got[0].Steps[0].Input["title"] != "自动笔记" || got[0].Steps[0].Result == nil {
-		t.Fatalf("unlocked run: %+v", got[0].Steps[0])
+	if list := ids(); len(list) != 2 {
+		t.Fatalf("unlocked list: %v", list)
 	}
 	var notes struct {
 		Items []struct {
