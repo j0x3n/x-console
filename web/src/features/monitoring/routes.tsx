@@ -4,6 +4,10 @@ import { FileCode2, Globe, Receipt, ShieldCheck } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./monitoring.css";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useMonitoringBadge } from "./badge";
+
+registerNavBadge("/monitoring", useMonitoringBadge);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const MonitoringPage = lazy(() => import("./MonitoringPage"));

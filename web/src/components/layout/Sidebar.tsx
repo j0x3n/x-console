@@ -21,6 +21,12 @@ import {
   InstallMenuItem,
 } from "../../features/pwa/InstallMenu";
 import { useNavChildren } from "../../lib/navChildren";
+import {
+  badgeLabel,
+  useNavExtras,
+  type NavAction,
+  type NavBadgeHook,
+} from "../../lib/navBadges";
 import { useSidebar } from "../../stores/sidebar";
 
 // 二级菜单展开了哪些，记在 localStorage。
@@ -47,6 +53,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const t = useT();
   const children = useNavChildren();
+  const extras = useNavExtras();
+  const navigate = useNavigate();
   const collapsed = useSidebar((s) => s.collapsed);
   const [open, setOpen] = useState<string[]>(readOpen);
   const location = useLocation();
@@ -123,6 +131,8 @@ export default function Sidebar({
               {items.map((item) => {
                 const Children = children[item.path];
                 const isOpen = !!Children && open.includes(item.path);
+                const badge = extras.badges[item.path];
+                const action = extras.actions[item.path];
                 return (
                   <div key={item.path} className="nav-entry">
                     <NavLink
@@ -139,12 +149,22 @@ export default function Sidebar({
                         setMobileOpen(false);
                       }}
                       className={({ isActive }) =>
-                        `nav-item ${selectedFor(item.path, isActive, location.pathname) ? "selected" : ""}${Children ? " has-children" : ""}`
+                        `nav-item ${selectedFor(item.path, isActive, location.pathname) ? "selected" : ""}${Children ? " has-children" : ""}${action ? " has-action" : ""}`
                       }
                     >
                       <item.icon size={17} strokeWidth={1.5} />
                       <span>{t(item.label)}</span>
+                      {badge && <NavBadgeMark hook={badge} />}
                     </NavLink>
+                    {action && (
+                      <NavActionButton
+                        action={action}
+                        onRun={() => {
+                          setMobileOpen(false);
+                          action.run(navigate);
+                        }}
+                      />
+                    )}
                     {Children && (
                       <button
                         type="button"
@@ -170,6 +190,45 @@ export default function Sidebar({
         <ProfileMenu />
       </nav>
     </>
+  );
+}
+
+/** 一级菜单右边的数量（B76）。单独一个组件，登记的 Hook 在这里调用，顺序固定。 */
+function NavBadgeMark({ hook }: { hook: NavBadgeHook }) {
+  const badge = hook();
+  if (!badge || badge.count <= 0) return null;
+  const label = badgeLabel(badge.count);
+  return (
+    <i
+      className={`nav-badge ${badge.tone ?? "danger"}${label ? "" : " dot"}`}
+      title={badge.title}
+      aria-label={badge.title}
+    >
+      {label}
+    </i>
+  );
+}
+
+/** 一级菜单行内的小按钮，比如笔记的“+”（B72）。 */
+function NavActionButton({
+  action,
+  onRun,
+}: {
+  action: NavAction;
+  onRun: () => void;
+}) {
+  const t = useT();
+  const Icon = action.icon;
+  return (
+    <button
+      type="button"
+      className="nav-action"
+      aria-label={t(action.label)}
+      title={t(action.label)}
+      onClick={onRun}
+    >
+      <Icon size={14} />
+    </button>
   );
 }
 

@@ -5,6 +5,10 @@ import "./projects.css";
 import "./commands";
 import ProjectsNavChildren from "./NavChildren";
 import { registerNavChildren } from "../../lib/navChildren";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useProjectsBadge } from "./badge";
+
+registerNavBadge("/projects", useProjectsBadge);
 
 // 侧边栏“/projects”的二级菜单。
 registerNavChildren("/projects", ProjectsNavChildren);

@@ -4,6 +4,10 @@ import { GitPullRequest, Settings } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./github.css";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useGitHubBadge } from "./badge";
+
+registerNavBadge("/github", useGitHubBadge);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const GitHubPage = lazy(() => import("./GitHubPage"));

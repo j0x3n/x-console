@@ -960,6 +960,79 @@ a.xc-badge:hover {
   background: var(--xc-surface-2);
   color: var(--xc-text);
 }
+/* B76：一级菜单右边的数量。1 到 9 显示数字，10 以上只显示一个点 */
+.nav-badge {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--xc-danger-soft);
+  color: var(--xc-danger);
+  font-size: var(--fs-11);
+  font-style: normal;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.nav-badge.warn {
+  background: var(--xc-warn-soft);
+  color: var(--xc-warn);
+}
+.nav-badge.dot {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  padding: 0;
+  background: var(--xc-danger);
+}
+.nav-badge.warn.dot {
+  background: var(--xc-warn);
+}
+/* B72：一级菜单行内的小按钮（笔记的“+”），在折叠箭头左边，悬停时出现 */
+.nav-action {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-faint);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.nav-item.has-children ~ .nav-action {
+  right: 27px;
+}
+.nav-item.has-action {
+  padding-right: 28px;
+}
+.nav-item.has-children.has-action {
+  padding-right: 52px;
+}
+.nav-entry:hover .nav-action,
+.nav-action:focus-visible {
+  opacity: 1;
+}
+.nav-action:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-accent-text);
+}
+@media (hover: none) {
+  .nav-action {
+    opacity: 1;
+  }
+}
 .nav-toggle svg {
   transition: transform 0.15s;
 }
@@ -1571,6 +1644,7 @@ a.xc-badge:hover {
   .sidebar.collapsed .sidebar-search span,
   .sidebar.collapsed .sidebar-search kbd,
   .sidebar.collapsed .nav-toggle,
+  .sidebar.collapsed .nav-action,
   .sidebar.collapsed .nav-children,
   .sidebar.collapsed .nav-item span,
   .sidebar.collapsed .nav-item em,
@@ -1599,6 +1673,25 @@ a.xc-badge:hover {
   }
   .sidebar.collapsed .profile-popover {
     width: 220px;
+  }
+  /* 折叠时数量变成图标右上角的点 */
+  .sidebar.collapsed .nav-item {
+    position: relative;
+  }
+  .sidebar.collapsed .nav-badge {
+    position: absolute;
+    top: 5px;
+    right: 9px;
+    min-width: 7px;
+    width: 7px;
+    height: 7px;
+    margin: 0;
+    padding: 0;
+    font-size: 0;
+    background: var(--xc-danger);
+  }
+  .sidebar.collapsed .nav-badge.warn {
+    background: var(--xc-warn);
   }
 }
 @media (max-width: 720px) {

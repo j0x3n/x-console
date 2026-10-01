@@ -6,6 +6,10 @@ import { registerNavChildren } from "../../lib/navChildren";
 import CodingNavChildren from "./NavChildren";
 import "./i18n";
 import "./coding.css";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useCodingBadge } from "./badge";
+
+registerNavBadge("/coding", useCodingBadge);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const CodingPage = lazy(() => import("./CodingPage"));

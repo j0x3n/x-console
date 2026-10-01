@@ -4,6 +4,10 @@ import { Mail, MailPlus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./mail.css";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useMailBadge } from "./badge";
+
+registerNavBadge("/mail", useMailBadge);
 
 // 页面按需加载（B6）
 const MailPage = lazy(() => import("./MailPage"));
