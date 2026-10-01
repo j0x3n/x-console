@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/net/webdav"
 
@@ -78,10 +79,22 @@ func TestWebDAV(t *testing.T) {
 	if got := d.names(t, "/"); len(got) != 1 || got[0] != "x-console-backups" {
 		t.Fatalf("root: %v", got)
 	}
-	for _, name := range d.names(t, "/x-console-backups/drive") {
-		if strings.HasSuffix(name, ".part") {
-			t.Errorf("left %s", name)
+	// Failed uploads are deleted again a moment later, in case the server
+	// wrote the half file after the first delete.
+	var left []string
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		left = nil
+		for _, name := range d.names(t, "/x-console-backups/drive") {
+			if strings.HasSuffix(name, ".part") {
+				left = append(left, name)
+			}
 		}
+		if len(left) == 0 {
+			break
+		}
+	}
+	if len(left) > 0 {
+		t.Errorf("left %v", left)
 	}
 }
 

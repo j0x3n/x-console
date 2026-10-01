@@ -233,9 +233,26 @@ func (w *WebDAV) Put(ctx context.Context, key string, r io.Reader, size int64) e
 		err = w.move(ctx, part, key)
 	}
 	if err != nil {
-		w.Delete(context.WithoutCancel(ctx), part) //nolint:errcheck // best effort
+		w.dropPart(context.WithoutCancel(ctx), part)
 	}
 	return err
+}
+
+// partRetry is how long after a failed upload the .part file is deleted a
+// second time. The server may still be handling the broken PUT when the
+// first DELETE arrives, and write the half file after it.
+var partRetry = time.Second
+
+// dropPart deletes a failed upload now and once more a moment later. A .part
+// file that is left anyway is never listed or read.
+func (w *WebDAV) dropPart(ctx context.Context, part string) {
+	w.Delete(ctx, part) //nolint:errcheck // best effort
+	go func() {
+		time.Sleep(partRetry)
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		w.Delete(ctx, part) //nolint:errcheck // best effort
+	}()
 }
 
 // counter counts the bytes read and fails at EOF when they are not size.
