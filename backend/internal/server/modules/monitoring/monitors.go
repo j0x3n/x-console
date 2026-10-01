@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/db"
@@ -44,6 +46,7 @@ type resultDetail struct {
 	Subject   string     `json:"subject,omitempty"`
 	Issuer    string     `json:"issuer,omitempty"`
 	Registrar string     `json:"registrar,omitempty"`
+	Source    string     `json:"source,omitempty"`
 }
 
 func toAPIDetail(raw string) api.MonitorResultDetail {
@@ -59,6 +62,10 @@ func toAPIDetail(raw string) api.MonitorResultDetail {
 	if d.Registrar != "" {
 		out.Registrar = ptr(d.Registrar)
 	}
+	if d.Source != "" {
+		src := api.MonitorResultDetailSource(d.Source)
+		out.Source = &src
+	}
 	return out
 }
 
@@ -67,11 +74,23 @@ func toAPIMonitor(x db.Monitor, now time.Time, iconAt *time.Time) api.Monitor {
 		IntervalSeconds: int(x.IntervalSeconds), ExpectedStatus: int(x.ExpectedStatus), Keyword: x.Keyword,
 		TimeoutMs: int(x.TimeoutMs), Enabled: x.Enabled == 1, LastStatus: api.MonitorStatus(x.LastStatus),
 		LastCheckedAt: x.LastCheckedAt, LastError: x.LastError, ConsecutiveFailures: int(x.ConsecutiveFailures),
-		ExpiresAt: x.ExpiresAt, CreatedAt: x.CreatedAt, IconAt: iconAt}
+		ExpiresAt: x.ExpiresAt, CreatedAt: x.CreatedAt, IconAt: iconAt, ManualExpiresAt: toAPIDate(x.ManualExpiresAt)}
 	if x.ExpiresAt != nil {
 		out.DaysLeft = ptr(daysLeft(*x.ExpiresAt, now))
 	}
+	if x.ExpirySource != "" {
+		src := api.MonitorExpirySource(x.ExpirySource)
+		out.ExpirySource = &src
+	}
 	return out
+}
+
+func toAPIDate(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
+	}
+	y, m, d := t.Date()
+	return &openapi_types.Date{Time: time.Date(y, m, d, 0, 0, 0, 0, time.UTC)}
 }
 
 func (m *Module) iconAtOf(ctx context.Context, id int64) *time.Time {
@@ -339,15 +358,37 @@ func (m *Module) UpdateMonitor(w http.ResponseWriter, r *http.Request, id int64)
 	if body.Enabled != nil {
 		f.enabled = *body.Enabled
 	}
+	if cur.Kind != kindDomain && (body.ManualExpiresAt != nil || (body.ClearManualExpiry != nil && *body.ClearManualExpiry)) {
+		httpx.Fail(w, r, httpx.Invalid("只有域名监控能手动填到期日期"))
+		return
+	}
+	manual := cur.ManualExpiresAt
+	manualChanged := false
+	if body.ClearManualExpiry != nil && *body.ClearManualExpiry {
+		manual = nil
+		manualChanged = true
+	}
+	if body.ManualExpiresAt != nil {
+		y, mon, d := body.ManualExpiresAt.Date()
+		t := time.Date(y, mon, d, 0, 0, 0, 0, time.UTC)
+		manual = &t
+		manualChanged = true
+	}
 	if err := f.validate(); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
 	ctx := r.Context()
 	x, err := m.q.UpdateMonitor(ctx, db.UpdateMonitorParams{ID: id, Name: f.name, Target: f.target, IntervalSeconds: int64(f.interval),
-		ExpectedStatus: int64(f.expected), Keyword: f.keyword, TimeoutMs: int64(f.timeout), Enabled: boolInt(f.enabled)})
+		ExpectedStatus: int64(f.expected), Keyword: f.keyword, TimeoutMs: int64(f.timeout), Enabled: boolInt(f.enabled),
+		ManualExpiresAt: manual, ExpirySource: cur.ExpirySource})
 	if err == nil && f.target != cur.Target {
 		if err = m.q.ResetMonitorState(ctx, id); err == nil {
+			x, err = m.q.GetMonitor(ctx, id)
+		}
+	}
+	if err == nil && manualChanged {
+		if _, err = m.check(ctx, id, m.now()); err == nil {
 			x, err = m.q.GetMonitor(ctx, id)
 		}
 	}

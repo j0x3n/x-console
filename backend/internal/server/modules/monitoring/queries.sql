@@ -62,7 +62,8 @@ SELECT * FROM monitors WHERE enabled = 1 ORDER BY id;
 
 -- name: UpdateMonitor :one
 UPDATE monitors
-SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?
+SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?,
+    manual_expires_at = ?, expiry_source = ?
 WHERE id = ?
 RETURNING *;
 
@@ -70,12 +71,13 @@ RETURNING *;
 -- The target changed: forget the old state so alerts start fresh.
 UPDATE monitors
 SET last_status = 'unknown', last_checked_at = NULL, last_error = '', consecutive_failures = 0,
-    expires_at = NULL, expiry_notified = '[]'
+    expires_at = NULL, expiry_notified = '[]', expiry_source = ''
 WHERE id = ?;
 
 -- name: SetMonitorState :one
 UPDATE monitors
-SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?
+SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?,
+    expiry_source = ?, manual_expires_at = ?
 WHERE id = ?
 RETURNING *;
 

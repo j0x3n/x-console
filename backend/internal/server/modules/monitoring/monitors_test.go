@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -282,6 +283,33 @@ func TestDomainMonitorRDAP(t *testing.T) {
 	if err := env.App.Deps.Settings.Set(ctx, monitoring.RDAPBaseKey, rdap.URL+"/"); err != nil {
 		t.Fatal(err)
 	}
+	var whoisQueries []string
+	var whoisMu sync.Mutex
+	whoisLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer whoisLn.Close()
+	go func() {
+		for {
+			c, err := whoisLn.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				buf := make([]byte, 256)
+				n, _ := c.Read(buf)
+				whoisMu.Lock()
+				whoisQueries = append(whoisQueries, strings.TrimSpace(string(buf[:n])))
+				whoisMu.Unlock()
+				_, _ = io.WriteString(c, "no whois server\r\n")
+			}(c)
+		}
+	}()
+	if err := env.App.Deps.Settings.Set(ctx, monitoring.WhoisIANAKey, whoisLn.Addr().String()); err != nil {
+		t.Fatal(err)
+	}
 
 	var mon api.Monitor
 	env.MustDo(http.MethodPost, "/monitors", api.MonitorInput{Kind: "domain", Name: "Example", Target: "https://www.Example.com/"}, &mon)
@@ -314,6 +342,11 @@ func TestDomainMonitorRDAP(t *testing.T) {
 	defer mu.Unlock()
 	if paths[0] != "/domain/example.com" || paths[len(paths)-1] != "/domain/missing.org" {
 		t.Fatalf("rdap paths: %v", paths)
+	}
+	whoisMu.Lock()
+	defer whoisMu.Unlock()
+	if len(whoisQueries) != 1 || whoisQueries[0] != "org" {
+		t.Fatalf("whois queries: %v", whoisQueries)
 	}
 
 	var list []api.Monitor

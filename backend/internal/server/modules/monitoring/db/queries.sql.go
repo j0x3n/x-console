@@ -31,7 +31,7 @@ const createMonitor = `-- name: CreateMonitor :one
 
 INSERT INTO monitors (kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at
+RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source
 `
 
 type CreateMonitorParams struct {
@@ -77,6 +77,8 @@ func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) (M
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
 }
@@ -367,7 +369,7 @@ func (q *Queries) FinishScriptRun(ctx context.Context, arg FinishScriptRunParams
 }
 
 const getMonitor = `-- name: GetMonitor :one
-SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at FROM monitors WHERE id = ?
+SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source FROM monitors WHERE id = ?
 `
 
 func (q *Queries) GetMonitor(ctx context.Context, id int64) (Monitor, error) {
@@ -390,6 +392,8 @@ func (q *Queries) GetMonitor(ctx context.Context, id int64) (Monitor, error) {
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
 }
@@ -604,7 +608,7 @@ func (q *Queries) InsertSubscriptionEvent(ctx context.Context, arg InsertSubscri
 }
 
 const listEnabledMonitors = `-- name: ListEnabledMonitors :many
-SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at FROM monitors WHERE enabled = 1 ORDER BY id
+SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source FROM monitors WHERE enabled = 1 ORDER BY id
 `
 
 func (q *Queries) ListEnabledMonitors(ctx context.Context) ([]Monitor, error) {
@@ -633,6 +637,8 @@ func (q *Queries) ListEnabledMonitors(ctx context.Context) ([]Monitor, error) {
 			&i.ExpiresAt,
 			&i.ExpiryNotified,
 			&i.CreatedAt,
+			&i.ManualExpiresAt,
+			&i.ExpirySource,
 		); err != nil {
 			return nil, err
 		}
@@ -721,7 +727,7 @@ func (q *Queries) ListMonitorResults(ctx context.Context, arg ListMonitorResults
 }
 
 const listMonitors = `-- name: ListMonitors :many
-SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at FROM monitors ORDER BY name COLLATE NOCASE, id
+SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source FROM monitors ORDER BY name COLLATE NOCASE, id
 `
 
 func (q *Queries) ListMonitors(ctx context.Context) ([]Monitor, error) {
@@ -750,6 +756,8 @@ func (q *Queries) ListMonitors(ctx context.Context) ([]Monitor, error) {
 			&i.ExpiresAt,
 			&i.ExpiryNotified,
 			&i.CreatedAt,
+			&i.ManualExpiresAt,
+			&i.ExpirySource,
 		); err != nil {
 			return nil, err
 		}
@@ -1012,7 +1020,7 @@ func (q *Queries) NextSubscriptionCategoryPosition(ctx context.Context) (int64, 
 const resetMonitorState = `-- name: ResetMonitorState :exec
 UPDATE monitors
 SET last_status = 'unknown', last_checked_at = NULL, last_error = '', consecutive_failures = 0,
-    expires_at = NULL, expiry_notified = '[]'
+    expires_at = NULL, expiry_notified = '[]', expiry_source = ''
 WHERE id = ?
 `
 
@@ -1024,9 +1032,10 @@ func (q *Queries) ResetMonitorState(ctx context.Context, id int64) error {
 
 const setMonitorState = `-- name: SetMonitorState :one
 UPDATE monitors
-SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?
+SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?,
+    expiry_source = ?, manual_expires_at = ?
 WHERE id = ?
-RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at
+RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source
 `
 
 type SetMonitorStateParams struct {
@@ -1036,6 +1045,8 @@ type SetMonitorStateParams struct {
 	ConsecutiveFailures int64
 	ExpiresAt           *time.Time
 	ExpiryNotified      string
+	ExpirySource        string
+	ManualExpiresAt     *time.Time
 	ID                  int64
 }
 
@@ -1047,6 +1058,8 @@ func (q *Queries) SetMonitorState(ctx context.Context, arg SetMonitorStateParams
 		arg.ConsecutiveFailures,
 		arg.ExpiresAt,
 		arg.ExpiryNotified,
+		arg.ExpirySource,
+		arg.ManualExpiresAt,
 		arg.ID,
 	)
 	var i Monitor
@@ -1067,15 +1080,18 @@ func (q *Queries) SetMonitorState(ctx context.Context, arg SetMonitorStateParams
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
 }
 
 const updateMonitor = `-- name: UpdateMonitor :one
 UPDATE monitors
-SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?
+SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?,
+    manual_expires_at = ?, expiry_source = ?
 WHERE id = ?
-RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at
+RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source
 `
 
 type UpdateMonitorParams struct {
@@ -1086,6 +1102,8 @@ type UpdateMonitorParams struct {
 	Keyword         string
 	TimeoutMs       int64
 	Enabled         int64
+	ManualExpiresAt *time.Time
+	ExpirySource    string
 	ID              int64
 }
 
@@ -1098,6 +1116,8 @@ func (q *Queries) UpdateMonitor(ctx context.Context, arg UpdateMonitorParams) (M
 		arg.Keyword,
 		arg.TimeoutMs,
 		arg.Enabled,
+		arg.ManualExpiresAt,
+		arg.ExpirySource,
 		arg.ID,
 	)
 	var i Monitor
@@ -1118,6 +1138,8 @@ func (q *Queries) UpdateMonitor(ctx context.Context, arg UpdateMonitorParams) (M
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
 }

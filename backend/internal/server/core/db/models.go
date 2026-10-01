@@ -665,6 +665,8 @@ type Monitor struct {
 	ExpiresAt           *time.Time
 	ExpiryNotified      string
 	CreatedAt           time.Time
+	ManualExpiresAt     *time.Time
+	ExpirySource        string
 }
 
 type MonitorIcon struct {
