@@ -1,6 +1,72 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B70：仓库页
+  "Git & repositories": "Git 与仓库",
+  "No watched repositories yet. Pick some in settings.":
+    "还没有关注的仓库，去设置里选几个。",
+  Commits: "提交",
+  "All repositories": "全部仓库",
+  "No watched repositories": "还没有关注的仓库",
+  "open pull requests": "个打开的 PR",
+  "Last push": "最近推送",
+  "Notifications are off for this repository": "这个仓库的通知已全部关闭",
+  "This repository has its own notification settings": "这个仓库单独设置了通知",
+  "Open in browser": "在网页打开",
+  "Connect a Git account": "添加 Git 账号",
+  "No commits yet": "还没有提交",
+  "Step details are not live yet.": "步骤详情还没上线。",
+  "This server does not report step details.": "这个服务器不提供步骤详情。",
+  "Add a Git account first.": "先在左边添加一个 Git 账号。",
+  "Some repositories belong to a deleted account:": "这些仓库的账号已经删了：",
+  "Pick from account": "从哪个账号选",
+  "You can watch up to": "最多关注",
+  // B71：仓库通知
+  "Repository notifications": "仓库通知",
+  " are not live yet.": "还没上线。",
+  "Default for all watched repositories. Use the bell on the repositories page to change one repository.":
+    "所有关注仓库的默认设置。单个仓库在仓库页标题旁的铃铛里改。",
+  "Use the default settings": "跟随默认设置",
+  "Where notifications go is set in Settings → Notifications. Their kinds start with github.":
+    "通知发到哪里在 设置 → 通知 里设，种类以 github. 开头。",
+  CI: "CI",
+  "Issues and releases": "Issue 和发布",
+  "CI started": "CI 开始",
+  "CI passed": "CI 成功",
+  "CI failed": "CI 失败",
+  "CI cancelled": "CI 被取消",
+  "CI fixed again": "CI 失败后恢复",
+  "New commits": "有新的提交",
+  "Pull request opened": "新的 PR",
+  "Pull request merged": "PR 合并了",
+  "Pull request closed without merging": "PR 没合并就关了",
+  "Review result": "PR 有了评审结果",
+  "New issue": "新的 Issue",
+  "Issue assigned to me": "Issue 指派给了我",
+  "New release": "发布了新版本",
+  "CI events on": "CI 事件看哪些分支",
+  "Default branch only": "只看默认分支",
+  "All branches and pull requests": "所有分支和 PR",
+  // 设置 → Git 与 GitHub（B62）
+  "Git & GitHub": "Git 与 GitHub",
+  "Git accounts": "Git 账号",
+  "Git account": "Git 账号",
+  "New Git account": "新建 Git 账号",
+  "Delete Git account": "删除 Git 账号",
+  "No Git accounts yet.": "还没有 Git 账号。",
+  "GitHub and Forgejo accounts. Agents clone and open pull requests with them, and the repositories page syncs with them.":
+    "GitHub 和 Forgejo 的账号。Agent 用它们克隆和提 PR，仓库页也用它们同步。",
+  "GitHub page": "GitHub 页面",
+  "GitHub account": "用哪个 GitHub 账号",
+  "Not selected": "未选择",
+  "Add a GitHub account above first.": "先在上面添加一个 GitHub 账号。",
+  "Using the token from the old GitHub settings. Pick an account to switch.":
+    "现在用的是旧 GitHub 设置里的令牌。选一个账号就换过去。",
+  "Git accounts are managed in settings": "Git 账号在设置里管理",
+  "Add from a Git account": "从 Git 账号添加",
+  "Fine-grained token: read and write for Contents and Pull requests. The GitHub page also needs read access to Issues, Actions and Commit statuses.":
+    "用细粒度令牌：Contents 和 Pull requests 读写。GitHub 页面还要 Issues、Actions、Commit statuses 只读。",
+  Open: "打开",
   // 概要
   "API quota": "API 额度",
   "CI on default branch": "默认分支 CI",

@@ -1,0 +1,349 @@
+openapi: 3.0.3
+info:
+  title: X Console AI agents (B47 Agent management and Git connections)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /ai-agents:
+    get:
+      operationId: listAiAgents
+      tags: [aiagents]
+      description: 全部 Agent，带本月费用和正在跑的任务数。
+      responses:
+        "200":
+          description: Agent
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiAgent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createAiAgent
+      tags: [aiagents]
+      description: 新建 Agent。CLI 权限选 full 时要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiAgentInput" }
+      responses:
+        "201":
+          description: 新 Agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAgent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/{agentId}:
+    parameters:
+      - { name: agentId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: getAiAgent
+      tags: [aiagents]
+      responses:
+        "200":
+          description: Agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAgent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateAiAgent
+      tags: [aiagents]
+      description: 只改传了的字段。runnerAgentId、monthlyBudgetUsd 传 null 表示清空。改成 full 权限或改仓库范围要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiAgentInput" }
+      responses:
+        "200":
+          description: Agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAgent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteAiAgent
+      tags: [aiagents]
+      description: 删除 Agent。有正在跑的任务时回 409。历史任务保留，不再关联这个 Agent。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/{agentId}/assign:
+    parameters:
+      - { name: agentId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: assignAiAgent
+      tags: [aiagents]
+      description: 把卡片分配给 Agent。CLI 类型建一个编码任务，内置类型直接在后台处理卡片。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [issueKey]
+              properties:
+                issueKey: { type: string }
+                repoId: { type: integer, format: int64, description: CLI 类型必填，要在 Agent 允许的仓库里 }
+                baseBranch: { type: string, description: 不传用仓库默认分支 }
+                runnerAgentId: { type: string, description: 不传用 Agent 的默认机器 }
+                note: { type: string, maxLength: 4000, description: 这次额外的要求 }
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  taskId: { type: integer, format: int64, description: 编码任务 id，内置类型没有 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /git-connections:
+    get:
+      operationId: listGitConnections
+      tags: [aiagents]
+      responses:
+        "200":
+          description: Git 连接，不含令牌
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GitConnection" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createGitConnection
+      tags: [aiagents]
+      description: 新建连接，要求 5 分钟内验证过（不受二次验证设置影响）。保存时用令牌查一次用户名，失败也会保存并记下错误。回调密钥只在这次返回。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, name]
+              properties:
+                kind: { $ref: "#/components/schemas/GitConnectionKind" }
+                name: { type: string, minLength: 1, maxLength: 60 }
+                baseUrl: { type: string, description: Forgejo 必填，比如 https://git.example.com；GitHub 不传用 https://api.github.com }
+                token: { type: string, description: 访问令牌，useGithubModule 为 true 时不传 }
+                useGithubModule:
+                  type: boolean
+                  deprecated: true
+                  description: B62 起不用，下个版本删。令牌都填在 Git 账号里
+
+      responses:
+        "201":
+          description: 新连接
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connection, webhookSecret]
+                properties:
+                  connection: { $ref: "#/components/schemas/GitConnection" }
+                  webhookSecret: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /git-connections/{connectionId}:
+    parameters:
+      - { name: connectionId, in: path, required: true, schema: { type: integer, format: int64 } }
+    patch:
+      operationId: updateGitConnection
+      tags: [aiagents]
+      description: 改名字要提升权限，换令牌要求 5 分钟内验证过。换令牌后重新检查。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60 }
+                token: { type: string }
+      responses:
+        "200":
+          description: 连接
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitConnection" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteGitConnection
+      tags: [aiagents]
+      description: 删除连接，要提升权限。用它登记的仓库保留，但不能再 clone 和开 PR。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /git-connections/{connectionId}/check:
+    parameters:
+      - { name: connectionId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: checkGitConnection
+      tags: [aiagents]
+      description: 用令牌查一次用户名。
+      responses:
+        "200":
+          description: 检查后的连接，失败时 lastError 有内容
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitConnection" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /git-connections/{connectionId}/repos:
+    parameters:
+      - { name: connectionId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: listRemoteRepos
+      tags: [aiagents]
+      description: 这个连接能访问的仓库，最近更新的在前，最多 100 个。
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: 按名字过滤 }
+      responses:
+        "200":
+          description: 仓库
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RemoteRepo" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /git-connections/{connectionId}/webhook:
+    parameters:
+      - { name: connectionId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: getGitWebhook
+      tags: [aiagents]
+      description: 回调地址和签名密钥，要求 5 分钟内验证过。
+      responses:
+        "200":
+          description: 回调设置
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path, secret]
+                properties:
+                  path: { type: string, description: 完整地址 = 面板地址 + /api/v1 + path }
+                  secret: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    AiAgentKind:
+      type: string
+      enum: [claude_code, codex, builtin]
+    AiAgentAccess:
+      type: string
+      enum: [read, write, write_delete]
+    CliPermission:
+      type: string
+      enum: [workspace, full]
+    AiAgent:
+      type: object
+      required: [id, name, avatar, color, kind, model, instructions, access, cliPermission, repoIds, hostIds, hostNames,
+        maxParallel, autoBuild, buildRetries, enabled, createdAt, updatedAt, monthCostUsd, runningTasks, queuedTasks]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        avatar: { type: string }
+        color: { type: string }
+        kind: { $ref: "#/components/schemas/AiAgentKind" }
+        model: { type: string }
+        instructions: { type: string }
+        runnerAgentId: { type: string, nullable: true }
+        runnerName: { type: string, description: 默认机器的名字 }
+        access: { $ref: "#/components/schemas/AiAgentAccess" }
+        cliPermission: { $ref: "#/components/schemas/CliPermission" }
+        repoIds:
+          type: array
+          items: { type: integer, format: int64 }
+        hostIds:
+          type: array
+          items: { type: string }
+          description: B60。这个 Agent 能操作的机器（代理 id）。面板 AI 只能通过勾选了这台机器的 Agent 操作它
+        hostNames:
+          type: array
+          items: { type: string }
+          description: hostIds 对应的机器名，顺序一样
+        maxParallel: { type: integer }
+        monthlyBudgetUsd: { type: number, format: double, nullable: true }
+        autoBuild: { type: boolean }
+        buildRetries: { type: integer }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        monthCostUsd: { type: number, format: double, description: 本月费用，按 AI 用量记录算 }
+        runningTasks: { type: integer }
+        queuedTasks: { type: integer }
+        overBudget: { type: boolean }
+    AiAgentInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 40 }
+        avatar: { type: string, maxLength: 16 }
+        color: { type: string, maxLength: 16 }
+        kind: { $ref: "#/components/schemas/AiAgentKind" }
+        model: { type: string, maxLength: 200 }
+        instructions: { type: string, maxLength: 20000 }
+        runnerAgentId: { type: string, nullable: true }
+        access: { $ref: "#/components/schemas/AiAgentAccess" }
+        cliPermission: { $ref: "#/components/schemas/CliPermission" }
+        repoIds:
+          type: array
+          items: { type: integer, format: int64 }
+        hostIds:
+          type: array
+          maxItems: 50
+          items: { type: string }
+          description: B60。能操作的机器。增加机器要提升权限
+        maxParallel: { type: integer, minimum: 1, maximum: 10 }
+        monthlyBudgetUsd: { type: number, format: double, nullable: true, minimum: 0 }
+        autoBuild: { type: boolean }
+        buildRetries: { type: integer, minimum: 0, maximum: 5 }
+        enabled: { type: boolean }
+    GitConnectionKind:
+      type: string
+      enum: [github, forgejo]
+    GitConnection:
+      type: object
+      required: [id, kind, name, baseUrl, username, useGithubModule, hasToken, createdAt, lastError, webhookPath]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/GitConnectionKind" }
+        name: { type: string }
+        baseUrl: { type: string }
+        username: { type: string }
+        useGithubModule: { type: boolean, deprecated: true, description: B62 起不用，下个版本删 }
+        hasToken: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastCheckedAt: { type: string, format: date-time, nullable: true }
+        lastError: { type: string }
+        webhookPath: { type: string }
+    RemoteRepo:
+      type: object
+      required: [owner, name, fullName, cloneUrl, defaultBranch, private]
+      properties:
+        owner: { type: string }
+        name: { type: string }
+        fullName: { type: string }
+        cloneUrl: { type: string }
+        htmlUrl: { type: string }
+        defaultBranch: { type: string }
+        private: { type: boolean }
+        description: { type: string }

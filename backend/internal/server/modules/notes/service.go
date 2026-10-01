@@ -99,7 +99,9 @@ func setTags(ctx context.Context, q *db.Queries, id int64, tags []string) error 
 	return nil
 }
 
-func (m *Module) createNote(ctx context.Context, title, body string, tags []string, pinned, hidden bool) (out api.Note, err error) {
+// createNote adds a note. quick is the quick-note box (B67): the title and
+// tags are made right away, see scheduleNoteAI.
+func (m *Module) createNote(ctx context.Context, title, body string, tags []string, pinned, hidden, quick bool) (out api.Note, err error) {
 	defer func() { m.d.Audit.Record(ctx, "note.create", strconv.FormatInt(out.Id, 10), nil, err) }()
 	if hidden {
 		if err = requireVault(ctx); err != nil {
@@ -132,7 +134,7 @@ func (m *Module) createNote(ctx context.Context, title, body string, tags []stri
 		m.d.Audit.Record(ctx, "note.hide", strconv.FormatInt(id, 10), nil, nil)
 	}
 	m.publishNote("note.created", out)
-	m.scheduleNoteAI(id, hidden)
+	m.scheduleNoteAI(id, hidden, quick)
 	return out, nil
 }
 
@@ -246,7 +248,7 @@ func (m *Module) updateNote(ctx context.Context, id int64, p notePatch) (out api
 		m.publishNote("note.updated", out)
 	}
 	if p.Body != nil || p.Title != nil || p.Tags != nil || p.Hidden != nil {
-		m.scheduleNoteAI(id, out.Hidden != nil && *out.Hidden)
+		m.scheduleNoteAI(id, out.Hidden != nil && *out.Hidden, false)
 	}
 	return out, nil
 }
@@ -291,7 +293,7 @@ func (m *Module) deleteNote(ctx context.Context, id int64) (err error) {
 	} else {
 		m.d.Bus.Publish("note.deleted", map[string]int64{"id": id})
 	}
-	m.scheduleNoteAI(id, true)
+	m.scheduleNoteAI(id, true, false)
 	return nil
 }
 

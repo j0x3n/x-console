@@ -23,6 +23,15 @@ export type GitHubPull = ghComponents["schemas"]["GitHubPull"];
 export type GitHubRun = ghComponents["schemas"]["GitHubRun"];
 export type GitHubIssue = ghComponents["schemas"]["GitHubIssue"];
 export type CheckState = ghComponents["schemas"]["GitHubCheckState"];
+export type Forge = ghComponents["schemas"]["Forge"];
+export type RepoWatch = ghComponents["schemas"]["RepoWatch"];
+export type WatchedRepo = ghComponents["schemas"]["WatchedRepo"];
+export type GitHubCommit = ghComponents["schemas"]["GitHubCommit"];
+export type GitHubJob = ghComponents["schemas"]["GitHubJob"];
+export type GitHubStep = ghComponents["schemas"]["GitHubStep"];
+export type RepoNotify = ghComponents["schemas"]["RepoNotify"];
+export type GitHubNotifySettings =
+  ghComponents["schemas"]["GitHubNotifySettings"];
 export type ReviewState = ghComponents["schemas"]["GitHubReviewState"];
 
 export type LinearConfig = lnComponents["schemas"]["LinearConfig"];
@@ -41,6 +50,13 @@ export const githubKeys = {
   runs: ["github", "runs"] as const,
   issues: ["github", "issues"] as const,
   availableRepos: ["github", "available-repos"] as const,
+  availableFor: (connectionId: number) =>
+    ["github", "available-repos", connectionId] as const,
+  repos: ["github", "repos"] as const,
+  commits: (repo: string, connectionId: number) =>
+    ["github", "commits", connectionId, repo] as const,
+  jobs: (runId: number) => ["github", "jobs", runId] as const,
+  notify: ["github", "notify"] as const,
 };
 
 export const linearKeys = {
@@ -201,11 +217,21 @@ export type GitHubAvailableRepos =
   ghComponents["schemas"]["GitHubAvailableRepos"];
 export type GitHubAvailableRepo = GitHubAvailableRepos["repos"][number];
 
-/** 回 404 或 501 表示后端还没做，设置页退回手动填写。 */
-export function useAvailableRepos(enabled: boolean) {
+/**
+ * 回 404 或 501 表示后端还没做，设置页退回手动填写。
+ * B70：传了 connectionId 时列这个 Git 账号的仓库（GitHub 或 Forgejo）。
+ */
+export function useAvailableRepos(enabled: boolean, connectionId?: number) {
   return useQuery({
-    queryKey: githubKeys.availableRepos,
-    queryFn: () => unwrap(githubApi.GET("/github/available-repos")),
+    queryKey: connectionId
+      ? githubKeys.availableFor(connectionId)
+      : githubKeys.availableRepos,
+    queryFn: () =>
+      unwrap(
+        githubApi.GET("/github/available-repos", {
+          params: { query: connectionId ? { connectionId } : {} },
+        }),
+      ),
     retry: (count, error) =>
       !isNotLive(error) && !isNotConfigured(error) && count < 2,
     staleTime: 5 * 60_000,
@@ -213,15 +239,110 @@ export function useAvailableRepos(enabled: boolean) {
   });
 }
 
-export function useRefreshAvailableRepos() {
+export function useRefreshAvailableRepos(connectionId?: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () =>
       unwrap(
         githubApi.GET("/github/available-repos", {
-          params: { query: { refresh: true } },
+          params: {
+            query: connectionId
+              ? { refresh: true, connectionId }
+              : { refresh: true },
+          },
         }),
       ),
-    onSuccess: (data) => qc.setQueryData(githubKeys.availableRepos, data),
+    onSuccess: (data) =>
+      qc.setQueryData(
+        connectionId
+          ? githubKeys.availableFor(connectionId)
+          : githubKeys.availableRepos,
+        data,
+      ),
+  });
+}
+
+/* ---- B70：关注的仓库、提交、CI 步骤 ---- */
+
+/** 关注的仓库和概况。回 404 或 501 时页面用旧接口自己拼（见 useRepoList）。 */
+export function useWatchedRepos(enabled = true) {
+  return useQuery({
+    queryKey: githubKeys.repos,
+    queryFn: () => unwrap(githubApi.GET("/github/repos")),
+    retry: (count, error) =>
+      !isNotLive(error) && !isNotConfigured(error) && count < 2,
+    meta: { silentError: true },
+    enabled,
+  });
+}
+
+/** 某个仓库（或全部）默认分支最近的提交。 */
+export function useCommits(repo: string, connectionId: number) {
+  return useQuery({
+    queryKey: githubKeys.commits(repo, connectionId),
+    queryFn: () =>
+      unwrap(
+        githubApi.GET("/github/commits", {
+          params: {
+            query: {
+              ...(repo ? { repo } : {}),
+              ...(connectionId ? { connectionId } : {}),
+              limit: repo ? 30 : 60,
+            },
+          },
+        }),
+      ),
+    retry: (count, error) => !isNotLive(error) && count < 2,
+  });
+}
+
+/**
+ * 一条运行的 job 和步骤。运行还没结束时每 5 秒取一次（GitHub 不推步骤进度，
+ * 这是规格里唯一允许轮询的地方），结束后停止。
+ */
+export function useRunJobs(
+  run: Pick<GitHubRun, "id" | "repo" | "status" | "connectionId">,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: githubKeys.jobs(run.id),
+    queryFn: () =>
+      unwrap(
+        githubApi.GET("/github/runs/{runId}/jobs", {
+          params: {
+            path: { runId: run.id },
+            query: {
+              repo: run.repo,
+              ...(run.connectionId ? { connectionId: run.connectionId } : {}),
+            },
+          },
+        }),
+      ),
+    enabled,
+    retry: (count, error) => !isNotLive(error) && count < 2,
+    meta: { silentError: true },
+    refetchInterval: run.status === "completed" ? false : 5000,
+  });
+}
+
+/* ---- B71：仓库事件通知 ---- */
+
+export function useGitHubNotify() {
+  return useQuery({
+    queryKey: githubKeys.notify,
+    queryFn: () => unwrap(githubApi.GET("/github/notify")),
+    retry: (count, error) => !isNotLive(error) && count < 2,
+  });
+}
+
+export function useSaveGitHubNotify() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: GitHubNotifySettings) =>
+      unwrap(githubApi.PUT("/github/notify", { body })),
+    onSuccess: (data) => {
+      qc.setQueryData(githubKeys.notify, data);
+      qc.invalidateQueries({ queryKey: githubKeys.repos });
+    },
   });
 }

@@ -92,6 +92,7 @@ func (m *Module) ListIssues(w http.ResponseWriter, r *http.Request, params api.L
 	f := issueFilter{
 		ProjectID: params.ProjectId, Priority: params.Priority, LabelID: params.LabelId,
 		MilestoneID: params.MilestoneId, CategoryID: params.CategoryId, Q: deref(params.Q), Limit: deref(params.Limit),
+		BoardID: params.BoardId,
 	}
 	if params.Status != nil {
 		for _, s := range *params.Status {
@@ -137,6 +138,7 @@ func (m *Module) CreateIssue(w http.ResponseWriter, r *http.Request, projectID a
 		Title: body.Title, Description: deref(body.Description), Priority: deref(body.Priority),
 		DueDate: fromDate(body.DueDate), DueAt: body.DueAt, CategoryID: body.CategoryId,
 		MilestoneID: body.MilestoneId, LabelIDs: deref(body.LabelIds),
+		BoardID: body.BoardId, ListID: body.ListId,
 	}
 	if body.DueRemind != nil {
 		in.DueRemind = string(*body.DueRemind)
@@ -204,7 +206,16 @@ func (m *Module) MoveIssue(w http.ResponseWriter, r *http.Request, key api.Issue
 		httpx.Fail(w, r, err)
 		return
 	}
-	out, err := m.moveIssue(r.Context(), key, string(body.Status), body.AfterKey, body.BeforeKey)
+	var out api.Issue
+	var err error
+	switch {
+	case body.ListId != nil:
+		out, err = m.moveToList(r.Context(), key, *body.ListId, body.AfterKey, body.BeforeKey)
+	case body.Status != nil:
+		out, err = m.moveIssue(r.Context(), key, string(*body.Status), body.AfterKey, body.BeforeKey)
+	default:
+		err = httpx.Invalid("要传 listId 或 status")
+	}
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

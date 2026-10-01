@@ -81,6 +81,17 @@ type CodingRunParams struct {
 	BaseBranch     string `json:"baseBranch,omitempty"`
 	Branch         string `json:"branch"`
 	TimeoutSeconds int    `json:"timeoutSeconds,omitempty"` // 0 means 60 minutes
+	// B47, needs CapCodingRemote. Model is passed to the executor's --model.
+	// Permission is CodingPermissionWorkspace (or empty) or
+	// CodingPermissionFull. PreferRemote takes origin/<BaseBranch> before a
+	// local branch of that name, for clones kept up to date by fetch.
+	Model        string `json:"model,omitempty"`
+	Permission   string `json:"permission,omitempty"`
+	PreferRemote bool   `json:"preferRemote,omitempty"`
+	// Continue runs the executor again in the existing worktree of the task
+	// (to fix a failed build); BaseCommit must be the commit it started from.
+	Continue   bool   `json:"continue,omitempty"`
+	BaseCommit string `json:"baseCommit,omitempty"`
 }
 
 // Event kinds of a coding.run stream.
@@ -170,4 +181,6 @@ type CodingCommitResult struct {
 type CodingPushParams struct {
 	CodingTaskParams
 	Remote string `json:"remote,omitempty"`
+	// Auth is the token of the Git connection (B47, needs CapCodingRemote).
+	Auth *CodingGitAuth `json:"auth,omitempty"`
 }

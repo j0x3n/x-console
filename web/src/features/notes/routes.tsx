@@ -1,6 +1,6 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router";
-import { NotebookPen, Search, SquarePen, StickyNote } from "lucide-react";
+import { NotebookPen, Plus, Search, SquarePen, StickyNote } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { toast } from "../../hooks/useToast";
 import { captureNote } from "./api";
@@ -9,9 +9,16 @@ import "./notes.css";
 import { useQuickNote } from "./QuickNote";
 import NotesNavChildren from "./NavChildren";
 import { registerNavChildren } from "../../lib/navChildren";
+import { registerNavAction } from "../../lib/navBadges";
 
 // 侧边栏“/notes”的二级菜单。
 registerNavChildren("/notes", NotesNavChildren);
+// 左栏“笔记”这一行的“+”：直接新建一条笔记（B72）。
+registerNavAction("/notes", {
+  icon: Plus,
+  label: "New note",
+  run: (navigate) => navigate("/notes?new=1"),
+});
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const NotesPage = lazy(() => import("./NotesPage"));
@@ -46,10 +53,11 @@ registerCommands([
       if (!text) return;
       const note = await captureNote(text);
       toast({
-        message: "已存成笔记",
+        message: "已存到便签",
         subtitle: text.length > 40 ? `${text.slice(0, 39)}…` : text,
       });
-      if (location.pathname.startsWith("/notes")) navigate(`/notes/${note.id}`);
+      if (location.pathname.startsWith("/notes"))
+        navigate(`/notes/${note.id}?view=memos`);
     },
   },
   {

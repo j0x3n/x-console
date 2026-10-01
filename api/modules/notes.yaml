@@ -33,6 +33,10 @@ paths:
             B13。true 时只返回隐藏笔记，要先解锁隐藏内容，没解锁时返回空列表。
             不传时只返回普通笔记。隐藏笔记不进全文索引，搜索用 LIKE。
           schema: { type: boolean }
+        - name: kind
+          in: query
+          description: B73。只看笔记或只看便签，不传时两种都返回
+          schema: { $ref: "#/components/schemas/NoteKind" }
         - $ref: "../common.yaml#/components/parameters/Limit"
         - $ref: "../common.yaml#/components/parameters/Cursor"
       responses:
@@ -378,8 +382,148 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /notes/counts:
+    get:
+      operationId: getNoteCounts
+      tags: [notes]
+      description: B73。左栏后面的数字。都不含隐藏笔记和已归档的（archived 除外）
+      responses:
+        "200":
+          description: 数量
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NoteCounts" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notes/{noteId}/share:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    get:
+      operationId: getNoteShare
+      tags: [notes]
+      description: B72。这条笔记的外链。没分享时回 404 share_not_found
+      responses:
+        "200":
+          description: 外链
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NoteShare" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putNoteShare
+      tags: [notes]
+      description: B72。创建或修改外链，要提升权限。隐藏笔记回 400
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NoteShareInput" }
+      responses:
+        "200":
+          description: 外链
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NoteShare" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteNoteShare
+      tags: [notes]
+      description: B72。停止分享
+      responses:
+        "204":
+          description: 已停止
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/notes/{token}:
+    parameters:
+      - $ref: "#/components/parameters/NoteShareToken"
+    get:
+      operationId: getPublicNote
+      security: []
+      tags: [notes]
+      description: |
+        B72 公开入口，不用登录。链接不存在、过期、笔记删了或隐藏了，回 404 share_not_found。
+        有密码又没带有效的 t 时回 401 note_password_required（没有内容）。按 IP 限流每分钟 60 次。
+        正文里的附件地址换成 /api/v1/public/notes/<token>/files/<id>?t=<t>。
+      parameters:
+        - name: t
+          in: query
+          description: 解锁后拿到的访问令牌
+          schema: { type: string }
+      responses:
+        "200":
+          description: 笔记内容
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicNote" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/notes/{token}/unlock:
+    parameters:
+      - $ref: "#/components/parameters/NoteShareToken"
+    post:
+      operationId: unlockPublicNote
+      security: []
+      tags: [notes]
+      description: |
+        B72。校验密码，成功时发一个 12 小时有效的访问令牌。错了回 403 note_password_wrong；
+        同一个 IP 每分钟最多试 5 次，连错 10 次锁 15 分钟，锁住时回 429。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        "200":
+          description: 通过
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access, expiresAt]
+                properties:
+                  access: { type: string }
+                  expiresAt: { type: string, format: date-time }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/notes/{token}/files/{attachmentId}:
+    parameters:
+      - $ref: "#/components/parameters/NoteShareToken"
+      - $ref: "#/components/parameters/AttachmentId"
+    get:
+      operationId: getPublicNoteFile
+      security: []
+      tags: [notes]
+      description: B72。分享的笔记正文里引用的附件，inline。没引用的回 404
+      parameters:
+        - name: t
+          in: query
+          schema: { type: string }
+        - name: thumb
+          in: query
+          description: 图片取缩略图
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
+    NoteShareToken:
+      name: token
+      in: path
+      required: true
+      schema: { type: string }
     AttachmentId:
       name: attachmentId
       in: path
@@ -391,6 +535,48 @@ components:
       required: true
       schema: { type: integer, format: int64 }
   schemas:
+    NoteKind:
+      type: string
+      enum: [note, memo]
+      description: B73。note 是笔记；memo 是便签（快速记录存成便签，瀑布流显示）
+    NoteColor:
+      type: string
+      enum: ["", red, orange, yellow, green, teal, blue, purple, pink, brown, gray]
+      description: B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+    NoteCounts:
+      type: object
+      required: [notes, memos, pinned, archived]
+      properties:
+        notes: { type: integer }
+        memos: { type: integer }
+        pinned: { type: integer }
+        archived: { type: integer }
+    NoteShareInput:
+      type: object
+      required: [expiresIn]
+      properties:
+        expiresIn: { type: string, enum: [1d, 7d, 30d, never] }
+        password: { type: string, minLength: 4, maxLength: 32, description: 不传表示不改 }
+        clearPassword: { type: boolean }
+    NoteShare:
+      type: object
+      required: [token, url, hasPassword, visits, createdAt]
+      properties:
+        token: { type: string }
+        url: { type: string, description: 完整链接，https://<面板>/n/<token> }
+        expiresAt: { type: string, format: date-time, description: 不返回表示永久 }
+        hasPassword: { type: boolean }
+        visits: { type: integer }
+        lastVisitAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    PublicNote:
+      type: object
+      required: [title, body, updatedAt]
+      properties:
+        title: { type: string }
+        body: { type: string, description: Markdown，附件地址已经换成公开地址 }
+        color: { $ref: "#/components/schemas/NoteColor" }
+        updatedAt: { type: string, format: date-time }
     Note:
       type: object
       required: [id, title, body, pinned, tags, createdAt, updatedAt]
@@ -403,6 +589,9 @@ components:
           type: array
           items: { type: string }
         hidden: { type: boolean, description: B13 隐藏笔记，只在解锁后出现 }
+        kind: { $ref: "#/components/schemas/NoteKind" }
+        color: { $ref: "#/components/schemas/NoteColor" }
+        shared: { type: boolean, description: B72。有外链 }
         suggestedTags:
           type: array
           description: B32。AI 建议的标签，用户点了才加上。加上的标签后端自动从这里去掉
@@ -428,6 +617,13 @@ components:
           type: string
           description: 正文里第一张附件图片的地址，没有图片时不返回
         hidden: { type: boolean, description: B13 隐藏笔记，只在解锁后出现 }
+        kind: { $ref: "#/components/schemas/NoteKind" }
+        color: { $ref: "#/components/schemas/NoteColor" }
+        shared: { type: boolean, description: B72。有外链 }
+        body:
+          type: string
+          description: B73。只在 kind=memo 的列表里返回正文（瀑布流要渲染），最多 4000 字
+        bodyTruncated: { type: boolean, description: B73。body 截断了 }
         archivedAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -452,6 +648,11 @@ components:
           type: array
           items: { type: string }
         hidden: { type: boolean, description: 直接建成隐藏笔记，要先解锁 }
+        quick:
+          type: boolean
+          description: 快速记录。保存后马上生成标题和标签，标签直接加上，正文短也生成
+        kind: { $ref: "#/components/schemas/NoteKind" }
+        color: { $ref: "#/components/schemas/NoteColor" }
     UpdateNote:
       type: object
       properties:
@@ -460,6 +661,8 @@ components:
         pinned: { type: boolean }
         archived: { type: boolean }
         hidden: { type: boolean, description: 设为隐藏或取消隐藏，要先解锁 }
+        kind: { $ref: "#/components/schemas/NoteKind" }
+        color: { $ref: "#/components/schemas/NoteColor" }
         tags:
           type: array
           description: 传了就整体替换
@@ -470,6 +673,7 @@ components:
       properties:
         tag: { type: string }
         count: { type: integer }
+        memoCount: { type: integer, description: B73。这个标签下的便签数 }
         color:
           type: string
           description: 用户给标签设的颜色，形如 #cc7752；没设过时为空，前端按标签名选一个

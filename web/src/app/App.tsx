@@ -8,6 +8,7 @@ import { LanguageContext } from "../contexts/LanguageContext";
 import { usePreferenceEffects } from "../hooks/usePreferenceEffects";
 import { useBrowserViewport } from "../hooks/useBrowserViewport";
 import Layout from "./Layout";
+import NoticeStack from "./NoticeStack";
 import { moduleRoutes } from "./routes";
 import { Loading } from "../components/ui/States";
 
@@ -16,6 +17,15 @@ const SharePage = lazy(() => import("../features/drive/share/SharePage"));
 const shareToken =
   typeof location !== "undefined"
     ? /^\/s\/([A-Za-z0-9_-]+)\/?$/.exec(location.pathname)?.[1]
+    : undefined;
+
+// 笔记外链（B72）同样不用登录。
+const NoteSharePage = lazy(
+  () => import("../features/notes/share/NoteSharePage"),
+);
+const noteShareToken =
+  typeof location !== "undefined"
+    ? /^\/n\/([A-Za-z0-9_-]+)\/?$/.exec(location.pathname)?.[1]
     : undefined;
 
 const router = createBrowserRouter([
@@ -43,11 +53,16 @@ export default function App() {
           <Suspense fallback={<Loading />}>
             <SharePage token={shareToken} />
           </Suspense>
+        ) : noteShareToken ? (
+          <Suspense fallback={<Loading />}>
+            <NoteSharePage token={noteShareToken} />
+          </Suspense>
         ) : (
           <AuthGate>
             <RouterProvider router={router} />
           </AuthGate>
         )}
+        <NoticeStack />
       </QueryClientProvider>
     </LanguageContext.Provider>
   );

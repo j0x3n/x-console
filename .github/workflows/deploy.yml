@@ -30,6 +30,8 @@ jobs:
   test:
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy]')
     uses: ./.github/workflows/ci.yml
+    with:
+      race: false
 
   # 不等测试，和测试同时跑，省下约 1 分半钟。
   image:

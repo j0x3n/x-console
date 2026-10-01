@@ -41,6 +41,7 @@ type probeResult struct {
 	Subject    string
 	Issuer     string
 	Registrar  string
+	Source     string
 }
 
 // monitorLock returns the lock of one monitor.
@@ -104,7 +105,7 @@ func (m *Module) check(ctx context.Context, id int64, now time.Time) (db.Monitor
 	}
 	p := m.probe(ctx, x, now)
 
-	detail := resultDetail{ExpiresAt: p.Expires, Subject: p.Subject, Issuer: p.Issuer, Registrar: p.Registrar}
+	detail := resultDetail{ExpiresAt: p.Expires, Subject: p.Subject, Issuer: p.Issuer, Registrar: p.Registrar, Source: p.Source}
 	if p.Expires != nil {
 		detail.DaysLeft = ptr(daysLeft(*p.Expires, now))
 	}
@@ -131,14 +132,27 @@ func (m *Module) check(ctx context.Context, id int64, now time.Time) (db.Monitor
 			expiring = &left
 			notified = marked
 		}
+	} else if x.Kind == kindDomain && x.ExpirySource == "manual" && x.ManualExpiresAt == nil {
+		// The manual date was cleared: drop the date it gave. Any other
+		// failed lookup keeps the last known date and the reminders sent.
+		expires = nil
+		notified = []int{}
+	}
+	source := p.Source
+	if p.Expires == nil && expires != nil {
+		source = x.ExpirySource
 	}
 
 	updated, err := m.q.SetMonitorState(ctx, db.SetMonitorStateParams{ID: x.ID, LastStatus: state.Status, LastCheckedAt: &now,
-		LastError: p.Err, ConsecutiveFailures: int64(state.Failures), ExpiresAt: expires, ExpiryNotified: mustJSON(notified)})
+		LastError: p.Err, ConsecutiveFailures: int64(state.Failures), ExpiresAt: expires, ExpiryNotified: mustJSON(notified),
+		ExpirySource: source, ManualExpiresAt: x.ManualExpiresAt})
 	if err != nil {
 		return db.MonitorResult{}, err
 	}
-	out := toAPIMonitor(updated, now)
+	if x.Kind == kindHTTP && p.OK {
+		m.refreshIconIfStale(ctx, x.ID, x.Target, now)
+	}
+	out := toAPIMonitor(updated, now, m.iconAtOf(ctx, x.ID))
 	switch change {
 	case wentDown:
 		m.d.Bus.Publish("monitor.down", out)
@@ -221,7 +235,7 @@ func (m *Module) probe(ctx context.Context, x db.Monitor, now time.Time) probeRe
 	case kindTLS:
 		return m.probeTLS(ctx, x.Target, now)
 	case kindDomain:
-		return m.probeDomain(ctx, x.Target)
+		return m.probeDomain(ctx, x)
 	}
 	return probeResult{Err: "未知的监控类型"}
 }
@@ -361,8 +375,44 @@ type rdapDomain struct {
 	} `json:"entities"`
 }
 
-// probeDomain reads the expiry date of a domain from RDAP.
-func (m *Module) probeDomain(ctx context.Context, domain string) probeResult {
+// probeDomain tries RDAP, then WHOIS, then the manual date. RDAP gets half
+// of the time budget so a slow RDAP server still leaves time for WHOIS.
+func (m *Module) probeDomain(ctx context.Context, x db.Monitor) probeResult {
+	rdapCtx, cancel := context.WithTimeout(ctx, time.Duration(x.TimeoutMs)*time.Millisecond/2)
+	res := m.probeRDAP(rdapCtx, x.Target)
+	cancel()
+	if res.Expires != nil {
+		res.Source = "rdap"
+		res.OK = true
+		res.Err = ""
+		return res
+	}
+	if exp, reg, ok := m.lookupWhois(ctx, x.Target); ok {
+		res.Expires = ptr(exp)
+		if reg != "" {
+			res.Registrar = reg
+		}
+		res.Source = "whois"
+		res.OK = true
+		res.Err = ""
+		return res
+	}
+	if x.ManualExpiresAt != nil {
+		exp := manualExpiryTime(*x.ManualExpiresAt, m.loc())
+		res.Expires = &exp
+		res.Source = "manual"
+		res.OK = true
+		res.Err = ""
+		return res
+	}
+	res.OK = false
+	res.Expires = nil
+	res.Source = ""
+	res.Err = "RDAP 和 WHOIS 都查不到这个域名，可以手动填到期日期"
+	return res
+}
+
+func (m *Module) probeRDAP(ctx context.Context, domain string) probeResult {
 	u := m.rdapBase(ctx) + "/domain/" + domain
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {

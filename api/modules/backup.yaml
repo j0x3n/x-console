@@ -152,6 +152,128 @@ paths:
               schema: { $ref: "#/components/schemas/BackupSettings" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /backups/target/test:
+    post:
+      operationId: testBackupTarget
+      tags: [backup]
+      description: |
+        用请求体里的设置（结构和保存时一样，没传的字段用已保存的）试一次备份位置：
+        建目录、写一个小文件、读回来、删掉。不保存设置。要提升权限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BackupSettingsInput" }
+      responses:
+        "200":
+          description: 测试结果。连不上时 ok 是 false，message 写原因
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupTargetTest" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/gdrive/auth:
+    get:
+      operationId: startGdriveAuth
+      tags: [backup]
+      description: |
+        B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉。
+        新代码用 /storage/remotes/{remoteId}/gdrive/auth
+      responses:
+        "200":
+          description: 授权地址
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, redirectUri]
+                properties:
+                  url: { type: string }
+                  redirectUri: { type: string, description: 这次用的重定向地址，要和 Google 里填的一样 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: revokeGdriveAuth
+      tags: [backup]
+      description: B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉
+      responses:
+        "204":
+          description: 已撤销
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/gdrive/callback:
+    get:
+      operationId: gdriveCallback
+      tags: [backup]
+      description: |
+        B63 时填到 Google 的重定向地址，B69 起转给存储模块处理（从 B63 迁过来的账号继续用它）。
+        跳到 /settings/storage?gdrive=ok，失败时跳到 /settings/storage?gdrive=error&message=原因
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "302":
+          description: 跳回设置页
+  /remote-drives:
+    get:
+      operationId: listRemoteDrives
+      tags: [backup]
+      description: B68。B69 起已过时，每种只返回第一个账号，下个版本删掉。新代码用 /storage/remotes?drive=true
+      responses:
+        "200":
+          description: 网盘列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/RemoteDrive" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /remote-drives/{remote}/items:
+    parameters:
+      - $ref: "#/components/parameters/Remote"
+    get:
+      operationId: listRemoteDriveItems
+      tags: [backup]
+      description: B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/items
+      parameters:
+        - name: ref
+          in: query
+          description: 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录
+          schema: { type: string }
+      responses:
+        "200":
+          description: 文件夹内容
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RemoteDriveListing" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /remote-drives/{remote}/download:
+    parameters:
+      - $ref: "#/components/parameters/Remote"
+    get:
+      operationId: downloadRemoteDriveFile
+      tags: [backup]
+      description: B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/download
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /backups/run:
     post:
       operationId: runBackupNow
@@ -173,7 +295,51 @@ components:
       required: true
       description: 备份文件名，比如 x-console-20260928-0300-sha-8fed186.tar.gz
       schema: { type: string }
+    Remote:
+      name: remote
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [webdav, gdrive]
   schemas:
+    RemoteDrive:
+      type: object
+      required: [id, name, limited]
+      properties:
+        id:
+          type: string
+          enum: [webdav, gdrive]
+        name: { type: string, description: 标签上的名字，比如“坚果云”“Google Drive” }
+        account: { type: string }
+        limited: { type: boolean, description: Google Drive 授权里没有只读权限，只能看到面板自己建的文件，要重新授权 }
+    RemoteDriveEntry:
+      type: object
+      required: [ref, name, isDir, downloadable]
+      properties:
+        ref: { type: string }
+        name: { type: string }
+        isDir: { type: boolean }
+        size: { type: integer, format: int64 }
+        modifiedAt: { type: string, format: date-time }
+        downloadable: { type: boolean, description: Google 文档这类在线文件是 false }
+    RemoteDriveListing:
+      type: object
+      required: [ref, trail, items]
+      properties:
+        ref: { type: string }
+        trail:
+          type: array
+          description: 从根目录下面一级到当前文件夹，用来显示路径
+          items:
+            type: object
+            required: [ref, name]
+            properties:
+              ref: { type: string }
+              name: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/RemoteDriveEntry" }
     Backup:
       type: object
       required: [id, name, createdAt, sizeBytes, location, kind]
@@ -184,7 +350,7 @@ components:
         sizeBytes: { type: integer, format: int64 }
         location:
           type: string
-          enum: [local, s3]
+          enum: [local, s3, webdav, gdrive]
         kind:
           type: string
           description: manual 手动导出；auto 自动备份；pre-restore 恢复前自动备份；uploaded 上传的
@@ -230,10 +396,16 @@ components:
         keep: { type: integer, minimum: 1, maximum: 365, description: S3 上保留几份，默认 14 }
         target:
           type: string
-          enum: [storage, custom]
-          description: storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+          enum: [storage, custom, remote, webdav, gdrive]
+          description: |
+            storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+            remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+            webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
+        remoteId: { type: integer, format: int64, description: B69。target 是 remote 时用的网盘账号 }
         s3:
           $ref: "storage.yaml#/components/schemas/StorageS3"
+        webdav: { $ref: "#/components/schemas/BackupWebdav" }
+        gdrive: { $ref: "#/components/schemas/BackupGdrive" }
         nextRunAt: { type: string, format: date-time }
         lastRuns:
           type: array
@@ -259,6 +431,42 @@ components:
         keep: { type: integer, minimum: 1, maximum: 365 }
         target:
           type: string
-          enum: [storage, custom]
+          enum: [storage, custom, remote]
+        remoteId: { type: integer, format: int64 }
         s3:
           $ref: "storage.yaml#/components/schemas/StorageS3Input"
+        webdav: { $ref: "#/components/schemas/BackupWebdavInput" }
+        gdrive: { $ref: "#/components/schemas/BackupGdriveInput" }
+    BackupWebdav:
+      type: object
+      required: [folder]
+      description: B69 起只用 folder，其余字段不再返回
+      properties:
+        url: { type: string, description: 比如 https://dav.jianguoyun.com/dav/ }
+        username: { type: string }
+        folder: { type: string, description: 备份放在这个目录下，默认 x-console-backups }
+        passwordSet: { type: boolean, description: 已经保存过密码 }
+    BackupWebdavInput:
+      type: object
+      properties:
+        folder: { type: string }
+    BackupGdrive:
+      type: object
+      required: [folderName]
+      description: B69 起只用 folderName，其余字段不再返回
+      properties:
+        clientId: { type: string }
+        folderName: { type: string, description: 网盘根目录下的文件夹，默认“X Console 备份” }
+        secretSet: { type: boolean, description: 已经保存过客户端密钥 }
+        authorized: { type: boolean, description: 已经授权，有长期令牌 }
+        account: { type: string, description: 授权的 Google 账号邮箱 }
+    BackupGdriveInput:
+      type: object
+      properties:
+        folderName: { type: string, description: 改了文件夹名，下次备份时按新名字找或新建文件夹 }
+    BackupTargetTest:
+      type: object
+      required: [ok, message]
+      properties:
+        ok: { type: boolean }
+        message: { type: string }

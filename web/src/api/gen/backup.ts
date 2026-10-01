@@ -151,6 +151,122 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/backups/target/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description 用请求体里的设置（结构和保存时一样，没传的字段用已保存的）试一次备份位置：
+         *     建目录、写一个小文件、读回来、删掉。不保存设置。要提升权限
+         */
+        post: operations["testBackupTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/backups/gdrive/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉。
+         *     新代码用 /storage/remotes/{remoteId}/gdrive/auth
+         */
+        get: operations["startGdriveAuth"];
+        put?: never;
+        post?: never;
+        /** @description B69 起已过时，转给备份正在用的（或第一个）Google Drive 账号，下个版本删掉 */
+        delete: operations["revokeGdriveAuth"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/backups/gdrive/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B63 时填到 Google 的重定向地址，B69 起转给存储模块处理（从 B63 迁过来的账号继续用它）。
+         *     跳到 /settings/storage?gdrive=ok，失败时跳到 /settings/storage?gdrive=error&message=原因
+         */
+        get: operations["gdriveCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-drives": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B68。B69 起已过时，每种只返回第一个账号，下个版本删掉。新代码用 /storage/remotes?drive=true */
+        get: operations["listRemoteDrives"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-drives/{remote}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        /** @description B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/items */
+        get: operations["listRemoteDriveItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/remote-drives/{remote}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        /** @description B68。B69 起已过时，跳转到 /storage/remotes/{remoteId}/download */
+        get: operations["downloadRemoteDriveFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backups/run": {
         parameters: {
             query?: never;
@@ -172,6 +288,35 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RemoteDrive: {
+            /** @enum {string} */
+            id: "webdav" | "gdrive";
+            /** @description 标签上的名字，比如“坚果云”“Google Drive” */
+            name: string;
+            account?: string;
+            /** @description Google Drive 授权里没有只读权限，只能看到面板自己建的文件，要重新授权 */
+            limited: boolean;
+        };
+        RemoteDriveEntry: {
+            ref: string;
+            name: string;
+            isDir: boolean;
+            /** Format: int64 */
+            size?: number;
+            /** Format: date-time */
+            modifiedAt?: string;
+            /** @description Google 文档这类在线文件是 false */
+            downloadable: boolean;
+        };
+        RemoteDriveListing: {
+            ref: string;
+            /** @description 从根目录下面一级到当前文件夹，用来显示路径 */
+            trail: {
+                ref: string;
+                name: string;
+            }[];
+            items: components["schemas"]["RemoteDriveEntry"][];
+        };
         Backup: {
             id: string;
             name: string;
@@ -180,7 +325,7 @@ export interface components {
             /** Format: int64 */
             sizeBytes: number;
             /** @enum {string} */
-            location: "local" | "s3";
+            location: "local" | "s3" | "webdav" | "gdrive";
             /**
              * @description manual 手动导出；auto 自动备份；pre-restore 恢复前自动备份；uploaded 上传的
              * @enum {string}
@@ -230,11 +375,20 @@ export interface components {
             /** @description S3 上保留几份，默认 14 */
             keep: number;
             /**
-             * @description storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+             * @description storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+             *     remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+             *     webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
              * @enum {string}
              */
-            target: "storage" | "custom";
+            target: "storage" | "custom" | "remote" | "webdav" | "gdrive";
+            /**
+             * Format: int64
+             * @description B69。target 是 remote 时用的网盘账号
+             */
+            remoteId?: number;
             s3?: components["schemas"]["StorageS3"];
+            webdav?: components["schemas"]["BackupWebdav"];
+            gdrive?: components["schemas"]["BackupGdrive"];
             /** Format: date-time */
             nextRunAt?: string;
             /** @description 最近 10 次自动备份的结果，新的在前 */
@@ -256,8 +410,45 @@ export interface components {
             weekday?: number;
             keep?: number;
             /** @enum {string} */
-            target?: "storage" | "custom";
+            target?: "storage" | "custom" | "remote";
+            /** Format: int64 */
+            remoteId?: number;
             s3?: components["schemas"]["StorageS3Input"];
+            webdav?: components["schemas"]["BackupWebdavInput"];
+            gdrive?: components["schemas"]["BackupGdriveInput"];
+        };
+        /** @description B69 起只用 folder，其余字段不再返回 */
+        BackupWebdav: {
+            /** @description 比如 https://dav.jianguoyun.com/dav/ */
+            url?: string;
+            username?: string;
+            /** @description 备份放在这个目录下，默认 x-console-backups */
+            folder: string;
+            /** @description 已经保存过密码 */
+            passwordSet?: boolean;
+        };
+        BackupWebdavInput: {
+            folder?: string;
+        };
+        /** @description B69 起只用 folderName，其余字段不再返回 */
+        BackupGdrive: {
+            clientId?: string;
+            /** @description 网盘根目录下的文件夹，默认“X Console 备份” */
+            folderName: string;
+            /** @description 已经保存过客户端密钥 */
+            secretSet?: boolean;
+            /** @description 已经授权，有长期令牌 */
+            authorized?: boolean;
+            /** @description 授权的 Google 账号邮箱 */
+            account?: string;
+        };
+        BackupGdriveInput: {
+            /** @description 改了文件夹名，下次备份时按新名字找或新建文件夹 */
+            folderName?: string;
+        };
+        BackupTargetTest: {
+            ok: boolean;
+            message: string;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -267,6 +458,8 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+            /** @description 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41） */
+            requestId?: string;
         };
         StorageS3: {
             /** @description 例如 https://s3.amazonaws.com 或 https://<账号>.r2.cloudflarestorage.com */
@@ -305,6 +498,7 @@ export interface components {
     parameters: {
         /** @description 备份文件名，比如 x-console-20260928-0300-sha-8fed186.tar.gz */
         BackupId: string;
+        Remote: "webdav" | "gdrive";
     };
     requestBodies: never;
     headers: never;
@@ -520,6 +714,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testBackupTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description 测试结果。连不上时 ok 是 false，message 写原因 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupTargetTest"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startGdriveAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 授权地址 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                        /** @description 这次用的重定向地址，要和 Google 里填的一样 */
+                        redirectUri: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    revokeGdriveAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已撤销 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    gdriveCallback: {
+        parameters: {
+            query?: {
+                state?: string;
+                code?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 跳回设置页 */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRemoteDrives: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 网盘列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RemoteDrive"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRemoteDriveItems: {
+        parameters: {
+            query?: {
+                /** @description 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录 */
+                ref?: string;
+            };
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件夹内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteDriveListing"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadRemoteDriveFile: {
+        parameters: {
+            query: {
+                ref: string;
+            };
+            header?: never;
+            path: {
+                remote: components["parameters"]["Remote"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             default: components["responses"]["Error"];

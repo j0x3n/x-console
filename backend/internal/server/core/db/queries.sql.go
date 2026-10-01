@@ -58,6 +58,48 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const createAPIToken = `-- name: CreateAPIToken :one
+INSERT INTO api_tokens (name, prefix, token_hash, access, modules, expires_at, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, name, prefix, token_hash, access, modules, expires_at, created_at, last_used_at, last_used_ip, revoked_at
+`
+
+type CreateAPITokenParams struct {
+	Name      string
+	Prefix    string
+	TokenHash string
+	Access    string
+	Modules   string
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+}
+
+func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) (ApiToken, error) {
+	row := q.db.QueryRowContext(ctx, createAPIToken,
+		arg.Name,
+		arg.Prefix,
+		arg.TokenHash,
+		arg.Access,
+		arg.Modules,
+		arg.ExpiresAt,
+		arg.CreatedAt,
+	)
+	var i ApiToken
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Prefix,
+		&i.TokenHash,
+		&i.Access,
+		&i.Modules,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+		&i.LastUsedIp,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const createAgent = `-- name: CreateAgent :exec
 INSERT INTO agents (id, name, kind, os, arch, hostname, version, capabilities, token_hash, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -279,6 +321,29 @@ func (q *Queries) FinishSetupWithoutTOTP(ctx context.Context, id int64) (int64, 
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const getAPITokenByHash = `-- name: GetAPITokenByHash :one
+SELECT id, name, prefix, token_hash, access, modules, expires_at, created_at, last_used_at, last_used_ip, revoked_at FROM api_tokens WHERE token_hash = ?
+`
+
+func (q *Queries) GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiToken, error) {
+	row := q.db.QueryRowContext(ctx, getAPITokenByHash, tokenHash)
+	var i ApiToken
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Prefix,
+		&i.TokenHash,
+		&i.Access,
+		&i.Modules,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.LastUsedAt,
+		&i.LastUsedIp,
+		&i.RevokedAt,
+	)
+	return i, err
 }
 
 const getAgent = `-- name: GetAgent :one
@@ -531,6 +596,45 @@ func (q *Queries) InsertVaultPassword(ctx context.Context, arg InsertVaultPasswo
 	return result.RowsAffected()
 }
 
+const listAPITokens = `-- name: ListAPITokens :many
+SELECT id, name, prefix, token_hash, access, modules, expires_at, created_at, last_used_at, last_used_ip, revoked_at FROM api_tokens ORDER BY revoked_at IS NOT NULL, id DESC
+`
+
+func (q *Queries) ListAPITokens(ctx context.Context) ([]ApiToken, error) {
+	rows, err := q.db.QueryContext(ctx, listAPITokens)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ApiToken
+	for rows.Next() {
+		var i ApiToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Prefix,
+			&i.TokenHash,
+			&i.Access,
+			&i.Modules,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+			&i.LastUsedIp,
+			&i.RevokedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgents = `-- name: ListAgents :many
 SELECT id, name, kind, os, arch, hostname, version, capabilities, token_hash, created_at, last_seen_at, revoked_at FROM agents WHERE revoked_at IS NULL ORDER BY kind, name
 `
@@ -582,6 +686,48 @@ type ListAuditParams struct {
 
 func (q *Queries) ListAudit(ctx context.Context, arg ListAuditParams) ([]AuditLog, error) {
 	rows, err := q.db.QueryContext(ctx, listAudit, arg.ID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditLog
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.At,
+			&i.Actor,
+			&i.Action,
+			&i.Target,
+			&i.Detail,
+			&i.Result,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditByActorPrefix = `-- name: ListAuditByActorPrefix :many
+SELECT id, at, actor, "action", target, detail, result FROM audit_log WHERE actor LIKE ?2 || '%' AND action LIKE ?3 || '%'
+ORDER BY id DESC LIMIT ?
+`
+
+type ListAuditByActorPrefixParams struct {
+	Prefix       *string
+	ActionPrefix *string
+	Limit        int64
+}
+
+func (q *Queries) ListAuditByActorPrefix(ctx context.Context, arg ListAuditByActorPrefixParams) ([]AuditLog, error) {
+	rows, err := q.db.QueryContext(ctx, listAuditByActorPrefix, arg.Prefix, arg.ActionPrefix, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -738,6 +884,23 @@ func (q *Queries) PeekPairingCode(ctx context.Context, arg PeekPairingCodeParams
 	return i, err
 }
 
+const revokeAPIToken = `-- name: RevokeAPIToken :execrows
+UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL
+`
+
+type RevokeAPITokenParams struct {
+	RevokedAt *time.Time
+	ID        int64
+}
+
+func (q *Queries) RevokeAPIToken(ctx context.Context, arg RevokeAPITokenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, revokeAPIToken, arg.RevokedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const revokeAgent = `-- name: RevokeAgent :execrows
 UPDATE agents SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL
 `
@@ -766,6 +929,21 @@ type SetVaultUntilParams struct {
 
 func (q *Queries) SetVaultUntil(ctx context.Context, arg SetVaultUntilParams) error {
 	_, err := q.db.ExecContext(ctx, setVaultUntil, arg.VaultUntil, arg.ID)
+	return err
+}
+
+const touchAPIToken = `-- name: TouchAPIToken :exec
+UPDATE api_tokens SET last_used_at = ?, last_used_ip = ? WHERE id = ?
+`
+
+type TouchAPITokenParams struct {
+	LastUsedAt *time.Time
+	LastUsedIp string
+	ID         int64
+}
+
+func (q *Queries) TouchAPIToken(ctx context.Context, arg TouchAPITokenParams) error {
+	_, err := q.db.ExecContext(ctx, touchAPIToken, arg.LastUsedAt, arg.LastUsedIp, arg.ID)
 	return err
 }
 

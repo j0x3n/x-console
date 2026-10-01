@@ -11,6 +11,22 @@ RETURNING *;
 -- name: GetRepo :one
 SELECT * FROM coding_repos WHERE id = ?;
 
+-- name: CreateRemoteRepo :one
+INSERT INTO coding_repos (agent_id, path, name, default_branch, remote_url, github_repo, created_at,
+    connection_id, owner, repo, clone_url)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING *;
+
+-- name: GetRemoteRepoOn :one
+SELECT * FROM coding_repos WHERE agent_id = ? AND connection_id = ? AND owner = ? AND repo = ?;
+
+-- name: SetRepoDefaultBranch :exec
+UPDATE coding_repos SET default_branch = ? WHERE id = ?;
+
+-- name: SetBuildConfig :one
+UPDATE coding_repos SET build_config = ? WHERE id = ?
+RETURNING *;
+
 -- name: GetRepoByPath :one
 SELECT * FROM coding_repos WHERE agent_id = ? AND path = ?;
 
@@ -27,8 +43,9 @@ DELETE FROM coding_repos WHERE id = ?;
 SELECT COUNT(*) FROM coding_tasks WHERE repo_id = ? AND status IN ('queued', 'running');
 
 -- name: CreateTask :one
-INSERT INTO coding_tasks (repo_id, issue_key, executor, prompt, base_branch, status, timeout_minutes, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?)
+INSERT INTO coding_tasks (repo_id, issue_key, executor, prompt, base_branch, status, timeout_minutes, created_at, updated_at,
+    ai_agent_id, model, permission)
+VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: SetTaskBranch :exec
@@ -36,29 +53,37 @@ UPDATE coding_tasks SET branch = ? WHERE id = ?;
 
 -- name: GetTask :one
 SELECT sqlc.embed(coding_tasks), coding_repos.name AS repo_name, coding_repos.path AS repo_path,
-       coding_repos.agent_id, coding_repos.github_repo
+       coding_repos.agent_id, coding_repos.github_repo, coding_repos.connection_id AS repo_connection_id,
+       coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url,
+       coding_repos.build_config AS repo_build_config
 FROM coding_tasks JOIN coding_repos ON coding_repos.id = coding_tasks.repo_id
 WHERE coding_tasks.id = ?;
 
 -- name: ListTasks :many
 SELECT sqlc.embed(coding_tasks), coding_repos.name AS repo_name, coding_repos.path AS repo_path,
-       coding_repos.agent_id, coding_repos.github_repo
+       coding_repos.agent_id, coding_repos.github_repo, coding_repos.connection_id AS repo_connection_id,
+       coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url,
+       coding_repos.build_config AS repo_build_config
 FROM coding_tasks JOIN coding_repos ON coding_repos.id = coding_tasks.repo_id
 WHERE coding_tasks.status IN (SELECT value FROM json_each(sqlc.arg(statuses)))
   AND (sqlc.narg(repo_id) IS NULL OR coding_tasks.repo_id = sqlc.narg(repo_id))
   AND (sqlc.narg(issue_key) IS NULL OR coding_tasks.issue_key = sqlc.narg(issue_key))
+  AND (sqlc.narg(ai_agent_id) IS NULL OR coding_tasks.ai_agent_id = sqlc.narg(ai_agent_id))
 ORDER BY CASE coding_tasks.status WHEN 'running' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END,
          CASE WHEN coding_tasks.status = 'queued' THEN coding_tasks.id ELSE -coding_tasks.id END
 LIMIT sqlc.arg(lim);
 
 -- name: ListQueued :many
-SELECT coding_tasks.id, coding_repos.agent_id
+SELECT coding_tasks.id, coding_repos.agent_id, coding_tasks.ai_agent_id
 FROM coding_tasks JOIN coding_repos ON coding_repos.id = coding_tasks.repo_id
 WHERE coding_tasks.status = 'queued'
 ORDER BY coding_tasks.id;
 
 -- name: ListRunningIDs :many
 SELECT id FROM coding_tasks WHERE status = 'running';
+
+-- name: CountRunningForAgent :one
+SELECT COUNT(*) FROM coding_tasks WHERE status = 'running' AND ai_agent_id = ?;
 
 -- name: CountRunning :one
 SELECT COUNT(*) FROM coding_tasks WHERE status = 'running';
@@ -109,3 +134,19 @@ LIMIT sqlc.arg(lim);
 -- name: CancelQueued :execrows
 UPDATE coding_tasks SET status = 'canceled', error = sqlc.arg(error), finished_at = sqlc.arg(now), updated_at = sqlc.arg(now)
 WHERE id = sqlc.arg(id) AND status = 'queued';
+
+-- name: StartBuild :execrows
+UPDATE coding_tasks SET build_status = 'running', build_attempts = build_attempts + 1, build_error = '',
+    updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND status = 'review' AND build_status != 'running';
+
+-- name: FinishBuild :exec
+UPDATE coding_tasks SET build_status = ?, build_error = ?, artifacts = ?, updated_at = ? WHERE id = ?;
+
+-- name: FailRunningBuilds :exec
+UPDATE coding_tasks SET build_status = 'failed', build_error = sqlc.arg(error), updated_at = sqlc.arg(now)
+WHERE build_status = 'running';
+
+-- name: ResumeForFix :execrows
+UPDATE coding_tasks SET status = 'running', updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id) AND status = 'review' AND build_status != 'running';

@@ -10,6 +10,7 @@ registerZh({
   repeating: "个重复提醒",
   Today: "今天",
   Upcoming: "即将到来",
+  "Nothing coming up": "没有要到的提醒",
   Done: "已完成",
   "New reminder": "新建提醒",
   "Edit reminder": "编辑提醒",
@@ -117,6 +118,10 @@ registerZh({
     "能，只要浏览器还在运行。电脑上要让浏览器在后台运行。",
   "iPhone needs iOS 16.4 or later. Add the panel to the Home Screen and turn on push from there.":
     "iPhone 要 iOS 16.4 以上。先把面板添加到主屏幕，从主屏幕打开后再开启推送。",
+  "If a device is offline, messages wait up to 3 days. Messages that arrive late show the time they were sent.":
+    "设备断网时，消息最多等 3 天。晚到的消息会写上原来的发送时间。",
+  "Push stops on iPhone when the panel is removed from the Home Screen, or when Safari website data is cleared. Turn push on again after that.":
+    "iPhone 上把面板从主屏幕删掉，或者清除了 Safari 网站数据，推送就会失效，要重新开启。",
   "Chrome on Android needs Google services.": "安卓上的 Chrome 需要谷歌服务。",
   "For more reliable alerts, also turn on Bark or Telegram.":
     "想要更稳，可以同时开 Bark 或 Telegram。",
@@ -149,6 +154,6 @@ registerZh({
   Subscription: "订阅",
   Certificate: "证书",
   Domain: "域名",
-  Issue: "Issue",
+  Issue: "卡片",
   Overdue: "已过期",
 });

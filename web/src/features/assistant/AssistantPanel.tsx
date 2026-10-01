@@ -41,12 +41,14 @@ import {
   useDeleteConversation,
   useModelSettings,
   useSendMessage,
+  type ChatSettings,
   useStopReply,
   useTools,
   type AiAttachment,
   type PageContext,
 } from "./api";
 import Timeline from "./components/Timeline";
+import ChatControls from "./components/ChatControls";
 import { buildTimeline, conversationTitle } from "./logic";
 import { clampOffset, useAssistant } from "./store";
 import "./i18n";
@@ -168,6 +170,22 @@ function Panel() {
   const detail = useConversation(notLive ? null : conversationId);
   const send = useSendMessage();
   const stop = useStopReply();
+  // B60：这个对话的权限、模型和思考程度。还没有对话时先记在这里。
+  const [draft, setDraft] = useState<ChatSettings | null>(null);
+  const current = detail.data?.conversation;
+  const chat: ChatSettings & { until?: string | null } =
+    conversationId && current
+      ? {
+          permission: current.panelPermission ?? "manual",
+          model: current.model ?? "",
+          effort: current.effort ?? "",
+          until: current.panelPermissionUntil,
+        }
+      : (draft ?? {
+          permission: models.data?.defaultPermission ?? "manual",
+          model: "",
+          effort: "",
+        });
   const remove = useDeleteConversation();
 
   const [text, setText] = useState("");
@@ -231,11 +249,13 @@ function Panel() {
         text: value || t("Please look at the attachments."),
         context: pageContext(location.pathname),
         attachmentIds: attachments.map((a) => a.id),
+        settings: conversationId ? undefined : chat,
       },
       {
         onSuccess: (id) => {
           setText("");
           setAttachments([]);
+          setDraft(null);
           if (id !== conversationId) setConversation(id);
         },
       },
@@ -256,7 +276,16 @@ function Panel() {
   );
   const onPointerDown = (e: PointerEvent<HTMLElement>) => {
     if (expanded || window.innerWidth <= 640) return;
-    if ((e.target as HTMLElement).closest("button")) return;
+    // 按钮、历史菜单和它的遮罩上不开始拖动
+    if (
+      e.button !== 0 ||
+      (e.target as HTMLElement).closest(
+        "button, input, select, .ai-history-wrap",
+      )
+    )
+      return;
+    // 不让浏览器开始选中文字或拖拽，否则收不到松开事件，浮窗会一直跟着鼠标
+    e.preventDefault();
     drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -264,6 +293,11 @@ function Panel() {
     (e: PointerEvent<HTMLElement>) => {
       const d = drag.current;
       if (!d) return;
+      // 松开事件丢了（比如在窗口外松开）时，按键已经不在按着
+      if (e.buttons === 0) {
+        drag.current = null;
+        return;
+      }
       setOffset(
         clampOffset(
           { x: d.ox - (e.clientX - d.x), y: d.oy - (e.clientY - d.y) },
@@ -274,8 +308,11 @@ function Panel() {
     },
     [setOffset],
   );
-  const onPointerUp = () => {
+  const onPointerUp = (e: PointerEvent<HTMLElement>) => {
     drag.current = null;
+    const el = e.currentTarget as HTMLElement;
+    if (el.hasPointerCapture?.(e.pointerId))
+      el.releasePointerCapture(e.pointerId);
   };
 
   const title = detail.data
@@ -297,6 +334,8 @@ function Panel() {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onLostPointerCapture={() => (drag.current = null)}
       >
         <Bot size={16} className="ai-head-icon" />
         <div className="ai-history-wrap">
@@ -476,6 +515,14 @@ function Panel() {
             </span>
           )}
         </div>
+      )}
+      {!notLive && !noKey && (
+        <ChatControls
+          conversationId={conversationId}
+          value={chat}
+          defaultModel={models.data?.agent?.model ?? ""}
+          onDraft={setDraft}
+        />
       )}
       <form className="ai-composer" onSubmit={submit}>
         <input

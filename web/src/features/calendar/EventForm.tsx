@@ -274,6 +274,7 @@ export default function EventForm({
         <div className="xc-field">
           <span>{t("Event notes")}</span>
           <MarkdownEditor
+            polish="event"
             uploadScope="calendar"
             label={t("Event notes")}
             value={d.description}

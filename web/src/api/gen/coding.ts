@@ -55,6 +55,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coding/repos/{repoId}/build-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repoId: components["parameters"]["RepoId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description B47 设置构建步骤，要提升权限（这些命令会在机器上执行）。传空数组表示不构建。 */
+        put: operations["setRepoBuildConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/coding/repos/{repoId}": {
         parameters: {
             query?: never;
@@ -224,6 +243,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coding/tasks/{taskId}/build": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B47 在任务的工作目录里按仓库的构建步骤构建一次。只有待审查的任务能构建。 */
+        post: operations["buildTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coding/tasks/{taskId}/artifacts/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+                index: number;
+            };
+            cookie?: never;
+        };
+        /** @description B47 下载构建产物。 */
+        get: operations["downloadTaskArtifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/coding/tasks/{taskId}/discard": {
         parameters: {
             query?: never;
@@ -287,11 +345,44 @@ export interface components {
             githubRepo: string;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: int64
+             * @description B47 按 Git 连接登记时有
+             */
+            connectionId?: number;
+            /** @description B47 按 Git 连接登记时的 owner/name */
+            remoteRepo?: string;
+            buildConfig?: components["schemas"]["BuildConfig"];
         };
+        BuildStep: {
+            name: string;
+            command: string;
+            /** @description 0 或不传表示 30 分钟 */
+            timeoutSeconds?: number;
+            /** @description 产物，相对工作目录的通配符，dir/** 表示目录下全部文件 */
+            artifacts?: string[];
+        };
+        /** @description 按机器的系统选一套 */
+        BuildConfig: {
+            linux: components["schemas"]["BuildStep"][];
+            windows: components["schemas"]["BuildStep"][];
+        };
+        Artifact: {
+            name: string;
+            /** Format: int64 */
+            size: number;
+        };
+        /** @description 两种登记方式。按本地路径：传 path。按 Git 连接（B47）：传 connectionId、remoteRepo、cloneUrl，代理会 clone 到自己的仓库目录。 */
         CreateRepo: {
             agentId: string;
             /** @description 仓库根目录的绝对路径 */
-            path: string;
+            path?: string;
+            /** Format: int64 */
+            connectionId?: number;
+            /** @description owner/name */
+            remoteRepo?: string;
+            /** @description https 地址，不能带用户名和密码 */
+            cloneUrl?: string;
         };
         DiscoveredRepo: {
             path: string;
@@ -353,6 +444,25 @@ export interface components {
             finishedAt?: string;
             /** Format: date-time */
             updatedAt: string;
+            /**
+             * Format: int64
+             * @description B47 由哪个 Agent 执行
+             */
+            aiAgentId?: number;
+            /** @description B47 传给执行器的模型，空表示执行器默认 */
+            model?: string;
+            /** @description B47 workspace 或 full，空表示 workspace */
+            permission?: string;
+            /**
+             * @description B47 最近一次构建，空表示没构建过
+             * @enum {string}
+             */
+            buildStatus?: "" | "running" | "passed" | "failed";
+            /** @description B47 构建了几次 */
+            buildAttempts?: number;
+            /** @description B47 构建失败的原因 */
+            buildError?: string;
+            artifacts?: components["schemas"]["Artifact"][];
         };
         TaskList: {
             items: components["schemas"]["Task"][];
@@ -360,7 +470,14 @@ export interface components {
         CreateTask: {
             /** Format: int64 */
             repoId: number;
-            executor: components["schemas"]["ExecutorName"];
+            executor?: components["schemas"]["ExecutorName"];
+            /**
+             * Format: int64
+             * @description B47 交给这个 Agent。传了就不用传 executor
+             */
+            aiAgentId?: number;
+            /** @description B47 在哪台机器上跑。不传用仓库所在的机器；按 Git 连接登记的仓库可以换机器 */
+            agentId?: string;
             /** @description 有 issueKey 时可以留空 */
             prompt?: string;
             /** @description 留空用仓库的默认分支 */
@@ -429,6 +546,8 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+            /** @description 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41） */
+            requestId?: string;
         };
     };
     responses: {
@@ -545,6 +664,33 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    setRepoBuildConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                repoId: components["parameters"]["RepoId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuildConfig"];
+            };
+        };
+        responses: {
+            /** @description 仓库 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repo"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     deleteRepo: {
         parameters: {
             query?: never;
@@ -572,6 +718,8 @@ export interface operations {
                 status?: components["schemas"]["TaskStatus"][];
                 repoId?: number;
                 issueKey?: string;
+                /** @description B47 只看这个 Agent 的任务 */
+                aiAgentId?: number;
                 limit?: number;
             };
             header?: never;
@@ -784,6 +932,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Task"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    buildTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 任务，buildStatus 是 running */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    downloadTaskArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: components["parameters"]["TaskId"];
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             default: components["responses"]["Error"];

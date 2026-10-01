@@ -122,4 +122,9 @@ registerZh({
   "No icon": "不要图标",
   "weeks ago": "周前",
   "Last 8 weeks": "最近 8 周",
+  Fitness: "健身",
+  "Check in": "打卡",
+  "Exercise library": "健身动作",
+  "Exercises and training plans will live here. It is empty for now.":
+    "以后健身动作和训练计划放在这里，现在还是空的。",
 });

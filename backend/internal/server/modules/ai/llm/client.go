@@ -55,10 +55,15 @@ type Request struct {
 }
 
 type Result struct {
-	Text         string
-	ToolCalls    []ToolCall
-	InputTokens  int64
-	OutputTokens int64
+	Text      string
+	ToolCalls []ToolCall
+	// InputTokens counts all input, cached or not (B42). CachedInputTokens
+	// were read from the prompt cache, CacheWriteTokens written to it.
+	InputTokens       int64
+	OutputTokens      int64
+	CachedInputTokens int64
+	CacheWriteTokens  int64
+	ReasoningTokens   int64
 	// Truncated is set when the model stopped at its output limit
 	// (finish_reason "length"). Tool call arguments may then be cut off.
 	Truncated bool
@@ -100,6 +105,9 @@ type Config struct {
 	APIStyle    string
 	InputPrice  *float32
 	OutputPrice *float32
+	// Cache prices per million tokens (B42); nil when unknown.
+	CacheReadPrice  *float32
+	CacheWritePrice *float32
 }
 
 type ResolveFunc func(context.Context, string) (Config, error)
@@ -221,7 +229,7 @@ func (s *service) Complete(ctx context.Context, req Request) (result Result, err
 					}
 				}
 			}
-			result.InputTokens, result.OutputTokens = response.Usage.PromptTokens, response.Usage.CompletionTokens
+			result.setChatUsage(response.Usage)
 			if fallbackJSON {
 				result.Text = extractJSON(result.Text)
 			}
@@ -340,7 +348,7 @@ func (s *stream) Next() bool {
 	}
 	s.current = Delta{}
 	if chunk.JSON.Usage.Valid() {
-		s.result.InputTokens, s.result.OutputTokens = chunk.Usage.PromptTokens, chunk.Usage.CompletionTokens
+		s.result.setChatUsage(chunk.Usage)
 	}
 	for _, choice := range chunk.Choices {
 		if choice.FinishReason == "length" {

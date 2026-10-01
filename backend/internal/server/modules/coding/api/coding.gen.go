@@ -31,6 +31,30 @@ func (e ExecutorName) Valid() bool {
 	}
 }
 
+// Defines values for TaskBuildStatus.
+const (
+	TaskBuildStatusEmpty   TaskBuildStatus = ""
+	TaskBuildStatusFailed  TaskBuildStatus = "failed"
+	TaskBuildStatusPassed  TaskBuildStatus = "passed"
+	TaskBuildStatusRunning TaskBuildStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the TaskBuildStatus enum.
+func (e TaskBuildStatus) Valid() bool {
+	switch e {
+	case TaskBuildStatusEmpty:
+		return true
+	case TaskBuildStatusFailed:
+		return true
+	case TaskBuildStatusPassed:
+		return true
+	case TaskBuildStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TaskEventKind.
 const (
 	Done   TaskEventKind = "done"
@@ -60,41 +84,64 @@ func (e TaskEventKind) Valid() bool {
 
 // Defines values for TaskStatus.
 const (
-	Canceled  TaskStatus = "canceled"
-	Committed TaskStatus = "committed"
-	Discarded TaskStatus = "discarded"
-	Failed    TaskStatus = "failed"
-	PrOpened  TaskStatus = "pr_opened"
-	Pushed    TaskStatus = "pushed"
-	Queued    TaskStatus = "queued"
-	Review    TaskStatus = "review"
-	Running   TaskStatus = "running"
+	TaskStatusCanceled  TaskStatus = "canceled"
+	TaskStatusCommitted TaskStatus = "committed"
+	TaskStatusDiscarded TaskStatus = "discarded"
+	TaskStatusFailed    TaskStatus = "failed"
+	TaskStatusPrOpened  TaskStatus = "pr_opened"
+	TaskStatusPushed    TaskStatus = "pushed"
+	TaskStatusQueued    TaskStatus = "queued"
+	TaskStatusReview    TaskStatus = "review"
+	TaskStatusRunning   TaskStatus = "running"
 )
 
 // Valid indicates whether the value is a known member of the TaskStatus enum.
 func (e TaskStatus) Valid() bool {
 	switch e {
-	case Canceled:
+	case TaskStatusCanceled:
 		return true
-	case Committed:
+	case TaskStatusCommitted:
 		return true
-	case Discarded:
+	case TaskStatusDiscarded:
 		return true
-	case Failed:
+	case TaskStatusFailed:
 		return true
-	case PrOpened:
+	case TaskStatusPrOpened:
 		return true
-	case Pushed:
+	case TaskStatusPushed:
 		return true
-	case Queued:
+	case TaskStatusQueued:
 		return true
-	case Review:
+	case TaskStatusReview:
 		return true
-	case Running:
+	case TaskStatusRunning:
 		return true
 	default:
 		return false
 	}
+}
+
+// Artifact defines model for Artifact.
+type Artifact struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+}
+
+// BuildConfig 按机器的系统选一套
+type BuildConfig struct {
+	Linux   []BuildStep `json:"linux"`
+	Windows []BuildStep `json:"windows"`
+}
+
+// BuildStep defines model for BuildStep.
+type BuildStep struct {
+	// Artifacts 产物，相对工作目录的通配符，dir/** 表示目录下全部文件
+	Artifacts *[]string `json:"artifacts,omitempty"`
+	Command   string    `json:"command"`
+	Name      string    `json:"name"`
+
+	// TimeoutSeconds 0 或不传表示 30 分钟
+	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
 }
 
 // ChangedFile defines model for ChangedFile.
@@ -126,20 +173,33 @@ type CommitRequest struct {
 	Push    *bool   `json:"push,omitempty"`
 }
 
-// CreateRepo defines model for CreateRepo.
+// CreateRepo 两种登记方式。按本地路径：传 path。按 Git 连接（B47）：传 connectionId、remoteRepo、cloneUrl，代理会 clone 到自己的仓库目录。
 type CreateRepo struct {
 	AgentId string `json:"agentId"`
 
+	// CloneUrl https 地址，不能带用户名和密码
+	CloneUrl     *string `json:"cloneUrl,omitempty"`
+	ConnectionId *int64  `json:"connectionId,omitempty"`
+
 	// Path 仓库根目录的绝对路径
-	Path string `json:"path"`
+	Path *string `json:"path,omitempty"`
+
+	// RemoteRepo owner/name
+	RemoteRepo *string `json:"remoteRepo,omitempty"`
 }
 
 // CreateTask defines model for CreateTask.
 type CreateTask struct {
+	// AgentId B47 在哪台机器上跑。不传用仓库所在的机器；按 Git 连接登记的仓库可以换机器
+	AgentId *string `json:"agentId,omitempty"`
+
+	// AiAgentId B47 交给这个 Agent。传了就不用传 executor
+	AiAgentId *int64 `json:"aiAgentId,omitempty"`
+
 	// BaseBranch 留空用仓库的默认分支
-	BaseBranch *string      `json:"baseBranch,omitempty"`
-	Executor   ExecutorName `json:"executor"`
-	IssueKey   *string      `json:"issueKey,omitempty"`
+	BaseBranch *string       `json:"baseBranch,omitempty"`
+	Executor   *ExecutorName `json:"executor,omitempty"`
+	IssueKey   *string       `json:"issueKey,omitempty"`
 
 	// Prompt 有 issueKey 时可以留空
 	Prompt *string `json:"prompt,omitempty"`
@@ -190,9 +250,15 @@ type PullRequestRequest struct {
 
 // Repo defines model for Repo.
 type Repo struct {
-	AgentId       string    `json:"agentId"`
-	AgentName     string    `json:"agentName"`
-	AgentOnline   bool      `json:"agentOnline"`
+	AgentId     string `json:"agentId"`
+	AgentName   string `json:"agentName"`
+	AgentOnline bool   `json:"agentOnline"`
+
+	// BuildConfig 按机器的系统选一套
+	BuildConfig *BuildConfig `json:"buildConfig,omitempty"`
+
+	// ConnectionId B47 按 Git 连接登记时有
+	ConnectionId  *int64    `json:"connectionId,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 	DefaultBranch string    `json:"defaultBranch"`
 
@@ -201,18 +267,34 @@ type Repo struct {
 	Id         int64  `json:"id"`
 	Name       string `json:"name"`
 	Path       string `json:"path"`
-	RemoteUrl  string `json:"remoteUrl"`
+
+	// RemoteRepo B47 按 Git 连接登记时的 owner/name
+	RemoteRepo *string `json:"remoteRepo,omitempty"`
+	RemoteUrl  string  `json:"remoteUrl"`
 }
 
 // Task defines model for Task.
 type Task struct {
-	AgentId      string        `json:"agentId"`
-	BaseBranch   string        `json:"baseBranch"`
-	BaseCommit   *string       `json:"baseCommit,omitempty"`
-	Branch       string        `json:"branch"`
-	ChangedFiles []ChangedFile `json:"changedFiles"`
-	CommitSha    string        `json:"commitSha"`
-	CreatedAt    time.Time     `json:"createdAt"`
+	AgentId string `json:"agentId"`
+
+	// AiAgentId B47 由哪个 Agent 执行
+	AiAgentId  *int64      `json:"aiAgentId,omitempty"`
+	Artifacts  *[]Artifact `json:"artifacts,omitempty"`
+	BaseBranch string      `json:"baseBranch"`
+	BaseCommit *string     `json:"baseCommit,omitempty"`
+	Branch     string      `json:"branch"`
+
+	// BuildAttempts B47 构建了几次
+	BuildAttempts *int `json:"buildAttempts,omitempty"`
+
+	// BuildError B47 构建失败的原因
+	BuildError *string `json:"buildError,omitempty"`
+
+	// BuildStatus B47 最近一次构建，空表示没构建过
+	BuildStatus  *TaskBuildStatus `json:"buildStatus,omitempty"`
+	ChangedFiles []ChangedFile    `json:"changedFiles"`
+	CommitSha    string           `json:"commitSha"`
+	CreatedAt    time.Time        `json:"createdAt"`
 
 	// Error 失败或取消的原因
 	Error      string       `json:"error"`
@@ -221,7 +303,13 @@ type Task struct {
 	FinishedAt *time.Time   `json:"finishedAt,omitempty"`
 	Id         int64        `json:"id"`
 	IssueKey   *string      `json:"issueKey,omitempty"`
-	PrUrl      string       `json:"prUrl"`
+
+	// Model B47 传给执行器的模型，空表示执行器默认
+	Model *string `json:"model,omitempty"`
+
+	// Permission B47 workspace 或 full，空表示 workspace
+	Permission *string `json:"permission,omitempty"`
+	PrUrl      string  `json:"prUrl"`
 
 	// Prompt 发给执行器的完整需求
 	Prompt string `json:"prompt"`
@@ -238,6 +326,9 @@ type Task struct {
 	Title     string    `json:"title"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
+
+// TaskBuildStatus B47 最近一次构建，空表示没构建过
+type TaskBuildStatus string
 
 // TaskDiff defines model for TaskDiff.
 type TaskDiff struct {
@@ -303,7 +394,10 @@ type ListTasksParams struct {
 	Status   *[]TaskStatus `form:"status,omitempty" json:"status,omitempty"`
 	RepoId   *int64        `form:"repoId,omitempty" json:"repoId,omitempty"`
 	IssueKey *string       `form:"issueKey,omitempty" json:"issueKey,omitempty"`
-	Limit    *int          `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// AiAgentId B47 只看这个 Agent 的任务
+	AiAgentId *int64 `form:"aiAgentId,omitempty" json:"aiAgentId,omitempty"`
+	Limit     *int   `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListTaskEventsParams defines parameters for ListTaskEvents.
@@ -314,6 +408,9 @@ type ListTaskEventsParams struct {
 
 // CreateRepoJSONRequestBody defines body for CreateRepo for application/json ContentType.
 type CreateRepoJSONRequestBody = CreateRepo
+
+// SetRepoBuildConfigJSONRequestBody defines body for SetRepoBuildConfig for application/json ContentType.
+type SetRepoBuildConfigJSONRequestBody = BuildConfig
 
 // UpdateCodingSettingsJSONRequestBody defines body for UpdateCodingSettings for application/json ContentType.
 type UpdateCodingSettingsJSONRequestBody = UpdateCodingSettings
@@ -345,6 +442,9 @@ type ServerInterface interface {
 	// (DELETE /coding/repos/{repoId})
 	DeleteRepo(w http.ResponseWriter, r *http.Request, repoId RepoId)
 
+	// (PUT /coding/repos/{repoId}/build-config)
+	SetRepoBuildConfig(w http.ResponseWriter, r *http.Request, repoId RepoId)
+
 	// (GET /coding/settings)
 	GetCodingSettings(w http.ResponseWriter, r *http.Request)
 
@@ -359,6 +459,12 @@ type ServerInterface interface {
 
 	// (GET /coding/tasks/{taskId})
 	GetTask(w http.ResponseWriter, r *http.Request, taskId TaskId)
+
+	// (GET /coding/tasks/{taskId}/artifacts/{index})
+	DownloadTaskArtifact(w http.ResponseWriter, r *http.Request, taskId TaskId, index int)
+
+	// (POST /coding/tasks/{taskId}/build)
+	BuildTask(w http.ResponseWriter, r *http.Request, taskId TaskId)
 
 	// (POST /coding/tasks/{taskId}/cancel)
 	CancelTask(w http.ResponseWriter, r *http.Request, taskId TaskId)
@@ -411,6 +517,11 @@ func (_ Unimplemented) DeleteRepo(w http.ResponseWriter, r *http.Request, repoId
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /coding/repos/{repoId}/build-config)
+func (_ Unimplemented) SetRepoBuildConfig(w http.ResponseWriter, r *http.Request, repoId RepoId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /coding/settings)
 func (_ Unimplemented) GetCodingSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -433,6 +544,16 @@ func (_ Unimplemented) CreateTask(w http.ResponseWriter, r *http.Request) {
 
 // (GET /coding/tasks/{taskId})
 func (_ Unimplemented) GetTask(w http.ResponseWriter, r *http.Request, taskId TaskId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /coding/tasks/{taskId}/artifacts/{index})
+func (_ Unimplemented) DownloadTaskArtifact(w http.ResponseWriter, r *http.Request, taskId TaskId, index int) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /coding/tasks/{taskId}/build)
+func (_ Unimplemented) BuildTask(w http.ResponseWriter, r *http.Request, taskId TaskId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -613,6 +734,32 @@ func (siw *ServerInterfaceWrapper) DeleteRepo(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// SetRepoBuildConfig operation middleware
+func (siw *ServerInterfaceWrapper) SetRepoBuildConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "repoId" -------------
+	var repoId RepoId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "repoId", chi.URLParam(r, "repoId"), &repoId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "repoId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetRepoBuildConfig(w, r, repoId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCodingSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetCodingSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -689,6 +836,19 @@ func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// ------------- Optional query parameter "aiAgentId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "aiAgentId", r.URL.Query(), &params.AiAgentId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "aiAgentId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "aiAgentId", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "limit" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
@@ -744,6 +904,67 @@ func (siw *ServerInterfaceWrapper) GetTask(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadTaskArtifact operation middleware
+func (siw *ServerInterfaceWrapper) DownloadTaskArtifact(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId TaskId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "index" -------------
+	var index int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "index", chi.URLParam(r, "index"), &index, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "index", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadTaskArtifact(w, r, taskId, index)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BuildTask operation middleware
+func (siw *ServerInterfaceWrapper) BuildTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "taskId" -------------
+	var taskId TaskId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "taskId", chi.URLParam(r, "taskId"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "taskId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BuildTask(w, r, taskId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1090,6 +1311,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/coding/repos/discover", wrapper.DiscoverRepos)
 	})
 	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/coding/repos/{repoId}/build-config", wrapper.SetRepoBuildConfig)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/coding/repos/{repoId}", wrapper.DeleteRepo)
 	})
 	r.Group(func(r chi.Router) {
@@ -1118,6 +1342,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/coding/tasks/{taskId}/pr", wrapper.OpenPullRequest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/coding/tasks/{taskId}/build", wrapper.BuildTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/coding/tasks/{taskId}/artifacts/{index}", wrapper.DownloadTaskArtifact)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/coding/tasks/{taskId}/discard", wrapper.DiscardTask)

@@ -24,6 +24,19 @@ var migrations embed.FS
 // Use ":memory:" in tests; the pool is then limited to one connection so all
 // queries see the same in-memory database.
 func Open(ctx context.Context, path string) (*sql.DB, error) {
+	db, err := open(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if err := Migrate(ctx, db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return db, nil
+}
+
+// open opens the database without migrating it.
+func open(ctx context.Context, path string) (*sql.DB, error) {
 	dsn := path
 	if path != ":memory:" {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -46,7 +59,59 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
-	if err := Migrate(ctx, db); err != nil {
+	return db, nil
+}
+
+// serializer is the part of the modernc.org/sqlite connection that copies a
+// whole database to and from memory.
+type serializer interface {
+	Serialize() ([]byte, error)
+	Deserialize([]byte) error
+}
+
+// Snapshot returns the whole content of a database opened with ":memory:".
+// Tests migrate one database, take a snapshot and start every test from a
+// copy (OpenSnapshot): running the migrations takes seconds under -race.
+func Snapshot(ctx context.Context, db *sql.DB) ([]byte, error) {
+	c, err := db.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+	var out []byte
+	err = c.Raw(func(dc any) error {
+		s, ok := dc.(serializer)
+		if !ok {
+			return fmt.Errorf("store: driver cannot serialize")
+		}
+		out, err = s.Serialize()
+		return err
+	})
+	return out, err
+}
+
+// OpenSnapshot opens a new in-memory database with the content of a
+// Snapshot. It does not run the migrations: the snapshot must come from a
+// database Open migrated with the same binary.
+func OpenSnapshot(ctx context.Context, image []byte) (*sql.DB, error) {
+	db, err := open(ctx, ":memory:")
+	if err != nil {
+		return nil, err
+	}
+	c, err := db.Conn(ctx)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	err = c.Raw(func(dc any) error {
+		s, ok := dc.(serializer)
+		if !ok {
+			return fmt.Errorf("store: driver cannot deserialize")
+		}
+		return s.Deserialize(image)
+	})
+	c.Close()
+	if err != nil {
 		db.Close()
 		return nil, err
 	}

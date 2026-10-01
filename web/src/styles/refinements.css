@@ -53,7 +53,7 @@
 .profile-email {
   padding: 11px 12px;
   color: #898991;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 .profile-menu-section {
@@ -64,7 +64,7 @@
 .profile-menu-label {
   padding: 5px 6px 4px;
   color: #777780;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 
 .profile-menu-item {
@@ -100,7 +100,7 @@
 
 .profile-menu-item kbd {
   color: #85858d;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 
 html[lang="zh-CN"] .win-ring {
@@ -113,12 +113,12 @@ html[lang="zh-CN"] .win-body {
 }
 
 html[lang="zh-CN"] .win-body strong {
-  font-size: 19px;
+  font-size: var(--fs-19);
 }
 
 html[lang="zh-CN"] .trend-up {
   white-space: nowrap;
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 
 html[lang="zh-CN"] .forecast-card .metric-value,
@@ -131,11 +131,11 @@ html[lang="zh-CN"] .forecast-card .metric-secondary,
 html[lang="zh-CN"] .response-card .metric-secondary {
   position: static;
   margin-top: 4px;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 
 html[lang="zh-CN"] .response-card .metric-value {
-  font-size: 18px;
+  font-size: var(--fs-18);
 }
 
 html[lang="zh-CN"] .metric-top span:last-child {
@@ -147,29 +147,29 @@ html[lang="zh-CN"] .metric-top span:last-child {
 html[lang="zh-CN"] .decision-meta,
 html[lang="zh-CN"] .company-line,
 html[lang="zh-CN"] .receipts {
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.4;
 }
 
 html[lang="zh-CN"] .preview-muted,
 html[lang="zh-CN"] .draft-preview p {
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.5;
 }
 
 html[lang="zh-CN"] .draft-preview strong {
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 html[lang="zh-CN"] .health-top,
 html[lang="zh-CN"] .health-bottom,
 html[lang="zh-CN"] .stage-line,
 html[lang="zh-CN"] .stage-receipt {
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 html[lang="zh-CN"] .stage-labels {
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 
 html[lang="zh-CN"] .meeting-time,
@@ -180,7 +180,7 @@ html[lang="zh-CN"] .meeting-tag,
 html[lang="zh-CN"] .activity-content > span,
 html[lang="zh-CN"] .activity-content small,
 html[lang="zh-CN"] .activity-row time {
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.35;
 }
 
@@ -222,6 +222,6 @@ html[lang="zh-CN"] .meeting-time {
   .response-card .metric-secondary {
     position: static;
     margin-top: 3px;
-    font-size: 9px;
+    font-size: var(--fs-9);
   }
 }

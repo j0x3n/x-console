@@ -1,3 +1,4 @@
+import { useModules } from "../../../app/modules";
 import {
   Ring,
   Segments,
@@ -10,6 +11,7 @@ import { useCalendarEvents } from "../../calendar/api";
 import { addDays, startOfDay } from "../../calendar/dates";
 import { useTasks } from "../../coding/api";
 import { useHabitsToday } from "../../habits/api";
+import { todayProgress } from "../../habits/progress";
 import { useHosts } from "../../servers/api";
 import { nextEvent } from "../today";
 import { useTodoCount } from "./MainCards";
@@ -27,8 +29,10 @@ export default function TodayStats() {
   const from = startOfDay(new Date());
   const events = useCalendarEvents(from, addDays(from, 1));
 
-  const habitTotal = habits.data?.length ?? 0;
-  const habitDone = habits.data?.filter((h) => h.reached).length ?? 0;
+  // 按完成比例算，开始了一点的习惯也算进度
+  const habit = todayProgress(habits.data ?? []);
+  const habitTotal = habit.total;
+  const habitDone = habit.reached;
   const bestStreak = Math.max(0, ...(habits.data ?? []).map((h) => h.streak));
 
   const servers = hosts.data ?? [];
@@ -41,84 +45,101 @@ export default function TodayStats() {
 
   const next = events.data ? nextEvent(events.data, new Date()) : undefined;
 
+  // B57：被隐藏的模块，它的概要卡片也不显示
+  const modules = useModules();
   return (
     <StatStrip size="large" label={t("Today at a glance")}>
-      <StatCard
-        label={t("To do today")}
-        to="/projects"
-        value={todo.issues ?? DASH}
-        caption={
-          todo.overdue ? `${t("Overdue by")} ${todo.overdue}` : undefined
-        }
-        tone={todo.overdue ? "warn" : undefined}
-        foot={t("Issues due today")}
-      />
-      <StatCard
-        label={t("Reminders")}
-        to="/reminders"
-        value={todo.reminders ?? DASH}
-        foot={t("Reminders for today")}
-      />
-      <StatCard
-        label={t("Habits")}
-        to="/habits"
-        caption={bestStreak > 0 ? `${bestStreak} ${t("days")}` : undefined}
-        foot={
-          habitTotal
-            ? `${habitDone}/${habitTotal} ${t("goals reached")}`
-            : t("No habits yet")
-        }
-      >
-        <div className="today-stat-ring">
-          <Ring
-            value={habitDone}
-            max={habitTotal}
-            size={46}
-            tone={habitTotal > 0 && habitDone === habitTotal ? "ok" : "accent"}
-          >
-            {habitTotal
-              ? `${Math.round((habitDone / habitTotal) * 100)}%`
-              : DASH}
-          </Ring>
-        </div>
-      </StatCard>
-      <StatCard
-        label={t("Servers")}
-        to="/servers"
-        value={hosts.data ? online : DASH}
-        unit={hosts.data ? `/ ${servers.length} ${t("online")}` : undefined}
-        tone={
-          servers.length > online ? "danger" : alerts > 0 ? "warn" : undefined
-        }
-        caption={alerts ? `${alerts} ${t("alerts")}` : undefined}
-        foot={
-          servers.length === 0 && hosts.data ? t("No servers yet") : undefined
-        }
-      >
-        {servers.length > 0 && (
-          <Segments
-            parts={[
-              { value: online, tone: "ok" },
-              { value: servers.length - online, tone: "danger" },
-            ]}
-          />
-        )}
-      </StatCard>
-      <StatCard
-        label={t("Coding tasks")}
-        to="/coding"
-        value={tasks.data ? running : DASH}
-        unit={tasks.data ? t("running") : undefined}
-        caption={review ? `${review} ${t("to review")}` : undefined}
-        tone={review ? "accent" : undefined}
-        foot={`${queued} ${t("queued")}`}
-      />
-      <StatCard
-        label={t("Next event")}
-        to="/calendar"
-        value={next ? formatTime(next.start, language) : DASH}
-        foot={next ? next.title : t("Nothing else today")}
-      />
+      {modules.has("projects") && (
+        <StatCard
+          label={t("To do today")}
+          to="/projects"
+          value={todo.issues ?? DASH}
+          caption={
+            todo.overdue ? `${t("Overdue by")} ${todo.overdue}` : undefined
+          }
+          tone={todo.overdue ? "warn" : undefined}
+          foot={t("Issues due today")}
+        />
+      )}
+      {modules.has("reminders") && (
+        <StatCard
+          label={t("Reminders")}
+          to="/reminders"
+          value={todo.reminders ?? DASH}
+          foot={t("Reminders for today")}
+        />
+      )}
+      {modules.has("habits") && (
+        <StatCard
+          label={t("Habits")}
+          to="/habits"
+          caption={bestStreak > 0 ? `${bestStreak} ${t("days")}` : undefined}
+          foot={
+            habitTotal
+              ? `${habitDone}/${habitTotal} ${t("goals reached")}` +
+                (habit.started
+                  ? ` · ${habit.started} ${t("habits in progress")}`
+                  : "")
+              : t("No habits yet")
+          }
+        >
+          <div className="today-stat-ring">
+            <Ring
+              value={habit.ratio * 100}
+              max={100}
+              size={46}
+              tone={
+                habitTotal > 0 && habitDone === habitTotal ? "ok" : "accent"
+              }
+            >
+              {habitTotal ? `${Math.round(habit.ratio * 100)}%` : DASH}
+            </Ring>
+          </div>
+        </StatCard>
+      )}
+      {modules.has("servers") && (
+        <StatCard
+          label={t("Servers")}
+          to="/servers"
+          value={hosts.data ? online : DASH}
+          unit={hosts.data ? `/ ${servers.length} ${t("online")}` : undefined}
+          tone={
+            servers.length > online ? "danger" : alerts > 0 ? "warn" : undefined
+          }
+          caption={alerts ? `${alerts} ${t("alerts")}` : undefined}
+          foot={
+            servers.length === 0 && hosts.data ? t("No servers yet") : undefined
+          }
+        >
+          {servers.length > 0 && (
+            <Segments
+              parts={[
+                { value: online, tone: "ok" },
+                { value: servers.length - online, tone: "danger" },
+              ]}
+            />
+          )}
+        </StatCard>
+      )}
+      {modules.has("coding") && (
+        <StatCard
+          label={t("Coding tasks")}
+          to="/coding/tasks"
+          value={tasks.data ? running : DASH}
+          unit={tasks.data ? t("running") : undefined}
+          caption={review ? `${review} ${t("to review")}` : undefined}
+          tone={review ? "accent" : undefined}
+          foot={`${queued} ${t("queued")}`}
+        />
+      )}
+      {modules.has("calendar") && (
+        <StatCard
+          label={t("Next event")}
+          to="/calendar"
+          value={next ? formatTime(next.start, language) : DASH}
+          foot={next ? next.title : t("Nothing else today")}
+        />
+      )}
     </StatStrip>
   );
 }

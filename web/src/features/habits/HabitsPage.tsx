@@ -8,9 +8,11 @@ import { formatAmount, ratio } from "./progress";
 import StatsView from "./StatsView";
 import TodayView from "./TodayView";
 import { TodayLogDialog } from "./FitnessModule";
+import FitnessPage from "./FitnessPage";
 
 const tabs = [
   { id: "", label: "Today", to: "/habits" },
+  { id: "fitness", label: "Fitness", to: "/habits/fitness" },
   { id: "stats", label: "Stats", to: "/habits/stats" },
 ];
 
@@ -144,6 +146,7 @@ export default function HabitsPage() {
           onCloseCreate={() => setCreating(false)}
         />
       )}
+      {current.id === "fitness" && <FitnessPage />}
       {current.id === "stats" && <StatsView />}
       {logging && <TodayLogDialog open onClose={closeLog} />}
     </div>

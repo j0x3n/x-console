@@ -378,6 +378,9 @@ func interpolate(value any, scope map[string]any) any {
 	}
 }
 func (m *Module) execute(ctx context.Context, id int64, r rule, data map[string]any) {
+	// Steps the user set up run whether or not their module is hidden; while
+	// locked the pages do not show such a rule (ruleHidden).
+	ctx = contracts.IgnoreHidden(ctx)
 	ctx = audit.WithActor(auth.WithoutVault(ctx), "automation:"+strconv.FormatInt(r.Id, 10))
 	steps := []api.RunStep{}
 	scope := map[string]any{"trigger": data, "steps": []any{}}
@@ -393,7 +396,8 @@ func (m *Module) execute(ctx context.Context, id int64, r rule, data map[string]
 		if s.Action == "ai.ask" {
 			result, err = m.ask(ctx, input, data)
 		} else {
-			a, ok := m.d.Actions.Get(s.Action)
+			a, ok := m.d.Actions.Get(ctx, s.Action)
+			ok = ok && !a.PanelOnly
 			if !ok {
 				err = fmt.Errorf("未知动作: %s", s.Action)
 			} else if string(a.Effect) == "dangerous" && !r.Authorized {
@@ -439,7 +443,7 @@ func (m *Module) ask(ctx context.Context, input, data map[string]any) (any, erro
 		return nil, fmt.Errorf("AI 模块未启用")
 	}
 	raw, _ := json.Marshal(data)
-	return client.CompleteText(ctx, "agent", "按自动化规则处理触发数据，简短回答。", prompt+"\n触发数据: "+string(raw))
+	return client.CompleteText(contracts.WithAIUsage(ctx, "automation", ""), "agent", "按自动化规则处理触发数据，简短回答。", prompt+"\n触发数据: "+string(raw))
 }
 func (m *Module) hook(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")

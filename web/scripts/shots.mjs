@@ -114,9 +114,31 @@ const ids = await page.evaluate(async () => {
     await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
     await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
   }
+  // B47 的示例 Agent，没有时才造。
+  if (((await get("/ai-agents")) ?? []).length === 0) {
+    await post("/ai-agents", {
+      name: "后端开发",
+      kind: "claude_code",
+      avatar: "🛠️",
+      color: "#2f7fd1",
+      instructions: "你是后端开发，只改 backend 目录，做完前跑 go test。",
+      monthlyBudgetUsd: 20,
+    });
+    await post("/ai-agents", { name: "前端", kind: "codex", avatar: "🚀", color: "#8a5cc7", model: "gpt-5-codex" });
+    await post("/ai-agents", {
+      name: "整理员",
+      kind: "builtin",
+      avatar: "🧹",
+      color: "#3a9a5b",
+      model: "1:gpt-5-mini",
+      instructions: "把卡片拆成清单，不改代码。",
+    });
+  }
+  const agents = (await get("/ai-agents")) ?? [];
   const notes = (await get("/notes"))?.items ?? [];
   const hosts = (await get("/hosts")) ?? [];
   return {
+    agent: agents[0]?.id,
     project: projects[0]?.key,
     note: notes[0]?.id,
     host: hosts.find((x) => x.kind === "server")?.id,
@@ -128,7 +150,10 @@ const routes = [
   ["projects", "/projects"],
   ids.project && ["project", `/projects/${ids.project}`],
   ids.project && ["issue", `/projects/${ids.project}/1`],
-  ["coding", "/coding"],
+  ["agents", "/coding"],
+  ["coding", "/coding/tasks"],
+  ids.agent && ["agent", `/coding/agents/${ids.agent}`],
+  ["settings-git", "/settings/git"],
   ["notes", "/notes"],
   ids.note && ["note", `/notes/${ids.note}`],
   ["reminders", "/reminders"],
@@ -140,6 +165,7 @@ const routes = [
   ["pc", "/pc"],
   ["monitoring", "/monitoring"],
   ["home", "/home"],
+  ["router", "/router"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],
@@ -149,8 +175,12 @@ const routes = [
   ["github", "/github"],
   ["settings", "/settings/security"],
   ["settings-ai", "/settings/assistant"],
+  ["settings-ai-usage", "/settings/ai-usage"],
+  ["settings-errors", "/settings/errors"],
+  ["settings-remote", "/settings/remote"],
   ["settings-storage", "/settings/storage"],
   ["settings-backup", "/settings/backup"],
+  ["settings-router", "/settings/router"],
 ].filter(Boolean).filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));
 
 // ---- 截图和检查 ----
@@ -179,6 +209,34 @@ for (const width of WIDTHS) {
     await p.screenshot({ path: join(OUT, String(width), `${name}.png`), fullPage: true });
     const bad = [];
     if (overflow > 0) bad.push(`横向溢出 ${overflow}px`);
+    // B44：手机宽度下检查字号。文字不小于 11px，输入框等于 16px。
+    if (width <= 720) {
+      const fonts = await p.evaluate(() => {
+        const small = new Set();
+        const inputs = new Set();
+        const visible = (el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+        };
+        const label = (el) =>
+          `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).join(".") : ""}`;
+        for (const el of document.querySelectorAll("#main *, .sidebar *")) {
+          const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+          if (!own || !visible(el)) continue;
+          const size = parseFloat(getComputedStyle(el).fontSize);
+          // 0 是手机上故意藏起文字、只显示图标的按钮。
+          if (size > 0 && size < 11) small.add(`${label(el)} ${size}px`);
+        }
+        for (const el of document.querySelectorAll("#main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), #main select, #main textarea")) {
+          if (!visible(el)) continue;
+          const size = parseFloat(getComputedStyle(el).fontSize);
+          if (size !== 16) inputs.add(`${label(el)} ${size}px`);
+        }
+        return { small: [...small].slice(0, 5), inputs: [...inputs].slice(0, 5) };
+      });
+      if (fonts.small.length) bad.push(`文字小于 11px：${fonts.small.join("、")}`);
+      if (fonts.inputs.length) bad.push(`输入框不是 16px：${fonts.inputs.join("、")}`);
+    }
     if (errors.length) bad.push(`页面报错：${errors.join("；")}`);
     console.log(`${bad.length ? "✗" : "✓"} ${String(width).padStart(4)}  ${path.padEnd(28)} ${bad.join("，")}`);
     if (bad.length) problems.push(`${width} ${path}：${bad.join("，")}`);

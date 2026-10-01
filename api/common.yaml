@@ -18,6 +18,9 @@ components:
         details:
           type: object
           additionalProperties: true
+        requestId:
+          type: string
+          description: 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41）
   parameters:
     Limit:
       name: limit

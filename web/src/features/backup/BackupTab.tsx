@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import {
   Archive,
   Download,
@@ -31,12 +32,16 @@ import {
   useRestoreBackup,
   useRunBackupNow,
   useSaveBackupSettings,
+  useTestBackupTarget,
   useUploadBackup,
   type Backup,
   type BackupJob,
   type BackupSettings,
+  type BackupSettingsInput,
+  type BackupTargetTest,
 } from "./api";
 import S3Fields, { emptyS3, s3Input, type S3Form } from "../storage/S3Fields";
+import { useRemotes } from "../storage/api";
 import "./i18n";
 import "./backup.css";
 
@@ -177,18 +182,39 @@ const weekdays = [
   "Saturday",
 ];
 
+const targetHints: Record<BackupSettings["target"], string> = {
+  storage: "放在那个桶的 backups/ 目录下。超过保留份数时删最旧的。",
+  custom: "超过保留份数时删最旧的。",
+  remote: "备份放在网盘账号的一个文件夹里。超过保留份数时删最旧的。",
+  webdav: "",
+  gdrive: "",
+};
+
+/** “备份到”下拉框的值：storage、custom，或者 remote:<账号 id>。 */
+function targetValue(s: BackupSettings): string {
+  if (s.target === "remote" && s.remoteId) return `remote:${s.remoteId}`;
+  return s.target === "custom" ? "custom" : "storage";
+}
+
 function AutoCard() {
   const t = useT();
   const language = useLanguage();
   const settings = useBackupSettings();
   const save = useSaveBackupSettings();
   const run = useRunBackupNow();
+  const test = useTestBackupTarget();
+  const remotes = useRemotes();
   const [form, setForm] = useState<BackupSettings | null>(null);
   const [s3, setS3] = useState<S3Form>(() => emptyS3(undefined, "backups"));
+  const [folder, setFolder] = useState("x-console-backups");
+  const [folderName, setFolderName] = useState("X Console 备份");
+  const [tested, setTested] = useState<BackupTargetTest | null>(null);
   useEffect(() => {
     if (!settings.data) return;
     setForm(settings.data);
     setS3(emptyS3(settings.data.s3, "backups"));
+    setFolder(settings.data.webdav?.folder ?? "x-console-backups");
+    setFolderName(settings.data.gdrive?.folderName ?? "X Console 备份");
   }, [settings.data]);
   if (settings.isPending) return <Loading />;
   if (settings.isError || !form)
@@ -197,6 +223,31 @@ function AutoCard() {
     );
   const set = <K extends keyof BackupSettings>(k: K, v: BackupSettings[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
+  const accounts = remotes.data?.items ?? [];
+  const account =
+    form.target === "remote"
+      ? accounts.find((a) => a.id === form.remoteId)
+      : undefined;
+  const pickTarget = (value: string) => {
+    setTested(null);
+    setForm((f) => {
+      if (!f) return f;
+      if (value.startsWith("remote:"))
+        return { ...f, target: "remote", remoteId: Number(value.slice(7)) };
+      return { ...f, target: value === "custom" ? "custom" : "storage" };
+    });
+  };
+  const targetInput = (): BackupSettingsInput => {
+    if (form.target === "custom") return { target: "custom", s3: s3Input(s3) };
+    if (form.target !== "remote") return { target: "storage" };
+    return {
+      target: "remote",
+      remoteId: form.remoteId,
+      ...(account?.kind === "gdrive"
+        ? { gdrive: { folderName: folderName.trim() } }
+        : { webdav: { folder: folder.trim().replace(/^\/+|\/+$/g, "") } }),
+    };
+  };
   const onSave = (e: FormEvent) => {
     e.preventDefault();
     save.mutate(
@@ -206,20 +257,23 @@ function AutoCard() {
         time: form.time,
         weekday: form.weekday,
         keep: form.keep,
-        target: form.target,
-        ...(form.target === "custom" ? { s3: s3Input(s3) } : {}),
+        ...targetInput(),
       },
       { onSuccess: () => toast(t("Saved")), onError: fail },
     );
   };
+  const onTest = () => {
+    setTested(null);
+    test.mutate(targetInput(), { onSuccess: setTested, onError: fail });
+  };
   return (
     <form className="xc-card" onSubmit={onSave}>
       <div className="xc-card-head">
-        <h2>{t("Automatic backup to S3")}</h2>
+        <h2>{t("Automatic backup")}</h2>
         <Switch
           checked={form.enabled}
           onChange={(v) => set("enabled", v)}
-          label={t("Automatic backup to S3")}
+          label={t("Automatic backup")}
         />
       </div>
       <div className="backup-row">
@@ -277,22 +331,70 @@ function AutoCard() {
         <span>{t("Where to")}</span>
         <select
           className="xc-select"
-          value={form.target}
-          onChange={(e) =>
-            set("target", e.target.value as BackupSettings["target"])
-          }
+          value={targetValue(form)}
+          onChange={(e) => pickTarget(e.target.value)}
         >
           <option value="storage">{t("The S3 in Storage settings")}</option>
           <option value="custom">{t("Another S3")}</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={`remote:${a.id}`}>
+              {a.name}（{a.kind === "gdrive" ? "Google Drive" : "WebDAV"}）
+            </option>
+          ))}
         </select>
         <small>
-          {form.target === "storage"
-            ? "放在那个桶的 backups/ 目录下。超过保留份数时删最旧的。"
-            : "超过保留份数时删最旧的。"}
+          {targetHints[form.target]}
+          {accounts.length === 0 && !remotes.isPending && (
+            <>
+              {" "}
+              要备份到坚果云、Google Drive 这类网盘，先到{" "}
+              <Link to="/settings/storage">设置 → 存储</Link> 添加网盘账号。
+            </>
+          )}
         </small>
       </label>
       {form.target === "custom" && (
         <S3Fields value={s3} onChange={setS3} hasSecret={form.s3?.hasSecret} />
+      )}
+      {account && !account.ready && (
+        <p className="backup-warn">
+          {account.kind === "gdrive"
+            ? "这个账号还没授权，"
+            : "这个账号还没填完整，"}
+          到 <Link to="/settings/storage">设置 → 存储</Link> 处理。
+        </p>
+      )}
+      {account?.kind === "webdav" && (
+        <label className="xc-field">
+          <span>{t("Folder")}</span>
+          <input
+            className="xc-input"
+            value={folder}
+            onChange={(e) => setFolder(e.target.value)}
+            placeholder="x-console-backups"
+            spellCheck={false}
+          />
+        </label>
+      )}
+      {account?.kind === "gdrive" && (
+        <label className="xc-field">
+          <span>{t("Folder name")}</span>
+          <input
+            className="xc-input"
+            value={folderName}
+            onChange={(e) => setFolderName(e.target.value)}
+            placeholder="X Console 备份"
+          />
+          <small>放在网盘根目录下，没有就新建。</small>
+        </label>
+      )}
+      {tested && (
+        <p
+          className={`backup-test ${tested.ok ? "ok" : "failed"}`}
+          role="status"
+        >
+          {tested.message}
+        </p>
       )}
       {form.nextRunAt && form.enabled && (
         <p className="backup-note">
@@ -326,6 +428,14 @@ function AutoCard() {
         >
           <Play size={13} /> {t("Back up now")}
         </button>
+        <button
+          type="button"
+          className="xc-btn"
+          disabled={test.isPending}
+          onClick={onTest}
+        >
+          {test.isPending ? t("Testing") : t("Test connection")}
+        </button>
         <button className="xc-btn primary" disabled={save.isPending}>
           {t("Save")}
         </button>
@@ -333,6 +443,12 @@ function AutoCard() {
     </form>
   );
 }
+
+const locationLabels: Partial<Record<Backup["location"], string>> = {
+  s3: "S3",
+  webdav: "WebDAV",
+  gdrive: "Google Drive",
+};
 
 const kindLabels: Record<Backup["kind"], string> = {
   manual: "Manual",
@@ -390,7 +506,7 @@ function ListCard({ items }: { items: Backup[] }) {
                 </small>
               </div>
               <span className="xc-badge">
-                {b.location === "s3" ? "S3" : t("On this server")}
+                {locationLabels[b.location] ?? t("On this server")}
               </span>
               <span className="xc-badge">{t(kindLabels[b.kind])}</span>
               <MoreMenu

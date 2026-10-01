@@ -12,6 +12,14 @@ import {
   reviewTone,
   runOutcome,
   sortPulls,
+  parseRepoKey,
+  repoKey,
+  sameRepo,
+  sortRepos,
+  jobsProgress,
+  stepState,
+  fallbackRepoRows,
+  type RepoRow,
 } from "./logic";
 
 function pull(
@@ -180,5 +188,108 @@ describe("repository picker (B35)", () => {
     ]);
     expect(filterRepos(repos, "控制台")).toHaveLength(1);
     expect(filterRepos(repos, " ")).toHaveLength(2);
+  });
+});
+
+describe("B70 multi-repo helpers", () => {
+  it("parses repo keys with and without an account", () => {
+    expect(parseRepoKey("3:acme/web")).toEqual({
+      connectionId: 3,
+      repo: "acme/web",
+    });
+    expect(parseRepoKey("acme/web")).toEqual({
+      connectionId: 0,
+      repo: "acme/web",
+    });
+    expect(repoKey(3, "acme/web")).toBe("3:acme/web");
+  });
+
+  it("matches repos by name and account", () => {
+    const sel = { connectionId: 2, repo: "acme/web" };
+    expect(sameRepo({ repo: "ACME/web", connectionId: 2 }, sel)).toBe(true);
+    expect(sameRepo({ repo: "acme/web", connectionId: 1 }, sel)).toBe(false);
+    // 旧数据没有账号时只比名字
+    expect(sameRepo({ repo: "acme/web" }, sel)).toBe(true);
+  });
+
+  it("sorts failing repos first, then by recent activity", () => {
+    const row = (repo: string, extra: Partial<RepoRow>): RepoRow => ({
+      key: repo,
+      connectionId: 1,
+      forge: "github",
+      repo,
+      url: "",
+      defaultBranch: "main",
+      private: false,
+      openPulls: 0,
+      openIssues: 0,
+      notifyCustom: false,
+      notifyOff: false,
+      ...extra,
+    });
+    const rows = sortRepos([
+      row("a/old", { pushedAt: "2026-09-01T00:00:00Z" }),
+      row("a/new", { pushedAt: "2026-09-30T00:00:00Z" }),
+      row("a/red", {
+        pushedAt: "2026-08-01T00:00:00Z",
+        ci: { status: "completed", conclusion: "failure" },
+      }),
+    ]);
+    expect(rows.map((r) => r.repo)).toEqual(["a/red", "a/new", "a/old"]);
+  });
+
+  it("counts step progress across jobs", () => {
+    const p = jobsProgress([
+      {
+        status: "completed",
+        steps: [
+          { number: 1, name: "a", status: "completed" },
+          { number: 2, name: "b", status: "completed" },
+        ],
+      },
+      {
+        status: "in_progress",
+        steps: [
+          { number: 1, name: "c", status: "completed" },
+          { number: 2, name: "test", status: "in_progress" },
+          { number: 3, name: "build", status: "queued" },
+        ],
+      },
+    ]);
+    expect(p).toEqual({ done: 3, total: 5, current: "test", currentIndex: 4 });
+    expect(stepState({ status: "completed", conclusion: "skipped" })).toBe(
+      "skipped",
+    );
+    expect(stepState({ status: "completed", conclusion: "timed_out" })).toBe(
+      "failed",
+    );
+  });
+
+  it("builds a repo list from the old config when /github/repos is not live", () => {
+    const rows = fallbackRepoRows(
+      { repos: ["acme/web"], connectionId: 4 },
+      [],
+      [
+        {
+          id: 9,
+          repo: "acme/web",
+          name: "CI",
+          branch: "main",
+          event: "push",
+          status: "completed",
+          conclusion: "success",
+          url: "",
+          defaultBranch: true,
+          createdAt: "2026-09-25T10:00:00Z",
+          updatedAt: "2026-09-25T10:00:00Z",
+        },
+      ],
+    );
+    expect(rows[0]).toMatchObject({
+      key: "4:acme/web",
+      url: "https://github.com/acme/web",
+      defaultBranch: "main",
+      ci: { conclusion: "success", runId: 9 },
+    });
   });
 });

@@ -49,7 +49,7 @@
 .xc-page-head p {
   margin: 0;
   color: var(--xc-muted);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .xc-page-head p strong {
   color: var(--xc-text-2);
@@ -67,7 +67,7 @@
   align-items: center;
   gap: 7px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 .xc-page-aside .xc-row {
@@ -145,7 +145,7 @@
 .xc-btn.small {
   height: 26px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 /* 表单 */
@@ -212,7 +212,7 @@
 .xc-card-head h2,
 .xc-card-head h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 600;
   color: var(--xc-text);
 }
@@ -251,7 +251,7 @@
   height: 20px;
   padding: 0 7px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
   color: var(--xc-text-2);
   background: var(--xc-surface-2);
@@ -326,6 +326,22 @@
     transform: rotate(360deg);
   }
 }
+.xc-spin {
+  animation: xc-spin 1s linear infinite;
+}
+/* AI 润色弹窗（B56，components/markdown/PolishDialog） */
+.xc-polish-result {
+  max-height: 46vh;
+  margin: 4px 0 12px;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: 10px;
+  background: var(--xc-surface);
+}
+.xc-polish .xc-btn svg {
+  margin-right: 4px;
+}
 
 /* 弹窗 */
 .xc-dialog {
@@ -338,13 +354,15 @@
   box-shadow: var(--xc-shadow);
   padding: 18px;
   color: var(--xc-text);
+  /* 弹窗常写在不换行的行内元素里（比如今日页的天气条），不能继承 nowrap */
+  white-space: normal;
 }
 .xc-dialog.wide {
   width: min(760px, 100%);
 }
 .xc-dialog h2 {
   margin: 0 0 6px;
-  font-size: 16px;
+  font-size: var(--fs-16);
   font-weight: 600;
 }
 .xc-dialog > p {
@@ -403,7 +421,7 @@
   align-items: center;
   gap: 10px;
   margin: 0 0 6px;
-  font-size: 18px;
+  font-size: var(--fs-18);
 }
 .xc-auth-card > p {
   margin: 0 0 20px;
@@ -584,7 +602,7 @@ button.xc-stat:hover {
   justify-content: space-between;
   gap: 6px;
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -608,7 +626,7 @@ button.xc-stat:hover {
 }
 .xc-stat-value small {
   margin-left: 5px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 400;
   color: var(--xc-muted);
 }
@@ -631,7 +649,7 @@ button.xc-stat:hover {
 .xc-stat-foot {
   margin-top: auto;
   padding-top: 8px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--xc-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -675,7 +693,7 @@ button.xc-stat:hover {
 }
 .xc-ring-label {
   position: relative;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -740,7 +758,7 @@ button.xc-stat:hover {
 .xc-minibars .labels span {
   flex: 1;
   text-align: center;
-  font-size: 9px;
+  font-size: var(--fs-9);
   color: var(--xc-faint);
 }
 
@@ -761,7 +779,7 @@ button.xc-stat:hover {
   display: flex;
   align-items: center;
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 500;
   color: var(--xc-text);
   white-space: nowrap;
@@ -777,12 +795,15 @@ button.xc-stat:hover {
   border-radius: 5px;
   background: var(--xc-surface-2);
   color: var(--xc-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
 }
 
 /* 列表容器：一组行放在一张卡片里 */
 .xc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   background: var(--xc-surface);
   border: 1px solid var(--xc-border);
   border-radius: var(--xc-radius-lg);
@@ -878,7 +899,7 @@ a.xc-badge:hover {
 .xc-stats:not(.large) .xc-stat-value {
   grid-area: value;
   margin-top: 3px;
-  font-size: 18px;
+  font-size: var(--fs-18);
 }
 .xc-stats:not(.large) .xc-stat-visual {
   grid-area: visual;
@@ -901,7 +922,7 @@ a.xc-badge:hover {
     padding: 7px 10px;
   }
   .xc-stats:not(.large) .xc-stat-value {
-    font-size: 17px;
+    font-size: var(--fs-17);
   }
 }
 
@@ -939,6 +960,79 @@ a.xc-badge:hover {
   background: var(--xc-surface-2);
   color: var(--xc-text);
 }
+/* B76：一级菜单右边的数量。1 到 9 显示数字，10 以上只显示一个点 */
+.nav-badge {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--xc-danger-soft);
+  color: var(--xc-danger);
+  font-size: var(--fs-11);
+  font-style: normal;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.nav-badge.warn {
+  background: var(--xc-warn-soft);
+  color: var(--xc-warn);
+}
+.nav-badge.dot {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  padding: 0;
+  background: var(--xc-danger);
+}
+.nav-badge.warn.dot {
+  background: var(--xc-warn);
+}
+/* B72：一级菜单行内的小按钮（笔记的“+”），在折叠箭头左边，悬停时出现 */
+.nav-action {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-faint);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.nav-item.has-children ~ .nav-action {
+  right: 27px;
+}
+.nav-item.has-action {
+  padding-right: 28px;
+}
+.nav-item.has-children.has-action {
+  padding-right: 52px;
+}
+.nav-entry:hover .nav-action,
+.nav-action:focus-visible {
+  opacity: 1;
+}
+.nav-action:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-accent-text);
+}
+@media (hover: none) {
+  .nav-action {
+    opacity: 1;
+  }
+}
 .nav-toggle svg {
   transition: transform 0.15s;
 }
@@ -966,7 +1060,7 @@ a.xc-badge:hover {
   padding: 0 7px;
   border-radius: 5px;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   text-decoration: none;
 }
 .nav-child > span {
@@ -979,12 +1073,34 @@ a.xc-badge:hover {
 .nav-child small {
   flex: none;
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
-.nav-child:hover,
-.nav-child.selected {
+.nav-child:hover {
   background: var(--xc-surface-2);
   color: var(--xc-text);
+}
+/* B76：选中的二级菜单用强调色，左边的竖线上加一段强调色 */
+.nav-child {
+  position: relative;
+}
+.nav-child.selected {
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+  font-weight: 500;
+}
+.nav-child.selected::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: -10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--xc-accent);
+}
+.nav-child.selected small,
+.nav-child.selected .nav-child-mark {
+  color: var(--xc-accent-text);
 }
 .nav-child.more {
   color: var(--xc-faint);
@@ -996,10 +1112,40 @@ a.xc-badge:hover {
   flex: none;
   color: var(--xc-faint);
 }
+/* 带小按钮的一行（习惯的 +1） */
+.nav-child-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.nav-child-row > .nav-child {
+  flex: 1;
+}
+.nav-child-action {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-faint);
+  cursor: pointer;
+}
+.nav-child-action:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-accent-text);
+}
+.nav-child-action:disabled {
+  opacity: 0.5;
+}
 .nav-children-note {
   padding: 4px 7px;
   color: var(--xc-faint);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .nav-child-dot {
   flex: none;
@@ -1139,7 +1285,7 @@ a.xc-badge:hover {
   background: none;
   color: var(--xc-muted);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .xc-segmented button.on {
   background: var(--xc-surface-2);
@@ -1158,14 +1304,15 @@ a.xc-badge:hover {
 .xc-more-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 29;
+  z-index: 69;
 }
+/* 菜单挂在 body 上，位置由 MoreMenu 按按钮算好（B54） */
 .xc-more-menu {
-  position: absolute;
-  top: 30px;
-  right: 0;
-  z-index: 30;
+  position: fixed;
+  z-index: 70;
   min-width: 180px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   padding: 4px;
   border: 1px solid var(--xc-border-strong);
   border-radius: 9px;
@@ -1213,7 +1360,7 @@ a.xc-badge:hover {
     padding: 6px 10px 10px;
     overflow: hidden;
     color: var(--xc-muted);
-    font-size: 12.5px;
+    font-size: var(--fs-12-5);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1327,7 +1474,7 @@ a.xc-badge:hover {
   width: auto;
   padding: 0 8px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .xc-mde-input {
   display: block;
@@ -1339,7 +1486,7 @@ a.xc-badge:hover {
   background: none;
   color: var(--xc-text);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-13-5);
   line-height: 1.6;
   resize: none;
 }
@@ -1351,7 +1498,7 @@ a.xc-badge:hover {
 .xc-mde-preview {
   min-height: 6em;
   padding: 10px 12px;
-  font-size: 13.5px;
+  font-size: var(--fs-13-5);
   line-height: 1.6;
 }
 @media (max-width: 720px) {
@@ -1369,6 +1516,37 @@ a.xc-badge:hover {
 .topbar .breadcrumbs > * {
   flex: none;
 }
+/* 设备状态：小点，离线时后面跟一行字 */
+.topbar .breadcrumbs > .breadcrumb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.breadcrumb-status small {
+  font-size: var(--fs-12);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.breadcrumb-status.danger small {
+  color: var(--xc-danger);
+}
+.breadcrumb-status.warn small {
+  color: var(--xc-warn);
+}
+@media (max-width: 720px) {
+  .breadcrumb-status small {
+    display: none;
+  }
+}
+/* 当前页名字放不下时省略，不被右边的按钮压住（B55） */
+.topbar .breadcrumbs > .breadcrumb-detail,
+.topbar .breadcrumbs > [aria-current="page"] {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .topbar .header-actions {
   flex: none;
 }
@@ -1379,7 +1557,7 @@ a.xc-badge:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--xc-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   font-weight: 400;
 }
 .topbar-subtitle::before {
@@ -1409,7 +1587,7 @@ a.xc-badge:hover {
 .page-actions .xc-btn {
   height: 28px;
   padding: 0 9px;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .page-actions .xc-select {
   height: 28px;
@@ -1466,6 +1644,7 @@ a.xc-badge:hover {
   .sidebar.collapsed .sidebar-search span,
   .sidebar.collapsed .sidebar-search kbd,
   .sidebar.collapsed .nav-toggle,
+  .sidebar.collapsed .nav-action,
   .sidebar.collapsed .nav-children,
   .sidebar.collapsed .nav-item span,
   .sidebar.collapsed .nav-item em,
@@ -1494,6 +1673,25 @@ a.xc-badge:hover {
   }
   .sidebar.collapsed .profile-popover {
     width: 220px;
+  }
+  /* 折叠时数量变成图标右上角的点 */
+  .sidebar.collapsed .nav-item {
+    position: relative;
+  }
+  .sidebar.collapsed .nav-badge {
+    position: absolute;
+    top: 5px;
+    right: 9px;
+    min-width: 7px;
+    width: 7px;
+    height: 7px;
+    margin: 0;
+    padding: 0;
+    font-size: 0;
+    background: var(--xc-danger);
+  }
+  .sidebar.collapsed .nav-badge.warn {
+    background: var(--xc-warn);
   }
 }
 @media (max-width: 720px) {
@@ -1524,7 +1722,7 @@ a.xc-badge:hover {
   height: 26px;
   padding: 0 7px;
   color: var(--xc-text-2);
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
 }
 .profile-segmented {
   display: grid;
@@ -1542,7 +1740,7 @@ a.xc-badge:hover {
   border-radius: 5px;
   background: transparent;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .profile-segmented button:hover {
   color: var(--xc-text);
@@ -1599,7 +1797,7 @@ a.xc-badge:hover {
   display: block;
   padding: 0 7px 4px;
   color: var(--xc-faint);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .topbar-subtitle:empty {
   display: none;
@@ -1609,11 +1807,305 @@ a.xc-badge:hover {
 .xc-mde-status {
   padding: 0 6px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 /* 二级菜单里缩进的子链接，比如项目下面的分类（B36） */
 .nav-child.nested {
   padding-left: 22px;
-  font-size: 12px;
+  font-size: var(--fs-12);
+}
+
+/* ---- 报错提示和普通提示的容器（B41） ---- */
+.notice-stack {
+  position: fixed;
+  z-index: 60;
+  right: calc(24px + var(--xc-safe-right, 0px));
+  /* 留出右下角 AI 按钮的位置 */
+  bottom: calc(84px + var(--xc-safe-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  width: min(420px, calc(100vw - 48px));
+  pointer-events: none;
+}
+.notice-stack > * {
+  pointer-events: auto;
+}
+html .notice-stack .toast {
+  position: static;
+  right: auto;
+  bottom: auto;
+  max-width: 100%;
+}
+.error-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.error-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  color: var(--xc-text);
+  background: var(--xc-elevated);
+  border: 1px solid var(--xc-border-strong);
+  border-radius: var(--xc-radius-lg);
+  box-shadow: var(--xc-shadow);
+  animation: toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.error-notice-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--xc-danger);
+}
+.error-notice-body {
+  flex: 1;
+  min-width: 0;
+}
+.error-notice-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.error-notice-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-12-5);
+  font-weight: 600;
+}
+.error-notice-count {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--xc-danger-soft);
+  color: var(--xc-danger);
+  font-size: var(--fs-11);
+  font-weight: 600;
+}
+.error-notice-text {
+  display: -webkit-box;
+  width: 100%;
+  margin: 3px 0 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--xc-text-2);
+  font: inherit;
+  font-size: var(--fs-12);
+  line-height: 1.45;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: pointer;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.error-notice-text.is-open {
+  display: block;
+  max-height: calc(12 * 1.45em);
+  overflow-y: auto;
+  font-family: var(--xc-mono);
+  font-size: var(--fs-11);
+  -webkit-line-clamp: unset;
+}
+.error-notice-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+.error-notice-copy,
+.error-notice-close,
+.error-notices-more button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--xc-text-2);
+  font: inherit;
+  font-size: var(--fs-12);
+  font-weight: 500;
+  cursor: pointer;
+}
+.error-notice-close {
+  padding: 4px;
+  color: var(--xc-muted);
+}
+.error-notice-copy:hover,
+.error-notice-close:hover,
+.error-notices-more button:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-text);
+}
+.error-notices-more {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-elevated);
+  border: 1px solid var(--xc-border);
+}
+.error-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.error-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+}
+.error-history-item > div {
+  flex: 1;
+  min-width: 0;
+}
+.error-history-item strong {
+  display: block;
+  font-size: var(--fs-12-5);
+}
+.error-history-item p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.error-history-item time {
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+}
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 560px;
+  margin: 48px auto;
+  padding: 0 16px;
+}
+.error-boundary pre {
+  width: 100%;
+  max-height: 200px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-11);
+  white-space: pre-wrap;
+}
+@media (max-width: 720px) {
+  .notice-stack {
+    right: calc(12px + var(--xc-safe-right, 0px));
+    left: calc(12px + var(--xc-safe-left, 0px));
+    bottom: calc(76px + var(--xc-safe-bottom, 0px));
+    width: auto;
+  }
+}
+
+/* ---- 手机字号（B44）----
+ * 输入框小于 16px 时 Safari 聚焦会自动放大页面，手机上一律 16px。 */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+@media (max-width: 720px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="color"]
+    ),
+  select,
+  textarea,
+  [contenteditable="true"],
+  .cm-content {
+    font-size: var(--fs-input) !important;
+  }
+}
+
+/* 页内看大图（B54，components/ui/ImageLightbox） */
+.xc-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 64px 32px;
+  background: #000000d9;
+  cursor: zoom-out;
+}
+.xc-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: var(--xc-shadow);
+  cursor: default;
+}
+.xc-lightbox-bar {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.xc-lightbox-count {
+  color: #fffc;
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+.xc-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-top: -20px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff26;
+  color: #fff;
+  cursor: pointer;
+}
+.xc-lightbox-nav:hover {
+  background: #ffffff40;
+}
+.xc-lightbox-nav.prev {
+  left: 12px;
+}
+.xc-lightbox-nav.next {
+  right: 12px;
+}
+@media (max-width: 640px) {
+  .xc-lightbox {
+    padding: 56px 8px 24px;
+  }
+  .xc-lightbox-nav {
+    top: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+/* B68：三级菜单的展开箭头 */
+.nav-child-toggle svg {
+  transition: transform 0.15s;
+}
+.nav-child-toggle.open svg {
+  transform: rotate(90deg);
 }

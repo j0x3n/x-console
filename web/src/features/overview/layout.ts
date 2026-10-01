@@ -15,18 +15,71 @@ export interface CardDef {
   weight?: number;
   /** 默认不显示，要在编辑布局里打开。 */
   hidden?: boolean;
+  /** 属于哪个模块。模块被隐藏时这张卡片不出现（B57） */
+  module?: string;
 }
 
 /** 默认顺序就是这个数组的顺序。 */
 export const cardDefs: CardDef[] = [
-  { id: "todos", title: "To do today", column: "main" },
-  { id: "decisions", title: "Needs your call", column: "main" },
-  { id: "schedule", title: "Schedule", column: "side", weight: 3 },
-  { id: "habits", title: "Habits", column: "side", weight: 2 },
+  { id: "todos", title: "To do today", column: "main", module: "projects" },
+  {
+    id: "decisions",
+    title: "Needs your call",
+    column: "main",
+    module: "projects",
+  },
+  {
+    id: "schedule",
+    title: "Schedule",
+    column: "side",
+    weight: 3,
+    module: "calendar",
+  },
+  {
+    id: "habits",
+    title: "Habits",
+    column: "side",
+    weight: 2,
+    module: "habits",
+  },
   { id: "weather", title: "Weather", column: "top" },
-  { id: "home", title: "Smart home", column: "side", weight: 2 },
+  {
+    id: "home",
+    title: "Smart home",
+    column: "side",
+    weight: 2,
+    module: "home",
+  },
+  {
+    id: "network",
+    title: "Network",
+    column: "side",
+    weight: 1,
+    module: "router",
+  },
+  {
+    id: "mail",
+    title: "Mail",
+    column: "side",
+    weight: 2,
+    module: "mail",
+  },
+  {
+    id: "monitoring",
+    title: "Monitoring",
+    column: "side",
+    weight: 2,
+    module: "monitoring",
+  },
   { id: "activity", title: "Recent activity", column: "side", weight: 3 },
-  { id: "fitness", title: "Workout", column: "side", weight: 2, hidden: true },
+  {
+    id: "fitness",
+    title: "Workout",
+    column: "side",
+    weight: 2,
+    hidden: true,
+    module: "habits",
+  },
 ];
 
 export interface LayoutCard {
@@ -131,4 +184,9 @@ export function spreadSide(cards: LayoutCard[], n: number): LayoutCard[][] {
     heights[i] += cardDefs.find((d) => d.id === c.id)?.weight ?? 2;
   }
   return cols;
+}
+
+/** 卡片所属的模块，不属于任何模块时为 null（B57）。 */
+export function cardModule(id: string): string | null {
+  return cardDefs.find((d) => d.id === id)?.module ?? null;
 }

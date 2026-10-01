@@ -49,7 +49,7 @@ html[data-theme="light"] .workspace-page {
   margin-bottom: 6px;
 }
 .workspace-page h2 {
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 600;
 }
 .workspace-page small {
@@ -65,7 +65,7 @@ html[data-theme="light"] .workspace-page {
 .ws-heading p {
   margin: 0;
   color: var(--ws-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.5;
 }
 .ws-heading > :last-child:not(:first-child) {
@@ -82,7 +82,7 @@ html[data-theme="light"] .workspace-page {
   border: 1px solid var(--ws-border);
   border-radius: 6px;
   background: var(--ws-bg);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .ws-secondary:hover,
 .ws-icon-button:hover {
@@ -96,7 +96,7 @@ html[data-theme="light"] .workspace-page {
   gap: 7px;
   min-height: 23px;
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-live {
   width: 6px;
@@ -141,7 +141,7 @@ html[data-theme="light"] .workspace-page {
   border-radius: 6px;
   background: transparent;
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-agent-filters button {
   white-space: nowrap;
@@ -162,7 +162,7 @@ html[data-theme="light"] .workspace-page {
   align-items: center;
   justify-content: center;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
 }
 .ws-agent.teal,
@@ -201,7 +201,7 @@ html[data-theme="light"] .workspace-page {
 .ws-person {
   color: #d7bdd8;
   background: #423048;
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 html[data-theme="light"] .ws-agent.teal,
 html[data-theme="light"] .ws-company.teal {
@@ -257,7 +257,7 @@ html[data-theme="light"] .ws-person {
   border: 0;
   background: transparent;
   color: var(--ws-text);
-  font-size: 11px;
+  font-size: var(--fs-11);
   outline: 0;
   cursor: pointer;
 }
@@ -275,7 +275,7 @@ html[data-theme="light"] .ws-person {
   outline: 0;
   color: var(--ws-text);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .ws-search input::placeholder {
   color: var(--ws-faint);
@@ -298,7 +298,7 @@ html[data-theme="light"] .ws-person {
   border-radius: 4px;
   background: transparent;
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .ws-mode button.active {

@@ -34,8 +34,9 @@ type fakeService struct {
 }
 
 type fakeCall struct {
-	Path string
-	Body string
+	Path   string
+	Body   string
+	Header http.Header
 }
 
 func newFake(t *testing.T, reply func(path string) (int, string)) *fakeService {
@@ -43,7 +44,7 @@ func newFake(t *testing.T, reply func(path string) (int, string)) *fakeService {
 	f.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		f.mu.Lock()
-		f.calls = append(f.calls, fakeCall{Path: r.URL.Path, Body: string(raw)})
+		f.calls = append(f.calls, fakeCall{Path: r.URL.Path, Body: string(raw), Header: r.Header.Clone()})
 		f.mu.Unlock()
 		status, body := f.reply(r.URL.Path)
 		w.WriteHeader(status)
@@ -456,6 +457,9 @@ func TestWebPush(t *testing.T) {
 	calls := push.find("/push/abc")
 	if len(calls) != 1 || len(calls[0].Body) == 0 {
 		t.Fatalf("push calls: %+v", calls)
+	}
+	if calls[0].Header.Get("TTL") != "259200" {
+		t.Fatalf("ttl: %q", calls[0].Header.Get("TTL"))
 	}
 	// The push service says the subscription is gone: it is removed.
 	mu.Lock()

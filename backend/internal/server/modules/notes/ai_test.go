@@ -34,17 +34,19 @@ func (f *fakeNoteLLM) CompleteJSON(ctx context.Context, purpose, system, user st
 }
 
 type manualDelay struct {
-	mu    sync.Mutex
-	tasks []func()
+	mu     sync.Mutex
+	tasks  []func()
+	delays []time.Duration
 }
 
 func (d *manualDelay) Schedule(delay time.Duration, fn func()) func() {
-	if delay != 3*time.Second {
+	if delay != 3*time.Second && delay != 0 {
 		panic("unexpected AI delay")
 	}
 	d.mu.Lock()
 	index := len(d.tasks)
 	d.tasks = append(d.tasks, fn)
+	d.delays = append(d.delays, delay)
 	d.mu.Unlock()
 	return func() { d.mu.Lock(); d.tasks[index] = nil; d.mu.Unlock() }
 }
@@ -157,6 +159,43 @@ func TestNoteAIApplySettings(t *testing.T) {
 	}
 	if status, _ := env.Do(http.MethodPut, "/notes/ai-settings", map[string]any{"tagMode": "invalid"}, nil); status != 400 {
 		t.Fatalf("invalid mode: %d", status)
+	}
+}
+
+// B67: a quick note gets its title and tags at once, even when short, and
+// the tags are added instead of suggested.
+func TestNoteAIQuick(t *testing.T) {
+	env, delay, fake := setupNoteAI(t)
+	short := "明天给王总回电话"
+	env.MustDo("POST", "/notes", api.CreateNote{Body: &short}, nil)
+	delay.Fire()
+	if len(fake.Calls) != 0 {
+		t.Fatalf("short note sent to AI: %d", len(fake.Calls))
+	}
+
+	fake.Queue(llm.Result{Text: `{"title":"给王总回电话","tags":["工作"]}`}, nil)
+	quick := true
+	var created api.Note
+	env.MustDo("POST", "/notes", api.CreateNote{Body: &short, Quick: &quick}, &created)
+	delay.mu.Lock()
+	last := delay.delays[len(delay.delays)-1]
+	delay.mu.Unlock()
+	if last != 0 {
+		t.Fatalf("quick note waited %s", last)
+	}
+	delay.Fire()
+	var updated api.Note
+	env.MustDo("GET", "/notes/"+formatID(created.Id), nil, &updated)
+	if updated.Title != "给王总回电话" || len(updated.Tags) != 1 || updated.Tags[0] != "工作" || updated.SuggestedTags != nil {
+		t.Fatalf("quick note: %+v", updated)
+	}
+
+	hidden := true
+	unlockVault(t, env)
+	env.MustDo("POST", "/notes", api.CreateNote{Body: &short, Quick: &quick, Hidden: &hidden}, nil)
+	delay.Fire()
+	if len(fake.Calls) != 1 {
+		t.Fatalf("hidden quick note sent to AI: %d", len(fake.Calls))
 	}
 }
 

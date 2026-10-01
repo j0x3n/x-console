@@ -45,7 +45,7 @@ func (m *Module) CreateNote(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out, err := m.createNote(r.Context(), deref(body.Title), deref(body.Body), deref(body.Tags), deref(body.Pinned), deref(body.Hidden))
+	out, err := m.createNote(r.Context(), deref(body.Title), deref(body.Body), deref(body.Tags), deref(body.Pinned), deref(body.Hidden), deref(body.Quick))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

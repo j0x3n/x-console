@@ -3,6 +3,7 @@ import {
   deviceName,
   platformOf,
   pushService,
+  shouldSync,
   subscriptionBody,
   urlBase64ToUint8Array,
 } from "./push";
@@ -61,5 +62,25 @@ describe("push self-check (B34)", () => {
     expect(deviceName(chrome)).toBe("Chrome · Android");
     expect(platformOf(safari)).toBe("ios");
     expect(deviceName("")).toBe("");
+  });
+});
+
+describe("shouldSync", () => {
+  const now = 10_000_000;
+  it("没同步过时要同步", () => {
+    expect(shouldSync("https://a/1", null, now)).toBe(true);
+  });
+  it("同一个订阅 1 小时内不重复", () => {
+    expect(shouldSync("https://a/1", `${now - 60_000} https://a/1`, now)).toBe(
+      false,
+    );
+    expect(
+      shouldSync("https://a/1", `${now - 3_700_000} https://a/1`, now),
+    ).toBe(true);
+  });
+  it("换了订阅马上同步", () => {
+    expect(shouldSync("https://a/2", `${now - 60_000} https://a/1`, now)).toBe(
+      true,
+    );
   });
 });

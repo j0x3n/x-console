@@ -28,7 +28,7 @@
   font-weight: 400;
 }
 .ws-lane-heading small {
-  font-size: 10px;
+  font-size: var(--fs-10);
   white-space: nowrap;
 }
 .ws-lane-dot {
@@ -96,7 +96,7 @@
   min-width: 0;
   padding-right: 15px;
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .ws-card-meta b {
@@ -111,14 +111,14 @@
 .ws-card-meta em {
   margin-left: auto;
   color: var(--ws-faint);
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-style: normal;
 }
 .ws-work-card h3 {
   margin: 8px 0 6px;
   overflow: hidden;
   color: var(--ws-text);
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -132,7 +132,7 @@
   border: 0;
   background: none;
   color: var(--ws-muted) !important;
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -163,7 +163,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .ws-progress {
   position: relative;
@@ -201,7 +201,7 @@ html[data-theme="light"] .ws-progress {
   border-radius: 5px;
   background: var(--ws-deep);
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
   text-align: left;
 }
 .ws-draft-strip span {
@@ -221,7 +221,7 @@ html[data-theme="light"] .ws-progress {
 }
 .ws-inline-health small {
   width: 100%;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .ws-review-actions {
   display: flex;
@@ -241,7 +241,7 @@ html[data-theme="light"] .ws-progress {
   border-radius: 5px;
   background: transparent;
   color: var(--ws-muted);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .ws-review-actions button:hover,
 .ws-drawer-actions button:hover {
@@ -267,7 +267,7 @@ html[data-theme="light"] .ws-drawer-actions .ws-approve {
 .ws-empty-table {
   padding: 18px;
   color: var(--ws-faint);
-  font-size: 12px;
+  font-size: var(--fs-12);
   text-align: center;
 }
 .ws-drawer-backdrop,
@@ -297,7 +297,7 @@ html[data-theme="light"] .ws-drawer-actions .ws-approve {
   padding: 0 18px;
   border-bottom: 1px solid var(--ws-border);
   color: var(--ws-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .ws-drawer-top button {
   display: inline-flex;
@@ -319,7 +319,7 @@ html[data-theme="light"] .ws-drawer-actions .ws-approve {
   gap: 16px;
   padding: 15px 0;
   border-bottom: 1px solid var(--ws-line);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .ws-detail-line span {
   color: var(--ws-faint);

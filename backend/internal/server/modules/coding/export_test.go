@@ -19,3 +19,9 @@ var (
 	BranchName = branchName
 	GithubRepo = githubRepo
 )
+
+// ParseExecutorUsageForTest exposes the B42 executor usage parser.
+func ParseExecutorUsageForTest(executor string, raw []byte) (input, cached, cacheWrite, output int64, cost *float64, ok bool) {
+	u, ok := parseExecutorUsage(executor, raw)
+	return u.input, u.cached, u.cacheWrite, u.output, u.cost, ok
+}

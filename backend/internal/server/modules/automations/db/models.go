@@ -23,6 +23,28 @@ type Agent struct {
 	RevokedAt    *time.Time
 }
 
+type AiAgent struct {
+	ID               int64
+	Name             string
+	Avatar           string
+	Color            string
+	Kind             string
+	Model            string
+	Instructions     string
+	RunnerAgentID    *string
+	Access           string
+	CliPermission    string
+	RepoIds          string
+	MaxParallel      int64
+	MonthlyBudgetUsd *float64
+	AutoBuild        int64
+	BuildRetries     int64
+	Enabled          int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	HostIds          string
+}
+
 type AiAttachment struct {
 	ID             int64
 	ConversationID *int64
@@ -34,11 +56,22 @@ type AiAttachment struct {
 }
 
 type AiConversation struct {
+	ID         int64
+	Title      string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	HostID     *string
+	Permission string
+	Model      string
+	Effort     string
+}
+
+type AiMemory struct {
 	ID        int64
-	Title     string
+	Text      string
+	Source    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	HostID    *string
 }
 
 type AiMessage struct {
@@ -86,16 +119,24 @@ type AiProviderModel struct {
 }
 
 type AiUsage struct {
-	ID           int64
-	ProviderID   *int64
-	ProviderName string
-	Model        string
-	Purpose      string
-	InputTokens  int64
-	OutputTokens int64
-	DurationMs   int64
-	Cost         *float64
-	CreatedAt    time.Time
+	ID                int64
+	ProviderID        *int64
+	ProviderName      string
+	Model             string
+	Purpose           string
+	InputTokens       int64
+	OutputTokens      int64
+	DurationMs        int64
+	Cost              *float64
+	CreatedAt         time.Time
+	CachedInputTokens int64
+	CacheWriteTokens  int64
+	ReasoningTokens   int64
+	Source            string
+	Ref               string
+	Status            string
+	Error             string
+	CostEstimated     int64
 }
 
 type AlertEvent struct {
@@ -121,6 +162,20 @@ type AlertRule struct {
 	Severity        string
 	Enabled         int64
 	CreatedAt       time.Time
+}
+
+type ApiToken struct {
+	ID         int64
+	Name       string
+	Prefix     string
+	TokenHash  string
+	Access     string
+	Modules    string
+	ExpiresAt  *time.Time
+	CreatedAt  time.Time
+	LastUsedAt *time.Time
+	LastUsedIp string
+	RevokedAt  *time.Time
 }
 
 type AuditLog struct {
@@ -156,6 +211,19 @@ type AutomationRun struct {
 	TriggerData  string
 	Steps        string
 	Status       string
+}
+
+type BoardList struct {
+	ID         int64
+	BoardID    int64
+	Name       string
+	Position   float64
+	Status     *string
+	Color      string
+	WipLimit   int64
+	Collapsed  int64
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
 }
 
 type Brief struct {
@@ -209,6 +277,11 @@ type CodingRepo struct {
 	RemoteUrl     string
 	GithubRepo    string
 	CreatedAt     time.Time
+	ConnectionID  *int64
+	Owner         string
+	Repo          string
+	CloneUrl      string
+	BuildConfig   string
 }
 
 type CodingTask struct {
@@ -231,6 +304,13 @@ type CodingTask struct {
 	StartedAt      *time.Time
 	FinishedAt     *time.Time
 	UpdatedAt      time.Time
+	AiAgentID      *int64
+	Model          string
+	Permission     string
+	BuildStatus    string
+	BuildAttempts  int64
+	Artifacts      string
+	BuildError     string
 }
 
 type CodingTaskEvent struct {
@@ -299,6 +379,20 @@ type FocusSession struct {
 	Completed      int64
 	Note           string
 	NotifiedAt     *time.Time
+}
+
+type GitConnection struct {
+	ID               int64
+	Kind             string
+	Name             string
+	BaseUrl          string
+	Username         string
+	TokenEnc         string
+	UseGithubModule  int64
+	WebhookSecretEnc string
+	CreatedAt        time.Time
+	LastCheckedAt    *time.Time
+	LastError        string
 }
 
 type GithubCiState struct {
@@ -473,6 +567,19 @@ type Issue struct {
 	DueAt          *string
 	DueRemind      string
 	DueNotifiedAt  *string
+	BoardID        *int64
+	ListID         *int64
+	ArchivedAt     *time.Time
+	CoverFileID    *int64
+}
+
+type IssueActivity struct {
+	ID      int64
+	IssueID int64
+	At      time.Time
+	Actor   string
+	Kind    string
+	Data    string
 }
 
 type IssueChecklist struct {
@@ -496,6 +603,7 @@ type IssueComment struct {
 	IssueID   int64
 	Body      string
 	CreatedAt time.Time
+	Author    string
 }
 
 type IssueLabel struct {
@@ -511,6 +619,12 @@ type IssueLink struct {
 	Url       string
 	Ref       string
 	CreatedAt time.Time
+}
+
+type IssueMember struct {
+	IssueID    int64
+	MemberKind string
+	MemberID   string
 }
 
 type Label struct {
@@ -538,6 +652,38 @@ type LinearTeam struct {
 	CreatedAt time.Time
 }
 
+type MailAccount struct {
+	ID          int64
+	Name        string
+	Email       string
+	Provider    string
+	ImapHost    string
+	ImapPort    int64
+	Username    string
+	PasswordEnc string
+	Notify      int64
+	UidValidity int64
+	LastUid     int64
+	LastSyncAt  *time.Time
+	CreatedAt   time.Time
+}
+
+type MailMessage struct {
+	ID             int64
+	AccountID      int64
+	Uid            int64
+	MessageID      string
+	FromName       string
+	FromAddress    string
+	Subject        string
+	Snippet        string
+	Date           time.Time
+	Unread         int64
+	Flagged        int64
+	HasAttachments int64
+	BodyJson       *string
+}
+
 type Milestone struct {
 	ID        int64
 	ProjectID int64
@@ -563,6 +709,15 @@ type Monitor struct {
 	ExpiresAt           *time.Time
 	ExpiryNotified      string
 	CreatedAt           time.Time
+	ManualExpiresAt     *time.Time
+	ExpirySource        string
+}
+
+type MonitorIcon struct {
+	MonitorID int64
+	Mime      string
+	Data      []byte
+	FetchedAt time.Time
 }
 
 type MonitorResult struct {
@@ -645,16 +800,29 @@ type PairingCode struct {
 }
 
 type Project struct {
-	ID          int64
-	Key         string
-	Name        string
-	Description string
-	Color       string
-	Icon        string
-	ArchivedAt  *time.Time
-	NextNumber  int64
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           int64
+	Key          string
+	Name         string
+	Description  string
+	Color        string
+	Icon         string
+	ArchivedAt   *time.Time
+	NextNumber   int64
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	LayoutLocked int64
+}
+
+type ProjectBoard struct {
+	ID         int64
+	ProjectID  int64
+	Name       string
+	Icon       string
+	Position   float64
+	Starred    int64
+	ArchivedAt *time.Time
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type ProjectCategory struct {
@@ -678,6 +846,13 @@ type Reminder struct {
 	DoneAt       *time.Time
 	Enabled      int64
 	CreatedAt    time.Time
+}
+
+type RouterTraffic struct {
+	At      int64
+	Seconds int64
+	Rx      int64
+	Tx      int64
 }
 
 type Script struct {
@@ -736,6 +911,16 @@ type SshHost struct {
 	CreatedAt time.Time
 }
 
+type StorageRemote struct {
+	ID          int64
+	Kind        string
+	Name        string
+	Config      string
+	ShowInDrive int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type Subscription struct {
 	ID               int64
 	Name             string
@@ -756,6 +941,7 @@ type Subscription struct {
 	CategoryID       *int64
 	CycleCount       int64
 	CycleUnit        string
+	Account          string
 }
 
 type SubscriptionCategory struct {

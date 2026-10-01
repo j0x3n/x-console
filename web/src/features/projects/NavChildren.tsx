@@ -3,18 +3,18 @@ import NavChildLinks, {
   type NavChildLink,
 } from "../../components/layout/NavChildLinks";
 import { NAV_CHILD_LIMIT, type NavChildrenProps } from "../../lib/navChildren";
-import { useB36Live, useProjects } from "./api";
-import { categoryTree } from "./logic";
+import { useBoards, useProjects, useStarredBoards } from "./api";
 
-/** 分类最多显示几条。 */
-const CATEGORY_LIMIT = 5;
+/** 标星的看板最多显示几条。 */
+const STARRED_LIMIT = 8;
 
 /**
  * 侧边栏“项目”下面：最近更新的项目。
- * 正在看某个项目时，它下面缩进列出一级分类（B36）。
+ * 正在看的项目下面缩进列出它的全部看板，方便切换；其他项目只列标星的看板（B46）。
  */
 export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
   const projects = useProjects();
+  const starred = useStarredBoards();
   const { pathname } = useLocation();
   const [search] = useSearchParams();
   const list = [...(projects.data ?? [])]
@@ -23,12 +23,12 @@ export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
   const activeKey = /^\/projects\/([A-Za-z]{2,5})(?:\/|$)/
     .exec(pathname)?.[1]
     ?.toUpperCase();
-  const active = list.find((p) => p.key === activeKey);
-  const { categories } = useB36Live(active?.id);
-  const top = categoryTree(categories)
-    .filter((n) => n.depth === 0)
-    .slice(0, CATEGORY_LIMIT);
-  const current = search.get("category");
+  const currentBoard = search.get("board");
+  const stars = (starred.data ?? []).slice(0, STARRED_LIMIT);
+  const activeId = projects.data?.find((p) => p.key === activeKey)?.id;
+  const activeBoards = (useBoards(activeId).data ?? []).filter(
+    (b) => !b.archivedAt,
+  );
 
   const links: NavChildLink[] = [];
   for (const p of list) {
@@ -43,17 +43,20 @@ export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
         />
       ),
       hint: p.key,
-      active: p.key === activeKey && current === null,
+      active: p.key === activeKey && currentBoard === null,
     });
-    if (p.id === active?.id)
-      for (const n of top)
-        links.push({
-          key: `c${n.category.id}`,
-          to: `/projects/${p.key}?category=${n.category.id}`,
-          label: n.category.name,
-          nested: true,
-          active: current === String(n.category.id),
-        });
+    const nested =
+      p.id === activeId && activeBoards.length > 1
+        ? activeBoards
+        : stars.filter((s) => s.projectId === p.id);
+    for (const b of nested)
+      links.push({
+        key: `b${b.id}`,
+        to: `/projects/${p.key}?board=${b.id}`,
+        label: `${b.icon ? b.icon + " " : ""}${b.name}`,
+        nested: true,
+        active: p.key === activeKey && currentBoard === String(b.id),
+      });
   }
   return (
     <NavChildLinks

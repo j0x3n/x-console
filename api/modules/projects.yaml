@@ -304,6 +304,10 @@ paths:
         - name: projectId
           in: query
           schema: { type: integer, format: int64 }
+        - name: boardId
+          in: query
+          description: B46。只看这个看板的卡片
+          schema: { type: integer, format: int64 }
         - name: status
           in: query
           description: 可以传多个
@@ -417,6 +421,324 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Issue" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /projects/{projectId}/boards:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      operationId: listBoards
+      tags: [boards]
+      description: B46。项目的看板，每个带上它的列表。
+      parameters:
+        - name: archived
+          in: query
+          description: 包含已归档的看板和列表
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 看板
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Board" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createBoard
+      tags: [boards]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBoard" }
+      responses:
+        "201":
+          description: 新看板
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Board" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /boards/starred:
+    get:
+      operationId: listStarredBoards
+      tags: [boards]
+      description: B46。标星的看板，侧边栏用。
+      responses:
+        "200":
+          description: 标星的看板
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, projectId, projectKey, projectName, name, icon]
+                  properties:
+                    id: { type: integer, format: int64 }
+                    projectId: { type: integer, format: int64 }
+                    projectKey: { type: string }
+                    projectName: { type: string }
+                    name: { type: string }
+                    icon: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /boards/{boardId}:
+    parameters:
+      - { name: boardId, in: path, required: true, schema: { type: integer, format: int64 } }
+    patch:
+      operationId: updateBoard
+      tags: [boards]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateBoard" }
+      responses:
+        "200":
+          description: 改后的看板
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Board" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteBoard
+      tags: [boards]
+      description: 删除看板。里面的卡片移到项目的第一个看板（按状态放进对应列表）。项目只剩这一个看板时不能删。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /boards/{boardId}/copy:
+    parameters:
+      - { name: boardId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: copyBoard
+      tags: [boards]
+      description: 复制看板的列表结构，不复制卡片。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 60 }
+      responses:
+        "201":
+          description: 新看板
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Board" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /boards/{boardId}/lists:
+    parameters:
+      - { name: boardId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: createBoardList
+      tags: [boards]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBoardList" }
+      responses:
+        "201":
+          description: 新列表，放在最后
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /boards/{boardId}/archive:
+    parameters:
+      - { name: boardId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: listBoardArchive
+      tags: [boards]
+      description: 归档的卡片（最多 200 张）和列表。
+      responses:
+        "200":
+          description: 归档内容
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [issues, lists]
+                properties:
+                  issues:
+                    type: array
+                    items: { $ref: "#/components/schemas/Issue" }
+                  lists:
+                    type: array
+                    items: { $ref: "#/components/schemas/BoardList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /lists/{listId}:
+    parameters:
+      - { name: listId, in: path, required: true, schema: { type: integer, format: int64 } }
+    patch:
+      operationId: updateBoardList
+      tags: [boards]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateBoardList" }
+      responses:
+        "200":
+          description: 改后的列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BoardList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteBoardList
+      tags: [boards]
+      description: 删除列表。里面还有卡片（包括归档的）时不能删，先移走或归档后再删。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /lists/{listId}/archive-cards:
+    parameters:
+      - { name: listId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: archiveListCards
+      tags: [boards]
+      responses:
+        "200":
+          description: 归档了几张
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [archived]
+                properties:
+                  archived: { type: integer }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /lists/{listId}/move-cards:
+    parameters:
+      - { name: listId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: moveListCards
+      tags: [boards]
+      description: 把列表里全部卡片移到另一个列表的末尾。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toListId]
+              properties:
+                toListId: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 移了几张
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [moved]
+                properties:
+                  moved: { type: integer }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /issues/{key}/archive:
+    parameters:
+      - $ref: "#/components/parameters/IssueKey"
+    post:
+      operationId: archiveIssue
+      tags: [issues]
+      description: B46。归档卡片。看板、提醒页、到期提醒都不再显示。
+      responses:
+        "200":
+          description: 归档后的卡片
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Issue" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /issues/{key}/restore:
+    parameters:
+      - $ref: "#/components/parameters/IssueKey"
+    post:
+      operationId: restoreIssue
+      tags: [issues]
+      description: B46。恢复归档的卡片，回到原列表末尾；原列表没了就放到看板第一个列表。
+      responses:
+        "200":
+          description: 恢复后的卡片
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Issue" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /issues/{key}/copy:
+    parameters:
+      - $ref: "#/components/parameters/IssueKey"
+    post:
+      operationId: copyIssue
+      tags: [issues]
+      description: B46。复制卡片：标题加“（副本）”，复制描述、标签、截止时间、检查清单，放在原卡片下面。
+      responses:
+        "201":
+          description: 新卡片
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Issue" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /issues/{key}/members:
+    parameters:
+      - $ref: "#/components/parameters/IssueKey"
+    put:
+      operationId: setIssueMembers
+      tags: [issues]
+      description: B46。整体替换成员。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [members]
+              properties:
+                members:
+                  type: array
+                  maxItems: 20
+                  items: { $ref: "#/components/schemas/IssueMember" }
+      responses:
+        "200":
+          description: 改后的卡片
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Issue" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /issues/{key}/activity:
+    parameters:
+      - $ref: "#/components/parameters/IssueKey"
+    get:
+      operationId: listIssueActivity
+      tags: [issues]
+      description: B46。活动记录，新的在前，最多 200 条。
+      responses:
+        "200":
+          description: 活动
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/IssueActivity" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /issues/{key}/comments:
@@ -684,6 +1006,9 @@ components:
         updatedAt: { type: string, format: date-time }
         issueCount: { type: integer }
         openCount: { type: integer, description: 未完成也未取消的 Issue 数 }
+        layoutLocked:
+          type: boolean
+          description: B55。锁定看板结构：不能加、改、删看板和列表，卡片照常操作
     CreateProject:
       type: object
       required: [key, name]
@@ -701,6 +1026,7 @@ components:
         color: { type: string }
         icon: { type: string }
         archived: { type: boolean, description: false 表示恢复归档 }
+        layoutLocked: { type: boolean, description: B55。锁定或解锁看板结构 }
     Label:
       type: object
       required: [id, name, color]
@@ -770,6 +1096,20 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         completedAt: { type: string, format: date-time }
+        boardId: { type: integer, format: int64, description: B46。所在看板 }
+        listId: { type: integer, format: int64, description: B46。所在列表 }
+        archivedAt: { type: string, format: date-time, description: B46。归档时间，没归档时不返回 }
+        members:
+          type: array
+          description: B46。成员：me 是自己，agent 是 B47 的 Agent
+          items: { $ref: "#/components/schemas/IssueMember" }
+        commentCount: { type: integer, description: B46。评论数 }
+    IssueMember:
+      type: object
+      required: [kind, id]
+      properties:
+        kind: { type: string, enum: [me, agent] }
+        id: { type: string, description: me 时为空串，agent 时是 Agent id }
     CreateIssue:
       type: object
       required: [title]
@@ -786,6 +1126,8 @@ components:
         labelIds:
           type: array
           items: { type: integer, format: int64 }
+        boardId: { type: integer, format: int64, description: B46。不传用项目的第一个看板 }
+        listId: { type: integer, format: int64, description: B46。不传用看板里对应状态的列表，没有就用第一个列表。列表有对应状态时，卡片状态改成它 }
     UpdateIssue:
       type: object
       properties:
@@ -870,11 +1212,82 @@ components:
         beforeId: { type: integer, format: int64 }
     MoveIssue:
       type: object
-      required: [status]
+      description: B46 起可以只传 listId（可以是别的看板或别的项目的列表），这时 status 不用传，列表有对应状态时卡片状态跟着变。只传 status 时，放进卡片所在看板里对应这个状态的列表。
       properties:
         status: { $ref: "#/components/schemas/IssueStatus" }
+        listId: { type: integer, format: int64, description: B46。目标列表 }
         afterKey: { type: string, description: 落点上方的 Issue }
         beforeKey: { type: string, description: 落点下方的 Issue }
+    Board:
+      type: object
+      required: [id, projectId, name, icon, position, starred, createdAt, updatedAt, lists]
+      properties:
+        id: { type: integer, format: int64 }
+        projectId: { type: integer, format: int64 }
+        name: { type: string }
+        icon: { type: string, description: 一个 emoji，可以为空 }
+        position: { type: number, format: double }
+        starred: { type: boolean }
+        archivedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        lists:
+          type: array
+          items: { $ref: "#/components/schemas/BoardList" }
+    BoardList:
+      type: object
+      required: [id, boardId, name, position, color, wipLimit, collapsed, cardCount]
+      properties:
+        id: { type: integer, format: int64 }
+        boardId: { type: integer, format: int64 }
+        name: { type: string }
+        position: { type: number, format: double }
+        status: { $ref: "#/components/schemas/IssueStatus" }
+        color: { type: string }
+        wipLimit: { type: integer, description: 0 表示不限 }
+        collapsed: { type: boolean }
+        archivedAt: { type: string, format: date-time }
+        cardCount: { type: integer, description: 没归档的卡片数 }
+    CreateBoard:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        icon: { type: string, maxLength: 16 }
+        preset: { type: string, enum: [statuses, simple, empty], description: statuses 按 6 个状态建列表（默认）；simple 待处理、进行中、已完成；empty 不建列表 }
+    UpdateBoard:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        icon: { type: string, maxLength: 16 }
+        starred: { type: boolean }
+        archived: { type: boolean }
+        afterId: { type: integer, format: int64, description: 排序：放在这个看板后面，0 表示放到最前 }
+    CreateBoardList:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        status: { $ref: "#/components/schemas/IssueStatus" }
+    UpdateBoardList:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        status: { type: string, nullable: true, enum: [backlog, todo, in_progress, in_review, done, canceled, null], description: null 表示不对应状态 }
+        color: { type: string, maxLength: 20 }
+        wipLimit: { type: integer, minimum: 0, maximum: 999 }
+        collapsed: { type: boolean }
+        archived: { type: boolean }
+        afterId: { type: integer, format: int64, description: 排序：放在这个列表后面，0 表示放到最前 }
+    IssueActivity:
+      type: object
+      required: [id, at, actor, kind, data]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        actor: { type: string, description: me、agent:<id>、token:<名字>、automation:<id> }
+        kind: { type: string, description: created、moved、status、archived、restored、members、copied、title、due }
+        data: { type: object, additionalProperties: true }
     Comment:
       type: object
       required: [id, issueId, body, createdAt]
@@ -883,6 +1296,7 @@ components:
         issueId: { type: integer, format: int64 }
         body: { type: string, description: Markdown }
         createdAt: { type: string, format: date-time }
+        author: { type: string, description: B47 空是自己，agent:<id> 是 Agent }
     CreateComment:
       type: object
       required: [body]

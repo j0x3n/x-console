@@ -240,10 +240,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notes/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B73。左栏后面的数字。都不含隐藏笔记和已归档的（archived 除外） */
+        get: operations["getNoteCounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notes/{noteId}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        /** @description B72。这条笔记的外链。没分享时回 404 share_not_found */
+        get: operations["getNoteShare"];
+        /** @description B72。创建或修改外链，要提升权限。隐藏笔记回 400 */
+        put: operations["putNoteShare"];
+        post?: never;
+        /** @description B72。停止分享 */
+        delete: operations["deleteNoteShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/notes/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["NoteShareToken"];
+            };
+            cookie?: never;
+        };
+        /**
+         * @description B72 公开入口，不用登录。链接不存在、过期、笔记删了或隐藏了，回 404 share_not_found。
+         *     有密码又没带有效的 t 时回 401 note_password_required（没有内容）。按 IP 限流每分钟 60 次。
+         *     正文里的附件地址换成 /api/v1/public/notes/<token>/files/<id>?t=<t>。
+         */
+        get: operations["getPublicNote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/notes/{token}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["NoteShareToken"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B72。校验密码，成功时发一个 12 小时有效的访问令牌。错了回 403 note_password_wrong；
+         *     同一个 IP 每分钟最多试 5 次，连错 10 次锁 15 分钟，锁住时回 429。
+         */
+        post: operations["unlockPublicNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/notes/{token}/files/{attachmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["NoteShareToken"];
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        /** @description B72。分享的笔记正文里引用的附件，inline。没引用的回 404 */
+        get: operations["getPublicNoteFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description B73。note 是笔记；memo 是便签（快速记录存成便签，瀑布流显示）
+         * @enum {string}
+         */
+        NoteKind: "note" | "memo";
+        /**
+         * @description B74。背景色的名字，空字符串是默认。前端按主题换成具体颜色
+         * @enum {string}
+         */
+        NoteColor: "" | "red" | "orange" | "yellow" | "green" | "teal" | "blue" | "purple" | "pink" | "brown" | "gray";
+        NoteCounts: {
+            notes: number;
+            memos: number;
+            pinned: number;
+            archived: number;
+        };
+        NoteShareInput: {
+            /** @enum {string} */
+            expiresIn: "1d" | "7d" | "30d" | "never";
+            /** @description 不传表示不改 */
+            password?: string;
+            clearPassword?: boolean;
+        };
+        NoteShare: {
+            token: string;
+            /** @description 完整链接，https://<面板>/n/<token> */
+            url: string;
+            /**
+             * Format: date-time
+             * @description 不返回表示永久
+             */
+            expiresAt?: string;
+            hasPassword: boolean;
+            visits: number;
+            /** Format: date-time */
+            lastVisitAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PublicNote: {
+            title: string;
+            /** @description Markdown，附件地址已经换成公开地址 */
+            body: string;
+            color?: components["schemas"]["NoteColor"];
+            /** Format: date-time */
+            updatedAt: string;
+        };
         Note: {
             /** Format: int64 */
             id: number;
@@ -254,6 +404,10 @@ export interface components {
             tags: string[];
             /** @description B13 隐藏笔记，只在解锁后出现 */
             hidden?: boolean;
+            kind?: components["schemas"]["NoteKind"];
+            color?: components["schemas"]["NoteColor"];
+            /** @description B72。有外链 */
+            shared?: boolean;
             /** @description B32。AI 建议的标签，用户点了才加上。加上的标签后端自动从这里去掉 */
             suggestedTags?: string[];
             /** Format: date-time */
@@ -277,6 +431,14 @@ export interface components {
             thumbnail?: string;
             /** @description B13 隐藏笔记，只在解锁后出现 */
             hidden?: boolean;
+            kind?: components["schemas"]["NoteKind"];
+            color?: components["schemas"]["NoteColor"];
+            /** @description B72。有外链 */
+            shared?: boolean;
+            /** @description B73。只在 kind=memo 的列表里返回正文（瀑布流要渲染），最多 4000 字 */
+            body?: string;
+            /** @description B73。body 截断了 */
+            bodyTruncated?: boolean;
             /** Format: date-time */
             archivedAt?: string;
             /** Format: date-time */
@@ -305,6 +467,10 @@ export interface components {
             tags?: string[];
             /** @description 直接建成隐藏笔记，要先解锁 */
             hidden?: boolean;
+            /** @description 快速记录。保存后马上生成标题和标签，标签直接加上，正文短也生成 */
+            quick?: boolean;
+            kind?: components["schemas"]["NoteKind"];
+            color?: components["schemas"]["NoteColor"];
         };
         UpdateNote: {
             title?: string;
@@ -313,12 +479,16 @@ export interface components {
             archived?: boolean;
             /** @description 设为隐藏或取消隐藏，要先解锁 */
             hidden?: boolean;
+            kind?: components["schemas"]["NoteKind"];
+            color?: components["schemas"]["NoteColor"];
             /** @description 传了就整体替换 */
             tags?: string[];
         };
         TagCount: {
             tag: string;
             count: number;
+            /** @description B73。这个标签下的便签数 */
+            memoCount?: number;
             /** @description 用户给标签设的颜色，形如 */
             color?: string;
         };
@@ -352,6 +522,8 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+            /** @description 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41） */
+            requestId?: string;
         };
     };
     responses: {
@@ -366,6 +538,7 @@ export interface components {
         };
     };
     parameters: {
+        NoteShareToken: string;
         AttachmentId: number;
         NoteId: number;
         Limit: number;
@@ -390,6 +563,8 @@ export interface operations {
                  *     不传时只返回普通笔记。隐藏笔记不进全文索引，搜索用 LIKE。
                  */
                 hidden?: boolean;
+                /** @description B73。只看笔记或只看便签，不传时两种都返回 */
+                kind?: components["schemas"]["NoteKind"];
                 limit?: components["parameters"]["Limit"];
                 cursor?: components["parameters"]["Cursor"];
             };
@@ -877,6 +1052,185 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNoteCounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 数量 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteCounts"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNoteShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 外链 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteShare"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putNoteShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteShareInput"];
+            };
+        };
+        responses: {
+            /** @description 外链 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteShare"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteNoteShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                noteId: components["parameters"]["NoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已停止 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicNote: {
+        parameters: {
+            query?: {
+                /** @description 解锁后拿到的访问令牌 */
+                t?: string;
+            };
+            header?: never;
+            path: {
+                token: components["parameters"]["NoteShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 笔记内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicNote"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unlockPublicNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["NoteShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 通过 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicNoteFile: {
+        parameters: {
+            query?: {
+                t?: string;
+                /** @description 图片取缩略图 */
+                thumb?: boolean;
+            };
+            header?: never;
+            path: {
+                token: components["parameters"]["NoteShareToken"];
+                attachmentId: components["parameters"]["AttachmentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
             };
             default: components["responses"]["Error"];
         };

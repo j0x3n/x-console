@@ -62,7 +62,8 @@ SELECT * FROM monitors WHERE enabled = 1 ORDER BY id;
 
 -- name: UpdateMonitor :one
 UPDATE monitors
-SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?
+SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?,
+    manual_expires_at = ?, expiry_source = ?
 WHERE id = ?
 RETURNING *;
 
@@ -70,12 +71,13 @@ RETURNING *;
 -- The target changed: forget the old state so alerts start fresh.
 UPDATE monitors
 SET last_status = 'unknown', last_checked_at = NULL, last_error = '', consecutive_failures = 0,
-    expires_at = NULL, expiry_notified = '[]'
+    expires_at = NULL, expiry_notified = '[]', expiry_source = ''
 WHERE id = ?;
 
 -- name: SetMonitorState :one
 UPDATE monitors
-SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?
+SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?,
+    expiry_source = ?, manual_expires_at = ?
 WHERE id = ?
 RETURNING *;
 
@@ -93,12 +95,32 @@ SELECT * FROM monitor_results WHERE monitor_id = ? AND at >= ? ORDER BY at, id;
 -- name: DeleteMonitorResultsBefore :execrows
 DELETE FROM monitor_results WHERE at < ?;
 
+-- name: ListMonitorIconTimes :many
+SELECT monitor_id, fetched_at FROM monitor_icons;
+
+-- name: GetMonitorIconTime :one
+SELECT fetched_at FROM monitor_icons WHERE monitor_id = ?;
+
+-- name: GetMonitorIcon :one
+SELECT mime, data, fetched_at FROM monitor_icons WHERE monitor_id = ?;
+
+-- name: DeleteMonitorIcon :exec
+DELETE FROM monitor_icons WHERE monitor_id = ?;
+
+-- name: UpsertMonitorIcon :exec
+INSERT INTO monitor_icons (monitor_id, mime, data, fetched_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (monitor_id) DO UPDATE SET
+    mime = excluded.mime,
+    data = excluded.data,
+    fetched_at = excluded.fetched_at;
+
 -- ---- subscriptions ----
 
 -- name: CreateSubscription :one
 INSERT INTO subscriptions (name, category, category_id, amount, currency, cycle, cycle_days, cycle_count, cycle_unit,
-                           next_renewal, remind_days_before, url, note, auto_renew, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           next_renewal, remind_days_before, url, note, account, auto_renew, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSubscription :one
@@ -111,7 +133,7 @@ SELECT * FROM subscriptions ORDER BY next_renewal, id;
 UPDATE subscriptions
 SET name = ?, category = ?, category_id = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, cycle_count = ?,
     cycle_unit = ?, next_renewal = ?,
-    remind_days_before = ?, reminded = ?, url = ?, note = ?, auto_renew = ?, archived_at = ?, updated_at = ?
+    remind_days_before = ?, reminded = ?, url = ?, note = ?, account = ?, auto_renew = ?, archived_at = ?, updated_at = ?
 WHERE id = ?
 RETURNING *;
 

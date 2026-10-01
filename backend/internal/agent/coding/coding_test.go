@@ -474,3 +474,17 @@ func TestRunRejectsBadParams(t *testing.T) {
 		t.Fatal("branch created by a rejected run")
 	}
 }
+
+// B42：result 事件把 usage 原样带给服务端。
+func TestParseClaudeKeepsUsage(t *testing.T) {
+	evs := claudeParser{}.line([]byte(`{"type":"result","subtype":"success","total_cost_usd":0.1,"usage":{"input_tokens":5,"cache_read_input_tokens":100,"output_tokens":7}}`))
+	if len(evs) != 1 {
+		t.Fatalf("events: %+v", evs)
+	}
+	var d struct {
+		Usage map[string]float64 `json:"usage"`
+	}
+	if err := json.Unmarshal(evs[0].Data, &d); err != nil || d.Usage["cache_read_input_tokens"] != 100 || d.Usage["output_tokens"] != 7 {
+		t.Fatalf("data: %s", evs[0].Data)
+	}
+}

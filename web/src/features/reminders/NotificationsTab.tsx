@@ -388,6 +388,16 @@ function PushControls({ channel }: { channel: NotifyChannel }) {
           </li>
           <li>{t("Chrome on Android needs Google services.")}</li>
           <li>
+            {t(
+              "If a device is offline, messages wait up to 3 days. Messages that arrive late show the time they were sent.",
+            )}
+          </li>
+          <li>
+            {t(
+              "Push stops on iPhone when the panel is removed from the Home Screen, or when Safari website data is cleared. Turn push on again after that.",
+            )}
+          </li>
+          <li>
             {t("For more reliable alerts, also turn on Bark or Telegram.")}
           </li>
         </ul>

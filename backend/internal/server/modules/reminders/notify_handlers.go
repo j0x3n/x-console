@@ -359,7 +359,10 @@ func (m *Module) TestWebPush(w http.ResponseWriter, r *http.Request) {
 			httpx.Fail(w, r, err)
 			return
 		}
-		payload, _ := json.Marshal(pushPayload{Kind: "test", Title: "X Console 测试消息", Body: "收到这条说明浏览器推送能用。", Priority: notify.PriorityNormal})
+		now := time.Now()
+		payload, _ := json.Marshal(withSentAt(pushPayload{
+			Kind: "test", Title: "X Console 测试消息", Body: testPushBody(now, m.d.Config.Location), Priority: notify.PriorityNormal,
+		}, now))
 		var wg sync.WaitGroup
 		sem := make(chan struct{}, testPushParallel)
 		for i, s := range subs {

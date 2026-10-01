@@ -1,10 +1,14 @@
+import { MailCard, MonitoringCard } from "./components/ExtraCards";
+import { useModules, type ModuleId } from "../../app/modules";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import {
   ChevronDown,
   ChevronUp,
   Eye,
   EyeOff,
   GripVertical,
+  Newspaper,
   Pencil,
   X,
 } from "lucide-react";
@@ -40,15 +44,20 @@ import {
   toggleCard,
   type Column,
   type LayoutCard,
+  cardModule,
 } from "./layout";
 import { greetingKey, summaryLine } from "./today";
+import TodayNetworkCard from "../router/TodayNetworkCard";
 
 const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   todos: { body: () => <TodosCard />, more: "/projects" },
-  decisions: { body: () => <DecisionsCard />, more: "/coding" },
+  decisions: { body: () => <DecisionsCard />, more: "/coding/tasks" },
   schedule: { body: () => <ScheduleCard />, more: "/calendar" },
   habits: { body: () => <HabitsCard />, more: "/habits" },
   home: { body: () => <HomeCard />, more: "/home" },
+  network: { body: () => <TodayNetworkCard />, more: "/router" }, // B65
+  mail: { body: () => <MailCard />, more: "/mail" },
+  monitoring: { body: () => <MonitoringCard />, more: "/monitoring" },
   activity: { body: () => <ActivityCard /> },
   fitness: { body: () => <FitnessSummary compact />, more: "/habits" },
 };
@@ -94,18 +103,28 @@ export default function TodayPage() {
   const unavailable = layout.data?.unavailable ?? false;
   const [gridRef, gridWidth] = useWidth<HTMLDivElement>();
   const columns = columnCount(gridWidth);
+  const modules = useModules();
   const shown = (column: Column) =>
-    columnCards(cards, column).filter((c) => editing || c.visible);
+    columnCards(cards, column).filter(
+      (c) =>
+        (editing || c.visible) &&
+        modules.has(cardModule(c.id) as ModuleId | null),
+    );
   const weather = cards.find((c) => c.id === "weather");
 
   const servers = hosts.data ?? [];
   const summary = summaryLine(
     {
-      dueToday: todo.issues,
-      reminders: todo.reminders,
-      serversTotal: servers.length,
-      serversOffline: servers.filter((h) => !h.online).length,
-      alerts: servers.reduce((sum, h) => sum + h.activeAlerts, 0),
+      // B57：被隐藏的模块不算进概况
+      dueToday: modules.has("projects") ? todo.issues : 0,
+      reminders: modules.has("reminders") ? todo.reminders : 0,
+      serversTotal: modules.has("servers") ? servers.length : 0,
+      serversOffline: modules.has("servers")
+        ? servers.filter((h) => !h.online).length
+        : 0,
+      alerts: modules.has("servers")
+        ? servers.reduce((sum, h) => sum + h.activeAlerts, 0)
+        : 0,
     },
     language,
   );
@@ -154,12 +173,17 @@ export default function TodayPage() {
               </button>
             </>
           ) : (
-            <button
-              className="xc-btn small ghost"
-              onClick={() => setDraft(cards)}
-            >
-              <Pencil size={14} /> {t("Edit layout")}
-            </button>
+            <>
+              <Link className="xc-btn small ghost" to="/calendar/briefs">
+                <Newspaper size={14} /> {t("Daily brief")}
+              </Link>
+              <button
+                className="xc-btn small ghost"
+                onClick={() => setDraft(cards)}
+              >
+                <Pencil size={14} /> {t("Edit layout")}
+              </button>
+            </>
           )
         }
         meta={

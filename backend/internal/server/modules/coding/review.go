@@ -175,6 +175,9 @@ func (m *Module) commit(ctx context.Context, id int64, msg string) (err error) {
 	if !oneOf(row.Status, statusReview, statusFailed) {
 		return conflict("只有等你决定或失败的任务可以提交")
 	}
+	if m.building(id) {
+		return conflict("正在构建，等构建结束再提交")
+	}
 	if strings.TrimSpace(msg) == "" {
 		msg = commitMessage(row.ID, stripIssueHeader(row.Prompt, row.IssueKey), row.IssueKey)
 	}
@@ -218,10 +221,15 @@ func (m *Module) push(ctx context.Context, id int64) (err error) {
 	if row.Status != statusCommitted {
 		return conflict("先提交，再推送")
 	}
+	params := protocol.CodingPushParams{CodingTaskParams: m.taskParams(row)}
+	if row.RepoConnectionID != nil {
+		if params.Auth, err = m.gitAuth(ctx, *row.RepoConnectionID); err != nil {
+			return err
+		}
+	}
 	callCtx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
-	if err := m.d.Agents.Call(callCtx, row.AgentID, protocol.MethodCodingPush,
-		protocol.CodingPushParams{CodingTaskParams: m.taskParams(row)}, nil); err != nil {
+	if err := m.d.Agents.Call(callCtx, row.AgentID, protocol.MethodCodingPush, params, nil); err != nil {
 		return err
 	}
 	return m.setStatus(ctx, id, statusCommitted, statusPushed)
@@ -253,22 +261,39 @@ func (m *Module) OpenPullRequest(w http.ResponseWriter, r *http.Request, id int6
 }
 
 func (m *Module) openPR(ctx context.Context, id int64, body api.PullRequestRequest) (err error) {
-	gh, ok := m.github()
-	if !ok {
-		return httpx.NewError(http.StatusNotImplemented, "feature_unavailable", "GitHub 模块没有启用，不能建 PR")
-	}
 	row, err := m.row(ctx, id)
 	if err != nil {
 		return err
 	}
+	// B47: repositories of a Git connection open the PR through it (GitHub
+	// or Forgejo); the others through the GitHub module.
+	remote := row.GithubRepo
+	createPR := func(ctx context.Context, in contracts.CreatePR) (string, int, error) {
+		gh, ok := m.github()
+		if !ok {
+			return "", 0, httpx.NewError(http.StatusNotImplemented, "feature_unavailable", "GitHub 模块没有启用，不能建 PR")
+		}
+		return gh.CreatePR(ctx, in)
+	}
+	if row.RepoConnectionID != nil {
+		remote = row.RepoOwner + "/" + row.RepoRepo
+		conns, err := m.gitConnections()
+		if err != nil {
+			return err
+		}
+		connID := *row.RepoConnectionID
+		createPR = func(ctx context.Context, in contracts.CreatePR) (string, int, error) {
+			return conns.CreatePR(ctx, connID, in)
+		}
+	}
 	var url string
 	defer func() {
-		m.d.Audit.Record(ctx, "coding_task.pr", itoa(id), map[string]any{"repo": row.GithubRepo, "branch": row.Branch, "url": url}, err)
+		m.d.Audit.Record(ctx, "coding_task.pr", itoa(id), map[string]any{"repo": remote, "branch": row.Branch, "url": url}, err)
 	}()
 	if !oneOf(row.Status, statusCommitted, statusPushed) {
 		return conflict("先提交，再建 PR")
 	}
-	if row.GithubRepo == "" {
+	if remote == "" {
 		return httpx.Invalid("这个仓库的远端不是 GitHub")
 	}
 	if row.Status == statusCommitted {
@@ -276,7 +301,7 @@ func (m *Module) openPR(ctx context.Context, id int64, body api.PullRequestReque
 			return err
 		}
 	}
-	in := contracts.CreatePR{Repo: row.GithubRepo, Head: row.Branch, Base: row.BaseBranch, Title: titleOf(stripIssueHeader(row.Prompt, row.IssueKey))}
+	in := contracts.CreatePR{Repo: remote, Head: row.Branch, Base: row.BaseBranch, Title: titleOf(stripIssueHeader(row.Prompt, row.IssueKey))}
 	if in.Base == "" {
 		if repo, err := m.q.GetRepo(ctx, row.RepoID); err == nil {
 			in.Base = repo.DefaultBranch
@@ -293,7 +318,7 @@ func (m *Module) openPR(ctx context.Context, id int64, body api.PullRequestReque
 	if body.Draft != nil {
 		in.Draft = *body.Draft
 	}
-	url, number, err := gh.CreatePR(ctx, in)
+	url, number, err := createPR(ctx, in)
 	if err != nil {
 		return err
 	}
@@ -302,7 +327,7 @@ func (m *Module) openPR(ctx context.Context, id int64, body api.PullRequestReque
 	}
 	if row.IssueKey != "" {
 		if issues, ok := module.Lookup[contracts.Issues](m.d.Registry, contracts.IssuesKey); ok {
-			ref := row.GithubRepo + "#" + strconv.Itoa(number)
+			ref := remote + "#" + strconv.Itoa(number)
 			if err := issues.AttachLink(ctx, row.IssueKey, contracts.IssueLink{Kind: "pull_request", Title: "PR " + ref + " " + in.Title, URL: url, Ref: ref}); err != nil {
 				m.d.Log.Warn("coding: link pull request", "issue", row.IssueKey, "err", err)
 			}
@@ -333,6 +358,9 @@ func (m *Module) discard(ctx context.Context, id int64) (err error) {
 	}()
 	if !oneOf(row.Status, statusReview, statusFailed, statusCanceled, statusCommitted) {
 		return conflict("这个任务现在不能丢弃")
+	}
+	if m.building(id) {
+		return conflict("正在构建，等构建结束再丢弃")
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()

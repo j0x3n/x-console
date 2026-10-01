@@ -143,3 +143,20 @@ export function plansToSave(week: DayPlan[]): DayPlan[] {
     }))
     .filter((d) => d.title || d.items.length > 0);
 }
+
+/**
+ * 今天全部习惯的进度（今日页用）。没达标的按完成比例算，
+ * 8 杯水喝了 1 杯算 1/8，不再只数达标的个数。
+ */
+export function todayProgress(
+  list: { done: number; reached: boolean; habit: { dailyTarget: number } }[],
+): { total: number; reached: number; started: number; ratio: number } {
+  const total = list.length;
+  const reached = list.filter((h) => h.reached).length;
+  const started = list.filter((h) => !h.reached && h.done > 0).length;
+  const sum = list.reduce(
+    (n, h) => n + (h.reached ? 1 : ratio(h.done, h.habit.dailyTarget)),
+    0,
+  );
+  return { total, reached, started, ratio: total ? sum / total : 0 };
+}

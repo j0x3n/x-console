@@ -11,6 +11,7 @@ import {
   Languages,
 } from "lucide-react";
 import { navGroupLabels, navItems, type NavGroup } from "../../app/nav";
+import { moduleOfPath, useModules } from "../../app/modules";
 import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
 import { accents, usePreferencesStore } from "../../stores/preferences-store";
@@ -20,6 +21,12 @@ import {
   InstallMenuItem,
 } from "../../features/pwa/InstallMenu";
 import { useNavChildren } from "../../lib/navChildren";
+import {
+  badgeLabel,
+  useNavExtras,
+  type NavAction,
+  type NavBadgeHook,
+} from "../../lib/navBadges";
 import { useSidebar } from "../../stores/sidebar";
 
 // 二级菜单展开了哪些，记在 localStorage。
@@ -46,6 +53,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const t = useT();
   const children = useNavChildren();
+  const extras = useNavExtras();
+  const navigate = useNavigate();
   const collapsed = useSidebar((s) => s.collapsed);
   const [open, setOpen] = useState<string[]>(readOpen);
   const location = useLocation();
@@ -62,10 +71,16 @@ export default function Sidebar({
       }
       return next;
     });
-  const groups = (Object.keys(navGroupLabels) as NavGroup[]).map((group) => ({
-    group,
-    items: navItems.filter((item) => item.group === group),
-  }));
+  // B57：锁定时被隐藏的模块不出现，分组空了整组不显示
+  const modules = useModules();
+  const groups = (Object.keys(navGroupLabels) as NavGroup[])
+    .map((group) => ({
+      group,
+      items: navItems.filter(
+        (item) => item.group === group && modules.has(moduleOfPath(item.path)),
+      ),
+    }))
+    .filter((g) => g.items.length > 0);
   return (
     <>
       {mobileOpen && (
@@ -116,6 +131,8 @@ export default function Sidebar({
               {items.map((item) => {
                 const Children = children[item.path];
                 const isOpen = !!Children && open.includes(item.path);
+                const badge = extras.badges[item.path];
+                const action = extras.actions[item.path];
                 return (
                   <div key={item.path} className="nav-entry">
                     <NavLink
@@ -132,12 +149,22 @@ export default function Sidebar({
                         setMobileOpen(false);
                       }}
                       className={({ isActive }) =>
-                        `nav-item ${isActive ? "selected" : ""}${Children ? " has-children" : ""}`
+                        `nav-item ${selectedFor(item.path, isActive, location.pathname) ? "selected" : ""}${Children ? " has-children" : ""}${action ? " has-action" : ""}`
                       }
                     >
                       <item.icon size={17} strokeWidth={1.5} />
                       <span>{t(item.label)}</span>
+                      {badge && <NavBadgeMark hook={badge} />}
                     </NavLink>
+                    {action && (
+                      <NavActionButton
+                        action={action}
+                        onRun={() => {
+                          setMobileOpen(false);
+                          action.run(navigate);
+                        }}
+                      />
+                    )}
                     {Children && (
                       <button
                         type="button"
@@ -163,6 +190,45 @@ export default function Sidebar({
         <ProfileMenu />
       </nav>
     </>
+  );
+}
+
+/** 一级菜单右边的数量（B76）。单独一个组件，登记的 Hook 在这里调用，顺序固定。 */
+function NavBadgeMark({ hook }: { hook: NavBadgeHook }) {
+  const badge = hook();
+  if (!badge || badge.count <= 0) return null;
+  const label = badgeLabel(badge.count);
+  return (
+    <i
+      className={`nav-badge ${badge.tone ?? "danger"}${label ? "" : " dot"}`}
+      title={badge.title}
+      aria-hidden
+    >
+      {label}
+    </i>
+  );
+}
+
+/** 一级菜单行内的小按钮，比如笔记的“+”（B72）。 */
+function NavActionButton({
+  action,
+  onRun,
+}: {
+  action: NavAction;
+  onRun: () => void;
+}) {
+  const t = useT();
+  const Icon = action.icon;
+  return (
+    <button
+      type="button"
+      className="nav-action"
+      aria-label={t(action.label)}
+      title={t(action.label)}
+      onClick={onRun}
+    >
+      <Icon size={14} />
+    </button>
   );
 }
 
@@ -212,33 +278,16 @@ function ProfileMenu() {
             </button>
           </div>
           <div className="profile-menu-section">
-            <div className="profile-menu-row">
+            {/* 和语言一样：点一次换一个，当前值写在右边 */}
+            <button
+              className="profile-menu-item"
+              role="menuitem"
+              onClick={() => setThemeMode(nextThemeMode[themeMode])}
+            >
               <Moon size={15} />
               <span>{t("Night mode")}</span>
-            </div>
-            <div
-              className="profile-segmented"
-              role="radiogroup"
-              aria-label={t("Night mode")}
-            >
-              {(
-                [
-                  ["dark", "On"],
-                  ["light", "Off"],
-                  ["system", "Auto"],
-                ] as const
-              ).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  role="radio"
-                  aria-checked={themeMode === mode}
-                  className={themeMode === mode ? "active" : ""}
-                  onClick={() => setThemeMode(mode)}
-                >
-                  {t(label)}
-                </button>
-              ))}
-            </div>
+              <small>{t(themeModeLabels[themeMode])}</small>
+            </button>
             <div className="profile-menu-row">
               <Palette size={15} />
               <span>{t("Theme color")}</span>
@@ -307,4 +356,19 @@ function ProfileMenu() {
       </button>
     </div>
   );
+}
+
+/** 夜间模式点一次换一个：关 → 开 → 自动 → 关。 */
+const nextThemeMode = {
+  light: "dark",
+  dark: "system",
+  system: "light",
+} as const;
+
+const themeModeLabels = { dark: "On", light: "Off", system: "Auto" } as const;
+
+/** 早报的地址在 /calendar 下面，但属于今日页（B66）：这时高亮“今日”。 */
+function selectedFor(path: string, isActive: boolean, pathname: string) {
+  if (pathname.startsWith("/calendar/briefs")) return path === "/";
+  return isActive;
 }

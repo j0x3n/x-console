@@ -1,0 +1,153 @@
+openapi: 3.0.3
+info:
+  title: X Console remote AI access (B43 API tokens and MCP)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /api-tokens:
+    get:
+      operationId: listApiTokens
+      tags: [mcp]
+      description: 全部 API 令牌，吊销的在最后。不返回令牌本身。
+      responses:
+        "200":
+          description: 令牌
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApiToken" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createApiToken
+      tags: [mcp]
+      description: 新建令牌。要求 5 分钟内验证过（不受二次验证设置影响）。令牌只在这次返回。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, access]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60 }
+                access: { $ref: "#/components/schemas/ApiTokenAccess" }
+                modules:
+                  type: array
+                  description: 允许的模块，空或不传表示全部
+                  items: { type: string }
+                expiresInDays: { type: integer, minimum: 1, maximum: 3650, description: 不传表示不过期 }
+      responses:
+        "201":
+          description: 新令牌
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, secret]
+                properties:
+                  token: { $ref: "#/components/schemas/ApiToken" }
+                  secret: { type: string, description: 完整令牌，只显示这一次 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /api-tokens/{tokenId}:
+    parameters:
+      - { name: tokenId, in: path, required: true, schema: { type: integer, format: int64 } }
+    delete:
+      operationId: revokeApiToken
+      tags: [mcp]
+      description: 吊销令牌，立即失效。
+      responses:
+        "204":
+          description: 已吊销
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /api-tokens/tools:
+    get:
+      operationId: listApiTokenTools
+      tags: [mcp]
+      description: 某个权限和模块组合下外部 AI 能看到的工具，建令牌时预览用。也返回全部模块名。
+      parameters:
+        - name: access
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/ApiTokenAccess" }
+        - name: modules
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { type: string }
+      responses:
+        "200":
+          description: 工具
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tools, modules]
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, title, effect]
+                      properties:
+                        name: { type: string, description: MCP 里的工具名，例如 notes_create }
+                        title: { type: string }
+                        effect: { type: string, enum: [read, write] }
+                        deletes: { type: boolean }
+                  modules:
+                    type: array
+                    description: 所有有动作的模块
+                    items: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /api-tokens/calls:
+    get:
+      operationId: listApiTokenCalls
+      tags: [mcp]
+      description: 最近 50 次外部 AI 的工具调用，从审计日志读。
+      responses:
+        "200":
+          description: 调用
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, at, token, tool, result]
+                  properties:
+                    id: { type: integer, format: int64 }
+                    at: { type: string, format: date-time }
+                    token: { type: string, description: 令牌名 }
+                    tool: { type: string }
+                    result: { type: string, description: ok 或报错信息 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    ApiTokenAccess:
+      type: string
+      description: read 只读；write 读写（不含删除）；write_delete 读写和删除。执行命令、关机这类危险操作任何令牌都不能用。
+      enum: [read, write, write_delete]
+    ApiToken:
+      type: object
+      required: [id, name, prefix, access, modules, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        prefix: { type: string, description: 令牌前 8 位 }
+        access: { $ref: "#/components/schemas/ApiTokenAccess" }
+        modules:
+          type: array
+          items: { type: string }
+        expiresAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        lastUsedIp: { type: string }
+        revokedAt: { type: string, format: date-time }

@@ -4,11 +4,13 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 )
 
 // Defines values for StorageBackend.
@@ -56,6 +58,24 @@ func (e StorageMigrationState) Valid() bool {
 	}
 }
 
+// Defines values for StorageRemoteKind.
+const (
+	Gdrive StorageRemoteKind = "gdrive"
+	Webdav StorageRemoteKind = "webdav"
+)
+
+// Valid indicates whether the value is a known member of the StorageRemoteKind enum.
+func (e StorageRemoteKind) Valid() bool {
+	switch e {
+	case Gdrive:
+		return true
+	case Webdav:
+		return true
+	default:
+		return false
+	}
+}
+
 // ModuleUsage defines model for ModuleUsage.
 type ModuleUsage struct {
 	Bytes int64 `json:"bytes"`
@@ -85,6 +105,90 @@ type StorageMigration struct {
 
 // StorageMigrationState defines model for StorageMigration.State.
 type StorageMigrationState string
+
+// StorageRemote defines model for StorageRemote.
+type StorageRemote struct {
+	CreatedAt time.Time `json:"createdAt"`
+	Gdrive    *struct {
+		// Account 授权的 Google 账号邮箱
+		Account    *string `json:"account,omitempty"`
+		Authorized bool    `json:"authorized"`
+		ClientId   string  `json:"clientId"`
+
+		// Limited 授权里没有只读权限，只能看到面板自己建的文件，要重新授权
+		Limited bool `json:"limited"`
+
+		// RedirectUri 要填到 Google 控制台的重定向地址。B63 时授权的账号继续用旧地址
+		RedirectUri string `json:"redirectUri"`
+		SecretSet   bool   `json:"secretSet"`
+	} `json:"gdrive,omitempty"`
+	Id   int64             `json:"id"`
+	Kind StorageRemoteKind `json:"kind"`
+	Name string            `json:"name"`
+
+	// Ready 能连。WebDAV 是填好了地址和密码，Google Drive 是已授权
+	Ready bool `json:"ready"`
+
+	// ShowInDrive 在云盘页显示一个标签
+	ShowInDrive bool `json:"showInDrive"`
+
+	// UsedByBackup 自动备份正在用它，不能删
+	UsedByBackup bool `json:"usedByBackup"`
+	Webdav       *struct {
+		PasswordSet bool   `json:"passwordSet"`
+		Url         string `json:"url"`
+		Username    string `json:"username"`
+	} `json:"webdav,omitempty"`
+}
+
+// StorageRemoteEntry defines model for StorageRemoteEntry.
+type StorageRemoteEntry struct {
+	// Downloadable Google 文档这类在线文件是 false
+	Downloadable bool       `json:"downloadable"`
+	IsDir        bool       `json:"isDir"`
+	ModifiedAt   *time.Time `json:"modifiedAt,omitempty"`
+	Name         string     `json:"name"`
+	Ref          string     `json:"ref"`
+	Size         *int64     `json:"size,omitempty"`
+}
+
+// StorageRemoteInput defines model for StorageRemoteInput.
+type StorageRemoteInput struct {
+	Gdrive *struct {
+		ClientId *string `json:"clientId,omitempty"`
+
+		// ClientSecret 不传或空表示不改
+		ClientSecret *string `json:"clientSecret,omitempty"`
+	} `json:"gdrive,omitempty"`
+	Kind *StorageRemoteKind `json:"kind,omitempty"`
+
+	// Name 空时按类型取默认名，坚果云、主机名或 Google Drive
+	Name        *string `json:"name,omitempty"`
+	ShowInDrive *bool   `json:"showInDrive,omitempty"`
+	Webdav      *struct {
+		// Password 不传或空表示不改
+		Password *string `json:"password,omitempty"`
+
+		// Url 比如 https://dav.jianguoyun.com/dav/
+		Url      *string `json:"url,omitempty"`
+		Username *string `json:"username,omitempty"`
+	} `json:"webdav,omitempty"`
+}
+
+// StorageRemoteKind defines model for StorageRemoteKind.
+type StorageRemoteKind string
+
+// StorageRemoteListing defines model for StorageRemoteListing.
+type StorageRemoteListing struct {
+	Items []StorageRemoteEntry `json:"items"`
+	Ref   string               `json:"ref"`
+
+	// Trail 从根目录下面一级到当前文件夹
+	Trail []struct {
+		Name string `json:"name"`
+		Ref  string `json:"ref"`
+	} `json:"trail"`
+}
 
 // StorageS3 defines model for StorageS3.
 type StorageS3 struct {
@@ -139,10 +243,41 @@ type TestResult struct {
 	Ok      bool   `json:"ok"`
 }
 
+// RemoteId defines model for RemoteId.
+type RemoteId = int64
+
 // PutStorageCacheJSONBody defines parameters for PutStorageCache.
 type PutStorageCacheJSONBody struct {
 	// LimitBytes 0 表示不缓存
 	LimitBytes int64 `json:"limitBytes"`
+}
+
+// ListStorageRemotesParams defines parameters for ListStorageRemotes.
+type ListStorageRemotesParams struct {
+	Drive *bool `form:"drive,omitempty" json:"drive,omitempty"`
+}
+
+// StorageGdriveCallbackParams defines parameters for StorageGdriveCallback.
+type StorageGdriveCallbackParams struct {
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
+// TestStorageRemoteParams defines parameters for TestStorageRemote.
+type TestStorageRemoteParams struct {
+	Id *int64 `form:"id,omitempty" json:"id,omitempty"`
+}
+
+// DownloadStorageRemoteFileParams defines parameters for DownloadStorageRemoteFile.
+type DownloadStorageRemoteFileParams struct {
+	Ref string `form:"ref" json:"ref"`
+}
+
+// ListStorageRemoteItemsParams defines parameters for ListStorageRemoteItems.
+type ListStorageRemoteItemsParams struct {
+	// Ref 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录
+	Ref *string `form:"ref,omitempty" json:"ref,omitempty"`
 }
 
 // SwitchStorageJSONBody defines parameters for SwitchStorage.
@@ -154,6 +289,15 @@ type SwitchStorageJSONBody struct {
 
 // PutStorageCacheJSONRequestBody defines body for PutStorageCache for application/json ContentType.
 type PutStorageCacheJSONRequestBody PutStorageCacheJSONBody
+
+// CreateStorageRemoteJSONRequestBody defines body for CreateStorageRemote for application/json ContentType.
+type CreateStorageRemoteJSONRequestBody = StorageRemoteInput
+
+// TestStorageRemoteJSONRequestBody defines body for TestStorageRemote for application/json ContentType.
+type TestStorageRemoteJSONRequestBody = StorageRemoteInput
+
+// UpdateStorageRemoteJSONRequestBody defines body for UpdateStorageRemote for application/json ContentType.
+type UpdateStorageRemoteJSONRequestBody = StorageRemoteInput
 
 // PutStorageS3JSONRequestBody defines body for PutStorageS3 for application/json ContentType.
 type PutStorageS3JSONRequestBody = StorageS3Input
@@ -172,6 +316,36 @@ type ServerInterface interface {
 
 	// (PUT /storage/cache)
 	PutStorageCache(w http.ResponseWriter, r *http.Request)
+
+	// (GET /storage/remotes)
+	ListStorageRemotes(w http.ResponseWriter, r *http.Request, params ListStorageRemotesParams)
+
+	// (POST /storage/remotes)
+	CreateStorageRemote(w http.ResponseWriter, r *http.Request)
+
+	// (GET /storage/remotes/gdrive/callback)
+	StorageGdriveCallback(w http.ResponseWriter, r *http.Request, params StorageGdriveCallbackParams)
+
+	// (POST /storage/remotes/test)
+	TestStorageRemote(w http.ResponseWriter, r *http.Request, params TestStorageRemoteParams)
+
+	// (DELETE /storage/remotes/{remoteId})
+	DeleteStorageRemote(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
+
+	// (PATCH /storage/remotes/{remoteId})
+	UpdateStorageRemote(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
+
+	// (GET /storage/remotes/{remoteId}/download)
+	DownloadStorageRemoteFile(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params DownloadStorageRemoteFileParams)
+
+	// (DELETE /storage/remotes/{remoteId}/gdrive/auth)
+	RevokeStorageGdriveAuth(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
+
+	// (GET /storage/remotes/{remoteId}/gdrive/auth)
+	StartStorageGdriveAuth(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
+
+	// (GET /storage/remotes/{remoteId}/items)
+	ListStorageRemoteItems(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params ListStorageRemoteItemsParams)
 
 	// (PUT /storage/s3)
 	PutStorageS3(w http.ResponseWriter, r *http.Request)
@@ -197,6 +371,56 @@ func (_ Unimplemented) GetStorage(w http.ResponseWriter, r *http.Request) {
 
 // (PUT /storage/cache)
 func (_ Unimplemented) PutStorageCache(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /storage/remotes)
+func (_ Unimplemented) ListStorageRemotes(w http.ResponseWriter, r *http.Request, params ListStorageRemotesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /storage/remotes)
+func (_ Unimplemented) CreateStorageRemote(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /storage/remotes/gdrive/callback)
+func (_ Unimplemented) StorageGdriveCallback(w http.ResponseWriter, r *http.Request, params StorageGdriveCallbackParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /storage/remotes/test)
+func (_ Unimplemented) TestStorageRemote(w http.ResponseWriter, r *http.Request, params TestStorageRemoteParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /storage/remotes/{remoteId})
+func (_ Unimplemented) DeleteStorageRemote(w http.ResponseWriter, r *http.Request, remoteId RemoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /storage/remotes/{remoteId})
+func (_ Unimplemented) UpdateStorageRemote(w http.ResponseWriter, r *http.Request, remoteId RemoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /storage/remotes/{remoteId}/download)
+func (_ Unimplemented) DownloadStorageRemoteFile(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params DownloadStorageRemoteFileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /storage/remotes/{remoteId}/gdrive/auth)
+func (_ Unimplemented) RevokeStorageGdriveAuth(w http.ResponseWriter, r *http.Request, remoteId RemoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /storage/remotes/{remoteId}/gdrive/auth)
+func (_ Unimplemented) StartStorageGdriveAuth(w http.ResponseWriter, r *http.Request, remoteId RemoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /storage/remotes/{remoteId}/items)
+func (_ Unimplemented) ListStorageRemoteItems(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params ListStorageRemoteItemsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -248,6 +472,333 @@ func (siw *ServerInterfaceWrapper) PutStorageCache(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutStorageCache(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStorageRemotes operation middleware
+func (siw *ServerInterfaceWrapper) ListStorageRemotes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListStorageRemotesParams
+
+	// ------------- Optional query parameter "drive" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "drive", r.URL.Query(), &params.Drive, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "drive"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "drive", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStorageRemotes(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateStorageRemote operation middleware
+func (siw *ServerInterfaceWrapper) CreateStorageRemote(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateStorageRemote(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StorageGdriveCallback operation middleware
+func (siw *ServerInterfaceWrapper) StorageGdriveCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StorageGdriveCallbackParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StorageGdriveCallback(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestStorageRemote operation middleware
+func (siw *ServerInterfaceWrapper) TestStorageRemote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TestStorageRemoteParams
+
+	// ------------- Optional query parameter "id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "id", r.URL.Query(), &params.Id, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestStorageRemote(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteStorageRemote operation middleware
+func (siw *ServerInterfaceWrapper) DeleteStorageRemote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteStorageRemote(w, r, remoteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateStorageRemote operation middleware
+func (siw *ServerInterfaceWrapper) UpdateStorageRemote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateStorageRemote(w, r, remoteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadStorageRemoteFile operation middleware
+func (siw *ServerInterfaceWrapper) DownloadStorageRemoteFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadStorageRemoteFileParams
+
+	// ------------- Required query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadStorageRemoteFile(w, r, remoteId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeStorageGdriveAuth operation middleware
+func (siw *ServerInterfaceWrapper) RevokeStorageGdriveAuth(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeStorageGdriveAuth(w, r, remoteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartStorageGdriveAuth operation middleware
+func (siw *ServerInterfaceWrapper) StartStorageGdriveAuth(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartStorageGdriveAuth(w, r, remoteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStorageRemoteItems operation middleware
+func (siw *ServerInterfaceWrapper) ListStorageRemoteItems(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListStorageRemoteItemsParams
+
+	// ------------- Optional query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStorageRemoteItems(w, r, remoteId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -443,6 +994,36 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/storage/cache", wrapper.PutStorageCache)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/storage/remotes", wrapper.ListStorageRemotes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/storage/remotes", wrapper.CreateStorageRemote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/storage/remotes/test", wrapper.TestStorageRemote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/storage/remotes/gdrive/callback", wrapper.StorageGdriveCallback)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/storage/remotes/{remoteId}", wrapper.DeleteStorageRemote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/storage/remotes/{remoteId}", wrapper.UpdateStorageRemote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/storage/remotes/{remoteId}/gdrive/auth", wrapper.RevokeStorageGdriveAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/storage/remotes/{remoteId}/gdrive/auth", wrapper.StartStorageGdriveAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/storage/remotes/{remoteId}/items", wrapper.ListStorageRemoteItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/storage/remotes/{remoteId}/download", wrapper.DownloadStorageRemoteFile)
 	})
 
 	return r

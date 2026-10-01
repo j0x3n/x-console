@@ -33,6 +33,15 @@ export type BriefSettingsView = BriefComponents["schemas"]["BriefSettingsView"];
 export type BriefSectionKey = BriefComponents["schemas"]["BriefSectionKey"];
 export type Weather = BriefComponents["schemas"]["Weather"];
 export type WeatherPlace = BriefComponents["schemas"]["WeatherPlace"];
+// B58 和风天气
+export type QWeatherConfig = BriefComponents["schemas"]["QWeatherConfig"];
+export type QWeatherConfigInput =
+  BriefComponents["schemas"]["QWeatherConfigInput"];
+export type WeatherExtra = BriefComponents["schemas"]["WeatherExtra"];
+export type WeatherWarning = BriefComponents["schemas"]["WeatherWarning"];
+export type WarningLevel = BriefComponents["schemas"]["WarningLevel"];
+export type WeatherNotify = BriefComponents["schemas"]["WeatherNotify"];
+export type Earthquake = BriefComponents["schemas"]["Earthquake"];
 export type BriefLocation = BriefComponents["schemas"]["BriefLocation"];
 export type RainAlert = BriefComponents["schemas"]["RainAlert"];
 export type FocusSession = FocusComponents["schemas"]["FocusSession"];
@@ -240,6 +249,59 @@ export function useSaveRainAlert() {
   return useMutation({
     mutationFn: (body: RainAlert) =>
       unwrap(briefApi.PUT("/weather/alert", { body })),
+    onSuccess: invalidate,
+  });
+}
+
+// ---- B58 和风天气、预警、地震 ----
+
+export const weatherExtraKey = ["calendar", "weather", "extra"] as const;
+// 服务端发现新的预警或地震时发 weather.updated
+invalidateOn("weather.", weatherExtraKey);
+
+export function useQWeatherConfig() {
+  return useQuery({
+    queryKey: ["calendar", "qweather"],
+    queryFn: () => unwrap(briefApi.GET("/weather/qweather")),
+    retry: false,
+    meta: { silentError: true },
+  });
+}
+
+export function useSaveQWeatherConfig() {
+  const invalidate = useInvalidate(["calendar"]);
+  return useMutation({
+    mutationFn: (body: QWeatherConfigInput) =>
+      unwrap(briefApi.PUT("/weather/qweather", { body })),
+    onSuccess: invalidate,
+  });
+}
+
+/** 预警、分钟降水、空气、指数、天文、昨天、地震。接口没上线时报 404 或 501。 */
+export function useWeatherExtra() {
+  return useQuery({
+    queryKey: weatherExtraKey,
+    queryFn: () => unwrap(briefApi.GET("/weather/extra")),
+    staleTime: 5 * 60_000,
+    retry: false,
+    meta: { silentError: true },
+  });
+}
+
+export function useWeatherNotify() {
+  return useQuery({
+    queryKey: ["calendar", "weather", "notify"],
+    queryFn: () => unwrap(briefApi.GET("/weather/notify")),
+    retry: false,
+    meta: { silentError: true },
+  });
+}
+
+export function useSaveWeatherNotify() {
+  const invalidate = useInvalidate(calendarKeys.weather);
+  return useMutation({
+    mutationFn: (body: WeatherNotify) =>
+      unwrap(briefApi.PUT("/weather/notify", { body })),
     onSuccess: invalidate,
   });
 }

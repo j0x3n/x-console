@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { NavLink, useParams } from "react-router";
 import { Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
@@ -11,6 +12,12 @@ import {
 } from "./api";
 import CertsTab from "./components/CertsTab";
 import { useParam } from "./components/common";
+import {
+  formatMoney,
+  SPEND_CURRENCIES,
+  spendView,
+  type SpendCurrency,
+} from "./lib";
 import ScriptsTab from "./components/ScriptsTab";
 import SitesTab from "./components/SitesTab";
 import SubscriptionsTab from "./components/SubscriptionsTab";
@@ -111,7 +118,22 @@ function MonitoringStats() {
   const nextSub = [...subs]
     .filter((x) => x.daysLeft != null)
     .sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))[0];
-  const total = summary?.totals[0];
+  const [currency, setCurrency] = useState<SpendCurrency>(readCurrency);
+  const spend = spendView(summary, currency);
+  const switchCurrency = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next =
+      SPEND_CURRENCIES[
+        (SPEND_CURRENCIES.indexOf(currency) + 1) % SPEND_CURRENCIES.length
+      ];
+    setCurrency(next);
+    try {
+      localStorage.setItem(CURRENCY_KEY, next);
+    } catch {
+      // 存不了就只在这次有效
+    }
+  };
   return (
     <StatStrip label={t("Monitoring")}>
       <StatCard
@@ -164,9 +186,33 @@ function MonitoringStats() {
       />
       <StatCard
         label={t("Subscriptions")}
-        caption={total ? total.currency : undefined}
-        value={total ? Math.round(total.monthly) : subs.length}
-        unit={total ? t("per month") : undefined}
+        to="/monitoring/subscriptions"
+        caption={
+          spend ? (
+            <span
+              role="button"
+              tabIndex={0}
+              className="monitoring-currency"
+              title={
+                spend.converted
+                  ? t("Switch currency")
+                  : `${t("Exchange rates are not ready. Not counted:")} ${spend.missing.join(", ")}`
+              }
+              onClick={switchCurrency}
+              onKeyDown={(e) =>
+                (e.key === "Enter" || e.key === " ") && switchCurrency(e)
+              }
+            >
+              {spend.currency}
+            </span>
+          ) : undefined
+        }
+        value={
+          spend
+            ? formatMoney(Math.round(spend.monthly), spend.currency)
+            : subs.length
+        }
+        unit={spend ? t("per month") : undefined}
         foot={
           nextSub
             ? `${nextSub.name} · ${nextSub.daysLeft} ${t("days left")}`
@@ -175,4 +221,16 @@ function MonitoringStats() {
       />
     </StatStrip>
   );
+}
+
+const CURRENCY_KEY = "xc.monitoring.currency";
+
+function readCurrency(): SpendCurrency {
+  try {
+    const v = localStorage.getItem(CURRENCY_KEY);
+    if (v === "CNY" || v === "USD") return v;
+  } catch {
+    // 读不了用默认的人民币
+  }
+  return "CNY";
 }

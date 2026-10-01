@@ -57,6 +57,11 @@ func startAgent(t *testing.T, env *testutil.Env, name, kind string, caps []strin
 	if register != nil {
 		register(client)
 	}
+	// The server marks the agent online before the client has read the
+	// welcome, so also wait for the client side: Emit fails until then.
+	ready := make(chan struct{})
+	var once sync.Once
+	client.OnConnect(func(context.Context) { once.Do(func() { close(ready) }) })
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -73,6 +78,11 @@ func startAgent(t *testing.T, env *testutil.Env, name, kind string, caps []strin
 		<-done
 	})
 	waitFor(t, "agent online", func() bool { return env.App.Deps.Agents.Online(id) })
+	select {
+	case <-ready:
+	case <-time.After(5 * time.Second):
+		t.Fatal("agent client did not finish connecting")
+	}
 	return id, client, stop
 }
 

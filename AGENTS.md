@@ -4,7 +4,7 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
 
 ## 先读什么
 
-1. `docs/tasks.md`：任务看板，当前进度和下一步只看这里。
+1. `docs/tasks.md`：任务看板，当前进度和下一步只看这里。有 `docs/handoff.md` 时先读它，那是正在做的一批任务的交接状态。
 2. 要做的任务对应的规格：`docs/specs/`。
 3. 写代码前读相关的约定：后端 `docs/03-backend.md`，前端 `docs/05-frontend.md`，代理 `docs/04-agent-protocol.md`。其他文档见 `docs/README.md`。
 4. **做任何界面之前必读 `docs/07-design.md`**：页面结构、组件清单、具体数值、交活前自查。先复制最像的现有页面再改，用现成的公共组件，不要自己发明样式。
@@ -62,11 +62,23 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
 项目会越来越大，下面几条每个任务都要做到：
 
 - 按“规格 → 接口定义 → 测试 → 实现”的顺序做。缺规格先写规格，缺测试不算做完。
-- 改了一个模块，要跑全部检查，不能只跑这个模块的测试。
+- 做功能任务（B、C 编号的任务），要跑全部检查，不能只跑这个模块的测试。小修按下面“小修”一节。
 - B8 做完以后，每个新功能都要在端到端测试里补一条主流程。
 - 数据库迁移只加不删。删列、改列分两次部署：先停止使用，下个版本再删。
 - 每做完大约 5 个功能任务，排一轮清理（任务看板里的 C1、C2……），这一轮不加新功能。
 - 发现的问题当场修不了，记到 `docs/tasks.md` 的“已知问题”，不要放着不说。
+
+## 小修（2026-09-30 用户要求）
+
+用户直接让你改的小问题（界面错位、文案、一个接口的小 bug），不要跑全量检查。光是全量后端测试一次就要 3 分半左右（2026-10-01 在 Linux 容器里测的，带 -race，含第一次编译）。部署时的后端测试不带 -race。再加上前端构建、截图、端到端测试更久。这些 CI 会替你跑。
+
+- 什么算小修：不加迁移，不改 `api/modules/*.yaml`，改动集中在一两个模块。超出这个范围按功能任务做，先告诉用户。
+- 本地只跑 `scripts/check-quick.sh`：按改动的文件只跑相关的生成、格式、编译、测试和类型检查。缓存热的时候几十秒到几分钟。
+- 不跑 `npm run shots`、`npm run e2e`、全量 `go test -race ./...`、`npm run build`。改了界面只截改动的那一页：`npm run shots -- --only /notes`。
+- 完整检查交给 CI：推送到 `codex` 时 PR 的 CI 会跑；带部署标记的推送会先跑全部测试，过了才部署。直接推到 `develop` 又不带部署标记时没有 CI，下次部署时才会跑到。CI 红了再修。
+- 先定位再动手：先读报错和相关代码，找到原因再改。不要为了“确认没问题”去跑和这次改动无关的测试。
+- 超过 10 分钟还没改好，停下来告诉用户卡在哪、打算怎么办。
+- 做完用两三句话汇报：改了什么、跑了哪些检查。
 
 ## 常用命令
 
@@ -88,7 +100,10 @@ GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent
 cd web
 npm ci
 npm run gen:api                         # 从 api/modules/*.yaml 生成类型，结果要提交
-npm run typecheck && npm test && npm run build
+npm test && npm run build                # build 里已经包含 typecheck
+
+# 小修只跑这个（见“小修”一节）
+scripts/check-quick.sh
 
 # 本地运行
 cd backend && export XC_MASTER_KEY=$(go run ./cmd/server gen-key) XC_DEV=1 && go run ./cmd/server   # 127.0.0.1:8080

@@ -3,13 +3,15 @@ import {
   Bell,
   CalendarDays,
   Bot,
-  Github,
+  FolderGit2,
   HardDrive,
   HeartPulse,
   Home,
+  Mail,
   Monitor,
   NotebookPen,
   Radar,
+  Router as RouterIcon,
   Server,
   SquareKanban,
   Sun,
@@ -30,14 +32,22 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { path: "/", label: "My day", icon: Sun, group: "main" },
   { path: "/projects", label: "Projects", icon: SquareKanban, group: "main" },
-  { path: "/coding", label: "Coding tasks", icon: Bot, group: "main" },
+  { path: "/coding", label: "Agents", icon: Bot, group: "main" },
+  // B70：GitHub 改名“仓库”，挪到 Agent 下面。地址还是 /github
+  {
+    path: "/github",
+    label: "Repositories",
+    icon: FolderGit2,
+    group: "main",
+  },
   { path: "/notes", label: "Notes", icon: NotebookPen, group: "personal" },
+  { path: "/mail", label: "Mail", icon: Mail, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
   { path: "/drive", label: "Drive", icon: HardDrive, group: "personal" },
   {
     path: "/calendar",
-    label: "Calendar",
+    label: "Schedule & focus",
     icon: CalendarDays,
     group: "personal",
   },
@@ -45,13 +55,13 @@ export const navItems: NavItem[] = [
   { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
+  { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
   {
     path: "/automations",
     label: "Automations",
     icon: Workflow,
     group: "integrations",
   },
-  { path: "/github", label: "GitHub", icon: Github, group: "integrations" },
 ];
 
 export const navGroupLabels: Record<NavGroup, string> = {

@@ -355,7 +355,7 @@ func TestPromptPrefixStaysTheSame(t *testing.T) {
 
 func TestActionSchemasHaveNoNulls(t *testing.T) {
 	env := testutil.New(t)
-	for _, a := range env.App.Deps.Actions.List() {
+	for _, a := range env.App.Deps.Actions.List(context.Background()) {
 		var schema map[string]any
 		if err := json.Unmarshal(a.Input, &schema); err != nil {
 			t.Fatalf("%s: %v", a.Name, err)

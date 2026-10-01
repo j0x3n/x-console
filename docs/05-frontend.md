@@ -96,6 +96,10 @@ export function useIssues(projectId: number) {
 - 出错时 `ApiError` 带 `status` 和 `code`。`integration_not_configured` 显示“去设置”的链接。
 - 高危操作包在 `withElevation(() => ...)` 里，它会自动弹出验证码框并重试。
 - 修改成功后用 `toast("已保存")` 提示，失败用 `toast({ message, tone: "error" })`。
+- 报错（B41）：`toast({ tone: "error" })` 会自动转到 `lib/errors.ts` 的报错列表，不自动消失，可以复制完整内容。直接有错误对象时用 `reportError(error, { title })`，它会打印控制台、显示提示、写服务器日志。
+  - 查询出错由 `api/query.ts` 全局上报（404、501 除外），不需要页面自己弹提示。轮询、探测类的查询加 `meta: { silentError: true }`。
+  - 修改操作没写 `onError` 的也会全局上报。写了 `onError` 的由页面自己提示；同一个错误页面再报一次时，只把标题换成页面给的。
+  - 401、取消的请求、`elevation_required` 不算报错。
 - WebSocket 流（终端、日志）用 `wsUrl("/hosts/1/terminal")` 拼地址。
 - 长文字里的图片（B36 定的）：用公共上传接口 `POST /files?scope=<模块>`（`api/modules/files.yaml`），不要每个模块自己做附件接口。`MarkdownEditor` 传 `uploadScope` 就能粘贴、拖入、选择图片，上传和占位的函数在 `components/markdown/upload.ts`。后端保存内容时从 Markdown 里认领图片，删除内容时一起删掉。笔记和云盘有自己的文件接口，不走这里。
 
@@ -130,6 +134,8 @@ export function useIssues(projectId: number) {
 - 全局浮层（AI 助手面板、番茄钟）：在 `app/GlobalPanels.tsx` 里加一行组件。
 - 设置页标签：在 `features/settings/tabs.tsx` 里加一行。
 - 侧边栏：`app/nav.ts` 已经列好所有模块，一般不用改。设置不在侧边栏，入口在左下角的个人菜单里。
+- 侧边栏一级菜单右边的数量（B76）：在 `routes.tsx` 里 `registerNavBadge("/模块路径", useXxxBadge)`。Hook 返回 `{ count, tone, title }` 或 `null`，只用已有的查询，不要轮询。1 到 9 显示数字，10 以上显示圆点。
+- 侧边栏一级菜单行内按钮（B72，比如笔记的“+”）：`registerNavAction("/模块路径", { icon, label, run })`。
 - 侧边栏二级菜单：在 `routes.tsx` 里 `registerNavChildren("/模块路径", 组件)`。组件用 `components/layout/NavChildLinks` 列出最多 5 条，多的给“全部 N”链接。只在展开时渲染，这时才拉数据。
 
 ## 文案

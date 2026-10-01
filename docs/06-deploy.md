@@ -40,6 +40,8 @@ WebSocket（终端、实时推送）不用额外配置，Caddy 会自动处理�
 
 **服务器上没有反向代理**：在 `~/x-console/.env` 里加一行 `COMPOSE_PROFILES=caddy`，再部署一次，就会启动自带的 Caddy。它会自动申请证书，要求 80 和 443 端口空闲并在防火墙放行。
 
+域名到期查不到 RDAP 时会走 WHOIS。服务器要能主动连外网的 TCP 43 端口。这是出站连接，不用在防火墙上对外开放。
+
 用 Nginx 也可以，注意转发 WebSocket 的 `Upgrade` 和 `Connection` 头，并设置 `X-Forwarded-For`。
 
 ### 2. 在 GitHub 填 Secrets

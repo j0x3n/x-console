@@ -55,12 +55,22 @@ func (s *Service) Run(ctx context.Context, p protocol.CodingRunParams, emit func
 		fail(rpcutil.BadParams("prompt is required"))
 		return
 	}
-	spec, err := s.cfg.command(p.Executor, p.Prompt)
+	if p.Permission != "" && p.Permission != protocol.CodingPermissionWorkspace && p.Permission != protocol.CodingPermissionFull {
+		fail(rpcutil.BadParams("unknown permission %q", p.Permission))
+		return
+	}
+	spec, err := s.cfg.commandWith(p.Executor, p.Prompt, p.Model, p.Permission)
 	if err != nil {
 		fail(fmt.Errorf("%s is not installed or not on PATH: %v", p.Executor, err))
 		return
 	}
-	base, err := createWorktree(ctx, repo, wt, p.Branch, p.BaseBranch)
+	var base string
+	if p.Continue {
+		// B47: run again in the kept worktree, to fix a failed build.
+		base, err = continueWorktree(ctx, wt, p.Branch, p.BaseCommit)
+	} else {
+		base, err = createWorktree(ctx, repo, wt, p.Branch, p.BaseBranch, p.PreferRemote)
+	}
 	if err != nil {
 		fail(err)
 		return
@@ -226,7 +236,7 @@ func exitCode(cmd *exec.Cmd, err error) int {
 
 // createWorktree adds the task worktree on a new branch and returns the
 // base commit.
-func createWorktree(ctx context.Context, repo, wt, branch, baseBranch string) (string, error) {
+func createWorktree(ctx context.Context, repo, wt, branch, baseBranch string, preferRemote bool) (string, error) {
 	if err := excludeWorktrees(ctx, repo); err != nil {
 		return "", fmt.Errorf("update .git/info/exclude: %w", err)
 	}
@@ -238,7 +248,11 @@ func createWorktree(ctx context.Context, repo, wt, branch, baseBranch string) (s
 		}
 		base = sha
 	} else {
-		for _, ref := range []string{baseBranch, "origin/" + baseBranch} {
+		refs := []string{baseBranch, "origin/" + baseBranch}
+		if preferRemote {
+			refs[0], refs[1] = refs[1], refs[0]
+		}
+		for _, ref := range refs {
 			if sha, err := git(ctx, repo, "rev-parse", "--verify", "--quiet", ref+"^{commit}"); err == nil {
 				base = sha
 				break
@@ -261,6 +275,25 @@ func createWorktree(ctx context.Context, repo, wt, branch, baseBranch string) (s
 		return "", err
 	}
 	return base, nil
+}
+
+// continueWorktree checks the kept worktree of a task and returns its base
+// commit.
+func continueWorktree(ctx context.Context, wt, branch, baseCommit string) (string, error) {
+	if st, err := os.Stat(wt); err != nil || !st.IsDir() {
+		return "", fmt.Errorf("worktree %s is gone", wt)
+	}
+	if cur, err := git(ctx, wt, "rev-parse", "--abbrev-ref", "HEAD"); err != nil || cur != branch {
+		return "", fmt.Errorf("worktree %s is not on %s", wt, branch)
+	}
+	if baseCommit == "" {
+		return "", errors.New("baseCommit is required to continue")
+	}
+	sha, err := git(ctx, wt, "rev-parse", "--verify", "--quiet", baseCommit+"^{commit}")
+	if err != nil {
+		return "", fmt.Errorf("base commit %s not found", baseCommit)
+	}
+	return sha, nil
 }
 
 // changedFiles lists changes. In a worktree it stages everything first and
@@ -421,8 +454,9 @@ func (s *Service) Push(ctx context.Context, p protocol.CodingPushParams) error {
 	pctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	ref := "refs/heads/" + p.Branch
-	if _, err := git(pctx, repo, "push", "--set-upstream", "--porcelain", remote, ref+":"+ref); err != nil {
-		return rpcutil.Failed("%v", err)
+	// No "+" in the refspec and no --force: a push never rewrites history.
+	if _, err := gitEnv(pctx, repo, authEnv(p.Auth), "push", "--set-upstream", "--porcelain", remote, ref+":"+ref); err != nil {
+		return rpcutil.Failed("%s", redact(errText(err), p.Auth))
 	}
 	return nil
 }

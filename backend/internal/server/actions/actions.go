@@ -19,8 +19,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 )
 
@@ -56,6 +58,9 @@ type Action struct {
 	// automation rules may use it), but List leaves it out, so the assistant
 	// and the automation editor see each operation once.
 	AliasOf string `json:"aliasOf,omitempty"`
+	// PanelOnly keeps the action to the panel assistant (B61: writing the AI
+	// memory). Remote AI (MCP), agents and automations never see it.
+	PanelOnly bool `json:"panelOnly,omitempty"`
 	// Run executes the action. ctx carries the acting user or automation.
 	Run func(ctx context.Context, input json.RawMessage) (any, error) `json:"-"`
 }
@@ -72,6 +77,7 @@ func Schema(s string) json.RawMessage {
 type Registry struct {
 	mu      sync.RWMutex
 	actions map[string]Action
+	hidden  contracts.HiddenModules
 }
 
 // NewRegistry builds an empty registry.
@@ -90,32 +96,49 @@ func (r *Registry) Register(a Action) {
 	r.actions[a.Name] = a
 }
 
-// Get returns an action by name.
-func (r *Registry) Get(name string) (Action, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	a, ok := r.actions[name]
-	return a, ok
+func (r *Registry) SetHidden(h contracts.HiddenModules) {
+	r.mu.Lock()
+	r.hidden = h
+	r.mu.Unlock()
 }
 
-// List returns all actions sorted by name.
-func (r *Registry) List() []Action {
+// Get returns an action by name when this request may see it.
+func (r *Registry) Get(ctx context.Context, name string) (Action, bool) {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
+	a, ok := r.actions[name]
+	h := r.hidden
+	r.mu.RUnlock()
+	if !ok || contracts.ActionHidden(ctx, h, name) {
+		return Action{}, false
+	}
+	return a, true
+}
+
+// List returns the actions this request may see, sorted by name.
+func (r *Registry) List(ctx context.Context) []Action {
+	r.mu.RLock()
 	out := make([]Action, 0, len(r.actions))
 	for _, a := range r.actions {
 		if a.AliasOf == "" {
 			out = append(out, a)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
+	h := r.hidden
+	r.mu.RUnlock()
+	kept := out[:0]
+	for _, a := range out {
+		if !contracts.ActionHidden(ctx, h, a.Name) {
+			kept = append(kept, a)
+		}
+	}
+	sort.Slice(kept, func(i, j int) bool { return kept[i].Name < kept[j].Name })
+	return kept
 }
 
 // Run looks up and executes an action. It does not check confirmation or
 // elevation; callers (the AI assistant, the automation engine) do that.
 func (r *Registry) Run(ctx context.Context, name string, input json.RawMessage) (any, error) {
-	a, ok := r.Get(name)
+	a, ok := r.Get(ctx, name)
 	if !ok {
 		return nil, httpx.NewError(404, "unknown_action", "没有这个动作: "+name)
 	}
@@ -123,4 +146,62 @@ func (r *Registry) Run(ctx context.Context, name string, input json.RawMessage) 
 		input = json.RawMessage("{}")
 	}
 	return a.Run(ctx, input)
+}
+
+// Deletes reports whether an action removes data: marked Destructive, or
+// named "*.delete" (the assistant confirms these too).
+func Deletes(a Action) bool {
+	return a.Destructive || strings.HasSuffix(a.Name, ".delete")
+}
+
+// Module is the part of an action name before the first dot, for example
+// "notes" for notes.create.
+func Module(name string) string {
+	if i := strings.IndexByte(name, '.'); i > 0 {
+		return name[:i]
+	}
+	return name
+}
+
+// Access levels of callers outside the web app: API tokens (B43) and
+// built-in agents (B47).
+const (
+	AccessRead        = "read"
+	AccessWrite       = "write"
+	AccessWriteDelete = "write_delete"
+)
+
+// AllowedFor reports whether an outside caller with this access level and
+// module list (empty means all) may see and run the action. Dangerous
+// actions are never allowed.
+func AllowedFor(a Action, access string, modules []string) bool {
+	if a.Effect == Dangerous || a.AliasOf != "" || a.PanelOnly {
+		return false
+	}
+	switch access {
+	case AccessRead:
+		if a.Effect != Read {
+			return false
+		}
+	case AccessWrite:
+		if a.Effect != Read && a.Effect != Write || Deletes(a) {
+			return false
+		}
+	case AccessWriteDelete:
+		if a.Effect != Read && a.Effect != Write {
+			return false
+		}
+	default:
+		return false
+	}
+	if len(modules) == 0 {
+		return true
+	}
+	m := Module(a.Name)
+	for _, allowed := range modules {
+		if allowed == m {
+			return true
+		}
+	}
+	return false
 }

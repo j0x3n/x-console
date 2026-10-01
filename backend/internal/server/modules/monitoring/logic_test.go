@@ -272,6 +272,8 @@ func TestMonthlyCost(t *testing.T) {
 func TestNormalizeTarget(t *testing.T) {
 	ok := map[[2]string]string{
 		{kindHTTP, "https://example.com/health"}: "https://example.com/health",
+		{kindHTTP, "example.com"}:                "https://example.com",
+		{kindHTTP, "http://a.com"}:               "http://a.com",
 		{kindTLS, "example.com"}:                 "example.com",
 		{kindTLS, "https://example.com/x"}:       "example.com",
 		{kindTLS, "example.com:8443"}:            "example.com:8443",
@@ -285,7 +287,7 @@ func TestNormalizeTarget(t *testing.T) {
 			t.Errorf("%v: got %q %v, want %q", in, got, err, want)
 		}
 	}
-	for _, in := range [][2]string{{kindHTTP, "ftp://x"}, {kindHTTP, "example.com"}, {kindTLS, "a b"}, {kindTLS, "x:99999"}, {kindDomain, "localhost"}, {"ping", "x"}} {
+	for _, in := range [][2]string{{kindHTTP, "ftp://a.com"}, {kindTLS, "a b"}, {kindTLS, "x:99999"}, {kindDomain, "localhost"}, {"ping", "x"}} {
 		if _, err := normalizeTarget(in[0], in[1]); err == nil {
 			t.Errorf("%v accepted", in)
 		}

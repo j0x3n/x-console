@@ -88,6 +88,13 @@ func (m *Module) createProject(ctx context.Context, in api.CreateProject) (out a
 	if err != nil {
 		return out, err
 	}
+	// B46: every project starts with one board with a list per status.
+	if err = m.tx(ctx, func(q *db.Queries) error {
+		_, err := m.createBoardTx(ctx, q, id, "看板", "", "statuses")
+		return err
+	}); err != nil {
+		return out, err
+	}
 	out, err = m.getProject(ctx, id)
 	if err != nil {
 		return out, err
@@ -123,6 +130,12 @@ func (m *Module) updateProject(ctx context.Context, id int64, in api.UpdateProje
 	if in.Icon != nil {
 		p.Icon = *in.Icon
 	}
+	if in.LayoutLocked != nil {
+		p.LayoutLocked = 0
+		if *in.LayoutLocked {
+			p.LayoutLocked = 1
+		}
+	}
 	now := m.now()
 	if in.Archived != nil {
 		if *in.Archived && p.ArchivedAt == nil {
@@ -133,7 +146,7 @@ func (m *Module) updateProject(ctx context.Context, id int64, in api.UpdateProje
 	}
 	if err := m.q.UpdateProject(ctx, db.UpdateProjectParams{
 		Name: p.Name, Description: p.Description, Color: p.Color, Icon: p.Icon, ArchivedAt: p.ArchivedAt,
-		UpdatedAt: now, ID: id,
+		LayoutLocked: p.LayoutLocked, UpdatedAt: now, ID: id,
 	}); err != nil {
 		return out, err
 	}
@@ -170,6 +183,9 @@ type issueInput struct {
 	ExternalID     string
 	// UpdatedAt zero means now. Sync passes the remote time.
 	UpdatedAt time.Time
+	// BoardID and ListID place the card (B46); nil picks a default.
+	BoardID *int64
+	ListID  *int64
 }
 
 // issuePatch changes some fields of an issue. Nil means unchanged.
@@ -244,20 +260,6 @@ func setLabels(ctx context.Context, q *db.Queries, issueID int64, labelIDs []int
 		}
 	}
 	return nil
-}
-
-// topOfColumn is the sort order that puts an issue first in a column.
-func topOfColumn(ctx context.Context, q *db.Queries, projectID int64, status string, self int64) (float64, error) {
-	n, err := q.CountInColumn(ctx, db.CountInColumnParams{ProjectID: projectID, Status: status, ID: self})
-	if err != nil || n == 0 {
-		return 0, err
-	}
-	top, err := q.MinSortOrder(ctx, db.MinSortOrderParams{ProjectID: projectID, Status: status, ID: self})
-	if err != nil {
-		return 0, err
-	}
-	v, _ := between(nil, &top)
-	return v, nil
 }
 
 // completedAt keeps the first completion time while an issue stays closed.
@@ -367,11 +369,18 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 		if err := checkCategory(ctx, q, projectID, in.CategoryID); err != nil {
 			return err
 		}
+		list, err := m.placeFor(ctx, q, projectID, in.BoardID, in.ListID, in.Status)
+		if err != nil {
+			return err
+		}
+		if list.Status != nil && in.ListID != nil {
+			in.Status = *list.Status
+		}
 		next, err := q.TakeIssueNumber(ctx, projectID)
 		if err != nil {
 			return err
 		}
-		sort, err := topOfColumn(ctx, q, projectID, in.Status, 0)
+		sort, err := topOfList(ctx, q, list.ID, 0)
 		if err != nil {
 			return err
 		}
@@ -385,8 +394,12 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 			ExternalSource: in.ExternalSource, ExternalID: in.ExternalID,
 			CreatedAt: created, UpdatedAt: updated, CompletedAt: completed,
 			CategoryID: in.CategoryID, DueAt: dueString(in.DueAt), DueRemind: in.DueRemind,
+			BoardID: &list.BoardID, ListID: &list.ID,
 		})
 		if err != nil {
+			return err
+		}
+		if err := activity(ctx, q, id, "created", map[string]any{"listId": list.ID, "toList": list.Name}, now); err != nil {
 			return err
 		}
 		return setLabels(ctx, q, id, in.LabelIDs)
@@ -488,16 +501,14 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 		if p.UpdatedAt.IsZero() {
 			updated = m.now()
 		}
+		statusChanged := false
 		if p.Status != nil && *p.Status != i.Status {
 			if !validStatus(*p.Status) {
 				return httpx.Invalid("状态不正确")
 			}
-			sort, err := topOfColumn(ctx, q, i.ProjectID, *p.Status, i.ID)
-			if err != nil {
-				return err
-			}
 			i.CompletedAt = completedAt(i.CompletedAt, i.Status, *p.Status, updated)
-			i.Status, i.SortOrder = *p.Status, sort
+			i.Status = *p.Status
+			statusChanged = true
 		}
 		if err := q.UpdateIssue(ctx, db.UpdateIssueParams{
 			Title: i.Title, Description: i.Description, Status: i.Status, Priority: i.Priority, DueDate: i.DueDate,
@@ -505,6 +516,12 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 			CategoryID: i.CategoryID, DueAt: i.DueAt, DueRemind: i.DueRemind, DueNotifiedAt: i.DueNotifiedAt,
 		}); err != nil {
 			return err
+		}
+		if statusChanged {
+			// B46: the card follows its status into the matching list.
+			if err := m.followStatus(ctx, q, i.ID, i.Status); err != nil {
+				return err
+			}
 		}
 		if p.LabelIDs != nil {
 			return setLabels(ctx, q, i.ID, *p.LabelIDs)
@@ -537,121 +554,6 @@ func (m *Module) updateIssue(ctx context.Context, key string, p issuePatch) (out
 	}
 	m.publishUpdate(out, from)
 	return out, nil
-}
-
-// moveIssue puts an issue into a column between two neighbours.
-func (m *Module) moveIssue(ctx context.Context, key, status string, afterKey, beforeKey *string) (out api.Issue, err error) {
-	defer func() {
-		m.d.Audit.Record(ctx, "issue.move", key, map[string]any{"status": status}, err)
-	}()
-	if !validStatus(status) {
-		return out, httpx.Invalid("状态不正确")
-	}
-	var id int64
-	var from string
-	err = m.tx(ctx, func(q *db.Queries) error {
-		row, err := m.findIssue(ctx, q, key)
-		if err != nil {
-			return err
-		}
-		i := row.Issue
-		id, from = i.ID, i.Status
-		anchor := func(k *string) (*float64, error) {
-			if k == nil || *k == "" {
-				return nil, nil
-			}
-			a, err := m.findIssue(ctx, q, *k)
-			if err != nil {
-				return nil, err
-			}
-			if a.Issue.ProjectID != i.ProjectID || a.Issue.Status != status || a.Issue.ID == i.ID {
-				return nil, httpx.Invalid("落点旁边的 Issue 不在这一列")
-			}
-			return &a.Issue.SortOrder, nil
-		}
-		col := func(v float64, err error) (*float64, error) {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			if err != nil {
-				return nil, err
-			}
-			return &v, nil
-		}
-		for attempt := 0; ; attempt++ {
-			prev, err := anchor(afterKey)
-			if err != nil {
-				return err
-			}
-			next, err := anchor(beforeKey)
-			if err != nil {
-				return err
-			}
-			switch {
-			case prev != nil && next == nil:
-				if next, err = col(q.NextInColumn(ctx, db.NextInColumnParams{ProjectID: i.ProjectID, Status: status, ID: i.ID, SortOrder: *prev})); err != nil {
-					return err
-				}
-			case next != nil && prev == nil:
-				if prev, err = col(q.PrevInColumn(ctx, db.PrevInColumnParams{ProjectID: i.ProjectID, Status: status, ID: i.ID, SortOrder: *next})); err != nil {
-					return err
-				}
-			case prev == nil && next == nil:
-				n, err := q.CountInColumn(ctx, db.CountInColumnParams{ProjectID: i.ProjectID, Status: status, ID: i.ID})
-				if err != nil {
-					return err
-				}
-				if n > 0 {
-					last, err := q.MaxSortOrder(ctx, db.MaxSortOrderParams{ProjectID: i.ProjectID, Status: status, ID: i.ID})
-					if err != nil {
-						return err
-					}
-					prev = &last
-				}
-			}
-			sort, ok := between(prev, next)
-			if ok {
-				i.SortOrder = sort
-				break
-			}
-			if attempt > 0 {
-				return httpx.Invalid("落点不正确")
-			}
-			if err := rebalance(ctx, q, i.ProjectID, status, i.ID); err != nil {
-				return err
-			}
-		}
-		now := m.now()
-		i.CompletedAt = completedAt(i.CompletedAt, i.Status, status, now)
-		i.Status = status
-		return q.UpdateIssue(ctx, db.UpdateIssueParams{
-			Title: i.Title, Description: i.Description, Status: i.Status, Priority: i.Priority, DueDate: i.DueDate,
-			MilestoneID: i.MilestoneID, SortOrder: i.SortOrder, UpdatedAt: now, CompletedAt: i.CompletedAt, ID: i.ID,
-		})
-	})
-	if err != nil {
-		return out, err
-	}
-	out, err = m.issueByID(ctx, id)
-	if err != nil {
-		return out, err
-	}
-	m.publishUpdate(out, from)
-	return out, nil
-}
-
-// rebalance renumbers a column (without self) with even gaps.
-func rebalance(ctx context.Context, q *db.Queries, projectID int64, status string, self int64) error {
-	ids, err := q.ListColumn(ctx, db.ListColumnParams{ProjectID: projectID, Status: status, ID: self})
-	if err != nil {
-		return err
-	}
-	for i, v := range spread(len(ids)) {
-		if err := q.SetSortOrder(ctx, db.SetSortOrderParams{SortOrder: v, ID: ids[i]}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (m *Module) deleteIssue(ctx context.Context, key string) (err error) {

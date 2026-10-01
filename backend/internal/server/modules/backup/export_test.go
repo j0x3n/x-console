@@ -26,3 +26,6 @@ func FinishRestore(m *Module, ctx context.Context) error { return m.finishRestor
 func UnreadableSecrets(ctx context.Context, db *sql.DB, box *secrets.Box) ([]string, error) {
 	return unreadableSecrets(ctx, db, box)
 }
+
+// MigrateRemotes runs the B69 move of the B63 drive accounts.
+func MigrateRemotes(m *Module, ctx context.Context) error { return m.migrateRemotes(ctx) }

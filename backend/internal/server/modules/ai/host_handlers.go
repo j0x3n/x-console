@@ -62,6 +62,8 @@ func (m *Module) conversation(row db.AiConversation) api.Conversation {
 	if row.HostID != nil {
 		mode := m.permission(row.ID)
 		c.Permission = &mode
+	} else {
+		m.panelFields(&c, row)
 	}
 	return c
 }
@@ -83,6 +85,10 @@ func (m *Module) hostSystem(ctx context.Context, hostID string) string {
 		}
 	} else {
 		base += "\n当前机器 ID：" + hostID + "。若机器离线，说明操作无法执行。"
+	}
+	// B61: the machine agent reads the memory but has no tool to change it.
+	if mem := m.Prompt(ctx); mem != "" {
+		base += "\n\n" + mem
 	}
 	return base
 }

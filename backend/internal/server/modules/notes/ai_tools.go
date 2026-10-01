@@ -67,7 +67,7 @@ func (m *Module) PolishNoteBody(w http.ResponseWriter, r *http.Request) {
 	if in.Prompt != nil && strings.TrimSpace(*in.Prompt) != "" {
 		system += "\n这次用户的要求（优先按它来）：" + strings.TrimSpace(*in.Prompt)
 	}
-	out, err := client.CompleteText(r.Context(), "fast", system, body)
+	out, err := client.CompleteText(contracts.WithAIUsage(r.Context(), "notes", ""), "fast", system, body)
 	if err != nil {
 		httpx.Fail(w, r, httpx.NewError(http.StatusBadGateway, "ai_failed", "AI 润色失败："+err.Error()))
 		return
@@ -108,7 +108,7 @@ func (m *Module) SuggestNoteTitle(w http.ResponseWriter, r *http.Request) {
 		Title string `json:"title"`
 	}
 	schema := json.RawMessage(`{"type":"object","properties":{"title":{"type":"string"}},"required":["title"],"additionalProperties":false}`)
-	if err := client.CompleteJSON(r.Context(), "fast", "给笔记起一个 20 字以内的标题，用笔记的语言。只返回 JSON。", clip(body, maxNoteAIInput), schema, &answer); err != nil {
+	if err := client.CompleteJSON(contracts.WithAIUsage(r.Context(), "notes", ""), "fast", "给笔记起一个 20 字以内的标题，用笔记的语言。只返回 JSON。", clip(body, maxNoteAIInput), schema, &answer); err != nil {
 		httpx.Fail(w, r, httpx.NewError(http.StatusBadGateway, "ai_failed", "生成标题失败："+err.Error()))
 		return
 	}
@@ -149,7 +149,7 @@ func (m *Module) SuggestNoteTags(w http.ResponseWriter, r *http.Request) {
 	}
 	schema := json.RawMessage(`{"type":"object","properties":{"tags":{"type":"array","items":{"type":"string"},"maxItems":3}},"required":["tags"],"additionalProperties":false}`)
 	system := "给笔记挑最多 3 个标签。尽量从已有标签中选，只有很确定时才新建。只返回 JSON。已有标签：" + strings.Join(names, "、")
-	if err := client.CompleteJSON(r.Context(), "fast", system, clip(body, maxNoteAIInput), schema, &answer); err != nil {
+	if err := client.CompleteJSON(contracts.WithAIUsage(r.Context(), "notes", ""), "fast", system, clip(body, maxNoteAIInput), schema, &answer); err != nil {
 		httpx.Fail(w, r, httpx.NewError(http.StatusBadGateway, "ai_failed", "生成标签失败："+err.Error()))
 		return
 	}

@@ -190,7 +190,7 @@ func (w *wevt) readLog(ctx context.Context, log, xpath string, count int, newest
 	if err != nil {
 		return nil, err
 	}
-	return parseEvents(out)
+	return parseEvents(toUTF8(out, outputCodePage()))
 }
 
 func (w *wevt) query(ctx context.Context, p protocol.SyslogQueryParams) (protocol.SyslogPage, error) {

@@ -48,6 +48,15 @@ const events = vi.hoisted(() => {
       listeners.forEach((fn) => fn({ topic, data, at: "" })),
   };
 });
+// B60：切到“全部允许”要先提升权限
+const elevation = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("../../auth/elevation", () => ({
+  withElevation: async <T,>(fn: () => Promise<T>) => {
+    elevation.calls++;
+    return fn();
+  },
+}));
+
 vi.mock("../../api/events", () => ({
   onServerEvent: (
     fn: (e: { topic: string; data: unknown; at: string }) => void,
@@ -286,5 +295,67 @@ describe("assistant panel", () => {
     fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
     await new Promise((r) => setTimeout(r, 30));
     expect(api.calls.some((c) => c.path.endsWith("/messages"))).toBe(false);
+  });
+
+  it("new chats carry the chosen model; changing a chat saves at once (B60)", async () => {
+    live();
+    api.routes.set("GET /ai/model-settings", () => ({
+      status: 200,
+      body: {
+        agent: { providerId: 1, model: "tools" },
+        reasoningEffort: "off",
+        confirmAllWrites: false,
+        defaultPermission: "write",
+      },
+    }));
+    api.routes.set("GET /ai/models", () => ({
+      status: 200,
+      body: [
+        { providerId: 1, id: "tools", specSource: "user" },
+        { providerId: 1, id: "other", specSource: "user" },
+      ],
+    }));
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: /^AI/ }));
+    const box = await screen.findByLabelText("消息");
+    const model = (await screen.findByLabelText("模型")) as HTMLSelectElement;
+    await waitFor(() => expect(model.options.length).toBe(3));
+    expect((screen.getByLabelText("权限") as HTMLSelectElement).value).toBe(
+      "write",
+    );
+    fireEvent.change(model, { target: { value: "1:other" } });
+    fireEvent.change(box, { target: { value: "你好" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() =>
+      expect(
+        api.calls.find(
+          (c) => c.method === "POST" && c.path === "/ai/conversations",
+        )?.body,
+      ).toEqual({ permission: "write", model: "1:other", effort: "" }),
+    );
+
+    // The chat exists now: a change is saved right away.
+    api.routes.set("PATCH /ai/conversations/5/settings", (body) => ({
+      status: 200,
+      body: {
+        id: 5,
+        title: "",
+        createdAt: at,
+        updatedAt: at,
+        ...(body as object),
+      },
+    }));
+    await waitFor(() => expect(useAssistant.getState().conversationId).toBe(5));
+    const perm = screen.getByLabelText("权限") as HTMLSelectElement;
+    elevation.calls = 0;
+    fireEvent.change(perm, { target: { value: "manual" } });
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
+        permission: "manual",
+      }),
+    );
+    expect(elevation.calls).toBe(0);
+    fireEvent.change(perm, { target: { value: "all" } });
+    await waitFor(() => expect(elevation.calls).toBe(1));
   });
 });

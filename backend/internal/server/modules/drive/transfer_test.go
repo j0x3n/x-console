@@ -14,7 +14,9 @@ import (
 
 func waitTransfer(t *testing.T, env *testutil.Env, id string) api.DriveTask {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	// Copying a few hundred items takes several seconds under -race on a
+	// busy CI runner; 5 seconds was not enough there.
+	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		var out struct {
 			Items []api.DriveTask `json:"items"`
@@ -28,7 +30,7 @@ func waitTransfer(t *testing.T, env *testutil.Env, id string) api.DriveTask {
 				return task
 			}
 		}
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatal("transfer task timed out")
 	return api.DriveTask{}

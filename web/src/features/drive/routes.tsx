@@ -6,6 +6,10 @@ import "./i18n";
 import "./drive.css";
 import DriveNavChildren from "./NavChildren";
 import { registerNavChildren } from "../../lib/navChildren";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useDriveBadge } from "./badge";
+
+registerNavBadge("/drive", useDriveBadge);
 
 // 侧边栏“/drive”的二级菜单。
 registerNavChildren("/drive", DriveNavChildren);

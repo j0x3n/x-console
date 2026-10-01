@@ -104,7 +104,10 @@ func (m *Module) DismissNoteSuggestedTags(w http.ResponseWriter, r *http.Request
 	httpx.NoContent(w)
 }
 
-func (m *Module) scheduleNoteAI(id int64, hidden bool) {
+// scheduleNoteAI makes the title and tags a little after a save. A quick
+// note (B67) is done at once: nobody opens it again to wait or to accept
+// suggested tags.
+func (m *Module) scheduleNoteAI(id int64, hidden, quick bool) {
 	m.aiMu.Lock()
 	defer m.aiMu.Unlock()
 	if timer := m.aiTimers[id]; timer != nil {
@@ -118,7 +121,11 @@ func (m *Module) scheduleNoteAI(id int64, hidden bool) {
 	m.aiTimers[id] = timer
 	// B40: a few seconds after the save, not 10. Saves come in bursts while
 	// typing; the timer restarts on each one.
-	timer.cancel = m.aiDelay(3*time.Second, func() {
+	delay := 3 * time.Second
+	if quick {
+		delay = 0
+	}
+	timer.cancel = m.aiDelay(delay, func() {
 		m.aiMu.Lock()
 		if m.aiTimers[id] != timer {
 			m.aiMu.Unlock()
@@ -127,7 +134,7 @@ func (m *Module) scheduleNoteAI(id int64, hidden bool) {
 		delete(m.aiTimers, id)
 		ctx := m.aiCtx
 		m.aiMu.Unlock()
-		if err := m.processNoteAI(ctx, id); err != nil && ctx.Err() == nil {
+		if err := m.processNoteAI(ctx, id, quick); err != nil && ctx.Err() == nil {
 			m.d.Log.Warn("note AI failed", "note", id, "err", err)
 		}
 	})
@@ -208,7 +215,7 @@ func changedEnough(previous, current string) bool {
 // come from the start of a note; a long note must not cost a long prompt.
 const maxNoteAIInput = 4000
 
-func (m *Module) processNoteAI(ctx context.Context, id int64) error {
+func (m *Module) processNoteAI(ctx context.Context, id int64, quick bool) error {
 	client, ok := module.Lookup[contracts.LLM](m.d.Registry, contracts.LLMKey)
 	if !ok || !client.Available(ctx) {
 		return nil
@@ -230,7 +237,12 @@ func (m *Module) processNoteAI(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if hidden != 0 || utf8.RuneCountInString(strings.Join(strings.Fields(body), "")) < minAutoAIRunes {
+	minRunes := minAutoAIRunes
+	if quick {
+		minRunes = 1
+		settings.TagMode = api.NoteAiSettingsTagModeApply
+	}
+	if hidden != 0 || utf8.RuneCountInString(strings.Join(strings.Fields(body), "")) < minRunes {
 		return nil
 	}
 	var tagCount int
@@ -266,7 +278,7 @@ func (m *Module) processNoteAI(ctx context.Context, id int64) error {
 	if runes := []rune(input); len(runes) > maxNoteAIInput {
 		input = string(runes[:maxNoteAIInput])
 	}
-	if err := client.CompleteJSON(ctx, "fast", system, input, json.RawMessage(noteAISchema), &answer); err != nil {
+	if err := client.CompleteJSON(contracts.WithAIUsage(ctx, "notes", ""), "fast", system, input, json.RawMessage(noteAISchema), &answer); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(answer.Title) > 20 {

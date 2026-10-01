@@ -4,3 +4,6 @@ dist/
 # npm run shots 的截图
 screenshots/
 e2e-artifacts/
+
+# TypeScript 增量编译的缓存
+*.tsbuildinfo

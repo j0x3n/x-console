@@ -70,7 +70,7 @@ func TestAssistantActionWorkflows(t *testing.T) {
 	run("habits.checkin", map[string]any{"habitId": habitID})
 	run("habits.delete", map[string]any{"id": habitID})
 	for _, name := range []string{"projects.get", "issues.move", "notes.get", "reminders.update", "habits.stats"} {
-		if _, ok := env.App.Deps.Actions.Get(name); !ok {
+		if _, ok := env.App.Deps.Actions.Get(ctx, name); !ok {
 			t.Fatal(fmt.Sprintf("missing %s", name))
 		}
 	}

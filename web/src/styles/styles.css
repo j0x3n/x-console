@@ -16,7 +16,7 @@
 }
 body {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 button,
 input,
@@ -80,7 +80,7 @@ svg {
   justify-content: center;
   flex: none;
   border-radius: 5px;
-  font-size: 9px;
+  font-size: var(--fs-9);
   font-weight: 700;
   color: #fff;
   background: var(
@@ -116,7 +116,7 @@ svg {
 .keyboard-help kbd,
 .command-input kbd,
 .command-footer kbd {
-  font-size: 10px;
+  font-size: var(--fs-10);
   line-height: 1;
   border: 1px solid #303036;
   border-radius: 4px;
@@ -162,7 +162,7 @@ svg {
   white-space: nowrap;
 }
 .nav-item em {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: #81818b;
   font-style: normal;
 }
@@ -193,7 +193,7 @@ svg {
   justify-content: space-between;
   padding: 0 8px 7px;
   color: #66666e;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 600;
 }
 .side-label button {
@@ -230,18 +230,18 @@ svg {
   width: 20px;
   height: 20px;
   border-radius: 5px;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 700;
 }
 .agent-badge.small {
   width: 20px;
   height: 20px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .agent-badge.tiny {
   width: 16px;
   height: 16px;
-  font-size: 10px;
+  font-size: var(--fs-10);
   border-radius: 4px;
 }
 .app-shell svg.lucide {
@@ -268,7 +268,7 @@ svg {
   color: #f488b4;
 }
 .company-badge {
-  font-size: 9px;
+  font-size: var(--fs-9);
   font-weight: 700;
   border: 1px solid #ffffff20;
 }
@@ -295,7 +295,7 @@ svg {
 .favorite-nav .company-badge {
   width: 20px;
   height: 20px;
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 .profile {
   height: 44px;
@@ -326,10 +326,10 @@ svg {
 }
 .profile b {
   color: #e9e9ed;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .profile small {
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: #74747d;
   margin-top: 2px;
 }
@@ -396,7 +396,7 @@ svg {
   gap: 4px;
   margin-right: 6px;
   color: #85858d;
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 .account-pager > span {
@@ -463,7 +463,7 @@ svg {
   border-radius: 5px;
 }
 .command-button span {
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .notifications-wrap {
   position: relative;
@@ -544,7 +544,7 @@ svg {
 .subpage-title p {
   margin: 0;
   color: #92929c;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .greeting-row p strong {
   color: #d4d4da;
@@ -602,7 +602,7 @@ svg {
   gap: 5px;
   color: #888892;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 600;
   letter-spacing: 0.035em;
   white-space: nowrap;
@@ -615,7 +615,7 @@ svg {
   text-transform: none;
   letter-spacing: 0;
   color: #686872;
-  font-size: 10px;
+  font-size: var(--fs-10);
   flex: none;
 }
 .metric-value {
@@ -626,7 +626,7 @@ svg {
   margin-top: 20px;
 }
 .metric-value small {
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 400;
   color: #85858f;
 }
@@ -635,13 +635,13 @@ svg {
   right: 14px;
   top: 45px;
   color: #aaaab2;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .metric-secondary.positive {
   color: #79bdad;
 }
 .metric-foot {
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: #74747f;
   margin-top: auto;
 }
@@ -686,7 +686,7 @@ svg {
   text-align: center;
 }
 .gauge-center span {
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .coverage-card .metric-foot {
   text-align: center;
@@ -720,7 +720,7 @@ svg {
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: #9c9ca5;
   margin-top: 2px;
 }
@@ -777,7 +777,7 @@ svg {
   display: flex;
   justify-content: space-between;
   color: #686872;
-  font-size: 9px;
+  font-size: var(--fs-9);
   margin-top: 6px;
 }
 .response-card .metric-secondary {
@@ -837,7 +837,7 @@ svg {
 .next-card .metric-foot {
   margin: 0;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .meeting-primary {
   display: flex;
@@ -951,7 +951,7 @@ svg {
 }
 .section-heading h2,
 .plain-section h2 {
-  font-size: 14px;
+  font-size: var(--fs-14);
   font-weight: 500;
   margin: 0;
   color: #eeeeef;
@@ -967,7 +967,7 @@ svg {
   border-radius: 5px;
   background: #242429;
   color: #85858e;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
   margin-left: 4px;
 }
@@ -976,7 +976,7 @@ svg {
   align-items: center;
   gap: 4px;
   color: #6a6a74;
-  font-size: 10px;
+  font-size: var(--fs-10);
   white-space: nowrap;
 }
 .keyboard-help kbd {
@@ -1018,7 +1018,7 @@ svg {
   align-items: center;
   gap: 6px;
   color: #878791;
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
   min-width: 0;
 }
@@ -1037,7 +1037,7 @@ svg {
   flex: none;
 }
 .decision-card h3 {
-  font-size: 16px;
+  font-size: var(--fs-16);
   font-weight: 500;
   margin: 10px 0 6px;
   overflow: hidden;
@@ -1051,7 +1051,7 @@ svg {
   color: #898993;
   white-space: nowrap;
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .company-line .company-badge {
   width: 15px;
@@ -1074,7 +1074,7 @@ svg {
   gap: 6px;
   color: #777781;
   margin-top: 7px;
-  font-size: 10px;
+  font-size: var(--fs-10);
   min-width: 0;
 }
 .receipts span {
@@ -1144,7 +1144,7 @@ svg {
   color: #f0f0f3;
 }
 .return-key {
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: #8a4c30;
 }
 .decision-preview {
@@ -1173,10 +1173,10 @@ svg {
   align-items: center;
   gap: 5px;
   color: #81818a;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .draft-preview strong {
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -1185,7 +1185,7 @@ svg {
 .draft-preview p {
   margin: 0;
   color: #96969f;
-  font-size: 10px;
+  font-size: var(--fs-10);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -1203,7 +1203,7 @@ svg {
   align-items: center;
   justify-content: space-between;
   color: #8e8e97;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .health-top span:first-child {
   display: flex;
@@ -1215,7 +1215,7 @@ svg {
   align-items: center;
   gap: 5px;
   color: #dedee2;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 .negative,
 .health-bottom em {
@@ -1241,7 +1241,7 @@ svg {
   align-items: center;
   gap: 10px;
   color: #8d8d96;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .stage-line b {
   padding: 4px 7px;
@@ -1271,7 +1271,7 @@ svg {
   justify-content: space-between;
   gap: 4px;
   color: #696972;
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 .stage-labels span:last-child {
   color: #c9c9ce;
@@ -1281,7 +1281,7 @@ svg {
   align-items: center;
   gap: 5px;
   color: #85858e;
-  font-size: 10px;
+  font-size: var(--fs-10);
   margin-top: 9px;
 }
 .right-column {
@@ -1295,7 +1295,7 @@ svg {
   align-items: center;
   gap: 5px;
   color: #7b7b84;
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
 }
 .meetings-list {
@@ -1328,11 +1328,11 @@ svg {
   width: 38px;
   flex: none;
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: #e2e2e5;
 }
 .meeting-time small {
-  font-size: 9px;
+  font-size: var(--fs-9);
   color: #777780;
   font-weight: 400;
   margin-top: 3px;
@@ -1368,15 +1368,15 @@ svg {
   text-overflow: ellipsis;
 }
 .meeting-info b {
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
 }
 .meeting-info small {
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: #777780;
 }
 .meeting-tag {
-  font-size: 10px;
+  font-size: var(--fs-10);
   white-space: nowrap;
 }
 .meeting-tag.ready {
@@ -1396,7 +1396,7 @@ svg {
   border: 0;
   background: none;
   color: #8d8d98;
-  font-size: 10px;
+  font-size: var(--fs-10);
   white-space: nowrap;
 }
 .heading-link:hover {
@@ -1413,7 +1413,7 @@ svg {
 }
 .live-text {
   color: #777780;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .activity-panel {
   min-height: 0;
@@ -1454,7 +1454,7 @@ svg {
   gap: 4px;
 }
 .activity-content > span {
-  font-size: 11px;
+  font-size: var(--fs-11);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1468,7 +1468,7 @@ svg {
   align-items: center;
   gap: 4px;
   color: #6f6f78;
-  font-size: 9px;
+  font-size: var(--fs-9);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1481,7 +1481,7 @@ svg {
 }
 .activity-row time {
   color: #777780;
-  font-size: 10px;
+  font-size: var(--fs-10);
   white-space: nowrap;
 }
 .all-clear {
@@ -1500,7 +1500,7 @@ svg {
 }
 .all-clear strong {
   color: #e2e2e6;
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 500;
 }
 .mobile-menu {
@@ -1513,7 +1513,7 @@ svg {
   padding-top: 25px;
 }
 .eyebrow {
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: #777782;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1549,7 +1549,7 @@ svg {
 .records-header {
   height: 40px;
   color: #787882;
-  font-size: 10px;
+  font-size: var(--fs-10);
   text-transform: uppercase;
   border-bottom: 1px solid #2c2c32;
 }
@@ -1561,7 +1561,7 @@ svg {
   border-bottom: 1px solid #232328;
   color: #a2a2ab;
   text-align: left;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .record-row:last-child {
   border-bottom: 0;
@@ -1601,12 +1601,12 @@ svg {
 }
 .agent-card h2 {
   margin: 14px 0 3px;
-  font-size: 15px;
+  font-size: var(--fs-15);
   font-weight: 500;
 }
 .agent-status {
   color: #df9a68;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .agent-status.running-text {
   color: #65c5aa;
@@ -1614,7 +1614,7 @@ svg {
 .agent-card p {
   line-height: 1.5;
   color: #898993;
-  font-size: 11px;
+  font-size: var(--fs-11);
   margin: 12px 0 0;
 }
 .plain-section {
@@ -1659,7 +1659,7 @@ svg {
   background: #523321;
 }
 .work-status {
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: #d8a879;
 }
 .subpage-heading {
@@ -1671,7 +1671,7 @@ svg {
 .subpage-heading .company-badge {
   width: 44px;
   height: 44px;
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 .subpage-heading .eyebrow {
   margin-bottom: 5px;
@@ -1698,7 +1698,7 @@ svg {
   color: #777780;
 }
 .detail-grid strong {
-  font-size: 13px;
+  font-size: var(--fs-13);
   font-weight: 500;
 }
 .settings-section {
@@ -1741,7 +1741,7 @@ svg {
   border: 0;
   color: #f0f0f2;
   outline: 0;
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 .command-input input::placeholder {
   color: #777780;
@@ -1750,7 +1750,7 @@ svg {
   padding: 14px 15px 7px;
   color: #767680;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-weight: 600;
 }
 .command-results {
@@ -1798,7 +1798,7 @@ svg {
   padding: 0 14px;
   border-top: 1px solid #37373d;
   color: #777780;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .command-footer span {
   display: flex;
@@ -1819,7 +1819,7 @@ svg {
   gap: 10px;
 }
 .dialog-top h2 {
-  font-size: 16px;
+  font-size: var(--fs-16);
   font-weight: 500;
   margin: 0;
 }
@@ -2007,7 +2007,7 @@ html[data-theme="light"] .toast button:hover {
     font-size: 27px;
   }
   .greeting-row time {
-    font-size: 11px;
+    font-size: var(--fs-11);
   }
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2064,10 +2064,10 @@ html[data-theme="light"] .toast button:hover {
     padding: 12px;
   }
   .metric-top {
-    font-size: 9px;
+    font-size: var(--fs-9);
   }
   .metric-top span:last-child {
-    font-size: 9px;
+    font-size: var(--fs-9);
   }
   .coverage-gauge {
     margin-top: 12px;
@@ -2076,13 +2076,13 @@ html[data-theme="light"] .toast button:hover {
     padding: 13px;
   }
   .decision-card h3 {
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .meeting-row {
     gap: 6px;
   }
   .meeting-tag {
-    font-size: 9px;
+    font-size: var(--fs-9);
   }
   .subpage-title {
     align-items: flex-start;
@@ -2092,7 +2092,7 @@ html[data-theme="light"] .toast button:hover {
     grid-template-columns: 1fr 1fr;
   }
   .record-row {
-    font-size: 10px;
+    font-size: var(--fs-10);
   }
   .record-row .company-badge {
     width: 17px;

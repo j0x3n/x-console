@@ -59,7 +59,7 @@ export default function ProjectSettingsDialog({
       title={`${project.name} · ${t("Settings")}`}
       wide
     >
-      <CategoriesSection projectId={project.id} />
+      {/* B46：分类换成了多看板，分类管理不再显示（CategoriesSection 保留到下个版本删）。 */}
 
       <section className="projects-settings-section">
         <h3>{t("Labels")}</h3>

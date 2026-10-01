@@ -281,8 +281,9 @@ func (m *Module) generate(ctx context.Context, cfg config, reg *module.Registry,
 	out := result{date: today.Format(time.DateOnly), sections: []api.BriefSection{}}
 	var b strings.Builder
 	b.WriteString("# " + dateTitle(l) + "\n")
+	hidden, _ := module.Lookup[contracts.HiddenModules](reg, contracts.HiddenModulesKey)
 	for _, s := range sections {
-		if !cfg.has(s.key) {
+		if !cfg.has(s.key) || contracts.BriefHidden(ctx, hidden, s.key) {
 			continue
 		}
 		md, err := s.build(ctx, in)

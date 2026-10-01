@@ -11,6 +11,82 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Defines values for ModuleId.
+const (
+	Automations ModuleId = "automations"
+	Calendar    ModuleId = "calendar"
+	Coding      ModuleId = "coding"
+	Drive       ModuleId = "drive"
+	DriveGdrive ModuleId = "drive-gdrive"
+	DriveWebdav ModuleId = "drive-webdav"
+	Github      ModuleId = "github"
+	Habits      ModuleId = "habits"
+	Home        ModuleId = "home"
+	Mail        ModuleId = "mail"
+	Monitoring  ModuleId = "monitoring"
+	Notes       ModuleId = "notes"
+	Pc          ModuleId = "pc"
+	Projects    ModuleId = "projects"
+	Reminders   ModuleId = "reminders"
+	Router      ModuleId = "router"
+	Servers     ModuleId = "servers"
+)
+
+// Valid indicates whether the value is a known member of the ModuleId enum.
+func (e ModuleId) Valid() bool {
+	switch e {
+	case Automations:
+		return true
+	case Calendar:
+		return true
+	case Coding:
+		return true
+	case Drive:
+		return true
+	case DriveGdrive:
+		return true
+	case DriveWebdav:
+		return true
+	case Github:
+		return true
+	case Habits:
+		return true
+	case Home:
+		return true
+	case Mail:
+		return true
+	case Monitoring:
+		return true
+	case Notes:
+		return true
+	case Pc:
+		return true
+	case Projects:
+		return true
+	case Reminders:
+		return true
+	case Router:
+		return true
+	case Servers:
+		return true
+	default:
+		return false
+	}
+}
+
+// AvailableModules defines model for AvailableModules.
+type AvailableModules struct {
+	Modules []ModuleId `json:"modules"`
+}
+
+// HiddenModules defines model for HiddenModules.
+type HiddenModules struct {
+	Hidden []ModuleId `json:"hidden"`
+}
+
+// ModuleId B57。左栏的模块，和前端路由的第一段相同。今日页不能隐藏。drive-webdav、drive-gdrive 是云盘页里的网盘标签（B68）
+type ModuleId string
+
 // VaultPassword defines model for VaultPassword.
 type VaultPassword struct {
 	Password string `json:"password"`
@@ -32,6 +108,9 @@ type ChangeVaultPasswordJSONBody struct {
 	OldPassword string `json:"oldPassword"`
 }
 
+// SetHiddenModulesJSONRequestBody defines body for SetHiddenModules for application/json ContentType.
+type SetHiddenModulesJSONRequestBody = HiddenModules
+
 // ChangeVaultPasswordJSONRequestBody defines body for ChangeVaultPassword for application/json ContentType.
 type ChangeVaultPasswordJSONRequestBody ChangeVaultPasswordJSONBody
 
@@ -44,8 +123,17 @@ type UnlockVaultJSONRequestBody = VaultPassword
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /app/modules)
+	GetAvailableModules(w http.ResponseWriter, r *http.Request)
+
 	// (POST /vault/lock)
 	LockVault(w http.ResponseWriter, r *http.Request)
+
+	// (GET /vault/modules)
+	GetHiddenModules(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /vault/modules)
+	SetHiddenModules(w http.ResponseWriter, r *http.Request)
 
 	// (POST /vault/password)
 	ChangeVaultPassword(w http.ResponseWriter, r *http.Request)
@@ -64,8 +152,23 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// (GET /app/modules)
+func (_ Unimplemented) GetAvailableModules(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /vault/lock)
 func (_ Unimplemented) LockVault(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /vault/modules)
+func (_ Unimplemented) GetHiddenModules(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /vault/modules)
+func (_ Unimplemented) SetHiddenModules(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -98,11 +201,53 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// GetAvailableModules operation middleware
+func (siw *ServerInterfaceWrapper) GetAvailableModules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAvailableModules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // LockVault operation middleware
 func (siw *ServerInterfaceWrapper) LockVault(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.LockVault(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHiddenModules operation middleware
+func (siw *ServerInterfaceWrapper) GetHiddenModules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHiddenModules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetHiddenModules operation middleware
+func (siw *ServerInterfaceWrapper) SetHiddenModules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetHiddenModules(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -295,6 +440,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/vault/password", wrapper.ChangeVaultPassword)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/vault/modules", wrapper.GetHiddenModules)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/vault/modules", wrapper.SetHiddenModules)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/app/modules", wrapper.GetAvailableModules)
 	})
 
 	return r

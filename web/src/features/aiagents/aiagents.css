@@ -1,0 +1,268 @@
+/* B47 Agent 管理 */
+.aiagent-avatar {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--xc-info);
+  color: #fff;
+  font-weight: 600;
+  line-height: 1;
+}
+.aiagent-avatar.failed::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--xc-surface);
+  border-radius: 50%;
+  background: var(--xc-danger);
+}
+.aiagent-member {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.aiagent-member > span:last-child:not(.aiagent-avatar) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aiagents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.aiagent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.aiagent-card.off {
+  opacity: 0.65;
+}
+.aiagent-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.aiagent-card-name {
+  display: flex;
+  text-decoration: none;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  color: var(--xc-text);
+}
+.aiagent-card-name strong,
+.aiagent-card-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aiagent-card-name strong {
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.aiagent-card-name small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.aiagent-card-brief {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.aiagent-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-12);
+}
+.aiagent-card-cost {
+  margin-left: auto;
+  color: var(--xc-muted);
+  font-variant-numeric: tabular-nums;
+}
+.aiagent-card-error {
+  margin: 0;
+  color: var(--xc-danger);
+  font-size: var(--fs-12);
+  overflow-wrap: anywhere;
+}
+.aiagent-conn-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
+}
+.aiagent-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+.aiagent-form-row > .xc-field {
+  flex: 1 1 200px;
+}
+.aiagent-small-field {
+  max-width: 220px;
+}
+.aiagent-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.aiagent-pick {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+  font-size: var(--fs-15);
+  cursor: pointer;
+}
+.aiagent-pick.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+}
+.aiagent-swatch {
+  width: 22px;
+  height: 22px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.aiagent-swatch.on {
+  border-color: var(--xc-text);
+}
+.aiagent-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.aiagent-kinds-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.aiagent-kinds-row > label {
+  flex: 1 1 160px;
+}
+.aiagent-repos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.aiagent-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-warn-soft);
+  color: var(--xc-warn);
+  font-size: var(--fs-12);
+}
+.aiagent-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  align-items: start;
+  gap: 16px;
+}
+.aiagent-detail-main {
+  min-width: 0;
+}
+.aiagent-detail-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.aiagent-props-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.aiagent-props-head strong {
+  font-size: var(--fs-15);
+}
+.aiagent-props dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+  font-size: var(--fs-12-5);
+}
+.aiagent-props dt {
+  color: var(--xc-muted);
+}
+.aiagent-props dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.aiagent-secret {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--fs-12-5);
+}
+.aiagent-secret code {
+  padding: 6px 8px;
+  overflow-wrap: anywhere;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+}
+.aiagent-assign-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+}
+.aiagent-assign-list .elevation-mode {
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .aiagent-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aiagent-detail-side {
+    order: -1;
+  }
+}
+@media (max-width: 640px) {
+  .aiagents-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aiagent-secret {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .aiagent-secret > span {
+    grid-column: 1 / -1;
+  }
+}
+
+/* 页签最后的“Git 账号在设置里管理”（B62）：靠右，字小一号 */
+.xc-tabs .aiagent-tabs-link {
+  margin-left: auto;
+  font-size: var(--fs-12);
+}

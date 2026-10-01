@@ -1,0 +1,156 @@
+/* 设置 → 远程访问（B43） */
+.mcp-warning {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-warn-soft);
+  color: var(--xc-warn);
+  font-size: var(--fs-12);
+}
+.mcp-secret {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+}
+.mcp-secret code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-12);
+}
+.mcp-snippet {
+  margin-top: 10px;
+}
+.mcp-snippet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: var(--fs-12-5);
+}
+.mcp-snippet pre {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  font-size: var(--fs-12);
+  line-height: 1.5;
+  white-space: pre;
+}
+.mcp-settings {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+}
+@media (max-width: 900px) {
+  .mcp-settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.mcp-settings code {
+  overflow-wrap: anywhere;
+}
+.mcp-tokens,
+.mcp-calls {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mcp-tokens li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.mcp-tokens li:first-child {
+  border-top: 0;
+}
+.mcp-tokens li > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mcp-tokens li > small {
+  grid-column: 1;
+  font-size: var(--fs-12);
+}
+.mcp-tokens li > button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.mcp-tokens li.is-dead {
+  opacity: 0.6;
+}
+.mcp-prefix {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.mcp-access {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mcp-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mcp-modules .xc-btn.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.mcp-settings > .mcp-calls-card {
+  grid-column: 1 / -1;
+}
+.mcp-calls li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--xc-border);
+  font-size: var(--fs-12-5);
+}
+.mcp-calls li:first-child {
+  border-top: 0;
+}
+.mcp-calls li > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mcp-calls .ok {
+  color: var(--xc-ok);
+}
+.mcp-calls .err {
+  color: var(--xc-danger);
+}
+.mcp-calls time {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+@media (max-width: 640px) {
+  .mcp-calls li {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 50%);
+    gap: 2px 8px;
+  }
+  .mcp-calls li > span:nth-child(3) {
+    text-align: right;
+  }
+  .mcp-calls li > span:nth-child(2) {
+    display: none;
+  }
+  .mcp-calls time {
+    grid-column: 1 / -1;
+  }
+}

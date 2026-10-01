@@ -32,6 +32,30 @@ func (e AgentKind) Valid() bool {
 	}
 }
 
+// Defines values for ElevationModeBodyMode.
+const (
+	ElevationModeBodyModeAlways  ElevationModeBodyMode = "always"
+	ElevationModeBodyModeN30m    ElevationModeBodyMode = "30m"
+	ElevationModeBodyModeOff     ElevationModeBodyMode = "off"
+	ElevationModeBodyModeSession ElevationModeBodyMode = "session"
+)
+
+// Valid indicates whether the value is a known member of the ElevationModeBodyMode enum.
+func (e ElevationModeBodyMode) Valid() bool {
+	switch e {
+	case ElevationModeBodyModeAlways:
+		return true
+	case ElevationModeBodyModeN30m:
+		return true
+	case ElevationModeBodyModeOff:
+		return true
+	case ElevationModeBodyModeSession:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NotificationPriority.
 const (
 	High   NotificationPriority = "high"
@@ -106,19 +130,19 @@ func (e PreferencesLanguage) Valid() bool {
 
 // Defines values for PreferencesNightMode.
 const (
-	Auto PreferencesNightMode = "auto"
-	Off  PreferencesNightMode = "off"
-	On   PreferencesNightMode = "on"
+	PreferencesNightModeAuto PreferencesNightMode = "auto"
+	PreferencesNightModeOff  PreferencesNightMode = "off"
+	PreferencesNightModeOn   PreferencesNightMode = "on"
 )
 
 // Valid indicates whether the value is a known member of the PreferencesNightMode enum.
 func (e PreferencesNightMode) Valid() bool {
 	switch e {
-	case Auto:
+	case PreferencesNightModeAuto:
 		return true
-	case Off:
+	case PreferencesNightModeOff:
 		return true
-	case On:
+	case PreferencesNightModeOn:
 		return true
 	default:
 		return false
@@ -214,6 +238,15 @@ type ElevateRequest struct {
 	Code     string `json:"code,omitempty"`
 	Password string `json:"password,omitempty"`
 }
+
+// ElevationModeBody defines model for ElevationModeBody.
+type ElevationModeBody struct {
+	// Mode always 每次（5 分钟内免验证）；30m 30 分钟内免验证；session 本次登录内免验证；off 关闭（改密码、两步验证、这个设置、API 令牌、Git 连接、从备份恢复仍然要验证）
+	Mode ElevationModeBodyMode `json:"mode"`
+}
+
+// ElevationModeBodyMode always 每次（5 分钟内免验证）；30m 30 分钟内免验证；session 本次登录内免验证；off 关闭（改密码、两步验证、这个设置、API 令牌、Git 连接、从备份恢复仍然要验证）
+type ElevationModeBodyMode string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
@@ -346,6 +379,16 @@ type DisableTotpJSONBody struct {
 	Password string `json:"password"`
 }
 
+// ReportClientErrorJSONBody defines parameters for ReportClientError.
+type ReportClientErrorJSONBody struct {
+	// Detail 复制用的完整文本
+	Detail    *string `json:"detail,omitempty"`
+	Message   string  `json:"message"`
+	Page      *string `json:"page,omitempty"`
+	RequestId *string `json:"requestId,omitempty"`
+	Title     string  `json:"title"`
+}
+
 // ListNotificationsParams defines parameters for ListNotifications.
 type ListNotificationsParams struct {
 	Unread *bool                `form:"unread,omitempty" json:"unread,omitempty"`
@@ -361,6 +404,9 @@ type CreatePairingCodeJSONRequestBody CreatePairingCodeJSONBody
 
 // ElevateJSONRequestBody defines body for Elevate for application/json ContentType.
 type ElevateJSONRequestBody = ElevateRequest
+
+// SetElevationModeJSONRequestBody defines body for SetElevationMode for application/json ContentType.
+type SetElevationModeJSONRequestBody = ElevationModeBody
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
@@ -382,6 +428,9 @@ type ConfirmTotpJSONRequestBody = TotpCode
 
 // DisableTotpJSONRequestBody defines body for DisableTotp for application/json ContentType.
 type DisableTotpJSONRequestBody DisableTotpJSONBody
+
+// ReportClientErrorJSONRequestBody defines body for ReportClientError for application/json ContentType.
+type ReportClientErrorJSONRequestBody ReportClientErrorJSONBody
 
 // PutPreferencesJSONRequestBody defines body for PutPreferences for application/json ContentType.
 type PutPreferencesJSONRequestBody = Preferences
@@ -422,6 +471,12 @@ type ServerInterface interface {
 	// (POST /auth/elevate)
 	Elevate(w http.ResponseWriter, r *http.Request)
 
+	// (GET /auth/elevation-mode)
+	GetElevationMode(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /auth/elevation-mode)
+	SetElevationMode(w http.ResponseWriter, r *http.Request)
+
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
 
@@ -451,6 +506,9 @@ type ServerInterface interface {
 
 	// (POST /auth/totp/enroll)
 	EnrollTotp(w http.ResponseWriter, r *http.Request)
+
+	// (POST /client-errors)
+	ReportClientError(w http.ResponseWriter, r *http.Request)
 
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -533,6 +591,16 @@ func (_ Unimplemented) Elevate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /auth/elevation-mode)
+func (_ Unimplemented) GetElevationMode(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /auth/elevation-mode)
+func (_ Unimplemented) SetElevationMode(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /auth/login)
 func (_ Unimplemented) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -580,6 +648,11 @@ func (_ Unimplemented) DisableTotp(w http.ResponseWriter, r *http.Request) {
 
 // (POST /auth/totp/enroll)
 func (_ Unimplemented) EnrollTotp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /client-errors)
+func (_ Unimplemented) ReportClientError(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -919,6 +992,34 @@ func (siw *ServerInterfaceWrapper) Elevate(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// GetElevationMode operation middleware
+func (siw *ServerInterfaceWrapper) GetElevationMode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetElevationMode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetElevationMode operation middleware
+func (siw *ServerInterfaceWrapper) SetElevationMode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetElevationMode(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
 
@@ -1050,6 +1151,20 @@ func (siw *ServerInterfaceWrapper) EnrollTotp(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.EnrollTotp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReportClientError operation middleware
+func (siw *ServerInterfaceWrapper) ReportClientError(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportClientError(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1364,6 +1479,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/auth/elevate", wrapper.Elevate)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/elevation-mode", wrapper.GetElevationMode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/auth/elevation-mode", wrapper.SetElevationMode)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/auth/totp/enroll", wrapper.EnrollTotp)
 	})
 	r.Group(func(r chi.Router) {
@@ -1422,6 +1543,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/notifications/{notificationId}", wrapper.DeleteNotification)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/client-errors", wrapper.ReportClientError)
 	})
 
 	return r

@@ -12,10 +12,11 @@ import (
 )
 
 func toProject(p db.Project, issueCount, openCount int64) api.Project {
+	locked := p.LayoutLocked != 0
 	return api.Project{
 		Id: p.ID, Key: p.Key, Name: p.Name, Description: p.Description, Color: p.Color, Icon: p.Icon,
 		ArchivedAt: p.ArchivedAt, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
-		IssueCount: int(issueCount), OpenCount: int(openCount),
+		IssueCount: int(issueCount), OpenCount: int(openCount), LayoutLocked: &locked,
 	}
 }
 
@@ -28,7 +29,12 @@ func toMilestone(ms db.Milestone) api.Milestone {
 }
 
 func toComment(c db.IssueComment) api.Comment {
-	return api.Comment{Id: c.ID, IssueId: c.IssueID, Body: c.Body, CreatedAt: c.CreatedAt}
+	out := api.Comment{Id: c.ID, IssueId: c.IssueID, Body: c.Body, CreatedAt: c.CreatedAt}
+	if c.Author != "" {
+		author := c.Author
+		out.Author = &author
+	}
+	return out
 }
 
 func toLink(l db.IssueLink) api.IssueLink {
@@ -69,6 +75,7 @@ func toIssue(i db.Issue, projectKey string, labels []api.Label) api.Issue {
 		CategoryId: i.CategoryID, DueAt: parseDue(i.DueAt), DueRemind: &remind,
 		ExternalSource: i.ExternalSource, ExternalId: i.ExternalID,
 		CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt,
+		BoardId: i.BoardID, ListId: i.ListID, ArchivedAt: i.ArchivedAt,
 	}
 }
 
@@ -118,12 +125,36 @@ func toIssues(ctx context.Context, q *db.Queries, rows []issueRow) ([]api.Issue,
 			progress[row.IssueID] = [2]int{done, int(row.Total)}
 		}
 	}
+	members := map[int64][]api.IssueMember{}
+	comments := map[int64]int{}
+	if len(ids) > 0 {
+		rows, err := q.MembersForIssues(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			members[row.IssueID] = append(members[row.IssueID], api.IssueMember{Kind: api.IssueMemberKind(row.MemberKind), Id: row.MemberID})
+		}
+		counts, err := q.CommentCountsForIssues(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range counts {
+			comments[c.IssueID] = int(c.N)
+		}
+	}
 	out := make([]api.Issue, len(rows))
 	for i, r := range rows {
 		out[i] = toIssue(r.Issue, r.ProjectKey, labels[r.Issue.ID])
 		counts := progress[r.Issue.ID]
 		out[i].ChecklistDone = &counts[0]
 		out[i].ChecklistTotal = &counts[1]
+		ms := members[r.Issue.ID]
+		if ms == nil {
+			ms = []api.IssueMember{}
+		}
+		n := comments[r.Issue.ID]
+		out[i].Members, out[i].CommentCount = &ms, &n
 	}
 	return out, nil
 }

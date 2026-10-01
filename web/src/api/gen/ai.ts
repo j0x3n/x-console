@@ -295,6 +295,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/polish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B56。用快速模型润色一段 Markdown，只返回结果，不保存。按 scene 用不同的提示词。 */
+        post: operations["polishText"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/usage": {
         parameters: {
             query?: never;
@@ -304,6 +321,57 @@ export interface paths {
         };
         /** @description B32。某个月的调用次数、token 和估算费用（按 models.dev 价格，美元） */
         get: operations["getAiUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B42。按天、模型、来源或供应商分组的用量。from 和 to 是服务器时区的日期，包含两端，最多跨 366 天。按天分组时没有调用的日子也返回，数字为 0。 */
+        get: operations["getAiUsageSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/usage/records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B42。调用明细，按时间倒序。 */
+        get: operations["listAiUsageRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/usage/records.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B42。和 /ai/usage/records 一样的条件，导出 CSV（UTF-8，带 BOM，Excel 能直接打开）。 */
+        get: operations["exportAiUsageRecords"];
         put?: never;
         post?: never;
         delete?: never;
@@ -352,10 +420,127 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/memories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B61。全部记忆、开关和字数。面板 AI 和 Agent 读，远程 AI（MCP）看不到 */
+        get: operations["listAiMemories"];
+        put?: never;
+        /** @description 加一条。总字数超过上限时回 400 */
+        post: operations["createAiMemory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/memories/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 开关。关掉后谁都不带记忆，已有的不删 */
+        put: operations["setAiMemoryEnabled"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/memories/{memoryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memoryId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAiMemory"];
+        options?: never;
+        head?: never;
+        patch: operations["updateAiMemory"];
+        trace?: never;
+    };
+    "/ai/conversations/{conversationId}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description B60。面板 AI 对话的权限、模型和思考程度，下一条消息生效。permission 为 all 要提升权限，不够时回 403。
+         *     机器会话回 400，机器会话改权限用 /permission。
+         */
+        patch: operations["setAiConversationSettings"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AiMemory: {
+            /** Format: int64 */
+            id: number;
+            /** @description 1 到 500 字 */
+            text: string;
+            /**
+             * @description user 是手动加的，ai 是面板 AI 记的
+             * @enum {string}
+             */
+            source: "user" | "ai";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AiMemoryInput: {
+            text: string;
+        };
+        AiMemories: {
+            enabled: boolean;
+            items: components["schemas"]["AiMemory"][];
+            usedChars: number;
+            limitChars: number;
+        };
+        /**
+         * @description B56。润色的场景，决定提示词：
+         *     note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
+         *     task 交给 Agent 的任务，写成目标、改动、验收标准；reminder 提醒备注；
+         *     event 日程备注；general 其他
+         * @enum {string}
+         */
+        PolishScene: "note" | "card" | "comment" | "task" | "reminder" | "event" | "general";
+        PolishRequest: {
+            /** @description 最多 20000 字 */
+            text: string;
+            scene: components["schemas"]["PolishScene"];
+            /** @description 用户自己写的要求，比如“改成要点列表” */
+            prompt?: string;
+        };
+        PolishResult: {
+            text: string;
+        };
         Conversation: {
             /** Format: int64 */
             id: number;
@@ -364,10 +549,33 @@ export interface components {
             /** @description B33。机器的 Agent 会话才有 */
             hostId?: string;
             permission?: components["schemas"]["HostAgentPermission"];
+            panelPermission?: components["schemas"]["AiPermission"];
+            /**
+             * Format: date-time
+             * @description B60。panelPermission 是 all 时，到这个时间没有新消息就回到 manual
+             */
+            panelPermissionUntil?: string;
+            /** @description B60。这个对话用的模型，空表示默认 */
+            model?: string;
+            /** @description B60。这个对话的思考程度，空表示默认 */
+            effort?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        /**
+         * @description B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+         *     all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+         * @enum {string}
+         */
+        AiPermission: "manual" | "write" | "all";
+        AiConversationSettings: {
+            permission?: components["schemas"]["AiPermission"];
+            /** @description providerId:modelId，空字符串表示用默认 */
+            model?: string;
+            /** @description off、low、medium、high，空字符串表示用默认 */
+            effort?: string;
         };
         ConversationDetail: {
             conversation: components["schemas"]["Conversation"];
@@ -513,6 +721,10 @@ export interface components {
             inputPrice?: number;
             /** @description 每百万输出 token 的美元价格 */
             outputPrice?: number;
+            /** @description B42。每百万命中缓存的输入 token 的美元价格 */
+            cacheReadPrice?: number;
+            /** @description B42。每百万写入缓存的输入 token 的美元价格 */
+            cacheWritePrice?: number;
             /**
              * @description exact 按供应商和 id 匹配；stripped 去掉前缀后匹配；manual 手动填的；unknown 规格未知
              * @enum {string}
@@ -541,6 +753,11 @@ export interface components {
             reasoningUnsupported: boolean;
             confirmAllWrites: boolean;
             /**
+             * @description B60。新对话的默认权限档，all 不能当默认
+             * @enum {string}
+             */
+            defaultPermission?: "manual" | "write";
+            /**
              * Format: date-time
              * @description 上次从 models.dev 同步规格的时间
              */
@@ -556,6 +773,8 @@ export interface components {
             reasoningEffort?: components["schemas"]["ReasoningEffort"];
             fastReasoningEffort?: components["schemas"]["ReasoningEffort"];
             confirmAllWrites?: boolean;
+            /** @enum {string} */
+            defaultPermission?: "manual" | "write";
         };
         AiUsage: {
             /** @description YYYY-MM */
@@ -565,6 +784,18 @@ export interface components {
             inputTokens: number;
             /** Format: int64 */
             outputTokens: number;
+            /**
+             * Format: int64
+             * @description B42。命中缓存的输入 token
+             */
+            cachedInputTokens?: number;
+            /**
+             * Format: int64
+             * @description B42。写入缓存的输入 token
+             */
+            cacheWriteTokens?: number;
+            /** @description B42。命中缓存的输入 ÷ 全部输入，没有输入时不返回 */
+            cacheHitRate?: number;
             /** @description 估算的美元费用。有模型没有价格时只算有价格的部分 */
             cost?: number;
             byModel: {
@@ -585,6 +816,80 @@ export interface components {
                 cost?: number;
             }[];
         };
+        AiUsageTotals: {
+            calls: number;
+            /** @description 失败的调用次数 */
+            errors: number;
+            /**
+             * Format: int64
+             * @description 全部输入，包括命中和写入缓存的部分
+             */
+            inputTokens: number;
+            /** Format: int64 */
+            cachedInputTokens: number;
+            /** Format: int64 */
+            cacheWriteTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** Format: int64 */
+            reasoningTokens: number;
+            /** @description 美元，只算有价格的部分 */
+            cost?: number;
+            /** @description 有调用的模型缺缓存价，命中部分按原价估算了 */
+            costEstimated?: boolean;
+            avgDurationMs: number;
+            /** @description 命中缓存的输入 ÷ 全部输入，没有输入时不返回 */
+            cacheHitRate?: number;
+        };
+        AiUsageSummary: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @enum {string} */
+            groupBy: "day" | "model" | "source" | "provider";
+            total: components["schemas"]["AiUsageTotals"];
+            /** @description 紧挨着的前一个同样长度的时间段，用来比升降 */
+            previous?: components["schemas"]["AiUsageTotals"];
+            groups: components["schemas"]["AiUsageGroup"][];
+        };
+        AiUsageGroup: {
+            /** @description 按天时是 YYYY-MM-DD，按模型时是模型 id，按来源时是来源（空串表示未知），按供应商时是供应商名 */
+            key: string;
+            /** @description 按模型分组时的供应商名 */
+            providerName?: string;
+            totals: components["schemas"]["AiUsageTotals"];
+        };
+        AiUsageRecord: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            providerName: string;
+            model: string;
+            /** @enum {string} */
+            purpose: "fast" | "agent";
+            /** @description assistant、host_agent、notes、brief、automation、coding、mcp，空串表示未知 */
+            source: string;
+            /** @description 关联对象的 id，比如对话 id、笔记 id、Agent 任务 id */
+            ref: string;
+            /** @enum {string} */
+            status: "ok" | "error";
+            error?: string;
+            /** Format: int64 */
+            inputTokens: number;
+            /** Format: int64 */
+            cachedInputTokens: number;
+            /** Format: int64 */
+            cacheWriteTokens: number;
+            /** Format: int64 */
+            outputTokens: number;
+            /** Format: int64 */
+            reasoningTokens: number;
+            durationMs: number;
+            cost?: number;
+            costEstimated?: boolean;
+        };
         /**
          * @description B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
          * @enum {string}
@@ -598,6 +903,8 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+            /** @description 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41） */
+            requestId?: string;
         };
     };
     responses: {
@@ -654,6 +961,11 @@ export interface operations {
             content: {
                 "application/json": {
                     title?: string;
+                    permission?: components["schemas"]["AiPermission"];
+                    /** @description B60。providerId:modelId，空表示用设置里的默认 */
+                    model?: string;
+                    /** @description B60。off、low、medium、high，空表示用默认 */
+                    effort?: string;
                 };
             };
         };
@@ -1118,6 +1430,31 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    polishText: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolishRequest"];
+            };
+        };
+        responses: {
+            /** @description 润色后的文字 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolishResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getAiUsage: {
         parameters: {
             query?: {
@@ -1137,6 +1474,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiUsage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAiUsageSummary: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                groupBy: "day" | "model" | "source" | "provider";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 分组用量 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiUsageSummary"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiUsageRecords: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                model?: string;
+                source?: string;
+                status?: "ok" | "error";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 明细 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AiUsageRecord"][];
+                        nextCursor?: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportAiUsageRecords: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                model?: string;
+                source?: string;
+                status?: "ok" | "error";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
                 };
             };
             default: components["responses"]["Error"];
@@ -1222,6 +1643,154 @@ export interface operations {
                     "application/json": {
                         mode: components["schemas"]["HostAgentPermission"];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiMemories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 记忆 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemories"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createAiMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiMemoryInput"];
+            };
+        };
+        responses: {
+            /** @description 新的记忆 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemory"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setAiMemoryEnabled: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description 当前记忆 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemories"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteAiMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateAiMemory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memoryId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiMemoryInput"];
+            };
+        };
+        responses: {
+            /** @description 改后的记忆 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiMemory"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setAiConversationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiConversationSettings"];
+            };
+        };
+        responses: {
+            /** @description 改后的对话 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
                 };
             };
             default: components["responses"]["Error"];

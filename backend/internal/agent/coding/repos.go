@@ -148,7 +148,7 @@ func repoInfo(ctx context.Context, path string) protocol.CodingRepo {
 	}
 	if r.DefaultBranch == "" {
 		for _, b := range []string{"main", "master", "trunk", "develop"} {
-			if branchExists(ctx, path, b) {
+			if branchExists(ctx, path, b) || remoteBranchExists(ctx, path, b) {
 				r.DefaultBranch = b
 				break
 			}
@@ -158,4 +158,10 @@ func repoInfo(ctx context.Context, path string) protocol.CodingRepo {
 		r.DefaultBranch = r.CurrentBranch
 	}
 	return r
+}
+
+// remoteBranchExists reports whether refs/remotes/origin/branch exists.
+func remoteBranchExists(ctx context.Context, repo, branch string) bool {
+	_, err := git(ctx, repo, "show-ref", "--verify", "--quiet", "refs/remotes/origin/"+branch)
+	return err == nil
 }

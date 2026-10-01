@@ -31,6 +31,11 @@ func git(ctx context.Context, dir string, args ...string) (string, error) {
 // gitRaw runs git and returns stdout. limit > 0 caps the output; the
 // returned error is errTruncated when the cap was hit.
 func gitRaw(ctx context.Context, dir string, limit int, args ...string) ([]byte, error) {
+	return gitRawEnv(ctx, dir, limit, nil, args...)
+}
+
+// gitRawEnv is gitRaw with extra environment variables.
+func gitRawEnv(ctx context.Context, dir string, limit int, env []string, args ...string) ([]byte, error) {
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, gitTimeout)
@@ -38,6 +43,7 @@ func gitRaw(ctx context.Context, dir string, limit int, args ...string) ([]byte,
 	}
 	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0")
+	cmd.Env = append(cmd.Env, env...)
 	hideWindow(cmd)
 	var stdout capBuffer
 	stdout.max = limit

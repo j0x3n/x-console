@@ -6,6 +6,10 @@ import "./i18n";
 import "./reminders.css";
 import RemindersNavChildren from "./NavChildren";
 import { registerNavChildren } from "../../lib/navChildren";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useRemindersBadge } from "./badge";
+
+registerNavBadge("/reminders", useRemindersBadge);
 
 // 侧边栏“/reminders”的二级菜单。
 registerNavChildren("/reminders", RemindersNavChildren);

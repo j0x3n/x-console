@@ -20,14 +20,7 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B31（预览部分） | 云盘统一查看器：图片缩放、音视频、PDF、文本编辑保存（带版本号，冲突回 409）、Markdown、日志分段读、全屏、左右切换。分支 `claude/project-thread-sssfqr`，用户 2026-09-29 让 Claude 直接写。复制、压缩、分享、历史版本、日志实时模式、任务进度下一个 PR 做 | [B31](specs/B31.md) | Claude |
-| B36 | 前端：分类、检查清单、截止时间、公共编辑框贴图和工具栏。后端接口已接通。用户 2026-09-29 确认“二级分类”是 Issue 分两级 | [B36](specs/B36.md) | Claude（前端） |
-| B32 | 前端：设置 → AI 的供应商、模型选择（能搜索、显示规格和价格）、思考程度、本月用量、笔记自动标题和标签的开关，笔记编辑页的建议标签。后端没上线时还是旧的 Anthropic 表单。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B32](specs/B32.md) | Claude（前端） |
-| B33 | 前端：服务器和电脑详情的 Agent 标签（会话列表、对话、命令卡片、长输出折叠、权限下拉、停止），AI 浮窗按 B32 判断有没有选模型；文件标签里查看远端日志（B31 留下的）。后端写成规格里的“后端（待做）”，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B33](specs/B33.md) | Claude（前端） |
-| B34 | 前端：浏览器推送卡片列出已订阅的浏览器（设备、推送服务、上次送达、上次错误，可以删除），测试分本机检查和服务器推送两步，谷歌推送的提示，后台通知的说明，`sw.js` 图标换 PNG。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B34](specs/B34.md) | Claude（前端） |
-| B35 | 前端：GitHub 关注的仓库改成从令牌能访问的仓库里多选（搜索、私有标记、刷新，没上线时退回文本框），同步状态显示总额度和同步间隔。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B35](specs/B35.md) | Claude（前端） |
-| B37 | 前端：提醒页混排其他模块到期事项，支持来源标签、跳转、显示开关和概要数字。后端接口已接通 | [B37](specs/B37.md) | Claude（前端） |
-| B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
+
 
 ## 待做
 
@@ -35,24 +28,47 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B20 | 页面按钮移到顶栏，侧边栏折叠 | [B20](specs/B20.md) | |
-| B21 | 高危操作统一二次确认 | 见下 | |
-| B22 | 主题色、夜间开关、设置整理 | 见下 | |
-| B23 | 零碎修改：天气刷新、笔记预览和删除、订阅表单 | 见下 | |
-| B24 | 统一文件目录，S3 作为整站存储 | [B24-B25](specs/B24-B25.md) | |
-| B25 | 整站导出导入，自动备份到 S3 | [B24-B25](specs/B24-B25.md) | |
-| B26 | 服务器详情页改版，刷新周期 1/5/30 秒 | [B26](specs/B26.md) | |
-| B27 | 服务器月流量 | [B27](specs/B27.md) | |
-| B28 | 进程合并、终端里跑脚本、容器排序和日志过滤 | [B28](specs/B28.md) | |
-| B29 | 系统日志 | [B29](specs/B29.md) | |
-| B30 | 一条命令添加服务器，“本机”改名“电脑”，Windows 客户端 | [B30](specs/B30.md) | |
-| B31 | 云盘：文本编辑和历史版本、批量操作、压缩解压、外链分享、预览、日志滚动 | [B31](specs/B31.md) | |
-| B33 | 服务器的 Agent 标签 | [B33](specs/B33.md) | |
-| B34 | 浏览器推送自检和后台通知 | [B34](specs/B34.md) | |
-| B36 | 项目：二级分类、检查清单、截止到分钟、粘贴图片、工具栏合并。后端已接通 | [B36](specs/B36.md) | |
-| B37 | 提醒页汇总其他模块的提醒。后端已接通 | [B37](specs/B37.md) | Codex |
+| B70 | “GitHub”改名“仓库”，挪到 Agent 下面；多仓库、提交、CI 步骤、Forgejo 也能关注；设置页整理 | [B70](specs/B70.md) | 前端 Claude，后端 GPT |
+| B71 | 仓库事件通知：CI 开始、成功、失败，新提交，PR，Issue，发布 | [B71](specs/B71.md) | 前端 Claude，后端 GPT |
+| B72 | 笔记：编辑时能滚动、双击进入编辑、外链分享（可加密码）、左栏“+”快速新建、浮窗 | [B72](specs/B72.md) | 前端 Claude，后端 GPT |
+| B73 | 便签：快速记录存成便签，瀑布流，和笔记共用标签 | [B73](specs/B73.md) | 前端 Claude，后端 GPT |
+| B74 | 编辑器：多媒体、折叠代码块和复制、隐藏块、背景色、提示块、表格等 | [B74](specs/B74.md) | 前端 Claude，后端 GPT（只有一个字段） |
+| B75 | 云盘分享页：浏览器能看的都直接预览，下载按钮，密码，下载次数 | [B75](specs/B75.md) | 前端 Claude，后端 GPT |
+| B76 | 左栏一级菜单显示未读和待处理数量，二级菜单选中更明显 | [B76](specs/B76.md) | 前端 Claude |
+| B77 | 看板卡片不显示编号，紧急度加标题 | 见下 | 前端 Claude |
+| B78 | CI 提速：前端检查从六七分钟降下来 | [B78](specs/B78.md) | Claude |
+| B79 | 设置弹窗显示版本号；设置 → 维护：资源占用、清理没用的文件 | [B79](specs/B79.md) | 前端 Claude，后端 GPT |
+| B80 | 切换页面后回来，保留列表和内容的位置 | [B80](specs/B80.md) | 前端 Claude |
+| B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前端 Claude，后端 GPT |
+| B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前端 Claude，后端 GPT |
+| B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前端 Claude，后端 GPT |
 
 ### 任务说明
+
+**2026-10-01 第三批（B70 到 B83）的说明**
+- 用户 2026-10-01 定的分工：Claude 只做前端，后端交给 GPT，照各规格里“后端（待做）”一节做。GPT 不改前端（生成的 `web/src/api/gen/` 除外），前端没做完的等 Claude。做法见 `docs/handoff.md`。
+- 前端遇到 404 或 501 时退回旧的样子，或者显示“还没上线”，不能报错。
+- Claude 替用户定的两件事（用户问“帮我想想”）：GitHub 页改名“仓库”，挪到“Agent”下面，地址还是 `/github`；便签和笔记的“新建”按钮怎么放，见 B73。用户不同意再改。
+- B77 看板卡片：不显示卡片编号（编号还在卡片详情和鼠标悬停提示里），紧急度图标和标题放一行，标题用正文颜色。只改前端。
+
+**2026-10-01 第二批（B60 到 B66）的说明**
+- 用户额度不够，Claude 只写了规格，前后端都交给 GPT 分别做。每个规格里都有“前端（待做）”和“后端（待做）”，接口以“契约”一节为准，先改契约再分头写。
+- B64、B65、B66 是 Claude 的建议方案，用户还没确认，开工前先问用户。
+- 几个任务会改同一批共享文件（`app/modules.go`、`features/settings/tabs.tsx`、`app/nav.ts`、`app/modules.ts`），并行做时按 AGENTS.md 的规则只加行，合并时注意冲突。
+
+**2026-10-01 这一批（B49 到 B59）的说明**
+- 前端已经全部做完并提交到 `develop`（Claude）。后端按各规格的“后端（待做）”一节做，B56 已经前后端都做完，B52、B49、B55、B50、B51、B57 的后端已做。
+- 用户 2026-10-01 定的分工：Claude 在 `develop` 上写前端、接口定义和规格，新接口在各模块的 `pending.go` 先回 501。后端由别的开发者照规格里的“后端（待做）”做。
+- 表里的顺序就是前端的开发顺序。后端可以按编号做，互相不依赖。B59 的邮件卡片依赖 B53。
+- 用户已确认：新订阅默认提前 7、3、1 天提醒；过期和 3 天内标红，7 天内标黄；服务器在国外，能直接连 Gmail；邮件第一版只收不发；推送保留 3 天；拖动不加新的库；和风天气的 key 由用户在设置里填。
+- 隐藏模块按 B57 规格里写的方式做：锁定时完全看不出有隐藏内容，接口和 MCP 都按不存在处理。
+
+**2026-09-30 这一批（B41 到 B47）的说明**
+- 表里的顺序就是建议的开发顺序，不按编号。B41 先做，后面的任务出错时能直接看到报错。B45 的第一步（开关）做完就带部署标记推送，让用户在真机上测，不要等整批做完。B48 在 B47 之前做，B43 和 B47 里“始终要验证”的操作要用它的 `RequireStrictElevated`。
+- B46 做完再做 B43 和 B47：B43 要暴露看板的动作，B47 要把 Agent 挂到卡片成员上。
+- B47 定了运行位置：在代理所在的机器上跑，不在服务端进程里跑，理由见规格。
+- B36 的“二级分类”停做。分类的表和列保留不删，界面和接口不再用，下个版本删。
+- 开工前和用户确认：B46 界面上把 “Issue” 改叫“卡片”；B47 左栏“Agent 任务”改成“Agent”。
 
 **2026-09-28 这一批（B20 到 B37）的说明**
 - B20 改所有页面的顶部结构，排在最前面。后面的界面任务都按新结构写：页面按钮用 `PageActions` 放顶栏。
@@ -203,12 +219,16 @@
 - 同一个 TOTP 码在 30 秒窗口内可以重复使用。只支持一个用户。
 - HA 的 `WatchEntity` 注册只存在内存里，使用方要在 `Start` 里调用。
 - Linear 不导入已完成或已取消的 Issue，本地新建的 Issue 不会自动建到 Linear。
-- 看板拖动只支持桌面。习惯的提醒时段不能跨午夜。番茄钟不能暂停。
+- 看板拖动只支持桌面（B46 后手机上用卡片详情里的“看板和列表”下拉移动）。习惯的提醒时段不能跨午夜。番茄钟不能暂停。
 - 早报的习惯部分只显示今天，`contracts.Habits` 没有“昨天”的数据。
 - SSH 主机的最后在线时间只存在内存里。Windows 上 `svc.logs` 返回“不支持”。
 - 脚本运行记录不会自动清理。Windows 主机上跑 bash 脚本会直接失败。订阅支出汇总没有汇率换算。
 
 可以改进：
+- B43 只支持带令牌的本地客户端（Claude Code、Codex、Cursor）。网页版 claude.ai、ChatGPT 要 OAuth 登录，没做。MCP 只开放工具，没有资源和提示词。
+- B47 没做的部分：“只编译”任务（不经过 Agent 直接构建某个分支，`coding_tasks.executor` 有 CHECK 约束，要重建表）；PR 合并后编码任务的状态不变（状态也有 CHECK 约束，只把卡片移到“已完成”并写评论）；构建产物不进云盘目录，只能在任务详情里下载；Windows 上的 clone 和构建没在 CI 里跑过，要用户在自己电脑上验证；任务开始前的 fetch 是同步的，最多 3 分钟，这期间不派发别的任务。
+- B46 没做完的部分：手机上长按拖动卡片（手机上用卡片详情里的“看板和列表”下拉移动）、卡片封面图和附件区、看板页签拖动排序（接口已支持 `afterId`）、卡片详情做成弹窗（现在还是单独一页）、跨项目移动卡片的界面入口（接口已支持）。
+- B44 手机上的点击区域（按钮、图标按钮、列表行）还没统一到 44 × 44px，只放大了字号。
 - 文件上传进度条。SSH 主机指纹变化后在界面上重新信任。
 - `features/reminders` 和 `features/habits` 的 `api.ts` 修改后自己刷新数据，同时又用了 `invalidateOn`，有重复。
 - Agent 任务（原“编码任务”）的运行设置在仓库页，没有单独的设置标签。
@@ -216,9 +236,35 @@
 
 ## 已完成
 
+
+2026-10-01 核对提交记录：原来留在“进行中”和“待做”里的 B20 到 B37、B49 到 B57、B59 其实都已经做完合并，表里没及时挪过来，现在从那两张表里删掉了。
+
 | 批次 | 内容 |
 | --- | --- |
+<<<<<<< HEAD
 | B41 | 修复 Deploy 被上传中止测试偶发失败阻断：测试等待上传处理退出后检查目录，覆盖处理开始前中止。Linux race 重复 1000 次通过（待合并） |
+=======
+| B69 | 网盘账号挪到 设置 → 存储：WebDAV 和 Google Drive 都能加多个，能测试、授权、撤销；备份设置从账号里选一个，只填目录；云盘页按账号出标签。启动时把 B63 的设置自动变成账号，Google 旧回调地址继续能用。和规格不同的地方写在规格开头。规格见 [B69](specs/B69.md) |
+| B53 | 邮件后端：IMAP 收 Gmail、阿里企业邮箱和其他邮箱，保存前先试登录；每个账号一条常连的连接，用 IDLE 几秒内收到新邮件并推送，不支持 IDLE 的每分钟查一次；断线按 10 秒到 5 分钟重连；已读和星标双向同步；正文第一次打开时取，附件存文件存储；GBK 编码能正确显示。和规格不同的地方写在规格的“后端”一节。规格见 [B53](specs/B53.md) |
+| B58 | 和风天气和地震：设置里填 Host 和 key，保存前试调一次；天气详情有预警、两小时降水、空气、日出日落月相、生活指数、和昨天比、附近地震（中国地震台网，取不到用美国地质调查局）；快下雨、天气预警、附近地震三种推送。和规格不同的地方写在规格的“后端”一节。规格见 [B58](specs/B58.md) |
+| B65 | OpenWrt 主路由：新模块 router，通过路由器的 ubus 读系统信息、接口、在线设备、WAN 口速率，每分钟存流量，WAN 掉线或连不上超过 2 分钟推送；可以直连或通过家里的代理转发；能重启接口和路由器；左栏“集成”加路由器，设置加路由器标签，今日页加网络卡片。规格见 [B65](specs/B65.md) |
+| B64 | 服务器支持 Unraid：安装脚本认出 Unraid 后把代理装在 U 盘上，开机由 /boot/config/go 启动，退出后自动重启；卸载脚本同样认 Unraid；添加服务器时多给一条不带 sudo 的命令。阵列状态没做。规格见 [B64](specs/B64.md) |
+| B60 | 面板 AI 不再直接操作机器，要通过绑定了这台机器的 Agent（agents.operate_host）；Agent 可以勾选能操作的机器；浮窗加权限档（手动、写入、全部允许）、模型和思考程度；设置 → AI 加新对话的默认权限。规格见 [B60](specs/B60.md) |
+| B61 | AI 记忆：面板 AI 能记、改、删，编码 Agent 和机器会话只读，远程 AI 看不到；设置 → AI 有记忆卡片，浮窗里显示“已记住”。规格见 [B61](specs/B61.md) |
+| B62 | Git 账号统一：设置里一个“Git 与 GitHub”，GitHub 页面选一个 Git 账号同步，Agent 页不再单独管连接；老的 GitHub 令牌启动时自动变成一个 Git 账号。规格见 [B62](specs/B62.md) |
+| B63 | 自动备份可以选 WebDAV（坚果云、Nextcloud、alist 等）和 Google Drive；设置页能测试连接，Google Drive 在面板里授权和撤销，授权过期时自动备份失败并推送通知。规格见 [B63](specs/B63.md) |
+| B68 | 云盘页给备份绑定的坚果云（WebDAV）和 Google Drive 各加一个标签，能浏览和下载，可以在隐藏的模块里单独隐藏，不影响备份；Google 授权多申请只读权限；隐藏密码卡片只在解锁时显示；左栏三级菜单默认收起。规格见 [B68](specs/B68.md) |
+| B66 | “日历”改名“日程”，二级菜单去掉早报；今日页右上角加“早报”按钮，早报页左上角是“今日 / 早报”，不跟着日程隐藏。规格见 [B66](specs/B66.md) |
+| B67 | 快速记录保存后马上用 AI 生成标题和标签，标签直接加上，正文短也生成。规格见 [B67](specs/B67.md) |
+| B45 | Safari 工具栏：真机上 `all` 和 `off` 都可以，A 到 F 单独开不行。页面保持原样，测试开关已删。规格见 [B45](specs/B45.md) |
+| B41 | 报错统一显示：控制台打印、界面常驻、可复制、请求编号、前端报错写进服务器日志、设置里看最近的报错（`e8aa94b`、`0822494`、`2a4c5db`、`6575840`） |
+| B44 | 手机字号放大，字号令牌和检查脚本，输入框 16px（`690dbd4`）。点击区域 44px 没做，见“已知问题” |
+| B42 | AI 用量：缓存命中率、按天和模型统计、历史明细、导出，Claude Code 和 Codex 的用量（`b64abb7`、`c87ce7a`） |
+| B48 | 二次验证改成设置里可选，关键操作始终验证（`e10f1ed`） |
+| B46 | 项目多看板：看板、列表、卡片拖动、成员、归档、复制、活动、标星（`757e92b`、`dc0a8e9`）。没做完的见“已知问题” |
+| B43 | API 令牌和 MCP 接口，设置 → 远程访问（`b87b132`、`f6f7ee3`） |
+| B47 | Agent 管理：Agent、Git 连接（GitHub、Forgejo）、按远端登记仓库、构建和产物、失败重试、卡片分配和评论、Git 回调、内置 Agent、前端（`0ed675e`、`fc40cd4`、`1453f75`、`3a1c4c3`、`900fb61`）。没做的见“已知问题” |
+>>>>>>> origin/develop
 | B39 | AI 供应商可选 Chat Completions 或 Responses 接口；助手能发图片和文本文件；快速模型单独设思考强度（`c44cc80`、`9dac6fe`） |
 | B40 | 笔记阅读模式、AI 润色、手动和保存后生成标题标签、三栏拖动调宽并记住（`51175be`、`0ead369`）。截图 1360px 和 390px 已自查 |
 | B38 | Safari 标签页和主屏幕应用、跨浏览器动态高度、安全区、横屏、浮层及主题色适配；Chromium、Firefox、WebKit 交互检查通过，真机 iOS 浏览器栏待复核（`46fec3d`） |
@@ -271,6 +317,32 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-01 | 新增 `lib/navBadges.ts`（`registerNavBadge`、`registerNavAction`）；`components/layout/Sidebar.tsx` 在一级菜单右边显示数量、行内按钮；`ui.css` 加 `.nav-badge`、`.nav-action`，二级菜单选中改成强调色，`.xc-list` 去掉 `ul` 默认缩进 | B76 左栏数量、B72 笔记“+” |
+| 2026-10-01 | `app/nav.ts`：GitHub 挪到“主要”组 Agent 后面，改名 `Repositories`（仓库），图标 `FolderGit2`，地址不变；设置标签改名 `Git & repositories`；`github.yaml` 加 `watches`、`/github/repos`、`/github/commits`、`/github/runs/{runId}/jobs`、`/github/notify`，PR、运行、Issue 加 `connectionId`、`forge`（后端占位在 `github/pending.go`，`ListGitHubIssues` 多了一个不用的参数） | B70、B71 |
+| 2026-10-01 | `contracts` 加 `remotes.go`：`RemoteDrives`（键 `storage.remotes`，storage 提供，backup 用）和 `RemoteUser`（键 `backup.remote_user`，backup 提供，storage 用来拦删除）。storage 模块加表 `storage_remotes`、`ServiceKey`、`UseGoogle`（测试用）。备份设置的 `target` 加 `remote` 和 `remoteId`，`webdav`、`gdrive` 两段只返回目录；`/remote-drives*`、`/backups/gdrive/auth` 标成过时，下个版本删。新加开发工具 `backend/cmd/fakedav`（端到端测试用的内存 WebDAV，不进发布） | B69 |
+| 2026-10-01 | `contracts/hidden.go` 加 `router`（接口、事件 `router.`、通知链接 `/router`、来源 `router`），`vault.yaml` 的 `ModuleId` 加 `router`。前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一行；今日页 `overview/layout.ts` 和 `TodayPage.tsx` 加 `network` 卡片；`scripts/shots.mjs` 加两个页面 | B65 |
+| 2026-10-01 | `contracts.AIAgents` 加 `ForHost`，`AIAgent` 加 `HostIDs`。ai 模块加 `withEffort`（按会话覆盖思考程度），和 B47 的 `withModel` 一样走 context | B60 |
+| 2026-10-01 | `contracts` 加 `Memories`（`Prompt(ctx)`，键 `ai.memories`），ai 提供，aiagents 用。`actions.Action` 加 `PanelOnly`：只给面板 AI，`AllowedFor` 一律不给，自动化的目录和执行也跳过 | B61 |
+| 2026-10-01 | `contracts` 加 `GitAccounts`（`Account`、`Credentials`、`ImportGitHub`，键 `aiagents.accounts`），aiagents 提供，github 用。github 设置键加 `github.connection_id`、`github.migrated_b62`；`useGithubModule` 和 `/github/config` 的 token、clearToken、apiUrl 标成 deprecated | B62 |
+| 2026-10-01 | 基础代码 `files` 加两个 `Store` 实现：`WebDAV`（`NewWebDAV`、`ValidateWebDAV`、`Check`）和 `GDrive`（`NewGDrive`、`Folder`、`Account`、`Check`），以及 Google OAuth 的 `GoogleAuthURL`、`GoogleExchange`、`GoogleRevoke`、`ErrGDriveAuth`。只加新文件，不改已有的。测试用的假 Drive 在 `files/fakegdrive` | B63 |
+| 2026-10-01 | `files.WebDAV` 加 `ReadDir`，`files.GDrive` 加 `ReadDir`、`Trail`、`OpenFile`，加 `DirEntry`。`GoogleExchange` 改成返回 `GoogleGrant`（带授权范围），授权地址多申请 `drive.readonly`。vault 的 `ModuleId` 加 `drive-webdav`、`drive-gdrive`。前端 `NavChildLinks` 的缩进子项默认收起，状态记在 localStorage 的 `xc.nav.open3` | B68 |
+| 2026-10-01 | 前端 `moduleOfPath` 把 `/calendar/briefs` 算作不属于任何模块；左栏在早报页高亮“今日” | B66 |
+| 2026-10-01 | `contracts` 加 `IgnoreHidden(ctx)`、`HidingIgnored(ctx)`。自动化执行步骤时带上这个标记，被隐藏模块的步骤照常执行。锁定时用到被隐藏模块的自动化规则在页面上按不存在处理 | B57 验收：自动化在后台没有会话，原来被隐藏模块的步骤一直失败 |
+| 2026-10-01 | `contracts` 加 `HiddenModules`（`Hidden(ctx, module) bool`，键 `vault.hidden`）。vault 模块提供。锁定时被隐藏的左栏模块接口回 404，动作目录、事件、通知和早报按同一张对应表跳过 | B57 隐藏模块 |
+| 2026-10-01 | 删掉 B45 的 `?safari=` 测试开关、`SafariProbe` 和 `browser.css` 里 C 到 F 的试验样式。页面样式保持测试前的样子 | 真机上 `all` 和 `off` 都可以，A 到 F 单独开不行 |
+| 2026-10-01 | `store` 加 `Snapshot`、`OpenSnapshot`（把已经迁移好的内存库复制出来）。`testutil.openDB` 每个测试进程只迁移一次，后面的测试从这份快照复制。测试里直接调用 `store.Open(":memory:")` 的没有改 | 带 -race 时每次迁移要几秒 |
+| 2026-09-30 | 项目改成多看板：新表 `project_boards`、`board_lists`、`issue_members`、`issue_activity`，`issues` 加 `board_id`、`list_id`、`archived_at`、`cover_file_id`；`POST /issues/{key}/move` 可以只传 `listId`（`status` 变成可选）；`Issue` 加 `boardId`、`listId`、`archivedAt`、`members`、`commentCount`；归档的卡片不出现在列表、到期提醒和提醒页里；B36 的分类界面去掉，接口保留；界面上 Issue 改叫“卡片” | B46 多看板 |
+| 2026-10-01 | 认证中间件只在 `/api/v1/mcp` 上接受 `Authorization: Bearer xc_…` 的 API 令牌，别的路径照旧（代理的 `/agent/connect` 也用 Bearer，不受影响）；`auth.Session` 加 `Token *TokenInfo`，`auth.TokenFrom(ctx)` 取令牌；`actions` 加 `Module`、`Deletes`、`AllowedFor`（危险动作和别名永远不开放）；新模块 `mcp`：`/api-tokens` 增删查、`/api-tokens/tools`、`/api-tokens/calls`、`POST /mcp`；设置加“远程访问”页签 | B43 远程 AI 操作 |
+| 2026-10-01 | 新模块 `aiagents`：表 `ai_agents`、`git_connections`；`coding_repos` 加 `connection_id`、`owner`、`repo`、`clone_url`、`build_config`，`coding_tasks` 加 `ai_agent_id`、`model`、`permission`、`build_status`、`build_attempts`、`artifacts`，`issue_comments` 加 `author`（这两个 id 列没加外键，删除时由代码置空）；新接口在 `contracts/aiagents.go`：`GitConnections`、`AIAgents`、`GitHubCredentials`（GitHub 模块提供） | B47 Agent 管理 |
+| 2026-10-01 | 代理协议：能力 `coding.remote`，新方法 `coding.ensure_repo`，`CodingRunParams` 加 `model`、`permission`、`preferRemote`，`CodingPushParams` 加 `auth`（见 `docs/04-agent-protocol.md`）；`contracts.LaunchCoding` 加 `AIAgentID`、`AgentID`；coding 接口：`CreateRepo` 的 `path` 改成可选，加 `connectionId`、`remoteRepo`、`cloneUrl`，`CreateTask` 的 `executor` 改成可选，加 `aiAgentId`、`agentId` | B47 Agent 管理 |
+| 2026-10-01 | 代理协议：新方法 `coding.build`，`CodingRunParams` 加 `continue`、`baseCommit`；`coding_tasks` 加 `build_error`；coding 接口：`PUT /coding/repos/{id}/build-config`（要提升权限）、`POST /coding/tasks/{id}/build`、`GET /coding/tasks/{id}/artifacts/{index}`，`Repo` 加 `buildConfig`，`Task` 加 `buildStatus`、`buildAttempts`、`buildError`、`artifacts`；事件 `coding_task.build` | B47 Agent 管理 |
+| 2026-10-01 | `contracts/aiagents.go` 加 `IssueWork`（项目模块提供：卡片摘要、带作者的评论、加成员）和 `ToolRunner`（AI 模块提供：内置 Agent 按 B43 的权限过滤调用动作）；AI 模块 `resolveLLM` 支持用 context 覆盖模型；项目接口 `Comment` 加 `author`；`POST /ai-agents/{id}/assign`；公开入口 `POST /hooks/git/{connectionId}`（校验 GitHub、Forgejo、Gitea 的签名）；Git 连接的新建、换令牌、查看回调密钥改成“始终验证” | B47 Agent 管理 |
+| 2026-10-01 | 左栏“Agent 任务”改成“Agent”（`app/nav.ts`，`lib/i18n.ts` 加 `Agents`）；`/coding` 改成 Agent 管理页，原来的任务列表移到 `/coding/tasks`，新页面 `/coding/connections`、`/coding/agents/:id`；今日页、卡片页里指向任务列表的链接跟着改；看板卡片的 Agent 成员显示头像，最近一次任务失败时有红点；前端新模块 `features/aiagents` | B47 Agent 管理 |
+| 2026-09-30 | `auth.Session` 加 `ElevationMode`、`ViaToken`，`Elevated()` 按设置 `security.elevation_mode` 算；新增 `auth.RequireStrictElevated`（始终 5 分钟内验证过）；开启两步验证和从备份恢复改用它；`core.yaml` 加 `/auth/elevation-mode` | B48 二次验证可选 |
+| 2026-09-30 | `contracts` 加 `WithAIUsage`、`AIUsageFrom`（给 AI 调用标来源）和 `AIUsageRecorder`（键 `ai.usage`，记 Agent 任务等外部用量）；`llm.Result` 加缓存和思考 token；代理的 Claude Code 解析把 `usage` 带给服务端 | B42 AI 用量 |
+| 2026-09-30 | `styles/tokens.css` 加字号令牌 `--fs-9` 到 `--fs-19` 和 `--fs-input`，手机上放大；全部样式里 9 到 19px 的 `font-size` 换成令牌（`scripts/font-tokens.mjs`）；手机上输入框一律 16px；CI 加 `npm run lint:fonts`；`shots.mjs` 在 390px 下检查字号；`e2e.mjs` 支持 `XC_SHOTS_BROWSER` | B44 手机字号 |
+| 2026-09-30 | `index.html` 首屏脚本读 `?safari=` 测试开关，存 `sessionStorage`，写到 `<html data-safari>`；`styles/browser.css` 末尾加 C 到 F 的开关样式；`usePreferenceEffects` 在开关 B 下不写 `theme-color`；`Layout` 顶部加 `SafariProbe`。定稿后删掉没用的开关 | B45 第一步，真机测试用 |
+| 2026-09-30 | `httpx.Fail` 的报错 JSON 加 `requestId`，新增 `httpx.ExposeRequestID` 中间件写响应头 `X-Request-Id`；5xx 的业务错误也写日志。`api/common.yaml` 的 `Error` 加 `requestId`。前端 `ApiError` 加 `request`（方法、路径、响应、请求编号），`toast({tone:"error"})` 转到 `lib/errors.ts` 的报错列表，`api/query.ts` 加全局 `onError`，右下角提示改由 `app/NoticeStack.tsx` 渲染 | B41 报错统一显示 |
 | 2026-09-30 | `actions.Action` 加 `AliasOf`：别名照样能 `Get`、`Run`，但 `List` 不返回。项目模块的 `issues.list/get/create/update` 标成 `projects.*` 的别名 | 审查修复：AI 工具重复 |
 | 2026-09-30 | 新增 `useBrowserViewport` 和 `styles/browser.css`，统一动态高度及安全区；手机普通页面改为文档滚动，切换路由回到顶部；`usePreferenceEffects` 按 CSS 主题背景更新浏览器主题色 | B38 跨浏览器与主屏幕应用适配 |
 | 2026-09-30 | `auth.Service` 加 `SessionActive(ctx)`：会话还在且没过期时为真。远端日志跟随和云盘日志跟随每 30 秒查一次，退出登录或改密码后断开；远端日志跟随最长 1 小时 | 审查修复：日志跟随在退出登录后还在推送 |

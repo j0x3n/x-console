@@ -29,11 +29,14 @@ const (
 	HabitsKey        = "habits.habits"       // M8 provides
 	HostsKey         = "hosts.hosts"         // M2/M3 provides
 	RenewalsKey      = "monitoring.renewals" // M10 provides
+	HiddenModulesKey = "vault.hidden"        // B57 provides
 	HomeAssistantKey = "homeassistant.ha"    // M9 provides
 	CodingKey        = "coding.launcher"     // M4 provides
 	CalendarKey      = "calendar.calendar"   // M11 provides
 	GitHubKey        = "github.github"       // M13 provides
 	LLMKey           = "ai.llm"              // M12 provides
+	MemoriesKey      = "ai.memories"         // B61 ai provides, aiagents uses
+	AIUsageKey       = "ai.usage"            // M12 provides, B42
 	FilesKey         = "files.files"         // B36 provides
 )
 
@@ -57,11 +60,47 @@ type ReminderSource interface {
 	Upcoming(ctx context.Context, from, until time.Time) ([]ExternalReminder, error)
 }
 
+// Memories gives the AI memory to agents, read only (B61). Provided by ai.
+type Memories interface {
+	// Prompt returns the memory as a block for a system prompt, or "" when
+	// memory is off or empty.
+	Prompt(ctx context.Context) string
+}
+
 // LLM is the AI call boundary used by notes and automations.
 type LLM interface {
 	Available(ctx context.Context) bool
 	CompleteJSON(ctx context.Context, purpose, system, user string, schema json.RawMessage, out any) error
 	CompleteText(ctx context.Context, purpose, system, user string) (string, error)
+}
+
+// AIUsage says which feature made an AI call, for the usage records (B42).
+// Source is for example notes, brief, assistant, automation; Ref is the
+// object id inside it, such as the note id.
+type AIUsage struct {
+	Source string
+	Ref    string
+}
+
+// AIUsageRecorder stores AI usage that did not go through the LLM
+// boundary, such as Claude Code or Codex runs on an agent (B42). input
+// counts every input token including cached and cacheWrite. costUSD, when
+// known, wins over the price table.
+type AIUsageRecorder interface {
+	RecordExternalUsage(ctx context.Context, provider, model, source, ref string, input, cached, cacheWrite, output int64, duration time.Duration, costUSD *float64)
+}
+
+type aiUsageKey struct{}
+
+// WithAIUsage marks the AI calls made with ctx as coming from source/ref.
+func WithAIUsage(ctx context.Context, source, ref string) context.Context {
+	return context.WithValue(ctx, aiUsageKey{}, AIUsage{Source: source, Ref: ref})
+}
+
+// AIUsageFrom returns what WithAIUsage stored, or the zero value.
+func AIUsageFrom(ctx context.Context) AIUsage {
+	u, _ := ctx.Value(aiUsageKey{}).(AIUsage)
+	return u
 }
 
 // ---- M5 projects ----
@@ -184,6 +223,10 @@ type Renewals interface {
 	Upcoming(ctx context.Context, until time.Time) ([]RenewalRef, error)
 }
 
+type HiddenModules interface {
+	Hidden(ctx context.Context, module string) bool
+}
+
 // ---- M8 habits ----
 
 // HabitProgress is today's state of one habit.
@@ -272,6 +315,11 @@ type LaunchCoding struct {
 	Prompt     string `json:"prompt"`
 	BaseBranch string `json:"baseBranch"` // empty means the repo default
 	IssueKey   string `json:"issueKey"`   // optional
+
+	// B47: the AI agent that runs the task, and the machine to run on
+	// (empty: the repository's machine).
+	AIAgentID int64  `json:"aiAgentId,omitempty"`
+	AgentID   string `json:"agentId,omitempty"`
 }
 
 // Coding is provided by M4.

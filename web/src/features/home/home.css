@@ -70,7 +70,7 @@
 }
 .home-card-state {
   color: var(--xc-text-2);
-  font-size: 18px;
+  font-size: var(--fs-18);
   font-variant-numeric: tabular-nums;
 }
 .home-card.on .home-card-state {
@@ -153,7 +153,7 @@
   white-space: nowrap;
 }
 .home-row-name span {
-  font-size: 11px;
+  font-size: var(--fs-11);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -39,6 +39,9 @@ paths:
               type: object
               properties:
                 title: { type: string }
+                permission: { $ref: "#/components/schemas/AiPermission" }
+                model: { type: string, description: B60。providerId:modelId，空表示用设置里的默认 }
+                effort: { type: string, description: B60。off、low、medium、high，空表示用默认 }
       responses:
         "201":
           description: 已创建
@@ -352,6 +355,24 @@ paths:
               schema: { $ref: "#/components/schemas/AiModelSettings" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /ai/polish:
+    post:
+      operationId: polishText
+      tags: [ai]
+      description: B56。用快速模型润色一段 Markdown，只返回结果，不保存。按 scene 用不同的提示词。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolishRequest" }
+      responses:
+        "200":
+          description: 润色后的文字
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolishResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /ai/usage:
     get:
       operationId: getAiUsage
@@ -368,6 +389,73 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AiUsage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/usage/summary:
+    get:
+      operationId: getAiUsageSummary
+      tags: [ai]
+      description: B42。按天、模型、来源或供应商分组的用量。from 和 to 是服务器时区的日期，包含两端，最多跨 366 天。按天分组时没有调用的日子也返回，数字为 0。
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - name: groupBy
+          in: query
+          required: true
+          schema: { type: string, enum: [day, model, source, provider] }
+      responses:
+        "200":
+          description: 分组用量
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiUsageSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/usage/records:
+    get:
+      operationId: listAiUsageRecords
+      tags: [ai]
+      description: B42。调用明细，按时间倒序。
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { name: model, in: query, schema: { type: string } }
+        - { name: source, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [ok, error] } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        "200":
+          description: 明细
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/AiUsageRecord" }
+                  nextCursor: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/usage/records.csv:
+    get:
+      operationId: exportAiUsageRecords
+      tags: [ai]
+      description: B42。和 /ai/usage/records 一样的条件，导出 CSV（UTF-8，带 BOM，Excel 能直接打开）。
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { name: model, in: query, schema: { type: string } }
+        - { name: source, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [ok, error] } }
+      responses:
+        "200":
+          description: CSV 文件
+          content:
+            text/csv:
+              schema: { type: string }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /ai/host-agent/{hostId}/conversations:
@@ -438,6 +526,110 @@ paths:
                   mode: { $ref: "#/components/schemas/HostAgentPermission" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /ai/memories:
+    get:
+      operationId: listAiMemories
+      tags: [ai]
+      description: B61。全部记忆、开关和字数。面板 AI 和 Agent 读，远程 AI（MCP）看不到
+      responses:
+        "200":
+          description: 记忆
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiMemories" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createAiMemory
+      tags: [ai]
+      description: 加一条。总字数超过上限时回 400
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiMemoryInput" }
+      responses:
+        "201":
+          description: 新的记忆
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiMemory" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/memories/enabled:
+    put:
+      operationId: setAiMemoryEnabled
+      tags: [ai]
+      description: 开关。关掉后谁都不带记忆，已有的不删
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: 当前记忆
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiMemories" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/memories/{memoryId}:
+    parameters:
+      - name: memoryId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    patch:
+      operationId: updateAiMemory
+      tags: [ai]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiMemoryInput" }
+      responses:
+        "200":
+          description: 改后的记忆
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiMemory" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteAiMemory
+      tags: [ai]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/conversations/{conversationId}/settings:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    patch:
+      operationId: setAiConversationSettings
+      tags: [ai]
+      description: |
+        B60。面板 AI 对话的权限、模型和思考程度，下一条消息生效。permission 为 all 要提升权限，不够时回 403。
+        机器会话回 400，机器会话改权限用 /permission。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiConversationSettings" }
+      responses:
+        "200":
+          description: 改后的对话
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conversation" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     ConversationId:
@@ -456,6 +648,53 @@ components:
       required: true
       schema: { type: integer, format: int64 }
   schemas:
+    AiMemory:
+      type: object
+      required: [id, text, source, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        text: { type: string, description: 1 到 500 字 }
+        source:
+          type: string
+          enum: [user, ai]
+          description: user 是手动加的，ai 是面板 AI 记的
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AiMemoryInput:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 500 }
+    AiMemories:
+      type: object
+      required: [enabled, items, usedChars, limitChars]
+      properties:
+        enabled: { type: boolean }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AiMemory" }
+        usedChars: { type: integer }
+        limitChars: { type: integer }
+    PolishScene:
+      type: string
+      description: |
+        B56。润色的场景，决定提示词：
+        note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
+        task 交给 Agent 的任务，写成目标、改动、验收标准；reminder 提醒备注；
+        event 日程备注；general 其他
+      enum: [note, card, comment, task, reminder, event, general]
+    PolishRequest:
+      type: object
+      required: [text, scene]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 60000, description: 最多 20000 字 }
+        scene: { $ref: "#/components/schemas/PolishScene" }
+        prompt: { type: string, maxLength: 500, description: 用户自己写的要求，比如“改成要点列表” }
+    PolishResult:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
     Conversation:
       type: object
       required: [id, title, createdAt, updatedAt]
@@ -464,8 +703,27 @@ components:
         title: { type: string, description: 第一条消息的开头，空对话为空字符串 }
         hostId: { type: string, description: B33。机器的 Agent 会话才有 }
         permission: { $ref: "#/components/schemas/HostAgentPermission" }
+        panelPermission: { $ref: "#/components/schemas/AiPermission" }
+        panelPermissionUntil:
+          type: string
+          format: date-time
+          description: B60。panelPermission 是 all 时，到这个时间没有新消息就回到 manual
+        model: { type: string, description: B60。这个对话用的模型，空表示默认 }
+        effort: { type: string, description: B60。这个对话的思考程度，空表示默认 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    AiPermission:
+      type: string
+      enum: [manual, write, all]
+      description: |
+        B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+        all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+    AiConversationSettings:
+      type: object
+      properties:
+        permission: { $ref: "#/components/schemas/AiPermission" }
+        model: { type: string, description: providerId:modelId，空字符串表示用默认 }
+        effort: { type: string, description: off、low、medium、high，空字符串表示用默认 }
     ConversationDetail:
       type: object
       required: [conversation, messages, pendingActions, running]
@@ -604,6 +862,8 @@ components:
         imageInput: { type: boolean }
         inputPrice: { type: number, description: 每百万输入 token 的美元价格 }
         outputPrice: { type: number, description: 每百万输出 token 的美元价格 }
+        cacheReadPrice: { type: number, description: B42。每百万命中缓存的输入 token 的美元价格 }
+        cacheWritePrice: { type: number, description: B42。每百万写入缓存的输入 token 的美元价格 }
         specSource:
           type: string
           description: exact 按供应商和 id 匹配；stripped 去掉前缀后匹配；manual 手动填的；unknown 规格未知
@@ -635,6 +895,10 @@ components:
           type: boolean
           description: 上次调用时接口不认 reasoning_effort，已自动去掉重试
         confirmAllWrites: { type: boolean }
+        defaultPermission:
+          type: string
+          enum: [manual, write]
+          description: B60。新对话的默认权限档，all 不能当默认
         modelsDevSyncedAt: { type: string, format: date-time, description: 上次从 models.dev 同步规格的时间 }
         legacyAnthropic:
           type: boolean
@@ -647,6 +911,9 @@ components:
         reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         fastReasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         confirmAllWrites: { type: boolean }
+        defaultPermission:
+          type: string
+          enum: [manual, write]
     AiUsage:
       type: object
       required: [month, calls, inputTokens, outputTokens, byModel]
@@ -655,6 +922,9 @@ components:
         calls: { type: integer }
         inputTokens: { type: integer, format: int64 }
         outputTokens: { type: integer, format: int64 }
+        cachedInputTokens: { type: integer, format: int64, description: B42。命中缓存的输入 token }
+        cacheWriteTokens: { type: integer, format: int64, description: B42。写入缓存的输入 token }
+        cacheHitRate: { type: number, description: B42。命中缓存的输入 ÷ 全部输入，没有输入时不返回 }
         cost: { type: number, description: 估算的美元费用。有模型没有价格时只算有价格的部分 }
         byModel:
           type: array
@@ -670,6 +940,61 @@ components:
               inputTokens: { type: integer, format: int64 }
               outputTokens: { type: integer, format: int64 }
               cost: { type: number }
+    AiUsageTotals:
+      type: object
+      required: [calls, errors, inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens, reasoningTokens, avgDurationMs]
+      properties:
+        calls: { type: integer }
+        errors: { type: integer, description: 失败的调用次数 }
+        inputTokens: { type: integer, format: int64, description: 全部输入，包括命中和写入缓存的部分 }
+        cachedInputTokens: { type: integer, format: int64 }
+        cacheWriteTokens: { type: integer, format: int64 }
+        outputTokens: { type: integer, format: int64 }
+        reasoningTokens: { type: integer, format: int64 }
+        cost: { type: number, description: 美元，只算有价格的部分 }
+        costEstimated: { type: boolean, description: 有调用的模型缺缓存价，命中部分按原价估算了 }
+        avgDurationMs: { type: integer }
+        cacheHitRate: { type: number, description: 命中缓存的输入 ÷ 全部输入，没有输入时不返回 }
+    AiUsageSummary:
+      type: object
+      required: [from, to, groupBy, total, groups]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        groupBy: { type: string, enum: [day, model, source, provider] }
+        total: { $ref: "#/components/schemas/AiUsageTotals" }
+        previous: { $ref: "#/components/schemas/AiUsageTotals", description: 紧挨着的前一个同样长度的时间段，用来比升降 }
+        groups:
+          type: array
+          items: { $ref: "#/components/schemas/AiUsageGroup" }
+    AiUsageGroup:
+      type: object
+      required: [key, totals]
+      properties:
+        key: { type: string, description: 按天时是 YYYY-MM-DD，按模型时是模型 id，按来源时是来源（空串表示未知），按供应商时是供应商名 }
+        providerName: { type: string, description: 按模型分组时的供应商名 }
+        totals: { $ref: "#/components/schemas/AiUsageTotals" }
+    AiUsageRecord:
+      type: object
+      required: [id, at, providerName, model, purpose, source, ref, status, inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens, reasoningTokens, durationMs]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        providerName: { type: string }
+        model: { type: string }
+        purpose: { type: string, enum: [fast, agent] }
+        source: { type: string, description: assistant、host_agent、notes、brief、automation、coding、mcp，空串表示未知 }
+        ref: { type: string, description: 关联对象的 id，比如对话 id、笔记 id、Agent 任务 id }
+        status: { type: string, enum: [ok, error] }
+        error: { type: string }
+        inputTokens: { type: integer, format: int64 }
+        cachedInputTokens: { type: integer, format: int64 }
+        cacheWriteTokens: { type: integer, format: int64 }
+        outputTokens: { type: integer, format: int64 }
+        reasoningTokens: { type: integer, format: int64 }
+        durationMs: { type: integer }
+        cost: { type: number }
+        costEstimated: { type: boolean }
     HostAgentPermission:
       type: string
       description: B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）

@@ -67,3 +67,22 @@ func (h *Handlers) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.NoContent(w)
 }
+
+// B48：敏感操作二次验证的方式。
+
+func (h *Handlers) GetElevationMode(w http.ResponseWriter, r *http.Request) {
+	httpx.JSON(w, http.StatusOK, api.ElevationModeBody{Mode: api.ElevationModeBodyMode(h.Auth.ElevationMode(r.Context()))})
+}
+
+func (h *Handlers) SetElevationMode(w http.ResponseWriter, r *http.Request) {
+	var body api.ElevationModeBody
+	if err := httpx.Decode(r, &body); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if err := h.Auth.SetElevationMode(r.Context(), string(body.Mode)); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, body)
+}

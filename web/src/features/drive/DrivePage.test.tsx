@@ -217,6 +217,71 @@ describe("DrivePage", () => {
     );
   });
 
+  it("browses a drive account on its own tab (B68, B69)", async () => {
+    live();
+    api.routes.set("GET /storage/remotes", (url) => ({
+      status: 200,
+      body: {
+        items:
+          url.searchParams.get("drive") === "true"
+            ? [
+                {
+                  id: 7,
+                  kind: "webdav",
+                  name: "坚果云",
+                  showInDrive: true,
+                  ready: true,
+                  usedByBackup: false,
+                  createdAt: "2026-10-01T00:00:00Z",
+                  webdav: {
+                    url: "https://dav.jianguoyun.com/dav/",
+                    username: "me",
+                    passwordSet: true,
+                  },
+                },
+              ]
+            : [],
+      },
+    }));
+    api.routes.set("GET /storage/remotes/7/items", (url) => ({
+      status: 200,
+      body:
+        url.searchParams.get("ref") === "照片"
+          ? {
+              ref: "照片",
+              trail: [{ ref: "照片", name: "照片" }],
+              items: [
+                {
+                  ref: "照片/a.jpg",
+                  name: "a.jpg",
+                  isDir: false,
+                  size: 2048,
+                  downloadable: true,
+                },
+              ],
+            }
+          : {
+              ref: "",
+              trail: [],
+              items: [
+                { ref: "照片", name: "照片", isDir: true, downloadable: false },
+              ],
+            },
+    }));
+    const router = renderAt("/drive");
+    fireEvent.click(await screen.findByRole("button", { name: /坚果云/ }));
+    const row = await screen.findByRole("button", { name: "照片" });
+    // 网盘标签里没有上传和搜索
+    expect(screen.queryByRole("button", { name: /上传/ })).toBeNull();
+    fireEvent.click(row);
+    expect(
+      await screen.findByRole("button", { name: "下载 a.jpg" }),
+    ).toBeTruthy();
+    expect(router.state.location.search).toBe(
+      "?view=remote&remote=7&ref=%E7%85%A7%E7%89%87",
+    );
+  });
+
   it("uploads picked files to the current folder", async () => {
     live();
     const sent: string[] = [];

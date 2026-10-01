@@ -15,8 +15,12 @@ import (
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
 
+// systemdDir exists only when systemd is running. Unraid and other systems
+// without systemd have no services capability (B64). Tests point it elsewhere.
+var systemdDir = "/run/systemd/system"
+
 func available() bool {
-	if _, err := os.Stat("/run/systemd/system"); err != nil {
+	if _, err := os.Stat(systemdDir); err != nil {
 		return false
 	}
 	_, err := exec.LookPath("systemctl")

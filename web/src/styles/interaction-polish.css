@@ -116,7 +116,7 @@
 .reassign-menu-title {
   padding: 5px 8px 7px;
   color: #909099;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .reassign-menu button {
   display: flex;
@@ -140,12 +140,12 @@
   gap: 2px;
 }
 .reassign-menu button b {
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 500;
 }
 .reassign-menu button small {
   color: #909099;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .teammate-avatar {
   display: inline-flex;
@@ -157,7 +157,7 @@
   border-radius: 50%;
   background: #334352;
   color: #9fd4e7;
-  font-size: 9px;
+  font-size: var(--fs-9);
   font-weight: 700;
 }
 .reassign-menu button:nth-of-type(2) .teammate-avatar {
@@ -195,7 +195,7 @@
   border-radius: 4px;
   background: transparent;
   color: #a1a1a8;
-  font-size: 10px;
+  font-size: var(--fs-10);
   cursor: pointer;
 }
 .profile-language-button:hover {
@@ -229,12 +229,12 @@
   border-bottom: 0;
 }
 .popover-head b {
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
 }
 .popover-head span {
   color: #888890;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .notification-list {
   padding: 2px 7px 8px;
@@ -259,13 +259,13 @@
 .notification-title {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--fs-11);
   line-height: 1.45;
 }
 .notification-entry time {
   flex: none;
   color: #888890;
-  font-size: 10px;
+  font-size: var(--fs-10);
   padding-top: 2px;
 }
 .notification-entry > i {
@@ -338,7 +338,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-weight: 600;
 }
 .toast-copy small {
@@ -346,13 +346,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #95959e;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 .toast .toast-undo {
   flex: none;
   margin: 0 0 0 auto;
   color: #e8e8eb;
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 500;
 }
 .toast .toast-close {
@@ -379,7 +379,7 @@
 .decision-outcome-status {
   flex: none;
   color: #93939a;
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 html[data-theme="light"] .reassign-menu,
 html[data-theme="light"] .toast {

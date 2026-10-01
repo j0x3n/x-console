@@ -25,6 +25,9 @@ import (
 // taskRun is a task whose coding.run stream is open.
 type taskRun struct {
 	id       int64
+	executor string
+	model    string // reported by the executor when the session starts
+	started  time.Time
 	stream   *rpc.Stream
 	seq      int64
 	canceled atomic.Bool
@@ -57,6 +60,7 @@ func (m *Module) dispatch() {
 	if m.running() >= limit {
 		return
 	}
+	agents, _ := module.Lookup[contracts.AIAgents](m.d.Registry, contracts.AIAgentsKey)
 	queued, err := m.q.ListQueued(ctx)
 	if err != nil {
 		if ctx.Err() == nil {
@@ -69,6 +73,9 @@ func (m *Module) dispatch() {
 			return
 		}
 		if !m.d.Agents.Online(q.AgentID) {
+			continue
+		}
+		if q.AiAgentID != nil && agents != nil && !m.aiAgentFree(ctx, agents, *q.AiAgentID) {
 			continue
 		}
 		m.start(ctx, q.ID)
@@ -89,13 +96,22 @@ func (m *Module) start(ctx context.Context, id int64) {
 	params := protocol.CodingRunParams{
 		TaskID: r.ID, RepoPath: r.RepoPath, Executor: r.Executor, Prompt: r.Prompt,
 		BaseBranch: r.BaseBranch, Branch: r.Branch, TimeoutSeconds: int(time.Duration(r.TimeoutMinutes) * m.timeoutUnit / time.Second),
+		Model: r.Model, Permission: r.Permission,
+	}
+	if r.RepoConnectionID != nil {
+		// B47: fetch first, then branch from origin/<base>.
+		if _, err := m.fetchForTask(ctx, r); err != nil {
+			m.finish(ctx, id, statusFailed, nil, "更新仓库失败："+err.Error(), nil)
+			return
+		}
+		params.PreferRemote = true
 	}
 	st, err := m.d.Agents.Open(ctx, r.AgentID, protocol.MethodCodingRun, params)
 	if err != nil {
 		m.finish(ctx, id, statusFailed, nil, "无法在代理上启动任务："+err.Error(), nil)
 		return
 	}
-	run := &taskRun{id: id, stream: st}
+	run := &taskRun{id: id, stream: st, executor: r.Executor, started: m.now()}
 	m.mu.Lock()
 	m.runs[id] = run
 	m.mu.Unlock()
@@ -277,6 +293,9 @@ func (m *Module) flush(ctx context.Context, run *taskRun, pending []protocol.Cod
 		return pending[:0]
 	}
 	m.d.Bus.Publish("coding_task.output", map[string]any{"taskId": run.id, "events": out})
+	for _, ev := range pending {
+		m.noteUsage(ctx, run, ev)
+	}
 	return pending[:0]
 }
 
@@ -332,6 +351,11 @@ func (m *Module) finish(ctx context.Context, id int64, status string, exit *int6
 		return
 	}
 	m.d.Bus.Publish("coding_task.updated", t)
+	if status == statusReview {
+		if rctx := m.runCtx(); rctx != nil {
+			go m.afterReview(rctx, id) // B47 automatic build
+		}
+	}
 	switch status {
 	case statusReview:
 		body := t.Title
@@ -376,4 +400,31 @@ func (m *Module) cancelRun(run *taskRun) {
 			}
 		}()
 	})
+}
+
+// aiAgentFree reports whether an AI agent may start another task now: it is
+// enabled, under budget and below its parallel limit (B47). Its queued
+// tasks wait otherwise.
+func (m *Module) aiAgentFree(ctx context.Context, agents contracts.AIAgents, id int64) bool {
+	a, err := agents.Get(ctx, id)
+	if err != nil {
+		// Deleted agents keep no tasks queued; anything else waits.
+		return false
+	}
+	if !a.Enabled || a.OverBudget {
+		return false
+	}
+	n, err := m.q.CountRunningForAgent(ctx, &id)
+	return err == nil && int(n) < max(a.MaxParallel, 1)
+}
+
+// fetchForTask brings the clone of a remote repository up to date.
+func (m *Module) fetchForTask(ctx context.Context, r taskRow) (protocol.CodingRepo, error) {
+	repo, err := m.q.GetRepo(ctx, r.RepoID)
+	if err != nil {
+		return protocol.CodingRepo{}, err
+	}
+	fctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+	return m.ensureClone(fctx, repo)
 }

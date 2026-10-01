@@ -170,7 +170,8 @@ var (
 // RestoreBackup is POST /backups/{backupId}/restore.
 func (m *Module) RestoreBackup(w http.ResponseWriter, r *http.Request, id api.BackupId) {
 	ctx := r.Context()
-	if err := auth.RequireElevated(ctx); err != nil {
+	// Restoring overwrites everything: always ask, whatever the mode (B48).
+	if err := auth.RequireStrictElevated(ctx); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}

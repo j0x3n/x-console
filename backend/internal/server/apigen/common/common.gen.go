@@ -11,6 +11,9 @@ type Error struct {
 
 	// Message 给人看的错误说明
 	Message string `json:"message"`
+
+	// RequestId 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41）
+	RequestId *string `json:"requestId,omitempty"`
 }
 
 // Cursor defines model for Cursor.

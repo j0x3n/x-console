@@ -214,6 +214,8 @@ function PairDialog({
   const code = result?.code ?? "";
   const q = encodeURIComponent(code);
   const linux = `curl -fsSL "${server}/api/v1/agent/install.sh?code=${q}" | sudo sh`;
+  // B64：Unraid 没有 sudo，终端本来就是 root。
+  const unraid = `curl -fsSL "${server}/api/v1/agent/install.sh?code=${q}" | sh`;
   const windows = `irm "${server}/api/v1/agent/install.ps1?code=${q}" | iex`;
   const manualCommand =
     kind === "server"
@@ -233,10 +235,20 @@ function PairDialog({
       {result ? (
         <>
           {kind === "server" ? (
-            <CommandBox
-              label={t("Run this on the server as root")}
-              command={linux}
-            />
+            <>
+              <CommandBox
+                label={t("Run this on the server as root")}
+                command={linux}
+              />
+              <CommandBox
+                label={t("On Unraid, run this in its terminal")}
+                command={unraid}
+              />
+              <p className="devices-note">
+                Unraid 没有 sudo，用第二条。代理装在 U 盘上，重启 Unraid
+                后自动启动。
+              </p>
+            </>
           ) : (
             <>
               <CommandBox
@@ -298,6 +310,7 @@ function PairDialog({
               <code>
                 curl -fsSL {server}/api/v1/agent/uninstall.sh | sudo sh
               </code>
+              （Unraid 上去掉 sudo）
             </p>
           )}
           <div className="xc-dialog-actions">

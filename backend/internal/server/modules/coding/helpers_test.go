@@ -132,7 +132,7 @@ func newRepo(t *testing.T) (root, repo, bare string) {
 func register(t *testing.T, env *testutil.Env, agentID, path string) api.Repo {
 	t.Helper()
 	var repo api.Repo
-	env.MustDo(http.MethodPost, "/coding/repos", api.CreateRepo{AgentId: agentID, Path: path}, &repo)
+	env.MustDo(http.MethodPost, "/coding/repos", api.CreateRepo{AgentId: agentID, Path: &path}, &repo)
 	return repo
 }
 

@@ -28,6 +28,9 @@ type Config struct {
 	Roots []string `json:"roots,omitempty"`
 	// Depth is how many directory levels below a root are scanned (default 3).
 	Depth int `json:"depth,omitempty"`
+	// ReposDir is where repositories registered from a Git connection are
+	// cloned (B47). Default: x-console/repos in the home directory.
+	ReposDir string `json:"reposDir,omitempty"`
 	// Executors by name ("claude", "codex").
 	Executors map[string]ExecutorConfig `json:"executors,omitempty"`
 }
@@ -130,8 +133,22 @@ func (c Config) resolve(name string) (string, error) {
 	return lookPath(expandHome(path))
 }
 
+// fullArgs replace defaultArgs for CodingPermissionFull (B47): no sandbox
+// and no approval prompts.
+var fullArgs = map[string][]string{
+	protocol.ExecutorClaude: {"-p", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"},
+	protocol.ExecutorCodex:  {"exec", "--json", "--sandbox", "danger-full-access", "-"},
+}
+
 // command builds the invocation of executor name for prompt.
 func (c Config) command(name, prompt string) (command, error) {
+	return c.commandWith(name, prompt, "", "")
+}
+
+// commandWith is command with a model and a permission (B47). Configured
+// Args win over the permission; the model is added before a trailing "-"
+// (the stdin marker of codex) or at the end.
+func (c Config) commandWith(name, prompt, model, permission string) (command, error) {
 	path, err := c.resolve(name)
 	if err != nil {
 		return command{}, err
@@ -140,6 +157,18 @@ func (c Config) command(name, prompt string) (command, error) {
 	args := e.Args
 	if len(args) == 0 {
 		args = defaultArgs[name]
+		if permission == protocol.CodingPermissionFull {
+			args = fullArgs[name]
+		}
+	}
+	if model != "" {
+		with := append([]string{}, args...)
+		if n := len(with); n > 0 && with[n-1] == "-" {
+			with = append(with[:n-1:n-1], "--model", model, "-")
+		} else {
+			with = append(with, "--model", model)
+		}
+		args = with
 	}
 	cmd := command{path: path, format: e.Format}
 	if cmd.format == "" {

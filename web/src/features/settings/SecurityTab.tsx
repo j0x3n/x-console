@@ -10,6 +10,8 @@ import { ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import VaultPasswordCard from "../vault/VaultPasswordCard";
+import HiddenModulesCard from "../vault/HiddenModulesCard";
+import ElevationModeCard from "./ElevationModeCard";
 import { MIN_PASSWORD, passwordFormError } from "./security";
 
 /** 设置里的“安全”标签：两步验证开关、修改登录密码。 */
@@ -24,7 +26,9 @@ export default function SecurityTab() {
     <div className="settings-grid">
       <TotpCard enabled={enabled} />
       <PasswordCard />
+      <ElevationModeCard />
       <VaultPasswordCard />
+      <HiddenModulesCard />
     </div>
   );
 }

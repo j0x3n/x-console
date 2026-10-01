@@ -8,7 +8,7 @@
 .monitoring-tab-count {
   height: 16px;
   padding: 0 5px;
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 .monitoring-tabs {
   overflow-x: auto;
@@ -108,7 +108,7 @@ button.monitoring-row:hover,
 .monitoring-hint {
   margin: 0 0 14px;
   color: var(--xc-muted);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .monitoring-segment {
   display: inline-flex;
@@ -149,7 +149,7 @@ button.monitoring-row:hover,
 }
 .monitoring-code {
   min-height: 160px;
-  font-size: 12.5px;
+  font-size: var(--fs-12-5);
   line-height: 1.5;
   tab-size: 4;
 }
@@ -197,10 +197,10 @@ button.monitoring-row:hover,
   flex-wrap: wrap;
   gap: 8px;
   margin: 12px 0 8px;
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .monitoring-detail-bar strong {
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--xc-text);
 }
 .monitoring-range {
@@ -238,7 +238,7 @@ button.monitoring-row:hover,
   color: var(--xc-danger) !important;
 }
 .monitoring-small {
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 .monitoring-block {
   display: block;
@@ -308,7 +308,7 @@ button.monitoring-row:hover,
   flex-direction: column;
   justify-content: space-between;
   height: 110px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--xc-muted);
   text-align: right;
   min-width: 44px;
@@ -360,7 +360,7 @@ button.monitoring-row:hover,
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--xc-muted);
 }
 .monitoring-chart-empty {
@@ -378,7 +378,7 @@ button.monitoring-row:hover,
   border: 1px solid var(--xc-border);
   border-radius: var(--xc-radius);
   font-family: var(--xc-mono);
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -425,24 +425,23 @@ button.monitoring-row:hover,
 }
 
 /* 订阅 */
-.monitoring-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+.monitoring-account {
+  overflow-wrap: anywhere;
 }
-.monitoring-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.monitoring-stat small {
-  color: var(--xc-muted);
-}
-.monitoring-stat strong {
-  font-size: 22px;
-  color: var(--xc-text);
+/* 顶部订阅卡片右上角的币种，点一下切换（B49） */
+.monitoring-currency {
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+  color: var(--xc-text-2);
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.monitoring-currency:hover,
+.monitoring-currency:focus-visible {
+  outline: 0;
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
 }
 
 /* Docker */
@@ -603,4 +602,77 @@ button.monitoring-row:hover,
 }
 .monitoring-collapse[aria-expanded="true"] svg {
   transform: rotate(90deg);
+}
+
+/* 站标（B50） */
+.monitoring-site-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  object-fit: contain;
+}
+.monitoring-site-icon.letter {
+  display: grid;
+  place-items: center;
+  background: var(--xc-surface-2);
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  font-weight: 600;
+}
+.monitoring-site-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+/* 证书和域名合成一行（B50） */
+.monitoring-expiry-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.monitoring-expiry-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--xc-border);
+  border-radius: 999px;
+  background: var(--xc-surface);
+  color: var(--xc-text-2);
+  font: inherit;
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.monitoring-expiry-chip:hover {
+  border-color: var(--xc-border-strong);
+}
+.monitoring-expiry-chip.danger {
+  border-color: var(--xc-danger);
+  color: var(--xc-danger);
+}
+.monitoring-expiry-chip.warn {
+  border-color: var(--xc-warn);
+  color: var(--xc-warn);
+}
+.monitoring-expiry-chip.off {
+  opacity: 0.55;
+}
+.monitoring-row.domain-row {
+  flex-wrap: wrap;
+}
+.monitoring-row.domain-row .monitoring-row-main {
+  flex: 1 1 220px;
+}
+@media (max-width: 640px) {
+  /* 手机上标签换到下一行，不压住域名 */
+  .monitoring-expiry-chips {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    padding-left: 20px;
+  }
 }

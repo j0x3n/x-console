@@ -1,0 +1,165 @@
+/* B65 路由器 */
+.router-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.router-iface-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.router-iface-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--xc-border);
+  font-size: var(--fs-13);
+}
+.router-iface-list li:last-child {
+  border-bottom: none;
+}
+.router-iface-main {
+  display: grid;
+  flex: 0 0 160px;
+  min-width: 0;
+}
+.router-iface-main strong {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.router-iface-main small,
+.router-iface-uptime {
+  font-size: var(--fs-12);
+}
+.router-iface-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.router-traffic-total {
+  margin: 8px 0 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+  font-variant-numeric: tabular-nums;
+}
+.router-iface-ip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12-5);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.router-iface-uptime {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.router-clients {
+  padding: 0;
+  overflow: hidden;
+}
+.router-clients .xc-table {
+  width: 100%;
+}
+.router-client-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.router-mono {
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12-5);
+}
+.router-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.router-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+.router-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  line-height: 1.7;
+}
+.router-steps li + li {
+  margin-top: 8px;
+}
+.router-steps code {
+  font-family: var(--xc-mono);
+}
+.router-code {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+}
+.router-code pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-11-5);
+  line-height: 1.5;
+}
+.router-code .xc-btn {
+  align-self: flex-end;
+}
+@media (max-width: 720px) {
+  .router-iface-main {
+    flex-basis: 96px;
+  }
+  .router-iface-uptime,
+  .router-btn-label,
+  .router-col-mac,
+  .router-col-lease {
+    display: none;
+  }
+  .router-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+/* 今日页的“网络”卡片 */
+.router-today {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-13);
+}
+.router-today li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 30px;
+}
+.router-today span {
+  flex: 1;
+  color: var(--xc-text-2);
+}
+.router-today strong {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.router-today strong.ok {
+  color: var(--xc-ok);
+}
+.router-today strong.danger {
+  color: var(--xc-danger);
+}
+.router-today small {
+  color: var(--xc-muted);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12);
+}

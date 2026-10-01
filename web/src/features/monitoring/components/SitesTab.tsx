@@ -7,6 +7,7 @@ import { monitorTone } from "../lib";
 import { useIdParam, useParam } from "./common";
 import MonitorDetail from "./MonitorDetail";
 import MonitorDialog from "./MonitorDialog";
+import SiteIcon from "./SiteIcon";
 import { StatusBadge } from "./StatusBadge";
 
 /** 网站监控列表。 */
@@ -63,7 +64,7 @@ function SiteRow({
   const tone = monitorTone(m);
   return (
     <button className="monitoring-row" onClick={onOpen}>
-      <span className={`xc-dot ${tone}`} />
+      <SiteIcon id={m.id} iconAt={m.iconAt} target={m.target} />
       <span className="monitoring-row-main">
         <strong>{m.name}</strong>
         <small className="xc-mono">{m.target}</small>

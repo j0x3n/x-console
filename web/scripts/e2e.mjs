@@ -103,6 +103,7 @@ try {
   stage = "编译服务端和代理";
   await run("build-server", "go", ["build", "-o", binary("server"), "./cmd/server"], { cwd: backendDir });
   await run("build-agent", "go", ["build", "-o", binary("agent"), "./cmd/agent"], { cwd: backendDir });
+  await run("build-fakedav", "go", ["build", "-o", binary("fakedav"), "./cmd/fakedav"], { cwd: backendDir });
   if (process.env.XC_E2E_USE_BUILD !== "1")
     await run("build-web", process.execPath, [join(webDir, "node_modules/vite/bin/vite.js"), "build"], { cwd: webDir });
 
@@ -122,7 +123,10 @@ try {
   await until("服务端", async () => (await fetch(`${serverUrl}/api/v1/auth/status`)).ok);
   await until("前端", async () => (await fetch(base)).ok);
 
-  browser = await chromium.launch();
+  // 本地浏览器和 playwright-core 版本不一致时，用 XC_SHOTS_BROWSER 指定 Chromium（和 shots 一样）。
+  browser = await chromium.launch(
+    process.env.XC_SHOTS_BROWSER ? { executablePath: process.env.XC_SHOTS_BROWSER } : {},
+  );
   const context = await browser.newContext({ viewport: { width: 1360, height: 860 } });
   // 旧浏览器可能留有演示开关；正式页面仍应读写真实接口。
   await context.addInitScript(() => localStorage.setItem("xc.demo.full", "on"));
@@ -246,7 +250,51 @@ try {
     await new Promise((done) => aiFake.close(done));
   }
 
-  stage = "新建项目和 Issue";
+  stage = "B65 路由器";
+  // 假的 OpenWrt ubus：登录、系统信息、接口、网卡计数、DHCP 租约和 host hints。
+  const ubusFake = http.createServer(async (request, response) => {
+    let raw = "";
+    for await (const chunk of request) raw += chunk;
+    const { id, params } = JSON.parse(raw || "{}");
+    const [, object, method] = params ?? [];
+    const results = {
+      "session.login": [0, { ubus_rpc_session: "e".repeat(32), expires: 300 }],
+      "system.board": [0, { hostname: "OpenWrt", model: "端到端路由器", release: { description: "OpenWrt 24.10.0" } }],
+      "system.info": [0, { uptime: 7200, load: [0, 0, 0], memory: { total: 268435456, available: 134217728 } }],
+      "network.interface.dump": [0, { interface: [
+        { interface: "lan", up: true, uptime: 7200, proto: "static", device: "br-lan", "ipv4-address": [{ address: "192.168.1.1", mask: 24 }] },
+        { interface: "wan", up: true, uptime: 3600, proto: "dhcp", device: "eth1", "ipv4-address": [{ address: "100.64.9.9", mask: 32 }] },
+      ] }],
+      "network.device.status": [0, { statistics: { rx_bytes: 1000, tx_bytes: 100 } }],
+      "luci-rpc.getDHCPLeases": [0, { dhcp_leases: [{ expires: 600, hostname: "端到端手机", macaddr: "aa:bb:cc:dd:ee:01", ipaddr: "192.168.1.50" }] }],
+      "luci-rpc.getHostHints": [0, {}],
+    };
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({ jsonrpc: "2.0", id, result: results[`${object}.${method}`] ?? [3] }));
+  });
+  await new Promise((ready) => ubusFake.listen(0, "127.0.0.1", ready));
+  try {
+    const elevatedForRouter = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+      headers: { "X-Requested-With": "x-console" }, data: { password },
+    });
+    assert.equal(elevatedForRouter.status(), 200, await elevatedForRouter.text());
+    const routerSaved = await page.context().request.put(`${base}/api/v1/router/config`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { url: `http://127.0.0.1:${ubusFake.address().port}`, username: "xconsole", password: "e2e", mode: "direct" },
+    });
+    assert.equal(routerSaved.status(), 200, await routerSaved.text());
+    await page.goto(`${base}/router`);
+    await page.getByText("100.64.9.9", { exact: true }).waitFor();
+    await page.getByText("端到端手机").waitFor();
+    const routerCleared = await page.context().request.put(`${base}/api/v1/router/config`, {
+      headers: { "X-Requested-With": "x-console" }, data: { url: "" },
+    });
+    assert.equal(routerCleared.status(), 200, await routerCleared.text());
+  } finally {
+    await new Promise((done) => ubusFake.close(done));
+  }
+
+  stage = "新建项目和卡片";
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();
   await dialog("新建项目").getByLabel("名称").fill("端到端项目");
@@ -257,8 +305,8 @@ try {
   const project = projects.find((item) => item.key === "EET");
   assert.ok(project, "真实接口里没有新建的项目");
   await page.goto(`${base}/projects?new=1`);
-  await dialog("新建 Issue").getByRole("textbox", { name: "标题" }).fill("端到端 Issue");
-  await dialog("新建 Issue").getByRole("button", { name: "创建 Issue" }).click();
+  await dialog("新建卡片").getByRole("textbox", { name: "标题" }).fill("端到端 Issue");
+  await dialog("新建卡片").getByRole("button", { name: "创建卡片" }).click();
   await page.waitForURL(/\/projects\/EET\/\d+$/);
   const issueKey = `EET-${page.url().split("/").at(-1)}`;
   assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
@@ -283,8 +331,7 @@ try {
   assert.equal(dueIssue.categoryId, childCategory.id);
   assert.equal(dueIssue.dueRemind, "15m");
   assert.equal(new Date(dueIssue.dueAt).getTime(), new Date(dueAt).getTime());
-  await page.reload();
-  await page.getByText("服务器", { exact: true }).first().waitFor();
+  // B46 起分类不在界面上显示，接口保留到下个版本。
   stage = "B36 检查清单";
   const checklistResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists`, {
     headers: { "X-Requested-With": "x-console" }, data: { title: "端到端检查" },
@@ -342,8 +389,73 @@ try {
   await until("项目概要", async () =>
     (await projectStats.locator(".xc-stat").count()) === 5,
   );
-  const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的 Issue" });
+  const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的卡片" });
   assert.equal((await progressCard.locator(".xc-stat-value").textContent()).trim(), "1");
+
+  stage = "B46 新建看板、加卡片、拖到另一个列表、加清单";
+  await page.goto(`${base}/projects/EET`);
+  await page.getByRole("button", { name: "新建看板" }).click();
+  await dialog("新建看板").getByLabel("名称").fill("端到端看板");
+  await dialog("新建看板").getByRole("button", { name: "创建看板" }).click();
+  await page.getByRole("tab", { name: /端到端看板/ }).waitFor();
+  // 新看板的标签先出现，切过去要等页面拿到新看板
+  await until("切到新看板", async () =>
+    (await page.getByRole("tab", { name: /端到端看板/ }).getAttribute("aria-selected")) === "true",
+  );
+  const lanes = page.locator(".projects-board.lists > section.projects-lane[data-list-id]");
+  await until("三个列表", async () => (await lanes.count()) === 3);
+  await lanes.nth(0).getByRole("button", { name: "添加卡片" }).click();
+  const cardInput = page.getByPlaceholder("卡片标题，可以直接粘贴图片");
+  await cardInput.fill("看板里的卡片");
+  await cardInput.press("Enter");
+  const boardCard = lanes.nth(0).locator("[data-issue-key]").filter({ hasText: "看板里的卡片" });
+  await boardCard.waitFor();
+  await cardInput.press("Escape");
+  const boardCardKey = await boardCard.getAttribute("data-issue-key");
+  assert.equal((await api(`/issues/${boardCardKey}`)).status, "todo");
+  await boardCard.dragTo(lanes.nth(1));
+  await until("拖到进行中", async () => (await api(`/issues/${boardCardKey}`)).status === "in_progress");
+  await lanes.nth(1).locator(`[data-issue-key="${boardCardKey}"]`).click();
+  await page.waitForURL(/\/projects\/EET\/\d+$/);
+  await page.getByRole("button", { name: "添加检查清单" }).click();
+  await page.getByLabel("清单标题").fill("看板清单");
+  await page.getByLabel("清单标题").press("Enter");
+  await until("清单已建", async () => (await api(`/issues/${boardCardKey}/checklists`)).length === 1);
+
+  stage = "B55 锁定看板结构后不能加列表";
+  await page.goto(`${base}/projects/EET`);
+  await page.getByRole("button", { name: "添加列表" }).waitFor();
+  await page.getByRole("button", { name: "锁定看板结构" }).click();
+  await page.getByRole("button", { name: "添加列表" }).waitFor({ state: "detached" });
+  assert.equal(await page.getByRole("button", { name: "新建看板" }).count(), 0);
+  await page.getByRole("button", { name: "解锁看板结构" }).click();
+  await page.getByRole("button", { name: "添加列表" }).waitFor();
+
+  stage = "B47 新建 Agent，把卡片分配给内置 Agent";
+  await page.goto(`${base}/coding`);
+  await page.getByRole("button", { name: "新建 Agent" }).first().click();
+  await dialog("新建 Agent").getByLabel("名称").fill("端到端 Agent");
+  await dialog("新建 Agent").getByRole("button", { name: "创建 Agent" }).click();
+  await page.locator(".aiagent-card").filter({ hasText: "端到端 Agent" }).waitFor();
+  const e2eAgents = await api("/ai-agents");
+  assert.equal(e2eAgents.find((a) => a.name === "端到端 Agent")?.kind, "claude_code");
+  // 内置 Agent 要选模型，端到端环境没有 AI 供应商，直接用接口建。
+  const builtinResponse = await page.request.post(`${base}/api/v1/ai-agents`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { name: "端到端整理员", kind: "builtin", model: "1:none" },
+  });
+  assert.equal(builtinResponse.status(), 201, await builtinResponse.text());
+  await page.goto(`${base}/projects/EET/${boardCardKey.split("-")[1]}`);
+  await page.getByRole("button", { name: "分配给 Agent" }).click();
+  await dialog("分配给 Agent").getByRole("radio", { name: /端到端整理员/ }).check();
+  await dialog("分配给 Agent").getByRole("button", { name: "分配", exact: true }).click();
+  // 没有 AI 供应商：Agent 先说开始，再说没做完。
+  await until("Agent 的评论", async () => {
+    const list = await api(`/issues/${boardCardKey}/comments`);
+    return list.some((c) => c.author?.startsWith("agent:") && c.body.includes("开始处理")) &&
+      list.some((c) => c.author?.startsWith("agent:") && c.body.includes("没做完"));
+  });
+  assert.ok((await api(`/issues/${boardCardKey}`)).members.some((m) => m.kind === "agent"));
 
   stage = "写笔记";
   const noteResponses = [];
@@ -667,6 +779,26 @@ try {
   );
   await page.setViewportSize({ width: 1360, height: 860 });
 
+  stage = "B69 在存储页加 WebDAV 账号，云盘页出现标签";
+  const davPort = await freePort();
+  start("fakedav", binary("fakedav"), ["-addr", `127.0.0.1:${davPort}`, "-user", "me", "-password", "dav-pw"]);
+  await until("WebDAV", async () => (await fetch(`http://127.0.0.1:${davPort}/dav/`)).status === 401);
+  await page.goto(`${base}/settings/storage`);
+  await page.getByRole("button", { name: "添加网盘账号" }).first().click();
+  const davDialog = dialog("添加网盘账号");
+  await davDialog.getByLabel("名称").fill("端到端网盘");
+  await davDialog.getByLabel(/^地址/).fill(`http://127.0.0.1:${davPort}/dav/`);
+  await davDialog.getByLabel("用户名").fill("me");
+  await davDialog.getByLabel(/^密码/).fill("dav-pw");
+  await davDialog.getByRole("button", { name: "保存" }).click();
+  await verifyIfAsked();
+  await davDialog.waitFor({ state: "hidden" });
+  await page.locator(".storage-remote-row").filter({ hasText: "端到端网盘" }).waitFor();
+  await page.goto(`${base}/drive`);
+  await page.getByRole("button", { name: "端到端网盘" }).click();
+  await page.getByRole("button", { name: "docs", exact: true }).click();
+  await page.getByText("hello.txt").first().waitFor();
+
   stage = "习惯打卡";
   await page.goto(`${base}/habits`);
   await page.getByRole("button", { name: "新建习惯" }).click();
@@ -733,6 +865,52 @@ try {
   await page.getByRole("checkbox", { name: "显示其他模块" }).check();
   await renewalRow.getByRole("link", { name: "端到端续费 续费" }).click();
   await page.waitForURL(/\/monitoring\/subscriptions$/);
+
+  stage = "B50 只填域名添加网站，顺带建证书和域名监控";
+  await page.goto(`${base}/monitoring?new=1`);
+  await dialog("添加网站").getByLabel("网址").fill("www.e2e-site.example.com");
+  await dialog("添加网站").getByRole("button", { name: "保存" }).click();
+  await page.locator(".monitoring-row", { hasText: "https://www.e2e-site.example.com" }).waitFor();
+  // 证书和域名监控在网站存好以后才建，建完弹窗才关
+  await dialog("添加网站").waitFor({ state: "hidden" });
+  const siteMonitors = (await api("/monitors")).filter((m) => m.name === "www.e2e-site.example.com");
+  assert.deepEqual(siteMonitors.map((m) => `${m.kind} ${m.target}`).sort(), [
+    "domain example.com",
+    "http https://www.e2e-site.example.com",
+    "tls www.e2e-site.example.com",
+  ]);
+  await page.goto(`${base}/monitoring/certs`);
+  await page.locator(".monitoring-row", { hasText: "example.com" }).getByRole("button", { name: /证书/ }).waitFor();
+
+  stage = "B57 锁定后被隐藏的模块像不存在一样";
+  const send = async (method, path, data) => {
+    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
+      method,
+      headers: { "X-Requested-With": "x-console" },
+      data,
+    });
+    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
+  };
+  await send("POST", "/vault/setup", { password: "e2e-vault-secret" });
+  await send("PUT", "/vault/modules", { hidden: ["github"] });
+  await send("POST", "/vault/lock");
+  await page.goto(`${base}/`);
+  await page.locator(".sidebar").getByRole("link", { name: "项目" }).waitFor();
+  assert.equal(await page.locator(".sidebar").getByRole("link", { name: "仓库" }).count(), 0);
+  await page.goto(`${base}/github`);
+  await page.getByText("页面不存在").first().waitFor();
+  assert.equal((await page.context().request.get(`${base}/api/v1/vault/modules`)).status(), 404);
+  // B68：锁定时设置里看不到隐藏密码卡片；没隐藏云盘时网盘标签照常（B69 前面加了一个）
+  await page.goto(`${base}/settings/security`);
+  await page.getByRole("heading", { name: /安全|Security/ }).first().waitFor().catch(() => {});
+  await page.waitForLoadState("networkidle").catch(() => {});
+  assert.equal(await page.getByRole("heading", { name: "隐藏密码" }).count(), 0);
+  const remotes = await api("/storage/remotes?drive=true");
+  assert.deepEqual(remotes.items.map((item) => item.name), ["端到端网盘"]);
+  // 恢复，后面的步骤还要打开 GitHub 页面
+  await send("POST", "/vault/unlock", { password: "e2e-vault-secret" });
+  await send("PUT", "/vault/modules", { hidden: [] });
+  await send("POST", "/vault/lock");
 
   stage = "配对 Linux 代理";
   await page.goto(`${base}/settings/devices`);
@@ -848,6 +1026,8 @@ try {
     "/projects/EET",
     `/projects/EET/${issueKey.split("-")[1]}`,
     "/coding",
+    "/coding/tasks",
+    "/settings/git",
     "/coding/repos",
     "/coding/999999",
     "/notes",
@@ -873,6 +1053,34 @@ try {
     stage = `页面渲染 ${path}`;
     await page.goto(`${base}${path}`);
     await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
+  }
+  stage = "B41 报错提示常驻、可以展开和复制";
+  {
+    const consoleErrors = [];
+    const onConsole = (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text());
+    };
+    page.on("console", onConsole);
+    await page.route(/\/api\/v1\/notes(\?|$)/, (route) =>
+      route.fulfill({
+        status: 500,
+        headers: { "Content-Type": "application/json", "X-Request-Id": "e2e-req-1" },
+        body: JSON.stringify({ code: "internal", message: "端到端假错误", requestId: "e2e-req-1" }),
+      }),
+    );
+    await page.goto(`${base}/notes`);
+    const notice = page.locator(".error-notice").filter({ hasText: "端到端假错误" }).first();
+    await notice.waitFor({ timeout: 20_000 });
+    await page.waitForTimeout(6_000);
+    assert.equal(await notice.isVisible(), true, "报错提示 6 秒后自己消失了");
+    await notice.locator(".error-notice-text").click();
+    const detail = await notice.locator(".error-notice-text").innerText();
+    assert.match(detail, /请求编号：e2e-req-1/);
+    assert.match(detail, /状态：500 internal/);
+    assert.ok(consoleErrors.some((text) => text.includes("[X Console]")), "控制台没有 [X Console] 输出");
+    await page.unroute(/\/api\/v1\/notes(\?|$)/);
+    page.off("console", onConsole);
+    await page.getByRole("button", { name: /全部关闭|关闭/ }).first().click();
   }
   stage = "手机命令面板";
   await page.setViewportSize({ width: 390, height: 180 });

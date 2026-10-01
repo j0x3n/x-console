@@ -9,6 +9,11 @@ on:
       - "docs/**"
       - "**/*.md"
   workflow_call:
+    inputs:
+      race:
+        description: 后端测试是否带 -race。不传或 true 都带上。部署传 false。
+        type: boolean
+        default: true
   workflow_dispatch:
 
 permissions:
@@ -21,7 +26,7 @@ concurrency:
   cancel-in-progress: ${{ github.workflow == 'CI' }}
 
 jobs:
-  backend:
+  backend-check:
     runs-on: ubuntu-latest
     env:
       SQLC_VERSION: v1.31.1
@@ -57,7 +62,6 @@ jobs:
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
-      - run: go test -race ./...
       - name: Local agent deploy script
         working-directory: deploy
         run: |
@@ -70,6 +74,52 @@ jobs:
         run: |
           GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent
           GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/agent
+
+  # 三组同时跑。分组按 2026-10-01 带 -race 的包用时摊开，第三组是剩下的全部包，新包不会漏。
+  # inputs.race 在 PR 和手动运行时是空的，只有明确传 false 才不带 -race。
+  backend-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: drive-hosts-ai
+            packages: ./internal/server/modules/drive/... ./internal/server/modules/hosts/... ./internal/server/modules/ai/... ./internal/server/modules/github/... ./internal/server/modules/monitoring/... ./internal/server/modules/homeassistant/... ./internal/server/modules/reminders/...
+          - name: app-coding-notes-projects
+            packages: ./internal/server/app/... ./internal/server/modules/backup/... ./internal/server/modules/coding/... ./internal/server/modules/notes/... ./internal/server/modules/projects/... ./internal/server/store/...
+          - name: rest
+            packages: ""
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Test ${{ matrix.name }}
+        env:
+          RACE_INPUT: ${{ github.event_name != 'workflow_call' && 'true' || inputs.race }}
+          PACKAGES: ${{ matrix.packages }}
+        run: |
+          set -euo pipefail
+          flags=()
+          if [ "${RACE_INPUT:-}" != "false" ]; then
+            flags+=(-race)
+          fi
+          if [ -n "$PACKAGES" ]; then
+            go test "${flags[@]}" $PACKAGES
+            exit 0
+          fi
+          all=$(go list ./...)
+          mapfile -t pkgs < <(printf '%s\n' "$all" | grep -v -E '/internal/server/(app|store|modules/(backup|coding|drive|github|homeassistant|hosts|monitoring|notes|projects|reminders|ai))(/|$)' || true)
+          if [ "${#pkgs[@]}" -eq 0 ]; then
+            echo "剩余的包是空的，分组表达式把所有包都排除了"
+            exit 1
+          fi
+          printf '%s\n' "${pkgs[@]}"
+          go test "${flags[@]}" "${pkgs[@]}"
 
   web:
     runs-on: ubuntu-latest
@@ -90,6 +140,7 @@ jobs:
           git diff --exit-code -- src/api/gen
       - run: npm run typecheck
       - run: npm run format:check
+      - run: npm run lint:fonts
       - run: npm test
       - run: npm run build
       - uses: actions/setup-go@v5

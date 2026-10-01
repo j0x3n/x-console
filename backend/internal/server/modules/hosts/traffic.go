@@ -520,7 +520,7 @@ func (m *Module) checkPlan(ctx context.Context, p db.HostTrafficPlan) error {
 		}
 		return nil
 	}
-	h, err := m.host(ctx, p.HostID)
+	h, err := m.lookupHost(ctx, p.HostID)
 	if errors.Is(err, httpx.ErrNotFound) {
 		return nil
 	}

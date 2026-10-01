@@ -562,3 +562,116 @@ export function stepSelection(
   if (at === -1) return delta === 1 ? keys[0] : keys[keys.length - 1];
   return keys[Math.max(0, Math.min(keys.length - 1, at + delta))];
 }
+
+// ---- B46 按列表的看板 ----
+
+/** 一个列表里的卡片，按手动顺序。 */
+export function listColumn(issues: Issue[], listId: number): Issue[] {
+  return sortIssues(
+    issues.filter((i) => i.listId === listId),
+    "manual",
+  );
+}
+
+export interface ListDropTarget {
+  listId: number;
+  /** 在目标列表里（不含被拖动的卡片）插入的位置。 */
+  index: number;
+}
+
+export interface ListMovePlan {
+  listId: number;
+  /** 目标列表对应的状态，乐观更新用。没有对应状态时不改。 */
+  status?: IssueStatus;
+  afterKey?: string;
+  beforeKey?: string;
+  sortOrder: number | null;
+}
+
+export function planListMove(
+  issues: Issue[],
+  key: string,
+  target: ListDropTarget,
+  status?: IssueStatus,
+): ListMovePlan {
+  const others = listColumn(issues, target.listId).filter((i) => i.key !== key);
+  const index = Math.max(0, Math.min(target.index, others.length));
+  const above = others[index - 1];
+  const below = others[index];
+  return {
+    listId: target.listId,
+    status,
+    afterKey: above?.key,
+    beforeKey: below?.key,
+    sortOrder:
+      above || below ? sortOrderBetween(above?.sortOrder, below?.sortOrder) : 0,
+  };
+}
+
+export function isNoopListMove(
+  issues: Issue[],
+  key: string,
+  plan: ListMovePlan,
+) {
+  const issue = issues.find((i) => i.key === key);
+  if (!issue || issue.listId !== plan.listId) return false;
+  const col = listColumn(issues, plan.listId);
+  const at = col.findIndex((i) => i.key === key);
+  return (
+    col[at - 1]?.key === plan.afterKey && col[at + 1]?.key === plan.beforeKey
+  );
+}
+
+export function applyListMove(
+  issues: Issue[],
+  key: string,
+  plan: ListMovePlan,
+): Issue[] {
+  let order = plan.sortOrder;
+  if (order === null) {
+    const above = issues.find((i) => i.key === plan.afterKey);
+    const below = issues.find((i) => i.key === plan.beforeKey);
+    order = above && below ? (above.sortOrder + below.sortOrder) / 2 : 0;
+  }
+  const now = new Date().toISOString();
+  return issues.map((issue) => {
+    if (issue.key !== key) return issue;
+    const status = plan.status ?? issue.status;
+    return {
+      ...issue,
+      listId: plan.listId,
+      status,
+      sortOrder: order,
+      updatedAt: now,
+      completedAt: isClosed(status) ? (issue.completedAt ?? now) : undefined,
+    };
+  });
+}
+
+/** 卡片有没有这个成员。 */
+export function hasMember(issue: Issue, kind: "me" | "agent", id = "") {
+  return (issue.members ?? []).some((m) => m.kind === kind && m.id === id);
+}
+
+/** 加上或去掉一个成员，返回新的成员列表。 */
+export function toggleMember(
+  issue: Issue,
+  kind: "me" | "agent",
+  id = "",
+): { kind: "me" | "agent"; id: string }[] {
+  const list = (issue.members ?? []).map((m) => ({ kind: m.kind, id: m.id }));
+  return hasMember(issue, kind, id)
+    ? list.filter((m) => !(m.kind === kind && m.id === id))
+    : [...list, { kind, id }];
+}
+
+/** 描述里第一张图片的地址，看板卡片上做封面（B55）。没有时为空。 */
+export function coverImage(description: string | undefined): string | null {
+  if (!description) return null;
+  const m = /!\[[^\]]*\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)/.exec(
+    description,
+  );
+  if (!m) return null;
+  const src = m[1];
+  return /^(https?:\/\/|\/)/.test(src) ? src : null;
+}

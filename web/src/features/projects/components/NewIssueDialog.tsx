@@ -21,7 +21,6 @@ import {
   type DueRemind,
   type IssueStatus,
 } from "../logic";
-import CategorySelect from "./CategorySelect";
 import DueFields, { type DueValue } from "./DueFields";
 import { LabelChip } from "./Icons";
 
@@ -50,15 +49,17 @@ export default function NewIssueDialog({
   onClose,
   projectId,
   status = "todo",
-  categoryId: initialCategory = null,
+  boardId,
+  listId,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   projectId?: number;
   status?: IssueStatus;
-  /** 看板正按分类筛选时，默认放进这个分类 */
-  categoryId?: number | null;
+  /** B46：放到哪个看板、哪个列表。不传用项目的第一个看板。 */
+  boardId?: number;
+  listId?: number;
   onCreated?: (issue: Issue) => void;
 }) {
   const t = useT();
@@ -70,13 +71,12 @@ export default function NewIssueDialog({
   const [priority, setPriority] = useState(0);
   const [due, setDue] = useState<DueValue>({ date: "", time: "" });
   const [remind, setRemind] = useState<DueRemind>("at_due");
-  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [milestoneId, setMilestoneId] = useState<number | null>(null);
   const [labelIds, setLabelIds] = useState<number[]>([]);
   const [error, setError] = useState("");
   const labels = useLabels(pid);
   const milestones = useMilestones(pid);
-  const { live, categories } = useB36Live(pid);
+  const { live } = useB36Live(pid);
   const create = useCreateIssue();
 
   useEffect(() => {
@@ -87,12 +87,11 @@ export default function NewIssueDialog({
     setPriority(0);
     setDue({ date: "", time: "" });
     setRemind("at_due");
-    setCategoryId(initialCategory || null);
     setMilestoneId(null);
     setLabelIds([]);
     setError("");
     setPid(projectId);
-  }, [open, projectId, status, initialCategory]);
+  }, [open, projectId, status]);
 
   // 没指定项目时，用上次的项目或第一个项目。
   useEffect(() => {
@@ -117,11 +116,12 @@ export default function NewIssueDialog({
             ? {
                 dueAt: joinDue(due.date, due.time) ?? undefined,
                 dueRemind: due.date ? remind : undefined,
-                categoryId: categoryId ?? undefined,
               }
             : { dueDate: due.date || undefined }),
           milestoneId: milestoneId ?? undefined,
           labelIds,
+          // 只在当前项目里新建时才带看板位置，换了项目就用那个项目的默认看板。
+          ...(pid === projectId && { boardId, listId }),
         },
       },
       {
@@ -160,7 +160,6 @@ export default function NewIssueDialog({
                 setPid(Number(e.target.value));
                 setLabelIds([]);
                 setMilestoneId(null);
-                setCategoryId(null);
               }}
             >
               {projects.data?.map((p) => (
@@ -185,6 +184,7 @@ export default function NewIssueDialog({
         <div className="xc-field">
           <span>{t("Description")}</span>
           <MarkdownEditor
+            polish="card"
             uploadScope="projects"
             label={t("Description")}
             value={description}
@@ -222,17 +222,7 @@ export default function NewIssueDialog({
               ))}
             </select>
           </label>
-          {live && (
-            <label className="xc-field">
-              <span>{t("Category")}</span>
-              <CategorySelect
-                mode="pick"
-                categories={categories}
-                value={categoryId}
-                onChange={setCategoryId}
-              />
-            </label>
-          )}
+
           <label className="xc-field">
             <span>{t("Milestone")}</span>
             <select

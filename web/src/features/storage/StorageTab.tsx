@@ -18,12 +18,14 @@ import {
   type StorageStatus,
   type TestResult,
 } from "./api";
+import RemotesCard from "./RemotesCard";
 import S3Fields, { emptyS3, s3Input, type S3Form } from "./S3Fields";
 import "./i18n";
 import "./storage.css";
 
 /*
  * 设置 → 存储（B24）：整站文件放在本机磁盘还是 S3。
+ * 网盘账号（B69）也在这里管，备份和云盘页共用。
  * 后端还没上线时，显示云盘原来的 S3 同步。
  */
 export default function StorageTab() {
@@ -49,6 +51,7 @@ export default function StorageTab() {
     <div className="settings-grid">
       <LocationCard status={storage.data} />
       <S3Card status={storage.data} />
+      <RemotesCard />
       <UsageCard status={storage.data} />
     </div>
   );

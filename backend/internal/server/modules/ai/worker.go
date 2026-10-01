@@ -25,13 +25,13 @@ import (
 
 const systemPrompt = `你是 X Console 助手。用户是这个面板的唯一主人。可用工具由面板提供。
 先读现有数据再改，避免重复创建。可直接执行读取、新建和修改。删除和高危操作按面板确认流程处理。
-排期按用户时区从今天开始，跳过周末，除非用户另有要求。完成后用简短中文列出改动，并附面板内路径。隐藏内容不可访问。`
+排期按用户时区从今天开始，跳过周末，除非用户另有要求。完成后用简短中文列出改动，并附面板内路径。`
 
-func (m *Module) tools() []llm.Tool {
-	all := m.d.Actions.List()
+func (m *Module) tools(ctx context.Context) []llm.Tool {
+	all := m.d.Actions.List(ctx)
 	out := make([]llm.Tool, 0, len(all))
 	for _, a := range all {
-		if !json.Valid(a.Input) {
+		if !json.Valid(a.Input) || panelHostActions[a.Name] {
 			continue
 		}
 		out = append(out, llm.Tool{Name: strings.ReplaceAll(a.Name, ".", "__"), Description: a.Description, Parameters: a.Input})
@@ -100,6 +100,20 @@ func (m *Module) system(context.Context) string {
 	return systemPrompt + "\n" + fmt.Sprintf("时区：%s。每条用户消息后面附有发送时的时间等情况。", m.d.Config.Location)
 }
 
+// panelSystem is the system prompt of the panel AI: the base, when to write
+// memory, and the memory itself (B61).
+func (m *Module) panelSystem(ctx context.Context) string {
+	out := m.system(ctx)
+	if !m.memoryEnabled(ctx) {
+		return out
+	}
+	out += "\n\n" + memoryRules
+	if mem := m.Prompt(ctx); mem != "" {
+		out += "\n\n" + mem
+	}
+	return out
+}
+
 // turnContext is saved with each user message as a hidden block, so the
 // history never changes afterwards and stays cacheable.
 func (m *Module) turnContext(ctx context.Context, hostID *string) string {
@@ -122,26 +136,28 @@ func (m *Module) run(ctx context.Context, id int64, session *auth.Session, state
 	if session != nil {
 		ctx = auth.WithSession(ctx, session)
 	}
+	visible := ctx
 	ctx = auth.WithoutVault(ctx)
-	err := m.generate(ctx, id)
+	err := m.generate(ctx, visible, id)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		m.d.Log.Error("ai generation failed", "conversation", id, "err", err)
 		m.d.Bus.Publish("ai.error", map[string]any{"conversationId": id, "message": err.Error()})
 	}
 }
-func (m *Module) generate(ctx context.Context, id int64) error {
+func (m *Module) generate(ctx, visible context.Context, id int64) error {
 	row, err := m.q.GetConversation(ctx, id)
 	if err != nil {
 		return err
 	}
 	hostID := row.HostID
-	settings, err := m.modelSettings(ctx)
-	if err != nil {
-		return err
-	}
-	prompt, tools := m.system(ctx), m.tools()
+	// B60: the conversation's own model and effort.
+	ctx, visible = convContext(ctx, row), convContext(visible, row)
+	perm, _ := m.panelPermission(row)
+	prompt, tools := m.panelSystem(ctx), m.tools(visible)
+	ctx = contracts.WithAIUsage(ctx, "assistant", strconv.FormatInt(id, 10))
 	if hostID != nil {
 		prompt, tools = m.hostSystem(ctx, *hostID), hostagent.Tools()
+		ctx = contracts.WithAIUsage(ctx, "host_agent", strconv.FormatInt(id, 10))
 	}
 	for turn := 0; turn < 20; turn++ {
 		history, err := m.history(ctx, id)
@@ -233,7 +249,7 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 				continue
 			}
 			name := strings.ReplaceAll(use.Name, "__", ".")
-			action, found := m.d.Actions.Get(name)
+			action, found := m.d.Actions.Get(visible, name)
 			input := use.Arguments
 			if len(input) == 0 {
 				input = []byte("{}")
@@ -242,7 +258,12 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 				results = append(results, toolResult(use.ID, "未知动作", true))
 				continue
 			}
-			confirm := action.Effect == actions.Dangerous || action.Destructive || settings.ConfirmAllWrites && action.Effect == actions.Write || strings.HasSuffix(name, ".delete")
+			if panelHostActions[name] {
+				// B60: machines only through a bound agent.
+				results = append(results, toolResult(use.ID, "面板 AI 不能直接操作机器，用 agents__operate_host 交给绑定了这台机器的 Agent", true))
+				continue
+			}
+			confirm := panelConfirm(perm, action, name)
 			if confirm {
 				p, err := m.recordAction(ctx, id, use.ID, name, input, "pending", nil)
 				if err != nil {
@@ -252,7 +273,7 @@ func (m *Module) generate(ctx context.Context, id int64) error {
 				pending = true
 				continue
 			}
-			result, err := m.runAction(ctx, action, input)
+			result, err := m.runAction(withPanel(ctx, id, perm), action, input)
 			state := "done"
 			if err != nil {
 				state = "failed"
@@ -345,7 +366,7 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 		return
 	}
 	hostAction := hostID.Valid && strings.HasPrefix(name, "host.")
-	a, found := m.d.Actions.Get(name)
+	a, found := m.d.Actions.Get(ctx, name)
 	if !hostAction && !found {
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
@@ -399,7 +420,11 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 				return
 			}
 		} else {
-			result, err = m.runAction(workCtx, a, json.RawMessage(input))
+			perm := permManual
+			if row, err := m.q.GetConversation(workCtx, conversationID); err == nil {
+				perm, _ = m.panelPermission(row)
+			}
+			result, err = m.runAction(withPanel(workCtx, conversationID, perm), a, json.RawMessage(input))
 		}
 		next = "done"
 		if err != nil {

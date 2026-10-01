@@ -12,6 +12,7 @@ export type Backup = S["Backup"];
 export type BackupJob = S["BackupJob"];
 export type BackupSettings = S["BackupSettings"];
 export type BackupSettingsInput = S["BackupSettingsInput"];
+export type BackupTargetTest = S["BackupTargetTest"];
 
 export const backupKeys = {
   all: ["backup"] as const,
@@ -106,6 +107,16 @@ export function useSaveBackupSettings() {
     mutationFn: (body: BackupSettingsInput) =>
       withElevation(() => unwrap(backupApi.PUT("/backups/settings", { body }))),
     onSuccess: (data) => qc.setQueryData(backupKeys.settings, data),
+  });
+}
+
+/** 用表单里的设置试一次备份位置，不保存（B63）。 */
+export function useTestBackupTarget() {
+  return useMutation({
+    mutationFn: (body: BackupSettingsInput) =>
+      withElevation(() =>
+        unwrap(backupApi.POST("/backups/target/test", { body })),
+      ),
   });
 }
 

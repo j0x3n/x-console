@@ -4,6 +4,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -40,16 +41,22 @@ func (e BackupKind) Valid() bool {
 
 // Defines values for BackupLocation.
 const (
-	Local BackupLocation = "local"
-	S3    BackupLocation = "s3"
+	BackupLocationGdrive BackupLocation = "gdrive"
+	BackupLocationLocal  BackupLocation = "local"
+	BackupLocationS3     BackupLocation = "s3"
+	BackupLocationWebdav BackupLocation = "webdav"
 )
 
 // Valid indicates whether the value is a known member of the BackupLocation enum.
 func (e BackupLocation) Valid() bool {
 	switch e {
-	case Local:
+	case BackupLocationGdrive:
 		return true
-	case S3:
+	case BackupLocationLocal:
+		return true
+	case BackupLocationS3:
+		return true
+	case BackupLocationWebdav:
 		return true
 	default:
 		return false
@@ -122,7 +129,10 @@ func (e BackupSettingsFrequency) Valid() bool {
 // Defines values for BackupSettingsTarget.
 const (
 	BackupSettingsTargetCustom  BackupSettingsTarget = "custom"
+	BackupSettingsTargetGdrive  BackupSettingsTarget = "gdrive"
+	BackupSettingsTargetRemote  BackupSettingsTarget = "remote"
 	BackupSettingsTargetStorage BackupSettingsTarget = "storage"
+	BackupSettingsTargetWebdav  BackupSettingsTarget = "webdav"
 )
 
 // Valid indicates whether the value is a known member of the BackupSettingsTarget enum.
@@ -130,7 +140,13 @@ func (e BackupSettingsTarget) Valid() bool {
 	switch e {
 	case BackupSettingsTargetCustom:
 		return true
+	case BackupSettingsTargetGdrive:
+		return true
+	case BackupSettingsTargetRemote:
+		return true
 	case BackupSettingsTargetStorage:
+		return true
+	case BackupSettingsTargetWebdav:
 		return true
 	default:
 		return false
@@ -158,6 +174,7 @@ func (e BackupSettingsInputFrequency) Valid() bool {
 // Defines values for BackupSettingsInputTarget.
 const (
 	BackupSettingsInputTargetCustom  BackupSettingsInputTarget = "custom"
+	BackupSettingsInputTargetRemote  BackupSettingsInputTarget = "remote"
 	BackupSettingsInputTargetStorage BackupSettingsInputTarget = "storage"
 )
 
@@ -166,7 +183,45 @@ func (e BackupSettingsInputTarget) Valid() bool {
 	switch e {
 	case BackupSettingsInputTargetCustom:
 		return true
+	case BackupSettingsInputTargetRemote:
+		return true
 	case BackupSettingsInputTargetStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RemoteDriveId.
+const (
+	RemoteDriveIdGdrive RemoteDriveId = "gdrive"
+	RemoteDriveIdWebdav RemoteDriveId = "webdav"
+)
+
+// Valid indicates whether the value is a known member of the RemoteDriveId enum.
+func (e RemoteDriveId) Valid() bool {
+	switch e {
+	case RemoteDriveIdGdrive:
+		return true
+	case RemoteDriveIdWebdav:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Remote.
+const (
+	RemoteGdrive Remote = "gdrive"
+	RemoteWebdav Remote = "webdav"
+)
+
+// Valid indicates whether the value is a known member of the Remote enum.
+func (e Remote) Valid() bool {
+	switch e {
+	case RemoteGdrive:
+		return true
+	case RemoteWebdav:
 		return true
 	default:
 		return false
@@ -196,6 +251,28 @@ type BackupKind string
 
 // BackupLocation defines model for Backup.Location.
 type BackupLocation string
+
+// BackupGdrive B69 起只用 folderName，其余字段不再返回
+type BackupGdrive struct {
+	// Account 授权的 Google 账号邮箱
+	Account *string `json:"account,omitempty"`
+
+	// Authorized 已经授权，有长期令牌
+	Authorized *bool   `json:"authorized,omitempty"`
+	ClientId   *string `json:"clientId,omitempty"`
+
+	// FolderName 网盘根目录下的文件夹，默认“X Console 备份”
+	FolderName string `json:"folderName"`
+
+	// SecretSet 已经保存过客户端密钥
+	SecretSet *bool `json:"secretSet,omitempty"`
+}
+
+// BackupGdriveInput defines model for BackupGdriveInput.
+type BackupGdriveInput struct {
+	// FolderName 改了文件夹名，下次备份时按新名字找或新建文件夹
+	FolderName *string `json:"folderName,omitempty"`
+}
 
 // BackupJob defines model for BackupJob.
 type BackupJob struct {
@@ -227,6 +304,9 @@ type BackupSettings struct {
 	Enabled   bool                    `json:"enabled"`
 	Frequency BackupSettingsFrequency `json:"frequency"`
 
+	// Gdrive B69 起只用 folderName，其余字段不再返回
+	Gdrive *BackupGdrive `json:"gdrive,omitempty"`
+
 	// Keep S3 上保留几份，默认 14
 	Keep int `json:"keep"`
 
@@ -238,14 +318,22 @@ type BackupSettings struct {
 		Ok        bool      `json:"ok"`
 		SizeBytes *int64    `json:"sizeBytes,omitempty"`
 	} `json:"lastRuns"`
-	NextRunAt *time.Time              `json:"nextRunAt,omitempty"`
-	S3        *externalRef1.StorageS3 `json:"s3,omitempty"`
+	NextRunAt *time.Time `json:"nextRunAt,omitempty"`
 
-	// Target storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+	// RemoteId B69。target 是 remote 时用的网盘账号
+	RemoteId *int64                  `json:"remoteId,omitempty"`
+	S3       *externalRef1.StorageS3 `json:"s3,omitempty"`
+
+	// Target storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+	// remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+	// webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
 	Target BackupSettingsTarget `json:"target"`
 
 	// Time 每天几点，HH:MM，服务器时区。默认 03:00
 	Time string `json:"time"`
+
+	// Webdav B69 起只用 folder，其余字段不再返回
+	Webdav *BackupWebdav `json:"webdav,omitempty"`
 
 	// Weekday 每周备份时是周几，0 是周日
 	Weekday int `json:"weekday"`
@@ -254,17 +342,22 @@ type BackupSettings struct {
 // BackupSettingsFrequency defines model for BackupSettings.Frequency.
 type BackupSettingsFrequency string
 
-// BackupSettingsTarget storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3
+// BackupSettingsTarget storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
+// remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
+// webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
 type BackupSettingsTarget string
 
 // BackupSettingsInput defines model for BackupSettingsInput.
 type BackupSettingsInput struct {
 	Enabled   *bool                         `json:"enabled,omitempty"`
 	Frequency *BackupSettingsInputFrequency `json:"frequency,omitempty"`
+	Gdrive    *BackupGdriveInput            `json:"gdrive,omitempty"`
 	Keep      *int                          `json:"keep,omitempty"`
+	RemoteId  *int64                        `json:"remoteId,omitempty"`
 	S3        *externalRef1.StorageS3Input  `json:"s3,omitempty"`
 	Target    *BackupSettingsInputTarget    `json:"target,omitempty"`
 	Time      *string                       `json:"time,omitempty"`
+	Webdav    *BackupWebdavInput            `json:"webdav,omitempty"`
 	Weekday   *int                          `json:"weekday,omitempty"`
 }
 
@@ -273,6 +366,68 @@ type BackupSettingsInputFrequency string
 
 // BackupSettingsInputTarget defines model for BackupSettingsInput.Target.
 type BackupSettingsInputTarget string
+
+// BackupTargetTest defines model for BackupTargetTest.
+type BackupTargetTest struct {
+	Message string `json:"message"`
+	Ok      bool   `json:"ok"`
+}
+
+// BackupWebdav B69 起只用 folder，其余字段不再返回
+type BackupWebdav struct {
+	// Folder 备份放在这个目录下，默认 x-console-backups
+	Folder string `json:"folder"`
+
+	// PasswordSet 已经保存过密码
+	PasswordSet *bool `json:"passwordSet,omitempty"`
+
+	// Url 比如 https://dav.jianguoyun.com/dav/
+	Url      *string `json:"url,omitempty"`
+	Username *string `json:"username,omitempty"`
+}
+
+// BackupWebdavInput defines model for BackupWebdavInput.
+type BackupWebdavInput struct {
+	Folder *string `json:"folder,omitempty"`
+}
+
+// RemoteDrive defines model for RemoteDrive.
+type RemoteDrive struct {
+	Account *string       `json:"account,omitempty"`
+	Id      RemoteDriveId `json:"id"`
+
+	// Limited Google Drive 授权里没有只读权限，只能看到面板自己建的文件，要重新授权
+	Limited bool `json:"limited"`
+
+	// Name 标签上的名字，比如“坚果云”“Google Drive”
+	Name string `json:"name"`
+}
+
+// RemoteDriveId defines model for RemoteDrive.Id.
+type RemoteDriveId string
+
+// RemoteDriveEntry defines model for RemoteDriveEntry.
+type RemoteDriveEntry struct {
+	// Downloadable Google 文档这类在线文件是 false
+	Downloadable bool       `json:"downloadable"`
+	IsDir        bool       `json:"isDir"`
+	ModifiedAt   *time.Time `json:"modifiedAt,omitempty"`
+	Name         string     `json:"name"`
+	Ref          string     `json:"ref"`
+	Size         *int64     `json:"size,omitempty"`
+}
+
+// RemoteDriveListing defines model for RemoteDriveListing.
+type RemoteDriveListing struct {
+	Items []RemoteDriveEntry `json:"items"`
+	Ref   string             `json:"ref"`
+
+	// Trail 从根目录下面一级到当前文件夹，用来显示路径
+	Trail []struct {
+		Name string `json:"name"`
+		Ref  string `json:"ref"`
+	} `json:"trail"`
+}
 
 // RestoreInput defines model for RestoreInput.
 type RestoreInput struct {
@@ -283,13 +438,37 @@ type RestoreInput struct {
 // BackupId defines model for BackupId.
 type BackupId = string
 
+// Remote defines model for Remote.
+type Remote string
+
+// GdriveCallbackParams defines parameters for GdriveCallback.
+type GdriveCallbackParams struct {
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // UploadBackupMultipartBody defines parameters for UploadBackup.
 type UploadBackupMultipartBody struct {
 	File openapi_types.File `json:"file"`
 }
 
+// DownloadRemoteDriveFileParams defines parameters for DownloadRemoteDriveFile.
+type DownloadRemoteDriveFileParams struct {
+	Ref string `form:"ref" json:"ref"`
+}
+
+// ListRemoteDriveItemsParams defines parameters for ListRemoteDriveItems.
+type ListRemoteDriveItemsParams struct {
+	// Ref 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录
+	Ref *string `form:"ref,omitempty" json:"ref,omitempty"`
+}
+
 // PutBackupSettingsJSONRequestBody defines body for PutBackupSettings for application/json ContentType.
 type PutBackupSettingsJSONRequestBody = BackupSettingsInput
+
+// TestBackupTargetJSONRequestBody defines body for TestBackupTarget for application/json ContentType.
+type TestBackupTargetJSONRequestBody = BackupSettingsInput
 
 // UploadBackupMultipartRequestBody defines body for UploadBackup for multipart/form-data ContentType.
 type UploadBackupMultipartRequestBody UploadBackupMultipartBody
@@ -306,6 +485,15 @@ type ServerInterface interface {
 	// (POST /backups/export)
 	ExportBackup(w http.ResponseWriter, r *http.Request)
 
+	// (DELETE /backups/gdrive/auth)
+	RevokeGdriveAuth(w http.ResponseWriter, r *http.Request)
+
+	// (GET /backups/gdrive/auth)
+	StartGdriveAuth(w http.ResponseWriter, r *http.Request)
+
+	// (GET /backups/gdrive/callback)
+	GdriveCallback(w http.ResponseWriter, r *http.Request, params GdriveCallbackParams)
+
 	// (GET /backups/job)
 	GetBackupJob(w http.ResponseWriter, r *http.Request)
 
@@ -318,6 +506,9 @@ type ServerInterface interface {
 	// (PUT /backups/settings)
 	PutBackupSettings(w http.ResponseWriter, r *http.Request)
 
+	// (POST /backups/target/test)
+	TestBackupTarget(w http.ResponseWriter, r *http.Request)
+
 	// (POST /backups/upload)
 	UploadBackup(w http.ResponseWriter, r *http.Request)
 
@@ -329,6 +520,15 @@ type ServerInterface interface {
 
 	// (POST /backups/{backupId}/restore)
 	RestoreBackup(w http.ResponseWriter, r *http.Request, backupId BackupId)
+
+	// (GET /remote-drives)
+	ListRemoteDrives(w http.ResponseWriter, r *http.Request)
+
+	// (GET /remote-drives/{remote}/download)
+	DownloadRemoteDriveFile(w http.ResponseWriter, r *http.Request, remote Remote, params DownloadRemoteDriveFileParams)
+
+	// (GET /remote-drives/{remote}/items)
+	ListRemoteDriveItems(w http.ResponseWriter, r *http.Request, remote Remote, params ListRemoteDriveItemsParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -342,6 +542,21 @@ func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request) {
 
 // (POST /backups/export)
 func (_ Unimplemented) ExportBackup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /backups/gdrive/auth)
+func (_ Unimplemented) RevokeGdriveAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /backups/gdrive/auth)
+func (_ Unimplemented) StartGdriveAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /backups/gdrive/callback)
+func (_ Unimplemented) GdriveCallback(w http.ResponseWriter, r *http.Request, params GdriveCallbackParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -365,6 +580,11 @@ func (_ Unimplemented) PutBackupSettings(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /backups/target/test)
+func (_ Unimplemented) TestBackupTarget(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /backups/upload)
 func (_ Unimplemented) UploadBackup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -382,6 +602,21 @@ func (_ Unimplemented) DownloadBackup(w http.ResponseWriter, r *http.Request, ba
 
 // (POST /backups/{backupId}/restore)
 func (_ Unimplemented) RestoreBackup(w http.ResponseWriter, r *http.Request, backupId BackupId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /remote-drives)
+func (_ Unimplemented) ListRemoteDrives(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /remote-drives/{remote}/download)
+func (_ Unimplemented) DownloadRemoteDriveFile(w http.ResponseWriter, r *http.Request, remote Remote, params DownloadRemoteDriveFileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /remote-drives/{remote}/items)
+func (_ Unimplemented) ListRemoteDriveItems(w http.ResponseWriter, r *http.Request, remote Remote, params ListRemoteDriveItemsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -413,6 +648,93 @@ func (siw *ServerInterfaceWrapper) ExportBackup(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ExportBackup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeGdriveAuth operation middleware
+func (siw *ServerInterfaceWrapper) RevokeGdriveAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeGdriveAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartGdriveAuth operation middleware
+func (siw *ServerInterfaceWrapper) StartGdriveAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartGdriveAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GdriveCallback operation middleware
+func (siw *ServerInterfaceWrapper) GdriveCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GdriveCallbackParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GdriveCallback(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -469,6 +791,20 @@ func (siw *ServerInterfaceWrapper) PutBackupSettings(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutBackupSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestBackupTarget operation middleware
+func (siw *ServerInterfaceWrapper) TestBackupTarget(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestBackupTarget(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -561,6 +897,104 @@ func (siw *ServerInterfaceWrapper) RestoreBackup(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RestoreBackup(w, r, backupId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRemoteDrives operation middleware
+func (siw *ServerInterfaceWrapper) ListRemoteDrives(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRemoteDrives(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadRemoteDriveFile operation middleware
+func (siw *ServerInterfaceWrapper) DownloadRemoteDriveFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remote" -------------
+	var remote Remote
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remote", chi.URLParam(r, "remote"), &remote, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remote", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadRemoteDriveFileParams
+
+	// ------------- Required query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadRemoteDriveFile(w, r, remote, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRemoteDriveItems operation middleware
+func (siw *ServerInterfaceWrapper) ListRemoteDriveItems(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remote" -------------
+	var remote Remote
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remote", chi.URLParam(r, "remote"), &remote, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remote", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRemoteDriveItemsParams
+
+	// ------------- Optional query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRemoteDriveItems(w, r, remote, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -709,6 +1143,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/backups/settings", wrapper.PutBackupSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/backups/target/test", wrapper.TestBackupTarget)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/backups/gdrive/auth", wrapper.RevokeGdriveAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/backups/gdrive/auth", wrapper.StartGdriveAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/backups/gdrive/callback", wrapper.GdriveCallback)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/remote-drives", wrapper.ListRemoteDrives)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/remote-drives/{remote}/items", wrapper.ListRemoteDriveItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/remote-drives/{remote}/download", wrapper.DownloadRemoteDriveFile)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/backups/run", wrapper.RunBackupNow)

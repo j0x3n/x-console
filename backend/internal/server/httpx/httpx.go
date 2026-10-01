@@ -7,6 +7,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // Error is an API error with an HTTP status and a stable machine code.
@@ -59,13 +61,19 @@ func NoContent(w http.ResponseWriter) { w.WriteHeader(http.StatusNoContent) }
 // Fail writes err as an API error. Unknown errors become 500 and are logged.
 func Fail(w http.ResponseWriter, r *http.Request, err error) {
 	var apiErr *Error
+	requestID := middleware.GetReqID(r.Context())
 	if !errors.As(err, &apiErr) {
-		slog.ErrorContext(r.Context(), "request failed", "method", r.Method, "path", r.URL.Path, "err", err)
+		slog.ErrorContext(r.Context(), "request failed", "method", r.Method, "path", r.URL.Path, "request_id", requestID, "err", err)
 		apiErr = &Error{Status: http.StatusInternalServerError, Code: "internal", Message: "服务器内部错误"}
+	} else if apiErr.Status >= 500 {
+		slog.WarnContext(r.Context(), "request failed", "method", r.Method, "path", r.URL.Path, "request_id", requestID, "code", apiErr.Code, "err", apiErr.Message)
 	}
 	body := map[string]any{"code": apiErr.Code, "message": apiErr.Message}
 	if apiErr.Details != nil {
 		body["details"] = apiErr.Details
+	}
+	if requestID != "" {
+		body["requestId"] = requestID
 	}
 	JSON(w, apiErr.Status, body)
 }
@@ -84,4 +92,18 @@ func Decode(r *http.Request, v any) error {
 // parameter binding errors into 400 responses with our error shape.
 func BadParam(w http.ResponseWriter, r *http.Request, err error) {
 	Fail(w, r, Invalid(err.Error()))
+}
+
+// RequestIDHeader is the response header that carries the request id (B41).
+const RequestIDHeader = "X-Request-Id"
+
+// ExposeRequestID copies the id set by chi's middleware.RequestID into the
+// response header, so the web app can show it next to an error.
+func ExposeRequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if id := middleware.GetReqID(r.Context()); id != "" {
+			w.Header().Set(RequestIDHeader, id)
+		}
+		next.ServeHTTP(w, r)
+	})
 }

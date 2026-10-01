@@ -33,8 +33,9 @@ export const currencies = ["CNY", "USD", "EUR", "HKD", "JPY", "GBP", "SGD"];
 const OTHER = "__other";
 const MANAGE = "__manage";
 const units: CycleUnit[] = ["minute", "hour", "day", "week", "month", "year"];
-/** 提前提醒只给两个选项（B23）。 */
-const remindChoices = [1, 7];
+/** 提前提醒的选项（B49 加了 3 天）。新订阅默认全选。 */
+const remindChoices = [1, 3, 7];
+const defaultRemind = [7, 3, 1];
 
 /** 订阅显示用的分类名：新接口有 categoryName，旧接口用固定的四个。 */
 export function categoryName(
@@ -74,6 +75,7 @@ export default function SubscriptionDialog({
   // 分类接口上线了，说明后端也认识新的周期写法。
   const live = categories.isSuccess;
   const [name, setName] = useState("");
+  const [account, setAccount] = useState("");
   const [category, setCategory] = useState<string>("other");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("CNY");
@@ -81,7 +83,7 @@ export default function SubscriptionDialog({
   const [count, setCount] = useState("1");
   const [unit, setUnit] = useState<CycleUnit>("month");
   const [next, setNext] = useState("");
-  const [remind, setRemind] = useState<number[]>([7, 1]);
+  const [remind, setRemind] = useState<number[]>(defaultRemind);
   const [autoRenew, setAutoRenew] = useState(false);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
@@ -92,6 +94,7 @@ export default function SubscriptionDialog({
     if (!open) return;
     setError("");
     setName(sub?.name ?? "");
+    setAccount(sub?.account ?? "");
     setCategory(
       sub?.categoryId ? String(sub.categoryId) : (sub?.category ?? "other"),
     );
@@ -103,7 +106,7 @@ export default function SubscriptionDialog({
     setCount(String(c.count));
     setUnit(c.unit);
     setNext(sub?.nextRenewal ?? todayPlus(30));
-    setRemind(sub ? sub.remindDaysBefore : [7, 1]);
+    setRemind(sub ? sub.remindDaysBefore : defaultRemind);
     setAutoRenew(sub?.autoRenew ?? false);
     setUrl(sub?.url ?? "");
     setNote(sub?.note ?? "");
@@ -151,6 +154,7 @@ export default function SubscriptionDialog({
       : undefined;
     const fields = {
       name: name.trim(),
+      account: account.trim(),
       category: (byId
         ? (byId.builtin ?? "other")
         : category) as SubscriptionCategory,
@@ -227,6 +231,17 @@ export default function SubscriptionDialog({
             </select>
           </label>
         </div>
+        <label className="xc-field">
+          <span>{t("Account")}</span>
+          <input
+            className="xc-input"
+            value={account}
+            onChange={(e) => setAccount(e.target.value)}
+            maxLength={200}
+            autoComplete="off"
+            placeholder={t("Login email or username. Optional.")}
+          />
+        </label>
         <div className="monitoring-form-row">
           <label className="xc-field">
             <span>{t("Amount")}</span>

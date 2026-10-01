@@ -382,6 +382,9 @@ func TestS3SettingsSaveDoesNotWaitForSync(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("sync did not start")
 	}
+	// Another change queues the next run behind the hanging one. When the
+	// save cancels the running sync, the queued one must not take over.
+	upload(t, env, "more.bin", "more", false)
 	start := time.Now()
 	env.MustDo(http.MethodPut, "/drive/s3", map[string]any{"prefix": "other"}, nil)
 	if waited := time.Since(start); waited > 2*time.Second {

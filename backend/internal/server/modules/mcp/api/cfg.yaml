@@ -1,0 +1,7 @@
+package: api
+output: mcp.gen.go
+generate:
+  models: true
+  chi-server: true
+import-mapping:
+  ../common.yaml: github.com/j0x3n/x-console/backend/internal/server/apigen/common

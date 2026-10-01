@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring/db"
@@ -44,6 +46,7 @@ type resultDetail struct {
 	Subject   string     `json:"subject,omitempty"`
 	Issuer    string     `json:"issuer,omitempty"`
 	Registrar string     `json:"registrar,omitempty"`
+	Source    string     `json:"source,omitempty"`
 }
 
 func toAPIDetail(raw string) api.MonitorResultDetail {
@@ -59,19 +62,63 @@ func toAPIDetail(raw string) api.MonitorResultDetail {
 	if d.Registrar != "" {
 		out.Registrar = ptr(d.Registrar)
 	}
+	if d.Source != "" {
+		src := api.MonitorResultDetailSource(d.Source)
+		out.Source = &src
+	}
 	return out
 }
 
-func toAPIMonitor(x db.Monitor, now time.Time) api.Monitor {
+func toAPIMonitor(x db.Monitor, now time.Time, iconAt *time.Time) api.Monitor {
 	out := api.Monitor{Id: x.ID, Kind: api.MonitorKind(x.Kind), Name: x.Name, Target: x.Target,
 		IntervalSeconds: int(x.IntervalSeconds), ExpectedStatus: int(x.ExpectedStatus), Keyword: x.Keyword,
 		TimeoutMs: int(x.TimeoutMs), Enabled: x.Enabled == 1, LastStatus: api.MonitorStatus(x.LastStatus),
 		LastCheckedAt: x.LastCheckedAt, LastError: x.LastError, ConsecutiveFailures: int(x.ConsecutiveFailures),
-		ExpiresAt: x.ExpiresAt, CreatedAt: x.CreatedAt}
+		ExpiresAt: x.ExpiresAt, CreatedAt: x.CreatedAt, IconAt: iconAt, ManualExpiresAt: toAPIDate(x.ManualExpiresAt)}
 	if x.ExpiresAt != nil {
 		out.DaysLeft = ptr(daysLeft(*x.ExpiresAt, now))
 	}
+	if x.ExpirySource != "" {
+		src := api.MonitorExpirySource(x.ExpirySource)
+		out.ExpirySource = &src
+	}
 	return out
+}
+
+func toAPIDate(t *time.Time) *openapi_types.Date {
+	if t == nil {
+		return nil
+	}
+	y, m, d := t.Date()
+	return &openapi_types.Date{Time: time.Date(y, m, d, 0, 0, 0, 0, time.UTC)}
+}
+
+func (m *Module) iconAtOf(ctx context.Context, id int64) *time.Time {
+	at, err := m.q.GetMonitorIconTime(ctx, id)
+	if err != nil {
+		return nil
+	}
+	return &at
+}
+
+func (m *Module) iconTimes(ctx context.Context) map[int64]time.Time {
+	rows, err := m.q.ListMonitorIconTimes(ctx)
+	if err != nil {
+		return map[int64]time.Time{}
+	}
+	out := make(map[int64]time.Time, len(rows))
+	for _, row := range rows {
+		out[row.MonitorID] = row.FetchedAt
+	}
+	return out
+}
+
+func lookupIconAt(times map[int64]time.Time, id int64) *time.Time {
+	at, ok := times[id]
+	if !ok {
+		return nil
+	}
+	return &at
 }
 
 func toAPIResult(r db.MonitorResult) api.MonitorResult {
@@ -98,6 +145,9 @@ func normalizeTarget(kind, target string) (string, error) {
 	}
 	switch kind {
 	case kindHTTP:
+		if !strings.Contains(target, "://") {
+			target = "https://" + target
+		}
 		u, err := url.Parse(target)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			return "", httpx.Invalid("网址要以 http:// 或 https:// 开头")
@@ -205,12 +255,13 @@ func (m *Module) ListMonitors(w http.ResponseWriter, r *http.Request, params api
 		return
 	}
 	now := m.now()
+	times := m.iconTimes(r.Context())
 	out := make([]api.Monitor, 0, len(rows))
 	for _, x := range rows {
 		if params.Kind != nil && x.Kind != string(*params.Kind) {
 			continue
 		}
-		out = append(out, toAPIMonitor(x, now))
+		out = append(out, toAPIMonitor(x, now, lookupIconAt(times, x.ID)))
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }
@@ -251,7 +302,10 @@ func (m *Module) CreateMonitor(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out := toAPIMonitor(x, m.now())
+	if x.Kind == kindHTTP {
+		m.scheduleIcon(x.ID, x.Target)
+	}
+	out := toAPIMonitor(x, m.now(), nil)
 	m.d.Bus.Publish("monitor.created", out)
 	httpx.JSON(w, http.StatusCreated, out)
 }
@@ -263,7 +317,7 @@ func (m *Module) GetMonitor(w http.ResponseWriter, r *http.Request, id int64) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, toAPIMonitor(x, m.now()))
+	httpx.JSON(w, http.StatusOK, toAPIMonitor(x, m.now(), m.iconAtOf(r.Context(), x.ID)))
 }
 
 // UpdateMonitor is PATCH /monitors/{monitorId}.
@@ -304,24 +358,54 @@ func (m *Module) UpdateMonitor(w http.ResponseWriter, r *http.Request, id int64)
 	if body.Enabled != nil {
 		f.enabled = *body.Enabled
 	}
+	if cur.Kind != kindDomain && (body.ManualExpiresAt != nil || (body.ClearManualExpiry != nil && *body.ClearManualExpiry)) {
+		httpx.Fail(w, r, httpx.Invalid("只有域名监控能手动填到期日期"))
+		return
+	}
+	manual := cur.ManualExpiresAt
+	manualChanged := false
+	if body.ClearManualExpiry != nil && *body.ClearManualExpiry {
+		manual = nil
+		manualChanged = true
+	}
+	if body.ManualExpiresAt != nil {
+		y, mon, d := body.ManualExpiresAt.Date()
+		t := time.Date(y, mon, d, 0, 0, 0, 0, time.UTC)
+		manual = &t
+		manualChanged = true
+	}
 	if err := f.validate(); err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
 	ctx := r.Context()
 	x, err := m.q.UpdateMonitor(ctx, db.UpdateMonitorParams{ID: id, Name: f.name, Target: f.target, IntervalSeconds: int64(f.interval),
-		ExpectedStatus: int64(f.expected), Keyword: f.keyword, TimeoutMs: int64(f.timeout), Enabled: boolInt(f.enabled)})
+		ExpectedStatus: int64(f.expected), Keyword: f.keyword, TimeoutMs: int64(f.timeout), Enabled: boolInt(f.enabled),
+		ManualExpiresAt: manual, ExpirySource: cur.ExpirySource})
 	if err == nil && f.target != cur.Target {
 		if err = m.q.ResetMonitorState(ctx, id); err == nil {
 			x, err = m.q.GetMonitor(ctx, id)
 		}
+		if err == nil && x.Kind == kindHTTP {
+			err = m.resetIcon(ctx, id, x.Target)
+		}
+	}
+	if err == nil && manualChanged {
+		// Check again so the list shows the new date. RDAP and WHOIS come
+		// first and can take the whole timeout, so it runs after the reply;
+		// monitor.checked refreshes the page.
+		go func() {
+			if _, err := m.checkNow(m.background(), id, m.now()); err != nil {
+				m.d.Log.Warn("monitor check after manual date", "monitor", id, "err", err)
+			}
+		}()
 	}
 	m.d.Audit.Record(ctx, "monitor.update", itoa(id), map[string]any{"target": f.target, "enabled": f.enabled}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out := toAPIMonitor(x, m.now())
+	out := toAPIMonitor(x, m.now(), m.iconAtOf(ctx, x.ID))
 	m.d.Bus.Publish("monitor.updated", out)
 	httpx.JSON(w, http.StatusOK, out)
 }

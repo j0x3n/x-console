@@ -68,7 +68,7 @@ describe("GitHubPage", () => {
     });
     renderPage();
     const link = await screen.findByRole("link", { name: /去设置/ });
-    expect(link.getAttribute("href")).toBe("/settings/github");
+    expect(link.getAttribute("href")).toBe("/settings/git");
   });
 
   it("groups pull requests by repo with check badges and issue links", async () => {
@@ -108,10 +108,9 @@ describe("GitHubPage", () => {
       { level: 2 },
       { timeout: 3000 },
     );
-    expect(headings.map((h) => h.textContent)).toEqual([
-      "acme/api",
-      "acme/web",
-    ]);
+    expect(
+      headings.map((h) => h.querySelector(".xc-mono")?.textContent),
+    ).toEqual(["acme/api", "acme/web"]);
     expect(screen.getByText("检查失败")).toBeTruthy();
     expect(screen.getByText("已批准")).toBeTruthy();
     expect(

@@ -40,7 +40,7 @@ html .share-page {
 }
 
 html .modal-backdrop,
-html .notes-lightbox {
+html .xc-lightbox {
   top: var(--xc-visible-top);
   bottom: auto;
   height: var(--xc-visible-height);

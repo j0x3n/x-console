@@ -31,7 +31,7 @@ const createMonitor = `-- name: CreateMonitor :one
 
 INSERT INTO monitors (kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at
+RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source
 `
 
 type CreateMonitorParams struct {
@@ -77,6 +77,8 @@ func (q *Queries) CreateMonitor(ctx context.Context, arg CreateMonitorParams) (M
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
 }
@@ -168,9 +170,9 @@ func (q *Queries) CreateScriptRun(ctx context.Context, arg CreateScriptRunParams
 const createSubscription = `-- name: CreateSubscription :one
 
 INSERT INTO subscriptions (name, category, category_id, amount, currency, cycle, cycle_days, cycle_count, cycle_unit,
-                           next_renewal, remind_days_before, url, note, auto_renew, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit
+                           next_renewal, remind_days_before, url, note, account, auto_renew, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account
 `
 
 type CreateSubscriptionParams struct {
@@ -187,6 +189,7 @@ type CreateSubscriptionParams struct {
 	RemindDaysBefore string
 	Url              string
 	Note             string
+	Account          string
 	AutoRenew        int64
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
@@ -208,6 +211,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		arg.RemindDaysBefore,
 		arg.Url,
 		arg.Note,
+		arg.Account,
 		arg.AutoRenew,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -233,6 +237,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.CategoryID,
 		&i.CycleCount,
 		&i.CycleUnit,
+		&i.Account,
 	)
 	return i, err
 }
@@ -271,6 +276,15 @@ func (q *Queries) DeleteMonitor(ctx context.Context, id int64) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const deleteMonitorIcon = `-- name: DeleteMonitorIcon :exec
+DELETE FROM monitor_icons WHERE monitor_id = ?
+`
+
+func (q *Queries) DeleteMonitorIcon(ctx context.Context, monitorID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteMonitorIcon, monitorID)
+	return err
 }
 
 const deleteMonitorResultsBefore = `-- name: DeleteMonitorResultsBefore :execrows
@@ -364,7 +378,7 @@ func (q *Queries) FinishScriptRun(ctx context.Context, arg FinishScriptRunParams
 }
 
 const getMonitor = `-- name: GetMonitor :one
-SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at FROM monitors WHERE id = ?
+SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source FROM monitors WHERE id = ?
 `
 
 func (q *Queries) GetMonitor(ctx context.Context, id int64) (Monitor, error) {
@@ -387,8 +401,38 @@ func (q *Queries) GetMonitor(ctx context.Context, id int64) (Monitor, error) {
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
+}
+
+const getMonitorIcon = `-- name: GetMonitorIcon :one
+SELECT mime, data, fetched_at FROM monitor_icons WHERE monitor_id = ?
+`
+
+type GetMonitorIconRow struct {
+	Mime      string
+	Data      []byte
+	FetchedAt time.Time
+}
+
+func (q *Queries) GetMonitorIcon(ctx context.Context, monitorID int64) (GetMonitorIconRow, error) {
+	row := q.db.QueryRowContext(ctx, getMonitorIcon, monitorID)
+	var i GetMonitorIconRow
+	err := row.Scan(&i.Mime, &i.Data, &i.FetchedAt)
+	return i, err
+}
+
+const getMonitorIconTime = `-- name: GetMonitorIconTime :one
+SELECT fetched_at FROM monitor_icons WHERE monitor_id = ?
+`
+
+func (q *Queries) GetMonitorIconTime(ctx context.Context, monitorID int64) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, getMonitorIconTime, monitorID)
+	var fetched_at time.Time
+	err := row.Scan(&fetched_at)
+	return fetched_at, err
 }
 
 const getScript = `-- name: GetScript :one
@@ -436,7 +480,7 @@ func (q *Queries) GetScriptRun(ctx context.Context, id int64) (ScriptRun, error)
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit FROM subscriptions WHERE id = ?
+SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account FROM subscriptions WHERE id = ?
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, error) {
@@ -462,6 +506,7 @@ func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, 
 		&i.CategoryID,
 		&i.CycleCount,
 		&i.CycleUnit,
+		&i.Account,
 	)
 	return i, err
 }
@@ -572,7 +617,7 @@ func (q *Queries) InsertSubscriptionEvent(ctx context.Context, arg InsertSubscri
 }
 
 const listEnabledMonitors = `-- name: ListEnabledMonitors :many
-SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at FROM monitors WHERE enabled = 1 ORDER BY id
+SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source FROM monitors WHERE enabled = 1 ORDER BY id
 `
 
 func (q *Queries) ListEnabledMonitors(ctx context.Context) ([]Monitor, error) {
@@ -601,7 +646,41 @@ func (q *Queries) ListEnabledMonitors(ctx context.Context) ([]Monitor, error) {
 			&i.ExpiresAt,
 			&i.ExpiryNotified,
 			&i.CreatedAt,
+			&i.ManualExpiresAt,
+			&i.ExpirySource,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMonitorIconTimes = `-- name: ListMonitorIconTimes :many
+SELECT monitor_id, fetched_at FROM monitor_icons
+`
+
+type ListMonitorIconTimesRow struct {
+	MonitorID int64
+	FetchedAt time.Time
+}
+
+func (q *Queries) ListMonitorIconTimes(ctx context.Context) ([]ListMonitorIconTimesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMonitorIconTimes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMonitorIconTimesRow
+	for rows.Next() {
+		var i ListMonitorIconTimesRow
+		if err := rows.Scan(&i.MonitorID, &i.FetchedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -657,7 +736,7 @@ func (q *Queries) ListMonitorResults(ctx context.Context, arg ListMonitorResults
 }
 
 const listMonitors = `-- name: ListMonitors :many
-SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at FROM monitors ORDER BY name COLLATE NOCASE, id
+SELECT id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source FROM monitors ORDER BY name COLLATE NOCASE, id
 `
 
 func (q *Queries) ListMonitors(ctx context.Context) ([]Monitor, error) {
@@ -686,6 +765,8 @@ func (q *Queries) ListMonitors(ctx context.Context) ([]Monitor, error) {
 			&i.ExpiresAt,
 			&i.ExpiryNotified,
 			&i.CreatedAt,
+			&i.ManualExpiresAt,
+			&i.ExpirySource,
 		); err != nil {
 			return nil, err
 		}
@@ -866,7 +947,7 @@ func (q *Queries) ListSubscriptionEvents(ctx context.Context, subscriptionID int
 }
 
 const listSubscriptions = `-- name: ListSubscriptions :many
-SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit FROM subscriptions ORDER BY next_renewal, id
+SELECT id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account FROM subscriptions ORDER BY next_renewal, id
 `
 
 func (q *Queries) ListSubscriptions(ctx context.Context) ([]Subscription, error) {
@@ -898,6 +979,7 @@ func (q *Queries) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 			&i.CategoryID,
 			&i.CycleCount,
 			&i.CycleUnit,
+			&i.Account,
 		); err != nil {
 			return nil, err
 		}
@@ -947,7 +1029,7 @@ func (q *Queries) NextSubscriptionCategoryPosition(ctx context.Context) (int64, 
 const resetMonitorState = `-- name: ResetMonitorState :exec
 UPDATE monitors
 SET last_status = 'unknown', last_checked_at = NULL, last_error = '', consecutive_failures = 0,
-    expires_at = NULL, expiry_notified = '[]'
+    expires_at = NULL, expiry_notified = '[]', expiry_source = ''
 WHERE id = ?
 `
 
@@ -959,9 +1041,10 @@ func (q *Queries) ResetMonitorState(ctx context.Context, id int64) error {
 
 const setMonitorState = `-- name: SetMonitorState :one
 UPDATE monitors
-SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?
+SET last_status = ?, last_checked_at = ?, last_error = ?, consecutive_failures = ?, expires_at = ?, expiry_notified = ?,
+    expiry_source = ?, manual_expires_at = ?
 WHERE id = ?
-RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at
+RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source
 `
 
 type SetMonitorStateParams struct {
@@ -971,6 +1054,8 @@ type SetMonitorStateParams struct {
 	ConsecutiveFailures int64
 	ExpiresAt           *time.Time
 	ExpiryNotified      string
+	ExpirySource        string
+	ManualExpiresAt     *time.Time
 	ID                  int64
 }
 
@@ -982,6 +1067,8 @@ func (q *Queries) SetMonitorState(ctx context.Context, arg SetMonitorStateParams
 		arg.ConsecutiveFailures,
 		arg.ExpiresAt,
 		arg.ExpiryNotified,
+		arg.ExpirySource,
+		arg.ManualExpiresAt,
 		arg.ID,
 	)
 	var i Monitor
@@ -1002,15 +1089,18 @@ func (q *Queries) SetMonitorState(ctx context.Context, arg SetMonitorStateParams
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
 }
 
 const updateMonitor = `-- name: UpdateMonitor :one
 UPDATE monitors
-SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?
+SET name = ?, target = ?, interval_seconds = ?, expected_status = ?, keyword = ?, timeout_ms = ?, enabled = ?,
+    manual_expires_at = ?, expiry_source = ?
 WHERE id = ?
-RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at
+RETURNING id, kind, name, target, interval_seconds, expected_status, keyword, timeout_ms, enabled, last_status, last_checked_at, last_error, consecutive_failures, expires_at, expiry_notified, created_at, manual_expires_at, expiry_source
 `
 
 type UpdateMonitorParams struct {
@@ -1021,6 +1111,8 @@ type UpdateMonitorParams struct {
 	Keyword         string
 	TimeoutMs       int64
 	Enabled         int64
+	ManualExpiresAt *time.Time
+	ExpirySource    string
 	ID              int64
 }
 
@@ -1033,6 +1125,8 @@ func (q *Queries) UpdateMonitor(ctx context.Context, arg UpdateMonitorParams) (M
 		arg.Keyword,
 		arg.TimeoutMs,
 		arg.Enabled,
+		arg.ManualExpiresAt,
+		arg.ExpirySource,
 		arg.ID,
 	)
 	var i Monitor
@@ -1053,6 +1147,8 @@ func (q *Queries) UpdateMonitor(ctx context.Context, arg UpdateMonitorParams) (M
 		&i.ExpiresAt,
 		&i.ExpiryNotified,
 		&i.CreatedAt,
+		&i.ManualExpiresAt,
+		&i.ExpirySource,
 	)
 	return i, err
 }
@@ -1105,9 +1201,9 @@ const updateSubscription = `-- name: UpdateSubscription :one
 UPDATE subscriptions
 SET name = ?, category = ?, category_id = ?, amount = ?, currency = ?, cycle = ?, cycle_days = ?, cycle_count = ?,
     cycle_unit = ?, next_renewal = ?,
-    remind_days_before = ?, reminded = ?, url = ?, note = ?, auto_renew = ?, archived_at = ?, updated_at = ?
+    remind_days_before = ?, reminded = ?, url = ?, note = ?, account = ?, auto_renew = ?, archived_at = ?, updated_at = ?
 WHERE id = ?
-RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit
+RETURNING id, name, category, amount, currency, cycle, cycle_days, next_renewal, remind_days_before, reminded, url, note, auto_renew, archived_at, created_at, updated_at, category_id, cycle_count, cycle_unit, account
 `
 
 type UpdateSubscriptionParams struct {
@@ -1125,6 +1221,7 @@ type UpdateSubscriptionParams struct {
 	Reminded         string
 	Url              string
 	Note             string
+	Account          string
 	AutoRenew        int64
 	ArchivedAt       *time.Time
 	UpdatedAt        time.Time
@@ -1147,6 +1244,7 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		arg.Reminded,
 		arg.Url,
 		arg.Note,
+		arg.Account,
 		arg.AutoRenew,
 		arg.ArchivedAt,
 		arg.UpdatedAt,
@@ -1173,6 +1271,7 @@ func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscription
 		&i.CategoryID,
 		&i.CycleCount,
 		&i.CycleUnit,
+		&i.Account,
 	)
 	return i, err
 }
@@ -1199,4 +1298,30 @@ func (q *Queries) UpdateSubscriptionCategory(ctx context.Context, arg UpdateSubs
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const upsertMonitorIcon = `-- name: UpsertMonitorIcon :exec
+INSERT INTO monitor_icons (monitor_id, mime, data, fetched_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT (monitor_id) DO UPDATE SET
+    mime = excluded.mime,
+    data = excluded.data,
+    fetched_at = excluded.fetched_at
+`
+
+type UpsertMonitorIconParams struct {
+	MonitorID int64
+	Mime      string
+	Data      []byte
+	FetchedAt time.Time
+}
+
+func (q *Queries) UpsertMonitorIcon(ctx context.Context, arg UpsertMonitorIconParams) error {
+	_, err := q.db.ExecContext(ctx, upsertMonitorIcon,
+		arg.MonitorID,
+		arg.Mime,
+		arg.Data,
+		arg.FetchedAt,
+	)
+	return err
 }

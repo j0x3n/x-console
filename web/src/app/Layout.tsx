@@ -1,5 +1,8 @@
 import { Suspense, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Outlet, useLocation } from "react-router";
+import ComingSoon from "../components/ComingSoon";
+import { moduleOfPath, useModules } from "./modules";
 import { useServerEvents } from "../api/events";
 import ElevationDialog from "../auth/ElevationDialog";
 import { ConfirmHost } from "../components/ui/ConfirmDialog";
@@ -7,8 +10,7 @@ import CommandPalette from "../components/command/CommandPalette";
 import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
 import { Loading } from "../components/ui/States";
-import Toast from "../components/ui/Toast";
-import { useToastStore } from "../hooks/useToast";
+import ErrorBoundary from "../components/ui/ErrorBoundary";
 import GlobalPanels from "./GlobalPanels";
 import { useSidebar } from "../stores/sidebar";
 import { usePreferencesSync } from "../hooks/usePreferencesSync";
@@ -18,8 +20,6 @@ export default function Layout() {
   usePreferencesSync();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const toast = useToastStore((s) => s.current);
-  const hideToast = useToastStore((s) => s.hide);
   const location = useLocation();
   useEffect(() => {
     setMobileOpen(false);
@@ -53,9 +53,13 @@ export default function Layout() {
             openPalette={() => setPaletteOpen(true)}
           />
           {/* 页面按需加载（B6），加载时显示转圈 */}
-          <Suspense fallback={<Loading />}>
-            <Outlet />
-          </Suspense>
+          <ErrorBoundary key={location.pathname}>
+            <Suspense fallback={<Loading />}>
+              <ModuleGate>
+                <Outlet />
+              </ModuleGate>
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
       <GlobalPanels />
@@ -65,7 +69,16 @@ export default function Layout() {
       />
       <ElevationDialog />
       <ConfirmHost />
-      {toast && <Toast key={toast.id} toast={toast} hideToast={hideToast} />}
     </div>
   );
+}
+
+/** B57：锁定时打开被隐藏的模块，和打开不存在的地址看到的一样。 */
+function ModuleGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const modules = useModules();
+  const id = moduleOfPath(location.pathname);
+  if (modules.has(id)) return <>{children}</>;
+  if (modules.pending) return <Loading />;
+  return <ComingSoon title="Not found" />;
 }

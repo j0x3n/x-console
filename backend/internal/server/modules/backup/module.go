@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
@@ -74,7 +75,10 @@ type Module struct {
 	settingsMu sync.Mutex // serialises read-modify-write of the settings
 }
 
-var _ api.ServerInterface = (*Module)(nil)
+var (
+	_ api.ServerInterface = (*Module)(nil)
+	_ module.Starter      = (*Module)(nil)
+)
 
 // New builds the module. When a restore is waiting for its file phase, that
 // starts here.
@@ -85,7 +89,18 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	d.Scheduler.Every("backup.auto", time.Minute, m.tick)
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.RemoteUser](d.Registry, contracts.RemoteUserKey, m)
 	return m, nil
+}
+
+// Start moves the B63 drive accounts to the storage module once (B69). It
+// runs after every module was built, so the storage accounts are there.
+func (m *Module) Start(ctx context.Context) error {
+	if err := m.migrateRemotes(ctx); err != nil {
+		// 迁移失败不影响启动，下次启动再试
+		m.log().Error("backup: move the drive accounts to storage", "error", err)
+	}
+	return nil
 }
 
 // stopProcess asks the server to shut down as it does on Ctrl-C.
@@ -142,6 +157,9 @@ func (m *Module) begin(kind api.BackupJobKind) (*job, error) {
 
 // end finishes a job with the result of its work and remembers it.
 func (m *Module) end(j *job, err error) {
+	// The job reads as finished and a new one may start at the same moment:
+	// a client that sees "done" can start the next job right away.
+	m.mu.Lock()
 	j.set(func(v *api.BackupJob) {
 		v.FinishedAt = ptr(m.now().UTC())
 		if err != nil {
@@ -152,13 +170,12 @@ func (m *Module) end(j *job, err error) {
 			v.Step = nil
 		}
 	})
+	m.busy = false
+	m.mu.Unlock()
 	final := j.snapshot()
 	if perr := m.d.Settings.Set(context.Background(), keyJob, final); perr != nil {
 		m.log().Warn("backup: save job state", "error", perr)
 	}
-	m.mu.Lock()
-	m.busy = false
-	m.mu.Unlock()
 	m.d.Bus.Publish("backup.job", final)
 }
 

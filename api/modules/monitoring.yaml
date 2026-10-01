@@ -367,6 +367,21 @@ paths:
               schema: { $ref: "#/components/schemas/MonitorResult" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /monitors/{monitorId}/icon:
+    parameters:
+      - $ref: "#/components/parameters/MonitorId"
+    get:
+      operationId: getMonitorIcon
+      tags: [monitors]
+      description: B50。网站的站标。只有 http 监控有，没抓到时回 404。
+      responses:
+        "200":
+          description: 图片，Content-Type 按抓到的类型
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /monitors/{monitorId}/results:
     parameters:
       - $ref: "#/components/parameters/MonitorId"
@@ -791,7 +806,7 @@ components:
         name: { type: string }
         target:
           type: string
-          description: http 是网址；tls 是 host 或 host:port（也可以填网址）；domain 是域名
+          description: http 是网址（B50 起只填域名时补 https://）；tls 是 host 或 host:port（也可以填网址）；domain 是域名
         intervalSeconds: { type: integer }
         expectedStatus:
           type: integer
@@ -813,6 +828,18 @@ components:
           type: number
           format: double
           description: 离到期还有几天
+        expirySource:
+          type: string
+          enum: [rdap, whois, manual]
+          description: B51。domain 的到期时间从哪里来。manual 是手动填的
+        manualExpiresAt:
+          type: string
+          format: date
+          description: B51。手动填的域名到期日期。RDAP 和 WHOIS 都查不到时用它
+        iconAt:
+          type: string
+          format: date-time
+          description: B50。http 监控抓到站标的时间。没有站标时不返回。站标从 /monitors/{monitorId}/icon 取
         createdAt: { type: string, format: date-time }
     MonitorInput:
       type: object
@@ -838,6 +865,13 @@ components:
         keyword: { type: string }
         timeoutMs: { type: integer, minimum: 100, maximum: 60000 }
         enabled: { type: boolean }
+        manualExpiresAt:
+          type: string
+          format: date
+          description: B51。只对 domain 有效。手动填的到期日期
+        clearManualExpiry:
+          type: boolean
+          description: B51。true 时清掉手动填的到期日期
     MonitorResultDetail:
       type: object
       properties:
@@ -846,6 +880,10 @@ components:
         subject: { type: string }
         issuer: { type: string }
         registrar: { type: string }
+        source:
+          type: string
+          enum: [rdap, whois, manual]
+          description: B51。domain 这次的到期时间从哪里查到的
     MonitorResult:
       type: object
       required: [at, ok, latencyMs, error, detail]
@@ -911,6 +949,9 @@ components:
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
+        account:
+          type: string
+          description: B49。可选的账号，比如登录邮箱或用户名。旧数据是空字符串
         category: { $ref: "#/components/schemas/SubscriptionCategory" }
         amount: { type: number, format: double }
         currency: { type: string }
@@ -967,11 +1008,15 @@ components:
         nextRenewal: { type: string, format: date }
         remindDaysBefore:
           type: array
-          description: 默认 [7, 1]
+          description: 默认 [7, 3, 1]（B49 起）
           items: { type: integer, minimum: 0, maximum: 365 }
         url: { type: string }
         note: { type: string }
         autoRenew: { type: boolean }
+        account:
+          type: string
+          maxLength: 200
+          description: B49。可选的账号，空字符串表示不填
     SubscriptionPatch:
       type: object
       properties:
@@ -996,6 +1041,10 @@ components:
         url: { type: string }
         note: { type: string }
         autoRenew: { type: boolean }
+        account:
+          type: string
+          maxLength: 200
+          description: B49。可选的账号，空字符串表示不填
         archived:
           type: boolean
           description: true 归档，false 取消归档
@@ -1032,6 +1081,19 @@ components:
         currency: { type: string }
         monthly: { type: number, format: double }
         yearly: { type: number, format: double }
+    ConvertedTotal:
+      type: object
+      required: [currency, monthly, yearly, count]
+      description: B49。全部未归档订阅按汇率换算成一种币种后的总额
+      properties:
+        currency:
+          type: string
+          enum: [CNY, USD]
+        monthly: { type: number, format: double }
+        yearly: { type: number, format: double }
+        count:
+          type: integer
+          description: 算进去的订阅数。没有汇率的币种不算
     SubscriptionSummary:
       type: object
       required: [totals, byCategory]
@@ -1039,6 +1101,18 @@ components:
         totals:
           type: array
           items: { $ref: "#/components/schemas/SpendTotal" }
+        converted:
+          type: array
+          description: B49。CNY 和 USD 各一条。没拿到过汇率时不返回这个字段
+          items: { $ref: "#/components/schemas/ConvertedTotal" }
+        unconverted:
+          type: array
+          description: B49。没有汇率、没算进 converted 的币种
+          items: { type: string }
+        ratesAt:
+          type: string
+          format: date-time
+          description: B49。汇率的更新时间
         byCategory:
           type: array
           items: { $ref: "#/components/schemas/CategorySpend" }

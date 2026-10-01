@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router";
 import { Monitor } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
@@ -17,6 +17,17 @@ export default function PcPage() {
   const { tab } = useParams();
   const hosts = useHosts("desktop");
   const [wanted, setWanted] = useState(loadSelectedHost);
+  // 左栏二级菜单点了某台电脑时带 ?host=，以它为准并记住
+  const [params, setParams] = useSearchParams();
+  const fromNav = params.get("host");
+  useEffect(() => {
+    if (!fromNav) return;
+    setWanted(fromNav);
+    saveSelectedHost(fromNav);
+    const next = new URLSearchParams(params);
+    next.delete("host");
+    setParams(next, { replace: true });
+  }, [fromNav, params, setParams]);
 
   if (hosts.isPending)
     return (

@@ -26,3 +26,29 @@ func (m *Module) CheckNow(ctx context.Context, id int64, now time.Time) (db.Moni
 func (m *Module) ScanSubscriptions(ctx context.Context, now time.Time) error {
 	return m.scanSubscriptions(ctx, now)
 }
+
+func (m *Module) RefreshRates(ctx context.Context, now time.Time) error {
+	return m.refreshRates(ctx, now)
+}
+
+func (m *Module) FetchIcon(ctx context.Context, id int64, target string) error {
+	return m.fetchIcon(ctx, id, target)
+}
+
+func (m *Module) WaitIcons(ctx context.Context) error {
+	for {
+		m.iconMu.Lock()
+		n := len(m.iconBusy)
+		m.iconMu.Unlock()
+		if n == 0 {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+const RatesEvery = ratesEvery

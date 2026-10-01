@@ -33,24 +33,99 @@ func (e AiAttachmentKind) Valid() bool {
 	}
 }
 
+// Defines values for AiMemorySource.
+const (
+	AiMemorySourceAi   AiMemorySource = "ai"
+	AiMemorySourceUser AiMemorySource = "user"
+)
+
+// Valid indicates whether the value is a known member of the AiMemorySource enum.
+func (e AiMemorySource) Valid() bool {
+	switch e {
+	case AiMemorySourceAi:
+		return true
+	case AiMemorySourceUser:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AiModelSpecSource.
 const (
-	Exact    AiModelSpecSource = "exact"
-	Manual   AiModelSpecSource = "manual"
-	Stripped AiModelSpecSource = "stripped"
-	Unknown  AiModelSpecSource = "unknown"
+	AiModelSpecSourceExact    AiModelSpecSource = "exact"
+	AiModelSpecSourceManual   AiModelSpecSource = "manual"
+	AiModelSpecSourceStripped AiModelSpecSource = "stripped"
+	AiModelSpecSourceUnknown  AiModelSpecSource = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the AiModelSpecSource enum.
 func (e AiModelSpecSource) Valid() bool {
 	switch e {
-	case Exact:
+	case AiModelSpecSourceExact:
 		return true
-	case Manual:
+	case AiModelSpecSourceManual:
 		return true
-	case Stripped:
+	case AiModelSpecSourceStripped:
 		return true
-	case Unknown:
+	case AiModelSpecSourceUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiModelSettingsDefaultPermission.
+const (
+	AiModelSettingsDefaultPermissionManual AiModelSettingsDefaultPermission = "manual"
+	AiModelSettingsDefaultPermissionWrite  AiModelSettingsDefaultPermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the AiModelSettingsDefaultPermission enum.
+func (e AiModelSettingsDefaultPermission) Valid() bool {
+	switch e {
+	case AiModelSettingsDefaultPermissionManual:
+		return true
+	case AiModelSettingsDefaultPermissionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiModelSettingsInputDefaultPermission.
+const (
+	AiModelSettingsInputDefaultPermissionManual AiModelSettingsInputDefaultPermission = "manual"
+	AiModelSettingsInputDefaultPermissionWrite  AiModelSettingsInputDefaultPermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the AiModelSettingsInputDefaultPermission enum.
+func (e AiModelSettingsInputDefaultPermission) Valid() bool {
+	switch e {
+	case AiModelSettingsInputDefaultPermissionManual:
+		return true
+	case AiModelSettingsInputDefaultPermissionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiPermission.
+const (
+	AiPermissionAll    AiPermission = "all"
+	AiPermissionManual AiPermission = "manual"
+	AiPermissionWrite  AiPermission = "write"
+)
+
+// Valid indicates whether the value is a known member of the AiPermission enum.
+func (e AiPermission) Valid() bool {
+	switch e {
+	case AiPermissionAll:
+		return true
+	case AiPermissionManual:
+		return true
+	case AiPermissionWrite:
 		return true
 	default:
 		return false
@@ -59,16 +134,76 @@ func (e AiModelSpecSource) Valid() bool {
 
 // Defines values for AiUsageByModelPurpose.
 const (
-	Agent AiUsageByModelPurpose = "agent"
-	Fast  AiUsageByModelPurpose = "fast"
+	AiUsageByModelPurposeAgent AiUsageByModelPurpose = "agent"
+	AiUsageByModelPurposeFast  AiUsageByModelPurpose = "fast"
 )
 
 // Valid indicates whether the value is a known member of the AiUsageByModelPurpose enum.
 func (e AiUsageByModelPurpose) Valid() bool {
 	switch e {
-	case Agent:
+	case AiUsageByModelPurposeAgent:
 		return true
-	case Fast:
+	case AiUsageByModelPurposeFast:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiUsageRecordPurpose.
+const (
+	AiUsageRecordPurposeAgent AiUsageRecordPurpose = "agent"
+	AiUsageRecordPurposeFast  AiUsageRecordPurpose = "fast"
+)
+
+// Valid indicates whether the value is a known member of the AiUsageRecordPurpose enum.
+func (e AiUsageRecordPurpose) Valid() bool {
+	switch e {
+	case AiUsageRecordPurposeAgent:
+		return true
+	case AiUsageRecordPurposeFast:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiUsageRecordStatus.
+const (
+	AiUsageRecordStatusError AiUsageRecordStatus = "error"
+	AiUsageRecordStatusOk    AiUsageRecordStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the AiUsageRecordStatus enum.
+func (e AiUsageRecordStatus) Valid() bool {
+	switch e {
+	case AiUsageRecordStatusError:
+		return true
+	case AiUsageRecordStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiUsageSummaryGroupBy.
+const (
+	AiUsageSummaryGroupByDay      AiUsageSummaryGroupBy = "day"
+	AiUsageSummaryGroupByModel    AiUsageSummaryGroupBy = "model"
+	AiUsageSummaryGroupByProvider AiUsageSummaryGroupBy = "provider"
+	AiUsageSummaryGroupBySource   AiUsageSummaryGroupBy = "source"
+)
+
+// Valid indicates whether the value is a known member of the AiUsageSummaryGroupBy enum.
+func (e AiUsageSummaryGroupBy) Valid() bool {
+	switch e {
+	case AiUsageSummaryGroupByDay:
+		return true
+	case AiUsageSummaryGroupByModel:
+		return true
+	case AiUsageSummaryGroupByProvider:
+		return true
+	case AiUsageSummaryGroupBySource:
 		return true
 	default:
 		return false
@@ -116,16 +251,16 @@ func (e HostAgentPermission) Valid() bool {
 
 // Defines values for MessageRole.
 const (
-	Assistant MessageRole = "assistant"
-	User      MessageRole = "user"
+	MessageRoleAssistant MessageRole = "assistant"
+	MessageRoleUser      MessageRole = "user"
 )
 
 // Valid indicates whether the value is a known member of the MessageRole enum.
 func (e MessageRole) Valid() bool {
 	switch e {
-	case Assistant:
+	case MessageRoleAssistant:
 		return true
-	case User:
+	case MessageRoleUser:
 		return true
 	default:
 		return false
@@ -180,6 +315,39 @@ func (e PendingActionStatus) Valid() bool {
 	}
 }
 
+// Defines values for PolishScene.
+const (
+	Card     PolishScene = "card"
+	Comment  PolishScene = "comment"
+	Event    PolishScene = "event"
+	General  PolishScene = "general"
+	Note     PolishScene = "note"
+	Reminder PolishScene = "reminder"
+	Task     PolishScene = "task"
+)
+
+// Valid indicates whether the value is a known member of the PolishScene enum.
+func (e PolishScene) Valid() bool {
+	switch e {
+	case Card:
+		return true
+	case Comment:
+		return true
+	case Event:
+		return true
+	case General:
+		return true
+	case Note:
+		return true
+	case Reminder:
+		return true
+	case Task:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReasoningEffort.
 const (
 	High   ReasoningEffort = "high"
@@ -225,6 +393,66 @@ func (e ToolEffect) Valid() bool {
 	}
 }
 
+// Defines values for ListAiUsageRecordsParamsStatus.
+const (
+	ListAiUsageRecordsParamsStatusError ListAiUsageRecordsParamsStatus = "error"
+	ListAiUsageRecordsParamsStatusOk    ListAiUsageRecordsParamsStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the ListAiUsageRecordsParamsStatus enum.
+func (e ListAiUsageRecordsParamsStatus) Valid() bool {
+	switch e {
+	case ListAiUsageRecordsParamsStatusError:
+		return true
+	case ListAiUsageRecordsParamsStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportAiUsageRecordsParamsStatus.
+const (
+	ExportAiUsageRecordsParamsStatusError ExportAiUsageRecordsParamsStatus = "error"
+	ExportAiUsageRecordsParamsStatusOk    ExportAiUsageRecordsParamsStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the ExportAiUsageRecordsParamsStatus enum.
+func (e ExportAiUsageRecordsParamsStatus) Valid() bool {
+	switch e {
+	case ExportAiUsageRecordsParamsStatusError:
+		return true
+	case ExportAiUsageRecordsParamsStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAiUsageSummaryParamsGroupBy.
+const (
+	GetAiUsageSummaryParamsGroupByDay      GetAiUsageSummaryParamsGroupBy = "day"
+	GetAiUsageSummaryParamsGroupByModel    GetAiUsageSummaryParamsGroupBy = "model"
+	GetAiUsageSummaryParamsGroupByProvider GetAiUsageSummaryParamsGroupBy = "provider"
+	GetAiUsageSummaryParamsGroupBySource   GetAiUsageSummaryParamsGroupBy = "source"
+)
+
+// Valid indicates whether the value is a known member of the GetAiUsageSummaryParamsGroupBy enum.
+func (e GetAiUsageSummaryParamsGroupBy) Valid() bool {
+	switch e {
+	case GetAiUsageSummaryParamsGroupByDay:
+		return true
+	case GetAiUsageSummaryParamsGroupByModel:
+		return true
+	case GetAiUsageSummaryParamsGroupByProvider:
+		return true
+	case GetAiUsageSummaryParamsGroupBySource:
+		return true
+	default:
+		return false
+	}
+}
+
 // AiAttachment defines model for AiAttachment.
 type AiAttachment struct {
 	Id   int64            `json:"id"`
@@ -237,9 +465,56 @@ type AiAttachment struct {
 // AiAttachmentKind defines model for AiAttachment.Kind.
 type AiAttachmentKind string
 
+// AiConversationSettings defines model for AiConversationSettings.
+type AiConversationSettings struct {
+	// Effort off、low、medium、high，空字符串表示用默认
+	Effort *string `json:"effort,omitempty"`
+
+	// Model providerId:modelId，空字符串表示用默认
+	Model *string `json:"model,omitempty"`
+
+	// Permission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+	// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+	Permission *AiPermission `json:"permission,omitempty"`
+}
+
+// AiMemories defines model for AiMemories.
+type AiMemories struct {
+	Enabled    bool       `json:"enabled"`
+	Items      []AiMemory `json:"items"`
+	LimitChars int        `json:"limitChars"`
+	UsedChars  int        `json:"usedChars"`
+}
+
+// AiMemory defines model for AiMemory.
+type AiMemory struct {
+	CreatedAt time.Time `json:"createdAt"`
+	Id        int64     `json:"id"`
+
+	// Source user 是手动加的，ai 是面板 AI 记的
+	Source AiMemorySource `json:"source"`
+
+	// Text 1 到 500 字
+	Text      string    `json:"text"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// AiMemorySource user 是手动加的，ai 是面板 AI 记的
+type AiMemorySource string
+
+// AiMemoryInput defines model for AiMemoryInput.
+type AiMemoryInput struct {
+	Text string `json:"text"`
+}
+
 // AiModel defines model for AiModel.
 type AiModel struct {
-	ContextWindow *int `json:"contextWindow,omitempty"`
+	// CacheReadPrice B42。每百万命中缓存的输入 token 的美元价格
+	CacheReadPrice *float32 `json:"cacheReadPrice,omitempty"`
+
+	// CacheWritePrice B42。每百万写入缓存的输入 token 的美元价格
+	CacheWritePrice *float32 `json:"cacheWritePrice,omitempty"`
+	ContextWindow   *int     `json:"contextWindow,omitempty"`
 
 	// Id 接口返回的模型 id，例如 deepseek-chat、openai/gpt-5
 	Id         string `json:"id"`
@@ -269,7 +544,10 @@ type AiModelSpecSource string
 type AiModelSettings struct {
 	Agent            *ModelRef `json:"agent,omitempty"`
 	ConfirmAllWrites bool      `json:"confirmAllWrites"`
-	Fast             *ModelRef `json:"fast,omitempty"`
+
+	// DefaultPermission B60。新对话的默认权限档，all 不能当默认
+	DefaultPermission *AiModelSettingsDefaultPermission `json:"defaultPermission,omitempty"`
+	Fast              *ModelRef                         `json:"fast,omitempty"`
 
 	// FastReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
 	FastReasoningEffort ReasoningEffort `json:"fastReasoningEffort"`
@@ -287,11 +565,15 @@ type AiModelSettings struct {
 	ReasoningUnsupported bool `json:"reasoningUnsupported"`
 }
 
+// AiModelSettingsDefaultPermission B60。新对话的默认权限档，all 不能当默认
+type AiModelSettingsDefaultPermission string
+
 // AiModelSettingsInput defines model for AiModelSettingsInput.
 type AiModelSettingsInput struct {
 	// Agent 传 null 表示清空
-	Agent            *ModelRef `json:"agent,omitempty"`
-	ConfirmAllWrites *bool     `json:"confirmAllWrites,omitempty"`
+	Agent             *ModelRef                              `json:"agent,omitempty"`
+	ConfirmAllWrites  *bool                                  `json:"confirmAllWrites,omitempty"`
+	DefaultPermission *AiModelSettingsInputDefaultPermission `json:"defaultPermission,omitempty"`
 
 	// Fast 传 null 表示清空
 	Fast *ModelRef `json:"fast,omitempty"`
@@ -303,6 +585,9 @@ type AiModelSettingsInput struct {
 	ReasoningEffort *ReasoningEffort `json:"reasoningEffort,omitempty"`
 }
 
+// AiModelSettingsInputDefaultPermission defines model for AiModelSettingsInput.DefaultPermission.
+type AiModelSettingsInputDefaultPermission string
+
 // AiModelSpecInput defines model for AiModelSpecInput.
 type AiModelSpecInput struct {
 	ContextWindow *int   `json:"contextWindow,omitempty"`
@@ -311,6 +596,10 @@ type AiModelSpecInput struct {
 	Reasoning     *bool  `json:"reasoning,omitempty"`
 	ToolCall      *bool  `json:"toolCall,omitempty"`
 }
+
+// AiPermission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+type AiPermission string
 
 // AiProvider defines model for AiProvider.
 type AiProvider struct {
@@ -378,7 +667,16 @@ type AiUsage struct {
 		// Purpose 用在哪
 		Purpose *AiUsageByModelPurpose `json:"purpose,omitempty"`
 	} `json:"byModel"`
-	Calls int `json:"calls"`
+
+	// CacheHitRate B42。命中缓存的输入 ÷ 全部输入，没有输入时不返回
+	CacheHitRate *float32 `json:"cacheHitRate,omitempty"`
+
+	// CacheWriteTokens B42。写入缓存的输入 token
+	CacheWriteTokens *int64 `json:"cacheWriteTokens,omitempty"`
+
+	// CachedInputTokens B42。命中缓存的输入 token
+	CachedInputTokens *int64 `json:"cachedInputTokens,omitempty"`
+	Calls             int    `json:"calls"`
 
 	// Cost 估算的美元费用。有模型没有价格时只算有价格的部分
 	Cost        *float32 `json:"cost,omitempty"`
@@ -391,6 +689,85 @@ type AiUsage struct {
 
 // AiUsageByModelPurpose 用在哪
 type AiUsageByModelPurpose string
+
+// AiUsageGroup defines model for AiUsageGroup.
+type AiUsageGroup struct {
+	// Key 按天时是 YYYY-MM-DD，按模型时是模型 id，按来源时是来源（空串表示未知），按供应商时是供应商名
+	Key string `json:"key"`
+
+	// ProviderName 按模型分组时的供应商名
+	ProviderName *string       `json:"providerName,omitempty"`
+	Totals       AiUsageTotals `json:"totals"`
+}
+
+// AiUsageRecord defines model for AiUsageRecord.
+type AiUsageRecord struct {
+	At                time.Time            `json:"at"`
+	CacheWriteTokens  int64                `json:"cacheWriteTokens"`
+	CachedInputTokens int64                `json:"cachedInputTokens"`
+	Cost              *float32             `json:"cost,omitempty"`
+	CostEstimated     *bool                `json:"costEstimated,omitempty"`
+	DurationMs        int                  `json:"durationMs"`
+	Error             *string              `json:"error,omitempty"`
+	Id                int64                `json:"id"`
+	InputTokens       int64                `json:"inputTokens"`
+	Model             string               `json:"model"`
+	OutputTokens      int64                `json:"outputTokens"`
+	ProviderName      string               `json:"providerName"`
+	Purpose           AiUsageRecordPurpose `json:"purpose"`
+	ReasoningTokens   int64                `json:"reasoningTokens"`
+
+	// Ref 关联对象的 id，比如对话 id、笔记 id、Agent 任务 id
+	Ref string `json:"ref"`
+
+	// Source assistant、host_agent、notes、brief、automation、coding、mcp，空串表示未知
+	Source string              `json:"source"`
+	Status AiUsageRecordStatus `json:"status"`
+}
+
+// AiUsageRecordPurpose defines model for AiUsageRecord.Purpose.
+type AiUsageRecordPurpose string
+
+// AiUsageRecordStatus defines model for AiUsageRecord.Status.
+type AiUsageRecordStatus string
+
+// AiUsageSummary defines model for AiUsageSummary.
+type AiUsageSummary struct {
+	From     openapi_types.Date    `json:"from"`
+	GroupBy  AiUsageSummaryGroupBy `json:"groupBy"`
+	Groups   []AiUsageGroup        `json:"groups"`
+	Previous *AiUsageTotals        `json:"previous,omitempty"`
+	To       openapi_types.Date    `json:"to"`
+	Total    AiUsageTotals         `json:"total"`
+}
+
+// AiUsageSummaryGroupBy defines model for AiUsageSummary.GroupBy.
+type AiUsageSummaryGroupBy string
+
+// AiUsageTotals defines model for AiUsageTotals.
+type AiUsageTotals struct {
+	AvgDurationMs int `json:"avgDurationMs"`
+
+	// CacheHitRate 命中缓存的输入 ÷ 全部输入，没有输入时不返回
+	CacheHitRate      *float32 `json:"cacheHitRate,omitempty"`
+	CacheWriteTokens  int64    `json:"cacheWriteTokens"`
+	CachedInputTokens int64    `json:"cachedInputTokens"`
+	Calls             int      `json:"calls"`
+
+	// Cost 美元，只算有价格的部分
+	Cost *float32 `json:"cost,omitempty"`
+
+	// CostEstimated 有调用的模型缺缓存价，命中部分按原价估算了
+	CostEstimated *bool `json:"costEstimated,omitempty"`
+
+	// Errors 失败的调用次数
+	Errors int `json:"errors"`
+
+	// InputTokens 全部输入，包括命中和写入缓存的部分
+	InputTokens     int64 `json:"inputTokens"`
+	OutputTokens    int64 `json:"outputTokens"`
+	ReasoningTokens int64 `json:"reasoningTokens"`
+}
 
 // ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
 type ApiStyle string
@@ -416,9 +793,22 @@ type ContentBlock struct {
 type Conversation struct {
 	CreatedAt time.Time `json:"createdAt"`
 
+	// Effort B60。这个对话的思考程度，空表示默认
+	Effort *string `json:"effort,omitempty"`
+
 	// HostId B33。机器的 Agent 会话才有
 	HostId *string `json:"hostId,omitempty"`
 	Id     int64   `json:"id"`
+
+	// Model B60。这个对话用的模型，空表示默认
+	Model *string `json:"model,omitempty"`
+
+	// PanelPermission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+	// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+	PanelPermission *AiPermission `json:"panelPermission,omitempty"`
+
+	// PanelPermissionUntil B60。panelPermission 是 all 时，到这个时间没有新消息就回到 manual
+	PanelPermissionUntil *time.Time `json:"panelPermissionUntil,omitempty"`
 
 	// Permission B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
 	Permission *HostAgentPermission `json:"permission,omitempty"`
@@ -485,6 +875,32 @@ type PendingActionEffect string
 // PendingActionStatus defines model for PendingAction.Status.
 type PendingActionStatus string
 
+// PolishRequest defines model for PolishRequest.
+type PolishRequest struct {
+	// Prompt 用户自己写的要求，比如“改成要点列表”
+	Prompt *string `json:"prompt,omitempty"`
+
+	// Scene B56。润色的场景，决定提示词：
+	// note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
+	// task 交给 Agent 的任务，写成目标、改动、验收标准；reminder 提醒备注；
+	// event 日程备注；general 其他
+	Scene PolishScene `json:"scene"`
+
+	// Text 最多 20000 字
+	Text string `json:"text"`
+}
+
+// PolishResult defines model for PolishResult.
+type PolishResult struct {
+	Text string `json:"text"`
+}
+
+// PolishScene B56。润色的场景，决定提示词：
+// note 笔记，通顺好读；card 卡片描述，好读并且专业简洁；comment 评论；
+// task 交给 Agent 的任务，写成目标、改动、验收标准；reminder 提醒备注；
+// event 日程备注；general 其他
+type PolishScene string
+
 // ReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
 type ReasoningEffort string
 
@@ -519,7 +935,16 @@ type UploadAiAttachmentMultipartBody struct {
 
 // CreateAiConversationJSONBody defines parameters for CreateAiConversation.
 type CreateAiConversationJSONBody struct {
-	Title *string `json:"title,omitempty"`
+	// Effort B60。off、low、medium、high，空表示用默认
+	Effort *string `json:"effort,omitempty"`
+
+	// Model B60。providerId:modelId，空表示用设置里的默认
+	Model *string `json:"model,omitempty"`
+
+	// Permission B60。面板 AI 对话的权限档。manual：写入、删除、高危都要确认；write：普通写入自动执行，删除和高危要确认；
+	// all：全部自动执行，切换要提升权限，只在内存里，2 小时没有新消息或服务重启后回到 manual
+	Permission *AiPermission `json:"permission,omitempty"`
+	Title      *string       `json:"title,omitempty"`
 }
 
 // SendAiMessageJSONBody defines parameters for SendAiMessage.
@@ -547,6 +972,11 @@ type CreateHostAgentConversationJSONBody struct {
 	Title *string `json:"title,omitempty"`
 }
 
+// SetAiMemoryEnabledJSONBody defines parameters for SetAiMemoryEnabled.
+type SetAiMemoryEnabledJSONBody struct {
+	Enabled bool `json:"enabled"`
+}
+
 // ListAiModelsParams defines parameters for ListAiModels.
 type ListAiModelsParams struct {
 	ProviderId *int64 `form:"providerId,omitempty" json:"providerId,omitempty"`
@@ -557,6 +987,42 @@ type GetAiUsageParams struct {
 	// Month YYYY-MM，默认本月（服务器时区）
 	Month *string `form:"month,omitempty" json:"month,omitempty"`
 }
+
+// ListAiUsageRecordsParams defines parameters for ListAiUsageRecords.
+type ListAiUsageRecordsParams struct {
+	From   openapi_types.Date              `form:"from" json:"from"`
+	To     openapi_types.Date              `form:"to" json:"to"`
+	Model  *string                         `form:"model,omitempty" json:"model,omitempty"`
+	Source *string                         `form:"source,omitempty" json:"source,omitempty"`
+	Status *ListAiUsageRecordsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Cursor *string                         `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                            `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAiUsageRecordsParamsStatus defines parameters for ListAiUsageRecords.
+type ListAiUsageRecordsParamsStatus string
+
+// ExportAiUsageRecordsParams defines parameters for ExportAiUsageRecords.
+type ExportAiUsageRecordsParams struct {
+	From   openapi_types.Date                `form:"from" json:"from"`
+	To     openapi_types.Date                `form:"to" json:"to"`
+	Model  *string                           `form:"model,omitempty" json:"model,omitempty"`
+	Source *string                           `form:"source,omitempty" json:"source,omitempty"`
+	Status *ExportAiUsageRecordsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ExportAiUsageRecordsParamsStatus defines parameters for ExportAiUsageRecords.
+type ExportAiUsageRecordsParamsStatus string
+
+// GetAiUsageSummaryParams defines parameters for GetAiUsageSummary.
+type GetAiUsageSummaryParams struct {
+	From    openapi_types.Date             `form:"from" json:"from"`
+	To      openapi_types.Date             `form:"to" json:"to"`
+	GroupBy GetAiUsageSummaryParamsGroupBy `form:"groupBy" json:"groupBy"`
+}
+
+// GetAiUsageSummaryParamsGroupBy defines parameters for GetAiUsageSummary.
+type GetAiUsageSummaryParamsGroupBy string
 
 // UploadAiAttachmentMultipartRequestBody defines body for UploadAiAttachment for multipart/form-data ContentType.
 type UploadAiAttachmentMultipartRequestBody UploadAiAttachmentMultipartBody
@@ -570,14 +1036,29 @@ type SendAiMessageJSONRequestBody SendAiMessageJSONBody
 // SetAiConversationPermissionJSONRequestBody defines body for SetAiConversationPermission for application/json ContentType.
 type SetAiConversationPermissionJSONRequestBody SetAiConversationPermissionJSONBody
 
+// SetAiConversationSettingsJSONRequestBody defines body for SetAiConversationSettings for application/json ContentType.
+type SetAiConversationSettingsJSONRequestBody = AiConversationSettings
+
 // CreateHostAgentConversationJSONRequestBody defines body for CreateHostAgentConversation for application/json ContentType.
 type CreateHostAgentConversationJSONRequestBody CreateHostAgentConversationJSONBody
+
+// CreateAiMemoryJSONRequestBody defines body for CreateAiMemory for application/json ContentType.
+type CreateAiMemoryJSONRequestBody = AiMemoryInput
+
+// SetAiMemoryEnabledJSONRequestBody defines body for SetAiMemoryEnabled for application/json ContentType.
+type SetAiMemoryEnabledJSONRequestBody SetAiMemoryEnabledJSONBody
+
+// UpdateAiMemoryJSONRequestBody defines body for UpdateAiMemory for application/json ContentType.
+type UpdateAiMemoryJSONRequestBody = AiMemoryInput
 
 // PutAiModelSettingsJSONRequestBody defines body for PutAiModelSettings for application/json ContentType.
 type PutAiModelSettingsJSONRequestBody = AiModelSettingsInput
 
 // SetAiModelSpecJSONRequestBody defines body for SetAiModelSpec for application/json ContentType.
 type SetAiModelSpecJSONRequestBody = AiModelSpecInput
+
+// PolishTextJSONRequestBody defines body for PolishText for application/json ContentType.
+type PolishTextJSONRequestBody = PolishRequest
 
 // CreateAiProviderJSONRequestBody defines body for CreateAiProvider for application/json ContentType.
 type CreateAiProviderJSONRequestBody = AiProviderInput
@@ -802,6 +1283,9 @@ type ServerInterface interface {
 	// (PUT /ai/conversations/{conversationId}/permission)
 	SetAiConversationPermission(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
 
+	// (PATCH /ai/conversations/{conversationId}/settings)
+	SetAiConversationSettings(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
+
 	// (POST /ai/conversations/{conversationId}/stop)
 	StopAiReply(w http.ResponseWriter, r *http.Request, conversationId ConversationId)
 
@@ -810,6 +1294,21 @@ type ServerInterface interface {
 
 	// (POST /ai/host-agent/{hostId}/conversations)
 	CreateHostAgentConversation(w http.ResponseWriter, r *http.Request, hostId string)
+
+	// (GET /ai/memories)
+	ListAiMemories(w http.ResponseWriter, r *http.Request)
+
+	// (POST /ai/memories)
+	CreateAiMemory(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /ai/memories/enabled)
+	SetAiMemoryEnabled(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /ai/memories/{memoryId})
+	DeleteAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64)
+
+	// (PATCH /ai/memories/{memoryId})
+	UpdateAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64)
 
 	// (GET /ai/model-settings)
 	GetAiModelSettings(w http.ResponseWriter, r *http.Request)
@@ -822,6 +1321,9 @@ type ServerInterface interface {
 
 	// (GET /ai/models)
 	ListAiModels(w http.ResponseWriter, r *http.Request, params ListAiModelsParams)
+
+	// (POST /ai/polish)
+	PolishText(w http.ResponseWriter, r *http.Request)
 
 	// (GET /ai/providers)
 	ListAiProviders(w http.ResponseWriter, r *http.Request)
@@ -846,6 +1348,15 @@ type ServerInterface interface {
 
 	// (GET /ai/usage)
 	GetAiUsage(w http.ResponseWriter, r *http.Request, params GetAiUsageParams)
+
+	// (GET /ai/usage/records)
+	ListAiUsageRecords(w http.ResponseWriter, r *http.Request, params ListAiUsageRecordsParams)
+
+	// (GET /ai/usage/records.csv)
+	ExportAiUsageRecords(w http.ResponseWriter, r *http.Request, params ExportAiUsageRecordsParams)
+
+	// (GET /ai/usage/summary)
+	GetAiUsageSummary(w http.ResponseWriter, r *http.Request, params GetAiUsageSummaryParams)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -902,6 +1413,11 @@ func (_ Unimplemented) SetAiConversationPermission(w http.ResponseWriter, r *htt
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PATCH /ai/conversations/{conversationId}/settings)
+func (_ Unimplemented) SetAiConversationSettings(w http.ResponseWriter, r *http.Request, conversationId ConversationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /ai/conversations/{conversationId}/stop)
 func (_ Unimplemented) StopAiReply(w http.ResponseWriter, r *http.Request, conversationId ConversationId) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -914,6 +1430,31 @@ func (_ Unimplemented) ListHostAgentConversations(w http.ResponseWriter, r *http
 
 // (POST /ai/host-agent/{hostId}/conversations)
 func (_ Unimplemented) CreateHostAgentConversation(w http.ResponseWriter, r *http.Request, hostId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/memories)
+func (_ Unimplemented) ListAiMemories(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/memories)
+func (_ Unimplemented) CreateAiMemory(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /ai/memories/enabled)
+func (_ Unimplemented) SetAiMemoryEnabled(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /ai/memories/{memoryId})
+func (_ Unimplemented) DeleteAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /ai/memories/{memoryId})
+func (_ Unimplemented) UpdateAiMemory(w http.ResponseWriter, r *http.Request, memoryId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -934,6 +1475,11 @@ func (_ Unimplemented) SetAiModelSpec(w http.ResponseWriter, r *http.Request) {
 
 // (GET /ai/models)
 func (_ Unimplemented) ListAiModels(w http.ResponseWriter, r *http.Request, params ListAiModelsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/polish)
+func (_ Unimplemented) PolishText(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -974,6 +1520,21 @@ func (_ Unimplemented) ListAiTools(w http.ResponseWriter, r *http.Request) {
 
 // (GET /ai/usage)
 func (_ Unimplemented) GetAiUsage(w http.ResponseWriter, r *http.Request, params GetAiUsageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/usage/records)
+func (_ Unimplemented) ListAiUsageRecords(w http.ResponseWriter, r *http.Request, params ListAiUsageRecordsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/usage/records.csv)
+func (_ Unimplemented) ExportAiUsageRecords(w http.ResponseWriter, r *http.Request, params ExportAiUsageRecordsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/usage/summary)
+func (_ Unimplemented) GetAiUsageSummary(w http.ResponseWriter, r *http.Request, params GetAiUsageSummaryParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1210,6 +1771,32 @@ func (siw *ServerInterfaceWrapper) SetAiConversationPermission(w http.ResponseWr
 	handler.ServeHTTP(w, r)
 }
 
+// SetAiConversationSettings operation middleware
+func (siw *ServerInterfaceWrapper) SetAiConversationSettings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "conversationId" -------------
+	var conversationId ConversationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "conversationId", chi.URLParam(r, "conversationId"), &conversationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "conversationId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAiConversationSettings(w, r, conversationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // StopAiReply operation middleware
 func (siw *ServerInterfaceWrapper) StopAiReply(w http.ResponseWriter, r *http.Request) {
 
@@ -1288,6 +1875,100 @@ func (siw *ServerInterfaceWrapper) CreateHostAgentConversation(w http.ResponseWr
 	handler.ServeHTTP(w, r)
 }
 
+// ListAiMemories operation middleware
+func (siw *ServerInterfaceWrapper) ListAiMemories(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiMemories(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAiMemory operation middleware
+func (siw *ServerInterfaceWrapper) CreateAiMemory(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAiMemory(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAiMemoryEnabled operation middleware
+func (siw *ServerInterfaceWrapper) SetAiMemoryEnabled(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAiMemoryEnabled(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAiMemory operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAiMemory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "memoryId" -------------
+	var memoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memoryId", chi.URLParam(r, "memoryId"), &memoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAiMemory(w, r, memoryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateAiMemory operation middleware
+func (siw *ServerInterfaceWrapper) UpdateAiMemory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "memoryId" -------------
+	var memoryId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memoryId", chi.URLParam(r, "memoryId"), &memoryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memoryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateAiMemory(w, r, memoryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAiModelSettings operation middleware
 func (siw *ServerInterfaceWrapper) GetAiModelSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -1354,6 +2035,20 @@ func (siw *ServerInterfaceWrapper) ListAiModels(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAiModels(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PolishText operation middleware
+func (siw *ServerInterfaceWrapper) PolishText(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PolishText(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1542,6 +2237,261 @@ func (siw *ServerInterfaceWrapper) GetAiUsage(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListAiUsageRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListAiUsageRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAiUsageRecordsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiUsageRecords(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportAiUsageRecords operation middleware
+func (siw *ServerInterfaceWrapper) ExportAiUsageRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAiUsageRecordsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "model" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "model", r.URL.Query(), &params.Model, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "model"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "model", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "source" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "source", r.URL.Query(), &params.Source, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "source"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "source", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportAiUsageRecords(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAiUsageSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetAiUsageSummary(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAiUsageSummaryParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "groupBy" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "groupBy", r.URL.Query(), &params.GroupBy, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "groupBy"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "groupBy", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAiUsageSummary(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1719,7 +2669,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/ai/model-settings", wrapper.PutAiModelSettings)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/polish", wrapper.PolishText)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/usage", wrapper.GetAiUsage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/usage/summary", wrapper.GetAiUsageSummary)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/usage/records", wrapper.ListAiUsageRecords)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/usage/records.csv", wrapper.ExportAiUsageRecords)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/host-agent/{hostId}/conversations", wrapper.ListHostAgentConversations)
@@ -1729,6 +2691,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/ai/conversations/{conversationId}/permission", wrapper.SetAiConversationPermission)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/memories", wrapper.ListAiMemories)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/memories", wrapper.CreateAiMemory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/ai/memories/enabled", wrapper.SetAiMemoryEnabled)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/ai/memories/{memoryId}", wrapper.DeleteAiMemory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/ai/memories/{memoryId}", wrapper.UpdateAiMemory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/ai/conversations/{conversationId}/settings", wrapper.SetAiConversationSettings)
 	})
 
 	return r

@@ -3,6 +3,8 @@ import { registerZh } from "../../lib/i18n";
 registerZh({
   // 标签
   Schedule: "日程",
+  // 左栏模块名（B66）。不改 Calendar 的中文，别处还在用“日历”
+  "Schedule & focus": "日程",
   "Daily brief": "早报",
   Focus: "专注",
   Calendars: "日历管理",
@@ -67,7 +69,7 @@ registerZh({
   Contents: "内容",
   Weather: "天气",
   "Today's calendar": "今天的日程",
-  "Due issues": "到期的 Issue",
+  "Due issues": "到期的卡片",
   "Today's reminders": "今天的提醒",
   "Server alerts since yesterday": "昨天以来的服务器告警",
   Renewals: "续费",
@@ -107,13 +109,13 @@ registerZh({
   "Finish early": "提前完成",
   "Give up": "放弃",
   Minutes: "分钟数",
-  "Linked issue": "关联 Issue",
+  "Linked issue": "关联卡片",
   Range: "范围",
   Last: "最近",
   "Completed sessions": "完成的个数",
   "Focus per day": "每天专注时长",
-  "By issue": "按 Issue",
-  "No focus linked to an issue yet.": "还没有关联 Issue 的专注记录。",
+  "By issue": "按卡片",
+  "No focus linked to an issue yet.": "还没有关联卡片 的专注记录。",
   Recent: "最近",
   "No focus sessions yet": "还没有专注记录",
   Finished: "已结束",
@@ -141,4 +143,20 @@ registerZh({
     "webcal:// 开头的也可以。Google 日历用它设置里的“iCal 格式的私密地址”。",
   "For iCloud, use https://caldav.icloud.com, your Apple ID and an app-specific password. Events you add here are written back.":
     "iCloud 填 https://caldav.icloud.com，用户名是 Apple ID，密码用 App 专用密码。在这里加的日程会写回 iCloud。",
+  // B58 和风天气
+  QWeather: "和风天气",
+  "QWeather console": "和风天气控制台",
+  "QWeather is connected": "和风天气已接通",
+  "Adds weather warnings, rain for the next two hours, air quality, daily tips and sunrise times. The free plan is enough.":
+    "填好后能看到天气预警、未来两小时降水、空气质量、生活指数和日出日落。免费额度够用。",
+  "Console → Settings → API Host": "控制台 → 设置 → API Host",
+  "Console → Project → Credentials → API KEY": "控制台 → 项目 → 凭据 → API KEY",
+  "Please enter the API host": "请填写 API Host",
+  "Please enter the API key": "请填写 API KEY",
+  "Saved. Leave empty to keep it.": "已保存，不改就留空",
+  "Save and check": "保存并检查",
+  "Checking…": "检查中…",
+  "Remove the QWeather key?": "删除和风天气的 key？",
+  "Warnings, rain by the minute and air quality stop showing. Earthquakes still work.":
+    "预警、分钟降水和空气质量不再显示。地震照常。",
 });

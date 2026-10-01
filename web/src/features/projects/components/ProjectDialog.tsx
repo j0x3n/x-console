@@ -122,6 +122,7 @@ export default function ProjectDialog({
         <div className="xc-field">
           <span>{t("Description")}</span>
           <MarkdownEditor
+            polish="card"
             uploadScope="projects"
             label={t("Description")}
             value={description}

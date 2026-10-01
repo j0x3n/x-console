@@ -191,10 +191,11 @@ func (m *Module) actionListMonitors(ctx context.Context, raw json.RawMessage) (a
 		return nil, err
 	}
 	now := m.now()
+	times := m.iconTimes(ctx)
 	out := make([]api.Monitor, 0, len(rows))
 	for _, x := range rows {
 		if in.Kind == "" || x.Kind == in.Kind {
-			out = append(out, toAPIMonitor(x, now))
+			out = append(out, toAPIMonitor(x, now, lookupIconAt(times, x.ID)))
 		}
 	}
 	return out, nil
@@ -209,6 +210,10 @@ func (m *Module) actionListSubscriptions(ctx context.Context, _ json.RawMessage)
 	if err != nil {
 		return nil, err
 	}
+	rates, err := m.loadRates(ctx)
+	if err != nil {
+		return nil, err
+	}
 	day := today(m.now(), m.loc())
 	items := make([]api.Subscription, 0, len(rows))
 	for _, s := range rows {
@@ -216,5 +221,5 @@ func (m *Module) actionListSubscriptions(ctx context.Context, _ json.RawMessage)
 			items = append(items, toAPISubscription(s, day, cats))
 		}
 	}
-	return map[string]any{"items": items, "summary": summary(rows, cats)}, nil
+	return map[string]any{"items": items, "summary": summary(rows, cats, rates)}, nil
 }

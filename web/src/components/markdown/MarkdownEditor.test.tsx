@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { useToastStore } from "../../hooks/useToast";
+import { useErrorStore } from "../../lib/errors";
 import MarkdownEditor from "./MarkdownEditor";
 
 let latest = "";
@@ -35,6 +36,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   useToastStore.setState({ current: null });
+  useErrorStore.setState({ notices: [], history: [] });
 });
 
 describe("MarkdownEditor image paste", () => {
@@ -73,7 +75,10 @@ describe("MarkdownEditor image paste", () => {
     render(<Editor />);
     paste([png()]);
     await waitFor(() => expect(latest).toBe("开头"));
-    expect(useToastStore.getState().current?.message).toBe("图片上传还没上线");
+    // 报错不走普通提示，进报错列表（B41）。
+    expect(useErrorStore.getState().notices[0]?.message).toBe(
+      "图片上传还没上线",
+    );
   });
 
   it("pastes text normally when the clipboard also has text", () => {
@@ -91,5 +96,44 @@ describe("MarkdownEditor image paste", () => {
     paste([new File(["x"], "a.pdf", { type: "application/pdf" })]);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(latest).toBe("开头");
+  });
+});
+
+describe("AI 润色（B56）", () => {
+  it("按场景润色，替换后改掉编辑框内容，Esc 不影响外层", async () => {
+    const calls: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        calls.push(JSON.parse(String(init.body)));
+        return new Response(JSON.stringify({ text: "润色后" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+    const outer = vi.fn();
+    function Polished() {
+      const [value, setValue] = useState("原来的");
+      latest = value;
+      return (
+        <div onKeyDown={outer}>
+          <MarkdownEditor
+            label="描述"
+            value={value}
+            onChange={setValue}
+            polish="card"
+          />
+        </div>
+      );
+    }
+    render(<Polished />);
+    fireEvent.click(screen.getByRole("button", { name: "AI 润色" }));
+    fireEvent.keyDown(screen.getByLabelText("润色要求"), { key: "a" });
+    expect(outer).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /开始润色/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "替换正文" }));
+    await waitFor(() => expect(latest).toBe("润色后"));
+    expect(calls[0]).toEqual({ text: "原来的", scene: "card" });
   });
 });

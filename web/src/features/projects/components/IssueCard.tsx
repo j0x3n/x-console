@@ -1,8 +1,10 @@
 import type { DragEvent } from "react";
-import { CalendarDays, ListChecks } from "lucide-react";
+import { CalendarDays, ListChecks, MessageSquare } from "lucide-react";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatDate, formatTime } from "../../../lib/time";
+import { thumbnailSrc } from "../../../components/markdown/upload";
 import {
+  coverImage,
   issueDue,
   issueDueState,
   localTime,
@@ -10,6 +12,7 @@ import {
   type Issue,
 } from "../logic";
 import { LabelChip, PriorityIcon } from "./Icons";
+import AgentMember from "../../aiagents/AgentMember";
 
 /** 截止时间：今天的写“今天 18:00”，过期的写“已过期 2 小时”。 */
 export function DueBadge({ issue }: { issue: Issue }) {
@@ -60,6 +63,28 @@ export function ChecklistBadge({ issue }: { issue: Issue }) {
   );
 }
 
+/** 卡片成员的头像：“我”显示“我”，Agent 显示它的头像（B47）。 */
+export function Members({ issue }: { issue: Issue }) {
+  const t = useT();
+  const members = issue.members ?? [];
+  if (!members.length) return null;
+  return (
+    <span className="projects-members">
+      {members.map((m) =>
+        m.kind === "me" ? (
+          <i key="me" className="projects-member me" title={t("Me")}>
+            {t("Me")}
+          </i>
+        ) : (
+          <span key={`agent:${m.id}`} className="projects-member agent">
+            <AgentMember id={m.id} issueKey={issue.key} size={16} />
+          </span>
+        ),
+      )}
+    </span>
+  );
+}
+
 /** 看板上的一张卡片。 */
 export default function IssueCard({
   issue,
@@ -79,6 +104,8 @@ export default function IssueCard({
   onDragStart: (e: DragEvent<HTMLElement>) => void;
   onDragOver: (e: DragEvent<HTMLElement>) => void;
 }) {
+  // B55：描述里的第一张图做封面
+  const cover = coverImage(issue.description);
   return (
     <article
       className={`projects-card${selected ? " selected" : ""}${dragging ? " dragging" : ""}`}
@@ -92,21 +119,39 @@ export default function IssueCard({
       onDragStart={onDragStart}
       onDragOver={onDragOver}
     >
-      <div className="projects-card-meta">
+      {cover && (
+        <img
+          className="projects-card-cover"
+          src={thumbnailSrc(cover)}
+          alt=""
+          loading="lazy"
+          draggable={false}
+        />
+      )}
+      {/* B77：不显示卡片编号，紧急度图标和标题放一行 */}
+      <h3 className="projects-card-title" title={issue.key}>
         <PriorityIcon priority={issue.priority} size={13} />
-        <span className="xc-mono">{issue.key}</span>
-      </div>
-      <h3>{issue.title}</h3>
+        <span>{issue.title}</span>
+      </h3>
       {category && <p className="projects-card-category">{category}</p>}
       {(issue.labels.length > 0 ||
         !!issue.checklistTotal ||
+        !!issue.commentCount ||
+        !!issue.members?.length ||
         !!issueDue(issue)) && (
         <div className="projects-card-labels">
           <DueBadge issue={issue} />
           <ChecklistBadge issue={issue} />
+          {!!issue.commentCount && (
+            <span className="projects-card-count">
+              <MessageSquare size={12} />
+              {issue.commentCount}
+            </span>
+          )}
           {issue.labels.map((l) => (
             <LabelChip key={l.id} label={l} />
           ))}
+          <Members issue={issue} />
         </div>
       )}
     </article>

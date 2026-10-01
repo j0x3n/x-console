@@ -9,12 +9,17 @@ import { toast } from "../../../hooks/useToast";
 import {
   calendarKeys,
   useBriefSettings,
+  useQWeatherConfig,
   useRainAlert,
   useSaveBriefSettings,
   useSaveRainAlert,
+  useSaveWeatherNotify,
+  useWeatherNotify,
   useWeatherPlaces,
   type BriefLocation,
   type RainAlert,
+  type WarningLevel,
+  type WeatherNotify,
 } from "../../calendar/api";
 
 /** 天气小条上显示哪些内容，只存在这台设备上。 */
@@ -22,9 +27,16 @@ export interface WeatherShow {
   range: boolean;
   rain: boolean;
   place: boolean;
+  /** 空气质量（B58，要和风天气） */
+  air: boolean;
 }
 const SHOW_KEY = "xc.today.weather";
-const defaultShow: WeatherShow = { range: true, rain: true, place: false };
+const defaultShow: WeatherShow = {
+  range: true,
+  rain: true,
+  place: false,
+  air: true,
+};
 
 export function loadWeatherShow(): WeatherShow {
   try {
@@ -45,7 +57,24 @@ function saveWeatherShow(v: WeatherShow) {
   window.dispatchEvent(new Event("xc:weather-show"));
 }
 
-/** 点天气小条打开：选地区、显示内容、降雨提醒。 */
+const defaultNotify: WeatherNotify = {
+  rainSoon: false,
+  rainLeadMinutes: 30,
+  warnings: false,
+  warningMinLevel: "yellow",
+  earthquakes: false,
+  quakeMinMagnitude: 4.5,
+  quakeRadiusKm: 500,
+};
+
+const levelChoices: [WarningLevel, string][] = [
+  ["blue", "Blue and above"],
+  ["yellow", "Yellow and above"],
+  ["orange", "Orange and above"],
+  ["red", "Red only"],
+];
+
+/** 天气设置：选地区、显示内容、降雨提醒、预警推送（B58）。 */
 export default function WeatherDialog({
   open,
   onClose,
@@ -69,6 +98,11 @@ export default function WeatherDialog({
     leadHours: 2,
   });
   const [locating, setLocating] = useState(false);
+  // B58：分钟降水、天气预警、地震的推送
+  const notify = useWeatherNotify();
+  const saveNotify = useSaveWeatherNotify();
+  const qweather = useQWeatherConfig();
+  const [push, setPush] = useState<WeatherNotify>(defaultNotify);
   const [error, setError] = useState("");
   const places = useWeatherPlaces(search);
   const alertMissing =
@@ -86,6 +120,9 @@ export default function WeatherDialog({
   useEffect(() => {
     if (open && alert.data) setRain(alert.data);
   }, [open, alert.data]);
+  useEffect(() => {
+    if (open && notify.data) setPush(notify.data);
+  }, [open, notify.data]);
 
   const locate = () => {
     if (!navigator.geolocation) {
@@ -116,7 +153,8 @@ export default function WeatherDialog({
     );
   };
 
-  const pending = saveSettings.isPending || saveAlert.isPending;
+  const pending =
+    saveSettings.isPending || saveAlert.isPending || saveNotify.isPending;
   const submit = async () => {
     setError("");
     try {
@@ -134,6 +172,7 @@ export default function WeatherDialog({
         qc.invalidateQueries({ queryKey: calendarKeys.weather });
       }
       if (!alertMissing && alert.data) await saveAlert.mutateAsync(rain);
+      if (notify.data) await saveNotify.mutateAsync(push);
       saveWeatherShow(show);
       toast(t("Saved"));
       onClose();
@@ -242,7 +281,123 @@ export default function WeatherDialog({
             />
             <span>{t("Place name")}</span>
           </label>
+          <label className="xc-check">
+            <input
+              type="checkbox"
+              checked={show.air}
+              onChange={(e) => setShow({ ...show, air: e.target.checked })}
+            />
+            <span>{t("Air quality")}</span>
+          </label>
         </section>
+
+        {notify.data && (
+          <section>
+            <h3>{t("Push alerts")}</h3>
+            {!qweather.data?.keySet && (
+              <p className="weather-note">
+                {t(
+                  "Rain by the minute and weather warnings need a QWeather key. Add it in Settings → Daily brief.",
+                )}
+              </p>
+            )}
+            <div className="weather-push-row">
+              <Switch
+                checked={push.rainSoon}
+                onChange={(v) => setPush({ ...push, rainSoon: v })}
+                label={t("Rain or snow is coming")}
+              />
+              <span>{t("Rain or snow is coming")}</span>
+              <select
+                className="xc-select"
+                aria-label={t("Lead time")}
+                value={push.rainLeadMinutes}
+                disabled={!push.rainSoon}
+                onChange={(e) =>
+                  setPush({ ...push, rainLeadMinutes: Number(e.target.value) })
+                }
+              >
+                {[15, 30, 60, 120].map((m) => (
+                  <option key={m} value={m}>
+                    {t("Ahead by")} {m} {t("min")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="weather-push-row">
+              <Switch
+                checked={push.warnings}
+                onChange={(v) => setPush({ ...push, warnings: v })}
+                label={t("Weather warnings")}
+              />
+              <span>{t("Weather warnings")}</span>
+              <select
+                className="xc-select"
+                aria-label={t("Lowest level")}
+                value={push.warningMinLevel}
+                disabled={!push.warnings}
+                onChange={(e) =>
+                  setPush({
+                    ...push,
+                    warningMinLevel: e.target.value as WarningLevel,
+                  })
+                }
+              >
+                {levelChoices.map(([v, label]) => (
+                  <option key={v} value={v}>
+                    {t(label)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="weather-push-row">
+              <Switch
+                checked={push.earthquakes}
+                onChange={(v) => setPush({ ...push, earthquakes: v })}
+                label={t("Earthquakes nearby")}
+              />
+              <span>{t("Earthquakes nearby")}</span>
+              <select
+                className="xc-select"
+                aria-label={t("Magnitude")}
+                value={push.quakeMinMagnitude}
+                disabled={!push.earthquakes}
+                onChange={(e) =>
+                  setPush({
+                    ...push,
+                    quakeMinMagnitude: Number(e.target.value),
+                  })
+                }
+              >
+                {[3, 4, 4.5, 5, 6].map((m) => (
+                  <option key={m} value={m}>
+                    M{m} {t("and above")}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="xc-select"
+                aria-label={t("Within")}
+                value={push.quakeRadiusKm}
+                disabled={!push.earthquakes}
+                onChange={(e) =>
+                  setPush({ ...push, quakeRadiusKm: Number(e.target.value) })
+                }
+              >
+                {[100, 300, 500, 1000, 2000].map((km) => (
+                  <option key={km} value={km}>
+                    {km} km {t("within")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="weather-note">
+              {t(
+                "Rain and warnings are checked every 5 minutes, earthquakes every 2 minutes. Each warning is sent once, and again when it is upgraded or lifted.",
+              )}
+            </p>
+          </section>
+        )}
 
         <section>
           <div className="weather-alert-head">

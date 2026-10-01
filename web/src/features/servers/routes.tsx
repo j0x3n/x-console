@@ -6,6 +6,10 @@ import "./i18n";
 import "./servers.css";
 import ServersNavChildren from "./NavChildren";
 import { registerNavChildren } from "../../lib/navChildren";
+import { registerNavBadge } from "../../lib/navBadges";
+import { useServersBadge } from "./badge";
+
+registerNavBadge("/servers", useServersBadge);
 
 // 侧边栏“/servers”的二级菜单。
 registerNavChildren("/servers", ServersNavChildren);

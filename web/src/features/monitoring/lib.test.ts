@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Monitor } from "./api";
 import {
   addMonths,
   appendLog,
@@ -20,6 +21,11 @@ import {
   niceCeil,
   parseRemindDays,
   renewalTone,
+  spendView,
+  normalizeSiteUrl,
+  registrableDomain,
+  companionMonitors,
+  groupByDomain,
   sortSubscriptions,
   stripSegments,
 } from "./lib";
@@ -65,7 +71,10 @@ describe("tones", () => {
     expect(expiryTone("domain", -1)).toBe("danger");
     expect(expiryTone("tls", undefined)).toBe("");
     expect(renewalTone(-1)).toBe("danger");
-    expect(renewalTone(3)).toBe("warn");
+    expect(renewalTone(3)).toBe("danger");
+    expect(renewalTone(4)).toBe("warn");
+    expect(renewalTone(7)).toBe("warn");
+    expect(renewalTone(8)).toBe("");
     expect(renewalTone(30)).toBe("");
     expect(containerTone("running")).toBe("ok");
     expect(containerTone("restarting")).toBe("warn");
@@ -259,5 +268,100 @@ describe("docker", () => {
     const t = (key: string) => key;
     expect(cycleText({ count: 1, unit: "month" }, t)).toBe("Every month");
     expect(cycleText({ count: 3, unit: "month" }, t)).toBe("Every 3 Month(s)");
+  });
+});
+
+describe("spendView", () => {
+  const totals = [
+    { currency: "CNY", monthly: 100, yearly: 1200, count: 2 },
+    { currency: "USD", monthly: 10, yearly: 120, count: 1 },
+  ];
+  it("有换算结果时用换算结果", () => {
+    const v = spendView(
+      {
+        totals,
+        byCategory: [],
+        converted: [
+          { currency: "CNY", monthly: 172, yearly: 2064, count: 3 },
+          { currency: "USD", monthly: 24, yearly: 288, count: 3 },
+        ],
+        unconverted: [],
+      },
+      "USD",
+    );
+    expect(v).toEqual({
+      currency: "USD",
+      monthly: 24,
+      converted: true,
+      missing: [],
+    });
+  });
+  it("没有换算结果时退回同币种合计", () => {
+    const v = spendView({ totals, byCategory: [] }, "USD");
+    expect(v).toEqual({
+      currency: "USD",
+      monthly: 10,
+      converted: false,
+      missing: ["CNY"],
+    });
+  });
+  it("没有这个币种时用第一个", () => {
+    const v = spendView({ totals: [totals[1]], byCategory: [] }, "CNY");
+    expect(v?.currency).toBe("USD");
+  });
+  it("没有订阅时为空", () => {
+    expect(spendView({ totals: [], byCategory: [] }, "CNY")).toBeNull();
+  });
+});
+
+describe("网站和域名（B50）", () => {
+  it("只填域名时补 https", () => {
+    expect(normalizeSiteUrl("xcc.im")).toBe("https://xcc.im");
+    expect(normalizeSiteUrl(" http://a.com/x ")).toBe("http://a.com/x");
+    expect(normalizeSiteUrl("HTTPS://A.com")).toBe("HTTPS://A.com");
+  });
+  it("取主域名", () => {
+    expect(registrableDomain("https://www.xcc.im/a")).toBe("xcc.im");
+    expect(registrableDomain("blog.example.com.cn")).toBe("example.com.cn");
+    expect(registrableDomain("a.b.example.co.uk:8443")).toBe("example.co.uk");
+    expect(registrableDomain("xcc.im")).toBe("xcc.im");
+  });
+  it("顺带建的证书和域名，已有的跳过", () => {
+    expect(
+      companionMonitors("www.xcc.im:8443", [], { tls: true, domain: true }),
+    ).toEqual([
+      { kind: "tls", target: "www.xcc.im:8443" },
+      { kind: "domain", target: "xcc.im" },
+    ]);
+    expect(
+      companionMonitors(
+        "http://xcc.im",
+        [{ kind: "domain", target: "xcc.im" }],
+        {
+          tls: true,
+          domain: true,
+        },
+      ),
+    ).toEqual([]);
+  });
+  it("按主域名分组，快到期的在前", () => {
+    const m = (
+      id: number,
+      kind: Monitor["kind"],
+      target: string,
+      daysLeft?: number,
+    ) => ({ id, kind, target, daysLeft, enabled: true }) as Monitor;
+    const groups = groupByDomain([
+      m(1, "domain", "a.com", 300),
+      m(2, "tls", "www.a.com", 40),
+      m(3, "tls", "b.com", 5),
+      m(4, "http", "https://a.com"),
+    ]);
+    expect(
+      groups.map((g) => [g.domain, g.items.map((x) => x.id), g.daysLeft]),
+    ).toEqual([
+      ["b.com", [3], 5],
+      ["a.com", [2, 1], 40],
+    ]);
   });
 });

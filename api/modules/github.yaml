@@ -98,6 +98,10 @@ paths:
         - name: refresh
           in: query
           schema: { type: boolean }
+        - name: connectionId
+          in: query
+          description: B70。列哪个 Git 账号能访问的仓库（GitHub 或 Forgejo）。不传时用旧的 github.connection_id
+          schema: { type: integer, format: int64 }
       responses:
         "200":
           description: 仓库列表
@@ -116,6 +120,7 @@ paths:
           in: query
           schema: { type: string }
           description: 只看某个仓库，owner/name
+        - $ref: "#/components/parameters/ConnectionQuery"
       responses:
         "200":
           description: PR
@@ -135,6 +140,7 @@ paths:
         - name: repo
           in: query
           schema: { type: string }
+        - $ref: "#/components/parameters/ConnectionQuery"
         - $ref: "../common.yaml#/components/parameters/Limit"
       responses:
         "200":
@@ -151,6 +157,11 @@ paths:
       operationId: listGitHubIssues
       tags: [github]
       description: 关注仓库里分配给你或你创建的打开的 Issue。未配置时返回 412。
+      parameters:
+        - name: repo
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/ConnectionQuery"
       responses:
         "200":
           description: Issue
@@ -161,8 +172,223 @@ paths:
                 items: { $ref: "#/components/schemas/GitHubIssue" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /github/repos:
+    get:
+      operationId: listGitHubWatchedRepos
+      tags: [github]
+      description: |
+        B70。关注的仓库和它们的概况（从缓存出，不现查）。GitHub 和 Forgejo 的都在里面。
+        未配置时返回 412。
+      responses:
+        "200":
+          description: 关注的仓库
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WatchedRepo" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/commits:
+    get:
+      operationId: listGitHubCommits
+      tags: [github]
+      description: |
+        B70。默认分支最近的提交，新的在前。不传 repo 时是所有关注仓库的提交按时间混排。
+      parameters:
+        - name: repo
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/ConnectionQuery"
+        - $ref: "../common.yaml#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 提交
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GitHubCommit" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/runs/{runId}/jobs:
+    get:
+      operationId: listGitHubRunJobs
+      tags: [github]
+      description: |
+        B70。一条运行的 job 和步骤。现查，结果在内存里缓存 5 秒。
+        服务器不提供步骤详情时（老的 Forgejo）回 501。
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: repo
+          in: query
+          required: true
+          schema: { type: string }
+        - $ref: "#/components/parameters/ConnectionQuery"
+      responses:
+        "200":
+          description: job 和步骤
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GitHubJob" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /github/notify:
+    get:
+      operationId: getGitHubNotify
+      tags: [github]
+      description: B71。仓库事件通知的设置。没保存过时返回默认值
+      responses:
+        "200":
+          description: 通知设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitHubNotifySettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putGitHubNotify
+      tags: [github]
+      description: B71。整份替换。repos 里没有的仓库跟随 defaults
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitHubNotifySettings" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitHubNotifySettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
+  parameters:
+    ConnectionQuery:
+      name: connectionId
+      in: query
+      description: B70。哪个 Git 账号。和 repo 一起定位一个仓库（GitHub 和 Forgejo 上可能有同名仓库）
+      schema: { type: integer, format: int64 }
   schemas:
+    Forge:
+      type: string
+      enum: [github, forgejo]
+      description: B70。仓库在哪种服务上
+    RepoWatch:
+      type: object
+      required: [connectionId, repo]
+      properties:
+        connectionId: { type: integer, format: int64 }
+        repo: { type: string, description: owner/name }
+    WatchedRepo:
+      type: object
+      required: [connectionId, forge, repo, url, defaultBranch, private, openPulls, openIssues, notifyCustom, notifyOff]
+      properties:
+        connectionId: { type: integer, format: int64 }
+        connectionName: { type: string, description: Git 账号的名字 }
+        forge: { $ref: "#/components/schemas/Forge" }
+        repo: { type: string, description: owner/name }
+        url: { type: string, description: 网页地址 }
+        defaultBranch: { type: string }
+        private: { type: boolean }
+        description: { type: string }
+        openPulls: { type: integer }
+        openIssues: { type: integer }
+        pushedAt: { type: string, format: date-time }
+        ci:
+          type: object
+          description: 默认分支最新一条运行，没有运行时不返回
+          required: [status, conclusion]
+          properties:
+            status: { type: string }
+            conclusion: { type: string }
+            runId: { type: integer, format: int64 }
+            updatedAt: { type: string, format: date-time }
+        lastCommit:
+          type: object
+          required: [sha, message, author, at]
+          properties:
+            sha: { type: string }
+            message: { type: string, description: 第一行 }
+            author: { type: string }
+            at: { type: string, format: date-time }
+        notifyCustom: { type: boolean, description: B71。这个仓库单独设置过通知 }
+        notifyOff: { type: boolean, description: B71。单独设置成全部关闭 }
+        syncError: { type: string, description: 这个仓库最近一次同步的错误，比如没有权限 }
+    GitHubCommit:
+      type: object
+      required: [connectionId, forge, repo, sha, message, author, url, committedAt, checkState]
+      properties:
+        connectionId: { type: integer, format: int64 }
+        forge: { $ref: "#/components/schemas/Forge" }
+        repo: { type: string }
+        sha: { type: string, description: 完整的 40 位 }
+        message: { type: string, description: 完整的提交信息，前端只显示第一行 }
+        author: { type: string, description: 用户名，没有时是 git 里的名字 }
+        avatarUrl: { type: string }
+        url: { type: string }
+        committedAt: { type: string, format: date-time }
+        checkState: { $ref: "#/components/schemas/GitHubCheckState" }
+        runId: { type: integer, format: int64, description: 对上的那条运行，有时才返回 }
+    GitHubStep:
+      type: object
+      required: [number, name, status, conclusion]
+      properties:
+        number: { type: integer }
+        name: { type: string }
+        status: { type: string, description: "queued、in_progress、completed" }
+        conclusion: { type: string, description: "success、failure、skipped、cancelled，没结束时为空" }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+    GitHubJob:
+      type: object
+      required: [id, name, status, conclusion, url, steps]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        status: { type: string }
+        conclusion: { type: string }
+        url: { type: string }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/GitHubStep" }
+    RepoNotify:
+      type: object
+      required: [events, ciBranches]
+      properties:
+        events:
+          type: array
+          description: |
+            开着的事件：ci_started、ci_succeeded、ci_failed、ci_cancelled、ci_recovered、push、
+            pr_opened、pr_merged、pr_closed、pr_review、issue_opened、issue_assigned、release
+          items: { type: string }
+        ciBranches:
+          type: string
+          enum: [default, all]
+          description: CI 事件看哪些分支。default 只看默认分支
+    RepoNotifyOverride:
+      type: object
+      required: [connectionId, repo, notify]
+      properties:
+        connectionId: { type: integer, format: int64 }
+        repo: { type: string }
+        notify: { $ref: "#/components/schemas/RepoNotify" }
+    GitHubNotifySettings:
+      type: object
+      required: [defaults, repos]
+      properties:
+        defaults: { $ref: "#/components/schemas/RepoNotify" }
+        repos:
+          type: array
+          items: { $ref: "#/components/schemas/RepoNotifyOverride" }
     GitHubConfig:
       type: object
       required: [hasToken, token, repos, apiUrl]
@@ -175,17 +401,36 @@ components:
           description: 关注的仓库，owner/name
         apiUrl: { type: string, description: "REST API 地址，默认 https://api.github.com" }
         login: { type: string, description: 令牌对应的用户名，同步过才有 }
+        connectionId:
+          type: integer
+          format: int64
+          description: B62：GitHub 页面用哪个 Git 账号。B70 起改用 watches，这个字段只为兼容
+        watches:
+          type: array
+          description: B70。关注的仓库，每个带 Git 账号。旧数据由后端换算成这个
+          items: { $ref: "#/components/schemas/RepoWatch" }
     GitHubConfigInput:
       type: object
       required: [repos]
       properties:
-        token: { type: string, description: 留空表示保留原令牌 }
-        clearToken: { type: boolean }
+        token: { type: string, deprecated: true, description: B62 起不用，令牌填在 Git 账号里。留空表示保留原令牌 }
+        clearToken: { type: boolean, deprecated: true, description: B62 起不用 }
         repos:
           type: array
           maxItems: 50
+          deprecated: true
+          description: B70 起改传 watches
           items: { type: string }
-        apiUrl: { type: string, description: 留空表示用默认地址 }
+        apiUrl: { type: string, deprecated: true, description: B62 起不用。留空表示用默认地址 }
+        connectionId:
+          type: integer
+          format: int64
+          description: B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号。B70 起传 watches
+        watches:
+          type: array
+          maxItems: 100
+          description: B70。传了就以它为准，repos 和 connectionId 不再用
+          items: { $ref: "#/components/schemas/RepoWatch" }
     GitHubTestInput:
       type: object
       properties:
@@ -239,6 +484,8 @@ components:
       type: object
       required: [repo, number, title, author, url, headRef, baseRef, draft, state, reviewState, checkState, issueKeys, createdAt, updatedAt]
       properties:
+        connectionId: { type: integer, format: int64, description: B70。哪个 Git 账号 }
+        forge: { $ref: "#/components/schemas/Forge" }
         repo: { type: string }
         number: { type: integer }
         title: { type: string }
@@ -264,6 +511,8 @@ components:
       type: object
       required: [id, repo, name, branch, event, status, conclusion, url, defaultBranch, createdAt, updatedAt]
       properties:
+        connectionId: { type: integer, format: int64, description: B70。哪个 Git 账号 }
+        forge: { $ref: "#/components/schemas/Forge" }
         id: { type: integer, format: int64 }
         repo: { type: string }
         name: { type: string }
@@ -273,6 +522,10 @@ components:
         conclusion: { type: string, description: "success、failure、cancelled 等，没结束时为空" }
         url: { type: string }
         defaultBranch: { type: boolean, description: 是否在默认分支上 }
+        headSha: { type: string, description: B70。这条运行对应的提交 }
+        stepsDone: { type: integer, description: B70。进行中的运行做完了几步（所有 job 加起来） }
+        stepsTotal: { type: integer, description: B70。进行中的运行一共几步 }
+        currentStep: { type: string, description: B70。进行中的运行正在跑的步骤名 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     GitHubIssueRelation:
@@ -282,6 +535,8 @@ components:
       type: object
       required: [repo, number, title, url, author, assignees, labels, relation, createdAt, updatedAt]
       properties:
+        connectionId: { type: integer, format: int64, description: B70。哪个 Git 账号 }
+        forge: { $ref: "#/components/schemas/Forge" }
         repo: { type: string }
         number: { type: integer }
         title: { type: string }
