@@ -104,6 +104,9 @@ SELECT fetched_at FROM monitor_icons WHERE monitor_id = ?;
 -- name: GetMonitorIcon :one
 SELECT mime, data, fetched_at FROM monitor_icons WHERE monitor_id = ?;
 
+-- name: DeleteMonitorIcon :exec
+DELETE FROM monitor_icons WHERE monitor_id = ?;
+
 -- name: UpsertMonitorIcon :exec
 INSERT INTO monitor_icons (monitor_id, mime, data, fetched_at)
 VALUES (?, ?, ?, ?)

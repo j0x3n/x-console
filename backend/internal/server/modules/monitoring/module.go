@@ -54,8 +54,9 @@ type Module struct {
 	busyMu sync.Mutex
 	busy   map[int64]*sync.Mutex
 
-	iconMu   sync.Mutex
-	iconBusy map[int64]struct{}
+	iconMu     sync.Mutex
+	iconBusy   map[int64]struct{}
+	iconFailed map[int64]time.Time // last failed fetch, so a site without an icon is not asked on every check
 
 	whoisMu      sync.Mutex
 	whoisServers map[string]whoisCacheEntry
@@ -69,7 +70,7 @@ var (
 
 // New builds the module and registers its actions.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, busy: map[int64]*sync.Mutex{}, iconBusy: map[int64]struct{}{}, whoisServers: map[string]whoisCacheEntry{}}
+	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, busy: map[int64]*sync.Mutex{}, iconBusy: map[int64]struct{}{}, iconFailed: map[int64]time.Time{}, whoisServers: map[string]whoisCacheEntry{}}
 	module.Provide(d.Registry, selfKey, m)
 	module.Provide[contracts.Renewals](d.Registry, contracts.RenewalsKey, m)
 	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"monitoring", reminderSource{m})

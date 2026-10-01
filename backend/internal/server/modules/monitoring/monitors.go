@@ -386,6 +386,9 @@ func (m *Module) UpdateMonitor(w http.ResponseWriter, r *http.Request, id int64)
 		if err = m.q.ResetMonitorState(ctx, id); err == nil {
 			x, err = m.q.GetMonitor(ctx, id)
 		}
+		if err == nil && x.Kind == kindHTTP {
+			err = m.resetIcon(ctx, id, x.Target)
+		}
 	}
 	if err == nil && manualChanged {
 		if _, err = m.check(ctx, id, m.now()); err == nil {

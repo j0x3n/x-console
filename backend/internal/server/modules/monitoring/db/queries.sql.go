@@ -278,6 +278,15 @@ func (q *Queries) DeleteMonitor(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteMonitorIcon = `-- name: DeleteMonitorIcon :exec
+DELETE FROM monitor_icons WHERE monitor_id = ?
+`
+
+func (q *Queries) DeleteMonitorIcon(ctx context.Context, monitorID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteMonitorIcon, monitorID)
+	return err
+}
+
 const deleteMonitorResultsBefore = `-- name: DeleteMonitorResultsBefore :execrows
 DELETE FROM monitor_results WHERE at < ?
 `

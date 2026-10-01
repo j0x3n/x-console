@@ -318,3 +318,78 @@ func TestMonitorIcons(t *testing.T) {
 		t.Fatalf("icon row left: %d", left)
 	}
 }
+
+// A site without an icon is not asked again on every check, and a new
+// address drops the old icon and fetches the new one.
+func TestMonitorIconRetryAndTargetChange(t *testing.T) {
+	env, m := setup(t)
+	ctx := context.Background()
+	pngRed := tinyPNG(t, color.NRGBA{R: 255, A: 255})
+	var mu sync.Mutex
+	pages := 0
+	bare := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			mu.Lock()
+			pages++
+			mu.Unlock()
+			_, _ = w.Write([]byte(`<html></html>`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer bare.Close()
+	withIcon := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/favicon.ico" {
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(pngRed)
+			return
+		}
+		_, _ = w.Write([]byte(`<html></html>`))
+	}))
+	defer withIcon.Close()
+
+	var mon api.Monitor
+	env.MustDo(http.MethodPost, "/monitors", api.MonitorInput{Kind: "http", Name: "bare", Target: bare.URL}, &mon)
+	waitIcons(t, m)
+	now := time.Now().UTC()
+	for i := range 3 {
+		if _, err := m.CheckNow(ctx, mon.Id, now.Add(time.Duration(i)*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+		waitIcons(t, m)
+	}
+	mu.Lock()
+	got := pages
+	mu.Unlock()
+	// One page for the fetch after creating, then one per check.
+	if got != 1+3 {
+		t.Fatalf("pages after failed icon fetch: %d", got)
+	}
+	if _, err := m.CheckNow(ctx, mon.Id, now.Add(25*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	waitIcons(t, m)
+	mu.Lock()
+	got = pages
+	mu.Unlock()
+	if got != 1+3+2 {
+		t.Fatalf("pages after a day: %d", got)
+	}
+
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/monitors/%d", mon.Id), api.MonitorPatch{Target: &withIcon.URL}, &mon)
+	waitIcons(t, m)
+	env.MustDo(http.MethodGet, fmt.Sprintf("/monitors/%d", mon.Id), nil, &mon)
+	if mon.IconAt == nil {
+		t.Fatalf("icon after new address: %+v", mon)
+	}
+
+	var moved api.Monitor
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/monitors/%d", mon.Id), api.MonitorPatch{Target: &bare.URL}, &moved)
+	if moved.IconAt != nil {
+		t.Fatalf("old icon kept: %+v", moved)
+	}
+	waitIcons(t, m)
+	if status, _, _ := getIcon(t, env, env.Client, mon.Id); status != http.StatusNotFound {
+		t.Fatalf("icon of old address: %d", status)
+	}
+}

@@ -26,6 +26,8 @@ const (
 	iconMaxRedirects = 3
 	iconTimeout      = 5 * time.Second
 	iconFreshFor     = 7 * 24 * time.Hour
+	// A site without an icon is not asked again on every check.
+	iconRetryAfter = 24 * time.Hour
 )
 
 func (m *Module) markIconBusy(id int64) bool {
@@ -52,7 +54,15 @@ func (m *Module) scheduleIcon(id int64, target string) {
 		defer m.clearIconBusy(id)
 		ctx, cancel := context.WithTimeout(m.background(), 20*time.Second)
 		defer cancel()
-		if err := m.fetchIcon(ctx, id, target); err != nil {
+		err := m.fetchIcon(ctx, id, target)
+		m.iconMu.Lock()
+		if err != nil {
+			m.iconFailed[id] = m.now()
+		} else {
+			delete(m.iconFailed, id)
+		}
+		m.iconMu.Unlock()
+		if err != nil {
 			m.d.Log.Warn("monitor icon", "monitor", id, "err", err)
 		}
 	}()
@@ -66,7 +76,26 @@ func (m *Module) refreshIconIfStale(ctx context.Context, id int64, target string
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return
 	}
+	m.iconMu.Lock()
+	failed, ok := m.iconFailed[id]
+	m.iconMu.Unlock()
+	if ok && now.Sub(failed) < iconRetryAfter {
+		return
+	}
 	m.scheduleIcon(id, target)
+}
+
+// resetIcon drops the icon of a site whose address changed and fetches the
+// new one.
+func (m *Module) resetIcon(ctx context.Context, id int64, target string) error {
+	if err := m.q.DeleteMonitorIcon(ctx, id); err != nil {
+		return err
+	}
+	m.iconMu.Lock()
+	delete(m.iconFailed, id)
+	m.iconMu.Unlock()
+	m.scheduleIcon(id, target)
+	return nil
 }
 
 func (m *Module) fetchIcon(ctx context.Context, id int64, target string) error {
@@ -86,6 +115,10 @@ func (m *Module) fetchIcon(ctx context.Context, id int64, target string) error {
 	}
 	data, mime, err := m.downloadIcon(ctx, client, iconURL.String())
 	if err != nil {
+		return err
+	}
+	// The address may have changed while this fetch ran.
+	if x, err := m.q.GetMonitor(ctx, id); err != nil || x.Target != target {
 		return err
 	}
 	return m.q.UpsertMonitorIcon(ctx, db.UpsertMonitorIconParams{
