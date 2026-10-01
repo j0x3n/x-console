@@ -9,7 +9,29 @@ const (
 	GitConnectionsKey    = "aiagents.git"       // B47 aiagents provides, coding uses
 	AIAgentsKey          = "aiagents.agents"    // B47 aiagents provides, coding uses
 	GitHubCredentialsKey = "github.credentials" // M13 provides, B47 uses
+	GitAccountsKey       = "aiagents.accounts"  // B62 aiagents provides, github uses
 )
+
+// GitAccount is one Git connection as other modules see it (B62).
+type GitAccount struct {
+	ID       int64
+	Kind     string // github or forgejo
+	Name     string
+	Username string
+}
+
+// GitAccounts gives other modules the Git connections of B47, so a token is
+// entered once (B62). Provided by aiagents.
+type GitAccounts interface {
+	// Account returns a connection, or httpx.ErrNotFound.
+	Account(ctx context.Context, connectionID int64) (GitAccount, error)
+	// Credentials returns the API base and token of a connection.
+	Credentials(ctx context.Context, connectionID int64) (base, token string, err error)
+	// ImportGitHub turns the token of the old GitHub settings into a
+	// connection, and gives it to the connections that borrowed it. Returns
+	// the id of the new connection.
+	ImportGitHub(ctx context.Context, apiURL, token, login string) (int64, error)
+}
 
 // GitHubCredentials is provided by M13 so a B47 Git connection can reuse
 // the token already set up in the GitHub module.

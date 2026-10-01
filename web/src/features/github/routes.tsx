@@ -27,11 +27,11 @@ registerCommands([
   },
   {
     id: "github.settings",
-    title: "GitHub 设置",
+    title: "Git 与 GitHub 设置",
     group: "GitHub",
-    keywords: "github token repo",
+    keywords: "github git forgejo token repo account",
     icon: Settings,
-    run: ({ navigate }) => navigate("/settings/github"),
+    run: ({ navigate }) => navigate("/settings/git"),
   },
   {
     id: "linear.settings",

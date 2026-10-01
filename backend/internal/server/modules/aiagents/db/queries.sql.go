@@ -10,6 +10,16 @@ import (
 	"time"
 )
 
+const adoptModuleToken = `-- name: AdoptModuleToken :exec
+UPDATE git_connections SET token_enc = ?, use_github_module = 0 WHERE use_github_module = 1
+`
+
+// B62: connections that borrowed the GitHub module's token get their own copy.
+func (q *Queries) AdoptModuleToken(ctx context.Context, tokenEnc string) error {
+	_, err := q.db.ExecContext(ctx, adoptModuleToken, tokenEnc)
+	return err
+}
+
 const agentMonthCost = `-- name: AgentMonthCost :one
 SELECT CAST(coalesce(sum(u.cost), 0) AS REAL) AS cost FROM ai_usage u
 WHERE u.created_at >= ?1 AND (

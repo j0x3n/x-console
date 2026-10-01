@@ -51,13 +51,16 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import GitHubSettingsTab from "./GitHubSettingsTab";
+import { MemoryRouter } from "react-router";
+import GitSettingsTab from "./GitSettingsTab";
 
 function renderTab() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <GitHubSettingsTab />
+      <MemoryRouter>
+        <GitSettingsTab />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -67,7 +70,29 @@ const config = {
   token: "••••x9Qa",
   repos: ["j0x3n/x-console"],
   apiUrl: "https://api.github.com",
+  connectionId: 1,
 };
+
+const account = (id: number, kind: "github" | "forgejo", name: string) => ({
+  id,
+  kind,
+  name,
+  baseUrl:
+    kind === "github" ? "https://api.github.com" : "https://git.example.com",
+  username: "jo",
+  useGithubModule: false,
+  hasToken: true,
+  createdAt: "2026-10-01T00:00:00Z",
+  lastError: "",
+  webhookPath: `/hooks/git/${id}`,
+});
+
+function withAccounts() {
+  api.routes.set("GET /git-connections", () => ({
+    status: 200,
+    body: [account(1, "github", "GitHub"), account(2, "forgejo", "家里")],
+  }));
+}
 
 afterEach(() => {
   cleanup();
@@ -75,8 +100,39 @@ afterEach(() => {
   api.calls.length = 0;
 });
 
-describe("GitHub settings", () => {
+describe("Git 与 GitHub 设置（B62）", () => {
+  it("lists GitHub and Forgejo accounts and only offers GitHub ones to the page", async () => {
+    withAccounts();
+    api.routes.set("GET /github/config", () => ({ status: 200, body: config }));
+    api.routes.set("GET /github/available-repos", () => ({
+      status: 501,
+      body: { code: "not_live", message: "not live" },
+    }));
+    renderTab();
+    await screen.findByText("家里");
+    const select = (await screen.findByLabelText(
+      "用哪个 GitHub 账号",
+    )) as HTMLSelectElement;
+    const options = Array.from(select.options).map((o) => o.textContent);
+    expect(options).toEqual(["未选择", "GitHub · jo"]);
+    expect(select.value).toBe("1");
+  });
+
+  it("asks for a GitHub account when there is none", async () => {
+    api.routes.set("GET /git-connections", () => ({
+      status: 200,
+      body: [account(2, "forgejo", "家里")],
+    }));
+    api.routes.set("GET /github/config", () => ({
+      status: 200,
+      body: { ...config, hasToken: false, connectionId: undefined },
+    }));
+    renderTab();
+    await screen.findByText("先在上面添加一个 GitHub 账号。");
+  });
+
   it("falls back to typing repositories when the list is not live", async () => {
+    withAccounts();
     api.routes.set("GET /github/config", () => ({ status: 200, body: config }));
     api.routes.set("GET /github/available-repos", () => ({
       status: 501,
@@ -91,6 +147,7 @@ describe("GitHub settings", () => {
   });
 
   it("picks repositories from the token's list and saves them", async () => {
+    withAccounts();
     let saved: unknown = null;
     api.routes.set("GET /github/config", () => ({ status: 200, body: config }));
     api.routes.set("GET /github/available-repos", () => ({
@@ -127,6 +184,6 @@ describe("GitHub settings", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(saved).not.toBeNull());
-    expect(saved).toMatchObject({ repos: ["acme/api"] });
+    expect(saved).toMatchObject({ repos: ["acme/api"], connectionId: 1 });
   });
 });

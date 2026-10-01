@@ -138,7 +138,11 @@ paths:
                 name: { type: string, minLength: 1, maxLength: 60 }
                 baseUrl: { type: string, description: Forgejo 必填，比如 https://git.example.com；GitHub 不传用 https://api.github.com }
                 token: { type: string, description: 访问令牌，useGithubModule 为 true 时不传 }
-                useGithubModule: { type: boolean, description: 只对 GitHub，用 GitHub 模块已经填过的令牌 }
+                useGithubModule:
+                  type: boolean
+                  deprecated: true
+                  description: B62 起不用，下个版本删。令牌都填在 Git 账号里
+
       responses:
         "201":
           description: 新连接
@@ -312,7 +316,7 @@ components:
         name: { type: string }
         baseUrl: { type: string }
         username: { type: string }
-        useGithubModule: { type: boolean }
+        useGithubModule: { type: boolean, deprecated: true, description: B62 起不用，下个版本删 }
         hasToken: { type: boolean }
         createdAt: { type: string, format: date-time }
         lastCheckedAt: { type: string, format: date-time, nullable: true }

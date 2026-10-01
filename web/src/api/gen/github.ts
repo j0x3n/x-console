@@ -163,14 +163,34 @@ export interface components {
             apiUrl: string;
             /** @description 令牌对应的用户名，同步过才有 */
             login?: string;
+            /**
+             * Format: int64
+             * @description B62：GitHub 页面用哪个 Git 账号。有值时令牌和 API 地址都从这个账号取
+             */
+            connectionId?: number;
         };
         GitHubConfigInput: {
-            /** @description 留空表示保留原令牌 */
+            /**
+             * @deprecated
+             * @description B62 起不用，令牌填在 Git 账号里。留空表示保留原令牌
+             */
             token?: string;
+            /**
+             * @deprecated
+             * @description B62 起不用
+             */
             clearToken?: boolean;
             repos: string[];
-            /** @description 留空表示用默认地址 */
+            /**
+             * @deprecated
+             * @description B62 起不用。留空表示用默认地址
+             */
             apiUrl?: string;
+            /**
+             * Format: int64
+             * @description B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号
+             */
+            connectionId?: number;
         };
         GitHubTestInput: {
             /** @description 留空表示用已保存的令牌 */

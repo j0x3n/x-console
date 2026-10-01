@@ -153,7 +153,7 @@ const routes = [
   ["agents", "/coding"],
   ["coding", "/coding/tasks"],
   ids.agent && ["agent", `/coding/agents/${ids.agent}`],
-  ["coding-connections", "/coding/connections"],
+  ["settings-git", "/settings/git"],
   ["notes", "/notes"],
   ids.note && ["note", `/notes/${ids.note}`],
   ["reminders", "/reminders"],

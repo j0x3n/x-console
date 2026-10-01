@@ -1,6 +1,26 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 设置 → Git 与 GitHub（B62）
+  "Git & GitHub": "Git 与 GitHub",
+  "Git accounts": "Git 账号",
+  "Git account": "Git 账号",
+  "New Git account": "新建 Git 账号",
+  "Delete Git account": "删除 Git 账号",
+  "No Git accounts yet.": "还没有 Git 账号。",
+  "GitHub and Forgejo accounts. Agents clone and open pull requests with them, and the GitHub page syncs with one of them.":
+    "GitHub 和 Forgejo 的账号。Agent 用它们克隆和提 PR，GitHub 页面用其中一个同步。",
+  "GitHub page": "GitHub 页面",
+  "GitHub account": "用哪个 GitHub 账号",
+  "Not selected": "未选择",
+  "Add a GitHub account above first.": "先在上面添加一个 GitHub 账号。",
+  "Using the token from the old GitHub settings. Pick an account to switch.":
+    "现在用的是旧 GitHub 设置里的令牌。选一个账号就换过去。",
+  "Git accounts are managed in settings": "Git 账号在设置里管理",
+  "Add from a Git account": "从 Git 账号添加",
+  "Fine-grained token: read and write for Contents and Pull requests. The GitHub page also needs read access to Issues, Actions and Commit statuses.":
+    "用细粒度令牌：Contents 和 Pull requests 读写。GitHub 页面还要 Issues、Actions、Commit statuses 只读。",
+  Open: "打开",
   // 概要
   "API quota": "API 额度",
   "CI on default branch": "默认分支 CI",

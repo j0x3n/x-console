@@ -50,6 +50,7 @@ func New(d *module.Deps) (module.Module, error) {
 		now: func() time.Time { return time.Now().UTC() }, running: map[int64]int{}}
 	module.Provide[contracts.GitConnections](d.Registry, contracts.GitConnectionsKey, m)
 	module.Provide[contracts.AIAgents](d.Registry, contracts.AIAgentsKey, m)
+	module.Provide[contracts.GitAccounts](d.Registry, contracts.GitAccountsKey, m) // B62
 	return m, nil
 }
 

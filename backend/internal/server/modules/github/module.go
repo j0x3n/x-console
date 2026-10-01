@@ -32,6 +32,9 @@ const (
 	keyAPIURL   = "github.api_url"
 	keyLogin    = "github.login"
 	keyLastSync = "github.last_sync"
+	// B62: the Git account (aiagents connection) whose token this module uses.
+	keyConnectionID = "github.connection_id"
+	keyMigratedB62  = "github.migrated_b62"
 )
 
 const (
@@ -90,6 +93,9 @@ func (m *Module) Mount(r chi.Router) {
 
 // Start schedules the sync every minute.
 func (m *Module) Start(ctx context.Context) error {
+	if err := m.migrateB62(ctx); err != nil {
+		m.log.Warn("github: moving the token into a Git account failed", "err", err)
+	}
 	m.d.Scheduler.Every("github.sync", syncInterval, m.scheduledSync)
 	return nil
 }
@@ -125,12 +131,14 @@ func (m *Module) currentSyncInterval() time.Duration {
 	return syncInterval
 }
 
-// config is the stored setup.
+// config is the stored setup. With a Git account (B62) the token, API
+// address and login come from that account.
 type config struct {
-	Token  string
-	Repos  []string
-	APIURL string
-	Login  string
+	Token        string
+	Repos        []string
+	APIURL       string
+	Login        string
+	ConnectionID int64
 }
 
 func (c config) configured() bool { return c.Token != "" }
@@ -154,7 +162,62 @@ func (m *Module) loadConfig(ctx context.Context) (config, error) {
 	if c.Repos == nil {
 		c.Repos = []string{}
 	}
+	if err := get(keyConnectionID, &c.ConnectionID); err != nil {
+		return config{}, err
+	}
+	if c.ConnectionID != 0 {
+		m.fromAccount(ctx, &c)
+	}
 	return c, nil
+}
+
+// fromAccount fills the token, API address and login from the Git account.
+// A broken account (deleted, no token) leaves the module unconfigured
+// instead of failing every request.
+func (m *Module) fromAccount(ctx context.Context, c *config) {
+	c.Token, c.Login = "", ""
+	accounts, ok := module.Lookup[contracts.GitAccounts](m.d.Registry, contracts.GitAccountsKey)
+	if !ok {
+		return
+	}
+	base, token, err := accounts.Credentials(ctx, c.ConnectionID)
+	if err != nil {
+		m.log.Warn("github account", "connection", c.ConnectionID, "err", err)
+		return
+	}
+	c.APIURL, c.Token = base, token
+	if a, err := accounts.Account(ctx, c.ConnectionID); err == nil {
+		c.Login = a.Username
+	}
+}
+
+// migrateB62 turns the token of the old GitHub settings into a Git account
+// once (B62). The old setting stays until the next version.
+func (m *Module) migrateB62(ctx context.Context) error {
+	var done bool
+	if err := m.d.Settings.Get(ctx, keyMigratedB62, &done); err == nil && done {
+		return nil
+	} else if err != nil && !errors.Is(err, settings.ErrNotSet) {
+		return err
+	}
+	accounts, ok := module.Lookup[contracts.GitAccounts](m.d.Registry, contracts.GitAccountsKey)
+	if !ok {
+		return nil // no aiagents module: keep using the old token
+	}
+	cfg, err := m.loadConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if cfg.ConnectionID == 0 && cfg.Token != "" {
+		id, err := accounts.ImportGitHub(ctx, cfg.APIURL, cfg.Token, cfg.Login)
+		if err != nil {
+			return err
+		}
+		if err := m.d.Settings.Set(ctx, keyConnectionID, id); err != nil {
+			return err
+		}
+	}
+	return m.d.Settings.Set(ctx, keyMigratedB62, true)
 }
 
 // requireConfigured returns ErrIntegrationMissing when no token is stored.

@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github/db"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
@@ -22,6 +24,9 @@ func configToAPI(cfg config) api.GitHubConfig {
 	out := api.GitHubConfig{HasToken: cfg.Token != "", Token: maskToken(cfg.Token), Repos: cfg.Repos, ApiUrl: cfg.APIURL}
 	if cfg.Login != "" && cfg.Token != "" {
 		out.Login = &cfg.Login
+	}
+	if cfg.ConnectionID != 0 {
+		out.ConnectionId = &cfg.ConnectionID
 	}
 	return out
 }
@@ -82,6 +87,23 @@ func (m *Module) saveConfig(ctx context.Context, in api.GitHubConfigInput) (conf
 	repos, err := normalizeRepos(in.Repos)
 	if err != nil {
 		return config{}, err
+	}
+	if in.ConnectionId != nil && *in.ConnectionId != old.ConnectionID {
+		if err := m.setConnection(ctx, *in.ConnectionId); err != nil {
+			return config{}, err
+		}
+		if err := m.d.Settings.Delete(ctx, keyLogin); err != nil {
+			return config{}, err
+		}
+		m.etag.clear()
+		old.ConnectionID = *in.ConnectionId
+	}
+	if old.ConnectionID != 0 {
+		// The token belongs to the Git account; only the repos are ours.
+		if err := m.d.Settings.Set(ctx, keyRepos, repos); err != nil {
+			return config{}, err
+		}
+		return m.loadConfig(ctx)
 	}
 	if token == "" {
 		if err := m.d.Settings.Delete(ctx, keyToken); err != nil {
@@ -344,4 +366,27 @@ func (m *Module) ListGitHubIssues(w http.ResponseWriter, r *http.Request) {
 		out[i] = item
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+// setConnection picks the Git account the module uses (B62). 0 goes back to
+// the old token setting.
+func (m *Module) setConnection(ctx context.Context, id int64) error {
+	if id == 0 {
+		return m.d.Settings.Delete(ctx, keyConnectionID)
+	}
+	accounts, ok := module.Lookup[contracts.GitAccounts](m.d.Registry, contracts.GitAccountsKey)
+	if !ok {
+		return httpx.NewError(http.StatusNotImplemented, "feature_unavailable", "Git 账号功能没有启用")
+	}
+	a, err := accounts.Account(ctx, id)
+	if errors.Is(err, httpx.ErrNotFound) {
+		return httpx.Invalid("没有这个 Git 账号")
+	}
+	if err != nil {
+		return err
+	}
+	if a.Kind != "github" {
+		return httpx.Invalid("GitHub 页面只能用 GitHub 账号")
+	}
+	return m.d.Settings.Set(ctx, keyConnectionID, id)
 }

@@ -15,6 +15,8 @@ export default function SettingsPage() {
       ?.querySelector(".active")
       ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [tab]);
+  // B62：GitHub 设置并进了 Git 与 GitHub，旧地址跳过去
+  if (tab === "github") return <Navigate to="/settings/git" replace />;
   if (!current)
     return <Navigate to={`/settings/${settingsTabs[0].id}`} replace />;
   const Component = current.component;

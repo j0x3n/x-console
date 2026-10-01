@@ -358,7 +358,7 @@ export default function ReposPage() {
         </section>
         <section className="xc-card">
           <div className="xc-card-head">
-            <h2>{t("Add from a Git connection")}</h2>
+            <h2>{t("Add from a Git account")}</h2>
           </div>
           <RemoteRepoAdd />
         </section>

@@ -274,3 +274,33 @@
   padding: 10px 8px;
   font-size: var(--fs-13);
 }
+
+/* 设置 → Git 与 GitHub 的账号列表（B62） */
+.git-account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  min-height: 44px;
+}
+.git-account-row:hover {
+  background: var(--xc-surface-2);
+}
+.git-account-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.git-account-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-account-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}

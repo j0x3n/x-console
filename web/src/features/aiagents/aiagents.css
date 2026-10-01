@@ -260,3 +260,9 @@
     grid-column: 1 / -1;
   }
 }
+
+/* 页签最后的“Git 账号在设置里管理”（B62）：靠右，字小一号 */
+.xc-tabs .aiagent-tabs-link {
+  margin-left: auto;
+  font-size: var(--fs-12);
+}

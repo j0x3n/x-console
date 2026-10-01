@@ -226,6 +226,10 @@ export interface components {
             name: string;
             baseUrl: string;
             username: string;
+            /**
+             * @deprecated
+             * @description B62 起不用，下个版本删
+             */
             useGithubModule: boolean;
             hasToken: boolean;
             /** Format: date-time */
@@ -475,7 +479,10 @@ export interface operations {
                     baseUrl?: string;
                     /** @description 访问令牌，useGithubModule 为 true 时不传 */
                     token?: string;
-                    /** @description 只对 GitHub，用 GitHub 模块已经填过的令牌 */
+                    /**
+                     * @deprecated
+                     * @description B62 起不用，下个版本删。令牌都填在 Git 账号里
+                     */
                     useGithubModule?: boolean;
                 };
             };

@@ -33,8 +33,8 @@ export default function RemoteRepoAdd() {
   if (!conns.data.length)
     return (
       <p className="xc-muted">
-        {t("No Git connections yet.")}{" "}
-        <Link to="/coding/connections">{t("Add one")}</Link>
+        {t("No Git accounts yet.")}{" "}
+        <Link to="/settings/git">{t("Add one")}</Link>
       </p>
     );
   const registered = (full: string) =>
@@ -46,7 +46,7 @@ export default function RemoteRepoAdd() {
       <div className="coding-remote-bar">
         <select
           className="xc-select"
-          aria-label={t("Git connection")}
+          aria-label={t("Git account")}
           value={conn}
           onChange={(e) => setConnId(Number(e.target.value))}
         >

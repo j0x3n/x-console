@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import type { RouteObject } from "react-router";
+import { Navigate, type RouteObject } from "react-router";
 import { Bot, FolderGit2 } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { registerNavChildren } from "../../lib/navChildren";
@@ -12,7 +12,6 @@ const CodingPage = lazy(() => import("./CodingPage"));
 // B47：/coding 是 Agent 管理，任务列表在 /coding/tasks。
 const AgentsPage = lazy(() => import("../aiagents/AgentsPage"));
 const AgentDetailPage = lazy(() => import("../aiagents/AgentDetailPage"));
-const ConnectionsPage = lazy(() => import("../aiagents/ConnectionsPage"));
 const ReposPage = lazy(() => import("./ReposPage"));
 const TaskPage = lazy(() => import("./TaskPage"));
 
@@ -57,8 +56,9 @@ export const routes: RouteObject[] = [
     handle: { title: "Agents" },
   },
   {
+    // B62：Git 连接挪到设置 → Git 与 GitHub
     path: "coding/connections",
-    element: <ConnectionsPage />,
+    element: <Navigate to="/settings/git" replace />,
     handle: { title: "Agents" },
   },
   {

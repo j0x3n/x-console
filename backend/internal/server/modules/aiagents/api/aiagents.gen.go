@@ -152,17 +152,20 @@ type CliPermission string
 
 // GitConnection defines model for GitConnection.
 type GitConnection struct {
-	BaseUrl         string            `json:"baseUrl"`
-	CreatedAt       time.Time         `json:"createdAt"`
-	HasToken        bool              `json:"hasToken"`
-	Id              int64             `json:"id"`
-	Kind            GitConnectionKind `json:"kind"`
-	LastCheckedAt   *time.Time        `json:"lastCheckedAt,omitempty"`
-	LastError       string            `json:"lastError"`
-	Name            string            `json:"name"`
-	UseGithubModule bool              `json:"useGithubModule"`
-	Username        string            `json:"username"`
-	WebhookPath     string            `json:"webhookPath"`
+	BaseUrl       string            `json:"baseUrl"`
+	CreatedAt     time.Time         `json:"createdAt"`
+	HasToken      bool              `json:"hasToken"`
+	Id            int64             `json:"id"`
+	Kind          GitConnectionKind `json:"kind"`
+	LastCheckedAt *time.Time        `json:"lastCheckedAt,omitempty"`
+	LastError     string            `json:"lastError"`
+	Name          string            `json:"name"`
+
+	// UseGithubModule B62 起不用，下个版本删
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	UseGithubModule bool   `json:"useGithubModule"`
+	Username        string `json:"username"`
+	WebhookPath     string `json:"webhookPath"`
 }
 
 // GitConnectionKind defines model for GitConnectionKind.
@@ -206,7 +209,8 @@ type CreateGitConnectionJSONBody struct {
 	// Token 访问令牌，useGithubModule 为 true 时不传
 	Token *string `json:"token,omitempty"`
 
-	// UseGithubModule 只对 GitHub，用 GitHub 模块已经填过的令牌
+	// UseGithubModule B62 起不用，下个版本删。令牌都填在 Git 账号里
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	UseGithubModule *bool `json:"useGithubModule,omitempty"`
 }
 

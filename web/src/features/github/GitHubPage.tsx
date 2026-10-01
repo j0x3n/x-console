@@ -72,7 +72,7 @@ export default function GitHubPage() {
         {status.data.repoCount === 0 && (
           <div className="xc-card github-notice" role="status">
             <span>还没有关注的仓库。在设置里加上 owner/name 形式的仓库。</span>
-            <Link className="xc-btn small" to="/settings/github">
+            <Link className="xc-btn small" to="/settings/git">
               {t("Settings")}
             </Link>
           </div>
@@ -217,7 +217,7 @@ function SetupGuide() {
       <span>
         填一个 GitHub 令牌和要关注的仓库，就能在这里看 PR、CI 和 Issue。
       </span>
-      <Link className="xc-btn small primary" to="/settings/github">
+      <Link className="xc-btn small primary" to="/settings/git">
         <Settings size={14} /> {t("Go to settings")}
       </Link>
     </EmptyState>

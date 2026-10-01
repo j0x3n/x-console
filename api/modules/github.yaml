@@ -175,17 +175,25 @@ components:
           description: 关注的仓库，owner/name
         apiUrl: { type: string, description: "REST API 地址，默认 https://api.github.com" }
         login: { type: string, description: 令牌对应的用户名，同步过才有 }
+        connectionId:
+          type: integer
+          format: int64
+          description: B62：GitHub 页面用哪个 Git 账号。有值时令牌和 API 地址都从这个账号取
     GitHubConfigInput:
       type: object
       required: [repos]
       properties:
-        token: { type: string, description: 留空表示保留原令牌 }
-        clearToken: { type: boolean }
+        token: { type: string, deprecated: true, description: B62 起不用，令牌填在 Git 账号里。留空表示保留原令牌 }
+        clearToken: { type: boolean, deprecated: true, description: B62 起不用 }
         repos:
           type: array
           maxItems: 50
           items: { type: string }
-        apiUrl: { type: string, description: 留空表示用默认地址 }
+        apiUrl: { type: string, deprecated: true, description: B62 起不用。留空表示用默认地址 }
+        connectionId:
+          type: integer
+          format: int64
+          description: B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号
     GitHubTestInput:
       type: object
       properties:

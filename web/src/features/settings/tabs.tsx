@@ -4,7 +4,7 @@ import AuditTab from "./AuditTab";
 import SecurityTab from "./SecurityTab";
 import NotificationsTab from "../reminders/NotificationsTab";
 import HASettingsTab from "../home/HASettingsTab";
-import GitHubSettingsTab from "../github/GitHubSettingsTab";
+import GitSettingsTab from "../github/GitSettingsTab";
 import LinearSettingsTab from "../github/LinearSettingsTab";
 import BriefSettingsTab from "../calendar/BriefSettingsTab";
 import StorageTab from "../storage/StorageTab";
@@ -29,7 +29,7 @@ export const settingsTabs: SettingsTab[] = [
   { id: "audit", label: "Audit log", component: AuditTab },
   { id: "notifications", label: "Notifications", component: NotificationsTab },
   { id: "homeassistant", label: "Home Assistant", component: HASettingsTab },
-  { id: "github", label: "GitHub", component: GitHubSettingsTab },
+  { id: "git", label: "Git & GitHub", component: GitSettingsTab },
   { id: "linear", label: "Linear", component: LinearSettingsTab },
   { id: "brief", label: "Daily brief", component: BriefSettingsTab },
   { id: "storage", label: "Storage", component: StorageTab },

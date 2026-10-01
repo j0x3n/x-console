@@ -70,3 +70,7 @@ UPDATE coding_repos SET connection_id = NULL WHERE connection_id = ?;
 
 -- name: TasksByPR :many
 SELECT id, issue_key, ai_agent_id FROM coding_tasks WHERE pr_url = ? AND pr_url != '';
+
+-- name: AdoptModuleToken :exec
+-- B62: connections that borrowed the GitHub module's token get their own copy.
+UPDATE git_connections SET token_enc = ?, use_github_module = 0 WHERE use_github_module = 1;

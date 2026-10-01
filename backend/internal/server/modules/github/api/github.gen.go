@@ -127,8 +127,11 @@ type GitHubCheckState string
 // GitHubConfig defines model for GitHubConfig.
 type GitHubConfig struct {
 	// ApiUrl REST API 地址，默认 https://api.github.com
-	ApiUrl   string `json:"apiUrl"`
-	HasToken bool   `json:"hasToken"`
+	ApiUrl string `json:"apiUrl"`
+
+	// ConnectionId B62：GitHub 页面用哪个 Git 账号。有值时令牌和 API 地址都从这个账号取
+	ConnectionId *int64 `json:"connectionId,omitempty"`
+	HasToken     bool   `json:"hasToken"`
 
 	// Login 令牌对应的用户名，同步过才有
 	Login *string `json:"login,omitempty"`
@@ -142,12 +145,20 @@ type GitHubConfig struct {
 
 // GitHubConfigInput defines model for GitHubConfigInput.
 type GitHubConfigInput struct {
-	// ApiUrl 留空表示用默认地址
-	ApiUrl     *string  `json:"apiUrl,omitempty"`
-	ClearToken *bool    `json:"clearToken,omitempty"`
-	Repos      []string `json:"repos"`
+	// ApiUrl B62 起不用。留空表示用默认地址
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	ApiUrl *string `json:"apiUrl,omitempty"`
 
-	// Token 留空表示保留原令牌
+	// ClearToken B62 起不用
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	ClearToken *bool `json:"clearToken,omitempty"`
+
+	// ConnectionId B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号
+	ConnectionId *int64   `json:"connectionId,omitempty"`
+	Repos        []string `json:"repos"`
+
+	// Token B62 起不用，令牌填在 Git 账号里。留空表示保留原令牌
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Token *string `json:"token,omitempty"`
 }
 

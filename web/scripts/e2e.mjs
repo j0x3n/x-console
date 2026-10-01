@@ -950,7 +950,7 @@ try {
     `/projects/EET/${issueKey.split("-")[1]}`,
     "/coding",
     "/coding/tasks",
-    "/coding/connections",
+    "/settings/git",
     "/coding/repos",
     "/coding/999999",
     "/notes",
