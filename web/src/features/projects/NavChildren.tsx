@@ -3,14 +3,14 @@ import NavChildLinks, {
   type NavChildLink,
 } from "../../components/layout/NavChildLinks";
 import { NAV_CHILD_LIMIT, type NavChildrenProps } from "../../lib/navChildren";
-import { useProjects, useStarredBoards } from "./api";
+import { useBoards, useProjects, useStarredBoards } from "./api";
 
 /** 标星的看板最多显示几条。 */
 const STARRED_LIMIT = 8;
 
 /**
  * 侧边栏“项目”下面：最近更新的项目。
- * 标星的看板（B46）缩进列在它的项目下面。
+ * 正在看的项目下面缩进列出它的全部看板，方便切换；其他项目只列标星的看板（B46）。
  */
 export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
   const projects = useProjects();
@@ -25,6 +25,10 @@ export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
     ?.toUpperCase();
   const currentBoard = search.get("board");
   const stars = (starred.data ?? []).slice(0, STARRED_LIMIT);
+  const activeId = projects.data?.find((p) => p.key === activeKey)?.id;
+  const activeBoards = (useBoards(activeId).data ?? []).filter(
+    (b) => !b.archivedAt,
+  );
 
   const links: NavChildLink[] = [];
   for (const p of list) {
@@ -41,7 +45,11 @@ export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
       hint: p.key,
       active: p.key === activeKey && currentBoard === null,
     });
-    for (const b of stars.filter((s) => s.projectId === p.id))
+    const nested =
+      p.id === activeId && activeBoards.length > 1
+        ? activeBoards
+        : stars.filter((s) => s.projectId === p.id);
+    for (const b of nested)
       links.push({
         key: `b${b.id}`,
         to: `/projects/${p.key}?board=${b.id}`,

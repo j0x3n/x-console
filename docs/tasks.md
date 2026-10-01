@@ -63,6 +63,10 @@
 | B58 | 和风天气：分钟降水、天气预警、空气质量、生活指数、天文、历史对比，地震速报 | [B58](specs/B58.md) | Claude（前端） |
 | B53 | 邮件：IMAP 收 Gmail 和阿里企业邮箱，新邮件实时通知 | [B53](specs/B53.md) | Claude（前端） |
 | B59 | 今日页加预警、邮件、监控、Agent 任务卡片 | [B59](specs/B59.md) | Claude（前端） |
+| B60 | AI 操作机器必须经过绑定了这台机器的 Agent；AI 浮窗加权限档、模型和思考程度 | 待写 | Claude（前端） |
+| B61 | AI 记忆：面板 AI 可读写，Agent 只读，远程 AI（MCP）不给 | 待写 | Claude（前端） |
+| B62 | Git 账号统一：设置里一个“Git 与 GitHub”，Agent 的 Git 连接和 GitHub 模块共用 | 待写 | Claude（前端） |
+| B63 | 备份到网盘：WebDAV 和 Google Drive（不做 OneDrive） | 待写 | Claude（前端） |
 
 ### 任务说明
 

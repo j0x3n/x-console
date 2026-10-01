@@ -15,6 +15,8 @@ export interface NavChildLink {
   active?: boolean;
   /** 缩进一级，比如项目下面的分类。 */
   nested?: boolean;
+  /** 行尾的小按钮，比如习惯的“+1”。点它不会跳转 */
+  action?: ReactNode;
 }
 
 /**
@@ -50,22 +52,32 @@ export default function NavChildLinks({
     return <div className="nav-children-note">{empty}</div>;
   return (
     <>
-      {links.slice(0, limit).map((l) => (
-        <NavLink
-          key={l.key}
-          to={l.to}
-          end
-          onClick={onNavigate}
-          className={({ isActive }) =>
-            `nav-child${l.nested ? " nested" : ""}${(l.active ?? isActive) ? " selected" : ""}`
-          }
-          title={l.label}
-        >
-          {l.mark}
-          <span>{l.label}</span>
-          {l.hint && <small>{l.hint}</small>}
-        </NavLink>
-      ))}
+      {links.slice(0, limit).map((l) => {
+        const link = (
+          <NavLink
+            key={l.key}
+            to={l.to}
+            end
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              `nav-child${l.nested ? " nested" : ""}${(l.active ?? isActive) ? " selected" : ""}`
+            }
+            title={l.label}
+          >
+            {l.mark}
+            <span>{l.label}</span>
+            {l.hint && <small>{l.hint}</small>}
+          </NavLink>
+        );
+        return l.action ? (
+          <div key={l.key} className="nav-child-row">
+            {link}
+            {l.action}
+          </div>
+        ) : (
+          link
+        );
+      })}
       {count > NAV_CHILD_LIMIT && (
         <NavLink to={allTo} end onClick={onNavigate} className="nav-child more">
           <span>

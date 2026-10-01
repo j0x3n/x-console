@@ -2,8 +2,13 @@ import { lazy } from "react";
 import type { RouteObject } from "react-router";
 import { Dumbbell, HeartPulse, Plus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
+import { registerNavChildren } from "../../lib/navChildren";
+import HabitsNavChildren from "./NavChildren";
 import "./i18n";
 import "./habits.css";
+
+// 侧边栏“/habits”的二级菜单：今天（带每个习惯）和健身
+registerNavChildren("/habits", HabitsNavChildren);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const HabitsPage = lazy(() => import("./HabitsPage"));

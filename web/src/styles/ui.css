@@ -1014,6 +1014,36 @@ a.xc-badge:hover {
   flex: none;
   color: var(--xc-faint);
 }
+/* 带小按钮的一行（习惯的 +1） */
+.nav-child-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.nav-child-row > .nav-child {
+  flex: 1;
+}
+.nav-child-action {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-faint);
+  cursor: pointer;
+}
+.nav-child-action:hover {
+  background: var(--xc-surface-2);
+  color: var(--xc-accent-text);
+}
+.nav-child-action:disabled {
+  opacity: 0.5;
+}
 .nav-children-note {
   padding: 4px 7px;
   color: var(--xc-faint);
