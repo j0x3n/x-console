@@ -17,6 +17,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/homeassistant"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/linear"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/mcp"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects"
@@ -48,6 +49,7 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	github.New,        // M13
 	linear.New,        // M13
 	vault.New,
+	mcp.New,     // B43
 	drive.New,   // M14
 	storage.New, // B24
 	backup.New,  // B25

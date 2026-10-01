@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -123,4 +124,62 @@ func (r *Registry) Run(ctx context.Context, name string, input json.RawMessage) 
 		input = json.RawMessage("{}")
 	}
 	return a.Run(ctx, input)
+}
+
+// Deletes reports whether an action removes data: marked Destructive, or
+// named "*.delete" (the assistant confirms these too).
+func Deletes(a Action) bool {
+	return a.Destructive || strings.HasSuffix(a.Name, ".delete")
+}
+
+// Module is the part of an action name before the first dot, for example
+// "notes" for notes.create.
+func Module(name string) string {
+	if i := strings.IndexByte(name, '.'); i > 0 {
+		return name[:i]
+	}
+	return name
+}
+
+// Access levels of callers outside the web app: API tokens (B43) and
+// built-in agents (B47).
+const (
+	AccessRead        = "read"
+	AccessWrite       = "write"
+	AccessWriteDelete = "write_delete"
+)
+
+// AllowedFor reports whether an outside caller with this access level and
+// module list (empty means all) may see and run the action. Dangerous
+// actions are never allowed.
+func AllowedFor(a Action, access string, modules []string) bool {
+	if a.Effect == Dangerous || a.AliasOf != "" {
+		return false
+	}
+	switch access {
+	case AccessRead:
+		if a.Effect != Read {
+			return false
+		}
+	case AccessWrite:
+		if a.Effect != Read && a.Effect != Write || Deletes(a) {
+			return false
+		}
+	case AccessWriteDelete:
+		if a.Effect != Read && a.Effect != Write {
+			return false
+		}
+	default:
+		return false
+	}
+	if len(modules) == 0 {
+		return true
+	}
+	m := Module(a.Name)
+	for _, allowed := range modules {
+		if allowed == m {
+			return true
+		}
+	}
+	return false
 }

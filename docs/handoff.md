@@ -24,12 +24,13 @@ B41 → B45 → B44 → B42 → B48 → B46 → B43 → B47（原因见 `docs/ta
 | B42 | 完成 | 设置 → AI 用量；后端 `modules/ai/usage.go` |
 | B48 | 完成 | 设置 → 安全；`auth.RequireStrictElevated` 给 B43、B47 用 |
 | B46 | 完成 | 没做完的几项记在 `docs/tasks.md`“已知问题”里 |
-| B43 | 未开始 | |
+| B43 | 后端完成，前端进行中 | 后端：迁移 `m0_b43_api_tokens`、`auth/tokens.go`、`actions.AllowedFor`、新模块 `modules/mcp`（令牌接口和 `POST /api/v1/mcp`）。前端要做：设置里的“远程访问”页签 |
 | B47 | 未开始 | |
 
 ## 当前
 
-B43 API 令牌和 MCP：开始。先做令牌（表、认证中间件、设置页），再做 `/api/v1/mcp`。
+B43：后端已提交。注意：认证中间件只在 `/api/v1/mcp` 上看 `Authorization: Bearer`，别的路径不能看，代理连 `/agent/connect` 也用 Bearer（第一次写错过，全量测试里代理全连不上）。
+下一步：前端设置页“远程访问”：令牌列表、新建（权限、模块、有效期，建好后只显示一次）、吊销、接入说明（Claude Code、Codex、Cursor）、最近调用。
 B45 等用户说“部署”后带部署标记推送，用户真机测试。
 
 ## 接手时注意

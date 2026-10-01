@@ -24,12 +24,12 @@ type issueFilter struct {
 	CategoryID  *int64
 	BoardID     *int64
 	// Archived includes archived cards (B46). They are left out by default.
-	Archived    bool
-	Due         string // today, week, overdue
-	Q           string
-	Sort        string // updated, priority, due, manual
-	Limit       int
-	Offset      int
+	Archived bool
+	Due      string // today, week, overdue
+	Q        string
+	Sort     string // updated, priority, due, manual
+	Limit    int
+	Offset   int
 }
 
 const issueColumns = `i.id, i.project_id, i.number, i.title, i.description, i.status, i.priority, i.due_date,

@@ -47,6 +47,8 @@ type Session struct {
 	ElevationMode string
 	// ViaToken is set for API token requests (B43); they are never elevated.
 	ViaToken bool
+	// Token describes the API token of a ViaToken session.
+	Token *TokenInfo
 }
 
 // Elevation modes (B48): how long one verification lasts.
@@ -153,6 +155,8 @@ type Service struct {
 	secure     bool
 	fails      *limiter
 	vaultFails *limiter
+	tokenFails *limiter // bad API tokens per IP
+	tokenRate  *limiter // calls per API token
 	now        func() time.Time
 
 	modeMu     sync.Mutex
@@ -202,6 +206,7 @@ func (s *Service) SetElevationMode(ctx context.Context, mode string) error {
 func NewService(conn *sql.DB, box *secrets.Box, log *audit.Log, secureCookies bool) *Service {
 	return &Service{conn: conn, q: db.New(conn), settings: settings.New(conn, box), box: box, audit: log, secure: secureCookies,
 		fails: newLimiter(loginFailLimit, 15*time.Minute), vaultFails: newLimiter(loginFailLimit, 15*time.Minute),
+		tokenFails: newLimiter(10, 15*time.Minute), tokenRate: newLimiter(tokenCallsPerMinute, time.Minute),
 		now: func() time.Time { return time.Now().UTC() }}
 }
 
@@ -392,6 +397,26 @@ func (s *Service) Authenticate(r *http.Request) (*Session, error) {
 func (s *Service) Middleware(public func(path string) bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// B43: the MCP endpoint takes only API tokens. It skips the cookie
+			// session and the CSRF check (there is no cookie). Other paths
+			// ignore the Authorization header as before: agents send their
+			// own bearer token to /agent/connect, and an API token used
+			// anywhere else gets no session, so it is refused below.
+			if r.URL.Path == TokenPath {
+				secret := bearer(r)
+				if secret == "" {
+					w.Header().Set("WWW-Authenticate", `Bearer realm="x-console"`)
+					httpx.Fail(w, r, httpx.NewError(http.StatusUnauthorized, "token_required", "需要 API 令牌：Authorization: Bearer xc_…"))
+					return
+				}
+				sess, err := s.authenticateToken(r, secret)
+				if err != nil {
+					httpx.Fail(w, r, err)
+					return
+				}
+				next.ServeHTTP(w, r.WithContext(WithSession(r.Context(), sess)))
+				return
+			}
 			sess, err := s.Authenticate(r)
 			if err != nil {
 				httpx.Fail(w, r, err)

@@ -140,3 +140,23 @@ DELETE FROM notifications WHERE id = ?;
 
 -- name: DeleteAllUsers :exec
 DELETE FROM users;
+
+-- name: CreateAPIToken :one
+INSERT INTO api_tokens (name, prefix, token_hash, access, modules, expires_at, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *;
+
+-- name: GetAPITokenByHash :one
+SELECT * FROM api_tokens WHERE token_hash = ?;
+
+-- name: ListAPITokens :many
+SELECT * FROM api_tokens ORDER BY revoked_at IS NOT NULL, id DESC;
+
+-- name: RevokeAPIToken :execrows
+UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL;
+
+-- name: TouchAPIToken :exec
+UPDATE api_tokens SET last_used_at = ?, last_used_ip = ? WHERE id = ?;
+
+-- name: ListAuditByActorPrefix :many
+SELECT * FROM audit_log WHERE actor LIKE sqlc.arg(prefix) || '%' AND action LIKE sqlc.arg(action_prefix) || '%'
+ORDER BY id DESC LIMIT ?;

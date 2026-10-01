@@ -38,3 +38,36 @@ func TestRegisterRunList(t *testing.T) {
 	}()
 	r.Register(Action{Name: "a.noop", Input: Schema(`{}`), Effect: Read, Run: func(context.Context, json.RawMessage) (any, error) { return nil, nil }})
 }
+
+// B43/B47：外部调用方（API 令牌、内置 Agent）能用哪些动作。
+func TestAllowedFor(t *testing.T) {
+	run := func(context.Context, json.RawMessage) (any, error) { return nil, nil }
+	schema := Schema(`{}`)
+	read := Action{Name: "notes.search", Effect: Read, Input: schema, Run: run}
+	write := Action{Name: "notes.create", Effect: Write, Input: schema, Run: run}
+	del := Action{Name: "notes.delete", Effect: Write, Input: schema, Run: run}
+	danger := Action{Name: "hosts.exec", Effect: Dangerous, Input: schema, Run: run}
+	alias := Action{Name: "issues.list", Effect: Read, Input: schema, Run: run, AliasOf: "projects.list_issues"}
+	cases := []struct {
+		a       Action
+		access  string
+		modules []string
+		want    bool
+	}{
+		{read, AccessRead, nil, true},
+		{write, AccessRead, nil, false},
+		{write, AccessWrite, nil, true},
+		{del, AccessWrite, nil, false},
+		{del, AccessWriteDelete, nil, true},
+		{danger, AccessWriteDelete, nil, false},
+		{alias, AccessRead, nil, false},
+		{write, AccessWrite, []string{"notes"}, true},
+		{write, AccessWrite, []string{"reminders"}, false},
+		{read, "admin", nil, false},
+	}
+	for _, c := range cases {
+		if got := AllowedFor(c.a, c.access, c.modules); got != c.want {
+			t.Errorf("%s %s %v: got %v", c.a.Name, c.access, c.modules, got)
+		}
+	}
+}

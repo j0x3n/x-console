@@ -131,6 +131,20 @@ type AlertRule struct {
 	CreatedAt       time.Time
 }
 
+type ApiToken struct {
+	ID         int64
+	Name       string
+	Prefix     string
+	TokenHash  string
+	Access     string
+	Modules    string
+	ExpiresAt  *time.Time
+	CreatedAt  time.Time
+	LastUsedAt *time.Time
+	LastUsedIp string
+	RevokedAt  *time.Time
+}
+
 type AuditLog struct {
 	ID     int64
 	At     time.Time
