@@ -77,4 +77,35 @@ registerZh({
   "Set a place": "设置地区",
   "Updated at": "更新于",
   "Refresh weather": "刷新天气",
+  // B58 和风天气、预警、地震
+  "Air quality": "空气质量",
+  "Blue and above": "蓝色及以上",
+  "Yellow and above": "黄色及以上",
+  "Orange and above": "橙色及以上",
+  "Red only": "只要红色",
+  "Daily tips": "生活指数",
+  "Earthquakes nearby": "附近地震",
+  "Lead time": "提前多久",
+  "Lowest level": "最低级别",
+  Magnitude: "震级",
+  "Main pollutant": "首要污染物",
+  Moon: "月相",
+  "Next two hours": "未来两小时",
+  "No earthquakes nearby in 3 days": "最近 3 天附近没有地震",
+  "Push alerts": "推送",
+  "Rain and warnings are checked every 5 minutes, earthquakes every 2 minutes. Each warning is sent once, and again when it is upgraded or lifted.":
+    "降水和预警每 5 分钟查一次，地震每 2 分钟查一次。同一条预警只推一次，升级或解除时再推。",
+  "Rain by the minute and weather warnings need a QWeather key. Add it in Settings → Daily brief.":
+    "降水和天气预警要先在设置 → 早报里填和风天气的 key。",
+  "Rain or snow is coming": "快下雨下雪时",
+  Sunrise: "日出",
+  Sunset: "日落",
+  "Warnings, rain by the minute and earthquakes are not live yet.":
+    "预警、分钟降水和地震还没上线。",
+  "Weather warnings": "天气预警",
+  Within: "范围",
+  within: "以内",
+  "and above": "以上",
+  "Add a QWeather key to see warnings, rain by the minute, air quality and more.":
+    "填好和风天气的 key 后，这里能看到预警、分钟降水、空气质量等。",
 });

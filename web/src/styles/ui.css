@@ -354,6 +354,8 @@
   box-shadow: var(--xc-shadow);
   padding: 18px;
   color: var(--xc-text);
+  /* 弹窗常写在不换行的行内元素里（比如今日页的天气条），不能继承 nowrap */
+  white-space: normal;
 }
 .xc-dialog.wide {
   width: min(760px, 100%);

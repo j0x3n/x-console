@@ -1,3 +1,4 @@
+import QWeatherCard from "./QWeatherCard";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { LocateFixed, Newspaper } from "lucide-react";
@@ -73,7 +74,12 @@ export default function BriefSettingsTab() {
     return (
       <ErrorState error={settings.error} onRetry={() => settings.refetch()} />
     );
-  return <BriefForm view={settings.data} />;
+  return (
+    <>
+      <BriefForm view={settings.data} />
+      <QWeatherCard />
+    </>
+  );
 }
 
 function BriefForm({ view }: { view: BriefSettingsView }) {

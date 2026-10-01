@@ -710,3 +710,18 @@
     grid-column: 1 / -1;
   }
 }
+/* 和风天气（B58） */
+.brief-qweather {
+  max-width: 760px;
+  margin-top: 16px;
+}
+.brief-qweather-note {
+  margin: 0;
+  font-size: var(--fs-12-5);
+}
+.brief-qweather-note a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--xc-accent-text);
+}

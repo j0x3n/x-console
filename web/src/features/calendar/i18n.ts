@@ -141,4 +141,20 @@ registerZh({
     "webcal:// 开头的也可以。Google 日历用它设置里的“iCal 格式的私密地址”。",
   "For iCloud, use https://caldav.icloud.com, your Apple ID and an app-specific password. Events you add here are written back.":
     "iCloud 填 https://caldav.icloud.com，用户名是 Apple ID，密码用 App 专用密码。在这里加的日程会写回 iCloud。",
+  // B58 和风天气
+  QWeather: "和风天气",
+  "QWeather console": "和风天气控制台",
+  "QWeather is connected": "和风天气已接通",
+  "Adds weather warnings, rain for the next two hours, air quality, daily tips and sunrise times. The free plan is enough.":
+    "填好后能看到天气预警、未来两小时降水、空气质量、生活指数和日出日落。免费额度够用。",
+  "Console → Settings → API Host": "控制台 → 设置 → API Host",
+  "Console → Project → Credentials → API KEY": "控制台 → 项目 → 凭据 → API KEY",
+  "Please enter the API host": "请填写 API Host",
+  "Please enter the API key": "请填写 API KEY",
+  "Saved. Leave empty to keep it.": "已保存，不改就留空",
+  "Save and check": "保存并检查",
+  "Checking…": "检查中…",
+  "Remove the QWeather key?": "删除和风天气的 key？",
+  "Warnings, rain by the minute and air quality stop showing. Earthquakes still work.":
+    "预警、分钟降水和空气质量不再显示。地震照常。",
 });

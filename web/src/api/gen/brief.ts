@@ -122,10 +122,219 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/weather/qweather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B58。和风天气的配置。不返回 key 本身，只说有没有填。 */
+        get: operations["getQWeatherConfig"];
+        /** @description B58。保存和风天气的配置。apiKey 不传或为空时保留原来的。保存时用新配置试调一次 GeoAPI，失败回 400 并写明原因。 */
+        put: operations["putQWeatherConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/weather/extra": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B58。早报位置的预警、分钟降水、空气质量、生活指数、日出日落、和昨天比、附近地震。
+         *     地震不需要和风天气，其余要先配好和风天气（configured 为 false 时只有地震）。
+         *     结果缓存 5 分钟，refresh=true 时跳过缓存，1 分钟内最多真拉一次。
+         */
+        get: operations["getWeatherExtra"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/weather/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B58。降水、天气预警、地震的推送设置 */
+        get: operations["getWeatherNotify"];
+        put: operations["putWeatherNotify"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        QWeatherConfig: {
+            /** @description B58。和风天气控制台里的 API Host，例如 abc1234xyz.re.qweatherapi.com。空表示没配 */
+            apiHost: string;
+            /** @description 有没有填 API KEY */
+            keySet: boolean;
+            /**
+             * Format: date-time
+             * @description 上次验证成功的时间
+             */
+            checkedAt?: string;
+        };
+        QWeatherConfigInput: {
+            apiHost: string;
+            /** @description 不传或空字符串时保留原来的 */
+            apiKey?: string;
+            /** @description true 时删掉 key，关掉和风天气 */
+            clearKey?: boolean;
+        };
+        /**
+         * @description B58。预警颜色。unknown 是和风天气没给颜色的
+         * @enum {string}
+         */
+        WarningLevel: "blue" | "yellow" | "orange" | "red" | "unknown";
+        WeatherWarning: {
+            id: string;
+            /** @description 例如 杭州市气象台发布暴雨黄色预警 */
+            title: string;
+            /** @description 例如 暴雨 */
+            typeName: string;
+            level: components["schemas"]["WarningLevel"];
+            sender: string;
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            startTime?: string;
+            /** Format: date-time */
+            endTime?: string;
+            /** @description 预警正文和防御指南 */
+            text: string;
+        };
+        MinutelyPoint: {
+            /** Format: date-time */
+            time: string;
+            /**
+             * Format: double
+             * @description 5 分钟降水量，毫米
+             */
+            precip: number;
+            /**
+             * @description 雨还是雪
+             * @enum {string}
+             */
+            kind?: "rain" | "snow";
+        };
+        MinutelyRain: {
+            /** @description 和风天气给的一句话，例如 20 分钟后雨停 */
+            summary: string;
+            /** @description 未来 2 小时，每 5 分钟一个点 */
+            points: components["schemas"]["MinutelyPoint"][];
+        };
+        AirQuality: {
+            aqi: number;
+            /** @description 例如 良 */
+            category: string;
+            /** @description 1 到 6，1 最好 */
+            level: number;
+            /** @description 首要污染物，例如 PM2.5 */
+            primary?: string;
+            /** Format: double */
+            pm2p5?: number;
+            /** Format: double */
+            pm10?: number;
+        };
+        WeatherIndex: {
+            /** @description 和风天气的指数编号 */
+            type: string;
+            /** @description 例如 穿衣指数 */
+            name: string;
+            /** @description 例如 较冷 */
+            category: string;
+            text: string;
+        };
+        Astronomy: {
+            /** @description HH:MM，早报位置的当地时间 */
+            sunrise?: string;
+            /** @description HH:MM */
+            sunset?: string;
+            /** @description HH:MM */
+            moonrise?: string;
+            /** @description HH:MM */
+            moonset?: string;
+            /** @description 例如 上弦月 */
+            moonPhase?: string;
+        };
+        DayRange: {
+            /** Format: double */
+            high: number;
+            /** Format: double */
+            low: number;
+        };
+        Earthquake: {
+            id: string;
+            /** Format: date-time */
+            time: string;
+            /** Format: double */
+            magnitude: number;
+            /** @description 例如 四川雅安市芦山县 */
+            place: string;
+            /** Format: double */
+            depthKm?: number;
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lon: number;
+            /**
+             * Format: double
+             * @description 离早报位置多远
+             */
+            distanceKm: number;
+        };
+        WeatherExtra: {
+            /** @description 和风天气配好了。false 时只有地震 */
+            configured: boolean;
+            /** @description 正在生效的预警，颜色重的在前 */
+            warnings: components["schemas"]["WeatherWarning"][];
+            minutely?: components["schemas"]["MinutelyRain"];
+            air?: components["schemas"]["AirQuality"];
+            indices: components["schemas"]["WeatherIndex"][];
+            astronomy?: components["schemas"]["Astronomy"];
+            yesterday?: components["schemas"]["DayRange"];
+            /** @description 最近 3 天、在推送设置的半径内、达到震级的地震，新的在前，最多 10 条 */
+            earthquakes: components["schemas"]["Earthquake"][];
+            /** Format: date-time */
+            fetchedAt: string;
+        };
+        WeatherNotify: {
+            /** @description 分钟降水显示快下雨（雪、冰雹）时推送。要和风天气。每 5 分钟看一次 */
+            rainSoon: boolean;
+            /** @description 提前多少分钟，默认 30 */
+            rainLeadMinutes: number;
+            /** @description 有新的天气预警、升级、解除时推送。要和风天气。每 5 分钟看一次 */
+            warnings: boolean;
+            warningMinLevel: components["schemas"]["WarningLevel"];
+            /** @description 附近有地震时推送。每 2 分钟看一次 */
+            earthquakes: boolean;
+            /**
+             * Format: double
+             * @description 默认 4.5
+             */
+            quakeMinMagnitude: number;
+            /** @description 默认 500 */
+            quakeRadiusKm: number;
+        };
         WeatherPlace: {
             name: string;
             /** @description 省或州 */
@@ -472,6 +681,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RainAlert"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getQWeatherConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 配置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QWeatherConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putQWeatherConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QWeatherConfigInput"];
+            };
+        };
+        responses: {
+            /** @description 保存后的配置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QWeatherConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getWeatherExtra: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 扩展的天气信息 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherExtra"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getWeatherNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherNotify"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putWeatherNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeatherNotify"];
+            };
+        };
+        responses: {
+            /** @description 保存后的设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeatherNotify"];
                 };
             };
             default: components["responses"]["Error"];

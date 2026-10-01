@@ -8,7 +8,8 @@ import { Ring } from "../../../components/ui/Stat";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
 import { formatTime, relativeTime } from "../../../lib/time";
-import { useCalendarEvents } from "../../calendar/api";
+import { useCalendarEvents, useWeatherExtra } from "../../calendar/api";
+import { useNow } from "../../calendar/hooks";
 import { addDays, startOfDay } from "../../calendar/dates";
 import { useCheckin, useHabitsToday, useUndoCheckin } from "../../habits/api";
 import { formatAmount } from "../../habits/progress";
@@ -25,6 +26,15 @@ import { refreshWeather, useWeather } from "../api";
 import { sortEvents } from "../today";
 import { Empty, isSetupNeeded, MoreLink, QueryState } from "./shared";
 import WeatherDialog, { loadWeatherShow } from "./WeatherDialog";
+import WeatherDetail from "./WeatherDetail";
+import {
+  airTone,
+  rainSoon,
+  rainSoonText,
+  sortWarnings,
+  warningLabel,
+  warningTone,
+} from "../weather";
 
 const onError = (e: unknown) =>
   toast({ message: errorMessage(e), tone: "error" });
@@ -156,9 +166,12 @@ export function WeatherStrip() {
   const language = useLanguage();
   const weather = useWeather();
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<"detail" | "settings" | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [show, setShow] = useState(loadWeatherShow);
+  // B58：和风天气的预警、两小时降水、空气质量
+  const extra = useWeatherExtra().data;
+  const now = useNow(60_000);
   useEffect(() => {
     const onChange = () => setShow(loadWeatherShow());
     window.addEventListener("xc:weather-show", onChange);
@@ -168,6 +181,9 @@ export function WeatherStrip() {
   const setup = weather.isError && isSetupNeeded(weather.error);
   if (weather.isError && !setup) return null;
   const w = weather.data;
+  const soon = rainSoon(extra?.minutely, now);
+  // 最多显示两条，颜色重的在前
+  const warnings = sortWarnings(extra?.warnings ?? []).slice(0, 2);
   const refresh = async () => {
     if (spinning) return;
     setSpinning(true);
@@ -190,7 +206,7 @@ export function WeatherStrip() {
       <button
         type="button"
         className={`today-weather-strip${setup ? " is-setup" : ""}`}
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen(setup || !w ? "settings" : "detail")}
       >
         <CloudSun size={14} />
         {setup || !w ? (
@@ -212,9 +228,28 @@ export function WeatherStrip() {
                 <Droplets size={12} /> {w.precipitationChance}%
               </span>
             )}
+            {soon && (
+              <span className="today-weather-soon">{rainSoonText(soon)}</span>
+            )}
+            {show.air && extra?.air && (
+              <span className={`weather-tone-${airTone(extra.air.level)}`}>
+                {extra.air.category}
+              </span>
+            )}
           </>
         )}
       </button>
+      {warnings.map((x) => (
+        <button
+          type="button"
+          key={x.id}
+          className={`xc-badge ${warningTone(x.level)} today-weather-warning`}
+          title={x.title}
+          onClick={() => setOpen("detail")}
+        >
+          {warningLabel(x)}
+        </button>
+      ))}
       {w && (
         <button
           type="button"
@@ -226,7 +261,14 @@ export function WeatherStrip() {
           <RefreshCw size={13} />
         </button>
       )}
-      <WeatherDialog open={open} onClose={() => setOpen(false)} />
+      {open === "detail" && (
+        <WeatherDetail
+          weather={w}
+          onClose={() => setOpen(null)}
+          onSettings={() => setOpen("settings")}
+        />
+      )}
+      <WeatherDialog open={open === "settings"} onClose={() => setOpen(null)} />
     </span>
   );
 }

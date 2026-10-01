@@ -50,6 +50,85 @@ func (e BriefSectionKey) Valid() bool {
 	}
 }
 
+// Defines values for MinutelyPointKind.
+const (
+	Rain MinutelyPointKind = "rain"
+	Snow MinutelyPointKind = "snow"
+)
+
+// Valid indicates whether the value is a known member of the MinutelyPointKind enum.
+func (e MinutelyPointKind) Valid() bool {
+	switch e {
+	case Rain:
+		return true
+	case Snow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WarningLevel.
+const (
+	Blue    WarningLevel = "blue"
+	Orange  WarningLevel = "orange"
+	Red     WarningLevel = "red"
+	Unknown WarningLevel = "unknown"
+	Yellow  WarningLevel = "yellow"
+)
+
+// Valid indicates whether the value is a known member of the WarningLevel enum.
+func (e WarningLevel) Valid() bool {
+	switch e {
+	case Blue:
+		return true
+	case Orange:
+		return true
+	case Red:
+		return true
+	case Unknown:
+		return true
+	case Yellow:
+		return true
+	default:
+		return false
+	}
+}
+
+// AirQuality defines model for AirQuality.
+type AirQuality struct {
+	Aqi int `json:"aqi"`
+
+	// Category 例如 良
+	Category string `json:"category"`
+
+	// Level 1 到 6，1 最好
+	Level int      `json:"level"`
+	Pm10  *float64 `json:"pm10,omitempty"`
+	Pm2p5 *float64 `json:"pm2p5,omitempty"`
+
+	// Primary 首要污染物，例如 PM2.5
+	Primary *string `json:"primary,omitempty"`
+}
+
+// Astronomy defines model for Astronomy.
+type Astronomy struct {
+	// MoonPhase 例如 上弦月
+	MoonPhase *string `json:"moonPhase,omitempty"`
+
+	// Moonrise HH:MM
+	Moonrise *string `json:"moonrise,omitempty"`
+
+	// Moonset HH:MM
+	Moonset *string `json:"moonset,omitempty"`
+
+	// Sunrise HH:MM，早报位置的当地时间
+	Sunrise *string `json:"sunrise,omitempty"`
+
+	// Sunset HH:MM
+	Sunset *string `json:"sunset,omitempty"`
+}
+
 // Brief defines model for Brief.
 type Brief struct {
 	// Content Markdown
@@ -136,6 +215,73 @@ type BriefSettingsView struct {
 	WeatherApiBase *string `json:"weatherApiBase,omitempty"`
 }
 
+// DayRange defines model for DayRange.
+type DayRange struct {
+	High float64 `json:"high"`
+	Low  float64 `json:"low"`
+}
+
+// Earthquake defines model for Earthquake.
+type Earthquake struct {
+	DepthKm *float64 `json:"depthKm,omitempty"`
+
+	// DistanceKm 离早报位置多远
+	DistanceKm float64 `json:"distanceKm"`
+	Id         string  `json:"id"`
+	Lat        float64 `json:"lat"`
+	Lon        float64 `json:"lon"`
+	Magnitude  float64 `json:"magnitude"`
+
+	// Place 例如 四川雅安市芦山县
+	Place string    `json:"place"`
+	Time  time.Time `json:"time"`
+}
+
+// MinutelyPoint defines model for MinutelyPoint.
+type MinutelyPoint struct {
+	// Kind 雨还是雪
+	Kind *MinutelyPointKind `json:"kind,omitempty"`
+
+	// Precip 5 分钟降水量，毫米
+	Precip float64   `json:"precip"`
+	Time   time.Time `json:"time"`
+}
+
+// MinutelyPointKind 雨还是雪
+type MinutelyPointKind string
+
+// MinutelyRain defines model for MinutelyRain.
+type MinutelyRain struct {
+	// Points 未来 2 小时，每 5 分钟一个点
+	Points []MinutelyPoint `json:"points"`
+
+	// Summary 和风天气给的一句话，例如 20 分钟后雨停
+	Summary string `json:"summary"`
+}
+
+// QWeatherConfig defines model for QWeatherConfig.
+type QWeatherConfig struct {
+	// ApiHost B58。和风天气控制台里的 API Host，例如 abc1234xyz.re.qweatherapi.com。空表示没配
+	ApiHost string `json:"apiHost"`
+
+	// CheckedAt 上次验证成功的时间
+	CheckedAt *time.Time `json:"checkedAt,omitempty"`
+
+	// KeySet 有没有填 API KEY
+	KeySet bool `json:"keySet"`
+}
+
+// QWeatherConfigInput defines model for QWeatherConfigInput.
+type QWeatherConfigInput struct {
+	ApiHost string `json:"apiHost"`
+
+	// ApiKey 不传或空字符串时保留原来的
+	ApiKey *string `json:"apiKey,omitempty"`
+
+	// ClearKey true 时删掉 key，关掉和风天气
+	ClearKey *bool `json:"clearKey,omitempty"`
+}
+
 // RainAlert defines model for RainAlert.
 type RainAlert struct {
 	// Enabled 早报设置的位置接下来可能下雨时发通知。每 30 分钟看一次，6 小时内最多提醒一次
@@ -147,6 +293,9 @@ type RainAlert struct {
 	// Threshold 降雨概率达到多少就提醒，默认 60
 	Threshold int `json:"threshold"`
 }
+
+// WarningLevel B58。预警颜色。unknown 是和风天气没给颜色的
+type WarningLevel string
 
 // Weather defines model for Weather.
 type Weather struct {
@@ -170,6 +319,62 @@ type Weather struct {
 	WeatherCode int `json:"weatherCode"`
 }
 
+// WeatherExtra defines model for WeatherExtra.
+type WeatherExtra struct {
+	Air       *AirQuality `json:"air,omitempty"`
+	Astronomy *Astronomy  `json:"astronomy,omitempty"`
+
+	// Configured 和风天气配好了。false 时只有地震
+	Configured bool `json:"configured"`
+
+	// Earthquakes 最近 3 天、在推送设置的半径内、达到震级的地震，新的在前，最多 10 条
+	Earthquakes []Earthquake   `json:"earthquakes"`
+	FetchedAt   time.Time      `json:"fetchedAt"`
+	Indices     []WeatherIndex `json:"indices"`
+	Minutely    *MinutelyRain  `json:"minutely,omitempty"`
+
+	// Warnings 正在生效的预警，颜色重的在前
+	Warnings  []WeatherWarning `json:"warnings"`
+	Yesterday *DayRange        `json:"yesterday,omitempty"`
+}
+
+// WeatherIndex defines model for WeatherIndex.
+type WeatherIndex struct {
+	// Category 例如 较冷
+	Category string `json:"category"`
+
+	// Name 例如 穿衣指数
+	Name string `json:"name"`
+	Text string `json:"text"`
+
+	// Type 和风天气的指数编号
+	Type string `json:"type"`
+}
+
+// WeatherNotify defines model for WeatherNotify.
+type WeatherNotify struct {
+	// Earthquakes 附近有地震时推送。每 2 分钟看一次
+	Earthquakes bool `json:"earthquakes"`
+
+	// QuakeMinMagnitude 默认 4.5
+	QuakeMinMagnitude float64 `json:"quakeMinMagnitude"`
+
+	// QuakeRadiusKm 默认 500
+	QuakeRadiusKm int `json:"quakeRadiusKm"`
+
+	// RainLeadMinutes 提前多少分钟，默认 30
+	RainLeadMinutes int `json:"rainLeadMinutes"`
+
+	// RainSoon 分钟降水显示快下雨（雪、冰雹）时推送。要和风天气。每 5 分钟看一次
+	RainSoon bool `json:"rainSoon"`
+
+	// WarningMinLevel B58。预警颜色。unknown 是和风天气没给颜色的
+	WarningMinLevel WarningLevel `json:"warningMinLevel"`
+
+	// Warnings 有新的天气预警、升级、解除时推送。要和风天气。每 5 分钟看一次
+	Warnings bool `json:"warnings"`
+}
+
 // WeatherPlace defines model for WeatherPlace.
 type WeatherPlace struct {
 	Country string  `json:"country"`
@@ -179,6 +384,27 @@ type WeatherPlace struct {
 
 	// Region 省或州
 	Region string `json:"region"`
+}
+
+// WeatherWarning defines model for WeatherWarning.
+type WeatherWarning struct {
+	EndTime  *time.Time `json:"endTime,omitempty"`
+	Id       string     `json:"id"`
+	IssuedAt time.Time  `json:"issuedAt"`
+
+	// Level B58。预警颜色。unknown 是和风天气没给颜色的
+	Level     WarningLevel `json:"level"`
+	Sender    string       `json:"sender"`
+	StartTime *time.Time   `json:"startTime,omitempty"`
+
+	// Text 预警正文和防御指南
+	Text string `json:"text"`
+
+	// Title 例如 杭州市气象台发布暴雨黄色预警
+	Title string `json:"title"`
+
+	// TypeName 例如 暴雨
+	TypeName string `json:"typeName"`
 }
 
 // ListBriefsParams defines parameters for ListBriefs.
@@ -199,6 +425,11 @@ type GetWeatherParams struct {
 	Lon     *float64 `form:"lon,omitempty" json:"lon,omitempty"`
 }
 
+// GetWeatherExtraParams defines parameters for GetWeatherExtra.
+type GetWeatherExtraParams struct {
+	Refresh *bool `form:"refresh,omitempty" json:"refresh,omitempty"`
+}
+
 // SearchWeatherPlacesParams defines parameters for SearchWeatherPlaces.
 type SearchWeatherPlacesParams struct {
 	Q string `form:"q" json:"q"`
@@ -212,6 +443,12 @@ type PutBriefSettingsJSONRequestBody = BriefSettings
 
 // PutRainAlertJSONRequestBody defines body for PutRainAlert for application/json ContentType.
 type PutRainAlertJSONRequestBody = RainAlert
+
+// PutWeatherNotifyJSONRequestBody defines body for PutWeatherNotify for application/json ContentType.
+type PutWeatherNotifyJSONRequestBody = WeatherNotify
+
+// PutQWeatherConfigJSONRequestBody defines body for PutQWeatherConfig for application/json ContentType.
+type PutQWeatherConfigJSONRequestBody = QWeatherConfigInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -240,8 +477,23 @@ type ServerInterface interface {
 	// (PUT /weather/alert)
 	PutRainAlert(w http.ResponseWriter, r *http.Request)
 
+	// (GET /weather/extra)
+	GetWeatherExtra(w http.ResponseWriter, r *http.Request, params GetWeatherExtraParams)
+
+	// (GET /weather/notify)
+	GetWeatherNotify(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /weather/notify)
+	PutWeatherNotify(w http.ResponseWriter, r *http.Request)
+
 	// (GET /weather/places)
 	SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, params SearchWeatherPlacesParams)
+
+	// (GET /weather/qweather)
+	GetQWeatherConfig(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /weather/qweather)
+	PutQWeatherConfig(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -288,8 +540,33 @@ func (_ Unimplemented) PutRainAlert(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /weather/extra)
+func (_ Unimplemented) GetWeatherExtra(w http.ResponseWriter, r *http.Request, params GetWeatherExtraParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /weather/notify)
+func (_ Unimplemented) GetWeatherNotify(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /weather/notify)
+func (_ Unimplemented) PutWeatherNotify(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /weather/places)
 func (_ Unimplemented) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, params SearchWeatherPlacesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /weather/qweather)
+func (_ Unimplemented) GetQWeatherConfig(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /weather/qweather)
+func (_ Unimplemented) PutQWeatherConfig(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -503,6 +780,67 @@ func (siw *ServerInterfaceWrapper) PutRainAlert(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// GetWeatherExtra operation middleware
+func (siw *ServerInterfaceWrapper) GetWeatherExtra(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetWeatherExtraParams
+
+	// ------------- Optional query parameter "refresh" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "refresh", r.URL.Query(), &params.Refresh, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "refresh"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "refresh", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWeatherExtra(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWeatherNotify operation middleware
+func (siw *ServerInterfaceWrapper) GetWeatherNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWeatherNotify(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutWeatherNotify operation middleware
+func (siw *ServerInterfaceWrapper) PutWeatherNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutWeatherNotify(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchWeatherPlaces operation middleware
 func (siw *ServerInterfaceWrapper) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request) {
 
@@ -527,6 +865,34 @@ func (siw *ServerInterfaceWrapper) SearchWeatherPlaces(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SearchWeatherPlaces(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetQWeatherConfig operation middleware
+func (siw *ServerInterfaceWrapper) GetQWeatherConfig(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetQWeatherConfig(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutQWeatherConfig operation middleware
+func (siw *ServerInterfaceWrapper) PutQWeatherConfig(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutQWeatherConfig(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -675,6 +1041,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/weather/alert", wrapper.PutRainAlert)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/weather/qweather", wrapper.GetQWeatherConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/weather/qweather", wrapper.PutQWeatherConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/weather/extra", wrapper.GetWeatherExtra)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/weather/notify", wrapper.GetWeatherNotify)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/weather/notify", wrapper.PutWeatherNotify)
 	})
 
 	return r

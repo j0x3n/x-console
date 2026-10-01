@@ -428,3 +428,211 @@ a.today-row:hover {
 .today-weather-refresh.is-spinning svg {
   animation: xc-spin 0.7s linear infinite;
 }
+
+/* 天气条上的预警和快下雨（B58） */
+.today-weather-warning {
+  margin-left: 4px;
+  border: 0;
+  font: inherit;
+  font-size: var(--fs-11);
+  cursor: pointer;
+}
+.today-weather-soon {
+  color: var(--xc-info);
+}
+.weather-tone-ok {
+  color: var(--xc-ok);
+}
+.weather-tone-warn {
+  color: var(--xc-warn);
+}
+.weather-tone-danger {
+  color: var(--xc-danger);
+}
+
+/* 天气详情弹窗（B58） */
+.weather-detail section {
+  padding: 12px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.weather-detail h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: var(--fs-13);
+  font-weight: 600;
+}
+.weather-detail-now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+}
+.weather-detail-now > b {
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.weather-detail-now > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-13);
+}
+.weather-detail-now strong {
+  color: var(--xc-text);
+  font-weight: 600;
+}
+.weather-detail-setup a {
+  color: var(--xc-accent-text);
+}
+.weather-detail-line {
+  margin: 0 0 8px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-13);
+}
+.weather-detail-time {
+  margin: 0;
+}
+.weather-warnings {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.weather-warnings button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.weather-warnings button:hover {
+  background: var(--xc-surface-2);
+}
+.weather-warning-sender {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.weather-warnings small,
+.weather-quakes small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  white-space: nowrap;
+}
+.weather-warnings p {
+  margin: 4px 4px 8px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  line-height: 1.6;
+}
+/* 两小时降水：24 根柱子，每根 5 分钟 */
+.weather-minutely {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 48px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.weather-minutely span {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  background: var(--xc-info);
+  opacity: 0.75;
+}
+.weather-minutely span.snow {
+  background: var(--xc-muted);
+}
+.weather-detail-facts,
+.weather-indices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px 14px;
+}
+.weather-detail-facts > div,
+.weather-indices > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.weather-detail-facts small,
+.weather-indices small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.weather-detail-facts strong,
+.weather-indices strong {
+  font-size: var(--fs-13-5);
+  font-weight: 600;
+}
+.weather-quakes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.weather-quakes li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-13);
+}
+.weather-quakes b {
+  font-variant-numeric: tabular-nums;
+}
+.weather-quakes span {
+  flex: 1;
+  min-width: 0;
+}
+/* 天气设置里的推送开关（B58） */
+.weather-push-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--fs-13);
+}
+.weather-push-row > span {
+  flex: 1;
+  min-width: 120px;
+}
+.weather-push-row .xc-select {
+  width: auto;
+}
+
+/* 手机上天气条放不下时换行，预警标签不被截掉（B58） */
+@media (max-width: 720px) {
+  .today-weather {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
+  .today-weather-strip {
+    flex-wrap: wrap;
+    margin-left: 0;
+    white-space: normal;
+  }
+}
