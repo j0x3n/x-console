@@ -8,7 +8,6 @@ import Sidebar from "../components/layout/Sidebar";
 import Topbar from "../components/layout/Topbar";
 import { Loading } from "../components/ui/States";
 import ErrorBoundary from "../components/ui/ErrorBoundary";
-import SafariProbe from "../components/layout/SafariProbe";
 import GlobalPanels from "./GlobalPanels";
 import { useSidebar } from "../stores/sidebar";
 import { usePreferencesSync } from "../hooks/usePreferencesSync";
@@ -50,7 +49,6 @@ export default function Layout() {
             openMobile={() => setMobileOpen(true)}
             openPalette={() => setPaletteOpen(true)}
           />
-          <SafariProbe />
           {/* 页面按需加载（B6），加载时显示转圈 */}
           <ErrorBoundary key={location.pathname}>
             <Suspense fallback={<Loading />}>

@@ -28,7 +28,7 @@
 | B35 | 前端：GitHub 关注的仓库改成从令牌能访问的仓库里多选（搜索、私有标记、刷新，没上线时退回文本框），同步状态显示总额度和同步间隔。后端写在规格里，新接口先回 501。分支 `claude/project-thread-o3tsew` | [B35](specs/B35.md) | Claude（前端） |
 | B37 | 前端：提醒页混排其他模块到期事项，支持来源标签、跳转、显示开关和概要数字。后端接口已接通 | [B37](specs/B37.md) | Claude（前端） |
 | B31（其余部分） | 前端：批量复制移动、重名处理、压缩解压、后台任务进度、外链分享和分享页、分享管理、历史版本、日志实时。后端写成规格里的“后端（待做）”，接口先回 501。分支 `claude/project-thread-o3tsew`，叠在上面那个分支上，用户 2026-09-29 让 Claude 写前端 | [B31](specs/B31.md) | Claude（前端） |
-| B45 | Safari 工具栏：第一步（开关 `?safari=`）已做完（`59fb915`、`befb2b2`），等用户说“部署”后在 iPhone 上测，按结果定稿 | [B45](specs/B45.md) | Claude |
+
 
 ## 待做
 
@@ -230,6 +230,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B45 | Safari 工具栏：真机上 `all` 和 `off` 都可以，A 到 F 单独开不行。页面保持原样，测试开关已删。规格见 [B45](specs/B45.md) |
 | B41 | 报错统一显示：控制台打印、界面常驻、可复制、请求编号、前端报错写进服务器日志、设置里看最近的报错（`e8aa94b`、`0822494`、`2a4c5db`、`6575840`） |
 | B44 | 手机字号放大，字号令牌和检查脚本，输入框 16px（`690dbd4`）。点击区域 44px 没做，见“已知问题” |
 | B42 | AI 用量：缓存命中率、按天和模型统计、历史明细、导出，Claude Code 和 Codex 的用量（`b64abb7`、`c87ce7a`） |
@@ -289,6 +290,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-01 | 删掉 B45 的 `?safari=` 测试开关、`SafariProbe` 和 `browser.css` 里 C 到 F 的试验样式。页面样式保持测试前的样子 | 真机上 `all` 和 `off` 都可以，A 到 F 单独开不行 |
 | 2026-10-01 | `store` 加 `Snapshot`、`OpenSnapshot`（把已经迁移好的内存库复制出来）。`testutil.openDB` 每个测试进程只迁移一次，后面的测试从这份快照复制。测试里直接调用 `store.Open(":memory:")` 的没有改 | 带 -race 时每次迁移要几秒 |
 | 2026-09-30 | 项目改成多看板：新表 `project_boards`、`board_lists`、`issue_members`、`issue_activity`，`issues` 加 `board_id`、`list_id`、`archived_at`、`cover_file_id`；`POST /issues/{key}/move` 可以只传 `listId`（`status` 变成可选）；`Issue` 加 `boardId`、`listId`、`archivedAt`、`members`、`commentCount`；归档的卡片不出现在列表、到期提醒和提醒页里；B36 的分类界面去掉，接口保留；界面上 Issue 改叫“卡片” | B46 多看板 |
 | 2026-10-01 | 认证中间件只在 `/api/v1/mcp` 上接受 `Authorization: Bearer xc_…` 的 API 令牌，别的路径照旧（代理的 `/agent/connect` 也用 Bearer，不受影响）；`auth.Session` 加 `Token *TokenInfo`，`auth.TokenFrom(ctx)` 取令牌；`actions` 加 `Module`、`Deletes`、`AllowedFor`（危险动作和别名永远不开放）；新模块 `mcp`：`/api-tokens` 增删查、`/api-tokens/tools`、`/api-tokens/calls`、`POST /mcp`；设置加“远程访问”页签 | B43 远程 AI 操作 |
