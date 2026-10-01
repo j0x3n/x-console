@@ -140,8 +140,29 @@ func TestDomainWhoisAndManualExpiry(t *testing.T) {
 		t.Fatalf("missing: %+v %+v", noneMon, noneRes)
 	}
 
+	// The check after a manual date change runs after the reply.
+	waitMonitor := func(id int64, done func(api.Monitor) bool) api.Monitor {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			var mon api.Monitor
+			env.MustDo(http.MethodGet, fmt.Sprintf("/monitors/%d", id), nil, &mon)
+			if done(mon) {
+				return mon
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("monitor %d: %+v", id, mon)
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}
+
 	day := openapi_types.Date{Time: time.Date(2027, 6, 15, 0, 0, 0, 0, time.UTC)}
 	env.MustDo(http.MethodPatch, fmt.Sprintf("/monitors/%d", noneMon.Id), api.MonitorPatch{ManualExpiresAt: &day}, &noneMon)
+	if noneMon.ManualExpiresAt == nil {
+		t.Fatalf("manual date not saved: %+v", noneMon)
+	}
+	noneMon = waitMonitor(noneMon.Id, func(x api.Monitor) bool { return x.ExpirySource != nil })
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
 		t.Fatal(err)
@@ -156,6 +177,7 @@ func TestDomainWhoisAndManualExpiry(t *testing.T) {
 	clear := true
 	var clearedMon api.Monitor
 	env.MustDo(http.MethodPatch, fmt.Sprintf("/monitors/%d", noneMon.Id), api.MonitorPatch{ClearManualExpiry: &clear}, &clearedMon)
+	clearedMon = waitMonitor(noneMon.Id, func(x api.Monitor) bool { return x.ExpirySource == nil })
 	if clearedMon.ExpiresAt != nil || clearedMon.ExpirySource != nil || clearedMon.ManualExpiresAt != nil ||
 		clearedMon.LastError != "RDAP 和 WHOIS 都查不到这个域名，可以手动填到期日期" {
 		t.Fatalf("cleared: %+v", clearedMon)

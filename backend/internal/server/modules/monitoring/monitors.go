@@ -391,9 +391,14 @@ func (m *Module) UpdateMonitor(w http.ResponseWriter, r *http.Request, id int64)
 		}
 	}
 	if err == nil && manualChanged {
-		if _, err = m.check(ctx, id, m.now()); err == nil {
-			x, err = m.q.GetMonitor(ctx, id)
-		}
+		// Check again so the list shows the new date. RDAP and WHOIS come
+		// first and can take the whole timeout, so it runs after the reply;
+		// monitor.checked refreshes the page.
+		go func() {
+			if _, err := m.checkNow(m.background(), id, m.now()); err != nil {
+				m.d.Log.Warn("monitor check after manual date", "monitor", id, "err", err)
+			}
+		}()
 	}
 	m.d.Audit.Record(ctx, "monitor.update", itoa(id), map[string]any{"target": f.target, "enabled": f.enabled}, err)
 	if err != nil {
