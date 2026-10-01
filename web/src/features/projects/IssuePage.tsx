@@ -45,6 +45,7 @@ import Checklists from "./components/Checklists";
 import DueFields from "./components/DueFields";
 import Markdown from "./Markdown";
 import StartFocusButton from "../calendar/StartFocusButton";
+import MoreMenu from "../../components/ui/MoreMenu";
 import AssignDialog from "../aiagents/AssignDialog";
 import AgentMember from "../aiagents/AgentMember";
 import {
@@ -501,16 +502,70 @@ function Properties({
           </>
         )}
       </dl>
-      <div className="projects-coding">
-        <button className="xc-btn" onClick={() => setAssigning(true)}>
+      {/* B55：一行放下全部操作，不常用的收进“…” */}
+      <div className="projects-side-actions">
+        <button
+          className="xc-btn projects-side-primary"
+          onClick={() => setAssigning(true)}
+        >
           <Bot size={14} /> {t("Assign to an agent")}
         </button>
-        <Link
-          className="xc-btn ghost small"
-          to={`/coding/tasks?new=1&issue=${encodeURIComponent(issue.key)}`}
-        >
-          {t("New coding task by hand")}
-        </Link>
+        <StartFocusButton issueKey={issue.key} compact />
+        <MoreMenu
+          label={`${t("More")}：${issue.key}`}
+          title={issue.key}
+          items={[
+            {
+              key: "coding",
+              label: t("New coding task by hand"),
+              icon: <Bot size={14} />,
+              onSelect: () =>
+                navigate(
+                  `/coding/tasks?new=1&issue=${encodeURIComponent(issue.key)}`,
+                ),
+            },
+            {
+              key: "copy",
+              label: t("Copy card"),
+              icon: <Copy size={14} />,
+              onSelect: () =>
+                cards.copy.mutate(issue.key, {
+                  onSuccess: (copy) => navigate(issuePath(copy.key)),
+                }),
+            },
+            issue.archivedAt
+              ? {
+                  key: "restore",
+                  label: t("Restore"),
+                  icon: <ArchiveRestore size={14} />,
+                  onSelect: () => cards.restore.mutate(issue.key),
+                }
+              : {
+                  key: "archive",
+                  label: t("Archive"),
+                  icon: <Archive size={14} />,
+                  onSelect: () => cards.archive.mutate(issue.key),
+                },
+            {
+              key: "delete",
+              label: t("Delete issue"),
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onSelect: async () => {
+                if (
+                  !(await confirmAction({
+                    title: `${t("Delete")} ${issue.key}？`,
+                    description: t("Its comments and links are deleted too."),
+                  }))
+                )
+                  return;
+                remove.mutate(issue.key, {
+                  onSuccess: () => navigate(`/projects/${issue.projectKey}`),
+                });
+              },
+            },
+          ]}
+        />
       </div>
       {assigning && (
         <AssignDialog
@@ -518,55 +573,6 @@ function Properties({
           onClose={() => setAssigning(false)}
         />
       )}
-      <StartFocusButton issueKey={issue.key} />
-      <div className="projects-card-actions">
-        <button
-          className="xc-btn small"
-          disabled={cards.copy.isPending}
-          onClick={() =>
-            cards.copy.mutate(issue.key, {
-              onSuccess: (copy) => navigate(issuePath(copy.key)),
-            })
-          }
-        >
-          <Copy size={14} /> {t("Copy card")}
-        </button>
-        {issue.archivedAt ? (
-          <button
-            className="xc-btn small"
-            disabled={cards.restore.isPending}
-            onClick={() => cards.restore.mutate(issue.key)}
-          >
-            <ArchiveRestore size={14} /> {t("Restore")}
-          </button>
-        ) : (
-          <button
-            className="xc-btn small"
-            disabled={cards.archive.isPending}
-            onClick={() => cards.archive.mutate(issue.key)}
-          >
-            <Archive size={14} /> {t("Archive")}
-          </button>
-        )}
-      </div>
-      <button
-        className="xc-btn danger small"
-        disabled={remove.isPending}
-        onClick={async () => {
-          if (
-            !(await confirmAction({
-              title: `${t("Delete")} ${issue.key}？`,
-              description: t("Its comments and links are deleted too."),
-            }))
-          )
-            return;
-          remove.mutate(issue.key, {
-            onSuccess: () => navigate(`/projects/${issue.projectKey}`),
-          });
-        }}
-      >
-        <Trash2 size={14} /> {t("Delete issue")}
-      </button>
     </div>
   );
 }

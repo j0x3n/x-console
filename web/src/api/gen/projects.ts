@@ -710,6 +710,8 @@ export interface components {
             issueCount: number;
             /** @description 未完成也未取消的 Issue 数 */
             openCount: number;
+            /** @description B55。锁定看板结构：不能加、改、删看板和列表，卡片照常操作 */
+            layoutLocked?: boolean;
         };
         CreateProject: {
             key: string;
@@ -725,6 +727,8 @@ export interface components {
             icon?: string;
             /** @description false 表示恢复归档 */
             archived?: boolean;
+            /** @description B55。锁定或解锁看板结构 */
+            layoutLocked?: boolean;
         };
         Label: {
             /** Format: int64 */

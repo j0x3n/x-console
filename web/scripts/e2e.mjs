@@ -357,7 +357,7 @@ try {
   const lanes = page.locator(".projects-board.lists > section.projects-lane[data-list-id]");
   await until("三个列表", async () => (await lanes.count()) === 3);
   await lanes.nth(0).getByRole("button", { name: "添加卡片" }).click();
-  const cardInput = page.getByPlaceholder("卡片标题，回车添加");
+  const cardInput = page.getByPlaceholder("卡片标题，可以直接粘贴图片");
   await cardInput.fill("看板里的卡片");
   await cardInput.press("Enter");
   const boardCard = lanes.nth(0).locator("[data-issue-key]").filter({ hasText: "看板里的卡片" });
@@ -373,6 +373,15 @@ try {
   await page.getByLabel("清单标题").fill("看板清单");
   await page.getByLabel("清单标题").press("Enter");
   await until("清单已建", async () => (await api(`/issues/${boardCardKey}/checklists`)).length === 1);
+
+  stage = "B55 锁定看板结构后不能加列表";
+  await page.goto(`${base}/projects/EET`);
+  await page.getByRole("button", { name: "添加列表" }).waitFor();
+  await page.getByRole("button", { name: "锁定看板结构" }).click();
+  await page.getByRole("button", { name: "添加列表" }).waitFor({ state: "detached" });
+  assert.equal(await page.getByRole("button", { name: "新建看板" }).count(), 0);
+  await page.getByRole("button", { name: "解锁看板结构" }).click();
+  await page.getByRole("button", { name: "添加列表" }).waitFor();
 
   stage = "B47 新建 Agent，把卡片分配给内置 Agent";
   await page.goto(`${base}/coding`);

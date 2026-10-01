@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  coverImage,
   applyMove,
   column,
   dueState,
@@ -469,5 +470,21 @@ describe("B46 list moves", () => {
     const withMe = { ...a, members: [{ kind: "me" as const, id: "" }] };
     expect(toggleMember(a, "me")).toEqual([{ kind: "me", id: "" }]);
     expect(toggleMember(withMe, "me")).toEqual([]);
+  });
+});
+
+describe("coverImage", () => {
+  it("取描述里第一张图", () => {
+    expect(
+      coverImage("文字\n![截图](/api/v1/files/12)\n![b](/api/v1/files/13)"),
+    ).toBe("/api/v1/files/12");
+    expect(coverImage('![x](https://a.com/p.png "标题")')).toBe(
+      "https://a.com/p.png",
+    );
+  });
+  it("没有图或者地址不对时为空", () => {
+    expect(coverImage("")).toBeNull();
+    expect(coverImage("[链接](/x)")).toBeNull();
+    expect(coverImage("![x](javascript:alert(1))")).toBeNull();
   });
 });

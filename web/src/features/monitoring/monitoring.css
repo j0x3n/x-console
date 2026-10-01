@@ -662,8 +662,17 @@ button.monitoring-row:hover,
 .monitoring-expiry-chip.off {
   opacity: 0.55;
 }
+.monitoring-row.domain-row {
+  flex-wrap: wrap;
+}
+.monitoring-row.domain-row .monitoring-row-main {
+  flex: 1 1 220px;
+}
 @media (max-width: 640px) {
+  /* 手机上标签换到下一行，不压住域名 */
   .monitoring-expiry-chips {
+    flex-basis: 100%;
     justify-content: flex-start;
+    padding-left: 20px;
   }
 }

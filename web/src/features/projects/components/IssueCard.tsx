@@ -2,7 +2,9 @@ import type { DragEvent } from "react";
 import { CalendarDays, ListChecks, MessageSquare } from "lucide-react";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatDate, formatTime } from "../../../lib/time";
+import { thumbnailSrc } from "../../../components/markdown/upload";
 import {
+  coverImage,
   issueDue,
   issueDueState,
   localTime,
@@ -102,6 +104,8 @@ export default function IssueCard({
   onDragStart: (e: DragEvent<HTMLElement>) => void;
   onDragOver: (e: DragEvent<HTMLElement>) => void;
 }) {
+  // B55：描述里的第一张图做封面
+  const cover = coverImage(issue.description);
   return (
     <article
       className={`projects-card${selected ? " selected" : ""}${dragging ? " dragging" : ""}`}
@@ -115,6 +119,15 @@ export default function IssueCard({
       onDragStart={onDragStart}
       onDragOver={onDragOver}
     >
+      {cover && (
+        <img
+          className="projects-card-cover"
+          src={thumbnailSrc(cover)}
+          alt=""
+          loading="lazy"
+          draggable={false}
+        />
+      )}
       <div className="projects-card-meta">
         <PriorityIcon priority={issue.priority} size={13} />
         <span className="xc-mono">{issue.key}</span>

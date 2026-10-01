@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -66,41 +67,47 @@ export default function MoreMenu({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
-    if (!open) return;
+  // 按按钮的位置放菜单。页面滚动时跟着按钮走，按钮滚出窗口就关掉。
+  const place = useCallback(() => {
     if (window.matchMedia?.(mobileQuery).matches) {
       setStyle({});
-      return;
+      return true;
     }
     const b = buttonRef.current?.getBoundingClientRect();
     const m = menuRef.current?.getBoundingClientRect();
-    if (!b || !m) return;
+    if (!b || !m) return true;
+    if (b.bottom < 0 || b.top > window.innerHeight) return false;
     setStyle(
       menuPosition(b, m, {
         width: window.innerWidth,
         height: window.innerHeight,
       }),
     );
-  }, [open]);
+    return true;
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) place();
+  }, [open, place]);
 
   useEffect(() => {
     if (!open) return;
-    const close = (e: Event) => {
-      // 菜单自己滚动时不关
+    const follow = (e: Event) => {
+      // 菜单自己滚动时不动
       if (e.target instanceof Node && menuRef.current?.contains(e.target))
         return;
-      setOpen(false);
+      if (!place()) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
+    window.addEventListener("scroll", follow, true);
+    window.addEventListener("resize", follow);
     window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", follow, true);
+      window.removeEventListener("resize", follow);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, place]);
 
   const toggle = () => {
     setStyle({ visibility: "hidden" });

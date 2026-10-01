@@ -664,3 +664,14 @@ export function toggleMember(
     ? list.filter((m) => !(m.kind === kind && m.id === id))
     : [...list, { kind, id }];
 }
+
+/** 描述里第一张图片的地址，看板卡片上做封面（B55）。没有时为空。 */
+export function coverImage(description: string | undefined): string | null {
+  if (!description) return null;
+  const m = /!\[[^\]]*\]\(\s*<?([^\s)>]+)>?(?:\s+"[^"]*")?\s*\)/.exec(
+    description,
+  );
+  if (!m) return null;
+  const src = m[1];
+  return /^(https?:\/\/|\/)/.test(src) ? src : null;
+}

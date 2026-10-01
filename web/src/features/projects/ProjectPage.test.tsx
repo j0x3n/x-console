@@ -335,10 +335,12 @@ describe("IssuePage", () => {
     expect(
       await screen.findByRole("heading", { name: "Issue 1" }),
     ).toBeTruthy();
-    const coding = screen.getByRole("link", {
-      name: /手动建编码任务/,
-    }) as HTMLAnchorElement;
-    expect(coding.getAttribute("href")).toBe("/coding/tasks?new=1&issue=XC-1");
+    // B55：“手动建编码任务”收进了右栏的“…”菜单
+    fireEvent.click(screen.getByRole("button", { name: "更多：XC-1" }));
+    expect(
+      screen.getByRole("menuitem", { name: /手动建编码任务/ }),
+    ).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.keyDown(document.body, { key: "4" });
     await waitFor(() =>
       expect(calls.find((c) => c.method === "PATCH")).toMatchObject({
@@ -383,7 +385,8 @@ describe("B46 boards", () => {
     expect(tab.getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("heading", { name: "待审核" })).toBeTruthy();
     fireEvent.click(screen.getAllByText("添加卡片")[1]);
-    const input = await screen.findByPlaceholderText("卡片标题，回车添加");
+    const input =
+      await screen.findByPlaceholderText("卡片标题，可以直接粘贴图片");
     fireEvent.change(input, { target: { value: "新卡片" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>

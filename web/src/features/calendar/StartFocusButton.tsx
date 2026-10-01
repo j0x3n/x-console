@@ -7,7 +7,14 @@ import { useFocusPanel } from "./hooks";
 import "./i18n";
 
 /** Issue 详情页上的“开始专注”：直接开始 25 分钟，关联这个 Issue。 */
-export default function StartFocusButton({ issueKey }: { issueKey: string }) {
+export default function StartFocusButton({
+  issueKey,
+  compact,
+}: {
+  issueKey: string;
+  /** 只显示图标（B55，卡片详情右栏用） */
+  compact?: boolean;
+}) {
   const t = useT();
   const current = useCurrentFocus();
   const start = useStartFocus();
@@ -18,8 +25,17 @@ export default function StartFocusButton({ issueKey }: { issueKey: string }) {
     <button
       className="xc-btn"
       disabled={start.isPending || onThis}
+      aria-label={
+        compact ? (onThis ? t("Focusing") : t("Start focus")) : undefined
+      }
       title={
-        running && !onThis ? t("Another focus session is running") : undefined
+        running && !onThis
+          ? t("Another focus session is running")
+          : compact
+            ? onThis
+              ? t("Focusing")
+              : t("Start focus")
+            : undefined
       }
       onClick={() => {
         if (running) {
@@ -36,7 +52,8 @@ export default function StartFocusButton({ issueKey }: { issueKey: string }) {
         );
       }}
     >
-      <Timer size={14} /> {onThis ? t("Focusing") : t("Start focus")}
+      <Timer size={14} />
+      {!compact && (onThis ? t("Focusing") : t("Start focus"))}
     </button>
   );
 }

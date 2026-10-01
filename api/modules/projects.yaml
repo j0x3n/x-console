@@ -1006,6 +1006,9 @@ components:
         updatedAt: { type: string, format: date-time }
         issueCount: { type: integer }
         openCount: { type: integer, description: 未完成也未取消的 Issue 数 }
+        layoutLocked:
+          type: boolean
+          description: B55。锁定看板结构：不能加、改、删看板和列表，卡片照常操作
     CreateProject:
       type: object
       required: [key, name]
@@ -1023,6 +1026,7 @@ components:
         color: { type: string }
         icon: { type: string }
         archived: { type: boolean, description: false 表示恢复归档 }
+        layoutLocked: { type: boolean, description: B55。锁定或解锁看板结构 }
     Label:
       type: object
       required: [id, name, color]

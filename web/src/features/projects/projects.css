@@ -331,7 +331,7 @@
   transition: border-color 0.12s;
 }
 .projects-lane.drag-over {
-  border-color: var(--xc-border-strong);
+  background: var(--xc-surface-2);
 }
 .projects-lane-head {
   display: flex;
@@ -389,7 +389,35 @@
   box-shadow: 0 0 0 1px var(--xc-accent-soft);
 }
 .projects-card.dragging {
-  opacity: 0.4;
+  opacity: 0.35;
+}
+/* 拖动时跟着鼠标的那张卡片（B55，ListBoard 的 setCardDragImage） */
+.projects-drag-ghost {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  z-index: -1;
+  border-color: var(--xc-border-strong);
+  box-shadow: var(--xc-shadow);
+  transform: rotate(2deg);
+  pointer-events: none;
+}
+/* 放下的位置：空出一张卡片的高度 */
+.projects-drop-slot {
+  flex: none;
+  border: 1px dashed var(--xc-border-strong);
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+}
+/* 卡片封面：描述里第一张图（B55） */
+.projects-card-cover {
+  display: block;
+  width: calc(100% + 20px);
+  max-height: 120px;
+  margin: -9px -10px 8px;
+  border-radius: 7px 7px 0 0;
+  object-fit: cover;
+  background: var(--xc-surface-2);
 }
 .projects-card h3 {
   margin: 6px 0 0;
@@ -982,14 +1010,51 @@
   display: flex;
   align-items: flex-start;
 }
+/* 滚动条平时隐藏，鼠标移上来才出现；两边还能滚时渐隐（B55） */
+.projects-board.lists {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+.projects-board.lists:hover {
+  scrollbar-color: var(--xc-border-strong) transparent;
+}
+.projects-board.lists.grabbing {
+  cursor: grabbing;
+  user-select: none;
+}
+.projects-board.lists.fade-right {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+.projects-board.lists.fade-left {
+  mask-image: linear-gradient(to right, transparent, #000 32px);
+}
+.projects-board.lists.fade-left.fade-right {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 32px,
+    #000 calc(100% - 32px),
+    transparent
+  );
+}
 .projects-board.lists > .projects-lane {
   flex: none;
   width: 272px;
   border-top: 3px solid transparent;
 }
+/* 添加列表：和“添加卡片”一样，平时只有文字，悬停才有底色（B55） */
 .projects-board.lists > .projects-lane.add-list {
+  padding: 2px 0;
+  border: 0;
   background: transparent;
-  border: 1px dashed var(--xc-border-strong);
+}
+.projects-lane.add-list > .projects-add-card {
+  margin-top: 0;
+}
+.projects-lane.add-list > .projects-inline {
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--xc-panel);
 }
 .projects-board.lists > .projects-lane.collapsed {
   display: flex;
@@ -1068,7 +1133,48 @@
 }
 .projects-inline-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
+}
+/* 快速添加里贴进来的图片（B55） */
+.projects-inline-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.projects-inline-image {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--xc-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.projects-inline-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.projects-inline-image.loading img {
+  opacity: 0.45;
+}
+.projects-inline-image.failed {
+  border-color: var(--xc-danger);
+}
+.projects-inline-image button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #000a;
+  color: #fff;
+  cursor: pointer;
 }
 .projects-card-count {
   display: inline-flex;
@@ -1165,6 +1271,17 @@
   display: flex;
   gap: 6px;
 }
+/* 卡片详情右栏的操作（B55）：主按钮占满，后面是专注和“…” */
+.projects-side-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.projects-side-primary {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
 .projects-activity {
   margin-top: 24px;
 }
@@ -1192,5 +1309,12 @@
 @media (max-width: 720px) {
   .projects-board.lists > .projects-lane {
     width: min(84vw, 300px);
+  }
+}
+
+/* 手机上没有键盘，顶栏不放快捷键按钮，给标题留位置（B55） */
+@media (max-width: 640px) {
+  .projects-desktop-only {
+    display: none;
   }
 }

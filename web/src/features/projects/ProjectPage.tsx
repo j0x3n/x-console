@@ -5,6 +5,8 @@ import {
   Columns3,
   Keyboard,
   LayoutList,
+  Lock,
+  LockOpen,
   Pencil,
   Plus,
   Settings2,
@@ -28,6 +30,7 @@ import {
   useMoveCard,
   useProjectByKey,
   useUpdateIssue,
+  useUpdateProject,
   type Board,
   type BoardList,
 } from "./api";
@@ -111,6 +114,8 @@ export default function ProjectPage() {
   const update = useUpdateIssue();
   const create = useCreateIssue();
   const ops = useBoardMutations(project?.id ?? 0);
+  const updateProject = useUpdateProject();
+  const [localLock, setLocalLock] = useLocalLock(project?.id);
   const [prefs, setPrefs] = useState(loadPrefs);
   const [filter, setFilter] = useState<IssueFilter>(emptyFilter);
   const [search, setSearch] = useSearchParams();
@@ -245,70 +250,90 @@ export default function ProjectPage() {
       </div>
     );
   const archived = !!project.archivedAt;
+  // B55：锁定后不能加、改、删看板和列表。后端没上线时记在本机。
+  const locked = project.layoutLocked ?? localLock;
+  const toggleLock = () => {
+    setLocalLock(!locked);
+    updateProject.mutate(
+      { id: project.id, body: { layoutLocked: !locked } },
+      {
+        onSuccess: () =>
+          toast(locked ? t("Board layout unlocked") : t("Board layout locked")),
+      },
+    );
+  };
 
   const boardMenu = board && (
     <MoreMenu
       label={`${t("More")}：${board.name}`}
       title={board.name}
       items={[
-        {
-          key: "edit",
-          label: t("Edit board"),
-          onSelect: () => setBoardDialog(board),
-        },
-        {
-          key: "copy",
-          label: t("Copy board"),
-          onSelect: () =>
-            ops.copyBoard.mutate(board.id, {
-              onSuccess: (b) => setParam("board", String(b.id)),
-            }),
-        },
+        ...(locked
+          ? []
+          : [
+              {
+                key: "edit",
+                label: t("Edit board"),
+                onSelect: () => setBoardDialog(board),
+              },
+              {
+                key: "copy",
+                label: t("Copy board"),
+                onSelect: () =>
+                  ops.copyBoard.mutate(board.id, {
+                    onSuccess: (b) => setParam("board", String(b.id)),
+                  }),
+              },
+            ]),
         {
           key: "archive-view",
           label: t("Archived items"),
           icon: <Archive size={14} />,
           onSelect: () => setArchiveOpen(true),
         },
-        {
-          key: "archive",
-          label: t("Archive board"),
-          onSelect: async () => {
-            if (
-              await confirmAction({
-                title: `${t("Archive board")}“${board.name}”？`,
-                description: t(
-                  "It leaves the tabs. Its cards stay and can be found in search.",
-                ),
-                confirmLabel: t("Archive"),
-                danger: false,
-              })
-            )
-              ops.updateBoard.mutate(
-                { id: board.id, body: { archived: true } },
-                { onSuccess: () => setParam("board", null) },
-              );
-          },
-        },
-        {
-          key: "delete",
-          label: t("Delete board"),
-          danger: true,
-          onSelect: async () => {
-            if (
-              await confirmAction({
-                title: `${t("Delete board")}“${board.name}”？`,
-                description: t(
-                  "Its cards move to the first other board, into the list for their status.",
-                ),
-                confirmLabel: t("Delete"),
-              })
-            )
-              ops.deleteBoard.mutate(board.id, {
-                onSuccess: () => setParam("board", null),
-              });
-          },
-        },
+        ...(locked
+          ? []
+          : [
+              {
+                key: "archive",
+                label: t("Archive board"),
+                onSelect: async () => {
+                  if (
+                    await confirmAction({
+                      title: `${t("Archive board")}“${board.name}”？`,
+                      description: t(
+                        "It leaves the tabs. Its cards stay and can be found in search.",
+                      ),
+                      confirmLabel: t("Archive"),
+                      danger: false,
+                    })
+                  )
+                    ops.updateBoard.mutate(
+                      { id: board.id, body: { archived: true } },
+                      { onSuccess: () => setParam("board", null) },
+                    );
+                },
+              },
+              {
+                key: "delete",
+                label: t("Delete board"),
+                danger: true,
+                onSelect: async () => {
+                  if (
+                    await confirmAction({
+                      title: `${t("Delete board")}“${board.name}”？`,
+                      description: t(
+                        "Its cards move to the first other board, into the list for their status.",
+                      ),
+                      confirmLabel: t("Delete"),
+                    })
+                  )
+                    ops.deleteBoard.mutate(board.id, {
+                      onSuccess: () => setParam("board", null),
+                    });
+                },
+              },
+            ]),
       ]}
     />
   );
@@ -321,6 +346,21 @@ export default function ProjectPage() {
         aside={
           <>
             <button
+              className={`xc-btn small${locked ? " on" : ""}`}
+              onClick={toggleLock}
+              aria-pressed={locked}
+              title={
+                locked
+                  ? t("Unlock board layout")
+                  : t("Lock board layout: no new boards or lists")
+              }
+              aria-label={
+                locked ? t("Unlock board layout") : t("Lock board layout")
+              }
+            >
+              {locked ? <Lock size={14} /> : <LockOpen size={14} />}
+            </button>
+            <button
               className="xc-btn small"
               onClick={() => setEditOpen(true)}
               title={t("Edit")}
@@ -328,7 +368,7 @@ export default function ProjectPage() {
               <Pencil size={14} /> {t("Edit")}
             </button>
             <button
-              className="xc-btn small"
+              className="xc-btn small projects-desktop-only"
               onClick={() => setShortcutsOpen(true)}
               aria-label={t("Keyboard shortcuts")}
               title={`${t("Keyboard shortcuts")} (?)`}
@@ -361,13 +401,13 @@ export default function ProjectPage() {
             aria-selected={b.id === board?.id}
             className={b.id === board?.id ? "on" : ""}
             onClick={() => setParam("board", String(b.id))}
-            onDoubleClick={() => setBoardDialog(b)}
+            onDoubleClick={() => !locked && setBoardDialog(b)}
           >
             {b.icon && <span className="projects-board-icon">{b.icon}</span>}
             {b.name}
           </button>
         ))}
-        {!archived && (
+        {!archived && !locked && (
           <button
             className="projects-board-add"
             aria-label={t("New board")}
@@ -487,14 +527,19 @@ export default function ProjectPage() {
           onSelect={setSelected}
           onOpen={open}
           readOnly={archived}
+          locked={locked}
           onMove={(key, plan) =>
             move.mutate({ projectId: project.id, key, plan })
           }
           actions={{
-            quickAdd: (listId, title) =>
+            quickAdd: (listId, title, description) =>
               create.mutateAsync({
                 projectId: project.id,
-                body: { title, listId },
+                body: {
+                  title,
+                  listId,
+                  ...(description ? { description } : {}),
+                },
               }),
             addList: (name) =>
               ops.createList.mutateAsync({ boardId: board.id, name }),
@@ -609,4 +654,30 @@ export default function ProjectPage() {
       />
     </div>
   );
+}
+
+/** 本机记住的锁定状态，后端还没有 layoutLocked 时用（B55）。 */
+function useLocalLock(
+  projectId: number | undefined,
+): [boolean, (v: boolean) => void] {
+  const key = `xc.projects.locked.${projectId ?? 0}`;
+  const read = () => {
+    try {
+      return localStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
+  };
+  const [value, setValue] = useState(read);
+  useEffect(() => setValue(read()), [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const set = (v: boolean) => {
+    setValue(v);
+    try {
+      if (v) localStorage.setItem(key, "1");
+      else localStorage.removeItem(key);
+    } catch {
+      // 存不了只在这次有效
+    }
+  };
+  return [value, set];
 }

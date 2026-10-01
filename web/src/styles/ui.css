@@ -1370,6 +1370,15 @@ a.xc-badge:hover {
 .topbar .breadcrumbs > * {
   flex: none;
 }
+/* 当前页名字放不下时省略，不被右边的按钮压住（B55） */
+.topbar .breadcrumbs > .breadcrumb-detail,
+.topbar .breadcrumbs > [aria-current="page"] {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .topbar .header-actions {
   flex: none;
 }

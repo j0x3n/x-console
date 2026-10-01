@@ -264,4 +264,13 @@ registerZh({
   "restored it": "恢复了它",
   "changed members": "改了成员",
   "copied it from": "从这张卡片复制：",
+  "Board layout locked": "已锁定看板结构",
+  "Board layout unlocked": "已解锁看板结构",
+  "Lock board layout": "锁定看板结构",
+  "Unlock board layout": "解锁看板结构",
+  "Lock board layout: no new boards or lists":
+    "锁定看板结构：不能再加看板和列表",
+  "Card title. Paste images here.": "卡片标题，可以直接粘贴图片",
+  "Add image": "添加图片",
+  Remove: "移除",
 });

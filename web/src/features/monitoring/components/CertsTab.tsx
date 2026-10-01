@@ -71,7 +71,7 @@ function DomainRow({
   const tone = expiryTone(first.kind, g.daysLeft);
   return (
     <div
-      className="monitoring-row"
+      className="monitoring-row domain-row"
       role="button"
       tabIndex={0}
       onClick={() => onOpen(first.id)}

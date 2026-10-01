@@ -534,8 +534,11 @@ type Project struct {
 	IssueCount int    `json:"issueCount"`
 
 	// Key 2 到 5 个大写字母
-	Key  string `json:"key"`
-	Name string `json:"name"`
+	Key string `json:"key"`
+
+	// LayoutLocked B55。锁定看板结构：不能加、改、删看板和列表，卡片照常操作
+	LayoutLocked *bool  `json:"layoutLocked,omitempty"`
+	Name         string `json:"name"`
 
 	// OpenCount 未完成也未取消的 Issue 数
 	OpenCount int       `json:"openCount"`
@@ -642,7 +645,10 @@ type UpdateProject struct {
 	Color       *string `json:"color,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Icon        *string `json:"icon,omitempty"`
-	Name        *string `json:"name,omitempty"`
+
+	// LayoutLocked B55。锁定或解锁看板结构
+	LayoutLocked *bool   `json:"layoutLocked,omitempty"`
+	Name         *string `json:"name,omitempty"`
 }
 
 // UpdateProjectCategory defines model for UpdateProjectCategory.
