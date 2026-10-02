@@ -946,6 +946,41 @@ try {
     assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
     return response.status() === 204 ? undefined : response.json();
   };
+  stage = "B81 增量备份 API 主流程";
+  const previousBackupSettings = await api("/backups/settings");
+  const backupRemote = (await api("/storage/remotes")).items.find((item) => item.name === "端到端网盘");
+  await send("PUT", "/backups/settings", { target: "remote", remoteId: backupRemote.id, mode: "incremental", webdav: { folder: "e2e-backups" }, retention: { last: 7, daily: 14, weekly: 8, monthly: 12 } });
+  const backupProbe = join(serverEnv.XC_DATA_DIR, "files", "projects", "backup-e2e.txt");
+  mkdirSync(join(serverEnv.XC_DATA_DIR, "files", "projects"), { recursive: true });
+  writeFileSync(backupProbe, "backup-e2e");
+  await send("POST", "/backups/run");
+  const firstBackupJob = await until("首个增量备份", async () => {
+    const result = await api("/backups/job");
+    return result.state !== "running" && result;
+  });
+  assert.equal(firstBackupJob.state, "done", firstBackupJob.error);
+  rmSync(backupProbe);
+  await send("POST", "/backups/run");
+  const secondBackupJob = await until("第二个增量备份", async () => {
+    const result = await api("/backups/job");
+    return result.state !== "running" && result;
+  });
+  assert.equal(secondBackupJob.state, "done", secondBackupJob.error);
+  const backupSnapshots = await api("/backups/snapshots");
+  assert.equal(backupSnapshots.items.length, 2);
+  assert.ok(backupSnapshots.stats.uniqueBytes > 0);
+  const backupChanges = await api(`/backups/snapshots/${secondBackupJob.backupId}/changes`);
+  assert.ok(backupChanges.items.some((item) => item.path === "projects/backup-e2e.txt" && item.kind === "deleted"));
+  await send("POST", "/backups/check");
+  const checkedBackup = await until("检查增量备份", async () => {
+    const result = await api("/backups/job");
+    return result.state !== "running" && result;
+  });
+  assert.equal(checkedBackup.state, "done", checkedBackup.error);
+  assert.equal(checkedBackup.check.snapshots, 2);
+  const { lastRuns: previousBackupRuns, nextRunAt: previousBackupNext, ...previousBackupInput } = previousBackupSettings;
+  await send("PUT", "/backups/settings", previousBackupInput);
+
   stage = "B83 作息和健康提醒 API 主流程";
   const previousSchedule = await api("/habits/schedule");
   await send("PUT", "/habits/schedule", { workDays: [1, 2, 3, 4, 5], wakeTime: "12:00", sleepTime: "03:30", timezone: "Asia/Shanghai", idleMinutes: 5 });

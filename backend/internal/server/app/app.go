@@ -31,6 +31,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/scheduler"
 	"github.com/j0x3n/x-console/backend/internal/server/secrets"
@@ -59,6 +60,9 @@ type App struct {
 // New builds shared services and every module on an open database.
 // extra modules are appended after the registered ones; tests use it.
 func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Module, error)) (*App, error) {
+	if err := backup.EnsureReadyBeforeApp(context.Background(), cfg, conn); err != nil {
+		return nil, err
+	}
 	box, err := secrets.NewBox(cfg.MasterKey)
 	if err != nil {
 		return nil, err

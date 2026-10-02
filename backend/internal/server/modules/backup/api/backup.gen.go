@@ -66,7 +66,9 @@ func (e BackupLocation) Valid() bool {
 // Defines values for BackupJobKind.
 const (
 	BackupJobKindAuto    BackupJobKind = "auto"
+	BackupJobKindCheck   BackupJobKind = "check"
 	BackupJobKindExport  BackupJobKind = "export"
+	BackupJobKindPrune   BackupJobKind = "prune"
 	BackupJobKindRestore BackupJobKind = "restore"
 )
 
@@ -75,7 +77,11 @@ func (e BackupJobKind) Valid() bool {
 	switch e {
 	case BackupJobKindAuto:
 		return true
+	case BackupJobKindCheck:
+		return true
 	case BackupJobKindExport:
+		return true
+	case BackupJobKindPrune:
 		return true
 	case BackupJobKindRestore:
 		return true
@@ -120,6 +126,24 @@ func (e BackupSettingsFrequency) Valid() bool {
 	case BackupSettingsFrequencyDaily:
 		return true
 	case BackupSettingsFrequencyWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupSettingsMode.
+const (
+	BackupSettingsModeFull        BackupSettingsMode = "full"
+	BackupSettingsModeIncremental BackupSettingsMode = "incremental"
+)
+
+// Valid indicates whether the value is a known member of the BackupSettingsMode enum.
+func (e BackupSettingsMode) Valid() bool {
+	switch e {
+	case BackupSettingsModeFull:
+		return true
+	case BackupSettingsModeIncremental:
 		return true
 	default:
 		return false
@@ -171,6 +195,24 @@ func (e BackupSettingsInputFrequency) Valid() bool {
 	}
 }
 
+// Defines values for BackupSettingsInputMode.
+const (
+	BackupSettingsInputModeFull        BackupSettingsInputMode = "full"
+	BackupSettingsInputModeIncremental BackupSettingsInputMode = "incremental"
+)
+
+// Valid indicates whether the value is a known member of the BackupSettingsInputMode enum.
+func (e BackupSettingsInputMode) Valid() bool {
+	switch e {
+	case BackupSettingsInputModeFull:
+		return true
+	case BackupSettingsInputModeIncremental:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupSettingsInputTarget.
 const (
 	BackupSettingsInputTargetCustom  BackupSettingsInputTarget = "custom"
@@ -186,6 +228,27 @@ func (e BackupSettingsInputTarget) Valid() bool {
 	case BackupSettingsInputTargetRemote:
 		return true
 	case BackupSettingsInputTargetStorage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupSnapshotChangeKind.
+const (
+	Added    BackupSnapshotChangeKind = "added"
+	Deleted  BackupSnapshotChangeKind = "deleted"
+	Modified BackupSnapshotChangeKind = "modified"
+)
+
+// Valid indicates whether the value is a known member of the BackupSnapshotChangeKind enum.
+func (e BackupSnapshotChangeKind) Valid() bool {
+	switch e {
+	case Added:
+		return true
+	case Deleted:
+		return true
+	case Modified:
 		return true
 	default:
 		return false
@@ -252,6 +315,13 @@ type BackupKind string
 // BackupLocation defines model for Backup.Location.
 type BackupLocation string
 
+// BackupCheckResult defines model for BackupCheckResult.
+type BackupCheckResult struct {
+	Blocks    int       `json:"blocks"`
+	CheckedAt time.Time `json:"checkedAt"`
+	Snapshots int       `json:"snapshots"`
+}
+
 // BackupGdrive B69 起只用 folderName，其余字段不再返回
 type BackupGdrive struct {
 	// Account 授权的 Google 账号邮箱
@@ -277,11 +347,13 @@ type BackupGdriveInput struct {
 // BackupJob defines model for BackupJob.
 type BackupJob struct {
 	// BackupId 导出完成后生成的备份
-	BackupId   *string        `json:"backupId,omitempty"`
-	DoneBytes  *int64         `json:"doneBytes,omitempty"`
-	Error      *string        `json:"error,omitempty"`
-	FinishedAt *time.Time     `json:"finishedAt,omitempty"`
-	Kind       *BackupJobKind `json:"kind,omitempty"`
+	BackupId   *string            `json:"backupId,omitempty"`
+	Check      *BackupCheckResult `json:"check,omitempty"`
+	DoneBytes  *int64             `json:"doneBytes,omitempty"`
+	Error      *string            `json:"error,omitempty"`
+	FinishedAt *time.Time         `json:"finishedAt,omitempty"`
+	Kind       *BackupJobKind     `json:"kind,omitempty"`
+	Prune      *BackupPruneResult `json:"prune,omitempty"`
 
 	// SecretsUnreadable 恢复后解不开的设置（主密钥不同），比如 github.token。用户要重新填写
 	SecretsUnreadable *[]string      `json:"secretsUnreadable,omitempty"`
@@ -291,6 +363,7 @@ type BackupJob struct {
 	// Step 现在在做什么，中文，比如“正在打包文件（120/800）”
 	Step       *string `json:"step,omitempty"`
 	TotalBytes *int64  `json:"totalBytes,omitempty"`
+	Warning    *string `json:"warning,omitempty"`
 }
 
 // BackupJobKind defines model for BackupJob.Kind.
@@ -298,6 +371,30 @@ type BackupJobKind string
 
 // BackupJobState defines model for BackupJob.State.
 type BackupJobState string
+
+// BackupPruneResult defines model for BackupPruneResult.
+type BackupPruneResult struct {
+	Blocks    int   `json:"blocks"`
+	Bytes     int64 `json:"bytes"`
+	Snapshots int   `json:"snapshots"`
+}
+
+// BackupRepoStats defines model for BackupRepoStats.
+type BackupRepoStats struct {
+	LastSnapshotAt *time.Time `json:"lastSnapshotAt,omitempty"`
+	LogicalBytes   int64      `json:"logicalBytes"`
+	SizeBytes      int64      `json:"sizeBytes"`
+	Snapshots      int        `json:"snapshots"`
+	UniqueBytes    int64      `json:"uniqueBytes"`
+}
+
+// BackupRetention defines model for BackupRetention.
+type BackupRetention struct {
+	Daily   int `json:"daily"`
+	Last    int `json:"last"`
+	Monthly int `json:"monthly"`
+	Weekly  int `json:"weekly"`
+}
 
 // BackupSettings defines model for BackupSettings.
 type BackupSettings struct {
@@ -318,11 +415,13 @@ type BackupSettings struct {
 		Ok        bool      `json:"ok"`
 		SizeBytes *int64    `json:"sizeBytes,omitempty"`
 	} `json:"lastRuns"`
-	NextRunAt *time.Time `json:"nextRunAt,omitempty"`
+	Mode      BackupSettingsMode `json:"mode"`
+	NextRunAt *time.Time         `json:"nextRunAt,omitempty"`
 
 	// RemoteId B69。target 是 remote 时用的网盘账号
-	RemoteId *int64                  `json:"remoteId,omitempty"`
-	S3       *externalRef1.StorageS3 `json:"s3,omitempty"`
+	RemoteId  *int64                  `json:"remoteId,omitempty"`
+	Retention BackupRetention         `json:"retention"`
+	S3        *externalRef1.StorageS3 `json:"s3,omitempty"`
 
 	// Target storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
 	// remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
@@ -342,6 +441,9 @@ type BackupSettings struct {
 // BackupSettingsFrequency defines model for BackupSettings.Frequency.
 type BackupSettingsFrequency string
 
+// BackupSettingsMode defines model for BackupSettings.Mode.
+type BackupSettingsMode string
+
 // BackupSettingsTarget storage 用“存储”里的 S3 配置（放在 backups/ 前缀下）；custom 用下面单独的 S3；
 // remote 用 remoteId 指的网盘账号（B69，账号在 设置 → 存储 里管）。
 // webdav、gdrive 是 B63 的旧值，启动时会自动改成 remote，以后不再出现
@@ -353,7 +455,9 @@ type BackupSettingsInput struct {
 	Frequency *BackupSettingsInputFrequency `json:"frequency,omitempty"`
 	Gdrive    *BackupGdriveInput            `json:"gdrive,omitempty"`
 	Keep      *int                          `json:"keep,omitempty"`
+	Mode      *BackupSettingsInputMode      `json:"mode,omitempty"`
 	RemoteId  *int64                        `json:"remoteId,omitempty"`
+	Retention *BackupRetention              `json:"retention,omitempty"`
 	S3        *externalRef1.StorageS3Input  `json:"s3,omitempty"`
 	Target    *BackupSettingsInputTarget    `json:"target,omitempty"`
 	Time      *string                       `json:"time,omitempty"`
@@ -364,8 +468,34 @@ type BackupSettingsInput struct {
 // BackupSettingsInputFrequency defines model for BackupSettingsInput.Frequency.
 type BackupSettingsInputFrequency string
 
+// BackupSettingsInputMode defines model for BackupSettingsInput.Mode.
+type BackupSettingsInputMode string
+
 // BackupSettingsInputTarget defines model for BackupSettingsInput.Target.
 type BackupSettingsInputTarget string
+
+// BackupSnapshot defines model for BackupSnapshot.
+type BackupSnapshot struct {
+	Added            int       `json:"added"`
+	ChangesTruncated bool      `json:"changesTruncated"`
+	CreatedAt        time.Time `json:"createdAt"`
+	Deleted          int       `json:"deleted"`
+	Files            int       `json:"files"`
+	Id               string    `json:"id"`
+	Modified         int       `json:"modified"`
+	SizeBytes        int64     `json:"sizeBytes"`
+	UploadedBytes    int64     `json:"uploadedBytes"`
+	Version          string    `json:"version"`
+}
+
+// BackupSnapshotChange defines model for BackupSnapshotChange.
+type BackupSnapshotChange struct {
+	Kind BackupSnapshotChangeKind `json:"kind"`
+	Path string                   `json:"path"`
+}
+
+// BackupSnapshotChangeKind defines model for BackupSnapshotChange.Kind.
+type BackupSnapshotChangeKind string
 
 // BackupTargetTest defines model for BackupTargetTest.
 type BackupTargetTest struct {
@@ -467,6 +597,9 @@ type ListRemoteDriveItemsParams struct {
 // PutBackupSettingsJSONRequestBody defines body for PutBackupSettings for application/json ContentType.
 type PutBackupSettingsJSONRequestBody = BackupSettingsInput
 
+// RestoreBackupSnapshotJSONRequestBody defines body for RestoreBackupSnapshot for application/json ContentType.
+type RestoreBackupSnapshotJSONRequestBody = RestoreInput
+
 // TestBackupTargetJSONRequestBody defines body for TestBackupTarget for application/json ContentType.
 type TestBackupTargetJSONRequestBody = BackupSettingsInput
 
@@ -481,6 +614,9 @@ type ServerInterface interface {
 
 	// (GET /backups)
 	ListBackups(w http.ResponseWriter, r *http.Request)
+
+	// (POST /backups/check)
+	CheckBackup(w http.ResponseWriter, r *http.Request)
 
 	// (POST /backups/export)
 	ExportBackup(w http.ResponseWriter, r *http.Request)
@@ -505,6 +641,15 @@ type ServerInterface interface {
 
 	// (PUT /backups/settings)
 	PutBackupSettings(w http.ResponseWriter, r *http.Request)
+
+	// (GET /backups/snapshots)
+	ListBackupSnapshots(w http.ResponseWriter, r *http.Request)
+
+	// (GET /backups/snapshots/{snapshotId}/changes)
+	GetBackupSnapshotChanges(w http.ResponseWriter, r *http.Request, snapshotId string)
+
+	// (POST /backups/snapshots/{snapshotId}/restore)
+	RestoreBackupSnapshot(w http.ResponseWriter, r *http.Request, snapshotId string)
 
 	// (POST /backups/target/test)
 	TestBackupTarget(w http.ResponseWriter, r *http.Request)
@@ -537,6 +682,11 @@ type Unimplemented struct{}
 
 // (GET /backups)
 func (_ Unimplemented) ListBackups(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /backups/check)
+func (_ Unimplemented) CheckBackup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -577,6 +727,21 @@ func (_ Unimplemented) GetBackupSettings(w http.ResponseWriter, r *http.Request)
 
 // (PUT /backups/settings)
 func (_ Unimplemented) PutBackupSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /backups/snapshots)
+func (_ Unimplemented) ListBackupSnapshots(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /backups/snapshots/{snapshotId}/changes)
+func (_ Unimplemented) GetBackupSnapshotChanges(w http.ResponseWriter, r *http.Request, snapshotId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /backups/snapshots/{snapshotId}/restore)
+func (_ Unimplemented) RestoreBackupSnapshot(w http.ResponseWriter, r *http.Request, snapshotId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -634,6 +799,20 @@ func (siw *ServerInterfaceWrapper) ListBackups(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListBackups(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckBackup operation middleware
+func (siw *ServerInterfaceWrapper) CheckBackup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckBackup(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -791,6 +970,72 @@ func (siw *ServerInterfaceWrapper) PutBackupSettings(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutBackupSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBackupSnapshots operation middleware
+func (siw *ServerInterfaceWrapper) ListBackupSnapshots(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBackupSnapshots(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBackupSnapshotChanges operation middleware
+func (siw *ServerInterfaceWrapper) GetBackupSnapshotChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "snapshotId" -------------
+	var snapshotId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "snapshotId", chi.URLParam(r, "snapshotId"), &snapshotId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "snapshotId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBackupSnapshotChanges(w, r, snapshotId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RestoreBackupSnapshot operation middleware
+func (siw *ServerInterfaceWrapper) RestoreBackupSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "snapshotId" -------------
+	var snapshotId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "snapshotId", chi.URLParam(r, "snapshotId"), &snapshotId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "snapshotId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RestoreBackupSnapshot(w, r, snapshotId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1117,6 +1362,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/backups/snapshots", wrapper.ListBackupSnapshots)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/backups/snapshots/{snapshotId}/changes", wrapper.GetBackupSnapshotChanges)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/backups/snapshots/{snapshotId}/restore", wrapper.RestoreBackupSnapshot)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/backups/check", wrapper.CheckBackup)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/backups", wrapper.ListBackups)
 	})

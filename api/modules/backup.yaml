@@ -8,6 +8,78 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /backups/snapshots:
+    get:
+      operationId: listBackupSnapshots
+      tags: [backup]
+      responses:
+        "200":
+          description: 快照列表和仓库概况
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, stats]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/BackupSnapshot" }
+                  stats: { $ref: "#/components/schemas/BackupRepoStats" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/snapshots/{snapshotId}/changes:
+    parameters:
+      - { name: snapshotId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getBackupSnapshotChanges
+      tags: [backup]
+      responses:
+        "200":
+          description: 最多 200 条变化
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, truncated]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/BackupSnapshotChange" }
+                  truncated: { type: boolean }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/snapshots/{snapshotId}/restore:
+    parameters:
+      - { name: snapshotId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: restoreBackupSnapshot
+      tags: [backup]
+      description: 始终验证后准备恢复。服务重启时保存现场并同步恢复全部数据。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RestoreInput" }
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupJob" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /backups/check:
+    post:
+      operationId: checkBackup
+      tags: [backup]
+      responses:
+        "202":
+          description: 已开始检查，结果从任务接口获取
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupJob" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /backups:
     get:
       operationId: listBackups
@@ -303,6 +375,57 @@ components:
         type: string
         enum: [webdav, gdrive]
   schemas:
+    BackupRetention:
+      type: object
+      required: [last, daily, weekly, monthly]
+      properties:
+        last: { type: integer, minimum: 1, maximum: 365 }
+        daily: { type: integer, minimum: 0, maximum: 3650 }
+        weekly: { type: integer, minimum: 0, maximum: 520 }
+        monthly: { type: integer, minimum: 0, maximum: 120 }
+    BackupSnapshot:
+      type: object
+      required: [id, createdAt, version, files, sizeBytes, uploadedBytes, added, modified, deleted, changesTruncated]
+      properties:
+        id: { type: string }
+        createdAt: { type: string, format: date-time }
+        version: { type: string }
+        files: { type: integer }
+        sizeBytes: { type: integer, format: int64 }
+        uploadedBytes: { type: integer, format: int64 }
+        added: { type: integer }
+        modified: { type: integer }
+        deleted: { type: integer }
+        changesTruncated: { type: boolean }
+    BackupSnapshotChange:
+      type: object
+      required: [path, kind]
+      properties:
+        path: { type: string }
+        kind: { type: string, enum: [added, modified, deleted] }
+    BackupRepoStats:
+      type: object
+      required: [snapshots, sizeBytes, logicalBytes, uniqueBytes]
+      properties:
+        snapshots: { type: integer }
+        sizeBytes: { type: integer, format: int64 }
+        logicalBytes: { type: integer, format: int64 }
+        uniqueBytes: { type: integer, format: int64 }
+        lastSnapshotAt: { type: string, format: date-time }
+    BackupCheckResult:
+      type: object
+      required: [snapshots, blocks, checkedAt]
+      properties:
+        snapshots: { type: integer }
+        blocks: { type: integer }
+        checkedAt: { type: string, format: date-time }
+    BackupPruneResult:
+      type: object
+      required: [snapshots, blocks, bytes]
+      properties:
+        snapshots: { type: integer }
+        blocks: { type: integer }
+        bytes: { type: integer, format: int64 }
     RemoteDrive:
       type: object
       required: [id, name, limited]
@@ -363,7 +486,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [export, restore, auto]
+          enum: [export, restore, auto, check, prune]
         state:
           type: string
           enum: [idle, running, done, failed]
@@ -374,6 +497,9 @@ components:
         startedAt: { type: string, format: date-time }
         finishedAt: { type: string, format: date-time }
         error: { type: string }
+        warning: { type: string }
+        check: { $ref: "#/components/schemas/BackupCheckResult" }
+        prune: { $ref: "#/components/schemas/BackupPruneResult" }
         secretsUnreadable:
           type: array
           description: 恢复后解不开的设置（主密钥不同），比如 github.token。用户要重新填写
@@ -385,8 +511,10 @@ components:
         confirm: { type: string, description: 必须是“恢复” }
     BackupSettings:
       type: object
-      required: [enabled, frequency, time, weekday, keep, target, lastRuns]
+      required: [enabled, frequency, time, weekday, keep, target, lastRuns, mode, retention]
       properties:
+        mode: { type: string, enum: [full, incremental] }
+        retention: { $ref: "#/components/schemas/BackupRetention" }
         enabled: { type: boolean }
         frequency:
           type: string
@@ -422,6 +550,8 @@ components:
     BackupSettingsInput:
       type: object
       properties:
+        mode: { type: string, enum: [full, incremental] }
+        retention: { $ref: "#/components/schemas/BackupRetention" }
         enabled: { type: boolean }
         frequency:
           type: string

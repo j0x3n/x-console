@@ -369,6 +369,9 @@ func TestRestoreOnAnotherInstall(t *testing.T) {
 	if !backup.Pending(restoreDir) {
 		t.Fatal("restore is not staged")
 	}
+	if err := backup.PreparePending(m, ctx); err != nil {
+		t.Fatal(err)
+	}
 	// The current data was saved first.
 	var list struct{ Items []api.Backup }
 	dst.MustDo(http.MethodGet, "/backups", nil, &list)
@@ -497,7 +500,7 @@ func TestAutomaticBackupToS3KeepsTheNewest(t *testing.T) {
 
 	clock := time.Date(2026, 10, 1, 2, 0, 0, 0, time.UTC).In(env.App.Deps.Config.Location) // 10:00 in Shanghai
 	backup.SetNow(m, func() time.Time { return clock })
-	body := map[string]any{"enabled": true, "target": "custom", "keep": 2, "time": "03:00", "frequency": "daily",
+	body := map[string]any{"mode": "full", "enabled": true, "target": "custom", "keep": 2, "time": "03:00", "frequency": "daily",
 		"s3": s3Settings(srv)}
 	var s api.BackupSettings
 	env.MustDo(http.MethodPut, "/backups/settings", body, &s)
@@ -577,7 +580,7 @@ func TestBackupToStorageS3AndFailureIsRecorded(t *testing.T) {
 		t.Fatalf("run without S3: %d", code)
 	}
 	env.MustDo(http.MethodPut, "/storage/s3", s3Settings(srv), nil)
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "storage"}, nil)
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"mode": "full", "enabled": true, "target": "storage"}, nil)
 
 	env.MustDo(http.MethodPost, "/backups/run", nil, nil)
 	if job := waitJob(t, env); job.State != api.Done {

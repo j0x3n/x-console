@@ -61,6 +61,7 @@ func davNames(t *testing.T, fs webdav.FileSystem, dir string) []string {
 // runThree runs three automatic backups a minute apart and checks each one.
 func runThree(t *testing.T, env *testutil.Env, m *backup.Module) {
 	t.Helper()
+	env.Elevate()
 	clock := time.Date(2026, 10, 2, 3, 0, 0, 0, time.UTC)
 	for i := range 3 {
 		at := clock.Add(time.Duration(i) * time.Minute)
@@ -181,7 +182,7 @@ func TestBackupToWebDAV(t *testing.T) {
 		t.Fatalf("test: %+v", test)
 	}
 	var s api.BackupSettings
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote", "remoteId": id, "keep": 2}, &s)
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"mode": "full", "enabled": true, "target": "remote", "remoteId": id, "keep": 2}, &s)
 	if s.Target != "remote" || s.RemoteId == nil || *s.RemoteId != id || s.Webdav == nil || s.Webdav.Folder != "x-console-backups" {
 		t.Fatalf("settings: %+v", s)
 	}
@@ -216,7 +217,7 @@ func TestBackupToGoogleDrive(t *testing.T) {
 	env.MustDo(http.MethodDelete, fmt.Sprintf("/storage/remotes/%d", acc.Id), nil, nil)
 
 	id := addGDrive(t, env, fake)
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote", "remoteId": id, "keep": 2}, nil)
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"mode": "full", "enabled": true, "target": "remote", "remoteId": id, "keep": 2}, nil)
 	runThree(t, env, m)
 	if names := fake.Names("X Console 备份"); len(names) != 4 {
 		t.Fatalf("drive folder: %v", names)
@@ -230,7 +231,7 @@ func TestGoogleDriveExpiredToken(t *testing.T) {
 	storageModule(t, env).UseGoogle(fake.Endpoints())
 	env.Elevate()
 	id := addGDrive(t, env, fake)
-	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"enabled": true, "target": "remote", "remoteId": id}, nil)
+	env.MustDo(http.MethodPut, "/backups/settings", map[string]any{"mode": "full", "enabled": true, "target": "remote", "remoteId": id}, nil)
 
 	// The token expires: the run fails and a notification says so.
 	fake.Expire()

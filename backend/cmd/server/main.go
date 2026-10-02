@@ -30,6 +30,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/config"
 	"github.com/j0x3n/x-console/backend/internal/server/events"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/repo"
 	"github.com/j0x3n/x-console/backend/internal/server/store"
 )
 
@@ -167,6 +168,14 @@ func run() error {
 
 	// A restore staged by the backup module replaces the database here,
 	// before anything opens it.
+	lease, err := repo.LockRuntime(cfg.DataDir)
+	if err != nil {
+		return err
+	}
+	defer lease.Close()
+	if err := backup.PrepareBeforeRestore(ctx, cfg); err != nil {
+		return err
+	}
 	if applied, err := backup.ApplyPending(cfg.DataDir); err != nil {
 		return err
 	} else if applied {
@@ -179,6 +188,9 @@ func run() error {
 	}
 	defer conn.Close()
 
+	if err := backup.FinishBeforeStart(ctx, cfg, conn); err != nil {
+		return err
+	}
 	a, err := app.New(cfg, conn)
 	if err != nil {
 		return err

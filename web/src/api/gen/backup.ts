@@ -4,6 +4,75 @@
  */
 
 export interface paths {
+    "/backups/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listBackupSnapshots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/backups/snapshots/{snapshotId}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshotId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getBackupSnapshotChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/backups/snapshots/{snapshotId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshotId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 始终验证后准备恢复。服务重启时保存现场并同步恢复全部数据。 */
+        post: operations["restoreBackupSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/backups/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["checkBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backups": {
         parameters: {
             query?: never;
@@ -288,6 +357,55 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        BackupRetention: {
+            last: number;
+            daily: number;
+            weekly: number;
+            monthly: number;
+        };
+        BackupSnapshot: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            version: string;
+            files: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            uploadedBytes: number;
+            added: number;
+            modified: number;
+            deleted: number;
+            changesTruncated: boolean;
+        };
+        BackupSnapshotChange: {
+            path: string;
+            /** @enum {string} */
+            kind: "added" | "modified" | "deleted";
+        };
+        BackupRepoStats: {
+            snapshots: number;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            logicalBytes: number;
+            /** Format: int64 */
+            uniqueBytes: number;
+            /** Format: date-time */
+            lastSnapshotAt?: string;
+        };
+        BackupCheckResult: {
+            snapshots: number;
+            blocks: number;
+            /** Format: date-time */
+            checkedAt: string;
+        };
+        BackupPruneResult: {
+            snapshots: number;
+            blocks: number;
+            /** Format: int64 */
+            bytes: number;
+        };
         RemoteDrive: {
             /** @enum {string} */
             id: "webdav" | "gdrive";
@@ -341,7 +459,7 @@ export interface components {
         };
         BackupJob: {
             /** @enum {string} */
-            kind?: "export" | "restore" | "auto";
+            kind?: "export" | "restore" | "auto" | "check" | "prune";
             /** @enum {string} */
             state: "idle" | "running" | "done" | "failed";
             /** @description 现在在做什么，中文，比如“正在打包文件（120/800）” */
@@ -357,6 +475,9 @@ export interface components {
             /** Format: date-time */
             finishedAt?: string;
             error?: string;
+            warning?: string;
+            check?: components["schemas"]["BackupCheckResult"];
+            prune?: components["schemas"]["BackupPruneResult"];
             /** @description 恢复后解不开的设置（主密钥不同），比如 github.token。用户要重新填写 */
             secretsUnreadable?: string[];
         };
@@ -365,6 +486,9 @@ export interface components {
             confirm: string;
         };
         BackupSettings: {
+            /** @enum {string} */
+            mode: "full" | "incremental";
+            retention: components["schemas"]["BackupRetention"];
             enabled: boolean;
             /** @enum {string} */
             frequency: "daily" | "weekly";
@@ -403,6 +527,9 @@ export interface components {
             }[];
         };
         BackupSettingsInput: {
+            /** @enum {string} */
+            mode?: "full" | "incremental";
+            retention?: components["schemas"]["BackupRetention"];
             enabled?: boolean;
             /** @enum {string} */
             frequency?: "daily" | "weekly";
@@ -506,6 +633,104 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listBackupSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 快照列表和仓库概况 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["BackupSnapshot"][];
+                        stats: components["schemas"]["BackupRepoStats"];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBackupSnapshotChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshotId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 最多 200 条变化 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["BackupSnapshotChange"][];
+                        truncated: boolean;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreBackupSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshotId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreInput"];
+            };
+        };
+        responses: {
+            /** @description 已开始 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupJob"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    checkBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已开始检查，结果从任务接口获取 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupJob"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listBackups: {
         parameters: {
             query?: never;

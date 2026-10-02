@@ -54,12 +54,14 @@ func versionText() string {
 
 // uniqueName picks x-console-<date>-<time>-<version>.tar.gz, with a counter
 // when a package of the same minute exists.
-func (m *Module) uniqueName(ctx context.Context, dest files.Store, prefix string, at time.Time) string {
+func (m *Module) uniqueName(ctx context.Context, dest files.Store, prefix string, at time.Time) (string, error) {
 	base := fmt.Sprintf("x-console-%s-%s", at.In(m.d.Config.Location).Format("20060102-1504"), versionText())
 	name := base + ".tar.gz"
 	for i := 2; ; i++ {
-		if _, err := dest.Stat(ctx, prefix+name); err != nil {
-			return name
+		if _, err := dest.Stat(ctx, prefix+name); errors.Is(err, files.ErrNotFound) {
+			return name, nil
+		} else if err != nil {
+			return "", err
 		}
 		name = fmt.Sprintf("%s-%d.tar.gz", base, i)
 	}
@@ -70,6 +72,17 @@ func (m *Module) uniqueName(ctx context.Context, dest files.Store, prefix string
 // spool packs into a temporary file first and uploads it afterwards, which an
 // S3 needs because it must be told the size; the local folder is streamed to.
 func (m *Module) create(ctx context.Context, kind string, dest files.Store, prefix string, spool bool, j *job) (string, int64, error) {
+	var name string
+	var size int64
+	err := m.withStableStorage(ctx, func(ctx context.Context) error {
+		var err error
+		name, size, err = m.createSite(ctx, kind, dest, prefix, spool, j)
+		return err
+	})
+	return name, size, err
+}
+
+func (m *Module) createSite(ctx context.Context, kind string, dest files.Store, prefix string, spool bool, j *job) (string, int64, error) {
 	tmpDir := m.d.Config.TmpDir()
 	if err := os.MkdirAll(tmpDir, 0o700); err != nil {
 		return "", 0, err
@@ -95,7 +108,10 @@ func (m *Module) create(ctx context.Context, kind string, dest files.Store, pref
 	created := m.now().UTC()
 	man := manifest{Format: formatVersion, Version: versionText(), CreatedAt: created, Files: int64(len(list)),
 		Bytes: listed, DBSha256: sum, Migration: migration}
-	name := m.uniqueName(ctx, dest, prefix, created)
+	name, err := m.uniqueName(ctx, dest, prefix, created)
+	if err != nil {
+		return "", 0, err
+	}
 	total := dbSize + listed
 	j.set(func(v *api.BackupJob) { v.TotalBytes, v.DoneBytes = &total, ptr(dbSize) })
 
@@ -202,12 +218,15 @@ func (m *Module) entries(ctx context.Context) ([]entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	if remote, err := m.remote(ctx); err == nil {
-		if more, err := scan(ctx, remote.store, remoteFolder, remote.loc); err == nil {
-			out = append(out, more...)
-		} else {
-			m.log().Warn("backup: list remote backups", "location", remote.loc, "error", err)
+	remote, err := m.remote(ctx)
+	if err == nil {
+		more, err := scan(ctx, remote.store, remoteFolder, remote.loc)
+		if err != nil {
+			return nil, err
 		}
+		out = append(out, more...)
+	} else if !targetUnconfigured(err) {
+		return nil, err
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].createdAt().After(out[j].createdAt()) })
 	return out, nil
@@ -222,15 +241,26 @@ func (m *Module) find(ctx context.Context, id string) (entry, error) {
 		e := entry{store: m.local, key: id, location: api.BackupLocationLocal, info: info}
 		e.meta, e.hasMeta = readSidecar(ctx, m.local, id)
 		return e, nil
+	} else if !errors.Is(err, files.ErrNotFound) {
+		return entry{}, err
 	}
-	if remote, err := m.remote(ctx); err == nil {
-		if info, err := remote.store.Stat(ctx, remoteFolder+id); err == nil {
-			e := entry{store: remote.store, key: remoteFolder + id, location: remote.loc, info: info}
-			e.meta, e.hasMeta = readSidecar(ctx, remote.store, remoteFolder+id)
-			return e, nil
+	remote, err := m.remote(ctx)
+	if err != nil {
+		if targetUnconfigured(err) {
+			return entry{}, errMissing
 		}
+		return entry{}, err
 	}
-	return entry{}, errMissing
+	info, err := remote.store.Stat(ctx, remoteFolder+id)
+	if errors.Is(err, files.ErrNotFound) {
+		return entry{}, errMissing
+	}
+	if err != nil {
+		return entry{}, err
+	}
+	e := entry{store: remote.store, key: remoteFolder + id, location: remote.loc, info: info}
+	e.meta, e.hasMeta = readSidecar(ctx, remote.store, e.key)
+	return e, nil
 }
 
 // remove deletes a package and its sidecar.

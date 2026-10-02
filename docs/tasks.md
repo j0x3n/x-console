@@ -39,7 +39,7 @@
 | B78 | CI 提速：前端检查从六七分钟降下来 | [B78](specs/B78.md) | Claude |
 | B79 | 设置弹窗显示版本号；设置 → 维护：资源占用、清理没用的文件 | [B79](specs/B79.md) | 前端 Claude，后端 Codex 已完成 |
 | B80 | 切换页面后回来，保留列表和内容的位置 | [B80](specs/B80.md) | 前端 Claude |
-| B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前端 Claude，后端 GPT |
+| B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前端 Claude，后端 Codex 已完成 |
 | B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前端 Claude，后端 Codex 已完成 |
 | B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前端 Claude，后端 Codex 已完成 |
 
@@ -206,6 +206,8 @@
 第三批检查发现的前端问题（2026-10-02，留给 Claude）：
 - `i18n.test.ts` 失败：`Pull request opened` 在不同模块对应“PR 已建好”和“新的 PR”；`New issue` 对应“新的 Issue”和“新建卡片”。需要按中文词典全局唯一规则调整英文键。
 - 前端整套单元测试中，`DrivePage.test.tsx` 的重复 Ctrl+S 冲突提示用例超时。Linux 单文件 12 个用例通过，整套仍失败，需要排查时序。
+- B82 生成的 Host 契约增加必填 info、addresses 和 sortOrder。`features/servers/lib.test.ts:52` 的旧测试对象缺这三个字段，导致 typecheck 与 npm run build 失败。Claude 接手时更新测试数据。功能代码未修改。
+- 端到端脚本仍找“新建卡片”弹窗，现有词条冲突让界面显示“新的 Issue”。临时验证副本兼容两个标题，正式脚本留给 Claude 随词条一起调整。
 
 没有在真实环境验证过：
 - Windows 代理的运行时行为：ConPTY 终端、服务管理、剪贴板、锁屏关机、打开程序、编码任务的中断。只做过交叉编译和静态检查。
@@ -313,6 +315,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B81：backup 增 mode、retention、快照、变化、检查和 job.warning/check/prune。cmd/server 在打开数据库与监听前同步执行现场备份、替换数据库和文件恢复；app 初始化同样拒绝未应用的恢复数据库。复用 storage.WithCleanup 阻止备份与存储迁移、清理并发。files.WebDAV 对无法读取的属性、非法路径和扫描中消失的子目录报错，防止不完整扫描导致备份漏文件或误清理。web/scripts/e2e.mjs 仅增 API 主流程。
 
 - B83：新增 contracts.Presence、代理 presence.get/update 和 notify.show。hosts 提供内存状态及详情字段，habits 增作息表和提醒字段。app 对 habit.presence 同时检查习惯和所属电脑的隐藏状态，避免跨模块泄露。SQL 生成模型同步新增表。web/scripts/e2e.mjs 只增 API 主流程，并把请求助手移到首次使用之前。
 

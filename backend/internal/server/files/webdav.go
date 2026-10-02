@@ -403,7 +403,7 @@ func (w *WebDAV) propfind(ctx context.Context, rel string, depth string) ([]davE
 	for _, r := range ms.Responses {
 		u, err := url.Parse(r.Href)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("WebDAV 返回的路径无法读取")
 		}
 		var e davEntry
 		switch p := u.Path; {
@@ -413,10 +413,12 @@ func (w *WebDAV) propfind(ctx context.Context, rel string, depth string) ([]davE
 		default:
 			continue
 		}
+		haveProperties := false
 		for _, ps := range r.Propstat {
 			if ps.Status != "" && !strings.Contains(ps.Status, " 200") {
 				continue
 			}
+			haveProperties = true
 			if ps.Prop.ResourceType.Collection != nil {
 				e.dir = true
 			}
@@ -426,6 +428,9 @@ func (w *WebDAV) propfind(ctx context.Context, rel string, depth string) ([]davE
 			if ps.Prop.LastModified != "" {
 				e.modTime, _ = http.ParseTime(strings.TrimSpace(ps.Prop.LastModified))
 			}
+		}
+		if !haveProperties {
+			return nil, fmt.Errorf("WebDAV 返回的条目属性读取失败")
 		}
 		if e.dir && !strings.HasSuffix(e.rel, "/") && e.rel != "" {
 			e.rel += "/"
@@ -479,15 +484,15 @@ func (w *WebDAV) List(ctx context.Context, prefix string) iter.Seq2[Info, error]
 		if prefix != "" {
 			dir = prefix + "/"
 		}
-		w.walk(ctx, dir, yield)
+		w.walk(ctx, dir, true, yield)
 	}
 }
 
 // walk yields the files below dir in sorted order. It returns false when the
 // caller stopped.
-func (w *WebDAV) walk(ctx context.Context, dir string, yield func(Info, error) bool) bool {
+func (w *WebDAV) walk(ctx context.Context, dir string, root bool, yield func(Info, error) bool) bool {
 	list, err := w.propfind(ctx, dir, "1")
-	if errors.Is(err, ErrNotFound) {
+	if root && errors.Is(err, ErrNotFound) {
 		return true
 	}
 	if err != nil {
@@ -499,7 +504,7 @@ func (w *WebDAV) walk(ctx context.Context, dir string, yield func(Info, error) b
 			continue
 		}
 		if e.dir {
-			if !w.walk(ctx, e.rel, yield) {
+			if !w.walk(ctx, e.rel, false, yield) {
 				return false
 			}
 			continue
