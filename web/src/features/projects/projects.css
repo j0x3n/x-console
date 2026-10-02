@@ -575,6 +575,11 @@
 .projects-description {
   margin-bottom: 26px;
 }
+/* 描述和“编辑描述”按钮分两行，中间留出间距 */
+.projects-description:not(.editing) > .xc-btn {
+  display: flex;
+  margin-top: 10px;
+}
 .projects-placeholder {
   padding: 0;
   border: 0;
@@ -665,6 +670,10 @@
 .projects-comment-form .xc-textarea {
   min-height: 72px;
   margin-bottom: 8px;
+}
+/* 评论按钮和输入框之间留出间距 */
+.projects-comment-form > .xc-row {
+  margin-top: 10px;
 }
 .projects-issue-side {
   position: sticky;
@@ -1322,4 +1331,102 @@
   .projects-desktop-only {
     display: none;
   }
+}
+
+/* B84：看板绑定仓库 */
+.projects-repo-chip {
+  max-width: 220px;
+}
+.projects-repo-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projects-bindrepo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.projects-bindrepo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.projects-bindrepo-row .xc-select {
+  flex: 0 1 200px;
+}
+.projects-bindrepo-row .xc-search {
+  flex: 1 1 220px;
+}
+.projects-bindrepo-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+}
+.projects-bindrepo-list > p {
+  margin: 0;
+  padding: 12px;
+}
+.projects-bindrepo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 1px solid var(--xc-border);
+  background: none;
+  color: var(--xc-text);
+  text-align: left;
+}
+.projects-bindrepo-item:last-child {
+  border-bottom: 0;
+}
+.projects-bindrepo-item span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projects-bindrepo-item svg {
+  flex: none;
+  color: var(--xc-faint);
+}
+.projects-bindrepo-item:hover {
+  background: var(--xc-surface-2);
+}
+.projects-bindrepo-item.active {
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.projects-bindrepo-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+}
+.projects-bindrepo-current > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.projects-bindrepo-current small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+/* B86：卡片上没有 Agent 执行记录时整节不显示 */
+.projects-agent-runs:not(:has(.aiagent-runlog)) {
+  display: none;
+}
+.projects-bindrepo-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }

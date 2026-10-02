@@ -1,4 +1,5 @@
-import type { NavBadge } from "../../lib/navBadges";
+import type { NavBadge, NavIconState } from "../../lib/navBadges";
+import { useAiAgents } from "../aiagents/api";
 import { useTasks } from "./api";
 
 const WAITING = ["review", "failed"] as const;
@@ -15,4 +16,15 @@ export function useCodingBadge(): NavBadge | null {
     failed ? `${failed} 个失败` : "",
   ].filter(Boolean);
   return { count: n, tone: "warn", title: parts.join("，") };
+}
+
+/** 左栏“Agent”的图标：有 Agent 在工作时跳动（B86）。 */
+export function useAgentsNavIcon(): NavIconState | null {
+  const agents = useAiAgents().data ?? [];
+  const working = agents.filter((a) => a.runningTasks > 0);
+  if (working.length === 0) return null;
+  return {
+    state: "working",
+    title: `${working.map((a) => a.name).join("、")} 正在工作`,
+  };
 }

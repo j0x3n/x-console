@@ -2,6 +2,23 @@ import { registerZh } from "../../lib/i18n";
 
 // B47 Agent 管理。
 registerZh({
+  // B86 分配给 Agent 开发
+  "This board has no repository yet.": "这个看板还没绑定仓库。",
+  "Link one and the agent clones it, does the work and opens a pull request.":
+    "绑定后 Agent 会同步仓库、开发并提 PR。",
+  "Linked to this board": "看板绑定的仓库",
+  "Open a pull request when done": "做完自动提 PR",
+  // B86 执行日志、删除
+  "No agent runs yet": "还没有执行记录",
+  "Logs show up here after the agent starts working.":
+    "Agent 开始工作后，日志会出现在这里。",
+  "Pick a run": "选择一次执行",
+  "Open task": "打开任务",
+  "No log yet": "还没有日志",
+  "Execution log": "执行日志",
+  "Agent runs": "Agent 执行",
+  "It is working on a task now. Stop the task first.":
+    "它正在执行任务，先停止任务再删除。",
   // 能操作的机器（B60）
   "Machines it may operate": "能操作的机器",
   "No servers or computers yet.": "还没有服务器或电脑。",

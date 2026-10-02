@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
-import { invalidateOn } from "../../api/events";
+import { useCallback } from "react";
+import {
+  invalidateOn,
+  useServerEvent,
+  type ServerEvent,
+} from "../../api/events";
 import { withElevation } from "../../auth/elevation";
 import "./i18n";
 import type { components, paths } from "../../api/gen/aiagents";
@@ -13,6 +18,10 @@ export type AiAgentInput = S["AiAgentInput"];
 export type AiAgentKind = S["AiAgentKind"];
 export type GitConnection = S["GitConnection"];
 export type RemoteRepo = S["RemoteRepo"];
+export type AiAgentRun = S["AiAgentRun"];
+export type AiAgentRunEvent = S["AiAgentRunEvent"];
+export type AiAgentDecision = S["AiAgentDecision"];
+export type AiAgentNotify = S["AiAgentNotify"];
 
 export const agentKeys = {
   all: ["aiagents"] as const,
@@ -21,11 +30,22 @@ export const agentKeys = {
   connections: ["aiagents", "connections"] as const,
   remoteRepos: (id: number, q: string) =>
     ["aiagents", "remote-repos", id, q] as const,
+  runs: ["aiagents", "runs"] as const,
+  runList: (filter: { agentId?: number; issueKey?: string }) =>
+    ["aiagents", "runs", filter] as const,
+  runEvents: (id: number) => ["aiagents", "run-events", id] as const,
+  decisions: ["aiagents", "decisions"] as const,
+  notify: ["aiagents", "notify"] as const,
 };
 
 invalidateOn("ai_agent.", agentKeys.agents);
 invalidateOn("coding_task.", agentKeys.agents);
 invalidateOn("git_connection.", agentKeys.connections);
+// B86、B87：执行记录和等你决定的事
+invalidateOn("ai_agent.", agentKeys.runs);
+invalidateOn("coding_task.", agentKeys.runs);
+invalidateOn("ai_agent.decision", agentKeys.decisions);
+invalidateOn("ai.action", agentKeys.decisions);
 
 export function useAiAgents() {
   return useQuery({
@@ -86,6 +106,7 @@ export interface AssignInput {
   baseBranch?: string;
   runnerAgentId?: string;
   note?: string;
+  openPr?: boolean;
 }
 
 export function useAssignAgent() {
@@ -190,4 +211,118 @@ export function useConnectionMutations() {
         ),
     }),
   };
+}
+
+/**
+ * B86：Agent 的执行记录。后端还没上线时回 404 或 501，
+ * 调用方用 isNotLive 判断，退回到只看编码任务。
+ */
+export function useAgentRuns(filter: { agentId?: number; issueKey?: string }) {
+  return useQuery({
+    queryKey: agentKeys.runList(filter),
+    queryFn: () =>
+      unwrap(
+        agentsApi.GET("/ai-agents/runs", {
+          params: {
+            query: {
+              agentId: filter.agentId,
+              issueKey: filter.issueKey,
+              limit: 50,
+            },
+          },
+        }),
+      ),
+    retry: false,
+    meta: { silentError: true },
+  });
+}
+
+/** B86：内置 Agent 一次执行的日志。执行中收到 ai_agent.run_event 就重新取。 */
+export function useAgentRunEvents(runId: number | undefined) {
+  const qc = useQueryClient();
+  const id = runId ?? 0;
+  useServerEvent(
+    "ai_agent.run_event",
+    useCallback(
+      (event: ServerEvent) => {
+        const data = event.data as { runId?: number } | undefined;
+        if (data?.runId === id)
+          qc.invalidateQueries({ queryKey: agentKeys.runEvents(id) });
+      },
+      [id, qc],
+    ),
+  );
+  return useQuery({
+    queryKey: agentKeys.runEvents(id),
+    queryFn: () =>
+      unwrap(
+        agentsApi.GET("/ai-agents/runs/{runId}/events", {
+          params: { path: { runId: id }, query: {} },
+        }),
+      ),
+    enabled: id > 0,
+    retry: false,
+  });
+}
+
+export function useCancelAgentRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: number) =>
+      unwrap(
+        agentsApi.POST("/ai-agents/runs/{runId}/cancel", {
+          params: { path: { runId } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.runs }),
+  });
+}
+
+/** B87：等你决定的事（权限请求、问题）。没上线时当成空列表。 */
+export function useAgentDecisions() {
+  return useQuery({
+    queryKey: agentKeys.decisions,
+    queryFn: () => unwrap(agentsApi.GET("/ai-agents/decisions")),
+    retry: false,
+    meta: { silentError: true },
+  });
+}
+
+export function useAnswerDecision() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: {
+      id: string;
+      approve?: boolean;
+      answer?: string;
+    }) =>
+      unwrap(
+        agentsApi.POST("/ai-agents/decisions/{decisionId}", {
+          params: { path: { decisionId: id } },
+          body,
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.decisions }),
+  });
+}
+
+/** B87：Agent 通知的六个开关。 */
+export function useAgentNotify() {
+  return useQuery({
+    queryKey: agentKeys.notify,
+    queryFn: () => unwrap(agentsApi.GET("/ai-agents/notify")),
+    retry: false,
+  });
+}
+
+export function useSaveAgentNotify() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AiAgentNotify) =>
+      unwrap(agentsApi.PUT("/ai-agents/notify", { body })),
+    onSuccess: (data) => qc.setQueryData(agentKeys.notify, data),
+  });
 }

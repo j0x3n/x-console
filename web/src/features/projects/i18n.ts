@@ -1,6 +1,23 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B84 看板绑定仓库
+  "Link a repository": "绑定仓库",
+  "Linked repository": "绑定的仓库",
+  Unlink: "解除绑定",
+  Unlinked: "已解除绑定",
+  "cards synced": "张同步来的卡片",
+  "Last sync failed": "上次同步失败",
+  "Repository linked": "已绑定仓库",
+  "Link repository": "绑定",
+  "No repositories found": "没有找到仓库",
+  "Sync the repository's issues to this board": "把仓库的 Issue 同步到这个看板",
+  "Open issues become cards. Closing a card closes the issue. Cards you create on the board stay on the board.":
+    "打开的 Issue 会变成卡片，卡片移到完成会关掉 Issue。看板里新建的卡片只留在看板里。",
+  "Cards synced from it stay on the board as normal cards.":
+    "同步来的卡片会留在看板里，变成普通卡片。",
+  "Open in repository": "在仓库里打开",
+
   // 项目列表的概要
   "Across projects": "全部项目",
   "Due soonest first": "快到期的在前",

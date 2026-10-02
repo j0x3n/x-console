@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router";
-import { ListTodo, Pencil } from "lucide-react";
+import { useNavigate, useParams } from "react-router";
+import { ListTodo, Pencil, Trash2 } from "lucide-react";
+import MoreMenu from "../../components/ui/MoreMenu";
 import PageHeading from "../../components/ui/PageHeading";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
@@ -11,6 +12,8 @@ import { TaskRow } from "../coding/CodingPage";
 import { useAiAgent } from "./api";
 import AgentAvatar from "./AgentAvatar";
 import AgentDialog from "./AgentDialog";
+import AgentRunLog from "./AgentRunLog";
+import { useDeleteAgent } from "./useDeleteAgent";
 import { costText, kindLabel } from "./logic";
 import "./i18n";
 import "./aiagents.css";
@@ -29,6 +32,8 @@ export default function AgentDetailPage() {
   const tasks = useTasks();
   const repos = useRepos();
   const [editing, setEditing] = useState(false);
+  const navigate = useNavigate();
+  const deleteAgent = useDeleteAgent();
   const mine = useMemo(
     () => (tasks.data ?? []).filter((x) => x.aiAgentId === id),
     [tasks.data, id],
@@ -58,9 +63,27 @@ export default function AgentDetailPage() {
         title={a.name}
         subtitle={`${t(kindLabel(a.kind))}${a.enabled ? "" : ` · ${t("Disabled")}`}`}
         aside={
-          <button className="xc-btn" onClick={() => setEditing(true)}>
-            <Pencil size={14} /> {t("Edit")}
-          </button>
+          <>
+            <button className="xc-btn" onClick={() => setEditing(true)}>
+              <Pencil size={14} /> {t("Edit")}
+            </button>
+            {/* B86：删除，先二次确认，删完回到列表 */}
+            <MoreMenu
+              label={`${t("More")}: ${a.name}`}
+              title={a.name}
+              items={[
+                {
+                  key: "delete",
+                  label: t("Delete agent"),
+                  icon: <Trash2 size={14} />,
+                  danger: true,
+                  onSelect: async () => {
+                    if (await deleteAgent(a)) navigate("/coding");
+                  },
+                },
+              ]}
+            />
+          </>
         }
       />
       <StatStrip label={a.name}>
@@ -111,6 +134,12 @@ export default function AgentDetailPage() {
                 ))}
               </div>
             )}
+          </section>
+          <section className="xc-card aiagent-runlog-card">
+            <div className="xc-card-head">
+              <h2>{t("Execution log")}</h2>
+            </div>
+            <AgentRunLog agentId={a.id} hideWhenEmpty />
           </section>
         </main>
         <aside className="aiagent-detail-side">

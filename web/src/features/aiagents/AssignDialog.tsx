@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import Dialog from "../../components/ui/Dialog";
 import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { useAgents as useMachines } from "../../api/core";
-import { errorMessage } from "../../api/client";
+import { ApiError, errorMessage } from "../../api/client";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { useRepos } from "../coding/api";
@@ -16,9 +16,15 @@ import "./aiagents.css";
 /** 卡片页的“分配给 Agent”（B47）。 */
 export default function AssignDialog({
   issueKey,
+  boardRepo,
+  onBindRepo,
   onClose,
 }: {
   issueKey: string;
+  /** B86：卡片所在看板绑定的仓库，CLI 类型默认用它 */
+  boardRepo?: { fullName: string };
+  /** 看板没绑定仓库时，“去绑定”打开绑定弹窗 */
+  onBindRepo?: () => void;
   onClose: () => void;
 }) {
   const t = useT();
@@ -34,8 +40,15 @@ export default function AssignDialog({
   const allowed = (repos.data ?? []).filter((r) =>
     agent?.repoIds.includes(r.id),
   );
-  const [repoId, setRepoId] = useState<number | undefined>();
-  const repo = allowed.find((r) => r.id === repoId) ?? allowed[0];
+  // "board" 表示用看板绑定的仓库（B86），否则是已登记仓库的 id
+  const [repoChoice, setRepoChoice] = useState<number | "board" | undefined>();
+  const useBoard =
+    !!boardRepo && (repoChoice === "board" || repoChoice === undefined);
+  const repo = useBoard
+    ? undefined
+    : (allowed.find((r) => r.id === repoChoice) ?? allowed[0]);
+  const setRepoId = (id: number | undefined) => setRepoChoice(id);
+  const [openPr, setOpenPr] = useState(true);
   const [base, setBase] = useState("");
   const [runner, setRunner] = useState("");
   const [note, setNote] = useState("");
@@ -61,7 +74,8 @@ export default function AssignDialog({
               const r = await assign.mutateAsync({
                 agentId: agent.id,
                 issueKey,
-                repoId: cli ? repo?.id : undefined,
+                repoId: cli && !useBoard ? repo?.id : undefined,
+                openPr: cli ? openPr : undefined,
                 baseBranch: cli && base.trim() ? base.trim() : undefined,
                 runnerAgentId: cli && runner ? runner : undefined,
                 note: note.trim() || undefined,
@@ -70,7 +84,12 @@ export default function AssignDialog({
               onClose();
               if (r.taskId) navigate(`/coding/${r.taskId}`);
             } catch (err) {
-              setError(errorMessage(err));
+              // B86：看板没绑定仓库时后端回 board_repo_missing
+              setError(
+                err instanceof ApiError && err.code === "board_repo_missing"
+                  ? t("This board has no repository yet.")
+                  : errorMessage(err),
+              );
             }
           }}
         >
@@ -104,14 +123,44 @@ export default function AssignDialog({
           </div>
           {cli && (
             <>
+              {!boardRepo && (
+                <div className="aiagent-assign-hint">
+                  <span>
+                    {t("This board has no repository yet.")}
+                    {t(
+                      "Link one and the agent clones it, does the work and opens a pull request.",
+                    )}
+                  </span>
+                  {onBindRepo && (
+                    <button
+                      type="button"
+                      className="xc-btn small"
+                      onClick={onBindRepo}
+                    >
+                      {t("Link a repository")}
+                    </button>
+                  )}
+                </div>
+              )}
               <label className="xc-field">
                 <span>{t("Repository")}</span>
                 <select
                   className="xc-select"
-                  value={repo?.id ?? ""}
-                  onChange={(e) => setRepoId(Number(e.target.value))}
+                  value={useBoard ? "board" : (repo?.id ?? "")}
+                  onChange={(e) =>
+                    setRepoChoice(
+                      e.target.value === "board"
+                        ? "board"
+                        : Number(e.target.value),
+                    )
+                  }
                 >
-                  {allowed.length === 0 && (
+                  {boardRepo && (
+                    <option value="board">
+                      {boardRepo.fullName} · {t("Linked to this board")}
+                    </option>
+                  )}
+                  {allowed.length === 0 && !boardRepo && (
                     <option value="">
                       {t("This agent may not change any repository")}
                     </option>
@@ -122,6 +171,14 @@ export default function AssignDialog({
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="xc-check">
+                <input
+                  type="checkbox"
+                  checked={openPr}
+                  onChange={(e) => setOpenPr(e.target.checked)}
+                />
+                {t("Open a pull request when done")}
               </label>
               <div className="aiagent-form-row">
                 <label className="xc-field">
@@ -145,7 +202,7 @@ export default function AssignDialog({
                         ? `${t("The agent's default")} (${agent.runnerName})`
                         : t("The repository's machine")}
                     </option>
-                    {repo?.connectionId != null &&
+                    {(useBoard || repo?.connectionId != null) &&
                       coding.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
@@ -177,7 +234,9 @@ export default function AssignDialog({
             <button
               type="submit"
               className="xc-btn primary"
-              disabled={!agent || (cli && !repo) || assign.isPending}
+              disabled={
+                !agent || (cli && !repo && !useBoard) || assign.isPending
+              }
             >
               {t("Assign")}
             </button>

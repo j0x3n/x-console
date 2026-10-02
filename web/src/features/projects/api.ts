@@ -39,6 +39,8 @@ export type IssueMember = components["schemas"]["IssueMember"];
 export type IssueActivity = components["schemas"]["IssueActivity"];
 export type UpdateBoard = components["schemas"]["UpdateBoard"];
 export type UpdateBoardList = components["schemas"]["UpdateBoardList"];
+export type BoardRepo = components["schemas"]["BoardRepo"];
+export type CardColor = components["schemas"]["CardColor"];
 export type { Category, Checklist, ChecklistItem, Issue, IssueStatus };
 
 export const projectKeys = {
@@ -977,4 +979,48 @@ export function useCardActions() {
       onError: fail,
     }),
   };
+}
+
+// ---- B84 看板绑定仓库 ----
+
+/** 绑定、解除、马上同步。出错由调用方显示（没上线时要显示“还没上线”）。 */
+export function useBoardRepo(boardId: number) {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: projectKeys.all });
+  return {
+    bind: useMutation({
+      mutationFn: (body: components["schemas"]["BindBoardRepo"]) =>
+        unwrap(
+          projectsApi.PUT("/boards/{boardId}/repo", {
+            params: { path: { boardId } },
+            body,
+          }),
+        ),
+      onSuccess: done,
+    }),
+    unbind: useMutation({
+      mutationFn: () =>
+        unwrap(
+          projectsApi.DELETE("/boards/{boardId}/repo", {
+            params: { path: { boardId } },
+          }),
+        ),
+      onSuccess: done,
+    }),
+    sync: useMutation({
+      mutationFn: () =>
+        unwrap(
+          projectsApi.POST("/boards/{boardId}/repo/sync", {
+            params: { path: { boardId } },
+          }),
+        ),
+      onSuccess: done,
+    }),
+  };
+}
+
+/** 卡片所在看板（找它绑定的仓库用）。 */
+export function useIssueBoard(issue: Pick<Issue, "projectId" | "boardId">) {
+  const boards = useBoards(issue.projectId);
+  return boards.data?.find((b) => b.id === issue.boardId) ?? boards.data?.[0];
 }

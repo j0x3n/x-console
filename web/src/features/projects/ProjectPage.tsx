@@ -11,6 +11,7 @@ import {
   Plus,
   Settings2,
   Star,
+  FolderGit2,
   UserRound,
 } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
@@ -47,6 +48,7 @@ import {
 import NewIssueDialog, { rememberProject } from "./components/NewIssueDialog";
 import ProjectDialog from "./components/ProjectDialog";
 import ProjectSettingsDialog from "./components/ProjectSettingsDialog";
+import BindRepoDialog from "./components/BindRepoDialog";
 import ShortcutsDialog from "./components/ShortcutsDialog";
 import {
   STATUSES,
@@ -128,6 +130,8 @@ export default function ProjectPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [boardDialog, setBoardDialog] = useState<"new" | Board | null>(null);
+  // B84：绑定仓库的弹窗
+  const [repoOpen, setRepoOpen] = useState(false);
   const [listSettings, setListSettings] = useState<BoardList | null>(null);
   const [moveAll, setMoveAll] = useState<BoardList | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -286,6 +290,12 @@ export default function ProjectPage() {
               },
             ]),
         {
+          key: "repo",
+          label: board.repo ? t("Linked repository") : t("Link a repository"),
+          icon: <FolderGit2 size={14} />,
+          onSelect: () => setRepoOpen(true),
+        },
+        {
           key: "archive-view",
           label: t("Archived items"),
           icon: <Archive size={14} />,
@@ -436,6 +446,16 @@ export default function ProjectPage() {
                 }
               >
                 <Star size={14} />
+              </button>
+            )}
+            {board?.repo && (
+              <button
+                className="xc-btn small projects-repo-chip"
+                title={`${t("Linked repository")}：${board.repo.fullName}`}
+                onClick={() => setRepoOpen(true)}
+              >
+                <FolderGit2 size={14} />
+                <span>{board.repo.fullName}</span>
               </button>
             )}
             <button
@@ -626,6 +646,9 @@ export default function ProjectPage() {
         onClose={() => setMoveAll(null)}
         onSubmit={(from, to) => ops.moveListCards.mutateAsync({ from, to })}
       />
+      {repoOpen && board && (
+        <BindRepoDialog board={board} onClose={() => setRepoOpen(false)} />
+      )}
       <ArchiveDialog
         board={board}
         open={archiveOpen}

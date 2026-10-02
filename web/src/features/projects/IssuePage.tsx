@@ -8,6 +8,7 @@ import {
   Bot,
   Copy,
   ExternalLink,
+  FolderGit2,
   GitPullRequest,
   Link2,
   NotebookPen,
@@ -48,6 +49,8 @@ import StartFocusButton from "../calendar/StartFocusButton";
 import MoreMenu from "../../components/ui/MoreMenu";
 import AssignDialog from "../aiagents/AssignDialog";
 import AgentMember from "../aiagents/AgentMember";
+import AgentRunLog from "../aiagents/AgentRunLog";
+import BindRepoDialog from "./components/BindRepoDialog";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -162,6 +165,7 @@ export default function IssuePage() {
             onAddingChange={setAddingChecklist}
           />
           <Links issueKey={data.key} />
+          <AgentRuns issueKey={data.key} />
           <Comments issueKey={data.key} />
           <Activity issueKey={data.key} />
         </main>
@@ -329,6 +333,10 @@ function Properties({
   const cards = useCardActions();
   const remove = useDeleteIssue();
   const [assigning, setAssigning] = useState(false);
+  const [binding, setBinding] = useState(false);
+  // B86：卡片所在看板绑定的仓库，分配给 Agent 时默认用它
+  const board =
+    boards.data?.find((b) => b.id === issue.boardId) ?? boards.data?.[0];
   const labelIds = issue.labels.map((l) => l.id);
   return (
     <div className="projects-props">
@@ -512,6 +520,19 @@ function Properties({
           <Bot size={14} /> {t("Assign to an agent")}
         </button>
         <StartFocusButton issueKey={issue.key} compact />
+        {issue.externalUrl && (
+          // B84：从仓库同步来的卡片
+          <a
+            className="xc-btn"
+            href={issue.externalUrl}
+            target="_blank"
+            rel="noreferrer"
+            title={t("Open in repository")}
+            aria-label={t("Open in repository")}
+          >
+            <FolderGit2 size={14} />
+          </a>
+        )}
         <MoreMenu
           label={`${t("More")}：${issue.key}`}
           title={issue.key}
@@ -571,8 +592,20 @@ function Properties({
       {assigning && (
         <AssignDialog
           issueKey={issue.key}
+          boardRepo={board?.repo}
+          onBindRepo={
+            board
+              ? () => {
+                  setAssigning(false);
+                  setBinding(true);
+                }
+              : undefined
+          }
           onClose={() => setAssigning(false)}
         />
+      )}
+      {binding && board && (
+        <BindRepoDialog board={board} onClose={() => setBinding(false)} />
       )}
     </div>
   );
@@ -699,6 +732,19 @@ function LinkRow({
         <Trash2 size={13} />
       </button>
     </li>
+  );
+}
+
+/** B86：这张卡片上 Agent 的执行记录和日志。没有记录时整节不显示。 */
+function AgentRuns({ issueKey }: { issueKey: string }) {
+  const t = useT();
+  return (
+    <section className="projects-section projects-agent-runs">
+      <header>
+        <h2>{t("Agent runs")}</h2>
+      </header>
+      <AgentRunLog issueKey={issueKey} hideWhenEmpty />
+    </section>
   );
 }
 

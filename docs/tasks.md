@@ -339,6 +339,10 @@
 
 ## 接口变更记录
 
+- 2026-10-02（Claude，第四批前端）：
+  - `lib/navBadges.ts` 加 `registerNavIcon`（换一级菜单图标，或者 `state: "working"` 让图标跳动）和 `registerNavStatus`（一级菜单右边的状态点和短文字）；`components/layout/Sidebar.tsx` 渲染它们；`styles/ui.css` 加 `.nav-icon`、`.nav-status`、`.nav-child-spin`（B86、B88、B93）。
+  - `components/layout/NavChildLinks.tsx` 的链接加可选的 `busy`，名称右边转圈（B86）。
+
 - 2026-10-02（Claude，部署后页面打不开）：`app/app.go` 的 `spa` 对 `/assets/` 下找不到的文件回 404，不再回 `index.html`；`public/sw.js` 不缓存 HTML 冒充的资源，缓存名改成 v2 清掉旧缓存；新增 `lib/chunkReload.ts`，`components/ui/ErrorBoundary.tsx` 和 `lib/errors.ts` 遇到按需加载的文件取不到时自动刷新一次（30 秒内只刷一次）。
 
 - 2026-10-02（Claude，第三批前端）：
