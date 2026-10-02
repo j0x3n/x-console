@@ -9,9 +9,8 @@
 
 ### 当前（2026-10-02）
 
-- 整批前后端都写完了，提交在 `codex`，PR 是 [j0x3n/x-console#29](https://github.com/j0x3n/x-console/pull/29)（`codex` → `develop`）。Claude 的验收结果写在 PR 评论里。
-- **等用户在 PR 页面用“Create a merge commit”合并。** Claude 想直接合并时被权限拦下了。
-- 合并后要做的：B78 的规格里补上 PR 上前端两个任务的实际用时；上线后看一眼各规格“没验证过”的部分（见 `docs/tasks.md` 的“已知问题”）。
+- 整批前后端都做完了。PR [j0x3n/x-console#29](https://github.com/j0x3n/x-console/pull/29) 已由用户合并到 `develop`（`26e1fa2`），还没部署上线。
+- 上线后看一眼各规格“没验证过”的部分（见 `docs/tasks.md` 的“已知问题”）。
 - B45 还在等用户 iPhone 真机测试的结果（见下面“上一批”）。
 
 ### 进度
