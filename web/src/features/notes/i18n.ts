@@ -1,6 +1,13 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 便签弹窗（Google Keep 的样子）
+  "Remove image": "去掉图片",
+  "Take a note…": "写点什么…",
+  "Add tags, separated by spaces": "输入标签，用空格分开，回车添加",
+  "Make a copy": "复制一份",
+  "Open in the full editor": "用完整编辑器打开",
+  "Delete memo": "删除这条便签",
   // B89 每日一句
   "Daily quote": "每日一句",
   "Don't show": "不显示",

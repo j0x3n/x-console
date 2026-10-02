@@ -1142,6 +1142,10 @@ a.xc-badge:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 名称左边的小标记（国旗等）不要跟着名称一起撑开 */
+.nav-child > .xc-flag {
+  flex: none;
+}
 .nav-child small {
   flex: none;
   color: var(--xc-faint);

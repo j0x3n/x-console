@@ -7,7 +7,6 @@ import {
   PinOff,
   StickyNote,
   Trash2,
-  X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { isNotLive, unwrap } from "../../api/client";
@@ -35,10 +34,10 @@ import {
   type NoteSummary,
 } from "./api";
 import ColorPicker from "./ColorPicker";
-import NoteEditor from "./components/NoteEditor";
 import { noteBgClass } from "./noteColors";
 import { tagColor } from "./tagColor";
 import QuoteButton from "./QuoteDialog";
+import MemoEditor from "./MemoEditor";
 import { QUOTE_TAG } from "../overview/quote";
 
 /**
@@ -413,16 +412,8 @@ function MemoDialog({ id, onClose }: { id: number; onClose: () => void }) {
         aria-label={t("Memo")}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          className="icon-button notes-memo-close"
-          aria-label={t("Close")}
-          title={t("Close")}
-          onClick={onClose}
-        >
-          <X size={15} />
-        </button>
-        <NoteEditor id={id} backTo="/notes" floating onClosed={onClose} />
+        {/* Google Keep 的样子：直接编辑，下面一排图标 */}
+        <MemoEditor id={id} onClose={onClose} />
       </div>
     </div>
   );
