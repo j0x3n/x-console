@@ -596,6 +596,36 @@ try {
     }
   }
 
+  stage = "B90 天气来源和湿度";
+  {
+    const weatherFake = http.createServer((_request, response) => {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ current: { temperature_2m: 21, weather_code: 61, relative_humidity_2m: 88, is_day: 1 }, daily: { temperature_2m_max: [25], temperature_2m_min: [17], precipitation_probability_max: [75] } }));
+    });
+    await new Promise((ready) => weatherFake.listen(0, "127.0.0.1", ready));
+    const original = await api("/briefs/settings");
+    delete original.aiAvailable;
+    delete original.availableChannels;
+    delete original.nextRunAt;
+    try {
+      const response = await page.request.put(`${base}/api/v1/briefs/settings`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { ...original, enabled: false, location: { name: "东海", lat: 34.54, lon: 118.75 }, weatherApiBase: `http://127.0.0.1:${weatherFake.address().port}` },
+      });
+      assert.equal(response.status(), 200, await response.text());
+      const weather = await api("/weather");
+      assert.equal(weather.source, "open-meteo");
+      assert.equal(weather.humidity, 88);
+      assert.equal(weather.weatherCode, 61);
+      assert.equal(weather.isDay, true);
+    } finally {
+      await page.request.put(`${base}/api/v1/briefs/settings`, {
+        headers: { "X-Requested-With": "x-console" }, data: original,
+      });
+      await new Promise((done) => weatherFake.close(done));
+    }
+  }
+
   stage = "B70 仓库关注 API 主流程";
   {
     const original = await api("/github/config");
