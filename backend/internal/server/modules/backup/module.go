@@ -28,6 +28,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
@@ -90,6 +91,7 @@ func New(d *module.Deps) (module.Module, error) {
 	d.Scheduler.Every("backup.auto", time.Minute, m.tick)
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	module.Provide[contracts.RemoteUser](d.Registry, contracts.RemoteUserKey, m)
+	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"backup", maintenance.StoreReporter{Store: m.local, Registry: d.Registry, Key: "backups", Label: "本地备份", Location: "local"})
 	return m, nil
 }
 

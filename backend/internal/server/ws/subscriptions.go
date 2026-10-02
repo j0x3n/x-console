@@ -30,10 +30,11 @@ type Handler struct {
 	calls  map[string]*sync.Mutex
 	grace  time.Duration
 
-	nextConn  int64
-	wants     map[int64]map[string]int // connection -> host -> interval asked for
-	sent      map[string]int           // host -> interval the agent was last told, 0 when off
-	announced map[string]int           // host -> interval last published on the bus
+	connections int
+	nextConn    int64
+	wants       map[int64]map[string]int // connection -> host -> interval asked for
+	sent        map[string]int           // host -> interval the agent was last told, 0 when off
+	announced   map[string]int           // host -> interval last published on the bus
 
 	Allow func(ctx context.Context, topic string, data any) bool
 }

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
@@ -179,6 +180,7 @@ func (m *Module) createArchive(ctx context.Context, t *driveTask, entries []arch
 	if err != nil {
 		return 0, err
 	}
+	defer contracts.TrackTemporaryFile(tmp.Name())()
 	defer os.Remove(tmp.Name())
 	hash := sha256.New()
 	output := io.MultiWriter(tmp, hash)

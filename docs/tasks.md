@@ -37,7 +37,7 @@
 | B76 | 左栏一级菜单显示未读和待处理数量，二级菜单选中更明显 | [B76](specs/B76.md) | 前端 Claude |
 | B77 | 看板卡片不显示编号，紧急度加标题 | 见下 | 前端 Claude |
 | B78 | CI 提速：前端检查从六七分钟降下来 | [B78](specs/B78.md) | Claude |
-| B79 | 设置弹窗显示版本号；设置 → 维护：资源占用、清理没用的文件 | [B79](specs/B79.md) | 前端 Claude，后端 GPT |
+| B79 | 设置弹窗显示版本号；设置 → 维护：资源占用、清理没用的文件 | [B79](specs/B79.md) | 前端 Claude，后端 Codex 已完成 |
 | B80 | 切换页面后回来，保留列表和内容的位置 | [B80](specs/B80.md) | 前端 Claude |
 | B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前端 Claude，后端 GPT |
 | B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前端 Claude，后端 GPT |
@@ -313,6 +313,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B79：新增 maintenance API、StorageReporter/Cleaner 和原始存储检查契约。app 注册维护模块及连接统计，ws/agenthub 新增只读连接数，core.BuiltAt 由 Dockerfile 服务端编译注入。公共上传和云盘定时清理复用安全重查，临时文件登记只保护仍在使用的文件。web/scripts/e2e.mjs 仅新增 API 主流程，未改前端功能。
 
 跨模块的接口（`internal/server/contracts`、基础包、协议）有调整时记在这里。
 

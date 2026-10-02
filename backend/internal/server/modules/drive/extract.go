@@ -18,6 +18,7 @@ import (
 
 	"golang.org/x/text/encoding/simplifiedchinese"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
@@ -527,6 +528,7 @@ func (x *extractor) insertFile(parent *int64, name string, declared int64, reade
 	if err != nil {
 		return err
 	}
+	defer contracts.TrackTemporaryFile(tmp.Name())()
 	defer os.Remove(tmp.Name())
 	hash := sha256.New()
 	limit := int64(maxExtractBytes) - x.bytes + 1

@@ -21,6 +21,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/db"
 )
@@ -57,6 +58,8 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.Notes](d.Registry, contracts.NotesKey, &notesService{m})
 	module.Provide[*Module](d.Registry, "notes.module", m)
 	m.registerActions()
+	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"notes", maintenance.StoreReporter{Store: m.files, Registry: d.Registry, Key: "notes", Label: "笔记附件", Module: "notes"})
+	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"notes", maintenance.AttachmentCleaner{Deps: d, Notes: true, Now: m.now})
 	return m, nil
 }
 

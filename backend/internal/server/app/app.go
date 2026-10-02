@@ -23,6 +23,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/config"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/core"
 	coreapi "github.com/j0x3n/x-console/backend/internal/server/core/api"
 	"github.com/j0x3n/x-console/backend/internal/server/core/db"
@@ -163,6 +164,7 @@ func (a *App) routes() http.Handler {
 		api.Use(d.Auth.Middleware(isPublic))
 		api.Get("/agent/connect", d.Agents.ServeConnect)
 		events := ws.New(d.Bus, d.Agents)
+		module.Provide[contracts.MaintenanceConnections](d.Registry, contracts.MaintenanceConnectionsKey, maintenanceConnections{events, d.Agents})
 		events.Allow = a.allowEvent
 		api.Get("/events", events.ServeHTTP)
 		coreapi.HandlerWithOptions(&core.Handlers{Auth: d.Auth, Agents: d.Agents, Notify: d.Notify, Q: db.New(d.DB), Settings: d.Settings, Bus: d.Bus,

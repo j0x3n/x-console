@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import http from "node:http";
 import os from "node:os";
@@ -1029,6 +1029,34 @@ try {
     });
     assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
   };
+  stage = "B79 维护 API 主流程";
+  const maintenanceOverview = await api("/maintenance/overview?refresh=true");
+  assert.ok(maintenanceOverview.version && maintenanceOverview.process && maintenanceOverview.machine);
+  assert.ok(maintenanceOverview.storage.some((row) => row.key === "database"));
+  assert.ok(Array.isArray(await api("/maintenance/metrics")));
+  const maintenanceGarbage = join(serverEnv.XC_DATA_DIR, "tmp", "maintenance-e2e.tmp");
+  writeFileSync(maintenanceGarbage, "garbage");
+  const maintenanceOld = new Date(Date.now() - 48 * 3600 * 1000);
+  utimesSync(maintenanceGarbage, maintenanceOld, maintenanceOld);
+  await send("POST", "/maintenance/scan");
+  const maintenanceScan = await until("维护扫描", async () => {
+    const result = await api("/maintenance/scan");
+    return result.state !== "running" && result;
+  });
+  assert.equal(maintenanceScan.state, "done");
+  for (const group of maintenanceScan.groups) {
+    assert.ok(group.items.length <= 50);
+    if (["missing_records", "audit_logs"].includes(group.kind)) assert.equal(group.selected, false);
+  }
+  await send("POST", "/maintenance/cleanup", { kinds: ["temporary_files"], scanId: maintenanceScan.id });
+  const maintenanceCleanup = await until("维护清理", async () => {
+    const result = await api("/maintenance/cleanup");
+    return result.state !== "running" && result;
+  });
+  assert.equal(maintenanceCleanup.state, "done");
+  assert.ok(maintenanceCleanup.result.deleted >= 1);
+  assert.equal(existsSync(maintenanceGarbage), false);
+  stage = "B57 锁定后被隐藏的模块像不存在一样";
   await send("POST", "/vault/setup", { password: "e2e-vault-secret" });
   await send("PUT", "/vault/modules", { hidden: ["github"] });
   await send("POST", "/vault/lock");

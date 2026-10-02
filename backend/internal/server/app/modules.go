@@ -19,6 +19,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/linear"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mcp"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
@@ -62,4 +63,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	aiagents.New, // B47
 	mail.New,     // B53
 	router.New,   // B65
+	maintenance.New,
 }

@@ -1,0 +1,197 @@
+openapi: 3.0.3
+info:
+  title: X Console maintenance API
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /maintenance/overview:
+    get:
+      operationId: getMaintenanceOverview
+      parameters:
+        - name: refresh
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: 版本、资源和存储占用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MaintenanceOverview' }
+        default: { $ref: '../common.yaml#/components/responses/Error' }
+  /maintenance/metrics:
+    get:
+      operationId: getMaintenanceMetrics
+      responses:
+        '200':
+          description: 最近一小时的每分钟采样
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MaintenancePoint' }
+        default: { $ref: '../common.yaml#/components/responses/Error' }
+  /maintenance/vacuum:
+    post:
+      operationId: vacuumDatabase
+      responses:
+        '200':
+          description: 整理完成，需要提升权限
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [beforeBytes, afterBytes, freedBytes]
+                properties:
+                  beforeBytes: { type: integer, format: int64 }
+                  afterBytes: { type: integer, format: int64 }
+                  freedBytes: { type: integer, format: int64 }
+        default: { $ref: '../common.yaml#/components/responses/Error' }
+  /maintenance/scan:
+    post:
+      operationId: startMaintenanceScan
+      responses:
+        '202':
+          description: 扫描任务已启动
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CleanupScan' }
+        default: { $ref: '../common.yaml#/components/responses/Error' }
+    get:
+      operationId: getMaintenanceScan
+      responses:
+        '200':
+          description: 扫描进度和每组前五十条预览
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CleanupScan' }
+        default: { $ref: '../common.yaml#/components/responses/Error' }
+  /maintenance/cleanup:
+    post:
+      operationId: startMaintenanceCleanup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kinds]
+              properties:
+                kinds:
+                  type: array
+                  minItems: 1
+                  items: { type: string }
+                scanId:
+                  type: string
+                  description: 可选的完整扫描快照编号
+      responses:
+        '202':
+          description: 清理任务已启动，需要提升权限
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CleanupScan' }
+        default: { $ref: '../common.yaml#/components/responses/Error' }
+    get:
+      operationId: getMaintenanceCleanup
+      responses:
+        '200':
+          description: 清理进度和实际结果
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CleanupScan' }
+        default: { $ref: '../common.yaml#/components/responses/Error' }
+components:
+  schemas:
+    MaintenancePoint:
+      type: object
+      required: [at, cpu, rss, heap, goroutines, browserConnections, agentConnections]
+      properties:
+        at: { type: string, format: date-time }
+        cpu: { type: number, format: double }
+        rss: { type: integer, format: int64 }
+        heap: { type: integer, format: int64 }
+        goroutines: { type: integer }
+        browserConnections: { type: integer }
+        agentConnections: { type: integer }
+    StorageUsage:
+      type: object
+      required: [key, label, bytes, files, location, available]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        bytes: { type: integer, format: int64 }
+        files: { type: integer, format: int64 }
+        location: { type: string }
+        available: { type: boolean }
+        module: { type: string }
+        note: { type: string }
+    MaintenanceOverview:
+      type: object
+      required: [version, builtAt, startedAt, goVersion, dataDir, process, machine, storage]
+      properties:
+        version: { type: string }
+        builtAt: { type: string }
+        startedAt: { type: string, format: date-time }
+        goVersion: { type: string }
+        dataDir: { type: string }
+        process: { $ref: '#/components/schemas/MaintenancePoint' }
+        machine:
+          type: object
+          required: [cpu, memoryTotal, memoryUsed, diskTotal, diskFree]
+          properties:
+            cpu: { type: number }
+            memoryTotal: { type: integer, format: int64 }
+            memoryUsed: { type: integer, format: int64 }
+            diskTotal: { type: integer, format: int64 }
+            diskFree: { type: integer, format: int64 }
+        storage:
+          type: array
+          items: { $ref: '#/components/schemas/StorageUsage' }
+        geoAttribution: { type: string }
+        geoAttributionUrl: { type: string }
+    CleanupItem:
+      type: object
+      required: [id, kind, name, bytes, reason]
+      properties:
+        id: { type: string }
+        kind: { type: string }
+        module: { type: string }
+        name: { type: string }
+        bytes: { type: integer, format: int64 }
+        reason: { type: string }
+    CleanupGroup:
+      type: object
+      required: [kind, count, bytes, selected, items]
+      properties:
+        kind: { type: string }
+        count: { type: integer, format: int64 }
+        bytes: { type: integer, format: int64 }
+        selected: { type: boolean }
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/CleanupItem' }
+    CleanupResult:
+      type: object
+      required: [deleted, bytes, skipped, failed]
+      properties:
+        deleted: { type: integer, format: int64 }
+        bytes: { type: integer, format: int64 }
+        skipped: { type: integer, format: int64 }
+        failed: { type: integer, format: int64 }
+    CleanupScan:
+      type: object
+      required: [id, state, groups, total, done, result]
+      properties:
+        id: { type: string }
+        scanId: { type: string }
+        state: { type: string, enum: [idle, running, done, failed] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/CleanupGroup' }
+        total: { type: integer, format: int64 }
+        done: { type: integer, format: int64 }
+        result: { $ref: '#/components/schemas/CleanupResult' }
+        error: { type: string }

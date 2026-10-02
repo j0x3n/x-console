@@ -17,7 +17,7 @@ ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
-    -ldflags "-s -w -X github.com/j0x3n/x-console/backend/internal/server/core.Version=${VERSION}" \
+    -ldflags "-s -w -X github.com/j0x3n/x-console/backend/internal/server/core.Version=${VERSION} -X github.com/j0x3n/x-console/backend/internal/server/core.BuiltAt=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     -o /out/x-console-server ./cmd/server
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
     -ldflags "-s -w -X main.Version=${VERSION}" \

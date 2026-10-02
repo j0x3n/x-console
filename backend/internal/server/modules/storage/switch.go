@@ -84,7 +84,7 @@ func (m *Module) CancelStorageSwitch(w http.ResponseWriter, r *http.Request) {
 func (m *Module) startMove(ctx context.Context, target api.StorageBackend, deleteSource bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.move != nil {
+	if m.move != nil || m.cleaning {
 		return httpx.NewError(http.StatusConflict, "conflict", "已经在搬迁了")
 	}
 	if target != api.Local && target != api.S3 {

@@ -14,6 +14,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/files/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 )
 
 type Module struct {
@@ -28,6 +29,10 @@ var _ module.Starter = (*Module)(nil)
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, now: func() time.Time { return time.Now().UTC() }}
 	module.Provide[contracts.Files](d.Registry, contracts.FilesKey, m)
+	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"uploads", maintenance.AttachmentCleaner{Deps: d, Now: m.now})
+	for _, scope := range []string{"projects", "calendar", "reminders", "coding"} {
+		module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"uploads."+scope, maintenance.StoreReporter{Store: m.store(scope), Registry: d.Registry, Key: "uploads." + scope, Label: "公共上传 " + scope, Module: scope, Prefix: "uploads"})
+	}
 	return m, nil
 }
 func (m *Module) Name() string { return "files" }
@@ -124,31 +129,26 @@ func (m *Module) DeleteOwned(ctx context.Context, kind string, ownerID int64) er
 	return nil
 }
 func (m *Module) cleanup(ctx context.Context) error {
-	rows, err := m.d.DB.QueryContext(ctx, "SELECT id FROM uploaded_files WHERE owner_kind IS NULL AND created_at<?", m.now().Add(-24*time.Hour))
-	if err != nil {
-		return err
-	}
-	ids := []int64{}
-	for rows.Next() {
-		var id int64
-		if err = rows.Scan(&id); err != nil {
-			break
-		}
-		ids = append(ids, id)
-	}
-	if err == nil {
-		err = rows.Err()
-	}
-	rows.Close()
-	if err != nil {
-		return err
-	}
-	for _, id := range ids {
-		if err = m.delete(ctx, id); err != nil {
+	fn := func(ctx context.Context) error {
+		ctx = contracts.IgnoreHidden(ctx)
+		cleaner := maintenance.AttachmentCleaner{Deps: m.d, Now: m.now}
+		items, err := cleaner.Scan(ctx)
+		if err != nil {
 			return err
 		}
+		ids := []string{}
+		for _, item := range items {
+			if item.Kind == "unclaimed_uploads" {
+				ids = append(ids, item.ID)
+			}
+		}
+		_, err = cleaner.Clean(ctx, ids)
+		return err
 	}
-	return nil
+	if storage, ok := module.Lookup[contracts.MaintenanceStorage](m.d.Registry, contracts.MaintenanceStorageKey); ok {
+		return storage.WithCleanup(ctx, fn)
+	}
+	return fn(ctx)
 }
 func validScope(scope string) bool {
 	return strings.Contains("|projects|calendar|reminders|coding|", "|"+scope+"|") && scope != ""

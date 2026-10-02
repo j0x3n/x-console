@@ -22,6 +22,7 @@ import (
 
 // Version is set at build time with -ldflags "-X .../core.Version=...".
 var Version = "dev"
+var BuiltAt = ""
 
 // Handlers implements api.ServerInterface.
 type Handlers struct {

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/core"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/api"
@@ -74,6 +75,7 @@ func (m *Module) create(ctx context.Context, kind string, dest files.Store, pref
 		return "", 0, err
 	}
 	dbPath := filepath.Join(tmpDir, fmt.Sprintf("backup-%d.db", time.Now().UnixNano()))
+	defer contracts.TrackTemporaryFile(dbPath)()
 	defer os.Remove(dbPath)
 
 	j.step("正在备份数据库")
@@ -273,6 +275,7 @@ func putArchive(ctx context.Context, dest files.Store, key string, spool bool, t
 	if err != nil {
 		return err
 	}
+	defer contracts.TrackTemporaryFile(f.Name())()
 	defer os.Remove(f.Name())
 	defer f.Close()
 	if err := writeArchive(ctx, f, in); err != nil {
