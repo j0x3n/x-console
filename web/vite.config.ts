@@ -40,7 +40,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    maxWorkers: 1,
+    // 本地一个线程，免得和别的程序抢；CI 上按 CPU 数开（B78）
+    maxWorkers: process.env.CI ? undefined : 1,
     testTimeout: 30_000,
     setupFiles: ["./src/test/setup.ts"],
   },

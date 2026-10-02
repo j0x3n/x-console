@@ -27,6 +27,8 @@ concurrency:
 
 jobs:
   backend-check:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     env:
       SQLC_VERSION: v1.31.1
@@ -78,6 +80,8 @@ jobs:
   # 三组同时跑。分组按 2026-10-01 带 -race 的包用时摊开，第三组是剩下的全部包，新包不会漏。
   # inputs.race 在 PR 和手动运行时是空的，只有明确传 false 才不带 -race。
   backend-test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -121,7 +125,30 @@ jobs:
           printf '%s\n' "${pkgs[@]}"
           go test "${flags[@]}" "${pkgs[@]}"
 
+  # B78：PR 上看改了哪边。只改后端时跳过前端检查，只改前端时跳过后端；端到端两边都跑。
+  # 被 deploy.yml 调用和手动运行时全部都跑。PR 检出的是合并提交，第一个父提交就是目标分支。
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ github.event_name != 'pull_request' || steps.diff.outputs.backend == 'true' }}
+      web: ${{ github.event_name != 'pull_request' || steps.diff.outputs.web == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+      - id: diff
+        if: github.event_name == 'pull_request'
+        run: |
+          files=$(git diff --name-only HEAD^1 HEAD)
+          printf '%s\n' "$files"
+          # api/ 下的接口定义两边都会生成代码
+          if printf '%s\n' "$files" | grep -qE '^(backend/|api/|deploy/|\.github/)'; then echo backend=true >> "$GITHUB_OUTPUT"; fi
+          if printf '%s\n' "$files" | grep -qE '^(web/|api/|\.github/)'; then echo web=true >> "$GITHUB_OUTPUT"; fi
+
   web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -141,16 +168,31 @@ jobs:
       - run: npm run typecheck
       - run: npm run format:check
       - run: npm run lint:fonts
+      # CI 上单元测试按 CPU 数开线程（vite.config.ts 里看 CI 环境变量）
       - run: npm test
-      - run: npm run build
+
+  # 构建和端到端单独一个任务，和上面的检查同时跑。
+  # 不装浏览器：GitHub 的 ubuntu-latest 自带 Google Chrome。端到端脚本自己用 vite build 打包，不再重复 typecheck。
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - run: npx playwright-core install --with-deps chromium
       - run: npm run e2e
         env:
-          XC_E2E_USE_BUILD: "1"
+          XC_SHOTS_BROWSER: /usr/bin/google-chrome
       - name: Upload failed test evidence
         if: failure()
         uses: actions/upload-artifact@v4
