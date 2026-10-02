@@ -8,6 +8,7 @@ import { create } from "zustand";
  * 比如 Issue 页是“项目 / XC / XC-1”。
  * status 只给有设备状态的页面用（服务器详情、本机），左上角显示一个状态点。
  * subtitle 是这一页的概况灰字，显示在左上角标题后面（B20）。
+ * mark 是详情名称左边的小标记，比如服务器所在国家的国旗（B82）。
  */
 export interface Crumb {
   label: string;
@@ -21,9 +22,11 @@ interface PageTitleState {
   status: PageStatus | null;
   statusLabel: string;
   subtitle: ReactNode;
+  mark: ReactNode;
   setTitle: (title: string, parents?: Crumb[]) => void;
   setStatus: (status: PageStatus | null, label?: string) => void;
   setSubtitle: (subtitle: ReactNode) => void;
+  setMark: (mark: ReactNode) => void;
 }
 
 export const usePageTitle = create<PageTitleState>()((set) => ({
@@ -32,9 +35,11 @@ export const usePageTitle = create<PageTitleState>()((set) => ({
   status: null,
   statusLabel: "",
   subtitle: null,
+  mark: null,
   setTitle: (title, parents = []) => set({ title, parents }),
   setStatus: (status, statusLabel = "") => set({ status, statusLabel }),
   setSubtitle: (subtitle) => set({ subtitle }),
+  setMark: (mark) => set({ mark }),
 }));
 
 /** 不用 PageHeading 的详情页直接调它。离开页面时清空。 */
@@ -56,4 +61,15 @@ export function usePageStatus(status: PageStatus | null, label = "") {
     setStatus(status, label);
     return () => setStatus(null);
   }, [status, label, setStatus]);
+}
+
+/** 详情名称左边的小标记（B82）。key 变了才更新，离开页面时去掉。 */
+export function usePageMark(mark: ReactNode, key: string) {
+  const setMark = usePageTitle((s) => s.setMark);
+  useEffect(() => {
+    setMark(mark);
+    return () => setMark(null);
+    // 按 key 比较，mark 每次渲染都是新对象
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, setMark]);
 }

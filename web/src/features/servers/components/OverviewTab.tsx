@@ -23,6 +23,8 @@ import {
 } from "../lib";
 import MetricChart from "./MetricChart";
 import { TrafficCard } from "./Traffic";
+import { HostInfoCard } from "./HostInfo";
+import AddressList from "./AddressList";
 import UsageBar from "./UsageBar";
 
 const S1 = "var(--servers-series-1)";
@@ -177,6 +179,19 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
         </div>
       )}
 
+      <div className="servers-two">
+        <HostInfoCard host={host} />
+        {!(m?.netInterfaces && m.netInterfaces.length > 0) &&
+          host.addresses.length > 0 && (
+            <div className="xc-card">
+              <div className="xc-card-head">
+                <h2>{t("IP addresses")}</h2>
+              </div>
+              <AddressList addresses={host.addresses} bare />
+            </div>
+          )}
+      </div>
+
       <div className="xc-card">
         <div className="xc-card-head">
           <h2>{t("Trends")}</h2>
@@ -305,6 +320,7 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
                     </div>
                   ))}
                 </div>
+                <AddressList addresses={host.addresses} />
               </div>
             )}
           </div>

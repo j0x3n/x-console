@@ -964,3 +964,155 @@ button.servers-file:hover {
   height: min(70vh, 720px);
   margin: 0 -12px -12px;
 }
+
+/* ---- B82：国旗、机器信息、地址、排序 ---- */
+/* Windows 的浏览器不带国旗 emoji，用 Twemoji 国旗字体补上。只含国旗，用到时才下载 */
+@font-face {
+  font-family: "Twemoji Country Flags";
+  src: url("/fonts/TwemojiCountryFlags.woff2") format("woff2");
+  unicode-range:
+    U+1F1E6-1F1FF, U+1F3F4, U+E0062-E0063, U+E0065, U+E0067, U+E006C, U+E006E,
+    U+E0073-E0074, U+E0077, U+E007F;
+  font-display: swap;
+}
+.xc-flag {
+  flex: none;
+  font-family:
+    "Twemoji Country Flags", "Apple Color Emoji", "Segoe UI Emoji",
+    "Noto Color Emoji", sans-serif;
+  line-height: 1;
+}
+.nav-child .xc-flag {
+  margin-left: -2px;
+}
+.servers-card-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+.servers-card-name strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.servers-card-side {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+.servers-card.dragging {
+  opacity: 0.45;
+}
+.servers-card.drag-over {
+  border-color: var(--xc-accent);
+}
+.servers-info-card .xc-card-head {
+  margin-bottom: 8px;
+}
+.servers-info-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-13);
+}
+.servers-info-dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 0;
+  font-size: var(--fs-13);
+}
+.servers-info-dl dt {
+  color: var(--xc-muted);
+}
+.servers-info-dl dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.servers-info-note .xc-md > :first-child {
+  margin-top: 0;
+}
+.servers-info-note .xc-md > :last-child {
+  margin-bottom: 0;
+}
+.servers-info-secret {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.servers-info-secret .xc-mono {
+  margin-right: 4px;
+}
+.servers-info-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.servers-info-form > *,
+.servers-info-fields > *,
+.servers-info-pair .xc-field {
+  margin: 0;
+}
+.servers-more-toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--xc-accent-text);
+  font-size: var(--fs-12-5);
+  cursor: pointer;
+}
+.servers-addresses {
+  display: grid;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--xc-border);
+  list-style: none;
+}
+.servers-addresses.bare {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.servers-addresses li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--fs-13);
+}
+.servers-addresses li.private .servers-address-ip {
+  color: var(--xc-muted);
+}
+.servers-address-family {
+  flex: none;
+  width: 34px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.servers-address-ip {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.servers-addresses small {
+  flex: none;
+  color: var(--xc-faint);
+  font-size: var(--fs-11);
+}
+@media (max-width: 640px) {
+  .servers-info-pair {
+    grid-template-columns: 1fr;
+  }
+  .servers-btn-text {
+    display: none;
+  }
+}

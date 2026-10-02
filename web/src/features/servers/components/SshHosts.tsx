@@ -14,6 +14,13 @@ import {
   type SshHost,
   type SshHostInput,
 } from "../api";
+import {
+  HostInfoFields,
+  infoDraft,
+  infoFilled,
+  infoInput,
+  type InfoDraft,
+} from "./HostInfo";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 
 /** SSH 主机管理：列表、添加、修改、删除、测试连接。 */
@@ -146,12 +153,16 @@ function SshHostForm({
     null,
   );
   const [busy, setBusy] = useState(false);
+  // B82：新建时可以顺手填归属、账号密码、备注、标签。修改走“编辑信息”。
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [draft, setDraft] = useState<InfoDraft>(() => infoDraft());
   const set = (patch: Partial<SshHostInput>) =>
     setForm((f) => ({ ...f, ...patch }));
   const body = () => ({
     ...form,
     secret: form.secret || undefined,
     passphrase: form.passphrase || undefined,
+    info: !host && infoFilled(draft) ? infoInput(draft) : undefined,
   });
   const test = async () => {
     setBusy(true);
@@ -308,6 +319,19 @@ function SshHostForm({
                 onChange={(e) => set({ passphrase: e.target.value })}
               />
             </label>
+          </>
+        )}
+        {!host && (
+          <>
+            <button
+              type="button"
+              className="servers-more-toggle"
+              aria-expanded={infoOpen}
+              onClick={() => setInfoOpen((v) => !v)}
+            >
+              {t("More info")}
+            </button>
+            {infoOpen && <HostInfoFields draft={draft} onChange={setDraft} />}
           </>
         )}
         {result && (

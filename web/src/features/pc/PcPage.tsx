@@ -7,6 +7,7 @@ import { useT } from "../../contexts/LanguageContext";
 import { useHosts } from "../servers/api";
 import { HostHeadStatus } from "../servers/components/HostCard";
 import HostView from "../servers/components/HostView";
+import HostHeadExtras from "../servers/components/HostHeadExtras";
 import { pickDesktop } from "../servers/lib";
 import { PcQuickBar } from "./QuickCards";
 import { loadSelectedHost, saveSelectedHost } from "./recent";
@@ -87,6 +88,7 @@ export default function PcPage() {
                   </select>
                 )}
                 <PcQuickBar host={h} />
+                <HostHeadExtras host={h} />
               </>
             }
           />
