@@ -184,7 +184,7 @@ func (m *Module) overviewHandler(w http.ResponseWriter, r *http.Request) {
 	if v, e := cpu.PercentWithContext(ctx, 0, false); e == nil && len(v) > 0 {
 		machineCPU = v[0]
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"version": core.Version, "builtAt": core.BuiltAt, "startedAt": m.started, "goVersion": runtime.Version(), "dataDir": m.d.Config.DataDir, "process": current, "machine": map[string]any{"cpu": machineCPU, "memoryTotal": memoryTotal, "memoryUsed": memoryUsed, "diskTotal": diskTotal, "diskFree": diskFree}, "storage": visible})
+	httpx.JSON(w, http.StatusOK, map[string]any{"version": core.Version, "builtAt": core.BuiltAt, "startedAt": m.started, "goVersion": runtime.Version(), "dataDir": m.d.Config.DataDir, "process": current, "machine": map[string]any{"cpu": machineCPU, "memoryTotal": memoryTotal, "memoryUsed": memoryUsed, "diskTotal": diskTotal, "diskFree": diskFree}, "storage": visible, "geoAttribution": "IP 地理位置数据来自 DB-IP（CC BY 4.0）", "geoAttributionUrl": "https://db-ip.com"})
 }
 
 func (m *Module) vacuumHandler(w http.ResponseWriter, r *http.Request) {

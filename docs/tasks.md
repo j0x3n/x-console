@@ -40,7 +40,7 @@
 | B79 | 设置弹窗显示版本号；设置 → 维护：资源占用、清理没用的文件 | [B79](specs/B79.md) | 前端 Claude，后端 Codex 已完成 |
 | B80 | 切换页面后回来，保留列表和内容的位置 | [B80](specs/B80.md) | 前端 Claude |
 | B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前端 Claude，后端 GPT |
-| B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前端 Claude，后端 GPT |
+| B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前端 Claude，后端 Codex 已完成 |
 | B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前端 Claude，后端 GPT |
 
 ### 任务说明
@@ -313,6 +313,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B82：新增 HostPairingInfo、host_info 加密资料与配对侧表。agenthub 将配对消费和资料保存放入同一事务，新增代理令牌鉴权的 whoami。config 新增 XC_TRUSTED_PROXIES，notes/drive 统一来源 IP。SystemInfo 地址字段保持旧代理兼容。sqlc 复制新增表到各模块生成模型。维护总览增加 DB-IP 来源。
 
 - B79：新增 maintenance API、StorageReporter/Cleaner 和原始存储检查契约。app 注册维护模块及连接统计，ws/agenthub 新增只读连接数，core.BuiltAt 由 Dockerfile 服务端编译注入。公共上传和云盘定时清理复用安全重查，临时文件登记只保护仍在使用的文件。web/scripts/e2e.mjs 仅新增 API 主流程，未改前端功能。
 

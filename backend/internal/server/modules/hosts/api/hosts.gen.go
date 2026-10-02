@@ -75,6 +75,60 @@ func (e AlertSeverity) Valid() bool {
 	}
 }
 
+// Defines values for HostAddressFamily.
+const (
+	V4 HostAddressFamily = "v4"
+	V6 HostAddressFamily = "v6"
+)
+
+// Valid indicates whether the value is a known member of the HostAddressFamily enum.
+func (e HostAddressFamily) Valid() bool {
+	switch e {
+	case V4:
+		return true
+	case V6:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostInfoOwnership.
+const (
+	HostInfoOwnershipClient HostInfoOwnership = "client"
+	HostInfoOwnershipOwn    HostInfoOwnership = "own"
+)
+
+// Valid indicates whether the value is a known member of the HostInfoOwnership enum.
+func (e HostInfoOwnership) Valid() bool {
+	switch e {
+	case HostInfoOwnershipClient:
+		return true
+	case HostInfoOwnershipOwn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostInfoInputOwnership.
+const (
+	HostInfoInputOwnershipClient HostInfoInputOwnership = "client"
+	HostInfoInputOwnershipOwn    HostInfoInputOwnership = "own"
+)
+
+// Valid indicates whether the value is a known member of the HostInfoInputOwnership enum.
+func (e HostInfoInputOwnership) Valid() bool {
+	switch e {
+	case HostInfoInputOwnershipClient:
+		return true
+	case HostInfoInputOwnershipOwn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HostKind.
 const (
 	Desktop HostKind = "desktop"
@@ -400,9 +454,11 @@ type FileList struct {
 
 // Host defines model for Host.
 type Host struct {
-	ActiveAlerts int      `json:"activeAlerts"`
-	Arch         string   `json:"arch"`
-	Capabilities []string `json:"capabilities"`
+	ActiveAlerts int           `json:"activeAlerts"`
+	Addresses    []HostAddress `json:"addresses"`
+	Arch         string        `json:"arch"`
+	Capabilities []string      `json:"capabilities"`
+	Country      *HostCountry  `json:"country,omitempty"`
 
 	// Cpu 最新 CPU 使用率（%）
 	Cpu *float64 `json:"cpu,omitempty"`
@@ -411,17 +467,35 @@ type Host struct {
 	Disk       *float64   `json:"disk,omitempty"`
 	Hostname   string     `json:"hostname"`
 	Id         string     `json:"id"`
+	Info       HostInfo   `json:"info"`
 	Kind       HostKind   `json:"kind"`
 	LastSeenAt *time.Time `json:"lastSeenAt,omitempty"`
 
 	// Memory 最新内存使用率（%）
-	Memory  *float64       `json:"memory,omitempty"`
-	Metrics *MetricsSample `json:"metrics,omitempty"`
-	Name    string         `json:"name"`
-	Online  bool           `json:"online"`
-	Os      string         `json:"os"`
-	Source  HostSource     `json:"source"`
-	Version string         `json:"version"`
+	Memory    *float64       `json:"memory,omitempty"`
+	Metrics   *MetricsSample `json:"metrics,omitempty"`
+	Name      string         `json:"name"`
+	Online    bool           `json:"online"`
+	Os        string         `json:"os"`
+	SortOrder int            `json:"sortOrder"`
+	Source    HostSource     `json:"source"`
+	Version   string         `json:"version"`
+}
+
+// HostAddress defines model for HostAddress.
+type HostAddress struct {
+	Family HostAddressFamily `json:"family"`
+	Ip     string            `json:"ip"`
+	Public bool              `json:"public"`
+}
+
+// HostAddressFamily defines model for HostAddress.Family.
+type HostAddressFamily string
+
+// HostCountry defines model for HostCountry.
+type HostCountry struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
 }
 
 // HostDetail defines model for HostDetail.
@@ -429,9 +503,11 @@ type HostDetail struct {
 	ActiveAlerts int `json:"activeAlerts"`
 
 	// Address SSH 主机的地址
-	Address      *string  `json:"address,omitempty"`
-	Arch         string   `json:"arch"`
-	Capabilities []string `json:"capabilities"`
+	Address      *string       `json:"address,omitempty"`
+	Addresses    []HostAddress `json:"addresses"`
+	Arch         string        `json:"arch"`
+	Capabilities []string      `json:"capabilities"`
+	Country      *HostCountry  `json:"country,omitempty"`
 
 	// Cpu 最新 CPU 使用率（%）
 	Cpu *float64 `json:"cpu,omitempty"`
@@ -440,6 +516,7 @@ type HostDetail struct {
 	Disk       *float64   `json:"disk,omitempty"`
 	Hostname   string     `json:"hostname"`
 	Id         string     `json:"id"`
+	Info       HostInfo   `json:"info"`
 	Kind       HostKind   `json:"kind"`
 	LastSeenAt *time.Time `json:"lastSeenAt,omitempty"`
 
@@ -449,10 +526,38 @@ type HostDetail struct {
 	Name       string         `json:"name"`
 	Online     bool           `json:"online"`
 	Os         string         `json:"os"`
+	SortOrder  int            `json:"sortOrder"`
 	Source     HostSource     `json:"source"`
 	SystemInfo *SystemInfo    `json:"systemInfo,omitempty"`
 	Version    string         `json:"version"`
 }
+
+// HostInfo defines model for HostInfo.
+type HostInfo struct {
+	Client      *string           `json:"client,omitempty"`
+	HasPassword bool              `json:"hasPassword"`
+	Note        *string           `json:"note,omitempty"`
+	Ownership   HostInfoOwnership `json:"ownership"`
+	Tags        []string          `json:"tags"`
+	Username    *string           `json:"username,omitempty"`
+}
+
+// HostInfoOwnership defines model for HostInfo.Ownership.
+type HostInfoOwnership string
+
+// HostInfoInput defines model for HostInfoInput.
+type HostInfoInput struct {
+	ClearPassword *bool                   `json:"clearPassword,omitempty"`
+	Client        *string                 `json:"client,omitempty"`
+	Note          *string                 `json:"note,omitempty"`
+	Ownership     *HostInfoInputOwnership `json:"ownership,omitempty"`
+	Password      *string                 `json:"password,omitempty"`
+	Tags          *[]string               `json:"tags,omitempty"`
+	Username      *string                 `json:"username,omitempty"`
+}
+
+// HostInfoInputOwnership defines model for HostInfoInput.Ownership.
+type HostInfoInputOwnership string
 
 // HostKind defines model for HostKind.
 type HostKind string
@@ -460,10 +565,13 @@ type HostKind string
 // HostListItem defines model for HostListItem.
 type HostListItem struct {
 	ActiveAlerts int              `json:"activeAlerts"`
+	Addresses    []HostAddress    `json:"addresses"`
+	Country      *HostCountry     `json:"country,omitempty"`
 	Cpu          *float64         `json:"cpu,omitempty"`
 	Disk         *float64         `json:"disk,omitempty"`
 	Hostname     string           `json:"hostname"`
 	Id           string           `json:"id"`
+	Info         HostInfo         `json:"info"`
 	Kind         HostKind         `json:"kind"`
 	LastSeenAt   *time.Time       `json:"lastSeenAt,omitempty"`
 	Memory       *float64         `json:"memory,omitempty"`
@@ -471,6 +579,7 @@ type HostListItem struct {
 	Name         string           `json:"name"`
 	Online       bool             `json:"online"`
 	Os           string           `json:"os"`
+	SortOrder    int              `json:"sortOrder"`
 	Source       HostSource       `json:"source"`
 	Traffic      *TrafficBrief    `json:"traffic,omitempty"`
 }
@@ -482,6 +591,18 @@ type HostListMetrics struct {
 	NetRx         float64   `json:"netRx"`
 	NetTx         float64   `json:"netTx"`
 	UptimeSeconds int64     `json:"uptimeSeconds"`
+}
+
+// HostOrder defines model for HostOrder.
+type HostOrder struct {
+	Ids  []string `json:"ids"`
+	Kind HostKind `json:"kind"`
+}
+
+// HostPatch defines model for HostPatch.
+type HostPatch struct {
+	Info *HostInfoInput `json:"info,omitempty"`
+	Name *string        `json:"name,omitempty"`
 }
 
 // HostSource defines model for HostSource.
@@ -662,9 +783,10 @@ type SshHost struct {
 
 // SshHostInput defines model for SshHostInput.
 type SshHostInput struct {
-	Address string  `json:"address"`
-	Auth    SshAuth `json:"auth"`
-	Name    string  `json:"name"`
+	Address string         `json:"address"`
+	Auth    SshAuth        `json:"auth"`
+	Info    *HostInfoInput `json:"info,omitempty"`
+	Name    string         `json:"name"`
 
 	// Passphrase 私钥的密码（可选）
 	Passphrase *string `json:"passphrase,omitempty"`
@@ -898,6 +1020,12 @@ type CreateAlertRuleJSONRequestBody = AlertRuleInput
 // UpdateAlertRuleJSONRequestBody defines body for UpdateAlertRule for application/json ContentType.
 type UpdateAlertRuleJSONRequestBody = AlertRuleInput
 
+// PutHostsOrderJSONRequestBody defines body for PutHostsOrder for application/json ContentType.
+type PutHostsOrderJSONRequestBody = HostOrder
+
+// PatchHostJSONRequestBody defines body for PatchHost for application/json ContentType.
+type PatchHostJSONRequestBody = HostPatch
+
 // SetClipboardJSONRequestBody defines body for SetClipboard for application/json ContentType.
 type SetClipboardJSONRequestBody = Clipboard
 
@@ -952,8 +1080,14 @@ type ServerInterface interface {
 	// (GET /hosts)
 	ListHosts(w http.ResponseWriter, r *http.Request, params ListHostsParams)
 
+	// (PUT /hosts/order)
+	PutHostsOrder(w http.ResponseWriter, r *http.Request)
+
 	// (GET /hosts/{hostId})
 	GetHost(w http.ResponseWriter, r *http.Request, hostId HostId)
+
+	// (PATCH /hosts/{hostId})
+	PatchHost(w http.ResponseWriter, r *http.Request, hostId HostId)
 
 	// (GET /hosts/{hostId}/clipboard)
 	GetClipboard(w http.ResponseWriter, r *http.Request, hostId HostId)
@@ -993,6 +1127,9 @@ type ServerInterface interface {
 
 	// (POST /hosts/{hostId}/open)
 	OpenOnHost(w http.ResponseWriter, r *http.Request, hostId HostId)
+
+	// (GET /hosts/{hostId}/password)
+	GetHostPassword(w http.ResponseWriter, r *http.Request, hostId HostId)
 
 	// (POST /hosts/{hostId}/power)
 	PowerAction(w http.ResponseWriter, r *http.Request, hostId HostId)
@@ -1086,8 +1223,18 @@ func (_ Unimplemented) ListHosts(w http.ResponseWriter, r *http.Request, params 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /hosts/order)
+func (_ Unimplemented) PutHostsOrder(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /hosts/{hostId})
 func (_ Unimplemented) GetHost(w http.ResponseWriter, r *http.Request, hostId HostId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /hosts/{hostId})
+func (_ Unimplemented) PatchHost(w http.ResponseWriter, r *http.Request, hostId HostId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1153,6 +1300,11 @@ func (_ Unimplemented) GetHostMetrics(w http.ResponseWriter, r *http.Request, ho
 
 // (POST /hosts/{hostId}/open)
 func (_ Unimplemented) OpenOnHost(w http.ResponseWriter, r *http.Request, hostId HostId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /hosts/{hostId}/password)
+func (_ Unimplemented) GetHostPassword(w http.ResponseWriter, r *http.Request, hostId HostId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1445,6 +1597,20 @@ func (siw *ServerInterfaceWrapper) ListHosts(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// PutHostsOrder operation middleware
+func (siw *ServerInterfaceWrapper) PutHostsOrder(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutHostsOrder(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHost operation middleware
 func (siw *ServerInterfaceWrapper) GetHost(w http.ResponseWriter, r *http.Request) {
 
@@ -1462,6 +1628,32 @@ func (siw *ServerInterfaceWrapper) GetHost(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHost(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchHost operation middleware
+func (siw *ServerInterfaceWrapper) PatchHost(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchHost(w, r, hostId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1964,6 +2156,32 @@ func (siw *ServerInterfaceWrapper) OpenOnHost(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.OpenOnHost(w, r, hostId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHostPassword operation middleware
+func (siw *ServerInterfaceWrapper) GetHostPassword(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "hostId" -------------
+	var hostId HostId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hostId", chi.URLParam(r, "hostId"), &hostId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hostId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHostPassword(w, r, hostId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2811,6 +3029,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hosts/{hostId}", wrapper.GetHost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/hosts/{hostId}", wrapper.PatchHost)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/hosts/order", wrapper.PutHostsOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/hosts/{hostId}/password", wrapper.GetHostPassword)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/hosts/{hostId}/metrics", wrapper.GetHostMetrics)

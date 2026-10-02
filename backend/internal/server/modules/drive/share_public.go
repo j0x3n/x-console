@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"log/slog"
 	"mime"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,12 +43,8 @@ var (
 
 func (m *Module) PublicPaths() []string { return []string{"/public/shares"} }
 
-func publicClientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+func (m *Module) publicClientIP(r *http.Request) string {
+	return httpx.ClientIP(r, m.d.Config.TrustedProxies)
 }
 
 func publicHeaders(w http.ResponseWriter) {
@@ -59,7 +54,7 @@ func publicHeaders(w http.ResponseWriter) {
 }
 
 func (m *Module) shareRateLimit(w http.ResponseWriter, r *http.Request) bool {
-	ip := publicClientIP(r)
+	ip := m.publicClientIP(r)
 	now := time.Now().UTC()
 	m.shareMu.Lock()
 	entry := m.shareHits[ip]
@@ -187,7 +182,7 @@ func (m *Module) UnlockPublicShare(w http.ResponseWriter, r *http.Request, token
 		return
 	}
 	if share.CodeSealed != nil {
-		key := fmt.Sprintf("%d:%s", share.ID, publicClientIP(r))
+		key := fmt.Sprintf("%d:%s", share.ID, m.publicClientIP(r))
 		now := time.Now().UTC()
 		m.shareMu.Lock()
 		failed := m.shareFails[key]
@@ -405,7 +400,7 @@ func (m *Module) GetPublicShareContent(w http.ResponseWriter, r *http.Request, t
 	}
 	defer stream.Close()
 	preview := boolValue(params.Preview) || boolValue(params.Inline)
-	ip := publicClientIP(r)
+	ip := m.publicClientIP(r)
 	fetchKey := fmt.Sprintf("%d:%d:%s:%s", share.ID, item.ID, ip, r.UserAgent())
 	if share.MaxDownloads != nil && share.Downloads >= *share.MaxDownloads && (preview || !m.countedFetch(fetchKey)) {
 		httpx.Fail(w, r, errShareLimit)
@@ -451,7 +446,7 @@ func (m *Module) DownloadPublicShareZip(w http.ResponseWriter, r *http.Request, 
 		if err := m.recordShareDownload(r.Context(), share, root, r, ""); fail(w, r, err) {
 			return
 		}
-		m.auditShareDownload(r.Context(), share.ID, root.ID, publicClientIP(r), nil)
+		m.auditShareDownload(r.Context(), share.ID, root.ID, m.publicClientIP(r), nil)
 	}
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": root.Name + ".zip"}))

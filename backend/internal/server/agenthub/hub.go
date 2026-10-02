@@ -11,6 +11,9 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"net/netip"
+
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"strings"
 	"sync"
 	"time"
@@ -54,10 +57,14 @@ type EventFunc func(agentID string, params json.RawMessage)
 
 // Hub tracks connected agents.
 type Hub struct {
-	q     *db.Queries
-	bus   *events.Bus
-	audit *audit.Log
-	now   func() time.Time
+	q              *db.Queries
+	db             *sql.DB
+	pairingInfo    contracts.HostPairingInfo
+	trustedProxies []netip.Prefix
+	sourceIPs      map[string]string
+	bus            *events.Bus
+	audit          *audit.Log
+	now            func() time.Time
 
 	mu       sync.RWMutex
 	conns    map[string]*conn
@@ -73,7 +80,7 @@ type conn struct {
 
 // New builds a Hub.
 func New(dbConn *sql.DB, bus *events.Bus, log *audit.Log) *Hub {
-	return &Hub{q: db.New(dbConn), bus: bus, audit: log, now: func() time.Time { return time.Now().UTC() },
+	return &Hub{db: dbConn, sourceIPs: map[string]string{}, q: db.New(dbConn), bus: bus, audit: log, now: func() time.Time { return time.Now().UTC() },
 		conns: map[string]*conn{}, handlers: map[string][]EventFunc{}}
 }
 
@@ -156,19 +163,7 @@ func (h *Hub) List(ctx context.Context) ([]Agent, error) {
 
 // CreatePairingCode returns a one-time code like "K7QM-3XHP".
 func (h *Hub) CreatePairingCode(ctx context.Context, name, kind string) (string, time.Time, error) {
-	if kind != "server" && kind != "desktop" {
-		return "", time.Time{}, httpx.Invalid("kind 必须是 server 或 desktop")
-	}
-	if strings.TrimSpace(name) == "" {
-		return "", time.Time{}, httpx.Invalid("名称不能为空")
-	}
-	code := randomCode()
-	expires := h.now().Add(pairingTTL)
-	if err := h.q.CreatePairingCode(ctx, db.CreatePairingCodeParams{CodeHash: secrets.Hash(normalizeCode(code)), Name: name, Kind: kind, ExpiresAt: expires}); err != nil {
-		return "", time.Time{}, err
-	}
-	h.audit.Record(ctx, "agent.pairing_code", name, map[string]any{"kind": kind}, nil)
-	return code, expires, nil
+	return h.CreatePairingCodeWithInfo(ctx, name, kind, nil)
 }
 
 // PairingCodeValid reports whether a code exists, is unused and has not
@@ -183,25 +178,7 @@ func (h *Hub) PairingCodeValid(ctx context.Context, code string) (bool, error) {
 
 // Pair exchanges a pairing code for an agent id and a long-lived token.
 func (h *Hub) Pair(ctx context.Context, code string, hello protocol.Hello) (string, string, error) {
-	pc, err := h.q.UsePairingCode(ctx, db.UsePairingCodeParams{UsedAt: ptr(h.now()), CodeHash: secrets.Hash(normalizeCode(code)), ExpiresAt: h.now()})
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", "", httpx.NewError(http.StatusUnauthorized, "invalid_pairing_code", "配对码无效或已过期")
-	}
-	if err != nil {
-		return "", "", err
-	}
-	id := secrets.RandomID()
-	token := secrets.RandomToken(32)
-	caps, _ := json.Marshal(nonNil(hello.Capabilities))
-	if err := h.q.CreateAgent(ctx, db.CreateAgentParams{
-		ID: id, Name: pc.Name, Kind: pc.Kind, Os: hello.OS, Arch: hello.Arch, Hostname: hello.Hostname,
-		Version: hello.AgentVersion, Capabilities: string(caps), TokenHash: secrets.Hash(token), CreatedAt: h.now(),
-	}); err != nil {
-		return "", "", err
-	}
-	h.audit.Record(audit.WithActor(ctx, "agent:"+id), "agent.pair", pc.Name, map[string]any{"hostname": hello.Hostname, "os": hello.OS}, nil)
-	h.bus.Publish("agent.paired", map[string]string{"agentId": id})
-	return id, token, nil
+	return h.pairTransaction(ctx, code, hello)
 }
 
 // Revoke disables the agent token and drops its connection.
@@ -243,7 +220,7 @@ func (h *Hub) ServeConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ws.SetReadLimit(16 << 20)
-	h.serve(r.Context(), agent, ws)
+	h.serve(context.WithValue(r.Context(), sourceIPKey{}, h.RequestIP(r)), agent, ws)
 }
 
 func (h *Hub) serve(ctx context.Context, agent db.Agent, ws *websocket.Conn) {
@@ -277,6 +254,9 @@ func (h *Hub) serve(ctx context.Context, agent db.Agent, ws *websocket.Conn) {
 		_ = old.ws.Close(websocket.StatusGoingAway, "replaced by a new connection")
 	}
 	h.conns[agent.ID] = c
+	if ip, ok := ctx.Value(sourceIPKey{}).(string); ok {
+		h.sourceIPs[agent.ID] = ip
+	}
 	h.mu.Unlock()
 	slog.Info("agent connected", "agent", agent.ID, "name", agent.Name, "hostname", hello.Hostname)
 	h.bus.Publish("agent.online", map[string]string{"agentId": agent.ID})

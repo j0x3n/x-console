@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	externalRef0 "github.com/j0x3n/x-console/backend/internal/server/apigen/common"
+	externalRef1 "github.com/j0x3n/x-console/backend/internal/server/modules/hosts/api"
 	"github.com/oapi-codegen/runtime"
 )
 
@@ -352,8 +353,9 @@ type DownloadAgentSetupParams struct {
 
 // CreatePairingCodeJSONBody defines parameters for CreatePairingCode.
 type CreatePairingCodeJSONBody struct {
-	Kind AgentKind `json:"kind"`
-	Name string    `json:"name"`
+	Info *externalRef1.HostInfoInput `json:"info,omitempty"`
+	Kind AgentKind                   `json:"kind"`
+	Name string                      `json:"name"`
 }
 
 // ListAuditParams defines parameters for ListAudit.
@@ -455,6 +457,9 @@ type ServerInterface interface {
 
 	// (GET /agent/uninstall.sh)
 	GetAgentUninstallScript(w http.ResponseWriter, r *http.Request)
+
+	// (GET /agent/whoami)
+	GetAgentWhoami(w http.ResponseWriter, r *http.Request)
 
 	// (GET /agents)
 	ListAgents(w http.ResponseWriter, r *http.Request)
@@ -563,6 +568,11 @@ func (_ Unimplemented) DownloadAgentSetup(w http.ResponseWriter, r *http.Request
 
 // (GET /agent/uninstall.sh)
 func (_ Unimplemented) GetAgentUninstallScript(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /agent/whoami)
+func (_ Unimplemented) GetAgentWhoami(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -869,6 +879,20 @@ func (siw *ServerInterfaceWrapper) GetAgentUninstallScript(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAgentUninstallScript(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAgentWhoami operation middleware
+func (siw *ServerInterfaceWrapper) GetAgentWhoami(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAgentWhoami(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1513,6 +1537,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/agents/{agentId}", wrapper.RevokeAgent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/agent/whoami", wrapper.GetAgentWhoami)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/agent/pair", wrapper.PairAgent)

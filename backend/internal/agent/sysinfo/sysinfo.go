@@ -25,5 +25,7 @@ func Ping(ctx context.Context, _ json.RawMessage) (any, error) {
 
 // SystemInfo answers MethodSystemInfo.
 func SystemInfo(ctx context.Context, _ json.RawMessage) (any, error) {
-	return Info(), nil
+	info := Info()
+	info.Addresses = Addresses()
+	return info, nil
 }

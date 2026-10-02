@@ -1093,6 +1093,15 @@ try {
   const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
+  stage = "B82 服务器信息 API 主流程";
+  await send("PATCH", `/hosts/${host.id}`, { info: { ownership: "client", client: "端到端客户", username: "operator", password: "e2e-host-password", note: "测试备注", tags: ["测试"] } });
+  const hostInfo = await api(`/hosts/${host.id}`);
+  assert.equal(hostInfo.info.client, "端到端客户");
+  assert.equal(hostInfo.info.hasPassword, true);
+  assert.ok(Array.isArray(hostInfo.addresses));
+  assert.equal((await api(`/hosts/${host.id}/password`)).password, "e2e-host-password");
+  await send("PUT", "/hosts/order", { kind: "server", ids: [host.id] });
+  assert.equal((await api("/hosts?kind=server"))[0].id, host.id);
 
   stage = "查看远端日志文件";
   const remoteLog = join(temp, "e2e-remote.log");

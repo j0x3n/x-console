@@ -31,8 +31,10 @@ type Module struct {
 	briefs  *briefCache
 	units   unitCache
 
-	infoMu sync.Mutex
-	info   map[string]protocol.SystemInfo
+	infoMu  sync.Mutex
+	info    map[string]protocol.SystemInfo
+	geo     *geoResolver
+	baseCtx context.Context
 }
 
 var (
@@ -49,7 +51,14 @@ func New(d *module.Deps) (module.Module, error) {
 		metrics: newMetricStore(rawCapacity), ssh: newSSHPool(), alerts: newAlertState(),
 		traffic: newTrafficTracker(), briefs: &briefCache{from: map[string]cachedBrief{}},
 		info: map[string]protocol.SystemInfo{},
+		geo:  newGeoResolver(d.Config.DataDir), baseCtx: context.Background(),
 	}
+	if err := m.initializeHostInfo(context.Background()); err != nil {
+		m.geo.close()
+		return nil, err
+	}
+	d.Agents.SetPairingInfo(m)
+	module.Provide[contracts.HostPairingInfo](d.Registry, contracts.HostPairingInfoKey, m)
 	d.Agents.OnEvent(protocol.EventMetrics, m.onMetrics)
 	module.Provide[contracts.Hosts](d.Registry, contracts.HostsKey, m)
 	m.registerActions()
@@ -66,6 +75,9 @@ func (m *Module) Mount(r chi.Router) {
 
 // Start registers the background jobs.
 func (m *Module) Start(ctx context.Context) error {
+	m.baseCtx = ctx
+	m.d.Scheduler.Every("hosts.addresses", 5*time.Minute, m.refreshAddresses)
+	go func() { _ = m.refreshAddresses(ctx) }()
 	m.d.Scheduler.Every("hosts.rollup", time.Minute, m.rollup)
 	m.d.Scheduler.Every("hosts.alerts", 15*time.Second, m.evaluateAlerts)
 	m.d.Scheduler.Every("hosts.ssh_metrics", time.Minute, m.pollSSH)
@@ -75,6 +87,7 @@ func (m *Module) Start(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		m.ssh.closeAll()
+		m.geo.close()
 	}()
 	m.followIntervals(ctx)
 	return nil

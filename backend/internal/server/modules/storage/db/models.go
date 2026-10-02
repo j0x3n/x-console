@@ -547,6 +547,21 @@ type HabitLog struct {
 	WorkoutLogID *int64
 }
 
+type HostInfo struct {
+	HostID           string
+	Ownership        string
+	Client           string
+	Username         string
+	PasswordEnc      string
+	Note             string
+	Tags             string
+	SortOrder        int64
+	CountryCode      string
+	CountryCheckedAt *time.Time
+	CountryIp        string
+	Addresses        string
+}
+
 type HostMetrics1h struct {
 	HostID   string
 	At       time.Time
@@ -569,6 +584,11 @@ type HostMetrics1m struct {
 	NetRx    float64
 	NetTx    float64
 	Load1    float64
+}
+
+type HostPairingInfo struct {
+	CodeHash   string
+	PayloadEnc string
 }
 
 type HostTrafficDaily struct {

@@ -37,6 +37,42 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        patch: operations["patchHost"];
+        trace?: never;
+    };
+    "/hosts/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putHostsOrder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hosts/{hostId}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        /** @description 读取信息卡片中的密码，需要提升权限 */
+        get: operations["getHostPassword"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -634,7 +670,48 @@ export interface components {
             /** Format: int64 */
             uptimeSeconds: number;
         };
+        HostInfo: {
+            /** @enum {string} */
+            ownership: "own" | "client";
+            client?: string;
+            username?: string;
+            hasPassword: boolean;
+            note?: string;
+            tags: string[];
+        };
+        HostInfoInput: {
+            /** @enum {string} */
+            ownership?: "own" | "client";
+            client?: string;
+            username?: string;
+            password?: string;
+            clearPassword?: boolean;
+            note?: string;
+            tags?: string[];
+        };
+        HostPatch: {
+            name?: string;
+            info?: components["schemas"]["HostInfoInput"];
+        };
+        HostOrder: {
+            kind: components["schemas"]["HostKind"];
+            ids: string[];
+        };
+        HostAddress: {
+            ip: string;
+            /** @enum {string} */
+            family: "v4" | "v6";
+            public: boolean;
+        };
+        HostCountry: {
+            code: string;
+            name: string;
+        };
         HostListItem: {
+            info: components["schemas"]["HostInfo"];
+            addresses: components["schemas"]["HostAddress"][];
+            country?: components["schemas"]["HostCountry"];
+            sortOrder: number;
             id: string;
             name: string;
             kind: components["schemas"]["HostKind"];
@@ -815,6 +892,10 @@ export interface components {
             procs: number;
         };
         Host: {
+            info: components["schemas"]["HostInfo"];
+            addresses: components["schemas"]["HostAddress"][];
+            country?: components["schemas"]["HostCountry"];
+            sortOrder: number;
             id: string;
             name: string;
             kind: components["schemas"]["HostKind"];
@@ -1010,6 +1091,7 @@ export interface components {
             createdAt: string;
         };
         SshHostInput: {
+            info?: components["schemas"]["HostInfoInput"];
             name: string;
             address: string;
             /** @default 22 */
@@ -1154,6 +1236,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HostDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    patchHost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostPatch"];
+            };
+        };
+        responses: {
+            /** @description 已更新信息 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putHostsOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostOrder"];
+            };
+        };
+        responses: {
+            /** @description 已保存排序 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHostPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 代理 id，SSH 主机是 ssh:<数字> */
+                hostId: components["parameters"]["HostId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 密码 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        password: string;
+                    };
                 };
             };
             default: components["responses"]["Error"];

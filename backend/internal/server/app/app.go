@@ -43,7 +43,7 @@ const APIPrefix = "/api/v1"
 
 // corePublic are core routes reachable without a session.
 var corePublic = []string{"/health", "/auth/status", "/auth/setup", "/auth/setup/skip-totp", "/auth/login", "/agent/pair", "/agent/connect",
-	"/agent/install.sh", "/agent/install.ps1", "/agent/uninstall.sh", "/agent/download", "/agent/setup.exe"}
+	"/agent/install.sh", "/agent/install.ps1", "/agent/uninstall.sh", "/agent/download", "/agent/setup.exe", "/agent/whoami"}
 
 // App is a built server.
 type App struct {
@@ -87,6 +87,7 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 		Actions:   actions.NewRegistry(),
 		Registry:  module.NewRegistry(),
 	}
+	d.Agents.SetTrustedProxies(cfg.TrustedProxies)
 	a := &App{Deps: d}
 	for _, build := range dedupe(append(append([]func(*module.Deps) (module.Module, error){}, constructors...), extra...)) {
 		m, err := build(d)

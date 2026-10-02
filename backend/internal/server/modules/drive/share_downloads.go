@@ -114,7 +114,7 @@ func (m *Module) recordShareDownload(ctx context.Context, share db.DriveShare, i
 	if len(agent) > 512 {
 		agent = agent[:512]
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO drive_share_downloads(share_id,at,ip,user_agent,item_id,item_name) VALUES(?,?,?,?,?,?)", share.ID, now, publicClientIP(r), agent, item.ID, item.Name); err != nil {
+	if _, err = tx.ExecContext(ctx, "INSERT INTO drive_share_downloads(share_id,at,ip,user_agent,item_id,item_name) VALUES(?,?,?,?,?,?)", share.ID, now, m.publicClientIP(r), agent, item.ID, item.Name); err != nil {
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, "DELETE FROM drive_share_downloads WHERE share_id=? AND id NOT IN (SELECT id FROM drive_share_downloads WHERE share_id=? ORDER BY at DESC,id DESC LIMIT 100)", share.ID, share.ID); err != nil {

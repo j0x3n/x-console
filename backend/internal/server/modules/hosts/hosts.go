@@ -193,10 +193,16 @@ func (m *Module) gatherHosts(ctx context.Context) ([]api.Host, error) {
 	for i := range out {
 		out[i].ActiveAlerts = active[out[i].Id]
 		m.withMetrics(&out[i])
+		if err := m.decorateHost(ctx, &out[i]); err != nil {
+			return nil, err
+		}
 	}
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Kind != out[j].Kind {
 			return out[i].Kind > out[j].Kind
+		}
+		if out[i].SortOrder != out[j].SortOrder {
+			return out[i].SortOrder < out[j].SortOrder
 		}
 		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
@@ -223,7 +229,8 @@ func (m *Module) ListHosts(w http.ResponseWriter, r *http.Request, params api.Li
 	for _, h := range hosts {
 		item := api.HostListItem{Id: h.Id, Name: h.Name, Kind: h.Kind, Source: h.Source,
 			Online: h.Online, Hostname: h.Hostname, Os: h.Os, LastSeenAt: h.LastSeenAt,
-			Cpu: h.Cpu, Memory: h.Memory, Disk: h.Disk, ActiveAlerts: h.ActiveAlerts}
+			Cpu: h.Cpu, Memory: h.Memory, Disk: h.Disk, ActiveAlerts: h.ActiveAlerts,
+			Info: h.Info, Addresses: h.Addresses, Country: h.Country, SortOrder: h.SortOrder}
 		if x := h.Metrics; x != nil {
 			item.Metrics = &api.HostListMetrics{At: x.At, Load1: x.Load1, NetRx: x.NetRx,
 				NetTx: x.NetTx, UptimeSeconds: x.UptimeSeconds}
@@ -276,6 +283,10 @@ func (m *Module) detail(ctx context.Context, hostID string) (api.HostDetail, err
 		}
 	}
 	m.withMetrics(&h)
+	if err := m.decorateHost(ctx, &h); err != nil {
+		return out, err
+	}
+	out.Info, out.Addresses, out.Country, out.SortOrder = h.Info, h.Addresses, h.Country, h.SortOrder
 	out.Id, out.Name, out.Kind, out.Source, out.Online = h.Id, h.Name, h.Kind, h.Source, h.Online
 	out.Os, out.Arch, out.Hostname, out.Version, out.Capabilities = h.Os, h.Arch, h.Hostname, h.Version, h.Capabilities
 	out.LastSeenAt, out.Metrics, out.Cpu, out.Memory, out.Disk, out.ActiveAlerts = h.LastSeenAt, h.Metrics, h.Cpu, h.Memory, h.Disk, h.ActiveAlerts
@@ -293,6 +304,13 @@ func (m *Module) systemInfo(ctx context.Context, a agenthub.Agent) (protocol.Sys
 			m.infoMu.Lock()
 			m.info[a.ID] = info
 			m.infoMu.Unlock()
+			addresses := append([]protocol.HostAddress(nil), info.Addresses...)
+			if ip := m.d.Agents.SourceIP(a.ID); ip != "" {
+				addresses = append(addresses, protocol.HostAddress{IP: ip})
+			}
+			if err := m.saveHostAddresses(ctx, a.ID, a.Kind, addresses); err != nil {
+				m.d.Log.WarnContext(ctx, "host addresses not saved", "error", err)
+			}
 			return info, true
 		}
 	}

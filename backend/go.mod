@@ -17,6 +17,7 @@ require (
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/openai/openai-go/v3 v3.68.0
+	github.com/oschwald/maxminddb-golang v1.13.1
 	github.com/pquerna/otp v1.5.0
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/robfig/cron/v3 v3.0.1

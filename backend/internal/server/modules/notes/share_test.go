@@ -126,6 +126,21 @@ func TestNoteShareLifecycleAndVisits(t *testing.T) {
 	}
 }
 
+func TestNoteShareIgnoresUntrustedForwardedIP(t *testing.T) {
+	env := testutil.New(t)
+	n := createNote(t, env, api.CreateNote{Title: str("限流测试")})
+	share := noteShare(t, env, n.Id, "pass1234")
+	for i := 0; i < 6; i++ {
+		response, _ := publicNoteRequest(t, env, http.MethodPost, "/public/notes/"+share.Token+"/unlock", map[string]string{"password": "wrong"}, map[string]string{"X-Forwarded-For": fmt.Sprintf("203.0.113.%d", i+1)})
+		if i < 5 && response.StatusCode != 403 {
+			t.Fatalf("attempt %d: %d", i, response.StatusCode)
+		}
+		if i == 5 && response.StatusCode != 429 {
+			t.Fatalf("spoofed IP bypassed lock: %d", response.StatusCode)
+		}
+	}
+}
+
 func TestNoteSharePasswordAndFileScope(t *testing.T) {
 	env := testutil.New(t)
 	n := createNote(t, env, api.CreateNote{Title: str("秘密标题")})

@@ -27,6 +27,20 @@ paths:
   /hosts/{hostId}:
     parameters:
       - $ref: "#/components/parameters/HostId"
+    patch:
+      operationId: patchHost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostPatch" }
+      responses:
+        "200":
+          description: 已更新信息
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostDetail" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
     get:
       operationId: getHost
       tags: [hosts]
@@ -38,6 +52,34 @@ paths:
               schema: { $ref: "#/components/schemas/HostDetail" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /hosts/order:
+    put:
+      operationId: putHostsOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostOrder" }
+      responses:
+        "204": { description: 已保存排序 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /hosts/{hostId}/password:
+    parameters:
+      - $ref: "#/components/parameters/HostId"
+    get:
+      operationId: getHostPassword
+      description: 读取信息卡片中的密码，需要提升权限
+      responses:
+        "200":
+          description: 密码
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [password]
+                properties:
+                  password: { type: string }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
   /hosts/{hostId}/metrics:
     parameters:
       - $ref: "#/components/parameters/HostId"
@@ -794,10 +836,67 @@ components:
         netRx: { type: number, format: double }
         netTx: { type: number, format: double }
         uptimeSeconds: { type: integer, format: int64 }
+    HostInfo:
+      type: object
+      required: [ownership, hasPassword, tags]
+      properties:
+        ownership: { type: string, enum: [own, client] }
+        client: { type: string }
+        username: { type: string }
+        hasPassword: { type: boolean }
+        note: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+    HostInfoInput:
+      type: object
+      properties:
+        ownership: { type: string, enum: [own, client] }
+        client: { type: string, maxLength: 255 }
+        username: { type: string, maxLength: 255 }
+        password: { type: string, maxLength: 4096 }
+        clearPassword: { type: boolean }
+        note: { type: string, maxLength: 65536 }
+        tags:
+          type: array
+          maxItems: 30
+          items: { type: string, maxLength: 80 }
+    HostPatch:
+      type: object
+      properties:
+        name: { type: string, maxLength: 255 }
+        info: { $ref: "#/components/schemas/HostInfoInput" }
+    HostOrder:
+      type: object
+      required: [kind, ids]
+      properties:
+        kind: { $ref: "#/components/schemas/HostKind" }
+        ids:
+          type: array
+          items: { type: string }
+    HostAddress:
+      type: object
+      required: [ip, family, public]
+      properties:
+        ip: { type: string }
+        family: { type: string, enum: [v4, v6] }
+        public: { type: boolean }
+    HostCountry:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string }
+        name: { type: string }
     HostListItem:
       type: object
-      required: [id, name, kind, source, online, hostname, os, activeAlerts]
+      required: [id, name, kind, source, online, hostname, os, activeAlerts, info, addresses, sortOrder]
       properties:
+        info: { $ref: "#/components/schemas/HostInfo" }
+        addresses:
+          type: array
+          items: { $ref: "#/components/schemas/HostAddress" }
+        country: { $ref: "#/components/schemas/HostCountry" }
+        sortOrder: { type: integer }
         id: { type: string }
         name: { type: string }
         kind: { $ref: "#/components/schemas/HostKind" }
@@ -926,8 +1025,14 @@ components:
         procs: { type: integer }
     Host:
       type: object
-      required: [id, name, kind, source, online, os, arch, hostname, version, capabilities, activeAlerts]
+      required: [id, name, kind, source, online, os, arch, hostname, version, capabilities, activeAlerts, info, addresses, sortOrder]
       properties:
+        info: { $ref: "#/components/schemas/HostInfo" }
+        addresses:
+          type: array
+          items: { $ref: "#/components/schemas/HostAddress" }
+        country: { $ref: "#/components/schemas/HostCountry" }
+        sortOrder: { type: integer }
         id: { type: string }
         name: { type: string }
         kind: { $ref: "#/components/schemas/HostKind" }
@@ -1122,6 +1227,7 @@ components:
       type: object
       required: [name, address, username, auth]
       properties:
+        info: { $ref: "#/components/schemas/HostInfoInput" }
         name: { type: string }
         address: { type: string }
         port: { type: integer, default: 22 }

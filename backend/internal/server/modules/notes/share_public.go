@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,15 +29,8 @@ type noteShareFailure struct {
 
 func (m *Module) PublicPaths() []string { return []string{"/public/notes/"} }
 
-func noteClientIP(r *http.Request) string {
-	if value := r.Header.Get("X-Forwarded-For"); value != "" {
-		return strings.TrimSpace(strings.Split(value, ",")[0])
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
+func (m *Module) noteClientIP(r *http.Request) string {
+	return httpx.ClientIP(r, m.d.Config.TrustedProxies)
 }
 
 func notePublicHeaders(w http.ResponseWriter) {
@@ -75,7 +67,7 @@ func (m *Module) pruneNoteShareRates(now time.Time) {
 
 func (m *Module) noteShareRateLimit(w http.ResponseWriter, r *http.Request, unlock bool) bool {
 	now := m.shareClock()
-	ip := noteClientIP(r)
+	ip := m.noteClientIP(r)
 	m.shareMu.Lock()
 	defer m.shareMu.Unlock()
 	m.pruneNoteShareRates(now)
@@ -166,13 +158,13 @@ func (m *Module) UnlockPublicNote(w http.ResponseWriter, r *http.Request, token 
 		if bcrypt.CompareHashAndPassword([]byte(*s.PasswordHash), digest[:]) != nil {
 			now := m.shareClock()
 			m.shareMu.Lock()
-			failure := m.shareFailures[noteClientIP(r)]
+			failure := m.shareFailures[m.noteClientIP(r)]
 			failure.Count++
 			failure.Updated = now
 			if failure.Count >= 10 {
 				failure.LockedUntil = now.Add(15 * time.Minute)
 			}
-			m.shareFailures[noteClientIP(r)] = failure
+			m.shareFailures[m.noteClientIP(r)] = failure
 			m.shareMu.Unlock()
 			if failure.Count >= 10 {
 				noteRateFailure(w, r, failure.LockedUntil, now)
@@ -183,7 +175,7 @@ func (m *Module) UnlockPublicNote(w http.ResponseWriter, r *http.Request, token 
 		}
 	}
 	m.shareMu.Lock()
-	delete(m.shareFailures, noteClientIP(r))
+	delete(m.shareFailures, m.noteClientIP(r))
 	m.shareMu.Unlock()
 	expires := m.shareClock().Add(12 * time.Hour).Truncate(time.Second)
 	access := strconv.FormatInt(expires.Unix(), 10) + "." + base64.RawURLEncoding.EncodeToString(m.noteShareMAC(s, expires.Unix()))
@@ -196,7 +188,7 @@ func (m *Module) GetPublicNote(w http.ResponseWriter, r *http.Request, token api
 		return
 	}
 	body := rewriteNoteAttachments(n.Body, token, deref(params.T))
-	identity := noteClientIP(r) + "\x00" + r.UserAgent()
+	identity := m.noteClientIP(r) + "\x00" + r.UserAgent()
 	if params.T != nil && m.validNoteAccess(s, params.T) {
 		identity = *params.T
 	}

@@ -127,6 +127,7 @@ func run(args []string) error {
 func register(c *conn.Client, cfg config.Config) {
 	c.Handle(protocol.MethodPing, sysinfo.Ping)
 	c.Handle(protocol.MethodSystemInfo, sysinfo.SystemInfo)
+	sysinfo.RegisterAddresses(c)
 	sysinfo.Info = metrics.SystemInfo                   // M2/M3: full system.info via gopsutil
 	metrics.Register(c)                                 // M2/M3: metrics event every 30s or 5s on demand
 	proc.Register(c)                                    // M2/M3

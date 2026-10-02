@@ -5,7 +5,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
+
+	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,7 +33,8 @@ type Config struct {
 	// Dev relaxes cookie security for plain-HTTP local development. XC_DEV=1.
 	Dev bool
 	// Location is the user's time zone for reminders, habits and "today". XC_TZ, default Asia/Shanghai.
-	Location *time.Location
+	Location       *time.Location
+	TrustedProxies []netip.Prefix
 }
 
 // DBPath is the SQLite database file.
@@ -66,6 +70,10 @@ func FromEnv() (Config, error) {
 		return c, fmt.Errorf("XC_TZ: %w", err)
 	}
 	c.Location = loc
+	c.TrustedProxies, err = httpx.ParseTrustedProxies(os.Getenv("XC_TRUSTED_PROXIES"))
+	if err != nil {
+		return c, fmt.Errorf("XC_TRUSTED_PROXIES: %w", err)
+	}
 	raw := os.Getenv("XC_MASTER_KEY")
 	if raw == "" {
 		return c, errors.New("XC_MASTER_KEY is required (generate one with: openssl rand -base64 32)")
