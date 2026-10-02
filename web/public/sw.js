@@ -12,8 +12,9 @@
 
 // ---- PWA caching (B5) ----
 // Bump SHELL_CACHE when the list below changes.
-const SHELL_CACHE = "xc-shell-v1";
-const ASSET_CACHE = "xc-assets";
+const SHELL_CACHE = "xc-shell-v2";
+// v2：旧版本可能把服务端回的 index.html 当成 JS 存了进去，换个名字清掉。
+const ASSET_CACHE = "xc-assets-v2";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -42,7 +43,11 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k.startsWith("xc-shell-") && k !== SHELL_CACHE)
+            .filter(
+              (k) =>
+                (k.startsWith("xc-shell-") && k !== SHELL_CACHE) ||
+                (k.startsWith("xc-assets") && k !== ASSET_CACHE),
+            )
             .map((k) => caches.delete(k)),
         ),
       )
@@ -89,7 +94,11 @@ self.addEventListener("fetch", (event) => {
         (hit) =>
           hit ||
           fetch(request).then((response) => {
-            if (response.ok) {
+            // 只存真的文件。部署后旧文件不在了，不能把错误页面存成 JS。
+            const html = (response.headers.get("Content-Type") || "").includes(
+              "text/html",
+            );
+            if (response.ok && !html) {
               const copy = response.clone();
               caches
                 .open(ASSET_CACHE)

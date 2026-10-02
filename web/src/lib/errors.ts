@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { API_BASE, ApiError, recentApiErrors } from "../api/client";
 import { usePreferencesStore } from "../stores/preferences-store";
+import { isChunkLoadError, reloadOnce } from "./chunkReload";
 import { translate } from "./i18n";
 
 /*
@@ -250,7 +251,12 @@ export function installGlobalErrorHandlers() {
     reportError(event.error ?? new Error(event.message));
   });
   window.addEventListener("unhandledrejection", (event) => {
+    if (isChunkLoadError(event.reason) && reloadOnce()) return;
     reportError(event.reason);
+  });
+  // Vite 预加载按需文件失败时发这个事件，刷新一次拿新版本
+  window.addEventListener("vite:preloadError", (event) => {
+    if (reloadOnce()) event.preventDefault();
   });
 }
 

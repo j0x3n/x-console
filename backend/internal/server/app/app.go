@@ -201,6 +201,12 @@ func spa(dir string) http.HandlerFunc {
 			files.ServeHTTP(w, r)
 			return
 		}
+		// 打包文件找不到时回 404，不能回首页：部署后旧页面请求旧文件，
+		// 拿到 HTML 会当成 JS 加载失败，浏览器缓存还可能把它存下来。
+		if strings.HasPrefix(r.URL.Path, "/assets/") {
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, filepath.Join(dir, "index.html"))
 	}
