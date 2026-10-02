@@ -1065,11 +1065,26 @@ components:
         cpuCores: { type: integer }
         memoryTotal: { type: integer, format: int64 }
         uptimeSeconds: { type: integer, format: int64 }
+    HostPresence:
+      type: object
+      required: [hostId, name, state, known, online, since, updatedAt]
+      properties:
+        hostId: { type: string }
+        name: { type: string }
+        state: { type: string, enum: [active, idle, locked, offline, unknown] }
+        idleSeconds: { type: integer, format: int64 }
+        locked: { type: boolean }
+        displayOff: { type: boolean }
+        known: { type: boolean }
+        online: { type: boolean }
+        since: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     HostDetail:
       allOf:
         - $ref: "#/components/schemas/Host"
         - type: object
           properties:
+            presence: { $ref: "#/components/schemas/HostPresence" }
             systemInfo: { $ref: "#/components/schemas/SystemInfo" }
             address:
               type: string

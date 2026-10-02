@@ -147,6 +147,33 @@ func (e HostKind) Valid() bool {
 	}
 }
 
+// Defines values for HostPresenceState.
+const (
+	HostPresenceStateActive  HostPresenceState = "active"
+	HostPresenceStateIdle    HostPresenceState = "idle"
+	HostPresenceStateLocked  HostPresenceState = "locked"
+	HostPresenceStateOffline HostPresenceState = "offline"
+	HostPresenceStateUnknown HostPresenceState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HostPresenceState enum.
+func (e HostPresenceState) Valid() bool {
+	switch e {
+	case HostPresenceStateActive:
+		return true
+	case HostPresenceStateIdle:
+		return true
+	case HostPresenceStateLocked:
+		return true
+	case HostPresenceStateOffline:
+		return true
+	case HostPresenceStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HostSource.
 const (
 	Agent HostSource = "agent"
@@ -526,6 +553,7 @@ type HostDetail struct {
 	Name       string         `json:"name"`
 	Online     bool           `json:"online"`
 	Os         string         `json:"os"`
+	Presence   *HostPresence  `json:"presence,omitempty"`
 	SortOrder  int            `json:"sortOrder"`
 	Source     HostSource     `json:"source"`
 	SystemInfo *SystemInfo    `json:"systemInfo,omitempty"`
@@ -604,6 +632,23 @@ type HostPatch struct {
 	Info *HostInfoInput `json:"info,omitempty"`
 	Name *string        `json:"name,omitempty"`
 }
+
+// HostPresence defines model for HostPresence.
+type HostPresence struct {
+	DisplayOff  *bool             `json:"displayOff,omitempty"`
+	HostId      string            `json:"hostId"`
+	IdleSeconds *int64            `json:"idleSeconds,omitempty"`
+	Known       bool              `json:"known"`
+	Locked      *bool             `json:"locked,omitempty"`
+	Name        string            `json:"name"`
+	Online      bool              `json:"online"`
+	Since       time.Time         `json:"since"`
+	State       HostPresenceState `json:"state"`
+	UpdatedAt   time.Time         `json:"updatedAt"`
+}
+
+// HostPresenceState defines model for HostPresence.State.
+type HostPresenceState string
 
 // HostSource defines model for HostSource.
 type HostSource string

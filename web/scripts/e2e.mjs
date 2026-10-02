@@ -937,6 +937,30 @@ try {
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
 
+  const send = async (method, path, data) => {
+    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
+      method,
+      headers: { "X-Requested-With": "x-console" },
+      data,
+    });
+    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
+    return response.status() === 204 ? undefined : response.json();
+  };
+  stage = "B83 作息和健康提醒 API 主流程";
+  const previousSchedule = await api("/habits/schedule");
+  await send("PUT", "/habits/schedule", { workDays: [1, 2, 3, 4, 5], wakeTime: "12:00", sleepTime: "03:30", timezone: "Asia/Shanghai", idleMinutes: 5 });
+  assert.equal((await api("/habits/schedule")).sleepTime, "03:30");
+  const healthHabit = await send("POST", "/habits", { name: "端到端喝水", template: "water" });
+  assert.deepEqual(healthHabit.remindWhen, ["awake"]);
+  assert.equal(healthHabit.dailyTarget, 8);
+  assert.ok(healthHabit.nextRemindAt);
+  await send("POST", "/notify/actions", { actionId: `habit.snooze:${healthHabit.id}` });
+  await send("POST", `/habits/${healthHabit.id}/checkin`, { amount: 1 });
+  assert.equal((await api("/habits/today")).find((item) => item.habit.id === healthHabit.id).done, 1);
+  assert.ok(Array.isArray(await api("/habits/presence")));
+  await send("DELETE", `/habits/${healthHabit.id}`);
+  await send("PUT", "/habits/schedule", previousSchedule);
+
   stage = "习惯打卡";
   await page.goto(`${base}/habits`);
   await page.getByRole("button", { name: "新建习惯" }).click();
@@ -1021,14 +1045,7 @@ try {
   await page.locator(".monitoring-row", { hasText: "example.com" }).getByRole("button", { name: /证书/ }).waitFor();
 
   stage = "B57 锁定后被隐藏的模块像不存在一样";
-  const send = async (method, path, data) => {
-    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
-      method,
-      headers: { "X-Requested-With": "x-console" },
-      data,
-    });
-    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
-  };
+
   stage = "B79 维护 API 主流程";
   const maintenanceOverview = await api("/maintenance/overview?refresh=true");
   assert.ok(maintenanceOverview.version && maintenanceOverview.process && maintenanceOverview.machine);
@@ -1100,7 +1117,7 @@ try {
   assert.equal(hostInfo.info.hasPassword, true);
   assert.ok(Array.isArray(hostInfo.addresses));
   assert.equal((await api(`/hosts/${host.id}/password`)).password, "e2e-host-password");
-  await send("PUT", "/hosts/order", { kind: "server", ids: [host.id] });
+  await send("PUT", "/hosts/order", { kind: "server", ids: [host.id, ...(await api("/hosts?kind=server")).filter((item) => item.id !== host.id).map((item) => item.id)] });
   assert.equal((await api("/hosts?kind=server"))[0].id, host.id);
 
   stage = "查看远端日志文件";

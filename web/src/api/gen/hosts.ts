@@ -940,7 +940,24 @@ export interface components {
             /** Format: int64 */
             uptimeSeconds: number;
         };
+        HostPresence: {
+            hostId: string;
+            name: string;
+            /** @enum {string} */
+            state: "active" | "idle" | "locked" | "offline" | "unknown";
+            /** Format: int64 */
+            idleSeconds?: number;
+            locked?: boolean;
+            displayOff?: boolean;
+            known: boolean;
+            online: boolean;
+            /** Format: date-time */
+            since: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         HostDetail: components["schemas"]["Host"] & {
+            presence?: components["schemas"]["HostPresence"];
             systemInfo?: components["schemas"]["SystemInfo"];
             /** @description SSH 主机的地址 */
             address?: string;

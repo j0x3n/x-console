@@ -24,12 +24,13 @@ type Module struct {
 	q   *db.Queries
 	now func() time.Time
 
-	metrics *metricStore
-	ssh     *sshPool
-	alerts  *alertState
-	traffic *trafficTracker
-	briefs  *briefCache
-	units   unitCache
+	presence *presenceStore
+	metrics  *metricStore
+	ssh      *sshPool
+	alerts   *alertState
+	traffic  *trafficTracker
+	briefs   *briefCache
+	units    unitCache
 
 	infoMu  sync.Mutex
 	info    map[string]protocol.SystemInfo
@@ -48,7 +49,7 @@ var (
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
 		d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() },
-		metrics: newMetricStore(rawCapacity), ssh: newSSHPool(), alerts: newAlertState(),
+		presence: newPresenceStore(), metrics: newMetricStore(rawCapacity), ssh: newSSHPool(), alerts: newAlertState(),
 		traffic: newTrafficTracker(), briefs: &briefCache{from: map[string]cachedBrief{}},
 		info: map[string]protocol.SystemInfo{},
 		geo:  newGeoResolver(d.Config.DataDir), baseCtx: context.Background(),
@@ -60,6 +61,8 @@ func New(d *module.Deps) (module.Module, error) {
 	d.Agents.SetPairingInfo(m)
 	module.Provide[contracts.HostPairingInfo](d.Registry, contracts.HostPairingInfoKey, m)
 	d.Agents.OnEvent(protocol.EventMetrics, m.onMetrics)
+	d.Agents.OnEvent(protocol.EventPresenceUpdate, m.onPresence)
+	module.Provide[contracts.Presence](d.Registry, contracts.PresenceKey, m)
 	module.Provide[contracts.Hosts](d.Registry, contracts.HostsKey, m)
 	m.registerActions()
 	return m, nil
@@ -89,6 +92,7 @@ func (m *Module) Start(ctx context.Context) error {
 		m.ssh.closeAll()
 		m.geo.close()
 	}()
+	m.followPresence(ctx)
 	m.followIntervals(ctx)
 	return nil
 }

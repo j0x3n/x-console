@@ -535,6 +535,11 @@ type Habit struct {
 	LastRemindedAt        *time.Time
 	QuietUntil            *time.Time
 	Kind                  string
+	RemindWhen            string
+	ActiveHostIds         string
+	RemindOnHost          int64
+	Template              string
+	SnoozedUntil          *time.Time
 }
 
 type HabitLog struct {
@@ -545,6 +550,17 @@ type HabitLog struct {
 	Source       string
 	Note         string
 	WorkoutLogID *int64
+}
+
+type HabitSchedule struct {
+	ID          int64
+	WorkDays    string
+	WakeTime    string
+	SleepTime   string
+	WorkStart   string
+	WorkEnd     string
+	Timezone    string
+	IdleMinutes int64
 }
 
 type HostInfo struct {

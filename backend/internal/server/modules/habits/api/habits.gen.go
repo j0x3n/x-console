@@ -13,6 +13,102 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for HabitRemindWhen.
+const (
+	HabitRemindWhenActive HabitRemindWhen = "active"
+	HabitRemindWhenAwake  HabitRemindWhen = "awake"
+	HabitRemindWhenWindow HabitRemindWhen = "window"
+	HabitRemindWhenWork   HabitRemindWhen = "work"
+)
+
+// Valid indicates whether the value is a known member of the HabitRemindWhen enum.
+func (e HabitRemindWhen) Valid() bool {
+	switch e {
+	case HabitRemindWhenActive:
+		return true
+	case HabitRemindWhenAwake:
+		return true
+	case HabitRemindWhenWindow:
+		return true
+	case HabitRemindWhenWork:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HabitTemplate.
+const (
+	HabitTemplateEyes     HabitTemplate = "eyes"
+	HabitTemplateMedicine HabitTemplate = "medicine"
+	HabitTemplateMove     HabitTemplate = "move"
+	HabitTemplateWater    HabitTemplate = "water"
+)
+
+// Valid indicates whether the value is a known member of the HabitTemplate enum.
+func (e HabitTemplate) Valid() bool {
+	switch e {
+	case HabitTemplateEyes:
+		return true
+	case HabitTemplateMedicine:
+		return true
+	case HabitTemplateMove:
+		return true
+	case HabitTemplateWater:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HabitInputRemindWhen.
+const (
+	HabitInputRemindWhenActive HabitInputRemindWhen = "active"
+	HabitInputRemindWhenAwake  HabitInputRemindWhen = "awake"
+	HabitInputRemindWhenWindow HabitInputRemindWhen = "window"
+	HabitInputRemindWhenWork   HabitInputRemindWhen = "work"
+)
+
+// Valid indicates whether the value is a known member of the HabitInputRemindWhen enum.
+func (e HabitInputRemindWhen) Valid() bool {
+	switch e {
+	case HabitInputRemindWhenActive:
+		return true
+	case HabitInputRemindWhenAwake:
+		return true
+	case HabitInputRemindWhenWindow:
+		return true
+	case HabitInputRemindWhenWork:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HabitInputTemplate.
+const (
+	HabitInputTemplateEyes     HabitInputTemplate = "eyes"
+	HabitInputTemplateMedicine HabitInputTemplate = "medicine"
+	HabitInputTemplateMove     HabitInputTemplate = "move"
+	HabitInputTemplateWater    HabitInputTemplate = "water"
+)
+
+// Valid indicates whether the value is a known member of the HabitInputTemplate enum.
+func (e HabitInputTemplate) Valid() bool {
+	switch e {
+	case HabitInputTemplateEyes:
+		return true
+	case HabitInputTemplateMedicine:
+		return true
+	case HabitInputTemplateMove:
+		return true
+	case HabitInputTemplateWater:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HabitKind.
 const (
 	Count   HabitKind = "count"
@@ -25,6 +121,81 @@ func (e HabitKind) Valid() bool {
 	case Count:
 		return true
 	case Workout:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HabitPatchRemindWhen.
+const (
+	HabitPatchRemindWhenActive HabitPatchRemindWhen = "active"
+	HabitPatchRemindWhenAwake  HabitPatchRemindWhen = "awake"
+	HabitPatchRemindWhenWindow HabitPatchRemindWhen = "window"
+	HabitPatchRemindWhenWork   HabitPatchRemindWhen = "work"
+)
+
+// Valid indicates whether the value is a known member of the HabitPatchRemindWhen enum.
+func (e HabitPatchRemindWhen) Valid() bool {
+	switch e {
+	case HabitPatchRemindWhenActive:
+		return true
+	case HabitPatchRemindWhenAwake:
+		return true
+	case HabitPatchRemindWhenWindow:
+		return true
+	case HabitPatchRemindWhenWork:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HabitPatchTemplate.
+const (
+	HabitPatchTemplateEyes     HabitPatchTemplate = "eyes"
+	HabitPatchTemplateMedicine HabitPatchTemplate = "medicine"
+	HabitPatchTemplateMove     HabitPatchTemplate = "move"
+	HabitPatchTemplateWater    HabitPatchTemplate = "water"
+)
+
+// Valid indicates whether the value is a known member of the HabitPatchTemplate enum.
+func (e HabitPatchTemplate) Valid() bool {
+	switch e {
+	case HabitPatchTemplateEyes:
+		return true
+	case HabitPatchTemplateMedicine:
+		return true
+	case HabitPatchTemplateMove:
+		return true
+	case HabitPatchTemplateWater:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HostPresenceState.
+const (
+	HostPresenceStateActive  HostPresenceState = "active"
+	HostPresenceStateIdle    HostPresenceState = "idle"
+	HostPresenceStateLocked  HostPresenceState = "locked"
+	HostPresenceStateOffline HostPresenceState = "offline"
+	HostPresenceStateUnknown HostPresenceState = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the HostPresenceState enum.
+func (e HostPresenceState) Valid() bool {
+	switch e {
+	case HostPresenceStateActive:
+		return true
+	case HostPresenceStateIdle:
+		return true
+	case HostPresenceStateLocked:
+		return true
+	case HostPresenceStateOffline:
+		return true
+	case HostPresenceStateUnknown:
 		return true
 	default:
 		return false
@@ -54,10 +225,11 @@ func (e RemindMode) Valid() bool {
 
 // Habit defines model for Habit.
 type Habit struct {
-	Archived    bool      `json:"archived"`
-	Color       string    `json:"color"`
-	CreatedAt   time.Time `json:"createdAt"`
-	DailyTarget float64   `json:"dailyTarget"`
+	ActiveHostIds []string  `json:"activeHostIds"`
+	Archived      bool      `json:"archived"`
+	Color         string    `json:"color"`
+	CreatedAt     time.Time `json:"createdAt"`
+	DailyTarget   float64   `json:"dailyTarget"`
 
 	// HaEntityId 这个 Home Assistant 实体状态变化时自动打卡一次
 	HaEntityId string `json:"haEntityId"`
@@ -67,17 +239,27 @@ type Habit struct {
 	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
 	Kind                  *HabitKind `json:"kind,omitempty"`
 	Name                  string     `json:"name"`
+	NextRemindAt          *time.Time `json:"nextRemindAt,omitempty"`
 	RemindIntervalMinutes int        `json:"remindIntervalMinutes"`
 
 	// RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
-	RemindMode  RemindMode `json:"remindMode"`
-	RemindTimes []string   `json:"remindTimes"`
+	RemindMode   RemindMode        `json:"remindMode"`
+	RemindOnHost bool              `json:"remindOnHost"`
+	RemindTimes  []string          `json:"remindTimes"`
+	RemindWhen   []HabitRemindWhen `json:"remindWhen"`
 
 	// RemindWindow 形如 09:00-21:00
-	RemindWindow string `json:"remindWindow"`
-	SortOrder    int    `json:"sortOrder"`
-	Unit         string `json:"unit"`
+	RemindWindow string         `json:"remindWindow"`
+	SortOrder    int            `json:"sortOrder"`
+	Template     *HabitTemplate `json:"template,omitempty"`
+	Unit         string         `json:"unit"`
 }
+
+// HabitRemindWhen defines model for Habit.RemindWhen.
+type HabitRemindWhen string
+
+// HabitTemplate defines model for Habit.Template.
+type HabitTemplate string
 
 // HabitDay defines model for HabitDay.
 type HabitDay struct {
@@ -90,10 +272,11 @@ type HabitDay struct {
 
 // HabitInput defines model for HabitInput.
 type HabitInput struct {
-	Color       *string  `json:"color,omitempty"`
-	DailyTarget *float64 `json:"dailyTarget,omitempty"`
-	HaEntityId  *string  `json:"haEntityId,omitempty"`
-	Icon        *string  `json:"icon,omitempty"`
+	ActiveHostIds *[]string `json:"activeHostIds,omitempty"`
+	Color         *string   `json:"color,omitempty"`
+	DailyTarget   *float64  `json:"dailyTarget,omitempty"`
+	HaEntityId    *string   `json:"haEntityId,omitempty"`
+	Icon          *string   `json:"icon,omitempty"`
 
 	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
 	Kind                  *HabitKind `json:"kind,omitempty"`
@@ -101,12 +284,21 @@ type HabitInput struct {
 	RemindIntervalMinutes *int       `json:"remindIntervalMinutes,omitempty"`
 
 	// RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
-	RemindMode   *RemindMode `json:"remindMode,omitempty"`
-	RemindTimes  *[]string   `json:"remindTimes,omitempty"`
-	RemindWindow *string     `json:"remindWindow,omitempty"`
-	SortOrder    *int        `json:"sortOrder,omitempty"`
-	Unit         *string     `json:"unit,omitempty"`
+	RemindMode   *RemindMode             `json:"remindMode,omitempty"`
+	RemindOnHost *bool                   `json:"remindOnHost,omitempty"`
+	RemindTimes  *[]string               `json:"remindTimes,omitempty"`
+	RemindWhen   *[]HabitInputRemindWhen `json:"remindWhen,omitempty"`
+	RemindWindow *string                 `json:"remindWindow,omitempty"`
+	SortOrder    *int                    `json:"sortOrder,omitempty"`
+	Template     *HabitInputTemplate     `json:"template,omitempty"`
+	Unit         *string                 `json:"unit,omitempty"`
 }
+
+// HabitInputRemindWhen defines model for HabitInput.RemindWhen.
+type HabitInputRemindWhen string
+
+// HabitInputTemplate defines model for HabitInput.Template.
+type HabitInputTemplate string
 
 // HabitKind count 普通打卡；workout 健身，记一次训练就算打卡一次
 type HabitKind string
@@ -125,11 +317,12 @@ type HabitLog struct {
 
 // HabitPatch defines model for HabitPatch.
 type HabitPatch struct {
-	Archived    *bool    `json:"archived,omitempty"`
-	Color       *string  `json:"color,omitempty"`
-	DailyTarget *float64 `json:"dailyTarget,omitempty"`
-	HaEntityId  *string  `json:"haEntityId,omitempty"`
-	Icon        *string  `json:"icon,omitempty"`
+	ActiveHostIds *[]string `json:"activeHostIds,omitempty"`
+	Archived      *bool     `json:"archived,omitempty"`
+	Color         *string   `json:"color,omitempty"`
+	DailyTarget   *float64  `json:"dailyTarget,omitempty"`
+	HaEntityId    *string   `json:"haEntityId,omitempty"`
+	Icon          *string   `json:"icon,omitempty"`
 
 	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
 	Kind                  *HabitKind `json:"kind,omitempty"`
@@ -137,12 +330,21 @@ type HabitPatch struct {
 	RemindIntervalMinutes *int       `json:"remindIntervalMinutes,omitempty"`
 
 	// RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
-	RemindMode   *RemindMode `json:"remindMode,omitempty"`
-	RemindTimes  *[]string   `json:"remindTimes,omitempty"`
-	RemindWindow *string     `json:"remindWindow,omitempty"`
-	SortOrder    *int        `json:"sortOrder,omitempty"`
-	Unit         *string     `json:"unit,omitempty"`
+	RemindMode   *RemindMode             `json:"remindMode,omitempty"`
+	RemindOnHost *bool                   `json:"remindOnHost,omitempty"`
+	RemindTimes  *[]string               `json:"remindTimes,omitempty"`
+	RemindWhen   *[]HabitPatchRemindWhen `json:"remindWhen,omitempty"`
+	RemindWindow *string                 `json:"remindWindow,omitempty"`
+	SortOrder    *int                    `json:"sortOrder,omitempty"`
+	Template     *HabitPatchTemplate     `json:"template,omitempty"`
+	Unit         *string                 `json:"unit,omitempty"`
 }
+
+// HabitPatchRemindWhen defines model for HabitPatch.RemindWhen.
+type HabitPatchRemindWhen string
+
+// HabitPatchTemplate defines model for HabitPatch.Template.
+type HabitPatchTemplate string
 
 // HabitStats defines model for HabitStats.
 type HabitStats struct {
@@ -169,8 +371,36 @@ type HabitToday struct {
 	Streak int `json:"streak"`
 }
 
+// HostPresence defines model for HostPresence.
+type HostPresence struct {
+	DisplayOff  *bool             `json:"displayOff,omitempty"`
+	HostId      string            `json:"hostId"`
+	IdleSeconds *int64            `json:"idleSeconds,omitempty"`
+	Known       bool              `json:"known"`
+	Locked      *bool             `json:"locked,omitempty"`
+	Name        string            `json:"name"`
+	Online      bool              `json:"online"`
+	Since       time.Time         `json:"since"`
+	State       HostPresenceState `json:"state"`
+	UpdatedAt   time.Time         `json:"updatedAt"`
+}
+
+// HostPresenceState defines model for HostPresence.State.
+type HostPresenceState string
+
 // RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
 type RemindMode string
+
+// Schedule defines model for Schedule.
+type Schedule struct {
+	IdleMinutes int     `json:"idleMinutes"`
+	SleepTime   string  `json:"sleepTime"`
+	Timezone    string  `json:"timezone"`
+	WakeTime    string  `json:"wakeTime"`
+	WorkDays    []int   `json:"workDays"`
+	WorkEnd     *string `json:"workEnd,omitempty"`
+	WorkStart   *string `json:"workStart,omitempty"`
+}
 
 // WorkoutItem defines model for WorkoutItem.
 type WorkoutItem struct {
@@ -256,6 +486,9 @@ type ReplaceWorkoutPlansJSONBody = []WorkoutPlan
 // CreateHabitJSONRequestBody defines body for CreateHabit for application/json ContentType.
 type CreateHabitJSONRequestBody = HabitInput
 
+// UpdateHabitScheduleJSONRequestBody defines body for UpdateHabitSchedule for application/json ContentType.
+type UpdateHabitScheduleJSONRequestBody = Schedule
+
 // UpdateHabitJSONRequestBody defines body for UpdateHabit for application/json ContentType.
 type UpdateHabitJSONRequestBody = HabitPatch
 
@@ -282,6 +515,15 @@ type ServerInterface interface {
 
 	// (DELETE /habits/logs/{logId})
 	DeleteHabitLog(w http.ResponseWriter, r *http.Request, logId int64)
+
+	// (GET /habits/presence)
+	GetHabitPresence(w http.ResponseWriter, r *http.Request)
+
+	// (GET /habits/schedule)
+	GetHabitSchedule(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /habits/schedule)
+	UpdateHabitSchedule(w http.ResponseWriter, r *http.Request)
 
 	// (GET /habits/today)
 	HabitsToday(w http.ResponseWriter, r *http.Request)
@@ -339,6 +581,21 @@ func (_ Unimplemented) CreateHabit(w http.ResponseWriter, r *http.Request) {
 
 // (DELETE /habits/logs/{logId})
 func (_ Unimplemented) DeleteHabitLog(w http.ResponseWriter, r *http.Request, logId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /habits/presence)
+func (_ Unimplemented) GetHabitPresence(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /habits/schedule)
+func (_ Unimplemented) GetHabitSchedule(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /habits/schedule)
+func (_ Unimplemented) UpdateHabitSchedule(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -480,6 +737,48 @@ func (siw *ServerInterfaceWrapper) DeleteHabitLog(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteHabitLog(w, r, logId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHabitPresence operation middleware
+func (siw *ServerInterfaceWrapper) GetHabitPresence(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHabitPresence(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHabitSchedule operation middleware
+func (siw *ServerInterfaceWrapper) GetHabitSchedule(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHabitSchedule(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateHabitSchedule operation middleware
+func (siw *ServerInterfaceWrapper) UpdateHabitSchedule(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateHabitSchedule(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -891,6 +1190,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/schedule", wrapper.GetHabitSchedule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/habits/schedule", wrapper.UpdateHabitSchedule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/presence", wrapper.GetHabitPresence)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/habits", wrapper.ListHabits)
 	})

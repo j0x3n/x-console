@@ -25,8 +25,10 @@ import (
 
 // Module implements api.ServerInterface and contracts.Habits.
 type Module struct {
-	d *module.Deps
-	q *db.Queries
+	d      *module.Deps
+	q      *db.Queries
+	clock  *reminderClock
+	tickMu sync.Mutex
 
 	haMu     sync.Mutex
 	watched  map[string]bool   // entity ids linked to a habit
@@ -41,7 +43,10 @@ var (
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), watched: map[string]bool{}, haStates: map[string]string{}}
+	m := &Module{d: d, q: db.New(d.DB), clock: newReminderClock(), watched: map[string]bool{}, haStates: map[string]string{}}
+	if _, err := m.loadSchedule(context.Background()); err != nil {
+		return nil, err
+	}
 	d.Notify.OnAction("habit.", m.handleAction)
 	module.Provide[contracts.Habits](d.Registry, contracts.HabitsKey, m)
 	m.registerActions()
@@ -61,6 +66,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("habits.tick", time.Minute, func(ctx context.Context) error {
 		return m.tick(ctx, time.Now())
 	})
+	m.followPresence(ctx)
 	ch, cancel := m.d.Bus.Subscribe("ha.state_changed", 256)
 	go func() {
 		<-ctx.Done()
@@ -81,6 +87,8 @@ func (m *Module) Start(ctx context.Context) error {
 // tick runs habit reminders and the workout notice. The scheduler calls it
 // every minute; tests call it with any time.
 func (m *Module) tick(ctx context.Context, now time.Time) error {
+	m.tickMu.Lock()
+	defer m.tickMu.Unlock()
 	if err := m.remindAll(ctx, now); err != nil {
 		return err
 	}
@@ -101,7 +109,12 @@ func (m *Module) ListHabits(w http.ResponseWriter, r *http.Request, params api.L
 	}
 	out := make([]api.Habit, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toAPI(row))
+		h, err := m.habitAPI(r.Context(), row, time.Now())
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		out = append(out, h)
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }
@@ -117,7 +130,12 @@ func (m *Module) CreateHabit(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, toAPI(row))
+	h, err := m.habitAPI(r.Context(), row, time.Now())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusCreated, h)
 }
 
 func (m *Module) GetHabit(w http.ResponseWriter, r *http.Request, id api.HabitId) {
@@ -126,7 +144,12 @@ func (m *Module) GetHabit(w http.ResponseWriter, r *http.Request, id api.HabitId
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, toAPI(row))
+	h, err := m.habitAPI(r.Context(), row, time.Now())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, h)
 }
 
 func (m *Module) UpdateHabit(w http.ResponseWriter, r *http.Request, id api.HabitId) {
@@ -140,7 +163,12 @@ func (m *Module) UpdateHabit(w http.ResponseWriter, r *http.Request, id api.Habi
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, toAPI(row))
+	h, err := m.habitAPI(r.Context(), row, time.Now())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, h)
 }
 
 func (m *Module) DeleteHabit(w http.ResponseWriter, r *http.Request, id api.HabitId) {

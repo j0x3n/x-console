@@ -290,6 +290,8 @@ func (m *Module) detail(ctx context.Context, hostID string) (api.HostDetail, err
 	out.Id, out.Name, out.Kind, out.Source, out.Online = h.Id, h.Name, h.Kind, h.Source, h.Online
 	out.Os, out.Arch, out.Hostname, out.Version, out.Capabilities = h.Os, h.Arch, h.Hostname, h.Version, h.Capabilities
 	out.LastSeenAt, out.Metrics, out.Cpu, out.Memory, out.Disk, out.ActiveAlerts = h.LastSeenAt, h.Metrics, h.Cpu, h.Memory, h.Disk, h.ActiveAlerts
+	presence := m.State(hostID)
+	out.Presence = &api.HostPresence{HostId: presence.HostID, Name: presence.Name, State: api.HostPresenceState(presence.State), IdleSeconds: presence.IdleSeconds, Locked: presence.Locked, DisplayOff: presence.DisplayOff, Known: presence.Known, Online: presence.Online, Since: presence.Since, UpdatedAt: presence.UpdatedAt}
 	return out, nil
 }
 
