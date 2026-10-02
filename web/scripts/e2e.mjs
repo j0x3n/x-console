@@ -464,6 +464,18 @@ try {
   assert.ok(runEvents.items.some((event) => event.kind === "error"));
   assert.equal((await api(`/ai-agents/runs/${runs[0].id}/events?after=${runEvents.lastSeq}`)).items.length, 0);
 
+  stage = "B87 Agent 通知开关和待决定接口";
+  const notifySettings = await api("/ai-agents/notify");
+  assert.equal(notifySettings.received, false);
+  assert.equal(notifySettings.decision, true);
+  const changedNotify = { ...notifySettings, done: false };
+  const notifyResponse = await page.request.put(`${base}/api/v1/ai-agents/notify`, {
+    headers: { "X-Requested-With": "x-console" }, data: changedNotify,
+  });
+  assert.equal(notifyResponse.status(), 200);
+  assert.equal((await api("/ai-agents/notify")).done, false);
+  assert.deepEqual(await api("/ai-agents/decisions"), []);
+
   stage = "写笔记";
   const noteResponses = [];
   page.on("request", (request) => {

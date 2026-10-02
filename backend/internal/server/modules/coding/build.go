@@ -393,7 +393,8 @@ func (m *Module) resume(ctx context.Context, row taskRow, prompt string) error {
 		return err
 	}
 	params := protocol.CodingRunParams{
-		TaskID: row.ID, RepoPath: row.RepoPath, Executor: row.Executor, Prompt: prompt, Branch: row.Branch,
+		AllowQuestions: row.AiAgentID != nil,
+		TaskID:         row.ID, RepoPath: row.RepoPath, Executor: row.Executor, Prompt: prompt, Branch: row.Branch,
 		TimeoutSeconds: int(time.Duration(row.TimeoutMinutes) * m.timeoutUnit / time.Second),
 		Model:          row.Model, Permission: row.Permission, Continue: true, BaseCommit: row.BaseCommit,
 	}
@@ -416,7 +417,7 @@ func (m *Module) resume(ctx context.Context, row taskRow, prompt string) error {
 // afterReview starts the automatic build of an AI agent's task.
 func (m *Module) afterReview(ctx context.Context, id int64) {
 	row, err := m.row(ctx, id)
-	if err != nil || row.AiAgentID == nil {
+	if err != nil || row.AiAgentID == nil || row.WaitingQuestion != "" {
 		return
 	}
 	agents, ok := module.Lookup[contracts.AIAgents](m.d.Registry, contracts.AIAgentsKey)

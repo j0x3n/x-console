@@ -16,7 +16,7 @@ func (m *Module) autoPR(ctx context.Context, id int64) {
 	m.autoPRMu.Lock()
 	defer m.autoPRMu.Unlock()
 	row, err := m.row(ctx, id)
-	if err != nil || row.AutoOpenPr == 0 || row.Status != statusReview || m.building(id) {
+	if err != nil || row.AutoOpenPr == 0 || row.Status != statusReview || row.WaitingQuestion != "" || m.building(id) {
 		return
 	}
 	if row.AiAgentID == nil {

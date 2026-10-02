@@ -409,7 +409,7 @@ func (q *Queries) GetRepoByPath(ctx context.Context, arg GetRepoByPathParams) (C
 }
 
 const getTask = `-- name: GetTask :one
-SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_tasks.build_error, coding_tasks.auto_open_pr, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
+SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_tasks.build_error, coding_tasks.auto_open_pr, coding_tasks.waiting_question, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
        coding_repos.agent_id, coding_repos.github_repo, coding_repos.connection_id AS repo_connection_id,
        coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url,
        coding_repos.build_config AS repo_build_config
@@ -461,6 +461,7 @@ func (q *Queries) GetTask(ctx context.Context, id int64) (GetTaskRow, error) {
 		&i.CodingTask.Artifacts,
 		&i.CodingTask.BuildError,
 		&i.CodingTask.AutoOpenPr,
+		&i.CodingTask.WaitingQuestion,
 		&i.RepoName,
 		&i.RepoPath,
 		&i.AgentID,
@@ -691,7 +692,7 @@ func (q *Queries) ListRunningIDs(ctx context.Context) ([]int64, error) {
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_tasks.build_error, coding_tasks.auto_open_pr, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
+SELECT coding_tasks.id, coding_tasks.repo_id, coding_tasks.issue_key, coding_tasks.executor, coding_tasks.prompt, coding_tasks.base_branch, coding_tasks.branch, coding_tasks.base_commit, coding_tasks.status, coding_tasks.exit_code, coding_tasks.error, coding_tasks.commit_sha, coding_tasks.pr_url, coding_tasks.changed_files, coding_tasks.timeout_minutes, coding_tasks.created_at, coding_tasks.started_at, coding_tasks.finished_at, coding_tasks.updated_at, coding_tasks.ai_agent_id, coding_tasks.model, coding_tasks.permission, coding_tasks.build_status, coding_tasks.build_attempts, coding_tasks.artifacts, coding_tasks.build_error, coding_tasks.auto_open_pr, coding_tasks.waiting_question, coding_repos.name AS repo_name, coding_repos.path AS repo_path,
        coding_repos.agent_id, coding_repos.github_repo, coding_repos.connection_id AS repo_connection_id,
        coding_repos.owner AS repo_owner, coding_repos.repo AS repo_repo, coding_repos.clone_url AS repo_clone_url,
        coding_repos.build_config AS repo_build_config
@@ -769,6 +770,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTas
 			&i.CodingTask.Artifacts,
 			&i.CodingTask.BuildError,
 			&i.CodingTask.AutoOpenPr,
+			&i.CodingTask.WaitingQuestion,
 			&i.RepoName,
 			&i.RepoPath,
 			&i.AgentID,

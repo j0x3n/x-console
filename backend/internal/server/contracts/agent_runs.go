@@ -11,6 +11,19 @@ const CodingControlKey = "coding.control"
 type CodingControl interface {
 	ResolveBoardRepo(context.Context, int64, string, GitRepository) (int64, error)
 	CancelCoding(context.Context, int64) error
+	ResumeCoding(context.Context, int64, string) error
+}
+
+const AssistantDecisionsKey = "ai.decisions"
+
+const CodingQuestionsKey = "aiagents.questions"
+
+type CodingQuestions interface {
+	ReceiveCodingQuestion(context.Context, int64, ToolQuestion) error
+}
+
+type AssistantDecisions interface {
+	AnswerAssistantDecision(context.Context, int64, bool) error
 }
 
 // ToolObserver records progress of an autonomous built-in agent.

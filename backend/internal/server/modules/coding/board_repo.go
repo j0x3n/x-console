@@ -44,4 +44,34 @@ func (m *Module) ResolveBoardRepo(ctx context.Context, aiAgentID int64, runner s
 	return row.ID, err
 }
 
-func (m *Module) CancelCoding(ctx context.Context, id int64) error { return m.cancel(ctx, id) }
+func (m *Module) CancelCoding(ctx context.Context, id int64) error {
+	row, err := m.row(ctx, id)
+	if err != nil {
+		return err
+	}
+	if row.Status == statusReview && row.WaitingQuestion != "" {
+		return m.discard(ctx, id)
+	}
+	return m.cancel(ctx, id)
+}
+
+func (m *Module) ResumeCoding(ctx context.Context, id int64, answer string) error {
+	row, err := m.row(ctx, id)
+	if err != nil {
+		return err
+	}
+	if row.Status != statusReview || row.WaitingQuestion == "" {
+		return httpx.ErrConflict
+	}
+	if row.AiAgentID == nil {
+		return httpx.ErrConflict
+	}
+	if _, err = m.aiAgent(ctx, *row.AiAgentID, row.RepoID); err != nil {
+		return err
+	}
+	if _, err = m.d.DB.ExecContext(ctx, "UPDATE coding_tasks SET waiting_question='' WHERE id=?", id); err != nil {
+		return err
+	}
+	err = m.resume(m.runCtx(), row, "继续执行原任务。用户对问题的回答：\n"+answer)
+	return err
+}

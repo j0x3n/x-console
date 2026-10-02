@@ -13,6 +13,9 @@ if [ "$1" = "--version" ]; then
   exit 0
 fi
 prompt=$(cat)
+case "$prompt" in
+  *ASKONCE*) printf '%s\n' '{"title":"选择数据库","options":["SQLite","Postgres"]}' > .xc-question.md; exit 0 ;;
+esac
 pause() { case "$prompt" in *SLOW*) sleep 0.3 ;; esac; }
 case "$prompt" in *TRAP*) trap '' INT ;; esac
 

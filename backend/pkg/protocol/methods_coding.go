@@ -90,8 +90,9 @@ type CodingRunParams struct {
 	PreferRemote bool   `json:"preferRemote,omitempty"`
 	// Continue runs the executor again in the existing worktree of the task
 	// (to fix a failed build); BaseCommit must be the commit it started from.
-	Continue   bool   `json:"continue,omitempty"`
-	BaseCommit string `json:"baseCommit,omitempty"`
+	Continue       bool   `json:"continue,omitempty"`
+	BaseCommit     string `json:"baseCommit,omitempty"`
+	AllowQuestions bool   `json:"allowQuestions,omitempty"`
 }
 
 // Event kinds of a coding.run stream.
@@ -127,6 +128,13 @@ type CodingDone struct {
 	BaseCommit string              `json:"baseCommit,omitempty"`
 	Files      []CodingChangedFile `json:"files,omitempty"`
 	Error      string              `json:"error,omitempty"`
+	Question   *CodingQuestion     `json:"question,omitempty"`
+}
+
+type CodingQuestion struct {
+	Title   string   `json:"title"`
+	Detail  string   `json:"detail,omitempty"`
+	Options []string `json:"options,omitempty"`
 }
 
 // CodingControl is sent by the server on a coding.run stream.

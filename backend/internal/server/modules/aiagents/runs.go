@@ -24,6 +24,7 @@ func (m *Module) createRun(ctx context.Context, a contracts.AIAgent, b contracts
 	}
 	m.pruneRuns(ctx)
 	m.d.Bus.Publish("ai_agent.run_event", map[string]any{"runId": id})
+	m.notifyRun(ctx, id, "received", "任务已经排队", nil)
 	return id, nil
 }
 
@@ -70,6 +71,8 @@ func (o *runObserver) RecordToolEvent(ctx context.Context, kind, text, tool stri
 }
 
 func (m *Module) setRunStatus(ctx context.Context, id int64, status, summary string) {
+	var previous string
+	_ = m.d.DB.QueryRowContext(ctx, "SELECT status FROM ai_agent_runs WHERE id=?", id).Scan(&previous)
 	var finished *time.Time
 	if status == "done" || status == "failed" || status == "canceled" || status == "pr_opened" {
 		now := m.now()
@@ -81,6 +84,21 @@ func (m *Module) setRunStatus(ctx context.Context, id int64, status, summary str
 		return
 	}
 	m.appendRunEvent(ctx, id, "status", status, "", nil)
+	if previous != status {
+		kind := status
+		switch status {
+		case "running":
+			if previous == "waiting" {
+				return
+			}
+			kind = "started"
+		case "waiting":
+			return
+		case "canceled":
+			kind = "failed"
+		}
+		m.notifyRun(ctx, id, kind, summary, nil)
+	}
 }
 
 func (m *Module) finishRun(ctx context.Context, id int64, status, summary string) {
@@ -100,6 +118,18 @@ func (m *Module) followRunTask(ctx context.Context, t taskEvent) {
 	status := runTaskStatus(t.Status)
 	_, _ = m.d.DB.ExecContext(ctx, "UPDATE ai_agent_runs SET pr_url=? WHERE id=?", t.PrURL, id)
 	m.setRunStatus(ctx, id, status, t.Error)
+	if status == "waiting" && t.Error != "" {
+		m.appendRunEvent(ctx, id, "error", t.Error, "", nil)
+		m.notifyRun(ctx, id, "failed", t.Error, nil)
+		return
+	}
+	if status == "waiting" && t.Status == "review" {
+		var question string
+		_ = m.d.DB.QueryRowContext(ctx, "SELECT waiting_question FROM coding_tasks WHERE id=?", t.ID).Scan(&question)
+		if question == "" {
+			m.notifyRun(ctx, id, "decision", "代码已改好，等你审查", nil)
+		}
+	}
 }
 
 func runTaskStatus(s string) string {
@@ -289,11 +319,14 @@ func (m *Module) CancelAiAgentRun(w http.ResponseWriter, r *http.Request, id int
 		httpx.Fail(w, r, err)
 		return
 	}
+	_, _ = m.d.DB.ExecContext(ctx, "UPDATE ai_agent_decisions SET status='canceled' WHERE run_id=? AND status='pending'", id)
+	m.d.Bus.Publish("ai_agent.decision", map[string]any{"runId": id})
 	httpx.NoContent(w)
 }
 
 // A service restart terminates built-in jobs; CLI jobs follow coding recovery.
 func (m *Module) recoverRuns(ctx context.Context) error {
+	_, _ = m.d.DB.ExecContext(ctx, `UPDATE ai_agent_decisions SET status='canceled' WHERE run_id IN (SELECT id FROM ai_agent_runs WHERE kind='builtin') AND status='pending'`)
 	_, err := m.d.DB.ExecContext(ctx, "UPDATE ai_agent_runs SET status='failed',summary='服务重启，执行已停止',finished_at=? WHERE kind='builtin' AND status IN ('queued','running','waiting')", m.now())
 	if errors.Is(err, context.Canceled) {
 		return nil

@@ -46,7 +46,11 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 	allowed := map[string]actions.Action{}
 	var tools []llm.Tool
 	for _, a := range m.d.Actions.List(visible) {
-		if !json.Valid(a.Input) || !actions.AllowedFor(a, in.Access, nil) {
+		check := a
+		if in.Decider != nil && a.Effect == actions.Dangerous {
+			check.Effect = actions.Write
+		}
+		if !json.Valid(a.Input) || !actions.AllowedFor(check, in.Access, nil) {
 			continue
 		}
 		name := strings.ReplaceAll(a.Name, ".", "__")
@@ -56,6 +60,9 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 			desc += "。" + a.Description
 		}
 		tools = append(tools, llm.Tool{Name: name, Description: desc, Parameters: a.Input})
+	}
+	if in.Decider != nil {
+		tools = append(tools, llm.Tool{Name: "ask_user", Description: "暂停任务，向用户提问。可以给出选项。", Parameters: json.RawMessage(`{"type":"object","required":["title"],"properties":{"title":{"type":"string"},"detail":{"type":"string"},"options":{"type":"array","items":{"type":"string"}}}}`)})
 	}
 	turns := in.MaxTurns
 	if turns <= 0 {
@@ -76,14 +83,40 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 		history = append(history, llm.Message{Role: "assistant", Content: res.Text, ToolCalls: res.ToolCalls})
 		for _, call := range res.ToolCalls {
 			content, isErr := "", false
-			if a, ok := allowed[call.Name]; !ok {
+			if call.Name == "ask_user" && in.Decider != nil {
+				var q contracts.ToolQuestion
+				if err := json.Unmarshal(call.Arguments, &q); err != nil {
+					content, isErr = "问题格式不对", true
+				} else {
+					answer, err := in.Decider.AskUser(ctx, q)
+					if err != nil {
+						return "", err
+					}
+					content = answer
+				}
+			} else if a, ok := allowed[call.Name]; !ok {
 				content, isErr = "没有这个工具，或者这个 Agent 不能用它", true
 			} else {
 				args := call.Arguments
 				if len(args) == 0 || string(args) == "null" {
 					args = json.RawMessage("{}")
 				}
-				out, err := a.Run(ctx, args)
+				workCtx := ctx
+				approved := true
+				if in.Decider != nil && (a.Effect == actions.Dangerous || actions.Deletes(a)) {
+					var err error
+					workCtx, approved, err = in.Decider.ConfirmTool(ctx, a.Name, args, a.Effect == actions.Dangerous)
+					if err != nil {
+						return "", err
+					}
+				}
+				var out any
+				var err error
+				if approved {
+					out, err = a.Run(workCtx, args)
+				} else {
+					err = errors.New("用户拒绝了这次操作")
+				}
 				m.d.Audit.Record(ctx, "ai_agent.action", a.Name, map[string]any{"ref": in.Ref}, err)
 				if err != nil {
 					content, isErr = err.Error(), true

@@ -17,6 +17,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
+	agentapi "github.com/j0x3n/x-console/backend/internal/server/modules/aiagents/api"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
 
@@ -125,7 +126,12 @@ func TestToolExecutionAndRejection(t *testing.T) {
 				if tc.reject {
 					decision = "reject"
 				}
-				env.MustDo("POST", fmt.Sprintf("/ai/actions/%d/%s", detail.PendingActions[0].Id, decision), map[string]any{}, nil)
+				var ds []agentapi.AiAgentDecision
+				env.MustDo("GET", "/ai-agents/decisions", nil, &ds)
+				if len(ds) != 1 || ds[0].ConversationId == nil || *ds[0].ConversationId != conversation.Id {
+					t.Fatal(ds)
+				}
+				env.MustDo("POST", "/ai-agents/decisions/"+ds[0].Id, map[string]any{"approve": decision == "approve"}, nil)
 				await(t, env, conversation.Id, func(d api.ConversationDetail) bool { return !d.Running && len(d.Messages) >= 4 })
 				if tc.reject && !sawRejection.Load() {
 					t.Fatal("拒绝结果没有回给模型")

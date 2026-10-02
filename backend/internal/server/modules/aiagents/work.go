@@ -232,7 +232,7 @@ func (m *Module) startBuiltin(ctx context.Context, a contracts.AIAgent, brief co
 			m.publishAgent(base, a.ID)
 		}()
 		text, err := runner.RunTools(runCtx, contracts.ToolRun{Model: row.Model, System: system, Prompt: prompt,
-			Access: row.Access, Source: "ai_agent", Ref: strconv.FormatInt(a.ID, 10), Observer: &runObserver{m: m, id: runID}})
+			Access: row.Access, Source: "ai_agent", Ref: strconv.FormatInt(a.ID, 10), Observer: &runObserver{m: m, id: runID}, Decider: &runObserver{m: m, id: runID}})
 		if base.Err() != nil {
 			return
 		}
@@ -302,6 +302,7 @@ func (m *Module) follow(ctx context.Context) {
 	events, cancel := m.d.Bus.Subscribe("coding_task.", 128)
 	defer cancel()
 	last := map[int64]string{}
+	lastError := map[int64]string{}
 	for {
 		select {
 		case <-ctx.Done():
@@ -317,10 +318,11 @@ func (m *Module) follow(ctx context.Context) {
 					continue
 				}
 				prev := last[t.ID]
-				if prev == t.Status {
+				if prev == t.Status && lastError[t.ID] == t.Error {
 					continue
 				}
 				last[t.ID] = t.Status
+				lastError[t.ID] = t.Error
 				m.onTask(ctx, t, prev)
 			case "coding_task.build":
 				var b buildEvent
@@ -333,6 +335,11 @@ func (m *Module) follow(ctx context.Context) {
 					m.comment(ctx, b.IssueKey, *b.AiAgentID, "构建通过了。"+link)
 				case "failed":
 					m.comment(ctx, b.IssueKey, *b.AiAgentID, "构建没通过："+b.Error+" "+link)
+					var runID int64
+					if err := m.d.DB.QueryRowContext(ctx, "SELECT id FROM ai_agent_runs WHERE task_id=?", b.TaskID).Scan(&runID); err == nil {
+						m.appendRunEvent(ctx, runID, "error", "构建没通过："+b.Error, "", nil)
+						m.notifyRun(ctx, runID, "failed", "构建没通过："+b.Error, nil)
+					}
 				}
 			}
 		}

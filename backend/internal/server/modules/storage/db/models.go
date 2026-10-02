@@ -45,6 +45,19 @@ type AiAgent struct {
 	HostIds          string
 }
 
+type AiAgentDecision struct {
+	ID        int64
+	RunID     int64
+	Kind      string
+	Title     string
+	Detail    string
+	Options   string
+	Dangerous int64
+	Status    string
+	Answer    string
+	CreatedAt time.Time
+}
+
 type AiAgentRun struct {
 	ID         int64
 	AgentID    int64
@@ -324,33 +337,34 @@ type CodingRepo struct {
 }
 
 type CodingTask struct {
-	ID             int64
-	RepoID         int64
-	IssueKey       string
-	Executor       string
-	Prompt         string
-	BaseBranch     string
-	Branch         string
-	BaseCommit     string
-	Status         string
-	ExitCode       *int64
-	Error          string
-	CommitSha      string
-	PrUrl          string
-	ChangedFiles   string
-	TimeoutMinutes int64
-	CreatedAt      time.Time
-	StartedAt      *time.Time
-	FinishedAt     *time.Time
-	UpdatedAt      time.Time
-	AiAgentID      *int64
-	Model          string
-	Permission     string
-	BuildStatus    string
-	BuildAttempts  int64
-	Artifacts      string
-	BuildError     string
-	AutoOpenPr     int64
+	ID              int64
+	RepoID          int64
+	IssueKey        string
+	Executor        string
+	Prompt          string
+	BaseBranch      string
+	Branch          string
+	BaseCommit      string
+	Status          string
+	ExitCode        *int64
+	Error           string
+	CommitSha       string
+	PrUrl           string
+	ChangedFiles    string
+	TimeoutMinutes  int64
+	CreatedAt       time.Time
+	StartedAt       *time.Time
+	FinishedAt      *time.Time
+	UpdatedAt       time.Time
+	AiAgentID       *int64
+	Model           string
+	Permission      string
+	BuildStatus     string
+	BuildAttempts   int64
+	Artifacts       string
+	BuildError      string
+	AutoOpenPr      int64
+	WaitingQuestion string
 }
 
 type CodingTaskEvent struct {
