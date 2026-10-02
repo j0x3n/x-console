@@ -1430,3 +1430,164 @@
   align-items: center;
   gap: 10px;
 }
+
+/* B85：卡片颜色（Trello 的封面色），卡片顶部一条色带 */
+.card-color-green {
+  --card-color: #4bce97;
+}
+.card-color-yellow {
+  --card-color: #e2b203;
+}
+.card-color-orange {
+  --card-color: #fea362;
+}
+.card-color-red {
+  --card-color: #f87168;
+}
+.card-color-purple {
+  --card-color: #9f8fef;
+}
+.card-color-blue {
+  --card-color: #579dff;
+}
+.card-color-sky {
+  --card-color: #6cc3e0;
+}
+.card-color-lime {
+  --card-color: #94c748;
+}
+.card-color-pink {
+  --card-color: #e774bb;
+}
+.card-color-gray {
+  --card-color: #8590a2;
+}
+.projects-card.has-color {
+  position: relative;
+  overflow: hidden;
+  padding-top: 15px;
+}
+.projects-card.has-color::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 6px;
+  background: var(--card-color);
+}
+.projects-card.has-color .projects-card-cover {
+  margin-top: -6px;
+}
+
+/* B85：卡片右键菜单 */
+.projects-cardmenu {
+  width: 248px;
+}
+.projects-cardmenu-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 2px 6px 6px;
+  border-bottom: 1px solid var(--xc-border);
+  margin-bottom: 4px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.projects-cardmenu-head > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projects-cardmenu .projects-cardmenu-back {
+  width: 24px;
+  padding: 4px;
+  justify-content: center;
+}
+.projects-cardmenu-label {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projects-cardmenu-label small {
+  color: var(--xc-faint);
+  font-size: var(--fs-11);
+}
+.projects-cardmenu-check {
+  flex: none;
+  color: var(--xc-accent-text);
+}
+.projects-cardmenu-more {
+  flex: none;
+  color: var(--xc-faint);
+}
+.projects-cardmenu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--xc-border);
+}
+.projects-cardmenu-note {
+  margin: 0;
+  padding: 8px 9px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.projects-cardmenu-swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+.projects-cardmenu-colors {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  padding: 4px 6px 8px;
+}
+.projects-cardmenu .projects-cardmenu-color {
+  height: 26px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background: var(--card-color);
+}
+.projects-cardmenu .projects-cardmenu-color:hover {
+  background: var(--card-color);
+  filter: brightness(0.92);
+}
+.projects-cardmenu .projects-cardmenu-color.on {
+  border-color: var(--xc-text);
+}
+.projects-cardmenu-custom {
+  display: flex;
+  gap: 6px;
+  padding: 4px 6px;
+}
+.projects-cardmenu-custom .xc-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+}
+.projects-cardmenu .projects-cardmenu-custom button {
+  flex: none;
+  width: auto;
+  justify-content: center;
+  padding: 0 12px;
+}
+.projects-cardmenu .projects-cardmenu-custom button.primary {
+  background: var(--xc-accent);
+  color: #fff;
+}
+@media (max-width: 640px) {
+  .projects-cardmenu {
+    width: auto;
+  }
+}

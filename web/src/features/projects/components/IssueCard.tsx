@@ -1,5 +1,10 @@
-import type { DragEvent } from "react";
-import { CalendarDays, ListChecks, MessageSquare } from "lucide-react";
+import { useRef, type DragEvent } from "react";
+import {
+  CalendarDays,
+  FolderGit2,
+  ListChecks,
+  MessageSquare,
+} from "lucide-react";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatDate, formatTime } from "../../../lib/time";
 import { thumbnailSrc } from "../../../components/markdown/upload";
@@ -94,6 +99,7 @@ export default function IssueCard({
   onClick,
   onDragStart,
   onDragOver,
+  onMenu,
 }: {
   issue: Issue;
   /** “一级 / 二级” */
@@ -103,16 +109,59 @@ export default function IssueCard({
   onClick: () => void;
   onDragStart: (e: DragEvent<HTMLElement>) => void;
   onDragOver: (e: DragEvent<HTMLElement>) => void;
+  /** B85：右键或长按时弹出卡片菜单，参数是位置 */
+  onMenu?: (at: { x: number; y: number }) => void;
 }) {
+  const t = useT();
   // B55：描述里的第一张图做封面
   const cover = coverImage(issue.description);
+  // B85：手机上长按 500 毫秒弹出菜单，弹出后这次点击不再打开卡片
+  const press = useRef<{ timer: number; fired: boolean } | null>(null);
+  const cancelPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+  };
+  const synced =
+    issue.externalSource === "github" || issue.externalSource === "forgejo";
   return (
     <article
-      className={`projects-card${selected ? " selected" : ""}${dragging ? " dragging" : ""}`}
+      className={`projects-card${selected ? " selected" : ""}${dragging ? " dragging" : ""}${issue.color ? ` has-color card-color-${issue.color}` : ""}`}
       draggable
       tabIndex={0}
       data-issue-key={issue.key}
-      onClick={onClick}
+      onClick={() => {
+        if (press.current?.fired) {
+          press.current = null;
+          return;
+        }
+        onClick();
+      }}
+      onContextMenu={
+        onMenu
+          ? (e) => {
+              e.preventDefault();
+              onMenu({ x: e.clientX, y: e.clientY });
+            }
+          : undefined
+      }
+      onTouchStart={
+        onMenu
+          ? (e) => {
+              const touch = e.touches[0];
+              const x = touch.clientX;
+              const y = touch.clientY;
+              cancelPress();
+              press.current = {
+                fired: false,
+                timer: window.setTimeout(() => {
+                  if (press.current) press.current.fired = true;
+                  onMenu({ x, y });
+                }, 500),
+              };
+            }
+          : undefined
+      }
+      onTouchMove={cancelPress}
+      onTouchEnd={cancelPress}
       onKeyDown={(e) => {
         if (e.key === "Enter" && e.target === e.currentTarget) onClick();
       }}
@@ -135,11 +184,20 @@ export default function IssueCard({
       </h3>
       {category && <p className="projects-card-category">{category}</p>}
       {(issue.labels.length > 0 ||
+        synced ||
         !!issue.checklistTotal ||
         !!issue.commentCount ||
         !!issue.members?.length ||
         !!issueDue(issue)) && (
         <div className="projects-card-labels">
+          {synced && (
+            <span
+              className="projects-card-count"
+              title={t("Synced from the repository")}
+            >
+              <FolderGit2 size={12} />
+            </span>
+          )}
           <DueBadge issue={issue} />
           <ChecklistBadge issue={issue} />
           {!!issue.commentCount && (

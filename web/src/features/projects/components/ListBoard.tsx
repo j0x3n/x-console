@@ -29,6 +29,8 @@ import {
 } from "../logic";
 import type { Board, BoardList } from "../api";
 import IssueCard from "./IssueCard";
+import CardMenu from "./CardMenu";
+import AssignDialog from "../../aiagents/AssignDialog";
 import { StatusIcon } from "./Icons";
 
 /** 列表颜色，名字对应 projects.css 里的 .list-color-* */
@@ -448,6 +450,12 @@ export default function ListBoard({
   const [adding, setAdding] = useState<number | null>(null);
   const [addingList, setAddingList] = useState(false);
   const scroll = useBoardScroll();
+  // B85：右键菜单和从菜单打开的“分配给 Agent”
+  const [menu, setMenu] = useState<{
+    issue: Issue;
+    at: { x: number; y: number };
+  } | null>(null);
+  const [assigning, setAssigning] = useState<string | null>(null);
 
   const reset = () => {
     setDragKey(null);
@@ -602,6 +610,14 @@ export default function ListBoard({
                       onSelect(issue.key);
                       onOpen(issue.key);
                     }}
+                    onMenu={
+                      readOnly
+                        ? undefined
+                        : (at) => {
+                            onSelect(issue.key);
+                            setMenu({ issue, at });
+                          }
+                    }
                     onDragStart={(e) => {
                       e.dataTransfer.setData("text/plain", issue.key);
                       e.dataTransfer.effectAllowed = "move";
@@ -662,6 +678,34 @@ export default function ListBoard({
             </button>
           )}
         </section>
+      )}
+      {menu && (
+        <CardMenu
+          issue={issues.find((i) => i.key === menu.issue.key) ?? menu.issue}
+          board={board}
+          at={menu.at}
+          onClose={() => setMenu(null)}
+          onOpen={() => onOpen(menu.issue.key)}
+          onMoveToList={(listId) =>
+            onMove(
+              menu.issue.key,
+              planListMove(
+                issues,
+                menu.issue.key,
+                { listId, index: listColumn(issues, listId).length },
+                statusOf(listId),
+              ),
+            )
+          }
+          onStartAgent={() => setAssigning(menu.issue.key)}
+        />
+      )}
+      {assigning && (
+        <AssignDialog
+          issueKey={assigning}
+          boardRepo={board.repo}
+          onClose={() => setAssigning(null)}
+        />
       )}
     </div>
   );

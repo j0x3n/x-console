@@ -1,6 +1,31 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B85 卡片右键菜单
+  "Let an agent work on it…": "让 Agent 开始做…",
+  "Remove color": "去掉颜色",
+  "Pick a date and time": "选日期和时间",
+  "Clear due time": "清除到期时间",
+  "Move to another board…": "移到别的看板…",
+  "Open card": "打开卡片",
+  "Set due time": "到期时间",
+  "Copy card": "复制卡片",
+  "Card copied": "已复制卡片",
+  "Card archived": "已归档卡片",
+  "Today 18:00": "今天 18:00",
+  "Tomorrow 18:00": "明天 18:00",
+  "Next Monday 09:00": "下周一 09:00",
+  "Synced from the repository": "从仓库同步来的",
+  "Color green": "绿色",
+  "Color yellow": "黄色",
+  "Color orange": "橙色",
+  "Color red": "红色",
+  "Color purple": "紫色",
+  "Color blue": "蓝色",
+  "Color sky": "天蓝",
+  "Color lime": "青绿",
+  "Color pink": "粉色",
+  "Color gray": "灰色",
   // B84 看板绑定仓库
   "Link a repository": "绑定仓库",
   "Linked repository": "绑定的仓库",
