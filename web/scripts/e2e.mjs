@@ -1203,6 +1203,55 @@ try {
   assert.equal(removeWorkoutResponse.status(), 204, await removeWorkoutResponse.text());
   assert.equal((await api("/habits/today")).find((item) => item.habit.id === workoutHabit.id).done, 0);
 
+  stage = "B97 个人计划主流程";
+  const library = await api("/habits/library");
+  assert.equal(library.exercises.length, 66);
+  assert.equal(library.articles.length, 26);
+  const initialPersonalProfile = await api("/habits/personal/profile");
+  await page.goto(`${base}/habits/plan?section=english&date=${initialPersonalProfile.start}`);
+  await page.getByRole("button", { name: "全部加入习惯" }).click();
+  const personalWords = library.habits.find((h) => h.id === "words");
+  await page.getByRole("checkbox", { name: personalWords.name, exact: true }).click();
+  const personalProfile = await until("个人计划打卡", async () => {
+    const p = await api("/habits/personal/profile");
+    return p.habitIds.words && (await api("/habits/today")).find((h) => h.habit.id === p.habitIds.words)?.done === 1 && p;
+  });
+  await page.reload();
+  assert.equal(await page.getByRole("checkbox", { name: personalWords.name, exact: true }).isChecked(), true);
+  await page.getByRole("checkbox", { name: personalWords.name, exact: true }).click();
+  await until("撤销个人打卡", async () => (await api("/habits/today")).find((h) => h.habit.id === personalProfile.habitIds.words)?.done === 0);
+  await page.getByRole("button", { name: "个人记录", exact: true }).click();
+  await page.getByLabel("体重（公斤）", { exact: true }).fill("81.5");
+  await page.getByRole("button", { name: "保存当天记录" }).click();
+  const personalDate = await page.getByLabel("计划日期").inputValue();
+  await until("身体记录持久化", async () => (await api(`/habits/personal/days/${personalDate}`)).weight === "81.5");
+  await page.reload();
+  assert.equal(await page.getByLabel("体重（公斤）", { exact: true }).inputValue(), "81.5");
+  await page.getByRole("button", { name: "跟练", exact: true }).click();
+  await page.getByLabel("训练模板").selectOption("A1");
+  await page.locator(".habits-set-row input").first().click();
+  await until("完成训练组", async () => (await api(`/habits/personal/days/${personalDate}`)).sets["A1:0:0"] === true);
+  await page.getByRole("button", { name: "保存已完成训练" }).click();
+  const personalWorkout = await until("保存跟练", async () => { const d = await api(`/habits/personal/days/${personalDate}`); return d.workoutLogId && d; });
+  await page.getByRole("button", { name: "更新当天训练" }).click();
+  await page.getByRole("button", { name: "更新当天训练" }).waitFor();
+  assert.equal((await api(`/habits/personal/days/${personalDate}`)).workoutLogId, personalWorkout.workoutLogId);
+  assert.equal((await api("/habits/today")).find((h) => h.habit.id === workoutHabit.id).done, 1);
+  const savedPersonalWorkout = (await api("/workouts/logs?days=30")).find((w) => w.id === personalWorkout.workoutLogId);
+  assert.ok(savedPersonalWorkout.items[0].exerciseId && savedPersonalWorkout.items[0].prescription);
+  await page.goto(`${base}/habits/fitness`);
+  await page.getByRole("button", { name: "添加动作到周计划", exact: true }).click();
+  await dialog("选择动作").getByRole("button", { name: /^选用动作/ }).click();
+  const picked = library.exercises[0];
+  await dialog("添加动作到周计划").getByRole("button", { name: "添加", exact: true }).click();
+  await dialog("添加动作到周计划").waitFor({ state: "hidden" });
+  assert.ok((await api("/workouts/plans")).some((p) => p.items.some((i) => i.exerciseId === picked.id && i.prescription)));
+  await page.goto(`${base}/habits/plan?section=food`);
+  await page.getByRole("heading", { name: library.articles.find((a) => a.category === "food").title, exact: true }).waitFor();
+  const personalBackup = await api("/habits/personal/backup");
+  await send("POST", "/habits/personal/backup", personalBackup);
+  assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.5");
+
   stage = "续费进入早报";
   const dateParts = Object.fromEntries(
     new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" })

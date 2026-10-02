@@ -108,6 +108,8 @@ export function isoWeekday(date: Date): number {
 
 export interface PlanItem {
   name: string;
+  exerciseId?: string;
+  prescription?: string;
   sets?: number;
   reps?: number;
   weight?: number;
@@ -117,7 +119,9 @@ export interface PlanItem {
 /** 一个动作的简短说明，例如“深蹲 5×5 60kg”。 */
 export function describeItem(item: PlanItem): string {
   let s = item.name;
-  if (item.sets && item.reps) s += ` ${item.sets}×${item.reps}`;
+  if (item.prescription)
+    s += `${item.sets ? ` ${item.sets} 组 ×` : ""} ${item.prescription}`;
+  else if (item.sets && item.reps) s += ` ${item.sets}×${item.reps}`;
   else if (item.sets) s += ` ${item.sets} 组`;
   if (item.weight) s += ` ${formatAmount(item.weight)}kg`;
   return s;

@@ -60,6 +60,7 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
       ),
     })),
     { key: "fitness", to: "/habits/fitness", label: t("Fitness") },
+    { key: "plan", to: "/habits/plan", label: t("Personal plan") },
   ];
   return (
     <NavChildLinks

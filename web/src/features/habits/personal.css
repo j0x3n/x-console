@@ -1,0 +1,275 @@
+.habits-library-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.habits-library > .xc-toolbar .xc-row > span,
+.habits-personal > .xc-toolbar .xc-row > span {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.habits-library > .xc-toolbar .xc-select {
+  width: auto;
+  min-width: 110px;
+}
+.habits-library-index,
+.habits-library-main {
+  min-width: 0;
+}
+.habits-library-list {
+  max-height: 560px;
+  overflow-y: auto;
+}
+.habits-library-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 44px;
+  gap: 3px;
+  padding: 8px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--xc-border);
+  background: transparent;
+  color: var(--xc-text);
+  cursor: pointer;
+}
+.habits-library-item strong {
+  font-size: var(--fs-13);
+  font-weight: 500;
+}
+.habits-library-item small {
+  font-size: var(--fs-11);
+  color: var(--xc-muted);
+}
+.habits-library-item:hover,
+.habits-library-item.active {
+  background: var(--xc-surface-2);
+}
+.habits-library-item.active strong {
+  color: var(--xc-accent);
+}
+.habits-library-mobile {
+  display: none;
+}
+.habits-library-select {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.habits-exercise-detail {
+  font-size: var(--fs-13);
+  line-height: 1.7;
+}
+.habits-exercise-detail .xc-card-head {
+  flex-wrap: wrap;
+}
+.habits-exercise-detail h3 {
+  font-size: var(--fs-14);
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+.habits-exercise-detail ul,
+.habits-exercise-detail ol {
+  padding-left: 22px;
+}
+.habits-exercise-detail .xc-md img {
+  width: 100%;
+  height: auto;
+}
+.habits-exercise-dose {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  color: var(--xc-text-2);
+}
+.habits-personal {
+  min-width: 0;
+}
+.habits-personal > .xc-toolbar {
+  flex-wrap: wrap;
+}
+.habits-personal-tabs {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  max-width: 100%;
+}
+.habits-personal-tabs button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.habits-personal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.habits-personal-grid > *,
+.habits-plan-article {
+  min-width: 0;
+}
+.habits-personal-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.habits-personal-form .xc-field {
+  min-width: 0;
+}
+.habits-personal-grid .xc-row {
+  flex-wrap: wrap;
+}
+.habits-personal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.habits-week-choice {
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--xc-text);
+  padding: 10px;
+}
+.habits-week-choice strong {
+  font-size: var(--fs-12);
+  font-weight: 500;
+}
+.habits-week-choice small {
+  font-size: var(--fs-11);
+  color: var(--xc-muted);
+  overflow-wrap: anywhere;
+}
+.habits-week-choice:hover {
+  background: var(--xc-surface-2);
+}
+.habits-week-choice.active {
+  border-color: var(--xc-accent);
+}
+.habits-personal-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+.habits-plan-habit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+}
+.habits-plan-habit > strong {
+  font-size: var(--fs-13);
+  font-weight: 500;
+}
+.habits-plan-habit > small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  line-height: 1.6;
+}
+.habits-plan-habit .xc-row {
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.habits-personal details > summary {
+  cursor: pointer;
+}
+.habits-session-exercise > details > summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.habits-session-exercise summary strong {
+  font-size: var(--fs-14);
+  font-weight: 500;
+}
+.habits-session-exercise summary small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.habits-session-exercise .habits-exercise-detail {
+  margin-top: 12px;
+}
+.habits-set-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 14px;
+}
+.habits-original pre {
+  font-family: inherit;
+  font-size: var(--fs-13);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  max-height: 650px;
+  overflow-y: auto;
+}
+.habits-original details {
+  padding: 12px 0;
+}
+.habits-plan-timer > .xc-row {
+  flex-wrap: wrap;
+}
+.habits-plan-timer .xc-card-head {
+  flex-wrap: wrap;
+}
+.habits-timer-active {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.habits-weight-chart {
+  width: 100%;
+  height: auto;
+}
+.habits-weight-chart text {
+  font-size: var(--fs-12);
+  fill: var(--xc-muted);
+}
+.habits-submit-hidden {
+  display: none;
+}
+.habits-prescription {
+  margin-bottom: 6px;
+}
+@media (max-width: 960px) {
+  .habits-personal-week {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .habits-library-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .habits-library-mobile {
+    display: block;
+    width: 100%;
+  }
+  .habits-library-list {
+    display: none;
+  }
+  .habits-personal-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .habits-personal-week {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .habits-library > .xc-toolbar {
+    flex-wrap: wrap;
+  }
+  .habits-library-select .xc-btn {
+    white-space: normal;
+  }
+  .habits-personal-tabs {
+    width: 100%;
+  }
+}

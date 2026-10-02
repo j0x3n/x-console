@@ -202,6 +202,66 @@ func (e HostPresenceState) Valid() bool {
 	}
 }
 
+// Defines values for LibraryArticleCategory.
+const (
+	LibraryArticleCategoryDaily     LibraryArticleCategory = "daily"
+	LibraryArticleCategoryEnglish   LibraryArticleCategory = "english"
+	LibraryArticleCategoryFood      LibraryArticleCategory = "food"
+	LibraryArticleCategoryReference LibraryArticleCategory = "reference"
+)
+
+// Valid indicates whether the value is a known member of the LibraryArticleCategory enum.
+func (e LibraryArticleCategory) Valid() bool {
+	switch e {
+	case LibraryArticleCategoryDaily:
+		return true
+	case LibraryArticleCategoryEnglish:
+		return true
+	case LibraryArticleCategoryFood:
+		return true
+	case LibraryArticleCategoryReference:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LibraryHabitCategory.
+const (
+	LibraryHabitCategoryDaily   LibraryHabitCategory = "daily"
+	LibraryHabitCategoryEnglish LibraryHabitCategory = "english"
+	LibraryHabitCategoryFood    LibraryHabitCategory = "food"
+)
+
+// Valid indicates whether the value is a known member of the LibraryHabitCategory enum.
+func (e LibraryHabitCategory) Valid() bool {
+	switch e {
+	case LibraryHabitCategoryDaily:
+		return true
+	case LibraryHabitCategoryEnglish:
+		return true
+	case LibraryHabitCategoryFood:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalBackupVersion.
+const (
+	N1 PersonalBackupVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the PersonalBackupVersion enum.
+func (e PersonalBackupVersion) Valid() bool {
+	switch e {
+	case N1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RemindMode.
 const (
 	Interval RemindMode = "interval"
@@ -388,6 +448,171 @@ type HostPresence struct {
 // HostPresenceState defines model for HostPresence.State.
 type HostPresenceState string
 
+// LibraryArticle defines model for LibraryArticle.
+type LibraryArticle struct {
+	Category LibraryArticleCategory `json:"category"`
+	Content  string                 `json:"content"`
+	Id       string                 `json:"id"`
+	Title    string                 `json:"title"`
+}
+
+// LibraryArticleCategory defines model for LibraryArticle.Category.
+type LibraryArticleCategory string
+
+// LibraryExercise defines model for LibraryExercise.
+type LibraryExercise struct {
+	Dose      string   `json:"dose"`
+	Easier    string   `json:"easier"`
+	En        string   `json:"en"`
+	Equipment string   `json:"equipment"`
+	Errors    []string `json:"errors"`
+	Group     string   `json:"group"`
+	Id        string   `json:"id"`
+	Image     string   `json:"image"`
+	Name      string   `json:"name"`
+	Progress  string   `json:"progress"`
+	Rest      string   `json:"rest"`
+	Restored  bool     `json:"restored"`
+	Setup     []string `json:"setup"`
+	Steps     []string `json:"steps"`
+	Target    string   `json:"target"`
+}
+
+// LibraryHabit defines model for LibraryHabit.
+type LibraryHabit struct {
+	Category   LibraryHabitCategory `json:"category"`
+	ExerciseId string               `json:"exerciseId"`
+	Group      string               `json:"group"`
+	Id         string               `json:"id"`
+	Name       string               `json:"name"`
+	Short      string               `json:"short"`
+	Tip        string               `json:"tip"`
+}
+
+// LibraryHabitCategory defines model for LibraryHabit.Category.
+type LibraryHabitCategory string
+
+// LibraryPhase defines model for LibraryPhase.
+type LibraryPhase struct {
+	Description string `json:"description"`
+	Id          int    `json:"id"`
+	Name        string `json:"name"`
+}
+
+// LibraryRunLevel defines model for LibraryRunLevel.
+type LibraryRunLevel struct {
+	Description     string `json:"description"`
+	DurationMinutes int    `json:"durationMinutes"`
+	Id              int    `json:"id"`
+	Name            string `json:"name"`
+	Rounds          int    `json:"rounds"`
+	RunMinutes      int    `json:"runMinutes"`
+	WalkMinutes     int    `json:"walkMinutes"`
+}
+
+// LibrarySession defines model for LibrarySession.
+type LibrarySession struct {
+	Focus string               `json:"focus"`
+	Id    string               `json:"id"`
+	Items []LibrarySessionItem `json:"items"`
+	Name  string               `json:"name"`
+	Place string               `json:"place"`
+	Time  string               `json:"time"`
+}
+
+// LibrarySessionItem defines model for LibrarySessionItem.
+type LibrarySessionItem struct {
+	ExerciseId   string `json:"exerciseId"`
+	Optional     bool   `json:"optional"`
+	Prescription string `json:"prescription"`
+	Sets         int    `json:"sets"`
+}
+
+// PersonalBackup defines model for PersonalBackup.
+type PersonalBackup struct {
+	Checks         map[string]bool             `json:"checks"`
+	ExportedAt     *string                     `json:"exportedAt,omitempty"`
+	Logs           map[string]PersonalDayInput `json:"logs"`
+	Profile        PersonalProfileInput        `json:"profile"`
+	SelectedHabits *[]string                   `json:"selectedHabits,omitempty"`
+	Sets           map[string]bool             `json:"sets"`
+	Version        PersonalBackupVersion       `json:"version"`
+}
+
+// PersonalBackupVersion defines model for PersonalBackup.Version.
+type PersonalBackupVersion int
+
+// PersonalDay defines model for PersonalDay.
+type PersonalDay struct {
+	Back                   string          `json:"back"`
+	Checks                 map[string]bool `json:"checks"`
+	Date                   string          `json:"date"`
+	Energy                 string          `json:"energy"`
+	English                string          `json:"english"`
+	Food                   string          `json:"food"`
+	Note                   string          `json:"note"`
+	Sets                   map[string]bool `json:"sets"`
+	Sleep                  string          `json:"sleep"`
+	Steps                  string          `json:"steps"`
+	Waist                  string          `json:"waist"`
+	Weight                 string          `json:"weight"`
+	WorkoutDurationMinutes *int            `json:"workoutDurationMinutes,omitempty"`
+	WorkoutLogId           *int64          `json:"workoutLogId,omitempty"`
+}
+
+// PersonalDayInput defines model for PersonalDayInput.
+type PersonalDayInput struct {
+	Back    *string          `json:"back,omitempty"`
+	Energy  *string          `json:"energy,omitempty"`
+	English *string          `json:"english,omitempty"`
+	Food    *string          `json:"food,omitempty"`
+	Note    *string          `json:"note,omitempty"`
+	Sets    *map[string]bool `json:"sets,omitempty"`
+	Sleep   *string          `json:"sleep,omitempty"`
+	Steps   *string          `json:"steps,omitempty"`
+	Waist   *string          `json:"waist,omitempty"`
+	Weight  *string          `json:"weight,omitempty"`
+}
+
+// PersonalLibrary defines model for PersonalLibrary.
+type PersonalLibrary struct {
+	Articles  []LibraryArticle  `json:"articles"`
+	Exercises []LibraryExercise `json:"exercises"`
+	Habits    []LibraryHabit    `json:"habits"`
+	Original  struct {
+		Attachment string `json:"attachment"`
+		Chat       string `json:"chat"`
+	} `json:"original"`
+	Phases     []LibraryPhase    `json:"phases"`
+	RunLevels  []LibraryRunLevel `json:"runLevels"`
+	Sessions   []LibrarySession  `json:"sessions"`
+	SourceHash string            `json:"sourceHash"`
+	Version    int               `json:"version"`
+}
+
+// PersonalProfile defines model for PersonalProfile.
+type PersonalProfile struct {
+	Baseline float32          `json:"baseline"`
+	HabitIds map[string]int64 `json:"habitIds"`
+	Phase    int              `json:"phase"`
+	RunLevel int              `json:"runLevel"`
+	Sleep    string           `json:"sleep"`
+	Start    string           `json:"start"`
+	StepGoal int              `json:"stepGoal"`
+	Wake     string           `json:"wake"`
+}
+
+// PersonalProfileInput defines model for PersonalProfileInput.
+type PersonalProfileInput struct {
+	Baseline float32 `json:"baseline"`
+	Phase    int     `json:"phase"`
+	RunLevel int     `json:"runLevel"`
+	Sleep    string  `json:"sleep"`
+	Start    string  `json:"start"`
+	StepGoal int     `json:"stepGoal"`
+	Wake     string  `json:"wake"`
+}
+
 // RemindMode none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
 type RemindMode string
 
@@ -404,10 +629,15 @@ type Schedule struct {
 
 // WorkoutItem defines model for WorkoutItem.
 type WorkoutItem struct {
-	Name string  `json:"name"`
-	Note *string `json:"note,omitempty"`
-	Reps *int    `json:"reps,omitempty"`
-	Sets *int    `json:"sets,omitempty"`
+	// ExerciseId 动作库 ID，可选
+	ExerciseId *string `json:"exerciseId,omitempty"`
+	Name       string  `json:"name"`
+	Note       *string `json:"note,omitempty"`
+
+	// Prescription 保留次数区间、时长、距离和每侧说明
+	Prescription *string `json:"prescription,omitempty"`
+	Reps         *int    `json:"reps,omitempty"`
+	Sets         *int    `json:"sets,omitempty"`
 
 	// Weight 公斤，0 表示自重
 	Weight *float64 `json:"weight,omitempty"`
@@ -462,6 +692,29 @@ type ListHabitsParams struct {
 	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
 }
 
+// ActivatePersonalHabitsJSONBody defines parameters for ActivatePersonalHabits.
+type ActivatePersonalHabitsJSONBody struct {
+	Ids []string `json:"ids"`
+}
+
+// ListPersonalDaysParams defines parameters for ListPersonalDays.
+type ListPersonalDaysParams struct {
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// CheckPersonalHabitJSONBody defines parameters for CheckPersonalHabit.
+type CheckPersonalHabitJSONBody struct {
+	Done bool   `json:"done"`
+	Id   string `json:"id"`
+}
+
+// LogPersonalWorkoutJSONBody defines parameters for LogPersonalWorkout.
+type LogPersonalWorkoutJSONBody struct {
+	DurationMinutes int           `json:"durationMinutes"`
+	Items           []WorkoutItem `json:"items"`
+	Note            string        `json:"note"`
+}
+
 // CheckinHabitJSONBody defines parameters for CheckinHabit.
 type CheckinHabitJSONBody struct {
 	// Amount 默认 1。可以是负数以外的任意值
@@ -485,6 +738,24 @@ type ReplaceWorkoutPlansJSONBody = []WorkoutPlan
 
 // CreateHabitJSONRequestBody defines body for CreateHabit for application/json ContentType.
 type CreateHabitJSONRequestBody = HabitInput
+
+// ActivatePersonalHabitsJSONRequestBody defines body for ActivatePersonalHabits for application/json ContentType.
+type ActivatePersonalHabitsJSONRequestBody ActivatePersonalHabitsJSONBody
+
+// ImportPersonalBackupJSONRequestBody defines body for ImportPersonalBackup for application/json ContentType.
+type ImportPersonalBackupJSONRequestBody = PersonalBackup
+
+// UpdatePersonalDayJSONRequestBody defines body for UpdatePersonalDay for application/json ContentType.
+type UpdatePersonalDayJSONRequestBody = PersonalDayInput
+
+// CheckPersonalHabitJSONRequestBody defines body for CheckPersonalHabit for application/json ContentType.
+type CheckPersonalHabitJSONRequestBody CheckPersonalHabitJSONBody
+
+// LogPersonalWorkoutJSONRequestBody defines body for LogPersonalWorkout for application/json ContentType.
+type LogPersonalWorkoutJSONRequestBody LogPersonalWorkoutJSONBody
+
+// UpdatePersonalProfileJSONRequestBody defines body for UpdatePersonalProfile for application/json ContentType.
+type UpdatePersonalProfileJSONRequestBody = PersonalProfileInput
 
 // UpdateHabitScheduleJSONRequestBody defines body for UpdateHabitSchedule for application/json ContentType.
 type UpdateHabitScheduleJSONRequestBody = Schedule
@@ -513,8 +784,41 @@ type ServerInterface interface {
 	// (POST /habits)
 	CreateHabit(w http.ResponseWriter, r *http.Request)
 
+	// (GET /habits/library)
+	GetPersonalLibrary(w http.ResponseWriter, r *http.Request)
+
+	// (POST /habits/library/activate)
+	ActivatePersonalHabits(w http.ResponseWriter, r *http.Request)
+
 	// (DELETE /habits/logs/{logId})
 	DeleteHabitLog(w http.ResponseWriter, r *http.Request, logId int64)
+
+	// (GET /habits/personal/backup)
+	ExportPersonalBackup(w http.ResponseWriter, r *http.Request)
+
+	// (POST /habits/personal/backup)
+	ImportPersonalBackup(w http.ResponseWriter, r *http.Request)
+
+	// (GET /habits/personal/days)
+	ListPersonalDays(w http.ResponseWriter, r *http.Request, params ListPersonalDaysParams)
+
+	// (GET /habits/personal/days/{date})
+	GetPersonalDay(w http.ResponseWriter, r *http.Request, date string)
+
+	// (PATCH /habits/personal/days/{date})
+	UpdatePersonalDay(w http.ResponseWriter, r *http.Request, date string)
+
+	// (POST /habits/personal/days/{date}/check)
+	CheckPersonalHabit(w http.ResponseWriter, r *http.Request, date string)
+
+	// (POST /habits/personal/days/{date}/workout)
+	LogPersonalWorkout(w http.ResponseWriter, r *http.Request, date string)
+
+	// (GET /habits/personal/profile)
+	GetPersonalProfile(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /habits/personal/profile)
+	UpdatePersonalProfile(w http.ResponseWriter, r *http.Request)
 
 	// (GET /habits/presence)
 	GetHabitPresence(w http.ResponseWriter, r *http.Request)
@@ -579,8 +883,63 @@ func (_ Unimplemented) CreateHabit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /habits/library)
+func (_ Unimplemented) GetPersonalLibrary(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /habits/library/activate)
+func (_ Unimplemented) ActivatePersonalHabits(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (DELETE /habits/logs/{logId})
 func (_ Unimplemented) DeleteHabitLog(w http.ResponseWriter, r *http.Request, logId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /habits/personal/backup)
+func (_ Unimplemented) ExportPersonalBackup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /habits/personal/backup)
+func (_ Unimplemented) ImportPersonalBackup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /habits/personal/days)
+func (_ Unimplemented) ListPersonalDays(w http.ResponseWriter, r *http.Request, params ListPersonalDaysParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /habits/personal/days/{date})
+func (_ Unimplemented) GetPersonalDay(w http.ResponseWriter, r *http.Request, date string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /habits/personal/days/{date})
+func (_ Unimplemented) UpdatePersonalDay(w http.ResponseWriter, r *http.Request, date string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /habits/personal/days/{date}/check)
+func (_ Unimplemented) CheckPersonalHabit(w http.ResponseWriter, r *http.Request, date string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /habits/personal/days/{date}/workout)
+func (_ Unimplemented) LogPersonalWorkout(w http.ResponseWriter, r *http.Request, date string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /habits/personal/profile)
+func (_ Unimplemented) GetPersonalProfile(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /habits/personal/profile)
+func (_ Unimplemented) UpdatePersonalProfile(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -720,6 +1079,34 @@ func (siw *ServerInterfaceWrapper) CreateHabit(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetPersonalLibrary operation middleware
+func (siw *ServerInterfaceWrapper) GetPersonalLibrary(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPersonalLibrary(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ActivatePersonalHabits operation middleware
+func (siw *ServerInterfaceWrapper) ActivatePersonalHabits(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ActivatePersonalHabits(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteHabitLog operation middleware
 func (siw *ServerInterfaceWrapper) DeleteHabitLog(w http.ResponseWriter, r *http.Request) {
 
@@ -737,6 +1124,199 @@ func (siw *ServerInterfaceWrapper) DeleteHabitLog(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteHabitLog(w, r, logId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportPersonalBackup operation middleware
+func (siw *ServerInterfaceWrapper) ExportPersonalBackup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportPersonalBackup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportPersonalBackup operation middleware
+func (siw *ServerInterfaceWrapper) ImportPersonalBackup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportPersonalBackup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPersonalDays operation middleware
+func (siw *ServerInterfaceWrapper) ListPersonalDays(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPersonalDaysParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPersonalDays(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPersonalDay operation middleware
+func (siw *ServerInterfaceWrapper) GetPersonalDay(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "date" -------------
+	var date string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "date", chi.URLParam(r, "date"), &date, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPersonalDay(w, r, date)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePersonalDay operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePersonalDay(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "date" -------------
+	var date string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "date", chi.URLParam(r, "date"), &date, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePersonalDay(w, r, date)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckPersonalHabit operation middleware
+func (siw *ServerInterfaceWrapper) CheckPersonalHabit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "date" -------------
+	var date string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "date", chi.URLParam(r, "date"), &date, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckPersonalHabit(w, r, date)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LogPersonalWorkout operation middleware
+func (siw *ServerInterfaceWrapper) LogPersonalWorkout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "date" -------------
+	var date string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "date", chi.URLParam(r, "date"), &date, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LogPersonalWorkout(w, r, date)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPersonalProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetPersonalProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPersonalProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdatePersonalProfile operation middleware
+func (siw *ServerInterfaceWrapper) UpdatePersonalProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdatePersonalProfile(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1190,6 +1770,39 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/library", wrapper.GetPersonalLibrary)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/habits/library/activate", wrapper.ActivatePersonalHabits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/personal/profile", wrapper.GetPersonalProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/habits/personal/profile", wrapper.UpdatePersonalProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/personal/days", wrapper.ListPersonalDays)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/personal/days/{date}", wrapper.GetPersonalDay)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/habits/personal/days/{date}", wrapper.UpdatePersonalDay)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/habits/personal/days/{date}/check", wrapper.CheckPersonalHabit)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/habits/personal/days/{date}/workout", wrapper.LogPersonalWorkout)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/personal/backup", wrapper.ExportPersonalBackup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/habits/personal/backup", wrapper.ImportPersonalBackup)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/habits/schedule", wrapper.GetHabitSchedule)
 	})
