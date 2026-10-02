@@ -361,3 +361,62 @@
 .aiagent-runlog-card:not(:has(.aiagent-runlog)) {
   display: none;
 }
+/* B87：Agent 通知开关 */
+.aiagent-notify {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aiagent-notify li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.aiagent-notify li:last-child {
+  border-bottom: 0;
+}
+.aiagent-notify li > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.aiagent-notify small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+/* B87：今日页“待你决定”里的权限请求和问题 */
+.aiagent-decision {
+  flex-wrap: wrap;
+}
+.aiagent-decision-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 50%;
+}
+.aiagent-decision-answer {
+  display: flex;
+  flex: 1 0 100%;
+  gap: 6px;
+  padding-left: 38px;
+}
+.aiagent-decision-answer .xc-input {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .aiagent-decision-actions {
+    max-width: none;
+    padding-left: 38px;
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+}

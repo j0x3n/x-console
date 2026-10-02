@@ -2,6 +2,29 @@ import { registerZh } from "../../lib/i18n";
 
 // B47 Agent 管理。
 registerZh({
+  // B87 待你决定
+  Grant: "批准",
+  Answer: "回答",
+  Answered: "已回答",
+  "Your answer": "你的回答",
+  "Agent question": "Agent 提问",
+  "Permission request": "权限请求",
+  // B87 Agent 通知
+  "Agent notifications": "Agent 通知",
+  "Where they go follows the rules above.": "发到哪里照上面的规则。",
+  "Got a task": "收到任务",
+  "A card is assigned to an agent.": "卡片分配给了 Agent。",
+  "Started a task": "开始任务",
+  "The agent starts working.": "Agent 开始执行。",
+  "Needs your decision": "需要你决定",
+  "The agent asks for permission or asks you a question, or a coding task waits for review.":
+    "Agent 请求权限、问你问题，或者编码任务做完等你审查。",
+  "Opened a pull request": "已提 PR",
+  "The agent opened a pull request.": "Agent 提了 PR。",
+  "Finished a task": "完成任务",
+  "The agent is done.": "Agent 做完了。",
+  "Failed or stopped": "失败或中断",
+  "The task failed, timed out or was stopped.": "任务失败、超时或被中断。",
   // B86 分配给 Agent 开发
   "This board has no repository yet.": "这个看板还没绑定仓库。",
   "Link one and the agent clones it, does the work and opens a pull request.":

@@ -37,6 +37,7 @@ import {
 } from "./api";
 import "./i18n";
 import "./reminders.css";
+import { AgentNotifyCard } from "../aiagents/AgentNotify";
 import {
   currentEndpoint,
   deviceName,
@@ -104,6 +105,7 @@ export default function NotificationsTab() {
       </div>
       <RoutesCard channels={channels.data.map((c) => c.name as ChannelName)} />
       <QuietHoursCard />
+      <AgentNotifyCard />
       <ScheduleLinkCard />
     </div>
   );

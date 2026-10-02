@@ -14,6 +14,7 @@ import AgentAvatar from "./AgentAvatar";
 import AgentDialog from "./AgentDialog";
 import AgentTabs from "./AgentTabs";
 import { useDeleteAgent } from "./useDeleteAgent";
+import { AgentNotifyButton } from "./AgentNotify";
 import { costText, kindLabel, hostsText } from "./logic";
 import "./i18n";
 import "./aiagents.css";
@@ -46,9 +47,12 @@ export default function AgentsPage() {
         "Agents change code on your machines, or work on cards with the console's tools.",
       )}
       aside={
-        <button className="xc-btn primary" onClick={() => setEditing("new")}>
-          <Plus size={14} /> {t("New agent")}
-        </button>
+        <>
+          <AgentNotifyButton />
+          <button className="xc-btn primary" onClick={() => setEditing("new")}>
+            <Plus size={14} /> {t("New agent")}
+          </button>
+        </>
       }
     />
   );
