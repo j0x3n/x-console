@@ -1469,7 +1469,23 @@ html[data-theme="dark"] .note-bg-gray {
     margin-bottom: 8px;
   }
 }
-@media (max-width: 1180px) {
+/* 便签视图不显示中间的列表，地方够，中等宽度也保留左边的分类栏 */
+@media (max-width: 1180px) and (min-width: 761px) {
+  .notes-layout.memos-view {
+    grid-template-columns: var(--notes-nav-w, 196px) minmax(0, 1fr);
+  }
+  .notes-layout.memos-view .notes-nav {
+    display: flex;
+  }
+  .notes-layout.memos-view .notes-resizer-nav {
+    display: block;
+  }
+  .notes-layout.memos-view .notes-resizer-list {
+    display: none;
+  }
+}
+/* 手机上没有左栏，分类收成列表顶部的一行 */
+@media (max-width: 760px) {
   .notes-layout.memos-view {
     grid-template-columns: minmax(0, 1fr);
   }
