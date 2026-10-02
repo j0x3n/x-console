@@ -7,6 +7,7 @@ const server = vi.hoisted(() => {
   const state = {
     aiAvailable: false,
     puts: [] as Record<string, unknown>[],
+    places: [] as string[],
   };
   const NativeRequest = globalThis.Request;
   globalThis.Request = class extends NativeRequest {
@@ -23,6 +24,22 @@ const server = vi.hoisted(() => {
     const req =
       input instanceof NativeRequest ? input : new Request(String(input), init);
     const path = new URL(req.url).pathname.replace("/api/v1", "");
+    if (path === "/weather/places") {
+      state.places.push(new URL(req.url).searchParams.get("q") ?? "");
+      return new Response(
+        JSON.stringify([
+          {
+            id: "101191002",
+            name: "东海",
+            region: "江苏",
+            country: "中国",
+            lat: 34.5225,
+            lon: 118.7666,
+          },
+        ]),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    }
     const view = {
       enabled: true,
       time: "08:00",
@@ -75,9 +92,40 @@ function renderTab() {
 afterEach(() => {
   cleanup();
   server.puts.length = 0;
+  server.places.length = 0;
+  vi.unstubAllGlobals();
 });
 
 describe("BriefSettingsTab", () => {
+  it("reverse-geocodes browser coordinates through QWeather before saving", async () => {
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      geolocation: {
+        getCurrentPosition: (success: PositionCallback) =>
+          success({
+            coords: { latitude: 34.54, longitude: 118.75 },
+          } as GeolocationPosition),
+      },
+    });
+    renderTab();
+    fireEvent.click(await screen.findByText("Use my location"));
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("31.23")).toHaveProperty(
+        "value",
+        "34.5225",
+      ),
+    );
+    expect(server.places).toEqual(["118.75,34.54"]);
+    fireEvent.click(screen.getByText("Save"));
+    await waitFor(() => expect(server.puts).toHaveLength(1));
+    expect(server.puts[0].location).toEqual({
+      id: "101191002",
+      name: "东海",
+      lat: 34.5225,
+      lon: 118.7666,
+    });
+    expect(screen.queryByText("Open-Meteo address")).toBeNull();
+  });
   it("hides the AI summary switch until the AI module offers it", async () => {
     server.aiAvailable = false;
     renderTab();

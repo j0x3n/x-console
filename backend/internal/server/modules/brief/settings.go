@@ -118,7 +118,11 @@ func (m *Module) validate(in api.BriefSettings) (config, error) {
 		if len([]rune(name)) > 60 {
 			return c, httpx.Invalid("地名太长了")
 		}
-		c.Location = &api.BriefLocation{Lat: l.Lat, Lon: l.Lon, Name: &name}
+		id := strings.TrimSpace(deref(l.Id))
+		if len(id) > 64 || strings.ContainsAny(id, " /?&#\r\n") {
+			return c, httpx.Invalid("和风城市 ID 不对")
+		}
+		c.Location = &api.BriefLocation{Lat: l.Lat, Lon: l.Lon, Name: &name, Id: &id}
 	}
 	c.WeatherBase = strings.TrimRight(strings.TrimSpace(deref(in.WeatherApiBase)), "/")
 	if c.WeatherBase != "" {

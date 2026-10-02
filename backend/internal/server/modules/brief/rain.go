@@ -2,17 +2,10 @@ package brief
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"math"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief/api"
@@ -23,8 +16,6 @@ const (
 	keyRainAlert     = "brief.rain_alert"
 	keyRainAlertLast = "brief.rain_alert_last"
 
-	defaultGeoBase = "https://geocoding-api.open-meteo.com"
-	defaultOSMBase = "https://nominatim.openstreetmap.org"
 	// rainQuiet is the shortest gap between two rain notifications.
 	rainQuiet = 6 * time.Hour
 )
@@ -116,37 +107,18 @@ func (m *Module) checkRain(ctx context.Context, now time.Time) error {
 	return m.d.Settings.Set(ctx, keyRainAlertLast, now.UTC())
 }
 
-// rainChance is the highest hourly precipitation probability in the next
-// hours hours.
-func (m *Module) rainChance(ctx context.Context, base string, loc api.BriefLocation, hours int) (int, error) {
-	q := url.Values{
-		"latitude":       {strconv.FormatFloat(loc.Lat, 'f', 4, 64)},
-		"longitude":      {strconv.FormatFloat(loc.Lon, 'f', 4, 64)},
-		"hourly":         {"precipitation_probability"},
-		"timezone":       {m.d.Config.Location.String()},
-		"forecast_hours": {strconv.Itoa(hours)},
-	}
-	var raw struct {
-		Hourly struct {
-			Precip []*float64 `json:"precipitation_probability"`
-		} `json:"hourly"`
-	}
-	if err := m.getJSON(ctx, base+"/v1/forecast?"+q.Encode(), &raw); err != nil {
-		return 0, err
-	}
-	best := 0
-	for _, p := range raw.Hourly.Precip {
-		if p != nil {
-			best = max(best, int(math.Round(*p)))
-		}
-	}
-	return best, nil
-}
-
 func (m *Module) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, params api.SearchWeatherPlacesParams) {
 	name := strings.TrimSpace(params.Q)
 	if name == "" {
 		httpx.Fail(w, r, httpx.Invalid("请输入地名"))
+		return
+	}
+	if len([]rune(name)) > 60 {
+		httpx.Fail(w, r, httpx.Invalid("地名太长了"))
+		return
+	}
+	if _, err := m.requireQWeather(r.Context()); err != nil {
+		httpx.Fail(w, r, err)
 		return
 	}
 	out, err := m.searchPlaces(r.Context(), name)
@@ -157,117 +129,59 @@ func (m *Module) SearchWeatherPlaces(w http.ResponseWriter, r *http.Request, par
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-// searchPlaces 先查 Open-Meteo 的地名库。它对县、镇这类中文名收得不全，
-// 查不到时去掉“县”“区”这类后缀再查一次，还没有就查 OpenStreetMap。
-func (m *Module) searchPlaces(ctx context.Context, name string) ([]api.WeatherPlace, error) {
-	out, firstErr := m.openMeteoPlaces(ctx, name)
-	if len(out) > 0 {
-		return out, nil
-	}
-	if short := trimPlaceSuffix(name); short != name {
-		if more, err := m.openMeteoPlaces(ctx, short); err == nil && len(more) > 0 {
-			return more, nil
-		}
-	}
-	osm, err := m.osmPlaces(ctx, name)
-	if err != nil && firstErr != nil {
-		return nil, firstErr
-	}
-	if osm == nil {
-		osm = []api.WeatherPlace{}
-	}
-	return osm, nil
-}
-
-var placeSuffixes = []string{"自治县", "自治州", "县", "区", "市", "镇", "乡"}
-
-func trimPlaceSuffix(name string) string {
-	for _, s := range placeSuffixes {
-		if short, ok := strings.CutSuffix(name, s); ok && utf8.RuneCountInString(short) >= 2 {
-			return short
-		}
-	}
-	return name
-}
-
-func (m *Module) openMeteoPlaces(ctx context.Context, name string) ([]api.WeatherPlace, error) {
-	q := url.Values{"name": {name}, "count": {"8"}, "language": {"zh"}, "format": {"json"}}
-	var raw struct {
-		Results []struct {
-			Name    string  `json:"name"`
-			Admin1  string  `json:"admin1"`
-			Country string  `json:"country"`
-			Lat     float64 `json:"latitude"`
-			Lon     float64 `json:"longitude"`
-		} `json:"results"`
-	}
-	if err := m.getJSON(ctx, m.geoBase+"/v1/search?"+q.Encode(), &raw); err != nil {
+func (m *Module) searchPlaces(ctx context.Context, query string) ([]api.WeatherPlace, error) {
+	c, err := m.requireQWeather(ctx)
+	if err != nil {
 		return nil, err
 	}
-	out := make([]api.WeatherPlace, 0, len(raw.Results))
-	for _, p := range raw.Results {
-		out = append(out, api.WeatherPlace{Name: p.Name, Region: p.Admin1, Country: p.Country, Lat: round4(p.Lat), Lon: round4(p.Lon)})
-	}
-	return out, nil
-}
-
-// osmPlaces 查 OpenStreetMap 的 Nominatim。它要求带 User-Agent，一秒最多一次，
-// 这里只在用户点“搜索”时才会调用。
-func (m *Module) osmPlaces(ctx context.Context, name string) ([]api.WeatherPlace, error) {
-	q := url.Values{"q": {name}, "format": {"jsonv2"}, "limit": {"8"}, "addressdetails": {"1"}, "accept-language": {"zh"}}
-	var raw []struct {
-		Name    string `json:"name"`
-		Lat     string `json:"lat"`
-		Lon     string `json:"lon"`
-		Address struct {
-			City    string `json:"city"`
-			State   string `json:"state"`
-			Country string `json:"country"`
-		} `json:"address"`
-	}
-	if err := m.getJSON(ctx, m.osmBase+"/search?"+q.Encode(), &raw); err != nil {
+	cities, err := m.lookupPlaces(ctx, c, query)
+	if err != nil {
 		return nil, err
 	}
-	out := make([]api.WeatherPlace, 0, len(raw))
-	for _, p := range raw {
-		lat, err1 := strconv.ParseFloat(p.Lat, 64)
-		lon, err2 := strconv.ParseFloat(p.Lon, 64)
-		if err1 != nil || err2 != nil || p.Name == "" {
+	out := make([]api.WeatherPlace, 0, len(cities))
+	for _, city := range cities {
+		if city.ID == "" || city.Name == "" || !city.Lat.Set || !city.Lon.Set {
 			continue
 		}
-		region := p.Address.State
-		if p.Address.City != "" && p.Address.City != p.Name {
-			region = strings.TrimSpace(p.Address.City + " · " + p.Address.State)
+		region := city.Adm1
+		if city.Adm2 != "" && city.Adm2 != city.Adm1 && city.Adm2 != city.Name {
+			region = strings.TrimSpace(city.Adm2 + " · " + city.Adm1)
 		}
-		out = append(out, api.WeatherPlace{Name: p.Name, Region: region, Country: p.Address.Country, Lat: round4(lat), Lon: round4(lon)})
+		id := city.ID
+		out = append(out, api.WeatherPlace{Id: &id, Name: city.Name, Region: region, Country: city.Country, Lat: city.Lat.V, Lon: city.Lon.V})
 	}
 	return out, nil
 }
 
-func round4(f float64) float64 { return math.Round(f*1e4) / 1e4 }
-
-// getJSON fetches a small JSON document from a weather service.
-func (m *Module) getJSON(ctx context.Context, u string, v any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+// rainChance uses the selected city's QWeather hourly forecast.
+func (m *Module) rainChance(ctx context.Context, base string, loc api.BriefLocation, hours int) (int, error) {
+	c, err := m.requireQWeather(ctx)
 	if err != nil {
-		return errors.New("天气接口地址不对")
+		return 0, err
 	}
-	// Nominatim 要求写明是谁在用
-	req.Header.Set("User-Agent", "x-console (self-hosted personal console)")
-	resp, err := m.http.Do(req)
+	loc, err = m.resolveLocation(ctx, c, loc)
 	if err != nil {
-		var uerr *url.Error
-		if errors.As(err, &uerr) {
-			err = uerr.Err
+		return 0, err
+	}
+	var raw struct {
+		Hourly []struct {
+			Time string  `json:"fxTime"`
+			Pop  flexNum `json:"pop"`
+		} `json:"hourly"`
+	}
+	if err = m.qwGet(ctx, c, "/v7/weather/24h?location="+deref(loc.Id)+"&lang=zh", &raw); err != nil {
+		return 0, err
+	}
+	end := m.now().Add(time.Duration(hours) * time.Hour)
+	best := 0
+	for _, h := range raw.Hourly {
+		t, ok := qwTime(h.Time)
+		if !ok || t.Before(m.now()) || t.After(end) || !h.Pop.Set {
+			continue
 		}
-		return fmt.Errorf("天气接口连接失败: %w", err)
+		if chance := int(h.Pop.V + 0.5); chance > best {
+			best = chance
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("天气接口返回 HTTP %d", resp.StatusCode)
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(v); err != nil {
-		return errors.New("天气接口返回的内容看不懂")
-	}
-	return nil
+	return best, nil
 }

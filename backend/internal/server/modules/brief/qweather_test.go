@@ -69,7 +69,7 @@ func newQWFake(t *testing.T) *qwFake {
 		}
 		switch {
 		case p == "/geo/v2/city/lookup":
-			_, _ = w.Write([]byte(`{"code":"200","location":[{"name":"上海","id":"101020100"}]}`))
+			_, _ = w.Write([]byte(`{"code":"200","location":[{"name":"上海","id":"101020100","lat":"31.23","lon":"121.47"}]}`))
 		case strings.HasPrefix(p, "/weatheralert/v1/current/"):
 			if f.alertsV1 == "" {
 				w.WriteHeader(http.StatusNotFound)
@@ -112,6 +112,8 @@ func setupQW(t *testing.T) (*testutil.Env, *brief.Module, *qwFake) {
 	_ = env.App.Deps.Settings.Set(ctx, "brief.quake_cenc_url", f.URL+"/cenc")
 	_ = env.App.Deps.Settings.Set(ctx, "brief.quake_usgs_url", f.URL+"/usgs")
 	putSettings(t, env, baseSettings(ws))
+	_ = env.App.Deps.Settings.Delete(ctx, "brief.qweather")
+	_ = env.App.Deps.Settings.Delete(ctx, "brief.qweather_location")
 	return env, m, f
 }
 
@@ -207,7 +209,7 @@ func TestWeatherExtra(t *testing.T) {
 			{"id":"r1","title":"上海市气象台发布暴雨红色预警","typeName":"暴雨","severityColor":"","sender":"上海市气象台","pubTime":"2026-10-01T07:00+08:00","text":"注意防雨"}]`
 		f.minutely = fmt.Sprintf(`[{"fxTime":%q,"precip":"0.12","type":"rain"}]`, pt)
 		f.fail["/v7/indices"] = true
-		f.fail["/airquality/v1"] = true // 退回 v7 空气
+		f.fail["/airquality/v1"] = true
 	})
 	brief.DropCaches(m)
 	env.MustDo(http.MethodGet, "/weather/extra?refresh=true", nil, &ex)
@@ -217,8 +219,8 @@ func TestWeatherExtra(t *testing.T) {
 	if len(ex.Indices) != 0 {
 		t.Fatalf("failed indices: %+v", ex.Indices)
 	}
-	if ex.Air == nil || ex.Air.Aqi != 40 || ex.Air.Category != "优" || ex.Air.Primary != nil || *ex.Air.Pm2p5 != 20 {
-		t.Fatalf("air v7: %+v", ex.Air)
+	if ex.Air != nil {
+		t.Fatalf("failed air should be absent: %+v", ex.Air)
 	}
 	if ex.Minutely == nil || len(ex.Minutely.Points) != 1 || ex.Minutely.Points[0].Precip != 0.12 || *ex.Minutely.Points[0].Kind != api.Rain {
 		t.Fatalf("minutely: %+v", ex.Minutely)

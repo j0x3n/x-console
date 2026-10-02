@@ -236,6 +236,19 @@ export function useWeatherPlaces(q: string) {
   });
 }
 
+export async function resolveWeatherLocation(
+  lat: number,
+  lon: number,
+): Promise<BriefLocation> {
+  const q = `${lon.toFixed(2)},${lat.toFixed(2)}`;
+  const places = await unwrap(
+    briefApi.GET("/weather/places", { params: { query: { q } } }),
+  );
+  const city = places[0];
+  if (!city) throw new Error("和风天气没有找到当前位置");
+  return { id: city.id, lat: city.lat, lon: city.lon, name: city.name };
+}
+
 export function useRainAlert() {
   return useQuery({
     queryKey: ["calendar", "weather", "alert"],
