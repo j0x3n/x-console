@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Bell, CloudSun, Droplets, Plus, RefreshCw } from "lucide-react";
+import {
+  Bell,
+  CloudSun,
+  Droplets,
+  Plus,
+  RefreshCw,
+  Umbrella,
+} from "lucide-react";
 import { errorMessage } from "../../../api/client";
 import { useMarkNotificationRead, useNotifications } from "../../../api/core";
 import { Ring } from "../../../components/ui/Stat";
@@ -26,6 +33,7 @@ import { refreshWeather, useWeather } from "../api";
 import { sortEvents } from "../today";
 import { Empty, isSetupNeeded, MoreLink, QueryState } from "./shared";
 import WeatherDialog, { loadWeatherShow } from "./WeatherDialog";
+import { weatherIcon } from "../weatherIcon";
 import WeatherDetail from "./WeatherDetail";
 import {
   airTone,
@@ -216,7 +224,11 @@ export function WeatherStrip() {
         className={`today-weather-strip${setup ? " is-setup" : ""}`}
         onClick={() => setOpen(setup || !w ? "settings" : "detail")}
       >
-        <CloudSun size={14} />
+        {w && !setup ? (
+          <WeatherGlyph weather={w} size={14} />
+        ) : (
+          <CloudSun size={14} />
+        )}
         {setup || !w ? (
           <span>
             {t("Weather")} · {t("Set a place")}
@@ -231,18 +243,30 @@ export function WeatherStrip() {
                 {Math.round(w.low)}°/{Math.round(w.high)}°
               </span>
             )}
+            {/* B90：湿度、空气质量、降水概率、降水提醒，按这个顺序 */}
+            {show.humidity && w.humidity != null && (
+              <span className="today-weather-rain" title={t("Humidity")}>
+                <Droplets size={12} /> {w.humidity}%
+              </span>
+            )}
+            {show.air && extra?.air && (
+              <span
+                className={`weather-tone-${airTone(extra.air.level)}`}
+                title={`${t("Air quality")} ${extra.air.aqi}`}
+              >
+                {extra.air.category}
+              </span>
+            )}
             {show.rain && (
-              <span className="today-weather-rain">
-                <Droplets size={12} /> {w.precipitationChance}%
+              <span
+                className="today-weather-rain"
+                title={t("Chance of rain today")}
+              >
+                <Umbrella size={12} /> {w.precipitationChance}%
               </span>
             )}
             {soon && (
               <span className="today-weather-soon">{rainSoonText(soon)}</span>
-            )}
-            {show.air && extra?.air && (
-              <span className={`weather-tone-${airTone(extra.air.level)}`}>
-                {extra.air.category}
-              </span>
             )}
           </>
         )}
@@ -279,6 +303,18 @@ export function WeatherStrip() {
       <WeatherDialog open={open === "settings"} onClose={() => setOpen(null)} />
     </span>
   );
+}
+
+/** B90：按天气选的图标。 */
+function WeatherGlyph({
+  weather,
+  size,
+}: {
+  weather: Parameters<typeof weatherIcon>[0];
+  size: number;
+}) {
+  const Icon = weatherIcon(weather);
+  return <Icon size={size} />;
 }
 
 /** Home Assistant 收藏的设备，点一下开关。 */

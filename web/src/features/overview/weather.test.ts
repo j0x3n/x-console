@@ -64,3 +64,24 @@ describe("天气扩展（B58）", () => {
     expect(compareYesterday({ high: 20 }, undefined)).toBe("");
   });
 });
+
+describe("B90 rain now", () => {
+  const now = new Date("2026-10-02T06:00:00Z");
+  const at = (min: number) =>
+    new Date(now.getTime() + min * 60_000).toISOString();
+  it("says how long the rain lasts", () => {
+    const points = [0, 5, 10, 15, 20, 25, 30].map((m, i) => ({
+      time: at(m),
+      precip: i < 5 ? 0.2 : 0,
+    }));
+    const r = rainSoon({ summary: "", points }, now)!;
+    expect(r.endsIn).toBe(25);
+    expect(rainSoonText(r)).toBe("正在下雨，约 25 分钟后停");
+  });
+  it("says it will not stop within two hours", () => {
+    const points = [0, 5, 10].map((m) => ({ time: at(m), precip: 1 }));
+    expect(rainSoonText(rainSoon({ summary: "", points }, now)!)).toBe(
+      "正在下雨，两小时内不会停",
+    );
+  });
+});

@@ -53,6 +53,11 @@ export interface RainSoon {
   kind: "rain" | "snow";
   /** 0 表示正在下 */
   inMinutes: number;
+  /**
+   * B90：正在下时，还要下多久（分钟）。两小时内不停时为 null。
+   * 还没开始下时不返回。
+   */
+  endsIn?: number | null;
 }
 
 /** 分钟降水里最早有降水的时间。两小时内都没有时为 null。 */
@@ -60,19 +65,28 @@ export function rainSoon(
   minutely: WeatherExtra["minutely"],
   now: Date,
 ): RainSoon | null {
-  const hit = minutely?.points.find((p) => p.precip > 0);
-  if (!hit) return null;
-  const inMinutes = Math.max(
-    0,
-    Math.round((Date.parse(hit.time) - now.getTime()) / 60_000),
-  );
-  return { kind: hit.kind === "snow" ? "snow" : "rain", inMinutes };
+  const points = minutely?.points ?? [];
+  const hitIndex = points.findIndex((p) => p.precip > 0);
+  if (hitIndex < 0) return null;
+  const hit = points[hitIndex];
+  const minutesTo = (iso: string) =>
+    Math.max(0, Math.round((Date.parse(iso) - now.getTime()) / 60_000));
+  const inMinutes = minutesTo(hit.time);
+  const kind = hit.kind === "snow" ? "snow" : "rain";
+  if (inMinutes > 5) return { kind, inMinutes };
+  // 正在下：找下一个没有降水的点
+  const stop = points.slice(hitIndex + 1).find((p) => p.precip <= 0);
+  return { kind, inMinutes, endsIn: stop ? minutesTo(stop.time) : null };
 }
 
-/** 天气条上的一小段字：“正在下雨”“20 分钟后有雪”。 */
+/** 天气条上的一小段字：“正在下雨，约 25 分钟后停”“20 分钟后有雪”。 */
 export function rainSoonText(r: RainSoon): string {
   const what = r.kind === "snow" ? "雪" : "雨";
-  return r.inMinutes <= 5 ? `正在下${what}` : `${r.inMinutes} 分钟后有${what}`;
+  if (r.inMinutes > 5) return `${r.inMinutes} 分钟后有${what}`;
+  if (r.endsIn === null) return `正在下${what}，两小时内不会停`;
+  if (r.endsIn !== undefined && r.endsIn <= 5) return `正在下${what}，马上就停`;
+  if (r.endsIn !== undefined) return `正在下${what}，约 ${r.endsIn} 分钟后停`;
+  return `正在下${what}`;
 }
 
 /** 空气质量 1、2 级绿色，3 级黄色，4 级以上红色。 */

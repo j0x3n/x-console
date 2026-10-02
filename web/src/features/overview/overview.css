@@ -655,3 +655,8 @@ a.today-row:hover {
 .today-row-more {
   min-height: 36px;
 }
+/* B90：天气详情里按天气选的图标 */
+.weather-detail-icon {
+  flex: none;
+  color: var(--xc-text-2);
+}

@@ -1,6 +1,11 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B90 天气
+  Humidity: "湿度",
+  "Chance of rain today": "今天降水概率",
+  "Data from QWeather": "数据来自和风天气",
+  "Data from Open-Meteo": "数据来自 Open-Meteo",
   "Good morning": "早上好",
   "Good noon": "中午好",
   "Good afternoon": "下午好",
