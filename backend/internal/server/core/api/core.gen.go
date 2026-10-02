@@ -150,6 +150,30 @@ func (e PreferencesNightMode) Valid() bool {
 	}
 }
 
+// Defines values for PreferencesQuoteMode.
+const (
+	PreferencesQuoteModeDaily   PreferencesQuoteMode = "daily"
+	PreferencesQuoteModeFixed   PreferencesQuoteMode = "fixed"
+	PreferencesQuoteModeOff     PreferencesQuoteMode = "off"
+	PreferencesQuoteModeRefresh PreferencesQuoteMode = "refresh"
+)
+
+// Valid indicates whether the value is a known member of the PreferencesQuoteMode enum.
+func (e PreferencesQuoteMode) Valid() bool {
+	switch e {
+	case PreferencesQuoteModeDaily:
+		return true
+	case PreferencesQuoteModeFixed:
+		return true
+	case PreferencesQuoteModeOff:
+		return true
+	case PreferencesQuoteModeRefresh:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DownloadAgentParamsOs.
 const (
 	Linux   DownloadAgentParamsOs = "linux"
@@ -295,8 +319,14 @@ type Preferences struct {
 	Accent   PreferencesAccent   `json:"accent"`
 	Language PreferencesLanguage `json:"language"`
 
+	// Nickname B88。今日页问候语里的称呼，空时用登录名
+	Nickname *string `json:"nickname,omitempty"`
+
 	// NightMode 夜间模式。auto 跟随系统
 	NightMode PreferencesNightMode `json:"nightMode"`
+
+	// QuoteMode B89。今日页问候语后面的每日一句。off 不显示（默认）；fixed 固定显示置顶的第一条名言；refresh 每次打开随机一条；daily 每天随机一条
+	QuoteMode *PreferencesQuoteMode `json:"quoteMode,omitempty"`
 
 	// UpdatedAt 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
@@ -310,6 +340,9 @@ type PreferencesLanguage string
 
 // PreferencesNightMode 夜间模式。auto 跟随系统
 type PreferencesNightMode string
+
+// PreferencesQuoteMode B89。今日页问候语后面的每日一句。off 不显示（默认）；fixed 固定显示置顶的第一条名言；refresh 每次打开随机一条；daily 每天随机一条
+type PreferencesQuoteMode string
 
 // TotpCode defines model for TotpCode.
 type TotpCode struct {

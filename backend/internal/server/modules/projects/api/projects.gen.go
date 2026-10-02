@@ -15,21 +15,66 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for CardColor.
+const (
+	CardColorBlue   CardColor = "blue"
+	CardColorEmpty  CardColor = ""
+	CardColorGray   CardColor = "gray"
+	CardColorGreen  CardColor = "green"
+	CardColorLime   CardColor = "lime"
+	CardColorOrange CardColor = "orange"
+	CardColorPink   CardColor = "pink"
+	CardColorPurple CardColor = "purple"
+	CardColorRed    CardColor = "red"
+	CardColorSky    CardColor = "sky"
+	CardColorYellow CardColor = "yellow"
+)
+
+// Valid indicates whether the value is a known member of the CardColor enum.
+func (e CardColor) Valid() bool {
+	switch e {
+	case CardColorBlue:
+		return true
+	case CardColorEmpty:
+		return true
+	case CardColorGray:
+		return true
+	case CardColorGreen:
+		return true
+	case CardColorLime:
+		return true
+	case CardColorOrange:
+		return true
+	case CardColorPink:
+		return true
+	case CardColorPurple:
+		return true
+	case CardColorRed:
+		return true
+	case CardColorSky:
+		return true
+	case CardColorYellow:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateBoardPreset.
 const (
-	Empty    CreateBoardPreset = "empty"
-	Simple   CreateBoardPreset = "simple"
-	Statuses CreateBoardPreset = "statuses"
+	CreateBoardPresetEmpty    CreateBoardPreset = "empty"
+	CreateBoardPresetSimple   CreateBoardPreset = "simple"
+	CreateBoardPresetStatuses CreateBoardPreset = "statuses"
 )
 
 // Valid indicates whether the value is a known member of the CreateBoardPreset enum.
 func (e CreateBoardPreset) Valid() bool {
 	switch e {
-	case Empty:
+	case CreateBoardPresetEmpty:
 		return true
-	case Simple:
+	case CreateBoardPresetSimple:
 		return true
-	case Statuses:
+	case CreateBoardPresetStatuses:
 		return true
 	default:
 		return false
@@ -213,6 +258,15 @@ func (e ListIssuesParamsSort) Valid() bool {
 	}
 }
 
+// BindBoardRepo defines model for BindBoardRepo.
+type BindBoardRepo struct {
+	ConnectionId int64  `json:"connectionId"`
+	FullName     string `json:"fullName"`
+
+	// SyncIssues 不传按 true
+	SyncIssues *bool `json:"syncIssues,omitempty"`
+}
+
 // Board defines model for Board.
 type Board struct {
 	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
@@ -225,8 +279,11 @@ type Board struct {
 	Name      string      `json:"name"`
 	Position  float64     `json:"position"`
 	ProjectId int64       `json:"projectId"`
-	Starred   bool        `json:"starred"`
-	UpdatedAt time.Time   `json:"updatedAt"`
+
+	// Repo B84。看板绑定的 Git 仓库，没绑定时不返回
+	Repo      *BoardRepo `json:"repo,omitempty"`
+	Starred   bool       `json:"starred"`
+	UpdatedAt time.Time  `json:"updatedAt"`
 }
 
 // BoardList defines model for BoardList.
@@ -246,6 +303,30 @@ type BoardList struct {
 	// WipLimit 0 表示不限
 	WipLimit int `json:"wipLimit"`
 }
+
+// BoardRepo B84。看板绑定的 Git 仓库，没绑定时不返回
+type BoardRepo struct {
+	// ConnectionId 设置 → Git 与 GitHub 里的账号
+	ConnectionId   int64  `json:"connectionId"`
+	ConnectionName string `json:"connectionName"`
+
+	// FullName owner/name
+	FullName string `json:"fullName"`
+	HtmlUrl  string `json:"htmlUrl"`
+
+	// LastError 上次同步失败的原因，成功时为空
+	LastError    *string    `json:"lastError,omitempty"`
+	LastSyncedAt *time.Time `json:"lastSyncedAt,omitempty"`
+
+	// SyncIssues 同步仓库的 Issue 到这个看板
+	SyncIssues bool `json:"syncIssues"`
+
+	// SyncedCount 看板里从仓库同步来的卡片数
+	SyncedCount *int `json:"syncedCount,omitempty"`
+}
+
+// CardColor B85。卡片颜色（Trello 的封面色），空表示不设。前端按名字取主题里的颜色
+type CardColor string
 
 // Checklist defines model for Checklist.
 type Checklist struct {
@@ -397,6 +478,9 @@ type Issue struct {
 	// ChecklistTotal B36。所有清单的条目总数，0 表示没有清单条目
 	ChecklistTotal *int `json:"checklistTotal,omitempty"`
 
+	// Color B85。卡片颜色（Trello 的封面色），空表示不设。前端按名字取主题里的颜色
+	Color *CardColor `json:"color,omitempty"`
+
 	// CommentCount B46。评论数
 	CommentCount *int       `json:"commentCount,omitempty"`
 	CompletedAt  *time.Time `json:"completedAt,omitempty"`
@@ -418,7 +502,10 @@ type Issue struct {
 
 	// ExternalSource 外部来源，例如 linear，空表示本地
 	ExternalSource string `json:"externalSource"`
-	Id             int64  `json:"id"`
+
+	// ExternalUrl B84。从仓库同步来的 Issue 在仓库里的地址
+	ExternalUrl *string `json:"externalUrl,omitempty"`
+	Id          int64   `json:"id"`
 
 	// Key 例如 XC-12
 	Key    string  `json:"key"`
@@ -602,8 +689,11 @@ type UpdateChecklistItem struct {
 // UpdateIssue defines model for UpdateIssue.
 type UpdateIssue struct {
 	// CategoryId B36。null 表示未分类
-	CategoryId  *int64  `json:"categoryId,omitempty"`
-	Description *string `json:"description,omitempty"`
+	CategoryId *int64 `json:"categoryId,omitempty"`
+
+	// Color B85。卡片颜色（Trello 的封面色），空表示不设。前端按名字取主题里的颜色
+	Color       *CardColor `json:"color,omitempty"`
+	Description *string    `json:"description,omitempty"`
 
 	// DueAt B36。null 表示清除
 	DueAt *time.Time `json:"dueAt,omitempty"`
@@ -741,6 +831,9 @@ type CopyBoardJSONRequestBody CopyBoardJSONBody
 // CreateBoardListJSONRequestBody defines body for CreateBoardList for application/json ContentType.
 type CreateBoardListJSONRequestBody = CreateBoardList
 
+// BindBoardRepoJSONRequestBody defines body for BindBoardRepo for application/json ContentType.
+type BindBoardRepoJSONRequestBody = BindBoardRepo
+
 // UpdateIssueJSONRequestBody defines body for UpdateIssue for application/json ContentType.
 type UpdateIssueJSONRequestBody = UpdateIssue
 
@@ -824,6 +917,15 @@ type ServerInterface interface {
 
 	// (POST /boards/{boardId}/lists)
 	CreateBoardList(w http.ResponseWriter, r *http.Request, boardId int64)
+
+	// (DELETE /boards/{boardId}/repo)
+	UnbindBoardRepo(w http.ResponseWriter, r *http.Request, boardId int64)
+
+	// (PUT /boards/{boardId}/repo)
+	BindBoardRepo(w http.ResponseWriter, r *http.Request, boardId int64)
+
+	// (POST /boards/{boardId}/repo/sync)
+	SyncBoardRepo(w http.ResponseWriter, r *http.Request, boardId int64)
 
 	// (GET /issues)
 	ListIssues(w http.ResponseWriter, r *http.Request, params ListIssuesParams)
@@ -1001,6 +1103,21 @@ func (_ Unimplemented) CopyBoard(w http.ResponseWriter, r *http.Request, boardId
 
 // (POST /boards/{boardId}/lists)
 func (_ Unimplemented) CreateBoardList(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /boards/{boardId}/repo)
+func (_ Unimplemented) UnbindBoardRepo(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /boards/{boardId}/repo)
+func (_ Unimplemented) BindBoardRepo(w http.ResponseWriter, r *http.Request, boardId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /boards/{boardId}/repo/sync)
+func (_ Unimplemented) SyncBoardRepo(w http.ResponseWriter, r *http.Request, boardId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1388,6 +1505,84 @@ func (siw *ServerInterfaceWrapper) CreateBoardList(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateBoardList(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnbindBoardRepo operation middleware
+func (siw *ServerInterfaceWrapper) UnbindBoardRepo(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnbindBoardRepo(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BindBoardRepo operation middleware
+func (siw *ServerInterfaceWrapper) BindBoardRepo(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BindBoardRepo(w, r, boardId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SyncBoardRepo operation middleware
+func (siw *ServerInterfaceWrapper) SyncBoardRepo(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "boardId" -------------
+	var boardId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "boardId", chi.URLParam(r, "boardId"), &boardId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "boardId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SyncBoardRepo(w, r, boardId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3131,6 +3326,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/boards/{boardId}/copy", wrapper.CopyBoard)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/boards/{boardId}/repo", wrapper.UnbindBoardRepo)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/boards/{boardId}/repo", wrapper.BindBoardRepo)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/boards/{boardId}/repo/sync", wrapper.SyncBoardRepo)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/boards/{boardId}/lists", wrapper.CreateBoardList)

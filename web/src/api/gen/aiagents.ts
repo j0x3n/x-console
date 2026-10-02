@@ -61,6 +61,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai-agents/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B86。Agent 的执行记录，新的在前。两种类型都有：CLI 类型的一条记录对应一个编码任务（带 taskId，日志用编码任务的输出），
+         *     内置类型的日志用 /ai-agents/runs/{runId}/events。
+         */
+        get: operations["listAiAgentRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai-agents/runs/{runId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: number;
+            };
+            cookie?: never;
+        };
+        /** @description B86。一次执行的日志，按 seq 从小到大。after 传上次的最大 seq 只取新的。执行中有新日志时发 ai_agent.run_event 事件 */
+        get: operations["listAiAgentRunEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai-agents/runs/{runId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B86。中断一次执行。CLI 类型等于取消对应的编码任务 */
+        post: operations["cancelAiAgentRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai-agents/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B87。等你决定的事：Agent 的权限请求（要执行需要确认的操作）和问题（Agent 问你怎么做）。
+         *     只返回还没处理的，旧的在前。也包括 AI 助手会话里等确认的动作（kind=permission，带 conversationId）
+         */
+        get: operations["listAiAgentDecisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai-agents/decisions/{decisionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decisionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B87。处理一条：权限请求传 approve；问题传 answer（选了某个选项就传选项原文）。处理后发 ai_agent.decision 事件 */
+        post: operations["answerAiAgentDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai-agents/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B87。Agent 的通知开关。每类单独开关，发到哪里照“设置 → 通知”的规则 */
+        get: operations["getAiAgentNotify"];
+        put: operations["putAiAgentNotify"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/git-connections": {
         parameters: {
             query?: never;
@@ -223,6 +337,96 @@ export interface components {
             buildRetries?: number;
             enabled?: boolean;
         };
+        /**
+         * @description B86。waiting 是在等你决定（权限请求或问题）
+         * @enum {string}
+         */
+        AiAgentRunStatus: "queued" | "running" | "waiting" | "pr_opened" | "done" | "failed" | "canceled";
+        AiAgentRun: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            agentId: number;
+            agentName: string;
+            kind: components["schemas"]["AiAgentKind"];
+            /** @description 卡片编号，可能为空 */
+            issueKey: string;
+            issueTitle: string;
+            /**
+             * Format: int64
+             * @description CLI 类型对应的编码任务
+             */
+            taskId?: number;
+            status: components["schemas"]["AiAgentRunStatus"];
+            /** @description 做完后的说明，或失败原因 */
+            summary?: string;
+            prUrl?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        AiAgentRunEvent: {
+            /** Format: int64 */
+            seq: number;
+            /** Format: date-time */
+            at: string;
+            /**
+             * @description status 状态变化；tool 调了一个工具（text 是工具名和参数摘要）；text Agent 的输出；decision 等你决定；error 出错
+             * @enum {string}
+             */
+            kind: "status" | "tool" | "text" | "decision" | "error";
+            text: string;
+            /** @description kind=tool 时的工具名 */
+            tool?: string;
+            /** @description kind=tool 时工具是否成功 */
+            ok?: boolean;
+        };
+        AiAgentDecision: {
+            /** @description 例如 run:12:3、action:45 */
+            id: string;
+            /** @enum {string} */
+            kind: "permission" | "question";
+            /**
+             * Format: int64
+             * @description AI 助手会话里的动作没有
+             */
+            agentId?: number;
+            agentName?: string;
+            /** Format: int64 */
+            runId?: number;
+            issueKey?: string;
+            /**
+             * Format: int64
+             * @description AI 助手会话里的动作才有
+             */
+            conversationId?: number;
+            /** @description 一句话，比如“要删除卡片 XC-12”“用哪个数据库？” */
+            title: string;
+            /** @description Markdown，命令、参数或问题的背景 */
+            detail?: string;
+            /** @description kind=question 时可以直接点的选项，可以为空（只能自己写） */
+            options?: string[];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description B87。每类 Agent 通知的开关，默认 received、started 关，其他开 */
+        AiAgentNotify: {
+            /** @description 收到任务（分配了卡片，排上队） */
+            received: boolean;
+            /** @description 开始任务 */
+            started: boolean;
+            /** @description 需要你决定（权限请求、问题、编码任务做完等你审查） */
+            decision: boolean;
+            /** @description 已提 PR */
+            prOpened: boolean;
+            /** @description 完成任务 */
+            done: boolean;
+            /** @description 失败或中断 */
+            failed: boolean;
+        };
         /** @enum {string} */
         GitConnectionKind: "github" | "forgejo";
         GitConnection: {
@@ -278,7 +482,9 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        Limit: number;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -417,7 +623,8 @@ export interface operations {
                     issueKey: string;
                     /**
                      * Format: int64
-                     * @description CLI 类型必填，要在 Agent 允许的仓库里
+                     * @description CLI 类型要在 Agent 允许的仓库里。B86：不传时用卡片所在看板绑定的仓库，
+                     *     这台机器上还没有这个仓库就先 clone；看板也没绑定时回 409，code 是 board_repo_missing
                      */
                     repoId?: number;
                     /** @description 不传用仓库默认分支 */
@@ -426,6 +633,8 @@ export interface operations {
                     runnerAgentId?: string;
                     /** @description 这次额外的要求 */
                     note?: string;
+                    /** @description B86。CLI 类型做完（开了自动构建时要构建通过）后自动提交、推送并提 PR，PR 地址写回卡片。不传按 true */
+                    openPr?: boolean;
                 };
             };
         };
@@ -443,6 +652,172 @@ export interface operations {
                          */
                         taskId?: number;
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiAgentRuns: {
+        parameters: {
+            query?: {
+                agentId?: number;
+                issueKey?: string;
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 执行记录 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAgentRun"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiAgentRunEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                runId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 日志 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAgentRunEvent"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cancelAiAgentRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已中断 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listAiAgentDecisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 等你决定的事 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAgentDecision"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    answerAiAgentDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                decisionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    approve?: boolean;
+                    answer?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 已处理 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAiAgentNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 开关 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAgentNotify"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putAiAgentNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiAgentNotify"];
+            };
+        };
+        responses: {
+            /** @description 保存后的开关 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiAgentNotify"];
                 };
             };
             default: components["responses"]["Error"];

@@ -95,6 +95,24 @@ func (e WarningLevel) Valid() bool {
 	}
 }
 
+// Defines values for WeatherSource.
+const (
+	OpenMeteo WeatherSource = "open-meteo"
+	Qweather  WeatherSource = "qweather"
+)
+
+// Valid indicates whether the value is a known member of the WeatherSource enum.
+func (e WeatherSource) Valid() bool {
+	switch e {
+	case OpenMeteo:
+		return true
+	case Qweather:
+		return true
+	default:
+		return false
+	}
+}
+
 // AirQuality defines model for AirQuality.
 type AirQuality struct {
 	Aqi int `json:"aqi"`
@@ -301,13 +319,25 @@ type WarningLevel string
 type Weather struct {
 	FetchedAt time.Time `json:"fetchedAt"`
 	High      float64   `json:"high"`
-	Latitude  float64   `json:"latitude"`
-	Location  *string   `json:"location,omitempty"`
-	Longitude float64   `json:"longitude"`
-	Low       float64   `json:"low"`
+
+	// Humidity B90。当前相对湿度，百分比
+	Humidity *int `json:"humidity,omitempty"`
+
+	// Icon B90。source=qweather 时和风天气的图标代码，例如 305 小雨。前端按它选图标，没有时按 weatherCode
+	Icon *string `json:"icon,omitempty"`
+
+	// IsDay B90。早报位置现在是白天。晴、少云的图标白天用太阳，晚上用月亮
+	IsDay     *bool   `json:"isDay,omitempty"`
+	Latitude  float64 `json:"latitude"`
+	Location  *string `json:"location,omitempty"`
+	Longitude float64 `json:"longitude"`
+	Low       float64 `json:"low"`
 
 	// PrecipitationChance 今天的最大降水概率，百分比
 	PrecipitationChance int `json:"precipitationChance"`
+
+	// Source B90。配了和风天气时用和风天气的实况和预报（按和风的城市 ID 查，和官方 App 一致），没配时用 Open-Meteo
+	Source *WeatherSource `json:"source,omitempty"`
 
 	// Summary 天气的中文说明，例如 多云
 	Summary string `json:"summary"`
@@ -318,6 +348,9 @@ type Weather struct {
 	// WeatherCode WMO 天气代码
 	WeatherCode int `json:"weatherCode"`
 }
+
+// WeatherSource B90。配了和风天气时用和风天气的实况和预报（按和风的城市 ID 查，和官方 App 一致），没配时用 Open-Meteo
+type WeatherSource string
 
 // WeatherExtra defines model for WeatherExtra.
 type WeatherExtra struct {

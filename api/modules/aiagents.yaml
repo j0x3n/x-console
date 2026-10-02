@@ -93,10 +93,19 @@ paths:
               required: [issueKey]
               properties:
                 issueKey: { type: string }
-                repoId: { type: integer, format: int64, description: CLI 类型必填，要在 Agent 允许的仓库里 }
+                repoId:
+                  type: integer
+                  format: int64
+                  description: |
+                    CLI 类型要在 Agent 允许的仓库里。B86：不传时用卡片所在看板绑定的仓库，
+                    这台机器上还没有这个仓库就先 clone；看板也没绑定时回 409，code 是 board_repo_missing
+
                 baseBranch: { type: string, description: 不传用仓库默认分支 }
                 runnerAgentId: { type: string, description: 不传用 Agent 的默认机器 }
                 note: { type: string, maxLength: 4000, description: 这次额外的要求 }
+                openPr:
+                  type: boolean
+                  description: B86。CLI 类型做完（开了自动构建时要构建通过）后自动提交、推送并提 PR，PR 地址写回卡片。不传按 true
       responses:
         "202":
           description: 已开始
@@ -106,6 +115,125 @@ paths:
                 type: object
                 properties:
                   taskId: { type: integer, format: int64, description: 编码任务 id，内置类型没有 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/runs:
+    get:
+      operationId: listAiAgentRuns
+      tags: [aiagents]
+      description: |
+        B86。Agent 的执行记录，新的在前。两种类型都有：CLI 类型的一条记录对应一个编码任务（带 taskId，日志用编码任务的输出），
+        内置类型的日志用 /ai-agents/runs/{runId}/events。
+      parameters:
+        - { name: agentId, in: query, schema: { type: integer, format: int64 } }
+        - { name: issueKey, in: query, schema: { type: string } }
+        - $ref: "../common.yaml#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 执行记录
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiAgentRun" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/runs/{runId}/events:
+    parameters:
+      - { name: runId, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      operationId: listAiAgentRunEvents
+      tags: [aiagents]
+      description: B86。一次执行的日志，按 seq 从小到大。after 传上次的最大 seq 只取新的。执行中有新日志时发 ai_agent.run_event 事件
+      parameters:
+        - { name: after, in: query, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: 日志
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiAgentRunEvent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/runs/{runId}/cancel:
+    parameters:
+      - { name: runId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: cancelAiAgentRun
+      tags: [aiagents]
+      description: B86。中断一次执行。CLI 类型等于取消对应的编码任务
+      responses:
+        "204":
+          description: 已中断
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/decisions:
+    get:
+      operationId: listAiAgentDecisions
+      tags: [aiagents]
+      description: |
+        B87。等你决定的事：Agent 的权限请求（要执行需要确认的操作）和问题（Agent 问你怎么做）。
+        只返回还没处理的，旧的在前。也包括 AI 助手会话里等确认的动作（kind=permission，带 conversationId）
+      responses:
+        "200":
+          description: 等你决定的事
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiAgentDecision" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/decisions/{decisionId}:
+    parameters:
+      - { name: decisionId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: answerAiAgentDecision
+      tags: [aiagents]
+      description: B87。处理一条：权限请求传 approve；问题传 answer（选了某个选项就传选项原文）。处理后发 ai_agent.decision 事件
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approve: { type: boolean }
+                answer: { type: string, maxLength: 4000 }
+      responses:
+        "204":
+          description: 已处理
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai-agents/notify:
+    get:
+      operationId: getAiAgentNotify
+      tags: [aiagents]
+      description: B87。Agent 的通知开关。每类单独开关，发到哪里照“设置 → 通知”的规则
+      responses:
+        "200":
+          description: 开关
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAgentNotify" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putAiAgentNotify
+      tags: [aiagents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiAgentNotify" }
+      responses:
+        "200":
+          description: 保存后的开关
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAgentNotify" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /git-connections:
@@ -317,6 +445,71 @@ components:
         autoBuild: { type: boolean }
         buildRetries: { type: integer, minimum: 0, maximum: 5 }
         enabled: { type: boolean }
+    AiAgentRunStatus:
+      type: string
+      description: B86。waiting 是在等你决定（权限请求或问题）
+      enum: [queued, running, waiting, pr_opened, done, failed, canceled]
+    AiAgentRun:
+      type: object
+      required: [id, agentId, agentName, kind, issueKey, issueTitle, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        agentId: { type: integer, format: int64 }
+        agentName: { type: string }
+        kind: { $ref: "#/components/schemas/AiAgentKind" }
+        issueKey: { type: string, description: 卡片编号，可能为空 }
+        issueTitle: { type: string }
+        taskId: { type: integer, format: int64, description: CLI 类型对应的编码任务 }
+        status: { $ref: "#/components/schemas/AiAgentRunStatus" }
+        summary: { type: string, description: 做完后的说明，或失败原因 }
+        prUrl: { type: string }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+    AiAgentRunEvent:
+      type: object
+      required: [seq, at, kind, text]
+      properties:
+        seq: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        kind:
+          type: string
+          description: status 状态变化；tool 调了一个工具（text 是工具名和参数摘要）；text Agent 的输出；decision 等你决定；error 出错
+          enum: [status, tool, text, decision, error]
+        text: { type: string }
+        tool: { type: string, description: kind=tool 时的工具名 }
+        ok: { type: boolean, description: kind=tool 时工具是否成功 }
+    AiAgentDecision:
+      type: object
+      required: [id, kind, title, createdAt]
+      properties:
+        id: { type: string, description: 例如 run:12:3、action:45 }
+        kind:
+          type: string
+          enum: [permission, question]
+        agentId: { type: integer, format: int64, description: AI 助手会话里的动作没有 }
+        agentName: { type: string }
+        runId: { type: integer, format: int64 }
+        issueKey: { type: string }
+        conversationId: { type: integer, format: int64, description: AI 助手会话里的动作才有 }
+        title: { type: string, description: 一句话，比如“要删除卡片 XC-12”“用哪个数据库？” }
+        detail: { type: string, description: Markdown，命令、参数或问题的背景 }
+        options:
+          type: array
+          description: kind=question 时可以直接点的选项，可以为空（只能自己写）
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+    AiAgentNotify:
+      type: object
+      required: [received, started, decision, prOpened, done, failed]
+      description: B87。每类 Agent 通知的开关，默认 received、started 关，其他开
+      properties:
+        received: { type: boolean, description: 收到任务（分配了卡片，排上队） }
+        started: { type: boolean, description: 开始任务 }
+        decision: { type: boolean, description: 需要你决定（权限请求、问题、编码任务做完等你审查） }
+        prOpened: { type: boolean, description: 已提 PR }
+        done: { type: boolean, description: 完成任务 }
+        failed: { type: boolean, description: 失败或中断 }
     GitConnectionKind:
       type: string
       enum: [github, forgejo]

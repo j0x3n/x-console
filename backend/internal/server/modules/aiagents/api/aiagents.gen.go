@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	externalRef0 "github.com/j0x3n/x-console/backend/internal/server/apigen/common"
 	"github.com/oapi-codegen/runtime"
 )
 
@@ -34,6 +35,24 @@ func (e AiAgentAccess) Valid() bool {
 	}
 }
 
+// Defines values for AiAgentDecisionKind.
+const (
+	Permission AiAgentDecisionKind = "permission"
+	Question   AiAgentDecisionKind = "question"
+)
+
+// Valid indicates whether the value is a known member of the AiAgentDecisionKind enum.
+func (e AiAgentDecisionKind) Valid() bool {
+	switch e {
+	case Permission:
+		return true
+	case Question:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AiAgentKind.
 const (
 	Builtin    AiAgentKind = "builtin"
@@ -49,6 +68,66 @@ func (e AiAgentKind) Valid() bool {
 	case ClaudeCode:
 		return true
 	case Codex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiAgentRunEventKind.
+const (
+	Decision AiAgentRunEventKind = "decision"
+	Error    AiAgentRunEventKind = "error"
+	Status   AiAgentRunEventKind = "status"
+	Text     AiAgentRunEventKind = "text"
+	Tool     AiAgentRunEventKind = "tool"
+)
+
+// Valid indicates whether the value is a known member of the AiAgentRunEventKind enum.
+func (e AiAgentRunEventKind) Valid() bool {
+	switch e {
+	case Decision:
+		return true
+	case Error:
+		return true
+	case Status:
+		return true
+	case Text:
+		return true
+	case Tool:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiAgentRunStatus.
+const (
+	Canceled AiAgentRunStatus = "canceled"
+	Done     AiAgentRunStatus = "done"
+	Failed   AiAgentRunStatus = "failed"
+	PrOpened AiAgentRunStatus = "pr_opened"
+	Queued   AiAgentRunStatus = "queued"
+	Running  AiAgentRunStatus = "running"
+	Waiting  AiAgentRunStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the AiAgentRunStatus enum.
+func (e AiAgentRunStatus) Valid() bool {
+	switch e {
+	case Canceled:
+		return true
+	case Done:
+		return true
+	case Failed:
+		return true
+	case PrOpened:
+		return true
+	case Queued:
+		return true
+	case Running:
+		return true
+	case Waiting:
 		return true
 	default:
 		return false
@@ -131,6 +210,35 @@ type AiAgent struct {
 // AiAgentAccess defines model for AiAgentAccess.
 type AiAgentAccess string
 
+// AiAgentDecision defines model for AiAgentDecision.
+type AiAgentDecision struct {
+	// AgentId AI 助手会话里的动作没有
+	AgentId   *int64  `json:"agentId,omitempty"`
+	AgentName *string `json:"agentName,omitempty"`
+
+	// ConversationId AI 助手会话里的动作才有
+	ConversationId *int64    `json:"conversationId,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+
+	// Detail Markdown，命令、参数或问题的背景
+	Detail *string `json:"detail,omitempty"`
+
+	// Id 例如 run:12:3、action:45
+	Id       string              `json:"id"`
+	IssueKey *string             `json:"issueKey,omitempty"`
+	Kind     AiAgentDecisionKind `json:"kind"`
+
+	// Options kind=question 时可以直接点的选项，可以为空（只能自己写）
+	Options *[]string `json:"options,omitempty"`
+	RunId   *int64    `json:"runId,omitempty"`
+
+	// Title 一句话，比如“要删除卡片 XC-12”“用哪个数据库？”
+	Title string `json:"title"`
+}
+
+// AiAgentDecisionKind defines model for AiAgentDecision.Kind.
+type AiAgentDecisionKind string
+
 // AiAgentInput defines model for AiAgentInput.
 type AiAgentInput struct {
 	Access        *AiAgentAccess `json:"access,omitempty"`
@@ -155,6 +263,74 @@ type AiAgentInput struct {
 
 // AiAgentKind defines model for AiAgentKind.
 type AiAgentKind string
+
+// AiAgentNotify B87。每类 Agent 通知的开关，默认 received、started 关，其他开
+type AiAgentNotify struct {
+	// Decision 需要你决定（权限请求、问题、编码任务做完等你审查）
+	Decision bool `json:"decision"`
+
+	// Done 完成任务
+	Done bool `json:"done"`
+
+	// Failed 失败或中断
+	Failed bool `json:"failed"`
+
+	// PrOpened 已提 PR
+	PrOpened bool `json:"prOpened"`
+
+	// Received 收到任务（分配了卡片，排上队）
+	Received bool `json:"received"`
+
+	// Started 开始任务
+	Started bool `json:"started"`
+}
+
+// AiAgentRun defines model for AiAgentRun.
+type AiAgentRun struct {
+	AgentId    int64      `json:"agentId"`
+	AgentName  string     `json:"agentName"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+	Id         int64      `json:"id"`
+
+	// IssueKey 卡片编号，可能为空
+	IssueKey   string      `json:"issueKey"`
+	IssueTitle string      `json:"issueTitle"`
+	Kind       AiAgentKind `json:"kind"`
+	PrUrl      *string     `json:"prUrl,omitempty"`
+	StartedAt  *time.Time  `json:"startedAt,omitempty"`
+
+	// Status B86。waiting 是在等你决定（权限请求或问题）
+	Status AiAgentRunStatus `json:"status"`
+
+	// Summary 做完后的说明，或失败原因
+	Summary *string `json:"summary,omitempty"`
+
+	// TaskId CLI 类型对应的编码任务
+	TaskId *int64 `json:"taskId,omitempty"`
+}
+
+// AiAgentRunEvent defines model for AiAgentRunEvent.
+type AiAgentRunEvent struct {
+	At time.Time `json:"at"`
+
+	// Kind status 状态变化；tool 调了一个工具（text 是工具名和参数摘要）；text Agent 的输出；decision 等你决定；error 出错
+	Kind AiAgentRunEventKind `json:"kind"`
+
+	// Ok kind=tool 时工具是否成功
+	Ok   *bool  `json:"ok,omitempty"`
+	Seq  int64  `json:"seq"`
+	Text string `json:"text"`
+
+	// Tool kind=tool 时的工具名
+	Tool *string `json:"tool,omitempty"`
+}
+
+// AiAgentRunEventKind status 状态变化；tool 调了一个工具（text 是工具名和参数摘要）；text Agent 的输出；decision 等你决定；error 出错
+type AiAgentRunEventKind string
+
+// AiAgentRunStatus B86。waiting 是在等你决定（权限请求或问题）
+type AiAgentRunStatus string
 
 // CliPermission defines model for CliPermission.
 type CliPermission string
@@ -192,6 +368,24 @@ type RemoteRepo struct {
 	Private       bool    `json:"private"`
 }
 
+// AnswerAiAgentDecisionJSONBody defines parameters for AnswerAiAgentDecision.
+type AnswerAiAgentDecisionJSONBody struct {
+	Answer  *string `json:"answer,omitempty"`
+	Approve *bool   `json:"approve,omitempty"`
+}
+
+// ListAiAgentRunsParams defines parameters for ListAiAgentRuns.
+type ListAiAgentRunsParams struct {
+	AgentId  *int64              `form:"agentId,omitempty" json:"agentId,omitempty"`
+	IssueKey *string             `form:"issueKey,omitempty" json:"issueKey,omitempty"`
+	Limit    *externalRef0.Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListAiAgentRunEventsParams defines parameters for ListAiAgentRunEvents.
+type ListAiAgentRunEventsParams struct {
+	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+}
+
 // AssignAiAgentJSONBody defines parameters for AssignAiAgent.
 type AssignAiAgentJSONBody struct {
 	// BaseBranch 不传用仓库默认分支
@@ -201,7 +395,11 @@ type AssignAiAgentJSONBody struct {
 	// Note 这次额外的要求
 	Note *string `json:"note,omitempty"`
 
-	// RepoId CLI 类型必填，要在 Agent 允许的仓库里
+	// OpenPr B86。CLI 类型做完（开了自动构建时要构建通过）后自动提交、推送并提 PR，PR 地址写回卡片。不传按 true
+	OpenPr *bool `json:"openPr,omitempty"`
+
+	// RepoId CLI 类型要在 Agent 允许的仓库里。B86：不传时用卡片所在看板绑定的仓库，
+	// 这台机器上还没有这个仓库就先 clone；看板也没绑定时回 409，code 是 board_repo_missing
 	RepoId *int64 `json:"repoId,omitempty"`
 
 	// RunnerAgentId 不传用 Agent 的默认机器
@@ -238,6 +436,12 @@ type ListRemoteReposParams struct {
 // CreateAiAgentJSONRequestBody defines body for CreateAiAgent for application/json ContentType.
 type CreateAiAgentJSONRequestBody = AiAgentInput
 
+// AnswerAiAgentDecisionJSONRequestBody defines body for AnswerAiAgentDecision for application/json ContentType.
+type AnswerAiAgentDecisionJSONRequestBody AnswerAiAgentDecisionJSONBody
+
+// PutAiAgentNotifyJSONRequestBody defines body for PutAiAgentNotify for application/json ContentType.
+type PutAiAgentNotifyJSONRequestBody = AiAgentNotify
+
 // UpdateAiAgentJSONRequestBody defines body for UpdateAiAgent for application/json ContentType.
 type UpdateAiAgentJSONRequestBody = AiAgentInput
 
@@ -258,6 +462,27 @@ type ServerInterface interface {
 
 	// (POST /ai-agents)
 	CreateAiAgent(w http.ResponseWriter, r *http.Request)
+
+	// (GET /ai-agents/decisions)
+	ListAiAgentDecisions(w http.ResponseWriter, r *http.Request)
+
+	// (POST /ai-agents/decisions/{decisionId})
+	AnswerAiAgentDecision(w http.ResponseWriter, r *http.Request, decisionId string)
+
+	// (GET /ai-agents/notify)
+	GetAiAgentNotify(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /ai-agents/notify)
+	PutAiAgentNotify(w http.ResponseWriter, r *http.Request)
+
+	// (GET /ai-agents/runs)
+	ListAiAgentRuns(w http.ResponseWriter, r *http.Request, params ListAiAgentRunsParams)
+
+	// (POST /ai-agents/runs/{runId}/cancel)
+	CancelAiAgentRun(w http.ResponseWriter, r *http.Request, runId int64)
+
+	// (GET /ai-agents/runs/{runId}/events)
+	ListAiAgentRunEvents(w http.ResponseWriter, r *http.Request, runId int64, params ListAiAgentRunEventsParams)
 
 	// (DELETE /ai-agents/{agentId})
 	DeleteAiAgent(w http.ResponseWriter, r *http.Request, agentId int64)
@@ -304,6 +529,41 @@ func (_ Unimplemented) ListAiAgents(w http.ResponseWriter, r *http.Request) {
 
 // (POST /ai-agents)
 func (_ Unimplemented) CreateAiAgent(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai-agents/decisions)
+func (_ Unimplemented) ListAiAgentDecisions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai-agents/decisions/{decisionId})
+func (_ Unimplemented) AnswerAiAgentDecision(w http.ResponseWriter, r *http.Request, decisionId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai-agents/notify)
+func (_ Unimplemented) GetAiAgentNotify(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /ai-agents/notify)
+func (_ Unimplemented) PutAiAgentNotify(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai-agents/runs)
+func (_ Unimplemented) ListAiAgentRuns(w http.ResponseWriter, r *http.Request, params ListAiAgentRunsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai-agents/runs/{runId}/cancel)
+func (_ Unimplemented) CancelAiAgentRun(w http.ResponseWriter, r *http.Request, runId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai-agents/runs/{runId}/events)
+func (_ Unimplemented) ListAiAgentRunEvents(w http.ResponseWriter, r *http.Request, runId int64, params ListAiAgentRunEventsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -390,6 +650,201 @@ func (siw *ServerInterfaceWrapper) CreateAiAgent(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateAiAgent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAiAgentDecisions operation middleware
+func (siw *ServerInterfaceWrapper) ListAiAgentDecisions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiAgentDecisions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AnswerAiAgentDecision operation middleware
+func (siw *ServerInterfaceWrapper) AnswerAiAgentDecision(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "decisionId" -------------
+	var decisionId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "decisionId", chi.URLParam(r, "decisionId"), &decisionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "decisionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnswerAiAgentDecision(w, r, decisionId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAiAgentNotify operation middleware
+func (siw *ServerInterfaceWrapper) GetAiAgentNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAiAgentNotify(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAiAgentNotify operation middleware
+func (siw *ServerInterfaceWrapper) PutAiAgentNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAiAgentNotify(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAiAgentRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListAiAgentRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAiAgentRunsParams
+
+	// ------------- Optional query parameter "agentId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "agentId", r.URL.Query(), &params.AgentId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "agentId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "agentId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "issueKey" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "issueKey", r.URL.Query(), &params.IssueKey, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "issueKey"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "issueKey", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiAgentRuns(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelAiAgentRun operation middleware
+func (siw *ServerInterfaceWrapper) CancelAiAgentRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", chi.URLParam(r, "runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelAiAgentRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAiAgentRunEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListAiAgentRunEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", chi.URLParam(r, "runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAiAgentRunEventsParams
+
+	// ------------- Optional query parameter "after" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "after", r.URL.Query(), &params.After, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "after"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiAgentRunEvents(w, r, runId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -807,6 +1262,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/ai-agents/{agentId}/assign", wrapper.AssignAiAgent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai-agents/runs", wrapper.ListAiAgentRuns)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai-agents/runs/{runId}/events", wrapper.ListAiAgentRunEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai-agents/runs/{runId}/cancel", wrapper.CancelAiAgentRun)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai-agents/decisions", wrapper.ListAiAgentDecisions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai-agents/decisions/{decisionId}", wrapper.AnswerAiAgentDecision)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai-agents/notify", wrapper.GetAiAgentNotify)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/ai-agents/notify", wrapper.PutAiAgentNotify)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/git-connections", wrapper.ListGitConnections)

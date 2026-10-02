@@ -535,6 +535,52 @@ paths:
               schema: { $ref: "#/components/schemas/Board" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /boards/{boardId}/repo:
+    parameters:
+      - { name: boardId, in: path, required: true, schema: { type: integer, format: int64 } }
+    put:
+      operationId: bindBoardRepo
+      tags: [boards]
+      description: |
+        B84。绑定仓库或改同步开关。绑定后马上同步一次 Issue（syncIssues 为 true 时），之后收到仓库回调或每 10 分钟同步。
+        一个仓库只能绑一个看板，已经绑了别的看板时回 409
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BindBoardRepo" }
+      responses:
+        "200":
+          description: 绑定后的看板
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Board" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: unbindBoardRepo
+      tags: [boards]
+      description: B84。解除绑定。同步来的卡片留在看板里，变成普通卡片，不再同步
+      responses:
+        "204":
+          description: 已解除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /boards/{boardId}/repo/sync:
+    parameters:
+      - { name: boardId, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      operationId: syncBoardRepo
+      tags: [boards]
+      description: B84。马上同步一次。同步完发 board.changed 事件
+      responses:
+        "200":
+          description: 同步后的看板
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Board" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /boards/{boardId}/lists:
     parameters:
       - { name: boardId, in: path, required: true, schema: { type: integer, format: int64 } }
@@ -1104,6 +1150,12 @@ components:
           description: B46。成员：me 是自己，agent 是 B47 的 Agent
           items: { $ref: "#/components/schemas/IssueMember" }
         commentCount: { type: integer, description: B46。评论数 }
+        color: { $ref: "#/components/schemas/CardColor" }
+        externalUrl: { type: string, description: B84。从仓库同步来的 Issue 在仓库里的地址 }
+    CardColor:
+      type: string
+      description: B85。卡片颜色（Trello 的封面色），空表示不设。前端按名字取主题里的颜色
+      enum: ["", green, yellow, orange, red, purple, blue, sky, lime, pink, gray]
     IssueMember:
       type: object
       required: [kind, id]
@@ -1144,6 +1196,7 @@ components:
           type: array
           description: 传了就整体替换
           items: { type: integer, format: int64 }
+        color: { $ref: "#/components/schemas/CardColor" }
     DueRemind:
       type: string
       description: B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
@@ -1234,6 +1287,27 @@ components:
         lists:
           type: array
           items: { $ref: "#/components/schemas/BoardList" }
+        repo: { $ref: "#/components/schemas/BoardRepo" }
+    BoardRepo:
+      type: object
+      description: B84。看板绑定的 Git 仓库，没绑定时不返回
+      required: [connectionId, connectionName, fullName, syncIssues, htmlUrl]
+      properties:
+        connectionId: { type: integer, format: int64, description: 设置 → Git 与 GitHub 里的账号 }
+        connectionName: { type: string }
+        fullName: { type: string, description: owner/name }
+        htmlUrl: { type: string }
+        syncIssues: { type: boolean, description: 同步仓库的 Issue 到这个看板 }
+        lastSyncedAt: { type: string, format: date-time }
+        lastError: { type: string, description: 上次同步失败的原因，成功时为空 }
+        syncedCount: { type: integer, description: 看板里从仓库同步来的卡片数 }
+    BindBoardRepo:
+      type: object
+      required: [connectionId, fullName]
+      properties:
+        connectionId: { type: integer, format: int64 }
+        fullName: { type: string, minLength: 3 }
+        syncIssues: { type: boolean, description: 不传按 true }
     BoardList:
       type: object
       required: [id, boardId, name, position, color, wipLimit, collapsed, cardCount]

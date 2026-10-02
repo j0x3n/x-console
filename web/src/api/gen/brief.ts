@@ -433,6 +433,17 @@ export interface components {
             low: number;
             /** @description 今天的最大降水概率，百分比 */
             precipitationChance: number;
+            /** @description B90。当前相对湿度，百分比 */
+            humidity?: number;
+            /** @description B90。早报位置现在是白天。晴、少云的图标白天用太阳，晚上用月亮 */
+            isDay?: boolean;
+            /**
+             * @description B90。配了和风天气时用和风天气的实况和预报（按和风的城市 ID 查，和官方 App 一致），没配时用 Open-Meteo
+             * @enum {string}
+             */
+            source?: "open-meteo" | "qweather";
+            /** @description B90。source=qweather 时和风天气的图标代码，例如 305 小雨。前端按它选图标，没有时按 weatherCode */
+            icon?: string;
             /** Format: date-time */
             fetchedAt: string;
         };

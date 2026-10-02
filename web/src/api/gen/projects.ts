@@ -308,6 +308,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/boards/{boardId}/repo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description B84。绑定仓库或改同步开关。绑定后马上同步一次 Issue（syncIssues 为 true 时），之后收到仓库回调或每 10 分钟同步。
+         *     一个仓库只能绑一个看板，已经绑了别的看板时回 409
+         */
+        put: operations["bindBoardRepo"];
+        post?: never;
+        /** @description B84。解除绑定。同步来的卡片留在看板里，变成普通卡片，不再同步 */
+        delete: operations["unbindBoardRepo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/boards/{boardId}/repo/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B84。马上同步一次。同步完发 board.changed 事件 */
+        post: operations["syncBoardRepo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/boards/{boardId}/lists": {
         parameters: {
             query?: never;
@@ -848,7 +890,15 @@ export interface components {
             members?: components["schemas"]["IssueMember"][];
             /** @description B46。评论数 */
             commentCount?: number;
+            color?: components["schemas"]["CardColor"];
+            /** @description B84。从仓库同步来的 Issue 在仓库里的地址 */
+            externalUrl?: string;
         };
+        /**
+         * @description B85。卡片颜色（Trello 的封面色），空表示不设。前端按名字取主题里的颜色
+         * @enum {string}
+         */
+        CardColor: "" | "green" | "yellow" | "orange" | "red" | "purple" | "blue" | "sky" | "lime" | "pink" | "gray";
         IssueMember: {
             /** @enum {string} */
             kind: "me" | "agent";
@@ -919,6 +969,7 @@ export interface components {
             milestoneId?: number | null;
             /** @description 传了就整体替换 */
             labelIds?: number[];
+            color?: components["schemas"]["CardColor"];
         };
         /**
          * @description B36。到期提醒：none 不提醒，at_due 到期时（默认），15m、1h、1d 提前多久
@@ -1039,6 +1090,34 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             lists: components["schemas"]["BoardList"][];
+            repo?: components["schemas"]["BoardRepo"];
+        };
+        /** @description B84。看板绑定的 Git 仓库，没绑定时不返回 */
+        BoardRepo: {
+            /**
+             * Format: int64
+             * @description 设置 → Git 与 GitHub 里的账号
+             */
+            connectionId: number;
+            connectionName: string;
+            /** @description owner/name */
+            fullName: string;
+            htmlUrl: string;
+            /** @description 同步仓库的 Issue 到这个看板 */
+            syncIssues: boolean;
+            /** Format: date-time */
+            lastSyncedAt?: string;
+            /** @description 上次同步失败的原因，成功时为空 */
+            lastError?: string;
+            /** @description 看板里从仓库同步来的卡片数 */
+            syncedCount?: number;
+        };
+        BindBoardRepo: {
+            /** Format: int64 */
+            connectionId: number;
+            fullName: string;
+            /** @description 不传按 true */
+            syncIssues?: boolean;
         };
         BoardList: {
             /** Format: int64 */
@@ -1927,6 +2006,77 @@ export interface operations {
         responses: {
             /** @description 新看板 */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    bindBoardRepo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BindBoardRepo"];
+            };
+        };
+        responses: {
+            /** @description 绑定后的看板 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unbindBoardRepo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已解除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    syncBoardRepo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                boardId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 同步后的看板 */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
