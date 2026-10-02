@@ -227,6 +227,13 @@
 - B90：和风官方提示 v7 城市天气接口将弃用。本批按规格使用城市 ID 取得站点实况，后续需迁移 v1。（暂不排期）
 - 邮件的 `TestManyNewMailsAreGrouped` 在本轮全量并发测试时等同步超过 10 秒。降低包并发后全量通过，根因尚未确认。本轮没有修改邮件功能。
 
+第四批后端（B84 到 B91）验收时记的（2026-10-02 Claude）：
+- B84：Git 连接绑定了看板后就删不掉。`board_repos.connection_id` 的外键没有 `ON DELETE`，删除连接时接口回 500（FOREIGN KEY constraint failed）。已用测试复现。要么删连接前先解绑这个连接的看板，要么回 409 提示先去看板解绑。
+- B84：每收到一次 Issue 回调，都把仓库全部 Issue（包括已关闭的）分页拉一遍，再挑出那一条。这些都在回调请求里同步做，还一直占着 `repoMu`。Issue 多的仓库回调可能超过 GitHub 的 10 秒超时。这期间在看板上改同步来的卡片也要等这把锁。应该改成只取那一个 Issue。
+- B86：中断内置 Agent 时，接口和后台协程各调一次 `finishRun`，执行日志里会出现两条“已中断”。卡片上还会多一条“没做完：context canceled”的评论。
+- B86：`coding` 模块直接写 `ai_agent_runs` 表，`aiagents` 模块直接读 `coding_tasks` 和 `coding_task_events` 表，没有走 contracts 接口。`coding/tasks.go` 里写 `task_id` 的那句和 `aiagents/work.go` 里的重复了。
+- B87：从 Telegram 按钮可以批准“删除类”的 Agent 操作（不算高危的那些），这时没有登录会话，也不做二次验证。高危操作从 Telegram 批准会被拒。要用户决定删除类操作是否也只能在网页上批准。
+
 第三批（B70 到 B83）留下的（2026-10-02 Claude 验收和写前端时记的）：
 - 第三批检查时记的词条冲突、服务器测试数据缺字段、端到端找“新建卡片”弹窗三条已在 `a65c803` 修好。`DrivePage.test.tsx` 重复 Ctrl+S 用例超时的问题在本机整套跑时没复现。
 - B75 按规格，预览不算下载次数，所以设了次数上限的分享链接可以一直用 `preview=true` 的地址把文件拿走。要堵住只能让预览也计数，或者限制预览的总流量。
