@@ -62,9 +62,19 @@ interface Props {
   open: boolean;
   onClose: () => void;
   habit?: Habit | null;
+  /** B96：新建时先填好这个模板 */
+  initialTemplate?: HabitTemplate;
+  /** B96：已经建过的模板，不再重复建 */
+  existingTemplates?: HabitTemplate[];
 }
 
-export default function HabitDialog({ open, onClose, habit }: Props) {
+export default function HabitDialog({
+  open,
+  onClose,
+  habit,
+  initialTemplate,
+  existingTemplates = [],
+}: Props) {
   const t = useT();
   const create = useCreateHabit();
   const update = useUpdateHabit();
@@ -112,7 +122,10 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
     setHostIds(h?.activeHostIds ?? []);
     setOnHost(h?.remindOnHost ?? false);
     setTemplate(h?.template);
-  }, [open, habit]);
+    if (!h && initialTemplate) applyTemplate(initialTemplate);
+    // applyTemplate 只在打开时用一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, habit, initialTemplate]);
 
   const applyTemplate = (id: HabitTemplate) => {
     const tpl = HABIT_TEMPLATES.find((x) => x.id === id);
@@ -238,17 +251,23 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
             role="group"
             aria-label={t("Templates")}
           >
-            {HABIT_TEMPLATES.map((tpl) => (
-              <button
-                key={tpl.id}
-                type="button"
-                className={`xc-btn small${template === tpl.id ? " on" : ""}`}
-                aria-pressed={template === tpl.id}
-                onClick={() => applyTemplate(tpl.id)}
-              >
-                <span aria-hidden>{tpl.input.icon}</span> {t(tpl.label)}
-              </button>
-            ))}
+            {HABIT_TEMPLATES.map((tpl) => {
+              const added = existingTemplates.includes(tpl.id);
+              return (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  className={`xc-btn small${template === tpl.id ? " on" : ""}`}
+                  aria-pressed={template === tpl.id}
+                  disabled={added}
+                  title={added ? t("Template already added") : undefined}
+                  onClick={() => applyTemplate(tpl.id)}
+                >
+                  <span aria-hidden>{tpl.input.icon}</span> {t(tpl.label)}
+                  {added && ` · ${t("Template added")}`}
+                </button>
+              );
+            })}
           </div>
         )}
         <div className="habits-kind">
