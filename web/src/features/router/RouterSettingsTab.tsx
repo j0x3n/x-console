@@ -189,6 +189,7 @@ function ConfigForm({ initial }: { initial: RouterConfig }) {
 }
 
 // 路由器上的 rpcd 权限：只读状态，外加重启接口和重启路由器。
+// B93：没装 LuCI 时在线设备从 odhcpd、/tmp/dhcp.leases 和 /proc/net/arp 读，要这几项权限。
 const ACL = `cat > /usr/share/rpcd/acl.d/x-console.json <<'EOF'
 {
   "x-console": {
@@ -198,7 +199,13 @@ const ACL = `cat > /usr/share/rpcd/acl.d/x-console.json <<'EOF'
         "system": ["board", "info"],
         "network.interface": ["dump"],
         "network.device": ["status"],
-        "luci-rpc": ["getHostHints", "getDHCPLeases"]
+        "luci-rpc": ["getHostHints", "getDHCPLeases"],
+        "dhcp": ["ipv4leases"],
+        "file": ["read"]
+      },
+      "file": {
+        "/tmp/dhcp.leases": ["read"],
+        "/proc/net/arp": ["read"]
       }
     },
     "write": {

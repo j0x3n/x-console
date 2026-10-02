@@ -243,15 +243,19 @@ func (m *Module) clients(ctx context.Context, u *ubus, fresh bool) ([]api.Router
 		return items, nil
 	}
 	m.mu.Unlock()
-	var leases struct {
-		DHCP []dhcpLease `json:"dhcp_leases"`
+	// B93: without luci-rpc, fall back to odhcpd, the lease file and the ARP
+	// table. Either half is enough to list devices.
+	leases, lerr := m.readLeases(ctx, u)
+	if lerr != nil && unreachable(lerr) {
+		return nil, lerr
 	}
-	if err := u.call(ctx, "luci-rpc", "getDHCPLeases", nil, &leases); err != nil {
-		return nil, err
+	hints, herr := m.readHints(ctx, u)
+	if herr != nil && unreachable(herr) {
+		return nil, herr
 	}
-	var hints map[string]hostHint
-	if err := u.call(ctx, "luci-rpc", "getHostHints", nil, &hints); err != nil {
-		return nil, err
+	if lerr != nil && herr != nil {
+		m.d.Log.Warn("router: no client source", "leases", lerr, "hosts", herr)
+		return nil, errNoClients
 	}
 	byMAC := map[string]*api.RouterClient{}
 	get := func(mac string) *api.RouterClient {
@@ -266,7 +270,7 @@ func (m *Module) clients(ctx context.Context, u *ubus, fresh bool) ([]api.Router
 		}
 		return c
 	}
-	for _, l := range leases.DHCP {
+	for _, l := range leases {
 		c := get(l.MAC)
 		if c == nil {
 			continue

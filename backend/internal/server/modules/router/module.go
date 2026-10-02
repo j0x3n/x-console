@@ -44,9 +44,11 @@ type Module struct {
 	poll   sample // last counters read by the poller, for the traffic table
 	seen   map[string]time.Time
 	cached *clientsCache
-	watch  wanWatch
-	quiet  time.Time // no outage notification before this, set by a reboot
-	pruned time.Time
+	// B93: which source answered last time (see leases.go)
+	leaseSource, hintSource string
+	watch                   wanWatch
+	quiet                   time.Time // no outage notification before this, set by a reboot
+	pruned                  time.Time
 }
 
 var (
@@ -155,6 +157,7 @@ func (m *Module) reset() {
 	m.poll = sample{}
 	m.seen = map[string]time.Time{}
 	m.cached = nil
+	m.leaseSource, m.hintSource = "", ""
 	m.watch = wanWatch{}
 	m.mu.Unlock()
 }
