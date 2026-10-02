@@ -9,7 +9,7 @@
 
 ### 当前（2026-10-02）
 
-- 整批前后端都做完了。PR [j0x3n/x-console#29](https://github.com/j0x3n/x-console/pull/29) 已由用户合并到 `develop`（`26e1fa2`），还没部署上线。
+- 整批前后端都做完了。PR [j0x3n/x-console#29](https://github.com/j0x3n/x-console/pull/29) 已由用户合并到 `develop`（`26e1fa2`）。2026-10-02 用户说“部署”，从 `develop` 带部署标记推送部署。
 - 上线后看一眼各规格“没验证过”的部分（见 `docs/tasks.md` 的“已知问题”）。
 - B45 还在等用户 iPhone 真机测试的结果（见下面“上一批”）。
 
