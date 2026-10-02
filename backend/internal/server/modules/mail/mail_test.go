@@ -290,6 +290,8 @@ func TestSyncIdleFlagsAndBody(t *testing.T) {
 	// 新邮件通过 IDLE 几秒内就到，并且推送
 	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Fresh news", 1), time.Now())
 	eventually(t, "idle delivery", func() bool { return len(list(t, env, "")) == 4 })
+	// 邮件先入库再推送，列表里有了不代表推送已经写好。
+	eventually(t, "idle notification", func() bool { return len(mailNotes(t, env)) > 0 })
 	notes := mailNotes(t, env)
 	if len(notes) != 1 || notes[0].Title != "Alice：Fresh news" || !strings.HasPrefix(notes[0].Link, "/mail?m=") {
 		t.Fatalf("notify: %+v", notes)
