@@ -95,44 +95,12 @@ func (m *Module) BindBoardRepo(w http.ResponseWriter, r *http.Request, id int64)
 		if err != nil {
 			return err
 		}
-		m.repoMu.Lock()
-		defer m.repoMu.Unlock()
-		tx, err := m.d.DB.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-		var other int64
-		err = tx.QueryRowContext(ctx, "SELECT board_id FROM board_repos WHERE full_name=?", repo.FullName).Scan(&other)
-		if err == nil && other != id {
-			return httpx.NewError(409, "conflict", "这个仓库已经绑定了别的看板")
-		}
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		var oldName string
-		var oldConnection int64
-		err = tx.QueryRowContext(ctx, "SELECT full_name,connection_id FROM board_repos WHERE board_id=?", id).Scan(&oldName, &oldConnection)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		if err == nil && (oldName != repo.FullName || oldConnection != repo.ConnectionID) {
-			if err := detachRepo(ctx, tx, id); err != nil {
-				return err
-			}
-		}
 		sync := in.SyncIssues == nil || *in.SyncIssues
-		_, err = tx.ExecContext(ctx, `INSERT INTO board_repos(board_id,connection_id,full_name,kind,html_url,clone_url,default_branch,sync_issues) VALUES(?,?,?,?,?,?,?,?)
-		 ON CONFLICT(board_id) DO UPDATE SET sync_issues=excluded.sync_issues,html_url=excluded.html_url,clone_url=excluded.clone_url,default_branch=excluded.default_branch`,
-			id, repo.ConnectionID, repo.FullName, repo.Kind, repo.HTMLURL, repo.CloneURL, repo.DefaultBranch, sync)
-		if err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
+		if err := m.bindRepo(ctx, id, repo, sync); err != nil {
 			return err
 		}
 		if sync {
-			return m.syncRepoLocked(ctx, id, 0)
+			return m.syncRepo(ctx, id, 0)
 		}
 		return nil
 	}()
@@ -144,6 +112,42 @@ func (m *Module) BindBoardRepo(w http.ResponseWriter, r *http.Request, id int64)
 	m.d.Bus.Publish("board.changed", map[string]any{"boardId": id})
 	out, err := m.repoBoard(ctx, id)
 	writeOr(w, r, 200, out, err)
+}
+
+func (m *Module) bindRepo(ctx context.Context, id int64, repo contracts.GitRepository, sync bool) error {
+	m.repoMu.Lock()
+	defer m.repoMu.Unlock()
+	tx, err := m.d.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var other int64
+	err = tx.QueryRowContext(ctx, "SELECT board_id FROM board_repos WHERE full_name=?", repo.FullName).Scan(&other)
+	if err == nil && other != id {
+		return httpx.NewError(409, "conflict", "这个仓库已经绑定了别的看板")
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	var oldName string
+	var oldConnection int64
+	err = tx.QueryRowContext(ctx, "SELECT full_name,connection_id FROM board_repos WHERE board_id=?", id).Scan(&oldName, &oldConnection)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if err == nil && (oldName != repo.FullName || oldConnection != repo.ConnectionID) {
+		if err := detachRepo(ctx, tx, id); err != nil {
+			return err
+		}
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO board_repos(board_id,connection_id,full_name,kind,html_url,clone_url,default_branch,sync_issues) VALUES(?,?,?,?,?,?,?,?)
+		 ON CONFLICT(board_id) DO UPDATE SET sync_issues=excluded.sync_issues,html_url=excluded.html_url,clone_url=excluded.clone_url,default_branch=excluded.default_branch`,
+		id, repo.ConnectionID, repo.FullName, repo.Kind, repo.HTMLURL, repo.CloneURL, repo.DefaultBranch, sync)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (m *Module) UnbindBoardRepo(w http.ResponseWriter, r *http.Request, id int64) {
@@ -182,9 +186,7 @@ func (m *Module) SyncBoardRepo(w http.ResponseWriter, r *http.Request, id int64)
 		if err := auth.RequireElevated(ctx); err != nil {
 			return err
 		}
-		m.repoMu.Lock()
-		defer m.repoMu.Unlock()
-		return m.syncRepoLocked(ctx, id, 0)
+		return m.syncRepo(ctx, id, 0)
 	}()
 	m.d.Audit.Record(ctx, "board.repo_sync", fmt.Sprint(id), nil, err)
 	if err != nil {
@@ -205,8 +207,10 @@ func (m *Module) repoError(ctx context.Context, id int64, err error) {
 	}
 }
 
-// syncRepoLocked publishes one board event, without per-card notifications.
-func (m *Module) syncRepoLocked(ctx context.Context, id, onlyNumber int64) (err error) {
+// syncRepo publishes one board event, without per-card notifications.
+// onlyNumber reads just that issue (webhooks). The Git service is read
+// without repoMu, so a slow service does not hold up card edits.
+func (m *Module) syncRepo(ctx context.Context, id, onlyNumber int64) (err error) {
 	defer func() { m.repoError(ctx, id, err); m.d.Bus.Publish("board.changed", map[string]any{"boardId": id}) }()
 	r, err := m.q.GetBoardRepo(ctx, id)
 	if err != nil {
@@ -219,7 +223,24 @@ func (m *Module) syncRepoLocked(ctx context.Context, id, onlyNumber int64) (err 
 	if err != nil {
 		return err
 	}
-	items, err := g.Issues(ctx, r.ConnectionID, r.FullName)
+	var items []contracts.GitIssue
+	if onlyNumber != 0 {
+		item, err := g.Issue(ctx, r.ConnectionID, r.FullName, onlyNumber)
+		if err != nil {
+			return err
+		}
+		if !item.PullRequest {
+			items = append(items, item)
+		}
+	} else if items, err = g.Issues(ctx, r.ConnectionID, r.FullName); err != nil {
+		return err
+	}
+	m.repoMu.Lock()
+	defer m.repoMu.Unlock()
+	cur, err := m.q.GetBoardRepo(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) || err == nil && (cur.ConnectionID != r.ConnectionID || cur.FullName != r.FullName || cur.SyncIssues == 0) {
+		return nil // unbound or rebound while reading
+	}
 	if err != nil {
 		return err
 	}
@@ -228,9 +249,6 @@ func (m *Module) syncRepoLocked(ctx context.Context, id, onlyNumber int64) (err 
 		return err
 	}
 	for _, item := range items {
-		if onlyNumber != 0 && item.Number != onlyNumber {
-			continue
-		}
 		external := fmt.Sprintf("%s#%d", r.FullName, item.Number)
 		old, e := m.q.GetIssueByExternal(ctx, db.GetIssueByExternalParams{ExternalSource: r.Kind, ExternalID: external})
 		if e != nil && !errors.Is(e, sql.ErrNoRows) {
@@ -309,8 +327,6 @@ func (m *Module) pushRepoIssue(ctx context.Context, i api.Issue) {
 	if i.BoardId == nil || (i.ExternalSource != "github" && i.ExternalSource != "forgejo") {
 		return
 	}
-	m.repoMu.Lock()
-	defer m.repoMu.Unlock()
 	r, err := m.q.GetBoardRepo(ctx, *i.BoardId)
 	if err != nil || r.SyncIssues == 0 {
 		return
@@ -356,10 +372,7 @@ func (m *Module) syncRepos(ctx context.Context) error {
 	}
 	var errs []error
 	for _, id := range ids {
-		m.repoMu.Lock()
-		err = m.syncRepoLocked(ctx, id, 0)
-		m.repoMu.Unlock()
-		if err != nil {
+		if err = m.syncRepo(ctx, id, 0); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -389,7 +402,49 @@ func (m *Module) ReceiveGitWebhook(ctx context.Context, hook contracts.GitWebhoo
 	if err != nil {
 		return err
 	}
+	if body.Issue.Number <= 0 {
+		return nil
+	}
+	return m.syncRepo(ctx, id, body.Issue.Number)
+}
+
+// UnbindGitConnection implements contracts.BoardGitUnbinder.
+func (m *Module) UnbindGitConnection(ctx context.Context, connectionID int64) error {
 	m.repoMu.Lock()
 	defer m.repoMu.Unlock()
-	return m.syncRepoLocked(ctx, id, body.Issue.Number)
+	tx, err := m.d.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, "SELECT board_id FROM board_repos WHERE connection_id=?", connectionID)
+	if err != nil {
+		return err
+	}
+	ids := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if err := detachRepo(ctx, tx, id); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		m.d.Bus.Publish("board.changed", map[string]any{"boardId": id})
+	}
+	return nil
 }

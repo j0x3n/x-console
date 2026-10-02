@@ -278,11 +278,6 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 	if err := q.SetTaskBranch(ctx, db.SetTaskBranchParams{Branch: branchName(id, slugFrom...), ID: id}); err != nil {
 		return t, err
 	}
-	if in.RunID != 0 {
-		if _, err := tx.ExecContext(ctx, "UPDATE ai_agent_runs SET task_id=? WHERE id=? AND agent_id=?", id, in.RunID, in.AIAgentID); err != nil {
-			return t, err
-		}
-	}
 	if in.OpenPR {
 		if _, err := tx.ExecContext(ctx, "UPDATE coding_tasks SET auto_open_pr=1 WHERE id=?", id); err != nil {
 			return t, err
@@ -290,6 +285,15 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 	}
 	if err := tx.Commit(); err != nil {
 		return t, err
+	}
+	if in.RunID != 0 {
+		// Before the task can start, so the run sees every task event.
+		// aiagents links it again after Launch returns if this fails.
+		if runs, ok := module.Lookup[contracts.AgentRuns](m.d.Registry, contracts.AgentRunsKey); ok {
+			if err := runs.LinkRunTask(ctx, in.RunID, in.AIAgentID, id); err != nil {
+				m.d.Log.Error("coding: link agent run", "task", id, "err", err)
+			}
+		}
 	}
 	if t, err = m.task(ctx, id); err != nil {
 		return t, err

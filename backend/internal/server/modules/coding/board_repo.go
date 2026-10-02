@@ -2,6 +2,7 @@ package coding
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"slices"
 	"strings"
@@ -74,4 +75,55 @@ func (m *Module) ResumeCoding(ctx context.Context, id int64, answer string) erro
 	}
 	err = m.resume(m.runCtx(), row, "继续执行原任务。用户对问题的回答：\n"+answer)
 	return err
+}
+
+// CodingTasks implements contracts.CodingControl.
+func (m *Module) CodingTasks(ctx context.Context, ids []int64) (map[int64]contracts.CodingTaskInfo, error) {
+	out := map[int64]contracts.CodingTaskInfo{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := m.d.DB.QueryContext(ctx, "SELECT id,status,pr_url,error,waiting_question,started_at,finished_at FROM coding_tasks WHERE id IN (?"+strings.Repeat(",?", len(ids)-1)+")", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var t contracts.CodingTaskInfo
+		var started, finished sql.NullTime
+		if err := rows.Scan(&id, &t.Status, &t.PrURL, &t.Error, &t.WaitingQuestion, &started, &finished); err != nil {
+			return nil, err
+		}
+		if started.Valid {
+			t.StartedAt = &started.Time
+		}
+		if finished.Valid {
+			t.FinishedAt = &finished.Time
+		}
+		out[id] = t
+	}
+	return out, rows.Err()
+}
+
+// CodingTaskEvents implements contracts.CodingControl.
+func (m *Module) CodingTaskEvents(ctx context.Context, id, after int64) ([]contracts.CodingTaskEvent, error) {
+	rows, err := m.d.DB.QueryContext(ctx, "SELECT seq,at,kind,text FROM coding_task_events WHERE task_id=? AND seq>? AND seq>(SELECT COALESCE(MAX(seq),0)-5000 FROM coding_task_events WHERE task_id=?) ORDER BY seq LIMIT 5000", id, after, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []contracts.CodingTaskEvent{}
+	for rows.Next() {
+		var e contracts.CodingTaskEvent
+		if err := rows.Scan(&e.Seq, &e.At, &e.Kind, &e.Text); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }

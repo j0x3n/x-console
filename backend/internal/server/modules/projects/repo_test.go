@@ -26,7 +26,7 @@ func TestBoardRepoSync(t *testing.T) {
 			var mu sync.Mutex
 			title, state, label := "仓库的卡片", "open", "bug"
 			failWrite := false
-			pages := 0
+			pages, single := 0, 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				mu.Lock()
 				defer mu.Unlock()
@@ -57,6 +57,12 @@ func TestBoardRepoSync(t *testing.T) {
 						rows = append(rows, map[string]any{"number": 101, "title": "另一页", "state": "open"})
 					}
 					_ = json.NewEncoder(w).Encode(rows)
+				case path == "/repos/team/app/issues/1" && r.Method == "GET":
+					single++
+					_ = json.NewEncoder(w).Encode(map[string]any{"number": 1, "title": title, "body": "正文", "state": state, "html_url": "https://git.example/team/app/issues/1", "labels": []map[string]any{{"name": label}}})
+				case path == "/repos/team/app/issues/2" && r.Method == "GET":
+					single++
+					_ = json.NewEncoder(w).Encode(map[string]any{"number": 2, "title": "PR", "state": "open", "pull_request": map[string]string{"url": "x"}})
 				case path == "/repos/team/app/issues/1" && r.Method == "PATCH":
 					if failWrite {
 						w.WriteHeader(403)
@@ -104,11 +110,22 @@ func TestBoardRepoSync(t *testing.T) {
 			env.MustDo("PATCH", fmt.Sprintf("/projects/%d", p.Id), map[string]any{"layoutLocked": true}, nil)
 			mu.Lock()
 			title, state, label = "远端改了", "closed", "fixed"
+			pagesBefore := pages
 			mu.Unlock()
 			hooks, _ := module.Lookup[contracts.GitWebhookReceiver](env.App.Deps.Registry, contracts.BoardWebhookKey)
-			err := hooks.ReceiveGitWebhook(context.Background(), contracts.GitWebhook{ConnectionID: connection.Connection.ID, Event: "issues", Body: json.RawMessage(`{"repository":{"full_name":"team/app"},"issue":{"number":1}}`)})
-			if err != nil {
-				t.Fatal(err)
+			for _, n := range []int{1, 2} {
+				err := hooks.ReceiveGitWebhook(context.Background(), contracts.GitWebhook{ConnectionID: connection.Connection.ID, Event: "issues", Body: json.RawMessage(fmt.Sprintf(`{"repository":{"full_name":"team/app"},"issue":{"number":%d}}`, n))})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			mu.Lock()
+			if pages != pagesBefore || single != 2 {
+				t.Errorf("webhook should read one issue: pages %d -> %d, single %d", pagesBefore, pages, single)
+			}
+			mu.Unlock()
+			if items, _ := listIssues(t, env, fmt.Sprintf("boardId=%d", b.Id)); len(items) != 2 {
+				t.Fatalf("pull request became a card: %+v", items)
 			}
 			card = getIssue(t, env, card.Key)
 			if card.Title != "远端改了" || card.Status != "done" || card.Labels[0].Name != "fixed" {
@@ -154,6 +171,21 @@ func TestBoardRepoSync(t *testing.T) {
 			}
 			if pages < 4 {
 				t.Fatal("pagination missing")
+			}
+			// Deleting the connection unbinds its boards instead of failing.
+			mu.Lock()
+			failWrite = false
+			mu.Unlock()
+			env.MustDo("PUT", path, map[string]any{"connectionId": connection.Connection.ID, "fullName": "team/app"}, nil)
+			if code, _ := env.Do("DELETE", fmt.Sprintf("/git-connections/%d", connection.Connection.ID), nil, nil); code != 204 {
+				t.Fatalf("delete connection: %d", code)
+			}
+			if b = boards(t, env, p.Id)[0]; b.Repo != nil {
+				t.Fatalf("board still bound: %+v", b.Repo)
+			}
+			card = getIssue(t, env, card.Key)
+			if card.ExternalId != "" {
+				t.Fatal("card not detached after connection delete")
 			}
 		})
 	}

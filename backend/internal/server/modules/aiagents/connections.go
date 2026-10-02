@@ -231,6 +231,16 @@ func (m *Module) DeleteGitConnection(w http.ResponseWriter, r *http.Request, id 
 		if err := auth.RequireElevated(ctx); err != nil {
 			return err
 		}
+		if _, err := m.connection(ctx, id); err != nil {
+			return err
+		}
+		// Boards bound to this connection keep their cards as ordinary
+		// cards. This runs before the transaction: SQLite allows one writer.
+		if boards, ok := module.Lookup[contracts.BoardGitUnbinder](m.d.Registry, contracts.BoardGitUnbindKey); ok {
+			if err := boards.UnbindGitConnection(ctx, id); err != nil {
+				return err
+			}
+		}
 		tx, err := m.d.DB.BeginTx(ctx, nil)
 		if err != nil {
 			return err
