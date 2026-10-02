@@ -506,3 +506,69 @@
 .habits-kind-hint.habits-kind {
   margin-top: -6px;
 }
+
+/* ---- B83：模板、提醒条件、电脑选择、作息 ---- */
+.habits-templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.habits-templates .xc-btn.on {
+  border-color: var(--xc-accent);
+  color: var(--xc-accent-text);
+}
+.habits-when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.habits-hosts {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.habits-hosts .xc-check {
+  min-width: 0;
+}
+.habits-host-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.habits-schedule > * {
+  margin: 0;
+}
+.habits-schedule .habits-form-row .xc-field {
+  margin: 0;
+}
+.habits-days {
+  display: flex;
+  gap: 6px;
+}
+.habits-days button {
+  width: 34px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface);
+  color: var(--xc-text-2);
+  font: inherit;
+  font-size: var(--fs-13);
+  cursor: pointer;
+}
+.habits-days button.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+@media (max-width: 640px) {
+  .habits-btn-text {
+    display: none;
+  }
+  .habits-days {
+    justify-content: space-between;
+  }
+}

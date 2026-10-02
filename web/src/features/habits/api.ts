@@ -21,6 +21,10 @@ export type WorkoutPlan = Schemas["WorkoutPlan"];
 export type WorkoutLog = Schemas["WorkoutLog"];
 export type WorkoutLogInput = Schemas["WorkoutLogInput"];
 export type WorkoutSettings = Schemas["WorkoutSettings"];
+export type Schedule = Schemas["Schedule"];
+export type HostPresence = Schemas["HostPresence"];
+export type RemindWhen = Habit["remindWhen"][number];
+export type HabitTemplate = NonNullable<Habit["template"]>;
 
 export const habitKeys = {
   all: ["habits"] as const,
@@ -30,6 +34,8 @@ export const habitKeys = {
   plans: ["habits", "workouts", "plans"] as const,
   logs: ["habits", "workouts", "logs"] as const,
   workoutSettings: ["habits", "workouts", "settings"] as const,
+  schedule: ["habits", "schedule"] as const,
+  presence: ["habits", "presence"] as const,
 };
 
 invalidateOn("habit.", habitKeys.all);
@@ -189,5 +195,34 @@ export function useSaveWorkoutSettings() {
     mutationFn: (body: WorkoutSettings) =>
       unwrap(habitsApi.PUT("/workouts/settings", { body })),
     onSuccess: invalidate,
+  });
+}
+
+/* ---------- B83：作息、电脑使用状态 ---------- */
+
+export function useSchedule() {
+  return useQuery({
+    queryKey: habitKeys.schedule,
+    queryFn: () => unwrap(habitsApi.GET("/habits/schedule")),
+    retry: false,
+  });
+}
+
+export function useSaveSchedule() {
+  const invalidate = useInvalidate(habitKeys.all);
+  return useMutation({
+    mutationFn: (body: Schedule) =>
+      unwrap(habitsApi.PUT("/habits/schedule", { body })),
+    onSuccess: () => void invalidate(),
+  });
+}
+
+/** 每台电脑现在有没有人在用。状态变化时服务端发 habit.presence。 */
+export function usePresence(enabled = true) {
+  return useQuery({
+    queryKey: habitKeys.presence,
+    queryFn: () => unwrap(habitsApi.GET("/habits/presence")),
+    enabled,
+    retry: false,
   });
 }

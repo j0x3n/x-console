@@ -1116,3 +1116,11 @@ button.servers-file:hover {
     display: none;
   }
 }
+/* B83：电脑使用状态 */
+.servers-presence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-13);
+}

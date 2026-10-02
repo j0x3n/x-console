@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import {
   ArrowDown,
   ArrowUp,
@@ -103,7 +104,26 @@ export default function NotificationsTab() {
       </div>
       <RoutesCard channels={channels.data.map((c) => c.name as ChannelName)} />
       <QuietHoursCard />
+      <ScheduleLinkCard />
     </div>
+  );
+}
+
+/** B83：作息在习惯页里设，这里给一个入口。 */
+function ScheduleLinkCard() {
+  const t = useT();
+  return (
+    <section className="xc-card notify-schedule-link">
+      <div className="xc-card-head">
+        <h2>{t("Daily schedule")}</h2>
+        <Link className="xc-btn small" to="/habits?schedule=1">
+          {t("Set daily schedule")}
+        </Link>
+      </div>
+      <p className="xc-muted">
+        {t("Health reminders use your work days, wake and sleep times.")}
+      </p>
+    </section>
   );
 }
 

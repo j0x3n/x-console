@@ -25,6 +25,7 @@ import {
 import { FitnessSummary, TodayLogDialog } from "./FitnessModule";
 import HabitDialog from "./HabitDialog";
 import { formatAmount, ratio, remindSummary, ringGeometry } from "./progress";
+import { relativeTime } from "../../lib/time";
 
 const onError = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
@@ -262,6 +263,12 @@ function HabitCard({
           {summary && (
             <span>
               <Bell size={12} /> {summary}
+              {h.nextRemindAt && !p.reached && (
+                <>
+                  {" · "}
+                  {t("Next reminder at")} {relativeTime(h.nextRemindAt, language)}
+                </>
+              )}
             </span>
           )}
         </div>

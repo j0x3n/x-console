@@ -25,6 +25,8 @@ import MetricChart from "./MetricChart";
 import { TrafficCard } from "./Traffic";
 import { HostInfoCard } from "./HostInfo";
 import AddressList from "./AddressList";
+import { relativeTime } from "../../../lib/time";
+import { presenceText, presenceTone } from "../../habits/presence";
 import UsageBar from "./UsageBar";
 
 const S1 = "var(--servers-series-1)";
@@ -96,6 +98,20 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
 
   return (
     <div className="xc-stack">
+      {host.presence && (
+        // B83：电脑有没有人在用（看键盘鼠标，不是看开没开机）
+        <div className="servers-presence">
+          <span className="xc-muted">{t("Computer usage")}</span>
+          <span className={`xc-badge ${presenceTone(host.presence.state)}`}>
+            {presenceText(host.presence, t)}
+          </span>
+          {host.presence.state !== "unknown" && (
+            <small className="xc-muted">
+              {t("since")} {relativeTime(host.presence.since, language)}
+            </small>
+          )}
+        </div>
+      )}
       <div className="servers-stats servers-stats-6">
         <Stat
           label={t("CPU")}

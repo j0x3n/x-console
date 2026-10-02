@@ -76,6 +76,8 @@ invalidateOn("host.service.", ["hosts", "services"]);
 invalidateOn("host.info.", hostsKeys.lists);
 invalidateOn("host.info.", hostsKeys.details);
 invalidateOn("host.order.", hostsKeys.lists);
+// B83：电脑使用状态变了，详情里的 presence 跟着刷新。
+invalidateOn("host.presence", hostsKeys.details);
 
 interface MetricsEvent {
   hostId: string;

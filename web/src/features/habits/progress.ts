@@ -67,16 +67,32 @@ export function remindSummary(
     remindIntervalMinutes: number;
     remindWindow: string;
     remindTimes: string[];
+    remindWhen?: string[];
   },
   language: "zh" | "en" = "zh",
 ): string {
   const zh = language === "zh";
   switch (habit.remindMode) {
     case "interval": {
-      const every = zh
-        ? `每 ${habit.remindIntervalMinutes} 分钟`
-        : `Every ${habit.remindIntervalMinutes} min`;
-      return habit.remindWindow ? `${every} · ${habit.remindWindow}` : every;
+      const when = habit.remindWhen ?? ["window"];
+      // B83：在用电脑时按连续使用的时间算
+      const every = when.includes("active")
+        ? zh
+          ? `连续用电脑 ${habit.remindIntervalMinutes} 分钟`
+          : `After ${habit.remindIntervalMinutes} min at the computer`
+        : zh
+          ? `每 ${habit.remindIntervalMinutes} 分钟`
+          : `Every ${habit.remindIntervalMinutes} min`;
+      const labels: Record<string, [string, string]> = {
+        awake: ["醒着时", "while awake"],
+        work: ["工作时间", "during work hours"],
+      };
+      const extra = when
+        .filter((w) => labels[w])
+        .map((w) => labels[w][zh ? 0 : 1]);
+      if (when.includes("window") && habit.remindWindow)
+        extra.push(habit.remindWindow);
+      return [every, ...extra].join(" · ");
     }
     case "times":
       return habit.remindTimes.join(zh ? "、" : ", ");

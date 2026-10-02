@@ -12,8 +12,12 @@ import {
   type Habit,
   type HabitInput,
   type HabitKind,
+  type HabitTemplate,
   type RemindMode,
+  type RemindWhen,
+  usePresence,
 } from "./api";
+import { HABIT_TEMPLATES, presenceText, presenceTone } from "./presence";
 import { joinWindow, parseTimes, splitWindow } from "./progress";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 
@@ -79,6 +83,12 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
   const [times, setTimes] = useState("");
   const [entity, setEntity] = useState("");
   const [error, setError] = useState("");
+  // B83：什么时候提醒、看哪几台电脑、要不要在电脑上弹通知、用了哪个模板
+  const [when, setWhen] = useState<RemindWhen[]>(["window"]);
+  const [hostIds, setHostIds] = useState<string[]>([]);
+  const [onHost, setOnHost] = useState(false);
+  const [template, setTemplate] = useState<HabitTemplate | undefined>();
+  const presence = usePresence(open);
 
   useEffect(() => {
     if (!open) return;
@@ -98,7 +108,44 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
     setWindowEnd(w.end);
     setTimes((h?.remindTimes ?? []).join(", "));
     setEntity(h?.haEntityId ?? "");
+    setWhen(h?.remindWhen?.length ? h.remindWhen : ["window"]);
+    setHostIds(h?.activeHostIds ?? []);
+    setOnHost(h?.remindOnHost ?? false);
+    setTemplate(h?.template);
   }, [open, habit]);
+
+  const applyTemplate = (id: HabitTemplate) => {
+    const tpl = HABIT_TEMPLATES.find((x) => x.id === id);
+    if (!tpl) return;
+    const v = tpl.input;
+    setTemplate(id);
+    setKind("count");
+    setName(v.name);
+    setIcon(v.icon ?? "");
+    setUnit(v.unit ?? "次");
+    setTarget(String(v.dailyTarget ?? 1));
+    setMode(v.remindMode ?? "none");
+    setIntervalMinutes(String(v.remindIntervalMinutes || 60));
+    setTimes((v.remindTimes ?? []).join(", "));
+    setWhen(v.remindWhen ?? ["window"]);
+    // 只有一台电脑时直接选上
+    const hosts = presence.data ?? [];
+    if (v.remindWhen?.includes("active") && hosts.length === 1)
+      setHostIds([hosts[0].hostId]);
+  };
+
+  // “时间窗内”单独用；“醒着”和“工作时间”二选一；“在用电脑时”可以和它们一起勾。
+  const toggleWhen = (w: RemindWhen) => {
+    setWhen((prev) => {
+      let next: RemindWhen[];
+      if (prev.includes(w)) next = prev.filter((x) => x !== w);
+      else if (w === "window") next = ["window"];
+      else if (w === "active")
+        next = [...prev.filter((x) => x !== "window"), "active"];
+      else next = [...prev.filter((x) => x === "active"), w];
+      return next.length ? next : ["window"];
+    });
+  };
 
   const pending = create.isPending || update.isPending;
 
@@ -114,6 +161,9 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
     const minutes = Number(interval);
     if (mode === "interval" && !(minutes >= 5 && minutes <= 1440))
       return setError(t("The interval must be 5 to 1440 minutes"));
+    const active = mode === "interval" && when.includes("active");
+    if (active && hostIds.length === 0)
+      return setError(t("Pick at least one computer"));
     const body: HabitInput = {
       name: name.trim(),
       icon: icon.trim(),
@@ -124,8 +174,14 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
       remindMode: mode,
       remindIntervalMinutes: mode === "interval" ? minutes : 0,
       remindWindow:
-        mode === "interval" ? joinWindow(windowStart, windowEnd) : "",
+        mode === "interval" && when.includes("window")
+          ? joinWindow(windowStart, windowEnd)
+          : "",
       remindTimes: mode === "times" ? (remindTimes ?? []) : [],
+      remindWhen: mode === "interval" ? when : ["window"],
+      activeHostIds: active ? hostIds : [],
+      remindOnHost: active && onHost,
+      template,
       haEntityId: entity.trim(),
     };
     try {
@@ -176,6 +232,25 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
       title={habit ? t("Edit habit") : t("New habit")}
     >
       <form onSubmit={submit}>
+        {!habit && (
+          <div
+            className="habits-templates"
+            role="group"
+            aria-label={t("Templates")}
+          >
+            {HABIT_TEMPLATES.map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                className={`xc-btn small${template === tpl.id ? " on" : ""}`}
+                aria-pressed={template === tpl.id}
+                onClick={() => applyTemplate(tpl.id)}
+              >
+                <span aria-hidden>{tpl.input.icon}</span> {t(tpl.label)}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="habits-kind">
           <Segmented<HabitKind>
             label={t("Kind")}
@@ -315,9 +390,90 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
           </select>
         </label>
         {mode === "interval" && (
+          <div className="xc-field">
+            <span>{t("When to remind")}</span>
+            <div
+              className="habits-when"
+              role="group"
+              aria-label={t("When to remind")}
+            >
+              {(
+                [
+                  ["window", "In a time window"],
+                  ["awake", "While I'm awake"],
+                  ["work", "During work hours"],
+                  ["active", "While I'm at the computer"],
+                ] as [RemindWhen, string][]
+              ).map(([w, label]) => (
+                <label key={w} className="xc-check">
+                  <input
+                    type="checkbox"
+                    checked={when.includes(w)}
+                    onChange={() => toggleWhen(w)}
+                  />
+                  {t(label)}
+                </label>
+              ))}
+            </div>
+            <small>
+              {when.includes("active")
+                ? t(
+                    "Counts continuous use. Leaving the computer resets the timer.",
+                  )
+                : when.includes("awake") || when.includes("work")
+                  ? t("Uses your daily schedule. It can cross midnight.")
+                  : ""}
+            </small>
+          </div>
+        )}
+        {mode === "interval" && when.includes("active") && (
+          <div className="xc-field">
+            <span>{t("Computers to watch")}</span>
+            {presence.isPending ? (
+              <small className="xc-muted">{t("Loading")}…</small>
+            ) : (presence.data ?? []).length === 0 ? (
+              <small className="xc-muted">{t("No computers yet")}</small>
+            ) : (
+              <div className="habits-hosts">
+                {(presence.data ?? []).map((p) => (
+                  <label key={p.hostId} className="xc-check">
+                    <input
+                      type="checkbox"
+                      checked={hostIds.includes(p.hostId)}
+                      onChange={(e) =>
+                        setHostIds((ids) =>
+                          e.target.checked
+                            ? [...ids, p.hostId]
+                            : ids.filter((x) => x !== p.hostId),
+                        )
+                      }
+                    />
+                    <span className="habits-host-name">{p.name}</span>
+                    <span className={`xc-badge ${presenceTone(p.state)}`}>
+                      {presenceText(p, t)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <label className="xc-check">
+              <input
+                type="checkbox"
+                checked={onHost}
+                onChange={(e) => setOnHost(e.target.checked)}
+              />
+              {t("Also pop up a notification on that computer")}
+            </label>
+          </div>
+        )}
+        {mode === "interval" && (
           <div className="habits-form-row">
             <label className="xc-field">
-              <span>{t("Every (minutes)")}</span>
+              <span>
+                {when.includes("active")
+                  ? t("After using it for (minutes)")
+                  : t("Every (minutes)")}
+              </span>
               <input
                 className="xc-input"
                 type="number"
@@ -327,24 +483,28 @@ export default function HabitDialog({ open, onClose, habit }: Props) {
                 onChange={(e) => setIntervalMinutes(e.target.value)}
               />
             </label>
-            <label className="xc-field">
-              <span>{t("From")}</span>
-              <input
-                className="xc-input"
-                type="time"
-                value={windowStart}
-                onChange={(e) => setWindowStart(e.target.value)}
-              />
-            </label>
-            <label className="xc-field">
-              <span>{t("To")}</span>
-              <input
-                className="xc-input"
-                type="time"
-                value={windowEnd}
-                onChange={(e) => setWindowEnd(e.target.value)}
-              />
-            </label>
+            {when.includes("window") && (
+              <>
+                <label className="xc-field">
+                  <span>{t("From")}</span>
+                  <input
+                    className="xc-input"
+                    type="time"
+                    value={windowStart}
+                    onChange={(e) => setWindowStart(e.target.value)}
+                  />
+                </label>
+                <label className="xc-field">
+                  <span>{t("To")}</span>
+                  <input
+                    className="xc-input"
+                    type="time"
+                    value={windowEnd}
+                    onChange={(e) => setWindowEnd(e.target.value)}
+                  />
+                </label>
+              </>
+            )}
           </div>
         )}
         {mode === "times" && (

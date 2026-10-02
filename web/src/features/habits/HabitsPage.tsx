@@ -1,5 +1,5 @@
 import { NavLink, useParams, useSearchParams } from "react-router";
-import { Plus } from "lucide-react";
+import { CalendarClock, Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { Ring, Segments, StatCard, StatStrip } from "../../components/ui/Stat";
 import { useT } from "../../contexts/LanguageContext";
@@ -9,6 +9,7 @@ import StatsView from "./StatsView";
 import TodayView from "./TodayView";
 import { TodayLogDialog } from "./FitnessModule";
 import FitnessPage from "./FitnessPage";
+import ScheduleDialog from "./ScheduleDialog";
 
 const tabs = [
   { id: "", label: "Today", to: "/habits" },
@@ -22,6 +23,13 @@ export default function HabitsPage() {
   const [params, setParams] = useSearchParams();
   const current = tabs.find((x) => x.id === tab) ?? tabs[0];
   const creating = params.get("new") === "1";
+  const scheduling = params.get("schedule") === "1";
+  const setScheduling = (open: boolean) => {
+    const next = new URLSearchParams(params);
+    if (open) next.set("schedule", "1");
+    else next.delete("schedule");
+    setParams(next, { replace: true });
+  };
   const logging = params.get("log") === "workout";
   const closeLog = () => {
     const next = new URLSearchParams(params);
@@ -65,14 +73,24 @@ export default function HabitsPage() {
           ) : undefined
         }
         aside={
-          current.id === "" && (
+          <>
             <button
-              className="xc-btn primary"
-              onClick={() => setCreating(true)}
+              className="xc-btn"
+              title={t("Daily schedule")}
+              onClick={() => setScheduling(true)}
             >
-              <Plus size={15} /> {t("New habit")}
+              <CalendarClock size={14} />
+              <span className="habits-btn-text">{t("Daily schedule")}</span>
             </button>
-          )
+            {current.id === "" && (
+              <button
+                className="xc-btn primary"
+                onClick={() => setCreating(true)}
+              >
+                <Plus size={15} /> {t("New habit")}
+              </button>
+            )}
+          </>
         }
       />
       {items.length > 0 && (
@@ -149,6 +167,7 @@ export default function HabitsPage() {
       {current.id === "fitness" && <FitnessPage />}
       {current.id === "stats" && <StatsView />}
       {logging && <TodayLogDialog open onClose={closeLog} />}
+      <ScheduleDialog open={scheduling} onClose={() => setScheduling(false)} />
     </div>
   );
 }
