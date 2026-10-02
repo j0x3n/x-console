@@ -62,7 +62,7 @@ func newWeatherServer(t *testing.T) *weatherServer {
 			_, _ = w.Write([]byte(`{"hourly":{"precipitation_probability":[20,75,null]}}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"current":{"temperature_2m":18.24,"weather_code":2},
+		_, _ = w.Write([]byte(`{"current":{"temperature_2m":18.24,"weather_code":2,"relative_humidity_2m":71.6,"is_day":1},
 			"daily":{"weather_code":[61],"temperature_2m_max":[22.1],"temperature_2m_min":[14],"precipitation_probability_max":[60]}}`))
 	}))
 	t.Cleanup(s.Close)
@@ -422,6 +422,10 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 	if w.Summary != "多云" || w.Temperature != 18.2 || w.High != 22.1 || w.Low != 14 || w.PrecipitationChance != 60 || w.Location == nil || *w.Location != "上海" {
 		t.Fatalf("weather: %+v", w)
 	}
+	// B90: humidity and day or night
+	if w.Humidity == nil || *w.Humidity != 72 || w.IsDay == nil || !*w.IsDay || w.Source == nil || *w.Source != "open-meteo" {
+		t.Fatalf("humidity, isDay, source: %v %v %v", w.Humidity, w.IsDay, w.Source)
+	}
 	hits := ws.hits.Load()
 	env.MustDo(http.MethodGet, "/weather", nil, &w)
 	if ws.hits.Load() != hits {
@@ -544,5 +548,18 @@ func TestRainAlertAndPlaces(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("below threshold should stay quiet: %d", count)
+	}
+}
+
+// B92: with an AI summary only the summary is pushed, without a heading.
+func TestNotifyBodyOnlySummary(t *testing.T) {
+	content := "# 早报\n\n## 总结\n\n今天有一个会。\n\n## 天气\n\n晴"
+	withSummary := `[{"key":"summary","title":"总结","markdown":"今天有一个会。"},{"key":"weather","title":"天气","markdown":"晴"}]`
+	if got := brief.NotifyBody(content, withSummary); got != "今天有一个会。" {
+		t.Fatalf("with summary: %q", got)
+	}
+	without := `[{"key":"weather","title":"天气","markdown":"晴"}]`
+	if got := brief.NotifyBody("# 早报\n\n## 天气\n\n晴", without); got != "【天气】\n\n晴" {
+		t.Fatalf("without summary: %q", got)
 	}
 }

@@ -1,6 +1,11 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B96 推荐模板
+  Suggested: "推荐",
+  "Already added. Click to edit.": "已经添加过了，点一下编辑。",
+  "Template already added": "已经添加过了",
+  "Template added": "已添加",
   // 习惯页的概要
   "All habits": "所有习惯",
   "All reached": "全部达标",

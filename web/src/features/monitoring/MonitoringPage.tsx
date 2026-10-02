@@ -174,8 +174,9 @@ function MonitoringStats() {
             : undefined
         }
         foot={
+          // B94：写明最先到期的是域名还是证书
           soonest
-            ? `${soonest.name} ${t("expires soonest")}`
+            ? `${t(soonest.kind === "domain" ? "Domain" : "Certificate")} ${soonest.name} ${t("expires soonest")}`
             : t("Nothing to check")
         }
       />

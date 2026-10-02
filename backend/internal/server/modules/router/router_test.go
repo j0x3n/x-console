@@ -1,6 +1,7 @@
 package router_test
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -260,5 +261,52 @@ func TestDeniedIsNotAnOutage(t *testing.T) {
 	env.MustDo(http.MethodGet, "/notifications", nil, &n)
 	if len(n.Items) != 0 {
 		t.Fatalf("notifications: %+v", n.Items)
+	}
+}
+
+// B93: routers without LuCI answer "Object not found" for luci-rpc.
+func TestClientsWithoutLuci(t *testing.T) {
+	env, f, _, c := setup(t)
+	type item struct{ Mac, Name, IP string }
+	list := func() []string {
+		var out struct{ Items []item }
+		env.MustDo(http.MethodGet, "/router/clients", nil, &out)
+		got := []string{}
+		for _, it := range out.Items {
+			got = append(got, it.Mac+" "+it.Name+" "+it.IP)
+		}
+		return got
+	}
+	expiry := c.t.Add(time.Hour).Unix()
+	f.set(func(f *fakeUbus) {
+		f.noLuci = true
+		f.files = map[string]string{
+			"/tmp/dhcp.leases": fmt.Sprintf("%d aa:bb:cc:00:00:02 192.168.1.20 nas 01:aa\n0 aa:bb:cc:00:00:03 192.168.1.3 * *\n", expiry),
+			"/proc/net/arp": "IP address       HW type     Flags       HW address            Mask     Device\n" +
+				"192.168.1.3      0x1         0x2         aa:bb:cc:00:00:03     *        br-lan\n" +
+				"192.168.1.50     0x1         0x2         aa:bb:cc:00:00:05     *        br-lan\n" +
+				"192.168.1.60     0x1         0x0         00:00:00:00:00:00     *        br-lan\n",
+		}
+	})
+	if got := strings.Join(list(), ","); got != "AA:BB:CC:00:00:03  192.168.1.3,AA:BB:CC:00:00:02 nas 192.168.1.20,AA:BB:CC:00:00:05  192.168.1.50" {
+		t.Fatalf("lease file and arp: %s", got)
+	}
+
+	// odhcpd answers once the lease file is gone; MACs come without colons.
+	c.t = c.t.Add(time.Minute)
+	f.set(func(f *fakeUbus) {
+		delete(f.files, "/tmp/dhcp.leases")
+		f.odhcpd = []map[string]any{{"mac": "aabbcc000007", "hostname": "tv", "address": "192.168.1.7", "valid": 600}}
+	})
+	if got := strings.Join(list(), ","); !strings.Contains(got, "AA:BB:CC:00:00:07 tv 192.168.1.7") {
+		t.Fatalf("odhcpd: %s", got)
+	}
+
+	// Nothing to read: a clear message instead of "Object not found".
+	c.t = c.t.Add(time.Minute)
+	f.set(func(f *fakeUbus) { f.odhcpd, f.files = nil, nil })
+	code, body := env.Do(http.MethodGet, "/router/clients", nil, nil)
+	if code != http.StatusBadGateway || !strings.Contains(string(body), "读不到在线设备") {
+		t.Fatalf("no source: %d %s", code, body)
 	}
 }

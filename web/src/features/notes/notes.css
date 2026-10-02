@@ -1432,22 +1432,187 @@ html[data-theme="dark"] .note-bg-gray {
 }
 .notes-memo-dialog {
   position: relative;
-  width: min(640px, 100%);
-  height: min(640px, calc(100dvh - 48px));
+  width: 600px;
+  max-width: 100%;
+  max-height: calc(100dvh - 48px);
   overflow: hidden;
   border: 1px solid var(--xc-border-strong);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--xc-surface);
   box-shadow: var(--xc-shadow);
 }
-.notes-memo-dialog .notes-editor {
-  padding-right: 34px;
+/* 便签弹窗照 Google Keep：高度跟着内容，长了在中间滚动，底下一排图标 */
+.notes-keep {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 48px);
+  background: var(--note-bg, var(--xc-surface));
 }
-.notes-memo-close {
+.notes-keep-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 16px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--xc-border-strong) transparent;
+}
+.notes-keep-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.notes-keep-scroll::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--xc-border-strong);
+}
+.notes-keep-images {
+  display: grid;
+  gap: 4px;
+  margin: -16px -16px 12px;
+}
+.notes-keep-images.n2 {
+  grid-template-columns: 1fr 1fr;
+}
+.notes-keep-images.n3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.notes-keep-images figure {
+  position: relative;
+  margin: 0;
+}
+.notes-keep-images img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+}
+.notes-keep-image-remove {
   position: absolute;
-  top: 8px;
+  top: 6px;
   right: 6px;
-  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: #0009;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.notes-keep-images figure:hover .notes-keep-image-remove {
+  opacity: 1;
+}
+@media (hover: none) {
+  .notes-keep-image-remove {
+    opacity: 1;
+  }
+}
+.notes-keep-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.notes-keep-title {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0 8px;
+  overflow: hidden;
+  resize: none;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  line-height: 1.35;
+  color: var(--xc-text);
+  font-size: 22px;
+  font-weight: 500;
+}
+.notes-keep-body {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  padding: 0;
+  overflow: hidden;
+  resize: none;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: var(--fs-15);
+  line-height: 1.65;
+}
+.notes-keep-title:focus-visible,
+.notes-keep-body:focus-visible {
+  outline: none;
+}
+.notes-keep-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.notes-keep-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 9px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
+  color: var(--xc-text-2);
+  font-size: var(--fs-12);
+}
+.notes-keep-tag button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--xc-muted);
+}
+.notes-keep-tag button:hover {
+  background: color-mix(in srgb, var(--xc-text) 10%, transparent);
+  color: var(--xc-text);
+}
+.notes-keep-time {
+  margin: 12px 0 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  text-align: right;
+}
+.notes-keep-panel {
+  padding: 8px 16px 0;
+}
+.notes-keep-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px 8px;
+}
+.notes-keep-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--xc-text-2);
+  cursor: pointer;
+}
+.notes-keep-icon:hover,
+.notes-keep-icon.on,
+.notes-keep-bar .xc-more-button:hover {
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
+  color: var(--xc-text);
+}
+.notes-keep-bar .xc-more-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
 }
 @media (max-width: 720px) {
   .notes-memo-backdrop {
@@ -1456,7 +1621,12 @@ html[data-theme="dark"] .note-bg-gray {
   .notes-memo-dialog {
     width: 100%;
     height: 100%;
+    max-height: none;
     border-radius: 0;
+  }
+  .notes-keep {
+    height: 100%;
+    max-height: none;
   }
   .notes-memos {
     padding: 12px 10px 32px;
@@ -1606,4 +1776,29 @@ html[data-theme="dark"] .note-bg-gray {
   .note-share-doc h1 {
     font-size: 23px;
   }
+}
+/* B89：便签视图上方的“每日一句”和名言入口；置顶的便签右上角有图钉 */
+.notes-memos-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.notes-memo-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--xc-accent-text);
+}
+.notes-quote-help {
+  margin: 0 0 10px;
+}
+.notes-quote-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.notes-quote-modes .xc-check > span {
+  display: flex;
+  flex-direction: column;
 }

@@ -266,3 +266,157 @@
   margin-left: auto;
   font-size: var(--fs-12);
 }
+
+/* B86：执行日志 */
+.aiagent-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.aiagent-runlog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.aiagent-runlog-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.aiagent-runlog-head .xc-select {
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 520px;
+}
+.aiagent-runlog-summary {
+  margin: 0;
+  color: var(--xc-text-2);
+  font-size: var(--fs-13);
+  white-space: pre-wrap;
+}
+.aiagent-runlog-body {
+  max-height: min(56vh, 560px);
+  overflow-y: auto;
+}
+.aiagent-events {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-13);
+}
+.aiagent-events li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.aiagent-events li:last-child {
+  border-bottom: 0;
+}
+.aiagent-events li > svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--xc-faint);
+}
+.aiagent-events li.is-error > svg,
+.aiagent-events li.is-failed > svg {
+  color: var(--xc-danger);
+}
+.aiagent-events li.is-decision > svg {
+  color: var(--xc-accent-text);
+}
+.aiagent-event-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.aiagent-events time {
+  flex: none;
+  color: var(--xc-faint);
+  font-size: var(--fs-11);
+}
+/* B86：分配弹窗里“看板还没绑定仓库”的提示 */
+.aiagent-assign-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--xc-warn-soft);
+  color: var(--xc-text);
+  font-size: var(--fs-13);
+}
+.aiagent-assign-hint > span {
+  flex: 1 1 240px;
+}
+/* 没有执行记录时不显示日志卡片，上面的任务卡片已经说了“还没有任务” */
+.aiagent-runlog-card:not(:has(.aiagent-runlog)) {
+  display: none;
+}
+/* B87：Agent 通知开关 */
+.aiagent-notify {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aiagent-notify li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.aiagent-notify li:last-child {
+  border-bottom: 0;
+}
+.aiagent-notify li > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.aiagent-notify small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+/* B87：今日页“待你决定”里的权限请求和问题 */
+.aiagent-decision {
+  flex-wrap: wrap;
+}
+.aiagent-decision-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 50%;
+}
+.aiagent-decision-answer {
+  display: flex;
+  flex: 1 0 100%;
+  gap: 6px;
+  padding-left: 38px;
+}
+.aiagent-decision-answer .xc-input {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 720px) {
+  .aiagent-decision-actions {
+    max-width: none;
+    padding-left: 38px;
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+}

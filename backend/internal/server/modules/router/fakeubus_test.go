@@ -22,6 +22,10 @@ type fakeUbus struct {
 	denied   map[string]bool
 	leases   []map[string]any
 	hints    map[string]any
+	// B93: a router without LuCI, odhcpd leases, files rpcd-mod-file can read
+	noLuci bool
+	odhcpd []map[string]any
+	files  map[string]string
 }
 
 func newFakeUbus(t *testing.T) *fakeUbus {
@@ -112,7 +116,29 @@ func (f *fakeUbus) serve(w http.ResponseWriter, r *http.Request) {
 		reply(6)
 		return
 	}
+	if f.noLuci && object == "luci-rpc" {
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID,
+			"error": map[string]any{"code": -32000, "message": "Object not found"}})
+		return
+	}
 	switch name {
+	case "dhcp.ipv4leases":
+		if f.odhcpd == nil {
+			reply(4)
+			return
+		}
+		reply(0, map[string]any{"device": map[string]any{"br-lan": map[string]any{"leases": f.odhcpd}}})
+		return
+	case "file.read":
+		var args struct{ Path string }
+		_ = json.Unmarshal(req.Params[3], &args)
+		data, ok := f.files[args.Path]
+		if !ok {
+			reply(4)
+			return
+		}
+		reply(0, map[string]any{"data": data})
+		return
 	case "system.board":
 		reply(0, map[string]any{"hostname": "OpenWrt", "model": "Xiaomi AX3600",
 			"release": map[string]any{"distribution": "OpenWrt", "version": "24.10.0", "description": "OpenWrt 24.10.0 r28427"}})

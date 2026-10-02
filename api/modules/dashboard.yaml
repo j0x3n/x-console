@@ -60,3 +60,8 @@ components:
         order:
           type: integer
           description: 同一栏里的顺序，小的在上
+        column:
+          type: integer
+          minimum: 0
+          maximum: 3
+          description: B88。放在第几列，0 是最左边的主列。没有时按卡片默认的位置排。屏幕放不下这么多列时放到最后一列

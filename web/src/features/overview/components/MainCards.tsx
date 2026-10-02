@@ -5,6 +5,8 @@ import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
 import { formatTime, relativeTime } from "../../../lib/time";
 import { useTasks } from "../../coding/api";
+import { useAgentDecisions } from "../../aiagents/api";
+import { DecisionRow } from "../../aiagents/DecisionRows";
 import { useMyIssues, type Issue } from "../../projects/api";
 import { PRIORITY_LABELS } from "../../projects/logic";
 import {
@@ -151,10 +153,13 @@ export function DecisionsCard() {
   const language = useLanguage();
   const tasks = useTasks(["review"]);
   const issues = useMyIssues();
+  // B87：Agent 的权限请求和问题，接口没上线时当成没有
+  const decisions = useAgentDecisions();
+  const asks = Array.isArray(decisions.data) ? decisions.data : [];
   const now = new Date();
   const late = overdue(issues.data ?? [], now);
   const review = tasks.data ?? [];
-  const total = review.length + late.length;
+  const total = asks.length + review.length + late.length;
 
   if (tasks.isPending || issues.isPending) return <Pending />;
   return (
@@ -166,6 +171,9 @@ export function DecisionsCard() {
       )}
       {total > 0 && (
         <div className="xc-list">
+          {asks.slice(0, LIMIT).map((d) => (
+            <DecisionRow key={`d${d.id}`} decision={d} />
+          ))}
           {review.slice(0, LIMIT).map((task) => (
             <Link
               className="today-row"

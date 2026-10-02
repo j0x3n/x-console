@@ -6,6 +6,8 @@ import {
   isCLI,
   kindLabel,
   hostsText,
+  runEntries,
+  taskRunStatus,
 } from "./logic";
 
 describe("aiagents logic", () => {
@@ -36,5 +38,59 @@ describe("绑定的机器（B60）", () => {
     const more = (n: number) => `等 ${n} 台`;
     expect(hostsText(["a", "b"], more)).toBe("a、b");
     expect(hostsText(["a", "b", "c", "d"], more)).toBe("a、b、c 等 4 台");
+  });
+});
+
+describe("B86 run entries", () => {
+  const task = (over: Record<string, unknown>) =>
+    ({
+      id: 1,
+      title: "登录页",
+      status: "running",
+      createdAt: "2026-10-02T01:00:00Z",
+      error: "",
+      prUrl: "",
+      issueKey: "XC-1",
+      ...over,
+    }) as never;
+  it("uses coding tasks when the runs API is not live, newest first", () => {
+    const list = runEntries({
+      tasks: [
+        task({ id: 1, createdAt: "2026-10-02T01:00:00Z", status: "review" }),
+        task({ id: 2, createdAt: "2026-10-02T02:00:00Z" }),
+      ],
+    });
+    expect(list.map((e) => e.taskId)).toEqual([2, 1]);
+    expect(list[0].active).toBe(true);
+    expect(list[1].status).toBe("waiting");
+    expect(list[1].active).toBe(false);
+  });
+  it("prefers the runs API when it answers", () => {
+    const list = runEntries({
+      runs: [
+        {
+          id: 9,
+          agentId: 3,
+          agentName: "整理员",
+          kind: "builtin",
+          issueKey: "XC-2",
+          issueTitle: "拆清单",
+          status: "running",
+          createdAt: "2026-10-02T03:00:00Z",
+        },
+      ],
+      tasks: [task({})],
+    });
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({
+      runId: 9,
+      active: true,
+      agentName: "整理员",
+    });
+  });
+  it("maps task statuses", () => {
+    expect(taskRunStatus("pr_opened")).toBe("pr_opened");
+    expect(taskRunStatus("discarded")).toBe("canceled");
+    expect(taskRunStatus("pushed")).toBe("done");
   });
 });

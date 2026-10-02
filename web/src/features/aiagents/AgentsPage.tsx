@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Bot, Pencil, Plus, Trash2 } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
@@ -7,13 +7,14 @@ import MoreMenu from "../../components/ui/MoreMenu";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { Toolbar } from "../../components/ui/Toolbar";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
-import { confirmAction } from "../../components/ui/ConfirmDialog";
 import { useT } from "../../contexts/LanguageContext";
 import { useTasks } from "../coding/api";
 import { useAgentMutations, useAiAgents, type AiAgent } from "./api";
 import AgentAvatar from "./AgentAvatar";
 import AgentDialog from "./AgentDialog";
 import AgentTabs from "./AgentTabs";
+import { useDeleteAgent } from "./useDeleteAgent";
+import { AgentNotifyButton } from "./AgentNotify";
 import { costText, kindLabel, hostsText } from "./logic";
 import "./i18n";
 import "./aiagents.css";
@@ -24,10 +25,16 @@ export default function AgentsPage() {
   const agents = useAiAgents();
   const tasks = useTasks();
   const ops = useAgentMutations();
+  const deleteAgent = useDeleteAgent();
   const [params, setParams] = useSearchParams();
   const [editing, setEditingState] = useState<AiAgent | "new" | null>(() =>
     params.get("new") === "1" ? "new" : null,
   );
+  // 左栏的“+”在已经打开这一页时也要能弹出新建（B86）
+  const wantNew = params.get("new") === "1";
+  useEffect(() => {
+    if (wantNew) setEditingState("new");
+  }, [wantNew]);
   const setEditing = (v: AiAgent | "new" | null) => {
     setEditingState(v);
     if (!v && params.get("new")) setParams({}, { replace: true });
@@ -40,9 +47,12 @@ export default function AgentsPage() {
         "Agents change code on your machines, or work on cards with the console's tools.",
       )}
       aside={
-        <button className="xc-btn primary" onClick={() => setEditing("new")}>
-          <Plus size={14} /> {t("New agent")}
-        </button>
+        <>
+          <AgentNotifyButton />
+          <button className="xc-btn primary" onClick={() => setEditing("new")}>
+            <Plus size={14} /> {t("New agent")}
+          </button>
+        </>
       }
     />
   );
@@ -117,18 +127,7 @@ export default function AgentsPage() {
               key={a.id}
               agent={a}
               onEdit={() => setEditing(a)}
-              onDelete={async () => {
-                if (
-                  await confirmAction({
-                    title: `${t("Delete agent")}“${a.name}”？`,
-                    description: t(
-                      "Its finished tasks stay. Cards keep it as a member until you remove it.",
-                    ),
-                    confirmLabel: t("Delete"),
-                  })
-                )
-                  ops.remove.mutate(a.id);
-              }}
+              onDelete={() => deleteAgent(a)}
               onToggle={(enabled) =>
                 ops.update.mutate({ id: a.id, body: { enabled } })
               }

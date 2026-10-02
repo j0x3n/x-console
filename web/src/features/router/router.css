@@ -163,3 +163,27 @@
   font-family: var(--xc-mono);
   font-size: var(--fs-12);
 }
+/* B88：今日页“网络”卡片用和其他卡片一样的行，右边的值 */
+.router-today-value {
+  flex: none;
+  font-size: var(--fs-13);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+/* B93：顶栏里的刷新频率 */
+.router-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--xc-muted);
+}
+.router-interval .xc-select {
+  width: auto;
+  height: 28px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: var(--fs-12-5);
+}
+.router-interval .is-paused {
+  color: var(--xc-faint);
+}

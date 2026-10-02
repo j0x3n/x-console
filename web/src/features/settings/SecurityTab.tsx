@@ -12,6 +12,7 @@ import { toast } from "../../hooks/useToast";
 import VaultPasswordCard from "../vault/VaultPasswordCard";
 import HiddenModulesCard from "../vault/HiddenModulesCard";
 import ElevationModeCard from "./ElevationModeCard";
+import NicknameCard from "./NicknameCard";
 import { MIN_PASSWORD, passwordFormError } from "./security";
 
 /** 设置里的“安全”标签：两步验证开关、修改登录密码。 */
@@ -24,6 +25,7 @@ export default function SecurityTab() {
   const enabled = status.data.totpEnabled ?? true;
   return (
     <div className="settings-grid">
+      <NicknameCard />
       <TotpCard enabled={enabled} />
       <PasswordCard />
       <ElevationModeCard />

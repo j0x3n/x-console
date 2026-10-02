@@ -21,11 +21,14 @@ import {
   InstallMenuItem,
 } from "../../features/pwa/InstallMenu";
 import { useNavChildren } from "../../lib/navChildren";
+import type { LucideIcon } from "lucide-react";
 import {
   badgeLabel,
   useNavExtras,
   type NavAction,
   type NavBadgeHook,
+  type NavIconHook,
+  type NavStatusHook,
 } from "../../lib/navBadges";
 import { lastPathFor } from "../../hooks/useKeepScroll";
 import { useSidebar } from "../../stores/sidebar";
@@ -134,6 +137,8 @@ export default function Sidebar({
                 const isOpen = !!Children && open.includes(item.path);
                 const badge = extras.badges[item.path];
                 const action = extras.actions[item.path];
+                const iconHook = extras.icons[item.path];
+                const status = extras.statuses[item.path];
                 return (
                   <div key={item.path} className="nav-entry">
                     <NavLink
@@ -157,8 +162,13 @@ export default function Sidebar({
                         `nav-item ${selectedFor(item.path, isActive, location.pathname) ? "selected" : ""}${Children ? " has-children" : ""}${action ? " has-action" : ""}`
                       }
                     >
-                      <item.icon size={17} strokeWidth={1.5} />
+                      {iconHook ? (
+                        <NavIconMark hook={iconHook} fallback={item.icon} />
+                      ) : (
+                        <item.icon size={17} strokeWidth={1.5} />
+                      )}
                       <span>{t(item.label)}</span>
+                      {status && <NavStatusMark hook={status} />}
                       {badge && <NavBadgeMark hook={badge} />}
                     </NavLink>
                     {action && (
@@ -210,6 +220,39 @@ function NavBadgeMark({ hook }: { hook: NavBadgeHook }) {
       aria-hidden
     >
       {label}
+    </i>
+  );
+}
+
+/** 一级菜单的图标：模块可以换图标，或者让它跳动表示正在工作（B86、B88）。 */
+function NavIconMark({
+  hook,
+  fallback,
+}: {
+  hook: NavIconHook;
+  fallback: LucideIcon;
+}) {
+  const state = hook();
+  const Icon = state?.icon ?? fallback;
+  return (
+    <i
+      className={`nav-icon${state?.state === "working" ? " is-working" : ""}`}
+      title={state?.title}
+      aria-hidden
+    >
+      <Icon size={17} strokeWidth={1.5} />
+    </i>
+  );
+}
+
+/** 一级菜单右边的一小段状态，比如路由器的在线设备和网速（B93）。 */
+function NavStatusMark({ hook }: { hook: NavStatusHook }) {
+  const status = hook();
+  if (!status) return null;
+  return (
+    <i className="nav-status" title={status.title}>
+      {status.dot && <b className={`nav-status-dot ${status.dot}`} />}
+      {status.text && <em>{status.text}</em>}
     </i>
   );
 }

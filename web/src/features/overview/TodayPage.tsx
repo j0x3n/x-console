@@ -34,15 +34,15 @@ import {
 import { FitnessSummary } from "../habits/FitnessModule";
 import { MoreLink } from "./components/shared";
 import TodayStats from "./components/TodayStats";
+import QuoteLine from "./components/QuoteLine";
+import { usePreferencesStore } from "../../stores/preferences-store";
 import {
+  arrange,
   cardDefs,
-  columnCards,
   defaultLayout,
-  moveCard,
-  shiftCard,
-  spreadSide,
+  placeCard,
+  shiftInColumn,
   toggleCard,
-  type Column,
   type LayoutCard,
   cardModule,
 } from "./layout";
@@ -61,6 +61,8 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   activity: { body: () => <ActivityCard /> },
   fitness: { body: () => <FitnessSummary compact />, more: "/habits" },
 };
+
+const DRAG_TYPE = "text/x-today-card";
 
 /** 按内容区宽度决定几列：窄屏一列，常见宽度两列，2K 屏三列，更宽四列。 */
 function columnCount(width: number) {
@@ -104,12 +106,11 @@ export default function TodayPage() {
   const [gridRef, gridWidth] = useWidth<HTMLDivElement>();
   const columns = columnCount(gridWidth);
   const modules = useModules();
-  const shown = (column: Column) =>
-    columnCards(cards, column).filter(
-      (c) =>
-        (editing || c.visible) &&
-        modules.has(cardModule(c.id) as ModuleId | null),
-    );
+  const include = (c: LayoutCard) =>
+    (editing || c.visible) && modules.has(cardModule(c.id) as ModuleId | null);
+  // B88：每张卡片可以放在任意一列，拖到别的列或列的空白处
+  const grid = arrange(cards, columns, include);
+  const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
   const weather = cards.find((c) => c.id === "weather");
 
   const servers = hosts.data ?? [];
@@ -128,10 +129,25 @@ export default function TodayPage() {
     },
     language,
   );
-  const name = auth.data?.username;
+  // B88：设置里改的称呼优先，没有时用登录名
+  const nickname = usePreferencesStore((st) => st.nickname);
+  const name = nickname || auth.data?.username;
   const greeting =
     t(greetingKey(now)) +
     (name ? `${language === "zh" ? "，" : ", "}${name}` : "");
+
+  const weatherToggle = weather && (
+    <button
+      className={`xc-btn small ghost today-weather-toggle${weather.visible ? "" : " is-off"}`}
+      aria-pressed={weather.visible}
+      aria-label={weather.visible ? t("Hide card") : t("Show card")}
+      title={weather.visible ? t("Hide card") : t("Show card")}
+      onClick={() => setDraft(toggleCard(cards, "weather"))}
+    >
+      {weather.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+      {t("Weather")}
+    </button>
+  );
 
   const finish = () => {
     if (!draft) return;
@@ -153,11 +169,18 @@ export default function TodayPage() {
     <div className="xc-page today-page">
       <PageHeading
         showTitle
-        title={greeting}
+        title={
+          <>
+            <span className="today-greeting">{greeting}</span>
+            {/* B89：问候语后面的每日一句 */}
+            <QuoteLine />
+          </>
+        }
         subtitle={summary || undefined}
         aside={
           editing ? (
             <>
+              {weatherToggle}
               <button
                 className="xc-btn small ghost"
                 onClick={() => setDraft(null)}
@@ -174,6 +197,11 @@ export default function TodayPage() {
             </>
           ) : (
             <>
+              {/* B88：时间和天气挪到顶栏，在“早报”左边 */}
+              <span className="today-top-info">
+                <TodayClock />
+                {weather?.visible && <WeatherStrip />}
+              </span>
               <Link className="xc-btn small ghost" to="/calendar/briefs">
                 <Newspaper size={14} /> {t("Daily brief")}
               </Link>
@@ -185,26 +213,6 @@ export default function TodayPage() {
               </button>
             </>
           )
-        }
-        meta={
-          <>
-            <TodayClock />
-            {weather &&
-              (editing ? (
-                <button
-                  className={`xc-btn small ghost today-weather-toggle${weather.visible ? "" : " is-off"}`}
-                  aria-pressed={weather.visible}
-                  aria-label={weather.visible ? t("Hide card") : t("Show card")}
-                  title={weather.visible ? t("Hide card") : t("Show card")}
-                  onClick={() => setDraft(toggleCard(cards, "weather"))}
-                >
-                  {weather.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                  {t("Weather")}
-                </button>
-              ) : (
-                weather.visible && <WeatherStrip />
-              ))}
-          </>
         }
       />
       {editing && (
@@ -231,21 +239,39 @@ export default function TodayPage() {
                 : `minmax(0, 1.3fr) repeat(${columns - 1}, minmax(0, 1fr))`,
         }}
       >
-        {[
-          shown("main"),
-          ...(columns === 1
-            ? [shown("side")]
-            : spreadSide(shown("side"), columns - 1)),
-        ].map((list, i) => (
-          <div className="today-column" key={i}>
+        {grid.map((list, i) => (
+          <div
+            className={`today-column${editing ? " is-editing" : ""}${dragOverColumn === i ? " is-over" : ""}`}
+            key={i}
+            onDragOver={(e) => {
+              if (!editing || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
+              e.preventDefault();
+              setDragOverColumn(i);
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+                setDragOverColumn(null);
+            }}
+            onDrop={(e) => {
+              // 放在卡片上时由卡片处理；放在列的空白处时放到这一列最后
+              setDragOverColumn(null);
+              const from = e.dataTransfer.getData(DRAG_TYPE);
+              if (from && !e.defaultPrevented)
+                setDraft(placeCard(cards, from, i, null, columns));
+            }}
+          >
             {list.map((c) => (
               <TodayCard
                 key={c.id}
                 card={c}
                 editing={editing}
                 onToggle={() => setDraft(toggleCard(cards, c.id))}
-                onShift={(delta) => setDraft(shiftCard(cards, c.id, delta))}
-                onDrop={(from) => setDraft(moveCard(cards, from, c.id))}
+                onShift={(delta) =>
+                  setDraft(shiftInColumn(cards, c.id, delta, columns, include))
+                }
+                onDrop={(from) =>
+                  setDraft(placeCard(cards, from, i, c.id, columns))
+                }
               />
             ))}
           </div>
@@ -259,7 +285,7 @@ function TodayClock() {
   const language = useLanguage();
   const now = useNow(30_000);
   return (
-    <time dateTime={now.toISOString()}>
+    <time className="today-clock" dateTime={now.toISOString()}>
       {formatDate(now, language)} · {formatTime(now, language)}
     </time>
   );
@@ -322,20 +348,23 @@ function TodayCard({
       className={`today-card${editing ? " is-editing" : ""}${editing && !card.visible ? " is-hidden" : ""}${over ? " is-over" : ""}`}
       draggable={editing}
       onDragStart={(e) => {
-        e.dataTransfer.setData("text/x-today-card", card.id);
+        e.dataTransfer.setData(DRAG_TYPE, card.id);
         e.dataTransfer.effectAllowed = "move";
       }}
       onDragOver={(e) => {
-        if (!editing || !e.dataTransfer.types.includes("text/x-today-card"))
-          return;
+        if (!editing || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
         e.preventDefault();
+        e.stopPropagation();
         setOver(true);
       }}
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         setOver(false);
-        const from = e.dataTransfer.getData("text/x-today-card");
-        if (from) onDrop(from);
+        const from = e.dataTransfer.getData(DRAG_TYPE);
+        if (!from) return;
+        // 告诉外面的列：已经放好了，不要再放到列的最后
+        e.preventDefault();
+        onDrop(from);
       }}
     >
       <Section

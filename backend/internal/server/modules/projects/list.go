@@ -34,7 +34,7 @@ type issueFilter struct {
 
 const issueColumns = `i.id, i.project_id, i.number, i.title, i.description, i.status, i.priority, i.due_date,
 	i.milestone_id, i.sort_order, i.external_source, i.external_id, i.created_at, i.updated_at, i.completed_at,
-	i.category_id, i.due_at, i.due_remind, i.due_notified_at, i.board_id, i.list_id, i.archived_at, i.cover_file_id, p.key`
+	i.category_id, i.due_at, i.due_remind, i.due_notified_at, i.board_id, i.list_id, i.archived_at, i.cover_file_id, i.color, p.key`
 
 // listIssues returns one page and the offset of the next page (0 when done).
 func (m *Module) listIssues(ctx context.Context, f issueFilter) ([]api.Issue, int, error) {
@@ -142,7 +142,7 @@ func (m *Module) listIssues(ctx context.Context, f issueFilter) ([]api.Issue, in
 		if err := rows.Scan(&i.ID, &i.ProjectID, &i.Number, &i.Title, &i.Description, &i.Status, &i.Priority,
 			&i.DueDate, &i.MilestoneID, &i.SortOrder, &i.ExternalSource, &i.ExternalID, &i.CreatedAt, &i.UpdatedAt,
 			&i.CompletedAt, &i.CategoryID, &i.DueAt, &i.DueRemind, &i.DueNotifiedAt,
-			&i.BoardID, &i.ListID, &i.ArchivedAt, &i.CoverFileID, &r.ProjectKey); err != nil {
+			&i.BoardID, &i.ListID, &i.ArchivedAt, &i.CoverFileID, &i.Color, &r.ProjectKey); err != nil {
 			return nil, 0, err
 		}
 		list = append(list, r)

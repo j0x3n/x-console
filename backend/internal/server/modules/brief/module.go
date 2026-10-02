@@ -197,7 +197,7 @@ func (m *Module) generateAndSend(ctx context.Context, cfg config, now time.Time)
 func (m *Module) send(ctx context.Context, cfg config, row db.Brief, now time.Time) error {
 	title := dateTitle(now.In(m.d.Config.Location))
 	n := notify.Notification{
-		Kind: "brief.daily", Title: title, Body: plainText(row.Content), Link: "/calendar/briefs?date=" + row.Date,
+		Kind: "brief.daily", Title: title, Body: notifyBody(row), Link: "/calendar/briefs?date=" + row.Date,
 		Source: "brief", Data: map[string]any{"date": row.Date},
 	}
 	if len(cfg.Channels) > 0 {

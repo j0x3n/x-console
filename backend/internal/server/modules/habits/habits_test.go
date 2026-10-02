@@ -361,3 +361,36 @@ func TestActionsAndContract(t *testing.T) {
 		t.Fatalf("contract today: %+v %v", progress, err)
 	}
 }
+
+// B96: the AI sets every reminder field and a template is used once.
+func TestHabitActionsReminderFields(t *testing.T) {
+	env, _ := setup(t)
+	ctx := context.Background()
+	run := func(name, input string) any {
+		t.Helper()
+		out, err := env.App.Deps.Actions.Run(ctx, name, json.RawMessage(input))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return out
+	}
+	h := run("habits.create", `{"name":"起来活动","remindMode":"interval","remindIntervalMinutes":45,"remindWhen":["awake"],"remindWindow":"09:00-21:00"}`).(api.Habit)
+	if h.RemindMode != "interval" || h.RemindIntervalMinutes != 45 || len(h.RemindWhen) != 1 || h.RemindWhen[0] != "awake" {
+		t.Fatalf("create with reminder: %+v", h)
+	}
+	water := run("habits.create", `{"name":"喝水","template":"water"}`).(api.Habit)
+	if water.DailyTarget != 8 || water.RemindMode != "interval" {
+		t.Fatalf("template defaults: %+v", water)
+	}
+	again := run("habits.create", `{"name":"多喝水","template":"water"}`).(map[string]any)
+	if again["existing"] != true || again["habit"].(api.Habit).Id != water.Id {
+		t.Fatalf("template used twice: %+v", again)
+	}
+	up := run("habits.update", fmt.Sprintf(`{"id":%d,"remindMode":"times","remindTimes":["09:00","21:00"]}`, h.Id)).(api.Habit)
+	if up.RemindMode != "times" || len(up.RemindTimes) != 2 || up.Name != "起来活动" {
+		t.Fatalf("update: %+v", up)
+	}
+	if _, err := env.App.Deps.Actions.Run(ctx, "habits.update", json.RawMessage(`{"remindMode":"times"}`)); err == nil {
+		t.Fatal("update without id accepted")
+	}
+}

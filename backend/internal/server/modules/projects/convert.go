@@ -68,6 +68,7 @@ func toIssue(i db.Issue, projectKey string, labels []api.Label) api.Issue {
 		labels = []api.Label{}
 	}
 	remind := api.DueRemind(i.DueRemind)
+	color := api.CardColor(i.Color)
 	return api.Issue{
 		Id: i.ID, Key: issueKey(projectKey, i.Number), ProjectId: i.ProjectID, ProjectKey: projectKey, Number: i.Number,
 		Title: i.Title, Description: i.Description, Status: api.IssueStatus(i.Status), Priority: int(i.Priority),
@@ -76,6 +77,7 @@ func toIssue(i db.Issue, projectKey string, labels []api.Label) api.Issue {
 		ExternalSource: i.ExternalSource, ExternalId: i.ExternalID,
 		CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt,
 		BoardId: i.BoardID, ListId: i.ListID, ArchivedAt: i.ArchivedAt,
+		Color: &color,
 	}
 }
 

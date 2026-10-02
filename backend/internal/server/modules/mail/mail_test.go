@@ -422,6 +422,23 @@ func TestSnippetText(t *testing.T) {
 	if got != "Hi there" {
 		t.Fatalf("html: %q", got)
 	}
+	// B92：营销邮件的 Outlook 条件注释、放在纯文本里的 HTML、被截断的注释
+	cases := map[string]string{
+		"<!--[if !mso]><!--><div>你好&nbsp;世界</div><!--<![endif]-->":         "你好 世界",
+		"<!--[if mso]><table><tr><td>旧版</td></tr></table><![endif]-->本周优惠": "本周优惠",
+		"[if !mso]><!--> 活动开始了 <![endif]-->":                               "活动开始了",
+		"&lt;p&gt;转义过的 HTML&lt;/p&gt;":                                     "转义过的 HTML",
+		"价格 a < b，照常显示":                                                    "价格 a < b，照常显示",
+	}
+	for in, want := range cases {
+		if got := mail.CleanText(in); got != want {
+			t.Errorf("clean %q: %q, want %q", in, got, want)
+		}
+	}
+	got = mail.SnippetText([]byte("<!--[if !mso]><!-->\r\n<p>Hello</p>"), "7bit", "", false)
+	if got != "Hello" {
+		t.Fatalf("html in text/plain: %q", got)
+	}
 }
 
 func hasFlag(flags []imap.Flag, f imap.Flag) bool {

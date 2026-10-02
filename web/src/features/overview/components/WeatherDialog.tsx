@@ -29,6 +29,8 @@ export interface WeatherShow {
   place: boolean;
   /** 空气质量（B58，要和风天气） */
   air: boolean;
+  /** 湿度（B90） */
+  humidity: boolean;
 }
 const SHOW_KEY = "xc.today.weather";
 const defaultShow: WeatherShow = {
@@ -36,6 +38,7 @@ const defaultShow: WeatherShow = {
   rain: true,
   place: false,
   air: true,
+  humidity: true,
 };
 
 export function loadWeatherShow(): WeatherShow {
@@ -268,6 +271,22 @@ export default function WeatherDialog({
           <label className="xc-check">
             <input
               type="checkbox"
+              checked={show.humidity}
+              onChange={(e) => setShow({ ...show, humidity: e.target.checked })}
+            />
+            <span>{t("Humidity")}</span>
+          </label>
+          <label className="xc-check">
+            <input
+              type="checkbox"
+              checked={show.air}
+              onChange={(e) => setShow({ ...show, air: e.target.checked })}
+            />
+            <span>{t("Air quality")}</span>
+          </label>
+          <label className="xc-check">
+            <input
+              type="checkbox"
               checked={show.rain}
               onChange={(e) => setShow({ ...show, rain: e.target.checked })}
             />
@@ -280,14 +299,6 @@ export default function WeatherDialog({
               onChange={(e) => setShow({ ...show, place: e.target.checked })}
             />
             <span>{t("Place name")}</span>
-          </label>
-          <label className="xc-check">
-            <input
-              type="checkbox"
-              checked={show.air}
-              onChange={(e) => setShow({ ...show, air: e.target.checked })}
-            />
-            <span>{t("Air quality")}</span>
           </label>
         </section>
 

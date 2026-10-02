@@ -47,7 +47,7 @@ func summaryView(r db.ListMessagesRow) api.MailSummary {
 		from.Name = &name
 	}
 	return api.MailSummary{
-		Id: r.ID, AccountId: r.AccountID, From: from, Subject: r.Subject, Snippet: r.Snippet, Date: r.Date,
+		Id: r.ID, AccountId: r.AccountID, From: from, Subject: r.Subject, Snippet: cleanText(r.Snippet), Date: r.Date,
 		Unread: r.Unread == 1, Flagged: r.Flagged == 1, HasAttachments: r.HasAttachments == 1,
 	}
 }
@@ -55,7 +55,7 @@ func summaryView(r db.ListMessagesRow) api.MailSummary {
 func rowSummary(r db.MailMessage) api.MailSummary {
 	return summaryView(db.ListMessagesRow{
 		ID: r.ID, AccountID: r.AccountID, Uid: r.Uid, MessageID: r.MessageID, FromName: r.FromName, FromAddress: r.FromAddress,
-		Subject: r.Subject, Snippet: r.Snippet, Date: r.Date, Unread: r.Unread, Flagged: r.Flagged, HasAttachments: r.HasAttachments,
+		Subject: r.Subject, Snippet: cleanText(r.Snippet), Date: r.Date, Unread: r.Unread, Flagged: r.Flagged, HasAttachments: r.HasAttachments,
 	})
 }
 

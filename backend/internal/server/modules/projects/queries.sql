@@ -327,3 +327,7 @@ SELECT n.id, it.text, it.done, it.position, it.done_at
 FROM issue_checklist_items it
 JOIN issue_checklists o ON o.id = it.checklist_id AND o.issue_id = sqlc.arg(from_issue)
 JOIN issue_checklists n ON n.issue_id = sqlc.arg(to_issue) AND n.position = o.position AND n.title = o.title;
+
+-- name: SetIssueColor :exec
+-- B85
+UPDATE issues SET color = ?, updated_at = ? WHERE id = ?;

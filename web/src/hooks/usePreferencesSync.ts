@@ -25,7 +25,7 @@ const fromNight: Record<Preferences["nightMode"], ThemeMode> = {
 let applying = false;
 
 /*
- * 夜间模式、主题色、语言存在服务端（B22），换一台浏览器登录也一样。
+ * 夜间模式、主题色、语言、称呼（B88）、每日一句（B89）存在服务端（B22），换一台浏览器登录也一样。
  * 本地 localStorage 也存一份，首屏不闪。接口还没上线时只用本地的。
  * 在登录后的布局里调用一次。
  */
@@ -49,6 +49,9 @@ export function usePreferencesSync() {
     store.setThemeMode(fromNight[p.nightMode] ?? "system");
     store.setAccent(p.accent);
     store.setLanguage(p.language);
+    // B88、B89：旧服务端不返回这两个字段，这时保留本地的
+    if (p.nickname !== undefined) store.setNickname(p.nickname);
+    if (p.quoteMode !== undefined) store.setQuoteMode(p.quoteMode);
     applying = false;
   }, [remote.data]);
   const live = remote.isSuccess;
@@ -59,7 +62,9 @@ export function usePreferencesSync() {
       if (
         s.themeMode === prev.themeMode &&
         s.accent === prev.accent &&
-        s.language === prev.language
+        s.language === prev.language &&
+        s.nickname === prev.nickname &&
+        s.quoteMode === prev.quoteMode
       )
         return;
       save(s);
@@ -67,13 +72,20 @@ export function usePreferencesSync() {
   }, [live]);
 }
 
-function save(s: Pick<PreferencesState, "themeMode" | "accent" | "language">) {
+function save(
+  s: Pick<
+    PreferencesState,
+    "themeMode" | "accent" | "language" | "nickname" | "quoteMode"
+  >,
+) {
   coreApi
     .PUT("/me/preferences", {
       body: {
         nightMode: toNight[s.themeMode],
         accent: s.accent,
         language: s.language,
+        nickname: s.nickname,
+        quoteMode: s.quoteMode,
       },
     })
     .catch(() => {

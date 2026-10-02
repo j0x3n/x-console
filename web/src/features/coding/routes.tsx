@@ -1,15 +1,27 @@
 import { lazy } from "react";
 import { Navigate, type RouteObject } from "react-router";
-import { Bot, FolderGit2 } from "lucide-react";
+import { Bot, FolderGit2, Plus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { registerNavChildren } from "../../lib/navChildren";
 import CodingNavChildren from "./NavChildren";
 import "./i18n";
+import "../aiagents/i18n";
 import "./coding.css";
-import { registerNavBadge } from "../../lib/navBadges";
-import { useCodingBadge } from "./badge";
+import {
+  registerNavAction,
+  registerNavBadge,
+  registerNavIcon,
+} from "../../lib/navBadges";
+import { useAgentsNavIcon, useCodingBadge } from "./badge";
 
 registerNavBadge("/coding", useCodingBadge);
+// B86：有 Agent 在工作时图标跳动；“+”快速新建 Agent
+registerNavIcon("/coding", useAgentsNavIcon);
+registerNavAction("/coding", {
+  icon: Plus,
+  label: "New agent",
+  run: (navigate) => navigate("/coding?new=1"),
+});
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const CodingPage = lazy(() => import("./CodingPage"));

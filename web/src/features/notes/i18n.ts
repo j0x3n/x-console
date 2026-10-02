@@ -1,6 +1,27 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // 便签弹窗（Google Keep 的样子）
+  "Remove image": "去掉图片",
+  "Take a note…": "写点什么…",
+  "Add tags, separated by spaces": "输入标签，用空格分开，回车添加",
+  "Make a copy": "复制一份",
+  "Open in the full editor": "用完整编辑器打开",
+  "Delete memo": "删除这条便签",
+  // B89 每日一句
+  "Daily quote": "每日一句",
+  "Don't show": "不显示",
+  "Always the same": "固定显示",
+  "The first pinned quote. Without a pinned one, the newest.":
+    "显示置顶的第一条名言。没有置顶的就显示最新的一条。",
+  "A new one each time": "每次打开随机",
+  "Picked at random each time you open the today page.":
+    "每次打开今日页随机选一条。",
+  "A new one each day": "每天随机",
+  "Picked at random once a day.": "每天随机选一条，当天不变。",
+  "Shown after the greeting on the today page.": "显示在今日页问候语后面。",
+  "Memos with the tag": "带这个标签的便签",
+  "See the quotes": "查看名言",
   // B72：外链分享、浮窗
   "Shared by link": "已分享外链",
   "Share by link": "分享外链",

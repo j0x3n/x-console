@@ -655,3 +655,83 @@ a.today-row:hover {
 .today-row-more {
   min-height: 36px;
 }
+/* B90：天气详情里按天气选的图标 */
+.weather-detail-icon {
+  flex: none;
+  color: var(--xc-text-2);
+}
+/* B88：调整布局时每一列都能放卡片，空白处也能放 */
+.today-column.is-editing {
+  min-height: 160px;
+  padding-bottom: 40px;
+  border-radius: var(--xc-radius-lg);
+}
+.today-column.is-over {
+  outline: 2px dashed var(--xc-accent);
+  outline-offset: 4px;
+}
+/* B88、B89：问候语后面跟每日一句；时间和天气挪到顶栏 */
+.today-page .xc-page-title h1 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+.today-greeting {
+  flex: none;
+}
+.today-quote {
+  display: -webkit-box;
+  flex: 1 1 280px;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  color: var(--xc-muted);
+  font-size: var(--fs-14);
+  font-weight: 400;
+  line-height: 1.55;
+  text-decoration: none;
+}
+.today-quote:hover {
+  color: var(--xc-text-2);
+}
+.today-top-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.today-top-info .today-weather-strip {
+  margin-left: 4px;
+}
+@media (max-width: 1100px) {
+  .today-top-info .today-weather-range,
+  .today-top-info .today-weather-soon,
+  .today-top-info .today-weather-rain {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .today-top-info .today-clock {
+    display: none;
+  }
+  /* 手机上天气只留图标和温度 */
+  .today-top-info .today-weather-strip > span,
+  .today-top-info .today-weather-warning,
+  .today-top-info .today-weather-refresh {
+    display: none;
+  }
+}
+.today-row-icon.ok {
+  background: var(--xc-ok-soft);
+  color: var(--xc-ok);
+}
+.today-row-icon.danger {
+  background: var(--xc-danger-soft);
+  color: var(--xc-danger);
+}

@@ -30,7 +30,15 @@ import {
   sortWarnings,
   warningLabel,
   warningTone,
+  rainSoon,
+  rainSoonText,
 } from "../weather";
+import { weatherIcon } from "../weatherIcon";
+
+function NowIcon({ weather }: { weather: Weather }) {
+  const Icon = weatherIcon(weather);
+  return <Icon size={28} className="weather-detail-icon" />;
+}
 
 /*
  * B58：点今日页的天气条打开。上面是现在的天气，下面是和风天气的预警、
@@ -76,14 +84,25 @@ export default function WeatherDetail({
       <div className="weather-detail">
         {weather && (
           <header className="weather-detail-now">
+            <NowIcon weather={weather} />
             <b>{Math.round(weather.temperature)}°</b>
             <span>
               {weather.location && <strong>{weather.location}</strong>}
               <span>
                 {weather.summary} · {Math.round(weather.low)}°/
                 {Math.round(weather.high)}°
+                {weather.humidity != null &&
+                  ` · ${t("Humidity")} ${weather.humidity}%`}
+                {x?.air && ` · ${t("Air quality")} ${x.air.category}`}
                 {x?.yesterday && ` · ${compareYesterday(weather, x.yesterday)}`}
               </span>
+              {weather.source && (
+                <small className="weather-note">
+                  {weather.source === "qweather"
+                    ? t("Data from QWeather")
+                    : t("Data from Open-Meteo")}
+                </small>
+              )}
             </span>
           </header>
         )}
@@ -138,6 +157,7 @@ function ExtraSections({
 }) {
   const t = useT();
   const [openWarning, setOpenWarning] = useState<string | null>(null);
+  const now = rainSoon(x.minutely, new Date());
   const warnings = sortWarnings(x.warnings);
   const points = x.minutely?.points ?? [];
   const max = Math.max(0.5, ...points.map((p) => p.precip));
@@ -185,6 +205,12 @@ function ExtraSections({
           <h3>
             <CloudRain size={14} /> {t("Next two hours")}
           </h3>
+          {/* B90：正在下时先说还要下多久 */}
+          {now && (
+            <p className="weather-detail-line">
+              <strong>{rainSoonText(now)}</strong>
+            </p>
+          )}
           <p className="weather-detail-line">{x.minutely.summary}</p>
           {points.some((p) => p.precip > 0) && (
             <div

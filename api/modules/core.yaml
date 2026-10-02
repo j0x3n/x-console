@@ -590,6 +590,14 @@ components:
         language:
           type: string
           enum: [zh, en]
+        nickname:
+          type: string
+          maxLength: 20
+          description: B88。今日页问候语里的称呼，空时用登录名
+        quoteMode:
+          type: string
+          enum: ["off", fixed, refresh, daily]
+          description: B89。今日页问候语后面的每日一句。off 不显示（默认）；fixed 固定显示置顶的第一条名言；refresh 每次打开随机一条；daily 每天随机一条
         updatedAt:
           type: string
           format: date-time

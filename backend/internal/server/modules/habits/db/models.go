@@ -659,6 +659,7 @@ type Issue struct {
 	ListID         *int64
 	ArchivedAt     *time.Time
 	CoverFileID    *int64
+	Color          string
 }
 
 type IssueActivity struct {

@@ -993,6 +993,71 @@ a.xc-badge:hover {
 .nav-badge.warn.dot {
   background: var(--xc-warn);
 }
+/* B86、B88：一级菜单的图标可以换成别的，或者在有任务时跳动 */
+.nav-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  font-style: normal;
+}
+.nav-icon.is-working {
+  color: var(--xc-accent-text);
+  animation: nav-icon-pulse 1.4s ease-in-out infinite;
+}
+@keyframes nav-icon-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.86);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-icon.is-working {
+    animation: none;
+  }
+}
+/* B93：一级菜单右边的一小段状态，比如路由器的在线设备和网速 */
+.nav-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+.nav-status + .nav-badge {
+  margin-left: 6px;
+}
+.nav-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--xc-faint);
+}
+.nav-status-dot.ok {
+  background: var(--xc-ok);
+}
+.nav-status-dot.warn {
+  background: var(--xc-warn);
+}
+.nav-status-dot.danger {
+  background: var(--xc-danger);
+}
+/* 二级菜单里正在工作的条目，名称右边转圈（B86） */
+.nav-child-spin {
+  flex: none;
+  margin-left: auto;
+  color: var(--xc-accent-text);
+  animation: xc-spin 0.9s linear infinite;
+}
+.nav-child-spin + small {
+  margin-left: 6px;
+}
 /* B72：一级菜单行内的小按钮（笔记的“+”），在折叠箭头左边，悬停时出现 */
 .nav-action {
   position: absolute;
@@ -1076,6 +1141,10 @@ a.xc-badge:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* 名称左边的小标记（国旗等）不要跟着名称一起撑开 */
+.nav-child > .xc-flag {
+  flex: none;
 }
 .nav-child small {
   flex: none;

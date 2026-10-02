@@ -4,7 +4,9 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/j0x3n/x-console/backend/internal/server/core/api"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -45,6 +47,13 @@ func (h *Handlers) GetPreferences(w http.ResponseWriter, r *http.Request) {
 		if slices.Contains(languages, string(saved.Language)) {
 			out.Language = saved.Language
 		}
+		// B88, B89: older saves have neither field.
+		if saved.Nickname != nil && utf8.RuneCountInString(*saved.Nickname) <= 20 {
+			out.Nickname = saved.Nickname
+		}
+		if saved.QuoteMode != nil && saved.QuoteMode.Valid() {
+			out.QuoteMode = saved.QuoteMode
+		}
 		out.UpdatedAt = saved.UpdatedAt
 	}
 	httpx.JSON(w, http.StatusOK, out)
@@ -67,6 +76,17 @@ func (h *Handlers) PutPreferences(w http.ResponseWriter, r *http.Request) {
 	case !slices.Contains(languages, string(body.Language)):
 		httpx.Fail(w, r, httpx.Invalid("语言不对"))
 		return
+	case body.QuoteMode != nil && !body.QuoteMode.Valid():
+		httpx.Fail(w, r, httpx.Invalid("每日一句的显示方式不对"))
+		return
+	}
+	if body.Nickname != nil {
+		name := strings.TrimSpace(*body.Nickname)
+		if utf8.RuneCountInString(name) > 20 {
+			httpx.Fail(w, r, httpx.Invalid("称呼最多 20 个字"))
+			return
+		}
+		body.Nickname = &name
 	}
 	now := time.Now().UTC()
 	body.UpdatedAt = &now

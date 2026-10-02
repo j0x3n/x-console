@@ -18,9 +18,11 @@ func TestDashboardLayout(t *testing.T) {
 		t.Fatalf("initial layout: %+v", layout)
 	}
 
+	two := 2
 	want := api.DashboardLayout{Cards: []api.DashboardCard{
 		{Id: "weather", Visible: false, Order: 4},
 		{Id: "future-card", Visible: true, Order: 1},
+		{Id: "network", Visible: true, Order: 2, Column: &two},
 	}}
 	env.MustDo(http.MethodPut, "/dashboard/layout", want, &layout)
 	if !reflect.DeepEqual(layout, want) {
@@ -52,6 +54,9 @@ func TestDashboardLayoutInvalid(t *testing.T) {
 		{"null visible", map[string]any{"cards": []any{map[string]any{"id": "weather", "visible": nil, "order": 0}}}},
 		{"null order", map[string]any{"cards": []any{map[string]any{"id": "weather", "visible": true, "order": nil}}}},
 		{"invalid order", map[string]any{"cards": []any{map[string]any{"id": "weather", "visible": true, "order": "first"}}}},
+		{"column too big", map[string]any{"cards": []any{map[string]any{"id": "weather", "visible": true, "order": 0, "column": 4}}}},
+		{"null column", map[string]any{"cards": []any{map[string]any{"id": "weather", "visible": true, "order": 0, "column": nil}}}},
+		{"unknown field", map[string]any{"cards": []any{map[string]any{"id": "weather", "visible": true, "order": 0, "width": 2}}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

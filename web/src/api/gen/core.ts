@@ -545,6 +545,13 @@ export interface components {
             accent: "ember" | "violet" | "mint" | "ocean" | "rose" | "graphite";
             /** @enum {string} */
             language: "zh" | "en";
+            /** @description B88。今日页问候语里的称呼，空时用登录名 */
+            nickname?: string;
+            /**
+             * @description B89。今日页问候语后面的每日一句。off 不显示（默认）；fixed 固定显示置顶的第一条名言；refresh 每次打开随机一条；daily 每天随机一条
+             * @enum {string}
+             */
+            quoteMode?: "off" | "fixed" | "refresh" | "daily";
             /**
              * Format: date-time
              * @description 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来

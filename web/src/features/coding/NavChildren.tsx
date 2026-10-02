@@ -13,7 +13,9 @@ export default function CodingNavChildren({ onNavigate }: NavChildrenProps) {
         key: String(a.id),
         to: `/coding/agents/${a.id}`,
         label: `${a.avatar ? `${a.avatar} ` : ""}${a.name}`,
-        hint: a.runningTasks > 0 ? String(a.runningTasks) : undefined,
+        // B86：工作中的 Agent 名称右边转圈，数量大于 1 时再显示几个
+        busy: a.runningTasks > 0,
+        hint: a.runningTasks > 1 ? String(a.runningTasks) : undefined,
         active: false,
       }))}
       allTo="/coding"

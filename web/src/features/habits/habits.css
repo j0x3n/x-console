@@ -572,3 +572,22 @@
     justify-content: space-between;
   }
 }
+/* B96：推荐模板 */
+.habits-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.habits-suggest-label {
+  margin-right: 4px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.habits-suggest-added {
+  color: var(--xc-muted);
+}
+.habits-suggest-added svg {
+  color: var(--xc-ok);
+}

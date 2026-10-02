@@ -2,6 +2,46 @@ import { registerZh } from "../../lib/i18n";
 
 // B47 Agent 管理。
 registerZh({
+  // B87 待你决定
+  Grant: "批准",
+  Answer: "回答",
+  Answered: "已回答",
+  "Your answer": "你的回答",
+  "Agent question": "Agent 提问",
+  "Permission request": "权限请求",
+  // B87 Agent 通知
+  "Agent notifications": "Agent 通知",
+  "Where they go follows the rules above.": "发到哪里照上面的规则。",
+  "Got a task": "收到任务",
+  "A card is assigned to an agent.": "卡片分配给了 Agent。",
+  "Started a task": "开始任务",
+  "The agent starts working.": "Agent 开始执行。",
+  "Needs your decision": "需要你决定",
+  "The agent asks for permission or asks you a question, or a coding task waits for review.":
+    "Agent 请求权限、问你问题，或者编码任务做完等你审查。",
+  "Opened a pull request": "已提 PR",
+  "The agent opened a pull request.": "Agent 提了 PR。",
+  "Finished a task": "完成任务",
+  "The agent is done.": "Agent 做完了。",
+  "Failed or stopped": "失败或中断",
+  "The task failed, timed out or was stopped.": "任务失败、超时或被中断。",
+  // B86 分配给 Agent 开发
+  "This board has no repository yet.": "这个看板还没绑定仓库。",
+  "Link one and the agent clones it, does the work and opens a pull request.":
+    "绑定后 Agent 会同步仓库、开发并提 PR。",
+  "Linked to this board": "看板绑定的仓库",
+  "Open a pull request when done": "做完自动提 PR",
+  // B86 执行日志、删除
+  "No agent runs yet": "还没有执行记录",
+  "Logs show up here after the agent starts working.":
+    "Agent 开始工作后，日志会出现在这里。",
+  "Pick a run": "选择一次执行",
+  "Open task": "打开任务",
+  "No log yet": "还没有日志",
+  "Execution log": "执行日志",
+  "Agent runs": "Agent 执行",
+  "It is working on a task now. Stop the task first.":
+    "它正在执行任务，先停止任务再删除。",
   // 能操作的机器（B60）
   "Machines it may operate": "能操作的机器",
   "No servers or computers yet.": "还没有服务器或电脑。",

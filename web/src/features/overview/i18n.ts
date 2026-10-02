@@ -1,6 +1,11 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B90 天气
+  Humidity: "湿度",
+  "Chance of rain today": "今天降水概率",
+  "Data from QWeather": "数据来自和风天气",
+  "Data from Open-Meteo": "数据来自 Open-Meteo",
   "Good morning": "早上好",
   "Good noon": "中午好",
   "Good afternoon": "下午好",
@@ -56,7 +61,7 @@ registerZh({
   "Saving the layout is not live yet. Changes last until you leave this page.":
     "保存布局的功能还没上线，改动只在离开这个页面前有效。",
   "Drag cards to reorder. Hidden cards stay hidden until you show them again.":
-    "拖动卡片调整顺序。隐藏的卡片要再点一下才会显示。",
+    "卡片可以拖到任意一列的任意位置。隐藏的卡片要再点一下才会显示。",
   "Weather settings": "天气设置",
   Place: "地区",
   "Not set yet": "还没设置",

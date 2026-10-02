@@ -45,7 +45,8 @@ export function HostStatus({
 }
 
 /**
- * 详情页用：在线状态显示成左上角标题后面的小点，页头只在有告警或离线时显示标签。
+ * 详情页用：在线状态显示成左上角标题后面的小点和文字（比如“离线 · 9 小时前”），
+ * 页头只在有告警时显示标签。离线不再重复显示一遍（B94）。
  */
 export function HostHeadStatus({
   host,
@@ -61,15 +62,12 @@ export function HostHeadStatus({
     host.online ? "ok" : "danger",
     host.online ? t("Online") : offline,
   );
-  if (host.online && host.activeAlerts === 0) return null;
+  if (host.activeAlerts === 0) return null;
   return (
     <span className="xc-row">
-      {host.activeAlerts > 0 && (
-        <span className="xc-badge danger">
-          <AlertTriangle size={11} /> {host.activeAlerts} {t("alerts")}
-        </span>
-      )}
-      {!host.online && <span className="xc-badge">{offline}</span>}
+      <span className="xc-badge danger">
+        <AlertTriangle size={11} /> {host.activeAlerts} {t("alerts")}
+      </span>
     </span>
   );
 }

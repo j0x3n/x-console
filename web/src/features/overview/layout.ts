@@ -86,6 +86,11 @@ export interface LayoutCard {
   id: string;
   visible: boolean;
   order: number;
+  /**
+   * B88：放在第几列，0 是主列。没有时按卡片默认的位置（main 在主列，
+   * side 平均分到右边几列）。列数比这个少时放到最后一列。
+   */
+  column?: number;
 }
 
 export function defaultLayout(): LayoutCard[] {
@@ -105,11 +110,12 @@ export function normalizeLayout(saved: LayoutCard[] | undefined): LayoutCard[] {
   const missing = cardDefs
     .filter((d) => !seen.has(d.id))
     .map((d) => ({ id: d.id, visible: !d.hidden, order: 0 }));
-  return [...kept, ...missing].map((c, i) => ({
-    id: c.id,
-    visible: c.visible,
-    order: i,
-  }));
+  return [...kept, ...missing].map((c, i) => {
+    const out: LayoutCard = { id: c.id, visible: c.visible, order: i };
+    const col = (c as LayoutCard).column;
+    if (typeof col === "number" && col >= 0 && col <= 3) out.column = col;
+    return out;
+  });
 }
 
 export function columnOf(id: string): Column {
@@ -189,4 +195,132 @@ export function spreadSide(cards: LayoutCard[], n: number): LayoutCard[][] {
 /** 卡片所属的模块，不属于任何模块时为 null（B57）。 */
 export function cardModule(id: string): string | null {
   return cardDefs.find((d) => d.id === id)?.module ?? null;
+}
+
+// ---- B88：各列之间自由拖动 ----
+
+const weightOf = (id: string) => cardDefs.find((d) => d.id === id)?.weight ?? 2;
+
+/** 没指定列的卡片默认放哪：main 在主列，side 是 -1（交给 spread 分）。 */
+function defaultColumn(c: LayoutCard): number {
+  if (c.column !== undefined) return c.column;
+  return columnOf(c.id) === "main" ? 0 : -1;
+}
+
+/**
+ * 把卡片（不含天气条）排成 n 列。指定了列的放进那一列（超出时放最后一列），
+ * 没指定的照旧：main 在主列，side 按高度分到右边几列。每列按 order 排。
+ * 只有一列时，按“列号、order”排成一列。
+ */
+export function arrange(
+  layout: LayoutCard[],
+  n: number,
+  include: (c: LayoutCard) => boolean = () => true,
+): LayoutCard[][] {
+  const list = layout
+    .filter((c) => columnOf(c.id) !== "top" && include(c))
+    .sort((a, b) => a.order - b.order);
+  if (n <= 1) {
+    const rank = (c: LayoutCard) => {
+      const col = defaultColumn(c);
+      return col < 0 ? 1 : col;
+    };
+    return [[...list].sort((a, b) => rank(a) - rank(b) || a.order - b.order)];
+  }
+  const cols: LayoutCard[][] = Array.from({ length: n }, () => []);
+  const heights = cols.map(() => 0);
+  const auto: LayoutCard[] = [];
+  for (const c of list) {
+    const col = defaultColumn(c);
+    if (col < 0) {
+      auto.push(c);
+      continue;
+    }
+    const i = Math.min(col, n - 1);
+    cols[i].push(c);
+    heights[i] += weightOf(c.id);
+  }
+  for (const c of auto) {
+    const side = heights.slice(1);
+    const i = 1 + side.indexOf(Math.min(...side));
+    cols[i].push(c);
+    heights[i] += weightOf(c.id);
+  }
+  return cols.map((col) => col.sort((a, b) => a.order - b.order));
+}
+
+/**
+ * 把卡片放到第 col 列、beforeId 这张卡片的前面（null 表示放到这一列最后）。
+ * 放完后所有卡片都记下自己在哪一列，order 按列重新编号。
+ */
+export function placeCard(
+  layout: LayoutCard[],
+  id: string,
+  col: number,
+  beforeId: string | null,
+  n: number,
+): LayoutCard[] {
+  if (id === beforeId || columnOf(id) === "top") return layout;
+  const moving = layout.find((c) => c.id === id);
+  if (!moving) return layout;
+  const cols = arrange(layout, n).map((list) =>
+    list.filter((c) => c.id !== id),
+  );
+  const target = Math.max(0, Math.min(col, cols.length - 1));
+  if (n <= 1) {
+    // 一列时记下的是“排在哪一段”：跟着后面那张卡片，或者最后一张
+    const list = cols[0];
+    const at = beforeId ? list.findIndex((c) => c.id === beforeId) : -1;
+    const ref = at >= 0 ? list[at] : list[list.length - 1];
+    const refCol = ref ? defaultColumn(ref) : 0;
+    const placed = { ...moving, column: refCol < 0 ? 1 : refCol };
+    if (at >= 0) list.splice(at, 0, placed);
+    else list.push(placed);
+    return renumberColumns(layout, cols, true);
+  }
+  const list = cols[target];
+  const at = beforeId ? list.findIndex((c) => c.id === beforeId) : -1;
+  const placed = { ...moving };
+  if (at >= 0) list.splice(at, 0, placed);
+  else list.push(placed);
+  return renumberColumns(layout, cols, false);
+}
+
+function renumberColumns(
+  layout: LayoutCard[],
+  cols: LayoutCard[][],
+  keepColumn: boolean,
+): LayoutCard[] {
+  const top = layout.filter((c) => columnOf(c.id) === "top");
+  const rest = cols.flatMap((list, i) =>
+    list.map((c) => {
+      if (keepColumn) {
+        const col = defaultColumn(c);
+        return { ...c, column: col < 0 ? 1 : col };
+      }
+      return { ...c, column: i };
+    }),
+  );
+  return [...top, ...rest].map((c, i) => ({ ...c, order: i }));
+}
+
+/** 在自己那一列里上移（-1）或下移（1）一格。 */
+export function shiftInColumn(
+  layout: LayoutCard[],
+  id: string,
+  delta: -1 | 1,
+  n: number,
+  include?: (c: LayoutCard) => boolean,
+): LayoutCard[] {
+  const cols = arrange(layout, n, include);
+  const col = cols.findIndex((list) => list.some((c) => c.id === id));
+  if (col < 0) return layout;
+  const list = cols[col];
+  const i = list.findIndex((c) => c.id === id);
+  if (delta < 0) {
+    if (i === 0) return layout;
+    return placeCard(layout, id, col, list[i - 1].id, n);
+  }
+  if (i === list.length - 1) return layout;
+  return placeCard(layout, id, col, list[i + 2]?.id ?? null, n);
 }

@@ -39,6 +39,8 @@ export interface components {
             visible: boolean;
             /** @description 同一栏里的顺序，小的在上 */
             order: number;
+            /** @description B88。放在第几列，0 是最左边的主列。没有时按卡片默认的位置排。屏幕放不下这么多列时放到最后一列 */
+            column?: number;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */

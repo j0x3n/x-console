@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import MoreMenu from "../../components/ui/MoreMenu";
 import {
   Bell,
+  Check,
   Dumbbell,
   Flame,
   HeartPulse,
@@ -20,8 +21,10 @@ import {
   useHabitsToday,
   useUndoCheckin,
   type Habit,
+  type HabitTemplate,
   type HabitToday,
 } from "./api";
+import { HABIT_TEMPLATES } from "./presence";
 import { FitnessSummary, TodayLogDialog } from "./FitnessModule";
 import HabitDialog from "./HabitDialog";
 import { formatAmount, ratio, remindSummary, ringGeometry } from "./progress";
@@ -95,8 +98,21 @@ export default function TodayView({
   const t = useT();
   const today = useHabitsToday();
   const [editing, setEditing] = useState<Habit | null>(null);
+  // B96：从推荐模板新建
+  const [fromTemplate, setFromTemplate] = useState<HabitTemplate>();
+  const active = (today.data ?? []).map((p) => p.habit);
+  const existing = active
+    .map((h) => h.template)
+    .filter((x): x is HabitTemplate => !!x);
   return (
     <>
+      {today.data && (
+        <Suggestions
+          habits={active}
+          onCreate={setFromTemplate}
+          onEdit={setEditing}
+        />
+      )}
       {today.isPending ? (
         <Loading />
       ) : today.isError ? (
@@ -118,14 +134,67 @@ export default function TodayView({
       )}
       <HabitModules />
       <HabitDialog
-        open={creating || editing !== null}
+        open={creating || editing !== null || fromTemplate !== undefined}
         habit={editing}
+        initialTemplate={fromTemplate}
+        existingTemplates={existing}
         onClose={() => {
           setEditing(null);
+          setFromTemplate(undefined);
           onCloseCreate();
         }}
       />
     </>
+  );
+}
+
+/**
+ * B96：推荐模板。没建过的点了打开新建弹窗并填好；建过的显示“已添加”，
+ * 点了打开那个习惯的编辑，不再新建。全部建过时不显示。
+ */
+function Suggestions({
+  habits,
+  onCreate,
+  onEdit,
+}: {
+  habits: Habit[];
+  onCreate: (id: HabitTemplate) => void;
+  onEdit: (habit: Habit) => void;
+}) {
+  const t = useT();
+  const byTemplate = new Map(
+    habits.filter((h) => h.template).map((h) => [h.template!, h]),
+  );
+  if (HABIT_TEMPLATES.every((tpl) => byTemplate.has(tpl.id))) return null;
+  return (
+    <section className="habits-suggest" aria-label={t("Suggested")}>
+      <span className="habits-suggest-label">{t("Suggested")}</span>
+      {HABIT_TEMPLATES.map((tpl) => {
+        const habit = byTemplate.get(tpl.id);
+        return habit ? (
+          <button
+            key={tpl.id}
+            type="button"
+            className="xc-btn small ghost habits-suggest-added"
+            title={t("Already added. Click to edit.")}
+            onClick={() => onEdit(habit)}
+          >
+            <span aria-hidden>{tpl.input.icon}</span> {t(tpl.label)}
+            <Check size={13} />
+          </button>
+        ) : (
+          <button
+            key={tpl.id}
+            type="button"
+            className="xc-btn small"
+            onClick={() => onCreate(tpl.id)}
+          >
+            <Plus size={13} />
+            <span aria-hidden>{tpl.input.icon}</span> {t(tpl.label)}
+          </button>
+        );
+      })}
+    </section>
   );
 }
 

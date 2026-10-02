@@ -1,6 +1,6 @@
 import { useState, type DragEvent, type ReactNode } from "react";
 import { NavLink } from "react-router";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { useT } from "../../contexts/LanguageContext";
 import { NAV_CHILD_LIMIT } from "../../lib/navChildren";
 
@@ -12,6 +12,8 @@ export interface NavChildLink {
   mark?: ReactNode;
   /** 名称右边的灰字，比如时间、数量。 */
   hint?: string;
+  /** 正在工作：名称右边转圈（B86） */
+  busy?: boolean;
   /** 链接带查询参数时自己判断是否选中；不传就按路径判断。 */
   active?: boolean;
   /** 缩进一级，比如项目下面的分类。 */
@@ -142,6 +144,7 @@ export default function NavChildLinks({
       >
         {l.mark}
         <span>{l.label}</span>
+        {l.busy && <Loader2 size={12} className="nav-child-spin" aria-hidden />}
         {l.hint && <small>{l.hint}</small>}
       </NavLink>
     );
