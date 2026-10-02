@@ -2,9 +2,10 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import http from "node:http";
+import https from "node:https";
 import os from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
@@ -18,6 +19,9 @@ const children = [];
 const logs = new Map();
 let browser;
 let page;
+let weatherProxy;
+let weatherTargetPort;
+const weatherProxySockets = new Set();
 let stage = "启动";
 
 function start(name, command, args, options = {}) {
@@ -108,6 +112,32 @@ try {
     await run("build-web", process.execPath, [join(webDir, "node_modules/vite/bin/vite.js"), "build"], { cwd: webDir });
 
   const apiPort = await freePort();
+  // QWeather uses HTTPS. Trust only this local test certificate in the server.
+  const weatherCert = join(temp, "qweather.pem");
+  const weatherKey = join(temp, "qweather.key");
+  await run("qweather-cert", "openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", weatherKey, "-out", weatherCert, "-days", "1", "-subj", "/CN=weather.e2e.test", "-addext", "subjectAltName=DNS:weather.e2e.test"]);
+  // Route the test hostname to a local TLS server without DNS or privileged ports.
+  weatherProxy = http.createServer((_request, response) => response.writeHead(502).end());
+  weatherProxy.on("connection", (socket) => {
+    weatherProxySockets.add(socket);
+    socket.on("close", () => weatherProxySockets.delete(socket));
+  });
+  weatherProxy.on("connect", (request, socket, head) => {
+    if (request.url !== "weather.e2e.test:443" || !weatherTargetPort) {
+      socket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+      return;
+    }
+    const upstream = net.connect(weatherTargetPort, "127.0.0.1", () => {
+      socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+      if (head.length) upstream.write(head);
+      socket.pipe(upstream);
+      upstream.pipe(socket);
+    });
+    upstream.on("error", () => socket.destroy());
+    socket.on("error", () => upstream.destroy());
+    socket.on("close", () => upstream.destroy());
+  });
+  await new Promise((ready) => weatherProxy.listen(0, "127.0.0.1", ready));
   const serverUrl = `http://127.0.0.1:${apiPort}`;
   base = serverUrl;
   const serverEnv = {
@@ -117,6 +147,9 @@ try {
     XC_WEB_DIR: join(webDir, "dist"),
     XC_MASTER_KEY: crypto.randomBytes(32).toString("base64"),
     XC_DEV: "1",
+    SSL_CERT_FILE: weatherCert,
+    HTTPS_PROXY: `http://127.0.0.1:${weatherProxy.address().port}`,
+    NO_PROXY: "127.0.0.1,localhost",
   };
   stage = "启动服务";
   start("server", binary("server"), [], { cwd: backendDir, env: serverEnv });
@@ -596,36 +629,83 @@ try {
     }
   }
 
-  stage = "B90 天气来源和湿度";
+  stage = "B90 和风地点搜索、选择和天气";
   {
-    const weatherFake = http.createServer((_request, response) => {
+    const geoQueries = [];
+    const weatherFake = https.createServer({ key: readFileSync(weatherKey), cert: readFileSync(weatherCert) }, (request, response) => {
+      assert.equal(request.headers["x-qw-api-key"], "e2e-weather-key");
+      const url = new URL(request.url, "https://weather.e2e.test");
       response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify({ current: { temperature_2m: 21, weather_code: 61, relative_humidity_2m: 88, is_day: 1 }, daily: { temperature_2m_max: [25], temperature_2m_min: [17], precipitation_probability_max: [75] } }));
+      if (url.pathname === "/geo/v2/city/lookup") {
+        geoQueries.push(url.searchParams.get("location"));
+        return response.end(JSON.stringify({ code: "200", location: [{ id: "101191002", name: "东海", adm1: "江苏省", adm2: "连云港市", country: "中国", lat: "34.5225", lon: "118.7666" }] }));
+      }
+      if (url.pathname === "/v7/weather/now") {
+        assert.equal(url.searchParams.get("location"), "101191002");
+        return response.end(JSON.stringify({ code: "200", now: { temp: "21", humidity: "88", text: "小雨", icon: "305" } }));
+      }
+      if (url.pathname === "/v7/weather/3d") return response.end(JSON.stringify({ code: "200", daily: [{ tempMax: "25", tempMin: "17", pop: "75", sunrise: "00:00", sunset: "23:59" }] }));
+      if (url.pathname === "/airquality/v1/current/34.52/118.77") return response.end(JSON.stringify({ indexes: [{ code: "cn-mee", aqi: 40, level: "1", category: "优" }] }));
+      response.writeHead(500).end();
     });
-    await new Promise((ready) => weatherFake.listen(0, "127.0.0.1", ready));
+    await new Promise((ready, reject) => {
+      weatherFake.once("error", reject);
+      weatherFake.listen(0, "127.0.0.1", ready);
+    });
+    weatherTargetPort = weatherFake.address().port;
     const original = await api("/briefs/settings");
     delete original.aiAvailable;
     delete original.availableChannels;
     delete original.nextRunAt;
     try {
-      const response = await page.request.put(`${base}/api/v1/briefs/settings`, {
-        headers: { "X-Requested-With": "x-console" },
-        data: { ...original, enabled: false, location: { name: "东海", lat: 34.54, lon: 118.75 }, weatherApiBase: `http://127.0.0.1:${weatherFake.address().port}` },
+      const configured = await page.request.put(`${base}/api/v1/weather/qweather`, {
+        headers: { "X-Requested-With": "x-console" }, data: { apiHost: "weather.e2e.test", apiKey: "e2e-weather-key" },
       });
-      assert.equal(response.status(), 200, await response.text());
+      assert.equal(configured.status(), 200, await configured.text());
+      await page.goto(base);
+      await page.locator(".today-weather-strip").click();
+      if (!(await dialog("天气设置").isVisible())) await dialog("天气").getByRole("button", { name: "天气设置" }).click();
+      const settingsDialog = dialog("天气设置");
+      await settingsDialog.getByLabel("搜索城市").fill("东海");
+      await settingsDialog.getByRole("button", { name: "搜索", exact: true }).click();
+      await settingsDialog.getByRole("button", { name: /东海.*连云港市.*江苏省/ }).click();
+      await page.context().grantPermissions(["geolocation"]);
+      await page.context().setGeolocation({ latitude: 34.54, longitude: 118.75 });
+      await settingsDialog.getByRole("button", { name: "用当前位置" }).click();
+      await until("和风反查当前位置", () => geoQueries.includes("118.75,34.54"));
+      await until("定位完成", () => settingsDialog.getByRole("button", { name: "用当前位置" }).isEnabled());
+      await settingsDialog.getByRole("button", { name: "保存", exact: true }).click();
+      await settingsDialog.waitFor({ state: "hidden" });
+      const selected = await api("/briefs/settings");
+      assert.equal(selected.location.id, "101191002");
+      assert.equal(selected.location.lat, 34.5225);
+      assert.equal(selected.location.lon, 118.7666);
       const weather = await api("/weather");
-      assert.equal(weather.source, "open-meteo");
+      assert.equal(weather.source, "qweather");
       assert.equal(weather.humidity, 88);
       assert.equal(weather.weatherCode, 61);
       assert.equal(weather.isDay, true);
+      const extra = await api("/weather/extra");
+      assert.equal(extra.air.aqi, 40);
+      // The same search endpoint reverse-geocodes browser coordinates.
+      const nearby = await api("/weather/places?q=118.75,34.54");
+      assert.equal(nearby[0].id, "101191002");
+      for (const width of [1360, 390]) {
+        await page.setViewportSize({ width, height: 860 });
+        await page.locator(".today-weather-strip").click();
+        await dialog("天气").getByRole("button", { name: "天气设置" }).click();
+        await page.waitForTimeout(250); // Wait for the dialog's entrance animation.
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+        await page.screenshot({ path: join(artifacts, `weather-settings-${width}.png`), fullPage: true, animations: "disabled" });
+        await dialog("天气设置").getByRole("button", { name: "取消", exact: true }).click();
+      }
+      await page.setViewportSize({ width: 1360, height: 860 });
     } finally {
-      await page.request.put(`${base}/api/v1/briefs/settings`, {
-        headers: { "X-Requested-With": "x-console" }, data: original,
-      });
+      await page.request.put(`${base}/api/v1/briefs/settings`, { headers: { "X-Requested-With": "x-console" }, data: original });
+      await page.request.put(`${base}/api/v1/weather/qweather`, { headers: { "X-Requested-With": "x-console" }, data: { apiHost: "", clearKey: true } });
       await new Promise((done) => weatherFake.close(done));
     }
   }
-
   stage = "B70 仓库关注 API 主流程";
   {
     const original = await api("/github/config");
@@ -1441,5 +1521,7 @@ try {
     child.kill();
     await Promise.race([exited, new Promise((resolveWait) => setTimeout(resolveWait, 3000))]);
   }));
+  for (const socket of weatherProxySockets) socket.destroy();
+  if (weatherProxy) await new Promise((done) => weatherProxy.close(done));
   rmSync(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }

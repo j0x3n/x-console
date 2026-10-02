@@ -10,6 +10,7 @@ import {
   calendarKeys,
   useBriefSettings,
   useQWeatherConfig,
+  resolveWeatherLocation,
   useRainAlert,
   useSaveBriefSettings,
   useSaveRainAlert,
@@ -137,13 +138,19 @@ export default function WeatherDialog({
     }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        setPlace({
-          lat: Number(pos.coords.latitude.toFixed(4)),
-          lon: Number(pos.coords.longitude.toFixed(4)),
-          name: t("Current location"),
-        });
+      async (pos) => {
+        try {
+          setPlace(
+            await resolveWeatherLocation(
+              pos.coords.latitude,
+              pos.coords.longitude,
+            ),
+          );
+        } catch (err) {
+          setError(errorMessage(err));
+        } finally {
+          setLocating(false);
+        }
       },
       () => {
         setLocating(false);
@@ -189,6 +196,9 @@ export default function WeatherDialog({
       <div className="weather-dialog">
         <section>
           <h3>{t("Place")}</h3>
+          {qweather.data && !qweather.data.keySet && (
+            <p className="weather-note">请先在设置 → 早报中配置和风天气。</p>
+          )}
           <div className="weather-current">
             <MapPin size={14} />
             <span>
@@ -243,7 +253,12 @@ export default function WeatherDialog({
                       className={on ? "on" : ""}
                       aria-pressed={on}
                       onClick={() =>
-                        setPlace({ lat: p.lat, lon: p.lon, name: p.name })
+                        setPlace({
+                          id: p.id,
+                          lat: p.lat,
+                          lon: p.lon,
+                          name: p.name,
+                        })
                       }
                     >
                       <b>{p.name}</b>

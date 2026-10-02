@@ -79,7 +79,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 当前天气和今天的预报（Open-Meteo）。不传经纬度时用早报设置里的位置，没设置位置时返回 412。结果缓存 10 分钟。refresh=true 时跳过缓存重新拉取（B23），同一位置 1 分钟内最多真正拉一次，其余返回缓存。 */
+        /** @description 和风实况和今天的预报。位置未设置或和风未配置时返回 412。不传经纬度时用早报位置和和风城市 ID。接口失败时返回错误。结果缓存 10 分钟，手动刷新同一位置 1 分钟内最多真正拉一次。 */
         get: operations["getWeather"];
         put?: never;
         post?: never;
@@ -96,7 +96,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 按名字搜城市，用 Open-Meteo 的地名接口。 */
+        /** @description 用和风 GeoAPI 搜索城市或反查经度,纬度。未配置和风时返回 412。返回和风城市 ID、行政区及坐标供选择保存。 */
         get: operations["searchWeatherPlaces"];
         put?: never;
         post?: never;
@@ -336,6 +336,8 @@ export interface components {
             quakeRadiusKm: number;
         };
         WeatherPlace: {
+            /** @description 和风城市 LocationID */
+            id?: string;
             name: string;
             /** @description 省或州 */
             region: string;
@@ -380,6 +382,8 @@ export interface components {
          */
         BriefSectionKey: "summary" | "weather" | "calendar" | "issues" | "reminders" | "alerts" | "habits" | "renewals";
         BriefLocation: {
+            /** @description 和风城市 LocationID，旧位置可以省略 */
+            id?: string;
             /** Format: double */
             lat: number;
             /** Format: double */
@@ -399,7 +403,10 @@ export interface components {
             sections: components["schemas"]["BriefSectionKey"][];
             /** @description 用 AI 在最前面加一段总结。AI 助手模块可用时才生效 */
             aiPolish?: boolean;
-            /** @description Open-Meteo 地址，默认 https://api.open-meteo.com */
+            /**
+             * @deprecated
+             * @description 旧客户端兼容字段，不再用于天气查询
+             */
             weatherApiBase?: string;
         };
         BriefSettingsView: components["schemas"]["BriefSettings"] & {
@@ -438,7 +445,7 @@ export interface components {
             /** @description B90。早报位置现在是白天。晴、少云的图标白天用太阳，晚上用月亮 */
             isDay?: boolean;
             /**
-             * @description B90。配了和风天气时用和风天气的实况和预报（按和风的城市 ID 查，和官方 App 一致），没配时用 Open-Meteo
+             * @description 天气数据来源。当前统一为 qweather，open-meteo 仅保留以兼容旧客户端
              * @enum {string}
              */
             source?: "open-meteo" | "qweather";

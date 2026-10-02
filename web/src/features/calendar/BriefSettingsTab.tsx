@@ -9,6 +9,7 @@ import { toast } from "../../hooks/useToast";
 import {
   useBriefSettings,
   useSaveBriefSettings,
+  resolveWeatherLocation,
   type BriefSectionKey,
   type BriefSettings,
   type BriefSettingsView,
@@ -48,8 +49,8 @@ interface Form {
   lat: string;
   lon: string;
   place: string;
+  id?: string;
   aiPolish: boolean;
-  weatherApiBase: string;
 }
 
 function toForm(v: BriefSettingsView): Form {
@@ -61,8 +62,8 @@ function toForm(v: BriefSettingsView): Form {
     lat: v.location ? String(v.location.lat) : "",
     lon: v.location ? String(v.location.lon) : "",
     place: v.location?.name ?? "",
+    id: v.location?.id,
     aiPolish: v.aiPolish ?? false,
-    weatherApiBase: v.weatherApiBase ?? "",
   };
 }
 
@@ -91,7 +92,11 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
   useEffect(() => setForm(toForm(view)), [view]);
 
   const set = <K extends keyof Form>(key: K, value: Form[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((f) => ({
+      ...f,
+      [key]: value,
+      id: key === "lat" || key === "lon" ? undefined : f.id,
+    }));
   const toggle = <T extends string>(list: T[], item: T) =>
     list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 
@@ -105,13 +110,24 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
     }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        setForm((f) => ({
-          ...f,
-          lat: pos.coords.latitude.toFixed(4),
-          lon: pos.coords.longitude.toFixed(4),
-        }));
+      async (pos) => {
+        try {
+          const city = await resolveWeatherLocation(
+            pos.coords.latitude,
+            pos.coords.longitude,
+          );
+          setForm((f) => ({
+            ...f,
+            id: city.id,
+            lat: String(city.lat),
+            lon: String(city.lon),
+            place: city.name ?? "",
+          }));
+        } catch (err) {
+          setError(errorMessage(err));
+        } finally {
+          setLocating(false);
+        }
       },
       () => {
         setLocating(false);
@@ -140,8 +156,9 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
       time: form.time,
       channels: form.channels,
       sections: form.sections,
-      location: hasLat ? { lat, lon, name: form.place.trim() } : undefined,
-      weatherApiBase: form.weatherApiBase.trim() || undefined,
+      location: hasLat
+        ? { id: form.id, lat, lon, name: form.place.trim() }
+        : undefined,
     };
     // AI 润色：M12 提供 Polisher 后 aiAvailable 为 true，这里才显示和提交。
     if (view.aiAvailable) body.aiPolish = form.aiPolish;
@@ -279,18 +296,6 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
             {t("Leave empty to skip the weather.")}
           </small>
         </div>
-        <details className="brief-advanced">
-          <summary>{t("Advanced")}</summary>
-          <label className="xc-field">
-            <span>{t("Open-Meteo address")}</span>
-            <input
-              className="xc-input"
-              value={form.weatherApiBase}
-              onChange={(e) => set("weatherApiBase", e.target.value)}
-              placeholder="https://api.open-meteo.com"
-            />
-          </label>
-        </details>
       </section>
 
       {error && <p className="xc-error-text">{error}</p>}

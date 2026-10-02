@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -37,6 +38,32 @@ func newWeatherServer(t *testing.T) *weatherServer {
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.hits.Add(1)
 		s.query.Store(r.URL.RawQuery)
+		switch r.URL.Path {
+		case "/geo/v2/city/lookup":
+			query := r.URL.Query().Get("location")
+			switch query {
+			case "深圳":
+				fmt.Fprint(w, `{"code":"200","location":[{"id":"101280601","name":"深圳","adm1":"广东","country":"中国","lat":"22.5455","lon":"114.0683"}]}`)
+			case "东海县":
+				fmt.Fprint(w, `{"code":"200","location":[{"id":"101191002","name":"东海县","adm1":"江苏省","adm2":"连云港市","country":"中国","lat":"34.5225","lon":"118.7666"}]}`)
+			default:
+				if !strings.Contains(query, ",") {
+					query = "121.47,31.23"
+				}
+				xy := strings.Split(query, ",")
+				fmt.Fprintf(w, `{"code":"200","location":[{"id":"101020100","name":"上海","lat":"%s","lon":"%s"}]}`, xy[1], xy[0])
+			}
+			return
+		case "/v7/weather/now":
+			fmt.Fprint(w, `{"code":"200","now":{"temp":"18.2","text":"多云","icon":"101","humidity":"72"}}`)
+			return
+		case "/v7/weather/3d":
+			fmt.Fprint(w, `{"code":"200","daily":[{"tempMax":"22.1","tempMin":"14","pop":"60","sunrise":"00:00","sunset":"23:59"}]}`)
+			return
+		case "/v7/weather/24h":
+			fmt.Fprintf(w, `{"code":"200","hourly":[{"fxTime":%q,"pop":"20"},{"fxTime":%q,"pop":"75"}]}`, time.Now().Add(time.Hour).Format(time.RFC3339), time.Now().Add(2*time.Hour).Format(time.RFC3339))
+			return
+		}
 		if r.URL.Path == "/v1/search" {
 			if r.URL.Query().Get("name") != "深圳" {
 				_, _ = w.Write([]byte(`{"generationtime_ms":0.1}`))
@@ -77,6 +104,10 @@ func setup(t *testing.T) (*testutil.Env, *brief.Module, *weatherServer) {
 		t.Fatal("brief module not registered")
 	}
 	ws := newWeatherServer(t)
+	brief.SetQWeatherBase(m, ws.URL)
+	if err := env.App.Deps.Settings.SetSecret(context.Background(), "brief.qweather", map[string]any{"apiHost": "test.qweather.com", "apiKey": goodKey}); err != nil {
+		t.Fatal(err)
+	}
 	return env, m, ws
 }
 
@@ -138,7 +169,7 @@ func TestBriefWithAllProvidersMissing(t *testing.T) {
 		t.Fatalf("content:\n%q\nkeys %v", content, keys)
 	}
 	q, _ := ws.query.Load().(string)
-	if !strings.Contains(q, "latitude=31.2300") || !strings.Contains(q, "timezone=Asia%2FShanghai") {
+	if !strings.Contains(q, "location=101020100") || !strings.Contains(q, "lang=zh") {
 		t.Fatalf("weather query: %s", q)
 	}
 
@@ -423,7 +454,7 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 		t.Fatalf("weather: %+v", w)
 	}
 	// B90: humidity and day or night
-	if w.Humidity == nil || *w.Humidity != 72 || w.IsDay == nil || !*w.IsDay || w.Source == nil || *w.Source != "open-meteo" {
+	if w.Humidity == nil || *w.Humidity != 72 || w.IsDay == nil || !*w.IsDay || w.Source == nil || *w.Source != "qweather" {
 		t.Fatalf("humidity, isDay, source: %v %v %v", w.Humidity, w.IsDay, w.Source)
 	}
 	hits := ws.hits.Load()
@@ -432,7 +463,7 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 		t.Fatal("weather not cached")
 	}
 	env.MustDo(http.MethodGet, "/weather?lat=39.9&lon=116.4", nil, &w)
-	if w.Latitude != 39.9 || ws.hits.Load() != hits+1 {
+	if w.Latitude != 39.9 || ws.hits.Load() != hits+3 {
 		t.Fatalf("weather by coordinates: %+v", w)
 	}
 	if status, _ := env.Do(http.MethodGet, "/weather?lat=39.9", nil, nil); status != http.StatusBadRequest {
@@ -450,7 +481,7 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 	}
 	clock = clock.Add(61 * time.Second)
 	env.MustDo(http.MethodGet, "/weather?refresh=true", nil, &w)
-	if ws.hits.Load() != hits+1 {
+	if ws.hits.Load() != hits+2 {
 		t.Fatalf("refresh after a minute should fetch: %d vs %d", ws.hits.Load(), hits)
 	}
 
@@ -489,16 +520,15 @@ func TestPreviewSendSettingsAndWeather(t *testing.T) {
 
 func TestRainAlertAndPlaces(t *testing.T) {
 	env, m, ws := setup(t)
-	brief.SetGeoBase(m, ws.URL)
 	var places []api.WeatherPlace
 	env.MustDo(http.MethodGet, "/weather/places?q=%E6%B7%B1%E5%9C%B3", nil, &places)
 	if len(places) != 1 || places[0].Name != "深圳" || places[0].Region != "广东" || places[0].Lat != 22.5455 {
 		t.Fatalf("places: %+v", places)
 	}
 
-	// Open-Meteo 查不到县名，改查 OpenStreetMap
+	// 县名也由和风 GeoAPI 提供。
 	env.MustDo(http.MethodGet, "/weather/places?q=%E4%B8%9C%E6%B5%B7%E5%8E%BF", nil, &places)
-	if len(places) != 1 || places[0].Name != "东海县" || places[0].Region != "连云港市 · 江苏省" || places[0].Lon != 118.7527 {
+	if len(places) != 1 || places[0].Name != "东海县" || places[0].Region != "连云港市 · 江苏省" || places[0].Lon != 118.7666 {
 		t.Fatalf("osm places: %+v", places)
 	}
 

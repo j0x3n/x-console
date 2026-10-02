@@ -79,6 +79,11 @@ func (m *Module) weatherExtra(ctx context.Context, qc qwConfig, loc api.BriefLoc
 	if !qc.ok() {
 		return empty, nil
 	}
+	var err error
+	loc, err = m.resolveLocation(ctx, qc, loc)
+	if err != nil {
+		return empty, err
+	}
 	key := fmt.Sprintf("%s|%.4f|%.4f", qc.APIHost, loc.Lat, loc.Lon)
 	ttl := extraTTL
 	if force {
@@ -244,6 +249,11 @@ func warningLevel(color, title string) api.WarningLevel {
 
 // fetchWarnings asks the new alert endpoint and falls back to the v7 one.
 func (m *Module) fetchWarnings(ctx context.Context, qc qwConfig, loc api.BriefLocation) ([]warningItem, error) {
+	var err error
+	loc, err = m.resolveLocation(ctx, qc, loc)
+	if err != nil {
+		return nil, err
+	}
 	items, err := m.fetchWarningsV1(ctx, qc, loc)
 	if err == nil {
 		return items, nil
@@ -367,6 +377,11 @@ func timePtr(s string) *time.Time {
 // ---- 分钟降水 ----
 
 func (m *Module) fetchMinutely(ctx context.Context, qc qwConfig, loc api.BriefLocation) (api.MinutelyRain, error) {
+	var err error
+	loc, err = m.resolveLocation(ctx, qc, loc)
+	if err != nil {
+		return api.MinutelyRain{}, err
+	}
 	var raw struct {
 		Summary  string `json:"summary"`
 		Minutely []struct {
@@ -399,19 +414,7 @@ func (m *Module) fetchMinutely(ctx context.Context, qc qwConfig, loc api.BriefLo
 // ---- 空气质量 ----
 
 func (m *Module) fetchAir(ctx context.Context, qc qwConfig, loc api.BriefLocation) (api.AirQuality, error) {
-	air, err := m.fetchAirV1(ctx, qc, loc)
-	if err == nil {
-		return air, nil
-	}
-	id, idErr := m.cityID(ctx, qc, loc)
-	if idErr != nil {
-		return air, err
-	}
-	old, oldErr := m.fetchAirV7(ctx, qc, id)
-	if oldErr != nil {
-		return air, err
-	}
-	return old, nil
+	return m.fetchAirV1(ctx, qc, loc)
 }
 
 func (m *Module) fetchAirV1(ctx context.Context, qc qwConfig, loc api.BriefLocation) (api.AirQuality, error) {
@@ -432,7 +435,7 @@ func (m *Module) fetchAirV1(ctx context.Context, qc qwConfig, loc api.BriefLocat
 			} `json:"concentration"`
 		} `json:"pollutants"`
 	}
-	if err := m.qwGet(ctx, qc, "/airquality/v1/current"+qwPathLoc(loc), &raw); err != nil {
+	if err := m.qwGet(ctx, qc, "/airquality/v1/current"+qwPathLoc(loc)+"?lang=zh", &raw); err != nil {
 		return api.AirQuality{}, err
 	}
 	if len(raw.Indexes) == 0 {
@@ -464,42 +467,16 @@ func (m *Module) fetchAirV1(ctx context.Context, qc qwConfig, loc api.BriefLocat
 	return out, nil
 }
 
-func (m *Module) fetchAirV7(ctx context.Context, qc qwConfig, cityID string) (api.AirQuality, error) {
-	var raw struct {
-		Now struct {
-			Aqi      flexNum `json:"aqi"`
-			Level    flexNum `json:"level"`
-			Category string  `json:"category"`
-			Primary  string  `json:"primary"`
-			Pm10     flexNum `json:"pm10"`
-			Pm2p5    flexNum `json:"pm2p5"`
-		} `json:"now"`
-	}
-	if err := m.qwGet(ctx, qc, "/v7/air/now?location="+cityID, &raw); err != nil {
-		return api.AirQuality{}, err
-	}
-	n := raw.Now
-	out := api.AirQuality{Aqi: int(n.Aqi.V + 0.5), Level: int(n.Level.V), Category: n.Category}
-	if n.Primary != "" && n.Primary != "NA" {
-		out.Primary = &n.Primary
-	}
-	if n.Pm2p5.Set {
-		out.Pm2p5 = &n.Pm2p5.V
-	}
-	if n.Pm10.Set {
-		out.Pm10 = &n.Pm10.V
-	}
-	return out, nil
-}
-
-// ---- 生活指数、天文、昨天 ----
-
 func (m *Module) fetchIndices(ctx context.Context, qc qwConfig, loc api.BriefLocation) ([]api.WeatherIndex, error) {
+	id, err := m.cityID(ctx, qc, loc)
+	if err != nil {
+		return nil, err
+	}
 	return daily(m, "indices|"+qc.APIHost+"|"+qwLoc(loc), func() ([]api.WeatherIndex, bool, error) {
 		var raw struct {
 			Daily []api.WeatherIndex `json:"daily"`
 		}
-		if err := m.qwGet(ctx, qc, "/v7/indices/1d?type=1,2,3,5,8,9&location="+qwLoc(loc), &raw); err != nil {
+		if err := m.qwGet(ctx, qc, "/v7/indices/1d?type=1,2,3,5,8,9&location="+id+"&lang=zh", &raw); err != nil {
 			return nil, false, err
 		}
 		if raw.Daily == nil {

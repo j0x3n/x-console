@@ -43,8 +43,7 @@ type Module struct {
 	weatherFetchMu sync.Mutex
 	weatherCache   map[string]cachedWeather
 	now            func() time.Time // 测试里换成假时钟
-	geoBase        string           // Open-Meteo 地名接口，测试里换成假服务
-	osmBase        string           // OpenStreetMap 地名接口，Open-Meteo 查不到时用
+	cityMu         sync.Mutex
 
 	// 和风天气和地震（B58）
 	qwHTTP     *http.Client
@@ -64,7 +63,7 @@ var (
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}, weatherCache: map[string]cachedWeather{}, now: time.Now, geoBase: defaultGeoBase, osmBase: defaultOSMBase,
+	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}, weatherCache: map[string]cachedWeather{}, now: time.Now,
 		qwHTTP: &http.Client{Timeout: 10 * time.Second}, qwBase: func(host string) string { return "https://" + host },
 		daily: map[string]any{}, lastSeen: map[string]string{}}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
@@ -330,6 +329,15 @@ func (m *Module) PutBriefSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg, err := m.validate(body)
+	if err == nil && cfg.Location != nil {
+		var c qwConfig
+		c, err = m.requireQWeather(r.Context())
+		if err == nil {
+			var loc api.BriefLocation
+			loc, err = m.resolveLocation(r.Context(), c, *cfg.Location)
+			cfg.Location = &loc
+		}
+	}
 	if err == nil {
 		err = m.save(r.Context(), cfg)
 	}
@@ -359,6 +367,10 @@ func (m *Module) GetWeather(w http.ResponseWriter, r *http.Request, params api.G
 	}
 	if loc == nil {
 		httpx.Fail(w, r, httpx.ErrIntegrationMissing)
+		return
+	}
+	if _, err := m.requireQWeather(r.Context()); err != nil {
+		httpx.Fail(w, r, err)
 		return
 	}
 	weather, err := m.fetchWeather(r.Context(), cfg.WeatherBase, *loc, params.Refresh != nil && *params.Refresh)

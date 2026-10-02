@@ -164,6 +164,8 @@ type Brief struct {
 
 // BriefLocation defines model for BriefLocation.
 type BriefLocation struct {
+	// Id 和风城市 LocationID，旧位置可以省略
+	Id  *string `json:"id,omitempty"`
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
 
@@ -200,7 +202,8 @@ type BriefSettings struct {
 	// Time HH:MM，用户时区，默认 08:00
 	Time string `json:"time"`
 
-	// WeatherApiBase Open-Meteo 地址，默认 https://api.open-meteo.com
+	// WeatherApiBase 旧客户端兼容字段，不再用于天气查询
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	WeatherApiBase *string `json:"weatherApiBase,omitempty"`
 }
 
@@ -229,7 +232,8 @@ type BriefSettingsView struct {
 	// Time HH:MM，用户时区，默认 08:00
 	Time string `json:"time"`
 
-	// WeatherApiBase Open-Meteo 地址，默认 https://api.open-meteo.com
+	// WeatherApiBase 旧客户端兼容字段，不再用于天气查询
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	WeatherApiBase *string `json:"weatherApiBase,omitempty"`
 }
 
@@ -336,7 +340,7 @@ type Weather struct {
 	// PrecipitationChance 今天的最大降水概率，百分比
 	PrecipitationChance int `json:"precipitationChance"`
 
-	// Source B90。配了和风天气时用和风天气的实况和预报（按和风的城市 ID 查，和官方 App 一致），没配时用 Open-Meteo
+	// Source 天气数据来源。当前统一为 qweather，open-meteo 仅保留以兼容旧客户端
 	Source *WeatherSource `json:"source,omitempty"`
 
 	// Summary 天气的中文说明，例如 多云
@@ -349,7 +353,7 @@ type Weather struct {
 	WeatherCode int `json:"weatherCode"`
 }
 
-// WeatherSource B90。配了和风天气时用和风天气的实况和预报（按和风的城市 ID 查，和官方 App 一致），没配时用 Open-Meteo
+// WeatherSource 天气数据来源。当前统一为 qweather，open-meteo 仅保留以兼容旧客户端
 type WeatherSource string
 
 // WeatherExtra defines model for WeatherExtra.
@@ -410,10 +414,13 @@ type WeatherNotify struct {
 
 // WeatherPlace defines model for WeatherPlace.
 type WeatherPlace struct {
-	Country string  `json:"country"`
-	Lat     float64 `json:"lat"`
-	Lon     float64 `json:"lon"`
-	Name    string  `json:"name"`
+	Country string `json:"country"`
+
+	// Id 和风城市 LocationID
+	Id   *string `json:"id,omitempty"`
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
+	Name string  `json:"name"`
 
 	// Region 省或州
 	Region string `json:"region"`

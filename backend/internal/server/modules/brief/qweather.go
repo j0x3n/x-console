@@ -145,10 +145,36 @@ func qwPathLoc(l api.BriefLocation) string {
 }
 
 type qwGeo struct {
-	Location []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	} `json:"location"`
+	Location []qwCity `json:"location"`
+}
+
+type qwCity struct {
+	ID      string  `json:"id"`
+	Name    string  `json:"name"`
+	Lat     flexNum `json:"lat"`
+	Lon     flexNum `json:"lon"`
+	Adm1    string  `json:"adm1"`
+	Adm2    string  `json:"adm2"`
+	Country string  `json:"country"`
+}
+
+func (m *Module) requireQWeather(ctx context.Context) (qwConfig, error) {
+	c, err := m.loadQWeather(ctx)
+	if err == nil && !c.ok() {
+		err = httpx.NewError(http.StatusPreconditionFailed, "integration_not_configured", "请先在设置中配置和风天气")
+	}
+	return c, err
+}
+
+func (m *Module) lookupPlaces(ctx context.Context, c qwConfig, query string) ([]qwCity, error) {
+	var raw qwGeo
+	q := url.Values{"location": {query}, "lang": {"zh"}, "number": {"8"}}
+	err := m.qwGet(ctx, c, "/geo/v2/city/lookup?"+q.Encode(), &raw)
+	var qe *qwError
+	if errors.As(err, &qe) && qe.Code == "404" {
+		return []qwCity{}, nil
+	}
+	return raw.Location, err
 }
 
 // lookupCity asks GeoAPI for the city ID of a place.
@@ -164,35 +190,68 @@ func (m *Module) lookupCity(ctx context.Context, c qwConfig, l api.BriefLocation
 }
 
 type cachedCity struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
-	ID  string  `json:"id"`
+	Host string  `json:"host"`
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
+	ID   string  `json:"id"`
+	City *qwCity `json:"city,omitempty"`
 }
 
 // cityID returns the city ID of the brief location, cached in settings
 // until the location changes.
 func (m *Module) cityID(ctx context.Context, c qwConfig, l api.BriefLocation) (string, error) {
-	var cc cachedCity
-	if err := m.get(ctx, keyQWeatherLocation, &cc); err != nil {
-		return "", err
+	if id := deref(l.Id); id != "" {
+		return id, nil
 	}
-	if cc.ID != "" && math.Abs(cc.Lat-l.Lat) < 1e-6 && math.Abs(cc.Lon-l.Lon) < 1e-6 {
-		return cc.ID, nil
-	}
-	id, err := m.lookupCity(ctx, c, l)
-	if err != nil {
-		return "", err
-	}
-	_ = m.d.Settings.Set(ctx, keyQWeatherLocation, cachedCity{Lat: l.Lat, Lon: l.Lon, ID: id})
-	return id, nil
+	loc, err := m.resolveLocation(ctx, c, l)
+	return deref(loc.Id), err
 }
 
-// ---- 返回里的数字有时是字符串，有时是数字 ----
+// resolveLocation converts old coordinates or a selected ID to GeoAPI's city.
+func (m *Module) resolveLocation(ctx context.Context, c qwConfig, l api.BriefLocation) (api.BriefLocation, error) {
+	m.cityMu.Lock()
+	defer m.cityMu.Unlock()
+	var cc cachedCity
+	if err := m.get(ctx, keyQWeatherLocation, &cc); err != nil {
+		return l, err
+	}
+	id := deref(l.Id)
+	if cc.Host == c.APIHost && cc.City != nil && cc.City.Lat.Set && cc.City.Lon.Set && ((id != "" && id == cc.ID) || (id == "" && math.Abs(cc.Lat-l.Lat) < 1e-6 && math.Abs(cc.Lon-l.Lon) < 1e-6)) {
+		city := cc.City
+		return api.BriefLocation{Id: &city.ID, Name: &city.Name, Lat: city.Lat.V, Lon: city.Lon.V}, nil
+	}
+	query := id
+	if query == "" {
+		query = qwLoc(l)
+	}
+	cities, err := m.lookupPlaces(ctx, c, query)
+	if err != nil {
+		return l, err
+	}
+	if len(cities) == 0 {
+		return l, errors.New("和风天气没有找到这个地区")
+	}
+	city := cities[0]
+	if city.ID == "" || city.Name == "" || !city.Lat.Set || !city.Lon.Set || math.Abs(city.Lat.V) > 90 || math.Abs(city.Lon.V) > 180 || (id != "" && id != city.ID) {
+		return l, errors.New("和风天气返回的地区信息不完整")
+	}
+	if err = m.d.Settings.Set(ctx, keyQWeatherLocation, cachedCity{Host: c.APIHost, Lat: l.Lat, Lon: l.Lon, ID: city.ID, City: &city}); err != nil {
+		return l, err
+	}
+	return api.BriefLocation{Id: &city.ID, Name: &city.Name, Lat: city.Lat.V, Lon: city.Lon.V}, nil
+}
 
 // flexNum accepts 12, 12.5, "12.5" and "".
 type flexNum struct {
 	V   float64
 	Set bool
+}
+
+func (f flexNum) MarshalJSON() ([]byte, error) {
+	if !f.Set {
+		return []byte("null"), nil
+	}
+	return json.Marshal(f.V)
 }
 
 func (f *flexNum) UnmarshalJSON(b []byte) error {
@@ -201,7 +260,7 @@ func (f *flexNum) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 	v, err := strconv.ParseFloat(s, 64)
-	if err != nil {
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
 		return nil // 看不懂的数字当没有
 	}
 	f.V, f.Set = v, true
