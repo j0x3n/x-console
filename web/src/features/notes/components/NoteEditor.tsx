@@ -87,6 +87,7 @@ import ToIssueDialog from "./ToIssueDialog";
 import ToReminderDialog from "./ToReminderDialog";
 import PolishDialog from "../../../components/markdown/PolishDialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
+import { useKeepScroll } from "../../../hooks/useKeepScroll";
 
 interface Draft {
   title: string;
@@ -195,6 +196,8 @@ function EditorBody({
     null,
   );
   const scrollRef = useRef<HTMLDivElement>(null);
+  // B80：正文看到哪里，切回来还在那里
+  useKeepScroll(scrollRef, `notes.body:${note.id}`);
   const [uploading, setUploading] = useState(0);
   const [dragging, setDragging] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);

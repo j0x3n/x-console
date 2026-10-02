@@ -57,6 +57,7 @@ import PageActions from "../../components/layout/PageActions";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import MoreMenu from "../../components/ui/MoreMenu";
 import { toast } from "../../hooks/useToast";
+import { useKeepScroll } from "../../hooks/useKeepScroll";
 
 type View = "all" | "pinned" | "memos" | "archived" | "tag" | "hidden";
 
@@ -65,6 +66,9 @@ export default function NotesPage() {
   const navigate = useNavigate();
   const { noteId } = useParams();
   const [search, setSearch] = useSearchParams();
+  // B80：列表的滚动位置按筛选条件记（不含打开的是哪条）
+  const listRef = useRef<HTMLDivElement>(null);
+  useKeepScroll(listRef, `notes.list:${search.toString()}`);
   const q = search.get("q") ?? "";
   const tag = search.get("tag") ?? "";
   const archived = search.get("archived") === "1";
@@ -482,7 +486,7 @@ export default function NotesPage() {
           {views}
           {tagItems}
         </div>
-        <div className="notes-list" role="list">
+        <div className="notes-list" role="list" ref={listRef}>
           {notes.isPending ? (
             <Loading />
           ) : notes.isError ? (

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Outlet, useLocation } from "react-router";
 import ComingSoon from "../components/ComingSoon";
@@ -14,6 +14,7 @@ import ErrorBoundary from "../components/ui/ErrorBoundary";
 import GlobalPanels from "./GlobalPanels";
 import { useSidebar } from "../stores/sidebar";
 import { usePreferencesSync } from "../hooks/usePreferencesSync";
+import { rememberPath, useKeepScroll } from "../hooks/useKeepScroll";
 
 export default function Layout() {
   useServerEvents();
@@ -23,8 +24,21 @@ export default function Layout() {
   const location = useLocation();
   useEffect(() => {
     setMobileOpen(false);
-    if (window.matchMedia("(max-width: 720px)").matches) window.scrollTo(0, 0);
   }, [location.pathname]);
+  // B80：记下每个模块最后看的地址；页面主体的滚动位置按完整地址记，回来时恢复。
+  // 手机上整页滚动，桌面上 .main-scroll 自己滚动。没有记录时回到顶部。
+  useEffect(() => {
+    rememberPath(location.pathname, location.search);
+  }, [location.pathname, location.search]);
+  const mainRef = useRef<HTMLDivElement>(null);
+  useKeepScroll(
+    () =>
+      window.matchMedia("(max-width: 720px)").matches
+        ? (document.scrollingElement as HTMLElement | null)
+        : mainRef.current,
+    `main:${location.pathname}${location.search}`,
+    { fallbackTop: 0 },
+  );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -47,7 +61,7 @@ export default function Layout() {
         openPalette={() => setPaletteOpen(true)}
       />
       <main className="main-panel" id="main">
-        <div className="main-scroll">
+        <div className="main-scroll" ref={mainRef}>
           <Topbar
             openMobile={() => setMobileOpen(true)}
             openPalette={() => setPaletteOpen(true)}
