@@ -436,11 +436,11 @@ export const NOTIFY_LABELS: Record<string, string> = {
   ci_cancelled: "CI cancelled",
   ci_recovered: "CI fixed again",
   push: "New commits",
-  pr_opened: "Pull request opened",
+  pr_opened: "New pull request",
   pr_merged: "Pull request merged",
   pr_closed: "Pull request closed without merging",
   pr_review: "Review result",
-  issue_opened: "New issue",
+  issue_opened: "New repo issue",
   issue_assigned: "Issue assigned to me",
   release: "New release",
 };
