@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/brief/db"
 )
 
 // Hooks for the external test package.
@@ -64,4 +65,9 @@ func DropCaches(m *Module) {
 	m.quakeMu.Lock()
 	m.quakeCache = cachedQuakes{}
 	m.quakeMu.Unlock()
+}
+
+// NotifyBody exposes the push text of a brief (B92).
+func NotifyBody(content, sections string) string {
+	return notifyBody(db.Brief{Content: content, Sections: sections})
 }

@@ -546,3 +546,16 @@ func TestRainAlertAndPlaces(t *testing.T) {
 		t.Fatalf("below threshold should stay quiet: %d", count)
 	}
 }
+
+// B92: with an AI summary only the summary is pushed, without a heading.
+func TestNotifyBodyOnlySummary(t *testing.T) {
+	content := "# 早报\n\n## 总结\n\n今天有一个会。\n\n## 天气\n\n晴"
+	withSummary := `[{"key":"summary","title":"总结","markdown":"今天有一个会。"},{"key":"weather","title":"天气","markdown":"晴"}]`
+	if got := brief.NotifyBody(content, withSummary); got != "今天有一个会。" {
+		t.Fatalf("with summary: %q", got)
+	}
+	without := `[{"key":"weather","title":"天气","markdown":"晴"}]`
+	if got := brief.NotifyBody("# 早报\n\n## 天气\n\n晴", without); got != "【天气】\n\n晴" {
+		t.Fatalf("without summary: %q", got)
+	}
+}

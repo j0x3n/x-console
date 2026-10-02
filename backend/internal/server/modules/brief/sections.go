@@ -2,6 +2,7 @@ package brief
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/brief/db"
 )
 
 // Each section of the brief is built by its own function. A section whose
@@ -310,6 +312,20 @@ func (m *Module) generate(ctx context.Context, cfg config, reg *module.Registry,
 		}
 	}
 	return out
+}
+
+// notifyBody is the push text of a brief (B92). With an AI summary only the
+// summary goes out, without its heading; otherwise every section does.
+func notifyBody(row db.Brief) string {
+	var sections []api.BriefSection
+	if json.Unmarshal([]byte(row.Sections), &sections) == nil {
+		for _, s := range sections {
+			if s.Key == "summary" && strings.TrimSpace(s.Markdown) != "" {
+				return plainText(s.Markdown)
+			}
+		}
+	}
+	return plainText(row.Content)
 }
 
 // plainText turns the brief into text for push channels: headings become

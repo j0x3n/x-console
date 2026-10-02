@@ -32,3 +32,6 @@ func FileCount(m *Module, prefix string) int {
 func SnippetText(raw []byte, encoding, charset string, html bool) string {
 	return snippetText(raw, encoding, charset, html)
 }
+
+// CleanText exposes the snippet cleaner (B92).
+func CleanText(s string) string { return cleanText(s) }

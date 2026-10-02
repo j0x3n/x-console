@@ -444,7 +444,7 @@ func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.Ma
 			from = x.FromAddress
 		}
 		send(notify.Notification{
-			Title: from + "：" + subjectOrNone(x.Subject), Body: cutRunes(x.Snippet, 100),
+			Title: from + "：" + subjectOrNone(x.Subject), Body: cutRunes(cleanText(x.Snippet), 100),
 			Link: fmt.Sprintf("/mail?m=%d", x.ID), Data: map[string]any{"accountId": acc.ID, "messageId": x.ID},
 		})
 	}

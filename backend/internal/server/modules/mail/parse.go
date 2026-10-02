@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"mime/quotedprintable"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -150,7 +151,30 @@ func snippetText(raw []byte, encoding, cs string, isHTML bool) string {
 	if isHTML {
 		s = htmlToText(s)
 	}
-	return cutRunes(strings.Join(strings.Fields(s), " "), snippetRunes)
+	return cutRunes(cleanText(s), snippetRunes)
+}
+
+var (
+	// looksHTML: a tag or a comment, so text/plain parts that carry HTML
+	// (some newsletters do) are cleaned too.
+	looksHTML = regexp.MustCompile(`(?i)<(!--|!\[|/?[a-z][a-z0-9]*[\s/>])`)
+	// htmlLeftovers are pieces of Outlook conditional comments that survive
+	// when a snippet is cut, e.g. "<!--[if !mso]><!-->" or "<![endif]-->".
+	htmlLeftovers = regexp.MustCompile(`(?i)<!--\[if[^\]]*\]>(<!-->)?|<!\[endif\]-->|<!\[endif\]>|<!-->|<!--|-->|\[if !?mso[^\]]*\]>?|\[endif\]`)
+)
+
+// cleanText turns a snippet into one line of plain text (B92): HTML and
+// escaped HTML become their visible text, comment leftovers and entities go.
+func cleanText(s string) string {
+	if strings.Contains(s, "&lt;") {
+		s = html.UnescapeString(s)
+	}
+	if looksHTML.MatchString(s) {
+		s = htmlToText(s)
+	}
+	s = htmlLeftovers.ReplaceAllString(s, " ")
+	s = html.UnescapeString(s)
+	return strings.Join(strings.Fields(s), " ")
 }
 
 func decodeCharset(b []byte, cs string) string {
