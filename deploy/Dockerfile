@@ -6,6 +6,9 @@ WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./
+# 前端也带上版本号（B79），设置页底部显示，和服务端对不上时提示刷新。
+ARG VERSION=dev
+ENV XC_VERSION=$VERSION
 RUN npm run build
 
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS server
