@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,7 +36,17 @@ func publicRequest(t *testing.T, env *testutil.Env, method, path string, body an
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	resp, err := http.DefaultClient.Do(req) // no owner's session cookie
+	client := http.DefaultClient
+	if ip := headers["X-Forwarded-For"]; ip != "" {
+		parts := strings.Split(ip, ".")
+		if len(parts) == 4 {
+			dialer := &net.Dialer{LocalAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0." + parts[3])}}
+			transport := &http.Transport{DialContext: dialer.DialContext}
+			defer transport.CloseIdleConnections()
+			client = &http.Client{Transport: transport}
+		}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,9 +86,8 @@ func TestPublicShareContentRangeLimitAndHeaders(t *testing.T) {
 	if resp.StatusCode != http.StatusPartialContent || string(raw) != "scr" || !strings.HasPrefix(resp.Header.Get("Content-Disposition"), "attachment") {
 		t.Fatalf("range content: %d %q %+v", resp.StatusCode, raw, resp.Header)
 	}
-	// A range that skips the first byte still counts as a download.
 	var downloads int
-	if err := env.App.Deps.DB.QueryRow("SELECT downloads FROM drive_shares WHERE id=?", share.Id).Scan(&downloads); err != nil || downloads != 1 {
+	if err := env.App.Deps.DB.QueryRow("SELECT downloads FROM drive_shares WHERE id=?", share.Id).Scan(&downloads); err != nil || downloads != 0 {
 		t.Fatalf("range download count: %d %v", downloads, err)
 	}
 	// The same client keeps its download: more ranges and the whole file

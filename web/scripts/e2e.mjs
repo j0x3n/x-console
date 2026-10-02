@@ -731,22 +731,45 @@ try {
     data: { password },
   });
   assert.equal(shareElevation.status(), 200, await shareElevation.text());
+  stage = "B75 云盘分享预览和下载记录 API 主流程";
   const shareResponse = await page.context().request.post(`${base}/api/v1/drive/shares`, {
     headers: { "X-Requested-With": "x-console" },
-    data: { itemId: driveFile.id, expiresIn: "7d" },
+    data: { itemId: driveFile.id, expiresIn: "7d", code: "分享密码123456" },
   });
   assert.equal(shareResponse.status(), 201, await shareResponse.text());
   const driveShare = await shareResponse.json();
   assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0]?.id, driveShare.id);
-  const publicShare = await page.context().request.get(
-    `${base}/api/v1/public/shares/${driveShare.token}`,
-  );
+  const drivePublicBase = `${base}/api/v1/public/shares/${driveShare.token}`;
+  assert.equal((await fetch(drivePublicBase)).status, 401);
+  const driveUnlocked = await fetch(`${drivePublicBase}/unlock`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: "分享密码123456" }),
+  });
+  assert.equal(driveUnlocked.status, 200);
+  const driveAccess = encodeURIComponent((await driveUnlocked.json()).access);
+  const publicShare = await page.context().request.get(`${drivePublicBase}?t=${driveAccess}`);
   assert.equal(publicShare.status(), 200, await publicShare.text());
-  const publicContent = await page.context().request.get(
-    `${base}/api/v1/public/shares/${driveShare.token}/content`,
-  );
+  for (let i = 0; i < 3; i++) {
+    const preview = await page.context().request.get(`${drivePublicBase}/content?preview=true&t=${driveAccess}`);
+    assert.equal(preview.status(), 200, await preview.text());
+    assert.equal(await preview.text(), "云盘内容可以预览。");
+    assert.match(preview.headers()["content-disposition"], /^inline/);
+  }
+  const publicHead = await page.context().request.head(`${drivePublicBase}/content?t=${driveAccess}`);
+  assert.equal(publicHead.status(), 200);
+  assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0].downloads, 0);
+  const publicContent = await page.context().request.get(`${drivePublicBase}/content?t=${driveAccess}`);
   assert.equal(publicContent.status(), 200);
   assert.equal(await publicContent.text(), "云盘内容可以预览。");
+  const publicRange = await page.context().request.get(`${drivePublicBase}/content?t=${driveAccess}`, {
+    headers: { Range: "bytes=3-" },
+  });
+  assert.equal(publicRange.status(), 206);
+  assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0].downloads, 1);
+  const driveHistory = await api(`/drive/shares/${driveShare.id}/downloads`);
+  assert.equal(driveHistory.items.length, 1);
+  assert.equal(driveHistory.items[0].ip, "127.0.*.*");
+  assert.equal(driveHistory.items[0].itemName, driveFile.name);
   const unshareResponse = await page.context().request.delete(
     `${base}/api/v1/drive/shares/${driveShare.id}`,
     { headers: { "X-Requested-With": "x-console" } },

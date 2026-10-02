@@ -44,7 +44,6 @@ type Module struct {
 	shareMu      sync.Mutex
 	shareHits    map[string]shareRate
 	shareFails   map[string]shareFailure
-	// shareFetches: "share:item:ip" -> when it last counted a download.
 	shareFetches map[string]time.Time
 	blobMu       sync.Mutex
 	blobLocks    map[string]*blobLock // see lockBlob
@@ -64,6 +63,9 @@ func New(d *module.Deps) (module.Module, error) {
 func (m *Module) Name() string { return "drive" }
 func (m *Module) Mount(r chi.Router) {
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
+	wrapper := api.ServerInterfaceWrapper{Handler: m, ErrorHandlerFunc: httpx.BadParam}
+	r.Head("/public/shares/{token}/content", wrapper.GetPublicShareContent)
+	r.Head("/public/shares/{token}/thumbnail", wrapper.GetPublicShareThumbnail)
 }
 func (m *Module) Start(ctx context.Context) error {
 	m.taskBase = ctx

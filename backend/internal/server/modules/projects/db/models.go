@@ -369,6 +369,16 @@ type DriveShare struct {
 	LastAccessAt *time.Time
 }
 
+type DriveShareDownload struct {
+	ID        int64
+	ShareID   int64
+	At        time.Time
+	Ip        string
+	UserAgent string
+	ItemID    *int64
+	ItemName  string
+}
+
 type FocusSession struct {
 	ID             int64
 	IssueKey       string

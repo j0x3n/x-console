@@ -33,7 +33,7 @@
 | B72 | 笔记：编辑时能滚动、双击进入编辑、外链分享（可加密码）、左栏“+”快速新建、浮窗 | [B72](specs/B72.md) | 前端 Claude（分享、浮窗、双击编辑未测），后端 Codex 已完成 |
 | B73 | 便签：快速记录存成便签，瀑布流，和笔记共用标签 | [B73](specs/B73.md) | 前端 Claude（代码未测），后端 Codex 已完成 |
 | B74 | 编辑器：多媒体、折叠代码块和复制、隐藏块、背景色、提示块、表格等 | [B74](specs/B74.md) | 前端 Claude（仅背景色完成，其余待做），后端 Codex 已完成 |
-| B75 | 云盘分享页：浏览器能看的都直接预览，下载按钮，密码，下载次数 | [B75](specs/B75.md) | 前端 Claude，后端 GPT |
+| B75 | 云盘分享页：浏览器能看的都直接预览，下载按钮，密码，下载次数 | [B75](specs/B75.md) | 前端 Claude，后端 Codex 已完成 |
 | B76 | 左栏一级菜单显示未读和待处理数量，二级菜单选中更明显 | [B76](specs/B76.md) | 前端 Claude |
 | B77 | 看板卡片不显示编号，紧急度加标题 | 见下 | 前端 Claude |
 | B78 | CI 提速：前端检查从六七分钟降下来 | [B78](specs/B78.md) | Claude |
@@ -203,6 +203,10 @@
 
 ## 已知问题（暂不排期）
 
+第三批检查发现的前端问题（2026-10-02，留给 Claude）：
+- `i18n.test.ts` 失败：`Pull request opened` 在不同模块对应“PR 已建好”和“新的 PR”；`New issue` 对应“新的 Issue”和“新建卡片”。需要按中文词典全局唯一规则调整英文键。
+- 前端整套单元测试中，`DrivePage.test.tsx` 的重复 Ctrl+S 冲突提示用例超时。Linux 单文件 12 个用例通过，整套仍失败，需要排查时序。
+
 没有在真实环境验证过：
 - Windows 代理的运行时行为：ConPTY 终端、服务管理、剪贴板、锁屏关机、打开程序、编码任务的中断。只做过交叉编译和静态检查。
 - 真实的 Claude Code 和 Codex CLI。Codex 的默认参数 `exec --json --full-auto -` 没实测，可以在代理配置里改。
@@ -241,9 +245,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
-<<<<<<< HEAD
 | B41 | 修复 Deploy 被上传中止测试偶发失败阻断：测试等待上传处理退出后检查目录，覆盖处理开始前中止。Linux race 重复 1000 次通过（待合并） |
-=======
 | B69 | 网盘账号挪到 设置 → 存储：WebDAV 和 Google Drive 都能加多个，能测试、授权、撤销；备份设置从账号里选一个，只填目录；云盘页按账号出标签。启动时把 B63 的设置自动变成账号，Google 旧回调地址继续能用。和规格不同的地方写在规格开头。规格见 [B69](specs/B69.md) |
 | B53 | 邮件后端：IMAP 收 Gmail、阿里企业邮箱和其他邮箱，保存前先试登录；每个账号一条常连的连接，用 IDLE 几秒内收到新邮件并推送，不支持 IDLE 的每分钟查一次；断线按 10 秒到 5 分钟重连；已读和星标双向同步；正文第一次打开时取，附件存文件存储；GBK 编码能正确显示。和规格不同的地方写在规格的“后端”一节。规格见 [B53](specs/B53.md) |
 | B58 | 和风天气和地震：设置里填 Host 和 key，保存前试调一次；天气详情有预警、两小时降水、空气、日出日落月相、生活指数、和昨天比、附近地震（中国地震台网，取不到用美国地质调查局）；快下雨、天气预警、附近地震三种推送。和规格不同的地方写在规格的“后端”一节。规格见 [B58](specs/B58.md) |
@@ -264,7 +266,6 @@
 | B46 | 项目多看板：看板、列表、卡片拖动、成员、归档、复制、活动、标星（`757e92b`、`dc0a8e9`）。没做完的见“已知问题” |
 | B43 | API 令牌和 MCP 接口，设置 → 远程访问（`b87b132`、`f6f7ee3`） |
 | B47 | Agent 管理：Agent、Git 连接（GitHub、Forgejo）、按远端登记仓库、构建和产物、失败重试、卡片分配和评论、Git 回调、内置 Agent、前端（`0ed675e`、`fc40cd4`、`1453f75`、`3a1c4c3`、`900fb61`）。没做的见“已知问题” |
->>>>>>> origin/develop
 | B39 | AI 供应商可选 Chat Completions 或 Responses 接口；助手能发图片和文本文件；快速模型单独设思考强度（`c44cc80`、`9dac6fe`） |
 | B40 | 笔记阅读模式、AI 润色、手动和保存后生成标题标签、三栏拖动调宽并记住（`51175be`、`0ead369`）。截图 1360px 和 390px 已自查 |
 | B38 | Safari 标签页和主屏幕应用、跨浏览器动态高度、安全区、横屏、浮层及主题色适配；Chromium、Firefox、WebKit 交互检查通过，真机 iOS 浏览器栏待复核（`46fec3d`） |
@@ -317,6 +318,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-02 | `drive.yaml` 放宽 code 为 4 到 32 个字符，公开内容新增 preview，保留 inline；新增下载记录和公开缩略图接口，PublicShareItem 新增 thumbnail；事件 `drive_share.changed` 刷新分享列表 | B75 |
 | 2026-10-02 | 新增 `contracts.GitWebhookReceiver`（键 `github.webhook`），aiagents 验证签名后同步调用 github；notify 新增 `SaveTx` 和 `Dispatch`，普通 `Send` 行为兼容，供通知与去重同事务提交 | B71 持久去重和回调失败重试 |
 | 2026-10-01 | 新增 `lib/navBadges.ts`（`registerNavBadge`、`registerNavAction`）；`components/layout/Sidebar.tsx` 在一级菜单右边显示数量、行内按钮；`ui.css` 加 `.nav-badge`、`.nav-action`，二级菜单选中改成强调色，`.xc-list` 去掉 `ul` 默认缩进 | B76 左栏数量、B72 笔记“+” |
 | 2026-10-01 | `app/nav.ts`：GitHub 挪到“主要”组 Agent 后面，改名 `Repositories`（仓库），图标 `FolderGit2`，地址不变；设置标签改名 `Git & repositories`；`github.yaml` 加 `watches`、`/github/repos`、`/github/commits`、`/github/runs/{runId}/jobs`、`/github/notify`，PR、运行、Issue 加 `connectionId`、`forge`（后端占位在 `github/pending.go`，`ListGitHubIssues` 多了一个不用的参数） | B70、B71 |

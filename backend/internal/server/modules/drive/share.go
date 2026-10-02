@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -37,19 +38,8 @@ func newShareToken() (string, error) {
 }
 
 func validShareCode(code string) bool {
-	if len(code) < 4 || len(code) > 8 {
-		return false
-	}
-	for _, char := range code {
-		if char < '0' || char > '9' {
-			if char < 'A' || char > 'Z' {
-				if char < 'a' || char > 'z' {
-					return false
-				}
-			}
-		}
-	}
-	return true
+	length := utf8.RuneCountInString(code)
+	return utf8.ValidString(code) && length >= 4 && length <= 32
 }
 
 func shareExpiry(kind api.DriveShareInputExpiresIn) (*time.Time, bool) {

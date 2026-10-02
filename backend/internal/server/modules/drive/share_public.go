@@ -38,16 +38,13 @@ type shareFailure struct {
 
 var (
 	errPublicShare       = httpx.NewError(404, "share_not_found", "分享链接不存在")
-	errShareCodeRequired = httpx.NewError(401, "share_code_required", "请输入提取码")
+	errShareCodeRequired = httpx.NewError(401, "share_code_required", "请输入密码")
 	errShareLimit        = httpx.NewError(410, "share_limit_reached", "下载次数已用完")
 )
 
 func (m *Module) PublicPaths() []string { return []string{"/public/shares"} }
 
 func publicClientIP(r *http.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		return strings.TrimSpace(strings.Split(forwarded, ",")[0])
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
@@ -58,6 +55,7 @@ func publicClientIP(r *http.Request) string {
 func publicHeaders(w http.ResponseWriter) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	w.Header().Set("Cache-Control", "no-store")
 }
 
 func (m *Module) shareRateLimit(w http.ResponseWriter, r *http.Request) bool {
@@ -221,7 +219,7 @@ func (m *Module) UnlockPublicShare(w http.ResponseWriter, r *http.Request, token
 				w.Header().Set("Retry-After", "600")
 				httpx.Fail(w, r, httpx.NewError(429, "share_locked", "试错太多次，10 分钟后再试"))
 			} else {
-				httpx.Fail(w, r, httpx.NewError(403, "share_code_wrong", fmt.Sprintf("提取码不对，还能试 %d 次", 5-failed.count)))
+				httpx.Fail(w, r, httpx.NewError(403, "share_code_wrong", fmt.Sprintf("密码不对，还能试 %d 次", 5-failed.count)))
 			}
 			return
 		}
@@ -325,6 +323,7 @@ func (m *Module) ListPublicShareItems(w http.ResponseWriter, r *http.Request, to
 		entry := api.PublicShareItem{Id: item.ID, Name: item.Name, IsDir: item.IsDir != 0, Size: item.Size, UpdatedAt: item.UpdatedAt}
 		if item.IsDir == 0 {
 			entry.Mime = &item.Mime
+			entry.Thumbnail = shareThumbnailType(item.Mime)
 		}
 		items = append(items, entry)
 	}
@@ -341,28 +340,26 @@ func (m *Module) ListPublicShareItems(w http.ResponseWriter, r *http.Request, to
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "path": path})
 }
 
-func (m *Module) incrementShareDownload(ctx context.Context, shareID int64) error {
-	result, err := m.d.DB.ExecContext(ctx, "UPDATE drive_shares SET downloads=downloads+1,last_access_at=? WHERE id=? AND (max_downloads IS NULL OR downloads<max_downloads)", time.Now().UTC(), shareID)
-	if err != nil {
-		return err
-	}
-	changed, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if changed == 0 {
-		return errShareLimit
-	}
-	return nil
-}
-
-// shareFetchWindow is how long one client's requests for one file count as
-// the same download. A player asks for many ranges while seeking; skipping
-// the first byte must not make a download free.
 const shareFetchWindow = time.Hour
 
-// countedFetch reports whether this client already counted a download of
-// this file within the window.
+func startsShareDownload(value string) bool {
+	if value == "" {
+		return true
+	}
+	if !strings.HasPrefix(value, "bytes=") {
+		return false
+	}
+	for _, part := range strings.Split(strings.TrimPrefix(value, "bytes="), ",") {
+		start, _, ok := strings.Cut(strings.TrimSpace(part), "-")
+		if ok && start != "" {
+			n, err := strconv.ParseInt(strings.TrimSpace(start), 10, 64)
+			if err == nil && n == 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
 func (m *Module) countedFetch(key string) bool {
 	m.shareMu.Lock()
 	defer m.shareMu.Unlock()
@@ -370,26 +367,9 @@ func (m *Module) countedFetch(key string) bool {
 	return ok && time.Since(at) < shareFetchWindow
 }
 
-func (m *Module) markFetch(key string) {
-	m.shareMu.Lock()
-	m.shareFetches[key] = time.Now()
-	m.shareMu.Unlock()
-}
-
 func (m *Module) auditShareDownload(ctx context.Context, shareID, itemID int64, ip string, err error) {
 	ctx = audit.WithActor(ctx, "share:"+strconv.FormatInt(shareID, 10))
 	m.d.Audit.Record(ctx, "drive.share.download", strconv.FormatInt(itemID, 10), map[string]any{"ip": ip, "fileId": itemID}, err)
-}
-
-func inlineShareType(value string) bool {
-	if strings.HasPrefix(value, "audio/") || strings.HasPrefix(value, "video/") || value == "application/pdf" {
-		return true
-	}
-	switch value {
-	case "image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp":
-		return true
-	}
-	return false
 }
 
 func (m *Module) GetPublicShareContent(w http.ResponseWriter, r *http.Request, token api.ShareToken, params api.GetPublicShareContentParams) {
@@ -424,23 +404,34 @@ func (m *Module) GetPublicShareContent(w http.ResponseWriter, r *http.Request, t
 		return
 	}
 	defer stream.Close()
+	preview := boolValue(params.Preview) || boolValue(params.Inline)
 	ip := publicClientIP(r)
-	fetchKey := fmt.Sprintf("%d:%d:%s", share.ID, item.ID, ip)
-	if !m.countedFetch(fetchKey) {
-		if err := m.incrementShareDownload(r.Context(), share.ID); fail(w, r, err) {
-			return
-		}
-		m.markFetch(fetchKey)
-		m.auditShareDownload(r.Context(), share.ID, item.ID, ip, nil)
+	fetchKey := fmt.Sprintf("%d:%d:%s:%s", share.ID, item.ID, ip, r.UserAgent())
+	if share.MaxDownloads != nil && share.Downloads >= *share.MaxDownloads && (preview || !m.countedFetch(fetchKey)) {
+		httpx.Fail(w, r, errShareLimit)
+		return
 	}
 	disposition := "attachment"
-	if params.Inline != nil && *params.Inline && inlineShareType(item.Mime) {
+	if preview {
 		disposition = "inline"
 	}
 	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": item.Name}))
 	w.Header().Set("Content-Type", item.Mime)
 	w.Header().Set("ETag", etag(item.Sha256))
-	http.ServeContent(w, r, item.Name, item.UpdatedAt, stream)
+	var writer http.ResponseWriter = w
+	if !preview && r.Method == http.MethodGet {
+		writer = &shareDownloadWriter{ResponseWriter: w, request: r, count: func(status int) error {
+			if status == http.StatusPartialContent && !startsShareDownload(r.Header.Get("Range")) {
+				return nil
+			}
+			err := m.recordShareDownload(r.Context(), share, item, r, fetchKey)
+			if err == nil {
+				m.auditShareDownload(r.Context(), share.ID, item.ID, ip, nil)
+			}
+			return err
+		}}
+	}
+	http.ServeContent(writer, r, item.Name, item.UpdatedAt, stream)
 }
 
 func (m *Module) DownloadPublicShareZip(w http.ResponseWriter, r *http.Request, token api.ShareToken, params api.DownloadPublicShareZipParams) {
@@ -456,10 +447,12 @@ func (m *Module) DownloadPublicShareZip(w http.ResponseWriter, r *http.Request, 
 		httpx.Fail(w, r, errPublicShare)
 		return
 	}
-	if err := m.incrementShareDownload(r.Context(), share.ID); fail(w, r, err) {
-		return
+	if r.Method == http.MethodGet {
+		if err := m.recordShareDownload(r.Context(), share, root, r, ""); fail(w, r, err) {
+			return
+		}
+		m.auditShareDownload(r.Context(), share.ID, root.ID, publicClientIP(r), nil)
 	}
-	m.auditShareDownload(r.Context(), share.ID, root.ID, publicClientIP(r), nil)
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": root.Name + ".zip"}))
 	w.WriteHeader(http.StatusOK)
