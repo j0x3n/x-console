@@ -69,13 +69,18 @@ func toIssue(i db.Issue, projectKey string, labels []api.Label) api.Issue {
 	}
 	remind := api.DueRemind(i.DueRemind)
 	color := api.CardColor(i.Color)
+	var externalURL *string
+	if i.ExternalUrl != "" {
+		externalURL = &i.ExternalUrl
+	}
 	return api.Issue{
 		Id: i.ID, Key: issueKey(projectKey, i.Number), ProjectId: i.ProjectID, ProjectKey: projectKey, Number: i.Number,
 		Title: i.Title, Description: i.Description, Status: api.IssueStatus(i.Status), Priority: int(i.Priority),
 		DueDate: toDate(i.DueDate), MilestoneId: i.MilestoneID, SortOrder: i.SortOrder, Labels: labels,
 		CategoryId: i.CategoryID, DueAt: parseDue(i.DueAt), DueRemind: &remind,
 		ExternalSource: i.ExternalSource, ExternalId: i.ExternalID,
-		CreatedAt: i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt,
+		ExternalUrl: externalURL,
+		CreatedAt:   i.CreatedAt, UpdatedAt: i.UpdatedAt, CompletedAt: i.CompletedAt,
 		BoardId: i.BoardID, ListId: i.ListID, ArchivedAt: i.ArchivedAt,
 		Color: &color,
 	}

@@ -20,6 +20,7 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
+| B84 | 看板绑定 Git 仓库，同步仓库的 Issue；看板里新建的卡片照旧只在看板里 | [B84](specs/B84.md) | Codex |
 
 
 ## 待做
@@ -42,7 +43,6 @@
 | B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前后端都完成（前端 `03e9d17`，后端 `fc818da`），已合并（`26e1fa2`） |
 | B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前后端都完成（前端 `42dccc1`，后端 `0b201be`、审查修复 `9619701`），已合并（`26e1fa2`） |
 | B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前后端都完成（前端 `836b5be`，后端 `15abfd0`），已合并（`26e1fa2`） |
-| B84 | 看板绑定 Git 仓库，同步仓库的 Issue；看板里新建的卡片照旧只在看板里 | [B84](specs/B84.md) | 前端完成（`f197548`），后端待做（Codex） |
 | B85 | 卡片右键菜单（分配、颜色、到期时间、标签、移动、归档）；卡片详情的描述按钮和评论按钮间距 | [B85](specs/B85.md) | 前后端都完成（前端 `655be42`，后端 Claude） |
 | B86 | Agent 开发卡片：用看板绑定的仓库，做完自动提 PR；执行日志；详情页删除；左栏“+”和工作中动画 | [B86](specs/B86.md) | 前端完成（`f197548`），后端待做 |
 | B87 | Agent 通知六类开关；今日页“待你决定”加 Agent 的权限请求和问题 | [B87](specs/B87.md) | 前端完成（`831ebc2`），后端待做 |
@@ -369,6 +369,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-02 | 新增 `contracts.GitIssues`、`BoardGit` 和独立看板 Git 回调入口。复用 aiagents 的令牌客户端，projects 不读取或保存令牌 | B84 看板绑定仓库 |
 | 2026-10-02 | `drive.yaml` 放宽 code 为 4 到 32 个字符，公开内容新增 preview，保留 inline；新增下载记录和公开缩略图接口，PublicShareItem 新增 thumbnail；事件 `drive_share.changed` 刷新分享列表 | B75 |
 | 2026-10-02 | 新增 `contracts.GitWebhookReceiver`（键 `github.webhook`），aiagents 验证签名后同步调用 github；notify 新增 `SaveTx` 和 `Dispatch`，普通 `Send` 行为兼容，供通知与去重同事务提交 | B71 持久去重和回调失败重试 |
 | 2026-10-01 | 新增 `lib/navBadges.ts`（`registerNavBadge`、`registerNavAction`）；`components/layout/Sidebar.tsx` 在一级菜单右边显示数量、行内按钮；`ui.css` 加 `.nav-badge`、`.nav-action`，二级菜单选中改成强调色，`.xc-list` 去掉 `ul` 默认缩进 | B76 左栏数量、B72 笔记“+” |

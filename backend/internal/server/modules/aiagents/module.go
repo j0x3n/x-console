@@ -51,6 +51,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.GitConnections](d.Registry, contracts.GitConnectionsKey, m)
 	module.Provide[contracts.AIAgents](d.Registry, contracts.AIAgentsKey, m)
 	module.Provide[contracts.GitAccounts](d.Registry, contracts.GitAccountsKey, m) // B62
+	module.Provide[contracts.GitIssues](d.Registry, contracts.GitIssuesKey, m)
 	return m, nil
 }
 

@@ -566,6 +566,7 @@ func (m *Module) updateIssue(ctx context.Context, key string, p issuePatch) (out
 		return out, err
 	}
 	m.publishUpdate(out, from)
+	m.pushRepoIssue(ctx, out)
 	return out, nil
 }
 

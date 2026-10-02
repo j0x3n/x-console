@@ -542,6 +542,41 @@ try {
     assert.equal(removed.status(), 204, await removed.text());
   }
 
+  stage = "B84 看板绑定仓库和同步 Issue API 主流程";
+  {
+    const gitFake = http.createServer((request, response) => {
+      response.setHeader("Content-Type", "application/json");
+      if (request.url === "/user") return response.end(JSON.stringify({ login: "e2e" }));
+      if (request.url === "/repos/e2e/board") return response.end(JSON.stringify({ full_name: "e2e/board", html_url: "https://example.test/e2e/board", clone_url: "https://example.test/e2e/board.git", default_branch: "main" }));
+      if (request.url.startsWith("/repos/e2e/board/issues?")) return response.end(JSON.stringify([{ number: 1, title: "同步来的卡片", body: "仓库正文", state: "open", html_url: "https://example.test/e2e/board/issues/1", labels: [{ name: "测试标签" }] }]));
+      response.writeHead(404).end();
+    });
+    await new Promise((ready) => gitFake.listen(0, "127.0.0.1", ready));
+    try {
+      const send = async (method, path, data) => {
+        const response = await page.request.fetch(`${base}/api/v1${path}`, { method, headers: { "X-Requested-With": "x-console" }, data });
+        assert.ok(response.ok(), `${path}: ${await response.text()}`);
+        return response.status() === 204 ? null : response.json();
+      };
+      await send("POST", "/auth/elevate", { password });
+      const connection = await send("POST", "/git-connections", { name: "同步测试", kind: "github", baseUrl: `http://127.0.0.1:${gitFake.address().port}`, token: "e2e-token" });
+      const board = (await api(`/projects/${project.id}/boards`))[0];
+      const path = `/boards/${board.id}/repo`;
+      const bound = await send("PUT", path, { connectionId: connection.connection.id, fullName: "e2e/board" });
+      assert.equal(bound.repo.syncedCount, 1);
+      await send("POST", `${path}/sync`);
+      const synced = (await api(`/issues?boardId=${board.id}`)).items.filter((card) => card.externalId === "e2e/board#1");
+      assert.equal(synced.length, 1);
+      assert.equal(synced[0].externalUrl, "https://example.test/e2e/board/issues/1");
+      await send("DELETE", path);
+      assert.equal((await api(`/issues/${synced[0].key}`)).externalSource, "");
+      await send("DELETE", `/issues/${synced[0].key}`);
+      await send("DELETE", `/git-connections/${connection.connection.id}`);
+    } finally {
+      await new Promise((done) => gitFake.close(done));
+    }
+  }
+
   stage = "B70 仓库关注 API 主流程";
   {
     const original = await api("/github/config");

@@ -226,6 +226,19 @@ type BoardList struct {
 	CreatedAt  time.Time
 }
 
+type BoardRepo struct {
+	BoardID       int64
+	ConnectionID  int64
+	FullName      string
+	Kind          string
+	HtmlUrl       string
+	CloneUrl      string
+	DefaultBranch string
+	SyncIssues    int64
+	LastSyncedAt  *time.Time
+	LastError     string
+}
+
 type Brief struct {
 	ID        int64
 	Date      string
@@ -660,6 +673,7 @@ type Issue struct {
 	ArchivedAt     *time.Time
 	CoverFileID    *int64
 	Color          string
+	ExternalUrl    string
 }
 
 type IssueActivity struct {
