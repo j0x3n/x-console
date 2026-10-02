@@ -14,6 +14,7 @@ import (
 
 func (m *Module) registerActions() {
 	m.registerExtraActions()
+	m.registerPersonalActions()
 	m.d.Actions.Register(actions.Action{
 		Name:        "habits.today",
 		Title:       "今天的习惯",
@@ -37,8 +38,8 @@ func (m *Module) registerActions() {
 		Name:  "workouts.log",
 		Title: "记录训练",
 		Description: "Log a workout. `date` is YYYY-MM-DD (default today). With `planId` and no `items` the plan's exercises are copied. " +
-			"Items are {name, sets, reps, weight (kg), note}. Returns the log.",
-		Input:  actions.Schema(`{"type":"object","properties":{"date":{"type":"string"},"planId":{"type":"integer"},"durationMinutes":{"type":"integer","minimum":0},"note":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"sets":{"type":"integer"},"reps":{"type":"integer"},"weight":{"type":"number"},"note":{"type":"string"}},"required":["name"]}}},"additionalProperties":false}`),
+			"Items are {name, sets, reps, weight (kg), note, exerciseId, prescription}. Prescription preserves ranges, seconds and distance. Returns the log.",
+		Input:  actions.Schema(`{"type":"object","properties":{"date":{"type":"string"},"planId":{"type":"integer"},"durationMinutes":{"type":"integer","minimum":0},"note":{"type":"string"},"items":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"sets":{"type":"integer"},"reps":{"type":"integer"},"weight":{"type":"number"},"note":{"type":"string"},"exerciseId":{"type":"string"},"prescription":{"type":"string"}},"required":["name"]}}},"additionalProperties":false}`),
 		Effect: actions.Write,
 		Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var in api.WorkoutLogInput

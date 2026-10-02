@@ -6,6 +6,8 @@ import { registerNavChildren } from "../../lib/navChildren";
 import HabitsNavChildren from "./NavChildren";
 import "./i18n";
 import "./habits.css";
+import "./personal.css";
+import "./personalI18n";
 
 // 侧边栏“/habits”的二级菜单：今天（带每个习惯）和健身
 registerNavChildren("/habits", HabitsNavChildren);

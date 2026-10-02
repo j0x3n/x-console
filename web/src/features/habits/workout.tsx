@@ -18,6 +18,8 @@ import {
 } from "./api";
 import { describeItem, plansToSave, weekPlans, type DayPlan } from "./progress";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
+import { ExercisePicker } from "./ExerciseLibrary";
+import { exerciseToWorkout } from "./personal";
 
 const onError = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
@@ -35,6 +37,8 @@ export const weekdayLabels = [
 export function toItem(i: WorkoutItem) {
   return {
     name: i.name,
+    exerciseId: i.exerciseId ?? undefined,
+    prescription: i.prescription ?? undefined,
     sets: i.sets ?? undefined,
     reps: i.reps ?? undefined,
     weight: i.weight ?? undefined,
@@ -50,6 +54,7 @@ export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
     [plans],
   );
   const [week, setWeek] = useState<DayPlan[]>(initial);
+  const [pickingDay, setPickingDay] = useState<number | null>(null);
   useEffect(() => setWeek(initial), [initial]);
 
   const setDay = (i: number, patch: Partial<DayPlan>) =>
@@ -108,52 +113,68 @@ export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
               </div>
             )}
             {d.items.map((it, j) => (
-              <div className="habits-item-row" key={j}>
-                <input
-                  className="xc-input"
-                  value={it.name}
-                  placeholder={t("Exercise")}
-                  onChange={(e) => setItem(i, j, { name: e.target.value })}
-                />
-                <input
-                  className="xc-input"
-                  type="number"
-                  min="0"
-                  value={it.sets ?? ""}
-                  placeholder={t("Sets")}
-                  aria-label={t("Sets")}
-                  onChange={(e) => setItem(i, j, { sets: num(e.target.value) })}
-                />
-                <input
-                  className="xc-input"
-                  type="number"
-                  min="0"
-                  value={it.reps ?? ""}
-                  placeholder={t("Reps")}
-                  aria-label={t("Reps")}
-                  onChange={(e) => setItem(i, j, { reps: num(e.target.value) })}
-                />
-                <input
-                  className="xc-input"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={it.weight ?? ""}
-                  placeholder="kg"
-                  aria-label={t("Weight (kg)")}
-                  onChange={(e) =>
-                    setItem(i, j, { weight: num(e.target.value) })
-                  }
-                />
-                <button
-                  className="xc-btn ghost small"
-                  aria-label={t("Delete")}
-                  onClick={() =>
-                    setDay(i, { items: d.items.filter((_, k) => k !== j) })
-                  }
-                >
-                  <Trash2 size={13} />
-                </button>
+              <div key={j}>
+                <div className="habits-item-row">
+                  <input
+                    className="xc-input"
+                    value={it.name}
+                    placeholder={t("Exercise")}
+                    onChange={(e) => setItem(i, j, { name: e.target.value })}
+                  />
+                  <input
+                    className="xc-input"
+                    type="number"
+                    min="0"
+                    value={it.sets ?? ""}
+                    placeholder={t("Sets")}
+                    aria-label={t("Sets")}
+                    onChange={(e) =>
+                      setItem(i, j, { sets: num(e.target.value) })
+                    }
+                  />
+                  <input
+                    className="xc-input"
+                    type="number"
+                    min="0"
+                    value={it.reps ?? ""}
+                    placeholder={t("Reps")}
+                    aria-label={t("Reps")}
+                    onChange={(e) =>
+                      setItem(i, j, { reps: num(e.target.value) })
+                    }
+                  />
+                  <input
+                    className="xc-input"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={it.weight ?? ""}
+                    placeholder="kg"
+                    aria-label={t("Weight (kg)")}
+                    onChange={(e) =>
+                      setItem(i, j, { weight: num(e.target.value) })
+                    }
+                  />
+                  <button
+                    className="xc-btn ghost small"
+                    aria-label={t("Delete")}
+                    onClick={() =>
+                      setDay(i, { items: d.items.filter((_, k) => k !== j) })
+                    }
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                {it.prescription !== undefined && (
+                  <input
+                    className="xc-input habits-prescription"
+                    aria-label={t("Training prescription")}
+                    value={it.prescription}
+                    onChange={(e) =>
+                      setItem(i, j, { prescription: e.target.value })
+                    }
+                  />
+                )}
               </div>
             ))}
             <button
@@ -162,9 +183,25 @@ export function WeekEditor({ plans }: { plans: WorkoutPlan[] }) {
             >
               <Plus size={13} /> {t("Add exercise")}
             </button>
+            <button
+              className="xc-btn ghost small"
+              onClick={() => setPickingDay(i)}
+            >
+              <Plus size={13} /> {t("Choose from exercise library")}
+            </button>
           </div>
         ))}
       </div>
+      <ExercisePicker
+        open={pickingDay !== null}
+        onClose={() => setPickingDay(null)}
+        onSelect={(e) => {
+          if (pickingDay !== null)
+            setDay(pickingDay, {
+              items: [...week[pickingDay].items, exerciseToWorkout(e)],
+            });
+        }}
+      />
     </div>
   );
 }
@@ -185,11 +222,14 @@ export function LogDialog({
   const [duration, setDuration] = useState("45");
   const [note, setNote] = useState("");
   const [done, setDone] = useState<boolean[]>([]);
+  const [entries, setEntries] = useState<DayPlan["items"]>([]);
+  const [picking, setPicking] = useState(false);
   useEffect(() => {
     if (!open) return;
     setDuration("45");
     setNote("");
     setDone(items.map(() => true));
+    setEntries(items);
   }, [open, items]);
   const submit = () =>
     log.mutate(
@@ -197,7 +237,7 @@ export function LogDialog({
         planId,
         durationMinutes: Math.max(0, Number(duration) || 0),
         note,
-        items: items.filter((_, i) => done[i]),
+        items: entries.filter((_, i) => done[i]),
       },
       {
         onSuccess: () => {
@@ -209,9 +249,9 @@ export function LogDialog({
     );
   return (
     <Dialog open={open} onClose={onClose} title={t("Log workout")}>
-      {items.length > 0 && (
+      {entries.length > 0 && (
         <div className="habits-log-items">
-          {items.map((it, i) => (
+          {entries.map((it, i) => (
             <label key={i} className="habits-check">
               <input
                 type="checkbox"
@@ -225,6 +265,17 @@ export function LogDialog({
           ))}
         </div>
       )}
+      <button className="xc-btn small" onClick={() => setPicking(true)}>
+        <Plus size={14} /> {t("Choose from exercise library")}
+      </button>
+      <ExercisePicker
+        open={picking}
+        onClose={() => setPicking(false)}
+        onSelect={(e) => {
+          setEntries([...entries, exerciseToWorkout(e)]);
+          setDone([...done, true]);
+        }}
+      />
       <label className="xc-field">
         <span>{t("Duration (minutes)")}</span>
         <input

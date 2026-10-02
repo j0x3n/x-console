@@ -5,6 +5,188 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /habits/library:
+    get:
+      operationId: getPersonalLibrary
+      tags: [habits]
+      responses:
+        "200":
+          description: 个人计划内容与动作库
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalLibrary" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/library/activate:
+    post:
+      operationId: activatePersonalHabits
+      tags: [habits]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids: { type: array, maxItems: 50, items: { type: string } }
+      responses:
+        "200":
+          description: 已选择的习惯，重复添加不会重复创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalProfile" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/personal/profile:
+    get:
+      operationId: getPersonalProfile
+      tags: [habits]
+      responses:
+        "200":
+          description: 个人计划设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalProfile" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    put:
+      operationId: updatePersonalProfile
+      tags: [habits]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonalProfileInput" }
+      responses:
+        "200":
+          description: 已保存设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalProfile" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/personal/days:
+    get:
+      operationId: listPersonalDays
+      tags: [habits]
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 366, default: 30 }
+      responses:
+        "200":
+          description: 最近的个人记录，日期倒序
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PersonalDay" } }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/personal/days/{date}:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getPersonalDay
+      tags: [habits]
+      responses:
+        "200":
+          description: 当天记录，未记录的指标为空字符串
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalDay" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    patch:
+      operationId: updatePersonalDay
+      tags: [habits]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonalDayInput" }
+      responses:
+        "200":
+          description: 合并保存当天记录，空字符串清除对应指标
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalDay" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/personal/days/{date}/check:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: checkPersonalHabit
+      tags: [habits]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, done]
+              properties:
+                id: { type: string }
+                done: { type: boolean }
+      responses:
+        "200":
+          description: 已打卡或撤销，仅操作个人计划生成的打卡
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalDay" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/personal/days/{date}/workout:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: logPersonalWorkout
+      tags: [habits]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, durationMinutes, note]
+              properties:
+                items: { type: array, items: { $ref: "#/components/schemas/WorkoutItem" } }
+                durationMinutes: { type: integer, minimum: 0, maximum: 1440 }
+                note: { type: string }
+      responses:
+        "200":
+          description: 当天训练已保存，重复保存更新同一训练
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalDay" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/personal/backup:
+    get:
+      operationId: exportPersonalBackup
+      tags: [habits]
+      responses:
+        "200":
+          description: 可下载的个人计划备份
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalBackup" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    post:
+      operationId: importPersonalBackup
+      tags: [habits]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PersonalBackup" }
+      responses:
+        "200":
+          description: 已合并，重复导入不产生重复打卡
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersonalProfile" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
   /habits/schedule:
     get:
       operationId: getHabitSchedule
@@ -491,6 +673,8 @@ components:
       type: object
       required: [name]
       properties:
+        exerciseId: { type: string, description: 动作库 ID，可选 }
+        prescription: { type: string, description: 保留次数区间、时长、距离和每侧说明 }
         name: { type: string, minLength: 1 }
         sets: { type: integer }
         reps: { type: integer }
@@ -546,3 +730,169 @@ components:
           type: boolean
           description: 有计划的日子到点发通知
         notifyTime: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+    LibraryExercise:
+      type: object
+      required: [id, name, en, group, equipment, target, dose, rest, setup, steps, errors, easier, progress, restored, image]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        en: { type: string }
+        group: { type: string }
+        equipment: { type: string }
+        target: { type: string }
+        dose: { type: string }
+        rest: { type: string }
+        setup: { type: array, items: { type: string } }
+        steps: { type: array, items: { type: string } }
+        errors: { type: array, items: { type: string } }
+        easier: { type: string }
+        progress: { type: string }
+        restored: { type: boolean }
+        image: { type: string }
+    LibrarySessionItem:
+      type: object
+      required: [exerciseId, sets, prescription, optional]
+      properties:
+        exerciseId: { type: string }
+        sets: { type: integer }
+        prescription: { type: string }
+        optional: { type: boolean }
+    LibrarySession:
+      type: object
+      required: [id, name, focus, place, time, items]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        focus: { type: string }
+        place: { type: string }
+        time: { type: string }
+        items: { type: array, items: { $ref: "#/components/schemas/LibrarySessionItem" } }
+    LibraryRunLevel:
+      type: object
+      required: [id, name, description, walkMinutes, runMinutes, rounds, durationMinutes]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        walkMinutes: { type: integer }
+        runMinutes: { type: integer }
+        rounds: { type: integer }
+        durationMinutes: { type: integer }
+    LibraryPhase:
+      type: object
+      required: [id, name, description]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+    LibraryHabit:
+      type: object
+      required: [id, name, short, tip, group, category, exerciseId]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        short: { type: string }
+        tip: { type: string }
+        group: { type: string }
+        category: { type: string, enum: [daily, food, english] }
+        exerciseId: { type: string }
+    LibraryArticle:
+      type: object
+      required: [id, title, category, content]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        category: { type: string, enum: [daily, food, english, reference] }
+        content: { type: string }
+    PersonalLibrary:
+      type: object
+      required: [version, sourceHash, exercises, sessions, runLevels, phases, habits, articles, original]
+      properties:
+        version: { type: integer }
+        sourceHash: { type: string }
+        exercises: { type: array, items: { $ref: "#/components/schemas/LibraryExercise" } }
+        sessions: { type: array, items: { $ref: "#/components/schemas/LibrarySession" } }
+        runLevels: { type: array, items: { $ref: "#/components/schemas/LibraryRunLevel" } }
+        phases: { type: array, items: { $ref: "#/components/schemas/LibraryPhase" } }
+        habits: { type: array, items: { $ref: "#/components/schemas/LibraryHabit" } }
+        articles: { type: array, items: { $ref: "#/components/schemas/LibraryArticle" } }
+        original:
+          type: object
+          required: [chat, attachment]
+          properties:
+            chat: { type: string }
+            attachment: { type: string }
+    PersonalProfileInput:
+      type: object
+      required: [start, wake, sleep, phase, baseline, stepGoal, runLevel]
+      properties:
+        start: { type: string }
+        wake: { type: string }
+        sleep: { type: string }
+        phase: { type: integer, minimum: 1, maximum: 3 }
+        baseline: { type: number, minimum: 30, maximum: 250 }
+        stepGoal: { type: integer, minimum: 500, maximum: 30000 }
+        runLevel: { type: integer, minimum: 0, maximum: 8 }
+    PersonalProfile:
+      allOf:
+        - { $ref: "#/components/schemas/PersonalProfileInput" }
+        - type: object
+          required: [habitIds]
+          properties:
+            habitIds:
+              type: object
+              additionalProperties: { type: integer, format: int64 }
+    PersonalDayInput:
+      type: object
+      properties:
+        weight: { type: string }
+        waist: { type: string }
+        sleep: { type: string }
+        steps: { type: string }
+        energy: { type: string }
+        back: { type: string }
+        note: { type: string }
+        english: { type: string }
+        food: { type: string }
+        sets:
+          type: object
+          additionalProperties: { type: boolean }
+    PersonalDay:
+      type: object
+      required: [date, weight, waist, sleep, steps, energy, back, note, english, food, sets, checks]
+      properties:
+        date: { type: string }
+        weight: { type: string }
+        waist: { type: string }
+        sleep: { type: string }
+        steps: { type: string }
+        energy: { type: string }
+        back: { type: string }
+        note: { type: string }
+        english: { type: string }
+        food: { type: string }
+        sets:
+          type: object
+          additionalProperties: { type: boolean }
+        checks:
+          type: object
+          additionalProperties: { type: boolean }
+        workoutLogId: { type: integer, format: int64 }
+        workoutDurationMinutes: { type: integer }
+    PersonalBackup:
+      type: object
+      required: [version, profile, checks, sets, logs]
+      properties:
+        version: { type: integer, enum: [1] }
+        exportedAt: { type: string }
+        profile: { $ref: "#/components/schemas/PersonalProfileInput" }
+        selectedHabits: { type: array, items: { type: string } }
+        checks:
+          type: object
+          additionalProperties: { type: boolean }
+        sets:
+          type: object
+          additionalProperties: { type: boolean }
+        logs:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/PersonalDayInput" }

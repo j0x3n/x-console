@@ -1,4 +1,5 @@
 import { registerZh } from "../../lib/i18n";
+import "./personalI18n";
 
 registerZh({
   // B96 推荐模板

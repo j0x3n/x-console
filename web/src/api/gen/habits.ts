@@ -4,6 +4,140 @@
  */
 
 export interface paths {
+    "/habits/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPersonalLibrary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/library/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["activatePersonalHabits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/personal/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPersonalProfile"];
+        put: operations["updatePersonalProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/personal/days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPersonalDays"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/personal/days/{date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getPersonalDay"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updatePersonalDay"];
+        trace?: never;
+    };
+    "/habits/personal/days/{date}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["checkPersonalHabit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/personal/days/{date}/workout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logPersonalWorkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/personal/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["exportPersonalBackup"];
+        put?: never;
+        post: operations["importPersonalBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/habits/schedule": {
         parameters: {
             query?: never;
@@ -363,6 +497,10 @@ export interface components {
             days: components["schemas"]["HabitDay"][];
         };
         WorkoutItem: {
+            /** @description 动作库 ID，可选 */
+            exerciseId?: string;
+            /** @description 保留次数区间、时长、距离和每侧说明 */
+            prescription?: string;
             name: string;
             sets?: number;
             reps?: number;
@@ -408,6 +546,147 @@ export interface components {
             notifyEnabled: boolean;
             notifyTime: string;
         };
+        LibraryExercise: {
+            id: string;
+            name: string;
+            en: string;
+            group: string;
+            equipment: string;
+            target: string;
+            dose: string;
+            rest: string;
+            setup: string[];
+            steps: string[];
+            errors: string[];
+            easier: string;
+            progress: string;
+            restored: boolean;
+            image: string;
+        };
+        LibrarySessionItem: {
+            exerciseId: string;
+            sets: number;
+            prescription: string;
+            optional: boolean;
+        };
+        LibrarySession: {
+            id: string;
+            name: string;
+            focus: string;
+            place: string;
+            time: string;
+            items: components["schemas"]["LibrarySessionItem"][];
+        };
+        LibraryRunLevel: {
+            id: number;
+            name: string;
+            description: string;
+            walkMinutes: number;
+            runMinutes: number;
+            rounds: number;
+            durationMinutes: number;
+        };
+        LibraryPhase: {
+            id: number;
+            name: string;
+            description: string;
+        };
+        LibraryHabit: {
+            id: string;
+            name: string;
+            short: string;
+            tip: string;
+            group: string;
+            /** @enum {string} */
+            category: "daily" | "food" | "english";
+            exerciseId: string;
+        };
+        LibraryArticle: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            category: "daily" | "food" | "english" | "reference";
+            content: string;
+        };
+        PersonalLibrary: {
+            version: number;
+            sourceHash: string;
+            exercises: components["schemas"]["LibraryExercise"][];
+            sessions: components["schemas"]["LibrarySession"][];
+            runLevels: components["schemas"]["LibraryRunLevel"][];
+            phases: components["schemas"]["LibraryPhase"][];
+            habits: components["schemas"]["LibraryHabit"][];
+            articles: components["schemas"]["LibraryArticle"][];
+            original: {
+                chat: string;
+                attachment: string;
+            };
+        };
+        PersonalProfileInput: {
+            start: string;
+            wake: string;
+            sleep: string;
+            phase: number;
+            baseline: number;
+            stepGoal: number;
+            runLevel: number;
+        };
+        PersonalProfile: components["schemas"]["PersonalProfileInput"] & {
+            habitIds: {
+                [key: string]: number;
+            };
+        };
+        PersonalDayInput: {
+            weight?: string;
+            waist?: string;
+            sleep?: string;
+            steps?: string;
+            energy?: string;
+            back?: string;
+            note?: string;
+            english?: string;
+            food?: string;
+            sets?: {
+                [key: string]: boolean;
+            };
+        };
+        PersonalDay: {
+            date: string;
+            weight: string;
+            waist: string;
+            sleep: string;
+            steps: string;
+            energy: string;
+            back: string;
+            note: string;
+            english: string;
+            food: string;
+            sets: {
+                [key: string]: boolean;
+            };
+            checks: {
+                [key: string]: boolean;
+            };
+            /** Format: int64 */
+            workoutLogId?: number;
+            workoutDurationMinutes?: number;
+        };
+        PersonalBackup: {
+            /** @enum {integer} */
+            version: 1;
+            exportedAt?: string;
+            profile: components["schemas"]["PersonalProfileInput"];
+            selectedHabits?: string[];
+            checks: {
+                [key: string]: boolean;
+            };
+            sets: {
+                [key: string]: boolean;
+            };
+            logs: {
+                [key: string]: components["schemas"]["PersonalDayInput"];
+            };
+        };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;
@@ -440,6 +719,280 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getPersonalLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 个人计划内容与动作库 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalLibrary"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    activatePersonalHabits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description 已选择的习惯，重复添加不会重复创建 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPersonalProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 个人计划设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePersonalProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalProfileInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listPersonalDays: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 最近的个人记录，日期倒序 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalDay"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPersonalDay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当天记录，未记录的指标为空字符串 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalDay"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePersonalDay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalDayInput"];
+            };
+        };
+        responses: {
+            /** @description 合并保存当天记录，空字符串清除对应指标 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalDay"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    checkPersonalHabit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: string;
+                    done: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description 已打卡或撤销，仅操作个人计划生成的打卡 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalDay"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    logPersonalWorkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    items: components["schemas"]["WorkoutItem"][];
+                    durationMinutes: number;
+                    note: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 当天训练已保存，重复保存更新同一训练 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalDay"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportPersonalBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 可下载的个人计划备份 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalBackup"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    importPersonalBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalBackup"];
+            };
+        };
+        responses: {
+            /** @description 已合并，重复导入不产生重复打卡 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getHabitSchedule: {
         parameters: {
             query?: never;

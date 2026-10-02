@@ -127,6 +127,14 @@ const ids = await page.evaluate(async () => {
     await post("/habits", { name: "跑步", unit: "次", dailyTarget: 1 });
     await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
     await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
+    await post("/habits/library/activate", { ids: ["words", "review", "protein", "eyes", "stand"] });
+    const dateParts = Object.fromEntries(new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map(({ type, value }) => [type, value]));
+    const today = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+    await post(`/habits/personal/days/${today}/check`, { id: "words", done: true });
+    await fetch(`/api/v1/habits/personal/days/${today}`, { method: "PATCH", headers: h, body: JSON.stringify({ weight: "81.5", waist: "91", sleep: "7.5", steps: "6300", energy: "一般", back: "和平时相近", english: "Could you confirm the deadline?", food: "第一餐：鸡蛋、牛奶和燕麦。", sets: { "A1:0:0": true } }) });
+    const profile = await get("/habits/personal/profile");
+    const logs = Object.fromEntries([1, 3, 5].map((ago, i) => [new Date(Date.parse(`${today}T12:00:00Z`) - ago * 86400000).toISOString().slice(0, 10), { weight: String(81.7 + i * 0.2), sleep: "7.5", back: "和平时相近" }]));
+    await post("/habits/personal/backup", { version: 1, profile, logs, checks: {}, sets: {} });
   }
   // B47 的示例 Agent，没有时才造。
   if (((await get("/ai-agents")) ?? []).length === 0) {
@@ -172,6 +180,10 @@ const routes = [
   ids.note && ["note", `/notes/${ids.note}`],
   ["reminders", "/reminders"],
   ["habits", "/habits"],
+  ["habits-fitness", "/habits/fitness"],
+  ...["overview", "training", "daily", "food", "english", "records", "settings", "reference"].map((section) => [
+    `habits-personal-${section}`, `/habits/plan?section=${section}`,
+  ]),
   ["drive", "/drive"],
   ["calendar", "/calendar"],
   ["servers", "/servers"],

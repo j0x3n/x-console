@@ -32,6 +32,12 @@ func parseItems(raw string) []api.WorkoutItem {
 func cleanItems(items []api.WorkoutItem) ([]api.WorkoutItem, error) {
 	out := make([]api.WorkoutItem, 0, len(items))
 	for _, it := range items {
+		if it.ExerciseId != nil && !personalExercise(*it.ExerciseId) {
+			return nil, httpx.Invalid("动作库中没有这个动作")
+		}
+		if it.Prescription != nil && len([]rune(*it.Prescription)) > 300 {
+			return nil, httpx.Invalid("训练要求太长了")
+		}
 		it.Name = strings.TrimSpace(it.Name)
 		if it.Name == "" {
 			return nil, httpx.Invalid("动作名称不能为空")
@@ -270,7 +276,12 @@ func (m *Module) workoutNotice(ctx context.Context, now time.Time) error {
 
 func describeItem(it api.WorkoutItem) string {
 	s := it.Name
-	if it.Sets != nil && it.Reps != nil && *it.Sets > 0 && *it.Reps > 0 {
+	if it.Prescription != nil && strings.TrimSpace(*it.Prescription) != "" {
+		if it.Sets != nil && *it.Sets > 0 {
+			s += fmt.Sprintf(" %d 组 ×", *it.Sets)
+		}
+		s += " " + strings.TrimSpace(*it.Prescription)
+	} else if it.Sets != nil && it.Reps != nil && *it.Sets > 0 && *it.Reps > 0 {
 		s += fmt.Sprintf(" %d×%d", *it.Sets, *it.Reps)
 	} else if it.Sets != nil && *it.Sets > 0 {
 		s += fmt.Sprintf(" %d 组", *it.Sets)

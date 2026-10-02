@@ -10,10 +10,12 @@ import TodayView from "./TodayView";
 import { TodayLogDialog } from "./FitnessModule";
 import FitnessPage from "./FitnessPage";
 import ScheduleDialog from "./ScheduleDialog";
+import PersonalPlanPage from "./PersonalPlanPage";
 
 const tabs = [
   { id: "", label: "Today", to: "/habits" },
   { id: "fitness", label: "Fitness", to: "/habits/fitness" },
+  { id: "plan", label: "Personal plan", to: "/habits/plan" },
   { id: "stats", label: "Stats", to: "/habits/stats" },
 ];
 
@@ -73,79 +75,83 @@ export default function HabitsPage() {
           ) : undefined
         }
         aside={
-          <>
-            <button
-              className="xc-btn"
-              title={t("Daily schedule")}
-              onClick={() => setScheduling(true)}
-            >
-              <CalendarClock size={14} />
-              <span className="habits-btn-text">{t("Daily schedule")}</span>
-            </button>
-            {current.id === "" && (
+          current.id === "plan" || current.id === "fitness" ? undefined : (
+            <>
               <button
-                className="xc-btn primary"
-                onClick={() => setCreating(true)}
+                className="xc-btn"
+                title={t("Daily schedule")}
+                onClick={() => setScheduling(true)}
               >
-                <Plus size={15} /> {t("New habit")}
+                <CalendarClock size={14} />
+                <span className="habits-btn-text">{t("Daily schedule")}</span>
               </button>
-            )}
-          </>
+              {current.id === "" && (
+                <button
+                  className="xc-btn primary"
+                  onClick={() => setCreating(true)}
+                >
+                  <Plus size={15} /> {t("New habit")}
+                </button>
+              )}
+            </>
+          )
         }
       />
-      {items.length > 0 && (
-        <StatStrip label={t("Habits")}>
-          <StatCard
-            label={t("Today's progress")}
-            caption={`${reached}/${items.length}`}
-          >
-            <div className="habits-stat-ring">
-              <Ring
-                value={progress}
-                max={1}
-                size={56}
-                stroke={6}
-                tone={progress >= 1 ? "ok" : "accent"}
-              >
-                {Math.round(progress * 100)}%
-              </Ring>
-              <span>
-                {reached === items.length
-                  ? t("All reached")
-                  : `${items.length - reached} ${t("to go")}`}
-              </span>
-            </div>
-          </StatCard>
-          <StatCard
-            label={t("Best streak")}
-            value={bestStreak}
-            unit={t("days")}
-            foot={t("Days in a row, counting today")}
-          />
-          <StatCard
-            label={t("Check-ins today")}
-            value={checkins}
-            foot={t("All habits")}
-          >
-            <Segments
-              parts={items.map((h) => ({
-                value: h.logs.length,
-                tone: h.reached ? "ok" : "accent",
-                label: h.habit.name,
-              }))}
+      {items.length > 0 &&
+        current.id !== "plan" &&
+        current.id !== "fitness" && (
+          <StatStrip label={t("Habits")}>
+            <StatCard
+              label={t("Today's progress")}
+              caption={`${reached}/${items.length}`}
+            >
+              <div className="habits-stat-ring">
+                <Ring
+                  value={progress}
+                  max={1}
+                  size={56}
+                  stroke={6}
+                  tone={progress >= 1 ? "ok" : "accent"}
+                >
+                  {Math.round(progress * 100)}%
+                </Ring>
+                <span>
+                  {reached === items.length
+                    ? t("All reached")
+                    : `${items.length - reached} ${t("to go")}`}
+                </span>
+              </div>
+            </StatCard>
+            <StatCard
+              label={t("Best streak")}
+              value={bestStreak}
+              unit={t("days")}
+              foot={t("Days in a row, counting today")}
             />
-          </StatCard>
-          <StatCard
-            label={t("Needs attention")}
-            value={behind ? behind.habit.name : t("None")}
-            foot={
-              behind
-                ? `${formatAmount(behind.done)} / ${formatAmount(behind.habit.dailyTarget ?? 0)} ${behind.habit.unit ?? ""}`
-                : t("All reached")
-            }
-          />
-        </StatStrip>
-      )}
+            <StatCard
+              label={t("Check-ins today")}
+              value={checkins}
+              foot={t("All habits")}
+            >
+              <Segments
+                parts={items.map((h) => ({
+                  value: h.logs.length,
+                  tone: h.reached ? "ok" : "accent",
+                  label: h.habit.name,
+                }))}
+              />
+            </StatCard>
+            <StatCard
+              label={t("Needs attention")}
+              value={behind ? behind.habit.name : t("None")}
+              foot={
+                behind
+                  ? `${formatAmount(behind.done)} / ${formatAmount(behind.habit.dailyTarget ?? 0)} ${behind.habit.unit ?? ""}`
+                  : t("All reached")
+              }
+            />
+          </StatStrip>
+        )}
       <nav className="xc-tabs">
         {tabs.map((item) => (
           <NavLink
@@ -165,6 +171,7 @@ export default function HabitsPage() {
         />
       )}
       {current.id === "fitness" && <FitnessPage />}
+      {current.id === "plan" && <PersonalPlanPage />}
       {current.id === "stats" && <StatsView />}
       {logging && <TodayLogDialog open onClose={closeLog} />}
       <ScheduleDialog open={scheduling} onClose={() => setScheduling(false)} />
