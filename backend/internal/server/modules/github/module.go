@@ -87,6 +87,7 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	module.Provide[contracts.GitHub](d.Registry, contracts.GitHubKey, m)
 	module.Provide[contracts.GitHubCredentials](d.Registry, contracts.GitHubCredentialsKey, m) // B47
+	module.Provide[contracts.GitWebhookReceiver](d.Registry, contracts.GitWebhookKey, m)
 	m.registerActions()
 	return m, nil
 }
@@ -108,6 +109,7 @@ func (m *Module) Start(ctx context.Context) error {
 		return err
 	}
 	m.d.Scheduler.Every("github.sync", syncInterval, m.scheduledSync)
+	m.d.Scheduler.Every("github.notify", time.Minute, m.flushNotify)
 	return nil
 }
 

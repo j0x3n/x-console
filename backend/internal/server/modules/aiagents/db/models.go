@@ -410,6 +410,23 @@ type GithubCiState struct {
 	UpdatedAt time.Time
 }
 
+type GithubEventSeen struct {
+	ConnectionID int64
+	Repo         string
+	Event        string
+	ObjectID     string
+	State        string
+	ExpiresAt    time.Time
+}
+
+type GithubEventState struct {
+	ConnectionID int64
+	Repo         string
+	Resource     string
+	ObjectID     string
+	Data         string
+}
+
 type GithubIssue struct {
 	ID        int64
 	Repo      string
@@ -431,6 +448,15 @@ type GithubLink struct {
 	Kind      string
 	Ref       string
 	CreatedAt time.Time
+}
+
+type GithubNotifyWindow struct {
+	ConnectionID int64
+	Repo         string
+	Event        string
+	StartedAt    time.Time
+	Sent         int64
+	Suppressed   int64
 }
 
 type GithubPull struct {

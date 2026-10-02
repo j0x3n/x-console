@@ -14,7 +14,6 @@ import (
 
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github/api"
-	"github.com/j0x3n/x-console/backend/internal/server/notify"
 )
 
 type ghCommit struct {
@@ -129,16 +128,11 @@ func (m *Module) syncRepository(ctx context.Context, c *restClient, cfg config, 
 			v := cachedPull{GitHubPull: api.GitHubPull{ConnectionId: ptr(k.ConnectionID), Forge: ptr(api.Forge(cfg.Forge)), Repo: k.Repo, Number: p.Number, Title: p.Title, Author: p.User.Login, Url: p.HTMLURL, HeadRef: p.Head.Ref, BaseRef: p.Base.Ref, Draft: p.Draft, State: api.GitHubPullState(state), ReviewState: api.GitHubReviewState(review), CheckState: api.GitHubCheckState(checks), IssueKeys: []string{}, CreatedAt: utc(p.CreatedAt), UpdatedAt: utc(p.UpdatedAt)}, HeadSHA: p.Head.SHA}
 			m.linkRepositoryPull(ctx, k, &v)
 			objects = append(objects, object(strconv.Itoa(p.Number), v))
-			if p.State == "open" {
-				if e := m.ciTransition(ctx, fmt.Sprintf("pr:%d:%s#%d", k.ConnectionID, k.Repo, p.Number), checks, notify.Notification{Kind: "github.ci_failed", Title: fmt.Sprintf("PR 检查失败：%s#%d", k.Repo, p.Number), Body: p.Title, Link: repoLink(k, "pulls"), Source: "github", Priority: notify.PriorityHigh}); e != nil {
-					err = e
-					break
-				}
-			}
+
 		}
 		if err != nil {
 			errs = append(errs, err)
-		} else if err = m.replaceObjects(ctx, k, "pull", objects); err != nil {
+		} else if err = m.saveCompared(ctx, k, "pull", objects); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -171,7 +165,7 @@ func (m *Module) syncRepository(ctx context.Context, c *restClient, cfg config, 
 			objects = append(objects, object(strconv.Itoa(i.Number), v))
 		}
 		info.OpenIssues = len(objects)
-		if err = m.replaceObjects(ctx, k, "issue", objects); err != nil {
+		if err = m.saveCompared(ctx, k, "issue", objects); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -215,7 +209,7 @@ func (m *Module) syncRepository(ctx context.Context, c *restClient, cfg config, 
 				Sha     string    `json:"sha"`
 			}{utc(at), author, firstLine(v.Commit.Message), v.SHA}
 		}
-		if err = m.replaceObjects(ctx, k, "commit", objects); err != nil {
+		if err = m.saveCompared(ctx, k, "commit", objects); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -224,7 +218,6 @@ func (m *Module) syncRepository(ctx context.Context, c *restClient, cfg config, 
 		errs = append(errs, err)
 	} else {
 		objects := []cacheObject{}
-		settled := map[int64]bool{}
 		for _, v := range runs {
 			if v.Status == "in_progress" && !v.Synthetic {
 				jobs, e := m.fetchJobs(ctx, c, k, v.Id)
@@ -248,20 +241,14 @@ func (m *Module) syncRepository(ctx context.Context, c *restClient, cfg config, 
 					UpdatedAt  *time.Time `json:"updatedAt,omitempty"`
 				}{v.Conclusion, ptr(v.Id), v.Status, ptr(v.UpdatedAt)}
 			}
-			if v.DefaultBranch && v.Status == "completed" && !settled[v.WorkflowID] {
-				state := runState(v.Conclusion)
-				if state != "" {
-					settled[v.WorkflowID] = true
-					if e := m.ciTransition(ctx, fmt.Sprintf("run:%d:%s:%d", k.ConnectionID, k.Repo, v.WorkflowID), state, notify.Notification{Kind: "github.ci_failed", Title: fmt.Sprintf("%s 的 %s 失败了", k.Repo, v.Name), Body: "分支 " + v.Branch, Link: repoLink(k, "runs"), Source: "github", Priority: notify.PriorityHigh}); e != nil {
-						errs = append(errs, e)
-					}
-				}
-			}
 			objects = append(objects, object(strconv.FormatInt(v.Id, 10), v))
 		}
-		if err = m.replaceObjects(ctx, k, "run", objects); err != nil {
+		if err = m.saveCompared(ctx, k, "run", objects); err != nil {
 			errs = append(errs, err)
 		}
+	}
+	if err := m.syncRelease(ctx, c, k); err != nil {
+		errs = append(errs, err)
 	}
 	if err := m.putObject(ctx, k, "repo", object("info", info)); err != nil {
 		return err
@@ -312,6 +299,14 @@ func (m *Module) ListGitHubWatchedRepos(w http.ResponseWriter, r *http.Request) 
 				v.SyncError = ptr(e.Error())
 			}
 		}
+		policy, e := m.notifySettings(r.Context())
+		if e != nil {
+			httpx.Fail(w, r, e)
+			return
+		}
+		n, custom := effectiveNotify(policy, k)
+		v.NotifyCustom = custom
+		v.NotifyOff = custom && len(n.Events) == 0
 		out = append(out, v)
 	}
 	sort.SliceStable(out, func(i, j int) bool {

@@ -29,7 +29,7 @@
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
 | B70 | “GitHub”改名“仓库”，挪到 Agent 下面；多仓库、提交、CI 步骤、Forgejo 也能关注；设置页整理 | [B70](specs/B70.md) | 前端 Claude 已完成（`347a4ed`），后端 Codex 已完成 |
-| B71 | 仓库事件通知：CI 开始、成功、失败，新提交，PR，Issue，发布 | [B71](specs/B71.md) | 前端 Claude，后端 GPT |
+| B71 | 仓库事件通知：CI 开始、成功、失败，新提交，PR，Issue，发布 | [B71](specs/B71.md) | 前端 Claude 已完成（`347a4ed`），后端 Codex 已完成 |
 | B72 | 笔记：编辑时能滚动、双击进入编辑、外链分享（可加密码）、左栏“+”快速新建、浮窗 | [B72](specs/B72.md) | 前端 Claude（分享、浮窗、双击编辑未测），后端 Codex 已完成 |
 | B73 | 便签：快速记录存成便签，瀑布流，和笔记共用标签 | [B73](specs/B73.md) | 前端 Claude（代码未测），后端 Codex 已完成 |
 | B74 | 编辑器：多媒体、折叠代码块和复制、隐藏块、背景色、提示块、表格等 | [B74](specs/B74.md) | 前端 Claude（仅背景色完成，其余待做），后端 Codex 已完成 |
@@ -317,6 +317,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-02 | 新增 `contracts.GitWebhookReceiver`（键 `github.webhook`），aiagents 验证签名后同步调用 github；notify 新增 `SaveTx` 和 `Dispatch`，普通 `Send` 行为兼容，供通知与去重同事务提交 | B71 持久去重和回调失败重试 |
 | 2026-10-01 | 新增 `lib/navBadges.ts`（`registerNavBadge`、`registerNavAction`）；`components/layout/Sidebar.tsx` 在一级菜单右边显示数量、行内按钮；`ui.css` 加 `.nav-badge`、`.nav-action`，二级菜单选中改成强调色，`.xc-list` 去掉 `ul` 默认缩进 | B76 左栏数量、B72 笔记“+” |
 | 2026-10-01 | `app/nav.ts`：GitHub 挪到“主要”组 Agent 后面，改名 `Repositories`（仓库），图标 `FolderGit2`，地址不变；设置标签改名 `Git & repositories`；`github.yaml` 加 `watches`、`/github/repos`、`/github/commits`、`/github/runs/{runId}/jobs`、`/github/notify`，PR、运行、Issue 加 `connectionId`、`forge`（后端占位在 `github/pending.go`，`ListGitHubIssues` 多了一个不用的参数） | B70、B71 |
 | 2026-10-01 | `contracts` 加 `remotes.go`：`RemoteDrives`（键 `storage.remotes`，storage 提供，backup 用）和 `RemoteUser`（键 `backup.remote_user`，backup 提供，storage 用来拦删除）。storage 模块加表 `storage_remotes`、`ServiceKey`、`UseGoogle`（测试用）。备份设置的 `target` 加 `remote` 和 `remoteId`，`webdav`、`gdrive` 两段只返回目录；`/remote-drives*`、`/backups/gdrive/auth` 标成过时，下个版本删。新加开发工具 `backend/cmd/fakedav`（端到端测试用的内存 WebDAV，不进发布） | B69 |

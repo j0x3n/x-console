@@ -84,6 +84,19 @@ func (m *Module) hook(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, errBadSignature)
 		return
 	}
+	if receiver, ok := module.Lookup[contracts.GitWebhookReceiver](m.d.Registry, contracts.GitWebhookKey); ok {
+		delivery := ""
+		for _, name := range []string{"X-GitHub-Delivery", "X-Forgejo-Delivery", "X-Gitea-Delivery"} {
+			if v := r.Header.Get(name); v != "" {
+				delivery = v
+				break
+			}
+		}
+		if err := receiver.ReceiveGitWebhook(ctx, contracts.GitWebhook{ConnectionID: id, Event: hookEvent(r.Header), DeliveryID: delivery, Body: body}); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
 	if hookEvent(r.Header) != "pull_request" {
 		httpx.NoContent(w) // ping and everything else
 		return

@@ -320,11 +320,11 @@ func TestCIFailedNotifiesOnce(t *testing.T) {
 	syncNow(t, env)
 	syncNow(t, env) // still red: no second notification
 	got := ciNotifications(t, env)
-	if len(got) != 2 {
-		t.Fatalf("want one PR and one branch notification, got %v", got)
+	if len(got) != 1 {
+		t.Fatalf("want one default branch notification, got %v", got)
 	}
 	joined := strings.Join(got, "|")
-	if !strings.Contains(joined, "acme/app#7") || !strings.Contains(joined, "Build") {
+	if !strings.Contains(joined, "acme/app") {
 		t.Fatalf("notifications: %v", got)
 	}
 	if p := pulls(t, env); p[0].CheckState != "failure" {
@@ -337,9 +337,10 @@ func TestCIFailedNotifiesOnce(t *testing.T) {
 	syncNow(t, env)
 	gh.set(func(f *fakeGitHub) {
 		f.checkRuns["s2"] = []map[string]any{{"status": "completed", "conclusion": "failure"}}
+		f.runs[repo] = append([]map[string]any{run(3, 9, "Build", "main", "completed", "failure")}, f.runs[repo]...)
 	})
 	syncNow(t, env)
-	if got := ciNotifications(t, env); len(got) != 3 {
+	if got := ciNotifications(t, env); len(got) != 2 {
 		t.Fatalf("second transition: %v", got)
 	}
 }

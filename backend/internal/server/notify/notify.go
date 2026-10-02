@@ -145,6 +145,19 @@ func (s *Service) HandleAction(ctx context.Context, actionID string) error {
 // Send stores n, pushes it to the browser and delivers it to routed channels
 // in the background.
 func (s *Service) Send(ctx context.Context, n Notification) (Stored, error) {
+	stored, err := s.save(ctx, s.q, n)
+	if err != nil {
+		return Stored{}, err
+	}
+	s.Dispatch(ctx, stored)
+	return stored, nil
+}
+
+func (s *Service) SaveTx(ctx context.Context, tx *sql.Tx, n Notification) (Stored, error) {
+	return s.save(ctx, s.q.WithTx(tx), n)
+}
+
+func (s *Service) save(ctx context.Context, q *db.Queries, n Notification) (Stored, error) {
 	if n.Priority == "" {
 		n.Priority = PriorityNormal
 	}
@@ -156,23 +169,24 @@ func (s *Service) Send(ctx context.Context, n Notification) (Stored, error) {
 		data["actions"] = n.Actions
 	}
 	raw, _ := json.Marshal(data)
-	row, err := s.q.InsertNotification(ctx, db.InsertNotificationParams{
+	row, err := q.InsertNotification(ctx, db.InsertNotificationParams{
 		CreatedAt: time.Now().UTC(), Kind: n.Kind, Title: n.Title, Body: n.Body, Link: n.Link,
 		Priority: n.Priority, Source: n.Source, Data: string(raw),
 	})
 	if err != nil {
 		return Stored{}, err
 	}
-	stored := Stored{ID: row.ID, CreatedAt: row.CreatedAt, Notification: n}
-	s.bus.Publish("notification.created", ToAPI(row))
+	return Stored{ID: row.ID, CreatedAt: row.CreatedAt, Notification: n}, nil
+}
 
+func (s *Service) Dispatch(ctx context.Context, stored Stored) {
+	s.bus.Publish("notification.created", API{ID: stored.ID, CreatedAt: stored.CreatedAt, Kind: stored.Kind, Title: stored.Title, Body: stored.Body, Link: stored.Link, Priority: stored.Priority, Source: stored.Source})
 	s.mu.RLock()
 	router := s.router
 	s.mu.RUnlock()
 	if router != nil {
 		go s.deliver(context.WithoutCancel(ctx), router, stored)
 	}
-	return stored, nil
 }
 
 func (s *Service) deliver(ctx context.Context, router Router, n Stored) {

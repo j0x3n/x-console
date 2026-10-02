@@ -559,6 +559,26 @@ try {
     assert.equal(restored.status(), 200, await restored.text());
   }
 
+  stage = "B71 仓库通知设置 API 主流程";
+  {
+    const original = await api("/github/notify");
+    const saved = await page.context().request.put(`${base}/api/v1/github/notify`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { defaults: { events: ["ci_started", "push"], ciBranches: "all" }, repos: [] },
+    });
+    assert.equal(saved.status(), 200, await saved.text());
+    assert.deepEqual((await api("/github/notify")).defaults, { events: ["ci_started", "push"], ciBranches: "all" });
+    const invalid = await page.context().request.put(`${base}/api/v1/github/notify`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { defaults: { events: ["unknown"], ciBranches: "default" }, repos: [] },
+    });
+    assert.equal(invalid.status(), 400, await invalid.text());
+    const restored = await page.context().request.put(`${base}/api/v1/github/notify`, {
+      headers: { "X-Requested-With": "x-console" }, data: original,
+    });
+    assert.equal(restored.status(), 200, await restored.text());
+  }
+
   stage = "B74 笔记背景色 API 主流程";
   {
     const colored = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {
