@@ -2,12 +2,14 @@
  * 一个够用的 Markdown 解析器：标题、段落、列表（含任务列表和嵌套）、引用、代码块、
  * 分隔线，以及行内的代码、粗体、斜体、删除线、链接、图片。输出结构化的节点，
  * 由 Markdown.tsx 渲染成 React 元素，不用 innerHTML，所以不会有 XSS。
+ * B74 加了：表格、提示块（:::note 等）、隐藏块（:::hidden）、高亮（==文字==）、
+ * 单独一行的网址显示成链接卡片。视频、音频用图片的写法，渲染时按后缀区分。
  */
 
 export type Inline =
   | { type: "text"; text: string }
   | { type: "code"; text: string }
-  | { type: "strong" | "em" | "del"; children: Inline[] }
+  | { type: "strong" | "em" | "del" | "mark"; children: Inline[] }
   | { type: "link"; href: string; children: Inline[] }
   | { type: "image"; src: string; alt: string }
   | { type: "br" };
@@ -23,7 +25,17 @@ export type Block =
   | { type: "code"; lang: string; text: string }
   | { type: "quote"; blocks: Block[] }
   | { type: "list"; ordered: boolean; start: number; items: ListItem[] }
-  | { type: "hr" };
+  | { type: "hr" }
+  | {
+      type: "table";
+      align: ("left" | "center" | "right" | null)[];
+      header: Inline[][];
+      rows: Inline[][][];
+    }
+  | { type: "container"; kind: ContainerKind; title: string; blocks: Block[] }
+  | { type: "linkcard"; href: string };
+
+export type ContainerKind = "hidden" | "note" | "tip" | "warn" | "danger";
 
 const fenceRe = /^\s{0,3}(```|~~~)\s*([\w+-]*)\s*$/;
 const headingRe = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
@@ -31,6 +43,39 @@ const hrRe = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
 const quoteRe = /^\s{0,3}>\s?(.*)$/;
 const listRe = /^(\s{0,3})([-*+]|\d{1,9}[.)])\s+(.*)$/;
 const taskRe = /^\[([ xX])\]\s+(.*)$/;
+const containerRe = /^\s{0,3}:::\s*(hidden|note|tip|warn|danger)\b\s*(.*)$/;
+const containerEndRe = /^\s{0,3}:::\s*$/;
+const tableSepRe = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+const bareUrlRe = /^https?:\/\/[^\s<>]+$/;
+
+/** 表格的一行切成单元格。行首行尾的 | 可以省略，\| 是字面的竖线。 */
+export function splitRow(line: string): string[] {
+  let row = line.trim();
+  if (row.startsWith("|")) row = row.slice(1);
+  if (row.endsWith("|") && !row.endsWith("\\|")) row = row.slice(0, -1);
+  const cells: string[] = [];
+  let cur = "";
+  for (let i = 0; i < row.length; i++) {
+    if (row[i] === "\\" && row[i + 1] === "|") {
+      cur += "|";
+      i++;
+    } else if (row[i] === "|") {
+      cells.push(cur.trim());
+      cur = "";
+    } else cur += row[i];
+  }
+  cells.push(cur.trim());
+  return cells;
+}
+
+function isTableStart(lines: string[], i: number): boolean {
+  return (
+    lines[i].includes("|") &&
+    i + 1 < lines.length &&
+    tableSepRe.test(lines[i + 1]) &&
+    lines[i + 1].includes("-")
+  );
+}
 
 export function parseMarkdown(source: string): Block[] {
   return parseBlocks(source.replace(/\r\n?/g, "\n").split("\n"));
@@ -55,6 +100,66 @@ function parseBlocks(lines: string[]): Block[] {
       }
       i++; // closing fence
       blocks.push({ type: "code", lang: fence[2], text: body.join("\n") });
+      continue;
+    }
+    const container = containerRe.exec(line);
+    if (container) {
+      // 找配对的 :::，里面可以再嵌套提示块和代码块
+      const body: string[] = [];
+      let depth = 0;
+      let inFence: string | null = null;
+      i++;
+      while (i < lines.length) {
+        const l = lines[i];
+        const f = fenceRe.exec(l);
+        if (inFence) {
+          if (l.trim().startsWith(inFence)) inFence = null;
+        } else if (f) inFence = f[1];
+        else if (containerRe.test(l)) depth++;
+        else if (containerEndRe.test(l)) {
+          if (depth === 0) break;
+          depth--;
+        }
+        body.push(l);
+        i++;
+      }
+      i++; // closing :::
+      blocks.push({
+        type: "container",
+        kind: container[1] as ContainerKind,
+        title: container[2].trim(),
+        blocks: parseBlocks(body),
+      });
+      continue;
+    }
+    if (isTableStart(lines, i)) {
+      const header = splitRow(line);
+      const align = splitRow(lines[i + 1]).map((c) =>
+        c.startsWith(":") && c.endsWith(":")
+          ? ("center" as const)
+          : c.endsWith(":")
+            ? ("right" as const)
+            : c.startsWith(":")
+              ? ("left" as const)
+              : null,
+      );
+      i += 2;
+      const rows: Inline[][][] = [];
+      while (
+        i < lines.length &&
+        lines[i].trim() !== "" &&
+        lines[i].includes("|")
+      ) {
+        const cells = splitRow(lines[i]);
+        rows.push(header.map((_, k) => parseInline(cells[k] ?? "")));
+        i++;
+      }
+      blocks.push({
+        type: "table",
+        align: header.map((_, k) => align[k] ?? null),
+        header: header.map((c) => parseInline(c)),
+        rows,
+      });
       continue;
     }
     const heading = headingRe.exec(line);
@@ -97,12 +202,17 @@ function parseBlocks(lines: string[]): Block[] {
       !headingRe.test(lines[i]) &&
       !hrRe.test(lines[i]) &&
       !quoteRe.test(lines[i]) &&
-      !listRe.test(lines[i])
+      !listRe.test(lines[i]) &&
+      !containerRe.test(lines[i]) &&
+      !isTableStart(lines, i)
     ) {
       para.push(lines[i].trim());
       i++;
     }
-    blocks.push({ type: "paragraph", children: joinLines(para) });
+    // 一段里只有一个裸网址：显示成链接卡片（不去抓网页标题）
+    if (para.length === 1 && bareUrlRe.test(para[0]))
+      blocks.push({ type: "linkcard", href: para[0] });
+    else blocks.push({ type: "paragraph", children: joinLines(para) });
   }
   return blocks;
 }
@@ -196,7 +306,7 @@ export function safeHref(href: string): string | null {
 }
 
 const inlineRe =
-  /`([^`]+)`|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|\*([^*\s][^*]*?)\*|(?<![\w])_([^_\s][^_]*?)_(?![\w])|(!)?\[([^\]]*)\]\(([^)\s]*)(?:\s+"[^"]*")?\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
+  /`([^`]+)`|\*\*(.+?)\*\*|__(.+?)__|~~(.+?)~~|\*([^*\s][^*]*?)\*|(?<![\w])_([^_\s][^_]*?)_(?![\w])|(!)?\[([^\]]*)\]\(([^)\s]*)(?:\s+"[^"]*")?\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])|==([^=\s](?:[^=]*?[^=\s])?)==/g;
 
 export function parseInline(text: string): Inline[] {
   const out: Inline[] = [];
@@ -232,6 +342,8 @@ export function parseInline(text: string): Inline[] {
         href: m[10],
         children: [{ type: "text", text: m[10] }],
       });
+    else if (m[11] !== undefined)
+      push({ type: "mark", children: parseInline(m[11]) });
   }
   if (last < text.length) push({ type: "text", text: text.slice(last) });
   return out;
@@ -242,7 +354,7 @@ const taskLineRe = /^(\s*(?:>\s*)*(?:[-*+]|\d{1,9}[.)])\s+\[)([ xX])(\])/;
 /** 按预览里的顺序列出每个待办的勾选状态，和 Markdown.tsx 的编号一致。 */
 function taskStates(blocks: Block[], out: boolean[] = []): boolean[] {
   for (const b of blocks) {
-    if (b.type === "quote") taskStates(b.blocks, out);
+    if (b.type === "quote" || b.type === "container") taskStates(b.blocks, out);
     if (b.type !== "list") continue;
     for (const item of b.items) {
       if (item.checked !== null) out.push(item.checked);
@@ -288,4 +400,18 @@ export function imageSources(source: string): string[] {
     if (src) out.push(src);
   }
   return out;
+}
+
+/** 按后缀判断图片写法里的视频、音频（B74）。地址没后缀时看名字。 */
+export function mediaKind(src: string, alt = ""): "video" | "audio" | null {
+  const ext = (s: string) =>
+    s
+      .split(/[?#]/)[0]
+      .match(/\.([a-z0-9]+)$/i)?.[1]
+      ?.toLowerCase() ?? "";
+  for (const e of [ext(src), ext(alt)]) {
+    if (["mp4", "webm", "mov", "m4v"].includes(e)) return "video";
+    if (["mp3", "m4a", "ogg", "wav", "flac", "aac"].includes(e)) return "audio";
+  }
+  return null;
 }

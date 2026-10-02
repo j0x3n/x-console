@@ -33,6 +33,28 @@ export function translate(language: Language, text: Text): string {
 }
 
 registerZh({
+  // B74：公共 Markdown 渲染
+  "{n} lines": "{n} 行",
+  Fold: "折叠",
+  Unfold: "展开",
+  "Show all {n} lines": "展开全部（{n} 行）",
+  "Hidden content": "隐藏内容",
+  "Hidden: {title}. Click to show.": "已隐藏：{title}，点击显示",
+  "Shown: {title}. Click to hide.": "已显示：{title}，点击收起",
+  "Callout note": "说明",
+  "Callout tip": "提示",
+  "Callout warning": "注意",
+  "Callout danger": "警告",
+  Insert: "插入",
+  "Write here": "在这里写",
+  text: "文字",
+  Strikethrough: "删除线",
+  Highlight: "高亮",
+  "Inline code": "行内代码",
+  Table: "表格",
+  "Video or audio": "视频或音频",
+  "Hidden block": "隐藏块",
+  "Current date and time": "当前日期时间",
   Overview: "概览",
   "My day": "今日",
   Projects: "项目",

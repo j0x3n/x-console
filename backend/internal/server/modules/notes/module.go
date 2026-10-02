@@ -149,15 +149,25 @@ func cleanTags(tags []string) ([]string, error) {
 }
 
 var (
-	mdLink    = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
-	mdLine    = regexp.MustCompile(`(?m)^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|` + "```" + `.*$)`)
-	mdInline  = regexp.MustCompile("[*_`~]+")
-	mdSpacing = regexp.MustCompile(`\s+`)
+	// B74：隐藏块整段不进摘要，提示块只去掉 ::: 那一行；表格去掉分隔行和竖线
+	mdHidden   = regexp.MustCompile(`(?ms)^\s{0,3}:::\s*hidden\b.*?^\s{0,3}:::\s*$`)
+	mdFence    = regexp.MustCompile(`(?m)^\s{0,3}:::.*$`)
+	mdTableSep = regexp.MustCompile(`(?m)^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$`)
+	mdMark     = regexp.MustCompile(`==`)
+	mdLink     = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
+	mdLine     = regexp.MustCompile(`(?m)^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|` + "```" + `.*$)`)
+	mdInline   = regexp.MustCompile("[*_`~]+")
+	mdSpacing  = regexp.MustCompile(`\s+`)
 )
 
 // plainText strips common Markdown so lists can show a readable excerpt.
 func plainText(md string) string {
-	s := mdLink.ReplaceAllString(md, "$1")
+	s := mdHidden.ReplaceAllString(md, "")
+	s = mdFence.ReplaceAllString(s, "")
+	s = mdTableSep.ReplaceAllString(s, "")
+	s = strings.ReplaceAll(s, "|", " ")
+	s = mdMark.ReplaceAllString(s, "")
+	s = mdLink.ReplaceAllString(s, "$1")
 	s = mdLine.ReplaceAllString(s, "")
 	s = mdInline.ReplaceAllString(s, "")
 	return strings.TrimSpace(mdSpacing.ReplaceAllString(s, " "))

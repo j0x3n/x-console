@@ -12,3 +12,4 @@ func (m *Module) SetShareClockForTest(now func() time.Time) { m.shareNow = now }
 
 func NoteFingerprintForTest(body string) string          { return noteFingerprint(body) }
 func ChangedEnoughForTest(previous, current string) bool { return changedEnough(previous, current) }
+var PlainText = plainText
