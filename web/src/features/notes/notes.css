@@ -1426,7 +1426,9 @@ html[data-theme="dark"] .note-bg-gray {
 }
 /* 点便签打开的弹窗 */
 .notes-memo-backdrop {
+  z-index: 40;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 24px;
 }
@@ -1615,7 +1617,7 @@ html[data-theme="dark"] .note-bg-gray {
   border-radius: 50%;
 }
 @media (max-width: 720px) {
-  .notes-memo-backdrop {
+  .modal-backdrop.notes-memo-backdrop {
     padding: 0;
   }
   .notes-memo-dialog {

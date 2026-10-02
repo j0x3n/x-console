@@ -54,6 +54,20 @@ const browser = await chromium.launch(
 
 // ---- 登录（没有账号时先建一个）----
 const ctx = await browser.newContext({ viewport: { width: 1360, height: 860 } });
+// Explicit screenshot options must survive the server preference sync.
+async function applyScreenshotPreferences(context) {
+  if (!THEME && !ACCENT) return;
+  await context.route("**/api/v1/me/preferences", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    if (!response.ok()) return route.fulfill({ response });
+    const preferences = await response.json();
+    if (THEME) preferences.nightMode = THEME === "dark" ? "on" : "off";
+    if (ACCENT) preferences.accent = ACCENT;
+    await route.fulfill({ response, json: preferences });
+  });
+}
+await applyScreenshotPreferences(ctx);
 if (THEME)
   await ctx.addInitScript((theme) => {
     localStorage.setItem("x-console-theme", theme);
@@ -190,6 +204,7 @@ const problems = [];
 for (const width of WIDTHS) {
   mkdirSync(join(OUT, String(width)), { recursive: true });
   const c = await browser.newContext({ viewport: { width, height: 860 } });
+  await applyScreenshotPreferences(c);
   if (THEME)
     await c.addInitScript((theme) => {
       localStorage.setItem("x-console-theme", theme);
@@ -208,6 +223,8 @@ for (const width of WIDTHS) {
     );
     await p.screenshot({ path: join(OUT, String(width), `${name}.png`), fullPage: true });
     const bad = [];
+    const actualTheme = await p.locator("html").getAttribute("data-theme");
+    if (THEME && actualTheme !== THEME) bad.push(`主题不对：${actualTheme}`);
     if (overflow > 0) bad.push(`横向溢出 ${overflow}px`);
     // B44：手机宽度下检查字号。文字不小于 11px，输入框等于 16px。
     if (width <= 720) {
