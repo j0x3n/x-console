@@ -131,6 +131,37 @@ self.addEventListener("fetch", (event) => {
 });
 // ---- end of PWA caching ----
 
+// B91：通知图标。只在 Windows 和 Android 上用自定义图标（macOS、iOS 不显示这个图）。
+// 服务端给了 icon、badge 就用它的（比如习惯自己的图标、喝水进度环），
+// 没给时按通知类型选 /icons/notify/ 下的固定图标。Android 的 badge 只看透明度，要用单色图。
+const NOTIFY_ICONS = [
+  [/^host\./, "server"],
+  [/^(monitor|site|domain|tls|cert|subscription)\./, "monitor"],
+  [/^mail\./, "mail"],
+  [/^(github|repo|forgejo)\./, "repo"],
+  [/^(ai_agent|coding_task)\./, "agent"],
+  [/^weather\./, "weather"],
+  [/^reminder\./, "reminder"],
+  [/^(habit|workout)\./, "habit"],
+  [/^brief\./, "brief"],
+  [/^(calendar|focus)\./, "calendar"],
+  [/^(drive|backup)\./, "drive"],
+  [/^router\./, "router"],
+  [/^(ha|homeassistant)\./, "home"],
+];
+function notifyIcons(data) {
+  const ua = (self.navigator && self.navigator.userAgent) || "";
+  const custom = /Windows|Android/.test(ua);
+  if (!custom) return { icon: "/icons/icon-192.png" };
+  const kind = String(data.kind || "");
+  const hit = NOTIFY_ICONS.find(([re]) => re.test(kind));
+  const name = hit ? hit[1] : "app";
+  return {
+    icon: data.icon || `/icons/notify/${name}.png`,
+    badge: data.badge || `/icons/notify/${name}-badge.png`,
+  };
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -156,8 +187,7 @@ self.addEventListener("push", (event) => {
     body,
     timestamp: Number.isNaN(sentAt) ? undefined : sentAt,
     tag: data.id ? `xc-${data.id}` : undefined,
-    icon: "/icons/icon-192.png",
-    badge: "/icons/icon-192.png",
+    ...notifyIcons(data),
     data: { link: data.link || "/", actions },
     actions: actions.map((a) => ({ action: a.action, title: a.title })),
     requireInteraction: data.priority === "urgent" || actions.length > 0,
