@@ -12,6 +12,9 @@ import (
 
 // DashboardCard defines model for DashboardCard.
 type DashboardCard struct {
+	// Column B88。放在第几列，0 是最左边的主列。没有时按卡片默认的位置排。屏幕放不下这么多列时放到最后一列
+	Column *int `json:"column,omitempty"`
+
 	// Id 卡片 id，例如 todos、decisions、schedule、habits、activity、weather、home
 	Id string `json:"id"`
 

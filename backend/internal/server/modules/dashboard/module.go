@@ -64,7 +64,8 @@ func (m *Module) PutDashboardLayout(w http.ResponseWriter, r *http.Request) {
 	seen := make(map[string]bool, len(entries))
 	for _, entry := range entries {
 		var fields map[string]json.RawMessage
-		if err := json.Unmarshal(entry, &fields); err != nil || len(fields) != 3 || fields["id"] == nil || fields["visible"] == nil || fields["order"] == nil {
+		// B88: column is optional, so a card has 3 or 4 fields.
+		if err := json.Unmarshal(entry, &fields); err != nil || len(fields) < 3 || len(fields) > 4 || fields["id"] == nil || fields["visible"] == nil || fields["order"] == nil || (len(fields) == 4 && (fields["column"] == nil || bytes.Equal(fields["column"], []byte("null")))) {
 			httpx.Fail(w, r, httpx.Invalid("卡片需要 id、visible 和 order"))
 			return
 		}
@@ -79,6 +80,10 @@ func (m *Module) PutDashboardLayout(w http.ResponseWriter, r *http.Request) {
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&card); err != nil || card.Id == "" || utf8.RuneCountInString(card.Id) > 40 {
 			httpx.Fail(w, r, httpx.Invalid("卡片 id 必须在 1 到 40 个字符之间"))
+			return
+		}
+		if card.Column != nil && (*card.Column < 0 || *card.Column > 3) {
+			httpx.Fail(w, r, httpx.Invalid("卡片的列只能是 0 到 3"))
 			return
 		}
 		if seen[card.Id] {

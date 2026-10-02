@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+import { ArrowDownUp, Globe, MonitorSmartphone } from "lucide-react";
 import { useT } from "../../contexts/LanguageContext";
 import { QueryState } from "../overview/components/shared";
 import { formatRate } from "../servers/lib";
@@ -20,27 +22,45 @@ export default function TodayNetworkCard() {
   const s = status.data;
   const wan = s.wan;
   const ip = wan?.ipv4[0]?.replace(/\/\d+$/, "");
+  // B88：和其他卡片一样，一行一项：图标、名称和说明、右边的值
   return (
-    <ul className="router-today">
-      <li>
-        <span>{t("WAN")}</span>
-        <strong className={wan ? (wan.up ? "ok" : "danger") : ""}>
+    <div className="xc-list">
+      <Link className="today-row" to="/router">
+        <span
+          className={`today-row-icon${wan?.up ? " ok" : wan ? " danger" : ""}`}
+        >
+          <Globe size={15} />
+        </span>
+        <span className="today-row-main">
+          <strong>{t("WAN")}</strong>
+          <small className="xc-mono">{wan?.up && ip ? ip : "—"}</small>
+        </span>
+        <span className={`xc-badge ${wan ? (wan.up ? "ok" : "danger") : ""}`}>
           {wan ? t(wan.up ? "WAN up" : "WAN down") : "—"}
-        </strong>
-        {wan?.up && ip && <small>{ip}</small>}
-      </li>
-      <li>
-        <span>{t("Online devices")}</span>
-        <strong>{s.clientCount}</strong>
-      </li>
-      <li>
-        <span>{t("Current speed")}</span>
-        <strong>
+        </span>
+      </Link>
+      <Link className="today-row" to="/router">
+        <span className="today-row-icon">
+          <MonitorSmartphone size={15} />
+        </span>
+        <span className="today-row-main">
+          <strong>{t("Online devices")}</strong>
+        </span>
+        <strong className="router-today-value">{s.clientCount}</strong>
+      </Link>
+      <Link className="today-row" to="/router">
+        <span className="today-row-icon">
+          <ArrowDownUp size={15} />
+        </span>
+        <span className="today-row-main">
+          <strong>{t("Current speed")}</strong>
+        </span>
+        <strong className="router-today-value">
           {s.rxRate != null && s.txRate != null
             ? `↓ ${formatRate(s.rxRate)} ↑ ${formatRate(s.txRate)}`
             : "—"}
         </strong>
-      </li>
-    </ul>
+      </Link>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   Archive,
@@ -37,6 +38,8 @@ import ColorPicker from "./ColorPicker";
 import NoteEditor from "./components/NoteEditor";
 import { noteBgClass } from "./noteColors";
 import { tagColor } from "./tagColor";
+import QuoteButton from "./QuoteDialog";
+import { QUOTE_TAG } from "../overview/quote";
 
 /**
  * 便签瀑布流（B73），和 Google Keep 一样。顶部“记个便签…”就地展开写，
@@ -68,12 +71,28 @@ export default function MemoBoard({
         <NotLive name={t("Memos")} icon={<StickyNote size={28} />} />
       </div>
     );
-  const items = memos.data?.pages.flatMap((p) => p.items) ?? [];
+  const all = memos.data?.pages.flatMap((p) => p.items) ?? [];
+  // B89：便签总览里不放“名言”，它们只在名言标签下和今日页出现
+  const quotes = tag ? [] : all.filter((m) => m.tags.includes(QUOTE_TAG));
+  const items = tag ? all : all.filter((m) => !m.tags.includes(QUOTE_TAG));
   const pinned = items.filter((m) => m.pinned);
   const others = items.filter((m) => !m.pinned);
   return (
     <div className="notes-memos">
       <MemoComposer tag={tag} hidden={hidden} />
+      {!hidden && (!tag || tag === QUOTE_TAG) && (
+        <div className="notes-memos-bar">
+          <QuoteButton count={tag ? all.length : quotes.length} />
+          {!tag && quotes.length > 0 && (
+            <Link
+              className="xc-btn small ghost"
+              to={`/notes?tag=${encodeURIComponent(QUOTE_TAG)}`}
+            >
+              #{QUOTE_TAG} {quotes.length}
+            </Link>
+          )}
+        </div>
+      )}
       {memos.isPending ? (
         <Loading />
       ) : memos.isError ? (
@@ -283,6 +302,9 @@ function MemoCard({ memo, onOpen }: { memo: NoteSummary; onOpen: () => void }) {
         if (e.key === "Enter" && e.target === e.currentTarget) onOpen();
       }}
     >
+      {memo.pinned && (
+        <Pin size={12} className="notes-memo-pin" aria-label={t("Pinned")} />
+      )}
       {memo.title.trim() && <h3>{memo.title}</h3>}
       <div className="notes-memo-text">
         <Markdown source={body} onToggleTask={(i) => void toggle(i)} />

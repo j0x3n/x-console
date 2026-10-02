@@ -1607,3 +1607,28 @@ html[data-theme="dark"] .note-bg-gray {
     font-size: 23px;
   }
 }
+/* B89：便签视图上方的“每日一句”和名言入口；置顶的便签右上角有图钉 */
+.notes-memos-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.notes-memo-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--xc-accent-text);
+}
+.notes-quote-help {
+  margin: 0 0 10px;
+}
+.notes-quote-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.notes-quote-modes .xc-check > span {
+  display: flex;
+  flex-direction: column;
+}

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   cardDefs,
+  arrange,
   columnCards,
   defaultLayout,
   moveCard,
   normalizeLayout,
+  placeCard,
+  shiftInColumn,
   shiftCard,
   spreadSide,
   toggleCard,
@@ -187,5 +190,42 @@ describe("layout", () => {
       (c) => c.order,
     );
     expect(new Set(orders).size).toBe(orders.length);
+  });
+});
+
+describe("B88 free columns", () => {
+  const ids = (cols: { id: string }[][]) => cols.map((c) => c.map((x) => x.id));
+  it("keeps the old arrangement when no card has a column", () => {
+    const cols = arrange(defaultLayout(), 3, (c) => c.visible);
+    expect(cols[0].map((c) => c.id)).toEqual(["todos", "decisions"]);
+    expect(cols[1].length + cols[2].length).toBeGreaterThan(0);
+  });
+  it("moves a main card to the right column and back", () => {
+    const base = defaultLayout();
+    const moved = placeCard(base, "todos", 2, null, 3);
+    const cols = ids(arrange(moved, 3));
+    expect(cols[0]).toEqual(["decisions"]);
+    expect(cols[2][cols[2].length - 1]).toBe("todos");
+    const back = placeCard(moved, "schedule", 0, "decisions", 3);
+    expect(ids(arrange(back, 3))[0]).toEqual(["schedule", "decisions"]);
+  });
+  it("puts cards of a missing column into the last one", () => {
+    const moved = placeCard(defaultLayout(), "todos", 3, null, 4);
+    const cols = ids(arrange(moved, 2));
+    expect(cols[1]).toContain("todos");
+  });
+  it("shifts within a column", () => {
+    const base = placeCard(defaultLayout(), "todos", 1, "schedule", 3);
+    const col = ids(arrange(base, 3))[1];
+    expect(col[0]).toBe("todos");
+    const down = ids(arrange(shiftInColumn(base, "todos", 1, 3), 3))[1];
+    expect(down.indexOf("todos")).toBe(1);
+  });
+  it("reorders across main and side on one column", () => {
+    const moved = placeCard(defaultLayout(), "schedule", 0, "todos", 1);
+    expect(ids(arrange(moved, 1))[0].slice(0, 2)).toEqual([
+      "schedule",
+      "todos",
+    ]);
   });
 });

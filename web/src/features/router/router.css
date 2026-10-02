@@ -163,3 +163,10 @@
   font-family: var(--xc-mono);
   font-size: var(--fs-12);
 }
+/* B88：今日页“网络”卡片用和其他卡片一样的行，右边的值 */
+.router-today-value {
+  flex: none;
+  font-size: var(--fs-13);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
