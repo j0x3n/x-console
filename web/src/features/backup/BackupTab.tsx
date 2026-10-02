@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router";
+import { Segmented } from "../../components/ui/Toolbar";
+import { StatCard, StatStrip } from "../../components/ui/Stat";
 import {
   Archive,
+  ChevronDown,
+  ChevronRight,
   Download,
+  ShieldCheck,
   PackageOpen,
   Play,
   RotateCcw,
@@ -21,13 +26,22 @@ import {
 import Switch from "../../components/ui/Switch";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
-import { formatBytes, formatDate, relativeTime } from "../../lib/time";
+import {
+  formatBytes,
+  formatDate,
+  formatTime,
+  relativeTime,
+} from "../../lib/time";
 import {
   downloadUrl,
   useBackupJob,
   useBackups,
   useBackupSettings,
+  useCheckBackup,
   useDeleteBackup,
+  useRestoreSnapshot,
+  useSnapshotChanges,
+  useSnapshots,
   useExportBackup,
   useRestoreBackup,
   useRunBackupNow,
@@ -36,7 +50,9 @@ import {
   useUploadBackup,
   type Backup,
   type BackupJob,
+  type BackupRetention,
   type BackupSettings,
+  type BackupSnapshot,
   type BackupSettingsInput,
   type BackupTargetTest,
 } from "./api";
@@ -52,6 +68,8 @@ const fail = (err: unknown) =>
 export default function BackupTab() {
   const t = useT();
   const list = useBackups();
+  const settings = useBackupSettings();
+  const incremental = settings.data?.mode === "incremental";
   if (list.isPending) return <Loading />;
   if (list.isError)
     return isNotLive(list.error) ? (
@@ -63,10 +81,26 @@ export default function BackupTab() {
     <div className="settings-grid">
       <ExportCard />
       <AutoCard />
+      {incremental && <SnapshotsCard />}
       <ListCard items={list.data.items} />
     </div>
   );
 }
+
+const doneLabels: Record<NonNullable<BackupJob["kind"]>, string> = {
+  export: "Backup ready",
+  auto: "Backup ready",
+  restore: "Restored",
+  check: "Check passed",
+  prune: "Old snapshots cleaned up",
+};
+const failLabels: Record<NonNullable<BackupJob["kind"]>, string> = {
+  export: "Backup failed",
+  auto: "Backup failed",
+  restore: "Restore failed",
+  check: "Check failed",
+  prune: "Cleanup failed",
+};
 
 function JobStatus({ job }: { job: BackupJob }) {
   const t = useT();
@@ -81,8 +115,8 @@ function JobStatus({ job }: { job: BackupJob }) {
         {job.state === "running"
           ? job.step || t("Working on it")
           : job.state === "done"
-            ? t(job.kind === "restore" ? "Restored" : "Backup ready")
-            : t(job.kind === "restore" ? "Restore failed" : "Backup failed")}
+            ? t(doneLabels[job.kind ?? "export"])
+            : t(failLabels[job.kind ?? "export"])}
       </strong>
       {job.state === "running" && percent !== null && (
         <div className="backup-bar">
@@ -90,13 +124,29 @@ function JobStatus({ job }: { job: BackupJob }) {
         </div>
       )}
       {job.error && <p className="xc-error-text">{job.error}</p>}
+      {job.warning && <p className="backup-warn">{job.warning}</p>}
+      {job.state === "done" && job.check && (
+        <p className="backup-note">
+          {t("Checked {s} snapshots and {b} blocks. All are there.")
+            .replace("{s}", String(job.check.snapshots))
+            .replace("{b}", String(job.check.blocks))}
+        </p>
+      )}
+      {job.prune && job.prune.snapshots > 0 && (
+        <p className="backup-note">
+          {t("Removed {s} old snapshots and freed {size}.")
+            .replace("{s}", String(job.prune.snapshots))
+            .replace("{size}", formatBytes(job.prune.bytes))}
+        </p>
+      )}
       {!!job.secretsUnreadable?.length && (
         <p className="backup-warn">
           {t("These settings could not be decrypted. Enter them again:")}{" "}
           {job.secretsUnreadable.join("、")}
         </p>
       )}
-      {job.state === "done" && job.kind !== "restore" && job.backupId && (
+      {/* 只有完整包能下载。增量快照的编号不是备份文件（B81） */}
+      {job.state === "done" && job.kind === "export" && job.backupId && (
         <a className="xc-btn small" href={downloadUrl(job.backupId)}>
           <Download size={13} /> {t("Download")}
         </a>
@@ -253,6 +303,8 @@ function AutoCard() {
     save.mutate(
       {
         enabled: form.enabled,
+        mode: form.mode,
+        retention: form.retention,
         frequency: form.frequency,
         time: form.time,
         weekday: form.weekday,
@@ -275,6 +327,23 @@ function AutoCard() {
           onChange={(v) => set("enabled", v)}
           label={t("Automatic backup")}
         />
+      </div>
+      <div className="xc-field">
+        <span>{t("Backup method")}</span>
+        <Segmented
+          label={t("Backup method")}
+          value={form.mode}
+          onChange={(v) => set("mode", v)}
+          options={[
+            { value: "incremental", label: t("Incremental") },
+            { value: "full", label: t("Full package") },
+          ]}
+        />
+        <small>
+          {form.mode === "incremental"
+            ? "只传变化的部分，每次是一个快照，能回到任意一次。第一次会传全部。"
+            : "每次打一个完整的压缩包。"}
+        </small>
       </div>
       <div className="backup-row">
         <label className="xc-field">
@@ -315,18 +384,26 @@ function AutoCard() {
             onChange={(e) => set("time", e.target.value)}
           />
         </label>
-        <label className="xc-field">
-          <span>{t("Keep")}</span>
-          <input
-            className="xc-input"
-            inputMode="numeric"
-            value={String(form.keep)}
-            onChange={(e) =>
-              set("keep", Number(e.target.value.replace(/\D/g, "")) || 1)
-            }
-          />
-        </label>
+        {form.mode === "full" && (
+          <label className="xc-field">
+            <span>{t("Keep")}</span>
+            <input
+              className="xc-input"
+              inputMode="numeric"
+              value={String(form.keep)}
+              onChange={(e) =>
+                set("keep", Number(e.target.value.replace(/\D/g, "")) || 1)
+              }
+            />
+          </label>
+        )}
       </div>
+      {form.mode === "incremental" && (
+        <RetentionFields
+          value={form.retention}
+          onChange={(v) => set("retention", v)}
+        />
+      )}
       <label className="xc-field">
         <span>{t("Where to")}</span>
         <select
@@ -541,5 +618,224 @@ function ListCard({ items }: { items: Backup[] }) {
         </ul>
       )}
     </section>
+  );
+}
+
+const retentionFields: { key: keyof BackupRetention; label: string }[] = [
+  { key: "last", label: "Latest (times)" },
+  { key: "daily", label: "Daily (days)" },
+  { key: "weekly", label: "Weekly (weeks)" },
+  { key: "monthly", label: "Monthly (months)" },
+];
+
+/** 保留规则（B81）：满足任意一条就保留。 */
+function RetentionFields({
+  value,
+  onChange,
+}: {
+  value: BackupRetention;
+  onChange: (v: BackupRetention) => void;
+}) {
+  const t = useT();
+  return (
+    <div className="xc-field">
+      <span>{t("Keep snapshots")}</span>
+      <div className="backup-row backup-retention">
+        {retentionFields.map((f) => (
+          <label key={f.key} className="xc-field">
+            <small>{t(f.label)}</small>
+            <input
+              className="xc-input"
+              inputMode="numeric"
+              value={String(value[f.key])}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  [f.key]: Number(e.target.value.replace(/\D/g, "")) || 0,
+                })
+              }
+            />
+          </label>
+        ))}
+      </div>
+      <small>满足任意一条就保留。过期快照独有的数据会从备份里删掉。</small>
+    </div>
+  );
+}
+
+/** 增量备份的快照列表（B81）：概要、检查、每次的变化、恢复到某一次。 */
+function SnapshotsCard() {
+  const t = useT();
+  const language = useLanguage();
+  const snapshots = useSnapshots(true);
+  const check = useCheckBackup();
+  const restore = useRestoreSnapshot();
+  const job = useBackupJob();
+  const [open, setOpen] = useState<string | null>(null);
+  const busy = job.data?.state === "running";
+  const onRestore = async (s: BackupSnapshot) => {
+    const ok = await confirmAction({
+      title: `${t("Restore to")} ${formatDate(s.createdAt, language)} ${formatTime(s.createdAt, language)}？`,
+      description:
+        "现在的全部数据和文件会换成这个快照里的。恢复前会自动保存一份现在的完整包。",
+      confirmLabel: t("Restore"),
+      typeToConfirm: "恢复",
+    });
+    if (!ok) return;
+    restore.mutate(s.id, {
+      onSuccess: () => toast(t("Restoring")),
+      onError: fail,
+    });
+  };
+  if (snapshots.isPending)
+    return (
+      <section className="xc-card">
+        <Loading />
+      </section>
+    );
+  if (snapshots.isError)
+    return (
+      <section className="xc-card">
+        <ErrorState
+          error={snapshots.error}
+          onRetry={() => snapshots.refetch()}
+        />
+      </section>
+    );
+  const { items, stats } = snapshots.data;
+  const saved = Math.max(0, stats.logicalBytes - stats.sizeBytes);
+  return (
+    <section className="xc-card backup-snapshots">
+      <div className="xc-card-head">
+        <h2>{t("Snapshots")}</h2>
+        <button
+          type="button"
+          className="xc-btn small"
+          disabled={busy || check.isPending || items.length === 0}
+          onClick={() =>
+            check.mutate(undefined, {
+              onSuccess: () => toast(t("Checking backup")),
+              onError: fail,
+            })
+          }
+        >
+          <ShieldCheck size={14} /> {t("Check backup")}
+        </button>
+      </div>
+      <StatStrip label={t("Snapshots")}>
+        <StatCard label={t("Snapshots")} value={stats.snapshots} />
+        <StatCard
+          label={t("Backup size")}
+          value={formatBytes(stats.sizeBytes)}
+        />
+        <StatCard
+          label={t("Last backup")}
+          value={
+            stats.lastSnapshotAt
+              ? relativeTime(stats.lastSnapshotAt, language)
+              : "—"
+          }
+        />
+        <StatCard
+          label={t("Saved by dedup")}
+          value={formatBytes(saved)}
+          foot={t("vs. full packages")}
+        />
+      </StatStrip>
+      {items.length === 0 ? (
+        <EmptyState
+          title={t("No snapshots yet")}
+          icon={<PackageOpen size={26} />}
+        >
+          <span>
+            {t("Click Back up now, or wait for the next automatic backup.")}
+          </span>
+        </EmptyState>
+      ) : (
+        <ul className="backup-list backup-snapshot-list">
+          {items.map((s) => (
+            <li key={s.id}>
+              <div className="backup-snapshot-row">
+                <button
+                  type="button"
+                  className="xc-btn ghost small"
+                  aria-expanded={open === s.id}
+                  aria-label={t("Show snapshot changes")}
+                  title={t("Show snapshot changes")}
+                  onClick={() => setOpen(open === s.id ? null : s.id)}
+                >
+                  {open === s.id ? (
+                    <ChevronDown size={14} />
+                  ) : (
+                    <ChevronRight size={14} />
+                  )}
+                </button>
+                <div className="backup-list-main">
+                  <strong>
+                    {formatDate(s.createdAt, language)}{" "}
+                    {formatTime(s.createdAt, language)}
+                  </strong>
+                  <small className="xc-muted">
+                    <span className="backup-added">+{s.added}</span>{" "}
+                    <span className="backup-modified">~{s.modified}</span>{" "}
+                    <span className="backup-deleted">-{s.deleted}</span> ·{" "}
+                    {t("Uploaded this time")} {formatBytes(s.uploadedBytes)} ·{" "}
+                    {formatBytes(s.sizeBytes)}
+                  </small>
+                </div>
+                <MoreMenu
+                  label={`${t("More")}：${s.id}`}
+                  items={[
+                    {
+                      key: "restore",
+                      label: t("Restore to here"),
+                      icon: <RotateCcw size={14} />,
+                      danger: true,
+                      onSelect: () => void onRestore(s),
+                    },
+                  ]}
+                />
+              </div>
+              {open === s.id && <SnapshotChanges id={s.id} />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+const changeLabels = {
+  added: "File added",
+  modified: "File changed",
+  deleted: "File deleted",
+} as const;
+
+function SnapshotChanges({ id }: { id: string }) {
+  const t = useT();
+  const changes = useSnapshotChanges(id);
+  if (changes.isPending) return <Loading />;
+  if (changes.isError)
+    return (
+      <ErrorState error={changes.error} onRetry={() => changes.refetch()} />
+    );
+  if (changes.data.items.length === 0)
+    return (
+      <p className="xc-muted backup-changes-empty">{t("No file changes")}</p>
+    );
+  return (
+    <div className="backup-changes">
+      {changes.data.items.map((c) => (
+        <div key={`${c.kind}:${c.path}`} className={`backup-change ${c.kind}`}>
+          <span>{t(changeLabels[c.kind])}</span>
+          <span className="xc-mono" title={c.path}>
+            {c.path}
+          </span>
+        </div>
+      ))}
+      {changes.data.truncated && (
+        <small className="xc-muted">{t("Only the first 200 are shown.")}</small>
+      )}
+    </div>
   );
 }
