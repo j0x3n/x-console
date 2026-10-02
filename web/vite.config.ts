@@ -2,6 +2,11 @@ import { defineConfig } from "vite";
 
 // 开发时把 /api 转发到本地 Go 服务（默认 127.0.0.1:8080），包括 WebSocket。
 export default defineConfig({
+  // 版本号和构建时间写进前端（B79）。部署时 Dockerfile 传 XC_VERSION。
+  define: {
+    __XC_VERSION__: JSON.stringify(process.env.XC_VERSION || "dev"),
+    __XC_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+  },
   server: {
     host: "127.0.0.1",
     proxy: {
@@ -35,7 +40,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    maxWorkers: 1,
+    // 本地一个线程，免得和别的程序抢；CI 上按 CPU 数开（B78）
+    maxWorkers: process.env.CI ? undefined : 1,
     testTimeout: 30_000,
     setupFiles: ["./src/test/setup.ts"],
   },

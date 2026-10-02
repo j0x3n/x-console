@@ -4,4 +4,5 @@ generate:
   models: true
   chi-server: true
 import-mapping:
+  hosts.yaml: github.com/j0x3n/x-console/backend/internal/server/modules/hosts/api
   ../common.yaml: github.com/j0x3n/x-console/backend/internal/server/apigen/common

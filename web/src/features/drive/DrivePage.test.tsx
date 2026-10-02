@@ -539,7 +539,7 @@ describe("DrivePage", () => {
     )!.body as Record<string, unknown>;
     expect(sent.itemId).toBe(2);
     expect(sent.expiresIn).toBe("7d");
-    expect(String(sent.code)).toMatch(/^[2-9a-z]{4}$/);
-    expect(String(writeText.mock.calls[0])).toContain("提取码");
+    expect(String(sent.code)).toMatch(/^[2-9a-z]{6}$/);
+    expect(String(writeText.mock.calls[0])).toContain("密码");
   });
 });

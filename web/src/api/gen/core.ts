@@ -307,6 +307,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent/whoami": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 用有效代理令牌读取服务端看到的连接来源 IP */
+        get: operations["getAgentWhoami"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/agent/pair": {
         parameters: {
             query?: never;
@@ -633,6 +650,16 @@ export interface components {
             };
             /** @description 请求编号，和响应头 X-Request-Id 一样，服务器日志里用它查（B41） */
             requestId?: string;
+        };
+        HostInfoInput: {
+            /** @enum {string} */
+            ownership?: "own" | "client";
+            client?: string;
+            username?: string;
+            password?: string;
+            clearPassword?: boolean;
+            note?: string;
+            tags?: string[];
         };
     };
     responses: {
@@ -1088,6 +1115,7 @@ export interface operations {
                 "application/json": {
                     name: string;
                     kind: components["schemas"]["AgentKind"];
+                    info?: components["schemas"]["HostInfoInput"];
                 };
             };
         };
@@ -1125,6 +1153,29 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAgentWhoami: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 连接来源 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ip: string;
+                    };
+                };
             };
             default: components["responses"]["Error"];
         };

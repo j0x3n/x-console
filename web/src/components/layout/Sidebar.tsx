@@ -27,6 +27,7 @@ import {
   type NavAction,
   type NavBadgeHook,
 } from "../../lib/navBadges";
+import { lastPathFor } from "../../hooks/useKeepScroll";
 import { useSidebar } from "../../stores/sidebar";
 
 // 二级菜单展开了哪些，记在 localStorage。
@@ -136,7 +137,11 @@ export default function Sidebar({
                 return (
                   <div key={item.path} className="nav-entry">
                     <NavLink
-                      to={item.path}
+                      to={
+                        item.path === "/"
+                          ? "/"
+                          : lastPathFor(item.path, location.pathname)
+                      }
                       end={item.path === "/"}
                       title={collapsed ? t(item.label) : undefined}
                       onClick={() => {

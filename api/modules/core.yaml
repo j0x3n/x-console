@@ -313,6 +313,7 @@ paths:
               properties:
                 name: { type: string }
                 kind: { $ref: "#/components/schemas/AgentKind" }
+                info: { $ref: "hosts.yaml#/components/schemas/HostInfoInput" }
       responses:
         "200":
           description: 配对码
@@ -341,6 +342,21 @@ paths:
           description: 已吊销
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /agent/whoami:
+    get:
+      operationId: getAgentWhoami
+      description: 用有效代理令牌读取服务端看到的连接来源 IP
+      responses:
+        "200":
+          description: 连接来源
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ip]
+                properties:
+                  ip: { type: string }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
   /agent/pair:
     post:
       operationId: pairAgent

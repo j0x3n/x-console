@@ -12,7 +12,13 @@ import {
 } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
-import { applyMetricsEvent, useHosts, type Host } from "./api";
+import {
+  applyMetricsEvent,
+  moveId,
+  useHostOrder,
+  useHosts,
+  type Host,
+} from "./api";
 import { AlertHistoryCard, AlertRulesCard } from "./components/AlertRules";
 import HostCard from "./components/HostCard";
 import SshHostsDialog from "./components/SshHosts";
@@ -21,6 +27,9 @@ export default function ServersPage() {
   const t = useT();
   const [params, setParams] = useSearchParams();
   const hosts = useHosts("server");
+  const order = useHostOrder("server");
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
   useServerEvent("host.metrics", applyMetricsEvent);
   useEventTopic("host.metrics");
   const [sshOpen, setSshOpen] = useState(params.get("ssh") === "1");
@@ -101,9 +110,37 @@ export default function ServersPage() {
         <>
           <ServerStats hosts={list} />
           <div className="servers-grid">
-            {hosts.data.map((h) => (
-              <HostCard key={h.id} host={h} />
-            ))}
+            {hosts.data.map((h, i, all) => {
+              const ids = all.map((x) => x.id);
+              const move = (to: number) =>
+                order.mutate(moveId(ids, h.id, ids[to]));
+              return (
+                <HostCard
+                  key={h.id}
+                  host={h}
+                  onMove={{
+                    up: i > 0 ? () => move(i - 1) : undefined,
+                    down: i < all.length - 1 ? () => move(i + 1) : undefined,
+                  }}
+                  drag={{
+                    dragging: dragging === h.id,
+                    over: over === h.id && dragging !== h.id,
+                    onDragStart: () => setDragging(h.id),
+                    onDragOver: () => dragging && setOver(h.id),
+                    onDrop: () => {
+                      if (dragging && dragging !== h.id)
+                        order.mutate(moveId(ids, dragging, h.id));
+                      setDragging(null);
+                      setOver(null);
+                    },
+                    onDragEnd: () => {
+                      setDragging(null);
+                      setOver(null);
+                    },
+                  }}
+                />
+              );
+            })}
           </div>
         </>
       )}

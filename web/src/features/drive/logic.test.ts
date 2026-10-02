@@ -12,6 +12,7 @@ import {
   nextSort,
   randomCode,
   shareText,
+  validShareCode,
   sortItems,
   taskPercent,
 } from "./logic";
@@ -167,7 +168,7 @@ describe("helpers", () => {
   it("puts the access code into shared text", () => {
     expect(shareText({ url: "https://x/s/a" })).toBe("https://x/s/a");
     expect(shareText({ url: "https://x/s/a", code: "ab12" })).toBe(
-      "https://x/s/a\n提取码：ab12",
+      "https://x/s/a\n密码：ab12",
     );
     expect(randomCode()).toMatch(/^[2-9a-z]{4}$/);
   });
@@ -204,5 +205,15 @@ describe("helpers", () => {
     expect(toInput({ ...form, secretAccessKey: " sk " }).secretAccessKey).toBe(
       "sk",
     );
+  });
+});
+
+describe("validShareCode", () => {
+  it("takes 4 to 32 characters of any kind", () => {
+    expect(validShareCode("abc")).toBe(false);
+    expect(validShareCode("密码一二")).toBe(true);
+    expect(validShareCode("a b!")).toBe(true);
+    expect(validShareCode("x".repeat(32))).toBe(true);
+    expect(validShareCode("x".repeat(33))).toBe(false);
   });
 });

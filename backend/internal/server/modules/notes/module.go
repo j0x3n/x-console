@@ -21,20 +21,26 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/db"
 )
 
 // Module implements api.ServerInterface.
 type Module struct {
-	d        *module.Deps
-	q        *db.Queries
-	now      func() time.Time
-	files    files.Store // the notes' own part of the site's file store
-	aiMu     sync.Mutex
-	aiTimers map[int64]*aiTimer
-	aiDelay  func(time.Duration, func()) func()
-	aiCtx    context.Context
+	d             *module.Deps
+	q             *db.Queries
+	now           func() time.Time
+	files         files.Store // the notes' own part of the site's file store
+	aiMu          sync.Mutex
+	aiTimers      map[int64]*aiTimer
+	aiDelay       func(time.Duration, func()) func()
+	aiCtx         context.Context
+	shareMu       sync.Mutex
+	shareRates    map[string]noteShareRate
+	shareFailures map[string]noteShareFailure
+	shareVisits   map[[32]byte]time.Time
+	shareNow      func() time.Time
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -42,6 +48,9 @@ var _ api.ServerInterface = (*Module)(nil)
 // New builds the module and registers its contract and actions.
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), now: func() time.Time { return time.Now().UTC() }, files: d.Files.For("notes"), aiTimers: map[int64]*aiTimer{}, aiCtx: context.Background()}
+	m.shareRates = map[string]noteShareRate{}
+	m.shareFailures = map[string]noteShareFailure{}
+	m.shareVisits = map[[32]byte]time.Time{}
 	m.aiDelay = func(delay time.Duration, fn func()) func() {
 		timer := time.AfterFunc(delay, fn)
 		return func() { timer.Stop() }
@@ -49,6 +58,8 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.Notes](d.Registry, contracts.NotesKey, &notesService{m})
 	module.Provide[*Module](d.Registry, "notes.module", m)
 	m.registerActions()
+	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"notes", maintenance.StoreReporter{Store: m.files, Registry: d.Registry, Key: "notes", Label: "笔记附件", Module: "notes"})
+	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"notes", maintenance.AttachmentCleaner{Deps: d, Notes: true, Now: m.now})
 	return m, nil
 }
 
@@ -80,7 +91,7 @@ func (m *Module) Mount(r chi.Router) {
 type notesService struct{ m *Module }
 
 func (s *notesService) Create(ctx context.Context, title, body string, tags []string) (int64, error) {
-	n, err := s.m.createNote(auth.WithoutVault(ctx), title, body, tags, false, false, false)
+	n, err := s.m.createNote(auth.WithoutVault(ctx), title, body, tags, false, false, false, api.NoteKindNote, "")
 	return n.Id, err
 }
 
@@ -138,15 +149,25 @@ func cleanTags(tags []string) ([]string, error) {
 }
 
 var (
-	mdLink    = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
-	mdLine    = regexp.MustCompile(`(?m)^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|` + "```" + `.*$)`)
-	mdInline  = regexp.MustCompile("[*_`~]+")
-	mdSpacing = regexp.MustCompile(`\s+`)
+	// B74：隐藏块整段不进摘要，提示块只去掉 ::: 那一行；表格去掉分隔行和竖线
+	mdHidden   = regexp.MustCompile(`(?ms)^\s{0,3}:::\s*hidden\b.*?^\s{0,3}:::\s*$`)
+	mdFence    = regexp.MustCompile(`(?m)^\s{0,3}:::.*$`)
+	mdTableSep = regexp.MustCompile(`(?m)^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$`)
+	mdMark     = regexp.MustCompile(`==`)
+	mdLink     = regexp.MustCompile(`!?\[([^\]]*)\]\([^)]*\)`)
+	mdLine     = regexp.MustCompile(`(?m)^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|` + "```" + `.*$)`)
+	mdInline   = regexp.MustCompile("[*_`~]+")
+	mdSpacing  = regexp.MustCompile(`\s+`)
 )
 
 // plainText strips common Markdown so lists can show a readable excerpt.
 func plainText(md string) string {
-	s := mdLink.ReplaceAllString(md, "$1")
+	s := mdHidden.ReplaceAllString(md, "")
+	s = mdFence.ReplaceAllString(s, "")
+	s = mdTableSep.ReplaceAllString(s, "")
+	s = strings.ReplaceAll(s, "|", " ")
+	s = mdMark.ReplaceAllString(s, "")
+	s = mdLink.ReplaceAllString(s, "$1")
 	s = mdLine.ReplaceAllString(s, "")
 	s = mdInline.ReplaceAllString(s, "")
 	return strings.TrimSpace(mdSpacing.ReplaceAllString(s, " "))

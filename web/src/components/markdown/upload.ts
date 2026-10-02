@@ -45,9 +45,12 @@ export function attachmentMarkdown(a: {
   url: string;
 }): string {
   const name = a.name.replace(/[[\]]/g, "");
-  return a.mime.startsWith("image/") && a.mime !== "image/svg+xml"
-    ? `![${name}](${a.url})`
-    : `[${name}](${a.url})`;
+  // 图片、视频、音频用图片的写法，渲染时显示成图片或播放器（B74）
+  const inline =
+    (a.mime.startsWith("image/") && a.mime !== "image/svg+xml") ||
+    a.mime.startsWith("video/") ||
+    a.mime.startsWith("audio/");
+  return inline ? `![${name}](${a.url})` : `[${name}](${a.url})`;
 }
 
 /** 公共上传的图片地址，形如 /api/v1/files/12。 */

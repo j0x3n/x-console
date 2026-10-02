@@ -505,6 +505,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/drive/shares/{shareId}/downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareId: number;
+            };
+            cookie?: never;
+        };
+        /** @description 最近 20 次下载，IP 已打码，User-Agent 只返回浏览器名称。 */
+        get: operations["listDriveShareDownloads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public/shares/{token}": {
         parameters: {
             query?: never;
@@ -587,10 +606,30 @@ export interface paths {
         };
         /**
          * @description B31。下载分享的文件。文件分享时不传 item；文件夹分享时 item 是里面的某个文件。支持 Range。
-         *     inline=1 用于预览（图片、视频、PDF）。不带 Range 或从 0 开始的请求才算一次下载。
-         *     下载次数到了上限回 410 share_limit_reached。
+         *     preview=true 或 inline=1 用于预览，预览不计下载次数。下载时不带 Range 或从 0 开始才计一次，同一客户端同一文件一小时内去重。
+         *     下载次数用完后预览回 410，已经计数的客户端仍能续传。HEAD、304 和无效 Range 不计数。
          */
         get: operations["getPublicShareContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/shares/{token}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        /** @description 分享范围内的图片缩略图。需验证分享密码，不计下载次数。次数用完回 410。 */
+        get: operations["getPublicShareThumbnail"];
         put?: never;
         post?: never;
         delete?: never;
@@ -823,7 +862,7 @@ export interface components {
             itemId: number;
             /** @enum {string} */
             expiresIn: "1d" | "7d" | "30d" | "never";
-            /** @description 提取码，不传就不用提取码 */
+            /** @description 密码，不传就不用密码 */
             code?: string;
             /** @description 下载次数上限，不传就不限 */
             maxDownloads?: number;
@@ -855,6 +894,15 @@ export interface components {
             /** Format: date-time */
             lastAccessAt?: string;
         };
+        DriveShareDownload: {
+            /** Format: date-time */
+            at: string;
+            /** @description IPv4 保留前两段，IPv6 保留前两段十六进制地址 */
+            ip: string;
+            /** @description 浏览器名称 */
+            userAgent: string;
+            itemName?: string;
+        };
         PublicShare: {
             name: string;
             isDir: boolean;
@@ -881,6 +929,7 @@ export interface components {
             mime?: string;
             /** Format: date-time */
             updatedAt: string;
+            thumbnail: boolean;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -1719,6 +1768,31 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listDriveShareDownloads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 下载记录 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DriveShareDownload"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getPublicShare: {
         parameters: {
             query?: {
@@ -1823,6 +1897,7 @@ export interface operations {
                 t?: components["parameters"]["ShareAccess"];
                 item?: number;
                 inline?: boolean;
+                preview?: boolean;
             };
             header?: never;
             path: {
@@ -1849,6 +1924,34 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicShareThumbnail: {
+        parameters: {
+            query?: {
+                /** @description unlock 发的访问令牌。没有提取码的分享不用传 */
+                t?: components["parameters"]["ShareAccess"];
+                item?: number;
+            };
+            header?: never;
+            path: {
+                /** @description 链接里 /s/ 后面那 22 位 */
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JPEG 缩略图 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
                 };
             };
             default: components["responses"]["Error"];

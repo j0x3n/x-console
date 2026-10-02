@@ -29,8 +29,6 @@ import {
   Link2,
   List,
   ListChecks,
-  ListOrdered,
-  Minus,
   Paperclip,
   Pencil,
   PictureInPicture2,
@@ -70,6 +68,7 @@ import {
 import ColorPicker from "../ColorPicker";
 import { noteBgClass } from "../noteColors";
 import ShareDialog from "./ShareDialog";
+import InsertMenu from "../../../components/markdown/InsertMenu";
 import { AutoSaver, type SaveState } from "../autosave";
 import {
   attachmentMarkdown,
@@ -88,6 +87,7 @@ import ToIssueDialog from "./ToIssueDialog";
 import ToReminderDialog from "./ToReminderDialog";
 import PolishDialog from "../../../components/markdown/PolishDialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
+import { useKeepScroll } from "../../../hooks/useKeepScroll";
 
 interface Draft {
   title: string;
@@ -183,10 +183,21 @@ function EditorBody({
   const ai = useNoteAiTools();
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [menuOpen, setMenuOpen] = useState(false);
+  // 菜单开着时按 Esc 关掉。
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
   const [dialog, setDialog] = useState<"issue" | "reminder" | "share" | null>(
     null,
   );
   const scrollRef = useRef<HTMLDivElement>(null);
+  // B80：正文看到哪里，切回来还在那里
+  useKeepScroll(scrollRef, `notes.body:${note.id}`);
   const [uploading, setUploading] = useState(0);
   const [dragging, setDragging] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -366,12 +377,6 @@ function EditorBody({
       run: () => apply((x, s, e) => prefixLines(x, s, e, "- ")),
     },
     {
-      key: "ol",
-      icon: <ListOrdered size={15} />,
-      label: t("Numbered list"),
-      run: () => apply((x, s, e) => prefixLines(x, s, e, "", true)),
-    },
-    {
       key: "task",
       icon: <ListChecks size={15} />,
       label: t("Checklist"),
@@ -402,12 +407,6 @@ function EditorBody({
         apply((x, s, e) =>
           wrapSelection(x, s, e, "[", "](https://)", t("link text")),
         ),
-    },
-    {
-      key: "hr",
-      icon: <Minus size={15} />,
-      label: t("Divider"),
-      run: () => apply((x, s, e) => insertBlock(x, s, e, "---")),
     },
   ];
 
@@ -456,10 +455,11 @@ function EditorBody({
     );
   };
 
-  const pickFiles = (images: boolean) => {
+  const pickFiles = (images: boolean | string) => {
     const input = fileRef.current;
     if (!input) return;
-    input.accept = images ? "image/*" : "";
+    input.accept =
+      typeof images === "string" ? images : images ? "image/*" : "";
     input.click();
   };
 
@@ -1012,16 +1012,11 @@ function EditorBody({
               >
                 <ImagePlus size={15} />
               </button>
-              <button
-                type="button"
-                className="notes-tool-attach"
-                title={t("Attach a file")}
-                aria-label={t("Attach a file")}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pickFiles(false)}
-              >
-                <Paperclip size={15} />
-              </button>
+              <InsertMenu
+                apply={apply}
+                onMedia={() => pickFiles("video/*,audio/*")}
+                onAttach={() => pickFiles(false)}
+              />
               <span className="notes-toolbar-sep" />
               <button
                 type="button"

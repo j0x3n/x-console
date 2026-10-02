@@ -3,6 +3,8 @@ import { NavLink, Navigate, useParams } from "react-router";
 import PageHeading from "../../components/ui/PageHeading";
 import { useT } from "../../contexts/LanguageContext";
 import { settingsTabs } from "./tabs";
+import VersionLine from "../maintenance/VersionLine";
+import "../maintenance/maintenance.css";
 
 export default function SettingsPage() {
   const t = useT();
@@ -42,6 +44,7 @@ export default function SettingsPage() {
         ))}
       </nav>
       <Component />
+      <VersionLine />
     </div>
   );
 }

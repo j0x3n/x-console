@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/habits/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getHabitSchedule"];
+        put: operations["updateHabitSchedule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/presence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getHabitPresence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/habits": {
         parameters: {
             query?: never;
@@ -181,6 +213,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Schedule: {
+            workDays: number[];
+            wakeTime: string;
+            sleepTime: string;
+            workStart?: string;
+            workEnd?: string;
+            timezone: string;
+            idleMinutes: number;
+        };
+        HostPresence: {
+            hostId: string;
+            name: string;
+            /** @enum {string} */
+            state: "active" | "idle" | "locked" | "offline" | "unknown";
+            /** Format: int64 */
+            idleSeconds?: number;
+            locked?: boolean;
+            displayOff?: boolean;
+            known: boolean;
+            online: boolean;
+            /** Format: date-time */
+            since: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         /**
          * @description none 不提醒；interval 在时间窗内每隔一段时间提醒；times 在固定时间点提醒
          * @enum {string}
@@ -206,12 +263,19 @@ export interface components {
             /** @description 形如 09:00-21:00 */
             remindWindow: string;
             remindTimes: string[];
+            remindWhen: ("window" | "awake" | "work" | "active")[];
+            activeHostIds: string[];
+            remindOnHost: boolean;
+            /** @enum {string} */
+            template?: "water" | "eyes" | "move" | "medicine";
             /** @description 这个 Home Assistant 实体状态变化时自动打卡一次 */
             haEntityId: string;
             archived: boolean;
             sortOrder: number;
             /** Format: date-time */
             createdAt: string;
+            /** Format: date-time */
+            nextRemindAt?: string;
         };
         HabitInput: {
             name: string;
@@ -225,6 +289,11 @@ export interface components {
             remindIntervalMinutes?: number;
             remindWindow?: string;
             remindTimes?: string[];
+            remindWhen?: ("window" | "awake" | "work" | "active")[];
+            activeHostIds?: string[];
+            remindOnHost?: boolean;
+            /** @enum {string} */
+            template?: "water" | "eyes" | "move" | "medicine";
             haEntityId?: string;
             sortOrder?: number;
         };
@@ -240,6 +309,11 @@ export interface components {
             remindIntervalMinutes?: number;
             remindWindow?: string;
             remindTimes?: string[];
+            remindWhen?: ("window" | "awake" | "work" | "active")[];
+            activeHostIds?: string[];
+            remindOnHost?: boolean;
+            /** @enum {string} */
+            template?: "water" | "eyes" | "move" | "medicine";
             haEntityId?: string;
             sortOrder?: number;
             archived?: boolean;
@@ -366,6 +440,71 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getHabitSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 作息设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+        };
+    };
+    updateHabitSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Schedule"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHabitPresence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 可见电脑的使用状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostPresence"][];
+                };
+            };
+        };
+    };
     listHabits: {
         parameters: {
             query?: {

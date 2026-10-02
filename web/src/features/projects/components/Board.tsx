@@ -1,5 +1,6 @@
-import { useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent } from "react";
 import { Plus } from "lucide-react";
+import { useLocation } from "react-router";
 import { useT } from "../../../contexts/LanguageContext";
 import {
   STATUSES,
@@ -14,6 +15,7 @@ import {
 } from "../logic";
 import IssueCard from "./IssueCard";
 import { StatusIcon } from "./Icons";
+import { useKeepScroll } from "../../../hooks/useKeepScroll";
 
 /** 看板：六列状态，拖动卡片改状态和顺序。 */
 export default function Board({
@@ -34,6 +36,11 @@ export default function Board({
   onMove: (key: string, plan: MovePlan) => void;
   onAdd: (status: IssueStatus) => void;
 }) {
+  const location = useLocation();
+  // B80：看板横向滚到哪里，切回来还在那里
+  const boardRef = useRef<HTMLDivElement>(null);
+  useKeepScroll(boardRef, `projects.board:${location.pathname}`, { axis: "x" });
+
   const t = useT();
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [drop, setDrop] = useState<DropTarget | null>(null);
@@ -53,7 +60,7 @@ export default function Board({
   };
 
   return (
-    <div className="projects-board" onDragEnd={reset}>
+    <div className="projects-board" onDragEnd={reset} ref={boardRef}>
       {STATUSES.map((status) => {
         const cards = column(issues, status);
         const others = cards.filter((i) => i.key !== dragKey);

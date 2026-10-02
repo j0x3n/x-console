@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -20,8 +21,15 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
+func repoInput(in *[]string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return *in
+}
+
 func configToAPI(cfg config) api.GitHubConfig {
-	out := api.GitHubConfig{HasToken: cfg.Token != "", Token: maskToken(cfg.Token), Repos: cfg.Repos, ApiUrl: cfg.APIURL}
+	out := api.GitHubConfig{HasToken: cfg.Token != "", Token: maskToken(cfg.Token), Repos: cfg.Repos, ApiUrl: cfg.APIURL, Watches: &cfg.Watches}
 	if cfg.Login != "" && cfg.Token != "" {
 		out.Login = &cfg.Login
 	}
@@ -50,7 +58,7 @@ func (m *Module) PutGitHubConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg, err := m.saveConfig(r.Context(), body)
 	m.d.Audit.Record(r.Context(), "github.config", "", map[string]any{
-		"repos": len(body.Repos), "tokenChanged": body.Token != nil && *body.Token != "" || body.ClearToken != nil && *body.ClearToken,
+		"repos": len(repoInput(body.Repos)), "tokenChanged": body.Token != nil && *body.Token != "" || body.ClearToken != nil && *body.ClearToken,
 	}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -63,6 +71,16 @@ func (m *Module) saveConfig(ctx context.Context, in api.GitHubConfigInput) (conf
 	old, err := m.loadConfig(ctx)
 	if err != nil {
 		return config{}, err
+	}
+	if in.Watches != nil {
+		watches, err := m.normalizeWatches(ctx, *in.Watches)
+		if err != nil {
+			return config{}, err
+		}
+		if err := m.d.Settings.Set(ctx, keyWatches, watches); err != nil {
+			return config{}, err
+		}
+		return m.loadConfig(ctx)
 	}
 	apiURL := old.APIURL
 	if in.ApiUrl != nil {
@@ -84,7 +102,7 @@ func (m *Module) saveConfig(ctx context.Context, in api.GitHubConfigInput) (conf
 	case newToken:
 		token = strings.TrimSpace(*in.Token)
 	}
-	repos, err := normalizeRepos(in.Repos)
+	repos, err := normalizeRepos(repoInput(in.Repos))
 	if err != nil {
 		return config{}, err
 	}
@@ -97,6 +115,13 @@ func (m *Module) saveConfig(ctx context.Context, in api.GitHubConfigInput) (conf
 		}
 		m.etag.clear()
 		old.ConnectionID = *in.ConnectionId
+	}
+	watches := []api.RepoWatch{}
+	for _, repo := range repos {
+		watches = append(watches, api.RepoWatch{ConnectionId: old.ConnectionID, Repo: repo})
+	}
+	if err := m.d.Settings.Set(ctx, keyWatches, watches); err != nil {
+		return config{}, err
 	}
 	if old.ConnectionID != 0 {
 		// The token belongs to the Git account; only the repos are ours.
@@ -196,7 +221,7 @@ func (m *Module) status(ctx context.Context) (api.GitHubStatus, error) {
 	if err != nil {
 		return api.GitHubStatus{}, err
 	}
-	out := api.GitHubStatus{Configured: cfg.configured(), Syncing: m.isSyncing(), RepoCount: len(cfg.Repos)}
+	out := api.GitHubStatus{Configured: cfg.configured(), Syncing: m.isSyncing(), RepoCount: len(cfg.Watches)}
 	if cfg.configured() && cfg.Login != "" {
 		out.Login = &cfg.Login
 	}
@@ -209,7 +234,15 @@ func (m *Module) status(ctx context.Context) (api.GitHubStatus, error) {
 	} else if !errors.Is(err, settings.ErrNotSet) {
 		return out, err
 	}
-	if remaining, limit, reset := m.rate.info(); remaining >= 0 {
+	rate := m.rate
+	for _, watch := range cfg.Watches {
+		ac, e := m.accountConfig(ctx, watch.ConnectionId)
+		if e == nil && ac.Forge == "github" {
+			rate = m.accountState(ac).rate
+			break
+		}
+	}
+	if remaining, limit, reset := rate.info(); remaining >= 0 {
 		out.RateLimitRemaining = &remaining
 		if limit > 0 {
 			out.RateLimitLimit = &limit
@@ -219,7 +252,11 @@ func (m *Module) status(ctx context.Context) (api.GitHubStatus, error) {
 		}
 	}
 	if cfg.configured() {
-		seconds := int(m.currentSyncInterval() / time.Second)
+		seconds := 60
+		remaining, limit, reset := rate.info()
+		if remaining >= 0 && limit > 0 && remaining < limit/10 && reset.After(m.now()) {
+			seconds = int(slowSyncInterval / time.Second)
+		}
 		out.SyncIntervalSeconds = &seconds
 	}
 	return out, nil
@@ -249,53 +286,47 @@ func (m *Module) SyncGitHub(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-func (m *Module) ListGitHubPulls(w http.ResponseWriter, r *http.Request, params api.ListGitHubPullsParams) {
-	var repo string
-	if params.Repo != nil {
-		repo = *params.Repo
-	}
-	out, err := m.listPulls(r.Context(), repo)
+func (m *Module) ListGitHubPulls(w http.ResponseWriter, r *http.Request, p api.ListGitHubPullsParams) {
+	out, err := m.listPullsSelected(r.Context(), p.ConnectionId, p.Repo)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, out)
+	httpx.JSON(w, 200, out)
 }
-
 func (m *Module) listPulls(ctx context.Context, repo string) ([]api.GitHubPull, error) {
-	if _, err := m.requireConfigured(ctx); err != nil {
-		return nil, err
-	}
-	var rows []db.GithubPull
-	var err error
-	if repo != "" {
-		rows, err = m.q.ListPullsByRepo(ctx, repo)
-	} else {
-		rows, err = m.q.ListPulls(ctx)
-	}
+	return m.listPullsSelected(ctx, nil, &repo)
+}
+func (m *Module) listPullsSelected(ctx context.Context, connection *int64, repo *string) ([]api.GitHubPull, error) {
+	keys, err := m.selected(ctx, connection, repo)
 	if err != nil {
 		return nil, err
 	}
-	links, err := m.q.ListLinks(ctx)
-	if err != nil {
-		return nil, err
+	out := []api.GitHubPull{}
+	for _, k := range keys {
+		rows, e := m.cached(ctx, k, "pull")
+		if e != nil {
+			return nil, e
+		}
+		for _, row := range rows {
+			var v cachedPull
+			if e := json.Unmarshal(row.Data, &v); e != nil {
+				return nil, e
+			}
+			out = append(out, v.GitHubPull)
+		}
 	}
-	type pullKey struct {
-		repo   string
-		number int64
-	}
-	byPull := map[pullKey][]db.GithubLink{}
-	for _, l := range links {
-		k := pullKey{l.Repo, l.Number}
-		byPull[k] = append(byPull[k], l)
-	}
-	out := make([]api.GitHubPull, len(rows))
-	for i, p := range rows {
-		out[i] = pullToAPI(p, byPull[pullKey{p.Repo, p.Number}])
-	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Repo != out[j].Repo {
+			return out[i].Repo < out[j].Repo
+		}
+		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+			return out[i].Number > out[j].Number
+		}
+		return out[i].UpdatedAt.After(out[j].UpdatedAt)
+	})
 	return out, nil
 }
-
 func pullToAPI(p db.GithubPull, links []db.GithubLink) api.GitHubPull {
 	out := api.GitHubPull{
 		Repo: p.Repo, Number: int(p.Number), Title: p.Title, Author: p.Author, Url: p.Url, HeadRef: p.HeadRef,
@@ -315,57 +346,66 @@ func pullToAPI(p db.GithubPull, links []db.GithubLink) api.GitHubPull {
 	return out
 }
 
-func (m *Module) ListGitHubRuns(w http.ResponseWriter, r *http.Request, params api.ListGitHubRunsParams) {
-	ctx := r.Context()
-	if _, err := m.requireConfigured(ctx); err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-	limit := httpx.Limit(params.Limit)
-	var rows []db.GithubRun
-	var err error
-	if params.Repo != nil && *params.Repo != "" {
-		rows, err = m.q.ListRunsByRepo(ctx, db.ListRunsByRepoParams{Repo: *params.Repo, Limit: limit})
-	} else {
-		rows, err = m.q.ListRuns(ctx, limit)
-	}
+func (m *Module) ListGitHubRuns(w http.ResponseWriter, r *http.Request, p api.ListGitHubRunsParams) {
+	keys, err := m.selected(r.Context(), p.ConnectionId, p.Repo)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out := make([]api.GitHubRun, len(rows))
-	for i, run := range rows {
-		out[i] = api.GitHubRun{
-			Id: run.ID, Repo: run.Repo, Name: run.Name, Branch: run.Branch, Event: run.Event, Status: run.Status,
-			Conclusion: run.Conclusion, Url: run.Url, DefaultBranch: run.DefaultBranch, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt,
+	out := []api.GitHubRun{}
+	for _, k := range keys {
+		rows, e := m.cached(r.Context(), k, "run")
+		if e != nil {
+			httpx.Fail(w, r, e)
+			return
+		}
+		for _, row := range rows {
+			var v cachedRun
+			if e := json.Unmarshal(row.Data, &v); e != nil {
+				httpx.Fail(w, r, e)
+				return
+			}
+			out = append(out, v.GitHubRun)
 		}
 	}
-	httpx.JSON(w, http.StatusOK, out)
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].Id > out[j].Id
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	limit := int(httpx.Limit(p.Limit))
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	httpx.JSON(w, 200, out)
 }
-
-func (m *Module) ListGitHubIssues(w http.ResponseWriter, r *http.Request, _ api.ListGitHubIssuesParams) {
-	ctx := r.Context()
-	if _, err := m.requireConfigured(ctx); err != nil {
-		httpx.Fail(w, r, err)
-		return
-	}
-	rows, err := m.q.ListIssues(ctx)
+func (m *Module) ListGitHubIssues(w http.ResponseWriter, r *http.Request, p api.ListGitHubIssuesParams) {
+	keys, err := m.selected(r.Context(), p.ConnectionId, p.Repo)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out := make([]api.GitHubIssue, len(rows))
-	for i, is := range rows {
-		item := api.GitHubIssue{
-			Repo: is.Repo, Number: int(is.Number), Title: is.Title, Url: is.Url, Author: is.Author,
-			Assignees: []string{}, Labels: []string{}, Relation: api.GitHubIssueRelation(is.Relation),
-			CreatedAt: is.CreatedAt, UpdatedAt: is.UpdatedAt,
+	out := []api.GitHubIssue{}
+	for _, k := range keys {
+		rows, e := m.cached(r.Context(), k, "issue")
+		if e != nil {
+			httpx.Fail(w, r, e)
+			return
 		}
-		_ = json.Unmarshal([]byte(is.Assignees), &item.Assignees)
-		_ = json.Unmarshal([]byte(is.Labels), &item.Labels)
-		out[i] = item
+		for _, row := range rows {
+			var v cachedIssue
+			if e := json.Unmarshal(row.Data, &v); e != nil {
+				httpx.Fail(w, r, e)
+				return
+			}
+			if v.Relation != "none" && v.State == "open" {
+				out = append(out, v.GitHubIssue)
+			}
+		}
 	}
-	httpx.JSON(w, http.StatusOK, out)
+	sort.SliceStable(out, func(i, j int) bool { return out[i].UpdatedAt.After(out[j].UpdatedAt) })
+	httpx.JSON(w, 200, out)
 }
 
 // setConnection picks the Git account the module uses (B62). 0 goes back to

@@ -220,11 +220,12 @@ type GitHubConfigInput struct {
 	ClearToken *bool `json:"clearToken,omitempty"`
 
 	// ConnectionId B62：用哪个 Git 账号，只能是 GitHub 类型。传 0 表示不用 Git 账号。B70 起传 watches
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	ConnectionId *int64 `json:"connectionId,omitempty"`
 
 	// Repos B70 起改传 watches
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
-	Repos []string `json:"repos"`
+	Repos *[]string `json:"repos,omitempty"`
 
 	// Token B62 起不用，令牌填在 Git 账号里。留空表示保留原令牌
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set

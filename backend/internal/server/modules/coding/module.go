@@ -17,6 +17,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding/db"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 )
 
 // Module implements api.ServerInterface and contracts.Coding.
@@ -62,6 +63,8 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	module.Provide[contracts.Coding](d.Registry, contracts.CodingKey, m)
 	m.registerActions()
+	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"coding", maintenance.StoreReporter{Store: d.Files.For("coding"), Registry: d.Registry, Key: "coding", Label: "Agent 产物", Module: "coding", Prefix: "artifacts"})
+	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"coding", maintenance.ArtifactCleaner{Deps: d})
 	return m, nil
 }
 

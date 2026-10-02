@@ -1110,7 +1110,7 @@ html[data-theme="dark"] .note-bg-gray {
   gap: 6px;
   padding: 6px 9px 8px;
 }
-.notes-color {
+.notes-colors .notes-color {
   display: grid;
   place-items: center;
   width: 26px;
@@ -1123,11 +1123,11 @@ html[data-theme="dark"] .note-bg-gray {
   cursor: pointer;
   box-shadow: inset 0 0 0 1px var(--xc-border-strong);
 }
-.notes-color.none {
+.notes-colors .notes-color.none {
   color: var(--xc-faint);
 }
-.notes-color:hover,
-.notes-color.on {
+.notes-colors .notes-color:hover,
+.notes-colors .notes-color.on {
   border-color: var(--xc-text-2);
 }
 /* 编辑区用背景色 */
@@ -1469,14 +1469,31 @@ html[data-theme="dark"] .note-bg-gray {
     margin-bottom: 8px;
   }
 }
-@media (max-width: 1180px) {
+/* 便签视图不显示中间的列表，地方够，中等宽度也保留左边的分类栏 */
+@media (max-width: 1180px) and (min-width: 761px) {
+  .notes-layout.memos-view {
+    grid-template-columns: var(--notes-nav-w, 196px) minmax(0, 1fr);
+  }
+  .notes-layout.memos-view .notes-nav {
+    display: flex;
+  }
+  .notes-layout.memos-view .notes-resizer-nav {
+    display: block;
+  }
+  .notes-layout.memos-view .notes-resizer-list {
+    display: none;
+  }
+}
+/* 手机上没有左栏，分类收成列表顶部的一行 */
+@media (max-width: 760px) {
   .notes-layout.memos-view {
     grid-template-columns: minmax(0, 1fr);
   }
   .notes-layout.memos-view .notes-list-pane {
     display: flex;
   }
-  .notes-layout.memos-view .notes-list {
+  .notes-layout.memos-view .notes-list,
+  .notes-layout.memos-view .notes-search {
     display: none;
   }
   .notes-layout.memos-view {
@@ -1499,6 +1516,10 @@ html[data-theme="dark"] .note-bg-gray {
 }
 .notes-shared {
   color: var(--xc-accent-text);
+}
+/* 分享弹窗里各项的间距只用 xc-stack 的 gap */
+.notes-share-form > * {
+  margin: 0;
 }
 .notes-share-current {
   display: flex;

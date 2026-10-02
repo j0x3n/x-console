@@ -18,6 +18,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	h.mu.Lock()
+	h.connections++
+	h.mu.Unlock()
+	defer func() { h.mu.Lock(); h.connections--; h.mu.Unlock() }()
 	defer c.Close(websocket.StatusNormalClosure, "")
 	c.SetReadLimit(4096)
 	ctx, stop := context.WithCancel(context.WithoutCancel(r.Context()))

@@ -1,18 +1,16 @@
 import { useLocation } from "react-router";
 import NavChildLinks from "../../components/layout/NavChildLinks";
 import type { NavChildrenProps } from "../../lib/navChildren";
-import { useHosts } from "../servers/api";
+import { useHostOrder, useHosts } from "../servers/api";
 import { loadSelectedHost } from "./recent";
 
-/** 侧边栏“电脑”下面：每台电脑一行，在线的排前面。有一台以上才有用。 */
+/** 侧边栏“电脑”下面：每台电脑一行，按排好的顺序（B82），可以拖动。有一台以上才有用。 */
 export default function PcNavChildren({ onNavigate }: NavChildrenProps) {
   const hosts = useHosts("desktop");
   const location = useLocation();
   const selected = loadSelectedHost();
-  const list = [...(hosts.data ?? [])].sort(
-    (a, b) =>
-      Number(b.online) - Number(a.online) || a.name.localeCompare(b.name),
-  );
+  const order = useHostOrder("desktop");
+  const list = hosts.data ?? [];
   return (
     <NavChildLinks
       links={list.map((h) => ({
@@ -27,6 +25,7 @@ export default function PcNavChildren({ onNavigate }: NavChildrenProps) {
       error={hosts.isError}
       empty="还没有电脑"
       onNavigate={onNavigate}
+      onReorder={(keys) => order.mutate(keys.map(String))}
     />
   );
 }

@@ -369,6 +369,16 @@ type DriveShare struct {
 	LastAccessAt *time.Time
 }
 
+type DriveShareDownload struct {
+	ID        int64
+	ShareID   int64
+	At        time.Time
+	Ip        string
+	UserAgent string
+	ItemID    *int64
+	ItemName  string
+}
+
 type FocusSession struct {
 	ID             int64
 	IssueKey       string
@@ -395,10 +405,36 @@ type GitConnection struct {
 	LastError        string
 }
 
+type GithubCacheV2 struct {
+	ConnectionID int64
+	Repo         string
+	Kind         string
+	ObjectID     string
+	Data         string
+	UpdatedAt    time.Time
+}
+
 type GithubCiState struct {
 	Key       string
 	State     string
 	UpdatedAt time.Time
+}
+
+type GithubEventSeen struct {
+	ConnectionID int64
+	Repo         string
+	Event        string
+	ObjectID     string
+	State        string
+	ExpiresAt    time.Time
+}
+
+type GithubEventState struct {
+	ConnectionID int64
+	Repo         string
+	Resource     string
+	ObjectID     string
+	Data         string
 }
 
 type GithubIssue struct {
@@ -422,6 +458,15 @@ type GithubLink struct {
 	Kind      string
 	Ref       string
 	CreatedAt time.Time
+}
+
+type GithubNotifyWindow struct {
+	ConnectionID int64
+	Repo         string
+	Event        string
+	StartedAt    time.Time
+	Sent         int64
+	Suppressed   int64
 }
 
 type GithubPull struct {
@@ -459,6 +504,13 @@ type GithubRun struct {
 	UpdatedAt     time.Time
 }
 
+type GithubSyntheticRun struct {
+	ID           int64
+	ConnectionID int64
+	Repo         string
+	Sha          string
+}
+
 type HaFavorite struct {
 	EntityID  string
 	SortOrder int64
@@ -483,6 +535,11 @@ type Habit struct {
 	LastRemindedAt        *time.Time
 	QuietUntil            *time.Time
 	Kind                  string
+	RemindWhen            string
+	ActiveHostIds         string
+	RemindOnHost          int64
+	Template              string
+	SnoozedUntil          *time.Time
 }
 
 type HabitLog struct {
@@ -493,6 +550,32 @@ type HabitLog struct {
 	Source       string
 	Note         string
 	WorkoutLogID *int64
+}
+
+type HabitSchedule struct {
+	ID          int64
+	WorkDays    string
+	WakeTime    string
+	SleepTime   string
+	WorkStart   string
+	WorkEnd     string
+	Timezone    string
+	IdleMinutes int64
+}
+
+type HostInfo struct {
+	HostID           string
+	Ownership        string
+	Client           string
+	Username         string
+	PasswordEnc      string
+	Note             string
+	Tags             string
+	SortOrder        int64
+	CountryCode      string
+	CountryCheckedAt *time.Time
+	CountryIp        string
+	Addresses        string
 }
 
 type HostMetrics1h struct {
@@ -517,6 +600,11 @@ type HostMetrics1m struct {
 	NetRx    float64
 	NetTx    float64
 	Load1    float64
+}
+
+type HostPairingInfo struct {
+	CodeHash   string
+	PayloadEnc string
 }
 
 type HostTrafficDaily struct {
@@ -742,6 +830,8 @@ type Note struct {
 	Hidden        int64
 	SuggestedTags *string
 	AiCheckedHash *string
+	Kind          string
+	Color         string
 }
 
 type NoteAttachment struct {
@@ -752,6 +842,16 @@ type NoteAttachment struct {
 	Size      int64
 	Sha256    string
 	CreatedAt time.Time
+}
+
+type NoteShare struct {
+	NoteID       int64
+	Token        string
+	PasswordHash *string
+	ExpiresAt    *time.Time
+	Visits       int64
+	LastVisitAt  *time.Time
+	CreatedAt    time.Time
 }
 
 type NoteTag struct {

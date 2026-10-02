@@ -76,13 +76,14 @@ type Module struct {
 	statesMu sync.Mutex
 	states   map[string]oauthState
 
-	mu      sync.Mutex // guards everything below
-	backend api.StorageBackend
-	raw     files.Store   // the Store behind the Manager: Local or S3
-	cache   *files.Cached // set while the backend is s3
-	usage   usageCache
-	move    *move // the running move, if any
-	last    api.StorageMigration
+	mu       sync.Mutex // guards everything below
+	backend  api.StorageBackend
+	raw      files.Store   // the Store behind the Manager: Local or S3
+	cache    *files.Cached // set while the backend is s3
+	usage    usageCache
+	cleaning bool
+	move     *move // the running move, if any
+	last     api.StorageMigration
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -93,6 +94,7 @@ func New(d *module.Deps) (module.Module, error) {
 		last: api.StorageMigration{State: api.Idle, Target: api.Local}}
 	module.Provide[contracts.RemoteDrives](d.Registry, contracts.RemoteDrivesKey, remotes{m})
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.MaintenanceStorage](d.Registry, contracts.MaintenanceStorageKey, m)
 	ctx := context.Background()
 	if err := m.migrateDriveSettings(ctx); err != nil {
 		return nil, fmt.Errorf("storage: copy drive S3 settings: %w", err)

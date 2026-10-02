@@ -13,11 +13,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/db"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 )
 
 type Module struct {
@@ -44,7 +46,6 @@ type Module struct {
 	shareMu      sync.Mutex
 	shareHits    map[string]shareRate
 	shareFails   map[string]shareFailure
-	// shareFetches: "share:item:ip" -> when it last counted a download.
 	shareFetches map[string]time.Time
 	blobMu       sync.Mutex
 	blobLocks    map[string]*blobLock // see lockBlob
@@ -59,11 +60,18 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure), shareFetches: make(map[string]time.Time), blobLocks: make(map[string]*blobLock)}
 	m.registerActions()
+	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"drive", maintenance.StoreReporter{Store: m.store, Registry: d.Registry, Key: "drive", Label: "云盘", Module: "drive"})
+	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"drive", maintenance.DriveCleaner{Deps: d, Lock: m.lockBlob, Trash: func(ctx context.Context, id int64, cutoff time.Time, snapshot []int64) (contracts.CleanupResult, error) {
+		return maintenance.PurgeDriveTrash(ctx, d, id, cutoff, snapshot, m.lockBlob)
+	}})
 	return m, nil
 }
 func (m *Module) Name() string { return "drive" }
 func (m *Module) Mount(r chi.Router) {
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
+	wrapper := api.ServerInterfaceWrapper{Handler: m, ErrorHandlerFunc: httpx.BadParam}
+	r.Head("/public/shares/{token}/content", wrapper.GetPublicShareContent)
+	r.Head("/public/shares/{token}/thumbnail", wrapper.GetPublicShareThumbnail)
 }
 func (m *Module) Start(ctx context.Context) error {
 	m.taskBase = ctx

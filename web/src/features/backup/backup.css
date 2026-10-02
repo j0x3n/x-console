@@ -147,3 +147,81 @@
   margin-bottom: 12px;
   font-size: var(--fs-13);
 }
+
+/* ---- B81：增量备份 ---- */
+.backup-retention {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+}
+.backup-snapshots {
+  grid-column: 1 / -1;
+}
+.backup-retention .xc-field {
+  margin: 0;
+}
+.backup-retention small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.backup-snapshots .xc-stats {
+  margin-bottom: 12px;
+}
+.backup-snapshot-list > li {
+  display: block;
+}
+.backup-snapshot-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.backup-added {
+  color: var(--xc-ok);
+}
+.backup-modified {
+  color: var(--xc-warn);
+}
+.backup-deleted {
+  color: var(--xc-danger);
+}
+.backup-changes {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 10px 34px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+  font-size: var(--fs-12);
+}
+.backup-change {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+}
+.backup-change > span:first-child {
+  color: var(--xc-muted);
+}
+.backup-change.added > span:first-child {
+  color: var(--xc-ok);
+}
+.backup-change.deleted > span:first-child {
+  color: var(--xc-danger);
+}
+.backup-change .xc-mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backup-changes-empty {
+  margin: 4px 0 10px 34px;
+  font-size: var(--fs-12);
+}
+@media (max-width: 640px) {
+  .backup-retention {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .backup-changes,
+  .backup-changes-empty {
+    margin-left: 0;
+  }
+}

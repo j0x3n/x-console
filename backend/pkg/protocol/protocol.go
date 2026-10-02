@@ -118,17 +118,24 @@ type Pong struct {
 }
 
 // SystemInfo answers MethodSystemInfo.
+type HostAddress struct {
+	IP     string `json:"ip"`
+	Family string `json:"family"`
+	Public bool   `json:"public"`
+}
+
 type SystemInfo struct {
-	Hostname      string `json:"hostname"`
-	OS            string `json:"os"`
-	Platform      string `json:"platform"`
-	PlatformVer   string `json:"platformVersion"`
-	KernelVersion string `json:"kernelVersion"`
-	Arch          string `json:"arch"`
-	CPUModel      string `json:"cpuModel"`
-	CPUCores      int    `json:"cpuCores"`
-	MemoryTotal   uint64 `json:"memoryTotal"`
-	UptimeSeconds uint64 `json:"uptimeSeconds"`
+	Addresses     []HostAddress `json:"addresses,omitempty"`
+	Hostname      string        `json:"hostname"`
+	OS            string        `json:"os"`
+	Platform      string        `json:"platform"`
+	PlatformVer   string        `json:"platformVersion"`
+	KernelVersion string        `json:"kernelVersion"`
+	Arch          string        `json:"arch"`
+	CPUModel      string        `json:"cpuModel"`
+	CPUCores      int           `json:"cpuCores"`
+	MemoryTotal   uint64        `json:"memoryTotal"`
+	UptimeSeconds uint64        `json:"uptimeSeconds"`
 }
 
 // Marshal is json.Marshal that panics on error; params are always plain structs.

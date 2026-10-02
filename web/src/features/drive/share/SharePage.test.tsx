@@ -78,7 +78,7 @@ afterEach(() => {
 describe("SharePage", () => {
   it("asks for the access code, then shows the file", async () => {
     renderShare();
-    const input = await screen.findByLabelText("提取码");
+    const input = await screen.findByLabelText("密码");
     fireEvent.change(input, { target: { value: "zzzz" } });
     fireEvent.click(screen.getByRole("button", { name: "打开" }));
     expect(await screen.findByText("提取码不对，还能试 4 次")).toBeTruthy();

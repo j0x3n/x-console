@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { ApiError, apiFetch, createApi, unwrap } from "../../api/client";
 import { coreApi } from "../../api/core";
+import { withElevation } from "../../auth/elevation";
 import { invalidateOn, type ServerEvent } from "../../api/events";
 import { queryClient } from "../../api/query";
 import type { components, paths } from "../../api/gen/hosts";
@@ -37,6 +38,10 @@ export type AlertRule = S["AlertRule"];
 export type AlertRuleInput = S["AlertRuleInput"];
 export type AlertEvent = S["AlertEvent"];
 export type ProcessSort = "cpu" | "mem" | "pid" | "name";
+export type HostInfo = S["HostInfo"];
+export type HostInfoInput = S["HostInfoInput"];
+export type HostPatch = S["HostPatch"];
+export type HostAddress = S["HostAddress"];
 
 export const hostsKeys = {
   all: ["hosts"] as const,
@@ -67,6 +72,12 @@ invalidateOn("host.alert", hostsKeys.rules);
 invalidateOn("host.alert.", hostsKeys.lists);
 invalidateOn("host.process.", ["hosts", "processes"]);
 invalidateOn("host.service.", ["hosts", "services"]);
+// B82：信息和排序改了，列表和详情一起刷新。
+invalidateOn("host.info.", hostsKeys.lists);
+invalidateOn("host.info.", hostsKeys.details);
+invalidateOn("host.order.", hostsKeys.lists);
+// B83：电脑使用状态变了，详情里的 presence 跟着刷新。
+invalidateOn("host.presence", hostsKeys.details);
 
 interface MetricsEvent {
   hostId: string;
@@ -305,4 +316,86 @@ export function useSaveTrafficPlan(id: string) {
       qc.invalidateQueries({ queryKey: hostsKeys.lists });
     },
   });
+}
+
+/* ---------- B82：机器信息、排序 ---------- */
+
+/** 改名称和信息。改密码要提升权限，所以统一包 withElevation。 */
+export function usePatchHost(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: HostPatch) => {
+      const run = () =>
+        unwrap(
+          hostsApi.PATCH("/hosts/{hostId}", {
+            params: { path: { hostId: id } },
+            body,
+          }),
+        );
+      return body.info?.password != null || body.info?.clearPassword
+        ? withElevation(run)
+        : run();
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(hostsKeys.detail(id), data);
+      void qc.invalidateQueries({ queryKey: hostsKeys.lists });
+    },
+  });
+}
+
+/** 看登录密码：要提升权限，服务端写审计。 */
+export function fetchHostPassword(id: string) {
+  return withElevation(() =>
+    unwrap(
+      hostsApi.GET("/hosts/{hostId}/password", {
+        params: { path: { hostId: id } },
+      }),
+    ).then((r) => r.password),
+  );
+}
+
+/** 按给的顺序排。先改缓存，失败了再刷新回来。 */
+export function useHostOrder(kind: HostKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) =>
+      unwrap(hostsApi.PUT("/hosts/order", { body: { kind, ids } })),
+    onMutate: (ids) => {
+      qc.setQueryData<Host[]>(hostsKeys.list(kind), (old) =>
+        old ? sortByIds(old, ids) : old,
+      );
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: hostsKeys.lists }),
+  });
+}
+
+/** 按 ids 的顺序重排，没列出的放最后。 */
+export function sortByIds<T extends { id: string }>(list: T[], ids: string[]) {
+  const pos = new Map(ids.map((id, i) => [id, i]));
+  return [...list].sort(
+    (a, b) => (pos.get(a.id) ?? Infinity) - (pos.get(b.id) ?? Infinity),
+  );
+}
+
+/** 把 from 挪到 to 的位置，返回新的 id 顺序。 */
+export function moveId(ids: string[], from: string, to: string): string[] {
+  if (from === to || !ids.includes(from)) return ids;
+  const rest = ids.filter((id) => id !== from);
+  const at = rest.indexOf(to);
+  if (at < 0) return ids;
+  const fromIndex = ids.indexOf(from);
+  const toIndex = ids.indexOf(to);
+  rest.splice(fromIndex < toIndex ? at + 1 : at, 0, from);
+  return rest;
+}
+
+/** 国家代码转国旗 emoji：JP → 🇯🇵。 */
+export function flagEmoji(code: string): string {
+  if (!/^[A-Za-z]{2}$/.test(code)) return "";
+  return String.fromCodePoint(
+    ...code
+      .toUpperCase()
+      .split("")
+      .map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
+  );
 }

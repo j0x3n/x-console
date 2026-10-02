@@ -1,0 +1,6 @@
+package: api
+output: maintenance.gen.go
+generate:
+  models: true
+import-mapping:
+  ../common.yaml: github.com/j0x3n/x-console/backend/internal/server/apigen/common

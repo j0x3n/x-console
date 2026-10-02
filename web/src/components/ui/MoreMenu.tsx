@@ -54,6 +54,7 @@ export default function MoreMenu({
   title,
   label,
   className = "",
+  icon,
 }: {
   items: MoreMenuItem[];
   /** 手机上弹出时显示在最上面，比如文件名。 */
@@ -61,6 +62,8 @@ export default function MoreMenu({
   /** 按钮的读屏文字，比如“更多：notes.md”。 */
   label: string;
   className?: string;
+  /** 换掉按钮上的“…”图标，比如编辑器的“插入”用加号（B74）。 */
+  icon?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
@@ -127,7 +130,7 @@ export default function MoreMenu({
           toggle();
         }}
       >
-        <Ellipsis size={15} />
+        {icon ?? <Ellipsis size={15} />}
       </button>
       {open &&
         createPortal(

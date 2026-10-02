@@ -13,12 +13,18 @@ export type BackupJob = S["BackupJob"];
 export type BackupSettings = S["BackupSettings"];
 export type BackupSettingsInput = S["BackupSettingsInput"];
 export type BackupTargetTest = S["BackupTargetTest"];
+export type BackupRetention = S["BackupRetention"];
+export type BackupSnapshot = S["BackupSnapshot"];
+export type BackupRepoStats = S["BackupRepoStats"];
+export type BackupSnapshotChange = S["BackupSnapshotChange"];
 
 export const backupKeys = {
   all: ["backup"] as const,
   list: ["backup", "list"] as const,
   job: ["backup", "job"] as const,
   settings: ["backup", "settings"] as const,
+  snapshots: ["backup", "snapshots"] as const,
+  changes: (id: string) => ["backup", "snapshots", "changes", id] as const,
 };
 
 invalidateOn("backup.", backupKeys.all);
@@ -65,7 +71,9 @@ export function useExportBackup() {
 export function useRunBackupNow() {
   const refresh = useRefresh();
   return useMutation({
-    mutationFn: () => unwrap(backupApi.POST("/backups/run")),
+    // B81：立即备份要提升权限
+    mutationFn: () =>
+      withElevation(() => unwrap(backupApi.POST("/backups/run"))),
     onSuccess: refresh,
   });
 }
@@ -141,4 +149,57 @@ export function useUploadBackup() {
 /** 下载地址。要登录和提升权限，浏览器直接打开这个地址。 */
 export function downloadUrl(id: string) {
   return `/api/v1/backups/${encodeURIComponent(id)}/download`;
+}
+
+/* ---------- B81：增量备份的快照 ---------- */
+
+export function useSnapshots(enabled: boolean) {
+  return useQuery({
+    queryKey: backupKeys.snapshots,
+    queryFn: () => unwrap(backupApi.GET("/backups/snapshots")),
+    enabled,
+    retry: false,
+  });
+}
+
+/** 和上一个快照相比改了什么，展开时才查。 */
+export function useSnapshotChanges(id: string | null) {
+  return useQuery({
+    queryKey: backupKeys.changes(id ?? ""),
+    queryFn: () =>
+      unwrap(
+        backupApi.GET("/backups/snapshots/{snapshotId}/changes", {
+          params: { path: { snapshotId: id! } },
+        }),
+      ),
+    enabled: !!id,
+    retry: false,
+    staleTime: Infinity,
+  });
+}
+
+export function useRestoreSnapshot() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (id: string) =>
+      withElevation(() =>
+        unwrap(
+          backupApi.POST("/backups/snapshots/{snapshotId}/restore", {
+            params: { path: { snapshotId: id } },
+            body: { confirm: "恢复" },
+          }),
+        ),
+      ),
+    onSuccess: refresh,
+  });
+}
+
+/** 检查每个快照引用的块都在。后台做，结果在 /backups/job 里。 */
+export function useCheckBackup() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: () =>
+      withElevation(() => unwrap(backupApi.POST("/backups/check"))),
+    onSuccess: refresh,
+  });
 }

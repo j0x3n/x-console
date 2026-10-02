@@ -142,7 +142,7 @@ func (m *Module) saveS3(ctx context.Context, in api.StorageS3Input) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.move != nil {
+	if m.move != nil || m.cleaning {
 		return httpx.NewError(http.StatusConflict, "conflict", "正在搬迁文件，完成后再改 S3 设置")
 	}
 	active := m.backend == api.S3

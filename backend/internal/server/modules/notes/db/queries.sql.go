@@ -44,7 +44,7 @@ func (q *Queries) ClearTagColor(ctx context.Context, tag string) error {
 }
 
 const createNote = `-- name: CreateNote :one
-INSERT INTO notes (title, body, pinned, hidden, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash
+INSERT INTO notes (title, body, pinned, hidden, created_at, updated_at, kind, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash, kind, color
 `
 
 type CreateNoteParams struct {
@@ -54,6 +54,8 @@ type CreateNoteParams struct {
 	Hidden    int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	Kind      string
+	Color     string
 }
 
 func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, error) {
@@ -64,6 +66,8 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, e
 		arg.Hidden,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.Kind,
+		arg.Color,
 	)
 	var i Note
 	err := row.Scan(
@@ -77,6 +81,8 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, e
 		&i.Hidden,
 		&i.SuggestedTags,
 		&i.AiCheckedHash,
+		&i.Kind,
+		&i.Color,
 	)
 	return i, err
 }
@@ -93,8 +99,20 @@ func (q *Queries) DeleteNote(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteNoteShare = `-- name: DeleteNoteShare :execrows
+DELETE FROM note_shares WHERE note_id = ?
+`
+
+func (q *Queries) DeleteNoteShare(ctx context.Context, noteID int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteNoteShare, noteID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getNote = `-- name: GetNote :one
-SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash FROM notes WHERE id = ?
+SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash, kind, color FROM notes WHERE id = ?
 `
 
 func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
@@ -111,6 +129,8 @@ func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
 		&i.Hidden,
 		&i.SuggestedTags,
 		&i.AiCheckedHash,
+		&i.Kind,
+		&i.Color,
 	)
 	return i, err
 }
@@ -144,18 +164,20 @@ func (q *Queries) ListNoteTags(ctx context.Context, noteID int64) ([]string, err
 
 const listNotes = `-- name: ListNotes :many
 
-SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash FROM notes
+SELECT id, title, body, pinned, archived_at, created_at, updated_at, hidden, suggested_tags, ai_checked_hash, kind, color FROM notes
 WHERE (archived_at IS NOT NULL) = CAST(?1 AS BOOLEAN)
   AND hidden = ?2
-  AND (?3 IS NULL OR pinned = ?3)
-  AND (?4 IS NULL OR id IN (SELECT note_id FROM note_tags WHERE note_tags.tag = ?4))
+  AND (?3 IS NULL OR kind = ?3)
+  AND (?4 IS NULL OR pinned = ?4)
+  AND (?5 IS NULL OR id IN (SELECT note_id FROM note_tags WHERE note_tags.tag = ?5))
 ORDER BY pinned DESC, updated_at DESC, id DESC
-LIMIT ?6 OFFSET ?5
+LIMIT ?7 OFFSET ?6
 `
 
 type ListNotesParams struct {
 	Archived bool
 	Hidden   int64
+	Kind     interface{}
 	Pinned   interface{}
 	Tag      interface{}
 	Off      int64
@@ -169,6 +191,7 @@ func (q *Queries) ListNotes(ctx context.Context, arg ListNotesParams) ([]Note, e
 	rows, err := q.db.QueryContext(ctx, listNotes,
 		arg.Archived,
 		arg.Hidden,
+		arg.Kind,
 		arg.Pinned,
 		arg.Tag,
 		arg.Off,
@@ -192,6 +215,8 @@ func (q *Queries) ListNotes(ctx context.Context, arg ListNotesParams) ([]Note, e
 			&i.Hidden,
 			&i.SuggestedTags,
 			&i.AiCheckedHash,
+			&i.Kind,
+			&i.Color,
 		); err != nil {
 			return nil, err
 		}
@@ -273,7 +298,7 @@ func (q *Queries) SetTagColor(ctx context.Context, arg SetTagColorParams) error 
 }
 
 const tagCounts = `-- name: TagCounts :many
-SELECT note_tags.tag, count(*) AS count, CAST(coalesce(max(note_tag_colors.color), '') AS TEXT) AS color
+SELECT note_tags.tag, count(*) AS count, CAST(sum(CASE WHEN notes.kind = 'memo' THEN 1 ELSE 0 END) AS INTEGER) AS memo_count, CAST(coalesce(max(note_tag_colors.color), '') AS TEXT) AS color
 FROM note_tags
 JOIN notes ON notes.id = note_tags.note_id
 LEFT JOIN note_tag_colors ON note_tag_colors.tag = note_tags.tag
@@ -283,9 +308,10 @@ ORDER BY count(*) DESC, note_tags.tag
 `
 
 type TagCountsRow struct {
-	Tag   string
-	Count int64
-	Color string
+	Tag       string
+	Count     int64
+	MemoCount int64
+	Color     string
 }
 
 func (q *Queries) TagCounts(ctx context.Context, hidden int64) ([]TagCountsRow, error) {
@@ -297,7 +323,12 @@ func (q *Queries) TagCounts(ctx context.Context, hidden int64) ([]TagCountsRow, 
 	var items []TagCountsRow
 	for rows.Next() {
 		var i TagCountsRow
-		if err := rows.Scan(&i.Tag, &i.Count, &i.Color); err != nil {
+		if err := rows.Scan(
+			&i.Tag,
+			&i.Count,
+			&i.MemoCount,
+			&i.Color,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -312,7 +343,7 @@ func (q *Queries) TagCounts(ctx context.Context, hidden int64) ([]TagCountsRow, 
 }
 
 const updateNote = `-- name: UpdateNote :exec
-UPDATE notes SET title = ?, body = ?, pinned = ?, archived_at = ?, hidden = ?, updated_at = ? WHERE id = ?
+UPDATE notes SET title = ?, body = ?, pinned = ?, archived_at = ?, hidden = ?, updated_at = ?, kind = ?, color = ? WHERE id = ?
 `
 
 type UpdateNoteParams struct {
@@ -322,6 +353,8 @@ type UpdateNoteParams struct {
 	ArchivedAt *time.Time
 	Hidden     int64
 	UpdatedAt  time.Time
+	Kind       string
+	Color      string
 	ID         int64
 }
 
@@ -333,6 +366,8 @@ func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) error {
 		arg.ArchivedAt,
 		arg.Hidden,
 		arg.UpdatedAt,
+		arg.Kind,
+		arg.Color,
 		arg.ID,
 	)
 	return err

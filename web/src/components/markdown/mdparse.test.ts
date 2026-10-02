@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   imageSources,
+  mediaKind,
   parseInline,
   parseMarkdown,
   safeHref,
@@ -137,5 +138,47 @@ describe("images and tasks", () => {
         'a ![x](/a.png) b ![y](https://e.com/b.png "t") ![z](bad:1)',
       ),
     ).toEqual(["/a.png", "https://e.com/b.png"]);
+  });
+});
+
+describe("B74 blocks", () => {
+  it("parses a table with alignment", () => {
+    const [table] = parseMarkdown("| a | b |\n| :-- | --: |\n| 1 | 2 |\n| 3 |");
+    expect(table.type).toBe("table");
+    if (table.type !== "table") return;
+    expect(table.align).toEqual(["left", "right"]);
+    expect(table.rows).toHaveLength(2);
+    expect(table.rows[1][1]).toEqual([]);
+  });
+
+  it("parses callouts and hidden blocks, nested", () => {
+    const blocks = parseMarkdown(
+      ":::hidden 密码\n:::tip\n内层\n:::\n```\n:::\n```\n:::\n后面",
+    );
+    expect(blocks[0]).toMatchObject({
+      type: "container",
+      kind: "hidden",
+      title: "密码",
+    });
+    if (blocks[0].type !== "container") return;
+    expect(blocks[0].blocks.map((b) => b.type)).toEqual(["container", "code"]);
+    expect(blocks[1]).toMatchObject({ type: "paragraph" });
+  });
+
+  it("turns a lone url into a link card and ==x== into a mark", () => {
+    expect(parseMarkdown("https://example.com/a")[0]).toEqual({
+      type: "linkcard",
+      href: "https://example.com/a",
+    });
+    expect(parseInline("a ==重点== b")[1]).toEqual({
+      type: "mark",
+      children: [{ type: "text", text: "重点" }],
+    });
+  });
+
+  it("tells video and audio by extension", () => {
+    expect(mediaKind("/x/clip.MP4")).toBe("video");
+    expect(mediaKind("/api/v1/notes/attachments/3", "song.mp3")).toBe("audio");
+    expect(mediaKind("/a.png")).toBeNull();
   });
 });

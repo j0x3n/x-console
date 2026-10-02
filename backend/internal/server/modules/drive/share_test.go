@@ -65,7 +65,7 @@ func TestDriveShareRejectsHiddenAndBadInput(t *testing.T) {
 	env.Elevate()
 	for _, body := range []map[string]any{
 		{"itemId": file.Id, "expiresIn": "oops"},
-		{"itemId": file.Id, "expiresIn": "never", "code": "bad!"},
+		{"itemId": file.Id, "expiresIn": "never", "code": "bad"},
 		{"itemId": file.Id, "expiresIn": "never", "maxDownloads": 0},
 	} {
 		status, _ := env.Do(http.MethodPost, "/drive/shares", body, nil)

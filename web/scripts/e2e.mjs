@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import http from "node:http";
 import os from "node:os";
@@ -489,6 +489,121 @@ try {
     throw new Error(`${error.message}\n当前笔记：${JSON.stringify(currentNote)}\n请求：${noteResponses.join(", ")}\n页面异常：${pageErrors.join("；")}`);
   }
 
+  stage = "B72 笔记外链分享";
+  {
+    const elevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+      headers: { "X-Requested-With": "x-console" }, data: { password },
+    });
+    assert.equal(elevate.status(), 200, await elevate.text());
+    const shared = await page.context().request.put(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" }, data: { expiresIn: "7d", password: "e2e-note" },
+    });
+    assert.equal(shared.status(), 200, await shared.text());
+    const share = await shared.json();
+    const publicBase = `${base}/api/v1/public/notes/${share.token}`;
+    assert.equal((await fetch(publicBase)).status, 401);
+    const unlocked = await fetch(`${publicBase}/unlock`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "e2e-note" }),
+    });
+    assert.equal(unlocked.status, 200);
+    const access = (await unlocked.json()).access;
+    const publicNote = await fetch(`${publicBase}?t=${encodeURIComponent(access)}`);
+    assert.equal(publicNote.status, 200);
+    assert.equal((await publicNote.json()).body, currentNote.body);
+    assert.equal((await api(`/notes/${noteId}`)).shared, true);
+    const stopped = await page.context().request.delete(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(stopped.status(), 204, await stopped.text());
+    assert.equal((await fetch(publicBase)).status, 404);
+  }
+
+  stage = "B73 便签 API 主流程";
+  {
+    const created = await page.context().request.post(`${base}/api/v1/notes`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { title: "便签主流程", body: "便签检索主流程", kind: "memo", tags: ["便签主流程"] },
+    });
+    assert.equal(created.status(), 201, await created.text());
+    const memo = await created.json();
+    assert.equal(memo.kind, "memo");
+    const listed = await api("/notes?kind=memo&tag=" + encodeURIComponent("便签主流程"));
+    assert.equal(listed.items[0].body, memo.body);
+    assert.ok((await api("/notes/counts")).memos > 0);
+    const converted = await page.context().request.patch(`${base}/api/v1/notes/${memo.id}`, {
+      headers: { "X-Requested-With": "x-console" }, data: { kind: "note" },
+    });
+    assert.equal(converted.status(), 200, await converted.text());
+    assert.equal((await converted.json()).kind, "note");
+    assert.equal((await api("/notes?kind=memo&tag=" + encodeURIComponent("便签主流程"))).items.length, 0);
+    const removed = await page.context().request.delete(`${base}/api/v1/notes/${memo.id}`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(removed.status(), 204, await removed.text());
+  }
+
+  stage = "B70 仓库关注 API 主流程";
+  {
+    const original = await api("/github/config");
+    const saved = await page.context().request.put(`${base}/api/v1/github/config`, {
+      headers: { "X-Requested-With": "x-console" }, data: { watches: [] },
+    });
+    assert.equal(saved.status(), 200, await saved.text());
+    assert.deepEqual((await saved.json()).watches, []);
+    assert.deepEqual(await api("/github/repos"), []);
+    assert.deepEqual(await api("/github/commits"), []);
+    assert.deepEqual(await api("/github/pulls"), []);
+    const restored = await page.context().request.put(`${base}/api/v1/github/config`, {
+      headers: { "X-Requested-With": "x-console" }, data: { repos: original.repos, connectionId: original.connectionId ?? 0 },
+    });
+    assert.equal(restored.status(), 200, await restored.text());
+  }
+
+  stage = "B71 仓库通知设置 API 主流程";
+  {
+    const original = await api("/github/notify");
+    const saved = await page.context().request.put(`${base}/api/v1/github/notify`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { defaults: { events: ["ci_started", "push"], ciBranches: "all" }, repos: [] },
+    });
+    assert.equal(saved.status(), 200, await saved.text());
+    assert.deepEqual((await api("/github/notify")).defaults, { events: ["ci_started", "push"], ciBranches: "all" });
+    const invalid = await page.context().request.put(`${base}/api/v1/github/notify`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { defaults: { events: ["unknown"], ciBranches: "default" }, repos: [] },
+    });
+    assert.equal(invalid.status(), 400, await invalid.text());
+    const restored = await page.context().request.put(`${base}/api/v1/github/notify`, {
+      headers: { "X-Requested-With": "x-console" }, data: original,
+    });
+    assert.equal(restored.status(), 200, await restored.text());
+  }
+
+  stage = "B74 笔记背景色 API 主流程";
+  {
+    const colored = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {
+      headers: { "X-Requested-With": "x-console" }, data: { color: "teal" },
+    });
+    assert.equal(colored.status(), 200, await colored.text());
+    assert.equal((await api(`/notes/${noteId}`)).color, "teal");
+    const invalid = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {
+      headers: { "X-Requested-With": "x-console" }, data: { color: "#ffffff" },
+    });
+    assert.equal(invalid.status(), 400, await invalid.text());
+    const shared = await page.context().request.put(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" }, data: { expiresIn: "1d" },
+    });
+    assert.equal(shared.status(), 200, await shared.text());
+    const share = await shared.json();
+    const publicNote = await fetch(`${base}/api/v1/public/notes/${share.token}`);
+    assert.equal(publicNote.status, 200);
+    assert.equal((await publicNote.json()).color, "teal");
+    const stopped = await page.context().request.delete(`${base}/api/v1/notes/${noteId}/share`, {
+      headers: { "X-Requested-With": "x-console" },
+    });
+    assert.equal(stopped.status(), 204, await stopped.text());
+  }
+
   stage = "新建提醒";
   await page.goto(`${base}/reminders`);
   await page
@@ -616,22 +731,45 @@ try {
     data: { password },
   });
   assert.equal(shareElevation.status(), 200, await shareElevation.text());
+  stage = "B75 云盘分享预览和下载记录 API 主流程";
   const shareResponse = await page.context().request.post(`${base}/api/v1/drive/shares`, {
     headers: { "X-Requested-With": "x-console" },
-    data: { itemId: driveFile.id, expiresIn: "7d" },
+    data: { itemId: driveFile.id, expiresIn: "7d", code: "分享密码123456" },
   });
   assert.equal(shareResponse.status(), 201, await shareResponse.text());
   const driveShare = await shareResponse.json();
   assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0]?.id, driveShare.id);
-  const publicShare = await page.context().request.get(
-    `${base}/api/v1/public/shares/${driveShare.token}`,
-  );
+  const drivePublicBase = `${base}/api/v1/public/shares/${driveShare.token}`;
+  assert.equal((await fetch(drivePublicBase)).status, 401);
+  const driveUnlocked = await fetch(`${drivePublicBase}/unlock`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: "分享密码123456" }),
+  });
+  assert.equal(driveUnlocked.status, 200);
+  const driveAccess = encodeURIComponent((await driveUnlocked.json()).access);
+  const publicShare = await page.context().request.get(`${drivePublicBase}?t=${driveAccess}`);
   assert.equal(publicShare.status(), 200, await publicShare.text());
-  const publicContent = await page.context().request.get(
-    `${base}/api/v1/public/shares/${driveShare.token}/content`,
-  );
+  for (let i = 0; i < 3; i++) {
+    const preview = await page.context().request.get(`${drivePublicBase}/content?preview=true&t=${driveAccess}`);
+    assert.equal(preview.status(), 200, await preview.text());
+    assert.equal(await preview.text(), "云盘内容可以预览。");
+    assert.match(preview.headers()["content-disposition"], /^inline/);
+  }
+  const publicHead = await page.context().request.head(`${drivePublicBase}/content?t=${driveAccess}`);
+  assert.equal(publicHead.status(), 200);
+  assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0].downloads, 0);
+  const publicContent = await page.context().request.get(`${drivePublicBase}/content?t=${driveAccess}`);
   assert.equal(publicContent.status(), 200);
   assert.equal(await publicContent.text(), "云盘内容可以预览。");
+  const publicRange = await page.context().request.get(`${drivePublicBase}/content?t=${driveAccess}`, {
+    headers: { Range: "bytes=3-" },
+  });
+  assert.equal(publicRange.status(), 206);
+  assert.equal((await api(`/drive/shares?itemId=${driveFile.id}`)).items[0].downloads, 1);
+  const driveHistory = await api(`/drive/shares/${driveShare.id}/downloads`);
+  assert.equal(driveHistory.items.length, 1);
+  assert.equal(driveHistory.items[0].ip, "127.0.*.*");
+  assert.equal(driveHistory.items[0].itemName, driveFile.name);
   const unshareResponse = await page.context().request.delete(
     `${base}/api/v1/drive/shares/${driveShare.id}`,
     { headers: { "X-Requested-With": "x-console" } },
@@ -799,6 +937,65 @@ try {
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
 
+  const send = async (method, path, data) => {
+    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
+      method,
+      headers: { "X-Requested-With": "x-console" },
+      data,
+    });
+    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
+    return response.status() === 204 ? undefined : response.json();
+  };
+  stage = "B81 增量备份 API 主流程";
+  const previousBackupSettings = await api("/backups/settings");
+  const backupRemote = (await api("/storage/remotes")).items.find((item) => item.name === "端到端网盘");
+  await send("PUT", "/backups/settings", { target: "remote", remoteId: backupRemote.id, mode: "incremental", webdav: { folder: "e2e-backups" }, retention: { last: 7, daily: 14, weekly: 8, monthly: 12 } });
+  const backupProbe = join(serverEnv.XC_DATA_DIR, "files", "projects", "backup-e2e.txt");
+  mkdirSync(join(serverEnv.XC_DATA_DIR, "files", "projects"), { recursive: true });
+  writeFileSync(backupProbe, "backup-e2e");
+  await send("POST", "/backups/run");
+  const firstBackupJob = await until("首个增量备份", async () => {
+    const result = await api("/backups/job");
+    return result.state !== "running" && result;
+  });
+  assert.equal(firstBackupJob.state, "done", firstBackupJob.error);
+  rmSync(backupProbe);
+  await send("POST", "/backups/run");
+  const secondBackupJob = await until("第二个增量备份", async () => {
+    const result = await api("/backups/job");
+    return result.state !== "running" && result;
+  });
+  assert.equal(secondBackupJob.state, "done", secondBackupJob.error);
+  const backupSnapshots = await api("/backups/snapshots");
+  assert.equal(backupSnapshots.items.length, 2);
+  assert.ok(backupSnapshots.stats.uniqueBytes > 0);
+  const backupChanges = await api(`/backups/snapshots/${secondBackupJob.backupId}/changes`);
+  assert.ok(backupChanges.items.some((item) => item.path === "projects/backup-e2e.txt" && item.kind === "deleted"));
+  await send("POST", "/backups/check");
+  const checkedBackup = await until("检查增量备份", async () => {
+    const result = await api("/backups/job");
+    return result.state !== "running" && result;
+  });
+  assert.equal(checkedBackup.state, "done", checkedBackup.error);
+  assert.equal(checkedBackup.check.snapshots, 2);
+  const { lastRuns: previousBackupRuns, nextRunAt: previousBackupNext, ...previousBackupInput } = previousBackupSettings;
+  await send("PUT", "/backups/settings", previousBackupInput);
+
+  stage = "B83 作息和健康提醒 API 主流程";
+  const previousSchedule = await api("/habits/schedule");
+  await send("PUT", "/habits/schedule", { workDays: [1, 2, 3, 4, 5], wakeTime: "12:00", sleepTime: "03:30", timezone: "Asia/Shanghai", idleMinutes: 5 });
+  assert.equal((await api("/habits/schedule")).sleepTime, "03:30");
+  const healthHabit = await send("POST", "/habits", { name: "端到端喝水", template: "water" });
+  assert.deepEqual(healthHabit.remindWhen, ["awake"]);
+  assert.equal(healthHabit.dailyTarget, 8);
+  assert.ok(healthHabit.nextRemindAt);
+  await send("POST", "/notify/actions", { actionId: `habit.snooze:${healthHabit.id}` });
+  await send("POST", `/habits/${healthHabit.id}/checkin`, { amount: 1 });
+  assert.equal((await api("/habits/today")).find((item) => item.habit.id === healthHabit.id).done, 1);
+  assert.ok(Array.isArray(await api("/habits/presence")));
+  await send("DELETE", `/habits/${healthHabit.id}`);
+  await send("PUT", "/habits/schedule", previousSchedule);
+
   stage = "习惯打卡";
   await page.goto(`${base}/habits`);
   await page.getByRole("button", { name: "新建习惯" }).click();
@@ -883,14 +1080,35 @@ try {
   await page.locator(".monitoring-row", { hasText: "example.com" }).getByRole("button", { name: /证书/ }).waitFor();
 
   stage = "B57 锁定后被隐藏的模块像不存在一样";
-  const send = async (method, path, data) => {
-    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
-      method,
-      headers: { "X-Requested-With": "x-console" },
-      data,
-    });
-    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
-  };
+
+  stage = "B79 维护 API 主流程";
+  const maintenanceOverview = await api("/maintenance/overview?refresh=true");
+  assert.ok(maintenanceOverview.version && maintenanceOverview.process && maintenanceOverview.machine);
+  assert.ok(maintenanceOverview.storage.some((row) => row.key === "database"));
+  assert.ok(Array.isArray(await api("/maintenance/metrics")));
+  const maintenanceGarbage = join(serverEnv.XC_DATA_DIR, "tmp", "maintenance-e2e.tmp");
+  writeFileSync(maintenanceGarbage, "garbage");
+  const maintenanceOld = new Date(Date.now() - 48 * 3600 * 1000);
+  utimesSync(maintenanceGarbage, maintenanceOld, maintenanceOld);
+  await send("POST", "/maintenance/scan");
+  const maintenanceScan = await until("维护扫描", async () => {
+    const result = await api("/maintenance/scan");
+    return result.state !== "running" && result;
+  });
+  assert.equal(maintenanceScan.state, "done");
+  for (const group of maintenanceScan.groups) {
+    assert.ok(group.items.length <= 50);
+    if (["missing_records", "audit_logs"].includes(group.kind)) assert.equal(group.selected, false);
+  }
+  await send("POST", "/maintenance/cleanup", { kinds: ["temporary_files"], scanId: maintenanceScan.id });
+  const maintenanceCleanup = await until("维护清理", async () => {
+    const result = await api("/maintenance/cleanup");
+    return result.state !== "running" && result;
+  });
+  assert.equal(maintenanceCleanup.state, "done");
+  assert.ok(maintenanceCleanup.result.deleted >= 1);
+  assert.equal(existsSync(maintenanceGarbage), false);
+  stage = "B57 锁定后被隐藏的模块像不存在一样";
   await send("POST", "/vault/setup", { password: "e2e-vault-secret" });
   await send("PUT", "/vault/modules", { hidden: ["github"] });
   await send("POST", "/vault/lock");
@@ -927,6 +1145,15 @@ try {
   const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
+  stage = "B82 服务器信息 API 主流程";
+  await send("PATCH", `/hosts/${host.id}`, { info: { ownership: "client", client: "端到端客户", username: "operator", password: "e2e-host-password", note: "测试备注", tags: ["测试"] } });
+  const hostInfo = await api(`/hosts/${host.id}`);
+  assert.equal(hostInfo.info.client, "端到端客户");
+  assert.equal(hostInfo.info.hasPassword, true);
+  assert.ok(Array.isArray(hostInfo.addresses));
+  assert.equal((await api(`/hosts/${host.id}/password`)).password, "e2e-host-password");
+  await send("PUT", "/hosts/order", { kind: "server", ids: [host.id, ...(await api("/hosts?kind=server")).filter((item) => item.id !== host.id).map((item) => item.id)] });
+  assert.equal((await api("/hosts?kind=server"))[0].id, host.id);
 
   stage = "查看远端日志文件";
   const remoteLog = join(temp, "e2e-remote.log");

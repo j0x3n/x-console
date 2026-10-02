@@ -102,7 +102,12 @@ func (m *Module) replacePlans(ctx context.Context, in []api.WorkoutPlan) error {
 }
 
 func (m *Module) logWorkout(ctx context.Context, in api.WorkoutLogInput, now time.Time) (db.WorkoutLog, error) {
-	date := dateKey(now, m.d.Config.Location)
+	rules, err := m.loadSchedule(ctx)
+	if err != nil {
+		return db.WorkoutLog{}, err
+	}
+	loc := rules.location()
+	date := dateKey(now, loc)
 	if in.Date != nil && strings.TrimSpace(*in.Date) != "" {
 		d, err := time.Parse(time.DateOnly, strings.TrimSpace(*in.Date))
 		if err != nil {
@@ -167,9 +172,9 @@ func (m *Module) logWorkout(ctx context.Context, in api.WorkoutLogInput, now tim
 		return row, err
 	}
 	when := now.UTC()
-	if date != dateKey(now, m.d.Config.Location) {
+	if date != dateKey(now, loc) {
 		d, _ := time.Parse(time.DateOnly, date)
-		when = time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, m.d.Config.Location).UTC()
+		when = time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, loc).UTC()
 	}
 	type checkin struct {
 		habit db.Habit
@@ -200,7 +205,7 @@ func (m *Module) logWorkout(ctx context.Context, in api.WorkoutLogInput, now tim
 			"habitId": item.habit.ID, "name": item.habit.Name, "log": logToAPI(item.log),
 			"done": p.Done, "target": item.habit.DailyTarget, "source": "workout",
 		})
-		if date == dateKey(now, m.d.Config.Location) && p.Reached && p.Done-1 < item.habit.DailyTarget {
+		if date == dateKey(now, loc) && p.Reached && p.Done-1 < item.habit.DailyTarget {
 			m.d.Bus.Publish("habit.goal_reached", map[string]any{
 				"habitId": item.habit.ID, "name": item.habit.Name, "done": p.Done,
 				"target": item.habit.DailyTarget, "streak": p.Streak,
@@ -226,7 +231,11 @@ func (m *Module) workoutSettings(ctx context.Context) (workoutSettings, error) {
 
 // workoutNotice sends today's plan once a day at the configured time.
 func (m *Module) workoutNotice(ctx context.Context, now time.Time) error {
-	loc := m.d.Config.Location
+	rules, err := m.loadSchedule(ctx)
+	if err != nil {
+		return err
+	}
+	loc := rules.location()
 	cfg, err := m.workoutSettings(ctx)
 	if err != nil {
 		return err
@@ -332,7 +341,12 @@ func (m *Module) ListWorkoutLogs(w http.ResponseWriter, r *http.Request, params 
 		httpx.Fail(w, r, httpx.Invalid("days 要在 1 到 366 之间"))
 		return
 	}
-	since := startOfDay(time.Now(), m.d.Config.Location).AddDate(0, 0, -(days - 1)).Format(time.DateOnly)
+	rules, err := m.loadSchedule(r.Context())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	since := startOfDay(time.Now(), rules.location()).AddDate(0, 0, -(days - 1)).Format(time.DateOnly)
 	rows, err := m.q.ListWorkoutLogsSince(r.Context(), since)
 	if err != nil {
 		httpx.Fail(w, r, err)

@@ -97,7 +97,7 @@ export default function ShareDialog({
     );
   else
     body = (
-      <div className="xc-stack">
+      <div className="xc-stack notes-share-form">
         {current && (
           <div className="notes-share-current">
             <div className="notes-share-url">

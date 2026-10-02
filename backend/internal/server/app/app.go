@@ -23,6 +23,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/config"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/core"
 	coreapi "github.com/j0x3n/x-console/backend/internal/server/core/api"
 	"github.com/j0x3n/x-console/backend/internal/server/core/db"
@@ -30,6 +31,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/scheduler"
 	"github.com/j0x3n/x-console/backend/internal/server/secrets"
@@ -42,7 +44,7 @@ const APIPrefix = "/api/v1"
 
 // corePublic are core routes reachable without a session.
 var corePublic = []string{"/health", "/auth/status", "/auth/setup", "/auth/setup/skip-totp", "/auth/login", "/agent/pair", "/agent/connect",
-	"/agent/install.sh", "/agent/install.ps1", "/agent/uninstall.sh", "/agent/download", "/agent/setup.exe"}
+	"/agent/install.sh", "/agent/install.ps1", "/agent/uninstall.sh", "/agent/download", "/agent/setup.exe", "/agent/whoami"}
 
 // App is a built server.
 type App struct {
@@ -58,6 +60,9 @@ type App struct {
 // New builds shared services and every module on an open database.
 // extra modules are appended after the registered ones; tests use it.
 func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Module, error)) (*App, error) {
+	if err := backup.EnsureReadyBeforeApp(context.Background(), cfg, conn); err != nil {
+		return nil, err
+	}
 	box, err := secrets.NewBox(cfg.MasterKey)
 	if err != nil {
 		return nil, err
@@ -86,6 +91,7 @@ func New(cfg config.Config, conn *sql.DB, extra ...func(*module.Deps) (module.Mo
 		Actions:   actions.NewRegistry(),
 		Registry:  module.NewRegistry(),
 	}
+	d.Agents.SetTrustedProxies(cfg.TrustedProxies)
 	a := &App{Deps: d}
 	for _, build := range dedupe(append(append([]func(*module.Deps) (module.Module, error){}, constructors...), extra...)) {
 		m, err := build(d)
@@ -163,6 +169,7 @@ func (a *App) routes() http.Handler {
 		api.Use(d.Auth.Middleware(isPublic))
 		api.Get("/agent/connect", d.Agents.ServeConnect)
 		events := ws.New(d.Bus, d.Agents)
+		module.Provide[contracts.MaintenanceConnections](d.Registry, contracts.MaintenanceConnectionsKey, maintenanceConnections{events, d.Agents})
 		events.Allow = a.allowEvent
 		api.Get("/events", events.ServeHTTP)
 		coreapi.HandlerWithOptions(&core.Handlers{Auth: d.Auth, Agents: d.Agents, Notify: d.Notify, Q: db.New(d.DB), Settings: d.Settings, Bus: d.Bus,

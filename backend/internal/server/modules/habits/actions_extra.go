@@ -31,7 +31,7 @@ func (m *Module) registerExtraActions() {
 		if err != nil {
 			return nil, err
 		}
-		return toAPI(row), nil
+		return m.habitAPI(ctx, row, time.Now())
 	}})
 	m.d.Actions.Register(actions.Action{Name: "habits.delete", Title: "删除习惯", Description: "Delete a habit by id.", Input: actions.Schema(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"]}`), Effect: actions.Write, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {

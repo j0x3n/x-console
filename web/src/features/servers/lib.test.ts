@@ -58,6 +58,9 @@ const host = (id: string, online = false): Host => ({
   os: "linux",
   hostname: id,
   activeAlerts: 0,
+  info: { ownership: "own", hasPassword: false, tags: [] },
+  addresses: [],
+  sortOrder: 0,
 });
 
 describe("numbers", () => {

@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/db"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 )
 
 // hiddenKeyName is the first path segment of hidden files in the S3 bucket.
@@ -403,6 +406,13 @@ func (m *Module) GetDriveUsage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) purgeOldTrash(ctx context.Context) error {
+	fn := func(ctx context.Context) error { return m.purgeOldTrashSafe(contracts.IgnoreHidden(ctx)) }
+	if storage, ok := module.Lookup[contracts.MaintenanceStorage](m.d.Registry, contracts.MaintenanceStorageKey); ok {
+		return storage.WithCleanup(ctx, fn)
+	}
+	return fn(ctx)
+}
+func (m *Module) purgeOldTrashSafe(ctx context.Context) error {
 	cutoff := time.Now().UTC().Add(-30 * 24 * time.Hour)
 	rows, err := m.d.DB.QueryContext(ctx, "SELECT id FROM drive_items WHERE trashed_at<? AND (parent_id IS NULL OR parent_id NOT IN (SELECT id FROM drive_items WHERE trashed_at IS NOT NULL))", cutoff)
 	if err != nil {
@@ -424,7 +434,7 @@ func (m *Module) purgeOldTrash(ctx context.Context) error {
 		return err
 	}
 	for _, id := range ids {
-		if err := m.permanentDelete(ctx, id); err != nil {
+		if _, err := maintenance.PurgeDriveTrash(ctx, m.d, id, cutoff, nil, m.lockBlob); err != nil {
 			return err
 		}
 	}

@@ -10,6 +10,13 @@ import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { formatTime, relativeTime } from "../../lib/time";
+import {
+  HostInfoFields,
+  infoDraft,
+  infoFilled,
+  infoInput,
+  type InfoDraft,
+} from "../servers/components/HostInfo";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 export default function DevicesTab() {
@@ -179,10 +186,21 @@ function PairDialog({
     expiresAt: string;
   } | null>(null);
   const [error, setError] = useState("");
+  // B82：添加时可以先填归属、账号密码、备注、标签，折叠在“更多信息”里。
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [draft, setDraft] = useState<InfoDraft>(() => infoDraft());
   const create = useMutation({
     mutationFn: () =>
       withElevation(() =>
-        unwrap(coreApi.POST("/agents/pairing-codes", { body: { name, kind } })),
+        unwrap(
+          coreApi.POST("/agents/pairing-codes", {
+            body: {
+              name,
+              kind,
+              info: infoFilled(draft) ? infoInput(draft) : undefined,
+            },
+          }),
+        ),
       ),
     onSuccess: (data) => {
       setKnown((agents.data ?? []).map((a) => a.id));
@@ -208,6 +226,8 @@ function PairDialog({
     setName("");
     setError("");
     setManual(false);
+    setInfoOpen(false);
+    setDraft(infoDraft());
     onClose();
   };
   const server = location.origin;
@@ -363,6 +383,15 @@ function PairDialog({
               <option value="desktop">{t("Windows computer")}</option>
             </select>
           </label>
+          <button
+            type="button"
+            className="devices-manual-toggle"
+            aria-expanded={infoOpen}
+            onClick={() => setInfoOpen((v) => !v)}
+          >
+            {t("More info")}
+          </button>
+          {infoOpen && <HostInfoFields draft={draft} onChange={setDraft} />}
           {error && <p className="xc-error-text">{error}</p>}
           <div className="xc-dialog-actions">
             <button type="button" className="xc-btn ghost" onClick={close}>

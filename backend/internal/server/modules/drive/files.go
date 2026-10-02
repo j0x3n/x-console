@@ -22,6 +22,7 @@ import (
 	"golang.org/x/image/draw"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/api"
@@ -67,6 +68,7 @@ func (m *Module) UploadDriveFiles(w http.ResponseWriter, r *http.Request, p api.
 			part.Close()
 			return
 		}
+		defer contracts.TrackTemporaryFile(tmp.Name())()
 		hash := sha256.New()
 		buffered := bufio.NewReader(part)
 		sniff, _ := buffered.Peek(512)

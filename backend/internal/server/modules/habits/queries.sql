@@ -1,7 +1,7 @@
 -- name: CreateHabit :one
 INSERT INTO habits (name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes,
-                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind, remind_when, active_host_ids, remind_on_host, template)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetHabit :one
@@ -16,7 +16,7 @@ ORDER BY sort_order, id;
 UPDATE habits
 SET name = ?, icon = ?, color = ?, unit = ?, daily_target = ?, remind_mode = ?,
     remind_interval_minutes = ?, remind_window = ?, remind_times = ?, ha_entity_id = ?,
-    archived_at = ?, sort_order = ?, kind = ?
+    archived_at = ?, sort_order = ?, kind = ?, remind_when = ?, active_host_ids = ?, remind_on_host = ?, template = ?, snoozed_until = NULL
 WHERE id = ?
 RETURNING *;
 
@@ -24,7 +24,7 @@ RETURNING *;
 DELETE FROM habits WHERE id = ?;
 
 -- name: MarkHabitReminded :exec
-UPDATE habits SET last_reminded_at = ? WHERE id = ?;
+UPDATE habits SET last_reminded_at = ?, snoozed_until = NULL WHERE id = ?;
 
 -- name: SetHabitQuietUntil :exec
 UPDATE habits SET quiet_until = ? WHERE id = ?;
@@ -77,3 +77,6 @@ SELECT * FROM workout_logs WHERE date >= ? ORDER BY date DESC, id DESC;
 
 -- name: DeleteWorkoutLog :execrows
 DELETE FROM workout_logs WHERE id = ?;
+
+-- name: SetHabitSnoozedUntil :exec
+UPDATE habits SET snoozed_until = ? WHERE id = ?;

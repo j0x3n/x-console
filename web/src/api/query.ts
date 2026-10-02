@@ -36,6 +36,8 @@ export const queryClient = new QueryClient({
     queries: {
       // 数据靠服务端事件刷新，切回窗口时一分钟内不重复请求。
       staleTime: 60_000,
+      // B80：切走 30 分钟内回来，先显示缓存再在后台刷新，不闪“加载中”
+      gcTime: 30 * 60_000,
       refetchOnWindowFocus: true,
       retry: (count, error) =>
         !(error instanceof ApiError && error.status < 500) && count < 2,

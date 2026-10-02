@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Inbox, Mail, Paperclip, Plus, RefreshCw, Star } from "lucide-react";
 import { isNotLive } from "../../api/client";
@@ -24,6 +24,7 @@ import {
 import AccountDialog from "./components/AccountDialog";
 import MessageView from "./components/MessageView";
 import { mailTime, senderName } from "./logic";
+import { useKeepScroll } from "../../hooks/useKeepScroll";
 
 /*
  * 邮件（B53）：左边账号，中间收件箱，右边阅读。窄屏时一次只显示一栏。
@@ -52,6 +53,13 @@ export default function MailPage() {
     );
   const accountId = Number(params.get("a")) || null;
   const openId = Number(params.get("m")) || null;
+  // B80：列表和正文的滚动位置
+  const listRef = useRef<HTMLElement>(null);
+  const readRef = useRef<HTMLElement>(null);
+  const listKey = new URLSearchParams(params);
+  listKey.delete("m");
+  useKeepScroll(listRef, `mail.list:${listKey.toString()}`);
+  useKeepScroll(readRef, `mail.read:${openId ?? ""}`);
   const unread = params.get("unread") === "1";
   const filter: MailFilter = { accountId, unread, q: query };
   const list = useMailMessages(filter, accounts.isSuccess);
@@ -143,7 +151,7 @@ export default function MailPage() {
             />
           ))}
         </nav>
-        <section className="mail-list" aria-label={t("Inbox")}>
+        <section className="mail-list" aria-label={t("Inbox")} ref={listRef}>
           <div className="mail-list-tools">
             <SearchBox
               value={q}
@@ -197,7 +205,7 @@ export default function MailPage() {
             </ul>
           )}
         </section>
-        <section className="mail-read">
+        <section className="mail-read" ref={readRef}>
           {openId ? (
             <MessageView id={openId} onBack={() => set("m", null)} />
           ) : (

@@ -1,31 +1,37 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  ArrowLeft,
+  ChevronLeft,
   ChevronRight,
   Download,
   FolderOpen,
   KeyRound,
+  LayoutGrid,
   Link2Off,
+  List,
 } from "lucide-react";
 import { ApiError, errorMessage, unwrap } from "../../../api/client";
 import { EmptyState, Loading } from "../../../components/ui/States";
+import { Segmented } from "../../../components/ui/Toolbar";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatBytes, relativeTime } from "../../../lib/time";
 import { driveApi } from "../api";
 import FileIcon from "../components/FileIcon";
-import { fileKind } from "../logic";
+import SharePreview from "./SharePreview";
 import "../i18n";
 import "../drive.css";
 
 /*
- * 分享页（B31）：https://<面板>/s/<token>，不用登录。
- * - 有提取码时先输提取码，服务端发一个 1 小时的访问令牌，存在 sessionStorage。
- * - 文件：显示信息，图片、视频、音频、PDF 可以直接看，下面是“下载”。
- * - 文件夹：可以点进子文件夹，单个文件下载，或者整个打包下载。
- * - 只能看到分享的这一个文件或文件夹里的东西。
+ * 分享页（B31、B75）：https://<面板>/s/<token>，不用登录。
+ * - 有密码时先输密码，服务端发一个访问令牌，存在 sessionStorage。
+ * - 文件：顶部一行信息和“下载”，下面是预览。图片、视频、音频、PDF、文本和 Markdown 都能直接看。
+ * - 文件夹：列表或网格，点文件在页面里预览，可以上一个、下一个；每行有下载按钮，也能整个打包下载。
+ * - 预览不算下载次数，点“下载”才算。
  */
 
 const KEY = (token: string) => `xc.share.${token}`;
+const VIEW_KEY = "xc.share.view";
 
 function readAccess(token: string) {
   try {
@@ -46,13 +52,19 @@ function writeAccess(token: string, access: string) {
 /** 公开接口的地址，带上访问令牌。 */
 export function publicUrl(
   token: string,
-  part: "content" | "zip",
-  opts: { access?: string; item?: number; inline?: boolean } = {},
+  part: "content" | "zip" | "thumbnail",
+  opts: {
+    access?: string;
+    item?: number;
+    inline?: boolean;
+    preview?: boolean;
+  } = {},
 ) {
   const q = new URLSearchParams();
   if (opts.access) q.set("t", opts.access);
   if (opts.item) q.set("item", String(opts.item));
   if (opts.inline) q.set("inline", "1");
+  if (opts.preview) q.set("preview", "true");
   const qs = q.toString();
   return `/api/v1/public/shares/${encodeURIComponent(token)}/${part}${qs ? `?${qs}` : ""}`;
 }
@@ -101,14 +113,16 @@ export default function SharePage({ token }: { token: string }) {
           <span className="drive-muted">服务端还没上线分享功能。</span>
         </EmptyState>
       );
-    else if (e instanceof ApiError && e.status === 404)
+    else if (e instanceof ApiError && (e.status === 404 || e.status === 410))
       body = (
         <EmptyState
           title={t("This link does not work")}
           icon={<Link2Off size={28} />}
         >
           <span className="drive-muted">
-            链接可能已经过期、被取消，或者文件已经删掉了。
+            {e.status === 410
+              ? "下载次数已经用完了。"
+              : "链接可能已经过期、被取消，或者文件已经删掉了。"}
           </span>
         </EmptyState>
       );
@@ -170,14 +184,16 @@ function CodeForm({
   return (
     <form className="share-code" onSubmit={(e) => void submit(e)}>
       <KeyRound size={28} className="drive-muted" />
-      <strong>{t("Enter the access code")}</strong>
-      <span className="drive-muted">分享的人会把提取码一起发给你。</span>
+      <strong>{t("This link needs a password")}</strong>
+      <span className="drive-muted">分享的人会把密码一起发给你。</span>
       <input
         className="xc-input"
+        type="password"
         autoFocus
+        autoComplete="off"
         value={code}
-        maxLength={8}
-        aria-label={t("Access code")}
+        maxLength={32}
+        aria-label={t("Password")}
         onChange={(e) => setCode(e.target.value)}
       />
       {error && <small className="share-error">{error}</small>}
@@ -223,40 +239,52 @@ function FileShare({
   info: Info;
 }) {
   const t = useT();
-  const kind = fileKind({ isDir: false, name: info.name, mime: info.mime });
-  const src = publicUrl(token, "content", { access, inline: true });
   return (
     <div className="share-file">
-      <div className="share-title">
-        <FileIcon
-          item={{ isDir: false, name: info.name, mime: info.mime }}
-          size={22}
-        />
-        <strong title={info.name}>{info.name}</strong>
+      <div className="share-top">
+        <div className="share-top-text">
+          <div className="share-title">
+            <FileIcon
+              item={{ isDir: false, name: info.name, mime: info.mime }}
+              size={22}
+            />
+            <strong title={info.name}>{info.name}</strong>
+          </div>
+          <Meta info={info} />
+        </div>
+        <a
+          className="xc-btn primary"
+          href={publicUrl(token, "content", { access })}
+          download={info.name}
+        >
+          <Download size={14} /> {t("Download")}
+        </a>
       </div>
-      <Meta info={info} />
-      {kind === "image" ? (
-        <img className="share-preview" src={src} alt={info.name} />
-      ) : kind === "video" ? (
-        <video className="share-preview" src={src} controls playsInline />
-      ) : kind === "audio" ? (
-        <audio src={src} controls />
-      ) : kind === "pdf" ? (
-        <iframe
-          className="share-preview share-pdf"
-          src={src}
-          title={info.name}
-        />
-      ) : null}
-      <a
-        className="xc-btn primary"
-        href={publicUrl(token, "content", { access })}
-        download={info.name}
-      >
-        <Download size={14} /> {t("Download")}
-      </a>
+      <SharePreview
+        file={{ name: info.name, mime: info.mime, size: info.size }}
+        src={publicUrl(token, "content", { access, preview: true })}
+      />
     </div>
   );
+}
+
+type Item = {
+  id: number;
+  name: string;
+  isDir: boolean;
+  size: number;
+  mime?: string;
+  updatedAt: string;
+  thumbnail?: boolean;
+};
+
+function readView(): "list" | "grid" | null {
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    return v === "list" || v === "grid" ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 function FolderShare({
@@ -271,6 +299,8 @@ function FolderShare({
   const t = useT();
   const language = useLanguage();
   const [folder, setFolder] = useState<number | undefined>(undefined);
+  const [viewing, setViewing] = useState<number | null>(null);
+  const [view, setView] = useState<"list" | "grid" | null>(readView);
   const items = useQuery({
     queryKey: ["share", token, access, "items", folder ?? 0],
     queryFn: () =>
@@ -284,63 +314,228 @@ function FolderShare({
       ),
     retry: false,
   });
+  const list: Item[] = items.data?.items ?? [];
+  const files = list.filter((i) => !i.isDir);
+  const thumbs = files.filter((i) => i.thumbnail).length;
+  // 没选过时，图片多的文件夹默认用网格。
+  const mode =
+    view ?? (thumbs >= 4 && thumbs * 2 >= list.length ? "grid" : "list");
+  const setMode = (v: "list" | "grid") => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* 存不了就算了 */
+    }
+  };
+  const open = (id?: number) => {
+    setViewing(null);
+    setFolder(id);
+  };
+  const current = files.find((f) => f.id === viewing);
+  const index = current ? files.indexOf(current) : -1;
+  const download = (i: Item) =>
+    publicUrl(token, "content", { access, item: i.id });
+
+  // 预览时左右方向键切换文件，Esc 返回列表。
+  useEffect(() => {
+    if (!current) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, video, audio, .cm-editor")) return;
+      if (e.key === "ArrowLeft" && index > 0) setViewing(files[index - 1].id);
+      else if (e.key === "ArrowRight" && index < files.length - 1)
+        setViewing(files[index + 1].id);
+      else if (e.key === "Escape") setViewing(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  if (current)
+    return (
+      <div className="share-folder">
+        <div className="share-viewer-bar">
+          <button
+            type="button"
+            className="xc-btn ghost small"
+            onClick={() => setViewing(null)}
+          >
+            <ArrowLeft size={14} /> {t("Back to list")}
+          </button>
+          <span className="xc-spacer" />
+          <button
+            type="button"
+            className="xc-btn ghost small"
+            disabled={index <= 0}
+            title={t("Previous file")}
+            aria-label={t("Previous file")}
+            onClick={() => setViewing(files[index - 1].id)}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <small className="drive-muted">
+            {index + 1} / {files.length}
+          </small>
+          <button
+            type="button"
+            className="xc-btn ghost small"
+            disabled={index >= files.length - 1}
+            title={t("Next file")}
+            aria-label={t("Next file")}
+            onClick={() => setViewing(files[index + 1].id)}
+          >
+            <ChevronRight size={15} />
+          </button>
+        </div>
+        <div className="share-top">
+          <div className="share-top-text">
+            <div className="share-title">
+              <FileIcon item={current} size={22} />
+              <strong title={current.name}>{current.name}</strong>
+            </div>
+            <small className="drive-muted share-meta">
+              {formatBytes(current.size)} ·{" "}
+              {relativeTime(current.updatedAt, language)}
+            </small>
+          </div>
+          <a
+            className="xc-btn primary"
+            href={download(current)}
+            download={current.name}
+          >
+            <Download size={14} /> {t("Download")}
+          </a>
+        </div>
+        <SharePreview
+          key={current.id}
+          file={current}
+          src={publicUrl(token, "content", {
+            access,
+            item: current.id,
+            preview: true,
+          })}
+        />
+      </div>
+    );
+
   return (
     <div className="share-folder">
-      <div className="share-title">
-        <FolderOpen size={22} className="drive-icon folder" />
-        <strong title={info.name}>{info.name}</strong>
-        <span className="xc-spacer" />
+      <div className="share-top">
+        <div className="share-top-text">
+          <div className="share-title">
+            <FolderOpen size={22} className="drive-icon folder" />
+            <strong title={info.name}>{info.name}</strong>
+          </div>
+          <Meta info={info} />
+        </div>
         <a
-          className="xc-btn small primary"
+          className="xc-btn primary"
           href={publicUrl(token, "zip", { access })}
           download={`${info.name}.zip`}
         >
-          <Download size={14} />
-          <span className="drive-btn-text">{t("Download all")}</span>
+          <Download size={14} /> {t("Download all")}
         </a>
       </div>
-      <Meta info={info} />
-      <nav className="drive-crumbs small" aria-label={t("Path")}>
-        <button type="button" onClick={() => setFolder(undefined)}>
-          {info.name}
-        </button>
-        {items.data?.path.map((p) => (
-          <span key={p.id}>
-            <ChevronRight size={12} />
-            <button type="button" onClick={() => setFolder(p.id)}>
-              {p.name}
+      <div className="share-folder-bar">
+        {folder != null && (
+          <nav className="drive-crumbs small" aria-label={t("Path")}>
+            <button type="button" onClick={() => open(undefined)}>
+              {info.name}
             </button>
-          </span>
-        ))}
-      </nav>
+            {items.data?.path.map((p) => (
+              <span key={p.id}>
+                <ChevronRight size={12} />
+                <button type="button" onClick={() => open(p.id)}>
+                  {p.name}
+                </button>
+              </span>
+            ))}
+          </nav>
+        )}
+        <span className="xc-spacer" />
+        <Segmented
+          label={t("View")}
+          value={mode}
+          onChange={setMode}
+          options={[
+            {
+              value: "list",
+              label: t("List view"),
+              icon: List,
+              iconOnly: true,
+            },
+            {
+              value: "grid",
+              label: t("Grid view"),
+              icon: LayoutGrid,
+              iconOnly: true,
+            },
+          ]}
+        />
+      </div>
       {items.isPending ? (
         <Loading />
       ) : items.isError ? (
         <p className="share-error">{errorMessage(items.error)}</p>
-      ) : items.data.items.length === 0 ? (
+      ) : list.length === 0 ? (
         <p className="drive-muted">{t("This folder is empty")}</p>
+      ) : mode === "grid" ? (
+        <ul className="share-grid">
+          {list.map((i) => (
+            <li key={i.id}>
+              <button
+                type="button"
+                title={i.name}
+                onClick={() => (i.isDir ? open(i.id) : setViewing(i.id))}
+              >
+                <span className="share-grid-thumb">
+                  {i.thumbnail ? (
+                    <img
+                      src={publicUrl(token, "thumbnail", {
+                        access,
+                        item: i.id,
+                      })}
+                      alt=""
+                      loading="lazy"
+                    />
+                  ) : (
+                    <FileIcon item={i} size={30} />
+                  )}
+                </span>
+                <span className="share-grid-name">{i.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       ) : (
         <ul className="share-list">
-          {items.data.items.map((i) => (
+          {list.map((i) => (
             <li key={i.id}>
-              {i.isDir ? (
-                <button type="button" onClick={() => setFolder(i.id)}>
-                  <FileIcon item={i} />
-                  <span>{i.name}</span>
-                </button>
-              ) : (
-                <a
-                  href={publicUrl(token, "content", { access, item: i.id })}
-                  download={i.name}
-                >
-                  <FileIcon item={i} />
-                  <span>{i.name}</span>
-                </a>
-              )}
+              <button
+                type="button"
+                onClick={() => (i.isDir ? open(i.id) : setViewing(i.id))}
+              >
+                <FileIcon item={i} />
+                <span>{i.name}</span>
+              </button>
               <small className="drive-muted">
                 {i.isDir ? t("Folder") : formatBytes(i.size)} ·{" "}
                 {relativeTime(i.updatedAt, language)}
               </small>
+              {i.isDir ? (
+                <span className="share-list-gap" />
+              ) : (
+                <a
+                  className="xc-btn ghost small"
+                  href={download(i)}
+                  download={i.name}
+                  title={t("Download")}
+                  aria-label={`${t("Download")} ${i.name}`}
+                >
+                  <Download size={14} />
+                </a>
+              )}
             </li>
           ))}
         </ul>

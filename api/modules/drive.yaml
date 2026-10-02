@@ -624,6 +624,30 @@ paths:
           description: 已取消
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /drive/shares/{shareId}/downloads:
+    parameters:
+      - name: shareId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: listDriveShareDownloads
+      tags: [drive]
+      description: 最近 20 次下载，IP 已打码，User-Agent 只返回浏览器名称。
+      responses:
+        "200":
+          description: 下载记录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/DriveShareDownload" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /public/shares/{token}:
     parameters:
       - $ref: "#/components/parameters/ShareToken"
@@ -724,14 +748,17 @@ paths:
       tags: [drive]
       description: |
         B31。下载分享的文件。文件分享时不传 item；文件夹分享时 item 是里面的某个文件。支持 Range。
-        inline=1 用于预览（图片、视频、PDF）。不带 Range 或从 0 开始的请求才算一次下载。
-        下载次数到了上限回 410 share_limit_reached。
+        preview=true 或 inline=1 用于预览，预览不计下载次数。下载时不带 Range 或从 0 开始才计一次，同一客户端同一文件一小时内去重。
+        下载次数用完后预览回 410，已经计数的客户端仍能续传。HEAD、304 和无效 Range 不计数。
       parameters:
         - $ref: "#/components/parameters/ShareAccess"
         - name: item
           in: query
           schema: { type: integer, format: int64 }
         - name: inline
+          in: query
+          schema: { type: boolean }
+        - name: preview
           in: query
           schema: { type: boolean }
       responses:
@@ -744,6 +771,27 @@ paths:
           description: 部分内容
           content:
             application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /public/shares/{token}/thumbnail:
+    parameters:
+      - $ref: "#/components/parameters/ShareToken"
+    get:
+      operationId: getPublicShareThumbnail
+      security: []
+      tags: [drive]
+      description: 分享范围内的图片缩略图。需验证分享密码，不计下载次数。次数用完回 410。
+      parameters:
+        - $ref: "#/components/parameters/ShareAccess"
+        - name: item
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: JPEG 缩略图
+          content:
+            image/jpeg:
               schema: { type: string, format: binary }
         default:
           $ref: "../common.yaml#/components/responses/Error"
@@ -956,7 +1004,7 @@ components:
       properties:
         itemId: { type: integer, format: int64 }
         expiresIn: { type: string, enum: [1d, 7d, 30d, never] }
-        code: { type: string, pattern: "^[A-Za-z0-9]{4,8}$", description: 提取码，不传就不用提取码 }
+        code: { type: string, minLength: 4, maxLength: 32, description: 密码，不传就不用密码 }
         maxDownloads: { type: integer, minimum: 1, description: 下载次数上限，不传就不限 }
     DriveShare:
       type: object
@@ -976,6 +1024,14 @@ components:
         active: { type: boolean, description: false 表示已过期、次数用完、条目被删或隐藏。列表里保留 7 天方便查看，之后清掉 }
         createdAt: { type: string, format: date-time }
         lastAccessAt: { type: string, format: date-time }
+    DriveShareDownload:
+      type: object
+      required: [at, ip, userAgent]
+      properties:
+        at: { type: string, format: date-time }
+        ip: { type: string, description: IPv4 保留前两段，IPv6 保留前两段十六进制地址 }
+        userAgent: { type: string, description: 浏览器名称 }
+        itemName: { type: string }
     PublicShare:
       type: object
       required: [name, isDir, size]
@@ -989,7 +1045,7 @@ components:
         downloadsLeft: { type: integer, description: 还能下载几次，不限时不返回 }
     PublicShareItem:
       type: object
-      required: [id, name, isDir, size, updatedAt]
+      required: [id, name, isDir, size, updatedAt, thumbnail]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string }
@@ -997,3 +1053,4 @@ components:
         size: { type: integer, format: int64 }
         mime: { type: string }
         updatedAt: { type: string, format: date-time }
+        thumbnail: { type: boolean }

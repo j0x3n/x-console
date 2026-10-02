@@ -52,6 +52,7 @@ func toAPI(h db.Habit) api.Habit {
 		RemindMode: api.RemindMode(h.RemindMode), RemindIntervalMinutes: int(h.RemindIntervalMinutes),
 		RemindWindow: h.RemindWindow, RemindTimes: parseTimes(h.RemindTimes), HaEntityId: h.HaEntityID,
 		Archived: h.ArchivedAt != nil, SortOrder: int(h.SortOrder), CreatedAt: h.CreatedAt,
+		RemindWhen: habitWhen(h.RemindWhen), ActiveHostIds: parseTimes(h.ActiveHostIds), RemindOnHost: h.RemindOnHost != 0, Template: habitTemplate(h.Template),
 	}
 }
 
@@ -74,6 +75,9 @@ type habitFields struct {
 	Times                         []string
 	Entity                        string
 	SortOrder                     int
+	When, HostIDs                 []string
+	OnHost                        bool
+	Template                      string
 }
 
 // validate cleans the fields and checks the reminder settings.
@@ -109,7 +113,7 @@ func (f *habitFields) validate() error {
 		f.Mode = modeNone
 	}
 	f.Window = strings.TrimSpace(f.Window)
-	if _, _, err := parseWindow(f.Window); err != nil {
+	if _, _, err := parseScheduleWindow(f.Window); err != nil {
 		return httpx.Invalid(err.Error())
 	}
 	times, err := normalizeTimes(f.Times)
@@ -117,6 +121,19 @@ func (f *habitFields) validate() error {
 		return httpx.Invalid(err.Error())
 	}
 	f.Times = times
+	when, err := normalizeRemindWhen(f.When)
+	if err != nil {
+		return httpx.Invalid(err.Error())
+	}
+	f.When = when
+	if f.Template != "" {
+		if _, err := healthTemplate(f.Template); err != nil {
+			return httpx.Invalid(err.Error())
+		}
+	}
+	if len(f.HostIDs) > 50 {
+		return httpx.Invalid("提醒电脑最多选择 50 台")
+	}
 	switch f.Mode {
 	case modeNone:
 	case modeInterval:
@@ -139,7 +156,20 @@ func (m *Module) get(ctx context.Context, id int64) (db.Habit, error) {
 }
 
 func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error) {
-	f := habitFields{Name: in.Name, Target: 1}
+	f := habitFields{Target: 1}
+	if in.Template != nil {
+		if err := f.applyTemplate(string(*in.Template)); err != nil {
+			return db.Habit{}, httpx.Invalid(err.Error())
+		}
+	}
+	if in.Name != "" || f.Template == "" {
+		f.Name = in.Name
+	}
+	setIf(&f.HostIDs, in.ActiveHostIds)
+	setIf(&f.OnHost, in.RemindOnHost)
+	if in.RemindWhen != nil {
+		f.When = stringValues(*in.RemindWhen)
+	}
 	setIf(&f.Icon, in.Icon)
 	setIf(&f.Color, in.Color)
 	setIf(&f.Unit, in.Unit)
@@ -166,12 +196,15 @@ func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error
 	if err := f.validate(); err != nil {
 		return db.Habit{}, err
 	}
+	if err := m.validateReminderHosts(ctx, &f); err != nil {
+		return db.Habit{}, err
+	}
 	times, _ := json.Marshal(f.Times)
 	h, err := m.q.CreateHabit(ctx, db.CreateHabitParams{
 		Name: f.Name, Icon: f.Icon, Color: f.Color, Unit: f.Unit, DailyTarget: f.Target, RemindMode: f.Mode,
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, SortOrder: int64(f.SortOrder), CreatedAt: time.Now().UTC(),
-		Kind: f.Kind,
+		Kind: f.Kind, RemindWhen: jsonStrings(f.When), ActiveHostIds: jsonStrings(f.HostIDs), RemindOnHost: boolInt(f.OnHost), Template: f.Template,
 	})
 	m.d.Audit.Record(ctx, "habit.create", strconv.FormatInt(h.ID, 10), map[string]any{"name": f.Name}, err)
 	if err != nil {
@@ -196,7 +229,15 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 	f := habitFields{
 		Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, Kind: h.Kind, Target: h.DailyTarget, Mode: h.RemindMode,
 		Interval: int(h.RemindIntervalMinutes), Window: h.RemindWindow, Times: parseTimes(h.RemindTimes),
-		Entity: h.HaEntityID, SortOrder: int(h.SortOrder),
+		Entity: h.HaEntityID, SortOrder: int(h.SortOrder), When: parseTimes(h.RemindWhen), HostIDs: parseTimes(h.ActiveHostIds), OnHost: h.RemindOnHost != 0, Template: h.Template,
+	}
+	setIf(&f.HostIDs, p.ActiveHostIds)
+	setIf(&f.OnHost, p.RemindOnHost)
+	if p.RemindWhen != nil {
+		f.When = stringValues(*p.RemindWhen)
+	}
+	if p.Template != nil {
+		f.Template = string(*p.Template)
 	}
 	setIf(&f.Name, p.Name)
 	setIf(&f.Icon, p.Icon)
@@ -217,6 +258,9 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 	if err := f.validate(); err != nil {
 		return h, err
 	}
+	if err := m.validateReminderHosts(ctx, &f); err != nil {
+		return h, err
+	}
 	archived := h.ArchivedAt
 	if p.Archived != nil {
 		switch {
@@ -232,7 +276,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		Name: f.Name, Icon: f.Icon, Color: f.Color, Unit: f.Unit, DailyTarget: f.Target, RemindMode: f.Mode,
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, ArchivedAt: archived, SortOrder: int64(f.SortOrder), ID: id,
-		Kind: f.Kind,
+		Kind: f.Kind, RemindWhen: jsonStrings(f.When), ActiveHostIds: jsonStrings(f.HostIDs), RemindOnHost: boolInt(f.OnHost), Template: f.Template,
 	})
 	m.d.Audit.Record(ctx, "habit.update", strconv.FormatInt(id, 10), nil, err)
 	if err != nil {
@@ -241,6 +285,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 	if err := m.refreshWatches(ctx); err != nil {
 		m.d.Log.Warn("refresh Home Assistant watches", "err", err)
 	}
+	m.clock.discard(id)
 	m.d.Bus.Publish("habit.updated", toAPI(row))
 	return row, nil
 }
@@ -257,6 +302,7 @@ func (m *Module) remove(ctx context.Context, id int64) error {
 	if err := m.refreshWatches(ctx); err != nil {
 		m.d.Log.Warn("refresh Home Assistant watches", "err", err)
 	}
+	m.clock.discard(id)
 	m.d.Bus.Publish("habit.deleted", map[string]int64{"id": id})
 	return nil
 }
@@ -292,7 +338,11 @@ func progress(h db.Habit, logs []db.HabitLog, now time.Time, loc *time.Location)
 
 // today returns the progress of every active habit.
 func (m *Module) today(ctx context.Context, now time.Time) ([]api.HabitToday, error) {
-	loc := m.d.Config.Location
+	rules, err := m.loadSchedule(ctx)
+	if err != nil {
+		return nil, err
+	}
+	loc := rules.location()
 	habits, err := m.q.ListHabits(ctx, 0)
 	if err != nil {
 		return nil, err
@@ -307,20 +357,31 @@ func (m *Module) today(ctx context.Context, now time.Time) ([]api.HabitToday, er
 	}
 	out := make([]api.HabitToday, 0, len(habits))
 	for _, h := range habits {
-		out = append(out, progress(h, byHabit[h.ID], now, loc))
+		p := progress(h, byHabit[h.ID], now, loc)
+		p.Habit.NextRemindAt, err = m.nextReminder(ctx, h, p, now)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, p)
 	}
 	return out, nil
 }
 
 // progressOf returns today's view of one habit.
 func (m *Module) progressOf(ctx context.Context, h db.Habit, now time.Time) (api.HabitToday, error) {
+	rules, err := m.loadSchedule(ctx)
+	if err != nil {
+		return api.HabitToday{}, err
+	}
 	logs, err := m.q.ListHabitLogsForHabitSince(ctx, db.ListHabitLogsForHabitSinceParams{
-		HabitID: h.ID, At: historyStart(now, m.d.Config.Location),
+		HabitID: h.ID, At: historyStart(now, rules.location()),
 	})
 	if err != nil {
 		return api.HabitToday{}, err
 	}
-	return progress(h, logs, now, m.d.Config.Location), nil
+	p := progress(h, logs, now, rules.location())
+	p.Habit.NextRemindAt, err = m.nextReminder(ctx, h, p, now)
+	return p, err
 }
 
 // checkin records amount for a habit and publishes habit.checked_in, plus
@@ -353,6 +414,11 @@ func (m *Module) checkin(ctx context.Context, id int64, amount float64, note, so
 	if err != nil {
 		return log, api.HabitToday{}, err
 	}
+	m.clock.reset(id, now)
+	if err := m.q.SetHabitSnoozedUntil(ctx, db.SetHabitSnoozedUntilParams{ID: id}); err != nil {
+		return log, api.HabitToday{}, err
+	}
+	h.SnoozedUntil = nil
 	after, err := m.progressOf(ctx, h, now)
 	if err != nil {
 		return log, after, err
@@ -393,7 +459,11 @@ func (m *Module) stats(ctx context.Context, id int64, days int, now time.Time) (
 	if err != nil {
 		return api.HabitStats{}, err
 	}
-	loc := m.d.Config.Location
+	rules, err := m.loadSchedule(ctx)
+	if err != nil {
+		return api.HabitStats{}, err
+	}
+	loc := rules.location()
 	logs, err := m.q.ListHabitLogsForHabitSince(ctx, db.ListHabitLogsForHabitSinceParams{HabitID: id, At: historyStart(now, loc)})
 	if err != nil {
 		return api.HabitStats{}, err
@@ -415,6 +485,14 @@ func (m *Module) stats(ctx context.Context, id int64, days int, now time.Time) (
 
 // remindAll sends due habit reminders.
 func (m *Module) remindAll(ctx context.Context, now time.Time) error {
+	rules, err := m.loadSchedule(ctx)
+	if err != nil {
+		return err
+	}
+	presence, err := m.habitPresence(ctx, rules)
+	if err != nil {
+		return err
+	}
 	habits, err := m.q.ListHabits(ctx, 0)
 	if err != nil {
 		return err
@@ -427,24 +505,24 @@ func (m *Module) remindAll(ctx context.Context, now time.Time) error {
 		if err != nil {
 			return err
 		}
-		var last *time.Time
-		if len(p.Logs) > 0 {
-			last = &p.Logs[0].At
+		if p.Reached {
+			continue
 		}
-		st := remindState{
-			Mode: h.RemindMode, Interval: time.Duration(h.RemindIntervalMinutes) * time.Minute, Window: h.RemindWindow,
-			Times: parseTimes(h.RemindTimes), Target: h.DailyTarget, DoneToday: p.Done,
-			LastCheckin: last, LastReminded: h.LastRemindedAt, QuietUntil: h.QuietUntil,
-		}
-		if !shouldRemind(st, now, m.d.Config.Location) {
+		due, _ := m.evaluateReminder(h, p, rules, now, selectedPresence(h, presence), true)
+		if !due {
 			continue
 		}
 		at := now.UTC()
 		if err := m.q.MarkHabitReminded(ctx, db.MarkHabitRemindedParams{LastRemindedAt: &at, ID: h.ID}); err != nil {
 			return err
 		}
-		if _, err := m.d.Notify.Send(ctx, reminderNotification(h, p.Done)); err != nil {
+		m.clock.reset(h.ID, now)
+		n := reminderNotification(h, p.Done)
+		if _, err := m.d.Notify.Send(ctx, n); err != nil {
 			return err
+		}
+		if h.RemindOnHost != 0 {
+			m.sendHostReminder(ctx, parseTimes(h.ActiveHostIds), n.Title, n.Body)
 		}
 	}
 	return nil
@@ -457,12 +535,12 @@ func reminderNotification(h db.Habit, done float64) notify.Notification {
 	return notify.Notification{
 		Kind:   "habit.reminder",
 		Title:  h.Name,
-		Body:   fmt.Sprintf("今天 %s/%s %s。", formatAmount(done), formatAmount(h.DailyTarget), h.Unit),
+		Body:   strings.TrimSpace(fmt.Sprintf("今天 %s/%s %s。 %s", formatAmount(done), formatAmount(h.DailyTarget), h.Unit, reminderHint(h.Template))),
 		Link:   "/habits",
 		Source: "habits",
 		Actions: []notify.Action{
-			{ID: "habit.checkin:" + id + ":1", Label: "+1 " + h.Unit},
-			{ID: "habit.skip:" + id, Label: "跳过"},
+			{ID: "habit.checkin:" + id + ":1", Label: "完成"},
+			{ID: "habit.snooze:" + id, Label: "推迟 10 分钟"},
 		},
 		Data: map[string]any{"habitId": h.ID},
 	}
@@ -502,12 +580,27 @@ func (m *Module) handleAction(ctx context.Context, actionID string) error {
 		}
 		_, _, err = m.checkin(ctx, id, amount, "", sourceFromActor(ctx), now)
 		return err
+	case parts[0] == "snooze" && len(parts) == 2:
+		if _, err := m.get(ctx, id); err != nil {
+			return err
+		}
+		until := now.Add(10 * time.Minute).UTC()
+		err := m.q.SetHabitSnoozedUntil(ctx, db.SetHabitSnoozedUntilParams{SnoozedUntil: &until, ID: id})
+		m.d.Audit.Record(ctx, "habit.snooze", strconv.FormatInt(id, 10), nil, err)
+		if err == nil {
+			m.clock.snooze(id, now)
+		}
+		return err
 	case parts[0] == "skip" && len(parts) == 2:
 		if _, err := m.get(ctx, id); err != nil {
 			return err
 		}
-		until := startOfDay(now, m.d.Config.Location).AddDate(0, 0, 1).UTC()
-		err := m.q.SetHabitQuietUntil(ctx, db.SetHabitQuietUntilParams{QuietUntil: &until, ID: id})
+		rules, err := m.loadSchedule(ctx)
+		if err != nil {
+			return err
+		}
+		until := startOfDay(now, rules.location()).AddDate(0, 0, 1).UTC()
+		err = m.q.SetHabitQuietUntil(ctx, db.SetHabitQuietUntilParams{QuietUntil: &until, ID: id})
 		m.d.Audit.Record(ctx, "habit.skip", strconv.FormatInt(id, 10), nil, err)
 		return err
 	}

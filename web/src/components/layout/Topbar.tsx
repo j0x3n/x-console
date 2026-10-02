@@ -43,6 +43,7 @@ export default function Topbar({
   const status = usePageTitle((s) => s.status);
   const statusLabel = usePageTitle((s) => s.statusLabel);
   const subtitle = usePageTitle((s) => s.subtitle);
+  const mark = usePageTitle((s) => s.mark);
   const collapsed = useSidebar((s) => s.collapsed);
   const toggleSidebar = useSidebar((s) => s.toggle);
   const detail = pageTitle && pageTitle !== t(title) ? pageTitle : "";
@@ -110,6 +111,7 @@ export default function Topbar({
         {detail && (
           <>
             <span className="breadcrumb-sep">/</span>
+            {mark}
             <span aria-current="page" className="breadcrumb-detail">
               {detail}
             </span>

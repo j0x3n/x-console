@@ -22,6 +22,7 @@ import (
 type restClient struct {
 	base  string
 	token string
+	forge string
 	hc    *http.Client
 	rate  *rateState
 	etag  *etagCache
@@ -219,7 +220,13 @@ func (c *restClient) do(ctx context.Context, method, path string, query url.Valu
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	req.Header.Set("User-Agent", "x-console")
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.forge == "forgejo" {
+		req.Header.Set("Authorization", "token "+c.token)
+		req.Header.Set("Accept", "application/json")
+		req.Header.Del("X-GitHub-Api-Version")
+	} else {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -275,23 +282,29 @@ type ghUser struct {
 }
 
 type ghRepo struct {
-	DefaultBranch string `json:"default_branch"`
+	DefaultBranch string     `json:"default_branch"`
+	HTMLURL       string     `json:"html_url"`
+	Private       bool       `json:"private"`
+	Description   string     `json:"description"`
+	PushedAt      *time.Time `json:"pushed_at"`
 }
 
 type ghPull struct {
-	Number             int        `json:"number"`
-	Title              string     `json:"title"`
-	HTMLURL            string     `json:"html_url"`
-	Draft              bool       `json:"draft"`
-	State              string     `json:"state"`
-	ClosedAt           *time.Time `json:"closed_at"`
-	MergedAt           *time.Time `json:"merged_at"`
-	User               ghUser     `json:"user"`
-	RequestedReviewers []ghUser   `json:"requested_reviewers"`
-	RequestedTeams     []any      `json:"requested_teams"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	Head               struct {
+	Number                 int        `json:"number"`
+	Title                  string     `json:"title"`
+	HTMLURL                string     `json:"html_url"`
+	Draft                  bool       `json:"draft"`
+	State                  string     `json:"state"`
+	ClosedAt               *time.Time `json:"closed_at"`
+	MergedAt               *time.Time `json:"merged_at"`
+	Merged                 bool       `json:"merged"`
+	User                   ghUser     `json:"user"`
+	RequestedReviewers     []ghUser   `json:"requested_reviewers"`
+	RequestedTeams         []any      `json:"requested_teams"`
+	RequestedReviewerTeams []any      `json:"requested_reviewers_teams"`
+	CreatedAt              time.Time  `json:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at"`
+	Head                   struct {
 		Ref string `json:"ref"`
 		SHA string `json:"sha"`
 	} `json:"head"`
@@ -319,6 +332,8 @@ type ghCheckRuns struct {
 }
 
 type ghRun struct {
+	RunAttempt int       `json:"run_attempt"`
+	URL        string    `json:"url"`
 	ID         int64     `json:"id"`
 	WorkflowID int64     `json:"workflow_id"`
 	Name       string    `json:"name"`
@@ -337,6 +352,7 @@ type ghRuns struct {
 }
 
 type ghIssue struct {
+	State     string   `json:"state"`
 	Number    int      `json:"number"`
 	Title     string   `json:"title"`
 	HTMLURL   string   `json:"html_url"`

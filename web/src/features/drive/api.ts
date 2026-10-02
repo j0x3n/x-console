@@ -322,6 +322,7 @@ export type DriveVersionSettings =
   components["schemas"]["DriveVersionSettings"];
 export type DriveShare = components["schemas"]["DriveShare"];
 export type DriveShareInput = components["schemas"]["DriveShareInput"];
+export type DriveShareDownload = components["schemas"]["DriveShareDownload"];
 export type DriveFollowFrame = components["schemas"]["DriveFollowFrame"];
 
 export const taskKeys = {
@@ -330,6 +331,8 @@ export const taskKeys = {
   versionSettings: ["drive", "version-settings"] as const,
   shares: (itemId?: number) => ["drive", "shares", itemId ?? 0] as const,
   allShares: ["drive", "shares"] as const,
+  shareDownloads: (shareId: number) =>
+    ["drive", "shares", "downloads", shareId] as const,
 };
 
 invalidateOn("drive_share.", taskKeys.allShares);
@@ -555,6 +558,21 @@ export function useDriveShares(itemId?: number) {
           params: { query: { itemId } },
         }),
       ).then((r) => r.items),
+    retry: false,
+  });
+}
+
+/** 一条分享链接最近 20 次下载（B75）。展开时才查。 */
+export function useShareDownloads(shareId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: taskKeys.shareDownloads(shareId),
+    queryFn: () =>
+      unwrap(
+        driveApi.GET("/drive/shares/{shareId}/downloads", {
+          params: { path: { shareId } },
+        }),
+      ).then((r) => r.items),
+    enabled,
     retry: false,
   });
 }

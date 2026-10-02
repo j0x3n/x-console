@@ -18,7 +18,7 @@ func deref[T any](p *T) T {
 
 func (m *Module) ListNotes(w http.ResponseWriter, r *http.Request, params api.ListNotesParams) {
 	f := listFilter{Q: deref(params.Q), Tag: deref(params.Tag), Pinned: params.Pinned,
-		Archived: deref(params.Archived), Hidden: deref(params.Hidden), Limit: int(httpx.Limit(params.Limit))}
+		Archived: deref(params.Archived), Hidden: deref(params.Hidden), Kind: deref(params.Kind), Limit: int(httpx.Limit(params.Limit))}
 	if params.Cursor != nil && *params.Cursor != "" {
 		off, err := httpx.DecodeIDCursor(params.Cursor)
 		if err != nil {
@@ -45,7 +45,7 @@ func (m *Module) CreateNote(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	out, err := m.createNote(r.Context(), deref(body.Title), deref(body.Body), deref(body.Tags), deref(body.Pinned), deref(body.Hidden), deref(body.Quick))
+	out, err := m.createNote(r.Context(), deref(body.Title), deref(body.Body), deref(body.Tags), deref(body.Pinned), deref(body.Hidden), deref(body.Quick), deref(body.Kind), deref(body.Color))
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -96,7 +96,7 @@ func (m *Module) UpdateNote(w http.ResponseWriter, r *http.Request, id api.NoteI
 		return
 	}
 	out, err := m.updateNote(r.Context(), id, notePatch{Title: body.Title, Body: body.Body, Pinned: body.Pinned,
-		Archived: body.Archived, Hidden: body.Hidden, Tags: body.Tags})
+		Archived: body.Archived, Hidden: body.Hidden, Tags: body.Tags, Kind: body.Kind, Color: body.Color})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

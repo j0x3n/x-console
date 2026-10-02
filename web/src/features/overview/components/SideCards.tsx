@@ -92,6 +92,7 @@ export function ScheduleCard() {
 /** 今天的习惯进度，每行能直接打卡。 */
 export function HabitsCard() {
   const t = useT();
+  const language = useLanguage();
   const today = useHabitsToday();
   const checkin = useCheckin();
   const undo = useUndoCheckin();
@@ -126,6 +127,13 @@ export function HabitsCard() {
                   <>
                     {" "}
                     · {p.streak} {t("days")}
+                  </>
+                )}
+                {h.nextRemindAt && !p.reached && (
+                  <>
+                    {" "}
+                    · {t("Next reminder at")}{" "}
+                    {relativeTime(h.nextRemindAt, language)}
                   </>
                 )}
               </small>

@@ -322,9 +322,21 @@ type DriveShare struct {
 	Visits int    `json:"visits"`
 }
 
+// DriveShareDownload defines model for DriveShareDownload.
+type DriveShareDownload struct {
+	At time.Time `json:"at"`
+
+	// Ip IPv4 保留前两段，IPv6 保留前两段十六进制地址
+	Ip       string  `json:"ip"`
+	ItemName *string `json:"itemName,omitempty"`
+
+	// UserAgent 浏览器名称
+	UserAgent string `json:"userAgent"`
+}
+
 // DriveShareInput defines model for DriveShareInput.
 type DriveShareInput struct {
-	// Code 提取码，不传就不用提取码
+	// Code 密码，不传就不用密码
 	Code      *string                  `json:"code,omitempty"`
 	ExpiresIn DriveShareInputExpiresIn `json:"expiresIn"`
 	ItemId    int64                    `json:"itemId"`
@@ -424,6 +436,7 @@ type PublicShareItem struct {
 	Mime      *string   `json:"mime,omitempty"`
 	Name      string    `json:"name"`
 	Size      int64     `json:"size"`
+	Thumbnail bool      `json:"thumbnail"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
@@ -568,9 +581,10 @@ type GetPublicShareParams struct {
 // GetPublicShareContentParams defines parameters for GetPublicShareContent.
 type GetPublicShareContentParams struct {
 	// T unlock 发的访问令牌。没有提取码的分享不用传
-	T      *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
-	Item   *int64       `form:"item,omitempty" json:"item,omitempty"`
-	Inline *bool        `form:"inline,omitempty" json:"inline,omitempty"`
+	T       *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
+	Item    *int64       `form:"item,omitempty" json:"item,omitempty"`
+	Inline  *bool        `form:"inline,omitempty" json:"inline,omitempty"`
+	Preview *bool        `form:"preview,omitempty" json:"preview,omitempty"`
 }
 
 // ListPublicShareItemsParams defines parameters for ListPublicShareItems.
@@ -578,6 +592,13 @@ type ListPublicShareItemsParams struct {
 	// T unlock 发的访问令牌。没有提取码的分享不用传
 	T      *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
 	Folder *int64       `form:"folder,omitempty" json:"folder,omitempty"`
+}
+
+// GetPublicShareThumbnailParams defines parameters for GetPublicShareThumbnail.
+type GetPublicShareThumbnailParams struct {
+	// T unlock 发的访问令牌。没有提取码的分享不用传
+	T    *ShareAccess `form:"t,omitempty" json:"t,omitempty"`
+	Item *int64       `form:"item,omitempty" json:"item,omitempty"`
 }
 
 // UnlockPublicShareJSONBody defines parameters for UnlockPublicShare.
@@ -708,6 +729,9 @@ type ServerInterface interface {
 	// (DELETE /drive/shares/{shareId})
 	DeleteDriveShare(w http.ResponseWriter, r *http.Request, shareId int64)
 
+	// (GET /drive/shares/{shareId}/downloads)
+	ListDriveShareDownloads(w http.ResponseWriter, r *http.Request, shareId int64)
+
 	// (GET /drive/tasks)
 	ListDriveTasks(w http.ResponseWriter, r *http.Request)
 
@@ -737,6 +761,9 @@ type ServerInterface interface {
 
 	// (GET /public/shares/{token}/items)
 	ListPublicShareItems(w http.ResponseWriter, r *http.Request, token ShareToken, params ListPublicShareItemsParams)
+
+	// (GET /public/shares/{token}/thumbnail)
+	GetPublicShareThumbnail(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicShareThumbnailParams)
 
 	// (POST /public/shares/{token}/unlock)
 	UnlockPublicShare(w http.ResponseWriter, r *http.Request, token ShareToken)
@@ -874,6 +901,11 @@ func (_ Unimplemented) DeleteDriveShare(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /drive/shares/{shareId}/downloads)
+func (_ Unimplemented) ListDriveShareDownloads(w http.ResponseWriter, r *http.Request, shareId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /drive/tasks)
 func (_ Unimplemented) ListDriveTasks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -921,6 +953,11 @@ func (_ Unimplemented) GetPublicShareContent(w http.ResponseWriter, r *http.Requ
 
 // (GET /public/shares/{token}/items)
 func (_ Unimplemented) ListPublicShareItems(w http.ResponseWriter, r *http.Request, token ShareToken, params ListPublicShareItemsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/shares/{token}/thumbnail)
+func (_ Unimplemented) GetPublicShareThumbnail(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicShareThumbnailParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1616,6 +1653,32 @@ func (siw *ServerInterfaceWrapper) DeleteDriveShare(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ListDriveShareDownloads operation middleware
+func (siw *ServerInterfaceWrapper) ListDriveShareDownloads(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "shareId" -------------
+	var shareId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "shareId", chi.URLParam(r, "shareId"), &shareId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "shareId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDriveShareDownloads(w, r, shareId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListDriveTasks operation middleware
 func (siw *ServerInterfaceWrapper) ListDriveTasks(w http.ResponseWriter, r *http.Request) {
 
@@ -1876,6 +1939,19 @@ func (siw *ServerInterfaceWrapper) GetPublicShareContent(w http.ResponseWriter, 
 		return
 	}
 
+	// ------------- Optional query parameter "preview" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "preview", r.URL.Query(), &params.Preview, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "preview"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "preview", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPublicShareContent(w, r, token, params)
 	}))
@@ -1933,6 +2009,61 @@ func (siw *ServerInterfaceWrapper) ListPublicShareItems(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListPublicShareItems(w, r, token, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicShareThumbnail operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicShareThumbnail(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicShareThumbnailParams
+
+	// ------------- Optional query parameter "t" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "t", r.URL.Query(), &params.T, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "t"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "t", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "item" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "item", r.URL.Query(), &params.Item, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "item"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "item", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicShareThumbnail(w, r, token, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2220,6 +2351,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/drive/shares/{shareId}", wrapper.DeleteDriveShare)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/shares/{shareId}/downloads", wrapper.ListDriveShareDownloads)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/public/shares/{token}", wrapper.GetPublicShare)
 	})
 	r.Group(func(r chi.Router) {
@@ -2230,6 +2364,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/public/shares/{token}/content", wrapper.GetPublicShareContent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/shares/{token}/thumbnail", wrapper.GetPublicShareThumbnail)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/public/shares/{token}/zip", wrapper.DownloadPublicShareZip)

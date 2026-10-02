@@ -105,3 +105,221 @@
   border-collapse: collapse;
   margin: 0 0 0.75em;
 }
+
+/* ---- B74：代码块、表格、提示块、隐藏块、高亮、播放器、链接卡片 ---- */
+.xc-md-code {
+  margin: 0 0 0.75em;
+  border: 1px solid var(--xc-border);
+  border-radius: 6px;
+  background: var(--xc-panel);
+}
+.xc-md .xc-md-code pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 6px 6px;
+}
+/* 顶部一条贴着可见区域的顶部，长代码往下滚也能点复制 */
+.xc-md-code-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--xc-border);
+  border-radius: 6px 6px 0 0;
+  background: var(--xc-surface-2);
+  color: var(--xc-muted);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-11-5);
+}
+.xc-md-code.collapsed .xc-md-code-bar {
+  border-bottom: 0;
+  border-radius: 6px;
+}
+.xc-md-code-gap {
+  flex: 1;
+}
+.xc-md-code-bar button,
+.xc-md-code-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--xc-text-2);
+  font: inherit;
+  cursor: pointer;
+}
+.xc-md-code-bar button:hover,
+.xc-md-code-more:hover {
+  background: var(--xc-surface);
+  color: var(--xc-text);
+}
+.xc-md-code-more {
+  width: 100%;
+  justify-content: center;
+  padding: 6px;
+  border-top: 1px solid var(--xc-border);
+  border-radius: 0 0 6px 6px;
+  font-size: var(--fs-12);
+}
+.xc-md-table {
+  max-width: 100%;
+  margin: 0 0 0.75em;
+  overflow-x: auto;
+}
+.xc-md-table table {
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.xc-md-table th,
+.xc-md-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--xc-border);
+  text-align: left;
+  vertical-align: top;
+}
+.xc-md-table th {
+  white-space: nowrap;
+  background: var(--xc-surface-2);
+  font-weight: 600;
+}
+.xc-md mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--xc-warn) 35%, transparent);
+  color: inherit;
+}
+.xc-md-callout {
+  margin: 0 0 0.75em;
+  padding: 8px 12px;
+  border-left: 3px solid var(--callout, var(--xc-info));
+  border-radius: 0 6px 6px 0;
+  background: color-mix(
+    in srgb,
+    var(--callout, var(--xc-info)) 10%,
+    transparent
+  );
+}
+.xc-md-callout.tip {
+  --callout: var(--xc-ok);
+}
+.xc-md-callout.warn {
+  --callout: var(--xc-warn);
+}
+.xc-md-callout.danger {
+  --callout: var(--xc-danger);
+}
+.xc-md-callout-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: var(--callout, var(--xc-info));
+  font-weight: 600;
+}
+.xc-md-callout-body > :last-child,
+.xc-md-hidden-body > :last-child {
+  margin-bottom: 0;
+}
+.xc-md-hidden {
+  margin: 0 0 0.75em;
+  border: 1px dashed var(--xc-border-strong);
+  border-radius: 6px;
+}
+.xc-md-hidden > button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  color: var(--xc-muted);
+  font: inherit;
+  font-size: 0.95em;
+  text-align: left;
+  cursor: pointer;
+}
+.xc-md-hidden > button:hover {
+  color: var(--xc-text);
+}
+.xc-md-hidden-body {
+  padding: 2px 12px 10px;
+}
+.xc-md-video {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  margin: 4px 0;
+  border-radius: 6px;
+  background: #000;
+}
+.xc-md-audio {
+  display: block;
+  width: min(100%, 420px);
+  margin: 4px 0;
+}
+.xc-md-linkcard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0 0 0.75em;
+  padding: 8px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  color: var(--xc-text);
+  text-decoration: none;
+}
+.xc-md-linkcard:hover {
+  border-color: var(--xc-border-strong);
+  background: var(--xc-surface-2);
+}
+.xc-md-linkcard-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+  color: var(--xc-muted);
+}
+.xc-md-linkcard-text {
+  display: grid;
+  min-width: 0;
+}
+.xc-md-linkcard-text strong {
+  font-weight: 600;
+}
+.xc-md-linkcard-text small {
+  overflow: hidden;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 工具条的“插入”下拉（B74）。手机上工具条一行横向滚动，“插入”放最前面 */
+.xc-insert-menu {
+  display: inline-flex;
+  flex: none;
+}
+@media (max-width: 640px) {
+  .xc-mde-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .xc-mde-toolbar > * {
+    flex: none;
+  }
+  .xc-mde-toolbar .xc-insert-menu,
+  .notes-toolbar .xc-insert-menu {
+    order: -1;
+  }
+}

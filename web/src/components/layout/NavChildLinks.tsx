@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type DragEvent, type ReactNode } from "react";
 import { NavLink } from "react-router";
 import { ChevronRight } from "lucide-react";
 import { useT } from "../../contexts/LanguageContext";
@@ -44,6 +44,7 @@ export default function NavChildLinks({
   empty,
   onNavigate,
   limit = NAV_CHILD_LIMIT,
+  onReorder,
 }: {
   links: NavChildLink[];
   total?: number;
@@ -54,9 +55,16 @@ export default function NavChildLinks({
   error?: boolean;
   empty: string;
   onNavigate: () => void;
+  /**
+   * 传了就能拖动排序（B82）：拖完给出全部链接的新顺序。
+   * 只排不缩进的链接。
+   */
+  onReorder?: (keys: (string | number)[]) => void;
 }) {
   const t = useT();
   const [open3, setOpen3] = useState<string[]>(readOpen3);
+  const [dragging, setDragging] = useState<string | number | null>(null);
+  const [over, setOver] = useState<string | number | null>(null);
   const count = total ?? links.length;
   if (loading) return <div className="nav-children-note">{t("Loading")}…</div>;
   if (error)
@@ -82,6 +90,43 @@ export default function NavChildLinks({
     if (l.nested && last) last.nested.push(l);
     else groups.push({ parent: l, nested: [] });
   }
+  const drop = (target: string | number) => {
+    if (dragging == null || dragging === target || !onReorder) return;
+    const keys = links.filter((l) => !l.nested).map((l) => l.key);
+    const from = keys.indexOf(dragging);
+    const to = keys.indexOf(target);
+    if (from < 0 || to < 0) return;
+    keys.splice(from, 1);
+    keys.splice(to, 0, dragging);
+    onReorder(keys);
+  };
+  const dragProps = (l: NavChildLink) =>
+    onReorder && !l.nested
+      ? {
+          draggable: true,
+          onDragStart: (e: DragEvent) => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", String(l.key));
+            setDragging(l.key);
+          },
+          onDragOver: (e: DragEvent) => {
+            if (dragging == null) return;
+            e.preventDefault();
+            setOver(l.key);
+          },
+          onDragLeave: () => setOver((o) => (o === l.key ? null : o)),
+          onDrop: (e: DragEvent) => {
+            e.preventDefault();
+            drop(l.key);
+            setDragging(null);
+            setOver(null);
+          },
+          onDragEnd: () => {
+            setDragging(null);
+            setOver(null);
+          },
+        }
+      : {};
   const render = (l: NavChildLink, toggleButton?: ReactNode) => {
     const link = (
       <NavLink
@@ -90,9 +135,10 @@ export default function NavChildLinks({
         end
         onClick={onNavigate}
         className={({ isActive }) =>
-          `nav-child${l.nested ? " nested" : ""}${(l.active ?? isActive) ? " selected" : ""}`
+          `nav-child${l.nested ? " nested" : ""}${(l.active ?? isActive) ? " selected" : ""}${dragging === l.key ? " dragging" : ""}${over === l.key && dragging !== l.key ? " drag-over" : ""}`
         }
         title={l.label}
+        {...dragProps(l)}
       >
         {l.mark}
         <span>{l.label}</span>

@@ -22,6 +22,7 @@ import (
 
 // Version is set at build time with -ldflags "-X .../core.Version=...".
 var Version = "dev"
+var BuiltAt = ""
 
 // Handlers implements api.ServerInterface.
 type Handlers struct {
@@ -178,6 +179,10 @@ func AgentToAPI(a agenthub.Agent) api.Agent {
 		CreatedAt: a.CreatedAt, LastSeenAt: a.LastSeenAt}
 }
 
+func (h *Handlers) GetAgentWhoami(w http.ResponseWriter, r *http.Request) {
+	h.Agents.ServeWhoami(w, r)
+}
+
 func (h *Handlers) CreatePairingCode(w http.ResponseWriter, r *http.Request) {
 	if err := auth.RequireElevated(r.Context()); err != nil {
 		httpx.Fail(w, r, err)
@@ -188,7 +193,16 @@ func (h *Handlers) CreatePairingCode(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	code, expires, err := h.Agents.CreatePairingCode(r.Context(), body.Name, string(body.Kind))
+	var info *contracts.HostInfoInput
+	if body.Info != nil {
+		raw, _ := json.Marshal(body.Info)
+		info = &contracts.HostInfoInput{}
+		if err := json.Unmarshal(raw, info); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
+	code, expires, err := h.Agents.CreatePairingCodeWithInfo(r.Context(), body.Name, string(body.Kind), info)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

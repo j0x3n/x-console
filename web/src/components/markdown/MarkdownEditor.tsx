@@ -17,8 +17,6 @@ import {
   Link2,
   List,
   ListChecks,
-  ListOrdered,
-  Minus,
   Pencil,
   Quote,
   WandSparkles,
@@ -27,6 +25,7 @@ import { errorMessage, isNotLive } from "../../api/client";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import Markdown from "./Markdown";
+import InsertMenu from "./InsertMenu";
 import PolishDialog from "./PolishDialog";
 import type { PolishScene } from "./polish";
 import { toggleTask } from "./mdparse";
@@ -221,12 +220,6 @@ export default function MarkdownEditor({
       run: () => apply((x, s, e) => prefixLines(x, s, e, "- ")),
     },
     {
-      key: "ol",
-      icon: <ListOrdered size={15} />,
-      label: t("Numbered list"),
-      run: () => apply((x, s, e) => prefixLines(x, s, e, "", true)),
-    },
-    {
       key: "task",
       icon: <ListChecks size={15} />,
       label: t("Checklist"),
@@ -258,12 +251,6 @@ export default function MarkdownEditor({
           wrapSelection(x, s, e, "[", "](https://)", t("link text")),
         ),
     },
-    {
-      key: "hr",
-      icon: <Minus size={15} />,
-      label: t("Divider"),
-      run: () => apply((x, s, e) => insertBlock(x, s, e, "---")),
-    },
   ];
 
   return (
@@ -285,6 +272,7 @@ export default function MarkdownEditor({
             {tool.icon}
           </button>
         ))}
+        <InsertMenu apply={apply} />
         {uploadScope && (
           <button
             type="button"

@@ -18,6 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts/db"
@@ -189,6 +190,12 @@ func (m *Module) sshClient(ctx context.Context, row db.SshHost) (*ssh.Client, er
 	c, key, err := dialSSH(ctx, row.Address, row.Port, row.Username, row.Auth, secret, row.HostKey)
 	if err != nil {
 		return nil, err
+	}
+	if ip, ok := httpx.PeerIP(c.RemoteAddr().String()); ok {
+		if err := m.saveHostAddresses(ctx, sshHostID(row.ID), "server", []protocol.HostAddress{{IP: ip.String()}}); err != nil {
+			c.Close()
+			return nil, err
+		}
 	}
 	if row.HostKey == "" && key != nil {
 		if err := m.q.SetSSHHostKey(ctx, db.SetSSHHostKeyParams{HostKey: string(ssh.MarshalAuthorizedKey(key)), ID: row.ID}); err != nil {
@@ -708,8 +715,33 @@ func (m *Module) CreateSshHost(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	row, err := m.q.CreateSSHHost(ctx, db.CreateSSHHostParams{Name: in.name, Address: in.address, Port: in.port,
-		Username: in.username, Auth: in.auth, Secret: sealed, CreatedAt: m.now()})
+	info := contracts.HostInfoInput{}
+	if body.Info != nil {
+		info, err = hostInfoInput(body.Info)
+		if err == nil {
+			err = m.Validate(ctx, info)
+		}
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
+	var row db.SshHost
+	tx, err := m.d.DB.BeginTx(ctx, nil)
+	if err == nil {
+		defer tx.Rollback()
+		row, err = db.New(tx).CreateSSHHost(ctx, db.CreateSSHHostParams{Name: in.name, Address: in.address, Port: in.port,
+			Username: in.username, Auth: in.auth, Secret: sealed, CreatedAt: m.now()})
+		if err == nil {
+			err = m.writeHostInfo(ctx, tx, sshHostID(row.ID), "server", info)
+		}
+		if err == nil {
+			err = tx.Commit()
+		}
+	}
+	if tx != nil {
+		_ = tx.Rollback()
+	}
 	m.d.Audit.Record(ctx, "host.ssh.create", in.name, map[string]any{"address": in.address, "username": in.username}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -752,8 +784,36 @@ func (m *Module) UpdateSshHost(w http.ResponseWriter, r *http.Request, id int64)
 	if in.address != old.Address || in.port != old.Port {
 		hostKey = "" // a different machine: learn its key again
 	}
-	row, err := m.q.UpdateSSHHost(ctx, db.UpdateSSHHostParams{Name: in.name, Address: in.address, Port: in.port,
-		Username: in.username, Auth: in.auth, Secret: sealed, HostKey: hostKey, ID: id})
+	info := contracts.HostInfoInput{}
+	if body.Info != nil {
+		info, err = hostInfoInput(body.Info)
+		if err == nil {
+			err = m.Validate(ctx, info)
+		}
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
+	var row db.SshHost
+	tx, err := m.d.DB.BeginTx(ctx, nil)
+	if err == nil {
+		defer tx.Rollback()
+		row, err = db.New(tx).UpdateSSHHost(ctx, db.UpdateSSHHostParams{Name: in.name, Address: in.address, Port: in.port,
+			Username: in.username, Auth: in.auth, Secret: sealed, HostKey: hostKey, ID: id})
+		if err == nil {
+			err = m.writeHostInfo(ctx, tx, sshHostID(id), "server", info)
+		}
+		if err == nil && (in.address != old.Address || in.port != old.Port) {
+			_, err = tx.ExecContext(ctx, "UPDATE host_info SET addresses='[]',country_code='',country_ip='',country_checked_at=NULL WHERE host_id=?", sshHostID(id))
+		}
+		if err == nil {
+			err = tx.Commit()
+		}
+	}
+	if tx != nil {
+		_ = tx.Rollback()
+	}
 	m.d.Audit.Record(ctx, "host.ssh.update", in.name, map[string]any{"address": in.address, "secretChanged": in.secret != nil}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -780,6 +840,7 @@ func (m *Module) DeleteSshHost(w http.ResponseWriter, r *http.Request, id int64)
 		httpx.Fail(w, r, err)
 		return
 	}
+	_, _ = m.d.DB.ExecContext(ctx, "DELETE FROM host_info WHERE host_id=?", sshHostID(id))
 	m.ssh.forget(id)
 	m.metrics.drop(sshHostID(id))
 	m.dropTraffic(ctx, sshHostID(id))

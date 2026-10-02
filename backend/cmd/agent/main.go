@@ -28,7 +28,9 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/files"
 	"github.com/j0x3n/x-console/backend/internal/agent/metrics"
 	"github.com/j0x3n/x-console/backend/internal/agent/netproxy"
+	"github.com/j0x3n/x-console/backend/internal/agent/notifyshow"
 	"github.com/j0x3n/x-console/backend/internal/agent/power"
+	"github.com/j0x3n/x-console/backend/internal/agent/presence"
 	"github.com/j0x3n/x-console/backend/internal/agent/proc"
 	"github.com/j0x3n/x-console/backend/internal/agent/pty"
 	"github.com/j0x3n/x-console/backend/internal/agent/setup"
@@ -127,6 +129,9 @@ func run(args []string) error {
 func register(c *conn.Client, cfg config.Config) {
 	c.Handle(protocol.MethodPing, sysinfo.Ping)
 	c.Handle(protocol.MethodSystemInfo, sysinfo.SystemInfo)
+	sysinfo.RegisterAddresses(c)
+	presence.Register(c)
+	notifyshow.Register(c)
 	sysinfo.Info = metrics.SystemInfo                   // M2/M3: full system.info via gopsutil
 	metrics.Register(c)                                 // M2/M3: metrics event every 30s or 5s on demand
 	proc.Register(c)                                    // M2/M3
@@ -145,7 +150,10 @@ func register(c *conn.Client, cfg config.Config) {
 
 // capabilities lists what this build supports on this OS.
 func capabilities() []string {
-	caps := []string{protocol.CapSystemInfo}
+	caps := []string{protocol.CapSystemInfo, protocol.CapPresence}
+	if notifyshow.Available() {
+		caps = append(caps, protocol.CapNotifyShow)
+	}
 	// M2/M3: metrics, processes, files and exec work everywhere; terminal
 	// and services depend on the system; clipboard, power and open are
 	// Windows desktop only.

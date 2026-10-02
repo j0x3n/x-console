@@ -172,7 +172,7 @@ type flat struct{ s files.Store }
 
 func (f flat) key(key string) (string, error) {
 	rest, ok := strings.CutPrefix(key, remoteFolder)
-	if !ok || rest == "" {
+	if !ok || rest == "" || files.CheckKey(rest) != nil {
 		return "", files.ErrBadKey
 	}
 	return rest, nil
@@ -220,11 +220,14 @@ func (f flat) Delete(ctx context.Context, key string) error {
 
 func (f flat) List(ctx context.Context, prefix string) iter.Seq2[files.Info, error] {
 	return func(yield func(files.Info, error) bool) {
-		if strings.TrimSuffix(prefix, "/") != strings.TrimSuffix(remoteFolder, "/") {
+		clean := strings.TrimSuffix(prefix, "/")
+		if clean != "backups" && !strings.HasPrefix(clean, remoteFolder) || files.CheckKey(clean) != nil {
 			yield(files.Info{}, files.ErrBadKey)
 			return
 		}
-		for info, err := range f.s.List(ctx, "") {
+		inner := strings.TrimPrefix(clean, "backups")
+		inner = strings.TrimPrefix(inner, "/")
+		for info, err := range f.s.List(ctx, inner) {
 			if err == nil {
 				info.Key = remoteFolder + info.Key
 			}

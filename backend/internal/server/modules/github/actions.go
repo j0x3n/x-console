@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
-	"github.com/j0x3n/x-console/backend/internal/server/modules/github/db"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/github/api"
 )
 
 func (m *Module) registerActions() {
@@ -81,9 +81,12 @@ func (m *Module) CreatePR(ctx context.Context, in contracts.CreatePR) (prURL str
 	if in.Title == "" {
 		return "", 0, httpx.Invalid("标题不能为空")
 	}
-	cfg, err := m.requireConfigured(ctx)
+	cfg, err := m.loadLegacyConfig(ctx)
 	if err != nil {
 		return "", 0, err
+	}
+	if cfg.Token == "" {
+		return "", 0, httpx.ErrIntegrationMissing
 	}
 	var p ghPull
 	body := map[string]any{"title": in.Title, "head": in.Head, "base": in.Base, "body": in.Body, "draft": in.Draft}
@@ -93,19 +96,20 @@ func (m *Module) CreatePR(ctx context.Context, in contracts.CreatePR) (prURL str
 		}
 		return "", 0, err
 	}
-	// Show it right away when the repository is watched; the next sync
-	// fills in reviews and checks.
-	if slices.Contains(cfg.Repos, repo) {
-		now := m.now()
-		if err := m.q.UpsertPull(ctx, db.UpsertPullParams{
-			Repo: repo, Number: int64(p.Number), Title: p.Title, Author: p.User.Login, Url: p.HTMLURL,
-			HeadRef: p.Head.Ref, HeadSha: p.Head.SHA, BaseRef: p.Base.Ref, Draft: p.Draft,
-			ReviewState: "none", CheckState: "none", CreatedAt: p.CreatedAt.UTC(), UpdatedAt: p.UpdatedAt.UTC(), SyncedAt: now, State: "open",
-		}); err != nil {
-			m.log.Warn("github cache new pull", "err", err)
+	k := repoKey{cfg.ConnectionID, repo}
+	v := cachedPull{GitHubPull: api.GitHubPull{ConnectionId: ptr(cfg.ConnectionID), Forge: ptr(api.Github), Repo: repo, Number: p.Number, Title: p.Title, Author: p.User.Login, Url: p.HTMLURL, HeadRef: p.Head.Ref, BaseRef: p.Base.Ref, Draft: p.Draft, ReviewState: api.GitHubReviewStateNone, CheckState: api.GitHubCheckStateNone, State: api.Open, IssueKeys: []string{}, CreatedAt: p.CreatedAt.UTC(), UpdatedAt: p.UpdatedAt.UTC()}, HeadSHA: p.Head.SHA}
+	m.linkRepositoryPull(ctx, k, &v)
+	watches, e := m.loadConfig(ctx)
+	if e == nil {
+		for _, watch := range watches.Watches {
+			if watch.ConnectionId == cfg.ConnectionID && watch.Repo == repo {
+				if err := m.putObject(ctx, k, "pull", object(strconv.Itoa(p.Number), v)); err != nil {
+					m.log.Warn("github cache new pull", "err", err)
+				}
+				break
+			}
 		}
 	}
-	m.linkPull(ctx, repo, p.Number, p.Title, p.Head.Ref, p.HTMLURL)
 	m.d.Bus.Publish("github.pull_created", map[string]any{"repo": repo, "number": p.Number, "url": p.HTMLURL})
 	return p.HTMLURL, p.Number, nil
 }

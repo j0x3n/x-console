@@ -15,6 +15,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/backup/repo"
 	storageapi "github.com/j0x3n/x-console/backend/internal/server/modules/storage/api"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
@@ -45,16 +46,18 @@ type runRecord struct {
 
 // settingsData is stored under keySettings.
 type settingsData struct {
-	Enabled   bool         `json:"enabled"`
-	Frequency string       `json:"frequency"`
-	Time      string       `json:"time"`
-	Weekday   int          `json:"weekday"`
-	Keep      int          `json:"keep"`
-	Target    string       `json:"target"`
-	RemoteID  int64        `json:"remoteId,omitempty"` // B69, for targetRemote
-	S3        s3Fields     `json:"s3"`
-	WebDAV    webdavFields `json:"webdav"`
-	GDrive    gdriveFields `json:"gdrive"`
+	Mode      string         `json:"mode"`
+	Retention repo.Retention `json:"retention"`
+	Enabled   bool           `json:"enabled"`
+	Frequency string         `json:"frequency"`
+	Time      string         `json:"time"`
+	Weekday   int            `json:"weekday"`
+	Keep      int            `json:"keep"`
+	Target    string         `json:"target"`
+	RemoteID  int64          `json:"remoteId,omitempty"` // B69, for targetRemote
+	S3        s3Fields       `json:"s3"`
+	WebDAV    webdavFields   `json:"webdav"`
+	GDrive    gdriveFields   `json:"gdrive"`
 	// LastAttemptAt is when the last automatic run started, successful or not.
 	// A run is due when the latest scheduled time is after it.
 	LastAttemptAt time.Time   `json:"lastAttemptAt"`
@@ -62,14 +65,22 @@ type settingsData struct {
 }
 
 func defaultSettings() settingsData {
-	return settingsData{Frequency: "daily", Time: "03:00", Keep: 14, Target: targetStorage,
+	return settingsData{Mode: "incremental", Retention: repo.Retention{Last: 7, Daily: 14, Weekly: 8, Monthly: 12}, Frequency: "daily", Time: "03:00", Keep: 14, Target: targetStorage,
 		WebDAV: webdavFields{Folder: defaultWebDAVFolder}, GDrive: gdriveFields{FolderName: defaultGDriveFolder}}
 }
 
 func (m *Module) loadSettings(ctx context.Context) (settingsData, error) {
 	s := defaultSettings()
-	if err := m.d.Settings.Get(ctx, keySettings, &s); err != nil && !errors.Is(err, settings.ErrNotSet) {
+	s.Mode = ""
+	err := m.d.Settings.Get(ctx, keySettings, &s)
+	if errors.Is(err, settings.ErrNotSet) {
+		return defaultSettings(), nil
+	}
+	if err != nil {
 		return s, err
+	}
+	if s.Mode == "" {
+		s.Mode = "full"
 	}
 	return s, nil
 }
@@ -151,20 +162,33 @@ func (m *Module) runAuto(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		name, size, err := m.create(bg, kindAuto, dest.store, remoteFolder, true, j)
+		var name string
+		var size int64
+		var err error
+		if s.Mode == "incremental" {
+			var snapshot repo.Snapshot
+			snapshot, err = m.createIncremental(bg, j, dest, s.Retention)
+			name, size = snapshot.ID, snapshot.UploadedBytes
+		} else {
+			name, size, err = m.create(bg, kindAuto, dest.store, remoteFolder, true, j)
+		}
 		if err == nil {
 			j.set(func(v *api.BackupJob) { v.BackupId = &name })
-			m.pruneRemote(bg, dest, s.Keep)
+			if s.Mode == "full" {
+				m.pruneRemote(bg, dest, s.Keep)
+			}
 			m.rememberFolder(bg, s, dest.gdrive)
 		}
-		m.recordRun(bg, name, size, err)
+		if s.Mode == "full" || err != nil {
+			m.recordRun(bg, name, size, publicBackupError(err))
+		}
 		m.d.Audit.Record(bg, "backup.auto", name, map[string]any{"bytes": size}, err)
 		if err != nil {
 			m.notifyFailure(bg, err)
 		} else {
 			m.d.Bus.Publish("backup.created", map[string]any{"id": name})
 		}
-		m.end(j, err)
+		m.end(j, publicBackupError(err))
 	}()
 	return nil
 }
@@ -202,7 +226,7 @@ func (m *Module) notifyFailure(ctx context.Context, cause error) {
 	if errors.Is(cause, files.ErrGDriveAuth) {
 		title = files.ErrGDriveAuth.Error()
 	}
-	_, err := m.d.Notify.Send(ctx, notify.Notification{Kind: "backup.failed", Title: title, Body: cause.Error(),
+	_, err := m.d.Notify.Send(ctx, notify.Notification{Kind: "backup.failed", Title: title, Body: publicBackupError(cause).Error(),
 		Link: "/settings/backup", Priority: notify.PriorityNormal, Source: "backup"})
 	if err != nil {
 		m.log().Warn("backup: send failure notice", "error", err)
@@ -232,6 +256,10 @@ func (m *Module) pruneRemote(ctx context.Context, dest target, keep int) {
 
 // RunBackupNow is POST /backups/run.
 func (m *Module) RunBackupNow(w http.ResponseWriter, r *http.Request) {
+	if err := auth.RequireElevated(r.Context()); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	if err := m.runAuto(r.Context()); err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -263,7 +291,7 @@ func (m *Module) secretsSet(ctx context.Context) secretsSet {
 // view turns saved settings into the API answer.
 func (m *Module) view(s settingsData, set secretsSet, now time.Time) api.BackupSettings {
 	out := api.BackupSettings{Enabled: s.Enabled, Frequency: api.BackupSettingsFrequency(s.Frequency), Time: s.Time,
-		Weekday: s.Weekday, Keep: s.Keep, Target: api.BackupSettingsTarget(s.Target)}
+		Weekday: s.Weekday, Keep: s.Keep, Target: api.BackupSettingsTarget(s.Target), Mode: api.BackupSettingsMode(s.Mode), Retention: api.BackupRetention{Last: s.Retention.Last, Daily: s.Retention.Daily, Weekly: s.Retention.Weekly, Monthly: s.Retention.Monthly}}
 	if s.S3 != (s3Fields{}) || set.s3 {
 		out.S3 = &storageapi.StorageS3{Endpoint: s.S3.Endpoint, Region: s.S3.Region, Bucket: s.S3.Bucket, Prefix: s.S3.Prefix,
 			AccessKeyId: s.S3.AccessKeyID, HasSecret: set.s3, PathStyle: s.S3.PathStyle}
@@ -360,6 +388,12 @@ func (m *Module) saveSettings(ctx context.Context, in api.BackupSettingsInput) (
 // apply copies the fields of in onto s and returns the new secrets in it.
 func apply(s *settingsData, in api.BackupSettingsInput) newSecrets {
 	var p newSecrets
+	if in.Mode != nil {
+		s.Mode = string(*in.Mode)
+	}
+	if in.Retention != nil {
+		s.Retention = repo.Retention{Last: in.Retention.Last, Daily: in.Retention.Daily, Weekly: in.Retention.Weekly, Monthly: in.Retention.Monthly}
+	}
 	if in.Enabled != nil {
 		s.Enabled = *in.Enabled
 	}
@@ -428,6 +462,12 @@ func applyS3(dst *s3Fields, in storageapi.StorageS3Input) {
 // validate rejects settings that cannot work. The location is only tried
 // when the automatic backup is on.
 func (m *Module) validate(ctx context.Context, s settingsData, p newSecrets) error {
+	if s.Mode != "full" && s.Mode != "incremental" {
+		return httpx.Invalid("备份方式无效")
+	}
+	if err := s.Retention.Validate(); err != nil {
+		return httpx.Invalid(err.Error())
+	}
 	if s.Frequency != "daily" && s.Frequency != "weekly" {
 		return httpx.Invalid("频率只能是每天或每周")
 	}

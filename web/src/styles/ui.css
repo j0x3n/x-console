@@ -1063,6 +1063,13 @@ a.xc-badge:hover {
   font-size: var(--fs-12-5);
   text-decoration: none;
 }
+/* 二级菜单拖动排序（B82） */
+.nav-child.dragging {
+  opacity: 0.45;
+}
+.nav-child.drag-over {
+  box-shadow: inset 0 2px 0 var(--xc-accent);
+}
 .nav-child > span {
   flex: 1;
   min-width: 0;

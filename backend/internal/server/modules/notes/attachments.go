@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes/api"
@@ -112,6 +113,7 @@ func (m *Module) UploadNoteAttachment(w http.ResponseWriter, r *http.Request, no
 		httpx.Fail(w, r, err)
 		return
 	}
+	defer contracts.TrackTemporaryFile(tmp.Name())()
 	defer os.Remove(tmp.Name())
 	defer tmp.Close()
 	var sample [512]byte

@@ -30,7 +30,10 @@ type fakeGitHub struct {
 	checkRuns     map[string][]map[string]any // sha → check runs
 	runs          map[string][]map[string]any // repo → runs, newest first
 	issues        map[string][]map[string]any // repo → issues
-	created       []map[string]any            // bodies of POST /pulls
+	commits       map[string][]map[string]any
+	jobs          map[string][]map[string]any
+	releases      map[string]map[string]any
+	created       []map[string]any // bodies of POST /pulls
 	requests      int
 	notModified   int
 	rateLimited   bool
@@ -46,6 +49,7 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 		pulls: map[string][]map[string]any{}, reviews: map[string][]map[string]any{},
 		statuses: map[string]map[string]any{}, checkRuns: map[string][]map[string]any{},
 		runs: map[string][]map[string]any{}, issues: map[string][]map[string]any{}, nextPR: 100,
+		commits: map[string][]map[string]any{}, jobs: map[string][]map[string]any{}, releases: map[string]map[string]any{},
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
@@ -155,6 +159,17 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 		body = map[string]any{"total_count": len(runs), "check_runs": runs}
 	case len(parts) == 5 && parts[3] == "actions" && parts[4] == "runs":
 		body = map[string]any{"workflow_runs": orEmpty(f.runs[parts[1]+"/"+parts[2]])}
+	case len(parts) == 4 && parts[3] == "commits":
+		body = f.page(w, r, f.commits[parts[1]+"/"+parts[2]])
+	case len(parts) == 7 && parts[3] == "actions" && parts[6] == "jobs":
+		body = map[string]any{"jobs": f.page(w, r, f.jobs[parts[5]])}
+	case len(parts) == 5 && parts[3] == "releases" && parts[4] == "latest":
+		if release, ok := f.releases[parts[1]+"/"+parts[2]]; ok {
+			body = release
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 	case len(parts) == 4 && parts[3] == "issues":
 		var out []map[string]any
 		for _, is := range f.issues[parts[1]+"/"+parts[2]] {
