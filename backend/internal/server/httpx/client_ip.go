@@ -40,25 +40,37 @@ func PeerIP(remote string) (netip.Addr, bool) {
 	return addr.Unmap(), true
 }
 
+// ClientIP returns the address of the client. When the peer is a trusted
+// proxy it walks X-Forwarded-For from the right and stops at the first hop
+// that is not trusted, so a client cannot pick its own address by sending
+// the header itself.
 func ClientIP(r *http.Request, trusted []netip.Prefix) string {
 	peer, ok := PeerIP(r.RemoteAddr)
 	if !ok {
 		return ""
 	}
-	allowed := false
-	for _, prefix := range trusted {
-		if prefix.Contains(peer) {
-			allowed = true
+	isTrusted := func(addr netip.Addr) bool {
+		for _, prefix := range trusted {
+			if prefix.Contains(addr) {
+				return true
+			}
+		}
+		return false
+	}
+	client := peer
+	if !isTrusted(peer) {
+		return client.String()
+	}
+	hops := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	for i := len(hops) - 1; i >= 0; i-- {
+		addr, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
+		if err != nil || addr.Zone() != "" {
+			break
+		}
+		client = addr.Unmap()
+		if !isTrusted(client) {
 			break
 		}
 	}
-	if allowed {
-		for _, value := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
-			addr, err := netip.ParseAddr(strings.TrimSpace(value))
-			if err == nil && addr.Zone() == "" {
-				return addr.Unmap().String()
-			}
-		}
-	}
-	return peer.String()
+	return client.String()
 }

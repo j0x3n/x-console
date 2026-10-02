@@ -10,7 +10,7 @@ func TestTrustedClientIP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tc := range []struct{ remote, header, want string }{{"192.0.2.1:42", "8.8.8.8", "192.0.2.1"}, {"127.0.0.1:42", "bad, 8.8.8.8, 1.1.1.1", "8.8.8.8"}, {"[::1]:42", "::ffff:8.8.8.8", "8.8.8.8"}, {"127.0.0.1:42", "bad", "127.0.0.1"}, {"unparseable", "8.8.8.8", ""}} {
+	for _, tc := range []struct{ remote, header, want string }{{"192.0.2.1:42", "8.8.8.8", "192.0.2.1"}, {"127.0.0.1:42", "bad, 8.8.8.8, 1.1.1.1", "1.1.1.1"}, {"127.0.0.1:42", "6.6.6.6, 8.8.8.8", "8.8.8.8"}, {"127.0.0.1:42", "8.8.8.8, 127.0.0.1", "8.8.8.8"}, {"127.0.0.1:42", "8.8.8.8, bad, 127.0.0.1", "127.0.0.1"}, {"[::1]:42", "::ffff:8.8.8.8", "8.8.8.8"}, {"127.0.0.1:42", "bad", "127.0.0.1"}, {"unparseable", "8.8.8.8", ""}} {
 		r := httptest.NewRequest("GET", "/", nil)
 		r.RemoteAddr = tc.remote
 		r.Header.Set("X-Forwarded-For", tc.header)
