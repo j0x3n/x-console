@@ -5,12 +5,13 @@
 ## 第四批（B84 到 B96，2026-10-02 开始）— 接手的 AI 先看这里
 
 用户 2026-10-02 提了一批新需求，让 Claude 优先做前端。规格在 `docs/specs/B84.md` 到 `B96.md`（B94、B95 写在 `docs/tasks.md`）。
-接口定义已改好并生成，新接口的后端占位在 `aiagents/pending.go`、`projects/pending.go`（回 501）。后端由 Codex 照各规格“后端（待做）”做，前端由 Claude 做，全部在 `codex` 分支上。
+接口定义已改好并生成，新接口的后端占位在 `aiagents/pending.go`、`projects/pending.go`（回 501）。后端由 Codex 照各规格“后端（待做）”做，前端由 Claude 做。（当时在 `codex` 上，已合并进 `develop`。接着做的直接在 `develop` 上，除非用户让 Codex 做。）
 
 ### 当前（2026-10-02 晚，Claude 额度用完前写的）— 接手的 AI 从这里开始
 
 - 第四批前端全部做完。后端 Claude 顺手做了 B85（卡片颜色）、B88（称呼、布局列号）、B89（每日一句）、B92（邮件正文、早报只发总结）、B93（在线设备读不到时的降级）、B96（AI 习惯参数），以及 B90 的湿度和白天黑夜。
-- 用户让 Claude 把 `codex` 合并进 `develop` 并推送（没带部署标记，没部署）。
+- 用户让 Claude 把 `codex` 合并进 `develop` 并推送（`5318d25`，没带部署标记，没部署）。之后 `codex` 分支已删除。
+- **分支规则改了（2026-10-02 用户定的）**：`develop` 是唯一的开发分支，直接在上面做。`codex` 只在用户让 Codex 做时才从 `develop` 开，做完开 PR 给 Claude 审查，合并后删掉。详见 AGENTS.md。
 - 还要做的后端（照各规格“后端（待做）”）：B84 看板绑定仓库和同步 Issue、B86 Agent 用看板的仓库开发并提 PR 和执行日志、B87 Agent 的提问和通知、B90 配了和风天气时用和风实况、B91 按条目的推送图标和进度环。新接口的占位在 `aiagents/pending.go`、`projects/pending.go`，做完删掉。
 - B95 树莓派：用户确认是 64 位系统，代理本来就支持。要用户给连不上时的报错原文再查。
 - B92 的“from X Console”是浏览器自己显示的，网页去不掉，已经告诉用户。
