@@ -266,7 +266,8 @@ function HabitCard({
               {h.nextRemindAt && !p.reached && (
                 <>
                   {" · "}
-                  {t("Next reminder at")} {relativeTime(h.nextRemindAt, language)}
+                  {t("Next reminder at")}{" "}
+                  {relativeTime(h.nextRemindAt, language)}
                 </>
               )}
             </span>
