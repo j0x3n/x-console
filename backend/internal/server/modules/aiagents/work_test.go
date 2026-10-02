@@ -43,7 +43,14 @@ func (f *fakeRunner) RunTools(ctx context.Context, in contracts.ToolRun) (string
 	f.runs = append(f.runs, in)
 	f.session = auth.FromContext(ctx)
 	f.mu.Unlock()
-	<-f.release
+	if in.Observer != nil {
+		in.Observer.RecordToolEvent(ctx, "tool", "列出了卡片", "projects.list", true)
+	}
+	select {
+	case <-f.release:
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 	return "拆成了 3 条清单。", nil
 }
 
@@ -109,7 +116,7 @@ func TestAssignCLIAgentAndFollowTask(t *testing.T) {
 	env.MustDo(http.MethodPost, "/ai-agents", map[string]any{"name": "后端", "kind": "codex"}, &a)
 	path := fmt.Sprintf("/ai-agents/%d/assign", a.ID)
 
-	if s, _ := env.Do(http.MethodPost, path, map[string]any{"issueKey": c.Key}, nil); s != 400 {
+	if s, _ := env.Do(http.MethodPost, path, map[string]any{"issueKey": c.Key}, nil); s != 409 {
 		t.Fatalf("no repo: %d", s)
 	}
 	if s, _ := env.Do(http.MethodPost, path, map[string]any{"issueKey": "AG-99", "repoId": 1}, nil); s != 400 {

@@ -542,7 +542,7 @@ func reminderNotification(h db.Habit, done float64) notify.Notification {
 			{ID: "habit.checkin:" + id + ":1", Label: "完成"},
 			{ID: "habit.snooze:" + id, Label: "推迟 10 分钟"},
 		},
-		Data: map[string]any{"habitId": h.ID},
+		Data: map[string]any{"habitId": h.ID, "icon": h.Icon, "template": h.Template, "done": done, "target": h.DailyTarget},
 	}
 }
 

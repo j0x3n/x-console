@@ -6,6 +6,7 @@ import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { relativeTime } from "../../lib/time";
 import { issuePath } from "../projects/logic";
+import { useAssistant } from "../assistant/store";
 import { useAnswerDecision, type AiAgentDecision } from "./api";
 import "./i18n";
 import "./aiagents.css";
@@ -45,7 +46,18 @@ export function DecisionRow({ decision: d }: { decision: AiAgentDecision }) {
       <span className="today-row-icon accent">
         <Icon size={15} />
       </span>
-      <Link className="today-row-main" to={decisionLink(d)} title={d.detail}>
+      <Link
+        className="today-row-main"
+        to={decisionLink(d)}
+        title={d.detail}
+        onClick={(event) => {
+          if (d.conversationId) {
+            event.preventDefault();
+            useAssistant.getState().setConversation(d.conversationId);
+            useAssistant.getState().setOpen(true);
+          }
+        }}
+      >
         <strong>{d.title}</strong>
         <small>
           {question ? t("Agent question") : t("Permission request")}

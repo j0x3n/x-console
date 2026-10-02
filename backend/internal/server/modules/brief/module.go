@@ -39,11 +39,12 @@ type Module struct {
 
 	sendMu sync.Mutex // one scheduled send at a time
 
-	weatherMu    sync.Mutex
-	weatherCache map[string]cachedWeather
-	now          func() time.Time // 测试里换成假时钟
-	geoBase      string           // Open-Meteo 地名接口，测试里换成假服务
-	osmBase      string           // OpenStreetMap 地名接口，Open-Meteo 查不到时用
+	weatherMu      sync.Mutex
+	weatherFetchMu sync.Mutex
+	weatherCache   map[string]cachedWeather
+	now            func() time.Time // 测试里换成假时钟
+	geoBase        string           // Open-Meteo 地名接口，测试里换成假服务
+	osmBase        string           // OpenStreetMap 地名接口，Open-Meteo 查不到时用
 
 	// 和风天气和地震（B58）
 	qwHTTP     *http.Client

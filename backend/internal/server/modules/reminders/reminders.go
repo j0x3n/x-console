@@ -25,7 +25,8 @@ import (
 
 func toAPI(r db.Reminder) api.Reminder {
 	return api.Reminder{
-		Id: r.ID, Title: r.Title, Body: r.Body, Link: r.Link, Rrule: r.Rrule, Dtstart: r.Dtstart,
+		Icon: &r.Icon,
+		Id:   r.ID, Title: r.Title, Body: r.Body, Link: r.Link, Rrule: r.Rrule, Dtstart: r.Dtstart,
 		NextAt: r.NextAt, DueAt: dueAt(r), LastFiredAt: r.LastFiredAt, SnoozedUntil: r.SnoozedUntil,
 		DoneAt: r.DoneAt, Enabled: r.Enabled == 1, Status: status(r), CreatedAt: r.CreatedAt,
 	}
@@ -64,6 +65,9 @@ func (m *Module) rule(r db.Reminder) (*rrule.RRule, error) {
 // ---- business logic (shared by handlers, actions and contracts) ----
 
 func (m *Module) create(ctx context.Context, in contracts.CreateReminder, now time.Time) (db.Reminder, error) {
+	if len([]rune(in.Icon)) > 64 {
+		return db.Reminder{}, httpx.Invalid("图标太长了")
+	}
 	title, err := cleanTitle(in.Title)
 	if err != nil {
 		return db.Reminder{}, err
@@ -86,6 +90,7 @@ func (m *Module) create(ctx context.Context, in contracts.CreateReminder, now ti
 	}
 	row, err := m.q.CreateReminder(ctx, db.CreateReminderParams{
 		Title: title, Body: strings.TrimSpace(in.Body), Link: link, Rrule: rr,
+		Icon:    strings.TrimSpace(in.Icon),
 		Dtstart: in.At.UTC(), NextAt: next, CreatedAt: now.UTC(),
 	})
 	m.d.Audit.Record(ctx, "reminder.create", strconv.FormatInt(row.ID, 10), map[string]any{"title": title, "rrule": rr}, err)
@@ -125,6 +130,7 @@ func (m *Module) save(ctx context.Context, r db.Reminder) (db.Reminder, error) {
 	row, err := m.q.UpdateReminder(ctx, db.UpdateReminderParams{
 		Title: r.Title, Body: r.Body, Link: r.Link, Rrule: r.Rrule, Dtstart: r.Dtstart, NextAt: r.NextAt,
 		LastFiredAt: r.LastFiredAt, SnoozedUntil: r.SnoozedUntil, DoneAt: r.DoneAt, Enabled: r.Enabled, ID: r.ID,
+		Icon: r.Icon,
 	})
 	if err != nil {
 		return row, notFound(err)
@@ -145,6 +151,12 @@ func (m *Module) update(ctx context.Context, id int64, p api.ReminderPatch, now 
 	}
 	if p.Body != nil {
 		r.Body = strings.TrimSpace(*p.Body)
+	}
+	if p.Icon != nil {
+		if len([]rune(*p.Icon)) > 64 {
+			return r, httpx.Invalid("图标太长了")
+		}
+		r.Icon = strings.TrimSpace(*p.Icon)
 	}
 	if p.Link != nil {
 		if r.Link, err = cleanLink(*p.Link); err != nil {
@@ -385,6 +397,9 @@ func (m *Module) CreateReminder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in := contracts.CreateReminder{Title: body.Title, At: body.At}
+	if body.Icon != nil {
+		in.Icon = *body.Icon
+	}
 	if body.Body != nil {
 		in.Body = *body.Body
 	}

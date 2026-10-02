@@ -2,6 +2,7 @@ package brief
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,6 +47,42 @@ type openMeteo struct {
 // fetchWeather returns the current weather and today's forecast, cached per
 // place and API address. force skips the cache unless it is under a minute old.
 func (m *Module) fetchWeather(ctx context.Context, base string, loc api.BriefLocation, force bool) (api.Weather, error) {
+	c, err := m.loadQWeather(ctx)
+	if err != nil {
+		return api.Weather{}, err
+	}
+	if !c.ok() {
+		return m.fetchOpenMeteo(ctx, base, loc, force)
+	}
+	m.weatherFetchMu.Lock()
+	defer m.weatherFetchMu.Unlock()
+	key := fmt.Sprintf("qweather|%s|%x|%s|%.6f|%.6f", c.APIHost, sha256.Sum256([]byte(c.APIKey)), base, loc.Lat, loc.Lon)
+	ttl := weatherTTL
+	if force {
+		ttl = weatherForceGap
+	}
+	m.weatherMu.Lock()
+	cached, ok := m.weatherCache[key]
+	m.weatherMu.Unlock()
+	if ok && m.now().Sub(cached.at) < ttl {
+		w := cached.w
+		w.Location = loc.Name
+		return w, nil
+	}
+	w, err := m.fetchQWeather(ctx, c, loc)
+	if err != nil {
+		m.d.Log.Warn("brief: 和风实况失败，改用 Open-Meteo", "err", err)
+		w, err = m.fetchOpenMeteo(ctx, base, loc, force)
+	}
+	if err == nil {
+		m.weatherMu.Lock()
+		m.weatherCache[key] = cachedWeather{w: w, at: m.now()}
+		m.weatherMu.Unlock()
+	}
+	return w, err
+}
+
+func (m *Module) fetchOpenMeteo(ctx context.Context, base string, loc api.BriefLocation, force bool) (api.Weather, error) {
 	key := fmt.Sprintf("%s|%.3f|%.3f", base, loc.Lat, loc.Lon)
 	ttl := weatherTTL
 	if force {

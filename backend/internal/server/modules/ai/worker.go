@@ -321,6 +321,9 @@ func (m *Module) recordAction(ctx context.Context, conversationID int64, toolID,
 	if err != nil {
 		return api.PendingAction{}, err
 	}
+	if status == "pending" {
+		m.d.Bus.Publish("ai_agent.decision", map[string]any{"id": fmt.Sprintf("action:%d", id)})
+	}
 	var in map[string]any
 	_ = json.Unmarshal(input, &in)
 	p := api.PendingAction{Id: id, ConversationId: conversationID, ToolUseId: toolID, Action: name, Input: in, Status: api.PendingActionStatus(status), Result: result}
@@ -353,26 +356,34 @@ func (m *Module) runHostAction(ctx context.Context, hostID, name string, input j
 	return result, err
 }
 func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, approve bool) {
-	ctx := r.Context()
+	if m.fail(w, r, m.AnswerAssistantDecision(r.Context(), actionID, approve)) {
+		return
+	}
+	httpx.NoContent(w)
+}
+
+// AnswerAssistantDecision shares the authenticated confirmation flow with
+// the Today page, including host locks and conversation continuation.
+func (m *Module) AnswerAssistantDecision(ctx context.Context, actionID int64, approve bool) error {
 	var conversationID int64
 	var toolID, name, input, status string
 	var hostID, effect sql.NullString
 	err := m.d.DB.QueryRowContext(ctx, "SELECT p.conversation_id,p.tool_use_id,p.action,p.input,p.status,c.host_id,p.effect FROM ai_pending_actions p JOIN ai_conversations c ON c.id=p.conversation_id WHERE p.id=?", actionID).Scan(&conversationID, &toolID, &name, &input, &status, &hostID, &effect)
-	if m.fail(w, r, notFound(err)) {
-		return
+	if err = notFound(err); err != nil {
+		return err
 	}
 	if status != "pending" {
-		httpx.Fail(w, r, httpx.ErrConflict)
-		return
+		return httpx.ErrConflict
 	}
 	hostAction := hostID.Valid && strings.HasPrefix(name, "host.")
 	a, found := m.d.Actions.Get(ctx, name)
 	if !hostAction && !found {
-		httpx.Fail(w, r, httpx.ErrNotFound)
-		return
+		return httpx.ErrNotFound
 	}
-	if approve && (hostAction && effect.String == string(hostagent.Dangerous) || !hostAction && a.Effect == actions.Dangerous) && m.fail(w, r, auth.RequireElevated(ctx)) {
-		return
+	if approve && (hostAction && effect.String == string(hostagent.Dangerous) || !hostAction && a.Effect == actions.Dangerous) {
+		if err := auth.RequireElevated(ctx); err != nil {
+			return err
+		}
 	}
 	workCtx := context.WithoutCancel(ctx)
 	state := "rejected"
@@ -380,13 +391,12 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 		state = "approved"
 	}
 	updated, e := m.d.DB.ExecContext(workCtx, "UPDATE ai_pending_actions SET status=? WHERE id=? AND status='pending'", state, actionID)
-	if m.fail(w, r, e) {
-		return
+	if e != nil {
+		return e
 	}
 	n, _ := updated.RowsAffected()
 	if n == 0 {
-		httpx.Fail(w, r, httpx.ErrConflict)
-		return
+		return httpx.ErrConflict
 	}
 	// Approved actions of one conversation run one at a time. Otherwise a
 	// second host command replaces the first in m.running and the first one
@@ -395,12 +405,11 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 	defer unlock()
 	if approve {
 		var current string
-		if err := m.d.DB.QueryRowContext(workCtx, "SELECT status FROM ai_pending_actions WHERE id=?", actionID).Scan(&current); m.fail(w, r, err) {
-			return
+		if err := m.d.DB.QueryRowContext(workCtx, "SELECT status FROM ai_pending_actions WHERE id=?", actionID).Scan(&current); err != nil {
+			return err
 		}
 		if current != state { // the reply was stopped while this one waited
-			httpx.NoContent(w)
-			return
+			return nil
 		}
 	}
 	result := any("用户拒绝了")
@@ -416,8 +425,7 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 			m.mu.Unlock()
 			result, err = m.runHostAction(workCtx, hostID.String, strings.ReplaceAll(name, ".", "__"), json.RawMessage(input))
 			if workCtx.Err() != nil {
-				httpx.NoContent(w)
-				return
+				return nil
 			}
 		} else {
 			perm := permManual
@@ -434,8 +442,8 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 	}
 	raw, _ := json.Marshal(result)
 	_, e = m.d.DB.ExecContext(context.WithoutCancel(ctx), "UPDATE ai_pending_actions SET status=?,result=? WHERE id=? AND status=?", next, string(raw), actionID, state)
-	if m.fail(w, r, e) {
-		return
+	if e != nil {
+		return e
 	}
 	if own != nil {
 		m.mu.Lock()
@@ -447,10 +455,8 @@ func (m *Module) decide(w http.ResponseWriter, r *http.Request, actionID int64, 
 	}
 	m.d.Bus.Publish("ai.message_saved", map[string]any{"conversationId": conversationID})
 	m.d.Audit.Record(workCtx, "ai.action."+next, strconv.FormatInt(actionID, 10), map[string]any{"action": name}, err)
-	if e = m.resumeAfterDecisions(context.WithoutCancel(ctx), conversationID); m.fail(w, r, e) {
-		return
-	}
-	httpx.NoContent(w)
+	m.d.Bus.Publish("ai_agent.decision", map[string]any{"id": fmt.Sprintf("action:%d", actionID)})
+	return m.resumeAfterDecisions(context.WithoutCancel(ctx), conversationID)
 }
 func (m *Module) ApproveAiAction(w http.ResponseWriter, r *http.Request, id api.ActionId) {
 	m.decide(w, r, id, true)

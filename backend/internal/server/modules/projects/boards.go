@@ -309,6 +309,7 @@ func (m *Module) moveToList(ctx context.Context, key string, listID int64, after
 		return out, err
 	}
 	m.publishUpdate(out, from)
+	m.pushRepoIssue(ctx, out)
 	m.d.Bus.Publish("issue.moved", map[string]any{"key": out.Key, "listId": listID})
 	return out, nil
 }
@@ -420,7 +421,14 @@ func (m *Module) boardWithLists(ctx context.Context, q *db.Queries, b db.Project
 	for _, l := range lists {
 		out = append(out, toList(l, n[l.ID]))
 	}
-	return toBoard(b, out), nil
+	board := toBoard(b, out)
+	repo, err := q.GetBoardRepo(ctx, b.ID)
+	if err == nil {
+		board.Repo = boardRepoAPI(repo)
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return api.Board{}, err
+	}
+	return board, nil
 }
 
 func (m *Module) listBoards(ctx context.Context, projectID int64, archived bool) ([]api.Board, error) {

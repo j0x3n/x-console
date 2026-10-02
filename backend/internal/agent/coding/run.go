@@ -59,7 +59,11 @@ func (s *Service) Run(ctx context.Context, p protocol.CodingRunParams, emit func
 		fail(rpcutil.BadParams("unknown permission %q", p.Permission))
 		return
 	}
-	spec, err := s.cfg.commandWith(p.Executor, p.Prompt, p.Model, p.Permission)
+	prompt := p.Prompt
+	if p.AllowQuestions {
+		prompt += "\n\n如果需要用户回答，请在工作目录写 .xc-question.md 然后停止本次执行。内容用 JSON：{\"title\":\"问题\",\"detail\":\"背景\",\"options\":[\"选项\"]}。不要自行猜测答案。"
+	}
+	spec, err := s.cfg.commandWith(p.Executor, prompt, p.Model, p.Permission)
 	if err != nil {
 		fail(fmt.Errorf("%s is not installed or not on PATH: %v", p.Executor, err))
 		return
@@ -207,8 +211,19 @@ func (s *Service) Run(ctx context.Context, p protocol.CodingRunParams, emit func
 		done(-1, protocol.CodingDone{Reason: reason, BaseCommit: base})
 		return
 	}
+	question, qerr := readQuestion(wt)
+	if qerr != nil {
+		done(-1, protocol.CodingDone{Reason: protocol.CodingEndExited, BaseCommit: base, Error: errText(qerr)})
+		return
+	}
+	// Keep the private question out of the staged changes, including when
+	// the executor staged everything before asking.
+	if question != nil {
+		_, _ = git(context.WithoutCancel(ctx), wt, "reset", "--quiet", "--", ".xc-question.md")
+	}
 	files, err := changedFiles(context.WithoutCancel(ctx), wt, "--cached", base)
 	d := protocol.CodingDone{Reason: reason, BaseCommit: base, Files: files}
+	d.Question = question
 	if err != nil {
 		d.Error = errText(err)
 	}

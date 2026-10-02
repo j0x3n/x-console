@@ -45,6 +45,45 @@ type AiAgent struct {
 	HostIds          string
 }
 
+type AiAgentDecision struct {
+	ID        int64
+	RunID     int64
+	Kind      string
+	Title     string
+	Detail    string
+	Options   string
+	Dangerous int64
+	Status    string
+	Answer    string
+	CreatedAt time.Time
+}
+
+type AiAgentRun struct {
+	ID         int64
+	AgentID    int64
+	IssueKey   string
+	IssueTitle string
+	Kind       string
+	Status     string
+	TaskID     *int64
+	OpenPr     int64
+	PrUrl      string
+	Summary    string
+	CreatedAt  time.Time
+	StartedAt  *time.Time
+	FinishedAt *time.Time
+}
+
+type AiAgentRunEvent struct {
+	RunID int64
+	Seq   int64
+	At    time.Time
+	Kind  string
+	Text  string
+	Tool  string
+	Ok    *int64
+}
+
 type AiAttachment struct {
 	ID             int64
 	ConversationID *int64
@@ -226,6 +265,19 @@ type BoardList struct {
 	CreatedAt  time.Time
 }
 
+type BoardRepo struct {
+	BoardID       int64
+	ConnectionID  int64
+	FullName      string
+	Kind          string
+	HtmlUrl       string
+	CloneUrl      string
+	DefaultBranch string
+	SyncIssues    int64
+	LastSyncedAt  *time.Time
+	LastError     string
+}
+
 type Brief struct {
 	ID        int64
 	Date      string
@@ -285,32 +337,34 @@ type CodingRepo struct {
 }
 
 type CodingTask struct {
-	ID             int64
-	RepoID         int64
-	IssueKey       string
-	Executor       string
-	Prompt         string
-	BaseBranch     string
-	Branch         string
-	BaseCommit     string
-	Status         string
-	ExitCode       *int64
-	Error          string
-	CommitSha      string
-	PrUrl          string
-	ChangedFiles   string
-	TimeoutMinutes int64
-	CreatedAt      time.Time
-	StartedAt      *time.Time
-	FinishedAt     *time.Time
-	UpdatedAt      time.Time
-	AiAgentID      *int64
-	Model          string
-	Permission     string
-	BuildStatus    string
-	BuildAttempts  int64
-	Artifacts      string
-	BuildError     string
+	ID              int64
+	RepoID          int64
+	IssueKey        string
+	Executor        string
+	Prompt          string
+	BaseBranch      string
+	Branch          string
+	BaseCommit      string
+	Status          string
+	ExitCode        *int64
+	Error           string
+	CommitSha       string
+	PrUrl           string
+	ChangedFiles    string
+	TimeoutMinutes  int64
+	CreatedAt       time.Time
+	StartedAt       *time.Time
+	FinishedAt      *time.Time
+	UpdatedAt       time.Time
+	AiAgentID       *int64
+	Model           string
+	Permission      string
+	BuildStatus     string
+	BuildAttempts   int64
+	Artifacts       string
+	BuildError      string
+	AutoOpenPr      int64
+	WaitingQuestion string
 }
 
 type CodingTaskEvent struct {
@@ -660,6 +714,7 @@ type Issue struct {
 	ArchivedAt     *time.Time
 	CoverFileID    *int64
 	Color          string
+	ExternalUrl    string
 }
 
 type IssueActivity struct {
@@ -947,6 +1002,7 @@ type Reminder struct {
 	DoneAt       *time.Time
 	Enabled      int64
 	CreatedAt    time.Time
+	Icon         string
 }
 
 type RouterTraffic struct {

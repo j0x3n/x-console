@@ -98,6 +98,12 @@ func (m *Module) hook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if hookEvent(r.Header) != "pull_request" {
+		if receiver, ok := module.Lookup[contracts.GitWebhookReceiver](m.d.Registry, contracts.BoardWebhookKey); ok {
+			if err := receiver.ReceiveGitWebhook(ctx, contracts.GitWebhook{ConnectionID: id, Event: hookEvent(r.Header), Body: body}); err != nil {
+				httpx.Fail(w, r, err)
+				return
+			}
+		}
 		httpx.NoContent(w) // ping and everything else
 		return
 	}

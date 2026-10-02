@@ -130,7 +130,7 @@ func TestRemoteRepoWithAIAgent(t *testing.T) {
 		"model": "opus", "runnerAgentId": agentID, "repoIds": []int64{repo.Id}}, &agent)
 	var other struct{ ID int64 }
 	env.MustDo(http.MethodPost, "/ai-agents", map[string]any{"name": "别的", "kind": "claude_code"}, &other)
-	if s, _ := env.Do(http.MethodPost, "/coding/tasks", api.CreateTask{RepoId: repo.Id, AiAgentId: &other.ID, Prompt: ptr("x")}, nil); s != 400 {
+	if s, _ := env.Do(http.MethodPost, "/coding/tasks", api.CreateTask{RepoId: repo.Id, AiAgentId: &other.ID, Prompt: ptr("x")}, nil); s != 403 {
 		t.Fatalf("agent without the repo: %d", s)
 	}
 

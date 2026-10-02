@@ -457,6 +457,25 @@ try {
   });
   assert.ok((await api(`/issues/${boardCardKey}`)).members.some((m) => m.kind === "agent"));
 
+  stage = "B86 Agent 执行记录和日志";
+  const runs = await api(`/ai-agents/runs?issueKey=${boardCardKey}`);
+  assert.equal(runs[0].status, "failed");
+  const runEvents = await api(`/ai-agents/runs/${runs[0].id}/events`);
+  assert.ok(runEvents.items.some((event) => event.kind === "error"));
+  assert.equal((await api(`/ai-agents/runs/${runs[0].id}/events?after=${runEvents.lastSeq}`)).items.length, 0);
+
+  stage = "B87 Agent 通知开关和待决定接口";
+  const notifySettings = await api("/ai-agents/notify");
+  assert.equal(notifySettings.received, false);
+  assert.equal(notifySettings.decision, true);
+  const changedNotify = { ...notifySettings, done: false };
+  const notifyResponse = await page.request.put(`${base}/api/v1/ai-agents/notify`, {
+    headers: { "X-Requested-With": "x-console" }, data: changedNotify,
+  });
+  assert.equal(notifyResponse.status(), 200);
+  assert.equal((await api("/ai-agents/notify")).done, false);
+  assert.deepEqual(await api("/ai-agents/decisions"), []);
+
   stage = "写笔记";
   const noteResponses = [];
   page.on("request", (request) => {
@@ -542,6 +561,71 @@ try {
     assert.equal(removed.status(), 204, await removed.text());
   }
 
+  stage = "B84 看板绑定仓库和同步 Issue API 主流程";
+  {
+    const gitFake = http.createServer((request, response) => {
+      response.setHeader("Content-Type", "application/json");
+      if (request.url === "/user") return response.end(JSON.stringify({ login: "e2e" }));
+      if (request.url === "/repos/e2e/board") return response.end(JSON.stringify({ full_name: "e2e/board", html_url: "https://example.test/e2e/board", clone_url: "https://example.test/e2e/board.git", default_branch: "main" }));
+      if (request.url.startsWith("/repos/e2e/board/issues?")) return response.end(JSON.stringify([{ number: 1, title: "同步来的卡片", body: "仓库正文", state: "open", html_url: "https://example.test/e2e/board/issues/1", labels: [{ name: "测试标签" }] }]));
+      response.writeHead(404).end();
+    });
+    await new Promise((ready) => gitFake.listen(0, "127.0.0.1", ready));
+    try {
+      const send = async (method, path, data) => {
+        const response = await page.request.fetch(`${base}/api/v1${path}`, { method, headers: { "X-Requested-With": "x-console" }, data });
+        assert.ok(response.ok(), `${path}: ${await response.text()}`);
+        return response.status() === 204 ? null : response.json();
+      };
+      await send("POST", "/auth/elevate", { password });
+      const connection = await send("POST", "/git-connections", { name: "同步测试", kind: "github", baseUrl: `http://127.0.0.1:${gitFake.address().port}`, token: "e2e-token" });
+      const board = (await api(`/projects/${project.id}/boards`))[0];
+      const path = `/boards/${board.id}/repo`;
+      const bound = await send("PUT", path, { connectionId: connection.connection.id, fullName: "e2e/board" });
+      assert.equal(bound.repo.syncedCount, 1);
+      await send("POST", `${path}/sync`);
+      const synced = (await api(`/issues?boardId=${board.id}`)).items.filter((card) => card.externalId === "e2e/board#1");
+      assert.equal(synced.length, 1);
+      assert.equal(synced[0].externalUrl, "https://example.test/e2e/board/issues/1");
+      await send("DELETE", path);
+      assert.equal((await api(`/issues/${synced[0].key}`)).externalSource, "");
+      await send("DELETE", `/issues/${synced[0].key}`);
+      await send("DELETE", `/git-connections/${connection.connection.id}`);
+    } finally {
+      await new Promise((done) => gitFake.close(done));
+    }
+  }
+
+  stage = "B90 天气来源和湿度";
+  {
+    const weatherFake = http.createServer((_request, response) => {
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ current: { temperature_2m: 21, weather_code: 61, relative_humidity_2m: 88, is_day: 1 }, daily: { temperature_2m_max: [25], temperature_2m_min: [17], precipitation_probability_max: [75] } }));
+    });
+    await new Promise((ready) => weatherFake.listen(0, "127.0.0.1", ready));
+    const original = await api("/briefs/settings");
+    delete original.aiAvailable;
+    delete original.availableChannels;
+    delete original.nextRunAt;
+    try {
+      const response = await page.request.put(`${base}/api/v1/briefs/settings`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { ...original, enabled: false, location: { name: "东海", lat: 34.54, lon: 118.75 }, weatherApiBase: `http://127.0.0.1:${weatherFake.address().port}` },
+      });
+      assert.equal(response.status(), 200, await response.text());
+      const weather = await api("/weather");
+      assert.equal(weather.source, "open-meteo");
+      assert.equal(weather.humidity, 88);
+      assert.equal(weather.weatherCode, 61);
+      assert.equal(weather.isDay, true);
+    } finally {
+      await page.request.put(`${base}/api/v1/briefs/settings`, {
+        headers: { "X-Requested-With": "x-console" }, data: original,
+      });
+      await new Promise((done) => weatherFake.close(done));
+    }
+  }
+
   stage = "B70 仓库关注 API 主流程";
   {
     const original = await api("/github/config");
@@ -616,6 +700,8 @@ try {
   assert.deepEqual(reminderLabels, ["今天", "下一个提醒", "即将到来", "已完成"]);
   await page.getByRole("button", { name: "新建提醒" }).click();
   await dialog("新建提醒").getByRole("textbox", { name: "标题" }).fill("端到端提醒");
+  await dialog("新建提醒").getByRole("button", { name: "选择图标" }).click();
+  await dialog("新建提醒").getByRole("button", { name: "💧", exact: true }).click();
   await dialog("新建提醒").getByRole("button", { name: "保存" }).click();
   await dialog("新建提醒").waitFor({ state: "hidden" });
   const reminders = [
@@ -624,6 +710,9 @@ try {
   ];
   const reminder = reminders.find((item) => item.title === "端到端提醒");
   assert.ok(reminder, "真实接口里没有新建的提醒");
+  assert.equal(reminder.icon, "💧");
+  const invalidIcon = await page.request.get(`${base}/api/v1/notify/icons/emoji-1f4a7.png?sig=00`);
+  assert.equal(invalidIcon.status(), 403);
 
   stage = "本地日历写入";
   const calendarResponse = await page

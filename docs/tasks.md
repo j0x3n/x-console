@@ -20,7 +20,13 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-
+| B84 | 看板绑定 Git 仓库，同步仓库的 Issue；看板里新建的卡片照旧只在看板里 | [B84](specs/B84.md) | Codex，B84 已完成 `7e42fc2`，待整批验收 |
+| B86 | Agent 开发卡片：用看板绑定的仓库，做完自动提 PR；执行日志；详情页删除；左栏“+”和工作中动画 | [B86](specs/B86.md) | Codex，后端完成 `9a7f18d`，待整批验收 |
+| B87 | Agent 通知六类开关；今日页“待你决定”加 Agent 的权限请求和问题 | [B87](specs/B87.md) | Codex，后端完成 `4589a65`，待整批验收 |
+| B90 | 天气：图标对应、配和风天气时实况用和风、湿度和空气质量顺序、正在下雨还要下多久 | [B90](specs/B90.md) | Codex，后端完成 `56f1833`，待整批验收 |
+| B91 | 网页推送图标：按类型、按条目、Android 单色 badge、服务端画进度环 | [B91](specs/B91.md) | Codex，后端和提醒图标编辑完成 `915205c`，待整批验收 |
+| B73 补修 | 手机便签弹窗铺满屏幕，标签输入正常，关闭按钮不被 AI 浮钮遮挡 | 交接文档 | Codex，完成 `916e7db`，待整批验收 |
+| C6 | 第四批清理：核对模块接口和生成文件，移除后端占位，检查测试和深浅主题截图 | [检查记录](qa/20261002/README.md) | Codex，核对完成，待整批验收 |
 
 ## 待做
 
@@ -42,18 +48,13 @@
 | B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前后端都完成（前端 `03e9d17`，后端 `fc818da`），已合并（`26e1fa2`） |
 | B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前后端都完成（前端 `42dccc1`，后端 `0b201be`、审查修复 `9619701`），已合并（`26e1fa2`） |
 | B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前后端都完成（前端 `836b5be`，后端 `15abfd0`），已合并（`26e1fa2`） |
-| B84 | 看板绑定 Git 仓库，同步仓库的 Issue；看板里新建的卡片照旧只在看板里 | [B84](specs/B84.md) | 前端完成（`f197548`），后端待做（Codex） |
 | B85 | 卡片右键菜单（分配、颜色、到期时间、标签、移动、归档）；卡片详情的描述按钮和评论按钮间距 | [B85](specs/B85.md) | 前后端都完成（前端 `655be42`，后端 Claude） |
-| B86 | Agent 开发卡片：用看板绑定的仓库，做完自动提 PR；执行日志；详情页删除；左栏“+”和工作中动画 | [B86](specs/B86.md) | 前端完成（`f197548`），后端待做 |
-| B87 | Agent 通知六类开关；今日页“待你决定”加 Agent 的权限请求和问题 | [B87](specs/B87.md) | 前端完成（`831ebc2`），后端待做 |
 | B88 | 今日页：左栏图标跟天气、网络卡片样式、各列自由拖动、称呼可改、时间和天气挪到顶栏 | [B88](specs/B88.md) | 前后端都完成（Claude，`fadbc56`、`9e8870a`） |
 | B89 | 每日一句（“名言”便签）、便签置顶、“全部笔记”不显示名言 | [B89](specs/B89.md) | 前后端都完成（Claude，`9e8870a`） |
-| B90 | 天气：图标对应、配和风天气时实况用和风、湿度和空气质量顺序、正在下雨还要下多久 | [B90](specs/B90.md) | 前端完成（`fadbc56`），后端部分完成（湿度、白天黑夜；和风实况待做） |
-| B91 | 网页推送图标：按类型、按条目、Android 单色 badge、服务端画进度环 | [B91](specs/B91.md) | 前端完成（`cdae0f1`），后端待做（按条目、进度环） |
 | B92 | 通知正文：邮件去掉 HTML、不要“from X Console”、早报只发总结 | [B92](specs/B92.md) | 完成（Claude）；“from X Console”是浏览器加的，去不掉 |
 | B93 | 路由器：刷新频率可选到 1 秒、在线设备 Object not found、左栏显示 WAN 和速率 | [B93](specs/B93.md) | 前后端都完成（前端 `168d8e8`，后端 Claude） |
 | B94 | 电脑详情“离线 · 9 小时前”只显示一次；监控“证书与域名”写明最先到期的是域名还是证书 | 见下 | 前端完成（`a22a490`） |
-| B95 | 代理支持树莓派（32 位 armv7 和 64 位 arm64） | 见下 | 后端 Codex |
+| B95 | 代理支持树莓派（32 位 armv7 和 64 位 arm64） | 见下 | 64 位已支持，等用户提供连接错误日志 |
 | B96 | 习惯页推荐模板（建过的不重复建）；AI 建习惯、改习惯时能传全部提醒参数 | [B96](specs/B96.md) | 前后端都完成（前端 `a22a490`，后端 Claude） |
 
 ### 任务说明
@@ -221,7 +222,10 @@
 - `cd web && npx prettier --write "src/**/*.{ts,tsx,css}"`，`src/api/gen/` 已被 `.prettierignore` 排除。
 - CI 的 web 任务加 `npx prettier --check`。
 
-## 已知问题（暂不排期）
+## 已知问题
+
+- B90：和风官方提示 v7 城市天气接口将弃用。本批按规格使用城市 ID 取得站点实况，后续需迁移 v1。（暂不排期）
+- 邮件的 `TestManyNewMailsAreGrouped` 在本轮全量并发测试时等同步超过 10 秒。降低包并发后全量通过，根因尚未确认。本轮没有修改邮件功能。
 
 第三批（B70 到 B83）留下的（2026-10-02 Claude 验收和写前端时记的）：
 - 第三批检查时记的词条冲突、服务器测试数据缺字段、端到端找“新建卡片”弹窗三条已在 `a65c803` 修好。`DrivePage.test.tsx` 重复 Ctrl+S 用例超时的问题在本机整套跑时没复现。
@@ -339,6 +343,12 @@
 
 ## 接口变更记录
 
+- B91：公开 GET /notify/icons/{name} 用 HMAC 校验。Reminder 的输入、输出和补丁增加可选 icon。CreateReminder 增加可选 Icon，已有调用不受影响。
+
+- B87：contracts 增加 ToolDecider、CodingQuestions 和 AssistantDecisions。CodingRunParams 增加可选 allowQuestions，CodingDone 增加可选 question。旧代理和非 Agent 编码流程照旧。
+
+- B86：contracts 新增 CodingControl 和 ToolObserver。LaunchCoding 增加内部 runId 和自动提 PR 标志。用于复用现有编码流程并记录 Agent 执行，保留原调用方式。
+
 - 2026-10-02（Claude，第四批前端）：
   - `lib/navBadges.ts` 加 `registerNavIcon`（换一级菜单图标，或者 `state: "working"` 让图标跳动）和 `registerNavStatus`（一级菜单右边的状态点和短文字）；`components/layout/Sidebar.tsx` 渲染它们；`styles/ui.css` 加 `.nav-icon`、`.nav-status`、`.nav-child-spin`（B86、B88、B93）。
   - `components/layout/NavChildLinks.tsx` 的链接加可选的 `busy`，名称右边转圈（B86）。
@@ -369,6 +379,7 @@
 
 | 日期 | 变更 | 原因 |
 | --- | --- | --- |
+| 2026-10-02 | 新增 `contracts.GitIssues`、`BoardGit` 和独立看板 Git 回调入口。复用 aiagents 的令牌客户端，projects 不读取或保存令牌 | B84 看板绑定仓库 |
 | 2026-10-02 | `drive.yaml` 放宽 code 为 4 到 32 个字符，公开内容新增 preview，保留 inline；新增下载记录和公开缩略图接口，PublicShareItem 新增 thumbnail；事件 `drive_share.changed` 刷新分享列表 | B75 |
 | 2026-10-02 | 新增 `contracts.GitWebhookReceiver`（键 `github.webhook`），aiagents 验证签名后同步调用 github；notify 新增 `SaveTx` 和 `Dispatch`，普通 `Send` 行为兼容，供通知与去重同事务提交 | B71 持久去重和回调失败重试 |
 | 2026-10-01 | 新增 `lib/navBadges.ts`（`registerNavBadge`、`registerNavAction`）；`components/layout/Sidebar.tsx` 在一级菜单右边显示数量、行内按钮；`ui.css` 加 `.nav-badge`、`.nav-action`，二级菜单选中改成强调色，`.xc-list` 去掉 `ul` 默认缩进 | B76 左栏数量、B72 笔记“+” |

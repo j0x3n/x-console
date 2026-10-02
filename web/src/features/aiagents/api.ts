@@ -299,11 +299,13 @@ export function useAnswerDecision() {
       approve?: boolean;
       answer?: string;
     }) =>
-      unwrap(
-        agentsApi.POST("/ai-agents/decisions/{decisionId}", {
-          params: { path: { decisionId: id } },
-          body,
-        }),
+      withElevation(() =>
+        unwrap(
+          agentsApi.POST("/ai-agents/decisions/{decisionId}", {
+            params: { path: { decisionId: id } },
+            body,
+          }),
+        ),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: agentKeys.decisions }),
   });

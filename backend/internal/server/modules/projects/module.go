@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -23,9 +24,10 @@ import (
 
 // Module implements api.ServerInterface.
 type Module struct {
-	d   *module.Deps
-	q   *db.Queries
-	now func() time.Time
+	d      *module.Deps
+	q      *db.Queries
+	now    func() time.Time
+	repoMu sync.Mutex
 }
 
 var _ api.ServerInterface = (*Module)(nil)
@@ -41,6 +43,8 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.IssueWork](d.Registry, contracts.IssueWorkKey, &workService{m}) // B47
 	module.Provide[contracts.IssueSync](d.Registry, contracts.IssueSyncKey, &syncService{m})
 	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"projects", m)
+	module.Provide[contracts.BoardGit](d.Registry, contracts.BoardGitKey, m)
+	module.Provide[contracts.GitWebhookReceiver](d.Registry, contracts.BoardWebhookKey, m)
 	m.registerActions()
 	return m, nil
 }
@@ -49,6 +53,7 @@ func New(d *module.Deps) (module.Module, error) {
 func (m *Module) Name() string { return "projects" }
 func (m *Module) Start(context.Context) error {
 	m.d.Scheduler.Every("projects.due", time.Minute, m.sendDue)
+	m.d.Scheduler.Every("projects.git_sync", 10*time.Minute, m.syncRepos)
 	return nil
 }
 

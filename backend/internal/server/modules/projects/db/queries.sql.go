@@ -82,7 +82,7 @@ func (q *Queries) ArchiveListCards(ctx context.Context, arg ArchiveListCardsPara
 }
 
 const changedSince = `-- name: ChangedSince :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, issues.external_url, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.project_id IN (/*SLICE:project_ids*/?) AND issues.updated_at > ?2
 ORDER BY issues.updated_at, issues.id
@@ -143,6 +143,7 @@ func (q *Queries) ChangedSince(ctx context.Context, arg ChangedSinceParams) ([]C
 			&i.Issue.ArchivedAt,
 			&i.Issue.CoverFileID,
 			&i.Issue.Color,
+			&i.Issue.ExternalUrl,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -784,6 +785,51 @@ func (q *Queries) GetBoard(ctx context.Context, id int64) (ProjectBoard, error) 
 	return i, err
 }
 
+const getBoardRepo = `-- name: GetBoardRepo :one
+
+SELECT board_repos.board_id, board_repos.connection_id, board_repos.full_name, board_repos.kind, board_repos.html_url, board_repos.clone_url, board_repos.default_branch, board_repos.sync_issues, board_repos.last_synced_at, board_repos.last_error, git_connections.name AS connection_name,
+ CAST((SELECT count(*) FROM issues WHERE issues.board_id = board_repos.board_id AND issues.external_source = board_repos.kind) AS INTEGER) AS synced_count
+FROM board_repos JOIN git_connections ON git_connections.id = board_repos.connection_id
+WHERE board_repos.board_id = ?
+`
+
+type GetBoardRepoRow struct {
+	BoardID        int64
+	ConnectionID   int64
+	FullName       string
+	Kind           string
+	HtmlUrl        string
+	CloneUrl       string
+	DefaultBranch  string
+	SyncIssues     int64
+	LastSyncedAt   *time.Time
+	LastError      string
+	ConnectionName string
+	SyncedCount    int64
+}
+
+// M5 projects queries. The filtered issue list lives in list.go (database/sql).
+// Keep this file ASCII only: sqlc miscounts offsets after multi-byte characters.
+func (q *Queries) GetBoardRepo(ctx context.Context, boardID int64) (GetBoardRepoRow, error) {
+	row := q.db.QueryRowContext(ctx, getBoardRepo, boardID)
+	var i GetBoardRepoRow
+	err := row.Scan(
+		&i.BoardID,
+		&i.ConnectionID,
+		&i.FullName,
+		&i.Kind,
+		&i.HtmlUrl,
+		&i.CloneUrl,
+		&i.DefaultBranch,
+		&i.SyncIssues,
+		&i.LastSyncedAt,
+		&i.LastError,
+		&i.ConnectionName,
+		&i.SyncedCount,
+	)
+	return i, err
+}
+
 const getCategoryProject = `-- name: GetCategoryProject :one
 SELECT project_id FROM project_categories WHERE id=?
 `
@@ -796,7 +842,7 @@ func (q *Queries) GetCategoryProject(ctx context.Context, id int64) (int64, erro
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, issues.external_url, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.id = ?
 `
@@ -834,13 +880,14 @@ func (q *Queries) GetIssue(ctx context.Context, id int64) (GetIssueRow, error) {
 		&i.Issue.ArchivedAt,
 		&i.Issue.CoverFileID,
 		&i.Issue.Color,
+		&i.Issue.ExternalUrl,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByExternal = `-- name: GetIssueByExternal :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, issues.external_url, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.external_source = ? AND issues.external_id = ?
 `
@@ -883,13 +930,14 @@ func (q *Queries) GetIssueByExternal(ctx context.Context, arg GetIssueByExternal
 		&i.Issue.ArchivedAt,
 		&i.Issue.CoverFileID,
 		&i.Issue.Color,
+		&i.Issue.ExternalUrl,
 		&i.ProjectKey,
 	)
 	return i, err
 }
 
 const getIssueByKey = `-- name: GetIssueByKey :one
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, issues.external_url, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE projects.key = ? AND issues.number = ?
 `
@@ -932,6 +980,7 @@ func (q *Queries) GetIssueByKey(ctx context.Context, arg GetIssueByKeyParams) (G
 		&i.Issue.ArchivedAt,
 		&i.Issue.CoverFileID,
 		&i.Issue.Color,
+		&i.Issue.ExternalUrl,
 		&i.ProjectKey,
 	)
 	return i, err
@@ -1173,7 +1222,7 @@ func (q *Queries) ListActivity(ctx context.Context, issueID int64) ([]IssueActiv
 }
 
 const listArchivedIssues = `-- name: ListArchivedIssues :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, issues.external_url, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.board_id = ? AND issues.archived_at IS NOT NULL ORDER BY issues.archived_at DESC LIMIT 200
 `
@@ -1217,6 +1266,7 @@ func (q *Queries) ListArchivedIssues(ctx context.Context, boardID *int64) ([]Lis
 			&i.Issue.ArchivedAt,
 			&i.Issue.CoverFileID,
 			&i.Issue.Color,
+			&i.Issue.ExternalUrl,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -1343,7 +1393,7 @@ func (q *Queries) ListComments(ctx context.Context, issueID int64) ([]IssueComme
 }
 
 const listDue = `-- name: ListDue :many
-SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, projects.key AS project_key
+SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, issues.external_url, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.due_at IS NOT NULL AND issues.due_at <= ?
   AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL AND issues.archived_at IS NULL
@@ -1389,6 +1439,7 @@ func (q *Queries) ListDue(ctx context.Context, dueAt *string) ([]ListDueRow, err
 			&i.Issue.ArchivedAt,
 			&i.Issue.CoverFileID,
 			&i.Issue.Color,
+			&i.Issue.ExternalUrl,
 			&i.ProjectKey,
 		); err != nil {
 			return nil, err
@@ -1669,7 +1720,6 @@ func (q *Queries) ListMilestones(ctx context.Context, projectID int64) ([]Milest
 }
 
 const listProjects = `-- name: ListProjects :many
-
 SELECT projects.id, projects."key", projects.name, projects.description, projects.color, projects.icon, projects.archived_at, projects.next_number, projects.created_at, projects.updated_at, projects.layout_locked,
     CAST((SELECT count(*) FROM issues i WHERE i.project_id = projects.id) AS INTEGER) AS issue_count,
     CAST((SELECT count(*) FROM issues i WHERE i.project_id = projects.id AND i.status NOT IN ('done', 'canceled')) AS INTEGER) AS open_count
@@ -1684,8 +1734,6 @@ type ListProjectsRow struct {
 	OpenCount  int64
 }
 
-// M5 projects queries. The filtered issue list lives in list.go (database/sql).
-// Keep this file ASCII only: sqlc miscounts offsets after multi-byte characters.
 func (q *Queries) ListProjects(ctx context.Context, archived bool) ([]ListProjectsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listProjects, archived)
 	if err != nil {
@@ -2003,6 +2051,20 @@ func (q *Queries) SetIssueExternal(ctx context.Context, arg SetIssueExternalPara
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setIssueExternalURL = `-- name: SetIssueExternalURL :exec
+UPDATE issues SET external_url = ? WHERE id = ?
+`
+
+type SetIssueExternalURLParams struct {
+	ExternalUrl string
+	ID          int64
+}
+
+func (q *Queries) SetIssueExternalURL(ctx context.Context, arg SetIssueExternalURLParams) error {
+	_, err := q.db.ExecContext(ctx, setIssueExternalURL, arg.ExternalUrl, arg.ID)
+	return err
 }
 
 const setIssuePlace = `-- name: SetIssuePlace :exec

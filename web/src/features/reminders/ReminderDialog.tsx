@@ -5,6 +5,7 @@ import Dialog from "../../components/ui/Dialog";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { useCreateReminder, useUpdateReminder, type Reminder } from "./api";
+import { iconChoices } from "../habits/HabitDialog";
 import {
   buildRRule,
   defaultStart,
@@ -40,6 +41,8 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
   const create = useCreateReminder();
   const update = useUpdateReminder();
   const [title, setTitle] = useState("");
+  const [icon, setIcon] = useState("");
+  const [picking, setPicking] = useState(false);
   const [when, setWhen] = useState("");
   const [preset, setPreset] = useState<RepeatPreset>("none");
   const [custom, setCustom] = useState("");
@@ -51,6 +54,8 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
   useEffect(() => {
     if (!open) return;
     setError("");
+    setIcon(reminder?.icon ?? "");
+    setPicking(false);
     if (reminder) {
       setTitle(reminder.title);
       setWhen(toLocalInput(new Date(reminder.dtstart)));
@@ -90,6 +95,7 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
           id: reminder.id,
           body: {
             title: title.trim(),
+            icon: icon.trim(),
             at,
             rrule: rule,
             link: link.trim(),
@@ -100,6 +106,7 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
       } else {
         await create.mutateAsync({
           title: title.trim(),
+          icon: icon.trim(),
           at,
           rrule: rule,
           link: link.trim(),
@@ -120,6 +127,57 @@ export default function ReminderDialog({ open, onClose, reminder }: Props) {
       title={reminder ? t("Edit reminder") : t("New reminder")}
     >
       <form onSubmit={submit}>
+        <div className="xc-field">
+          <span>{t("Icon")}</span>
+          <button
+            type="button"
+            className={`habits-icon-pick${picking ? " open" : ""}`}
+            aria-expanded={picking}
+            aria-label={t("Choose icon")}
+            onClick={() => setPicking(!picking)}
+          >
+            {icon || "＋"}
+          </button>
+        </div>
+        {picking && (
+          <div
+            className="habits-icon-grid"
+            role="group"
+            aria-label={t("Choose icon")}
+          >
+            {iconChoices.map((choice) => (
+              <button
+                type="button"
+                key={choice}
+                className={choice === icon ? "on" : ""}
+                aria-pressed={choice === icon}
+                onClick={() => {
+                  setIcon(choice);
+                  setPicking(false);
+                }}
+              >
+                {choice}
+              </button>
+            ))}
+            <input
+              className="xc-input"
+              value={iconChoices.includes(icon) ? "" : icon}
+              onChange={(event) => setIcon(event.target.value)}
+              maxLength={64}
+              placeholder={t("Other")}
+              aria-label={t("Custom icon")}
+            />
+            {icon && (
+              <button
+                type="button"
+                className="habits-icon-clear"
+                onClick={() => setIcon("")}
+              >
+                {t("No icon")}
+              </button>
+            )}
+          </div>
+        )}
         <label className="xc-field">
           <span>{t("Title")}</span>
           <input

@@ -1,6 +1,6 @@
 -- name: CreateReminder :one
-INSERT INTO reminders (title, body, link, rrule, dtstart, next_at, enabled, created_at)
-VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+INSERT INTO reminders (title, body, link, rrule, dtstart, next_at, enabled, created_at, icon)
+VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
 RETURNING *;
 
 -- name: GetReminder :one
@@ -19,7 +19,7 @@ ORDER BY id;
 -- name: UpdateReminder :one
 UPDATE reminders
 SET title = ?, body = ?, link = ?, rrule = ?, dtstart = ?, next_at = ?, last_fired_at = ?,
-    snoozed_until = ?, done_at = ?, enabled = ?
+    snoozed_until = ?, done_at = ?, enabled = ?, icon = ?
 WHERE id = ?
 RETURNING *;
 

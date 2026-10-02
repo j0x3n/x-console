@@ -94,7 +94,8 @@ func (m *Module) start(ctx context.Context, id int64) {
 		return
 	}
 	params := protocol.CodingRunParams{
-		TaskID: r.ID, RepoPath: r.RepoPath, Executor: r.Executor, Prompt: r.Prompt,
+		AllowQuestions: r.AiAgentID != nil,
+		TaskID:         r.ID, RepoPath: r.RepoPath, Executor: r.Executor, Prompt: r.Prompt,
 		BaseBranch: r.BaseBranch, Branch: r.Branch, TimeoutSeconds: int(time.Duration(r.TimeoutMinutes) * m.timeoutUnit / time.Second),
 		Model: r.Model, Permission: r.Permission,
 	}
@@ -203,11 +204,13 @@ loop:
 
 	status, errText, files := statusFailed, "", []protocol.CodingChangedFile(nil)
 	var exit *int64
+	var question *protocol.CodingQuestion
 	switch {
 	case done != nil:
 		var d protocol.CodingDone
 		_ = json.Unmarshal(done.Data, &d)
 		files = d.Files
+		question = d.Question
 		code := 0
 		if done.ExitCode != nil {
 			code = *done.ExitCode
@@ -245,10 +248,21 @@ loop:
 	default:
 		errText = "任务中止：" + err.Error()
 	}
+	if question != nil && status == statusReview {
+		raw, _ := json.Marshal(question)
+		_, _ = m.d.DB.ExecContext(ctx, "UPDATE coding_tasks SET waiting_question=? WHERE id=?", string(raw), r.ID)
+	}
 	m.finish(ctx, r.ID, status, exit, errText, files)
 	m.mu.Lock()
 	delete(m.runs, r.ID)
 	m.mu.Unlock()
+	if question != nil && status == statusReview {
+		if receiver, ok := module.Lookup[contracts.CodingQuestions](m.d.Registry, contracts.CodingQuestionsKey); ok {
+			if err := receiver.ReceiveCodingQuestion(ctx, r.ID, contracts.ToolQuestion{Title: question.Title, Detail: question.Detail, Options: question.Options}); err != nil {
+				slog.Error("coding: question", "err", err)
+			}
+		}
+	}
 	go m.dispatch()
 }
 
@@ -351,11 +365,16 @@ func (m *Module) finish(ctx context.Context, id int64, status string, exit *int6
 		return
 	}
 	m.d.Bus.Publish("coding_task.updated", t)
-	if status == statusReview {
+	var waiting string
+	_ = m.d.DB.QueryRowContext(ctx, "SELECT waiting_question FROM coding_tasks WHERE id=?", id).Scan(&waiting)
+	if status == statusReview && waiting == "" {
 		if rctx := m.runCtx(); rctx != nil {
 			go m.afterReview(rctx, id) // B47 automatic build
 		}
 	}
+	if t.AiAgentId != nil {
+		return
+	} // AI-agent notifications use the six switches.
 	switch status {
 	case statusReview:
 		body := t.Title

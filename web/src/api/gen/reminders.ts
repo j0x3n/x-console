@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/notify/icons/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 公开 PNG 图标。sig 是服务端生成的 HMAC 签名，浏览器后台取图不需要会话。 */
+        get: operations["getNotifyIcon"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reminders": {
         parameters: {
             query?: never;
@@ -313,6 +330,8 @@ export interface components {
          */
         ReminderStatus: "scheduled" | "pending" | "snoozed" | "done" | "ended";
         Reminder: {
+            /** @description emoji 或图标名 */
+            icon?: string;
             /** Format: int64 */
             id: number;
             title: string;
@@ -369,6 +388,8 @@ export interface components {
         };
         ReminderInput: {
             title: string;
+            /** @description emoji 或图标名，可留空 */
+            icon?: string;
             body?: string;
             link?: string;
             /**
@@ -381,6 +402,7 @@ export interface components {
         };
         ReminderPatch: {
             title?: string;
+            icon?: string;
             body?: string;
             link?: string;
             /** Format: date-time */
@@ -498,6 +520,31 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getNotifyIcon: {
+        parameters: {
+            query: {
+                sig: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 192px 图标 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listReminders: {
         parameters: {
             query?: {

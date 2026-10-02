@@ -30,10 +30,14 @@ type Module struct {
 	hc  *http.Client
 	now func() time.Time
 
-	mu      sync.Mutex
-	ctx     context.Context // from Start
-	running map[int64]int   // built-in agent jobs by agent id
-	wg      sync.WaitGroup
+	mu         sync.Mutex
+	ctx        context.Context // from Start
+	running    map[int64]int   // built-in agent jobs by agent id
+	wg         sync.WaitGroup
+	runMu      sync.Mutex
+	activeRuns map[int64]context.CancelFunc
+	decisionMu sync.Mutex
+	decisions  map[int64]chan decisionReply
 }
 
 var (
@@ -47,10 +51,13 @@ var (
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), hc: &http.Client{Timeout: 30 * time.Second},
-		now: func() time.Time { return time.Now().UTC() }, running: map[int64]int{}}
+		now: func() time.Time { return time.Now().UTC() }, running: map[int64]int{}, activeRuns: map[int64]context.CancelFunc{}, decisions: map[int64]chan decisionReply{}}
 	module.Provide[contracts.GitConnections](d.Registry, contracts.GitConnectionsKey, m)
 	module.Provide[contracts.AIAgents](d.Registry, contracts.AIAgentsKey, m)
 	module.Provide[contracts.GitAccounts](d.Registry, contracts.GitAccountsKey, m) // B62
+	module.Provide[contracts.GitIssues](d.Registry, contracts.GitIssuesKey, m)
+	d.Notify.OnAction("ai_agent.", m.notificationAction)
+	module.Provide[contracts.CodingQuestions](d.Registry, contracts.CodingQuestionsKey, m)
 	return m, nil
 }
 
@@ -69,6 +76,9 @@ func (m *Module) PublicPaths() []string { return []string{"/hooks/git/"} }
 
 // Start follows coding tasks to comment on their cards.
 func (m *Module) Start(ctx context.Context) error {
+	if err := m.recoverRuns(ctx); err != nil {
+		return err
+	}
 	m.mu.Lock()
 	m.ctx = ctx
 	m.mu.Unlock()

@@ -81,6 +81,8 @@ backend/
 
 ## 处理器写法
 
+公开入口：`GET /api/v1/notify/icons/{name}` 不要求会话。reminders 模块先校验名称的 HMAC 签名，再读取或生成 PNG。其他方法没有公开处理器。
+
 ```go
 func (m *Module) CreateIssue(w http.ResponseWriter, r *http.Request, projectID int64) {
     var body api.CreateIssueJSONRequestBody

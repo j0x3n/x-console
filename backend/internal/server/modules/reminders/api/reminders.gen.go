@@ -275,8 +275,11 @@ type Reminder struct {
 	Dtstart time.Time `json:"dtstart"`
 
 	// DueAt 下一次实际会提醒的时间（考虑了稍后提醒）
-	DueAt       *time.Time `json:"dueAt,omitempty"`
-	Enabled     bool       `json:"enabled"`
+	DueAt   *time.Time `json:"dueAt,omitempty"`
+	Enabled bool       `json:"enabled"`
+
+	// Icon emoji 或图标名
+	Icon        *string    `json:"icon,omitempty"`
 	Id          int64      `json:"id"`
 	LastFiredAt *time.Time `json:"lastFiredAt,omitempty"`
 	Link        string     `json:"link"`
@@ -298,7 +301,10 @@ type ReminderInput struct {
 	// At 第一次的时间
 	At   time.Time `json:"at"`
 	Body *string   `json:"body,omitempty"`
-	Link *string   `json:"link,omitempty"`
+
+	// Icon emoji 或图标名，可留空
+	Icon *string `json:"icon,omitempty"`
+	Link *string `json:"link,omitempty"`
 
 	// Rrule RRULE，例如 FREQ=DAILY 或 FREQ=WEEKLY;BYDAY=MO,WE。按用户时区计算
 	Rrule *string `json:"rrule,omitempty"`
@@ -310,6 +316,7 @@ type ReminderPatch struct {
 	At      *time.Time `json:"at,omitempty"`
 	Body    *string    `json:"body,omitempty"`
 	Enabled *bool      `json:"enabled,omitempty"`
+	Icon    *string    `json:"icon,omitempty"`
 	Link    *string    `json:"link,omitempty"`
 	Rrule   *string    `json:"rrule,omitempty"`
 	Title   *string    `json:"title,omitempty"`
@@ -371,6 +378,11 @@ type RunNotifyActionJSONBody struct {
 // UpdateNotifyChannelJSONBody defines parameters for UpdateNotifyChannel.
 type UpdateNotifyChannelJSONBody struct {
 	Values map[string]string `json:"values"`
+}
+
+// GetNotifyIconParams defines parameters for GetNotifyIcon.
+type GetNotifyIconParams struct {
+	Sig string `form:"sig" json:"sig"`
 }
 
 // ReplaceNotifyRoutesJSONBody defines parameters for ReplaceNotifyRoutes.
@@ -450,6 +462,9 @@ type ServerInterface interface {
 
 	// (POST /notify/channels/{channel}/test)
 	TestNotifyChannel(w http.ResponseWriter, r *http.Request, channel Channel)
+
+	// (GET /notify/icons/{name})
+	GetNotifyIcon(w http.ResponseWriter, r *http.Request, name string, params GetNotifyIconParams)
 
 	// (GET /notify/quiet-hours)
 	GetQuietHours(w http.ResponseWriter, r *http.Request)
@@ -540,6 +555,11 @@ func (_ Unimplemented) UpdateNotifyChannel(w http.ResponseWriter, r *http.Reques
 
 // (POST /notify/channels/{channel}/test)
 func (_ Unimplemented) TestNotifyChannel(w http.ResponseWriter, r *http.Request, channel Channel) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /notify/icons/{name})
+func (_ Unimplemented) GetNotifyIcon(w http.ResponseWriter, r *http.Request, name string, params GetNotifyIconParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -758,6 +778,48 @@ func (siw *ServerInterfaceWrapper) TestNotifyChannel(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TestNotifyChannel(w, r, channel)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNotifyIcon operation middleware
+func (siw *ServerInterfaceWrapper) GetNotifyIcon(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", chi.URLParam(r, "name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetNotifyIconParams
+
+	// ------------- Required query parameter "sig" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "sig", r.URL.Query(), &params.Sig, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sig"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sig", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNotifyIcon(w, r, name, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1275,6 +1337,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notify/icons/{name}", wrapper.GetNotifyIcon)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/reminders", wrapper.ListReminders)
 	})

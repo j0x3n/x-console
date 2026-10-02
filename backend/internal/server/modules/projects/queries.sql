@@ -1,6 +1,15 @@
 -- M5 projects queries. The filtered issue list lives in list.go (database/sql).
 -- Keep this file ASCII only: sqlc miscounts offsets after multi-byte characters.
 
+-- name: GetBoardRepo :one
+SELECT board_repos.*, git_connections.name AS connection_name,
+ CAST((SELECT count(*) FROM issues WHERE issues.board_id = board_repos.board_id AND issues.external_source = board_repos.kind) AS INTEGER) AS synced_count
+FROM board_repos JOIN git_connections ON git_connections.id = board_repos.connection_id
+WHERE board_repos.board_id = ?;
+
+-- name: SetIssueExternalURL :exec
+UPDATE issues SET external_url = ? WHERE id = ?;
+
 -- name: ListProjects :many
 SELECT sqlc.embed(projects),
     CAST((SELECT count(*) FROM issues i WHERE i.project_id = projects.id) AS INTEGER) AS issue_count,

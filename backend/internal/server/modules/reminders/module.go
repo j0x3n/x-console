@@ -9,6 +9,7 @@ package reminders
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,10 +26,14 @@ const scanInterval = 30 * time.Second
 
 // Module implements api.ServerInterface and contracts.Reminders.
 type Module struct {
-	d    *module.Deps
-	q    *db.Queries
-	http *http.Client
-	push *webPushChannel
+	d         *module.Deps
+	q         *db.Queries
+	http      *http.Client
+	push      *webPushChannel
+	iconMu    sync.Mutex
+	icons     map[string][]byte
+	iconOrder []string
+	iconDraws int
 }
 
 var (
@@ -41,7 +46,7 @@ var (
 // New builds the module, registers channels, the router, action handlers and
 // the actions catalog entries.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}}
+	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 15 * time.Second}, icons: map[string][]byte{}}
 	m.push = &webPushChannel{m: m}
 	d.Notify.RegisterChannel(m.push)
 	d.Notify.RegisterChannel(&telegramChannel{m: m})
@@ -63,7 +68,7 @@ func (m *Module) Mount(r chi.Router) {
 }
 
 // PublicPaths exposes the Telegram webhook. It checks its own secret.
-func (m *Module) PublicPaths() []string { return []string{telegramWebhookPath} }
+func (m *Module) PublicPaths() []string { return []string{telegramWebhookPath, "/notify/icons/"} }
 
 // Start creates the VAPID keys and schedules the reminder scan.
 func (m *Module) Start(ctx context.Context) error {

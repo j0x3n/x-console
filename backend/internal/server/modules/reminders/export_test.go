@@ -30,3 +30,8 @@ func Router(m *Module) notify.Router { return &router{m: m} }
 func SetPublicURL(m *Module, u string) { m.d.Config.PublicURL = u }
 
 func PushService(endpoint string) api.WebPushService { return pushService(endpoint) }
+
+func PushIcons(m *Module, ctx context.Context, n notify.Stored) (string, string) {
+	return m.pushIcons(ctx, n)
+}
+func IconDraws(m *Module) int { m.iconMu.Lock(); defer m.iconMu.Unlock(); return m.iconDraws }

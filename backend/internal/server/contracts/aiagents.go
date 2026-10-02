@@ -112,6 +112,8 @@ type ToolRun struct {
 	MaxTurns int    // 0 means 20
 	Source   string // usage record source and ref (B42)
 	Ref      string
+	Observer ToolObserver
+	Decider  ToolDecider
 }
 
 // ToolRunner is provided by M12 (B47): it lets a model call the actions
