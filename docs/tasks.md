@@ -28,20 +28,20 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B70 | “GitHub”改名“仓库”，挪到 Agent 下面；多仓库、提交、CI 步骤、Forgejo 也能关注；设置页整理 | [B70](specs/B70.md) | 前端 Claude 已完成（`347a4ed`），后端 Codex 已完成 |
-| B71 | 仓库事件通知：CI 开始、成功、失败，新提交，PR，Issue，发布 | [B71](specs/B71.md) | 前端 Claude 已完成（`347a4ed`），后端 Codex 已完成 |
-| B72 | 笔记：编辑时能滚动、双击进入编辑、外链分享（可加密码）、左栏“+”快速新建、浮窗 | [B72](specs/B72.md) | 前端 Claude（分享、浮窗、双击编辑未测），后端 Codex 已完成 |
-| B73 | 便签：快速记录存成便签，瀑布流，和笔记共用标签 | [B73](specs/B73.md) | 前端 Claude（代码未测），后端 Codex 已完成 |
-| B74 | 编辑器：多媒体、折叠代码块和复制、隐藏块、背景色、提示块、表格等 | [B74](specs/B74.md) | 前端 Claude（仅背景色完成，其余待做），后端 Codex 已完成 |
-| B75 | 云盘分享页：浏览器能看的都直接预览，下载按钮，密码，下载次数 | [B75](specs/B75.md) | 前端 Claude，后端 Codex 已完成 |
-| B76 | 左栏一级菜单显示未读和待处理数量，二级菜单选中更明显 | [B76](specs/B76.md) | 前端 Claude |
-| B77 | 看板卡片不显示编号，紧急度加标题 | 见下 | 前端 Claude |
-| B78 | CI 提速：前端检查从六七分钟降下来 | [B78](specs/B78.md) | Claude |
-| B79 | 设置弹窗显示版本号；设置 → 维护：资源占用、清理没用的文件 | [B79](specs/B79.md) | 前端 Claude，后端 Codex 已完成 |
-| B80 | 切换页面后回来，保留列表和内容的位置 | [B80](specs/B80.md) | 前端 Claude |
-| B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前端 Claude，后端 Codex 已完成 |
-| B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前端 Claude，后端 Codex 已完成 |
-| B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前端 Claude，后端 Codex 已完成 |
+| B70 | “GitHub”改名“仓库”，挪到 Agent 下面；多仓库、提交、CI 步骤、Forgejo 也能关注；设置页整理 | [B70](specs/B70.md) | 前后端都完成（前端 `347a4ed`，后端 `3c093d6`），待合并 |
+| B71 | 仓库事件通知：CI 开始、成功、失败，新提交，PR，Issue，发布 | [B71](specs/B71.md) | 前后端都完成（前端 `347a4ed`，后端 `0dc11d1`），待合并 |
+| B72 | 笔记：编辑时能滚动、双击进入编辑、外链分享（可加密码）、左栏“+”快速新建、浮窗 | [B72](specs/B72.md) | 前后端都完成（前端验证后修复 `10046c8`，后端 `9ff2c08`），待合并 |
+| B73 | 便签：快速记录存成便签，瀑布流，和笔记共用标签 | [B73](specs/B73.md) | 前后端都完成（前端 `10046c8`，后端 `fc6acc8`），待合并 |
+| B74 | 编辑器：多媒体、折叠代码块和复制、隐藏块、背景色、提示块、表格等 | [B74](specs/B74.md) | 前后端都完成（前端 `ee8fe78`，后端 `0c7ca5d`），待合并 |
+| B75 | 云盘分享页：浏览器能看的都直接预览，下载按钮，密码，下载次数 | [B75](specs/B75.md) | 前后端都完成（前端 `17ef897`，后端 `901d234`），待合并 |
+| B76 | 左栏一级菜单显示未读和待处理数量，二级菜单选中更明显 | [B76](specs/B76.md) | 前端完成（`dedcd0f`、`216386b`），待合并 |
+| B77 | 看板卡片不显示编号，紧急度加标题 | 见下 | 前端完成（`e416f10`），待合并 |
+| B78 | CI 提速：前端检查从六七分钟降下来 | [B78](specs/B78.md) | 完成（`3874ba2`），用时见规格 |
+| B79 | 设置弹窗显示版本号；设置 → 维护：资源占用、清理没用的文件 | [B79](specs/B79.md) | 前后端都完成（前端 `b5e6938`，后端 `30fa350`），待合并 |
+| B80 | 切换页面后回来，保留列表和内容的位置 | [B80](specs/B80.md) | 前端完成（`c20a6e2`），待合并 |
+| B81 | 增量备份：只传变化的部分，删掉的也同步删，能回到任意一次 | [B81](specs/B81.md) | 前后端都完成（前端 `03e9d17`，后端 `fc818da`），待合并 |
+| B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前后端都完成（前端 `42dccc1`，后端 `0b201be`、审查修复 `9619701`），待合并 |
+| B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前后端都完成（前端 `836b5be`，后端 `15abfd0`），待合并 |
 
 ### 任务说明
 
@@ -203,11 +203,14 @@
 
 ## 已知问题（暂不排期）
 
-第三批检查发现的前端问题（2026-10-02，留给 Claude）：
-- `i18n.test.ts` 失败：`Pull request opened` 在不同模块对应“PR 已建好”和“新的 PR”；`New issue` 对应“新的 Issue”和“新建卡片”。需要按中文词典全局唯一规则调整英文键。
-- 前端整套单元测试中，`DrivePage.test.tsx` 的重复 Ctrl+S 冲突提示用例超时。Linux 单文件 12 个用例通过，整套仍失败，需要排查时序。
-- B82 生成的 Host 契约增加必填 info、addresses 和 sortOrder。`features/servers/lib.test.ts:52` 的旧测试对象缺这三个字段，导致 typecheck 与 npm run build 失败。Claude 接手时更新测试数据。功能代码未修改。
-- 端到端脚本仍找“新建卡片”弹窗，现有词条冲突让界面显示“新的 Issue”。临时验证副本兼容两个标题，正式脚本留给 Claude 随词条一起调整。
+第三批（B70 到 B83）留下的（2026-10-02 Claude 验收和写前端时记的）：
+- 第三批检查时记的词条冲突、服务器测试数据缺字段、端到端找“新建卡片”弹窗三条已在 `a65c803` 修好。`DrivePage.test.tsx` 重复 Ctrl+S 用例超时的问题在本机整套跑时没复现。
+- B75 按规格，预览不算下载次数，所以设了次数上限的分享链接可以一直用 `preview=true` 的地址把文件拿走。要堵住只能让预览也计数，或者限制预览的总流量。
+- B74 笔记列表的摘要已经不带隐藏块的内容，但搜索结果的高亮片段（全文检索的 snippet）还会带出隐藏块里命中的字。
+- B74 链接卡片不显示网站图标（不去别的网站取图标，避免泄露访问记录），只显示域名和网址。
+- B82 国旗字体（Twemoji 国旗，约 78 KB）放在 `web/public/fonts/`，用 `unicode-range`，只有页面上出现国旗时才下载。没在 Windows 的 Chrome 上实际看过。
+- B83 健康提醒的系统通知只在 Linux 容器里测过命令拼装，Windows toast、macOS、Linux 桌面的实际弹窗没验证。
+- B80 只记滚动位置和最后的地址。组件里的状态（比如展开了哪一行、云盘分享页看到第几个文件）切走再回来不保留。
 
 没有在真实环境验证过：
 - Windows 代理的运行时行为：ConPTY 终端、服务管理、剪贴板、锁屏关机、打开程序、编码任务的中断。只做过交叉编译和静态检查。
@@ -225,7 +228,7 @@
 - 同一个 TOTP 码在 30 秒窗口内可以重复使用。只支持一个用户。
 - HA 的 `WatchEntity` 注册只存在内存里，使用方要在 `Start` 里调用。
 - Linear 不导入已完成或已取消的 Issue，本地新建的 Issue 不会自动建到 Linear。
-- 看板拖动只支持桌面（B46 后手机上用卡片详情里的“看板和列表”下拉移动）。习惯的提醒时段不能跨午夜。番茄钟不能暂停。
+- 看板拖动只支持桌面（B46 后手机上用卡片详情里的“看板和列表”下拉移动）。习惯的“时间窗内”提醒不能跨午夜，要跨午夜用 B83 的“醒着的时候”。番茄钟不能暂停。
 - 早报的习惯部分只显示今天，`contracts.Habits` 没有“昨天”的数据。
 - SSH 主机的最后在线时间只存在内存里。Windows 上 `svc.logs` 返回“不支持”。
 - 脚本运行记录不会自动清理。Windows 主机上跑 bash 脚本会直接失败。订阅支出汇总没有汇率换算。
@@ -315,6 +318,17 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- 2026-10-02（Claude，第三批前端）：
+  - `app/App.tsx` 加 `/n/<token>` 笔记分享页，`app/GlobalPanels.tsx` 加 `FloatingNotes`（B72，提交在 develop 上的 `e68144a`）。
+  - `components/layout/NavChildLinks.tsx` 加可选的 `onReorder`，传了就能拖动排序；`styles/ui.css` 加 `.nav-child.dragging`、`.drag-over`（B82）。
+  - `stores/page-title.ts` 加 `mark` 和 `usePageMark`，`components/layout/Topbar.tsx` 在详情名称左边显示它（B82 国旗）。
+  - `components/ui/MoreMenu.tsx` 加可选的 `icon`（B74 编辑器“插入”菜单用加号）。
+  - `components/markdown/`：解析和渲染加表格、提示块、隐藏块、高亮、视频音频、链接卡片、代码块折叠和复制；新增 `InsertMenu.tsx`；`attachmentMarkdown` 对视频、音频也用图片的写法（B74）。`lib/i18n.ts` 加这些的全局词条。
+  - 新增 `hooks/useKeepScroll.ts`；`app/Layout.tsx` 记每个模块最后的地址和主体滚动位置，去掉手机上换页时滚到顶部（改由恢复逻辑处理）；`components/layout/Sidebar.tsx` 一级菜单链接用 `lastPathFor`；`api/query.ts` 的 `gcTime` 改成 30 分钟（B80）。
+  - `vite.config.ts` 用 `define` 注入 `__XC_VERSION__`、`__XC_BUILT_AT__`，新增 `types/build.d.ts`；`deploy/Dockerfile` 前端阶段加 `ARG VERSION` 传给 `XC_VERSION`（B79）。vitest 在 CI 上不限线程（B78）。
+  - `.github/workflows/ci.yml`：前端拆成 `web` 和 `e2e` 两个任务，端到端用自带的 Chrome；PR 上按改动目录跳过前端或后端检查（B78）。
+  - 后端 `httpx.ClientIP` 改成从右往左找第一个不可信地址（审查修复 `9619701`）；`notes.plainText` 去掉隐藏块和新语法的符号（B74）。
 
 - B81：backup 增 mode、retention、快照、变化、检查和 job.warning/check/prune。cmd/server 在打开数据库与监听前同步执行现场备份、替换数据库和文件恢复；app 初始化同样拒绝未应用的恢复数据库。复用 storage.WithCleanup 阻止备份与存储迁移、清理并发。files.WebDAV 对无法读取的属性、非法路径和扫描中消失的子目录报错，防止不完整扫描导致备份漏文件或误清理。web/scripts/e2e.mjs 仅增 API 主流程。
 
