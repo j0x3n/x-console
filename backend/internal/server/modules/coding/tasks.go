@@ -278,6 +278,16 @@ func (m *Module) create(ctx context.Context, in contracts.LaunchCoding, timeoutM
 	if err := q.SetTaskBranch(ctx, db.SetTaskBranchParams{Branch: branchName(id, slugFrom...), ID: id}); err != nil {
 		return t, err
 	}
+	if in.RunID != 0 {
+		if _, err := tx.ExecContext(ctx, "UPDATE ai_agent_runs SET task_id=? WHERE id=? AND agent_id=?", id, in.RunID, in.AIAgentID); err != nil {
+			return t, err
+		}
+	}
+	if in.OpenPR {
+		if _, err := tx.ExecContext(ctx, "UPDATE coding_tasks SET auto_open_pr=1 WHERE id=?", id); err != nil {
+			return t, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return t, err
 	}
@@ -381,8 +391,25 @@ func (m *Module) aiAgent(ctx context.Context, id, repoID int64) (contracts.AIAge
 		return a, conflict("Agent “" + a.Name + "” 已停用")
 	case a.OverBudget:
 		return a, conflict("Agent “" + a.Name + "” 本月费用已经到预算了")
-	case !slices.Contains(a.RepoIDs, repoID):
-		return a, httpx.Invalid("Agent “" + a.Name + "” 不能操作这个仓库，先在 Agent 设置里允许")
+	case !m.repoAllowed(ctx, a.RepoIDs, repoID):
+		return a, httpx.NewError(http.StatusForbidden, "repo_forbidden", "Agent “"+a.Name+"” 不能操作这个仓库，先在 Agent 设置里允许")
 	}
 	return a, nil
+}
+
+func (m *Module) repoAllowed(ctx context.Context, allowed []int64, id int64) bool {
+	if slices.Contains(allowed, id) {
+		return true
+	}
+	r, err := m.q.GetRepo(ctx, id)
+	if err != nil || r.ConnectionID == nil {
+		return false
+	}
+	for _, other := range allowed {
+		seed, err := m.q.GetRepo(ctx, other)
+		if err == nil && seed.ConnectionID != nil && *seed.ConnectionID == *r.ConnectionID && seed.Owner == r.Owner && seed.Repo == r.Repo {
+			return true
+		}
+	}
+	return false
 }

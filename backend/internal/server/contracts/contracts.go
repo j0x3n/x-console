@@ -320,6 +320,8 @@ type LaunchCoding struct {
 	// (empty: the repository's machine).
 	AIAgentID int64  `json:"aiAgentId,omitempty"`
 	AgentID   string `json:"agentId,omitempty"`
+	RunID     int64  `json:"-"`
+	OpenPR    bool   `json:"openPr,omitempty"`
 }
 
 // Coding is provided by M4.

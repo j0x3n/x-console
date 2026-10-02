@@ -45,6 +45,32 @@ type AiAgent struct {
 	HostIds          string
 }
 
+type AiAgentRun struct {
+	ID         int64
+	AgentID    int64
+	IssueKey   string
+	IssueTitle string
+	Kind       string
+	Status     string
+	TaskID     *int64
+	OpenPr     int64
+	PrUrl      string
+	Summary    string
+	CreatedAt  time.Time
+	StartedAt  *time.Time
+	FinishedAt *time.Time
+}
+
+type AiAgentRunEvent struct {
+	RunID int64
+	Seq   int64
+	At    time.Time
+	Kind  string
+	Text  string
+	Tool  string
+	Ok    *int64
+}
+
 type AiAttachment struct {
 	ID             int64
 	ConversationID *int64
@@ -324,6 +350,7 @@ type CodingTask struct {
 	BuildAttempts  int64
 	Artifacts      string
 	BuildError     string
+	AutoOpenPr     int64
 }
 
 type CodingTaskEvent struct {

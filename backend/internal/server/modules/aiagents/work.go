@@ -104,7 +104,27 @@ func (m *Module) assign(ctx context.Context, id int64, body api.AssignAiAgentJSO
 		return 0, m.startBuiltin(ctx, a, brief, note)
 	}
 	if body.RepoId == nil {
-		return 0, httpx.Invalid("请选择仓库")
+		boards, ok := module.Lookup[contracts.BoardGit](m.d.Registry, contracts.BoardGitKey)
+		if !ok {
+			return 0, httpx.ErrNotLive
+		}
+		repo, err := boards.RepositoryForIssue(ctx, brief.Key)
+		if err != nil {
+			return 0, err
+		}
+		control, ok := module.Lookup[contracts.CodingControl](m.d.Registry, contracts.CodingControlKey)
+		if !ok {
+			return 0, httpx.ErrNotLive
+		}
+		runner := a.RunnerAgentID
+		if body.RunnerAgentId != nil {
+			runner = *body.RunnerAgentId
+		}
+		id, err := control.ResolveBoardRepo(ctx, a.ID, runner, repo)
+		if err != nil {
+			return 0, err
+		}
+		body.RepoId = &id
 	}
 	launcher, ok := module.Lookup[contracts.Coding](m.d.Registry, contracts.CodingKey)
 	if !ok {
@@ -112,6 +132,12 @@ func (m *Module) assign(ctx context.Context, id int64, body api.AssignAiAgentJSO
 	}
 	in := contracts.LaunchCoding{RepoID: *body.RepoId, IssueKey: brief.Key, Prompt: strings.TrimSpace(briefText(brief) + note),
 		AIAgentID: a.ID}
+	runID, err := m.createRun(ctx, a, brief, nil)
+	if err != nil {
+		return 0, err
+	}
+	in.RunID = runID
+	in.OpenPR = body.OpenPr == nil || *body.OpenPr
 	if body.BaseBranch != nil {
 		in.BaseBranch = strings.TrimSpace(*body.BaseBranch)
 	}
@@ -119,6 +145,11 @@ func (m *Module) assign(ctx context.Context, id int64, body api.AssignAiAgentJSO
 		in.AgentID = strings.TrimSpace(*body.RunnerAgentId)
 	}
 	taskID, err := launcher.Launch(ctx, in)
+	if err != nil {
+		m.finishRun(ctx, runID, "failed", err.Error())
+		return 0, err
+	}
+	_, err = m.d.DB.ExecContext(ctx, "UPDATE ai_agent_runs SET task_id=?,open_pr=? WHERE id=?", taskID, in.OpenPR, runID)
 	if err != nil {
 		return 0, err
 	}
@@ -167,6 +198,18 @@ func (m *Module) startBuiltin(ctx context.Context, a contracts.AIAgent, brief co
 	session := &auth.Session{ID: "ai_agent:" + strconv.FormatInt(a.ID, 10), Username: author(a.ID), ViaToken: true,
 		Token: &auth.TokenInfo{Name: a.Name, Access: row.Access}}
 	runCtx := auth.WithSession(base, session)
+	runID, err := m.createRun(ctx, a, brief, nil)
+	if err != nil {
+		m.mu.Lock()
+		m.running[a.ID]--
+		m.mu.Unlock()
+		return err
+	}
+	runCtx, cancelRun := context.WithCancel(runCtx)
+	m.runMu.Lock()
+	m.activeRuns[runID] = cancelRun
+	m.runMu.Unlock()
+	m.setRunStatus(base, runID, "running", "")
 	system := fmt.Sprintf("你是 X Console 里的 Agent“%s”。用户是这个面板的唯一主人。\n%s\n\n"+
 		"你在处理卡片 %s。用工具读取和修改数据，先读再改，不要重复创建。不要删除东西，除非卡片里明确要求。"+
 		"完成后用简短的中文说明做了什么，这段话会作为你的评论贴在卡片上。", a.Name, row.Instructions, brief.Key)
@@ -180,6 +223,8 @@ func (m *Module) startBuiltin(ctx context.Context, a contracts.AIAgent, brief co
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
+		defer cancelRun()
+		defer func() { m.runMu.Lock(); delete(m.activeRuns, runID); m.runMu.Unlock() }()
 		defer func() {
 			m.mu.Lock()
 			m.running[a.ID]--
@@ -187,11 +232,16 @@ func (m *Module) startBuiltin(ctx context.Context, a contracts.AIAgent, brief co
 			m.publishAgent(base, a.ID)
 		}()
 		text, err := runner.RunTools(runCtx, contracts.ToolRun{Model: row.Model, System: system, Prompt: prompt,
-			Access: row.Access, Source: "ai_agent", Ref: strconv.FormatInt(a.ID, 10)})
+			Access: row.Access, Source: "ai_agent", Ref: strconv.FormatInt(a.ID, 10), Observer: &runObserver{m: m, id: runID}})
 		if base.Err() != nil {
 			return
 		}
 		if err != nil {
+			status := "failed"
+			if runCtx.Err() != nil {
+				status = "canceled"
+			}
+			m.finishRun(base, runID, status, err.Error())
 			m.comment(base, brief.Key, a.ID, "没做完："+err.Error())
 			return
 		}
@@ -199,6 +249,8 @@ func (m *Module) startBuiltin(ctx context.Context, a contracts.AIAgent, brief co
 			text = "做完了。"
 		}
 		m.comment(base, brief.Key, a.ID, text)
+		m.appendRunEvent(base, runID, "text", text, "", nil)
+		m.finishRun(base, runID, "done", text)
 	}()
 	return nil
 }
@@ -288,6 +340,7 @@ func (m *Module) follow(ctx context.Context) {
 }
 
 func (m *Module) onTask(ctx context.Context, t taskEvent, prev string) {
+	m.followRunTask(ctx, t)
 	key, agentID := *t.IssueKey, *t.AiAgentID
 	link := fmt.Sprintf("[编码任务 #%d](/coding/%d)", t.ID, t.ID)
 	switch t.Status {

@@ -457,6 +457,13 @@ try {
   });
   assert.ok((await api(`/issues/${boardCardKey}`)).members.some((m) => m.kind === "agent"));
 
+  stage = "B86 Agent 执行记录和日志";
+  const runs = await api(`/ai-agents/runs?issueKey=${boardCardKey}`);
+  assert.equal(runs[0].status, "failed");
+  const runEvents = await api(`/ai-agents/runs/${runs[0].id}/events`);
+  assert.ok(runEvents.items.some((event) => event.kind === "error"));
+  assert.equal((await api(`/ai-agents/runs/${runs[0].id}/events?after=${runEvents.lastSeq}`)).items.length, 0);
+
   stage = "写笔记";
   const noteResponses = [];
   page.on("request", (request) => {

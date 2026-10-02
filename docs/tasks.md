@@ -20,7 +20,8 @@
 
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
-| B84 | 看板绑定 Git 仓库，同步仓库的 Issue；看板里新建的卡片照旧只在看板里 | [B84](specs/B84.md) | Codex |
+| B84 | 看板绑定 Git 仓库，同步仓库的 Issue；看板里新建的卡片照旧只在看板里 | [B84](specs/B84.md) | Codex，B84 已完成 `7e42fc2`，待整批验收 |
+| B86 | Agent 开发卡片：用看板绑定的仓库，做完自动提 PR；执行日志；详情页删除；左栏“+”和工作中动画 | [B86](specs/B86.md) | Codex，后端已实现，待整批验收 |
 
 
 ## 待做
@@ -44,7 +45,6 @@
 | B82 | 服务器：备注、账号密码、IP 地址、国家，左栏顺序和拖动排序 | [B82](specs/B82.md) | 前后端都完成（前端 `42dccc1`，后端 `0b201be`、审查修复 `9619701`），已合并（`26e1fa2`） |
 | B83 | 健康提醒（喝水、护眼、起身）按电脑是否在用来提醒；工作日和作息 | [B83](specs/B83.md) | 前后端都完成（前端 `836b5be`，后端 `15abfd0`），已合并（`26e1fa2`） |
 | B85 | 卡片右键菜单（分配、颜色、到期时间、标签、移动、归档）；卡片详情的描述按钮和评论按钮间距 | [B85](specs/B85.md) | 前后端都完成（前端 `655be42`，后端 Claude） |
-| B86 | Agent 开发卡片：用看板绑定的仓库，做完自动提 PR；执行日志；详情页删除；左栏“+”和工作中动画 | [B86](specs/B86.md) | 前端完成（`f197548`），后端待做 |
 | B87 | Agent 通知六类开关；今日页“待你决定”加 Agent 的权限请求和问题 | [B87](specs/B87.md) | 前端完成（`831ebc2`），后端待做 |
 | B88 | 今日页：左栏图标跟天气、网络卡片样式、各列自由拖动、称呼可改、时间和天气挪到顶栏 | [B88](specs/B88.md) | 前后端都完成（Claude，`fadbc56`、`9e8870a`） |
 | B89 | 每日一句（“名言”便签）、便签置顶、“全部笔记”不显示名言 | [B89](specs/B89.md) | 前后端都完成（Claude，`9e8870a`） |
@@ -338,6 +338,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B86：contracts 新增 CodingControl 和 ToolObserver。LaunchCoding 增加内部 runId 和自动提 PR 标志。用于复用现有编码流程并记录 Agent 执行，保留原调用方式。
 
 - 2026-10-02（Claude，第四批前端）：
   - `lib/navBadges.ts` 加 `registerNavIcon`（换一级菜单图标，或者 `state: "working"` 让图标跳动）和 `registerNavStatus`（一级菜单右边的状态点和短文字）；`components/layout/Sidebar.tsx` 渲染它们；`styles/ui.css` 加 `.nav-icon`、`.nav-status`、`.nav-child-spin`（B86、B88、B93）。

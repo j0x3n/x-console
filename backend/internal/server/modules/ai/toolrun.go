@@ -68,6 +68,9 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 			return "", err
 		}
 		if len(res.ToolCalls) == 0 {
+			if in.Observer != nil {
+				in.Observer.RecordToolEvent(ctx, "text", res.Text, "", true)
+			}
 			return strings.TrimSpace(res.Text), nil
 		}
 		history = append(history, llm.Message{Role: "assistant", Content: res.Text, ToolCalls: res.ToolCalls})
@@ -91,6 +94,9 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 			}
 			if isErr {
 				content = "错误：" + content
+			}
+			if in.Observer != nil {
+				in.Observer.RecordToolEvent(ctx, "tool", content, call.Name, !isErr)
 			}
 			history = append(history, llm.Message{Role: "tool", ToolCallID: call.ID, Content: content})
 		}

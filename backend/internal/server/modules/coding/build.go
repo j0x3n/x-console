@@ -359,6 +359,9 @@ func (m *Module) finishBuild(ctx context.Context, row taskRow, status, msg strin
 	if status == buildFailed && row.AiAgentID != nil {
 		m.maybeFix(ctx, row, tail)
 	}
+	if status == buildPassed {
+		m.autoPR(ctx, row.ID)
+	}
 }
 
 // maybeFix gives a failed build back to the task's agent when it has
@@ -421,10 +424,15 @@ func (m *Module) afterReview(ctx context.Context, id int64) {
 		return
 	}
 	a, err := agents.Get(ctx, *row.AiAgentID)
-	if err != nil || !a.AutoBuild {
+	if err != nil {
+		return
+	}
+	if !a.AutoBuild {
+		m.autoPR(ctx, id)
 		return
 	}
 	if _, err := m.stepsFor(row); err != nil {
+		m.autoPR(ctx, id)
 		return // nothing to build here
 	}
 	if err := m.startBuild(ctx, id); err != nil {
