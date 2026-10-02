@@ -403,12 +403,15 @@ export default function NotesPage() {
             )}
             <h1>{viewTitle}</h1>
             <span>
-              {items.length > 0
-                ? `${items.length}${notes.hasNextPage ? "+" : ""}`
-                : ""}
+              {view === "memos"
+                ? (counts.data?.memos ?? "")
+                : items.length > 0
+                  ? `${items.length}${notes.hasNextPage ? "+" : ""}`
+                  : ""}
             </span>
           </div>
           {items.length > 0 &&
+            view !== "memos" &&
             (selecting ? (
               <div className="notes-select-bar">
                 <label className="xc-check">

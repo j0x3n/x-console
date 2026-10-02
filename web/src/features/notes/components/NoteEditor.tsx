@@ -183,6 +183,15 @@ function EditorBody({
   const ai = useNoteAiTools();
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [menuOpen, setMenuOpen] = useState(false);
+  // 菜单开着时按 Esc 关掉。
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
   const [dialog, setDialog] = useState<"issue" | "reminder" | "share" | null>(
     null,
   );
