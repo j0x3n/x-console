@@ -36,6 +36,7 @@ type Module struct {
 	wg         sync.WaitGroup
 	runMu      sync.Mutex
 	activeRuns map[int64]context.CancelFunc
+	finishMu   sync.Mutex // finishRun
 	decisionMu sync.Mutex
 	decisions  map[int64]chan decisionReply
 }
@@ -56,6 +57,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.AIAgents](d.Registry, contracts.AIAgentsKey, m)
 	module.Provide[contracts.GitAccounts](d.Registry, contracts.GitAccountsKey, m) // B62
 	module.Provide[contracts.GitIssues](d.Registry, contracts.GitIssuesKey, m)
+	module.Provide[contracts.AgentRuns](d.Registry, contracts.AgentRunsKey, m)
 	d.Notify.OnAction("ai_agent.", m.notificationAction)
 	module.Provide[contracts.CodingQuestions](d.Registry, contracts.CodingQuestionsKey, m)
 	return m, nil

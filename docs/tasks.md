@@ -228,11 +228,8 @@
 - 邮件的 `TestManyNewMailsAreGrouped` 在本轮全量并发测试时等同步超过 10 秒。降低包并发后全量通过，根因尚未确认。本轮没有修改邮件功能。
 
 第四批后端（B84 到 B91）验收时记的（2026-10-02 Claude）：
-- B84：Git 连接绑定了看板后就删不掉。`board_repos.connection_id` 的外键没有 `ON DELETE`，删除连接时接口回 500（FOREIGN KEY constraint failed）。已用测试复现。要么删连接前先解绑这个连接的看板，要么回 409 提示先去看板解绑。
-- B84：每收到一次 Issue 回调，都把仓库全部 Issue（包括已关闭的）分页拉一遍，再挑出那一条。这些都在回调请求里同步做，还一直占着 `repoMu`。Issue 多的仓库回调可能超过 GitHub 的 10 秒超时。这期间在看板上改同步来的卡片也要等这把锁。应该改成只取那一个 Issue。
-- B86：中断内置 Agent 时，接口和后台协程各调一次 `finishRun`，执行日志里会出现两条“已中断”。卡片上还会多一条“没做完：context canceled”的评论。
-- B86：`coding` 模块直接写 `ai_agent_runs` 表，`aiagents` 模块直接读 `coding_tasks` 和 `coding_task_events` 表，没有走 contracts 接口。`coding/tasks.go` 里写 `task_id` 的那句和 `aiagents/work.go` 里的重复了。
-- B87：从 Telegram 按钮可以批准“删除类”的 Agent 操作（不算高危的那些），这时没有登录会话，也不做二次验证。高危操作从 Telegram 批准会被拒。要用户决定删除类操作是否也只能在网页上批准。
+- 删除连接、回调只取一个 Issue、中断时重复收尾、跨模块读写表这四条已经修好，见“接口变更记录”。
+- B87：从 Telegram 按钮可以批准“删除类”的 Agent 操作（不算高危的那些），这时没有登录会话，也不做二次验证。用户 2026-10-02 确认就这样，不改。高危操作从 Telegram 批准仍会被拒。
 
 第三批（B70 到 B83）留下的（2026-10-02 Claude 验收和写前端时记的）：
 - 第三批检查时记的词条冲突、服务器测试数据缺字段、端到端找“新建卡片”弹窗三条已在 `a65c803` 修好。`DrivePage.test.tsx` 重复 Ctrl+S 用例超时的问题在本机整套跑时没复现。
@@ -349,6 +346,10 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B84 验收修复：`GitIssues` 加 `Issue`（只读一个 Issue，回调用），`GitIssue` 加 `PullRequest`。新增 `BoardGitUnbinder`：删除 Git 连接前先解除这个连接绑定的看板，卡片留在看板上变成普通卡片。看板同步改成先在锁外读 Git 服务，再加锁写库；回写 Issue 不再占锁。
+
+- B86 验收修复：`CodingControl` 加 `CodingTasks` 和 `CodingTaskEvents`，新增 `AgentRuns.LinkRunTask`。`aiagents` 不再直接读 `coding_tasks`、`coding_task_events`，`coding` 不再直接写 `ai_agent_runs`。`finishRun` 只收尾一次。
 
 - B91：公开 GET /notify/icons/{name} 用 HMAC 校验。Reminder 的输入、输出和补丁增加可选 icon。CreateReminder 增加可选 Icon，已有调用不受影响。
 

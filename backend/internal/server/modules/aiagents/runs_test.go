@@ -2,6 +2,7 @@ package aiagents_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
@@ -41,6 +42,30 @@ func TestBuiltinRunLogsAndCancellation(t *testing.T) {
 	env.Elevate()
 	env.MustDo("POST", path+"/cancel", nil, nil)
 	waitFor(t, func() bool { env.MustDo("GET", "/ai-agents/runs", nil, &runs); return runs[0].Status == api.Canceled })
+	// The job itself also ends after the cancel; the run is finished once.
+	ended := func() []string {
+		var out []string
+		for _, x := range comments(t, env, c.Key) {
+			if strings.HasPrefix(x.Body, "没做完") {
+				out = append(out, x.Body)
+			}
+		}
+		return out
+	}
+	waitFor(t, func() bool { return len(ended()) > 0 })
+	if got := ended(); len(got) != 1 || got[0] != "没做完：用户中断了任务" {
+		t.Fatalf("comments after cancel: %q", got)
+	}
+	env.MustDo("GET", path+"/events", nil, &events)
+	canceled := 0
+	for _, e := range events.Items {
+		if e.Kind == api.Status && e.Text == "canceled" {
+			canceled++
+		}
+	}
+	if canceled != 1 {
+		t.Fatalf("canceled %d times: %+v", canceled, events.Items)
+	}
 	if s, _ := env.Do("GET", "/ai-agents/runs/999/events", nil, nil); s != 404 {
 		t.Fatal(s)
 	}

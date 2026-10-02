@@ -237,12 +237,12 @@ func (m *Module) startBuiltin(ctx context.Context, a contracts.AIAgent, brief co
 			return
 		}
 		if err != nil {
-			status := "failed"
+			status, reason := "failed", err.Error()
 			if runCtx.Err() != nil {
-				status = "canceled"
+				status, reason = "canceled", "用户中断了任务"
 			}
-			m.finishRun(base, runID, status, err.Error())
-			m.comment(base, brief.Key, a.ID, "没做完："+err.Error())
+			m.finishRun(base, runID, status, reason)
+			m.comment(base, brief.Key, a.ID, "没做完："+reason)
 			return
 		}
 		if text == "" {

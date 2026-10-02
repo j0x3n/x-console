@@ -28,6 +28,12 @@ func (m *Module) createRun(ctx context.Context, a contracts.AIAgent, b contracts
 	return id, nil
 }
 
+// LinkRunTask implements contracts.AgentRuns.
+func (m *Module) LinkRunTask(ctx context.Context, runID, agentID, taskID int64) error {
+	_, err := m.d.DB.ExecContext(ctx, "UPDATE ai_agent_runs SET task_id=? WHERE id=? AND agent_id=?", taskID, runID, agentID)
+	return err
+}
+
 func (m *Module) pruneRuns(ctx context.Context) {
 	_, err := m.d.DB.ExecContext(ctx, `DELETE FROM ai_agent_runs WHERE status NOT IN ('queued','running','waiting') AND id NOT IN (SELECT id FROM ai_agent_runs ORDER BY id DESC LIMIT 200)`)
 	if err != nil {
@@ -74,7 +80,7 @@ func (m *Module) setRunStatus(ctx context.Context, id int64, status, summary str
 	var previous string
 	_ = m.d.DB.QueryRowContext(ctx, "SELECT status FROM ai_agent_runs WHERE id=?", id).Scan(&previous)
 	var finished *time.Time
-	if status == "done" || status == "failed" || status == "canceled" || status == "pr_opened" {
+	if finalRunStatus(status) {
 		now := m.now()
 		finished = &now
 	}
@@ -101,7 +107,15 @@ func (m *Module) setRunStatus(ctx context.Context, id int64, status, summary str
 	}
 }
 
+// finishRun ends a run once. A user's cancel and the job's own ending can
+// both arrive; the later one is dropped, so the log and notification stay single.
 func (m *Module) finishRun(ctx context.Context, id int64, status, summary string) {
+	m.finishMu.Lock()
+	defer m.finishMu.Unlock()
+	var current string
+	if err := m.d.DB.QueryRowContext(ctx, "SELECT status FROM ai_agent_runs WHERE id=?", id).Scan(&current); err == nil && finalRunStatus(current) {
+		return
+	}
 	if status == "failed" {
 		m.appendRunEvent(ctx, id, "error", summary, "", nil)
 	}
@@ -124,12 +138,14 @@ func (m *Module) followRunTask(ctx context.Context, t taskEvent) {
 		return
 	}
 	if status == "waiting" && t.Status == "review" {
-		var question string
-		_ = m.d.DB.QueryRowContext(ctx, "SELECT waiting_question FROM coding_tasks WHERE id=?", t.ID).Scan(&question)
-		if question == "" {
+		if info, err := m.codingTasks(ctx, []int64{t.ID}); err == nil && info[t.ID].WaitingQuestion == "" {
 			m.notifyRun(ctx, id, "decision", "代码已改好，等你审查", nil)
 		}
 	}
+}
+
+func finalRunStatus(s string) bool {
+	return s == "done" || s == "failed" || s == "canceled" || s == "pr_opened"
 }
 
 func runTaskStatus(s string) string {
@@ -143,10 +159,28 @@ func runTaskStatus(s string) string {
 	}
 }
 
-const runSelect = `SELECT r.id,r.agent_id,a.name,r.issue_key,r.issue_title,r.kind,
- COALESCE(t.status,r.status),r.task_id,COALESCE(t.pr_url,r.pr_url),CASE WHEN t.error<>'' THEN t.error ELSE r.summary END,
- r.created_at,r.started_at,t.started_at,r.finished_at,t.finished_at
- FROM ai_agent_runs r JOIN ai_agents a ON a.id=r.agent_id LEFT JOIN coding_tasks t ON t.id=r.task_id`
+const runSelect = `SELECT r.id,r.agent_id,a.name,r.issue_key,r.issue_title,r.kind,r.status,r.task_id,r.pr_url,r.summary,
+ r.created_at,r.started_at,r.finished_at
+ FROM ai_agent_runs r JOIN ai_agents a ON a.id=r.agent_id`
+
+func (m *Module) codingControl() (contracts.CodingControl, error) {
+	c, ok := module.Lookup[contracts.CodingControl](m.d.Registry, contracts.CodingControlKey)
+	if !ok {
+		return nil, httpx.ErrNotLive
+	}
+	return c, nil
+}
+
+func (m *Module) codingTasks(ctx context.Context, ids []int64) (map[int64]contracts.CodingTaskInfo, error) {
+	if len(ids) == 0 {
+		return map[int64]contracts.CodingTaskInfo{}, nil
+	}
+	c, err := m.codingControl()
+	if err != nil {
+		return nil, err
+	}
+	return c.CodingTasks(ctx, ids)
+}
 
 func (m *Module) runList(ctx context.Context, where string, args []any, limit int) ([]api.AiAgentRun, error) {
 	args = append(args, limit)
@@ -154,41 +188,70 @@ func (m *Module) runList(ctx context.Context, where string, args []any, limit in
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	out := []api.AiAgentRun{}
+	type runRow struct {
+		run          api.AiAgentRun
+		url, summary string
+	}
+	var list []runRow
+	var taskIDs []int64
 	for rows.Next() {
-		var r api.AiAgentRun
+		var x runRow
 		var task sql.NullInt64
-		var started, finished, taskStarted, taskFinished sql.NullTime
-		var url, summary string
-		if err := rows.Scan(&r.Id, &r.AgentId, &r.AgentName, &r.IssueKey, &r.IssueTitle, &r.Kind, &r.Status, &task, &url, &summary, &r.CreatedAt, &started, &taskStarted, &finished, &taskFinished); err != nil {
+		var started, finished sql.NullTime
+		if err := rows.Scan(&x.run.Id, &x.run.AgentId, &x.run.AgentName, &x.run.IssueKey, &x.run.IssueTitle, &x.run.Kind, &x.run.Status, &task, &x.url, &x.summary, &x.run.CreatedAt, &started, &finished); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		r.Status = api.AiAgentRunStatus(runTaskStatus(string(r.Status)))
-		if taskStarted.Valid {
-			started = taskStarted
-		}
-		if taskFinished.Valid {
-			finished = taskFinished
-		}
 		if task.Valid {
-			r.TaskId = &task.Int64
+			x.run.TaskId = &task.Int64
+			taskIDs = append(taskIDs, task.Int64)
 		}
 		if started.Valid {
-			r.StartedAt = &started.Time
+			x.run.StartedAt = &started.Time
 		}
 		if finished.Valid {
-			r.FinishedAt = &finished.Time
+			x.run.FinishedAt = &finished.Time
 		}
-		if url != "" {
-			r.PrUrl = &url
+		list = append(list, x)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	// A CLI run shows its coding task while the task still exists.
+	tasks, err := m.codingTasks(ctx, taskIDs)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]api.AiAgentRun, 0, len(list))
+	for _, x := range list {
+		r := x.run
+		if r.TaskId != nil {
+			if t, ok := tasks[*r.TaskId]; ok {
+				r.Status = api.AiAgentRunStatus(t.Status)
+				x.url = t.PrURL
+				if t.Error != "" {
+					x.summary = t.Error
+				}
+				if t.StartedAt != nil {
+					r.StartedAt = t.StartedAt
+				}
+				if t.FinishedAt != nil {
+					r.FinishedAt = t.FinishedAt
+				}
+			}
 		}
-		if summary != "" {
-			r.Summary = &summary
+		r.Status = api.AiAgentRunStatus(runTaskStatus(string(r.Status)))
+		if x.url != "" {
+			r.PrUrl = &x.url
+		}
+		if x.summary != "" {
+			r.Summary = &x.summary
 		}
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 func (m *Module) run(ctx context.Context, id int64) (api.AiAgentRun, error) {
@@ -236,24 +299,38 @@ func (m *Module) ListAiAgentRunEvents(w http.ResponseWriter, r *http.Request, id
 	if p.After != nil {
 		after = max(*p.After, 0)
 	}
-	query := "SELECT seq,at,kind,text,tool,ok FROM ai_agent_run_events WHERE run_id=? AND seq>? ORDER BY seq LIMIT 5000"
-	key := id
-	if run.TaskId != nil {
-		query = "SELECT seq,at,kind,text,'' AS tool,NULL AS ok FROM coding_task_events WHERE task_id=? AND seq>? AND seq>(SELECT COALESCE(MAX(seq),0)-5000 FROM coding_task_events WHERE task_id=?) ORDER BY seq LIMIT 5000"
-		key = *run.TaskId
+	items := []api.AiAgentRunEvent{}
+	seq := after
+	add := func(e api.AiAgentRunEvent) {
+		if !e.Kind.Valid() {
+			e.Kind = api.Text
+		}
+		items = append(items, e)
+		seq = e.Seq
 	}
-	args := []any{key, after}
 	if run.TaskId != nil {
-		args = append(args, key)
+		c, err := m.codingControl()
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		events, err := c.CodingTaskEvents(ctx, *run.TaskId, after)
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		for _, e := range events {
+			add(api.AiAgentRunEvent{Seq: e.Seq, At: e.At, Kind: api.AiAgentRunEventKind(e.Kind), Text: e.Text})
+		}
+		httpx.JSON(w, 200, map[string]any{"items": items, "lastSeq": seq})
+		return
 	}
-	rows, err := m.d.DB.QueryContext(ctx, query, args...)
+	rows, err := m.d.DB.QueryContext(ctx, "SELECT seq,at,kind,text,tool,ok FROM ai_agent_run_events WHERE run_id=? AND seq>? ORDER BY seq LIMIT 5000", id, after)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
 	defer rows.Close()
-	items := []api.AiAgentRunEvent{}
-	seq := after
 	for rows.Next() {
 		var e api.AiAgentRunEvent
 		var tool string
@@ -262,17 +339,13 @@ func (m *Module) ListAiAgentRunEvents(w http.ResponseWriter, r *http.Request, id
 			httpx.Fail(w, r, err)
 			return
 		}
-		if !e.Kind.Valid() {
-			e.Kind = api.Text
-		}
 		if tool != "" {
 			e.Tool = &tool
 		}
 		if ok.Valid {
 			e.Ok = &ok.Bool
 		}
-		items = append(items, e)
-		seq = e.Seq
+		add(e)
 	}
 	if err := rows.Err(); err != nil {
 		httpx.Fail(w, r, err)
