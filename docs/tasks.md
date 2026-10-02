@@ -319,6 +319,8 @@
 
 ## 接口变更记录
 
+- 2026-10-02（Claude，部署后页面打不开）：`app/app.go` 的 `spa` 对 `/assets/` 下找不到的文件回 404，不再回 `index.html`；`public/sw.js` 不缓存 HTML 冒充的资源，缓存名改成 v2 清掉旧缓存；新增 `lib/chunkReload.ts`，`components/ui/ErrorBoundary.tsx` 和 `lib/errors.ts` 遇到按需加载的文件取不到时自动刷新一次（30 秒内只刷一次）。
+
 - 2026-10-02（Claude，第三批前端）：
   - `app/App.tsx` 加 `/n/<token>` 笔记分享页，`app/GlobalPanels.tsx` 加 `FloatingNotes`（B72，提交在 develop 上的 `e68144a`）。
   - `components/layout/NavChildLinks.tsx` 加可选的 `onReorder`，传了就能拖动排序；`styles/ui.css` 加 `.nav-child.dragging`、`.drag-over`（B82）。

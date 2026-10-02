@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { reportError } from "../../lib/errors";
+import { isChunkLoadError, reloadOnce } from "../../lib/chunkReload";
 import { translate } from "../../lib/i18n";
 import { usePreferencesStore } from "../../stores/preferences-store";
 
@@ -15,6 +16,8 @@ export default class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error) {
+    // 部署后旧页面取不到按需加载的文件：刷新一次拿新版本，不报错
+    if (isChunkLoadError(error) && reloadOnce()) return;
     reportError(error);
   }
 
