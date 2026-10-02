@@ -213,6 +213,9 @@ const pushTTL = 3 * 24 * 3600
 
 // pushPayload is what web/public/sw.js receives.
 type pushPayload struct {
+	Icon     string       `json:"icon,omitempty"`
+	Badge    string       `json:"badge,omitempty"`
+	Image    string       `json:"image,omitempty"`
 	ID       int64        `json:"id"`
 	Kind     string       `json:"kind"`
 	Title    string       `json:"title"`
@@ -277,6 +280,7 @@ func (c *webPushChannel) Send(ctx context.Context, n notify.Stored) error {
 		return err
 	}
 	p := withSentAt(pushPayload{ID: n.ID, Kind: n.Kind, Title: n.Title, Body: n.Body, Link: n.Link, Priority: n.Priority}, time.Now())
+	p.Icon, p.Badge = c.m.pushIcons(ctx, n)
 	for _, a := range n.Actions {
 		p.Actions = append(p.Actions, pushAction{Action: a.ID, Title: a.Label})
 	}

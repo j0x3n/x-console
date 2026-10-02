@@ -1002,6 +1002,7 @@ type Reminder struct {
 	DoneAt       *time.Time
 	Enabled      int64
 	CreatedAt    time.Time
+	Icon         string
 }
 
 type RouterTraffic struct {

@@ -28,6 +28,8 @@
 
 | B90 | 天气：图标对应、配和风天气时实况用和风、湿度和空气质量顺序、正在下雨还要下多久 | [B90](specs/B90.md) | Codex，后端已实现，待整批验收 |
 
+| B91 | 网页推送图标：按类型、按条目、Android 单色 badge、服务端画进度环 | [B91](specs/B91.md) | Codex，后端和提醒图标编辑已实现，待整批验收 |
+
 ## 待做
 
 按这个顺序做。平时直接在 `develop` 上做；用户让 Codex 做时，Codex 在 `codex` 分支上做，做完开 PR 给 Claude 审查（2026-10-02 用户改的，见 AGENTS.md）。一个任务一个提交，提交信息以编号开头。用户说“构建”或“部署”时才带部署标记。
@@ -51,7 +53,6 @@
 | B85 | 卡片右键菜单（分配、颜色、到期时间、标签、移动、归档）；卡片详情的描述按钮和评论按钮间距 | [B85](specs/B85.md) | 前后端都完成（前端 `655be42`，后端 Claude） |
 | B88 | 今日页：左栏图标跟天气、网络卡片样式、各列自由拖动、称呼可改、时间和天气挪到顶栏 | [B88](specs/B88.md) | 前后端都完成（Claude，`fadbc56`、`9e8870a`） |
 | B89 | 每日一句（“名言”便签）、便签置顶、“全部笔记”不显示名言 | [B89](specs/B89.md) | 前后端都完成（Claude，`9e8870a`） |
-| B91 | 网页推送图标：按类型、按条目、Android 单色 badge、服务端画进度环 | [B91](specs/B91.md) | 前端完成（`cdae0f1`），后端待做（按条目、进度环） |
 | B92 | 通知正文：邮件去掉 HTML、不要“from X Console”、早报只发总结 | [B92](specs/B92.md) | 完成（Claude）；“from X Console”是浏览器加的，去不掉 |
 | B93 | 路由器：刷新频率可选到 1 秒、在线设备 Object not found、左栏显示 WAN 和速率 | [B93](specs/B93.md) | 前后端都完成（前端 `168d8e8`，后端 Claude） |
 | B94 | 电脑详情“离线 · 9 小时前”只显示一次；监控“证书与域名”写明最先到期的是域名还是证书 | 见下 | 前端完成（`a22a490`） |
@@ -342,6 +343,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B91：公开 GET /notify/icons/{name} 用 HMAC 校验。Reminder 的输入、输出和补丁增加可选 icon。CreateReminder 增加可选 Icon，已有调用不受影响。
 
 - B87：contracts 增加 ToolDecider、CodingQuestions 和 AssistantDecisions。CodingRunParams 增加可选 allowQuestions，CodingDone 增加可选 question。旧代理和非 Agent 编码流程照旧。
 

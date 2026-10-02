@@ -22,9 +22,9 @@ func (q *Queries) CountPushSubscriptions(ctx context.Context) (int64, error) {
 }
 
 const createReminder = `-- name: CreateReminder :one
-INSERT INTO reminders (title, body, link, rrule, dtstart, next_at, enabled, created_at)
-VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-RETURNING id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at
+INSERT INTO reminders (title, body, link, rrule, dtstart, next_at, enabled, created_at, icon)
+VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+RETURNING id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at, icon
 `
 
 type CreateReminderParams struct {
@@ -35,6 +35,7 @@ type CreateReminderParams struct {
 	Dtstart   time.Time
 	NextAt    *time.Time
 	CreatedAt time.Time
+	Icon      string
 }
 
 func (q *Queries) CreateReminder(ctx context.Context, arg CreateReminderParams) (Reminder, error) {
@@ -46,6 +47,7 @@ func (q *Queries) CreateReminder(ctx context.Context, arg CreateReminderParams) 
 		arg.Dtstart,
 		arg.NextAt,
 		arg.CreatedAt,
+		arg.Icon,
 	)
 	var i Reminder
 	err := row.Scan(
@@ -61,6 +63,7 @@ func (q *Queries) CreateReminder(ctx context.Context, arg CreateReminderParams) 
 		&i.DoneAt,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Icon,
 	)
 	return i, err
 }
@@ -111,7 +114,7 @@ func (q *Queries) DeleteRoutes(ctx context.Context) error {
 }
 
 const getReminder = `-- name: GetReminder :one
-SELECT id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at FROM reminders WHERE id = ?
+SELECT id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at, icon FROM reminders WHERE id = ?
 `
 
 func (q *Queries) GetReminder(ctx context.Context, id int64) (Reminder, error) {
@@ -130,6 +133,7 @@ func (q *Queries) GetReminder(ctx context.Context, id int64) (Reminder, error) {
 		&i.DoneAt,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Icon,
 	)
 	return i, err
 }
@@ -169,7 +173,7 @@ func (q *Queries) InsertRoute(ctx context.Context, arg InsertRouteParams) (Notif
 }
 
 const listDueReminders = `-- name: ListDueReminders :many
-SELECT id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at FROM reminders
+SELECT id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at, icon FROM reminders
 WHERE enabled = 1
   AND ((next_at IS NOT NULL AND next_at <= ?1) OR (snoozed_until IS NOT NULL AND snoozed_until <= ?1))
 ORDER BY id
@@ -197,6 +201,7 @@ func (q *Queries) ListDueReminders(ctx context.Context, now *time.Time) ([]Remin
 			&i.DoneAt,
 			&i.Enabled,
 			&i.CreatedAt,
+			&i.Icon,
 		); err != nil {
 			return nil, err
 		}
@@ -286,7 +291,7 @@ func (q *Queries) ListPushSubscriptionsNewestFirst(ctx context.Context) ([]Webpu
 }
 
 const listReminders = `-- name: ListReminders :many
-SELECT id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at FROM reminders ORDER BY id
+SELECT id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at, icon FROM reminders ORDER BY id
 `
 
 // A personal list stays small; ranges are filtered in Go.
@@ -312,6 +317,7 @@ func (q *Queries) ListReminders(ctx context.Context) ([]Reminder, error) {
 			&i.DoneAt,
 			&i.Enabled,
 			&i.CreatedAt,
+			&i.Icon,
 		); err != nil {
 			return nil, err
 		}
@@ -392,9 +398,9 @@ func (q *Queries) MarkPushOK(ctx context.Context, arg MarkPushOKParams) error {
 const updateReminder = `-- name: UpdateReminder :one
 UPDATE reminders
 SET title = ?, body = ?, link = ?, rrule = ?, dtstart = ?, next_at = ?, last_fired_at = ?,
-    snoozed_until = ?, done_at = ?, enabled = ?
+    snoozed_until = ?, done_at = ?, enabled = ?, icon = ?
 WHERE id = ?
-RETURNING id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at
+RETURNING id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at, icon
 `
 
 type UpdateReminderParams struct {
@@ -408,6 +414,7 @@ type UpdateReminderParams struct {
 	SnoozedUntil *time.Time
 	DoneAt       *time.Time
 	Enabled      int64
+	Icon         string
 	ID           int64
 }
 
@@ -423,6 +430,7 @@ func (q *Queries) UpdateReminder(ctx context.Context, arg UpdateReminderParams) 
 		arg.SnoozedUntil,
 		arg.DoneAt,
 		arg.Enabled,
+		arg.Icon,
 		arg.ID,
 	)
 	var i Reminder
@@ -439,6 +447,7 @@ func (q *Queries) UpdateReminder(ctx context.Context, arg UpdateReminderParams) 
 		&i.DoneAt,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Icon,
 	)
 	return i, err
 }

@@ -700,6 +700,8 @@ try {
   assert.deepEqual(reminderLabels, ["今天", "下一个提醒", "即将到来", "已完成"]);
   await page.getByRole("button", { name: "新建提醒" }).click();
   await dialog("新建提醒").getByRole("textbox", { name: "标题" }).fill("端到端提醒");
+  await dialog("新建提醒").getByRole("button", { name: "选择图标" }).click();
+  await dialog("新建提醒").getByRole("button", { name: "💧", exact: true }).click();
   await dialog("新建提醒").getByRole("button", { name: "保存" }).click();
   await dialog("新建提醒").waitFor({ state: "hidden" });
   const reminders = [
@@ -708,6 +710,9 @@ try {
   ];
   const reminder = reminders.find((item) => item.title === "端到端提醒");
   assert.ok(reminder, "真实接口里没有新建的提醒");
+  assert.equal(reminder.icon, "💧");
+  const invalidIcon = await page.request.get(`${base}/api/v1/notify/icons/emoji-1f4a7.png?sig=00`);
+  assert.equal(invalidIcon.status(), 403);
 
   stage = "本地日历写入";
   const calendarResponse = await page
