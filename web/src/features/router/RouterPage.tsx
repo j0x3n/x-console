@@ -1,10 +1,23 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Power, Router as RouterIcon, RotateCcw, Settings } from "lucide-react";
+import {
+  Power,
+  RefreshCw,
+  Router as RouterIcon,
+  RotateCcw,
+  Settings,
+} from "lucide-react";
 import { errorMessage } from "../../api/client";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import MoreMenu from "../../components/ui/MoreMenu";
 import PageHeading from "../../components/ui/PageHeading";
+import {
+  INTERVALS,
+  intervalLabel,
+  setRouterInterval,
+  useRouterInterval,
+  type RouterInterval,
+} from "./interval";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { Segmented, Toolbar } from "../../components/ui/Toolbar";
@@ -133,29 +146,57 @@ export default function RouterPage() {
         }
         aside={
           !notConfigured && (
-            <MoreMenu
-              label={t("More")}
-              items={[
-                {
-                  key: "settings",
-                  label: t("Router settings"),
-                  icon: <Settings size={14} />,
-                  onSelect: () => navigate("/settings/router"),
-                },
-                {
-                  key: "reboot",
-                  label: t("Reboot router"),
-                  icon: <Power size={14} />,
-                  danger: true,
-                  onSelect: onReboot,
-                },
-              ]}
-            />
+            <>
+              <IntervalPicker />
+              <MoreMenu
+                label={t("More")}
+                items={[
+                  {
+                    key: "settings",
+                    label: t("Router settings"),
+                    icon: <Settings size={14} />,
+                    onSelect: () => navigate("/settings/router"),
+                  },
+                  {
+                    key: "reboot",
+                    label: t("Reboot router"),
+                    icon: <Power size={14} />,
+                    danger: true,
+                    onSelect: onReboot,
+                  },
+                ]}
+              />
+            </>
           )
         }
       />
       {content}
     </div>
+  );
+}
+
+/** B93：刷新频率。显示当前间隔，可以改到 1 秒，也可以暂停。 */
+function IntervalPicker() {
+  const t = useT();
+  const value = useRouterInterval();
+  return (
+    <label className="router-interval" title={t("Refresh interval")}>
+      <RefreshCw size={14} className={value ? "" : "is-paused"} />
+      <select
+        className="xc-select"
+        aria-label={t("Refresh interval")}
+        value={value}
+        onChange={(e) =>
+          setRouterInterval(Number(e.target.value) as RouterInterval)
+        }
+      >
+        {INTERVALS.map((v) => (
+          <option key={v} value={v}>
+            {intervalLabel(v)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

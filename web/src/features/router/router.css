@@ -170,3 +170,20 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+/* B93：顶栏里的刷新频率 */
+.router-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--xc-muted);
+}
+.router-interval .xc-select {
+  width: auto;
+  height: 28px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: var(--fs-12-5);
+}
+.router-interval .is-paused {
+  color: var(--xc-faint);
+}

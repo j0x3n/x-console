@@ -1,6 +1,8 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B93
+  "Refresh interval": "刷新频率",
   Router: "路由器",
   "Router settings": "路由器设置",
   "Reboot router": "重启路由器",

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/router";
 import { withElevation } from "../../auth/elevation";
+import { useRouterInterval } from "./interval";
 
 /* OpenWrt 主路由（B65）。面板通过路由器的 ubus 读状态，路由器上不装代理。 */
 export const routerApi = createApi<paths>();
@@ -40,31 +41,37 @@ export function useRouterConfig() {
 }
 
 /**
- * 路由器页开着时每 5 秒刷新一次，速率按两次读数算。
- * 今日页的卡片传 60 秒，少打扰路由器。
+ * 路由器状态。速率按两次读数算，刷新越快越接近实时。
+ * B93：刷新频率用路由器页的设置（useRouterInterval），路由器页、左栏和今日页一样。
+ * 传了 intervalMs 就用它（0 表示不自动刷新）。
  */
-export function useRouterStatus(intervalMs = 5000) {
+export function useRouterStatus(intervalMs?: number, silent = false) {
+  const chosen = useRouterInterval();
+  const every = intervalMs ?? chosen;
   return useQuery({
     queryKey: routerKeys.status,
     queryFn: () => unwrap(routerApi.GET("/router/status")),
     retry: false,
+    meta: silent ? { silentError: true } : undefined,
     // 连不上时 30 秒再试一次，路由器重启完会自己恢复；没配置时不再请求
     refetchInterval: (q) =>
       q.state.status !== "error"
-        ? intervalMs
+        ? every || false
         : isNotConfigured(q.state.error)
           ? false
           : 30_000,
   });
 }
 
+/** 在线设备：跟着刷新频率，但最快 5 秒，少打扰路由器（B93）。 */
 export function useRouterClients(enabled = true) {
+  const chosen = useRouterInterval();
   return useQuery({
     queryKey: routerKeys.clients,
     queryFn: () => unwrap(routerApi.GET("/router/clients")),
     retry: false,
     enabled,
-    refetchInterval: 30_000,
+    refetchInterval: chosen === 0 ? false : Math.max(chosen, 5000),
   });
 }
 

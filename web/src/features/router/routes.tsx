@@ -4,6 +4,11 @@ import { Router as RouterIcon, Settings } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./router.css";
+import { registerNavStatus } from "../../lib/navBadges";
+import { useRouterNavStatus } from "./navStatus";
+
+// B93：左栏显示 WAN、在线设备数和速率
+registerNavStatus("/router", useRouterNavStatus);
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const RouterPage = lazy(() => import("./RouterPage"));

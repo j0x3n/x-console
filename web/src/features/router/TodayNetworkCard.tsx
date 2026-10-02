@@ -10,7 +10,7 @@ import "./router.css";
 /** 今日页的“网络”卡片（B65）：WAN 口、在线设备数、当前速率。 */
 export default function TodayNetworkCard() {
   const t = useT();
-  const status = useRouterStatus(60_000);
+  const status = useRouterStatus();
   if (status.isPending || status.isError)
     return (
       <QueryState
