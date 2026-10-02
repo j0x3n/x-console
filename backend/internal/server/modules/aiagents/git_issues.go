@@ -53,6 +53,37 @@ type gitIssueJSON struct {
 	} `json:"labels"`
 }
 
+func (r gitIssueJSON) issue() contracts.GitIssue {
+	i := contracts.GitIssue{Number: r.Number, Title: r.Title, Body: r.Body, State: r.State, URL: r.URL, PullRequest: r.PullRequest != nil}
+	for _, l := range r.Labels {
+		i.Labels = append(i.Labels, l.Name)
+	}
+	return i
+}
+
+func (m *Module) Issue(ctx context.Context, id int64, name string, number int64) (contracts.GitIssue, error) {
+	path, err := issueRepoPath(name)
+	if err != nil {
+		return contracts.GitIssue{}, err
+	}
+	if number <= 0 {
+		return contracts.GitIssue{}, httpx.Invalid("Issue 编号不正确")
+	}
+	c, err := m.connection(ctx, id)
+	if err != nil {
+		return contracts.GitIssue{}, err
+	}
+	g, err := m.client(ctx, c)
+	if err != nil {
+		return contracts.GitIssue{}, err
+	}
+	var r gitIssueJSON
+	if err := g.do(ctx, http.MethodGet, path+"/issues/"+url.PathEscape(fmt.Sprint(number)), nil, &r); err != nil {
+		return contracts.GitIssue{}, gitFailure(err)
+	}
+	return r.issue(), nil
+}
+
 func (m *Module) Issues(ctx context.Context, id int64, name string) ([]contracts.GitIssue, error) {
 	path, err := issueRepoPath(name)
 	if err != nil {
@@ -77,11 +108,7 @@ func (m *Module) Issues(ctx context.Context, id int64, name string) ([]contracts
 			if r.PullRequest != nil {
 				continue
 			}
-			i := contracts.GitIssue{Number: r.Number, Title: r.Title, Body: r.Body, State: r.State, URL: r.URL}
-			for _, l := range r.Labels {
-				i.Labels = append(i.Labels, l.Name)
-			}
-			out = append(out, i)
+			out = append(out, r.issue())
 		}
 		if len(rows) < 100 {
 			return out, nil

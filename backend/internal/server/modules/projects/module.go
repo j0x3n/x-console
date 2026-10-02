@@ -45,6 +45,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"projects", m)
 	module.Provide[contracts.BoardGit](d.Registry, contracts.BoardGitKey, m)
 	module.Provide[contracts.GitWebhookReceiver](d.Registry, contracts.BoardWebhookKey, m)
+	module.Provide[contracts.BoardGitUnbinder](d.Registry, contracts.BoardGitUnbindKey, m)
 	m.registerActions()
 	return m, nil
 }
