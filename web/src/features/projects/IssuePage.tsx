@@ -829,6 +829,7 @@ const ACTIVITY_TEXT: Record<string, string> = {
   restored: "restored it",
   members: "changed members",
   copied: "copied it from",
+  color: "changed the color",
 };
 
 /** 活动记录（B46）：谁在什么时候做了什么。 */

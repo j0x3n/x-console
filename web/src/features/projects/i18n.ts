@@ -4,6 +4,7 @@ registerZh({
   // B85 卡片右键菜单
   "Let an agent work on it…": "让 Agent 开始做…",
   "Remove color": "去掉颜色",
+  "changed the color": "改了颜色",
   "Pick a date and time": "选日期和时间",
   "Clear due time": "清除到期时间",
   "Move to another board…": "移到别的看板…",

@@ -204,6 +204,8 @@ type issuePatch struct {
 	MilestoneID    *int64
 	ClearMilestone bool
 	LabelIDs       *[]int64
+	// Color is B85's card color; "" clears it.
+	Color *string
 	// UpdatedAt zero means now. Sync passes the remote time.
 	UpdatedAt time.Time
 }
@@ -497,6 +499,9 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 				return err
 			}
 		}
+		if p.Color != nil && !api.CardColor(*p.Color).Valid() {
+			return httpx.Invalid("卡片颜色不正确")
+		}
 		updated := p.UpdatedAt.UTC()
 		if p.UpdatedAt.IsZero() {
 			updated = m.now()
@@ -516,6 +521,14 @@ func (m *Module) patchIssue(ctx context.Context, key string, p issuePatch) (api.
 			CategoryID: i.CategoryID, DueAt: i.DueAt, DueRemind: i.DueRemind, DueNotifiedAt: i.DueNotifiedAt,
 		}); err != nil {
 			return err
+		}
+		if p.Color != nil && *p.Color != i.Color {
+			if err := q.SetIssueColor(ctx, db.SetIssueColorParams{Color: *p.Color, UpdatedAt: updated, ID: i.ID}); err != nil {
+				return err
+			}
+			if err := activity(ctx, q, i.ID, "color", map[string]any{"color": *p.Color}, updated); err != nil {
+				return err
+			}
 		}
 		if statusChanged {
 			// B46: the card follows its status into the matching list.

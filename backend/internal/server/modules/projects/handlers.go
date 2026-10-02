@@ -180,6 +180,10 @@ func (m *Module) UpdateIssue(w http.ResponseWriter, r *http.Request, key api.Iss
 		value := string(*body.DueRemind)
 		p.DueRemind = &value
 	}
+	if body.Color != nil {
+		value := string(*body.Color)
+		p.Color = &value
+	}
 	if body.Status != nil {
 		s := string(*body.Status)
 		p.Status = &s

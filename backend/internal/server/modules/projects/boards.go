@@ -1047,6 +1047,12 @@ func (m *Module) copyIssue(ctx context.Context, key string) (out api.Issue, err 
 				return err
 			}
 		}
+		// B85: the copy keeps the card color.
+		if src.Color != nil && *src.Color != "" {
+			if err := q.SetIssueColor(ctx, db.SetIssueColorParams{Color: string(*src.Color), UpdatedAt: m.now(), ID: out.Id}); err != nil {
+				return err
+			}
+		}
 		if err := q.CopyChecklists(ctx, db.CopyChecklistsParams{ToIssue: out.Id, FromIssue: src.Id}); err != nil {
 			return err
 		}

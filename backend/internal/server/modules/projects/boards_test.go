@@ -293,3 +293,46 @@ func TestLayoutLock(t *testing.T) {
 		t.Fatalf("list after unlock: %+v", created)
 	}
 }
+
+// B85: card colors are saved, listed, copied and recorded.
+func TestCardColor(t *testing.T) {
+	env := newEnv(t)
+	p := createProject(t, env, "XC")
+	board := boards(t, env, p.Id)[0]
+	card := createIssue(t, env, p.Id, map[string]any{"title": "上色"})
+	if card.Color == nil || *card.Color != "" {
+		t.Fatalf("new card color: %v", card.Color)
+	}
+	var got api.Issue
+	env.MustDo(http.MethodPatch, "/issues/"+card.Key, map[string]any{"color": "purple"}, &got)
+	if got.Color == nil || *got.Color != "purple" {
+		t.Fatalf("set color: %v", got.Color)
+	}
+	items, _ := listIssues(t, env, fmt.Sprintf("boardId=%d", board.Id))
+	if len(items) != 1 || items[0].Color == nil || *items[0].Color != "purple" {
+		t.Fatalf("listed color: %+v", items)
+	}
+	if s, _ := env.Do(http.MethodPatch, "/issues/"+card.Key, map[string]any{"color": "gold"}, nil); s != http.StatusBadRequest {
+		t.Fatalf("bad color: %d", s)
+	}
+	var copied api.Issue
+	env.MustDo(http.MethodPost, "/issues/"+card.Key+"/copy", nil, &copied)
+	if copied.Color == nil || *copied.Color != "purple" {
+		t.Fatalf("copy color: %v", copied.Color)
+	}
+	env.MustDo(http.MethodPatch, "/issues/"+card.Key, map[string]any{"color": ""}, &got)
+	if got.Color == nil || *got.Color != "" {
+		t.Fatalf("clear color: %v", got.Color)
+	}
+	var acts []api.IssueActivity
+	env.MustDo(http.MethodGet, "/issues/"+card.Key+"/activity", nil, &acts)
+	n := 0
+	for _, a := range acts {
+		if a.Kind == "color" {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Fatalf("color activity: %d", n)
+	}
+}
