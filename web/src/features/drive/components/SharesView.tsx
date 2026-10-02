@@ -1,4 +1,5 @@
-import { Copy, Link2, Trash2 } from "lucide-react";
+import { Fragment, useState } from "react";
+import { Copy, History, Link2, Trash2 } from "lucide-react";
 import {
   EmptyState,
   ErrorState,
@@ -15,16 +16,19 @@ import {
 } from "../api";
 import FileIcon from "./FileIcon";
 import { cancelShare, copyShare } from "./ShareDialog";
+import ShareDownloads from "./ShareDownloads";
 
 /**
  * 分享管理（B31）：云盘页的“分享”标签。
- * 列出所有链接、访问次数、下载次数，可以复制和取消。失效的链接灰着显示，服务端 7 天后清掉。
+ * 列出所有链接、打开次数、下载次数、最近打开时间，可以复制和取消。失效的链接灰着显示，服务端 7 天后清掉。
+ * 点“下载记录”展开最近 20 次下载（B75）。
  */
 export default function SharesView() {
   const t = useT();
   const language = useLanguage();
   const shares = useDriveShares();
   const remove = useDeleteShare();
+  const [open, setOpen] = useState<number | null>(null);
 
   if (shares.isPending) return <Loading />;
   if (shares.isError)
@@ -57,7 +61,7 @@ export default function SharesView() {
           {t("Expires")}
         </span>
         <span role="columnheader" className="drive-col">
-          {t("Visits")}
+          {t("Opened times")}
         </span>
         <span role="columnheader" className="drive-col">
           {t("Downloads")}
@@ -65,59 +69,83 @@ export default function SharesView() {
         <span role="columnheader" />
       </div>
       {shares.data.map((s) => (
-        <div
-          key={s.id}
-          className={`drive-row${s.active ? "" : " is-inactive"}`}
-          role="row"
-        >
-          <span role="cell" className="drive-name">
-            <span className="drive-share-name">
-              <FileIcon item={{ isDir: s.isDir, name: s.itemName }} />
-              <span>{s.itemName}</span>
-              {!s.active && <span className="xc-badge">{t("Inactive")}</span>}
+        <Fragment key={s.id}>
+          <div
+            className={`drive-row${s.active ? "" : " is-inactive"}`}
+            role="row"
+          >
+            <span role="cell" className="drive-name">
+              <span className="drive-share-name">
+                <FileIcon item={{ isDir: s.isDir, name: s.itemName }} />
+                <span>{s.itemName}</span>
+                {!s.active && <span className="xc-badge">{t("Inactive")}</span>}
+              </span>
+              <small className="drive-sub drive-share-url" title={s.url}>
+                {s.url}
+                {s.code ? ` · ${t("Password")} ${s.code}` : ""}
+              </small>
+              <small className="drive-sub">
+                {expiry(s)} · {t("Opened times")} {s.visits} · {t("Downloads")}{" "}
+                {s.downloads}
+                {s.maxDownloads ? ` / ${s.maxDownloads}` : ""}
+              </small>
+              {s.lastAccessAt && (
+                <small className="drive-share-last">
+                  {t("Last opened")} {relativeTime(s.lastAccessAt, language)}
+                </small>
+              )}
             </span>
-            <small className="drive-sub drive-share-url" title={s.url}>
-              {s.url}
-              {s.code ? ` · ${t("Access code")} ${s.code}` : ""}
-            </small>
-            <small className="drive-sub">
-              {expiry(s)} · {t("Visits")} {s.visits} · {t("Downloads")}{" "}
+            <span role="cell" className="drive-col">
+              {expiry(s)}
+            </span>
+            <span role="cell" className="drive-col">
+              {s.visits}
+            </span>
+            <span role="cell" className="drive-col">
               {s.downloads}
-            </small>
-          </span>
-          <span role="cell" className="drive-col">
-            {expiry(s)}
-          </span>
-          <span role="cell" className="drive-col">
-            {s.visits}
-          </span>
-          <span role="cell" className="drive-col">
-            {s.downloads}
-            {s.maxDownloads ? ` / ${s.maxDownloads}` : ""}
-          </span>
-          <span role="cell" className="drive-share-actions">
-            {s.active && (
+              {s.maxDownloads ? ` / ${s.maxDownloads}` : ""}
+            </span>
+            <span role="cell" className="drive-share-actions">
               <button
                 type="button"
                 className="xc-btn ghost small"
-                title={t("Copy link")}
-                aria-label={`${t("Copy link")} ${s.itemName}`}
-                onClick={() => void copyShare(s, t)}
+                title={t("Download history")}
+                aria-label={`${t("Download history")} ${s.itemName}`}
+                aria-expanded={open === s.id}
+                onClick={() => setOpen(open === s.id ? null : s.id)}
               >
-                <Copy size={14} />
+                <History size={14} />
               </button>
-            )}
-            <button
-              type="button"
-              className="xc-btn ghost small danger"
-              title={t("Cancel share")}
-              aria-label={`${t("Cancel share")} ${s.itemName}`}
-              onClick={() => void cancelShare(s, remove.mutate, t)}
-            >
-              <Trash2 size={14} />
-            </button>
-          </span>
-        </div>
+              {s.active && (
+                <button
+                  type="button"
+                  className="xc-btn ghost small"
+                  title={t("Copy link")}
+                  aria-label={`${t("Copy link")} ${s.itemName}`}
+                  onClick={() => void copyShare(s, t)}
+                >
+                  <Copy size={14} />
+                </button>
+              )}
+              <button
+                type="button"
+                className="xc-btn ghost small danger"
+                title={t("Cancel share")}
+                aria-label={`${t("Cancel share")} ${s.itemName}`}
+                onClick={() => void cancelShare(s, remove.mutate, t)}
+              >
+                <Trash2 size={14} />
+              </button>
+            </span>
+          </div>
+          {open === s.id && (
+            <div className="drive-share-dl-row" role="row">
+              <div role="cell">
+                <ShareDownloads shareId={s.id} isDir={s.isDir} />
+              </div>
+            </div>
+          )}
+        </Fragment>
       ))}
     </div>
   );

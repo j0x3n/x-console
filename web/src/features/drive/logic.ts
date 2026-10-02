@@ -123,7 +123,7 @@ export function archiveName(names: string[]): string {
   return names.length === 1 ? first : `${first} 等 ${names.length} 项`;
 }
 
-/** 分享链接的提取码：去掉容易看错的 0、O、1、l、I。 */
+/** 分享链接的密码：去掉容易看错的 0、O、1、l、I。 */
 export function randomCode(length = 4): string {
   const chars = "23456789abcdefghjkmnpqrstuvwxyz";
   const buf = new Uint32Array(length);
@@ -145,7 +145,13 @@ export function taskPercent(task: {
   return null;
 }
 
-/** 复制给别人的分享文字：有提取码时带上。 */
+/** 复制给别人的分享文字：有密码时带上。 */
 export function shareText(share: { url: string; code?: string }): string {
-  return share.code ? `${share.url}\n提取码：${share.code}` : share.url;
+  return share.code ? `${share.url}\n密码：${share.code}` : share.url;
+}
+
+/** 分享密码：4 到 32 个字符，什么字符都行（B75）。 */
+export function validShareCode(code: string): boolean {
+  const n = [...code].length;
+  return n >= 4 && n <= 32;
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Link2, Trash2 } from "lucide-react";
+import { Copy, Dices, History, Link2, Trash2 } from "lucide-react";
 import Dialog from "../../../components/ui/Dialog";
 import { confirmAction } from "../../../components/ui/ConfirmDialog";
 import { Segmented } from "../../../components/ui/Toolbar";
@@ -16,11 +16,12 @@ import {
   type DriveShare,
   type DriveShareInput,
 } from "../api";
-import { randomCode, shareText } from "../logic";
+import { randomCode, shareText, validShareCode } from "../logic";
+import ShareDownloads from "./ShareDownloads";
 
 type Expiry = DriveShareInput["expiresIn"];
 
-/** 复制分享链接和提取码。 */
+/** 复制分享链接和密码。 */
 export function copyShare(share: DriveShare, t: (s: string) => string) {
   return navigator.clipboard
     .writeText(shareText(share))
@@ -47,7 +48,8 @@ export async function cancelShare(
 
 /**
  * 分享（B31）：给一个文件或文件夹建外链。
- * 选有效期、提取码、下载次数上限。下面列出这个条目已有的链接，可以复制和取消。
+ * 选有效期、密码、下载次数上限。下面列出这个条目已有的链接，可以复制和取消，
+ * 能展开看最近的下载记录（B75）。
  */
 export default function ShareDialog({
   item,
@@ -63,23 +65,24 @@ export default function ShareDialog({
   const remove = useDeleteShare();
   const [expiresIn, setExpiresIn] = useState<Expiry>("7d");
   const [useCode, setUseCode] = useState(true);
-  const [code, setCode] = useState(() => randomCode());
+  const [code, setCode] = useState(() => randomCode(6));
+  const [open, setOpen] = useState<number | null>(null);
   const [limit, setLimit] = useState(false);
   const [maxDownloads, setMaxDownloads] = useState(10);
-  const codeOk = !useCode || /^[A-Za-z0-9]{4,8}$/.test(code);
+  const codeOk = !useCode || validShareCode(code.trim());
 
   const submit = () =>
     create.mutate(
       {
         itemId: item.id,
         expiresIn,
-        code: useCode ? code : undefined,
+        code: useCode ? code.trim() : undefined,
         maxDownloads: limit ? maxDownloads : undefined,
       },
       {
         onSuccess: (share) => {
           void copyShare(share, t);
-          setCode(randomCode());
+          setCode(randomCode(6));
         },
       },
     );
@@ -128,23 +131,32 @@ export default function ShareDialog({
               checked={useCode}
               onChange={(e) => setUseCode(e.target.checked)}
             />
-            {t("Access code")}
+            {t("Password")}
           </label>
           {useCode && (
-            <input
-              className="xc-input drive-share-code"
-              value={code}
-              maxLength={8}
-              aria-label={t("Access code")}
-              aria-invalid={!codeOk}
-              onChange={(e) => setCode(e.target.value.trim())}
-            />
+            <>
+              <input
+                className="xc-input drive-share-code"
+                value={code}
+                maxLength={32}
+                aria-label={t("Password")}
+                aria-invalid={!codeOk}
+                onChange={(e) => setCode(e.target.value)}
+              />
+              <button
+                type="button"
+                className="xc-btn ghost small"
+                title={t("Random password")}
+                onClick={() => setCode(randomCode(6))}
+              >
+                <Dices size={14} />
+                <span className="drive-btn-text">{t("Random password")}</span>
+              </button>
+            </>
           )}
         </div>
         {useCode && !codeOk && (
-          <small className="drive-share-error">
-            {t("4 to 8 letters or digits")}
-          </small>
+          <small className="drive-share-error">{t("4 to 32 characters")}</small>
         )}
         <div className="drive-share-row">
           <label className="xc-check">
@@ -198,14 +210,27 @@ export default function ShareDialog({
                   {s.url}
                 </span>
                 <small className="drive-muted">
-                  {s.code ? `${t("Access code")} ${s.code} · ` : ""}
+                  {s.code ? `${t("Password")} ${s.code} · ` : ""}
                   {s.expiresAt
                     ? `${relativeTime(s.expiresAt, language)}${t("expires")}`
                     : t("Never expires")}
+                  {` · ${t("Opened times")} ${s.visits}`}
                   {` · ${t("Downloads")} ${s.downloads}`}
                   {s.maxDownloads ? ` / ${s.maxDownloads}` : ""}
+                  {s.lastAccessAt &&
+                    ` · ${t("Last opened")} ${relativeTime(s.lastAccessAt, language)}`}
                 </small>
                 <span className="drive-share-actions">
+                  <button
+                    type="button"
+                    className="xc-btn ghost small"
+                    title={t("Download history")}
+                    aria-label={t("Download history")}
+                    aria-expanded={open === s.id}
+                    onClick={() => setOpen(open === s.id ? null : s.id)}
+                  >
+                    <History size={14} />
+                  </button>
                   <button
                     type="button"
                     className="xc-btn ghost small"
@@ -225,6 +250,9 @@ export default function ShareDialog({
                     <Trash2 size={14} />
                   </button>
                 </span>
+                {open === s.id && (
+                  <ShareDownloads shareId={s.id} isDir={s.isDir} />
+                )}
               </li>
             ))}
           </ul>

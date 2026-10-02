@@ -988,9 +988,42 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   gap: 2px;
 }
 
+/* 分享链接的下载记录（B75） */
+.drive-share-dl-wrap {
+  grid-column: 1 / -1;
+  margin: 6px 0 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+  font-size: var(--fs-12);
+}
+.drive-share-dl-wrap p {
+  margin: 0;
+}
+.drive-share-dl {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.drive-share-list .drive-share-dl li,
+.drive-share-dl li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  padding: 3px 0;
+  border-top: 0;
+  color: var(--xc-text-2);
+}
+.drive-share-dl-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 分享管理标签 */
 .drive-shares .drive-row {
-  grid-template-columns: minmax(0, 1fr) 120px 70px 90px 76px;
+  grid-template-columns: minmax(0, 1fr) 120px 70px 90px 108px;
   padding: 0 10px;
 }
 .drive-shares .drive-row.is-inactive .drive-share-name {
@@ -1015,6 +1048,15 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 .drive-shares .drive-name .drive-sub.drive-share-url {
   display: block;
   padding-left: 24px;
+}
+.drive-share-last {
+  display: block;
+  padding-left: 24px;
+  color: var(--xc-muted);
+  font-size: var(--fs-11-5);
+}
+.drive-share-dl-row {
+  padding: 0 10px 8px 34px;
 }
 
 /* 历史版本 */
@@ -1120,7 +1162,7 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 
 @media (max-width: 640px) {
   .drive-shares .drive-row {
-    grid-template-columns: minmax(0, 1fr) 76px;
+    grid-template-columns: minmax(0, 1fr) 108px;
   }
   .drive-shares .drive-row > span:nth-child(2),
   .drive-shares .drive-row > span:nth-child(3),
@@ -1188,14 +1230,6 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   margin: 4px 0 14px;
   font-size: var(--fs-12-5);
 }
-.share-file {
-  display: grid;
-  justify-items: start;
-  gap: 8px;
-}
-.share-file .share-meta {
-  margin-bottom: 6px;
-}
 .share-preview {
   max-width: 100%;
   max-height: 60vh;
@@ -1223,6 +1257,126 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 .share-code .xc-btn {
   width: 100%;
 }
+/* B75：顶部一行信息，右边下载 */
+.share-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.share-top-text {
+  flex: 1;
+  min-width: 0;
+}
+.share-top .share-meta {
+  margin-bottom: 12px;
+}
+.share-stage {
+  display: grid;
+  place-items: center;
+  padding: 8px 0;
+}
+.share-stage audio {
+  width: 100%;
+}
+.share-noview {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 36px 12px;
+  border: 1px dashed var(--xc-border);
+  border-radius: 8px;
+  text-align: center;
+}
+.share-noview strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-text {
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.share-text-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.share-text-body {
+  max-height: 70vh;
+  overflow: auto;
+}
+.share-text-body .cm-editor {
+  max-height: 70vh;
+}
+.share-text-cut {
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--xc-border);
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.share-viewer-bar,
+.share-folder-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+.share-folder-bar .drive-crumbs {
+  min-width: 0;
+  overflow-x: auto;
+}
+.share-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.share-grid button {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  cursor: pointer;
+}
+.share-grid button:hover {
+  border-color: var(--xc-border);
+  background: var(--xc-surface-2);
+}
+.share-grid-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+}
+.share-grid-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.share-grid-name {
+  overflow: hidden;
+  font-size: var(--fs-12-5);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-list-gap {
+  width: 30px;
+  flex: none;
+}
 .share-list {
   margin: 8px 0 0;
   padding: 0;
@@ -1238,7 +1392,6 @@ body:has(.drive-viewer-backdrop) .ai-fab {
 .share-list li:first-child {
   border-top: 0;
 }
-.share-list a,
 .share-list button {
   display: flex;
   align-items: center;
@@ -1254,13 +1407,11 @@ body:has(.drive-viewer-backdrop) .ai-fab {
   text-align: left;
   cursor: pointer;
 }
-.share-list a span,
 .share-list button span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.share-list a:hover span,
 .share-list button:hover span {
   color: var(--xc-accent);
 }
@@ -1277,14 +1428,36 @@ body:has(.drive-viewer-backdrop) .ai-fab {
     gap: 0 12px;
   }
   .share-list small {
+    order: 3;
     width: 100%;
     padding: 0 0 8px 24px;
     margin-top: -6px;
   }
+  .share-top {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    margin-bottom: 12px;
+  }
+  .share-top .share-meta {
+    margin-bottom: 0;
+  }
+  .drive-share-dl-row {
+    padding-left: 10px;
+  }
+  .share-top > .xc-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .share-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  }
+  .share-text-body {
+    max-height: none;
+  }
 }
 @media (max-width: 1000px) and (min-width: 641px) {
   .drive-shares .drive-row {
-    grid-template-columns: minmax(0, 1fr) 110px 60px 80px 76px;
+    grid-template-columns: minmax(0, 1fr) 110px 60px 80px 108px;
   }
   .drive-shares .drive-row > span:nth-child(5) {
     display: inline-flex;

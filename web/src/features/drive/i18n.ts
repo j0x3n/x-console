@@ -186,4 +186,15 @@ registerZh({
   Done: "已完成",
   Canceled: "已取消",
   Open: "打开",
+  // B75
+  "Back to list": "返回列表",
+  "Random password": "随机生成",
+  "Download history": "下载记录",
+  "Recent downloads": "最近的下载",
+  "No downloads yet": "还没有人下载",
+  "Unknown browser": "未知浏览器",
+  "This link needs a password": "这个链接要输密码",
+  "This file cannot be previewed in the browser": "这个文件不能在浏览器里预览",
+  "The file is too large. Only the beginning is shown. Download it to see everything.":
+    "文件太大，只显示了开头，完整内容请下载",
 });
