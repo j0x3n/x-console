@@ -30,8 +30,10 @@ type cachedWeather struct {
 // openMeteo is the part of the Open-Meteo forecast response we read.
 type openMeteo struct {
 	Current struct {
-		Temperature float64 `json:"temperature_2m"`
-		WeatherCode int     `json:"weather_code"`
+		Temperature float64  `json:"temperature_2m"`
+		WeatherCode int      `json:"weather_code"`
+		Humidity    *float64 `json:"relative_humidity_2m"` // B90
+		IsDay       *int     `json:"is_day"`               // B90: 1 day, 0 night
 	} `json:"current"`
 	Daily struct {
 		WeatherCode []int      `json:"weather_code"`
@@ -61,7 +63,7 @@ func (m *Module) fetchWeather(ctx context.Context, base string, loc api.BriefLoc
 	q := url.Values{
 		"latitude":      {strconv.FormatFloat(loc.Lat, 'f', 4, 64)},
 		"longitude":     {strconv.FormatFloat(loc.Lon, 'f', 4, 64)},
-		"current":       {"temperature_2m,weather_code"},
+		"current":       {"temperature_2m,weather_code,relative_humidity_2m,is_day"},
 		"daily":         {"weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"},
 		"timezone":      {m.d.Config.Location.String()},
 		"forecast_days": {"1"},
@@ -93,6 +95,16 @@ func (m *Module) fetchWeather(ctx context.Context, base string, loc api.BriefLoc
 		Latitude: loc.Lat, Longitude: loc.Lon, Temperature: round1(raw.Current.Temperature), WeatherCode: raw.Current.WeatherCode,
 		Summary: weatherText(raw.Current.WeatherCode), High: round1(raw.Daily.Max[0]), Low: round1(raw.Daily.Min[0]),
 		FetchedAt: m.now().UTC(), Location: loc.Name,
+	}
+	source := api.OpenMeteo
+	w.Source = &source
+	if raw.Current.Humidity != nil {
+		h := int(math.Round(*raw.Current.Humidity))
+		w.Humidity = &h
+	}
+	if raw.Current.IsDay != nil {
+		day := *raw.Current.IsDay == 1
+		w.IsDay = &day
 	}
 	if len(raw.Daily.Precip) > 0 && raw.Daily.Precip[0] != nil {
 		w.PrecipitationChance = int(math.Round(*raw.Daily.Precip[0]))
