@@ -1,5 +1,20 @@
 import { useLocation } from "react-router";
-import { ChartColumn, ClipboardList, Dumbbell, Plus, Sun } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  ChartColumn,
+  ClipboardList,
+  Dumbbell,
+  Languages,
+  ListChecks,
+  Plus,
+  Salad,
+  Scale,
+  Settings2,
+  Sparkles,
+  Sun,
+  type LucideIcon,
+} from "lucide-react";
 import {
   NavPanelGroup,
   NavPanelLink,
@@ -14,9 +29,11 @@ import { toast } from "../../hooks/useToast";
 import type { NavChildrenProps } from "../../lib/navChildren";
 import { useCheckin, useHabitsToday } from "./api";
 import { formatAmount, todayProgress } from "./progress";
+import { planSections as sections } from "./personal";
 
 /**
- * 左栏“习惯”的二级菜单（B102）：今天、健身、个人计划、统计（B103），
+ * 左栏“习惯”的二级菜单（B102）：今天、推荐习惯、健身、统计，
+ * 个人计划的各个栏目（2026-10-05 从页面的页签挪过来），
  * 下面列出今天的习惯，右边“+”打一次卡。没达标的排前面。
  */
 
@@ -28,7 +45,8 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
     (a, b) => Number(a.reached) - Number(b.reached),
   );
   const p = todayProgress(today.data ?? []);
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const links: NavChildLink[] = [
     ...list.map((h) => ({
       key: `h${h.habit.id}`,
@@ -59,6 +77,13 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
       ),
     })),
   ];
+  // 个人计划的栏目：带上当前选的日期，切换栏目时日期不丢
+  const search = new URLSearchParams(location.search);
+  const onPlan = pathname.startsWith("/habits/plan");
+  const section = onPlan ? (search.get("section") ?? "recommend") : null;
+  const date = onPlan ? search.get("date") : null;
+  const planLink = (id: string) =>
+    `/habits/plan?section=${id}${date ? `&date=${date}` : ""}`;
   return (
     <NavPanelStack>
       <NavPanelGroup>
@@ -70,17 +95,17 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
           onNavigate={onNavigate}
         />
         <NavPanelLink
+          to="/habits/plan"
+          icon={Sparkles}
+          label={t("Recommended habits")}
+          active={section === "recommend"}
+          onNavigate={onNavigate}
+        />
+        <NavPanelLink
           to="/habits/fitness"
           icon={Dumbbell}
           label={t("Fitness")}
           active={pathname.startsWith("/habits/fitness")}
-          onNavigate={onNavigate}
-        />
-        <NavPanelLink
-          to="/habits/plan"
-          icon={ClipboardList}
-          label={t("Personal plan")}
-          active={pathname.startsWith("/habits/plan")}
           onNavigate={onNavigate}
         />
         <NavPanelLink
@@ -90,6 +115,20 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
           active={pathname.startsWith("/habits/stats")}
           onNavigate={onNavigate}
         />
+      </NavPanelGroup>
+      <NavPanelGroup label={t("Personal plan")}>
+        {sections
+          .filter(([id]) => id !== "recommend")
+          .map(([id, label]) => (
+            <NavPanelLink
+              key={id}
+              to={planLink(id)}
+              icon={sectionIcons[id]}
+              label={t(label)}
+              active={section === id}
+              onNavigate={onNavigate}
+            />
+          ))}
       </NavPanelGroup>
       <NavPanelGroup
         label={`${t("Today")} ${p.total ? `${p.reached}/${p.total}` : ""}`.trim()}
@@ -107,3 +146,14 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
     </NavPanelStack>
   );
 }
+
+const sectionIcons: Record<string, LucideIcon> = {
+  overview: ClipboardList,
+  training: Activity,
+  daily: ListChecks,
+  food: Salad,
+  english: Languages,
+  records: Scale,
+  settings: Settings2,
+  reference: BookOpen,
+};

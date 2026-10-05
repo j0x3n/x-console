@@ -187,6 +187,9 @@ const routes = [
   ["reminders", "/reminders"],
   ["habits", "/habits"],
   ["habits-fitness", "/habits/fitness"],
+  ["habits-fitness-daily", "/habits/fitness?view=daily"],
+  ["habits-fitness-library", "/habits/fitness?view=library"],
+  ["habits-recommend", "/habits/plan"],
   ...["overview", "training", "daily", "food", "english", "records", "settings", "reference"].map((section) => [
     `habits-personal-${section}`, `/habits/plan?section=${section}`,
   ]),

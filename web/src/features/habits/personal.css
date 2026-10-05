@@ -91,14 +91,12 @@
 .habits-personal > .xc-toolbar {
   flex-wrap: wrap;
 }
-.habits-personal-tabs {
-  overflow-x: auto;
-  flex-wrap: nowrap;
-  max-width: 100%;
-}
-.habits-personal-tabs button {
-  white-space: nowrap;
-  flex-shrink: 0;
+.habits-personal-title {
+  margin: 0;
+  padding-bottom: 6px;
+  font-size: var(--fs-15);
+  font-weight: 600;
+  line-height: 34px;
 }
 .habits-personal-grid {
   display: grid;
@@ -268,8 +266,5 @@
   }
   .habits-library-select .xc-btn {
     white-space: normal;
-  }
-  .habits-personal-tabs {
-    width: 100%;
   }
 }

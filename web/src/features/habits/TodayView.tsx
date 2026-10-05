@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import MoreMenu from "../../components/ui/MoreMenu";
 import {
   Bell,
   Check,
+  ChevronRight,
   Dumbbell,
   Flame,
   HeartPulse,
@@ -21,9 +23,11 @@ import {
   useHabitsToday,
   useUndoCheckin,
   type Habit,
+  type HabitInput,
   type HabitTemplate,
   type HabitToday,
 } from "./api";
+import { EXTRA_RECOMMENDATIONS, programForHabit, sameName } from "./recommend";
 import { HABIT_TEMPLATES } from "./presence";
 import { FitnessSummary, TodayLogDialog } from "./FitnessModule";
 import HabitDialog from "./HabitDialog";
@@ -100,6 +104,8 @@ export default function TodayView({
   const [editing, setEditing] = useState<Habit | null>(null);
   // B96：从推荐模板新建
   const [fromTemplate, setFromTemplate] = useState<HabitTemplate>();
+  const [fromInput, setFromInput] =
+    useState<Omit<HabitInput, "activeHostIds">>();
   const active = (today.data ?? []).map((p) => p.habit);
   const existing = active
     .map((h) => h.template)
@@ -110,6 +116,7 @@ export default function TodayView({
         <Suggestions
           habits={active}
           onCreate={setFromTemplate}
+          onCreateInput={setFromInput}
           onEdit={setEditing}
         />
       )}
@@ -134,13 +141,20 @@ export default function TodayView({
       )}
       <HabitModules />
       <HabitDialog
-        open={creating || editing !== null || fromTemplate !== undefined}
+        open={
+          creating ||
+          editing !== null ||
+          fromTemplate !== undefined ||
+          fromInput !== undefined
+        }
         habit={editing}
         initialTemplate={fromTemplate}
+        initialInput={fromInput}
         existingTemplates={existing}
         onClose={() => {
           setEditing(null);
           setFromTemplate(undefined);
+          setFromInput(undefined);
           onCloseCreate();
         }}
       />
@@ -150,22 +164,28 @@ export default function TodayView({
 
 /**
  * B96：推荐模板。没建过的点了打开新建弹窗并填好；建过的显示“已添加”，
- * 点了打开那个习惯的编辑，不再新建。全部建过时不显示。
+ * 点了打开那个习惯的编辑，不再新建。
+ * 2026-10-05：健康提醒模板之后再列几个常见习惯，最后是“更多推荐”，进推荐习惯页。
  */
 function Suggestions({
   habits,
   onCreate,
+  onCreateInput,
   onEdit,
 }: {
   habits: Habit[];
   onCreate: (id: HabitTemplate) => void;
+  onCreateInput: (input: Omit<HabitInput, "activeHostIds">) => void;
   onEdit: (habit: Habit) => void;
 }) {
   const t = useT();
   const byTemplate = new Map(
     habits.filter((h) => h.template).map((h) => [h.template!, h]),
   );
-  if (HABIT_TEMPLATES.every((tpl) => byTemplate.has(tpl.id))) return null;
+  // 常见习惯只推还没建过的，最多凑够 SUGGEST_COUNT 个
+  const extras = EXTRA_RECOMMENDATIONS.filter(
+    (r) => !habits.some((h) => sameName(h.name, r.name)),
+  ).slice(0, Math.max(0, SUGGEST_COUNT - HABIT_TEMPLATES.length));
   return (
     <section className="habits-suggest" aria-label={t("Suggested")}>
       <span className="habits-suggest-label">{t("Suggested")}</span>
@@ -194,9 +214,26 @@ function Suggestions({
           </button>
         );
       })}
+      {extras.map((r) => (
+        <button
+          key={r.id}
+          type="button"
+          className="xc-btn small"
+          title={r.summary}
+          onClick={() => onCreateInput(r.input)}
+        >
+          <Plus size={13} />
+          <span aria-hidden>{r.icon}</span> {r.name}
+        </button>
+      ))}
+      <Link className="xc-btn small ghost" to="/habits/plan">
+        {t("More suggestions")} <ChevronRight size={13} />
+      </Link>
     </section>
   );
 }
+
+const SUGGEST_COUNT = 6;
 
 /** 习惯页下面可以加的模块。只有健身一种，以后加别的也放这里。 */
 const modules = [
@@ -285,6 +322,8 @@ function HabitCard({
   const summary = remindSummary(h, language);
   const isWorkout = h.kind === "workout";
   const [logging, setLogging] = useState(false);
+  // 从健身方案建的习惯，标题旁边给“看动作”
+  const program = programForHabit(h.name);
 
   const plusOne = () =>
     checkin.mutate(
@@ -373,6 +412,15 @@ function HabitCard({
             >
               <Undo2 size={13} /> {t("Undo")}
             </button>
+          )}
+          {program && (
+            <Link
+              className="xc-btn ghost small habits-card-link"
+              to={`/habits/fitness?program=${program.id}`}
+              title={t("See exercises")}
+            >
+              <Dumbbell size={13} /> {t("See exercises")}
+            </Link>
           )}
         </div>
       </div>

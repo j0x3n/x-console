@@ -66,6 +66,8 @@ interface Props {
   initialTemplate?: HabitTemplate;
   /** B96：已经建过的模板，不再重复建 */
   existingTemplates?: HabitTemplate[];
+  /** 推荐习惯、健身方案：新建时先填好这些值（2026-10-05） */
+  initialInput?: Omit<HabitInput, "activeHostIds">;
 }
 
 export default function HabitDialog({
@@ -74,6 +76,7 @@ export default function HabitDialog({
   habit,
   initialTemplate,
   existingTemplates = [],
+  initialInput,
 }: Props) {
   const t = useT();
   const create = useCreateHabit();
@@ -123,16 +126,20 @@ export default function HabitDialog({
     setOnHost(h?.remindOnHost ?? false);
     setTemplate(h?.template);
     if (!h && initialTemplate) applyTemplate(initialTemplate);
+    else if (!h && initialInput) applyInput(initialInput);
     // applyTemplate 只在打开时用一次
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, habit, initialTemplate]);
+  }, [open, habit, initialTemplate, initialInput]);
 
   const applyTemplate = (id: HabitTemplate) => {
     const tpl = HABIT_TEMPLATES.find((x) => x.id === id);
     if (!tpl) return;
-    const v = tpl.input;
     setTemplate(id);
-    setKind("count");
+    applyInput(tpl.input);
+  };
+
+  const applyInput = (v: Omit<HabitInput, "activeHostIds">) => {
+    setKind(v.kind ?? "count");
     setName(v.name);
     setIcon(v.icon ?? "");
     setUnit(v.unit ?? "次");

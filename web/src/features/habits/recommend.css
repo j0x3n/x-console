@@ -1,0 +1,363 @@
+/* 推荐习惯和健身（2026-10-05）。颜色只用 --xc-* 令牌。 */
+
+/* ---------- 推荐习惯 ---------- */
+.habits-rec .xc-tabs {
+  margin-bottom: 0;
+}
+.habits-rec-tabs small {
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  font-variant-numeric: tabular-nums;
+}
+.habits-rec-count {
+  font-size: var(--fs-12);
+  white-space: nowrap;
+}
+.habits-rec-title {
+  margin: 4px 0 10px;
+  font-size: var(--fs-13);
+  font-weight: 600;
+  color: var(--xc-text-2);
+}
+.habits-rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+.habits-rec-card {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.habits-rec-card.is-added {
+  background: var(--xc-surface-2);
+}
+.habits-rec-icon {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--xc-surface-2);
+  font-size: var(--fs-18);
+}
+.habits-rec-card.is-added .habits-rec-icon {
+  background: var(--xc-surface);
+}
+.habits-rec-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.habits-rec-main strong {
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.habits-rec-main p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--xc-text-2);
+  font-size: var(--fs-13);
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.habits-rec-main small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.habits-rec-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.habits-rec-added {
+  color: var(--xc-ok);
+}
+
+/* ---------- 健身：一屏三栏 ---------- */
+.habits-fit-page .xc-toolbar {
+  margin-bottom: 12px;
+}
+.habits-fit-group {
+  width: auto;
+  min-width: 110px;
+}
+.habits-fit {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(320px, 400px);
+  gap: 12px;
+  /* 顶栏 58、页面上下留白、工具栏 */
+  height: calc(var(--xc-viewport-height) - 58px - 20px - 40px - 52px);
+  min-height: 480px;
+}
+.habits-fit-library {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 480px);
+}
+.habits-fit-col {
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-surface);
+}
+.habits-fit-programs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+}
+.habits-fit-program {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--xc-text);
+  text-align: left;
+  cursor: pointer;
+}
+.habits-fit-program:hover {
+  background: var(--xc-surface-2);
+}
+.habits-fit-program.active {
+  background: var(--xc-accent-soft);
+}
+.habits-fit-emoji {
+  flex: none;
+  width: 24px;
+  font-size: var(--fs-16);
+  text-align: center;
+}
+.habits-fit-program-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.habits-fit-program-text strong {
+  overflow: hidden;
+  font-size: var(--fs-13);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.habits-fit-program.active strong {
+  color: var(--xc-accent-text);
+}
+.habits-fit-program-text small {
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+}
+.habits-fit-added {
+  flex: none;
+  color: var(--xc-ok);
+}
+
+.habits-fit-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.habits-fit-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.habits-fit-head h2 {
+  margin: 0 0 4px;
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+.habits-fit-head p {
+  margin: 0 0 4px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-13);
+}
+.habits-fit-head small {
+  font-size: var(--fs-12);
+}
+.habits-fit-head .xc-btn {
+  flex: none;
+}
+p.habits-fit-caution {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--xc-warn-soft);
+  color: var(--xc-text);
+  font-size: var(--fs-12);
+}
+.habits-fit-caution svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--xc-warn);
+}
+.habits-fit-exercises {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+.habits-fit-exercise {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--xc-text);
+  text-align: left;
+  cursor: pointer;
+}
+.habits-fit-exercise:hover {
+  background: var(--xc-surface-2);
+}
+.habits-fit-exercise.active {
+  background: var(--xc-accent-soft);
+}
+.habits-fit-step {
+  flex: none;
+  width: 20px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.habits-fit-exercise img {
+  flex: none;
+  width: 72px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--xc-surface-2);
+  object-fit: cover;
+}
+.habits-fit-exercise-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.habits-fit-exercise-text strong {
+  font-size: var(--fs-13);
+  font-weight: 500;
+}
+.habits-fit-exercise.active strong {
+  color: var(--xc-accent-text);
+}
+.habits-fit-exercise-text small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.habits-fit-empty {
+  padding: 16px;
+}
+
+.habits-fit-detail {
+  padding: 14px 16px;
+}
+.habits-fit-brief {
+  font-size: var(--fs-13);
+  line-height: 1.6;
+}
+.habits-fit-brief-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+}
+.habits-fit-brief-head h3 {
+  margin: 0;
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+.habits-fit-image {
+  display: block;
+  width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+  object-fit: contain;
+}
+.habits-fit-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.habits-fit-target {
+  margin: 6px 0 0;
+  font-size: var(--fs-12);
+}
+.habits-fit-steps {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+.habits-fit-brief details {
+  border-top: 1px solid var(--xc-border);
+  padding: 6px 0;
+}
+.habits-fit-brief summary {
+  color: var(--xc-text-2);
+  cursor: pointer;
+}
+.habits-fit-brief details ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.habits-fit-brief details p {
+  margin: 6px 0 0;
+}
+.habits-fit-brief-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--xc-border);
+}
+
+/* 窄屏：一栏一栏往下排，方案变成横着滑的一行，动作说明用弹窗 */
+@media (max-width: 900px) {
+  .habits-fit,
+  .habits-fit-library {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 0;
+  }
+  .habits-fit-col {
+    overflow: visible;
+  }
+  .habits-fit-programs {
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .habits-fit-program {
+    flex: none;
+    width: auto;
+  }
+  .habits-fit-program-text small {
+    display: none;
+  }
+  .habits-fit-head {
+    flex-direction: column;
+  }
+  .habits-fit-page .xc-toolbar-end {
+    width: 100%;
+  }
+}

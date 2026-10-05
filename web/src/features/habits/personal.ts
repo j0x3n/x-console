@@ -7,6 +7,19 @@ import type {
   PersonalProfile,
 } from "./personalApi";
 
+/** 个人计划的栏目。切换在左栏二级菜单里（2026-10-05），页面里不再放页签。 */
+export const planSections = [
+  ["recommend", "Recommended habits"],
+  ["overview", "Plan overview"],
+  ["training", "Guided training"],
+  ["daily", "Daily routines"],
+  ["food", "Diet plan"],
+  ["english", "English learning"],
+  ["records", "Personal records"],
+  ["settings", "Plan settings"],
+  ["reference", "Original and reference"],
+] as const;
+
 export function dateKey(now = new Date(), timezone?: string) {
   if (timezone) {
     const parts = Object.fromEntries(

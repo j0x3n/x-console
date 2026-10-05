@@ -1,6 +1,5 @@
 import { useSearchParams, Link } from "react-router";
-import { Plus, Settings } from "lucide-react";
-import PageActions from "../../components/layout/PageActions";
+import { Plus } from "lucide-react";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
 import { Toolbar } from "../../components/ui/Toolbar";
 import {
@@ -21,6 +20,7 @@ import {
   personalWeek,
   personalWeekDates,
   validPersonalDate,
+  planSections as sections,
 } from "./personal";
 import {
   useActivatePersonalHabits,
@@ -38,28 +38,27 @@ import PersonalTraining from "./PersonalTraining";
 import PersonalRecords, { PersonalNote } from "./PersonalRecords";
 import PersonalSettings from "./PersonalSettings";
 import PlanTimer from "./PlanTimer";
+import RecommendPage from "./RecommendPage";
 import { weekdayLabels } from "./workout";
 
-const sections = [
-  ["overview", "Plan overview"],
-  ["training", "Guided training"],
-  ["daily", "Daily routines"],
-  ["food", "Diet plan"],
-  ["english", "English learning"],
-  ["records", "Personal records"],
-  ["settings", "Plan settings"],
-  ["reference", "Original and reference"],
-] as const;
-
+/**
+ * /habits/plan：默认是推荐习惯（用户 2026-10-05 要求“个人计划就当作推荐习惯页面”），
+ * ?section= 打开个人计划的其他栏目。
+ */
 export default function PersonalPlanPage() {
+  const [params] = useSearchParams();
+  const section = params.get("section") ?? "recommend";
+  if (section === "recommend" || !sections.some(([id]) => id === section))
+    return <RecommendPage />;
+  return <PlanSection section={section} />;
+}
+
+function PlanSection({ section }: { section: string }) {
   const t = useT();
   const [params, setParams] = useSearchParams();
   const library = usePersonalLibrary();
   const profile = usePersonalProfile();
   const schedule = useSchedule();
-  const section = sections.some(([id]) => id === params.get("section"))
-    ? params.get("section")!
-    : "overview";
   const today = dateKey(new Date(), schedule.data?.timezone);
   const rawDate = params.get("date") ?? today;
   const date = validPersonalDate(rawDate) ? rawDate : today;
@@ -105,51 +104,31 @@ export default function PersonalPlanPage() {
     : "";
   return (
     <div className="xc-stack habits-personal">
-      {!["training", "records", "settings"].includes(section) && (
-        <PageActions>
-          <button
-            className="xc-btn"
-            title={t("Plan settings")}
-            onClick={() => go("settings")}
-          >
-            <Settings size={15} /> {t("Plan settings")}
-          </button>
-        </PageActions>
+      {section === "overview" && (
+        <StatStrip label={t("Personal plan")}>
+          <StatCard
+            label={t("Strength phase")}
+            value={data.phases.find((x) => x.id === p.phase)!.name}
+            foot={`${t("Plan week")} ${personalWeek(date, p.start)}`}
+          />
+          <StatCard
+            label={t("Selected plan habits")}
+            value={Object.keys(p.habitIds).length}
+            foot={`${Object.values(d.checks).filter(Boolean).length} ${t("completed on selected date")}`}
+          />
+          <StatCard
+            label={t("Seven-day average")}
+            value={avg === null ? "—" : avg.toFixed(1)}
+            unit="kg"
+            foot={t("Only recorded weights")}
+          />
+        </StatStrip>
       )}
-      <StatStrip label={t("Personal plan")}>
-        <StatCard
-          label={t("Strength phase")}
-          value={data.phases.find((x) => x.id === p.phase)!.name}
-          foot={`${t("Plan week")} ${personalWeek(date, p.start)}`}
-        />
-        <StatCard
-          label={t("Selected plan habits")}
-          value={Object.keys(p.habitIds).length}
-          foot={`${Object.values(d.checks).filter(Boolean).length} ${t("completed on selected date")}`}
-        />
-        <StatCard
-          label={t("Seven-day average")}
-          value={avg === null ? "—" : avg.toFixed(1)}
-          unit="kg"
-          foot={t("Only recorded weights")}
-        />
-      </StatStrip>
       <Toolbar
         start={
-          <nav
-            className="xc-tabs habits-personal-tabs"
-            aria-label={t("Personal plan sections")}
-          >
-            {sections.map(([id, label]) => (
-              <button
-                className={section === id ? "active" : ""}
-                key={id}
-                onClick={() => go(id)}
-              >
-                {t(label)}
-              </button>
-            ))}
-          </nav>
+          <h2 className="habits-personal-title">
+            {t(sections.find(([id]) => id === section)![1])}
+          </h2>
         }
         end={
           <label className="xc-row">
