@@ -1,12 +1,11 @@
-/* 邮件（B53）：左边账号，中间列表，右边阅读 */
+/* 邮件（B53）：左边列表，右边阅读。邮箱切换在左栏二级菜单里 */
 .mail-layout {
   display: grid;
-  grid-template-columns: 200px minmax(280px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
   gap: 12px;
   height: calc(100vh - 120px);
   min-height: 420px;
 }
-.mail-accounts,
 .mail-list,
 .mail-read {
   min-height: 0;
@@ -15,50 +14,11 @@
   border-radius: var(--xc-radius-lg);
   background: var(--xc-surface);
 }
-.mail-accounts {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-}
-.mail-accounts button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: var(--xc-text-2);
-  font: inherit;
-  font-size: var(--fs-13);
-  text-align: left;
-  cursor: pointer;
-}
-.mail-accounts button > span:not(.xc-dot) {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.mail-accounts button:hover {
-  background: var(--xc-surface-2);
-}
-.mail-accounts button.active {
-  background: var(--xc-accent-soft);
-  color: var(--xc-text);
-}
-.mail-accounts em {
-  color: var(--xc-muted);
-  font-size: var(--fs-12);
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
 .mail-account-error {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--xc-border);
   color: var(--xc-danger);
-  font-size: var(--fs-11);
+  font-size: var(--fs-12);
 }
 .mail-list ul {
   margin: 0;
@@ -334,19 +294,9 @@
   cursor: pointer;
 }
 
-/* 中等宽度：账号栏收起，变成列表上方的一行 */
 @media (max-width: 1100px) {
   .mail-layout {
     grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-  .mail-accounts {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    overflow-x: auto;
-  }
-  .mail-accounts button {
-    flex: none;
   }
 }
 /* 手机：一次只显示列表或阅读区 */
@@ -361,8 +311,7 @@
     overflow: visible;
   }
   .mail-page:not(.is-reading) .mail-read,
-  .mail-page.is-reading .mail-list,
-  .mail-page.is-reading .mail-accounts {
+  .mail-page.is-reading .mail-list {
     display: none;
   }
   .mail-back {

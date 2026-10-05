@@ -49,6 +49,7 @@ registerZh({
   unread: "封未读",
   Unread: "未读",
   "All inboxes": "全部收件箱",
+  "Mailbox settings": "邮箱设置",
   Inbox: "收件箱",
   "Search sender or subject": "搜索发件人或主题",
   "Nothing matches": "没有符合条件的邮件",
