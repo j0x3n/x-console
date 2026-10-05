@@ -1,10 +1,4 @@
-import { useState } from "react";
-import {
-  NavLink,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   AlarmClock,
   Archive,
@@ -12,11 +6,16 @@ import {
   CircleAlert,
   CircleUser,
   LayoutGrid,
-  Search,
 } from "lucide-react";
 import NavChildLinks, {
   type NavChildLink,
 } from "../../components/layout/NavChildLinks";
+import {
+  NavPanelGroup,
+  NavPanelLink,
+  NavPanelSearch,
+  NavPanelStack,
+} from "../../components/layout/NavPanel";
 import { useT } from "../../contexts/LanguageContext";
 import type { NavChildrenProps } from "../../lib/navChildren";
 import { useBoards, useMyIssues, useProjects, useStarredBoards } from "./api";
@@ -46,7 +45,6 @@ export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
   const starred = useStarredBoards();
   const { pathname } = useLocation();
   const [search] = useSearchParams();
-  const [query, setQuery] = useState("");
   const list = [...(projects.data ?? [])].sort((a, b) =>
     b.updatedAt.localeCompare(a.updatedAt),
   );
@@ -93,63 +91,39 @@ export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
   }
 
   return (
-    <div className="projects-nav">
-      <form
-        className="projects-nav-search"
-        role="search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const q = query.trim();
+    <NavPanelStack>
+      <NavPanelSearch
+        placeholder={t("Search issues")}
+        onSubmit={(q) => {
           navigate(
             `/projects/views/mine${q ? `?q=${encodeURIComponent(q)}` : ""}`,
           );
           onNavigate();
         }}
-      >
-        <Search size={14} />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("Search issues")}
-          aria-label={t("Search issues")}
-        />
-      </form>
-      <div className="nav-children">
-        <NavLink
+      />
+      <NavPanelGroup>
+        <NavPanelLink
           to="/projects"
-          end
-          onClick={onNavigate}
-          className={`nav-child${atList && !showingArchived ? " selected" : ""}`}
-        >
-          <LayoutGrid size={16} className="nav-child-mark" />
-          <span>{t("Every project")}</span>
-          {projects.data && <small>{projects.data.length}</small>}
-        </NavLink>
-        {(Object.keys(VIEW_LABELS) as IssueView[]).map((view) => {
-          const Icon = viewIcons[view];
-          const n = count(view);
-          return (
-            <NavLink
-              key={view}
-              to={`/projects/views/${view}`}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                `nav-child${isActive ? " selected" : ""}`
-              }
-            >
-              <Icon size={16} className="nav-child-mark" />
-              <span>{t(VIEW_LABELS[view])}</span>
-              {n !== null && (
-                <small className={view === "overdue" && n > 0 ? "danger" : ""}>
-                  {n}
-                </small>
-              )}
-            </NavLink>
-          );
-        })}
-      </div>
-      <div className="projects-nav-group">
-        <div className="projects-nav-label">{t("My projects")}</div>
+          icon={LayoutGrid}
+          label={t("Every project")}
+          count={projects.data?.length}
+          active={atList && !showingArchived}
+          onNavigate={onNavigate}
+        />
+        {(Object.keys(VIEW_LABELS) as IssueView[]).map((view) => (
+          <NavPanelLink
+            key={view}
+            to={`/projects/views/${view}`}
+            icon={viewIcons[view]}
+            label={t(VIEW_LABELS[view])}
+            count={count(view)}
+            danger={view === "overdue"}
+            active={pathname === `/projects/views/${view}`}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </NavPanelGroup>
+      <NavPanelGroup label={t("My projects")}>
         <NavChildLinks
           links={links}
           total={list.length}
@@ -160,20 +134,19 @@ export default function ProjectsNavChildren({ onNavigate }: NavChildrenProps) {
           empty={t("No projects yet")}
           onNavigate={onNavigate}
         />
-      </div>
+      </NavPanelGroup>
       {!!archived.data?.length && (
-        <div className="projects-nav-group nav-children">
-          <NavLink
+        <NavPanelGroup>
+          <NavPanelLink
             to="/projects?archived=1"
-            onClick={onNavigate}
-            className={`nav-child${showingArchived ? " selected" : ""}`}
-          >
-            <Archive size={16} className="nav-child-mark" />
-            <span>{t("Archived")}</span>
-            <small>{archived.data.length}</small>
-          </NavLink>
-        </div>
+            icon={Archive}
+            label={t("Archived")}
+            count={archived.data.length}
+            active={showingArchived}
+            onNavigate={onNavigate}
+          />
+        </NavPanelGroup>
       )}
-    </div>
+    </NavPanelStack>
   );
 }

@@ -1804,3 +1804,23 @@ html[data-theme="dark"] .note-bg-gray {
   display: flex;
   flex-direction: column;
 }
+
+/*
+ * B102：左栏的二级菜单里已经有笔记的分类和标签，
+ * 二级菜单显示时笔记页不再显示自己的分类栏。收起二级菜单（⌘B）或在手机上时照旧显示。
+ */
+@media (min-width: 761px) {
+  .app-shell:has(.nav-panel) .notes-layout {
+    grid-template-columns: var(--notes-list-w, 320px) minmax(0, 1fr);
+  }
+  .app-shell:has(.nav-panel) .notes-layout.memos-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-shell:has(.nav-panel) .notes-nav,
+  .app-shell:has(.nav-panel) .notes-resizer-nav {
+    display: none;
+  }
+  .app-shell:has(.nav-panel) .notes-resizer-list {
+    left: var(--notes-list-w, 320px);
+  }
+}

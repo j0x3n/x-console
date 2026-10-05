@@ -1,6 +1,10 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B102 左栏二级菜单
+  Folders: "文件夹",
+  "No folders yet": "根目录没有文件夹",
+  "Cloud drives": "网盘",
   Drive: "云盘",
   Files: "文件",
   Trash: "回收站",

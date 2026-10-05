@@ -1,6 +1,7 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  "No tags yet": "还没有标签",
   // 便签弹窗（Google Keep 的样子）
   "Remove image": "去掉图片",
   "Take a note…": "写点什么…",

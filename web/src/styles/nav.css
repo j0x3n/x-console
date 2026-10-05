@@ -255,6 +255,53 @@
   scrollbar-width: thin;
 }
 
+/* 二级菜单的公共部件（components/layout/NavPanel.tsx） */
+.nav-panel-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.nav-panel-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+.nav-panel-group + .nav-panel-group {
+  padding-top: 10px;
+  border-top: 1px solid var(--xc-border);
+}
+.nav-panel-label {
+  padding: 0 10px 2px;
+  color: var(--xc-muted);
+  font-size: var(--fs-11-5);
+  font-weight: 500;
+}
+.nav-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+  color: var(--xc-muted);
+}
+.nav-panel-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--xc-text);
+  font-size: var(--fs-13);
+}
+.nav-child small.danger,
+.nav-child.selected small.danger {
+  color: var(--xc-danger);
+  font-weight: 600;
+}
+
 /* 矮屏上图标排紧一点，不出滚动条（滚动会把悬停提示裁掉） */
 @media (min-width: 721px) and (max-height: 820px) {
   .nav-rail {

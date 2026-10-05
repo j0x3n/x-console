@@ -1594,52 +1594,6 @@
   }
 }
 
-/* ---- B101：左栏二级菜单 ---- */
-.projects-nav {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-}
-.projects-nav-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid var(--xc-border);
-  border-radius: 8px;
-  background: var(--xc-surface-2);
-  color: var(--xc-muted);
-}
-.projects-nav-search input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--xc-text);
-  font-size: var(--fs-13);
-}
-.projects-nav-group {
-  display: grid;
-  gap: 2px;
-  padding-top: 10px;
-  border-top: 1px solid var(--xc-border);
-}
-.projects-nav-label {
-  padding: 0 10px 2px;
-  color: var(--xc-muted);
-  font-size: var(--fs-11-5);
-  font-weight: 500;
-}
-.nav-child small.danger {
-  color: var(--xc-danger);
-  font-weight: 600;
-}
-.nav-child.selected small.danger {
-  color: var(--xc-danger);
-}
-
 /* ---- B101：项目列表 ---- */
 .projects-view-all {
   margin-left: 12px;

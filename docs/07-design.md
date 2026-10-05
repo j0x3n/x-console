@@ -76,6 +76,7 @@
 | 长文字输入（描述、评论、备注） | `components/markdown/MarkdownEditor` | 和笔记一样的格式按钮和预览。不要用裸的 `textarea`；外层用 `div.xc-field`，不要用 `label` 包 |
 | 左上角标题 | `PageHeading` 的 `title`、`parents`，或 `usePageCrumb` | 模块名能点回首页，不要再放“返回”按钮 |
 | 设备在线状态 | `usePageStatus` | 只有服务器、本机这类有设备状态的页面用，显示成左上角标题后的小点 |
+| 二级菜单的菜单项、分组、搜索框 | `components/layout/NavPanel`：`NavPanelStack`、`NavPanelGroup`、`NavPanelLink`、`NavPanelSearch` | 选中由模块传 `active`。参考 `features/notes/NavChildren.tsx` |
 | 左栏二级菜单 | `registerNavChildren` + `components/layout/NavChildLinks` | 显示在图标栏右边那一栏，最多 30 条，多了给“全部 N”。行高 34px，选中是主题色浅底 |
 | 左栏图标上的标记 | `lib/navBadges`：`registerNavBadge`、`registerNavIcon`、`registerNavStatus` | 数量显示在图标右上角（10 以上只有点），状态是右上角的小点，文字进悬停提示 |
 | 二级菜单标题栏的按钮 | `registerNavAction` | 比如笔记的“+” |
