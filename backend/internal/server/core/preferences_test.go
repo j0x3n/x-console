@@ -21,7 +21,7 @@ func TestPreferences(t *testing.T) {
 
 	var got prefs
 	env.MustDo(http.MethodGet, "/me/preferences", nil, &got)
-	if got.NightMode != "auto" || got.Accent != "ember" || got.Language != "zh" || got.UpdatedAt != nil {
+	if got.NightMode != "auto" || got.Accent != "indigo" || got.Language != "zh" || got.UpdatedAt != nil {
 		t.Fatalf("defaults: %+v", got)
 	}
 
@@ -53,6 +53,15 @@ func TestPreferences(t *testing.T) {
 	}
 	if status, _ := env.Do(http.MethodPut, "/me/preferences", prefs{NightMode: "on", Accent: "ocean", Language: "zh", QuoteMode: &bad}, nil); status != http.StatusBadRequest {
 		t.Fatalf("bad quote mode: %d", status)
+	}
+
+	// B98: ember and mint were removed. Old clients still send them.
+	for old, want := range map[string]string{"ember": "indigo", "mint": "teal"} {
+		env.MustDo(http.MethodPut, "/me/preferences", prefs{NightMode: "off", Accent: old, Language: "zh"}, &saved)
+		env.MustDo(http.MethodGet, "/me/preferences", nil, &got)
+		if saved.Accent != want || got.Accent != want {
+			t.Fatalf("legacy accent %s: saved %s, got %s", old, saved.Accent, got.Accent)
+		}
 	}
 
 	env.MustDo(http.MethodPost, "/auth/logout", nil, nil)

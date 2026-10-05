@@ -228,7 +228,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 界面偏好（B22），换一台浏览器登录也一样。没保存过时返回默认值 nightMode=auto、accent=ember、language=zh，不带 updatedAt。 */
+        /** @description 界面偏好（B22），换一台浏览器登录也一样。没保存过时返回默认值 nightMode=auto、accent=indigo、language=zh，不带 updatedAt。 */
         get: operations["getPreferences"];
         /** @description 保存界面偏好。整份替换，缺的字段用默认值。 */
         put: operations["putPreferences"];
@@ -539,10 +539,10 @@ export interface components {
              */
             nightMode: "on" | "off" | "auto";
             /**
-             * @description 主题色，只在白天生效。ember 是默认的橙色
+             * @description 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
              * @enum {string}
              */
-            accent: "ember" | "violet" | "mint" | "ocean" | "rose" | "graphite";
+            accent: "indigo" | "ocean" | "teal" | "violet" | "rose" | "graphite" | "ember" | "mint";
             /** @enum {string} */
             language: "zh" | "en";
             /** @description B88。今日页问候语里的称呼，空时用登录名 */

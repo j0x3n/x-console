@@ -85,9 +85,11 @@ func (e NotificationPriority) Valid() bool {
 const (
 	Ember    PreferencesAccent = "ember"
 	Graphite PreferencesAccent = "graphite"
+	Indigo   PreferencesAccent = "indigo"
 	Mint     PreferencesAccent = "mint"
 	Ocean    PreferencesAccent = "ocean"
 	Rose     PreferencesAccent = "rose"
+	Teal     PreferencesAccent = "teal"
 	Violet   PreferencesAccent = "violet"
 )
 
@@ -98,11 +100,15 @@ func (e PreferencesAccent) Valid() bool {
 		return true
 	case Graphite:
 		return true
+	case Indigo:
+		return true
 	case Mint:
 		return true
 	case Ocean:
 		return true
 	case Rose:
+		return true
+	case Teal:
 		return true
 	case Violet:
 		return true
@@ -315,7 +321,7 @@ type PairRequest struct {
 
 // Preferences defines model for Preferences.
 type Preferences struct {
-	// Accent 主题色，只在白天生效。ember 是默认的橙色
+	// Accent 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
 	Accent   PreferencesAccent   `json:"accent"`
 	Language PreferencesLanguage `json:"language"`
 
@@ -332,7 +338,7 @@ type Preferences struct {
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
-// PreferencesAccent 主题色，只在白天生效。ember 是默认的橙色
+// PreferencesAccent 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
 type PreferencesAccent string
 
 // PreferencesLanguage defines model for Preferences.Language.

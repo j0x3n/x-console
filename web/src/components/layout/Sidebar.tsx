@@ -281,10 +281,10 @@ function NavActionButton({
 }
 
 const accentLabels: Record<Accent, string> = {
-  ember: "Ember",
-  violet: "Violet",
-  mint: "Mint",
+  indigo: "Indigo",
   ocean: "Ocean",
+  teal: "Teal",
+  violet: "Violet",
   rose: "Rose",
   graphite: "Graphite",
 };
@@ -357,11 +357,6 @@ function ProfileMenu() {
                 />
               ))}
             </div>
-            {themeMode === "dark" && (
-              <small className="profile-menu-hint">
-                {t("Theme colors apply in the daytime.")}
-              </small>
-            )}
           </div>
           <div className="profile-menu-section">
             <button

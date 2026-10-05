@@ -106,28 +106,30 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0 11px;
+  padding: 0 12px;
   color: var(--xc-text);
-  background: var(--xc-surface-2);
+  background: var(--xc-surface);
   border: 1px solid var(--xc-border-strong);
-  border-radius: 6px;
+  border-radius: 7px;
   font-weight: 500;
   white-space: nowrap;
 }
-.xc-btn:hover:not(:disabled) {
-  border-color: var(--xc-faint);
+/* 用 :where 把优先级降到和 .xc-btn 一样，带自己底色的按钮（danger、各模块的）悬停时不被盖掉 */
+.xc-btn:where(:hover:not(:disabled)) {
+  background: var(--xc-surface-2);
 }
 .xc-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 .xc-btn.primary {
-  color: #fff;
+  color: var(--xc-on-accent);
   background: var(--xc-accent);
   border-color: var(--xc-accent);
 }
 .xc-btn.primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: var(--xc-accent);
+  filter: brightness(0.92);
 }
 .xc-btn.danger {
   color: var(--xc-danger);
@@ -143,8 +145,8 @@
   background: var(--xc-surface-2);
 }
 .xc-btn.small {
-  height: 26px;
-  padding: 0 8px;
+  height: 28px;
+  padding: 0 10px;
   font-size: var(--fs-12);
 }
 
@@ -199,7 +201,7 @@
   background: var(--xc-surface);
   border: 1px solid var(--xc-border);
   border-radius: var(--xc-radius-lg);
-  padding: 14px 16px;
+  padding: 12px 16px;
   min-width: 0;
 }
 .xc-card-head {
@@ -249,8 +251,8 @@
   align-items: center;
   gap: 5px;
   height: 20px;
-  padding: 0 7px;
-  border-radius: 10px;
+  padding: 0 8px;
+  border-radius: 999px;
   font-size: var(--fs-11);
   font-weight: 500;
   color: var(--xc-text-2);
@@ -377,26 +379,43 @@
 }
 
 /* 标签页 */
+/* B98：灰底容器，选中项白底加细边框 */
 .xc-tabs {
   display: flex;
+  width: fit-content;
+  max-width: 100%;
   gap: 2px;
-  border-bottom: 1px solid var(--xc-border);
+  padding: 2px;
   margin-bottom: 16px;
+  background: var(--xc-surface-2);
+  border: 1px solid var(--xc-border);
+  border-radius: 9px;
   overflow-x: auto;
+  scrollbar-width: none;
 }
 .xc-tabs button,
 .xc-tabs a {
-  padding: 8px 12px;
-  color: var(--xc-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  color: var(--xc-text-2);
   background: none;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 7px;
   text-decoration: none;
   white-space: nowrap;
 }
+.xc-tabs button:hover,
+.xc-tabs a:hover {
+  color: var(--xc-text);
+}
 .xc-tabs .active {
   color: var(--xc-text);
-  border-bottom-color: var(--xc-accent);
+  font-weight: 500;
+  background: var(--xc-elevated);
+  box-shadow: 0 0 0 1px var(--xc-border-strong);
 }
 
 /* 登录页 */
@@ -567,11 +586,20 @@ a.nav-item {
 }
 
 /* 概要卡片（初版“今日”顶部那一排） */
+/*
+ * B98：一排卡片合成一个整体，外面一圈边框，格子之间 1px 线。
+ * 线用格子右边和下边的阴影画，最右一列和最后一行的会被外框裁掉；
+ * 最后一行没排满时，空出来的位置还是白底。
+ */
 .xc-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
+  gap: 0;
   margin-bottom: 20px;
+  background: var(--xc-surface);
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  overflow: hidden;
 }
 .xc-stat {
   min-height: 120px;
@@ -580,10 +608,13 @@ a.nav-item {
   flex-direction: column;
   align-items: stretch;
   text-align: left;
-  padding: 13px 15px 11px;
-  background: var(--xc-surface);
-  border: 1px solid var(--xc-border);
-  border-radius: var(--xc-radius-lg);
+  padding: 14px 16px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    1px 0 0 var(--xc-border),
+    0 1px 0 var(--xc-border);
   color: var(--xc-text);
   text-decoration: none;
   font: inherit;
@@ -593,7 +624,6 @@ a.nav-item {
 }
 a.xc-stat:hover,
 button.xc-stat:hover {
-  border-color: var(--xc-border-strong);
   background: var(--xc-surface-2);
 }
 .xc-stat-top {
@@ -602,8 +632,8 @@ button.xc-stat:hover {
   justify-content: space-between;
   gap: 6px;
   color: var(--xc-muted);
-  font-size: var(--fs-11);
-  font-weight: 500;
+  font-size: var(--fs-12);
+  font-weight: 400;
   white-space: nowrap;
 }
 .xc-stat-top span:first-child {
@@ -618,6 +648,7 @@ button.xc-stat:hover {
   margin-top: 16px;
   font-size: 24px;
   font-weight: 600;
+  letter-spacing: -0.02em;
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
@@ -649,7 +680,7 @@ button.xc-stat:hover {
 .xc-stat-foot {
   margin-top: auto;
   padding-top: 8px;
-  font-size: var(--fs-11);
+  font-size: var(--fs-12);
   color: var(--xc-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -891,15 +922,15 @@ a.xc-badge:hover {
   align-items: center;
   column-gap: 12px;
   min-height: 0;
-  padding: 8px 12px;
+  padding: 12px 16px;
 }
 .xc-stats:not(.large) .xc-stat-top {
   grid-area: top;
 }
 .xc-stats:not(.large) .xc-stat-value {
   grid-area: value;
-  margin-top: 3px;
-  font-size: var(--fs-18);
+  margin-top: 4px;
+  font-size: 24px;
 }
 .xc-stats:not(.large) .xc-stat-visual {
   grid-area: visual;
@@ -919,10 +950,10 @@ a.xc-badge:hover {
 @media (max-width: 720px) {
   .xc-stats:not(.large) .xc-stat {
     min-height: 0;
-    padding: 7px 10px;
+    padding: 10px 12px;
   }
   .xc-stats:not(.large) .xc-stat-value {
-    font-size: var(--fs-17);
+    font-size: 21px;
   }
 }
 
@@ -1282,7 +1313,6 @@ a.xc-badge:hover {
 }
 .xc-toolbar-start .xc-tabs {
   margin: 0;
-  border-bottom: 0;
 }
 .xc-toolbar-end {
   display: flex;
@@ -1348,8 +1378,8 @@ a.xc-badge:hover {
   flex: none;
   padding: 2px;
   border: 1px solid var(--xc-border);
-  border-radius: 8px;
-  background: var(--xc-surface);
+  border-radius: 9px;
+  background: var(--xc-surface-2);
 }
 .xc-segmented button {
   display: inline-flex;
@@ -1364,8 +1394,9 @@ a.xc-badge:hover {
   font-size: var(--fs-12-5);
 }
 .xc-segmented button.on {
-  background: var(--xc-surface-2);
+  background: var(--xc-elevated);
   color: var(--xc-text);
+  box-shadow: 0 0 0 1px var(--xc-border-strong);
 }
 
 /* 更多菜单：桌面下拉，手机底部弹出 */
@@ -1845,23 +1876,24 @@ a.xc-badge:hover {
     0 0 0 2px var(--xc-elevated),
     0 0 0 4px var(--xc-text-2);
 }
-.profile-accent.accent-ember {
-  background: #c2653d;
-}
-.profile-accent.accent-violet {
-  background: #6d5dfc;
-}
-.profile-accent.accent-mint {
-  background: #08805f;
+/* 色块用浅色主题的值，深色下也一样，好认 */
+.profile-accent.accent-indigo {
+  background: #4f46e5;
 }
 .profile-accent.accent-ocean {
   background: #2563eb;
 }
+.profile-accent.accent-teal {
+  background: #0f766e;
+}
+.profile-accent.accent-violet {
+  background: #7c3aed;
+}
 .profile-accent.accent-rose {
-  background: #d0336b;
+  background: #e11d48;
 }
 .profile-accent.accent-graphite {
-  background: #27272a;
+  background: #18181b;
   box-shadow: inset 0 0 0 1px #ffffff33;
 }
 .profile-accent.accent-graphite.active {

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { coreApi } from "../api/core";
 import { unwrap } from "../api/client";
 import {
+  normalizeAccent,
   usePreferencesStore,
   type PreferencesState,
 } from "../stores/preferences-store";
@@ -47,7 +48,7 @@ export function usePreferencesSync() {
     applying = true;
     const store = usePreferencesStore.getState();
     store.setThemeMode(fromNight[p.nightMode] ?? "system");
-    store.setAccent(p.accent);
+    store.setAccent(normalizeAccent(p.accent));
     store.setLanguage(p.language);
     // B88、B89：旧服务端不返回这两个字段，这时保留本地的
     if (p.nickname !== undefined) store.setNickname(p.nickname);

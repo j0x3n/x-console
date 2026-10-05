@@ -10,17 +10,21 @@
   flex: none;
   color: var(--xc-muted);
 }
+/* B98：状态颜色和概要卡片的分段条一致 */
+.projects-status.backlog {
+  color: var(--xc-faint);
+}
 .projects-status.todo {
-  color: var(--xc-text-2);
+  color: var(--xc-info);
 }
 .projects-status.in_progress {
   color: var(--xc-warn);
 }
 .projects-status.in_review {
-  color: var(--xc-info);
+  color: var(--xc-ok);
 }
 .projects-status.done {
-  color: var(--xc-ok);
+  color: var(--xc-muted);
 }
 .projects-status.canceled {
   color: var(--xc-faint);
@@ -31,9 +35,7 @@
 .projects-priority.p1 {
   color: var(--xc-danger);
 }
-.projects-priority.p2 {
-  color: var(--xc-accent-text);
-}
+.projects-priority.p2,
 .projects-priority.p3,
 .projects-priority.p4 {
   color: var(--xc-text-2);

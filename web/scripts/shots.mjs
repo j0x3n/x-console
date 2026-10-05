@@ -25,7 +25,7 @@ const BASE = arg("base", "http://127.0.0.1:5173");
 const ONLY = arg("only", "")?.split(",").filter(Boolean) ?? [];
 const THEME = arg("theme", "");
 if (THEME && !["dark", "light"].includes(THEME)) throw new Error("theme 只能是 dark 或 light");
-// 主题色（B22）：ember、violet、mint、ocean、rose、graphite。只在白天生效。
+// 主题色（B22，B98 改过）：indigo、ocean、teal、violet、rose、graphite。深浅主题都生效。
 const ACCENT = arg("accent", "");
 const WIDTHS = arg("widths", "1360,390").split(",").map(Number);
 const OUT = join(import.meta.dirname, "..", "screenshots", THEME || "", ACCENT || "");

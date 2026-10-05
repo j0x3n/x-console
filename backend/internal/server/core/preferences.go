@@ -17,12 +17,22 @@ const preferencesKey = "ui.preferences"
 
 var (
 	nightModes = []string{"on", "off", "auto"}
-	accents    = []string{"ember", "violet", "mint", "ocean", "rose", "graphite"}
+	accents    = []string{"indigo", "ocean", "teal", "violet", "rose", "graphite"}
 	languages  = []string{"zh", "en"}
+	// B98 removed these accents. Old saves and old clients still send them.
+	legacyAccents = map[api.PreferencesAccent]api.PreferencesAccent{"ember": "indigo", "mint": "teal"}
 )
 
+// currentAccent maps a removed accent to the one that replaced it.
+func currentAccent(a api.PreferencesAccent) api.PreferencesAccent {
+	if next, ok := legacyAccents[a]; ok {
+		return next
+	}
+	return a
+}
+
 func defaultPreferences() api.Preferences {
-	return api.Preferences{NightMode: "auto", Accent: "ember", Language: "zh"}
+	return api.Preferences{NightMode: "auto", Accent: "indigo", Language: "zh"}
 }
 
 // GetPreferences returns the saved UI preferences, or the defaults without
@@ -41,8 +51,8 @@ func (h *Handlers) GetPreferences(w http.ResponseWriter, r *http.Request) {
 		if slices.Contains(nightModes, string(saved.NightMode)) {
 			out.NightMode = saved.NightMode
 		}
-		if slices.Contains(accents, string(saved.Accent)) {
-			out.Accent = saved.Accent
+		if accent := currentAccent(saved.Accent); slices.Contains(accents, string(accent)) {
+			out.Accent = accent
 		}
 		if slices.Contains(languages, string(saved.Language)) {
 			out.Language = saved.Language
@@ -66,6 +76,7 @@ func (h *Handlers) PutPreferences(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+	body.Accent = currentAccent(body.Accent)
 	switch {
 	case !slices.Contains(nightModes, string(body.NightMode)):
 		httpx.Fail(w, r, httpx.Invalid("夜间模式不对"))

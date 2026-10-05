@@ -4,33 +4,40 @@
  */
 :root,
 html[data-theme="dark"] {
-  --xc-bg: #0a0a0b;
-  --xc-panel: #111113;
-  --xc-surface: #17171a;
-  --xc-surface-2: #1d1d21;
-  --xc-elevated: #202024;
+  /* B98 clean 风格。深色。 */
+  --xc-bg: #111113;
+  --xc-panel: #0c0c0e;
+  --xc-surface: #161618;
+  --xc-surface-2: #1c1c1f;
+  --xc-elevated: #1f1f23;
   --xc-border: #26262b;
-  --xc-border-strong: #37373d;
+  --xc-border-strong: #34343a;
   --xc-text: #ededf0;
-  --xc-text-2: #b4b4bc;
-  --xc-muted: #85858e;
+  --xc-text-2: #c4c4cc;
+  --xc-muted: #8b8b94;
   --xc-faint: #5c5c64;
-  --xc-accent: #cc7752;
-  --xc-accent-soft: #cc775226;
-  --xc-accent-text: #f1a07c;
-  --xc-ok: #5cc98b;
-  --xc-ok-soft: #5cc98b22;
-  --xc-warn: #e8b454;
-  --xc-warn-soft: #e8b45422;
-  --xc-danger: #ef6b6b;
-  --xc-danger-soft: #ef6b6b22;
-  --xc-info: #70b5f7;
-  --xc-info-soft: #70b5f722;
+  --xc-accent: #5b5ee6;
+  --xc-accent-soft: #5b5ee626;
+  --xc-accent-text: #a5b4fc;
+  --xc-on-accent: #ffffff;
+  --xc-brand-grad: var(--xc-accent);
+  --xc-ok: #4ade80;
+  --xc-ok-soft: #4ade8026;
+  --xc-warn: #fbbf24;
+  --xc-warn-soft: #fbbf2426;
+  --xc-danger: #f87171;
+  --xc-danger-soft: #f8717126;
+  --xc-info: #60a5fa;
+  --xc-info-soft: #60a5fa26;
   --xc-radius: 8px;
-  --xc-radius-lg: 12px;
+  --xc-radius-lg: 10px;
   --xc-shadow: 0 18px 50px #000a;
+  --xc-sans:
+    "Geist Variable", Geist, "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   --xc-mono:
-    ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    "Geist Mono Variable", ui-monospace, "SFMono-Regular", "Cascadia Code",
+    Menlo, Consolas, monospace;
 }
 
 /*
@@ -77,72 +84,86 @@ html[data-theme="dark"] {
 }
 
 html[data-theme="light"] {
-  --xc-bg: #f3f3f4;
+  /* B98 clean 风格。浅色。 */
+  --xc-bg: #ffffff;
   --xc-panel: #fafafa;
   --xc-surface: #ffffff;
-  --xc-surface-2: #f4f4f5;
+  --xc-surface-2: #fafafa;
   --xc-elevated: #ffffff;
-  --xc-border: #e6e6e9;
-  --xc-border-strong: #d4d4d8;
-  --xc-text: #171719;
-  --xc-text-2: #45454b;
-  --xc-muted: #6e6e76;
-  --xc-faint: #a1a1a8;
-  --xc-accent: #c2653d;
-  --xc-accent-soft: #c2653d1c;
-  --xc-accent-text: #a8522d;
-  --xc-ok: #1f9d5b;
-  --xc-ok-soft: #1f9d5b18;
-  --xc-warn: #b7791f;
-  --xc-warn-soft: #b7791f18;
-  --xc-danger: #d23f3f;
-  --xc-danger-soft: #d23f3f14;
-  --xc-info: #2f7fd1;
-  --xc-info-soft: #2f7fd116;
+  --xc-border: #ececee;
+  --xc-border-strong: #e4e4e7;
+  --xc-text: #18181b;
+  --xc-text-2: #3f3f46;
+  --xc-muted: #71717a;
+  --xc-faint: #a1a1aa;
+  --xc-accent: #4f46e5;
+  --xc-accent-soft: #4f46e51a;
+  --xc-accent-text: #4338ca;
+  --xc-on-accent: #ffffff;
+  --xc-ok: #16a34a;
+  --xc-ok-soft: #16a34a1a;
+  --xc-warn: #b45309;
+  --xc-warn-soft: #b453091a;
+  --xc-danger: #dc2626;
+  --xc-danger-soft: #dc26261a;
+  --xc-info: #2563eb;
+  --xc-info-soft: #2563eb1a;
   --xc-shadow: 0 18px 50px #17171a1f;
 }
 
 /*
- * 主题色（B22）。只在白天生效，夜间固定用上面的深色配色。
- * 每套只改强调色和一点底色，组件不用改。html 上的 data-accent 由偏好设置写入。
+ * 主题色（B22，B98 改过）。深浅主题都生效，默认靛蓝写在上面两段里。
+ * 只改强调色，底色不跟着变。html 上的 data-accent 由偏好设置写入。
+ * 主要按钮是主题色底配 --xc-on-accent 的字，对比度都不低于 4.5:1。
  */
-html[data-theme="light"][data-accent="violet"] {
-  --xc-bg: #f3f2f8;
-  --xc-panel: #fbfbfe;
-  --xc-accent: #6d5dfc;
-  --xc-accent-soft: #6d5dfc1a;
-  --xc-accent-text: #5143d9;
-  --xc-brand-grad: linear-gradient(135deg, #5b4bf0, #9b8cff 55%, #2f2a5a);
-}
-html[data-theme="light"][data-accent="mint"] {
-  --xc-bg: #eff5f2;
-  --xc-panel: #fafcfb;
-  --xc-accent: #08805f;
-  --xc-accent-soft: #08805f1a;
-  --xc-accent-text: #07694f;
-  --xc-brand-grad: linear-gradient(135deg, #07694f, #34d399 55%, #12352c);
-}
 html[data-theme="light"][data-accent="ocean"] {
-  --xc-bg: #f0f3f8;
-  --xc-panel: #fafbfd;
   --xc-accent: #2563eb;
-  --xc-accent-soft: #2563eb18;
+  --xc-accent-soft: #2563eb1a;
   --xc-accent-text: #1d4ed8;
-  --xc-brand-grad: linear-gradient(135deg, #1d4ed8, #60a5fa 55%, #172554);
+}
+html[data-theme="light"][data-accent="teal"] {
+  --xc-accent: #0f766e;
+  --xc-accent-soft: #0f766e1a;
+  --xc-accent-text: #115e59;
+}
+html[data-theme="light"][data-accent="violet"] {
+  --xc-accent: #7c3aed;
+  --xc-accent-soft: #7c3aed1a;
+  --xc-accent-text: #6d28d9;
 }
 html[data-theme="light"][data-accent="rose"] {
-  --xc-bg: #f7f1f3;
-  --xc-panel: #fdfafb;
-  --xc-accent: #d0336b;
-  --xc-accent-soft: #d0336b16;
-  --xc-accent-text: #b02a5a;
-  --xc-brand-grad: linear-gradient(135deg, #b02a5a, #fb7faa 55%, #4a1d2c);
+  --xc-accent: #e11d48;
+  --xc-accent-soft: #e11d481a;
+  --xc-accent-text: #be123c;
 }
 html[data-theme="light"][data-accent="graphite"] {
-  --xc-bg: #efefef;
-  --xc-panel: #fafafa;
-  --xc-accent: #27272a;
-  --xc-accent-soft: #27272a12;
+  --xc-accent: #18181b;
+  --xc-accent-soft: #18181b14;
   --xc-accent-text: #18181b;
-  --xc-brand-grad: linear-gradient(135deg, #18181b, #71717a 55%, #09090b);
+}
+html[data-theme="dark"][data-accent="ocean"] {
+  --xc-accent: #3b6fe8;
+  --xc-accent-soft: #3b6fe826;
+  --xc-accent-text: #93c5fd;
+}
+html[data-theme="dark"][data-accent="teal"] {
+  --xc-accent: #14857c;
+  --xc-accent-soft: #14857c26;
+  --xc-accent-text: #5eead4;
+}
+html[data-theme="dark"][data-accent="violet"] {
+  --xc-accent: #7c4ef0;
+  --xc-accent-soft: #7c4ef026;
+  --xc-accent-text: #c4b5fd;
+}
+html[data-theme="dark"][data-accent="rose"] {
+  --xc-accent: #e0335a;
+  --xc-accent-soft: #e0335a26;
+  --xc-accent-text: #fda4af;
+}
+html[data-theme="dark"][data-accent="graphite"] {
+  --xc-accent: #e4e4e7;
+  --xc-accent-soft: #e4e4e71f;
+  --xc-accent-text: #e4e4e7;
+  --xc-on-accent: #18181b;
 }

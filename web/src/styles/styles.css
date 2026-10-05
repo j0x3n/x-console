@@ -1,14 +1,7 @@
 :root {
-  font-family:
-    Geist,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  color: #ededf0;
-  background: #0a0a0b;
+  font-family: var(--xc-sans);
+  color: var(--xc-text);
+  background: var(--xc-bg);
   font-synthesis: none;
 }
 * {
@@ -29,7 +22,7 @@ button {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #ff824b;
+  outline: 2px solid var(--xc-accent);
   outline-offset: 2px;
 }
 button:disabled {
@@ -47,7 +40,7 @@ svg {
   height: 100vh;
   min-height: 560px;
   overflow: hidden;
-  background: #0a0a0b;
+  background: var(--xc-panel);
 }
 .sidebar {
   width: 232px;
@@ -58,6 +51,8 @@ svg {
   padding: 8px;
   color: #a0a0a7;
   overflow: hidden;
+  background: var(--xc-panel);
+  border-right: 1px solid var(--xc-border);
 }
 .workspace-switch {
   height: 34px;
@@ -83,10 +78,7 @@ svg {
   font-size: var(--fs-9);
   font-weight: 700;
   color: #fff;
-  background: var(
-    --xc-brand-grad,
-    linear-gradient(135deg, #b84c22, #ed8444 55%, #49302d)
-  );
+  background: var(--xc-brand-grad, var(--xc-accent));
   box-shadow: inset 0 0 0 1px #ffffff28;
 }
 .sidebar-collapse {
@@ -340,12 +332,7 @@ svg {
   position: relative;
   min-width: 0;
   flex: 1;
-  margin: 8px 8px 8px 0;
-  border-radius: 12px;
-  background: #111113;
-  box-shadow:
-    0 0 0 1px #19191c,
-    0 9px 35px #0005;
+  background: var(--xc-bg);
   overflow: hidden;
 }
 .main-scroll {
@@ -1850,7 +1837,7 @@ svg {
   line-height: 1.5;
 }
 .form-dialog textarea:focus {
-  border-color: #cc7752;
+  border-color: var(--xc-accent);
 }
 .form-dialog textarea::placeholder {
   color: #696973;
@@ -1964,7 +1951,7 @@ html[data-theme="light"] .toast button:hover {
     left: 0;
     top: 0;
     width: 232px;
-    background: #0d0d0f;
+    background: var(--xc-panel);
     transform: translateX(-100%);
     transition: transform 0.22s;
     box-shadow: 15px 0 40px #0008;

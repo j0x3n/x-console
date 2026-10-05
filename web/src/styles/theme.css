@@ -1,19 +1,14 @@
 html[data-theme="light"] {
   --chart-dot-stroke: #fff;
-  color: #101012;
-  background: #f3f3f4;
 }
 
 html[data-theme="light"] .app-shell,
 html[data-theme="light"] .sidebar {
-  background: var(--xc-bg);
+  background: var(--xc-panel);
 }
 
 html[data-theme="light"] .main-panel {
-  background: var(--xc-panel);
-  box-shadow:
-    0 0 0 1px #e2e2e5,
-    0 8px 30px #17171a0c;
+  background: var(--xc-bg);
 }
 
 html[data-theme="light"] .main-scroll,
@@ -392,6 +387,6 @@ html[data-theme="light"] .toast {
 
 @media (max-width: 720px) {
   html[data-theme="light"] .sidebar {
-    background: #f3f3f4;
+    background: var(--xc-panel);
   }
 }

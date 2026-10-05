@@ -3,13 +3,22 @@ import { resolveUpdate } from "./update";
 import type { Accent, Language, Setter, ThemeMode } from "../types/domain";
 
 export const accents: Accent[] = [
-  "ember",
-  "violet",
-  "mint",
+  "indigo",
   "ocean",
+  "teal",
+  "violet",
   "rose",
   "graphite",
 ];
+
+/** B98 去掉了 ember 和 mint。旧的本地设置和旧服务端还会给这两个值。 */
+const legacyAccents: Record<string, Accent> = { ember: "indigo", mint: "teal" };
+
+export function normalizeAccent(value: string | null | undefined): Accent {
+  if (!value) return "indigo";
+  const accent = legacyAccents[value] ?? value;
+  return accents.includes(accent as Accent) ? (accent as Accent) : "indigo";
+}
 
 function readPreference(key: string): string | null {
   try {
@@ -52,13 +61,13 @@ export interface PreferencesState {
 export type QuoteMode = "off" | "fixed" | "refresh" | "daily";
 const quoteModes: QuoteMode[] = ["off", "fixed", "refresh", "daily"];
 const savedTheme = readBrandPreference("theme");
-const savedAccent = readPreference("x-console-accent") as Accent | null;
+const savedAccent = readPreference("x-console-accent");
 const savedQuote = readPreference("x-console-quote") as QuoteMode | null;
 export const usePreferencesStore = create<PreferencesState>()((set) => ({
   language: readBrandPreference("language") === "en" ? "en" : "zh",
   themeMode:
     savedTheme === "dark" || savedTheme === "light" ? savedTheme : "system",
-  accent: savedAccent && accents.includes(savedAccent) ? savedAccent : "ember",
+  accent: normalizeAccent(savedAccent),
   setLanguage: (update) =>
     set((state) => {
       const language = resolveUpdate(update, state.language);

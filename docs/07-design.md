@@ -3,7 +3,7 @@
 写任何界面之前先读这一篇。颜色、间距、组件都有现成的，照着用，不要自己发明。
 交活前用 `npm run shots` 出截图自查（见最后一节）。
 
-> **2026-10-05 起界面在改版（B98 到 B102）。** 新的颜色、组件样子、左栏结构以 [B98 规格](specs/B98.md) 为准，设计稿在 `docs/design/clean/`。改版期间写新界面时，和本文冲突的地方按 B98 来。B98 做完后，它的第一到第三节会合并进本文，这段提示删掉。
+> **2026-10-05 起界面在改版（B98 到 B102）。** 颜色、主题色、字体和公共组件（B98）已经合并进本文。左栏、顶栏、今日页和项目页的新结构还没做完，以 [B98 规格](specs/B98.md) 第三到第六节为准，设计稿在 `docs/design/clean/`。B102 做完后删掉这段提示。
 
 ## 一、原则
 
@@ -12,6 +12,7 @@
 3. **密度适中**：列表行高 36 到 44px，卡片内边距 12 到 16px。不要大片空白，也不要挤在一起。
 4. **每种状态都要有样子**：加载中、空、出错、还没上线、手机上。缺一个就是没做完。
 5. **不写死颜色**：只用 `styles/tokens.css` 里的 `--xc-*` 变量，深浅两个主题都要能看。
+6. **Clean 风格**（B98）：白底、细边框、不加阴影、一个主题色。层次靠边框和留白，不靠底色和阴影。
 
 ## 二、页面结构
 
@@ -52,9 +53,9 @@
 | --- | --- | --- |
 | 页头 | `components/ui/PageHeading` | `subtitle` 写概况（显示在顶栏），`aside` 放按钮（显示在顶栏） |
 | 顶栏里的页面按钮 | `components/layout/PageActions` | 不用 `PageHeading` 的页面直接包按钮 |
-| 概要卡片 | `components/ui/Stat`：`StatStrip`、`StatCard` | 默认紧凑。卡片里可以放 `Segments`、`MiniBars`、`Ring` 小图 |
+| 概要卡片 | `components/ui/Stat`：`StatStrip`、`StatCard` | 一排合成一个整体，格子之间 1px 线。默认紧凑。卡片里可以放 `Segments`、`MiniBars`、`Ring` 小图 |
 | 工具栏 | `components/ui/Toolbar`：`Toolbar`、`SearchBox`、`Segmented` | 窄屏自动变两行 |
-| 分类标签 | `.xc-tabs` + `button.active` | 放进 `Toolbar` 的 `start` |
+| 分类标签 | `.xc-tabs` + `button.active` | 灰底容器，选中项白底加细边框。放进 `Toolbar` 的 `start` |
 | 每行的操作 | `components/ui/MoreMenu` | 桌面下拉，手机从底部弹出 |
 | 开关 | `components/ui/Switch` | 列表里开关一条规则 |
 | 勾选框 | `<label className="xc-check">` | 下面补说明用 `<small className="xc-check-hint">` |
@@ -76,19 +77,60 @@
 
 ## 四、具体数值
 
+### 颜色
+
+只用变量。值在 `styles/tokens.css`，深浅两套：
+
+| 变量 | 浅色 | 深色 | 用在哪 |
+| --- | --- | --- | --- |
+| `--xc-bg` | `#ffffff` | `#111113` | 内容区底色 |
+| `--xc-panel` | `#fafafa` | `#0c0c0e` | 左栏底色 |
+| `--xc-surface` | `#ffffff` | `#161618` | 卡片 |
+| `--xc-surface-2` | `#fafafa` | `#1c1c1f` | 悬停、看板列、分段切换的底 |
+| `--xc-elevated` | `#ffffff` | `#1f1f23` | 弹窗、下拉菜单、分段切换的选中项 |
+| `--xc-border` | `#ececee` | `#26262b` | 卡片边框、分隔线 |
+| `--xc-border-strong` | `#e4e4e7` | `#34343a` | 输入框、按钮边框 |
+| `--xc-text` / `--xc-text-2` | `#18181b` / `#3f3f46` | `#ededf0` / `#c4c4cc` | 主文字 / 次要文字 |
+| `--xc-muted` | `#71717a` | `#8b8b94` | 说明、数量 |
+| `--xc-faint` | `#a1a1aa` | `#5c5c64` | 只用于图标和占位文字，对比度不够做正文 |
+| `--xc-ok` `--xc-warn` `--xc-danger` `--xc-info` | 绿、琥珀、红、蓝 | 浅一档 | 状态。浅底用对应的 `*-soft` |
+
+### 主题色
+
+- 6 种：靛蓝 `indigo`（默认）、海蓝 `ocean`、青色 `teal`、紫罗兰 `violet`、玫瑰 `rose`、石墨 `graphite`。深浅主题都跟着用户选的走。
+- 变量：`--xc-accent`（按钮底、进度条、选中图标）、`--xc-accent-soft`（选中项浅底）、`--xc-accent-text`（主题色文字）、`--xc-on-accent`（主题色底上的字，石墨深色时是黑字）。
+- 只用在：主要按钮、选中状态、Logo、头像、进度条、关键数字、开关打开。不要大面积铺。
+- 原来的褐色 `ember` 和薄荷绿 `mint` 已去掉。旧设置读出来时自动换成 `indigo` 和 `teal`。
+
+### 字体
+
+- `--xc-sans`：Geist，中文接系统字体（苹方、微软雅黑等）。`--xc-mono`：Geist Mono，用于编号、时间、快捷键。
+- 字体文件跟着前端打包（`@fontsource-variable/geist`），不要引用 Google Fonts。
+
+### 尺寸
+
 | 项 | 值 |
 | --- | --- |
 | 页面左右内边距 | 24px（手机 16px） |
-| 区块之间 | 12 到 20px |
-| 卡片 | 内边距 14px 16px，圆角 `--xc-radius-lg`（12px），1px `--xc-border` 边框，不加阴影 |
-| 输入框、按钮 | 高 30 到 32px，圆角 6 到 8px |
+| 区块之间 | 16 到 20px |
+| 卡片 | 内边距 12px 16px，圆角 `--xc-radius-lg`（10px），1px `--xc-border` 边框，不加阴影 |
+| 概要条 | 外框 1px 边框、10px 圆角，格子内边距 12px 16px，格子之间 1px 线 |
+| 按钮 | 高 30px（`small` 28px），圆角 7px，白底 1px `--xc-border-strong` 边框；`primary` 主题色底 |
+| 输入框 | 高 30 到 32px，圆角 7 到 8px |
+| 分段切换、分类标签 | 灰底容器 2px 内边距、9px 圆角；选中项 `--xc-elevated` 底加 1px 边框 |
+| 标签、状态标签 | 圆角胶囊（999px），高 20px |
 | 列表行 | 高 36 到 44px，行之间 1px `--xc-border` 分隔线，悬停 `--xc-surface-2` |
-| 字号 | 正文 13 到 14px；次要信息 12 到 12.5px；标签和脚注 11px；卡片里的数字 18px（今日页 24px）。写成令牌 `var(--fs-13)`，不要写死像素，见下面“字号令牌” |
+| 字号 | 正文 13 到 14px；次要信息 12 到 12.5px；标签和脚注 11px；概要卡片里的数字 24px、600、字距 -0.02em（手机 21px） |
 | 字重 | 标题和强调 500 到 600，正文 400 |
-| 灰度 | 主文字 `--xc-text`，次要 `--xc-text-2`，说明 `--xc-muted`，最弱 `--xc-faint` |
-| 强调色 | `--xc-accent` 只用在主要按钮、选中状态、关键数字，不要大面积铺 |
-| 浮层 | `--xc-elevated` 底色 + `--xc-border-strong` 边框 + `--xc-shadow` 阴影，圆角 9 到 14px |
+| 浮层 | `--xc-elevated` 底色 + `--xc-border-strong` 边框 + `--xc-shadow` 阴影，圆角 9 到 14px。只有浮层用阴影 |
 | 动画 | 0.12 到 0.2 秒，只用在展开、切换、出现 |
+
+### 项目的状态和优先级图标
+
+在 `features/projects/components/Icons.tsx`，其他模块要显示 Issue 时直接用。
+
+- 状态：待规划灰色虚线圆，待办蓝色空心圆，进行中橙色半满，待审核绿色四分之三满，已完成灰色实心圆加勾，已取消浅灰实心圆加叉。
+- 优先级：三格柱状（低 1 格、中 2 格、高 3 格），紧急是红色方块加“!”，无优先级是三个点。
 
 ## 五、细节规则
 
