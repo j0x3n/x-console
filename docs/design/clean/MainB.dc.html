@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>B · 今日</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#ffffff}
+a{color:inherit;text-decoration:none}a:hover{color:inherit}
+.nv{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:7px;color:#52525b;font-size:13.5px}
+.nv svg{flex:none;color:#71717a}
+.nv:hover{background:#ebebee;color:#18181b}
+.nv.sel{background:#ffffff;color:#18181b;font-weight:500;box-shadow:inset 0 0 0 1px #e4e4e7}
+.nv.sel svg{color:var(--acc)}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;border-radius:7px;background:transparent;color:#52525b;cursor:pointer;padding:0}
+.ib:hover{background:#f4f4f5;color:#18181b}
+.btn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:7px;border:1px solid #e4e4e7;background:#ffffff;color:#18181b;font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.btn:hover{background:#fafafa}
+.row:hover{background:#fafafa}
+.stat:hover{background:#fafafa !important}
+.lnk{color:#71717a}.lnk:hover{color:#18181b}
+.bd{padding:24px}
+@media (max-width:640px){.bd{padding:16px}}
+.sb{border-right:1px solid #ececee}
+@media (max-width:820px){.sb{border-right:0;border-bottom:1px solid #ececee}}
+.nv{height:34px;border-radius:8px;color:#3f3f46;background:transparent;box-shadow:none;font-weight:400}
+.nv:hover{background:#f4f4f5;color:#18181b}
+.nv.sel{background:var(--acc-soft);color:var(--acc);font-weight:500;box-shadow:none}
+.nv.sel svg{color:var(--acc)}
+.nv.sel.par{background:transparent;color:#18181b}
+.grp{border-top:1px solid #f0f0f2;padding-top:10px}
+.rl{display:inline-flex;align-items:center;justify-content:center;width:40px;height:36px;border:0;border-radius:9px;background:transparent;color:#52525b;cursor:pointer;padding:0;position:relative;flex:none}
+.rl:hover{background:#efeff1;color:#18181b}
+.rl.sel{background:var(--acc-soft);color:var(--acc)}
+.rl:hover::after{content:attr(data-tip);position:absolute;left:48px;top:50%;transform:translateY(-50%);background:#18181b;color:#ffffff;font-size:12px;line-height:1;padding:6px 8px;border-radius:6px;white-space:nowrap;z-index:10;pointer-events:none}
+.rb{position:absolute;top:1px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;color:#ffffff;font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;border:2px solid #fafafa}
+.rs{width:22px;height:1px;background:#e4e4e7;margin:6px 0;flex:none}
+</style>
+</helmet>
+<div style="--acc: {{accent}}; --acc-soft: {{accentSoft}}; min-height: 1040px; box-sizing: border-box; display: flex; flex-wrap: wrap; background: #ffffff; font-family: 'Geist', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif; color: #18181b; font-size: 13.5px; line-height: 1.45">
+
+<nav aria-label="主导航" style="flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 14px 0 12px; background: #fafafa; border-right: 1px solid #ececee; box-sizing: border-box">
+<a href="MainB.dc.html" aria-label="X Console" style="width: 36px; height: 36px; border-radius: 10px; background: {{accent}}; color: #ffffff; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; margin-bottom: 10px; flex: none">X</a>
+<button class="rl" aria-label="搜索或执行命令" data-tip="搜索 ⌘K"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></button>
+<span class="rs"></span>
+<a class="rl sel" href="MainB.dc.html" aria-label="今日" data-tip="今日"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg></a>
+<a class="rl" href="ProjectsB.dc.html" aria-label="项目" data-tip="项目"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M8 7v7M12 7v4M16 7v9"></path></svg></a>
+<a class="rl" href="#" aria-label="Agent 任务，2 个等你决定" data-tip="Agent 任务"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2M20 14h2M15 13v2M9 13v2"></path></svg><span class="rb" style="background: {{accent}}">2</span></a>
+<span class="rs"></span>
+<a class="rl" href="#" aria-label="笔记" data-tip="笔记"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"></path><path d="M2 6h4M2 10h4M2 14h4M2 18h4"></path><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"></path></svg></a>
+<a class="rl" href="#" aria-label="提醒，今天 2 条" data-tip="提醒"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span class="rb" style="background: #71717a">2</span></a>
+<a class="rl" href="#" aria-label="习惯" data-tip="习惯"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"></path></svg></a>
+<a class="rl" href="#" aria-label="云盘" data-tip="云盘"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12H2"></path><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><path d="M6 16h.01M10 16h.01"></path></svg></a>
+<a class="rl" href="#" aria-label="日历" data-tip="日历"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M8 2v4M16 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01"></path></svg></a>
+<span class="rs"></span>
+<a class="rl" href="#" aria-label="服务器，全部在线" data-tip="服务器"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="8" x="2" y="2" rx="2"></rect><rect width="20" height="8" x="2" y="14" rx="2"></rect><path d="M6 6h.01M6 18h.01"></path></svg><span style="position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 4px; background: #16a34a; border: 2px solid #fafafa"></span></a>
+<a class="rl" href="#" aria-label="电脑" data-tip="电脑"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg></a>
+<a class="rl" href="#" aria-label="监控" data-tip="监控"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"></path><path d="M4 6h.01"></path><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"></path><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"></path><path d="M12 18h.01"></path><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"></path><circle cx="12" cy="12" r="2"></circle><path d="m13.41 10.59 5.66-5.66"></path></svg></a>
+<span class="rs"></span>
+<a class="rl" href="#" aria-label="智能家居" data-tip="智能家居"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></a>
+<a class="rl" href="#" aria-label="自动化" data-tip="自动化"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="8" height="8" x="3" y="3" rx="2"></rect><path d="M7 11v4a2 2 0 0 0 2 2h4"></path><rect width="8" height="8" x="13" y="13" rx="2"></rect></svg></a>
+<a class="rl" href="#" aria-label="GitHub" data-tip="GitHub"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path><path d="M9 18c-4.51 2-5-2-7-2"></path></svg></a>
+<span style="flex: 1; min-height: 12px"></span>
+<button class="rl" aria-label="设置" data-tip="设置"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7h-9M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg></button>
+<button aria-label="个人菜单：demo" title="demo" style="width: 32px; height: 32px; border-radius: 16px; border: 0; background: {{accentSoft}}; color: {{accent}}; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; margin-top: 6px; flex: none">D</button>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; background: #ffffff; display: flex; flex-direction: column">
+<header style="display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px 14px 8px 24px; border-bottom: 1px solid #f0f0f2; flex-wrap: wrap; box-sizing: border-box">
+<div style="display: flex; align-items: baseline; gap: 10px; flex: 1; min-width: 0">
+<span style="align-self: center; flex: none; width: 28px; height: 28px; border-radius: 8px; background: {{accentSoft}}; color: {{accent}}; display: inline-flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg></span>
+<span style="font-size: 15px; font-weight: 600; white-space: nowrap">今日</span>
+<span style="font-size: 12.5px; color: #71717a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">10月5日 周一 · 09:41</span>
+</div>
+<button class="btn" style="border-color: transparent; background: transparent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path></svg>调整布局</button>
+<span style="width: 1px; height: 20px; background: #e7e7ea"></span>
+<div style="display: flex; gap: 2px">
+<button class="ib" aria-label="AI 助手" title="AI 助手"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg></button>
+<button class="ib" aria-label="通知" title="通知" style="position: relative"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span style="position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border-radius: 3px; background: #dc2626"></span></button>
+</div>
+</header>
+
+<div class="bd" style="display: flex; flex-direction: column; gap: 20px">
+
+<div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+<div style="flex: 1 1 320px; min-width: 0">
+<h1 style="margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em">早上好，demo</h1>
+<p style="margin: 4px 0 0; color: #52525b">今天有 2 个 Issue 到期，1 个已逾期，还有 2 条提醒。3 台服务器都在线。</p>
+</div>
+<button class="btn" style="height: 32px; color: #3f3f46"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v2M4.93 4.93l1.41 1.41M20 12h2M19.07 4.93l-1.41 1.41M15.947 12.65a4 4 0 0 0-5.925-4.128"></path><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"></path></svg><span>深圳 26° 多云</span><span style="color: #71717a; font-weight: 400">22° / 29° · 降雨 20%</span></button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: #ececee; border: 1px solid #ececee; border-radius: 10px; overflow: hidden">
+<a class="stat" href="ProjectsB.dc.html" style="background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #71717a">今日待办</span>
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1">2</span><span style="font-size: 11.5px; font-weight: 500; color: #b45309; background: #fef3c7; padding: 1px 6px; border-radius: 5px">逾期 1</span></span>
+<span style="font-size: 12px; color: #71717a">今天要完成的 Issue</span>
+</a>
+<a class="stat" href="#" style="background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #71717a">提醒</span>
+<span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1">2</span>
+<span style="font-size: 12px; color: #71717a">下一条 18:00</span>
+</a>
+<a class="stat" href="#" style="background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #71717a">习惯</span>
+<span style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1">2<span style="color: #a1a1aa; font-weight: 500">/4</span></span><span style="font-size: 12px; color: #71717a">连续 12 天</span></span>
+<span style="display: block; height: 4px; border-radius: 2px; background: #f0f0f2; overflow: hidden; margin-top: 6px"><span style="display: block; width: 50%; height: 100%; background: {{accent}}"></span></span>
+</a>
+<a class="stat" href="#" style="background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #71717a">服务器</span>
+<span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1">3<span style="color: #a1a1aa; font-weight: 500">/3</span></span>
+<span style="font-size: 12px; color: #71717a; display: flex; align-items: center; gap: 6px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #16a34a"></span>全部在线 · 0 条告警</span>
+</a>
+<a class="stat" href="#" style="background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #71717a">Agent 任务</span>
+<span style="display: flex; align-items: baseline; gap: 6px"><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1">1</span><span style="font-size: 12px; color: #71717a">个运行中</span></span>
+<span style="font-size: 12px; color: #71717a">2 个等你决定 · 1 个排队中</span>
+</a>
+<a class="stat" href="#" style="background: #ffffff; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; color: #71717a">下一项日程</span>
+<span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1">14:00</span>
+<span style="font-size: 12px; color: #71717a">产品周会 · 4 小时后</span>
+</a>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+<div style="flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+<section style="border: 1px solid #ececee; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">今日待办</h2>
+<span style="font-size: 12px; color: #71717a; font-variant-numeric: tabular-nums">5</span>
+<a class="lnk" href="ProjectsB.dc.html" style="margin-left: auto; font-size: 12.5px; display: inline-flex; align-items: center; gap: 2px">查看全部<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+</div>
+<div class="row" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<button aria-label="标为完成" style="flex: none; width: 18px; height: 18px; border-radius: 9px; border: 1.5px solid #d4d4d8; background: #ffffff; padding: 0; cursor: pointer"></button>
+<svg width="16" height="16" viewBox="0 0 16 16" aria-label="高优先级" style="flex: none"><rect x="2" y="9" width="3" height="4" rx="1" fill="#52525b"></rect><rect x="6.5" y="6" width="3" height="7" rx="1" fill="#52525b"></rect><rect x="11" y="3" width="3" height="10" rx="1" fill="#52525b"></rect></svg>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #71717a; flex: none; width: 56px">XC-38</span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">云盘统一查看器：PDF 和文本预览</span>
+<span style="flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #52525b; border: 1px solid #ececee; border-radius: 999px; padding: 1px 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #e5793b"></span>XC</span>
+<span style="flex: none; width: 72px; text-align: right; font-size: 12.5px; color: #dc2626; font-variant-numeric: tabular-nums">逾期 1 天</span>
+</div>
+<div class="row" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<button aria-label="标为完成" style="flex: none; width: 18px; height: 18px; border-radius: 9px; border: 1.5px solid #d4d4d8; background: #ffffff; padding: 0; cursor: pointer"></button>
+<svg width="16" height="16" viewBox="0 0 16 16" aria-label="紧急" style="flex: none"><rect x="1.5" y="1.5" width="13" height="13" rx="3.5" fill="#ea580c"></rect><path d="M8 4.6v4.2M8 11.2v.2" stroke="#ffffff" stroke-width="1.8" stroke-linecap="round"></path></svg>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #71717a; flex: none; width: 56px">XC-41</span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">服务器详情页的 Agent 标签</span>
+<span style="flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #52525b; border: 1px solid #ececee; border-radius: 999px; padding: 1px 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #e5793b"></span>XC</span>
+<span style="flex: none; width: 72px; text-align: right; font-size: 12.5px; color: #3f3f46; font-variant-numeric: tabular-nums">今天 18:00</span>
+</div>
+<div class="row" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<button aria-label="标为完成" style="flex: none; width: 18px; height: 18px; border-radius: 9px; border: 1.5px solid #d4d4d8; background: #ffffff; padding: 0; cursor: pointer"></button>
+<svg width="16" height="16" viewBox="0 0 16 16" aria-label="中优先级" style="flex: none"><rect x="2" y="9" width="3" height="4" rx="1" fill="#52525b"></rect><rect x="6.5" y="6" width="3" height="7" rx="1" fill="#52525b"></rect><rect x="11" y="3" width="3" height="10" rx="1" fill="#d4d4d8"></rect></svg>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #71717a; flex: none; width: 56px">HOME-7</span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">客厅空调接入自动化</span>
+<span style="flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: #52525b; border: 1px solid #ececee; border-radius: 999px; padding: 1px 8px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #16a34a"></span>HOME</span>
+<span style="flex: none; width: 72px; text-align: right; font-size: 12.5px; color: #3f3f46">今天</span>
+</div>
+<div class="row" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<button aria-label="标为完成" style="flex: none; width: 18px; height: 18px; border-radius: 9px; border: 1.5px solid #d4d4d8; background: #ffffff; padding: 0; cursor: pointer"></button>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="提醒" style="flex: none"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+<span style="flex: none; width: 56px"></span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">交本月电费</span>
+<span style="flex: none; font-size: 11.5px; color: #52525b; background: #f4f4f5; border-radius: 999px; padding: 2px 8px">提醒</span>
+<span style="flex: none; width: 72px; text-align: right; font-size: 12.5px; color: #3f3f46; font-variant-numeric: tabular-nums">今天 18:00</span>
+</div>
+<div class="row" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<button aria-label="标为完成" style="flex: none; width: 18px; height: 18px; border-radius: 9px; border: 1.5px solid #d4d4d8; background: #ffffff; padding: 0; cursor: pointer"></button>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="监控" style="flex: none"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+<span style="flex: none; width: 56px"></span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">example.com 域名还有 3 天到期</span>
+<span style="flex: none; font-size: 11.5px; color: #52525b; background: #f4f4f5; border-radius: 999px; padding: 2px 8px">监控</span>
+<span style="flex: none; width: 72px; text-align: right; font-size: 12.5px; color: #3f3f46">10月8日</span>
+</div>
+</section>
+
+<section style="border: 1px solid #ececee; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">待你决定</h2>
+<span style="font-size: 12px; color: #71717a">2</span>
+<a class="lnk" href="#" style="margin-left: auto; font-size: 12.5px; display: inline-flex; align-items: center; gap: 2px">Agent 任务<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+</div>
+<div class="row" style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f2f4; flex-wrap: wrap">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 8px; background: #f4f4f5; color: #52525b; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"></path></svg></span>
+<span style="flex: 1 1 200px; min-width: 0"><span style="display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">XC-42 检查清单拖动排序</span><span style="display: block; font-size: 12px; color: #71717a">x-console · 6 个文件有改动 · 12 分钟前</span></span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px"><span style="color: #15803d">+184</span> <span style="color: #b91c1c">−27</span></span>
+<button class="btn">查看改动</button>
+</div>
+<div class="row" style="display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-top: 1px solid #f2f2f4; flex-wrap: wrap">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 8px; background: #f4f4f5; color: #52525b; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7M6 9v12"></path></svg></span>
+<span style="flex: 1 1 200px; min-width: 0"><span style="display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">修复 CI 里的 gofmt 报错</span><span style="display: block; font-size: 12px; color: #71717a">x-console · 1 个文件有改动 · 1 小时前</span></span>
+<span style="font-family: 'Geist Mono', monospace; font-size: 12px"><span style="color: #15803d">+3</span> <span style="color: #b91c1c">−3</span></span>
+<button class="btn">查看改动</button>
+</div>
+</section>
+
+<section style="border: 1px solid #ececee; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">最近动态</h2>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 38px; padding: 0 16px; border-top: 1px solid #f2f2f4; font-size: 13px">
+<span style="flex: none; width: 6px; height: 6px; border-radius: 3px; background: #a1a1aa"></span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"><span style="font-family: 'Geist Mono', monospace; font-size: 12px; color: #71717a">XC-35</span> 主题色和夜间开关，已完成</span>
+<span style="flex: none; font-size: 12px; color: #71717a">1 小时前</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 38px; padding: 0 16px; border-top: 1px solid #f2f2f4; font-size: 13px">
+<span style="flex: none; width: 6px; height: 6px; border-radius: 3px; background: #16a34a"></span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">tokyo-1 的 CPU 告警已恢复</span>
+<span style="flex: none; font-size: 12px; color: #71717a">2 小时前</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 38px; padding: 0 16px; border-top: 1px solid #f2f2f4; font-size: 13px">
+<span style="flex: none; width: 6px; height: 6px; border-radius: 3px; background: #a1a1aa"></span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">笔记《部署清单》已更新</span>
+<span style="flex: none; font-size: 12px; color: #71717a">昨天 22:10</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 38px; padding: 0 16px; border-top: 1px solid #f2f2f4; font-size: 13px">
+<span style="flex: none; width: 6px; height: 6px; border-radius: 3px; background: #a1a1aa"></span>
+<span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">备份到 S3 完成，1.2 GB</span>
+<span style="flex: none; font-size: 12px; color: #71717a">今天 03:00</span>
+</div>
+</section>
+
+</div>
+
+<div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+<section style="border: 1px solid #ececee; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">日程</h2>
+<a class="lnk" href="#" style="margin-left: auto; font-size: 12.5px; display: inline-flex; align-items: center; gap: 2px">打开日历<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+</div>
+<div style="display: flex; gap: 12px; padding: 10px 16px; border-top: 1px solid #f2f2f4; align-items: baseline">
+<span style="flex: none; width: 40px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #71717a">09:30</span>
+<span style="flex: none; width: 7px; height: 7px; border-radius: 4px; background: #d4d4d8; align-self: center"></span>
+<span style="flex: 1; min-width: 0"><span style="display: block; color: #71717a; text-decoration: line-through">站会</span><span style="display: block; font-size: 12px; color: #71717a">09:30–09:45</span></span>
+</div>
+<div style="display: flex; gap: 12px; padding: 10px 16px; border-top: 1px solid #f2f2f4; align-items: baseline; background: #fafafa">
+<span style="flex: none; width: 40px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #18181b; font-weight: 500">14:00</span>
+<span style="flex: none; width: 7px; height: 7px; border-radius: 4px; background: {{accent}}; align-self: center"></span>
+<span style="flex: 1; min-width: 0"><span style="display: block; font-weight: 500">产品周会</span><span style="display: block; font-size: 12px; color: #71717a">14:00–15:00 · 4 小时后</span></span>
+</div>
+<div style="display: flex; gap: 12px; padding: 10px 16px; border-top: 1px solid #f2f2f4; align-items: baseline">
+<span style="flex: none; width: 40px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #71717a">19:30</span>
+<span style="flex: none; width: 7px; height: 7px; border-radius: 4px; background: #2563eb; align-self: center"></span>
+<span style="flex: 1; min-width: 0"><span style="display: block">健身</span><span style="display: block; font-size: 12px; color: #71717a">19:30–20:30</span></span>
+</div>
+</section>
+
+<section style="border: 1px solid #ececee; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">习惯</h2>
+<span style="margin-left: auto; font-size: 12.5px; color: #71717a">2/4 项达标</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<span style="flex: 1; min-width: 0"><span style="display: flex; justify-content: space-between; font-size: 13px"><span>喝水</span><span style="color: #71717a; font-variant-numeric: tabular-nums">6/8 杯</span></span><span style="display: block; height: 4px; border-radius: 2px; background: #f0f0f2; overflow: hidden; margin-top: 6px"><span style="display: block; width: 75%; height: 100%; background: {{accent}}"></span></span></span>
+<button class="btn" style="height: 28px; padding: 0 10px; font-size: 12.5px">打卡</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<span style="flex: 1">阅读 30 分钟</span>
+<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #15803d"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>已打卡</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<span style="flex: 1">早睡</span>
+<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #15803d"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>已打卡</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 16px; border-top: 1px solid #f2f2f4">
+<span style="flex: 1">跑步 3 公里</span>
+<button class="btn" style="height: 28px; padding: 0 10px; font-size: 12.5px">打卡</button>
+</div>
+</section>
+
+<section style="border: 1px solid #ececee; border-radius: 10px; background: #ffffff; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px">
+<h2 style="margin: 0; font-size: 14px; font-weight: 600">智能家居</h2>
+<a class="lnk" href="#" style="margin-left: auto; font-size: 12.5px; display: inline-flex; align-items: center; gap: 2px">全部设备<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 16px 16px">
+<div style="border: 1px solid #ececee; border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+<span style="display: flex; align-items: center; justify-content: space-between"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path><path d="M9 18h6M10 22h4"></path></svg><span role="switch" aria-checked="true" aria-label="客厅灯" style="width: 28px; height: 16px; border-radius: 8px; background: {{accent}}; position: relative; display: inline-block"><span style="position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border-radius: 6px; background: #ffffff"></span></span></span>
+<span style="font-size: 13px; font-weight: 500">客厅灯</span>
+<span style="font-size: 12px; color: #71717a">开 · 亮度 70%</span>
+</div>
+<div style="border: 1px solid #ececee; border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path></svg>
+<span style="font-size: 13px; font-weight: 500">卧室空调</span>
+<span style="font-size: 12px; color: #71717a">制冷 26°C</span>
+</div>
+<div style="border: 1px solid #ececee; border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+<span style="font-size: 13px; font-weight: 500">大门</span>
+<span style="font-size: 12px; color: #71717a">已上锁</span>
+</div>
+<div style="border: 1px solid #ececee; border-radius: 9px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+<span style="font-size: 13px; font-weight: 500">室内</span>
+<span style="font-size: 12px; color: #71717a">24.5°C · 湿度 58%</span>
+</div>
+</div>
+</section>
+
+</div>
+</div>
+</div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","options":["#4f46e5","#2563eb","#0f766e","#18181b"],"default":"#4f46e5"},"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#4f46e5';
+    return { accent: accent, accentSoft: accent + '1a' };
+  }
+}
+</script>
+</body>
+</html>
