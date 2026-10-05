@@ -548,10 +548,7 @@
   }
 }
 
-/* 外壳修正：导航改成了链接，命令面板结果的布局 */
-a.nav-item {
-  text-decoration: none;
-}
+/* 命令面板结果的布局 */
 .command-results button > svg {
   margin-left: 0;
   flex: none;
@@ -578,11 +575,6 @@ a.nav-item {
 }
 .xc-table-wrap > .xc-table {
   min-width: 560px;
-}
-@media (max-width: 720px) {
-  .sidebar:not(.open) {
-    box-shadow: none;
-  }
 }
 
 /* 概要卡片（初版“今日”顶部那一排） */
@@ -957,73 +949,6 @@ a.xc-badge:hover {
   }
 }
 
-/* 侧边栏二级菜单：右边的箭头展开，下面列最多 5 条，多了给“全部”链接 */
-.nav-entry {
-  position: relative;
-}
-.nav-item.has-children {
-  padding-right: 28px;
-}
-.nav-toggle {
-  position: absolute;
-  top: 2px;
-  right: 3px;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: none;
-  color: var(--xc-faint);
-  opacity: 0;
-  transition:
-    opacity 0.12s,
-    transform 0.12s;
-}
-.nav-entry:hover .nav-toggle,
-.nav-toggle:focus-visible,
-.nav-toggle.open {
-  opacity: 1;
-}
-.nav-toggle:hover {
-  background: var(--xc-surface-2);
-  color: var(--xc-text);
-}
-/* B76：一级菜单右边的数量。1 到 9 显示数字，10 以上只显示一个点 */
-.nav-badge {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  margin-left: auto;
-  padding: 0 4px;
-  border-radius: 9px;
-  background: var(--xc-danger-soft);
-  color: var(--xc-danger);
-  font-size: var(--fs-11);
-  font-style: normal;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-.nav-badge.warn {
-  background: var(--xc-warn-soft);
-  color: var(--xc-warn);
-}
-.nav-badge.dot {
-  min-width: 8px;
-  width: 8px;
-  height: 8px;
-  margin-right: 5px;
-  padding: 0;
-  background: var(--xc-danger);
-}
-.nav-badge.warn.dot {
-  background: var(--xc-warn);
-}
 /* B86、B88：一级菜单的图标可以换成别的，或者在有任务时跳动 */
 .nav-icon {
   display: inline-grid;
@@ -1051,34 +976,6 @@ a.xc-badge:hover {
     animation: none;
   }
 }
-/* B93：一级菜单右边的一小段状态，比如路由器的在线设备和网速 */
-.nav-status {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
-.nav-status + .nav-badge {
-  margin-left: 6px;
-}
-.nav-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--xc-faint);
-}
-.nav-status-dot.ok {
-  background: var(--xc-ok);
-}
-.nav-status-dot.warn {
-  background: var(--xc-warn);
-}
-.nav-status-dot.danger {
-  background: var(--xc-danger);
-}
 /* 二级菜单里正在工作的条目，名称右边转圈（B86） */
 .nav-child-spin {
   flex: none;
@@ -1089,74 +986,21 @@ a.xc-badge:hover {
 .nav-child-spin + small {
   margin-left: 6px;
 }
-/* B72：一级菜单行内的小按钮（笔记的“+”），在折叠箭头左边，悬停时出现 */
-.nav-action {
-  position: absolute;
-  top: 2px;
-  right: 3px;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 5px;
-  background: none;
-  color: var(--xc-faint);
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity 0.12s;
-}
-.nav-item.has-children ~ .nav-action {
-  right: 27px;
-}
-.nav-item.has-action {
-  padding-right: 28px;
-}
-.nav-item.has-children.has-action {
-  padding-right: 52px;
-}
-.nav-entry:hover .nav-action,
-.nav-action:focus-visible {
-  opacity: 1;
-}
-.nav-action:hover {
-  background: var(--xc-surface-2);
-  color: var(--xc-accent-text);
-}
-@media (hover: none) {
-  .nav-action {
-    opacity: 1;
-  }
-}
-.nav-toggle svg {
-  transition: transform 0.15s;
-}
-.nav-toggle.open svg {
-  transform: rotate(90deg);
-}
-@media (hover: none) {
-  .nav-toggle {
-    opacity: 1;
-  }
-}
+/* 二级菜单（B99）：放在图标栏右边的栏里 */
 .nav-children {
   display: grid;
-  gap: 1px;
-  margin: 1px 0 4px 17px;
-  padding-left: 9px;
-  border-left: 1px solid var(--xc-border);
+  gap: 2px;
 }
 .nav-child {
   display: flex;
   align-items: center;
-  gap: 7px;
-  height: 26px;
+  gap: 9px;
+  height: 34px;
   min-width: 0;
-  padding: 0 7px;
-  border-radius: 5px;
-  color: var(--xc-muted);
-  font-size: var(--fs-12-5);
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--xc-text-2);
+  font-size: var(--fs-13-5);
   text-decoration: none;
 }
 /* 二级菜单拖动排序（B82） */
@@ -1179,14 +1023,15 @@ a.xc-badge:hover {
 }
 .nav-child small {
   flex: none;
-  color: var(--xc-faint);
-  font-size: var(--fs-11);
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
 }
 .nav-child:hover {
   background: var(--xc-surface-2);
   color: var(--xc-text);
 }
-/* B76：选中的二级菜单用强调色，左边的竖线上加一段强调色 */
+/* B76、B99：选中的二级菜单用主题色浅底 */
 .nav-child {
   position: relative;
 }
@@ -1194,16 +1039,6 @@ a.xc-badge:hover {
   background: var(--xc-accent-soft);
   color: var(--xc-accent-text);
   font-weight: 500;
-}
-.nav-child.selected::before {
-  content: "";
-  position: absolute;
-  top: 5px;
-  bottom: 5px;
-  left: -10px;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--xc-accent);
 }
 .nav-child.selected small,
 .nav-child.selected .nav-child-mark {
@@ -1250,7 +1085,7 @@ a.xc-badge:hover {
   opacity: 0.5;
 }
 .nav-children-note {
-  padding: 4px 7px;
+  padding: 6px 10px;
   color: var(--xc-faint);
   font-size: var(--fs-12);
 }
@@ -1738,69 +1573,6 @@ a.xc-badge:hover {
   }
 }
 
-/* ---- 侧边栏折叠（B20） ---- */
-@media (min-width: 721px) {
-  .sidebar .sidebar-collapse {
-    display: none;
-  }
-  .sidebar.collapsed {
-    width: 56px;
-  }
-  .sidebar.collapsed .workspace-switch > span:not(.brand-mark),
-  .sidebar.collapsed .side-label,
-  .sidebar.collapsed .sidebar-search span,
-  .sidebar.collapsed .sidebar-search kbd,
-  .sidebar.collapsed .nav-toggle,
-  .sidebar.collapsed .nav-action,
-  .sidebar.collapsed .nav-children,
-  .sidebar.collapsed .nav-item span,
-  .sidebar.collapsed .nav-item em,
-  .sidebar.collapsed .profile > span:not(.profile-avatar),
-  .sidebar.collapsed .profile > svg {
-    display: none;
-  }
-  .sidebar.collapsed .workspace-switch {
-    justify-content: center;
-    padding: 0;
-  }
-  .sidebar.collapsed .sidebar-search,
-  .sidebar.collapsed .nav-item,
-  .sidebar.collapsed .profile {
-    justify-content: center;
-    padding-left: 0;
-    padding-right: 0;
-  }
-  .sidebar.collapsed .side-label + * {
-    margin-top: 0;
-  }
-  .sidebar.collapsed .nav-groups > div + div {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--xc-border);
-  }
-  .sidebar.collapsed .profile-popover {
-    width: 220px;
-  }
-  /* 折叠时数量变成图标右上角的点 */
-  .sidebar.collapsed .nav-item {
-    position: relative;
-  }
-  .sidebar.collapsed .nav-badge {
-    position: absolute;
-    top: 5px;
-    right: 9px;
-    min-width: 7px;
-    width: 7px;
-    height: 7px;
-    margin: 0;
-    padding: 0;
-    font-size: 0;
-    background: var(--xc-danger);
-  }
-  .sidebar.collapsed .nav-badge.warn {
-    background: var(--xc-warn);
-  }
-}
 @media (max-width: 720px) {
   .page-actions kbd,
   .page-actions > .xc-muted {
@@ -1920,8 +1692,9 @@ a.xc-badge:hover {
 
 /* 二级菜单里缩进的子链接，比如项目下面的分类（B36） */
 .nav-child.nested {
-  padding-left: 22px;
-  font-size: var(--fs-12);
+  height: 30px;
+  padding-left: 28px;
+  font-size: var(--fs-12-5);
 }
 
 /* ---- 报错提示和普通提示的容器（B41） ---- */

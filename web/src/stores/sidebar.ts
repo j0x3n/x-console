@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { registerCommands } from "../lib/commands";
 import { PanelLeft } from "lucide-react";
 
-/* 桌面上侧边栏可以收成一列图标（B20）。状态记在 localStorage。 */
+/* 桌面上二级菜单那一栏可以收起，只留图标栏（B20、B99）。状态记在 localStorage。 */
 const KEY = "xc.sidebar.collapsed";
 
 function read(): boolean {
@@ -34,9 +34,9 @@ export const useSidebar = create<SidebarState>()((set, get) => ({
 registerCommands([
   {
     id: "layout.toggle-sidebar",
-    title: "折叠或展开侧边栏",
+    title: "收起或展开二级菜单",
     group: "界面",
-    keywords: "sidebar collapse expand 侧边栏 折叠 展开",
+    keywords: "sidebar collapse expand 侧边栏 二级菜单 折叠 展开",
     icon: PanelLeft,
     run: () => useSidebar.getState().toggle(),
   },

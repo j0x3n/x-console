@@ -57,7 +57,7 @@
 | B95 | 代理支持树莓派（32 位 armv7 和 64 位 arm64） | 见下 | 64 位已支持，等用户提供连接错误日志 |
 | B96 | 习惯页推荐模板（建过的不重复建）；AI 建习惯、改习惯时能传全部提醒参数 | [B96](specs/B96.md) | 前后端都完成（前端 `a22a490`，后端 Claude） |
 | B98 | 界面改版第 1 步：新的颜色、主题色（去掉褐色，默认靛蓝）、字体，公共组件换成 clean 样式，合并进 07-design | [B98](specs/B98.md) 第一、二节 | 完成（Claude，2026-10-05） |
-| B99 | 界面改版第 2 步：左栏改成图标栏加二级菜单，现有二级菜单、数量、动画、“+”都搬过去 | [B98](specs/B98.md) 第三节 | |
+| B99 | 界面改版第 2 步：左栏改成图标栏加二级菜单，现有二级菜单、数量、动画、“+”都搬过去 | [B98](specs/B98.md) 第三节 | 完成（Claude，2026-10-05） |
 | B100 | 界面改版第 3 步：顶栏和今日页按新设计稿 | [B98](specs/B98.md) 第四节 | |
 | B101 | 界面改版第 4 步：项目的二级菜单和视图（我的 Issue、今天到期、已逾期、本周到期），项目列表和看板按新设计稿 | [B98](specs/B98.md) 第五节 | |
 | B102 | 界面改版第 5 步：其他模块的二级菜单和页面，分三组做（组 1 □ 组 2 □ 组 3 □） | [B98](specs/B98.md) 第六节 | |
@@ -229,6 +229,8 @@
 
 ## 已知问题
 
+- 自动化的 `TestMetricCooldownAndWebhookSecret` 在全量 `go test -race ./...` 时偶尔失败（运行停在 running）。2026-10-05 单独跑 3 次都通过，后端代码当时没改过。可能是等待时间在高负载下不够，还没查。
+
 - 本机 Node 25 下的前端测试存在 `localStorage` 兼容问题，字号脚本也未适配 Windows 路径。本次用 Linux Node 22 检查通过，没有改这些公共脚本。
 
 - B90：和风官方提示 v7 城市天气接口将弃用。本批按规格使用城市 ID 取得站点实况，后续需迁移 v1。（暂不排期）
@@ -354,6 +356,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B99（2026-10-05）：`components/layout/Sidebar.tsx` 重写成图标栏加二级菜单，外层仍是 `.sidebar`（脚本按它找左栏），菜单项是 `.nav-rail-item`，链接的可读名称是模块名（`aria-label`）。新增导出 `moduleForPath()`。`lib/navChildren.ts` 的 `NAV_CHILD_LIMIT` 从 5 改成 30。`stores/sidebar.ts` 的 `collapsed` 现在表示二级菜单收起。登记接口（`registerNavChildren`、`registerNavBadge`、`registerNavIcon`、`registerNavStatus`、`registerNavAction`）不变，显示位置变了。旧左栏的样式从 `styles.css`、`ui.css`、`theme.css`、`refinements.css`、`motion.css` 删掉，新样式在 `styles/nav.css`。
 
 - B98（2026-10-05）：`core.yaml` 的主题色枚举改成 `indigo, ocean, teal, violet, rose, graphite`，默认 `indigo`。旧值 `ember`、`mint` 仍然接受，服务端读写时换成 `indigo`、`teal`。前端用 `normalizeAccent()` 做同样的转换。基础代码改了 `styles/tokens.css`（颜色值、新增 `--xc-on-accent`、`--xc-sans`）、`styles/ui.css`（按钮、卡片、概要条、分段切换、标签）、`styles/styles.css` 和 `theme.css`（内容区不再是浮起的圆角面板），字体改成跟前端打包的 Geist。
 

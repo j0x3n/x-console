@@ -44,9 +44,7 @@
   animation: dialog-enter 0.17s ease-out both;
 }
 
-.sidebar-search,
-.nav-item,
-.profile,
+.nav-rail-item,
 .decision-card,
 .meeting-row,
 .activity-row,
@@ -75,9 +73,7 @@ html[data-theme="light"] .command-results button.is-selected {
     animation: none;
   }
 
-  .sidebar-search,
-  .nav-item,
-  .profile,
+  .nav-rail-item,
   .decision-card,
   .meeting-row,
   .activity-row,

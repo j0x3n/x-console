@@ -152,11 +152,10 @@ html .toast {
   html .sidebar {
     top: var(--xc-visible-top);
     height: var(--xc-visible-height);
-    padding-top: calc(8px + var(--xc-safe-top));
-    padding-bottom: calc(8px + var(--xc-safe-bottom));
-    padding-left: calc(8px + var(--xc-safe-left));
-    width: calc(232px + var(--xc-safe-left));
-    max-width: calc(100% - 32px - var(--xc-safe-right));
+    padding-top: var(--xc-safe-top);
+    padding-bottom: var(--xc-safe-bottom);
+    padding-left: var(--xc-safe-left);
+    max-width: calc(100% - 48px - var(--xc-safe-right));
   }
 
   html .mobile-scrim {

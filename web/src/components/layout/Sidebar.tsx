@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import {
-  ChevronRight,
   LogOut,
   Moon,
   Palette,
-  PanelLeftClose,
   Search,
   Settings2,
   Languages,
+  type LucideIcon,
 } from "lucide-react";
 import { navGroupLabels, navItems, type NavGroup } from "../../app/nav";
 import { moduleOfPath, useModules } from "../../app/modules";
@@ -21,7 +20,6 @@ import {
   InstallMenuItem,
 } from "../../features/pwa/InstallMenu";
 import { useNavChildren } from "../../lib/navChildren";
-import type { LucideIcon } from "lucide-react";
 import {
   badgeLabel,
   useNavExtras,
@@ -33,23 +31,17 @@ import {
 import { lastPathFor } from "../../hooks/useKeepScroll";
 import { useSidebar } from "../../stores/sidebar";
 
-// 二级菜单展开了哪些，记在 localStorage。
-const OPEN_KEY = "xc.nav.open";
-function readOpen(): string[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "[]");
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
-}
-
 interface SidebarProps {
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
   openPalette: () => void;
 }
 
+/*
+ * 左栏（B99）：最左边一条图标栏放全部模块，右边是当前模块的二级菜单。
+ * 二级菜单只有登记过 registerNavChildren 的模块才有，⌘B 收起或展开。
+ * 手机上整个左栏是一个抽屉，图标栏和二级菜单一起出来。
+ */
 export default function Sidebar({
   mobileOpen,
   setMobileOpen,
@@ -59,22 +51,8 @@ export default function Sidebar({
   const children = useNavChildren();
   const extras = useNavExtras();
   const navigate = useNavigate();
-  const collapsed = useSidebar((s) => s.collapsed);
-  const [open, setOpen] = useState<string[]>(readOpen);
+  const panelHidden = useSidebar((s) => s.collapsed);
   const location = useLocation();
-  const atRoot = (path: string) => location.pathname === path;
-  // 点一级菜单就展开它的二级菜单；只有点箭头才会收起。
-  const setItemOpen = (path: string, value: boolean) =>
-    setOpen((prev) => {
-      if (prev.includes(path) === value) return prev;
-      const next = value ? [...prev, path] : prev.filter((p) => p !== path);
-      try {
-        localStorage.setItem(OPEN_KEY, JSON.stringify(next));
-      } catch {
-        /* 记不住就算了 */
-      }
-      return next;
-    });
   // B57：锁定时被隐藏的模块不出现，分组空了整组不显示
   const modules = useModules();
   const groups = (Object.keys(navGroupLabels) as NavGroup[])
@@ -85,146 +63,149 @@ export default function Sidebar({
       ),
     }))
     .filter((g) => g.items.length > 0);
+  const currentPath = moduleForPath(location.pathname);
+  const current = navItems.find(
+    (n) => n.path === currentPath && modules.has(moduleOfPath(n.path)),
+  );
+  const Panel = current ? children[current.path] : undefined;
+  const action = current ? extras.actions[current.path] : undefined;
+  const showPanel = !!current && !!Panel && (mobileOpen || !panelHidden);
+  const close = () => setMobileOpen(false);
   return (
     <>
       {mobileOpen && (
         <button
           className="mobile-scrim"
           aria-label={t("Close navigation")}
-          onClick={() => setMobileOpen(false)}
+          onClick={close}
         />
       )}
-      <nav
-        className={`sidebar${mobileOpen ? " open" : ""}${collapsed ? " collapsed" : ""}`}
-        aria-label={t("Main")}
-      >
-        <div className="workspace-switch">
-          {/* 点 Logo 发出事件。隐藏内容模块（B13）数连续点击次数。 */}
-          <span
-            className="brand-mark"
-            onClick={() => window.dispatchEvent(new Event("xc:brand-tap"))}
+      <div className={`sidebar${mobileOpen ? " open" : ""}`}>
+        <nav className="nav-rail" aria-label={t("Main")}>
+          {/* 点 Logo 回今日，同时发出事件。隐藏内容模块（B13）数连续点击次数。 */}
+          <button
+            type="button"
+            className="nav-rail-brand"
+            aria-label="X Console"
+            onClick={() => {
+              window.dispatchEvent(new Event("xc:brand-tap"));
+              navigate("/");
+              close();
+            }}
           >
             X
-          </span>
-          <span>X Console</span>
+          </button>
           {/* 隐藏内容解锁时，VaultPanel 把锁定按钮放到这里 */}
           <span id="brand-slot" className="brand-slot" />
           <button
-            className="icon-button sidebar-collapse"
-            title={t("Close navigation")}
-            onClick={() => setMobileOpen(false)}
+            type="button"
+            className="nav-rail-item"
+            aria-label={t("Search or run a command...")}
+            onClick={openPalette}
           >
-            <PanelLeftClose size={15} />
+            <Search size={18} strokeWidth={1.6} />
+            <span className="nav-rail-tip">
+              {t("Search")} <kbd>⌘K</kbd>
+            </span>
           </button>
-        </div>
-        <button
-          className="sidebar-search"
-          onClick={openPalette}
-          title={collapsed ? t("Search or run a command...") : undefined}
-        >
-          <Search size={15} />
-          <span>{t("Search or run a command...")}</span>
-          <kbd>⌘K</kbd>
-        </button>
-        <div className="nav-groups">
-          {groups.map(({ group, items }) => (
-            <div key={group}>
-              {navGroupLabels[group] && (
-                <div className="side-label">{t(navGroupLabels[group])}</div>
-              )}
-              {items.map((item) => {
-                const Children = children[item.path];
-                const isOpen = !!Children && open.includes(item.path);
-                const badge = extras.badges[item.path];
-                const action = extras.actions[item.path];
-                const iconHook = extras.icons[item.path];
-                const status = extras.statuses[item.path];
-                return (
-                  <div key={item.path} className="nav-entry">
-                    <NavLink
-                      to={
-                        item.path === "/"
-                          ? "/"
-                          : lastPathFor(item.path, location.pathname)
-                      }
-                      end={item.path === "/"}
-                      title={collapsed ? t(item.label) : undefined}
-                      onClick={() => {
-                        // 从别的页面点过来时展开；已经在这一页、已经展开时再点一下收起。
-                        if (Children)
-                          setItemOpen(
-                            item.path,
-                            !(isOpen && atRoot(item.path)),
-                          );
-                        setMobileOpen(false);
-                      }}
-                      className={({ isActive }) =>
-                        `nav-item ${selectedFor(item.path, isActive, location.pathname) ? "selected" : ""}${Children ? " has-children" : ""}${action ? " has-action" : ""}`
-                      }
-                    >
-                      {iconHook ? (
-                        <NavIconMark hook={iconHook} fallback={item.icon} />
-                      ) : (
-                        <item.icon size={17} strokeWidth={1.5} />
-                      )}
-                      <span>{t(item.label)}</span>
-                      {status && <NavStatusMark hook={status} />}
-                      {badge && <NavBadgeMark hook={badge} />}
-                    </NavLink>
-                    {action && (
-                      <NavActionButton
-                        action={action}
-                        onRun={() => {
-                          setMobileOpen(false);
-                          action.run(navigate);
-                        }}
-                      />
+          {groups.map(({ group, items }, index) => (
+            <Fragment key={group}>
+              <span
+                className={`nav-rail-sep${index === 0 ? " first" : ""}`}
+                aria-hidden
+              />
+              {items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={
+                    item.path === "/"
+                      ? "/"
+                      : lastPathFor(item.path, location.pathname)
+                  }
+                  aria-label={t(item.label)}
+                  onClick={close}
+                  className={`nav-rail-item${item.path === currentPath ? " selected" : ""}`}
+                >
+                  {extras.icons[item.path] ? (
+                    <NavIconMark
+                      hook={extras.icons[item.path]}
+                      fallback={item.icon}
+                    />
+                  ) : (
+                    <item.icon size={18} strokeWidth={1.6} />
+                  )}
+                  {extras.badges[item.path] ? (
+                    <NavBadgeMark hook={extras.badges[item.path]} />
+                  ) : (
+                    extras.statuses[item.path] && (
+                      <NavStatusDot hook={extras.statuses[item.path]} />
+                    )
+                  )}
+                  <span className="nav-rail-tip">
+                    {t(item.label)}
+                    {extras.statuses[item.path] && (
+                      <NavStatusText hook={extras.statuses[item.path]} />
                     )}
-                    {Children && (
-                      <button
-                        type="button"
-                        className={`nav-toggle${isOpen ? " open" : ""}`}
-                        aria-expanded={isOpen}
-                        aria-label={`${isOpen ? t("Collapse menu") : t("Expand menu")} ${t(item.label)}`}
-                        onClick={() => setItemOpen(item.path, !isOpen)}
-                      >
-                        <ChevronRight size={14} />
-                      </button>
-                    )}
-                    {isOpen && (
-                      <div className="nav-children">
-                        <Children onNavigate={() => setMobileOpen(false)} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  </span>
+                </NavLink>
+              ))}
+            </Fragment>
           ))}
-        </div>
-        <ProfileMenu />
-      </nav>
+          <span className="nav-rail-spacer" />
+          <NavLink
+            to="/settings"
+            aria-label={t("Settings")}
+            onClick={close}
+            className={({ isActive }) =>
+              `nav-rail-item${isActive ? " selected" : ""}`
+            }
+          >
+            <Settings2 size={18} strokeWidth={1.6} />
+            <span className="nav-rail-tip">{t("Settings")}</span>
+          </NavLink>
+          <ProfileMenu />
+        </nav>
+        {showPanel && (
+          <aside className="nav-panel" aria-label={t(current.label)}>
+            <div className="nav-panel-head">
+              <span>{t(current.label)}</span>
+              {action && (
+                <NavActionButton
+                  action={action}
+                  onRun={() => {
+                    close();
+                    action.run(navigate);
+                  }}
+                />
+              )}
+            </div>
+            <div className="nav-panel-body nav-children">
+              <Panel onNavigate={close} />
+            </div>
+          </aside>
+        )}
+      </div>
     </>
   );
 }
 
-/** 一级菜单右边的数量（B76）。单独一个组件，登记的 Hook 在这里调用，顺序固定。 */
+/** 图标右上角的数量（B76）。单独一个组件，登记的 Hook 在这里调用，顺序固定。 */
 function NavBadgeMark({ hook }: { hook: NavBadgeHook }) {
   const badge = hook();
   if (!badge || badge.count <= 0) return null;
   const label = badgeLabel(badge.count);
   return (
     <i
-      className={`nav-badge ${badge.tone ?? "danger"}${label ? "" : " dot"}`}
+      className={`nav-rail-badge ${badge.tone ?? "danger"}${label ? "" : " dot"}`}
       title={badge.title}
-      aria-hidden
+      aria-label={badge.title}
     >
       {label}
     </i>
   );
 }
 
-/** 一级菜单的图标：模块可以换图标，或者让它跳动表示正在工作（B86、B88）。 */
+/** 图标：模块可以换图标，或者让它跳动表示正在工作（B86、B88）。 */
 function NavIconMark({
   hook,
   fallback,
@@ -240,24 +221,25 @@ function NavIconMark({
       title={state?.title}
       aria-hidden
     >
-      <Icon size={17} strokeWidth={1.5} />
+      <Icon size={18} strokeWidth={1.6} />
     </i>
   );
 }
 
-/** 一级菜单右边的一小段状态，比如路由器的在线设备和网速（B93）。 */
-function NavStatusMark({ hook }: { hook: NavStatusHook }) {
+/** 路由器这类状态（B93）：图标右上角一个点，文字放进悬停提示。 */
+function NavStatusDot({ hook }: { hook: NavStatusHook }) {
   const status = hook();
-  if (!status) return null;
-  return (
-    <i className="nav-status" title={status.title}>
-      {status.dot && <b className={`nav-status-dot ${status.dot}`} />}
-      {status.text && <em>{status.text}</em>}
-    </i>
-  );
+  if (!status?.dot) return null;
+  return <i className={`nav-rail-status ${status.dot}`} aria-hidden />;
 }
 
-/** 一级菜单行内的小按钮，比如笔记的“+”（B72）。 */
+function NavStatusText({ hook }: { hook: NavStatusHook }) {
+  const status = hook();
+  const text = status?.text || status?.title;
+  return text ? <small>{text}</small> : null;
+}
+
+/** 二级菜单标题栏右边的按钮，比如笔记的“+”（B72）。 */
 function NavActionButton({
   action,
   onRun,
@@ -270,12 +252,12 @@ function NavActionButton({
   return (
     <button
       type="button"
-      className="nav-action"
+      className="nav-panel-action"
       aria-label={t(action.label)}
       title={t(action.label)}
       onClick={onRun}
     >
-      <Icon size={14} />
+      <Icon size={16} />
     </button>
   );
 }
@@ -383,19 +365,14 @@ function ProfileMenu() {
         </div>
       )}
       <button
-        className="profile"
+        className="nav-rail-avatar"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={`${t("Account")} ${username}`}
+        title={username}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="profile-avatar">
-          {username.slice(0, 2).toUpperCase()}
-        </span>
-        <span>
-          <b>{username}</b>
-          <small>X Console</small>
-        </span>
-        <Settings2 size={15} />
+        {username.slice(0, 1).toUpperCase()}
       </button>
     </div>
   );
@@ -410,8 +387,14 @@ const nextThemeMode = {
 
 const themeModeLabels = { dark: "On", light: "Off", system: "Auto" } as const;
 
-/** 早报的地址在 /calendar 下面，但属于今日页（B66）：这时高亮“今日”。 */
-function selectedFor(path: string, isActive: boolean, pathname: string) {
-  if (pathname.startsWith("/calendar/briefs")) return path === "/";
-  return isActive;
+/**
+ * 当前地址属于哪个一级菜单。早报的地址在 /calendar 下面，但属于今日页（B66）。
+ * 导出给测试用。
+ */
+export function moduleForPath(pathname: string): string | undefined {
+  if (pathname === "/" || pathname.startsWith("/calendar/briefs")) return "/";
+  return navItems
+    .filter((n) => n.path !== "/")
+    .find((n) => pathname === n.path || pathname.startsWith(`${n.path}/`))
+    ?.path;
 }
