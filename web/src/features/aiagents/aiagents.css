@@ -262,9 +262,12 @@
 }
 
 /* 页签最后的“Git 账号在设置里管理”（B62）：靠右，字小一号 */
-.xc-tabs .aiagent-tabs-link {
-  margin-left: auto;
+.aiagent-tabs-link {
   font-size: var(--fs-12);
+  color: var(--xc-muted);
+}
+.aiagent-tabs-link:hover {
+  color: var(--xc-text);
 }
 
 /* B86：执行日志 */

@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Bot, FolderGit2, GitBranch, Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
-import { Toolbar } from "../../components/ui/Toolbar";
-import AgentTabs from "../aiagents/AgentTabs";
 import {
   MiniBars,
   Segments,
@@ -135,7 +133,6 @@ export default function CodingPage() {
           </button>
         }
       />
-      <Toolbar start={<AgentTabs />} />
       {!!tasks.data?.length && <CodingStats tasks={tasks.data} />}
       <div className="xc-tabs" role="tablist">
         {FILTERS.map((f) => (

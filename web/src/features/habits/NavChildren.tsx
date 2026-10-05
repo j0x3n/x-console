@@ -1,5 +1,5 @@
 import { useLocation } from "react-router";
-import { ClipboardList, Dumbbell, Plus, Sun } from "lucide-react";
+import { ChartColumn, ClipboardList, Dumbbell, Plus, Sun } from "lucide-react";
 import {
   NavPanelGroup,
   NavPanelLink,
@@ -16,7 +16,7 @@ import { useCheckin, useHabitsToday } from "./api";
 import { formatAmount, todayProgress } from "./progress";
 
 /**
- * 左栏“习惯”的二级菜单（B102）：今天、健身、个人计划，
+ * 左栏“习惯”的二级菜单（B102）：今天、健身、个人计划、统计（B103），
  * 下面列出今天的习惯，右边“+”打一次卡。没达标的排前面。
  */
 
@@ -81,6 +81,13 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
           icon={ClipboardList}
           label={t("Personal plan")}
           active={pathname.startsWith("/habits/plan")}
+          onNavigate={onNavigate}
+        />
+        <NavPanelLink
+          to="/habits/stats"
+          icon={ChartColumn}
+          label={t("Stats")}
+          active={pathname.startsWith("/habits/stats")}
           onNavigate={onNavigate}
         />
       </NavPanelGroup>

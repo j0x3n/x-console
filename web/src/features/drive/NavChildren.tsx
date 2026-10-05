@@ -1,9 +1,8 @@
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { Cloud, EyeOff, Folder, HardDrive, Link2, Trash2 } from "lucide-react";
 import {
   NavPanelGroup,
   NavPanelLink,
-  NavPanelSearch,
   NavPanelStack,
 } from "../../components/layout/NavPanel";
 import { useT } from "../../contexts/LanguageContext";
@@ -13,12 +12,11 @@ import { useDriveItems } from "./api";
 import { useRemoteDrives } from "./remote";
 
 /**
- * 左栏“云盘”的二级菜单（B102）：搜索、文件、隐藏（解锁后）、分享、回收站，
+ * 左栏“云盘”的二级菜单（B102）：文件、隐藏（解锁后）、分享、回收站，
  * 下面是根目录的文件夹和备份设置里绑定的网盘。地址参数和云盘页的标签一样。
  */
 export default function DriveNavChildren({ onNavigate }: NavChildrenProps) {
   const t = useT();
-  const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(
     location.pathname === "/drive" ? location.search : "",
@@ -38,13 +36,6 @@ export default function DriveNavChildren({ onNavigate }: NavChildrenProps) {
 
   return (
     <NavPanelStack>
-      <NavPanelSearch
-        placeholder={t("Search files")}
-        onSubmit={(q) => {
-          navigate(`/drive${q ? `?q=${encodeURIComponent(q)}` : ""}`);
-          onNavigate();
-        }}
-      />
       <NavPanelGroup>
         <NavPanelLink
           to="/drive"

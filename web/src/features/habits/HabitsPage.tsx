@@ -1,4 +1,4 @@
-import { NavLink, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { CalendarClock, Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { Ring, Segments, StatCard, StatStrip } from "../../components/ui/Stat";
@@ -152,18 +152,6 @@ export default function HabitsPage() {
             />
           </StatStrip>
         )}
-      <nav className="xc-tabs">
-        {tabs.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.to}
-            end
-            className={item.id === current.id ? "active" : ""}
-          >
-            {t(item.label)}
-          </NavLink>
-        ))}
-      </nav>
       {current.id === "" && (
         <TodayView
           creating={creating}

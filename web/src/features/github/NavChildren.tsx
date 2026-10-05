@@ -52,6 +52,8 @@ export default function ReposNavChildren({ onNavigate }: NavChildrenProps) {
               active: location.pathname === "/github" && current === r.key,
             };
           })}
+          // B103：页面上不再有仓库列表，二级菜单列出全部仓库
+          limit={list.rows.length}
           allTo="/github"
           loading={status.isPending || (configured && list.isPending)}
           error={list.isError}

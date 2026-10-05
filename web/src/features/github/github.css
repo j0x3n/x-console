@@ -335,98 +335,9 @@
 /* ---- B70：仓库页 ---- */
 .repos-layout {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   align-items: start;
-}
-.repos-side {
-  position: sticky;
-  top: 12px;
-  min-width: 0;
-}
-.repos-side-select {
-  display: none;
-}
-.repos-side-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: calc(100dvh - 140px);
-  overflow-y: auto;
-  padding: 8px;
-  border: 1px solid var(--xc-border);
-  border-radius: var(--xc-radius-lg);
-  background: var(--xc-surface);
-  scrollbar-width: thin;
-}
-.repos-side-panel .xc-search {
-  width: auto;
-  margin-bottom: 6px;
-}
-.repos-side-empty {
-  margin: 8px;
-  font-size: var(--fs-12-5);
-}
-.repos-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 36px;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: var(--xc-text-2);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.repos-row:hover {
-  background: var(--xc-surface-2);
-}
-.repos-row.active {
-  background: var(--xc-accent-soft);
-  color: var(--xc-text);
-}
-.repos-row-all-icon {
-  flex: none;
-  color: var(--xc-muted);
-}
-.repos-row-name {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.25;
-}
-.repos-row-name strong,
-.repos-row-name small,
-.repos-row.all .repos-row-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.repos-row-name strong {
-  color: var(--xc-text);
-  font-size: var(--fs-13);
-  font-weight: 500;
-}
-.repos-row-name small {
-  color: var(--xc-faint);
-  font-size: var(--fs-11);
-}
-.repos-row-count {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  color: var(--xc-muted);
-  font-size: var(--fs-11);
-  font-variant-numeric: tabular-nums;
-}
-.repos-row .xc-dot {
-  flex: none;
 }
 .repos-forge {
   flex: none;
@@ -440,39 +351,6 @@
   border-radius: 3px;
   background: var(--repo);
 }
-.repos-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.repos-group-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 8px 4px;
-  border: 0;
-  background: none;
-  color: var(--xc-faint);
-  font: inherit;
-  font-size: var(--fs-11);
-  font-weight: 500;
-  cursor: pointer;
-}
-.repos-group-head > span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.repos-group-head svg {
-  transition: transform 0.15s;
-}
-.repos-group-head.open svg {
-  transform: rotate(90deg);
-}
-
 .repos-main {
   display: flex;
   flex-direction: column;
@@ -767,18 +645,7 @@
 
 @media (max-width: 900px) {
   .repos-layout {
-    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
-  }
-  .repos-side {
-    position: static;
-  }
-  .repos-side-select {
-    display: block;
-    width: 100%;
-  }
-  .repos-side-panel {
-    display: none;
   }
 }
 @media (max-width: 720px) {

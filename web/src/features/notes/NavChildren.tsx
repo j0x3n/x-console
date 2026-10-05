@@ -1,9 +1,8 @@
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { Archive, EyeOff, Notebook, Pin, StickyNote } from "lucide-react";
 import {
   NavPanelGroup,
   NavPanelLink,
-  NavPanelSearch,
   NavPanelStack,
 } from "../../components/layout/NavPanel";
 import { useT } from "../../contexts/LanguageContext";
@@ -13,12 +12,11 @@ import { useNoteCounts, useTags } from "./api";
 import { tagColor } from "./tagColor";
 
 /**
- * 左栏“笔记”的二级菜单（B102）：搜索、全部笔记、置顶、便签、已归档、隐藏（解锁后），下面是标签。
+ * 左栏“笔记”的二级菜单（B102）：全部笔记、置顶、便签、已归档、隐藏（解锁后），下面是标签。
  * 地址参数和笔记页自己的分类栏一样。二级菜单显示时，笔记页不再显示那一栏（见 notes.css）。
  */
 export default function NotesNavChildren({ onNavigate }: NavChildrenProps) {
   const t = useT();
-  const navigate = useNavigate();
   const location = useLocation();
   const params = new URLSearchParams(
     location.pathname.startsWith("/notes") ? location.search : "",
@@ -44,13 +42,6 @@ export default function NotesNavChildren({ onNavigate }: NavChildrenProps) {
 
   return (
     <NavPanelStack>
-      <NavPanelSearch
-        placeholder={t("Search notes")}
-        onSubmit={(q) => {
-          navigate(`/notes${q ? `?q=${encodeURIComponent(q)}` : ""}`);
-          onNavigate();
-        }}
-      />
       <NavPanelGroup>
         <NavPanelLink
           to="/notes"

@@ -163,19 +163,9 @@ export default function RemindersPage() {
           foot={t("Completed reminders")}
         />
       </StatStrip>
-      <nav className="xc-tabs reminders-tabs">
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-            className={item.id === tab ? "active" : ""}
-            onClick={() =>
-              setParam("tab", item.id === "today" ? null : item.id)
-            }
-          >
-            {t(item.label)}
-          </button>
-        ))}
-        {tab !== "done" && (
+      {/* B103：今天、即将到来、已完成的切换在左栏二级菜单里 */}
+      {tab !== "done" && (
+        <div className="reminders-tabs">
           <span className="reminders-external-toggle">
             <Switch
               checked={showExternal}
@@ -187,8 +177,8 @@ export default function RemindersPage() {
             />
             <small>{t("Show other modules")}</small>
           </span>
-        )}
-      </nav>
+        </div>
+      )}
       {list.isPending ? (
         <Loading />
       ) : list.isError ? (

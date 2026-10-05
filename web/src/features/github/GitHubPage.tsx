@@ -31,7 +31,6 @@ import {
   Loading,
   NotLive,
 } from "../../components/ui/States";
-import { SearchBox } from "../../components/ui/Toolbar";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { relativeTime } from "../../lib/time";
@@ -56,8 +55,6 @@ import {
   checkLabel,
   checkTone,
   duration,
-  filterRepoRows,
-  groupByOwner,
   issuePath,
   jobsProgress,
   latestDefaultRuns,
@@ -83,7 +80,6 @@ const tabs: Tab[] = ["pulls", "commits", "runs", "issues"];
 type Selection = { connectionId: number; repo: string } | null;
 
 /** 仓库多于这个数时，左栏按 owner 分组。 */
-const GROUP_THRESHOLD = 8;
 
 export default function GitHubPage() {
   const t = useT();
@@ -136,7 +132,6 @@ export default function GitHubPage() {
         <ReposBody
           sel={sel}
           tab={tab}
-          onSelect={(repo) => setView({ repo })}
           onTab={(next) => setView({ tab: next })}
         />
       </>
@@ -161,12 +156,10 @@ export default function GitHubPage() {
 function ReposBody({
   sel,
   tab,
-  onSelect,
   onTab,
 }: {
   sel: Selection;
   tab: Tab;
-  onSelect: (key: string | null) => void;
   onTab: (tab: Tab) => void;
 }) {
   const t = useT();
@@ -183,14 +176,8 @@ function ReposBody({
     (i) => !sel || sameRepo(i, sel),
   ).length;
   return (
+    // B103：仓库列表在左栏二级菜单里，页面不再放一份
     <div className="repos-layout">
-      <RepoSidebar
-        list={list}
-        selected={
-          current?.key ?? (sel ? repoKey(sel.connectionId, sel.repo) : "")
-        }
-        onSelect={onSelect}
-      />
       <section className="repos-main">
         <RepoHeader sel={sel} row={current} total={list.rows.length} />
         <nav className="xc-tabs repos-tabs">
@@ -220,153 +207,6 @@ function ReposBody({
         {tab === "issues" && <IssuesView sel={sel} />}
       </section>
     </div>
-  );
-}
-
-/* ---- 左栏：仓库列表 ---- */
-
-function RepoSidebar({
-  list,
-  selected,
-  onSelect,
-}: {
-  list: ReturnType<typeof useRepoList>;
-  selected: string;
-  onSelect: (key: string | null) => void;
-}) {
-  const t = useT();
-  const [q, setQ] = useState("");
-  const [folded, setFolded] = useState<string[]>([]);
-  const rows = filterRepoRows(list.rows, q);
-  const grouped = !q && list.rows.length > GROUP_THRESHOLD;
-  const renderRow = (r: RepoRow) => (
-    <RepoListRow
-      key={r.key}
-      row={r}
-      active={r.key === selected}
-      onClick={() => onSelect(r.key)}
-    />
-  );
-  return (
-    <aside className="repos-side" aria-label={t("Repositories")}>
-      {/* 窄屏：左栏变成一个下拉框 */}
-      <select
-        className="xc-select repos-side-select"
-        value={selected}
-        aria-label={t("Repository")}
-        onChange={(e) => onSelect(e.target.value || null)}
-      >
-        <option value="">
-          {t("All repositories")} ({list.rows.length})
-        </option>
-        {list.rows.map((r) => (
-          <option key={r.key} value={r.key}>
-            {r.repo}
-          </option>
-        ))}
-      </select>
-      <div className="repos-side-panel">
-        <SearchBox
-          value={q}
-          onChange={setQ}
-          placeholder={t("Search repositories")}
-          clearLabel={t("Clear")}
-        />
-        <button
-          type="button"
-          className={`repos-row all${selected ? "" : " active"}`}
-          onClick={() => onSelect(null)}
-        >
-          <Layers size={14} className="repos-row-all-icon" />
-          <span className="repos-row-name">{t("All repositories")}</span>
-          <small className="repos-row-count">{list.rows.length}</small>
-        </button>
-        {list.isPending ? (
-          <Loading />
-        ) : list.isError ? (
-          <ErrorState error={list.error} onRetry={() => list.refetch()} />
-        ) : rows.length === 0 ? (
-          <p className="xc-muted repos-side-empty">
-            {q ? t("No matching repositories") : t("No watched repositories")}
-          </p>
-        ) : grouped ? (
-          groupByOwner(rows).map((g) => {
-            const isFolded = folded.includes(g.owner);
-            const failing = g.rows.filter(
-              (r) => r.ci && runOutcome(r.ci).tone === "danger",
-            ).length;
-            return (
-              <div key={g.owner} className="repos-group">
-                <button
-                  type="button"
-                  className={`repos-group-head${isFolded ? "" : " open"}`}
-                  aria-expanded={!isFolded}
-                  onClick={() =>
-                    setFolded((f) =>
-                      isFolded
-                        ? f.filter((x) => x !== g.owner)
-                        : [...f, g.owner],
-                    )
-                  }
-                >
-                  <ChevronRight size={12} />
-                  <span>{g.owner || t("Other")}</span>
-                  {failing > 0 && <i className="xc-dot danger" />}
-                  <small>{g.rows.length}</small>
-                </button>
-                {!isFolded && g.rows.map(renderRow)}
-              </div>
-            );
-          })
-        ) : (
-          rows.map(renderRow)
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function RepoListRow({
-  row,
-  active,
-  onClick,
-}: {
-  row: RepoRow;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const t = useT();
-  const { owner, name } = splitRepo(row.repo);
-  const o = row.ci ? runOutcome(row.ci) : null;
-  return (
-    <button
-      type="button"
-      className={`repos-row${active ? " active" : ""}`}
-      onClick={onClick}
-      title={row.repo}
-    >
-      <RepoSwatch repo={row.repo} />
-      <span className="repos-row-name">
-        <strong>{name}</strong>
-        <small>{owner}</small>
-      </span>
-      <ForgeIcon forge={row.forge} size={12} />
-      {row.openPulls > 0 && (
-        <small
-          className="repos-row-count"
-          title={`${row.openPulls} ${t("open pull requests")}`}
-        >
-          <GitPullRequest size={11} />
-          {row.openPulls}
-        </small>
-      )}
-      {o && (
-        <span
-          className={`xc-dot ${o.tone === "ok" ? "ok" : o.tone === "danger" ? "danger" : o.tone === "warn" ? "warn" : ""}`}
-          title={`CI：${t(o.label)}`}
-        />
-      )}
-    </button>
   );
 }
 

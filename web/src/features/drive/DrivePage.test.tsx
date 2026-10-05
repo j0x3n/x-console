@@ -201,15 +201,10 @@ describe("DrivePage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows the hidden tab only while the vault is unlocked", async () => {
-    live();
-    renderAt("/drive");
-    await screen.findAllByRole("row");
-    expect(screen.queryByRole("button", { name: /隐藏内容/ })).toBeNull();
-    cleanup();
+  // B103：切换隐藏内容、分享、网盘的入口在左栏二级菜单里，这里直接打开对应地址
+  it("lists hidden items once the vault is unlocked", async () => {
     live({ unlocked: true });
-    renderAt("/drive");
-    fireEvent.click(await screen.findByRole("button", { name: /隐藏内容/ }));
+    renderAt("/drive?view=hidden");
     await waitFor(() =>
       expect(
         api.calls.some((c) => c.path.startsWith("/drive/items?hidden=true")),
@@ -268,8 +263,7 @@ describe("DrivePage", () => {
               ],
             },
     }));
-    const router = renderAt("/drive");
-    fireEvent.click(await screen.findByRole("button", { name: /坚果云/ }));
+    const router = renderAt("/drive?view=remote&remote=7");
     const row = await screen.findByRole("button", { name: "照片" });
     // 网盘标签里没有上传和搜索
     expect(screen.queryByRole("button", { name: /上传/ })).toBeNull();
@@ -496,8 +490,7 @@ describe("DrivePage", () => {
 
   it("says share links are not live on the shares tab", async () => {
     live();
-    renderAt("/drive");
-    fireEvent.click(await screen.findByRole("button", { name: /分享/ }));
+    renderAt("/drive?view=shares");
     expect(await screen.findByText("分享链接还没上线")).toBeTruthy();
   });
 

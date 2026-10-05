@@ -1,16 +1,10 @@
 import { Suspense } from "react";
-import { NavLink, Outlet } from "react-router";
+import { Outlet } from "react-router";
 import PageHeading from "../../components/ui/PageHeading";
 import { Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 
-const tabs = [
-  { to: "/calendar", label: "Calendar", end: true },
-  { to: "/calendar/focus", label: "Focus", end: false },
-  { to: "/calendar/calendars", label: "Calendars", end: false },
-];
-
-/** 日程模块的外框：标题和三个标签。早报不在这里，见 BriefsRoute（B66）。 */
+/** 日程模块的外框：标题。日历、专注、日历管理的切换在左栏二级菜单里（B103）。早报不在这里，见 BriefsRoute（B66）。 */
 export default function CalendarShell() {
   const t = useT();
   const language = useLanguage();
@@ -26,18 +20,6 @@ export default function CalendarShell() {
   return (
     <div className="xc-page calendar-page">
       <PageHeading title={t("Schedule & focus")} subtitle={today} />
-      <nav className="xc-tabs">
-        {tabs.map((tab) => (
-          <NavLink
-            key={tab.to}
-            to={tab.to}
-            end={tab.end}
-            className={({ isActive }) => (isActive ? "active" : "")}
-          >
-            {t(tab.label)}
-          </NavLink>
-        ))}
-      </nav>
       <Suspense fallback={<Loading />}>
         <Outlet />
       </Suspense>

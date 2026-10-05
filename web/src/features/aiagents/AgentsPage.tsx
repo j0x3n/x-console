@@ -5,14 +5,12 @@ import PageHeading from "../../components/ui/PageHeading";
 import Switch from "../../components/ui/Switch";
 import MoreMenu from "../../components/ui/MoreMenu";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
-import { Toolbar } from "../../components/ui/Toolbar";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { useTasks } from "../coding/api";
 import { useAgentMutations, useAiAgents, type AiAgent } from "./api";
 import AgentAvatar from "./AgentAvatar";
 import AgentDialog from "./AgentDialog";
-import AgentTabs from "./AgentTabs";
 import { useDeleteAgent } from "./useDeleteAgent";
 import { AgentNotifyButton } from "./AgentNotify";
 import { costText, kindLabel, hostsText } from "./logic";
@@ -88,7 +86,6 @@ export default function AgentsPage() {
   return (
     <div className="xc-page aiagents-page">
       {heading}
-      <Toolbar start={<AgentTabs />} />
       <StatStrip label={t("Agents")}>
         <StatCard
           label={t("Agents")}

@@ -5,7 +5,6 @@ import {
   Cloud,
   Copy,
   FileArchive,
-  Link2,
   ArrowUp,
   ChevronRight,
   Download,
@@ -497,57 +496,10 @@ function DriveBrowser() {
         }
       />
 
-      <Toolbar
-        start={
-          <nav className="xc-tabs drive-tabs" aria-label={t("Drive")}>
-            <button
-              className={!trash && !hidden && !special ? "active" : ""}
-              onClick={() => go({ view: null, folder: null, q: null })}
-            >
-              {t("Files")}
-            </button>
-            {vaultUnlocked && (
-              <button
-                className={hidden ? "active" : ""}
-                onClick={() => go({ view: "hidden", folder: null, q: null })}
-              >
-                <EyeOff size={13} /> {t("Hidden items")}
-              </button>
-            )}
-            <button
-              className={sharesTab ? "active" : ""}
-              onClick={() => go({ view: "shares", folder: null, q: null })}
-            >
-              <Link2 size={13} /> {t("Shares")}
-            </button>
-            <button
-              className={trash ? "active" : ""}
-              onClick={() => go({ view: "trash", folder: null, q: null })}
-            >
-              <Trash2 size={13} /> {t("Trash")}
-            </button>
-            {(remotes.data?.items ?? []).map((d) => (
-              <button
-                key={d.id}
-                className={remoteDrive?.id === d.id ? "active" : ""}
-                title={d.gdrive?.account ?? d.webdav?.username}
-                onClick={() =>
-                  go({
-                    view: "remote",
-                    remote: String(d.id),
-                    ref: null,
-                    folder: null,
-                    q: null,
-                  })
-                }
-              >
-                <Cloud size={13} /> {d.name}
-              </button>
-            ))}
-          </nav>
-        }
-        end={
-          !special && (
+      {/* B103：文件、分享、回收站、网盘的切换在左栏二级菜单里，页面不再放一份 */}
+      {!special && (
+        <Toolbar
+          end={
             <>
               {!trash && (
                 <SearchBox
@@ -578,9 +530,9 @@ function DriveBrowser() {
                 ]}
               />
             </>
-          )
-        }
-      />
+          }
+        />
+      )}
 
       {!trash && !q && !special && (
         <nav className="drive-crumbs" aria-label={t("Path")}>
