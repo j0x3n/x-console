@@ -149,17 +149,7 @@ export default function Sidebar({
             </Fragment>
           ))}
           <span className="nav-rail-spacer" />
-          <NavLink
-            to="/settings"
-            aria-label={t("Settings")}
-            onClick={close}
-            className={({ isActive }) =>
-              `nav-rail-item${isActive ? " selected" : ""}`
-            }
-          >
-            <Settings2 size={18} strokeWidth={1.6} />
-            <span className="nav-rail-tip">{t("Settings")}</span>
-          </NavLink>
+          {/* 设置只从头像菜单进（用户 2026-10-05 要求），图标栏不再放 */}
           <ProfileMenu />
         </nav>
         {showPanel && (

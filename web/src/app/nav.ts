@@ -44,7 +44,6 @@ export const navItems: NavItem[] = [
   { path: "/mail", label: "Mail", icon: Mail, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
-  { path: "/drive", label: "Drive", icon: HardDrive, group: "personal" },
   {
     path: "/calendar",
     label: "Schedule & focus",
@@ -52,6 +51,8 @@ export const navItems: NavItem[] = [
     group: "personal",
   },
   { path: "/servers", label: "Servers", icon: Server, group: "machines" },
+  // 用户 2026-10-05 要求：云盘放在服务器下面
+  { path: "/drive", label: "Drive", icon: HardDrive, group: "machines" },
   { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },

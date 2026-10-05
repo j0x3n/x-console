@@ -543,19 +543,6 @@ button.servers-file:hover {
   display: grid;
   gap: 10px;
 }
-.servers-tabs-platform {
-  margin-left: auto;
-  align-self: center;
-  color: var(--xc-muted);
-  font-family: var(--xc-mono);
-  font-size: var(--fs-12);
-  white-space: nowrap;
-}
-@media (max-width: 720px) {
-  .servers-tabs-platform {
-    display: none;
-  }
-}
 .servers-trend-controls {
   display: flex;
   flex-wrap: wrap;
