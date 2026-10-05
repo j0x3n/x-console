@@ -1,20 +1,5 @@
 /* M10 运维监控。颜色只用 --xc-* 令牌。 */
 
-.monitoring-tabs a {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.monitoring-tab-count {
-  height: 16px;
-  padding: 0 5px;
-  font-size: var(--fs-11);
-}
-.monitoring-tabs {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
 /* 列表行 */
 .monitoring-list {
   padding: 4px 0;

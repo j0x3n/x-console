@@ -1,13 +1,22 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router";
-import { FileCode2, Globe, Receipt, ShieldCheck } from "lucide-react";
+import { FileCode2, Globe, Plus, Receipt, ShieldCheck } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./monitoring.css";
-import { registerNavBadge } from "../../lib/navBadges";
+import { registerNavAction, registerNavBadge } from "../../lib/navBadges";
+import { registerNavChildren } from "../../lib/navChildren";
 import { useMonitoringBadge } from "./badge";
+import MonitoringNavChildren from "./NavChildren";
 
 registerNavBadge("/monitoring", useMonitoringBadge);
+// 二级菜单：四个视图和网站列表（用户 2026-10-05 要求）
+registerNavChildren("/monitoring", MonitoringNavChildren);
+registerNavAction("/monitoring", {
+  icon: Plus,
+  label: "New website",
+  run: (navigate) => navigate("/monitoring?new=1"),
+});
 
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const MonitoringPage = lazy(() => import("./MonitoringPage"));

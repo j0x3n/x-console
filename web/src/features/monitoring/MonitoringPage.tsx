@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useParams } from "react-router";
+import { useParams } from "react-router";
 import { Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { Segments, StatCard, StatStrip } from "../../components/ui/Stat";
@@ -55,8 +55,9 @@ export default function MonitoringPage() {
   );
   return (
     <div className="xc-page">
+      {/* 页签在左栏二级菜单里（2026-10-05），这里只显示当前视图的名字 */}
       <PageHeading
-        title={t("Monitoring")}
+        title={t(current.label)}
         subtitle={
           down.length > 0
             ? `${down.length} ${t("monitors are down")}`
@@ -69,31 +70,6 @@ export default function MonitoringPage() {
         }
       />
       <MonitoringStats />
-      <nav className="xc-tabs monitoring-tabs">
-        {tabs.map((item) => {
-          const count =
-            item.id === ""
-              ? down.filter((m) => m.kind === "http").length
-              : item.id === "certs"
-                ? down.filter((m) => m.kind !== "http").length
-                : 0;
-          return (
-            <NavLink
-              key={item.id}
-              to={item.to}
-              end
-              className={item.id === current.id ? "active" : ""}
-            >
-              {t(item.label)}
-              {count > 0 && (
-                <span className="xc-badge danger monitoring-tab-count">
-                  {count}
-                </span>
-              )}
-            </NavLink>
-          );
-        })}
-      </nav>
       {current.id === "" && <SitesTab />}
       {current.id === "certs" && <CertsTab />}
       {current.id === "scripts" && <ScriptsTab />}
