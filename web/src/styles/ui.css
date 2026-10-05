@@ -1543,6 +1543,24 @@ a.xc-badge:hover {
 .sidebar-toggle > .sidebar-toggle-mobile {
   display: none;
 }
+/*
+ * B103：桌面上展开按钮只在二级菜单收起时出现（收起按钮在二级菜单的标题栏里）。
+ * 二级菜单显示时模块名在它的标题栏里，顶栏不再重复模块图标和模块名。
+ */
+@media (min-width: 721px) {
+  .sidebar-toggle.mobile-only,
+  .topbar.panel-open .topbar-module {
+    display: none !important;
+  }
+  .topbar.panel-open .topbar-subtitle.after-module::before {
+    content: none;
+  }
+}
+@media (max-width: 720px) {
+  .nav-panel-collapse {
+    display: none !important;
+  }
+}
 @media (max-width: 1100px) {
   .topbar-subtitle {
     display: none;

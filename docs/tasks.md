@@ -61,6 +61,7 @@
 | B100 | 界面改版第 3 步：顶栏和今日页按新设计稿 | [B98](specs/B98.md) 第四节 | 完成（Claude，2026-10-05） |
 | B101 | 界面改版第 4 步：项目的二级菜单和视图（我的 Issue、今天到期、已逾期、本周到期），项目列表和看板按新设计稿 | [B98](specs/B98.md) 第五节 | 完成（Claude，2026-10-05） |
 | B102 | 界面改版第 5 步：其他模块的二级菜单和页面，分三组做（组 1 ✓ 组 2 ✓ 组 3 ✓） | [B98](specs/B98.md) 第六节 | 完成（Claude，2026-10-05） |
+| B103 | 改版小修：收起按钮放进二级菜单；二级菜单显示时顶栏不重复模块名；笔记页去掉自己的分类栏和分类标签行；每日一句按钮放到顶栏，弹窗文字重叠；今日页逾期改红色 | 无 | 完成（Claude，2026-10-05） |
 
 ### 任务说明
 
@@ -356,6 +357,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B103（2026-10-05）：`components/layout/Sidebar.tsx` 新增导出 `useCurrentNavPanel()`，二级菜单标题栏加收起按钮（`.nav-panel-collapse`）。`Topbar.tsx` 在桌面上只有二级菜单收起时才显示展开按钮（手机上仍是打开抽屉）；二级菜单显示时顶栏加 `.panel-open`，模块图标和模块名（`.topbar-module`）不显示。样式在 `ui.css`。
 
 - B100（2026-10-05）：`components/layout/Topbar.tsx` 页面名前加模块图标，去掉 ⌘K 按钮，`openPalette` 参数改成可选（不再使用）。`styles.css` 的顶栏改成 58px 加下边线，`.xc-page` 上边距从 4px 改成 20px（手机 16px）。
 

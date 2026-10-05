@@ -4,16 +4,12 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
 } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
-  Archive,
-  EyeOff,
   Link2,
   ListChecks,
   NotebookPen,
-  Notebook,
   Pin,
   Plus,
   Search,
@@ -148,22 +144,6 @@ export default function NotesPage() {
       },
       { replace: true },
     );
-  const setView = (next: View, nextTag = "") =>
-    setSearch(
-      () => {
-        const p = new URLSearchParams();
-        if (q) p.set("q", q);
-        if (next === "pinned") p.set("pinned", "1");
-        if (next === "memos") p.set("view", "memos");
-        if (next === "archived") p.set("archived", "1");
-        if (next === "tag" && nextTag) p.set("tag", nextTag);
-        // 隐藏空间里点标签，还留在隐藏空间
-        if (next === "hidden" || (next === "tag" && hidden))
-          p.set("hidden", "1");
-        return p;
-      },
-      { replace: true },
-    );
   const query = (() => {
     const p = new URLSearchParams(search);
     p.delete("new");
@@ -268,87 +248,6 @@ export default function NotesPage() {
             ? t("Memos")
             : t("All notes");
 
-  const navItem = (
-    key: string,
-    active: boolean,
-    onClick: () => void,
-    icon: ReactNode,
-    label: string,
-    count?: number,
-  ) => (
-    <button
-      key={key}
-      className={active ? "active" : ""}
-      aria-pressed={active}
-      onClick={onClick}
-    >
-      {icon}
-      <span>{label}</span>
-      {count != null && <small>{count}</small>}
-    </button>
-  );
-
-  const views = [
-    navItem(
-      "all",
-      view === "all",
-      () => setView("all"),
-      <Notebook size={15} />,
-      t("All notes"),
-      counts.data?.notes,
-    ),
-    navItem(
-      "pinned",
-      view === "pinned",
-      () => setView("pinned"),
-      <Pin size={15} />,
-      t("Pinned notes"),
-      counts.data?.pinned,
-    ),
-    navItem(
-      "memos",
-      view === "memos",
-      () => setView("memos"),
-      <StickyNote size={15} />,
-      t("Memos"),
-      counts.data?.memos,
-    ),
-    navItem(
-      "archived",
-      view === "archived",
-      () => setView("archived"),
-      <Archive size={15} />,
-      t("Archived"),
-      counts.data?.archived,
-    ),
-    ...(vaultUnlocked
-      ? [
-          navItem(
-            "hidden",
-            view === "hidden",
-            () => setView("hidden"),
-            <EyeOff size={15} />,
-            t("Hidden notes"),
-          ),
-        ]
-      : []),
-  ];
-  const tagItems =
-    tags.data?.map((tc) =>
-      navItem(
-        `tag-${tc.tag}`,
-        tag === tc.tag,
-        () =>
-          setView(tag === tc.tag ? (hidden ? "hidden" : "all") : "tag", tc.tag),
-        <i
-          className="notes-tag-dot"
-          style={{ background: tagColor(tc.tag, tc.color) }}
-        />,
-        tc.tag,
-        tc.count,
-      ),
-    ) ?? [];
-
   const savePane = (key: keyof PaneWidths, width: number) => {
     const next = { ...panesRef.current, [key]: width };
     setPanes(next);
@@ -366,19 +265,10 @@ export default function NotesPage() {
       className={`notes-layout ${id ? "has-note" : ""}${view === "memos" && !id ? " memos-view" : ""}`}
       style={
         {
-          "--notes-nav-w": `${panes.nav}px`,
           "--notes-list-w": `${panes.list}px`,
         } as CSSProperties
       }
     >
-      <PaneResizer
-        className="notes-resizer-nav"
-        width={panes.nav}
-        {...PANE_LIMITS.nav}
-        onChange={(w) => setPane("nav", w)}
-        onDone={(w) => savePane("nav", w)}
-        onReset={() => savePane("nav", DEFAULT_PANES.nav)}
-      />
       <PaneResizer
         className="notes-resizer-list"
         width={panes.list}
@@ -387,15 +277,6 @@ export default function NotesPage() {
         onDone={(w) => savePane("list", w)}
         onReset={() => savePane("list", DEFAULT_PANES.list)}
       />
-      <nav className="notes-nav" aria-label={t("Note categories")}>
-        <div className="notes-nav-group">{views}</div>
-        {tagItems.length > 0 && (
-          <div className="notes-nav-group">
-            <div className="notes-nav-label">{t("Tags")}</div>
-            {tagItems}
-          </div>
-        )}
-      </nav>
       <aside className="notes-list-pane">
         <div className="notes-list-head">
           <div className="notes-list-title">
@@ -482,10 +363,6 @@ export default function NotesPage() {
             </button>
           )}
         </label>
-        <div className="notes-chips" role="group" aria-label={t("Tags")}>
-          {views}
-          {tagItems}
-        </div>
         <div className="notes-list" role="list" ref={listRef}>
           {notes.isPending ? (
             <Loading />

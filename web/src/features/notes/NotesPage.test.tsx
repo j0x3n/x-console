@@ -144,9 +144,8 @@ describe("NotesPage", () => {
 
   it("lists and creates hidden notes once unlocked", async () => {
     vault.unlocked = true;
-    renderAt("/notes");
-    const [chip] = await screen.findAllByRole("button", { name: "隐藏" });
-    fireEvent.click(chip);
+    // 分类在左栏的二级菜单里（B103），这里直接打开隐藏笔记的地址
+    renderAt("/notes?hidden=1");
     await waitFor(() =>
       expect(calls.some((c) => c.path.includes("hidden=true"))).toBe(true),
     );
@@ -224,17 +223,14 @@ describe("NotesPage", () => {
 
   it("keeps the pane widths after a reload", async () => {
     renderAt("/notes");
-    const [nav] = await screen.findAllByRole("separator");
-    fireEvent.keyDown(nav, { key: "ArrowRight" });
-    expect(JSON.parse(localStorage.getItem("xc.notes.panes")!)).toEqual({
-      nav: 212,
-      list: 340,
-    });
+    const [list] = await screen.findAllByRole("separator");
+    fireEvent.keyDown(list, { key: "ArrowRight" });
+    expect(JSON.parse(localStorage.getItem("xc.notes.panes")!).list).toBe(356);
     cleanup();
     renderAt("/notes");
     const [again] = await screen.findAllByRole("separator");
-    expect(again.getAttribute("aria-valuenow")).toBe("212");
+    expect(again.getAttribute("aria-valuenow")).toBe("356");
     fireEvent.doubleClick(again);
-    expect(JSON.parse(localStorage.getItem("xc.notes.panes")!).nav).toBe(196);
+    expect(JSON.parse(localStorage.getItem("xc.notes.panes")!).list).toBe(340);
   });
 });

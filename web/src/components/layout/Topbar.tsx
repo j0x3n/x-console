@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useMatches } from "react-router";
-import { Bell, PanelLeftClose, PanelLeftOpen, Settings2 } from "lucide-react";
+import { Bell, PanelLeftOpen, Settings2 } from "lucide-react";
 import { useNotifications } from "../../api/core";
 import { useEventConnection } from "../../api/events";
 import { useT } from "../../contexts/LanguageContext";
@@ -11,6 +11,7 @@ import { moduleOfPath, useModules } from "../../app/modules";
 import { useSidebar } from "../../stores/sidebar";
 import { PageActionsSlot } from "./PageActions";
 import { navItems } from "../../app/nav";
+import { useCurrentNavPanel } from "./Sidebar";
 
 interface RouteHandle {
   title?: string;
@@ -46,6 +47,11 @@ export default function Topbar({
   const mark = usePageTitle((s) => s.mark);
   const collapsed = useSidebar((s) => s.collapsed);
   const toggleSidebar = useSidebar((s) => s.toggle);
+  // B103：收起按钮在二级菜单里。桌面上只有收起了二级菜单才在这里放展开按钮；
+  // 二级菜单显示时，模块名已经在它的标题栏里，这里不再重复（见 ui.css 的 .panel-open）。
+  const { Panel } = useCurrentNavPanel();
+  const hasPanel = !!Panel && !hiddenHere;
+  const panelOpen = hasPanel && !collapsed;
   const detail = pageTitle && pageTitle !== t(title) ? pageTitle : "";
   const connected = useEventConnection((s) => s.connected);
   // 模块首页：导航里同名的入口。找不到（比如 404 页）就不做成链接。
@@ -72,25 +78,21 @@ export default function Topbar({
   }, [open]);
   const unread = notifications.data?.unreadCount ?? 0;
   return (
-    <header className="topbar">
+    <header className={`topbar${panelOpen ? " panel-open" : ""}`}>
       <nav className="breadcrumbs" aria-label="Breadcrumb">
-        {/* 桌面上折叠侧边栏，手机上打开抽屉（B20） */}
+        {/* 桌面上展开收起的二级菜单，手机上打开抽屉（B20、B103） */}
         <button
-          className="sidebar-toggle icon-button"
+          className={`sidebar-toggle icon-button${hasPanel && collapsed ? "" : " mobile-only"}`}
           onClick={() =>
             window.matchMedia("(max-width: 720px)").matches
               ? openMobile()
               : toggleSidebar()
           }
-          aria-label={collapsed ? t("Expand sidebar") : t("Collapse sidebar")}
-          title={`${collapsed ? t("Expand sidebar") : t("Collapse sidebar")} (⌘B)`}
+          aria-label={t("Expand sidebar")}
+          title={`${t("Expand sidebar")} (⌘B)`}
         >
           <span className="sidebar-toggle-desktop">
-            {collapsed ? (
-              <PanelLeftOpen size={16} />
-            ) : (
-              <PanelLeftClose size={16} />
-            )}
+            <PanelLeftOpen size={16} />
           </span>
           <span className="sidebar-toggle-mobile">
             <PanelLeftOpen size={17} />
@@ -98,21 +100,27 @@ export default function Topbar({
         </button>
         {/* B100：页面名前面的模块图标 */}
         {ModuleIcon && (
-          <span className="topbar-icon" aria-hidden>
+          <span className="topbar-icon topbar-module" aria-hidden>
             <ModuleIcon size={15} strokeWidth={1.8} />
           </span>
         )}
         {atModule ? (
-          <span aria-current="page">{t(title)}</span>
+          <span className="topbar-module" aria-current="page">
+            {t(title)}
+          </span>
         ) : (
-          <Link className="breadcrumb-parent" to={moduleTo!}>
+          <Link className="breadcrumb-parent topbar-module" to={moduleTo!}>
             {t(title)}
           </Link>
         )}
         {detail &&
-          parents.map((p) => (
+          parents.map((p, i) => (
             <span key={p.to} className="breadcrumb-mid">
-              <span className="breadcrumb-sep">/</span>
+              <span
+                className={`breadcrumb-sep${i === 0 ? " topbar-module" : ""}`}
+              >
+                /
+              </span>
               <Link className="breadcrumb-parent" to={p.to}>
                 {p.label}
               </Link>
@@ -120,7 +128,11 @@ export default function Topbar({
           ))}
         {detail && (
           <>
-            <span className="breadcrumb-sep">/</span>
+            <span
+              className={`breadcrumb-sep${parents.length ? "" : " topbar-module"}`}
+            >
+              /
+            </span>
             {mark}
             <span aria-current="page" className="breadcrumb-detail">
               {detail}
@@ -140,7 +152,11 @@ export default function Topbar({
             title={t("Live updates disconnected. Reconnecting.")}
           />
         )}
-        {subtitle && <span className="topbar-subtitle">{subtitle}</span>}
+        {subtitle && (
+          <span className={`topbar-subtitle${detail ? "" : " after-module"}`}>
+            {subtitle}
+          </span>
+        )}
       </nav>
       <div className="header-actions">
         <PageActionsSlot />

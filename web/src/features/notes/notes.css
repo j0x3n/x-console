@@ -1,12 +1,10 @@
 /* M6 笔记模块样式。只用 --xc-* 颜色变量，类名前缀 notes-。 */
 
-/* 三栏：分类、列表、编辑区 */
+/* 两栏：列表、编辑区。分类在左栏的二级菜单里（B103 去掉了页面自己的分类栏） */
 .notes-layout {
   display: grid;
   position: relative;
-  grid-template-columns:
-    var(--notes-nav-w, 196px) var(--notes-list-w, 340px)
-    minmax(0, 1fr);
+  grid-template-columns: var(--notes-list-w, 340px) minmax(0, 1fr);
   height: calc(100dvh - 72px);
   min-height: 420px;
   border-top: 1px solid var(--xc-border);
@@ -41,73 +39,8 @@
 .notes-resizer:focus-visible {
   outline: none;
 }
-.notes-resizer-nav {
-  left: var(--notes-nav-w, 196px);
-}
 .notes-resizer-list {
-  left: calc(var(--notes-nav-w, 196px) + var(--notes-list-w, 340px));
-}
-
-/* ---- 分类栏 ---- */
-.notes-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 14px 10px;
-  border-right: 1px solid var(--xc-border);
-  scrollbar-width: thin;
-}
-.notes-nav-group {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.notes-nav-label {
-  padding: 0 8px 6px;
-  color: var(--xc-faint);
-  font-size: var(--fs-11);
-  font-weight: 500;
-}
-.notes-nav button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 30px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 7px;
-  background: none;
-  color: var(--xc-text-2);
-  text-align: left;
-}
-.notes-nav button svg {
-  flex: none;
-  color: var(--xc-muted);
-}
-.notes-nav button span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.notes-nav button small {
-  color: var(--xc-faint);
-  font-size: var(--fs-11);
-}
-.notes-nav button:hover {
-  background: var(--xc-surface-2);
-  color: var(--xc-text);
-}
-.notes-nav button.active {
-  background: var(--xc-surface-2);
-  color: var(--xc-text);
-  font-weight: 500;
-}
-.notes-nav button.active svg {
-  color: var(--xc-accent-text);
+  left: var(--notes-list-w, 340px);
 }
 
 /* ---- 列表 ---- */
@@ -700,14 +633,10 @@
   font-size: var(--fs-11);
 }
 
-/* 分栏模式下编辑区要宽一些：不够宽时收起分类栏，改用列表顶部那一行 */
+/* 分栏模式下编辑区要宽一些：不够宽时列表窄一点，标签改用列表顶部那一行 */
 @media (max-width: 1599px) {
   .notes-layout:has(.notes-editor.mode-split) {
     grid-template-columns: var(--notes-list-w, 320px) minmax(0, 1fr);
-  }
-  .notes-layout:has(.notes-editor.mode-split) .notes-nav,
-  .notes-layout:has(.notes-editor.mode-split) .notes-resizer-nav {
-    display: none;
   }
   .notes-layout:has(.notes-editor.mode-split) .notes-resizer-list {
     left: var(--notes-list-w, 320px);
@@ -717,14 +646,10 @@
   }
 }
 
-/* 中等宽度：分类栏收进列表顶部的一行 */
+/* 中等宽度：标签收进列表顶部的一行 */
 @media (max-width: 1180px) {
   .notes-layout {
     grid-template-columns: var(--notes-list-w, 320px) minmax(0, 1fr);
-  }
-  .notes-nav,
-  .notes-resizer-nav {
-    display: none;
   }
   .notes-resizer-list,
   .notes-layout:has(.notes-editor.mode-split) .notes-resizer-list {
@@ -813,7 +738,6 @@
   height: 8px;
   border-radius: 50%;
 }
-.notes-nav .notes-tag-dot,
 .notes-chips .notes-tag-dot {
   margin: 0 3px;
 }
@@ -1254,7 +1178,7 @@ html[data-theme="dark"] .note-bg-gray {
 /* ---- B73：便签 ---- */
 /* 便签视图不显示中间的列表，右边整块是瀑布流 */
 .notes-layout.memos-view {
-  grid-template-columns: var(--notes-nav-w, 196px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 .notes-layout.memos-view .notes-list-pane,
 .notes-layout.memos-view .notes-resizer-list {
@@ -1641,16 +1565,10 @@ html[data-theme="dark"] .note-bg-gray {
     margin-bottom: 8px;
   }
 }
-/* 便签视图不显示中间的列表，地方够，中等宽度也保留左边的分类栏 */
+/* 便签视图不显示中间的列表，中等宽度也一样 */
 @media (max-width: 1180px) and (min-width: 761px) {
   .notes-layout.memos-view {
-    grid-template-columns: var(--notes-nav-w, 196px) minmax(0, 1fr);
-  }
-  .notes-layout.memos-view .notes-nav {
-    display: flex;
-  }
-  .notes-layout.memos-view .notes-resizer-nav {
-    display: block;
+    grid-template-columns: minmax(0, 1fr);
   }
   .notes-layout.memos-view .notes-resizer-list {
     display: none;
@@ -1792,6 +1710,10 @@ html[data-theme="dark"] .note-bg-gray {
   right: 8px;
   color: var(--xc-accent-text);
 }
+/* 顶栏里放在“新建笔记”左边，主要按钮在最右 */
+.page-actions .notes-quote-button {
+  order: -1;
+}
 .notes-quote-help {
   margin: 0 0 10px;
 }
@@ -1800,27 +1722,19 @@ html[data-theme="dark"] .note-bg-gray {
   flex-direction: column;
   gap: 10px;
 }
+/* 说明在选项名下面一行。公共的 .xc-check-hint 是放在选项外面用的，带负的上边距，放在里面会和选项名叠在一起 */
+.notes-quote-modes .xc-check {
+  align-items: flex-start;
+  margin: 0;
+}
+.notes-quote-modes .xc-check input {
+  margin-top: 3px;
+}
 .notes-quote-modes .xc-check > span {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
-
-/*
- * B102：左栏的二级菜单里已经有笔记的分类和标签，
- * 二级菜单显示时笔记页不再显示自己的分类栏。收起二级菜单（⌘B）或在手机上时照旧显示。
- */
-@media (min-width: 761px) {
-  .app-shell:has(.nav-panel) .notes-layout {
-    grid-template-columns: var(--notes-list-w, 320px) minmax(0, 1fr);
-  }
-  .app-shell:has(.nav-panel) .notes-layout.memos-view {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .app-shell:has(.nav-panel) .notes-nav,
-  .app-shell:has(.nav-panel) .notes-resizer-nav {
-    display: none;
-  }
-  .app-shell:has(.nav-panel) .notes-resizer-list {
-    left: var(--notes-list-w, 320px);
-  }
+.notes-quote-modes .xc-check-hint {
+  margin: 0;
 }

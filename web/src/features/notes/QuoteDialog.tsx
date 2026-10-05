@@ -42,7 +42,9 @@ export default function QuoteButton({ count }: { count: number }) {
     <>
       <button
         type="button"
-        className={`xc-btn small${mode !== "off" ? " on" : ""}`}
+        className={`xc-btn small notes-quote-button${mode !== "off" ? " on" : ""}`}
+        title={t("Daily quote")}
+        aria-label={t("Daily quote")}
         onClick={() => setOpen(true)}
       >
         <Quote size={13} /> {t("Daily quote")}

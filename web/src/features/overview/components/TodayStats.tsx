@@ -54,10 +54,14 @@ export default function TodayStats() {
           label={t("To do today")}
           to="/projects"
           value={todo.issues ?? DASH}
+          // B103：数字不跟着变色。逾期用红字写在右上角，和项目页的“已过期”一样
           caption={
-            todo.overdue ? `${t("Overdue by")} ${todo.overdue}` : undefined
+            todo.overdue ? (
+              <span className="today-tone-text-danger">
+                {t("Overdue by")} {todo.overdue}
+              </span>
+            ) : undefined
           }
-          tone={todo.overdue ? "warn" : undefined}
           foot={t("Issues due today")}
         />
       )}

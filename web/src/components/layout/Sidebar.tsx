@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router";
 import {
   LogOut,
   Moon,
+  PanelLeftClose,
   Palette,
   Search,
   Settings2,
@@ -48,13 +49,14 @@ export default function Sidebar({
   openPalette,
 }: SidebarProps) {
   const t = useT();
-  const children = useNavChildren();
   const extras = useNavExtras();
   const navigate = useNavigate();
   const panelHidden = useSidebar((s) => s.collapsed);
+  const togglePanel = useSidebar((s) => s.toggle);
   const location = useLocation();
   // B57：锁定时被隐藏的模块不出现，分组空了整组不显示
   const modules = useModules();
+  const { current, currentPath, Panel } = useCurrentNavPanel();
   const groups = (Object.keys(navGroupLabels) as NavGroup[])
     .map((group) => ({
       group,
@@ -63,11 +65,6 @@ export default function Sidebar({
       ),
     }))
     .filter((g) => g.items.length > 0);
-  const currentPath = moduleForPath(location.pathname);
-  const current = navItems.find(
-    (n) => n.path === currentPath && modules.has(moduleOfPath(n.path)),
-  );
-  const Panel = current ? children[current.path] : undefined;
   const action = current ? extras.actions[current.path] : undefined;
   const showPanel = !!current && !!Panel && (mobileOpen || !panelHidden);
   const close = () => setMobileOpen(false);
@@ -178,6 +175,16 @@ export default function Sidebar({
                   }}
                 />
               )}
+              {/* B103：收起按钮放在二级菜单里，收起后顶栏左边出现展开按钮。手机上不显示 */}
+              <button
+                type="button"
+                className="nav-panel-action nav-panel-collapse"
+                aria-label={t("Collapse sidebar")}
+                title={`${t("Collapse sidebar")} (⌘B)`}
+                onClick={togglePanel}
+              >
+                <PanelLeftClose size={16} />
+              </button>
             </div>
             <div className="nav-panel-body nav-children">
               <Panel onNavigate={close} />
@@ -187,6 +194,22 @@ export default function Sidebar({
       </div>
     </>
   );
+}
+
+/**
+ * 当前模块和它登记的二级菜单。顶栏也要用：有二级菜单时才显示展开按钮，
+ * 二级菜单显示时顶栏不再重复模块名（B103）。
+ */
+export function useCurrentNavPanel() {
+  const children = useNavChildren();
+  const location = useLocation();
+  const modules = useModules();
+  const currentPath = moduleForPath(location.pathname);
+  const current = navItems.find(
+    (n) => n.path === currentPath && modules.has(moduleOfPath(n.path)),
+  );
+  const Panel = current ? children[current.path] : undefined;
+  return { current, currentPath, Panel };
 }
 
 /** 图标右上角的数量（B76）。单独一个组件，登记的 Hook 在这里调用，顺序固定。 */

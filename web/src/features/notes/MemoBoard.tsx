@@ -36,6 +36,7 @@ import {
 import ColorPicker from "./ColorPicker";
 import { noteBgClass } from "./noteColors";
 import { tagColor } from "./tagColor";
+import PageActions from "../../components/layout/PageActions";
 import QuoteButton from "./QuoteDialog";
 import MemoEditor from "./MemoEditor";
 import { QUOTE_TAG } from "../overview/quote";
@@ -79,17 +80,20 @@ export default function MemoBoard({
   return (
     <div className="notes-memos">
       <MemoComposer tag={tag} hidden={hidden} />
+      {/* B103：每日一句的设置按钮放在顶栏 */}
       {!hidden && (!tag || tag === QUOTE_TAG) && (
-        <div className="notes-memos-bar">
+        <PageActions>
           <QuoteButton count={tag ? all.length : quotes.length} />
-          {!tag && quotes.length > 0 && (
-            <Link
-              className="xc-btn small ghost"
-              to={`/notes?tag=${encodeURIComponent(QUOTE_TAG)}`}
-            >
-              #{QUOTE_TAG} {quotes.length}
-            </Link>
-          )}
+        </PageActions>
+      )}
+      {!hidden && !tag && quotes.length > 0 && (
+        <div className="notes-memos-bar">
+          <Link
+            className="xc-btn small ghost"
+            to={`/notes?tag=${encodeURIComponent(QUOTE_TAG)}`}
+          >
+            #{QUOTE_TAG} {quotes.length}
+          </Link>
         </div>
       )}
       {memos.isPending ? (

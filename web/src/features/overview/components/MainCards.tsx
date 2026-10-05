@@ -40,7 +40,7 @@ function IssueRow({ issue, late }: { issue: Issue; late?: number }) {
         </small>
       </span>
       {late ? (
-        <span className="xc-badge warn">
+        <span className="xc-badge danger">
           {t("Overdue by")} {late} {t("days")}
         </span>
       ) : (
