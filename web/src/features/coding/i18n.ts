@@ -1,6 +1,8 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B102 左栏二级菜单
+  "All agents": "全部 Agent",
   // 概要
   "Nothing to review": "没有要看的",
   "Success rate": "成功率",

@@ -1,6 +1,8 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B102 左栏二级菜单
+  "All servers": "全部服务器",
   // 列表
   "All servers online": "全部在线",
   "Average CPU": "平均 CPU",

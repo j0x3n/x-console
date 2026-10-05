@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#f3f3f4" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="light dark" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -27,23 +27,19 @@
         (savedTheme === "system" &&
           matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
+      // B98：主题色去掉了 ember 和 mint，旧值换成 indigo 和 teal
+      let accent = "indigo";
       try {
-        document.documentElement.dataset.accent = localStorage.getItem("x-console-accent") || "ember";
+        accent = localStorage.getItem("x-console-accent") || "indigo";
       } catch {
-        document.documentElement.dataset.accent = "ember";
+        // Use the default accent if browser storage is unavailable.
       }
+      accent = { ember: "indigo", mint: "teal" }[accent] || accent;
+      document.documentElement.dataset.accent = accent;
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
       const mobile = matchMedia("(max-width: 720px)").matches;
-      const accentColors = {
-        violet: ["#f3f2f8", "#fbfbfe"],
-        mint: ["#eff5f2", "#fafcfb"],
-        ocean: ["#f0f3f8", "#fafbfd"],
-        rose: ["#f7f1f3", "#fdfafb"],
-        graphite: ["#efefef", "#fafafa"],
-      };
-      const colors = dark
-        ? ["#0a0a0b", "#111113"]
-        : accentColors[document.documentElement.dataset.accent] || ["#f3f3f4", "#fafafa"];
+      // 和 tokens.css 一致：桌面用内容区底色，手机用左栏底色
+      const colors = dark ? ["#111113", "#0c0c0e"] : ["#ffffff", "#fafafa"];
       document.querySelector('meta[name="theme-color"]').content = colors[mobile ? 1 : 0];
       if (savedLanguage === "en") {
         document.documentElement.lang = "en";

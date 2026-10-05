@@ -1,6 +1,8 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B102 左栏二级菜单
+  "Manage devices": "管理设备",
   "No PC paired yet": "还没有配对电脑",
   "Choose a PC": "选择电脑",
   Clipboard: "剪贴板",

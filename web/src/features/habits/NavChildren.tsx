@@ -1,4 +1,10 @@
-import { Plus } from "lucide-react";
+import { useLocation } from "react-router";
+import { ClipboardList, Dumbbell, Plus, Sun } from "lucide-react";
+import {
+  NavPanelGroup,
+  NavPanelLink,
+  NavPanelStack,
+} from "../../components/layout/NavPanel";
 import NavChildLinks, {
   type NavChildLink,
 } from "../../components/layout/NavChildLinks";
@@ -10,10 +16,9 @@ import { useCheckin, useHabitsToday } from "./api";
 import { formatAmount, todayProgress } from "./progress";
 
 /**
- * 侧边栏“习惯”下面：今天（缩进列出每个习惯，右边“+”打一次卡）和健身。
- * 习惯多时只列前几个，没达标的排前面。
+ * 左栏“习惯”的二级菜单（B102）：今天、健身、个人计划，
+ * 下面列出今天的习惯，右边“+”打一次卡。没达标的排前面。
  */
-const HABIT_LIMIT = 6;
 
 export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
   const t = useT();
@@ -23,19 +28,13 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
     (a, b) => Number(a.reached) - Number(b.reached),
   );
   const p = todayProgress(today.data ?? []);
+  const { pathname } = useLocation();
   const links: NavChildLink[] = [
-    {
-      key: "today",
-      to: "/habits",
-      label: t("Today"),
-      hint: p.total ? `${p.reached}/${p.total}` : undefined,
-    },
-    ...list.slice(0, HABIT_LIMIT).map((h) => ({
+    ...list.map((h) => ({
       key: `h${h.habit.id}`,
       to: `/habits?habit=${h.habit.id}`,
       label: `${h.habit.icon ? h.habit.icon + " " : ""}${h.habit.name}`,
       hint: `${formatAmount(h.done)}/${formatAmount(h.habit.dailyTarget)}`,
-      nested: true,
       active: false,
       action: (
         <button
@@ -59,18 +58,45 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
         </button>
       ),
     })),
-    { key: "fitness", to: "/habits/fitness", label: t("Fitness") },
-    { key: "plan", to: "/habits/plan", label: t("Personal plan") },
   ];
   return (
-    <NavChildLinks
-      links={links}
-      limit={links.length}
-      allTo="/habits"
-      loading={today.isPending}
-      error={today.isError}
-      empty={t("No habits yet")}
-      onNavigate={onNavigate}
-    />
+    <NavPanelStack>
+      <NavPanelGroup>
+        <NavPanelLink
+          to="/habits"
+          icon={Sun}
+          label={t("Today")}
+          active={pathname === "/habits"}
+          onNavigate={onNavigate}
+        />
+        <NavPanelLink
+          to="/habits/fitness"
+          icon={Dumbbell}
+          label={t("Fitness")}
+          active={pathname.startsWith("/habits/fitness")}
+          onNavigate={onNavigate}
+        />
+        <NavPanelLink
+          to="/habits/plan"
+          icon={ClipboardList}
+          label={t("Personal plan")}
+          active={pathname.startsWith("/habits/plan")}
+          onNavigate={onNavigate}
+        />
+      </NavPanelGroup>
+      <NavPanelGroup
+        label={`${t("Today")} ${p.total ? `${p.reached}/${p.total}` : ""}`.trim()}
+      >
+        <NavChildLinks
+          links={links}
+          limit={links.length}
+          allTo="/habits"
+          loading={today.isPending}
+          error={today.isError}
+          empty={t("No habits yet")}
+          onNavigate={onNavigate}
+        />
+      </NavPanelGroup>
+    </NavPanelStack>
   );
 }
