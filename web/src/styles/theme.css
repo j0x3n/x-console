@@ -89,19 +89,8 @@ html[data-theme="light"] .company-badge {
   border-color: #0000000a;
 }
 
-html[data-theme="light"] .breadcrumbs,
 html[data-theme="light"] .inline-link {
   color: #34343a;
-}
-html[data-theme="light"] .breadcrumbs button {
-  color: #77777e;
-}
-html[data-theme="light"] .breadcrumbs button:hover,
-html[data-theme="light"] .breadcrumbs [aria-current="page"] {
-  color: #242428;
-}
-html[data-theme="light"] .breadcrumbs > svg {
-  color: #a3a3aa;
 }
 
 html[data-theme="light"] .delegate-button,

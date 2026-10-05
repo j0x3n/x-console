@@ -162,36 +162,51 @@ svg {
   scrollbar-width: thin;
   scrollbar-color: #333338 transparent;
 }
+/* B100：顶栏 58px，下边一条线 */
 .topbar {
-  height: 56px;
+  height: 58px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 12px 24px 0;
+  gap: 12px;
+  padding: 0 14px 0 24px;
+  border-bottom: 1px solid var(--xc-border);
 }
 .breadcrumbs {
   display: flex;
   align-items: center;
   gap: 8px;
   height: 28px;
-  color: #b1b1b8;
+  color: var(--xc-text-2);
   font-weight: 500;
 }
 .breadcrumbs button {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #85858d;
+  color: var(--xc-muted);
   cursor: pointer;
 }
 .breadcrumbs button:hover {
-  color: #e8e8eb;
+  color: var(--xc-text);
 }
 .breadcrumbs > svg {
-  color: #696970;
+  color: var(--xc-faint);
 }
 .breadcrumbs [aria-current="page"] {
-  color: #e7e7e9;
+  color: var(--xc-text);
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+/* 页面名前面的模块图标（B100） */
+.topbar-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
 }
 .header-actions {
   display: flex;
@@ -1777,8 +1792,11 @@ html[data-theme="light"] .toast button:hover {
     border-radius: 0;
   }
   .topbar {
-    height: 60px;
-    padding: 13px 18px 0;
+    height: 56px;
+    padding: 0 12px 0 16px;
+  }
+  .topbar-icon {
+    display: none;
   }
   .mobile-menu {
     display: inline-flex;

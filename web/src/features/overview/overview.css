@@ -735,3 +735,42 @@ a.today-row:hover {
   background: var(--xc-danger-soft);
   color: var(--xc-danger);
 }
+
+/*
+ * B100：卡片的标题和内容放在同一张卡片里（设计稿 MainB.dc.html）。
+ * 调整布局时不套卡片，保留虚线框的样子。
+ */
+.today-page .xc-page-title h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.today-card:not(.is-editing) .xc-section {
+  overflow: hidden;
+  background: var(--xc-surface);
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+}
+.today-card:not(.is-editing) .xc-section-head {
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 12px 6px 16px;
+}
+.today-card:not(.is-editing) .xc-section-head h2 {
+  font-weight: 600;
+}
+.today-card:not(.is-editing) .xc-section > .xc-list,
+.today-card:not(.is-editing) .xc-section > .today-note {
+  border: 0;
+  border-top: 1px solid var(--xc-border);
+  border-radius: 0;
+}
+.today-card:not(.is-editing)
+  .xc-section
+  > :not(.xc-section-head):not(.xc-list):not(.today-note) {
+  margin: 0 16px 16px;
+}
+.today-card .today-row {
+  min-height: 44px;
+  padding: 8px 16px;
+}

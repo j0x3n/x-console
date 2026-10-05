@@ -4,7 +4,7 @@
  */
 
 .xc-page {
-  padding: 4px 24px 40px;
+  padding: 20px 24px 40px;
   min-width: 0;
 }
 .xc-page-head {
@@ -530,7 +530,7 @@
 
 @media (max-width: 720px) {
   .xc-page {
-    padding: 4px 16px 32px;
+    padding: 16px 16px 32px;
   }
   .xc-page-head {
     flex-direction: column;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useMatches } from "react-router";
-import { Bell, Command, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useNotifications } from "../../api/core";
 import { useEventConnection } from "../../api/events";
 import { useT } from "../../contexts/LanguageContext";
@@ -18,10 +18,10 @@ interface RouteHandle {
 
 export default function Topbar({
   openMobile,
-  openPalette,
 }: {
   openMobile: () => void;
-  openPalette: () => void;
+  /** B100 起顶栏不再放命令面板按钮（图标栏里有搜索），保留参数兼容 */
+  openPalette?: () => void;
 }) {
   const t = useT();
   const matches = useMatches();
@@ -49,7 +49,8 @@ export default function Topbar({
   const detail = pageTitle && pageTitle !== t(title) ? pageTitle : "";
   const connected = useEventConnection((s) => s.connected);
   // 模块首页：导航里同名的入口。找不到（比如 404 页）就不做成链接。
-  const moduleTo = navItems.find((n) => n.label === title)?.path;
+  const moduleItem = navItems.find((n) => n.label === title);
+  const moduleTo = moduleItem?.path;
   const atModule = !moduleTo || (!detail && location.pathname === moduleTo);
   const notifications = useNotifications();
   const [open, setOpen] = useState(false);
@@ -92,6 +93,12 @@ export default function Topbar({
             <PanelLeftOpen size={17} />
           </span>
         </button>
+        {/* B100：页面名前面的模块图标 */}
+        {moduleItem && (
+          <span className="topbar-icon" aria-hidden>
+            <moduleItem.icon size={15} strokeWidth={1.8} />
+          </span>
+        )}
         {atModule ? (
           <span aria-current="page">{t(title)}</span>
         ) : (
@@ -151,14 +158,6 @@ export default function Topbar({
           </button>
           {open && <NotificationsPopover onClose={() => setOpen(false)} />}
         </div>
-        <button
-          className="command-button"
-          onClick={openPalette}
-          aria-label={t("Open command palette")}
-        >
-          <Command size={13} />
-          <span>K</span>
-        </button>
       </div>
     </header>
   );

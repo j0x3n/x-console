@@ -58,7 +58,7 @@
 | B96 | 习惯页推荐模板（建过的不重复建）；AI 建习惯、改习惯时能传全部提醒参数 | [B96](specs/B96.md) | 前后端都完成（前端 `a22a490`，后端 Claude） |
 | B98 | 界面改版第 1 步：新的颜色、主题色（去掉褐色，默认靛蓝）、字体，公共组件换成 clean 样式，合并进 07-design | [B98](specs/B98.md) 第一、二节 | 完成（Claude，2026-10-05） |
 | B99 | 界面改版第 2 步：左栏改成图标栏加二级菜单，现有二级菜单、数量、动画、“+”都搬过去 | [B98](specs/B98.md) 第三节 | 完成（Claude，2026-10-05） |
-| B100 | 界面改版第 3 步：顶栏和今日页按新设计稿 | [B98](specs/B98.md) 第四节 | |
+| B100 | 界面改版第 3 步：顶栏和今日页按新设计稿 | [B98](specs/B98.md) 第四节 | 完成（Claude，2026-10-05） |
 | B101 | 界面改版第 4 步：项目的二级菜单和视图（我的 Issue、今天到期、已逾期、本周到期），项目列表和看板按新设计稿 | [B98](specs/B98.md) 第五节 | |
 | B102 | 界面改版第 5 步：其他模块的二级菜单和页面，分三组做（组 1 □ 组 2 □ 组 3 □） | [B98](specs/B98.md) 第六节 | |
 
@@ -356,6 +356,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B100（2026-10-05）：`components/layout/Topbar.tsx` 页面名前加模块图标，去掉 ⌘K 按钮，`openPalette` 参数改成可选（不再使用）。`styles.css` 的顶栏改成 58px 加下边线，`.xc-page` 上边距从 4px 改成 20px（手机 16px）。
 
 - B99（2026-10-05）：`components/layout/Sidebar.tsx` 重写成图标栏加二级菜单，外层仍是 `.sidebar`（脚本按它找左栏），菜单项是 `.nav-rail-item`，链接的可读名称是模块名（`aria-label`）。新增导出 `moduleForPath()`。`lib/navChildren.ts` 的 `NAV_CHILD_LIMIT` 从 5 改成 30。`stores/sidebar.ts` 的 `collapsed` 现在表示二级菜单收起。登记接口（`registerNavChildren`、`registerNavBadge`、`registerNavIcon`、`registerNavStatus`、`registerNavAction`）不变，显示位置变了。旧左栏的样式从 `styles.css`、`ui.css`、`theme.css`、`refinements.css`、`motion.css` 删掉，新样式在 `styles/nav.css`。
 
