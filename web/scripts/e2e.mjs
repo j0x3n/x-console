@@ -1098,7 +1098,7 @@ try {
   );
   await page.setViewportSize({ width: 1360, height: 860 });
 
-  stage = "B69 在存储页加 WebDAV 账号，云盘页出现标签";
+  stage = "B69 在存储页加 WebDAV 账号，云盘二级菜单出现网盘";
   const davPort = await freePort();
   start("fakedav", binary("fakedav"), ["-addr", `127.0.0.1:${davPort}`, "-user", "me", "-password", "dav-pw"]);
   await until("WebDAV", async () => (await fetch(`http://127.0.0.1:${davPort}/dav/`)).status === 401);
@@ -1114,7 +1114,8 @@ try {
   await davDialog.waitFor({ state: "hidden" });
   await page.locator(".storage-remote-row").filter({ hasText: "端到端网盘" }).waitFor();
   await page.goto(`${base}/drive`);
-  await page.getByRole("button", { name: "端到端网盘" }).click();
+  // B104：网盘的入口在左栏二级菜单里
+  await page.locator(".nav-panel").getByRole("link", { name: "端到端网盘" }).click();
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
 
