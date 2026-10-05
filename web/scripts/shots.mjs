@@ -171,6 +171,7 @@ const ids = await page.evaluate(async () => {
 
 const routes = [
   ["today", "/"],
+  ["mail", "/mail"],
   ["projects", "/projects"],
   ["projects-overdue", "/projects/views/overdue"],
   ["projects-mine", "/projects/views/mine"],

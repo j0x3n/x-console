@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useMatches } from "react-router";
-import { Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Bell, PanelLeftClose, PanelLeftOpen, Settings2 } from "lucide-react";
 import { useNotifications } from "../../api/core";
 import { useEventConnection } from "../../api/events";
 import { useT } from "../../contexts/LanguageContext";
@@ -51,6 +51,9 @@ export default function Topbar({
   // 模块首页：导航里同名的入口。找不到（比如 404 页）就不做成链接。
   const moduleItem = navItems.find((n) => n.label === title);
   const moduleTo = moduleItem?.path;
+  // 设置不在左栏的模块列表里（入口在图标栏底部），单独给图标
+  const ModuleIcon =
+    moduleItem?.icon ?? (title === "Settings" ? Settings2 : undefined);
   const atModule = !moduleTo || (!detail && location.pathname === moduleTo);
   const notifications = useNotifications();
   const [open, setOpen] = useState(false);
@@ -94,9 +97,9 @@ export default function Topbar({
           </span>
         </button>
         {/* B100：页面名前面的模块图标 */}
-        {moduleItem && (
+        {ModuleIcon && (
           <span className="topbar-icon" aria-hidden>
-            <moduleItem.icon size={15} strokeWidth={1.8} />
+            <ModuleIcon size={15} strokeWidth={1.8} />
           </span>
         )}
         {atModule ? (
