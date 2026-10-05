@@ -22,7 +22,7 @@ import {
   RefreshCw,
   Settings,
 } from "lucide-react";
-import { errorMessage, isNotLive } from "../../api/client";
+import { ApiError, errorMessage, isNotLive } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
 import { Segments, StatCard, StatStrip } from "../../components/ui/Stat";
 import {
@@ -36,6 +36,7 @@ import { toast } from "../../hooks/useToast";
 import { relativeTime } from "../../lib/time";
 import {
   isNotConfigured,
+  useActionsUsage,
   useCommits,
   useGitHubIssues,
   useGitHubStatus,
@@ -53,6 +54,7 @@ import {
 } from "./api";
 import {
   checkLabel,
+  ciUsageLevel,
   checkTone,
   duration,
   issuePath,
@@ -371,7 +373,84 @@ function GitHubStats({ status }: { status: GitHubStatus }) {
         value={status.rateLimitRemaining ?? "–"}
         foot={t("Requests left this hour")}
       />
+      <CIUsageCard />
     </StatStrip>
+  );
+}
+
+/** B109：本月 CI 时长。后端没上线或没有 GitHub 账号时不显示。 */
+function CIUsageCard() {
+  const t = useT();
+  const usage = useActionsUsage();
+  const label = t("CI minutes this month");
+  if (usage.isPending) return null;
+  if (usage.isError) {
+    const e = usage.error;
+    if (isNotLive(e) || (e instanceof ApiError && e.status === 412))
+      return null;
+    if (e instanceof ApiError && e.status === 403)
+      return (
+        <StatCard
+          label={label}
+          value={t("No billing access")}
+          foot={t("The token needs billing read permission")}
+        />
+      );
+    return <StatCard label={label} value="–" foot={errorMessage(e)} />;
+  }
+  const u = usage.data;
+  // 回应缺字段时不显示，不让整个页面出错。
+  if (!u?.byOS) return null;
+  const { percent, tone } = ciUsageLevel(u.usedMinutes, u.includedMinutes);
+  // 卡片窄，只列用过的系统。带“按系统”的完整说明放在鼠标悬停提示里。
+  const osList = (
+    [
+      ["Linux", u.byOS.linux],
+      ["Windows", u.byOS.windows],
+      ["macOS", u.byOS.macos],
+    ] as const
+  )
+    .filter(([, n]) => n > 0)
+    .map(([name, n]) => `${name} ${n}`)
+    .join(" · ");
+  return (
+    <StatCard
+      label={label}
+      value={u.usedMinutes}
+      unit={t("min")}
+      tone={tone}
+      className="github-ci-usage"
+      foot={
+        <>
+          <span>
+            {t("{total} minutes in total · {percent}% used")
+              .replace("{total}", String(u.includedMinutes))
+              .replace("{percent}", String(percent))}
+          </span>
+          <span
+            title={t("By system: {list}").replace(
+              "{list}",
+              `Linux ${u.byOS.linux} · Windows ${u.byOS.windows} · macOS ${u.byOS.macos}`,
+            )}
+          >
+            {osList || "Linux 0"}
+          </span>
+        </>
+      }
+    >
+      <Segments
+        parts={[
+          {
+            value: Math.min(u.usedMinutes, u.includedMinutes),
+            tone: tone ?? "ok",
+          },
+          {
+            value: Math.max(0, u.includedMinutes - u.usedMinutes),
+            tone: "muted",
+          },
+        ]}
+      />
+    </StatCard>
   );
 }
 

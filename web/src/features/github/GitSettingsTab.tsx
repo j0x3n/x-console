@@ -60,6 +60,7 @@ export default function GitSettingsTab() {
         <AccountsCard />
         <StatusCard />
         <NotifyCard />
+        <CIQuotaCard />
       </div>
       <div className="github-settings-col">
         <GitHubPageCard />
@@ -381,8 +382,12 @@ function NotifyCard() {
   const settings = useGitHubNotify();
   const save = useSaveGitHubNotify();
   const [value, setValue] = useState<RepoNotify>(DEFAULT_NOTIFY);
+  const [ciQuota, setCiQuota] = useState(true);
   useEffect(() => {
-    if (settings.data) setValue(settings.data.defaults);
+    if (settings.data) {
+      setValue(settings.data.defaults);
+      setCiQuota(settings.data.ciQuota ?? true);
+    }
   }, [settings.data]);
   if (settings.isError && isNotLive(settings.error))
     return (
@@ -413,6 +418,16 @@ function NotifyCard() {
       ) : (
         <>
           <NotifyFields value={value} onChange={setValue} />
+          <label className="xc-check">
+            <input
+              type="checkbox"
+              checked={ciQuota}
+              onChange={(e) => setCiQuota(e.target.checked)}
+            />
+            <span>
+              {t("Notify when this month's CI minutes reach 80% and 100%")}
+            </span>
+          </label>
           <div className="xc-dialog-actions">
             <span className="xc-spacer" />
             <button
@@ -421,7 +436,7 @@ function NotifyCard() {
               disabled={save.isPending}
               onClick={() =>
                 save.mutate(
-                  { defaults: value, repos: settings.data.repos },
+                  { defaults: value, repos: settings.data.repos, ciQuota },
                   {
                     onSuccess: () => toast(t("Saved")),
                     onError: (error) =>
@@ -526,6 +541,69 @@ function PageForm({
           </div>
         </>
       )}
+    </form>
+  );
+}
+
+/** B109：每月免费 CI 分钟数，仓库页的“本月 CI 时长”按它算百分比。 */
+function CIQuotaCard() {
+  const t = useT();
+  const config = useGitHubConfig();
+  const save = useSaveGitHubConfig();
+  const [minutes, setMinutes] = useState("");
+  const saved = config.data?.ciIncludedMinutes;
+  useEffect(() => {
+    if (saved != null) setMinutes(String(saved));
+  }, [saved]);
+  // 后端还没上线时接口不返回这个字段，不显示这张卡片。
+  if (saved == null) return null;
+  const n = Number(minutes);
+  const valid = Number.isInteger(n) && n >= 1 && n <= 1_000_000;
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!valid) return;
+    save.mutate(
+      { ciIncludedMinutes: n },
+      {
+        onSuccess: () => toast(t("Saved")),
+        onError: (error) =>
+          toast({ message: errorMessage(error), tone: "error" }),
+      },
+    );
+  };
+  return (
+    <form className="xc-card" onSubmit={onSubmit}>
+      <div className="xc-card-head">
+        <h2>{t("CI minutes quota")}</h2>
+      </div>
+      <p className="xc-muted">
+        {t(
+          "GitHub Free includes 2000 minutes a month. Change it after you upgrade your plan.",
+        )}
+      </p>
+      <label className="xc-field">
+        <span>{t("Free CI minutes per month")}</span>
+        <input
+          className="xc-input"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={1000000}
+          step={1}
+          value={minutes}
+          onChange={(e) => setMinutes(e.target.value)}
+        />
+      </label>
+      <div className="xc-dialog-actions">
+        <span className="xc-spacer" />
+        <button
+          type="submit"
+          className="xc-btn primary"
+          disabled={!valid || save.isPending || n === saved}
+        >
+          {t("Save")}
+        </button>
+      </div>
     </form>
   );
 }

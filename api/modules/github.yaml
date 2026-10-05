@@ -268,6 +268,25 @@ paths:
               schema: { $ref: "#/components/schemas/GitHubNotifySettings" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /github/actions-usage:
+    get:
+      operationId: getGitHubActionsUsage
+      tags: [github]
+      description: |
+        B109。本月 GitHub Actions 已用的分钟数（按系统倍数折算），结果缓存 10 分钟，refresh=true 时重新取。
+        没有 GitHub 账号时回 412 github_not_configured；令牌没有账单读权限时回 403 github_billing_forbidden。
+      parameters:
+        - name: refresh
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 本月用量
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitHubActionsUsage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     ConnectionQuery:
@@ -381,6 +400,22 @@ components:
         connectionId: { type: integer, format: int64 }
         repo: { type: string }
         notify: { $ref: "#/components/schemas/RepoNotify" }
+    GitHubActionsUsage:
+      type: object
+      required: [month, usedMinutes, includedMinutes, byOS, fetchedAt]
+      properties:
+        month: { type: string, description: "哪个月，UTC，例如 2026-10" }
+        usedMinutes: { type: integer, description: 折算后的已用分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍） }
+        includedMinutes: { type: integer, description: 每月免费分钟数。GitHub 没给时用设置里的值，默认 2000 }
+        byOS:
+          type: object
+          required: [linux, windows, macos]
+          description: 按系统分开的折算分钟数
+          properties:
+            linux: { type: integer }
+            windows: { type: integer }
+            macos: { type: integer }
+        fetchedAt: { type: string, format: date-time, description: 什么时候从 GitHub 取的 }
     GitHubNotifySettings:
       type: object
       required: [defaults, repos]
@@ -389,6 +424,9 @@ components:
         repos:
           type: array
           items: { $ref: "#/components/schemas/RepoNotifyOverride" }
+        ciQuota:
+          type: boolean
+          description: B109。本月 CI 时长用到 80% 和 100% 时各发一次通知。默认开；不传时保留原值
     GitHubConfig:
       type: object
       required: [hasToken, token, repos, apiUrl]
@@ -409,6 +447,7 @@ components:
           type: array
           description: B70。关注的仓库，每个带 Git 账号。旧数据由后端换算成这个
           items: { $ref: "#/components/schemas/RepoWatch" }
+        ciIncludedMinutes: { type: integer, description: B109。每月免费 CI 分钟数，默认 2000 }
     GitHubConfigInput:
       type: object
       properties:
@@ -431,6 +470,11 @@ components:
           maxItems: 100
           description: B70。传了就以它为准，repos 和 connectionId 不再用
           items: { $ref: "#/components/schemas/RepoWatch" }
+        ciIncludedMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: B109。每月免费 CI 分钟数。只传这一项时只改它，其他配置不动
     GitHubTestInput:
       type: object
       properties:

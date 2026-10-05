@@ -146,6 +146,28 @@ func (e RepoNotifyCiBranches) Valid() bool {
 // Forge B70。仓库在哪种服务上
 type Forge string
 
+// GitHubActionsUsage defines model for GitHubActionsUsage.
+type GitHubActionsUsage struct {
+	// ByOS 按系统分开的折算分钟数
+	ByOS struct {
+		Linux   int `json:"linux"`
+		Macos   int `json:"macos"`
+		Windows int `json:"windows"`
+	} `json:"byOS"`
+
+	// FetchedAt 什么时候从 GitHub 取的
+	FetchedAt time.Time `json:"fetchedAt"`
+
+	// IncludedMinutes 每月免费分钟数。GitHub 没给时用设置里的值，默认 2000
+	IncludedMinutes int `json:"includedMinutes"`
+
+	// Month 哪个月，UTC，例如 2026-10
+	Month string `json:"month"`
+
+	// UsedMinutes 折算后的已用分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍）
+	UsedMinutes int `json:"usedMinutes"`
+}
+
 // GitHubAvailableRepos defines model for GitHubAvailableRepos.
 type GitHubAvailableRepos struct {
 	// FetchedAt 这份列表是什么时候从 GitHub 取的
@@ -192,6 +214,9 @@ type GitHubConfig struct {
 	// ApiUrl REST API 地址，默认 https://api.github.com
 	ApiUrl string `json:"apiUrl"`
 
+	// CiIncludedMinutes B109。每月免费 CI 分钟数，默认 2000
+	CiIncludedMinutes *int `json:"ciIncludedMinutes,omitempty"`
+
 	// ConnectionId B62：GitHub 页面用哪个 Git 账号。B70 起改用 watches，这个字段只为兼容
 	ConnectionId *int64 `json:"connectionId,omitempty"`
 	HasToken     bool   `json:"hasToken"`
@@ -214,6 +239,9 @@ type GitHubConfigInput struct {
 	// ApiUrl B62 起不用。留空表示用默认地址
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	ApiUrl *string `json:"apiUrl,omitempty"`
+
+	// CiIncludedMinutes B109。每月免费 CI 分钟数。只传这一项时只改它，其他配置不动
+	CiIncludedMinutes *int `json:"ciIncludedMinutes,omitempty"`
 
 	// ClearToken B62 起不用
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
@@ -272,6 +300,8 @@ type GitHubJob struct {
 
 // GitHubNotifySettings defines model for GitHubNotifySettings.
 type GitHubNotifySettings struct {
+	// CiQuota B109。本月 CI 时长用到 80% 和 100% 时各发一次通知。默认开；不传时保留原值
+	CiQuota  *bool                `json:"ciQuota,omitempty"`
 	Defaults RepoNotify           `json:"defaults"`
 	Repos    []RepoNotifyOverride `json:"repos"`
 }
@@ -482,6 +512,11 @@ type WatchedRepo struct {
 // ConnectionQuery defines model for ConnectionQuery.
 type ConnectionQuery = int64
 
+// GetGitHubActionsUsageParams defines parameters for GetGitHubActionsUsage.
+type GetGitHubActionsUsageParams struct {
+	Refresh *bool `form:"refresh,omitempty" json:"refresh,omitempty"`
+}
+
 // ListGitHubAvailableReposParams defines parameters for ListGitHubAvailableRepos.
 type ListGitHubAvailableReposParams struct {
 	Refresh *bool `form:"refresh,omitempty" json:"refresh,omitempty"`
@@ -545,6 +580,9 @@ type TestGitHubJSONRequestBody = GitHubTestInput
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /github/actions-usage)
+	GetGitHubActionsUsage(w http.ResponseWriter, r *http.Request, params GetGitHubActionsUsageParams)
+
 	// (GET /github/available-repos)
 	ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request, params ListGitHubAvailableReposParams)
 
@@ -591,6 +629,11 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// (GET /github/actions-usage)
+func (_ Unimplemented) GetGitHubActionsUsage(w http.ResponseWriter, r *http.Request, params GetGitHubActionsUsageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // (GET /github/available-repos)
 func (_ Unimplemented) ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request, params ListGitHubAvailableReposParams) {
@@ -670,6 +713,39 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetGitHubActionsUsage operation middleware
+func (siw *ServerInterfaceWrapper) GetGitHubActionsUsage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetGitHubActionsUsageParams
+
+	// ------------- Optional query parameter "refresh" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "refresh", r.URL.Query(), &params.Refresh, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "refresh"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "refresh", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGitHubActionsUsage(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListGitHubAvailableRepos operation middleware
 func (siw *ServerInterfaceWrapper) ListGitHubAvailableRepos(w http.ResponseWriter, r *http.Request) {
@@ -1248,6 +1324,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/github/notify", wrapper.PutGitHubNotify)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/github/actions-usage", wrapper.GetGitHubActionsUsage)
 	})
 
 	return r

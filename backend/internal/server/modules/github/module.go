@@ -62,6 +62,7 @@ type Module struct {
 	accountMu   sync.Mutex
 	accounts    map[int64]*accountState
 	jobs        jobsCache
+	usage       usageCache // B109
 
 	syncMu  sync.Mutex // one sync at a time
 	stateMu sync.Mutex
@@ -110,6 +111,7 @@ func (m *Module) Start(ctx context.Context) error {
 	}
 	m.d.Scheduler.Every("github.sync", syncInterval, m.scheduledSync)
 	m.d.Scheduler.Every("github.notify", time.Minute, m.flushNotify)
+	m.d.Scheduler.Every("github.ci_quota", usageCheckInterval, m.checkCIQuota)
 	return nil
 }
 

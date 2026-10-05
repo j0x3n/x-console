@@ -224,6 +224,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/github/actions-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B109。本月 GitHub Actions 已用的分钟数（按系统倍数折算），结果缓存 10 分钟，refresh=true 时重新取。
+         *     没有 GitHub 账号时回 412 github_not_configured；令牌没有账单读权限时回 403 github_billing_forbidden。
+         */
+        get: operations["getGitHubActionsUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -345,9 +365,30 @@ export interface components {
             repo: string;
             notify: components["schemas"]["RepoNotify"];
         };
+        GitHubActionsUsage: {
+            /** @description 哪个月，UTC，例如 2026-10 */
+            month: string;
+            /** @description 折算后的已用分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍） */
+            usedMinutes: number;
+            /** @description 每月免费分钟数。GitHub 没给时用设置里的值，默认 2000 */
+            includedMinutes: number;
+            /** @description 按系统分开的折算分钟数 */
+            byOS: {
+                linux: number;
+                windows: number;
+                macos: number;
+            };
+            /**
+             * Format: date-time
+             * @description 什么时候从 GitHub 取的
+             */
+            fetchedAt: string;
+        };
         GitHubNotifySettings: {
             defaults: components["schemas"]["RepoNotify"];
             repos: components["schemas"]["RepoNotifyOverride"][];
+            /** @description B109。本月 CI 时长用到 80% 和 100% 时各发一次通知。默认开；不传时保留原值 */
+            ciQuota?: boolean;
         };
         GitHubConfig: {
             hasToken: boolean;
@@ -366,6 +407,8 @@ export interface components {
             connectionId?: number;
             /** @description B70。关注的仓库，每个带 Git 账号。旧数据由后端换算成这个 */
             watches?: components["schemas"]["RepoWatch"][];
+            /** @description B109。每月免费 CI 分钟数，默认 2000 */
+            ciIncludedMinutes?: number;
         };
         GitHubConfigInput: {
             /**
@@ -396,6 +439,8 @@ export interface components {
             connectionId?: number;
             /** @description B70。传了就以它为准，repos 和 connectionId 不再用 */
             watches?: components["schemas"]["RepoWatch"][];
+            /** @description B109。每月免费 CI 分钟数。只传这一项时只改它，其他配置不动 */
+            ciIncludedMinutes?: number;
         };
         GitHubTestInput: {
             /** @description 留空表示用已保存的令牌 */
@@ -897,6 +942,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GitHubNotifySettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getGitHubActionsUsage: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 本月用量 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubActionsUsage"];
                 };
             };
             default: components["responses"]["Error"];

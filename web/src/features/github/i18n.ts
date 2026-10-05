@@ -1,6 +1,20 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B109：本月 CI 时长
+  "CI minutes this month": "本月 CI 时长",
+  "{total} minutes in total · {percent}% used":
+    "共 {total} 分钟 · 已用 {percent}%",
+  "By system: {list}": "按系统：{list}",
+  "No billing access": "未授权",
+  "The token needs billing read permission": "令牌需要账单读权限",
+  min: "分钟",
+  "CI minutes quota": "CI 时长额度",
+  "Free CI minutes per month": "每月免费 CI 分钟数",
+  "GitHub Free includes 2000 minutes a month. Change it after you upgrade your plan.":
+    "GitHub 免费套餐每月 2000 分钟。升级套餐后改成新的额度。",
+  "Notify when this month's CI minutes reach 80% and 100%":
+    "本月 CI 时长用到 80% 和 100% 时通知",
   // B70：仓库页
   "Git & repositories": "Git 与仓库",
   "No watched repositories yet. Pick some in settings.":

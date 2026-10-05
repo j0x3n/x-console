@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GitHubPull, GitHubRun } from "./api";
 import {
+  ciUsageLevel,
   filterRepos,
   isRepoName,
   checkTone,
@@ -291,5 +292,14 @@ describe("B70 multi-repo helpers", () => {
       defaultBranch: "main",
       ci: { conclusion: "success", runId: 9 },
     });
+  });
+});
+
+describe("ciUsageLevel", () => {
+  it("turns yellow at 80% and red at 100%", () => {
+    expect(ciUsageLevel(1599, 2000)).toEqual({ percent: 79 });
+    expect(ciUsageLevel(1600, 2000)).toEqual({ percent: 80, tone: "warn" });
+    expect(ciUsageLevel(2000, 2000)).toEqual({ percent: 100, tone: "danger" });
+    expect(ciUsageLevel(10, 0)).toEqual({ percent: 0 });
   });
 });

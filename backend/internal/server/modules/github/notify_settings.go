@@ -26,6 +26,10 @@ func (m *Module) notifySettings(ctx context.Context) (api.GitHubNotifySettings, 
 	if out.Repos == nil {
 		out.Repos = []api.RepoNotifyOverride{}
 	}
+	if out.CiQuota == nil {
+		on := true // B109: on unless turned off
+		out.CiQuota = &on
+	}
 	return out, nil
 }
 func normalizeNotify(n api.RepoNotify) (api.RepoNotify, error) {
@@ -81,6 +85,15 @@ func (m *Module) PutGitHubNotify(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Repos == nil {
 		in.Repos = []api.RepoNotifyOverride{}
+	}
+	if in.CiQuota == nil {
+		// B109: the bell on one repository sends the whole settings without it.
+		old, err := m.notifySettings(r.Context())
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		in.CiQuota = old.CiQuota
 	}
 	seen := map[repoKey]bool{}
 	for i, override := range in.Repos {

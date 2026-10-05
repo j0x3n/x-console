@@ -1,0 +1,9 @@
+{
+  "usageItems": [
+    {"date": "2026-10-01T00:00:00Z", "product": "actions", "sku": "actions_linux", "quantity": 70, "unitType": "Minutes", "pricePerUnit": 0.008, "grossAmount": 0.56, "discountAmount": 0.56, "netAmount": 0, "repositoryName": "jo/app"},
+    {"date": "2026-10-02T00:00:00Z", "product": "Actions", "sku": "Actions Linux", "quantity": 50, "unitType": "minutes", "pricePerUnit": 0.008, "grossAmount": 0.4, "discountAmount": 0.4, "netAmount": 0, "repositoryName": "jo/app"},
+    {"date": "2026-10-02T00:00:00Z", "product": "Actions", "sku": "Actions Windows", "quantity": 15, "unitType": "minutes", "pricePerUnit": 0.016, "grossAmount": 0.24, "discountAmount": 0.24, "netAmount": 0, "repositoryName": "jo/x-console"},
+    {"date": "2026-10-02T00:00:00Z", "product": "Actions", "sku": "Actions Storage", "quantity": 0.5, "unitType": "GigabyteHours", "pricePerUnit": 0.00034, "grossAmount": 0.0002, "discountAmount": 0.0002, "netAmount": 0, "repositoryName": "jo/app"},
+    {"date": "2026-10-02T00:00:00Z", "product": "Packages", "sku": "Packages data transfer", "quantity": 3, "unitType": "GigabyteHours", "pricePerUnit": 0.5, "grossAmount": 1.5, "discountAmount": 1.5, "netAmount": 0, "repositoryName": "jo/app"}
+  ]
+}

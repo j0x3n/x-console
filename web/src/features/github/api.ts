@@ -33,6 +33,7 @@ export type RepoNotify = ghComponents["schemas"]["RepoNotify"];
 export type GitHubNotifySettings =
   ghComponents["schemas"]["GitHubNotifySettings"];
 export type ReviewState = ghComponents["schemas"]["GitHubReviewState"];
+export type GitHubActionsUsage = ghComponents["schemas"]["GitHubActionsUsage"];
 
 export type LinearConfig = lnComponents["schemas"]["LinearConfig"];
 export type LinearConfigInput = lnComponents["schemas"]["LinearConfigInput"];
@@ -57,6 +58,7 @@ export const githubKeys = {
     ["github", "commits", connectionId, repo] as const,
   jobs: (runId: number) => ["github", "jobs", runId] as const,
   notify: ["github", "notify"] as const,
+  actionsUsage: ["github", "actions-usage"] as const,
 };
 
 export const linearKeys = {
@@ -344,5 +346,25 @@ export function useSaveGitHubNotify() {
       qc.setQueryData(githubKeys.notify, data);
       qc.invalidateQueries({ queryKey: githubKeys.repos });
     },
+  });
+}
+
+/* ---- B109：本月 CI 时长 ---- */
+
+/**
+ * 本月 Actions 已用分钟数。后端缓存 10 分钟，这里 5 分钟内不重取。
+ * 404、501 表示后端还没上线；403 是令牌没有账单权限，都不重试。
+ */
+export function useActionsUsage(enabled = true) {
+  return useQuery({
+    queryKey: githubKeys.actionsUsage,
+    queryFn: () => unwrap(githubApi.GET("/github/actions-usage")),
+    retry: (count, error) =>
+      !isNotLive(error) &&
+      !(error instanceof ApiError && [403, 412].includes(error.status)) &&
+      count < 2,
+    staleTime: 5 * 60_000,
+    meta: { silentError: true },
+    enabled,
   });
 }

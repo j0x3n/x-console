@@ -664,3 +664,16 @@
     padding-left: 24px;
   }
 }
+
+/* B109：本月 CI 时长卡片，说明分两行 */
+.github-ci-usage .xc-stat-foot span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 手机上一排两张，这张落单时占满一行，说明不用截断 */
+@media (max-width: 720px) {
+  .xc-stats .github-ci-usage:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}

@@ -45,7 +45,19 @@ func (m *Module) GetGitHubConfig(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, configToAPI(cfg))
+	m.writeConfig(w, r, cfg)
+}
+
+// writeConfig answers the config with the free CI minutes (B109).
+func (m *Module) writeConfig(w http.ResponseWriter, r *http.Request, cfg config) {
+	out := configToAPI(cfg)
+	n, err := m.ciIncludedMinutes(r.Context())
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	out.CiIncludedMinutes = &n
+	httpx.JSON(w, http.StatusOK, out)
 }
 
 // PutGitHubConfig saves the config. Changing the token or the API address
@@ -64,13 +76,21 @@ func (m *Module) PutGitHubConfig(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, configToAPI(cfg))
+	m.writeConfig(w, r, cfg)
 }
 
 func (m *Module) saveConfig(ctx context.Context, in api.GitHubConfigInput) (config, error) {
 	old, err := m.loadConfig(ctx)
 	if err != nil {
 		return config{}, err
+	}
+	if in.CiIncludedMinutes != nil {
+		if err := m.setCIIncludedMinutes(ctx, *in.CiIncludedMinutes); err != nil {
+			return config{}, err
+		}
+		if in.Watches == nil && in.Repos == nil && in.Token == nil && in.ClearToken == nil && in.ApiUrl == nil && in.ConnectionId == nil {
+			return old, nil // only the free minutes changed
+		}
 	}
 	if in.Watches != nil {
 		watches, err := m.normalizeWatches(ctx, *in.Watches)

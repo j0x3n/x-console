@@ -41,6 +41,11 @@ type fakeGitHub struct {
 	userRepos     []map[string]any // GET /user/repos
 	remaining     int              // X-RateLimit-Remaining, 4999 when zero
 	limit         int              // X-RateLimit-Limit, 5000 when zero
+	// B109: billing answers as raw JSON, or a status code when not zero.
+	billingUsage, billingActions             string
+	billingUsageStatus, billingActionsStatus int
+	billingRequests                          int
+	billingQuery                             string
 }
 
 func newFakeGitHub(t *testing.T) *fakeGitHub {
@@ -134,6 +139,20 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(p)
+		return
+	case r.URL.Path == "/users/"+f.login+"/settings/billing/usage" || r.URL.Path == "/users/"+f.login+"/settings/billing/actions":
+		f.billingRequests++
+		raw, status := f.billingActions, f.billingActionsStatus
+		if parts[4] == "usage" {
+			raw, status, f.billingQuery = f.billingUsage, f.billingUsageStatus, r.URL.RawQuery
+		}
+		if status != 0 {
+			w.WriteHeader(status)
+			_, _ = io.WriteString(w, `{"message":"no"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, raw)
 		return
 	case r.URL.Path == "/user/repos":
 		body = f.page(w, r, f.userRepos)

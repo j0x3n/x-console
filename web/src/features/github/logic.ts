@@ -458,3 +458,14 @@ export const DEFAULT_NOTIFY = {
   ],
   ciBranches: "default" as const,
 };
+
+/** B109：本月 CI 时长用了多少。80% 变黄，100% 变红。 */
+export function ciUsageLevel(
+  used: number,
+  included: number,
+): { percent: number; tone?: "warn" | "danger" } {
+  const percent = included > 0 ? Math.floor((used * 100) / included) : 0;
+  if (percent >= 100) return { percent, tone: "danger" };
+  if (percent >= 80) return { percent, tone: "warn" };
+  return { percent };
+}

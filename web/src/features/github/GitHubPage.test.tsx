@@ -21,8 +21,14 @@ const responses = vi.hoisted(() => {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const req = input as Request;
     const path = new URL(req.url).pathname.replace("/api/v1", "");
-    return new Response(JSON.stringify(routes.get(path) ?? []), {
-      status: 200,
+    const value = routes.get(path);
+    // { status, body } 用来模拟出错的回应。
+    const failed =
+      value && typeof value === "object" && "status" in value && "body" in value
+        ? (value as { status: number; body: unknown })
+        : null;
+    return new Response(JSON.stringify(failed ? failed.body : (value ?? [])), {
+      status: failed ? failed.status : 200,
       headers: { "Content-Type": "application/json" },
     });
   }) as typeof fetch;
@@ -138,5 +144,63 @@ describe("GitHubPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "CI 运行" }));
     expect(await screen.findByText("默认分支")).toBeTruthy();
     expect(screen.getAllByText("失败").length).toBeGreaterThan(0);
+  });
+
+  it("shows this month's CI minutes and turns yellow at 80%", async () => {
+    responses.routes.set("/github/status", {
+      configured: true,
+      syncing: false,
+      repoCount: 1,
+    });
+    responses.routes.set("/github/actions-usage", {
+      month: "2026-10",
+      usedMinutes: 1650,
+      includedMinutes: 2000,
+      byOS: { linux: 1500, windows: 150, macos: 0 },
+      fetchedAt: "2026-10-05T10:00:00Z",
+    });
+    renderPage();
+    const foot = await screen.findByText("共 2000 分钟 · 已用 82%", undefined, {
+      timeout: 3000,
+    });
+    const card = foot.closest(".xc-stat")!;
+    expect(card.textContent).toContain("本月 CI 时长");
+    expect(card.textContent).toContain("Linux 1500 · Windows 150");
+    expect(card.querySelector("[title]")?.getAttribute("title")).toBe(
+      "按系统：Linux 1500 · Windows 150 · macOS 0",
+    );
+    expect(card.querySelector(".xc-stat-value.warn")?.textContent).toContain(
+      "1650",
+    );
+  });
+
+  it("says the token cannot read billing on 403 and hides the card on 404", async () => {
+    responses.routes.set("/github/status", {
+      configured: true,
+      syncing: false,
+      repoCount: 1,
+    });
+    responses.routes.set("/github/actions-usage", {
+      status: 403,
+      body: { code: "github_billing_forbidden", message: "no" },
+    });
+    renderPage();
+    expect(
+      await screen.findByText("令牌需要账单读权限", undefined, {
+        timeout: 3000,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText("未授权")).toBeTruthy();
+    cleanup();
+
+    responses.routes.set("/github/actions-usage", {
+      status: 404,
+      body: { code: "not_found", message: "no" },
+    });
+    renderPage();
+    await screen.findByText("API 额度", undefined, { timeout: 3000 });
+    // 等这次请求回来再看。
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText("本月 CI 时长")).toBeNull();
   });
 });
