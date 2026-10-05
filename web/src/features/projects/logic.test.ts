@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  issuesInView,
+  matchesIssueSearch,
   coverImage,
   applyMove,
   column,
@@ -486,5 +488,32 @@ describe("coverImage", () => {
     expect(coverImage("")).toBeNull();
     expect(coverImage("[链接](/x)")).toBeNull();
     expect(coverImage("![x](javascript:alert(1))")).toBeNull();
+  });
+});
+
+describe("issuesInView", () => {
+  const issue = (key: string, dueDate?: string) =>
+    ({ key, title: key, status: "todo", dueDate }) as Issue;
+  const all = [
+    issue("A-1", "2026-10-04"),
+    issue("A-2", "2026-10-05"),
+    issue("A-3", "2026-10-11"),
+    issue("A-4", "2026-10-12"),
+    issue("A-5"),
+  ];
+  const keys = (list: Issue[]) => list.map((i) => i.key);
+  it("按截止日期分到各个视图", () => {
+    expect(keys(issuesInView("mine", all, "2026-10-05"))).toHaveLength(5);
+    expect(keys(issuesInView("overdue", all, "2026-10-05"))).toEqual(["A-1"]);
+    expect(keys(issuesInView("today", all, "2026-10-05"))).toEqual(["A-2"]);
+    expect(keys(issuesInView("week", all, "2026-10-05"))).toEqual([
+      "A-2",
+      "A-3",
+    ]);
+  });
+  it("搜索标题和编号", () => {
+    expect(matchesIssueSearch(issue("XC-12"), "xc-1")).toBe(true);
+    expect(matchesIssueSearch(issue("XC-12"), "  ")).toBe(true);
+    expect(matchesIssueSearch(issue("XC-12"), "abc")).toBe(false);
   });
 });

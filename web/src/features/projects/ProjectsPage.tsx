@@ -4,14 +4,14 @@ import { FolderKanban, Plus } from "lucide-react";
 import Dialog from "../../components/ui/Dialog";
 import PageHeading from "../../components/ui/PageHeading";
 import {
-  Ring,
   Section,
   Segments,
   StatCard,
   StatStrip,
 } from "../../components/ui/Stat";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
-import { useT } from "../../contexts/LanguageContext";
+import { useLanguage, useT } from "../../contexts/LanguageContext";
+import { relativeTime } from "../../lib/time";
 import { useMyIssues, useProjects, type Project } from "./api";
 import { useIssueCommands, useProjectCommands } from "./commands";
 import { ProjectBadge } from "./components/Icons";
@@ -31,7 +31,13 @@ export default function ProjectsPage() {
   const t = useT();
   const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
-  const [showArchived, setShowArchived] = useState(false);
+  // 左栏“已归档”链到 /projects?archived=1（B101）
+  const showArchived = search.get("archived") === "1";
+  const setShowArchived = (update: (v: boolean) => boolean) => {
+    if (update(showArchived)) search.set("archived", "1");
+    else search.delete("archived");
+    setSearch(search, { replace: true });
+  };
   const projects = useProjects(false);
   const archived = useProjects(true);
   const myIssues = useMyIssues();
@@ -182,9 +188,14 @@ export default function ProjectsPage() {
           title={t("My open issues")}
           count={open.length}
           aside={
-            <span className="xc-muted projects-hint">
-              {t("Due soonest first")}
-            </span>
+            <>
+              <span className="xc-muted projects-hint">
+                {t("Due soonest first")}
+              </span>
+              <Link className="projects-view-all" to="/projects/views/mine">
+                {t("View all")}
+              </Link>
+            </>
           }
         >
           {myIssues.isPending ? (
@@ -250,8 +261,10 @@ function summarize(issues: Issue[]) {
   return s;
 }
 
+/** 项目卡片（B101）：标识、名称、更新时间、两行描述、进度条和数量。 */
 function ProjectCard({ project }: { project: Project }) {
   const t = useT();
+  const language = useLanguage();
   const done = project.issueCount - project.openCount;
   const pct = project.issueCount
     ? Math.round((done / project.issueCount) * 100)
@@ -265,30 +278,30 @@ function ProjectCard({ project }: { project: Project }) {
         <ProjectBadge projectKey={project.key} color={project.color} />
         <div className="projects-card-name">
           <strong>{project.name}</strong>
-          <span className="xc-mono xc-muted">{project.key}</span>
+          <span className="xc-muted">
+            {project.key} · {relativeTime(project.updatedAt, language)}
+          </span>
         </div>
-        <Ring
-          value={done}
-          max={project.issueCount}
-          size={40}
-          tone={pct === 100 ? "ok" : "accent"}
-        >
-          <small>{pct}%</small>
-        </Ring>
       </div>
       <p className="projects-card-desc">
         {project.description || t("No description")}
       </p>
-      <div className="projects-card-foot">
-        <span>
-          <strong>{project.openCount}</strong> {t("open")}
-        </span>
-        <span>
-          <strong>{done}</strong> {t("done")}
-        </span>
-        <span className="xc-spacer" />
-        <span>
-          {project.issueCount} {t("total")}
+      <div className="projects-card-progress">
+        <div className="projects-card-foot">
+          <span>
+            <strong>{project.openCount}</strong> {t("open")} ·{" "}
+            <strong>{done}</strong> {t("done")}
+          </span>
+          <span className="xc-spacer" />
+          <span>{pct}%</span>
+        </div>
+        <span className="projects-card-bar" aria-hidden>
+          <i
+            style={{
+              width: `${pct}%`,
+              background: project.color || "var(--xc-accent)",
+            }}
+          />
         </span>
       </div>
     </Link>

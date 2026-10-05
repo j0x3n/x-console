@@ -17,12 +17,19 @@ registerNavChildren("/projects", ProjectsNavChildren);
 const IssuePage = lazy(() => import("./IssuePage"));
 const ProjectPage = lazy(() => import("./ProjectPage"));
 const ProjectsPage = lazy(() => import("./ProjectsPage"));
+const ViewPage = lazy(() => import("./ViewPage"));
 
 // 模块入口：路由、命令、事件订阅都从这里注册。
 export const routes: RouteObject[] = [
   {
     path: "projects",
     element: <ProjectsPage />,
+    handle: { title: "Projects" },
+  },
+  // B101：跨项目的视图。要放在 :projectKey 前面
+  {
+    path: "projects/views/:view",
+    element: <ViewPage />,
     handle: { title: "Projects" },
   },
   {

@@ -110,15 +110,17 @@ const ids = await page.evaluate(async () => {
   let projects = (await get("/projects")) ?? [];
   if (projects.length === 0) {
     const list = [
-      ["XC", "X Console", "#cc7752"],
+      ["XC", "X Console", "#e5793b"],
       ["HOME", "家里的网络", "#5cc98b"],
       ["BLOG", "博客改版", "#70b5f7"],
     ];
     for (const [key, name, color] of list) await post("/projects", { key, name, color });
     projects = (await get("/projects")) ?? [];
     const xc = projects.find((p) => p.key === "XC");
-    for (const title of ["登录页改版", "云盘上传进度", "修复移动端溢出", "接入 S3"])
-      await post(`/projects/${xc.id}/issues`, { title });
+    // B101：两张带截止时间，视图页才有内容（一张已过期，一张今天到期）
+    const dueIn = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
+    for (const [title, dueAt] of [["登录页改版", dueIn(-48)], ["云盘上传进度", dueIn(1)], ["修复移动端溢出"], ["接入 S3"]])
+      await post(`/projects/${xc.id}/issues`, dueAt ? { title, dueAt } : { title });
     for (const [i, title] of ["周会记录", "读书笔记", "家里网络拓扑", "旅行清单"].entries())
       await post("/notes", { title, body: `示例内容 ${i + 1}\n\n- 第一点\n- 第二点`, pinned: i === 0 });
     const at = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
@@ -170,6 +172,8 @@ const ids = await page.evaluate(async () => {
 const routes = [
   ["today", "/"],
   ["projects", "/projects"],
+  ["projects-overdue", "/projects/views/overdue"],
+  ["projects-mine", "/projects/views/mine"],
   ids.project && ["project", `/projects/${ids.project}`],
   ids.project && ["issue", `/projects/${ids.project}/1`],
   ["agents", "/coding"],

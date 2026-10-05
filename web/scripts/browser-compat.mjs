@@ -62,7 +62,7 @@ async function go(page, url) {
 
 async function profile(page, mobile) {
   if (mobile) await page.locator(".sidebar-toggle").click();
-  await page.locator("button.profile").click();
+  await page.locator("button.nav-rail-avatar").click();
   await page.getByRole("menu").waitFor();
 }
 

@@ -246,6 +246,7 @@
   color: var(--xc-text);
 }
 .nav-panel-body {
+  grid-template-columns: minmax(0, 1fr);
   align-content: start;
   flex: 1;
   min-height: 0;

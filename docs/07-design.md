@@ -3,7 +3,7 @@
 写任何界面之前先读这一篇。颜色、间距、组件都有现成的，照着用，不要自己发明。
 交活前用 `npm run shots` 出截图自查（见最后一节）。
 
-> **2026-10-05 起界面在改版（B98 到 B102）。** 颜色、主题色、字体、公共组件（B98）、左栏（B99）、顶栏（B100）已经合并进本文。项目页和其他模块的二级菜单还没做完，以 [B98 规格](specs/B98.md) 第五、六节为准，设计稿在 `docs/design/clean/`。B102 做完后删掉这段提示。
+> **2026-10-05 起界面在改版（B98 到 B102）。** 颜色、主题色、字体、公共组件（B98）、左栏（B99）、顶栏（B100）、项目页（B101）已经合并进本文。其他模块的二级菜单还没做完，以 [B98 规格](specs/B98.md) 第六节为准，设计稿在 `docs/design/clean/`。B102 做完后删掉这段提示。
 
 ## 一、原则
 
@@ -44,6 +44,8 @@
 | 卡片列表 + 开关 + 编辑页 | `features/automations/` |
 | 左中右三栏（分类、列表、编辑） | `features/notes/NotesPage.tsx` |
 | 看板 | `features/projects/ProjectPage.tsx` |
+| 二级菜单里有视图、搜索和分组（B101） | `features/projects/NavChildren.tsx` |
+| 跨模块的筛选视图页（B101） | `features/projects/ViewPage.tsx` |
 | 设置标签页 | `features/settings/SecurityTab.tsx`、`features/drive/S3SettingsTab.tsx` |
 | 全局浮层 | `features/assistant/AssistantPanel.tsx` |
 

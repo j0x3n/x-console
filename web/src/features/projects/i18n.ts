@@ -1,6 +1,16 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B101 二级菜单和视图
+  "Every project": "全部项目",
+  "My projects": "我的项目",
+  "No issues due today": "今天没有到期的卡片",
+  "Nothing overdue in any project": "没有过期的卡片",
+  "Nothing due this week": "这 7 天没有到期的卡片",
+  "No open issues": "没有未完成的卡片",
+  "No matching issues": "没有找到这样的卡片",
+  "Group by project": "按项目分组",
+  "See all projects": "去看全部项目",
   // B85 卡片右键菜单
   "Let an agent work on it…": "让 Agent 开始做…",
   "Remove color": "去掉颜色",

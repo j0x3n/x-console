@@ -1593,3 +1593,122 @@
     width: auto;
   }
 }
+
+/* ---- B101：左栏二级菜单 ---- */
+.projects-nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.projects-nav-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+  color: var(--xc-muted);
+}
+.projects-nav-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--xc-text);
+  font-size: var(--fs-13);
+}
+.projects-nav-group {
+  display: grid;
+  gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--xc-border);
+}
+.projects-nav-label {
+  padding: 0 10px 2px;
+  color: var(--xc-muted);
+  font-size: var(--fs-11-5);
+  font-weight: 500;
+}
+.nav-child small.danger {
+  color: var(--xc-danger);
+  font-weight: 600;
+}
+.nav-child.selected small.danger {
+  color: var(--xc-danger);
+}
+
+/* ---- B101：项目列表 ---- */
+.projects-view-all {
+  margin-left: 12px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+  text-decoration: none;
+}
+.projects-view-all:hover {
+  color: var(--xc-text);
+}
+.projects-card-link {
+  gap: 12px;
+  padding: 14px 16px;
+}
+.projects-card-top .projects-badge {
+  width: 32px;
+  height: 32px;
+}
+.projects-card-name span {
+  font-size: var(--fs-12);
+}
+.projects-card-desc {
+  display: -webkit-box;
+  min-height: 2.9em;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--xc-text-2);
+  line-height: 1.45;
+}
+.projects-card-progress {
+  display: grid;
+  gap: 6px;
+}
+.projects-card-progress .projects-card-foot {
+  padding-top: 0;
+  border-top: 0;
+  font-variant-numeric: tabular-nums;
+}
+.projects-card-bar {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--xc-surface-2);
+  box-shadow: inset 0 0 0 1px var(--xc-border);
+}
+.projects-card-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* ---- B101：看板 ---- */
+.projects-lane {
+  padding: 8px;
+  border-color: var(--xc-border);
+  background: var(--xc-surface-2);
+}
+.projects-lane-head h2 {
+  font-size: var(--fs-13);
+}
+.projects-lane-head em {
+  color: var(--xc-muted);
+}
+.projects-lane-list {
+  gap: 8px;
+}
+.projects-card {
+  padding: 10px 12px;
+  border-radius: 9px;
+}

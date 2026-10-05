@@ -190,7 +190,7 @@ try {
   assert.equal((await api("/auth/status")).authenticated, true);
 
   stage = "退出和登录";
-  await page.locator("button.profile").click();
+  await page.locator("button.nav-rail-avatar").click();
   await page.getByRole("menuitem", { name: "退出登录" }).click();
   await until("退出登录", async () => !(await api("/auth/status")).authenticated);
   await page.reload();
@@ -424,6 +424,18 @@ try {
   );
   const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的卡片" });
   assert.equal((await progressCard.locator(".xc-stat-value").textContent()).trim(), "1");
+
+  stage = "B101 已过期视图";
+  const overdueResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/issues`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { title: "端到端过期卡片", dueAt: new Date(Date.now() - 2 * 86_400_000).toISOString() },
+  });
+  assert.equal(overdueResponse.status(), 201, await overdueResponse.text());
+  await page.goto(`${base}/projects/views/overdue`);
+  await page.locator(".projects-row").filter({ hasText: "端到端过期卡片" }).waitFor();
+  assert.equal(await page.locator(".projects-row").filter({ hasText: "端到端 Issue" }).count(), 0);
+  const overdueLink = page.locator(".nav-panel").getByRole("link", { name: /已过期/ });
+  await until("左栏的已过期数量", async () => (await overdueLink.locator("small").textContent())?.trim() === "1");
 
   stage = "B46 新建看板、加卡片、拖到另一个列表、加清单";
   await page.goto(`${base}/projects/EET`);

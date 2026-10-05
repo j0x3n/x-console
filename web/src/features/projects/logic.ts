@@ -675,3 +675,53 @@ export function coverImage(description: string | undefined): string | null {
   const src = m[1];
   return /^(https?:\/\/|\/)/.test(src) ? src : null;
 }
+
+/*
+ * B101：二级菜单里的视图。数据都来自 useMyIssues()（全部未完成的卡片），
+ * 在前端按截止日期筛，不加新接口。
+ */
+export type IssueView = "mine" | "today" | "overdue" | "week";
+export const ISSUE_VIEWS: IssueView[] = ["mine", "today", "overdue", "week"];
+export const VIEW_LABELS: Record<IssueView, string> = {
+  mine: "My open issues",
+  today: "Due today",
+  overdue: "Overdue",
+  week: "Due this week",
+};
+
+export function isIssueView(value: string | undefined): value is IssueView {
+  return ISSUE_VIEWS.includes(value as IssueView);
+}
+
+/** 某个视图里的卡片。“本周”是今天起 7 天内，包括今天。 */
+export function issuesInView(
+  view: IssueView,
+  issues: Issue[],
+  today: string,
+): Issue[] {
+  if (view === "mine") return issues;
+  const weekEnd = addDaysTo(today, 6);
+  return issues.filter((issue) => {
+    const due = dueState(issue.dueDate, today, issue.status);
+    if (view === "today") return due === "today";
+    if (view === "overdue") return due === "overdue";
+    return (
+      !!issue.dueDate && issue.dueDate >= today && issue.dueDate <= weekEnd
+    );
+  });
+}
+
+/** 搜索：标题或编号里有这段文字，不分大小写。 */
+export function matchesIssueSearch(issue: Issue, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    issue.title.toLowerCase().includes(q) || issue.key.toLowerCase().includes(q)
+  );
+}
+
+function addDaysTo(day: string, days: number): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
