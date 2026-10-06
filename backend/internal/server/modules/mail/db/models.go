@@ -989,6 +989,32 @@ type ProjectCategory struct {
 	Position  float64
 }
 
+type QuotaAccount struct {
+	ID        int64
+	Kind      string
+	Name      string
+	HostID    string
+	Home      string
+	ApiKey    string
+	KeyHash   string
+	SortOrder int64
+	CreatedAt time.Time
+}
+
+type QuotaReading struct {
+	AccountID    int64
+	Ok           int64
+	Error        string
+	ErrorCode    string
+	Plan         string
+	User         string
+	Credits      string
+	BalancesJson string
+	WindowsJson  string
+	ReadAt       *time.Time
+	TriedAt      time.Time
+}
+
 type Reminder struct {
 	ID           int64
 	Title        string

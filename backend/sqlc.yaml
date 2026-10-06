@@ -170,3 +170,11 @@ sql:
         package: db
         out: internal/server/modules/storage/db
         emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/quotas/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/quotas/db
+        emit_pointers_for_null_types: true

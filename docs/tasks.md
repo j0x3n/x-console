@@ -68,7 +68,7 @@
 | B107 | 监控改成二级菜单：网站、证书与域名（故障数红色）、脚本、订阅，下面列出网站监控，点了打开详情；“+”添加网站；页面去掉页签 | 无 | 完成（Claude，2026-10-05） |
 | B108 | 习惯页优化：推荐习惯页（原个人计划首页，54 条，按分类，一键添加）；健身按身体问题和每天的基础动作给方案，整套或单个动作加入习惯，一屏三栏；个人计划栏目挪进二级菜单；今天页多推几个并加“更多推荐”，方案建的习惯能“看动作” | [B108](specs/B108.md) | 完成（Claude，2026-10-05） |
 | B109 | 仓库页显示本月 CI 时长额度（免费套餐 2000 分钟 / 月，按系统分开，80% 变黄、100% 变红并各通知一次） | [B109](specs/B109.md) | 完成（Claude，2026-10-05） |
-| B110 | AI 额度后端和代理：代理读 Claude、Codex、Grok 的额度窗口和重置时间，服务端读 DeepSeek 余额，支持多账号，定时读取，新模块 `quotas`。开工前先用真机验证三个内部接口和 Claude 多账号 | [B110](specs/B110.md) | 待做 |
+| B110 | AI 额度后端和代理：代理读 Claude、Codex、Grok 的额度窗口和重置时间，服务端读 DeepSeek 余额，支持多账号，定时读取，新模块 `quotas` | [B110](specs/B110.md) | 完成（Claude，2026-10-06）。三个内部接口和 Claude 多账号没有用真实账号验证（用户同意先跳过），见“已知问题” |
 | B111 | AI 额度前端：“AI 额度”页（按服务分组、每个账号一张卡片、添加账号弹窗）和今日页的额度卡片 | [B110](specs/B110.md) 前端一节 | 待做，依赖 B110 |
 | B112 | AI 额度通知：窗口剩余 10%、用完，DeepSeek 余额低于阈值，读取连续失败 | [B110](specs/B110.md) 通知一节 | 待做，依赖 B110 |
 
@@ -239,6 +239,10 @@
 
 ## 已知问题
 
+- 维护模块的 `TestMaintenanceMainFlow` 在全量 `go test -race ./...` 时偶尔失败（2026-10-06：最后一步 `POST /maintenance/vacuum` 回 409）。单独跑 3 次都通过，像是前面的清理任务在高负载下还没结束。还没查。
+
+- B110：Codex（`chatgpt.com/backend-api/wham/usage`、`auth.openai.com/oauth/token`）、Grok（`cli-chat-proxy.grok.com/v1/billing?format=credits`）、Claude（`claude -p /usage` 的输出格式）三个读法是照 magpie 的代码写的，没有用真实账号调过，测试全用假服务器和假命令输出。Claude 用不同的 `CLAUDE_CONFIG_DIR` 读多个账号也没试过。上线后任何一项数字不对或报错，先用真机调一次，样例存进 `internal/agent/quota/` 的测试，再改解析。Codex 刷新令牌会写回 `auth.json`，如果出错会让机器上的 Codex 掉线，要用户重新登录，上线后先拿一个不重要的账号试。
+
 - 自动化的 `TestMetricCooldownAndWebhookSecret` 在全量 `go test -race ./...` 时偶尔失败（运行停在 running）。2026-10-05 单独跑 3 次都通过，后端代码当时没改过。可能是等待时间在高负载下不够，还没查。
 
 - 本机 Node 25 下的前端测试存在 `localStorage` 兼容问题，字号脚本也未适配 Windows 路径。本次用 Linux Node 22 检查通过，没有改这些公共脚本。
@@ -368,6 +372,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B110（2026-10-06）：`pkg/protocol` 新增 `methods_quota.go`（能力 `quota`，方法 `quota.read`，错误码 `quota_signed_out`、`quota_unavailable`），只加不改。新增 `api/modules/quotas.yaml`、迁移 `20261006000000_m14_b110_quotas.sql`（`quota_accounts`、`quota_readings`）、模块 `quotas`（`app/modules.go`、`sqlc.yaml`、`cmd/agent/main.go` 各加一行）。代理新包 `internal/agent/quota`。服务端事件 `quota.updated`（载荷 `{id}`）供 B112 使用。
 
 - B103（2026-10-05）：`components/layout/Sidebar.tsx` 新增导出 `useCurrentNavPanel()`，二级菜单标题栏加收起按钮（`.nav-panel-collapse`）。`Topbar.tsx` 在桌面上只有二级菜单收起时才显示展开按钮（手机上仍是打开抽屉）；二级菜单显示时顶栏加 `.panel-open`，模块图标和模块名（`.topbar-module`）不显示。样式在 `ui.css`。
 

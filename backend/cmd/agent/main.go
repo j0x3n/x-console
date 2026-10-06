@@ -33,6 +33,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/presence"
 	"github.com/j0x3n/x-console/backend/internal/agent/proc"
 	"github.com/j0x3n/x-console/backend/internal/agent/pty"
+	"github.com/j0x3n/x-console/backend/internal/agent/quota"
 	"github.com/j0x3n/x-console/backend/internal/agent/setup"
 	"github.com/j0x3n/x-console/backend/internal/agent/svc"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
@@ -146,6 +147,7 @@ func register(c *conn.Client, cfg config.Config) {
 	coding.Register(c, cfg.Coding)                      // M4: also adds the coding capability for configured executor paths
 	docker.Register(c)                                  // M10: docker.* over the Engine socket
 	syslog.Register(c)                                  // B29: system logs, only when there is something to read
+	quota.Register(c)                                   // B110: AI quota readings (Claude, Codex, Grok)
 }
 
 // capabilities lists what this build supports on this OS.
@@ -177,6 +179,9 @@ func capabilities() []string {
 	}
 	if syslog.Available() {
 		caps = append(caps, protocol.CapSyslog) // B29
+	}
+	if quota.Available() {
+		caps = append(caps, protocol.CapQuota) // B110
 	}
 	if docker.Available() {
 		caps = append(caps, protocol.CapDocker, protocol.CapDockerLines) // M10: only when the Docker socket answers
