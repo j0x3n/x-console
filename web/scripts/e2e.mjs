@@ -327,6 +327,29 @@ try {
     await new Promise((done) => ubusFake.close(done));
   }
 
+  stage = "AI 额度";
+  // B110、B111：添加一个 DeepSeek 账号。CI 连不上 DeepSeek 时卡片显示读取失败，
+  // 连得上时显示余额，两种都算页面正常。
+  const quotaElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(quotaElevate.status(), 200, await quotaElevate.text());
+  await page.goto(`${base}/quotas`);
+  await page.getByText("还没有额度账号").waitFor();
+  await page.getByRole("button", { name: "添加账号" }).first().click();
+  await dialog("添加额度账号").getByLabel("服务").selectOption("deepseek");
+  await dialog("添加额度账号").getByLabel("备注名").fill("端到端 DeepSeek");
+  await dialog("添加额度账号").getByLabel("DeepSeek API Key").fill("sk-e2e-not-real");
+  await dialog("添加额度账号").getByRole("button", { name: "保存" }).click();
+  const quotaCard = page.getByRole("article", { name: "端到端 DeepSeek" });
+  await quotaCard.waitFor();
+  await quotaCard.getByText(/余额|读取失败|登录失效|正在读取/).first().waitFor();
+  const quotaList = await page.context().request.get(`${base}/api/v1/quotas`);
+  assert.ok(!(await quotaList.text()).includes("sk-e2e-not-real"), "接口不能返回 API Key");
+  await page.context().request.delete(`${base}/api/v1/quotas/${(await quotaList.json()).items[0].id}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+
   stage = "新建项目和卡片";
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();

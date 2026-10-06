@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Bot,
   FolderGit2,
+  Gauge,
   HardDrive,
   HeartPulse,
   Home,
@@ -57,6 +58,7 @@ export const navItems: NavItem[] = [
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
   { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
+  { path: "/quotas", label: "AI quotas", icon: Gauge, group: "integrations" },
   {
     path: "/automations",
     label: "Automations",

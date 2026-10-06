@@ -57,6 +57,8 @@ export const cardDefs: CardDef[] = [
     weight: 1,
     module: "router",
   },
+  // B111：没有额度账号时这张卡片不出现（TodayPage 里判断）
+  { id: "quotas", title: "AI quotas", column: "side", weight: 2 },
   {
     id: "mail",
     title: "Mail",

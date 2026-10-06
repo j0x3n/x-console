@@ -201,6 +201,7 @@ const routes = [
   ["monitoring", "/monitoring"],
   ["home", "/home"],
   ["router", "/router"],
+  ["quotas", "/quotas"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],
