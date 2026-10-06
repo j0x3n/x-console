@@ -15,11 +15,13 @@ export type QuotaWindow = S["QuotaWindow"];
 export type QuotaBalance = S["QuotaBalance"];
 export type QuotaHost = S["QuotaHost"];
 export type QuotaKind = S["QuotaKind"];
+export type QuotaNotifySettings = S["QuotaNotifySettings"];
 
 export const quotaKeys = {
   all: ["quotas"] as const,
   list: ["quotas", "list"] as const,
   hosts: ["quotas", "hosts"] as const,
+  notify: ["quotas", "notify"] as const,
 };
 
 // 服务端每读完一个账号发一次事件
@@ -103,5 +105,22 @@ export function useReorderQuotaAccounts() {
     mutationFn: (ids: number[]) =>
       unwrap(quotasApi.POST("/quotas/reorder", { body: { ids } })),
     onSuccess: () => qc.invalidateQueries({ queryKey: quotaKeys.list }),
+  });
+}
+
+export function useQuotaNotify(enabled = true) {
+  return useQuery({
+    queryKey: quotaKeys.notify,
+    queryFn: () => unwrap(quotasApi.GET("/quotas/notify")),
+    enabled,
+  });
+}
+
+export function usePutQuotaNotify() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: QuotaNotifySettings) =>
+      unwrap(quotasApi.PUT("/quotas/notify", { body })),
+    onSuccess: (data) => qc.setQueryData(quotaKeys.notify, data),
   });
 }

@@ -59,10 +59,12 @@ func (e QuotaKind) Valid() bool {
 
 // QuotaAccount defines model for QuotaAccount.
 type QuotaAccount struct {
-	Balances  []QuotaBalance `json:"balances"`
-	CreatedAt time.Time      `json:"createdAt"`
-	Credits   *string        `json:"credits,omitempty"`
-	Error     *string        `json:"error,omitempty"`
+	// BalanceLow DeepSeek 余额低于这个数时通知，用余额里第一个币种比。空表示不通知
+	BalanceLow *string        `json:"balanceLow,omitempty"`
+	Balances   []QuotaBalance `json:"balances"`
+	CreatedAt  time.Time      `json:"createdAt"`
+	Credits    *string        `json:"credits,omitempty"`
+	Error      *string        `json:"error,omitempty"`
 
 	// ErrorCode offline、signed_out、unavailable、unsupported、host_missing 之一，或空
 	ErrorCode *string `json:"errorCode,omitempty"`
@@ -104,6 +106,9 @@ type QuotaAccountInput struct {
 	// ApiKey 只有 DeepSeek 用
 	ApiKey *string `json:"apiKey,omitempty"`
 
+	// BalanceLow 只有 DeepSeek 用，数字，空表示不通知
+	BalanceLow *string `json:"balanceLow,omitempty"`
+
 	// Home 绝对路径，或以 ~/ 开头。不能含 ..。空表示默认目录
 	Home   *string   `json:"home,omitempty"`
 	HostId *string   `json:"hostId,omitempty"`
@@ -114,9 +119,12 @@ type QuotaAccountInput struct {
 // QuotaAccountPatch defines model for QuotaAccountPatch.
 type QuotaAccountPatch struct {
 	ApiKey *string `json:"apiKey,omitempty"`
-	Home   *string `json:"home,omitempty"`
-	HostId *string `json:"hostId,omitempty"`
-	Name   *string `json:"name,omitempty"`
+
+	// BalanceLow 数字，空字符串表示不再通知
+	BalanceLow *string `json:"balanceLow,omitempty"`
+	Home       *string `json:"home,omitempty"`
+	HostId     *string `json:"hostId,omitempty"`
+	Name       *string `json:"name,omitempty"`
 }
 
 // QuotaBalance defines model for QuotaBalance.
@@ -135,6 +143,21 @@ type QuotaHost struct {
 
 // QuotaKind defines model for QuotaKind.
 type QuotaKind string
+
+// QuotaNotifySettings defines model for QuotaNotifySettings.
+type QuotaNotifySettings struct {
+	// Balance DeepSeek 余额低于设定的数
+	Balance bool `json:"balance"`
+
+	// Empty 窗口用完
+	Empty bool `json:"empty"`
+
+	// Failed 连续读取失败
+	Failed bool `json:"failed"`
+
+	// Low 窗口剩余 10% 以下
+	Low bool `json:"low"`
+}
 
 // QuotaWindow defines model for QuotaWindow.
 type QuotaWindow struct {
@@ -166,6 +189,9 @@ type ReorderQuotaAccountsJSONBody struct {
 // CreateQuotaAccountJSONRequestBody defines body for CreateQuotaAccount for application/json ContentType.
 type CreateQuotaAccountJSONRequestBody = QuotaAccountInput
 
+// PutQuotaNotifyJSONRequestBody defines body for PutQuotaNotify for application/json ContentType.
+type PutQuotaNotifyJSONRequestBody = QuotaNotifySettings
+
 // ReorderQuotaAccountsJSONRequestBody defines body for ReorderQuotaAccounts for application/json ContentType.
 type ReorderQuotaAccountsJSONRequestBody ReorderQuotaAccountsJSONBody
 
@@ -183,6 +209,12 @@ type ServerInterface interface {
 
 	// (GET /quotas/hosts)
 	ListQuotaHosts(w http.ResponseWriter, r *http.Request)
+
+	// (GET /quotas/notify)
+	GetQuotaNotify(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /quotas/notify)
+	PutQuotaNotify(w http.ResponseWriter, r *http.Request)
 
 	// (POST /quotas/reorder)
 	ReorderQuotaAccounts(w http.ResponseWriter, r *http.Request)
@@ -213,6 +245,16 @@ func (_ Unimplemented) CreateQuotaAccount(w http.ResponseWriter, r *http.Request
 
 // (GET /quotas/hosts)
 func (_ Unimplemented) ListQuotaHosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /quotas/notify)
+func (_ Unimplemented) GetQuotaNotify(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /quotas/notify)
+func (_ Unimplemented) PutQuotaNotify(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -278,6 +320,34 @@ func (siw *ServerInterfaceWrapper) ListQuotaHosts(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListQuotaHosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetQuotaNotify operation middleware
+func (siw *ServerInterfaceWrapper) GetQuotaNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetQuotaNotify(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutQuotaNotify operation middleware
+func (siw *ServerInterfaceWrapper) PutQuotaNotify(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutQuotaNotify(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -503,6 +573,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/quotas/reorder", wrapper.ReorderQuotaAccounts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/quotas/notify", wrapper.GetQuotaNotify)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/quotas/notify", wrapper.PutQuotaNotify)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/quotas/{accountId}", wrapper.DeleteQuotaAccount)

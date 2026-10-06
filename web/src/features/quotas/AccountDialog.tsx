@@ -42,6 +42,7 @@ export default function AccountDialog({
   const [hostId, setHostId] = useState("");
   const [home, setHome] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [balanceLow, setBalanceLow] = useState("");
   const hosts = useQuotaHosts(open && kind !== "deepseek");
   const create = useCreateQuotaAccount();
   const update = useUpdateQuotaAccount();
@@ -54,6 +55,7 @@ export default function AccountDialog({
     setHostId(account?.hostId ?? "");
     setHome(account?.home ?? "");
     setApiKey("");
+    setBalanceLow(account?.balanceLow ?? "");
   }, [open, account]);
 
   // 只有一台机器时直接选上
@@ -81,9 +83,10 @@ export default function AccountDialog({
           body: {
             name: name.trim(),
             ...(isKey
-              ? apiKey.trim()
-                ? { apiKey: apiKey.trim() }
-                : {}
+              ? {
+                  ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+                  balanceLow: balanceLow.trim(),
+                }
               : { hostId, home: home.trim() }),
           },
         },
@@ -96,7 +99,10 @@ export default function AccountDialog({
         kind,
         name: name.trim(),
         ...(isKey
-          ? { apiKey: apiKey.trim() }
+          ? {
+              apiKey: apiKey.trim(),
+              ...(balanceLow.trim() ? { balanceLow: balanceLow.trim() } : {}),
+            }
           : { hostId, ...(home.trim() ? { home: home.trim() } : {}) }),
       },
       { onSuccess: done, onError: fail },
@@ -162,23 +168,41 @@ export default function AccountDialog({
           />
         </div>
         {isKey ? (
-          <div className="xc-field">
-            <label htmlFor="quota-key">{t("DeepSeek API key")}</label>
-            <input
-              id="quota-key"
-              className="xc-input"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              placeholder={
-                editing ? t("Leave empty to keep the current key") : "sk-…"
-              }
-              onChange={(e) => setApiKey(e.target.value)}
-            />
-            <small>
-              {t("The key is stored encrypted and never shown again.")}
-            </small>
-          </div>
+          <>
+            <div className="xc-field">
+              <label htmlFor="quota-key">{t("DeepSeek API key")}</label>
+              <input
+                id="quota-key"
+                className="xc-input"
+                type="password"
+                autoComplete="off"
+                value={apiKey}
+                placeholder={
+                  editing ? t("Leave empty to keep the current key") : "sk-…"
+                }
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+              <small>
+                {t("The key is stored encrypted and never shown again.")}
+              </small>
+            </div>
+            <div className="xc-field">
+              <label htmlFor="quota-balance-low">
+                {t("Notify when below")}
+              </label>
+              <input
+                id="quota-balance-low"
+                className="xc-input"
+                inputMode="decimal"
+                value={balanceLow}
+                placeholder={t("Empty means no notification")}
+                onChange={(e) => setBalanceLow(e.target.value)}
+              />
+              <small>
+                {t("Compared with the first currency of the balance.")}
+              </small>
+            </div>
+          </>
         ) : (
           <>
             <div className="xc-field">

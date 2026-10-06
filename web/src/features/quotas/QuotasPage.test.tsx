@@ -303,6 +303,68 @@ describe("QuotasPage B111", () => {
   });
 });
 
+describe("B112 通知", () => {
+  it("通知开关读取后保存", async () => {
+    api.routes.set("GET /quotas", () => ({
+      status: 200,
+      body: { items: [claude] },
+    }));
+    api.routes.set("GET /quotas/notify", () => ({
+      status: 200,
+      body: { low: true, empty: true, balance: true, failed: true },
+    }));
+    api.routes.set("PUT /quotas/notify", (body) => ({ status: 200, body }));
+    renderIt(<QuotasPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "通知" }));
+    const dialog = screen.getByRole("dialog");
+    const low = (await within(dialog).findByLabelText(
+      /快用完/,
+    )) as HTMLInputElement;
+    await waitFor(() => expect(low.disabled).toBe(false));
+    expect(low.checked).toBe(true);
+    fireEvent.click(low);
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.method === "PUT")).toBe(true),
+    );
+    expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+      low: false,
+      empty: true,
+      balance: true,
+      failed: true,
+    });
+  });
+
+  it("DeepSeek 账号可以设余额低于多少时通知，卡片上写出来", async () => {
+    api.routes.set("GET /quotas", () => ({
+      status: 200,
+      body: { items: [{ ...deepseek, balanceLow: "20" }] },
+    }));
+    api.routes.set("PATCH /quotas/3", (body) => ({
+      status: 200,
+      body: { ...deepseek, ...(body as object) },
+    }));
+    renderIt(<QuotasPage />);
+    const card = await screen.findByRole("article", { name: "DeepSeek 主号" });
+    expect(within(card).getByText("余额低于这个数时通知 20")).toBeTruthy();
+    fireEvent.click(within(card).getByRole("button", { name: "更多" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "编辑" }));
+    const dialog = screen.getByRole("dialog");
+    const input = within(dialog).getByLabelText(
+      "余额低于这个数时通知",
+    ) as HTMLInputElement;
+    expect(input.value).toBe("20");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.method === "PATCH")).toBe(true),
+    );
+    expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
+      name: "DeepSeek 主号",
+      balanceLow: "",
+    });
+  });
+});
+
 describe("TodayQuotasCard B111", () => {
   it("每个账号一行：最紧张的窗口，或余额", async () => {
     api.routes.set("GET /quotas", () => ({

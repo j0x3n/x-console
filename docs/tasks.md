@@ -70,7 +70,7 @@
 | B109 | 仓库页显示本月 CI 时长额度（免费套餐 2000 分钟 / 月，按系统分开，80% 变黄、100% 变红并各通知一次） | [B109](specs/B109.md) | 完成（Claude，2026-10-05） |
 | B110 | AI 额度后端和代理：代理读 Claude、Codex、Grok 的额度窗口和重置时间，服务端读 DeepSeek 余额，支持多账号，定时读取，新模块 `quotas` | [B110](specs/B110.md) | 完成（Claude，2026-10-06）。三个内部接口和 Claude 多账号没有用真实账号验证（用户同意先跳过），见“已知问题” |
 | B111 | AI 额度前端：“AI 额度”页（按服务分组、每个账号一张卡片、添加账号弹窗）和今日页的额度卡片 | [B110](specs/B110.md) 前端一节 | 完成（Claude，2026-10-06）。今日页的卡片没有账号时不出现，在布局里可以隐藏 |
-| B112 | AI 额度通知：窗口剩余 10%、用完，DeepSeek 余额低于阈值，读取连续失败 | [B110](specs/B110.md) 通知一节 | 待做，依赖 B110 |
+| B112 | AI 额度通知：窗口剩余 10%、用完，DeepSeek 余额低于阈值，读取连续失败 | [B110](specs/B110.md) 通知一节 | 完成（Claude，2026-10-06）。四类通知的开关放在“AI 额度”页顶栏的“通知”里，没有放进设置 → 通知（那里是按渠道路由，没有按类型的开关） |
 
 ### 任务说明
 
@@ -372,6 +372,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B112（2026-10-06）：`quotas.yaml` 加 `GET/PUT /quotas/notify`（设置键 `quotas.notify`，四个布尔值，默认都开）、账号的 `balanceLow`。迁移 `20261006000100_m14_b112_quota_notify.sql`：`quota_accounts.balance_low`、`quota_readings.fail_count`、表 `quota_notify_state`。通知 kind：`quota.low`、`quota.empty`、`quota.balance_low`、`quota.read_failed`，用现有的通知路由选渠道。
 
 - B110（2026-10-06）：`pkg/protocol` 新增 `methods_quota.go`（能力 `quota`，方法 `quota.read`，错误码 `quota_signed_out`、`quota_unavailable`），只加不改。新增 `api/modules/quotas.yaml`、迁移 `20261006000000_m14_b110_quotas.sql`（`quota_accounts`、`quota_readings`）、模块 `quotas`（`app/modules.go`、`sqlc.yaml`、`cmd/agent/main.go` 各加一行）。代理新包 `internal/agent/quota`。服务端事件 `quota.updated`（载荷 `{id}`）供 B112 使用。
 

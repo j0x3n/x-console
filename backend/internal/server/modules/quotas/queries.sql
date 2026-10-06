@@ -5,12 +5,12 @@ SELECT * FROM quota_accounts ORDER BY sort_order, id;
 SELECT * FROM quota_accounts WHERE id = ?;
 
 -- name: InsertQuotaAccount :one
-INSERT INTO quota_accounts (kind, name, host_id, home, api_key, key_hash, sort_order, created_at)
-VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM quota_accounts), ?)
+INSERT INTO quota_accounts (kind, name, host_id, home, api_key, key_hash, balance_low, sort_order, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM quota_accounts), ?)
 RETURNING *;
 
 -- name: UpdateQuotaAccount :one
-UPDATE quota_accounts SET name = ?, host_id = ?, home = ?, api_key = ?, key_hash = ? WHERE id = ? RETURNING *;
+UPDATE quota_accounts SET name = ?, host_id = ?, home = ?, api_key = ?, key_hash = ?, balance_low = ? WHERE id = ? RETURNING *;
 
 -- name: DeleteQuotaAccount :execrows
 DELETE FROM quota_accounts WHERE id = ?;
@@ -28,14 +28,32 @@ SELECT * FROM quota_readings WHERE account_id = ?;
 DELETE FROM quota_readings WHERE account_id = ?;
 
 -- name: SaveQuotaReading :exec
-INSERT INTO quota_readings (account_id, ok, error, error_code, plan, user, credits, balances_json, windows_json, read_at, tried_at)
-VALUES (?, 1, '', '', ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(account_id) DO UPDATE SET ok = 1, error = '', error_code = '', plan = excluded.plan, user = excluded.user,
+INSERT INTO quota_readings (account_id, ok, error, error_code, plan, user, credits, balances_json, windows_json, read_at, tried_at, fail_count)
+VALUES (?, 1, '', '', ?, ?, ?, ?, ?, ?, ?, 0)
+ON CONFLICT(account_id) DO UPDATE SET ok = 1, fail_count = 0, error = '', error_code = '', plan = excluded.plan, user = excluded.user,
   credits = excluded.credits, balances_json = excluded.balances_json, windows_json = excluded.windows_json,
   read_at = excluded.read_at, tried_at = excluded.tried_at;
 
--- name: SaveQuotaFailure :exec
--- A failed read keeps the last numbers and says why it failed.
-INSERT INTO quota_readings (account_id, ok, error, error_code, tried_at)
-VALUES (?, 0, ?, ?, ?)
-ON CONFLICT(account_id) DO UPDATE SET ok = 0, error = excluded.error, error_code = excluded.error_code, tried_at = excluded.tried_at;
+-- name: SaveQuotaFailure :one
+-- A failed read keeps the last numbers and says why it failed. bump is 1 for a
+-- read that failed, 0 for a machine that is off (not counted). Returns the
+-- number of reads in a row that failed.
+INSERT INTO quota_readings (account_id, ok, error, error_code, tried_at, fail_count)
+VALUES (?1, 0, ?2, ?3, ?4, ?5)
+ON CONFLICT(account_id) DO UPDATE SET ok = 0, error = excluded.error, error_code = excluded.error_code,
+  tried_at = excluded.tried_at, fail_count = quota_readings.fail_count + excluded.fail_count
+RETURNING fail_count;
+
+-- name: GetQuotaNotifyState :one
+SELECT period_end FROM quota_notify_state WHERE account_id = ? AND window_name = ? AND event = ?;
+
+-- name: PutQuotaNotifyState :exec
+INSERT INTO quota_notify_state (account_id, window_name, event, period_end, sent_at)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(account_id, window_name, event) DO UPDATE SET period_end = excluded.period_end, sent_at = excluded.sent_at;
+
+-- name: DeleteQuotaNotifyState :exec
+DELETE FROM quota_notify_state WHERE account_id = ? AND window_name = ? AND event = ?;
+
+-- name: DeleteQuotaNotifyStateForAccount :exec
+DELETE FROM quota_notify_state WHERE account_id = ?;

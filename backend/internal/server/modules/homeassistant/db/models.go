@@ -990,15 +990,24 @@ type ProjectCategory struct {
 }
 
 type QuotaAccount struct {
-	ID        int64
-	Kind      string
-	Name      string
-	HostID    string
-	Home      string
-	ApiKey    string
-	KeyHash   string
-	SortOrder int64
-	CreatedAt time.Time
+	ID         int64
+	Kind       string
+	Name       string
+	HostID     string
+	Home       string
+	ApiKey     string
+	KeyHash    string
+	SortOrder  int64
+	CreatedAt  time.Time
+	BalanceLow string
+}
+
+type QuotaNotifyState struct {
+	AccountID  int64
+	WindowName string
+	Event      string
+	PeriodEnd  string
+	SentAt     time.Time
 }
 
 type QuotaReading struct {
@@ -1013,6 +1022,7 @@ type QuotaReading struct {
 	WindowsJson  string
 	ReadAt       *time.Time
 	TriedAt      time.Time
+	FailCount    int64
 }
 
 type Reminder struct {

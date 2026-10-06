@@ -56,9 +56,11 @@ const ServiceKey = "quotas.accounts"
 
 // Module implements api.ServerInterface.
 type Module struct {
-	d   *module.Deps
-	q   *db.Queries
-	now func() time.Time
+	d *module.Deps
+	q *db.Queries
+
+	nowMu sync.RWMutex
+	nowFn func() time.Time
 
 	// deepseekURL is DeepSeek's balance endpoint. Tests point it elsewhere.
 	deepseekURL string
@@ -78,7 +80,7 @@ var (
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
-		d: d, q: db.New(d.DB), now: time.Now,
+		d: d, q: db.New(d.DB), nowFn: time.Now,
 		deepseekURL: "https://api.deepseek.com/user/balance",
 		client:      &http.Client{Timeout: 15 * time.Second},
 		sem:         make(chan struct{}, maxParallel),
@@ -105,6 +107,13 @@ func (m *Module) Start(ctx context.Context) error {
 	m.mu.Unlock()
 	m.d.Scheduler.Every("quotas.read", time.Minute, func(ctx context.Context) error { return m.tick(ctx) })
 	return nil
+}
+
+// now is the clock. Tests set their own.
+func (m *Module) now() time.Time {
+	m.nowMu.RLock()
+	defer m.nowMu.RUnlock()
+	return m.nowFn()
 }
 
 func (m *Module) background() context.Context {
@@ -151,7 +160,7 @@ func (m *Module) tick(ctx context.Context) error {
 		r, has := byID[a.ID]
 		if a.HostID != "" && !m.d.Agents.Online(a.HostID) {
 			if !has || r.ErrorCode != codeOffline {
-				m.saveFailure(ctx, a.ID, codeOffline, "机器离线")
+				m.saveFailure(ctx, a, codeOffline, "机器离线")
 			}
 			continue
 		}
@@ -193,10 +202,10 @@ func (m *Module) readIfDue(ctx context.Context, a db.QuotaAccount, okAge, failAg
 		if code == codeUnavailable && !isKnown(err) {
 			m.d.Log.Warn("quota read", "account", a.ID, "kind", a.Kind, "err", err)
 		}
-		m.saveFailure(ctx, a.ID, code, msg)
+		m.saveFailure(ctx, a, code, msg)
 		return
 	}
-	m.saveReading(ctx, a.ID, res)
+	m.saveReading(ctx, a, res)
 }
 
 // result is what one reading found.
@@ -285,7 +294,8 @@ func classify(err error) (code, msg string) {
 	return codeUnavailable, "读取失败，详情见服务器日志"
 }
 
-func (m *Module) saveReading(ctx context.Context, id int64, r result) {
+func (m *Module) saveReading(ctx context.Context, a db.QuotaAccount, r result) {
+	id := a.ID
 	windows, _ := json.Marshal(nonNilWindows(r.windows))
 	balances, _ := json.Marshal(nonNilBalances(r.balances))
 	now := m.now().UTC()
@@ -300,17 +310,26 @@ func (m *Module) saveReading(ctx context.Context, id int64, r result) {
 		return
 	}
 	m.d.Bus.Publish("quota.updated", map[string]any{"id": id})
+	m.notifyReading(ctx, a, r)
 }
 
-func (m *Module) saveFailure(ctx context.Context, id int64, code, msg string) {
-	err := m.q.SaveQuotaFailure(ctx, db.SaveQuotaFailureParams{AccountID: id, Error: msg, ErrorCode: code, TriedAt: m.now().UTC()})
+func (m *Module) saveFailure(ctx context.Context, a db.QuotaAccount, code, msg string) {
+	// a machine that is off is not a failed read
+	var bump int64 = 1
+	if code == codeOffline {
+		bump = 0
+	}
+	count, err := m.q.SaveQuotaFailure(ctx, db.SaveQuotaFailureParams{AccountID: a.ID, Error: msg, ErrorCode: code, TriedAt: m.now().UTC(), FailCount: bump})
 	if err != nil {
 		if ctx.Err() == nil {
-			m.d.Log.Warn("quota save", "account", id, "err", err)
+			m.d.Log.Warn("quota save", "account", a.ID, "err", err)
 		}
 		return
 	}
-	m.d.Bus.Publish("quota.updated", map[string]any{"id": id})
+	m.d.Bus.Publish("quota.updated", map[string]any{"id": a.ID})
+	if bump > 0 {
+		m.notifyFailure(ctx, a, count, msg)
+	}
 }
 
 func nonNilWindows(w []api.QuotaWindow) []api.QuotaWindow {
@@ -358,6 +377,10 @@ func (m *Module) view(a db.QuotaAccount, r *db.QuotaReading, hosts map[string]ho
 			name, online := h.name, h.online
 			v.HostName, v.HostOnline = &name, &online
 		}
+	}
+	if a.BalanceLow != "" {
+		low := a.BalanceLow
+		v.BalanceLow = &low
 	}
 	if r == nil {
 		return v
@@ -500,8 +523,12 @@ func (m *Module) create(ctx context.Context, in api.QuotaAccountInput) (api.Quot
 	if err != nil {
 		return api.QuotaAccount{}, err
 	}
+	balanceLow, err := m.checkBalanceLow(string(in.Kind), deref(in.BalanceLow))
+	if err != nil {
+		return api.QuotaAccount{}, err
+	}
 	row, err := m.q.InsertQuotaAccount(ctx, db.InsertQuotaAccountParams{
-		Kind: string(in.Kind), Name: name, HostID: hostID, Home: home, ApiKey: sealed, KeyHash: hash, CreatedAt: m.now().UTC(),
+		Kind: string(in.Kind), Name: name, HostID: hostID, Home: home, ApiKey: sealed, KeyHash: hash, BalanceLow: balanceLow, CreatedAt: m.now().UTC(),
 	})
 	if err != nil {
 		return api.QuotaAccount{}, dupOr(err)
@@ -545,6 +572,18 @@ func (m *Module) checkIdentity(ctx context.Context, kind, hostID, home, key stri
 		return "", "", httpx.Invalid("登录目录要写绝对路径，或以 ~/ 开头，不能含 ..")
 	}
 	return "", "", nil
+}
+
+// checkBalanceLow validates the "notify below" number. Only DeepSeek has one.
+func (m *Module) checkBalanceLow(kind, v string) (string, error) {
+	v, err := validBalanceLow(v)
+	if err != nil {
+		return "", err
+	}
+	if v != "" && kind != "deepseek" {
+		return "", httpx.Invalid("只有 DeepSeek 能设“余额低于”")
+	}
+	return v, nil
 }
 
 var winDrive = regexp.MustCompile(`^[A-Za-z]:[\\/]`)
@@ -650,14 +689,25 @@ func (m *Module) update(ctx context.Context, id int64, in api.QuotaAccountPatch)
 			next.ApiKey, next.KeyHash = sealed, hash
 		}
 	}
+	if in.BalanceLow != nil {
+		if next.BalanceLow, err = m.checkBalanceLow(cur.Kind, *in.BalanceLow); err != nil {
+			return api.QuotaAccount{}, err
+		}
+		if next.BalanceLow != cur.BalanceLow {
+			_ = m.q.DeleteQuotaNotifyState(ctx, db.DeleteQuotaNotifyStateParams{AccountID: id, WindowName: "balance", Event: kindBalance})
+		}
+	}
 	row, err := m.q.UpdateQuotaAccount(ctx, db.UpdateQuotaAccountParams{
-		Name: next.Name, HostID: next.HostID, Home: next.Home, ApiKey: next.ApiKey, KeyHash: next.KeyHash, ID: id,
+		Name: next.Name, HostID: next.HostID, Home: next.Home, ApiKey: next.ApiKey, KeyHash: next.KeyHash, BalanceLow: next.BalanceLow, ID: id,
 	})
 	if err != nil {
 		return api.QuotaAccount{}, dupOr(err)
 	}
 	if changed {
 		_ = m.q.DeleteQuotaReading(ctx, id)
+		_ = m.q.DeleteQuotaNotifyStateForAccount(ctx, id)
+		m.readSoon(row)
+	} else if next.BalanceLow != cur.BalanceLow {
 		m.readSoon(row)
 	}
 	return m.viewOne(ctx, id)

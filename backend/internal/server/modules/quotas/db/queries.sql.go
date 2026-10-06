@@ -22,6 +22,30 @@ func (q *Queries) DeleteQuotaAccount(ctx context.Context, id int64) (int64, erro
 	return result.RowsAffected()
 }
 
+const deleteQuotaNotifyState = `-- name: DeleteQuotaNotifyState :exec
+DELETE FROM quota_notify_state WHERE account_id = ? AND window_name = ? AND event = ?
+`
+
+type DeleteQuotaNotifyStateParams struct {
+	AccountID  int64
+	WindowName string
+	Event      string
+}
+
+func (q *Queries) DeleteQuotaNotifyState(ctx context.Context, arg DeleteQuotaNotifyStateParams) error {
+	_, err := q.db.ExecContext(ctx, deleteQuotaNotifyState, arg.AccountID, arg.WindowName, arg.Event)
+	return err
+}
+
+const deleteQuotaNotifyStateForAccount = `-- name: DeleteQuotaNotifyStateForAccount :exec
+DELETE FROM quota_notify_state WHERE account_id = ?
+`
+
+func (q *Queries) DeleteQuotaNotifyStateForAccount(ctx context.Context, accountID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteQuotaNotifyStateForAccount, accountID)
+	return err
+}
+
 const deleteQuotaReading = `-- name: DeleteQuotaReading :exec
 DELETE FROM quota_readings WHERE account_id = ?
 `
@@ -32,7 +56,7 @@ func (q *Queries) DeleteQuotaReading(ctx context.Context, accountID int64) error
 }
 
 const getQuotaAccount = `-- name: GetQuotaAccount :one
-SELECT id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at FROM quota_accounts WHERE id = ?
+SELECT id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at, balance_low FROM quota_accounts WHERE id = ?
 `
 
 func (q *Queries) GetQuotaAccount(ctx context.Context, id int64) (QuotaAccount, error) {
@@ -48,12 +72,30 @@ func (q *Queries) GetQuotaAccount(ctx context.Context, id int64) (QuotaAccount, 
 		&i.KeyHash,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.BalanceLow,
 	)
 	return i, err
 }
 
+const getQuotaNotifyState = `-- name: GetQuotaNotifyState :one
+SELECT period_end FROM quota_notify_state WHERE account_id = ? AND window_name = ? AND event = ?
+`
+
+type GetQuotaNotifyStateParams struct {
+	AccountID  int64
+	WindowName string
+	Event      string
+}
+
+func (q *Queries) GetQuotaNotifyState(ctx context.Context, arg GetQuotaNotifyStateParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getQuotaNotifyState, arg.AccountID, arg.WindowName, arg.Event)
+	var period_end string
+	err := row.Scan(&period_end)
+	return period_end, err
+}
+
 const getQuotaReading = `-- name: GetQuotaReading :one
-SELECT account_id, ok, error, error_code, "plan", user, credits, balances_json, windows_json, read_at, tried_at FROM quota_readings WHERE account_id = ?
+SELECT account_id, ok, error, error_code, "plan", user, credits, balances_json, windows_json, read_at, tried_at, fail_count FROM quota_readings WHERE account_id = ?
 `
 
 func (q *Queries) GetQuotaReading(ctx context.Context, accountID int64) (QuotaReading, error) {
@@ -71,24 +113,26 @@ func (q *Queries) GetQuotaReading(ctx context.Context, accountID int64) (QuotaRe
 		&i.WindowsJson,
 		&i.ReadAt,
 		&i.TriedAt,
+		&i.FailCount,
 	)
 	return i, err
 }
 
 const insertQuotaAccount = `-- name: InsertQuotaAccount :one
-INSERT INTO quota_accounts (kind, name, host_id, home, api_key, key_hash, sort_order, created_at)
-VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM quota_accounts), ?)
-RETURNING id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at
+INSERT INTO quota_accounts (kind, name, host_id, home, api_key, key_hash, balance_low, sort_order, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM quota_accounts), ?)
+RETURNING id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at, balance_low
 `
 
 type InsertQuotaAccountParams struct {
-	Kind      string
-	Name      string
-	HostID    string
-	Home      string
-	ApiKey    string
-	KeyHash   string
-	CreatedAt time.Time
+	Kind       string
+	Name       string
+	HostID     string
+	Home       string
+	ApiKey     string
+	KeyHash    string
+	BalanceLow string
+	CreatedAt  time.Time
 }
 
 func (q *Queries) InsertQuotaAccount(ctx context.Context, arg InsertQuotaAccountParams) (QuotaAccount, error) {
@@ -99,6 +143,7 @@ func (q *Queries) InsertQuotaAccount(ctx context.Context, arg InsertQuotaAccount
 		arg.Home,
 		arg.ApiKey,
 		arg.KeyHash,
+		arg.BalanceLow,
 		arg.CreatedAt,
 	)
 	var i QuotaAccount
@@ -112,12 +157,13 @@ func (q *Queries) InsertQuotaAccount(ctx context.Context, arg InsertQuotaAccount
 		&i.KeyHash,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.BalanceLow,
 	)
 	return i, err
 }
 
 const listQuotaAccounts = `-- name: ListQuotaAccounts :many
-SELECT id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at FROM quota_accounts ORDER BY sort_order, id
+SELECT id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at, balance_low FROM quota_accounts ORDER BY sort_order, id
 `
 
 func (q *Queries) ListQuotaAccounts(ctx context.Context) ([]QuotaAccount, error) {
@@ -139,6 +185,7 @@ func (q *Queries) ListQuotaAccounts(ctx context.Context) ([]QuotaAccount, error)
 			&i.KeyHash,
 			&i.SortOrder,
 			&i.CreatedAt,
+			&i.BalanceLow,
 		); err != nil {
 			return nil, err
 		}
@@ -154,7 +201,7 @@ func (q *Queries) ListQuotaAccounts(ctx context.Context) ([]QuotaAccount, error)
 }
 
 const listQuotaReadings = `-- name: ListQuotaReadings :many
-SELECT account_id, ok, error, error_code, "plan", user, credits, balances_json, windows_json, read_at, tried_at FROM quota_readings
+SELECT account_id, ok, error, error_code, "plan", user, credits, balances_json, windows_json, read_at, tried_at, fail_count FROM quota_readings
 `
 
 func (q *Queries) ListQuotaReadings(ctx context.Context) ([]QuotaReading, error) {
@@ -178,6 +225,7 @@ func (q *Queries) ListQuotaReadings(ctx context.Context) ([]QuotaReading, error)
 			&i.WindowsJson,
 			&i.ReadAt,
 			&i.TriedAt,
+			&i.FailCount,
 		); err != nil {
 			return nil, err
 		}
@@ -192,10 +240,37 @@ func (q *Queries) ListQuotaReadings(ctx context.Context) ([]QuotaReading, error)
 	return items, nil
 }
 
-const saveQuotaFailure = `-- name: SaveQuotaFailure :exec
-INSERT INTO quota_readings (account_id, ok, error, error_code, tried_at)
-VALUES (?, 0, ?, ?, ?)
-ON CONFLICT(account_id) DO UPDATE SET ok = 0, error = excluded.error, error_code = excluded.error_code, tried_at = excluded.tried_at
+const putQuotaNotifyState = `-- name: PutQuotaNotifyState :exec
+INSERT INTO quota_notify_state (account_id, window_name, event, period_end, sent_at)
+VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(account_id, window_name, event) DO UPDATE SET period_end = excluded.period_end, sent_at = excluded.sent_at
+`
+
+type PutQuotaNotifyStateParams struct {
+	AccountID  int64
+	WindowName string
+	Event      string
+	PeriodEnd  string
+	SentAt     time.Time
+}
+
+func (q *Queries) PutQuotaNotifyState(ctx context.Context, arg PutQuotaNotifyStateParams) error {
+	_, err := q.db.ExecContext(ctx, putQuotaNotifyState,
+		arg.AccountID,
+		arg.WindowName,
+		arg.Event,
+		arg.PeriodEnd,
+		arg.SentAt,
+	)
+	return err
+}
+
+const saveQuotaFailure = `-- name: SaveQuotaFailure :one
+INSERT INTO quota_readings (account_id, ok, error, error_code, tried_at, fail_count)
+VALUES (?1, 0, ?2, ?3, ?4, ?5)
+ON CONFLICT(account_id) DO UPDATE SET ok = 0, error = excluded.error, error_code = excluded.error_code,
+  tried_at = excluded.tried_at, fail_count = quota_readings.fail_count + excluded.fail_count
+RETURNING fail_count
 `
 
 type SaveQuotaFailureParams struct {
@@ -203,23 +278,29 @@ type SaveQuotaFailureParams struct {
 	Error     string
 	ErrorCode string
 	TriedAt   time.Time
+	FailCount int64
 }
 
-// A failed read keeps the last numbers and says why it failed.
-func (q *Queries) SaveQuotaFailure(ctx context.Context, arg SaveQuotaFailureParams) error {
-	_, err := q.db.ExecContext(ctx, saveQuotaFailure,
+// A failed read keeps the last numbers and says why it failed. bump is 1 for a
+// read that failed, 0 for a machine that is off (not counted). Returns the
+// number of reads in a row that failed.
+func (q *Queries) SaveQuotaFailure(ctx context.Context, arg SaveQuotaFailureParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, saveQuotaFailure,
 		arg.AccountID,
 		arg.Error,
 		arg.ErrorCode,
 		arg.TriedAt,
+		arg.FailCount,
 	)
-	return err
+	var fail_count int64
+	err := row.Scan(&fail_count)
+	return fail_count, err
 }
 
 const saveQuotaReading = `-- name: SaveQuotaReading :exec
-INSERT INTO quota_readings (account_id, ok, error, error_code, plan, user, credits, balances_json, windows_json, read_at, tried_at)
-VALUES (?, 1, '', '', ?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(account_id) DO UPDATE SET ok = 1, error = '', error_code = '', plan = excluded.plan, user = excluded.user,
+INSERT INTO quota_readings (account_id, ok, error, error_code, plan, user, credits, balances_json, windows_json, read_at, tried_at, fail_count)
+VALUES (?, 1, '', '', ?, ?, ?, ?, ?, ?, ?, 0)
+ON CONFLICT(account_id) DO UPDATE SET ok = 1, fail_count = 0, error = '', error_code = '', plan = excluded.plan, user = excluded.user,
   credits = excluded.credits, balances_json = excluded.balances_json, windows_json = excluded.windows_json,
   read_at = excluded.read_at, tried_at = excluded.tried_at
 `
@@ -264,16 +345,17 @@ func (q *Queries) SetQuotaOrder(ctx context.Context, arg SetQuotaOrderParams) er
 }
 
 const updateQuotaAccount = `-- name: UpdateQuotaAccount :one
-UPDATE quota_accounts SET name = ?, host_id = ?, home = ?, api_key = ?, key_hash = ? WHERE id = ? RETURNING id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at
+UPDATE quota_accounts SET name = ?, host_id = ?, home = ?, api_key = ?, key_hash = ?, balance_low = ? WHERE id = ? RETURNING id, kind, name, host_id, home, api_key, key_hash, sort_order, created_at, balance_low
 `
 
 type UpdateQuotaAccountParams struct {
-	Name    string
-	HostID  string
-	Home    string
-	ApiKey  string
-	KeyHash string
-	ID      int64
+	Name       string
+	HostID     string
+	Home       string
+	ApiKey     string
+	KeyHash    string
+	BalanceLow string
+	ID         int64
 }
 
 func (q *Queries) UpdateQuotaAccount(ctx context.Context, arg UpdateQuotaAccountParams) (QuotaAccount, error) {
@@ -283,6 +365,7 @@ func (q *Queries) UpdateQuotaAccount(ctx context.Context, arg UpdateQuotaAccount
 		arg.Home,
 		arg.ApiKey,
 		arg.KeyHash,
+		arg.BalanceLow,
 		arg.ID,
 	)
 	var i QuotaAccount
@@ -296,6 +379,7 @@ func (q *Queries) UpdateQuotaAccount(ctx context.Context, arg UpdateQuotaAccount
 		&i.KeyHash,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.BalanceLow,
 	)
 	return i, err
 }

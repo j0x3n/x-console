@@ -84,6 +84,35 @@ paths:
           description: 已重排
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /quotas/notify:
+    get:
+      operationId: getQuotaNotify
+      tags: [quotas]
+      description: 额度通知的开关。四类通知默认都开。
+      responses:
+        "200":
+          description: 当前设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuotaNotifySettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putQuotaNotify
+      tags: [quotas]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/QuotaNotifySettings" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuotaNotifySettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /quotas/{accountId}:
     parameters:
       - $ref: "#/components/parameters/AccountId"
@@ -169,6 +198,7 @@ components:
         hostOnline: { type: boolean }
         home: { type: string, description: 登录目录，空表示这台机器上的默认目录 }
         keySet: { type: boolean, description: DeepSeek 是否已设置 API Key，Key 本身不会返回 }
+        balanceLow: { type: string, description: DeepSeek 余额低于这个数时通知，用余额里第一个币种比。空表示不通知 }
         status:
           type: string
           enum: [pending, ok, error]
@@ -200,6 +230,7 @@ components:
           type: string
           description: 绝对路径，或以 ~/ 开头。不能含 ..。空表示默认目录
         apiKey: { type: string, description: 只有 DeepSeek 用 }
+        balanceLow: { type: string, description: 只有 DeepSeek 用，数字，空表示不通知 }
     QuotaAccountPatch:
       type: object
       properties:
@@ -207,6 +238,15 @@ components:
         hostId: { type: string }
         home: { type: string }
         apiKey: { type: string }
+        balanceLow: { type: string, description: 数字，空字符串表示不再通知 }
+    QuotaNotifySettings:
+      type: object
+      required: [low, empty, balance, failed]
+      properties:
+        low: { type: boolean, description: 窗口剩余 10% 以下 }
+        empty: { type: boolean, description: 窗口用完 }
+        balance: { type: boolean, description: DeepSeek 余额低于设定的数 }
+        failed: { type: boolean, description: 连续读取失败 }
     QuotaHost:
       type: object
       required: [id, name, online]

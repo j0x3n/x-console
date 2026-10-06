@@ -31,6 +31,24 @@ registerZh({
   Balance: "余额",
   Credits: "积分",
   "Reading…": "正在读取…",
+  Notifications: "通知",
+  "Quota notifications": "额度通知",
+  "Each window is told once per period. It is told again after the window resets.":
+    "每个窗口每个周期只通知一次，重置后再通知。",
+  "Running out": "快用完",
+  "When a window has 10% or less left.": "窗口剩余 10% 以下时。",
+  "Used up": "用完",
+  "When a window has nothing left.": "窗口一点都不剩时。",
+  "Low DeepSeek balance": "DeepSeek 余额不足",
+  "When a balance falls under the limit set on the account.":
+    "余额低于账号上设的数时。",
+  "Reading keeps failing": "连续读取失败",
+  "After 3 failed readings in a row (2 for Claude).":
+    "连续 3 次读取失败后（Claude 是 2 次）。",
+  "Notify when below": "余额低于这个数时通知",
+  "Empty means no notification": "留空表示不通知",
+  "Compared with the first currency of the balance.":
+    "和余额里的第一个币种比。",
   "Last read": "上次读取",
   "These numbers are from the last successful reading.":
     "显示的是上一次读取成功的数字。",

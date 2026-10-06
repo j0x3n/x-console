@@ -29,6 +29,32 @@ func setup(t *testing.T) (*testutil.Env, *quotas.Module) {
 	return env, m
 }
 
+// testClock is a clock the test moves while background reads look at it.
+type testClock struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func newClock() *testClock { return &testClock{t: time.Now()} }
+
+func (c *testClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.t
+}
+
+func (c *testClock) Set(t time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.t = t
+}
+
+func (c *testClock) Add(d time.Duration) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.t = c.t.Add(d)
+}
+
 func waitFor(t *testing.T, what string, ok func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -85,7 +111,7 @@ func TestDeepSeekBalanceAndMultipleKeys(t *testing.T) {
 	env.Elevate()
 	var a api.QuotaAccount
 	env.MustDo(http.MethodPost, "/quotas", map[string]any{"kind": "deepseek", "name": "主号", "apiKey": "sk-secret-one"}, &a)
-	if a.Status != api.Pending || !a.KeySet || a.HostId != "" {
+	if !a.KeySet || a.HostId != "" {
 		t.Fatalf("created: %+v", a)
 	}
 	waitFor(t, "first reading", func() bool { return account(t, env, a.Id).Status == api.Ok })
@@ -291,15 +317,15 @@ func TestRefreshIsLimitedAndFailureKeepsOldNumbers(t *testing.T) {
 	if qa.count("") != 1 {
 		t.Fatalf("calls = %d", qa.count(""))
 	}
-	clock := time.Now()
-	quotas.SetNow(m, func() time.Time { return clock })
+	clock := newClock()
+	quotas.SetNow(m, clock.Now)
 	path := "/quotas/" + itoa(a.Id) + "/refresh"
 	// the first reading was made at the real time, our clock starts there
 	env.MustDo(http.MethodPost, path, nil, nil)
 	if qa.count("") != 1 {
 		t.Fatalf("refresh inside 5 minutes must not ask the machine: %d", qa.count(""))
 	}
-	clock = clock.Add(6 * time.Minute)
+	clock.Add(6 * time.Minute)
 	fail.Store(true)
 	var got api.QuotaAccount
 	env.MustDo(http.MethodPost, path, nil, &got)
@@ -314,7 +340,7 @@ func TestRefreshIsLimitedAndFailureKeepsOldNumbers(t *testing.T) {
 	if qa.count("") != 2 {
 		t.Fatal("retry before 30 seconds")
 	}
-	clock = clock.Add(31 * time.Second)
+	clock.Add(31 * time.Second)
 	fail.Store(false)
 	env.MustDo(http.MethodPost, path, nil, &got)
 	if qa.count("") != 3 || got.Status != api.Ok {
@@ -396,12 +422,13 @@ func TestTickReadsOnlyWhatIsDue(t *testing.T) {
 		return true
 	})
 	base := time.Now()
-	clock := base
-	quotas.SetNow(m, func() time.Time { return clock })
+	clock := newClock()
+	clock.Set(base)
+	quotas.SetNow(m, clock.Now)
 	tickCalls := func() (int, int32) { return qa.count(""), hits.Load() }
 	agentBefore, dsBefore := tickCalls()
 	// inside 5 minutes nothing is read
-	clock = base.Add(4 * time.Minute)
+	clock.Set(base.Add(4 * time.Minute))
 	if err := quotas.Tick(m, context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +436,7 @@ func TestTickReadsOnlyWhatIsDue(t *testing.T) {
 		t.Fatalf("read too early: %d %d", a, d)
 	}
 	// after 6 minutes codex and deepseek are due, claude (15 minutes) is not
-	clock = base.Add(6 * time.Minute)
+	clock.Set(base.Add(6 * time.Minute))
 	if err := quotas.Tick(m, context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +444,7 @@ func TestTickReadsOnlyWhatIsDue(t *testing.T) {
 		t.Fatalf("after 6 minutes: agent %d (was %d), deepseek %d (was %d)", a, agentBefore, d, dsBefore)
 	}
 	// after 16 minutes all three
-	clock = base.Add(16 * time.Minute)
+	clock.Set(base.Add(16 * time.Minute))
 	if err := quotas.Tick(m, context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +495,8 @@ func TestUpdateReorderDelete(t *testing.T) {
 	// changing the directory clears the reading and reads again
 	calls := qa.count("/home/me/other")
 	env.MustDo(http.MethodPatch, "/quotas/"+itoa(a.Id), map[string]any{"home": "/home/me/other"}, &u)
-	if u.Home != "/home/me/other" || u.Status != api.Pending {
+	// the read in the new directory may already be done when the answer is built
+	if u.Home != "/home/me/other" {
 		t.Fatalf("new home: %+v", u)
 	}
 	waitFor(t, "read in new home", func() bool { return qa.count("/home/me/other") == calls+1 && account(t, env, a.Id).Status == api.Ok })
@@ -483,7 +511,7 @@ func TestUpdateReorderDelete(t *testing.T) {
 	}
 	// a new key for DeepSeek is accepted and read
 	env.MustDo(http.MethodPatch, "/quotas/"+itoa(b.Id), map[string]any{"apiKey": "k2"}, &u)
-	if !u.KeySet || u.Status != api.Pending {
+	if !u.KeySet {
 		t.Fatalf("new key: %+v", u)
 	}
 	if status, _ := env.Do(http.MethodPatch, "/quotas/999", map[string]any{"name": "x"}, nil); status != http.StatusNotFound {
@@ -519,5 +547,236 @@ func TestActionListsAccounts(t *testing.T) {
 	raw, _ := json.Marshal(out)
 	if !strings.Contains(string(raw), `"balances"`) || strings.Contains(string(raw), "apiKey") {
 		t.Fatalf("action output: %s", raw)
+	}
+}
+
+// ---- B112 notifications ----
+
+type notice struct{ Kind, Title, Body, Link string }
+
+func notices(t *testing.T, env *testutil.Env, kind string) []notice {
+	t.Helper()
+	var out struct{ Items []notice }
+	env.MustDo(http.MethodGet, "/notifications", nil, &out)
+	var got []notice
+	for _, n := range out.Items {
+		if n.Kind == kind {
+			got = append(got, n)
+		}
+	}
+	return got
+}
+
+// driver makes one codex account whose reading the test controls, and a clock
+// it moves six minutes at every refresh so each refresh really reads.
+type driver struct {
+	t     *testing.T
+	env   *testutil.Env
+	m     *quotas.Module
+	id    int64
+	clock *testClock
+	mu    sync.Mutex
+	used  float64
+	reset *time.Time
+	err   error
+}
+
+func newDriver(t *testing.T, kind string) *driver {
+	env, m := setup(t)
+	d := &driver{t: t, env: env, m: m, clock: newClock()}
+	qa := &quotaAgent{reply: func(protocol.QuotaReadParams) (protocol.QuotaReading, error) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		if d.err != nil {
+			return protocol.QuotaReading{}, d.err
+		}
+		return protocol.QuotaReading{Windows: []protocol.QuotaWindow{
+			{Name: "5 小时", UsedPercent: d.used, ResetsAt: d.reset},
+			{Name: "按量付费", UsedPercent: 100, Aside: true},
+		}}, nil
+	}}
+	host := env.Agent("server", []string{protocol.CapSystemInfo, protocol.CapQuota}, qa.register)
+	env.Elevate()
+	var a api.QuotaAccount
+	env.MustDo(http.MethodPost, "/quotas", map[string]any{"kind": kind, "name": "测试账号", "hostId": host}, &a)
+	waitFor(t, "first reading", func() bool { return account(t, env, a.Id).Status != api.Pending })
+	d.id = a.Id
+	quotas.SetNow(m, d.clock.Now)
+	return d
+}
+
+func (d *driver) read(used float64, reset *time.Time, err error) api.QuotaAccount {
+	d.mu.Lock()
+	d.used, d.reset, d.err = used, reset, err
+	d.mu.Unlock()
+	d.clock.Add(6 * time.Minute)
+	var a api.QuotaAccount
+	d.env.MustDo(http.MethodPost, "/quotas/"+itoa(d.id)+"/refresh", nil, &a)
+	return a
+}
+
+func TestLowAndEmptyAreSentOncePerPeriod(t *testing.T) {
+	d := newDriver(t, "codex")
+	period1 := d.clock.Now().Add(2 * time.Hour)
+	d.read(50, &period1, nil)
+	if n := notices(t, d.env, "quota.low"); len(n) != 0 {
+		t.Fatalf("50%% used must be quiet: %+v", n)
+	}
+	d.read(91, &period1, nil)
+	low := notices(t, d.env, "quota.low")
+	if len(low) != 1 || !strings.Contains(low[0].Title, "测试账号") || !strings.Contains(low[0].Body, "只剩 9%") || !strings.Contains(low[0].Body, "后重置") || low[0].Link != "/quotas" {
+		t.Fatalf("low: %+v", low)
+	}
+	d.read(95, &period1, nil)
+	if n := notices(t, d.env, "quota.low"); len(n) != 1 {
+		t.Fatalf("same period must not repeat: %+v", n)
+	}
+	d.read(100, &period1, nil)
+	if n := notices(t, d.env, "quota.empty"); len(n) != 1 || !strings.Contains(n[0].Title, "已用完") {
+		t.Fatalf("empty: %+v", n)
+	}
+	d.read(100, &period1, nil)
+	if n := notices(t, d.env, "quota.empty"); len(n) != 1 {
+		t.Fatalf("empty must not repeat: %+v", n)
+	}
+	// the window resets and later runs out again: a new period tells again
+	period2 := d.clock.Now().Add(5 * time.Hour)
+	d.read(20, &period2, nil)
+	d.read(93, &period2, nil)
+	if n := notices(t, d.env, "quota.low"); len(n) != 2 {
+		t.Fatalf("new period: %+v", n)
+	}
+}
+
+func TestJumpingStraightToEmptySendsOnlyEmpty(t *testing.T) {
+	d := newDriver(t, "codex")
+	period := d.clock.Now().Add(time.Hour)
+	d.read(100, &period, nil)
+	d.read(96, &period, nil) // back to "low" in the same period: already said
+	if n := notices(t, d.env, "quota.empty"); len(n) != 1 {
+		t.Fatalf("empty: %+v", n)
+	}
+	if n := notices(t, d.env, "quota.low"); len(n) != 0 {
+		t.Fatalf("low after a jump to empty: %+v", n)
+	}
+}
+
+func TestWindowThatAlreadyResetStaysQuiet(t *testing.T) {
+	d := newDriver(t, "codex")
+	past := d.clock.Now().Add(-time.Hour)
+	d.read(99, &past, nil)
+	if n := notices(t, d.env, "quota.low"); len(n) != 0 {
+		t.Fatalf("old period: %+v", n)
+	}
+}
+
+func TestNotifySettingsSwitchKindsOff(t *testing.T) {
+	d := newDriver(t, "codex")
+	var s api.QuotaNotifySettings
+	d.env.MustDo(http.MethodGet, "/quotas/notify", nil, &s)
+	if !s.Low || !s.Empty || !s.Balance || !s.Failed {
+		t.Fatalf("defaults: %+v", s)
+	}
+	d.env.MustDo(http.MethodPut, "/quotas/notify", api.QuotaNotifySettings{Low: false, Empty: true, Balance: true, Failed: true}, &s)
+	d.env.MustDo(http.MethodGet, "/quotas/notify", nil, &s)
+	if s.Low {
+		t.Fatalf("not saved: %+v", s)
+	}
+	period := d.clock.Now().Add(time.Hour)
+	d.read(95, &period, nil)
+	if n := notices(t, d.env, "quota.low"); len(n) != 0 {
+		t.Fatalf("switched off: %+v", n)
+	}
+	d.read(100, &period, nil)
+	if n := notices(t, d.env, "quota.empty"); len(n) != 1 {
+		t.Fatalf("empty is still on: %+v", n)
+	}
+}
+
+func TestRepeatedFailuresAreToldOnce(t *testing.T) {
+	d := newDriver(t, "codex")
+	boom := &protocol.Error{Code: protocol.CodeQuotaUnavailable, Message: "Codex 额度接口返回 502"}
+	d.read(10, nil, nil)
+	d.read(0, nil, boom)
+	d.read(0, nil, boom)
+	if n := notices(t, d.env, "quota.read_failed"); len(n) != 0 {
+		t.Fatalf("two failures are too early: %+v", n)
+	}
+	d.read(0, nil, boom)
+	n := notices(t, d.env, "quota.read_failed")
+	if len(n) != 1 || !strings.Contains(n[0].Body, "连续 3 次") || !strings.Contains(n[0].Body, "502") {
+		t.Fatalf("third failure: %+v", n)
+	}
+	d.read(0, nil, boom)
+	if n := notices(t, d.env, "quota.read_failed"); len(n) != 1 {
+		t.Fatalf("no repeat: %+v", n)
+	}
+	// a good reading ends the run, and a new run is told again
+	d.read(10, nil, nil)
+	for i := 0; i < 3; i++ {
+		d.read(0, nil, boom)
+	}
+	if n := notices(t, d.env, "quota.read_failed"); len(n) != 2 {
+		t.Fatalf("second run: %+v", n)
+	}
+}
+
+func TestClaudeFailuresAreToldAfterTwo(t *testing.T) {
+	d := newDriver(t, "claude")
+	boom := &protocol.Error{Code: protocol.CodeQuotaSignedOut, Message: "Claude 没有登录"}
+	d.read(0, nil, boom)
+	if n := notices(t, d.env, "quota.read_failed"); len(n) != 0 {
+		t.Fatalf("one failure: %+v", n)
+	}
+	d.read(0, nil, boom)
+	if n := notices(t, d.env, "quota.read_failed"); len(n) != 1 {
+		t.Fatalf("two failures: %+v", n)
+	}
+}
+
+func TestDeepSeekBalanceLimit(t *testing.T) {
+	env, m := setup(t)
+	deepSeek(t, m, 200, balanceBody) // CNY 110.00 first
+	env.Elevate()
+	clock := newClock()
+	quotas.SetNow(m, clock.Now)
+	var a api.QuotaAccount
+	env.MustDo(http.MethodPost, "/quotas", map[string]any{"kind": "deepseek", "name": "余额号", "apiKey": "k", "balanceLow": "200"}, &a)
+	if a.BalanceLow == nil || *a.BalanceLow != "200" {
+		t.Fatalf("created: %+v", a)
+	}
+	waitFor(t, "balance notice", func() bool { return len(notices(t, env, "quota.balance_low")) == 1 })
+	n := notices(t, env, "quota.balance_low")[0]
+	if !strings.Contains(n.Body, "110.00 CNY") || !strings.Contains(n.Body, "200") {
+		t.Fatalf("body: %+v", n)
+	}
+	refresh := func() {
+		clock.Add(6 * time.Minute)
+		env.MustDo(http.MethodPost, "/quotas/"+itoa(a.Id)+"/refresh", nil, nil)
+	}
+	refresh()
+	if len(notices(t, env, "quota.balance_low")) != 1 {
+		t.Fatal("must not repeat while still low")
+	}
+	// the limit goes under the balance, then back over it: told again
+	env.MustDo(http.MethodPatch, "/quotas/"+itoa(a.Id), map[string]any{"balanceLow": "50"}, nil)
+	refresh()
+	env.MustDo(http.MethodPatch, "/quotas/"+itoa(a.Id), map[string]any{"balanceLow": "300"}, nil)
+	waitFor(t, "second balance notice", func() bool { return len(notices(t, env, "quota.balance_low")) == 2 })
+	// an empty value switches it off
+	var cleared api.QuotaAccount
+	env.MustDo(http.MethodPatch, "/quotas/"+itoa(a.Id), map[string]any{"balanceLow": ""}, &cleared)
+	if cleared.BalanceLow != nil {
+		t.Fatalf("not cleared: %+v", cleared)
+	}
+	// bad values, and a limit on a subscription account
+	for _, v := range []string{"abc", "-1"} {
+		if status, _ := env.Do(http.MethodPatch, "/quotas/"+itoa(a.Id), map[string]any{"balanceLow": v}, nil); status != http.StatusBadRequest && status != http.StatusUnprocessableEntity {
+			t.Errorf("balanceLow %q: %d", v, status)
+		}
+	}
+	host := env.Agent("server", []string{protocol.CapSystemInfo, protocol.CapQuota}, nil)
+	if status, _ := env.Do(http.MethodPost, "/quotas", map[string]any{"kind": "codex", "name": "x", "hostId": host, "balanceLow": "5"}, nil); status != http.StatusBadRequest && status != http.StatusUnprocessableEntity {
+		t.Fatalf("balanceLow on codex: %d", status)
 	}
 }

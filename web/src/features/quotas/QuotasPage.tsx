@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Gauge, Plus, RefreshCw } from "lucide-react";
+import { Bell, Gauge, Plus, RefreshCw } from "lucide-react";
 import { errorMessage, isNotLive } from "../../api/client";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import PageHeading from "../../components/ui/PageHeading";
@@ -14,6 +14,7 @@ import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import AccountCard from "./AccountCard";
 import AccountDialog from "./AccountDialog";
+import NotifyDialog from "./NotifyDialog";
 import {
   useDeleteQuotaAccount,
   useQuotaAccounts,
@@ -48,6 +49,7 @@ export default function QuotasPage() {
   const [dialog, setDialog] = useState<{ account?: QuotaAccount } | "closed">(
     "closed",
   );
+  const [notifyOpen, setNotifyOpen] = useState(false);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
   const [refreshingAll, setRefreshingAll] = useState(false);
 
@@ -220,12 +222,21 @@ export default function QuotasPage() {
                   <RefreshCw size={14} /> {t("Refresh all")}
                 </button>
               )}
+              <button
+                className="xc-btn small"
+                title={t("Notifications")}
+                aria-label={t("Notifications")}
+                onClick={() => setNotifyOpen(true)}
+              >
+                <Bell size={14} /> {t("Notifications")}
+              </button>
               {addButton}
             </>
           )
         }
       />
       {content}
+      <NotifyDialog open={notifyOpen} onClose={() => setNotifyOpen(false)} />
       <AccountDialog
         open={dialog !== "closed"}
         account={dialog === "closed" ? undefined : dialog.account}

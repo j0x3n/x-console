@@ -12,4 +12,8 @@ func Tick(m *Module, ctx context.Context) error { return m.tick(ctx) }
 
 func SetDeepSeekURL(m *Module, url string) { m.deepseekURL = url }
 
-func SetNow(m *Module, now func() time.Time) { m.now = now }
+func SetNow(m *Module, now func() time.Time) {
+	m.nowMu.Lock()
+	defer m.nowMu.Unlock()
+	m.nowFn = now
+}

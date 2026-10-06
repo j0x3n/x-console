@@ -173,6 +173,11 @@ export default function AccountCard({
               </strong>
             ))}
           </div>
+          {account.balanceLow && (
+            <small className="quota-credits">
+              {t("Notify when below")} {account.balanceLow}
+            </small>
+          )}
         </div>
       )}
       {account.credits && (

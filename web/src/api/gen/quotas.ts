@@ -60,6 +60,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/quotas/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 额度通知的开关。四类通知默认都开。 */
+        get: operations["getQuotaNotify"];
+        put: operations["putQuotaNotify"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/quotas/{accountId}": {
         parameters: {
             query?: never;
@@ -146,6 +163,8 @@ export interface components {
             home: string;
             /** @description DeepSeek 是否已设置 API Key，Key 本身不会返回 */
             keySet: boolean;
+            /** @description DeepSeek 余额低于这个数时通知，用余额里第一个币种比。空表示不通知 */
+            balanceLow?: string;
             /**
              * @description pending 还没读过，ok 最近一次读取成功，error 最近一次失败
              * @enum {string}
@@ -181,12 +200,26 @@ export interface components {
             home?: string;
             /** @description 只有 DeepSeek 用 */
             apiKey?: string;
+            /** @description 只有 DeepSeek 用，数字，空表示不通知 */
+            balanceLow?: string;
         };
         QuotaAccountPatch: {
             name?: string;
             hostId?: string;
             home?: string;
             apiKey?: string;
+            /** @description 数字，空字符串表示不再通知 */
+            balanceLow?: string;
+        };
+        QuotaNotifySettings: {
+            /** @description 窗口剩余 10% 以下 */
+            low: boolean;
+            /** @description 窗口用完 */
+            empty: boolean;
+            /** @description DeepSeek 余额低于设定的数 */
+            balance: boolean;
+            /** @description 连续读取失败 */
+            failed: boolean;
         };
         QuotaHost: {
             id: string;
@@ -317,6 +350,52 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getQuotaNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuotaNotifySettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putQuotaNotify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuotaNotifySettings"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuotaNotifySettings"];
+                };
             };
             default: components["responses"]["Error"];
         };
