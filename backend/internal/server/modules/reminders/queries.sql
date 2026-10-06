@@ -62,3 +62,29 @@ SELECT count(*) FROM webpush_subscriptions;
 
 -- name: DeletePushSubscription :execrows
 DELETE FROM webpush_subscriptions WHERE endpoint = ?;
+
+-- name: ListMutes :many
+SELECT * FROM notification_mutes ORDER BY id;
+
+-- name: ListMutesInScope :many
+SELECT * FROM notification_mutes WHERE scope = ? ORDER BY id;
+
+-- name: InsertMute :one
+INSERT INTO notification_mutes (kind_pattern, scope, target, created_at) VALUES (?, ?, ?, ?) RETURNING *;
+
+-- name: DeleteMute :execrows
+DELETE FROM notification_mutes WHERE id = ?;
+
+-- name: DeleteMutesOfScopeAndKind :exec
+DELETE FROM notification_mutes WHERE kind_pattern = ? AND scope = ?;
+
+-- name: DeleteMutesOfScope :exec
+DELETE FROM notification_mutes WHERE scope = ?;
+
+-- name: PruneDeviceMutes :exec
+-- A rule that points at a Web Push device that is gone has nothing to do.
+DELETE FROM notification_mutes
+WHERE target LIKE 'webpush:%' AND CAST(substr(target, 9) AS INTEGER) NOT IN (SELECT id FROM webpush_subscriptions);
+
+-- name: GetPushSubscriptionByID :one
+SELECT * FROM webpush_subscriptions WHERE id = ?;

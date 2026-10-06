@@ -321,3 +321,10 @@
     padding: 12px;
   }
 }
+
+/* B113：邮箱弹窗里的“通知发到” */
+.mail-notify-targets {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}

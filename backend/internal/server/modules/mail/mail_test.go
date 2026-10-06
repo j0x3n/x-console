@@ -2,6 +2,7 @@ package mail_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail/api"
+	"github.com/j0x3n/x-console/backend/internal/server/notify"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
 
@@ -448,4 +451,62 @@ func hasFlag(flags []imap.Flag, f imap.Flag) bool {
 		}
 	}
 	return false
+}
+
+// captureRouter keeps every notification the service routes and sends it
+// nowhere.
+type captureRouter struct {
+	mu  sync.Mutex
+	got []notify.Stored
+}
+
+func (c *captureRouter) Route(_ context.Context, n notify.Stored) []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.got = append(c.got, n)
+	return nil
+}
+
+func (c *captureRouter) mail() []notify.Stored {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var out []notify.Stored
+	for _, n := range c.got {
+		if n.Kind == "mail.new" {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// B113: new mail says which mailbox it came to, so mute rules can name it, and
+// a deleted mailbox tells the notification rules to forget it.
+func TestNewMailCarriesItsMailboxAndDeleteAnnouncesIt(t *testing.T) {
+	env, _, f := setup(t)
+	f.add(t, plainMail, time.Now().Add(-time.Hour))
+	capture := &captureRouter{}
+	env.App.Deps.Notify.SetRouter(capture)
+	var acc api.MailAccount
+	env.MustDo(http.MethodPost, "/mail/accounts", accountInput(f, pass), &acc)
+	eventually(t, "first sync", func() bool { return len(list(t, env, "")) == 1 })
+
+	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Fresh news", 1), time.Now())
+	eventually(t, "notification", func() bool { return len(capture.mail()) == 1 })
+	n := capture.mail()[0]
+	if n.Scope != fmt.Sprintf("mail:%d", acc.Id) {
+		t.Fatalf("scope = %q", n.Scope)
+	}
+
+	removed, cancel := env.App.Deps.Bus.Subscribe("notify.scope_removed", 4)
+	defer cancel()
+	env.MustDo(http.MethodDelete, fmt.Sprintf("/mail/accounts/%d", acc.Id), nil, nil)
+	select {
+	case ev := <-removed:
+		data, _ := ev.Data.(map[string]any)
+		if data["scope"] != fmt.Sprintf("mail:%d", acc.Id) {
+			t.Fatalf("event: %+v", ev)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("no notify.scope_removed event")
+	}
 }

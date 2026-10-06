@@ -68,6 +68,41 @@ func (q *Queries) CreateReminder(ctx context.Context, arg CreateReminderParams) 
 	return i, err
 }
 
+const deleteMute = `-- name: DeleteMute :execrows
+DELETE FROM notification_mutes WHERE id = ?
+`
+
+func (q *Queries) DeleteMute(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteMute, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteMutesOfScope = `-- name: DeleteMutesOfScope :exec
+DELETE FROM notification_mutes WHERE scope = ?
+`
+
+func (q *Queries) DeleteMutesOfScope(ctx context.Context, scope string) error {
+	_, err := q.db.ExecContext(ctx, deleteMutesOfScope, scope)
+	return err
+}
+
+const deleteMutesOfScopeAndKind = `-- name: DeleteMutesOfScopeAndKind :exec
+DELETE FROM notification_mutes WHERE kind_pattern = ? AND scope = ?
+`
+
+type DeleteMutesOfScopeAndKindParams struct {
+	KindPattern string
+	Scope       string
+}
+
+func (q *Queries) DeleteMutesOfScopeAndKind(ctx context.Context, arg DeleteMutesOfScopeAndKindParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMutesOfScopeAndKind, arg.KindPattern, arg.Scope)
+	return err
+}
+
 const deletePushSubscription = `-- name: DeletePushSubscription :execrows
 DELETE FROM webpush_subscriptions WHERE endpoint = ?
 `
@@ -113,6 +148,27 @@ func (q *Queries) DeleteRoutes(ctx context.Context) error {
 	return err
 }
 
+const getPushSubscriptionByID = `-- name: GetPushSubscriptionByID :one
+SELECT id, endpoint, p256dh, auth, user_agent, created_at, last_ok_at, last_error, last_error_at FROM webpush_subscriptions WHERE id = ?
+`
+
+func (q *Queries) GetPushSubscriptionByID(ctx context.Context, id int64) (WebpushSubscription, error) {
+	row := q.db.QueryRowContext(ctx, getPushSubscriptionByID, id)
+	var i WebpushSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.Endpoint,
+		&i.P256dh,
+		&i.Auth,
+		&i.UserAgent,
+		&i.CreatedAt,
+		&i.LastOkAt,
+		&i.LastError,
+		&i.LastErrorAt,
+	)
+	return i, err
+}
+
 const getReminder = `-- name: GetReminder :one
 SELECT id, title, body, link, rrule, dtstart, next_at, last_fired_at, snoozed_until, done_at, enabled, created_at, icon FROM reminders WHERE id = ?
 `
@@ -134,6 +190,35 @@ func (q *Queries) GetReminder(ctx context.Context, id int64) (Reminder, error) {
 		&i.Enabled,
 		&i.CreatedAt,
 		&i.Icon,
+	)
+	return i, err
+}
+
+const insertMute = `-- name: InsertMute :one
+INSERT INTO notification_mutes (kind_pattern, scope, target, created_at) VALUES (?, ?, ?, ?) RETURNING id, kind_pattern, scope, target, created_at
+`
+
+type InsertMuteParams struct {
+	KindPattern string
+	Scope       string
+	Target      string
+	CreatedAt   time.Time
+}
+
+func (q *Queries) InsertMute(ctx context.Context, arg InsertMuteParams) (NotificationMute, error) {
+	row := q.db.QueryRowContext(ctx, insertMute,
+		arg.KindPattern,
+		arg.Scope,
+		arg.Target,
+		arg.CreatedAt,
+	)
+	var i NotificationMute
+	err := row.Scan(
+		&i.ID,
+		&i.KindPattern,
+		&i.Scope,
+		&i.Target,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -202,6 +287,72 @@ func (q *Queries) ListDueReminders(ctx context.Context, now *time.Time) ([]Remin
 			&i.Enabled,
 			&i.CreatedAt,
 			&i.Icon,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMutes = `-- name: ListMutes :many
+SELECT id, kind_pattern, scope, target, created_at FROM notification_mutes ORDER BY id
+`
+
+func (q *Queries) ListMutes(ctx context.Context) ([]NotificationMute, error) {
+	rows, err := q.db.QueryContext(ctx, listMutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NotificationMute
+	for rows.Next() {
+		var i NotificationMute
+		if err := rows.Scan(
+			&i.ID,
+			&i.KindPattern,
+			&i.Scope,
+			&i.Target,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMutesInScope = `-- name: ListMutesInScope :many
+SELECT id, kind_pattern, scope, target, created_at FROM notification_mutes WHERE scope = ? ORDER BY id
+`
+
+func (q *Queries) ListMutesInScope(ctx context.Context, scope string) ([]NotificationMute, error) {
+	rows, err := q.db.QueryContext(ctx, listMutesInScope, scope)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NotificationMute
+	for rows.Next() {
+		var i NotificationMute
+		if err := rows.Scan(
+			&i.ID,
+			&i.KindPattern,
+			&i.Scope,
+			&i.Target,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -392,6 +543,17 @@ type MarkPushOKParams struct {
 
 func (q *Queries) MarkPushOK(ctx context.Context, arg MarkPushOKParams) error {
 	_, err := q.db.ExecContext(ctx, markPushOK, arg.LastOkAt, arg.ID)
+	return err
+}
+
+const pruneDeviceMutes = `-- name: PruneDeviceMutes :exec
+DELETE FROM notification_mutes
+WHERE target LIKE 'webpush:%' AND CAST(substr(target, 9) AS INTEGER) NOT IN (SELECT id FROM webpush_subscriptions)
+`
+
+// A rule that points at a Web Push device that is gone has nothing to do.
+func (q *Queries) PruneDeviceMutes(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, pruneDeviceMutes)
 	return err
 }
 

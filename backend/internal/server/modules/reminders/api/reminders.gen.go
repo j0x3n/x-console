@@ -234,6 +234,28 @@ type NotifyChannel struct {
 	WebhookUrl *string `json:"webhookUrl,omitempty"`
 }
 
+// NotifyMute defines model for NotifyMute.
+type NotifyMute struct {
+	CreatedAt time.Time `json:"createdAt"`
+	Id        int64     `json:"id"`
+
+	// KindPattern 通知类型，可以带 *，比如 mail.new、github.*
+	KindPattern string `json:"kindPattern"`
+
+	// Scope 范围，比如 mail:3。空表示这个类型的全部通知
+	Scope string `json:"scope"`
+
+	// Target 渠道名，或 webpush:<订阅编号>
+	Target string `json:"target"`
+}
+
+// NotifyMuteInput defines model for NotifyMuteInput.
+type NotifyMuteInput struct {
+	KindPattern string  `json:"kindPattern"`
+	Scope       *string `json:"scope,omitempty"`
+	Target      string  `json:"target"`
+}
+
 // NotifyPriority defines model for NotifyPriority.
 type NotifyPriority string
 
@@ -385,6 +407,19 @@ type GetNotifyIconParams struct {
 	Sig string `form:"sig" json:"sig"`
 }
 
+// ListNotifyMutesParams defines parameters for ListNotifyMutes.
+type ListNotifyMutesParams struct {
+	// Scope 只看这个范围的规则，比如 mail:3
+	Scope *string `form:"scope,omitempty" json:"scope,omitempty"`
+}
+
+// ReplaceScopeMutesJSONBody defines parameters for ReplaceScopeMutes.
+type ReplaceScopeMutesJSONBody struct {
+	KindPattern string   `json:"kindPattern"`
+	Scope       string   `json:"scope"`
+	Targets     []string `json:"targets"`
+}
+
 // ReplaceNotifyRoutesJSONBody defines parameters for ReplaceNotifyRoutes.
 type ReplaceNotifyRoutesJSONBody = []NotifyRoute
 
@@ -423,6 +458,12 @@ type RunNotifyActionJSONRequestBody RunNotifyActionJSONBody
 
 // UpdateNotifyChannelJSONRequestBody defines body for UpdateNotifyChannel for application/json ContentType.
 type UpdateNotifyChannelJSONRequestBody UpdateNotifyChannelJSONBody
+
+// CreateNotifyMuteJSONRequestBody defines body for CreateNotifyMute for application/json ContentType.
+type CreateNotifyMuteJSONRequestBody = NotifyMuteInput
+
+// ReplaceScopeMutesJSONRequestBody defines body for ReplaceScopeMutes for application/json ContentType.
+type ReplaceScopeMutesJSONRequestBody ReplaceScopeMutesJSONBody
 
 // UpdateQuietHoursJSONRequestBody defines body for UpdateQuietHours for application/json ContentType.
 type UpdateQuietHoursJSONRequestBody = QuietHours
@@ -465,6 +506,18 @@ type ServerInterface interface {
 
 	// (GET /notify/icons/{name})
 	GetNotifyIcon(w http.ResponseWriter, r *http.Request, name string, params GetNotifyIconParams)
+
+	// (GET /notify/mutes)
+	ListNotifyMutes(w http.ResponseWriter, r *http.Request, params ListNotifyMutesParams)
+
+	// (POST /notify/mutes)
+	CreateNotifyMute(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /notify/mutes/scope)
+	ReplaceScopeMutes(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /notify/mutes/{muteId})
+	DeleteNotifyMute(w http.ResponseWriter, r *http.Request, muteId int64)
 
 	// (GET /notify/quiet-hours)
 	GetQuietHours(w http.ResponseWriter, r *http.Request)
@@ -560,6 +613,26 @@ func (_ Unimplemented) TestNotifyChannel(w http.ResponseWriter, r *http.Request,
 
 // (GET /notify/icons/{name})
 func (_ Unimplemented) GetNotifyIcon(w http.ResponseWriter, r *http.Request, name string, params GetNotifyIconParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /notify/mutes)
+func (_ Unimplemented) ListNotifyMutes(w http.ResponseWriter, r *http.Request, params ListNotifyMutesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notify/mutes)
+func (_ Unimplemented) CreateNotifyMute(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /notify/mutes/scope)
+func (_ Unimplemented) ReplaceScopeMutes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /notify/mutes/{muteId})
+func (_ Unimplemented) DeleteNotifyMute(w http.ResponseWriter, r *http.Request, muteId int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -820,6 +893,93 @@ func (siw *ServerInterfaceWrapper) GetNotifyIcon(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetNotifyIcon(w, r, name, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNotifyMutes operation middleware
+func (siw *ServerInterfaceWrapper) ListNotifyMutes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListNotifyMutesParams
+
+	// ------------- Optional query parameter "scope" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "scope", r.URL.Query(), &params.Scope, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "scope"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scope", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNotifyMutes(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNotifyMute operation middleware
+func (siw *ServerInterfaceWrapper) CreateNotifyMute(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNotifyMute(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReplaceScopeMutes operation middleware
+func (siw *ServerInterfaceWrapper) ReplaceScopeMutes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReplaceScopeMutes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNotifyMute operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNotifyMute(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "muteId" -------------
+	var muteId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "muteId", chi.URLParam(r, "muteId"), &muteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "muteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNotifyMute(w, r, muteId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1381,6 +1541,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/notify/routes", wrapper.ReplaceNotifyRoutes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notify/mutes", wrapper.ListNotifyMutes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notify/mutes", wrapper.CreateNotifyMute)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/notify/mutes/scope", wrapper.ReplaceScopeMutes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/notify/mutes/{muteId}", wrapper.DeleteNotifyMute)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/notify/quiet-hours", wrapper.GetQuietHours)

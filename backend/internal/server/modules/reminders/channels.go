@@ -272,11 +272,15 @@ func (r *router) Route(ctx context.Context, n notify.Stored) []string {
 		routes = append(routes, routeFromDB(row))
 	}
 	quiet := inQuietHours(m.quietHours(ctx), time.Now(), m.d.Config.Location)
+	mutes := m.loadMutes(ctx)
 	var out []string
 	for _, name := range pickChannels(routes, n.Kind, n.Priority, quiet) {
 		c, ok := m.d.Notify.Channel(name)
 		if !ok {
 			continue
+		}
+		if muted(mutes, n, name) {
+			continue // B113: a mute rule keeps this kind from this channel
 		}
 		if cc, ok := c.(configurable); ok && !cc.Configured(ctx) {
 			continue

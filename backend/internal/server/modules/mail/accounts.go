@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -285,6 +286,8 @@ func (m *Module) DeleteMailAccount(w http.ResponseWriter, r *http.Request, accou
 		return
 	}
 	m.d.Bus.Publish("mail.updated", map[string]any{"accountId": accountID})
+	// B113: mute rules of this mailbox go with it
+	m.d.Bus.Publish("notify.scope_removed", map[string]any{"scope": fmt.Sprintf("mail:%d", accountID)})
 	httpx.NoContent(w)
 }
 

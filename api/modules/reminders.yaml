@@ -269,6 +269,96 @@ paths:
                 items: { $ref: "#/components/schemas/NotifyRoute" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /notify/mutes:
+    get:
+      operationId: listNotifyMutes
+      tags: [notify]
+      description: |
+        B113。静音规则：某类通知（可限定范围，比如某个邮箱）不发到某个目标。
+        目标是渠道名（webpush、telegram、bark、serverchan），或 webpush:<订阅编号>，只静音那一台设备。
+        站内通知铃不受影响。
+      parameters:
+        - name: scope
+          in: query
+          description: 只看这个范围的规则，比如 mail:3
+          schema: { type: string }
+      responses:
+        "200":
+          description: 规则
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/NotifyMute" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createNotifyMute
+      tags: [notify]
+      description: 同样的规则已经有回 409。目标不存在回 400。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotifyMuteInput" }
+      responses:
+        "201":
+          description: 已添加
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotifyMute" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notify/mutes/scope:
+    put:
+      operationId: replaceScopeMutes
+      tags: [notify]
+      description: 把某个类型加范围下被静音的目标整个换成 targets，一次保存一个邮箱的全部勾选。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kindPattern, scope, targets]
+              properties:
+                kindPattern: { type: string }
+                scope: { type: string }
+                targets:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: 这个范围现在的规则
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/NotifyMute" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /notify/mutes/{muteId}:
+    parameters:
+      - name: muteId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      operationId: deleteNotifyMute
+      tags: [notify]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /notify/quiet-hours:
     get:
       operationId: getQuietHours
@@ -557,6 +647,22 @@ components:
     NotifyPriority:
       type: string
       enum: [low, normal, high, urgent]
+    NotifyMute:
+      type: object
+      required: [id, kindPattern, scope, target, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        kindPattern: { type: string, description: 通知类型，可以带 *，比如 mail.new、github.* }
+        scope: { type: string, description: 范围，比如 mail:3。空表示这个类型的全部通知 }
+        target: { type: string, description: 渠道名，或 webpush:<订阅编号> }
+        createdAt: { type: string, format: date-time }
+    NotifyMuteInput:
+      type: object
+      required: [kindPattern, target]
+      properties:
+        kindPattern: { type: string }
+        scope: { type: string }
+        target: { type: string }
     NotifyRoute:
       type: object
       required: [kindPattern, minPriority, channels, enabled]

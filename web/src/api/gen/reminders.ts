@@ -184,6 +184,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notify/mutes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B113。静音规则：某类通知（可限定范围，比如某个邮箱）不发到某个目标。
+         *     目标是渠道名（webpush、telegram、bark、serverchan），或 webpush:<订阅编号>，只静音那一台设备。
+         *     站内通知铃不受影响。
+         */
+        get: operations["listNotifyMutes"];
+        put?: never;
+        /** @description 同样的规则已经有回 409。目标不存在回 400。 */
+        post: operations["createNotifyMute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/mutes/scope": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 把某个类型加范围下被静音的目标整个换成 targets，一次保存一个邮箱的全部勾选。 */
+        put: operations["replaceScopeMutes"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/mutes/{muteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                muteId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteNotifyMute"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notify/quiet-hours": {
         parameters: {
             query?: never;
@@ -432,6 +489,23 @@ export interface components {
         };
         /** @enum {string} */
         NotifyPriority: "low" | "normal" | "high" | "urgent";
+        NotifyMute: {
+            /** Format: int64 */
+            id: number;
+            /** @description 通知类型，可以带 *，比如 mail.new、github.* */
+            kindPattern: string;
+            /** @description 范围，比如 mail:3。空表示这个类型的全部通知 */
+            scope: string;
+            /** @description 渠道名，或 webpush:<订阅编号> */
+            target: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        NotifyMuteInput: {
+            kindPattern: string;
+            scope?: string;
+            target: string;
+        };
         NotifyRoute: {
             /** Format: int64 */
             id?: number;
@@ -880,6 +954,109 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["NotifyRoute"][];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listNotifyMutes: {
+        parameters: {
+            query?: {
+                /** @description 只看这个范围的规则，比如 mail:3 */
+                scope?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 规则 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["NotifyMute"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createNotifyMute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotifyMuteInput"];
+            };
+        };
+        responses: {
+            /** @description 已添加 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyMute"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    replaceScopeMutes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    kindPattern: string;
+                    scope: string;
+                    targets: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description 这个范围现在的规则 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["NotifyMute"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteNotifyMute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                muteId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

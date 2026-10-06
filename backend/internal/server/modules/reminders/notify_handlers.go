@@ -287,6 +287,7 @@ func (m *Module) AddPushSubscription(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+	m.pruneMutes(r.Context())
 	m.d.Bus.Publish("notify.channel_updated", map[string]string{"name": "webpush"})
 	httpx.NoContent(w)
 }
@@ -301,6 +302,7 @@ func (m *Module) DeletePushSubscription(w http.ResponseWriter, r *http.Request, 
 		httpx.Fail(w, r, err)
 		return
 	}
+	m.pruneMutes(r.Context())
 	m.d.Bus.Publish("notify.channel_updated", map[string]string{"name": "webpush"})
 	httpx.NoContent(w)
 }
@@ -332,6 +334,7 @@ func (m *Module) DeletePushSubscriptionById(w http.ResponseWriter, r *http.Reque
 		httpx.Fail(w, r, err)
 		return
 	}
+	m.pruneMutes(r.Context())
 	m.d.Bus.Publish("notify.channel_updated", map[string]string{"name": "webpush"})
 	httpx.NoContent(w)
 }

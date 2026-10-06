@@ -938,6 +938,14 @@ type Notification struct {
 	ReadAt    *time.Time
 }
 
+type NotificationMute struct {
+	ID          int64
+	KindPattern string
+	Scope       string
+	Target      string
+	CreatedAt   time.Time
+}
+
 type NotificationRoute struct {
 	ID          int64
 	KindPattern string

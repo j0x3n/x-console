@@ -33,6 +33,7 @@ export const notifyKeys = {
   routes: ["notify", "routes"] as const,
   quiet: ["notify", "quiet-hours"] as const,
   subscriptions: ["notify", "webpush-subscriptions"] as const,
+  mutes: ["notify", "mutes"] as const,
 };
 
 invalidateOn("reminder.", reminderKeys.all);
@@ -287,4 +288,63 @@ export function useReminderCounts() {
     /** 今天其他模块的到期事项，今日页“今天要做”里列出来 */
     externalToday: openExt(extToday.data),
   };
+}
+
+// ---- 静音规则（B113）----
+
+export type NotifyMute = Schemas["NotifyMute"];
+
+/** 静音规则。传了 scope 只看这个范围的，比如 mail:3。 */
+export function useNotifyMutes(scope?: string, enabled = true) {
+  return useQuery({
+    queryKey: [...notifyKeys.mutes, scope ?? "all"],
+    queryFn: async () =>
+      (
+        await unwrap(
+          remindersApi.GET("/notify/mutes", {
+            params: { query: scope ? { scope } : {} },
+          }),
+        )
+      ).items,
+    enabled,
+    retry: (count, error) => !isNotLive(error) && count < 2,
+  });
+}
+
+export function useCreateNotifyMute() {
+  const invalidate = useInvalidate(notifyKeys.mutes);
+  return useMutation({
+    mutationFn: (body: {
+      kindPattern: string;
+      scope?: string;
+      target: string;
+    }) => unwrap(remindersApi.POST("/notify/mutes", { body })),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteNotifyMute() {
+  const invalidate = useInvalidate(notifyKeys.mutes);
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        remindersApi.DELETE("/notify/mutes/{muteId}", {
+          params: { path: { muteId: id } },
+        }),
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+/** 把一个范围里被静音的目标整个换成 targets（邮箱编辑弹窗保存时用）。 */
+export function useReplaceScopeMutes() {
+  const invalidate = useInvalidate(notifyKeys.mutes);
+  return useMutation({
+    mutationFn: (body: {
+      kindPattern: string;
+      scope: string;
+      targets: string[];
+    }) => unwrap(remindersApi.PUT("/notify/mutes/scope", { body })),
+    onSuccess: invalidate,
+  });
 }

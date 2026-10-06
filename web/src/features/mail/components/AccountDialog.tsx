@@ -9,6 +9,12 @@ import {
   type MailProvider,
 } from "../api";
 import { guessProvider, providerPresets } from "../logic";
+import { useNotifyMutes, useReplaceScopeMutes } from "../../reminders/api";
+import NotifyTargetsField from "../../reminders/NotifyTargets";
+import { mailScope, sameTargets } from "../../reminders/mutes";
+
+/** 新邮件通知的类型。静音规则按它加邮箱范围保存（B113）。 */
+const MAIL_KIND = "mail.new";
 
 const providers: { id: MailProvider; label: string }[] = [
   { id: "gmail", label: "Gmail" },
@@ -37,6 +43,14 @@ export default function AccountDialog({
   const [username, setUsername] = useState("");
   const [notify, setNotify] = useState(true);
   const [error, setError] = useState("");
+  // B113：这个邮箱的新邮件不发到哪些设备或渠道
+  const [muted, setMuted] = useState<string[]>([]);
+  const [savedMuted, setSavedMuted] = useState<string[]>([]);
+  const mutes = useNotifyMutes(
+    account ? mailScope(account.id) : undefined,
+    open && !!account,
+  );
+  const replaceMutes = useReplaceScopeMutes();
 
   useEffect(() => {
     if (!open) return;
@@ -49,7 +63,18 @@ export default function AccountDialog({
     setPort(String(account?.imapPort ?? 993));
     setUsername(account?.username ?? "");
     setNotify(account?.notify ?? true);
+    setMuted([]);
+    setSavedMuted([]);
   }, [open, account]);
+
+  useEffect(() => {
+    if (!open || !account || !mutes.data) return;
+    const targets = mutes.data
+      .filter((m) => m.kindPattern === MAIL_KIND)
+      .map((m) => m.target);
+    setMuted(targets);
+    setSavedMuted(targets);
+  }, [open, account, mutes.data]);
 
   const pick = (p: MailProvider) => {
     setProvider(p);
@@ -69,6 +94,7 @@ export default function AccountDialog({
     if (!imapHost) return setError(t("Please enter the IMAP server"));
     const imapPort = Number(port) || 993;
     try {
+      let id = account?.id;
       if (account) {
         await save.mutateAsync({
           id: account.id,
@@ -81,7 +107,7 @@ export default function AccountDialog({
           },
         });
       } else {
-        await save.mutateAsync({
+        const created = await save.mutateAsync({
           create: {
             name: name.trim() || mail,
             email: mail,
@@ -93,8 +119,20 @@ export default function AccountDialog({
             notify,
           },
         });
+        id = (created as { id?: number } | undefined)?.id;
       }
       toast(t("Mailbox connected"));
+      if (id && !sameTargets(muted, savedMuted)) {
+        try {
+          await replaceMutes.mutateAsync({
+            kindPattern: MAIL_KIND,
+            scope: mailScope(id),
+            targets: muted,
+          });
+        } catch (err) {
+          toast({ message: errorMessage(err), tone: "error" });
+        }
+      }
       onClose();
     } catch (err) {
       setError(errorMessage(err));
@@ -216,6 +254,20 @@ export default function AccountDialog({
           />
           <span>{t("Push new mail")}</span>
         </label>
+        <div className="mail-notify-targets">
+          {provider === "gmail" && (
+            <small className="xc-muted">
+              {t("Gmail is on your phone? Untick the phone here.")}
+            </small>
+          )}
+          {notify ? (
+            <NotifyTargetsField muted={muted} onChange={setMuted} />
+          ) : (
+            <small className="xc-muted">
+              {t("Notifications of this mailbox are switched off everywhere.")}
+            </small>
+          )}
+        </div>
         {error && <p className="xc-error-text">{error}</p>}
         <div className="xc-dialog-actions">
           <button type="button" className="xc-btn" onClick={onClose}>

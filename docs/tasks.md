@@ -71,7 +71,7 @@
 | B110 | AI 额度后端和代理：代理读 Claude、Codex、Grok 的额度窗口和重置时间，服务端读 DeepSeek 余额，支持多账号，定时读取，新模块 `quotas` | [B110](specs/B110.md) | 完成（Claude，2026-10-06）。三个内部接口和 Claude 多账号没有用真实账号验证（用户同意先跳过），见“已知问题” |
 | B111 | AI 额度前端：“AI 额度”页（按服务分组、每个账号一张卡片、添加账号弹窗）和今日页的额度卡片 | [B110](specs/B110.md) 前端一节 | 完成（Claude，2026-10-06）。今日页的卡片没有账号时不出现，在布局里可以隐藏 |
 | B112 | AI 额度通知：窗口剩余 10%、用完，DeepSeek 余额低于阈值，读取连续失败 | [B110](specs/B110.md) 通知一节 | 完成（Claude，2026-10-06）。四类通知的开关放在“AI 额度”页顶栏的“通知”里，没有放进设置 → 通知（那里是按渠道路由，没有按类型的开关） |
-| B113 | 通知静音规则：每个邮箱可选发到哪些设备和渠道（手机装了 Gmail 就不再推送 Gmail 邮件），“设置 → 通知”里有通用的静音规则列表 | [B113](specs/B113.md) | 进行中（Claude，2026-10-06） |
+| B113 | 通知静音规则：每个邮箱可选发到哪些设备和渠道（手机装了 Gmail 就不再推送 Gmail 邮件），“设置 → 通知”里有通用的静音规则列表 | [B113](specs/B113.md) | 完成（Claude，2026-10-06）。Web Push 实际弹到手机上的效果没有在真机上看过（测试用假推送服务验证“发给谁、不发给谁”） |
 
 ### 任务说明
 
@@ -373,6 +373,8 @@
 | 编辑框统一 | 项目描述、Issue 描述和评论、新建 Issue、日程备注、提醒备注、新建 Agent 任务都用和笔记一样的 Markdown 编辑框（`components/markdown/MarkdownEditor`） |
 
 ## 接口变更记录
+
+- B113（2026-10-06）：`reminders.yaml` 加 `GET/POST /notify/mutes`、`PUT /notify/mutes/scope`、`DELETE /notify/mutes/{muteId}`。迁移 `20261006000200_m7_b113_notification_mutes.sql`（表 `notification_mutes`）。基础代码：`notify.Notification` 加可选字段 `Scope`（邮件新邮件填 `mail:<邮箱编号>`），向后兼容；`reminders` 的路由 `Route` 和 Web Push 发送按规则过滤。总线事件 `notify.scope_removed`（载荷 `{scope}`）：拥有这个范围的模块在范围被删除时发，`reminders` 收到后删掉规则。邮件模块删除邮箱时发这个事件。
 
 - B112（2026-10-06）：`quotas.yaml` 加 `GET/PUT /quotas/notify`（设置键 `quotas.notify`，四个布尔值，默认都开）、账号的 `balanceLow`。迁移 `20261006000100_m14_b112_quota_notify.sql`：`quota_accounts.balance_low`、`quota_readings.fail_count`、表 `quota_notify_state`。通知 kind：`quota.low`、`quota.empty`、`quota.balance_low`、`quota.read_failed`，用现有的通知路由选渠道。
 

@@ -43,8 +43,12 @@ type Notification struct {
 	Link     string // in-app path, for example "/reminders"
 	Priority string // defaults to normal
 	Source   string // module name
-	Actions  []Action
-	Data     map[string]any
+	// Scope says what the notification is about inside its kind, for
+	// example "mail:3" for mail of mailbox 3. Mute rules (B113) match on it.
+	// Empty when the kind says it all.
+	Scope   string
+	Actions []Action
+	Data    map[string]any
 }
 
 // Stored is a notification after it was saved.

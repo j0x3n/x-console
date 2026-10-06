@@ -75,6 +75,7 @@ func (m *Module) Start(ctx context.Context) error {
 	if _, err := m.push.keys(ctx); err != nil {
 		return err
 	}
+	m.watchScopeRemoved(ctx)
 	m.d.Scheduler.Every("reminders.scan", scanInterval, func(ctx context.Context) error {
 		return m.scan(ctx, time.Now())
 	})

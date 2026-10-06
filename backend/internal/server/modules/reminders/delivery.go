@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -286,7 +287,12 @@ func (c *webPushChannel) Send(ctx context.Context, n notify.Stored) error {
 	}
 	payload, _ := json.Marshal(p)
 	var errs []error
+	mutes := c.m.loadMutes(ctx)
 	for _, s := range subs {
+		// B113: a mute rule can keep this kind from one device.
+		if muted(mutes, n, devicePrefix+strconv.FormatInt(s.ID, 10)) {
+			continue
+		}
 		// A subscription the browser dropped is cleaned up, not a failure.
 		if out := c.sendOne(ctx, s, payload, set); out.err != "" && !out.removed {
 			errs = append(errs, errors.New("webpush: "+out.err))
@@ -343,6 +349,7 @@ func (c *webPushChannel) record(ctx context.Context, s db.WebpushSubscription, o
 	case out.removed:
 		// The browser dropped the subscription.
 		if _, err = c.m.q.DeletePushSubscription(ctx, s.Endpoint); err == nil {
+			c.m.pruneMutes(ctx)
 			c.m.d.Bus.Publish("notify.subscription_removed", map[string]any{"endpoint": s.Endpoint})
 			c.m.d.Bus.Publish("notify.channel_updated", map[string]string{"name": "webpush"})
 		}

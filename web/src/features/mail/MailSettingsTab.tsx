@@ -19,6 +19,8 @@ import {
   type MailAccount,
 } from "./api";
 import AccountDialog from "./components/AccountDialog";
+import { useNotifyMutes } from "../reminders/api";
+import { mailScope } from "../reminders/mutes";
 import "./i18n";
 import "./mail.css";
 
@@ -26,6 +28,7 @@ import "./mail.css";
 export default function MailSettingsTab() {
   const t = useT();
   const accounts = useMailAccounts();
+  const mutes = useNotifyMutes();
   const [editing, setEditing] = useState<MailAccount | "new" | null>(null);
   if (accounts.isPending) return <Loading />;
   if (accounts.isError)
@@ -58,7 +61,14 @@ export default function MailSettingsTab() {
         ) : (
           <ul className="mail-account-list">
             {accounts.data.map((a) => (
-              <AccountRow key={a.id} account={a} onEdit={() => setEditing(a)} />
+              <AccountRow
+                key={a.id}
+                account={a}
+                onEdit={() => setEditing(a)}
+                partlyMuted={(mutes.data ?? []).some(
+                  (m) => m.scope === mailScope(a.id),
+                )}
+              />
             ))}
           </ul>
         )}
@@ -80,9 +90,12 @@ export default function MailSettingsTab() {
 function AccountRow({
   account: a,
   onEdit,
+  partlyMuted,
 }: {
   account: MailAccount;
   onEdit: () => void;
+  /** B113：这个邮箱有静音规则 */
+  partlyMuted: boolean;
 }) {
   const t = useT();
   const language = useLanguage();
@@ -107,6 +120,9 @@ function AccountRow({
         )}
       </span>
       {!a.notify && <span className="xc-badge">{t("No push")}</span>}
+      {a.notify && partlyMuted && (
+        <span className="xc-badge">{t("Some targets muted")}</span>
+      )}
       <MoreMenu
         label={`${t("More")}：${a.name}`}
         title={a.name}

@@ -350,6 +350,18 @@ try {
     headers: { "X-Requested-With": "x-console" },
   });
 
+  stage = "通知静音规则";
+  // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
+  const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { kindPattern: "mail.new", scope: "mail:99", target: "bark" },
+  });
+  assert.equal(muteCreated.status(), 201, await muteCreated.text());
+  await page.goto(`${base}/settings/notifications`);
+  await page.getByText("已删除的邮箱 → Bark").waitFor();
+  await page.getByRole("button", { name: "删除 新邮件" }).click();
+  await page.getByText("还没有静音规则").waitFor();
+
   stage = "新建项目和卡片";
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();

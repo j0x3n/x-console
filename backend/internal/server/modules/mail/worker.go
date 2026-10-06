@@ -422,6 +422,7 @@ func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.Ma
 	}
 	send := func(n notify.Notification) {
 		n.Kind, n.Source = "mail.new", "mail"
+		n.Scope = fmt.Sprintf("mail:%d", acc.ID) // B113: mute rules can name one mailbox
 		if _, err := m.d.Notify.Send(ctx, n); err != nil {
 			m.d.Log.Warn("mail: notify", "err", err)
 		}
