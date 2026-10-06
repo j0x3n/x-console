@@ -11,3 +11,6 @@ backend/bin/
 # Claude Code 本地设置和子代理的 worktree
 .claude/worktrees/
 .claude/settings.local.json
+# 本地 go build 出来的二进制
+/backend/agent
+/backend/server
