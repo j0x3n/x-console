@@ -63,6 +63,9 @@ func DropCaches(m *Module) {
 	m.quakeMu.Lock()
 	m.quakeCache = cachedQuakes{}
 	m.quakeMu.Unlock()
+	m.weatherMu.Lock()
+	clear(m.weatherCache)
+	m.weatherMu.Unlock()
 }
 
 // NotifyBody exposes the push text of a brief (B92).

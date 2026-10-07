@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -408,7 +409,36 @@ func (m *Module) fetchMinutely(ctx context.Context, qc qwConfig, loc api.BriefLo
 			break
 		}
 	}
+	if slices.ContainsFunc(out.Points, func(p api.MinutelyPoint) bool { return p.Precip > 0 }) && m.rainDoubtful(ctx, loc) {
+		out.Summary = "分钟预报和实况对不上，按没有降水处理"
+		for i := range out.Points {
+			out.Points[i].Precip = 0
+		}
+	}
 	return out, nil
+}
+
+// doubtfulPop: 未来两小时降水概率低于它，又没在下雨下雪，分钟降水里的雨就不信。
+const doubtfulPop = 20
+
+// rainDoubtful says whether rain in the minute forecast is likely a false
+// radar echo: the current weather is not rain or snow and the hourly
+// forecast gives a low chance. 2026-10-07 东海晴天，分钟降水却一直说在下小雨。
+// When either check fails the minute forecast is trusted.
+func (m *Module) rainDoubtful(ctx context.Context, loc api.BriefLocation) bool {
+	w, err := m.fetchWeather(ctx, "", loc, false)
+	if err != nil || w.Icon == nil {
+		return false
+	}
+	if n, _ := strconv.Atoi(*w.Icon); n >= 300 && n < 500 {
+		return false
+	}
+	pop, known, err := m.popAhead(ctx, loc, 2)
+	if err != nil {
+		m.d.Log.Warn("brief: 和风逐小时降水概率查询失败", "err", err)
+		return false
+	}
+	return known && pop < doubtfulPop
 }
 
 // ---- 空气质量 ----

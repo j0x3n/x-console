@@ -155,13 +155,20 @@ func (m *Module) searchPlaces(ctx context.Context, query string) ([]api.WeatherP
 
 // rainChance uses the selected city's QWeather hourly forecast.
 func (m *Module) rainChance(ctx context.Context, base string, loc api.BriefLocation, hours int) (int, error) {
+	best, _, err := m.popAhead(ctx, loc, hours)
+	return best, err
+}
+
+// popAhead is the highest hourly rain chance in the next hours. known is
+// false when no hour in that range has a chance.
+func (m *Module) popAhead(ctx context.Context, loc api.BriefLocation, hours int) (best int, known bool, err error) {
 	c, err := m.requireQWeather(ctx)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	loc, err = m.resolveLocation(ctx, c, loc)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	var raw struct {
 		Hourly []struct {
@@ -170,18 +177,20 @@ func (m *Module) rainChance(ctx context.Context, base string, loc api.BriefLocat
 		} `json:"hourly"`
 	}
 	if err = m.qwGet(ctx, c, "/v7/weather/24h?location="+deref(loc.Id)+"&lang=zh", &raw); err != nil {
-		return 0, err
+		return 0, false, err
 	}
+	// 逐小时的时间是这一小时开始的时候，正在过的这一小时也算
+	from := m.now().Add(-time.Hour)
 	end := m.now().Add(time.Duration(hours) * time.Hour)
-	best := 0
 	for _, h := range raw.Hourly {
 		t, ok := qwTime(h.Time)
-		if !ok || t.Before(m.now()) || t.After(end) || !h.Pop.Set {
+		if !ok || !t.After(from) || t.After(end) || !h.Pop.Set {
 			continue
 		}
+		known = true
 		if chance := int(h.Pop.V + 0.5); chance > best {
 			best = chance
 		}
 	}
-	return best, nil
+	return best, known, nil
 }

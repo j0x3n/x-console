@@ -26,6 +26,8 @@ type qwFake struct {
 	alertsV1  string // JSON of alerts[]; "" answers 404
 	warningV7 string // JSON of warning[]
 	minutely  string // JSON of minutely[]
+	nowIcon   string // 实况图标；"" answers 404
+	hourly    string // JSON of hourly[]
 	fail      map[string]bool
 	cenc      string // "" answers 500
 	usgs      string
@@ -79,6 +81,12 @@ func newQWFake(t *testing.T) *qwFake {
 			_, _ = fmt.Fprintf(w, `{"metadata":{},"alerts":%s}`, f.alertsV1)
 		case p == "/v7/warning/now":
 			_, _ = fmt.Fprintf(w, `{"code":"200","warning":%s}`, f.warningV7)
+		case p == "/v7/weather/now" && f.nowIcon != "":
+			_, _ = fmt.Fprintf(w, `{"code":"200","now":{"temp":"19","text":"x","icon":%q}}`, f.nowIcon)
+		case p == "/v7/weather/3d" && f.nowIcon != "":
+			_, _ = w.Write([]byte(`{"code":"200","daily":[{"tempMax":"26","tempMin":"9"}]}`))
+		case p == "/v7/weather/24h" && f.hourly != "":
+			_, _ = fmt.Fprintf(w, `{"code":"200","hourly":%s}`, f.hourly)
 		case p == "/v7/minutely/5m":
 			_, _ = fmt.Fprintf(w, `{"code":"200","summary":"20分钟后有雨","minutely":%s}`, f.minutely)
 		case strings.HasPrefix(p, "/airquality/v1/current/"):
@@ -400,6 +408,70 @@ func TestRainSoonNotify(t *testing.T) {
 	got = notes(t, env, "weather.rain_soon")
 	if len(got) != 2 || got[0].Title != "10 分钟后有雪（上海）" {
 		t.Fatalf("after stop: %+v", got)
+	}
+}
+
+// 2026-10-07 东海：实况晴、逐小时降水概率 0，分钟降水却说一直在下小雨。
+func TestDoubtfulMinutelyRain(t *testing.T) {
+	env, m, f := setupQW(t)
+	configureQW(t, env)
+	n := api.WeatherNotify{RainSoon: true, RainLeadMinutes: 30, WarningMinLevel: api.Yellow, QuakeMinMagnitude: 4.5, QuakeRadiusKm: 500}
+	env.MustDo(http.MethodPut, "/weather/notify", n, nil)
+	ctx := context.Background()
+	now := time.Now()
+	var pts, hours []string
+	for i := 0; i < 24; i++ {
+		pts = append(pts, fmt.Sprintf(`{"fxTime":%q,"precip":"0.05","type":"rain"}`, now.Add(time.Duration(i)*5*time.Minute).Format("2006-01-02T15:04-07:00")))
+	}
+	hour := now.Truncate(time.Hour)
+	setPop := func(pop string) {
+		hours = hours[:0]
+		for i := 0; i < 4; i++ {
+			hours = append(hours, fmt.Sprintf(`{"fxTime":%q,"pop":%q}`, hour.Add(time.Duration(i)*time.Hour).Format("2006-01-02T15:04-07:00"), pop))
+		}
+		f.set(func(f *qwFake) { f.hourly = "[" + strings.Join(hours, ",") + "]" })
+	}
+	f.set(func(f *qwFake) {
+		f.minutely = "[" + strings.Join(pts, ",") + "]"
+		f.nowIcon = "150"
+	})
+	setPop("0")
+	extra := func() api.WeatherExtra {
+		t.Helper()
+		brief.DropCaches(m)
+		var ex api.WeatherExtra
+		env.MustDo(http.MethodGet, "/weather/extra?refresh=true", nil, &ex)
+		if ex.Minutely == nil || len(ex.Minutely.Points) != 24 {
+			t.Fatalf("minutely: %+v", ex.Minutely)
+		}
+		return ex
+	}
+
+	ex := extra()
+	if ex.Minutely.Points[0].Precip != 0 || ex.Minutely.Summary != "分钟预报和实况对不上，按没有降水处理" {
+		t.Fatalf("doubtful rain kept: %+v", ex.Minutely)
+	}
+	if err := brief.CheckRainSoon(m, ctx, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := notes(t, env, "weather.rain_soon"); len(got) != 0 {
+		t.Fatalf("doubtful rain pushed: %+v", got)
+	}
+
+	// 逐小时也说可能下，信分钟降水
+	setPop("60")
+	if ex := extra(); ex.Minutely.Points[0].Precip != 0.05 {
+		t.Fatalf("pop 60: %+v", ex.Minutely)
+	}
+	// 实况在下雨，也信
+	setPop("0")
+	f.set(func(f *qwFake) { f.nowIcon = "305" })
+	brief.DropCaches(m)
+	if err := brief.CheckRainSoon(m, ctx, now); err != nil {
+		t.Fatal(err)
+	}
+	if got := notes(t, env, "weather.rain_soon"); len(got) != 1 {
+		t.Fatalf("raining now: %+v", got)
 	}
 }
 
