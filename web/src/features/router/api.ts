@@ -44,15 +44,16 @@ export function useRouterConfig() {
  * 路由器状态。速率按两次读数算，刷新越快越接近实时。
  * B93：刷新频率用路由器页的设置（useRouterInterval），路由器页、左栏和今日页一样。
  * 传了 intervalMs 就用它（0 表示不自动刷新）。
+ * 连不上时用到的地方都在页面里显示错误，不再弹提示。
  */
-export function useRouterStatus(intervalMs?: number, silent = false) {
+export function useRouterStatus(intervalMs?: number) {
   const chosen = useRouterInterval();
   const every = intervalMs ?? chosen;
   return useQuery({
     queryKey: routerKeys.status,
     queryFn: () => unwrap(routerApi.GET("/router/status")),
     retry: false,
-    meta: silent ? { silentError: true } : undefined,
+    meta: { silentError: true },
     // 连不上时 30 秒再试一次，路由器重启完会自己恢复；没配置时不再请求
     refetchInterval: (q) =>
       q.state.status !== "error"
@@ -71,6 +72,7 @@ export function useRouterClients(enabled = true) {
     queryFn: () => unwrap(routerApi.GET("/router/clients")),
     retry: false,
     enabled,
+    meta: { silentError: true },
     refetchInterval: chosen === 0 ? false : Math.max(chosen, 5000),
   });
 }
@@ -84,6 +86,7 @@ export function useRouterTraffic(range: TrafficRange, enabled = true) {
       ),
     retry: false,
     enabled,
+    meta: { silentError: true },
     refetchInterval: 60_000,
   });
 }

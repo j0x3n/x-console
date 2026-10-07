@@ -20,7 +20,7 @@ export function shortRate(bytes: number): string {
  * 刷新频率和路由器页的设置一样。没配置路由器时不显示。
  */
 export function useRouterNavStatus(): NavStatus | null {
-  const status = useRouterStatus(undefined, true);
+  const status = useRouterStatus();
   const s = status.data;
   if (!s) return null;
   const wan = s.wan;
