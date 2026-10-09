@@ -249,7 +249,7 @@
 - B109：`modules/github/testdata/` 里的账单样例是照 GitHub 文档写的，没有用真实令牌调过（开发环境没有令牌）。上线后如果卡片数字不对，用真实令牌调一次 `GET /users/{login}/settings/billing/usage?year=&month=`，按实际字段改 `usage.go` 和样例。卡片第二行只列用过的系统，“按系统：”和 0 分钟的系统放在鼠标悬停提示里，因为卡片太窄放不下。
 
 - B90：和风官方提示 v7 城市天气接口将弃用。本批按规格使用城市 ID 取得站点实况，后续需迁移 v1。（暂不排期）
-- 邮件的 `TestManyNewMailsAreGrouped` 在本轮全量并发测试时等同步超过 10 秒。降低包并发后全量通过，根因尚未确认。本轮没有修改邮件功能。
+- 邮件的 `TestManyNewMailsAreGrouped` 在本轮全量并发测试时等同步超过 10 秒。降低包并发后全量通过，根因尚未确认。本轮没有修改邮件功能。（2026-10-09：加 6 个满载进程、-race 重复跑，40 次失败 1 次，报 “timed out waiting for batch”；之后同样条件 100 次没再失败，没抓到失败日志。）
 
 第四批后端（B84 到 B91）验收时记的（2026-10-02 Claude）：
 - 删除连接、回调只取一个 Issue、中断时重复收尾、跨模块读写表这四条已经修好，见“接口变更记录”。
@@ -273,7 +273,7 @@
 - B29 系统日志：`journalctl` 只用假输出测过，没在真实 systemd 机器上跑；Windows 事件日志（`wevtutil`）只测了 XML 解析和查询拼装，没在 Windows 上跑。没有 journal 的 Linux 读 syslog 文件时没有级别，按级别过滤会得到空列表。
 
 - B30 的 Windows 安装（`install.ps1`、`setup.exe` 的安装模式、任务计划程序）没在真实 Windows 上跑过，Linux 的 `install.sh` 在没有 systemd 的容器里跑过下载、校验、配对，没跑过 systemd 那一段；Docker 镜像四个平台的编译没在本机构建过。
-- 测试 `backup` 的 `TestAutomaticBackupToS3KeepsTheNewest` 在全量 `go test -race ./...` 下偶尔失败（2026-09-30 遇到一次：第 3 天的备份不在列表里，第 2 天的没被删）。单独跑这个包 6 次都通过。失败时日志里有 “database is closed”，像是后台备份任务在测试结束后还在跑。还没查原因。
+- 测试 `backup` 的 `TestAutomaticBackupToS3KeepsTheNewest` 在全量 `go test -race ./...` 下偶尔失败（2026-09-30 遇到一次：第 3 天的备份不在列表里，第 2 天的没被删）。单独跑这个包 6 次都通过。失败时日志里有 “database is closed”，像是后台备份任务在测试结束后还在跑。2026-10-09 加满载重复跑 120 次全部通过，没抓到失败。可疑点：`end()` 在释放 busy 之后才保存任务状态（`module.go`），测试看到完成后继续跑，写库可能拖到测试结束后。
 - B30 没做：托盘图标、代理自动更新。现在升级要再执行一次安装命令。`setup.exe` 没有代码签名，Windows SmartScreen 会提示。
 
 功能限制：
