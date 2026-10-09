@@ -28,10 +28,20 @@ type wanWatch struct {
 	reason   string // "wan" or "unreachable"
 	notified bool
 	detail   string
+	push     bool // the router stopped reporting (B114)
 }
 
 // Poll runs once a minute: stores a traffic sample and checks the WAN.
 func (m *Module) Poll(ctx context.Context) {
+	push, err := m.pushMode(ctx)
+	if err != nil {
+		m.d.Log.Warn("router config", "err", err)
+		return
+	}
+	if push {
+		m.pollPush(ctx, m.now())
+		return
+	}
 	u, err := m.ubus(ctx)
 	if errors.Is(err, httpx.ErrIntegrationMissing) {
 		return
@@ -85,22 +95,29 @@ func (m *Module) sampleTraffic(ctx context.Context, u *ubus, dev string, now tim
 		m.d.Log.Debug("router counters", "err", err)
 		return
 	}
-	cur := sample{dev: dev, rx: rx, tx: tx, at: now}
+	m.addSample(ctx, sample{dev: dev, rx: rx, tx: tx, at: now})
+}
+
+// addSample stores the bytes moved since the previous sample and returns the
+// average rates over that gap, or nils when there is nothing to compare.
+func (m *Module) addSample(ctx context.Context, cur sample) (rxRate, txRate *float64) {
 	m.mu.Lock()
 	prev := m.poll
 	m.poll = cur
 	m.mu.Unlock()
 	gap := cur.at.Sub(prev.at)
 	if prev.at.IsZero() || gap <= 0 || gap > maxGap {
-		return
+		return nil, nil
 	}
 	drx, dtx := delta(prev, cur)
-	err = m.q.InsertTraffic(ctx, db.InsertTrafficParams{
-		At: now.Unix(), Seconds: int64(gap.Round(time.Second) / time.Second), Rx: int64(drx), Tx: int64(dtx),
+	err := m.q.InsertTraffic(ctx, db.InsertTrafficParams{
+		At: cur.at.Unix(), Seconds: int64(gap.Round(time.Second) / time.Second), Rx: int64(drx), Tx: int64(dtx),
 	})
 	if err != nil {
 		m.d.Log.Warn("router traffic", "err", err)
 	}
+	rx, tx := float64(drx)/gap.Seconds(), float64(dtx)/gap.Seconds()
+	return &rx, &tx
 }
 
 // prune drops old samples once an hour.
@@ -147,6 +164,9 @@ func (m *Module) wanState(ctx context.Context, now time.Time, up bool, reason, d
 			if w.reason == "wan" {
 				send = &notify.Notification{Kind: "router.wan_down", Priority: "high", Title: "WAN 口掉线了",
 					Body: "已经断了 " + humanDuration(now.Sub(w.since)) + "。路由器能连上，是外网断了。"}
+			} else if w.push {
+				send = &notify.Notification{Kind: "router.wan_down", Priority: "high", Title: "家里的路由器不上报了",
+					Body: "已经 " + humanDuration(now.Sub(w.since)) + "没收到路由器的上报。可能是家里断网、断电，或者路由器上的脚本停了。"}
 			} else {
 				send = &notify.Notification{Kind: "router.wan_down", Priority: "high", Title: "连不上家里的路由器",
 					Body: "已经 " + humanDuration(now.Sub(w.since)) + " 连不上。可能是家里断网、断电，或者转发的代理掉线了。"}

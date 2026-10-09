@@ -73,6 +73,7 @@ function renderIt(node: React.ReactNode) {
 }
 
 const status = {
+  source: "ubus",
   hostname: "OpenWrt",
   model: "Xiaomi AX3600",
   firmware: "OpenWrt 24.10.0",
@@ -157,6 +158,32 @@ describe("RouterPage B65", () => {
     );
   });
 
+  it("B114：路由器主动上报时不显示重启按钮", async () => {
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: { ...status, source: "push" },
+    }));
+    api.routes.set("GET /router/clients", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("100.64.1.2")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "重启接口 wan" })).toBeNull();
+  });
+
+  it("B114：很久没收到上报时页面显示原因", async () => {
+    api.routes.set("GET /router/status", () => ({
+      status: 502,
+      body: {
+        code: "router_unreachable",
+        message: "已经 5 分钟没收到路由器的上报，上一次在 12:00",
+      },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText(/没收到路由器的上报/)).toBeTruthy();
+  });
+
   it("流量标签按范围取数据", async () => {
     localStorage.setItem("router.tab", "traffic");
     api.routes.set("GET /router/status", () => ({ status: 200, body: status }));
@@ -210,5 +237,50 @@ describe("RouterSettingsTab B65", () => {
       username: "xconsole",
       mode: "direct",
     });
+  });
+});
+
+describe("RouterSettingsTab B114", () => {
+  it("选“路由器主动上报”后生成令牌，显示安装命令", async () => {
+    api.routes.set("GET /router/config", () => ({
+      status: 200,
+      body: { url: "", username: "", mode: "direct", hasPassword: false },
+    }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: [] }));
+    api.routes.set("POST /router/push/token", () => ({
+      status: 200,
+      body: {
+        token: "t0k3n",
+        reportUrl: "https://x.example/api/v1/router/report",
+        script:
+          "cat > /usr/bin/xc-report.sh <<'XC_EOF'\nTOKEN='t0k3n'\nXC_EOF\n",
+      },
+    }));
+    renderIt(<RouterSettingsTab />);
+    const select = await screen.findByLabelText("连接方式");
+    fireEvent.change(select, { target: { value: "push" } });
+    // 地址、用户名、密码和保存按钮都不显示
+    expect(screen.queryByPlaceholderText("http://192.168.1.1")).toBeNull();
+    expect(screen.queryByRole("button", { name: "保存并检查" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "生成上报令牌" }));
+    expect(await screen.findByText(/TOKEN='t0k3n'/)).toBeTruthy();
+    expect(api.calls.some((c) => c.path === "/router/push/token")).toBe(true);
+  });
+
+  it("已经在主动上报时显示最近一次上报，重新生成要确认", async () => {
+    api.routes.set("GET /router/config", () => ({
+      status: 200,
+      body: {
+        url: "",
+        username: "",
+        mode: "push",
+        hasPassword: false,
+        reportUrl: "https://x.example/api/v1/router/report",
+      },
+    }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: [] }));
+    renderIt(<RouterSettingsTab />);
+    expect(await screen.findByText(/还没有收到过上报/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "重新生成令牌" })).toBeTruthy();
   });
 });

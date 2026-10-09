@@ -98,7 +98,10 @@ export default function RouterPage() {
     content = (
       <>
         <RouterStats status={status.data} />
-        <InterfacesCard items={status.data.interfaces} />
+        <InterfacesCard
+          items={status.data.interfaces}
+          canRestart={status.data.source !== "push"}
+        />
         <Toolbar
           start={
             <nav className="xc-tabs">
@@ -157,13 +160,17 @@ export default function RouterPage() {
                     icon: <Settings size={14} />,
                     onSelect: () => navigate("/settings/router"),
                   },
-                  {
-                    key: "reboot",
-                    label: t("Reboot router"),
-                    icon: <Power size={14} />,
-                    danger: true,
-                    onSelect: onReboot,
-                  },
+                  ...(s?.source === "push"
+                    ? []
+                    : [
+                        {
+                          key: "reboot",
+                          label: t("Reboot router"),
+                          icon: <Power size={14} />,
+                          danger: true,
+                          onSelect: onReboot,
+                        },
+                      ]),
                 ]}
               />
             </>
@@ -253,7 +260,13 @@ function RouterStats({ status }: { status: RouterStatus }) {
   );
 }
 
-function InterfacesCard({ items }: { items: RouterInterface[] }) {
+function InterfacesCard({
+  items,
+  canRestart,
+}: {
+  items: RouterInterface[];
+  canRestart: boolean;
+}) {
   const t = useT();
   const language = useLanguage();
   const restart = useRestartInterface();
@@ -298,17 +311,19 @@ function InterfacesCard({ items }: { items: RouterInterface[] }) {
                 ? formatUptime(i.uptimeSeconds, language === "zh")
                 : t("WAN down")}
             </small>
-            <button
-              type="button"
-              className="xc-btn small"
-              title={`${t("Restart interface")} ${i.name}`}
-              aria-label={`${t("Restart interface")} ${i.name}`}
-              disabled={restart.isPending}
-              onClick={() => onRestart(i.name)}
-            >
-              <RotateCcw size={13} />
-              <span className="router-btn-label">{t("Restart")}</span>
-            </button>
+            {canRestart && (
+              <button
+                type="button"
+                className="xc-btn small"
+                title={`${t("Restart interface")} ${i.name}`}
+                aria-label={`${t("Restart interface")} ${i.name}`}
+                disabled={restart.isPending}
+                onClick={() => onRestart(i.name)}
+              >
+                <RotateCcw size={13} />
+                <span className="router-btn-label">{t("Restart")}</span>
+              </button>
+            )}
           </li>
         ))}
       </ul>

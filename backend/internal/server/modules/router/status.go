@@ -87,13 +87,17 @@ func interfaces(ctx context.Context, u *ubus) ([]ifaceInfo, error) {
 	if err := u.call(ctx, "network.interface", "dump", nil, &dump); err != nil {
 		return nil, err
 	}
-	out := dump.Interface[:0]
-	for _, i := range dump.Interface {
+	return withoutLoopback(dump.Interface), nil
+}
+
+func withoutLoopback(list []ifaceInfo) []ifaceInfo {
+	out := list[:0]
+	for _, i := range list {
 		if i.Interface != "loopback" {
 			out = append(out, i)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // pickWAN finds the WAN interface: "wan", else the first one named like
@@ -161,8 +165,34 @@ func (m *Module) status(ctx context.Context, u *ubus) (api.RouterStatus, error) 
 		return api.RouterStatus{}, err
 	}
 	now := m.now()
+	out := buildStatus(board, info, list, now)
+	if wan, ok := pickWAN(list); ok {
+		if dev := wan.dev(); dev != "" && wan.Up {
+			if rx, tx, err := counters(ctx, u, dev); err == nil {
+				cur := sample{dev: dev, rx: rx, tx: tx, at: now}
+				m.mu.Lock()
+				prev := m.live
+				m.live = cur
+				m.mu.Unlock()
+				if dt := cur.at.Sub(prev.at).Seconds(); prev.dev == dev && dt >= 1 && dt <= 600 {
+					drx, dtx := delta(prev, cur)
+					rxRate, txRate := float64(drx)/dt, float64(dtx)/dt
+					out.RxRate, out.TxRate = &rxRate, &txRate
+				}
+			}
+		}
+	}
+	if clients, err := m.clients(ctx, u, false); err == nil {
+		out.ClientCount = len(clients)
+	}
+	return out, nil
+}
+
+// buildStatus fills everything in GET /router/status that does not need the
+// byte counters or the client list.
+func buildStatus(board boardInfo, info systemInfo, list []ifaceInfo, now time.Time) api.RouterStatus {
 	out := api.RouterStatus{
-		Hostname: board.Hostname, Model: board.Model, Firmware: board.Release.Description,
+		Source: api.RouterStatusSourceUbus, Hostname: board.Hostname, Model: board.Model, Firmware: board.Release.Description,
 		UptimeSeconds: info.Uptime, Interfaces: []api.RouterInterface{}, CheckedAt: now.UTC(),
 	}
 	if out.Firmware == "" {
@@ -188,25 +218,8 @@ func (m *Module) status(ctx context.Context, u *ubus) (api.RouterStatus, error) 
 	if wan, ok := pickWAN(list); ok {
 		w := wan.toAPI()
 		out.Wan = &w
-		if dev := wan.dev(); dev != "" && wan.Up {
-			if rx, tx, err := counters(ctx, u, dev); err == nil {
-				cur := sample{dev: dev, rx: rx, tx: tx, at: now}
-				m.mu.Lock()
-				prev := m.live
-				m.live = cur
-				m.mu.Unlock()
-				if dt := cur.at.Sub(prev.at).Seconds(); prev.dev == dev && dt >= 1 && dt <= 600 {
-					drx, dtx := delta(prev, cur)
-					rxRate, txRate := float64(drx)/dt, float64(dtx)/dt
-					out.RxRate, out.TxRate = &rxRate, &txRate
-				}
-			}
-		}
 	}
-	if clients, err := m.clients(ctx, u, false); err == nil {
-		out.ClientCount = len(clients)
-	}
-	return out, nil
+	return out
 }
 
 type dhcpLease struct {
@@ -257,6 +270,16 @@ func (m *Module) clients(ctx context.Context, u *ubus, fresh bool) ([]api.Router
 		m.d.Log.Warn("router: no client source", "leases", lerr, "hosts", herr)
 		return nil, errNoClients
 	}
+	items := m.mergeClients(now, leases, hints)
+	m.mu.Lock()
+	m.cached = &clientsCache{at: now, items: items}
+	m.mu.Unlock()
+	return items, nil
+}
+
+// mergeClients joins DHCP leases and the hosts seen on the LAN by MAC, keeps
+// the first-seen times and sorts the result.
+func (m *Module) mergeClients(now time.Time, leases []dhcpLease, hints map[string]hostHint) []api.RouterClient {
 	byMAC := map[string]*api.RouterClient{}
 	get := func(mac string) *api.RouterClient {
 		mac = strings.ToUpper(strings.TrimSpace(mac))
@@ -330,9 +353,8 @@ func (m *Module) clients(ctx context.Context, u *ubus, fresh bool) ([]api.Router
 	}
 	m.seen = seen
 	sortClients(items)
-	m.cached = &clientsCache{at: now, items: items}
 	m.mu.Unlock()
-	return items, nil
+	return items
 }
 
 // sortClients orders by IPv4 address, devices without one last by name.

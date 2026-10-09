@@ -3,14 +3,16 @@ import { useAgents } from "../../api/core";
 import { errorMessage } from "../../api/client";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import { ErrorState, Loading } from "../../components/ui/States";
-import { useT } from "../../contexts/LanguageContext";
+import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { copyText } from "../../lib/errors";
 import {
+  useCreateRouterPushToken,
   useRouterConfig,
   useSaveRouterConfig,
   type RouterConfig,
   type RouterMode,
+  type RouterPushToken,
 } from "./api";
 import "./i18n";
 import "./router.css";
@@ -24,28 +26,40 @@ export default function RouterSettingsTab() {
   if (config.isPending) return <Loading />;
   if (config.isError)
     return <ErrorState error={config.error} onRetry={() => config.refetch()} />;
+  return <Loaded initial={config.data} />;
+}
+
+function Loaded({ initial }: { initial: RouterConfig }) {
+  const [mode, setMode] = useState<RouterMode>(initial.mode);
+  useEffect(() => setMode(initial.mode), [initial.mode]);
   return (
     <div className="settings-grid">
-      <ConfigForm initial={config.data} />
-      <PrepareCard />
+      <ConfigForm initial={initial} mode={mode} setMode={setMode} />
+      {mode !== "push" && <PrepareCard />}
     </div>
   );
 }
 
-function ConfigForm({ initial }: { initial: RouterConfig }) {
+function ConfigForm({
+  initial,
+  mode,
+  setMode,
+}: {
+  initial: RouterConfig;
+  mode: RouterMode;
+  setMode: (mode: RouterMode) => void;
+}) {
   const t = useT();
   const agents = useAgents();
   const save = useSaveRouterConfig();
   const [url, setUrl] = useState(initial.url);
   const [username, setUsername] = useState(initial.username || "xconsole");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<RouterMode>(initial.mode);
   const [agentId, setAgentId] = useState(initial.agentId ?? "");
 
   useEffect(() => {
     setUrl(initial.url);
     setUsername(initial.username || "xconsole");
-    setMode(initial.mode);
     setAgentId(initial.agentId ?? "");
   }, [initial]);
 
@@ -56,7 +70,7 @@ function ConfigForm({ initial }: { initial: RouterConfig }) {
         url: url.trim(),
         username: username.trim(),
         password: password || undefined,
-        mode,
+        mode: mode === "agent" ? "agent" : "direct",
         agentId: mode === "agent" ? agentId : undefined,
       },
       {
@@ -97,42 +111,6 @@ function ConfigForm({ initial }: { initial: RouterConfig }) {
         <h2>{t("Router")}</h2>
       </div>
       <label className="xc-field">
-        <span>{t("Address")}</span>
-        <input
-          className="xc-input"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="http://192.168.1.1"
-          inputMode="url"
-          autoComplete="off"
-        />
-        <small>
-          路由器的管理地址。面板服务器访问不到家里的地址时，连接方式选“通过家里的代理”。
-        </small>
-      </label>
-      <div className="router-form-row">
-        <label className="xc-field">
-          <span>{t("Username")}</span>
-          <input
-            className="xc-input"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="off"
-          />
-        </label>
-        <label className="xc-field">
-          <span>{t("Password")}</span>
-          <input
-            className="xc-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={initial.hasPassword ? t("leave empty to keep") : ""}
-            autoComplete="new-password"
-          />
-        </label>
-      </div>
-      <label className="xc-field">
         <span>{t("Connection mode")}</span>
         <select
           className="xc-select"
@@ -141,33 +119,78 @@ function ConfigForm({ initial }: { initial: RouterConfig }) {
         >
           <option value="direct">{t("Direct from the server")}</option>
           <option value="agent">{t("Through an agent at home")}</option>
+          <option value="push">{t("The router reports by itself")}</option>
         </select>
       </label>
-      {mode === "agent" && (
-        <label className="xc-field">
-          <span>{t("Agent")}</span>
-          <select
-            className="xc-select"
-            value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
-          >
-            <option value="">{t("Choose an agent")}</option>
-            {proxyAgents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-                {a.online ? "" : ` (${t("Offline")})`}
-              </option>
-            ))}
-          </select>
-          <small>
-            选一台在家里网络里、开着机的设备。这台设备掉线时，路由器页也看不到数据。
-            {proxyAgents.length === 0 &&
-              " 还没有支持转发的代理，请先在“设备与代理”里配对。"}
-          </small>
-        </label>
+      {mode === "push" ? (
+        <PushPanel initial={initial} />
+      ) : (
+        <>
+          <label className="xc-field">
+            <span>{t("Address")}</span>
+            <input
+              className="xc-input"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="http://192.168.1.1"
+              inputMode="url"
+              autoComplete="off"
+            />
+            <small>
+              路由器的管理地址。面板服务器访问不到家里的地址时，连接方式选“通过家里的代理”。
+            </small>
+          </label>
+          <div className="router-form-row">
+            <label className="xc-field">
+              <span>{t("Username")}</span>
+              <input
+                className="xc-input"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="off"
+              />
+            </label>
+            <label className="xc-field">
+              <span>{t("Password")}</span>
+              <input
+                className="xc-input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={
+                  initial.hasPassword ? t("leave empty to keep") : ""
+                }
+                autoComplete="new-password"
+              />
+            </label>
+          </div>
+          {mode === "agent" && (
+            <label className="xc-field">
+              <span>{t("Agent")}</span>
+              <select
+                className="xc-select"
+                value={agentId}
+                onChange={(e) => setAgentId(e.target.value)}
+              >
+                <option value="">{t("Choose an agent")}</option>
+                {proxyAgents.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.online ? "" : ` (${t("Offline")})`}
+                  </option>
+                ))}
+              </select>
+              <small>
+                选一台在家里网络里、开着机的设备。这台设备掉线时，路由器页也看不到数据。
+                {proxyAgents.length === 0 &&
+                  " 还没有支持转发的代理，请先在“设备与代理”里配对。"}
+              </small>
+            </label>
+          )}
+        </>
       )}
       <div className="xc-dialog-actions">
-        {initial.url && (
+        {mode !== "push" && initial.url && (
           <button
             type="button"
             className="xc-btn ghost"
@@ -177,14 +200,90 @@ function ConfigForm({ initial }: { initial: RouterConfig }) {
             {t("Remove router")}
           </button>
         )}
-        <button
-          className="xc-btn primary"
-          disabled={save.isPending || !url.trim()}
-        >
-          {t("Save and check")}
-        </button>
+        {mode !== "push" && (
+          <button
+            className="xc-btn primary"
+            disabled={save.isPending || !url.trim()}
+          >
+            {t("Save and check")}
+          </button>
+        )}
       </div>
     </form>
+  );
+}
+
+/** B114：路由器上的脚本每分钟上报，面板不用访问路由器，也不需要代理。 */
+function PushPanel({ initial }: { initial: RouterConfig }) {
+  const t = useT();
+  const language = useLanguage();
+  const create = useCreateRouterPushToken();
+  const [issued, setIssued] = useState<RouterPushToken | null>(null);
+  const active = initial.mode === "push";
+
+  const onCreate = async () => {
+    if (active) {
+      const ok = await confirmAction({
+        title: t("Create a new token?"),
+        description:
+          "旧令牌马上失效，路由器上的脚本要用新的安装命令重新装一次。",
+        confirmLabel: t("Create router token"),
+      });
+      if (!ok) return;
+    }
+    create.mutate(undefined, {
+      onSuccess: (data) => {
+        setIssued(data);
+        toast(t("Router token created"));
+      },
+      onError: (error) =>
+        toast({ message: errorMessage(error), tone: "error" }),
+    });
+  };
+
+  return (
+    <>
+      <p className="xc-muted">
+        路由器上的脚本每分钟把状态发给面板。面板不用访问路由器，也不需要家里的代理。超过
+        3 分钟没收到上报，就当路由器离线并发通知。
+      </p>
+      {active && (
+        <p>
+          {initial.lastReportAt
+            ? `${t("Last report")}：${new Date(initial.lastReportAt).toLocaleString(language === "zh" ? "zh-CN" : undefined)}`
+            : t("No report received yet")}
+        </p>
+      )}
+      <div className="xc-dialog-actions">
+        <button
+          type="button"
+          className="xc-btn primary"
+          disabled={create.isPending}
+          onClick={onCreate}
+        >
+          {active ? t("Create a new token") : t("Create router token")}
+        </button>
+      </div>
+      {issued && (
+        <>
+          <p>
+            在路由器上登录
+            SSH，粘贴执行下面的命令。令牌只显示这一次，关掉页面就看不到了。
+          </p>
+          <CodeBlock text={issued.script} />
+          <p className="xc-muted">
+            脚本放在 /usr/bin/xc-report.sh，用 cron 每分钟运行。地址是 https
+            时，路由器要装 ca-bundle 和 libustream-mbedtls，或者装
+            curl。命令最后一行会立刻上报一次，成功会显示“已上报一次”。
+          </p>
+        </>
+      )}
+      {active && !issued && (
+        <p className="xc-muted">
+          令牌面板只存了哈希，看不到原文。要重装路由器上的脚本，就重新生成一个。
+        </p>
+      )}
+    </>
   );
 }
 

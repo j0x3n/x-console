@@ -5,6 +5,7 @@ info:
   description: |
     OpenWrt 主路由。面板通过路由器自带的 ubus（uhttpd-mod-ubus）读状态，路由器上不装代理。
     面板访问不到家里的路由器时，可以让家里装了代理的机器转发（mode=agent，用代理的 http.proxy）。
+    B114：也可以让路由器上的脚本每分钟主动上报（mode=push），面板不用访问路由器，也不需要代理。
 servers:
   - url: /api/v1
 paths:
@@ -41,6 +42,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RouterConfig"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/push/token:
+    post:
+      operationId: createRouterPushToken
+      tags: [router]
+      description: |
+        B114：生成上报令牌并切到“路由器主动上报”。旧令牌和旧的 ubus 配置立即作废。
+        要提升权限。令牌只在这次回复里出现，面板只存它的哈希。
+        回复里的 script 是填好地址和令牌、可以直接在路由器上粘贴执行的安装命令。
+      responses:
+        "200":
+          description: 新令牌和安装命令
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterPushToken"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/report:
+    post:
+      operationId: reportRouter
+      tags: [router]
+      description: |
+        B114：路由器上的脚本每分钟调用一次。不需要登录会话，用 Authorization: Bearer <令牌> 校验。
+        请求体是纯文本，按 `#xc:<名字>` 开头的行分段：board、info、interfaces、devices 是 ubus 的 JSON 输出，
+        leases 是 /tmp/dhcp.leases，arp 是 /proc/net/arp。接口定义里不写 requestBody，由服务端自己解析。
+      security: []
+      responses:
+        "204":
+          description: 已收下
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /router/status:
@@ -141,8 +173,8 @@ components:
   schemas:
     RouterMode:
       type: string
-      description: direct 面板直接访问；agent 让家里的代理转发
-      enum: [direct, agent]
+      description: direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
+      enum: [direct, agent, push]
     RouterConfig:
       type: object
       required: [url, username, mode, hasPassword]
@@ -154,6 +186,13 @@ components:
         mode: { $ref: "#/components/schemas/RouterMode" }
         agentId: { type: string }
         hasPassword: { type: boolean }
+        lastReportAt:
+          type: string
+          format: date-time
+          description: mode=push 时，最近一次收到上报的时间。还没收到过为空
+        reportUrl:
+          type: string
+          description: mode=push 时，路由器上报用的地址
     RouterConfigInput:
       type: object
       required: [url]
@@ -163,8 +202,19 @@ components:
         password:
           type: string
           description: 不传或为空表示不改
-        mode: { $ref: "#/components/schemas/RouterMode" }
+        mode:
+          $ref: "#/components/schemas/RouterMode"
+          description: 不传表示 direct。不能填 push，push 用 POST /router/push/token 开启
         agentId: { type: string }
+    RouterPushToken:
+      type: object
+      required: [token, reportUrl, script]
+      properties:
+        token: { type: string }
+        reportUrl: { type: string }
+        script:
+          type: string
+          description: 在路由器上执行的完整安装命令，已经填好地址和令牌
     RouterInterface:
       type: object
       required: [name, up, ipv4, ipv6]
@@ -191,8 +241,12 @@ components:
           format: int64
     RouterStatus:
       type: object
-      required: [hostname, model, firmware, uptimeSeconds, interfaces, clientCount, checkedAt]
+      required: [hostname, model, firmware, uptimeSeconds, interfaces, clientCount, checkedAt, source]
       properties:
+        source:
+          type: string
+          enum: [ubus, push]
+          description: ubus 是面板读出来的；push 是路由器上报的，不能从面板重启接口和路由器
         hostname: { type: string }
         model: { type: string }
         firmware:
@@ -233,6 +287,7 @@ components:
         checkedAt:
           type: string
           format: date-time
+          description: 读取时间。source=push 时是收到上报的时间
     RouterClient:
       type: object
       required: [mac]

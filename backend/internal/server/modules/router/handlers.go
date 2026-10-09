@@ -12,8 +12,19 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/router/api"
 )
 
-func configToAPI(cfg config) api.RouterConfig {
+func (m *Module) configToAPI(r *http.Request, cfg config) api.RouterConfig {
 	out := api.RouterConfig{Url: cfg.URL, Username: cfg.Username, Mode: cfg.mode(), HasPassword: cfg.Password != ""}
+	if out.Mode == api.RouterModePush {
+		url := m.reportURL(r)
+		out.ReportUrl = &url
+		m.mu.Lock()
+		snap := m.report
+		m.mu.Unlock()
+		if snap != nil {
+			at := snap.at.UTC()
+			out.LastReportAt = &at
+		}
+	}
 	if cfg.AgentID != "" {
 		id := cfg.AgentID
 		out.AgentId = &id
@@ -27,7 +38,7 @@ func (m *Module) GetRouterConfig(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, configToAPI(cfg))
+	httpx.JSON(w, http.StatusOK, m.configToAPI(r, cfg))
 }
 
 // PutRouterConfig logs in with the new values before saving. It can send the
@@ -43,6 +54,10 @@ func (m *Module) PutRouterConfig(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
+	if in.Mode != nil && *in.Mode == api.RouterModePush {
+		httpx.Fail(w, r, httpx.Invalid("主动上报要用“生成上报令牌”开启"))
+		return
+	}
 	cfg, err := m.saveConfig(ctx, in)
 	m.d.Audit.Record(ctx, "router.config", cfg.URL, map[string]any{"mode": string(cfg.mode()), "passwordChanged": in.Password != nil && *in.Password != ""}, err)
 	if err != nil {
@@ -50,12 +65,12 @@ func (m *Module) PutRouterConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.reset()
-	httpx.JSON(w, http.StatusOK, configToAPI(cfg))
+	httpx.JSON(w, http.StatusOK, m.configToAPI(r, cfg))
 }
 
 func (m *Module) saveConfig(ctx context.Context, in api.RouterConfigInput) (config, error) {
 	if strings.TrimSpace(in.Url) == "" {
-		for _, k := range []string{keyURL, keyUsername, keyPassword, keyAgentID} {
+		for _, k := range []string{keyURL, keyUsername, keyPassword, keyAgentID, keyPushHash} {
 			if err := m.d.Settings.Delete(ctx, k); err != nil {
 				return config{}, err
 			}
@@ -77,7 +92,7 @@ func (m *Module) saveConfig(ctx context.Context, in api.RouterConfigInput) (conf
 	if in.Password != nil && *in.Password != "" {
 		cfg.Password = *in.Password
 	}
-	if in.Mode != nil && *in.Mode == api.Agent {
+	if in.Mode != nil && *in.Mode == api.RouterModeAgent {
 		id := ""
 		if in.AgentId != nil {
 			id = strings.TrimSpace(*in.AgentId)
@@ -86,7 +101,7 @@ func (m *Module) saveConfig(ctx context.Context, in api.RouterConfigInput) (conf
 			return config{}, err
 		}
 		cfg.AgentID = id
-	} else if in.Mode != nil && *in.Mode != api.Direct {
+	} else if in.Mode != nil && *in.Mode != api.RouterModeDirect {
 		return config{}, httpx.Invalid("连接方式只能是 direct 或 agent")
 	}
 	tctx, cancel := context.WithTimeout(ctx, 20*time.Second)
@@ -101,6 +116,10 @@ func (m *Module) saveConfig(ctx context.Context, in api.RouterConfigInput) (conf
 		}
 	}
 	if err := m.d.Settings.SetSecret(ctx, keyPassword, cfg.Password); err != nil {
+		return config{}, err
+	}
+	// Going back to reading the router over ubus ends push mode.
+	if err := m.d.Settings.Delete(ctx, keyPushHash); err != nil {
 		return config{}, err
 	}
 	return cfg, nil
@@ -120,6 +139,18 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 func (m *Module) GetRouterStatus(w http.ResponseWriter, r *http.Request) {
+	if push, err := m.pushMode(r.Context()); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	} else if push {
+		snap, err := m.currentReport()
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		httpx.JSON(w, http.StatusOK, snap.status)
+		return
+	}
 	u, err := m.ubus(r.Context())
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -134,6 +165,18 @@ func (m *Module) GetRouterStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) GetRouterClients(w http.ResponseWriter, r *http.Request) {
+	if push, err := m.pushMode(r.Context()); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	} else if push {
+		snap, err := m.currentReport()
+		if err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+		httpx.JSON(w, http.StatusOK, map[string]any{"items": snap.clients})
+		return
+	}
 	u, err := m.ubus(r.Context())
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -202,6 +245,13 @@ func (m *Module) RestartRouterInterface(w http.ResponseWriter, r *http.Request, 
 		httpx.Fail(w, r, httpx.Invalid("接口名不对"))
 		return
 	}
+	if push, err := m.pushMode(ctx); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	} else if push {
+		httpx.Fail(w, r, errPushReadOnly)
+		return
+	}
 	u, err := m.ubus(ctx)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -225,6 +275,13 @@ func (m *Module) RebootRouter(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if err := auth.RequireElevated(ctx); err != nil {
 		httpx.Fail(w, r, err)
+		return
+	}
+	if push, err := m.pushMode(ctx); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	} else if push {
+		httpx.Fail(w, r, errPushReadOnly)
 		return
 	}
 	var body api.RebootRouterJSONBody

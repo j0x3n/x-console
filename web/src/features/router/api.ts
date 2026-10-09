@@ -11,6 +11,7 @@ type S = components["schemas"];
 export type RouterConfig = S["RouterConfig"];
 export type RouterConfigInput = S["RouterConfigInput"];
 export type RouterMode = S["RouterMode"];
+export type RouterPushToken = S["RouterPushToken"];
 export type RouterStatus = S["RouterStatus"];
 export type RouterInterface = S["RouterInterface"];
 export type RouterClient = S["RouterClient"];
@@ -98,6 +99,20 @@ export function useSaveRouterConfig() {
       withElevation(() => unwrap(routerApi.PUT("/router/config", { body }))),
     onSuccess: (data) => {
       qc.setQueryData(routerKeys.config, data);
+      qc.invalidateQueries({ queryKey: routerKeys.status });
+      qc.invalidateQueries({ queryKey: routerKeys.clients });
+    },
+  });
+}
+
+/** B114：生成上报令牌并切到“路由器主动上报”。令牌只在这次返回里出现。 */
+export function useCreateRouterPushToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      withElevation(() => unwrap(routerApi.POST("/router/push/token"))),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: routerKeys.config });
       qc.invalidateQueries({ queryKey: routerKeys.status });
       qc.invalidateQueries({ queryKey: routerKeys.clients });
     },

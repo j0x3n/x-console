@@ -15,16 +15,37 @@ import (
 
 // Defines values for RouterMode.
 const (
-	Agent  RouterMode = "agent"
-	Direct RouterMode = "direct"
+	RouterModeAgent  RouterMode = "agent"
+	RouterModeDirect RouterMode = "direct"
+	RouterModePush   RouterMode = "push"
 )
 
 // Valid indicates whether the value is a known member of the RouterMode enum.
 func (e RouterMode) Valid() bool {
 	switch e {
-	case Agent:
+	case RouterModeAgent:
 		return true
-	case Direct:
+	case RouterModeDirect:
+		return true
+	case RouterModePush:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RouterStatusSource.
+const (
+	RouterStatusSourcePush RouterStatusSource = "push"
+	RouterStatusSourceUbus RouterStatusSource = "ubus"
+)
+
+// Valid indicates whether the value is a known member of the RouterStatusSource enum.
+func (e RouterStatusSource) Valid() bool {
+	switch e {
+	case RouterStatusSourcePush:
+		return true
+	case RouterStatusSourceUbus:
 		return true
 	default:
 		return false
@@ -68,8 +89,14 @@ type RouterConfig struct {
 	AgentId     *string `json:"agentId,omitempty"`
 	HasPassword bool    `json:"hasPassword"`
 
-	// Mode direct 面板直接访问；agent 让家里的代理转发
+	// LastReportAt mode=push 时，最近一次收到上报的时间。还没收到过为空
+	LastReportAt *time.Time `json:"lastReportAt,omitempty"`
+
+	// Mode direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
 	Mode RouterMode `json:"mode"`
+
+	// ReportUrl mode=push 时，路由器上报用的地址
+	ReportUrl *string `json:"reportUrl,omitempty"`
 
 	// Url 路由器地址，比如 http://192.168.1.1。没配置时为空
 	Url      string `json:"url"`
@@ -80,7 +107,7 @@ type RouterConfig struct {
 type RouterConfigInput struct {
 	AgentId *string `json:"agentId,omitempty"`
 
-	// Mode direct 面板直接访问；agent 让家里的代理转发
+	// Mode direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
 	Mode *RouterMode `json:"mode,omitempty"`
 
 	// Password 不传或为空表示不改
@@ -107,11 +134,21 @@ type RouterInterface struct {
 	UptimeSeconds *int64  `json:"uptimeSeconds,omitempty"`
 }
 
-// RouterMode direct 面板直接访问；agent 让家里的代理转发
+// RouterMode direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
 type RouterMode string
+
+// RouterPushToken defines model for RouterPushToken.
+type RouterPushToken struct {
+	ReportUrl string `json:"reportUrl"`
+
+	// Script 在路由器上执行的完整安装命令，已经填好地址和令牌
+	Script string `json:"script"`
+	Token  string `json:"token"`
+}
 
 // RouterStatus defines model for RouterStatus.
 type RouterStatus struct {
+	// CheckedAt 读取时间。source=push 时是收到上报的时间
 	CheckedAt time.Time `json:"checkedAt"`
 
 	// ClientCount 在线设备数
@@ -131,11 +168,17 @@ type RouterStatus struct {
 	// RxRate WAN 口下行速率（字节/秒）。第一次读时没有
 	RxRate *float64 `json:"rxRate,omitempty"`
 
+	// Source ubus 是面板读出来的；push 是路由器上报的，不能从面板重启接口和路由器
+	Source RouterStatusSource `json:"source"`
+
 	// TxRate WAN 口上行速率（字节/秒）
 	TxRate        *float64         `json:"txRate,omitempty"`
 	UptimeSeconds int64            `json:"uptimeSeconds"`
 	Wan           *RouterInterface `json:"wan,omitempty"`
 }
+
+// RouterStatusSource ubus 是面板读出来的；push 是路由器上报的，不能从面板重启接口和路由器
+type RouterStatusSource string
 
 // RouterTraffic defines model for RouterTraffic.
 type RouterTraffic struct {
@@ -192,8 +235,14 @@ type ServerInterface interface {
 	// (POST /router/interfaces/{name}/restart)
 	RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string)
 
+	// (POST /router/push/token)
+	CreateRouterPushToken(w http.ResponseWriter, r *http.Request)
+
 	// (POST /router/reboot)
 	RebootRouter(w http.ResponseWriter, r *http.Request)
+
+	// (POST /router/report)
+	ReportRouter(w http.ResponseWriter, r *http.Request)
 
 	// (GET /router/status)
 	GetRouterStatus(w http.ResponseWriter, r *http.Request)
@@ -226,8 +275,18 @@ func (_ Unimplemented) RestartRouterInterface(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /router/push/token)
+func (_ Unimplemented) CreateRouterPushToken(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /router/reboot)
 func (_ Unimplemented) RebootRouter(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /router/report)
+func (_ Unimplemented) ReportRouter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -318,11 +377,39 @@ func (siw *ServerInterfaceWrapper) RestartRouterInterface(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// CreateRouterPushToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateRouterPushToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRouterPushToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RebootRouter operation middleware
 func (siw *ServerInterfaceWrapper) RebootRouter(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RebootRouter(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReportRouter operation middleware
+func (siw *ServerInterfaceWrapper) ReportRouter(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportRouter(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -497,6 +584,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/router/config", wrapper.PutRouterConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/router/push/token", wrapper.CreateRouterPushToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/router/report", wrapper.ReportRouter)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/router/status", wrapper.GetRouterStatus)
