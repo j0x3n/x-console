@@ -49,8 +49,14 @@ func TestMetricCooldownAndWebhookSecret(t *testing.T) {
 		env.App.Deps.Bus.Publish("host.metrics", map[string]any{"hostId": "h1", "sample": map[string]any{"cpu": 95}})
 	}
 	waitCount(t, 1)
+	// 动作先计数，运行记录之后才改成 ok，所以要等记录结束再断言。
 	var runs []api.Run
-	env.MustDo("GET", fmt.Sprintf("/automations/%d/runs", rule.Id), nil, &runs)
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		env.MustDo("GET", fmt.Sprintf("/automations/%d/runs", rule.Id), nil, &runs)
+		if len(runs) == 1 && runs[0].Status != api.Running {
+			break
+		}
+	}
 	if len(runs) != 1 || runs[0].Status != api.Ok {
 		t.Fatalf("runs=%+v", runs)
 	}

@@ -240,11 +240,9 @@
 
 ## 已知问题
 
-- 维护模块的 `TestMaintenanceMainFlow` 在全量 `go test -race ./...` 时偶尔失败（2026-10-06：最后一步 `POST /maintenance/vacuum` 回 409）。单独跑 3 次都通过，像是前面的清理任务在高负载下还没结束。还没查。
 
 - B110：Codex（`chatgpt.com/backend-api/wham/usage`、`auth.openai.com/oauth/token`）、Grok（`cli-chat-proxy.grok.com/v1/billing?format=credits`）、Claude（`claude -p /usage` 的输出格式）三个读法是照 magpie 的代码写的，没有用真实账号调过，测试全用假服务器和假命令输出。Claude 用不同的 `CLAUDE_CONFIG_DIR` 读多个账号也没试过。上线后任何一项数字不对或报错，先用真机调一次，样例存进 `internal/agent/quota/` 的测试，再改解析。Codex 刷新令牌会写回 `auth.json`，如果出错会让机器上的 Codex 掉线，要用户重新登录，上线后先拿一个不重要的账号试。
 
-- 自动化的 `TestMetricCooldownAndWebhookSecret` 在全量 `go test -race ./...` 时偶尔失败（运行停在 running）。2026-10-05 单独跑 3 次都通过，后端代码当时没改过。可能是等待时间在高负载下不够，还没查。
 
 - 本机 Node 25 下的前端测试存在 `localStorage` 兼容问题，字号脚本也未适配 Windows 路径。本次用 Linux Node 22 检查通过，没有改这些公共脚本。
 

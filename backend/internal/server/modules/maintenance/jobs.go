@@ -313,6 +313,15 @@ func (m *Module) runCleanup(ctx context.Context, ids map[string][]string) {
 	} else {
 		err = fn(ctx)
 	}
+	// 审计日志先写，再一次性把状态改成完成并释放 busy。
+	// 客户端看到“完成”时，审计已经在库里，下一个任务也能马上开始。
+	m.mu.Lock()
+	result := m.cleanup.Result
+	id := m.cleanup.ID
+	m.mu.Unlock()
+	if m.d.Audit != nil {
+		m.d.Audit.Record(context.WithoutCancel(ctx), "maintenance.cleanup", id, map[string]any{"deleted": result.Deleted, "bytes": result.Bytes, "skipped": result.Skipped, "failed": result.Failed}, err)
+	}
 	m.mu.Lock()
 	at := time.Now().UTC()
 	m.cleanup.FinishedAt = &at
@@ -321,14 +330,7 @@ func (m *Module) runCleanup(ctx context.Context, ids map[string][]string) {
 		m.cleanup.State = "failed"
 		m.cleanup.Error = "部分清理失败，请重新扫描后重试"
 	}
-	result := m.cleanup.Result
-	id := m.cleanup.ID
 	m.usageAt = time.Time{}
-	m.mu.Unlock()
-	if m.d.Audit != nil {
-		m.d.Audit.Record(context.WithoutCancel(ctx), "maintenance.cleanup", id, map[string]any{"deleted": result.Deleted, "bytes": result.Bytes, "skipped": result.Skipped, "failed": result.Failed}, err)
-	}
-	m.mu.Lock()
 	m.busy = false
 	m.mu.Unlock()
 	m.publish(true)
