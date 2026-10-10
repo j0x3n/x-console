@@ -59,6 +59,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), minute: time.Minute, timers: map[int64]*time.Timer{}, ctx: context.Background()}
 	d.Notify.OnAction("focus.", m.handleAction)
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"focus", activitySource{m}) // B118
 	m.registerActions()
 	return m, nil
 }

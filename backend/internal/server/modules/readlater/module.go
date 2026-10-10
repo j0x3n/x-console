@@ -69,6 +69,7 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	m.registerActions()
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"readlater", activitySource{m}) // B118
 	module.Provide[contracts.TelegramInbox](d.Registry, contracts.TelegramInboxKey, m)
 	return m, nil
 }

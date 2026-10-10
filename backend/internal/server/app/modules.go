@@ -18,6 +18,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/homeassistant"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/journal"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/linear"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
@@ -72,4 +73,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	documents.New,  // B115
 	screentime.New, // B116
 	readlater.New,  // B117
+	journal.New,    // B118
 }

@@ -63,6 +63,7 @@ func New(d *module.Deps) (module.Module, error) {
 		runs: map[int64]*taskRun{}, builds: map[int64]*taskRun{},
 	}
 	module.Provide[contracts.Coding](d.Registry, contracts.CodingKey, m)
+	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"coding", activitySource{m}) // B118
 	module.Provide[contracts.CodingControl](d.Registry, contracts.CodingControlKey, m)
 	m.registerActions()
 	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"coding", maintenance.StoreReporter{Store: d.Files.For("coding"), Registry: d.Registry, Key: "coding", Label: "Agent 产物", Module: "coding", Prefix: "artifacts"})

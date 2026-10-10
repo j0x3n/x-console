@@ -792,6 +792,26 @@ type IssueMember struct {
 	MemberID   string
 }
 
+type JournalDiary struct {
+	Day       string
+	Body      string
+	UpdatedAt time.Time
+}
+
+type JournalItem struct {
+	ID      int64
+	Day     string
+	At      time.Time
+	Module  string
+	Source  string
+	Ref     string
+	Kind    string
+	Title   string
+	Detail  string
+	Link    string
+	Minutes int64
+}
+
 type Label struct {
 	ID        int64
 	ProjectID *int64

@@ -23,6 +23,7 @@ const (
 	Github      ModuleId = "github"
 	Habits      ModuleId = "habits"
 	Home        ModuleId = "home"
+	Journal     ModuleId = "journal"
 	Mail        ModuleId = "mail"
 	Monitoring  ModuleId = "monitoring"
 	Notes       ModuleId = "notes"
@@ -57,6 +58,8 @@ func (e ModuleId) Valid() bool {
 	case Habits:
 		return true
 	case Home:
+		return true
+	case Journal:
 		return true
 	case Mail:
 		return true

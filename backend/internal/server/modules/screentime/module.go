@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/screentime/api"
@@ -63,6 +64,7 @@ func New(d *module.Deps) (module.Module, error) {
 	d.Agents.OnEvent(protocol.EventScreenSample, m.onSample)
 	m.registerActions()
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"screentime", activitySource{m}) // B118
 	return m, nil
 }
 

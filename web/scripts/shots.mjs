@@ -107,6 +107,8 @@ const ids = await page.evaluate(async () => {
     fetch("/api/v1" + u, { method: "POST", headers: h, body: JSON.stringify(b) }).then((r) =>
       r.ok ? r.json() : null,
     );
+  const send = (method, u, b) =>
+    fetch("/api/v1" + u, { method, headers: h, body: JSON.stringify(b) }).then((r) => (r.ok ? r.text() : null));
   let projects = (await get("/projects")) ?? [];
   if (projects.length === 0) {
     const list = [
@@ -121,6 +123,8 @@ const ids = await page.evaluate(async () => {
     const dueIn = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
     for (const [title, dueAt] of [["登录页改版", dueIn(-48)], ["云盘上传进度", dueIn(1)], ["修复移动端溢出"], ["接入 S3"]])
       await post(`/projects/${xc.id}/issues`, dueAt ? { title, dueAt } : { title });
+    // B118：完成一张卡片，每日时间线才有内容
+    await send("PATCH", "/issues/XC-1", { status: "done" });
     for (const [i, title] of ["周会记录", "读书笔记", "家里网络拓扑", "旅行清单"].entries())
       await post("/notes", { title, body: `示例内容 ${i + 1}\n\n- 第一点\n- 第二点`, pinned: i === 0 });
     const at = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
@@ -135,6 +139,9 @@ const ids = await page.evaluate(async () => {
     // B117：稍后读。沙箱里抓不到网页，条目会显示成正在抓取或抓取失败
     await post("/readlater", { url: "https://example.com/articles/whale-protocol", note: "同事推荐" });
     await post("/readlater", { url: "https://example.org/blog/read-later" });
+    // B118：今天的日记
+    const todayKey = ((await get("/journal/recent")) ?? { days: [] }).days[0]?.day;
+    if (todayKey) await send("PUT", `/journal/days/${todayKey}/diary`, { body: "## 今天\n\n上午改完登录页，下午处理移动端溢出。\n\n- 明天接 S3" });
     await post("/habits", { name: "跑步", unit: "次", dailyTarget: 1 });
     await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
     await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
@@ -214,6 +221,7 @@ const routes = [
   ["documents", "/documents"],
   ["screentime", "/screentime"],
   ["readlater", "/readlater"],
+  ["journal", "/journal"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],

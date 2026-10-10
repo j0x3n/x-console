@@ -15,6 +15,7 @@ import { routes as home } from "../features/home/routes";
 import { routes as router } from "../features/router/routes";
 import { routes as quotas } from "../features/quotas/routes";
 import { routes as documents } from "../features/documents/routes";
+import { routes as journal } from "../features/journal/routes";
 import { routes as readlater } from "../features/readlater/routes";
 import { routes as screentime } from "../features/screentime/routes";
 import { routes as automations } from "../features/automations/routes";
@@ -42,6 +43,7 @@ export const moduleRoutes: RouteObject[] = [
   ...documents,
   ...screentime,
   ...readlater,
+  ...journal,
   ...automations,
   ...github,
   ...assistant,

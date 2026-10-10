@@ -431,6 +431,30 @@ try {
   });
   assert.equal(readDel.status(), 204, await readDel.text());
 
+  stage = "每日时间线";
+  // B118：今天的时间线里有刚建的笔记，写日记，刷新后还在，往前翻一天，搜索能找到。
+  const journalNote = await page.context().request.post(`${base}/api/v1/notes`, {
+    headers: { "X-Requested-With": "x-console" }, data: { title: "时间线端到端笔记", body: "x" },
+  });
+  assert.equal(journalNote.status(), 201, await journalNote.text());
+  await page.goto(`${base}/journal`);
+  await page.getByText("新建笔记：时间线端到端笔记").waitFor();
+  const journalText = "端到端日记：今天验证了时间线";
+  await page.getByLabel("日记内容").fill(journalText);
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  const journalToday = (await api("/journal/recent")).days[0].day;
+  await until("日记保存", async () => (await api(`/journal/days/${journalToday}`)).diary.body === journalText);
+  await page.reload();
+  await page.getByLabel("日记内容").waitFor();
+  assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "刷新后日记还在");
+  await page.getByRole("button", { name: "前一天" }).click();
+  await page.getByText("这一天没有记录").waitFor();
+  await page.getByPlaceholder("搜索日记和时间线").fill("验证了时间线");
+  await page.getByText(/验证了时间线/).first().waitFor();
+  await page.getByText(/验证了时间线/).first().click();
+  await page.getByLabel("日记内容").waitFor();
+  assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "点搜索结果回到那一天");
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

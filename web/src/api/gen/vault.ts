@@ -132,7 +132,7 @@ export interface components {
          * @description B57。左栏的模块，和前端路由的第一段相同。今日页不能隐藏。drive-webdav、drive-gdrive 是云盘页里的网盘标签（B68）
          * @enum {string}
          */
-        ModuleId: "projects" | "coding" | "notes" | "mail" | "reminders" | "habits" | "drive" | "drive-webdav" | "drive-gdrive" | "calendar" | "servers" | "pc" | "monitoring" | "home" | "router" | "automations" | "github" | "documents" | "screentime" | "readlater";
+        ModuleId: "projects" | "coding" | "notes" | "mail" | "reminders" | "habits" | "drive" | "drive-webdav" | "drive-gdrive" | "calendar" | "servers" | "pc" | "monitoring" | "home" | "router" | "automations" | "github" | "documents" | "screentime" | "readlater" | "journal";
         HiddenModules: {
             hidden: components["schemas"]["ModuleId"][];
         };

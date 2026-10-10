@@ -57,6 +57,7 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	module.Provide[contracts.Notes](d.Registry, contracts.NotesKey, &notesService{m})
 	module.Provide[*Module](d.Registry, "notes.module", m)
+	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"notes", activitySource{m}) // B118
 	m.registerActions()
 	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"notes", maintenance.StoreReporter{Store: m.files, Registry: d.Registry, Key: "notes", Label: "笔记附件", Module: "notes"})
 	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"notes", maintenance.AttachmentCleaner{Deps: d, Notes: true, Now: m.now})
