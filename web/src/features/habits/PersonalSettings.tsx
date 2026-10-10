@@ -15,6 +15,7 @@ import {
   type PersonalProfileInput,
 } from "./personalApi";
 import { dateKey } from "./personal";
+import BodySync from "./BodySync";
 
 export default function PersonalSettings({
   profile,
@@ -273,6 +274,7 @@ export default function PersonalSettings({
             }}
           />
         </section>
+        <BodySync />
       </div>
     </>
   );

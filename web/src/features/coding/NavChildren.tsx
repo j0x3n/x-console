@@ -1,5 +1,5 @@
 import { useLocation } from "react-router";
-import { Bot, FolderGit2, ListChecks } from "lucide-react";
+import { Bot, FolderGit2, ListChecks, SlidersHorizontal } from "lucide-react";
 import NavChildLinks from "../../components/layout/NavChildLinks";
 import {
   NavPanelGroup,
@@ -41,6 +41,13 @@ export default function CodingNavChildren({ onNavigate }: NavChildrenProps) {
           icon={FolderGit2}
           label={t("Repositories")}
           active={pathname === "/coding/repos"}
+          onNavigate={onNavigate}
+        />
+        <NavPanelLink
+          to="/coding/config"
+          icon={SlidersHorizontal}
+          label={t("Config delivery")}
+          active={pathname === "/coding/config"}
           onNavigate={onNavigate}
         />
       </NavPanelGroup>

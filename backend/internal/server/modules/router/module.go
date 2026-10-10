@@ -26,6 +26,9 @@ const (
 	keyUsername = "router.username"
 	keyPassword = "router.password" // encrypted
 	keyAgentID  = "router.agent_id"
+	keyPushHash = "router.push_hash" // B114: sha256 of the report token
+	// keyPushInterval is the seconds between reports, one of pushIntervals.
+	keyPushInterval = "router.push_interval"
 )
 
 // ServiceKey finds the module in module.Registry, for tests.
@@ -49,6 +52,15 @@ type Module struct {
 	watch                   wanWatch
 	quiet                   time.Time // no outage notification before this, set by a reboot
 	pruned                  time.Time
+
+	// B114: the router pushes its state (see report.go)
+	pushLoaded   bool
+	pushHash     string
+	pushInterval int
+	cmds         []routerCommand // waiting for the router's next report
+	cmdSeq       int64
+	report       *pushSnapshot
+	lastReport   time.Time
 }
 
 var (
@@ -94,21 +106,36 @@ type config struct {
 	Username string
 	Password string
 	AgentID  string // empty means direct
+	PushHash string // set means the router reports by itself (B114)
+	// PushInterval is the seconds between reports in push mode.
+	PushInterval int
 }
 
 func (c config) configured() bool { return c.URL != "" && c.Username != "" }
 
 func (c config) mode() api.RouterMode {
-	if c.AgentID != "" {
-		return api.Agent
+	if c.PushHash != "" && c.URL == "" {
+		return api.RouterModePush
 	}
-	return api.Direct
+	if c.AgentID != "" {
+		return api.RouterModeAgent
+	}
+	return api.RouterModeDirect
 }
 
 func (m *Module) loadConfig(ctx context.Context) (config, error) {
 	var c config
-	for key, dst := range map[string]*string{keyURL: &c.URL, keyUsername: &c.Username, keyPassword: &c.Password, keyAgentID: &c.AgentID} {
+	for key, dst := range map[string]*string{keyURL: &c.URL, keyUsername: &c.Username, keyPassword: &c.Password, keyAgentID: &c.AgentID, keyPushHash: &c.PushHash} {
 		if err := m.d.Settings.Get(ctx, key, dst); err != nil && !errors.Is(err, settings.ErrNotSet) {
+			return config{}, err
+		}
+	}
+	if c.PushHash != "" {
+		c.PushInterval = defaultPushInterval
+		var n int
+		if err := m.d.Settings.Get(ctx, keyPushInterval, &n); err == nil && validInterval(n) {
+			c.PushInterval = n
+		} else if err != nil && !errors.Is(err, settings.ErrNotSet) {
 			return config{}, err
 		}
 	}
@@ -159,6 +186,7 @@ func (m *Module) reset() {
 	m.cached = nil
 	m.leaseSource, m.hintSource = "", ""
 	m.watch = wanWatch{}
+	m.pushLoaded, m.pushHash, m.pushInterval, m.report, m.lastReport, m.cmds = false, "", 0, nil, time.Time{}, nil
 	m.mu.Unlock()
 }
 

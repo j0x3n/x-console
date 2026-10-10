@@ -108,7 +108,12 @@ export function IssuePanel({
   editNonce?: number;
 }) {
   return (
-    <IssueView issueKey={issueKey} panel onClose={onClose} editNonce={editNonce} />
+    <IssueView
+      issueKey={issueKey}
+      panel
+      onClose={onClose}
+      editNonce={editNonce}
+    />
   );
 }
 
@@ -522,10 +527,7 @@ function Description({
         }
       />
       {issue.description && (
-        <button
-          className="xc-btn ghost small"
-          onClick={() => setEditing(true)}
-        >
+        <button className="xc-btn ghost small" onClick={() => setEditing(true)}>
           {t("Edit description")}
         </button>
       )}
@@ -606,7 +608,9 @@ function Properties({
     boards.data?.find((b) => b.id === issue.boardId) ?? boards.data?.[0];
   const labelIds = issue.labels.map((l) => l.id);
   return (
-    <div className={rows ? "projects-props projects-props-rows" : "projects-props"}>
+    <div
+      className={rows ? "projects-props projects-props-rows" : "projects-props"}
+    >
       <label className="projects-prop">
         <span>{t("Status")}</span>
         <div className="projects-prop-control">
@@ -757,103 +761,106 @@ function Properties({
         </div>
       </div>
       {rows ? null : (
-      <>
-      <div className="projects-side-actions">
-        <button
-          className="xc-btn projects-side-primary"
-          onClick={() => setAssigning(true)}
-        >
-          <Bot size={14} /> {t("Assign to an agent")}
-        </button>
-        <StartFocusButton issueKey={issue.key} compact />
-        {issue.externalUrl && (
-          // B84：从仓库同步来的卡片
-          <a
-            className="xc-btn"
-            href={issue.externalUrl}
-            target="_blank"
-            rel="noreferrer"
-            title={t("Open in repository")}
-            aria-label={t("Open in repository")}
-          >
-            <FolderGit2 size={14} />
-          </a>
-        )}
-        <MoreMenu
-          label={`${t("More")}：${issue.key}`}
-          title={issue.key}
-          items={[
-            {
-              key: "coding",
-              label: t("New coding task by hand"),
-              icon: <Bot size={14} />,
-              onSelect: () =>
-                navigate(
-                  `/coding/tasks?new=1&issue=${encodeURIComponent(issue.key)}`,
-                ),
-            },
-            {
-              key: "copy",
-              label: t("Copy card"),
-              icon: <Copy size={14} />,
-              onSelect: () =>
-                cards.copy.mutate(issue.key, {
-                  onSuccess: (copy) => navigate(issuePath(copy.key)),
-                }),
-            },
-            issue.archivedAt
-              ? {
-                  key: "restore",
-                  label: t("Restore"),
-                  icon: <ArchiveRestore size={14} />,
-                  onSelect: () => cards.restore.mutate(issue.key),
-                }
-              : {
-                  key: "archive",
-                  label: t("Archive"),
-                  icon: <Archive size={14} />,
-                  onSelect: () => cards.archive.mutate(issue.key),
+        <>
+          <div className="projects-side-actions">
+            <button
+              className="xc-btn projects-side-primary"
+              onClick={() => setAssigning(true)}
+            >
+              <Bot size={14} /> {t("Assign to an agent")}
+            </button>
+            <StartFocusButton issueKey={issue.key} compact />
+            {issue.externalUrl && (
+              // B84：从仓库同步来的卡片
+              <a
+                className="xc-btn"
+                href={issue.externalUrl}
+                target="_blank"
+                rel="noreferrer"
+                title={t("Open in repository")}
+                aria-label={t("Open in repository")}
+              >
+                <FolderGit2 size={14} />
+              </a>
+            )}
+            <MoreMenu
+              label={`${t("More")}：${issue.key}`}
+              title={issue.key}
+              items={[
+                {
+                  key: "coding",
+                  label: t("New coding task by hand"),
+                  icon: <Bot size={14} />,
+                  onSelect: () =>
+                    navigate(
+                      `/coding/tasks?new=1&issue=${encodeURIComponent(issue.key)}`,
+                    ),
                 },
-            {
-              key: "delete",
-              label: t("Delete issue"),
-              icon: <Trash2 size={14} />,
-              danger: true,
-              onSelect: async () => {
-                if (
-                  !(await confirmAction({
-                    title: `${t("Delete")} ${issue.key}？`,
-                    description: t("Its comments and links are deleted too."),
-                  }))
-                )
-                  return;
-                remove.mutate(issue.key, {
-                  onSuccess: () => navigate(`/projects/${issue.projectKey}`),
-                });
-              },
-            },
-          ]}
-        />
-      </div>
-      {assigning && (
-        <AssignDialog
-          issueKey={issue.key}
-          boardRepo={board?.repo}
-          onBindRepo={
-            board
-              ? () => {
-                  setAssigning(false);
-                  setBinding(true);
-                }
-              : undefined
-          }
-          onClose={() => setAssigning(false)}
-        />
-      )}
-      {binding && board && (
-        <BindRepoDialog board={board} onClose={() => setBinding(false)} />
-      )}
-      </>
+                {
+                  key: "copy",
+                  label: t("Copy card"),
+                  icon: <Copy size={14} />,
+                  onSelect: () =>
+                    cards.copy.mutate(issue.key, {
+                      onSuccess: (copy) => navigate(issuePath(copy.key)),
+                    }),
+                },
+                issue.archivedAt
+                  ? {
+                      key: "restore",
+                      label: t("Restore"),
+                      icon: <ArchiveRestore size={14} />,
+                      onSelect: () => cards.restore.mutate(issue.key),
+                    }
+                  : {
+                      key: "archive",
+                      label: t("Archive"),
+                      icon: <Archive size={14} />,
+                      onSelect: () => cards.archive.mutate(issue.key),
+                    },
+                {
+                  key: "delete",
+                  label: t("Delete issue"),
+                  icon: <Trash2 size={14} />,
+                  danger: true,
+                  onSelect: async () => {
+                    if (
+                      !(await confirmAction({
+                        title: `${t("Delete")} ${issue.key}？`,
+                        description: t(
+                          "Its comments and links are deleted too.",
+                        ),
+                      }))
+                    )
+                      return;
+                    remove.mutate(issue.key, {
+                      onSuccess: () =>
+                        navigate(`/projects/${issue.projectKey}`),
+                    });
+                  },
+                },
+              ]}
+            />
+          </div>
+          {assigning && (
+            <AssignDialog
+              issueKey={issue.key}
+              boardRepo={board?.repo}
+              onBindRepo={
+                board
+                  ? () => {
+                      setAssigning(false);
+                      setBinding(true);
+                    }
+                  : undefined
+              }
+              onClose={() => setAssigning(false)}
+            />
+          )}
+          {binding && board && (
+            <BindRepoDialog board={board} onClose={() => setBinding(false)} />
+          )}
+        </>
       )}
     </div>
   );
@@ -1107,13 +1114,7 @@ function AgentRuns({ issueKey }: { issueKey: string }) {
   );
 }
 
-function Comments({
-  issueKey,
-  bare,
-}: {
-  issueKey: string;
-  bare?: boolean;
-}) {
+function Comments({ issueKey, bare }: { issueKey: string; bare?: boolean }) {
   const t = useT();
   const language = useLanguage();
   const comments = useComments(issueKey);
@@ -1204,20 +1205,16 @@ const ACTIVITY_TEXT: Record<string, string> = {
 };
 
 /** 活动记录（B46）：谁在什么时候做了什么。 */
-function Activity({
-  issueKey,
-  bare,
-}: {
-  issueKey: string;
-  bare?: boolean;
-}) {
+function Activity({ issueKey, bare }: { issueKey: string; bare?: boolean }) {
   const t = useT();
   const language = useLanguage();
   const activity = useIssueActivity(issueKey);
   const items = activity.data ?? [];
   if (!items.length) {
     if (!bare) return null;
-    return <p className="xc-muted projects-section-empty">{t("No activity yet")}</p>;
+    return (
+      <p className="xc-muted projects-section-empty">{t("No activity yet")}</p>
+    );
   }
   const who = (actor: string) =>
     actor === "me" || !actor.includes(":") ? t("Me") : actor;

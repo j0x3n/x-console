@@ -14,6 +14,13 @@ import { routes as monitoring } from "../features/monitoring/routes";
 import { routes as home } from "../features/home/routes";
 import { routes as router } from "../features/router/routes";
 import { routes as quotas } from "../features/quotas/routes";
+import { routes as documents } from "../features/documents/routes";
+import { routes as journal } from "../features/journal/routes";
+import { routes as contacts } from "../features/contacts/routes";
+import { routes as credentials } from "../features/credentials/routes";
+import { routes as aiconfig } from "../features/aiconfig/routes";
+import { routes as readlater } from "../features/readlater/routes";
+import { routes as screentime } from "../features/screentime/routes";
 import { routes as automations } from "../features/automations/routes";
 import { routes as github } from "../features/github/routes";
 import { routes as assistant } from "../features/assistant/routes";
@@ -36,6 +43,13 @@ export const moduleRoutes: RouteObject[] = [
   ...home,
   ...router,
   ...quotas,
+  ...documents,
+  ...screentime,
+  ...readlater,
+  ...journal,
+  ...contacts,
+  ...credentials,
+  ...aiconfig,
   ...automations,
   ...github,
   ...assistant,

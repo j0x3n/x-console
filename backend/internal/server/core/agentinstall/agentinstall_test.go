@@ -20,6 +20,16 @@ func TestScriptsCarryServerAndCode(t *testing.T) {
 	if err != nil || !strings.Contains(string(ps), "$Server = 'http://10.0.0.5:8080'") || strings.Contains(string(ps), "{{") {
 		t.Fatalf("install.ps1: %v", err)
 	}
+	// 代理在 Windows 上是图形程序，"&" 不会等它结束，配对必须用 Start-Process -Wait。
+	if !strings.Contains(string(ps), "Start-Process -FilePath $exe -ArgumentList @('pair'") || !strings.Contains(string(ps), "-Wait") || strings.Contains(string(ps), "& $exe") {
+		t.Fatal("install.ps1 must wait for pair with Start-Process -Wait")
+	}
+	// 关掉终端代理也要继续跑：用 install 放到后台，令牌失效（退出码 3）时用新配对码重配。
+	for _, want := range []string{"'--no-start'", "-ArgumentList 'install'", "$p.ExitCode -eq 3"} {
+		if !strings.Contains(string(ps), want) {
+			t.Fatalf("install.ps1 lacks %q", want)
+		}
+	}
 	if !strings.HasPrefix(string(sh), "#!/bin/sh\n") || !strings.HasPrefix(string(agentinstall.Uninstall()), "#!/bin/sh\n") {
 		t.Fatal("script shape")
 	}

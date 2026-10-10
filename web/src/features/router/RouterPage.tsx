@@ -82,7 +82,12 @@ export default function RouterPage() {
     });
     if (!ok) return;
     reboot.mutate(undefined, {
-      onSuccess: () => toast(t("Rebooting. It takes a minute or two.")),
+      onSuccess: () =>
+        toast(
+          s?.source === "push"
+            ? t("Queued. The router runs it on its next report.")
+            : t("Rebooting. It takes a minute or two."),
+        ),
       onError: fail,
     });
   };
@@ -98,7 +103,10 @@ export default function RouterPage() {
     content = (
       <>
         <RouterStats status={status.data} />
-        <InterfacesCard items={status.data.interfaces} />
+        <InterfacesCard
+          items={status.data.interfaces}
+          queued={status.data.source === "push"}
+        />
         <Toolbar
           start={
             <nav className="xc-tabs">
@@ -253,7 +261,13 @@ function RouterStats({ status }: { status: RouterStatus }) {
   );
 }
 
-function InterfacesCard({ items }: { items: RouterInterface[] }) {
+function InterfacesCard({
+  items,
+  queued,
+}: {
+  items: RouterInterface[];
+  queued: boolean;
+}) {
   const t = useT();
   const language = useLanguage();
   const restart = useRestartInterface();
@@ -267,7 +281,12 @@ function InterfacesCard({ items }: { items: RouterInterface[] }) {
     });
     if (!ok) return;
     restart.mutate(name, {
-      onSuccess: () => toast(t("Interface restarted")),
+      onSuccess: () =>
+        toast(
+          queued
+            ? t("Queued. The router runs it on its next report.")
+            : t("Interface restarted"),
+        ),
       onError: fail,
     });
   };

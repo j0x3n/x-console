@@ -17,7 +17,9 @@ import (
 	"strings"
 
 	"github.com/j0x3n/x-console/backend/internal/server/audit"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 )
 
@@ -145,7 +147,7 @@ func (m *Module) registerTelegramWebhook(ctx context.Context) (string, error) {
 		return "", err
 	}
 	err = m.telegramCall(ctx, cfg, "setWebhook", map[string]any{
-		"url": hook, "secret_token": secret, "allowed_updates": []string{"callback_query"},
+		"url": hook, "secret_token": secret, "allowed_updates": []string{"callback_query", "message"},
 	})
 	if err != nil {
 		return "", httpx.NewError(http.StatusBadGateway, "delivery_failed", "注册失败："+err.Error())
@@ -153,7 +155,24 @@ func (m *Module) registerTelegramWebhook(ctx context.Context) (string, error) {
 	return hook, nil
 }
 
+// tgEntity is a piece of a message with its own meaning. A text_link hides
+// its address behind other words.
+type tgEntity struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+}
+
 type tgUpdate struct {
+	Message *struct {
+		MessageID int64  `json:"message_id"`
+		Text      string `json:"text"`
+		Caption   string `json:"caption"`
+		Chat      struct {
+			ID int64 `json:"id"`
+		} `json:"chat"`
+		Entities        []tgEntity `json:"entities"`
+		CaptionEntities []tgEntity `json:"caption_entities"`
+	} `json:"message"`
 	CallbackQuery *struct {
 		ID      string `json:"id"`
 		Data    string `json:"data"`
@@ -179,13 +198,17 @@ func (m *Module) handleTelegramUpdate(ctx context.Context, secretHeader string, 
 	if err := json.NewDecoder(io.LimitReader(body, 1<<20)).Decode(&upd); err != nil {
 		return httpx.Invalid("请求体格式不正确")
 	}
-	cq := upd.CallbackQuery
-	if cq == nil {
-		return nil
-	}
 	cfg, err := m.values(ctx, "telegram")
 	if err != nil {
 		return err
+	}
+	if upd.Message != nil {
+		m.handleTelegramMessage(ctx, cfg, upd)
+		return nil
+	}
+	cq := upd.CallbackQuery
+	if cq == nil {
+		return nil
 	}
 	answer := func(text string) {
 		if err := m.telegramCall(ctx, cfg, "answerCallbackQuery", map[string]any{"callback_query_id": cq.ID, "text": text}); err != nil {
@@ -223,6 +246,40 @@ func (m *Module) handleTelegramUpdate(ctx context.Context, secretHeader string, 
 		m.d.Log.Warn("telegram editMessageText", "err", err)
 	}
 	return nil
+}
+
+// handleTelegramMessage gives a plain message from the configured chat to the
+// module that takes them (B117). Other chats get no answer at all.
+func (m *Module) handleTelegramMessage(ctx context.Context, cfg map[string]string, upd tgUpdate) {
+	msg := upd.Message
+	if strconv.FormatInt(msg.Chat.ID, 10) != cfg["chat_id"] {
+		return
+	}
+	inbox, ok := module.Lookup[contracts.TelegramInbox](m.d.Registry, contracts.TelegramInboxKey)
+	if !ok {
+		return
+	}
+	text, entities := msg.Text, msg.Entities
+	if text == "" {
+		text, entities = msg.Caption, msg.CaptionEntities
+	}
+	var links []string
+	for _, e := range entities {
+		if e.Type == "text_link" && e.URL != "" {
+			links = append(links, e.URL)
+		}
+	}
+	actx := audit.WithActor(ctx, "telegram")
+	reply, handled := inbox.HandleTelegramMessage(actx, contracts.TelegramMessage{Text: text, Links: links})
+	if !handled || reply == "" {
+		return
+	}
+	err := m.telegramCall(ctx, cfg, "sendMessage", map[string]any{
+		"chat_id": msg.Chat.ID, "text": reply, "reply_to_message_id": msg.MessageID, "disable_web_page_preview": true,
+	})
+	if err != nil {
+		m.d.Log.Warn("telegram reply", "err", err)
+	}
 }
 
 // actionError turns an action error into a short message for the user.

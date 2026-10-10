@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # changes 任务要查上一次成功的部署
 
 # 同一个分支连着推送几次时，取消还在跑的旧检查，只跑最新的。
 # 被 deploy.yml 调用时 github.workflow 是 "Deploy"，分组不同，也不取消部署里的测试。
@@ -77,22 +78,17 @@ jobs:
           GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent
           GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/agent
 
-  # 三组同时跑。分组按 2026-10-01 带 -race 的包用时摊开，第三组是剩下的全部包，新包不会漏。
+  # 八组同时跑。分组由 scripts/test-shard.py 按每个包的用时（scripts/test-weights.txt）自动分配，
+  # 新增的包不用改这里。仓库是公开的，Actions 分钟数不收费，多分几组只是更快。
   # inputs.race 在 PR 和手动运行时是空的，只有明确传 false 才不带 -race。
   backend-test:
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.tests != 'none'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: drive-hosts-ai
-            packages: ./internal/server/modules/drive/... ./internal/server/modules/hosts/... ./internal/server/modules/ai/... ./internal/server/modules/github/... ./internal/server/modules/monitoring/... ./internal/server/modules/homeassistant/... ./internal/server/modules/reminders/...
-          - name: app-coding-notes-projects
-            packages: ./internal/server/app/... ./internal/server/modules/backup/... ./internal/server/modules/coding/... ./internal/server/modules/notes/... ./internal/server/modules/projects/... ./internal/server/store/...
-          - name: rest
-            packages: ""
+        shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     defaults:
       run:
         working-directory: backend
@@ -102,49 +98,75 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - name: Test ${{ matrix.name }}
+      # 失败的测试自动重跑一次，过了就算过（日志里会留 "Re-running" 和测试名）。
+      # 一次失败超过 5 个测试说明是真坏了，不重跑。
+      - name: Cache gotestsum
+        id: gotestsum
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gotestsum
+          key: gotestsum-${{ runner.os }}-v1.13.0
+      - name: Install gotestsum
+        if: steps.gotestsum.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@v1.13.0
+      - name: Test shard ${{ matrix.shard }} of 8
         env:
           RACE_INPUT: ${{ github.event_name != 'workflow_call' && 'true' || inputs.race }}
-          PACKAGES: ${{ matrix.packages }}
+          SHARD: ${{ matrix.shard }}
+          TESTS: ${{ needs.changes.outputs.tests }}
+          PACKAGES: ${{ needs.changes.outputs.packages }}
         run: |
           set -euo pipefail
           flags=()
           if [ "${RACE_INPUT:-}" != "false" ]; then
             flags+=(-race)
           fi
-          if [ -n "$PACKAGES" ]; then
-            go test "${flags[@]}" $PACKAGES
-            exit 0
+          if [ "$TESTS" = "some" ]; then
+            # 只改了个别模块：只测改到的包和几个会碰到别的模块的包，规则见 scripts/ci-scope.sh
+            read -r -a pkgs <<<"$PACKAGES"
+          else
+            mapfile -t pkgs < <(python3 ../scripts/test-shard.py "$SHARD" 8)
           fi
-          all=$(go list ./...)
-          mapfile -t pkgs < <(printf '%s\n' "$all" | grep -v -E '/internal/server/(app|store|modules/(backup|coding|drive|github|homeassistant|hosts|monitoring|notes|projects|reminders|ai))(/|$)' || true)
           if [ "${#pkgs[@]}" -eq 0 ]; then
-            echo "剩余的包是空的，分组表达式把所有包都排除了"
+            echo "这一组没有分到包，检查 scripts/test-shard.py"
             exit 1
           fi
           printf '%s\n' "${pkgs[@]}"
-          go test "${flags[@]}" "${pkgs[@]}"
+          # -vet=off：vet 已经在 backend-check 里跑过。-ldflags="-s -w"：不写调试信息，
+          # 每个包的测试程序都带着整个应用，链接最费时间，这样能省一截。
+          ~/go/bin/gotestsum --format pkgname-and-test-fails --rerun-fails=1 --rerun-fails-max-failures=5 \
+            --packages="${pkgs[*]}" -- -vet=off -ldflags="-s -w" "${flags[@]}"
 
-  # B78：PR 上看改了哪边。只改后端时跳过前端检查，只改前端时跳过后端；端到端两边都跑。
-  # 被 deploy.yml 调用和手动运行时全部都跑。PR 检出的是合并提交，第一个父提交就是目标分支。
+  # 看上次部署成功以来改了什么（PR 也是和目标分支上次部署成功的提交比），决定跑哪些检查，
+  # 规则在 scripts/ci-scope.sh。查不到上次部署、手动运行时全部都跑。
+  # 端到端两边都跑，每次都跑。
   changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ github.event_name != 'pull_request' || steps.diff.outputs.backend == 'true' }}
-      web: ${{ github.event_name != 'pull_request' || steps.diff.outputs.web == 'true' }}
+      backend: ${{ steps.scope.outputs.backend }}
+      web: ${{ steps.scope.outputs.web }}
+      tests: ${{ steps.scope.outputs.tests }}
+      shards: ${{ steps.scope.outputs.shards }}
+      packages: ${{ steps.scope.outputs.packages }}
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name == 'pull_request'
         with:
-          fetch-depth: 2
-      - id: diff
-        if: github.event_name == 'pull_request'
+          fetch-depth: 0
+      - id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.base_ref || github.ref_name }}
+          EVENT: ${{ github.event_name }}
         run: |
-          files=$(git diff --name-only HEAD^1 HEAD)
-          printf '%s\n' "$files"
-          # api/ 下的接口定义两边都会生成代码
-          if printf '%s\n' "$files" | grep -qE '^(backend/|api/|deploy/|\.github/)'; then echo backend=true >> "$GITHUB_OUTPUT"; fi
-          if printf '%s\n' "$files" | grep -qE '^(web/|api/|\.github/)'; then echo web=true >> "$GITHUB_OUTPUT"; fi
+          base=""
+          if [ "$EVENT" != "workflow_dispatch" ]; then
+            base=$(gh run list --workflow deploy.yml --branch "$BRANCH" --status success --limit 1 --json headSha --jq '.[0].headSha // ""' || true)
+            git cat-file -e "${base}^{commit}" 2>/dev/null || base=""
+          fi
+          echo "上次部署成功的提交：${base:-没有，全部都跑}"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+      - id: scope
+        run: bash scripts/ci-scope.sh "${{ steps.base.outputs.base }}" | tee -a "$GITHUB_OUTPUT"
 
   web:
     needs: changes
@@ -173,8 +195,13 @@ jobs:
 
   # 构建和端到端单独一个任务，和上面的检查同时跑。
   # 不装浏览器：GitHub 的 ubuntu-latest 自带 Google Chrome。端到端脚本自己用 vite build 打包，不再重复 typecheck。
+  # 端到端拆成两部分并行跑（XC_E2E_PART），各自起一套服务端，互不依赖。
   e2e:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ["1", "2"]
     defaults:
       run:
         working-directory: web
@@ -193,10 +220,11 @@ jobs:
       - run: npm run e2e
         env:
           XC_SHOTS_BROWSER: /usr/bin/google-chrome
+          XC_E2E_PART: ${{ matrix.part }}
       - name: Upload failed test evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-failure
+          name: e2e-failure-${{ matrix.part }}
           path: web/e2e-artifacts/
           if-no-files-found: ignore

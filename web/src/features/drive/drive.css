@@ -1463,3 +1463,21 @@ body:has(.drive-viewer-backdrop) .ai-fab {
     display: inline-flex;
   }
 }
+
+/* 搜索框在顶栏里，和顶栏按钮一样高。手机上先收成一个图标，点开再展开 */
+.page-actions .drive-top-search {
+  width: 200px;
+  height: 28px;
+}
+@media (max-width: 720px) {
+  .page-actions .drive-top-search {
+    width: 34px;
+    flex: none;
+    padding: 0 9px;
+    transition: width 0.15s;
+  }
+  .page-actions .drive-top-search:focus-within,
+  .page-actions .drive-top-search.has-value {
+    width: 150px;
+  }
+}

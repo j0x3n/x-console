@@ -1,0 +1,175 @@
+openapi: 3.0.3
+info:
+  title: X Console journal (B118)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /journal/days/{day}:
+    parameters:
+      - $ref: "#/components/parameters/Day"
+    get:
+      operationId: getJournalDay
+      tags: [journal]
+      description: |
+        一天的时间线、日记和概要。当天和前两天的数据返回前会先刷新一次，30 秒内刷新过就不再刷。
+        隐藏内容锁着时，来自隐藏模块的条目不返回，也不计入概要。
+      responses:
+        "200":
+          description: 这一天
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JournalDay" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /journal/days/{day}/diary:
+    parameters:
+      - $ref: "#/components/parameters/Day"
+    put:
+      operationId: putJournalDiary
+      tags: [journal]
+      description: 写这一天的日记。内容为空（只有空白）就删除这一天的日记。最多 20000 个字。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JournalDiaryInput" }
+      responses:
+        "200":
+          description: 保存后的日记
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JournalDiary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /journal/recent:
+    get:
+      operationId: listJournalRecent
+      tags: [journal]
+      description: 最近几天每天有多少条记录、有没有日记。新的在前，只列有内容的日子，今天总是列出。
+      parameters:
+        - name: days
+          in: query
+          description: 往前看几天，默认 14，最多 366
+          schema: { type: integer, minimum: 1, maximum: 366, default: 14 }
+      responses:
+        "200":
+          description: 列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JournalRecent" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /journal/search:
+    get:
+      operationId: searchJournal
+      tags: [journal]
+      description: 在日记正文和时间线的标题、说明里找，新的在前，最多 100 条。
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: 结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JournalSearch" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    Day:
+      name: day
+      in: path
+      required: true
+      description: 日期，YYYY-MM-DD，按服务器时区
+      schema: { type: string, pattern: '^\d{4}-\d{2}-\d{2}$' }
+  schemas:
+    JournalKind:
+      type: string
+      description: 条目类型，前端用它选图标和文字
+      enum: [card, task, commit, pr, focus, habit, workout, event, alert, screen, link, note]
+    JournalItem:
+      type: object
+      required: [id, at, module, kind, title, detail, link, minutes]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        module:
+          type: string
+          description: 来源对应的可隐藏模块
+        kind: { $ref: "#/components/schemas/JournalKind" }
+        title: { type: string }
+        detail: { type: string }
+        link:
+          type: string
+          description: 站内路径，或 http 开头的外部链接，可以为空
+        minutes:
+          type: integer
+          description: 有时长的条目（专注、电脑时间）才不是 0
+    JournalCount:
+      type: object
+      required: [kind, count, minutes]
+      properties:
+        kind: { $ref: "#/components/schemas/JournalKind" }
+        count: { type: integer }
+        minutes: { type: integer }
+    JournalDay:
+      type: object
+      required: [day, items, counts, diary]
+      properties:
+        day: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/JournalItem" }
+        counts:
+          type: array
+          description: 每种类型的数量和总分钟数，没有的类型不列
+          items: { $ref: "#/components/schemas/JournalCount" }
+        diary: { $ref: "#/components/schemas/JournalDiary" }
+    JournalDiary:
+      type: object
+      required: [day, body]
+      properties:
+        day: { type: string }
+        body: { type: string, description: 没写是空字符串 }
+        updatedAt: { type: string, format: date-time }
+    JournalDiaryInput:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string }
+    JournalRecentDay:
+      type: object
+      required: [day, items, diary]
+      properties:
+        day: { type: string }
+        items: { type: integer }
+        diary: { type: boolean }
+    JournalRecent:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/JournalRecentDay" }
+    JournalHit:
+      type: object
+      required: [day, kind, title, snippet, link]
+      properties:
+        day: { type: string }
+        kind:
+          type: string
+          description: diary，或者 JournalKind 里的一种
+        title: { type: string }
+        snippet: { type: string, description: 命中处附近的文字 }
+        link: { type: string }
+    JournalSearch:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/JournalHit" }

@@ -217,3 +217,70 @@ export function averageWeight(days: PersonalDay[], date: string) {
     ? values.reduce((a, b) => a + b, 0) / values.length
     : null;
 }
+
+/** B119：趋势图能看的身体指标。 */
+export type BodyMetric = "weight" | "sleep" | "restingHr" | "steps";
+export const bodyMetrics: BodyMetric[] = [
+  "weight",
+  "sleep",
+  "restingHr",
+  "steps",
+];
+
+export interface BodyPoint {
+  date: string;
+  value: number;
+}
+export interface BodyStats {
+  points: BodyPoint[];
+  latest: number | null;
+  average: number | null;
+  min: number | null;
+  max: number | null;
+  /** 范围内最后一个值减第一个值。 */
+  change: number | null;
+}
+
+/**
+ * 取 end 那天往前 range 天里记过的值。没记的日子不补零。
+ * 体重和心率为 0 当作没记。
+ */
+export function bodySeries(
+  days: PersonalDay[],
+  metric: BodyMetric,
+  range: number,
+  end: string,
+): BodyStats {
+  const last = dateNumber(end);
+  const first = last - (range - 1) * 86400000;
+  const points = days
+    .filter((d) => {
+      const n = dateNumber(d.date);
+      return n >= first && n <= last && d[metric] !== "";
+    })
+    .map((d) => ({ date: d.date, value: Number(d[metric]) }))
+    .filter(
+      (p) =>
+        Number.isFinite(p.value) &&
+        (metric === "sleep" || metric === "steps" || p.value > 0),
+    )
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!points.length)
+    return {
+      points,
+      latest: null,
+      average: null,
+      min: null,
+      max: null,
+      change: null,
+    };
+  const values = points.map((p) => p.value);
+  return {
+    points,
+    latest: values.at(-1)!,
+    average: values.reduce((a, b) => a + b, 0) / values.length,
+    min: Math.min(...values),
+    max: Math.max(...values),
+    change: values.at(-1)! - values[0],
+  };
+}

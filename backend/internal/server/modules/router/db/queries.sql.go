@@ -11,7 +11,7 @@ import (
 
 const insertTraffic = `-- name: InsertTraffic :exec
 INSERT INTO router_traffic (at, seconds, rx, tx) VALUES (?, ?, ?, ?)
-ON CONFLICT (at) DO UPDATE SET seconds = excluded.seconds, rx = excluded.rx, tx = excluded.tx
+ON CONFLICT (at) DO UPDATE SET seconds = seconds + excluded.seconds, rx = rx + excluded.rx, tx = tx + excluded.tx
 `
 
 type InsertTrafficParams struct {
@@ -21,6 +21,7 @@ type InsertTrafficParams struct {
 	Tx      int64
 }
 
+// B114: one row per minute; reports a few seconds apart add up into it
 func (q *Queries) InsertTraffic(ctx context.Context, arg InsertTrafficParams) error {
 	_, err := q.db.ExecContext(ctx, insertTraffic,
 		arg.At,

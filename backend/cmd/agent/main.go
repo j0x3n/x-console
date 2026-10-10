@@ -3,6 +3,7 @@
 //
 //	x-console-agent pair --server https://console.example.com --code ABCD-EFGH [--kind desktop]
 //	x-console-agent run [--config path]
+//	x-console-agent install [--config path]   (Windows) keep running in the background
 //
 // On Windows the program under the name x-console-agent-setup-ABCD-EFGH.exe,
 // started without arguments, installs itself (B30).
@@ -16,9 +17,11 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 
+	"github.com/j0x3n/x-console/backend/internal/agent/aiconfig"
 	"github.com/j0x3n/x-console/backend/internal/agent/clipboard"
 	"github.com/j0x3n/x-console/backend/internal/agent/coding"
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
@@ -34,6 +37,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/proc"
 	"github.com/j0x3n/x-console/backend/internal/agent/pty"
 	"github.com/j0x3n/x-console/backend/internal/agent/quota"
+	"github.com/j0x3n/x-console/backend/internal/agent/screentime"
 	"github.com/j0x3n/x-console/backend/internal/agent/setup"
 	"github.com/j0x3n/x-console/backend/internal/agent/svc"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
@@ -45,6 +49,7 @@ import (
 var Version = "dev"
 
 func main() {
+	setupConsole() // Windows 版没有控制台，要在建日志之前接好输出
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	cmd := "run"
 	args := os.Args[1:]
@@ -63,8 +68,9 @@ func main() {
 		}})
 	case "pair":
 		err = pair(args)
+	case "install":
+		err = install(args)
 	case "run":
-		hideOwnConsole() // 任务计划启动时不显示黑窗口
 		err = run(args)
 	case "version":
 		fmt.Println(Version)
@@ -73,7 +79,7 @@ func main() {
 	}
 	if err != nil {
 		slog.Error("agent failed", "err", err)
-		if errors.Is(err, conn.ErrRevoked) {
+		if errors.Is(err, conn.ErrRevoked) || errors.Is(err, setup.ErrRevoked) {
 			os.Exit(3)
 		}
 		os.Exit(1)
@@ -90,11 +96,42 @@ func pair(args []string) error {
 	server := fs.String("server", "", "server URL, for example https://console.example.com")
 	code := fs.String("code", "", "pairing code shown in the web UI")
 	path := fs.String("config", config.DefaultPath(), "config file")
+	noStart := fs.Bool("no-start", false, "only save the config; on Windows do not start the agent in the background")
 	_ = fs.Parse(args)
 	if *server == "" || *code == "" {
 		return fmt.Errorf("--server and --code are required")
 	}
-	return doPair(*server, *code, *path)
+	if err := doPair(*server, *code, *path); err != nil {
+		return err
+	}
+	if runtime.GOOS != "windows" || *noStart {
+		fmt.Println("Pairing only saves the config. The device shows as offline until the agent runs: x-console-agent run")
+		return nil
+	}
+	// A terminal that is closed would stop a plain "run", so on Windows the
+	// agent is started in the background and set to start at logon.
+	return startBackground(*path)
+}
+
+// install keeps the agent running in the background on Windows (already
+// paired). It is what "pair" does after saving the config.
+func install(args []string) error {
+	fs := flag.NewFlagSet("install", flag.ExitOnError)
+	path := fs.String("config", config.DefaultPath(), "config file")
+	_ = fs.Parse(args)
+	if _, err := config.Load(*path); err != nil {
+		return err
+	}
+	return startBackground(*path)
+}
+
+func startBackground(path string) error {
+	msg, err := setup.Background(path)
+	if err != nil {
+		return err
+	}
+	fmt.Println(msg)
+	return nil
 }
 
 // doPair exchanges a pairing code for a token and saves the config file.
@@ -121,6 +158,7 @@ func run(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	client := conn.New(cfg.Server, cfg.Token, hello())
+	aiconfig.SetStateDir(filepath.Dir(*path)) // B121: next to the config file
 	register(client, cfg)
 	return client.Run(ctx)
 }
@@ -148,6 +186,8 @@ func register(c *conn.Client, cfg config.Config) {
 	docker.Register(c)                                  // M10: docker.* over the Engine socket
 	syslog.Register(c)                                  // B29: system logs, only when there is something to read
 	quota.Register(c)                                   // B110: AI quota readings (Claude, Codex, Grok)
+	screentime.Register(c)                              // B116: foreground program, one sample per minute (Windows)
+	aiconfig.Register(c)                                // B121: the panel's part of the Claude Code and Codex configuration
 }
 
 // capabilities lists what this build supports on this OS.
@@ -182,6 +222,12 @@ func capabilities() []string {
 	}
 	if quota.Available() {
 		caps = append(caps, protocol.CapQuota) // B110
+	}
+	if screentime.Available() {
+		caps = append(caps, protocol.CapScreenTime) // B116
+	}
+	if aiconfig.Available() {
+		caps = append(caps, protocol.CapAIConfig) // B121
 	}
 	if docker.Available() {
 		caps = append(caps, protocol.CapDocker, protocol.CapDockerLines) // M10: only when the Docker socket answers

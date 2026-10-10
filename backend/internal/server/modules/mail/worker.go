@@ -192,7 +192,7 @@ func (m *Module) session(ctx context.Context, w *worker) (connected bool, err er
 		return true, err
 	}
 	for {
-		if err := m.syncOnce(ctx, c, w.id); err != nil {
+		if err := m.syncOnce(ctx, c, w.id, sel.NumMessages); err != nil {
 			return true, fmt.Errorf("同步失败: %w", err)
 		}
 		if idle {
@@ -258,14 +258,18 @@ func (m *Module) checkValidity(ctx context.Context, acc db.MailAccount, validity
 }
 
 // syncOnce fetches new messages, then checks flags of the recent ones.
-func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64) error {
+// selected is the message count the SELECT reported. go-imap sets
+// c.Mailbox() a moment after Select().Wait() returns, so right after
+// connecting it can still be nil; without the fallback the first sync would
+// see an empty inbox and wait in IDLE for mail that is already there.
+func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64, selected uint32) error {
 	acc, err := m.q.GetAccount(ctx, id)
 	if err != nil {
 		return err
 	}
 	var set imap.NumSet
 	if acc.LastUid == 0 {
-		n := uint32(0)
+		n := selected
 		if mb := c.Mailbox(); mb != nil {
 			n = mb.NumMessages
 		}

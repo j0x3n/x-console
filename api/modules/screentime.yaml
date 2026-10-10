@@ -1,0 +1,222 @@
+openapi: 3.0.3
+info:
+  title: X Console screentime (B116)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /screentime/summary:
+    get:
+      operationId: getScreenTimeSummary
+      tags: [screentime]
+      description: |
+        一段时间里电脑时间的去向。日期按服务器时区，周从周一开始。
+        周和月的 days 每天一项，日视图 days 为空。
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, enum: [day, week, month], default: day }
+        - name: date
+          in: query
+          description: 范围内的任意一天，YYYY-MM-DD，默认今天
+          schema: { type: string }
+        - name: hostId
+          in: query
+          description: 只看这台电脑，默认全部
+          schema: { type: string }
+      responses:
+        "200":
+          description: 汇总
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScreenTimeSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /screentime/settings:
+    get:
+      operationId: getScreenTimeSettings
+      tags: [screentime]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScreenTimeSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: setScreenTimeSettings
+      tags: [screentime]
+      description: |
+        关掉保存窗口标题时，已存的标题马上清掉，记录和类别保留。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScreenTimeSettingsInput" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScreenTimeSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /screentime/rules:
+    get:
+      operationId: listScreenTimeRules
+      tags: [screentime]
+      responses:
+        "200":
+          description: 自己加的规则，按添加顺序，先匹配先用
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ScreenTimeRule" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createScreenTimeRule
+      tags: [screentime]
+      description: 加规则后，已存的记录按新规则重新分类。最多 200 条。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScreenTimeRuleInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScreenTimeRule" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /screentime/rules/{ruleId}:
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      operationId: deleteScreenTimeRule
+      tags: [screentime]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /screentime/data:
+    delete:
+      operationId: clearScreenTimeData
+      tags: [screentime]
+      description: 删除全部记录。需要提升权限。
+      responses:
+        "204":
+          description: 已清空
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    ScreenCategory:
+      type: string
+      enum: [coding, ai, chat, web, entertainment, office, other]
+    ScreenTimeState:
+      type: string
+      description: |
+        ok 有数据；disabled 总开关关着；no_agent 没有能记录的 Windows 代理；
+        waiting 开着也有代理，但还没有任何记录。
+      enum: [ok, disabled, no_agent, waiting]
+    CategoryMinutes:
+      type: object
+      required: [category, minutes]
+      properties:
+        category: { $ref: "#/components/schemas/ScreenCategory" }
+        minutes: { type: integer }
+    AppMinutes:
+      type: object
+      required: [app, category, minutes]
+      properties:
+        app: { type: string, description: 程序名，比如 Code.exe }
+        category: { $ref: "#/components/schemas/ScreenCategory" }
+        minutes: { type: integer }
+    DayMinutes:
+      type: object
+      required: [date, minutes, categories]
+      properties:
+        date: { type: string, description: YYYY-MM-DD }
+        minutes: { type: integer }
+        categories:
+          type: object
+          description: 类别到分钟数，没有记录的类别不出现
+          additionalProperties: { type: integer }
+    ScreenTimeSummary:
+      type: object
+      required: [range, from, to, state, minutes, categories, apps, days]
+      properties:
+        range: { type: string, enum: [day, week, month] }
+        from: { type: string, description: 范围第一天，YYYY-MM-DD }
+        to: { type: string, description: 范围最后一天，YYYY-MM-DD }
+        state: { $ref: "#/components/schemas/ScreenTimeState" }
+        minutes: { type: integer, description: 总分钟数。选了全部电脑时，同一分钟两台电脑都在用会算两分钟 }
+        categories:
+          type: array
+          description: 每个类别一项，分钟数从多到少
+          items: { $ref: "#/components/schemas/CategoryMinutes" }
+        apps:
+          type: array
+          description: 用得最多的 10 个程序
+          items: { $ref: "#/components/schemas/AppMinutes" }
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/DayMinutes" }
+    ScreenTimeHost:
+      type: object
+      required: [id, name, online, supported, enabled]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        online: { type: boolean }
+        supported: { type: boolean, description: 这台电脑的代理能记录前台程序 }
+        enabled: { type: boolean }
+    ScreenTimeSettings:
+      type: object
+      required: [enabled, keepTitles, hosts]
+      properties:
+        enabled: { type: boolean }
+        keepTitles: { type: boolean, description: 保存窗口标题，默认关 }
+        hosts:
+          type: array
+          description: 只列出能记录的电脑
+          items: { $ref: "#/components/schemas/ScreenTimeHost" }
+    ScreenTimeSettingsInput:
+      type: object
+      required: [enabled, keepTitles, disabledHosts]
+      properties:
+        enabled: { type: boolean }
+        keepTitles: { type: boolean }
+        disabledHosts:
+          type: array
+          description: 单独关掉的电脑
+          items: { type: string }
+    ScreenTimeRule:
+      type: object
+      required: [id, field, pattern, category, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        field: { type: string, enum: [app, title] }
+        pattern: { type: string }
+        category: { $ref: "#/components/schemas/ScreenCategory" }
+        createdAt: { type: string, format: date-time }
+    ScreenTimeRuleInput:
+      type: object
+      required: [field, pattern, category]
+      properties:
+        field: { type: string, enum: [app, title], description: "app 是程序名相等，title 是标题包含，都不分大小写" }
+        pattern: { type: string }
+        category: { $ref: "#/components/schemas/ScreenCategory" }

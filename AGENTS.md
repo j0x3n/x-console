@@ -34,9 +34,10 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
    - 只有用户让 Codex 做的时候才用 `codex` 分支：从最新的 `develop` 开出 `codex`（已经有就先把 `develop` 合并进来，用 merge，不要 rebase），这一批都提交到 `codex`。
    - 在 `docs/tasks.md` 把任务移到“进行中”，负责人写清楚是谁。
    - **一个任务一个提交**，提交信息以任务编号开头，比如 `B11: 笔记附件后端`。一个任务里改了几次，推送前合成一个提交。这样哪个任务有问题，`git revert` 那一个提交就能单独撤掉。
-   - 做完一个任务，跑完下面的全部检查再推送。有界面改动时再跑 `npm run shots`，按 `docs/07-design.md` 第七节自查截图。检查没过不要推送。
+   - 截图不提交（仓库是公开的，2026-10-10 用户定的）。`npm run shots` 出的图只在本地看，检查结果写进 `docs/qa/` 的文字记录。
+   - 做完一个任务，本地跑 `scripts/check-quick.sh`（只检查改动涉及的部分，见“小修”一节），过了再推送。有界面改动时只截改动的那几页：`npm run shots -- --only /notes`，按 `docs/07-design.md` 第七节自查截图。全量测试、构建、端到端交给 CI（2026-10-11 用户定的，之前功能任务要在本地跑全量，和 CI 重复，一次要二三十分钟）。
    - Codex 第一次推送后开一个 PR：`codex` → `develop`，标题“Codex 开发批次”。以后一直往 `codex` 推，这个 PR 会自动更新，CI 每次都会跑。不要每个任务开一个 PR。
-   - 任务做完在 `docs/tasks.md` 移到“已完成”，写上提交号。
+   - 任务做完从 `docs/tasks.md` 删掉，在 `docs/tasks-done.md` 的“已完成”表加一行，写上提交号。`tasks.md` 只放没做完的事，保持短。
 3. **验收**（审查者，按批次）：用户说“验收”时，看 `develop..codex` 之间的全部提交：
    - 跑全部检查。起真实服务端和代理，跑 `npm run shots` 出 1360px 和 390px 的截图，看有没有报错和横向溢出，并对照 `docs/07-design.md` 看样式。
    - 逐个任务看：有没有改自己模块以外的文件，有没有测试，和规格对不对得上。
@@ -51,10 +52,11 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
 
 ## 构建和部署（2026-09-27 用户要求）
 
-- 平时推送到 `develop`、`codex` 不跑部署，省构建额度。`codex` 有开着的 PR，推送时会跑 CI 检查；直接推到 `develop` 没有 CI。推送前自己在本地跑完下面的全部检查。
+- 平时推送到 `develop`、`codex` 不跑部署，省构建额度。`codex` 有开着的 PR，推送时会跑 CI 检查；直接推到 `develop` 没有 CI。推送前在本地跑 `scripts/check-quick.sh`。全量检查由 CI 跑：带部署标记的推送会先跑全部测试再部署，`codex` 的 PR 每次推送都跑。
 - 一批改动做完再推送，不要每个小提交推一次。
 - **用户说“构建”或“部署”时**：在要推送的最后一个提交信息里加 `[deploy]`（比如标题末尾写 ` [deploy]`），推送到你正在用的分支（一般是 `develop`，Codex 是 `codex`）。这会跑测试、构建镜像，并部署到线上服务器，让用户在线上看效果。不需要再问，也不需要合并到 `main`。
 - 从 `codex` 部署时，线上跑的是还没验收的代码。部署前会自动备份数据库（B19 做完以后），出了问题可以退回。
+- CI 只测改到的部分（2026-10-11 用户定的，规则在 `scripts/ci-scope.sh`）：和上次部署成功的提交比，改动只在 `backend/internal/server/modules/<模块>/`、`api/modules/<模块>.yaml`、`web/` 里时，后端只测改到的模块加几个会碰到别的模块的包（`journal`、`vault`、`dashboard`、`mcp`、`ai`、`app`、`core`、`actions`），改了别的后端代码、依赖、脚本、工作流或认不出的路径就全量。端到端每次都跑。手动运行 CI 和 Deploy 是全量。新加一个会碰到别的模块的包，要把它加进 `ci-scope.sh` 的 `COUPLED`。
 - 用户没说时，提交信息里不要带 `[deploy]`。标题和正文都算，写这条规则本身时也要写成“部署标记”，不要写出这几个字符。
 - 推送到 `main`、在 Actions 页面手动运行 Deploy，也会部署。PR 上会自动跑检查。
 
@@ -63,8 +65,9 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
 项目会越来越大，下面几条每个任务都要做到：
 
 - 按“规格 → 接口定义 → 测试 → 实现”的顺序做。缺规格先写规格，缺测试不算做完。
-- 做功能任务（B、C 编号的任务），要跑全部检查，不能只跑这个模块的测试。小修按下面“小修”一节。
+- 做功能任务（B、C 编号的任务）也只在本地跑 `scripts/check-quick.sh`，全量检查交给 CI。但测试照写：新功能要有自己的测试，端到端里补一条主流程。直接推到 `develop` 又不带部署标记时没有 CI，红灯要等下次部署才会发现，所以改了公共代码（`backend/internal/server/` 下除 `modules/` 以外、`web/src/{api,auth,app,components,lib}`）时，推送前自己多跑一次相关的全量测试。
 - B8 做完以后，每个新功能都要在端到端测试里补一条主流程。
+- 端到端分两部分并行跑（`XC_E2E_PART=1` 或 `2`，不设就全跑，CI 用矩阵各跑一部分）。第二部分只放“配对 Linux 代理”以后的服务器步骤，其余新步骤放第一部分。两部分互不依赖对方造的数据，新步骤要用的数据自己在同一部分里造。耗时用 `XC_E2E_TIMING=1` 看。
 - 数据库迁移只加不删。删列、改列分两次部署：先停止使用，下个版本再删。
 - 每做完大约 5 个功能任务，排一轮清理（任务看板里的 C1、C2……），这一轮不加新功能。
 - 发现的问题当场修不了，记到 `docs/tasks.md` 的“已知问题”，不要放着不说。
@@ -88,7 +91,7 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
 go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 
-# 后端检查（提交前全部要过）
+# 后端全量检查（CI 跑这些；本地平时用 scripts/check-quick.sh）
 cd backend
 PATH=$PATH:~/go/bin go generate ./...   # 生成代码，结果要提交
 gofmt -l .                              # 不能有输出
@@ -117,7 +120,7 @@ CI 会检查生成的代码是否最新：生成之后 `git diff` 必须为空�
 
 - 只改自己任务涉及的模块目录：`backend/internal/server/modules/<模块>`、`web/src/features/<模块>`、`api/modules/<模块>.yaml`、对应的迁移和规格。
 - 共享文件只加行，不改别人的行：`backend/internal/server/app/modules.go`、`backend/sqlc.yaml`、`backend/cmd/agent/main.go`、`web/src/features/settings/tabs.tsx`、`web/src/app/TopbarActions.tsx`、`web/src/app/GlobalPanels.tsx`。
-- 基础代码尽量不动：`backend/internal/server/` 下除 `modules/` 以外的目录、`backend/pkg/`、`web/src/{api,auth,app,components,lib}`。必须改时，改动要小、要向后兼容，在 PR 里写理由，在 `docs/tasks.md` 的“接口变更记录”里记一笔。
+- 基础代码尽量不动：`backend/internal/server/` 下除 `modules/` 以外的目录、`backend/pkg/`、`web/src/{api,auth,app,components,lib}`。必须改时，改动要小、要向后兼容，在 PR 里写理由，在 `docs/api-changes.md` 里记一笔。
 - 迁移文件名用 `YYYYMMDDHHMMSS_m<编号>_<说明>.sql`，时间要晚于已有的最新迁移。
 - 模块集成测试放外部测试包（`package xxx_test`），需要内部函数时用 `export_test.go` 暴露。否则 testutil → app → 模块会循环引用。
 - `db/models.go` 是生成文件，合并冲突时取任一边，再 `go generate ./...`。

@@ -5,7 +5,7 @@ import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { EmptyState } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
-import { averageWeight } from "./personal";
+import BodyTrend from "./BodyTrend";
 import {
   useSavePersonalDay,
   type PersonalDay,
@@ -69,6 +69,7 @@ export default function PersonalRecords({
     waist: day.waist,
     sleep: day.sleep,
     steps: day.steps,
+    restingHr: day.restingHr,
     energy: day.energy,
     back: day.back,
     note: day.note,
@@ -78,11 +79,6 @@ export default function PersonalRecords({
     setForm((p) => ({ ...p, [key]: value }));
   const submit = () =>
     save.mutate(form, { onSuccess: () => toast(t("Saved")) });
-  const avg = averageWeight(days, day.date);
-  const measurements = days
-    .filter((d) => d.weight && d.date <= day.date)
-    .slice(0, 30)
-    .reverse();
   return (
     <>
       <PageActions>
@@ -114,6 +110,7 @@ export default function PersonalRecords({
                   ["waist", "Waist (cm)", 40, 200, "0.1"],
                   ["sleep", "Sleep (hours)", 0, 24, "0.1"],
                   ["steps", "Actual steps", 0, 100000, "1"],
+                  ["restingHr", "Resting heart rate (bpm)", 20, 220, "1"],
                 ] as const
               ).map(([key, label, min, max, step]) => (
                 <label className="xc-field" key={key}>
@@ -178,24 +175,7 @@ export default function PersonalRecords({
             />
           </form>
         </section>
-        <section className="xc-card">
-          <div className="xc-card-head">
-            <h2>{t("Weight trend")}</h2>
-            <span className="xc-muted">
-              {t("Seven-day average")}：{avg === null ? "—" : avg.toFixed(1)} kg
-            </span>
-          </div>
-          {measurements.length >= 2 ? (
-            <WeightChart days={measurements} />
-          ) : (
-            <EmptyState title={t("Record two weights to see the trend")} />
-          )}
-          <p className="xc-muted">
-            {t(
-              "Only recorded values are used. Missing days are not filled with zero.",
-            )}
-          </p>
-        </section>
+        <BodyTrend days={days} end={day.date} />
       </div>
       <section className="xc-card">
         <div className="xc-card-head">
@@ -210,6 +190,7 @@ export default function PersonalRecords({
                   <th>{t("Body weight (kg)")}</th>
                   <th>{t("Sleep (hours)")}</th>
                   <th>{t("Actual steps")}</th>
+                  <th>{t("Resting heart rate (bpm)")}</th>
                   <th>{t("Back response")}</th>
                   <th />
                 </tr>
@@ -221,6 +202,7 @@ export default function PersonalRecords({
                     <td>{d.weight || "—"}</td>
                     <td>{d.sleep || "—"}</td>
                     <td>{d.steps || "—"}</td>
+                    <td>{d.restingHr || "—"}</td>
                     <td>{d.back || "—"}</td>
                     <td>
                       <button
@@ -240,60 +222,5 @@ export default function PersonalRecords({
         )}
       </section>
     </>
-  );
-}
-
-function WeightChart({ days }: { days: PersonalDay[] }) {
-  const t = useT();
-  const values = days.map((d) => Number(d.weight));
-  const min = Math.min(...values) - 0.3,
-    max = Math.max(...values) + 0.3;
-  const points = values.map(
-    (v, i) =>
-      `${35 + (i / (values.length - 1)) * 500},${120 - ((v - min) / (max - min)) * 90}`,
-  );
-  return (
-    <svg
-      className="habits-weight-chart"
-      viewBox="0 0 580 155"
-      role="img"
-      aria-label={t("Weight trend")}
-    >
-      <path d="M35 25V125H545" fill="none" stroke="var(--xc-border)" />
-      <polyline
-        points={points.join(" ")}
-        fill="none"
-        stroke="var(--xc-accent)"
-        strokeWidth="2"
-      />
-      {points.map((p, i) => {
-        const [x, y] = p.split(",");
-        return (
-          <circle
-            key={days[i].date}
-            cx={x}
-            cy={y}
-            r="3"
-            fill="var(--xc-accent)"
-          >
-            <title>
-              {days[i].date}：{values[i]} kg
-            </title>
-          </circle>
-        );
-      })}
-      <text x="35" y="149">
-        {days[0].date.slice(5)}
-      </text>
-      <text x="510" y="149">
-        {days.at(-1)!.date.slice(5)}
-      </text>
-      <text x="0" y="35">
-        {max.toFixed(1)}
-      </text>
-      <text x="0" y="123">
-        {min.toFixed(1)}
-      </text>
-    </svg>
   );
 }

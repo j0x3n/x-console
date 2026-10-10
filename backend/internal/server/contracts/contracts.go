@@ -11,7 +11,7 @@
 //	if !ok { return httpx.NewError(501, "feature_unavailable", "项目模块未启用") }
 //
 // Keep these types small and stable. Changing a signature here affects
-// several modules; record the change in docs/tasks.md first.
+// several modules; record the change in docs/api-changes.md first.
 package contracts
 
 import (

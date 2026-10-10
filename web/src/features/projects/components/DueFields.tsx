@@ -57,7 +57,9 @@ export default function DueFields({
           }
         />
       )}
-      {live && onRemindChange && value.date &&
+      {live &&
+        onRemindChange &&
+        value.date &&
         (menu ? (
           <MenuPick
             label={t("Remind ahead")}

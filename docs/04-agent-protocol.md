@@ -124,6 +124,7 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | coding | 装了 claude 或 codex 才有 | 有 |
 | coding.remote（B47：`coding.ensure_repo`，以及下面说的新字段） | 和 coding 一起 | 和 coding 一起 |
 | proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
+| aiconfig（B121，有 Claude Code 或 Codex 才上报） | 有 | 有 |
 
 ### Docker 日志和镜像（B28）
 
@@ -157,6 +158,14 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - `coding.build`（流，和 `coding.run` 一样的事件格式）：在任务的工作目录里按顺序跑构建步骤 `{name, command, timeoutSeconds, artifacts}`，一步失败就停。命令用系统的 shell（Linux `/bin/sh -c`，Windows `cmd.exe /C`），环境变量加 `CI=1` 和 `X_CONSOLE_TASK_ID`。状态事件 `build_step`、`build_step_done`，文本事件带 `{stream, index}`。最后的 done 事件是 `CodingBuildDone {reason, failedStep, artifacts}`，`reason` 是 `passed`、`failed`、`timeout`、`canceled`、`error`。产物按通配符在工作目录里找（`dir/**` 表示目录下全部文件），不出工作目录，最多 50 个，单个最大 2 GB；服务端再用 `files.read` 取回。
 - `coding.run` 新字段 `continue` 和 `baseCommit`：在已有的工作目录里再跑一次执行器（构建失败后让 Agent 修）。
 - 服务端只在代理上报了 `coding.remote` 能力时才发这些字段和方法。
+
+### AI 编码工具配置（B121）
+
+- `aiconfig.sync {config, apply}`：`config` 是面板里的 Claude Code 和 Codex 配置（规则文本、权限三组、MCP 服务器），`apply` 为 `false` 只检查，为 `true` 把不一致的项写下去。返回 `{items}`，每项 `{tool, item, state, reason, names, changed, error}`。字段和取值见 `pkg/protocol/methods_aiconfig.go`。
+- 代理只管面板写的那部分：规则文件里 `x-console:begin` 和 `x-console:end` 之间的区块，`settings.json` 里面板加的权限条目，`.claude.json` 里面板写的 MCP 服务器，`config.toml` 里的区块。别的内容不读出来，不改，不删。同名的、不是面板写的 MCP 服务器报 `conflict`，不覆盖。
+- 代理在配置文件所在目录的 `aiconfig-state.json` 里记下哪些条目是面板加的。第一次改某个文件前复制一份 `<文件名>.x-console.bak`。写文件先写临时文件再改名，符号链接会跟随，权限不变。
+- 配置目录：Claude Code 用 `CLAUDE_CONFIG_DIR`，Codex 用 `CODEX_HOME`，没设就是家目录下的 `.claude` 和 `.codex`。目录不存在而且 PATH 里没有命令的工具，所有项目报 `absent`，不创建任何文件。
+- 参数代理自己也校验一遍（名称、数量、控制字符），不合格回 `bad_params`。服务端只在代理上报了 `aiconfig` 能力时才调用。
 
 ## 新增方法的步骤
 

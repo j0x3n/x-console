@@ -1,0 +1,487 @@
+openapi: 3.0.3
+info:
+  title: X Console music (B98 library and playback)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /music/tracks:
+    get:
+      operationId: listMusicTracks
+      tags: [music]
+      description: 曲库里的歌。q 用空格分成多个词，每个词都要命中。三个字以上的词搜歌名、歌手、专辑和歌词，少于三个字的词只搜歌名、歌手和专辑。分页的 cursor 只能原样传回。
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: artist
+          in: query
+          description: 歌手名，要完全相同
+          schema: { type: string }
+        - name: album
+          in: query
+          description: 专辑名，要完全相同
+          schema: { type: string }
+        - name: favorite
+          in: query
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          description: 默认 artist（歌手、专辑、碟号、曲目号、歌名）。recent 只列播放过的，最近的在前
+          schema: { type: string, enum: [artist, title, album, added, recent, plays] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+        - $ref: "../common.yaml#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: 一页歌曲
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrackPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/tracks/{trackId}:
+    parameters:
+      - $ref: "#/components/parameters/TrackId"
+    get:
+      operationId: getMusicTrack
+      tags: [music]
+      responses:
+        "200":
+          description: 一首歌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrack" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateMusicTrack
+      tags: [music]
+      description: 改收藏，或手动改歌名、歌手、专辑。手动改过的字段，重新扫描时不会被文件里的标签覆盖。只存数据库，不写进文件。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MusicTrackPatch" }
+      responses:
+        "200":
+          description: 更新后的歌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrack" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/tracks/{trackId}/stream:
+    parameters:
+      - $ref: "#/components/parameters/TrackId"
+    get:
+      operationId: streamMusicTrack
+      tags: [music]
+      description: 歌曲内容，支持 Range 请求。歌所在的文件被删除、进回收站或设为隐藏时回 404。
+      responses:
+        "200":
+          description: 音频
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+        "206":
+          description: 部分内容
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/tracks/{trackId}/cover:
+    parameters:
+      - $ref: "#/components/parameters/TrackId"
+    get:
+      operationId: getMusicTrackCover
+      tags: [music]
+      description: 封面。没有封面回 404。
+      parameters:
+        - name: size
+          in: query
+          description: 最长边像素，默认 256。原图比它小时不放大
+          schema: { type: integer, enum: [96, 256, 640] }
+      responses:
+        "200":
+          description: JPEG 封面
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/tracks/{trackId}/lyrics:
+    parameters:
+      - $ref: "#/components/parameters/TrackId"
+    get:
+      operationId: getMusicTrackLyrics
+      tags: [music]
+      description: 已解析的歌词。没有歌词时 lines 为空。没有时间轴时每行没有 timeMs。
+      responses:
+        "200":
+          description: 歌词
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicLyrics" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/tracks/{trackId}/played:
+    parameters:
+      - $ref: "#/components/parameters/TrackId"
+    post:
+      operationId: reportMusicPlayed
+      tags: [music]
+      description: 前端播放超过 30 秒或超过一半时上报一次。播放次数加一，更新最近播放时间。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seconds]
+              properties:
+                seconds: { type: integer, minimum: 0, maximum: 86400, description: 这次听了多少秒 }
+      responses:
+        "200":
+          description: 更新后的歌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrack" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/albums:
+    get:
+      operationId: listMusicAlbums
+      tags: [music]
+      responses:
+        "200":
+          description: 按专辑分组。专辑歌手没有时用歌手
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MusicAlbum" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/artists:
+    get:
+      operationId: listMusicArtists
+      tags: [music]
+      responses:
+        "200":
+          description: 按歌手分组。歌手字段按原样分组，不拆开多个歌手
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MusicArtist" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/playlists:
+    get:
+      operationId: listMusicPlaylists
+      tags: [music]
+      responses:
+        "200":
+          description: 播放列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MusicPlaylist" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createMusicPlaylist
+      tags: [music]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MusicPlaylistCreate" }
+      responses:
+        "201":
+          description: 新建的播放列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicPlaylistDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/playlists/{playlistId}:
+    parameters:
+      - $ref: "#/components/parameters/PlaylistId"
+    get:
+      operationId: getMusicPlaylist
+      tags: [music]
+      responses:
+        "200":
+          description: 播放列表和里面的歌，按顺序
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicPlaylistDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateMusicPlaylist
+      tags: [music]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+      responses:
+        "200":
+          description: 更新后的播放列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicPlaylistDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteMusicPlaylist
+      tags: [music]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/playlists/{playlistId}/items:
+    parameters:
+      - $ref: "#/components/parameters/PlaylistId"
+    put:
+      operationId: setMusicPlaylistItems
+      tags: [music]
+      description: 整体设置里面的歌和顺序。重复的歌只留第一次出现的，不存在的歌回 400。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MusicTrackIds" }
+      responses:
+        "200":
+          description: 更新后的播放列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicPlaylistDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: addMusicPlaylistItems
+      tags: [music]
+      description: 往末尾加歌。已经在里面的歌跳过，不存在的歌回 400。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MusicTrackIds" }
+      responses:
+        "200":
+          description: 更新后的播放列表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicPlaylistDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/settings:
+    get:
+      operationId: getMusicSettings
+      tags: [music]
+      responses:
+        "200":
+          description: 音乐设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putMusicSettings
+      tags: [music]
+      description: 设置音乐目录。目录必须是云盘里存在、没有隐藏、不在回收站的文件夹。改完立即在后台重新扫描。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MusicSettingsInput" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/scan:
+    post:
+      operationId: scanMusic
+      tags: [music]
+      description: 在后台重新扫描音乐目录。已经在扫描时也回 202。完成时发 music.library_changed 事件。
+      responses:
+        "202":
+          description: 已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicScanStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    TrackId:
+      name: trackId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    PlaylistId:
+      name: playlistId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    MusicTrack:
+      type: object
+      required: [id, driveItemId, title, artist, album, albumArtist, trackNo, discNo, year, durationMs, bitrate, format, hasCover, coverSource, lyricsSource, lyricsSynced, favorite, playCount, matchState, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        driveItemId: { type: integer, format: int64, description: 云盘里的文件编号 }
+        title: { type: string }
+        artist: { type: string, description: 没有时为空字符串，界面显示“未知歌手” }
+        album: { type: string }
+        albumArtist: { type: string }
+        trackNo: { type: integer, description: 没有时为 0 }
+        discNo: { type: integer }
+        year: { type: integer }
+        durationMs: { type: integer }
+        bitrate: { type: integer, description: 单位 kbps }
+        format: { type: string, description: 小写扩展名，例如 mp3、flac }
+        hasCover: { type: boolean }
+        coverSource: { type: string, enum: [embedded, folder, online, none] }
+        lyricsSource: { type: string, enum: [embedded, lrc, online, none] }
+        lyricsSynced: { type: boolean, description: 歌词带时间轴 }
+        favorite: { type: boolean }
+        playCount: { type: integer }
+        lastPlayedAt: { type: string, format: date-time }
+        matchState: { type: string, enum: [none, matched, pending, failed, skipped], description: 在线匹配的状态，B100 起使用 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    MusicTrackPage:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/MusicTrack" }
+        total: { type: integer, description: 符合条件的总数 }
+        nextCursor: { type: string, description: 没有下一页时没有这个字段 }
+    MusicTrackPatch:
+      type: object
+      properties:
+        favorite: { type: boolean }
+        title: { type: string }
+        artist: { type: string }
+        album: { type: string }
+        albumArtist: { type: string }
+    MusicLyricLine:
+      type: object
+      required: [text]
+      properties:
+        timeMs: { type: integer, description: 没有时间轴时没有这个字段 }
+        text: { type: string }
+    MusicLyrics:
+      type: object
+      required: [synced, source, lines]
+      properties:
+        synced: { type: boolean }
+        source: { type: string, enum: [embedded, lrc, online, none] }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/MusicLyricLine" }
+    MusicAlbum:
+      type: object
+      required: [album, albumArtist, year, trackCount, durationMs, coverTrackId]
+      properties:
+        album: { type: string }
+        albumArtist: { type: string }
+        year: { type: integer }
+        trackCount: { type: integer }
+        durationMs: { type: integer }
+        coverTrackId: { type: integer, format: int64, description: 用它的封面做专辑封面，没有封面时为 0 }
+    MusicArtist:
+      type: object
+      required: [artist, trackCount, albumCount, coverTrackId]
+      properties:
+        artist: { type: string }
+        trackCount: { type: integer }
+        albumCount: { type: integer }
+        coverTrackId: { type: integer, format: int64 }
+    MusicPlaylist:
+      type: object
+      required: [id, name, trackCount, durationMs, coverTrackIds, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        trackCount: { type: integer }
+        durationMs: { type: integer }
+        coverTrackIds:
+          type: array
+          description: 前 4 首有封面的歌，用来拼封面
+          items: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    MusicPlaylistDetail:
+      allOf:
+        - $ref: "#/components/schemas/MusicPlaylist"
+        - type: object
+          required: [tracks]
+          properties:
+            tracks:
+              type: array
+              items: { $ref: "#/components/schemas/MusicTrack" }
+    MusicPlaylistCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        trackIds:
+          type: array
+          items: { type: integer, format: int64 }
+    MusicTrackIds:
+      type: object
+      required: [trackIds]
+      properties:
+        trackIds:
+          type: array
+          items: { type: integer, format: int64 }
+    MusicFolder:
+      type: object
+      required: [id, name, path]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        path: { type: string }
+    MusicSettings:
+      type: object
+      required: [folders]
+      properties:
+        folders:
+          type: array
+          description: 音乐目录。里面已经不存在的目录不会列出
+          items: { $ref: "#/components/schemas/MusicFolder" }
+    MusicSettingsInput:
+      type: object
+      required: [folders]
+      properties:
+        folders:
+          type: array
+          description: 云盘文件夹编号，最多 20 个。一个目录在另一个目录里时只保留外层的
+          maxItems: 20
+          items: { type: integer, format: int64 }
+    MusicScanStatus:
+      type: object
+      required: [running]
+      properties:
+        running: { type: boolean }

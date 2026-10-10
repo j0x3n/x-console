@@ -494,7 +494,11 @@ describe("B46 list moves", () => {
     });
     const steps = reorderByPriority([low, urgent, none], 1);
     expect(steps.map((s) => s.key)).toEqual(["B"]);
-    let current = applyListMove([low, urgent, none], steps[0].key, steps[0].plan);
+    let current = applyListMove(
+      [low, urgent, none],
+      steps[0].key,
+      steps[0].plan,
+    );
     expect(keys(listColumn(current, 1))).toBe("B,A,C");
     expect(reorderByPriority(current, 1)).toEqual([]);
   });

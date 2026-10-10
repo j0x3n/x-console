@@ -29,6 +29,7 @@ type Module struct {
 	q      *db.Queries
 	clock  *reminderClock
 	tickMu sync.Mutex
+	bodyMu sync.Mutex // B119: guards the report token setting
 
 	haMu     sync.Mutex
 	watched  map[string]bool   // entity ids linked to a habit
@@ -49,6 +50,7 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	d.Notify.OnAction("habit.", m.handleAction)
 	module.Provide[contracts.Habits](d.Registry, contracts.HabitsKey, m)
+	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"habits", activitySource{m}) // B118
 	m.registerActions()
 	return m, nil
 }

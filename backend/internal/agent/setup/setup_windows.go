@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/j0x3n/x-console/backend/internal/agent/nowindow"
 )
 
 const taskName = "X Console Agent"
@@ -81,20 +83,16 @@ func install(opts Options) error {
 			return fmt.Errorf("配对失败：%w", err)
 		}
 	}
-	// The task starts the agent at logon, in the user's own session, so it can
-	// use the clipboard and the user's credentials.
-	cmdline := fmt.Sprintf(`schtasks /Create /F /TN "%s" /TR "\"%s\" run" /SC ONLOGON /RL LIMITED`, taskName, dst)
-	if err := runLine("schtasks", cmdline); err != nil {
-		return fmt.Errorf("注册开机启动失败：%w", err)
-	}
-	if err := run("schtasks", "/Run", "/TN", taskName); err != nil {
-		return fmt.Errorf("启动代理失败：%w", err)
+	if _, err := Background(opts.ConfigPath); err != nil {
+		return err
 	}
 	return nil
 }
 
 func run(name string, args ...string) error {
-	out, err := exec.Command(name, args...).CombinedOutput()
+	cmd := exec.Command(name, args...)
+	nowindow.Hide(cmd)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
 	}
@@ -106,6 +104,7 @@ func run(name string, args ...string) error {
 func runLine(name, cmdline string) error {
 	cmd := exec.Command(name)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: cmdline}
+	nowindow.Hide(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
@@ -118,7 +117,9 @@ func inputBox(title, prompt, def string) string {
 	esc := func(s string) string { return strings.ReplaceAll(s, "'", "''") }
 	script := fmt.Sprintf("Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.Interaction]::InputBox('%s','%s','%s')",
 		esc(prompt), esc(title), esc(def))
-	out, err := exec.Command("powershell", "-NoProfile", "-Command", script).Output()
+	cmd := exec.Command("powershell", "-NoProfile", "-Command", script)
+	nowindow.Hide(cmd)
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}

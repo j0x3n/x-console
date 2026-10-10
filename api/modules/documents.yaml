@@ -1,0 +1,298 @@
+openapi: 3.0.3
+info:
+  title: X Console documents (B115)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      description: |
+        全部档案，按到期日排序：已过期的在最前，没有到期日的在最后。
+        概要统计不受 kind、q 的限制，只受 archived 的限制。
+      parameters:
+        - name: kind
+          in: query
+          schema: { $ref: "#/components/schemas/DocumentKind" }
+        - name: q
+          in: query
+          description: 在名称、持有人、序列号、备注里找
+          schema: { type: string }
+        - name: archived
+          in: query
+          description: true 时包含已归档的，默认不含
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 档案列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, summary]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Document" }
+                  summary: { $ref: "#/components/schemas/DocumentSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createDocument
+      tags: [documents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /documents/kinds:
+    get:
+      operationId: listDocumentKinds
+      tags: [documents]
+      description: 用户自己加的类型（比如银行卡、会员卡），带各自有几条档案。内置类型不在这里。
+      responses:
+        "200":
+          description: 自定义类型
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CustomDocumentKind" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createDocumentKind
+      tags: [documents]
+      description: |
+        加一个自定义类型。名称 1 到 20 个字符，不能和已有的类型重名，最多 30 个。
+        同名的已经有了就直接返回它，不报错。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: 新类型
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomDocumentKind" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteDocumentKind
+      tags: [documents]
+      description: 删掉一个自定义类型。还有档案（包括已归档的）用着它时回 409。
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /documents/{documentId}:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      operationId: getDocument
+      tags: [documents]
+      responses:
+        "200":
+          description: 档案
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateDocument
+      tags: [documents]
+      description: |
+        只改给出的字段。expiresOn 改了或清空，已提醒的记录一起清掉。
+        archived 为 true 归档，false 取消归档。字符串字段给空字符串表示清空。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentPatch" }
+      responses:
+        "200":
+          description: 已修改
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      description: 删除档案。需要提升权限。云盘里的扫描件不会删。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /documents/{documentId}/files:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    post:
+      operationId: addDocumentFile
+      tags: [documents]
+      description: |
+        记下一个已经传到云盘的文件。同一个云盘文件重复添加时只更新名称。
+        一条档案最多 20 个文件。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentFile" }
+      responses:
+        "200":
+          description: 更新后的档案
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /documents/{documentId}/files/{driveId}:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+      - name: driveId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      operationId: removeDocumentFile
+      tags: [documents]
+      description: 只去掉档案里的记录，不删云盘里的文件。
+      responses:
+        "200":
+          description: 更新后的档案
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    DocumentKind:
+      type: string
+      description: |
+        内置类型：passport、id_card、driver_license、visa、contract、insurance、item、other。
+        用户自己加的类型写成 `c:` 加名称，比如 `c:银行卡`，要先用 POST /documents/kinds 加。
+    CustomDocumentKind:
+      type: object
+      required: [key, name, count]
+      properties:
+        key: { type: string, description: "档案里用的类型值，`c:` 加名称" }
+        name: { type: string }
+        count: { type: integer, description: 用这个类型的档案数，包括已归档的 }
+    DocumentStatus:
+      type: string
+      description: expired 已过期，soon 90 天内到期（或在该档案自己设的最大提醒天数内），ok 还早，none 没有到期日
+      enum: [expired, soon, ok, none]
+    DocumentFile:
+      type: object
+      required: [driveId, name]
+      properties:
+        driveId: { type: integer, format: int64, description: 云盘文件的编号 }
+        name: { type: string }
+    DocumentSummary:
+      type: object
+      required: [total, expired, soon, none]
+      properties:
+        total: { type: integer }
+        expired: { type: integer }
+        soon: { type: integer }
+        none: { type: integer }
+    Document:
+      type: object
+      required: [id, kind, name, holder, number, issuedOn, expiresOn, currency, serial, remindDays, notes, files, status, archived, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        name: { type: string }
+        holder: { type: string }
+        number: { type: string, description: 编号，加密存储 }
+        issuedOn: { type: string, description: "签发或购买日期，YYYY-MM-DD，没有为空字符串" }
+        expiresOn: { type: string, description: "到期日，YYYY-MM-DD，没有为空字符串" }
+        price: { type: number, format: double, nullable: true }
+        currency: { type: string }
+        serial: { type: string }
+        remindDays:
+          type: array
+          items: { type: integer }
+          description: 提前多少天提醒，从大到小
+        notes: { type: string }
+        files:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentFile" }
+        status: { $ref: "#/components/schemas/DocumentStatus" }
+        daysLeft:
+          type: integer
+          nullable: true
+          description: 离到期日还有几天，过期为负数，没有到期日为空
+        archived: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DocumentInput:
+      type: object
+      required: [kind, name]
+      properties:
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        name: { type: string }
+        holder: { type: string }
+        number: { type: string }
+        issuedOn: { type: string }
+        expiresOn: { type: string }
+        price: { type: number, format: double, nullable: true }
+        currency: { type: string }
+        serial: { type: string }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+    DocumentPatch:
+      type: object
+      properties:
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        name: { type: string }
+        holder: { type: string }
+        number: { type: string }
+        issuedOn: { type: string }
+        expiresOn: { type: string }
+        price: { type: number, format: double, nullable: true }
+        currency: { type: string }
+        serial: { type: string }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+        archived: { type: boolean }

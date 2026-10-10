@@ -3,38 +3,86 @@
 package main
 
 import (
-	"unsafe"
+	"os"
+	"path/filepath"
 
 	"golang.org/x/sys/windows"
 )
 
-var (
-	kernel32                  = windows.NewLazySystemDLL("kernel32.dll")
-	user32                    = windows.NewLazySystemDLL("user32.dll")
-	procGetConsoleWindow      = kernel32.NewProc("GetConsoleWindow")
-	procGetConsoleProcessList = kernel32.NewProc("GetConsoleProcessList")
-	procShowWindow            = user32.NewProc("ShowWindow")
+// The Windows agent is built as a GUI program (-H=windowsgui), so Windows
+// never creates a console window for it, however it is started (task
+// scheduler, double click, a shell). The cost is that it has no standard
+// output of its own. setupConsole fixes that:
+//   - started from a shell, it attaches to the shell's console, so "pair" and
+//     "version" still print there;
+//   - started by the task scheduler or Explorer, it writes the log to a file.
+//
+// Child programs have to be started with CREATE_NO_WINDOW, see package
+// nowindow.
+
+const (
+	attachParentProcess = ^uint32(0)
+	maxLogSize          = 1 << 20
 )
 
-const swHide = 0
+var procAttachConsole = windows.NewLazySystemDLL("kernel32.dll").NewProc("AttachConsole")
 
-// hideOwnConsole hides the black console window when the agent got one of
-// its own, which is what happens when Task Scheduler starts it at logon.
-// Started from an existing PowerShell or cmd window, other processes share
-// the console and it stays visible. The console is hidden, not freed, so
-// child programs (wevtutil, PowerShell) keep using it without opening new
-// windows.
-func hideOwnConsole() {
-	hwnd, _, _ := procGetConsoleWindow.Call()
-	if hwnd == 0 {
+func setupConsole() {
+	needOut := !validStdHandle(windows.STD_OUTPUT_HANDLE)
+	needErr := !validStdHandle(windows.STD_ERROR_HANDLE)
+	if !needOut && !needErr {
 		return
 	}
-	var pids [4]uint32
-	n, _, _ := procGetConsoleProcessList.Call(uintptrOf(&pids[0]), uintptr(len(pids)))
-	if n != 1 {
+	if ok, _, _ := procAttachConsole.Call(uintptr(attachParentProcess)); ok != 0 {
+		if needOut {
+			if f, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0); err == nil {
+				os.Stdout = f
+			}
+		}
+		if needErr {
+			if f, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0); err == nil {
+				os.Stderr = f
+			}
+		}
 		return
 	}
-	procShowWindow.Call(hwnd, swHide)
+	f := openLogFile()
+	if f == nil {
+		return
+	}
+	if needOut {
+		os.Stdout = f
+	}
+	if needErr {
+		os.Stderr = f
+		// Go's own crash output goes to the process error handle.
+		_ = windows.SetStdHandle(windows.STD_ERROR_HANDLE, windows.Handle(f.Fd()))
+	}
 }
 
-func uintptrOf(p *uint32) uintptr { return uintptr(unsafe.Pointer(p)) }
+func validStdHandle(id uint32) bool {
+	h, err := windows.GetStdHandle(id)
+	return err == nil && h != 0 && h != windows.InvalidHandle
+}
+
+// openLogFile opens %LOCALAPPDATA%\x-console-agent\agent.log. A log over 1 MB
+// is moved to agent.log.old first, so the file never grows without limit.
+func openLogFile() *os.File {
+	base := os.Getenv("LOCALAPPDATA")
+	if base == "" {
+		return nil
+	}
+	dir := filepath.Join(base, "x-console-agent")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil
+	}
+	path := filepath.Join(dir, "agent.log")
+	if st, err := os.Stat(path); err == nil && st.Size() > maxLogSize {
+		_ = os.Rename(path, path+".old")
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return nil
+	}
+	return f
+}

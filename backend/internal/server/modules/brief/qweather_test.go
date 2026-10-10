@@ -448,8 +448,9 @@ func TestDoubtfulMinutelyRain(t *testing.T) {
 	}
 
 	ex := extra()
-	if ex.Minutely.Points[0].Precip != 0 || ex.Minutely.Summary != "分钟预报和实况对不上，按没有降水处理" {
-		t.Fatalf("doubtful rain kept: %+v", ex.Minutely)
+	// 页面原样显示和风的分钟降水，只有推送会因为存疑而不发
+	if ex.Minutely.Points[0].Precip != 0.05 {
+		t.Fatalf("minutely rewritten: %+v", ex.Minutely)
 	}
 	if err := brief.CheckRainSoon(m, ctx, now); err != nil {
 		t.Fatal(err)

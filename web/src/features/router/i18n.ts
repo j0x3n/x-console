@@ -54,4 +54,15 @@ registerZh({
   "On the router": "路由器上要做的准备",
   Copy: "复制",
   Copied: "已复制",
+  // B114
+  "The router reports by itself": "路由器主动上报",
+  "Create router token": "生成上报令牌",
+  "Create a new token": "重新生成令牌",
+  "Create a new token?": "重新生成令牌？",
+  "Router token created": "已生成令牌",
+  "Last report": "最近一次上报",
+  "Report interval": "上报间隔",
+  "Queued. The router runs it on its next report.":
+    "已排队，路由器下次上报时执行",
+  "No report received yet": "还没有收到过上报",
 });

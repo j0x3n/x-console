@@ -233,6 +233,58 @@
   font-size: var(--fs-12);
   fill: var(--xc-muted);
 }
+.habits-body-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.habits-body-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+.habits-body-stats div {
+  min-width: 0;
+}
+.habits-body-stats dt {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.habits-body-stats dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+.habits-code {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0;
+}
+.habits-code pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-11-5);
+  line-height: 1.5;
+}
+.habits-code .xc-btn {
+  align-self: flex-end;
+}
+.habits-body-help {
+  margin-top: 8px;
+}
+.habits-body-help summary {
+  cursor: pointer;
+}
+.habits-body-help p,
+.habits-body-help li {
+  overflow-wrap: anywhere;
+}
 .habits-submit-hidden {
   display: none;
 }

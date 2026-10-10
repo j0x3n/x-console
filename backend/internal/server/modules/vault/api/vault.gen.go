@@ -16,19 +16,25 @@ const (
 	Automations ModuleId = "automations"
 	Calendar    ModuleId = "calendar"
 	Coding      ModuleId = "coding"
+	Contacts    ModuleId = "contacts"
+	Credentials ModuleId = "credentials"
+	Documents   ModuleId = "documents"
 	Drive       ModuleId = "drive"
 	DriveGdrive ModuleId = "drive-gdrive"
 	DriveWebdav ModuleId = "drive-webdav"
 	Github      ModuleId = "github"
 	Habits      ModuleId = "habits"
 	Home        ModuleId = "home"
+	Journal     ModuleId = "journal"
 	Mail        ModuleId = "mail"
 	Monitoring  ModuleId = "monitoring"
 	Notes       ModuleId = "notes"
 	Pc          ModuleId = "pc"
 	Projects    ModuleId = "projects"
+	Readlater   ModuleId = "readlater"
 	Reminders   ModuleId = "reminders"
 	Router      ModuleId = "router"
+	Screentime  ModuleId = "screentime"
 	Servers     ModuleId = "servers"
 )
 
@@ -40,6 +46,12 @@ func (e ModuleId) Valid() bool {
 	case Calendar:
 		return true
 	case Coding:
+		return true
+	case Contacts:
+		return true
+	case Credentials:
+		return true
+	case Documents:
 		return true
 	case Drive:
 		return true
@@ -53,6 +65,8 @@ func (e ModuleId) Valid() bool {
 		return true
 	case Home:
 		return true
+	case Journal:
+		return true
 	case Mail:
 		return true
 	case Monitoring:
@@ -63,9 +77,13 @@ func (e ModuleId) Valid() bool {
 		return true
 	case Projects:
 		return true
+	case Readlater:
+		return true
 	case Reminders:
 		return true
 	case Router:
+		return true
+	case Screentime:
 		return true
 	case Servers:
 		return true

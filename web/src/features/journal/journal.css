@@ -1,0 +1,191 @@
+/* B118 每日时间线和日记。颜色只用 --xc-* 令牌。 */
+
+.journal-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.journal-date {
+  width: 150px;
+}
+
+/* 最近两周的日期条：窄屏时只在这一条里横向滚动 */
+.journal-days {
+  display: flex;
+  margin: 0 0 14px;
+  gap: 6px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.journal-chip {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 52px;
+  padding: 5px 8px 8px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+  color: var(--xc-text-2);
+  font: inherit;
+  cursor: pointer;
+}
+.journal-chip:hover {
+  background: var(--xc-surface-2);
+}
+.journal-chip.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.journal-chip small {
+  color: var(--xc-muted);
+}
+.journal-chip i {
+  position: absolute;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+.journal-chip i.has-diary {
+  background: var(--xc-accent);
+}
+
+/* 时间线 */
+.journal-timeline {
+  margin: 0 0 16px;
+  padding: 4px 0;
+  list-style: none;
+}
+.journal-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.journal-item:last-child {
+  border-bottom: 0;
+}
+.journal-time {
+  flex: none;
+  width: 42px;
+  padding-top: 6px;
+  color: var(--xc-muted);
+  font-variant-numeric: tabular-nums;
+}
+.journal-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.journal-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 3px;
+}
+.journal-main strong {
+  color: var(--xc-text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.journal-main strong a {
+  color: inherit;
+  text-decoration: none;
+}
+.journal-main strong a:hover {
+  color: var(--xc-accent-text);
+  text-decoration: underline;
+}
+.journal-main small {
+  color: var(--xc-muted);
+  overflow-wrap: anywhere;
+}
+
+/* 日记 */
+.journal-diary {
+  padding: 12px 16px 16px;
+}
+.journal-diary-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.journal-diary-state {
+  flex: 1;
+}
+
+/* 搜索结果 */
+.journal-results {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+.journal-hit {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 9px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--xc-border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.journal-results li:last-child .journal-hit {
+  border-bottom: 0;
+}
+.journal-hit:hover {
+  background: var(--xc-surface-2);
+}
+.journal-hit-day {
+  flex: none;
+  padding-top: 3px;
+  font-size: var(--fs-12);
+}
+
+@media (max-width: 640px) {
+  .journal-item,
+  .journal-hit {
+    gap: 8px;
+    padding: 9px 12px;
+  }
+  .journal-time {
+    width: 38px;
+  }
+  .journal-hit {
+    flex-wrap: wrap;
+  }
+  .journal-hit-day {
+    flex-basis: 100%;
+    padding: 0 0 0 36px;
+  }
+  .journal-diary {
+    padding: 12px;
+  }
+  .journal-date {
+    flex: 1;
+    min-width: 0;
+  }
+}

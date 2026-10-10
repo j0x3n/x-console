@@ -1,0 +1,357 @@
+openapi: 3.0.3
+info:
+  title: X Console contacts and important dates (B122)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      description: |
+        全部联系人，近期的在前，然后是该联系的，最后是没有日子的。
+        概要统计不受 group、q 的限制，只受 archived 的限制。
+      parameters:
+        - name: group
+          in: query
+          schema: { $ref: "#/components/schemas/ContactGroup" }
+        - name: q
+          in: query
+          description: 在名称和备注里找
+          schema: { type: string }
+        - name: archived
+          in: query
+          description: true 时包含已归档的，默认不含
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 联系人列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, summary]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Contact" }
+                  summary: { $ref: "#/components/schemas/ContactSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /contacts/import:
+    post:
+      operationId: importContacts
+      tags: [contacts]
+      description: |
+        导入 vCard（.vcf）文件，Google 通讯录、iCloud、手机都能导出这种文件。multipart，字段名 file，最大 20 MB。
+        有 UID 的按 UID 对上已有的联系人；没有 UID 的按名称对上。对上了就更新姓名、电话、邮箱和从文件来的日期，
+        不动分组、联系周期、提醒天数、上次联系和备注。没对上的新建。
+        参数 onlyWithDates 为 true 时，只导入有生日或纪念日的联系人。
+      parameters:
+        - name: onlyWithDates
+          in: query
+          schema: { type: boolean }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: 导入结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContactImportResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /contacts/sync:
+    get:
+      operationId: getContactSync
+      tags: [contacts]
+      description: iCloud 通讯录同步的状态。没设置时 configured 为 false。
+      responses:
+        "200":
+          description: 状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContactSyncStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: setContactSync
+      tags: [contacts]
+      description: |
+        设置 iCloud 通讯录同步。要提升权限。Apple ID 登录要用“应用专用密码”（appleid.apple.com 里生成），不能用 Apple ID 的登录密码。
+        保存前先登录试一次，不通过就回 400，不保存。密码加密存储，不会再返回。server 不填就是 iCloud，必须是 https。
+        设置成功后马上同步一次。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactSyncInput" }
+      responses:
+        "200":
+          description: 状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContactSyncStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteContactSync
+      tags: [contacts]
+      description: 停止同步并删掉保存的账号。已经同步下来的联系人不动。要提升权限。
+      responses:
+        "204":
+          description: 已停止
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /contacts/sync/run:
+    post:
+      operationId: runContactSync
+      tags: [contacts]
+      description: 现在就同步一次。没设置时回 409。同步是单向的，iCloud 到这里，不会改 iCloud 上的联系人，也不会删本地的联系人。
+      responses:
+        "200":
+          description: 状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContactSyncStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /contacts/{contactId}:
+    parameters:
+      - $ref: "#/components/parameters/ContactId"
+    get:
+      operationId: getContact
+      tags: [contacts]
+      responses:
+        "200":
+          description: 联系人
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateContact
+      tags: [contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteContact
+      tags: [contacts]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /contacts/{contactId}/touch:
+    parameters:
+      - $ref: "#/components/parameters/ContactId"
+    post:
+      operationId: touchContact
+      tags: [contacts]
+      description: 记一次联系：把上次联系日期设为给的日期，默认今天，不能晚于今天。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactTouch" }
+      responses:
+        "200":
+          description: 已记下
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    ContactId:
+      name: contactId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    ContactGroup:
+      type: string
+      enum: [family, friend, colleague, other]
+    ContactEventKind:
+      type: string
+      enum: [birthday, anniversary, other]
+    ContactStatus:
+      type: string
+      enum: [soon, overdue, ok, none]
+    ContactEventInput:
+      type: object
+      required: [kind, date]
+      properties:
+        id: { type: string, description: 已有的日期带上它，新的不填 }
+        kind: { $ref: "#/components/schemas/ContactEventKind" }
+        label: { type: string, description: 不填就用类型的名字 }
+        date: { type: string, description: MM-DD 或 YYYY-MM-DD }
+    ContactEvent:
+      type: object
+      required: [id, kind, label, date, nextOn, nextIn]
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/ContactEventKind" }
+        label: { type: string }
+        date: { type: string }
+        nextOn: { type: string, description: 下一次的日期 YYYY-MM-DD }
+        nextIn: { type: integer, description: 离下一次还有几天，今天是 0 }
+        years:
+          type: integer
+          nullable: true
+          description: 下一次是几岁或几周年，没写年份就没有
+    ContactSummary:
+      type: object
+      required: [total, soon, overdue]
+      properties:
+        total: { type: integer }
+        soon: { type: integer }
+        overdue: { type: integer }
+    Contact:
+      type: object
+      required: [id, name, group, events, lastContactOn, contactEveryDays, remindDays, notes, phones, emails, source, status, archived, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        group: { $ref: "#/components/schemas/ContactGroup" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ContactEvent" }
+        lastContactOn: { type: string, description: YYYY-MM-DD，空表示没记过 }
+        contactEveryDays: { type: integer }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+        phones:
+          type: array
+          items: { type: string }
+        emails:
+          type: array
+          items: { type: string }
+        source:
+          type: string
+          description: 联系人从哪里来：空是手动建的，vcard 是导入文件，icloud 是同步
+        status: { $ref: "#/components/schemas/ContactStatus" }
+        nextEventIn: { type: integer, nullable: true }
+        nextEventLabel: { type: string }
+        sinceContact: { type: integer, nullable: true }
+        contactDueIn:
+          type: integer
+          nullable: true
+          description: 离该联系的日子还有几天，已过的是负数
+        archived: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ContactInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        group: { $ref: "#/components/schemas/ContactGroup" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ContactEventInput" }
+        lastContactOn: { type: string }
+        contactEveryDays: { type: integer }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+        phones:
+          type: array
+          items: { type: string }
+        emails:
+          type: array
+          items: { type: string }
+    ContactPatch:
+      type: object
+      properties:
+        name: { type: string }
+        group: { $ref: "#/components/schemas/ContactGroup" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ContactEventInput" }
+        lastContactOn: { type: string }
+        contactEveryDays: { type: integer }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+        phones:
+          type: array
+          items: { type: string }
+        emails:
+          type: array
+          items: { type: string }
+        archived: { type: boolean }
+    ContactImportResult:
+      type: object
+      required: [total, created, updated, skipped]
+      properties:
+        total: { type: integer, description: 文件里的联系人数 }
+        created: { type: integer }
+        updated: { type: integer }
+        skipped: { type: integer, description: 没有名字，或者按设置跳过的 }
+    ContactSyncInput:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, description: Apple ID }
+        password: { type: string, description: 应用专用密码 }
+        server: { type: string, description: 不填就是 https://contacts.icloud.com }
+        onlyWithDates: { type: boolean, description: 只同步有生日或纪念日的联系人 }
+    ContactSyncStatus:
+      type: object
+      required: [configured, syncing, created, updated, total]
+      properties:
+        configured: { type: boolean }
+        username: { type: string }
+        server: { type: string }
+        onlyWithDates: { type: boolean }
+        syncing: { type: boolean }
+        lastSyncAt: { type: string, format: date-time, nullable: true }
+        lastError: { type: string, description: 上次同步失败的原因，成功为空 }
+        total: { type: integer, description: 上次同步看到的联系人数 }
+        created: { type: integer, description: 上次同步新建的 }
+        updated: { type: integer, description: 上次同步更新的 }
+    ContactTouch:
+      type: object
+      properties:
+        date: { type: string, description: 不填就是今天 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ApiError, errorMessage, unwrap } from "../../../api/client";
 import { EmptyState, Loading } from "../../../components/ui/States";
+import BrandMark from "../../../components/ui/BrandMark";
 import { Segmented } from "../../../components/ui/Toolbar";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatBytes, relativeTime } from "../../../lib/time";
@@ -142,7 +143,7 @@ export default function SharePage({ token }: { token: string }) {
   return (
     <div className="share-page">
       <header className="share-head">
-        <span className="brand-mark">X</span>
+        <BrandMark />
         <span>X Console</span>
         <small className="drive-muted">{t("Shared files")}</small>
       </header>

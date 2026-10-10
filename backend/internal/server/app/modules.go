@@ -4,12 +4,16 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/aiagents"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/aiconfig"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/automations"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/contacts"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/credentials"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/documents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
 	uploadfiles "github.com/j0x3n/x-console/backend/internal/server/modules/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
@@ -17,16 +21,20 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/homeassistant"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/journal"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/linear"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mcp"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/music"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/projects"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/quotas"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/readlater"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/router"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/screentime"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
 )
@@ -65,5 +73,13 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	mail.New,     // B53
 	router.New,   // B65
 	maintenance.New,
-	quotas.New, // B110
+	quotas.New,      // B110
+	documents.New,   // B115
+	screentime.New,  // B116
+	readlater.New,   // B117
+	journal.New,     // B118
+	credentials.New, // B120
+	aiconfig.New,    // B121
+	contacts.New,    // B122
+	music.New,       // B98
 }

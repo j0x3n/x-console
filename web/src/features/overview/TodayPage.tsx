@@ -50,6 +50,8 @@ import { greetingKey, summaryLine } from "./today";
 import TodayNetworkCard from "../router/TodayNetworkCard";
 import TodayQuotasCard from "../quotas/TodayQuotasCard";
 import { useQuotaAccounts } from "../quotas/api";
+import TodayScreenTimeCard from "../screentime/TodayScreenTimeCard";
+import { useScreenSummary } from "../screentime/api";
 
 const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   todos: { body: () => <TodosCard />, more: "/projects" },
@@ -59,6 +61,7 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   home: { body: () => <HomeCard />, more: "/home" },
   network: { body: () => <TodayNetworkCard />, more: "/router" }, // B65
   quotas: { body: () => <TodayQuotasCard />, more: "/quotas" }, // B111
+  screentime: { body: () => <TodayScreenTimeCard />, more: "/screentime" }, // B116
   mail: { body: () => <MailCard />, more: "/mail" },
   monitoring: { body: () => <MonitoringCard />, more: "/monitoring" },
   activity: { body: () => <ActivityCard /> },
@@ -112,10 +115,14 @@ export default function TodayPage() {
   // B111：没有额度账号，或接口还没上线时，“AI 额度”卡片不出现
   const quotas = useQuotaAccounts();
   const hasQuotas = (quotas.data?.length ?? 0) > 0;
+  // B116：今天还没有电脑时间记录时，“电脑时间”卡片不出现
+  const screen = useScreenSummary("day", "", "");
+  const hasScreen = (screen.data?.minutes ?? 0) > 0;
   const include = (c: LayoutCard) =>
     (editing || c.visible) &&
     modules.has(cardModule(c.id) as ModuleId | null) &&
-    (c.id !== "quotas" || editing || hasQuotas);
+    (c.id !== "quotas" || editing || hasQuotas) &&
+    (c.id !== "screentime" || editing || hasScreen);
   // B88：每张卡片可以放在任意一列，拖到别的列或列的空白处
   const grid = arrange(cards, columns, include);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);

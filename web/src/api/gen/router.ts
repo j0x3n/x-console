@@ -25,6 +25,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/router/push/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B114：生成上报令牌并切到“路由器主动上报”。旧令牌和旧的 ubus 配置立即作废。
+         *     要提升权限。令牌只在这次回复里出现，面板只存它的哈希。
+         *     回复里的 script 是填好地址和令牌、可以直接在路由器上粘贴执行的安装命令。
+         */
+        post: operations["createRouterPushToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/router/push/interval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description B114：改路由器上报的间隔。脚本每次上报后读到新值，最晚下一分钟内生效。只在 mode=push 时可用，否则回 409。 */
+        put: operations["putRouterPushInterval"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/router/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B114：路由器上的脚本每分钟调用一次。不需要登录会话，用 Authorization: Bearer <令牌> 校验。
+         *     请求体是纯文本，按 `#xc:<名字>` 开头的行分段：board、info、interfaces、devices 是 ubus 的 JSON 输出，
+         *     leases 是 /tmp/dhcp.leases，arp 是 /proc/net/arp。接口定义里不写 requestBody，由服务端自己解析。
+         */
+        post: operations["reportRouter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/router/status": {
         parameters: {
             query?: never;
@@ -88,7 +147,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 先 down 再 up 这个接口。要提升权限，路由器那边要允许 network.interface.* 的 up 和 down。 */
+        /**
+         * @description 先 down 再 up 这个接口。要提升权限，路由器那边要允许 network.interface.* 的 up 和 down。
+         *     mode=push 时面板连不到路由器，命令排队，路由器下次上报时取走执行，回 202。
+         */
         post: operations["restartRouterInterface"];
         delete?: never;
         options?: never;
@@ -105,7 +167,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 重启路由器。要提升权限，请求体要带 confirm 为“重启”。 */
+        /**
+         * @description 重启路由器。要提升权限，请求体要带 confirm 为“重启”。
+         *     mode=push 时命令排队，路由器下次上报时取走执行，也回 202。
+         */
         post: operations["rebootRouter"];
         delete?: never;
         options?: never;
@@ -118,10 +183,10 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
-         * @description direct 面板直接访问；agent 让家里的代理转发
+         * @description direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
          * @enum {string}
          */
-        RouterMode: "direct" | "agent";
+        RouterMode: "direct" | "agent" | "push";
         RouterConfig: {
             /** @description 路由器地址，比如 http://192.168.1.1。没配置时为空 */
             url: string;
@@ -129,14 +194,30 @@ export interface components {
             mode: components["schemas"]["RouterMode"];
             agentId?: string;
             hasPassword: boolean;
+            /**
+             * Format: date-time
+             * @description mode=push 时，最近一次收到上报的时间。还没收到过为空
+             */
+            lastReportAt?: string;
+            /** @description mode=push 时，路由器上报用的地址 */
+            reportUrl?: string;
+            /** @description mode=push 时，上报间隔（秒），默认 60 */
+            pushInterval?: number;
         };
         RouterConfigInput: {
             url: string;
             username?: string;
             /** @description 不传或为空表示不改 */
             password?: string;
+            /** @description 不传表示 direct。不能填 push，push 用 POST /router/push/token 开启 */
             mode?: components["schemas"]["RouterMode"];
             agentId?: string;
+        };
+        RouterPushToken: {
+            token: string;
+            reportUrl: string;
+            /** @description 在路由器上执行的完整安装命令，已经填好地址和令牌 */
+            script: string;
         };
         RouterInterface: {
             /** @description 接口名，比如 wan、lan、wan6 */
@@ -153,6 +234,11 @@ export interface components {
             uptimeSeconds?: number;
         };
         RouterStatus: {
+            /**
+             * @description ubus 是面板读出来的；push 是路由器上报的，不能从面板重启接口和路由器
+             * @enum {string}
+             */
+            source: "ubus" | "push";
             hostname: string;
             model: string;
             /** @description 比如 OpenWrt 24.10.0 */
@@ -179,7 +265,10 @@ export interface components {
             txRate?: number;
             /** @description 在线设备数 */
             clientCount: number;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description 读取时间。source=push 时是收到上报的时间
+             */
             checkedAt: string;
         };
         RouterClient: {
@@ -297,6 +386,80 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    createRouterPushToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 新令牌和安装命令 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterPushToken"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putRouterPushInterval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {integer} */
+                    seconds: 3 | 5 | 10 | 30 | 60;
+                };
+            };
+        };
+        responses: {
+            /** @description 保存后的配置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    reportRouter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description 已收下。回复是纯文本，每行一项：`interval=<秒>` 是下次上报的间隔；
+             *     `cmd=<编号> <动作> <参数>` 是要路由器执行的命令（restart_interface 加接口名，或 reboot），
+             *     每条命令只下发一次。老版本的脚本不读回复，也能正常上报。
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getRouterStatus: {
         parameters: {
             query?: never;
@@ -375,6 +538,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description mode=push：已排队，路由器下次上报时执行 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description 已重启 */
             204: {
                 headers: {

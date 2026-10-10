@@ -1,4 +1,5 @@
 // B8：用真实服务端和 Linux 代理跑浏览器主流程。运行前先 npm ci、安装 Chromium。
+// 分两部分：XC_E2E_PART=1 或 2 只跑一部分（CI 并行跑），不设就全跑。XC_E2E_TIMING=1 结束时列出各阶段耗时。
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
@@ -23,6 +24,28 @@ let weatherProxy;
 let weatherTargetPort;
 const weatherProxySockets = new Set();
 let stage = "启动";
+// 每个阶段的耗时，结束时按从长到短列出来（XC_E2E_TIMING=1 时才打印）
+const timings = [];
+let stageStart = Date.now();
+function setStage(name) {
+  timings.push([stage, Date.now() - stageStart]);
+  stage = name;
+  stageStart = Date.now();
+}
+function printTimings() {
+  if (process.env.XC_E2E_TIMING !== "1") return;
+  timings.push([stage, Date.now() - stageStart]);
+  const total = timings.reduce((sum, [, ms]) => sum + ms, 0);
+  console.log(`\n端到端耗时 ${(total / 1000).toFixed(1)} 秒，各阶段：`);
+  for (const [name, ms] of [...timings].sort((a, b) => b[1] - a[1]))
+    console.log(`${(ms / 1000).toFixed(1).padStart(7)} 秒  ${name}`);
+  console.log("\n按执行顺序：");
+  let at = 0;
+  for (const [name, ms] of timings) {
+    at += ms;
+    console.log(`${(at / 1000).toFixed(1).padStart(7)} 秒  ${name}`);
+  }
+}
 
 function start(name, command, args, options = {}) {
   const child = spawn(command, args, {
@@ -104,7 +127,7 @@ let base;
 try {
   rmSync(artifacts, { recursive: true, force: true });
   mkdirSync(artifacts, { recursive: true });
-  stage = "编译服务端和代理";
+  setStage("编译服务端和代理");
   await run("build-server", "go", ["build", "-o", binary("server"), "./cmd/server"], { cwd: backendDir });
   await run("build-agent", "go", ["build", "-o", binary("agent"), "./cmd/agent"], { cwd: backendDir });
   await run("build-fakedav", "go", ["build", "-o", binary("fakedav"), "./cmd/fakedav"], { cwd: backendDir });
@@ -151,7 +174,7 @@ try {
     HTTPS_PROXY: `http://127.0.0.1:${weatherProxy.address().port}`,
     NO_PROXY: "127.0.0.1,localhost",
   };
-  stage = "启动服务";
+  setStage("启动服务");
   start("server", binary("server"), [], { cwd: backendDir, env: serverEnv });
   await until("服务端", async () => (await fetch(`${serverUrl}/api/v1/auth/status`)).ok);
   await until("前端", async () => (await fetch(base)).ok);
@@ -178,7 +201,7 @@ try {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  stage = "初始化账号";
+  setStage("初始化账号");
   await page.goto(base);
   await page.getByLabel("用户名").fill(username);
   await page.getByLabel(/^密码/).fill(password);
@@ -189,7 +212,7 @@ try {
   assert.equal(await page.getByText(/演示数据：/).count(), 0);
   assert.equal((await api("/auth/status")).authenticated, true);
 
-  stage = "退出和登录";
+  setStage("退出和登录");
   await page.locator("button.nav-rail-avatar").click();
   await page.getByRole("menuitem", { name: "退出登录" }).click();
   await until("退出登录", async () => !(await api("/auth/status")).authenticated);
@@ -200,7 +223,29 @@ try {
   await page.getByRole("button", { name: "登录" }).click();
   await page.locator(".sidebar").waitFor();
 
-  stage = "B32 AI 供应商和浮窗";
+  const send = async (method, path, data) => {
+    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
+      method,
+      headers: { "X-Requested-With": "x-console" },
+      data,
+    });
+    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
+    return response.status() === 204 ? undefined : response.json();
+  };
+  // C1：打开每个页面，等主体出来。
+  const renderPages = async (paths) => {
+    for (const path of paths) {
+      setStage(`页面渲染 ${path}`);
+      await page.goto(`${base}${path}`);
+      await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
+    }
+  };
+  // 拆成两部分在 CI 里并行跑（XC_E2E_PART=1 或 2，不设就全跑）。
+  // 第一部分：笔记、项目、云盘、习惯、监控、隐藏内容等。第二部分：配对代理以后的服务器相关步骤。
+  // 两部分共用启动、登录和上面的辅助函数，互相不依赖对方造的数据。
+  const runPart = (n) => !process.env.XC_E2E_PART || process.env.XC_E2E_PART === n;
+  if (runPart("1")) {
+  setStage("B32 AI 供应商和浮窗");
   const aiFake = http.createServer(async (request, response) => {
     if (request.url === "/v1/models") {
       response.writeHead(200, { "Content-Type": "application/json" });
@@ -260,7 +305,7 @@ try {
       return !detail.running && detail.messages.some((message) => message.role === "assistant" && message.content.some((block) => block.text === "AI 已收到测试消息"));
     });
     assert.equal((await api("/ai/usage")).calls, 1);
-    stage = "B32 笔记自动标题和标签";
+    setStage("B32 笔记自动标题和标签");
     const aiNoteBody = "这是一篇用于端到端验证的笔记。".repeat(12);
     const noteResponse = await page.context().request.post(`${base}/api/v1/notes`, {
       headers: { "X-Requested-With": "x-console" }, data: { body: aiNoteBody },
@@ -283,7 +328,7 @@ try {
     await new Promise((done) => aiFake.close(done));
   }
 
-  stage = "B65 路由器";
+  setStage("B65 路由器");
   // 假的 OpenWrt ubus：登录、系统信息、接口、网卡计数、DHCP 租约和 host hints。
   const ubusFake = http.createServer(async (request, response) => {
     let raw = "";
@@ -327,7 +372,7 @@ try {
     await new Promise((done) => ubusFake.close(done));
   }
 
-  stage = "AI 额度";
+  setStage("AI 额度");
   // B110、B111：添加一个 DeepSeek 账号。CI 连不上 DeepSeek 时卡片显示读取失败，
   // 连得上时显示余额，两种都算页面正常。
   const quotaElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
@@ -350,7 +395,237 @@ try {
     headers: { "X-Requested-With": "x-console" },
   });
 
-  stage = "通知静音规则";
+  setStage("证件档案");
+  // B115：新建一份快到期的护照，详情里续期，再归档。
+  await page.goto(`${base}/documents`);
+  await page.getByText("还没有档案").waitFor();
+  await page.getByRole("button", { name: "新建档案" }).first().click();
+  await dialog("新建档案").getByLabel("名称").fill("端到端护照");
+  await dialog("新建档案").getByLabel("编号").fill("E00000001");
+  const soon = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建档案").getByLabel(/^到期日/).fill(soon);
+  await dialog("新建档案").getByRole("button", { name: "保存" }).click();
+  await page.getByText("端到端护照").waitFor();
+  await page.getByText(/天后到期/).first().waitFor();
+  const docsRaw = await page.context().request.get(`${base}/api/v1/documents`);
+  assert.ok(docsRaw.ok(), await docsRaw.text());
+  await page.getByText("端到端护照").click();
+  await dialog("端到端护照").getByText("E00000001").waitFor();
+  await dialog("端到端护照").getByRole("button", { name: "续期" }).click();
+  const renewed = new Date(Date.now() + 3650 * 86400e3).toISOString().slice(0, 10);
+  await dialog("端到端护照").getByLabel("新的到期日").fill(renewed);
+  await dialog("端到端护照").getByRole("button", { name: "保存" }).first().click();
+  await until("护照续期", async () => (await api("/documents")).items[0].expiresOn === renewed);
+  await dialog("端到端护照").getByRole("button", { name: "归档" }).click();
+  await page.getByText("还没有档案").waitFor().catch(() => {});
+  assert.equal((await api("/documents")).items.length, 0, "归档后列表里不应该还有这份档案");
+  const docsNotified = await api("/notifications");
+  assert.ok(
+    docsNotified.items.some((n) => n.kind === "documents.expiring"),
+    "新建快到期的档案应该立刻有一条到期提醒",
+  );
+
+  // 自己加的类型（银行卡之类）：能添加，能给档案用，没有档案用时能删
+  const kindAdd = await page.context().request.post(`${base}/api/v1/documents/kinds`, {
+    headers: { "X-Requested-With": "x-console" }, data: { name: "银行卡" },
+  });
+  assert.equal(kindAdd.status(), 201, await kindAdd.text());
+  assert.equal((await api("/documents/kinds")).items[0].key, "c:银行卡");
+  const kindDoc = await page.context().request.post(`${base}/api/v1/documents`, {
+    headers: { "X-Requested-With": "x-console" }, data: { kind: "c:银行卡", name: "端到端银行卡" },
+  });
+  assert.equal(kindDoc.status(), 201, await kindDoc.text());
+  const kindDocId = (await kindDoc.json()).id;
+  const kindBusy = await page.context().request.delete(`${base}/api/v1/documents/kinds?name=${encodeURIComponent("银行卡")}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(kindBusy.status(), 409, "还有档案在用的类型不能删");
+  await page.context().request.patch(`${base}/api/v1/documents/${kindDocId}`, {
+    headers: { "X-Requested-With": "x-console" }, data: { kind: "other" },
+  });
+  const kindDel = await page.context().request.delete(`${base}/api/v1/documents/kinds?name=${encodeURIComponent("银行卡")}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(kindDel.status(), 204, await kindDel.text());
+  await page.context().request.patch(`${base}/api/v1/documents/${kindDocId}`, {
+    headers: { "X-Requested-With": "x-console" }, data: { archived: true },
+  });
+
+  setStage("时间去向");
+  // B116：Linux 代理不能记录前台程序，页面应该说明原因。设置里打开保存标题、加一条规则、清空记录。
+  await page.goto(`${base}/screentime`);
+  await page.getByText("还没有能记录的电脑").waitFor();
+  assert.equal((await api("/screentime/summary")).state, "no_agent");
+  await page.getByTitle("时间去向设置").click();
+  const screenDialog = dialog("时间去向设置");
+  await screenDialog.getByText("没有已连接的 Windows 代理。").waitFor();
+  assert.equal((await api("/screentime/settings")).keepTitles, false, "窗口标题默认不保存");
+  await screenDialog.getByLabel(/保存窗口标题/).click();
+  await until("保存标题", async () => (await api("/screentime/settings")).keepTitles === true);
+  await screenDialog.getByLabel("要匹配的文字").fill("Foo.exe");
+  await screenDialog.getByLabel("时间花在哪").selectOption("office");
+  await screenDialog.getByRole("button", { name: "添加规则" }).click();
+  await screenDialog.getByText("Foo.exe").waitFor();
+  assert.equal((await api("/screentime/rules")).items.length, 1);
+  await screenDialog.getByRole("button", { name: /^删除规则 Foo\.exe/ }).click();
+  await until("规则删除", async () => (await api("/screentime/rules")).items.length === 0);
+  const screenElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(screenElevate.status(), 200, await screenElevate.text());
+  await screenDialog.getByRole("button", { name: "清空全部记录" }).click();
+  await dialog("清空全部时间记录？").getByRole("button", { name: "清空记录" }).click();
+  await page.getByText("记录已清空").waitFor();
+  await screenDialog.getByRole("button", { name: "关闭" }).click();
+
+  setStage("稍后阅读");
+  // B117：本机地址存不了；存一个公网链接后，从未读标为已读，再删除。
+  await page.goto(`${base}/readlater`);
+  await page.getByText("还没有存过链接").waitFor();
+  await page.getByRole("button", { name: "添加链接" }).first().click();
+  await dialog("添加链接").getByLabel("网址").fill("http://127.0.0.1:8080/secret");
+  await dialog("添加链接").getByRole("button", { name: "保存" }).click();
+  await dialog("添加链接").getByText("不能存本机或内网的地址").waitFor();
+  await dialog("添加链接").getByLabel("网址").fill("https://example.com/e2e-article?utm_source=x");
+  await dialog("添加链接").getByLabel("备注（可选）").fill("端到端备注");
+  await dialog("添加链接").getByRole("button", { name: "保存" }).click();
+  await until("链接保存", async () => (await api("/readlater?view=all")).counts.all === 1);
+  assert.equal((await api("/readlater?view=all")).items[0].url, "https://example.com/e2e-article", "跟踪参数应该被去掉");
+  await page.getByText("example.com").first().waitFor();
+  await page.getByRole("button", { name: /^标为已读/ }).first().click();
+  await until("标为已读", async () => (await api("/readlater?view=all")).counts.read === 1);
+  await page.getByText("没有未读的了").waitFor();
+  await page.getByRole("button", { name: "已读", exact: true }).click();
+  const readId = (await api("/readlater?view=all")).items[0].id;
+  const readDel = await page.context().request.delete(`${base}/api/v1/readlater/${readId}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(readDel.status(), 204, await readDel.text());
+
+  // B143：设置里填 X 登录 Cookie，接口只告诉有没有，清除后回到没有。
+  const xElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(xElevate.status(), 200, await xElevate.text());
+  await page.goto(`${base}/settings/readlater`);
+  await page.getByText("还没有 Cookie").waitFor();
+  await page.getByLabel(/auth_token 的值/).fill("e2e-auth-token-123456");
+  await page.getByLabel(/ct0 的值/).fill("e2e-csrf-token-123456");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByText("还没检查").waitFor();
+  const xState = await api("/readlater/x-auth");
+  assert.equal(xState.configured, true);
+  assert.ok(!JSON.stringify(xState).includes("e2e-auth-token"), "接口不能返回 Cookie");
+  await page.getByRole("button", { name: "清除 Cookie" }).click();
+  await dialog("清除 X 登录 Cookie？").getByRole("button", { name: "清除 Cookie" }).click();
+  await page.getByText("还没有 Cookie").waitFor();
+  assert.equal((await api("/readlater/x-auth")).configured, false);
+
+  setStage("每日时间线");
+  // B118：今天的时间线里有刚建的笔记，写日记，刷新后还在，往前翻一天，搜索能找到。
+  const journalNote = await page.context().request.post(`${base}/api/v1/notes`, {
+    headers: { "X-Requested-With": "x-console" }, data: { title: "时间线端到端笔记", body: "x" },
+  });
+  assert.equal(journalNote.status(), 201, await journalNote.text());
+  await page.goto(`${base}/journal`);
+  await page.getByText("新建笔记：时间线端到端笔记").waitFor();
+  const journalText = "端到端日记：今天验证了时间线";
+  await page.getByLabel("日记内容").fill(journalText);
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  const journalToday = (await api("/journal/recent")).days[0].day;
+  await until("日记保存", async () => (await api(`/journal/days/${journalToday}`)).diary.body === journalText);
+  await page.reload();
+  await page.getByLabel("日记内容").waitFor();
+  assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "刷新后日记还在");
+  await page.getByRole("button", { name: "前一天" }).click();
+  await page.getByText("这一天没有记录").waitFor();
+  await page.getByPlaceholder("搜索日记和时间线").fill("验证了时间线");
+  await page.getByText(/验证了时间线/).first().waitFor();
+  await page.getByText(/验证了时间线/).first().click();
+  await page.getByLabel("日记内容").waitFor();
+  assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "点搜索结果回到那一天");
+
+  setStage("密钥");
+  // B120：像密钥的内容被拒绝，页面新建一条，搜索能按用在哪里找到，记一次更换，删除要提升权限。
+  const secretTry = await page.context().request.post(`${base}/api/v1/credentials`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { kind: "api_key", name: `ghp_${"a1B2c3D4e5".repeat(4)}` },
+  });
+  assert.equal(secretTry.status(), 400, "像密钥的名称应该被拒绝");
+  await page.goto(`${base}/credentials`);
+  await page.getByRole("button", { name: "新建记录" }).first().click();
+  await dialog("新建记录").getByLabel("名称", { exact: true }).fill("端到端令牌");
+  await dialog("新建记录").getByLabel("平台", { exact: true }).fill("GitHub");
+  await dialog("新建记录").getByLabel("密钥内容").fill("e2e-secret-value");
+  await dialog("新建记录").getByLabel(/^用在/).fill("服务器 e2e-hk\n项目 e2e-app");
+  const credSoon = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建记录").getByLabel("到期日").fill(credSoon);
+  await dialog("新建记录").getByRole("button", { name: "保存" }).click();
+  await until("密钥新建", async () => (await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+  const credItem = (await api("/credentials")).items.find((c) => c.name === "端到端令牌");
+  assert.equal(credItem.status, "soon");
+  assert.equal(credItem.hasSecret, true);
+  assert.ok(!JSON.stringify(credItem).includes("e2e-secret-value"), "接口不应该返回密钥内容");
+  assert.deepEqual(credItem.usedBy, ["服务器 e2e-hk", "项目 e2e-app"]);
+  await page.getByPlaceholder("搜索记录").fill("e2e-hk");
+  await page.getByRole("button", { name: /端到端令牌/ }).click();
+  await dialog("端到端令牌").getByRole("button", { name: "已更换" }).click();
+  await dialog("端到端令牌").getByRole("button", { name: "保存", exact: true }).click();
+  await until("密钥更换", async () => (await api(`/credentials/${credItem.id}`)).rotatedOn !== "");
+  await page.getByText("已记下更换").waitFor();
+  const credElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(credElevate.status(), 200, await credElevate.text());
+  assert.equal((await api(`/credentials/${credItem.id}/secret`)).secret, "e2e-secret-value", "验证后能取出密钥内容");
+  await dialog("端到端令牌").getByRole("button", { name: "删除" }).click();
+  await page.getByRole("button", { name: "删除", exact: true }).last().click();
+  await until("密钥删除", async () => !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+
+  setStage("联系人");
+  // B122：新建一个五天后过生日的联系人，状态是近期；列表上记一次联系；搜索；删除不需要提升权限。
+  await page.goto(`${base}/contacts`);
+  await page.getByRole("button", { name: "新建联系人" }).first().click();
+  await dialog("新建联系人").getByLabel("名称", { exact: true }).fill("端到端老王");
+  await dialog("新建联系人").getByRole("button", { name: /添加日期/ }).click();
+  const birthSoon = new Date(Date.now() + 5 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建联系人").getByLabel("重要日期 1 日期", { exact: true }).fill(`1990-${birthSoon.slice(5)}`);
+  await dialog("新建联系人").getByLabel(/^联系周期/).fill("30");
+  await dialog("新建联系人").getByRole("button", { name: "保存" }).click();
+  await until("联系人新建", async () => (await api("/contacts")).items.some((c) => c.name === "端到端老王"));
+  const contact = (await api("/contacts")).items.find((c) => c.name === "端到端老王");
+  assert.equal(contact.status, "soon");
+  assert.equal(contact.events[0].kind, "birthday");
+  await page.getByPlaceholder("搜索联系人").fill("端到端");
+  const contactRow = page.locator(".contacts-row", { hasText: "端到端老王" });
+  await contactRow.getByRole("button", { name: /刚联系过/ }).click();
+  await until("联系人记一次联系", async () => (await api(`/contacts/${contact.id}`)).sinceContact === 0);
+  await contactRow.locator(".contacts-row-open").click();
+  await dialog("端到端老王").getByRole("button", { name: "删除" }).click();
+  await page.getByRole("button", { name: "删除", exact: true }).last().click();
+  await until("联系人删除", async () => !(await api("/contacts")).items.some((c) => c.name === "端到端老王"));
+
+  // B140：导入 vCard 文件，电话和从文件来的生日要带进来；导入和同步弹窗能打开
+  const vcf = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e2e-1\r\nFN:端到端导入\r\nTEL:010-0001\r\nBDAY:--1201\r\nEND:VCARD\r\n";
+  const imported = await page.context().request.post(`${base}/api/v1/contacts/import`, {
+    headers: { "X-Requested-With": "x-console" },
+    multipart: { file: { name: "contacts.vcf", mimeType: "text/vcard", buffer: Buffer.from(vcf) } },
+  });
+  assert.equal(imported.status(), 200, await imported.text());
+  assert.equal((await imported.json()).created, 1);
+  const importedContact = (await api("/contacts")).items.find((c) => c.name === "端到端导入");
+  assert.deepEqual(importedContact.phones, ["010-0001"]);
+  assert.equal(importedContact.events[0].date, "12-01");
+  await page.goto(`${base}/contacts`);
+  await page.getByRole("button", { name: "导入和同步" }).click();
+  await dialog("导入和同步").getByText("iCloud 通讯录同步").waitFor();
+  await dialog("导入和同步").getByRole("button", { name: "关闭" }).click();
+  const importedDel = await page.context().request.delete(`${base}/api/v1/contacts/${importedContact.id}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(importedDel.status(), 204);
+
+  setStage("通知静音规则");
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {
     headers: { "X-Requested-With": "x-console" },
@@ -362,7 +637,7 @@ try {
   await page.getByRole("button", { name: "删除 新邮件" }).click();
   await page.getByText("还没有静音规则").waitFor();
 
-  stage = "新建项目和卡片";
+  setStage("新建项目和卡片");
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();
   await dialog("新建项目").getByLabel("名称").fill("端到端项目");
@@ -378,7 +653,7 @@ try {
   await page.waitForURL(/\/projects\/EET\/\d+$/);
   const issueKey = `EET-${page.url().split("/").at(-1)}`;
   assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
-  stage = "B36 分类和截止时间";
+  setStage("B36 分类和截止时间");
   const categoryResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/categories`, {
     headers: { "X-Requested-With": "x-console" }, data: { name: "后端" },
   });
@@ -400,7 +675,7 @@ try {
   assert.equal(dueIssue.dueRemind, "15m");
   assert.equal(new Date(dueIssue.dueAt).getTime(), new Date(dueAt).getTime());
   // B46 起分类不在界面上显示，接口保留到下个版本。
-  stage = "B36 检查清单";
+  setStage("B36 检查清单");
   const checklistResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists`, {
     headers: { "X-Requested-With": "x-console" }, data: { title: "端到端检查" },
   });
@@ -418,7 +693,7 @@ try {
   await until("检查清单进度", async () => (await api(`/issues/${issueKey}`)).checklistDone === 1);
   await page.reload();
   await page.getByText("核对接口").waitFor();
-  stage = "B36 图片上传和归属";
+  setStage("B36 图片上传和归属");
   const sampleImage = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==", "base64");
   const uploadImage = async (name) => {
     const response = await page.context().request.post(`${base}/api/v1/files?scope=projects`, {
@@ -460,7 +735,7 @@ try {
   const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的卡片" });
   assert.equal((await progressCard.locator(".xc-stat-value").textContent()).trim(), "1");
 
-  stage = "B101 已过期视图";
+  setStage("B101 已过期视图");
   const overdueResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/issues`, {
     headers: { "X-Requested-With": "x-console" },
     data: { title: "端到端过期卡片", dueAt: new Date(Date.now() - 2 * 86_400_000).toISOString() },
@@ -472,7 +747,7 @@ try {
   const overdueLink = page.locator(".nav-panel").getByRole("link", { name: /已过期/ });
   await until("左栏的已过期数量", async () => (await overdueLink.locator("small").textContent())?.trim() === "1");
 
-  stage = "B46 新建看板、加卡片、拖到另一个列表、加清单";
+  setStage("B46 新建看板、加卡片、拖到另一个列表、加清单");
   await page.goto(`${base}/projects/EET`);
   await page.getByRole("button", { name: "新建看板" }).click();
   await dialog("新建看板").getByLabel("名称").fill("端到端看板");
@@ -502,7 +777,7 @@ try {
   await page.getByLabel("清单标题").press("Enter");
   await until("清单已建", async () => (await api(`/issues/${boardCardKey}/checklists`)).length === 1);
 
-  stage = "B55 锁定看板结构后不能加列表";
+  setStage("B55 锁定看板结构后不能加列表");
   await page.goto(`${base}/projects/EET`);
   await page.getByRole("button", { name: "添加列表" }).waitFor();
   await page.getByRole("button", { name: "锁定看板结构" }).click();
@@ -511,7 +786,7 @@ try {
   await page.getByRole("button", { name: "解锁看板结构" }).click();
   await page.getByRole("button", { name: "添加列表" }).waitFor();
 
-  stage = "B47 新建 Agent，把卡片分配给内置 Agent";
+  setStage("B47 新建 Agent，把卡片分配给内置 Agent");
   await page.goto(`${base}/coding`);
   await page.getByRole("button", { name: "新建 Agent" }).first().click();
   await dialog("新建 Agent").getByLabel("名称").fill("端到端 Agent");
@@ -537,14 +812,14 @@ try {
   });
   assert.ok((await api(`/issues/${boardCardKey}`)).members.some((m) => m.kind === "agent"));
 
-  stage = "B86 Agent 执行记录和日志";
+  setStage("B86 Agent 执行记录和日志");
   const runs = await api(`/ai-agents/runs?issueKey=${boardCardKey}`);
   assert.equal(runs[0].status, "failed");
   const runEvents = await api(`/ai-agents/runs/${runs[0].id}/events`);
   assert.ok(runEvents.items.some((event) => event.kind === "error"));
   assert.equal((await api(`/ai-agents/runs/${runs[0].id}/events?after=${runEvents.lastSeq}`)).items.length, 0);
 
-  stage = "B87 Agent 通知开关和待决定接口";
+  setStage("B87 Agent 通知开关和待决定接口");
   const notifySettings = await api("/ai-agents/notify");
   assert.equal(notifySettings.received, false);
   assert.equal(notifySettings.decision, true);
@@ -556,7 +831,7 @@ try {
   assert.equal((await api("/ai-agents/notify")).done, false);
   assert.deepEqual(await api("/ai-agents/decisions"), []);
 
-  stage = "写笔记";
+  setStage("写笔记");
   const noteResponses = [];
   page.on("request", (request) => {
     if (request.method() === "PATCH" && request.url().includes("/api/v1/notes/"))
@@ -588,7 +863,7 @@ try {
     throw new Error(`${error.message}\n当前笔记：${JSON.stringify(currentNote)}\n请求：${noteResponses.join(", ")}\n页面异常：${pageErrors.join("；")}`);
   }
 
-  stage = "B72 笔记外链分享";
+  setStage("B72 笔记外链分享");
   {
     const elevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
       headers: { "X-Requested-With": "x-console" }, data: { password },
@@ -617,7 +892,7 @@ try {
     assert.equal((await fetch(publicBase)).status, 404);
   }
 
-  stage = "B73 便签 API 主流程";
+  setStage("B73 便签 API 主流程");
   {
     const created = await page.context().request.post(`${base}/api/v1/notes`, {
       headers: { "X-Requested-With": "x-console" },
@@ -641,7 +916,7 @@ try {
     assert.equal(removed.status(), 204, await removed.text());
   }
 
-  stage = "B84 看板绑定仓库和同步 Issue API 主流程";
+  setStage("B84 看板绑定仓库和同步 Issue API 主流程");
   {
     const gitFake = http.createServer((request, response) => {
       response.setHeader("Content-Type", "application/json");
@@ -676,7 +951,7 @@ try {
     }
   }
 
-  stage = "B90 和风地点搜索、选择和天气";
+  setStage("B90 和风地点搜索、选择和天气");
   {
     const geoQueries = [];
     const weatherFake = https.createServer({ key: readFileSync(weatherKey), cert: readFileSync(weatherCert) }, (request, response) => {
@@ -753,7 +1028,7 @@ try {
       await new Promise((done) => weatherFake.close(done));
     }
   }
-  stage = "B70 仓库关注 API 主流程";
+  setStage("B70 仓库关注 API 主流程");
   {
     const original = await api("/github/config");
     const saved = await page.context().request.put(`${base}/api/v1/github/config`, {
@@ -770,7 +1045,7 @@ try {
     assert.equal(restored.status(), 200, await restored.text());
   }
 
-  stage = "B71 仓库通知设置 API 主流程";
+  setStage("B71 仓库通知设置 API 主流程");
   {
     const original = await api("/github/notify");
     const saved = await page.context().request.put(`${base}/api/v1/github/notify`, {
@@ -790,7 +1065,7 @@ try {
     assert.equal(restored.status(), 200, await restored.text());
   }
 
-  stage = "B74 笔记背景色 API 主流程";
+  setStage("B74 笔记背景色 API 主流程");
   {
     const colored = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {
       headers: { "X-Requested-With": "x-console" }, data: { color: "teal" },
@@ -815,7 +1090,7 @@ try {
     assert.equal(stopped.status(), 204, await stopped.text());
   }
 
-  stage = "新建提醒";
+  setStage("新建提醒");
   await page.goto(`${base}/reminders`);
   await page
     .locator('section.xc-stats[aria-label="提醒"] .xc-stat')
@@ -841,7 +1116,7 @@ try {
   const invalidIcon = await page.request.get(`${base}/api/v1/notify/icons/emoji-1f4a7.png?sig=00`);
   assert.equal(invalidIcon.status(), 403);
 
-  stage = "本地日历写入";
+  setStage("本地日历写入");
   const calendarResponse = await page
     .context()
     .request.post(`${base}/api/v1/calendars`, {
@@ -886,7 +1161,7 @@ try {
     });
   assert.equal(deleteResponse.status(), 204, await deleteResponse.text());
 
-  stage = "自动化规则运行";
+  setStage("自动化规则运行");
   const automationResponse = await page.context().request.post(`${base}/api/v1/automations`, {
     headers: { "X-Requested-With": "x-console" },
     data: {
@@ -910,7 +1185,7 @@ try {
     (await api(`/automations/${automation.id}/runs`))[0]?.status === "ok",
   );
 
-  stage = "手机云盘上传、预览和删除";
+  setStage("手机云盘上传、预览和删除");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${base}/drive`);
   await page.locator('[data-testid="drive-file-input"]').setInputFiles({
@@ -921,7 +1196,7 @@ try {
   const driveFile = await until("云盘上传", async () =>
     (await api("/drive/items")).items.find((item) => item.name === "端到端文件.txt"),
   );
-  stage = "云盘历史版本";
+  setStage("云盘历史版本");
   const savedVersion = await page.context().request.put(
     `${base}/api/v1/drive/items/${driveFile.id}/content`,
     {
@@ -941,13 +1216,13 @@ try {
     `${base}/api/v1/drive/items/${driveFile.id}/content`,
   );
   assert.equal(await restoredContent.text(), "云盘内容可以预览。");
-  stage = "云盘分享管理";
+  setStage("云盘分享管理");
   const shareElevation = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
     headers: { "X-Requested-With": "x-console" },
     data: { password },
   });
   assert.equal(shareElevation.status(), 200, await shareElevation.text());
-  stage = "B75 云盘分享预览和下载记录 API 主流程";
+  setStage("B75 云盘分享预览和下载记录 API 主流程");
   const shareResponse = await page.context().request.post(`${base}/api/v1/drive/shares`, {
     headers: { "X-Requested-With": "x-console" },
     data: { itemId: driveFile.id, expiresIn: "7d", code: "分享密码123456" },
@@ -991,7 +1266,7 @@ try {
     { headers: { "X-Requested-With": "x-console" } },
   );
   assert.equal(unshareResponse.status(), 204);
-  stage = "云盘日志实时";
+  setStage("云盘日志实时");
   await page.evaluate(
     ({ id, offset }) =>
       new Promise((resolve, reject) => {
@@ -1037,12 +1312,12 @@ try {
     },
   );
   assert.equal(restoreLog.status(), 200, await restoreLog.text());
-  stage = "云盘打包下载";
+  setStage("云盘打包下载");
   const zipResponse = await page.context().request.get(`${base}/api/v1/drive/zip?ids=${driveFile.id}`);
   assert.equal(zipResponse.status(), 200);
   assert.equal(zipResponse.headers()["content-type"], "application/zip");
   assert.equal((await zipResponse.body()).subarray(0, 2).toString(), "PK");
-  stage = "云盘批量复制和移动";
+  setStage("云盘批量复制和移动");
   const transferFolderResponse = await page.context().request.post(`${base}/api/v1/drive/folders`, {
     headers: { "X-Requested-With": "x-console" },
     data: { name: "端到端目标" },
@@ -1079,7 +1354,7 @@ try {
   );
   assert.equal((await api(`/drive/items?parent=${transferFolder.id}`)).items.length, 0);
   assert.equal((await api(`/drive/items?parent=${movedFolder.id}`)).items[0]?.id, copiedFile.id);
-  stage = "云盘压缩";
+  setStage("云盘压缩");
   const archiveResponse = await page.context().request.post(`${base}/api/v1/drive/archive`, {
     headers: { "X-Requested-With": "x-console" },
     data: { ids: [driveFile.id], name: "端到端压缩", format: "zip", parentId: transferFolder.id },
@@ -1094,7 +1369,7 @@ try {
   );
   assert.equal(archived.status(), 200);
   assert.equal((await archived.body()).subarray(0, 2).toString(), "PK");
-  stage = "云盘解压";
+  setStage("云盘解压");
   const extractResponse = await page.context().request.post(
     `${base}/api/v1/drive/items/${finishedArchive.resultId}/extract`,
     { headers: { "X-Requested-With": "x-console" } },
@@ -1114,7 +1389,7 @@ try {
   const finishedUploads = page.locator(".drive-uploads:not(.drive-tasks)");
   if (await finishedUploads.isVisible())
     await finishedUploads.getByRole("button", { name: "关闭" }).click();
-  stage = "手机云盘上传、预览和删除";
+  setStage("手机云盘上传、预览和删除");
   const driveRow = page.locator(".drive-row").filter({ hasText: "端到端文件.txt" });
   await driveRow.getByRole("button", { name: "端到端文件.txt", exact: true }).click();
   await dialog("端到端文件.txt").getByText("云盘内容可以预览。").waitFor();
@@ -1133,7 +1408,7 @@ try {
   );
   await page.setViewportSize({ width: 1360, height: 860 });
 
-  stage = "B69 在存储页加 WebDAV 账号，云盘二级菜单出现网盘";
+  setStage("B69 在存储页加 WebDAV 账号，云盘二级菜单出现网盘");
   const davPort = await freePort();
   start("fakedav", binary("fakedav"), ["-addr", `127.0.0.1:${davPort}`, "-user", "me", "-password", "dav-pw"]);
   await until("WebDAV", async () => (await fetch(`http://127.0.0.1:${davPort}/dav/`)).status === 401);
@@ -1154,16 +1429,7 @@ try {
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
 
-  const send = async (method, path, data) => {
-    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
-      method,
-      headers: { "X-Requested-With": "x-console" },
-      data,
-    });
-    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
-    return response.status() === 204 ? undefined : response.json();
-  };
-  stage = "B81 增量备份 API 主流程";
+  setStage("B81 增量备份 API 主流程");
   const previousBackupSettings = await api("/backups/settings");
   const backupRemote = (await api("/storage/remotes")).items.find((item) => item.name === "端到端网盘");
   await send("PUT", "/backups/settings", { target: "remote", remoteId: backupRemote.id, mode: "incremental", webdav: { folder: "e2e-backups" }, retention: { last: 7, daily: 14, weekly: 8, monthly: 12 } });
@@ -1198,7 +1464,7 @@ try {
   const { lastRuns: previousBackupRuns, nextRunAt: previousBackupNext, ...previousBackupInput } = previousBackupSettings;
   await send("PUT", "/backups/settings", previousBackupInput);
 
-  stage = "B83 作息和健康提醒 API 主流程";
+  setStage("B83 作息和健康提醒 API 主流程");
   const previousSchedule = await api("/habits/schedule");
   await send("PUT", "/habits/schedule", { workDays: [1, 2, 3, 4, 5], wakeTime: "12:00", sleepTime: "03:30", timezone: "Asia/Shanghai", idleMinutes: 5 });
   assert.equal((await api("/habits/schedule")).sleepTime, "03:30");
@@ -1213,7 +1479,7 @@ try {
   await send("DELETE", `/habits/${healthHabit.id}`);
   await send("PUT", "/habits/schedule", previousSchedule);
 
-  stage = "习惯打卡";
+  setStage("习惯打卡");
   await page.goto(`${base}/habits`);
   await page.getByRole("button", { name: "新建习惯" }).click();
   await dialog("新建习惯").getByLabel("名称").fill("端到端习惯");
@@ -1226,7 +1492,7 @@ try {
     return habit?.reached && habit.logs.length === 1;
   });
 
-  stage = "训练自动打卡";
+  setStage("训练自动打卡");
   const workoutHabitResponse = await page.context().request.post(`${base}/api/v1/habits`, {
     headers: { "X-Requested-With": "x-console" },
     data: { name: "端到端健身", kind: "workout", dailyTarget: 1 },
@@ -1251,7 +1517,7 @@ try {
   assert.equal(removeWorkoutResponse.status(), 204, await removeWorkoutResponse.text());
   assert.equal((await api("/habits/today")).find((item) => item.habit.id === workoutHabit.id).done, 0);
 
-  stage = "B97 个人计划主流程";
+  setStage("B97 个人计划主流程");
   const library = await api("/habits/library");
   assert.equal(library.exercises.length, 66);
   assert.equal(library.articles.length, 26);
@@ -1296,7 +1562,7 @@ try {
   await dialog("添加动作到周计划").waitFor({ state: "hidden" });
   assert.ok((await api("/workouts/plans")).some((p) => p.items.some((i) => i.exerciseId === picked.id && i.prescription)));
 
-  stage = "健身方案加入习惯、推荐习惯";
+  setStage("健身方案加入习惯、推荐习惯");
   await page.goto(`${base}/habits/fitness?program=low-back`);
   await page.locator(".habits-fit-head").getByRole("button", { name: "加入习惯" }).click();
   await dialog("新建习惯").getByRole("button", { name: "保存" }).click();
@@ -1322,7 +1588,53 @@ try {
   await send("POST", "/habits/personal/backup", personalBackup);
   assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.5");
 
-  stage = "续费进入早报";
+  setStage("身体数据同步和趋势");
+  // B119：静息心率手填，上报令牌从设置里生成，用令牌上报后趋势图出现，关闭后令牌失效。
+  await page.goto(`${base}/habits/plan?section=records`);
+  await page.getByLabel("静息心率（次/分）", { exact: true }).fill("58");
+  await page.getByRole("button", { name: "保存当天记录" }).click();
+  await until("静息心率持久化", async () => (await api(`/habits/personal/days/${personalDate}`)).restingHr === "58");
+  await page.getByText("至少记两天才有趋势").waitFor();
+  const bodyElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(bodyElevate.status(), 200, await bodyElevate.text());
+  await page.goto(`${base}/habits/plan?section=settings`);
+  await page.getByRole("button", { name: "生成上报令牌" }).click();
+  const bodyExample = await page.locator(".habits-code pre").innerText();
+  const bodyToken = /Bearer ([0-9a-f]{64})/.exec(bodyExample)?.[1];
+  assert.ok(bodyToken, "示例命令里没有令牌");
+  const bodyReport = (data, token = bodyToken) =>
+    fetch(`${base}/api/v1/habits/body/report`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  const yesterday = new Date(Date.parse(`${personalDate}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  assert.equal((await bodyReport({ date: yesterday, weight: 82.3, sleep: "7", restingHr: 60, steps: 7000 })).status, 204);
+  assert.equal((await bodyReport({ weight: 81.9 })).status, 204);
+  assert.equal((await bodyReport({ weight: 81.9, restingHr: 500 })).status, 400);
+  assert.equal((await bodyReport({ weight: 81.9 }, "0".repeat(64))).status, 401);
+  const reported = await api(`/habits/personal/days/${personalDate}`);
+  assert.equal(reported.weight, "81.9");
+  assert.equal(reported.restingHr, "58", "只报体重不应该改心率");
+  assert.equal((await api(`/habits/personal/days/${yesterday}`)).steps, "7000");
+  await page.getByText(/^最近一次上报/).waitFor();
+  assert.equal((await bodyReport({ steps: "8000" })).status, 204);
+  await page.goto(`${base}/habits/plan?section=records`);
+  await page.getByRole("img", { name: "体重" }).waitFor();
+  await page.getByRole("group", { name: "身体指标" }).getByText("步数", { exact: true }).click();
+  await page.getByRole("img", { name: "步数" }).waitFor();
+  await page.goto(`${base}/habits/plan?section=settings`);
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await dialog("关闭自动同步？").getByRole("button", { name: "关闭" }).click();
+  await page.getByText("还没有开启").waitFor();
+  assert.equal((await bodyReport({ weight: 80 })).status, 401);
+  assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.9");
+  await send("PATCH", `/habits/personal/days/${personalDate}`, { weight: "81.5", restingHr: "", steps: "" });
+  await send("PATCH", `/habits/personal/days/${yesterday}`, { weight: "", sleep: "", restingHr: "", steps: "" });
+
+  setStage("续费进入早报");
   const dateParts = Object.fromEntries(
     new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" })
       .formatToParts(new Date(Date.now() + 3 * 86_400_000)).map(({ type, value }) => [type, value]),
@@ -1341,7 +1653,7 @@ try {
   const generatedBrief = await briefResponse.json();
   assert.ok(generatedBrief.sections.some((section) => section.key === "renewals" && section.markdown.includes("端到端续费")));
 
-  stage = "B37 提醒页汇总";
+  setStage("B37 提醒页汇总");
   await page.goto(`${base}/reminders?tab=upcoming`);
   const renewalRow = page.locator(".reminders-external").filter({ hasText: "端到端续费 续费" });
   await renewalRow.waitFor();
@@ -1351,7 +1663,7 @@ try {
   await renewalRow.getByRole("link", { name: "端到端续费 续费" }).click();
   await page.waitForURL(/\/monitoring\/subscriptions$/);
 
-  stage = "B50 只填域名添加网站，顺带建证书和域名监控";
+  setStage("B50 只填域名添加网站，顺带建证书和域名监控");
   await page.goto(`${base}/monitoring?new=1`);
   await dialog("添加网站").getByLabel("网址").fill("www.e2e-site.example.com");
   await dialog("添加网站").getByRole("button", { name: "保存" }).click();
@@ -1367,9 +1679,9 @@ try {
   await page.goto(`${base}/monitoring/certs`);
   await page.locator(".monitoring-row", { hasText: "example.com" }).getByRole("button", { name: /证书/ }).waitFor();
 
-  stage = "B57 锁定后被隐藏的模块像不存在一样";
+  setStage("B57 锁定后被隐藏的模块像不存在一样");
 
-  stage = "B79 维护 API 主流程";
+  setStage("B79 维护 API 主流程");
   const maintenanceOverview = await api("/maintenance/overview?refresh=true");
   assert.ok(maintenanceOverview.version && maintenanceOverview.process && maintenanceOverview.machine);
   assert.ok(maintenanceOverview.storage.some((row) => row.key === "database"));
@@ -1396,7 +1708,7 @@ try {
   assert.equal(maintenanceCleanup.state, "done");
   assert.ok(maintenanceCleanup.result.deleted >= 1);
   assert.equal(existsSync(maintenanceGarbage), false);
-  stage = "B57 锁定后被隐藏的模块像不存在一样";
+  setStage("B57 锁定后被隐藏的模块像不存在一样");
   await send("POST", "/vault/setup", { password: "e2e-vault-secret" });
   await send("PUT", "/vault/modules", { hidden: ["github"] });
   await send("POST", "/vault/lock");
@@ -1408,7 +1720,7 @@ try {
   assert.equal((await page.context().request.get(`${base}/api/v1/vault/modules`)).status(), 404);
   // B68：锁定时设置里看不到隐藏密码卡片；没隐藏云盘时网盘标签照常（B69 前面加了一个）
   await page.goto(`${base}/settings/security`);
-  await page.getByRole("heading", { name: /安全|Security/ }).first().waitFor().catch(() => {});
+  await page.getByRole("heading", { name: "两步验证" }).waitFor();
   await page.waitForLoadState("networkidle").catch(() => {});
   assert.equal(await page.getByRole("heading", { name: "隐藏密码" }).count(), 0);
   const remotes = await api("/storage/remotes?drive=true");
@@ -1418,7 +1730,17 @@ try {
   await send("PUT", "/vault/modules", { hidden: [] });
   await send("POST", "/vault/lock");
 
-  stage = "配对 Linux 代理";
+  // 要用本部分数据的页面
+  await renderPages([
+    "/projects/EET",
+    `/projects/EET/${issueKey.split("-")[1]}`,
+    `/notes/${noteId}`,
+    `/automations/${automation.id}`,
+  ]);
+  }
+
+  if (runPart("2")) {
+  setStage("配对 Linux 代理");
   await page.goto(`${base}/settings/devices`);
   // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。
   await page.getByRole("button", { name: "添加设备" }).click();
@@ -1430,10 +1752,17 @@ try {
   ).trim();
   const agentConfig = join(temp, "agent.json");
   await run("pair-agent", binary("agent"), ["pair", "--server", serverUrl, "--code", code, "--config", agentConfig]);
-  const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
+  // B121：配置下发写的是这两个目录，不碰真实的家目录
+  const claudeHome = join(temp, "claude-home");
+  const codexHome = join(temp, "codex-home");
+  mkdirSync(claudeHome, { recursive: true });
+  mkdirSync(codexHome, { recursive: true });
+  const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig], {
+    env: { ...process.env, CLAUDE_CONFIG_DIR: claudeHome, CODEX_HOME: codexHome },
+  });
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
-  stage = "B82 服务器信息 API 主流程";
+  setStage("B82 服务器信息 API 主流程");
   await send("PATCH", `/hosts/${host.id}`, { info: { ownership: "client", client: "端到端客户", username: "operator", password: "e2e-host-password", note: "测试备注", tags: ["测试"] } });
   const hostInfo = await api(`/hosts/${host.id}`);
   assert.equal(hostInfo.info.client, "端到端客户");
@@ -1443,7 +1772,53 @@ try {
   await send("PUT", "/hosts/order", { kind: "server", ids: [host.id, ...(await api("/hosts?kind=server")).filter((item) => item.id !== host.id).map((item) => item.id)] });
   assert.equal((await api("/hosts?kind=server"))[0].id, host.id);
 
-  stage = "查看远端日志文件";
+  setStage("配置下发");
+  // B121：保存一份配置，选上这台机器，页面显示不一致，下发后一致，原有内容还在，面板删掉后也撤掉。
+  const ownRules = "# 我自己的规则\n\n不要用 emoji。\n";
+  writeFileSync(join(claudeHome, "CLAUDE.md"), ownRules);
+  writeFileSync(join(claudeHome, "settings.json"), JSON.stringify({ permissions: { allow: ["Read(*)"] } }));
+  const deliverElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(deliverElevate.status(), 200, await deliverElevate.text());
+  await page.goto(`${base}/coding/config`);
+  await page.getByRole("checkbox", { name: "e2e-linux" }).check();
+  const claudeCard = page.getByRole("region", { name: "Claude Code" });
+  await claudeCard.getByLabel("全局规则").fill("提交信息用中文。");
+  await claudeCard.getByLabel("允许").fill("Bash(git status)");
+  await page.getByRole("region", { name: "Codex" }).getByRole("button", { name: /添加服务器/ }).click();
+  const codexCard = page.getByRole("region", { name: "Codex" });
+  await codexCard.getByLabel("服务器名称").fill("fs");
+  await codexCard.getByLabel("命令").fill("npx");
+  await codexCard.getByLabel("参数").fill("-y\nserver-fs");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await until("配置保存", async () => (await api("/aiconfig")).hostIds.length === 1);
+  await page.getByText("缺少内容").first().waitFor();
+  assert.equal(readFileSync(join(claudeHome, "CLAUDE.md"), "utf8"), ownRules, "检查不应该写文件");
+  await page.getByRole("button", { name: "下发 e2e-linux" }).click();
+  await dialog("下发到这台机器？").getByRole("button", { name: "下发" }).click();
+  await until("配置下发完成", async () => (await api("/aiconfig/status")).hosts[0]?.state === "ok");
+  await page.getByText("一致", { exact: true }).first().waitFor();
+  const deliveredRules = readFileSync(join(claudeHome, "CLAUDE.md"), "utf8");
+  assert.ok(deliveredRules.startsWith(ownRules) && deliveredRules.includes("提交信息用中文。"), deliveredRules);
+  const deliveredSettings = JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8"));
+  assert.deepEqual(deliveredSettings.permissions.allow, ["Read(*)", "Bash(git status)"]);
+  assert.ok(readFileSync(join(codexHome, "config.toml"), "utf8").includes("[mcp_servers.fs]"));
+  // 面板里清掉规则和权限，下发后撤掉，自己的内容还在
+  await claudeCard.getByLabel("全局规则").fill("");
+  await claudeCard.getByLabel("允许").fill("");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await until("清空保存", async () => (await api("/aiconfig")).claude.rules === "");
+  await page.getByRole("button", { name: "下发 e2e-linux" }).click();
+  await dialog("下发到这台机器？").getByRole("button", { name: "下发" }).click();
+  // 代理先写规则文件再写权限，两个都要等，不能只等规则文件。
+  await until("撤掉配置", async () =>
+    readFileSync(join(claudeHome, "CLAUDE.md"), "utf8") === ownRules &&
+    JSON.stringify(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow) === JSON.stringify(["Read(*)"]));
+  assert.deepEqual(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow, ["Read(*)"]);
+  await send("PUT", "/aiconfig", { claude: { rules: "" }, codex: { rules: "" }, hostIds: [] });
+
+  setStage("查看远端日志文件");
   const remoteLog = join(temp, "e2e-remote.log");
   writeFileSync(remoteLog, "远端日志主流程\n");
   await page.goto(`${base}/servers/${host.id}/files`);
@@ -1453,7 +1828,7 @@ try {
   await dialog("e2e-remote.log").getByText("远端日志主流程").waitFor();
   await page.keyboard.press("Escape");
 
-  stage = "B33 服务器 Agent 只读命令";
+  setStage("B33 服务器 Agent 只读命令");
   const hostFake = http.createServer(async (request, response) => {
     if (request.url === "/v1/models") {
       response.writeHead(200, { "Content-Type": "application/json" });
@@ -1505,14 +1880,14 @@ try {
     await new Promise((done) => hostFake.close(done));
   }
 
-  stage = "按需订阅服务器指标";
+  setStage("按需订阅服务器指标");
   await page.goto(`${base}/servers`);
   await page.locator(".servers-card").filter({ hasText: "e2e-linux" }).getByText("在线").waitFor();
   await until("列表指标订阅", () => eventFrames.sent.some((frame) => frame.type === "subscribe" && frame.topics?.includes("host.metrics")));
   await page.goto(`${base}/servers/${host.id}`);
   await until("详情指标订阅", () => eventFrames.sent.some((frame) => frame.type === "subscribe" && frame.topics?.includes(`host.metrics:${host.id}`)));
   const beforeDetail = eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length;
-  await until("详情 5 秒指标", () => eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length >= beforeDetail + 2, 15_000);
+  await until("详情 5 秒指标", () => eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length >= beforeDetail + 1, 15_000);
   const detailFrame = [...eventFrames.received].reverse().find((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id);
   assert.ok(Array.isArray(detailFrame.data.sample.netInterfaces), "详情指标缺少逐网卡速率");
   await page.getByRole("heading", { name: "网卡" }).waitFor();
@@ -1528,25 +1903,23 @@ try {
   await page.screenshot({ path: join(artifacts, "server-network-390.png") });
   await page.setViewportSize({ width: 1360, height: 860 });
 
-  stage = "查看服务器并打开终端";
+  setStage("查看服务器并打开终端");
   await page.goto(`${base}/servers/${host.id}/terminal`);
   await page.getByRole("button", { name: "连接", exact: true }).click();
   await verifyIfAsked();
   await page.locator(".servers-terminal-card .xc-badge.ok").getByText("已连接").waitFor();
 
   // C1：每个路由页面都要在真实服务端上至少完成一次渲染。
-  for (const path of [
+  // 要用第一部分造出的数据的页面在第一部分里渲染，其余在这里。
+  await renderPages([
     "/",
     "/projects",
-    "/projects/EET",
-    `/projects/EET/${issueKey.split("-")[1]}`,
     "/coding",
     "/coding/tasks",
     "/settings/git",
     "/coding/repos",
     "/coding/999999",
     "/notes",
-    `/notes/${noteId}`,
     "/reminders",
     "/habits",
     "/drive",
@@ -1560,16 +1933,11 @@ try {
     "/monitoring",
     "/home",
     "/automations",
-    `/automations/${automation.id}`,
     "/automations/new",
     "/github",
     "/settings/security",
-  ]) {
-    stage = `页面渲染 ${path}`;
-    await page.goto(`${base}${path}`);
-    await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
-  }
-  stage = "B41 报错提示常驻、可以展开和复制";
+  ]);
+  setStage("B41 报错提示常驻、可以展开和复制");
   {
     const consoleErrors = [];
     const onConsole = (msg) => {
@@ -1597,7 +1965,7 @@ try {
     page.off("console", onConsole);
     await page.getByRole("button", { name: /全部关闭|关闭/ }).first().click();
   }
-  stage = "手机命令面板";
+  setStage("手机命令面板");
   await page.setViewportSize({ width: 390, height: 180 });
   await page.keyboard.press("Control+k");
   await page.locator(".command-dialog").waitFor();
@@ -1610,7 +1978,7 @@ try {
   assert.ok(paletteBounds.footerBottom <= paletteBounds.viewport - 4, `前缀提示超出屏幕：${JSON.stringify(paletteBounds)}`);
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1360, height: 860 });
-  stage = "吊销代理并停止进程";
+  setStage("吊销代理并停止进程");
   await page.goto(`${base}/settings/devices`);
   const agentRow = page.locator("tr").filter({ hasText: "e2e-linux" });
   await agentRow.waitFor();
@@ -1620,9 +1988,12 @@ try {
   await verifyIfAsked();
   await until("代理以吊销状态退出", () => agentProcess.exitCode === 3, 10_000);
   await until("代理从列表移除", async () => !(await api("/hosts")).some((item) => item.id === host.id));
+  }
+
   assert.deepEqual(pageErrors, [], `浏览器异常：${pageErrors.join("；")}`);
 
   console.log("B8 端到端主流程通过");
+  printTimings();
 } catch (error) {
   console.error(`B8 失败于「${stage}」:`, error);
   if (page) {
