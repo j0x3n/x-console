@@ -58,7 +58,7 @@ func (m *Module) digest(ctx context.Context) error {
 	}
 	_, err = m.d.Notify.Send(ctx, notify.Notification{
 		Kind: "readlater.digest", Source: "readlater", Link: "/readlater",
-		Title:    fmt.Sprintf("稍后读还有 %d 篇没看", unread),
+		Title:    fmt.Sprintf("稍后阅读还有 %d 篇没看", unread),
 		Body:     strings.Join(lines, "\n"),
 		Priority: notify.PriorityNormal,
 	})

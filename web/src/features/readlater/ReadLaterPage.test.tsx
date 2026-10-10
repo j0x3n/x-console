@@ -139,7 +139,7 @@ afterEach(() => {
 describe("ReadLaterPage B117", () => {
   it("接口还没上线时显示还没上线", async () => {
     renderIt();
-    expect(await screen.findByText("稍后读还没上线")).toBeTruthy();
+    expect(await screen.findByText("稍后阅读还没上线")).toBeTruthy();
   });
 
   it("没有链接时引导添加，保存时带上网址和备注", async () => {
@@ -332,7 +332,7 @@ describe("SharePage B117", () => {
         source: "share",
       }),
     );
-    // 存好后回到稍后读
+    // 存好后回到稍后阅读
     expect(await screen.findByText("鲸鱼协议详解")).toBeTruthy();
     expect(api.calls.filter((c) => c.method === "POST")).toHaveLength(1);
   });

@@ -618,7 +618,7 @@ func TestWeeklyDigest(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := notices(t, env)
-	if len(got) != 1 || got[0].Title != "稍后读还有 2 篇没看" || got[0].Link != "/readlater" || !strings.Contains(got[0].Body, "paper.pdf") || !strings.Contains(got[0].Body, "1. ") {
+	if len(got) != 1 || got[0].Title != "稍后阅读还有 2 篇没看" || got[0].Link != "/readlater" || !strings.Contains(got[0].Body, "paper.pdf") || !strings.Contains(got[0].Body, "1. ") {
 		t.Fatalf("digest: %+v", got)
 	}
 

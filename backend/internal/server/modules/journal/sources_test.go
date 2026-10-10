@@ -63,7 +63,7 @@ func TestModulesFeedTheTimeline(t *testing.T) {
 	r.exec(t, `UPDATE focus_sessions SET actual_seconds = 1500, completed = 1 WHERE id = ?`, session.Id)
 	r.exec(t, `UPDATE focus_sessions SET actual_seconds = 20 WHERE id = ?`, short.Id)
 
-	// 稍后读
+	// 稍后阅读
 	var item struct {
 		Item struct{ Id int64 }
 	}

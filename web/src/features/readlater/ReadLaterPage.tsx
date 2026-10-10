@@ -39,7 +39,7 @@ function useDebounced(value: string, ms = 250): string {
   return out;
 }
 
-/** 稍后读（B117）：存下来的链接，按未读、已读、标签和关键词找。 */
+/** 稍后阅读（B117）：存下来的链接，按未读、已读、标签和关键词找。 */
 export default function ReadLaterPage() {
   const t = useT();
   const [params, setParams] = useSearchParams();

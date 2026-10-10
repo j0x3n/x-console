@@ -12,7 +12,7 @@ import "./i18n";
 
 /**
  * 手机“分享到”X Console 时打开的页面（PWA 的 share_target）。
- * 从分享内容里找出网址，存下来，再回到稍后读。
+ * 从分享内容里找出网址，存下来，再回到稍后阅读。
  */
 export default function SharePage() {
   const t = useT();
