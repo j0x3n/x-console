@@ -97,6 +97,17 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
+      # 失败的测试自动重跑一次，过了就算过（日志里会留 "Re-running" 和测试名）。
+      # 一次失败超过 5 个测试说明是真坏了，不重跑。
+      - name: Cache gotestsum
+        id: gotestsum
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gotestsum
+          key: gotestsum-${{ runner.os }}-v1.13.0
+      - name: Install gotestsum
+        if: steps.gotestsum.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@v1.13.0
       - name: Test shard ${{ matrix.shard }} of 4
         env:
           RACE_INPUT: ${{ github.event_name != 'workflow_call' && 'true' || inputs.race }}
@@ -113,7 +124,8 @@ jobs:
             exit 1
           fi
           printf '%s\n' "${pkgs[@]}"
-          go test "${flags[@]}" "${pkgs[@]}"
+          ~/go/bin/gotestsum --format pkgname-and-test-fails --rerun-fails=1 --rerun-fails-max-failures=5 \
+            --packages="${pkgs[*]}" -- "${flags[@]}"
 
   # B78：PR 上看改了哪边。只改后端时跳过前端检查，只改前端时跳过后端；端到端两边都跑。
   # 被 deploy.yml 调用和手动运行时全部都跑。PR 检出的是合并提交，第一个父提交就是目标分支。

@@ -14,3 +14,7 @@ backend/bin/
 # 本地 go build 出来的二进制
 /backend/agent
 /backend/server
+# 截图只留在本地或 CI 产物里，不提交（仓库是公开的）
+web/screenshots/
+web/e2e-artifacts/
+docs/qa/**/*.png

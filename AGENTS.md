@@ -34,6 +34,7 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
    - 只有用户让 Codex 做的时候才用 `codex` 分支：从最新的 `develop` 开出 `codex`（已经有就先把 `develop` 合并进来，用 merge，不要 rebase），这一批都提交到 `codex`。
    - 在 `docs/tasks.md` 把任务移到“进行中”，负责人写清楚是谁。
    - **一个任务一个提交**，提交信息以任务编号开头，比如 `B11: 笔记附件后端`。一个任务里改了几次，推送前合成一个提交。这样哪个任务有问题，`git revert` 那一个提交就能单独撤掉。
+   - 截图不提交（仓库是公开的，2026-10-10 用户定的）。`npm run shots` 出的图只在本地看，检查结果写进 `docs/qa/` 的文字记录。
    - 做完一个任务，跑完下面的全部检查再推送。有界面改动时再跑 `npm run shots`，按 `docs/07-design.md` 第七节自查截图。检查没过不要推送。
    - Codex 第一次推送后开一个 PR：`codex` → `develop`，标题“Codex 开发批次”。以后一直往 `codex` 推，这个 PR 会自动更新，CI 每次都会跑。不要每个任务开一个 PR。
    - 任务做完从 `docs/tasks.md` 删掉，在 `docs/tasks-done.md` 的“已完成”表加一行，写上提交号。`tasks.md` 只放没做完的事，保持短。
