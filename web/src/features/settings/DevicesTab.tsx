@@ -133,6 +133,7 @@ export default function DevicesTab() {
 const WINDOWS_UNINSTALL =
   "Stop-ScheduledTask -TaskName 'X Console Agent' -ErrorAction SilentlyContinue; " +
   "Unregister-ScheduledTask -TaskName 'X Console Agent' -Confirm:$false -ErrorAction SilentlyContinue; " +
+  "Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'X Console Agent' -ErrorAction SilentlyContinue; " +
   "Stop-Process -Name x-console-agent -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; " +
   'Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\x-console-agent","$env:APPDATA\\x-console-agent" -ErrorAction SilentlyContinue';
 
@@ -354,6 +355,11 @@ function PairDialog({
                   : "把 x-console-agent.exe 放到任意目录后执行："}
               </p>
               <CommandBox label={t("Pair")} command={manualCommand} />
+              <p className="devices-note">
+                {kind === "server"
+                  ? "配对只保存配置。再执行 x-console-agent run --config /etc/x-console-agent/config.json 才会连上面板。"
+                  : "配对只保存配置，这时设备列表里会出现这台电脑，但显示离线。再执行 x-console-agent.exe run 才会连上面板。要开机自动启动，用上面的 PowerShell 命令安装。"}
+              </p>
             </>
           )}
           {kind === "server" && (

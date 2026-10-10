@@ -110,6 +110,7 @@ func doPair(server, code, path string) error {
 		return err
 	}
 	fmt.Printf("paired as %s, config saved to %s\n", id, path)
+	fmt.Println("Pairing only saves the config. The device shows as offline until the agent runs: x-console-agent run")
 	return nil
 }
 

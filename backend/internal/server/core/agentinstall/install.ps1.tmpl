@@ -42,9 +42,24 @@ if (Test-Path $config) {
 }
 
 # 用任务计划程序在登录时启动。它跑在你的用户会话里，能用剪贴板、git 凭据和 Claude Code 登录状态。
-$action = New-ScheduledTaskAction -Execute $exe -Argument 'run' -WorkingDirectory $dir
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName 'X Console Agent' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-Start-ScheduledTask -TaskName 'X Console Agent'
+# 有些电脑上普通用户注册任务会被拒绝，这时改用当前用户的开机启动项，同样不需要管理员。
+try {
+    $action = New-ScheduledTaskAction -Execute $exe -Argument 'run' -WorkingDirectory $dir
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
+    Register-ScheduledTask -TaskName 'X Console Agent' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
+    Start-ScheduledTask -TaskName 'X Console Agent'
+} catch {
+    Write-Host ("任务计划程序注册失败：" + $_.Exception.Message + "。改用开机启动项。")
+    Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'X Console Agent' -Value ('"' + $exe + '" run')
+    Start-Process -FilePath $exe -ArgumentList 'run' -WorkingDirectory $dir
+}
+
+# 配对只是存下配置，代理要在运行才会显示在线。等几秒确认它没有马上退出。
+Start-Sleep -Seconds 4
+if (-not (Get-Process -Name 'x-console-agent' -ErrorAction SilentlyContinue)) {
+    $log = Join-Path $dir 'agent.log'
+    if (Test-Path $log) { Write-Host '日志最后几行：'; Get-Content -Tail 15 $log }
+    throw "代理启动后马上退出了。日志在 $log"
+}
 Write-Host '代理已安装并启动。几秒后面板的设备列表里会出现这台电脑。任务名：X Console Agent'
