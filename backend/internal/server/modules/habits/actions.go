@@ -15,6 +15,7 @@ import (
 func (m *Module) registerActions() {
 	m.registerExtraActions()
 	m.registerPersonalActions()
+	m.registerBodyActions() // B119
 	m.d.Actions.Register(actions.Action{
 		Name:        "habits.today",
 		Title:       "今天的习惯",

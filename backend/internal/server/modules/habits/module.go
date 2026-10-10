@@ -29,6 +29,7 @@ type Module struct {
 	q      *db.Queries
 	clock  *reminderClock
 	tickMu sync.Mutex
+	bodyMu sync.Mutex // B119: guards the report token setting
 
 	haMu     sync.Mutex
 	watched  map[string]bool   // entity ids linked to a habit

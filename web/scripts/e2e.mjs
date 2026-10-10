@@ -1427,6 +1427,52 @@ try {
   await send("POST", "/habits/personal/backup", personalBackup);
   assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.5");
 
+  stage = "身体数据同步和趋势";
+  // B119：静息心率手填，上报令牌从设置里生成，用令牌上报后趋势图出现，关闭后令牌失效。
+  await page.goto(`${base}/habits/plan?section=records`);
+  await page.getByLabel("静息心率（次/分）", { exact: true }).fill("58");
+  await page.getByRole("button", { name: "保存当天记录" }).click();
+  await until("静息心率持久化", async () => (await api(`/habits/personal/days/${personalDate}`)).restingHr === "58");
+  await page.getByText("至少记两天才有趋势").waitFor();
+  const bodyElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(bodyElevate.status(), 200, await bodyElevate.text());
+  await page.goto(`${base}/habits/plan?section=settings`);
+  await page.getByRole("button", { name: "生成上报令牌" }).click();
+  const bodyExample = await page.locator(".habits-code pre").innerText();
+  const bodyToken = /Bearer ([0-9a-f]{64})/.exec(bodyExample)?.[1];
+  assert.ok(bodyToken, "示例命令里没有令牌");
+  const bodyReport = (data, token = bodyToken) =>
+    fetch(`${base}/api/v1/habits/body/report`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  const yesterday = new Date(Date.parse(`${personalDate}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  assert.equal((await bodyReport({ date: yesterday, weight: 82.3, sleep: "7", restingHr: 60, steps: 7000 })).status, 204);
+  assert.equal((await bodyReport({ weight: 81.9 })).status, 204);
+  assert.equal((await bodyReport({ weight: 81.9, restingHr: 500 })).status, 400);
+  assert.equal((await bodyReport({ weight: 81.9 }, "0".repeat(64))).status, 401);
+  const reported = await api(`/habits/personal/days/${personalDate}`);
+  assert.equal(reported.weight, "81.9");
+  assert.equal(reported.restingHr, "58", "只报体重不应该改心率");
+  assert.equal((await api(`/habits/personal/days/${yesterday}`)).steps, "7000");
+  await page.getByText(/^最近一次上报/).waitFor();
+  assert.equal((await bodyReport({ steps: "8000" })).status, 204);
+  await page.goto(`${base}/habits/plan?section=records`);
+  await page.getByRole("img", { name: "体重" }).waitFor();
+  await page.getByRole("group", { name: "身体指标" }).getByText("步数", { exact: true }).click();
+  await page.getByRole("img", { name: "步数" }).waitFor();
+  await page.goto(`${base}/habits/plan?section=settings`);
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await dialog("关闭自动同步？").getByRole("button", { name: "关闭" }).click();
+  await page.getByText("还没有开启").waitFor();
+  assert.equal((await bodyReport({ weight: 80 })).status, 401);
+  assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.9");
+  await send("PATCH", `/habits/personal/days/${personalDate}`, { weight: "81.5", restingHr: "", steps: "" });
+  await send("PATCH", `/habits/personal/days/${yesterday}`, { weight: "", sleep: "", restingHr: "", steps: "" });
+
   stage = "续费进入早报";
   const dateParts = Object.fromEntries(
     new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" })

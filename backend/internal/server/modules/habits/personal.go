@@ -169,7 +169,7 @@ func personalApplyDay(d *personalDayState, in api.PersonalDayInput) error {
 		src      *string
 		min, max float64
 		whole    bool
-	}{{&d.Weight, in.Weight, 30, 250, false}, {&d.Waist, in.Waist, 40, 200, false}, {&d.Sleep, in.Sleep, 0, 24, false}, {&d.Steps, in.Steps, 0, 100000, true}} {
+	}{{&d.Weight, in.Weight, 30, 250, false}, {&d.Waist, in.Waist, 40, 200, false}, {&d.Sleep, in.Sleep, 0, 24, false}, {&d.Steps, in.Steps, 0, 100000, true}, {&d.RestingHr, in.RestingHr, 20, 220, true}} {
 		if field.src == nil {
 			continue
 		}
@@ -543,7 +543,7 @@ func (m *Module) ListPersonalDays(w http.ResponseWriter, r *http.Request, params
 	personalReply(w, r, out, err)
 }
 func personalDayInput(d api.PersonalDay) api.PersonalDayInput {
-	return api.PersonalDayInput{Weight: &d.Weight, Waist: &d.Waist, Sleep: &d.Sleep, Steps: &d.Steps, Energy: &d.Energy, Back: &d.Back, Note: &d.Note, English: &d.English, Food: &d.Food}
+	return api.PersonalDayInput{Weight: &d.Weight, Waist: &d.Waist, Sleep: &d.Sleep, Steps: &d.Steps, RestingHr: &d.RestingHr, Energy: &d.Energy, Back: &d.Back, Note: &d.Note, English: &d.English, Food: &d.Food}
 }
 func (m *Module) personalBackup(ctx context.Context) (api.PersonalBackup, error) {
 	p, err := m.personalProfile(ctx, m.d.DB)

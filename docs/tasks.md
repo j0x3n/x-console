@@ -77,6 +77,7 @@
 | B116 | 电脑时间去向统计：Windows 代理每分钟记一次前台程序，服务端分成编码、AI 工具、通讯、网页、娱乐、办公、其他；新页面 `/screentime` 看日、周、月；今日页“电脑时间”卡片；默认不保存窗口标题；可在设置里隐藏整个模块。来源：功能扩展建议第 1 条 | [B116](specs/B116.md) | 前后端都完成（Claude，2026-10-10） |
 | B117 | 稍后读和链接收集：新模块 `readlater`，页面 `/readlater`；手动添加、手机“分享到”（PWA `share_target`）、给 Telegram 机器人发链接三种入口；后台抓网页正文，AI 写三行摘要和标签；去跟踪参数和重复；拦截本机和内网地址；每周六 10:00 推未读提醒；可在设置里隐藏整个模块。来源：功能扩展建议第 3 条 | [B117](specs/B117.md) | 前后端都完成（Claude，2026-10-10） |
 | B118 | 每日时间线和日记：新模块 `journal`，页面 `/journal`；每天一页，自动列出当天的卡片、Agent 任务、专注、习惯和训练、GitHub 提交和 PR、日程、告警、电脑时间、稍后读、笔记；下面写 Markdown 日记；按日期往回翻，搜日记和时间线；各模块用 `ActivitySource` 提供数据，隐藏模块的条目在锁定时不显示；可在设置里隐藏整个模块。来源：功能扩展建议第 4 条 | [B118](specs/B118.md) | 前后端都完成（Claude，2026-10-10） |
+| B119 | 身体数据：习惯模块的补全。每天加静息心率；设置里生成上报令牌，手机快捷指令、Home Assistant 或脚本每天 POST 一次写进当天记录；个人记录页的体重趋势换成体重、睡眠、静息心率、步数四项趋势（30、90、180 天）；动作 `habits.body_trend`、`habits.body_record`。来源：功能扩展建议第 5 条 | [B119](specs/B119.md) | 前后端都完成（Claude，2026-10-10） |
 
 ### 任务说明
 
@@ -300,6 +301,7 @@
 - Agent 任务（原“编码任务”）的运行设置在仓库页，没有单独的设置标签。
 - 搜城市先查 Open-Meteo，查不到再查 OpenStreetMap（Nominatim），开发环境连不上外网，没在真实网络下验证过。
 - 端到端测试的“B33 服务器 Agent 只读命令”这一步偶发超时（2026-10-10，B117 提交前跑第一次失败，原样重跑通过）。没定位原因。
+- 前端全量测试偶发 1 个失败（2026-10-10，B119 提交前和后端 `go test -race` 同时跑时出现一次，单独重跑通过）。没看到是哪一个，可能是机器忙时超时。
 
 ## 已完成
 
@@ -536,3 +538,4 @@
 | 2026-10-10 | `contracts/hidden.go` 加 `screentime`（接口、事件 `screentime.`、通知链接 `/screentime`、来源 `screentime`、动作 `screentime.`），`vault.yaml` 的 `ModuleId` 加 `screentime`，`core/handlers.go` 的 `hidesAny` 加 `screentime`；`pkg/protocol` 加 `methods_screentime.go`；`cmd/agent/main.go` 加一行注册和一行能力；前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts`、`overview/layout.ts`、`overview/TodayPage.tsx` 各加一项；`scripts/shots.mjs`、`scripts/e2e.mjs` 加时间去向 | B116 电脑时间去向 |
 | 2026-10-10 | `contracts` 新增 `telegram.go`（`TelegramInbox`，注册表键 `telegram.inbox`）；`reminders/telegram.go` 注册 webhook 时 `allowed_updates` 加 `message`，收到普通消息交给 `TelegramInbox`，已有 webhook 要重新注册；`contracts/hidden.go` 加 `readlater`（接口、事件 `readlater.`、通知链接 `/readlater`、来源 `readlater`、动作 `readlater.`），`vault.yaml` 的 `ModuleId` 加 `readlater`，`core/handlers.go` 的 `hidesAny` 加 `readlater`；前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一项，`public/manifest.webmanifest` 加 `share_target`；`scripts/shots.mjs`、`scripts/e2e.mjs` 加稍后读 | B117 稍后读 |
 | 2026-10-10 | `contracts` 新增 `journal.go`（`ActivitySource`，注册表键前缀 `journal.sources.`）；`projects`、`coding`、`focus`、`habits`、`notes`、`github`、`screentime`、`readlater` 各加一个 `activity.go`，并在自己的 `module.go` 的 `New` 里加一行注册；`contracts/hidden.go` 加 `journal`（接口、事件 `journal.`、通知链接、来源、动作），`vault.yaml` 的 `ModuleId` 加 `journal`，`vault/modules.go` 和 `core/handlers.go` 的 `hidesAny` 同步；前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一项；`scripts/shots.mjs`、`scripts/e2e.mjs` 加每日时间线 | B118 每日时间线 |
+| 2026-10-10 | `habits` 模块：`PersonalDay`、`PersonalDayInput` 加 `restingHr`（旧记录读出来是空字符串，不加迁移），新增 `/habits/body/push`、`/habits/body/push/token`、`/habits/body/report`（公开入口，用 Bearer 令牌校验，同 B114），`habits` 模块实现 `PublicPaths`；`web/scripts/shots.mjs`、`web/scripts/e2e.mjs` 加身体数据 | B119 身体数据 |

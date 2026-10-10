@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap } from "../../api/client";
 import { useInvalidate } from "../../api/useInvalidate";
+import { withElevation } from "../../auth/elevation";
 import type { components } from "../../api/gen/habits";
 import { habitsApi, habitKeys } from "./api";
 
@@ -157,4 +158,29 @@ export function useImportPersonalBackup() {
 }
 export async function exportPersonalBackup() {
   return unwrap(habitsApi.GET("/habits/personal/backup"));
+}
+
+export type BodyPushStatus = Schemas["BodyPushStatus"];
+export type BodyPushToken = Schemas["BodyPushToken"];
+const bodyPushKey = ["habits", "personal", "body-push"];
+export function useBodyPush() {
+  return useQuery({
+    queryKey: bodyPushKey,
+    queryFn: () => unwrap(habitsApi.GET("/habits/body/push")),
+  });
+}
+export function useCreateBodyPushToken() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      withElevation(() => unwrap(habitsApi.POST("/habits/body/push/token"))),
+    onSuccess: () => client.invalidateQueries({ queryKey: bodyPushKey }),
+  });
+}
+export function useDeleteBodyPush() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(habitsApi.DELETE("/habits/body/push")),
+    onSuccess: () => client.invalidateQueries({ queryKey: bodyPushKey }),
+  });
 }

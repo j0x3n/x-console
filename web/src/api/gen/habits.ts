@@ -138,6 +138,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/habits/body/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B119：身体数据自动上报的状态。没开启时 enabled 为 false。 */
+        get: operations["getBodyPush"];
+        put?: never;
+        post?: never;
+        /** @description 关闭自动上报，令牌立即作废。没开启时也回 204。 */
+        delete: operations["deleteBodyPush"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/body/push/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B119：生成上报令牌。要提升权限。旧令牌立即作废。
+         *     令牌只在这次回复里出现，面板只存它的哈希。
+         */
+        post: operations["createBodyPushToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/habits/body/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B119：手机快捷指令、Home Assistant 或脚本每天上报一次。不需要登录会话，用 Authorization: Bearer <令牌> 校验。
+         *     请求体是 JSON：date（可选，默认今天）、weight、waist、sleep、restingHr、steps，数值可以写数字或数字字符串。
+         *     没写、null、空字符串的字段不改。有不认识的字段或数值越界整条回 400。
+         *     接口定义里不写 requestBody，由服务端自己解析。
+         */
+        post: operations["reportBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/habits/schedule": {
         parameters: {
             query?: never;
@@ -641,6 +701,8 @@ export interface components {
             waist?: string;
             sleep?: string;
             steps?: string;
+            /** @description B119 静息心率，次/分 */
+            restingHr?: string;
             energy?: string;
             back?: string;
             note?: string;
@@ -656,6 +718,7 @@ export interface components {
             waist: string;
             sleep: string;
             steps: string;
+            restingHr: string;
             energy: string;
             back: string;
             note: string;
@@ -670,6 +733,25 @@ export interface components {
             /** Format: int64 */
             workoutLogId?: number;
             workoutDurationMinutes?: number;
+        };
+        BodyPushStatus: {
+            enabled: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+            /**
+             * Format: date-time
+             * @description 最近一次收到上报的时间。还没收到过为空
+             */
+            lastReportAt?: string;
+            /** @description 最近一次上报写入的日期 */
+            lastReportDate?: string;
+            reportUrl: string;
+        };
+        BodyPushToken: {
+            token: string;
+            reportUrl: string;
+            /** @description 填好地址和令牌、可以直接复制执行的 curl 命令 */
+            example: string;
         };
         PersonalBackup: {
             /** @enum {integer} */
@@ -989,6 +1071,86 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PersonalProfile"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getBodyPush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyPushStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteBodyPush: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已关闭 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createBodyPushToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 新令牌、上报地址和示例命令 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BodyPushToken"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    reportBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已记下 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };
