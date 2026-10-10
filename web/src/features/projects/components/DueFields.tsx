@@ -5,6 +5,7 @@ import {
   localDate,
   type DueRemind,
 } from "../logic";
+import MenuPick from "./MenuPick";
 
 export interface DueValue {
   date: string;
@@ -22,12 +23,14 @@ export default function DueFields({
   live,
   remind,
   onRemindChange,
+  menu,
 }: {
   value: DueValue;
   onChange: (value: DueValue) => void;
   live: boolean;
   remind?: DueRemind;
   onRemindChange?: (remind: DueRemind) => void;
+  menu?: boolean;
 }) {
   const t = useT();
   return (
@@ -54,20 +57,33 @@ export default function DueFields({
           }
         />
       )}
-      {live && onRemindChange && value.date && (
-        <select
-          className="xc-select"
-          value={remind ?? "at_due"}
-          aria-label={t("Remind ahead")}
-          onChange={(e) => onRemindChange(e.target.value as DueRemind)}
-        >
-          {DUE_REMINDS.map((r) => (
-            <option key={r} value={r}>
-              {t(DUE_REMIND_LABELS[r])}
-            </option>
-          ))}
-        </select>
-      )}
+      {live &&
+        onRemindChange &&
+        value.date &&
+        (menu ? (
+          <MenuPick
+            label={t("Remind ahead")}
+            value={remind ?? "at_due"}
+            options={DUE_REMINDS.map((r) => ({
+              value: r,
+              label: t(DUE_REMIND_LABELS[r]),
+            }))}
+            onChange={onRemindChange}
+          />
+        ) : (
+          <select
+            className="xc-select"
+            value={remind ?? "at_due"}
+            aria-label={t("Remind ahead")}
+            onChange={(e) => onRemindChange(e.target.value as DueRemind)}
+          >
+            {DUE_REMINDS.map((r) => (
+              <option key={r} value={r}>
+                {t(DUE_REMIND_LABELS[r])}
+              </option>
+            ))}
+          </select>
+        ))}
     </div>
   );
 }

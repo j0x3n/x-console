@@ -29,7 +29,7 @@ import {
 } from "../logic";
 import type { Board, BoardList } from "../api";
 import IssueCard from "./IssueCard";
-import CardMenu from "./CardMenu";
+import CardMenu, { type CardMenuPanel } from "./CardMenu";
 import AssignDialog from "../../aiagents/AssignDialog";
 import { StatusIcon } from "./Icons";
 
@@ -58,6 +58,9 @@ export interface ListActions {
   archiveCards: (list: BoardList) => void;
   archiveList: (list: BoardList) => void;
   deleteList: (list: BoardList) => void;
+  sortByPriority: (list: BoardList) => void;
+  markAllDone: (list: BoardList) => void;
+  toggleDone: (issue: Issue) => void;
 }
 
 /** 一行输入：回车提交，Esc 关闭。提交后清空，方便连续输入。 */
@@ -454,6 +457,7 @@ export default function ListBoard({
   const [menu, setMenu] = useState<{
     issue: Issue;
     at: { x: number; y: number };
+    panel: CardMenuPanel;
   } | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
 
@@ -527,6 +531,20 @@ export default function ListBoard({
             onSelect: () => actions.toggleCollapse(list),
           },
           {
+            key: "sort",
+            label: t("Sort by priority"),
+            onSelect: () => actions.sortByPriority(list),
+          },
+          ...(list.status === "done"
+            ? []
+            : [
+                {
+                  key: "done-all",
+                  label: t("Mark all as done"),
+                  onSelect: () => actions.markAllDone(list),
+                },
+              ]),
+          {
             key: "move",
             label: t("Move all cards…"),
             onSelect: () => actions.moveAll(list),
@@ -589,6 +607,17 @@ export default function ListBoard({
               </em>
               <span className="xc-spacer" />
               {!readOnly && (
+                <button
+                  type="button"
+                  className="icon-button projects-lane-add"
+                  aria-label={t("Add card")}
+                  title={t("Add card")}
+                  onClick={() => setAdding(list.id)}
+                >
+                  <Plus size={14} />
+                </button>
+              )}
+              {!readOnly && (
                 <MoreMenu
                   label={`${t("More")}：${list.name}`}
                   title={list.name}
@@ -615,7 +644,18 @@ export default function ListBoard({
                         ? undefined
                         : (at) => {
                             onSelect(issue.key);
-                            setMenu({ issue, at });
+                            setMenu({ issue, at, panel: "main" });
+                          }
+                    }
+                    onToggleDone={
+                      readOnly ? undefined : () => actions.toggleDone(issue)
+                    }
+                    onField={
+                      readOnly
+                        ? undefined
+                        : (field, at) => {
+                            onSelect(issue.key);
+                            setMenu({ issue, at, panel: field });
                           }
                     }
                     onDragStart={(e) => {
@@ -681,9 +721,11 @@ export default function ListBoard({
       )}
       {menu && (
         <CardMenu
+          key={`${menu.issue.key}:${menu.panel}:${menu.at.x}:${menu.at.y}`}
           issue={issues.find((i) => i.key === menu.issue.key) ?? menu.issue}
           board={board}
           at={menu.at}
+          initialPanel={menu.panel}
           onClose={() => setMenu(null)}
           onOpen={() => onOpen(menu.issue.key)}
           onMoveToList={(listId) =>

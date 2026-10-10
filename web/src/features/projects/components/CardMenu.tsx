@@ -35,8 +35,17 @@ import {
 } from "../api";
 import { hasMember, issuePath, toggleMember } from "../logic";
 import { dueShortcuts, CARD_COLORS } from "../cardMenu";
+import { PRIORITIES, PRIORITY_LABELS } from "../logic";
+import { PriorityIcon } from "./Icons";
 
-type Panel = "main" | "assign" | "labels" | "color" | "due" | "move";
+export type CardMenuPanel =
+  | "main"
+  | "assign"
+  | "labels"
+  | "color"
+  | "due"
+  | "move"
+  | "priority";
 
 const EDGE = 8;
 
@@ -52,6 +61,7 @@ export default function CardMenu({
   onOpen,
   onMoveToList,
   onStartAgent,
+  initialPanel = "main",
 }: {
   issue: Issue;
   board: Board;
@@ -62,9 +72,10 @@ export default function CardMenu({
   onMoveToList: (listId: number) => void;
   /** 让 Agent 开始做：打开分配弹窗 */
   onStartAgent: () => void;
+  initialPanel?: CardMenuPanel;
 }) {
   const t = useT();
-  const [panel, setPanel] = useState<Panel>("main");
+  const [panel, setPanel] = useState<CardMenuPanel>(initialPanel);
   const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
   const ref = useRef<HTMLDivElement>(null);
   const labels = useLabels(issue.projectId);
@@ -183,6 +194,21 @@ export default function CardMenu({
         {issue.color && (
           <Item onClick={() => save({ color: "" })}>{t("Remove color")}</Item>
         )}
+      </>
+    );
+  else if (panel === "priority")
+    body = (
+      <>
+        {PRIORITIES.map((p) => (
+          <Item
+            key={p}
+            icon={<PriorityIcon priority={p} size={14} />}
+            checked={issue.priority === p}
+            onClick={done(() => save({ priority: p }))}
+          >
+            {t(PRIORITY_LABELS[p])}
+          </Item>
+        ))}
       </>
     );
   else if (panel === "due")
@@ -369,12 +395,13 @@ export default function CardMenu({
   );
 }
 
-const PANEL_TITLES: Record<Exclude<Panel, "main">, string> = {
+const PANEL_TITLES: Record<Exclude<CardMenuPanel, "main">, string> = {
   assign: "Assign",
   labels: "Labels",
   color: "Color",
   due: "Set due time",
   move: "Move",
+  priority: "Priority",
 };
 
 function Item({
