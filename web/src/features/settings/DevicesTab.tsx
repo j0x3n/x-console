@@ -358,7 +358,7 @@ function PairDialog({
               <p className="devices-note">
                 {kind === "server"
                   ? "配对只保存配置。再执行 x-console-agent run --config /etc/x-console-agent/config.json 才会连上面板。"
-                  : "配对只保存配置，这时设备列表里会出现这台电脑，但显示离线。再执行 x-console-agent.exe run 才会连上面板。要开机自动启动，用上面的 PowerShell 命令安装。"}
+                  : "在 Windows 上配对后，代理会自动在后台运行并设成登录时启动，关掉终端也不会停。要自己再启动一次，执行 x-console-agent.exe install。"}
               </p>
             </>
           )}

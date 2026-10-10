@@ -83,14 +83,8 @@ func install(opts Options) error {
 			return fmt.Errorf("配对失败：%w", err)
 		}
 	}
-	// The task starts the agent at logon, in the user's own session, so it can
-	// use the clipboard and the user's credentials.
-	cmdline := fmt.Sprintf(`schtasks /Create /F /TN "%s" /TR "\"%s\" run" /SC ONLOGON /RL LIMITED`, taskName, dst)
-	if err := runLine("schtasks", cmdline); err != nil {
-		return fmt.Errorf("注册开机启动失败：%w", err)
-	}
-	if err := run("schtasks", "/Run", "/TN", taskName); err != nil {
-		return fmt.Errorf("启动代理失败：%w", err)
+	if _, err := Background(opts.ConfigPath); err != nil {
+		return err
 	}
 	return nil
 }
