@@ -12,12 +12,6 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
 )
 
-// kindLabels are the names used in notifications.
-var kindLabels = map[api.DocumentKind]string{
-	api.Passport: "护照", api.IdCard: "身份证", api.DriverLicense: "驾照", api.Visa: "签证",
-	api.Contract: "合同", api.Insurance: "保险", api.Item: "物品保修", api.Other: "证件",
-}
-
 // remindAll is the hourly job.
 func (m *Module) remindAll(ctx context.Context) error {
 	rows, err := m.q.ListDocuments(ctx)
@@ -82,7 +76,7 @@ func (m *Module) remindNow(ctx context.Context, row db.Document) {
 }
 
 func reminderTitle(v api.Document, left int) string {
-	label := kindLabels[v.Kind]
+	label := kindLabel(v.Kind)
 	switch {
 	case left > 0:
 		return fmt.Sprintf("%s「%s」还有 %d 天到期", label, v.Name, left)
@@ -99,7 +93,7 @@ func reminderBody(v api.Document, left int) string {
 	if v.Holder != "" {
 		body += "，持有人 " + v.Holder
 	}
-	if left <= 30 && left >= 0 && (v.Kind == api.Passport || v.Kind == api.Visa) {
+	if left <= 30 && left >= 0 && (v.Kind == kindPassport || v.Kind == kindVisa) {
 		body += "。补办要几周，尽快处理"
 	}
 	return body

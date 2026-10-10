@@ -7,8 +7,8 @@ import {
 } from "../../components/layout/NavPanel";
 import { useT } from "../../contexts/LanguageContext";
 import type { NavChildrenProps } from "../../lib/navChildren";
-import { useDocuments } from "./api";
-import { KINDS, KIND_ICONS, KIND_LABELS } from "./format";
+import { useCustomKinds, useDocuments } from "./api";
+import { KINDS, KIND_ICONS, KIND_LABELS, kindIcon } from "./format";
 
 /**
  * 左栏“证件档案”的二级菜单：全部、已过期、快到期，下面按类型分。
@@ -18,6 +18,7 @@ export default function DocumentsNavChildren({ onNavigate }: NavChildrenProps) {
   const t = useT();
   const location = useLocation();
   const list = useDocuments(false);
+  const custom = useCustomKinds().data ?? [];
   const items = list.data?.items ?? [];
   const summary = list.data?.summary;
   const params = new URLSearchParams(location.search);
@@ -62,6 +63,17 @@ export default function DocumentsNavChildren({ onNavigate }: NavChildrenProps) {
             label={t(KIND_LABELS[k])}
             count={items.filter((d) => d.kind === k).length || null}
             active={here && kind === k}
+            onNavigate={onNavigate}
+          />
+        ))}
+        {custom.map((k) => (
+          <NavPanelLink
+            key={k.key}
+            to={`/documents?kind=${encodeURIComponent(k.key)}`}
+            icon={kindIcon(k.key)}
+            label={k.name}
+            count={items.filter((d) => d.kind === k.key).length || null}
+            active={here && kind === k.key}
             onNavigate={onNavigate}
           />
         ))}

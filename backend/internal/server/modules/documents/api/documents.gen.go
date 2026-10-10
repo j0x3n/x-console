@@ -13,42 +13,6 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for DocumentKind.
-const (
-	Contract      DocumentKind = "contract"
-	DriverLicense DocumentKind = "driver_license"
-	IdCard        DocumentKind = "id_card"
-	Insurance     DocumentKind = "insurance"
-	Item          DocumentKind = "item"
-	Other         DocumentKind = "other"
-	Passport      DocumentKind = "passport"
-	Visa          DocumentKind = "visa"
-)
-
-// Valid indicates whether the value is a known member of the DocumentKind enum.
-func (e DocumentKind) Valid() bool {
-	switch e {
-	case Contract:
-		return true
-	case DriverLicense:
-		return true
-	case IdCard:
-		return true
-	case Insurance:
-		return true
-	case Item:
-		return true
-	case Other:
-		return true
-	case Passport:
-		return true
-	case Visa:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for DocumentStatus.
 const (
 	Expired DocumentStatus = "expired"
@@ -73,6 +37,16 @@ func (e DocumentStatus) Valid() bool {
 	}
 }
 
+// CustomDocumentKind defines model for CustomDocumentKind.
+type CustomDocumentKind struct {
+	// Count 用这个类型的档案数，包括已归档的
+	Count int `json:"count"`
+
+	// Key 档案里用的类型值，`c:` 加名称
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
 // Document defines model for Document.
 type Document struct {
 	Archived  bool      `json:"archived"`
@@ -89,10 +63,13 @@ type Document struct {
 	Id        int64          `json:"id"`
 
 	// IssuedOn 签发或购买日期，YYYY-MM-DD，没有为空字符串
-	IssuedOn string       `json:"issuedOn"`
-	Kind     DocumentKind `json:"kind"`
-	Name     string       `json:"name"`
-	Notes    string       `json:"notes"`
+	IssuedOn string `json:"issuedOn"`
+
+	// Kind 内置类型：passport、id_card、driver_license、visa、contract、insurance、item、other。
+	// 用户自己加的类型写成 `c:` 加名称，比如 `c:银行卡`，要先用 POST /documents/kinds 加。
+	Kind  DocumentKind `json:"kind"`
+	Name  string       `json:"name"`
+	Notes string       `json:"notes"`
 
 	// Number 编号，加密存储
 	Number string   `json:"number"`
@@ -116,10 +93,13 @@ type DocumentFile struct {
 
 // DocumentInput defines model for DocumentInput.
 type DocumentInput struct {
-	Currency   *string      `json:"currency,omitempty"`
-	ExpiresOn  *string      `json:"expiresOn,omitempty"`
-	Holder     *string      `json:"holder,omitempty"`
-	IssuedOn   *string      `json:"issuedOn,omitempty"`
+	Currency  *string `json:"currency,omitempty"`
+	ExpiresOn *string `json:"expiresOn,omitempty"`
+	Holder    *string `json:"holder,omitempty"`
+	IssuedOn  *string `json:"issuedOn,omitempty"`
+
+	// Kind 内置类型：passport、id_card、driver_license、visa、contract、insurance、item、other。
+	// 用户自己加的类型写成 `c:` 加名称，比如 `c:银行卡`，要先用 POST /documents/kinds 加。
 	Kind       DocumentKind `json:"kind"`
 	Name       string       `json:"name"`
 	Notes      *string      `json:"notes,omitempty"`
@@ -129,16 +109,20 @@ type DocumentInput struct {
 	Serial     *string      `json:"serial,omitempty"`
 }
 
-// DocumentKind defines model for DocumentKind.
-type DocumentKind string
+// DocumentKind 内置类型：passport、id_card、driver_license、visa、contract、insurance、item、other。
+// 用户自己加的类型写成 `c:` 加名称，比如 `c:银行卡`，要先用 POST /documents/kinds 加。
+type DocumentKind = string
 
 // DocumentPatch defines model for DocumentPatch.
 type DocumentPatch struct {
-	Archived   *bool         `json:"archived,omitempty"`
-	Currency   *string       `json:"currency,omitempty"`
-	ExpiresOn  *string       `json:"expiresOn,omitempty"`
-	Holder     *string       `json:"holder,omitempty"`
-	IssuedOn   *string       `json:"issuedOn,omitempty"`
+	Archived  *bool   `json:"archived,omitempty"`
+	Currency  *string `json:"currency,omitempty"`
+	ExpiresOn *string `json:"expiresOn,omitempty"`
+	Holder    *string `json:"holder,omitempty"`
+	IssuedOn  *string `json:"issuedOn,omitempty"`
+
+	// Kind 内置类型：passport、id_card、driver_license、visa、contract、insurance、item、other。
+	// 用户自己加的类型写成 `c:` 加名称，比如 `c:银行卡`，要先用 POST /documents/kinds 加。
 	Kind       *DocumentKind `json:"kind,omitempty"`
 	Name       *string       `json:"name,omitempty"`
 	Notes      *string       `json:"notes,omitempty"`
@@ -173,8 +157,21 @@ type ListDocumentsParams struct {
 	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
 }
 
+// DeleteDocumentKindParams defines parameters for DeleteDocumentKind.
+type DeleteDocumentKindParams struct {
+	Name string `form:"name" json:"name"`
+}
+
+// CreateDocumentKindJSONBody defines parameters for CreateDocumentKind.
+type CreateDocumentKindJSONBody struct {
+	Name string `json:"name"`
+}
+
 // CreateDocumentJSONRequestBody defines body for CreateDocument for application/json ContentType.
 type CreateDocumentJSONRequestBody = DocumentInput
+
+// CreateDocumentKindJSONRequestBody defines body for CreateDocumentKind for application/json ContentType.
+type CreateDocumentKindJSONRequestBody CreateDocumentKindJSONBody
 
 // UpdateDocumentJSONRequestBody defines body for UpdateDocument for application/json ContentType.
 type UpdateDocumentJSONRequestBody = DocumentPatch
@@ -190,6 +187,15 @@ type ServerInterface interface {
 
 	// (POST /documents)
 	CreateDocument(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /documents/kinds)
+	DeleteDocumentKind(w http.ResponseWriter, r *http.Request, params DeleteDocumentKindParams)
+
+	// (GET /documents/kinds)
+	ListDocumentKinds(w http.ResponseWriter, r *http.Request)
+
+	// (POST /documents/kinds)
+	CreateDocumentKind(w http.ResponseWriter, r *http.Request)
 
 	// (DELETE /documents/{documentId})
 	DeleteDocument(w http.ResponseWriter, r *http.Request, documentId DocumentId)
@@ -218,6 +224,21 @@ func (_ Unimplemented) ListDocuments(w http.ResponseWriter, r *http.Request, par
 
 // (POST /documents)
 func (_ Unimplemented) CreateDocument(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /documents/kinds)
+func (_ Unimplemented) DeleteDocumentKind(w http.ResponseWriter, r *http.Request, params DeleteDocumentKindParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /documents/kinds)
+func (_ Unimplemented) ListDocumentKinds(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /documents/kinds)
+func (_ Unimplemented) CreateDocumentKind(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -319,6 +340,67 @@ func (siw *ServerInterfaceWrapper) CreateDocument(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateDocument(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteDocumentKind operation middleware
+func (siw *ServerInterfaceWrapper) DeleteDocumentKind(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteDocumentKindParams
+
+	// ------------- Required query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteDocumentKind(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDocumentKinds operation middleware
+func (siw *ServerInterfaceWrapper) ListDocumentKinds(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDocumentKinds(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateDocumentKind operation middleware
+func (siw *ServerInterfaceWrapper) CreateDocumentKind(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateDocumentKind(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -585,6 +667,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/documents", wrapper.CreateDocument)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/documents/kinds", wrapper.DeleteDocumentKind)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/documents/kinds", wrapper.ListDocumentKinds)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/documents/kinds", wrapper.CreateDocumentKind)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/documents/{documentId}", wrapper.DeleteDocument)

@@ -15,6 +15,7 @@ export type DocumentKind = S["DocumentKind"];
 export type DocumentStatus = S["DocumentStatus"];
 export type DocumentFile = S["DocumentFile"];
 export type DocumentSummary = S["DocumentSummary"];
+export type CustomKind = S["CustomDocumentKind"];
 
 export const documentKeys = {
   all: ["documents"] as const,
@@ -33,6 +34,38 @@ export function useDocuments(archived: boolean) {
         documentsApi.GET("/documents", { params: { query: { archived } } }),
       ),
     retry: false,
+  });
+}
+
+/** 用户自己加的类型（银行卡、会员卡之类）。内置类型写在 format.ts。 */
+export function useCustomKinds() {
+  return useQuery({
+    queryKey: [...documentKeys.all, "kinds"] as const,
+    queryFn: async () =>
+      (await unwrap(documentsApi.GET("/documents/kinds"))).items,
+    retry: false,
+  });
+}
+
+export function useCreateKind() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (name: string) =>
+      unwrap(documentsApi.POST("/documents/kinds", { body: { name } })),
+    onSuccess: refresh,
+  });
+}
+
+export function useDeleteKind() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (name: string) =>
+      unwrap(
+        documentsApi.DELETE("/documents/kinds", {
+          params: { query: { name } },
+        }),
+      ),
+    onSuccess: refresh,
   });
 }
 

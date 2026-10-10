@@ -79,5 +79,11 @@ registerZh({
   "The record is deleted. The files in the drive stay.":
     "档案记录会删除，云盘里的文件还在。",
   Types: "类型",
+  Add: "添加",
+  "Add a type…": "添加类型…",
+  "New type name": "新类型名称",
+  "For example: bank card": "例如 银行卡、会员卡",
+  "Delete this type": "删除这个类型",
+  "Add the new type first": "请先点“添加”，把新类型加上",
   Clear: "清除",
 });

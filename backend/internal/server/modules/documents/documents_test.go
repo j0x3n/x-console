@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -100,7 +101,7 @@ func TestCreateListSortAndStatus(t *testing.T) {
 		t.Fatalf("kind filter: %+v %+v", out.Items, out.Summary)
 	}
 	env.MustDo(http.MethodGet, "/documents?q=sn-42", nil, &out)
-	if len(out.Items) != 1 || out.Items[0].Kind != api.Item || out.Items[0].Price == nil || *out.Items[0].Price != 8999.5 {
+	if len(out.Items) != 1 || out.Items[0].Kind != "item" || out.Items[0].Price == nil || *out.Items[0].Price != 8999.5 {
 		t.Fatalf("q filter: %+v", out.Items)
 	}
 }
@@ -382,5 +383,69 @@ func TestAIActionHidesNumber(t *testing.T) {
 	raw, _ := json.Marshal(out)
 	if strings.Contains(string(raw), "E12345678") || !strings.Contains(string(raw), "护照") {
 		t.Fatalf("action output: %s", raw)
+	}
+}
+
+func TestCustomKinds(t *testing.T) {
+	env, _ := setup(t)
+	type kind struct {
+		Key, Name string
+		Count     int
+	}
+	var kinds struct{ Items []kind }
+	env.MustDo(http.MethodGet, "/documents/kinds", nil, &kinds)
+	if len(kinds.Items) != 0 {
+		t.Fatalf("no custom kinds yet: %+v", kinds)
+	}
+
+	// 没加的类型不能直接用
+	if status, _ := env.Do(http.MethodPost, "/documents", map[string]any{"kind": "c:银行卡", "name": "招行卡"}, nil); status != http.StatusBadRequest {
+		t.Fatalf("unknown custom kind: %d", status)
+	}
+	var k kind
+	env.MustDo(http.MethodPost, "/documents/kinds", map[string]any{"name": " 银行卡 "}, &k)
+	if k.Key != "c:银行卡" || k.Name != "银行卡" {
+		t.Fatalf("created kind: %+v", k)
+	}
+	// 重复添加不报错也不重复
+	env.MustDo(http.MethodPost, "/documents/kinds", map[string]any{"name": "银行卡"}, &k)
+	env.MustDo(http.MethodGet, "/documents/kinds", nil, &kinds)
+	if len(kinds.Items) != 1 {
+		t.Fatalf("duplicate add: %+v", kinds)
+	}
+	for _, name := range []string{"", "  ", "护照", strings.Repeat("长", 21)} {
+		if status, _ := env.Do(http.MethodPost, "/documents/kinds", map[string]any{"name": name}, nil); status != http.StatusBadRequest {
+			t.Errorf("name %q: %d", name, status)
+		}
+	}
+
+	d := create(t, env, map[string]any{"kind": "c:银行卡", "name": "招行卡", "expiresOn": days(20)})
+	if d.Kind != "c:银行卡" {
+		t.Fatalf("custom kind kept: %+v", d)
+	}
+	var out listOut
+	env.MustDo(http.MethodGet, "/documents?kind="+url.QueryEscape("c:银行卡"), nil, &out)
+	if len(out.Items) != 1 {
+		t.Fatalf("filter by custom kind: %+v", out.Items)
+	}
+	if got := notices(t, env); len(got) != 1 || got[0].Title != "银行卡「招行卡」还有 20 天到期" {
+		t.Fatalf("notification: %+v", got)
+	}
+	env.MustDo(http.MethodGet, "/documents/kinds", nil, &kinds)
+	if kinds.Items[0].Count != 1 {
+		t.Fatalf("count: %+v", kinds)
+	}
+
+	// 还有档案在用（包括已归档的）不能删
+	env.MustDo(http.MethodPatch, "/documents/"+strconv.FormatInt(d.Id, 10), map[string]any{"archived": true}, nil)
+	if status, _ := env.Do(http.MethodDelete, "/documents/kinds?name="+url.QueryEscape("银行卡"), nil, nil); status != http.StatusConflict {
+		t.Fatalf("delete in use: %d", status)
+	}
+	env.MustDo(http.MethodPatch, "/documents/"+strconv.FormatInt(d.Id, 10), map[string]any{"kind": "other"}, nil)
+	if status, raw := env.Do(http.MethodDelete, "/documents/kinds?name="+url.QueryEscape("银行卡"), nil, nil); status != http.StatusNoContent {
+		t.Fatalf("delete unused: %d %s", status, raw)
+	}
+	if status, _ := env.Do(http.MethodDelete, "/documents/kinds?name="+url.QueryEscape("银行卡"), nil, nil); status != http.StatusNotFound {
+		t.Fatalf("delete twice: %d", status)
 	}
 }

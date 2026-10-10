@@ -170,6 +170,45 @@ describe("DocumentsPage B115", () => {
     });
   });
 
+  it("可以添加自己的类型，新建的档案用它", async () => {
+    serve();
+    let kinds: Array<{ key: string; name: string; count: number }> = [];
+    api.routes.set("GET /documents/kinds", () => ({
+      status: 200,
+      body: { items: kinds },
+    }));
+    api.routes.set("POST /documents/kinds", (body) => {
+      const name = (body as { name: string }).name;
+      kinds = [{ key: `c:${name}`, name, count: 0 }];
+      return { status: 201, body: kinds[0] };
+    });
+    api.routes.set("POST /documents", () => ({ status: 201, body: passport }));
+    renderIt("/documents?new=1");
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("类型"), {
+      target: { value: "__new__" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("新类型名称"), {
+      target: { value: "银行卡" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "添加" }));
+    await waitFor(() =>
+      expect(
+        (within(dialog).getByLabelText("类型") as HTMLSelectElement).value,
+      ).toBe("c:银行卡"),
+    );
+    fireEvent.change(within(dialog).getByLabelText("名称"), {
+      target: { value: "招行卡" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find((c) => c.method === "POST" && c.path === "/documents")
+          ?.body,
+      ).toMatchObject({ kind: "c:银行卡", name: "招行卡" }),
+    );
+  });
+
   it("提醒天数写错时不提交", async () => {
     serve();
     renderIt("/documents?new=1");

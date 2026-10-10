@@ -25,7 +25,7 @@ import {
   type DocumentItem,
 } from "./api";
 import DocumentDialog from "./DocumentDialog";
-import { KIND_LABELS, daysText, statusTone } from "./format";
+import { daysText, kindName, statusTone } from "./format";
 import { uploadScan } from "./scans";
 
 function longDate(value: string, language: string): string {
@@ -116,7 +116,7 @@ export default function DocumentDetail({
   };
 
   const facts: Array<[string, string | null]> = [
-    [t("Type"), t(KIND_LABELS[doc.kind])],
+    [t("Type"), kindName(t, doc.kind)],
     [t("Holder"), doc.holder || null],
     [t("Document number"), doc.number || null],
     [

@@ -181,3 +181,18 @@
     max-width: 45%;
   }
 }
+
+.documents-new-kind {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.documents-new-kind .xc-input {
+  min-width: 0;
+}
+.documents-kind .xc-field {
+  margin-bottom: 0;
+}
+.documents-kind > .xc-btn {
+  margin-top: 6px;
+}

@@ -280,9 +280,6 @@ func checkRemind(days []int) ([]int, error) {
 // validate checks every field and returns them cleaned.
 func validate(f fields) (fields, error) {
 	var err error
-	if !api.DocumentKind(f.kind).Valid() {
-		return f, httpx.Invalid("不认识的类型")
-	}
 	if f.name, err = checkText("名称", f.name, maxName); err != nil {
 		return f, err
 	}
@@ -339,7 +336,7 @@ func (m *Module) publish(topic string, v api.Document) {
 
 // ListDocuments implements api.ServerInterface.
 func (m *Module) ListDocuments(w http.ResponseWriter, r *http.Request, params api.ListDocumentsParams) {
-	if params.Kind != nil && !params.Kind.Valid() {
+	if params.Kind != nil && m.checkKind(r.Context(), *params.Kind) != nil {
 		httpx.Fail(w, r, httpx.Invalid("不认识的类型"))
 		return
 	}
@@ -408,6 +405,9 @@ func (m *Module) create(ctx context.Context, in api.DocumentInput) (api.Document
 		f.remind = *in.RemindDays
 	}
 	f, err := validate(f)
+	if err == nil {
+		err = m.checkKind(ctx, f.kind)
+	}
 	if err != nil {
 		return api.Document{}, err
 	}
@@ -478,6 +478,9 @@ func (m *Module) update(ctx context.Context, id int64, in api.DocumentPatch) (ap
 		f.remind = *in.RemindDays
 	}
 	f, err = validate(f)
+	if err == nil {
+		err = m.checkKind(ctx, f.kind)
+	}
 	if err != nil {
 		return api.Document{}, err
 	}
