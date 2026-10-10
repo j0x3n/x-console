@@ -94,6 +94,11 @@ type davClient struct {
 	http     *http.Client
 	username string
 	password string
+	// origin is the address the user gave. iCloud answers with the address of
+	// the server that holds the account (pNN-contacts.icloud.com), a name that
+	// does not resolve on every network. Only the path of an answer is used,
+	// and every request goes to origin, which passes it on.
+	origin string
 }
 
 // do sends one request. Redirects are followed by hand, so the method, the body
@@ -128,11 +133,9 @@ func (c *davClient) do(ctx context.Context, method, target, depth, body string) 
 			}
 			return &ms, nil
 		case resp.StatusCode >= 300 && resp.StatusCode < 400 && resp.Header.Get("Location") != "":
-			next, err := u.Parse(resp.Header.Get("Location"))
-			if err != nil {
+			if target, err = c.resolve(target, resp.Header.Get("Location")); err != nil {
 				return nil, err
 			}
-			target = next.String()
 		case resp.StatusCode == http.StatusUnauthorized:
 			return nil, errors.New("登录失败：Apple ID 或应用专用密码不对。要在 appleid.apple.com 里生成“应用专用密码”，不能用 Apple ID 的登录密码")
 		case resp.StatusCode == http.StatusForbidden:
@@ -144,7 +147,9 @@ func (c *davClient) do(ctx context.Context, method, target, depth, body string) 
 	return nil, errors.New("通讯录服务器重定向太多次")
 }
 
-func resolve(base, href string) (string, error) {
+// resolve reads href as an address relative to base, and puts it on origin:
+// only its path is kept.
+func (c *davClient) resolve(base, href string) (string, error) {
 	b, err := url.Parse(base)
 	if err != nil {
 		return "", err
@@ -153,6 +158,11 @@ func resolve(base, href string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	o, err := url.Parse(c.origin)
+	if err != nil {
+		return "", err
+	}
+	h.Scheme, h.Host = o.Scheme, o.Host
 	return h.String(), nil
 }
 
@@ -180,7 +190,7 @@ func (c *davClient) fetch(ctx context.Context, server string) ([]string, error) 
 	if principal == "" {
 		return nil, errors.New("通讯录服务器没有返回账号信息")
 	}
-	if principal, err = resolve(server, principal); err != nil {
+	if principal, err = c.resolve(server, principal); err != nil {
 		return nil, err
 	}
 	if ms, err = c.do(ctx, "PROPFIND", principal, "0", homeBody); err != nil {
@@ -197,7 +207,7 @@ func (c *davClient) fetch(ctx context.Context, server string) ([]string, error) 
 	if home == "" {
 		return nil, errors.New("通讯录服务器没有返回通讯录目录")
 	}
-	if home, err = resolve(principal, home); err != nil {
+	if home, err = c.resolve(principal, home); err != nil {
 		return nil, err
 	}
 	if ms, err = c.do(ctx, "PROPFIND", home, "1", booksBody); err != nil {
@@ -207,7 +217,7 @@ func (c *davClient) fetch(ctx context.Context, server string) ([]string, error) 
 	for _, r := range ms.Responses {
 		for _, p := range r.props() {
 			if p.ResourceType.AddressBook != nil {
-				if u, err := resolve(home, r.Href); err == nil {
+				if u, err := c.resolve(home, r.Href); err == nil {
 					books = append(books, u)
 				}
 			}
@@ -283,7 +293,11 @@ func (m *Module) davClient(cfg syncConfig) *davClient {
 	// redirects are followed in davClient.do, which keeps the method and the login
 	hc2 := *hc
 	hc2.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &davClient{http: &hc2, username: cfg.Username, password: cfg.Password}
+	origin := cfg.Server
+	if origin == "" {
+		origin = icloudServer
+	}
+	return &davClient{http: &hc2, username: cfg.Username, password: cfg.Password, origin: origin}
 }
 
 // syncNow reads the address books and applies them. Only one runs at a time.

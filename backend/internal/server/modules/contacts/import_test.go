@@ -157,9 +157,16 @@ func TestImportRejectsBadFiles(t *testing.T) {
 
 // fakeICloud answers the CardDAV requests the sync makes. The home set is an
 // absolute address, the way iCloud answers.
-func fakeICloud(t *testing.T) *httptest.Server {
+func fakeICloud(t *testing.T, homeHost string) *httptest.Server {
 	t.Helper()
 	var srv *httptest.Server
+	// homeHost 不为空时，目录地址指向一台解析不了的主机，像 iCloud 的分区主机在这台服务器上解析不了
+	host := func(self, other string) string {
+		if other != "" {
+			return "https://" + other
+		}
+		return self
+	}
 	ms := func(w http.ResponseWriter, body string) {
 		w.Header().Set("Content-Type", "application/xml")
 		w.WriteHeader(http.StatusMultiStatus)
@@ -174,7 +181,7 @@ func fakeICloud(t *testing.T) *httptest.Server {
 		case r.Method == "PROPFIND" && r.URL.Path == "/":
 			ms(w, `<d:response><d:href>/</d:href><d:propstat><d:prop><d:current-user-principal><d:href>/1234/principal/</d:href></d:current-user-principal></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`)
 		case r.Method == "PROPFIND" && r.URL.Path == "/1234/principal/":
-			ms(w, `<d:response><d:href>/1234/principal/</d:href><d:propstat><d:prop><c:addressbook-home-set><d:href>`+srv.URL+`/1234/carddavhome/</d:href></c:addressbook-home-set></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`)
+			ms(w, `<d:response><d:href>/1234/principal/</d:href><d:propstat><d:prop><c:addressbook-home-set><d:href>`+host(srv.URL, homeHost)+`/1234/carddavhome/</d:href></c:addressbook-home-set></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`)
 		case r.Method == "PROPFIND" && r.URL.Path == "/1234/carddavhome/":
 			ms(w, `<d:response><d:href>/1234/carddavhome/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`+
 				`<d:response><d:href>/1234/carddavhome/card/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/><c:addressbook/></d:resourcetype></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`)
@@ -194,7 +201,7 @@ func fakeICloud(t *testing.T) *httptest.Server {
 
 func TestICloudSync(t *testing.T) {
 	r := setup(t)
-	fake := fakeICloud(t)
+	fake := fakeICloud(t, "")
 	contacts.SetHTTPClient(r.m, fake.Client())
 	put := func(pass string) (int, []byte) {
 		return r.env.Do(http.MethodPut, "/contacts/sync", map[string]any{"username": "me@icloud.com", "password": pass, "server": fake.URL}, nil)
@@ -277,3 +284,21 @@ func TestICloudSyncRefusesPlainHTTP(t *testing.T) {
 func jsonUnmarshal(raw []byte, v any) error { return json.Unmarshal(raw, v) }
 
 func strPtr(s string) *string { return &s }
+
+// iCloud 返回的分区主机（pNN-contacts.icloud.com）在有的网络上解析不了，
+// 所以返回地址里的主机名不用，所有请求都发给最初的地址，只取返回地址的路径。
+func TestICloudSyncIgnoresTheHostOfTheAnswers(t *testing.T) {
+	r := setup(t)
+	fake := fakeICloud(t, "p231-contacts.no-such-host.invalid")
+	contacts.SetHTTPClient(r.m, fake.Client())
+	r.env.Elevate()
+	status, raw := r.env.Do(http.MethodPut, "/contacts/sync", map[string]any{"username": "me@icloud.com", "password": "abcd-efgh-ijkl-mnop", "server": fake.URL}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("set: %d %s", status, raw)
+	}
+	var st api.ContactSyncStatus
+	r.env.MustDo(http.MethodGet, "/contacts/sync", nil, &st)
+	if !st.Configured || st.Created != 2 {
+		t.Fatalf("status: %+v", st)
+	}
+}
