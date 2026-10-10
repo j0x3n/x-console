@@ -22,6 +22,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read # ci.yml 的 changes 任务要查上一次成功的部署
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}

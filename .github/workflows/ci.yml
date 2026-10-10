@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # changes 任务要查上一次成功的部署
 
 # 同一个分支连着推送几次时，取消还在跑的旧检查，只跑最新的。
 # 被 deploy.yml 调用时 github.workflow 是 "Deploy"，分组不同，也不取消部署里的测试。
@@ -82,12 +83,12 @@ jobs:
   # inputs.race 在 PR 和手动运行时是空的，只有明确传 false 才不带 -race。
   backend-test:
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.tests != 'none'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     defaults:
       run:
         working-directory: backend
@@ -112,13 +113,20 @@ jobs:
         env:
           RACE_INPUT: ${{ github.event_name != 'workflow_call' && 'true' || inputs.race }}
           SHARD: ${{ matrix.shard }}
+          TESTS: ${{ needs.changes.outputs.tests }}
+          PACKAGES: ${{ needs.changes.outputs.packages }}
         run: |
           set -euo pipefail
           flags=()
           if [ "${RACE_INPUT:-}" != "false" ]; then
             flags+=(-race)
           fi
-          mapfile -t pkgs < <(python3 ../scripts/test-shard.py "$SHARD" 8)
+          if [ "$TESTS" = "some" ]; then
+            # 只改了个别模块：只测改到的包和几个会碰到别的模块的包，规则见 scripts/ci-scope.sh
+            read -r -a pkgs <<<"$PACKAGES"
+          else
+            mapfile -t pkgs < <(python3 ../scripts/test-shard.py "$SHARD" 8)
+          fi
           if [ "${#pkgs[@]}" -eq 0 ]; then
             echo "这一组没有分到包，检查 scripts/test-shard.py"
             exit 1
@@ -129,26 +137,36 @@ jobs:
           ~/go/bin/gotestsum --format pkgname-and-test-fails --rerun-fails=1 --rerun-fails-max-failures=5 \
             --packages="${pkgs[*]}" -- -vet=off -ldflags="-s -w" "${flags[@]}"
 
-  # B78：PR 上看改了哪边。只改后端时跳过前端检查，只改前端时跳过后端；端到端两边都跑。
-  # 被 deploy.yml 调用和手动运行时全部都跑。PR 检出的是合并提交，第一个父提交就是目标分支。
+  # 看上次部署成功以来改了什么（PR 也是和目标分支上次部署成功的提交比），决定跑哪些检查，
+  # 规则在 scripts/ci-scope.sh。查不到上次部署、手动运行时全部都跑。
+  # 端到端两边都跑，每次都跑。
   changes:
     runs-on: ubuntu-latest
     outputs:
-      backend: ${{ github.event_name != 'pull_request' || steps.diff.outputs.backend == 'true' }}
-      web: ${{ github.event_name != 'pull_request' || steps.diff.outputs.web == 'true' }}
+      backend: ${{ steps.scope.outputs.backend }}
+      web: ${{ steps.scope.outputs.web }}
+      tests: ${{ steps.scope.outputs.tests }}
+      shards: ${{ steps.scope.outputs.shards }}
+      packages: ${{ steps.scope.outputs.packages }}
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name == 'pull_request'
         with:
-          fetch-depth: 2
-      - id: diff
-        if: github.event_name == 'pull_request'
+          fetch-depth: 0
+      - id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.base_ref || github.ref_name }}
+          EVENT: ${{ github.event_name }}
         run: |
-          files=$(git diff --name-only HEAD^1 HEAD)
-          printf '%s\n' "$files"
-          # api/ 下的接口定义两边都会生成代码
-          if printf '%s\n' "$files" | grep -qE '^(backend/|api/|deploy/|scripts/|\.github/)'; then echo backend=true >> "$GITHUB_OUTPUT"; fi
-          if printf '%s\n' "$files" | grep -qE '^(web/|api/|\.github/)'; then echo web=true >> "$GITHUB_OUTPUT"; fi
+          base=""
+          if [ "$EVENT" != "workflow_dispatch" ]; then
+            base=$(gh run list --workflow deploy.yml --branch "$BRANCH" --status success --limit 1 --json headSha --jq '.[0].headSha // ""' || true)
+            git cat-file -e "${base}^{commit}" 2>/dev/null || base=""
+          fi
+          echo "上次部署成功的提交：${base:-没有，全部都跑}"
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+      - id: scope
+        run: bash scripts/ci-scope.sh "${{ steps.base.outputs.base }}" | tee -a "$GITHUB_OUTPUT"
 
   web:
     needs: changes
