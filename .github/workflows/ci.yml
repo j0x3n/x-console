@@ -195,8 +195,13 @@ jobs:
 
   # 构建和端到端单独一个任务，和上面的检查同时跑。
   # 不装浏览器：GitHub 的 ubuntu-latest 自带 Google Chrome。端到端脚本自己用 vite build 打包，不再重复 typecheck。
+  # 端到端拆成两部分并行跑（XC_E2E_PART），各自起一套服务端，互不依赖。
   e2e:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ["1", "2"]
     defaults:
       run:
         working-directory: web
@@ -215,10 +220,11 @@ jobs:
       - run: npm run e2e
         env:
           XC_SHOTS_BROWSER: /usr/bin/google-chrome
+          XC_E2E_PART: ${{ matrix.part }}
       - name: Upload failed test evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-failure
+          name: e2e-failure-${{ matrix.part }}
           path: web/e2e-artifacts/
           if-no-files-found: ignore

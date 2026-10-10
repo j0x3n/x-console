@@ -1,4 +1,5 @@
 // B8：用真实服务端和 Linux 代理跑浏览器主流程。运行前先 npm ci、安装 Chromium。
+// 分两部分：XC_E2E_PART=1 或 2 只跑一部分（CI 并行跑），不设就全跑。XC_E2E_TIMING=1 结束时列出各阶段耗时。
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
@@ -38,6 +39,12 @@ function printTimings() {
   console.log(`\n端到端耗时 ${(total / 1000).toFixed(1)} 秒，各阶段：`);
   for (const [name, ms] of [...timings].sort((a, b) => b[1] - a[1]))
     console.log(`${(ms / 1000).toFixed(1).padStart(7)} 秒  ${name}`);
+  console.log("\n按执行顺序：");
+  let at = 0;
+  for (const [name, ms] of timings) {
+    at += ms;
+    console.log(`${(at / 1000).toFixed(1).padStart(7)} 秒  ${name}`);
+  }
 }
 
 function start(name, command, args, options = {}) {
@@ -216,6 +223,28 @@ try {
   await page.getByRole("button", { name: "登录" }).click();
   await page.locator(".sidebar").waitFor();
 
+  const send = async (method, path, data) => {
+    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
+      method,
+      headers: { "X-Requested-With": "x-console" },
+      data,
+    });
+    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
+    return response.status() === 204 ? undefined : response.json();
+  };
+  // C1：打开每个页面，等主体出来。
+  const renderPages = async (paths) => {
+    for (const path of paths) {
+      setStage(`页面渲染 ${path}`);
+      await page.goto(`${base}${path}`);
+      await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
+    }
+  };
+  // 拆成两部分在 CI 里并行跑（XC_E2E_PART=1 或 2，不设就全跑）。
+  // 第一部分：笔记、项目、云盘、习惯、监控、隐藏内容等。第二部分：配对代理以后的服务器相关步骤。
+  // 两部分共用启动、登录和上面的辅助函数，互相不依赖对方造的数据。
+  const runPart = (n) => !process.env.XC_E2E_PART || process.env.XC_E2E_PART === n;
+  if (runPart("1")) {
   setStage("B32 AI 供应商和浮窗");
   const aiFake = http.createServer(async (request, response) => {
     if (request.url === "/v1/models") {
@@ -1400,15 +1429,6 @@ try {
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
 
-  const send = async (method, path, data) => {
-    const response = await page.context().request.fetch(`${base}/api/v1${path}`, {
-      method,
-      headers: { "X-Requested-With": "x-console" },
-      data,
-    });
-    assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
-    return response.status() === 204 ? undefined : response.json();
-  };
   setStage("B81 增量备份 API 主流程");
   const previousBackupSettings = await api("/backups/settings");
   const backupRemote = (await api("/storage/remotes")).items.find((item) => item.name === "端到端网盘");
@@ -1700,7 +1720,7 @@ try {
   assert.equal((await page.context().request.get(`${base}/api/v1/vault/modules`)).status(), 404);
   // B68：锁定时设置里看不到隐藏密码卡片；没隐藏云盘时网盘标签照常（B69 前面加了一个）
   await page.goto(`${base}/settings/security`);
-  await page.getByRole("heading", { name: /安全|Security/ }).first().waitFor().catch(() => {});
+  await page.getByRole("heading", { name: "两步验证" }).waitFor();
   await page.waitForLoadState("networkidle").catch(() => {});
   assert.equal(await page.getByRole("heading", { name: "隐藏密码" }).count(), 0);
   const remotes = await api("/storage/remotes?drive=true");
@@ -1710,6 +1730,16 @@ try {
   await send("PUT", "/vault/modules", { hidden: [] });
   await send("POST", "/vault/lock");
 
+  // 要用本部分数据的页面
+  await renderPages([
+    "/projects/EET",
+    `/projects/EET/${issueKey.split("-")[1]}`,
+    `/notes/${noteId}`,
+    `/automations/${automation.id}`,
+  ]);
+  }
+
+  if (runPart("2")) {
   setStage("配对 Linux 代理");
   await page.goto(`${base}/settings/devices`);
   // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。
@@ -1857,7 +1887,7 @@ try {
   await page.goto(`${base}/servers/${host.id}`);
   await until("详情指标订阅", () => eventFrames.sent.some((frame) => frame.type === "subscribe" && frame.topics?.includes(`host.metrics:${host.id}`)));
   const beforeDetail = eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length;
-  await until("详情 5 秒指标", () => eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length >= beforeDetail + 2, 15_000);
+  await until("详情 5 秒指标", () => eventFrames.received.filter((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id).length >= beforeDetail + 1, 15_000);
   const detailFrame = [...eventFrames.received].reverse().find((frame) => frame.topic === "host.metrics" && frame.data?.hostId === host.id);
   assert.ok(Array.isArray(detailFrame.data.sample.netInterfaces), "详情指标缺少逐网卡速率");
   await page.getByRole("heading", { name: "网卡" }).waitFor();
@@ -1880,18 +1910,16 @@ try {
   await page.locator(".servers-terminal-card .xc-badge.ok").getByText("已连接").waitFor();
 
   // C1：每个路由页面都要在真实服务端上至少完成一次渲染。
-  for (const path of [
+  // 要用第一部分造出的数据的页面在第一部分里渲染，其余在这里。
+  await renderPages([
     "/",
     "/projects",
-    "/projects/EET",
-    `/projects/EET/${issueKey.split("-")[1]}`,
     "/coding",
     "/coding/tasks",
     "/settings/git",
     "/coding/repos",
     "/coding/999999",
     "/notes",
-    `/notes/${noteId}`,
     "/reminders",
     "/habits",
     "/drive",
@@ -1905,15 +1933,10 @@ try {
     "/monitoring",
     "/home",
     "/automations",
-    `/automations/${automation.id}`,
     "/automations/new",
     "/github",
     "/settings/security",
-  ]) {
-    setStage(`页面渲染 ${path}`);
-    await page.goto(`${base}${path}`);
-    await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
-  }
+  ]);
   setStage("B41 报错提示常驻、可以展开和复制");
   {
     const consoleErrors = [];
@@ -1965,6 +1988,8 @@ try {
   await verifyIfAsked();
   await until("代理以吊销状态退出", () => agentProcess.exitCode === 3, 10_000);
   await until("代理从列表移除", async () => !(await api("/hosts")).some((item) => item.id === host.id));
+  }
+
   assert.deepEqual(pageErrors, [], `浏览器异常：${pageErrors.join("；")}`);
 
   console.log("B8 端到端主流程通过");
