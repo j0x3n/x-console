@@ -3,6 +3,7 @@ package screentime_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/screentime/api"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
+	"github.com/j0x3n/x-console/backend/pkg/rpc"
 )
 
 // clockDay is the fixed "now" of the tests: Saturday 2026-10-10 09:00 in Asia/Shanghai.
@@ -49,8 +51,19 @@ func minute(dayOffset, hour, min int) int64 {
 // it (or, when wantStored is false, long enough to be sure it was not).
 func (r *rig) send(t *testing.T, min int64, app, title string) {
 	t.Helper()
-	if err := r.client.Emit(context.Background(), protocol.EventScreenSample, protocol.ScreenSample{Minute: min, App: app, Title: title}); err != nil {
-		t.Fatal(err)
+	// The server marks the agent online when it sends the welcome, a moment
+	// before the agent has read it. Under load Emit can land in that gap and
+	// fail with ErrClosed, so retry until the agent has its connection.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		err := r.client.Emit(context.Background(), protocol.EventScreenSample, protocol.ScreenSample{Minute: min, App: app, Title: title})
+		if err == nil {
+			return
+		}
+		if !errors.Is(err, rpc.ErrClosed) || time.Now().After(deadline) {
+			t.Fatal(err)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
 
