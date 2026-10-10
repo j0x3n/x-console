@@ -12,6 +12,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B125 | 修两个偶发失败：邮件首次同步在 SELECT 刚返回时读到空的邮箱状态；端到端“配置下发”只等了规则文件没等权限文件 |
 | B124 | 后端测试分组改成按包用时自动分配（`scripts/test-shard.py`、`scripts/test-weights.txt`），4 组并行。新增的包不用改 CI，不再全部落进最后一组 |
 | B123 | 看板瘦身：`tasks.md` 从 98 KB 降到 10 KB，已完成、接口变更记录、历史说明分别挪到 `tasks-done.md`、`api-changes.md`；交接文档归档到 `docs/archive/`。AI 每次开工要读的文档少了约 8 万字节 |
 | B97 | 个人计划：导入训练、日常习惯、饮食、英语学习和记录（Codex，PR #33 合并进 develop。[检查与截图](qa/B97/README.md)） |

@@ -1696,7 +1696,10 @@ try {
   await until("清空保存", async () => (await api("/aiconfig")).claude.rules === "");
   await page.getByRole("button", { name: "下发 e2e-linux" }).click();
   await dialog("下发到这台机器？").getByRole("button", { name: "下发" }).click();
-  await until("撤掉配置", async () => readFileSync(join(claudeHome, "CLAUDE.md"), "utf8") === ownRules);
+  // 代理先写规则文件再写权限，两个都要等，不能只等规则文件。
+  await until("撤掉配置", async () =>
+    readFileSync(join(claudeHome, "CLAUDE.md"), "utf8") === ownRules &&
+    JSON.stringify(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow) === JSON.stringify(["Read(*)"]));
   assert.deepEqual(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow, ["Read(*)"]);
   await send("PUT", "/aiconfig", { claude: { rules: "" }, codex: { rules: "" }, hostIds: [] });
 
