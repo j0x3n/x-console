@@ -52,6 +52,33 @@ func (e RouterStatusSource) Valid() bool {
 	}
 }
 
+// Defines values for PutRouterPushIntervalJSONBodySeconds.
+const (
+	N10 PutRouterPushIntervalJSONBodySeconds = 10
+	N3  PutRouterPushIntervalJSONBodySeconds = 3
+	N30 PutRouterPushIntervalJSONBodySeconds = 30
+	N5  PutRouterPushIntervalJSONBodySeconds = 5
+	N60 PutRouterPushIntervalJSONBodySeconds = 60
+)
+
+// Valid indicates whether the value is a known member of the PutRouterPushIntervalJSONBodySeconds enum.
+func (e PutRouterPushIntervalJSONBodySeconds) Valid() bool {
+	switch e {
+	case N10:
+		return true
+	case N3:
+		return true
+	case N30:
+		return true
+	case N5:
+		return true
+	case N60:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetRouterTrafficParamsRange.
 const (
 	N24h GetRouterTrafficParamsRange = "24h"
@@ -94,6 +121,9 @@ type RouterConfig struct {
 
 	// Mode direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
 	Mode RouterMode `json:"mode"`
+
+	// PushInterval mode=push 时，上报间隔（秒），默认 60
+	PushInterval *int `json:"pushInterval,omitempty"`
 
 	// ReportUrl mode=push 时，路由器上报用的地址
 	ReportUrl *string `json:"reportUrl,omitempty"`
@@ -200,6 +230,14 @@ type RouterTrafficPoint struct {
 	TxRate float64 `json:"txRate"`
 }
 
+// PutRouterPushIntervalJSONBody defines parameters for PutRouterPushInterval.
+type PutRouterPushIntervalJSONBody struct {
+	Seconds PutRouterPushIntervalJSONBodySeconds `json:"seconds"`
+}
+
+// PutRouterPushIntervalJSONBodySeconds defines parameters for PutRouterPushInterval.
+type PutRouterPushIntervalJSONBodySeconds int
+
 // RebootRouterJSONBody defines parameters for RebootRouter.
 type RebootRouterJSONBody struct {
 	// Confirm 固定填“重启”
@@ -216,6 +254,9 @@ type GetRouterTrafficParamsRange string
 
 // PutRouterConfigJSONRequestBody defines body for PutRouterConfig for application/json ContentType.
 type PutRouterConfigJSONRequestBody = RouterConfigInput
+
+// PutRouterPushIntervalJSONRequestBody defines body for PutRouterPushInterval for application/json ContentType.
+type PutRouterPushIntervalJSONRequestBody PutRouterPushIntervalJSONBody
 
 // RebootRouterJSONRequestBody defines body for RebootRouter for application/json ContentType.
 type RebootRouterJSONRequestBody RebootRouterJSONBody
@@ -234,6 +275,9 @@ type ServerInterface interface {
 
 	// (POST /router/interfaces/{name}/restart)
 	RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string)
+
+	// (PUT /router/push/interval)
+	PutRouterPushInterval(w http.ResponseWriter, r *http.Request)
 
 	// (POST /router/push/token)
 	CreateRouterPushToken(w http.ResponseWriter, r *http.Request)
@@ -272,6 +316,11 @@ func (_ Unimplemented) PutRouterConfig(w http.ResponseWriter, r *http.Request) {
 
 // (POST /router/interfaces/{name}/restart)
 func (_ Unimplemented) RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /router/push/interval)
+func (_ Unimplemented) PutRouterPushInterval(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -368,6 +417,20 @@ func (siw *ServerInterfaceWrapper) RestartRouterInterface(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RestartRouterInterface(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutRouterPushInterval operation middleware
+func (siw *ServerInterfaceWrapper) PutRouterPushInterval(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutRouterPushInterval(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -587,6 +650,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/router/push/token", wrapper.CreateRouterPushToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/router/push/interval", wrapper.PutRouterPushInterval)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/router/report", wrapper.ReportRouter)

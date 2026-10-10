@@ -82,7 +82,12 @@ export default function RouterPage() {
     });
     if (!ok) return;
     reboot.mutate(undefined, {
-      onSuccess: () => toast(t("Rebooting. It takes a minute or two.")),
+      onSuccess: () =>
+        toast(
+          s?.source === "push"
+            ? t("Queued. The router runs it on its next report.")
+            : t("Rebooting. It takes a minute or two."),
+        ),
       onError: fail,
     });
   };
@@ -100,7 +105,7 @@ export default function RouterPage() {
         <RouterStats status={status.data} />
         <InterfacesCard
           items={status.data.interfaces}
-          canRestart={status.data.source !== "push"}
+          queued={status.data.source === "push"}
         />
         <Toolbar
           start={
@@ -160,17 +165,13 @@ export default function RouterPage() {
                     icon: <Settings size={14} />,
                     onSelect: () => navigate("/settings/router"),
                   },
-                  ...(s?.source === "push"
-                    ? []
-                    : [
-                        {
-                          key: "reboot",
-                          label: t("Reboot router"),
-                          icon: <Power size={14} />,
-                          danger: true,
-                          onSelect: onReboot,
-                        },
-                      ]),
+                  {
+                    key: "reboot",
+                    label: t("Reboot router"),
+                    icon: <Power size={14} />,
+                    danger: true,
+                    onSelect: onReboot,
+                  },
                 ]}
               />
             </>
@@ -262,10 +263,10 @@ function RouterStats({ status }: { status: RouterStatus }) {
 
 function InterfacesCard({
   items,
-  canRestart,
+  queued,
 }: {
   items: RouterInterface[];
-  canRestart: boolean;
+  queued: boolean;
 }) {
   const t = useT();
   const language = useLanguage();
@@ -280,7 +281,12 @@ function InterfacesCard({
     });
     if (!ok) return;
     restart.mutate(name, {
-      onSuccess: () => toast(t("Interface restarted")),
+      onSuccess: () =>
+        toast(
+          queued
+            ? t("Queued. The router runs it on its next report.")
+            : t("Interface restarted"),
+        ),
       onError: fail,
     });
   };
@@ -311,19 +317,17 @@ function InterfacesCard({
                 ? formatUptime(i.uptimeSeconds, language === "zh")
                 : t("WAN down")}
             </small>
-            {canRestart && (
-              <button
-                type="button"
-                className="xc-btn small"
-                title={`${t("Restart interface")} ${i.name}`}
-                aria-label={`${t("Restart interface")} ${i.name}`}
-                disabled={restart.isPending}
-                onClick={() => onRestart(i.name)}
-              >
-                <RotateCcw size={13} />
-                <span className="router-btn-label">{t("Restart")}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              className="xc-btn small"
+              title={`${t("Restart interface")} ${i.name}`}
+              aria-label={`${t("Restart interface")} ${i.name}`}
+              disabled={restart.isPending}
+              onClick={() => onRestart(i.name)}
+            >
+              <RotateCcw size={13} />
+              <span className="router-btn-label">{t("Restart")}</span>
+            </button>
           </li>
         ))}
       </ul>

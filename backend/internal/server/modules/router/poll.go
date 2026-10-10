@@ -111,7 +111,7 @@ func (m *Module) addSample(ctx context.Context, cur sample) (rxRate, txRate *flo
 	}
 	drx, dtx := delta(prev, cur)
 	err := m.q.InsertTraffic(ctx, db.InsertTrafficParams{
-		At: cur.at.Unix(), Seconds: int64(gap.Round(time.Second) / time.Second), Rx: int64(drx), Tx: int64(dtx),
+		At: cur.at.Truncate(time.Minute).Unix(), Seconds: int64(gap.Round(time.Second) / time.Second), Rx: int64(drx), Tx: int64(dtx),
 	})
 	if err != nil {
 		m.d.Log.Warn("router traffic", "err", err)

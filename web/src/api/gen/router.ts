@@ -46,6 +46,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/router/push/interval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description B114：改路由器上报的间隔。脚本每次上报后读到新值，最晚下一分钟内生效。只在 mode=push 时可用，否则回 409。 */
+        put: operations["putRouterPushInterval"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/router/report": {
         parameters: {
             query?: never;
@@ -130,7 +147,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 先 down 再 up 这个接口。要提升权限，路由器那边要允许 network.interface.* 的 up 和 down。 */
+        /**
+         * @description 先 down 再 up 这个接口。要提升权限，路由器那边要允许 network.interface.* 的 up 和 down。
+         *     mode=push 时面板连不到路由器，命令排队，路由器下次上报时取走执行，回 202。
+         */
         post: operations["restartRouterInterface"];
         delete?: never;
         options?: never;
@@ -147,7 +167,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 重启路由器。要提升权限，请求体要带 confirm 为“重启”。 */
+        /**
+         * @description 重启路由器。要提升权限，请求体要带 confirm 为“重启”。
+         *     mode=push 时命令排队，路由器下次上报时取走执行，也回 202。
+         */
         post: operations["rebootRouter"];
         delete?: never;
         options?: never;
@@ -178,6 +201,8 @@ export interface components {
             lastReportAt?: string;
             /** @description mode=push 时，路由器上报用的地址 */
             reportUrl?: string;
+            /** @description mode=push 时，上报间隔（秒），默认 60 */
+            pushInterval?: number;
         };
         RouterConfigInput: {
             url: string;
@@ -382,6 +407,34 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    putRouterPushInterval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {integer} */
+                    seconds: 3 | 5 | 10 | 30 | 60;
+                };
+            };
+        };
+        responses: {
+            /** @description 保存后的配置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterConfig"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     reportRouter: {
         parameters: {
             query?: never;
@@ -391,12 +444,18 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已收下 */
-            204: {
+            /**
+             * @description 已收下。回复是纯文本，每行一项：`interval=<秒>` 是下次上报的间隔；
+             *     `cmd=<编号> <动作> <参数>` 是要路由器执行的命令（restart_interface 加接口名，或 reboot），
+             *     每条命令只下发一次。老版本的脚本不读回复，也能正常上报。
+             */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/plain": string;
+                };
             };
             default: components["responses"]["Error"];
         };
@@ -479,6 +538,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description mode=push：已排队，路由器下次上报时执行 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description 已重启 */
             204: {
                 headers: {

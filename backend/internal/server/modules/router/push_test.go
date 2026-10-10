@@ -64,6 +64,13 @@ IP address       HW type     Flags       HW address            Mask     Device
 // post sends a report like the script does: plain text, bearer token, no session.
 func post(t *testing.T, env *testutil.Env, token, body string) int {
 	t.Helper()
+	code, _ := postReply(t, env, token, body)
+	return code
+}
+
+// postReply is post that also returns the panel's answer.
+func postReply(t *testing.T, env *testutil.Env, token, body string) (int, string) {
+	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, env.URL("/router/report"), strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -77,8 +84,8 @@ func post(t *testing.T, env *testutil.Env, token, body string) int {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
-	return resp.StatusCode
+	raw, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, string(raw)
 }
 
 func TestPushToken(t *testing.T) {
@@ -119,7 +126,7 @@ func TestPushToken(t *testing.T) {
 	if code := post(t, env, strings.Repeat("0", 64), body); code != http.StatusUnauthorized {
 		t.Fatalf("wrong token: %d", code)
 	}
-	if code := post(t, env, tok.Token, body); code != http.StatusNoContent {
+	if code := post(t, env, tok.Token, body); code != http.StatusOK {
 		t.Fatalf("report: %d", code)
 	}
 	// A new token replaces the old one.
@@ -128,7 +135,7 @@ func TestPushToken(t *testing.T) {
 	if code := post(t, env, tok.Token, body); code != http.StatusUnauthorized {
 		t.Fatalf("old token still works: %d", code)
 	}
-	if code := post(t, env, next.Token, body); code != http.StatusNoContent {
+	if code := post(t, env, next.Token, body); code != http.StatusOK {
 		t.Fatalf("new token: %d", code)
 	}
 }
@@ -153,7 +160,7 @@ func TestPushStatusClientsAndTraffic(t *testing.T) {
 		t.Fatalf("before the first report: %d %s", code, raw)
 	}
 
-	if code := post(t, env, tok.Token, reportBody(1000, 500, true, c.t.Unix())); code != http.StatusNoContent {
+	if code := post(t, env, tok.Token, reportBody(1000, 500, true, c.t.Unix())); code != http.StatusOK {
 		t.Fatalf("first report: %d", code)
 	}
 	var st status
@@ -169,7 +176,7 @@ func TestPushStatusClientsAndTraffic(t *testing.T) {
 
 	// A minute later: 600000 bytes down and 60000 up is 10000 and 1000 per second.
 	c.t = c.t.Add(time.Minute)
-	if code := post(t, env, tok.Token, reportBody(601000, 60500, true, c.t.Unix())); code != http.StatusNoContent {
+	if code := post(t, env, tok.Token, reportBody(601000, 60500, true, c.t.Unix())); code != http.StatusOK {
 		t.Fatalf("second report: %d", code)
 	}
 	env.MustDo(http.MethodGet, "/router/status", nil, &st)
@@ -227,7 +234,7 @@ func TestPushBadReport(t *testing.T) {
 	// A report without counters still works, only the speed is missing.
 	body := strings.Join(strings.Split(reportBody(1, 1, true, c.t.Unix()), "#xc:devices")[:1], "")
 	body += "#xc:leases\n#xc:arp\n"
-	if code := post(t, env, tok.Token, body); code != http.StatusNoContent {
+	if code := post(t, env, tok.Token, body); code != http.StatusOK {
 		t.Fatalf("no counters: %d", code)
 	}
 }
@@ -270,7 +277,7 @@ func TestPushOfflineAndBack(t *testing.T) {
 	}
 }
 
-func TestPushWanDownAndNoRestart(t *testing.T) {
+func TestPushWanDown(t *testing.T) {
 	env, m, c, tok := setupPush(t)
 	var n struct {
 		Items []struct{ Kind, Title string }
@@ -286,12 +293,116 @@ func TestPushWanDownAndNoRestart(t *testing.T) {
 		t.Fatalf("wan down: %+v", n.Items)
 	}
 
-	// The panel cannot reach a router that reports by itself.
-	if code, raw := env.Do(http.MethodPost, "/router/interfaces/wan/restart", nil, nil); code != http.StatusConflict {
+}
+
+// B114: the panel cannot reach the router, so restarts wait for its next report.
+func TestPushCommands(t *testing.T) {
+	env, m, c, tok := setupPush(t)
+	body := reportBody(1000, 500, true, c.t.Unix())
+
+	// The first answer has the interval and nothing to run.
+	if code, reply := postReply(t, env, tok.Token, body); code != http.StatusOK || reply != "interval=60\n" {
+		t.Fatalf("reply: %d %q", code, reply)
+	}
+
+	if code, _ := env.Do(http.MethodPost, "/router/interfaces/wan;reboot/restart", nil, nil); code != http.StatusBadRequest {
+		t.Fatalf("bad name: %d", code)
+	}
+	if code, raw := env.Do(http.MethodPost, "/router/interfaces/wan/restart", nil, nil); code != http.StatusAccepted {
 		t.Fatalf("restart: %d %s", code, raw)
 	}
-	if code, _ := env.Do(http.MethodPost, "/router/reboot", map[string]any{"confirm": "重启"}, nil); code != http.StatusConflict {
+	// The same command twice is kept once.
+	env.Do(http.MethodPost, "/router/interfaces/wan/restart", nil, nil)
+	if code, _ := env.Do(http.MethodPost, "/router/reboot", map[string]any{"confirm": "yes"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("reboot without the word: %d", code)
+	}
+	if code, _ := env.Do(http.MethodPost, "/router/reboot", map[string]any{"confirm": "重启"}, nil); code != http.StatusAccepted {
 		t.Fatalf("reboot: %d", code)
+	}
+
+	// The router takes both on its next report, once.
+	_, reply := postReply(t, env, tok.Token, body)
+	if reply != "interval=60\ncmd=1 restart_interface wan\ncmd=2 reboot \n" {
+		t.Fatalf("reply: %q", reply)
+	}
+	if _, reply := postReply(t, env, tok.Token, body); reply != "interval=60\n" {
+		t.Fatalf("handed out twice: %q", reply)
+	}
+
+	// A reboot is expected, so the quiet reports that follow send no notification.
+	for i := 0; i < 4; i++ {
+		c.t = c.t.Add(time.Minute)
+		m.Poll(t.Context())
+	}
+	var n struct{ Items []struct{ Kind string } }
+	env.MustDo(http.MethodGet, "/notifications", nil, &n)
+	if len(n.Items) != 0 {
+		t.Fatalf("notified during a reboot: %+v", n.Items)
+	}
+
+	// A command nobody picked up expires.
+	env.Do(http.MethodPost, "/router/interfaces/lan/restart", nil, nil)
+	c.t = c.t.Add(6 * time.Minute)
+	if _, reply := postReply(t, env, tok.Token, reportBody(1, 1, true, c.t.Unix())); reply != "interval=60\n" {
+		t.Fatalf("stale command: %q", reply)
+	}
+
+	// The queue has a limit.
+	for i := 0; i < 5; i++ {
+		env.MustDo(http.MethodPost, fmt.Sprintf("/router/interfaces/lan%d/restart", i), nil, nil)
+	}
+	if code, _ := env.Do(http.MethodPost, "/router/interfaces/lan9/restart", nil, nil); code != http.StatusTooManyRequests {
+		t.Fatalf("full queue: %d", code)
+	}
+}
+
+func TestPushInterval(t *testing.T) {
+	env, _, c, tok := setupPush(t)
+	body := reportBody(1000, 500, true, c.t.Unix())
+	var cfg struct {
+		Mode         string
+		PushInterval int
+	}
+	env.MustDo(http.MethodGet, "/router/config", nil, &cfg)
+	if cfg.PushInterval != 60 {
+		t.Fatalf("default: %+v", cfg)
+	}
+	for _, bad := range []int{0, 1, 2, 4, 120} {
+		if code, _ := env.Do(http.MethodPut, "/router/push/interval", map[string]any{"seconds": bad}, nil); code != http.StatusBadRequest {
+			t.Fatalf("%d seconds: %d", bad, code)
+		}
+	}
+	env.MustDo(http.MethodPut, "/router/push/interval", map[string]any{"seconds": 3}, &cfg)
+	if cfg.PushInterval != 3 {
+		t.Fatalf("saved: %+v", cfg)
+	}
+	if _, reply := postReply(t, env, tok.Token, body); reply != "interval=3\n" {
+		t.Fatalf("reply: %q", reply)
+	}
+	env.MustDo(http.MethodGet, "/router/config", nil, &cfg)
+	if cfg.PushInterval != 3 {
+		t.Fatalf("config: %+v", cfg)
+	}
+
+	// Reports 3 seconds apart add up into one traffic row per minute.
+	for i := 1; i <= 4; i++ {
+		c.t = c.t.Add(3 * time.Second)
+		post(t, env, tok.Token, reportBody(1000+i*3000, 500+i*300, true, c.t.Unix()))
+	}
+	var tr struct {
+		RxBytes int64
+		Points  []struct{ RxRate float64 }
+	}
+	env.MustDo(http.MethodGet, "/router/traffic?range=24h", nil, &tr)
+	if tr.RxBytes != 12000 || len(tr.Points) != 1 || tr.Points[0].RxRate != 1000 {
+		t.Fatalf("traffic: %+v", tr)
+	}
+
+	// Not in push mode there is no interval to set.
+	f := newFakeUbus(t)
+	env.MustDo(http.MethodPut, "/router/config", map[string]any{"url": f.URL(), "username": "xconsole", "password": "secret"}, nil)
+	if code, _ := env.Do(http.MethodPut, "/router/push/interval", map[string]any{"seconds": 10}, nil); code != http.StatusConflict {
+		t.Fatalf("interval while direct: %d", code)
 	}
 }
 

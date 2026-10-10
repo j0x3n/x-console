@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +30,13 @@ const (
 	// pushStaleAfter is how long the panel waits for the next report before
 	// it calls the router offline. The script reports every minute.
 	pushStaleAfter = 3 * time.Minute
+	// defaultPushInterval is the seconds between reports until the user picks another.
+	defaultPushInterval = 60
+	// commandTTL is how long a queued command waits for the router. After that
+	// the router is probably offline and the command would surprise someone later.
+	commandTTL = 5 * time.Minute
+	// maxCommands bounds the queue.
+	maxCommands = 5
 	// maxReport bounds one report. A few hundred devices make about 100 KB.
 	maxReport = 4 << 20
 )
@@ -70,14 +78,109 @@ func (m *Module) pushMode(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	hash = ""
+	hash, interval := "", 0
 	if cfg.mode() == api.RouterModePush {
-		hash = cfg.PushHash
+		hash, interval = cfg.PushHash, cfg.PushInterval
 	}
 	m.mu.Lock()
-	m.pushLoaded, m.pushHash = true, hash
+	m.pushLoaded, m.pushHash, m.pushInterval = true, hash, interval
 	m.mu.Unlock()
 	return hash != "", nil
+}
+
+// pushIntervals are the report intervals the user can pick, in seconds.
+var pushIntervals = []int{3, 5, 10, 30, 60}
+
+func validInterval(n int) bool { return slices.Contains(pushIntervals, n) }
+
+// routerCommand is something the router is asked to do on its next report.
+type routerCommand struct {
+	id     int64
+	action string // "restart_interface" or "reboot"
+	arg    string
+	at     time.Time
+}
+
+// queueCommand adds a command for the router. The same command twice in a row
+// is kept once. It reports false when the queue is full.
+func (m *Module) queueCommand(action, arg string) bool {
+	now := m.now()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.dropExpiredLocked(now)
+	for _, c := range m.cmds {
+		if c.action == action && c.arg == arg {
+			return true
+		}
+	}
+	if len(m.cmds) >= maxCommands {
+		return false
+	}
+	m.cmdSeq++
+	m.cmds = append(m.cmds, routerCommand{id: m.cmdSeq, action: action, arg: arg, at: now})
+	return true
+}
+
+func (m *Module) dropExpiredLocked(now time.Time) {
+	m.cmds = slices.DeleteFunc(m.cmds, func(c routerCommand) bool { return now.Sub(c.at) > commandTTL })
+}
+
+// takeReply builds the answer to a report: the interval and the commands.
+// Each command is handed out once.
+func (m *Module) takeReply(now time.Time) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.dropExpiredLocked(now)
+	interval := m.pushInterval
+	if !validInterval(interval) {
+		interval = defaultPushInterval
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "interval=%d\n", interval)
+	for _, c := range m.cmds {
+		fmt.Fprintf(&b, "cmd=%d %s %s\n", c.id, c.action, c.arg)
+		if c.action == "reboot" {
+			m.quiet = now.Add(5 * time.Minute) // the router is about to go quiet
+		}
+	}
+	m.cmds = nil
+	return b.String()
+}
+
+// PutRouterPushInterval changes how often the router script reports.
+func (m *Module) PutRouterPushInterval(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var in struct {
+		Seconds int `json:"seconds"`
+	}
+	if err := httpx.Decode(r, &in); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	if !validInterval(in.Seconds) {
+		httpx.Fail(w, r, httpx.Invalid("上报间隔只能是 3、5、10、30、60 秒"))
+		return
+	}
+	push, err := m.pushMode(ctx)
+	if err == nil && !push {
+		err = httpx.NewError(http.StatusConflict, "router_not_push", "路由器不是主动上报的，没有上报间隔")
+	}
+	if err == nil {
+		err = m.d.Settings.Set(ctx, keyPushInterval, in.Seconds)
+	}
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	m.mu.Lock()
+	m.pushInterval = in.Seconds
+	m.mu.Unlock()
+	cfg, err := m.loadConfig(ctx)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, m.configToAPI(r, cfg))
 }
 
 // currentReport returns the latest report, or the error the pages show.
@@ -208,8 +311,10 @@ func (m *Module) ReportRouter(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, httpx.Invalid(err.Error()))
 		return
 	}
-	m.applyReport(ctx, rep, m.now())
-	w.WriteHeader(http.StatusNoContent)
+	now := m.now()
+	m.applyReport(ctx, rep, now)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = io.WriteString(w, m.takeReply(now))
 }
 
 // report is one parsed upload.
@@ -322,6 +427,3 @@ func (m *Module) applyReport(ctx context.Context, rep report, now time.Time) {
 	m.lastReport = now
 	m.mu.Unlock()
 }
-
-// errPushReadOnly is the answer to restart requests in push mode.
-var errPushReadOnly = httpx.NewError(http.StatusConflict, "router_push_mode", "路由器是主动上报的，面板连不到它，不能从这里重启。请在路由器上操作")

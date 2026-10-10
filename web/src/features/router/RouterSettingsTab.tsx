@@ -10,6 +10,7 @@ import {
   useCreateRouterPushToken,
   useRouterConfig,
   useSaveRouterConfig,
+  useSetPushInterval,
   type RouterConfig,
   type RouterMode,
   type RouterPushToken,
@@ -213,11 +214,15 @@ function ConfigForm({
   );
 }
 
-/** B114：路由器上的脚本每分钟上报，面板不用访问路由器，也不需要代理。 */
+/** 路由器上报间隔可选的秒数，和后端一致。 */
+const PUSH_INTERVALS = [3, 5, 10, 30, 60];
+
+/** B114：路由器上的脚本上报，面板不用访问路由器，也不需要代理。 */
 function PushPanel({ initial }: { initial: RouterConfig }) {
   const t = useT();
   const language = useLanguage();
   const create = useCreateRouterPushToken();
+  const setInterval = useSetPushInterval();
   const [issued, setIssued] = useState<RouterPushToken | null>(null);
   const active = initial.mode === "push";
 
@@ -244,7 +249,7 @@ function PushPanel({ initial }: { initial: RouterConfig }) {
   return (
     <>
       <p className="xc-muted">
-        路由器上的脚本每分钟把状态发给面板。面板不用访问路由器，也不需要家里的代理。超过
+        路由器上的脚本定时把状态发给面板。面板不用访问路由器，也不需要家里的代理。超过
         3 分钟没收到上报，就当路由器离线并发通知。
       </p>
       {active && (
@@ -253,6 +258,37 @@ function PushPanel({ initial }: { initial: RouterConfig }) {
             ? `${t("Last report")}：${new Date(initial.lastReportAt).toLocaleString(language === "zh" ? "zh-CN" : undefined)}`
             : t("No report received yet")}
         </p>
+      )}
+      {active && (
+        <label className="xc-field">
+          <span>{t("Report interval")}</span>
+          <select
+            className="xc-select"
+            aria-label={t("Report interval")}
+            value={initial.pushInterval ?? 60}
+            disabled={setInterval.isPending}
+            onChange={(e) =>
+              setInterval.mutate(
+                Number(e.target.value) as 3 | 5 | 10 | 30 | 60,
+                {
+                  onSuccess: () => toast(t("Saved")),
+                  onError: (error) =>
+                    toast({ message: errorMessage(error), tone: "error" }),
+                },
+              )
+            }
+          >
+            {PUSH_INTERVALS.map((n) => (
+              <option key={n} value={n}>
+                {n === 60 ? "每 1 分钟" : `每 ${n} 秒`}
+              </option>
+            ))}
+          </select>
+          <small>
+            改了以后路由器最晚一分钟内生效。间隔越短路由器越忙，平时用 30 秒或 1
+            分钟就够，要盯着看流量再调到 3 秒。
+          </small>
+        </label>
       )}
       <div className="xc-dialog-actions">
         <button

@@ -17,6 +17,8 @@ func (m *Module) configToAPI(r *http.Request, cfg config) api.RouterConfig {
 	if out.Mode == api.RouterModePush {
 		url := m.reportURL(r)
 		out.ReportUrl = &url
+		interval := cfg.PushInterval
+		out.PushInterval = &interval
 		m.mu.Lock()
 		snap := m.report
 		m.mu.Unlock()
@@ -70,7 +72,7 @@ func (m *Module) PutRouterConfig(w http.ResponseWriter, r *http.Request) {
 
 func (m *Module) saveConfig(ctx context.Context, in api.RouterConfigInput) (config, error) {
 	if strings.TrimSpace(in.Url) == "" {
-		for _, k := range []string{keyURL, keyUsername, keyPassword, keyAgentID, keyPushHash} {
+		for _, k := range []string{keyURL, keyUsername, keyPassword, keyAgentID, keyPushHash, keyPushInterval} {
 			if err := m.d.Settings.Delete(ctx, k); err != nil {
 				return config{}, err
 			}
@@ -249,7 +251,7 @@ func (m *Module) RestartRouterInterface(w http.ResponseWriter, r *http.Request, 
 		httpx.Fail(w, r, err)
 		return
 	} else if push {
-		httpx.Fail(w, r, errPushReadOnly)
+		m.queuePush(w, r, "router.interface.restart", name, "restart_interface", name)
 		return
 	}
 	u, err := m.ubus(ctx)
@@ -277,11 +279,9 @@ func (m *Module) RebootRouter(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, err)
 		return
 	}
-	if push, err := m.pushMode(ctx); err != nil {
+	isPush, err := m.pushMode(ctx)
+	if err != nil {
 		httpx.Fail(w, r, err)
-		return
-	} else if push {
-		httpx.Fail(w, r, errPushReadOnly)
 		return
 	}
 	var body api.RebootRouterJSONBody
@@ -291,6 +291,10 @@ func (m *Module) RebootRouter(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(body.Confirm) != "重启" {
 		httpx.Fail(w, r, httpx.Invalid("请输入“重启”确认"))
+		return
+	}
+	if isPush {
+		m.queuePush(w, r, "router.reboot", "", "reboot", "")
 		return
 	}
 	u, err := m.ubus(ctx)
@@ -308,5 +312,21 @@ func (m *Module) RebootRouter(w http.ResponseWriter, r *http.Request) {
 	m.mu.Lock()
 	m.quiet = m.now().Add(5 * time.Minute) // a reboot takes a minute or two
 	m.mu.Unlock()
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// queuePush answers a restart request in push mode: the panel cannot reach the
+// router, so the command waits for its next report.
+func (m *Module) queuePush(w http.ResponseWriter, r *http.Request, auditAction, target, action, arg string) {
+	ok := m.queueCommand(action, arg)
+	var err error
+	if !ok {
+		err = httpx.NewError(http.StatusTooManyRequests, "router_queue_full", "排队的命令太多了，路由器还没取走。检查路由器是否在上报")
+	}
+	m.d.Audit.Record(r.Context(), auditAction, target, map[string]any{"queued": true}, err)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
 	w.WriteHeader(http.StatusAccepted)
 }

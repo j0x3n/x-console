@@ -158,7 +158,7 @@ describe("RouterPage B65", () => {
     );
   });
 
-  it("B114：路由器主动上报时不显示重启按钮", async () => {
+  it("B114：路由器主动上报时重启接口是排队", async () => {
     api.routes.set("GET /router/status", () => ({
       status: 200,
       body: { ...status, source: "push" },
@@ -167,9 +167,17 @@ describe("RouterPage B65", () => {
       status: 200,
       body: { items: [] },
     }));
+    api.routes.set("POST /router/interfaces/wan/restart", () => ({
+      status: 202,
+    }));
     renderIt(<RouterPage />);
     expect(await screen.findByText("100.64.1.2")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "重启接口 wan" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "重启接口 wan" }));
+    await waitFor(() =>
+      expect(
+        api.calls.some((c) => c.path === "/router/interfaces/wan/restart"),
+      ).toBe(true),
+    );
   });
 
   it("B114：很久没收到上报时页面显示原因", async () => {
@@ -265,6 +273,43 @@ describe("RouterSettingsTab B114", () => {
     fireEvent.click(screen.getByRole("button", { name: "生成上报令牌" }));
     expect(await screen.findByText(/TOKEN='t0k3n'/)).toBeTruthy();
     expect(api.calls.some((c) => c.path === "/router/push/token")).toBe(true);
+  });
+
+  it("改上报间隔会保存", async () => {
+    api.routes.set("GET /router/config", () => ({
+      status: 200,
+      body: {
+        url: "",
+        username: "",
+        mode: "push",
+        hasPassword: false,
+        pushInterval: 60,
+      },
+    }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: [] }));
+    api.routes.set("PUT /router/push/interval", (body) => ({
+      status: 200,
+      body: {
+        url: "",
+        username: "",
+        mode: "push",
+        hasPassword: false,
+        pushInterval: (body as { seconds: number }).seconds,
+      },
+    }));
+    renderIt(<RouterSettingsTab />);
+    const select = await screen.findByLabelText("上报间隔");
+    fireEvent.change(select, { target: { value: "3" } });
+    await waitFor(() =>
+      expect(
+        api.calls.some(
+          (c) => c.path === "/router/push/interval" && c.method === "PUT",
+        ),
+      ).toBe(true),
+    );
+    expect(
+      api.calls.find((c) => c.path === "/router/push/interval")?.body,
+    ).toEqual({ seconds: 3 });
   });
 
   it("已经在主动上报时显示最近一次上报，重新生成要确认", async () => {

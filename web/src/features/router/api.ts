@@ -119,6 +119,16 @@ export function useCreateRouterPushToken() {
   });
 }
 
+/** B114：路由器上报的间隔，脚本最晚下一分钟读到新值。 */
+export function useSetPushInterval() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (seconds: 3 | 5 | 10 | 30 | 60) =>
+      unwrap(routerApi.PUT("/router/push/interval", { body: { seconds } })),
+    onSuccess: (data) => qc.setQueryData(routerKeys.config, data),
+  });
+}
+
 export function useRestartInterface() {
   const qc = useQueryClient();
   return useMutation({
