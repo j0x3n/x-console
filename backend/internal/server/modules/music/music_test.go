@@ -399,6 +399,14 @@ func TestListSearchSortAndPaging(t *testing.T) {
 	if got := titles("?artist=Ann&album=Two"); got != "Epsilon" {
 		t.Errorf("artist+album: %s", got)
 	}
+	// A drive file finds its song.
+	if page := tracks(t, env, "?driveItemId=999999"); page.Total != 0 {
+		t.Errorf("unknown drive file: %d", page.Total)
+	}
+	one := tracks(t, env, "?q=Alpha").Items[0]
+	if page := tracks(t, env, fmt.Sprintf("?driveItemId=%d", one.DriveItemId)); page.Total != 1 || page.Items[0].Id != one.Id {
+		t.Errorf("driveItemId filter: %+v", page)
+	}
 	if status, _ := env.Do(http.MethodGet, "/music/tracks?sort=bogus", nil, nil); status != http.StatusBadRequest {
 		t.Errorf("bad sort: %d", status)
 	}

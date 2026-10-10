@@ -410,6 +410,8 @@ export interface operations {
                 /** @description 专辑名，要完全相同 */
                 album?: string;
                 favorite?: boolean;
+                /** @description 云盘里的文件编号。云盘页点音频文件时用它找对应的歌 */
+                driveItemId?: number;
                 /** @description 默认 artist（歌手、专辑、碟号、曲目号、歌名）。recent 只列播放过的，最近的在前 */
                 sort?: "artist" | "title" | "album" | "added" | "recent" | "plays";
                 limit?: number;

@@ -353,6 +353,9 @@ type ListMusicTracksParams struct {
 	Album    *string `form:"album,omitempty" json:"album,omitempty"`
 	Favorite *bool   `form:"favorite,omitempty" json:"favorite,omitempty"`
 
+	// DriveItemId 云盘里的文件编号。云盘页点音频文件时用它找对应的歌
+	DriveItemId *int64 `form:"driveItemId,omitempty" json:"driveItemId,omitempty"`
+
 	// Sort 默认 artist（歌手、专辑、碟号、曲目号、歌名）。recent 只列播放过的，最近的在前
 	Sort   *ListMusicTracksParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
 	Limit  *int                       `form:"limit,omitempty" json:"limit,omitempty"`
@@ -852,6 +855,19 @@ func (siw *ServerInterfaceWrapper) ListMusicTracks(w http.ResponseWriter, r *htt
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "favorite"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "favorite", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "driveItemId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "driveItemId", r.URL.Query(), &params.DriveItemId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "driveItemId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "driveItemId", Err: err})
 		}
 		return
 	}

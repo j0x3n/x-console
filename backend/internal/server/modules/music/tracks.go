@@ -104,6 +104,9 @@ func (m *Module) ListMusicTracks(w http.ResponseWriter, r *http.Request, p api.L
 	if p.Favorite != nil && *p.Favorite {
 		where = append(where, "favorite = 1")
 	}
+	if p.DriveItemId != nil {
+		where, args = append(where, "drive_item_id = ?"), append(args, *p.DriveItemId)
+	}
 	sortKey := "artist"
 	if p.Sort != nil {
 		sortKey = string(*p.Sort)

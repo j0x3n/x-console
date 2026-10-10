@@ -25,6 +25,10 @@ paths:
         - name: favorite
           in: query
           schema: { type: boolean }
+        - name: driveItemId
+          in: query
+          description: 云盘里的文件编号。云盘页点音频文件时用它找对应的歌
+          schema: { type: integer, format: int64 }
         - name: sort
           in: query
           description: 默认 artist（歌手、专辑、碟号、曲目号、歌名）。recent 只列播放过的，最近的在前
