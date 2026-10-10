@@ -17,9 +17,7 @@
 
 ## 进行中
 
-| 编号 | 任务 | 规格 | 负责 |
-| --- | --- | --- | --- |
-| B143 | 稍后阅读：读取 X 推文（公开接口、X 登录 Cookie、可选第三方）和完整图文保存（HTML、图片本地存档、导出） | [B143](specs/B143.md)，2026-10-11 用户确认全部按建议做 | Claude |
+目前没有。
 
 ## 待做
 
@@ -48,7 +46,7 @@ B95：用户 2026-10-02 确认树莓派装的是 64 位系统。服务端已经�
 
 ## 已知问题
 
-
+- B143：读取 X 推文的三个接口（公开接口、带 Cookie 的 GraphQL、fxtwitter）没有用真实推文调过，开发环境连不上 `x.com`，测试全用假服务器。GraphQL 的 `queryId` 和 `features` 照已知写法填的，X 改版就会失效。上线后按 [B143](specs/B143.md) 里“没有验证的”一节逐条试一遍，哪一步不对就照实际返回改解析，样例存进 `archive_test.go`。串推（同一作者的回复链）没有做。
 - B110：Codex（`chatgpt.com/backend-api/wham/usage`、`auth.openai.com/oauth/token`）、Grok（`cli-chat-proxy.grok.com/v1/billing?format=credits`）、Claude（`claude -p /usage` 的输出格式）三个读法是照 magpie 的代码写的，没有用真实账号调过，测试全用假服务器和假命令输出。Claude 用不同的 `CLAUDE_CONFIG_DIR` 读多个账号也没试过。上线后任何一项数字不对或报错，先用真机调一次，样例存进 `internal/agent/quota/` 的测试，再改解析。Codex 刷新令牌会写回 `auth.json`，如果出错会让机器上的 Codex 掉线，要用户重新登录，上线后先拿一个不重要的账号试。
 
 

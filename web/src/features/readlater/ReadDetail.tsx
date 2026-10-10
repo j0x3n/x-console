@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   CheckCheck,
+  Download,
   ExternalLink,
   Pencil,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
   useSummarizeReadItem,
   useUpdateReadItem,
 } from "./api";
+import ReadingBody from "./ReadingBody";
 import { SOURCE_LABELS, parseTags } from "./format";
 import "./i18n";
 
@@ -88,7 +90,7 @@ export default function ReadDetail({
     if (!item) return;
     const ok = await confirmAction({
       title: `${t("Delete this saved link?")} ${item.title}`,
-      description: t("The saved page text is deleted too."),
+      description: t("The saved page text and pictures are deleted too."),
       confirmLabel: t("Delete"),
     });
     if (!ok) return;
@@ -138,6 +140,21 @@ export default function ReadDetail({
             </p>
           )}
           {item.note && <p className="readlater-note">{item.note}</p>}
+          {item.meta.incomplete === true && (
+            <p className="readlater-warn">
+              {t(
+                "This post may be cut short. Add your X login cookie in Settings → Read later, then fetch again.",
+              )}
+            </p>
+          )}
+          {item.status === "ready" && !item.hasHtml && item.hasContent && (
+            <p className="xc-muted">
+              {t(
+                "This item only has text. Fetch it again to keep the pictures and layout.",
+              )}
+            </p>
+          )}
+          {item.contentHtml && <ReadingBody html={item.contentHtml} />}
           <details className="readlater-text">
             <summary>{t("Saved page text")}</summary>
             {item.content ? (
@@ -214,6 +231,16 @@ export default function ReadDetail({
               >
                 <RefreshCw size={14} /> {t("Fetch again")}
               </button>
+              {item.hasHtml && (
+                <a
+                  className="xc-btn ghost"
+                  href={`/api/v1/readlater/${item.id}/export`}
+                  download
+                  title={t("Download one HTML file with the pictures inside")}
+                >
+                  <Download size={14} /> {t("Download")}
+                </a>
+              )}
               <button
                 className="xc-btn ghost"
                 disabled={summarize.isPending || !item.hasContent}

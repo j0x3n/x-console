@@ -2,6 +2,7 @@ package readlater
 
 import (
 	"context"
+	"net/url"
 	"time"
 )
 
@@ -15,6 +16,14 @@ func AllowPrivate(m *Module) {
 	m.mu.Lock()
 	m.allowPrivate = true
 	m.client = newFetchClient(true)
+	m.xclient = newXClient(true)
+	m.mu.Unlock()
+}
+
+// SetXBases points the X interfaces ("syndication", "graphql", "fxtwitter") at test servers.
+func SetXBases(m *Module, bases map[string]string) {
+	m.mu.Lock()
+	m.xBases = bases
 	m.mu.Unlock()
 }
 
@@ -22,6 +31,7 @@ func AllowPrivate(m *Module) {
 func UseStrictClient(m *Module) {
 	m.mu.Lock()
 	m.client = newFetchClient(false)
+	m.xclient = newXClient(false)
 	m.mu.Unlock()
 }
 
@@ -35,3 +45,30 @@ var (
 	BlockedAddr    = blockedAddr
 	NewFetchClient = newFetchClient
 )
+
+// Sanitize runs the page cleaner with no picture handling.
+func Sanitize(raw, base string) string {
+	u, _ := url.Parse(base)
+	s := &sanitizer{base: u}
+	return s.clean(raw)
+}
+
+// CookieHostOK checks where a cookie may be sent, with the strict rules.
+func CookieHostOK(target string) error { return (&Module{}).cookieHostOK(target) }
+
+// ParseTweetURL reads the address of a post.
+func ParseTweetURL(raw string) (handle, id string, ok bool) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", "", false
+	}
+	return parseTweetURL(u)
+}
+
+var SyndicationToken = syndicationToken
+
+// Archive cleans a page and saves its pictures.
+func Archive(m *Module, ctx context.Context, id int64, pageURL, raw string) (string, map[string]bool) {
+	u, _ := url.Parse(pageURL)
+	return m.archive(ctx, id, u, raw)
+}

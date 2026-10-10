@@ -82,6 +82,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/readlater/{itemId}/assets/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+                hash: string;
+            };
+            cookie?: never;
+        };
+        /** @description 存档里的一张图片。需要登录。图片内容不会变，浏览器可以长期缓存。 */
+        get: operations["getReadAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/readlater/{itemId}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        /** @description 下载单个 HTML 文件。图片内联成 data URI，断网也能打开。 */
+        get: operations["exportReadItem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/readlater/x-auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 读取 X 推文用的设置。不返回 Cookie 内容。 */
+        get: operations["getReadXAuth"];
+        /**
+         * @description 保存 X 登录 Cookie 和相关设置，需要提权。authToken 和 ct0 要一起给，都不给就只改其他设置。
+         *     Cookie 加密存储。
+         */
+        put: operations["saveReadXAuth"];
+        post?: never;
+        /** @description 清除 X 登录 Cookie，需要提权。其他设置保留。 */
+        delete: operations["clearReadXAuth"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/readlater/x-auth/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 用 Cookie 读一条固定的公开推文，成功就记下验证时间。 */
+        post: operations["testReadXAuth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -110,9 +188,19 @@ export interface components {
             /** @description 抓取失败的原因 */
             error: string;
             hasContent: boolean;
+            /** @description 有存档的图文 HTML */
+            hasHtml: boolean;
+            /** @enum {string} */
+            kind: "page" | "tweet";
+            /** @description 推文的作者、发布时间、用哪一步读到的、内容是否不完整等 */
+            meta: {
+                [key: string]: unknown;
+            };
             read: boolean;
             /** @description 存档的正文，纯文本。只有详情接口给，列表里没有 */
             content?: string;
+            /** @description 存档的图文 HTML，已清理，图片是本站地址。只有详情接口给 */
+            contentHtml?: string;
             /** Format: date-time */
             readAt?: string | null;
             /** Format: date-time */
@@ -153,6 +241,29 @@ export interface components {
             tags?: string[];
             note?: string;
             read?: boolean;
+        };
+        XAuth: {
+            /** @description 是否保存了 Cookie */
+            configured: boolean;
+            /**
+             * @description none 没配置，unverified 还没验证，ok 可用，expired Cookie 可能过期，error 上次测试失败
+             * @enum {string}
+             */
+            status: "none" | "unverified" | "ok" | "expired" | "error";
+            /** @description 上次测试或抓取失败的原因 */
+            message?: string;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+            /** @description 前两步失败时是否用第三方转换服务 */
+            fxtwitter: boolean;
+            /** @description GraphQL 接口的 queryId，空表示用内置的 */
+            queryId: string;
+        };
+        XAuthInput: {
+            authToken?: string;
+            ct0?: string;
+            fxtwitter?: boolean;
+            queryId?: string;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -358,6 +469,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getReadAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 图片 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    exportReadItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description HTML 文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getReadXAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["XAuth"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveReadXAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["XAuthInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["XAuth"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    clearReadXAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已清除 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["XAuth"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testReadXAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 测试结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["XAuth"];
                 };
             };
             default: components["responses"]["Error"];

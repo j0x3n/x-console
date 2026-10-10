@@ -1,7 +1,8 @@
 -- name: ListReadItems :many
 -- The list leaves out the body text. has_content says whether one is stored.
 SELECT id, url, title, title_locked, site, excerpt, summary, tags_json, note, source, status, error, attempts,
-       read_at, created_at, fetched_at, updated_at, CAST(content <> '' AS INTEGER) AS has_content
+       read_at, created_at, fetched_at, updated_at, kind, meta_json,
+       CAST(content <> '' AS INTEGER) AS has_content, CAST(content_html <> '' AS INTEGER) AS has_html
 FROM read_items ORDER BY created_at DESC, id DESC;
 
 -- name: GetReadItem :one
@@ -19,6 +20,7 @@ VALUES (?, ?, ?, ?, ?, 'queued', ?, ?) RETURNING *;
 UPDATE read_items SET
   title = CASE WHEN title_locked = 1 OR sqlc.arg(title) = '' THEN title ELSE sqlc.arg(title) END,
   site = sqlc.arg(site), excerpt = sqlc.arg(excerpt), content = sqlc.arg(content),
+  content_html = sqlc.arg(content_html), kind = sqlc.arg(kind), meta_json = sqlc.arg(meta_json),
   status = 'ready', error = '', attempts = attempts + 1, fetched_at = sqlc.arg(at), updated_at = sqlc.arg(at)
 WHERE id = sqlc.arg(id);
 
@@ -49,3 +51,16 @@ SELECT id, title, url, site FROM read_items WHERE read_at IS NULL ORDER BY creat
 
 -- name: CountUnreadReadItems :one
 SELECT COUNT(*) FROM read_items WHERE read_at IS NULL;
+
+-- name: InsertReadAsset :exec
+INSERT INTO read_assets (item_id, hash, mime, size, src_url, created_at) VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(item_id, hash) DO NOTHING;
+
+-- name: ListReadAssets :many
+SELECT * FROM read_assets WHERE item_id = ? ORDER BY hash;
+
+-- name: GetReadAsset :one
+SELECT * FROM read_assets WHERE item_id = ? AND hash = ?;
+
+-- name: DeleteReadAsset :exec
+DELETE FROM read_assets WHERE item_id = ? AND hash = ?;

@@ -16,6 +16,7 @@ import RemoteAccessTab from "../mcp/RemoteAccessTab";
 import MailSettingsTab from "../mail/MailSettingsTab";
 import RouterSettingsTab from "../router/RouterSettingsTab";
 import MaintenanceTab from "../maintenance/MaintenanceTab";
+import XSettingsTab from "../readlater/XSettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -43,4 +44,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "mail", label: "Mail", component: MailSettingsTab },
   { id: "router", label: "Router", component: RouterSettingsTab },
   { id: "maintenance", label: "Maintenance", component: MaintenanceTab },
+  { id: "readlater", label: "Read later", component: XSettingsTab },
 ];

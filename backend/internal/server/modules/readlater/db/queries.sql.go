@@ -21,6 +21,20 @@ func (q *Queries) CountUnreadReadItems(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const deleteReadAsset = `-- name: DeleteReadAsset :exec
+DELETE FROM read_assets WHERE item_id = ? AND hash = ?
+`
+
+type DeleteReadAssetParams struct {
+	ItemID int64
+	Hash   string
+}
+
+func (q *Queries) DeleteReadAsset(ctx context.Context, arg DeleteReadAssetParams) error {
+	_, err := q.db.ExecContext(ctx, deleteReadAsset, arg.ItemID, arg.Hash)
+	return err
+}
+
 const deleteReadItem = `-- name: DeleteReadItem :execrows
 DELETE FROM read_items WHERE id = ?
 `
@@ -33,8 +47,31 @@ func (q *Queries) DeleteReadItem(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const getReadAsset = `-- name: GetReadAsset :one
+SELECT item_id, hash, mime, size, src_url, created_at FROM read_assets WHERE item_id = ? AND hash = ?
+`
+
+type GetReadAssetParams struct {
+	ItemID int64
+	Hash   string
+}
+
+func (q *Queries) GetReadAsset(ctx context.Context, arg GetReadAssetParams) (ReadAsset, error) {
+	row := q.db.QueryRowContext(ctx, getReadAsset, arg.ItemID, arg.Hash)
+	var i ReadAsset
+	err := row.Scan(
+		&i.ItemID,
+		&i.Hash,
+		&i.Mime,
+		&i.Size,
+		&i.SrcUrl,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getReadItem = `-- name: GetReadItem :one
-SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at FROM read_items WHERE id = ?
+SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json FROM read_items WHERE id = ?
 `
 
 func (q *Queries) GetReadItem(ctx context.Context, id int64) (ReadItem, error) {
@@ -59,12 +96,15 @@ func (q *Queries) GetReadItem(ctx context.Context, id int64) (ReadItem, error) {
 		&i.CreatedAt,
 		&i.FetchedAt,
 		&i.UpdatedAt,
+		&i.ContentHtml,
+		&i.Kind,
+		&i.MetaJson,
 	)
 	return i, err
 }
 
 const getReadItemByURL = `-- name: GetReadItemByURL :one
-SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at FROM read_items WHERE url = ?
+SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json FROM read_items WHERE url = ?
 `
 
 func (q *Queries) GetReadItemByURL(ctx context.Context, url string) (ReadItem, error) {
@@ -89,13 +129,42 @@ func (q *Queries) GetReadItemByURL(ctx context.Context, url string) (ReadItem, e
 		&i.CreatedAt,
 		&i.FetchedAt,
 		&i.UpdatedAt,
+		&i.ContentHtml,
+		&i.Kind,
+		&i.MetaJson,
 	)
 	return i, err
 }
 
+const insertReadAsset = `-- name: InsertReadAsset :exec
+INSERT INTO read_assets (item_id, hash, mime, size, src_url, created_at) VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT(item_id, hash) DO NOTHING
+`
+
+type InsertReadAssetParams struct {
+	ItemID    int64
+	Hash      string
+	Mime      string
+	Size      int64
+	SrcUrl    string
+	CreatedAt time.Time
+}
+
+func (q *Queries) InsertReadAsset(ctx context.Context, arg InsertReadAssetParams) error {
+	_, err := q.db.ExecContext(ctx, insertReadAsset,
+		arg.ItemID,
+		arg.Hash,
+		arg.Mime,
+		arg.Size,
+		arg.SrcUrl,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const insertReadItem = `-- name: InsertReadItem :one
 INSERT INTO read_items (url, title, site, note, source, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, 'queued', ?, ?) RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at
+VALUES (?, ?, ?, ?, ?, 'queued', ?, ?) RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json
 `
 
 type InsertReadItemParams struct {
@@ -138,13 +207,51 @@ func (q *Queries) InsertReadItem(ctx context.Context, arg InsertReadItemParams) 
 		&i.CreatedAt,
 		&i.FetchedAt,
 		&i.UpdatedAt,
+		&i.ContentHtml,
+		&i.Kind,
+		&i.MetaJson,
 	)
 	return i, err
 }
 
+const listReadAssets = `-- name: ListReadAssets :many
+SELECT item_id, hash, mime, size, src_url, created_at FROM read_assets WHERE item_id = ? ORDER BY hash
+`
+
+func (q *Queries) ListReadAssets(ctx context.Context, itemID int64) ([]ReadAsset, error) {
+	rows, err := q.db.QueryContext(ctx, listReadAssets, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReadAsset
+	for rows.Next() {
+		var i ReadAsset
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.Hash,
+			&i.Mime,
+			&i.Size,
+			&i.SrcUrl,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReadItems = `-- name: ListReadItems :many
 SELECT id, url, title, title_locked, site, excerpt, summary, tags_json, note, source, status, error, attempts,
-       read_at, created_at, fetched_at, updated_at, CAST(content <> '' AS INTEGER) AS has_content
+       read_at, created_at, fetched_at, updated_at, kind, meta_json,
+       CAST(content <> '' AS INTEGER) AS has_content, CAST(content_html <> '' AS INTEGER) AS has_html
 FROM read_items ORDER BY created_at DESC, id DESC
 `
 
@@ -166,7 +273,10 @@ type ListReadItemsRow struct {
 	CreatedAt   time.Time
 	FetchedAt   *time.Time
 	UpdatedAt   time.Time
+	Kind        string
+	MetaJson    string
 	HasContent  int64
+	HasHtml     int64
 }
 
 // The list leaves out the body text. has_content says whether one is stored.
@@ -197,7 +307,10 @@ func (q *Queries) ListReadItems(ctx context.Context) ([]ListReadItemsRow, error)
 			&i.CreatedAt,
 			&i.FetchedAt,
 			&i.UpdatedAt,
+			&i.Kind,
+			&i.MetaJson,
 			&i.HasContent,
+			&i.HasHtml,
 		); err != nil {
 			return nil, err
 		}
@@ -321,17 +434,21 @@ const saveReadFetched = `-- name: SaveReadFetched :exec
 UPDATE read_items SET
   title = CASE WHEN title_locked = 1 OR ?1 = '' THEN title ELSE ?1 END,
   site = ?2, excerpt = ?3, content = ?4,
-  status = 'ready', error = '', attempts = attempts + 1, fetched_at = ?5, updated_at = ?5
-WHERE id = ?6
+  content_html = ?5, kind = ?6, meta_json = ?7,
+  status = 'ready', error = '', attempts = attempts + 1, fetched_at = ?8, updated_at = ?8
+WHERE id = ?9
 `
 
 type SaveReadFetchedParams struct {
-	Title   interface{}
-	Site    string
-	Excerpt string
-	Content string
-	At      *time.Time
-	ID      int64
+	Title       interface{}
+	Site        string
+	Excerpt     string
+	Content     string
+	ContentHtml string
+	Kind        string
+	MetaJson    string
+	At          *time.Time
+	ID          int64
 }
 
 // An empty title keeps the old one (the user edited it, or the page had none).
@@ -341,6 +458,9 @@ func (q *Queries) SaveReadFetched(ctx context.Context, arg SaveReadFetchedParams
 		arg.Site,
 		arg.Excerpt,
 		arg.Content,
+		arg.ContentHtml,
+		arg.Kind,
+		arg.MetaJson,
 		arg.At,
 		arg.ID,
 	)
@@ -369,7 +489,7 @@ func (q *Queries) SaveReadSummary(ctx context.Context, arg SaveReadSummaryParams
 }
 
 const updateReadItem = `-- name: UpdateReadItem :one
-UPDATE read_items SET title = ?, title_locked = ?, tags_json = ?, note = ?, read_at = ?, updated_at = ? WHERE id = ? RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at
+UPDATE read_items SET title = ?, title_locked = ?, tags_json = ?, note = ?, read_at = ?, updated_at = ? WHERE id = ? RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json
 `
 
 type UpdateReadItemParams struct {
@@ -412,6 +532,9 @@ func (q *Queries) UpdateReadItem(ctx context.Context, arg UpdateReadItemParams) 
 		&i.CreatedAt,
 		&i.FetchedAt,
 		&i.UpdatedAt,
+		&i.ContentHtml,
+		&i.Kind,
+		&i.MetaJson,
 	)
 	return i, err
 }

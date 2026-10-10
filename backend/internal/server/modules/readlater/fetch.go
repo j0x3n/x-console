@@ -3,6 +3,7 @@ package readlater
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	readability "github.com/go-shiori/go-readability"
 	"golang.org/x/net/html/charset"
 
+	"github.com/j0x3n/x-console/backend/internal/server/modules/readlater/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/readlater/db"
 )
 
@@ -94,6 +96,12 @@ type page struct {
 	Site    string
 	Excerpt string
 	Content string
+	// HTML is the page for reading, not cleaned yet (archive.go does that).
+	HTML string
+	// Base resolves the relative addresses in HTML.
+	Base *url.URL
+	Kind string
+	Meta map[string]any
 }
 
 // fetchPage downloads an address and pulls out the title and the text.
@@ -101,6 +109,13 @@ func (m *Module) fetchPage(ctx context.Context, rawURL string) (page, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return page{}, errors.New("网址不对")
+	}
+	if handle, id, ok := parseTweetURL(u); ok {
+		pg, err := m.fetchTweet(ctx, handle, id)
+		if err == nil {
+			pg.Base = u
+		}
+		return pg, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
 	defer cancel()
@@ -189,6 +204,8 @@ func extract(body []byte, contentType string, pageURL *url.URL, host string) pag
 		Site:    strings.TrimSpace(article.SiteName),
 		Excerpt: clipRunes(strings.Join(strings.Fields(article.Excerpt), " "), 500),
 		Content: clipRunes(tidyText(article.TextContent), maxContent),
+		HTML:    article.Content,
+		Base:    pageURL,
 	}
 	if p.Site == "" {
 		p.Site = host
@@ -248,10 +265,36 @@ func (m *Module) process(ctx context.Context, id int64) {
 		m.publishRow("readlater.updated", id)
 		return
 	}
-	if e := m.q.SaveReadFetched(ctx, db.SaveReadFetchedParams{Title: pg.Title, Site: pg.Site, Excerpt: pg.Excerpt, Content: pg.Content, At: &now, ID: id}); e != nil {
-		m.d.Log.Warn("readlater save page", "id", id, "err", e)
+	var archived string
+	var kept map[string]bool
+	if pg.HTML != "" {
+		base := pg.Base
+		if base == nil {
+			base, _ = url.Parse(row.Url)
+		}
+		actx, cancel := context.WithTimeout(ctx, archiveTimeout)
+		archived, kept = m.archive(actx, id, base, pg.HTML)
+		cancel()
+		if archived == "" {
+			kept = nil
+		}
+	}
+	kind := pg.Kind
+	if kind == "" {
+		kind = string(api.Page)
+	}
+	meta := "{}"
+	if len(pg.Meta) > 0 {
+		if raw, err := json.Marshal(pg.Meta); err == nil {
+			meta = string(raw)
+		}
+	}
+	err = m.q.SaveReadFetched(ctx, db.SaveReadFetchedParams{Title: pg.Title, Site: pg.Site, Excerpt: pg.Excerpt, Content: pg.Content, ContentHtml: archived, Kind: kind, MetaJson: meta, At: &now, ID: id})
+	if err != nil {
+		m.d.Log.Warn("readlater save page", "id", id, "err", err)
 		return
 	}
+	m.dropAssets(ctx, id, kept)
 	m.publishRow("readlater.updated", id)
 	if fresh, err := m.q.GetReadItem(ctx, id); err == nil && fresh.Summary == "" && fresh.Content != "" {
 		if _, err := m.summarize(ctx, fresh); err == nil {

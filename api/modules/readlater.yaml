@@ -123,6 +123,97 @@ paths:
               schema: { $ref: "#/components/schemas/ReadItem" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /readlater/{itemId}/assets/{hash}:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+      - name: hash
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[0-9a-f]{64}$" }
+    get:
+      operationId: getReadAsset
+      tags: [readlater]
+      description: 存档里的一张图片。需要登录。图片内容不会变，浏览器可以长期缓存。
+      responses:
+        "200":
+          description: 图片
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /readlater/{itemId}/export:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: exportReadItem
+      tags: [readlater]
+      description: 下载单个 HTML 文件。图片内联成 data URI，断网也能打开。
+      responses:
+        "200":
+          description: HTML 文件
+          content:
+            text/html:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /readlater/x-auth:
+    get:
+      operationId: getReadXAuth
+      tags: [readlater]
+      description: 读取 X 推文用的设置。不返回 Cookie 内容。
+      responses:
+        "200":
+          description: 当前设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/XAuth" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: saveReadXAuth
+      tags: [readlater]
+      description: |
+        保存 X 登录 Cookie 和相关设置，需要提权。authToken 和 ct0 要一起给，都不给就只改其他设置。
+        Cookie 加密存储。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/XAuthInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/XAuth" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: clearReadXAuth
+      tags: [readlater]
+      description: 清除 X 登录 Cookie，需要提权。其他设置保留。
+      responses:
+        "200":
+          description: 已清除
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/XAuth" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /readlater/x-auth/test:
+    post:
+      operationId: testReadXAuth
+      tags: [readlater]
+      description: 用 Cookie 读一条固定的公开推文，成功就记下验证时间。
+      responses:
+        "200":
+          description: 测试结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/XAuth" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
     ItemId:
@@ -137,7 +228,7 @@ components:
       enum: [queued, ready, failed]
     ReadItem:
       type: object
-      required: [id, url, title, site, excerpt, summary, tags, note, source, status, error, hasContent, read, createdAt, updatedAt]
+      required: [id, url, title, site, excerpt, summary, tags, note, source, status, error, hasContent, hasHtml, kind, meta, read, createdAt, updatedAt]
       properties:
         id: { type: integer, format: int64 }
         url: { type: string }
@@ -153,8 +244,15 @@ components:
         status: { $ref: "#/components/schemas/ReadStatus" }
         error: { type: string, description: 抓取失败的原因 }
         hasContent: { type: boolean }
+        hasHtml: { type: boolean, description: 有存档的图文 HTML }
+        kind: { type: string, enum: [page, tweet] }
+        meta:
+          type: object
+          description: 推文的作者、发布时间、用哪一步读到的、内容是否不完整等
+          additionalProperties: true
         read: { type: boolean }
         content: { type: string, description: 存档的正文，纯文本。只有详情接口给，列表里没有 }
+        contentHtml: { type: string, description: 存档的图文 HTML，已清理，图片是本站地址。只有详情接口给 }
         readAt: { type: string, format: date-time, nullable: true }
         createdAt: { type: string, format: date-time }
         fetchedAt: { type: string, format: date-time, nullable: true }
@@ -207,3 +305,23 @@ components:
           items: { type: string }
         note: { type: string }
         read: { type: boolean }
+    XAuth:
+      type: object
+      required: [configured, status, fxtwitter, queryId]
+      properties:
+        configured: { type: boolean, description: 是否保存了 Cookie }
+        status:
+          type: string
+          description: none 没配置，unverified 还没验证，ok 可用，expired Cookie 可能过期，error 上次测试失败
+          enum: [none, unverified, ok, expired, error]
+        message: { type: string, description: 上次测试或抓取失败的原因 }
+        verifiedAt: { type: string, format: date-time, nullable: true }
+        fxtwitter: { type: boolean, description: 前两步失败时是否用第三方转换服务 }
+        queryId: { type: string, description: GraphQL 接口的 queryId，空表示用内置的 }
+    XAuthInput:
+      type: object
+      properties:
+        authToken: { type: string }
+        ct0: { type: string }
+        fxtwitter: { type: boolean }
+        queryId: { type: string }

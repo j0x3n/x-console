@@ -1119,6 +1119,15 @@ type QuotaReading struct {
 	FailCount    int64
 }
 
+type ReadAsset struct {
+	ItemID    int64
+	Hash      string
+	Mime      string
+	Size      int64
+	SrcUrl    string
+	CreatedAt time.Time
+}
+
 type ReadItem struct {
 	ID          int64
 	Url         string
@@ -1138,6 +1147,9 @@ type ReadItem struct {
 	CreatedAt   time.Time
 	FetchedAt   *time.Time
 	UpdatedAt   time.Time
+	ContentHtml string
+	Kind        string
+	MetaJson    string
 }
 
 type Reminder struct {

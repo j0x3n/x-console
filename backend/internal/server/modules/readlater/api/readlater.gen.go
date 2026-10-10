@@ -13,6 +13,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ReadItemKind.
+const (
+	Page  ReadItemKind = "page"
+	Tweet ReadItemKind = "tweet"
+)
+
+// Valid indicates whether the value is a known member of the ReadItemKind enum.
+func (e ReadItemKind) Valid() bool {
+	switch e {
+	case Page:
+		return true
+	case Tweet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReadItemSource.
 const (
 	ReadItemSourceAi       ReadItemSource = "ai"
@@ -76,6 +94,33 @@ func (e ReadStatus) Valid() bool {
 	}
 }
 
+// Defines values for XAuthStatus.
+const (
+	Error      XAuthStatus = "error"
+	Expired    XAuthStatus = "expired"
+	None       XAuthStatus = "none"
+	Ok         XAuthStatus = "ok"
+	Unverified XAuthStatus = "unverified"
+)
+
+// Valid indicates whether the value is a known member of the XAuthStatus enum.
+func (e XAuthStatus) Valid() bool {
+	switch e {
+	case Error:
+		return true
+	case Expired:
+		return true
+	case None:
+		return true
+	case Ok:
+		return true
+	case Unverified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListReadItemsParamsView.
 const (
 	All    ListReadItemsParamsView = "all"
@@ -108,22 +153,32 @@ type ReadCounts struct {
 // ReadItem defines model for ReadItem.
 type ReadItem struct {
 	// Content 存档的正文，纯文本。只有详情接口给，列表里没有
-	Content   *string   `json:"content,omitempty"`
-	CreatedAt time.Time `json:"createdAt"`
+	Content *string `json:"content,omitempty"`
+
+	// ContentHtml 存档的图文 HTML，已清理，图片是本站地址。只有详情接口给
+	ContentHtml *string   `json:"contentHtml,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
 
 	// Error 抓取失败的原因
 	Error string `json:"error"`
 
 	// Excerpt 网页自己写的描述
-	Excerpt    string         `json:"excerpt"`
-	FetchedAt  *time.Time     `json:"fetchedAt,omitempty"`
-	HasContent bool           `json:"hasContent"`
-	Id         int64          `json:"id"`
-	Note       string         `json:"note"`
-	Read       bool           `json:"read"`
-	ReadAt     *time.Time     `json:"readAt,omitempty"`
-	Site       string         `json:"site"`
-	Source     ReadItemSource `json:"source"`
+	Excerpt    string     `json:"excerpt"`
+	FetchedAt  *time.Time `json:"fetchedAt,omitempty"`
+	HasContent bool       `json:"hasContent"`
+
+	// HasHtml 有存档的图文 HTML
+	HasHtml bool         `json:"hasHtml"`
+	Id      int64        `json:"id"`
+	Kind    ReadItemKind `json:"kind"`
+
+	// Meta 推文的作者、发布时间、用哪一步读到的、内容是否不完整等
+	Meta   map[string]interface{} `json:"meta"`
+	Note   string                 `json:"note"`
+	Read   bool                   `json:"read"`
+	ReadAt *time.Time             `json:"readAt,omitempty"`
+	Site   string                 `json:"site"`
+	Source ReadItemSource         `json:"source"`
 
 	// Status queued 等着抓，ready 抓好了，failed 抓取失败
 	Status ReadStatus `json:"status"`
@@ -137,6 +192,9 @@ type ReadItem struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 	Url       string    `json:"url"`
 }
+
+// ReadItemKind defines model for ReadItem.Kind.
+type ReadItemKind string
 
 // ReadItemSource defines model for ReadItem.Source.
 type ReadItemSource string
@@ -183,6 +241,36 @@ type ReadTag struct {
 	Tag   string `json:"tag"`
 }
 
+// XAuth defines model for XAuth.
+type XAuth struct {
+	// Configured 是否保存了 Cookie
+	Configured bool `json:"configured"`
+
+	// Fxtwitter 前两步失败时是否用第三方转换服务
+	Fxtwitter bool `json:"fxtwitter"`
+
+	// Message 上次测试或抓取失败的原因
+	Message *string `json:"message,omitempty"`
+
+	// QueryId GraphQL 接口的 queryId，空表示用内置的
+	QueryId string `json:"queryId"`
+
+	// Status none 没配置，unverified 还没验证，ok 可用，expired Cookie 可能过期，error 上次测试失败
+	Status     XAuthStatus `json:"status"`
+	VerifiedAt *time.Time  `json:"verifiedAt,omitempty"`
+}
+
+// XAuthStatus none 没配置，unverified 还没验证，ok 可用，expired Cookie 可能过期，error 上次测试失败
+type XAuthStatus string
+
+// XAuthInput defines model for XAuthInput.
+type XAuthInput struct {
+	AuthToken *string `json:"authToken,omitempty"`
+	Ct0       *string `json:"ct0,omitempty"`
+	Fxtwitter *bool   `json:"fxtwitter,omitempty"`
+	QueryId   *string `json:"queryId,omitempty"`
+}
+
 // ItemId defines model for ItemId.
 type ItemId = int64
 
@@ -201,6 +289,9 @@ type ListReadItemsParamsView string
 // CreateReadItemJSONRequestBody defines body for CreateReadItem for application/json ContentType.
 type CreateReadItemJSONRequestBody = ReadItemInput
 
+// SaveReadXAuthJSONRequestBody defines body for SaveReadXAuth for application/json ContentType.
+type SaveReadXAuthJSONRequestBody = XAuthInput
+
 // UpdateReadItemJSONRequestBody defines body for UpdateReadItem for application/json ContentType.
 type UpdateReadItemJSONRequestBody = ReadItemPatch
 
@@ -213,6 +304,18 @@ type ServerInterface interface {
 	// (POST /readlater)
 	CreateReadItem(w http.ResponseWriter, r *http.Request)
 
+	// (DELETE /readlater/x-auth)
+	ClearReadXAuth(w http.ResponseWriter, r *http.Request)
+
+	// (GET /readlater/x-auth)
+	GetReadXAuth(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /readlater/x-auth)
+	SaveReadXAuth(w http.ResponseWriter, r *http.Request)
+
+	// (POST /readlater/x-auth/test)
+	TestReadXAuth(w http.ResponseWriter, r *http.Request)
+
 	// (DELETE /readlater/{itemId})
 	DeleteReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
 
@@ -221,6 +324,12 @@ type ServerInterface interface {
 
 	// (PATCH /readlater/{itemId})
 	UpdateReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
+
+	// (GET /readlater/{itemId}/assets/{hash})
+	GetReadAsset(w http.ResponseWriter, r *http.Request, itemId ItemId, hash string)
+
+	// (GET /readlater/{itemId}/export)
+	ExportReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
 
 	// (POST /readlater/{itemId}/refetch)
 	RefetchReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
@@ -243,6 +352,26 @@ func (_ Unimplemented) CreateReadItem(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (DELETE /readlater/x-auth)
+func (_ Unimplemented) ClearReadXAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /readlater/x-auth)
+func (_ Unimplemented) GetReadXAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /readlater/x-auth)
+func (_ Unimplemented) SaveReadXAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /readlater/x-auth/test)
+func (_ Unimplemented) TestReadXAuth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (DELETE /readlater/{itemId})
 func (_ Unimplemented) DeleteReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -255,6 +384,16 @@ func (_ Unimplemented) GetReadItem(w http.ResponseWriter, r *http.Request, itemI
 
 // (PATCH /readlater/{itemId})
 func (_ Unimplemented) UpdateReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /readlater/{itemId}/assets/{hash})
+func (_ Unimplemented) GetReadAsset(w http.ResponseWriter, r *http.Request, itemId ItemId, hash string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /readlater/{itemId}/export)
+func (_ Unimplemented) ExportReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -350,6 +489,62 @@ func (siw *ServerInterfaceWrapper) CreateReadItem(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ClearReadXAuth operation middleware
+func (siw *ServerInterfaceWrapper) ClearReadXAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearReadXAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReadXAuth operation middleware
+func (siw *ServerInterfaceWrapper) GetReadXAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReadXAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveReadXAuth operation middleware
+func (siw *ServerInterfaceWrapper) SaveReadXAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveReadXAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestReadXAuth operation middleware
+func (siw *ServerInterfaceWrapper) TestReadXAuth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestReadXAuth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteReadItem operation middleware
 func (siw *ServerInterfaceWrapper) DeleteReadItem(w http.ResponseWriter, r *http.Request) {
 
@@ -419,6 +614,67 @@ func (siw *ServerInterfaceWrapper) UpdateReadItem(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateReadItem(w, r, itemId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetReadAsset operation middleware
+func (siw *ServerInterfaceWrapper) GetReadAsset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "hash" -------------
+	var hash string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "hash", chi.URLParam(r, "hash"), &hash, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hash", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetReadAsset(w, r, itemId, hash)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportReadItem operation middleware
+func (siw *ServerInterfaceWrapper) ExportReadItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId ItemId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", chi.URLParam(r, "itemId"), &itemId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "itemId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportReadItem(w, r, itemId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -613,6 +869,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/readlater/{itemId}/summarize", wrapper.SummarizeReadItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/readlater/{itemId}/assets/{hash}", wrapper.GetReadAsset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/readlater/{itemId}/export", wrapper.ExportReadItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/readlater/x-auth", wrapper.ClearReadXAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/readlater/x-auth", wrapper.GetReadXAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/readlater/x-auth", wrapper.SaveReadXAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/readlater/x-auth/test", wrapper.TestReadXAuth)
 	})
 
 	return r

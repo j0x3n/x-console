@@ -457,6 +457,25 @@ try {
   });
   assert.equal(readDel.status(), 204, await readDel.text());
 
+  // B143：设置里填 X 登录 Cookie，接口只告诉有没有，清除后回到没有。
+  const xElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(xElevate.status(), 200, await xElevate.text());
+  await page.goto(`${base}/settings/readlater`);
+  await page.getByText("还没有 Cookie").waitFor();
+  await page.getByLabel(/auth_token 的值/).fill("e2e-auth-token-123456");
+  await page.getByLabel(/ct0 的值/).fill("e2e-csrf-token-123456");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByText("还没检查").waitFor();
+  const xState = await api("/readlater/x-auth");
+  assert.equal(xState.configured, true);
+  assert.ok(!JSON.stringify(xState).includes("e2e-auth-token"), "接口不能返回 Cookie");
+  await page.getByRole("button", { name: "清除 Cookie" }).click();
+  await dialog("清除 X 登录 Cookie？").getByRole("button", { name: "清除 Cookie" }).click();
+  await page.getByText("还没有 Cookie").waitFor();
+  assert.equal((await api("/readlater/x-auth")).configured, false);
+
   stage = "每日时间线";
   // B118：今天的时间线里有刚建的笔记，写日记，刷新后还在，往前翻一天，搜索能找到。
   const journalNote = await page.context().request.post(`${base}/api/v1/notes`, {

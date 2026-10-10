@@ -150,3 +150,97 @@
     padding-left: 12px;
   }
 }
+
+.readlater-warn {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--xc-warn);
+  border-radius: var(--xc-radius);
+  background: var(--xc-warn-soft);
+  color: var(--xc-text);
+}
+
+/* 存档的图文（B143）。图片不能超出弹窗，表格和代码在自己的框里滚动。 */
+.readlater-article {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.readlater-article img {
+  max-width: 100%;
+  max-height: 70vh;
+  height: auto;
+  object-fit: contain;
+}
+.readlater-article h1,
+.readlater-article h2,
+.readlater-article h3 {
+  margin: 16px 0 8px;
+  font-size: var(--fs-16);
+  font-weight: 600;
+}
+.readlater-article p {
+  margin: 8px 0;
+}
+.readlater-article a {
+  color: var(--xc-accent-text);
+}
+.readlater-article blockquote {
+  margin: 8px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--xc-border-strong);
+  color: var(--xc-text-2);
+}
+.readlater-article pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+}
+.readlater-article table {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+}
+.readlater-article td,
+.readlater-article th {
+  padding: 4px 8px;
+  border: 1px solid var(--xc-border);
+}
+.readlater-article figure {
+  margin: 8px 0;
+}
+.readlater-article figcaption {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.readlater-article .xc-tweet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.readlater-article .xc-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+.readlater-article .xc-tweet-handle,
+.readlater-article .xc-tweet-time {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.readlater-article .xc-tweet-text {
+  font-size: var(--fs-14);
+}
+.readlater-article .xc-tweet-quote {
+  padding: 8px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+}

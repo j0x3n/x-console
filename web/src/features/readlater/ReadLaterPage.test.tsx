@@ -82,6 +82,9 @@ const base = {
   source: "web",
   error: "",
   hasContent: true,
+  hasHtml: false,
+  kind: "page",
+  meta: {},
   read: false,
   createdAt: "2026-10-10T01:00:00Z",
   updatedAt: "2026-10-10T01:00:00Z",
@@ -317,6 +320,45 @@ describe("ReadLaterPage B117", () => {
 });
 
 describe("SharePage B117", () => {
+  it("详情里显示存档的图文，去掉脚本，有下载按钮；推文不完整时提示", async () => {
+    serve();
+    const detail = {
+      ...article,
+      kind: "tweet",
+      hasHtml: true,
+      meta: { incomplete: true },
+      content: "推文文字",
+      contentHtml:
+        '<div class="xc-tweet"><p>推文文字</p><img alt="配图" src="/api/v1/readlater/1/assets/' +
+        "a".repeat(64) +
+        '" onerror="window.__hacked=1"><script>window.__hacked=1</script></div>',
+    };
+    api.routes.set("GET /readlater/1", () => ({ status: 200, body: detail }));
+    renderIt();
+    fireEvent.click(await screen.findByText("鲸鱼协议详解"));
+    const dialog = await screen.findByRole("dialog");
+    const img = await within(dialog).findByAltText("配图");
+    expect(img.getAttribute("src")).toBe(
+      "/api/v1/readlater/1/assets/" + "a".repeat(64),
+    );
+    expect(img.getAttribute("onerror")).toBeNull();
+    expect(dialog.querySelector(".readlater-article script")).toBeNull();
+    expect(within(dialog).getByText(/这条推文可能不完整/)).toBeTruthy();
+    const download = within(dialog).getByRole("link", { name: /下载/ });
+    expect(download.getAttribute("href")).toBe("/api/v1/readlater/1/export");
+  });
+
+  it("旧条目只有文字时提示重新抓取", async () => {
+    serve();
+    const detail = { ...article, content: "旧正文", hasHtml: false };
+    api.routes.set("GET /readlater/1", () => ({ status: 200, body: detail }));
+    renderIt();
+    fireEvent.click(await screen.findByText("鲸鱼协议详解"));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText(/这一条只存了文字/)).toBeTruthy();
+    expect(within(dialog).queryByRole("link", { name: /下载/ })).toBeNull();
+  });
+
   it("从分享的文字里找出网址并保存", async () => {
     serve();
     api.routes.set("POST /readlater", () => ({

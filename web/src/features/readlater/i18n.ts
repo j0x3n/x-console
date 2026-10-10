@@ -42,7 +42,8 @@ registerZh({
   "Summary updated": "摘要已更新",
   "Fetching again…": "正在重新抓取",
   "Delete this saved link?": "删除这个链接？",
-  "The saved page text is deleted too.": "存下来的正文也会一起删除。",
+  "The saved page text and pictures are deleted too.":
+    "存下来的正文和图片也会一起删除。",
   "Saved page text": "存下来的正文",
   "No page text was saved.": "没有存到正文。",
   "Tags, separated by commas": "标签，用逗号分开",
@@ -54,4 +55,43 @@ registerZh({
   "Try again": "重试",
   "Telegram: send a link to the bot to save it.":
     "给 Telegram 机器人发一个链接也能存。",
+  // B143
+  "This post may be cut short. Add your X login cookie in Settings → Read later, then fetch again.":
+    "这条推文可能不完整。在“设置 → 稍后阅读”里填 X 登录 Cookie，再重新抓取。",
+  "This item only has text. Fetch it again to keep the pictures and layout.":
+    "这一条只存了文字。重新抓取后会保存图片和排版。",
+  "Download one HTML file with the pictures inside":
+    "下载一个 HTML 文件，图片在文件里面",
+  Download: "下载",
+  "Reading X posts": "读取 X 推文",
+  "X posts need more than the page itself. The server tries the public interface first. If a post is cut short or needs a login, it uses your cookie.":
+    "X 的页面要执行脚本才有内容，所以服务端先用公开接口读推文。推文被截断或要登录才能看时，再用你填的 Cookie。",
+  "Cookie saved": "已保存 Cookie",
+  "No cookie yet": "还没有 Cookie",
+  Works: "可用",
+  "Not checked yet": "还没检查",
+  "May have expired": "可能过期了",
+  "Last test failed": "上次测试失败",
+  "Last checked": "上次检查",
+  "auth_token value": "auth_token 的值",
+  "ct0 value": "ct0 的值",
+  "Leave empty to keep the saved cookie": "留空表示保留已保存的 Cookie",
+  "How to find them: sign in to x.com in your browser, open the developer tools, then Application → Cookies → https://x.com. Copy the values of auth_token and ct0. Use a spare account. This goes against X's terms and the account may be limited.":
+    "怎么找：在浏览器登录 x.com，打开开发者工具，进入 应用 → Cookie → https://x.com，复制 auth_token 和 ct0 的值。建议用小号。这样做违反 X 的服务条款，账号可能被限制。",
+  "Use a third-party converter as the last step": "最后一步用第三方转换服务",
+  "When the two steps above fail, the post link is sent to api.fxtwitter.com. Off by default.":
+    "前两步都失败时，把推文链接发给 api.fxtwitter.com。默认关闭。",
+  "GraphQL queryId": "GraphQL queryId",
+  "Leave empty to use the built-in one. Change it only when the test says the interface changed.":
+    "留空用内置的。只有测试提示接口改版时才改。",
+  "Save X settings": "保存",
+  "Test cookie": "测试 Cookie",
+  "Remove cookie": "清除 Cookie",
+  "Remove the X cookie?": "清除 X 登录 Cookie？",
+  "Long posts and posts that need a login will not be read until you add a cookie again.":
+    "清除后，长推文和要登录才能看的推文就读不全了，直到你再填一次。",
+  "X settings saved": "已保存",
+  "Cookie works": "Cookie 可用",
+  "Cookie removed": "已清除",
+  "Enter both auth_token and ct0": "auth_token 和 ct0 要一起填",
 });

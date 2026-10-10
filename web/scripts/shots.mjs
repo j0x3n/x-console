@@ -252,6 +252,7 @@ const routes = [
   ["settings-ai-usage", "/settings/ai-usage"],
   ["settings-errors", "/settings/errors"],
   ["settings-remote", "/settings/remote"],
+  ["settings-readlater", "/settings/readlater"],
   ["settings-storage", "/settings/storage"],
   ["settings-backup", "/settings/backup"],
   ["settings-router", "/settings/router"],

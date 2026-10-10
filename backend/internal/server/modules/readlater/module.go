@@ -22,6 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/readlater/api"
@@ -51,7 +52,11 @@ type Module struct {
 	mu     sync.Mutex
 	ctx    context.Context
 	client *http.Client
-	sem    chan struct{}
+	// xclient talks to X; it never follows a redirect. xBases replaces the
+	// addresses of the X interfaces in tests.
+	xclient *http.Client
+	xBases  map[string]string
+	sem     chan struct{}
 	// allowPrivate lets tests save addresses on this machine.
 	allowPrivate bool
 }
@@ -65,7 +70,7 @@ var (
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
 		d: d, q: db.New(d.DB), nowFn: time.Now, ctx: context.Background(),
-		client: newFetchClient(false), sem: make(chan struct{}, fetchWorkers),
+		client: newFetchClient(false), xclient: newXClient(false), sem: make(chan struct{}, fetchWorkers),
 	}
 	m.registerActions()
 	module.Provide[*Module](d.Registry, ServiceKey, m)
@@ -122,6 +127,10 @@ func normalizeURL(raw string) (string, error) {
 	u.Host = strings.ToLower(u.Host)
 	u.Fragment = ""
 	u.User = nil
+	if handle, id, ok := parseTweetURL(u); ok {
+		// x.com, twitter.com and the mirrors are one post
+		return canonicalTweetURL(handle, id), nil
+	}
 	if u.RawQuery != "" {
 		// keep the order and the encoding of what stays
 		var keep []string
@@ -193,12 +202,12 @@ func toView(row db.ReadItem, withContent bool) api.ReadItem {
 	v := api.ReadItem{
 		Id: row.ID, Url: row.Url, Title: row.Title, Site: row.Site, Excerpt: row.Excerpt, Summary: row.Summary,
 		Tags: parseTags(row.TagsJson), Note: row.Note, Source: api.ReadItemSource(row.Source), Status: api.ReadStatus(row.Status),
-		Error: row.Error, HasContent: row.Content != "", Read: row.ReadAt != nil, ReadAt: row.ReadAt,
-		CreatedAt: row.CreatedAt, FetchedAt: row.FetchedAt, UpdatedAt: row.UpdatedAt,
+		Error: row.Error, HasContent: row.Content != "", HasHtml: row.ContentHtml != "", Kind: api.ReadItemKind(row.Kind), Meta: parseMeta(row.MetaJson),
+		Read: row.ReadAt != nil, ReadAt: row.ReadAt, CreatedAt: row.CreatedAt, FetchedAt: row.FetchedAt, UpdatedAt: row.UpdatedAt,
 	}
 	if withContent {
-		c := row.Content
-		v.Content = &c
+		c, h := row.Content, row.ContentHtml
+		v.Content, v.ContentHtml = &c, &h
 	}
 	return v
 }
@@ -207,13 +216,19 @@ func toListView(row db.ListReadItemsRow) api.ReadItem {
 	return api.ReadItem{
 		Id: row.ID, Url: row.Url, Title: row.Title, Site: row.Site, Excerpt: row.Excerpt, Summary: row.Summary,
 		Tags: parseTags(row.TagsJson), Note: row.Note, Source: api.ReadItemSource(row.Source), Status: api.ReadStatus(row.Status),
-		Error: row.Error, HasContent: row.HasContent != 0, Read: row.ReadAt != nil, ReadAt: row.ReadAt,
-		CreatedAt: row.CreatedAt, FetchedAt: row.FetchedAt, UpdatedAt: row.UpdatedAt,
+		Error: row.Error, HasContent: row.HasContent != 0, HasHtml: row.HasHtml != 0, Kind: api.ReadItemKind(row.Kind), Meta: parseMeta(row.MetaJson),
+		Read: row.ReadAt != nil, ReadAt: row.ReadAt, CreatedAt: row.CreatedAt, FetchedAt: row.FetchedAt, UpdatedAt: row.UpdatedAt,
 	}
 }
 
+func parseMeta(raw string) map[string]interface{} {
+	meta := map[string]interface{}{}
+	_ = json.Unmarshal([]byte(raw), &meta)
+	return meta
+}
+
 func (m *Module) publish(topic string, v api.ReadItem) {
-	v.Content = nil
+	v.Content, v.ContentHtml = nil, nil
 	m.d.Bus.Publish(topic, v)
 }
 
@@ -538,9 +553,13 @@ func (m *Module) patch(ctx context.Context, row db.ReadItem, body api.ReadItemPa
 // DeleteReadItem implements api.ServerInterface.
 func (m *Module) DeleteReadItem(w http.ResponseWriter, r *http.Request, id api.ItemId) {
 	ctx := r.Context()
+	assets, _ := m.q.ListReadAssets(ctx, id)
 	n, err := m.q.DeleteReadItem(ctx, id)
 	if err == nil && n == 0 {
 		err = httpx.ErrNotFound
+	}
+	if err == nil {
+		m.dropFiles(ctx, id, assets)
 	}
 	m.d.Audit.Record(ctx, "readlater.delete", strconv.FormatInt(id, 10), nil, err)
 	if err != nil {
@@ -592,4 +611,13 @@ func (m *Module) SummarizeReadItem(w http.ResponseWriter, r *http.Request, id ap
 	v := toView(row, true)
 	m.publish("readlater.updated", v)
 	httpx.JSON(w, http.StatusOK, v)
+}
+
+// dropFiles removes the saved pictures of a deleted item.
+func (m *Module) dropFiles(ctx context.Context, id int64, assets []db.ReadAsset) {
+	for _, a := range assets {
+		if err := m.fileStore().Delete(ctx, strconv.FormatInt(id, 10)+"/"+a.Hash); err != nil && !errors.Is(err, files.ErrNotFound) {
+			m.d.Log.Warn("readlater delete image", "id", id, "err", err)
+		}
+	}
 }
