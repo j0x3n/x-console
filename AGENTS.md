@@ -36,7 +36,7 @@ X Console 是一个人用的控制台：管服务器和 Windows 本机、跑编�
    - **一个任务一个提交**，提交信息以任务编号开头，比如 `B11: 笔记附件后端`。一个任务里改了几次，推送前合成一个提交。这样哪个任务有问题，`git revert` 那一个提交就能单独撤掉。
    - 做完一个任务，跑完下面的全部检查再推送。有界面改动时再跑 `npm run shots`，按 `docs/07-design.md` 第七节自查截图。检查没过不要推送。
    - Codex 第一次推送后开一个 PR：`codex` → `develop`，标题“Codex 开发批次”。以后一直往 `codex` 推，这个 PR 会自动更新，CI 每次都会跑。不要每个任务开一个 PR。
-   - 任务做完在 `docs/tasks.md` 移到“已完成”，写上提交号。
+   - 任务做完从 `docs/tasks.md` 删掉，在 `docs/tasks-done.md` 的“已完成”表加一行，写上提交号。`tasks.md` 只放没做完的事，保持短。
 3. **验收**（审查者，按批次）：用户说“验收”时，看 `develop..codex` 之间的全部提交：
    - 跑全部检查。起真实服务端和代理，跑 `npm run shots` 出 1360px 和 390px 的截图，看有没有报错和横向溢出，并对照 `docs/07-design.md` 看样式。
    - 逐个任务看：有没有改自己模块以外的文件，有没有测试，和规格对不对得上。
@@ -117,7 +117,7 @@ CI 会检查生成的代码是否最新：生成之后 `git diff` 必须为空�
 
 - 只改自己任务涉及的模块目录：`backend/internal/server/modules/<模块>`、`web/src/features/<模块>`、`api/modules/<模块>.yaml`、对应的迁移和规格。
 - 共享文件只加行，不改别人的行：`backend/internal/server/app/modules.go`、`backend/sqlc.yaml`、`backend/cmd/agent/main.go`、`web/src/features/settings/tabs.tsx`、`web/src/app/TopbarActions.tsx`、`web/src/app/GlobalPanels.tsx`。
-- 基础代码尽量不动：`backend/internal/server/` 下除 `modules/` 以外的目录、`backend/pkg/`、`web/src/{api,auth,app,components,lib}`。必须改时，改动要小、要向后兼容，在 PR 里写理由，在 `docs/tasks.md` 的“接口变更记录”里记一笔。
+- 基础代码尽量不动：`backend/internal/server/` 下除 `modules/` 以外的目录、`backend/pkg/`、`web/src/{api,auth,app,components,lib}`。必须改时，改动要小、要向后兼容，在 PR 里写理由，在 `docs/api-changes.md` 里记一笔。
 - 迁移文件名用 `YYYYMMDDHHMMSS_m<编号>_<说明>.sql`，时间要晚于已有的最新迁移。
 - 模块集成测试放外部测试包（`package xxx_test`），需要内部函数时用 `export_test.go` 暴露。否则 testutil → app → 模块会循环引用。
 - `db/models.go` 是生成文件，合并冲突时取任一边，再 `go generate ./...`。
