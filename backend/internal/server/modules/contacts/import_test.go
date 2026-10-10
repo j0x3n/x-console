@@ -285,9 +285,9 @@ func jsonUnmarshal(raw []byte, v any) error { return json.Unmarshal(raw, v) }
 
 func strPtr(s string) *string { return &s }
 
-// iCloud 返回的分区主机（pNN-contacts.icloud.com）在这台服务器上解析不了时，
-// 改用最初的地址访问同一个路径。
-func TestICloudSyncFallsBackWhenPartitionHostDoesNotResolve(t *testing.T) {
+// iCloud 返回的分区主机（pNN-contacts.icloud.com）在有的网络上解析不了，
+// 所以返回地址里的主机名不用，所有请求都发给最初的地址，只取返回地址的路径。
+func TestICloudSyncIgnoresTheHostOfTheAnswers(t *testing.T) {
 	r := setup(t)
 	fake := fakeICloud(t, "p231-contacts.no-such-host.invalid")
 	contacts.SetHTTPClient(r.m, fake.Client())
