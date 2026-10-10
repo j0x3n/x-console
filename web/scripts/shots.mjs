@@ -143,6 +143,12 @@ const ids = await page.evaluate(async () => {
     await post("/credentials", { kind: "access_token", name: "部署用令牌", platform: "GitHub", account: "li4@example.com", usedBy: ["服务器 hk-1", "项目 x-console"], scopes: "repo, workflow", hint: "a9f3", expiresOn: dayAt(20) });
     await post("/credentials", { kind: "api_key", name: "翻译接口", platform: "OpenAI", usedBy: ["服务器 hk-1"], createdOn: dayAt(-200), rotateEveryDays: 90 });
     await post("/credentials", { kind: "ssh_key", name: "笔记本登录密钥", usedBy: ["服务器 hk-1", "服务器 sg-2", "服务器 la-3"], hint: "SHA256:Qx1b" });
+    // B121：配置下发，没有配对的机器，只放配置
+    await send("PUT", "/aiconfig", {
+      claude: { rules: "回答用中文。\n提交前先跑测试。", allow: ["Bash(git status)", "Bash(npm test)"], ask: ["Bash(git push *)"], deny: ["Read(./.env)"], mcp: [{ name: "docs", transport: "http", url: "https://mcp.example.com/mcp" }] },
+      codex: { rules: "Answer in Chinese.", mcp: [{ name: "fs", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem"] }] },
+      hostIds: [],
+    });
     // B118：今天的日记
     const todayKey = ((await get("/journal/recent")) ?? { days: [] }).days[0]?.day;
     if (todayKey) await send("PUT", `/journal/days/${todayKey}/diary`, { body: "## 今天\n\n上午改完登录页，下午处理移动端溢出。\n\n- 明天接 S3" });
@@ -227,6 +233,7 @@ const routes = [
   ["readlater", "/readlater"],
   ["journal", "/journal"],
   ["credentials", "/credentials"],
+  ["aiconfig", "/coding/config"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],

@@ -4,6 +4,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/aiagents"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/aiconfig"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/automations"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
@@ -76,4 +77,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	readlater.New,   // B117
 	journal.New,     // B118
 	credentials.New, // B120
+	aiconfig.New,    // B121
 }

@@ -1,0 +1,181 @@
+openapi: 3.0.3
+info:
+  title: X Console AI coding tool configuration (B121)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /aiconfig:
+    get:
+      operationId: getAIConfig
+      tags: [aiconfig]
+      description: 面板里的配置、已选机器和可选机器。
+      responses:
+        "200":
+          description: 配置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIConfigState" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: saveAIConfig
+      tags: [aiconfig]
+      description: 保存配置和已选机器。不需要提升权限，保存不会写任何机器。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AIConfigInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIConfigState" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /aiconfig/status:
+    get:
+      operationId: getAIConfigStatus
+      tags: [aiconfig]
+      description: 检查所有已选机器和面板是否一致。只读，不写任何东西。
+      responses:
+        "200":
+          description: 每台机器的状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIConfigStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /aiconfig/apply:
+    post:
+      operationId: applyAIConfig
+      tags: [aiconfig]
+      description: 把已保存的配置写到机器上。要提升权限。一台机器失败不影响别的。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AIConfigApply" }
+      responses:
+        "200":
+          description: 每台机器写完以后的状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AIConfigStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    AIConfigMcp:
+      type: object
+      required: [name, transport]
+      properties:
+        name: { type: string }
+        transport: { type: string, enum: [stdio, http] }
+        command: { type: string }
+        args:
+          type: array
+          items: { type: string }
+        url: { type: string }
+    AIConfigTool:
+      type: object
+      required: [rules]
+      properties:
+        rules: { type: string, description: 全局规则文本（Markdown） }
+        allow:
+          type: array
+          items: { type: string }
+        ask:
+          type: array
+          items: { type: string }
+        deny:
+          type: array
+          items: { type: string }
+        mcp:
+          type: array
+          items: { $ref: "#/components/schemas/AIConfigMcp" }
+    AIConfigInput:
+      type: object
+      required: [claude, codex, hostIds]
+      properties:
+        claude: { $ref: "#/components/schemas/AIConfigTool" }
+        codex: { $ref: "#/components/schemas/AIConfigTool" }
+        hostIds:
+          type: array
+          description: 下发到哪些机器
+          items: { type: string }
+    AIConfigHost:
+      type: object
+      required: [id, name, online, supported]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        online: { type: boolean }
+        supported:
+          type: boolean
+          description: 代理支持这个功能，也就是机器上装了 Claude Code 或 Codex
+    AIConfigState:
+      type: object
+      required: [claude, codex, hostIds, hosts]
+      properties:
+        claude: { $ref: "#/components/schemas/AIConfigTool" }
+        codex: { $ref: "#/components/schemas/AIConfigTool" }
+        hostIds:
+          type: array
+          items: { type: string }
+        hosts:
+          type: array
+          items: { $ref: "#/components/schemas/AIConfigHost" }
+        updatedAt:
+          type: string
+          format: date-time
+          description: 上次保存的时间，还没保存过时没有
+    AIConfigApply:
+      type: object
+      properties:
+        hostIds:
+          type: array
+          description: 不填就是所有已选机器
+          items: { type: string }
+    AIConfigItemState:
+      type: string
+      enum: [ok, drift, conflict, absent]
+    AIConfigItem:
+      type: object
+      required: [tool, item, state]
+      properties:
+        tool: { type: string, enum: [claude, codex] }
+        item: { type: string, enum: [rules, permissions, mcp] }
+        state: { $ref: "#/components/schemas/AIConfigItemState" }
+        reason:
+          type: string
+          enum: [missing, extra, different, exists, invalid, markers]
+        names:
+          type: array
+          items: { type: string }
+        changed: { type: boolean, description: 这次下发写了这一项 }
+        error: { type: string, description: 写失败的原因 }
+    AIConfigHostState:
+      type: string
+      enum: [ok, drift, conflict, absent, offline, unsupported, error]
+    AIConfigHostStatus:
+      type: object
+      required: [hostId, name, state, items]
+      properties:
+        hostId: { type: string }
+        name: { type: string }
+        state: { $ref: "#/components/schemas/AIConfigHostState" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AIConfigItem" }
+        error: { type: string }
+        checkedAt: { type: string, format: date-time }
+    AIConfigStatus:
+      type: object
+      required: [hosts]
+      properties:
+        hosts:
+          type: array
+          items: { $ref: "#/components/schemas/AIConfigHostStatus" }

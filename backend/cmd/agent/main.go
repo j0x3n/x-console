@@ -16,9 +16,11 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 
+	"github.com/j0x3n/x-console/backend/internal/agent/aiconfig"
 	"github.com/j0x3n/x-console/backend/internal/agent/clipboard"
 	"github.com/j0x3n/x-console/backend/internal/agent/coding"
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
@@ -122,6 +124,7 @@ func run(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	client := conn.New(cfg.Server, cfg.Token, hello())
+	aiconfig.SetStateDir(filepath.Dir(*path)) // B121: next to the config file
 	register(client, cfg)
 	return client.Run(ctx)
 }
@@ -150,6 +153,7 @@ func register(c *conn.Client, cfg config.Config) {
 	syslog.Register(c)                                  // B29: system logs, only when there is something to read
 	quota.Register(c)                                   // B110: AI quota readings (Claude, Codex, Grok)
 	screentime.Register(c)                              // B116: foreground program, one sample per minute (Windows)
+	aiconfig.Register(c)                                // B121: the panel's part of the Claude Code and Codex configuration
 }
 
 // capabilities lists what this build supports on this OS.
@@ -187,6 +191,9 @@ func capabilities() []string {
 	}
 	if screentime.Available() {
 		caps = append(caps, protocol.CapScreenTime) // B116
+	}
+	if aiconfig.Available() {
+		caps = append(caps, protocol.CapAIConfig) // B121
 	}
 	if docker.Available() {
 		caps = append(caps, protocol.CapDocker, protocol.CapDockerLines) // M10: only when the Docker socket answers

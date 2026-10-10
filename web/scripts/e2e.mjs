@@ -1614,7 +1614,14 @@ try {
   ).trim();
   const agentConfig = join(temp, "agent.json");
   await run("pair-agent", binary("agent"), ["pair", "--server", serverUrl, "--code", code, "--config", agentConfig]);
-  const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
+  // B121：配置下发写的是这两个目录，不碰真实的家目录
+  const claudeHome = join(temp, "claude-home");
+  const codexHome = join(temp, "codex-home");
+  mkdirSync(claudeHome, { recursive: true });
+  mkdirSync(codexHome, { recursive: true });
+  const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig], {
+    env: { ...process.env, CLAUDE_CONFIG_DIR: claudeHome, CODEX_HOME: codexHome },
+  });
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
   stage = "B82 服务器信息 API 主流程";
@@ -1626,6 +1633,49 @@ try {
   assert.equal((await api(`/hosts/${host.id}/password`)).password, "e2e-host-password");
   await send("PUT", "/hosts/order", { kind: "server", ids: [host.id, ...(await api("/hosts?kind=server")).filter((item) => item.id !== host.id).map((item) => item.id)] });
   assert.equal((await api("/hosts?kind=server"))[0].id, host.id);
+
+  stage = "配置下发";
+  // B121：保存一份配置，选上这台机器，页面显示不一致，下发后一致，原有内容还在，面板删掉后也撤掉。
+  const ownRules = "# 我自己的规则\n\n不要用 emoji。\n";
+  writeFileSync(join(claudeHome, "CLAUDE.md"), ownRules);
+  writeFileSync(join(claudeHome, "settings.json"), JSON.stringify({ permissions: { allow: ["Read(*)"] } }));
+  const deliverElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(deliverElevate.status(), 200, await deliverElevate.text());
+  await page.goto(`${base}/coding/config`);
+  await page.getByRole("checkbox", { name: "e2e-linux" }).check();
+  const claudeCard = page.getByRole("region", { name: "Claude Code" });
+  await claudeCard.getByLabel("全局规则").fill("提交信息用中文。");
+  await claudeCard.getByLabel("允许").fill("Bash(git status)");
+  await page.getByRole("region", { name: "Codex" }).getByRole("button", { name: /添加服务器/ }).click();
+  const codexCard = page.getByRole("region", { name: "Codex" });
+  await codexCard.getByLabel("服务器名称").fill("fs");
+  await codexCard.getByLabel("命令").fill("npx");
+  await codexCard.getByLabel("参数").fill("-y\nserver-fs");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await until("配置保存", async () => (await api("/aiconfig")).hostIds.length === 1);
+  await page.getByText("缺少内容").first().waitFor();
+  assert.equal(readFileSync(join(claudeHome, "CLAUDE.md"), "utf8"), ownRules, "检查不应该写文件");
+  await page.getByRole("button", { name: "下发 e2e-linux" }).click();
+  await dialog("下发到这台机器？").getByRole("button", { name: "下发" }).click();
+  await until("配置下发完成", async () => (await api("/aiconfig/status")).hosts[0]?.state === "ok");
+  await page.getByText("一致", { exact: true }).first().waitFor();
+  const deliveredRules = readFileSync(join(claudeHome, "CLAUDE.md"), "utf8");
+  assert.ok(deliveredRules.startsWith(ownRules) && deliveredRules.includes("提交信息用中文。"), deliveredRules);
+  const deliveredSettings = JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8"));
+  assert.deepEqual(deliveredSettings.permissions.allow, ["Read(*)", "Bash(git status)"]);
+  assert.ok(readFileSync(join(codexHome, "config.toml"), "utf8").includes("[mcp_servers.fs]"));
+  // 面板里清掉规则和权限，下发后撤掉，自己的内容还在
+  await claudeCard.getByLabel("全局规则").fill("");
+  await claudeCard.getByLabel("允许").fill("");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await until("清空保存", async () => (await api("/aiconfig")).claude.rules === "");
+  await page.getByRole("button", { name: "下发 e2e-linux" }).click();
+  await dialog("下发到这台机器？").getByRole("button", { name: "下发" }).click();
+  await until("撤掉配置", async () => readFileSync(join(claudeHome, "CLAUDE.md"), "utf8") === ownRules);
+  assert.deepEqual(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow, ["Read(*)"]);
+  await send("PUT", "/aiconfig", { claude: { rules: "" }, codex: { rules: "" }, hostIds: [] });
 
   stage = "查看远端日志文件";
   const remoteLog = join(temp, "e2e-remote.log");

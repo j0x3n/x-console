@@ -44,6 +44,7 @@ var backendSidebar = map[string]string{
 	"projects":      "projects",
 	"coding":        "coding",
 	"aiagents":      "coding",
+	"aiconfig":      "coding", // B121
 	"notes":         "notes",
 	"mail":          "mail",
 	"habits":        "habits",
@@ -73,7 +74,7 @@ func ActionHidden(ctx context.Context, h HiddenModules, name string) bool {
 	switch prefix {
 	case "projects", "issues", "milestones":
 		return h.Hidden(ctx, "projects")
-	case "coding", "aiagents":
+	case "coding", "aiagents", "aiconfig": // B121
 		return h.Hidden(ctx, "coding")
 	case "notes":
 		return h.Hidden(ctx, "notes")
@@ -134,7 +135,8 @@ func eventSidebar(topic string) (string, bool) {
 	case strings.HasPrefix(topic, "issue"), strings.HasPrefix(topic, "project"),
 		strings.HasPrefix(topic, "board."), strings.HasPrefix(topic, "label."), strings.HasPrefix(topic, "milestone."):
 		return "projects", true
-	case strings.HasPrefix(topic, "coding_"), strings.HasPrefix(topic, "ai_agent."), strings.HasPrefix(topic, "git_connection."):
+	case strings.HasPrefix(topic, "coding_"), strings.HasPrefix(topic, "ai_agent."), strings.HasPrefix(topic, "git_connection."),
+		strings.HasPrefix(topic, "aiconfig."): // B121
 		return "coding", true
 	case strings.HasPrefix(topic, "reminder."):
 		return "reminders", true

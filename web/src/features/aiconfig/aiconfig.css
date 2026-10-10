@@ -1,0 +1,161 @@
+/* B121 配置下发。颜色只用 --xc-* 令牌。 */
+
+.aiconfig-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.aiconfig-intro {
+  margin: 0;
+  color: var(--xc-muted);
+  line-height: 1.6;
+}
+.aiconfig-dirty {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-warn-soft);
+  color: var(--xc-warn);
+}
+.aiconfig-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+.aiconfig-mono {
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12-5);
+}
+.aiconfig-hint {
+  color: var(--xc-muted);
+  line-height: 1.5;
+}
+.aiconfig-perm-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.aiconfig-perms {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 机器 */
+.aiconfig-empty {
+  margin: 0;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--xc-text-2);
+}
+.aiconfig-host-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aiconfig-host {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.aiconfig-host:last-child {
+  border-bottom: 0;
+}
+.aiconfig-host-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.aiconfig-host-check {
+  margin: 0;
+  min-width: 0;
+  font-weight: 600;
+}
+.aiconfig-host-check span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aiconfig-checking {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--xc-muted);
+}
+.aiconfig-spinner {
+  width: 12px;
+  height: 12px;
+}
+.aiconfig-items {
+  margin: 0;
+  padding: 0 0 0 24px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--xc-text-2);
+  line-height: 1.5;
+}
+.aiconfig-error {
+  color: var(--xc-danger);
+}
+
+/* MCP 服务器 */
+.aiconfig-mcp {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.aiconfig-mcp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.aiconfig-server {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+}
+.aiconfig-server-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.aiconfig-server-row > .xc-field {
+  flex: 1;
+  min-width: 0;
+}
+.aiconfig-server-row > .aiconfig-narrow {
+  flex: 0 0 160px;
+}
+.aiconfig-remove {
+  margin-top: 22px;
+}
+
+@media (max-width: 720px) {
+  .aiconfig-perm-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aiconfig-server-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .aiconfig-server-row > .aiconfig-narrow {
+    flex: none;
+  }
+  .aiconfig-remove {
+    align-self: flex-end;
+    margin-top: 0;
+  }
+  .aiconfig-host-main {
+    flex-wrap: wrap;
+  }
+}
