@@ -87,6 +87,55 @@ registerZh({
   "Not recorded": "尚未记录",
   "English expression notes": "英语表达笔记",
   "Food notes": "饮食记录",
+  "Resting heart rate (bpm)": "静息心率（次/分）",
+  "Body trend": "身体趋势",
+  "Last report": "最近一次上报",
+  "No report received yet": "还没有收到过上报",
+  "Create a new token": "重新生成令牌",
+  "Create a new token?": "重新生成令牌？",
+  Sleep: "睡眠",
+  Average: "平均",
+  "Time range": "时间范围",
+  "Body metric": "身体指标",
+  "Body weight": "体重",
+  Steps: "步数",
+  "30 days": "30 天",
+  "90 days": "90 天",
+  "180 days": "180 天",
+  Latest: "最近一次",
+  Lowest: "最低",
+  Highest: "最高",
+  "Range change": "范围内变化",
+  "Resting heart rate": "静息心率",
+  "Record at least two days to see the trend": "至少记两天才有趋势",
+  "Automatic sync": "自动同步",
+  "A phone shortcut, Home Assistant or a script sends body data once a day and it is saved to that day's record.":
+    "手机快捷指令、Home Assistant 或脚本每天上报一次身体数据，写进当天的记录。",
+  "Not turned on": "还没有开启",
+  "Create report token": "生成上报令牌",
+  "Report token created": "已生成上报令牌",
+  "The old token stops working at once. Update the shortcut or script with the new one.":
+    "旧令牌马上失效。快捷指令或脚本里要换成新的。",
+  "Turn off automatic sync?": "关闭自动同步？",
+  "The token stops working. Records already saved are kept.":
+    "令牌会失效，已经保存的记录会留着。",
+  "Turn off": "关闭",
+  "Automatic sync turned off": "已关闭自动同步",
+  "The token is shown only once. Copy the command now or put the address and token into the shortcut.":
+    "令牌只显示这一次。现在复制命令，或者把地址和令牌填进快捷指令。",
+  "How to set it up": "怎么设置",
+  "Fields: weight (kg), waist (cm), sleep (hours), restingHr (bpm), steps, and date (YYYY-MM-DD, today if left out). Send at least one metric. Fields you leave out are not changed.":
+    "字段：weight（公斤）、waist（厘米）、sleep（小时）、restingHr（次/分）、steps（步数）和 date（YYYY-MM-DD，不写就是今天）。至少要有一项数据，没写的字段不会改。",
+  "Address: {url}. Header: Authorization: Bearer plus the token. Body: JSON. Numbers can be written as numbers or as text.":
+    "地址：{url}。请求头：Authorization: Bearer 加令牌。请求体：JSON。数值可以写成数字，也可以写成文字。",
+  "iPhone: in Shortcuts, read Body Mass, Sleep, Resting Heart Rate and Steps with Find Health Samples.":
+    "iPhone：在快捷指令里用“查找健康样本”读取体重、睡眠、静息心率和步数。",
+  "Add Get Contents of URL, method POST, with the header and a JSON body.":
+    "再加“获取 URL 内容”，方法选 POST，填上请求头和 JSON 请求体。",
+  "In Automation, run the shortcut at a fixed time every day, for example 09:00 for last night's sleep.":
+    "在“自动化”里设成每天固定时间运行，比如早上 9 点上报昨晚的睡眠。",
+  "Home Assistant: use a rest_command that POSTs to the same address, and call it from an automation once a day.":
+    "Home Assistant：用 rest_command 往同一个地址 POST，再在自动化里每天调用一次。",
   "Weight trend": "体重趋势",
   "Record two weights to see the trend": "记录两次体重后显示趋势",
   "Only recorded values are used. Missing days are not filled with zero.":

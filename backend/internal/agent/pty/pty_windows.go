@@ -11,6 +11,7 @@ import (
 
 	"github.com/UserExistsError/conpty"
 
+	"github.com/j0x3n/x-console/backend/internal/agent/nowindow"
 	"github.com/j0x3n/x-console/backend/internal/agent/rpcutil"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
@@ -60,7 +61,9 @@ func (t *winTerminal) Kill() {
 		case <-t.done:
 		default:
 			pid := t.c.Pid()
-			_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(pid)).Run()
+			kill := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(pid))
+			nowindow.Hide(kill)
+			_ = kill.Run()
 			if p, err := os.FindProcess(pid); err == nil {
 				_ = p.Kill()
 			}

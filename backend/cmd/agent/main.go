@@ -16,9 +16,11 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 
+	"github.com/j0x3n/x-console/backend/internal/agent/aiconfig"
 	"github.com/j0x3n/x-console/backend/internal/agent/clipboard"
 	"github.com/j0x3n/x-console/backend/internal/agent/coding"
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
@@ -34,6 +36,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/proc"
 	"github.com/j0x3n/x-console/backend/internal/agent/pty"
 	"github.com/j0x3n/x-console/backend/internal/agent/quota"
+	"github.com/j0x3n/x-console/backend/internal/agent/screentime"
 	"github.com/j0x3n/x-console/backend/internal/agent/setup"
 	"github.com/j0x3n/x-console/backend/internal/agent/svc"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
@@ -45,6 +48,7 @@ import (
 var Version = "dev"
 
 func main() {
+	setupConsole() // Windows 版没有控制台，要在建日志之前接好输出
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	cmd := "run"
 	args := os.Args[1:]
@@ -64,7 +68,6 @@ func main() {
 	case "pair":
 		err = pair(args)
 	case "run":
-		hideOwnConsole() // 任务计划启动时不显示黑窗口
 		err = run(args)
 	case "version":
 		fmt.Println(Version)
@@ -121,6 +124,7 @@ func run(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	client := conn.New(cfg.Server, cfg.Token, hello())
+	aiconfig.SetStateDir(filepath.Dir(*path)) // B121: next to the config file
 	register(client, cfg)
 	return client.Run(ctx)
 }
@@ -148,6 +152,8 @@ func register(c *conn.Client, cfg config.Config) {
 	docker.Register(c)                                  // M10: docker.* over the Engine socket
 	syslog.Register(c)                                  // B29: system logs, only when there is something to read
 	quota.Register(c)                                   // B110: AI quota readings (Claude, Codex, Grok)
+	screentime.Register(c)                              // B116: foreground program, one sample per minute (Windows)
+	aiconfig.Register(c)                                // B121: the panel's part of the Claude Code and Codex configuration
 }
 
 // capabilities lists what this build supports on this OS.
@@ -182,6 +188,12 @@ func capabilities() []string {
 	}
 	if quota.Available() {
 		caps = append(caps, protocol.CapQuota) // B110
+	}
+	if screentime.Available() {
+		caps = append(caps, protocol.CapScreenTime) // B116
+	}
+	if aiconfig.Available() {
+		caps = append(caps, protocol.CapAIConfig) // B121
 	}
 	if docker.Available() {
 		caps = append(caps, protocol.CapDocker, protocol.CapDockerLines) // M10: only when the Docker socket answers

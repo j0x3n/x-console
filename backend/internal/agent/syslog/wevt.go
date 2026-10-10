@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/agent/nowindow"
 	"github.com/j0x3n/x-console/backend/internal/agent/rpcutil"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
@@ -37,6 +38,7 @@ func newWevt() *wevt { return &wevt{run: execWevtutil} }
 
 func execWevtutil(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "wevtutil", args...)
+	nowindow.Hide(cmd)
 	var stderr limitedBuffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

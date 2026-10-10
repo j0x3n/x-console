@@ -43,6 +43,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.IssueWork](d.Registry, contracts.IssueWorkKey, &workService{m}) // B47
 	module.Provide[contracts.IssueSync](d.Registry, contracts.IssueSyncKey, &syncService{m})
 	module.Provide[contracts.ReminderSource](d.Registry, contracts.ReminderSourcePrefix+"projects", m)
+	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"projects", activitySource{m}) // B118
 	module.Provide[contracts.BoardGit](d.Registry, contracts.BoardGitKey, m)
 	module.Provide[contracts.GitWebhookReceiver](d.Registry, contracts.BoardWebhookKey, m)
 	module.Provide[contracts.BoardGitUnbinder](d.Registry, contracts.BoardGitUnbindKey, m)

@@ -253,6 +253,10 @@ func TestRegisterTelegramWebhook(t *testing.T) {
 	if len(calls) != 1 || !strings.Contains(calls[0].Body, out.URL) || !strings.Contains(calls[0].Body, "secret_token") {
 		t.Fatalf("setWebhook: %+v", calls)
 	}
+	// B117: plain messages are delivered too, so links sent to the bot can be saved
+	if !strings.Contains(calls[0].Body, `"message"`) || !strings.Contains(calls[0].Body, `"callback_query"`) {
+		t.Fatalf("allowed_updates: %s", calls[0].Body)
+	}
 	var ch api.NotifyChannel
 	env.MustDo(http.MethodGet, "/notify/channels/telegram", nil, &ch)
 	if ch.WebhookUrl == nil || *ch.WebhookUrl != out.URL {

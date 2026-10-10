@@ -377,6 +377,67 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type Contact struct {
+	ID               int64
+	Name             string
+	GroupKind        string
+	Events           string
+	LastContactOn    string
+	ContactEveryDays int64
+	RemindDays       string
+	Notes            string
+	NotifiedJson     string
+	LostFor          string
+	ArchivedAt       *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type Credential struct {
+	ID              int64
+	Kind            string
+	Name            string
+	Platform        string
+	Account         string
+	UsedBy          string
+	Scopes          string
+	Hint            string
+	CreatedOn       string
+	RotatedOn       string
+	ExpiresOn       string
+	RotateEveryDays int64
+	RemindDays      string
+	Notes           string
+	NotifiedFor     string
+	NotifiedJson    string
+	StaleFor        string
+	StaleNotifiedOn string
+	ArchivedAt      *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type Document struct {
+	ID           int64
+	Kind         string
+	Name         string
+	Holder       string
+	Number       string
+	IssuedOn     string
+	ExpiresOn    string
+	Price        *float64
+	Currency     string
+	Serial       string
+	RemindDays   string
+	Notes        string
+	FilesJson    string
+	NotifiedFor  string
+	NotifiedJson string
+	ArchivedAt   *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type DriveFileVersion struct {
 	ID        int64
 	ItemID    int64
@@ -771,6 +832,26 @@ type IssueMember struct {
 	MemberID   string
 }
 
+type JournalDiary struct {
+	Day       string
+	Body      string
+	UpdatedAt time.Time
+}
+
+type JournalItem struct {
+	ID      int64
+	Day     string
+	At      time.Time
+	Module  string
+	Source  string
+	Ref     string
+	Kind    string
+	Title   string
+	Detail  string
+	Link    string
+	Minutes int64
+}
+
 type Label struct {
 	ID        int64
 	ProjectID *int64
@@ -1033,6 +1114,27 @@ type QuotaReading struct {
 	FailCount    int64
 }
 
+type ReadItem struct {
+	ID          int64
+	Url         string
+	Title       string
+	TitleLocked int64
+	Site        string
+	Excerpt     string
+	Content     string
+	Summary     string
+	TagsJson    string
+	Note        string
+	Source      string
+	Status      string
+	Error       string
+	Attempts    int64
+	ReadAt      *time.Time
+	CreatedAt   time.Time
+	FetchedAt   *time.Time
+	UpdatedAt   time.Time
+}
+
 type Reminder struct {
 	ID           int64
 	Title        string
@@ -1054,6 +1156,22 @@ type RouterTraffic struct {
 	Seconds int64
 	Rx      int64
 	Tx      int64
+}
+
+type ScreenMinute struct {
+	HostID   string
+	Minute   int64
+	App      string
+	Category string
+	Title    string
+}
+
+type ScreenRule struct {
+	ID        int64
+	Field     string
+	Pattern   string
+	Category  string
+	CreatedAt time.Time
 }
 
 type Script struct {

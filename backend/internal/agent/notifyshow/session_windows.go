@@ -2,9 +2,10 @@ package notifyshow
 
 import (
 	"os/exec"
-	"syscall"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/j0x3n/x-console/backend/internal/agent/nowindow"
 )
 
 func Available() bool {
@@ -12,4 +13,4 @@ func Available() bool {
 	return windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &session) == nil && session != 0
 }
 
-func prepareCommand(cmd *exec.Cmd) { cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} }
+func prepareCommand(cmd *exec.Cmd) { nowindow.Hide(cmd) }

@@ -31,6 +31,12 @@ export const ALL_MODULES: ModuleId[] = [
   "router",
   "automations",
   "github",
+  "documents",
+  "screentime",
+  "readlater",
+  "journal",
+  "credentials",
+  "contacts",
 ];
 
 /** 不在 vault 前缀下：锁定时 vault 会重置别的缓存，这里要跟着重新拉。 */
@@ -66,6 +72,12 @@ const commandGroups: Record<string, ModuleId> = {
   路由器: "router",
   自动化: "automations",
   GitHub: "github",
+  证件档案: "documents",
+  电脑时间: "screentime",
+  稍后读: "readlater",
+  每日时间线: "journal",
+  密钥台账: "credentials",
+  联系人: "contacts",
 };
 
 export function moduleOfCommandGroup(group: string): ModuleId | null {

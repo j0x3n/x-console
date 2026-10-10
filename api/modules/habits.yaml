@@ -187,6 +187,52 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/PersonalProfile" }
         default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/body/push:
+    get:
+      operationId: getBodyPush
+      tags: [habits]
+      description: B119：身体数据自动上报的状态。没开启时 enabled 为 false。
+      responses:
+        "200":
+          description: 状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BodyPushStatus" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    delete:
+      operationId: deleteBodyPush
+      tags: [habits]
+      description: 关闭自动上报，令牌立即作废。没开启时也回 204。
+      responses:
+        "204": { description: 已关闭 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/body/push/token:
+    post:
+      operationId: createBodyPushToken
+      tags: [habits]
+      description: |
+        B119：生成上报令牌。要提升权限。旧令牌立即作废。
+        令牌只在这次回复里出现，面板只存它的哈希。
+      responses:
+        "200":
+          description: 新令牌、上报地址和示例命令
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BodyPushToken" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /habits/body/report:
+    post:
+      operationId: reportBody
+      tags: [habits]
+      description: |
+        B119：手机快捷指令、Home Assistant 或脚本每天上报一次。不需要登录会话，用 Authorization: Bearer <令牌> 校验。
+        请求体是 JSON：date（可选，默认今天）、weight、waist、sleep、restingHr、steps，数值可以写数字或数字字符串。
+        没写、null、空字符串的字段不改。有不认识的字段或数值越界整条回 400。
+        接口定义里不写 requestBody，由服务端自己解析。
+      security: []
+      responses:
+        "204": { description: 已记下 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
   /habits/schedule:
     get:
       operationId: getHabitSchedule
@@ -849,6 +895,7 @@ components:
         waist: { type: string }
         sleep: { type: string }
         steps: { type: string }
+        restingHr: { type: string, description: B119 静息心率，次/分 }
         energy: { type: string }
         back: { type: string }
         note: { type: string }
@@ -859,13 +906,14 @@ components:
           additionalProperties: { type: boolean }
     PersonalDay:
       type: object
-      required: [date, weight, waist, sleep, steps, energy, back, note, english, food, sets, checks]
+      required: [date, weight, waist, sleep, steps, restingHr, energy, back, note, english, food, sets, checks]
       properties:
         date: { type: string }
         weight: { type: string }
         waist: { type: string }
         sleep: { type: string }
         steps: { type: string }
+        restingHr: { type: string }
         energy: { type: string }
         back: { type: string }
         note: { type: string }
@@ -879,6 +927,22 @@ components:
           additionalProperties: { type: boolean }
         workoutLogId: { type: integer, format: int64 }
         workoutDurationMinutes: { type: integer }
+    BodyPushStatus:
+      type: object
+      required: [enabled, reportUrl]
+      properties:
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastReportAt: { type: string, format: date-time, description: 最近一次收到上报的时间。还没收到过为空 }
+        lastReportDate: { type: string, description: 最近一次上报写入的日期 }
+        reportUrl: { type: string }
+    BodyPushToken:
+      type: object
+      required: [token, reportUrl, example]
+      properties:
+        token: { type: string }
+        reportUrl: { type: string }
+        example: { type: string, description: 填好地址和令牌、可以直接复制执行的 curl 命令 }
     PersonalBackup:
       type: object
       required: [version, profile, checks, sets, logs]

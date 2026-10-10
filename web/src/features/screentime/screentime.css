@@ -1,0 +1,299 @@
+/* B116 电脑时间去向。颜色只用 --xc-* 令牌。 */
+
+.screentime-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.screentime-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.screentime-range {
+  min-width: 96px;
+  padding: 0 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--xc-text-2);
+}
+.xc-btn.icon {
+  padding-inline: 7px;
+}
+
+.screentime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.screentime-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.screentime-grid > .xc-card,
+.screentime-col > .xc-card {
+  min-width: 0;
+}
+
+/* 类别条 */
+.screentime-list,
+.screentime-apps {
+  display: flex;
+  flex-direction: column;
+}
+.screentime-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+.screentime-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.screentime-name i,
+.screentime-today-name i,
+.screentime-app > i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+.screentime-track {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--xc-surface-2);
+  overflow: hidden;
+}
+.screentime-track i {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 999px;
+}
+.screentime-time {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: none;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--xc-text);
+}
+.screentime-time small {
+  min-width: 34px;
+  color: var(--xc-muted);
+}
+
+/* 程序列表 */
+.screentime-app {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.screentime-app:last-child {
+  border-bottom: 0;
+}
+.screentime-app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.screentime-app-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.screentime-app-main small {
+  color: var(--xc-muted);
+}
+
+/* 每天的柱状图 */
+.screentime-days {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px 0 4px;
+}
+.screentime-days.month {
+  gap: 3px;
+}
+.screentime-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.screentime-bar {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 44px;
+  height: 140px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--xc-surface-2);
+}
+.screentime-bar i {
+  display: block;
+  width: 100%;
+  min-height: 1px;
+}
+.screentime-day-label {
+  min-height: 1em;
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 设置 */
+.screentime-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.screentime-settings h3 {
+  margin: 10px 0 0;
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.screentime-settings p {
+  margin: 0;
+}
+.screentime-hosts,
+.screentime-rules {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+}
+.screentime-host,
+.screentime-rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.screentime-host:last-child,
+.screentime-rule:last-child {
+  border-bottom: 0;
+}
+.screentime-host > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.screentime-rule-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.screentime-rule-main small {
+  color: var(--xc-muted);
+}
+.screentime-rule-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.screentime-rule-form {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+.screentime-danger {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
+/* 今日页卡片 */
+.screentime-today {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 6px;
+  color: inherit;
+  text-decoration: none;
+}
+.screentime-today-total {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.screentime-today-total strong {
+  font-size: var(--fs-16);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.screentime-today-total small {
+  color: var(--xc-muted);
+}
+.screentime-today-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.screentime-today-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xc-text-2);
+}
+.screentime-today-time {
+  color: var(--xc-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .screentime-row {
+    grid-template-columns: 76px minmax(0, 1fr) 150px;
+    gap: 8px;
+  }
+  .screentime-rule-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .screentime-rule-form input {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .screentime-bar {
+    height: 110px;
+  }
+}

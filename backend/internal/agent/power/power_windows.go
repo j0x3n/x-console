@@ -4,11 +4,11 @@ package power
 
 import (
 	"os/exec"
-	"syscall"
 	"time"
 
 	"golang.org/x/sys/windows"
 
+	"github.com/j0x3n/x-console/backend/internal/agent/nowindow"
 	"github.com/j0x3n/x-console/backend/internal/agent/rpcutil"
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 )
@@ -41,7 +41,7 @@ func doPower(action string) error {
 		return nil
 	case protocol.PowerShutdown, protocol.PowerRestart:
 		cmd := exec.Command("shutdown.exe", ShutdownArgs(action)...)
-		cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+		nowindow.Hide(cmd)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return rpcutil.Failed("shutdown: %v %s", err, out)
 		}

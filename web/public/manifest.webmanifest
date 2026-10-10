@@ -14,6 +14,11 @@
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
+  "share_target": {
+    "action": "/readlater/share",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
   "shortcuts": [
     { "name": "今日", "url": "/", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "笔记", "url": "/notes", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },

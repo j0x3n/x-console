@@ -77,7 +77,8 @@ jobs:
           GOOS=windows GOARCH=amd64 go vet ./internal/agent/... ./cmd/agent
           GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/agent
 
-  # 三组同时跑。分组按 2026-10-01 带 -race 的包用时摊开，第三组是剩下的全部包，新包不会漏。
+  # 四组同时跑。分组由 scripts/test-shard.py 按每个包的用时（scripts/test-weights.txt）自动分配，
+  # 新增的包不用改这里。仓库是公开的，Actions 分钟数不收费，多分几组只是更快。
   # inputs.race 在 PR 和手动运行时是空的，只有明确传 false 才不带 -race。
   backend-test:
     needs: changes
@@ -86,13 +87,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: drive-hosts-ai
-            packages: ./internal/server/modules/drive/... ./internal/server/modules/hosts/... ./internal/server/modules/ai/... ./internal/server/modules/github/... ./internal/server/modules/monitoring/... ./internal/server/modules/homeassistant/... ./internal/server/modules/reminders/...
-          - name: app-coding-notes-projects
-            packages: ./internal/server/app/... ./internal/server/modules/backup/... ./internal/server/modules/coding/... ./internal/server/modules/notes/... ./internal/server/modules/projects/... ./internal/server/store/...
-          - name: rest
-            packages: ""
+        shard: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: backend
@@ -102,28 +97,35 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - name: Test ${{ matrix.name }}
+      # 失败的测试自动重跑一次，过了就算过（日志里会留 "Re-running" 和测试名）。
+      # 一次失败超过 5 个测试说明是真坏了，不重跑。
+      - name: Cache gotestsum
+        id: gotestsum
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gotestsum
+          key: gotestsum-${{ runner.os }}-v1.13.0
+      - name: Install gotestsum
+        if: steps.gotestsum.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@v1.13.0
+      - name: Test shard ${{ matrix.shard }} of 4
         env:
           RACE_INPUT: ${{ github.event_name != 'workflow_call' && 'true' || inputs.race }}
-          PACKAGES: ${{ matrix.packages }}
+          SHARD: ${{ matrix.shard }}
         run: |
           set -euo pipefail
           flags=()
           if [ "${RACE_INPUT:-}" != "false" ]; then
             flags+=(-race)
           fi
-          if [ -n "$PACKAGES" ]; then
-            go test "${flags[@]}" $PACKAGES
-            exit 0
-          fi
-          all=$(go list ./...)
-          mapfile -t pkgs < <(printf '%s\n' "$all" | grep -v -E '/internal/server/(app|store|modules/(backup|coding|drive|github|homeassistant|hosts|monitoring|notes|projects|reminders|ai))(/|$)' || true)
+          mapfile -t pkgs < <(python3 ../scripts/test-shard.py "$SHARD" 4)
           if [ "${#pkgs[@]}" -eq 0 ]; then
-            echo "剩余的包是空的，分组表达式把所有包都排除了"
+            echo "这一组没有分到包，检查 scripts/test-shard.py"
             exit 1
           fi
           printf '%s\n' "${pkgs[@]}"
-          go test "${flags[@]}" "${pkgs[@]}"
+          ~/go/bin/gotestsum --format pkgname-and-test-fails --rerun-fails=1 --rerun-fails-max-failures=5 \
+            --packages="${pkgs[*]}" -- "${flags[@]}"
 
   # B78：PR 上看改了哪边。只改后端时跳过前端检查，只改前端时跳过后端；端到端两边都跑。
   # 被 deploy.yml 调用和手动运行时全部都跑。PR 检出的是合并提交，第一个父提交就是目标分支。
@@ -143,7 +145,7 @@ jobs:
           files=$(git diff --name-only HEAD^1 HEAD)
           printf '%s\n' "$files"
           # api/ 下的接口定义两边都会生成代码
-          if printf '%s\n' "$files" | grep -qE '^(backend/|api/|deploy/|\.github/)'; then echo backend=true >> "$GITHUB_OUTPUT"; fi
+          if printf '%s\n' "$files" | grep -qE '^(backend/|api/|deploy/|scripts/|\.github/)'; then echo backend=true >> "$GITHUB_OUTPUT"; fi
           if printf '%s\n' "$files" | grep -qE '^(web/|api/|\.github/)'; then echo web=true >> "$GITHUB_OUTPUT"; fi
 
   web:

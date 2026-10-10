@@ -59,6 +59,14 @@ export const cardDefs: CardDef[] = [
   },
   // B111：没有额度账号时这张卡片不出现（TodayPage 里判断）
   { id: "quotas", title: "AI quotas", column: "side", weight: 2 },
+  // B116：今天没有记录时这张卡片不出现（TodayPage 里判断）
+  {
+    id: "screentime",
+    title: "Computer time",
+    column: "side",
+    weight: 2,
+    module: "screentime",
+  },
   {
     id: "mail",
     title: "Mail",

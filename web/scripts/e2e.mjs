@@ -350,6 +350,167 @@ try {
     headers: { "X-Requested-With": "x-console" },
   });
 
+  stage = "证件档案";
+  // B115：新建一份快到期的护照，详情里续期，再归档。
+  await page.goto(`${base}/documents`);
+  await page.getByText("还没有档案").waitFor();
+  await page.getByRole("button", { name: "新建档案" }).first().click();
+  await dialog("新建档案").getByLabel("名称").fill("端到端护照");
+  await dialog("新建档案").getByLabel("编号").fill("E00000001");
+  const soon = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建档案").getByLabel(/^到期日/).fill(soon);
+  await dialog("新建档案").getByRole("button", { name: "保存" }).click();
+  await page.getByText("端到端护照").waitFor();
+  await page.getByText(/天后到期/).first().waitFor();
+  const docsRaw = await page.context().request.get(`${base}/api/v1/documents`);
+  assert.ok(docsRaw.ok(), await docsRaw.text());
+  await page.getByText("端到端护照").click();
+  await dialog("端到端护照").getByText("E00000001").waitFor();
+  await dialog("端到端护照").getByRole("button", { name: "续期" }).click();
+  const renewed = new Date(Date.now() + 3650 * 86400e3).toISOString().slice(0, 10);
+  await dialog("端到端护照").getByLabel("新的到期日").fill(renewed);
+  await dialog("端到端护照").getByRole("button", { name: "保存" }).first().click();
+  await until("护照续期", async () => (await api("/documents")).items[0].expiresOn === renewed);
+  await dialog("端到端护照").getByRole("button", { name: "归档" }).click();
+  await page.getByText("还没有档案").waitFor().catch(() => {});
+  assert.equal((await api("/documents")).items.length, 0, "归档后列表里不应该还有这份档案");
+  const docsNotified = await api("/notifications");
+  assert.ok(
+    docsNotified.items.some((n) => n.kind === "documents.expiring"),
+    "新建快到期的档案应该立刻有一条到期提醒",
+  );
+
+  stage = "时间去向";
+  // B116：Linux 代理不能记录前台程序，页面应该说明原因。设置里打开保存标题、加一条规则、清空记录。
+  await page.goto(`${base}/screentime`);
+  await page.getByText("还没有能记录的电脑").waitFor();
+  assert.equal((await api("/screentime/summary")).state, "no_agent");
+  await page.getByTitle("时间去向设置").click();
+  const screenDialog = dialog("时间去向设置");
+  await screenDialog.getByText("没有已连接的 Windows 代理。").waitFor();
+  assert.equal((await api("/screentime/settings")).keepTitles, false, "窗口标题默认不保存");
+  await screenDialog.getByLabel(/保存窗口标题/).click();
+  await until("保存标题", async () => (await api("/screentime/settings")).keepTitles === true);
+  await screenDialog.getByLabel("要匹配的文字").fill("Foo.exe");
+  await screenDialog.getByLabel("时间花在哪").selectOption("office");
+  await screenDialog.getByRole("button", { name: "添加规则" }).click();
+  await screenDialog.getByText("Foo.exe").waitFor();
+  assert.equal((await api("/screentime/rules")).items.length, 1);
+  await screenDialog.getByRole("button", { name: /^删除规则 Foo\.exe/ }).click();
+  await until("规则删除", async () => (await api("/screentime/rules")).items.length === 0);
+  const screenElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(screenElevate.status(), 200, await screenElevate.text());
+  await screenDialog.getByRole("button", { name: "清空全部记录" }).click();
+  await dialog("清空全部时间记录？").getByRole("button", { name: "清空记录" }).click();
+  await page.getByText("记录已清空").waitFor();
+  await screenDialog.getByRole("button", { name: "关闭" }).click();
+
+  stage = "稍后读";
+  // B117：本机地址存不了；存一个公网链接后，从未读标为已读，再删除。
+  await page.goto(`${base}/readlater`);
+  await page.getByText("还没有存过链接").waitFor();
+  await page.getByRole("button", { name: "添加链接" }).first().click();
+  await dialog("添加链接").getByLabel("网址").fill("http://127.0.0.1:8080/secret");
+  await dialog("添加链接").getByRole("button", { name: "保存" }).click();
+  await dialog("添加链接").getByText("不能存本机或内网的地址").waitFor();
+  await dialog("添加链接").getByLabel("网址").fill("https://example.com/e2e-article?utm_source=x");
+  await dialog("添加链接").getByLabel("备注（可选）").fill("端到端备注");
+  await dialog("添加链接").getByRole("button", { name: "保存" }).click();
+  await until("链接保存", async () => (await api("/readlater?view=all")).counts.all === 1);
+  assert.equal((await api("/readlater?view=all")).items[0].url, "https://example.com/e2e-article", "跟踪参数应该被去掉");
+  await page.getByText("example.com").first().waitFor();
+  await page.getByRole("button", { name: /^标为已读/ }).first().click();
+  await until("标为已读", async () => (await api("/readlater?view=all")).counts.read === 1);
+  await page.getByText("没有未读的了").waitFor();
+  await page.getByRole("button", { name: "已读", exact: true }).click();
+  const readId = (await api("/readlater?view=all")).items[0].id;
+  const readDel = await page.context().request.delete(`${base}/api/v1/readlater/${readId}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(readDel.status(), 204, await readDel.text());
+
+  stage = "每日时间线";
+  // B118：今天的时间线里有刚建的笔记，写日记，刷新后还在，往前翻一天，搜索能找到。
+  const journalNote = await page.context().request.post(`${base}/api/v1/notes`, {
+    headers: { "X-Requested-With": "x-console" }, data: { title: "时间线端到端笔记", body: "x" },
+  });
+  assert.equal(journalNote.status(), 201, await journalNote.text());
+  await page.goto(`${base}/journal`);
+  await page.getByText("新建笔记：时间线端到端笔记").waitFor();
+  const journalText = "端到端日记：今天验证了时间线";
+  await page.getByLabel("日记内容").fill(journalText);
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  const journalToday = (await api("/journal/recent")).days[0].day;
+  await until("日记保存", async () => (await api(`/journal/days/${journalToday}`)).diary.body === journalText);
+  await page.reload();
+  await page.getByLabel("日记内容").waitFor();
+  assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "刷新后日记还在");
+  await page.getByRole("button", { name: "前一天" }).click();
+  await page.getByText("这一天没有记录").waitFor();
+  await page.getByPlaceholder("搜索日记和时间线").fill("验证了时间线");
+  await page.getByText(/验证了时间线/).first().waitFor();
+  await page.getByText(/验证了时间线/).first().click();
+  await page.getByLabel("日记内容").waitFor();
+  assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "点搜索结果回到那一天");
+
+  stage = "密钥台账";
+  // B120：像密钥的内容被拒绝，页面新建一条，搜索能按用在哪里找到，记一次更换，删除要提升权限。
+  const secretTry = await page.context().request.post(`${base}/api/v1/credentials`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { kind: "api_key", name: `ghp_${"a1B2c3D4e5".repeat(4)}` },
+  });
+  assert.equal(secretTry.status(), 400, "像密钥的名称应该被拒绝");
+  await page.goto(`${base}/credentials`);
+  await page.getByRole("button", { name: "新建记录" }).first().click();
+  await dialog("新建记录").getByLabel("名称", { exact: true }).fill("端到端令牌");
+  await dialog("新建记录").getByLabel("平台", { exact: true }).fill("GitHub");
+  await dialog("新建记录").getByLabel(/^用在/).fill("服务器 e2e-hk\n项目 e2e-app");
+  const credSoon = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建记录").getByLabel("到期日").fill(credSoon);
+  await dialog("新建记录").getByRole("button", { name: "保存" }).click();
+  await until("密钥台账新建", async () => (await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+  const credItem = (await api("/credentials")).items.find((c) => c.name === "端到端令牌");
+  assert.equal(credItem.status, "soon");
+  assert.deepEqual(credItem.usedBy, ["服务器 e2e-hk", "项目 e2e-app"]);
+  await page.getByPlaceholder("搜索记录").fill("e2e-hk");
+  await page.getByRole("button", { name: /端到端令牌/ }).click();
+  await dialog("端到端令牌").getByRole("button", { name: "已更换" }).click();
+  await dialog("端到端令牌").getByRole("button", { name: "保存", exact: true }).click();
+  await until("密钥台账更换", async () => (await api(`/credentials/${credItem.id}`)).rotatedOn !== "");
+  await page.getByText("已记下更换").waitFor();
+  const credElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(credElevate.status(), 200, await credElevate.text());
+  await dialog("端到端令牌").getByRole("button", { name: "删除" }).click();
+  await page.getByRole("button", { name: "删除", exact: true }).last().click();
+  await until("密钥台账删除", async () => !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+
+  stage = "联系人";
+  // B122：新建一个五天后过生日的联系人，状态是近期；列表上记一次联系；搜索；删除不需要提升权限。
+  await page.goto(`${base}/contacts`);
+  await page.getByRole("button", { name: "新建联系人" }).first().click();
+  await dialog("新建联系人").getByLabel("名称", { exact: true }).fill("端到端老王");
+  await dialog("新建联系人").getByRole("button", { name: /添加日期/ }).click();
+  const birthSoon = new Date(Date.now() + 5 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建联系人").getByLabel("重要日期 1 日期", { exact: true }).fill(`1990-${birthSoon.slice(5)}`);
+  await dialog("新建联系人").getByLabel(/^联系周期/).fill("30");
+  await dialog("新建联系人").getByRole("button", { name: "保存" }).click();
+  await until("联系人新建", async () => (await api("/contacts")).items.some((c) => c.name === "端到端老王"));
+  const contact = (await api("/contacts")).items.find((c) => c.name === "端到端老王");
+  assert.equal(contact.status, "soon");
+  assert.equal(contact.events[0].kind, "birthday");
+  await page.getByPlaceholder("搜索联系人").fill("端到端");
+  const contactRow = page.locator(".contacts-row", { hasText: "端到端老王" });
+  await contactRow.getByRole("button", { name: /刚联系过/ }).click();
+  await until("联系人记一次联系", async () => (await api(`/contacts/${contact.id}`)).sinceContact === 0);
+  await contactRow.locator(".contacts-row-open").click();
+  await dialog("端到端老王").getByRole("button", { name: "删除" }).click();
+  await page.getByRole("button", { name: "删除", exact: true }).last().click();
+  await until("联系人删除", async () => !(await api("/contacts")).items.some((c) => c.name === "端到端老王"));
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {
@@ -1322,6 +1483,52 @@ try {
   await send("POST", "/habits/personal/backup", personalBackup);
   assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.5");
 
+  stage = "身体数据同步和趋势";
+  // B119：静息心率手填，上报令牌从设置里生成，用令牌上报后趋势图出现，关闭后令牌失效。
+  await page.goto(`${base}/habits/plan?section=records`);
+  await page.getByLabel("静息心率（次/分）", { exact: true }).fill("58");
+  await page.getByRole("button", { name: "保存当天记录" }).click();
+  await until("静息心率持久化", async () => (await api(`/habits/personal/days/${personalDate}`)).restingHr === "58");
+  await page.getByText("至少记两天才有趋势").waitFor();
+  const bodyElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(bodyElevate.status(), 200, await bodyElevate.text());
+  await page.goto(`${base}/habits/plan?section=settings`);
+  await page.getByRole("button", { name: "生成上报令牌" }).click();
+  const bodyExample = await page.locator(".habits-code pre").innerText();
+  const bodyToken = /Bearer ([0-9a-f]{64})/.exec(bodyExample)?.[1];
+  assert.ok(bodyToken, "示例命令里没有令牌");
+  const bodyReport = (data, token = bodyToken) =>
+    fetch(`${base}/api/v1/habits/body/report`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  const yesterday = new Date(Date.parse(`${personalDate}T12:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  assert.equal((await bodyReport({ date: yesterday, weight: 82.3, sleep: "7", restingHr: 60, steps: 7000 })).status, 204);
+  assert.equal((await bodyReport({ weight: 81.9 })).status, 204);
+  assert.equal((await bodyReport({ weight: 81.9, restingHr: 500 })).status, 400);
+  assert.equal((await bodyReport({ weight: 81.9 }, "0".repeat(64))).status, 401);
+  const reported = await api(`/habits/personal/days/${personalDate}`);
+  assert.equal(reported.weight, "81.9");
+  assert.equal(reported.restingHr, "58", "只报体重不应该改心率");
+  assert.equal((await api(`/habits/personal/days/${yesterday}`)).steps, "7000");
+  await page.getByText(/^最近一次上报/).waitFor();
+  assert.equal((await bodyReport({ steps: "8000" })).status, 204);
+  await page.goto(`${base}/habits/plan?section=records`);
+  await page.getByRole("img", { name: "体重" }).waitFor();
+  await page.getByRole("group", { name: "身体指标" }).getByText("步数", { exact: true }).click();
+  await page.getByRole("img", { name: "步数" }).waitFor();
+  await page.goto(`${base}/habits/plan?section=settings`);
+  await page.getByRole("button", { name: "关闭", exact: true }).click();
+  await dialog("关闭自动同步？").getByRole("button", { name: "关闭" }).click();
+  await page.getByText("还没有开启").waitFor();
+  assert.equal((await bodyReport({ weight: 80 })).status, 401);
+  assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.9");
+  await send("PATCH", `/habits/personal/days/${personalDate}`, { weight: "81.5", restingHr: "", steps: "" });
+  await send("PATCH", `/habits/personal/days/${yesterday}`, { weight: "", sleep: "", restingHr: "", steps: "" });
+
   stage = "续费进入早报";
   const dateParts = Object.fromEntries(
     new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" })
@@ -1430,7 +1637,14 @@ try {
   ).trim();
   const agentConfig = join(temp, "agent.json");
   await run("pair-agent", binary("agent"), ["pair", "--server", serverUrl, "--code", code, "--config", agentConfig]);
-  const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig]);
+  // B121：配置下发写的是这两个目录，不碰真实的家目录
+  const claudeHome = join(temp, "claude-home");
+  const codexHome = join(temp, "codex-home");
+  mkdirSync(claudeHome, { recursive: true });
+  mkdirSync(codexHome, { recursive: true });
+  const agentProcess = start("agent", binary("agent"), ["run", "--config", agentConfig], {
+    env: { ...process.env, CLAUDE_CONFIG_DIR: claudeHome, CODEX_HOME: codexHome },
+  });
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
   stage = "B82 服务器信息 API 主流程";
@@ -1442,6 +1656,52 @@ try {
   assert.equal((await api(`/hosts/${host.id}/password`)).password, "e2e-host-password");
   await send("PUT", "/hosts/order", { kind: "server", ids: [host.id, ...(await api("/hosts?kind=server")).filter((item) => item.id !== host.id).map((item) => item.id)] });
   assert.equal((await api("/hosts?kind=server"))[0].id, host.id);
+
+  stage = "配置下发";
+  // B121：保存一份配置，选上这台机器，页面显示不一致，下发后一致，原有内容还在，面板删掉后也撤掉。
+  const ownRules = "# 我自己的规则\n\n不要用 emoji。\n";
+  writeFileSync(join(claudeHome, "CLAUDE.md"), ownRules);
+  writeFileSync(join(claudeHome, "settings.json"), JSON.stringify({ permissions: { allow: ["Read(*)"] } }));
+  const deliverElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(deliverElevate.status(), 200, await deliverElevate.text());
+  await page.goto(`${base}/coding/config`);
+  await page.getByRole("checkbox", { name: "e2e-linux" }).check();
+  const claudeCard = page.getByRole("region", { name: "Claude Code" });
+  await claudeCard.getByLabel("全局规则").fill("提交信息用中文。");
+  await claudeCard.getByLabel("允许").fill("Bash(git status)");
+  await page.getByRole("region", { name: "Codex" }).getByRole("button", { name: /添加服务器/ }).click();
+  const codexCard = page.getByRole("region", { name: "Codex" });
+  await codexCard.getByLabel("服务器名称").fill("fs");
+  await codexCard.getByLabel("命令").fill("npx");
+  await codexCard.getByLabel("参数").fill("-y\nserver-fs");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await until("配置保存", async () => (await api("/aiconfig")).hostIds.length === 1);
+  await page.getByText("缺少内容").first().waitFor();
+  assert.equal(readFileSync(join(claudeHome, "CLAUDE.md"), "utf8"), ownRules, "检查不应该写文件");
+  await page.getByRole("button", { name: "下发 e2e-linux" }).click();
+  await dialog("下发到这台机器？").getByRole("button", { name: "下发" }).click();
+  await until("配置下发完成", async () => (await api("/aiconfig/status")).hosts[0]?.state === "ok");
+  await page.getByText("一致", { exact: true }).first().waitFor();
+  const deliveredRules = readFileSync(join(claudeHome, "CLAUDE.md"), "utf8");
+  assert.ok(deliveredRules.startsWith(ownRules) && deliveredRules.includes("提交信息用中文。"), deliveredRules);
+  const deliveredSettings = JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8"));
+  assert.deepEqual(deliveredSettings.permissions.allow, ["Read(*)", "Bash(git status)"]);
+  assert.ok(readFileSync(join(codexHome, "config.toml"), "utf8").includes("[mcp_servers.fs]"));
+  // 面板里清掉规则和权限，下发后撤掉，自己的内容还在
+  await claudeCard.getByLabel("全局规则").fill("");
+  await claudeCard.getByLabel("允许").fill("");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await until("清空保存", async () => (await api("/aiconfig")).claude.rules === "");
+  await page.getByRole("button", { name: "下发 e2e-linux" }).click();
+  await dialog("下发到这台机器？").getByRole("button", { name: "下发" }).click();
+  // 代理先写规则文件再写权限，两个都要等，不能只等规则文件。
+  await until("撤掉配置", async () =>
+    readFileSync(join(claudeHome, "CLAUDE.md"), "utf8") === ownRules &&
+    JSON.stringify(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow) === JSON.stringify(["Read(*)"]));
+  assert.deepEqual(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow, ["Read(*)"]);
+  await send("PUT", "/aiconfig", { claude: { rules: "" }, codex: { rules: "" }, hostIds: [] });
 
   stage = "查看远端日志文件";
   const remoteLog = join(temp, "e2e-remote.log");

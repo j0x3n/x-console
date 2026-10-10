@@ -83,7 +83,9 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags "-s -w -X main.Version=${GITHUB_SHA::7}" -o ../dist/x-console-agent${{ matrix.ext }} ./cmd/agent
+        run: |
+          gui=; [ "$GOOS" = windows ] && gui="-H=windowsgui"
+          go build -trimpath -ldflags "-s -w $gui -X main.Version=${GITHUB_SHA::7}" -o ../dist/x-console-agent${{ matrix.ext }} ./cmd/agent
       - uses: actions/upload-artifact@v4
         with:
           name: x-console-agent-${{ matrix.goos }}-${{ matrix.goarch }}

@@ -32,8 +32,9 @@ RUN set -eu; \
         os=${target%/*}; arch=${target#*/}; name=x-console-agent; \
         [ "$os" = windows ] && name=x-console-agent.exe; \
         mkdir -p /out/agents/$os-$arch; \
+        gui=; [ "$os" = windows ] && gui="-H=windowsgui"; \
         CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath \
-            -ldflags "-s -w -X main.Version=${VERSION}" \
+            -ldflags "-s -w $gui -X main.Version=${VERSION}" \
             -o /out/agents/$os-$arch/$name ./cmd/agent; \
         (cd /out/agents/$os-$arch && sha256sum $name > SHA256SUMS); \
     done

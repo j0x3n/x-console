@@ -76,7 +76,9 @@ func (g *procGroup) kill() {
 		return
 	}
 	if g.cmd.Process != nil {
-		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(g.cmd.Process.Pid)).Run()
+		kill := exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(g.cmd.Process.Pid))
+		hideWindow(kill)
+		_ = kill.Run()
 		_ = g.cmd.Process.Kill()
 	}
 }

@@ -12,8 +12,9 @@ New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $exe = Join-Path $dir "x-console-agent.exe"
 Copy-Item $Binary $exe -Force
 
-& $exe pair --server $Server --code $Code
-if ($LASTEXITCODE -ne 0) { throw "配对失败" }
+# 代理是图形程序（运行时不弹黑窗口），直接 & 调用不会等它结束，所以用 Start-Process -Wait。
+$p = Start-Process -FilePath $exe -ArgumentList @("pair", "--server", $Server, "--code", $Code) -Wait -PassThru
+if ($p.ExitCode -ne 0) { throw "配对失败" }
 
 # 用任务计划程序在登录时启动。它跑在你的用户会话里，能用剪贴板、git 凭据和 Claude Code 登录状态。
 $action = New-ScheduledTaskAction -Execute $exe -Argument "run" -WorkingDirectory $dir

@@ -283,6 +283,27 @@ func (e RemindMode) Valid() bool {
 	}
 }
 
+// BodyPushStatus defines model for BodyPushStatus.
+type BodyPushStatus struct {
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
+	Enabled   bool       `json:"enabled"`
+
+	// LastReportAt 最近一次收到上报的时间。还没收到过为空
+	LastReportAt *time.Time `json:"lastReportAt,omitempty"`
+
+	// LastReportDate 最近一次上报写入的日期
+	LastReportDate *string `json:"lastReportDate,omitempty"`
+	ReportUrl      string  `json:"reportUrl"`
+}
+
+// BodyPushToken defines model for BodyPushToken.
+type BodyPushToken struct {
+	// Example 填好地址和令牌、可以直接复制执行的 curl 命令
+	Example   string `json:"example"`
+	ReportUrl string `json:"reportUrl"`
+	Token     string `json:"token"`
+}
+
 // Habit defines model for Habit.
 type Habit struct {
 	ActiveHostIds []string  `json:"activeHostIds"`
@@ -551,6 +572,7 @@ type PersonalDay struct {
 	English                string          `json:"english"`
 	Food                   string          `json:"food"`
 	Note                   string          `json:"note"`
+	RestingHr              string          `json:"restingHr"`
 	Sets                   map[string]bool `json:"sets"`
 	Sleep                  string          `json:"sleep"`
 	Steps                  string          `json:"steps"`
@@ -562,16 +584,19 @@ type PersonalDay struct {
 
 // PersonalDayInput defines model for PersonalDayInput.
 type PersonalDayInput struct {
-	Back    *string          `json:"back,omitempty"`
-	Energy  *string          `json:"energy,omitempty"`
-	English *string          `json:"english,omitempty"`
-	Food    *string          `json:"food,omitempty"`
-	Note    *string          `json:"note,omitempty"`
-	Sets    *map[string]bool `json:"sets,omitempty"`
-	Sleep   *string          `json:"sleep,omitempty"`
-	Steps   *string          `json:"steps,omitempty"`
-	Waist   *string          `json:"waist,omitempty"`
-	Weight  *string          `json:"weight,omitempty"`
+	Back    *string `json:"back,omitempty"`
+	Energy  *string `json:"energy,omitempty"`
+	English *string `json:"english,omitempty"`
+	Food    *string `json:"food,omitempty"`
+	Note    *string `json:"note,omitempty"`
+
+	// RestingHr B119 静息心率，次/分
+	RestingHr *string          `json:"restingHr,omitempty"`
+	Sets      *map[string]bool `json:"sets,omitempty"`
+	Sleep     *string          `json:"sleep,omitempty"`
+	Steps     *string          `json:"steps,omitempty"`
+	Waist     *string          `json:"waist,omitempty"`
+	Weight    *string          `json:"weight,omitempty"`
 }
 
 // PersonalLibrary defines model for PersonalLibrary.
@@ -784,6 +809,18 @@ type ServerInterface interface {
 	// (POST /habits)
 	CreateHabit(w http.ResponseWriter, r *http.Request)
 
+	// (DELETE /habits/body/push)
+	DeleteBodyPush(w http.ResponseWriter, r *http.Request)
+
+	// (GET /habits/body/push)
+	GetBodyPush(w http.ResponseWriter, r *http.Request)
+
+	// (POST /habits/body/push/token)
+	CreateBodyPushToken(w http.ResponseWriter, r *http.Request)
+
+	// (POST /habits/body/report)
+	ReportBody(w http.ResponseWriter, r *http.Request)
+
 	// (GET /habits/library)
 	GetPersonalLibrary(w http.ResponseWriter, r *http.Request)
 
@@ -880,6 +917,26 @@ func (_ Unimplemented) ListHabits(w http.ResponseWriter, r *http.Request, params
 
 // (POST /habits)
 func (_ Unimplemented) CreateHabit(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /habits/body/push)
+func (_ Unimplemented) DeleteBodyPush(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /habits/body/push)
+func (_ Unimplemented) GetBodyPush(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /habits/body/push/token)
+func (_ Unimplemented) CreateBodyPushToken(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /habits/body/report)
+func (_ Unimplemented) ReportBody(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1070,6 +1127,62 @@ func (siw *ServerInterfaceWrapper) CreateHabit(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateHabit(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBodyPush operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBodyPush(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBodyPush(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetBodyPush operation middleware
+func (siw *ServerInterfaceWrapper) GetBodyPush(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetBodyPush(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBodyPushToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateBodyPushToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBodyPushToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReportBody operation middleware
+func (siw *ServerInterfaceWrapper) ReportBody(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReportBody(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1802,6 +1915,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/habits/personal/backup", wrapper.ImportPersonalBackup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/habits/body/push", wrapper.DeleteBodyPush)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/habits/body/push", wrapper.GetBodyPush)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/habits/body/push/token", wrapper.CreateBodyPushToken)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/habits/body/report", wrapper.ReportBody)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/habits/schedule", wrapper.GetHabitSchedule)
