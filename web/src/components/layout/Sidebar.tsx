@@ -32,6 +32,7 @@ import {
 } from "../../lib/navBadges";
 import { lastPathFor } from "../../hooks/useKeepScroll";
 import { useSidebar } from "../../stores/sidebar";
+import BrandMark from "../ui/BrandMark";
 
 /** 图标栏会滚动，提示是 fixed 定位，悬停或聚焦时把图标中线的纵坐标告诉它。 */
 function placeTip(event: SyntheticEvent<HTMLElement>) {
@@ -106,7 +107,7 @@ export default function Sidebar({
               close();
             }}
           >
-            X
+            <BrandMark size="100%" />
           </button>
           {/* 隐藏内容解锁时，VaultPanel 把锁定按钮放到这里 */}
           <span id="brand-slot" className="brand-slot" />

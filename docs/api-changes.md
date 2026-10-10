@@ -4,6 +4,8 @@
 共享合同（`contracts`）或模块接口的向后兼容性时，在最上面加一条：任务编号、日期、改了什么、为什么。
 看板在 [tasks.md](tasks.md)。
 
+- B145（2026-10-11）：新增纯展示组件 `components/ui/BrandMark.tsx`。登录页、左栏和云盘分享页共用 D 方案站标，页面内跟随现有主题色。保留左栏按钮的可读名称、导航和点击事件。浏览器与 PWA 图标加版本参数并更新离线缓存版本。只改展示和静态资源，不改接口。
+
 - B113（2026-10-06）：`reminders.yaml` 加 `GET/POST /notify/mutes`、`PUT /notify/mutes/scope`、`DELETE /notify/mutes/{muteId}`。迁移 `20261006000200_m7_b113_notification_mutes.sql`（表 `notification_mutes`）。基础代码：`notify.Notification` 加可选字段 `Scope`（邮件新邮件填 `mail:<邮箱编号>`），向后兼容；`reminders` 的路由 `Route` 和 Web Push 发送按规则过滤。总线事件 `notify.scope_removed`（载荷 `{scope}`）：拥有这个范围的模块在范围被删除时发，`reminders` 收到后删掉规则。邮件模块删除邮箱时发这个事件。
 
 - B112（2026-10-06）：`quotas.yaml` 加 `GET/PUT /quotas/notify`（设置键 `quotas.notify`，四个布尔值，默认都开）、账号的 `balanceLow`。迁移 `20261006000100_m14_b112_quota_notify.sql`：`quota_accounts.balance_low`、`quota_readings.fail_count`、表 `quota_notify_state`。通知 kind：`quota.low`、`quota.empty`、`quota.balance_low`、`quota.read_failed`，用现有的通知路由选渠道。
