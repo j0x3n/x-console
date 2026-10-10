@@ -30,6 +30,7 @@ const (
 	Projects    ModuleId = "projects"
 	Reminders   ModuleId = "reminders"
 	Router      ModuleId = "router"
+	Screentime  ModuleId = "screentime"
 	Servers     ModuleId = "servers"
 )
 
@@ -69,6 +70,8 @@ func (e ModuleId) Valid() bool {
 	case Reminders:
 		return true
 	case Router:
+		return true
+	case Screentime:
 		return true
 	case Servers:
 		return true

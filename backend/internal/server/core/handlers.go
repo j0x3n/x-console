@@ -299,7 +299,7 @@ func (h *Handlers) noticeHider(ctx context.Context) (contracts.HiddenModules, bo
 }
 
 func hidesAny(ctx context.Context, h contracts.HiddenModules) bool {
-	for _, id := range []string{"projects", "coding", "notes", "mail", "reminders", "habits", "drive", "calendar", "servers", "pc", "monitoring", "home", "automations", "github", "documents"} {
+	for _, id := range []string{"projects", "coding", "notes", "mail", "reminders", "habits", "drive", "calendar", "servers", "pc", "monitoring", "home", "automations", "github", "documents", "screentime"} {
 		if h.Hidden(ctx, id) {
 			return true
 		}

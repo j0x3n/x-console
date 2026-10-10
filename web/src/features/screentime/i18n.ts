@@ -1,0 +1,71 @@
+import { registerZh } from "../../lib/i18n";
+
+registerZh({
+  // B116
+  "Screen time": "时间去向",
+  hr: "小时",
+  min: "分钟",
+  "Total time": "总时长",
+  Coding: "编码",
+  "AI tools": "AI 工具",
+  Messaging: "通讯",
+  Web: "网页",
+  Entertainment: "娱乐",
+  Office: "办公",
+  Other: "其他",
+  Day: "日",
+  Week: "周",
+  Month: "月",
+  "Previous period": "上一段",
+  "Next period": "下一段",
+  "All computers": "全部电脑",
+  "Which computer": "哪台电脑",
+  "Computer time": "电脑时间",
+  "Where the time went": "时间花在哪",
+  "Time per day": "每天的时间",
+  "Most used programs": "用得最多的程序",
+  "No record in this period": "这段时间没有记录",
+  "Nothing was recorded between these dates.": "这几天里没有记录。",
+  "Recording is off": "记录已关闭",
+  "Turn it on in the settings to start recording again.":
+    "在设置里打开后才会继续记录。",
+  "No computer can record yet": "还没有能记录的电脑",
+  "Only the agent on a Windows desktop can see which program is in front. Install it on your computer and connect it.":
+    "只有 Windows 桌面上的代理能看到前台程序。在你的电脑上装好代理并连接后才有数据。",
+  "Waiting for the first minute": "等第一分钟的记录",
+  "The agent is connected. The first record appears after one full minute.":
+    "代理已连接，满一分钟后这里就有数据。",
+  "Go to Computer": "去本机页",
+  "Open settings": "打开设置",
+  "Screen time settings": "时间去向设置",
+  "Record which program is in front": "记录前台程序",
+  "One record per minute while you are at the computer. Locked screens and more than 5 minutes without keyboard or mouse are not counted.":
+    "你在电脑前时每分钟记一次。锁屏和超过 5 分钟没动键盘鼠标的时间不算。",
+  "Keep window titles": "保存窗口标题",
+  "Off by default. Titles often hold private text such as mail subjects. When off, the title is used to sort the minute and then dropped. Kept titles are deleted after 30 days.":
+    "默认关。标题里常有邮件主题这类私人内容。关着时，标题只用来分类，分完就丢掉。保存的标题 30 天后自动删除。",
+  Computers: "电脑",
+  "No Windows agent is connected.": "没有已连接的 Windows 代理。",
+  Online: "在线",
+  Offline: "离线",
+  "Sorting rules": "分类规则",
+  "Your own rules come first, in the order you added them. Then the built-in rules.":
+    "你自己的规则排在前面，按添加的先后匹配。没有命中才用内置规则。",
+  "Program name is": "程序名是",
+  "Title contains": "标题包含",
+  "Program name": "程序名",
+  "Text to match": "要匹配的文字",
+  "Add rule": "添加规则",
+  "Rule added": "规则已添加",
+  "Rule deleted": "规则已删除",
+  "Delete rule": "删除规则",
+  "No rules yet": "还没有规则",
+  "Title rules only apply to minutes whose title was kept.":
+    "标题规则只能改还留着标题的记录。",
+  "Clear all records": "清空全部记录",
+  "Clear all screen time records?": "清空全部时间记录？",
+  "All records on this server are deleted. Your rules and settings stay.":
+    "服务器上的全部记录都会删除，规则和设置保留。",
+  "Clear records": "清空记录",
+  "Records cleared": "记录已清空",
+});

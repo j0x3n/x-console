@@ -1077,6 +1077,22 @@ type RouterTraffic struct {
 	Tx      int64
 }
 
+type ScreenMinute struct {
+	HostID   string
+	Minute   int64
+	App      string
+	Category string
+	Title    string
+}
+
+type ScreenRule struct {
+	ID        int64
+	Field     string
+	Pattern   string
+	Category  string
+	CreatedAt time.Time
+}
+
 type Script struct {
 	ID             int64
 	Name           string

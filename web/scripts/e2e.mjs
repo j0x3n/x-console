@@ -380,6 +380,33 @@ try {
     "新建快到期的档案应该立刻有一条到期提醒",
   );
 
+  stage = "时间去向";
+  // B116：Linux 代理不能记录前台程序，页面应该说明原因。设置里打开保存标题、加一条规则、清空记录。
+  await page.goto(`${base}/screentime`);
+  await page.getByText("还没有能记录的电脑").waitFor();
+  assert.equal((await api("/screentime/summary")).state, "no_agent");
+  await page.getByTitle("时间去向设置").click();
+  const screenDialog = dialog("时间去向设置");
+  await screenDialog.getByText("没有已连接的 Windows 代理。").waitFor();
+  assert.equal((await api("/screentime/settings")).keepTitles, false, "窗口标题默认不保存");
+  await screenDialog.getByLabel(/保存窗口标题/).click();
+  await until("保存标题", async () => (await api("/screentime/settings")).keepTitles === true);
+  await screenDialog.getByLabel("要匹配的文字").fill("Foo.exe");
+  await screenDialog.getByLabel("时间花在哪").selectOption("office");
+  await screenDialog.getByRole("button", { name: "添加规则" }).click();
+  await screenDialog.getByText("Foo.exe").waitFor();
+  assert.equal((await api("/screentime/rules")).items.length, 1);
+  await screenDialog.getByRole("button", { name: /^删除规则 Foo\.exe/ }).click();
+  await until("规则删除", async () => (await api("/screentime/rules")).items.length === 0);
+  const screenElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(screenElevate.status(), 200, await screenElevate.text());
+  await screenDialog.getByRole("button", { name: "清空全部记录" }).click();
+  await dialog("清空全部时间记录？").getByRole("button", { name: "清空记录" }).click();
+  await page.getByText("记录已清空").waitFor();
+  await screenDialog.getByRole("button", { name: "关闭" }).click();
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

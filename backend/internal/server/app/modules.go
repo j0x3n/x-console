@@ -28,6 +28,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/quotas"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/router"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/screentime"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
 )
@@ -66,6 +67,7 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	mail.New,     // B53
 	router.New,   // B65
 	maintenance.New,
-	quotas.New,    // B110
-	documents.New, // B115
+	quotas.New,     // B110
+	documents.New,  // B115
+	screentime.New, // B116
 }

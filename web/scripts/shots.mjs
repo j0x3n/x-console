@@ -209,6 +209,7 @@ const routes = [
   ["router", "/router"],
   ["quotas", "/quotas"],
   ["documents", "/documents"],
+  ["screentime", "/screentime"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],

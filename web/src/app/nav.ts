@@ -8,6 +8,7 @@ import {
   Gauge,
   HardDrive,
   HeartPulse,
+  Hourglass,
   Home,
   Mail,
   Monitor,
@@ -59,6 +60,13 @@ export const navItems: NavItem[] = [
   { path: "/drive", label: "Drive", icon: HardDrive, group: "machines" },
   { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
+  // B116：电脑时间去向
+  {
+    path: "/screentime",
+    label: "Screen time",
+    icon: Hourglass,
+    group: "machines",
+  },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
   { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
   { path: "/quotas", label: "AI quotas", icon: Gauge, group: "integrations" },
