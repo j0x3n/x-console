@@ -4,7 +4,7 @@
 共享合同（`contracts`）或模块接口的向后兼容性时，在最上面加一条：任务编号、日期、改了什么、为什么。
 看板在 [tasks.md](tasks.md)。
 
-- B98（2026-10-11）：新增 `contracts.DriveFiles`（云盘提供，音乐模块用来读云盘文件）。云盘模块只加了 `contract.go` 和 `module.go` 里的一行注册，原有行为不变。新增 `api/modules/music.yaml`、迁移 `20261011000100_m25_b98_music_library.sql`（表 `music_tracks`、`music_playlists`、`music_playlist_items` 和全文索引 `music_fts`）、依赖 `go.senan.xyz/taglib`。
+- B146（2026-10-11）：新增 `contracts.DriveFiles`（云盘提供，音乐模块用来读云盘文件）。云盘模块只加了 `contract.go` 和 `module.go` 里的一行注册，原有行为不变。新增 `api/modules/music.yaml`、迁移 `20261011000100_m25_b146_music_library.sql`（表 `music_tracks`、`music_playlists`、`music_playlist_items` 和全文索引 `music_fts`）、依赖 `go.senan.xyz/taglib`。
 
 - B145（2026-10-11）：新增纯展示组件 `components/ui/BrandMark.tsx`。登录页、左栏和云盘分享页共用 D 方案站标，页面内跟随现有主题色。保留左栏按钮的可读名称、导航和点击事件。浏览器与 PWA 图标加版本参数并更新离线缓存版本。只改展示和静态资源，不改接口。
 

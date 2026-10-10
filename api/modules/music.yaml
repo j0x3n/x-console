@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: X Console music (B98 library and playback)
+  title: X Console music (B146 library and playback)
   version: 0.1.0
 servers:
   - url: /api/v1
@@ -365,7 +365,7 @@ components:
         favorite: { type: boolean }
         playCount: { type: integer }
         lastPlayedAt: { type: string, format: date-time }
-        matchState: { type: string, enum: [none, matched, pending, failed, skipped], description: 在线匹配的状态，B100 起使用 }
+        matchState: { type: string, enum: [none, matched, pending, failed, skipped], description: 在线匹配的状态，B148 起使用 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     MusicTrackPage:

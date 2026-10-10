@@ -81,5 +81,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	credentials.New, // B120
 	aiconfig.New,    // B121
 	contacts.New,    // B122
-	music.New,       // B98
+	music.New,       // B146
 }

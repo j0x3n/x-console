@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// DriveFilesKey is where the drive module registers DriveFiles (B98).
+// DriveFilesKey is where the drive module registers DriveFiles (B146).
 const DriveFilesKey = "drive.files"
 
 // ErrDriveNotFound is returned when a file or folder does not exist, is in the

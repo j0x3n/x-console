@@ -1,4 +1,4 @@
-// Package music is the music library (B98). Songs stay in the drive: this
+// Package music is the music library (B146). Songs stay in the drive: this
 // module indexes the audio files under the folders the user picked, reads
 // their tags, keeps covers and lyrics, and serves playback and playlists.
 package music

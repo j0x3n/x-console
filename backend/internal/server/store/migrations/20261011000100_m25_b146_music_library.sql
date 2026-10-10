@@ -1,5 +1,5 @@
 -- +goose Up
--- B98: the music library. Files stay in the drive; this only indexes them.
+-- B146: the music library. Files stay in the drive; this only indexes them.
 CREATE TABLE music_tracks (
     id INTEGER PRIMARY KEY,
     drive_item_id INTEGER NOT NULL UNIQUE REFERENCES drive_items(id) ON DELETE CASCADE,

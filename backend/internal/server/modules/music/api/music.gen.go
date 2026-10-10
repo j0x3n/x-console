@@ -286,7 +286,7 @@ type MusicTrack struct {
 	// LyricsSynced 歌词带时间轴
 	LyricsSynced bool `json:"lyricsSynced"`
 
-	// MatchState 在线匹配的状态，B100 起使用
+	// MatchState 在线匹配的状态，B148 起使用
 	MatchState MusicTrackMatchState `json:"matchState"`
 	PlayCount  int                  `json:"playCount"`
 	Title      string               `json:"title"`
@@ -303,7 +303,7 @@ type MusicTrackCoverSource string
 // MusicTrackLyricsSource defines model for MusicTrack.LyricsSource.
 type MusicTrackLyricsSource string
 
-// MusicTrackMatchState 在线匹配的状态，B100 起使用
+// MusicTrackMatchState 在线匹配的状态，B148 起使用
 type MusicTrackMatchState string
 
 // MusicTrackIds defines model for MusicTrackIds.

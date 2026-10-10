@@ -14,7 +14,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive/db"
 )
 
-// driveFiles is the drive's face for other modules (B98 music). It never
+// driveFiles is the drive's face for other modules (B146 music). It never
 // shows hidden or trashed items, so the vault lock state does not matter.
 type driveFiles struct{ m *Module }
 

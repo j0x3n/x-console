@@ -274,7 +274,7 @@ export interface components {
             /** Format: date-time */
             lastPlayedAt?: string;
             /**
-             * @description 在线匹配的状态，B100 起使用
+             * @description 在线匹配的状态，B148 起使用
              * @enum {string}
              */
             matchState: "none" | "matched" | "pending" | "failed" | "skipped";
