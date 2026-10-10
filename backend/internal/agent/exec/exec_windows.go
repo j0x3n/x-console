@@ -6,6 +6,8 @@ import (
 	osexec "os/exec"
 	"strconv"
 	"syscall"
+
+	"github.com/j0x3n/x-console/backend/internal/agent/nowindow"
 )
 
 func shellCommand(command string) (string, []string) { return PowerShellCommand(command) }
@@ -19,6 +21,8 @@ func killTree(cmd *osexec.Cmd) {
 	if cmd.Process == nil {
 		return
 	}
-	_ = osexec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid)).Run()
+	kill := osexec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid))
+	nowindow.Hide(kill)
+	_ = kill.Run()
 	_ = cmd.Process.Kill()
 }

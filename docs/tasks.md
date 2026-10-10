@@ -57,6 +57,7 @@ B95：用户 2026-10-02 确认树莓派装的是 64 位系统。服务端已经�
 
 没有在真实环境验证过：
 - Windows 代理的运行时行为：ConPTY 终端、服务管理、剪贴板、锁屏关机、打开程序、编码任务的中断。只做过交叉编译和静态检查。
+- Windows 代理 2026-10-10 改成图形程序（`-H=windowsgui`），不再弹终端窗口。没在真机验证。以后代理里新加的子进程（`exec.Command`）必须调用 `internal/agent/nowindow.Hide`，否则每次都会闪一个黑窗口。没有控制台时日志写到 `%LOCALAPPDATA%\x-console-agent\agent.log`。
 - 真实的 Claude Code 和 Codex CLI。Codex 的默认参数 `exec --json --full-auto -` 没实测，可以在代理配置里改。
 - B1 本机代理的自动安装、吊销后保持停用和卸载尚未在真实服务器验证。
 - 真实的 Home Assistant、Telegram、Bark、Server酱、Web Push、GitHub、Linear。测试全部用假服务器。

@@ -48,6 +48,7 @@ import (
 var Version = "dev"
 
 func main() {
+	setupConsole() // Windows 版没有控制台，要在建日志之前接好输出
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
 	cmd := "run"
 	args := os.Args[1:]
@@ -67,7 +68,6 @@ func main() {
 	case "pair":
 		err = pair(args)
 	case "run":
-		hideOwnConsole() // 任务计划启动时不显示黑窗口
 		err = run(args)
 	case "version":
 		fmt.Println(Version)

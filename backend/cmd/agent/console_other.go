@@ -2,5 +2,5 @@
 
 package main
 
-// hideOwnConsole only matters on Windows.
-func hideOwnConsole() {}
+// setupConsole only matters on Windows, where the agent has no console.
+func setupConsole() {}
