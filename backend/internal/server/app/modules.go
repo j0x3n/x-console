@@ -10,6 +10,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/documents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
 	uploadfiles "github.com/j0x3n/x-console/backend/internal/server/modules/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
@@ -65,5 +66,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	mail.New,     // B53
 	router.New,   // B65
 	maintenance.New,
-	quotas.New, // B110
+	quotas.New,    // B110
+	documents.New, // B115
 }

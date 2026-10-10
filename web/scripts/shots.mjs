@@ -126,6 +126,12 @@ const ids = await page.evaluate(async () => {
     const at = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
     for (const [title, hours] of [["交电费", 3], ["组会", 26], ["体检", 50]])
       await post("/reminders", { title, at: at(hours) });
+    // B115：证件档案，一份已过期、一份快到期、一份没有到期日
+    const dayAt = (days) => new Date(Date.now() + days * 86400e3).toISOString().slice(0, 10);
+    await post("/documents", { kind: "passport", name: "李四的护照", holder: "李四", number: "E12345678", expiresOn: dayAt(26) });
+    await post("/documents", { kind: "insurance", name: "车险", expiresOn: dayAt(-3) });
+    await post("/documents", { kind: "item", name: "笔记本电脑", serial: "SN-42", price: 8999, currency: "CNY", expiresOn: dayAt(300) });
+    await post("/documents", { kind: "contract", name: "租房合同" });
     await post("/habits", { name: "跑步", unit: "次", dailyTarget: 1 });
     await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
     await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
@@ -202,6 +208,7 @@ const routes = [
   ["home", "/home"],
   ["router", "/router"],
   ["quotas", "/quotas"],
+  ["documents", "/documents"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],

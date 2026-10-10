@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Bot,
   FolderGit2,
+  Files,
   Gauge,
   HardDrive,
   HeartPulse,
@@ -51,6 +52,8 @@ export const navItems: NavItem[] = [
     icon: CalendarDays,
     group: "personal",
   },
+  // B115：证件、合同和物品保修
+  { path: "/documents", label: "Documents", icon: Files, group: "personal" },
   { path: "/servers", label: "Servers", icon: Server, group: "machines" },
   // 用户 2026-10-05 要求：云盘放在服务器下面
   { path: "/drive", label: "Drive", icon: HardDrive, group: "machines" },

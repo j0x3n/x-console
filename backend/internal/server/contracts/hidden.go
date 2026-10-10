@@ -54,7 +54,8 @@ var backendSidebar = map[string]string{
 	"automations":   "automations",
 	"github":        "github",
 	"linear":        "github",
-	"router":        "router", // B65
+	"router":        "router",    // B65
+	"documents":     "documents", // B115
 }
 
 func ActionHidden(ctx context.Context, h HiddenModules, name string) bool {
@@ -92,6 +93,8 @@ func ActionHidden(ctx context.Context, h HiddenModules, name string) bool {
 		return h.Hidden(ctx, "github")
 	case "mail":
 		return h.Hidden(ctx, "mail")
+	case "documents":
+		return h.Hidden(ctx, "documents") // B115
 	default:
 		return false
 	}
@@ -142,6 +145,8 @@ func eventSidebar(topic string) (string, bool) {
 		return "mail", true
 	case strings.HasPrefix(topic, "router."): // B65
 		return "router", true
+	case strings.HasPrefix(topic, "document."): // B115
+		return "documents", true
 	default:
 		return "", false
 	}
@@ -180,7 +185,8 @@ func linkSidebar(link string) (string, bool) {
 		return "", true
 	case "pc", "servers", "notes", "mail", "projects", "coding", "reminders", "habits",
 		"drive", "calendar", "monitoring", "home", "automations", "github",
-		"router": // B65
+		"router",    // B65
+		"documents": // B115
 		return seg, true
 	default:
 		return "", false
@@ -194,6 +200,8 @@ func sourceHidden(ctx context.Context, h HiddenModules, source string) bool {
 		return h.Hidden(ctx, src)
 	case "router": // B65
 		return h.Hidden(ctx, "router")
+	case "documents": // B115
+		return h.Hidden(ctx, "documents")
 	case "home", "homeassistant", "ha":
 		return h.Hidden(ctx, "home")
 	case "automations", "automation":

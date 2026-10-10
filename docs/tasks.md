@@ -73,6 +73,7 @@
 | B112 | AI 额度通知：窗口剩余 10%、用完，DeepSeek 余额低于阈值，读取连续失败 | [B110](specs/B110.md) 通知一节 | 完成（Claude，2026-10-06）。四类通知的开关放在“AI 额度”页顶栏的“通知”里，没有放进设置 → 通知（那里是按渠道路由，没有按类型的开关） |
 | B113 | 通知静音规则：每个邮箱可选发到哪些设备和渠道（手机装了 Gmail 就不再推送 Gmail 邮件），“设置 → 通知”里有通用的静音规则列表 | [B113](specs/B113.md) | 完成（Claude，2026-10-06）。Web Push 实际弹到手机上的效果没有在真机上看过（测试用假推送服务验证“发给谁、不发给谁”） |
 | B114 | 路由器改成脚本主动上报：路由器上的 cron 脚本每分钟把状态 POST 给面板，用令牌校验，不再依赖代理；超过 3 分钟没上报判离线并通知 | [B114](specs/B114.md) | 前后端都完成（Claude，2026-10-09），2026-10-10 部署；没有在真实 OpenWrt 上跑过 |
+| B115 | 证件、合同和物品档案：新模块 `documents`，护照、身份证、驾照、签证、合同、保险、物品保修，记到期日，到期前 90、30、7 天（可改）和到期当天提醒；扫描件存云盘“证件档案”文件夹；可在设置里隐藏整个模块。来源：功能扩展建议第 2 条 | [B115](specs/B115.md) | 前后端都完成（Claude，2026-10-10） |
 
 ### 任务说明
 
@@ -527,3 +528,4 @@
 | 2026-09-27 | 新增 `components/markdown/MarkdownEditor.tsx`（样式 `.xc-mde*` 在 `ui.css`），编辑用的纯函数从 `features/notes/logic.ts` 挪到 `components/markdown/edit.ts`（notes 里保留转发）；`demo/mode.ts` 加 `PASS_THROUGH` | 长文字输入统一用笔记的编辑框 |
 | 2026-09-29 | 删掉没有引用的 `components/ui/LineChart`、`MetricCard`、`Progress`，`hooks/usePresence.ts`，`lib/exportCsv.ts`；`05-frontend.md` 的组件表去掉“小图表”一行 | 清理没用的代码 |
 | 2026-10-09 | `router.yaml` 加 `POST /router/report`（公开，令牌校验）、`POST /router/push/token`；`RouterMode` 加 `push`，`RouterConfig` 加 `lastReportAt`、`reportUrl`，`RouterStatus` 加必填的 `source`；`router` 模块实现 `PublicPaths`（B114） | 路由器主动上报 |
+| 2026-10-10 | `contracts/hidden.go` 加 `documents`（接口、事件 `document.`、通知链接 `/documents`、来源 `documents`、动作 `documents.`），`vault.yaml` 的 `ModuleId` 加 `documents`，`core/handlers.go` 的 `hidesAny` 加 `documents`；前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一行；`scripts/shots.mjs`、`scripts/e2e.mjs` 加证件档案 | B115 证件档案 |

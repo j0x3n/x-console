@@ -1,0 +1,183 @@
+/* B115 证件档案。颜色只用 --xc-* 令牌。 */
+
+.documents-list {
+  padding: 4px 0;
+}
+.documents-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--xc-border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.documents-row:last-child {
+  border-bottom: 0;
+}
+.documents-row:hover {
+  background: var(--xc-surface-2);
+}
+.documents-row-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.documents-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.documents-row-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xc-text);
+  font-weight: 600;
+}
+.documents-row-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xc-muted);
+}
+.documents-row-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex: none;
+  text-align: right;
+}
+.documents-row-side small {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 表单 */
+.documents-form-row {
+  display: flex;
+  gap: 12px;
+}
+.documents-form-row > .xc-field {
+  flex: 1;
+  min-width: 0;
+}
+.documents-form-row > .documents-narrow {
+  flex: 0 0 150px;
+}
+
+/* 详情 */
+.documents-status {
+  margin: 0 0 10px;
+}
+.documents-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.documents-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+}
+.documents-facts small {
+  color: var(--xc-muted);
+}
+.documents-facts strong {
+  overflow-wrap: anywhere;
+  color: var(--xc-text);
+  font-variant-numeric: tabular-nums;
+}
+.documents-notes {
+  margin: 8px 0;
+  color: var(--xc-text-2);
+}
+.documents-files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 14px 0 6px;
+}
+.documents-files {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+}
+.documents-files li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.documents-files li:last-child {
+  border-bottom: 0;
+}
+.documents-files a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--xc-info);
+}
+.documents-hint {
+  margin: 6px 0 0;
+  font-size: var(--fs-12);
+}
+.documents-renew {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.documents-renew .xc-field {
+  margin: 0;
+}
+.documents-actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .documents-form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .documents-form-row > .documents-narrow {
+    flex: none;
+  }
+  .documents-row {
+    padding: 10px 12px;
+  }
+  .documents-row-side {
+    max-width: 45%;
+  }
+}

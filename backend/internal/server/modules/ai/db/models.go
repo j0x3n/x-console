@@ -377,6 +377,27 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type Document struct {
+	ID           int64
+	Kind         string
+	Name         string
+	Holder       string
+	Number       string
+	IssuedOn     string
+	ExpiresOn    string
+	Price        *float64
+	Currency     string
+	Serial       string
+	RemindDays   string
+	Notes        string
+	FilesJson    string
+	NotifiedFor  string
+	NotifiedJson string
+	ArchivedAt   *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type DriveFileVersion struct {
 	ID        int64
 	ItemID    int64

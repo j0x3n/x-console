@@ -350,6 +350,36 @@ try {
     headers: { "X-Requested-With": "x-console" },
   });
 
+  stage = "证件档案";
+  // B115：新建一份快到期的护照，详情里续期，再归档。
+  await page.goto(`${base}/documents`);
+  await page.getByText("还没有档案").waitFor();
+  await page.getByRole("button", { name: "新建档案" }).first().click();
+  await dialog("新建档案").getByLabel("名称").fill("端到端护照");
+  await dialog("新建档案").getByLabel("编号").fill("E00000001");
+  const soon = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建档案").getByLabel(/^到期日/).fill(soon);
+  await dialog("新建档案").getByRole("button", { name: "保存" }).click();
+  await page.getByText("端到端护照").waitFor();
+  await page.getByText(/天后到期/).first().waitFor();
+  const docsRaw = await page.context().request.get(`${base}/api/v1/documents`);
+  assert.ok(docsRaw.ok(), await docsRaw.text());
+  await page.getByText("端到端护照").click();
+  await dialog("端到端护照").getByText("E00000001").waitFor();
+  await dialog("端到端护照").getByRole("button", { name: "续期" }).click();
+  const renewed = new Date(Date.now() + 3650 * 86400e3).toISOString().slice(0, 10);
+  await dialog("端到端护照").getByLabel("新的到期日").fill(renewed);
+  await dialog("端到端护照").getByRole("button", { name: "保存" }).first().click();
+  await until("护照续期", async () => (await api("/documents")).items[0].expiresOn === renewed);
+  await dialog("端到端护照").getByRole("button", { name: "归档" }).click();
+  await page.getByText("还没有档案").waitFor().catch(() => {});
+  assert.equal((await api("/documents")).items.length, 0, "归档后列表里不应该还有这份档案");
+  const docsNotified = await api("/notifications");
+  assert.ok(
+    docsNotified.items.some((n) => n.kind === "documents.expiring"),
+    "新建快到期的档案应该立刻有一条到期提醒",
+  );
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {
