@@ -60,6 +60,7 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure), shareFetches: make(map[string]time.Time), blobLocks: make(map[string]*blobLock)}
 	m.registerActions()
+	module.Provide[contracts.DriveFiles](d.Registry, contracts.DriveFilesKey, driveFiles{m})
 	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"drive", maintenance.StoreReporter{Store: m.store, Registry: d.Registry, Key: "drive", Label: "云盘", Module: "drive"})
 	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"drive", maintenance.DriveCleaner{Deps: d, Lock: m.lockBlob, Trash: func(ctx context.Context, id int64, cutoff time.Time, snapshot []int64) (contracts.CleanupResult, error) {
 		return maintenance.PurgeDriveTrash(ctx, d, id, cutoff, snapshot, m.lockBlob)

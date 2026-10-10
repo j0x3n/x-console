@@ -961,6 +961,56 @@ type MonitorResult struct {
 	Detail     string
 }
 
+type MusicFt struct {
+	Title      string
+	Artist     string
+	Album      string
+	LyricsText string
+}
+
+type MusicPlaylist struct {
+	ID        int64
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type MusicPlaylistItem struct {
+	PlaylistID int64
+	TrackID    int64
+	Position   int64
+}
+
+type MusicTrack struct {
+	ID           int64
+	DriveItemID  int64
+	Sha256       string
+	Companion    string
+	Title        string
+	Artist       string
+	Album        string
+	AlbumArtist  string
+	Manual       int64
+	TrackNo      int64
+	DiscNo       int64
+	Year         int64
+	DurationMs   int64
+	Bitrate      int64
+	Format       string
+	HasCover     int64
+	CoverSource  string
+	CoverKey     string
+	LyricsSource string
+	LyricsSynced int64
+	LyricsText   string
+	Favorite     int64
+	PlayCount    int64
+	LastPlayedAt *time.Time
+	MatchState   string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type Note struct {
 	ID            int64
 	Title         string
