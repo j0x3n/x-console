@@ -276,15 +276,14 @@ describe("ProjectPage", () => {
     );
   });
 
-  it("opens the issue page with Enter", async () => {
+  it("opens a side panel with Enter on the board", async () => {
     const router = renderAt("/projects/XC");
     await screen.findByText("Issue 1");
     fireEvent.keyDown(document.body, { key: "j" });
     fireEvent.keyDown(document.body, { key: "j" });
     fireEvent.keyDown(document.body, { key: "Enter" });
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/projects/XC/2"),
-    );
+    expect(await screen.findByRole("dialog", { name: "XC-2" })).toBeTruthy();
+    expect(router.state.location.pathname).toBe("/projects/XC");
   });
 
   it("opens the new issue dialog with C", async () => {

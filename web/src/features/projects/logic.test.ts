@@ -34,10 +34,12 @@ import {
   type Checklist,
   type ChecklistItem,
   type Issue,
+  appendToListPlans,
   applyListMove,
   isNoopListMove,
   listColumn,
   planListMove,
+  reorderByPriority,
   toggleMember,
 } from "./logic";
 
@@ -466,6 +468,53 @@ describe("B46 list moves", () => {
         planListMove(all, a.key, { listId: 1, index: 0 }),
       ),
     ).toBe(true);
+  });
+
+  it("reorders a list by priority and leaves a sorted list alone", () => {
+    const low = issue({
+      key: "A",
+      id: 1,
+      listId: 1,
+      priority: 4,
+      sortOrder: 100,
+    });
+    const urgent = issue({
+      key: "B",
+      id: 2,
+      listId: 1,
+      priority: 1,
+      sortOrder: 200,
+    });
+    const none = issue({
+      key: "C",
+      id: 3,
+      listId: 1,
+      priority: 0,
+      sortOrder: 300,
+    });
+    const steps = reorderByPriority([low, urgent, none], 1);
+    expect(steps.map((s) => s.key)).toEqual(["B"]);
+    let current = applyListMove([low, urgent, none], steps[0].key, steps[0].plan);
+    expect(keys(listColumn(current, 1))).toBe("B,A,C");
+    expect(reorderByPriority(current, 1)).toEqual([]);
+  });
+
+  it("appends a column onto the done list in the same order", () => {
+    const a = issue({ key: "A", listId: 1, sortOrder: 100, status: "todo" });
+    const b = issue({ key: "B", listId: 1, sortOrder: 200, status: "todo" });
+    const done = issue({
+      key: "D",
+      listId: 2,
+      sortOrder: 100,
+      status: "done",
+    });
+    const steps = appendToListPlans([a, b, done], 1, 2, "done");
+    expect(steps.map((s) => s.key)).toEqual(["A", "B"]);
+    let current = [a, b, done];
+    for (const step of steps)
+      current = applyListMove(current, step.key, step.plan);
+    expect(keys(listColumn(current, 2))).toBe("D,A,B");
+    expect(current.find((i) => i.key === "A")?.status).toBe("done");
   });
 
   it("toggles me as a member", () => {

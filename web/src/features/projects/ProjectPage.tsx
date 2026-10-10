@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
   Archive,
@@ -39,6 +40,7 @@ import { useIssueCommands } from "./commands";
 import FilterBar from "./components/FilterBar";
 import IssueList from "./components/IssueList";
 import ListBoard, { confirmDeleteList } from "./components/ListBoard";
+import { IssuePanel } from "./IssuePage";
 import {
   ArchiveDialog,
   BoardDialog,
@@ -52,11 +54,14 @@ import BindRepoDialog from "./components/BindRepoDialog";
 import ShortcutsDialog from "./components/ShortcutsDialog";
 import {
   STATUSES,
+  appendToListPlans,
   emptyFilter,
   filterIssues,
   groupIssues,
   hasMember,
   issuePath,
+  planListMove,
+  reorderByPriority,
   stepSelection,
   type GroupBy,
   type IssueFilter,
@@ -135,6 +140,8 @@ export default function ProjectPage() {
   const [listSettings, setListSettings] = useState<BoardList | null>(null);
   const [moveAll, setMoveAll] = useState<BoardList | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [panelKey, setPanelKey] = useState<string | null>(null);
+  const [editNonce, setEditNonce] = useState(0);
   const mine = search.get("mine") === "1";
 
   useEffect(() => {
@@ -157,6 +164,7 @@ export default function ProjectPage() {
     const merged = { ...prefs, ...next };
     setPrefs(merged);
     savePrefs(merged);
+    if (merged.view !== "board") setPanelKey(null);
   };
 
   const onBoard = useMemo(
@@ -187,7 +195,14 @@ export default function ProjectPage() {
   }, [prefs.view, groups, board, visible]);
 
   const selectedIssue = issues.data?.find((i) => i.key === selected);
-  const open = (key: string) => navigate(issuePath(key));
+  const open = (key: string) => {
+    if (prefs.view === "board") {
+      setSelected(key);
+      setPanelKey(key);
+      return;
+    }
+    navigate(issuePath(key));
+  };
   const firstList = board?.lists.find((l) => !l.collapsed) ?? board?.lists[0];
 
   useEffect(() => {
@@ -221,9 +236,22 @@ export default function ProjectPage() {
         selected && !(event.target as HTMLElement).closest?.("[data-issue-key]")
           ? open(selected)
           : false,
-      e: () =>
-        selected ? navigate(`${issuePath(selected)}?edit=title`) : false,
-      escape: () => setSelected(null),
+      e: () => {
+        if (!selected) return false;
+        if (prefs.view === "board") {
+          setPanelKey(selected);
+          setEditNonce((n) => n + 1);
+          return;
+        }
+        navigate(`${issuePath(selected)}?edit=title`);
+      },
+      escape: () => {
+        if (panelKey && prefs.view === "board") {
+          setPanelKey(null);
+          return;
+        }
+        setSelected(null);
+      },
       "?": () => setShortcutsOpen(true),
       ...Object.fromEntries(
         STATUSES.map((status, i) => [
@@ -600,6 +628,98 @@ export default function ProjectPage() {
               if (await confirmDeleteList(list, t))
                 ops.deleteList.mutate(list.id);
             },
+            sortByPriority: async (list) => {
+              const steps = reorderByPriority(
+                issues.data ?? [],
+                list.id,
+                list.status,
+              );
+              try {
+                for (const step of steps)
+                  await move.mutateAsync({
+                    projectId: project.id,
+                    key: step.key,
+                    plan: step.plan,
+                  });
+                toast(t("Sorted by priority"));
+              } catch {
+                return;
+              }
+            },
+            markAllDone: async (list) => {
+              const all = issues.data ?? [];
+              const doneList = board.lists.find(
+                (l) => !l.archivedAt && l.status === "done",
+              );
+              try {
+                if (doneList && doneList.id !== list.id) {
+                  const steps = appendToListPlans(
+                    all,
+                    list.id,
+                    doneList.id,
+                    "done",
+                  );
+                  for (const step of steps)
+                    await move.mutateAsync({
+                      projectId: project.id,
+                      key: step.key,
+                      plan: step.plan,
+                    });
+                  if (steps.length)
+                    toast(
+                      t("{n} cards marked done").replace(
+                        "{n}",
+                        String(steps.length),
+                      ),
+                    );
+                  return;
+                }
+                const pending = all.filter(
+                  (i) => i.listId === list.id && i.status !== "done",
+                );
+                for (const card of pending)
+                  await update.mutateAsync({
+                    issue: card,
+                    key: card.key,
+                    body: { status: "done" },
+                  });
+                if (pending.length)
+                  toast(
+                    t("{n} cards marked done").replace(
+                      "{n}",
+                      String(pending.length),
+                    ),
+                  );
+              } catch {
+                return;
+              }
+            },
+            toggleDone: (issue) => {
+              const next: IssueStatus =
+                issue.status === "done" ? "todo" : "done";
+              const target = board.lists.find(
+                (l) => !l.archivedAt && l.status === next,
+              );
+              if (target && target.id !== issue.listId) {
+                move.mutate({
+                  projectId: project.id,
+                  key: issue.key,
+                  plan: planListMove(
+                    issues.data ?? [],
+                    issue.key,
+                    { listId: target.id, index: 0 },
+                    next,
+                  ),
+                });
+                return;
+              }
+              if (issue.status !== next)
+                update.mutate({
+                  issue,
+                  key: issue.key,
+                  body: { status: next },
+                });
+            },
           }}
         />
       ) : (
@@ -675,6 +795,16 @@ export default function ProjectPage() {
         onClose={() => setSettingsOpen(false)}
         project={project}
       />
+      {panelKey &&
+        prefs.view === "board" &&
+        createPortal(
+          <IssuePanel
+            issueKey={panelKey}
+            editNonce={editNonce}
+            onClose={() => setPanelKey(null)}
+          />,
+          document.body,
+        )}
     </div>
   );
 }

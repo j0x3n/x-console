@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { usePageCrumb } from "../../stores/page-title";
@@ -6,18 +6,22 @@ import {
   Archive,
   ArchiveRestore,
   Bot,
+  CircleCheck,
   Copy,
   ExternalLink,
   FolderGit2,
   GitPullRequest,
   Link2,
+  Maximize2,
   NotebookPen,
   Plus,
   Trash2,
+  X,
 } from "lucide-react";
 import { ApiError } from "../../api/client";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
+import { toast } from "../../hooks/useToast";
 import { relativeTime } from "../../lib/time";
 import {
   useAddComment,
@@ -42,6 +46,7 @@ import {
 } from "./api";
 import { LabelChip, PriorityIcon, StatusIcon } from "./components/Icons";
 import { ListSelect } from "./components/BoardDialogs";
+import MenuPick from "./components/MenuPick";
 import Checklists from "./components/Checklists";
 import DueFields from "./components/DueFields";
 import Markdown from "./Markdown";
@@ -57,17 +62,18 @@ import {
   STATUSES,
   STATUS_LABELS,
   hasMember,
+  issueDue,
+  issueDueState,
   issuePath,
   joinDue,
+  overdueBy,
   splitDue,
   toggleMember,
-  type IssueStatus,
 } from "./logic";
 import { useShortcuts } from "./useShortcuts";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 
 export default function IssuePage() {
-  const t = useT();
   const navigate = useNavigate();
   const { projectKey = "", number = "" } = useParams();
   const key = `${projectKey.toUpperCase()}-${number}`;
@@ -83,29 +89,97 @@ export default function IssuePage() {
         ]
       : undefined,
   );
+  return (
+    <IssueView
+      issueKey={key}
+      onClose={() => navigate(`/projects/${projectKey.toUpperCase()}`)}
+    />
+  );
+}
+
+/** 看板里点卡片时，在右侧打开同一份详情。 */
+export function IssuePanel({
+  issueKey,
+  onClose,
+  editNonce = 0,
+}: {
+  issueKey: string;
+  onClose: () => void;
+  editNonce?: number;
+}) {
+  return (
+    <IssueView issueKey={issueKey} panel onClose={onClose} editNonce={editNonce} />
+  );
+}
+
+function IssueView({
+  issueKey,
+  panel,
+  onClose,
+  editNonce = 0,
+}: {
+  issueKey: string;
+  panel?: boolean;
+  onClose: () => void;
+  editNonce?: number;
+}) {
+  const t = useT();
+  const issue = useIssue(issueKey);
   const update = useUpdateIssue();
   const [search, setSearch] = useSearchParams();
   const [editingTitle, setEditingTitle] = useState(
-    search.get("edit") === "title",
+    !panel && search.get("edit") === "title",
   );
   const [addingChecklist, setAddingChecklist] = useState(false);
 
   useEffect(() => {
-    if (search.get("edit") === "title") {
-      setEditingTitle(true);
-      search.delete("edit");
-      setSearch(search, { replace: true });
-    }
-  }, [search, setSearch]);
+    if (panel || search.get("edit") !== "title") return;
+    setEditingTitle(true);
+    search.delete("edit");
+    setSearch(search, { replace: true });
+  }, [panel, search, setSearch]);
+  useEffect(() => {
+    if (panel && editNonce > 0) setEditingTitle(true);
+  }, [panel, editNonce]);
 
   const save = (body: UpdateIssue) =>
     issue.data &&
     update.mutate({ issue: issue.data, key: issue.data.key, body });
 
+  const frame = (content: ReactNode) =>
+    panel ? (
+      <div className="projects-drawer" role="dialog" aria-label={issueKey}>
+        <header className="projects-drawer-head">
+          <span className="projects-drawer-key">{issueKey}</span>
+          <span className="xc-spacer" />
+          <Link
+            className="xc-btn ghost small"
+            to={issuePath(issueKey)}
+            title={t("Open the detail page")}
+            aria-label={t("Open the detail page")}
+          >
+            <ExternalLink size={14} />
+          </Link>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t("Close")}
+            title={t("Close")}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </header>
+        <div className="projects-drawer-body">{content}</div>
+      </div>
+    ) : (
+      <div className="xc-page wide projects-issue-page">{content}</div>
+    );
+
   useShortcuts(
     {
       e: () => setEditingTitle(true),
-      escape: () => navigate(`/projects/${projectKey.toUpperCase()}`),
+      escape: () => onClose(),
       ...Object.fromEntries(
         STATUSES.map((status, i) => [
           String(i + 1),
@@ -118,25 +192,104 @@ export default function IssuePage() {
     !!issue.data,
   );
 
-  if (issue.isPending) return <Loading />;
+  if (issue.isPending) return frame(<Loading />);
   if (issue.isError) {
-    return (
-      <div className="xc-page">
-        {issue.error instanceof ApiError && issue.error.status === 404 ? (
-          <EmptyState title={t("Issue not found")}>
-            <Link to={`/projects/${projectKey.toUpperCase()}`}>
+    return frame(
+      issue.error instanceof ApiError && issue.error.status === 404 ? (
+        <EmptyState title={t("Issue not found")}>
+          {panel ? (
+            <button className="xc-btn small" onClick={onClose}>
+              {t("Close")}
+            </button>
+          ) : (
+            <Link to={`/projects/${issueKey.split("-")[0]}`}>
               {t("Back to project")}
             </Link>
-          </EmptyState>
-        ) : (
-          <ErrorState error={issue.error} onRetry={() => issue.refetch()} />
-        )}
-      </div>
+          )}
+        </EmptyState>
+      ) : (
+        <ErrorState error={issue.error} onRetry={() => issue.refetch()} />
+      ),
     );
   }
   const data = issue.data;
-  return (
-    <div className="xc-page wide projects-issue-page">
+  if (!data) return frame(<Loading />);
+  if (panel) {
+    return (
+      <div className="projects-drawer" role="dialog" aria-label={data.key}>
+        <header className="projects-drawer-head">
+          <span className="projects-drawer-proj">{data.projectKey}</span>
+          <span className="projects-drawer-sep">/</span>
+          <span className="projects-drawer-key">{data.key}</span>
+          <span className="xc-spacer" />
+          <button
+            type="button"
+            className={`xc-btn ghost small${data.status === "done" ? " projects-drawer-done" : ""}`}
+            onClick={() =>
+              save({ status: data.status === "done" ? "todo" : "done" })
+            }
+          >
+            <CircleCheck size={14} />
+            {data.status === "done" ? t("Reopen") : t("Mark complete")}
+          </button>
+          <button
+            type="button"
+            className="projects-drawer-icon"
+            aria-label={t("Copy link")}
+            title={t("Copy link")}
+            onClick={() => copyIssueLink(data.key, t)}
+          >
+            <Link2 size={15} />
+          </button>
+          <IssueTools issue={data} />
+          <Link
+            className="projects-drawer-icon"
+            to={issuePath(data.key)}
+            title={t("Open the detail page")}
+            aria-label={t("Open the detail page")}
+          >
+            <Maximize2 size={15} />
+          </Link>
+          <button
+            type="button"
+            className="projects-drawer-icon"
+            aria-label={t("Close")}
+            title={t("Close")}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </header>
+        <div className="projects-drawer-body">
+          <DrawerNotice issue={data} onSave={save} />
+          <IssueTitle
+            issue={data}
+            editing={editingTitle}
+            setEditing={setEditingTitle}
+            onSave={(title) => save({ title })}
+            plain
+          />
+          <Properties issue={data} onSave={save} rows />
+          <Description
+            issue={data}
+            headed
+            onSave={(description) => save({ description })}
+          />
+          <Checklists
+            issueKey={data.key}
+            adding={addingChecklist}
+            onAddingChange={setAddingChecklist}
+          />
+          <Links issueKey={data.key} />
+          <AgentRuns issueKey={data.key} />
+          <DrawerFeed issueKey={data.key} />
+          <QuietTimes issue={data} />
+        </div>
+      </div>
+    );
+  }
+  return frame(
+    <>
       {(data.externalSource || data.archivedAt) && (
         <nav className="projects-issue-crumbs">
           {data.externalSource && (
@@ -168,12 +321,114 @@ export default function IssuePage() {
           <AgentRuns issueKey={data.key} />
           <Comments issueKey={data.key} />
           <Activity issueKey={data.key} />
+          <QuietTimes issue={data} />
         </main>
         <aside className="projects-issue-side">
           <Properties issue={data} onSave={save} />
         </aside>
       </div>
-    </div>
+    </>,
+  );
+}
+
+function QuietTimes({ issue }: { issue: Issue }) {
+  const t = useT();
+  const language = useLanguage();
+  return (
+    <p className="projects-quiet-times">
+      <span title={issue.createdAt}>
+        {t("Created")} {relativeTime(issue.createdAt, language)}
+      </span>
+      <span title={issue.updatedAt}>
+        {t("Updated")} {relativeTime(issue.updatedAt, language)}
+      </span>
+      {issue.completedAt && (
+        <span title={issue.completedAt}>
+          {t("Completed")} {relativeTime(issue.completedAt, language)}
+        </span>
+      )}
+    </p>
+  );
+}
+
+function copyIssueLink(key: string, t: (s: string) => string) {
+  const url = new URL(issuePath(key), location.origin).href;
+  navigator.clipboard
+    ?.writeText(url)
+    .then(() => toast(t("Link copied")))
+    .catch(() => toast({ message: url, tone: "error" }));
+}
+
+function DrawerNotice({
+  issue,
+  onSave,
+}: {
+  issue: Issue;
+  onSave: (body: UpdateIssue) => void;
+}) {
+  const t = useT();
+  if (issue.status === "done") {
+    return (
+      <p className="projects-drawer-note ok">
+        <CircleCheck size={15} />
+        <span>{t("This card is done")}</span>
+        <button
+          type="button"
+          className="xc-btn ghost small"
+          onClick={() => onSave({ status: "todo" })}
+        >
+          {t("Reopen")}
+        </button>
+      </p>
+    );
+  }
+  const at = issueDue(issue);
+  if (issueDueState(issue, new Date()) !== "overdue" || !at) return null;
+  const late = overdueBy(at, new Date());
+  return (
+    <p className="projects-drawer-note danger">
+      <span>
+        {t("Overdue for")} {late.value} {t(late.unit)}
+      </span>
+    </p>
+  );
+}
+
+function DrawerFeed({ issueKey }: { issueKey: string }) {
+  const t = useT();
+  const comments = useComments(issueKey);
+  const activity = useIssueActivity(issueKey);
+  const [tab, setTab] = useState<"comments" | "activity">("comments");
+  return (
+    <section className="projects-drawer-feed">
+      <div className="projects-drawer-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "comments"}
+          className={tab === "comments" ? "on" : ""}
+          onClick={() => setTab("comments")}
+        >
+          {t("Comments")}
+          <span>{comments.data?.length ?? 0}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "activity"}
+          className={tab === "activity" ? "on" : ""}
+          onClick={() => setTab("activity")}
+        >
+          {t("Activity")}
+          <span>{activity.data?.length ?? 0}</span>
+        </button>
+      </div>
+      {tab === "comments" ? (
+        <Comments issueKey={issueKey} bare />
+      ) : (
+        <Activity issueKey={issueKey} bare />
+      )}
+    </section>
   );
 }
 
@@ -182,11 +437,13 @@ function IssueTitle({
   editing,
   setEditing,
   onSave,
+  plain,
 }: {
   issue: Issue;
   editing: boolean;
   setEditing: (v: boolean) => void;
   onSave: (title: string) => void;
+  plain?: boolean;
 }) {
   const t = useT();
   const [value, setValue] = useState(issue.title);
@@ -202,7 +459,7 @@ function IssueTitle({
   if (editing)
     return (
       <input
-        className="xc-input projects-title-input"
+        className={plain ? "projects-ttl" : "xc-input projects-title-input"}
         value={value}
         autoFocus
         aria-label={t("Title")}
@@ -220,7 +477,7 @@ function IssueTitle({
     );
   return (
     <h1
-      className="projects-issue-title"
+      className={plain ? "projects-ttl" : "projects-issue-title"}
       onClick={() => setEditing(true)}
       title={t("Click or press E to edit")}
     >
@@ -232,9 +489,11 @@ function IssueTitle({
 function Description({
   issue,
   onSave,
+  headed,
 }: {
   issue: Issue;
   onSave: (description: string) => void;
+  headed?: boolean;
 }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
@@ -246,34 +505,32 @@ function Description({
     if (value !== issue.description) onSave(value);
     setEditing(false);
   };
-  if (!editing)
-    return (
-      <section
-        className="projects-description"
-        onDoubleClick={() => setEditing(true)}
-      >
-        <Markdown
-          source={issue.description}
-          empty={
-            <button
-              className="projects-placeholder"
-              onClick={() => setEditing(true)}
-            >
-              {t("Add a description…")}
-            </button>
-          }
-        />
-        {issue.description && (
+  const body = !editing ? (
+    <section
+      className="projects-description"
+      onDoubleClick={() => setEditing(true)}
+    >
+      <Markdown
+        source={issue.description}
+        empty={
           <button
-            className="xc-btn ghost small"
+            className="projects-placeholder"
             onClick={() => setEditing(true)}
           >
-            {t("Edit description")}
+            {t("Add a description…")}
           </button>
-        )}
-      </section>
-    );
-  return (
+        }
+      />
+      {issue.description && (
+        <button
+          className="xc-btn ghost small"
+          onClick={() => setEditing(true)}
+        >
+          {t("Edit description")}
+        </button>
+      )}
+    </section>
+  ) : (
     <section
       className="projects-description editing"
       onKeyDown={(e) => {
@@ -291,7 +548,7 @@ function Description({
         value={value}
         onChange={setValue}
         autoFocus
-        minRows={10}
+        minRows={headed ? 6 : 10}
         placeholder={t("Markdown is supported")}
         onSubmit={commit}
       />
@@ -313,17 +570,27 @@ function Description({
       </div>
     </section>
   );
+  if (!headed) return body;
+  return (
+    <section className="projects-dsec">
+      <header>
+        <h2>{t("Description")}</h2>
+      </header>
+      {body}
+    </section>
+  );
 }
 
 function Properties({
   issue,
   onSave,
+  rows,
 }: {
   issue: Issue;
   onSave: (body: UpdateIssue) => void;
+  rows?: boolean;
 }) {
   const t = useT();
-  const language = useLanguage();
   const navigate = useNavigate();
   const labels = useLabels(issue.projectId);
   const milestones = useMilestones(issue.projectId);
@@ -339,39 +606,36 @@ function Properties({
     boards.data?.find((b) => b.id === issue.boardId) ?? boards.data?.[0];
   const labelIds = issue.labels.map((l) => l.id);
   return (
-    <div className="projects-props">
+    <div className={rows ? "projects-props projects-props-rows" : "projects-props"}>
       <label className="projects-prop">
         <span>{t("Status")}</span>
         <div className="projects-prop-control">
-          <StatusIcon status={issue.status} />
-          <select
-            className="xc-select"
+          <MenuPick
+            label={t("Status")}
             value={issue.status}
-            onChange={(e) => onSave({ status: e.target.value as IssueStatus })}
-          >
-            {STATUSES.map((s, i) => (
-              <option key={s} value={s}>
-                {t(STATUS_LABELS[s])} ({i + 1})
-              </option>
-            ))}
-          </select>
+            options={STATUSES.map((s) => ({
+              value: s,
+              label: t(STATUS_LABELS[s]),
+              icon: <StatusIcon status={s} size={14} />,
+            }))}
+            onChange={(status) => onSave({ status })}
+          />
         </div>
       </label>
       <label className="projects-prop">
         <span>{t("Priority")}</span>
         <div className="projects-prop-control">
-          <PriorityIcon priority={issue.priority} />
-          <select
-            className="xc-select"
+          <MenuPick
+            label={t("Priority")}
             value={issue.priority}
-            onChange={(e) => onSave({ priority: Number(e.target.value) })}
-          >
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p}>
-                {t(PRIORITY_LABELS[p])}
-              </option>
-            ))}
-          </select>
+            empty={issue.priority === 0}
+            options={PRIORITIES.map((p) => ({
+              value: p,
+              label: t(PRIORITY_LABELS[p]),
+              icon: <PriorityIcon priority={p} size={14} />,
+            }))}
+            onChange={(priority) => onSave({ priority })}
+          />
         </div>
       </label>
       {boards.data && issue.listId !== undefined && (
@@ -381,6 +645,7 @@ function Properties({
             label={t("Board and list")}
             boards={boards.data}
             value={issue.listId}
+            menu
             onChange={(listId) => {
               const list = boards.data
                 .flatMap((b) => b.lists)
@@ -434,6 +699,7 @@ function Properties({
         <span>{live ? t("Due at") : t("Due date")}</span>
         <DueFields
           live={live}
+          menu
           value={splitDue(issue)}
           onChange={(v) =>
             // 后端没上线 B36 时只认 dueDate，多发字段会被拒绝。
@@ -449,22 +715,19 @@ function Properties({
       </div>
       <label className="projects-prop">
         <span>{t("Milestone")}</span>
-        <select
-          className="xc-select"
-          value={issue.milestoneId ?? ""}
-          onChange={(e) =>
-            onSave({
-              milestoneId: e.target.value ? Number(e.target.value) : null,
-            })
-          }
-        >
-          <option value="">{t("None")}</option>
-          {milestones.data?.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
+        <MenuPick
+          label={t("Milestone")}
+          value={issue.milestoneId ?? 0}
+          empty={!issue.milestoneId}
+          options={[
+            { value: 0, label: t("None") },
+            ...(milestones.data ?? []).map((m) => ({
+              value: m.id,
+              label: m.name,
+            })),
+          ]}
+          onChange={(id) => onSave({ milestoneId: id || null })}
+        />
       </label>
       <div className="projects-prop">
         <span>{t("Labels")}</span>
@@ -493,25 +756,8 @@ function Properties({
           )}
         </div>
       </div>
-      <dl className="projects-meta">
-        <dt>{t("Created")}</dt>
-        <dd title={issue.createdAt}>
-          {relativeTime(issue.createdAt, language)}
-        </dd>
-        <dt>{t("Updated")}</dt>
-        <dd title={issue.updatedAt}>
-          {relativeTime(issue.updatedAt, language)}
-        </dd>
-        {issue.completedAt && (
-          <>
-            <dt>{t("Completed")}</dt>
-            <dd title={issue.completedAt}>
-              {relativeTime(issue.completedAt, language)}
-            </dd>
-          </>
-        )}
-      </dl>
-      {/* B55：一行放下全部操作，不常用的收进“…” */}
+      {rows ? null : (
+      <>
       <div className="projects-side-actions">
         <button
           className="xc-btn projects-side-primary"
@@ -607,7 +853,120 @@ function Properties({
       {binding && board && (
         <BindRepoDialog board={board} onClose={() => setBinding(false)} />
       )}
+      </>
+      )}
     </div>
+  );
+}
+
+function IssueTools({ issue }: { issue: Issue }) {
+  const t = useT();
+  const navigate = useNavigate();
+  const boards = useBoards(issue.projectId);
+  const cards = useCardActions();
+  const remove = useDeleteIssue();
+  const [assigning, setAssigning] = useState(false);
+  const [binding, setBinding] = useState(false);
+  const board =
+    boards.data?.find((b) => b.id === issue.boardId) ?? boards.data?.[0];
+  return (
+    <>
+      <button
+        type="button"
+        className="projects-drawer-icon"
+        aria-label={t("Assign to an agent")}
+        title={t("Assign to an agent")}
+        onClick={() => setAssigning(true)}
+      >
+        <Bot size={15} />
+      </button>
+      <StartFocusButton issueKey={issue.key} compact />
+      {issue.externalUrl && (
+        <a
+          className="projects-drawer-icon"
+          href={issue.externalUrl}
+          target="_blank"
+          rel="noreferrer"
+          title={t("Open in repository")}
+          aria-label={t("Open in repository")}
+        >
+          <FolderGit2 size={15} />
+        </a>
+      )}
+      <MoreMenu
+        label={`${t("More")}：${issue.key}`}
+        title={issue.key}
+        items={[
+          {
+            key: "coding",
+            label: t("New coding task by hand"),
+            icon: <Bot size={14} />,
+            onSelect: () =>
+              navigate(
+                `/coding/tasks?new=1&issue=${encodeURIComponent(issue.key)}`,
+              ),
+          },
+          {
+            key: "copy",
+            label: t("Copy card"),
+            icon: <Copy size={14} />,
+            onSelect: () =>
+              cards.copy.mutate(issue.key, {
+                onSuccess: (copy) => navigate(issuePath(copy.key)),
+              }),
+          },
+          issue.archivedAt
+            ? {
+                key: "restore",
+                label: t("Restore"),
+                icon: <ArchiveRestore size={14} />,
+                onSelect: () => cards.restore.mutate(issue.key),
+              }
+            : {
+                key: "archive",
+                label: t("Archive"),
+                icon: <Archive size={14} />,
+                onSelect: () => cards.archive.mutate(issue.key),
+              },
+          {
+            key: "delete",
+            label: t("Delete issue"),
+            icon: <Trash2 size={14} />,
+            danger: true,
+            onSelect: async () => {
+              if (
+                !(await confirmAction({
+                  title: `${t("Delete")} ${issue.key}？`,
+                  description: t("Its comments and links are deleted too."),
+                }))
+              )
+                return;
+              remove.mutate(issue.key, {
+                onSuccess: () => navigate(`/projects/${issue.projectKey}`),
+              });
+            },
+          },
+        ]}
+      />
+      {assigning && (
+        <AssignDialog
+          issueKey={issue.key}
+          boardRepo={board?.repo}
+          onBindRepo={
+            board
+              ? () => {
+                  setAssigning(false);
+                  setBinding(true);
+                }
+              : undefined
+          }
+          onClose={() => setAssigning(false)}
+        />
+      )}
+      {binding && board && (
+        <BindRepoDialog board={board} onClose={() => setBinding(false)} />
+      )}
+    </>
   );
 }
 
@@ -748,7 +1107,13 @@ function AgentRuns({ issueKey }: { issueKey: string }) {
   );
 }
 
-function Comments({ issueKey }: { issueKey: string }) {
+function Comments({
+  issueKey,
+  bare,
+}: {
+  issueKey: string;
+  bare?: boolean;
+}) {
   const t = useT();
   const language = useLanguage();
   const comments = useComments(issueKey);
@@ -759,11 +1124,8 @@ function Comments({ issueKey }: { issueKey: string }) {
     if (!body.trim()) return;
     add.mutate(body, { onSuccess: () => setBody("") });
   };
-  return (
-    <section className="projects-section">
-      <header>
-        <h2>{t("Comments")}</h2>
-      </header>
+  const list = (
+    <>
       <ol className="projects-comments">
         {comments.data?.map((c) => (
           <li key={c.id}>
@@ -818,6 +1180,15 @@ function Comments({ issueKey }: { issueKey: string }) {
           </button>
         </div>
       </form>
+    </>
+  );
+  if (bare) return list;
+  return (
+    <section className="projects-section">
+      <header>
+        <h2>{t("Comments")}</h2>
+      </header>
+      {list}
     </section>
   );
 }
@@ -833,12 +1204,21 @@ const ACTIVITY_TEXT: Record<string, string> = {
 };
 
 /** 活动记录（B46）：谁在什么时候做了什么。 */
-function Activity({ issueKey }: { issueKey: string }) {
+function Activity({
+  issueKey,
+  bare,
+}: {
+  issueKey: string;
+  bare?: boolean;
+}) {
   const t = useT();
   const language = useLanguage();
   const activity = useIssueActivity(issueKey);
   const items = activity.data ?? [];
-  if (!items.length) return null;
+  if (!items.length) {
+    if (!bare) return null;
+    return <p className="xc-muted projects-section-empty">{t("No activity yet")}</p>;
+  }
   const who = (actor: string) =>
     actor === "me" || !actor.includes(":") ? t("Me") : actor;
   return (

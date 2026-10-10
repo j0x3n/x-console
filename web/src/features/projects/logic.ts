@@ -608,6 +608,62 @@ export function planListMove(
   };
 }
 
+export function reorderByPriority(
+  issues: Issue[],
+  listId: number,
+  status?: IssueStatus,
+): { key: string; plan: ListMovePlan }[] {
+  const column = listColumn(issues, listId);
+  const desired = [...column].sort(
+    (a, b) =>
+      priorityRank(a.priority) - priorityRank(b.priority) ||
+      a.sortOrder - b.sortOrder ||
+      a.id - b.id,
+  );
+  let current = column;
+  const steps: { key: string; plan: ListMovePlan }[] = [];
+  for (let i = 0; i < desired.length; i++) {
+    if (current[i]?.key === desired[i].key) continue;
+    const plan = planListMove(
+      current,
+      desired[i].key,
+      { listId, index: i },
+      status,
+    );
+    steps.push({ key: desired[i].key, plan });
+    current = listColumn(applyListMove(current, desired[i].key, plan), listId);
+  }
+  return steps;
+}
+
+export function appendToListPlans(
+  issues: Issue[],
+  fromListId: number,
+  toListId: number,
+  status: IssueStatus,
+): { key: string; plan: ListMovePlan }[] {
+  const moving = listColumn(issues, fromListId).filter(
+    (i) => i.listId !== toListId,
+  );
+  let current = issues;
+  const steps: { key: string; plan: ListMovePlan }[] = [];
+  for (const card of moving) {
+    const index = listColumn(current, toListId).filter(
+      (i) => i.key !== card.key,
+    ).length;
+    const plan = planListMove(
+      current,
+      card.key,
+      { listId: toListId, index },
+      status,
+    );
+    if (isNoopListMove(current, card.key, plan)) continue;
+    steps.push({ key: card.key, plan });
+    current = applyListMove(current, card.key, plan);
+  }
+  return steps;
+}
+
 export function isNoopListMove(
   issues: Issue[],
   key: string,

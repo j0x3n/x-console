@@ -11,6 +11,7 @@ import {
 } from "../api";
 import { STATUSES, STATUS_LABELS, type IssueStatus } from "../logic";
 import { LIST_COLORS } from "./ListBoard";
+import MenuPick from "./MenuPick";
 
 /** 看板图标可选的 emoji。也可以自己输入。 */
 const BOARD_ICONS = ["", "🕹️", "💡", "🛠️", "📝", "🎯", "🐞", "🚀", "📦", "🎨"];
@@ -309,14 +310,35 @@ export function ListSelect({
   exclude,
   onChange,
   label,
+  menu,
 }: {
   boards: Board[];
   value: number | "";
   exclude?: number;
   onChange: (id: number) => void;
   label?: string;
+  menu?: boolean;
 }) {
   const t = useT();
+  if (menu) {
+    return (
+      <MenuPick
+        label={label ?? t("Pick a list")}
+        value={value === "" ? 0 : value}
+        empty={value === ""}
+        options={boards.flatMap((b) =>
+          b.lists
+            .filter((l) => l.id !== exclude)
+            .map((l) => ({
+              value: l.id,
+              label: l.name,
+              group: `${b.icon ? b.icon + " " : ""}${b.name}`,
+            })),
+        )}
+        onChange={onChange}
+      />
+    );
+  }
   return (
     <select
       className="xc-select"
