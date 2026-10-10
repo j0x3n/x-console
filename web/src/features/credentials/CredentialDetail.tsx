@@ -2,18 +2,23 @@ import { useState } from "react";
 import {
   Archive,
   ArchiveRestore,
+  Copy,
+  Eye,
+  EyeOff,
   Pencil,
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { errorMessage } from "../../api/client";
+import { ApiError, errorMessage } from "../../api/client";
 import Markdown from "../../components/markdown/Markdown";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import Dialog from "../../components/ui/Dialog";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
+import { copyText } from "../../lib/errors";
 import {
   useDeleteCredential,
+  useRevealSecret,
   useRotateCredential,
   useUpdateCredential,
   type CredentialItem,
@@ -37,6 +42,10 @@ function longDate(value: string, language: string): string {
 const showError = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
 
+/** 在验证码框里点了取消，不用再报错 */
+const isCanceled = (err: unknown) =>
+  err instanceof ApiError && err.code === "elevation_canceled";
+
 /** 一条记录的详情：各项内容，以及更换、编辑、归档、删除。 */
 export default function CredentialDetail({
   credential: c,
@@ -53,12 +62,35 @@ export default function CredentialDetail({
   const update = useUpdateCredential();
   const rotate = useRotateCredential();
   const remove = useDeleteCredential();
+  const reveal = useRevealSecret();
+  const [shown, setShown] = useState<{ id: number; text: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [rotatedOn, setRotatedOn] = useState("");
   const [expiresOn, setExpiresOn] = useState("");
   const [hint, setHint] = useState("");
+  const [newSecret, setNewSecret] = useState("");
   if (!c) return null;
+  const secretText = shown?.id === c.id ? shown.text : null;
+
+  const toggleSecret = () => {
+    if (secretText !== null) return setShown(null);
+    reveal.mutate(c.id, {
+      onSuccess: (text) => setShown({ id: c.id, text }),
+      onError: (err) => {
+        if (!isCanceled(err)) showError(err);
+      },
+    });
+  };
+  const copySecret = async () => {
+    // 没显示时先取出来，复制完不留在屏幕上
+    try {
+      const text = secretText ?? (await reveal.mutateAsync(c.id));
+      if (await copyText(text)) toast(t("Copied"));
+    } catch (err) {
+      if (!isCanceled(err)) showError(err);
+    }
+  };
 
   const archive = () =>
     update.mutate(
@@ -76,6 +108,7 @@ export default function CredentialDetail({
     setRotatedOn(today);
     setExpiresOn(suggestExpiry(c, today));
     setHint(c.hint);
+    setNewSecret("");
     setRotating(true);
   };
   const saveRotate = () =>
@@ -86,10 +119,12 @@ export default function CredentialDetail({
           rotatedOn: rotatedOn || undefined,
           ...(expiresOn ? { expiresOn } : {}),
           hint,
+          ...(newSecret ? { secret: newSecret } : {}),
         },
       },
       {
         onSuccess: () => {
+          setShown(null);
           toast(t("Rotation recorded"));
           setRotating(false);
         },
@@ -158,6 +193,35 @@ export default function CredentialDetail({
               </div>
             ))}
         </div>
+        {c.hasSecret && (
+          <div className="credentials-secret-box">
+            <small>{t("Key content")}</small>
+            {secretText !== null ? (
+              <pre className="credentials-secret-text">{secretText}</pre>
+            ) : (
+              <span className="credentials-secret-hidden">
+                {t("Saved, encrypted")}
+              </span>
+            )}
+            <div className="credentials-secret-actions">
+              <button
+                className="xc-btn small"
+                disabled={reveal.isPending}
+                onClick={toggleSecret}
+              >
+                {secretText !== null ? <EyeOff size={14} /> : <Eye size={14} />}{" "}
+                {secretText !== null ? t("Hide key") : t("Show key")}
+              </button>
+              <button
+                className="xc-btn small"
+                disabled={reveal.isPending}
+                onClick={() => void copySecret()}
+              >
+                <Copy size={14} /> {t("Copy")}
+              </button>
+            </div>
+          </div>
+        )}
         {c.usedBy.length > 0 && (
           <div className="credentials-used">
             <small>{t("Used on")}</small>
@@ -211,6 +275,19 @@ export default function CredentialDetail({
                 autoComplete="off"
                 onChange={(e) => setHint(e.target.value)}
               />
+            </label>
+            <label className="xc-field credentials-secret-field">
+              <span>{t("New key content")}</span>
+              <textarea
+                className="xc-input credentials-secret"
+                rows={2}
+                value={newSecret}
+                maxLength={20000}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(e) => setNewSecret(e.target.value)}
+              />
+              <small>{t("Leave empty to keep the current one.")}</small>
             </label>
             <button
               className="xc-btn primary"

@@ -48,6 +48,13 @@ export const navItems: NavItem[] = [
     group: "main",
   },
   { path: "/notes", label: "Notes", icon: NotebookPen, group: "personal" },
+  // 用户 2026-10-10 要求：稍后阅读放在笔记下面
+  {
+    path: "/readlater",
+    label: "Read later",
+    icon: Bookmark,
+    group: "personal",
+  },
   { path: "/mail", label: "Mail", icon: Mail, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
@@ -59,27 +66,20 @@ export const navItems: NavItem[] = [
   },
   // B115：证件、合同和物品保修
   { path: "/documents", label: "Documents", icon: Files, group: "personal" },
-  // B120：密钥和令牌台账
-  {
-    path: "/credentials",
-    label: "Credentials",
-    icon: KeyRound,
-    group: "personal",
-  },
   // B122：联系人和重要日期
   { path: "/contacts", label: "Contacts", icon: Users, group: "personal" },
-  // B117：稍后读
-  {
-    path: "/readlater",
-    label: "Read later",
-    icon: Bookmark,
-    group: "personal",
-  },
   { path: "/servers", label: "Servers", icon: Server, group: "machines" },
   // 用户 2026-10-05 要求：云盘放在服务器下面
   { path: "/drive", label: "Drive", icon: HardDrive, group: "machines" },
   { path: "/pc", label: "Computer", icon: Monitor, group: "machines" },
   { path: "/monitoring", label: "Monitoring", icon: Radar, group: "machines" },
+  // B120：密钥和令牌。用户 2026-10-10 要求放在监控下面
+  {
+    path: "/credentials",
+    label: "Credentials",
+    icon: KeyRound,
+    group: "machines",
+  },
   // B116：电脑时间去向
   {
     path: "/screentime",

@@ -1,8 +1,11 @@
-// Package credentials is the ledger of the user's API keys, access tokens and
-// SSH keys (B120). It keeps facts about them: which platform, where each one
-// is used, when it expires and when it was last rotated. It reminds before the
-// expiry date and when a rotation is overdue. It never stores a secret and
-// refuses text that looks like one. See docs/specs/B120.md.
+// Package credentials keeps the user's API keys, access tokens and SSH keys
+// (B120). It records facts about them: which platform, where each one is used,
+// when it expires and when it was last rotated. It reminds before the expiry
+// date and when a rotation is overdue. The secret itself can be stored too,
+// sealed with the master key and only returned through a call that needs
+// elevation. Text fields other than the secret refuse anything that looks like
+// a key, so a paste into the wrong box is not kept in plain text.
+// See docs/specs/B120.md.
 package credentials
 
 import (
@@ -34,6 +37,7 @@ const (
 	maxLine     = 200
 	maxHint     = 16
 	maxNotes    = 20000
+	maxSecret   = 20000
 	maxUsedBy   = 20
 	maxUsedItem = 100
 	maxRemind   = 8
@@ -49,7 +53,7 @@ const ServiceKey = "credentials.module"
 // defaultRemind is when an entry reminds if the user did not choose.
 var defaultRemind = []int{30, 7}
 
-var errSecret = httpx.Invalid("这看起来是密钥本身，台账里只记信息，不要填密钥")
+var errSecret = httpx.Invalid("这看起来是密钥本身，请填到“密钥内容”里，其他栏不加密")
 
 // Module implements api.ServerInterface.
 type Module struct {
@@ -185,7 +189,7 @@ func (m *Module) view(row db.Credential, today time.Time) api.Credential {
 	rotateDueIn := daysUntil(rotateDueDate(row), today)
 	return api.Credential{
 		Id: row.ID, Kind: api.CredentialKind(row.Kind), Name: row.Name, Platform: row.Platform, Account: row.Account,
-		UsedBy: parseUsedBy(row.UsedBy), Scopes: row.Scopes, Hint: row.Hint,
+		UsedBy: parseUsedBy(row.UsedBy), Scopes: row.Scopes, Hint: row.Hint, HasSecret: row.SecretEnc != "",
 		CreatedOn: row.CreatedOn, RotatedOn: row.RotatedOn, ExpiresOn: row.ExpiresOn,
 		RotateEveryDays: int(row.RotateEveryDays), RemindDays: remind, Notes: row.Notes,
 		Status: status(expiresIn, rotateDueIn, remind), ExpiresIn: expiresIn, RotateDueIn: rotateDueIn,
@@ -258,6 +262,7 @@ type fields struct {
 	kind                                         string
 	name, platform, account, scopes, hint, notes string
 	usedBy                                       []string
+	secretEnc                                    string
 	createdOn, rotatedOn, expires                string
 	rotateEvery                                  int
 	remind                                       []int
@@ -268,6 +273,7 @@ func fieldsOf(row db.Credential) fields {
 		kind: row.Kind, name: row.Name, platform: row.Platform, account: row.Account, scopes: row.Scopes, hint: row.Hint,
 		notes: row.Notes, usedBy: parseUsedBy(row.UsedBy), createdOn: row.CreatedOn, rotatedOn: row.RotatedOn,
 		expires: row.ExpiresOn, rotateEvery: int(row.RotateEveryDays), remind: parseRemind(row.RemindDays),
+		secretEnc: row.SecretEnc,
 	}
 }
 
@@ -385,6 +391,21 @@ func validate(f fields) (fields, error) {
 	return f, nil
 }
 
+// seal turns a new secret into the stored form. nil keeps the current one and
+// an empty string clears it.
+func (m *Module) seal(secret *string, cur string) (string, error) {
+	if secret == nil {
+		return cur, nil
+	}
+	if *secret == "" {
+		return "", nil
+	}
+	if utf8.RuneCountInString(*secret) > maxSecret {
+		return "", httpx.Invalid("密钥内容太长了")
+	}
+	return m.d.Secrets.Seal(*secret)
+}
+
 func pick(p *string, cur string) string {
 	if p == nil {
 		return cur
@@ -453,6 +474,7 @@ func (m *Module) CreateCredential(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) create(ctx context.Context, in api.CredentialInput) (api.Credential, error) {
+	var err error
 	f := fields{kind: string(in.Kind), name: in.Name, remind: defaultRemind}
 	f.platform, f.account, f.scopes, f.hint, f.notes = pick(in.Platform, ""), pick(in.Account, ""), pick(in.Scopes, ""), pick(in.Hint, ""), pick(in.Notes, "")
 	f.createdOn, f.rotatedOn, f.expires = pick(in.CreatedOn, ""), pick(in.RotatedOn, ""), pick(in.ExpiresOn, "")
@@ -465,7 +487,10 @@ func (m *Module) create(ctx context.Context, in api.CredentialInput) (api.Creden
 	if in.RemindDays != nil {
 		f.remind = *in.RemindDays
 	}
-	f, err := validate(f)
+	if f.secretEnc, err = m.seal(in.Secret, ""); err != nil {
+		return api.Credential{}, err
+	}
+	f, err = validate(f)
 	if err != nil {
 		return api.Credential{}, err
 	}
@@ -474,7 +499,7 @@ func (m *Module) create(ctx context.Context, in api.CredentialInput) (api.Creden
 	row, err := m.q.InsertCredential(ctx, db.InsertCredentialParams{
 		Kind: f.kind, Name: f.name, Platform: f.platform, Account: f.account, UsedBy: string(usedBy), Scopes: f.scopes, Hint: f.hint,
 		CreatedOn: f.createdOn, RotatedOn: f.rotatedOn, ExpiresOn: f.expires, RotateEveryDays: int64(f.rotateEvery),
-		RemindDays: formatRemind(f.remind), Notes: f.notes, CreatedAt: now, UpdatedAt: now,
+		RemindDays: formatRemind(f.remind), Notes: f.notes, SecretEnc: f.secretEnc, CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
 		return api.Credential{}, err
@@ -522,6 +547,9 @@ func (m *Module) update(ctx context.Context, id int64, in api.CredentialPatch) (
 	if in.RemindDays != nil {
 		f.remind = *in.RemindDays
 	}
+	if f.secretEnc, err = m.seal(in.Secret, f.secretEnc); err != nil {
+		return api.Credential{}, err
+	}
 	archivedAt := cur.ArchivedAt
 	if in.Archived != nil {
 		switch {
@@ -544,7 +572,7 @@ func (m *Module) save(ctx context.Context, cur db.Credential, f fields, archived
 	row, err := m.q.UpdateCredential(ctx, db.UpdateCredentialParams{
 		ID: cur.ID, Kind: f.kind, Name: f.name, Platform: f.platform, Account: f.account, UsedBy: string(usedBy), Scopes: f.scopes, Hint: f.hint,
 		CreatedOn: f.createdOn, RotatedOn: f.rotatedOn, ExpiresOn: f.expires, RotateEveryDays: int64(f.rotateEvery),
-		RemindDays: formatRemind(f.remind), Notes: f.notes, ArchivedAt: archivedAt, UpdatedAt: m.now().UTC(),
+		RemindDays: formatRemind(f.remind), Notes: f.notes, ArchivedAt: archivedAt, UpdatedAt: m.now().UTC(), SecretEnc: f.secretEnc,
 	})
 	if err != nil {
 		return api.Credential{}, err
@@ -590,7 +618,35 @@ func (m *Module) rotate(ctx context.Context, id int64, in api.CredentialRotate) 
 	}
 	f.expires = pick(in.ExpiresOn, f.expires)
 	f.hint = pick(in.Hint, f.hint)
+	if f.secretEnc, err = m.seal(in.Secret, f.secretEnc); err != nil {
+		return api.Credential{}, err
+	}
 	return m.save(ctx, cur, f, cur.ArchivedAt)
+}
+
+// GetCredentialSecret implements api.ServerInterface. Reading a stored secret
+// needs elevation and is always audited.
+func (m *Module) GetCredentialSecret(w http.ResponseWriter, r *http.Request, id api.CredentialId) {
+	ctx := r.Context()
+	if err := auth.RequireElevated(ctx); err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	row, err := m.get(ctx, id)
+	secret := ""
+	if err == nil {
+		if row.SecretEnc == "" {
+			err = httpx.ErrNotFound
+		} else {
+			secret, err = m.d.Secrets.Open(row.SecretEnc)
+		}
+	}
+	m.d.Audit.Record(ctx, "credential.reveal", strconv.FormatInt(id, 10), nil, err)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]string{"secret": secret})
 }
 
 // DeleteCredential implements api.ServerInterface.

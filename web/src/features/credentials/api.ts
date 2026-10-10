@@ -4,7 +4,7 @@ import { createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/credentials";
 import { withElevation } from "../../auth/elevation";
 
-/* 密钥和令牌台账（B120）：只记信息，不存密钥本身。 */
+/* 密钥和令牌（B120）：记信息，也可以加密存密钥内容。 */
 export const credentialsApi = createApi<paths>();
 
 type S = components["schemas"];
@@ -75,6 +75,21 @@ export function useRotateCredential() {
         }),
       ),
     onSuccess: refresh,
+  });
+}
+
+/** 取出存的密钥内容。服务端要求提升权限，没验证过会先弹验证码框。 */
+export function useRevealSecret() {
+  return useMutation({
+    mutationFn: (id: number) =>
+      withElevation(async () => {
+        const out = await unwrap(
+          credentialsApi.GET("/credentials/{credentialId}/secret", {
+            params: { path: { credentialId: id } },
+          }),
+        );
+        return out.secret;
+      }),
   });
 }
 

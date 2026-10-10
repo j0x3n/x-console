@@ -17,7 +17,10 @@ export interface paths {
          */
         get: operations["listCredentials"];
         put?: never;
-        /** @description 只记信息。文字字段里有像密钥本身的内容时回 400。 */
+        /**
+         * @description 密钥内容放 secret，加密存储，列表和详情不返回，要用 GET /credentials/{id}/secret 单独取。
+         *     secret 以外的文字字段里有像密钥本身的内容时回 400，免得贴错地方明文存进库里。
+         */
         post: operations["createCredential"];
         delete?: never;
         options?: never;
@@ -44,8 +47,28 @@ export interface paths {
         /**
          * @description 只改给出的字段。expiresOn 改了或清空，已提醒的记录一起清掉。
          *     archived 为 true 归档，false 取消归档。字符串字段给空字符串表示清空。
+         *     secret 不给表示不改，给空字符串表示清掉已存的密钥内容。
          */
         patch: operations["updateCredential"];
+        trace?: never;
+    };
+    "/credentials/{credentialId}/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credentialId: components["parameters"]["CredentialId"];
+            };
+            cookie?: never;
+        };
+        /** @description 取出存的密钥内容。需要提升权限，每次取都记审计。没存过密钥内容时回 404。 */
+        get: operations["getCredentialSecret"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/credentials/{credentialId}/rotate": {
@@ -61,7 +84,7 @@ export interface paths {
         put?: never;
         /**
          * @description 记一次更换：更换日默认今天，可以同时给新的到期日和新的尾号。创建日期不动，没给的到期日保持原样。
-         *     已提醒的记录清空。
+         *     已提醒的记录清空。给了 secret 就换成新的密钥内容。
          */
         post: operations["rotateCredential"];
         delete?: never;
@@ -102,6 +125,8 @@ export interface components {
             scopes: string;
             /** @description 识别用的尾号或指纹前几位，最多 16 个字符 */
             hint: string;
+            /** @description 是否存了密钥内容。内容本身不在这里返回 */
+            hasSecret: boolean;
             /** @description 创建日期，YYYY-MM-DD，没有为空字符串 */
             createdOn: string;
             /** @description 上次更换日期，YYYY-MM-DD，没有为空字符串 */
@@ -138,6 +163,8 @@ export interface components {
             rotateEveryDays?: number;
             remindDays?: number[];
             notes?: string;
+            /** @description 密钥内容，加密存储，最多 20000 个字符 */
+            secret?: string;
         };
         CredentialPatch: {
             kind?: components["schemas"]["CredentialKind"];
@@ -153,6 +180,8 @@ export interface components {
             rotateEveryDays?: number;
             remindDays?: number[];
             notes?: string;
+            /** @description 不给不改，空字符串清掉 */
+            secret?: string;
             archived?: boolean;
         };
         CredentialRotate: {
@@ -162,6 +191,8 @@ export interface components {
             expiresOn?: string;
             /** @description 不给就保持原样 */
             hint?: string;
+            /** @description 新的密钥内容，不给就保持原样 */
+            secret?: string;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -316,6 +347,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Credential"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCredentialSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                credentialId: components["parameters"]["CredentialId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 密钥内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        secret: string;
+                    };
                 };
             };
             default: components["responses"]["Error"];

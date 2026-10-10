@@ -36,7 +36,7 @@ registerZh({
   days: "天",
   "days before": "天前",
   "days left": "天后到期",
-  Credentials: "密钥台账",
+  Credentials: "密钥",
   "New credential": "新建记录",
   "Edit credential": "修改记录",
   "All credentials": "全部记录",
@@ -44,8 +44,8 @@ registerZh({
   "credentials are expired": "条已过期",
   "Nothing needs attention": "近期没有要处理的",
   "No credentials yet": "还没有记录",
-  "Keep a record of your API keys, tokens and SSH keys: where each one is used and when it expires. The key itself is never stored here.":
-    "记下你的 API 密钥、令牌和 SSH 密钥：各用在哪里、什么时候到期。密钥本身不会存在这里。",
+  "Keep your API keys, tokens and SSH keys here: where each one is used and when it expires. You can also save the key itself, encrypted.":
+    "记下你的 API 密钥、令牌和 SSH 密钥：各用在哪里、什么时候到期。也可以把密钥内容加密存在这里。",
   "No credential matches": "没有符合的记录",
   "Search credentials": "搜索记录",
   "API secret": "API 密钥",
@@ -68,8 +68,17 @@ registerZh({
     "超过这么久没更换就提醒。",
   "For example 30, 7. You are also told on the day it expires.":
     "比如 30, 7。到期当天也会提醒。",
-  "Do not enter the key itself. Only record facts about it.":
-    "不要填密钥本身，只记信息。",
+  "Only the key content is stored encrypted. Do not put a key in the other fields.":
+    "只有“密钥内容”会加密存储，别的栏不要贴密钥。",
+  "Key content": "密钥内容",
+  "Saved. Leave empty to keep it.": "已保存，不改就留空",
+  "Paste the key or token here": "把密钥或令牌贴在这里",
+  "Remove the saved key content": "清除已保存的密钥内容",
+  "New key content": "新的密钥内容",
+  "Leave empty to keep the current one.": "不改就留空。",
+  "Show key": "显示",
+  "Hide key": "隐藏",
+  "Saved, encrypted": "已加密保存",
   "One server or project per line. When a key leaks, search for it here.":
     "每行写一台服务器或一个项目。密钥泄露时按它来查。",
   "Rotation period: whole days from 0 to 3650":

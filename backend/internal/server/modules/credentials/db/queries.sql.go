@@ -23,7 +23,7 @@ func (q *Queries) DeleteCredential(ctx context.Context, id int64) (int64, error)
 }
 
 const getCredential = `-- name: GetCredential :one
-SELECT id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at FROM credentials WHERE id = ?
+SELECT id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at, secret_enc FROM credentials WHERE id = ?
 `
 
 func (q *Queries) GetCredential(ctx context.Context, id int64) (Credential, error) {
@@ -51,14 +51,15 @@ func (q *Queries) GetCredential(ctx context.Context, id int64) (Credential, erro
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecretEnc,
 	)
 	return i, err
 }
 
 const insertCredential = `-- name: InsertCredential :one
-INSERT INTO credentials (kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at
+INSERT INTO credentials (kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, secret_enc, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at, secret_enc
 `
 
 type InsertCredentialParams struct {
@@ -75,6 +76,7 @@ type InsertCredentialParams struct {
 	RotateEveryDays int64
 	RemindDays      string
 	Notes           string
+	SecretEnc       string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -94,6 +96,7 @@ func (q *Queries) InsertCredential(ctx context.Context, arg InsertCredentialPara
 		arg.RotateEveryDays,
 		arg.RemindDays,
 		arg.Notes,
+		arg.SecretEnc,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -120,12 +123,13 @@ func (q *Queries) InsertCredential(ctx context.Context, arg InsertCredentialPara
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecretEnc,
 	)
 	return i, err
 }
 
 const listCredentials = `-- name: ListCredentials :many
-SELECT id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at FROM credentials ORDER BY id
+SELECT id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at, secret_enc FROM credentials ORDER BY id
 `
 
 func (q *Queries) ListCredentials(ctx context.Context) ([]Credential, error) {
@@ -159,6 +163,7 @@ func (q *Queries) ListCredentials(ctx context.Context) ([]Credential, error) {
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SecretEnc,
 		); err != nil {
 			return nil, err
 		}
@@ -206,10 +211,10 @@ func (q *Queries) SetCredentialStale(ctx context.Context, arg SetCredentialStale
 const updateCredential = `-- name: UpdateCredential :one
 UPDATE credentials SET kind = ?1, name = ?2, platform = ?3, account = ?4, used_by = ?5, scopes = ?6, hint = ?7,
   created_on = ?8, rotated_on = ?9, expires_on = ?10, rotate_every_days = ?11, remind_days = ?12, notes = ?13,
-  archived_at = ?14, updated_at = ?15,
+  archived_at = ?14, updated_at = ?15, secret_enc = ?16,
   notified_for = CASE WHEN expires_on = ?10 THEN notified_for ELSE '' END,
   notified_json = CASE WHEN expires_on = ?10 THEN notified_json ELSE '[]' END
-WHERE id = ?16 RETURNING id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at
+WHERE id = ?17 RETURNING id, kind, name, platform, account, used_by, scopes, hint, created_on, rotated_on, expires_on, rotate_every_days, remind_days, notes, notified_for, notified_json, stale_for, stale_notified_on, archived_at, created_at, updated_at, secret_enc
 `
 
 type UpdateCredentialParams struct {
@@ -228,6 +233,7 @@ type UpdateCredentialParams struct {
 	Notes           string
 	ArchivedAt      *time.Time
 	UpdatedAt       time.Time
+	SecretEnc       string
 	ID              int64
 }
 
@@ -250,6 +256,7 @@ func (q *Queries) UpdateCredential(ctx context.Context, arg UpdateCredentialPara
 		arg.Notes,
 		arg.ArchivedAt,
 		arg.UpdatedAt,
+		arg.SecretEnc,
 		arg.ID,
 	)
 	var i Credential
@@ -275,6 +282,7 @@ func (q *Queries) UpdateCredential(ctx context.Context, arg UpdateCredentialPara
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SecretEnc,
 	)
 	return i, err
 }
