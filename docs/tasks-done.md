@@ -314,3 +314,4 @@
 **B9 代码格式**
 - `cd web && npx prettier --write "src/**/*.{ts,tsx,css}"`，`src/api/gen/` 已被 `.prettierignore` 排除。
 - CI 的 web 任务加 `npx prettier --check`。
+| B143 | 稍后阅读读取 X 推文和完整图文保存：推文三步读取（公开接口、登录 Cookie、可选 fxtwitter），清理后的 HTML 和本地图片存档，详情阅读视图，单文件 HTML 导出，设置 → 稍后阅读填 Cookie；规格 [B143](specs/B143.md)，没有用真实推文验证，见已知问题 | `df2c148` |
