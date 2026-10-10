@@ -14,6 +14,7 @@ import {
   type DocumentKind,
 } from "./api";
 import { KINDS, KIND_LABELS, formatDays, parseDays } from "./format";
+import { PhotoPicker, useAttachFiles } from "./photos";
 
 const NEW_KIND = "__new__";
 
@@ -42,6 +43,8 @@ export default function DocumentDialog({
   const createKind = useCreateKind();
   const deleteKind = useDeleteKind();
   const [newKind, setNewKind] = useState<string | null>(null);
+  const attach = useAttachFiles();
+  const [photos, setPhotos] = useState<File[]>([]);
   const [kind, setKind] = useState<DocumentKind>("passport");
   const [name, setName] = useState("");
   const [holder, setHolder] = useState("");
@@ -60,6 +63,7 @@ export default function DocumentDialog({
     setError("");
     setKind(doc?.kind ?? defaultKind ?? "passport");
     setNewKind(null);
+    setPhotos([]);
     setName(doc?.name ?? "");
     setHolder(doc?.holder ?? "");
     setNumber(doc?.number ?? "");
@@ -125,16 +129,28 @@ export default function DocumentDialog({
       notes,
     };
     try {
-      if (doc)
-        await update.mutateAsync({
-          id: doc.id,
-          body: { ...fields, ...(value === null ? {} : { price: value }) },
-        });
-      else
-        await create.mutateAsync({
-          ...fields,
-          ...(value === null ? {} : { price: value }),
-        });
+      const saved = doc
+        ? await update.mutateAsync({
+            id: doc.id,
+            body: { ...fields, ...(value === null ? {} : { price: value }) },
+          })
+        : await create.mutateAsync({
+            ...fields,
+            ...(value === null ? {} : { price: value }),
+          });
+      if (photos.length) {
+        // 档案已经存好了，照片传失败只提示，不让用户重填一遍
+        try {
+          await attach(saved.id, photos);
+        } catch (err) {
+          toast({
+            message: `${t("Saved, but the photos were not uploaded")}: ${errorMessage(err)}`,
+            tone: "error",
+          });
+          onClose();
+          return;
+        }
+      }
       toast(t("Saved"));
       onClose();
     } catch (err) {
@@ -331,6 +347,7 @@ export default function DocumentDialog({
             minRows={3}
           />
         </div>
+        <PhotoPicker files={photos} onChange={setPhotos} />
         {error && <p className="xc-error-text">{error}</p>}
         <div className="xc-dialog-actions">
           <button type="button" className="xc-btn" onClick={onClose}>

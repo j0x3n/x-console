@@ -63,7 +63,17 @@ registerZh({
   "days before": "天前",
   "Scans and receipts": "扫描件和发票",
   "No files yet": "还没有文件",
-  "Upload scan": "上传扫描件",
+  "Upload scan": "上传文件",
+  "Photos and files": "照片和文件",
+  Photos: "照片",
+  "Add photos": "添加照片",
+  Remove: "移除",
+  "View photo": "查看照片",
+  "Previous photo": "上一张",
+  "Next photo": "下一张",
+  "Saved to the drive folder “Documents” when you save.":
+    "点保存后存到云盘的“证件档案”文件夹。",
+  "Saved, but the photos were not uploaded": "档案已保存，但照片没传成功",
   "Uploading…": "上传中…",
   "Remove from this document": "从档案里去掉",
   "Removed from this document. The file stays in the drive.":

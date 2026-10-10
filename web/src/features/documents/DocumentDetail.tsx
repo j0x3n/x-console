@@ -4,6 +4,7 @@ import {
   ArchiveRestore,
   CalendarCheck,
   Download,
+  ImagePlus,
   Paperclip,
   Pencil,
   Trash2,
@@ -15,10 +16,8 @@ import Dialog from "../../components/ui/Dialog";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { showError } from "./util";
-import { useVaultUnlocked } from "../vault/api";
 import { contentUrl } from "../drive/api";
 import {
-  useAddDocumentFile,
   useDeleteDocument,
   useRemoveDocumentFile,
   useUpdateDocument,
@@ -26,7 +25,7 @@ import {
 } from "./api";
 import DocumentDialog from "./DocumentDialog";
 import { daysText, kindName, statusTone } from "./format";
-import { uploadScan } from "./scans";
+import { PhotoGrid, isPhoto, useAttachFiles } from "./photos";
 
 function longDate(value: string, language: string): string {
   return new Date(`${value}T00:00:00`).toLocaleDateString(
@@ -47,10 +46,10 @@ export default function DocumentDetail({
   const language = useLanguage();
   const update = useUpdateDocument();
   const remove = useDeleteDocument();
-  const addFile = useAddDocumentFile();
+  const attach = useAttachFiles();
   const removeFile = useRemoveDocumentFile();
-  const unlocked = useVaultUnlocked();
   const fileInput = useRef<HTMLInputElement>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [renewDate, setRenewDate] = useState("");
@@ -100,20 +99,25 @@ export default function DocumentDetail({
     if (!files?.length) return;
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
-        const item = await uploadScan(file, unlocked);
-        await addFile.mutateAsync({
-          id: doc.id,
-          file: { driveId: item.id, name: item.name },
-        });
-      }
+      await attach(doc.id, Array.from(files));
     } catch (err) {
       showError(err);
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = "";
+      if (photoInput.current) photoInput.current.value = "";
     }
   };
+
+  const removeOne = (driveId: number) =>
+    removeFile.mutate(
+      { id: doc.id, driveId },
+      {
+        onSuccess: () =>
+          toast(t("Removed from this document. The file stays in the drive.")),
+        onError: showError,
+      },
+    );
 
   const facts: Array<[string, string | null]> = [
     [t("Type"), kindName(t, doc.kind)],
@@ -167,15 +171,33 @@ export default function DocumentDetail({
           </div>
         )}
         <div className="documents-files-head">
-          <strong>{t("Scans and receipts")}</strong>
-          <button
-            className="xc-btn small"
-            disabled={uploading}
-            onClick={() => fileInput.current?.click()}
-          >
-            <Paperclip size={14} />{" "}
-            {uploading ? t("Uploading…") : t("Upload scan")}
-          </button>
+          <strong>{t("Photos and files")}</strong>
+          <span className="documents-files-actions">
+            <button
+              className="xc-btn small"
+              disabled={uploading}
+              onClick={() => photoInput.current?.click()}
+            >
+              <ImagePlus size={14} />{" "}
+              {uploading ? t("Uploading…") : t("Add photos")}
+            </button>
+            <button
+              className="xc-btn small"
+              disabled={uploading}
+              onClick={() => fileInput.current?.click()}
+            >
+              <Paperclip size={14} /> {t("Upload scan")}
+            </button>
+          </span>
+          <input
+            ref={photoInput}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            data-testid="photo-input"
+            onChange={(e) => void upload(e.target.files)}
+          />
           <input
             ref={fileInput}
             type="file"
@@ -187,36 +209,30 @@ export default function DocumentDetail({
         </div>
         {doc.files.length === 0 ? (
           <p className="xc-muted documents-hint">{t("No files yet")}</p>
-        ) : (
+        ) : null}
+        <PhotoGrid
+          photos={doc.files.filter(isPhoto)}
+          onRemove={(f) => removeOne(f.driveId)}
+        />
+        {doc.files.some((f) => !isPhoto(f)) && (
           <ul className="documents-files">
-            {doc.files.map((f) => (
-              <li key={f.driveId}>
-                <a href={contentUrl(f.driveId)} download>
-                  <Download size={13} /> {f.name}
-                </a>
-                <button
-                  className="xc-btn ghost small"
-                  title={t("Remove from this document")}
-                  aria-label={`${t("Remove from this document")} ${f.name}`}
-                  onClick={() =>
-                    removeFile.mutate(
-                      { id: doc.id, driveId: f.driveId },
-                      {
-                        onSuccess: () =>
-                          toast(
-                            t(
-                              "Removed from this document. The file stays in the drive.",
-                            ),
-                          ),
-                        onError: showError,
-                      },
-                    )
-                  }
-                >
-                  <X size={13} />
-                </button>
-              </li>
-            ))}
+            {doc.files
+              .filter((f) => !isPhoto(f))
+              .map((f) => (
+                <li key={f.driveId}>
+                  <a href={contentUrl(f.driveId)} download>
+                    <Download size={13} /> {f.name}
+                  </a>
+                  <button
+                    className="xc-btn ghost small"
+                    title={t("Remove from this document")}
+                    aria-label={`${t("Remove from this document")} ${f.name}`}
+                    onClick={() => removeOne(f.driveId)}
+                  >
+                    <X size={13} />
+                  </button>
+                </li>
+              ))}
           </ul>
         )}
         <p className="xc-muted documents-hint">
