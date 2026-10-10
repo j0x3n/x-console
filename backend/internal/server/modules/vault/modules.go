@@ -19,7 +19,7 @@ const HiddenModulesKey = "vault.hidden_modules"
 // allModules is every module the sidebar can hide, in sidebar order.
 var allModules = []api.ModuleId{
 	api.Projects, api.Coding, api.Notes, api.Mail, api.Reminders, api.Habits, api.Drive, api.DriveWebdav, api.DriveGdrive, api.Calendar,
-	api.Servers, api.Pc, api.Monitoring, api.Home, api.Router, api.Automations, api.Github, api.Documents, api.Screentime, api.Readlater, api.Journal, api.Credentials,
+	api.Servers, api.Pc, api.Monitoring, api.Home, api.Router, api.Automations, api.Github, api.Documents, api.Screentime, api.Readlater, api.Journal, api.Credentials, api.Contacts,
 }
 
 // hiddenModules reads the saved list. Unknown names are dropped.

@@ -21,6 +21,7 @@ import {
   Server,
   SquareKanban,
   Sun,
+  Users,
   Workflow,
 } from "lucide-react";
 
@@ -65,6 +66,8 @@ export const navItems: NavItem[] = [
     icon: KeyRound,
     group: "personal",
   },
+  // B122：联系人和重要日期
+  { path: "/contacts", label: "Contacts", icon: Users, group: "personal" },
   // B117：稍后读
   {
     path: "/readlater",

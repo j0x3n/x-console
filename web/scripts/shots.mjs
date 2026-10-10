@@ -143,6 +143,11 @@ const ids = await page.evaluate(async () => {
     await post("/credentials", { kind: "access_token", name: "部署用令牌", platform: "GitHub", account: "li4@example.com", usedBy: ["服务器 hk-1", "项目 x-console"], scopes: "repo, workflow", hint: "a9f3", expiresOn: dayAt(20) });
     await post("/credentials", { kind: "api_key", name: "翻译接口", platform: "OpenAI", usedBy: ["服务器 hk-1"], createdOn: dayAt(-200), rotateEveryDays: 90 });
     await post("/credentials", { kind: "ssh_key", name: "笔记本登录密钥", usedBy: ["服务器 hk-1", "服务器 sg-2", "服务器 la-3"], hint: "SHA256:Qx1b" });
+    // B122：联系人，一个生日快到，一个太久没联系，一个没有日期
+    const mmdd = (days) => dayAt(days).slice(5);
+    await post("/contacts", { name: "老王", group: "friend", events: [{ kind: "birthday", date: `1990-${mmdd(5)}` }], lastContactOn: dayAt(-20) });
+    await post("/contacts", { name: "小李", group: "colleague", contactEveryDays: 60, lastContactOn: dayAt(-131) });
+    await post("/contacts", { name: "妈妈", group: "family", events: [{ kind: "birthday", date: mmdd(120) }, { kind: "anniversary", label: "结婚纪念日", date: `1988-${mmdd(60)}` }], lastContactOn: dayAt(-3) });
     // B121：配置下发，没有配对的机器，只放配置
     await send("PUT", "/aiconfig", {
       claude: { rules: "回答用中文。\n提交前先跑测试。", allow: ["Bash(git status)", "Bash(npm test)"], ask: ["Bash(git push *)"], deny: ["Read(./.env)"], mcp: [{ name: "docs", transport: "http", url: "https://mcp.example.com/mcp" }] },
@@ -233,6 +238,7 @@ const routes = [
   ["readlater", "/readlater"],
   ["journal", "/journal"],
   ["credentials", "/credentials"],
+  ["contacts", "/contacts"],
   ["aiconfig", "/coding/config"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],

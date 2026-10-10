@@ -80,6 +80,7 @@
 | B119 | 身体数据：习惯模块的补全。每天加静息心率；设置里生成上报令牌，手机快捷指令、Home Assistant 或脚本每天 POST 一次写进当天记录；个人记录页的体重趋势换成体重、睡眠、静息心率、步数四项趋势（30、90、180 天）；动作 `habits.body_trend`、`habits.body_record`。来源：功能扩展建议第 5 条 | [B119](specs/B119.md) | 前后端都完成（Claude，2026-10-10） |
 | B120 | 密钥和令牌台账：新模块 `credentials`，页面 `/credentials`；记 API 密钥、访问令牌、SSH 密钥、签名密钥的平台、账号、用在哪些服务器和项目、权限范围、识别尾号、到期日和更换周期；到期前提醒（默认 30、7 天）和久未更换提醒；只记信息，像密钥本身的内容会被拒绝；可加入隐藏内容；动作 `credentials.list`。来源：功能扩展建议第 6 条 | [B120](specs/B120.md) | 前后端都完成（Claude，2026-10-10） |
 | B121 | AI 编码工具配置统一下发：面板里维护一份 Claude Code 和 Codex 的全局规则、权限和 MCP 服务器，代理写到所选机器，只管面板写的那部分，不覆盖机器上原有的配置；页面 `/coding/config` 显示哪台机器不一致；动作 `aiconfig.status`。来源：功能扩展建议第 7 条 | [B121](specs/B121.md) | 前后端和代理都完成（Claude，2026-10-10） |
+| B122 | 联系人和重要日期：新模块 `contacts`，页面 `/contacts`；记家人朋友的生日、纪念日（可不写年份，写了算几岁或几周年）、上次联系日期和联系周期；日子快到按提前天数提醒，太久没联系提醒一次；列表上一键“刚联系过”；动作 `contacts.list`、`contacts.touch`。来源：功能扩展建议第 8 条 | [B122](specs/B122.md) | 前后端都完成（Claude，2026-10-10） |
 
 ### 任务说明
 
@@ -543,3 +544,4 @@
 | 2026-10-10 | `habits` 模块：`PersonalDay`、`PersonalDayInput` 加 `restingHr`（旧记录读出来是空字符串，不加迁移），新增 `/habits/body/push`、`/habits/body/push/token`、`/habits/body/report`（公开入口，用 Bearer 令牌校验，同 B114），`habits` 模块实现 `PublicPaths`；`web/scripts/shots.mjs`、`web/scripts/e2e.mjs` 加身体数据 | B119 身体数据 |
 | 2026-10-10 | `contracts/hidden.go`（`credentials` 加进后端映射、动作、事件前缀、链接和来源）、`core/handlers.go`（`hidesAny` 加 `credentials`）、`api/modules/vault.yaml`（`ModuleId` 加 `credentials`）、`vault/modules.go` 和 `vault/modules_test.go`（计数 22/22/20）、`app/modules.go`、`backend/sqlc.yaml` 各加一行；`web/src/app/{nav,modules,routes}` 加密钥台账入口；`web/scripts/shots.mjs`、`web/scripts/e2e.mjs` 加密钥台账 | B120 密钥台账 |
 | 2026-10-10 | 新增代理方法 `aiconfig.sync` 和能力 `aiconfig`（`pkg/protocol/methods_aiconfig.go`，`docs/04-agent-protocol.md` 加一节）；`cmd/agent/main.go` 加一行注册、一行能力、一行 `SetStateDir`；`contracts/hidden.go` 把 `aiconfig` 归到“Agent”（后端映射、动作、事件前缀各加一处）；`app/modules.go` 加一行；`web/src/app/routes.tsx` 加一行；`web/src/features/coding/NavChildren.tsx` 加“配置下发”一项；`web/scripts/shots.mjs`、`web/scripts/e2e.mjs` 加配置下发，e2e 的代理进程加 `CLAUDE_CONFIG_DIR`、`CODEX_HOME` 指向临时目录 | B121 配置下发 |
+| 2026-10-10 | `contracts/hidden.go`（`contacts` 加进后端映射、动作、事件前缀、链接和来源）、`core/handlers.go`（`hidesAny` 加 `contacts`）、`api/modules/vault.yaml`（`ModuleId` 加 `contacts`）、`vault/modules.go` 和 `modules_test.go`（模块数和事件前缀数 +1）、`app/modules.go`、`backend/sqlc.yaml` 各加一处；`web/src/app/nav.ts`、`modules.ts`、`routes.tsx` 各加一行；`web/scripts/shots.mjs`、`web/scripts/e2e.mjs` 加联系人 | B122 联系人 |

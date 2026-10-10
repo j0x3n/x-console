@@ -488,6 +488,29 @@ try {
   await page.getByRole("button", { name: "删除", exact: true }).last().click();
   await until("密钥台账删除", async () => !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
 
+  stage = "联系人";
+  // B122：新建一个五天后过生日的联系人，状态是近期；列表上记一次联系；搜索；删除不需要提升权限。
+  await page.goto(`${base}/contacts`);
+  await page.getByRole("button", { name: "新建联系人" }).first().click();
+  await dialog("新建联系人").getByLabel("名称", { exact: true }).fill("端到端老王");
+  await dialog("新建联系人").getByRole("button", { name: /添加日期/ }).click();
+  const birthSoon = new Date(Date.now() + 5 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建联系人").getByLabel("重要日期 1 日期", { exact: true }).fill(`1990-${birthSoon.slice(5)}`);
+  await dialog("新建联系人").getByLabel(/^联系周期/).fill("30");
+  await dialog("新建联系人").getByRole("button", { name: "保存" }).click();
+  await until("联系人新建", async () => (await api("/contacts")).items.some((c) => c.name === "端到端老王"));
+  const contact = (await api("/contacts")).items.find((c) => c.name === "端到端老王");
+  assert.equal(contact.status, "soon");
+  assert.equal(contact.events[0].kind, "birthday");
+  await page.getByPlaceholder("搜索联系人").fill("端到端");
+  const contactRow = page.locator(".contacts-row", { hasText: "端到端老王" });
+  await contactRow.getByRole("button", { name: /刚联系过/ }).click();
+  await until("联系人记一次联系", async () => (await api(`/contacts/${contact.id}`)).sinceContact === 0);
+  await contactRow.locator(".contacts-row-open").click();
+  await dialog("端到端老王").getByRole("button", { name: "删除" }).click();
+  await page.getByRole("button", { name: "删除", exact: true }).last().click();
+  await until("联系人删除", async () => !(await api("/contacts")).items.some((c) => c.name === "端到端老王"));
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

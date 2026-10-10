@@ -13,7 +13,7 @@ func TestHiddenModules(t *testing.T) {
 	env := testutil.New(t)
 	var avail api.AvailableModules
 	env.MustDo(http.MethodGet, "/app/modules", nil, &avail)
-	if len(avail.Modules) != 22 { // B65 加了 router，B115 加了 documents，B116 加了 screentime，B117 加了 readlater，B118 加了 journal，B120 加了 credentials
+	if len(avail.Modules) != 23 { // B65 加了 router，B115 加了 documents，B116 加了 screentime，B117 加了 readlater，B118 加了 journal，B120 加了 credentials，B122 加了 contacts
 		t.Fatalf("all modules before any setting: %v", avail.Modules)
 	}
 	// 没解锁时读写隐藏模块都像接口不存在
@@ -29,12 +29,12 @@ func TestHiddenModules(t *testing.T) {
 	}
 	// 解锁时全部可用
 	env.MustDo(http.MethodGet, "/app/modules", nil, &avail)
-	if len(avail.Modules) != 22 { // B65 加了 router，B115 加了 documents，B116 加了 screentime，B117 加了 readlater，B118 加了 journal，B120 加了 credentials
+	if len(avail.Modules) != 23 { // B65 加了 router，B115 加了 documents，B116 加了 screentime，B117 加了 readlater，B118 加了 journal，B120 加了 credentials，B122 加了 contacts
 		t.Fatalf("unlocked: %v", avail.Modules)
 	}
 	env.MustDo(http.MethodPost, "/vault/lock", nil, nil)
 	env.MustDo(http.MethodGet, "/app/modules", nil, &avail)
-	if len(avail.Modules) != 20 || slices.Contains(avail.Modules, api.Notes) || slices.Contains(avail.Modules, api.Github) {
+	if len(avail.Modules) != 21 || slices.Contains(avail.Modules, api.Notes) || slices.Contains(avail.Modules, api.Github) {
 		t.Fatalf("locked: %v", avail.Modules)
 	}
 	checkCode(t, env, http.MethodGet, "/vault/modules", nil, 404, "not_found")

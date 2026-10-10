@@ -377,6 +377,22 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type Contact struct {
+	ID               int64
+	Name             string
+	GroupKind        string
+	Events           string
+	LastContactOn    string
+	ContactEveryDays int64
+	RemindDays       string
+	Notes            string
+	NotifiedJson     string
+	LostFor          string
+	ArchivedAt       *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
 type Credential struct {
 	ID              int64
 	Kind            string

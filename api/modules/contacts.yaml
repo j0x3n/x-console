@@ -1,0 +1,222 @@
+openapi: 3.0.3
+info:
+  title: X Console contacts and important dates (B122)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /contacts:
+    get:
+      operationId: listContacts
+      tags: [contacts]
+      description: |
+        全部联系人，近期的在前，然后是该联系的，最后是没有日子的。
+        概要统计不受 group、q 的限制，只受 archived 的限制。
+      parameters:
+        - name: group
+          in: query
+          schema: { $ref: "#/components/schemas/ContactGroup" }
+        - name: q
+          in: query
+          description: 在名称和备注里找
+          schema: { type: string }
+        - name: archived
+          in: query
+          description: true 时包含已归档的，默认不含
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 联系人列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, summary]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Contact" }
+                  summary: { $ref: "#/components/schemas/ContactSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createContact
+      tags: [contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /contacts/{contactId}:
+    parameters:
+      - $ref: "#/components/parameters/ContactId"
+    get:
+      operationId: getContact
+      tags: [contacts]
+      responses:
+        "200":
+          description: 联系人
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateContact
+      tags: [contacts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteContact
+      tags: [contacts]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /contacts/{contactId}/touch:
+    parameters:
+      - $ref: "#/components/parameters/ContactId"
+    post:
+      operationId: touchContact
+      tags: [contacts]
+      description: 记一次联系：把上次联系日期设为给的日期，默认今天，不能晚于今天。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactTouch" }
+      responses:
+        "200":
+          description: 已记下
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Contact" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    ContactId:
+      name: contactId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    ContactGroup:
+      type: string
+      enum: [family, friend, colleague, other]
+    ContactEventKind:
+      type: string
+      enum: [birthday, anniversary, other]
+    ContactStatus:
+      type: string
+      enum: [soon, overdue, ok, none]
+    ContactEventInput:
+      type: object
+      required: [kind, date]
+      properties:
+        id: { type: string, description: 已有的日期带上它，新的不填 }
+        kind: { $ref: "#/components/schemas/ContactEventKind" }
+        label: { type: string, description: 不填就用类型的名字 }
+        date: { type: string, description: MM-DD 或 YYYY-MM-DD }
+    ContactEvent:
+      type: object
+      required: [id, kind, label, date, nextOn, nextIn]
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/ContactEventKind" }
+        label: { type: string }
+        date: { type: string }
+        nextOn: { type: string, description: 下一次的日期 YYYY-MM-DD }
+        nextIn: { type: integer, description: 离下一次还有几天，今天是 0 }
+        years:
+          type: integer
+          nullable: true
+          description: 下一次是几岁或几周年，没写年份就没有
+    ContactSummary:
+      type: object
+      required: [total, soon, overdue]
+      properties:
+        total: { type: integer }
+        soon: { type: integer }
+        overdue: { type: integer }
+    Contact:
+      type: object
+      required: [id, name, group, events, lastContactOn, contactEveryDays, remindDays, notes, status, archived, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        group: { $ref: "#/components/schemas/ContactGroup" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ContactEvent" }
+        lastContactOn: { type: string, description: YYYY-MM-DD，空表示没记过 }
+        contactEveryDays: { type: integer }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+        status: { $ref: "#/components/schemas/ContactStatus" }
+        nextEventIn: { type: integer, nullable: true }
+        nextEventLabel: { type: string }
+        sinceContact: { type: integer, nullable: true }
+        contactDueIn:
+          type: integer
+          nullable: true
+          description: 离该联系的日子还有几天，已过的是负数
+        archived: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ContactInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        group: { $ref: "#/components/schemas/ContactGroup" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ContactEventInput" }
+        lastContactOn: { type: string }
+        contactEveryDays: { type: integer }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+    ContactPatch:
+      type: object
+      properties:
+        name: { type: string }
+        group: { $ref: "#/components/schemas/ContactGroup" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ContactEventInput" }
+        lastContactOn: { type: string }
+        contactEveryDays: { type: integer }
+        remindDays:
+          type: array
+          items: { type: integer }
+        notes: { type: string }
+        archived: { type: boolean }
+    ContactTouch:
+      type: object
+      properties:
+        date: { type: string, description: 不填就是今天 }
