@@ -23,6 +23,22 @@ let weatherProxy;
 let weatherTargetPort;
 const weatherProxySockets = new Set();
 let stage = "启动";
+// 每个阶段的耗时，结束时按从长到短列出来（XC_E2E_TIMING=1 时才打印）
+const timings = [];
+let stageStart = Date.now();
+function setStage(name) {
+  timings.push([stage, Date.now() - stageStart]);
+  stage = name;
+  stageStart = Date.now();
+}
+function printTimings() {
+  if (process.env.XC_E2E_TIMING !== "1") return;
+  timings.push([stage, Date.now() - stageStart]);
+  const total = timings.reduce((sum, [, ms]) => sum + ms, 0);
+  console.log(`\n端到端耗时 ${(total / 1000).toFixed(1)} 秒，各阶段：`);
+  for (const [name, ms] of [...timings].sort((a, b) => b[1] - a[1]))
+    console.log(`${(ms / 1000).toFixed(1).padStart(7)} 秒  ${name}`);
+}
 
 function start(name, command, args, options = {}) {
   const child = spawn(command, args, {
@@ -104,7 +120,7 @@ let base;
 try {
   rmSync(artifacts, { recursive: true, force: true });
   mkdirSync(artifacts, { recursive: true });
-  stage = "编译服务端和代理";
+  setStage("编译服务端和代理");
   await run("build-server", "go", ["build", "-o", binary("server"), "./cmd/server"], { cwd: backendDir });
   await run("build-agent", "go", ["build", "-o", binary("agent"), "./cmd/agent"], { cwd: backendDir });
   await run("build-fakedav", "go", ["build", "-o", binary("fakedav"), "./cmd/fakedav"], { cwd: backendDir });
@@ -151,7 +167,7 @@ try {
     HTTPS_PROXY: `http://127.0.0.1:${weatherProxy.address().port}`,
     NO_PROXY: "127.0.0.1,localhost",
   };
-  stage = "启动服务";
+  setStage("启动服务");
   start("server", binary("server"), [], { cwd: backendDir, env: serverEnv });
   await until("服务端", async () => (await fetch(`${serverUrl}/api/v1/auth/status`)).ok);
   await until("前端", async () => (await fetch(base)).ok);
@@ -178,7 +194,7 @@ try {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  stage = "初始化账号";
+  setStage("初始化账号");
   await page.goto(base);
   await page.getByLabel("用户名").fill(username);
   await page.getByLabel(/^密码/).fill(password);
@@ -189,7 +205,7 @@ try {
   assert.equal(await page.getByText(/演示数据：/).count(), 0);
   assert.equal((await api("/auth/status")).authenticated, true);
 
-  stage = "退出和登录";
+  setStage("退出和登录");
   await page.locator("button.nav-rail-avatar").click();
   await page.getByRole("menuitem", { name: "退出登录" }).click();
   await until("退出登录", async () => !(await api("/auth/status")).authenticated);
@@ -200,7 +216,7 @@ try {
   await page.getByRole("button", { name: "登录" }).click();
   await page.locator(".sidebar").waitFor();
 
-  stage = "B32 AI 供应商和浮窗";
+  setStage("B32 AI 供应商和浮窗");
   const aiFake = http.createServer(async (request, response) => {
     if (request.url === "/v1/models") {
       response.writeHead(200, { "Content-Type": "application/json" });
@@ -260,7 +276,7 @@ try {
       return !detail.running && detail.messages.some((message) => message.role === "assistant" && message.content.some((block) => block.text === "AI 已收到测试消息"));
     });
     assert.equal((await api("/ai/usage")).calls, 1);
-    stage = "B32 笔记自动标题和标签";
+    setStage("B32 笔记自动标题和标签");
     const aiNoteBody = "这是一篇用于端到端验证的笔记。".repeat(12);
     const noteResponse = await page.context().request.post(`${base}/api/v1/notes`, {
       headers: { "X-Requested-With": "x-console" }, data: { body: aiNoteBody },
@@ -283,7 +299,7 @@ try {
     await new Promise((done) => aiFake.close(done));
   }
 
-  stage = "B65 路由器";
+  setStage("B65 路由器");
   // 假的 OpenWrt ubus：登录、系统信息、接口、网卡计数、DHCP 租约和 host hints。
   const ubusFake = http.createServer(async (request, response) => {
     let raw = "";
@@ -327,7 +343,7 @@ try {
     await new Promise((done) => ubusFake.close(done));
   }
 
-  stage = "AI 额度";
+  setStage("AI 额度");
   // B110、B111：添加一个 DeepSeek 账号。CI 连不上 DeepSeek 时卡片显示读取失败，
   // 连得上时显示余额，两种都算页面正常。
   const quotaElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
@@ -350,7 +366,7 @@ try {
     headers: { "X-Requested-With": "x-console" },
   });
 
-  stage = "证件档案";
+  setStage("证件档案");
   // B115：新建一份快到期的护照，详情里续期，再归档。
   await page.goto(`${base}/documents`);
   await page.getByText("还没有档案").waitFor();
@@ -406,7 +422,7 @@ try {
     headers: { "X-Requested-With": "x-console" }, data: { archived: true },
   });
 
-  stage = "时间去向";
+  setStage("时间去向");
   // B116：Linux 代理不能记录前台程序，页面应该说明原因。设置里打开保存标题、加一条规则、清空记录。
   await page.goto(`${base}/screentime`);
   await page.getByText("还没有能记录的电脑").waitFor();
@@ -433,7 +449,7 @@ try {
   await page.getByText("记录已清空").waitFor();
   await screenDialog.getByRole("button", { name: "关闭" }).click();
 
-  stage = "稍后阅读";
+  setStage("稍后阅读");
   // B117：本机地址存不了；存一个公网链接后，从未读标为已读，再删除。
   await page.goto(`${base}/readlater`);
   await page.getByText("还没有存过链接").waitFor();
@@ -476,7 +492,7 @@ try {
   await page.getByText("还没有 Cookie").waitFor();
   assert.equal((await api("/readlater/x-auth")).configured, false);
 
-  stage = "每日时间线";
+  setStage("每日时间线");
   // B118：今天的时间线里有刚建的笔记，写日记，刷新后还在，往前翻一天，搜索能找到。
   const journalNote = await page.context().request.post(`${base}/api/v1/notes`, {
     headers: { "X-Requested-With": "x-console" }, data: { title: "时间线端到端笔记", body: "x" },
@@ -500,7 +516,7 @@ try {
   await page.getByLabel("日记内容").waitFor();
   assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "点搜索结果回到那一天");
 
-  stage = "密钥";
+  setStage("密钥");
   // B120：像密钥的内容被拒绝，页面新建一条，搜索能按用在哪里找到，记一次更换，删除要提升权限。
   const secretTry = await page.context().request.post(`${base}/api/v1/credentials`, {
     headers: { "X-Requested-With": "x-console" },
@@ -537,7 +553,7 @@ try {
   await page.getByRole("button", { name: "删除", exact: true }).last().click();
   await until("密钥删除", async () => !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
 
-  stage = "联系人";
+  setStage("联系人");
   // B122：新建一个五天后过生日的联系人，状态是近期；列表上记一次联系；搜索；删除不需要提升权限。
   await page.goto(`${base}/contacts`);
   await page.getByRole("button", { name: "新建联系人" }).first().click();
@@ -580,7 +596,7 @@ try {
   });
   assert.equal(importedDel.status(), 204);
 
-  stage = "通知静音规则";
+  setStage("通知静音规则");
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {
     headers: { "X-Requested-With": "x-console" },
@@ -592,7 +608,7 @@ try {
   await page.getByRole("button", { name: "删除 新邮件" }).click();
   await page.getByText("还没有静音规则").waitFor();
 
-  stage = "新建项目和卡片";
+  setStage("新建项目和卡片");
   await page.goto(`${base}/projects`);
   await page.getByRole("button", { name: "新建项目" }).click();
   await dialog("新建项目").getByLabel("名称").fill("端到端项目");
@@ -608,7 +624,7 @@ try {
   await page.waitForURL(/\/projects\/EET\/\d+$/);
   const issueKey = `EET-${page.url().split("/").at(-1)}`;
   assert.equal((await api(`/issues/${issueKey}`)).title, "端到端 Issue");
-  stage = "B36 分类和截止时间";
+  setStage("B36 分类和截止时间");
   const categoryResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/categories`, {
     headers: { "X-Requested-With": "x-console" }, data: { name: "后端" },
   });
@@ -630,7 +646,7 @@ try {
   assert.equal(dueIssue.dueRemind, "15m");
   assert.equal(new Date(dueIssue.dueAt).getTime(), new Date(dueAt).getTime());
   // B46 起分类不在界面上显示，接口保留到下个版本。
-  stage = "B36 检查清单";
+  setStage("B36 检查清单");
   const checklistResponse = await page.context().request.post(`${base}/api/v1/issues/${issueKey}/checklists`, {
     headers: { "X-Requested-With": "x-console" }, data: { title: "端到端检查" },
   });
@@ -648,7 +664,7 @@ try {
   await until("检查清单进度", async () => (await api(`/issues/${issueKey}`)).checklistDone === 1);
   await page.reload();
   await page.getByText("核对接口").waitFor();
-  stage = "B36 图片上传和归属";
+  setStage("B36 图片上传和归属");
   const sampleImage = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==", "base64");
   const uploadImage = async (name) => {
     const response = await page.context().request.post(`${base}/api/v1/files?scope=projects`, {
@@ -690,7 +706,7 @@ try {
   const progressCard = projectStats.locator(".xc-stat").filter({ hasText: "正在处理的卡片" });
   assert.equal((await progressCard.locator(".xc-stat-value").textContent()).trim(), "1");
 
-  stage = "B101 已过期视图";
+  setStage("B101 已过期视图");
   const overdueResponse = await page.context().request.post(`${base}/api/v1/projects/${project.id}/issues`, {
     headers: { "X-Requested-With": "x-console" },
     data: { title: "端到端过期卡片", dueAt: new Date(Date.now() - 2 * 86_400_000).toISOString() },
@@ -702,7 +718,7 @@ try {
   const overdueLink = page.locator(".nav-panel").getByRole("link", { name: /已过期/ });
   await until("左栏的已过期数量", async () => (await overdueLink.locator("small").textContent())?.trim() === "1");
 
-  stage = "B46 新建看板、加卡片、拖到另一个列表、加清单";
+  setStage("B46 新建看板、加卡片、拖到另一个列表、加清单");
   await page.goto(`${base}/projects/EET`);
   await page.getByRole("button", { name: "新建看板" }).click();
   await dialog("新建看板").getByLabel("名称").fill("端到端看板");
@@ -732,7 +748,7 @@ try {
   await page.getByLabel("清单标题").press("Enter");
   await until("清单已建", async () => (await api(`/issues/${boardCardKey}/checklists`)).length === 1);
 
-  stage = "B55 锁定看板结构后不能加列表";
+  setStage("B55 锁定看板结构后不能加列表");
   await page.goto(`${base}/projects/EET`);
   await page.getByRole("button", { name: "添加列表" }).waitFor();
   await page.getByRole("button", { name: "锁定看板结构" }).click();
@@ -741,7 +757,7 @@ try {
   await page.getByRole("button", { name: "解锁看板结构" }).click();
   await page.getByRole("button", { name: "添加列表" }).waitFor();
 
-  stage = "B47 新建 Agent，把卡片分配给内置 Agent";
+  setStage("B47 新建 Agent，把卡片分配给内置 Agent");
   await page.goto(`${base}/coding`);
   await page.getByRole("button", { name: "新建 Agent" }).first().click();
   await dialog("新建 Agent").getByLabel("名称").fill("端到端 Agent");
@@ -767,14 +783,14 @@ try {
   });
   assert.ok((await api(`/issues/${boardCardKey}`)).members.some((m) => m.kind === "agent"));
 
-  stage = "B86 Agent 执行记录和日志";
+  setStage("B86 Agent 执行记录和日志");
   const runs = await api(`/ai-agents/runs?issueKey=${boardCardKey}`);
   assert.equal(runs[0].status, "failed");
   const runEvents = await api(`/ai-agents/runs/${runs[0].id}/events`);
   assert.ok(runEvents.items.some((event) => event.kind === "error"));
   assert.equal((await api(`/ai-agents/runs/${runs[0].id}/events?after=${runEvents.lastSeq}`)).items.length, 0);
 
-  stage = "B87 Agent 通知开关和待决定接口";
+  setStage("B87 Agent 通知开关和待决定接口");
   const notifySettings = await api("/ai-agents/notify");
   assert.equal(notifySettings.received, false);
   assert.equal(notifySettings.decision, true);
@@ -786,7 +802,7 @@ try {
   assert.equal((await api("/ai-agents/notify")).done, false);
   assert.deepEqual(await api("/ai-agents/decisions"), []);
 
-  stage = "写笔记";
+  setStage("写笔记");
   const noteResponses = [];
   page.on("request", (request) => {
     if (request.method() === "PATCH" && request.url().includes("/api/v1/notes/"))
@@ -818,7 +834,7 @@ try {
     throw new Error(`${error.message}\n当前笔记：${JSON.stringify(currentNote)}\n请求：${noteResponses.join(", ")}\n页面异常：${pageErrors.join("；")}`);
   }
 
-  stage = "B72 笔记外链分享";
+  setStage("B72 笔记外链分享");
   {
     const elevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
       headers: { "X-Requested-With": "x-console" }, data: { password },
@@ -847,7 +863,7 @@ try {
     assert.equal((await fetch(publicBase)).status, 404);
   }
 
-  stage = "B73 便签 API 主流程";
+  setStage("B73 便签 API 主流程");
   {
     const created = await page.context().request.post(`${base}/api/v1/notes`, {
       headers: { "X-Requested-With": "x-console" },
@@ -871,7 +887,7 @@ try {
     assert.equal(removed.status(), 204, await removed.text());
   }
 
-  stage = "B84 看板绑定仓库和同步 Issue API 主流程";
+  setStage("B84 看板绑定仓库和同步 Issue API 主流程");
   {
     const gitFake = http.createServer((request, response) => {
       response.setHeader("Content-Type", "application/json");
@@ -906,7 +922,7 @@ try {
     }
   }
 
-  stage = "B90 和风地点搜索、选择和天气";
+  setStage("B90 和风地点搜索、选择和天气");
   {
     const geoQueries = [];
     const weatherFake = https.createServer({ key: readFileSync(weatherKey), cert: readFileSync(weatherCert) }, (request, response) => {
@@ -983,7 +999,7 @@ try {
       await new Promise((done) => weatherFake.close(done));
     }
   }
-  stage = "B70 仓库关注 API 主流程";
+  setStage("B70 仓库关注 API 主流程");
   {
     const original = await api("/github/config");
     const saved = await page.context().request.put(`${base}/api/v1/github/config`, {
@@ -1000,7 +1016,7 @@ try {
     assert.equal(restored.status(), 200, await restored.text());
   }
 
-  stage = "B71 仓库通知设置 API 主流程";
+  setStage("B71 仓库通知设置 API 主流程");
   {
     const original = await api("/github/notify");
     const saved = await page.context().request.put(`${base}/api/v1/github/notify`, {
@@ -1020,7 +1036,7 @@ try {
     assert.equal(restored.status(), 200, await restored.text());
   }
 
-  stage = "B74 笔记背景色 API 主流程";
+  setStage("B74 笔记背景色 API 主流程");
   {
     const colored = await page.context().request.patch(`${base}/api/v1/notes/${noteId}`, {
       headers: { "X-Requested-With": "x-console" }, data: { color: "teal" },
@@ -1045,7 +1061,7 @@ try {
     assert.equal(stopped.status(), 204, await stopped.text());
   }
 
-  stage = "新建提醒";
+  setStage("新建提醒");
   await page.goto(`${base}/reminders`);
   await page
     .locator('section.xc-stats[aria-label="提醒"] .xc-stat')
@@ -1071,7 +1087,7 @@ try {
   const invalidIcon = await page.request.get(`${base}/api/v1/notify/icons/emoji-1f4a7.png?sig=00`);
   assert.equal(invalidIcon.status(), 403);
 
-  stage = "本地日历写入";
+  setStage("本地日历写入");
   const calendarResponse = await page
     .context()
     .request.post(`${base}/api/v1/calendars`, {
@@ -1116,7 +1132,7 @@ try {
     });
   assert.equal(deleteResponse.status(), 204, await deleteResponse.text());
 
-  stage = "自动化规则运行";
+  setStage("自动化规则运行");
   const automationResponse = await page.context().request.post(`${base}/api/v1/automations`, {
     headers: { "X-Requested-With": "x-console" },
     data: {
@@ -1140,7 +1156,7 @@ try {
     (await api(`/automations/${automation.id}/runs`))[0]?.status === "ok",
   );
 
-  stage = "手机云盘上传、预览和删除";
+  setStage("手机云盘上传、预览和删除");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${base}/drive`);
   await page.locator('[data-testid="drive-file-input"]').setInputFiles({
@@ -1151,7 +1167,7 @@ try {
   const driveFile = await until("云盘上传", async () =>
     (await api("/drive/items")).items.find((item) => item.name === "端到端文件.txt"),
   );
-  stage = "云盘历史版本";
+  setStage("云盘历史版本");
   const savedVersion = await page.context().request.put(
     `${base}/api/v1/drive/items/${driveFile.id}/content`,
     {
@@ -1171,13 +1187,13 @@ try {
     `${base}/api/v1/drive/items/${driveFile.id}/content`,
   );
   assert.equal(await restoredContent.text(), "云盘内容可以预览。");
-  stage = "云盘分享管理";
+  setStage("云盘分享管理");
   const shareElevation = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
     headers: { "X-Requested-With": "x-console" },
     data: { password },
   });
   assert.equal(shareElevation.status(), 200, await shareElevation.text());
-  stage = "B75 云盘分享预览和下载记录 API 主流程";
+  setStage("B75 云盘分享预览和下载记录 API 主流程");
   const shareResponse = await page.context().request.post(`${base}/api/v1/drive/shares`, {
     headers: { "X-Requested-With": "x-console" },
     data: { itemId: driveFile.id, expiresIn: "7d", code: "分享密码123456" },
@@ -1221,7 +1237,7 @@ try {
     { headers: { "X-Requested-With": "x-console" } },
   );
   assert.equal(unshareResponse.status(), 204);
-  stage = "云盘日志实时";
+  setStage("云盘日志实时");
   await page.evaluate(
     ({ id, offset }) =>
       new Promise((resolve, reject) => {
@@ -1267,12 +1283,12 @@ try {
     },
   );
   assert.equal(restoreLog.status(), 200, await restoreLog.text());
-  stage = "云盘打包下载";
+  setStage("云盘打包下载");
   const zipResponse = await page.context().request.get(`${base}/api/v1/drive/zip?ids=${driveFile.id}`);
   assert.equal(zipResponse.status(), 200);
   assert.equal(zipResponse.headers()["content-type"], "application/zip");
   assert.equal((await zipResponse.body()).subarray(0, 2).toString(), "PK");
-  stage = "云盘批量复制和移动";
+  setStage("云盘批量复制和移动");
   const transferFolderResponse = await page.context().request.post(`${base}/api/v1/drive/folders`, {
     headers: { "X-Requested-With": "x-console" },
     data: { name: "端到端目标" },
@@ -1309,7 +1325,7 @@ try {
   );
   assert.equal((await api(`/drive/items?parent=${transferFolder.id}`)).items.length, 0);
   assert.equal((await api(`/drive/items?parent=${movedFolder.id}`)).items[0]?.id, copiedFile.id);
-  stage = "云盘压缩";
+  setStage("云盘压缩");
   const archiveResponse = await page.context().request.post(`${base}/api/v1/drive/archive`, {
     headers: { "X-Requested-With": "x-console" },
     data: { ids: [driveFile.id], name: "端到端压缩", format: "zip", parentId: transferFolder.id },
@@ -1324,7 +1340,7 @@ try {
   );
   assert.equal(archived.status(), 200);
   assert.equal((await archived.body()).subarray(0, 2).toString(), "PK");
-  stage = "云盘解压";
+  setStage("云盘解压");
   const extractResponse = await page.context().request.post(
     `${base}/api/v1/drive/items/${finishedArchive.resultId}/extract`,
     { headers: { "X-Requested-With": "x-console" } },
@@ -1344,7 +1360,7 @@ try {
   const finishedUploads = page.locator(".drive-uploads:not(.drive-tasks)");
   if (await finishedUploads.isVisible())
     await finishedUploads.getByRole("button", { name: "关闭" }).click();
-  stage = "手机云盘上传、预览和删除";
+  setStage("手机云盘上传、预览和删除");
   const driveRow = page.locator(".drive-row").filter({ hasText: "端到端文件.txt" });
   await driveRow.getByRole("button", { name: "端到端文件.txt", exact: true }).click();
   await dialog("端到端文件.txt").getByText("云盘内容可以预览。").waitFor();
@@ -1363,7 +1379,7 @@ try {
   );
   await page.setViewportSize({ width: 1360, height: 860 });
 
-  stage = "B69 在存储页加 WebDAV 账号，云盘二级菜单出现网盘";
+  setStage("B69 在存储页加 WebDAV 账号，云盘二级菜单出现网盘");
   const davPort = await freePort();
   start("fakedav", binary("fakedav"), ["-addr", `127.0.0.1:${davPort}`, "-user", "me", "-password", "dav-pw"]);
   await until("WebDAV", async () => (await fetch(`http://127.0.0.1:${davPort}/dav/`)).status === 401);
@@ -1393,7 +1409,7 @@ try {
     assert.ok(response.status() < 300, `${method} ${path}: ${response.status()} ${await response.text()}`);
     return response.status() === 204 ? undefined : response.json();
   };
-  stage = "B81 增量备份 API 主流程";
+  setStage("B81 增量备份 API 主流程");
   const previousBackupSettings = await api("/backups/settings");
   const backupRemote = (await api("/storage/remotes")).items.find((item) => item.name === "端到端网盘");
   await send("PUT", "/backups/settings", { target: "remote", remoteId: backupRemote.id, mode: "incremental", webdav: { folder: "e2e-backups" }, retention: { last: 7, daily: 14, weekly: 8, monthly: 12 } });
@@ -1428,7 +1444,7 @@ try {
   const { lastRuns: previousBackupRuns, nextRunAt: previousBackupNext, ...previousBackupInput } = previousBackupSettings;
   await send("PUT", "/backups/settings", previousBackupInput);
 
-  stage = "B83 作息和健康提醒 API 主流程";
+  setStage("B83 作息和健康提醒 API 主流程");
   const previousSchedule = await api("/habits/schedule");
   await send("PUT", "/habits/schedule", { workDays: [1, 2, 3, 4, 5], wakeTime: "12:00", sleepTime: "03:30", timezone: "Asia/Shanghai", idleMinutes: 5 });
   assert.equal((await api("/habits/schedule")).sleepTime, "03:30");
@@ -1443,7 +1459,7 @@ try {
   await send("DELETE", `/habits/${healthHabit.id}`);
   await send("PUT", "/habits/schedule", previousSchedule);
 
-  stage = "习惯打卡";
+  setStage("习惯打卡");
   await page.goto(`${base}/habits`);
   await page.getByRole("button", { name: "新建习惯" }).click();
   await dialog("新建习惯").getByLabel("名称").fill("端到端习惯");
@@ -1456,7 +1472,7 @@ try {
     return habit?.reached && habit.logs.length === 1;
   });
 
-  stage = "训练自动打卡";
+  setStage("训练自动打卡");
   const workoutHabitResponse = await page.context().request.post(`${base}/api/v1/habits`, {
     headers: { "X-Requested-With": "x-console" },
     data: { name: "端到端健身", kind: "workout", dailyTarget: 1 },
@@ -1481,7 +1497,7 @@ try {
   assert.equal(removeWorkoutResponse.status(), 204, await removeWorkoutResponse.text());
   assert.equal((await api("/habits/today")).find((item) => item.habit.id === workoutHabit.id).done, 0);
 
-  stage = "B97 个人计划主流程";
+  setStage("B97 个人计划主流程");
   const library = await api("/habits/library");
   assert.equal(library.exercises.length, 66);
   assert.equal(library.articles.length, 26);
@@ -1526,7 +1542,7 @@ try {
   await dialog("添加动作到周计划").waitFor({ state: "hidden" });
   assert.ok((await api("/workouts/plans")).some((p) => p.items.some((i) => i.exerciseId === picked.id && i.prescription)));
 
-  stage = "健身方案加入习惯、推荐习惯";
+  setStage("健身方案加入习惯、推荐习惯");
   await page.goto(`${base}/habits/fitness?program=low-back`);
   await page.locator(".habits-fit-head").getByRole("button", { name: "加入习惯" }).click();
   await dialog("新建习惯").getByRole("button", { name: "保存" }).click();
@@ -1552,7 +1568,7 @@ try {
   await send("POST", "/habits/personal/backup", personalBackup);
   assert.equal((await api(`/habits/personal/days/${personalDate}`)).weight, "81.5");
 
-  stage = "身体数据同步和趋势";
+  setStage("身体数据同步和趋势");
   // B119：静息心率手填，上报令牌从设置里生成，用令牌上报后趋势图出现，关闭后令牌失效。
   await page.goto(`${base}/habits/plan?section=records`);
   await page.getByLabel("静息心率（次/分）", { exact: true }).fill("58");
@@ -1598,7 +1614,7 @@ try {
   await send("PATCH", `/habits/personal/days/${personalDate}`, { weight: "81.5", restingHr: "", steps: "" });
   await send("PATCH", `/habits/personal/days/${yesterday}`, { weight: "", sleep: "", restingHr: "", steps: "" });
 
-  stage = "续费进入早报";
+  setStage("续费进入早报");
   const dateParts = Object.fromEntries(
     new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" })
       .formatToParts(new Date(Date.now() + 3 * 86_400_000)).map(({ type, value }) => [type, value]),
@@ -1617,7 +1633,7 @@ try {
   const generatedBrief = await briefResponse.json();
   assert.ok(generatedBrief.sections.some((section) => section.key === "renewals" && section.markdown.includes("端到端续费")));
 
-  stage = "B37 提醒页汇总";
+  setStage("B37 提醒页汇总");
   await page.goto(`${base}/reminders?tab=upcoming`);
   const renewalRow = page.locator(".reminders-external").filter({ hasText: "端到端续费 续费" });
   await renewalRow.waitFor();
@@ -1627,7 +1643,7 @@ try {
   await renewalRow.getByRole("link", { name: "端到端续费 续费" }).click();
   await page.waitForURL(/\/monitoring\/subscriptions$/);
 
-  stage = "B50 只填域名添加网站，顺带建证书和域名监控";
+  setStage("B50 只填域名添加网站，顺带建证书和域名监控");
   await page.goto(`${base}/monitoring?new=1`);
   await dialog("添加网站").getByLabel("网址").fill("www.e2e-site.example.com");
   await dialog("添加网站").getByRole("button", { name: "保存" }).click();
@@ -1643,9 +1659,9 @@ try {
   await page.goto(`${base}/monitoring/certs`);
   await page.locator(".monitoring-row", { hasText: "example.com" }).getByRole("button", { name: /证书/ }).waitFor();
 
-  stage = "B57 锁定后被隐藏的模块像不存在一样";
+  setStage("B57 锁定后被隐藏的模块像不存在一样");
 
-  stage = "B79 维护 API 主流程";
+  setStage("B79 维护 API 主流程");
   const maintenanceOverview = await api("/maintenance/overview?refresh=true");
   assert.ok(maintenanceOverview.version && maintenanceOverview.process && maintenanceOverview.machine);
   assert.ok(maintenanceOverview.storage.some((row) => row.key === "database"));
@@ -1672,7 +1688,7 @@ try {
   assert.equal(maintenanceCleanup.state, "done");
   assert.ok(maintenanceCleanup.result.deleted >= 1);
   assert.equal(existsSync(maintenanceGarbage), false);
-  stage = "B57 锁定后被隐藏的模块像不存在一样";
+  setStage("B57 锁定后被隐藏的模块像不存在一样");
   await send("POST", "/vault/setup", { password: "e2e-vault-secret" });
   await send("PUT", "/vault/modules", { hidden: ["github"] });
   await send("POST", "/vault/lock");
@@ -1694,7 +1710,7 @@ try {
   await send("PUT", "/vault/modules", { hidden: [] });
   await send("POST", "/vault/lock");
 
-  stage = "配对 Linux 代理";
+  setStage("配对 Linux 代理");
   await page.goto(`${base}/settings/devices`);
   // B30 以后入口叫“添加设备”，生成配对码后显示安装命令和配对码。
   await page.getByRole("button", { name: "添加设备" }).click();
@@ -1716,7 +1732,7 @@ try {
   });
   const host = await until("代理上线", async () => (await api("/hosts")).find((item) => item.name === "e2e-linux" && item.online));
   assert.equal("capabilities" in host, false, "列表接口带了详情字段");
-  stage = "B82 服务器信息 API 主流程";
+  setStage("B82 服务器信息 API 主流程");
   await send("PATCH", `/hosts/${host.id}`, { info: { ownership: "client", client: "端到端客户", username: "operator", password: "e2e-host-password", note: "测试备注", tags: ["测试"] } });
   const hostInfo = await api(`/hosts/${host.id}`);
   assert.equal(hostInfo.info.client, "端到端客户");
@@ -1726,7 +1742,7 @@ try {
   await send("PUT", "/hosts/order", { kind: "server", ids: [host.id, ...(await api("/hosts?kind=server")).filter((item) => item.id !== host.id).map((item) => item.id)] });
   assert.equal((await api("/hosts?kind=server"))[0].id, host.id);
 
-  stage = "配置下发";
+  setStage("配置下发");
   // B121：保存一份配置，选上这台机器，页面显示不一致，下发后一致，原有内容还在，面板删掉后也撤掉。
   const ownRules = "# 我自己的规则\n\n不要用 emoji。\n";
   writeFileSync(join(claudeHome, "CLAUDE.md"), ownRules);
@@ -1772,7 +1788,7 @@ try {
   assert.deepEqual(JSON.parse(readFileSync(join(claudeHome, "settings.json"), "utf8")).permissions.allow, ["Read(*)"]);
   await send("PUT", "/aiconfig", { claude: { rules: "" }, codex: { rules: "" }, hostIds: [] });
 
-  stage = "查看远端日志文件";
+  setStage("查看远端日志文件");
   const remoteLog = join(temp, "e2e-remote.log");
   writeFileSync(remoteLog, "远端日志主流程\n");
   await page.goto(`${base}/servers/${host.id}/files`);
@@ -1782,7 +1798,7 @@ try {
   await dialog("e2e-remote.log").getByText("远端日志主流程").waitFor();
   await page.keyboard.press("Escape");
 
-  stage = "B33 服务器 Agent 只读命令";
+  setStage("B33 服务器 Agent 只读命令");
   const hostFake = http.createServer(async (request, response) => {
     if (request.url === "/v1/models") {
       response.writeHead(200, { "Content-Type": "application/json" });
@@ -1834,7 +1850,7 @@ try {
     await new Promise((done) => hostFake.close(done));
   }
 
-  stage = "按需订阅服务器指标";
+  setStage("按需订阅服务器指标");
   await page.goto(`${base}/servers`);
   await page.locator(".servers-card").filter({ hasText: "e2e-linux" }).getByText("在线").waitFor();
   await until("列表指标订阅", () => eventFrames.sent.some((frame) => frame.type === "subscribe" && frame.topics?.includes("host.metrics")));
@@ -1857,7 +1873,7 @@ try {
   await page.screenshot({ path: join(artifacts, "server-network-390.png") });
   await page.setViewportSize({ width: 1360, height: 860 });
 
-  stage = "查看服务器并打开终端";
+  setStage("查看服务器并打开终端");
   await page.goto(`${base}/servers/${host.id}/terminal`);
   await page.getByRole("button", { name: "连接", exact: true }).click();
   await verifyIfAsked();
@@ -1894,11 +1910,11 @@ try {
     "/github",
     "/settings/security",
   ]) {
-    stage = `页面渲染 ${path}`;
+    setStage(`页面渲染 ${path}`);
     await page.goto(`${base}${path}`);
     await page.locator("#main .xc-page, #main .notes-layout").first().waitFor();
   }
-  stage = "B41 报错提示常驻、可以展开和复制";
+  setStage("B41 报错提示常驻、可以展开和复制");
   {
     const consoleErrors = [];
     const onConsole = (msg) => {
@@ -1926,7 +1942,7 @@ try {
     page.off("console", onConsole);
     await page.getByRole("button", { name: /全部关闭|关闭/ }).first().click();
   }
-  stage = "手机命令面板";
+  setStage("手机命令面板");
   await page.setViewportSize({ width: 390, height: 180 });
   await page.keyboard.press("Control+k");
   await page.locator(".command-dialog").waitFor();
@@ -1939,7 +1955,7 @@ try {
   assert.ok(paletteBounds.footerBottom <= paletteBounds.viewport - 4, `前缀提示超出屏幕：${JSON.stringify(paletteBounds)}`);
   await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 1360, height: 860 });
-  stage = "吊销代理并停止进程";
+  setStage("吊销代理并停止进程");
   await page.goto(`${base}/settings/devices`);
   const agentRow = page.locator("tr").filter({ hasText: "e2e-linux" });
   await agentRow.waitFor();
@@ -1952,6 +1968,7 @@ try {
   assert.deepEqual(pageErrors, [], `浏览器异常：${pageErrors.join("；")}`);
 
   console.log("B8 端到端主流程通过");
+  printTimings();
 } catch (error) {
   console.error(`B8 失败于「${stage}」:`, error);
   if (page) {
