@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -94,6 +95,11 @@ type davClient struct {
 	http     *http.Client
 	username string
 	password string
+	// origin is the address the user gave. iCloud answers with the address of
+	// the server that holds the account (pNN-contacts.icloud.com). When that
+	// name does not resolve here, the same path is asked from origin, which
+	// passes requests on.
+	origin string
 }
 
 // do sends one request. Redirects are followed by hand, so the method, the body
@@ -113,6 +119,12 @@ func (c *davClient) do(ctx context.Context, method, target, depth, body string) 
 		req.Header.Set("Depth", depth)
 		resp, err := c.http.Do(req)
 		if err != nil {
+			var dnsErr *net.DNSError
+			if o, perr := url.Parse(c.origin); errors.As(err, &dnsErr) && perr == nil && o.Host != "" && o.Host != u.Host {
+				u.Scheme, u.Host = o.Scheme, o.Host
+				target = u.String()
+				continue
+			}
 			return nil, fmt.Errorf("连不上通讯录服务器：%w", err)
 		}
 		raw, rerr := io.ReadAll(io.LimitReader(resp.Body, maxResponse))
@@ -283,7 +295,11 @@ func (m *Module) davClient(cfg syncConfig) *davClient {
 	// redirects are followed in davClient.do, which keeps the method and the login
 	hc2 := *hc
 	hc2.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &davClient{http: &hc2, username: cfg.Username, password: cfg.Password}
+	origin := cfg.Server
+	if origin == "" {
+		origin = icloudServer
+	}
+	return &davClient{http: &hc2, username: cfg.Username, password: cfg.Password, origin: origin}
 }
 
 // syncNow reads the address books and applies them. Only one runs at a time.
