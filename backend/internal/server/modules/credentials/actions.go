@@ -12,8 +12,8 @@ import (
 func (m *Module) registerActions() {
 	m.d.Actions.Register(actions.Action{
 		Name:  "credentials.list",
-		Title: "查看密钥台账",
-		Description: "List the user's API keys, access tokens and SSH keys (facts only, never the secret itself) sorted by what needs attention first. " +
+		Title: "查看密钥",
+		Description: "List the user's API keys, access tokens and SSH keys (facts only, the stored secret is never returned) sorted by what needs attention first. " +
 			"Each has kind, name, platform, account, usedBy (servers and projects it is used on), scopes, hint (last characters, to recognise it), " +
 			"expiresOn and rotatedOn (YYYY-MM-DD, empty if none), expiresIn and rotateDueIn (days, negative when overdue) and status expired, soon, stale, ok or none. " +
 			"Use `q` to find what is used on a server or project, or what belongs to a platform. Optional `kind` filters the list.",

@@ -430,3 +430,60 @@ func TestAIAction(t *testing.T) {
 		t.Fatal("bad kind accepted")
 	}
 }
+
+func TestStoredSecretIsSealedAndNeedsElevation(t *testing.T) {
+	env, _ := setup(t)
+	token := "ghp_" + strings.Repeat("aB3", 12)
+	c := create(t, env, map[string]any{"kind": "access_token", "name": "部署令牌", "secret": token})
+	if !c.HasSecret {
+		t.Fatalf("hasSecret: %+v", c)
+	}
+	// 数据库里是密文，列表和详情不带内容
+	var stored string
+	env.App.Deps.DB.QueryRow("SELECT secret_enc FROM credentials WHERE id = ?", c.Id).Scan(&stored)
+	if stored == "" || strings.Contains(stored, token) {
+		t.Fatalf("secret not sealed: %q", stored)
+	}
+	status, raw := env.Do(http.MethodGet, "/credentials/"+itoa(c.Id), nil, nil)
+	if status != 200 || strings.Contains(string(raw), token) {
+		t.Fatalf("detail leaks the secret: %d %s", status, raw)
+	}
+	status, raw = env.Do(http.MethodGet, "/credentials", nil, nil)
+	if status != 200 || strings.Contains(string(raw), token) {
+		t.Fatalf("list leaks the secret: %d %s", status, raw)
+	}
+
+	// 取出来要提升权限
+	if status, _ := env.Do(http.MethodGet, "/credentials/"+itoa(c.Id)+"/secret", nil, nil); status != http.StatusForbidden {
+		t.Fatalf("reveal without elevation: %d", status)
+	}
+	env.Elevate()
+	var out struct{ Secret string }
+	env.MustDo(http.MethodGet, "/credentials/"+itoa(c.Id)+"/secret", nil, &out)
+	if out.Secret != token {
+		t.Fatalf("revealed: %q", out.Secret)
+	}
+
+	// 改其他字段不动密钥，换密钥和清掉都可以
+	var u api.Credential
+	env.MustDo(http.MethodPatch, "/credentials/"+itoa(c.Id), map[string]any{"name": "新名字"}, &u)
+	env.MustDo(http.MethodGet, "/credentials/"+itoa(c.Id)+"/secret", nil, &out)
+	if !u.HasSecret || out.Secret != token {
+		t.Fatalf("patch kept: %+v %q", u, out.Secret)
+	}
+	env.MustDo(http.MethodPost, "/credentials/"+itoa(c.Id)+"/rotate", map[string]any{"secret": "new-value"}, &u)
+	env.MustDo(http.MethodGet, "/credentials/"+itoa(c.Id)+"/secret", nil, &out)
+	if out.Secret != "new-value" {
+		t.Fatalf("rotated secret: %q", out.Secret)
+	}
+	env.MustDo(http.MethodPatch, "/credentials/"+itoa(c.Id), map[string]any{"secret": ""}, &u)
+	if u.HasSecret {
+		t.Fatalf("cleared: %+v", u)
+	}
+	if status, _ := env.Do(http.MethodGet, "/credentials/"+itoa(c.Id)+"/secret", nil, nil); status != http.StatusNotFound {
+		t.Fatalf("reveal after clear: %d", status)
+	}
+	if status, _ := env.Do(http.MethodPost, "/credentials", map[string]any{"kind": "other", "name": "x", "secret": strings.Repeat("长", 20001)}, nil); status != http.StatusBadRequest {
+		t.Fatalf("too long: %d", status)
+	}
+}

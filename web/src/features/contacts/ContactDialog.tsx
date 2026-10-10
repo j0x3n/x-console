@@ -23,6 +23,13 @@ import {
   validDate,
 } from "./format";
 
+/** 每行一项，去掉空行。 */
+const lines = (text: string) =>
+  text
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -62,6 +69,8 @@ export default function ContactDialog({
   const [every, setEvery] = useState("");
   const [remind, setRemind] = useState("7, 1");
   const [notes, setNotes] = useState("");
+  const [phones, setPhones] = useState("");
+  const [emails, setEmails] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -81,6 +90,8 @@ export default function ContactDialog({
     setEvery(c?.contactEveryDays ? String(c.contactEveryDays) : "");
     setRemind(c ? formatDays(c.remindDays) : "7, 1");
     setNotes(c?.notes ?? "");
+    setPhones(c?.phones.join("\n") ?? "");
+    setEmails(c?.emails.join("\n") ?? "");
   }, [open, c, defaultGroup]);
 
   const saving = create.isPending || update.isPending;
@@ -113,6 +124,8 @@ export default function ContactDialog({
       contactEveryDays: period,
       remindDays: days,
       notes,
+      phones: lines(phones),
+      emails: lines(emails),
     };
     try {
       if (c) await update.mutateAsync({ id: c.id, body });
@@ -274,6 +287,28 @@ export default function ContactDialog({
             <small>
               {t("For example 7, 1. You are also told on the day itself.")}
             </small>
+          </label>
+        </div>
+        <div className="contacts-form-row">
+          <label className="xc-field">
+            <span>{t("Phone")}</span>
+            <textarea
+              className="xc-input"
+              rows={2}
+              value={phones}
+              onChange={(e) => setPhones(e.target.value)}
+            />
+            <small>{t("One per line.")}</small>
+          </label>
+          <label className="xc-field">
+            <span>{t("Email")}</span>
+            <textarea
+              className="xc-input"
+              rows={2}
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+            />
+            <small>{t("One per line.")}</small>
           </label>
         </div>
         <div className="xc-field">

@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for ContactEventKind.
@@ -90,20 +91,25 @@ type Contact struct {
 	ContactDueIn     *int           `json:"contactDueIn,omitempty"`
 	ContactEveryDays int            `json:"contactEveryDays"`
 	CreatedAt        time.Time      `json:"createdAt"`
+	Emails           []string       `json:"emails"`
 	Events           []ContactEvent `json:"events"`
 	Group            ContactGroup   `json:"group"`
 	Id               int64          `json:"id"`
 
 	// LastContactOn YYYY-MM-DD，空表示没记过
-	LastContactOn  string        `json:"lastContactOn"`
-	Name           string        `json:"name"`
-	NextEventIn    *int          `json:"nextEventIn,omitempty"`
-	NextEventLabel *string       `json:"nextEventLabel,omitempty"`
-	Notes          string        `json:"notes"`
-	RemindDays     []int         `json:"remindDays"`
-	SinceContact   *int          `json:"sinceContact,omitempty"`
-	Status         ContactStatus `json:"status"`
-	UpdatedAt      time.Time     `json:"updatedAt"`
+	LastContactOn  string   `json:"lastContactOn"`
+	Name           string   `json:"name"`
+	NextEventIn    *int     `json:"nextEventIn,omitempty"`
+	NextEventLabel *string  `json:"nextEventLabel,omitempty"`
+	Notes          string   `json:"notes"`
+	Phones         []string `json:"phones"`
+	RemindDays     []int    `json:"remindDays"`
+	SinceContact   *int     `json:"sinceContact,omitempty"`
+
+	// Source 联系人从哪里来：空是手动建的，vcard 是导入文件，icloud 是同步
+	Source    string        `json:"source"`
+	Status    ContactStatus `json:"status"`
+	UpdatedAt time.Time     `json:"updatedAt"`
 }
 
 // ContactEvent defines model for ContactEvent.
@@ -142,14 +148,28 @@ type ContactEventKind string
 // ContactGroup defines model for ContactGroup.
 type ContactGroup string
 
+// ContactImportResult defines model for ContactImportResult.
+type ContactImportResult struct {
+	Created int `json:"created"`
+
+	// Skipped 没有名字，或者按设置跳过的
+	Skipped int `json:"skipped"`
+
+	// Total 文件里的联系人数
+	Total   int `json:"total"`
+	Updated int `json:"updated"`
+}
+
 // ContactInput defines model for ContactInput.
 type ContactInput struct {
 	ContactEveryDays *int                 `json:"contactEveryDays,omitempty"`
+	Emails           *[]string            `json:"emails,omitempty"`
 	Events           *[]ContactEventInput `json:"events,omitempty"`
 	Group            *ContactGroup        `json:"group,omitempty"`
 	LastContactOn    *string              `json:"lastContactOn,omitempty"`
 	Name             string               `json:"name"`
 	Notes            *string              `json:"notes,omitempty"`
+	Phones           *[]string            `json:"phones,omitempty"`
 	RemindDays       *[]int               `json:"remindDays,omitempty"`
 }
 
@@ -157,11 +177,13 @@ type ContactInput struct {
 type ContactPatch struct {
 	Archived         *bool                `json:"archived,omitempty"`
 	ContactEveryDays *int                 `json:"contactEveryDays,omitempty"`
+	Emails           *[]string            `json:"emails,omitempty"`
 	Events           *[]ContactEventInput `json:"events,omitempty"`
 	Group            *ContactGroup        `json:"group,omitempty"`
 	LastContactOn    *string              `json:"lastContactOn,omitempty"`
 	Name             *string              `json:"name,omitempty"`
 	Notes            *string              `json:"notes,omitempty"`
+	Phones           *[]string            `json:"phones,omitempty"`
 	RemindDays       *[]int               `json:"remindDays,omitempty"`
 }
 
@@ -173,6 +195,43 @@ type ContactSummary struct {
 	Overdue int `json:"overdue"`
 	Soon    int `json:"soon"`
 	Total   int `json:"total"`
+}
+
+// ContactSyncInput defines model for ContactSyncInput.
+type ContactSyncInput struct {
+	// OnlyWithDates 只同步有生日或纪念日的联系人
+	OnlyWithDates *bool `json:"onlyWithDates,omitempty"`
+
+	// Password 应用专用密码
+	Password string `json:"password"`
+
+	// Server 不填就是 https://contacts.icloud.com
+	Server *string `json:"server,omitempty"`
+
+	// Username Apple ID
+	Username string `json:"username"`
+}
+
+// ContactSyncStatus defines model for ContactSyncStatus.
+type ContactSyncStatus struct {
+	Configured bool `json:"configured"`
+
+	// Created 上次同步新建的
+	Created int `json:"created"`
+
+	// LastError 上次同步失败的原因，成功为空
+	LastError     *string    `json:"lastError,omitempty"`
+	LastSyncAt    *time.Time `json:"lastSyncAt,omitempty"`
+	OnlyWithDates *bool      `json:"onlyWithDates,omitempty"`
+	Server        *string    `json:"server,omitempty"`
+	Syncing       bool       `json:"syncing"`
+
+	// Total 上次同步看到的联系人数
+	Total int `json:"total"`
+
+	// Updated 上次同步更新的
+	Updated  int     `json:"updated"`
+	Username *string `json:"username,omitempty"`
 }
 
 // ContactTouch defines model for ContactTouch.
@@ -195,8 +254,24 @@ type ListContactsParams struct {
 	Archived *bool `form:"archived,omitempty" json:"archived,omitempty"`
 }
 
+// ImportContactsMultipartBody defines parameters for ImportContacts.
+type ImportContactsMultipartBody struct {
+	File *openapi_types.File `json:"file,omitempty"`
+}
+
+// ImportContactsParams defines parameters for ImportContacts.
+type ImportContactsParams struct {
+	OnlyWithDates *bool `form:"onlyWithDates,omitempty" json:"onlyWithDates,omitempty"`
+}
+
 // CreateContactJSONRequestBody defines body for CreateContact for application/json ContentType.
 type CreateContactJSONRequestBody = ContactInput
+
+// ImportContactsMultipartRequestBody defines body for ImportContacts for multipart/form-data ContentType.
+type ImportContactsMultipartRequestBody ImportContactsMultipartBody
+
+// SetContactSyncJSONRequestBody defines body for SetContactSync for application/json ContentType.
+type SetContactSyncJSONRequestBody = ContactSyncInput
 
 // UpdateContactJSONRequestBody defines body for UpdateContact for application/json ContentType.
 type UpdateContactJSONRequestBody = ContactPatch
@@ -212,6 +287,21 @@ type ServerInterface interface {
 
 	// (POST /contacts)
 	CreateContact(w http.ResponseWriter, r *http.Request)
+
+	// (POST /contacts/import)
+	ImportContacts(w http.ResponseWriter, r *http.Request, params ImportContactsParams)
+
+	// (DELETE /contacts/sync)
+	DeleteContactSync(w http.ResponseWriter, r *http.Request)
+
+	// (GET /contacts/sync)
+	GetContactSync(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /contacts/sync)
+	SetContactSync(w http.ResponseWriter, r *http.Request)
+
+	// (POST /contacts/sync/run)
+	RunContactSync(w http.ResponseWriter, r *http.Request)
 
 	// (DELETE /contacts/{contactId})
 	DeleteContact(w http.ResponseWriter, r *http.Request, contactId ContactId)
@@ -237,6 +327,31 @@ func (_ Unimplemented) ListContacts(w http.ResponseWriter, r *http.Request, para
 
 // (POST /contacts)
 func (_ Unimplemented) CreateContact(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /contacts/import)
+func (_ Unimplemented) ImportContacts(w http.ResponseWriter, r *http.Request, params ImportContactsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /contacts/sync)
+func (_ Unimplemented) DeleteContactSync(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /contacts/sync)
+func (_ Unimplemented) GetContactSync(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /contacts/sync)
+func (_ Unimplemented) SetContactSync(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /contacts/sync/run)
+func (_ Unimplemented) RunContactSync(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -333,6 +448,95 @@ func (siw *ServerInterfaceWrapper) CreateContact(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateContact(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportContacts operation middleware
+func (siw *ServerInterfaceWrapper) ImportContacts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ImportContactsParams
+
+	// ------------- Optional query parameter "onlyWithDates" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "onlyWithDates", r.URL.Query(), &params.OnlyWithDates, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "onlyWithDates"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "onlyWithDates", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportContacts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteContactSync operation middleware
+func (siw *ServerInterfaceWrapper) DeleteContactSync(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteContactSync(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetContactSync operation middleware
+func (siw *ServerInterfaceWrapper) GetContactSync(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetContactSync(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetContactSync operation middleware
+func (siw *ServerInterfaceWrapper) SetContactSync(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetContactSync(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RunContactSync operation middleware
+func (siw *ServerInterfaceWrapper) RunContactSync(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RunContactSync(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -564,6 +768,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/contacts", wrapper.CreateContact)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/contacts/import", wrapper.ImportContacts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/contacts/sync", wrapper.DeleteContactSync)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/contacts/sync", wrapper.GetContactSync)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/contacts/sync", wrapper.SetContactSync)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/contacts/sync/run", wrapper.RunContactSync)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/contacts/{contactId}", wrapper.DeleteContact)

@@ -29,7 +29,7 @@ function matchesView(c: CredentialItem, view: View) {
   return view === "all" || c.status === view;
 }
 
-/** 密钥台账（B120）：记 API 密钥、令牌和 SSH 密钥的用处和期限，不存密钥本身。 */
+/** 密钥（B120）：记 API 密钥、令牌和 SSH 密钥的用处和期限，内容可以加密存。 */
 export default function CredentialsPage() {
   const t = useT();
   const [params, setParams] = useSearchParams();
@@ -91,7 +91,7 @@ export default function CredentialsPage() {
       <EmptyState title={t("No credentials yet")} icon={<KeyRound size={28} />}>
         <span>
           {t(
-            "Keep a record of your API keys, tokens and SSH keys: where each one is used and when it expires. The key itself is never stored here.",
+            "Keep your API keys, tokens and SSH keys here: where each one is used and when it expires. You can also save the key itself, encrypted.",
           )}
         </span>
         <button

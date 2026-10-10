@@ -24,6 +24,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contacts/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description 导入 vCard（.vcf）文件，Google 通讯录、iCloud、手机都能导出这种文件。multipart，字段名 file，最大 20 MB。
+         *     有 UID 的按 UID 对上已有的联系人；没有 UID 的按名称对上。对上了就更新姓名、电话、邮箱和从文件来的日期，
+         *     不动分组、联系周期、提醒天数、上次联系和备注。没对上的新建。
+         *     参数 onlyWithDates 为 true 时，只导入有生日或纪念日的联系人。
+         */
+        post: operations["importContacts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contacts/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description iCloud 通讯录同步的状态。没设置时 configured 为 false。 */
+        get: operations["getContactSync"];
+        /**
+         * @description 设置 iCloud 通讯录同步。要提升权限。Apple ID 登录要用“应用专用密码”（appleid.apple.com 里生成），不能用 Apple ID 的登录密码。
+         *     保存前先登录试一次，不通过就回 400，不保存。密码加密存储，不会再返回。server 不填就是 iCloud，必须是 https。
+         *     设置成功后马上同步一次。
+         */
+        put: operations["setContactSync"];
+        post?: never;
+        /** @description 停止同步并删掉保存的账号。已经同步下来的联系人不动。要提升权限。 */
+        delete: operations["deleteContactSync"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contacts/sync/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 现在就同步一次。没设置时回 409。同步是单向的，iCloud 到这里，不会改 iCloud 上的联系人，也不会删本地的联系人。 */
+        post: operations["runContactSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contacts/{contactId}": {
         parameters: {
             query?: never;
@@ -108,6 +170,10 @@ export interface components {
             contactEveryDays: number;
             remindDays: number[];
             notes: string;
+            phones: string[];
+            emails: string[];
+            /** @description 联系人从哪里来：空是手动建的，vcard 是导入文件，icloud 是同步 */
+            source: string;
             status: components["schemas"]["ContactStatus"];
             nextEventIn?: number | null;
             nextEventLabel?: string;
@@ -128,6 +194,8 @@ export interface components {
             contactEveryDays?: number;
             remindDays?: number[];
             notes?: string;
+            phones?: string[];
+            emails?: string[];
         };
         ContactPatch: {
             name?: string;
@@ -137,7 +205,44 @@ export interface components {
             contactEveryDays?: number;
             remindDays?: number[];
             notes?: string;
+            phones?: string[];
+            emails?: string[];
             archived?: boolean;
+        };
+        ContactImportResult: {
+            /** @description 文件里的联系人数 */
+            total: number;
+            created: number;
+            updated: number;
+            /** @description 没有名字，或者按设置跳过的 */
+            skipped: number;
+        };
+        ContactSyncInput: {
+            /** @description Apple ID */
+            username: string;
+            /** @description 应用专用密码 */
+            password: string;
+            /** @description 不填就是 https://contacts.icloud.com */
+            server?: string;
+            /** @description 只同步有生日或纪念日的联系人 */
+            onlyWithDates?: boolean;
+        };
+        ContactSyncStatus: {
+            configured: boolean;
+            username?: string;
+            server?: string;
+            onlyWithDates?: boolean;
+            syncing: boolean;
+            /** Format: date-time */
+            lastSyncAt?: string | null;
+            /** @description 上次同步失败的原因，成功为空 */
+            lastError?: string;
+            /** @description 上次同步看到的联系人数 */
+            total: number;
+            /** @description 上次同步新建的 */
+            created: number;
+            /** @description 上次同步更新的 */
+            updated: number;
         };
         ContactTouch: {
             /** @description 不填就是今天 */
@@ -225,6 +330,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Contact"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    importContacts: {
+        parameters: {
+            query?: {
+                onlyWithDates?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 导入结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactImportResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getContactSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactSyncStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setContactSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactSyncInput"];
+            };
+        };
+        responses: {
+            /** @description 状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactSyncStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteContactSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已停止 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    runContactSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactSyncStatus"];
                 };
             };
             default: components["responses"]["Error"];

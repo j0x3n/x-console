@@ -82,6 +82,9 @@ type Credential struct {
 	// ExpiresOn 到期日，YYYY-MM-DD，没有为空字符串
 	ExpiresOn string `json:"expiresOn"`
 
+	// HasSecret 是否存了密钥内容。内容本身不在这里返回
+	HasSecret bool `json:"hasSecret"`
+
 	// Hint 识别用的尾号或指纹前几位，最多 16 个字符
 	Hint     string         `json:"hint"`
 	Id       int64          `json:"id"`
@@ -127,7 +130,10 @@ type CredentialInput struct {
 	RotateEveryDays *int           `json:"rotateEveryDays,omitempty"`
 	RotatedOn       *string        `json:"rotatedOn,omitempty"`
 	Scopes          *string        `json:"scopes,omitempty"`
-	UsedBy          *[]string      `json:"usedBy,omitempty"`
+
+	// Secret 密钥内容，加密存储，最多 20000 个字符
+	Secret *string   `json:"secret,omitempty"`
+	UsedBy *[]string `json:"usedBy,omitempty"`
 }
 
 // CredentialKind defines model for CredentialKind.
@@ -148,7 +154,10 @@ type CredentialPatch struct {
 	RotateEveryDays *int            `json:"rotateEveryDays,omitempty"`
 	RotatedOn       *string         `json:"rotatedOn,omitempty"`
 	Scopes          *string         `json:"scopes,omitempty"`
-	UsedBy          *[]string       `json:"usedBy,omitempty"`
+
+	// Secret 不给不改，空字符串清掉
+	Secret *string   `json:"secret,omitempty"`
+	UsedBy *[]string `json:"usedBy,omitempty"`
 }
 
 // CredentialRotate defines model for CredentialRotate.
@@ -161,6 +170,9 @@ type CredentialRotate struct {
 
 	// RotatedOn 默认今天
 	RotatedOn *string `json:"rotatedOn,omitempty"`
+
+	// Secret 新的密钥内容，不给就保持原样
+	Secret *string `json:"secret,omitempty"`
 }
 
 // CredentialStatus expired 已过期，soon 在这一条最大的提醒天数内到期（没设提醒时 30 天），
@@ -220,6 +232,9 @@ type ServerInterface interface {
 
 	// (POST /credentials/{credentialId}/rotate)
 	RotateCredential(w http.ResponseWriter, r *http.Request, credentialId CredentialId)
+
+	// (GET /credentials/{credentialId}/secret)
+	GetCredentialSecret(w http.ResponseWriter, r *http.Request, credentialId CredentialId)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -253,6 +268,11 @@ func (_ Unimplemented) UpdateCredential(w http.ResponseWriter, r *http.Request, 
 
 // (POST /credentials/{credentialId}/rotate)
 func (_ Unimplemented) RotateCredential(w http.ResponseWriter, r *http.Request, credentialId CredentialId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /credentials/{credentialId}/secret)
+func (_ Unimplemented) GetCredentialSecret(w http.ResponseWriter, r *http.Request, credentialId CredentialId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -442,6 +462,32 @@ func (siw *ServerInterfaceWrapper) RotateCredential(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetCredentialSecret operation middleware
+func (siw *ServerInterfaceWrapper) GetCredentialSecret(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "credentialId" -------------
+	var credentialId CredentialId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "credentialId", chi.URLParam(r, "credentialId"), &credentialId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "credentialId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCredentialSecret(w, r, credentialId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -569,6 +615,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/credentials/{credentialId}", wrapper.UpdateCredential)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/credentials/{credentialId}/secret", wrapper.GetCredentialSecret)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/credentials/{credentialId}/rotate", wrapper.RotateCredential)

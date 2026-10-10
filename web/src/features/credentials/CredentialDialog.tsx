@@ -27,7 +27,7 @@ interface Props {
   defaultKind?: CredentialKind;
 }
 
-/** 新建或修改一条记录。只记信息，服务端会拒绝像密钥本身的内容。 */
+/** 新建或修改一条记录。密钥内容单独一栏，加密存储。 */
 export default function CredentialDialog({
   open,
   onClose,
@@ -50,6 +50,8 @@ export default function CredentialDialog({
   const [rotateEvery, setRotateEvery] = useState("");
   const [remind, setRemind] = useState("30, 7");
   const [notes, setNotes] = useState("");
+  const [secret, setSecret] = useState("");
+  const [clearSecret, setClearSecret] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -68,6 +70,8 @@ export default function CredentialDialog({
     setRotateEvery(c?.rotateEveryDays ? String(c.rotateEveryDays) : "");
     setRemind(c ? formatDays(c.remindDays) : "30, 7");
     setNotes(c?.notes ?? "");
+    setSecret("");
+    setClearSecret(false);
   }, [open, c, defaultKind]);
 
   const saving = create.isPending || update.isPending;
@@ -101,6 +105,8 @@ export default function CredentialDialog({
       rotateEveryDays: every,
       remindDays: days,
       notes,
+      // 没填就不传，服务端保持原样；勾了清除就传空字符串
+      ...(secret ? { secret } : clearSecret ? { secret: "" } : {}),
     };
     try {
       if (c) await update.mutateAsync({ id: c.id, body });
@@ -121,7 +127,9 @@ export default function CredentialDialog({
     >
       <form onSubmit={submit}>
         <p className="credentials-warning">
-          {t("Do not enter the key itself. Only record facts about it.")}
+          {t(
+            "Only the key content is stored encrypted. Do not put a key in the other fields.",
+          )}
         </p>
         <div className="credentials-form-row">
           <label className="xc-field credentials-narrow">
@@ -150,6 +158,33 @@ export default function CredentialDialog({
             />
           </label>
         </div>
+        <label className="xc-field">
+          <span>{t("Key content")}</span>
+          <textarea
+            className="xc-input credentials-secret"
+            rows={3}
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            maxLength={20000}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder={
+              c?.hasSecret
+                ? t("Saved. Leave empty to keep it.")
+                : t("Paste the key or token here")
+            }
+          />
+          {c?.hasSecret && !secret && (
+            <label className="credentials-check">
+              <input
+                type="checkbox"
+                checked={clearSecret}
+                onChange={(e) => setClearSecret(e.target.checked)}
+              />
+              <span>{t("Remove the saved key content")}</span>
+            </label>
+          )}
+        </label>
         <div className="credentials-form-row">
           <label className="xc-field">
             <span>{t("Platform")}</span>

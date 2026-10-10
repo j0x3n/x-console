@@ -55,6 +55,62 @@ paths:
               schema: { $ref: "#/components/schemas/Document" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /documents/kinds:
+    get:
+      operationId: listDocumentKinds
+      tags: [documents]
+      description: 用户自己加的类型（比如银行卡、会员卡），带各自有几条档案。内置类型不在这里。
+      responses:
+        "200":
+          description: 自定义类型
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CustomDocumentKind" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createDocumentKind
+      tags: [documents]
+      description: |
+        加一个自定义类型。名称 1 到 20 个字符，不能和已有的类型重名，最多 30 个。
+        同名的已经有了就直接返回它，不报错。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: 新类型
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CustomDocumentKind" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteDocumentKind
+      tags: [documents]
+      description: 删掉一个自定义类型。还有档案（包括已归档的）用着它时回 409。
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /documents/{documentId}:
     parameters:
       - $ref: "#/components/parameters/DocumentId"
@@ -148,7 +204,16 @@ components:
   schemas:
     DocumentKind:
       type: string
-      enum: [passport, id_card, driver_license, visa, contract, insurance, item, other]
+      description: |
+        内置类型：passport、id_card、driver_license、visa、contract、insurance、item、other。
+        用户自己加的类型写成 `c:` 加名称，比如 `c:银行卡`，要先用 POST /documents/kinds 加。
+    CustomDocumentKind:
+      type: object
+      required: [key, name, count]
+      properties:
+        key: { type: string, description: "档案里用的类型值，`c:` 加名称" }
+        name: { type: string }
+        count: { type: integer, description: 用这个类型的档案数，包括已归档的 }
     DocumentStatus:
       type: string
       description: expired 已过期，soon 90 天内到期（或在该档案自己设的最大提醒天数内），ok 还早，none 没有到期日

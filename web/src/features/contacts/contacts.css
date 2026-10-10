@@ -207,3 +207,60 @@
     grid-row: 2;
   }
 }
+
+/* 导入和同步 */
+.contacts-import {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.contacts-import:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+.contacts-import h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: var(--fs-14);
+}
+.contacts-import p {
+  margin: 0;
+}
+.contacts-import .contacts-form-row {
+  align-self: stretch;
+}
+.contacts-import-ok {
+  font-weight: 500;
+}
+.contacts-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.contacts-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.contacts-reach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 8px 0;
+}
+.contacts-reach a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--xc-info);
+  overflow-wrap: anywhere;
+}
+.contacts-source {
+  margin: 4px 0;
+  font-size: var(--fs-12);
+}

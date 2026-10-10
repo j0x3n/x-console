@@ -80,6 +80,7 @@ const base = {
   usedBy: [] as string[],
   scopes: "",
   hint: "",
+  hasSecret: false,
   createdOn: "",
   rotatedOn: "",
   expiresOn: "",
@@ -95,6 +96,7 @@ const token = {
   id: 1,
   kind: "access_token",
   name: "部署令牌",
+  hasSecret: true,
   platform: "GitHub",
   account: "me@example.com",
   usedBy: ["服务器 hk-1", "服务器 hk-2", "项目 x-console"],
@@ -142,7 +144,7 @@ afterEach(() => {
 describe("CredentialsPage B120", () => {
   it("接口还没上线时显示还没上线", async () => {
     renderIt();
-    expect(await screen.findByText("密钥台账还没上线")).toBeTruthy();
+    expect(await screen.findByText("密钥还没上线")).toBeTruthy();
   });
 
   it("没有记录时引导新建，保存时带上默认提醒天数", async () => {
@@ -158,7 +160,9 @@ describe("CredentialsPage B120", () => {
     expect(await screen.findByText("还没有记录")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: /新建记录/ })[0]!);
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("不要填密钥本身，只记信息。")).toBeTruthy();
+    expect(
+      within(dialog).getByText("只有“密钥内容”会加密存储，别的栏不要贴密钥。"),
+    ).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
     expect(await within(dialog).findByText("请填写名称")).toBeTruthy();
     fireEvent.change(within(dialog).getByLabelText("名称"), {
@@ -217,7 +221,7 @@ describe("CredentialsPage B120", () => {
       status: 400,
       body: {
         code: "invalid",
-        message: "这看起来是密钥本身，台账里只记信息，不要填密钥",
+        message: "这看起来是密钥本身，请填到“密钥内容”里，其他栏不加密",
       },
     }));
     renderIt("/credentials?new=1");
@@ -293,6 +297,38 @@ describe("CredentialsPage B120", () => {
     );
     expect(screen.queryByText("旧密钥")).toBeNull();
     expect(screen.getByText("部署令牌")).toBeTruthy();
+  });
+
+  it("存了密钥内容的记录：默认不显示，点显示才取出来，保存时可以带上新的内容", async () => {
+    serve();
+    api.routes.set("GET /credentials/1/secret", () => ({
+      status: 200,
+      body: { secret: "ghp_secret_value" },
+    }));
+    api.routes.set("PATCH /credentials/1", () => ({
+      status: 200,
+      body: token,
+    }));
+    renderIt();
+    fireEvent.click(await screen.findByText("部署令牌"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("已加密保存")).toBeTruthy();
+    expect(within(dialog).queryByText("ghp_secret_value")).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: /显示/ }));
+    expect(await within(dialog).findByText("ghp_secret_value")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: /隐藏/ }));
+    expect(within(dialog).queryByText("ghp_secret_value")).toBeNull();
+
+    // 修改时不填内容就不带 secret，勾选清除才带空字符串
+    fireEvent.click(within(dialog).getByRole("button", { name: /编辑/ }));
+    const edit = (await screen.findAllByRole("dialog")).at(-1)!;
+    fireEvent.click(within(edit).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.method === "PATCH")).toBe(true),
+    );
+    expect(
+      api.calls.find((c) => c.method === "PATCH")?.body as object,
+    ).not.toHaveProperty("secret");
   });
 
   it("显示已归档会带上 archived 参数", async () => {

@@ -15,7 +15,7 @@ func (m *Module) registerActions() {
 		Description: "List the user's papers and warranties (passport, ID, visa, contract, insurance, items) sorted by expiry. " +
 			"Each has kind, name, holder, expiresOn (YYYY-MM-DD, empty if none), daysLeft (negative when expired) and status expired, soon, ok or none. " +
 			"Document numbers are not returned. Optional `kind` and `q` filter the list.",
-		Input:  actions.Schema(`{"type":"object","properties":{"kind":{"type":"string","enum":["passport","id_card","driver_license","visa","contract","insurance","item","other"]},"q":{"type":"string"}},"additionalProperties":false}`),
+		Input:  actions.Schema(`{"type":"object","properties":{"kind":{"type":"string","description":"passport, id_card, driver_license, visa, contract, insurance, item, other, or c:<name> for a type the user added"},"q":{"type":"string"}},"additionalProperties":false}`),
 		Effect: actions.Read,
 		Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var in struct {

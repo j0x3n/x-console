@@ -170,6 +170,71 @@ describe("DocumentsPage B115", () => {
     });
   });
 
+  it("可以添加自己的类型，新建的档案用它", async () => {
+    serve();
+    let kinds: Array<{ key: string; name: string; count: number }> = [];
+    api.routes.set("GET /documents/kinds", () => ({
+      status: 200,
+      body: { items: kinds },
+    }));
+    api.routes.set("POST /documents/kinds", (body) => {
+      const name = (body as { name: string }).name;
+      kinds = [{ key: `c:${name}`, name, count: 0 }];
+      return { status: 201, body: kinds[0] };
+    });
+    api.routes.set("POST /documents", () => ({ status: 201, body: passport }));
+    renderIt("/documents?new=1");
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("类型"), {
+      target: { value: "__new__" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("新类型名称"), {
+      target: { value: "银行卡" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "添加" }));
+    await waitFor(() =>
+      expect(
+        (within(dialog).getByLabelText("类型") as HTMLSelectElement).value,
+      ).toBe("c:银行卡"),
+    );
+    fireEvent.change(within(dialog).getByLabelText("名称"), {
+      target: { value: "招行卡" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find((c) => c.method === "POST" && c.path === "/documents")
+          ?.body,
+      ).toMatchObject({ kind: "c:银行卡", name: "招行卡" }),
+    );
+  });
+
+  it("新建时可以选多张照片，选了能看到预览，也能去掉", async () => {
+    serve();
+    URL.createObjectURL = vi.fn(() => "blob:preview");
+    URL.revokeObjectURL = vi.fn();
+    renderIt("/documents?new=1");
+    const dialog = await screen.findByRole("dialog");
+    const input = within(dialog).getByTestId("photo-input");
+    expect(input.getAttribute("accept")).toBe("image/*");
+    expect(input.hasAttribute("multiple")).toBe(true);
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File(["a"], "正面.jpg", { type: "image/jpeg" }),
+          new File(["b"], "反面.jpg", { type: "image/jpeg" }),
+        ],
+      },
+    });
+    expect(await within(dialog).findByAltText("正面.jpg")).toBeTruthy();
+    expect(within(dialog).getByAltText("反面.jpg")).toBeTruthy();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "移除 正面.jpg" }),
+    );
+    expect(within(dialog).queryByAltText("正面.jpg")).toBeNull();
+    expect(within(dialog).getByAltText("反面.jpg")).toBeTruthy();
+  });
+
   it("提醒天数写错时不提交", async () => {
     serve();
     renderIt("/documents?new=1");
@@ -233,6 +298,25 @@ describe("DocumentsPage B115", () => {
     );
   });
 
+  it("图片显示成缩略图，点开是大图", async () => {
+    serve();
+    renderIt();
+    fireEvent.click(await screen.findByText("李四的护照"));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /查看照片 护照.jpg/ }),
+    );
+    const viewer = screen.getAllByRole("dialog").at(-1)!;
+    expect(within(viewer).getAllByAltText("护照.jpg").length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      within(viewer)
+        .getAllByAltText("护照.jpg")
+        .some((img) => img.getAttribute("src")?.includes("/content?inline=1")),
+    ).toBe(true);
+  });
+
   it("详情里续期只改到期日", async () => {
     serve();
     api.routes.set("PATCH /documents/1", () => ({
@@ -243,7 +327,7 @@ describe("DocumentsPage B115", () => {
     fireEvent.click(await screen.findByText("李四的护照"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("E12345678")).toBeTruthy();
-    expect(within(dialog).getByText("护照.jpg")).toBeTruthy();
+    expect(within(dialog).getByAltText("护照.jpg")).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "续期" }));
     fireEvent.change(within(dialog).getByLabelText("新的到期日"), {
       target: { value: "2036-10-30" },

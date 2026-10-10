@@ -18,17 +18,17 @@ const CredentialsPage = lazy(() => import("./CredentialsPage"));
 registerCommands([
   {
     id: "credentials.open",
-    title: "打开密钥台账",
-    group: "密钥台账",
+    title: "打开密钥",
+    group: "密钥",
     icon: KeyRound,
     keywords:
-      "credentials api key token ssh secret rotate expire 密钥 令牌 台账 到期 更换",
+      "credentials api key token ssh secret rotate expire 密钥 令牌 到期 更换",
     run: ({ navigate }) => navigate("/credentials"),
   },
   {
     id: "credentials.new",
     title: "新建密钥记录",
-    group: "密钥台账",
+    group: "密钥",
     icon: Plus,
     keywords: "credential new token key 新建 密钥 令牌",
     run: ({ navigate }) => navigate("/credentials?new=1"),

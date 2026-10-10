@@ -156,7 +156,7 @@ func expiryBody(v api.Credential) string {
 	if u := usedByText(v); u != "" {
 		body += "，" + u
 	}
-	return body + "。换完以后在台账里点“已更换”"
+	return body + "。换完以后在密钥页点“已更换”"
 }
 
 func staleBody(v api.Credential) string {

@@ -2,7 +2,7 @@ import { registerZh } from "../../lib/i18n";
 
 registerZh({
   // B117
-  "Read later": "稍后读",
+  "Read later": "稍后阅读",
   "Add link": "添加链接",
   "Web address": "网址",
   "Add a note (optional)": "备注（可选）",
@@ -50,7 +50,7 @@ registerZh({
   "Please enter a web address": "请填写网址",
   "Saving the shared link…": "正在保存分享的链接",
   "No web address was found in what you shared.": "分享的内容里没有找到网址。",
-  "Go to Read later": "去稍后读",
+  "Go to Read later": "去稍后阅读",
   "Try again": "重试",
   "Telegram: send a link to the bot to save it.":
     "给 Telegram 机器人发一个链接也能存。",

@@ -13,7 +13,7 @@ const maxSearchResults = 20
 func (m *Module) registerActions() {
 	m.d.Actions.Register(actions.Action{
 		Name:  "readlater.search",
-		Title: "查找稍后读",
+		Title: "查找稍后阅读",
 		Description: "Search the links the user saved to read later. Matches the title, address, summary, note and the saved article text. " +
 			"Returns up to 20 items with id, title, url, site, summary, tags, read and createdAt. The article text is not returned. " +
 			"Optional `q` (search words), `tag` and `view` (unread, read or all; default all).",
@@ -45,7 +45,7 @@ func (m *Module) registerActions() {
 	})
 	m.d.Actions.Register(actions.Action{
 		Name:        "readlater.add",
-		Title:       "存到稍后读",
+		Title:       "存到稍后阅读",
 		Description: "Save a link to read later. The page is fetched in the background and summarised. `url` must start with http or https. Optional `note`.",
 		Input:       actions.Schema(`{"type":"object","properties":{"url":{"type":"string"},"note":{"type":"string"}},"required":["url"],"additionalProperties":false}`),
 		Effect:      actions.Write,

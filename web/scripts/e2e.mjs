@@ -380,6 +380,32 @@ try {
     "新建快到期的档案应该立刻有一条到期提醒",
   );
 
+  // 自己加的类型（银行卡之类）：能添加，能给档案用，没有档案用时能删
+  const kindAdd = await page.context().request.post(`${base}/api/v1/documents/kinds`, {
+    headers: { "X-Requested-With": "x-console" }, data: { name: "银行卡" },
+  });
+  assert.equal(kindAdd.status(), 201, await kindAdd.text());
+  assert.equal((await api("/documents/kinds")).items[0].key, "c:银行卡");
+  const kindDoc = await page.context().request.post(`${base}/api/v1/documents`, {
+    headers: { "X-Requested-With": "x-console" }, data: { kind: "c:银行卡", name: "端到端银行卡" },
+  });
+  assert.equal(kindDoc.status(), 201, await kindDoc.text());
+  const kindDocId = (await kindDoc.json()).id;
+  const kindBusy = await page.context().request.delete(`${base}/api/v1/documents/kinds?name=${encodeURIComponent("银行卡")}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(kindBusy.status(), 409, "还有档案在用的类型不能删");
+  await page.context().request.patch(`${base}/api/v1/documents/${kindDocId}`, {
+    headers: { "X-Requested-With": "x-console" }, data: { kind: "other" },
+  });
+  const kindDel = await page.context().request.delete(`${base}/api/v1/documents/kinds?name=${encodeURIComponent("银行卡")}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(kindDel.status(), 204, await kindDel.text());
+  await page.context().request.patch(`${base}/api/v1/documents/${kindDocId}`, {
+    headers: { "X-Requested-With": "x-console" }, data: { archived: true },
+  });
+
   stage = "时间去向";
   // B116：Linux 代理不能记录前台程序，页面应该说明原因。设置里打开保存标题、加一条规则、清空记录。
   await page.goto(`${base}/screentime`);
@@ -407,7 +433,7 @@ try {
   await page.getByText("记录已清空").waitFor();
   await screenDialog.getByRole("button", { name: "关闭" }).click();
 
-  stage = "稍后读";
+  stage = "稍后阅读";
   // B117：本机地址存不了；存一个公网链接后，从未读标为已读，再删除。
   await page.goto(`${base}/readlater`);
   await page.getByText("还没有存过链接").waitFor();
@@ -455,7 +481,7 @@ try {
   await page.getByLabel("日记内容").waitFor();
   assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "点搜索结果回到那一天");
 
-  stage = "密钥台账";
+  stage = "密钥";
   // B120：像密钥的内容被拒绝，页面新建一条，搜索能按用在哪里找到，记一次更换，删除要提升权限。
   const secretTry = await page.context().request.post(`${base}/api/v1/credentials`, {
     headers: { "X-Requested-With": "x-console" },
@@ -466,27 +492,31 @@ try {
   await page.getByRole("button", { name: "新建记录" }).first().click();
   await dialog("新建记录").getByLabel("名称", { exact: true }).fill("端到端令牌");
   await dialog("新建记录").getByLabel("平台", { exact: true }).fill("GitHub");
+  await dialog("新建记录").getByLabel("密钥内容").fill("e2e-secret-value");
   await dialog("新建记录").getByLabel(/^用在/).fill("服务器 e2e-hk\n项目 e2e-app");
   const credSoon = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
   await dialog("新建记录").getByLabel("到期日").fill(credSoon);
   await dialog("新建记录").getByRole("button", { name: "保存" }).click();
-  await until("密钥台账新建", async () => (await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+  await until("密钥新建", async () => (await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
   const credItem = (await api("/credentials")).items.find((c) => c.name === "端到端令牌");
   assert.equal(credItem.status, "soon");
+  assert.equal(credItem.hasSecret, true);
+  assert.ok(!JSON.stringify(credItem).includes("e2e-secret-value"), "接口不应该返回密钥内容");
   assert.deepEqual(credItem.usedBy, ["服务器 e2e-hk", "项目 e2e-app"]);
   await page.getByPlaceholder("搜索记录").fill("e2e-hk");
   await page.getByRole("button", { name: /端到端令牌/ }).click();
   await dialog("端到端令牌").getByRole("button", { name: "已更换" }).click();
   await dialog("端到端令牌").getByRole("button", { name: "保存", exact: true }).click();
-  await until("密钥台账更换", async () => (await api(`/credentials/${credItem.id}`)).rotatedOn !== "");
+  await until("密钥更换", async () => (await api(`/credentials/${credItem.id}`)).rotatedOn !== "");
   await page.getByText("已记下更换").waitFor();
   const credElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
     headers: { "X-Requested-With": "x-console" }, data: { password },
   });
   assert.equal(credElevate.status(), 200, await credElevate.text());
+  assert.equal((await api(`/credentials/${credItem.id}/secret`)).secret, "e2e-secret-value", "验证后能取出密钥内容");
   await dialog("端到端令牌").getByRole("button", { name: "删除" }).click();
   await page.getByRole("button", { name: "删除", exact: true }).last().click();
-  await until("密钥台账删除", async () => !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+  await until("密钥删除", async () => !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
 
   stage = "联系人";
   // B122：新建一个五天后过生日的联系人，状态是近期；列表上记一次联系；搜索；删除不需要提升权限。
@@ -510,6 +540,26 @@ try {
   await dialog("端到端老王").getByRole("button", { name: "删除" }).click();
   await page.getByRole("button", { name: "删除", exact: true }).last().click();
   await until("联系人删除", async () => !(await api("/contacts")).items.some((c) => c.name === "端到端老王"));
+
+  // B140：导入 vCard 文件，电话和从文件来的生日要带进来；导入和同步弹窗能打开
+  const vcf = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e2e-1\r\nFN:端到端导入\r\nTEL:010-0001\r\nBDAY:--1201\r\nEND:VCARD\r\n";
+  const imported = await page.context().request.post(`${base}/api/v1/contacts/import`, {
+    headers: { "X-Requested-With": "x-console" },
+    multipart: { file: { name: "contacts.vcf", mimeType: "text/vcard", buffer: Buffer.from(vcf) } },
+  });
+  assert.equal(imported.status(), 200, await imported.text());
+  assert.equal((await imported.json()).created, 1);
+  const importedContact = (await api("/contacts")).items.find((c) => c.name === "端到端导入");
+  assert.deepEqual(importedContact.phones, ["010-0001"]);
+  assert.equal(importedContact.events[0].date, "12-01");
+  await page.goto(`${base}/contacts`);
+  await page.getByRole("button", { name: "导入和同步" }).click();
+  await dialog("导入和同步").getByText("iCloud 通讯录同步").waitFor();
+  await dialog("导入和同步").getByRole("button", { name: "关闭" }).click();
+  const importedDel = await page.context().request.delete(`${base}/api/v1/contacts/${importedContact.id}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(importedDel.status(), 204);
 
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。

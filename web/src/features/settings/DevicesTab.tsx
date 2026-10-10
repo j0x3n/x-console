@@ -133,6 +133,7 @@ export default function DevicesTab() {
 const WINDOWS_UNINSTALL =
   "Stop-ScheduledTask -TaskName 'X Console Agent' -ErrorAction SilentlyContinue; " +
   "Unregister-ScheduledTask -TaskName 'X Console Agent' -Confirm:$false -ErrorAction SilentlyContinue; " +
+  "Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'X Console Agent' -ErrorAction SilentlyContinue; " +
   "Stop-Process -Name x-console-agent -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; " +
   'Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\x-console-agent","$env:APPDATA\\x-console-agent" -ErrorAction SilentlyContinue';
 
@@ -354,6 +355,11 @@ function PairDialog({
                   : "把 x-console-agent.exe 放到任意目录后执行："}
               </p>
               <CommandBox label={t("Pair")} command={manualCommand} />
+              <p className="devices-note">
+                {kind === "server"
+                  ? "配对只保存配置。再执行 x-console-agent run --config /etc/x-console-agent/config.json 才会连上面板。"
+                  : "在 Windows 上配对后，代理会自动在后台运行并设成登录时启动，关掉终端也不会停。要自己再启动一次，执行 x-console-agent.exe install。"}
+              </p>
             </>
           )}
           {kind === "server" && (

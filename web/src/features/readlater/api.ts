@@ -3,7 +3,7 @@ import { invalidateOn } from "../../api/events";
 import { createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/readlater";
 
-/* 稍后读（B117）：存链接，后台抓正文，AI 写摘要和标签。 */
+/* 稍后阅读（B117）：存链接，后台抓正文，AI 写摘要和标签。 */
 export const readlaterApi = createApi<paths>();
 
 type S = components["schemas"];

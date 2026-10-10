@@ -74,9 +74,9 @@ const commandGroups: Record<string, ModuleId> = {
   GitHub: "github",
   证件档案: "documents",
   电脑时间: "screentime",
-  稍后读: "readlater",
+  稍后阅读: "readlater",
   每日时间线: "journal",
-  密钥台账: "credentials",
+  密钥: "credentials",
   联系人: "contacts",
 };
 

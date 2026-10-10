@@ -1,6 +1,7 @@
 import {
   BadgeCheck,
   Car,
+  CreditCard,
   FileText,
   Plane,
   IdCard,
@@ -44,6 +45,22 @@ export const KIND_ICONS: Record<DocumentKind, LucideIcon> = {
   item: Laptop,
   other: BadgeCheck,
 };
+
+/** 用户自己加的类型在档案里存成 `c:` 加名称。 */
+export const CUSTOM_PREFIX = "c:";
+
+export const isCustomKind = (kind: string) => kind.startsWith(CUSTOM_PREFIX);
+
+/** 类型的显示名：内置的翻译，自己加的直接用名称。 */
+export function kindName(t: (key: string) => string, kind: DocumentKind) {
+  if (isCustomKind(kind)) return kind.slice(CUSTOM_PREFIX.length);
+  return t(KIND_LABELS[kind] ?? KIND_LABELS.other);
+}
+
+export function kindIcon(kind: DocumentKind): LucideIcon {
+  if (isCustomKind(kind)) return CreditCard;
+  return KIND_ICONS[kind] ?? BadgeCheck;
+}
 
 /** 状态对应的标签样式：已过期红色，快到期琥珀色，其余不着色。 */
 export function statusTone(status: DocumentStatus, daysLeft?: number | null) {

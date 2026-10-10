@@ -63,7 +63,17 @@ registerZh({
   "days before": "天前",
   "Scans and receipts": "扫描件和发票",
   "No files yet": "还没有文件",
-  "Upload scan": "上传扫描件",
+  "Upload scan": "上传文件",
+  "Photos and files": "照片和文件",
+  Photos: "照片",
+  "Add photos": "添加照片",
+  Remove: "移除",
+  "View photo": "查看照片",
+  "Previous photo": "上一张",
+  "Next photo": "下一张",
+  "Saved to the drive folder “Documents” when you save.":
+    "点保存后存到云盘的“证件档案”文件夹。",
+  "Saved, but the photos were not uploaded": "档案已保存，但照片没传成功",
   "Uploading…": "上传中…",
   "Remove from this document": "从档案里去掉",
   "Removed from this document. The file stays in the drive.":
@@ -79,5 +89,11 @@ registerZh({
   "The record is deleted. The files in the drive stay.":
     "档案记录会删除，云盘里的文件还在。",
   Types: "类型",
+  Add: "添加",
+  "Add a type…": "添加类型…",
+  "New type name": "新类型名称",
+  "For example: bank card": "例如 银行卡、会员卡",
+  "Delete this type": "删除这个类型",
+  "Add the new type first": "请先点“添加”，把新类型加上",
   Clear: "清除",
 });

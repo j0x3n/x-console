@@ -136,10 +136,10 @@ const ids = await page.evaluate(async () => {
     await post("/documents", { kind: "insurance", name: "车险", expiresOn: dayAt(-3) });
     await post("/documents", { kind: "item", name: "笔记本电脑", serial: "SN-42", price: 8999, currency: "CNY", expiresOn: dayAt(300) });
     await post("/documents", { kind: "contract", name: "租房合同" });
-    // B117：稍后读。沙箱里抓不到网页，条目会显示成正在抓取或抓取失败
+    // B117：稍后阅读。沙箱里抓不到网页，条目会显示成正在抓取或抓取失败
     await post("/readlater", { url: "https://example.com/articles/whale-protocol", note: "同事推荐" });
     await post("/readlater", { url: "https://example.org/blog/read-later" });
-    // B120：密钥台账，一条快到期、一条久未更换、一条没有期限
+    // B120：密钥，一条快到期、一条久未更换、一条没有期限
     await post("/credentials", { kind: "access_token", name: "部署用令牌", platform: "GitHub", account: "li4@example.com", usedBy: ["服务器 hk-1", "项目 x-console"], scopes: "repo, workflow", hint: "a9f3", expiresOn: dayAt(20) });
     await post("/credentials", { kind: "api_key", name: "翻译接口", platform: "OpenAI", usedBy: ["服务器 hk-1"], createdOn: dayAt(-200), rotateEveryDays: 90 });
     await post("/credentials", { kind: "ssh_key", name: "笔记本登录密钥", usedBy: ["服务器 hk-1", "服务器 sg-2", "服务器 la-3"], hint: "SHA256:Qx1b" });

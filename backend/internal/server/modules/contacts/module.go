@@ -1,8 +1,9 @@
 // Package contacts keeps the people the user wants to stay in touch with
 // (B122): their birthdays and other dates that come back every year, and when
 // they were last in touch. It reminds before a date and when a contact has not
-// been in touch for longer than the user chose. It stores nothing else about
-// a person. See docs/specs/B122.md.
+// been in touch for longer than the user chose. Besides the name it keeps
+// phone numbers and e-mail addresses, which come from a vCard file or from an
+// iCloud address book (B140). See docs/specs/B122.md and docs/specs/B140.md.
 package contacts
 
 import (
@@ -18,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -39,6 +41,9 @@ const (
 	maxRemind  = 8
 	maxDays    = 3650
 	maxRemindD = 365
+	maxPhones  = 10
+	maxEmails  = 10
+	maxContact = 100
 	// soonDefault is how far ahead a date counts as "soon" when the contact
 	// has no reminder days of its own.
 	soonDefault = 7
@@ -62,6 +67,9 @@ type Module struct {
 	d     *module.Deps
 	q     *db.Queries
 	nowFn func() time.Time
+	// httpClient talks to the address book server; nil means the default.
+	httpClient *http.Client
+	syncing    atomic.Bool
 }
 
 var (
@@ -88,6 +96,7 @@ func (m *Module) Mount(r chi.Router) {
 // Start schedules the reminder check.
 func (m *Module) Start(context.Context) error {
 	m.d.Scheduler.Every("contacts.remind", time.Hour, m.remindAll)
+	m.d.Scheduler.Every("contacts.sync", time.Hour, m.syncJob) // 每小时看一眼，到 6 小时才真的同步
 	return nil
 }
 
@@ -208,6 +217,23 @@ func formatRemind(days []int) string {
 	return strings.Join(parts, ",")
 }
 
+// parseList reads a JSON array of strings.
+func parseList(s string) []string {
+	out := []string{}
+	if err := json.Unmarshal([]byte(s), &out); err != nil || out == nil {
+		return []string{}
+	}
+	return out
+}
+
+func formatList(list []string) string {
+	if list == nil {
+		list = []string{}
+	}
+	raw, _ := json.Marshal(list)
+	return string(raw)
+}
+
 // contactBase is the day the "not in touch" count starts from.
 func contactBase(row db.Contact, loc *time.Location) string {
 	if row.LastContactOn != "" {
@@ -228,6 +254,7 @@ func (m *Module) view(row db.Contact, today time.Time) api.Contact {
 	v := api.Contact{
 		Id: row.ID, Name: row.Name, Group: api.ContactGroup(row.GroupKind), Events: []api.ContactEvent{},
 		LastContactOn: row.LastContactOn, ContactEveryDays: int(row.ContactEveryDays), RemindDays: remind, Notes: row.Notes,
+		Phones: parseList(row.Phones), Emails: parseList(row.Emails), Source: row.Source,
 		Archived: row.ArchivedAt != nil, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 	var nextIn *int
@@ -339,12 +366,15 @@ type fields struct {
 	events                          []event
 	every                           int
 	remind                          []int
+	phones, emails                  []string
+	source, externalID              string
 }
 
 func fieldsOf(row db.Contact) fields {
 	return fields{
 		name: row.Name, group: row.GroupKind, notes: row.Notes, lastContact: row.LastContactOn,
 		events: parseEvents(row.Events), every: int(row.ContactEveryDays), remind: parseRemind(row.RemindDays),
+		phones: parseList(row.Phones), emails: parseList(row.Emails), source: row.Source, externalID: row.ExternalID,
 	}
 }
 
@@ -420,6 +450,12 @@ func (m *Module) validate(f fields) (fields, error) {
 	if births > 1 {
 		return f, httpx.Invalid("一个联系人只能有一个生日")
 	}
+	if f.phones, err = cleanList("电话", f.phones, maxPhones); err != nil {
+		return f, err
+	}
+	if f.emails, err = cleanList("邮箱", f.emails, maxEmails); err != nil {
+		return f, err
+	}
 	days := []int{}
 	for _, d := range f.remind {
 		if d < 1 || d > maxRemindD {
@@ -435,6 +471,25 @@ func (m *Module) validate(f fields) (fields, error) {
 	sort.Sort(sort.Reverse(sort.IntSlice(days)))
 	f.remind = days
 	return f, nil
+}
+
+// cleanList trims, drops empty and repeated items and checks the count and length.
+func cleanList(label string, list []string, maxCount int) ([]string, error) {
+	out := []string{}
+	for _, v := range list {
+		v = strings.TrimSpace(v)
+		if v == "" || slices.Contains(out, v) {
+			continue
+		}
+		if utf8.RuneCountInString(v) > maxContact {
+			return nil, httpx.Invalid(label + "太长了")
+		}
+		out = append(out, v)
+	}
+	if len(out) > maxCount {
+		return nil, httpx.Invalid(label + "最多 " + strconv.Itoa(maxCount) + " 个")
+	}
+	return out, nil
 }
 
 func pick(p *string, cur string) string {
@@ -528,6 +583,17 @@ func (m *Module) create(ctx context.Context, in api.ContactInput) (api.Contact, 
 	if in.RemindDays != nil {
 		f.remind = *in.RemindDays
 	}
+	if in.Phones != nil {
+		f.phones = *in.Phones
+	}
+	if in.Emails != nil {
+		f.emails = *in.Emails
+	}
+	return m.insert(ctx, f)
+}
+
+// insert validates f and stores it as a new contact.
+func (m *Module) insert(ctx context.Context, f fields) (api.Contact, error) {
 	f, err := m.validate(f)
 	if err != nil {
 		return api.Contact{}, err
@@ -536,7 +602,9 @@ func (m *Module) create(ctx context.Context, in api.ContactInput) (api.Contact, 
 	now := m.now().UTC()
 	row, err := m.q.InsertContact(ctx, db.InsertContactParams{
 		Name: f.name, GroupKind: f.group, Events: string(events), LastContactOn: f.lastContact,
-		ContactEveryDays: int64(f.every), RemindDays: formatRemind(f.remind), Notes: f.notes, CreatedAt: now, UpdatedAt: now,
+		ContactEveryDays: int64(f.every), RemindDays: formatRemind(f.remind), Notes: f.notes,
+		Phones: formatList(f.phones), Emails: formatList(f.emails), Source: f.source, ExternalID: f.externalID,
+		CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
 		return api.Contact{}, err
@@ -580,6 +648,12 @@ func (m *Module) update(ctx context.Context, id int64, in api.ContactPatch) (api
 	if in.RemindDays != nil {
 		f.remind = *in.RemindDays
 	}
+	if in.Phones != nil {
+		f.phones = *in.Phones
+	}
+	if in.Emails != nil {
+		f.emails = *in.Emails
+	}
 	archivedAt := cur.ArchivedAt
 	if in.Archived != nil {
 		switch {
@@ -603,6 +677,7 @@ func (m *Module) save(ctx context.Context, cur db.Contact, f fields, archivedAt 
 	row, err := m.q.UpdateContact(ctx, db.UpdateContactParams{
 		ID: cur.ID, Name: f.name, GroupKind: f.group, Events: string(events), LastContactOn: f.lastContact,
 		ContactEveryDays: int64(f.every), RemindDays: formatRemind(f.remind), Notes: f.notes, ArchivedAt: archivedAt, UpdatedAt: m.now().UTC(),
+		Phones: formatList(f.phones), Emails: formatList(f.emails), Source: f.source, ExternalID: f.externalID,
 	})
 	if err != nil {
 		return api.Contact{}, err

@@ -55,7 +55,9 @@ if has '^(backend|api)/'; then
   go build ./...
 
   # 改动的包：模块目录下的改动测整个模块，其他的只测所在目录。
-  pkgs=$(grep -E '^backend/.*\.(go|sql)$' <<<"$changed" | sed 's#^backend/##' | while read -r f; do
+  # 迁移会让每个模块的 db/models.go 都重新生成，这些文件改了也不用把全部模块再测一遍
+  # （上面的 go build ./... 已经检查它们能编译）。模块自己的 queries.sql.go 有改动才测那个模块。
+  pkgs=$(grep -E '^backend/.*\.(go|sql)$' <<<"$changed" | grep -vE '/db/models\.go$' | sed 's#^backend/##' | while read -r f; do
     if [[ $f =~ ^(internal/server/modules/[^/]+)/ ]]; then
       echo "./${BASH_REMATCH[1]}/..."
     elif [[ $f == internal/server/store/migrations/* ]]; then
@@ -67,10 +69,12 @@ if has '^(backend|api)/'; then
   done | sort -u || true)
 
   if [ -n "$pkgs" ]; then
-    step "go vet 和 go test -race（改动的包）"
+    # 本地默认不带 -race（一般要多花一倍时间），要带就 XC_RACE=1 scripts/check-quick.sh。
+    # go test 自带的 vet 关掉，上一行已经单独跑过。
+    step "go vet 和 go test（改动的包）"
     echo "$pkgs"
     go vet $pkgs
-    go test -race $pkgs
+    go test -vet=off ${XC_RACE:+-race} $pkgs
   fi
 
   if has '^backend/(internal/agent|cmd/agent|pkg)/'; then

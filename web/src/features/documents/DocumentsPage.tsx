@@ -17,9 +17,10 @@ import DocumentDetail from "./DocumentDetail";
 import DocumentDialog from "./DocumentDialog";
 import {
   KINDS,
-  KIND_ICONS,
-  KIND_LABELS,
   daysText,
+  isCustomKind,
+  kindIcon,
+  kindName,
   matchesView,
   statusTone,
   type View,
@@ -46,9 +47,11 @@ export default function DocumentsPage() {
 
   const view = (params.get("view") ?? "all") as View;
   const kindParam = params.get("kind");
-  const kind = (KINDS as string[]).includes(kindParam ?? "")
-    ? (kindParam as DocumentKind)
-    : null;
+  const kind =
+    kindParam &&
+    ((KINDS as string[]).includes(kindParam) || isCustomKind(kindParam))
+      ? (kindParam as DocumentKind)
+      : null;
   const creating = params.get("new") === "1";
   const setCreating = (on: boolean) =>
     setParams(
@@ -202,7 +205,7 @@ function DocumentRow({
   onOpen: () => void;
 }) {
   const t = useT();
-  const Icon = KIND_ICONS[d.kind];
+  const Icon = kindIcon(d.kind);
   return (
     <button className="documents-row" onClick={onOpen}>
       <span className="documents-row-icon">
@@ -211,7 +214,7 @@ function DocumentRow({
       <span className="documents-row-main">
         <strong>{d.name}</strong>
         <small>
-          {t(KIND_LABELS[d.kind])}
+          {kindName(t, d.kind)}
           {d.holder && ` · ${d.holder}`}
         </small>
       </span>

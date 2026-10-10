@@ -181,3 +181,111 @@
     max-width: 45%;
   }
 }
+
+.documents-new-kind {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.documents-new-kind .xc-input {
+  min-width: 0;
+}
+.documents-kind .xc-field {
+  margin-bottom: 0;
+}
+.documents-kind > .xc-btn {
+  margin-top: 6px;
+}
+
+/* 照片 */
+.documents-files-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.documents-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.documents-photos li {
+  position: relative;
+}
+.documents-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  cursor: pointer;
+}
+.documents-photo img,
+.documents-picker-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.documents-photo-remove,
+.documents-picker-item button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  cursor: pointer;
+}
+.documents-viewer-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.documents-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.documents-picker-item {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+}
+.documents-picker-add {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 72px;
+  height: 72px;
+  border: 1px dashed var(--xc-border-strong);
+  border-radius: var(--xc-radius);
+  background: none;
+  color: var(--xc-muted);
+  font: inherit;
+  font-size: var(--fs-12);
+  cursor: pointer;
+}
+.documents-picker-add:hover {
+  color: var(--xc-text);
+  background: var(--xc-surface-2);
+}

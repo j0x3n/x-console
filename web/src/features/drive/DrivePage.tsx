@@ -23,7 +23,7 @@ import {
   X,
 } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
-import { SearchBox, Segmented, Toolbar } from "../../components/ui/Toolbar";
+import { SearchBox, Segmented } from "../../components/ui/Toolbar";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
@@ -462,77 +462,76 @@ function DriveBrowser() {
           />
         }
         aside={
-          !trash &&
-          !special && (
-            <>
-              <button
-                className="xc-btn"
-                onClick={() => setDialog({ kind: "new-folder" })}
-                disabled={!!q}
-              >
-                <FolderPlus size={15} />
-                <span className="drive-btn-text">{t("New folder")}</span>
-              </button>
-              <button
-                className="xc-btn primary"
-                onClick={() => fileRef.current?.click()}
-              >
-                <Upload size={15} />
-                <span className="drive-btn-text">{t("Upload")}</span>
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                multiple
-                hidden
-                data-testid="drive-file-input"
-                onChange={(e) => {
-                  upload(Array.from(e.target.files ?? []));
-                  e.target.value = "";
-                }}
-              />
-            </>
-          )
+          <>
+            {!trash && !special && (
+              <>
+                <button
+                  className="xc-btn"
+                  title={t("New folder")}
+                  onClick={() => setDialog({ kind: "new-folder" })}
+                  disabled={!!q}
+                >
+                  <FolderPlus size={15} />
+                  <span className="drive-btn-text">{t("New folder")}</span>
+                </button>
+                <button
+                  className="xc-btn primary"
+                  title={t("Upload")}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Upload size={15} />
+                  <span className="drive-btn-text">{t("Upload")}</span>
+                </button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  multiple
+                  hidden
+                  data-testid="drive-file-input"
+                  onChange={(e) => {
+                    upload(Array.from(e.target.files ?? []));
+                    e.target.value = "";
+                  }}
+                />
+              </>
+            )}
+            {/* 用户 2026-10-10 要求：搜索和视图切换跟按钮放在顶栏，省掉页面里的一行 */}
+            {!special && (
+              <>
+                {!trash && (
+                  <SearchBox
+                    ref={searchRef}
+                    className={`drive-top-search${input ? " has-value" : ""}`}
+                    value={input}
+                    onChange={setInput}
+                    placeholder={t("Search files")}
+                    clearLabel={t("Clear")}
+                  />
+                )}
+                <Segmented
+                  label={t("View")}
+                  value={layout}
+                  onChange={setLayout}
+                  options={[
+                    {
+                      value: "list",
+                      label: t("List view"),
+                      icon: List,
+                      iconOnly: true,
+                    },
+                    {
+                      value: "grid",
+                      label: t("Grid view"),
+                      icon: LayoutGrid,
+                      iconOnly: true,
+                    },
+                  ]}
+                />
+              </>
+            )}
+          </>
         }
       />
-
-      {/* B103：文件、分享、回收站、网盘的切换在左栏二级菜单里，页面不再放一份 */}
-      {!special && (
-        <Toolbar
-          end={
-            <>
-              {!trash && (
-                <SearchBox
-                  ref={searchRef}
-                  value={input}
-                  onChange={setInput}
-                  placeholder={t("Search files")}
-                  clearLabel={t("Clear")}
-                />
-              )}
-              <Segmented
-                label={t("View")}
-                value={layout}
-                onChange={setLayout}
-                options={[
-                  {
-                    value: "list",
-                    label: t("List view"),
-                    icon: List,
-                    iconOnly: true,
-                  },
-                  {
-                    value: "grid",
-                    label: t("Grid view"),
-                    icon: LayoutGrid,
-                    iconOnly: true,
-                  },
-                ]}
-              />
-            </>
-          }
-        />
-      )}
 
       {!trash && !q && !special && (
         <nav className="drive-crumbs" aria-label={t("Path")}>

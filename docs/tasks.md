@@ -11,13 +11,15 @@
 
 ## 当前状态（2026-10-10 更新）
 
-- 线上是 `develop` 的最新部署（带部署标记的提交会部署，见 AGENTS.md）。B115 到 B122 已部署。
+- 线上是 `develop` 的最新部署（带部署标记的提交会部署，见 AGENTS.md）。B115 到 B122 已部署，B140 到 B142 本次部署。
 - `frontend-done` 分支是交给 Codex 之前的版本，需要时可以回到这里。
 - 后端早期的完成记录见 [backend-todo.md](backend-todo.md)。
 
 ## 进行中
 
-目前没有。
+| 编号 | 任务 | 规格 | 负责 |
+| --- | --- | --- | --- |
+| B143 | 稍后阅读：读取 X 推文（公开接口、X 登录 Cookie、可选第三方）和完整图文保存（HTML、图片本地存档、导出） | [B143](specs/B143.md)，2026-10-11 用户确认全部按建议做 | Claude |
 
 ## 待做
 
@@ -26,7 +28,6 @@
 | 编号 | 任务 | 规格 | 负责 |
 | --- | --- | --- | --- |
 | B95 | 代理支持树莓派（32 位 armv7 和 64 位 arm64） | 无 | 64 位已支持，等用户提供连接错误日志 |
-| B140 | 稍后读：读取 X 推文（公开接口、X 登录 Cookie、可选第三方）和完整图文保存（HTML、图片本地存档、导出） | [B140](specs/B140.md)，有 4 个问题等用户确认 | 未开始 |
 | B127 | 通知合并推送：紧急的立即发，其余每天固定 3 个时间点合并成一条 | 待写，理由见 [B127-B139-建议](specs/B127-B139-建议.md) | 未开始 |
 | B128 | 目标和每周复盘：季度目标，进度从已有模块自动算，每周日推复盘页 | 待写，理由见 [B127-B139-建议](specs/B127-B139-建议.md) | 未开始 |
 | B129 | AI 编码投入产出对账：每个编码任务的花费、审查返工时间、是否合并，按周出表 | 待写，理由见 [B127-B139-建议](specs/B127-B139-建议.md) | 未开始 |
@@ -51,6 +52,8 @@ B95：用户 2026-10-02 确认树莓派装的是 64 位系统。服务端已经�
 - B110：Codex（`chatgpt.com/backend-api/wham/usage`、`auth.openai.com/oauth/token`）、Grok（`cli-chat-proxy.grok.com/v1/billing?format=credits`）、Claude（`claude -p /usage` 的输出格式）三个读法是照 magpie 的代码写的，没有用真实账号调过，测试全用假服务器和假命令输出。Claude 用不同的 `CLAUDE_CONFIG_DIR` 读多个账号也没试过。上线后任何一项数字不对或报错，先用真机调一次，样例存进 `internal/agent/quota/` 的测试，再改解析。Codex 刷新令牌会写回 `auth.json`，如果出错会让机器上的 Codex 掉线，要用户重新登录，上线后先拿一个不重要的账号试。
 
 
+- B142：Windows 上 `x-console-agent.exe install` 和安装脚本的新流程没在真机跑过。`install` 用 `schtasks` 注册登录启动，失败时写 `HKCU\\...\\Run`，再用 DETACHED_PROCESS 启动 `run` 并等 5 秒确认没退出。如果还是断线，看 `%LOCALAPPDATA%\\x-console-agent\\agent.log`。
+- B140：iCloud 的 CardDAV 没连过真实服务器。第一次连失败时，原因在联系人页“导入和同步”弹窗里，也在 `contacts.sync_state` 设置里。
 - 本机 Node 25 下的前端测试存在 `localStorage` 兼容问题，字号脚本也未适配 Windows 路径。本次用 Linux Node 22 检查通过，没有改这些公共脚本。
 
 - B109：`modules/github/testdata/` 里的账单样例是照 GitHub 文档写的，没有用真实令牌调过（开发环境没有令牌）。上线后如果卡片数字不对，用真实令牌调一次 `GET /users/{login}/settings/billing/usage?year=&month=`，按实际字段改 `usage.go` 和样例。卡片第二行只列用过的系统，“按系统：”和 0 分钟的系统放在鼠标悬停提示里，因为卡片太窄放不下。

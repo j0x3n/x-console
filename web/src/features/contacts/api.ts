@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { invalidateOn } from "../../api/events";
-import { createApi, unwrap } from "../../api/client";
+import { apiFetch, createApi, unwrap } from "../../api/client";
+import { withElevation } from "../../auth/elevation";
 import type { components, paths } from "../../api/gen/contacts";
 
 /* 联系人和重要日期（B122）：生日、纪念日和上次联系的日期，到期前提醒。 */
@@ -16,6 +17,9 @@ export type ContactEventKind = S["ContactEventKind"];
 export type ContactGroup = S["ContactGroup"];
 export type ContactStatus = S["ContactStatus"];
 export type ContactSummary = S["ContactSummary"];
+export type ContactImportResult = S["ContactImportResult"];
+export type ContactSyncStatus = S["ContactSyncStatus"];
+export type ContactSyncInput = S["ContactSyncInput"];
 
 export const contactKeys = {
   all: ["contacts"] as const,
@@ -32,6 +36,63 @@ export function useContacts(archived: boolean) {
     queryFn: () =>
       unwrap(contactsApi.GET("/contacts", { params: { query: { archived } } })),
     retry: false,
+  });
+}
+
+/** 导入 vCard（.vcf）文件。 */
+export function useImportContacts() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: async (v: {
+      file: File;
+      onlyWithDates: boolean;
+    }): Promise<ContactImportResult> => {
+      const form = new FormData();
+      form.append("file", v.file, v.file.name);
+      const q = v.onlyWithDates ? "?onlyWithDates=true" : "";
+      const res = await apiFetch(`/contacts/import${q}`, {
+        method: "POST",
+        body: form,
+      });
+      return (await res.json()) as ContactImportResult;
+    },
+    onSuccess: refresh,
+  });
+}
+
+/** iCloud 同步的状态。同步中每 2 秒刷新一次。 */
+export function useContactSync() {
+  return useQuery({
+    queryKey: [...contactKeys.all, "sync"] as const,
+    queryFn: () => unwrap(contactsApi.GET("/contacts/sync")),
+    retry: false,
+    refetchInterval: (q) => (q.state.data?.syncing ? 2000 : false),
+  });
+}
+
+export function useSetContactSync() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (body: ContactSyncInput) =>
+      withElevation(() => unwrap(contactsApi.PUT("/contacts/sync", { body }))),
+    onSuccess: refresh,
+  });
+}
+
+export function useDeleteContactSync() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: () =>
+      withElevation(() => unwrap(contactsApi.DELETE("/contacts/sync"))),
+    onSuccess: refresh,
+  });
+}
+
+export function useRunContactSync() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: () => unwrap(contactsApi.POST("/contacts/sync/run")),
+    onSettled: refresh,
   });
 }
 

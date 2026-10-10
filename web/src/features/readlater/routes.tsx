@@ -19,18 +19,18 @@ const SharePage = lazy(() => import("./SharePage"));
 registerCommands([
   {
     id: "readlater.open",
-    title: "打开稍后读",
-    group: "稍后读",
+    title: "打开稍后阅读",
+    group: "稍后阅读",
     icon: Bookmark,
-    keywords: "read later bookmark link article 稍后读 收藏 文章 链接",
+    keywords: "read later bookmark link article 稍后阅读 收藏 文章 链接",
     run: ({ navigate }) => navigate("/readlater"),
   },
   {
     id: "readlater.add",
-    title: "存一个链接到稍后读",
-    group: "稍后读",
+    title: "存一个链接到稍后阅读",
+    group: "稍后阅读",
     icon: Plus,
-    keywords: "read later add link save 稍后读 添加 链接 收藏",
+    keywords: "read later add link save 稍后阅读 添加 链接 收藏",
     run: ({ navigate }) => navigate("/readlater?new=1"),
   },
 ]);

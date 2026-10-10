@@ -33,18 +33,31 @@ Get-Process -Name 'x-console-agent' -ErrorAction SilentlyContinue | Stop-Process
 Start-Sleep -Seconds 1
 Move-Item -Force $new $exe
 
-if (Test-Path $config) {
-    Write-Host '这台电脑已经配过对，只升级程序。'
-} else {
-    # 代理是图形程序（运行时不弹黑窗口），直接 & 调用不会等它结束，所以用 Start-Process -Wait。
-    $p = Start-Process -FilePath $exe -ArgumentList @('pair', '--server', $Server, '--code', $Code) -Wait -PassThru
+# 代理是图形程序（运行时不弹黑窗口），直接 & 调用不会等它结束，所以用 Start-Process -Wait。
+function Invoke-Pair {
+    $p = Start-Process -FilePath $exe -ArgumentList @('pair', '--server', $Server, '--code', $Code, '--no-start') -Wait -PassThru
     if ($p.ExitCode -ne 0) { throw '配对失败。配对码可能已经用过或过期' }
 }
 
-# 用任务计划程序在登录时启动。它跑在你的用户会话里，能用剪贴板、git 凭据和 Claude Code 登录状态。
-$action = New-ScheduledTaskAction -Execute $exe -Argument 'run' -WorkingDirectory $dir
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName 'X Console Agent' -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-Start-ScheduledTask -TaskName 'X Console Agent'
-Write-Host '代理已安装并启动。几秒后面板的设备列表里会出现这台电脑。任务名：X Console Agent'
+$paired = Test-Path $config
+if ($paired) {
+    Write-Host '这台电脑已经配过对，先按原来的配对启动。'
+} else {
+    Invoke-Pair
+}
+
+# install 让代理在后台运行：登录时自动启动（任务计划程序，不行就用启动项），现在就启动，
+# 关掉这个窗口也不会停。它会等几秒确认代理没有马上退出，退出码 3 表示面板不认这台电脑的令牌。
+$p = Start-Process -FilePath $exe -ArgumentList 'install' -Wait -PassThru
+if ($p.ExitCode -eq 3 -and $paired) {
+    Write-Host '原来的配对已经失效（面板里删过这台设备），用新的配对码重新配对。'
+    Remove-Item -Force $config
+    Invoke-Pair
+    $p = Start-Process -FilePath $exe -ArgumentList 'install' -Wait -PassThru
+}
+if ($p.ExitCode -ne 0) {
+    $log = Join-Path $dir 'agent.log'
+    if (Test-Path $log) { Write-Host '日志最后几行：'; Get-Content -Tail 15 $log }
+    throw "代理没能在后台运行（退出码 $($p.ExitCode)）。日志在 $log"
+}
+Write-Host '代理已安装并在后台运行。几秒后面板的设备列表里会出现这台电脑。'
