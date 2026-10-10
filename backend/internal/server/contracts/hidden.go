@@ -54,11 +54,12 @@ var backendSidebar = map[string]string{
 	"automations":   "automations",
 	"github":        "github",
 	"linear":        "github",
-	"router":        "router",     // B65
-	"documents":     "documents",  // B115
-	"screentime":    "screentime", // B116
-	"readlater":     "readlater",  // B117
-	"journal":       "journal",    // B118
+	"router":        "router",      // B65
+	"documents":     "documents",   // B115
+	"screentime":    "screentime",  // B116
+	"readlater":     "readlater",   // B117
+	"journal":       "journal",     // B118
+	"credentials":   "credentials", // B120
 }
 
 func ActionHidden(ctx context.Context, h HiddenModules, name string) bool {
@@ -104,6 +105,8 @@ func ActionHidden(ctx context.Context, h HiddenModules, name string) bool {
 		return h.Hidden(ctx, "readlater") // B117
 	case "journal":
 		return h.Hidden(ctx, "journal") // B118
+	case "credentials":
+		return h.Hidden(ctx, "credentials") // B120
 	default:
 		return false
 	}
@@ -162,6 +165,8 @@ func eventSidebar(topic string) (string, bool) {
 		return "readlater", true
 	case strings.HasPrefix(topic, "journal."): // B118
 		return "journal", true
+	case strings.HasPrefix(topic, "credential."): // B120
+		return "credentials", true
 	default:
 		return "", false
 	}
@@ -200,11 +205,12 @@ func linkSidebar(link string) (string, bool) {
 		return "", true
 	case "pc", "servers", "notes", "mail", "projects", "coding", "reminders", "habits",
 		"drive", "calendar", "monitoring", "home", "automations", "github",
-		"router",     // B65
-		"documents",  // B115
-		"screentime", // B116
-		"readlater",  // B117
-		"journal":    // B118
+		"router",      // B65
+		"documents",   // B115
+		"screentime",  // B116
+		"readlater",   // B117
+		"journal",     // B118
+		"credentials": // B120
 		return seg, true
 	default:
 		return "", false
@@ -226,6 +232,8 @@ func sourceHidden(ctx context.Context, h HiddenModules, source string) bool {
 		return h.Hidden(ctx, "readlater")
 	case "journal": // B118
 		return h.Hidden(ctx, "journal")
+	case "credentials": // B120
+		return h.Hidden(ctx, "credentials")
 	case "home", "homeassistant", "ha":
 		return h.Hidden(ctx, "home")
 	case "automations", "automation":

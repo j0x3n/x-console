@@ -377,6 +377,30 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type Credential struct {
+	ID              int64
+	Kind            string
+	Name            string
+	Platform        string
+	Account         string
+	UsedBy          string
+	Scopes          string
+	Hint            string
+	CreatedOn       string
+	RotatedOn       string
+	ExpiresOn       string
+	RotateEveryDays int64
+	RemindDays      string
+	Notes           string
+	NotifiedFor     string
+	NotifiedJson    string
+	StaleFor        string
+	StaleNotifiedOn string
+	ArchivedAt      *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
 type Document struct {
 	ID           int64
 	Kind         string

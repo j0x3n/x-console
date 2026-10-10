@@ -10,6 +10,7 @@ import {
   Gauge,
   HardDrive,
   HeartPulse,
+  KeyRound,
   Hourglass,
   Home,
   Mail,
@@ -57,6 +58,13 @@ export const navItems: NavItem[] = [
   },
   // B115：证件、合同和物品保修
   { path: "/documents", label: "Documents", icon: Files, group: "personal" },
+  // B120：密钥和令牌台账
+  {
+    path: "/credentials",
+    label: "Credentials",
+    icon: KeyRound,
+    group: "personal",
+  },
   // B117：稍后读
   {
     path: "/readlater",

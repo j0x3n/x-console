@@ -9,6 +9,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/credentials"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/documents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
@@ -69,9 +70,10 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	mail.New,     // B53
 	router.New,   // B65
 	maintenance.New,
-	quotas.New,     // B110
-	documents.New,  // B115
-	screentime.New, // B116
-	readlater.New,  // B117
-	journal.New,    // B118
+	quotas.New,      // B110
+	documents.New,   // B115
+	screentime.New,  // B116
+	readlater.New,   // B117
+	journal.New,     // B118
+	credentials.New, // B120
 }

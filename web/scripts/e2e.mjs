@@ -455,6 +455,39 @@ try {
   await page.getByLabel("日记内容").waitFor();
   assert.equal(await page.getByLabel("日记内容").inputValue(), journalText, "点搜索结果回到那一天");
 
+  stage = "密钥台账";
+  // B120：像密钥的内容被拒绝，页面新建一条，搜索能按用在哪里找到，记一次更换，删除要提升权限。
+  const secretTry = await page.context().request.post(`${base}/api/v1/credentials`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { kind: "api_key", name: `ghp_${"a1B2c3D4e5".repeat(4)}` },
+  });
+  assert.equal(secretTry.status(), 400, "像密钥的名称应该被拒绝");
+  await page.goto(`${base}/credentials`);
+  await page.getByRole("button", { name: "新建记录" }).first().click();
+  await dialog("新建记录").getByLabel("名称", { exact: true }).fill("端到端令牌");
+  await dialog("新建记录").getByLabel("平台", { exact: true }).fill("GitHub");
+  await dialog("新建记录").getByLabel(/^用在/).fill("服务器 e2e-hk\n项目 e2e-app");
+  const credSoon = new Date(Date.now() + 20 * 86400e3).toISOString().slice(0, 10);
+  await dialog("新建记录").getByLabel("到期日").fill(credSoon);
+  await dialog("新建记录").getByRole("button", { name: "保存" }).click();
+  await until("密钥台账新建", async () => (await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+  const credItem = (await api("/credentials")).items.find((c) => c.name === "端到端令牌");
+  assert.equal(credItem.status, "soon");
+  assert.deepEqual(credItem.usedBy, ["服务器 e2e-hk", "项目 e2e-app"]);
+  await page.getByPlaceholder("搜索记录").fill("e2e-hk");
+  await page.getByRole("button", { name: /端到端令牌/ }).click();
+  await dialog("端到端令牌").getByRole("button", { name: "已更换" }).click();
+  await dialog("端到端令牌").getByRole("button", { name: "保存", exact: true }).click();
+  await until("密钥台账更换", async () => (await api(`/credentials/${credItem.id}`)).rotatedOn !== "");
+  await page.getByText("已记下更换").waitFor();
+  const credElevate = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+    headers: { "X-Requested-With": "x-console" }, data: { password },
+  });
+  assert.equal(credElevate.status(), 200, await credElevate.text());
+  await dialog("端到端令牌").getByRole("button", { name: "删除" }).click();
+  await page.getByRole("button", { name: "删除", exact: true }).last().click();
+  await until("密钥台账删除", async () => !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

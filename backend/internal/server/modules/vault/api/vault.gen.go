@@ -16,6 +16,7 @@ const (
 	Automations ModuleId = "automations"
 	Calendar    ModuleId = "calendar"
 	Coding      ModuleId = "coding"
+	Credentials ModuleId = "credentials"
 	Documents   ModuleId = "documents"
 	Drive       ModuleId = "drive"
 	DriveGdrive ModuleId = "drive-gdrive"
@@ -44,6 +45,8 @@ func (e ModuleId) Valid() bool {
 	case Calendar:
 		return true
 	case Coding:
+		return true
+	case Credentials:
 		return true
 	case Documents:
 		return true
