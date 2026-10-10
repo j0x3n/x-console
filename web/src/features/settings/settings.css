@@ -65,6 +65,15 @@
   word-break: break-all;
   user-select: all;
 }
+.devices-uninstall {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--xc-border);
+}
+.devices-uninstall h3 {
+  margin: 0 0 8px;
+  font-size: var(--fs-14);
+}
 .devices-note {
   margin: 0 0 10px;
   color: var(--xc-muted);

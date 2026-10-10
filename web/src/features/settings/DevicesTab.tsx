@@ -116,6 +116,7 @@ export default function DevicesTab() {
           </table>
         </div>
       )}
+      <UninstallHelp />
       <PairDialog
         open={pairOpen}
         initialKind={add === "desktop" ? "desktop" : "server"}
@@ -124,6 +125,37 @@ export default function DevicesTab() {
           if (add) setParams({}, { replace: true });
         }}
       />
+    </div>
+  );
+}
+
+// 单行写完，直接粘贴到普通 PowerShell 里执行，不需要管理员。
+const WINDOWS_UNINSTALL =
+  "Stop-ScheduledTask -TaskName 'X Console Agent' -ErrorAction SilentlyContinue; " +
+  "Unregister-ScheduledTask -TaskName 'X Console Agent' -Confirm:$false -ErrorAction SilentlyContinue; " +
+  "Stop-Process -Name x-console-agent -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; " +
+  'Remove-Item -Recurse -Force "$env:LOCALAPPDATA\\x-console-agent","$env:APPDATA\\x-console-agent" -ErrorAction SilentlyContinue';
+
+/** 卸载和更新代理的说明，一直显示在设备列表下面。 */
+function UninstallHelp() {
+  const t = useT();
+  const server = location.origin;
+  return (
+    <div className="devices-uninstall">
+      <h3>{t("Uninstall and update")}</h3>
+      <p className="devices-note">
+        更新不用卸载，也不用先吊销：在“添加设备”里复制安装命令再执行一次，只会替换程序，不会重新配对。
+        要彻底卸载，先在设备上执行下面的命令，再到上面的列表里吊销这台设备。先吊销再重装的话，旧的配对信息还在，装完仍然连不上。
+      </p>
+      <CommandBox
+        label={t("Uninstall on Windows, run in PowerShell")}
+        command={WINDOWS_UNINSTALL}
+      />
+      <CommandBox
+        label={t("Uninstall on Linux, run as root")}
+        command={`curl -fsSL ${server}/api/v1/agent/uninstall.sh | sudo sh`}
+      />
+      <p className="devices-note">Unraid 上去掉 sudo。</p>
     </div>
   );
 }

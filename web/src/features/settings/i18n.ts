@@ -60,6 +60,10 @@ registerZh({
   "Install by hand": "手动安装",
   Pair: "配对",
   "To uninstall:": "卸载：",
+  "Uninstall and update": "卸载和更新",
+  "Uninstall on Windows, run in PowerShell":
+    "Windows 卸载，在 PowerShell 里执行",
+  "Uninstall on Linux, run as root": "Linux 卸载，用 root 执行",
   "Open it": "打开",
   "Windows computer": "Windows 电脑",
 });
