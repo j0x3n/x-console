@@ -315,3 +315,4 @@
 - `cd web && npx prettier --write "src/**/*.{ts,tsx,css}"`，`src/api/gen/` 已被 `.prettierignore` 排除。
 - CI 的 web 任务加 `npx prettier --check`。
 | B143 | 稍后阅读读取 X 推文和完整图文保存：推文三步读取（公开接口、登录 Cookie、可选 fxtwitter），清理后的 HTML 和本地图片存档，详情阅读视图，单文件 HTML 导出，设置 → 稍后阅读填 Cookie；规格 [B143](specs/B143.md)，没有用真实推文验证，见已知问题 | `df2c148` |
+| B144 | 端到端提速：B57 那一步等一个不存在的标题白等 10 秒（被 catch 吞掉），改成等“两步验证”；指标订阅等 1 帧；拆成两部分并行（`XC_E2E_PART=1/2`，CI 用矩阵，第二部分只放配对代理以后的服务器步骤）；`XC_E2E_TIMING=1` 列各阶段耗时。本地全跑 141 秒，两部分并行 85 秒和 68 秒 | `01ccfae` |
