@@ -10,6 +10,7 @@ import { coreApi, coreKeys, useAuthStatus } from "../api/core";
 import { ApiError, errorMessage, onUnauthorized, unwrap } from "../api/client";
 import { Loading, ErrorState } from "../components/ui/States";
 import TotpQr from "./TotpQr";
+import BrandMark from "../components/ui/BrandMark";
 
 /** 未初始化显示初始化页，未登录显示登录页，已登录渲染 children。 */
 export default function AuthGate({ children }: { children: ReactNode }) {
@@ -44,7 +45,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 function Brand() {
   return (
     <h1>
-      <span className="brand-mark">X</span> X Console
+      <BrandMark /> X Console
     </h1>
   );
 }

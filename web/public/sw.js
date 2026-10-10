@@ -12,15 +12,17 @@
 
 // ---- PWA caching (B5) ----
 // Bump SHELL_CACHE when the list below changes.
-const SHELL_CACHE = "xc-shell-v2";
-// v2：旧版本可能把服务端回的 index.html 当成 JS 存了进去，换个名字清掉。
-const ASSET_CACHE = "xc-assets-v2";
+const SHELL_CACHE = "xc-shell-v3";
+// v3：更换站标，清掉旧的图标缓存。
+const ASSET_CACHE = "xc-assets-v3";
 const SHELL = [
   "/",
-  "/manifest.webmanifest",
-  "/favicon.svg",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
+  "/manifest.webmanifest?v=connect-1",
+  "/favicon.svg?v=connect-1",
+  "/icons/icon-192.png?v=connect-1",
+  "/icons/icon-512.png?v=connect-1",
+  "/icons/apple-touch-icon.png?v=connect-1",
+  "/icons/maskable-512.png?v=connect-1",
 ];
 // Built files under /assets/ have a content hash in the name, so a cached
 // copy never goes stale. Keep the newest ones only.
@@ -152,13 +154,14 @@ const NOTIFY_ICONS = [
 function notifyIcons(data) {
   const ua = (self.navigator && self.navigator.userAgent) || "";
   const custom = /Windows|Android/.test(ua);
-  if (!custom) return { icon: "/icons/icon-192.png" };
+  if (!custom) return { icon: "/icons/icon-192.png?v=connect-1" };
   const kind = String(data.kind || "");
   const hit = NOTIFY_ICONS.find(([re]) => re.test(kind));
   const name = hit ? hit[1] : "app";
+  const version = name === "app" ? "?v=connect-1" : "";
   return {
-    icon: data.icon || `/icons/notify/${name}.png`,
-    badge: data.badge || `/icons/notify/${name}-badge.png`,
+    icon: data.icon || `/icons/notify/${name}.png${version}`,
+    badge: data.badge || `/icons/notify/${name}-badge.png${version}`,
   };
 }
 
