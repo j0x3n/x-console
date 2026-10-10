@@ -132,6 +132,9 @@ const ids = await page.evaluate(async () => {
     await post("/documents", { kind: "insurance", name: "车险", expiresOn: dayAt(-3) });
     await post("/documents", { kind: "item", name: "笔记本电脑", serial: "SN-42", price: 8999, currency: "CNY", expiresOn: dayAt(300) });
     await post("/documents", { kind: "contract", name: "租房合同" });
+    // B117：稍后读。沙箱里抓不到网页，条目会显示成正在抓取或抓取失败
+    await post("/readlater", { url: "https://example.com/articles/whale-protocol", note: "同事推荐" });
+    await post("/readlater", { url: "https://example.org/blog/read-later" });
     await post("/habits", { name: "跑步", unit: "次", dailyTarget: 1 });
     await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
     await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
@@ -210,6 +213,7 @@ const routes = [
   ["quotas", "/quotas"],
   ["documents", "/documents"],
   ["screentime", "/screentime"],
+  ["readlater", "/readlater"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],

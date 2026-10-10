@@ -75,6 +75,7 @@
 | B114 | 路由器改成脚本主动上报：路由器上的 cron 脚本每分钟把状态 POST 给面板，用令牌校验，不再依赖代理；超过 3 分钟没上报判离线并通知 | [B114](specs/B114.md) | 前后端都完成（Claude，2026-10-09），2026-10-10 部署；没有在真实 OpenWrt 上跑过 |
 | B115 | 证件、合同和物品档案：新模块 `documents`，护照、身份证、驾照、签证、合同、保险、物品保修，记到期日，到期前 90、30、7 天（可改）和到期当天提醒；扫描件存云盘“证件档案”文件夹；可在设置里隐藏整个模块。来源：功能扩展建议第 2 条 | [B115](specs/B115.md) | 前后端都完成（Claude，2026-10-10） |
 | B116 | 电脑时间去向统计：Windows 代理每分钟记一次前台程序，服务端分成编码、AI 工具、通讯、网页、娱乐、办公、其他；新页面 `/screentime` 看日、周、月；今日页“电脑时间”卡片；默认不保存窗口标题；可在设置里隐藏整个模块。来源：功能扩展建议第 1 条 | [B116](specs/B116.md) | 前后端都完成（Claude，2026-10-10） |
+| B117 | 稍后读和链接收集：新模块 `readlater`，页面 `/readlater`；手动添加、手机“分享到”（PWA `share_target`）、给 Telegram 机器人发链接三种入口；后台抓网页正文，AI 写三行摘要和标签；去跟踪参数和重复；拦截本机和内网地址；每周六 10:00 推未读提醒；可在设置里隐藏整个模块。来源：功能扩展建议第 3 条 | [B117](specs/B117.md) | 前后端都完成（Claude，2026-10-10） |
 
 ### 任务说明
 
@@ -297,6 +298,7 @@
 - `features/reminders` 和 `features/habits` 的 `api.ts` 修改后自己刷新数据，同时又用了 `invalidateOn`，有重复。
 - Agent 任务（原“编码任务”）的运行设置在仓库页，没有单独的设置标签。
 - 搜城市先查 Open-Meteo，查不到再查 OpenStreetMap（Nominatim），开发环境连不上外网，没在真实网络下验证过。
+- 端到端测试的“B33 服务器 Agent 只读命令”这一步偶发超时（2026-10-10，B117 提交前跑第一次失败，原样重跑通过）。没定位原因。
 
 ## 已完成
 
@@ -531,3 +533,4 @@
 | 2026-10-09 | `router.yaml` 加 `POST /router/report`（公开，令牌校验）、`POST /router/push/token`；`RouterMode` 加 `push`，`RouterConfig` 加 `lastReportAt`、`reportUrl`，`RouterStatus` 加必填的 `source`；`router` 模块实现 `PublicPaths`（B114） | 路由器主动上报 |
 | 2026-10-10 | `contracts/hidden.go` 加 `documents`（接口、事件 `document.`、通知链接 `/documents`、来源 `documents`、动作 `documents.`），`vault.yaml` 的 `ModuleId` 加 `documents`，`core/handlers.go` 的 `hidesAny` 加 `documents`；前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一行；`scripts/shots.mjs`、`scripts/e2e.mjs` 加证件档案 | B115 证件档案 |
 | 2026-10-10 | `contracts/hidden.go` 加 `screentime`（接口、事件 `screentime.`、通知链接 `/screentime`、来源 `screentime`、动作 `screentime.`），`vault.yaml` 的 `ModuleId` 加 `screentime`，`core/handlers.go` 的 `hidesAny` 加 `screentime`；`pkg/protocol` 加 `methods_screentime.go`；`cmd/agent/main.go` 加一行注册和一行能力；前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts`、`overview/layout.ts`、`overview/TodayPage.tsx` 各加一项；`scripts/shots.mjs`、`scripts/e2e.mjs` 加时间去向 | B116 电脑时间去向 |
+| 2026-10-10 | `contracts` 新增 `telegram.go`（`TelegramInbox`，注册表键 `telegram.inbox`）；`reminders/telegram.go` 注册 webhook 时 `allowed_updates` 加 `message`，收到普通消息交给 `TelegramInbox`，已有 webhook 要重新注册；`contracts/hidden.go` 加 `readlater`（接口、事件 `readlater.`、通知链接 `/readlater`、来源 `readlater`、动作 `readlater.`），`vault.yaml` 的 `ModuleId` 加 `readlater`，`core/handlers.go` 的 `hidesAny` 加 `readlater`；前端 `app/nav.ts`、`app/routes.tsx`、`app/modules.ts` 各加一项，`public/manifest.webmanifest` 加 `share_target`；`scripts/shots.mjs`、`scripts/e2e.mjs` 加稍后读 | B117 稍后读 |

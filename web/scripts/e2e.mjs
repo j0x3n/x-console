@@ -407,6 +407,30 @@ try {
   await page.getByText("记录已清空").waitFor();
   await screenDialog.getByRole("button", { name: "关闭" }).click();
 
+  stage = "稍后读";
+  // B117：本机地址存不了；存一个公网链接后，从未读标为已读，再删除。
+  await page.goto(`${base}/readlater`);
+  await page.getByText("还没有存过链接").waitFor();
+  await page.getByRole("button", { name: "添加链接" }).first().click();
+  await dialog("添加链接").getByLabel("网址").fill("http://127.0.0.1:8080/secret");
+  await dialog("添加链接").getByRole("button", { name: "保存" }).click();
+  await dialog("添加链接").getByText("不能存本机或内网的地址").waitFor();
+  await dialog("添加链接").getByLabel("网址").fill("https://example.com/e2e-article?utm_source=x");
+  await dialog("添加链接").getByLabel("备注（可选）").fill("端到端备注");
+  await dialog("添加链接").getByRole("button", { name: "保存" }).click();
+  await until("链接保存", async () => (await api("/readlater?view=all")).counts.all === 1);
+  assert.equal((await api("/readlater?view=all")).items[0].url, "https://example.com/e2e-article", "跟踪参数应该被去掉");
+  await page.getByText("example.com").first().waitFor();
+  await page.getByRole("button", { name: /^标为已读/ }).first().click();
+  await until("标为已读", async () => (await api("/readlater?view=all")).counts.read === 1);
+  await page.getByText("没有未读的了").waitFor();
+  await page.getByRole("button", { name: "已读", exact: true }).click();
+  const readId = (await api("/readlater?view=all")).items[0].id;
+  const readDel = await page.context().request.delete(`${base}/api/v1/readlater/${readId}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(readDel.status(), 204, await readDel.text());
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

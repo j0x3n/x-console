@@ -1054,6 +1054,27 @@ type QuotaReading struct {
 	FailCount    int64
 }
 
+type ReadItem struct {
+	ID          int64
+	Url         string
+	Title       string
+	TitleLocked int64
+	Site        string
+	Excerpt     string
+	Content     string
+	Summary     string
+	TagsJson    string
+	Note        string
+	Source      string
+	Status      string
+	Error       string
+	Attempts    int64
+	ReadAt      *time.Time
+	CreatedAt   time.Time
+	FetchedAt   *time.Time
+	UpdatedAt   time.Time
+}
+
 type Reminder struct {
 	ID           int64
 	Title        string
