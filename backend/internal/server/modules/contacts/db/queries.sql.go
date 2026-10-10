@@ -23,7 +23,7 @@ func (q *Queries) DeleteContact(ctx context.Context, id int64) (int64, error) {
 }
 
 const getContact = `-- name: GetContact :one
-SELECT id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at FROM contacts WHERE id = ?
+SELECT id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at, phones, emails, source, external_id FROM contacts WHERE id = ?
 `
 
 func (q *Queries) GetContact(ctx context.Context, id int64) (Contact, error) {
@@ -43,14 +43,18 @@ func (q *Queries) GetContact(ctx context.Context, id int64) (Contact, error) {
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phones,
+		&i.Emails,
+		&i.Source,
+		&i.ExternalID,
 	)
 	return i, err
 }
 
 const insertContact = `-- name: InsertContact :one
-INSERT INTO contacts (name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at
+INSERT INTO contacts (name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, phones, emails, source, external_id, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at, phones, emails, source, external_id
 `
 
 type InsertContactParams struct {
@@ -61,6 +65,10 @@ type InsertContactParams struct {
 	ContactEveryDays int64
 	RemindDays       string
 	Notes            string
+	Phones           string
+	Emails           string
+	Source           string
+	ExternalID       string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }
@@ -74,6 +82,10 @@ func (q *Queries) InsertContact(ctx context.Context, arg InsertContactParams) (C
 		arg.ContactEveryDays,
 		arg.RemindDays,
 		arg.Notes,
+		arg.Phones,
+		arg.Emails,
+		arg.Source,
+		arg.ExternalID,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -92,12 +104,16 @@ func (q *Queries) InsertContact(ctx context.Context, arg InsertContactParams) (C
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phones,
+		&i.Emails,
+		&i.Source,
+		&i.ExternalID,
 	)
 	return i, err
 }
 
 const listContacts = `-- name: ListContacts :many
-SELECT id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at FROM contacts ORDER BY id
+SELECT id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at, phones, emails, source, external_id FROM contacts ORDER BY id
 `
 
 func (q *Queries) ListContacts(ctx context.Context) ([]Contact, error) {
@@ -123,6 +139,10 @@ func (q *Queries) ListContacts(ctx context.Context) ([]Contact, error) {
 			&i.ArchivedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Phones,
+			&i.Emails,
+			&i.Source,
+			&i.ExternalID,
 		); err != nil {
 			return nil, err
 		}
@@ -167,8 +187,8 @@ func (q *Queries) SetContactNotified(ctx context.Context, arg SetContactNotified
 
 const updateContact = `-- name: UpdateContact :one
 UPDATE contacts SET name = ?1, group_kind = ?2, events = ?3, last_contact_on = ?4, contact_every_days = ?5,
-  remind_days = ?6, notes = ?7, archived_at = ?8, updated_at = ?9
-WHERE id = ?10 RETURNING id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at
+  remind_days = ?6, notes = ?7, archived_at = ?8, updated_at = ?9, phones = ?10, emails = ?11, source = ?12, external_id = ?13
+WHERE id = ?14 RETURNING id, name, group_kind, events, last_contact_on, contact_every_days, remind_days, notes, notified_json, lost_for, archived_at, created_at, updated_at, phones, emails, source, external_id
 `
 
 type UpdateContactParams struct {
@@ -181,6 +201,10 @@ type UpdateContactParams struct {
 	Notes            string
 	ArchivedAt       *time.Time
 	UpdatedAt        time.Time
+	Phones           string
+	Emails           string
+	Source           string
+	ExternalID       string
 	ID               int64
 }
 
@@ -195,6 +219,10 @@ func (q *Queries) UpdateContact(ctx context.Context, arg UpdateContactParams) (C
 		arg.Notes,
 		arg.ArchivedAt,
 		arg.UpdatedAt,
+		arg.Phones,
+		arg.Emails,
+		arg.Source,
+		arg.ExternalID,
 		arg.ID,
 	)
 	var i Contact
@@ -212,6 +240,10 @@ func (q *Queries) UpdateContact(ctx context.Context, arg UpdateContactParams) (C
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phones,
+		&i.Emails,
+		&i.Source,
+		&i.ExternalID,
 	)
 	return i, err
 }

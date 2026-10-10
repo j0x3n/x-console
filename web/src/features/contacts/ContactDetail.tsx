@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { Archive, ArchiveRestore, Pencil, Phone, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Mail,
+  Pencil,
+  Phone,
+  Trash2,
+} from "lucide-react";
 import { errorMessage } from "../../api/client";
 import Markdown from "../../components/markdown/Markdown";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -114,6 +121,27 @@ export default function ContactDetail({
             </strong>
           </div>
         </div>
+        {(c.phones.length > 0 || c.emails.length > 0) && (
+          <div className="contacts-reach">
+            {c.phones.map((p) => (
+              <a key={p} href={`tel:${p.replace(/[^\d+]/g, "")}`}>
+                <Phone size={13} /> {p}
+              </a>
+            ))}
+            {c.emails.map((e) => (
+              <a key={e} href={`mailto:${e}`}>
+                <Mail size={13} /> {e}
+              </a>
+            ))}
+          </div>
+        )}
+        {c.source && (
+          <p className="xc-muted contacts-source">
+            {c.source === "icloud"
+              ? t("Synced from iCloud")
+              : t("Imported from a vCard file")}
+          </p>
+        )}
         {c.events.length > 0 && (
           <ul className="contacts-event-list" aria-label={t("Important dates")}>
             {[...c.events]

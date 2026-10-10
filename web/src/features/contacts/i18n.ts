@@ -85,4 +85,40 @@ registerZh({
   "The contact and its dates are deleted. This can not be undone.":
     "联系人和他的重要日期都会删除，不能恢复。",
   "Next time": "下一次",
+  // 导入和同步（B140）
+  "Import and sync": "导入和同步",
+  "Import a vCard file": "导入 vCard 文件",
+  "Google Contacts: open contacts.google.com, choose Export, pick vCard, then choose the file here. iPhone and iCloud contacts export the same way.":
+    "Google 通讯录：打开 contacts.google.com，点“导出”，格式选 vCard，再在这里选导出的文件。iPhone 和 iCloud 的通讯录也是这样导出。",
+  "Only people with a birthday or another date": "只要有生日或纪念日的人",
+  "Choose a .vcf file": "选择 .vcf 文件",
+  "Importing…": "正在导入…",
+  "Import finished": "导入完成",
+  new: "新增",
+  updated: "更新",
+  skipped: "跳过",
+  "People already here are matched by their ID in the file, or by name. Their group, reminders and notes are kept.":
+    "已有的联系人按文件里的编号或名字对上，分组、提醒和备注不会被改。",
+  "iCloud contacts sync": "iCloud 通讯录同步",
+  Connected: "已连接",
+  "Last sync": "上次同步",
+  "Not synced yet": "还没同步",
+  people: "人",
+  "Last sync failed": "上次同步失败",
+  "Sync now": "立即同步",
+  "Syncing…": "正在同步…",
+  "Stop syncing": "停止同步",
+  "It syncs every 6 hours. Contacts only come from iCloud to here. Nothing on iCloud is changed, and nobody is deleted here.":
+    "每 6 小时同步一次。联系人只从 iCloud 单向同步到这里，不会改 iCloud 上的内容，也不会删这里的联系人。",
+  "Use an app-specific password, not your Apple ID password: sign in at appleid.apple.com, open Sign-In and Security, then App-Specific Passwords.":
+    "要用“应用专用密码”，不能用 Apple ID 的登录密码：登录 appleid.apple.com，进“登录与安全”，再进“App 专用密码”生成。",
+  "App-specific password": "应用专用密码",
+  "Connect and sync": "连接并同步",
+  "Connecting…": "连接中…",
+  Synced: "已同步",
+  Phone: "电话",
+  Email: "邮箱",
+  "One per line.": "每行一个。",
+  "Synced from iCloud": "来自 iCloud 同步",
+  "Imported from a vCard file": "来自导入的 vCard 文件",
 });

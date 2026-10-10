@@ -77,6 +77,9 @@ const base = {
   contactEveryDays: 0,
   remindDays: [7, 1],
   notes: "",
+  phones: [] as string[],
+  emails: [] as string[],
+  source: "",
   archived: false,
   createdAt: "2026-10-01T00:00:00Z",
   updatedAt: "2026-10-01T00:00:00Z",
@@ -312,5 +315,115 @@ describe("ContactsPage B122", () => {
         true,
       ),
     );
+  });
+
+  it("导入和同步：没设置时填 Apple ID 和应用专用密码连接", async () => {
+    serve();
+    api.routes.set("GET /contacts/sync", () => ({
+      status: 200,
+      body: {
+        configured: false,
+        syncing: false,
+        total: 0,
+        created: 0,
+        updated: 0,
+      },
+    }));
+    api.routes.set("PUT /contacts/sync", () => ({
+      status: 200,
+      body: {
+        configured: true,
+        username: "me@icloud.com",
+        syncing: false,
+        total: 3,
+        created: 3,
+        updated: 0,
+      },
+    }));
+    renderIt();
+    await screen.findByText("老王");
+    fireEvent.click(screen.getByRole("button", { name: /导入和同步/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByTestId("vcf-input").getAttribute("accept"),
+    ).toContain(".vcf");
+    const connect = within(dialog).getByRole("button", { name: "连接并同步" });
+    expect((connect as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText("Apple ID"), {
+      target: { value: "me@icloud.com" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("应用专用密码"), {
+      target: { value: "abcd-efgh-ijkl-mnop" },
+    });
+    fireEvent.click(connect);
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.method === "PUT")).toBe(true),
+    );
+    expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+      username: "me@icloud.com",
+      password: "abcd-efgh-ijkl-mnop",
+      onlyWithDates: false,
+    });
+  });
+
+  it("导入和同步：已连接时显示账号、上次结果和失败原因", async () => {
+    serve();
+    api.routes.set("GET /contacts/sync", () => ({
+      status: 200,
+      body: {
+        configured: true,
+        username: "me@icloud.com",
+        syncing: false,
+        lastSyncAt: "2026-10-10T01:00:00Z",
+        lastError: "登录失败：Apple ID 或应用专用密码不对",
+        total: 12,
+        created: 2,
+        updated: 1,
+      },
+    }));
+    api.routes.set("POST /contacts/sync/run", () => ({
+      status: 200,
+      body: {
+        configured: true,
+        username: "me@icloud.com",
+        syncing: false,
+        total: 12,
+        created: 0,
+        updated: 0,
+      },
+    }));
+    renderIt();
+    await screen.findByText("老王");
+    fireEvent.click(screen.getByRole("button", { name: /导入和同步/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByText("me@icloud.com")).toBeTruthy();
+    expect(within(dialog).getByText(/上次同步失败/)).toBeTruthy();
+    expect(within(dialog).getByText(/12 人，新增 2，更新 1/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: /立即同步/ }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.path === "/contacts/sync/run")).toBe(true),
+    );
+  });
+
+  it("联系人详情显示电话和邮箱", async () => {
+    serve([
+      {
+        ...wang,
+        phones: ["138 0000 0000"],
+        emails: ["wang@example.com"],
+        source: "icloud",
+      },
+    ]);
+    renderIt();
+    fireEvent.click(await screen.findByText("老王"));
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog)
+        .getByText("138 0000 0000")
+        .closest("a")
+        ?.getAttribute("href"),
+    ).toBe("tel:13800000000");
+    expect(within(dialog).getByText("wang@example.com")).toBeTruthy();
+    expect(within(dialog).getByText("来自 iCloud 同步")).toBeTruthy();
   });
 });

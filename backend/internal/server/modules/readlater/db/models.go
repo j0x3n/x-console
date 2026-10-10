@@ -391,6 +391,10 @@ type Contact struct {
 	ArchivedAt       *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	Phones           string
+	Emails           string
+	Source           string
+	ExternalID       string
 }
 
 type Credential struct {

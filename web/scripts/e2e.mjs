@@ -541,6 +541,26 @@ try {
   await page.getByRole("button", { name: "删除", exact: true }).last().click();
   await until("联系人删除", async () => !(await api("/contacts")).items.some((c) => c.name === "端到端老王"));
 
+  // B140：导入 vCard 文件，电话和从文件来的生日要带进来；导入和同步弹窗能打开
+  const vcf = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:e2e-1\r\nFN:端到端导入\r\nTEL:010-0001\r\nBDAY:--1201\r\nEND:VCARD\r\n";
+  const imported = await page.context().request.post(`${base}/api/v1/contacts/import`, {
+    headers: { "X-Requested-With": "x-console" },
+    multipart: { file: { name: "contacts.vcf", mimeType: "text/vcard", buffer: Buffer.from(vcf) } },
+  });
+  assert.equal(imported.status(), 200, await imported.text());
+  assert.equal((await imported.json()).created, 1);
+  const importedContact = (await api("/contacts")).items.find((c) => c.name === "端到端导入");
+  assert.deepEqual(importedContact.phones, ["010-0001"]);
+  assert.equal(importedContact.events[0].date, "12-01");
+  await page.goto(`${base}/contacts`);
+  await page.getByRole("button", { name: "导入和同步" }).click();
+  await dialog("导入和同步").getByText("iCloud 通讯录同步").waitFor();
+  await dialog("导入和同步").getByRole("button", { name: "关闭" }).click();
+  const importedDel = await page.context().request.delete(`${base}/api/v1/contacts/${importedContact.id}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(importedDel.status(), 204);
+
   stage = "通知静音规则";
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

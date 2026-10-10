@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { Phone, Plus, Users } from "lucide-react";
+import { Phone, Plus, Upload, Users } from "lucide-react";
 import { errorMessage, isNotLive } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
@@ -21,6 +21,7 @@ import {
 } from "./api";
 import ContactDetail from "./ContactDetail";
 import ContactDialog from "./ContactDialog";
+import ImportDialog from "./ImportDialog";
 import {
   GROUPS,
   GROUP_ICONS,
@@ -42,6 +43,7 @@ export default function ContactsPage() {
   const [q, setQ] = useState("");
   const [group, setGroup] = useState<ContactGroup | "">("");
   const [openId, setOpenId] = useState<number | null>(null);
+  const [importing, setImporting] = useState(false);
   const list = useContacts(archived);
 
   const viewParam = params.get("view");
@@ -132,13 +134,22 @@ export default function ContactsPage() {
               : undefined
         }
         aside={
-          <button
-            className="xc-btn primary"
-            title={t("New contact")}
-            onClick={() => setCreating(true)}
-          >
-            <Plus size={15} /> {t("New contact")}
-          </button>
+          <>
+            <button
+              className="xc-btn"
+              title={t("Import and sync")}
+              onClick={() => setImporting(true)}
+            >
+              <Upload size={15} /> {t("Import and sync")}
+            </button>
+            <button
+              className="xc-btn primary"
+              title={t("New contact")}
+              onClick={() => setCreating(true)}
+            >
+              <Plus size={15} /> {t("New contact")}
+            </button>
+          </>
         }
       />
       <StatStrip label={t("Contacts")}>
@@ -202,6 +213,7 @@ export default function ContactsPage() {
         defaultGroup={group || undefined}
       />
       <ContactDetail contact={open} onClose={() => setOpenId(null)} />
+      <ImportDialog open={importing} onClose={() => setImporting(false)} />
     </div>
   );
 }
