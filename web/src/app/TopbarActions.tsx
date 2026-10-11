@@ -1,5 +1,6 @@
 import QuickNote from "../features/notes/QuickNote";
 import FocusButton from "../features/calendar/FocusButton";
+import TopbarPlayer from "../features/music/TopbarPlayer";
 
 /*
  * 页头右侧的全局按钮位置。AI 助手（M12）、番茄钟（M11）等全局入口放在这里。
@@ -8,6 +9,7 @@ import FocusButton from "../features/calendar/FocusButton";
 export default function TopbarActions() {
   return (
     <>
+      <TopbarPlayer />
       <QuickNote />
       <FocusButton />
     </>

@@ -1,5 +1,4 @@
 import {
-  Maximize2,
   MoveRight,
   Pause,
   Play,
@@ -14,14 +13,12 @@ import {
 } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useT } from "../../contexts/LanguageContext";
-import { TrackCover } from "./Cover";
 import MusicDialogs from "./dialogs";
 import { formatClock } from "./lyrics";
-import { SleepButton } from "./SleepDialog";
-import { seek, useMainLeft } from "./PlayerHost";
+import { seek } from "./PlayerHost";
 import PlayerHost from "./PlayerHost";
 import { modeLabel, type PlayMode } from "./queue";
-import { currentTrack, usePlayer, useProgress } from "./player";
+import { usePlayer, useProgress } from "./player";
 import "./i18n";
 import "./music.css";
 
@@ -165,71 +162,12 @@ export function ModeButton() {
   );
 }
 
-function MiniBar() {
-  const t = useT();
-  const track = usePlayer(currentTrack);
-  const blocked = usePlayer((s) => s.blocked);
-  const resume = usePlayer((s) => s.resume);
-  const setFullOpen = usePlayer((s) => s.setFullOpen);
-  const left = useMainLeft();
-  if (!track) return null;
-  return (
-    <div
-      className="music-mini"
-      style={{ left }}
-      role="region"
-      aria-label={t("Music player")}
-    >
-      <SeekBar className="music-mini-seek" />
-      <div className="music-mini-body">
-        <button
-          type="button"
-          className="music-mini-info"
-          onClick={() => setFullOpen(true)}
-          aria-label={`${t("Open the player")}: ${track.title}`}
-        >
-          <TrackCover track={track} />
-          <span className="music-row-main">
-            <span className="music-row-title">{track.title}</span>
-            <span className="music-row-artist">
-              {blocked
-                ? t("Tap to start playing")
-                : track.artist || t("Unknown artist")}
-            </span>
-          </span>
-        </button>
-        <span className="music-mini-controls">
-          <Controls />
-        </span>
-        <span className="music-mini-time">
-          <TimeText />
-        </span>
-        <span className="music-mini-volume">
-          <ModeButton />
-          <SleepButton />
-          <VolumeControl />
-        </span>
-        <button
-          type="button"
-          className="music-btn music-mini-expand"
-          aria-label={t("Open the player")}
-          title={t("Open the player")}
-          onClick={() => (blocked ? resume() : setFullOpen(true))}
-        >
-          <Maximize2 size={16} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** 全局音乐播放器：引擎、底部播放条、全屏页、两个小弹窗。挂在 GlobalPanels 里。 */
+/** 全局音乐播放器：引擎、全屏页、两个小弹窗。挂在 GlobalPanels 里，控制按钮在页头（TopbarPlayer）。 */
 export default function MusicPlayer() {
   const fullOpen = usePlayer((s) => s.fullOpen && s.currentId != null);
   return (
     <>
       <PlayerHost />
-      <MiniBar />
       {fullOpen && (
         <Suspense fallback={null}>
           <FullPlayer />

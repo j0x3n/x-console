@@ -194,48 +194,6 @@
   color: var(--xc-danger);
 }
 
-/* 底部播放条 */
-.music-mini {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  z-index: 35;
-  background: var(--xc-elevated);
-  border-top: 1px solid var(--xc-border-strong);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.music-mini-seek {
-  position: absolute;
-  top: -7px;
-  left: 0;
-  width: 100%;
-  margin: 0;
-}
-.music-mini-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
-  align-items: center;
-  gap: 16px;
-  height: 64px;
-  padding: 0 16px;
-}
-.music-mini-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.music-mini-volume {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
 .music-time {
   color: var(--xc-muted);
   font-size: var(--fs-12);
@@ -342,12 +300,6 @@
 }
 
 /* 有歌在播放条里时：页面底部让位，AI 浮钮上移 */
-html.has-mini-player .main-panel {
-  padding-bottom: 66px;
-}
-html.has-mini-player .ai-fab {
-  bottom: calc(86px + env(safe-area-inset-bottom));
-}
 html.music-full-open .ai-fab {
   display: none;
 }
@@ -621,27 +573,15 @@ html.music-full-open .ai-fab {
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 12px;
   }
-  .music-mini {
-    left: 0 !important;
-  }
-  .music-mini-body {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 8px;
-    padding: 0 8px 0 12px;
-  }
-  .music-mini-time,
-  .music-mini-volume,
-  .music-mini-controls .music-btn:first-child {
+  .music-top .music-top-list,
+  .music-top .music-top-lyrics {
     display: none;
   }
-  .music-mini-expand {
-    display: none;
-  }
-  html.has-mini-player .main-panel {
-    padding-bottom: 76px;
-  }
-  html.has-mini-player .ai-fab {
-    bottom: calc(80px + env(safe-area-inset-bottom));
+  .music-pop-stack {
+    top: 60px;
+    right: 8px;
+    left: 8px;
+    width: auto;
   }
   .music-full {
     left: 0 !important;
@@ -930,4 +870,143 @@ html.music-full-open .ai-fab {
   min-width: 0;
   color: inherit;
   text-decoration: none;
+}
+
+/* 页头右上角的迷你播放器 */
+.music-top {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.music-top-cover {
+  display: block;
+  width: 27px;
+  height: 27px;
+  margin-right: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.music-top-cover .music-cover {
+  width: 27px;
+  height: 27px;
+  border-radius: 6px;
+}
+.music-top .icon-button.music-top-on {
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.music-top .icon-button.music-top-blocked {
+  color: var(--xc-accent-text);
+}
+.music-pop-stack {
+  position: fixed;
+  top: 64px;
+  right: 14px;
+  z-index: 36;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(320px, calc(100vw - 16px));
+  max-height: calc(100vh - 76px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+.music-pop {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 10px;
+  background: var(--xc-elevated);
+  box-shadow: var(--xc-shadow);
+}
+.music-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 6px 6px 12px;
+  font-size: var(--fs-13);
+}
+.music-pop-tools {
+  display: flex;
+  gap: 2px;
+}
+.music-btn.small {
+  width: 26px;
+  height: 26px;
+}
+.music-pop-body {
+  min-height: 0;
+  padding: 0 12px 12px;
+}
+.music-pop-queue .music-pop-body {
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 0 4px 8px;
+}
+.music-pop-song {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.music-pop-song small {
+  color: var(--xc-muted);
+  font-weight: 400;
+}
+.music-pop-lyrics {
+  height: 260px;
+  overflow: hidden;
+}
+.music-pop-lyrics .music-lyrics {
+  height: 100%;
+  padding: 8px 0 120px;
+}
+.music-pop-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+.music-pop-cover {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+}
+.music-pop-time {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+.music-pop-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.music-pop-extra {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+}
+.music-pop-extra .music-volume {
+  flex: 1;
+  min-width: 0;
+}
+/* 页头上的队列、歌词按钮够宽时才显示，窄屏用小组件里的这两个 */
+.music-pop-list {
+  display: none;
+}
+@media (max-width: 720px) {
+  .music-pop-list {
+    display: grid;
+  }
 }

@@ -381,13 +381,12 @@ export default function PlayerHost() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  // 有歌在播放条里时给页面底部让位，并让 AI 浮钮上移（样式在 music.css）。
+  // 全屏播放页打开时隐藏 AI 浮钮（样式在 music.css）。
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle("has-mini-player", trackId != null);
     root.classList.toggle("music-full-open", trackId != null && fullOpen);
     return () => {
-      root.classList.remove("has-mini-player", "music-full-open");
+      root.classList.remove("music-full-open");
     };
   }, [trackId, fullOpen]);
 
