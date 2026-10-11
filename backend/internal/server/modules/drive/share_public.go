@@ -41,7 +41,9 @@ var (
 	errShareLimit        = httpx.NewError(410, "share_limit_reached", "下载次数已用完")
 )
 
-func (m *Module) PublicPaths() []string { return []string{"/public/shares"} }
+func (m *Module) PublicPaths() []string {
+	return append([]string{"/public/shares"}, m.linkPaths()...)
+}
 
 func (m *Module) publicClientIP(r *http.Request) string {
 	return httpx.ClientIP(r, m.d.Config.TrustedProxies)

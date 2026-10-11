@@ -443,6 +443,16 @@ type Document struct {
 	UpdatedAt    time.Time
 }
 
+type DriveDownloadLink struct {
+	ID        int64
+	TokenHash string
+	ItemID    int64
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedBy string
+	CreatedAt time.Time
+}
+
 type DriveFileVersion struct {
 	ID        int64
 	ItemID    int64
@@ -497,6 +507,19 @@ type DriveShareDownload struct {
 	UserAgent string
 	ItemID    *int64
 	ItemName  string
+}
+
+type DriveUploadLink struct {
+	ID         int64
+	TokenHash  string
+	ParentID   *int64
+	Name       string
+	OnConflict string
+	MaxSize    int64
+	ExpiresAt  time.Time
+	UsedAt     *time.Time
+	CreatedBy  string
+	CreatedAt  time.Time
 }
 
 type FocusSession struct {

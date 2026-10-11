@@ -49,7 +49,13 @@ type Module struct {
 	shareFetches map[string]time.Time
 	blobMu       sync.Mutex
 	blobLocks    map[string]*blobLock // see lockBlob
+	fetchGuard   fetchGuard           // what upload_from_url may reach (B151)
+	downloadIdle time.Duration        // a download that sends nothing this long is stopped
+	taskWait     time.Duration        // how long an MCP action waits for its task
 }
+
+// ServiceKey is where the module registers itself, for tests.
+const ServiceKey = "drive.module"
 
 var _ api.ServerInterface = (*Module)(nil)
 var _ module.Starter = (*Module)(nil)
@@ -58,8 +64,10 @@ func New(d *module.Deps) (module.Module, error) {
 	if err := os.MkdirAll(d.Config.TmpDir(), 0700); err != nil {
 		return nil, err
 	}
-	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure), shareFetches: make(map[string]time.Time), blobLocks: make(map[string]*blobLock)}
+	m := &Module{d: d, q: db.New(d.DB), store: d.Files.For("drive"), tmpDir: d.Config.TmpDir(), syncReq: make(chan struct{}, 1), syncStatus: api.S3Status{State: "off"}, tasks: make(map[string]*driveTask), taskSlots: make(chan struct{}, 2), taskNow: time.Now, shareHits: make(map[string]shareRate), shareFails: make(map[string]shareFailure), shareFetches: make(map[string]time.Time), blobLocks: make(map[string]*blobLock), fetchGuard: defaultFetchGuard(), downloadIdle: 60 * time.Second, taskWait: 20 * time.Second}
 	m.registerActions()
+	m.registerMCPActions()
+	module.Provide[*Module](d.Registry, ServiceKey, m)
 	module.Provide[contracts.DriveFiles](d.Registry, contracts.DriveFilesKey, driveFiles{m})
 	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"drive", maintenance.StoreReporter{Store: m.store, Registry: d.Registry, Key: "drive", Label: "云盘", Module: "drive"})
 	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"drive", maintenance.DriveCleaner{Deps: d, Lock: m.lockBlob, Trash: func(ctx context.Context, id int64, cutoff time.Time, snapshot []int64) (contracts.CleanupResult, error) {
@@ -91,6 +99,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("drive.tasks.cleanup", time.Minute, m.pruneTasks)
 	m.d.Scheduler.Every("drive.versions.prune", 24*time.Hour, m.pruneVersions)
 	m.d.Scheduler.Every("drive.shares.prune", 24*time.Hour, m.pruneShares)
+	m.d.Scheduler.Every("drive.links.prune", 24*time.Hour, m.pruneLinks)
 	m.d.Scheduler.Every("drive.shares.rate_cleanup", time.Minute, m.pruneShareRates)
 	return nil
 }

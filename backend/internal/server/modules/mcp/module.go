@@ -121,7 +121,7 @@ func (m *Module) RevokeApiToken(w http.ResponseWriter, r *http.Request, id int64
 // modules lists the modules that have actions an outside caller could use.
 func (m *Module) modules(ctx context.Context) []string {
 	seen := map[string]bool{}
-	for _, a := range m.d.Actions.List(ctx) {
+	for _, a := range m.d.Actions.ListForMCP(ctx) {
 		if a.Effect != actions.Dangerous && !a.PanelOnly {
 			seen[actions.Module(a.Name)] = true
 		}
@@ -146,7 +146,7 @@ func (m *Module) ListApiTokenTools(w http.ResponseWriter, r *http.Request, param
 		Deletes bool   `json:"deletes,omitempty"`
 	}
 	tools := []tool{}
-	for _, a := range m.d.Actions.List(r.Context()) {
+	for _, a := range m.d.Actions.ListForMCP(r.Context()) {
 		if actions.AllowedFor(a, string(params.Access), mods) {
 			tools = append(tools, tool{toolName(a.Name), a.Title, string(a.Effect), actions.Deletes(a)})
 		}

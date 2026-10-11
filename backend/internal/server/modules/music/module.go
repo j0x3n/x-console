@@ -69,6 +69,7 @@ func New(d *module.Deps) (module.Module, error) {
 		providers: newProviderSet(), matchReq: make(chan bool, 1), matchPause: 500 * time.Millisecond, sleepUnit: time.Minute,
 	}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	m.registerActions()
 	return m, nil
 }
 
