@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -186,6 +187,24 @@ func (q *Queries) GetMessageByUID(ctx context.Context, arg GetMessageByUIDParams
 	return i, err
 }
 
+const getTriage = `-- name: GetTriage :one
+SELECT message_id, category, summary, dates, source, triaged_at FROM mail_triage WHERE message_id = ?
+`
+
+func (q *Queries) GetTriage(ctx context.Context, messageID int64) (MailTriage, error) {
+	row := q.db.QueryRowContext(ctx, getTriage, messageID)
+	var i MailTriage
+	err := row.Scan(
+		&i.MessageID,
+		&i.Category,
+		&i.Summary,
+		&i.Dates,
+		&i.Source,
+		&i.TriagedAt,
+	)
+	return i, err
+}
+
 const insertMessage = `-- name: InsertMessage :execrows
 INSERT INTO mail_messages (account_id, uid, message_id, from_name, from_address, subject, snippet, date, unread, flagged, has_attachments)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -330,8 +349,9 @@ WHERE (?1 IS NULL OR account_id = ?1)
   AND (?2 = 0 OR unread = 1)
   AND (?3 IS NULL OR date < ?3)
   AND (?4 = '' OR from_name LIKE '%' || ?4 || '%' OR from_address LIKE '%' || ?4 || '%' OR subject LIKE '%' || ?4 || '%')
+  AND (?5 = '' OR id IN (SELECT message_id FROM mail_triage WHERE category = ?5))
 ORDER BY date DESC, id DESC
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListMessagesParams struct {
@@ -339,6 +359,7 @@ type ListMessagesParams struct {
 	OnlyUnread interface{}
 	Before     interface{}
 	Q          interface{}
+	Category   interface{}
 	Lim        int64
 }
 
@@ -363,6 +384,7 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]L
 		arg.OnlyUnread,
 		arg.Before,
 		arg.Q,
+		arg.Category,
 		arg.Lim,
 	)
 	if err != nil {
@@ -385,6 +407,50 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]L
 			&i.Unread,
 			&i.Flagged,
 			&i.HasAttachments,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTriageByIDs = `-- name: ListTriageByIDs :many
+SELECT message_id, category, summary, dates, source, triaged_at FROM mail_triage WHERE message_id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) ListTriageByIDs(ctx context.Context, ids []int64) ([]MailTriage, error) {
+	query := listTriageByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MailTriage
+	for rows.Next() {
+		var i MailTriage
+		if err := rows.Scan(
+			&i.MessageID,
+			&i.Category,
+			&i.Summary,
+			&i.Dates,
+			&i.Source,
+			&i.TriagedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -584,4 +650,31 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (M
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const upsertTriage = `-- name: UpsertTriage :exec
+INSERT INTO mail_triage (message_id, category, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, summary = excluded.summary, dates = excluded.dates,
+ source = excluded.source, triaged_at = excluded.triaged_at
+`
+
+type UpsertTriageParams struct {
+	MessageID int64
+	Category  string
+	Summary   string
+	Dates     string
+	Source    string
+	TriagedAt time.Time
+}
+
+func (q *Queries) UpsertTriage(ctx context.Context, arg UpsertTriageParams) error {
+	_, err := q.db.ExecContext(ctx, upsertTriage,
+		arg.MessageID,
+		arg.Category,
+		arg.Summary,
+		arg.Dates,
+		arg.Source,
+		arg.TriagedAt,
+	)
+	return err
 }

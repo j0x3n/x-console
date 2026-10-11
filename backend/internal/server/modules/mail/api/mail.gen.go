@@ -34,6 +34,27 @@ func (e MailAccountStatus) Valid() bool {
 	}
 }
 
+// Defines values for MailCategory.
+const (
+	Action MailCategory = "action"
+	Notice MailCategory = "notice"
+	Promo  MailCategory = "promo"
+)
+
+// Valid indicates whether the value is a known member of the MailCategory enum.
+func (e MailCategory) Valid() bool {
+	switch e {
+	case Action:
+		return true
+	case Notice:
+		return true
+	case Promo:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MailProvider.
 const (
 	Aliyun MailProvider = "aliyun"
@@ -80,6 +101,9 @@ type MailAccount struct {
 	// Status ok 连着；connecting 正在连；error 连不上或登录失败，原因在 lastError
 	Status MailAccountStatus `json:"status"`
 
+	// Triage B136：新邮件用 AI 分拣。邮件的发件人、主题和开头会发给 AI 供应商
+	Triage *bool `json:"triage,omitempty"`
+
 	// Unread 收件箱未读数
 	Unread int `json:"unread"`
 
@@ -107,6 +131,9 @@ type MailAccountInput struct {
 	// Provider gmail 和 aliyun 有预设的服务器地址，other 要自己填
 	Provider MailProvider `json:"provider"`
 
+	// Triage 默认 false
+	Triage *bool `json:"triage,omitempty"`
+
 	// Username 默认用 email
 	Username *string `json:"username,omitempty"`
 }
@@ -118,6 +145,7 @@ type MailAccountPatch struct {
 	Name     *string `json:"name,omitempty"`
 	Notify   *bool   `json:"notify,omitempty"`
 	Password *string `json:"password,omitempty"`
+	Triage   *bool   `json:"triage,omitempty"`
 	Username *string `json:"username,omitempty"`
 }
 
@@ -140,6 +168,9 @@ type MailAttachment struct {
 	Size      int64   `json:"size"`
 }
 
+// MailCategory action 要处理；notice 通知；promo 营销
+type MailCategory string
+
 // MailMessage defines model for MailMessage.
 type MailMessage struct {
 	AccountId      int64            `json:"accountId"`
@@ -161,6 +192,7 @@ type MailMessage struct {
 	// Text 纯文字正文。没有时从 HTML 转
 	Text   string        `json:"text"`
 	To     []MailAddress `json:"to"`
+	Triage *MailTriage   `json:"triage,omitempty"`
 	Unread bool          `json:"unread"`
 }
 
@@ -191,9 +223,10 @@ type MailSummary struct {
 	Id             int64       `json:"id"`
 
 	// Snippet 正文开头的纯文字，最多 160 字
-	Snippet string `json:"snippet"`
-	Subject string `json:"subject"`
-	Unread  bool   `json:"unread"`
+	Snippet string      `json:"snippet"`
+	Subject string      `json:"subject"`
+	Triage  *MailTriage `json:"triage,omitempty"`
+	Unread  bool        `json:"unread"`
 }
 
 // MailSummaryView defines model for MailSummaryView.
@@ -214,6 +247,27 @@ type MailSummaryView struct {
 	Unread int `json:"unread"`
 }
 
+// MailTriage defines model for MailTriage.
+type MailTriage struct {
+	// Category action 要处理；notice 通知；promo 营销
+	Category MailCategory `json:"category"`
+
+	// Dates 邮件里提到的需要留意的日期，最多 3 个
+	Dates []MailTriageDate `json:"dates"`
+
+	// Summary 一句话说明这封邮件要你做什么或讲了什么
+	Summary string `json:"summary"`
+}
+
+// MailTriageDate defines model for MailTriageDate.
+type MailTriageDate struct {
+	// Date YYYY-MM-DD
+	Date string `json:"date"`
+
+	// Text 这个日期是什么事，比如 续费截止
+	Text string `json:"text"`
+}
+
 // AccountId defines model for AccountId.
 type AccountId = int64
 
@@ -230,6 +284,9 @@ type ListMailMessagesParams struct {
 
 	// Q 搜发件人和主题
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Category 只看 AI 分拣成这一类的邮件（B136）。没分拣过的邮件不会出现
+	Category *MailCategory `form:"category,omitempty" json:"category,omitempty"`
 
 	// Before 翻页，传上一页最后一封的 date
 	Before *time.Time `form:"before,omitempty" json:"before,omitempty"`
@@ -274,6 +331,9 @@ type ServerInterface interface {
 
 	// (GET /mail/messages/{messageId}/attachments/{index})
 	DownloadMailAttachment(w http.ResponseWriter, r *http.Request, messageId MessageId, index int)
+
+	// (POST /mail/messages/{messageId}/triage)
+	TriageMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId)
 
 	// (GET /mail/summary)
 	GetMailSummary(w http.ResponseWriter, r *http.Request)
@@ -325,6 +385,11 @@ func (_ Unimplemented) UpdateMailMessage(w http.ResponseWriter, r *http.Request,
 
 // (GET /mail/messages/{messageId}/attachments/{index})
 func (_ Unimplemented) DownloadMailAttachment(w http.ResponseWriter, r *http.Request, messageId MessageId, index int) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /mail/messages/{messageId}/triage)
+func (_ Unimplemented) TriageMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -496,6 +561,19 @@ func (siw *ServerInterfaceWrapper) ListMailMessages(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// ------------- Optional query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category", r.URL.Query(), &params.Category, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "category"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "category", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "before" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
@@ -611,6 +689,32 @@ func (siw *ServerInterfaceWrapper) DownloadMailAttachment(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DownloadMailAttachment(w, r, messageId, index)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TriageMailMessage operation middleware
+func (siw *ServerInterfaceWrapper) TriageMailMessage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "messageId" -------------
+	var messageId MessageId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageId", chi.URLParam(r, "messageId"), &messageId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TriageMailMessage(w, r, messageId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -773,6 +877,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/mail/messages/{messageId}/attachments/{index}", wrapper.DownloadMailAttachment)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/mail/messages/{messageId}/triage", wrapper.TriageMailMessage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/mail/summary", wrapper.GetMailSummary)

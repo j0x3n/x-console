@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { Mail, Paperclip, Plus, RefreshCw, Star } from "lucide-react";
 import { isNotLive } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
-import { SearchBox } from "../../components/ui/Toolbar";
+import { SearchBox, Segmented } from "../../components/ui/Toolbar";
 import {
   EmptyState,
   ErrorState,
@@ -24,6 +24,7 @@ import {
 import AccountDialog from "./components/AccountDialog";
 import MessageView from "./components/MessageView";
 import { mailTime, senderName } from "./logic";
+import { CATEGORY_FILTERS, CATEGORY_LABELS, categoryFromParam } from "./triage";
 import { useKeepScroll } from "../../hooks/useKeepScroll";
 
 /*
@@ -62,7 +63,8 @@ export default function MailPage() {
   useKeepScroll(listRef, `mail.list:${listKey.toString()}`);
   useKeepScroll(readRef, `mail.read:${openId ?? ""}`);
   const unread = params.get("unread") === "1";
-  const filter: MailFilter = { accountId, unread, q: query };
+  const category = categoryFromParam(params.get("c"));
+  const filter: MailFilter = { accountId, unread, q: query, category };
   const list = useMailMessages(filter, accounts.isSuccess);
   const total = (accounts.data ?? []).reduce((n, a) => n + a.unread, 0);
 
@@ -138,6 +140,17 @@ export default function MailPage() {
               onChange={setQ}
               placeholder={t("Search sender or subject")}
             />
+            {(category || accounts.data.some((a) => a.triage)) && (
+              <Segmented<string>
+                label={t("AI sorting")}
+                value={category ?? "all"}
+                onChange={(v) => set("c", v === "all" ? null : v)}
+                options={CATEGORY_FILTERS.map((o) => ({
+                  value: o.value,
+                  label: t(o.label),
+                }))}
+              />
+            )}
           </div>
           {broken.map((a) => (
             <p key={a.id} className="mail-account-error" title={a.lastError}>
@@ -223,11 +236,23 @@ function MessageRow({
           <small>{mailTime(m.date, now)}</small>
         </span>
         <span className="mail-row-subject">
+          {m.triage?.category === "action" && (
+            <span
+              className={`xc-badge ${CATEGORY_LABELS.action.tone} mail-row-tag`}
+            >
+              {t(CATEGORY_LABELS.action.label)}
+            </span>
+          )}
+          {m.triage && m.triage.category !== "action" && (
+            <small className="mail-row-kind">
+              {t(CATEGORY_LABELS[m.triage.category].label)}
+            </small>
+          )}
           {m.subject || t("(No subject)")}
         </span>
         <span className="mail-row-snippet">
           {account && <i>{account.name}</i>}
-          {m.snippet}
+          {m.triage?.summary || m.snippet}
         </span>
       </button>
     </li>

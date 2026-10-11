@@ -1128,6 +1128,15 @@ type MailMessage struct {
 	BodyJson       *string
 }
 
+type MailTriage struct {
+	MessageID int64
+	Category  string
+	Summary   string
+	Dates     string
+	Source    string
+	TriagedAt time.Time
+}
+
 type Milestone struct {
 	ID        int64
 	ProjectID int64

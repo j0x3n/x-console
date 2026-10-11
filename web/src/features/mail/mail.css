@@ -328,3 +328,45 @@
   gap: 8px;
   margin-top: 4px;
 }
+
+/* B136 邮件 AI 分拣 */
+.mail-row-tag {
+  margin-right: 6px;
+}
+.mail-row-kind {
+  margin-right: 6px;
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+}
+.mail-triage {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+}
+.mail-triage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-13);
+}
+.mail-triage-dates {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-13);
+}
+.mail-triage-dates li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.mail-triage > button {
+  justify-self: start;
+}

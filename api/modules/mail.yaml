@@ -96,6 +96,10 @@ paths:
           in: query
           description: 搜发件人和主题
           schema: { type: string, maxLength: 100 }
+        - name: category
+          in: query
+          description: 只看 AI 分拣成这一类的邮件（B136）。没分拣过的邮件不会出现
+          schema: { $ref: "#/components/schemas/MailCategory" }
         - name: before
           in: query
           description: 翻页，传上一页最后一封的 date
@@ -162,6 +166,23 @@ paths:
               schema: { type: string, format: binary }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /mail/messages/{messageId}/triage:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+    post:
+      operationId: triageMailMessage
+      tags: [mail]
+      description: |
+        B136：让 AI 分拣这封邮件。有缓存的正文就用正文，否则用开头的摘要。邮件内容会发给 AI 供应商，
+        所以只在用户点按钮或这个邮箱开了自动分拣时做。AI 没配置时回 409。
+      responses:
+        "200":
+          description: 分拣结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailTriage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /mail/summary:
     get:
       operationId: getMailSummary
@@ -213,6 +234,7 @@ components:
         idle: { type: boolean, description: 服务器支持 IDLE，新邮件几秒内就能收到。不支持时每分钟查一次 }
         lastSyncAt: { type: string, format: date-time }
         unread: { type: integer, description: 收件箱未读数 }
+        triage: { type: boolean, description: B136：新邮件用 AI 分拣。邮件的发件人、主题和开头会发给 AI 供应商 }
         createdAt: { type: string, format: date-time }
     MailAccountInput:
       type: object
@@ -226,11 +248,13 @@ components:
         username: { type: string, maxLength: 200, description: 默认用 email }
         password: { type: string, minLength: 1, maxLength: 500, description: Gmail 要用应用专用密码 }
         notify: { type: boolean, description: 默认 true }
+        triage: { type: boolean, description: 默认 false }
     MailAccountPatch:
       type: object
       properties:
         name: { type: string, minLength: 1, maxLength: 50 }
         notify: { type: boolean }
+        triage: { type: boolean }
         imapHost: { type: string, maxLength: 200 }
         imapPort: { type: integer, minimum: 1, maximum: 65535 }
         username: { type: string, maxLength: 200 }
@@ -254,6 +278,27 @@ components:
         unread: { type: boolean }
         flagged: { type: boolean }
         hasAttachments: { type: boolean }
+        triage: { $ref: "#/components/schemas/MailTriage" }
+    MailCategory:
+      type: string
+      enum: [action, notice, promo]
+      description: action 要处理；notice 通知；promo 营销
+    MailTriageDate:
+      type: object
+      required: [date, text]
+      properties:
+        date: { type: string, description: YYYY-MM-DD }
+        text: { type: string, description: 这个日期是什么事，比如 续费截止 }
+    MailTriage:
+      type: object
+      required: [category, summary, dates]
+      properties:
+        category: { $ref: "#/components/schemas/MailCategory" }
+        summary: { type: string, description: 一句话说明这封邮件要你做什么或讲了什么 }
+        dates:
+          type: array
+          description: 邮件里提到的需要留意的日期，最多 3 个
+          items: { $ref: "#/components/schemas/MailTriageDate" }
     MailPage:
       type: object
       required: [items]

@@ -19,11 +19,15 @@ export type MailProvider = S["MailProvider"];
 export type MailSummary = S["MailSummary"];
 export type MailMessage = S["MailMessage"];
 export type MailSummaryView = S["MailSummaryView"];
+export type MailTriage = S["MailTriage"];
+export type MailCategory = S["MailCategory"];
 
 export interface MailFilter {
   accountId: number | null;
   unread: boolean;
   q: string;
+  /** B136：只看 AI 分拣成这一类的邮件 */
+  category?: MailCategory | null;
 }
 
 export const mailKeys = {
@@ -108,6 +112,7 @@ export function useMailMessages(filter: MailFilter, enabled = true) {
               accountId: filter.accountId ?? undefined,
               unread: filter.unread || undefined,
               q: filter.q || undefined,
+              category: filter.category || undefined,
               before: pageParam || undefined,
               limit: 50,
             },
@@ -151,6 +156,20 @@ export function useUpdateMailMessage() {
         mailApi.PATCH("/mail/messages/{messageId}", {
           params: { path: { messageId: id } },
           body: { unread, flagged },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: mailKeys.all }),
+  });
+}
+
+/** B136：让 AI 分拣一封邮件（用正文，没有正文时用摘要）。 */
+export function useTriageMailMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        mailApi.POST("/mail/messages/{messageId}/triage", {
+          params: { path: { messageId: id } },
         }),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: mailKeys.all }),

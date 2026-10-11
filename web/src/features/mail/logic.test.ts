@@ -4,6 +4,7 @@ import {
   hasRemoteImages,
   mailDocument,
   mailTime,
+  reminderTimeFor,
   replaceCid,
   senderName,
   textToHtml,
@@ -56,5 +57,27 @@ describe("邮件（B53）", () => {
     expect(mailTime(new Date(2025, 0, 2).toISOString(), now)).toBe("2025/1/2");
     expect(guessProvider("x@Gmail.com")).toBe("gmail");
     expect(guessProvider("x@xcc.im")).toBe("other");
+  });
+});
+
+describe("截止日的提醒时间（B136）", () => {
+  const now = new Date(2026, 9, 15, 10, 0, 0); // 10 月 15 日 10:00
+  it("定在前一天早上 9 点", () => {
+    expect(reminderTimeFor("2026-10-20", now)).toEqual(
+      new Date(2026, 9, 19, 9, 0, 0),
+    );
+  });
+  it("前一天已经过了就定在当天 9 点", () => {
+    expect(reminderTimeFor("2026-10-16", now)).toEqual(
+      new Date(2026, 9, 16, 9, 0, 0),
+    );
+    expect(
+      reminderTimeFor("2026-10-16", new Date(2026, 9, 15, 20, 0, 0)),
+    ).toEqual(new Date(2026, 9, 16, 9, 0, 0));
+  });
+  it("当天 9 点也过了，或者日期不对，返回空", () => {
+    expect(reminderTimeFor("2026-10-15", now)).toBeNull();
+    expect(reminderTimeFor("2026-10-01", now)).toBeNull();
+    expect(reminderTimeFor("明天", now)).toBeNull();
   });
 });

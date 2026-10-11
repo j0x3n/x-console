@@ -58,8 +58,20 @@ WHERE (sqlc.narg(account_id) IS NULL OR account_id = sqlc.narg(account_id))
   AND (sqlc.arg(only_unread) = 0 OR unread = 1)
   AND (sqlc.narg(before) IS NULL OR date < sqlc.narg(before))
   AND (sqlc.arg(q) = '' OR from_name LIKE '%' || sqlc.arg(q) || '%' OR from_address LIKE '%' || sqlc.arg(q) || '%' OR subject LIKE '%' || sqlc.arg(q) || '%')
+  AND (sqlc.arg(category) = '' OR id IN (SELECT message_id FROM mail_triage WHERE category = sqlc.arg(category)))
 ORDER BY date DESC, id DESC
 LIMIT sqlc.arg(lim);
+
+-- name: UpsertTriage :exec
+INSERT INTO mail_triage (message_id, category, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?)
+ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, summary = excluded.summary, dates = excluded.dates,
+ source = excluded.source, triaged_at = excluded.triaged_at;
+
+-- name: GetTriage :one
+SELECT * FROM mail_triage WHERE message_id = ?;
+
+-- name: ListTriageByIDs :many
+SELECT * FROM mail_triage WHERE message_id IN (sqlc.slice(ids));
 
 -- name: UnreadCounts :many
 SELECT account_id, COUNT(*) AS unread FROM mail_messages WHERE unread = 1 GROUP BY account_id;

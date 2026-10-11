@@ -33,6 +33,7 @@ func (m *Module) accountView(a db.MailAccount, unread int) api.MailAccount {
 		Id: a.ID, Name: a.Name, Email: a.Email, Provider: api.MailProvider(a.Provider), ImapHost: a.ImapHost,
 		ImapPort: int(a.ImapPort), Username: a.Username, Notify: a.Notify == 1, Status: s.Status, LastError: s.LastError,
 		Idle: &idle, LastSyncAt: a.LastSyncAt, Unread: unread, CreatedAt: a.CreatedAt,
+		Triage: ptr(m.triageOn(context.Background(), a.ID)),
 	}
 }
 
@@ -169,10 +170,14 @@ func (m *Module) createAccount(ctx context.Context, in api.MailAccountInput) (db
 	if in.Notify != nil && !*in.Notify {
 		notify = 0
 	}
-	return m.q.CreateAccount(ctx, db.CreateAccountParams{
+	acc, err := m.q.CreateAccount(ctx, db.CreateAccountParams{
 		Name: name, Email: email, Provider: string(in.Provider), ImapHost: host, ImapPort: int64(port),
 		Username: username, PasswordEnc: sealed, Notify: notify, CreatedAt: m.now().UTC(),
 	})
+	if err == nil && in.Triage != nil && *in.Triage {
+		err = m.setTriage(ctx, acc.ID, true)
+	}
+	return acc, err
 }
 
 func (m *Module) UpdateMailAccount(w http.ResponseWriter, r *http.Request, accountID api.AccountId) {
@@ -263,6 +268,9 @@ func (m *Module) updateAccount(ctx context.Context, id int64, in api.MailAccount
 		reconnect = true
 	}
 	a, err = m.q.UpdateAccount(ctx, p)
+	if err == nil && in.Triage != nil {
+		err = m.setTriage(ctx, a.ID, *in.Triage)
+	}
 	return a, reconnect, err
 }
 
@@ -277,6 +285,9 @@ func (m *Module) DeleteMailAccount(w http.ResponseWriter, r *http.Request, accou
 		m.stopWorker(a.ID)
 		if err = m.q.DeleteAccountMessages(ctx, a.ID); err == nil {
 			err = m.q.DeleteAccount(ctx, a.ID)
+		}
+		if err == nil {
+			err = m.setTriage(ctx, a.ID, false)
 		}
 		m.deleteFiles(ctx, itoa(a.ID))
 	}
@@ -307,3 +318,5 @@ func deref[T any](p *T) T {
 	}
 	return *p
 }
+
+func ptr[T any](v T) *T { return &v }

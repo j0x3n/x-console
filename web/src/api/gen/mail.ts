@@ -117,6 +117,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mail/messages/{messageId}/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: components["parameters"]["MessageId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B136：让 AI 分拣这封邮件。有缓存的正文就用正文，否则用开头的摘要。邮件内容会发给 AI 供应商，
+         *     所以只在用户点按钮或这个邮箱开了自动分拣时做。AI 没配置时回 409。
+         */
+        post: operations["triageMailMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mail/summary": {
         parameters: {
             query?: never;
@@ -169,6 +191,8 @@ export interface components {
             lastSyncAt?: string;
             /** @description 收件箱未读数 */
             unread: number;
+            /** @description B136：新邮件用 AI 分拣。邮件的发件人、主题和开头会发给 AI 供应商 */
+            triage?: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -186,10 +210,13 @@ export interface components {
             password: string;
             /** @description 默认 true */
             notify?: boolean;
+            /** @description 默认 false */
+            triage?: boolean;
         };
         MailAccountPatch: {
             name?: string;
             notify?: boolean;
+            triage?: boolean;
             imapHost?: string;
             imapPort?: number;
             username?: string;
@@ -213,6 +240,25 @@ export interface components {
             unread: boolean;
             flagged: boolean;
             hasAttachments: boolean;
+            triage?: components["schemas"]["MailTriage"];
+        };
+        /**
+         * @description action 要处理；notice 通知；promo 营销
+         * @enum {string}
+         */
+        MailCategory: "action" | "notice" | "promo";
+        MailTriageDate: {
+            /** @description YYYY-MM-DD */
+            date: string;
+            /** @description 这个日期是什么事，比如 续费截止 */
+            text: string;
+        };
+        MailTriage: {
+            category: components["schemas"]["MailCategory"];
+            /** @description 一句话说明这封邮件要你做什么或讲了什么 */
+            summary: string;
+            /** @description 邮件里提到的需要留意的日期，最多 3 个 */
+            dates: components["schemas"]["MailTriageDate"][];
         };
         MailPage: {
             items: components["schemas"]["MailSummary"][];
@@ -414,6 +460,8 @@ export interface operations {
                 unread?: boolean;
                 /** @description 搜发件人和主题 */
                 q?: string;
+                /** @description 只看 AI 分拣成这一类的邮件（B136）。没分拣过的邮件不会出现 */
+                category?: components["schemas"]["MailCategory"];
                 /** @description 翻页，传上一页最后一封的 date */
                 before?: string;
                 limit?: number;
@@ -505,6 +553,29 @@ export interface operations {
                 };
                 content: {
                     "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    triageMailMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: components["parameters"]["MessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 分拣结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailTriage"];
                 };
             };
             default: components["responses"]["Error"];

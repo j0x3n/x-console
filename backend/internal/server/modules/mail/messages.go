@@ -72,7 +72,14 @@ func (m *Module) ListMailMessages(w http.ResponseWriter, r *http.Request, params
 	if params.Limit != nil {
 		limit = min(max(*params.Limit, 1), 100)
 	}
-	p := db.ListMessagesParams{OnlyUnread: 0, Q: strings.TrimSpace(deref(params.Q)), Lim: int64(limit + 1)}
+	p := db.ListMessagesParams{OnlyUnread: 0, Q: strings.TrimSpace(deref(params.Q)), Category: "", Lim: int64(limit + 1)}
+	if params.Category != nil {
+		if !params.Category.Valid() {
+			httpx.Fail(w, r, httpx.Invalid("不认识的分类"))
+			return
+		}
+		p.Category = string(*params.Category)
+	}
 	if utf8.RuneCountInString(p.Q.(string)) > 100 {
 		httpx.Fail(w, r, httpx.Invalid("搜索词太长了"))
 		return
@@ -97,8 +104,17 @@ func (m *Module) ListMailMessages(w http.ResponseWriter, r *http.Request, params
 		next := rows[limit-1].Date
 		out.NextBefore = &next
 	}
+	ids := make([]int64, 0, len(rows))
 	for _, row := range rows {
-		out.Items = append(out.Items, summaryView(row))
+		ids = append(ids, row.ID)
+	}
+	triage := m.triageMap(r.Context(), ids)
+	for _, row := range rows {
+		s := summaryView(row)
+		if t, ok := triage[row.ID]; ok {
+			s.Triage = &t
+		}
+		out.Items = append(out.Items, s)
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }
@@ -120,6 +136,7 @@ func (m *Module) GetMailMessage(w http.ResponseWriter, r *http.Request, messageI
 		Id: s.Id, AccountId: s.AccountId, From: s.From, Subject: s.Subject, Snippet: s.Snippet, Date: s.Date,
 		Unread: s.Unread, Flagged: s.Flagged, HasAttachments: s.HasAttachments,
 		To: body.To, Cc: body.Cc, Html: body.HTML, Text: body.Text, Attachments: body.Attachments,
+		Triage: m.triageOf(ctx, row.ID),
 	})
 }
 
@@ -471,4 +488,13 @@ func (m *Module) deleteFiles(ctx context.Context, prefix string) {
 			m.d.Log.Warn("mail: delete file", "key", k, "err", err)
 		}
 	}
+}
+
+func (m *Module) triageOf(ctx context.Context, id int64) *api.MailTriage {
+	row, err := m.q.GetTriage(ctx, id)
+	if err != nil {
+		return nil
+	}
+	t := toTriage(row)
+	return &t
 }

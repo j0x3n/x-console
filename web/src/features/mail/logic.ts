@@ -86,3 +86,19 @@ export function guessProvider(email: string): "gmail" | "aliyun" | "other" {
   if (domain === "gmail.com" || domain === "googlemail.com") return "gmail";
   return "other";
 }
+
+/**
+ * B136：邮件里提到的截止日，提醒定在前一天早上 9 点；前一天已经过了就定在当天 9 点。
+ * 当天 9 点也过了返回 null（来不及提醒了）。date 是 YYYY-MM-DD。
+ */
+export function reminderTimeFor(
+  date: string,
+  now: Date = new Date(),
+): Date | null {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const before = new Date(y, m - 1, d - 1, 9, 0, 0);
+  if (before.getTime() > now.getTime()) return before;
+  const same = new Date(y, m - 1, d, 9, 0, 0);
+  return same.getTime() > now.getTime() ? same : null;
+}

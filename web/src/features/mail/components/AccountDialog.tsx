@@ -42,6 +42,7 @@ export default function AccountDialog({
   const [port, setPort] = useState("993");
   const [username, setUsername] = useState("");
   const [notify, setNotify] = useState(true);
+  const [triage, setTriage] = useState(false);
   const [error, setError] = useState("");
   // B113：这个邮箱的新邮件不发到哪些设备或渠道
   const [muted, setMuted] = useState<string[]>([]);
@@ -63,6 +64,7 @@ export default function AccountDialog({
     setPort(String(account?.imapPort ?? 993));
     setUsername(account?.username ?? "");
     setNotify(account?.notify ?? true);
+    setTriage(account?.triage ?? false);
     setMuted([]);
     setSavedMuted([]);
   }, [open, account]);
@@ -101,6 +103,7 @@ export default function AccountDialog({
           patch: {
             name: name.trim() || mail,
             notify,
+            triage,
             ...(provider === "other" ? { imapHost, imapPort } : {}),
             ...(username.trim() ? { username: username.trim() } : {}),
             ...(password ? { password } : {}),
@@ -117,6 +120,7 @@ export default function AccountDialog({
             username: username.trim() || undefined,
             password,
             notify,
+            triage,
           },
         });
         id = (created as { id?: number } | undefined)?.id;
@@ -254,6 +258,19 @@ export default function AccountDialog({
           />
           <span>{t("Push new mail")}</span>
         </label>
+        <label className="xc-check">
+          <input
+            type="checkbox"
+            checked={triage}
+            onChange={(e) => setTriage(e.target.checked)}
+          />
+          <span>{t("Sort new mail with AI")}</span>
+        </label>
+        <small className="xc-muted">
+          {t(
+            "The sender, subject and first lines of each new mail are sent to your AI provider. Mail that needs you is pushed at once; the rest waits for the digest.",
+          )}
+        </small>
         <div className="mail-notify-targets">
           {provider === "gmail" && (
             <small className="xc-muted">

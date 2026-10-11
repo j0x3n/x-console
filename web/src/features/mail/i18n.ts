@@ -1,6 +1,22 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B136 邮件 AI 分拣
+  "Sort new mail with AI": "用 AI 分拣新邮件",
+  "The sender, subject and first lines of each new mail are sent to your AI provider. Mail that needs you is pushed at once; the rest waits for the digest.":
+    "每封新邮件的发件人、主题和开头几行会发给你的 AI 供应商。要处理的邮件马上推送，其余的等合并推送。",
+  "AI sorting": "AI 分拣",
+  "Mail needs action": "要处理",
+  "Mail notice": "通知",
+  "Mail promo": "营销",
+  "Mail all kinds": "全部",
+  "Sort with AI": "用 AI 分拣",
+  "Sort again": "重新分拣",
+  "Sorting…": "分拣中…",
+  "Mail remind me": "提醒我",
+  "Reminder added": "提醒已添加",
+  "Mail deadline": "邮件里的日期",
+  "It is too late to remind": "已经来不及提醒了",
   Mail: "邮件",
   Mailboxes: "邮箱",
   "Add mailbox": "添加邮箱",

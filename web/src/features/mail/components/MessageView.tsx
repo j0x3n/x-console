@@ -11,19 +11,25 @@ import {
 import { ErrorState, Loading } from "../../../components/ui/States";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatBytes, formatDate, formatTime } from "../../../lib/time";
+import { errorMessage } from "../../../api/client";
+import { toast } from "../../../hooks/useToast";
+import { useCreateReminder } from "../../reminders/api";
 import {
   attachmentUrl,
   useMailMessage,
+  useTriageMailMessage,
   useUpdateMailMessage,
   type MailMessage,
 } from "../api";
 import {
   hasRemoteImages,
   mailDocument,
+  reminderTimeFor,
   replaceCid,
   senderName,
   textToHtml,
 } from "../logic";
+import { CATEGORY_LABELS } from "../triage";
 
 /** 阅读区：发件人、收件人、附件，正文放在沙盒 iframe 里（B53）。 */
 export default function MessageView({
@@ -103,6 +109,7 @@ export default function MessageView({
             ))}
         </ul>
       )}
+      <TriagePanel m={m} />
       <MailBody m={m} />
     </article>
   );
@@ -181,5 +188,84 @@ function MailBody({ m }: { m: MailMessage }) {
         onLoad={fit}
       />
     </div>
+  );
+}
+
+/** B136：AI 分拣的结果，邮件里的日期可以一键加提醒。没有分拣过的邮件给一个按钮。 */
+function TriagePanel({ m }: { m: MailMessage }) {
+  const t = useT();
+  const triage = useTriageMailMessage();
+  const remind = useCreateReminder();
+  const result = m.triage;
+  const run = () =>
+    triage.mutate(m.id, {
+      onError: (err) => toast({ message: errorMessage(err), tone: "error" }),
+    });
+  const addReminder = (date: string, text: string) => {
+    const at = reminderTimeFor(date);
+    if (!at) return;
+    remind.mutate(
+      {
+        title: `${text || t("Mail deadline")}：${m.subject || t("(No subject)")}`,
+        at: at.toISOString(),
+        link: `/mail?m=${m.id}`,
+      },
+      {
+        onSuccess: () => toast(t("Reminder added")),
+        onError: (err) => toast({ message: errorMessage(err), tone: "error" }),
+      },
+    );
+  };
+  return (
+    <section className="mail-triage" aria-label={t("AI sorting")}>
+      {result ? (
+        <>
+          <div className="mail-triage-head">
+            <span
+              className={`xc-badge ${CATEGORY_LABELS[result.category].tone}`}
+            >
+              {t(CATEGORY_LABELS[result.category].label)}
+            </span>
+            <span>{result.summary}</span>
+          </div>
+          {result.dates.length > 0 && (
+            <ul className="mail-triage-dates">
+              {result.dates.map((d) => {
+                const at = reminderTimeFor(d.date);
+                return (
+                  <li key={`${d.date}-${d.text}`}>
+                    <span>
+                      {d.date} {d.text}
+                    </span>
+                    <button
+                      type="button"
+                      className="xc-btn small"
+                      disabled={!at || remind.isPending}
+                      title={at ? undefined : t("It is too late to remind")}
+                      aria-label={`${t("Mail remind me")} ${d.date} ${d.text}`}
+                      onClick={() => addReminder(d.date, d.text)}
+                    >
+                      {t("Mail remind me")}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      ) : null}
+      <button
+        type="button"
+        className="xc-btn ghost small"
+        disabled={triage.isPending}
+        onClick={run}
+      >
+        {triage.isPending
+          ? t("Sorting…")
+          : result
+            ? t("Sort again")
+            : t("Sort with AI")}
+      </button>
+    </section>
   );
 }
