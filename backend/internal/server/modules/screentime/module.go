@@ -65,6 +65,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m.registerActions()
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"screentime", activitySource{m}) // B118
+	module.Provide[contracts.GoalMetricSource](d.Registry, contracts.GoalMetricPrefix+"screentime", goalMetrics{m})      // B128
 	return m, nil
 }
 

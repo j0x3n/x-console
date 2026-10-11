@@ -18,6 +18,7 @@ import (
 	uploadfiles "github.com/j0x3n/x-console/backend/internal/server/modules/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/goals"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/homeassistant"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
@@ -82,4 +83,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	aiconfig.New,    // B121
 	contacts.New,    // B122
 	music.New,       // B146
+	goals.New,       // B128
 }

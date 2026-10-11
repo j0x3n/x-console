@@ -625,6 +625,37 @@ try {
   });
   assert.equal(importedDel.status(), 204);
 
+  setStage("目标");
+  // B128：新建一个带手动关键结果的目标，在页面上更新数值，进度跟着变；每周复盘存三个回答，历史里能看到。
+  await page.goto(`${base}/goals`);
+  await page.getByRole("button", { name: "新建目标" }).first().click();
+  await dialog("新建目标").getByLabel("目标名称", { exact: true }).fill("端到端目标");
+  await dialog("新建目标").getByRole("button", { name: /添加关键结果/ }).click();
+  await dialog("新建目标").getByLabel("关键结果名称", { exact: true }).fill("读完几本书");
+  await dialog("新建目标").getByLabel("读完几本书 目标值", { exact: true }).fill("4");
+  await dialog("新建目标").getByRole("button", { name: "保存" }).click();
+  await until("目标新建", async () => (await api("/goals")).items.some((g) => g.title === "端到端目标"));
+  const goalItem = (await api("/goals")).items.find((g) => g.title === "端到端目标");
+  assert.equal(goalItem.results[0].progress, 0);
+  await page.getByRole("button", { name: "更新数值" }).click();
+  await page.getByLabel("读完几本书 当前值", { exact: true }).fill("2");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await until("目标进度更新", async () => (await api(`/goals/${goalItem.id}`)).results[0].progress === 50);
+  await page.goto(`${base}/goals/review`);
+  await page.getByText("端到端目标").first().waitFor();
+  const reviewSaved = await page.context().request.put(`${base}/api/v1/goals/reviews/current`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { wentWell: "端到端复盘", nextWeek: "周二晚上八点读书一小时" },
+  });
+  assert.equal(reviewSaved.status(), 200, await reviewSaved.text());
+  assert.equal((await api("/goals/reviews")).items.length, 1);
+  await page.reload();
+  await page.getByRole("complementary", { name: "往期复盘" }).getByText(/已写/).waitFor();
+  const goalDeleted = await page.context().request.delete(`${base}/api/v1/goals/${goalItem.id}`, {
+    headers: { "X-Requested-With": "x-console" },
+  });
+  assert.equal(goalDeleted.status(), 204);
+
   setStage("通知静音规则");
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

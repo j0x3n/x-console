@@ -83,6 +83,8 @@ export const cardDefs: CardDef[] = [
   },
   // B150：播放条里有歌时才显示（TodayPage 里判断）
   { id: "music", title: "Now playing", column: "side", weight: 1 },
+  // B128：本季度没有进行中的目标时这张卡片不出现（TodayPage 里判断）
+  { id: "goals", title: "Goals", column: "side", weight: 2 },
   { id: "activity", title: "Recent activity", column: "side", weight: 3 },
   {
     id: "fitness",

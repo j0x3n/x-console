@@ -1,0 +1,377 @@
+/* B128 目标和每周复盘。颜色只用 --xc-* 令牌，字号只用 --fs-* 令牌。 */
+
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.goals-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.goals-card.dim {
+  opacity: 0.75;
+}
+.goals-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.goals-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.goals-card-title > strong {
+  min-width: 0;
+  color: var(--xc-text);
+  font-size: var(--fs-14);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.goals-badges {
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* 进度条：填充是已到的，竖线是按时间应该到的位置 */
+.goals-bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--xc-surface-2);
+  border: 1px solid var(--xc-border);
+}
+.goals-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--xc-accent);
+}
+.goals-bar > b {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--xc-text-2);
+}
+.goals-progress {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 12px;
+}
+.goals-percent {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.goals-pace {
+  grid-column: 1 / -1;
+  color: var(--xc-muted);
+  font-variant-numeric: tabular-nums;
+}
+.goals-note {
+  margin: 0;
+  color: var(--xc-text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.goals-empty-line {
+  margin: 0;
+  color: var(--xc-muted);
+}
+
+.goals-results {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.goals-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.goals-result-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.goals-result-name {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 140px;
+  min-width: 0;
+  color: var(--xc-text);
+  overflow-wrap: anywhere;
+}
+.goals-result-name > small {
+  color: var(--xc-muted);
+}
+.goals-result-value {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 8px;
+  color: var(--xc-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.goals-unavailable {
+  color: var(--xc-muted);
+}
+.goals-delta {
+  color: var(--xc-muted);
+}
+.goals-update {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.goals-update .xc-input {
+  width: 120px;
+}
+.goals-footnote {
+  margin: 16px 0 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.goals-quarter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+}
+.goals-quarter > strong {
+  min-width: 108px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 表单 */
+.goals-form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.goals-form-row > .xc-field {
+  flex: 1;
+  min-width: 0;
+}
+.goals-form-row > .goals-narrow {
+  flex: 0 0 120px;
+}
+.goals-hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 10px;
+}
+.goals-rows-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+.goals-row {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  min-width: 0;
+}
+.goals-row-remove {
+  flex: none;
+  margin-bottom: 12px;
+}
+.goals-hint {
+  margin: 8px 0 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+
+/* 每周复盘 */
+.goals-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 16px;
+  align-items: start;
+}
+.goals-review-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.goals-week-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.goals-week-nav > strong {
+  font-variant-numeric: tabular-nums;
+}
+.goals-week-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.goals-change {
+  flex: none;
+  color: var(--xc-text-2);
+  font-size: var(--fs-14);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.goals-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.goals-save-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+.goals-save-row > small {
+  color: var(--xc-muted);
+}
+.goals-history h2 {
+  margin: 0 0 8px;
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.goals-history ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  overflow: hidden;
+}
+.goals-history li + li {
+  border-top: 1px solid var(--xc-border);
+}
+.goals-history li button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.goals-history li button:hover {
+  background: var(--xc-surface-2);
+}
+.goals-history li button.on {
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+}
+.goals-history li small {
+  color: var(--xc-muted);
+}
+.goals-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* 今日页卡片 */
+.goals-today {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0 6px;
+}
+.goals-today-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 4px 10px;
+  color: inherit;
+  text-decoration: none;
+}
+.goals-today-title {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--xc-text);
+}
+.goals-today-title > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.goals-today-row > small {
+  text-align: right;
+  color: var(--xc-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.goals-today-more {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  text-decoration: none;
+}
+
+@media (max-width: 900px) {
+  .goals-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .goals-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .goals-percent {
+    font-size: 21px;
+  }
+  .goals-form-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+  .goals-form-row > .goals-narrow {
+    flex: none;
+  }
+  .goals-row-remove {
+    align-self: flex-end;
+    margin-bottom: 0;
+  }
+  .goals-quarter {
+    margin-left: 0;
+  }
+  .goals-result-value {
+    justify-content: flex-start;
+  }
+}

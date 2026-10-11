@@ -654,6 +654,52 @@ type GithubSyntheticRun struct {
 	Sha          string
 }
 
+type Goal struct {
+	ID        int64
+	Title     string
+	Year      int64
+	Quarter   int64
+	Note      string
+	Status    string
+	SortOrder int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type GoalResult struct {
+	ID          int64
+	GoalID      int64
+	Name        string
+	Target      float64
+	Unit        string
+	StartValue  float64
+	Source      string
+	Ref         string
+	ManualValue float64
+	SortOrder   int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type GoalResultLog struct {
+	ID       int64
+	ResultID int64
+	At       time.Time
+	Value    float64
+}
+
+type GoalReview struct {
+	ID        int64
+	WeekStart string
+	WentWell  string
+	FellShort string
+	NextWeek  string
+	Snapshot  string
+	Progress  *float64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type HaFavorite struct {
 	EntityID  string
 	SortOrder int64

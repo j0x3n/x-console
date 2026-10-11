@@ -54,6 +54,7 @@ import TodayMusicCard from "../music/TodayMusicCard";
 import { usePlayer } from "../music/player";
 import TodayScreenTimeCard from "../screentime/TodayScreenTimeCard";
 import { useScreenSummary } from "../screentime/api";
+import TodayGoalsCard, { useTodayGoals } from "../goals/TodayGoalsCard";
 
 const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   todos: { body: () => <TodosCard />, more: "/projects" },
@@ -65,6 +66,7 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   quotas: { body: () => <TodayQuotasCard />, more: "/monitoring/quotas" }, // B111
   screentime: { body: () => <TodayScreenTimeCard />, more: "/screentime" }, // B116
   music: { body: () => <TodayMusicCard />, more: "/music" }, // B150
+  goals: { body: () => <TodayGoalsCard />, more: "/goals" }, // B128
   mail: { body: () => <MailCard />, more: "/mail" },
   monitoring: { body: () => <MonitoringCard />, more: "/monitoring" },
   activity: { body: () => <ActivityCard /> },
@@ -123,12 +125,16 @@ export default function TodayPage() {
   const hasScreen = (screen.data?.minutes ?? 0) > 0;
   // B150：播放条里没有歌时，“正在播放”卡片不出现
   const hasTrack = usePlayer((s) => s.currentId != null);
+  // B128：本季度没有进行中的目标，或接口还没上线时，“目标”卡片不出现
+  const goals = useTodayGoals();
+  const hasGoals = (goals.data?.items.length ?? 0) > 0;
   const include = (c: LayoutCard) =>
     (editing || c.visible) &&
     modules.has(cardModule(c.id) as ModuleId | null) &&
     (c.id !== "quotas" || editing || hasQuotas) &&
     (c.id !== "screentime" || editing || hasScreen) &&
-    (c.id !== "music" || editing || hasTrack);
+    (c.id !== "music" || editing || hasTrack) &&
+    (c.id !== "goals" || editing || hasGoals);
   // B88：每张卡片可以放在任意一列，拖到别的列或列的空白处
   const grid = arrange(cards, columns, include);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
