@@ -1,0 +1,423 @@
+openapi: 3.0.3
+info:
+  title: X Console goals (B128)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /goals:
+    get:
+      operationId: listGoals
+      tags: [goals]
+      description: |
+        目标列表，带关键结果和进度。year 和 quarter 要一起给，不给就返回全部季度。
+        排序：年和季度新的在前，同一季度按创建顺序。
+      parameters:
+        - name: year
+          in: query
+          schema: { type: integer }
+        - name: quarter
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 4 }
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/GoalStatus" }
+      responses:
+        "200":
+          description: 目标列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, current]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Goal" }
+                  current: { $ref: "#/components/schemas/GoalPeriod" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createGoal
+      tags: [goals]
+      description: 新建目标，可以同时带关键结果。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoalInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Goal" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /goals/{goalId}:
+    parameters:
+      - $ref: "#/components/parameters/GoalId"
+    get:
+      operationId: getGoal
+      tags: [goals]
+      responses:
+        "200":
+          description: 目标
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Goal" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: updateGoal
+      tags: [goals]
+      description: |
+        整体保存。带 id 的关键结果更新，没带 id 的新建，原来有、这次没出现的删除。
+        手动关键结果的当前值不在这里改，用 POST /goals/results/{resultId}/value。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoalInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Goal" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: setGoalStatus
+      tags: [goals]
+      description: 只改状态：进行中、已完成、已放弃。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/GoalStatus" }
+      responses:
+        "200":
+          description: 已修改
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Goal" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteGoal
+      tags: [goals]
+      description: 删除目标和它的关键结果。复盘记录里的快照不受影响。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /goals/results/{resultId}/value:
+    parameters:
+      - name: resultId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      operationId: setGoalResultValue
+      tags: [goals]
+      description: 手动关键结果设当前值，并记一条历史。自动来源的关键结果回 400。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: { type: number, format: double }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GoalResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /goals/metrics:
+    get:
+      operationId: listGoalMetrics
+      tags: [goals]
+      description: |
+        能绑定的数据来源。手动一直有。其余的来源只在对应模块可用且没被隐藏时出现。
+        refKind 不是 none 的来源要选一个选项（习惯、电脑时间分类）。
+      responses:
+        "200":
+          description: 来源列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/GoalMetric" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /goals/settings:
+    get:
+      operationId: getGoalSettings
+      tags: [goals]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GoalSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putGoalSettings
+      tags: [goals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoalSettings" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GoalSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /goals/reviews:
+    get:
+      operationId: listGoalReviews
+      tags: [goals]
+      description: 已保存的复盘，新的在前。
+      parameters:
+        - $ref: "../common.yaml#/components/parameters/Limit"
+      responses:
+        "200":
+          description: 复盘列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/GoalReviewSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /goals/reviews/{week}:
+    parameters:
+      - name: week
+        in: path
+        required: true
+        description: current，或任意日期 YYYY-MM-DD（取那一天所在的周一）
+        schema: { type: string }
+    get:
+      operationId: getGoalReview
+      tags: [goals]
+      description: |
+        某一周的复盘页数据。没保存过的周用实时进度，保存过的周用保存时的快照。
+        不能看未来的周。
+      responses:
+        "200":
+          description: 这一周
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GoalReview" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: saveGoalReview
+      tags: [goals]
+      description: 保存三个回答。每周只有一条，再保存就是修改。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoalReviewInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GoalReview" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    GoalId:
+      name: goalId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    GoalStatus:
+      type: string
+      enum: [active, done, dropped]
+    GoalState:
+      type: string
+      description: |
+        done 进度到 100；upcoming 季度还没开始；missed 季度结束了没到 100；
+        behind 比应该到的低 10 个百分点以上；其余是 on_track。
+      enum: [done, on_track, behind, upcoming, missed]
+    GoalSource:
+      type: string
+      enum: [manual, habit_checkins, workouts, focus_minutes, screen_minutes, github_commits, github_merged_prs]
+    GoalPeriod:
+      type: object
+      required: [year, quarter]
+      properties:
+        year: { type: integer }
+        quarter: { type: integer, minimum: 1, maximum: 4 }
+    GoalResult:
+      type: object
+      required: [id, goalId, name, target, unit, startValue, source, ref, refLabel, value, progress, state, unavailable, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        goalId: { type: integer, format: int64 }
+        name: { type: string }
+        target: { type: number, format: double }
+        unit: { type: string }
+        startValue: { type: number, format: double }
+        source: { $ref: "#/components/schemas/GoalSource" }
+        ref: { type: string, description: 习惯编号或电脑时间分类，没有选项的来源为空 }
+        refLabel: { type: string, description: ref 对应的名称，给界面显示 }
+        value: { type: number, format: double, nullable: true, description: 当前值，算不出时为空 }
+        progress: { type: number, format: double, nullable: true, description: 0 到 100，算不出时为空 }
+        state: { $ref: "#/components/schemas/GoalState" }
+        unavailable: { type: string, description: "空字符串表示有数据。hidden 来源被隐藏；missing 来源模块不可用；error 读数据出错" }
+        updatedAt: { type: string, format: date-time }
+    Goal:
+      type: object
+      required: [id, title, year, quarter, note, status, results, progress, expected, state, from, until, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        year: { type: integer }
+        quarter: { type: integer, minimum: 1, maximum: 4 }
+        note: { type: string }
+        status: { $ref: "#/components/schemas/GoalStatus" }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/GoalResult" }
+        progress: { type: number, format: double, nullable: true, description: 关键结果进度的平均，一个都算不出时为空 }
+        expected: { type: number, format: double, description: 按时间应该到的进度，0 到 100 }
+        state: { $ref: "#/components/schemas/GoalState" }
+        from: { type: string, description: 季度第一天 YYYY-MM-DD }
+        until: { type: string, description: 季度最后一天 YYYY-MM-DD }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    GoalResultInput:
+      type: object
+      required: [name, target, source]
+      properties:
+        id: { type: integer, format: int64, description: 有就是修改这一个 }
+        name: { type: string, maxLength: 100 }
+        target: { type: number, format: double }
+        unit: { type: string, maxLength: 20 }
+        startValue: { type: number, format: double, description: 只对手动来源有效，默认 0 }
+        source: { $ref: "#/components/schemas/GoalSource" }
+        ref: { type: string }
+    GoalInput:
+      type: object
+      required: [title, year, quarter]
+      properties:
+        title: { type: string, maxLength: 200 }
+        year: { type: integer }
+        quarter: { type: integer, minimum: 1, maximum: 4 }
+        note: { type: string, maxLength: 5000 }
+        results:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/GoalResultInput" }
+    GoalMetricOption:
+      type: object
+      required: [value, label]
+      properties:
+        value: { type: string }
+        label: { type: string }
+    GoalMetric:
+      type: object
+      required: [source, refKind, options]
+      properties:
+        source: { $ref: "#/components/schemas/GoalSource" }
+        refKind: { type: string, enum: [none, habit, category] }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/GoalMetricOption" }
+    GoalSettings:
+      type: object
+      required: [reviewReminder, reviewTime]
+      properties:
+        reviewReminder: { type: boolean, description: 每周日晚上提醒复盘 }
+        reviewTime: { type: string, description: HH:MM，服务器时区，默认 20:00 }
+    GoalWeekResult:
+      type: object
+      required: [id, name, unit, source, target, value, change, progress, state, unavailable]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        unit: { type: string }
+        source: { $ref: "#/components/schemas/GoalSource" }
+        target: { type: number, format: double }
+        value: { type: number, format: double, nullable: true }
+        change: { type: number, format: double, nullable: true, description: 这周的变化，单位同 unit }
+        progress: { type: number, format: double, nullable: true }
+        state: { $ref: "#/components/schemas/GoalState" }
+        unavailable: { type: string, description: "空字符串表示有数据。hidden 来源被隐藏；missing 来源模块不可用；error 读数据出错" }
+    GoalWeekGoal:
+      type: object
+      required: [goalId, title, year, quarter, progress, progressBefore, change, expected, state, results]
+      properties:
+        goalId: { type: integer, format: int64 }
+        title: { type: string }
+        year: { type: integer }
+        quarter: { type: integer }
+        progress: { type: number, format: double, nullable: true, description: 周末的进度 }
+        progressBefore: { type: number, format: double, nullable: true, description: 周初的进度 }
+        change: { type: number, format: double, nullable: true, description: 这周的变化，单位是百分点 }
+        expected: { type: number, format: double, description: 周末按时间应该到的进度 }
+        state: { $ref: "#/components/schemas/GoalState" }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/GoalWeekResult" }
+    GoalReviewInput:
+      type: object
+      properties:
+        wentWell: { type: string, maxLength: 5000 }
+        fellShort: { type: string, maxLength: 5000 }
+        nextWeek: { type: string, maxLength: 5000 }
+    GoalReview:
+      type: object
+      required: [weekStart, weekEnd, current, saved, wentWell, fellShort, nextWeek, lastPlan, goals, updatedAt]
+      properties:
+        weekStart: { type: string, description: 周一 YYYY-MM-DD }
+        weekEnd: { type: string, description: 周日 YYYY-MM-DD }
+        current: { type: boolean, description: 是不是这一周 }
+        saved: { type: boolean }
+        wentWell: { type: string }
+        fellShort: { type: string }
+        nextWeek: { type: string }
+        lastPlan: { type: string, description: 上一周写的“下周计划” }
+        goals:
+          type: array
+          items: { $ref: "#/components/schemas/GoalWeekGoal" }
+        updatedAt: { type: string, format: date-time, nullable: true }
+    GoalReviewSummary:
+      type: object
+      required: [weekStart, weekEnd, answered, progress, updatedAt]
+      properties:
+        weekStart: { type: string }
+        weekEnd: { type: string }
+        answered: { type: boolean, description: 至少写了一个回答 }
+        progress: { type: number, format: double, nullable: true, description: 保存时各目标进度的平均 }
+        updatedAt: { type: string, format: date-time }

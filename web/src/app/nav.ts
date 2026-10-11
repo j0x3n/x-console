@@ -21,6 +21,7 @@ import {
   Server,
   SquareKanban,
   Sun,
+  Target,
   Users,
   Workflow,
 } from "lucide-react";
@@ -60,6 +61,8 @@ export const navItems: NavItem[] = [
   // B147：音乐。歌放在云盘里，全局播放器在 GlobalPanels
   { path: "/music", label: "Music", icon: Headphones, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
+  // B128：季度目标和每周复盘
+  { path: "/goals", label: "Goals", icon: Target, group: "personal" },
   {
     path: "/calendar",
     label: "Schedule & focus",

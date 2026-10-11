@@ -19,6 +19,7 @@ import { routes as documents } from "../features/documents/routes";
 import { routes as journal } from "../features/journal/routes";
 import { routes as contacts } from "../features/contacts/routes";
 import { routes as music } from "../features/music/routes";
+import { routes as goals } from "../features/goals/routes";
 import { routes as credentials } from "../features/credentials/routes";
 import { routes as aiconfig } from "../features/aiconfig/routes";
 import { routes as readlater } from "../features/readlater/routes";
@@ -52,6 +53,7 @@ export const moduleRoutes: RouteObject[] = [
   ...journal,
   ...contacts,
   ...music,
+  ...goals,
   ...credentials,
   ...aiconfig,
   ...automations,

@@ -239,6 +239,8 @@ const routes = [
   ["journal", "/journal"],
   ["credentials", "/credentials"],
   ["contacts", "/contacts"],
+  ["goals", "/goals"],
+  ["goals-review", "/goals/review"],
   ["aiconfig", "/coding/config"],
   ["codingroi", "/coding/roi"],
   ["automations", "/automations"],

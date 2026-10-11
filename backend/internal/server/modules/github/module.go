@@ -88,6 +88,7 @@ func New(d *module.Deps) (module.Module, error) {
 	}
 	module.Provide[contracts.GitHub](d.Registry, contracts.GitHubKey, m)
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"github", activitySource{m}) // B118
+	module.Provide[contracts.GoalMetricSource](d.Registry, contracts.GoalMetricPrefix+"github", goalMetrics{m})      // B128
 	module.Provide[contracts.GitHubCredentials](d.Registry, contracts.GitHubCredentialsKey, m)                       // B47
 	module.Provide[contracts.GitWebhookReceiver](d.Registry, contracts.GitWebhookKey, m)
 	m.registerActions()

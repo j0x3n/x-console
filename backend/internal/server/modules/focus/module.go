@@ -61,6 +61,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	module.Provide[contracts.FocusState](d.Registry, contracts.FocusStateKey, state{m})
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"focus", activitySource{m}) // B118
+	module.Provide[contracts.GoalMetricSource](d.Registry, contracts.GoalMetricPrefix+"focus", goalMetrics{m})      // B128
 	m.registerActions()
 	return m, nil
 }
