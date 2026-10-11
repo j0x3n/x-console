@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router";
 import { routes as overview } from "../features/overview/routes";
 import { routes as projects } from "../features/projects/routes";
 import { routes as coding } from "../features/coding/routes";
+import { routes as codingroi } from "../features/codingroi/routes";
 import { routes as notes } from "../features/notes/routes";
 import { routes as mail } from "../features/mail/routes";
 import { routes as drive } from "../features/drive/routes";
@@ -32,6 +33,7 @@ export const moduleRoutes: RouteObject[] = [
   ...overview,
   ...projects,
   ...coding,
+  ...codingroi,
   ...notes,
   ...mail,
   ...drive,

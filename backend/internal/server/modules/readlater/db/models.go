@@ -377,6 +377,14 @@ type CodingTaskEvent struct {
 	Data   string
 }
 
+type CodingroiOutcome struct {
+	TaskID  int64
+	Outcome string
+	At      time.Time
+	Source  string
+	PrUrl   string
+}
+
 type Contact struct {
 	ID               int64
 	Name             string

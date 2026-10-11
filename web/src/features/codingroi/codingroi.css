@@ -1,0 +1,117 @@
+/* B129 AI 编码投入产出对账。颜色只用 --xc-* 令牌。 */
+
+.roi-intro {
+  margin: 0;
+  color: var(--xc-text-2);
+  font-size: var(--fs-13);
+}
+.roi-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.roi-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.roi-range {
+  min-width: 96px;
+  padding: 0 4px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--xc-text-2);
+}
+.roi-pager .xc-btn.icon {
+  padding-inline: 7px;
+}
+
+.roi-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.roi-card {
+  min-width: 0;
+}
+.roi-note {
+  margin: 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+
+.roi-table {
+  min-width: 720px;
+}
+.roi-tasks {
+  min-width: 860px;
+}
+.roi-table th,
+.roi-table td {
+  vertical-align: top;
+}
+.roi-table .roi-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.roi-name {
+  min-width: 160px;
+  max-width: 360px;
+}
+.roi-name strong,
+.roi-name small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.roi-name strong {
+  color: var(--xc-text);
+  font-weight: 500;
+}
+.roi-name small {
+  margin-top: 2px;
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+}
+.roi-sub {
+  display: block;
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  white-space: nowrap;
+}
+.roi-atleast {
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+}
+.roi-none {
+  color: var(--xc-faint);
+}
+.roi-total td {
+  border-top: 1px solid var(--xc-border-strong);
+  color: var(--xc-text);
+  font-weight: 600;
+}
+
+.roi-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.roi-sort:hover {
+  color: var(--xc-text);
+}
+.roi-table th.roi-num .roi-sort {
+  flex-direction: row-reverse;
+}

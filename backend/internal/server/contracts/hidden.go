@@ -45,6 +45,7 @@ var backendSidebar = map[string]string{
 	"coding":        "coding",
 	"aiagents":      "coding",
 	"aiconfig":      "coding", // B121
+	"codingroi":     "coding", // B129
 	"notes":         "notes",
 	"mail":          "mail",
 	"habits":        "habits",
@@ -75,7 +76,7 @@ func ActionHidden(ctx context.Context, h HiddenModules, name string) bool {
 	switch prefix {
 	case "projects", "issues", "milestones":
 		return h.Hidden(ctx, "projects")
-	case "coding", "aiagents", "aiconfig": // B121
+	case "coding", "aiagents", "aiconfig", "codingroi": // B121, B129
 		return h.Hidden(ctx, "coding")
 	case "notes":
 		return h.Hidden(ctx, "notes")

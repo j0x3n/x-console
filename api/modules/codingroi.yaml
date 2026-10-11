@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: X Console AI coding cost report (B129)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /codingroi/report:
+    get:
+      operationId: getCodingROIReport
+      tags: [codingroi]
+      description: |
+        一周或一月里编码任务的投入和产出。任务按创建时间归期，周从周一开始，用服务器时区。
+        没有记录的数据是 null，不是 0。审查时间是从电脑时间估算的。
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/Date"
+        - $ref: "#/components/parameters/GroupBy"
+      responses:
+        "200":
+          description: 对账报表
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CodingROIReport" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /codingroi/report.csv:
+    get:
+      operationId: exportCodingROIReport
+      tags: [codingroi]
+      description: 和 /codingroi/report 一样的条件，导出任务明细 CSV（UTF-8，带 BOM，Excel 能直接打开）。没有记录的格子是空的。
+      parameters:
+        - $ref: "#/components/parameters/Period"
+        - $ref: "#/components/parameters/Date"
+        - $ref: "#/components/parameters/GroupBy"
+      responses:
+        "200":
+          description: CSV 文件
+          content:
+            text/csv:
+              schema: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    Period:
+      name: period
+      in: query
+      schema: { type: string, enum: [week, month], default: week }
+    Date:
+      name: date
+      in: query
+      description: 期内任意一天，YYYY-MM-DD，默认今天
+      schema: { type: string }
+    GroupBy:
+      name: groupBy
+      in: query
+      description: repo 按仓库，tool 按工具（Claude Code、Codex），agent 按 AI Agent（手动任务单独一组）
+      schema: { type: string, enum: [repo, tool, agent], default: repo }
+  schemas:
+    CodingROIOutcome:
+      type: string
+      description: |
+        merged 已合并；reverted 被撤（丢弃，或 PR 关闭没合并）；canceled 取消；failed 失败；
+        waiting 待合并（已提交、推送或开了 PR，还没有结果）；active 进行中（排队、运行、等你决定）。
+      enum: [merged, reverted, canceled, failed, waiting, active]
+    CodingROIReviewState:
+      type: string
+      description: |
+        done 窗口已结束；ongoing 还在审查，算到现在；none 这个任务没有审查窗口（失败、取消、没跑过）；
+        no_data 窗口里电脑时间没有记录。
+      enum: [done, ongoing, none, no_data]
+    CodingROIGroup:
+      type: object
+      required: [key, label, tasks, merged, reverted, canceled, failed, waiting, active, costMissing, tokenMissing, runMissing, reviewMissing, rounds]
+      properties:
+        key: { type: string, description: 仓库名、工具名（claude 或 codex）或 Agent 编号；手动任务和总计为空 }
+        label: { type: string }
+        tasks: { type: integer }
+        merged: { type: integer }
+        reverted: { type: integer }
+        canceled: { type: integer }
+        failed: { type: integer }
+        waiting: { type: integer }
+        active: { type: integer }
+        mergeRate:
+          type: number
+          format: double
+          nullable: true
+          description: 合并 / (合并 + 被撤 + 取消 + 失败)，没有已有结果的任务时为 null
+        cost:
+          type: number
+          format: double
+          nullable: true
+          description: 美元，只加有记录的任务；一个都没有时为 null
+        costMissing: { type: integer, description: 没有花费记录的任务数 }
+        inputTokens: { type: integer, format: int64, nullable: true }
+        outputTokens: { type: integer, format: int64, nullable: true }
+        tokenMissing: { type: integer }
+        runSeconds: { type: integer, format: int64, nullable: true, description: AI 运行总秒数 }
+        runMissing: { type: integer }
+        reviewMinutes: { type: number, format: double, nullable: true, description: 审查返工分钟数，估算 }
+        reviewMissing: { type: integer, description: 审查时间无记录的任务数 }
+        rounds: { type: integer, description: 返工轮数合计 }
+        costPerMerge: { type: number, format: double, nullable: true }
+        runSecondsPerMerge: { type: number, format: double, nullable: true }
+        reviewMinutesPerMerge: { type: number, format: double, nullable: true }
+    CodingROITask:
+      type: object
+      required: [id, title, repoName, executor, outcome, status, createdAt, runs, costPartial, reviewState]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        issueKey: { type: string, nullable: true }
+        repoName: { type: string }
+        executor: { type: string, enum: [claude, codex] }
+        agentId: { type: integer, format: int64, nullable: true }
+        agentName: { type: string, nullable: true, description: 手动任务为 null }
+        outcome: { $ref: "#/components/schemas/CodingROIOutcome" }
+        status: { type: string, description: 任务自己的状态 }
+        prUrl: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time, nullable: true, description: 没开始过（还在排队，或排队时取消）为 null，这时没有花费和运行时长 }
+        mergedAt: { type: string, format: date-time, nullable: true }
+        runs: { type: integer, description: 执行了几次 }
+        rounds: { type: integer, nullable: true, description: 返工轮数，执行次数减一；没执行过为 null }
+        cost: { type: number, format: double, nullable: true }
+        costPartial: { type: boolean, description: 有的用量记录没有费用，合计只含有记录的 }
+        inputTokens: { type: integer, format: int64, nullable: true }
+        outputTokens: { type: integer, format: int64, nullable: true }
+        runSeconds: { type: integer, format: int64, nullable: true }
+        reviewMinutes: { type: number, format: double, nullable: true }
+        reviewState: { $ref: "#/components/schemas/CodingROIReviewState" }
+        reviewPerRun: { type: number, format: double, nullable: true, description: 审查分钟 / 运行分钟 }
+    CodingROIReport:
+      type: object
+      required: [period, from, to, groupBy, screenAvailable, totals, groups, tasks]
+      properties:
+        period: { type: string, enum: [week, month] }
+        from: { type: string, description: 第一天，YYYY-MM-DD }
+        to: { type: string, description: 最后一天，YYYY-MM-DD }
+        groupBy: { type: string, enum: [repo, tool, agent] }
+        screenAvailable: { type: boolean, description: 电脑时间能用于估算审查时间。被隐藏且已锁定时为 false }
+        totals: { $ref: "#/components/schemas/CodingROIGroup" }
+        groups:
+          type: array
+          items: { $ref: "#/components/schemas/CodingROIGroup" }
+        tasks:
+          type: array
+          description: 新的在前
+          items: { $ref: "#/components/schemas/CodingROITask" }

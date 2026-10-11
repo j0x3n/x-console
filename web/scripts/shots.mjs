@@ -240,6 +240,7 @@ const routes = [
   ["credentials", "/credentials"],
   ["contacts", "/contacts"],
   ["aiconfig", "/coding/config"],
+  ["codingroi", "/coding/roi"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],
   ["coding-repos", "/coding/repos"],
