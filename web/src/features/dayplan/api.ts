@@ -22,9 +22,10 @@ export const planKeys = {
 // 服务端每次生成、修改、确认、勾选都发 dayplan.changed
 invalidateOn("dayplan.", planKeys.all);
 
-/** date 不给就是今天。 */
-export function useDayPlan(date?: string) {
+/** date 不给就是服务端时区的今天。enabled 为 false 时不请求。 */
+export function useDayPlan(date?: string, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: planKeys.day(date ?? ""),
     queryFn: () =>
       unwrap(

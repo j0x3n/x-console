@@ -16,7 +16,7 @@ import {
   useSetItemDone,
   type DayPlanItemInput,
 } from "./api";
-import { checkItems, dateOffset, sameItems } from "./format";
+import { addDays, checkItems, sameItems } from "./format";
 import PlanSettingsDialog from "./PlanSettingsDialog";
 import "./i18n";
 import "./plan.css";
@@ -28,8 +28,13 @@ const fail = (err: unknown) =>
 export default function PlanPage() {
   const t = useT();
   const [day, setDay] = useState<"today" | "tomorrow">("today");
-  const date = dateOffset(day === "today" ? 0 : 1);
-  const q = useDayPlan(date);
+  // 今天和明天以服务端的日期为准，浏览器的时区可能和服务端不同。
+  const todayQ = useDayPlan();
+  const serverToday = todayQ.data?.date ?? "";
+  const tomorrow = serverToday ? addDays(serverToday, 1) : "";
+  const tomorrowQ = useDayPlan(tomorrow, day === "tomorrow" && tomorrow !== "");
+  const q = day === "today" ? todayQ : tomorrowQ;
+  const date = day === "today" ? serverToday : tomorrow;
   const settings = useDayPlanSettings();
   const generate = useGeneratePlan();
   const save = useSavePlanItems();

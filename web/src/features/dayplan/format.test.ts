@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DayPlanItem } from "./api";
 import {
   checkItems,
+  addDays,
   dateOffset,
   doneCount,
   minutesOf,
@@ -86,5 +87,15 @@ describe("比较", () => {
   });
   it("数做完的", () => {
     expect(doneCount([item({ done: true }), item({ id: 2 })])).toBe(1);
+  });
+});
+
+describe("addDays", () => {
+  it("adds days on the calendar across months and years", () => {
+    expect(addDays("2026-11-30", 1)).toBe("2026-12-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(addDays("2026-11-11", 0)).toBe("2026-11-11");
   });
 });

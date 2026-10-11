@@ -139,6 +139,24 @@ describe("今日计划页", () => {
     expect(screen.getByText("AI 排的")).toBeTruthy();
   });
 
+  it("今天和明天以服务端的日期为准，不看浏览器的日期", async () => {
+    // 服务端的今天是 2026-11-11，浏览器的日期不一样也不影响请求和保存。
+    api.routes.set("POST /dayplan/generate", () => ({
+      status: 200,
+      body: plan("draft"),
+    }));
+    renderPage();
+    await screen.findByDisplayValue("写周报");
+    fireEvent.click(screen.getByRole("button", { name: "明天" }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.path === "/dayplan?date=2026-11-12")).toBe(
+        true,
+      ),
+    );
+    // 今天的请求不带日期
+    expect(api.calls.some((c) => c.path === "/dayplan")).toBe(true);
+  });
+
   it("没有计划时提示，点“排一下”请求生成", async () => {
     routes(null);
     api.routes.set("POST /dayplan/generate", () => ({

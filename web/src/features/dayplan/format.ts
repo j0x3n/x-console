@@ -12,6 +12,13 @@ export function dateOffset(offset: number, from = new Date()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** YYYY-MM-DD 加 n 天。不看本机时区，只做日历上的加减。 */
+export function addDays(date: string, n: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+}
+
 export function minutesOf(hm: string): number | null {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(hm)) return null;
   return Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
