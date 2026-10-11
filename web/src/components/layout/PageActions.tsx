@@ -30,3 +30,21 @@ export function PageActionsSlot() {
   const setEl = useSlot((s) => s.setEl);
   return <div className="page-actions" ref={setEl} />;
 }
+
+const useTitleSlot = create<SlotState>()((set) => ({
+  el: null,
+  setEl: (el) => set({ el }),
+}));
+/** 详情标题后面的视图切换。 */
+export function PageTitleActions({ children }: { children: ReactNode }) {
+  const el = useTitleSlot((s) => s.el);
+  return el ? (
+    createPortal(children, el)
+  ) : (
+    <div className="page-title-actions-inline">{children}</div>
+  );
+}
+export function PageTitleActionsSlot() {
+  const setEl = useTitleSlot((s) => s.setEl);
+  return <span className="page-title-actions" ref={setEl} />;
+}

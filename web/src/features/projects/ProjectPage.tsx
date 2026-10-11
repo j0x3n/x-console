@@ -1,3 +1,4 @@
+import { PageTitleActions } from "../../components/layout/PageActions";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -431,31 +432,33 @@ export default function ProjectPage() {
           </>
         }
       />
-      <nav className="projects-board-tabs" aria-label={t("Boards")}>
-        {allBoards.map((b) => (
-          <button
-            key={b.id}
-            role="tab"
-            aria-selected={b.id === board?.id}
-            className={b.id === board?.id ? "on" : ""}
-            onClick={() => setParam("board", String(b.id))}
-            onDoubleClick={() => !locked && setBoardDialog(b)}
-          >
-            {b.icon && <span className="projects-board-icon">{b.icon}</span>}
-            {b.name}
-          </button>
-        ))}
-        {!archived && !locked && (
-          <button
-            className="projects-board-add"
-            aria-label={t("New board")}
-            title={t("New board")}
-            onClick={() => setBoardDialog("new")}
-          >
-            <Plus size={14} />
-          </button>
-        )}
-      </nav>
+      <PageTitleActions>
+        <nav className="projects-board-tabs" aria-label={t("Boards")}>
+          {allBoards.map((b) => (
+            <button
+              key={b.id}
+              role="tab"
+              aria-selected={b.id === board?.id}
+              className={b.id === board?.id ? "on" : ""}
+              onClick={() => setParam("board", String(b.id))}
+              onDoubleClick={() => !locked && setBoardDialog(b)}
+            >
+              {b.icon && <span className="projects-board-icon">{b.icon}</span>}
+              {b.name}
+            </button>
+          ))}
+          {!archived && !locked && (
+            <button
+              className="projects-board-add"
+              aria-label={t("New board")}
+              title={t("New board")}
+              onClick={() => setBoardDialog("new")}
+            >
+              <Plus size={14} />
+            </button>
+          )}
+        </nav>
+      </PageTitleActions>
       <Toolbar
         className="projects-toolbar"
         start={

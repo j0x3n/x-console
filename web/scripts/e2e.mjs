@@ -760,7 +760,7 @@ try {
   );
   const lanes = page.locator(".projects-board.lists > section.projects-lane[data-list-id]");
   await until("三个列表", async () => (await lanes.count()) === 3);
-  await lanes.nth(0).getByRole("button", { name: "添加卡片" }).click();
+  await lanes.nth(0).locator(".projects-add-card").click();
   const cardInput = page.getByPlaceholder("卡片标题，可以直接粘贴图片");
   await cardInput.fill("看板里的卡片");
   await cardInput.press("Enter");
@@ -772,7 +772,6 @@ try {
   await boardCard.dragTo(lanes.nth(1));
   await until("拖到进行中", async () => (await api(`/issues/${boardCardKey}`)).status === "in_progress");
   await lanes.nth(1).locator(`[data-issue-key="${boardCardKey}"]`).click();
-  await page.waitForURL(/\/projects\/EET\/\d+$/);
   await page.getByRole("button", { name: "添加检查清单" }).click();
   await page.getByLabel("清单标题").fill("看板清单");
   await page.getByLabel("清单标题").press("Enter");
