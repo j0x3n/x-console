@@ -4,6 +4,9 @@
 共享合同（`contracts`）或模块接口的向后兼容性时，在最上面加一条：任务编号、日期、改了什么、为什么。
 看板在 [tasks.md](tasks.md)。
 
+- B129（2026-10-11）：新模块 `codingroi`（只读汇总），接口 `api/modules/codingroi.yaml`，迁移 `20261012030000_m32_b129_codingroi.sql`（表 `codingroi_outcomes`）。`contracts/hidden.go` 加两处映射（`codingroi` 归到 `coding`）。读 `coding_*`、`ai_usage`、`ai_agents`、`screen_minutes`、`github_cache_v2` 表。
+- B128（2026-10-11）：新模块 `goals`，迁移 `20261012020000_m31_b128_goals.sql`（表 `goals`、`goal_results`、`goal_result_logs`、`goal_reviews`）。新契约 `contracts.GoalMetricSource`（`contracts/goals.go`，键前缀 `goals.metrics.`，错误 `ErrGoalMetricMissing`），habits、focus、screentime、github 各加 `goal_metrics.go` 提供数据。设置键 `goals.options`、`goals.last_review_notice`。今日页加卡片 `goals`。
+- B127（2026-10-11）：`notify/notify.go` 向后兼容地加 `Notification.Immediate`（默认 false）、`notify.Holder` 接口、`Service.SetHolder`、`Service.DeliverNow`；没装 Holder 时行为不变。reminders 加接口 `GET/PUT /notify/digest`、`POST /notify/digest/flush`，迁移 `20261012010000_m30_b127_notify_digest.sql`（表 `notify_digest_queue`），设置键 `notify.digest`、`notify.digest_state`，事件 `notify.digest_queued`、`notify.digest_sent`、`notify.digest_updated`。合并推送跳过被 B113 静音规则挡住的通知。
 - B151（2026-10-11）：`drive.yaml` 加公开接口 `PUT /drive/upload-links/{token}`、`GET /drive/download-links/{token}`，任务种类加 `download`。迁移 `20261011000500_m29_b151_drive_links.sql`（表 `drive_upload_links`、`drive_download_links`）。动作注册表 `actions.Action` 加 `MCPOnly` 字段，`Registry.List` 不返回它，新增 `Registry.ListForMCP` 返回；`mcp` 模块的 `tools/list` 改用后者。设置键 `drive.mcp_max_upload`（默认 1 GB）。
 - B150（2026-10-11）：新增契约 `contracts.FocusState`（番茄钟模块提供，音乐模块用它判断是否在专注期间）。`music.yaml` 加 `GET /music/stats`，设置加 `focus`。迁移 `20261011000400_m28_b150_music_plays.sql`（表 `music_plays`）。今日页 `overview/layout.ts` 加卡片 `music`，`TodayPage.tsx` 加一行显示条件（播放条里有歌才显示）。
 
