@@ -61,7 +61,9 @@ func TestTelegramVoiceReachesTheInbox(t *testing.T) {
 		resp.Body.Close()
 	}
 	inboxItems := func() []struct{ Text, Source string } {
-		var out struct{ Items []struct{ Text, Source string } }
+		var out struct {
+			Items []struct{ Text, Source string }
+		}
 		env.MustDo(http.MethodGet, "/inbox", nil, &out)
 		return out.Items
 	}
