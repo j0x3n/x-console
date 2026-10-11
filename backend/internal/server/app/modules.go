@@ -19,6 +19,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
 	uploadfiles "github.com/j0x3n/x-console/backend/internal/server/modules/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/focusblock"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/github"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/goals"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
@@ -88,4 +89,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	codingroi.New,   // B129
 	goals.New,       // B128
 	cards.New,       // B130
+	focusblock.New,  // B131
 }

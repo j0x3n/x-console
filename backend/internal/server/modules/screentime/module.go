@@ -64,6 +64,8 @@ func New(d *module.Deps) (module.Module, error) {
 	d.Agents.OnEvent(protocol.EventScreenSample, m.onSample)
 	m.registerActions()
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	// B131: the programs of a category, for the focus block's program list.
+	module.Provide[contracts.ScreenTimeApps](d.Registry, contracts.ScreenTimeAppsKey, appsProvider{m})
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"screentime", activitySource{m}) // B118
 	module.Provide[contracts.GoalMetricSource](d.Registry, contracts.GoalMetricPrefix+"screentime", goalMetrics{m})      // B128
 	return m, nil

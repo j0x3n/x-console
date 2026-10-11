@@ -19,6 +19,7 @@ import MaintenanceTab from "../maintenance/MaintenanceTab";
 import XSettingsTab from "../readlater/XSettingsTab";
 import MusicSettingsTab from "../music/MusicSettingsTab";
 import CardsSettingsTab from "../cards/CardsSettingsTab";
+import FocusBlockSettingsTab from "../focusblock/FocusBlockSettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -49,4 +50,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "readlater", label: "Read later", component: XSettingsTab },
   { id: "music", label: "Music", component: MusicSettingsTab },
   { id: "cards", label: "Review cards", component: CardsSettingsTab },
+  { id: "focus-block", label: "Focus block", component: FocusBlockSettingsTab },
 ];

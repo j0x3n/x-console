@@ -1,0 +1,70 @@
+/* 专注屏蔽（B131）。颜色只用 --xc-* 变量，类名都带 focusblock- 前缀。 */
+.focusblock-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.focusblock-option:last-child {
+  border-bottom: 0;
+}
+.focusblock-option small {
+  display: block;
+}
+.focusblock-computers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.focusblock-computers li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.focusblock-computers li:last-child {
+  border-bottom: 0;
+}
+.focusblock-computers .xc-check {
+  flex-wrap: wrap;
+  margin: 0;
+}
+.focusblock-computers .xc-badge {
+  margin-left: auto;
+}
+.focusblock-message {
+  display: block;
+  margin: 2px 0 0 24px;
+  line-height: 1.5;
+}
+.focusblock-refused {
+  color: var(--xc-warn);
+}
+.focusblock-list {
+  width: 100%;
+  font-family: var(--xc-mono);
+}
+.focusblock-subhead {
+  margin: 14px 0 8px;
+  font-size: var(--fs-13);
+  font-weight: 600;
+}
+.focusblock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.focusblock-notes {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.7;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+}
+.focusblock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
