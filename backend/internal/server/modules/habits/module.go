@@ -51,7 +51,8 @@ func New(d *module.Deps) (module.Module, error) {
 	d.Notify.OnAction("habit.", m.handleAction)
 	module.Provide[contracts.Habits](d.Registry, contracts.HabitsKey, m)
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"habits", activitySource{m}) // B118
-	module.Provide[contracts.GoalMetricSource](d.Registry, contracts.GoalMetricPrefix+"habits", goalMetrics{m})      // B128
+	module.Provide[contracts.GoalMetricSource](d.Registry, contracts.GoalMetricPrefix+"habits", goalMetrics{m})
+	module.Provide[contracts.BodySeries](d.Registry, contracts.BodySeriesKey, bodySeriesSource{m}) // B133      // B128
 	m.registerActions()
 	return m, nil
 }

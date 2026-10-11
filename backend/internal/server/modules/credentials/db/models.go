@@ -591,6 +591,31 @@ type DriveUploadLink struct {
 	CreatedAt  time.Time
 }
 
+type Experiment struct {
+	ID            int64
+	Title         string
+	ChangeText    string
+	BaselineStart string
+	ChangeStart   string
+	EndDate       string
+	Note          string
+	Conclusion    string
+	Stopped       int64
+	Retrospective int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type ExperimentMetric struct {
+	ID           int64
+	ExperimentID int64
+	Key          string
+	Label        string
+	Unit         string
+	Subjective   int64
+	SortOrder    int64
+}
+
 type FocusBlockAgent struct {
 	AgentID     string
 	State       string

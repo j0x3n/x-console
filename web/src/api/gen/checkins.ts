@@ -181,12 +181,16 @@ export interface components {
             /** Format: int64 */
             questionId: number;
             label: string;
-            /** @description 这段时间的平均分，没有回答时为 0 */
+            /**
+             * Format: double
+             * @description 这段时间的平均分，没有回答时为 0
+             */
             average: number;
             /** @description 回答条数 */
             count: number;
             points: {
                 date: string;
+                /** Format: double */
                 average: number;
                 count: number;
             }[];

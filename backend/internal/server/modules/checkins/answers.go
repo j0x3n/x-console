@@ -160,6 +160,13 @@ func (m *Module) GetCheckinSeries(w http.ResponseWriter, r *http.Request, p api.
 	httpx.JSON(w, http.StatusOK, map[string]any{"from": from.Format(dateLayout), "to": to.Format(dateLayout), "items": items})
 }
 
+// seriesPoint is the type of a point in api.CheckinSeries.
+type seriesPoint = struct {
+	Average float64 `json:"average"`
+	Count   int     `json:"count"`
+	Date    string  `json:"date"`
+}
+
 func (m *Module) series(ctx context.Context, from, to time.Time) ([]api.CheckinSeries, error) {
 	qs, err := m.q.ListCheckinQuestions(ctx)
 	if err != nil {
@@ -192,22 +199,14 @@ func (m *Module) series(ctx context.Context, from, to time.Time) ([]api.CheckinS
 	}
 	out := make([]api.CheckinSeries, 0, len(qs))
 	for _, row := range qs {
-		s := api.CheckinSeries{QuestionId: row.ID, Label: row.Label, Points: []struct {
-			Average float32 `json:"average"`
-			Count   int     `json:"count"`
-			Date    string  `json:"date"`
-		}{}}
+		s := api.CheckinSeries{QuestionId: row.ID, Label: row.Label, Points: []seriesPoint{}}
 		for d := from; !d.After(to) && d.Format(dateLayout) <= to.Format(dateLayout); d = d.AddDate(0, 0, 1) {
 			if a := byDay[row.ID][d.Format(dateLayout)]; a != nil {
-				s.Points = append(s.Points, struct {
-					Average float32 `json:"average"`
-					Count   int     `json:"count"`
-					Date    string  `json:"date"`
-				}{Average: float32(a.sum) / float32(a.count), Count: a.count, Date: d.Format(dateLayout)})
+				s.Points = append(s.Points, seriesPoint{Average: float64(a.sum) / float64(a.count), Count: a.count, Date: d.Format(dateLayout)})
 			}
 		}
 		if t := total[row.ID]; t != nil {
-			s.Average, s.Count = float32(t.sum)/float32(t.count), t.count
+			s.Average, s.Count = float64(t.sum)/float64(t.count), t.count
 		}
 		out = append(out, s)
 	}

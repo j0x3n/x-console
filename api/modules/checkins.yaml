@@ -241,7 +241,7 @@ components:
       properties:
         questionId: { type: integer, format: int64 }
         label: { type: string }
-        average: { type: number, description: 这段时间的平均分，没有回答时为 0 }
+        average: { type: number, format: double, description: 这段时间的平均分，没有回答时为 0 }
         count: { type: integer, description: 回答条数 }
         points:
           type: array
@@ -250,5 +250,5 @@ components:
             required: [date, average, count]
             properties:
               date: { type: string }
-              average: { type: number }
+              average: { type: number, format: double }
               count: { type: integer }

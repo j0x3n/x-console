@@ -18,6 +18,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/documents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/experiments"
 	uploadfiles "github.com/j0x3n/x-console/backend/internal/server/modules/files"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focus"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/focusblock"
@@ -91,5 +92,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	goals.New,       // B128
 	cards.New,       // B130
 	checkins.New,    // B132
+	experiments.New, // B133
 	focusblock.New,  // B131
 }

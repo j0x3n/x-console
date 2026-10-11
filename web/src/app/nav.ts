@@ -10,6 +10,7 @@ import {
   Headphones,
   HardDrive,
   HeartPulse,
+  FlaskConical,
   KeyRound,
   Hourglass,
   Home,
@@ -75,6 +76,12 @@ export const navItems: NavItem[] = [
     path: "/checkins",
     label: "Check-ins",
     icon: HeartPulse,
+    group: "personal",
+  },
+  {
+    path: "/experiments",
+    label: "Experiments",
+    icon: FlaskConical,
     group: "personal",
   },
   {

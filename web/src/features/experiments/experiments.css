@@ -1,0 +1,172 @@
+/* B133 自我实验。颜色只用 --xc-* 令牌，字号只用 --fs-* 令牌。 */
+
+.experiments-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.experiments-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.experiments-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--xc-text);
+  text-decoration: none;
+}
+.experiments-item:hover {
+  border-color: var(--xc-accent);
+}
+.experiments-item p {
+  margin: 0;
+  font-size: var(--fs-13);
+}
+.experiments-item small {
+  font-size: var(--fs-12);
+}
+.experiments-item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.experiments-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  color: var(--xc-muted);
+  font-size: var(--fs-13);
+  text-decoration: none;
+}
+.experiments-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.experiments-dates-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+}
+.experiments-dates-list dt {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.experiments-dates-list dd {
+  margin: 0;
+  font-size: var(--fs-14);
+}
+.experiments-caution {
+  margin: 0;
+  font-size: var(--fs-12);
+}
+.experiments-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.experiments-result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.experiments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-13);
+}
+.experiments-table th,
+.experiments-table td {
+  padding: 4px 6px;
+  text-align: left;
+  font-weight: 400;
+}
+.experiments-table thead th {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.experiments-diff {
+  margin: 0;
+  font-size: var(--fs-14);
+}
+.experiments-chart {
+  width: 100%;
+  height: auto;
+}
+.experiments-change-bg {
+  fill: var(--xc-accent);
+  opacity: 0.08;
+}
+.experiments-dot {
+  fill: var(--xc-muted);
+}
+.experiments-dot.change {
+  fill: var(--xc-accent);
+}
+.experiments-notes {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.experiments-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.experiments-form {
+  display: grid;
+  gap: 12px;
+}
+.experiments-dates {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.experiments-hint {
+  margin: 0;
+  font-size: var(--fs-12);
+}
+.experiments-metrics {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.experiments-metrics legend {
+  margin-bottom: 4px;
+  padding: 0;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  font-weight: 500;
+}
+.experiments-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+}
+.experiments-group > strong {
+  flex-basis: 100%;
+  font-size: var(--fs-12);
+  color: var(--xc-muted);
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .experiments-dates {
+    grid-template-columns: 1fr;
+  }
+  .experiments-results {
+    grid-template-columns: 1fr;
+  }
+}

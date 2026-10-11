@@ -112,13 +112,13 @@ type CheckinQuestionInput struct {
 // CheckinSeries defines model for CheckinSeries.
 type CheckinSeries struct {
 	// Average 这段时间的平均分，没有回答时为 0
-	Average float32 `json:"average"`
+	Average float64 `json:"average"`
 
 	// Count 回答条数
 	Count  int    `json:"count"`
 	Label  string `json:"label"`
 	Points []struct {
-		Average float32 `json:"average"`
+		Average float64 `json:"average"`
 		Count   int     `json:"count"`
 		Date    string  `json:"date"`
 	} `json:"points"`

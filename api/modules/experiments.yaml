@@ -1,0 +1,211 @@
+openapi: 3.0.3
+info:
+  title: X Console experiments (B133)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /experiments:
+    get:
+      operationId: listExperiments
+      tags: [experiments]
+      description: 全部实验，新的在前。不含分析。
+      responses:
+        "200":
+          description: 实验列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Experiment" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createExperiment
+      tags: [experiments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperimentInput" }
+      responses:
+        "201":
+          description: 新实验
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experiment" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /experiments/metrics:
+    get:
+      operationId: listExperimentMetrics
+      tags: [experiments]
+      description: 现在能选的指标。隐藏且锁定的模块的指标不列出。
+      responses:
+        "200":
+          description: 指标目录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ExperimentMetricOption" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /experiments/{experimentId}:
+    parameters:
+      - $ref: "#/components/parameters/ExperimentId"
+    get:
+      operationId: getExperiment
+      tags: [experiments]
+      description: 一个实验和它的分析结果。结果现算。
+      responses:
+        "200":
+          description: 实验和结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExperimentDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: updateExperiment
+      tags: [experiments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperimentInput" }
+      responses:
+        "200":
+          description: 改后的实验
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experiment" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteExperiment
+      tags: [experiments]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    ExperimentId:
+      name: experimentId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    ExperimentPhase:
+      type: string
+      enum: [planned, baseline, change, finished, stopped]
+      description: 未开始、基线期、改变期、已结束、已停止。
+    ExperimentMetricRef:
+      type: object
+      required: [key, label, unit, subjective]
+      properties:
+        key: { type: string, description: "checkin:<问题编号>、body:<指标>、goal:<种类>:<选项>" }
+        label: { type: string }
+        unit: { type: string }
+        subjective: { type: boolean, description: 主观打分，容易受预期影响 }
+    ExperimentMetricOption:
+      allOf:
+        - $ref: "#/components/schemas/ExperimentMetricRef"
+        - type: object
+          required: [group]
+          properties:
+            group: { type: string, enum: [checkin, body, habit, focus, screen], description: 分组，界面用 }
+    Experiment:
+      type: object
+      required: [id, title, change, baselineStart, changeStart, endDate, note, conclusion, stopped, phase, retrospective, metrics, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        change: { type: string, description: 改了什么 }
+        baselineStart: { type: string, description: 基线开始日 YYYY-MM-DD }
+        changeStart: { type: string, description: 改变开始日 YYYY-MM-DD }
+        endDate: { type: string, description: 结束日（含）YYYY-MM-DD }
+        note: { type: string }
+        conclusion: { type: string }
+        stopped: { type: boolean }
+        phase: { $ref: "#/components/schemas/ExperimentPhase" }
+        retrospective: { type: boolean, description: 创建时基线开始日已经在过去，是回头对比 }
+        metrics:
+          type: array
+          items: { $ref: "#/components/schemas/ExperimentMetricRef" }
+        createdAt: { type: string, format: date-time }
+    ExperimentInput:
+      type: object
+      required: [title, change, baselineStart, changeStart, endDate, metrics]
+      properties:
+        title: { type: string }
+        change: { type: string }
+        baselineStart: { type: string }
+        changeStart: { type: string }
+        endDate: { type: string }
+        note: { type: string }
+        conclusion: { type: string }
+        stopped: { type: boolean }
+        metrics:
+          type: array
+          description: 指标 key，最多 6 个
+          items: { type: string }
+    PhaseStats:
+      type: object
+      required: [days, n, mean, sd]
+      properties:
+        days: { type: integer, description: 这一段已经过去的天数 }
+        n: { type: integer, description: 有数据的天数 }
+        mean: { type: number, format: double }
+        sd: { type: number, format: double }
+    ExperimentVerdict:
+      type: string
+      enum: [no_data, too_few, inconclusive, higher, lower]
+      description: |
+        no_data 没有数据；too_few 任一段有数据的天数少于 5，只给数字；
+        inconclusive 区间包含 0；higher 改变期高于基线；lower 改变期低于基线。
+    ExperimentResult:
+      type: object
+      required: [metric, verdict, baseline, change, points, notes]
+      properties:
+        metric: { $ref: "#/components/schemas/ExperimentMetricRef" }
+        verdict: { $ref: "#/components/schemas/ExperimentVerdict" }
+        baseline: { $ref: "#/components/schemas/PhaseStats" }
+        change: { $ref: "#/components/schemas/PhaseStats" }
+        diff: { type: number, format: double, description: 改变期平均值减基线平均值 }
+        ciLow: { type: number, format: double }
+        ciHigh: { type: number, format: double }
+        effectSize: { type: number, format: double, description: Cohen d，合并标准差为 0 时不给 }
+        notes:
+          type: array
+          description: 要让用户注意的话的代码
+          items:
+            type: string
+            enum: [subjective, change_running, sparse_data, retrospective, many_metrics]
+        points:
+          type: array
+          items:
+            type: object
+            required: [date, value, phase]
+            properties:
+              date: { type: string }
+              value: { type: number, format: double }
+              phase: { type: string, enum: [baseline, change] }
+    ExperimentDetail:
+      type: object
+      required: [experiment, results]
+      properties:
+        experiment: { $ref: "#/components/schemas/Experiment" }
+        results:
+          type: array
+          items: { $ref: "#/components/schemas/ExperimentResult" }

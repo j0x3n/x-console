@@ -1130,6 +1130,19 @@ try {
     assert.equal(checkinAnswer.status(), 200, await checkinAnswer.text());
     await page.reload();
     await page.getByRole("article", { name: "端到端心情" }).getByText("4").first().waitFor();
+    setStage("自我实验");
+    // B133：页面上新建一个实验，选身体数据里的体重；详情页能打开，样本太少时说不能下结论。
+    await page.goto(`${base}/experiments`);
+    await page.getByRole("button", { name: "新建实验" }).first().click();
+    await dialog("新建实验").getByPlaceholder("例如 下午不喝咖啡").fill("端到端实验");
+    await dialog("新建实验").getByRole("checkbox", { name: "体重" }).check();
+    await dialog("新建实验").getByRole("button", { name: "保存" }).click();
+    await until("实验新建", async () =>
+      (await api("/experiments")).items.some((x) => x.title === "端到端实验"),
+    );
+    await page.getByRole("link", { name: /端到端实验/ }).click();
+    await page.getByRole("article", { name: "体重" }).getByText("还没有数据。").waitFor();
+
     setStage("复习卡片");
     // B130：手写一张卡片，接口再建一张；开始复习，空格显示答案，数字键评分；评完看到统计，到期日往后推。
     await page.goto(`${base}/cards`);
