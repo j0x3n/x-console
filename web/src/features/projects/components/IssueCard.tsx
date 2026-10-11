@@ -14,6 +14,7 @@ import { formatDate, formatTime } from "../../../lib/time";
 import { thumbnailSrc } from "../../../components/markdown/upload";
 import {
   coverImage,
+  descriptionExcerpt,
   issueDue,
   issueDueState,
   localTime,
@@ -175,6 +176,8 @@ export default function IssueCard({
   const t = useT();
   // B55：描述里的第一张图做封面
   const cover = coverImage(issue.description);
+  const excerpt = descriptionExcerpt(issue.description);
+  const language = useLanguage();
   // B85：手机上长按 500 毫秒弹出菜单，弹出后这次点击不再打开卡片
   const press = useRef<{ timer: number; fired: boolean } | null>(null);
   const cancelPress = () => {
@@ -297,6 +300,7 @@ export default function IssueCard({
         {issue.status === "done" && <StatusIcon status="done" size={14} />}
         <span>{issue.title}</span>
       </h3>
+      {excerpt && <p className="projects-card-excerpt">{excerpt}</p>}
       {category && <p className="projects-card-category">{category}</p>}
       {(issue.checklistTotal ?? 0) > 0 && (
         <div className="projects-card-sub">
@@ -333,6 +337,7 @@ export default function IssueCard({
         ) : (
           <PriorityIcon priority={issue.priority} size={13} />
         )}
+        <span className="projects-card-key">{issue.key}</span>
         {synced && (
           <span
             className="projects-card-count"
@@ -353,6 +358,12 @@ export default function IssueCard({
           <span className="projects-card-count">
             <MessageSquare size={12} />
             {issue.commentCount}
+          </span>
+        )}
+        {issue.status === "done" && issue.completedAt && (
+          <span className="projects-card-count" title={issue.completedAt}>
+            <Check size={12} />
+            {formatDate(issue.completedAt, language)}
           </span>
         )}
         <Members

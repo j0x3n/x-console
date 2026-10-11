@@ -1,4 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import MarkdownEditor from "../../components/markdown/MarkdownEditor";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { usePageCrumb } from "../../stores/page-title";
@@ -455,23 +461,46 @@ function IssueTitle({
   useEffect(() => {
     if (!editing) setValue(issue.title);
   }, [issue.title, editing]);
+  const box = useRef<HTMLTextAreaElement | null>(null);
+  const grow = () => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  const fit = (el: HTMLTextAreaElement | null) => {
+    box.current = el;
+    grow();
+  };
+  useLayoutEffect(grow, [value, editing]);
   const commit = () => {
     setEditing(false);
     const title = value.trim();
     if (title && title !== issue.title) onSave(title);
     else setValue(issue.title);
   };
+  // 标题可能占好几行，编辑时也要显示成好几行，所以用随内容长高的多行框。
+  // 标题里不能有换行：回车保存，粘贴进来的换行换成空格。
   if (editing)
     return (
-      <input
+      <textarea
+        ref={fit}
+        rows={1}
         className={plain ? "projects-ttl" : "xc-input projects-title-input"}
         value={value}
         autoFocus
         aria-label={t("Title")}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => setValue(e.target.value.replace(/\s*\n\s*/g, " "))}
+        onFocus={(e) => {
+          const end = e.currentTarget.value.length;
+          e.currentTarget.setSelectionRange(end, end);
+        }}
         onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === "Enter") commit();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          }
           if (e.key === "Escape") {
             e.stopPropagation();
             setValue(issue.title);

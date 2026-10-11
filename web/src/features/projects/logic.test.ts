@@ -14,6 +14,7 @@ import {
   planMove,
   sortIssues,
   sortOrderBetween,
+  descriptionExcerpt,
   stepSelection,
   UNCATEGORIZED,
   applyItemMove,
@@ -568,5 +569,24 @@ describe("issuesInView", () => {
     expect(matchesIssueSearch(issue("XC-12"), "xc-1")).toBe(true);
     expect(matchesIssueSearch(issue("XC-12"), "  ")).toBe(true);
     expect(matchesIssueSearch(issue("XC-12"), "abc")).toBe(false);
+  });
+});
+
+describe("descriptionExcerpt", () => {
+  it("去掉图片、链接地址和 Markdown 符号", () => {
+    expect(
+      descriptionExcerpt(
+        "## 目标\n\n![图](/a.png)\n- [ ] 改 **标题** 的显示\n看 [文档](https://x.com/a) 和 `code`",
+      ),
+    ).toBe("目标 改 标题 的显示 看 文档 和 code");
+  });
+  it("只有图片或没有描述时为空", () => {
+    expect(descriptionExcerpt("![图](/a.png)")).toBe("");
+    expect(descriptionExcerpt(undefined)).toBe("");
+  });
+  it("太长时截断并加省略号", () => {
+    const out = descriptionExcerpt("字".repeat(300), 50);
+    expect([...out]).toHaveLength(51);
+    expect(out.endsWith("…")).toBe(true);
   });
 });

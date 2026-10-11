@@ -732,6 +732,28 @@ export function coverImage(description: string | undefined): string | null {
   return /^(https?:\/\/|\/)/.test(src) ? src : null;
 }
 
+/**
+ * 看板卡片上的描述摘要：去掉图片、链接地址和 Markdown 符号，压成一行文字，
+ * 最多 max 个字，超过的加省略号。描述里只有图片时为空。
+ */
+export function descriptionExcerpt(
+  description: string | undefined,
+  max = 120,
+): string {
+  if (!description) return "";
+  const text = description
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+(\[[ xX]\]\s+)?/gm, "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const chars = [...text];
+  return chars.length > max ? `${chars.slice(0, max).join("")}…` : text;
+}
+
 /*
  * B101：二级菜单里的视图。数据都来自 useMyIssues()（全部未完成的卡片），
  * 在前端按截止日期筛，不加新接口。

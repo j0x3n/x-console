@@ -573,6 +573,10 @@
   margin-bottom: 14px;
   font-size: 20px;
   font-weight: 600;
+  line-height: 1.3;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 .projects-description {
   margin-bottom: 26px;
@@ -1753,8 +1757,9 @@
 }
 .projects-card-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   margin-top: 8px;
   color: var(--xc-faint);
   font-size: var(--fs-11);
@@ -1926,13 +1931,20 @@
 }
 h1.projects-ttl {
   margin: 0 -6px 4px;
+  overflow-wrap: anywhere;
 }
-input.projects-ttl {
+input.projects-ttl,
+textarea.projects-ttl {
+  display: block;
   margin: 0 -6px 4px;
   outline: none;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 .projects-ttl:hover,
-input.projects-ttl:focus {
+input.projects-ttl:focus,
+textarea.projects-ttl:focus {
   background: var(--xc-surface-2);
 }
 .projects-props-rows {
@@ -2166,4 +2178,22 @@ input.projects-ttl:focus {
   .page-title-actions .projects-board-tabs {
     margin-left: 6px;
   }
+}
+
+/* 卡片上的描述摘要和编号 */
+.projects-card-excerpt {
+  display: -webkit-box;
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.projects-card-key {
+  color: var(--xc-faint);
+  font-size: var(--fs-11);
+  font-variant-numeric: tabular-nums;
 }
