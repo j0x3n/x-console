@@ -893,3 +893,41 @@ html.music-full-open .ai-fab {
     flex-wrap: wrap;
   }
 }
+
+/* 统计和今日卡片（B150） */
+.music-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.music-ranking ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.music-ranking li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.music-ranking li:last-child {
+  border-bottom: 0;
+}
+.music-today {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.music-today-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}

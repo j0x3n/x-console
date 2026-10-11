@@ -154,3 +154,6 @@ UPDATE music_playlist_shares SET view_count = view_count + 1 WHERE id = ?;
 
 -- name: PlaylistHasTrack :one
 SELECT CAST(COUNT(*) AS INTEGER) FROM music_playlist_items WHERE playlist_id = ? AND track_id = ?;
+
+-- name: InsertPlay :exec
+INSERT INTO music_plays (track_id, title, artist, played_at, seconds, focus_session_id) VALUES (?, ?, ?, ?, ?, ?);

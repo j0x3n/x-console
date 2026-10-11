@@ -152,6 +152,7 @@ describe("layout", () => {
       "screentime",
       "mail",
       "monitoring",
+      "music",
       "fitness",
     ]);
     expect(moveCard(base, "todos", "schedule")).toBe(base);
@@ -182,8 +183,8 @@ describe("layout", () => {
     expect(spreadSide(side, 1)[0]).toHaveLength(side.length);
     const two = spreadSide(side, 2).map((col) => col.map((c) => c.id));
     expect(two).toEqual([
-      ["schedule", "network", "quotas", "mail", "activity"],
-      ["habits", "home", "screentime", "monitoring", "fitness"],
+      ["schedule", "network", "quotas", "mail", "music", "fitness"],
+      ["habits", "home", "screentime", "monitoring", "activity"],
     ]);
   });
 

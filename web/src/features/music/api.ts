@@ -27,6 +27,7 @@ export type SettingsInput = S["MusicSettingsInput"];
 export type Pending = S["MusicPending"];
 export type Candidate = S["MusicCandidate"];
 export type Sleep = S["MusicSleep"];
+export type Stats = S["MusicStats"];
 export type Share = S["MusicShare"];
 export type PublicPlaylist = S["MusicPublicPlaylist"];
 export type PublicTrack = S["MusicPublicTrack"];
@@ -43,6 +44,7 @@ export const musicKeys = {
   settings: ["music", "settings"] as const,
   pending: ["music", "pending"] as const,
   sleep: ["music", "sleep"] as const,
+  stats: (days: number) => ["music", "stats", days] as const,
   shares: (playlistId: number) => ["music", "shares", playlistId] as const,
 };
 
@@ -452,5 +454,15 @@ export function useDeleteShare(playlistId: number) {
       ),
     onSuccess: () =>
       client.invalidateQueries({ queryKey: musicKeys.shares(playlistId) }),
+  });
+}
+
+/** 听歌统计，最近 days 天。 */
+export function useStats(days: number) {
+  return useQuery({
+    queryKey: musicKeys.stats(days),
+    queryFn: () =>
+      unwrap(musicApi.GET("/music/stats", { params: { query: { days } } })),
+    retry: false,
   });
 }

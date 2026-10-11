@@ -984,6 +984,16 @@ type MusicFt struct {
 	LyricsText string
 }
 
+type MusicPlay struct {
+	ID             int64
+	TrackID        *int64
+	Title          string
+	Artist         string
+	PlayedAt       time.Time
+	Seconds        int64
+	FocusSessionID *int64
+}
+
 type MusicPlaylist struct {
 	ID        int64
 	Name      string

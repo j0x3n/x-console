@@ -47,6 +47,7 @@ import { formatClock } from "./lyrics";
 import { usePlayer } from "./player";
 import PendingView from "./PendingView";
 import ShareDialog from "./ShareDialog";
+import StatsView from "./StatsView";
 import TrackList from "./TrackList";
 import "./i18n";
 import "./music.css";
@@ -58,7 +59,8 @@ export type MusicView =
   | "playlists"
   | "favorites"
   | "recent"
-  | "pending";
+  | "pending"
+  | "stats";
 const VIEWS: MusicView[] = [
   "songs",
   "albums",
@@ -67,6 +69,7 @@ const VIEWS: MusicView[] = [
   "favorites",
   "recent",
   "pending",
+  "stats",
 ];
 
 /** 地址里的视图名，认不出的当作“全部歌曲”。 */
@@ -82,6 +85,7 @@ const TITLES: Record<MusicView, string> = {
   favorites: "Favorites",
   recent: "Recently played",
   pending: "To confirm",
+  stats: "Listening stats",
 };
 
 /** 音乐：歌曲、专辑、歌手、播放列表。播放放在全局播放器里，这里只负责找歌和排歌。 */
@@ -123,6 +127,7 @@ export default function MusicPage() {
       </EmptyState>
     );
   else if (view === "pending") body = <PendingView />;
+  else if (view === "stats") body = <StatsView />;
   else if (view === "albums" && album == null)
     body = (
       <AlbumGrid

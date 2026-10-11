@@ -23,7 +23,14 @@ func (m *Module) settingsDTO(r *http.Request) (api.MusicSettings, error) {
 		return api.MusicSettings{}, err
 	}
 	o := m.options(r.Context())
-	out := api.MusicSettings{Folders: []api.MusicFolder{}, AutoMatch: o.AutoMatch, WriteBack: o.WriteBack, Providers: o.Providers}
+	if o.Focus.PlaylistID != 0 {
+		// A playlist that was deleted since is no longer the focus playlist.
+		if _, err := m.q.GetPlaylist(r.Context(), o.Focus.PlaylistID); err != nil {
+			o.Focus.PlaylistID = 0
+		}
+	}
+	out := api.MusicSettings{Folders: []api.MusicFolder{}, AutoMatch: o.AutoMatch, WriteBack: o.WriteBack, Providers: o.Providers,
+		Focus: api.MusicFocusSettings{AutoPlay: o.Focus.AutoPlay, PlaylistId: o.Focus.PlaylistID, AutoPause: o.Focus.AutoPause, OnlyFocusList: o.Focus.OnlyFocusList}}
 	for _, id := range ids {
 		f, err := drive.Folder(r.Context(), id)
 		if err != nil {
@@ -57,13 +64,33 @@ func (m *Module) PutMusicSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if body.AutoMatch != nil || body.WriteBack != nil || body.Providers != nil {
+	if body.AutoMatch != nil || body.WriteBack != nil || body.Providers != nil || body.Focus != nil {
 		o := m.options(ctx)
 		if body.AutoMatch != nil {
 			o.AutoMatch = *body.AutoMatch
 		}
 		if body.WriteBack != nil {
 			o.WriteBack = *body.WriteBack
+		}
+		if f := body.Focus; f != nil {
+			if f.AutoPlay != nil {
+				o.Focus.AutoPlay = *f.AutoPlay
+			}
+			if f.AutoPause != nil {
+				o.Focus.AutoPause = *f.AutoPause
+			}
+			if f.OnlyFocusList != nil {
+				o.Focus.OnlyFocusList = *f.OnlyFocusList
+			}
+			if f.PlaylistId != nil {
+				if *f.PlaylistId != 0 {
+					if _, err := m.playlistSummary(ctx, m.q, *f.PlaylistId); err != nil {
+						httpx.Fail(w, r, httpx.Invalid("播放列表不存在"))
+						return
+					}
+				}
+				o.Focus.PlaylistID = *f.PlaylistId
+			}
 		}
 		if body.Providers != nil {
 			for name, on := range *body.Providers {

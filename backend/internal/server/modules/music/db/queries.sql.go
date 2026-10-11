@@ -324,6 +324,31 @@ func (q *Queries) InsertCandidate(ctx context.Context, arg InsertCandidateParams
 	return err
 }
 
+const insertPlay = `-- name: InsertPlay :exec
+INSERT INTO music_plays (track_id, title, artist, played_at, seconds, focus_session_id) VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type InsertPlayParams struct {
+	TrackID        *int64
+	Title          string
+	Artist         string
+	PlayedAt       time.Time
+	Seconds        int64
+	FocusSessionID *int64
+}
+
+func (q *Queries) InsertPlay(ctx context.Context, arg InsertPlayParams) error {
+	_, err := q.db.ExecContext(ctx, insertPlay,
+		arg.TrackID,
+		arg.Title,
+		arg.Artist,
+		arg.PlayedAt,
+		arg.Seconds,
+		arg.FocusSessionID,
+	)
+	return err
+}
+
 const insertPlaylist = `-- name: InsertPlaylist :one
 INSERT INTO music_playlists (name, created_at, updated_at) VALUES (?, ?, ?) RETURNING id
 `

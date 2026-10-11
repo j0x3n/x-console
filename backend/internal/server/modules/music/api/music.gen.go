@@ -250,6 +250,13 @@ type MusicArtist struct {
 	TrackCount   int    `json:"trackCount"`
 }
 
+// MusicArtistStat defines model for MusicArtistStat.
+type MusicArtistStat struct {
+	Artist  string `json:"artist"`
+	Plays   int    `json:"plays"`
+	Seconds int    `json:"seconds"`
+}
+
 // MusicCandidate defines model for MusicCandidate.
 type MusicCandidate struct {
 	Album  string `json:"album"`
@@ -270,6 +277,21 @@ type MusicCandidate struct {
 
 // MusicCandidateSource defines model for MusicCandidate.Source.
 type MusicCandidateSource string
+
+// MusicFocusSettings defines model for MusicFocusSettings.
+type MusicFocusSettings struct {
+	// AutoPause 专注结束或停止时暂停。默认关
+	AutoPause bool `json:"autoPause"`
+
+	// AutoPlay 专注开始时自动播放。默认关
+	AutoPlay bool `json:"autoPlay"`
+
+	// OnlyFocusList 专注期间队列只用上面的播放列表，结束后恢复原来的队列。默认关
+	OnlyFocusList bool `json:"onlyFocusList"`
+
+	// PlaylistId 自动播放用的播放列表，0 表示用当前队列
+	PlaylistId int64 `json:"playlistId"`
+}
 
 // MusicFolder defines model for MusicFolder.
 type MusicFolder struct {
@@ -309,6 +331,17 @@ type MusicMatchRequest struct {
 type MusicPending struct {
 	Candidates []MusicCandidate `json:"candidates"`
 	Track      MusicTrack       `json:"track"`
+}
+
+// MusicPlayStat defines model for MusicPlayStat.
+type MusicPlayStat struct {
+	Artist  string `json:"artist"`
+	Plays   int    `json:"plays"`
+	Seconds int    `json:"seconds"`
+	Title   string `json:"title"`
+
+	// TrackId 歌已经不在曲库时没有
+	TrackId *int64 `json:"trackId,omitempty"`
 }
 
 // MusicPlaylist defines model for MusicPlaylist.
@@ -367,7 +400,8 @@ type MusicScanStatus struct {
 // MusicSettings defines model for MusicSettings.
 type MusicSettings struct {
 	// AutoMatch 入库后自动在线匹配缺的歌词和封面。默认开
-	AutoMatch bool `json:"autoMatch"`
+	AutoMatch bool               `json:"autoMatch"`
+	Focus     MusicFocusSettings `json:"focus"`
 
 	// Folders 音乐目录。里面已经不存在的目录不会列出
 	Folders []MusicFolder `json:"folders"`
@@ -379,9 +413,15 @@ type MusicSettings struct {
 	WriteBack bool `json:"writeBack"`
 }
 
-// MusicSettingsInput 只改传了的字段。providers 只改传了的来源
+// MusicSettingsInput 只改传了的字段。providers 只改传了的来源，focus 里传了的字段才改
 type MusicSettingsInput struct {
 	AutoMatch *bool `json:"autoMatch,omitempty"`
+	Focus     *struct {
+		AutoPause     *bool  `json:"autoPause,omitempty"`
+		AutoPlay      *bool  `json:"autoPlay,omitempty"`
+		OnlyFocusList *bool  `json:"onlyFocusList,omitempty"`
+		PlaylistId    *int64 `json:"playlistId,omitempty"`
+	} `json:"focus,omitempty"`
 
 	// Folders 云盘文件夹编号，最多 20 个。一个目录在另一个目录里时只保留外层的
 	Folders   *[]int64         `json:"folders,omitempty"`
@@ -429,6 +469,24 @@ type MusicSleepInput struct {
 	ExtendMinutes *int `json:"extendMinutes,omitempty"`
 	Minutes       *int `json:"minutes,omitempty"`
 	Tracks        *int `json:"tracks,omitempty"`
+}
+
+// MusicStats defines model for MusicStats.
+type MusicStats struct {
+	Days       int `json:"days"`
+	FocusPlays int `json:"focusPlays"`
+
+	// FocusSeconds 专注期间听的秒数
+	FocusSeconds int `json:"focusSeconds"`
+
+	// FocusTopTracks 专注期间播放最多的 10 首
+	FocusTopTracks []MusicPlayStat   `json:"focusTopTracks"`
+	Plays          int               `json:"plays"`
+	TopArtists     []MusicArtistStat `json:"topArtists"`
+
+	// TopTracks 播放次数最多的 10 首，次数相同按听的时长
+	TopTracks    []MusicPlayStat `json:"topTracks"`
+	TotalSeconds int             `json:"totalSeconds"`
 }
 
 // MusicTrack defines model for MusicTrack.
@@ -525,6 +583,12 @@ type MatchMusicParams struct {
 // UpdateMusicPlaylistJSONBody defines parameters for UpdateMusicPlaylist.
 type UpdateMusicPlaylistJSONBody struct {
 	Name *string `json:"name,omitempty"`
+}
+
+// GetMusicStatsParams defines parameters for GetMusicStats.
+type GetMusicStatsParams struct {
+	// Days 最近几天，含今天。默认 30，最多 365
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // ListMusicTracksParams defines parameters for ListMusicTracks.
@@ -708,6 +772,9 @@ type ServerInterface interface {
 	// (PUT /music/sleep)
 	PutMusicSleep(w http.ResponseWriter, r *http.Request)
 
+	// (GET /music/stats)
+	GetMusicStats(w http.ResponseWriter, r *http.Request, params GetMusicStatsParams)
+
 	// (GET /music/tracks)
 	ListMusicTracks(w http.ResponseWriter, r *http.Request, params ListMusicTracksParams)
 
@@ -858,6 +925,11 @@ func (_ Unimplemented) GetMusicSleep(w http.ResponseWriter, r *http.Request) {
 
 // (PUT /music/sleep)
 func (_ Unimplemented) PutMusicSleep(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /music/stats)
+func (_ Unimplemented) GetMusicStats(w http.ResponseWriter, r *http.Request, params GetMusicStatsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1336,6 +1408,39 @@ func (siw *ServerInterfaceWrapper) PutMusicSleep(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutMusicSleep(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMusicStats operation middleware
+func (siw *ServerInterfaceWrapper) GetMusicStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMusicStatsParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMusicStats(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2206,6 +2311,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/public/music/{token}/tracks/{trackId}/lyrics", wrapper.GetPublicMusicTrackLyrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/music/stats", wrapper.GetMusicStats)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/music/settings", wrapper.GetMusicSettings)

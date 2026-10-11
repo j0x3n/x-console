@@ -282,6 +282,7 @@ describe("音乐页", () => {
   it("待确认：没有要确认的歌时有说明", async () => {
     setup([{ id: 1, name: "音乐", path: "/音乐" }], []);
     api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /music/playlists", () => ({ status: 200, body: [] }));
     renderIt("/music?view=pending");
     expect(await screen.findByText("没有要确认的歌")).toBeTruthy();
   });
@@ -313,6 +314,12 @@ describe("设置里的音乐标签", () => {
     folders: [{ id: 1, name: "音乐", path: "/音乐" }],
     autoMatch: true,
     writeBack: true,
+    focus: {
+      autoPlay: false,
+      playlistId: 0,
+      autoPause: false,
+      onlyFocusList: false,
+    },
     providers: {
       lrclib: true,
       netease: true,
@@ -342,6 +349,7 @@ describe("设置里的音乐标签", () => {
       body: settings,
     }));
     api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /music/playlists", () => ({ status: 200, body: [] }));
     api.routes.set("PUT /music/settings", (body) => ({
       status: 200,
       body: { ...settings, ...(body as object) },
@@ -367,6 +375,7 @@ describe("设置里的音乐标签", () => {
       body: settings,
     }));
     api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /music/playlists", () => ({ status: 200, body: [] }));
     api.routes.set("PUT /music/settings", () => ({
       status: 200,
       body: settings,
@@ -391,6 +400,7 @@ describe("设置里的音乐标签", () => {
       body: settings,
     }));
     api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /music/playlists", () => ({ status: 200, body: [] }));
     api.routes.set("POST /music/match", () => ({
       status: 202,
       body: { running: true },

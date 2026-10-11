@@ -606,6 +606,24 @@ paths:
               schema: { $ref: "#/components/schemas/MusicLyrics" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /music/stats:
+    get:
+      operationId: getMusicStats
+      tags: [music]
+      description: 听歌统计。一次播放指听满 30 秒或一半以上。专注期间的播放单独算。只给数字，不下结论。
+      parameters:
+        - name: days
+          in: query
+          description: 最近几天，含今天。默认 30，最多 365
+          schema: { type: integer, minimum: 1, maximum: 365 }
+      responses:
+        "200":
+          description: 统计
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicStats" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /music/settings:
     get:
       operationId: getMusicSettings
@@ -794,8 +812,9 @@ components:
         path: { type: string }
     MusicSettings:
       type: object
-      required: [folders, autoMatch, writeBack, providers]
+      required: [folders, autoMatch, writeBack, providers, focus]
       properties:
+        focus: { $ref: "#/components/schemas/MusicFocusSettings" }
         folders:
           type: array
           description: 音乐目录。里面已经不存在的目录不会列出
@@ -808,8 +827,15 @@ components:
           additionalProperties: { type: boolean }
     MusicSettingsInput:
       type: object
-      description: 只改传了的字段。providers 只改传了的来源
+      description: 只改传了的字段。providers 只改传了的来源，focus 里传了的字段才改
       properties:
+        focus:
+          type: object
+          properties:
+            autoPlay: { type: boolean }
+            playlistId: { type: integer, format: int64 }
+            autoPause: { type: boolean }
+            onlyFocusList: { type: boolean }
         folders:
           type: array
           description: 云盘文件夹编号，最多 20 个。一个目录在另一个目录里时只保留外层的
@@ -899,6 +925,50 @@ components:
         tracks:
           type: array
           items: { $ref: "#/components/schemas/MusicPublicTrack" }
+    MusicFocusSettings:
+      type: object
+      required: [autoPlay, playlistId, autoPause, onlyFocusList]
+      properties:
+        autoPlay: { type: boolean, description: 专注开始时自动播放。默认关 }
+        playlistId: { type: integer, format: int64, description: 自动播放用的播放列表，0 表示用当前队列 }
+        autoPause: { type: boolean, description: 专注结束或停止时暂停。默认关 }
+        onlyFocusList: { type: boolean, description: 专注期间队列只用上面的播放列表，结束后恢复原来的队列。默认关 }
+    MusicPlayStat:
+      type: object
+      required: [title, artist, plays, seconds]
+      properties:
+        trackId: { type: integer, format: int64, description: 歌已经不在曲库时没有 }
+        title: { type: string }
+        artist: { type: string }
+        plays: { type: integer }
+        seconds: { type: integer }
+    MusicArtistStat:
+      type: object
+      required: [artist, plays, seconds]
+      properties:
+        artist: { type: string }
+        plays: { type: integer }
+        seconds: { type: integer }
+    MusicStats:
+      type: object
+      required: [days, totalSeconds, plays, focusSeconds, focusPlays, topTracks, topArtists, focusTopTracks]
+      properties:
+        days: { type: integer }
+        totalSeconds: { type: integer }
+        plays: { type: integer }
+        focusSeconds: { type: integer, description: 专注期间听的秒数 }
+        focusPlays: { type: integer }
+        topTracks:
+          type: array
+          description: 播放次数最多的 10 首，次数相同按听的时长
+          items: { $ref: "#/components/schemas/MusicPlayStat" }
+        topArtists:
+          type: array
+          items: { $ref: "#/components/schemas/MusicArtistStat" }
+        focusTopTracks:
+          type: array
+          description: 专注期间播放最多的 10 首
+          items: { $ref: "#/components/schemas/MusicPlayStat" }
     MusicScanStatus:
       type: object
       required: [running]

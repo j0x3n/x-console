@@ -21,6 +21,16 @@ type options struct {
 	AutoMatch bool            `json:"autoMatch"`
 	WriteBack bool            `json:"writeBack"`
 	Providers map[string]bool `json:"providers"`
+	Focus     focusOptions    `json:"focus"`
+}
+
+// focusOptions tie the music to the pomodoro (B150). The browser does the
+// playing; these are only stored here so every device agrees.
+type focusOptions struct {
+	AutoPlay      bool  `json:"autoPlay"`
+	PlaylistID    int64 `json:"playlistId"`
+	AutoPause     bool  `json:"autoPause"`
+	OnlyFocusList bool  `json:"onlyFocusList"`
 }
 
 func defaultOptions() options {
@@ -40,7 +50,7 @@ func (m *Module) options(ctx context.Context) options {
 		}
 		return o
 	}
-	o.AutoMatch, o.WriteBack = saved.AutoMatch, saved.WriteBack
+	o.AutoMatch, o.WriteBack, o.Focus = saved.AutoMatch, saved.WriteBack, saved.Focus
 	for k, v := range saved.Providers {
 		if _, known := o.Providers[k]; known {
 			o.Providers[k] = v

@@ -436,6 +436,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/music/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 听歌统计。一次播放指听满 30 秒或一半以上。专注期间的播放单独算。只给数字，不下结论。 */
+        get: operations["getMusicStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/music/settings": {
         parameters: {
             query?: never;
@@ -591,6 +608,7 @@ export interface components {
             path: string;
         };
         MusicSettings: {
+            focus: components["schemas"]["MusicFocusSettings"];
             /** @description 音乐目录。里面已经不存在的目录不会列出 */
             folders: components["schemas"]["MusicFolder"][];
             /** @description 入库后自动在线匹配缺的歌词和封面。默认开 */
@@ -602,8 +620,15 @@ export interface components {
                 [key: string]: boolean;
             };
         };
-        /** @description 只改传了的字段。providers 只改传了的来源 */
+        /** @description 只改传了的字段。providers 只改传了的来源，focus 里传了的字段才改 */
         MusicSettingsInput: {
+            focus?: {
+                autoPlay?: boolean;
+                /** Format: int64 */
+                playlistId?: number;
+                autoPause?: boolean;
+                onlyFocusList?: boolean;
+            };
             /** @description 云盘文件夹编号，最多 20 个。一个目录在另一个目录里时只保留外层的 */
             folders?: number[];
             autoMatch?: boolean;
@@ -686,6 +711,48 @@ export interface components {
         MusicPublicPlaylist: {
             name: string;
             tracks: components["schemas"]["MusicPublicTrack"][];
+        };
+        MusicFocusSettings: {
+            /** @description 专注开始时自动播放。默认关 */
+            autoPlay: boolean;
+            /**
+             * Format: int64
+             * @description 自动播放用的播放列表，0 表示用当前队列
+             */
+            playlistId: number;
+            /** @description 专注结束或停止时暂停。默认关 */
+            autoPause: boolean;
+            /** @description 专注期间队列只用上面的播放列表，结束后恢复原来的队列。默认关 */
+            onlyFocusList: boolean;
+        };
+        MusicPlayStat: {
+            /**
+             * Format: int64
+             * @description 歌已经不在曲库时没有
+             */
+            trackId?: number;
+            title: string;
+            artist: string;
+            plays: number;
+            seconds: number;
+        };
+        MusicArtistStat: {
+            artist: string;
+            plays: number;
+            seconds: number;
+        };
+        MusicStats: {
+            days: number;
+            totalSeconds: number;
+            plays: number;
+            /** @description 专注期间听的秒数 */
+            focusSeconds: number;
+            focusPlays: number;
+            /** @description 播放次数最多的 10 首，次数相同按听的时长 */
+            topTracks: components["schemas"]["MusicPlayStat"][];
+            topArtists: components["schemas"]["MusicArtistStat"][];
+            /** @description 专注期间播放最多的 10 首 */
+            focusTopTracks: components["schemas"]["MusicPlayStat"][];
         };
         MusicScanStatus: {
             running: boolean;
@@ -1571,6 +1638,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MusicLyrics"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMusicStats: {
+        parameters: {
+            query?: {
+                /** @description 最近几天，含今天。默认 30，最多 365 */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 统计 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicStats"];
                 };
             };
             default: components["responses"]["Error"];

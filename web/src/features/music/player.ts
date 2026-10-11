@@ -54,6 +54,8 @@ export interface PlayerState {
   setRate: (rate: number) => void;
   setFullOpen: (open: boolean) => void;
   setBlocked: (blocked: boolean) => void;
+  /** 换回之前的队列，停在暂停状态（专注结束时用）。 */
+  restore: (queue: Track[], currentId: number | null) => void;
   /** 歌曲信息改了（收藏、改名）时，同步队列里那一份。 */
   patchTrack: (track: Track) => void;
 }
@@ -247,6 +249,14 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
   setFullOpen: (fullOpen) => set({ fullOpen }),
   setBlocked: (blocked) =>
     set({ blocked, ...(blocked ? { playing: false } : {}) }),
+  restore: (queue, currentId) => {
+    resume.time = 0;
+    set({
+      queue,
+      currentId: queue.some((t) => t.id === currentId) ? currentId : null,
+      playing: false,
+    });
+  },
   patchTrack: (track) => {
     const s = get();
     if (!s.queue.some((t) => t.id === track.id)) return;

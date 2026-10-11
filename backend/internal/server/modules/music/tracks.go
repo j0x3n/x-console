@@ -322,6 +322,9 @@ func (m *Module) ReportMusicPlayed(w http.ResponseWriter, r *http.Request, id ap
 	if fail(w, r, m.q.MarkTrackPlayed(ctx, db.MarkTrackPlayedParams{LastPlayedAt: &now, ID: id})) {
 		return
 	}
+	if played, err := m.track(ctx, id); err == nil {
+		_ = m.recordPlay(ctx, played, body.Seconds, now)
+	}
 	t, err := m.track(ctx, id)
 	if fail(w, r, err) {
 		return

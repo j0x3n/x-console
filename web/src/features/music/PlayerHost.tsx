@@ -10,6 +10,7 @@ import {
   useSleep,
   type Sleep,
 } from "./api";
+import { startFocusSync } from "./focusSync";
 import { afterTrackEnded, fadeFactor, remainingMs } from "./sleep";
 import {
   currentTrack,
@@ -221,6 +222,9 @@ export default function PlayerHost() {
       window.removeEventListener("pagehide", onHide);
     };
   }, [t]);
+
+  // 专注同步（B150）
+  useEffect(() => startFocusSync(), []);
 
   // 定时暂停（B149）：到点所有页面一起暂停；最后 10 秒音量渐小。
   // 服务端到点会发 music.sleep_fired，这里也自己按结束时间算一次，事件晚到不会多播。

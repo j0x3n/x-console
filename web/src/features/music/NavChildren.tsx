@@ -1,5 +1,6 @@
 import { useLocation } from "react-router";
 import {
+  BarChart3,
   Clock,
   Disc3,
   Heart,
@@ -80,6 +81,13 @@ export default function MusicNavChildren({ onNavigate }: NavChildrenProps) {
           label={t("To confirm")}
           count={pending.data?.length || null}
           active={atMusic && view === "pending"}
+          onNavigate={onNavigate}
+        />
+        <NavPanelLink
+          to="/music?view=stats"
+          icon={BarChart3}
+          label={t("Listening stats")}
+          active={atMusic && view === "stats"}
           onNavigate={onNavigate}
         />
       </NavPanelGroup>

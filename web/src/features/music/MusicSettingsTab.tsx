@@ -9,6 +9,7 @@ import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import {
   useMatchAll,
+  usePlaylists,
   useMusicSettings,
   usePending,
   usePutMusicSettings,
@@ -28,6 +29,7 @@ export default function MusicSettingsTab() {
   const scan = useScanMusic();
   const matchAll = useMatchAll();
   const pending = usePending();
+  const playlists = usePlaylists();
   const [picking, setPicking] = useState(false);
   const [progress, setProgress] = useState<MatchProgress | null>(null);
   const onProgress = useCallback((e: ServerEvent) => {
@@ -212,6 +214,71 @@ export default function MusicSettingsTab() {
             </Link>
           </p>
         )}
+      </section>
+      <section className="xc-card music-settings">
+        <div className="xc-card-head">
+          <h3>{t("Focus")}</h3>
+        </div>
+        <p className="music-muted">
+          {t(
+            "Tie the music to the pomodoro timer. Only the page you are looking at plays. If the browser blocks playing by itself, the player asks you to tap once.",
+          )}
+        </p>
+        <div className="music-option">
+          <span>{t("Play when a focus session starts")}</span>
+          <Switch
+            checked={settings.data.focus.autoPlay}
+            label={t("Play when a focus session starts")}
+            disabled={save.isPending}
+            onChange={(autoPlay) => change({ focus: { autoPlay } })}
+          />
+        </div>
+        <div className="xc-field">
+          <label htmlFor="music-focus-list">{t("Focus playlist")}</label>
+          <select
+            id="music-focus-list"
+            className="xc-select"
+            value={settings.data.focus.playlistId}
+            disabled={save.isPending}
+            onChange={(e) =>
+              change({ focus: { playlistId: Number(e.target.value) } })
+            }
+          >
+            <option value={0}>{t("The current queue")}</option>
+            {(playlists.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="music-option">
+          <span>
+            {t("Only use the focus playlist during focus")}
+            <small className="music-muted">
+              {t("The queue you had comes back when focus ends.")}
+            </small>
+          </span>
+          <Switch
+            checked={settings.data.focus.onlyFocusList}
+            label={t("Only use the focus playlist during focus")}
+            disabled={
+              save.isPending ||
+              !settings.data.focus.autoPlay ||
+              settings.data.focus.playlistId === 0
+            }
+            onChange={(onlyFocusList) => change({ focus: { onlyFocusList } })}
+          />
+        </div>
+        <div className="music-option">
+          <span>{t("Pause when focus ends or is stopped")}</span>
+          <Switch
+            checked={settings.data.focus.autoPause}
+            label={t("Pause when focus ends or is stopped")}
+            disabled={save.isPending}
+            onChange={(autoPause) => change({ focus: { autoPause } })}
+          />
+        </div>
       </section>
       {picking && (
         <FolderPicker
