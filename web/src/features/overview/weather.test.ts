@@ -79,9 +79,73 @@ describe("B90 rain now", () => {
     expect(rainSoonText(r)).toBe("正在下雨，约 25 分钟后停");
   });
   it("says it will not stop within two hours", () => {
-    const points = [0, 5, 10].map((m) => ({ time: at(m), precip: 1 }));
+    const points = Array.from({ length: 24 }, (_, i) => ({
+      time: at(i * 5),
+      precip: 1,
+    }));
     expect(rainSoonText(rainSoon({ summary: "", points }, now)!)).toBe(
       "正在下雨，两小时内不会停",
     );
+  });
+  it("zero precipitation with rain type is dry, including the supplied sample", () => {
+    const points = Array.from({ length: 24 }, (_, i) => ({
+      time: at(i * 5),
+      precip: 0,
+      kind: "rain" as const,
+    }));
+    expect(rainSoon({ summary: "没有降水", points }, now)).toBeNull();
+  });
+  it("ignores expired wet intervals, including the exact five-minute boundary", () => {
+    const points = [
+      { time: at(-10), precip: 1 },
+      { time: at(-5), precip: 1 },
+      { time: at(0), precip: 0 },
+      { time: at(20), precip: 0.2, kind: "snow" as const },
+    ];
+    expect(rainSoon({ summary: "", points }, now)).toEqual({
+      kind: "snow",
+      inMinutes: 20,
+    });
+    expect(
+      rainSoon({ summary: "", points: points.slice(0, 2) }, now),
+    ).toBeNull();
+  });
+  it("only the current interval is ongoing; one to five minutes ahead is future", () => {
+    for (const minute of [1, 3, 5]) {
+      const r = rainSoon(
+        { summary: "", points: [{ time: at(minute), precip: 1 }] },
+        now,
+      )!;
+      expect(r).toEqual({ kind: "rain", inMinutes: minute });
+      expect(rainSoonText(r)).toBe(`${minute} 分钟后有雨`);
+    }
+    expect(
+      rainSoon(
+        {
+          summary: "",
+          points: [
+            { time: at(-2), precip: 1 },
+            { time: at(3), precip: 0 },
+          ],
+        },
+        now,
+      ),
+    ).toEqual({ kind: "rain", inMinutes: 0, endsIn: 3 });
+  });
+  it("does not claim two hours of rain or a stop time beyond missing data", () => {
+    for (const points of [
+      [
+        { time: at(0), precip: 1 },
+        { time: at(5), precip: 1 },
+      ],
+      [
+        { time: at(0), precip: 1 },
+        { time: at(10), precip: 0 },
+      ],
+    ]) {
+      const r = rainSoon({ summary: "", points }, now)!;
+      expect(r).toEqual({ kind: "rain", inMinutes: 0 });
+      expect(rainSoonText(r)).toBe("正在下雨");
+    }
   });
 });
