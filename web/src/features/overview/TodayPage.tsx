@@ -51,6 +51,7 @@ import TodayNetworkCard from "../router/TodayNetworkCard";
 import TodayQuotasCard from "../quotas/TodayQuotasCard";
 import { useQuotaAccounts } from "../quotas/api";
 import TodayMusicCard from "../music/TodayMusicCard";
+import TodayPlanCard, { useHasTodayPlan } from "../dayplan/TodayPlanCard";
 import TodayCardsCard from "../cards/TodayCardsCard";
 import { useCardSummary } from "../cards/api";
 import { usePlayer } from "../music/player";
@@ -70,6 +71,7 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   music: { body: () => <TodayMusicCard />, more: "/music" }, // B150
   goals: { body: () => <TodayGoalsCard />, more: "/goals" }, // B128
   cards: { body: () => <TodayCardsCard />, more: "/cards" }, // B130
+  dayplan: { body: () => <TodayPlanCard />, more: "/plan" }, // B135
   mail: { body: () => <MailCard />, more: "/mail" },
   monitoring: { body: () => <MonitoringCard />, more: "/monitoring" },
   activity: { body: () => <ActivityCard /> },
@@ -134,6 +136,8 @@ export default function TodayPage() {
   // B130：没有待复习的卡片，或接口还没上线时，“待复习”卡片不出现
   const cardSummary = useCardSummary();
   const hasDueCards = (cardSummary.data?.due ?? 0) > 0;
+  // B135：今天没有计划，或接口还没上线时，“今日计划”卡片不出现
+  const hasPlan = useHasTodayPlan();
   const include = (c: LayoutCard) =>
     (editing || c.visible) &&
     modules.has(cardModule(c.id) as ModuleId | null) &&
@@ -141,7 +145,8 @@ export default function TodayPage() {
     (c.id !== "screentime" || editing || hasScreen) &&
     (c.id !== "music" || editing || hasTrack) &&
     (c.id !== "goals" || editing || hasGoals) &&
-    (c.id !== "cards" || editing || hasDueCards);
+    (c.id !== "cards" || editing || hasDueCards) &&
+    (c.id !== "dayplan" || editing || hasPlan);
   // B88：每张卡片可以放在任意一列，拖到别的列或列的空白处
   const grid = arrange(cards, columns, include);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);

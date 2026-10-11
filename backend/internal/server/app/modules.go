@@ -16,6 +16,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/contacts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/credentials"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/dayplan"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/documents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/drive"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/experiments"
@@ -95,5 +96,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	checkins.New,    // B132
 	experiments.New, // B133
 	inbox.New,       // B134
+	dayplan.New,     // B135
 	focusblock.New,  // B131
 }

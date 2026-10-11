@@ -23,6 +23,7 @@ export const sectionLabels: Record<
 > = {
   weather: "Weather",
   calendar: "Today's calendar",
+  plan: "Brief plan",
   issues: "Due issues",
   reminders: "Today's reminders",
   alerts: "Server alerts since yesterday",

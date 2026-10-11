@@ -491,6 +491,29 @@ type Credential struct {
 	SecretEnc       string
 }
 
+type Dayplan struct {
+	Date        string
+	Status      string
+	Source      string
+	GeneratedAt time.Time
+	ConfirmedAt *time.Time
+	ReviewSent  int64
+}
+
+type DayplanItem struct {
+	ID        int64
+	PlanDate  string
+	Position  int64
+	Title     string
+	Kind      string
+	Ref       string
+	StartTime string
+	EndTime   string
+	Reason    string
+	Done      int64
+	Notified  int64
+}
+
 type Document struct {
 	ID           int64
 	Kind         string

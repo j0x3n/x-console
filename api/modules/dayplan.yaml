@@ -1,0 +1,218 @@
+openapi: 3.0.3
+info:
+  title: X Console dayplan (B135)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /dayplan:
+    get:
+      operationId: getDayPlan
+      tags: [dayplan]
+      description: |
+        某一天的计划（默认今天）和这一天的空档。没有计划时 plan 为空。
+      parameters:
+        - name: date
+          in: query
+          description: YYYY-MM-DD，默认今天
+          schema: { type: string }
+      responses:
+        "200":
+          description: 计划和空档
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [date, slots]
+                properties:
+                  date: { type: string }
+                  plan: { $ref: "#/components/schemas/DayPlan" }
+                  slots:
+                    type: array
+                    description: 现在看到的空档（工作时段减去日程）
+                    items: { $ref: "#/components/schemas/DayPlanSlot" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /dayplan/generate:
+    post:
+      operationId: generateDayPlan
+      tags: [dayplan]
+      description: |
+        排一天的计划，存成草稿。这一天已经有已确认的计划时回 409，除非 replace 为 true。
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, description: YYYY-MM-DD，默认今天 }
+                replace: { type: boolean, description: 已确认的计划也重排 }
+      responses:
+        "200":
+          description: 新草稿
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DayPlan" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /dayplan/settings:
+    get:
+      operationId: getDayPlanSettings
+      tags: [dayplan]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DayPlanSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putDayPlanSettings
+      tags: [dayplan]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DayPlanSettings" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DayPlanSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /dayplan/items/{itemId}/done:
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    put:
+      operationId: setDayPlanItemDone
+      tags: [dayplan]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [done]
+              properties:
+                done: { type: boolean }
+      responses:
+        "200":
+          description: 改后的计划
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DayPlan" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /dayplan/{date}:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      operationId: putDayPlanItems
+      tags: [dayplan]
+      description: |
+        整体替换这一天计划的事项（改标题、时间、顺序，删，加）。草稿和已确认的计划都能改；改过的计划来源变成 manual。
+        没有计划时创建一份 manual 草稿。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  items: { $ref: "#/components/schemas/DayPlanItemInput" }
+      responses:
+        "200":
+          description: 改后的计划
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DayPlan" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /dayplan/{date}/confirm:
+    parameters:
+      - name: date
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: confirmDayPlan
+      tags: [dayplan]
+      responses:
+        "200":
+          description: 已确认的计划
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DayPlan" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    DayPlanSlot:
+      type: object
+      required: [start, end]
+      properties:
+        start: { type: string, description: HH:MM }
+        end: { type: string, description: HH:MM }
+    DayPlanItemKind:
+      type: string
+      enum: [issue, reminder, carry, manual]
+      description: issue 到期的 Issue；reminder 提醒；carry 昨天没做完；manual 用户自己加的
+    DayPlanItem:
+      type: object
+      required: [id, position, title, kind, ref, start, end, reason, done]
+      properties:
+        id: { type: integer, format: int64 }
+        position: { type: integer }
+        title: { type: string }
+        kind: { $ref: "#/components/schemas/DayPlanItemKind" }
+        ref: { type: string, description: Issue 的 key 或提醒编号，manual 为空 }
+        start: { type: string, description: HH:MM，没排上时间为空字符串 }
+        end: { type: string }
+        reason: { type: string }
+        done: { type: boolean }
+    DayPlanItemInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string }
+        kind: { $ref: "#/components/schemas/DayPlanItemKind" }
+        ref: { type: string }
+        start: { type: string }
+        end: { type: string }
+        reason: { type: string }
+        done: { type: boolean }
+    DayPlan:
+      type: object
+      required: [date, status, source, generatedAt, items]
+      properties:
+        date: { type: string }
+        status: { type: string, enum: [draft, confirmed] }
+        source: { type: string, enum: [ai, rule, manual] }
+        generatedAt: { type: string, format: date-time }
+        confirmedAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DayPlanItem" }
+    DayPlanSettings:
+      type: object
+      required: [auto, generateTime, useAi, workStart, workEnd, review, reviewTime]
+      properties:
+        auto: { type: boolean, description: 每天自动出草稿 }
+        generateTime: { type: string, description: HH:MM }
+        useAi: { type: boolean, description: 用 AI 排。关掉后用规则排，不外发 }
+        workStart: { type: string, description: HH:MM }
+        workEnd: { type: string, description: HH:MM }
+        review: { type: boolean, description: 晚上提醒对一下 }
+        reviewTime: { type: string, description: HH:MM }

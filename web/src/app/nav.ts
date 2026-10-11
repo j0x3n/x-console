@@ -3,6 +3,7 @@ import {
   BookOpen,
   Bell,
   Bookmark,
+  CalendarClock,
   CalendarDays,
   Bot,
   FolderGit2,
@@ -73,6 +74,7 @@ export const navItems: NavItem[] = [
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
   // B128：季度目标和每周复盘
   { path: "/goals", label: "Goals", icon: Target, group: "personal" },
+  { path: "/plan", label: "Day plan", icon: CalendarClock, group: "personal" },
   { path: "/inbox", label: "Capture inbox", icon: Inbox, group: "personal" },
   {
     path: "/checkins",

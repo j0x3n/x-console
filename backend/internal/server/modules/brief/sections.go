@@ -42,6 +42,7 @@ type section struct {
 var sections = []section{
 	{"weather", "天气", buildWeather},
 	{"calendar", "今天的日程", buildCalendar},
+	{"plan", "今天最重要的几件事", buildPlan}, // B135
 	{"issues", "到期的 Issue", buildIssues},
 	{"reminders", "今天的提醒", buildReminders},
 	{"alerts", "服务器告警", buildAlerts},
@@ -268,6 +269,30 @@ func buildCards(ctx context.Context, in input) (string, error) {
 		return "", errSkip
 	}
 	return fmt.Sprintf("今天有 %d 张卡待复习。", n), nil
+}
+
+// buildPlan lists the day plan (B135). A draft is marked as not confirmed; a
+// day without a plan leaves the section out.
+func buildPlan(ctx context.Context, in input) (string, error) {
+	src, ok := module.Lookup[contracts.DayPlanSource](in.reg, contracts.DayPlanSourceKey)
+	if !ok {
+		return "", errSkip
+	}
+	status, lines, err := src.Lines(ctx, in.today.Format("2006-01-02"))
+	if err != nil {
+		return "", err
+	}
+	if len(lines) == 0 {
+		return "", errSkip
+	}
+	var sb strings.Builder
+	if status != "confirmed" {
+		sb.WriteString("（草稿，还没确认）\n")
+	}
+	for i, l := range lines {
+		fmt.Fprintf(&sb, "%d. %s\n", i+1, l)
+	}
+	return strings.TrimRight(sb.String(), "\n"), nil
 }
 
 // ---- assembling ----

@@ -380,7 +380,7 @@ export interface components {
          * @description summary 只在 AI 总结打开时出现，不能在设置里选
          * @enum {string}
          */
-        BriefSectionKey: "summary" | "weather" | "calendar" | "issues" | "reminders" | "alerts" | "habits" | "renewals" | "cards";
+        BriefSectionKey: "summary" | "weather" | "calendar" | "plan" | "issues" | "reminders" | "alerts" | "habits" | "renewals" | "cards";
         BriefLocation: {
             /** @description 和风城市 LocationID，旧位置可以省略 */
             id?: string;

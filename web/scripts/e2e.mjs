@@ -1156,6 +1156,18 @@ try {
       (await api("/inbox?status=closed")).items.some((x) => x.text === "端到端收集箱想法" && x.status === "filed"),
     );
 
+    setStage("今日计划");
+    // B135：没有候选事项也能手动排：加一件事、保存、确认；确认后在今日页的计划卡片里能看到。
+    await page.goto(`${base}/plan`);
+    await page.getByRole("button", { name: /加一件/ }).click();
+    await page.getByLabel("事项名称").fill("端到端要事");
+    await page.getByRole("button", { name: "保存修改" }).click();
+    await until("计划保存", async () => ((await api("/dayplan")).plan?.items ?? []).some((x) => x.title === "端到端要事"));
+    await page.getByRole("button", { name: "确认计划" }).click();
+    await until("计划确认", async () => (await api("/dayplan")).plan?.status === "confirmed");
+    await page.goto(`${base}/`);
+    await page.getByRole("checkbox", { name: "做完了 端到端要事" }).waitFor();
+
     setStage("复习卡片");
     // B130：手写一张卡片，接口再建一张；开始复习，空格显示答案，数字键评分；评完看到统计，到期日往后推。
     await page.goto(`${base}/cards`);

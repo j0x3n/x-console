@@ -21,6 +21,7 @@ const (
 	BriefSectionKeyCards     BriefSectionKey = "cards"
 	BriefSectionKeyHabits    BriefSectionKey = "habits"
 	BriefSectionKeyIssues    BriefSectionKey = "issues"
+	BriefSectionKeyPlan      BriefSectionKey = "plan"
 	BriefSectionKeyReminders BriefSectionKey = "reminders"
 	BriefSectionKeyRenewals  BriefSectionKey = "renewals"
 	BriefSectionKeySummary   BriefSectionKey = "summary"
@@ -39,6 +40,8 @@ func (e BriefSectionKey) Valid() bool {
 	case BriefSectionKeyHabits:
 		return true
 	case BriefSectionKeyIssues:
+		return true
+	case BriefSectionKeyPlan:
 		return true
 	case BriefSectionKeyReminders:
 		return true

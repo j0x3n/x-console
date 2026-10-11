@@ -410,7 +410,7 @@ components:
     BriefSectionKey:
       type: string
       description: summary 只在 AI 总结打开时出现，不能在设置里选
-      enum: [summary, weather, calendar, issues, reminders, alerts, habits, renewals, cards]
+      enum: [summary, weather, calendar, plan, issues, reminders, alerts, habits, renewals, cards]
     BriefLocation:
       type: object
       required: [lat, lon]

@@ -1,0 +1,97 @@
+/* B135 今日计划。颜色只用 --xc-* 令牌，字号只用 --fs-* 令牌。 */
+
+.plan-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.plan-slots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.plan-slots ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-slot {
+  padding: 2px 10px;
+  border: 1px solid var(--xc-border);
+  border-radius: 999px;
+  font-size: var(--fs-13);
+}
+.plan-source {
+  font-size: var(--fs-12);
+}
+.plan-items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.plan-item-main {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 200px;
+}
+.plan-item-main small {
+  font-size: var(--fs-12);
+}
+.plan-times {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.plan-hint {
+  margin: 8px 0 0;
+  font-size: var(--fs-12);
+}
+.plan-settings {
+  display: grid;
+  gap: 12px;
+}
+.plan-settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.plan-today ul {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+.plan-today-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-13);
+}
+.plan-today-row small {
+  margin-left: auto;
+  font-size: var(--fs-12);
+}
+.plan-done {
+  color: var(--xc-muted);
+  text-decoration: line-through;
+}

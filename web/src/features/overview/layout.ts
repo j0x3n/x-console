@@ -87,6 +87,8 @@ export const cardDefs: CardDef[] = [
   { id: "goals", title: "Goals", column: "side", weight: 2 },
   // B130：有待复习的卡片时才显示（TodayPage 里判断）
   { id: "cards", title: "Cards to review", column: "side", weight: 1 },
+  // B135：今天有计划才显示（TodayPage 里判断）
+  { id: "dayplan", title: "Day plan", column: "side", weight: 2 },
   { id: "activity", title: "Recent activity", column: "side", weight: 3 },
   {
     id: "fitness",
