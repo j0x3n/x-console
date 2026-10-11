@@ -71,7 +71,8 @@ export interface paths {
         /** @description 封面。没有封面回 404。 */
         get: operations["getMusicTrackCover"];
         put?: never;
-        post?: never;
+        /** @description 上传封面图（JPEG、PNG、WebP，最大 20 MB），请求体就是图片内容。writeBack 不传时用设置里的“写回文件”。 */
+        post: operations["uploadMusicTrackCover"];
         delete?: never;
         options?: never;
         head?: never;
@@ -89,7 +90,8 @@ export interface paths {
         };
         /** @description 已解析的歌词。没有歌词时 lines 为空。没有时间轴时每行没有 timeMs。 */
         get: operations["getMusicTrackLyrics"];
-        put?: never;
+        /** @description 手动设置歌词，纯文本或 LRC。writeBack 不传时用设置里的“写回文件”。 */
+        put: operations["putMusicTrackLyrics"];
         post?: never;
         delete?: never;
         options?: never;
@@ -196,6 +198,255 @@ export interface paths {
         put: operations["setMusicPlaylistItems"];
         /** @description 往末尾加歌。已经在里面的歌跳过，不存在的歌回 400。 */
         post: operations["addMusicPlaylistItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 在线匹配没法确定的歌，每首带最多 5 个候选，让用户选。选定用 POST /music/tracks/{trackId}/match，都不对用 POST /music/tracks/{trackId}/skip。 */
+        get: operations["listMusicPending"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 在后台给还没匹配过的歌匹配歌词和封面。retryFailed 为 true 时，以前匹配失败的也重试。进度用 music.match_progress 事件。 */
+        post: operations["matchMusic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/tracks/{trackId}/match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description 手动匹配这首歌，等匹配完成再返回，最长约半分钟。
+         *     不带 candidate：按自动匹配的规则找。overwrite 为 true 时，已经有的歌词和封面也换掉。
+         *     带 candidate：用待确认列表里选的那个候选的歌词和封面，直接换掉现有的。
+         */
+        post: operations["matchMusicTrack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/tracks/{trackId}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 待确认的候选都不对，跳过。matchState 变成 skipped，不再自动匹配。 */
+        post: operations["skipMusicMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/sleep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 定时暂停的状态。放在服务端，换页面和设备都能看到。 */
+        get: operations["getMusicSleep"];
+        /**
+         * @description 设定时。minutes、tracks、extendMinutes 三选一，同时传多个回 400。
+         *     minutes：几分钟后暂停，到点服务端发 music.sleep_fired，所有打开的页面一起暂停。
+         *     tracks：再播几首就停（播完当前这首是 1），由正在出声的页面数歌，每播完一首用它更新剩余数。
+         *     extendMinutes：在已有的分钟定时上加时间，没有分钟定时时回 400。
+         */
+        put: operations["putMusicSleep"];
+        post?: never;
+        /** @description 取消定时。没有定时时也回 204。 */
+        delete: operations["deleteMusicSleep"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/playlists/{playlistId}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistId: components["parameters"]["PlaylistId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listMusicShares"];
+        put?: never;
+        /** @description 创建公开链接。有密码时访问的人要先输密码。链接只能播这个播放列表里的歌。 */
+        post: operations["createMusicShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/shares/{shareId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 撤销分享，链接立即失效。 */
+        delete: operations["deleteMusicShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/music/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        /** @description 不用登录。分享的播放列表和里面的歌。有密码且 access 无效时回 401 share_code_required。 */
+        get: operations["getPublicMusicShare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/music/{token}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 输密码换一个 1 小时有效的 access。同一个地址连续输错 5 次锁 15 分钟。 */
+        post: operations["unlockPublicMusicShare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/music/{token}/tracks/{trackId}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        /** @description 分享的歌曲内容，支持 Range。不在这个播放列表里的歌回 404。 */
+        get: operations["streamPublicMusicTrack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/music/{token}/tracks/{trackId}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getPublicMusicTrackCover"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/public/music/{token}/tracks/{trackId}/lyrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getPublicMusicTrackLyrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 听歌统计。一次播放指听满 30 秒或一半以上。专注期间的播放单独算。只给数字，不下结论。 */
+        get: operations["getMusicStats"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -357,12 +608,151 @@ export interface components {
             path: string;
         };
         MusicSettings: {
+            focus: components["schemas"]["MusicFocusSettings"];
             /** @description 音乐目录。里面已经不存在的目录不会列出 */
             folders: components["schemas"]["MusicFolder"][];
+            /** @description 入库后自动在线匹配缺的歌词和封面。默认开 */
+            autoMatch: boolean;
+            /** @description 匹配到的歌词和封面写进歌曲文件，不保留旧版本。默认开 */
+            writeBack: boolean;
+            /** @description 各个来源是否启用，键是 lrclib、netease、qqmusic、itunes、musicbrainz。默认全开 */
+            providers: {
+                [key: string]: boolean;
+            };
         };
+        /** @description 只改传了的字段。providers 只改传了的来源，focus 里传了的字段才改 */
         MusicSettingsInput: {
+            focus?: {
+                autoPlay?: boolean;
+                /** Format: int64 */
+                playlistId?: number;
+                autoPause?: boolean;
+                onlyFocusList?: boolean;
+            };
             /** @description 云盘文件夹编号，最多 20 个。一个目录在另一个目录里时只保留外层的 */
-            folders: number[];
+            folders?: number[];
+            autoMatch?: boolean;
+            writeBack?: boolean;
+            providers?: {
+                [key: string]: boolean;
+            };
+        };
+        MusicCandidate: {
+            /** @enum {string} */
+            source: "lrclib" | "netease" | "qqmusic" | "itunes" | "musicbrainz";
+            sourceId: string;
+            title: string;
+            artist: string;
+            album: string;
+            /** @description 来源没给时为 0 */
+            durationMs: number;
+            /** @description 这个候选能提供歌词 */
+            lyrics: boolean;
+            /** @description 这个候选能提供封面 */
+            cover: boolean;
+        };
+        MusicPending: {
+            track: components["schemas"]["MusicTrack"];
+            candidates: components["schemas"]["MusicCandidate"][];
+        };
+        MusicMatchRequest: {
+            candidate?: {
+                source: string;
+                sourceId: string;
+            };
+            overwrite?: boolean;
+        };
+        MusicSleep: {
+            active: boolean;
+            /** @enum {string} */
+            mode?: "time" | "tracks";
+            /**
+             * Format: date-time
+             * @description 分钟定时的结束时间
+             */
+            endsAt?: string;
+            /** @description 按首数定时时还要播几首 */
+            tracksLeft?: number;
+        };
+        MusicSleepInput: {
+            minutes?: number;
+            tracks?: number;
+            extendMinutes?: number;
+        };
+        MusicShare: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            playlistId: number;
+            /** @description 链接的路径，例如 /m/abc。前面接面板的地址就是完整链接 */
+            path: string;
+            hasPassword: boolean;
+            /** Format: date-time */
+            expiresAt?: string;
+            viewCount: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MusicShareInput: {
+            password?: string;
+            /** @description 不传表示不过期 */
+            expiresInDays?: number;
+        };
+        MusicPublicTrack: {
+            /** Format: int64 */
+            id: number;
+            title: string;
+            artist: string;
+            album: string;
+            durationMs: number;
+            hasCover: boolean;
+            hasLyrics: boolean;
+        };
+        MusicPublicPlaylist: {
+            name: string;
+            tracks: components["schemas"]["MusicPublicTrack"][];
+        };
+        MusicFocusSettings: {
+            /** @description 专注开始时自动播放。默认关 */
+            autoPlay: boolean;
+            /**
+             * Format: int64
+             * @description 自动播放用的播放列表，0 表示用当前队列
+             */
+            playlistId: number;
+            /** @description 专注结束或停止时暂停。默认关 */
+            autoPause: boolean;
+            /** @description 专注期间队列只用上面的播放列表，结束后恢复原来的队列。默认关 */
+            onlyFocusList: boolean;
+        };
+        MusicPlayStat: {
+            /**
+             * Format: int64
+             * @description 歌已经不在曲库时没有
+             */
+            trackId?: number;
+            title: string;
+            artist: string;
+            plays: number;
+            seconds: number;
+        };
+        MusicArtistStat: {
+            artist: string;
+            plays: number;
+            seconds: number;
+        };
+        MusicStats: {
+            days: number;
+            totalSeconds: number;
+            plays: number;
+            /** @description 专注期间听的秒数 */
+            focusSeconds: number;
+            focusPlays: number;
+            /** @description 播放次数最多的 10 首，次数相同按听的时长 */
+            topTracks: components["schemas"]["MusicPlayStat"][];
+            topArtists: components["schemas"]["MusicArtistStat"][];
+            /** @description 专注期间播放最多的 10 首 */
+            focusTopTracks: components["schemas"]["MusicPlayStat"][];
         };
         MusicScanStatus: {
             running: boolean;
@@ -391,6 +781,9 @@ export interface components {
         };
     };
     parameters: {
+        ShareToken: string;
+        /** @description 输密码后拿到的访问令牌。没有密码的分享不用传 */
+        ShareAccess: string;
         TrackId: number;
         PlaylistId: number;
         Cursor: string;
@@ -543,6 +936,35 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    uploadMusicTrackCover: {
+        parameters: {
+            query?: {
+                writeBack?: boolean;
+            };
+            header?: never;
+            path: {
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description 更新后的歌 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicTrack"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getMusicTrackLyrics: {
         parameters: {
             query?: never;
@@ -561,6 +983,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MusicLyrics"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putMusicTrackLyrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                    writeBack?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description 更新后的歌 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicTrack"];
                 };
             };
             default: components["responses"]["Error"];
@@ -806,6 +1258,410 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MusicPlaylistDetail"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMusicPending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 待确认的歌 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicPending"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    matchMusic: {
+        parameters: {
+            query?: {
+                retryFailed?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已开始。已经在匹配时也回 202 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicScanStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    matchMusicTrack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["MusicMatchRequest"];
+            };
+        };
+        responses: {
+            /** @description 匹配后的歌。matchState 是 matched、pending 或 failed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicTrack"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    skipMusicMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 更新后的歌 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicTrack"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMusicSleep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前状态，没有定时时 active 为 false */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicSleep"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putMusicSleep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MusicSleepInput"];
+            };
+        };
+        responses: {
+            /** @description 新状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicSleep"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteMusicSleep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已取消 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMusicShares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistId: components["parameters"]["PlaylistId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 这个播放列表的分享链接 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicShare"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createMusicShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playlistId: components["parameters"]["PlaylistId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MusicShareInput"];
+            };
+        };
+        responses: {
+            /** @description 新链接 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicShare"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteMusicShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已撤销 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicMusicShare: {
+        parameters: {
+            query?: {
+                /** @description 输密码后拿到的访问令牌。没有密码的分享不用传 */
+                access?: components["parameters"]["ShareAccess"];
+            };
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 播放列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicPublicPlaylist"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    unlockPublicMusicShare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 访问令牌 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        access: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    streamPublicMusicTrack: {
+        parameters: {
+            query?: {
+                /** @description 输密码后拿到的访问令牌。没有密码的分享不用传 */
+                access?: components["parameters"]["ShareAccess"];
+            };
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 音频 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
+                };
+            };
+            /** @description 部分内容 */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicMusicTrackCover: {
+        parameters: {
+            query?: {
+                /** @description 输密码后拿到的访问令牌。没有密码的分享不用传 */
+                access?: components["parameters"]["ShareAccess"];
+                size?: 96 | 256 | 640;
+            };
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JPEG 封面 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getPublicMusicTrackLyrics: {
+        parameters: {
+            query?: {
+                /** @description 输密码后拿到的访问令牌。没有密码的分享不用传 */
+                access?: components["parameters"]["ShareAccess"];
+            };
+            header?: never;
+            path: {
+                token: components["parameters"]["ShareToken"];
+                trackId: components["parameters"]["TrackId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 歌词 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicLyrics"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getMusicStats: {
+        parameters: {
+            query?: {
+                /** @description 最近几天，含今天。默认 30，最多 365 */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 统计 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicStats"];
                 };
             };
             default: components["responses"]["Error"];

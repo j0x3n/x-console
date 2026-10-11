@@ -1,5 +1,5 @@
 import { useLocation } from "react-router";
-import { FileCode2, Globe, Receipt, ShieldCheck } from "lucide-react";
+import { FileCode2, Gauge, Globe, Receipt, ShieldCheck } from "lucide-react";
 import NavChildLinks from "../../components/layout/NavChildLinks";
 import {
   NavPanelGroup,
@@ -10,6 +10,7 @@ import { useT } from "../../contexts/LanguageContext";
 import type { NavChildrenProps } from "../../lib/navChildren";
 import { useMonitors, useScripts, useSubscriptions } from "./api";
 import { monitorTone } from "./lib";
+import { useQuotaAccounts } from "../quotas/api";
 
 /**
  * 左栏“监控”的二级菜单（用户 2026-10-05 要求）：网站、证书与域名、脚本、订阅，
@@ -24,6 +25,7 @@ export default function MonitoringNavChildren({
   const monitors = useMonitors();
   const scripts = useScripts();
   const subs = useSubscriptions(false);
+  const quotas = useQuotaAccounts();
   const list = monitors.data ?? [];
   const down = list.filter((m) => m.enabled && m.lastStatus === "down");
   const sites = list.filter((m) => m.kind === "http");
@@ -71,6 +73,19 @@ export default function MonitoringNavChildren({
           label={t("Subscriptions")}
           count={subs.data?.length || null}
           active={tab === "subscriptions"}
+          onNavigate={onNavigate}
+        />
+        {/* B152：AI 额度放在监控下面。数字是读取出错的账号数 */}
+        <NavPanelLink
+          to="/monitoring/quotas"
+          icon={Gauge}
+          label={t("AI quotas")}
+          count={
+            (quotas.data ?? []).filter((a) => a.status === "error").length ||
+            null
+          }
+          danger
+          active={tab === "quotas"}
           onNavigate={onNavigate}
         />
       </NavPanelGroup>

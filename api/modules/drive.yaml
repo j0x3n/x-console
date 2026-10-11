@@ -228,6 +228,52 @@ paths:
                     items: { $ref: "#/components/schemas/DriveItem" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /drive/upload-links/{token}:
+    put:
+      operationId: putDriveUploadLink
+      tags: [drive]
+      security: []
+      description: |
+        B151。不用登录，靠一次性令牌。令牌来自 MCP 动作 drive.create_upload_link，10 分钟内有效，只能用一次，
+        不论成功失败。请求体就是文件内容（不是 multipart），例如 curl -T 歌.mp3 地址。
+        文件名和目录在创建链接时就定了。令牌无效、过期、已用都回 404，不区分原因。超过创建时给的大小回 413。
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: 已上传
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriveItem" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /drive/download-links/{token}:
+    get:
+      operationId: getDriveDownloadLink
+      tags: [drive]
+      security: []
+      description: B151。一次性下载地址，10 分钟内有效，只能用一次。令牌来自 MCP 动作 drive.create_download_link。
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 文件内容
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /drive/usage:
     get:
       operationId: getDriveUsage
@@ -962,7 +1008,7 @@ components:
       required: [id, kind, state, title, doneItems, totalItems, doneBytes, totalBytes, createdAt]
       properties:
         id: { type: string }
-        kind: { type: string, enum: [copy, move, archive, extract] }
+        kind: { type: string, enum: [copy, move, archive, extract, download] }
         state: { type: string, enum: [running, done, failed, canceled] }
         title: { type: string, description: 服务端写好的说明，比如“复制 3 项到 /照片” }
         doneItems: { type: integer }

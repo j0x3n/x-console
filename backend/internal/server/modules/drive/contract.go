@@ -2,12 +2,17 @@ package drive
 
 import (
 	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/files"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -131,4 +136,62 @@ func (m *Module) pathString(ctx context.Context, item db.DriveItem) string {
 		names = append(names, p.Name)
 	}
 	return "/" + strings.Join(append(names, item.Name), "/")
+}
+
+// ReplaceContent implements contracts.DriveFiles.
+func (f driveFiles) ReplaceContent(ctx context.Context, id int64, path, expectSHA256 string) (contracts.DriveFile, error) {
+	m := f.m
+	ctx = auth.WithoutVault(ctx)
+	src, err := os.Open(path)
+	if err != nil {
+		return contracts.DriveFile{}, err
+	}
+	defer src.Close()
+	h := sha256.New()
+	size, err := io.Copy(h, src)
+	if err != nil {
+		return contracts.DriveFile{}, err
+	}
+	hash := hex.EncodeToString(h.Sum(nil))
+	release, err := m.putBlobFile(ctx, hash, path, size)
+	if err != nil {
+		return contracts.DriveFile{}, err
+	}
+	var oldHash string
+	err = m.write(ctx, func(tx *sql.Tx) error {
+		current, err := db.New(tx).GetItem(ctx, id)
+		if errors.Is(err, sql.ErrNoRows) {
+			return contracts.ErrDriveNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if current.IsDir != 0 || current.Hidden != 0 || current.TrashedAt != nil {
+			return contracts.ErrDriveNotFound
+		}
+		if expectSHA256 != "" && current.Sha256 != expectSHA256 {
+			return contracts.ErrDriveChanged
+		}
+		oldHash = current.Sha256
+		_, err = tx.ExecContext(ctx, "UPDATE drive_items SET size=?,sha256=?,updated_at=?,s3_synced_at=NULL WHERE id=?", size, hash, time.Now().UTC(), id)
+		return err
+	})
+	if err != nil {
+		m.dropBlobLocked(context.WithoutCancel(ctx), hash)
+	}
+	release()
+	if err != nil {
+		return contracts.DriveFile{}, err
+	}
+	if oldHash != hash {
+		m.dropBlob(ctx, oldHash)
+	}
+	item, err := m.row(ctx, id)
+	if err != nil {
+		return contracts.DriveFile{}, err
+	}
+	m.event("drive_item.updated", item)
+	m.audit(ctx, "drive.replace_content", id, nil)
+	m.triggerSync()
+	return f.toFile(ctx, item), nil
 }

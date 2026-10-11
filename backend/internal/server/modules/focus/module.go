@@ -59,6 +59,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), minute: time.Minute, timers: map[int64]*time.Timer{}, ctx: context.Background()}
 	d.Notify.OnAction("focus.", m.handleAction)
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.FocusState](d.Registry, contracts.FocusStateKey, state{m})
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"focus", activitySource{m}) // B118
 	m.registerActions()
 	return m, nil
@@ -513,4 +514,16 @@ func (m *Module) FocusStats(w http.ResponseWriter, r *http.Request, params api.F
 		return
 	}
 	httpx.JSON(w, http.StatusOK, out)
+}
+
+// state is what other modules see of the focus module.
+type state struct{ m *Module }
+
+// CurrentSessionID implements contracts.FocusState.
+func (s state) CurrentSessionID(ctx context.Context) (int64, bool) {
+	cur, err := s.m.current(ctx)
+	if err != nil || cur == nil {
+		return 0, false
+	}
+	return cur.Id, true
 }

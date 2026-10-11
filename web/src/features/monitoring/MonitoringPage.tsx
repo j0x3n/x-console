@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useParams } from "react-router";
 import { Plus } from "lucide-react";
 import PageHeading from "../../components/ui/PageHeading";
 import { Segments, StatCard, StatStrip } from "../../components/ui/Stat";
+import { Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import {
   useMonitors,
@@ -21,6 +22,9 @@ import {
 import ScriptsTab from "./components/ScriptsTab";
 import SitesTab from "./components/SitesTab";
 import SubscriptionsTab from "./components/SubscriptionsTab";
+
+// AI 额度（B152）放在监控下面，页面自带标题和统计条
+const QuotasPage = lazy(() => import("../quotas/QuotasPage"));
 
 const tabs = [
   { id: "", label: "Websites", to: "/monitoring", add: "New website" },
@@ -53,6 +57,12 @@ export default function MonitoringPage() {
   const down = (monitors.data ?? []).filter(
     (m) => m.enabled && m.lastStatus === "down",
   );
+  if (tab === "quotas")
+    return (
+      <Suspense fallback={<Loading />}>
+        <QuotasPage />
+      </Suspense>
+    );
   return (
     <div className="xc-page">
       {/* 页签在左栏二级菜单里（2026-10-05），这里只显示当前视图的名字 */}

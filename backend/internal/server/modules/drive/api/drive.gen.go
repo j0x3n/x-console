@@ -127,10 +127,11 @@ func (e DriveShareInputExpiresIn) Valid() bool {
 
 // Defines values for DriveTaskKind.
 const (
-	Archive DriveTaskKind = "archive"
-	Copy    DriveTaskKind = "copy"
-	Extract DriveTaskKind = "extract"
-	Move    DriveTaskKind = "move"
+	Archive  DriveTaskKind = "archive"
+	Copy     DriveTaskKind = "copy"
+	Download DriveTaskKind = "download"
+	Extract  DriveTaskKind = "extract"
+	Move     DriveTaskKind = "move"
 )
 
 // Valid indicates whether the value is a known member of the DriveTaskKind enum.
@@ -139,6 +140,8 @@ func (e DriveTaskKind) Valid() bool {
 	case Archive:
 		return true
 	case Copy:
+		return true
+	case Download:
 		return true
 	case Extract:
 		return true
@@ -663,6 +666,9 @@ type ServerInterface interface {
 	// (POST /drive/batch/move)
 	MoveDriveItems(w http.ResponseWriter, r *http.Request)
 
+	// (GET /drive/download-links/{token})
+	GetDriveDownloadLink(w http.ResponseWriter, r *http.Request, token string)
+
 	// (POST /drive/folders)
 	CreateDriveFolder(w http.ResponseWriter, r *http.Request)
 
@@ -741,6 +747,9 @@ type ServerInterface interface {
 	// (POST /drive/upload)
 	UploadDriveFiles(w http.ResponseWriter, r *http.Request, params UploadDriveFilesParams)
 
+	// (PUT /drive/upload-links/{token})
+	PutDriveUploadLink(w http.ResponseWriter, r *http.Request, token string)
+
 	// (GET /drive/usage)
 	GetDriveUsage(w http.ResponseWriter, r *http.Request)
 
@@ -788,6 +797,11 @@ func (_ Unimplemented) CopyDriveItems(w http.ResponseWriter, r *http.Request) {
 
 // (POST /drive/batch/move)
 func (_ Unimplemented) MoveDriveItems(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /drive/download-links/{token})
+func (_ Unimplemented) GetDriveDownloadLink(w http.ResponseWriter, r *http.Request, token string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -921,6 +935,11 @@ func (_ Unimplemented) UploadDriveFiles(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /drive/upload-links/{token})
+func (_ Unimplemented) PutDriveUploadLink(w http.ResponseWriter, r *http.Request, token string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /drive/usage)
 func (_ Unimplemented) GetDriveUsage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1013,6 +1032,32 @@ func (siw *ServerInterfaceWrapper) MoveDriveItems(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.MoveDriveItems(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDriveDownloadLink operation middleware
+func (siw *ServerInterfaceWrapper) GetDriveDownloadLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDriveDownloadLink(w, r, token)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1765,6 +1810,32 @@ func (siw *ServerInterfaceWrapper) UploadDriveFiles(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// PutDriveUploadLink operation middleware
+func (siw *ServerInterfaceWrapper) PutDriveUploadLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutDriveUploadLink(w, r, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetDriveUsage operation middleware
 func (siw *ServerInterfaceWrapper) GetDriveUsage(w http.ResponseWriter, r *http.Request) {
 
@@ -2283,6 +2354,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/drive/upload", wrapper.UploadDriveFiles)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/drive/upload-links/{token}", wrapper.PutDriveUploadLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/drive/download-links/{token}", wrapper.GetDriveDownloadLink)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/drive/usage", wrapper.GetDriveUsage)

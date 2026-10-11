@@ -28,6 +28,15 @@ const noteShareToken =
     ? /^\/n\/([A-Za-z0-9_-]+)\/?$/.exec(location.pathname)?.[1]
     : undefined;
 
+// 音乐播放列表分享页（B149）同样不用登录。
+const MusicSharePage = lazy(
+  () => import("../features/music/share/MusicSharePage"),
+);
+const musicShareToken =
+  typeof location !== "undefined"
+    ? /^\/m\/([A-Za-z0-9_-]+)\/?$/.exec(location.pathname)?.[1]
+    : undefined;
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -56,6 +65,10 @@ export default function App() {
         ) : noteShareToken ? (
           <Suspense fallback={<Loading />}>
             <NoteSharePage token={noteShareToken} />
+          </Suspense>
+        ) : musicShareToken ? (
+          <Suspense fallback={<Loading />}>
+            <MusicSharePage token={musicShareToken} />
           </Suspense>
         ) : (
           <AuthGate>

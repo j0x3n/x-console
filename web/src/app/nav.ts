@@ -7,7 +7,7 @@ import {
   Bot,
   FolderGit2,
   Files,
-  Gauge,
+  Headphones,
   HardDrive,
   HeartPulse,
   KeyRound,
@@ -57,6 +57,8 @@ export const navItems: NavItem[] = [
   },
   { path: "/mail", label: "Mail", icon: Mail, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
+  // B147：音乐。歌放在云盘里，全局播放器在 GlobalPanels
+  { path: "/music", label: "Music", icon: Headphones, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
   {
     path: "/calendar",
@@ -89,7 +91,6 @@ export const navItems: NavItem[] = [
   },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
   { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
-  { path: "/quotas", label: "AI quotas", icon: Gauge, group: "integrations" },
   {
     path: "/automations",
     label: "Automations",

@@ -81,6 +81,8 @@ export const cardDefs: CardDef[] = [
     weight: 2,
     module: "monitoring",
   },
+  // B150：播放条里有歌时才显示（TodayPage 里判断）
+  { id: "music", title: "Now playing", column: "side", weight: 1 },
   { id: "activity", title: "Recent activity", column: "side", weight: 3 },
   {
     id: "fitness",

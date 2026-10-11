@@ -175,7 +175,7 @@ type tool struct {
 // allowed lists the actions this token may use, by MCP tool name.
 func (m *Module) allowed(ctx context.Context, tok *auth.TokenInfo) map[string]actions.Action {
 	out := map[string]actions.Action{}
-	for _, a := range m.d.Actions.List(ctx) {
+	for _, a := range m.d.Actions.ListForMCP(ctx) {
 		if actions.AllowedFor(a, tok.Access, tok.Modules) {
 			out[toolName(a.Name)] = a
 		}
@@ -185,7 +185,7 @@ func (m *Module) allowed(ctx context.Context, tok *auth.TokenInfo) map[string]ac
 
 func (m *Module) listTools(ctx context.Context, tok *auth.TokenInfo) any {
 	tools := []tool{}
-	for _, a := range m.d.Actions.List(ctx) {
+	for _, a := range m.d.Actions.ListForMCP(ctx) {
 		if !actions.AllowedFor(a, tok.Access, tok.Modules) {
 			continue
 		}

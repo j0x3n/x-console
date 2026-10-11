@@ -379,7 +379,7 @@ try {
     headers: { "X-Requested-With": "x-console" }, data: { password },
   });
   assert.equal(quotaElevate.status(), 200, await quotaElevate.text());
-  await page.goto(`${base}/quotas`);
+  await page.goto(`${base}/monitoring/quotas`);
   await page.getByText("还没有额度账号").waitFor();
   await page.getByRole("button", { name: "添加账号" }).first().click();
   await dialog("添加额度账号").getByLabel("服务").selectOption("deepseek");
@@ -770,7 +770,7 @@ try {
   );
   const lanes = page.locator(".projects-board.lists > section.projects-lane[data-list-id]");
   await until("三个列表", async () => (await lanes.count()) === 3);
-  await lanes.nth(0).locator(".projects-add-card").click();
+  await lanes.nth(0).locator("button.projects-add-card").click();
   const cardInput = page.getByPlaceholder("卡片标题，可以直接粘贴图片");
   await cardInput.fill("看板里的卡片");
   await cardInput.press("Enter");
@@ -782,6 +782,7 @@ try {
   await boardCard.dragTo(lanes.nth(1));
   await until("拖到进行中", async () => (await api(`/issues/${boardCardKey}`)).status === "in_progress");
   await lanes.nth(1).locator(`[data-issue-key="${boardCardKey}"]`).click();
+  // B46：看板里点卡片在页面上开详情面板，地址不变
   await page.getByRole("button", { name: "添加检查清单" }).click();
   await page.getByLabel("清单标题").fill("看板清单");
   await page.getByLabel("清单标题").press("Enter");
@@ -1439,7 +1440,7 @@ try {
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
 
-  setStage("B152 外部网盘预览、编辑、新建文件夹和浏览方式");
+  setStage("B156 外部网盘预览、编辑、新建文件夹和浏览方式");
   await page.getByRole("button", { name: "hello.txt", exact: true }).click();
   await dialog("hello.txt").getByText("hello from fakedav", { exact: true }).waitFor();
   await dialog("hello.txt").getByRole("button", { name: "编辑", exact: true }).click();

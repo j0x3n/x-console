@@ -8,6 +8,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -41,11 +43,22 @@ type Module struct {
 	scanReq   chan struct{}
 	scanDelay time.Duration
 	scanLock  chan struct{} // one slot: held while a scan runs
+
+	providers  *providerSet
+	matchReq   chan bool // true: also retry songs that failed before
+	matchMu    sync.Mutex
+	matching   atomic.Bool
+	matchPause time.Duration
+
+	sleep     sleeper
+	shares    shareLimits
+	sleepUnit time.Duration // one minute of the sleep timer; tests shorten it
 }
 
 var (
 	_ api.ServerInterface = (*Module)(nil)
 	_ module.Starter      = (*Module)(nil)
+	_ module.PublicPather = (*Module)(nil)
 )
 
 // New builds the module.
@@ -53,8 +66,10 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
 		d: d, q: db.New(d.DB), store: d.Files.For("music"), tmpDir: d.Config.TmpDir(),
 		scanReq: make(chan struct{}, 1), scanDelay: scanDelay, scanLock: make(chan struct{}, 1),
+		providers: newProviderSet(), matchReq: make(chan bool, 1), matchPause: 500 * time.Millisecond, sleepUnit: time.Minute,
 	}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	m.registerActions()
 	return m, nil
 }
 
@@ -74,6 +89,7 @@ func (m *Module) Start(ctx context.Context) error {
 		m.requestScan()
 		return nil
 	})
+	m.armSleepAtStart(ctx)
 	m.requestScan()
 	go func() {
 		defer cancel()
@@ -91,6 +107,11 @@ func (m *Module) Start(ctx context.Context) error {
 				if err := m.Reconcile(ctx); err != nil && ctx.Err() == nil {
 					slog.Warn("music scan failed", "err", err)
 				}
+				if m.options(ctx).AutoMatch {
+					m.runMatches(ctx, false)
+				}
+			case retry := <-m.matchReq:
+				m.runMatches(ctx, retry)
 			}
 		}
 	}()
@@ -127,4 +148,12 @@ func fail(w http.ResponseWriter, r *http.Request, err error) bool {
 	}
 	httpx.Fail(w, r, err)
 	return true
+}
+
+// requestMatch asks the background loop to match songs. It never blocks.
+func (m *Module) requestMatch(retryFailed bool) {
+	select {
+	case m.matchReq <- retryFailed:
+	default:
+	}
 }

@@ -443,6 +443,16 @@ type Document struct {
 	UpdatedAt    time.Time
 }
 
+type DriveDownloadLink struct {
+	ID        int64
+	TokenHash string
+	ItemID    int64
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedBy string
+	CreatedAt time.Time
+}
+
 type DriveFileVersion struct {
 	ID        int64
 	ItemID    int64
@@ -497,6 +507,19 @@ type DriveShareDownload struct {
 	UserAgent string
 	ItemID    *int64
 	ItemName  string
+}
+
+type DriveUploadLink struct {
+	ID         int64
+	TokenHash  string
+	ParentID   *int64
+	Name       string
+	OnConflict string
+	MaxSize    int64
+	ExpiresAt  time.Time
+	UsedAt     *time.Time
+	CreatedBy  string
+	CreatedAt  time.Time
 }
 
 type FocusSession struct {
@@ -961,11 +984,37 @@ type MonitorResult struct {
 	Detail     string
 }
 
+type MusicCandidate struct {
+	ID         int64
+	TrackID    int64
+	Source     string
+	SourceID   string
+	Title      string
+	Artist     string
+	Album      string
+	DurationMs int64
+	HasLyrics  int64
+	HasCover   int64
+	LyricsText string
+	CoverRef   string
+	Position   int64
+}
+
 type MusicFt struct {
 	Title      string
 	Artist     string
 	Album      string
 	LyricsText string
+}
+
+type MusicPlay struct {
+	ID             int64
+	TrackID        *int64
+	Title          string
+	Artist         string
+	PlayedAt       time.Time
+	Seconds        int64
+	FocusSessionID *int64
 }
 
 type MusicPlaylist struct {
@@ -979,6 +1028,16 @@ type MusicPlaylistItem struct {
 	PlaylistID int64
 	TrackID    int64
 	Position   int64
+}
+
+type MusicPlaylistShare struct {
+	ID           int64
+	PlaylistID   int64
+	Token        string
+	PasswordHash *string
+	ExpiresAt    *time.Time
+	ViewCount    int64
+	CreatedAt    time.Time
 }
 
 type MusicTrack struct {

@@ -61,6 +61,10 @@ type Action struct {
 	// PanelOnly keeps the action to the panel assistant (B61: writing the AI
 	// memory). Remote AI (MCP), agents and automations never see it.
 	PanelOnly bool `json:"panelOnly,omitempty"`
+	// MCPOnly keeps the action to remote AI (MCP, B151): it hands out one-time
+	// links that only make sense for a client with its own shell. The panel
+	// assistant, agents and automations do not see it in List.
+	MCPOnly bool `json:"mcpOnly,omitempty"`
 	// Run executes the action. ctx carries the acting user or automation.
 	Run func(ctx context.Context, input json.RawMessage) (any, error) `json:"-"`
 }
@@ -114,12 +118,18 @@ func (r *Registry) Get(ctx context.Context, name string) (Action, bool) {
 	return a, true
 }
 
-// List returns the actions this request may see, sorted by name.
-func (r *Registry) List(ctx context.Context) []Action {
+// List returns the actions this request may see, sorted by name. Actions
+// marked MCPOnly are left out; ListForMCP has them.
+func (r *Registry) List(ctx context.Context) []Action { return r.list(ctx, false) }
+
+// ListForMCP is List for the MCP endpoint, which also offers the MCPOnly actions.
+func (r *Registry) ListForMCP(ctx context.Context) []Action { return r.list(ctx, true) }
+
+func (r *Registry) list(ctx context.Context, mcp bool) []Action {
 	r.mu.RLock()
 	out := make([]Action, 0, len(r.actions))
 	for _, a := range r.actions {
-		if a.AliasOf == "" {
+		if a.AliasOf == "" && (mcp || !a.MCPOnly) {
 			out = append(out, a)
 		}
 	}

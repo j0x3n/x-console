@@ -94,3 +94,66 @@ SELECT CAST(COALESCE(MAX(position), -1) + 1 AS INTEGER) FROM music_playlist_item
 
 -- name: CountTracksByIDs :one
 SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks WHERE id IN (sqlc.slice('ids'));
+
+-- name: ClearCandidates :exec
+DELETE FROM music_candidates WHERE track_id = ?;
+
+-- name: InsertCandidate :exec
+INSERT OR REPLACE INTO music_candidates (track_id, source, source_id, title, artist, album, duration_ms, has_lyrics, has_cover, lyrics_text, cover_ref, position)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- name: ListCandidates :many
+SELECT * FROM music_candidates WHERE track_id = ? ORDER BY position;
+
+-- name: GetCandidate :one
+SELECT * FROM music_candidates WHERE track_id = ? AND source = ? AND source_id = ? LIMIT 1;
+
+-- name: ListPendingTracks :many
+SELECT * FROM music_tracks WHERE match_state = 'pending' ORDER BY updated_at DESC, id DESC;
+
+-- name: CountPendingTracks :one
+SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks WHERE match_state = 'pending';
+
+-- name: SetMatchState :exec
+UPDATE music_tracks SET match_state = ?, updated_at = ? WHERE id = ?;
+
+-- name: ListTracksToMatch :many
+SELECT * FROM music_tracks
+WHERE (match_state = 'none' OR (match_state = 'failed' AND sqlc.arg(retry_failed) = 1))
+  AND (lyrics_source = 'none' OR cover_source = 'none')
+ORDER BY id LIMIT sqlc.arg(max_rows);
+
+-- name: CountTracksToMatch :one
+SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks
+WHERE (match_state = 'none' OR (match_state = 'failed' AND sqlc.arg(retry_failed) = 1))
+  AND (lyrics_source = 'none' OR cover_source = 'none');
+
+-- name: SetTrackLyrics :exec
+UPDATE music_tracks SET lyrics_text = ?, lyrics_source = ?, lyrics_synced = ?, updated_at = ? WHERE id = ?;
+
+-- name: SetTrackCover :exec
+UPDATE music_tracks SET cover_key = ?, has_cover = 1, cover_source = ?, updated_at = ? WHERE id = ?;
+
+-- name: SetTrackSha :exec
+UPDATE music_tracks SET sha256 = ? WHERE id = ?;
+
+-- name: InsertShare :one
+INSERT INTO music_playlist_shares (playlist_id, token, password_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *;
+
+-- name: ListShares :many
+SELECT * FROM music_playlist_shares WHERE playlist_id = ? ORDER BY id DESC;
+
+-- name: GetShareByToken :one
+SELECT * FROM music_playlist_shares WHERE token = ? LIMIT 1;
+
+-- name: DeleteShare :execrows
+DELETE FROM music_playlist_shares WHERE id = ?;
+
+-- name: BumpShareViews :exec
+UPDATE music_playlist_shares SET view_count = view_count + 1 WHERE id = ?;
+
+-- name: PlaylistHasTrack :one
+SELECT CAST(COUNT(*) AS INTEGER) FROM music_playlist_items WHERE playlist_id = ? AND track_id = ?;
+
+-- name: InsertPlay :exec
+INSERT INTO music_plays (track_id, title, artist, played_at, seconds, focus_session_id) VALUES (?, ?, ?, ?, ?, ?);

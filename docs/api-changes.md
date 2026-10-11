@@ -1,13 +1,18 @@
 # 接口变更记录
 
-- B152（2026-10-11）：storage 增加外部网盘新建文件夹、改名、删除和文件内容写入接口。下载增加可选 inline 参数，支持同源预览和文本内容的 ETag 校验。隐藏账号复用原有权限检查。files 包只增加 WebDAV / Google Drive 的文件操作方法，新 Google 授权增加读写范围。既有账号和备份读写方式保持兼容。
+- B156（2026-10-11，原提交标题用 B152）：storage 增加外部网盘新建文件夹、改名、删除和文件内容写入接口。下载增加可选 inline 参数，支持同源预览和文本内容的 ETag 校验。隐藏账号复用原有权限检查。files 包只增加 WebDAV / Google Drive 的文件操作方法，新 Google 授权增加读写范围。既有账号和备份读写方式保持兼容。
 - B154（2026-10-11）：PageActions 增加详情标题后的可选插槽。项目页用它展示看板切换列表。没有使用插槽的页面布局保持原样。
 
 改了基础代码（`backend/internal/server/` 下除 `modules/` 以外的目录、`backend/pkg/`、`web/src/{api,auth,app,components,lib}`）、
 共享合同（`contracts`）或模块接口的向后兼容性时，在最上面加一条：任务编号、日期、改了什么、为什么。
 看板在 [tasks.md](tasks.md)。
 
-- B146（2026-10-11）：新增 `contracts.DriveFiles`（云盘提供，音乐模块用来读云盘文件）。云盘模块只加了 `contract.go` 和 `module.go` 里的一行注册，原有行为不变。新增 `api/modules/music.yaml`、迁移 `20261011000100_m25_b146_music_library.sql`（表 `music_tracks`、`music_playlists`、`music_playlist_items` 和全文索引 `music_fts`）、依赖 `go.senan.xyz/taglib`。
+- B151（2026-10-11）：`drive.yaml` 加公开接口 `PUT /drive/upload-links/{token}`、`GET /drive/download-links/{token}`，任务种类加 `download`。迁移 `20261011000500_m29_b151_drive_links.sql`（表 `drive_upload_links`、`drive_download_links`）。动作注册表 `actions.Action` 加 `MCPOnly` 字段，`Registry.List` 不返回它，新增 `Registry.ListForMCP` 返回；`mcp` 模块的 `tools/list` 改用后者。设置键 `drive.mcp_max_upload`（默认 1 GB）。
+- B150（2026-10-11）：新增契约 `contracts.FocusState`（番茄钟模块提供，音乐模块用它判断是否在专注期间）。`music.yaml` 加 `GET /music/stats`，设置加 `focus`。迁移 `20261011000400_m28_b150_music_plays.sql`（表 `music_plays`）。今日页 `overview/layout.ts` 加卡片 `music`，`TodayPage.tsx` 加一行显示条件（播放条里有歌才显示）。
+
+- B149（2026-10-11）：`music.yaml` 加定时暂停（`/music/sleep`）、播放列表分享（`/music/playlists/{id}/shares`、`/music/shares/{id}`）和公开接口（`/public/music/{token}` 下）。音乐模块实现 `PublicPaths`（`/public/music/`），公开入口自己校验链接和密码。前端 `App.tsx` 加 `/m/<token>` 分享页（在登录检查之外渲染，和 `/s/`、`/n/` 一样）。迁移 `20261011000300_m27_b149_music_shares.sql`。
+
+- B148（2026-10-11）：`contracts.DriveFiles` 加 `ReplaceContent`（换文件内容，不留旧版本，带原哈希防止盖掉新上传）和 `ErrDriveChanged`；云盘模块只在 `contract.go` 里加了实现，原有行为不变。`music.yaml` 加匹配、待确认、手动歌词和封面接口，设置加 `autoMatch`、`writeBack`、`providers`。迁移 `20261011000200_m26_b148_music_match.sql`（表 `music_candidates`）。\n\n- B146（2026-10-11）：新增 `contracts.DriveFiles`（云盘提供，音乐模块用来读云盘文件）。云盘模块只加了 `contract.go` 和 `module.go` 里的一行注册，原有行为不变。新增 `api/modules/music.yaml`、迁移 `20261011000100_m25_b146_music_library.sql`（表 `music_tracks`、`music_playlists`、`music_playlist_items` 和全文索引 `music_fts`）、依赖 `go.senan.xyz/taglib`。
 
 - B145（2026-10-11）：新增纯展示组件 `components/ui/BrandMark.tsx`。登录页、左栏和云盘分享页共用 D 方案站标，页面内跟随现有主题色。保留左栏按钮的可读名称、导航和点击事件。浏览器与 PWA 图标加版本参数并更新离线缓存版本。只改展示和静态资源，不改接口。
 

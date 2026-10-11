@@ -143,6 +143,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/drive/upload-links/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description B151。不用登录，靠一次性令牌。令牌来自 MCP 动作 drive.create_upload_link，10 分钟内有效，只能用一次，
+         *     不论成功失败。请求体就是文件内容（不是 multipart），例如 curl -T 歌.mp3 地址。
+         *     文件名和目录在创建链接时就定了。令牌无效、过期、已用都回 404，不区分原因。超过创建时给的大小回 413。
+         */
+        put: operations["putDriveUploadLink"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drive/download-links/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B151。一次性下载地址，10 分钟内有效，只能用一次。令牌来自 MCP 动作 drive.create_download_link。 */
+        get: operations["getDriveDownloadLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/drive/usage": {
         parameters: {
             query?: never;
@@ -794,7 +832,7 @@ export interface components {
         DriveTask: {
             id: string;
             /** @enum {string} */
-            kind: "copy" | "move" | "archive" | "extract";
+            kind: "copy" | "move" | "archive" | "extract" | "download";
             /** @enum {string} */
             state: "running" | "done" | "failed" | "canceled";
             /** @description 服务端写好的说明，比如“复制 3 项到 /照片” */
@@ -1237,6 +1275,56 @@ export interface operations {
                     "application/json": {
                         items: components["schemas"]["DriveItem"][];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putDriveUploadLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description 已上传 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DriveItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDriveDownloadLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 文件内容 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
                 };
             };
             default: components["responses"]["Error"];
