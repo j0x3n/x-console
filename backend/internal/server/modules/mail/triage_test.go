@@ -248,9 +248,16 @@ func TestTriageAnswerIsChecked(t *testing.T) {
 		f.add(t, subjectMail(s), time.Now())
 		time.Sleep(20 * time.Millisecond)
 	}
+	// All four mails are listed and both mails that should be sorted are
+	// sorted. The other two must stay unsorted, so they have nothing to wait for.
 	eventually(t, "sorted", func() bool {
-		got := bySubject(list(t, env, ""), "日期很多")
-		return got != nil && got.Triage != nil
+		items := list(t, env, "")
+		for _, s := range []string{"乱分类", "日期很多", "通知附带时间", "序号越界"} {
+			if bySubject(items, s) == nil {
+				return false
+			}
+		}
+		return bySubject(items, "日期很多").Triage != nil && bySubject(items, "通知附带时间").Triage != nil
 	})
 	items := list(t, env, "")
 	if got := bySubject(items, "乱分类"); got.Triage != nil {
