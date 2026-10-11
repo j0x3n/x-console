@@ -1085,6 +1085,26 @@ type JournalItem struct {
 	Minutes int64
 }
 
+type KnowledgeChunk struct {
+	ID        int64
+	Source    string
+	Ref       string
+	Seq       int64
+	Text      string
+	Embedding []byte
+}
+
+type KnowledgeDoc struct {
+	Source    string
+	Ref       string
+	Module    string
+	Title     string
+	Link      string
+	Hash      string
+	Model     string
+	IndexedAt time.Time
+}
+
 type Label struct {
 	ID        int64
 	ProjectID *int64

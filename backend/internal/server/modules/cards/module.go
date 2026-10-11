@@ -39,6 +39,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), nowFn: time.Now}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	module.Provide[contracts.CardsDue](d.Registry, contracts.CardsDueKey, m)
+	module.Provide[contracts.KnowledgeSource](d.Registry, contracts.KnowledgeSourcePrefix+"cards", knowledgeSource{m}) // B139
 	m.registerActions()
 	// "开始"、"显示答案" and the four rating buttons of the Telegram review.
 	d.Notify.OnAction(actionPrefix, m.handleAction)

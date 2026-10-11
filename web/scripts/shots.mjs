@@ -248,6 +248,7 @@ const routes = [
   ["plan", "/plan"],
   ["forecasts", "/forecasts"],
   ["skills", "/skills"],
+  ["ask", "/ask"],
   ["experiments", "/experiments"],
   ["goals", "/goals"],
   ["goals-review", "/goals/review"],

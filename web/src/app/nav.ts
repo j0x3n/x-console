@@ -18,6 +18,7 @@ import {
   Hourglass,
   Home,
   Layers,
+  Library,
   Mail,
   Monitor,
   NotebookPen,
@@ -80,6 +81,7 @@ export const navItems: NavItem[] = [
   { path: "/inbox", label: "Capture inbox", icon: Inbox, group: "personal" },
   { path: "/forecasts", label: "Forecasts", icon: Scale, group: "personal" },
   { path: "/skills", label: "Skills", icon: GraduationCap, group: "personal" },
+  { path: "/ask", label: "Ask my data", icon: Library, group: "personal" },
   {
     path: "/checkins",
     label: "Check-ins",

@@ -31,6 +31,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/inbox"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/journal"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/knowledge"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/linear"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
@@ -100,6 +101,7 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	inbox.New,       // B134
 	forecasts.New,   // B137
 	skills.New,      // B138
+	knowledge.New,   // B139
 	dayplan.New,     // B135
 	focusblock.New,  // B131
 }

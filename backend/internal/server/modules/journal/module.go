@@ -68,6 +68,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), nowFn: time.Now}
 	m.registerActions()
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	module.Provide[contracts.KnowledgeSource](d.Registry, contracts.KnowledgeSourcePrefix+"journal", knowledgeSource{m}) // B139
 	// Calendar and host alerts already have contracts, so the journal reads
 	// them itself instead of asking those modules for more code.
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"calendar", calendarSource{m})

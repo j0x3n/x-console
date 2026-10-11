@@ -1,0 +1,168 @@
+openapi: 3.0.3
+info:
+  title: X Console knowledge (B139)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /knowledge/ask:
+    post:
+      operationId: askKnowledge
+      tags: [knowledge]
+      description: |
+        在个人资料里找最相关的几段，让 AI 只根据这些段回答。没有可用的 AI 时 answer 为空，只返回找到的段。
+        要先在设置里开启索引，没开启返回 400。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string, description: 最长 500 字 }
+      responses:
+        "200":
+          description: 回答和出处
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KnowledgeAnswer" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /knowledge/search:
+    get:
+      operationId: searchKnowledge
+      tags: [knowledge]
+      description: 只返回最相关的段，不让 AI 回答。
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 找到的段
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/KnowledgeHit" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /knowledge/status:
+    get:
+      operationId: getKnowledgeStatus
+      tags: [knowledge]
+      responses:
+        "200":
+          description: 索引状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KnowledgeStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /knowledge/sync:
+    post:
+      operationId: syncKnowledge
+      tags: [knowledge]
+      description: 马上同步一次。已经在同步时直接返回。同步在后台做，进度看 status。
+      responses:
+        "202":
+          description: 已开始
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /knowledge/settings:
+    get:
+      operationId: getKnowledgeSettings
+      tags: [knowledge]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KnowledgeSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putKnowledgeSettings
+      tags: [knowledge]
+      description: 改嵌入模型会在下次同步时全部重建。关闭开关后不再发送任何内容，已有的索引保留。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/KnowledgeSettings" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KnowledgeSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /knowledge/index:
+    delete:
+      operationId: clearKnowledgeIndex
+      tags: [knowledge]
+      description: 清空全部索引（向量和片段）。笔记等原文不受影响。
+      responses:
+        "204":
+          description: 已清空
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  schemas:
+    KnowledgeHit:
+      type: object
+      required: [source, title, link, snippet, score]
+      properties:
+        source: { type: string, description: "notes、readlater、journal、cards" }
+        title: { type: string }
+        link: { type: string, description: 应用内路径 }
+        snippet: { type: string, description: 命中的那一段原文 }
+        score: { type: number, format: double, description: 相似度，0 到 1 }
+    KnowledgeAnswer:
+      type: object
+      required: [sources]
+      properties:
+        answer: { type: string, description: "AI 的回答，用 [1][2] 标出处；没有 AI 时没有这一项" }
+        sources:
+          type: array
+          description: 出处，顺序对应回答里的 [1][2]
+          items: { $ref: "#/components/schemas/KnowledgeHit" }
+    KnowledgeSourceCount:
+      type: object
+      required: [source, docs, chunks]
+      properties:
+        source: { type: string }
+        docs: { type: integer }
+        chunks: { type: integer }
+    KnowledgeStatus:
+      type: object
+      required: [enabled, available, syncing, docs, chunks, sources]
+      properties:
+        enabled: { type: boolean }
+        available: { type: boolean, description: 有没有可用的 AI 供应商 }
+        syncing: { type: boolean }
+        docs: { type: integer }
+        chunks: { type: integer }
+        pending: { type: integer, description: 上次同步后还有多少段没嵌入 }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/KnowledgeSourceCount" }
+        lastSyncAt: { type: string, format: date-time }
+        lastError: { type: string }
+    KnowledgeSettings:
+      type: object
+      required: [enabled, model, sources]
+      properties:
+        enabled: { type: boolean }
+        model: { type: string, description: 嵌入模型，空表示默认 text-embedding-3-small }
+        sources:
+          type: array
+          description: 要索引的来源，可选 notes、readlater、journal、cards
+          items: { type: string }

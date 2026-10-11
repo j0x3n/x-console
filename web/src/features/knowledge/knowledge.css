@@ -1,0 +1,88 @@
+/* B139 个人资料问答。颜色只用 --xc-* 令牌，字号只用 --fs-* 令牌。 */
+
+.ask-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ask-index {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ask-index-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-12-5);
+}
+.ask-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ask-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.ask-result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ask-answer {
+  margin: 0;
+  font-size: var(--fs-14);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ask-hint {
+  margin: 0;
+  font-size: var(--fs-12);
+}
+.ask-title {
+  margin: 4px 0 0;
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.ask-sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding-left: 20px;
+}
+.ask-source-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-13);
+}
+.ask-snippet {
+  margin: 4px 0 0;
+  font-size: var(--fs-12-5);
+  overflow-wrap: anywhere;
+}
+.ask-settings {
+  display: grid;
+  gap: 12px;
+}
+.ask-sources {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.ask-sources legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: var(--fs-12);
+  color: var(--xc-muted);
+}
+.ask-clear {
+  margin-right: auto;
+}
