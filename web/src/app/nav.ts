@@ -8,6 +8,7 @@ import {
   FolderGit2,
   Files,
   Gauge,
+  Headphones,
   HardDrive,
   HeartPulse,
   KeyRound,
@@ -57,6 +58,8 @@ export const navItems: NavItem[] = [
   },
   { path: "/mail", label: "Mail", icon: Mail, group: "personal" },
   { path: "/reminders", label: "Reminders", icon: Bell, group: "personal" },
+  // B147：音乐。歌放在云盘里，全局播放器在 GlobalPanels
+  { path: "/music", label: "Music", icon: Headphones, group: "personal" },
   { path: "/habits", label: "Habits", icon: HeartPulse, group: "personal" },
   {
     path: "/calendar",

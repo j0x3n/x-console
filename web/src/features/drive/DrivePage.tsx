@@ -78,6 +78,7 @@ import {
 } from "./logic";
 import { useUploads } from "./upload";
 import FileViewer from "./viewer/FileViewer";
+import { playDriveAudio } from "../music/driveBridge";
 import { canEdit } from "./viewer/kind";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 
@@ -295,6 +296,11 @@ function DriveBrowser() {
   const open = (item: DriveItem) => {
     if (trash) return;
     if (item.isDir) go({ folder: item.id, q: null });
+    else if (fileKind(item) === "audio")
+      // B147：在音乐目录里的歌用全局播放器放，不在的照旧打开预览
+      void playDriveAudio(item.id).then((played) => {
+        if (!played) setDialog({ kind: "view", id: item.id, edit: false });
+      });
     else setDialog({ kind: "view", id: item.id, edit: false });
   };
 
