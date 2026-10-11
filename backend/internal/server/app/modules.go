@@ -9,6 +9,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/backup"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/cards"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/contacts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/credentials"
@@ -82,4 +83,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	aiconfig.New,    // B121
 	contacts.New,    // B122
 	music.New,       // B146
+	cards.New,       // B130
 }

@@ -625,6 +625,43 @@ try {
   });
   assert.equal(importedDel.status(), 204);
 
+  setStage("复习卡片");
+  // B130：手写一张卡片，接口再建一张；开始复习，空格显示答案，数字键评分；评完看到统计，到期日往后推。
+  await page.goto(`${base}/cards`);
+  await page.getByRole("button", { name: "新建卡片" }).first().click();
+  await dialog("新建卡片").getByLabel("问题", { exact: true }).fill("端到端卡片问题一");
+  await dialog("新建卡片").getByLabel("答案", { exact: true }).fill("端到端卡片答案一");
+  await dialog("新建卡片").getByRole("button", { name: "保存" }).click();
+  await until("卡片新建", async () => (await api("/cards")).items.some((c) => c.question === "端到端卡片问题一"));
+  const secondCard = await page.context().request.post(`${base}/api/v1/cards`, {
+    headers: { "X-Requested-With": "x-console" },
+    data: { question: "端到端卡片问题二", answer: "端到端卡片答案二", deck: "端到端" },
+  });
+  assert.equal(secondCard.status(), 201, await secondCard.text());
+  const cardTwoId = (await secondCard.json()).id;
+  await page.goto(`${base}/cards`);
+  await page.getByRole("button", { name: "开始复习" }).click();
+  await page.getByText("端到端卡片问题一").waitFor();
+  await page.keyboard.press("Space");
+  await page.getByText("端到端卡片答案一").waitFor();
+  await page.keyboard.press("3");
+  await page.getByText("端到端卡片问题二").waitFor();
+  await page.keyboard.press("Space");
+  await page.getByText("端到端卡片答案二").waitFor();
+  await page.keyboard.press("4");
+  await page.getByText("复习完成").waitFor();
+  const cardOne = (await api("/cards")).items.find((c) => c.question === "端到端卡片问题一");
+  assert.equal(cardOne.reps, 1);
+  assert.equal(cardOne.state, "review");
+  assert.ok(new Date(cardOne.due).getTime() > Date.now() + 86400e3, "良好之后至少一天后再复习");
+  const cardTwo = await api(`/cards/${cardTwoId}`);
+  assert.ok(new Date(cardTwo.due).getTime() > new Date(cardOne.due).getTime(), "简单比良好排得更远");
+  assert.equal((await api("/cards/summary")).due, 0);
+  for (const id of [cardOne.id, cardTwoId]) {
+    const gone = await page.context().request.delete(`${base}/api/v1/cards/${id}`, { headers: { "X-Requested-With": "x-console" } });
+    assert.equal(gone.status(), 204);
+  }
+
   setStage("通知静音规则");
   // B113：加一条规则，设置 → 通知里能看到，点删除后消失。邮箱 99 不存在，所以显示成已删除的邮箱。
   const muteCreated = await page.context().request.post(`${base}/api/v1/notify/mutes`, {

@@ -18,6 +18,7 @@ import RouterSettingsTab from "../router/RouterSettingsTab";
 import MaintenanceTab from "../maintenance/MaintenanceTab";
 import XSettingsTab from "../readlater/XSettingsTab";
 import MusicSettingsTab from "../music/MusicSettingsTab";
+import CardsSettingsTab from "../cards/CardsSettingsTab";
 
 export interface SettingsTab {
   id: string; // 路径段，/settings/<id>
@@ -47,4 +48,5 @@ export const settingsTabs: SettingsTab[] = [
   { id: "maintenance", label: "Maintenance", component: MaintenanceTab },
   { id: "readlater", label: "Read later", component: XSettingsTab },
   { id: "music", label: "Music", component: MusicSettingsTab },
+  { id: "cards", label: "Review cards", component: CardsSettingsTab },
 ];

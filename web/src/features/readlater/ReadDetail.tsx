@@ -23,6 +23,7 @@ import {
   useSummarizeReadItem,
   useUpdateReadItem,
 } from "./api";
+import CardFromSelection from "../cards/SelectionCard";
 import ReadingBody from "./ReadingBody";
 import { SOURCE_LABELS, parseTags } from "./format";
 import "./i18n";
@@ -108,6 +109,10 @@ export default function ReadDetail({
       {query.isPending && <Spinner />}
       {query.isError && (
         <p className="xc-error-text">{errorMessage(query.error)}</p>
+      )}
+      {/* B130：选中文字后出现“做成卡片” */}
+      {item && !editing && (
+        <CardFromSelection source={{ title: item.title, link: item.url }} />
       )}
       {item && !editing && (
         <>

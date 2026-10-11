@@ -18,6 +18,7 @@ import (
 const (
 	BriefSectionKeyAlerts    BriefSectionKey = "alerts"
 	BriefSectionKeyCalendar  BriefSectionKey = "calendar"
+	BriefSectionKeyCards     BriefSectionKey = "cards"
 	BriefSectionKeyHabits    BriefSectionKey = "habits"
 	BriefSectionKeyIssues    BriefSectionKey = "issues"
 	BriefSectionKeyReminders BriefSectionKey = "reminders"
@@ -32,6 +33,8 @@ func (e BriefSectionKey) Valid() bool {
 	case BriefSectionKeyAlerts:
 		return true
 	case BriefSectionKeyCalendar:
+		return true
+	case BriefSectionKeyCards:
 		return true
 	case BriefSectionKeyHabits:
 		return true

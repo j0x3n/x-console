@@ -148,6 +148,10 @@ const ids = await page.evaluate(async () => {
     await post("/contacts", { name: "老王", group: "friend", events: [{ kind: "birthday", date: `1990-${mmdd(5)}` }], lastContactOn: dayAt(-20) });
     await post("/contacts", { name: "小李", group: "colleague", contactEveryDays: 60, lastContactOn: dayAt(-131) });
     await post("/contacts", { name: "妈妈", group: "family", events: [{ kind: "birthday", date: mmdd(120) }, { kind: "anniversary", label: "结婚纪念日", date: `1988-${mmdd(60)}` }], lastContactOn: dayAt(-3) });
+    // B130：几张复习卡片，一张已经评过分
+    await post("/cards", { question: "SQLite 的 WAL 模式有什么好处？", answer: "读写互不阻塞。", deck: "数据库", sourceTitle: "SQLite 笔记", sourceLink: "/notes" });
+    await post("/cards", { question: "Go 的 context 用来做什么？", answer: "传递取消信号和超时。", deck: "后端" });
+    await post("/cards", { question: "HTTP 204 是什么意思？", answer: "成功，没有内容。", deck: "后端" });
     // B121：配置下发，没有配对的机器，只放配置
     await send("PUT", "/aiconfig", {
       claude: { rules: "回答用中文。\n提交前先跑测试。", allow: ["Bash(git status)", "Bash(npm test)"], ask: ["Bash(git push *)"], deny: ["Read(./.env)"], mcp: [{ name: "docs", transport: "http", url: "https://mcp.example.com/mcp" }] },
@@ -239,6 +243,9 @@ const routes = [
   ["journal", "/journal"],
   ["credentials", "/credentials"],
   ["contacts", "/contacts"],
+  ["cards", "/cards"],
+  ["cards-list", "/cards?tab=cards"],
+  ["settings-cards", "/settings/cards"],
   ["aiconfig", "/coding/config"],
   ["automations", "/automations"],
   ["automation-new", "/automations/new"],

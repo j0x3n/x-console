@@ -30,7 +30,7 @@ const (
 )
 
 // allSections is every section in display order.
-var allSections = []string{"weather", "calendar", "issues", "reminders", "alerts", "habits", "renewals"}
+var allSections = []string{"weather", "calendar", "issues", "reminders", "alerts", "habits", "renewals", "cards"}
 
 // config is the brief configuration with defaults applied.
 type config struct {

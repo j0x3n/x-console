@@ -13,6 +13,7 @@ import {
   KeyRound,
   Hourglass,
   Home,
+  Layers,
   Mail,
   Monitor,
   NotebookPen,
@@ -53,6 +54,13 @@ export const navItems: NavItem[] = [
     path: "/readlater",
     label: "Read later",
     icon: Bookmark,
+    group: "personal",
+  },
+  // B130：复习卡片，放在稍后阅读下面
+  {
+    path: "/cards",
+    label: "Review cards",
+    icon: Layers,
     group: "personal",
   },
   { path: "/mail", label: "Mail", icon: Mail, group: "personal" },

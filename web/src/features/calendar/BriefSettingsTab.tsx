@@ -28,6 +28,7 @@ export const sectionLabels: Record<
   alerts: "Server alerts since yesterday",
   habits: "Habits",
   renewals: "Renewals",
+  cards: "Cards to review",
 };
 const sectionKeys = Object.keys(sectionLabels) as Exclude<
   BriefSectionKey,

@@ -95,6 +95,7 @@ registerZh({
 
   // 番茄钟
   days: "天",
+  "Cards to review": "待复习的卡片",
   min: "分钟",
   "Focus time is up": "专注时间到了",
   "Focus stats": "专注统计",

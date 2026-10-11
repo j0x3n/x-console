@@ -65,6 +65,7 @@ import {
   type Note,
   type NoteColor,
 } from "../api";
+import CardFromSelection from "../../cards/SelectionCard";
 import ColorPicker from "../ColorPicker";
 import { noteBgClass } from "../noteColors";
 import ShareDialog from "./ShareDialog";
@@ -1103,6 +1104,14 @@ function EditorBody({
           noteId={note.id}
         />
       )}
+      {/* B130：选中文字后出现“做成卡片”。隐藏的笔记不出 */}
+      <CardFromSelection
+        disabled={note.hidden}
+        source={{
+          title: draft.title.trim() || t("Untitled note"),
+          link: `/notes/${note.id}`,
+        }}
+      />
     </div>
   );
 }
