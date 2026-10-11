@@ -10,6 +10,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/cards"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/checkins"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/codingroi"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/contacts"
@@ -89,5 +90,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	codingroi.New,   // B129
 	goals.New,       // B128
 	cards.New,       // B130
+	checkins.New,    // B132
 	focusblock.New,  // B131
 }

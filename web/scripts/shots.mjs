@@ -243,6 +243,7 @@ const routes = [
   ["journal", "/journal"],
   ["credentials", "/credentials"],
   ["contacts", "/contacts"],
+  ["checkins", "/checkins"],
   ["goals", "/goals"],
   ["goals-review", "/goals/review"],
   ["cards", "/cards"],

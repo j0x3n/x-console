@@ -9,6 +9,7 @@
 共享合同（`contracts`）或模块接口的向后兼容性时，在最上面加一条：任务编号、日期、改了什么、为什么。
 看板在 [tasks.md](tasks.md)。
 
+- B132（2026-10-11）：新模块 `checkins`，接口 `api/modules/checkins.yaml`，迁移 `20261012060000_m35_b132_checkins.sql`（表 `checkin_questions`、`checkin_answers`、`checkin_asks`，并写入两个默认问题）。新契约 `contracts.CheckinSeries`（`contracts/checkins.go`，键 `checkins.series`，B133 自我实验读它）。设置键 `checkins.options`。通知 kind `checkin.ask`，按钮 id 前缀 `checkin.`。
 - B131（2026-10-11）：新模块 `focusblock`，接口 `api/modules/focusblock.yaml`，迁移 `20261012050000_m34_b131_focus_block.sql`。协议新增 `pkg/protocol/methods_focusblock.go`（`focusblock.apply`、`focusblock.clear`、`focusblock.status`，能力 `focusblock`），代理新包 `internal/agent/focusblock`，`cmd/agent/main.go` 的 register() 加一行。新契约 `contracts.FocusCurrent`（`FocusCurrentKey`，番茄钟模块提供）和 `contracts/screentime.go`（电脑时间模块提供“娱乐”类应用名单）。设置键 `focusblock.settings`。
 - B130（2026-10-11）：新模块 `cards`，接口 `api/modules/cards.yaml`，迁移 `20261012040000_m33_b130_cards.sql`。新契约 `contracts.CardsDue`（`contracts/cards.go`），早报模块 `brief` 加“待复习”段和相应设置项（`api/modules/brief.yaml`）。依赖 `github.com/open-spaced-repetition/go-fsrs/v4`。笔记编辑器和稍后读详情页各加一个“做成卡片”入口（`SelectionCard`）。今日页加卡片 `cards`。
 - B129（2026-10-11）：新模块 `codingroi`（只读汇总），接口 `api/modules/codingroi.yaml`，迁移 `20261012030000_m32_b129_codingroi.sql`（表 `codingroi_outcomes`）。`contracts/hidden.go` 加两处映射（`codingroi` 归到 `coding`）。读 `coding_*`、`ai_usage`、`ai_agents`、`screen_minutes`、`github_cache_v2` 表。

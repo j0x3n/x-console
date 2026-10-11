@@ -1113,6 +1113,23 @@ try {
         headers: { "X-Requested-With": "x-console" },
       });
     assert.equal(goalDeleted.status(), 204);
+    setStage("状态打卡");
+    // B132：页面上新建一个问题，再补答今天已经过了时间的一条；趋势里出现平均分。
+    await page.goto(`${base}/checkins`);
+    await page.getByRole("button", { name: "新建问题" }).first().click();
+    await dialog("新建问题").getByLabel("问题", { exact: true }).fill("端到端心情");
+    await dialog("新建问题").getByRole("button", { name: "保存" }).click();
+    await until("打卡问题新建", async () =>
+      (await api("/checkins/questions")).items.some((q) => q.label === "端到端心情"),
+    );
+    const checkinQuestion = (await api("/checkins/questions")).items.find((q) => q.label === "端到端心情");
+    const checkinAnswer = await page.context().request.put(`${base}/api/v1/checkins/answers`, {
+      headers: { "X-Requested-With": "x-console" },
+      data: { questionId: checkinQuestion.id, value: 4 },
+    });
+    assert.equal(checkinAnswer.status(), 200, await checkinAnswer.text());
+    await page.reload();
+    await page.getByRole("article", { name: "端到端心情" }).getByText("4").first().waitFor();
     setStage("复习卡片");
     // B130：手写一张卡片，接口再建一张；开始复习，空格显示答案，数字键评分；评完看到统计，到期日往后推。
     await page.goto(`${base}/cards`);

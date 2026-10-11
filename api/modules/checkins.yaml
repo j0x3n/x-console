@@ -1,0 +1,254 @@
+openapi: 3.0.3
+info:
+  title: X Console checkins (B132)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /checkins/questions:
+    get:
+      operationId: listCheckinQuestions
+      tags: [checkins]
+      description: 全部问题，按 sortOrder 排。
+      responses:
+        "200":
+          description: 问题列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CheckinQuestion" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createCheckinQuestion
+      tags: [checkins]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckinQuestionInput" }
+      responses:
+        "201":
+          description: 新问题
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckinQuestion" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /checkins/questions/{questionId}:
+    parameters:
+      - $ref: "#/components/parameters/QuestionId"
+    put:
+      operationId: updateCheckinQuestion
+      tags: [checkins]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckinQuestionInput" }
+      responses:
+        "200":
+          description: 改后的问题
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckinQuestion" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteCheckinQuestion
+      tags: [checkins]
+      description: 同时删掉这个问题的全部回答。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /checkins/settings:
+    get:
+      operationId: getCheckinSettings
+      tags: [checkins]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckinSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putCheckinSettings
+      tags: [checkins]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckinSettings" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckinSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /checkins/today:
+    get:
+      operationId: getCheckinsToday
+      tags: [checkins]
+      description: 今天每个启用的问题的每个时间点，以及回答。
+      responses:
+        "200":
+          description: 今天的时间点
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [date, slots]
+                properties:
+                  date: { type: string, description: 服务端时区的日期 YYYY-MM-DD }
+                  slots:
+                    type: array
+                    items: { $ref: "#/components/schemas/CheckinSlot" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /checkins/answers:
+    put:
+      operationId: putCheckinAnswer
+      tags: [checkins]
+      description: |
+        记一条回答。slot 不给就记成 manual（随手记一次）。date 不给就是今天。
+        同一个问题、日期、时间点再答一次，覆盖前一次。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckinAnswerInput" }
+      responses:
+        "200":
+          description: 记下的回答
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckinAnswer" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /checkins/series:
+    get:
+      operationId: getCheckinSeries
+      tags: [checkins]
+      description: 每个问题每天的平均分，给折线图用。
+      parameters:
+        - name: days
+          in: query
+          description: 最近多少天，默认 30，最多 365
+          schema: { type: integer, minimum: 1, maximum: 365 }
+      responses:
+        "200":
+          description: 序列
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [from, to, items]
+                properties:
+                  from: { type: string }
+                  to: { type: string }
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CheckinSeries" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    QuestionId:
+      name: questionId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    CheckinQuestion:
+      type: object
+      required: [id, label, lowLabel, highLabel, times, enabled, sortOrder]
+      properties:
+        id: { type: integer, format: int64 }
+        label: { type: string }
+        lowLabel: { type: string, description: 1 分代表什么 }
+        highLabel: { type: string, description: 5 分代表什么 }
+        times:
+          type: array
+          description: 每天问的时间 HH:MM，升序
+          items: { type: string }
+        enabled: { type: boolean }
+        sortOrder: { type: integer }
+    CheckinQuestionInput:
+      type: object
+      required: [label, lowLabel, highLabel, times, enabled]
+      properties:
+        label: { type: string }
+        lowLabel: { type: string }
+        highLabel: { type: string }
+        times:
+          type: array
+          items: { type: string }
+        enabled: { type: boolean }
+    CheckinSettings:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean, description: 总开关，默认关 }
+    CheckinSlot:
+      type: object
+      required: [questionId, label, lowLabel, highLabel, slot, status]
+      properties:
+        questionId: { type: integer, format: int64 }
+        label: { type: string }
+        lowLabel: { type: string }
+        highLabel: { type: string }
+        slot: { type: string, description: 时间点 HH:MM }
+        status:
+          type: string
+          enum: [answered, pending, upcoming, missed]
+          description: |
+            answered 已回答；pending 已到时间，还没超过 60 分钟；upcoming 还没到；
+            missed 超过 60 分钟没答。pending 和 missed 都可以补答。
+        value: { type: integer, description: 已回答时的分数 }
+    CheckinAnswerInput:
+      type: object
+      required: [questionId, value]
+      properties:
+        questionId: { type: integer, format: int64 }
+        value: { type: integer, minimum: 1, maximum: 5 }
+        slot: { type: string, description: 被补答的时间点 HH:MM，不给就是 manual }
+        date: { type: string, description: YYYY-MM-DD，不给就是今天，不能是未来 }
+    CheckinAnswer:
+      type: object
+      required: [id, questionId, value, date, slot, answeredAt, source]
+      properties:
+        id: { type: integer, format: int64 }
+        questionId: { type: integer, format: int64 }
+        value: { type: integer }
+        date: { type: string }
+        slot: { type: string }
+        answeredAt: { type: string, format: date-time }
+        source: { type: string, enum: [web, notify, action] }
+    CheckinSeries:
+      type: object
+      required: [questionId, label, points, average, count]
+      properties:
+        questionId: { type: integer, format: int64 }
+        label: { type: string }
+        average: { type: number, description: 这段时间的平均分，没有回答时为 0 }
+        count: { type: integer, description: 回答条数 }
+        points:
+          type: array
+          items:
+            type: object
+            required: [date, average, count]
+            properties:
+              date: { type: string }
+              average: { type: number }
+              count: { type: integer }

@@ -1,0 +1,137 @@
+/* B132 状态打卡。颜色只用 --xc-* 令牌，字号只用 --fs-* 令牌。 */
+
+.checkins-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.checkins-ask-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.checkins-ask-row p {
+  margin: 4px 0 0;
+  font-size: var(--fs-13);
+}
+.checkins-slots,
+.checkins-questions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.checkins-slot,
+.checkins-questions li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.checkins-slot:last-child,
+.checkins-questions li:last-child {
+  border-bottom: 0;
+}
+.checkins-slot-main {
+  display: grid;
+  flex: 1;
+  min-width: 160px;
+}
+.checkins-slot-main small {
+  font-size: var(--fs-12);
+}
+.checkins-scores {
+  display: flex;
+  gap: 6px;
+}
+.checkins-score {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface);
+  color: var(--xc-text);
+  font-size: var(--fs-14);
+  cursor: pointer;
+}
+.checkins-score:hover:not(:disabled) {
+  border-color: var(--xc-accent);
+}
+.checkins-score.on {
+  border-color: var(--xc-accent);
+  background: var(--xc-accent);
+  color: var(--xc-on-accent, #fff);
+}
+.checkins-score:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.checkins-trend-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.checkins-trend-head h2 {
+  margin: 0;
+  font-size: var(--fs-15);
+}
+.checkins-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.checkins-trend-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.checkins-chart {
+  width: 100%;
+  height: auto;
+}
+.checkins-grid {
+  stroke: var(--xc-border);
+  stroke-width: 1;
+}
+.checkins-line {
+  fill: none;
+  stroke: var(--xc-accent);
+  stroke-width: 2;
+}
+.checkins-dot {
+  fill: var(--xc-accent);
+}
+.checkins-form {
+  display: grid;
+  gap: 12px;
+}
+.checkins-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.checkins-times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.checkins-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+@media (max-width: 640px) {
+  .checkins-ask-row {
+    align-items: flex-start;
+  }
+  .checkins-form-row {
+    grid-template-columns: 1fr;
+  }
+}

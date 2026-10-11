@@ -72,6 +72,12 @@ export const navItems: NavItem[] = [
   // B128：季度目标和每周复盘
   { path: "/goals", label: "Goals", icon: Target, group: "personal" },
   {
+    path: "/checkins",
+    label: "Check-ins",
+    icon: HeartPulse,
+    group: "personal",
+  },
+  {
     path: "/calendar",
     label: "Schedule & focus",
     icon: CalendarDays,

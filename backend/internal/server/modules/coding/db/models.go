@@ -351,6 +351,36 @@ type CardReview struct {
 	Difficulty    float64
 }
 
+type CheckinAnswer struct {
+	ID         int64
+	QuestionID int64
+	Value      int64
+	Date       string
+	Slot       string
+	AnsweredAt time.Time
+	Source     string
+}
+
+type CheckinAsk struct {
+	ID         int64
+	QuestionID int64
+	Date       string
+	Slot       string
+	AskedAt    time.Time
+}
+
+type CheckinQuestion struct {
+	ID        int64
+	Label     string
+	LowLabel  string
+	HighLabel string
+	Times     string
+	Enabled   int64
+	SortOrder int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type CodingRepo struct {
 	ID            int64
 	AgentID       string

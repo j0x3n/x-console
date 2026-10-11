@@ -1,0 +1,37 @@
+import { registerZh } from "../../lib/i18n";
+
+registerZh({
+  // B132 每天状态打卡
+  "Check-ins": "状态打卡",
+  "Ask me every day": "每天问我",
+  "At the times below a notification asks for a score from 1 to 5. In Telegram you answer with one tap. The scores are only kept so you can compare days later.":
+    "到下面的时间会用通知问你，请打 1 到 5 分。在 Telegram 里点一下就答完。分数只是记下来，方便以后对比不同的日子。",
+  "to answer": "条待回答",
+  "No question is on for today.": "今天没有要问的问题。",
+  "Check-in waiting": "等你回答",
+  "Slot not yet": "还没到",
+  "Slot missed": "错过",
+  "Slot answered": "已回答",
+  Trend: "趋势",
+  answers: "条回答",
+  "No answers in this range.": "这段时间没有回答。",
+  Question: "问题",
+  Questions: "问题",
+  "New question": "新建问题",
+  "Edit question": "编辑问题",
+  "Delete question": "删除问题",
+  "Its answers are deleted too.": "它的回答也会一起删掉。",
+  "No time set": "没有设时间",
+  "Please enter the question": "请写问题",
+  "Every time must look like 10:00": "时间要写成 10:00 这样",
+  "What 1 means": "1 分表示",
+  "What 5 means": "5 分表示",
+  "Times to ask": "每天问的时间",
+  "Add ask time": "加一个时间",
+  "Remove time": "去掉这个时间",
+  "Ask this question": "问这个问题",
+  "Score 1": "1 分",
+  "Score 5": "5 分",
+  Today: "今天",
+  "Question off": "已关",
+});
