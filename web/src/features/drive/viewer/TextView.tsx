@@ -1,3 +1,4 @@
+import { driveSource, type FileSource } from "./source";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { ApiError, errorMessage } from "../../../api/client";
@@ -23,8 +24,8 @@ interface Loaded {
   binary: boolean;
 }
 
-async function load(id: number): Promise<Loaded> {
-  const { bytes, etag } = await readContent(id);
+async function load(id: number, source: FileSource): Promise<Loaded> {
+  const { bytes, etag } = await source.read(id);
   if (bytes.subarray(0, 8192).includes(0))
     return { text: "", etag, legacy: false, binary: true };
   const utf8 = decodeUtf8(bytes);
@@ -48,8 +49,10 @@ export default function TextView({
   onEditingChange,
   onDirtyChange,
   onSaved,
+  source = driveSource,
 }: {
   item: DriveItem;
+  source?: FileSource;
   markdown: boolean;
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
@@ -63,14 +66,14 @@ export default function TextView({
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [diff, setDiff] = useState<string | null>(null);
-  const [source, setSource] = useState(false);
+  const [showSource, setShowSource] = useState(false);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
     setLoaded(null);
     setError(null);
-    load(item.id)
+    load(item.id, source)
       .then((r) => {
         if (!alive) return;
         setLoaded(r);
@@ -93,7 +96,7 @@ export default function TextView({
     setSaving(true);
     try {
       const text = draft;
-      const r = await saveContent(item.id, text, force ? "" : loaded.etag);
+      const r = await source.save(item.id, text, force ? "" : loaded.etag);
       setLoaded({ text, etag: r.etag, legacy: false, binary: false });
       setConflict(false);
       setDiff(null);
@@ -138,7 +141,7 @@ export default function TextView({
 
   const showDiff = async () => {
     try {
-      const latest = await load(item.id);
+      const latest = await load(item.id, source);
       setDiff(latest.text);
     } catch (e) {
       toast({ message: errorMessage(e), tone: "error" });
@@ -173,7 +176,7 @@ export default function TextView({
       </div>
     );
 
-  const rendered = markdown && !editing && !source;
+  const rendered = markdown && !editing && !showSource;
 
   return (
     <div className="drive-text">
@@ -197,8 +200,8 @@ export default function TextView({
           {markdown && !editing && (
             <Segmented
               label={t("View")}
-              value={source ? "source" : "rendered"}
-              onChange={(v) => setSource(v === "source")}
+              value={showSource ? "source" : "rendered"}
+              onChange={(v) => setShowSource(v === "source")}
               options={[
                 { value: "rendered", label: t("Preview") },
                 { value: "source", label: t("Source code") },

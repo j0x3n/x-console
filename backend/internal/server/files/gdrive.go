@@ -57,6 +57,8 @@ func (e GoogleEndpoints) withDefaults() GoogleEndpoints {
 // GoogleDriveScope only lets the app see the files it made itself.
 const GoogleDriveScope = "https://www.googleapis.com/auth/drive.file"
 
+const GoogleWriteScope = "https://www.googleapis.com/auth/drive"
+
 // GoogleBrowseScope lets the drive page list and download every file (B68).
 const GoogleBrowseScope = "https://www.googleapis.com/auth/drive.readonly"
 
@@ -69,7 +71,7 @@ var ErrGDriveAuth = errors.New("Google Drive 授权过期，请重新授权")
 func GoogleAuthURL(e GoogleEndpoints, clientID, redirect, state string) string {
 	e = e.withDefaults()
 	q := url.Values{"client_id": {clientID}, "redirect_uri": {redirect}, "response_type": {"code"},
-		"scope": {GoogleDriveScope + " " + GoogleBrowseScope}, "state": {state}, "access_type": {"offline"}, "prompt": {"consent"}}
+		"scope": {GoogleDriveScope + " " + GoogleBrowseScope + " " + GoogleWriteScope}, "state": {state}, "access_type": {"offline"}, "prompt": {"consent"}}
 	return e.Auth + "?" + q.Encode()
 }
 

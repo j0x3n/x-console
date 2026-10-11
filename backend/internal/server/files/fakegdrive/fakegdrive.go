@@ -53,6 +53,7 @@ type Server struct {
 
 type session struct {
 	name, parent string
+	target       string
 	data         []byte
 }
 
@@ -170,7 +171,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&in)
 		f := &File{ID: s.id(), Name: in.Name, MimeType: in.MimeType, Parent: in.Parents[0], Modified: s.tick()}
 		s.files[f.ID] = f
-		json.NewEncoder(w).Encode(map[string]string{"id": f.ID})
+		json.NewEncoder(w).Encode(s.item(f))
 	case p == "/upload/drive/v3/files" && r.Method == http.MethodPost && r.URL.Query().Get("uploadType") == "resumable":
 		var in struct {
 			Name    string   `json:"name"`
@@ -179,6 +180,16 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&in)
 		id := s.id()
 		s.sessions[id] = &session{name: in.Name, parent: in.Parents[0]}
+		w.Header().Set("Location", s.URL+"/upload/session/"+id)
+	case strings.HasPrefix(p, "/upload/drive/v3/files/") && r.Method == http.MethodPatch:
+		target := strings.TrimPrefix(p, "/upload/drive/v3/files/")
+		f := s.files[target]
+		if f == nil {
+			fail(w, 404, "notFound")
+			return
+		}
+		id := s.id()
+		s.sessions[id] = &session{name: f.Name, parent: f.Parent, target: target}
 		w.Header().Set("Location", s.URL+"/upload/session/"+id)
 	case strings.HasPrefix(p, "/upload/session/"):
 		s.chunk(w, r, strings.TrimPrefix(p, "/upload/session/"))
@@ -210,6 +221,14 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				http.ServeContent(w, r, f.Name, f.Modified, strings.NewReader(string(f.Data)))
 				return
 			}
+			json.NewEncoder(w).Encode(s.item(f))
+		case http.MethodPatch:
+			var in struct {
+				Name string `json:"name"`
+			}
+			json.NewDecoder(r.Body).Decode(&in)
+			f.Name = in.Name
+			f.Modified = s.tick()
 			json.NewEncoder(w).Encode(s.item(f))
 		case http.MethodDelete:
 			delete(s.files, f.ID)
@@ -356,7 +375,11 @@ func (s *Server) chunk(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	delete(s.sessions, id)
-	f := &File{ID: s.id(), Name: sess.name, Parent: sess.parent, Data: sess.data, Modified: s.tick()}
+	target := sess.target
+	if target == "" {
+		target = s.id()
+	}
+	f := &File{ID: target, Name: sess.name, Parent: sess.parent, Data: sess.data, Modified: s.tick()}
 	s.files[f.ID] = f
 	json.NewEncoder(w).Encode(map[string]string{"id": f.ID})
 }

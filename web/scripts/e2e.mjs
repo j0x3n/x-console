@@ -1429,6 +1429,32 @@ try {
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
 
+  setStage("B152 外部网盘预览、编辑、新建文件夹和浏览方式");
+  await page.getByRole("button", { name: "hello.txt", exact: true }).click();
+  await dialog("hello.txt").getByText("hello from fakedav", { exact: true }).waitFor();
+  await dialog("hello.txt").getByRole("button", { name: "编辑", exact: true }).click();
+  await dialog("hello.txt").locator(".cm-content").fill("外部网盘修改后的内容");
+  await dialog("hello.txt").getByRole("button", { name: "保存", exact: true }).click();
+  await dialog("hello.txt").getByText("没有改动", { exact: true }).waitFor();
+  await dialog("hello.txt").getByRole("button", { name: "退出编辑", exact: true }).click();
+  await dialog("hello.txt").getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: "hello.txt", exact: true }).click();
+  await dialog("hello.txt").getByText("外部网盘修改后的内容", { exact: true }).waitFor();
+  await dialog("hello.txt").getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: "新建文件夹", exact: true }).click();
+  await dialog("新建文件夹").getByLabel("名称").fill("端到端目录");
+  await dialog("新建文件夹").getByRole("button", { name: "新建", exact: true }).click();
+  await page.getByRole("button", { name: "端到端目录", exact: true }).waitFor();
+  for (const width of [1360, 390]) {
+    await page.setViewportSize({ width, height: 860 });
+    await page.getByRole("button", { name: "网格", exact: true }).click();
+    await page.locator(".drive-grid").waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "外部网盘横向溢出");
+    await page.getByRole("button", { name: "列表", exact: true }).click();
+    await page.locator(".drive-table").waitFor();
+  }
+  await page.setViewportSize({ width: 1360, height: 860 });
+
   setStage("B81 增量备份 API 主流程");
   const previousBackupSettings = await api("/backups/settings");
   const backupRemote = (await api("/storage/remotes")).items.find((item) => item.name === "端到端网盘");

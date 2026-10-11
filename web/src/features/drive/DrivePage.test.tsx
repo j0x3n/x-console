@@ -265,12 +265,11 @@ describe("DrivePage", () => {
     }));
     const router = renderAt("/drive?view=remote&remote=7");
     const row = await screen.findByRole("button", { name: "照片" });
-    // 网盘标签里没有上传和搜索
-    expect(screen.queryByRole("button", { name: /上传/ })).toBeNull();
+    // 外部网盘和本地云盘共用顶栏操作。
+    expect(screen.getByRole("button", { name: /上传/ })).toBeTruthy();
+    expect(screen.getByPlaceholderText("搜索文件")).toBeTruthy();
     fireEvent.click(row);
-    expect(
-      await screen.findByRole("button", { name: "下载 a.jpg" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "a.jpg" })).toBeTruthy();
     expect(router.state.location.search).toBe(
       "?view=remote&remote=7&ref=%E7%85%A7%E7%89%87",
     );

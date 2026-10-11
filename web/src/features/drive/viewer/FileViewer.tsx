@@ -1,3 +1,4 @@
+import { driveSource, type FileSource } from "./source";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -44,12 +45,14 @@ export default function FileViewer({
   items,
   initialId,
   initialEdit = false,
+  source = driveSource,
   onClose,
 }: {
   /** 同一个文件夹里能切换的文件，按列表顺序。 */
   items: DriveItem[];
   initialId: number;
   initialEdit?: boolean;
+  source?: FileSource;
   onClose: () => void;
 }) {
   const t = useT();
@@ -145,7 +148,7 @@ export default function FileViewer({
   // 两边的大箭头只放在图片、音频这类不会被挡住内容的地方；标题栏里一直有小箭头。
   const sideNav =
     !showText && (kind === "image" || kind === "audio" || kind === "other");
-  const src = contentUrl(item.id, true);
+  const src = source.url(item.id, true);
   const hasPrev = index > 0;
   const hasNext = index >= 0 && index < items.length - 1;
 
@@ -215,7 +218,7 @@ export default function FileViewer({
             )}
             <a
               className="xc-btn ghost small"
-              href={contentUrl(item.id)}
+              href={source.url(item.id)}
               download={item.name}
               title={t("Download")}
               aria-label={t("Download")}
@@ -248,6 +251,7 @@ export default function FileViewer({
             <TextView
               key={item.id}
               item={item}
+              source={source}
               markdown={kind === "markdown"}
               editing={editing && editable}
               onEditingChange={setEditing}
@@ -268,7 +272,7 @@ export default function FileViewer({
           ) : kind === "pdf" ? (
             <iframe key={item.id} src={src} title={item.name} />
           ) : kind === "log" ? (
-            <LogView key={item.id} item={item} />
+            <LogView key={item.id} item={item} source={source} />
           ) : (
             <div className="drive-viewer-center">
               <FileIcon item={item} size={48} />
@@ -279,7 +283,7 @@ export default function FileViewer({
               <span className="drive-muted">这种文件不能在这里预览。</span>
               <a
                 className="xc-btn primary"
-                href={contentUrl(item.id)}
+                href={source.url(item.id)}
                 download={item.name}
               >
                 <Download size={14} /> {t("Download")}
