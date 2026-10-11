@@ -8,6 +8,7 @@ import {
   Bot,
   FolderGit2,
   Files,
+  GraduationCap,
   Headphones,
   HardDrive,
   HeartPulse,
@@ -78,6 +79,7 @@ export const navItems: NavItem[] = [
   { path: "/plan", label: "Day plan", icon: CalendarClock, group: "personal" },
   { path: "/inbox", label: "Capture inbox", icon: Inbox, group: "personal" },
   { path: "/forecasts", label: "Forecasts", icon: Scale, group: "personal" },
+  { path: "/skills", label: "Skills", icon: GraduationCap, group: "personal" },
   {
     path: "/checkins",
     label: "Check-ins",

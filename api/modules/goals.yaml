@@ -150,7 +150,7 @@ paths:
       tags: [goals]
       description: |
         能绑定的数据来源。手动一直有。其余的来源只在对应模块可用且没被隐藏时出现。
-        refKind 不是 none 的来源要选一个选项（习惯、电脑时间分类）。
+        refKind 不是 none 的来源要选一个选项（习惯、电脑时间分类、技能）。
       responses:
         "200":
           description: 来源列表
@@ -271,7 +271,7 @@ components:
       enum: [done, on_track, behind, upcoming, missed]
     GoalSource:
       type: string
-      enum: [manual, habit_checkins, workouts, focus_minutes, screen_minutes, github_commits, github_merged_prs]
+      enum: [manual, habit_checkins, workouts, focus_minutes, screen_minutes, github_commits, github_merged_prs, skill_minutes]
     GoalPeriod:
       type: object
       required: [year, quarter]
@@ -350,7 +350,7 @@ components:
       required: [source, refKind, options]
       properties:
         source: { $ref: "#/components/schemas/GoalSource" }
-        refKind: { type: string, enum: [none, habit, category] }
+        refKind: { type: string, enum: [none, habit, category, skill] }
         options:
           type: array
           items: { $ref: "#/components/schemas/GoalMetricOption" }

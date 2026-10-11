@@ -55,7 +55,7 @@ func TestRealSources(t *testing.T) {
 
 	var metrics struct{ Items []api.GoalMetric }
 	env.MustDo(http.MethodGet, "/goals/metrics", nil, &metrics)
-	if len(metrics.Items) != 6 {
+	if len(metrics.Items) != 7 {
 		t.Fatalf("metrics: %+v", metrics.Items)
 	}
 	for _, mt := range metrics.Items {

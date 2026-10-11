@@ -10,6 +10,7 @@ export const SOURCES: GoalSource[] = [
   "screen_minutes",
   "github_commits",
   "github_merged_prs",
+  "skill_minutes",
 ];
 
 /** 来源的名称，英文原文，界面里用 t()。 */
@@ -21,6 +22,7 @@ export const SOURCE_LABELS: Record<GoalSource, string> = {
   screen_minutes: "Computer minutes",
   github_commits: "GitHub commits",
   github_merged_prs: "GitHub merged PRs",
+  skill_minutes: "Skill practice minutes",
 };
 
 /** 选了来源后单位框里先填什么。 */
@@ -32,6 +34,7 @@ export const SOURCE_UNITS: Record<GoalSource, string> = {
   screen_minutes: "分钟",
   github_commits: "个",
   github_merged_prs: "个",
+  skill_minutes: "分钟",
 };
 
 export const STATE_LABELS: Record<GoalState, string> = {

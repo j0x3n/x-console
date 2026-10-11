@@ -44,6 +44,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/router"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/screentime"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/skills"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
 )
@@ -98,6 +99,7 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	experiments.New, // B133
 	inbox.New,       // B134
 	forecasts.New,   // B137
+	skills.New,      // B138
 	dayplan.New,     // B135
 	focusblock.New,  // B131
 }

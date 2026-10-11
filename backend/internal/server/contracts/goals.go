@@ -19,6 +19,7 @@ const (
 	GoalMetricScreenMinutes   = "screen_minutes"    // screentime: minutes, optionally one category
 	GoalMetricGitHubCommits   = "github_commits"    // github: own commits
 	GoalMetricGitHubMergedPRs = "github_merged_prs" // github: own merged pull requests
+	GoalMetricSkillMinutes    = "skill_minutes"     // skills: practice minutes of one skill (B138)
 )
 
 // Kinds of the choice a metric needs.
@@ -26,6 +27,7 @@ const (
 	GoalRefNone     = "none"
 	GoalRefHabit    = "habit"
 	GoalRefCategory = "category"
+	GoalRefSkill    = "skill"
 )
 
 // GoalMetricKind describes one number a module can measure.

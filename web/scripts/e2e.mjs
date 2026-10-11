@@ -1172,6 +1172,24 @@ try {
     );
     await until("预测统计", async () => (await api("/forecasts/stats")).count === 1);
 
+    setStage("技能练习");
+    // B138：建一项技能（每周目标 100 分钟），记一次 30 分钟，本周分钟数变成 30。
+    await page.goto(`${base}/skills`);
+    await page.getByRole("button", { name: "新建技能" }).click();
+    await page.getByLabel("技能名称").fill("端到端技能");
+    await page.getByLabel("每周目标（分钟）").fill("100");
+    await page.getByRole("dialog").getByRole("button", { name: "保存" }).click();
+    await until("技能新建", async () =>
+      (await api("/skills")).items.some((x) => x.name === "端到端技能" && x.weeklyTarget === 100),
+    );
+    await page.getByRole("article", { name: "端到端技能" }).getByRole("button", { name: "记一次" }).click();
+    await page.getByLabel("分钟数").fill("30");
+    await page.getByLabel("练了什么").fill("端到端练习");
+    await page.getByRole("dialog").getByRole("button", { name: "保存" }).click();
+    await until("技能练习", async () =>
+      (await api("/skills")).items.some((x) => x.name === "端到端技能" && x.weekMinutes === 30),
+    );
+
     setStage("今日计划");
     // B135：没有候选事项也能手动排：加一件事、保存、确认；确认后在今日页的计划卡片里能看到。
     await page.goto(`${base}/plan`);

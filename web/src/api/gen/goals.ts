@@ -77,7 +77,7 @@ export interface paths {
         };
         /**
          * @description 能绑定的数据来源。手动一直有。其余的来源只在对应模块可用且没被隐藏时出现。
-         *     refKind 不是 none 的来源要选一个选项（习惯、电脑时间分类）。
+         *     refKind 不是 none 的来源要选一个选项（习惯、电脑时间分类、技能）。
          */
         get: operations["listGoalMetrics"];
         put?: never;
@@ -158,7 +158,7 @@ export interface components {
          */
         GoalState: "done" | "on_track" | "behind" | "upcoming" | "missed";
         /** @enum {string} */
-        GoalSource: "manual" | "habit_checkins" | "workouts" | "focus_minutes" | "screen_minutes" | "github_commits" | "github_merged_prs";
+        GoalSource: "manual" | "habit_checkins" | "workouts" | "focus_minutes" | "screen_minutes" | "github_commits" | "github_merged_prs" | "skill_minutes";
         GoalPeriod: {
             year: number;
             quarter: number;
@@ -256,7 +256,7 @@ export interface components {
         GoalMetric: {
             source: components["schemas"]["GoalSource"];
             /** @enum {string} */
-            refKind: "none" | "habit" | "category";
+            refKind: "none" | "habit" | "category" | "skill";
             options: components["schemas"]["GoalMetricOption"][];
         };
         GoalSettings: {

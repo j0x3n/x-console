@@ -19,6 +19,7 @@ const (
 	Category GoalMetricRefKind = "category"
 	Habit    GoalMetricRefKind = "habit"
 	None     GoalMetricRefKind = "none"
+	Skill    GoalMetricRefKind = "skill"
 )
 
 // Valid indicates whether the value is a known member of the GoalMetricRefKind enum.
@@ -29,6 +30,8 @@ func (e GoalMetricRefKind) Valid() bool {
 	case Habit:
 		return true
 	case None:
+		return true
+	case Skill:
 		return true
 	default:
 		return false
@@ -43,6 +46,7 @@ const (
 	HabitCheckins   GoalSource = "habit_checkins"
 	Manual          GoalSource = "manual"
 	ScreenMinutes   GoalSource = "screen_minutes"
+	SkillMinutes    GoalSource = "skill_minutes"
 	Workouts        GoalSource = "workouts"
 )
 
@@ -60,6 +64,8 @@ func (e GoalSource) Valid() bool {
 	case Manual:
 		return true
 	case ScreenMinutes:
+		return true
+	case SkillMinutes:
 		return true
 	case Workouts:
 		return true

@@ -5,6 +5,7 @@ registerZh({
   Goals: "目标",
   // 其他模块也有的词，这个模块单独加载时也要有
   Habit: "习惯",
+  Skill: "技能",
   Category: "分类",
   Unit: "单位",
   More: "更多",
@@ -55,6 +56,7 @@ registerZh({
   "Habit check-ins": "习惯打卡次数",
   Workouts: "训练次数",
   "Focus minutes": "专注分钟数",
+  "Skill practice minutes": "技能练习分钟数",
   "Computer minutes": "电脑使用分钟数",
   "GitHub commits": "GitHub 提交数",
   "GitHub merged PRs": "GitHub 合并的 PR 数",

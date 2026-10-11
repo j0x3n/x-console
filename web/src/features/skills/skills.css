@@ -1,0 +1,125 @@
+/* B138 技能练习记录。颜色只用 --xc-* 令牌，字号只用 --fs-* 令牌。 */
+
+.sk-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.sk-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sk-card.archived {
+  opacity: 0.7;
+}
+.sk-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sk-name {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-14);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.sk-week {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sk-week strong {
+  font-size: var(--fs-18, 18px);
+}
+.sk-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--xc-surface-2);
+  overflow: hidden;
+}
+.sk-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--xc-accent);
+}
+.sk-chart {
+  height: 56px;
+}
+.sk-meta {
+  margin: 0;
+  font-size: var(--fs-12);
+}
+.sk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sk-hint {
+  margin: 0;
+  font-size: var(--fs-12);
+}
+.sk-form {
+  display: grid;
+  gap: 12px;
+}
+.sk-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sk-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--xc-border);
+  padding-top: 10px;
+}
+.sk-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sk-session-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-13);
+}
+.sk-day {
+  font-family: var(--xc-mono);
+  color: var(--xc-muted);
+}
+.sk-session-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.sk-text {
+  margin: 4px 0 0;
+  font-size: var(--fs-13);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sk-stuck {
+  color: var(--xc-warn);
+}
+@media (max-width: 640px) {
+  .sk-grid {
+    grid-template-columns: 1fr;
+  }
+  .sk-row {
+    grid-template-columns: 1fr;
+  }
+}

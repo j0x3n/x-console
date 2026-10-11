@@ -315,7 +315,11 @@ export default function GoalDialog({ open, onClose, goal, period }: Props) {
                 {metric && metric.refKind !== "none" && (
                   <label className="xc-field goals-grow">
                     <span>
-                      {metric.refKind === "habit" ? t("Habit") : t("Category")}
+                      {metric.refKind === "habit"
+                        ? t("Habit")
+                        : metric.refKind === "skill"
+                          ? t("Skill")
+                          : t("Category")}
                     </span>
                     <select
                       className="xc-select"

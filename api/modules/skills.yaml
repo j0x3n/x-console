@@ -1,0 +1,212 @@
+openapi: 3.0.3
+info:
+  title: X Console skills (B138)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /skills:
+    get:
+      operationId: listSkills
+      tags: [skills]
+      description: 技能和它们的本周、最近 8 周投入。默认不含归档的，archived=true 时一起返回。
+      parameters:
+        - name: archived
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: 技能
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, weekStart, today]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Skill" }
+                  weekStart: { type: string, description: 本周周一 YYYY-MM-DD }
+                  today: { type: string, description: 服务端时区的今天 YYYY-MM-DD }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createSkill
+      tags: [skills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SkillInput" }
+      responses:
+        "201":
+          description: 新技能
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Skill" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /skills/{skillId}:
+    parameters:
+      - $ref: "#/components/parameters/SkillId"
+    patch:
+      operationId: updateSkill
+      tags: [skills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SkillPatch" }
+      responses:
+        "200":
+          description: 改后的技能
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Skill" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteSkill
+      tags: [skills]
+      description: 连练习记录一起删。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /skills/{skillId}/sessions:
+    parameters:
+      - $ref: "#/components/parameters/SkillId"
+    get:
+      operationId: listSkillSessions
+      tags: [skills]
+      description: 练习记录，最近的在前。stuck=true 只返回写了“卡住”的。最多 500 条。
+      parameters:
+        - name: stuck
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        "200":
+          description: 记录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/SkillSession" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createSkillSession
+      tags: [skills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SkillSessionInput" }
+      responses:
+        "201":
+          description: 新记录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SkillSession" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /skill-sessions/{sessionId}:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    patch:
+      operationId: updateSkillSession
+      tags: [skills]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SkillSessionPatch" }
+      responses:
+        "200":
+          description: 改后的记录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SkillSession" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteSkillSession
+      tags: [skills]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    SkillId:
+      name: skillId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    Skill:
+      type: object
+      required: [id, name, archived, weekMinutes, totalMinutes, weeks, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        weeklyTarget: { type: integer, description: 每周目标分钟数，没设就没有这一项 }
+        archived: { type: boolean }
+        weekMinutes: { type: integer, description: 本周（周一起）的分钟数 }
+        totalMinutes: { type: integer }
+        lastPracticedOn: { type: string, description: 最近一次练习的日期，没有记录就没有这一项 }
+        weeks:
+          type: array
+          description: 最近 8 周每周的分钟数，从旧到新，最后一项是本周
+          items: { type: integer }
+        createdAt: { type: string, format: date-time }
+    SkillInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        weeklyTarget: { type: integer, minimum: 1, maximum: 10080 }
+    SkillPatch:
+      type: object
+      properties:
+        name: { type: string }
+        weeklyTarget: { type: integer, minimum: 0, maximum: 10080, description: 0 表示去掉目标 }
+        archived: { type: boolean }
+    SkillSession:
+      type: object
+      required: [id, skillId, practicedOn, minutes, content, stuck, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        skillId: { type: integer, format: int64 }
+        practicedOn: { type: string, description: YYYY-MM-DD }
+        minutes: { type: integer }
+        content: { type: string }
+        stuck: { type: string }
+        createdAt: { type: string, format: date-time }
+    SkillSessionInput:
+      type: object
+      required: [minutes]
+      properties:
+        practicedOn: { type: string, description: 不填就是今天 }
+        minutes: { type: integer, minimum: 1, maximum: 1440 }
+        content: { type: string }
+        stuck: { type: string }
+    SkillSessionPatch:
+      type: object
+      properties:
+        practicedOn: { type: string }
+        minutes: { type: integer, minimum: 1, maximum: 1440 }
+        content: { type: string }
+        stuck: { type: string }

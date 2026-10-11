@@ -1571,6 +1571,24 @@ type Setting struct {
 	UpdatedAt time.Time
 }
 
+type Skill struct {
+	ID           int64
+	Name         string
+	WeeklyTarget *int64
+	Archived     int64
+	CreatedAt    time.Time
+}
+
+type SkillSession struct {
+	ID          int64
+	SkillID     int64
+	PracticedOn string
+	Minutes     int64
+	Content     string
+	Stuck       string
+	CreatedAt   time.Time
+}
+
 type SshHost struct {
 	ID        int64
 	Name      string

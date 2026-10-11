@@ -601,7 +601,7 @@ func TestMetricsListFollowsProvidersAndHiding(t *testing.T) {
 	f := setup(t, wed)
 	var out struct{ Items []api.GoalMetric }
 	f.env.MustDo(http.MethodGet, "/goals/metrics", nil, &out)
-	if len(out.Items) != 6 || out.Items[0].Source != api.HabitCheckins || out.Items[0].RefKind != api.Habit || len(out.Items[0].Options) != 2 {
+	if len(out.Items) != 7 || out.Items[0].Source != api.HabitCheckins || out.Items[0].RefKind != api.Habit || len(out.Items[0].Options) != 2 {
 		t.Fatalf("metrics: %+v", out.Items)
 	}
 	f.hide("habits", "screentime")
@@ -610,7 +610,7 @@ func TestMetricsListFollowsProvidersAndHiding(t *testing.T) {
 	for _, m := range out.Items {
 		got = append(got, string(m.Source))
 	}
-	if strings.Join(got, ",") != "focus_minutes,github_commits,github_merged_prs" {
+	if strings.Join(got, ",") != "focus_minutes,github_commits,github_merged_prs,skill_minutes" {
 		t.Fatalf("with habits and screentime hidden: %v", got)
 	}
 }

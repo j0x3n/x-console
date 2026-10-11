@@ -25,6 +25,7 @@ import { routes as checkins } from "../features/checkins/routes";
 import { routes as experiments } from "../features/experiments/routes";
 import { routes as forecasts } from "../features/forecasts/routes";
 import { routes as inbox } from "../features/inbox/routes";
+import { routes as skills } from "../features/skills/routes";
 import { routes as dayplan } from "../features/dayplan/routes";
 import { routes as credentials } from "../features/credentials/routes";
 import { routes as aiconfig } from "../features/aiconfig/routes";
@@ -65,6 +66,7 @@ export const moduleRoutes: RouteObject[] = [
   ...experiments,
   ...inbox,
   ...forecasts,
+  ...skills,
   ...dayplan,
   ...credentials,
   ...aiconfig,

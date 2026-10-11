@@ -218,6 +218,9 @@ func (m *Module) checkResult(ctx context.Context, cat *catalog, hidden func(stri
 	if kind.RefKind == "habit" {
 		return resultFields{}, httpx.Invalid("请选一个习惯")
 	}
+	if kind.RefKind == "skill" {
+		return resultFields{}, httpx.Invalid("请选一项技能")
+	}
 	return resultFields{}, httpx.Invalid("请选一个分类")
 }
 
@@ -537,5 +540,5 @@ func (m *Module) ListGoalMetrics(w http.ResponseWriter, r *http.Request) {
 
 // metricOrder is the order the sources are offered in.
 var metricOrder = []api.GoalSource{
-	api.HabitCheckins, api.Workouts, api.FocusMinutes, api.ScreenMinutes, api.GithubCommits, api.GithubMergedPrs,
+	api.HabitCheckins, api.Workouts, api.FocusMinutes, api.ScreenMinutes, api.GithubCommits, api.GithubMergedPrs, api.SkillMinutes,
 }
