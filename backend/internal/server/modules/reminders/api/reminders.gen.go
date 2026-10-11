@@ -13,6 +13,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for DigestMode.
+const (
+	Digest DigestMode = "digest"
+	Now    DigestMode = "now"
+)
+
+// Valid indicates whether the value is a known member of the DigestMode enum.
+func (e DigestMode) Valid() bool {
+	switch e {
+	case Digest:
+		return true
+	case Now:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExternalReminderSource.
 const (
 	ExternalReminderSourceCertificate  ExternalReminderSource = "certificate"
@@ -193,6 +211,56 @@ type ChannelField struct {
 
 	// Value 当前值。令牌字段只返回打码后的值
 	Value string `json:"value"`
+}
+
+// DigestCategory defines model for DigestCategory.
+type DigestCategory struct {
+	// DefaultMode now 是立即发，digest 是攒起来合并发
+	DefaultMode DigestMode `json:"defaultMode"`
+	Id          string     `json:"id"`
+
+	// Mode now 是立即发，digest 是攒起来合并发
+	Mode DigestMode `json:"mode"`
+}
+
+// DigestFlushResult defines model for DigestFlushResult.
+type DigestFlushResult struct {
+	// Count 这次合并了几条
+	Count int `json:"count"`
+
+	// Delivered 几个渠道收到了
+	Delivered int `json:"delivered"`
+}
+
+// DigestMode now 是立即发，digest 是攒起来合并发
+type DigestMode string
+
+// DigestSettings defines model for DigestSettings.
+type DigestSettings struct {
+	Enabled bool `json:"enabled"`
+
+	// Modes 分类 id 到模式。没写的分类用默认值
+	Modes map[string]DigestMode `json:"modes"`
+
+	// Times 每天合并推送的时间点，1 到 6 个不重复的 HH:MM，服务端时区
+	Times []string `json:"times"`
+}
+
+// DigestStatus defines model for DigestStatus.
+type DigestStatus struct {
+	Categories []DigestCategory `json:"categories"`
+	Enabled    bool             `json:"enabled"`
+	LastSentAt *time.Time       `json:"lastSentAt,omitempty"`
+
+	// NextAt 下一个时间点
+	NextAt *time.Time `json:"nextAt,omitempty"`
+
+	// OldestAt 最早一条的时间
+	OldestAt *time.Time `json:"oldestAt,omitempty"`
+
+	// Pending 积压条数
+	Pending int      `json:"pending"`
+	Times   []string `json:"times"`
 }
 
 // ExternalReminder defines model for ExternalReminder.
@@ -424,6 +492,9 @@ type RunNotifyActionJSONRequestBody RunNotifyActionJSONBody
 // UpdateNotifyChannelJSONRequestBody defines body for UpdateNotifyChannel for application/json ContentType.
 type UpdateNotifyChannelJSONRequestBody UpdateNotifyChannelJSONBody
 
+// UpdateNotifyDigestJSONRequestBody defines body for UpdateNotifyDigest for application/json ContentType.
+type UpdateNotifyDigestJSONRequestBody = DigestSettings
+
 // UpdateQuietHoursJSONRequestBody defines body for UpdateQuietHours for application/json ContentType.
 type UpdateQuietHoursJSONRequestBody = QuietHours
 
@@ -462,6 +533,15 @@ type ServerInterface interface {
 
 	// (POST /notify/channels/{channel}/test)
 	TestNotifyChannel(w http.ResponseWriter, r *http.Request, channel Channel)
+
+	// (GET /notify/digest)
+	GetNotifyDigest(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /notify/digest)
+	UpdateNotifyDigest(w http.ResponseWriter, r *http.Request)
+
+	// (POST /notify/digest/flush)
+	FlushNotifyDigest(w http.ResponseWriter, r *http.Request)
 
 	// (GET /notify/icons/{name})
 	GetNotifyIcon(w http.ResponseWriter, r *http.Request, name string, params GetNotifyIconParams)
@@ -555,6 +635,21 @@ func (_ Unimplemented) UpdateNotifyChannel(w http.ResponseWriter, r *http.Reques
 
 // (POST /notify/channels/{channel}/test)
 func (_ Unimplemented) TestNotifyChannel(w http.ResponseWriter, r *http.Request, channel Channel) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /notify/digest)
+func (_ Unimplemented) GetNotifyDigest(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /notify/digest)
+func (_ Unimplemented) UpdateNotifyDigest(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notify/digest/flush)
+func (_ Unimplemented) FlushNotifyDigest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -778,6 +873,48 @@ func (siw *ServerInterfaceWrapper) TestNotifyChannel(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TestNotifyChannel(w, r, channel)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNotifyDigest operation middleware
+func (siw *ServerInterfaceWrapper) GetNotifyDigest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNotifyDigest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNotifyDigest operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNotifyDigest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNotifyDigest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FlushNotifyDigest operation middleware
+func (siw *ServerInterfaceWrapper) FlushNotifyDigest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FlushNotifyDigest(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1387,6 +1524,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/notify/quiet-hours", wrapper.UpdateQuietHours)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/notify/digest", wrapper.GetNotifyDigest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/notify/digest", wrapper.UpdateNotifyDigest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notify/digest/flush", wrapper.FlushNotifyDigest)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notify/actions", wrapper.RunNotifyAction)

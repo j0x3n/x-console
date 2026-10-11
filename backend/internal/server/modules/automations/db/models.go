@@ -947,6 +947,19 @@ type NotificationRoute struct {
 	SortOrder   int64
 }
 
+type NotifyDigestQueue struct {
+	ID             int64
+	NotificationID int64
+	CreatedAt      time.Time
+	Kind           string
+	Title          string
+	Body           string
+	Link           string
+	Priority       string
+	Source         string
+	Category       string
+}
+
 type PairingCode struct {
 	CodeHash  string
 	Name      string

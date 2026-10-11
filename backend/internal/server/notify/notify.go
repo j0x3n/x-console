@@ -45,6 +45,9 @@ type Notification struct {
 	Source   string // module name
 	Actions  []Action
 	Data     map[string]any
+	// Immediate keeps the notification out of the digest (B127). The zero
+	// value keeps the old behavior: the digest settings decide.
+	Immediate bool
 }
 
 // Stored is a notification after it was saved.
@@ -66,6 +69,14 @@ type Router interface {
 	Route(ctx context.Context, n Stored) []string
 }
 
+// Holder may keep a notification back from the external channels, for
+// example to merge it into a digest. Hold returns true when it took the
+// notification over and will deliver it later with DeliverNow. The in-app
+// record and the browser event are not affected.
+type Holder interface {
+	Hold(ctx context.Context, n Stored) bool
+}
+
 // ActionHandler handles a notification button press.
 type ActionHandler func(ctx context.Context, actionID string) error
 
@@ -77,6 +88,7 @@ type Service struct {
 	mu       sync.RWMutex
 	channels map[string]Channel
 	router   Router
+	holder   Holder
 	actions  map[string]ActionHandler
 }
 
@@ -115,6 +127,13 @@ func (s *Service) ChannelNames() []string {
 func (s *Service) SetRouter(r Router) {
 	s.mu.Lock()
 	s.router = r
+	s.mu.Unlock()
+}
+
+// SetHolder installs the digest policy. A nil holder delivers everything now.
+func (s *Service) SetHolder(h Holder) {
+	s.mu.Lock()
+	s.holder = h
 	s.mu.Unlock()
 }
 
@@ -182,27 +201,52 @@ func (s *Service) save(ctx context.Context, q *db.Queries, n Notification) (Stor
 func (s *Service) Dispatch(ctx context.Context, stored Stored) {
 	s.bus.Publish("notification.created", API{ID: stored.ID, CreatedAt: stored.CreatedAt, Kind: stored.Kind, Title: stored.Title, Body: stored.Body, Link: stored.Link, Priority: stored.Priority, Source: stored.Source})
 	s.mu.RLock()
-	router := s.router
+	router, holder := s.router, s.holder
 	s.mu.RUnlock()
-	if router != nil {
-		go s.deliver(context.WithoutCancel(ctx), router, stored)
+	if router == nil {
+		return
 	}
+	if holder != nil && holder.Hold(ctx, stored) {
+		return
+	}
+	go s.deliver(context.WithoutCancel(ctx), router, stored)
 }
 
 func (s *Service) deliver(ctx context.Context, router Router, n Stored) {
+	s.sendRouted(ctx, router, n)
+}
+
+// DeliverNow sends n to the channels the router picks and waits for them.
+// It returns how many channels accepted it and how many failed. A held
+// notification comes back through here when its digest is due.
+func (s *Service) DeliverNow(ctx context.Context, n Stored) (ok, failed int) {
+	s.mu.RLock()
+	router := s.router
+	s.mu.RUnlock()
+	if router == nil {
+		return 0, 0
+	}
+	return s.sendRouted(ctx, router, n)
+}
+
+func (s *Service) sendRouted(ctx context.Context, router Router, n Stored) (ok, failed int) {
 	for _, name := range router.Route(ctx, n) {
-		c, ok := s.Channel(name)
-		if !ok {
+		c, found := s.Channel(name)
+		if !found {
 			continue
 		}
 		sendCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		err := c.Send(sendCtx, n)
 		cancel()
 		if err != nil {
+			failed++
 			slog.Warn("notification delivery failed", "channel", name, "id", n.ID, "err", err)
 			s.bus.Publish("notification.delivery_failed", map[string]any{"id": n.ID, "channel": name, "error": err.Error()})
+			continue
 		}
+		ok++
 	}
+	return ok, failed
 }
 
 // Queries exposes the generated queries to the core HTTP handlers.
