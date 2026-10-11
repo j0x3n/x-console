@@ -257,6 +257,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notify/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 推送合并的设置和状态（B127）。 */
+        get: operations["getNotifyDigest"];
+        put: operations["updateNotifyDigest"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notify/digest/flush": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 现在把积压的通知合并发出。免打扰时段内回 409 quiet_hours。 */
+        post: operations["flushNotifyDigest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notify/actions": {
         parameters: {
             query?: never;
@@ -519,6 +553,50 @@ export interface components {
             enabled: boolean;
             start: string;
             end: string;
+        };
+        /**
+         * @description now 是立即发，digest 是攒起来合并发
+         * @enum {string}
+         */
+        DigestMode: "now" | "digest";
+        DigestSettings: {
+            enabled: boolean;
+            /** @description 每天合并推送的时间点，1 到 6 个不重复的 HH:MM，服务端时区 */
+            times: string[];
+            /** @description 分类 id 到模式。没写的分类用默认值 */
+            modes: {
+                [key: string]: components["schemas"]["DigestMode"];
+            };
+        };
+        DigestCategory: {
+            id: string;
+            mode: components["schemas"]["DigestMode"];
+            defaultMode: components["schemas"]["DigestMode"];
+        };
+        DigestStatus: {
+            enabled: boolean;
+            times: string[];
+            categories: components["schemas"]["DigestCategory"][];
+            /** @description 积压条数 */
+            pending: number;
+            /**
+             * Format: date-time
+             * @description 最早一条的时间
+             */
+            oldestAt?: string;
+            /** Format: date-time */
+            lastSentAt?: string;
+            /**
+             * Format: date-time
+             * @description 下一个时间点
+             */
+            nextAt?: string;
+        };
+        DigestFlushResult: {
+            /** @description 这次合并了几条 */
+            count: number;
+            /** @description 几个渠道收到了 */
+            delivered: number;
         };
         /**
          * @description 按 endpoint 的域名判断。google 是 fcm.googleapis.com（Chrome），microsoft 是 *.notify.windows.com（Edge），mozilla 是 *.push.services.mozilla.com（Firefox），apple 是 *.push.apple.com（Safari）
@@ -1101,6 +1179,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuietHours"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getNotifyDigest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设置和积压情况 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestStatus"];
+                };
+            };
+        };
+    };
+    updateNotifyDigest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DigestSettings"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    flushNotifyDigest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已处理 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestFlushResult"];
                 };
             };
             default: components["responses"]["Error"];

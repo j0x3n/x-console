@@ -32,6 +32,7 @@ export const notifyKeys = {
   channels: ["notify", "channels"] as const,
   routes: ["notify", "routes"] as const,
   quiet: ["notify", "quiet-hours"] as const,
+  digest: ["notify", "digest"] as const,
   subscriptions: ["notify", "webpush-subscriptions"] as const,
   mutes: ["notify", "mutes"] as const,
 };
@@ -188,6 +189,36 @@ export function useSaveQuietHours() {
   return useMutation({
     mutationFn: (body: QuietHours) =>
       unwrap(remindersApi.PUT("/notify/quiet-hours", { body })),
+    onSuccess: invalidate,
+  });
+}
+
+/* ---- B127：推送合并 ---- */
+
+export type DigestStatus = Schemas["DigestStatus"];
+export type DigestSettings = Schemas["DigestSettings"];
+export type DigestMode = Schemas["DigestMode"];
+
+export function useDigest() {
+  return useQuery({
+    queryKey: notifyKeys.digest,
+    queryFn: () => unwrap(remindersApi.GET("/notify/digest")),
+  });
+}
+
+export function useSaveDigest() {
+  const invalidate = useInvalidate(notifyKeys.digest);
+  return useMutation({
+    mutationFn: (body: DigestSettings) =>
+      unwrap(remindersApi.PUT("/notify/digest", { body })),
+    onSuccess: invalidate,
+  });
+}
+
+export function useFlushDigest() {
+  const invalidate = useInvalidate(notifyKeys.digest);
+  return useMutation({
+    mutationFn: () => unwrap(remindersApi.POST("/notify/digest/flush")),
     onSuccess: invalidate,
   });
 }

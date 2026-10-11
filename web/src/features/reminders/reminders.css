@@ -382,7 +382,66 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.notify-mute-form {
+.-mute-form {
   display: grid;
   gap: 0;
+}
+
+/* B127：推送合并 */
+.notify-digest {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.digest-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+}
+.digest-status small {
+  font-size: var(--fs-12);
+}
+.digest-times {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.digest-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.digest-time .xc-input {
+  width: 110px;
+}
+.digest-types {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.digest-types li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.digest-types li:last-child {
+  border-bottom: 0;
+}
+.digest-types li > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.digest-types .xc-select {
+  width: 96px;
+  flex: none;
 }

@@ -35,3 +35,35 @@ func PushIcons(m *Module, ctx context.Context, n notify.Stored) (string, string)
 	return m.pushIcons(ctx, n)
 }
 func IconDraws(m *Module) int { m.iconMu.Lock(); defer m.iconMu.Unlock(); return m.iconDraws }
+
+// B127 digest hooks.
+
+func DigestTick(m *Module, ctx context.Context, now time.Time) error { return m.digestTick(ctx, now) }
+
+func FlushDigest(m *Module, ctx context.Context, now time.Time, manual bool) (api.DigestFlushResult, error) {
+	return m.flushDigest(ctx, now, manual)
+}
+
+func ResetDigestBackoff(m *Module) {
+	m.digestMu.Lock()
+	m.digestRetryAt = time.Time{}
+	m.digestMu.Unlock()
+}
+
+func BuildDigest(items []db.NotifyDigestQueue, now time.Time, loc *time.Location, link func(string) string) notify.Notification {
+	return buildDigest(items, now, loc, link)
+}
+
+func DigestCategoryOf(kind string) string { return digestCategoryOf(kind) }
+
+func DigestDecision(enabled bool, modes map[string]string, n notify.Stored) (string, bool) {
+	return digestDecision(digestConfig{Enabled: enabled, Modes: modes}, n)
+}
+
+func LatestSlot(times []string, now time.Time, loc *time.Location) (time.Time, bool) {
+	return latestSlot(times, now, loc)
+}
+
+func NextSlot(times []string, now time.Time, loc *time.Location) (time.Time, bool) {
+	return nextSlot(times, now, loc)
+}

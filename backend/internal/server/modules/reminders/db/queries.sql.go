@@ -10,6 +10,17 @@ import (
 	"time"
 )
 
+const countDigestItems = `-- name: CountDigestItems :one
+SELECT count(*) FROM notify_digest_queue
+`
+
+func (q *Queries) CountDigestItems(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countDigestItems)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPushSubscriptions = `-- name: CountPushSubscriptions :one
 SELECT count(*) FROM webpush_subscriptions
 `
@@ -66,6 +77,15 @@ func (q *Queries) CreateReminder(ctx context.Context, arg CreateReminderParams) 
 		&i.Icon,
 	)
 	return i, err
+}
+
+const deleteDigestItemsUpTo = `-- name: DeleteDigestItemsUpTo :exec
+DELETE FROM notify_digest_queue WHERE id <= ?
+`
+
+func (q *Queries) DeleteDigestItemsUpTo(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteDigestItemsUpTo, id)
+	return err
 }
 
 const deleteMute = `-- name: DeleteMute :execrows
@@ -194,6 +214,40 @@ func (q *Queries) GetReminder(ctx context.Context, id int64) (Reminder, error) {
 	return i, err
 }
 
+const insertDigestItem = `-- name: InsertDigestItem :exec
+
+INSERT INTO notify_digest_queue (notification_id, created_at, kind, title, body, link, priority, source, category)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertDigestItemParams struct {
+	NotificationID int64
+	CreatedAt      time.Time
+	Kind           string
+	Title          string
+	Body           string
+	Link           string
+	Priority       string
+	Source         string
+	Category       string
+}
+
+// B127: queue of notifications held for the digest
+func (q *Queries) InsertDigestItem(ctx context.Context, arg InsertDigestItemParams) error {
+	_, err := q.db.ExecContext(ctx, insertDigestItem,
+		arg.NotificationID,
+		arg.CreatedAt,
+		arg.Kind,
+		arg.Title,
+		arg.Body,
+		arg.Link,
+		arg.Priority,
+		arg.Source,
+		arg.Category,
+	)
+	return err
+}
+
 const insertMute = `-- name: InsertMute :one
 INSERT INTO notification_mutes (kind_pattern, scope, target, created_at) VALUES (?, ?, ?, ?) RETURNING id, kind_pattern, scope, target, created_at
 `
@@ -255,6 +309,44 @@ func (q *Queries) InsertRoute(ctx context.Context, arg InsertRouteParams) (Notif
 		&i.SortOrder,
 	)
 	return i, err
+}
+
+const listDigestItems = `-- name: ListDigestItems :many
+SELECT id, notification_id, created_at, kind, title, body, link, priority, source, category FROM notify_digest_queue ORDER BY id
+`
+
+func (q *Queries) ListDigestItems(ctx context.Context) ([]NotifyDigestQueue, error) {
+	rows, err := q.db.QueryContext(ctx, listDigestItems)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []NotifyDigestQueue
+	for rows.Next() {
+		var i NotifyDigestQueue
+		if err := rows.Scan(
+			&i.ID,
+			&i.NotificationID,
+			&i.CreatedAt,
+			&i.Kind,
+			&i.Title,
+			&i.Body,
+			&i.Link,
+			&i.Priority,
+			&i.Source,
+			&i.Category,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listDueReminders = `-- name: ListDueReminders :many
@@ -546,6 +638,17 @@ func (q *Queries) MarkPushOK(ctx context.Context, arg MarkPushOKParams) error {
 	return err
 }
 
+const oldestDigestItemAt = `-- name: OldestDigestItemAt :one
+SELECT created_at FROM notify_digest_queue ORDER BY created_at LIMIT 1
+`
+
+func (q *Queries) OldestDigestItemAt(ctx context.Context) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, oldestDigestItemAt)
+	var created_at time.Time
+	err := row.Scan(&created_at)
+	return created_at, err
+}
+
 const pruneDeviceMutes = `-- name: PruneDeviceMutes :exec
 DELETE FROM notification_mutes
 WHERE target LIKE 'webpush:%' AND CAST(substr(target, 9) AS INTEGER) NOT IN (SELECT id FROM webpush_subscriptions)
@@ -554,6 +657,17 @@ WHERE target LIKE 'webpush:%' AND CAST(substr(target, 9) AS INTEGER) NOT IN (SEL
 // A rule that points at a Web Push device that is gone has nothing to do.
 func (q *Queries) PruneDeviceMutes(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, pruneDeviceMutes)
+	return err
+}
+
+const trimDigestItems = `-- name: TrimDigestItems :exec
+DELETE FROM notify_digest_queue
+WHERE id <= (SELECT id FROM notify_digest_queue ORDER BY id DESC LIMIT 1 OFFSET ?1)
+`
+
+// Keeps only the newest `keep` rows.
+func (q *Queries) TrimDigestItems(ctx context.Context, keep int64) error {
+	_, err := q.db.ExecContext(ctx, trimDigestItems, keep)
 	return err
 }
 

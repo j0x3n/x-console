@@ -34,6 +34,9 @@ type Module struct {
 	icons     map[string][]byte
 	iconOrder []string
 	iconDraws int
+
+	digestMu      sync.Mutex // one flush at a time
+	digestRetryAt time.Time  // no automatic flush before this time
 }
 
 var (
@@ -53,6 +56,7 @@ func New(d *module.Deps) (module.Module, error) {
 	d.Notify.RegisterChannel(&barkChannel{m: m})
 	d.Notify.RegisterChannel(&serverChanChannel{m: m})
 	d.Notify.SetRouter(&router{m: m})
+	d.Notify.SetHolder(&digestHolder{m: m})
 	d.Notify.OnAction("reminder.", m.handleAction)
 	module.Provide[contracts.Reminders](d.Registry, contracts.RemindersKey, m)
 	m.registerActions()
@@ -78,6 +82,9 @@ func (m *Module) Start(ctx context.Context) error {
 	m.watchScopeRemoved(ctx)
 	m.d.Scheduler.Every("reminders.scan", scanInterval, func(ctx context.Context) error {
 		return m.scan(ctx, time.Now())
+	})
+	m.d.Scheduler.Every("notify.digest", time.Minute, func(ctx context.Context) error {
+		return m.digestTick(ctx, time.Now())
 	})
 	return nil
 }
