@@ -448,9 +448,9 @@ func TestDoubtfulMinutelyRain(t *testing.T) {
 	}
 
 	ex := extra()
-	// 页面原样显示和风的分钟降水，只有推送会因为存疑而不发
-	if ex.Minutely.Points[0].Precip != 0.05 {
-		t.Fatalf("minutely rewritten: %+v", ex.Minutely)
+	// 实况晴、概率 0：页面按没有降水显示并写明依据，推送也不发
+	if ex.Minutely.Points[0].Precip != 0 || !strings.Contains(ex.Minutely.Summary, "降水概率 0%，没有降水") {
+		t.Fatalf("doubtful rain kept: %+v", ex.Minutely)
 	}
 	if err := brief.CheckRainSoon(m, ctx, now); err != nil {
 		t.Fatal(err)
@@ -458,6 +458,14 @@ func TestDoubtfulMinutelyRain(t *testing.T) {
 	if got := notes(t, env, "weather.rain_soon"); len(got) != 0 {
 		t.Fatalf("doubtful rain pushed: %+v", got)
 	}
+
+	// 2026-10-11 东海雾天：实况是雾，概率 30，分钟降水说正在下，不信
+	setPop("30")
+	f.set(func(f *qwFake) { f.nowIcon = "501" })
+	if ex := extra(); ex.Minutely.Points[0].Precip != 0 {
+		t.Fatalf("fog with pop 30: %+v", ex.Minutely)
+	}
+	f.set(func(f *qwFake) { f.nowIcon = "150" })
 
 	// 逐小时也说可能下，信分钟降水
 	setPop("60")

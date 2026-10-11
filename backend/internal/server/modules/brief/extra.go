@@ -409,31 +409,55 @@ func (m *Module) fetchMinutely(ctx context.Context, qc qwConfig, loc api.BriefLo
 			break
 		}
 	}
+	rainingNow := len(out.Points) > 0 && out.Points[0].Precip > 0
+	if slices.ContainsFunc(out.Points, func(p api.MinutelyPoint) bool { return p.Precip > 0 }) {
+		// 2026-10-11 东海雾天页面写“正在下雨，还要下 120 分钟”，用户确认是错的。
+		// 实况不是雨雪、逐小时概率又低时，页面按没有降水显示，并写清依据。
+		if doubt, why := m.rainDoubtful(ctx, loc, rainingNow); doubt {
+			out.Summary = why + "，没有降水"
+			for i := range out.Points {
+				out.Points[i].Precip = 0
+			}
+		}
+	}
 	return out, nil
 }
 
-// doubtfulPop: 未来两小时降水概率低于它，又没在下雨下雪，分钟降水里的雨就不信。
-const doubtfulPop = 20
+const (
+	// doubtfulPop: 未来两小时降水概率低于它，又没在下雨下雪，分钟降水里的雨就不信。
+	doubtfulPop = 20
+	// doubtfulNowPop: 分钟降水说“正在下”，实况却不是雨雪时，要概率到这个数才信。
+	doubtfulNowPop = 50
+)
 
 // rainDoubtful says whether rain in the minute forecast is likely a false
 // radar echo: the current weather is not rain or snow and the hourly
 // forecast gives a low chance. 2026-10-07 东海晴天，分钟降水却一直说在下小雨。
-// Only the push uses it. 2026-10-10 页面上不再改写分钟降水，原样显示和风的数据。
+// 2026-10-11 东海雾天同样被说成在下雨，逐小时概率没有低到 20，所以“正在下”
+// 这种说法的门槛抬到 50。
+// why 是给页面看的依据，例如“现在是雾，未来两小时降水概率 30%”。
 // When either check fails the minute forecast is trusted.
-func (m *Module) rainDoubtful(ctx context.Context, loc api.BriefLocation) bool {
+func (m *Module) rainDoubtful(ctx context.Context, loc api.BriefLocation, rainingNow bool) (bool, string) {
 	w, err := m.fetchWeather(ctx, "", loc, false)
 	if err != nil || w.Icon == nil {
-		return false
+		return false, ""
 	}
 	if n, _ := strconv.Atoi(*w.Icon); n >= 300 && n < 500 {
-		return false
+		return false, ""
 	}
 	pop, known, err := m.popAhead(ctx, loc, 2)
 	if err != nil {
 		m.d.Log.Warn("brief: 和风逐小时降水概率查询失败", "err", err)
-		return false
+		return false, ""
 	}
-	return known && pop < doubtfulPop
+	limit := doubtfulPop
+	if rainingNow {
+		limit = doubtfulNowPop
+	}
+	if !known || pop >= limit {
+		return false, ""
+	}
+	return true, fmt.Sprintf("现在是%s，未来两小时降水概率 %d%%", w.Summary, pop)
 }
 
 // ---- 空气质量 ----
