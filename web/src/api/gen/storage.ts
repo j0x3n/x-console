@@ -219,6 +219,26 @@ export interface paths {
         /** @description 列网盘里的一个文件夹，文件夹在前。锁定时被隐藏的回 404 */
         get: operations["listStorageRemoteItems"];
         put?: never;
+        post: operations["createStorageRemoteFolder"];
+        /** @description 删除外部网盘文件或文件夹。要提升权限 */
+        delete: operations["deleteStorageRemoteItem"];
+        options?: never;
+        head?: never;
+        patch: operations["renameStorageRemoteItem"];
+        trace?: never;
+    };
+    "/storage/remotes/{remoteId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description 上传文件或修改文本。ref 表示现有文件；新文件用 parent 和 name。If-Match 防止覆盖已经修改的内容 */
+        put: operations["putStorageRemoteContent"];
         post?: never;
         delete?: never;
         options?: never;
@@ -273,6 +293,8 @@ export interface components {
                 authorized: boolean;
                 /** @description 授权的 Google 账号邮箱 */
                 account?: string;
+                /** @description 已授权修改全部文件。旧授权需要重新授权 */
+                writable?: boolean;
                 /** @description 授权里没有只读权限，只能看到面板自己建的文件，要重新授权 */
                 limited: boolean;
                 /** @description 要填到 Google 控制台的重定向地址。B63 时授权的账号继续用旧地址 */
@@ -307,6 +329,7 @@ export interface components {
             size?: number;
             /** Format: date-time */
             modifiedAt?: string;
+            mime?: string;
             /** @description Google 文档这类在线文件是 false */
             downloadable: boolean;
         };
@@ -790,9 +813,124 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    createStorageRemoteFolder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    parent?: string;
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 新建的文件夹 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageRemoteEntry"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteStorageRemoteItem: {
+        parameters: {
+            query: {
+                ref: string;
+            };
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    renameStorageRemoteItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ref: string;
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 改名后的文件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageRemoteEntry"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putStorageRemoteContent: {
+        parameters: {
+            query?: {
+                ref?: string;
+                parent?: string;
+                name?: string;
+            };
+            header?: never;
+            path: {
+                remoteId: components["parameters"]["RemoteId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageRemoteEntry"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     downloadStorageRemoteFile: {
         parameters: {
             query: {
+                inline?: boolean;
                 ref: string;
             };
             header?: never;

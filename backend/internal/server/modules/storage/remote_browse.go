@@ -3,10 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
-	"io"
-	"mime"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -77,7 +74,7 @@ func browseError(err error) error {
 }
 
 func entryAPI(e files.DirEntry) api.StorageRemoteEntry {
-	out := api.StorageRemoteEntry{Ref: e.Ref, Name: e.Name, IsDir: e.Dir, Downloadable: e.Downloadable()}
+	out := api.StorageRemoteEntry{Ref: e.Ref, Name: e.Name, IsDir: e.Dir, Downloadable: e.Downloadable(), Mime: ptr(e.MimeType)}
 	if !e.Dir {
 		out.Size = ptr(e.Size)
 	}
@@ -139,37 +136,7 @@ func (m *Module) DownloadStorageRemoteFile(w http.ResponseWriter, r *http.Reques
 		httpx.Fail(w, r, err)
 		return
 	}
-	ref := strings.Trim(params.Ref, "/")
-	disposition := func(name string) {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-	}
-	if b.webdav != nil {
-		f, info, err := files.OpenSeeker(ctx, b.webdav, ref)
-		if err != nil {
-			httpx.Fail(w, r, browseError(err))
-			return
-		}
-		defer f.Close()
-		name := ref[strings.LastIndex(ref, "/")+1:]
-		disposition(name)
-		http.ServeContent(w, r, name, info.ModTime, f)
-		return
-	}
-	rc, e, err := b.gdrive.OpenFile(ctx, ref)
-	if err != nil {
-		if !errors.Is(err, files.ErrNotFound) && e.Name != "" && !e.Downloadable() {
-			httpx.Fail(w, r, httpx.Invalid(err.Error()))
-			return
-		}
-		httpx.Fail(w, r, browseError(err))
-		return
-	}
-	defer rc.Close()
-	disposition(e.Name)
-	w.Header().Set("Content-Length", strconv.FormatInt(e.Size, 10))
-	io.Copy(w, rc) //nolint:errcheck // the client went away
+	m.serveRemote(w, r, b, params.Ref, params.Inline != nil && *params.Inline)
 }
 
 func updateParams(row db.StorageRemote, c remoteConfig, now time.Time) db.UpdateRemoteParams {

@@ -1,3 +1,4 @@
+import { driveSource, type FileSource } from "./source";
 import { useEffect, useRef, useState } from "react";
 import { wsUrl } from "../../../api/client";
 import LogViewer, { type LogLine } from "../../../components/log/LogViewer";
@@ -12,22 +13,34 @@ import { readContent, type DriveFollowFrame, type DriveItem } from "../api";
 export type ReadRange = (start: number, end?: number) => Promise<Uint8Array>;
 
 /** 云盘里的文件。 */
-export default function LogView({ item }: { item: DriveItem }) {
+export default function LogView({
+  item,
+  source = driveSource,
+}: {
+  item: DriveItem;
+  source?: FileSource;
+}) {
   const read: ReadRange = (start, end) =>
-    readContent(
-      item.id,
-      end !== undefined
-        ? `bytes=${start}-${end - 1}`
-        : start > 0
-          ? `bytes=${start}-`
-          : undefined,
-    ).then((r) => r.bytes);
+    source
+      .read(
+        item.id,
+        end !== undefined
+          ? `bytes=${start}-${end - 1}`
+          : start > 0
+            ? `bytes=${start}-`
+            : undefined,
+      )
+      .then((r) => r.bytes);
   return (
     <RangeLogView
       fileKey={`drive-${item.id}`}
       size={item.size}
       read={read}
-      followPath={(offset) => `/drive/items/${item.id}/follow?offset=${offset}`}
+      followPath={
+        source.followPath
+          ? (offset) => source.followPath!(item.id, offset)
+          : undefined
+      }
     />
   );
 }
@@ -50,7 +63,7 @@ export function RangeLogView({
   size: number;
   read: ReadRange;
   /** 实时模式的 WebSocket 路径（不含 /api/v1）。 */
-  followPath: (offset: number) => string;
+  followPath?: (offset: number) => string;
 }) {
   const t = useT();
   const [lines, setLines] = useState<LogLine[] | null>(null);
@@ -106,7 +119,7 @@ export function RangeLogView({
 
   // 实时模式。
   useEffect(() => {
-    if (!live) return;
+    if (!live || !followPath) return;
     const ws = new WebSocket(wsUrl(followPath(state.current.end)));
     let opened = false;
     ws.onopen = () => {
@@ -195,7 +208,12 @@ export function RangeLogView({
               </small>
             )}
             <span className="drive-log-live">
-              <Switch checked={live} onChange={setLive} label={t("Live")} />
+              <Switch
+                disabled={!followPath}
+                checked={live}
+                onChange={setLive}
+                label={t("Live")}
+              />
               <small>{t("Live")}</small>
             </span>
           </>

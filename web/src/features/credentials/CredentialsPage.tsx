@@ -33,9 +33,14 @@ function matchesView(c: CredentialItem, view: View) {
 export default function CredentialsPage() {
   const t = useT();
   const [params, setParams] = useSearchParams();
-  const [archived, setArchived] = useState(false);
+  const archived = params.get("archived") === "1";
   const [q, setQ] = useState("");
-  const [kind, setKind] = useState<CredentialKind | "">("");
+  const categoryParam = params.get("kind");
+  const kind: CredentialKind | "" = KINDS.includes(
+    categoryParam as CredentialKind,
+  )
+    ? (categoryParam as CredentialKind)
+    : "";
   const [openId, setOpenId] = useState<number | null>(null);
   const list = useCredentials(archived);
 
@@ -66,7 +71,9 @@ export default function CredentialsPage() {
       { replace: true },
     );
 
-  const all = list.data?.items ?? [];
+  const all = (list.data?.items ?? []).filter(
+    (item) => item.archived === archived,
+  );
   const summary = list.data?.summary;
   const needle = q.trim().toLowerCase();
   const items = all.filter(
@@ -168,31 +175,6 @@ export default function CredentialsPage() {
         />
       </StatStrip>
       <Toolbar
-        start={
-          <div className="credentials-filters">
-            <select
-              className="xc-select"
-              aria-label={t("Type")}
-              value={kind}
-              onChange={(e) => setKind(e.target.value as CredentialKind | "")}
-            >
-              <option value="">{t("All types")}</option>
-              {KINDS.map((k) => (
-                <option key={k} value={k}>
-                  {t(KIND_LABELS[k])}
-                </option>
-              ))}
-            </select>
-            <label className="xc-check">
-              <input
-                type="checkbox"
-                checked={archived}
-                onChange={(e) => setArchived(e.target.checked)}
-              />
-              <span>{t("Show archived")}</span>
-            </label>
-          </div>
-        }
         end={
           <SearchBox
             value={q}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -213,7 +214,7 @@ func (m *Module) authorize(ctx context.Context, id int64, code, redirect string)
 	if err != nil {
 		return "", errors.New("已授权，但读不到账号：" + err.Error())
 	}
-	c.Account, c.Browse = account, grant.CanBrowse()
+	c.Account, c.Browse, c.Write = account, grant.CanBrowse(), slices.Contains(grant.Scopes, files.GoogleWriteScope)
 	_, err = m.q.UpdateRemote(ctx, updateParams(row, c, m.now()))
 	return account, err
 }
@@ -249,7 +250,7 @@ func (m *Module) revokeGDrive(ctx context.Context, id int64) error {
 	if err := m.setRemoteSecret(ctx, id, secToken, ""); err != nil {
 		return err
 	}
-	c.Account, c.Browse = "", false
+	c.Account, c.Browse, c.Write = "", false, false
 	_, err = m.q.UpdateRemote(ctx, updateParams(row, c, m.now()))
 	return err
 }

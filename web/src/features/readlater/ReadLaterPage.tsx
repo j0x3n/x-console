@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Bookmark, Check, ExternalLink, Plus } from "lucide-react";
+import { Bookmark, Check, ExternalLink, Plus, Globe } from "lucide-react";
 import { isNotLive } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
 import { StatCard, StatStrip } from "../../components/ui/Stat";
@@ -69,7 +69,6 @@ export default function ReadLaterPage() {
 
   const counts = list.data?.counts;
   const items = list.data?.items ?? [];
-  const tags = list.data?.tags ?? [];
   const filtered = q.trim() !== "" || tag !== "";
 
   let body;
@@ -168,19 +167,6 @@ export default function ReadLaterPage() {
         />
       </StatStrip>
       <Toolbar
-        start={
-          <nav className="xc-tabs" aria-label={t("Read later")}>
-            {VIEWS.map((v) => (
-              <button
-                key={v}
-                className={v === view ? "active" : ""}
-                onClick={() => set({ view: v === "unread" ? null : v })}
-              >
-                {t(v === "unread" ? "Unread" : v === "read" ? "Read" : "All")}
-              </button>
-            ))}
-          </nav>
-        }
         end={
           <SearchBox
             value={q}
@@ -190,20 +176,6 @@ export default function ReadLaterPage() {
           />
         }
       />
-      {tags.length > 0 && (
-        <div className="readlater-tags" role="group" aria-label={t("Tags")}>
-          {tags.map((x) => (
-            <button
-              key={x.tag}
-              className={`xc-btn small${x.tag === tag ? " primary" : ""}`}
-              aria-pressed={x.tag === tag}
-              onClick={() => set({ tag: x.tag === tag ? null : x.tag })}
-            >
-              {x.tag} <span className="readlater-tag-count">{x.count}</span>
-            </button>
-          ))}
-        </div>
-      )}
       {body}
       <AddLinkDialog open={creating} onClose={() => set({ new: null })} />
       <ReadDetail id={openId} onClose={() => setOpenId(null)} />
@@ -222,10 +194,28 @@ function Row({
 }) {
   const t = useT();
   const language = useLanguage();
+  const [iconFailed, setIconFailed] = useState(false);
+  const iconUrl = new URL("/favicon.ico", item.url).href;
   return (
     <div className={`readlater-row${item.read ? " is-read" : ""}`}>
       <button className="readlater-main" onClick={onOpen}>
-        <strong>{item.title}</strong>
+        <strong className="readlater-title">
+          <span className="readlater-site-icon">
+            {iconFailed ? (
+              <Globe size={16} />
+            ) : (
+              <img
+                key={iconUrl}
+                src={iconUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                loading="lazy"
+                onError={() => setIconFailed(true)}
+              />
+            )}
+          </span>
+          <span>{item.title}</span>
+        </strong>
         <small>
           {item.site} · {relativeTime(item.createdAt, language)} ·{" "}
           {t(SOURCE_LABELS[item.source])}

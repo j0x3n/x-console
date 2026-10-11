@@ -61,13 +61,15 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import CredentialsPage from "./CredentialsPage";
+import NavChildren from "./NavChildren";
 import "./i18n";
 
-function renderIt(url = "/credentials") {
+function renderIt(url = "/credentials", nav = false) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[url]}>
+        {nav && <NavChildren onNavigate={() => {}} />}
         <CredentialsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -253,7 +255,7 @@ describe("CredentialsPage B120", () => {
 
   it("点概要卡片按状态筛选，类型下拉按类型筛选", async () => {
     serve();
-    renderIt();
+    renderIt("/credentials", true);
     await screen.findByText("部署令牌");
     fireEvent.click(
       screen
@@ -267,9 +269,7 @@ describe("CredentialsPage B120", () => {
         .getByText("久未更换", { selector: ".xc-stat *" })
         .closest("button")!,
     );
-    fireEvent.change(screen.getByLabelText("类型"), {
-      target: { value: "api_key" },
-    });
+    fireEvent.click(screen.getByRole("link", { name: /^API 密钥/ }));
     expect(screen.getByText("旧密钥")).toBeTruthy();
     expect(screen.queryByText("部署令牌")).toBeNull();
   });
@@ -333,9 +333,9 @@ describe("CredentialsPage B120", () => {
 
   it("显示已归档会带上 archived 参数", async () => {
     serve();
-    renderIt();
+    renderIt("/credentials", true);
     await screen.findByText("部署令牌");
-    fireEvent.click(screen.getByLabelText("显示已归档"));
+    fireEvent.click(screen.getByRole("link", { name: "已归档" }));
     await waitFor(() =>
       expect(
         api.calls.some((c) => c.path === "/credentials?archived=true"),

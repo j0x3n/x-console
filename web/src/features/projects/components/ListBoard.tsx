@@ -242,7 +242,7 @@ function CardInput({
 
   return (
     <div
-      className="projects-inline"
+      className="projects-inline projects-card-composer"
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) e.preventDefault();
       }}
