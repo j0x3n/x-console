@@ -12,8 +12,11 @@ SELECT * FROM read_items WHERE id = ?;
 SELECT * FROM read_items WHERE url = ?;
 
 -- name: InsertReadItem :one
-INSERT INTO read_items (url, title, site, note, source, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, 'queued', ?, ?) RETURNING *;
+INSERT INTO read_items (url, title, site, note, source, download_media, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?) RETURNING *;
+
+-- name: SetReadMedia :exec
+UPDATE read_items SET download_media = ? WHERE id = ?;
 
 -- name: SaveReadFetched :exec
 -- An empty title keeps the old one (the user edited it, or the page had none).

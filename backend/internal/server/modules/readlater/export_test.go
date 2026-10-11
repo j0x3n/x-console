@@ -70,5 +70,5 @@ var SyndicationToken = syndicationToken
 // Archive cleans a page and saves its pictures.
 func Archive(m *Module, ctx context.Context, id int64, pageURL, raw string) (string, map[string]bool) {
 	u, _ := url.Parse(pageURL)
-	return m.archive(ctx, id, u, raw)
+	return m.archive(ctx, id, u, raw, false)
 }

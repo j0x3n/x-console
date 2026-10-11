@@ -71,7 +71,7 @@ func (q *Queries) GetReadAsset(ctx context.Context, arg GetReadAssetParams) (Rea
 }
 
 const getReadItem = `-- name: GetReadItem :one
-SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json FROM read_items WHERE id = ?
+SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json, download_media FROM read_items WHERE id = ?
 `
 
 func (q *Queries) GetReadItem(ctx context.Context, id int64) (ReadItem, error) {
@@ -99,12 +99,13 @@ func (q *Queries) GetReadItem(ctx context.Context, id int64) (ReadItem, error) {
 		&i.ContentHtml,
 		&i.Kind,
 		&i.MetaJson,
+		&i.DownloadMedia,
 	)
 	return i, err
 }
 
 const getReadItemByURL = `-- name: GetReadItemByURL :one
-SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json FROM read_items WHERE url = ?
+SELECT id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json, download_media FROM read_items WHERE url = ?
 `
 
 func (q *Queries) GetReadItemByURL(ctx context.Context, url string) (ReadItem, error) {
@@ -132,6 +133,7 @@ func (q *Queries) GetReadItemByURL(ctx context.Context, url string) (ReadItem, e
 		&i.ContentHtml,
 		&i.Kind,
 		&i.MetaJson,
+		&i.DownloadMedia,
 	)
 	return i, err
 }
@@ -163,18 +165,19 @@ func (q *Queries) InsertReadAsset(ctx context.Context, arg InsertReadAssetParams
 }
 
 const insertReadItem = `-- name: InsertReadItem :one
-INSERT INTO read_items (url, title, site, note, source, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, 'queued', ?, ?) RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json
+INSERT INTO read_items (url, title, site, note, source, download_media, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?) RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json, download_media
 `
 
 type InsertReadItemParams struct {
-	Url       string
-	Title     string
-	Site      string
-	Note      string
-	Source    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Url           string
+	Title         string
+	Site          string
+	Note          string
+	Source        string
+	DownloadMedia int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 func (q *Queries) InsertReadItem(ctx context.Context, arg InsertReadItemParams) (ReadItem, error) {
@@ -184,6 +187,7 @@ func (q *Queries) InsertReadItem(ctx context.Context, arg InsertReadItemParams) 
 		arg.Site,
 		arg.Note,
 		arg.Source,
+		arg.DownloadMedia,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -210,6 +214,7 @@ func (q *Queries) InsertReadItem(ctx context.Context, arg InsertReadItemParams) 
 		&i.ContentHtml,
 		&i.Kind,
 		&i.MetaJson,
+		&i.DownloadMedia,
 	)
 	return i, err
 }
@@ -488,8 +493,22 @@ func (q *Queries) SaveReadSummary(ctx context.Context, arg SaveReadSummaryParams
 	return err
 }
 
+const setReadMedia = `-- name: SetReadMedia :exec
+UPDATE read_items SET download_media = ? WHERE id = ?
+`
+
+type SetReadMediaParams struct {
+	DownloadMedia int64
+	ID            int64
+}
+
+func (q *Queries) SetReadMedia(ctx context.Context, arg SetReadMediaParams) error {
+	_, err := q.db.ExecContext(ctx, setReadMedia, arg.DownloadMedia, arg.ID)
+	return err
+}
+
 const updateReadItem = `-- name: UpdateReadItem :one
-UPDATE read_items SET title = ?, title_locked = ?, tags_json = ?, note = ?, read_at = ?, updated_at = ? WHERE id = ? RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json
+UPDATE read_items SET title = ?, title_locked = ?, tags_json = ?, note = ?, read_at = ?, updated_at = ? WHERE id = ? RETURNING id, url, title, title_locked, site, excerpt, content, summary, tags_json, note, source, status, error, attempts, read_at, created_at, fetched_at, updated_at, content_html, kind, meta_json, download_media
 `
 
 type UpdateReadItemParams struct {
@@ -535,6 +554,7 @@ func (q *Queries) UpdateReadItem(ctx context.Context, arg UpdateReadItemParams) 
 		&i.ContentHtml,
 		&i.Kind,
 		&i.MetaJson,
+		&i.DownloadMedia,
 	)
 	return i, err
 }

@@ -3,6 +3,7 @@ import {
   CheckCheck,
   Download,
   ExternalLink,
+  Film,
   Pencil,
   RefreshCw,
   Sparkles,
@@ -228,14 +229,37 @@ export default function ReadDetail({
                 className="xc-btn ghost"
                 disabled={refetch.isPending || item.status === "queued"}
                 onClick={() =>
-                  refetch.mutate(item.id, {
-                    onSuccess: () => toast(t("Fetching again…")),
-                    onError: showError,
-                  })
+                  refetch.mutate(
+                    { id: item.id },
+                    {
+                      onSuccess: () => toast(t("Fetching again…")),
+                      onError: showError,
+                    },
+                  )
                 }
               >
                 <RefreshCw size={14} /> {t("Fetch again")}
               </button>
+              {!item.downloadMedia && (
+                <button
+                  className="xc-btn ghost"
+                  disabled={refetch.isPending || item.status === "queued"}
+                  title={t(
+                    "Fetch again and save the pictures and videos on this server",
+                  )}
+                  onClick={() =>
+                    refetch.mutate(
+                      { id: item.id, media: true },
+                      {
+                        onSuccess: () => toast(t("Fetching again…")),
+                        onError: showError,
+                      },
+                    )
+                  }
+                >
+                  <Film size={14} /> {t("Fetch with videos")}
+                </button>
+              )}
               {item.hasHtml && (
                 <a
                   className="xc-btn ghost"

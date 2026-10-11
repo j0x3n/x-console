@@ -82,6 +82,8 @@ type tweetMedia struct {
 	Kind string `json:"kind"` // photo, video, gif
 	URL  string `json:"url"`  // the picture, or the cover of a video
 	Alt  string `json:"alt,omitempty"`
+	// Video is the mp4 of a video or gif, when the source gives it.
+	Video string `json:"video,omitempty"`
 }
 
 type tweetData struct {
@@ -108,10 +110,31 @@ type synURL struct {
 }
 
 type synMedia struct {
-	Type string `json:"type"`
-	URL  string `json:"media_url_https"`
-	Alt  string `json:"ext_alt_text"`
-	TCo  string `json:"url"`
+	Type      string `json:"type"`
+	URL       string `json:"media_url_https"`
+	Alt       string `json:"ext_alt_text"`
+	TCo       string `json:"url"`
+	VideoInfo struct {
+		Variants []videoVariant `json:"variants"`
+	} `json:"video_info"`
+}
+
+// videoVariant is one encoding of a video. Only the mp4 ones are usable.
+type videoVariant struct {
+	ContentType string `json:"content_type"`
+	Bitrate     int    `json:"bitrate"`
+	URL         string `json:"url"`
+}
+
+// bestMP4 is the mp4 with the highest bitrate, or "".
+func bestMP4(vs []videoVariant) string {
+	best, rate := "", -1
+	for _, v := range vs {
+		if v.ContentType == "video/mp4" && v.URL != "" && v.Bitrate > rate {
+			best, rate = v.URL, v.Bitrate
+		}
+	}
+	return best
 }
 
 type synTweet struct {
@@ -196,7 +219,9 @@ func (t *synTweet) toData() *tweetData {
 	}
 	d.Text = strings.TrimSpace(s)
 	for _, md := range t.MediaDetails {
-		d.Media = append(d.Media, mediaFrom(md.Type, md.URL, md.Alt))
+		tm := mediaFrom(md.Type, md.URL, md.Alt)
+		tm.Video = bestMP4(md.VideoInfo.Variants)
+		d.Media = append(d.Media, tm)
 	}
 	if t.Quoted != nil && t.Quoted.ID != "" {
 		d.Quote = t.Quoted.toData()
@@ -344,7 +369,16 @@ func fromGraphQL(res map[string]any) (*tweetData, error) {
 		if short := str(dig(md, "url")); short != "" {
 			text = strings.ReplaceAll(text, short, "")
 		}
-		d.Media = append(d.Media, mediaFrom(str(dig(md, "type")), str(dig(md, "media_url_https")), str(dig(md, "ext_alt_text"))))
+		tm := mediaFrom(str(dig(md, "type")), str(dig(md, "media_url_https")), str(dig(md, "ext_alt_text")))
+		if vs, ok := dig(md, "video_info", "variants").([]any); ok {
+			var list []videoVariant
+			for _, v := range vs {
+				bitrate, _ := dig(v, "bitrate").(float64)
+				list = append(list, videoVariant{ContentType: str(dig(v, "content_type")), Bitrate: int(bitrate), URL: str(dig(v, "url"))})
+			}
+			tm.Video = bestMP4(list)
+		}
+		d.Media = append(d.Media, tm)
 	}
 	d.Text = strings.TrimSpace(html.UnescapeString(text))
 	if q, ok := dig(res, "quoted_status_result", "result").(map[string]any); ok {
@@ -408,11 +442,17 @@ func (t *fxTweet) toData() *tweetData {
 	}
 	for _, md := range t.Media.All {
 		pic := md.URL
+		video := ""
 		if md.Type == "video" || md.Type == "gif" {
 			pic = md.Thumbnail
+			video = md.URL
 		}
 		if pic != "" {
-			d.Media = append(d.Media, mediaFrom(md.Type, pic, md.Alt))
+			tm := mediaFrom(md.Type, pic, md.Alt)
+			if strings.HasSuffix(strings.SplitN(video, "?", 2)[0], ".mp4") {
+				tm.Video = video
+			}
+			d.Media = append(d.Media, tm)
 		}
 	}
 	if t.Quote != nil {
@@ -538,16 +578,16 @@ func (m *Module) fetchTweet(ctx context.Context, handle, id string) (page, error
 	if best.Handle == "" {
 		best.Handle = handle
 	}
-	return m.tweetPage(best, canonicalTweetURL(best.Handle, id)), nil
+	return m.tweetPage(best, canonicalTweetURL(best.Handle, id), wantsMedia(ctx)), nil
 }
 
 // tweetPage renders a post as a page: the HTML for reading, the plain text
 // for searching, and the details for the list.
-func (m *Module) tweetPage(d *tweetData, link string) page {
+func (m *Module) tweetPage(d *tweetData, link string, media bool) page {
 	loc := m.location()
 	var text, h strings.Builder
 	h.WriteString(`<div class="xc-tweet">`)
-	writeTweet(&h, &text, d, link, loc)
+	writeTweet(&h, &text, d, link, loc, media)
 	h.WriteString(`<p class="xc-tweet-link"><a href="` + html.EscapeString(link) + `">在 X 上查看原文</a></p></div>`)
 	title := strings.Join(strings.Fields(d.Text), " ")
 	if title == "" {
@@ -579,7 +619,8 @@ func (m *Module) location() *time.Location {
 	return time.Local
 }
 
-func writeTweet(h, plain *strings.Builder, d *tweetData, link string, loc *time.Location) {
+// media 为 true 时视频和动图写成 <video>，存档时下载；否则只放封面。
+func writeTweet(h, plain *strings.Builder, d *tweetData, link string, loc *time.Location, media bool) {
 	h.WriteString(`<div class="xc-tweet-head">`)
 	if d.Avatar != "" {
 		h.WriteString(`<img class="xc-avatar" alt="" src="` + html.EscapeString(d.Avatar) + `">`)
@@ -606,6 +647,13 @@ func writeTweet(h, plain *strings.Builder, d *tweetData, link string, loc *time.
 		if md.Kind == "photo" && strings.Contains(src, "pbs.twimg.com/media/") && !strings.Contains(src, "name=") {
 			src += "?name=orig"
 		}
+		if media && md.Video != "" && md.Kind != "photo" {
+			h.WriteString(`<figure class="xc-tweet-media"><video controls poster="` + html.EscapeString(src) + `" src="` + html.EscapeString(md.Video) + `"></video></figure>`)
+			if md.Alt != "" {
+				plain.WriteString(md.Alt + "\n")
+			}
+			continue
+		}
 		h.WriteString(`<figure class="xc-tweet-media"><img alt="` + html.EscapeString(md.Alt) + `" src="` + html.EscapeString(src) + `">`)
 		switch md.Kind {
 		case "video":
@@ -621,7 +669,7 @@ func writeTweet(h, plain *strings.Builder, d *tweetData, link string, loc *time.
 	if d.Quote != nil {
 		h.WriteString(`<blockquote class="xc-tweet-quote">`)
 		plain.WriteString("\n引用：")
-		writeTweet(h, plain, d.Quote, canonicalTweetURL(d.Quote.Handle, d.Quote.ID), loc)
+		writeTweet(h, plain, d.Quote, canonicalTweetURL(d.Quote.Handle, d.Quote.ID), loc, media)
 		h.WriteString(`</blockquote>`)
 	}
 }

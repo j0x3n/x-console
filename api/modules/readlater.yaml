@@ -99,7 +99,11 @@ paths:
     post:
       operationId: refetchReadItem
       tags: [readlater]
-      description: 重新抓取网页。保留你改过的标题和标签，摘要为空时重新写。
+      description: 重新抓取网页。保留你改过的标题和标签，摘要为空时重新写。带 media 时同时改这一条的“下载图片和视频”。
+      parameters:
+        - name: media
+          in: query
+          schema: { type: boolean }
       responses:
         "200":
           description: 已排队重新抓取
@@ -251,6 +255,7 @@ components:
           description: 推文的作者、发布时间、用哪一步读到的、内容是否不完整等
           additionalProperties: true
         read: { type: boolean }
+        downloadMedia: { type: boolean, description: 勾选了“下载图片和视频”：抓取时把正文里的视频也存到本机，图片数量限制放宽 }
         content: { type: string, description: 存档的正文，纯文本。只有详情接口给，列表里没有 }
         contentHtml: { type: string, description: 存档的图文 HTML，已清理，图片是本站地址。只有详情接口给 }
         readAt: { type: string, format: date-time, nullable: true }
@@ -296,6 +301,7 @@ components:
         url: { type: string }
         note: { type: string }
         source: { type: string, enum: [web, share] }
+        downloadMedia: { type: boolean, description: 抓取时把正文里的图片和视频都存到本机。已经存过的链接不改，要改用重新抓取的 media 参数 }
     ReadItemPatch:
       type: object
       properties:

@@ -549,3 +549,113 @@ func TestArchiveRefusesInternalPictures(t *testing.T) {
 		t.Fatalf("internal pictures must be dropped: %q %v", out, kept)
 	}
 }
+
+// mp4 的开头：前 4 个字节是长度，接着是 ftyp。后面的内容随便填。
+func fakeMP4(n int) []byte {
+	head := []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 2, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '1'}
+	return append(head, bytes.Repeat([]byte{7}, n)...)
+}
+
+func videoSite(t *testing.T, f *x) *httptest.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/post", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprintf(w, `<html><head><title>带视频的文章</title></head><body><article><h1>带视频的文章</h1>
+<p>第一段内容，讲了一件很长的事情，需要足够多的字让正文被识别出来。这一段要写得长一点，才不会被当成页面的杂项。</p>
+<video src="/v/clip.mp4" poster="%s/img/photo.png" onplay="alert(1)"></video>
+<p>第二段内容，里面有第二个视频，用 source 写的。同样要写得长一点，让抽取器认定这是正文，不会被丢掉。</p>
+<video controls><source src="/v/clip2.webm" type="video/webm"><source src="/v/clip.mp4" type="video/mp4"></video>
+<p>第三段内容，收尾。这里再写一些字，保证正文足够长，抽取器不会把它丢掉，也不会只留下一小段。</p>
+</article></body></html>`, f.URL)
+	})
+	mux.HandleFunc("/v/clip.mp4", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write(fakeMP4(4000))
+	})
+	mux.HandleFunc("/v/clip2.webm", func(w http.ResponseWriter, r *http.Request) {
+		// 不是视频内容：不存，保留原地址
+		w.Header().Set("Content-Type", "video/webm")
+		_, _ = io.WriteString(w, "<html>not a video</html>")
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestVideosAreOnlySavedWhenTheBoxIsTicked(t *testing.T) {
+	env, _, _ := setup(t)
+	f := newX(t)
+	srv := videoSite(t, f)
+
+	// 没勾选：视频整个去掉，图片照旧
+	_, res := add(t, env, map[string]any{"url": srv.URL + "/post"})
+	it := waitStatus(t, env, res.Item.Id, api.Ready)
+	if strings.Contains(*it.ContentHtml, "<video") || it.DownloadMedia == nil || *it.DownloadMedia {
+		t.Fatalf("videos must be left out: %+v", it)
+	}
+
+	// 勾选后重新抓取：视频存到本机，源文件不是视频的保留原地址
+	id := strconv.FormatInt(it.Id, 10)
+	env.MustDo(http.MethodPost, "/readlater/"+id+"/refetch?media=true", nil, nil)
+	waitFor(t, "media refetch", func() bool {
+		var got api.ReadItem
+		env.MustDo(http.MethodGet, "/readlater/"+id, nil, &got)
+		return got.ContentHtml != nil && strings.Contains(*got.ContentHtml, "<video")
+	})
+	var got api.ReadItem
+	env.MustDo(http.MethodGet, "/readlater/"+id, nil, &got)
+	body := *got.ContentHtml
+	if got.DownloadMedia == nil || !*got.DownloadMedia {
+		t.Fatalf("flag: %+v", got.DownloadMedia)
+	}
+	if strings.Contains(body, "onplay") || strings.Count(body, "<video") != 2 {
+		t.Fatalf("videos: %s", body)
+	}
+	start := strings.Index(body, `src="/api/v1`)
+	if start < 0 {
+		t.Fatalf("video not saved here: %s", body)
+	}
+	path := body[start+len(`src="/api/v1`) : start+strings.Index(body[start+5:], `"`)+5]
+	// 视频文件能拖进度条
+	req, _ := http.NewRequest(http.MethodGet, env.URL(path), nil)
+	req.Header.Set("Range", "bytes=0-9")
+	resp, err := env.Client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunk, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusPartialContent || len(chunk) != 10 || resp.Header.Get("Content-Type") != "video/mp4" {
+		t.Fatalf("range: %d %d %q", resp.StatusCode, len(chunk), resp.Header.Get("Content-Type"))
+	}
+	// 只存了一个视频（mp4）和一张封面；webm 那个内容不对，保留原地址
+	if n := fileCount(t, env); n != 2 {
+		t.Fatalf("files: %d", n)
+	}
+	if !strings.Contains(body, srv.URL+"/v/clip2.webm") && !strings.Contains(body, "/v/clip.mp4") {
+		t.Fatalf("second video: %s", body)
+	}
+}
+
+func TestTweetVideoIsSavedWhenTheBoxIsTicked(t *testing.T) {
+	env, _, f := setupX(t)
+	srv := videoSite(t, f)
+	f.syn = f.synTweet("带视频的推文", map[string]any{
+		"mediaDetails": []any{map[string]any{"type": "video", "media_url_https": f.URL + "/img/photo.png", "url": "https://t.co/vid",
+			"video_info": map[string]any{"variants": []any{
+				map[string]any{"content_type": "application/x-mpegURL", "url": srv.URL + "/v/list.m3u8"},
+				map[string]any{"content_type": "video/mp4", "bitrate": 256000, "url": srv.URL + "/v/small.mp4"},
+				map[string]any{"content_type": "video/mp4", "bitrate": 2176000, "url": srv.URL + "/v/clip.mp4"},
+			}}}},
+	})
+	_, res := add(t, env, map[string]any{"url": tweetURL, "downloadMedia": true})
+	it := waitStatus(t, env, res.Item.Id, api.Ready)
+	body := *it.ContentHtml
+	if strings.Count(body, "<video") != 1 || strings.Contains(body, srv.URL) || !strings.Contains(body, "poster=\"/api/v1/readlater/") {
+		t.Fatalf("tweet video: %s", body)
+	}
+	// 最高码率的那个存了：一个视频加一张封面和头像
+	if n := fileCount(t, env); n != 3 {
+		t.Fatalf("files: %d", n)
+	}
+}

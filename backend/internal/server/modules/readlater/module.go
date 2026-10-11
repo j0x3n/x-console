@@ -199,9 +199,18 @@ func clipRunes(s string, n int) string {
 
 // ---------- view ----------
 
+func b2i(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 func toView(row db.ReadItem, withContent bool) api.ReadItem {
+	media := row.DownloadMedia != 0
 	v := api.ReadItem{
-		Id: row.ID, Url: row.Url, Title: row.Title, Site: row.Site, Excerpt: row.Excerpt, Summary: row.Summary,
+		DownloadMedia: &media,
+		Id:            row.ID, Url: row.Url, Title: row.Title, Site: row.Site, Excerpt: row.Excerpt, Summary: row.Summary,
 		Tags: parseTags(row.TagsJson), Note: row.Note, Source: api.ReadItemSource(row.Source), Status: api.ReadStatus(row.Status),
 		Error: row.Error, HasContent: row.Content != "", HasHtml: row.ContentHtml != "", Kind: api.ReadItemKind(row.Kind), Meta: parseMeta(row.MetaJson),
 		Read: row.ReadAt != nil, ReadAt: row.ReadAt, CreatedAt: row.CreatedAt, FetchedAt: row.FetchedAt, UpdatedAt: row.UpdatedAt,
@@ -359,7 +368,7 @@ func (m *Module) topTagNames(ctx context.Context) []string {
 // ---------- create ----------
 
 // add saves a link. A link that is already saved is returned as it is.
-func (m *Module) add(ctx context.Context, rawURL, note, source string) (db.ReadItem, bool, error) {
+func (m *Module) add(ctx context.Context, rawURL, note, source string, media bool) (db.ReadItem, bool, error) {
 	clean, err := normalizeURL(rawURL)
 	if err == nil {
 		err = m.checkHost(clean)
@@ -371,13 +380,20 @@ func (m *Module) add(ctx context.Context, rawURL, note, source string) (db.ReadI
 		return db.ReadItem{}, false, httpx.Invalid("备注最多 2000 个字")
 	}
 	if old, err := m.q.GetReadItemByURL(ctx, clean); err == nil {
+		if media && old.DownloadMedia == 0 {
+			// 已经存过，这次勾选了下载图片和视频：改成勾选并重新抓取
+			if err := m.requeue(ctx, old.ID, true); err != nil {
+				return db.ReadItem{}, false, err
+			}
+			old.DownloadMedia = 1
+		}
 		return old, true, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return db.ReadItem{}, false, err
 	}
 	host := hostOf(clean)
 	now := m.now().UTC()
-	row, err := m.q.InsertReadItem(ctx, db.InsertReadItemParams{Url: clean, Title: host, Site: host, Note: strings.TrimSpace(note), Source: source, CreatedAt: now, UpdatedAt: now})
+	row, err := m.q.InsertReadItem(ctx, db.InsertReadItemParams{Url: clean, Title: host, Site: host, Note: strings.TrimSpace(note), Source: source, DownloadMedia: b2i(media), CreatedAt: now, UpdatedAt: now})
 	if err != nil {
 		// two requests saved the same address at once
 		if old, err2 := m.q.GetReadItemByURL(ctx, clean); err2 == nil {
@@ -458,7 +474,7 @@ func (m *Module) CreateReadItem(w http.ResponseWriter, r *http.Request) {
 		note = *body.Note
 	}
 	ctx := r.Context()
-	row, dup, err := m.add(ctx, body.Url, note, source)
+	row, dup, err := m.add(ctx, body.Url, note, source, body.DownloadMedia != nil && *body.DownloadMedia)
 	target := ""
 	if err == nil {
 		target = strconv.FormatInt(row.ID, 10)
@@ -572,21 +588,22 @@ func (m *Module) DeleteReadItem(w http.ResponseWriter, r *http.Request, id api.I
 }
 
 // RefetchReadItem implements api.ServerInterface.
-func (m *Module) RefetchReadItem(w http.ResponseWriter, r *http.Request, id api.ItemId) {
+func (m *Module) RefetchReadItem(w http.ResponseWriter, r *http.Request, id api.ItemId, params api.RefetchReadItemParams) {
 	ctx := r.Context()
 	row, err := m.get(ctx, id)
 	if err == nil {
-		err = m.q.ResetReadAttempts(ctx, id)
+		if params.Media != nil {
+			err = m.q.SetReadMedia(ctx, db.SetReadMediaParams{DownloadMedia: b2i(*params.Media), ID: id})
+		}
 	}
 	if err == nil {
-		err = m.q.QueueReadItem(ctx, db.QueueReadItemParams{UpdatedAt: m.now().UTC(), ID: id})
+		err = m.requeue(ctx, id, false)
 	}
 	m.d.Audit.Record(ctx, "readlater.refetch", strconv.FormatInt(id, 10), nil, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
-	m.enqueue(row.ID)
 	row, err = m.get(ctx, id)
 	if err != nil {
 		httpx.Fail(w, r, err)
@@ -595,6 +612,24 @@ func (m *Module) RefetchReadItem(w http.ResponseWriter, r *http.Request, id api.
 	v := toView(row, true)
 	m.publish("readlater.updated", v)
 	httpx.JSON(w, http.StatusOK, v)
+}
+
+// requeue fetches an item again in the background. media also turns on
+// 下载图片和视频 for it.
+func (m *Module) requeue(ctx context.Context, id int64, media bool) error {
+	if media {
+		if err := m.q.SetReadMedia(ctx, db.SetReadMediaParams{DownloadMedia: 1, ID: id}); err != nil {
+			return err
+		}
+	}
+	if err := m.q.ResetReadAttempts(ctx, id); err != nil {
+		return err
+	}
+	if err := m.q.QueueReadItem(ctx, db.QueueReadItemParams{UpdatedAt: m.now().UTC(), ID: id}); err != nil {
+		return err
+	}
+	m.enqueue(id)
+	return nil
 }
 
 // SummarizeReadItem implements api.ServerInterface.

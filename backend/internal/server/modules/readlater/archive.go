@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +34,14 @@ const (
 	maxArchiveHTML = 2 << 20
 	archiveTimeout = 90 * time.Second
 	assetPath      = "/api/v1/readlater/%d/assets/%s"
+
+	// 勾选“下载图片和视频”的条目：图片放宽，视频也存。
+	mediaImages       = 300
+	mediaImageTotal   = 300 << 20
+	maxVideos         = 6
+	maxVideoBytes     = 300 << 20
+	maxVideoTotal     = 1 << 30
+	mediaArchiveLimit = 30 * time.Minute
 )
 
 // archiver downloads the pictures of one page while its HTML is cleaned.
@@ -41,17 +50,30 @@ type archiver struct {
 	ctx     context.Context
 	id      int64
 	referer string
-	total   int64
+	media   bool              // 下载图片和视频
+	total   int64             // bytes of pictures kept
+	videos  int               // videos tried
+	vtotal  int64             // bytes of videos kept
 	mapped  map[string]string // original address -> address on this server ("" when dropped)
 	kept    map[string]bool   // hashes in use
+}
+
+func (a *archiver) imageLimits() (count int, total int64) {
+	if a.media {
+		return mediaImages, mediaImageTotal
+	}
+	return maxImages, maxImageTotal
 }
 
 // archive cleans the HTML of a page and saves its pictures. It returns the
 // cleaned HTML and the hashes of the pictures it uses. The HTML is empty when
 // the page has none worth keeping.
-func (m *Module) archive(ctx context.Context, id int64, pageURL *url.URL, raw string) (string, map[string]bool) {
-	a := &archiver{m: m, ctx: ctx, id: id, referer: pageURL.String(), mapped: map[string]string{}, kept: map[string]bool{}}
+func (m *Module) archive(ctx context.Context, id int64, pageURL *url.URL, raw string, media bool) (string, map[string]bool) {
+	a := &archiver{m: m, ctx: ctx, id: id, referer: pageURL.String(), media: media, mapped: map[string]string{}, kept: map[string]bool{}}
 	s := &sanitizer{base: pageURL, image: a.image}
+	if media {
+		s.video = a.video
+	}
 	out := strings.TrimSpace(s.clean(raw))
 	if len(out) > maxArchiveHTML {
 		return "", a.kept
@@ -68,7 +90,8 @@ func (a *archiver) image(src string) string {
 		return v
 	}
 	v := src
-	if len(a.mapped) < maxImages && a.total < maxImageTotal {
+	count, total := a.imageLimits()
+	if len(a.mapped) < count && a.total < total {
 		switch hash, err := a.save(src); {
 		case err == nil:
 			v = fmt.Sprintf(assetPath, a.id, hash)
@@ -88,7 +111,7 @@ func (a *archiver) save(src string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if a.total+int64(len(body)) > maxImageTotal {
+	if _, total := a.imageLimits(); a.total+int64(len(body)) > total {
 		return "", errors.New("图片总量超过限制")
 	}
 	sum := sha256.Sum256(body)
@@ -106,6 +129,120 @@ func (a *archiver) save(src string) (string, error) {
 		a.total += int64(len(body))
 	}
 	return hash, nil
+}
+
+// video is called for each video of the page, like image. A video that cannot
+// be saved keeps its original address, so it still plays while that works.
+func (a *archiver) video(src string) string {
+	if v, ok := a.mapped[src]; ok {
+		return v
+	}
+	v := src
+	if a.videos < maxVideos && a.vtotal < maxVideoTotal {
+		a.videos++
+		switch hash, err := a.saveVideo(src); {
+		case err == nil:
+			v = fmt.Sprintf(assetPath, a.id, hash)
+		case errors.Is(err, errBlocked):
+			v = ""
+		default:
+			a.m.d.Log.Debug("readlater video", "id", a.id, "err", err)
+		}
+	}
+	a.mapped[src] = v
+	return v
+}
+
+// saveVideo downloads one video into a temporary file, then keeps it.
+func (a *archiver) saveVideo(src string) (string, error) {
+	path, mime, size, hash, err := a.m.downloadVideo(a.ctx, src, a.referer, maxVideoTotal-a.vtotal)
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(path)
+	key := strconv.FormatInt(a.id, 10) + "/" + hash
+	if !a.kept[hash] {
+		f, err := os.Open(path)
+		if err != nil {
+			return "", err
+		}
+		err = a.m.fileStore().Put(a.ctx, key, f, size)
+		f.Close()
+		if err != nil {
+			return "", err
+		}
+		err = a.m.q.InsertReadAsset(a.ctx, db.InsertReadAssetParams{ItemID: a.id, Hash: hash, Mime: mime, Size: size, SrcUrl: clipRunes(src, maxURL), CreatedAt: a.m.now().UTC()})
+		if err != nil {
+			return "", err
+		}
+		a.kept[hash] = true
+		a.vtotal += size
+	}
+	return hash, nil
+}
+
+// downloadVideo reads a video with the guarded client but without a time limit
+// of its own (the context sets it). Only mp4 and webm are kept, decided from
+// the content. room is how many bytes this item may still use.
+func (m *Module) downloadVideo(ctx context.Context, src, referer string, room int64) (path, mime string, size int64, hash string, err error) {
+	limit := int64(maxVideoBytes)
+	if room < limit {
+		limit = room
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, src, nil)
+	if err != nil {
+		return "", "", 0, "", errors.New("视频地址不对")
+	}
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "video/mp4,video/webm,video/*;q=0.8")
+	if referer != "" {
+		req.Header.Set("Referer", referer)
+	}
+	m.mu.Lock()
+	client := *m.client
+	m.mu.Unlock()
+	client.Timeout = 0
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", "", 0, "", fmt.Errorf("视频状态码 %d", resp.StatusCode)
+	}
+	if resp.ContentLength > limit {
+		return "", "", 0, "", errors.New("视频太大")
+	}
+	tmp, err := os.CreateTemp("", "readlater-video-*")
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	path = tmp.Name()
+	defer func() {
+		tmp.Close()
+		if err != nil {
+			os.Remove(path)
+		}
+	}()
+	h := sha256.New()
+	size, err = io.Copy(io.MultiWriter(tmp, h), io.LimitReader(resp.Body, limit+1))
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	if size > limit {
+		err = errors.New("视频太大")
+		return "", "", 0, "", err
+	}
+	head := make([]byte, 512)
+	n, _ := tmp.ReadAt(head, 0)
+	switch t := http.DetectContentType(head[:n]); t {
+	case "video/mp4", "video/webm":
+		mime = t
+	default:
+		err = errors.New("不是可存的视频")
+		return "", "", 0, "", err
+	}
+	return path, mime, size, hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func (m *Module) fileStore() files.Store { return m.d.Files.For(filesModule) }
@@ -188,18 +325,18 @@ func (m *Module) GetReadAsset(w http.ResponseWriter, r *http.Request, id api.Ite
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
-	rc, _, err := m.fileStore().Get(ctx, strconv.FormatInt(id, 10)+"/"+hash)
+	rs, _, err := files.OpenSeeker(ctx, m.fileStore(), strconv.FormatInt(id, 10)+"/"+hash)
 	if err != nil {
 		httpx.Fail(w, r, httpx.ErrNotFound)
 		return
 	}
-	defer rc.Close()
+	defer rs.Close()
 	w.Header().Set("Content-Type", row.Mime)
-	w.Header().Set("Content-Length", strconv.FormatInt(row.Size, 10))
 	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
-	_, _ = io.Copy(w, rc)
+	// 视频要能拖进度条，所以支持 Range
+	http.ServeContent(w, r, "", row.CreatedAt, rs)
 }
 
 const exportPage = `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

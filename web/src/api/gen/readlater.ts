@@ -55,7 +55,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 重新抓取网页。保留你改过的标题和标签，摘要为空时重新写。 */
+        /** @description 重新抓取网页。保留你改过的标题和标签，摘要为空时重新写。带 media 时同时改这一条的“下载图片和视频”。 */
         post: operations["refetchReadItem"];
         delete?: never;
         options?: never;
@@ -197,6 +197,8 @@ export interface components {
                 [key: string]: unknown;
             };
             read: boolean;
+            /** @description 勾选了“下载图片和视频”：抓取时把正文里的视频也存到本机，图片数量限制放宽 */
+            downloadMedia?: boolean;
             /** @description 存档的正文，纯文本。只有详情接口给，列表里没有 */
             content?: string;
             /** @description 存档的图文 HTML，已清理，图片是本站地址。只有详情接口给 */
@@ -235,6 +237,8 @@ export interface components {
             note?: string;
             /** @enum {string} */
             source?: "web" | "share";
+            /** @description 抓取时把正文里的图片和视频都存到本机。已经存过的链接不改，要改用重新抓取的 media 参数 */
+            downloadMedia?: boolean;
         };
         ReadItemPatch: {
             title?: string;
@@ -430,7 +434,9 @@ export interface operations {
     };
     refetchReadItem: {
         parameters: {
-            query?: never;
+            query?: {
+                media?: boolean;
+            };
             header?: never;
             path: {
                 itemId: components["parameters"]["ItemId"];

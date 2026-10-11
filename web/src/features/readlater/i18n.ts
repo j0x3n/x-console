@@ -37,6 +37,12 @@ registerZh({
   "Mark as read": "标为已读",
   "Mark as unread": "标为未读",
   "Fetch again": "重新抓取",
+  "Fetch with videos": "下载图片和视频",
+  "Fetch again and save the pictures and videos on this server":
+    "重新抓取，并把图片和视频存到本服务器",
+  "Also download pictures and videos": "同时下载图片和视频",
+  "Videos are saved on this server (up to 300 MB each, 6 per link). Only mp4 and webm files in the page, and videos in X posts. YouTube videos are not downloaded.":
+    "视频会存到本服务器（每个最大 300 MB，一个链接最多 6 个）。只存页面里的 mp4 和 webm 文件，以及 X 推文里的视频，不下载 YouTube 视频。",
   "Write summary": "AI 写摘要",
   "Writing summary…": "正在写摘要",
   "Summary updated": "摘要已更新",

@@ -60,7 +60,7 @@ func (m *Module) HandleTelegramMessage(ctx context.Context, msg contracts.Telegr
 	}
 	var saved, existed, bad int
 	for _, link := range links {
-		row, dup, err := m.add(ctx, link, note, "telegram")
+		row, dup, err := m.add(ctx, link, note, "telegram", false)
 		target := ""
 		if err == nil {
 			target = fmt.Sprint(row.ID)

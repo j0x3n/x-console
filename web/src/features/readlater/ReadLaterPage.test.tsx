@@ -189,6 +189,28 @@ describe("ReadLaterPage B117", () => {
     });
   });
 
+  it("勾选“同时下载图片和视频”会带进请求", async () => {
+    serve();
+    api.routes.set("POST /readlater", () => ({
+      status: 201,
+      body: { item: article, duplicate: false },
+    }));
+    renderIt("/readlater?new=1");
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("网址"), {
+      target: { value: "https://example.com/v" },
+    });
+    fireEvent.click(within(dialog).getByLabelText("同时下载图片和视频"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({
+        url: "https://example.com/v",
+        note: "",
+        downloadMedia: true,
+      }),
+    );
+  });
+
   it("服务端拒绝时在弹窗里显示原因，不关闭", async () => {
     serve();
     api.routes.set("POST /readlater", () => ({

@@ -23,16 +23,21 @@ var keepTags = map[atom.Atom]bool{
 var dropTags = map[atom.Atom]bool{
 	atom.Script: true, atom.Style: true, atom.Iframe: true, atom.Object: true, atom.Embed: true, atom.Form: true, atom.Input: true,
 	atom.Button: true, atom.Select: true, atom.Textarea: true, atom.Svg: true, atom.Math: true, atom.Noscript: true, atom.Template: true,
-	atom.Video: true, atom.Audio: true, atom.Link: true, atom.Meta: true, atom.Head: true, atom.Title: true, atom.Canvas: true,
+	atom.Audio: true, atom.Link: true, atom.Meta: true, atom.Head: true, atom.Title: true, atom.Canvas: true,
 	atom.Source: true, atom.Track: true, atom.Applet: true, atom.Frame: true, atom.Frameset: true, atom.Base: true,
 }
 
 // sanitizer cleans the HTML of a saved page. Links and image addresses are made
 // absolute against base. image is called for each picture; it returns the
 // address to keep, or "" to drop the picture.
+//
+// video is called for each <video>: it returns the address to play, or "" to
+// drop the video. It is nil when videos are not wanted, and then every video
+// is dropped (the page keeps its text and pictures).
 type sanitizer struct {
 	base  *url.URL
 	image func(abs string) string
+	video func(abs string) string
 	count int
 }
 
@@ -66,6 +71,10 @@ func (s *sanitizer) copyInto(parent, n *html.Node) {
 		if dropTags[n.DataAtom] {
 			return
 		}
+		if n.DataAtom == atom.Video {
+			s.copyVideo(parent, n)
+			return
+		}
 		if !keepTags[n.DataAtom] {
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
 				s.copyInto(parent, c)
@@ -84,6 +93,49 @@ func (s *sanitizer) copyInto(parent, n *html.Node) {
 			s.copyInto(out, c)
 		}
 	}
+}
+
+// copyVideo adds a <video> that plays a saved file. The file is the src of the
+// element or of its first <source> that looks like mp4 or webm. Without a
+// usable file, or when videos are not wanted, nothing is added.
+func (s *sanitizer) copyVideo(parent, n *html.Node) {
+	if s.video == nil {
+		return
+	}
+	src := s.absolute(attr(n, "src"), false)
+	if src == "" {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			if c.Type != html.ElementNode || c.DataAtom != atom.Source {
+				continue
+			}
+			if kind := strings.ToLower(attr(c, "type")); kind != "" && !strings.HasPrefix(kind, "video/mp4") && !strings.HasPrefix(kind, "video/webm") {
+				continue
+			}
+			if src = s.absolute(attr(c, "src"), false); src != "" {
+				break
+			}
+		}
+	}
+	if src == "" {
+		return
+	}
+	if src = s.video(src); src == "" {
+		return
+	}
+	out := &html.Node{Type: html.ElementNode, Data: "video", DataAtom: atom.Video}
+	set := func(k, v string) { out.Attr = append(out.Attr, html.Attribute{Key: k, Val: v}) }
+	set("src", src)
+	if poster := s.absolute(attr(n, "poster"), false); poster != "" && s.image != nil {
+		if poster = s.image(poster); poster != "" {
+			set("poster", poster)
+		}
+	}
+	set("controls", "")
+	set("preload", "metadata")
+	if cls := ownClasses(attr(n, "class")); cls != "" {
+		set("class", cls)
+	}
+	parent.AppendChild(out)
 }
 
 func attr(n *html.Node, key string) string {

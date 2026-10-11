@@ -57,7 +57,7 @@ func (m *Module) registerActions() {
 			if err := json.Unmarshal(raw, &in); err != nil {
 				return nil, err
 			}
-			row, dup, err := m.add(ctx, in.URL, in.Note, "ai")
+			row, dup, err := m.add(ctx, in.URL, in.Note, "ai", false)
 			m.d.Audit.Record(ctx, "readlater.create", "", map[string]any{"url": in.URL, "duplicate": dup, "channel": "ai"}, err)
 			if err != nil {
 				return nil, err

@@ -90,6 +90,18 @@ func newFetchClient(allowPrivate bool) *http.Client {
 	}
 }
 
+type mediaKey struct{}
+
+// withMedia marks a fetch that should also save videos (勾选了下载图片和视频).
+func withMedia(ctx context.Context, on bool) context.Context {
+	return context.WithValue(ctx, mediaKey{}, on)
+}
+
+func wantsMedia(ctx context.Context) bool {
+	on, _ := ctx.Value(mediaKey{}).(bool)
+	return on
+}
+
 // page is what was read from one address.
 type page struct {
 	Title   string
@@ -259,7 +271,8 @@ func (m *Module) process(ctx context.Context, id int64) {
 	if err != nil {
 		return
 	}
-	pg, err := m.fetchPage(ctx, row.Url)
+	media := row.DownloadMedia != 0
+	pg, err := m.fetchPage(withMedia(ctx, media), row.Url)
 	now := m.now().UTC()
 	if err != nil {
 		if e := m.q.SaveReadFailure(ctx, db.SaveReadFailureParams{Error: err.Error(), UpdatedAt: now, ID: id}); e != nil {
@@ -275,8 +288,12 @@ func (m *Module) process(ctx context.Context, id int64) {
 		if base == nil {
 			base, _ = url.Parse(row.Url)
 		}
-		actx, cancel := context.WithTimeout(ctx, archiveTimeout)
-		archived, kept = m.archive(actx, id, base, pg.HTML)
+		limit := archiveTimeout
+		if media {
+			limit = mediaArchiveLimit
+		}
+		actx, cancel := context.WithTimeout(ctx, limit)
+		archived, kept = m.archive(actx, id, base, pg.HTML, media)
 		cancel()
 		if archived == "" {
 			kept = nil

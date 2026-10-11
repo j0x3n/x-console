@@ -18,12 +18,14 @@ export default function AddLinkDialog({
   const add = useAddLink();
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
+  const [media, setMedia] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setUrl("");
     setNote("");
+    setMedia(false);
     setError("");
   }, [open]);
 
@@ -34,6 +36,7 @@ export default function AddLinkDialog({
       const res = await add.mutateAsync({
         url: url.trim(),
         note: note.trim(),
+        downloadMedia: media || undefined,
       });
       toast(
         res.duplicate
@@ -70,6 +73,19 @@ export default function AddLinkDialog({
             onChange={(e) => setNote(e.target.value)}
           />
         </label>
+        <label className="xc-check">
+          <input
+            type="checkbox"
+            checked={media}
+            onChange={(e) => setMedia(e.target.checked)}
+          />
+          <span>{t("Also download pictures and videos")}</span>
+        </label>
+        <p className="xc-muted">
+          {t(
+            "Videos are saved on this server (up to 300 MB each, 6 per link). Only mp4 and webm files in the page, and videos in X posts. YouTube videos are not downloaded.",
+          )}
+        </p>
         {error && <p className="xc-error-text">{error}</p>}
         <div className="xc-dialog-actions">
           <button type="button" className="xc-btn" onClick={onClose}>

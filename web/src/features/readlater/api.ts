@@ -77,6 +77,8 @@ export function useAddLink() {
       url: string;
       note?: string;
       source?: "web" | "share";
+      /** 把正文里的图片和视频都存到本机。 */
+      downloadMedia?: boolean;
     }) => unwrap(readlaterApi.POST("/readlater", { body })),
     onSuccess: refresh,
   });
@@ -112,10 +114,10 @@ export function useDeleteReadItem() {
 export function useRefetchReadItem() {
   const refresh = useRefresh();
   return useMutation({
-    mutationFn: (id: number) =>
+    mutationFn: (v: { id: number; media?: boolean }) =>
       unwrap(
         readlaterApi.POST("/readlater/{itemId}/refetch", {
-          params: { path: { itemId: id } },
+          params: { path: { itemId: v.id }, query: { media: v.media } },
         }),
       ),
     onSuccess: refresh,

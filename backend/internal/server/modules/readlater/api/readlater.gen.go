@@ -159,6 +159,9 @@ type ReadItem struct {
 	ContentHtml *string   `json:"contentHtml,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 
+	// DownloadMedia 勾选了“下载图片和视频”：抓取时把正文里的视频也存到本机，图片数量限制放宽
+	DownloadMedia *bool `json:"downloadMedia,omitempty"`
+
 	// Error 抓取失败的原因
 	Error string `json:"error"`
 
@@ -201,9 +204,11 @@ type ReadItemSource string
 
 // ReadItemInput defines model for ReadItemInput.
 type ReadItemInput struct {
-	Note   *string              `json:"note,omitempty"`
-	Source *ReadItemInputSource `json:"source,omitempty"`
-	Url    string               `json:"url"`
+	// DownloadMedia 抓取时把正文里的图片和视频都存到本机。已经存过的链接不改，要改用重新抓取的 media 参数
+	DownloadMedia *bool                `json:"downloadMedia,omitempty"`
+	Note          *string              `json:"note,omitempty"`
+	Source        *ReadItemInputSource `json:"source,omitempty"`
+	Url           string               `json:"url"`
 }
 
 // ReadItemInputSource defines model for ReadItemInput.Source.
@@ -286,6 +291,11 @@ type ListReadItemsParams struct {
 // ListReadItemsParamsView defines parameters for ListReadItems.
 type ListReadItemsParamsView string
 
+// RefetchReadItemParams defines parameters for RefetchReadItem.
+type RefetchReadItemParams struct {
+	Media *bool `form:"media,omitempty" json:"media,omitempty"`
+}
+
 // CreateReadItemJSONRequestBody defines body for CreateReadItem for application/json ContentType.
 type CreateReadItemJSONRequestBody = ReadItemInput
 
@@ -332,7 +342,7 @@ type ServerInterface interface {
 	ExportReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
 
 	// (POST /readlater/{itemId}/refetch)
-	RefetchReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
+	RefetchReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId, params RefetchReadItemParams)
 
 	// (POST /readlater/{itemId}/summarize)
 	SummarizeReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId)
@@ -398,7 +408,7 @@ func (_ Unimplemented) ExportReadItem(w http.ResponseWriter, r *http.Request, it
 }
 
 // (POST /readlater/{itemId}/refetch)
-func (_ Unimplemented) RefetchReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId) {
+func (_ Unimplemented) RefetchReadItem(w http.ResponseWriter, r *http.Request, itemId ItemId, params RefetchReadItemParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -699,8 +709,24 @@ func (siw *ServerInterfaceWrapper) RefetchReadItem(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefetchReadItemParams
+
+	// ------------- Optional query parameter "media" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "media", r.URL.Query(), &params.Media, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "media"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "media", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RefetchReadItem(w, r, itemId)
+		siw.Handler.RefetchReadItem(w, r, itemId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
