@@ -1,0 +1,366 @@
+openapi: 3.0.3
+info:
+  title: X Console review cards (B130)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /cards:
+    get:
+      operationId: listCards
+      tags: [cards]
+      description: 卡片列表，新建的在前。游标是卡片编号，原样传回。
+      parameters:
+        - name: q
+          in: query
+          description: 在问和答里找
+          schema: { type: string }
+        - name: deck
+          in: query
+          description: 牌组名，要完全相同
+          schema: { type: string }
+        - name: state
+          in: query
+          schema: { $ref: "#/components/schemas/CardState" }
+        - name: suspended
+          in: query
+          schema: { type: boolean }
+        - $ref: "../common.yaml#/components/parameters/Limit"
+        - $ref: "../common.yaml#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: 一页卡片
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createCard
+      tags: [cards]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cards/queue:
+    get:
+      operationId: getCardQueue
+      tags: [cards]
+      description: 今天要复习的卡片。先是到期的旧卡（到期早的在前），后面是新卡。受每天的上限限制。
+      parameters:
+        - name: deck
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+      responses:
+        "200":
+          description: 队列
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardQueue" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cards/summary:
+    get:
+      operationId: getCardSummary
+      tags: [cards]
+      parameters:
+        - name: deck
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: 概要
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cards/decks:
+    get:
+      operationId: listCardDecks
+      tags: [cards]
+      responses:
+        "200":
+          description: 牌组
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CardDeck" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cards/generate:
+    post:
+      operationId: generateCard
+      tags: [cards]
+      description: |
+        让 AI 根据一段文字写一张卡片的草稿，不入库。选中的文字会发给 AI 供应商。
+        AI 没配置回 409 ai_not_configured，设置里关掉回 409 ai_disabled。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardGenerateInput" }
+      responses:
+        "200":
+          description: 草稿
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardDraft" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cards/settings:
+    get:
+      operationId: getCardSettings
+      tags: [cards]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putCardSettings
+      tags: [cards]
+      description: 只改传了的字段
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardSettingsInput" }
+      responses:
+        "200":
+          description: 改完的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cards/{cardId}:
+    parameters:
+      - $ref: "#/components/parameters/CardId"
+    get:
+      operationId: getCard
+      tags: [cards]
+      responses:
+        "200":
+          description: 一张卡片
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateCard
+      tags: [cards]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardPatch" }
+      responses:
+        "200":
+          description: 改完的卡片
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Card" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteCard
+      tags: [cards]
+      description: 连这张卡的评分记录一起删
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cards/{cardId}/review:
+    parameters:
+      - $ref: "#/components/parameters/CardId"
+    post:
+      operationId: reviewCard
+      tags: [cards]
+      description: |
+        给卡片评一次分。带了 reps 时，要和卡片现在的 reps 相同，不同说明这张卡已经被评过，回 409 card_stale。
+        暂停的卡不能评分。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CardReviewInput" }
+      responses:
+        "200":
+          description: 评分结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CardReviewResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    CardId:
+      name: cardId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    CardState:
+      type: string
+      description: new 没复习过，learning、review、relearning 是 FSRS 的阶段
+      enum: [new, learning, review, relearning]
+    Card:
+      type: object
+      required: [id, deck, question, answer, sourceTitle, sourceLink, suspended, state, due, stability, difficulty, reps, lapses, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        deck: { type: string }
+        question: { type: string }
+        answer: { type: string }
+        sourceTitle: { type: string }
+        sourceLink: { type: string, description: 站内路径（/notes/3）或网址，可以是空 }
+        suspended: { type: boolean }
+        state: { $ref: "#/components/schemas/CardState" }
+        due: { type: string, format: date-time }
+        lastReview: { type: string, format: date-time, nullable: true }
+        stability: { type: number, format: double }
+        difficulty: { type: number, format: double }
+        reps: { type: integer }
+        lapses: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CardInput:
+      type: object
+      required: [question, answer]
+      properties:
+        question: { type: string }
+        answer: { type: string }
+        deck: { type: string, description: 不填用“默认” }
+        sourceTitle: { type: string }
+        sourceLink: { type: string }
+    CardPatch:
+      type: object
+      properties:
+        question: { type: string }
+        answer: { type: string }
+        deck: { type: string }
+        sourceTitle: { type: string }
+        sourceLink: { type: string }
+        suspended: { type: boolean }
+    CardPage:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Card" }
+        total: { type: integer, description: 符合条件的总数 }
+        nextCursor: { type: string, description: 没有下一页时没有这个字段 }
+    CardIntervals:
+      type: object
+      description: 评每一档后，下次复习在几天以后
+      required: [again, hard, good, easy]
+      properties:
+        again: { type: integer }
+        hard: { type: integer }
+        good: { type: integer }
+        easy: { type: integer }
+    CardQueueItem:
+      type: object
+      required: [card, intervals]
+      properties:
+        card: { $ref: "#/components/schemas/Card" }
+        intervals: { $ref: "#/components/schemas/CardIntervals" }
+    CardQueue:
+      type: object
+      required: [items, summary]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CardQueueItem" }
+        summary: { $ref: "#/components/schemas/CardSummary" }
+    CardSummary:
+      type: object
+      required: [due, dueReview, dueNew, reviewedToday, learnedToday, total, newCards, suspended]
+      properties:
+        due: { type: integer, description: 今天还要复习的张数，等于 dueReview + dueNew }
+        dueReview: { type: integer, description: 今天还要复习的旧卡，已按每天上限截断 }
+        dueNew: { type: integer, description: 今天还要学的新卡，已按每天上限截断 }
+        reviewedToday: { type: integer, description: 今天已经评过分的旧卡张数 }
+        learnedToday: { type: integer, description: 今天已经学过的新卡张数 }
+        total: { type: integer }
+        newCards: { type: integer, description: 还没复习过的卡，不含暂停的 }
+        suspended: { type: integer }
+        nextDue: { type: string, format: date-time, nullable: true, description: 今天以后最早到期的时间，没有时为空 }
+        recall30: { type: number, format: double, nullable: true, description: 近 30 天评分里不是“重来”的比例，0 到 1。没有记录时为空 }
+    CardDeck:
+      type: object
+      required: [name, total, due, newCards]
+      properties:
+        name: { type: string }
+        total: { type: integer }
+        due: { type: integer, description: 今天到期的旧卡，不受每天上限限制 }
+        newCards: { type: integer }
+    CardGenerateInput:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, description: 选中的文字，最多 4000 字 }
+        style:
+          type: string
+          enum: [qa, cloze]
+          default: qa
+        sourceTitle: { type: string }
+    CardDraft:
+      type: object
+      required: [question, answer]
+      properties:
+        question: { type: string }
+        answer: { type: string }
+    CardReviewInput:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 4, description: 1 重来，2 困难，3 良好，4 简单 }
+        reps: { type: integer, description: 卡片这次看到的 reps，用来防重复评分 }
+    CardReviewResult:
+      type: object
+      required: [card, intervalDays, summary]
+      properties:
+        card: { $ref: "#/components/schemas/Card" }
+        intervalDays: { type: integer, description: 下次复习在几天以后 }
+        summary: { $ref: "#/components/schemas/CardSummary" }
+    CardSettings:
+      type: object
+      required: [newPerDay, reviewPerDay, retention, pushEnabled, pushTime, aiEnabled, aiAvailable]
+      properties:
+        newPerDay: { type: integer, minimum: 0, maximum: 500 }
+        reviewPerDay: { type: integer, minimum: 0, maximum: 5000 }
+        retention: { type: number, format: double, minimum: 0.7, maximum: 0.97, description: 目标记忆保持率 }
+        pushEnabled: { type: boolean }
+        pushTime: { type: string, description: 每天推送的时间，如 20:00 }
+        aiEnabled: { type: boolean, description: 做卡时是否把选中的文字发给 AI 供应商 }
+        aiAvailable: { type: boolean, description: AI 已配置，只读 }
+    CardSettingsInput:
+      type: object
+      properties:
+        newPerDay: { type: integer }
+        reviewPerDay: { type: integer }
+        retention: { type: number, format: double }
+        pushEnabled: { type: boolean }
+        pushTime: { type: string }
+        aiEnabled: { type: boolean }

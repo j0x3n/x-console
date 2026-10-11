@@ -320,6 +320,37 @@ type CalendarEvent struct {
 	Etag         string
 }
 
+type Card struct {
+	ID            int64
+	Deck          string
+	Question      string
+	Answer        string
+	SourceTitle   string
+	SourceLink    string
+	Suspended     int64
+	State         int64
+	Stability     float64
+	Difficulty    float64
+	Due           time.Time
+	LastReview    *time.Time
+	ScheduledDays int64
+	Reps          int64
+	Lapses        int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type CardReview struct {
+	ID            int64
+	CardID        int64
+	Rating        int64
+	StateBefore   int64
+	ReviewedAt    time.Time
+	ScheduledDays int64
+	Stability     float64
+	Difficulty    float64
+}
+
 type CodingRepo struct {
 	ID            int64
 	AgentID       string

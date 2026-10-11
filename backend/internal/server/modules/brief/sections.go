@@ -47,6 +47,7 @@ var sections = []section{
 	{"alerts", "服务器告警", buildAlerts},
 	{"habits", "习惯", buildHabits},
 	{"renewals", "续费", buildRenewals},
+	{"cards", "待复习的卡片", buildCards}, // B130
 }
 
 // PolisherKey is where the AI module (M12) can register a Polisher. When it
@@ -250,6 +251,23 @@ func buildRenewals(ctx context.Context, in input) (string, error) {
 		b.WriteString("\n")
 	}
 	return strings.TrimSpace(b.String()), nil
+}
+
+// buildCards says how many review cards wait today (B130). It leaves the
+// section out when there are none.
+func buildCards(ctx context.Context, in input) (string, error) {
+	src, ok := module.Lookup[contracts.CardsDue](in.reg, contracts.CardsDueKey)
+	if !ok {
+		return "", errSkip
+	}
+	n, err := src.DueCount(ctx)
+	if err != nil {
+		return "", err
+	}
+	if n == 0 {
+		return "", errSkip
+	}
+	return fmt.Sprintf("今天有 %d 张卡待复习。", n), nil
 }
 
 // ---- assembling ----

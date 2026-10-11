@@ -18,6 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/oapi-codegen/runtime v1.7.0
+	github.com/open-spaced-repetition/go-fsrs/v4 v4.0.0
 	github.com/openai/openai-go/v3 v3.68.0
 	github.com/oschwald/maxminddb-golang v1.13.1
 	github.com/pquerna/otp v1.5.0
