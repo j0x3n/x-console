@@ -1,5 +1,11 @@
 import { useLocation } from "react-router";
-import { Bot, FolderGit2, ListChecks, SlidersHorizontal } from "lucide-react";
+import {
+  Bot,
+  FolderGit2,
+  ListChecks,
+  Scale,
+  SlidersHorizontal,
+} from "lucide-react";
 import NavChildLinks from "../../components/layout/NavChildLinks";
 import {
   NavPanelGroup,
@@ -48,6 +54,13 @@ export default function CodingNavChildren({ onNavigate }: NavChildrenProps) {
           icon={SlidersHorizontal}
           label={t("Config delivery")}
           active={pathname === "/coding/config"}
+          onNavigate={onNavigate}
+        />
+        <NavPanelLink
+          to="/coding/roi"
+          icon={Scale}
+          label={t("Return report")}
+          active={pathname === "/coding/roi"}
           onNavigate={onNavigate}
         />
       </NavPanelGroup>

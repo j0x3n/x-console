@@ -10,6 +10,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/brief"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/calendar"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/coding"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/codingroi"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/contacts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/credentials"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/dashboard"
@@ -82,4 +83,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	aiconfig.New,    // B121
 	contacts.New,    // B122
 	music.New,       // B146
+	codingroi.New,   // B129
 }
