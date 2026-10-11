@@ -3,6 +3,9 @@ import type { RouteObject } from "react-router";
 import { Plus, Users } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { registerNavAction } from "../../lib/navBadges";
+import { registerNavChildren } from "../../lib/navChildren";
+import NavChildren from "./NavChildren";
+registerNavChildren("/contacts", NavChildren);
 import "./i18n";
 import "./contacts.css";
 

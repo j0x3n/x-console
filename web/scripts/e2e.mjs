@@ -564,6 +564,11 @@ try {
   await dialog("新建记录").getByRole("button", { name: "保存" }).click();
   await until("密钥新建", async () => (await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
   const credItem = (await api("/credentials")).items.find((c) => c.name === "端到端令牌");
+  // B155：按类型切换，不丢失刚保存的记录。
+  await page.locator(`.nav-child[href="/credentials?kind=${credItem.kind}"]`).click();
+  await page.waitForURL(`**/credentials?kind=${credItem.kind}`);
+  await page.locator(".credentials-row", {hasText: "端到端令牌"}).waitFor();
+  await page.locator(".nav-child", {hasText: "全部记录"}).click();
   assert.equal(credItem.status, "soon");
   assert.equal(credItem.hasSecret, true);
   assert.ok(!JSON.stringify(credItem).includes("e2e-secret-value"), "接口不应该返回密钥内容");
@@ -596,6 +601,11 @@ try {
   await until("联系人新建", async () => (await api("/contacts")).items.some((c) => c.name === "端到端老王"));
   const contact = (await api("/contacts")).items.find((c) => c.name === "端到端老王");
   assert.equal(contact.status, "soon");
+  // B155：二级导航的分组写进 URL，能回到全部。
+  await page.locator(`.nav-child[href="/contacts?group=${contact.group}"]`).click();
+  await page.waitForURL(`**/contacts?group=${contact.group}`);
+  await page.locator(".contacts-row", {hasText: "端到端老王"}).waitFor();
+  await page.locator(".nav-child", {hasText: "全部联系人"}).click();
   assert.equal(contact.events[0].kind, "birthday");
   await page.getByPlaceholder("搜索联系人").fill("端到端");
   const contactRow = page.locator(".contacts-row", { hasText: "端到端老王" });
