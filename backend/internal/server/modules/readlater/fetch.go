@@ -110,6 +110,9 @@ func (m *Module) fetchPage(ctx context.Context, rawURL string) (page, error) {
 	if err != nil {
 		return page{}, errors.New("网址不对")
 	}
+	if id, ok := youtubeID(u); ok {
+		return m.fetchYouTube(ctx, id)
+	}
 	if handle, id, ok := parseTweetURL(u); ok {
 		pg, err := m.fetchTweet(ctx, handle, id)
 		if err == nil {

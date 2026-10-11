@@ -495,7 +495,8 @@ try {
   await page.getByRole("button", { name: /^标为已读/ }).first().click();
   await until("标为已读", async () => (await api("/readlater?view=all")).counts.read === 1);
   await page.getByText("没有未读的了").waitFor();
-  await page.getByRole("button", { name: "已读", exact: true }).click();
+  await page.locator(".nav-child", { hasText: "已读" }).click();
+  await page.waitForURL("**/readlater?view=read");
   const readId = (await api("/readlater?view=all")).items[0].id;
   const readDel = await page.context().request.delete(`${base}/api/v1/readlater/${readId}`, {
     headers: { "X-Requested-With": "x-console" },

@@ -3,6 +3,9 @@ import type { RouteObject } from "react-router";
 import { Bookmark, Plus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { registerNavAction } from "../../lib/navBadges";
+import { registerNavChildren } from "../../lib/navChildren";
+import NavChildren from "./NavChildren";
+registerNavChildren("/readlater", NavChildren);
 import "./i18n";
 import "./readlater.css";
 
