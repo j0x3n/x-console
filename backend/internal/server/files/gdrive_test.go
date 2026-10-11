@@ -78,7 +78,7 @@ func TestGDriveOAuth(t *testing.T) {
 	fake := fakegdrive.New(t)
 	ctx := context.Background()
 	q := fakegdrive.AuthURL(t, files.GoogleAuthURL(fake.Endpoints(), "client", "https://x/cb", "st"))
-	if q.Get("scope") != files.GoogleDriveScope+" "+files.GoogleBrowseScope || q.Get("state") != "st" || q.Get("access_type") != "offline" || q.Get("redirect_uri") != "https://x/cb" {
+	if q.Get("scope") != files.GoogleDriveScope+" "+files.GoogleBrowseScope+" https://www.googleapis.com/auth/drive" || q.Get("state") != "st" || q.Get("access_type") != "offline" || q.Get("redirect_uri") != "https://x/cb" {
 		t.Fatalf("auth url: %v", q)
 	}
 	grant, err := files.GoogleExchange(ctx, fake.Endpoints(), "client", "secret", "code", "https://x/cb")

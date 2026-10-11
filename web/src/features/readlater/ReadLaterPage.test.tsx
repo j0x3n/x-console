@@ -58,17 +58,26 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import ReadLaterPage from "./ReadLaterPage";
+import NavChildren from "./NavChildren";
 import SharePage from "./SharePage";
 import { linkFromShare, parseTags } from "./format";
 import "./i18n";
 
-function renderIt(url = "/readlater") {
+function renderIt(url = "/readlater", nav = false) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[url]}>
         <Routes>
-          <Route path="/readlater" element={<ReadLaterPage />} />
+          <Route
+            path="/readlater"
+            element={
+              <>
+                {nav && <NavChildren onNavigate={() => {}} />}
+                <ReadLaterPage />
+              </>
+            }
+          />
           <Route path="/readlater/share" element={<SharePage />} />
         </Routes>
       </MemoryRouter>
@@ -213,15 +222,19 @@ describe("ReadLaterPage B117", () => {
 
   it("切到已读、点标签和搜索都会带进请求", async () => {
     serve();
-    renderIt();
+    renderIt("/readlater", true);
     await screen.findByText("鲸鱼协议详解");
-    fireEvent.click(screen.getByRole("button", { name: "已读" }));
+    fireEvent.click(
+      screen
+        .getAllByRole("link", { name: /^已读/ })
+        .find((link) => link.classList.contains("nav-child"))!,
+    );
     await waitFor(() =>
       expect(api.calls.some((c) => c.path === "/readlater?view=read")).toBe(
         true,
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: /^网络/ }));
+    fireEvent.click(screen.getByRole("link", { name: /^网络/ }));
     await waitFor(() =>
       expect(
         api.calls.some(

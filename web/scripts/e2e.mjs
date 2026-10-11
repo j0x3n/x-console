@@ -495,7 +495,8 @@ try {
   await page.getByRole("button", { name: /^标为已读/ }).first().click();
   await until("标为已读", async () => (await api("/readlater?view=all")).counts.read === 1);
   await page.getByText("没有未读的了").waitFor();
-  await page.getByRole("button", { name: "已读", exact: true }).click();
+  await page.locator(".nav-child", { hasText: "已读" }).click();
+  await page.waitForURL("**/readlater?view=read");
   const readId = (await api("/readlater?view=all")).items[0].id;
   const readDel = await page.context().request.delete(`${base}/api/v1/readlater/${readId}`, {
     headers: { "X-Requested-With": "x-console" },
@@ -563,6 +564,11 @@ try {
   await dialog("新建记录").getByRole("button", { name: "保存" }).click();
   await until("密钥新建", async () => (await api("/credentials")).items.some((c) => c.name === "端到端令牌"));
   const credItem = (await api("/credentials")).items.find((c) => c.name === "端到端令牌");
+  // B155：按类型切换，不丢失刚保存的记录。
+  await page.locator(`.nav-child[href="/credentials?kind=${credItem.kind}"]`).click();
+  await page.waitForURL(`**/credentials?kind=${credItem.kind}`);
+  await page.locator(".credentials-row", {hasText: "端到端令牌"}).waitFor();
+  await page.locator(".nav-child", {hasText: "全部记录"}).click();
   assert.equal(credItem.status, "soon");
   assert.equal(credItem.hasSecret, true);
   assert.ok(!JSON.stringify(credItem).includes("e2e-secret-value"), "接口不应该返回密钥内容");
@@ -595,6 +601,11 @@ try {
   await until("联系人新建", async () => (await api("/contacts")).items.some((c) => c.name === "端到端老王"));
   const contact = (await api("/contacts")).items.find((c) => c.name === "端到端老王");
   assert.equal(contact.status, "soon");
+  // B155：二级导航的分组写进 URL，能回到全部。
+  await page.locator(`.nav-child[href="/contacts?group=${contact.group}"]`).click();
+  await page.waitForURL(`**/contacts?group=${contact.group}`);
+  await page.locator(".contacts-row", {hasText: "端到端老王"}).waitFor();
+  await page.locator(".nav-child", {hasText: "全部联系人"}).click();
   assert.equal(contact.events[0].kind, "birthday");
   await page.getByPlaceholder("搜索联系人").fill("端到端");
   const contactRow = page.locator(".contacts-row", { hasText: "端到端老王" });
@@ -1428,6 +1439,32 @@ try {
   await page.locator(".nav-panel").getByRole("link", { name: "端到端网盘" }).click();
   await page.getByRole("button", { name: "docs", exact: true }).click();
   await page.getByText("hello.txt").first().waitFor();
+
+  setStage("B156 外部网盘预览、编辑、新建文件夹和浏览方式");
+  await page.getByRole("button", { name: "hello.txt", exact: true }).click();
+  await dialog("hello.txt").getByText("hello from fakedav", { exact: true }).waitFor();
+  await dialog("hello.txt").getByRole("button", { name: "编辑", exact: true }).click();
+  await dialog("hello.txt").locator(".cm-content").fill("外部网盘修改后的内容");
+  await dialog("hello.txt").getByRole("button", { name: "保存", exact: true }).click();
+  await dialog("hello.txt").getByText("没有改动", { exact: true }).waitFor();
+  await dialog("hello.txt").getByRole("button", { name: "退出编辑", exact: true }).click();
+  await dialog("hello.txt").getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: "hello.txt", exact: true }).click();
+  await dialog("hello.txt").getByText("外部网盘修改后的内容", { exact: true }).waitFor();
+  await dialog("hello.txt").getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("button", { name: "新建文件夹", exact: true }).click();
+  await dialog("新建文件夹").getByLabel("名称").fill("端到端目录");
+  await dialog("新建文件夹").getByRole("button", { name: "新建", exact: true }).click();
+  await page.getByRole("button", { name: "端到端目录", exact: true }).waitFor();
+  for (const width of [1360, 390]) {
+    await page.setViewportSize({ width, height: 860 });
+    await page.getByRole("button", { name: "网格", exact: true }).click();
+    await page.locator(".drive-grid").waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "外部网盘横向溢出");
+    await page.getByRole("button", { name: "列表", exact: true }).click();
+    await page.locator(".drive-table").waitFor();
+  }
+  await page.setViewportSize({ width: 1360, height: 860 });
 
   setStage("B81 增量备份 API 主流程");
   const previousBackupSettings = await api("/backups/settings");

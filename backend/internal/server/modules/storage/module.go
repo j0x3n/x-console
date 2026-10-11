@@ -67,9 +67,10 @@ const ServiceKey = "storage.service"
 
 // Module implements api.ServerInterface.
 type Module struct {
-	d   *module.Deps
-	q   *db.Queries
-	now func() time.Time
+	remoteWrite sync.Mutex
+	d           *module.Deps
+	q           *db.Queries
+	now         func() time.Time
 
 	// 网盘账号的 Google 授权（B69）
 	google   files.GoogleEndpoints // zero means the real Google

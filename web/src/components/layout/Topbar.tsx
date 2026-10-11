@@ -9,7 +9,7 @@ import TopbarActions from "../../app/TopbarActions";
 import { usePageTitle } from "../../stores/page-title";
 import { moduleOfPath, useModules } from "../../app/modules";
 import { useSidebar } from "../../stores/sidebar";
-import { PageActionsSlot } from "./PageActions";
+import { PageActionsSlot, PageTitleActionsSlot } from "./PageActions";
 import { navItems } from "../../app/nav";
 import { useCurrentNavPanel } from "./Sidebar";
 
@@ -152,6 +152,7 @@ export default function Topbar({
             title={t("Live updates disconnected. Reconnecting.")}
           />
         )}
+        <PageTitleActionsSlot />
         {subtitle && (
           <span className={`topbar-subtitle${detail ? "" : " after-module"}`}>
             {subtitle}

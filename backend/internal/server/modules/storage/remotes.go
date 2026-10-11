@@ -32,6 +32,7 @@ const (
 
 // remoteConfig is storage_remotes.config.
 type remoteConfig struct {
+	Write    bool   `json:"write,omitempty"`
 	URL      string `json:"url,omitempty"`      // WebDAV
 	Username string `json:"username,omitempty"` // WebDAV
 	ClientID string `json:"clientId,omitempty"` // Google Drive
@@ -55,6 +56,7 @@ type (
 		Limited     bool    `json:"limited"`
 		RedirectUri string  `json:"redirectUri"`
 		SecretSet   bool    `json:"secretSet"`
+		Writable    *bool   `json:"writable,omitempty"`
 	}
 )
 
@@ -152,7 +154,7 @@ func (m *Module) remoteView(ctx context.Context, r *http.Request, row db.Storage
 	if row.Kind == contracts.RemoteGDrive {
 		g := gdriveView{
 			ClientId: c.ClientID, SecretSet: m.remoteSecret(ctx, row.ID, secClientSecret) != "",
-			Authorized: m.remoteSecret(ctx, row.ID, secToken) != "", Limited: in.Limited,
+			Authorized: m.remoteSecret(ctx, row.ID, secToken) != "", Limited: in.Limited, Writable: ptr(c.Write),
 			RedirectUri: siteBase(m.d.Config.PublicURL, r) + "/api/v1" + callbackPath(c),
 		}
 		if g.Authorized && c.Account != "" {
@@ -385,7 +387,7 @@ func (m *Module) updateRemote(ctx context.Context, id int64, in api.StorageRemot
 		if err := m.setRemoteSecret(ctx, row.ID, secToken, ""); err != nil {
 			return row, err
 		}
-		f.cfg.Account, f.cfg.Browse = "", false
+		f.cfg.Account, f.cfg.Browse, f.cfg.Write = "", false, false
 	}
 	for name, v := range map[string]string{secPassword: f.password, secClientSecret: f.secret} {
 		if v == "" {

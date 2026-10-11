@@ -121,6 +121,9 @@ type StorageRemote struct {
 		// RedirectUri 要填到 Google 控制台的重定向地址。B63 时授权的账号继续用旧地址
 		RedirectUri string `json:"redirectUri"`
 		SecretSet   bool   `json:"secretSet"`
+
+		// Writable 已授权修改全部文件。旧授权需要重新授权
+		Writable *bool `json:"writable,omitempty"`
 	} `json:"gdrive,omitempty"`
 	Id   int64             `json:"id"`
 	Kind StorageRemoteKind `json:"kind"`
@@ -146,6 +149,7 @@ type StorageRemoteEntry struct {
 	// Downloadable Google 文档这类在线文件是 false
 	Downloadable bool       `json:"downloadable"`
 	IsDir        bool       `json:"isDir"`
+	Mime         *string    `json:"mime,omitempty"`
 	ModifiedAt   *time.Time `json:"modifiedAt,omitempty"`
 	Name         string     `json:"name"`
 	Ref          string     `json:"ref"`
@@ -269,8 +273,21 @@ type TestStorageRemoteParams struct {
 	Id *int64 `form:"id,omitempty" json:"id,omitempty"`
 }
 
+// PutStorageRemoteContentParams defines parameters for PutStorageRemoteContent.
+type PutStorageRemoteContentParams struct {
+	Ref    *string `form:"ref,omitempty" json:"ref,omitempty"`
+	Parent *string `form:"parent,omitempty" json:"parent,omitempty"`
+	Name   *string `form:"name,omitempty" json:"name,omitempty"`
+}
+
 // DownloadStorageRemoteFileParams defines parameters for DownloadStorageRemoteFile.
 type DownloadStorageRemoteFileParams struct {
+	Inline *bool  `form:"inline,omitempty" json:"inline,omitempty"`
+	Ref    string `form:"ref" json:"ref"`
+}
+
+// DeleteStorageRemoteItemParams defines parameters for DeleteStorageRemoteItem.
+type DeleteStorageRemoteItemParams struct {
 	Ref string `form:"ref" json:"ref"`
 }
 
@@ -278,6 +295,18 @@ type DownloadStorageRemoteFileParams struct {
 type ListStorageRemoteItemsParams struct {
 	// Ref 文件夹的位置。WebDAV 是路径，Google Drive 是文件夹 id，不传表示根目录
 	Ref *string `form:"ref,omitempty" json:"ref,omitempty"`
+}
+
+// RenameStorageRemoteItemJSONBody defines parameters for RenameStorageRemoteItem.
+type RenameStorageRemoteItemJSONBody struct {
+	Name string `json:"name"`
+	Ref  string `json:"ref"`
+}
+
+// CreateStorageRemoteFolderJSONBody defines parameters for CreateStorageRemoteFolder.
+type CreateStorageRemoteFolderJSONBody struct {
+	Name   string  `json:"name"`
+	Parent *string `json:"parent,omitempty"`
 }
 
 // SwitchStorageJSONBody defines parameters for SwitchStorage.
@@ -298,6 +327,12 @@ type TestStorageRemoteJSONRequestBody = StorageRemoteInput
 
 // UpdateStorageRemoteJSONRequestBody defines body for UpdateStorageRemote for application/json ContentType.
 type UpdateStorageRemoteJSONRequestBody = StorageRemoteInput
+
+// RenameStorageRemoteItemJSONRequestBody defines body for RenameStorageRemoteItem for application/json ContentType.
+type RenameStorageRemoteItemJSONRequestBody RenameStorageRemoteItemJSONBody
+
+// CreateStorageRemoteFolderJSONRequestBody defines body for CreateStorageRemoteFolder for application/json ContentType.
+type CreateStorageRemoteFolderJSONRequestBody CreateStorageRemoteFolderJSONBody
 
 // PutStorageS3JSONRequestBody defines body for PutStorageS3 for application/json ContentType.
 type PutStorageS3JSONRequestBody = StorageS3Input
@@ -335,6 +370,9 @@ type ServerInterface interface {
 	// (PATCH /storage/remotes/{remoteId})
 	UpdateStorageRemote(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
 
+	// (PUT /storage/remotes/{remoteId}/content)
+	PutStorageRemoteContent(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params PutStorageRemoteContentParams)
+
 	// (GET /storage/remotes/{remoteId}/download)
 	DownloadStorageRemoteFile(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params DownloadStorageRemoteFileParams)
 
@@ -344,8 +382,17 @@ type ServerInterface interface {
 	// (GET /storage/remotes/{remoteId}/gdrive/auth)
 	StartStorageGdriveAuth(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
 
+	// (DELETE /storage/remotes/{remoteId}/items)
+	DeleteStorageRemoteItem(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params DeleteStorageRemoteItemParams)
+
 	// (GET /storage/remotes/{remoteId}/items)
 	ListStorageRemoteItems(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params ListStorageRemoteItemsParams)
+
+	// (PATCH /storage/remotes/{remoteId}/items)
+	RenameStorageRemoteItem(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
+
+	// (POST /storage/remotes/{remoteId}/items)
+	CreateStorageRemoteFolder(w http.ResponseWriter, r *http.Request, remoteId RemoteId)
 
 	// (PUT /storage/s3)
 	PutStorageS3(w http.ResponseWriter, r *http.Request)
@@ -404,6 +451,11 @@ func (_ Unimplemented) UpdateStorageRemote(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /storage/remotes/{remoteId}/content)
+func (_ Unimplemented) PutStorageRemoteContent(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params PutStorageRemoteContentParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /storage/remotes/{remoteId}/download)
 func (_ Unimplemented) DownloadStorageRemoteFile(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params DownloadStorageRemoteFileParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -419,8 +471,23 @@ func (_ Unimplemented) StartStorageGdriveAuth(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (DELETE /storage/remotes/{remoteId}/items)
+func (_ Unimplemented) DeleteStorageRemoteItem(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params DeleteStorageRemoteItemParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /storage/remotes/{remoteId}/items)
 func (_ Unimplemented) ListStorageRemoteItems(w http.ResponseWriter, r *http.Request, remoteId RemoteId, params ListStorageRemoteItemsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /storage/remotes/{remoteId}/items)
+func (_ Unimplemented) RenameStorageRemoteItem(w http.ResponseWriter, r *http.Request, remoteId RemoteId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /storage/remotes/{remoteId}/items)
+func (_ Unimplemented) CreateStorageRemoteFolder(w http.ResponseWriter, r *http.Request, remoteId RemoteId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -672,6 +739,74 @@ func (siw *ServerInterfaceWrapper) UpdateStorageRemote(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// PutStorageRemoteContent operation middleware
+func (siw *ServerInterfaceWrapper) PutStorageRemoteContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutStorageRemoteContentParams
+
+	// ------------- Optional query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "parent" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "parent", r.URL.Query(), &params.Parent, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "parent"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "parent", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "name" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "name", r.URL.Query(), &params.Name, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "name"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutStorageRemoteContent(w, r, remoteId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DownloadStorageRemoteFile operation middleware
 func (siw *ServerInterfaceWrapper) DownloadStorageRemoteFile(w http.ResponseWriter, r *http.Request) {
 
@@ -689,6 +824,19 @@ func (siw *ServerInterfaceWrapper) DownloadStorageRemoteFile(w http.ResponseWrit
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params DownloadStorageRemoteFileParams
+
+	// ------------- Optional query parameter "inline" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "inline", r.URL.Query(), &params.Inline, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "inline"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "inline", Err: err})
+		}
+		return
+	}
 
 	// ------------- Required query parameter "ref" -------------
 
@@ -766,6 +914,48 @@ func (siw *ServerInterfaceWrapper) StartStorageGdriveAuth(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteStorageRemoteItem operation middleware
+func (siw *ServerInterfaceWrapper) DeleteStorageRemoteItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteStorageRemoteItemParams
+
+	// ------------- Required query parameter "ref" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "ref", r.URL.Query(), &params.Ref, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "ref"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ref", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteStorageRemoteItem(w, r, remoteId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListStorageRemoteItems operation middleware
 func (siw *ServerInterfaceWrapper) ListStorageRemoteItems(w http.ResponseWriter, r *http.Request) {
 
@@ -799,6 +989,58 @@ func (siw *ServerInterfaceWrapper) ListStorageRemoteItems(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListStorageRemoteItems(w, r, remoteId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RenameStorageRemoteItem operation middleware
+func (siw *ServerInterfaceWrapper) RenameStorageRemoteItem(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RenameStorageRemoteItem(w, r, remoteId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateStorageRemoteFolder operation middleware
+func (siw *ServerInterfaceWrapper) CreateStorageRemoteFolder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remoteId" -------------
+	var remoteId RemoteId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remoteId", chi.URLParam(r, "remoteId"), &remoteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remoteId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateStorageRemoteFolder(w, r, remoteId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1020,7 +1262,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/storage/remotes/{remoteId}/gdrive/auth", wrapper.StartStorageGdriveAuth)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/storage/remotes/{remoteId}/items", wrapper.DeleteStorageRemoteItem)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/storage/remotes/{remoteId}/items", wrapper.ListStorageRemoteItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/storage/remotes/{remoteId}/items", wrapper.RenameStorageRemoteItem)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/storage/remotes/{remoteId}/items", wrapper.CreateStorageRemoteFolder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/storage/remotes/{remoteId}/content", wrapper.PutStorageRemoteContent)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/storage/remotes/{remoteId}/download", wrapper.DownloadStorageRemoteFile)

@@ -131,7 +131,7 @@ function DriveBrowser() {
   const trash = tab === "trash";
   // 分享管理（B31）是单独的一个标签，不看文件列表。
   const sharesTab = tab === "shares";
-  // 备份设置里绑定的网盘（B68），每个一个标签，只能浏览和下载。
+  // 备份设置里绑定的网盘（B68），每个一个标签，支持浏览和文件操作。
   const remotes = useRemoteDrives();
   const remoteDrive =
     tab === "remote"
@@ -675,6 +675,8 @@ function DriveBrowser() {
       {remoteDrive ? (
         <RemoteView
           drive={remoteDrive}
+          layout={layout}
+          onLayoutChange={setLayout}
           folder={remoteRef}
           onOpen={(ref) => go({ ref: ref || null })}
         />

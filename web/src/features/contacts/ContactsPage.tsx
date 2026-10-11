@@ -39,9 +39,14 @@ type View = "all" | "soon" | "overdue";
 export default function ContactsPage() {
   const t = useT();
   const [params, setParams] = useSearchParams();
-  const [archived, setArchived] = useState(false);
+  const archived = params.get("archived") === "1";
   const [q, setQ] = useState("");
-  const [group, setGroup] = useState<ContactGroup | "">("");
+  const categoryParam = params.get("group");
+  const group: ContactGroup | "" = GROUPS.includes(
+    categoryParam as ContactGroup,
+  )
+    ? (categoryParam as ContactGroup)
+    : "";
   const [openId, setOpenId] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const list = useContacts(archived);
@@ -71,7 +76,9 @@ export default function ContactsPage() {
       { replace: true },
     );
 
-  const all = list.data?.items ?? [];
+  const all = (list.data?.items ?? []).filter(
+    (item) => item.archived === archived,
+  );
   const summary = list.data?.summary;
   const needle = q.trim().toLowerCase();
   const items = all.filter(
@@ -172,31 +179,6 @@ export default function ContactsPage() {
         />
       </StatStrip>
       <Toolbar
-        start={
-          <div className="contacts-filters">
-            <select
-              className="xc-select"
-              aria-label={t("Group")}
-              value={group}
-              onChange={(e) => setGroup(e.target.value as ContactGroup | "")}
-            >
-              <option value="">{t("All groups")}</option>
-              {GROUPS.map((g) => (
-                <option key={g} value={g}>
-                  {t(GROUP_LABELS[g])}
-                </option>
-              ))}
-            </select>
-            <label className="xc-check">
-              <input
-                type="checkbox"
-                checked={archived}
-                onChange={(e) => setArchived(e.target.checked)}
-              />
-              <span>{t("Show archived")}</span>
-            </label>
-          </div>
-        }
         end={
           <SearchBox
             value={q}

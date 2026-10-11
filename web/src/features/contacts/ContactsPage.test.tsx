@@ -58,13 +58,15 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import ContactsPage from "./ContactsPage";
+import NavChildren from "./NavChildren";
 import "./i18n";
 
-function renderIt(url = "/contacts") {
+function renderIt(url = "/contacts", nav = false) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[url]}>
+        {nav && <NavChildren onNavigate={() => {}} />}
         <ContactsPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -226,9 +228,9 @@ describe("ContactsPage B122", () => {
     expect(stat("近期的日子")).toContain("1");
   });
 
-  it("点概要卡片按状态筛选，分组下拉按分组筛选，搜索按名字找", async () => {
+  it("点概要卡片和二级导航按状态与分组筛选，搜索按名字找", async () => {
     serve();
-    renderIt();
+    renderIt("/contacts", true);
     await screen.findByText("老王");
     fireEvent.click(
       screen
@@ -242,12 +244,10 @@ describe("ContactsPage B122", () => {
         .getByText("该联系了", { selector: ".xc-stat *" })
         .closest("button")!,
     );
-    fireEvent.change(screen.getByLabelText("分组"), {
-      target: { value: "family" },
-    });
+    fireEvent.click(screen.getByRole("link", { name: /^家人/ }));
     expect(screen.getByText("赵姐")).toBeTruthy();
     expect(screen.queryByText("老王")).toBeNull();
-    fireEvent.change(screen.getByLabelText("分组"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("link", { name: "全部联系人" }));
     fireEvent.change(screen.getByPlaceholderText("搜索联系人"), {
       target: { value: "小" },
     });
@@ -307,9 +307,9 @@ describe("ContactsPage B122", () => {
 
   it("显示已归档会带上 archived 参数", async () => {
     serve();
-    renderIt();
+    renderIt("/contacts", true);
     await screen.findByText("老王");
-    fireEvent.click(screen.getByLabelText("显示已归档"));
+    fireEvent.click(screen.getByRole("link", { name: "已归档" }));
     await waitFor(() =>
       expect(api.calls.some((c) => c.path === "/contacts?archived=true")).toBe(
         true,

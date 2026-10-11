@@ -1,5 +1,10 @@
 # 接口变更记录
 
+- B157（2026-10-11）：音乐展示组件改名为 PlayerBar.tsx、LyricsView.tsx，避免与 player.ts、lyrics.ts 在 Windows 的 TypeScript 模块解析中重号。GlobalPanels 只调整播放器的导入路径，导出和界面行为保持兼容。
+
+- B156（2026-10-11，原提交标题用 B152）：storage 增加外部网盘新建文件夹、改名、删除和文件内容写入接口。下载增加可选 inline 参数，支持同源预览和文本内容的 ETag 校验。隐藏账号复用原有权限检查。files 包只增加 WebDAV / Google Drive 的文件操作方法，新 Google 授权增加读写范围。既有账号和备份读写方式保持兼容。
+- B154（2026-10-11）：PageActions 增加详情标题后的可选插槽。项目页用它展示看板切换列表。没有使用插槽的页面布局保持原样。
+
 改了基础代码（`backend/internal/server/` 下除 `modules/` 以外的目录、`backend/pkg/`、`web/src/{api,auth,app,components,lib}`）、
 共享合同（`contracts`）或模块接口的向后兼容性时，在最上面加一条：任务编号、日期、改了什么、为什么。
 看板在 [tasks.md](tasks.md)。

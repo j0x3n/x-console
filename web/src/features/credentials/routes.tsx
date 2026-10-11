@@ -3,6 +3,9 @@ import type { RouteObject } from "react-router";
 import { KeyRound, Plus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { registerNavAction } from "../../lib/navBadges";
+import { registerNavChildren } from "../../lib/navChildren";
+import NavChildren from "./NavChildren";
+registerNavChildren("/credentials", NavChildren);
 import "./i18n";
 import "./credentials.css";
 

@@ -2127,3 +2127,43 @@ input.projects-ttl:focus {
     grid-template-columns: 96px minmax(0, 1fr);
   }
 }
+
+.projects-card-composer > .projects-inline-input {
+  min-height: 76px;
+  outline: none;
+  padding: 12px;
+  resize: none;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius);
+  background: var(--xc-surface);
+  box-shadow: none;
+}
+.projects-lane-list:empty {
+  flex: none;
+  min-height: 0;
+}
+.page-title-actions {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 360px;
+}
+.page-title-actions:empty {
+  display: none;
+}
+.page-title-actions .projects-board-tabs {
+  margin: 0 0 0 12px;
+  padding: 0;
+  min-width: 0;
+  max-width: 100%;
+  border: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .page-title-actions {
+    max-width: 128px;
+  }
+  .page-title-actions .projects-board-tabs {
+    margin-left: 6px;
+  }
+}

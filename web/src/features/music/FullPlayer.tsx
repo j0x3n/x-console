@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useT } from "../../contexts/LanguageContext";
 import { useUpdateTrack } from "./api";
 import { TrackCover } from "./Cover";
-import Lyrics from "./Lyrics";
+import Lyrics from "./LyricsView";
 import QueueList from "./QueueList";
 import {
   Controls,
@@ -11,7 +11,7 @@ import {
   SeekBar,
   TimeText,
   VolumeControl,
-} from "./Player";
+} from "./PlayerBar";
 import { useMainLeft } from "./PlayerHost";
 import { SleepButton } from "./SleepDialog";
 import { currentTrack, usePlayer } from "./player";
