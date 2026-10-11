@@ -702,3 +702,14 @@ func TestLargeLibrarySearchIsFast(t *testing.T) {
 		t.Errorf("lyrics search: %d", page.Total)
 	}
 }
+
+func waitUntil(t *testing.T, ok func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for !ok() {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}

@@ -57,6 +57,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import MusicPage from "./MusicPage";
+import MusicSettingsTab from "./MusicSettingsTab";
 import MusicDialogs from "./dialogs";
 import { usePlayer } from "./player";
 import "./i18n";
@@ -239,6 +240,165 @@ describe("音乐页", () => {
       expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({
         name: "睡前",
       }),
+    );
+  });
+
+  it("待确认：采用一个候选会把来源和编号发给接口", async () => {
+    setup([{ id: 1, name: "音乐", path: "/音乐" }], []);
+    api.routes.set("GET /music/pending", () => ({
+      status: 200,
+      body: [
+        {
+          track: song(1, "夜曲", { matchState: "pending" }),
+          candidates: [
+            {
+              source: "netease",
+              sourceId: "99",
+              title: "夜曲",
+              artist: "周杰伦",
+              album: "十一月的萧邦",
+              durationMs: 236000,
+              lyrics: true,
+              cover: true,
+            },
+          ],
+        },
+      ],
+    }));
+    api.routes.set("POST /music/tracks/1/match", () => ({
+      status: 200,
+      body: song(1, "夜曲", { matchState: "matched" }),
+    }));
+    renderIt("/music?view=pending");
+    expect(await screen.findByText("网易云音乐")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /采用/ }));
+    await waitFor(() =>
+      expect(
+        api.calls.find((c) => c.path === "/music/tracks/1/match")?.body,
+      ).toEqual({ candidate: { source: "netease", sourceId: "99" } }),
+    );
+  });
+
+  it("待确认：没有要确认的歌时有说明", async () => {
+    setup([{ id: 1, name: "音乐", path: "/音乐" }], []);
+    api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    renderIt("/music?view=pending");
+    expect(await screen.findByText("没有要确认的歌")).toBeTruthy();
+  });
+
+  it("待确认：都不对会调用跳过", async () => {
+    setup([{ id: 1, name: "音乐", path: "/音乐" }], []);
+    api.routes.set("GET /music/pending", () => ({
+      status: 200,
+      body: [
+        { track: song(1, "夜曲", { matchState: "pending" }), candidates: [] },
+      ],
+    }));
+    api.routes.set("POST /music/tracks/1/skip", () => ({
+      status: 200,
+      body: song(1, "夜曲", { matchState: "skipped" }),
+    }));
+    renderIt("/music?view=pending");
+    fireEvent.click(await screen.findByRole("button", { name: /都不对/ }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.path === "/music/tracks/1/skip")).toBe(
+        true,
+      ),
+    );
+  });
+});
+
+describe("设置里的音乐标签", () => {
+  const settings = {
+    folders: [{ id: 1, name: "音乐", path: "/音乐" }],
+    autoMatch: true,
+    writeBack: true,
+    providers: {
+      lrclib: true,
+      netease: true,
+      qqmusic: true,
+      itunes: true,
+      musicbrainz: true,
+    },
+  };
+  function renderTab() {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    return render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter>
+          <MusicSettingsTab />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  it("关掉写回文件只发这一项", async () => {
+    api.routes.clear();
+    api.calls.length = 0;
+    api.routes.set("GET /music/settings", () => ({
+      status: 200,
+      body: settings,
+    }));
+    api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("PUT /music/settings", (body) => ({
+      status: 200,
+      body: { ...settings, ...(body as object) },
+    }));
+    renderTab();
+    const toggle = await screen.findByRole("checkbox", {
+      name: "把歌词和封面写进歌曲文件",
+    });
+    expect((toggle as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(toggle);
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+        writeBack: false,
+      }),
+    );
+  });
+
+  it("没有官方接口的来源有提示，单独开关某个来源", async () => {
+    api.routes.clear();
+    api.calls.length = 0;
+    api.routes.set("GET /music/settings", () => ({
+      status: 200,
+      body: settings,
+    }));
+    api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("PUT /music/settings", () => ({
+      status: 200,
+      body: settings,
+    }));
+    renderTab();
+    expect(
+      (await screen.findAllByText("没有官方接口，可能随时失效。")).length,
+    ).toBe(2);
+    fireEvent.click(screen.getByRole("checkbox", { name: "QQ 音乐" }));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+        providers: { qqmusic: false },
+      }),
+    );
+  });
+
+  it("立即匹配调用批量匹配接口", async () => {
+    api.routes.clear();
+    api.calls.length = 0;
+    api.routes.set("GET /music/settings", () => ({
+      status: 200,
+      body: settings,
+    }));
+    api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("POST /music/match", () => ({
+      status: 202,
+      body: { running: true },
+    }));
+    renderTab();
+    fireEvent.click(await screen.findByRole("button", { name: /立即匹配/ }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.path === "/music/match")).toBe(true),
     );
   });
 });

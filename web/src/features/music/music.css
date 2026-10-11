@@ -669,3 +669,72 @@ html.music-full-open .ai-fab {
     width: 72px;
   }
 }
+
+/* 待确认和在线匹配（B148） */
+.music-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.music-pending-card {
+  padding: 0;
+  overflow: hidden;
+}
+.music-pending-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.music-pending-head .music-row-main {
+  flex: 1;
+}
+.music-candidates {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.music-candidates li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--xc-border);
+}
+.music-candidates li:last-child {
+  border-bottom: 0;
+}
+.music-candidates .music-row-main {
+  flex: 1;
+}
+.music-candidate-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.music-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.music-option small {
+  display: block;
+}
+.music-subhead {
+  margin: 14px 0 0;
+  font-size: var(--fs-13);
+  font-weight: 600;
+}
+.music-lyrics-editor {
+  width: 100%;
+  font-family: var(--xc-mono);
+}
+@media (max-width: 720px) {
+  .music-candidates li {
+    flex-wrap: wrap;
+  }
+}

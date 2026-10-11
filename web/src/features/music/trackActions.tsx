@@ -1,5 +1,8 @@
 import {
+  FileText,
   FolderOpen,
+  ImagePlus,
+  Wand2,
   Heart,
   HeartOff,
   ListEnd,
@@ -16,8 +19,13 @@ import type { MoreMenuItem } from "../../components/ui/MoreMenu";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { driveApi } from "../drive/api";
-import { useUpdateTrack, type Track } from "./api";
-import { openAddToPlaylist, openEditTrack } from "./dialogs";
+import {
+  useMatchTrack,
+  useUpdateTrack,
+  useUploadCover,
+  type Track,
+} from "./api";
+import { openAddToPlaylist, openEditLyrics, openEditTrack } from "./dialogs";
 import { usePlayer } from "./player";
 
 function icon(Icon: LucideIcon) {
@@ -32,6 +40,8 @@ export function useTrackMenu() {
   const t = useT();
   const navigate = useNavigate();
   const update = useUpdateTrack();
+  const matchTrack = useMatchTrack();
+  const uploadCover = useUploadCover();
 
   const toggleFavorite = (track: Track) =>
     update.mutate(
@@ -53,6 +63,47 @@ export function useTrackMenu() {
     } catch (e) {
       toast({ message: errorMessage(e), tone: "error" });
     }
+  };
+
+  const match = (track: Track, overwrite: boolean) => {
+    toast(t("Matching…"));
+    matchTrack.mutate(
+      { id: track.id, overwrite },
+      {
+        onSuccess: (next) => {
+          usePlayer.getState().patchTrack(next);
+          toast(
+            next.matchState === "matched"
+              ? t("Matched")
+              : next.matchState === "pending"
+                ? t("Not sure. Choose from the candidates in To confirm.")
+                : t("Nothing found"),
+          );
+        },
+        onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
+      },
+    );
+  };
+
+  const pickCover = (track: Track) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/png,image/webp";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      uploadCover.mutate(
+        { id: track.id, file },
+        {
+          onSuccess: (next) => {
+            usePlayer.getState().patchTrack(next);
+            toast(t("Saved"));
+          },
+          onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
+        },
+      );
+    };
+    input.click();
   };
 
   const items = (
@@ -97,6 +148,30 @@ export function useTrackMenu() {
       onSelect: () => toggleFavorite(track),
     },
     ...(options.extra ?? []),
+    {
+      key: "match",
+      label: t("Match lyrics and cover"),
+      icon: icon(Wand2),
+      onSelect: () => match(track, false),
+    },
+    {
+      key: "rematch",
+      label: t("Match again and replace"),
+      icon: icon(Wand2),
+      onSelect: () => match(track, true),
+    },
+    {
+      key: "lyrics",
+      label: t("Edit lyrics"),
+      icon: icon(FileText),
+      onSelect: () => openEditLyrics(track),
+    },
+    {
+      key: "cover",
+      label: t("Upload cover"),
+      icon: icon(ImagePlus),
+      onSelect: () => pickCover(track),
+    },
     {
       key: "edit",
       label: t("Edit song info"),

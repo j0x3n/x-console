@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { invalidateOn } from "../../api/events";
-import { createApi, unwrap } from "../../api/client";
+import { apiFetch, createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/music";
 
 /* 音乐曲库（B146 后端，B147 前端）。歌在云盘里，这里是它们的索引、封面和歌词。 */
@@ -23,6 +23,9 @@ export type Playlist = S["MusicPlaylist"];
 export type PlaylistDetail = S["MusicPlaylistDetail"];
 export type MusicSettings = S["MusicSettings"];
 export type Lyrics = S["MusicLyrics"];
+export type SettingsInput = S["MusicSettingsInput"];
+export type Pending = S["MusicPending"];
+export type Candidate = S["MusicCandidate"];
 
 export const musicKeys = {
   all: ["music"] as const,
@@ -34,6 +37,7 @@ export const musicKeys = {
   playlist: (id: number) => ["music", "playlists", id] as const,
   lyrics: (id: number) => ["music", "lyrics", id] as const,
   settings: ["music", "settings"] as const,
+  pending: ["music", "pending"] as const,
 };
 
 // 扫描完成、歌曲改过、播放列表改过时刷新。播放次数的事件不刷新，不然每首歌播放都会重拉所有列表。
@@ -176,13 +180,106 @@ function useRefresh() {
   return () => client.invalidateQueries({ queryKey: musicKeys.all });
 }
 
+/** 只改传了的字段：目录、自动匹配、写回文件、各个来源。 */
 export function usePutMusicSettings() {
   const refresh = useRefresh();
   return useMutation({
-    mutationFn: (folders: number[]) =>
-      unwrap(musicApi.PUT("/music/settings", { body: { folders } })),
+    mutationFn: (body: SettingsInput) =>
+      unwrap(musicApi.PUT("/music/settings", { body })),
     onSuccess: refresh,
   });
+}
+
+/** 在线匹配没法确定、等用户选的歌。 */
+export function usePending() {
+  return useQuery({
+    queryKey: musicKeys.pending,
+    queryFn: () => unwrap(musicApi.GET("/music/pending")),
+    retry: false,
+  });
+}
+
+/** 手动匹配一首歌。传 candidate 是用待确认列表里选的那个；overwrite 是换掉已有的歌词和封面。 */
+export function useMatchTrack() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (v: {
+      id: number;
+      candidate?: { source: string; sourceId: string };
+      overwrite?: boolean;
+    }) =>
+      unwrap(
+        musicApi.POST("/music/tracks/{trackId}/match", {
+          params: { path: { trackId: v.id } },
+          body: { candidate: v.candidate, overwrite: v.overwrite },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+}
+
+export function useSkipMatch() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        musicApi.POST("/music/tracks/{trackId}/skip", {
+          params: { path: { trackId: id } },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+}
+
+/** 后台给还没匹配过的歌匹配。retryFailed 把以前失败的也重试。 */
+export function useMatchAll() {
+  return useMutation({
+    mutationFn: (retryFailed: boolean) =>
+      unwrap(
+        musicApi.POST("/music/match", {
+          params: { query: { retryFailed: retryFailed || undefined } },
+        }),
+      ),
+  });
+}
+
+export function usePutLyrics() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (v: { id: number; text: string; writeBack?: boolean }) =>
+      unwrap(
+        musicApi.PUT("/music/tracks/{trackId}/lyrics", {
+          params: { path: { trackId: v.id } },
+          body: { text: v.text, writeBack: v.writeBack },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+}
+
+/** 上传封面图，请求体就是图片内容。 */
+export function useUploadCover() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: async (v: { id: number; file: File; writeBack?: boolean }) => {
+      const q = v.writeBack == null ? "" : `?writeBack=${v.writeBack}`;
+      const res = await apiFetch(`/music/tracks/${v.id}/cover${q}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: v.file,
+      });
+      return (await res.json()) as Track;
+    },
+    onSuccess: refresh,
+  });
+}
+
+/** 后台批量匹配的进度，来自 music.match_progress 事件。 */
+export interface MatchProgress {
+  running: boolean;
+  done: number;
+  total: number;
+  current?: string;
 }
 
 export function useScanMusic() {

@@ -14,6 +14,33 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for MusicCandidateSource.
+const (
+	Itunes      MusicCandidateSource = "itunes"
+	Lrclib      MusicCandidateSource = "lrclib"
+	Musicbrainz MusicCandidateSource = "musicbrainz"
+	Netease     MusicCandidateSource = "netease"
+	Qqmusic     MusicCandidateSource = "qqmusic"
+)
+
+// Valid indicates whether the value is a known member of the MusicCandidateSource enum.
+func (e MusicCandidateSource) Valid() bool {
+	switch e {
+	case Itunes:
+		return true
+	case Lrclib:
+		return true
+	case Musicbrainz:
+		return true
+	case Netease:
+		return true
+	case Qqmusic:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MusicLyricsSource.
 const (
 	MusicLyricsSourceEmbedded MusicLyricsSource = "embedded"
@@ -184,6 +211,27 @@ type MusicArtist struct {
 	TrackCount   int    `json:"trackCount"`
 }
 
+// MusicCandidate defines model for MusicCandidate.
+type MusicCandidate struct {
+	Album  string `json:"album"`
+	Artist string `json:"artist"`
+
+	// Cover 这个候选能提供封面
+	Cover bool `json:"cover"`
+
+	// DurationMs 来源没给时为 0
+	DurationMs int `json:"durationMs"`
+
+	// Lyrics 这个候选能提供歌词
+	Lyrics   bool                 `json:"lyrics"`
+	Source   MusicCandidateSource `json:"source"`
+	SourceId string               `json:"sourceId"`
+	Title    string               `json:"title"`
+}
+
+// MusicCandidateSource defines model for MusicCandidate.Source.
+type MusicCandidateSource string
+
 // MusicFolder defines model for MusicFolder.
 type MusicFolder struct {
 	Id   int64  `json:"id"`
@@ -208,6 +256,21 @@ type MusicLyrics struct {
 
 // MusicLyricsSource defines model for MusicLyrics.Source.
 type MusicLyricsSource string
+
+// MusicMatchRequest defines model for MusicMatchRequest.
+type MusicMatchRequest struct {
+	Candidate *struct {
+		Source   string `json:"source"`
+		SourceId string `json:"sourceId"`
+	} `json:"candidate,omitempty"`
+	Overwrite *bool `json:"overwrite,omitempty"`
+}
+
+// MusicPending defines model for MusicPending.
+type MusicPending struct {
+	Candidates []MusicCandidate `json:"candidates"`
+	Track      MusicTrack       `json:"track"`
+}
 
 // MusicPlaylist defines model for MusicPlaylist.
 type MusicPlaylist struct {
@@ -247,14 +310,27 @@ type MusicScanStatus struct {
 
 // MusicSettings defines model for MusicSettings.
 type MusicSettings struct {
+	// AutoMatch 入库后自动在线匹配缺的歌词和封面。默认开
+	AutoMatch bool `json:"autoMatch"`
+
 	// Folders 音乐目录。里面已经不存在的目录不会列出
 	Folders []MusicFolder `json:"folders"`
+
+	// Providers 各个来源是否启用，键是 lrclib、netease、qqmusic、itunes、musicbrainz。默认全开
+	Providers map[string]bool `json:"providers"`
+
+	// WriteBack 匹配到的歌词和封面写进歌曲文件，不保留旧版本。默认开
+	WriteBack bool `json:"writeBack"`
 }
 
-// MusicSettingsInput defines model for MusicSettingsInput.
+// MusicSettingsInput 只改传了的字段。providers 只改传了的来源
 type MusicSettingsInput struct {
+	AutoMatch *bool `json:"autoMatch,omitempty"`
+
 	// Folders 云盘文件夹编号，最多 20 个。一个目录在另一个目录里时只保留外层的
-	Folders []int64 `json:"folders"`
+	Folders   *[]int64         `json:"folders,omitempty"`
+	Providers *map[string]bool `json:"providers,omitempty"`
+	WriteBack *bool            `json:"writeBack,omitempty"`
 }
 
 // MusicTrack defines model for MusicTrack.
@@ -337,6 +413,11 @@ type PlaylistId = int64
 // TrackId defines model for TrackId.
 type TrackId = int64
 
+// MatchMusicParams defines parameters for MatchMusic.
+type MatchMusicParams struct {
+	RetryFailed *bool `form:"retryFailed,omitempty" json:"retryFailed,omitempty"`
+}
+
 // UpdateMusicPlaylistJSONBody defines parameters for UpdateMusicPlaylist.
 type UpdateMusicPlaylistJSONBody struct {
 	Name *string `json:"name,omitempty"`
@@ -374,6 +455,17 @@ type GetMusicTrackCoverParams struct {
 // GetMusicTrackCoverParamsSize defines parameters for GetMusicTrackCover.
 type GetMusicTrackCoverParamsSize int
 
+// UploadMusicTrackCoverParams defines parameters for UploadMusicTrackCover.
+type UploadMusicTrackCoverParams struct {
+	WriteBack *bool `form:"writeBack,omitempty" json:"writeBack,omitempty"`
+}
+
+// PutMusicTrackLyricsJSONBody defines parameters for PutMusicTrackLyrics.
+type PutMusicTrackLyricsJSONBody struct {
+	Text      string `json:"text"`
+	WriteBack *bool  `json:"writeBack,omitempty"`
+}
+
 // ReportMusicPlayedJSONBody defines parameters for ReportMusicPlayed.
 type ReportMusicPlayedJSONBody struct {
 	// Seconds 这次听了多少秒
@@ -398,6 +490,12 @@ type PutMusicSettingsJSONRequestBody = MusicSettingsInput
 // UpdateMusicTrackJSONRequestBody defines body for UpdateMusicTrack for application/json ContentType.
 type UpdateMusicTrackJSONRequestBody = MusicTrackPatch
 
+// PutMusicTrackLyricsJSONRequestBody defines body for PutMusicTrackLyrics for application/json ContentType.
+type PutMusicTrackLyricsJSONRequestBody PutMusicTrackLyricsJSONBody
+
+// MatchMusicTrackJSONRequestBody defines body for MatchMusicTrack for application/json ContentType.
+type MatchMusicTrackJSONRequestBody = MusicMatchRequest
+
 // ReportMusicPlayedJSONRequestBody defines body for ReportMusicPlayed for application/json ContentType.
 type ReportMusicPlayedJSONRequestBody ReportMusicPlayedJSONBody
 
@@ -409,6 +507,12 @@ type ServerInterface interface {
 
 	// (GET /music/artists)
 	ListMusicArtists(w http.ResponseWriter, r *http.Request)
+
+	// (POST /music/match)
+	MatchMusic(w http.ResponseWriter, r *http.Request, params MatchMusicParams)
+
+	// (GET /music/pending)
+	ListMusicPending(w http.ResponseWriter, r *http.Request)
 
 	// (GET /music/playlists)
 	ListMusicPlaylists(w http.ResponseWriter, r *http.Request)
@@ -452,11 +556,23 @@ type ServerInterface interface {
 	// (GET /music/tracks/{trackId}/cover)
 	GetMusicTrackCover(w http.ResponseWriter, r *http.Request, trackId TrackId, params GetMusicTrackCoverParams)
 
+	// (POST /music/tracks/{trackId}/cover)
+	UploadMusicTrackCover(w http.ResponseWriter, r *http.Request, trackId TrackId, params UploadMusicTrackCoverParams)
+
 	// (GET /music/tracks/{trackId}/lyrics)
 	GetMusicTrackLyrics(w http.ResponseWriter, r *http.Request, trackId TrackId)
 
+	// (PUT /music/tracks/{trackId}/lyrics)
+	PutMusicTrackLyrics(w http.ResponseWriter, r *http.Request, trackId TrackId)
+
+	// (POST /music/tracks/{trackId}/match)
+	MatchMusicTrack(w http.ResponseWriter, r *http.Request, trackId TrackId)
+
 	// (POST /music/tracks/{trackId}/played)
 	ReportMusicPlayed(w http.ResponseWriter, r *http.Request, trackId TrackId)
+
+	// (POST /music/tracks/{trackId}/skip)
+	SkipMusicMatch(w http.ResponseWriter, r *http.Request, trackId TrackId)
 
 	// (GET /music/tracks/{trackId}/stream)
 	StreamMusicTrack(w http.ResponseWriter, r *http.Request, trackId TrackId)
@@ -473,6 +589,16 @@ func (_ Unimplemented) ListMusicAlbums(w http.ResponseWriter, r *http.Request) {
 
 // (GET /music/artists)
 func (_ Unimplemented) ListMusicArtists(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /music/match)
+func (_ Unimplemented) MatchMusic(w http.ResponseWriter, r *http.Request, params MatchMusicParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /music/pending)
+func (_ Unimplemented) ListMusicPending(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -546,13 +672,33 @@ func (_ Unimplemented) GetMusicTrackCover(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /music/tracks/{trackId}/cover)
+func (_ Unimplemented) UploadMusicTrackCover(w http.ResponseWriter, r *http.Request, trackId TrackId, params UploadMusicTrackCoverParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /music/tracks/{trackId}/lyrics)
 func (_ Unimplemented) GetMusicTrackLyrics(w http.ResponseWriter, r *http.Request, trackId TrackId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /music/tracks/{trackId}/lyrics)
+func (_ Unimplemented) PutMusicTrackLyrics(w http.ResponseWriter, r *http.Request, trackId TrackId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /music/tracks/{trackId}/match)
+func (_ Unimplemented) MatchMusicTrack(w http.ResponseWriter, r *http.Request, trackId TrackId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /music/tracks/{trackId}/played)
 func (_ Unimplemented) ReportMusicPlayed(w http.ResponseWriter, r *http.Request, trackId TrackId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /music/tracks/{trackId}/skip)
+func (_ Unimplemented) SkipMusicMatch(w http.ResponseWriter, r *http.Request, trackId TrackId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -589,6 +735,53 @@ func (siw *ServerInterfaceWrapper) ListMusicArtists(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListMusicArtists(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MatchMusic operation middleware
+func (siw *ServerInterfaceWrapper) MatchMusic(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params MatchMusicParams
+
+	// ------------- Optional query parameter "retryFailed" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "retryFailed", r.URL.Query(), &params.RetryFailed, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "retryFailed"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "retryFailed", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MatchMusic(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMusicPending operation middleware
+func (siw *ServerInterfaceWrapper) ListMusicPending(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMusicPending(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1016,6 +1209,48 @@ func (siw *ServerInterfaceWrapper) GetMusicTrackCover(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// UploadMusicTrackCover operation middleware
+func (siw *ServerInterfaceWrapper) UploadMusicTrackCover(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "trackId" -------------
+	var trackId TrackId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "trackId", chi.URLParam(r, "trackId"), &trackId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trackId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UploadMusicTrackCoverParams
+
+	// ------------- Optional query parameter "writeBack" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "writeBack", r.URL.Query(), &params.WriteBack, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "writeBack"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "writeBack", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadMusicTrackCover(w, r, trackId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMusicTrackLyrics operation middleware
 func (siw *ServerInterfaceWrapper) GetMusicTrackLyrics(w http.ResponseWriter, r *http.Request) {
 
@@ -1042,6 +1277,58 @@ func (siw *ServerInterfaceWrapper) GetMusicTrackLyrics(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// PutMusicTrackLyrics operation middleware
+func (siw *ServerInterfaceWrapper) PutMusicTrackLyrics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "trackId" -------------
+	var trackId TrackId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "trackId", chi.URLParam(r, "trackId"), &trackId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trackId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMusicTrackLyrics(w, r, trackId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MatchMusicTrack operation middleware
+func (siw *ServerInterfaceWrapper) MatchMusicTrack(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "trackId" -------------
+	var trackId TrackId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "trackId", chi.URLParam(r, "trackId"), &trackId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trackId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MatchMusicTrack(w, r, trackId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ReportMusicPlayed operation middleware
 func (siw *ServerInterfaceWrapper) ReportMusicPlayed(w http.ResponseWriter, r *http.Request) {
 
@@ -1059,6 +1346,32 @@ func (siw *ServerInterfaceWrapper) ReportMusicPlayed(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ReportMusicPlayed(w, r, trackId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SkipMusicMatch operation middleware
+func (siw *ServerInterfaceWrapper) SkipMusicMatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "trackId" -------------
+	var trackId TrackId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "trackId", chi.URLParam(r, "trackId"), &trackId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trackId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SkipMusicMatch(w, r, trackId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1223,7 +1536,13 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/music/tracks/{trackId}/cover", wrapper.GetMusicTrackCover)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/music/tracks/{trackId}/cover", wrapper.UploadMusicTrackCover)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/music/tracks/{trackId}/lyrics", wrapper.GetMusicTrackLyrics)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/music/tracks/{trackId}/lyrics", wrapper.PutMusicTrackLyrics)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/music/tracks/{trackId}/played", wrapper.ReportMusicPlayed)
@@ -1254,6 +1573,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/music/playlists/{playlistId}/items", wrapper.SetMusicPlaylistItems)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/music/pending", wrapper.ListMusicPending)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/music/match", wrapper.MatchMusic)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/music/tracks/{trackId}/match", wrapper.MatchMusicTrack)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/music/tracks/{trackId}/skip", wrapper.SkipMusicMatch)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/music/settings", wrapper.GetMusicSettings)

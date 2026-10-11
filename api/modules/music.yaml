@@ -116,6 +116,27 @@ paths:
               schema: { type: string, format: binary }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: uploadMusicTrackCover
+      tags: [music]
+      description: 上传封面图（JPEG、PNG、WebP，最大 20 MB），请求体就是图片内容。writeBack 不传时用设置里的“写回文件”。
+      parameters:
+        - name: writeBack
+          in: query
+          schema: { type: boolean }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: 更新后的歌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrack" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /music/tracks/{trackId}/lyrics:
     parameters:
       - $ref: "#/components/parameters/TrackId"
@@ -129,6 +150,28 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MusicLyrics" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putMusicTrackLyrics
+      tags: [music]
+      description: 手动设置歌词，纯文本或 LRC。writeBack 不传时用设置里的“写回文件”。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+                writeBack: { type: boolean }
+      responses:
+        "200":
+          description: 更新后的歌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrack" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /music/tracks/{trackId}/played:
@@ -289,6 +332,76 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MusicPlaylistDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/pending:
+    get:
+      operationId: listMusicPending
+      tags: [music]
+      description: 在线匹配没法确定的歌，每首带最多 5 个候选，让用户选。选定用 POST /music/tracks/{trackId}/match，都不对用 POST /music/tracks/{trackId}/skip。
+      responses:
+        "200":
+          description: 待确认的歌
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MusicPending" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/match:
+    post:
+      operationId: matchMusic
+      tags: [music]
+      description: 在后台给还没匹配过的歌匹配歌词和封面。retryFailed 为 true 时，以前匹配失败的也重试。进度用 music.match_progress 事件。
+      parameters:
+        - name: retryFailed
+          in: query
+          schema: { type: boolean }
+      responses:
+        "202":
+          description: 已开始。已经在匹配时也回 202
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicScanStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/tracks/{trackId}/match:
+    parameters:
+      - $ref: "#/components/parameters/TrackId"
+    post:
+      operationId: matchMusicTrack
+      tags: [music]
+      description: |
+        手动匹配这首歌，等匹配完成再返回，最长约半分钟。
+        不带 candidate：按自动匹配的规则找。overwrite 为 true 时，已经有的歌词和封面也换掉。
+        带 candidate：用待确认列表里选的那个候选的歌词和封面，直接换掉现有的。
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MusicMatchRequest" }
+      responses:
+        "200":
+          description: 匹配后的歌。matchState 是 matched、pending 或 failed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrack" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /music/tracks/{trackId}/skip:
+    parameters:
+      - $ref: "#/components/parameters/TrackId"
+    post:
+      operationId: skipMusicMatch
+      tags: [music]
+      description: 待确认的候选都不对，跳过。matchState 变成 skipped，不再自动匹配。
+      responses:
+        "200":
+          description: 更新后的歌
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MusicTrack" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /music/settings:
@@ -469,21 +582,62 @@ components:
         path: { type: string }
     MusicSettings:
       type: object
-      required: [folders]
+      required: [folders, autoMatch, writeBack, providers]
       properties:
         folders:
           type: array
           description: 音乐目录。里面已经不存在的目录不会列出
           items: { $ref: "#/components/schemas/MusicFolder" }
+        autoMatch: { type: boolean, description: 入库后自动在线匹配缺的歌词和封面。默认开 }
+        writeBack: { type: boolean, description: 匹配到的歌词和封面写进歌曲文件，不保留旧版本。默认开 }
+        providers:
+          type: object
+          description: 各个来源是否启用，键是 lrclib、netease、qqmusic、itunes、musicbrainz。默认全开
+          additionalProperties: { type: boolean }
     MusicSettingsInput:
       type: object
-      required: [folders]
+      description: 只改传了的字段。providers 只改传了的来源
       properties:
         folders:
           type: array
           description: 云盘文件夹编号，最多 20 个。一个目录在另一个目录里时只保留外层的
           maxItems: 20
           items: { type: integer, format: int64 }
+        autoMatch: { type: boolean }
+        writeBack: { type: boolean }
+        providers:
+          type: object
+          additionalProperties: { type: boolean }
+    MusicCandidate:
+      type: object
+      required: [source, sourceId, title, artist, album, durationMs, lyrics, cover]
+      properties:
+        source: { type: string, enum: [lrclib, netease, qqmusic, itunes, musicbrainz] }
+        sourceId: { type: string }
+        title: { type: string }
+        artist: { type: string }
+        album: { type: string }
+        durationMs: { type: integer, description: 来源没给时为 0 }
+        lyrics: { type: boolean, description: 这个候选能提供歌词 }
+        cover: { type: boolean, description: 这个候选能提供封面 }
+    MusicPending:
+      type: object
+      required: [track, candidates]
+      properties:
+        track: { $ref: "#/components/schemas/MusicTrack" }
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/MusicCandidate" }
+    MusicMatchRequest:
+      type: object
+      properties:
+        candidate:
+          type: object
+          required: [source, sourceId]
+          properties:
+            source: { type: string }
+            sourceId: { type: string }
+        overwrite: { type: boolean }
     MusicScanStatus:
       type: object
       required: [running]

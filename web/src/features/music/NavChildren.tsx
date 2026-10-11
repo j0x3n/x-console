@@ -1,5 +1,13 @@
 import { useLocation } from "react-router";
-import { Clock, Disc3, Heart, ListMusic, Mic2, Music } from "lucide-react";
+import {
+  Clock,
+  Disc3,
+  Heart,
+  ListChecks,
+  ListMusic,
+  Mic2,
+  Music,
+} from "lucide-react";
 import {
   NavPanelGroup,
   NavPanelLink,
@@ -7,7 +15,7 @@ import {
 } from "../../components/layout/NavPanel";
 import { useT } from "../../contexts/LanguageContext";
 import type { NavChildrenProps } from "../../lib/navChildren";
-import { usePlaylists } from "./api";
+import { usePending, usePlaylists } from "./api";
 import { parseView } from "./MusicPage";
 
 /** 左栏“音乐”的二级菜单（B147）：歌曲、专辑、歌手，我喜欢的、最近播放，播放列表。 */
@@ -21,6 +29,7 @@ export default function MusicNavChildren({ onNavigate }: NavChildrenProps) {
   const view = parseView(params.get("view"));
   const playlist = Number(params.get("playlist")) || null;
   const lists = usePlaylists();
+  const pending = usePending();
   const link = (
     to: string,
     icon: typeof Music,
@@ -65,6 +74,14 @@ export default function MusicNavChildren({ onNavigate }: NavChildrenProps) {
           "Recently played",
           atMusic && view === "recent",
         )}
+        <NavPanelLink
+          to="/music?view=pending"
+          icon={ListChecks}
+          label={t("To confirm")}
+          count={pending.data?.length || null}
+          active={atMusic && view === "pending"}
+          onNavigate={onNavigate}
+        />
       </NavPanelGroup>
       <NavPanelGroup label={t("Playlists")}>
         {link(

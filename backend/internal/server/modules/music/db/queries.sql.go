@@ -26,6 +26,15 @@ func (q *Queries) AddPlaylistItem(ctx context.Context, arg AddPlaylistItemParams
 	return err
 }
 
+const clearCandidates = `-- name: ClearCandidates :exec
+DELETE FROM music_candidates WHERE track_id = ?
+`
+
+func (q *Queries) ClearCandidates(ctx context.Context, trackID int64) error {
+	_, err := q.db.ExecContext(ctx, clearCandidates, trackID)
+	return err
+}
+
 const clearPlaylistItems = `-- name: ClearPlaylistItems :exec
 DELETE FROM music_playlist_items WHERE playlist_id = ?
 `
@@ -33,6 +42,17 @@ DELETE FROM music_playlist_items WHERE playlist_id = ?
 func (q *Queries) ClearPlaylistItems(ctx context.Context, playlistID int64) error {
 	_, err := q.db.ExecContext(ctx, clearPlaylistItems, playlistID)
 	return err
+}
+
+const countPendingTracks = `-- name: CountPendingTracks :one
+SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks WHERE match_state = 'pending'
+`
+
+func (q *Queries) CountPendingTracks(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingTracks)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const countTracksByIDs = `-- name: CountTracksByIDs :one
@@ -56,6 +76,19 @@ func (q *Queries) CountTracksByIDs(ctx context.Context, ids []int64) (int64, err
 	return column_1, err
 }
 
+const countTracksToMatch = `-- name: CountTracksToMatch :one
+SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks
+WHERE (match_state = 'none' OR (match_state = 'failed' AND ?1 = 1))
+  AND (lyrics_source = 'none' OR cover_source = 'none')
+`
+
+func (q *Queries) CountTracksToMatch(ctx context.Context, retryFailed interface{}) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTracksToMatch, retryFailed)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const deletePlaylist = `-- name: DeletePlaylist :exec
 DELETE FROM music_playlists WHERE id = ?
 `
@@ -72,6 +105,37 @@ DELETE FROM music_tracks WHERE id = ?
 func (q *Queries) DeleteTrack(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteTrack, id)
 	return err
+}
+
+const getCandidate = `-- name: GetCandidate :one
+SELECT id, track_id, source, source_id, title, artist, album, duration_ms, has_lyrics, has_cover, lyrics_text, cover_ref, position FROM music_candidates WHERE track_id = ? AND source = ? AND source_id = ? LIMIT 1
+`
+
+type GetCandidateParams struct {
+	TrackID  int64
+	Source   string
+	SourceID string
+}
+
+func (q *Queries) GetCandidate(ctx context.Context, arg GetCandidateParams) (MusicCandidate, error) {
+	row := q.db.QueryRowContext(ctx, getCandidate, arg.TrackID, arg.Source, arg.SourceID)
+	var i MusicCandidate
+	err := row.Scan(
+		&i.ID,
+		&i.TrackID,
+		&i.Source,
+		&i.SourceID,
+		&i.Title,
+		&i.Artist,
+		&i.Album,
+		&i.DurationMs,
+		&i.HasLyrics,
+		&i.HasCover,
+		&i.LyricsText,
+		&i.CoverRef,
+		&i.Position,
+	)
+	return i, err
 }
 
 const getPlaylist = `-- name: GetPlaylist :one
@@ -180,6 +244,44 @@ func (q *Queries) GetTrackByItem(ctx context.Context, driveItemID int64) (MusicT
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertCandidate = `-- name: InsertCandidate :exec
+INSERT OR REPLACE INTO music_candidates (track_id, source, source_id, title, artist, album, duration_ms, has_lyrics, has_cover, lyrics_text, cover_ref, position)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`
+
+type InsertCandidateParams struct {
+	TrackID    int64
+	Source     string
+	SourceID   string
+	Title      string
+	Artist     string
+	Album      string
+	DurationMs int64
+	HasLyrics  int64
+	HasCover   int64
+	LyricsText string
+	CoverRef   string
+	Position   int64
+}
+
+func (q *Queries) InsertCandidate(ctx context.Context, arg InsertCandidateParams) error {
+	_, err := q.db.ExecContext(ctx, insertCandidate,
+		arg.TrackID,
+		arg.Source,
+		arg.SourceID,
+		arg.Title,
+		arg.Artist,
+		arg.Album,
+		arg.DurationMs,
+		arg.HasLyrics,
+		arg.HasCover,
+		arg.LyricsText,
+		arg.CoverRef,
+		arg.Position,
+	)
+	return err
 }
 
 const insertPlaylist = `-- name: InsertPlaylist :one
@@ -382,6 +484,102 @@ func (q *Queries) ListArtists(ctx context.Context) ([]ListArtistsRow, error) {
 	return items, nil
 }
 
+const listCandidates = `-- name: ListCandidates :many
+SELECT id, track_id, source, source_id, title, artist, album, duration_ms, has_lyrics, has_cover, lyrics_text, cover_ref, position FROM music_candidates WHERE track_id = ? ORDER BY position
+`
+
+func (q *Queries) ListCandidates(ctx context.Context, trackID int64) ([]MusicCandidate, error) {
+	rows, err := q.db.QueryContext(ctx, listCandidates, trackID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicCandidate
+	for rows.Next() {
+		var i MusicCandidate
+		if err := rows.Scan(
+			&i.ID,
+			&i.TrackID,
+			&i.Source,
+			&i.SourceID,
+			&i.Title,
+			&i.Artist,
+			&i.Album,
+			&i.DurationMs,
+			&i.HasLyrics,
+			&i.HasCover,
+			&i.LyricsText,
+			&i.CoverRef,
+			&i.Position,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingTracks = `-- name: ListPendingTracks :many
+SELECT id, drive_item_id, sha256, companion, title, artist, album, album_artist, manual, track_no, disc_no, year, duration_ms, bitrate, format, has_cover, cover_source, cover_key, lyrics_source, lyrics_synced, lyrics_text, favorite, play_count, last_played_at, match_state, created_at, updated_at FROM music_tracks WHERE match_state = 'pending' ORDER BY updated_at DESC, id DESC
+`
+
+func (q *Queries) ListPendingTracks(ctx context.Context) ([]MusicTrack, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingTracks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicTrack
+	for rows.Next() {
+		var i MusicTrack
+		if err := rows.Scan(
+			&i.ID,
+			&i.DriveItemID,
+			&i.Sha256,
+			&i.Companion,
+			&i.Title,
+			&i.Artist,
+			&i.Album,
+			&i.AlbumArtist,
+			&i.Manual,
+			&i.TrackNo,
+			&i.DiscNo,
+			&i.Year,
+			&i.DurationMs,
+			&i.Bitrate,
+			&i.Format,
+			&i.HasCover,
+			&i.CoverSource,
+			&i.CoverKey,
+			&i.LyricsSource,
+			&i.LyricsSynced,
+			&i.LyricsText,
+			&i.Favorite,
+			&i.PlayCount,
+			&i.LastPlayedAt,
+			&i.MatchState,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlaylistCovers = `-- name: ListPlaylistCovers :many
 SELECT t.id FROM music_playlist_items i JOIN music_tracks t ON t.id = i.track_id
 WHERE i.playlist_id = ? AND t.has_cover = 1 ORDER BY i.position LIMIT 4
@@ -552,6 +750,69 @@ func (q *Queries) ListTrackSync(ctx context.Context) ([]ListTrackSyncRow, error)
 	return items, nil
 }
 
+const listTracksToMatch = `-- name: ListTracksToMatch :many
+SELECT id, drive_item_id, sha256, companion, title, artist, album, album_artist, manual, track_no, disc_no, year, duration_ms, bitrate, format, has_cover, cover_source, cover_key, lyrics_source, lyrics_synced, lyrics_text, favorite, play_count, last_played_at, match_state, created_at, updated_at FROM music_tracks
+WHERE (match_state = 'none' OR (match_state = 'failed' AND ?1 = 1))
+  AND (lyrics_source = 'none' OR cover_source = 'none')
+ORDER BY id LIMIT ?2
+`
+
+type ListTracksToMatchParams struct {
+	RetryFailed interface{}
+	MaxRows     int64
+}
+
+func (q *Queries) ListTracksToMatch(ctx context.Context, arg ListTracksToMatchParams) ([]MusicTrack, error) {
+	rows, err := q.db.QueryContext(ctx, listTracksToMatch, arg.RetryFailed, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicTrack
+	for rows.Next() {
+		var i MusicTrack
+		if err := rows.Scan(
+			&i.ID,
+			&i.DriveItemID,
+			&i.Sha256,
+			&i.Companion,
+			&i.Title,
+			&i.Artist,
+			&i.Album,
+			&i.AlbumArtist,
+			&i.Manual,
+			&i.TrackNo,
+			&i.DiscNo,
+			&i.Year,
+			&i.DurationMs,
+			&i.Bitrate,
+			&i.Format,
+			&i.HasCover,
+			&i.CoverSource,
+			&i.CoverKey,
+			&i.LyricsSource,
+			&i.LyricsSynced,
+			&i.LyricsText,
+			&i.Favorite,
+			&i.PlayCount,
+			&i.LastPlayedAt,
+			&i.MatchState,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markTrackPlayed = `-- name: MarkTrackPlayed :exec
 UPDATE music_tracks SET play_count = play_count + 1, last_played_at = ? WHERE id = ?
 `
@@ -592,6 +853,42 @@ func (q *Queries) RenamePlaylist(ctx context.Context, arg RenamePlaylistParams) 
 	return err
 }
 
+const setMatchState = `-- name: SetMatchState :exec
+UPDATE music_tracks SET match_state = ?, updated_at = ? WHERE id = ?
+`
+
+type SetMatchStateParams struct {
+	MatchState string
+	UpdatedAt  time.Time
+	ID         int64
+}
+
+func (q *Queries) SetMatchState(ctx context.Context, arg SetMatchStateParams) error {
+	_, err := q.db.ExecContext(ctx, setMatchState, arg.MatchState, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const setTrackCover = `-- name: SetTrackCover :exec
+UPDATE music_tracks SET cover_key = ?, has_cover = 1, cover_source = ?, updated_at = ? WHERE id = ?
+`
+
+type SetTrackCoverParams struct {
+	CoverKey    string
+	CoverSource string
+	UpdatedAt   time.Time
+	ID          int64
+}
+
+func (q *Queries) SetTrackCover(ctx context.Context, arg SetTrackCoverParams) error {
+	_, err := q.db.ExecContext(ctx, setTrackCover,
+		arg.CoverKey,
+		arg.CoverSource,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
 const setTrackFavorite = `-- name: SetTrackFavorite :exec
 UPDATE music_tracks SET favorite = ?, updated_at = ? WHERE id = ?
 `
@@ -604,6 +901,29 @@ type SetTrackFavoriteParams struct {
 
 func (q *Queries) SetTrackFavorite(ctx context.Context, arg SetTrackFavoriteParams) error {
 	_, err := q.db.ExecContext(ctx, setTrackFavorite, arg.Favorite, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const setTrackLyrics = `-- name: SetTrackLyrics :exec
+UPDATE music_tracks SET lyrics_text = ?, lyrics_source = ?, lyrics_synced = ?, updated_at = ? WHERE id = ?
+`
+
+type SetTrackLyricsParams struct {
+	LyricsText   string
+	LyricsSource string
+	LyricsSynced int64
+	UpdatedAt    time.Time
+	ID           int64
+}
+
+func (q *Queries) SetTrackLyrics(ctx context.Context, arg SetTrackLyricsParams) error {
+	_, err := q.db.ExecContext(ctx, setTrackLyrics,
+		arg.LyricsText,
+		arg.LyricsSource,
+		arg.LyricsSynced,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }
 
@@ -629,6 +949,20 @@ func (q *Queries) SetTrackManual(ctx context.Context, arg SetTrackManualParams) 
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const setTrackSha = `-- name: SetTrackSha :exec
+UPDATE music_tracks SET sha256 = ? WHERE id = ?
+`
+
+type SetTrackShaParams struct {
+	Sha256 string
+	ID     int64
+}
+
+func (q *Queries) SetTrackSha(ctx context.Context, arg SetTrackShaParams) error {
+	_, err := q.db.ExecContext(ctx, setTrackSha, arg.Sha256, arg.ID)
 	return err
 }
 

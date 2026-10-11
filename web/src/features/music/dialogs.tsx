@@ -6,6 +6,8 @@ import { errorMessage } from "../../api/client";
 import { toast } from "../../hooks/useToast";
 import {
   useAddToPlaylist,
+  useLyrics,
+  usePutLyrics,
   useCreatePlaylist,
   usePlaylists,
   useUpdateTrack,
@@ -20,26 +22,36 @@ import { usePlayer } from "./player";
 interface DialogState {
   addTo: Track[] | null;
   edit: Track | null;
+  lyrics: Track | null;
 }
 
 export const useMusicDialogs = create<DialogState>()(() => ({
   addTo: null,
   edit: null,
+  lyrics: null,
 }));
 
 export const openAddToPlaylist = (tracks: Track[]) =>
   useMusicDialogs.setState({ addTo: tracks });
 export const openEditTrack = (track: Track) =>
   useMusicDialogs.setState({ edit: track });
+export const openEditLyrics = (track: Track) =>
+  useMusicDialogs.setState({ lyrics: track });
 
 export default function MusicDialogs() {
-  const { addTo, edit } = useMusicDialogs();
+  const { addTo, edit, lyrics } = useMusicDialogs();
   return (
     <>
       {addTo && (
         <AddToPlaylistDialog
           tracks={addTo}
           onClose={() => useMusicDialogs.setState({ addTo: null })}
+        />
+      )}
+      {lyrics && (
+        <EditLyricsDialog
+          track={lyrics}
+          onClose={() => useMusicDialogs.setState({ lyrics: null })}
         />
       )}
       {edit && (
@@ -216,4 +228,78 @@ function EditTrackDialog({
       </form>
     </Dialog>
   );
+}
+
+function EditLyricsDialog({
+  track,
+  onClose,
+}: {
+  track: Track;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const current = useLyrics(track.id);
+  const save = usePutLyrics();
+  const [text, setText] = useState<string | null>(null);
+  // 没改过时显示现有的歌词（带时间轴的还原成 LRC）。
+  const shown =
+    text ??
+    (current.data?.lines ?? [])
+      .map((l) => (l.timeMs == null ? l.text : `[${stamp(l.timeMs)}]${l.text}`))
+      .join("\n");
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      wide
+      title={t("Edit lyrics")}
+      description={`${track.title} · ${t("Plain text or LRC with time stamps like [01:23.45].")}`}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!shown.trim()) return;
+          save.mutate(
+            { id: track.id, text: shown },
+            {
+              onSuccess: () => {
+                toast(t("Saved"));
+                onClose();
+              },
+              onError: (err) =>
+                toast({ message: errorMessage(err), tone: "error" }),
+            },
+          );
+        }}
+      >
+        <textarea
+          className="xc-textarea music-lyrics-editor"
+          rows={14}
+          value={shown}
+          aria-label={t("Lyrics")}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <div className="xc-dialog-actions">
+          <button type="button" className="xc-btn" onClick={onClose}>
+            {t("Cancel")}
+          </button>
+          <button
+            className="xc-btn primary"
+            disabled={save.isPending || !shown.trim()}
+          >
+            {t("Save")}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function stamp(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 10));
+  const cs = total % 100;
+  const sec = Math.floor(total / 100) % 60;
+  const min = Math.floor(total / 6000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(min)}:${pad(sec)}.${pad(cs)}`;
 }

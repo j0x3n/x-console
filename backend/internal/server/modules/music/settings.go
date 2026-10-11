@@ -1,6 +1,7 @@
 package music
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strings"
@@ -21,7 +22,8 @@ func (m *Module) settingsDTO(r *http.Request) (api.MusicSettings, error) {
 	if err != nil {
 		return api.MusicSettings{}, err
 	}
-	out := api.MusicSettings{Folders: []api.MusicFolder{}}
+	o := m.options(r.Context())
+	out := api.MusicSettings{Folders: []api.MusicFolder{}, AutoMatch: o.AutoMatch, WriteBack: o.WriteBack, Providers: o.Providers}
 	for _, id := range ids {
 		f, err := drive.Folder(r.Context(), id)
 		if err != nil {
@@ -46,43 +48,39 @@ func (m *Module) PutMusicSettings(w http.ResponseWriter, r *http.Request) {
 	if fail(w, r, httpx.Decode(r, &body)) {
 		return
 	}
-	if len(body.Folders) > maxFolders {
-		httpx.Fail(w, r, httpx.Invalid("音乐目录太多"))
-		return
-	}
-	drive, err := m.drive()
-	if fail(w, r, err) {
-		return
-	}
-	var folders []contracts.DriveFolder
-	for _, id := range body.Folders {
-		if slices.ContainsFunc(folders, func(f contracts.DriveFolder) bool { return f.ID == id }) {
-			continue
-		}
-		f, err := drive.Folder(ctx, id)
-		if err != nil {
-			httpx.Fail(w, r, httpx.Invalid("目录不可用，要选云盘里没有隐藏的文件夹"))
+	if body.Folders != nil {
+		ids, err := m.checkFolders(ctx, *body.Folders)
+		if fail(w, r, err) {
 			return
 		}
-		folders = append(folders, f)
-	}
-	// A folder inside another chosen folder is already covered.
-	var ids []int64
-	for _, f := range folders {
-		inside := slices.ContainsFunc(folders, func(o contracts.DriveFolder) bool {
-			return o.ID != f.ID && strings.HasPrefix(f.Path+"/", o.Path+"/")
-		})
-		if !inside {
-			ids = append(ids, f.ID)
+		if fail(w, r, m.d.Settings.Set(ctx, FoldersKey, ids)) {
+			return
 		}
 	}
-	if ids == nil {
-		ids = []int64{}
+	if body.AutoMatch != nil || body.WriteBack != nil || body.Providers != nil {
+		o := m.options(ctx)
+		if body.AutoMatch != nil {
+			o.AutoMatch = *body.AutoMatch
+		}
+		if body.WriteBack != nil {
+			o.WriteBack = *body.WriteBack
+		}
+		if body.Providers != nil {
+			for name, on := range *body.Providers {
+				if _, known := o.Providers[name]; !known {
+					httpx.Fail(w, r, httpx.Invalid("不认识的来源: "+name))
+					return
+				}
+				o.Providers[name] = on
+			}
+		}
+		if fail(w, r, m.d.Settings.Set(ctx, OptionsKey, o)) {
+			return
+		}
 	}
-	if fail(w, r, m.d.Settings.Set(ctx, FoldersKey, ids)) {
-		return
+	if body.Folders != nil {
+		m.requestScan()
 	}
-	m.requestScan()
 	out, err := m.settingsDTO(r)
 	if fail(w, r, err) {
 		return
@@ -93,4 +91,37 @@ func (m *Module) PutMusicSettings(w http.ResponseWriter, r *http.Request) {
 func (m *Module) ScanMusic(w http.ResponseWriter, r *http.Request) {
 	m.requestScan()
 	httpx.JSON(w, http.StatusAccepted, api.MusicScanStatus{Running: true})
+}
+
+// checkFolders validates the chosen folders and returns the ids to save: no
+// duplicates, and a folder inside another chosen folder is left out.
+func (m *Module) checkFolders(ctx context.Context, wanted []int64) ([]int64, error) {
+	if len(wanted) > maxFolders {
+		return nil, httpx.Invalid("音乐目录太多")
+	}
+	drive, err := m.drive()
+	if err != nil {
+		return nil, err
+	}
+	var folders []contracts.DriveFolder
+	for _, id := range wanted {
+		if slices.ContainsFunc(folders, func(f contracts.DriveFolder) bool { return f.ID == id }) {
+			continue
+		}
+		f, err := drive.Folder(ctx, id)
+		if err != nil {
+			return nil, httpx.Invalid("目录不可用，要选云盘里没有隐藏的文件夹")
+		}
+		folders = append(folders, f)
+	}
+	ids := []int64{}
+	for _, f := range folders {
+		inside := slices.ContainsFunc(folders, func(o contracts.DriveFolder) bool {
+			return o.ID != f.ID && strings.HasPrefix(f.Path+"/", o.Path+"/")
+		})
+		if !inside {
+			ids = append(ids, f.ID)
+		}
+	}
+	return ids, nil
 }

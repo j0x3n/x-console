@@ -961,6 +961,22 @@ type MonitorResult struct {
 	Detail     string
 }
 
+type MusicCandidate struct {
+	ID         int64
+	TrackID    int64
+	Source     string
+	SourceID   string
+	Title      string
+	Artist     string
+	Album      string
+	DurationMs int64
+	HasLyrics  int64
+	HasCover   int64
+	LyricsText string
+	CoverRef   string
+	Position   int64
+}
+
 type MusicFt struct {
 	Title      string
 	Artist     string

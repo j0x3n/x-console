@@ -126,4 +126,42 @@ registerZh({
     "这些云盘文件夹和里面的文件夹里的歌会加进曲库。新上传的文件几秒后就会被识别。",
   "Hidden folders and files in the trash are never added.":
     "隐藏的文件夹和回收站里的文件不会加进来。",
+
+  // B148 在线匹配
+  "To confirm": "待确认",
+  Cover: "封面",
+  Applied: "已采用",
+  "Nothing to confirm": "没有要确认的歌",
+  "Songs the online match is not sure about are listed here, with the closest candidates.":
+    "在线匹配拿不准的歌会列在这里，附上最接近的候选。",
+  "None of these": "都不对",
+  "None of these is right. Do not match this song again.":
+    "候选都不对，以后不再自动匹配这首歌。",
+  "Use this": "采用",
+  "Match lyrics and cover": "匹配歌词和封面",
+  "Match again and replace": "重新匹配并替换",
+  "Edit lyrics": "编辑歌词",
+  "Upload cover": "上传封面",
+  "Plain text or LRC with time stamps like [01:23.45].":
+    "纯文本，或带 [01:23.45] 这样时间的 LRC。",
+  "Matching…": "正在匹配…",
+  Matched: "已匹配",
+  "Not sure. Choose from the candidates in To confirm.":
+    "拿不准，请到“待确认”里选。",
+  "Nothing found": "没有找到",
+  "Online match": "在线匹配",
+  "Songs without lyrics or a cover are looked up online. Only songs that clearly match (same title, a shared artist, length within 2 seconds) are used. The others wait in To confirm.":
+    "缺歌词或封面的歌会在线查。只有明确对得上的（歌名相同、歌手有交集、时长相差不超过 2 秒）才自动采用，其他的放进“待确认”。",
+  "Match new songs automatically": "自动匹配新歌",
+  "Write lyrics and covers into the song files": "把歌词和封面写进歌曲文件",
+  "This changes the files in Drive directly. The old version is not kept.":
+    "会直接修改云盘里的文件，不保留旧版本。",
+  Sources: "来源",
+  "No official interface. It may stop working at any time.":
+    "没有官方接口，可能随时失效。",
+  "Match now": "立即匹配",
+  "Try failed songs again": "重试失败的歌",
+  Matching: "匹配中",
+  "Matching in the background": "正在后台匹配",
+  "songs are waiting for you to confirm": "首歌等你确认",
 });
