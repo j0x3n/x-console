@@ -9,6 +9,7 @@ import { dayKey, formatDuration, parseDayKey } from "./dates";
 import { issuePath } from "../projects/logic";
 import { useFocusPanel } from "./hooks";
 import PageActions from "../../components/layout/PageActions";
+import FocusBlockBadge from "../focusblock/FocusBlockBadge";
 
 const ranges = [7, 30];
 
@@ -43,6 +44,7 @@ export default function FocusPage() {
             </button>
           ))}
         </div>
+        <FocusBlockBadge />
         <PageActions>
           <button
             className="xc-btn primary small"

@@ -29,6 +29,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/docker"
 	agentexec "github.com/j0x3n/x-console/backend/internal/agent/exec"
 	"github.com/j0x3n/x-console/backend/internal/agent/files"
+	"github.com/j0x3n/x-console/backend/internal/agent/focusblock"
 	"github.com/j0x3n/x-console/backend/internal/agent/metrics"
 	"github.com/j0x3n/x-console/backend/internal/agent/netproxy"
 	"github.com/j0x3n/x-console/backend/internal/agent/notifyshow"
@@ -158,7 +159,8 @@ func run(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	client := conn.New(cfg.Server, cfg.Token, hello())
-	aiconfig.SetStateDir(filepath.Dir(*path)) // B121: next to the config file
+	aiconfig.SetStateDir(filepath.Dir(*path))   // B121: next to the config file
+	focusblock.SetStateDir(filepath.Dir(*path)) // B131: same place
 	register(client, cfg)
 	return client.Run(ctx)
 }
@@ -188,6 +190,7 @@ func register(c *conn.Client, cfg config.Config) {
 	quota.Register(c)                                   // B110: AI quota readings (Claude, Codex, Grok)
 	screentime.Register(c)                              // B116: foreground program, one sample per minute (Windows)
 	aiconfig.Register(c)                                // B121: the panel's part of the Claude Code and Codex configuration
+	focusblock.Register(c, cfg.Server)                  // B131: hosts file block and program ending while a pomodoro runs
 }
 
 // capabilities lists what this build supports on this OS.
@@ -228,6 +231,9 @@ func capabilities() []string {
 	}
 	if aiconfig.Available() {
 		caps = append(caps, protocol.CapAIConfig) // B121
+	}
+	if focusblock.Available() {
+		caps = append(caps, protocol.CapFocusBlock) // B131
 	}
 	if docker.Available() {
 		caps = append(caps, protocol.CapDocker, protocol.CapDockerLines) // M10: only when the Docker socket answers

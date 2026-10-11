@@ -522,6 +522,20 @@ type DriveUploadLink struct {
 	CreatedAt  time.Time
 }
 
+type FocusBlockAgent struct {
+	AgentID     string
+	State       string
+	SessionID   int64
+	ConfigHash  string
+	HostsStatus string
+	HostsError  string
+	Message     string
+	Sites       int64
+	Killed      int64
+	Refused     string
+	UpdatedAt   time.Time
+}
+
 type FocusSession struct {
 	ID             int64
 	IssueKey       string

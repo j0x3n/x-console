@@ -12,6 +12,7 @@ import {
 } from "./api";
 import { formatRemaining } from "./dates";
 import { issuePath } from "../projects/logic";
+import FocusBlockBadge from "../focusblock/FocusBlockBadge";
 import { useFocusPanel, useNow } from "./hooks";
 import "./i18n";
 import "./calendar.css";
@@ -114,6 +115,7 @@ function Running({
           ? t("Time is up. Take a short break.")
           : `${session.plannedMinutes} ${t("min focus")}`}
       </p>
+      <FocusBlockBadge />
       {session.issueKey && (
         <Link className="focus-issue" to={issuePath(session.issueKey)}>
           <span className="xc-mono">{session.issueKey}</span>{" "}

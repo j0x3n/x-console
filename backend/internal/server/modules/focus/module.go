@@ -60,6 +60,8 @@ func New(d *module.Deps) (module.Module, error) {
 	d.Notify.OnAction("focus.", m.handleAction)
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	module.Provide[contracts.FocusState](d.Registry, contracts.FocusStateKey, state{m})
+	// B131: the running session with its times, for the site and program block.
+	module.Provide[contracts.FocusCurrent](d.Registry, contracts.FocusCurrentKey, state{m})
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"focus", activitySource{m}) // B118
 	m.registerActions()
 	return m, nil
@@ -526,4 +528,13 @@ func (s state) CurrentSessionID(ctx context.Context) (int64, bool) {
 		return 0, false
 	}
 	return cur.Id, true
+}
+
+// Current implements contracts.FocusCurrent (B131).
+func (s state) Current(ctx context.Context) (contracts.FocusRunning, bool) {
+	cur, err := s.m.current(ctx)
+	if err != nil || cur == nil {
+		return contracts.FocusRunning{}, false
+	}
+	return contracts.FocusRunning{ID: cur.Id, StartedAt: cur.StartedAt, EndsAt: cur.EndsAt}, true
 }
