@@ -382,7 +382,7 @@ func (m *Module) insertIssue(ctx context.Context, projectID int64, in issueInput
 		if err != nil {
 			return err
 		}
-		sort, err := topOfList(ctx, q, list.ID, 0)
+		sort, err := bottomOfList(ctx, q, list.ID, 0)
 		if err != nil {
 			return err
 		}

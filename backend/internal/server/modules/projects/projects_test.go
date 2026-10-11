@@ -199,49 +199,49 @@ func TestIssueKeysAndUpdates(t *testing.T) {
 func TestBoardMove(t *testing.T) {
 	env := newEnv(t)
 	p := createProject(t, env, "XC")
-	for _, title := range []string{"c", "b", "a"} { // new issues go on top, so the column reads a, b, c
+	for _, title := range []string{"a", "b", "c"} { // new issues go to the bottom, so the column reads a, b, c
 		createIssue(t, env, p.Id, api.CreateIssue{Title: title})
 	}
 	q := fmt.Sprintf("projectId=%d&status=todo&sort=manual", p.Id)
-	if list, _ := listIssues(t, env, q); keys(list) != "XC-3,XC-2,XC-1" {
+	if list, _ := listIssues(t, env, q); keys(list) != "XC-1,XC-2,XC-3" {
 		t.Fatalf("initial: %s", keys(list))
 	}
-	// Move c (XC-1) between a (XC-3) and b (XC-2).
-	after, before := "XC-3", "XC-2"
-	env.MustDo(http.MethodPost, "/issues/XC-1/move", api.MoveIssue{Status: st("todo"), AfterKey: &after, BeforeKey: &before}, nil)
-	if list, _ := listIssues(t, env, q); keys(list) != "XC-3,XC-1,XC-2" {
+	// Move c (XC-3) between a (XC-1) and b (XC-2).
+	after, before := "XC-1", "XC-2"
+	env.MustDo(http.MethodPost, "/issues/XC-3/move", api.MoveIssue{Status: st("todo"), AfterKey: &after, BeforeKey: &before}, nil)
+	if list, _ := listIssues(t, env, q); keys(list) != "XC-1,XC-3,XC-2" {
 		t.Fatalf("after move: %s", keys(list))
 	}
 	// Only afterKey: the server finds the next neighbour itself.
 	env.MustDo(http.MethodPost, "/issues/XC-2/move", api.MoveIssue{Status: st("todo"), AfterKey: &after}, nil)
-	if list, _ := listIssues(t, env, q); keys(list) != "XC-3,XC-2,XC-1" {
+	if list, _ := listIssues(t, env, q); keys(list) != "XC-1,XC-2,XC-3" {
 		t.Fatalf("after-only move: %s", keys(list))
 	}
 	// No anchors: end of another column; status changes and completedAt is set.
 	var moved api.Issue
-	env.MustDo(http.MethodPost, "/issues/XC-3/move", api.MoveIssue{Status: st("done")}, &moved)
+	env.MustDo(http.MethodPost, "/issues/XC-1/move", api.MoveIssue{Status: st("done")}, &moved)
 	if moved.Status != "done" || moved.CompletedAt == nil {
 		t.Fatalf("to done: %+v", moved)
 	}
 	// An anchor from another column is rejected.
-	if status, _ := env.Do(http.MethodPost, "/issues/XC-1/move", api.MoveIssue{Status: st("todo"), AfterKey: &after}, nil); status != 400 {
+	if status, _ := env.Do(http.MethodPost, "/issues/XC-3/move", api.MoveIssue{Status: st("todo"), AfterKey: &after}, nil); status != 400 {
 		t.Fatalf("anchor in other column: %d", status)
 	}
 
 	// Swapping the two issues below the first one halves the gap under the
 	// first issue every time; after ~30 swaps the column must be rebalanced.
 	rb := createProject(t, env, "RB")
-	for _, title := range []string{"c", "b", "a"} {
+	for _, title := range []string{"a", "b", "c"} {
 		createIssue(t, env, rb.Id, api.CreateIssue{Title: title})
 	}
-	// Column: RB-3, RB-2, RB-1.
-	lower, upper := "RB-1", "RB-2"
+	// Column: RB-1, RB-2, RB-3.
+	lower, upper := "RB-3", "RB-2"
 	for i := 0; i < 60; i++ {
-		env.MustDo(http.MethodPost, "/issues/"+lower+"/move", api.MoveIssue{Status: st("todo"), AfterKey: strPtr("RB-3"), BeforeKey: &upper}, nil)
+		env.MustDo(http.MethodPost, "/issues/"+lower+"/move", api.MoveIssue{Status: st("todo"), AfterKey: strPtr("RB-1"), BeforeKey: &upper}, nil)
 		lower, upper = upper, lower
 	}
-	if list, _ := listIssues(t, env, fmt.Sprintf("projectId=%d&status=todo&sort=manual", rb.Id)); keys(list) != "RB-3,"+upper+","+lower {
-		t.Fatalf("after many moves: %s (want RB-3,%s,%s)", keys(list), upper, lower)
+	if list, _ := listIssues(t, env, fmt.Sprintf("projectId=%d&status=todo&sort=manual", rb.Id)); keys(list) != "RB-1,"+upper+","+lower {
+		t.Fatalf("after many moves: %s (want RB-1,%s,%s)", keys(list), upper, lower)
 	}
 }
 
