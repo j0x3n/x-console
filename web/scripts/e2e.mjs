@@ -379,7 +379,7 @@ try {
     headers: { "X-Requested-With": "x-console" }, data: { password },
   });
   assert.equal(quotaElevate.status(), 200, await quotaElevate.text());
-  await page.goto(`${base}/quotas`);
+  await page.goto(`${base}/monitoring/quotas`);
   await page.getByText("还没有额度账号").waitFor();
   await page.getByRole("button", { name: "添加账号" }).first().click();
   await dialog("添加额度账号").getByLabel("服务").selectOption("deepseek");

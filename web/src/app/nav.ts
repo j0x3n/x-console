@@ -7,7 +7,6 @@ import {
   Bot,
   FolderGit2,
   Files,
-  Gauge,
   Headphones,
   HardDrive,
   HeartPulse,
@@ -92,7 +91,6 @@ export const navItems: NavItem[] = [
   },
   { path: "/home", label: "Smart home", icon: Home, group: "integrations" },
   { path: "/router", label: "Router", icon: RouterIcon, group: "integrations" },
-  { path: "/quotas", label: "AI quotas", icon: Gauge, group: "integrations" },
   {
     path: "/automations",
     label: "Automations",

@@ -232,7 +232,7 @@ const routes = [
   ["monitoring", "/monitoring"],
   ["home", "/home"],
   ["router", "/router"],
-  ["quotas", "/quotas"],
+  ["quotas", "/monitoring/quotas"],
   ["documents", "/documents"],
   ["screentime", "/screentime"],
   ["readlater", "/readlater"],

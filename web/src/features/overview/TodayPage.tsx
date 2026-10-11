@@ -62,7 +62,7 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   habits: { body: () => <HabitsCard />, more: "/habits" },
   home: { body: () => <HomeCard />, more: "/home" },
   network: { body: () => <TodayNetworkCard />, more: "/router" }, // B65
-  quotas: { body: () => <TodayQuotasCard />, more: "/quotas" }, // B111
+  quotas: { body: () => <TodayQuotasCard />, more: "/monitoring/quotas" }, // B111
   screentime: { body: () => <TodayScreenTimeCard />, more: "/screentime" }, // B116
   music: { body: () => <TodayMusicCard />, more: "/music" }, // B150
   mail: { body: () => <MailCard />, more: "/mail" },

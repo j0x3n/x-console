@@ -1,12 +1,8 @@
-import { lazy } from "react";
-import type { RouteObject } from "react-router";
+import { Navigate, type RouteObject } from "react-router";
 import { Gauge } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import "./i18n";
 import "./quotas.css";
-
-// 页面按需加载（B6），主包里只留路由、命令和样式。
-const QuotasPage = lazy(() => import("./QuotasPage"));
 
 registerCommands([
   {
@@ -16,14 +12,15 @@ registerCommands([
     keywords:
       "quota usage limit claude codex grok deepseek balance 额度 余额 重置",
     icon: Gauge,
-    run: ({ navigate }) => navigate("/quotas"),
+    run: ({ navigate }) => navigate("/monitoring/quotas"),
   },
 ]);
 
 export const routes: RouteObject[] = [
   {
     path: "quotas",
-    element: <QuotasPage />,
+    // B152：页面放进了监控，旧地址跳过去
+    element: <Navigate to="/monitoring/quotas" replace />,
     handle: { title: "AI quotas" },
   },
 ];
