@@ -162,6 +162,14 @@ type tgEntity struct {
 	URL  string `json:"url"`
 }
 
+// tgFile is the part of a voice message or audio file the module needs.
+type tgFile struct {
+	FileID   string `json:"file_id"`
+	Duration int    `json:"duration"`
+	MimeType string `json:"mime_type"`
+	FileSize int64  `json:"file_size"`
+}
+
 type tgUpdate struct {
 	Message *struct {
 		MessageID int64  `json:"message_id"`
@@ -172,6 +180,8 @@ type tgUpdate struct {
 		} `json:"chat"`
 		Entities        []tgEntity `json:"entities"`
 		CaptionEntities []tgEntity `json:"caption_entities"`
+		Voice           *tgFile    `json:"voice"`
+		Audio           *tgFile    `json:"audio"`
 	} `json:"message"`
 	CallbackQuery *struct {
 		ID      string `json:"id"`
@@ -255,10 +265,6 @@ func (m *Module) handleTelegramMessage(ctx context.Context, cfg map[string]strin
 	if strconv.FormatInt(msg.Chat.ID, 10) != cfg["chat_id"] {
 		return
 	}
-	inbox, ok := module.Lookup[contracts.TelegramInbox](m.d.Registry, contracts.TelegramInboxKey)
-	if !ok {
-		return
-	}
 	text, entities := msg.Text, msg.Entities
 	if text == "" {
 		text, entities = msg.Caption, msg.CaptionEntities
@@ -269,8 +275,28 @@ func (m *Module) handleTelegramMessage(ctx context.Context, cfg map[string]strin
 			links = append(links, e.URL)
 		}
 	}
+	tm := contracts.TelegramMessage{Text: text, Links: links}
+	if f := msg.Voice; f != nil || msg.Audio != nil {
+		if f == nil {
+			f = msg.Audio
+		}
+		tm.Voice = &contracts.TelegramVoice{Seconds: f.Duration, Mime: f.MimeType, Size: f.FileSize}
+		tm.Download = func(ctx context.Context) ([]byte, error) { return m.telegramFile(ctx, cfg, f.FileID) }
+	}
+	// The first inbox (read-later) takes messages with links. What it leaves
+	// goes to the fallback inbox (B134).
 	actx := audit.WithActor(ctx, "telegram")
-	reply, handled := inbox.HandleTelegramMessage(actx, contracts.TelegramMessage{Text: text, Links: links})
+	var reply string
+	var handled bool
+	for _, key := range []string{contracts.TelegramInboxKey, contracts.TelegramInboxFallbackKey} {
+		inbox, ok := module.Lookup[contracts.TelegramInbox](m.d.Registry, key)
+		if !ok {
+			continue
+		}
+		if reply, handled = inbox.HandleTelegramMessage(actx, tm); handled {
+			break
+		}
+	}
 	if !handled || reply == "" {
 		return
 	}
@@ -280,6 +306,71 @@ func (m *Module) handleTelegramMessage(ctx context.Context, cfg map[string]strin
 	if err != nil {
 		m.d.Log.Warn("telegram reply", "err", err)
 	}
+}
+
+// maxTelegramFile is the largest file the bot API hands out.
+const maxTelegramFile = 20 << 20
+
+// telegramFile downloads a file the user sent to the bot.
+func (m *Module) telegramFile(ctx context.Context, cfg map[string]string, fileID string) ([]byte, error) {
+	base := strings.TrimRight(cfg["api_base"], "/")
+	raw, _ := json.Marshal(map[string]any{"file_id": fileID})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/bot"+cfg["bot_token"]+"/getFile", bytes.NewReader(raw))
+	if err != nil {
+		return nil, errors.New("telegram getFile: bad request")
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := m.http.Do(req)
+	if err != nil {
+		var uerr *url.Error
+		if errors.As(err, &uerr) {
+			err = uerr.Err
+		}
+		return nil, fmt.Errorf("telegram getFile: %w", err)
+	}
+	defer resp.Body.Close()
+	var out struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+		Result      struct {
+			FilePath string `json:"file_path"`
+			FileSize int64  `json:"file_size"`
+		} `json:"result"`
+	}
+	_ = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out)
+	if !out.OK || out.Result.FilePath == "" {
+		if out.Description == "" {
+			out.Description = resp.Status
+		}
+		return nil, fmt.Errorf("telegram getFile: %s", out.Description)
+	}
+	if out.Result.FileSize > maxTelegramFile {
+		return nil, errors.New("文件太大，超过 20 MB")
+	}
+	get, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/file/bot"+cfg["bot_token"]+"/"+out.Result.FilePath, nil)
+	if err != nil {
+		return nil, errors.New("telegram file: bad request")
+	}
+	res, err := m.http.Do(get)
+	if err != nil {
+		var uerr *url.Error
+		if errors.As(err, &uerr) {
+			err = uerr.Err
+		}
+		return nil, fmt.Errorf("telegram file: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("telegram file: %s", res.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(res.Body, maxTelegramFile+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxTelegramFile {
+		return nil, errors.New("文件太大，超过 20 MB")
+	}
+	return data, nil
 }
 
 // actionError turns an action error into a short message for the user.

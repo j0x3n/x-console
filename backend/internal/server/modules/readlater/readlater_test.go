@@ -739,8 +739,8 @@ func TestTelegramMessagesSaveLinks(t *testing.T) {
 	if list(t, env, "?view=all").Counts.All != 0 || len(tg.sent()) != 0 {
 		t.Fatal("another chat must not save links or get answers")
 	}
-	// 没有链接的话：不保存，不回复
-	if status := post("hook-secret", message(42, "今天吃什么")); status != http.StatusOK {
+	// 没有链接的话：不保存。普通文字归收集箱（B134），这里用机器人命令，两边都不收，也不回复
+	if status := post("hook-secret", message(42, "/help")); status != http.StatusOK {
 		t.Fatalf("plain text: %d", status)
 	}
 	if len(tg.sent()) != 0 {

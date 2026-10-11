@@ -932,6 +932,20 @@ type HostTrafficPlan struct {
 	UpdatedAt    time.Time
 }
 
+type InboxItem struct {
+	ID           int64
+	Text         string
+	Source       string
+	Status       string
+	SuggestState string
+	Suggestion   string
+	FiledKind    string
+	FiledRef     string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	ClosedAt     *time.Time
+}
+
 type Issue struct {
 	ID             int64
 	ProjectID      int64

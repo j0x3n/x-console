@@ -1143,6 +1143,19 @@ try {
     await page.getByRole("link", { name: /端到端实验/ }).click();
     await page.getByRole("article", { name: "体重" }).getByText("还没有数据。").waitFor();
 
+    setStage("收集箱");
+    // B134：页面上记一条，没配置 AI 时没有建议，默认归成笔记；归档后笔记列表里有它。
+    await page.goto(`${base}/inbox`);
+    await page.getByRole("textbox", { name: "写一条" }).fill("端到端收集箱想法");
+    await page.getByRole("button", { name: "记下来" }).click();
+    await until("收集箱收到", async () =>
+      (await api("/inbox")).items.some((x) => x.text === "端到端收集箱想法"),
+    );
+    await page.getByRole("article").filter({ hasText: "端到端收集箱想法" }).getByRole("button", { name: "归档" }).click();
+    await until("收集箱归档", async () =>
+      (await api("/inbox?status=closed")).items.some((x) => x.text === "端到端收集箱想法" && x.status === "filed"),
+    );
+
     setStage("复习卡片");
     // B130：手写一张卡片，接口再建一张；开始复习，空格显示答案，数字键评分；评完看到统计，到期日往后推。
     await page.goto(`${base}/cards`);

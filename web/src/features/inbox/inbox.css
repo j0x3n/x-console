@@ -1,0 +1,95 @@
+/* B134 随手记收集箱。颜色只用 --xc-* 令牌，字号只用 --fs-* 令牌。 */
+
+.inbox-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.inbox-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inbox-capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.inbox-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.inbox-item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.inbox-item-head {
+  display: grid;
+  gap: 4px;
+}
+.inbox-item-text {
+  margin: 0;
+  font-size: var(--fs-14);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.inbox-item-meta {
+  font-size: var(--fs-12);
+}
+.inbox-suggest {
+  min-height: 18px;
+  font-size: var(--fs-12-5);
+}
+.inbox-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+.inbox-wide {
+  grid-column: 1 / -1;
+}
+.inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.inbox-closed summary {
+  cursor: pointer;
+  color: var(--xc-muted);
+  font-size: var(--fs-13);
+}
+.inbox-closed ul {
+  display: grid;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.inbox-closed li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--xc-border);
+  font-size: var(--fs-13);
+}
+.inbox-settings {
+  display: grid;
+  gap: 12px;
+}
+.inbox-hint {
+  margin: 0;
+  font-size: var(--fs-12);
+}
+@media (max-width: 640px) {
+  .inbox-list {
+    grid-template-columns: 1fr;
+  }
+  .inbox-form {
+    grid-template-columns: 1fr;
+  }
+}

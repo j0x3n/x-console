@@ -51,6 +51,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m.llm = llm.New(m.resolveLLM, m.recordLLM, m.markReasoningUnsupported)
 	module.Provide[brief.Polisher](d.Registry, brief.PolisherKey, m)
 	module.Provide[contracts.LLM](d.Registry, contracts.LLMKey, m)
+	module.Provide[contracts.Transcriber](d.Registry, contracts.TranscriberKey, m) // B134
 	module.Provide[contracts.AIUsageRecorder](d.Registry, contracts.AIUsageKey, m)
 	module.Provide[contracts.ToolRunner](d.Registry, contracts.ToolRunnerKey, m) // B47
 	module.Provide[contracts.Memories](d.Registry, contracts.MemoriesKey, m)     // B61

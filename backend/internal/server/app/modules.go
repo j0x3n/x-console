@@ -27,6 +27,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/habits"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/homeassistant"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/inbox"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/journal"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/linear"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
@@ -93,5 +94,6 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	cards.New,       // B130
 	checkins.New,    // B132
 	experiments.New, // B133
+	inbox.New,       // B134
 	focusblock.New,  // B131
 }

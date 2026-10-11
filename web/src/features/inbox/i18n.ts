@@ -1,0 +1,60 @@
+import { registerZh } from "../../lib/i18n";
+
+registerZh({
+  // B134 随手记收集箱
+  "Capture inbox": "收集箱",
+  "Inbox settings": "收集箱设置",
+  "Inbox waiting": "条待处理",
+  "The inbox is empty": "收集箱是空的",
+  "Write down anything that crosses your mind. You decide later where it goes.":
+    "想到什么先记下来，之后再决定放到哪里。",
+  "Write a note": "写一条",
+  "Write a note. Enter saves, Shift+Enter starts a new line.":
+    "写一条。回车保存，Shift+回车换行。",
+  "Save to inbox": "记下来",
+  Record: "录音",
+  "Stop and save": "停止并保存",
+  "Turning speech into text…": "正在转成文字…",
+  "The microphone is not available. Check the browser permission.":
+    "用不了麦克风，请检查浏览器的权限。",
+  "Recently handled": "最近处理的",
+  "Nothing yet.": "还没有。",
+  "Filed as": "已归到",
+  Dismissed: "已忽略",
+  "File it": "归档",
+  "Inbox dismiss": "忽略",
+  "Suggest again": "重新建议",
+  "File as": "归到",
+  "Inbox kind reminder": "提醒",
+  "Inbox kind card": "看板卡片",
+  "Inbox kind note": "笔记",
+  "Inbox kind readlater": "稍后读",
+  "Inbox title": "标题",
+  "Inbox details": "补充",
+  "Inbox remind at": "提醒时间",
+  Project: "项目",
+  "Inbox address": "网址",
+  "A reminder needs a time": "提醒要有时间",
+  "Read later needs an address": "稍后读要有网址",
+  "Pick a project": "选一个项目",
+  Suggestion: "建议",
+  "Thinking about where this belongs…": "正在想它该归到哪里…",
+  "The suggestion failed. Pick a place yourself or try again.":
+    "建议没生成出来。自己选一个地方，或者再试一次。",
+  "No suggestion. Pick a place yourself.": "没有建议。自己选一个地方。",
+  "Inbox from page": "来自页面",
+  "Inbox from voice": "来自录音",
+  "Inbox from Telegram": "来自 Telegram",
+  "Inbox from Telegram voice": "来自 Telegram 语音",
+  "Inbox from assistant": "来自 AI 助手",
+  "Suggest where each note belongs with AI": "用 AI 建议每条该归到哪里",
+  "The text of each note is sent to your AI provider. Recordings are sent to it too, to turn them into text, and are not kept. Turn this off to only collect.":
+    "每条的文字会发给你的 AI 供应商。录音也会发给它转成文字，录音不保存。关掉后只收，不外发。",
+  "Remind me every evening when notes are waiting":
+    "有没处理的条目时，每晚提醒我",
+  "Inbox reminder time": "提醒时间点",
+  "Speech to text model": "语音转文字的模型",
+  "Speech language": "语音语言",
+  "Default project for cards": "卡片默认放进的项目",
+  "Not set": "没设",
+});

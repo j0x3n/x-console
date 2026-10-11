@@ -23,6 +23,7 @@ import { routes as goals } from "../features/goals/routes";
 import { routes as cards } from "../features/cards/routes";
 import { routes as checkins } from "../features/checkins/routes";
 import { routes as experiments } from "../features/experiments/routes";
+import { routes as inbox } from "../features/inbox/routes";
 import { routes as credentials } from "../features/credentials/routes";
 import { routes as aiconfig } from "../features/aiconfig/routes";
 import { routes as readlater } from "../features/readlater/routes";
@@ -60,6 +61,7 @@ export const moduleRoutes: RouteObject[] = [
   ...cards,
   ...checkins,
   ...experiments,
+  ...inbox,
   ...credentials,
   ...aiconfig,
   ...automations,
