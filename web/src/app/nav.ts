@@ -22,6 +22,7 @@ import {
   NotebookPen,
   Radar,
   Router as RouterIcon,
+  Scale,
   Server,
   SquareKanban,
   Sun,
@@ -76,6 +77,7 @@ export const navItems: NavItem[] = [
   { path: "/goals", label: "Goals", icon: Target, group: "personal" },
   { path: "/plan", label: "Day plan", icon: CalendarClock, group: "personal" },
   { path: "/inbox", label: "Capture inbox", icon: Inbox, group: "personal" },
+  { path: "/forecasts", label: "Forecasts", icon: Scale, group: "personal" },
   {
     path: "/checkins",
     label: "Check-ins",

@@ -1,0 +1,230 @@
+openapi: 3.0.3
+info:
+  title: X Console forecasts (B137)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /forecasts:
+    get:
+      operationId: listForecasts
+      tags: [forecasts]
+      description: |
+        status=open 还没填结果的（到期的在前，然后按到期日），resolved 已有结果的（最近的在前），默认 all 先 open 后 resolved。
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, resolved, all] }
+      responses:
+        "200":
+          description: 记录
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, today]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Forecast" }
+                  today: { type: string, description: 服务端时区的今天 YYYY-MM-DD }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createForecast
+      tags: [forecasts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForecastInput" }
+      responses:
+        "201":
+          description: 新记录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Forecast" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /forecasts/stats:
+    get:
+      operationId: getForecastStats
+      tags: [forecasts]
+      description: 校准统计。只算有把握、结果是成了或没成的记录。
+      responses:
+        "200":
+          description: 统计
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ForecastStats" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /forecasts/settings:
+    get:
+      operationId: getForecastSettings
+      tags: [forecasts]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ForecastSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putForecastSettings
+      tags: [forecasts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForecastSettings" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ForecastSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /forecasts/{forecastId}:
+    parameters:
+      - $ref: "#/components/parameters/ForecastId"
+    patch:
+      operationId: updateForecast
+      tags: [forecasts]
+      description: 改内容、把握、到期日、理由。已经有结果的记录只能改结果备注。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForecastPatch" }
+      responses:
+        "200":
+          description: 改后的记录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Forecast" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteForecast
+      tags: [forecasts]
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /forecasts/{forecastId}/resolve:
+    parameters:
+      - $ref: "#/components/parameters/ForecastId"
+    post:
+      operationId: resolveForecast
+      tags: [forecasts]
+      description: 填结果。已有结果的记录再填会覆盖。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome]
+              properties:
+                outcome: { $ref: "#/components/schemas/ForecastOutcome" }
+                note: { type: string }
+      responses:
+        "200":
+          description: 填好结果的记录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Forecast" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /forecasts/{forecastId}/reopen:
+    parameters:
+      - $ref: "#/components/parameters/ForecastId"
+    post:
+      operationId: reopenForecast
+      tags: [forecasts]
+      description: 撤销结果，回到没填结果的状态。
+      responses:
+        "200":
+          description: 记录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Forecast" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    ForecastId:
+      name: forecastId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    ForecastKind:
+      type: string
+      enum: [prediction, decision]
+    ForecastOutcome:
+      type: string
+      enum: [yes, no, void]
+      description: yes 成了（决策是做对了）；no 没成（没做对）；void 作废（说不清）
+    Forecast:
+      type: object
+      required: [id, kind, statement, dueDate, reason, note, overdue, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/ForecastKind" }
+        statement: { type: string }
+        probability: { type: integer, description: 1 到 99，没填就没有这一项 }
+        dueDate: { type: string, description: YYYY-MM-DD }
+        reason: { type: string }
+        outcome: { $ref: "#/components/schemas/ForecastOutcome" }
+        note: { type: string, description: 结果备注 }
+        overdue: { type: boolean, description: 到期了还没填结果 }
+        createdAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time }
+    ForecastInput:
+      type: object
+      required: [kind, statement, dueDate]
+      properties:
+        kind: { $ref: "#/components/schemas/ForecastKind" }
+        statement: { type: string }
+        probability: { type: integer, minimum: 1, maximum: 99 }
+        dueDate: { type: string }
+        reason: { type: string }
+    ForecastPatch:
+      type: object
+      properties:
+        statement: { type: string }
+        probability: { type: integer, minimum: 0, maximum: 99, description: 0 表示去掉把握 }
+        dueDate: { type: string }
+        reason: { type: string }
+        note: { type: string }
+    ForecastBin:
+      type: object
+      required: [label, count, meanProbability, observed, few]
+      properties:
+        label: { type: string, description: 比如 61–80 }
+        count: { type: integer }
+        meanProbability: { type: number, format: double, description: 这一档平均说的把握，百分比 }
+        observed: { type: number, format: double, description: 这一档实际成了的比例，百分比；没有记录时为 0 }
+        few: { type: boolean, description: 少于 5 条，参考价值低 }
+    ForecastStats:
+      type: object
+      required: [count, brier, bias, bins, small]
+      properties:
+        count: { type: integer, description: 计入统计的记录数 }
+        brier: { type: number, format: double, description: 0 最好，永远说 50% 是 0.25。没有记录时为 0 }
+        bias: { type: number, format: double, description: 平均把握减实际成功率（百分点），正数是偏乐观 }
+        small: { type: boolean, description: 少于 20 条，样本少 }
+        bins:
+          type: array
+          items: { $ref: "#/components/schemas/ForecastBin" }
+    ForecastSettings:
+      type: object
+      required: [remind, remindTime]
+      properties:
+        remind: { type: boolean, description: 到期当天提醒填结果 }
+        remindTime: { type: string, description: HH:MM }

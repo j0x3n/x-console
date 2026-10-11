@@ -246,6 +246,7 @@ const routes = [
   ["checkins", "/checkins"],
   ["inbox", "/inbox"],
   ["plan", "/plan"],
+  ["forecasts", "/forecasts"],
   ["experiments", "/experiments"],
   ["goals", "/goals"],
   ["goals-review", "/goals/review"],

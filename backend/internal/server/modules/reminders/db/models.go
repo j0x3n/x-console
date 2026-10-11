@@ -665,6 +665,20 @@ type FocusSession struct {
 	NotifiedAt     *time.Time
 }
 
+type Forecast struct {
+	ID          int64
+	Kind        string
+	Statement   string
+	Probability *int64
+	DueDate     string
+	Reason      string
+	Outcome     *string
+	Note        string
+	Notified    int64
+	CreatedAt   time.Time
+	ResolvedAt  *time.Time
+}
+
 type GitConnection struct {
 	ID               int64
 	Kind             string

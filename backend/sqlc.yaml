@@ -290,3 +290,11 @@ sql:
         package: db
         out: internal/server/modules/dayplan/db
         emit_pointers_for_null_types: true
+  - engine: sqlite
+    schema: internal/server/store/migrations
+    queries: internal/server/modules/forecasts/queries.sql
+    gen:
+      go:
+        package: db
+        out: internal/server/modules/forecasts/db
+        emit_pointers_for_null_types: true

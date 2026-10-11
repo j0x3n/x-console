@@ -1156,6 +1156,22 @@ try {
       (await api("/inbox?status=closed")).items.some((x) => x.text === "端到端收集箱想法" && x.status === "filed"),
     );
 
+    setStage("预测记录");
+    // B137：记一条预测（把握 70%），填结果“成了”，统计里出现 1 条。
+    await page.goto(`${base}/forecasts`);
+    await page.getByLabel("内容").fill("端到端预测");
+    await page.getByLabel("把握（%）").fill("70");
+    await page.getByLabel("到期日").fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
+    await page.getByRole("button", { name: "记下来" }).click();
+    await until("预测记下", async () =>
+      (await api("/forecasts")).items.some((x) => x.statement === "端到端预测" && x.probability === 70),
+    );
+    await page.getByRole("article").filter({ hasText: "端到端预测" }).getByRole("button", { name: "成了" }).click();
+    await until("预测有结果", async () =>
+      (await api("/forecasts?status=resolved")).items.some((x) => x.statement === "端到端预测" && x.outcome === "yes"),
+    );
+    await until("预测统计", async () => (await api("/forecasts/stats")).count === 1);
+
     setStage("今日计划");
     // B135：没有候选事项也能手动排：加一件事、保存、确认；确认后在今日页的计划卡片里能看到。
     await page.goto(`${base}/plan`);
