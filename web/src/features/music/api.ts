@@ -26,6 +26,10 @@ export type Lyrics = S["MusicLyrics"];
 export type SettingsInput = S["MusicSettingsInput"];
 export type Pending = S["MusicPending"];
 export type Candidate = S["MusicCandidate"];
+export type Sleep = S["MusicSleep"];
+export type Share = S["MusicShare"];
+export type PublicPlaylist = S["MusicPublicPlaylist"];
+export type PublicTrack = S["MusicPublicTrack"];
 
 export const musicKeys = {
   all: ["music"] as const,
@@ -38,12 +42,15 @@ export const musicKeys = {
   lyrics: (id: number) => ["music", "lyrics", id] as const,
   settings: ["music", "settings"] as const,
   pending: ["music", "pending"] as const,
+  sleep: ["music", "sleep"] as const,
+  shares: (playlistId: number) => ["music", "shares", playlistId] as const,
 };
 
 // 扫描完成、歌曲改过、播放列表改过时刷新。播放次数的事件不刷新，不然每首歌播放都会重拉所有列表。
 invalidateOn("music.library_changed", musicKeys.all);
 invalidateOn("music.track_updated", musicKeys.tracks);
 invalidateOn("music.playlist_changed", musicKeys.playlists);
+invalidateOn("music.sleep_", musicKeys.sleep);
 
 export function streamUrl(id: number): string {
   return `/api/v1/music/tracks/${id}/stream`;
@@ -375,5 +382,75 @@ export function useSetPlaylistItems() {
         }),
       ),
     onSuccess: refresh,
+  });
+}
+
+/** 定时暂停的状态。放在服务端，所有页面和设备看到的一样。 */
+export function useSleep() {
+  return useQuery({
+    queryKey: musicKeys.sleep,
+    queryFn: () => unwrap(musicApi.GET("/music/sleep")),
+    retry: false,
+    meta: { silentError: true },
+  });
+}
+
+/** 设定时。三种只能传一个：几分钟后、再播几首、在现有的分钟定时上加几分钟。 */
+export function usePutSleep() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: S["MusicSleepInput"]) =>
+      unwrap(musicApi.PUT("/music/sleep", { body })),
+    onSuccess: (data) => client.setQueryData(musicKeys.sleep, data),
+  });
+}
+
+export function useCancelSleep() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(musicApi.DELETE("/music/sleep")),
+    onSuccess: () => client.setQueryData(musicKeys.sleep, { active: false }),
+  });
+}
+
+export function useShares(playlistId: number) {
+  return useQuery({
+    queryKey: musicKeys.shares(playlistId),
+    queryFn: () =>
+      unwrap(
+        musicApi.GET("/music/playlists/{playlistId}/shares", {
+          params: { path: { playlistId } },
+        }),
+      ),
+    retry: false,
+  });
+}
+
+export function useCreateShare(playlistId: number) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: S["MusicShareInput"]) =>
+      unwrap(
+        musicApi.POST("/music/playlists/{playlistId}/shares", {
+          params: { path: { playlistId } },
+          body,
+        }),
+      ),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: musicKeys.shares(playlistId) }),
+  });
+}
+
+export function useDeleteShare(playlistId: number) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (shareId: number) =>
+      unwrap(
+        musicApi.DELETE("/music/shares/{shareId}", {
+          params: { path: { shareId } },
+        }),
+      ),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: musicKeys.shares(playlistId) }),
   });
 }

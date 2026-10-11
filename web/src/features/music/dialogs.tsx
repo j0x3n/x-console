@@ -14,6 +14,7 @@ import {
   type Track,
 } from "./api";
 import { usePlayer } from "./player";
+import SleepDialog from "./SleepDialog";
 
 /*
  * 全局的两个小弹窗（B147）：加入播放列表、编辑歌曲信息。
@@ -23,29 +24,37 @@ interface DialogState {
   addTo: Track[] | null;
   edit: Track | null;
   lyrics: Track | null;
+  sleep: boolean;
 }
 
 export const useMusicDialogs = create<DialogState>()(() => ({
   addTo: null,
   edit: null,
   lyrics: null,
+  sleep: false,
 }));
 
 export const openAddToPlaylist = (tracks: Track[]) =>
   useMusicDialogs.setState({ addTo: tracks });
 export const openEditTrack = (track: Track) =>
   useMusicDialogs.setState({ edit: track });
+export const openSleepDialog = () => useMusicDialogs.setState({ sleep: true });
 export const openEditLyrics = (track: Track) =>
   useMusicDialogs.setState({ lyrics: track });
 
 export default function MusicDialogs() {
-  const { addTo, edit, lyrics } = useMusicDialogs();
+  const { addTo, edit, lyrics, sleep } = useMusicDialogs();
   return (
     <>
       {addTo && (
         <AddToPlaylistDialog
           tracks={addTo}
           onClose={() => useMusicDialogs.setState({ addTo: null })}
+        />
+      )}
+      {sleep && (
+        <SleepDialog
+          onClose={() => useMusicDialogs.setState({ sleep: false })}
         />
       )}
       {lyrics && (

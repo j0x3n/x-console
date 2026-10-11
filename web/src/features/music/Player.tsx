@@ -17,6 +17,7 @@ import { useT } from "../../contexts/LanguageContext";
 import { TrackCover } from "./Cover";
 import MusicDialogs from "./dialogs";
 import { formatClock } from "./lyrics";
+import { SleepButton } from "./SleepDialog";
 import { seek, useMainLeft } from "./PlayerHost";
 import PlayerHost from "./PlayerHost";
 import { modeLabel, type PlayMode } from "./queue";
@@ -205,6 +206,7 @@ function MiniBar() {
         </span>
         <span className="music-mini-volume">
           <ModeButton />
+          <SleepButton />
           <VolumeControl />
         </span>
         <button

@@ -136,3 +136,21 @@ UPDATE music_tracks SET cover_key = ?, has_cover = 1, cover_source = ?, updated_
 
 -- name: SetTrackSha :exec
 UPDATE music_tracks SET sha256 = ? WHERE id = ?;
+
+-- name: InsertShare :one
+INSERT INTO music_playlist_shares (playlist_id, token, password_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *;
+
+-- name: ListShares :many
+SELECT * FROM music_playlist_shares WHERE playlist_id = ? ORDER BY id DESC;
+
+-- name: GetShareByToken :one
+SELECT * FROM music_playlist_shares WHERE token = ? LIMIT 1;
+
+-- name: DeleteShare :execrows
+DELETE FROM music_playlist_shares WHERE id = ?;
+
+-- name: BumpShareViews :exec
+UPDATE music_playlist_shares SET view_count = view_count + 1 WHERE id = ?;
+
+-- name: PlaylistHasTrack :one
+SELECT CAST(COUNT(*) AS INTEGER) FROM music_playlist_items WHERE playlist_id = ? AND track_id = ?;

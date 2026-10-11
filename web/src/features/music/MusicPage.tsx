@@ -6,6 +6,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  Share2,
   Shuffle,
   Trash2,
   UserRound,
@@ -45,6 +46,7 @@ import { CoverImage, MosaicCover } from "./Cover";
 import { formatClock } from "./lyrics";
 import { usePlayer } from "./player";
 import PendingView from "./PendingView";
+import ShareDialog from "./ShareDialog";
 import TrackList from "./TrackList";
 import "./i18n";
 import "./music.css";
@@ -594,6 +596,7 @@ function PlaylistView({
   const remove = useDeletePlaylist();
   const setItems = useSetPlaylistItems();
   const [renaming, setRenaming] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [name, setName] = useState("");
   const needle = q.trim().toLowerCase();
 
@@ -638,6 +641,9 @@ function PlaylistView({
           }}
         >
           <Pencil size={13} /> {t("Rename")}
+        </button>
+        <button className="xc-btn small" onClick={() => setSharing(true)}>
+          <Share2 size={13} /> {t("Share")}
         </button>
         <button
           className="xc-btn small danger"
@@ -700,6 +706,13 @@ function PlaylistView({
               },
             ];
           }}
+        />
+      )}
+      {sharing && (
+        <ShareDialog
+          playlistId={id}
+          name={data.name}
+          onClose={() => setSharing(false)}
         />
       )}
       <Dialog

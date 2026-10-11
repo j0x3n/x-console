@@ -26,6 +26,15 @@ func (q *Queries) AddPlaylistItem(ctx context.Context, arg AddPlaylistItemParams
 	return err
 }
 
+const bumpShareViews = `-- name: BumpShareViews :exec
+UPDATE music_playlist_shares SET view_count = view_count + 1 WHERE id = ?
+`
+
+func (q *Queries) BumpShareViews(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, bumpShareViews, id)
+	return err
+}
+
 const clearCandidates = `-- name: ClearCandidates :exec
 DELETE FROM music_candidates WHERE track_id = ?
 `
@@ -98,6 +107,18 @@ func (q *Queries) DeletePlaylist(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteShare = `-- name: DeleteShare :execrows
+DELETE FROM music_playlist_shares WHERE id = ?
+`
+
+func (q *Queries) DeleteShare(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteShare, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteTrack = `-- name: DeleteTrack :exec
 DELETE FROM music_tracks WHERE id = ?
 `
@@ -164,6 +185,25 @@ func (q *Queries) GetPlaylist(ctx context.Context, id int64) (GetPlaylistRow, er
 		&i.UpdatedAt,
 		&i.TrackCount,
 		&i.DurationMs,
+	)
+	return i, err
+}
+
+const getShareByToken = `-- name: GetShareByToken :one
+SELECT id, playlist_id, token, password_hash, expires_at, view_count, created_at FROM music_playlist_shares WHERE token = ? LIMIT 1
+`
+
+func (q *Queries) GetShareByToken(ctx context.Context, token string) (MusicPlaylistShare, error) {
+	row := q.db.QueryRowContext(ctx, getShareByToken, token)
+	var i MusicPlaylistShare
+	err := row.Scan(
+		&i.ID,
+		&i.PlaylistID,
+		&i.Token,
+		&i.PasswordHash,
+		&i.ExpiresAt,
+		&i.ViewCount,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -299,6 +339,39 @@ func (q *Queries) InsertPlaylist(ctx context.Context, arg InsertPlaylistParams) 
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertShare = `-- name: InsertShare :one
+INSERT INTO music_playlist_shares (playlist_id, token, password_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id, playlist_id, token, password_hash, expires_at, view_count, created_at
+`
+
+type InsertShareParams struct {
+	PlaylistID   int64
+	Token        string
+	PasswordHash *string
+	ExpiresAt    *time.Time
+	CreatedAt    time.Time
+}
+
+func (q *Queries) InsertShare(ctx context.Context, arg InsertShareParams) (MusicPlaylistShare, error) {
+	row := q.db.QueryRowContext(ctx, insertShare,
+		arg.PlaylistID,
+		arg.Token,
+		arg.PasswordHash,
+		arg.ExpiresAt,
+		arg.CreatedAt,
+	)
+	var i MusicPlaylistShare
+	err := row.Scan(
+		&i.ID,
+		&i.PlaylistID,
+		&i.Token,
+		&i.PasswordHash,
+		&i.ExpiresAt,
+		&i.ViewCount,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const insertTrack = `-- name: InsertTrack :one
@@ -711,6 +784,41 @@ func (q *Queries) ListPlaylists(ctx context.Context) ([]ListPlaylistsRow, error)
 	return items, nil
 }
 
+const listShares = `-- name: ListShares :many
+SELECT id, playlist_id, token, password_hash, expires_at, view_count, created_at FROM music_playlist_shares WHERE playlist_id = ? ORDER BY id DESC
+`
+
+func (q *Queries) ListShares(ctx context.Context, playlistID int64) ([]MusicPlaylistShare, error) {
+	rows, err := q.db.QueryContext(ctx, listShares, playlistID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicPlaylistShare
+	for rows.Next() {
+		var i MusicPlaylistShare
+		if err := rows.Scan(
+			&i.ID,
+			&i.PlaylistID,
+			&i.Token,
+			&i.PasswordHash,
+			&i.ExpiresAt,
+			&i.ViewCount,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTrackSync = `-- name: ListTrackSync :many
 SELECT id, drive_item_id, sha256, companion FROM music_tracks
 `
@@ -833,6 +941,22 @@ SELECT CAST(COALESCE(MAX(position), -1) + 1 AS INTEGER) FROM music_playlist_item
 
 func (q *Queries) NextPlaylistPosition(ctx context.Context, playlistID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, nextPlaylistPosition, playlistID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const playlistHasTrack = `-- name: PlaylistHasTrack :one
+SELECT CAST(COUNT(*) AS INTEGER) FROM music_playlist_items WHERE playlist_id = ? AND track_id = ?
+`
+
+type PlaylistHasTrackParams struct {
+	PlaylistID int64
+	TrackID    int64
+}
+
+func (q *Queries) PlaylistHasTrack(ctx context.Context, arg PlaylistHasTrackParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, playlistHasTrack, arg.PlaylistID, arg.TrackID)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err

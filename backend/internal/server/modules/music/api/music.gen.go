@@ -65,6 +65,24 @@ func (e MusicLyricsSource) Valid() bool {
 	}
 }
 
+// Defines values for MusicSleepMode.
+const (
+	Time   MusicSleepMode = "time"
+	Tracks MusicSleepMode = "tracks"
+)
+
+// Valid indicates whether the value is a known member of the MusicSleepMode enum.
+func (e MusicSleepMode) Valid() bool {
+	switch e {
+	case Time:
+		return true
+	case Tracks:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MusicTrackCoverSource.
 const (
 	MusicTrackCoverSourceEmbedded MusicTrackCoverSource = "embedded"
@@ -172,19 +190,40 @@ func (e ListMusicTracksParamsSort) Valid() bool {
 
 // Defines values for GetMusicTrackCoverParamsSize.
 const (
-	N256 GetMusicTrackCoverParamsSize = 256
-	N640 GetMusicTrackCoverParamsSize = 640
-	N96  GetMusicTrackCoverParamsSize = 96
+	GetMusicTrackCoverParamsSizeN256 GetMusicTrackCoverParamsSize = 256
+	GetMusicTrackCoverParamsSizeN640 GetMusicTrackCoverParamsSize = 640
+	GetMusicTrackCoverParamsSizeN96  GetMusicTrackCoverParamsSize = 96
 )
 
 // Valid indicates whether the value is a known member of the GetMusicTrackCoverParamsSize enum.
 func (e GetMusicTrackCoverParamsSize) Valid() bool {
 	switch e {
-	case N256:
+	case GetMusicTrackCoverParamsSizeN256:
 		return true
-	case N640:
+	case GetMusicTrackCoverParamsSizeN640:
 		return true
-	case N96:
+	case GetMusicTrackCoverParamsSizeN96:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetPublicMusicTrackCoverParamsSize.
+const (
+	GetPublicMusicTrackCoverParamsSizeN256 GetPublicMusicTrackCoverParamsSize = 256
+	GetPublicMusicTrackCoverParamsSizeN640 GetPublicMusicTrackCoverParamsSize = 640
+	GetPublicMusicTrackCoverParamsSizeN96  GetPublicMusicTrackCoverParamsSize = 96
+)
+
+// Valid indicates whether the value is a known member of the GetPublicMusicTrackCoverParamsSize enum.
+func (e GetPublicMusicTrackCoverParamsSize) Valid() bool {
+	switch e {
+	case GetPublicMusicTrackCoverParamsSizeN256:
+		return true
+	case GetPublicMusicTrackCoverParamsSizeN640:
+		return true
+	case GetPublicMusicTrackCoverParamsSizeN96:
 		return true
 	default:
 		return false
@@ -303,6 +342,23 @@ type MusicPlaylistDetail struct {
 	UpdatedAt     time.Time    `json:"updatedAt"`
 }
 
+// MusicPublicPlaylist defines model for MusicPublicPlaylist.
+type MusicPublicPlaylist struct {
+	Name   string             `json:"name"`
+	Tracks []MusicPublicTrack `json:"tracks"`
+}
+
+// MusicPublicTrack defines model for MusicPublicTrack.
+type MusicPublicTrack struct {
+	Album      string `json:"album"`
+	Artist     string `json:"artist"`
+	DurationMs int    `json:"durationMs"`
+	HasCover   bool   `json:"hasCover"`
+	HasLyrics  bool   `json:"hasLyrics"`
+	Id         int64  `json:"id"`
+	Title      string `json:"title"`
+}
+
 // MusicScanStatus defines model for MusicScanStatus.
 type MusicScanStatus struct {
 	Running bool `json:"running"`
@@ -331,6 +387,48 @@ type MusicSettingsInput struct {
 	Folders   *[]int64         `json:"folders,omitempty"`
 	Providers *map[string]bool `json:"providers,omitempty"`
 	WriteBack *bool            `json:"writeBack,omitempty"`
+}
+
+// MusicShare defines model for MusicShare.
+type MusicShare struct {
+	CreatedAt   time.Time  `json:"createdAt"`
+	ExpiresAt   *time.Time `json:"expiresAt,omitempty"`
+	HasPassword bool       `json:"hasPassword"`
+	Id          int64      `json:"id"`
+
+	// Path 链接的路径，例如 /m/abc。前面接面板的地址就是完整链接
+	Path       string `json:"path"`
+	PlaylistId int64  `json:"playlistId"`
+	ViewCount  int    `json:"viewCount"`
+}
+
+// MusicShareInput defines model for MusicShareInput.
+type MusicShareInput struct {
+	// ExpiresInDays 不传表示不过期
+	ExpiresInDays *int    `json:"expiresInDays,omitempty"`
+	Password      *string `json:"password,omitempty"`
+}
+
+// MusicSleep defines model for MusicSleep.
+type MusicSleep struct {
+	Active bool `json:"active"`
+
+	// EndsAt 分钟定时的结束时间
+	EndsAt *time.Time      `json:"endsAt,omitempty"`
+	Mode   *MusicSleepMode `json:"mode,omitempty"`
+
+	// TracksLeft 按首数定时时还要播几首
+	TracksLeft *int `json:"tracksLeft,omitempty"`
+}
+
+// MusicSleepMode defines model for MusicSleep.Mode.
+type MusicSleepMode string
+
+// MusicSleepInput defines model for MusicSleepInput.
+type MusicSleepInput struct {
+	ExtendMinutes *int `json:"extendMinutes,omitempty"`
+	Minutes       *int `json:"minutes,omitempty"`
+	Tracks        *int `json:"tracks,omitempty"`
 }
 
 // MusicTrack defines model for MusicTrack.
@@ -410,6 +508,12 @@ type MusicTrackPatch struct {
 // PlaylistId defines model for PlaylistId.
 type PlaylistId = int64
 
+// ShareAccess defines model for ShareAccess.
+type ShareAccess = string
+
+// ShareToken defines model for ShareToken.
+type ShareToken = string
+
 // TrackId defines model for TrackId.
 type TrackId = int64
 
@@ -472,6 +576,39 @@ type ReportMusicPlayedJSONBody struct {
 	Seconds int `json:"seconds"`
 }
 
+// GetPublicMusicShareParams defines parameters for GetPublicMusicShare.
+type GetPublicMusicShareParams struct {
+	// Access 输密码后拿到的访问令牌。没有密码的分享不用传
+	Access *ShareAccess `form:"access,omitempty" json:"access,omitempty"`
+}
+
+// GetPublicMusicTrackCoverParams defines parameters for GetPublicMusicTrackCover.
+type GetPublicMusicTrackCoverParams struct {
+	// Access 输密码后拿到的访问令牌。没有密码的分享不用传
+	Access *ShareAccess                        `form:"access,omitempty" json:"access,omitempty"`
+	Size   *GetPublicMusicTrackCoverParamsSize `form:"size,omitempty" json:"size,omitempty"`
+}
+
+// GetPublicMusicTrackCoverParamsSize defines parameters for GetPublicMusicTrackCover.
+type GetPublicMusicTrackCoverParamsSize int
+
+// GetPublicMusicTrackLyricsParams defines parameters for GetPublicMusicTrackLyrics.
+type GetPublicMusicTrackLyricsParams struct {
+	// Access 输密码后拿到的访问令牌。没有密码的分享不用传
+	Access *ShareAccess `form:"access,omitempty" json:"access,omitempty"`
+}
+
+// StreamPublicMusicTrackParams defines parameters for StreamPublicMusicTrack.
+type StreamPublicMusicTrackParams struct {
+	// Access 输密码后拿到的访问令牌。没有密码的分享不用传
+	Access *ShareAccess `form:"access,omitempty" json:"access,omitempty"`
+}
+
+// UnlockPublicMusicShareJSONBody defines parameters for UnlockPublicMusicShare.
+type UnlockPublicMusicShareJSONBody struct {
+	Code string `json:"code"`
+}
+
 // CreateMusicPlaylistJSONRequestBody defines body for CreateMusicPlaylist for application/json ContentType.
 type CreateMusicPlaylistJSONRequestBody = MusicPlaylistCreate
 
@@ -484,8 +621,14 @@ type AddMusicPlaylistItemsJSONRequestBody = MusicTrackIds
 // SetMusicPlaylistItemsJSONRequestBody defines body for SetMusicPlaylistItems for application/json ContentType.
 type SetMusicPlaylistItemsJSONRequestBody = MusicTrackIds
 
+// CreateMusicShareJSONRequestBody defines body for CreateMusicShare for application/json ContentType.
+type CreateMusicShareJSONRequestBody = MusicShareInput
+
 // PutMusicSettingsJSONRequestBody defines body for PutMusicSettings for application/json ContentType.
 type PutMusicSettingsJSONRequestBody = MusicSettingsInput
+
+// PutMusicSleepJSONRequestBody defines body for PutMusicSleep for application/json ContentType.
+type PutMusicSleepJSONRequestBody = MusicSleepInput
 
 // UpdateMusicTrackJSONRequestBody defines body for UpdateMusicTrack for application/json ContentType.
 type UpdateMusicTrackJSONRequestBody = MusicTrackPatch
@@ -498,6 +641,9 @@ type MatchMusicTrackJSONRequestBody = MusicMatchRequest
 
 // ReportMusicPlayedJSONRequestBody defines body for ReportMusicPlayed for application/json ContentType.
 type ReportMusicPlayedJSONRequestBody ReportMusicPlayedJSONBody
+
+// UnlockPublicMusicShareJSONRequestBody defines body for UnlockPublicMusicShare for application/json ContentType.
+type UnlockPublicMusicShareJSONRequestBody UnlockPublicMusicShareJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -535,6 +681,12 @@ type ServerInterface interface {
 	// (PUT /music/playlists/{playlistId}/items)
 	SetMusicPlaylistItems(w http.ResponseWriter, r *http.Request, playlistId PlaylistId)
 
+	// (GET /music/playlists/{playlistId}/shares)
+	ListMusicShares(w http.ResponseWriter, r *http.Request, playlistId PlaylistId)
+
+	// (POST /music/playlists/{playlistId}/shares)
+	CreateMusicShare(w http.ResponseWriter, r *http.Request, playlistId PlaylistId)
+
 	// (POST /music/scan)
 	ScanMusic(w http.ResponseWriter, r *http.Request)
 
@@ -543,6 +695,18 @@ type ServerInterface interface {
 
 	// (PUT /music/settings)
 	PutMusicSettings(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /music/shares/{shareId})
+	DeleteMusicShare(w http.ResponseWriter, r *http.Request, shareId int64)
+
+	// (DELETE /music/sleep)
+	DeleteMusicSleep(w http.ResponseWriter, r *http.Request)
+
+	// (GET /music/sleep)
+	GetMusicSleep(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /music/sleep)
+	PutMusicSleep(w http.ResponseWriter, r *http.Request)
 
 	// (GET /music/tracks)
 	ListMusicTracks(w http.ResponseWriter, r *http.Request, params ListMusicTracksParams)
@@ -576,6 +740,21 @@ type ServerInterface interface {
 
 	// (GET /music/tracks/{trackId}/stream)
 	StreamMusicTrack(w http.ResponseWriter, r *http.Request, trackId TrackId)
+
+	// (GET /public/music/{token})
+	GetPublicMusicShare(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicMusicShareParams)
+
+	// (GET /public/music/{token}/tracks/{trackId}/cover)
+	GetPublicMusicTrackCover(w http.ResponseWriter, r *http.Request, token ShareToken, trackId TrackId, params GetPublicMusicTrackCoverParams)
+
+	// (GET /public/music/{token}/tracks/{trackId}/lyrics)
+	GetPublicMusicTrackLyrics(w http.ResponseWriter, r *http.Request, token ShareToken, trackId TrackId, params GetPublicMusicTrackLyricsParams)
+
+	// (GET /public/music/{token}/tracks/{trackId}/stream)
+	StreamPublicMusicTrack(w http.ResponseWriter, r *http.Request, token ShareToken, trackId TrackId, params StreamPublicMusicTrackParams)
+
+	// (POST /public/music/{token}/unlock)
+	UnlockPublicMusicShare(w http.ResponseWriter, r *http.Request, token ShareToken)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -637,6 +816,16 @@ func (_ Unimplemented) SetMusicPlaylistItems(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /music/playlists/{playlistId}/shares)
+func (_ Unimplemented) ListMusicShares(w http.ResponseWriter, r *http.Request, playlistId PlaylistId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /music/playlists/{playlistId}/shares)
+func (_ Unimplemented) CreateMusicShare(w http.ResponseWriter, r *http.Request, playlistId PlaylistId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /music/scan)
 func (_ Unimplemented) ScanMusic(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -649,6 +838,26 @@ func (_ Unimplemented) GetMusicSettings(w http.ResponseWriter, r *http.Request) 
 
 // (PUT /music/settings)
 func (_ Unimplemented) PutMusicSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /music/shares/{shareId})
+func (_ Unimplemented) DeleteMusicShare(w http.ResponseWriter, r *http.Request, shareId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /music/sleep)
+func (_ Unimplemented) DeleteMusicSleep(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /music/sleep)
+func (_ Unimplemented) GetMusicSleep(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /music/sleep)
+func (_ Unimplemented) PutMusicSleep(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -704,6 +913,31 @@ func (_ Unimplemented) SkipMusicMatch(w http.ResponseWriter, r *http.Request, tr
 
 // (GET /music/tracks/{trackId}/stream)
 func (_ Unimplemented) StreamMusicTrack(w http.ResponseWriter, r *http.Request, trackId TrackId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/music/{token})
+func (_ Unimplemented) GetPublicMusicShare(w http.ResponseWriter, r *http.Request, token ShareToken, params GetPublicMusicShareParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/music/{token}/tracks/{trackId}/cover)
+func (_ Unimplemented) GetPublicMusicTrackCover(w http.ResponseWriter, r *http.Request, token ShareToken, trackId TrackId, params GetPublicMusicTrackCoverParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/music/{token}/tracks/{trackId}/lyrics)
+func (_ Unimplemented) GetPublicMusicTrackLyrics(w http.ResponseWriter, r *http.Request, token ShareToken, trackId TrackId, params GetPublicMusicTrackLyricsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /public/music/{token}/tracks/{trackId}/stream)
+func (_ Unimplemented) StreamPublicMusicTrack(w http.ResponseWriter, r *http.Request, token ShareToken, trackId TrackId, params StreamPublicMusicTrackParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /public/music/{token}/unlock)
+func (_ Unimplemented) UnlockPublicMusicShare(w http.ResponseWriter, r *http.Request, token ShareToken) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -949,6 +1183,58 @@ func (siw *ServerInterfaceWrapper) SetMusicPlaylistItems(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// ListMusicShares operation middleware
+func (siw *ServerInterfaceWrapper) ListMusicShares(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "playlistId" -------------
+	var playlistId PlaylistId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "playlistId", chi.URLParam(r, "playlistId"), &playlistId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "playlistId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMusicShares(w, r, playlistId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMusicShare operation middleware
+func (siw *ServerInterfaceWrapper) CreateMusicShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "playlistId" -------------
+	var playlistId PlaylistId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "playlistId", chi.URLParam(r, "playlistId"), &playlistId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "playlistId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMusicShare(w, r, playlistId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ScanMusic operation middleware
 func (siw *ServerInterfaceWrapper) ScanMusic(w http.ResponseWriter, r *http.Request) {
 
@@ -982,6 +1268,74 @@ func (siw *ServerInterfaceWrapper) PutMusicSettings(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutMusicSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMusicShare operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMusicShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "shareId" -------------
+	var shareId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "shareId", chi.URLParam(r, "shareId"), &shareId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "shareId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMusicShare(w, r, shareId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMusicSleep operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMusicSleep(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMusicSleep(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMusicSleep operation middleware
+func (siw *ServerInterfaceWrapper) GetMusicSleep(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMusicSleep(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutMusicSleep operation middleware
+func (siw *ServerInterfaceWrapper) PutMusicSleep(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutMusicSleep(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1407,6 +1761,240 @@ func (siw *ServerInterfaceWrapper) StreamMusicTrack(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetPublicMusicShare operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicMusicShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicMusicShareParams
+
+	// ------------- Optional query parameter "access" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "access", r.URL.Query(), &params.Access, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "access"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "access", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicMusicShare(w, r, token, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicMusicTrackCover operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicMusicTrackCover(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "trackId" -------------
+	var trackId TrackId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "trackId", chi.URLParam(r, "trackId"), &trackId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trackId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicMusicTrackCoverParams
+
+	// ------------- Optional query parameter "access" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "access", r.URL.Query(), &params.Access, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "access"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "access", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "size", r.URL.Query(), &params.Size, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "size"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "size", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicMusicTrackCover(w, r, token, trackId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPublicMusicTrackLyrics operation middleware
+func (siw *ServerInterfaceWrapper) GetPublicMusicTrackLyrics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "trackId" -------------
+	var trackId TrackId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "trackId", chi.URLParam(r, "trackId"), &trackId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trackId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPublicMusicTrackLyricsParams
+
+	// ------------- Optional query parameter "access" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "access", r.URL.Query(), &params.Access, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "access"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "access", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPublicMusicTrackLyrics(w, r, token, trackId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StreamPublicMusicTrack operation middleware
+func (siw *ServerInterfaceWrapper) StreamPublicMusicTrack(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "trackId" -------------
+	var trackId TrackId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "trackId", chi.URLParam(r, "trackId"), &trackId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "trackId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StreamPublicMusicTrackParams
+
+	// ------------- Optional query parameter "access" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "access", r.URL.Query(), &params.Access, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "access"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "access", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamPublicMusicTrack(w, r, token, trackId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlockPublicMusicShare operation middleware
+func (siw *ServerInterfaceWrapper) UnlockPublicMusicShare(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token ShareToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", chi.URLParam(r, "token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlockPublicMusicShare(w, r, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1585,6 +2173,39 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/music/tracks/{trackId}/skip", wrapper.SkipMusicMatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/music/sleep", wrapper.DeleteMusicSleep)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/music/sleep", wrapper.GetMusicSleep)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/music/sleep", wrapper.PutMusicSleep)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/music/playlists/{playlistId}/shares", wrapper.ListMusicShares)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/music/playlists/{playlistId}/shares", wrapper.CreateMusicShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/music/shares/{shareId}", wrapper.DeleteMusicShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/music/{token}", wrapper.GetPublicMusicShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/public/music/{token}/unlock", wrapper.UnlockPublicMusicShare)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/music/{token}/tracks/{trackId}/stream", wrapper.StreamPublicMusicTrack)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/music/{token}/tracks/{trackId}/cover", wrapper.GetPublicMusicTrackCover)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/public/music/{token}/tracks/{trackId}/lyrics", wrapper.GetPublicMusicTrackLyrics)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/music/settings", wrapper.GetMusicSettings)

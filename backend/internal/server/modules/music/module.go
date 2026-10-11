@@ -49,11 +49,16 @@ type Module struct {
 	matchMu    sync.Mutex
 	matching   atomic.Bool
 	matchPause time.Duration
+
+	sleep     sleeper
+	shares    shareLimits
+	sleepUnit time.Duration // one minute of the sleep timer; tests shorten it
 }
 
 var (
 	_ api.ServerInterface = (*Module)(nil)
 	_ module.Starter      = (*Module)(nil)
+	_ module.PublicPather = (*Module)(nil)
 )
 
 // New builds the module.
@@ -61,7 +66,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{
 		d: d, q: db.New(d.DB), store: d.Files.For("music"), tmpDir: d.Config.TmpDir(),
 		scanReq: make(chan struct{}, 1), scanDelay: scanDelay, scanLock: make(chan struct{}, 1),
-		providers: newProviderSet(), matchReq: make(chan bool, 1), matchPause: 500 * time.Millisecond,
+		providers: newProviderSet(), matchReq: make(chan bool, 1), matchPause: 500 * time.Millisecond, sleepUnit: time.Minute,
 	}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	return m, nil
@@ -83,6 +88,7 @@ func (m *Module) Start(ctx context.Context) error {
 		m.requestScan()
 		return nil
 	})
+	m.armSleepAtStart(ctx)
 	m.requestScan()
 	go func() {
 		defer cancel()

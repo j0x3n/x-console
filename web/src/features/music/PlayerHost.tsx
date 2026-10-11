@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
-import { coverUrl, reportPlayed, streamUrl } from "./api";
+import { onServerEvent } from "../../api/events";
+import {
+  coverUrl,
+  musicApi,
+  reportPlayed,
+  streamUrl,
+  useSleep,
+  type Sleep,
+} from "./api";
+import { afterTrackEnded, fadeFactor, remainingMs } from "./sleep";
 import {
   currentTrack,
   persist,
@@ -87,6 +96,11 @@ export default function PlayerHost() {
     reported: false,
   });
   const changing = useRef(false);
+  const sleep = useSleep().data;
+  const sleepRef = useRef<Sleep | undefined>(undefined);
+  useEffect(() => {
+    sleepRef.current = sleep;
+  }, [sleep]);
 
   // 事件只绑一次，需要的最新状态从 store 里现读。
   useEffect(() => {
@@ -134,7 +148,19 @@ export default function PlayerHost() {
     const onEnded = () => {
       const s = usePlayer.getState();
       const before = s.currentId;
+      // 按首数的定时：这首播完了，数一首；数到了就停在下一首的开头。
+      const cur = sleepRef.current;
+      const step = afterTrackEnded(cur?.mode, cur?.tracksLeft);
+      if (step.action === "continue")
+        void musicApi
+          .PUT("/music/sleep", { body: { tracks: step.left } })
+          .catch(() => undefined);
       s.next("ended");
+      if (step.action === "stop") {
+        usePlayer.getState().pause();
+        void musicApi.DELETE("/music/sleep").catch(() => undefined);
+        return;
+      }
       const after = usePlayer.getState();
       // 单曲循环：编号没变，要自己回到开头重播。
       if (after.playing && after.currentId === before) {
@@ -195,6 +221,39 @@ export default function PlayerHost() {
       window.removeEventListener("pagehide", onHide);
     };
   }, [t]);
+
+  // 定时暂停（B149）：到点所有页面一起暂停；最后 10 秒音量渐小。
+  // 服务端到点会发 music.sleep_fired，这里也自己按结束时间算一次，事件晚到不会多播。
+  useEffect(
+    () =>
+      onServerEvent((event) => {
+        if (event.topic !== "music.sleep_fired") return;
+        usePlayer.getState().pause();
+        if (audio) audio.volume = usePlayer.getState().volume;
+      }),
+    [],
+  );
+  const sleepEnds =
+    sleep?.active && sleep.mode === "time" ? sleep.endsAt : undefined;
+  useEffect(() => {
+    if (!audio || !sleepEnds) return;
+    const tick = () => {
+      const left = remainingMs(sleepEnds, Date.now());
+      const base = usePlayer.getState().volume;
+      if (left <= 0) {
+        usePlayer.getState().pause();
+        audio.volume = base;
+        return;
+      }
+      audio.volume = base * fadeFactor(left);
+    };
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => {
+      window.clearInterval(id);
+      audio.volume = usePlayer.getState().volume;
+    };
+  }, [sleepEnds]);
 
   // 换歌。
   useEffect(() => {

@@ -997,6 +997,16 @@ type MusicPlaylistItem struct {
 	Position   int64
 }
 
+type MusicPlaylistShare struct {
+	ID           int64
+	PlaylistID   int64
+	Token        string
+	PasswordHash *string
+	ExpiresAt    *time.Time
+	ViewCount    int64
+	CreatedAt    time.Time
+}
+
 type MusicTrack struct {
 	ID           int64
 	DriveItemID  int64

@@ -13,6 +13,7 @@ import {
   VolumeControl,
 } from "./Player";
 import { useMainLeft } from "./PlayerHost";
+import { SleepButton } from "./SleepDialog";
 import { currentTrack, usePlayer } from "./player";
 
 const RATES = [0.75, 1, 1.25, 1.5, 2];
@@ -143,6 +144,7 @@ export default function FullPlayer() {
                 ))}
               </select>
             </label>
+            <SleepButton showLabel />
             <VolumeControl />
           </div>
         </section>
