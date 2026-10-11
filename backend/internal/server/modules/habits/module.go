@@ -53,6 +53,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"habits", activitySource{m}) // B118
 	module.Provide[contracts.GoalMetricSource](d.Registry, contracts.GoalMetricPrefix+"habits", goalMetrics{m})
 	module.Provide[contracts.BodySeries](d.Registry, contracts.BodySeriesKey, bodySeriesSource{m}) // B133      // B128
+	module.Provide[contracts.Schedule](d.Registry, contracts.ScheduleKey, scheduleProvider{m})     // B162
 	m.registerActions()
 	return m, nil
 }
@@ -71,6 +72,7 @@ func (m *Module) Start(ctx context.Context) error {
 		return m.tick(ctx, time.Now())
 	})
 	m.followPresence(ctx)
+	m.followMeWoke(ctx) // B162
 	ch, cancel := m.d.Bus.Subscribe("ha.state_changed", 256)
 	go func() {
 		<-ctx.Done()

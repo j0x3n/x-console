@@ -1,0 +1,220 @@
+/* 我的状态（B162）。颜色只用 --xc-* 变量，类名都带 me- 前缀。 */
+.me-today {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 0 4px;
+}
+.me-today-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.me-today-state {
+  height: 26px;
+  padding: 0 12px;
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.me-today-tag {
+  font-size: var(--fs-11);
+}
+.me-today-since {
+  font-variant-numeric: tabular-nums;
+}
+.me-today-actions {
+  margin-top: 2px;
+}
+
+.me-dialog + .me-dialog {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--xc-border);
+}
+.me-dialog h3 {
+  margin: 0 0 6px;
+  font-size: var(--fs-13);
+  font-weight: 600;
+}
+.me-dialog p {
+  margin: 0 0 10px;
+}
+.me-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.me-dialog-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+.me-dialog-row .xc-field {
+  flex: 1 1 200px;
+  margin: 0;
+}
+.me-dialog-manual {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+.me-history {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.me-history li {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  border-bottom: 1px solid var(--xc-border);
+  font-size: var(--fs-13);
+}
+.me-history li:last-child {
+  border-bottom: 0;
+}
+.me-history-sleep {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 设置页 */
+.me-settings .xc-check {
+  margin: 4px 0;
+}
+.me-hosts {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.me-hosts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.me-hosts li:last-child {
+  border-bottom: 0;
+}
+.me-hosts .xc-badge {
+  margin-left: auto;
+}
+.me-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.me-option small {
+  display: block;
+}
+.me-warn {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--xc-warn);
+  font-size: var(--fs-12);
+  line-height: 1.5;
+}
+.me-steps {
+  margin: 8px 0;
+  padding-left: 20px;
+  line-height: 1.7;
+  font-size: var(--fs-12-5);
+  color: var(--xc-text-2);
+}
+.me-steps li {
+  margin: 4px 0;
+}
+.me-steps code,
+.me-events code,
+.me-split code {
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12);
+  overflow-wrap: anywhere;
+}
+.me-events {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: var(--fs-12-5);
+}
+.me-events td {
+  padding: 5px 8px 5px 0;
+  border-bottom: 1px solid var(--xc-border);
+  vertical-align: top;
+}
+.me-events tr:last-child td {
+  border-bottom: 0;
+}
+.me-split {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: 1.7;
+  font-size: var(--fs-12-5);
+  color: var(--xc-text-2);
+}
+.me-code {
+  position: relative;
+  margin: 8px 0;
+}
+.me-code button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+.me-code pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border: 1px solid var(--xc-border);
+  border-radius: 8px;
+  background: var(--xc-surface-2);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.me-token {
+  margin: 8px 0;
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12);
+  overflow-wrap: anywhere;
+}
+.me-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+@media (max-width: 640px) {
+  .me-history li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    padding: 6px 0;
+  }
+}
+
+.me-url {
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.me-events td:first-child {
+  white-space: nowrap;
+}

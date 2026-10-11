@@ -35,6 +35,8 @@ export const cardDefs: CardDef[] = [
     weight: 3,
     module: "calendar",
   },
+  // B162：接口还没上线时这张卡片不出现（TodayPage 里判断）
+  { id: "me", title: "My status", column: "side", weight: 1 },
   {
     id: "habits",
     title: "Habits",

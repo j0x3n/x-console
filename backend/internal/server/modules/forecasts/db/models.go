@@ -1171,6 +1171,24 @@ type MailTriage struct {
 	TriagedAt time.Time
 }
 
+type MeReport struct {
+	ID        int64
+	Event     string
+	Source    string
+	At        time.Time
+	CreatedAt time.Time
+}
+
+type MeState struct {
+	ID        int64
+	State     string
+	Source    string
+	Guessed   int64
+	Manual    int64
+	StartedAt time.Time
+	EndedAt   *time.Time
+}
+
 type Milestone struct {
 	ID        int64
 	ProjectID int64

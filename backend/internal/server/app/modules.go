@@ -36,6 +36,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mail"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/maintenance"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/mcp"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/me"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/monitoring"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/music"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/notes"
@@ -104,4 +105,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	knowledge.New,   // B139
 	dayplan.New,     // B135
 	focusblock.New,  // B131
+	me.New,          // B162
 }

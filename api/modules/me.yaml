@@ -1,0 +1,249 @@
+openapi: 3.0.3
+info:
+  title: X Console me (B162)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /me:
+    get:
+      operationId: getMe
+      tags: [me]
+      description: |
+        B162：我现在的状态。按顺序判断：手动设定、工作中、睡觉、外出、暂离、推测睡觉、在家、不确定。
+        状态变化时发事件 me.state，起床时发事件 me.woke。
+      responses:
+        "200":
+          description: 当前状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeState" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /me/manual:
+    put:
+      operationId: setMeManual
+      tags: [me]
+      description: |
+        手动设定状态。到期或调用 DELETE 后恢复自动判断。
+        设成工作中、暂离、外出、在家、不确定时，如果手机上报的睡觉还没结束，也一并结束。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MeManualInput" }
+      responses:
+        "200":
+          description: 设定后的状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeState" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    delete:
+      operationId: clearMeManual
+      tags: [me]
+      description: 改回自动。没有手动设定时也回 200。
+      responses:
+        "200":
+          description: 改回后的状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeState" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /me/history:
+    get:
+      operationId: getMeHistory
+      tags: [me]
+      description: |
+        最近几天每天的状态段，加每天的睡觉、起床时间和睡了多久。日期按作息设置里的时区。
+        睡觉时间归在起床那天，只算睡了 3 小时以上的那一段。跨午夜的状态段在两天里各出现一次，已按当天裁剪。
+      parameters:
+        - name: days
+          in: query
+          description: 天数，1 到 180，默认 7，今天算一天
+          schema: { type: integer, minimum: 1, maximum: 180, default: 7 }
+      responses:
+        "200":
+          description: 历史
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeHistory" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /me/settings:
+    get:
+      operationId: getMeSettings
+      tags: [me]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeSettings" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    put:
+      operationId: setMeSettings
+      tags: [me]
+      description: |
+        保存设置。workHosts 只能选有空闲时间能力的电脑，空表示所有能报空闲时间的电脑。
+        haHome 要写 person.xxx 或 device_tracker.xxx，haSleep 要写 binary_sensor.xxx 或 input_boolean.xxx，留空表示不用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MeSettingsInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeSettings" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /me/report:
+    get:
+      operationId: getMeReport
+      tags: [me]
+      description: 手机上报的状态。没开启时 enabled 为 false。
+      responses:
+        "200":
+          description: 状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeReportStatus" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    post:
+      operationId: reportMe
+      tags: [me]
+      description: |
+        手机快捷指令或 Home Assistant 上报一件事。不需要登录会话，用 Authorization: Bearer <令牌> 校验。
+        请求体是 JSON：event（sleep.start、sleep.end、home.arrive、home.leave）和可选的 at（RFC 3339，
+        不能比现在晚 5 分钟以上，也不能比现在早 12 小时以上，不填用收到的时间）。
+        有不认识的字段或事件名回 400，令牌不对回 401（不透露有没有开启），请求体最多 1 KB。
+        同一种事件 2 分钟内重复上报只算一次，也回 204。只收这几个事件，不收坐标。
+        接口定义里不写 requestBody，由服务端自己解析。
+      security: []
+      responses:
+        "204": { description: 已记下 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+    delete:
+      operationId: deleteMeReport
+      tags: [me]
+      description: 关闭手机上报，令牌立即作废。没开启时也回 204。
+      responses:
+        "204": { description: 已关闭 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+  /me/report/token:
+    post:
+      operationId: createMeReportToken
+      tags: [me]
+      description: |
+        生成上报令牌。要提升权限。旧令牌立即作废。
+        令牌只在这次回复里出现，面板只存它的哈希。
+      responses:
+        "200":
+          description: 新令牌、上报地址和示例命令
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MeReportToken" }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
+components:
+  schemas:
+    MeStateName:
+      type: string
+      description: working 工作中，away 暂离，sleeping 睡觉，out 外出，home 在家，unknown 不确定
+      enum: [working, away, sleeping, out, home, unknown]
+    MeState:
+      type: object
+      required: [state, since, guessed, manual, source]
+      properties:
+        state: { $ref: "#/components/schemas/MeStateName" }
+        since: { type: string, format: date-time, description: 这次变化的时间 }
+        guessed: { type: boolean, description: 按作息推测出来的 }
+        manual: { type: boolean, description: 手动设定的 }
+        manualUntil: { type: string, format: date-time, description: 手动设定到期的时间。一直到改回来为空 }
+        source:
+          type: string
+          description: 判断依据。pc 电脑，phone 快捷指令，ha Home Assistant，manual 手动，schedule 作息。不确定时为空
+        atHome:
+          type: boolean
+          description: 在不在家。没有位置信息时没有这个字段
+    MeManualInput:
+      type: object
+      required: [state, duration]
+      properties:
+        state: { $ref: "#/components/schemas/MeStateName" }
+        duration:
+          type: string
+          description: 1h 一小时，2h 两小时，wake 到下一个起床时间，forever 一直到改回来
+          enum: ["1h", "2h", wake, forever]
+    MeHistory:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          description: 从今天往前，今天在最前面
+          items: { $ref: "#/components/schemas/MeDay" }
+    MeDay:
+      type: object
+      required: [date, segments]
+      properties:
+        date: { type: string, description: YYYY-MM-DD }
+        segments:
+          type: array
+          items: { $ref: "#/components/schemas/MeSegment" }
+        sleptAt: { type: string, format: date-time, description: 这天起床的那一段睡觉的开始时间 }
+        wokeAt: { type: string, format: date-time }
+        sleepMinutes: { type: integer }
+        sleepGuessed: { type: boolean, description: 这段睡觉是推测的 }
+    MeSegment:
+      type: object
+      required: [state, startedAt, guessed, manual]
+      properties:
+        state: { $ref: "#/components/schemas/MeStateName" }
+        startedAt: { type: string, format: date-time, description: 已按当天裁剪 }
+        endedAt: { type: string, format: date-time, description: 还没结束的为空 }
+        guessed: { type: boolean }
+        manual: { type: boolean }
+    MeHost:
+      type: object
+      required: [id, name, online]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        online: { type: boolean }
+        state: { type: string, description: 现在的使用状态，active、idle、locked、unknown、offline }
+    MeSettings:
+      type: object
+      required: [workHosts, hosts, guessSleep, haHome, haSleep]
+      properties:
+        workHosts: { type: array, items: { type: string } }
+        hosts:
+          type: array
+          description: 能选的电脑，都有空闲时间能力
+          items: { $ref: "#/components/schemas/MeHost" }
+        guessSleep: { type: boolean }
+        haHome: { type: string }
+        haSleep: { type: string }
+    MeSettingsInput:
+      type: object
+      required: [workHosts, guessSleep, haHome, haSleep]
+      properties:
+        workHosts: { type: array, maxItems: 100, items: { type: string } }
+        guessSleep: { type: boolean }
+        haHome: { type: string }
+        haSleep: { type: string }
+    MeReportStatus:
+      type: object
+      required: [enabled, reportUrl]
+      properties:
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastReportAt: { type: string, format: date-time, description: 最近一次收到手机上报的时间。还没收到过为空 }
+        lastEvent: { type: string, description: 最近一次上报的事件 }
+        reportUrl: { type: string }
+    MeReportToken:
+      type: object
+      required: [token, reportUrl, example]
+      properties:
+        token: { type: string }
+        reportUrl: { type: string }
+        example: { type: string, description: 填好地址和令牌、可以直接复制执行的 curl 命令 }

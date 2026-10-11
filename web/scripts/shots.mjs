@@ -255,6 +255,7 @@ const routes = [
   ["cards", "/cards"],
   ["cards-list", "/cards?tab=cards"],
   ["settings-cards", "/settings/cards"],
+  ["settings-me", "/settings/me"], // B162
   ["aiconfig", "/coding/config"],
   ["codingroi", "/coding/roi"],
   ["automations", "/automations"],

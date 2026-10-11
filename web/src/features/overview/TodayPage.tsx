@@ -12,7 +12,7 @@ import {
   Pencil,
   X,
 } from "lucide-react";
-import { errorMessage } from "../../api/client";
+import { errorMessage, isNotLive } from "../../api/client";
 import { useAuthStatus } from "../../api/core";
 import PageHeading from "../../components/ui/PageHeading";
 import { Section } from "../../components/ui/Stat";
@@ -58,8 +58,11 @@ import { usePlayer } from "../music/player";
 import TodayScreenTimeCard from "../screentime/TodayScreenTimeCard";
 import { useScreenSummary } from "../screentime/api";
 import TodayGoalsCard, { useTodayGoals } from "../goals/TodayGoalsCard";
+import TodayMeCard from "../me/TodayMeCard";
+import { useMe } from "../me/api";
 
 const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
+  me: { body: () => <TodayMeCard /> }, // B162
   todos: { body: () => <TodosCard />, more: "/projects" },
   decisions: { body: () => <DecisionsCard />, more: "/coding/tasks" },
   schedule: { body: () => <ScheduleCard />, more: "/calendar" },
@@ -138,6 +141,9 @@ export default function TodayPage() {
   const hasDueCards = (cardSummary.data?.due ?? 0) > 0;
   // B135：今天没有计划，或接口还没上线时，“今日计划”卡片不出现
   const hasPlan = useHasTodayPlan();
+  // B162：接口还没上线时，“我的状态”卡片不出现
+  const me = useMe();
+  const hasMe = !(me.isError && isNotLive(me.error));
   const include = (c: LayoutCard) =>
     (editing || c.visible) &&
     modules.has(cardModule(c.id) as ModuleId | null) &&
@@ -146,7 +152,8 @@ export default function TodayPage() {
     (c.id !== "music" || editing || hasTrack) &&
     (c.id !== "goals" || editing || hasGoals) &&
     (c.id !== "cards" || editing || hasDueCards) &&
-    (c.id !== "dayplan" || editing || hasPlan);
+    (c.id !== "dayplan" || editing || hasPlan) &&
+    (c.id !== "me" || editing || hasMe);
   // B88：每张卡片可以放在任意一列，拖到别的列或列的空白处
   const grid = arrange(cards, columns, include);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);

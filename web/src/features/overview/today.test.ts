@@ -145,6 +145,7 @@ describe("layout", () => {
     expect(columnCards(moved, "side").map((c) => c.id)).toEqual([
       "activity",
       "schedule",
+      "me",
       "habits",
       "home",
       "network",
@@ -186,8 +187,10 @@ describe("layout", () => {
     expect(spreadSide(side, 1)[0]).toHaveLength(side.length);
     const two = spreadSide(side, 2).map((col) => col.map((c) => c.id));
     expect(two).toEqual([
+      ["schedule", "home", "screentime", "monitoring", "goals", "activity"],
       [
-        "schedule",
+        "me",
+        "habits",
         "network",
         "quotas",
         "mail",
@@ -196,7 +199,6 @@ describe("layout", () => {
         "dayplan",
         "fitness",
       ],
-      ["habits", "home", "screentime", "monitoring", "goals", "activity"],
     ]);
   });
 

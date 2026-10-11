@@ -3107,6 +3107,63 @@ try {
       steps: "",
     });
 
+    setStage("我的状态");
+    // B162：设置里生成上报令牌，用令牌报 sleep.start，今日页卡片显示“睡觉”；
+    // 在卡片上手动改成“外出”再改回自动；关闭后令牌失效。
+    const meElevate = await page
+      .context()
+      .request.post(`${base}/api/v1/auth/elevate`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { password },
+      });
+    assert.equal(meElevate.status(), 200, await meElevate.text());
+    await page.goto(`${base}/settings/me`);
+    await page.getByText("iPhone 快捷指令的配置步骤").waitFor();
+    await page.getByRole("button", { name: "生成上报令牌" }).click();
+    const meToken = (await page.locator(".me-token code").innerText()).trim();
+    assert.match(meToken, /^[0-9a-f]{64}$/, "没有显示令牌");
+    const meReport = (data, token = meToken) =>
+      fetch(`${base}/api/v1/me/report`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+    assert.equal((await meReport({ event: "wake" })).status, 400);
+    assert.equal(
+      (await meReport({ event: "sleep.start" }, "0".repeat(64))).status,
+      401,
+    );
+    assert.equal((await meReport({ event: "sleep.start" })).status, 204);
+    await page.goto(`${base}/`);
+    const meCard = page.locator(".today-card", { hasText: "我的状态" });
+    await meCard.getByText("睡觉", { exact: true }).waitFor();
+    assert.equal(await meCard.getByText("推测").count(), 0);
+    await meCard.getByRole("button", { name: /改状态或看历史/ }).click();
+    const meDialog = page.getByRole("dialog", { name: "我的状态" });
+    await meDialog.getByRole("button", { name: "外出", exact: true }).click();
+    await meDialog.getByRole("button", { name: "设定", exact: true }).click();
+    await meDialog.getByRole("button", { name: "改回自动" }).waitFor();
+    await page.keyboard.press("Escape");
+    await meCard.getByText("外出", { exact: true }).waitFor();
+    await meCard.getByText(/^手动 · 到/).waitFor();
+    assert.equal((await api("/me")).state, "out");
+    await meCard.getByRole("button", { name: /改状态或看历史/ }).click();
+    await meDialog.getByRole("button", { name: "改回自动" }).click();
+    await meDialog
+      .getByRole("button", { name: "改回自动" })
+      .waitFor({ state: "detached" });
+    assert.equal((await api("/me")).manual, false);
+    await page.goto(`${base}/settings/me`);
+    await page.getByRole("button", { name: "关闭", exact: true }).click();
+    await dialog("关闭手机上报？")
+      .getByRole("button", { name: "关闭" })
+      .click();
+    await page.getByText("还没有开启").waitFor();
+    assert.equal((await meReport({ event: "sleep.end" })).status, 401);
+
     setStage("续费进入早报");
     const dateParts = Object.fromEntries(
       new Intl.DateTimeFormat("en", {
