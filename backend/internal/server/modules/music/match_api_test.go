@@ -307,6 +307,60 @@ func TestUnsureMatchesWaitForTheUser(t *testing.T) {
 	}
 }
 
+// 2026-10-11 只找到封面、歌词的候选不够准时，这首歌要进待确认，不能算已匹配。
+func TestCoverOnlyMatchStillAsksForLyrics(t *testing.T) {
+	e := setupMatch(t)
+	_, a := e.add(t, "a.mp3", idTags, nil)
+	e.src.itunesHit(a.DurationMs, "夜曲", "周杰伦")
+	// 歌词来源的时长差 10 秒：像是同一首，但不能直接用。
+	e.src.lrclibHit(float64(a.DurationMs)/1000+10, "夜曲", "周杰伦", syncedLRC)
+
+	e.m.RunMatches(context.Background(), false)
+
+	got := e.track(t, a.Id)
+	if got.CoverSource == "none" || got.LyricsSource != "none" || got.MatchState != "pending" {
+		t.Fatalf("after match: %+v", got)
+	}
+	var pending []api.MusicPending
+	e.MustDo(http.MethodGet, "/music/pending", nil, &pending)
+	if len(pending) != 1 || len(pending[0].Candidates) != 1 || !pending[0].Candidates[0].Lyrics {
+		t.Fatalf("pending: %+v", pending)
+	}
+	c := pending[0].Candidates[0]
+	e.MustDo(http.MethodPost, fmt.Sprintf("/music/tracks/%d/match", a.Id), map[string]any{"candidate": map[string]any{"source": c.Source, "sourceId": c.SourceId}}, &got)
+	if got.MatchState != "matched" || !got.LyricsSynced {
+		t.Fatalf("chosen: %+v", got)
+	}
+}
+
+// 自动匹配不对时，用户可以手动看别的来源再选一个。
+func TestChooseCandidatesFromOtherSources(t *testing.T) {
+	e := setupMatch(t)
+	_, a := e.add(t, "a.mp3", idTags, nil)
+
+	var got api.MusicTrack
+	e.MustDo(http.MethodPost, fmt.Sprintf("/music/tracks/%d/match", a.Id), map[string]any{"choose": true}, &got)
+	if got.MatchState != "failed" {
+		t.Fatalf("nothing found: %+v", got)
+	}
+
+	e.src.lrclibHit(float64(a.DurationMs)/1000+10, "夜曲", "周杰伦", syncedLRC)
+	e.MustDo(http.MethodPost, fmt.Sprintf("/music/tracks/%d/match", a.Id), map[string]any{"choose": true}, &got)
+	if got.MatchState != "pending" || got.LyricsSource != "none" {
+		t.Fatalf("choose: %+v", got)
+	}
+	var pending []api.MusicPending
+	e.MustDo(http.MethodGet, "/music/pending", nil, &pending)
+	if len(pending) != 1 || len(pending[0].Candidates) != 1 {
+		t.Fatalf("pending: %+v", pending)
+	}
+	c := pending[0].Candidates[0]
+	e.MustDo(http.MethodPost, fmt.Sprintf("/music/tracks/%d/match", a.Id), map[string]any{"candidate": map[string]any{"source": c.Source, "sourceId": c.SourceId}}, &got)
+	if got.LyricsSource != "embedded" || !got.LyricsSynced {
+		t.Fatalf("chosen: %+v", got)
+	}
+}
+
 func TestSkipStopsFurtherMatching(t *testing.T) {
 	e := setupMatch(t)
 	_, a := e.add(t, "a.mp3", idTags, nil)

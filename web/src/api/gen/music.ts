@@ -253,6 +253,7 @@ export interface paths {
          * @description 手动匹配这首歌，等匹配完成再返回，最长约半分钟。
          *     不带 candidate：按自动匹配的规则找。overwrite 为 true 时，已经有的歌词和封面也换掉。
          *     带 candidate：用待确认列表里选的那个候选的歌词和封面，直接换掉现有的。
+         *     choose 为 true：不改歌，只找候选放进待确认（matchState 变成 pending）。没找到时回 failed。
          */
         post: operations["matchMusicTrack"];
         delete?: never;
@@ -661,6 +662,8 @@ export interface components {
                 sourceId: string;
             };
             overwrite?: boolean;
+            /** @description 为 true 时不自动采用，只把各来源里最像的几个候选放进待确认（最多 8 个），由用户选。选定再用 candidate 调一次。 */
+            choose?: boolean;
         };
         MusicSleep: {
             active: boolean;

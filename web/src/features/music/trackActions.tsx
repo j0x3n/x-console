@@ -73,12 +73,29 @@ export function useTrackMenu() {
         onSuccess: (next) => {
           usePlayer.getState().patchTrack(next);
           toast(
-            next.matchState === "matched"
-              ? t("Matched")
-              : next.matchState === "pending"
-                ? t("Not sure. Choose from the candidates in To confirm.")
-                : t("Nothing found"),
+            next.matchState === "matched" && next.lyricsSource === "none"
+              ? t("Matched the cover, no lyrics found")
+              : next.matchState === "matched"
+                ? t("Matched")
+                : next.matchState === "pending"
+                  ? t("Not sure. Choose from the candidates in To confirm.")
+                  : t("Nothing found"),
           );
+        },
+        onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
+      },
+    );
+  };
+
+  // 自动匹配得不对时，手动看别的来源，选一个内嵌
+  const choose = (track: Track) => {
+    toast(t("Looking in other sources…"));
+    matchTrack.mutate(
+      { id: track.id, choose: true },
+      {
+        onSuccess: (next) => {
+          if (next.matchState === "pending") navigate("/music?view=pending");
+          else toast(t("Nothing found"));
         },
         onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
       },
@@ -159,6 +176,12 @@ export function useTrackMenu() {
       label: t("Match again and replace"),
       icon: icon(Wand2),
       onSelect: () => match(track, true),
+    },
+    {
+      key: "choose",
+      label: t("Choose lyrics and cover from other sources"),
+      icon: icon(Wand2),
+      onSelect: () => choose(track),
     },
     {
       key: "lyrics",

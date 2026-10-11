@@ -57,7 +57,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import MusicPage from "./MusicPage";
-import MusicSettingsTab from "./MusicSettingsTab";
+import MatchDialog from "./MatchDialog";
 import MusicDialogs from "./dialogs";
 import { usePlayer } from "./player";
 import "./i18n";
@@ -309,7 +309,7 @@ describe("音乐页", () => {
   });
 });
 
-describe("设置里的音乐标签", () => {
+describe("在线匹配对话框", () => {
   const settings = {
     folders: [{ id: 1, name: "音乐", path: "/音乐" }],
     autoMatch: true,
@@ -335,7 +335,7 @@ describe("设置里的音乐标签", () => {
     return render(
       <QueryClientProvider client={qc}>
         <MemoryRouter>
-          <MusicSettingsTab />
+          <MatchDialog onClose={() => {}} />
         </MemoryRouter>
       </QueryClientProvider>,
     );

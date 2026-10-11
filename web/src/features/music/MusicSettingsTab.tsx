@@ -1,22 +1,16 @@
-import { FolderOpen, Plus, RefreshCw, Wand2, X } from "lucide-react";
-import { useCallback, useState } from "react";
-import { Link } from "react-router";
-import { useServerEvent, type ServerEvent } from "../../api/events";
+import { FolderOpen, Plus, RefreshCw, X } from "lucide-react";
+import { useState } from "react";
 import Switch from "../../components/ui/Switch";
 import { errorMessage, isNotLive } from "../../api/client";
 import { NotLive, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import {
-  useMatchAll,
   usePlaylists,
   useMusicSettings,
-  usePending,
   usePutMusicSettings,
   useScanMusic,
-  type MatchProgress,
 } from "./api";
-import { sourceName } from "./PendingView";
 import FolderPicker from "./FolderPicker";
 import "./i18n";
 import "./music.css";
@@ -27,15 +21,8 @@ export default function MusicSettingsTab() {
   const settings = useMusicSettings();
   const save = usePutMusicSettings();
   const scan = useScanMusic();
-  const matchAll = useMatchAll();
-  const pending = usePending();
   const playlists = usePlaylists();
   const [picking, setPicking] = useState(false);
-  const [progress, setProgress] = useState<MatchProgress | null>(null);
-  const onProgress = useCallback((e: ServerEvent) => {
-    setProgress(e.data as MatchProgress);
-  }, []);
-  useServerEvent("music.match_progress", onProgress);
 
   if (settings.isPending) return <Loading />;
   if (settings.isError && isNotLive(settings.error))
@@ -48,11 +35,6 @@ export default function MusicSettingsTab() {
   const change = (patch: Parameters<typeof save.mutate>[0]) =>
     save.mutate(patch, {
       onSuccess: () => toast(t("Saved")),
-      onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
-    });
-  const runMatch = (retry: boolean) =>
-    matchAll.mutate(retry, {
-      onSuccess: () => toast(t("Matching in the background")),
       onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
     });
   const folders = settings.data.folders;
@@ -125,95 +107,6 @@ export default function MusicSettingsTab() {
         <p className="music-muted">
           {t("Hidden folders and files in the trash are never added.")}
         </p>
-      </section>
-      <section className="xc-card music-settings">
-        <div className="xc-card-head">
-          <h3>{t("Online match")}</h3>
-        </div>
-        <p className="music-muted">
-          {t(
-            "Songs without lyrics or a cover are looked up online. Only songs that clearly match (same title, a shared artist, length within 2 seconds) are used. The others wait in To confirm.",
-          )}
-        </p>
-        <div className="music-option">
-          <span>{t("Match new songs automatically")}</span>
-          <Switch
-            checked={settings.data.autoMatch}
-            label={t("Match new songs automatically")}
-            disabled={save.isPending}
-            onChange={(autoMatch) => change({ autoMatch })}
-          />
-        </div>
-        <div className="music-option">
-          <span>
-            {t("Write lyrics and covers into the song files")}
-            <small className="music-muted">
-              {t(
-                "This changes the files in Drive directly. The old version is not kept.",
-              )}
-            </small>
-          </span>
-          <Switch
-            checked={settings.data.writeBack}
-            label={t("Write lyrics and covers into the song files")}
-            disabled={save.isPending}
-            onChange={(writeBack) => change({ writeBack })}
-          />
-        </div>
-        <h4 className="music-subhead">{t("Sources")}</h4>
-        {Object.keys(settings.data.providers)
-          .sort(bySourceOrder)
-          .map((name) => (
-            <div className="music-option" key={name}>
-              <span>
-                {sourceName(name)}
-                {(name === "netease" || name === "qqmusic") && (
-                  <small className="music-muted">
-                    {t(
-                      "No official interface. It may stop working at any time.",
-                    )}
-                  </small>
-                )}
-              </span>
-              <Switch
-                checked={settings.data.providers[name]}
-                label={sourceName(name)}
-                disabled={save.isPending}
-                onChange={(on) => change({ providers: { [name]: on } })}
-              />
-            </div>
-          ))}
-        <div className="music-settings-actions">
-          <button
-            type="button"
-            className="xc-btn primary"
-            disabled={matchAll.isPending || progress?.running === true}
-            onClick={() => runMatch(false)}
-          >
-            <Wand2 size={14} /> {t("Match now")}
-          </button>
-          <button
-            type="button"
-            className="xc-btn"
-            disabled={matchAll.isPending || progress?.running === true}
-            onClick={() => runMatch(true)}
-          >
-            {t("Try failed songs again")}
-          </button>
-        </div>
-        {progress?.running && (
-          <p className="music-muted">
-            {t("Matching")} {progress.done}/{progress.total}
-            {progress.current ? ` · ${progress.current}` : ""}
-          </p>
-        )}
-        {(pending.data?.length ?? 0) > 0 && (
-          <p>
-            <Link to="/music?view=pending">
-              {pending.data?.length} {t("songs are waiting for you to confirm")}
-            </Link>
-          </p>
-        )}
       </section>
       <section className="xc-card music-settings">
         <div className="xc-card-head">
@@ -292,9 +185,4 @@ export default function MusicSettingsTab() {
       )}
     </div>
   );
-}
-
-const ORDER = ["lrclib", "netease", "qqmusic", "itunes", "musicbrainz"];
-function bySourceOrder(a: string, b: string): number {
-  return ORDER.indexOf(a) - ORDER.indexOf(b);
 }

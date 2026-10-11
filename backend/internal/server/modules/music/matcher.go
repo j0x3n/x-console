@@ -89,9 +89,8 @@ type found struct {
 	candidates []candidate // for the user to choose from, when nothing was accepted
 }
 
-// search asks every provider and fills in what is wanted from the candidates
-// that pass the rules. It never fails because of one provider.
-func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wantCover bool) found {
+// collect asks every enabled source for hits. A source that fails is skipped.
+func (m *Module) collect(ctx context.Context, o options, q query) []candidate {
 	var all []candidate
 	for _, p := range o.enabled(m.providers) {
 		cands, err := p.Search(ctx, q)
@@ -101,6 +100,38 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 		}
 		all = append(all, cands...)
 	}
+	return all
+}
+
+// chooseCandidates puts the closest hits into the pending list and lets the
+// user pick (2026-10-11 自动匹配的结果不对时，用户手动看别的来源).
+func (m *Module) chooseCandidates(ctx context.Context, t db.MusicTrack) (db.MusicTrack, error) {
+	m.matchMu.Lock()
+	defer m.matchMu.Unlock()
+	o := m.options(ctx)
+	var usable []candidate
+	for _, c := range m.collect(ctx, o, queryOf(t)) {
+		if c.Lyrics || c.Cover {
+			usable = append(usable, c)
+		}
+	}
+	cands := rank(queryOf(t), usable, 8)
+	state := "pending"
+	if len(cands) == 0 {
+		state = "failed"
+	} else if err := m.saveCandidates(ctx, t.ID, cands); err != nil {
+		return t, err
+	}
+	if err := m.q.SetMatchState(ctx, db.SetMatchStateParams{MatchState: state, UpdatedAt: time.Now().UTC(), ID: t.ID}); err != nil {
+		return t, err
+	}
+	return m.q.GetTrack(ctx, t.ID)
+}
+
+// search asks every provider and fills in what is wanted from the candidates
+// that pass the rules. It never fails because of one provider.
+func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wantCover bool) found {
+	all := m.collect(ctx, o, q)
 	var res found
 	var plain string
 	if wantLyrics {
@@ -137,8 +168,19 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 			break
 		}
 	}
-	if res.lyrics == "" && res.cover == nil {
+	switch {
+	case res.lyrics == "" && res.cover == nil:
 		res.candidates = rank(q, all, 5)
+	case wantLyrics && res.lyrics == "":
+		// 2026-10-11 只找到封面没找到歌词时，这首歌以前直接算“已匹配”，
+		// 用户再也没机会选歌词。现在把带歌词的候选放进待确认。
+		var withLyrics []candidate
+		for _, c := range all {
+			if c.Lyrics {
+				withLyrics = append(withLyrics, c)
+			}
+		}
+		res.candidates = rank(q, withLyrics, 5)
 	}
 	return res
 }
@@ -228,6 +270,12 @@ func (m *Module) matchTrack(ctx context.Context, t db.MusicTrack, force bool) (d
 		}
 		if err := m.q.ClearCandidates(ctx, t.ID); err != nil {
 			return t, err
+		}
+		if res.lyrics == "" && len(res.candidates) > 0 {
+			state = "pending"
+			if err := m.saveCandidates(ctx, t.ID, res.candidates); err != nil {
+				return t, err
+			}
 		}
 	case len(res.candidates) > 0:
 		state = "pending"

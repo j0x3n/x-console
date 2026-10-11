@@ -73,7 +73,12 @@ function PendingCard({ item }: { item: Pending }) {
     match.mutate(
       { id: track.id, candidate: { source: c.source, sourceId: c.sourceId } },
       {
-        onSuccess: () => toast(t("Applied")),
+        onSuccess: (next) =>
+          toast(
+            next.lyricsSource === "none"
+              ? t("Applied, but no lyrics were found")
+              : t("Applied"),
+          ),
         onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
       },
     );

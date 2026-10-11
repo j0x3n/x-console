@@ -216,11 +216,17 @@ export function useMatchTrack() {
       id: number;
       candidate?: { source: string; sourceId: string };
       overwrite?: boolean;
+      /** 不自动采用，只找候选放进待确认。 */
+      choose?: boolean;
     }) =>
       unwrap(
         musicApi.POST("/music/tracks/{trackId}/match", {
           params: { path: { trackId: v.id } },
-          body: { candidate: v.candidate, overwrite: v.overwrite },
+          body: {
+            candidate: v.candidate,
+            overwrite: v.overwrite,
+            choose: v.choose,
+          },
         }),
       ),
     onSuccess: refresh,

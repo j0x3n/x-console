@@ -63,6 +63,8 @@ func (m *Module) MatchMusicTrack(w http.ResponseWriter, r *http.Request, id api.
 	defer cancel()
 	if body.Candidate != nil {
 		t, err = m.applyCandidate(ctx, t, body.Candidate.Source, body.Candidate.SourceId)
+	} else if body.Choose != nil && *body.Choose {
+		t, err = m.chooseCandidates(ctx, t)
 	} else {
 		t, err = m.matchTrack(ctx, t, body.Overwrite != nil && *body.Overwrite)
 	}
@@ -104,6 +106,11 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 		if cover, err = prov.FetchCover(ctx, c); err != nil {
 			cover = nil
 		}
+	}
+	if strings.TrimSpace(lyrics) == "" && t.LyricsSource == "none" {
+		// 用户选的这个来源没有歌词（比如只有封面），换成它的歌名歌手去别的来源找。
+		q := query{Title: c.Title, Artist: c.Artist, Album: c.Album, DurationMs: c.DurationMs}
+		lyrics = m.search(ctx, o, q, true, false).lyrics
 	}
 	if strings.TrimSpace(lyrics) == "" && cover == nil {
 		return t, httpx.NewError(http.StatusBadGateway, "source_failed", "这个来源现在取不到歌词和封面，可以换一个候选或稍后再试")

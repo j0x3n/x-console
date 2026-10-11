@@ -324,6 +324,9 @@ type MusicMatchRequest struct {
 		Source   string `json:"source"`
 		SourceId string `json:"sourceId"`
 	} `json:"candidate,omitempty"`
+
+	// Choose 为 true 时不自动采用，只把各来源里最像的几个候选放进待确认（最多 8 个），由用户选。选定再用 candidate 调一次。
+	Choose    *bool `json:"choose,omitempty"`
 	Overwrite *bool `json:"overwrite,omitempty"`
 }
 

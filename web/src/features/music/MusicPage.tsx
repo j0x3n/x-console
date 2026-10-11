@@ -6,6 +6,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  Wand2,
   Share2,
   Shuffle,
   Trash2,
@@ -45,6 +46,7 @@ import {
 import { CoverImage, MosaicCover } from "./Cover";
 import { formatClock } from "./lyrics";
 import { usePlayer } from "./player";
+import MatchDialog from "./MatchDialog";
 import PendingView from "./PendingView";
 import ShareDialog from "./ShareDialog";
 import StatsView from "./StatsView";
@@ -95,6 +97,7 @@ export default function MusicPage() {
   const [q, setQ] = useState("");
   const settings = useMusicSettings();
   const scan = useScanMusic();
+  const [matching, setMatching] = useState(false);
   const view = parseView(params.get("view"));
   const album = params.get("album");
   const albumArtist = params.get("albumArtist") ?? "";
@@ -194,22 +197,32 @@ export default function MusicPage() {
       <PageHeading
         title={t(TITLES[view])}
         aside={
-          <button
-            className="xc-btn"
-            title={t("Scan music folders")}
-            disabled={scan.isPending || !hasFolders}
-            onClick={() =>
-              scan.mutate(undefined, {
-                onSuccess: () => toast(t("Scanning in the background")),
-                onError: (e) =>
-                  toast({ message: errorMessage(e), tone: "error" }),
-              })
-            }
-          >
-            <RefreshCw size={14} /> {t("Scan")}
-          </button>
+          <>
+            <button
+              className="xc-btn"
+              title={t("Match lyrics and covers online")}
+              onClick={() => setMatching(true)}
+            >
+              <Wand2 size={14} /> {t("Match")}
+            </button>
+            <button
+              className="xc-btn"
+              title={t("Scan music folders")}
+              disabled={scan.isPending || !hasFolders}
+              onClick={() =>
+                scan.mutate(undefined, {
+                  onSuccess: () => toast(t("Scanning in the background")),
+                  onError: (e) =>
+                    toast({ message: errorMessage(e), tone: "error" }),
+                })
+              }
+            >
+              <RefreshCw size={14} /> {t("Scan")}
+            </button>
+          </>
         }
       />
+      {matching && <MatchDialog onClose={() => setMatching(false)} />}
       {view === "songs" && !album && hasFolders && <Stats />}
       {hasFolders || view === "playlists" ? (
         <Toolbar
