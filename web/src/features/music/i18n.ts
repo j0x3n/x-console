@@ -148,8 +148,7 @@ registerZh({
   "Add a folder": "添加文件夹",
   "Songs in these Drive folders, and the folders inside them, are added to the library. New files are picked up a few seconds after they are uploaded.":
     "这些云盘文件夹和里面的文件夹里的歌会加进曲库。新上传的文件几秒后就会被识别。",
-  "Hidden folders and files in the trash are never added.":
-    "隐藏的文件夹和回收站里的文件不会加进来。",
+  "Files in the trash are never added.": "回收站里的文件不会加进来。",
 
   // B148 在线匹配
   "To confirm": "待确认",

@@ -44,8 +44,8 @@ registerZh({
   "4 to 32 characters": "4 到 32 个字符",
   "People need this password to open the link. Send it separately.":
     "打开链接要输这个密码，请另外发给对方。",
-  "The link shows only this note: the title, the text and its images. Hidden notes cannot be shared.":
-    "链接里只有这条笔记的标题、正文和图片。隐藏笔记不能分享。",
+  "The link shows only this note: the title, the text and its images.":
+    "链接里只有这条笔记的标题、正文和图片。",
   "Shared with X Console": "通过 X Console 分享",
   "This note needs a password": "这条笔记要密码才能看",
   "Open in a floating window": "在浮窗中打开",

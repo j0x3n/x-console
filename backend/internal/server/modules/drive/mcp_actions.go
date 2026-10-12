@@ -415,7 +415,7 @@ func (m *Module) actionCreateDownloadLink(ctx context.Context, raw json.RawMessa
 		return nil, err
 	}
 	if item.IsDir != 0 || item.TrashedAt != nil || item.Hidden != 0 {
-		return nil, httpx.Invalid("只能下载没有隐藏、不在回收站的文件")
+		return nil, httpx.Invalid("只能下载不在回收站的文件")
 	}
 	token, expires, err := m.createDownloadLink(ctx, item.ID, audit.Actor(ctx))
 	if err != nil {

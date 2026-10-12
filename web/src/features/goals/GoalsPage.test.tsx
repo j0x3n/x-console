@@ -189,7 +189,7 @@ describe("GoalsPage B128", () => {
     expect(screen.getByText("进度 38.5% · 按时间应到 45.1%")).toBeTruthy();
     expect(screen.getByText("1 / 4 本")).toBeTruthy();
     expect(screen.getByText("41.5 / 80 次")).toBeTruthy();
-    expect(screen.getByText("来源已隐藏")).toBeTruthy();
+    expect(screen.getByText("来源不可用")).toBeTruthy();
     // 概要：2 个进行中、平均进度只算有数的、1 个落后
     const stat = (label: string) =>
       screen.getByText(label, { selector: ".xc-stat *" }).closest(".xc-stat")!

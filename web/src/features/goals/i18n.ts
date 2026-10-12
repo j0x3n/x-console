@@ -48,7 +48,7 @@ registerZh({
   "Update value": "更新数值",
   "Current value": "当前值",
   "Enter a number": "请填数字",
-  "Source is hidden": "来源已隐藏",
+  "Source is not available": "来源不可用",
   "Source is not set up": "来源还没设置",
   "Could not read the source": "读不到来源的数据",
   "No data": "没有数据",

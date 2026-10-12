@@ -137,7 +137,7 @@ func (m *Module) checkFolders(ctx context.Context, wanted []int64) ([]int64, err
 		}
 		f, err := drive.Folder(ctx, id)
 		if err != nil {
-			return nil, httpx.Invalid("目录不可用，要选云盘里没有隐藏的文件夹")
+			return nil, httpx.Invalid("目录不可用，换一个云盘文件夹")
 		}
 		folders = append(folders, f)
 	}

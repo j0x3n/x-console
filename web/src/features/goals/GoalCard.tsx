@@ -24,7 +24,7 @@ import {
 } from "./format";
 
 const UNAVAILABLE: Record<string, string> = {
-  hidden: "Source is hidden",
+  hidden: "Source is not available",
   missing: "Source is not set up",
   error: "Could not read the source",
 };

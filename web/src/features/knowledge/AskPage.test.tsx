@@ -126,7 +126,7 @@ describe("资料问答页", () => {
     routes({ ...status, enabled: false });
     renderPage();
     expect(await screen.findByText("资料问答还没开启")).toBeTruthy();
-    expect(screen.getByText(/隐藏的笔记不会发送/)).toBeTruthy();
+    expect(screen.getByText(/转成向量/)).toBeTruthy();
     expect(screen.queryByLabelText("问题")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "去开启" }));
     expect(await screen.findByLabelText("开启资料问答")).toBeTruthy();

@@ -461,7 +461,6 @@ function Panel() {
             <p>
               我能查看和修改笔记、提醒、项目、习惯、云盘，也能看服务器状态。
             </p>
-            <p className="ai-muted">隐藏内容我看不到。</p>
           </div>
         ) : (
           <>

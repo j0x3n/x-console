@@ -39,8 +39,8 @@ registerZh({
   "No coding tasks in this period": "这段时间没有编码任务",
   "Tasks are counted by the day they were created.":
     "任务按创建的日期归到哪一周或哪个月。",
-  "Screen time is hidden or has no record, so the review time shows no record.":
-    "电脑时间被隐藏或没有记录，审查时间显示无记录。",
+  "Screen time has no record, so the review time shows no record.":
+    "电脑时间没有记录，审查时间显示无记录。",
   "Open the task": "打开任务",
   // 其他模块已有的同义词，保持同一个中文
   Week: "周",

@@ -64,7 +64,7 @@ func (m *Module) validateReminderHosts(ctx context.Context, fields *habitFields)
 	ids := []string{}
 	for _, id := range fields.HostIDs {
 		if !visible[id] {
-			return httpx.Invalid("提醒电脑不存在或已隐藏")
+			return httpx.Invalid("提醒电脑不存在")
 		}
 		if !slices.Contains(ids, id) {
 			ids = append(ids, id)

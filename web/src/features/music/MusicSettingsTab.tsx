@@ -81,7 +81,7 @@ export default function MusicSettingsTab() {
           {t(
             "Songs in these Drive folders, and the folders inside them, are added to the library. New files are picked up a few seconds after they are uploaded.",
           )}{" "}
-          {t("Hidden folders and files in the trash are never added.")}
+          {t("Files in the trash are never added.")}
         </p>
         <ul className="music-folder-list">
           {folders.map((f) => (

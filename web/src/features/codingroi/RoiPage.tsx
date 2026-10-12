@@ -242,9 +242,7 @@ function Body({ report, groupBy }: { report: RoiReport; groupBy: RoiGroupBy }) {
     <div className="roi-body">
       {!report.screenAvailable && (
         <p className="roi-note">
-          {t(
-            "Screen time is hidden or has no record, so the review time shows no record.",
-          )}
+          {t("Screen time has no record, so the review time shows no record.")}
         </p>
       )}
       <GroupTable

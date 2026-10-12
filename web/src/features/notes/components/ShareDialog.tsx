@@ -179,7 +179,7 @@ export default function ShareDialog({
         )}
         <small className="xc-muted">
           {t(
-            "The link shows only this note: the title, the text and its images. Hidden notes cannot be shared.",
+            "The link shows only this note: the title, the text and its images.",
           )}
         </small>
       </div>

@@ -6,7 +6,7 @@ registerZh({
   "Ask settings": "资料问答设置",
   "Ask off title": "资料问答还没开启",
   "Ask off body":
-    "开启后，笔记、稍后读正文、日记和复习卡片会被切成小段，发给你配置的 AI 供应商转成向量。隐藏的笔记不会发送。",
+    "开启后，笔记、稍后读正文、日记和复习卡片会被切成小段，发给你配置的 AI 供应商转成向量。",
   "Ask turn on": "去开启",
   "Ask question": "问题",
   "Ask question hint": "比如：上次 Caddy 证书续不上是怎么解决的",

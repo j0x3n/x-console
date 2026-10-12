@@ -347,7 +347,7 @@ describe("RoiPage B129", () => {
   it("电脑时间不可用时说明为什么审查时间没有记录", async () => {
     serve({ ...report, screenAvailable: false });
     renderIt();
-    expect(await screen.findByText(/电脑时间被隐藏或没有记录/)).toBeTruthy();
+    expect(await screen.findByText(/电脑时间没有记录/)).toBeTruthy();
   });
 
   it("任务标题链接到任务页", async () => {
