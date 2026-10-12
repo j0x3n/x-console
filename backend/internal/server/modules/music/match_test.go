@@ -76,8 +76,30 @@ func TestAcceptsNeedsAllThree(t *testing.T) {
 			t.Errorf("%s mismatch accepted", name)
 		}
 	}
-	if music.AcceptsCandidate(music.MatchQuery{Title: "夜曲", DurationMs: 226000}, ok) {
-		t.Error("a song with no artist must not be matched automatically")
+	if !music.AcceptsCandidate(music.MatchQuery{Title: "夜曲", DurationMs: 226000}, ok) {
+		t.Error("标题和时长一致时应能补歌手")
+	}
+}
+
+func TestAcceptsWithoutArtistNeedsExactTitleAndDuration(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		q    music.MatchQuery
+		c    music.MatchCandidate
+		want bool
+	}{
+		{"boundary", music.MatchQuery{Title: "夜曲", DurationMs: 226000}, music.MatchCandidate{Title: "夜曲", Artist: "周杰伦", DurationMs: 228000}, true},
+		{"too-long", music.MatchQuery{Title: "夜曲", DurationMs: 226000}, music.MatchCandidate{Title: "夜曲", Artist: "周杰伦", DurationMs: 228001}, false},
+		{"partial-title", music.MatchQuery{Title: "夜曲", DurationMs: 226000}, music.MatchCandidate{Title: "夜曲2", Artist: "周杰伦", DurationMs: 226000}, false},
+		{"unknown-duration", music.MatchQuery{Title: "夜曲"}, music.MatchCandidate{Title: "夜曲", Artist: "周杰伦", DurationMs: 226000}, false},
+		{"unknown-source-duration", music.MatchQuery{Title: "夜曲", DurationMs: 226000}, music.MatchCandidate{Title: "夜曲", Artist: "周杰伦"}, false},
+		{"unknown-source-artist", music.MatchQuery{Title: "夜曲", DurationMs: 226000}, music.MatchCandidate{Title: "夜曲", DurationMs: 226000}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := music.AcceptsCandidate(tc.q, tc.c); got != tc.want {
+				t.Fatalf("accepts = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

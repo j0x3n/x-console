@@ -98,6 +98,11 @@ SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks WHERE id IN (sqlc.slice('ids'
 -- name: ClearCandidates :exec
 DELETE FROM music_candidates WHERE track_id = ?;
 
+-- name: ClearOrphanCandidateMetadata :exec
+DELETE FROM settings
+WHERE key GLOB 'music.candidate_metadata.*'
+  AND NOT EXISTS (SELECT 1 FROM music_candidates WHERE settings.key = 'music.candidate_metadata.' || music_candidates.track_id);
+
 -- name: InsertCandidate :exec
 INSERT OR REPLACE INTO music_candidates (track_id, source, source_id, title, artist, album, duration_ms, has_lyrics, has_cover, lyrics_text, cover_ref, position)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -120,13 +125,13 @@ UPDATE music_tracks SET match_state = ?, updated_at = ? WHERE id = ?;
 -- name: ListTracksToMatch :many
 SELECT * FROM music_tracks
 WHERE (match_state = 'none' OR (match_state = 'failed' AND sqlc.arg(retry_failed) = 1))
-  AND (lyrics_source = 'none' OR cover_source = 'none')
+  AND (lyrics_source = 'none' OR cover_source = 'none' OR (manual = 0 AND (artist = '' OR album = '' OR album_artist = '' OR year = 0)))
 ORDER BY id LIMIT sqlc.arg(max_rows);
 
 -- name: CountTracksToMatch :one
 SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks
 WHERE (match_state = 'none' OR (match_state = 'failed' AND sqlc.arg(retry_failed) = 1))
-  AND (lyrics_source = 'none' OR cover_source = 'none');
+  AND (lyrics_source = 'none' OR cover_source = 'none' OR (manual = 0 AND (artist = '' OR album = '' OR album_artist = '' OR year = 0)));
 
 -- name: SetTrackLyrics :exec
 UPDATE music_tracks SET lyrics_text = ?, lyrics_source = ?, lyrics_synced = ?, updated_at = ? WHERE id = ?;
@@ -138,10 +143,16 @@ UPDATE music_tracks SET cover_key = ?, has_cover = 1, cover_source = ?, updated_
 UPDATE music_tracks SET sha256 = ? WHERE id = ?;
 
 -- name: ListTracksToFillAlbums :many
-SELECT * FROM music_tracks WHERE album = '' AND manual = 0 AND match_state <> 'skipped' ORDER BY id;
+SELECT * FROM music_tracks WHERE (artist = '' OR album = '' OR year = 0) AND manual = 0 AND match_state <> 'skipped' ORDER BY id;
 
--- name: FillTrackAlbum :execrows
-UPDATE music_tracks SET album = ?, updated_at = ? WHERE id = ? AND album = '' AND manual = 0;
+-- name: FillTrackMetadata :execrows
+UPDATE music_tracks SET
+  artist = CASE WHEN artist = '' THEN sqlc.arg(artist) ELSE artist END,
+  album = CASE WHEN album = '' THEN sqlc.arg(album) ELSE album END,
+  album_artist = CASE WHEN album_artist = '' THEN sqlc.arg(album_artist) ELSE album_artist END,
+  year = CASE WHEN year = 0 AND sqlc.arg(year) > 0 THEN sqlc.arg(year) ELSE year END,
+  updated_at = sqlc.arg(updated_at)
+WHERE id = sqlc.arg(id) AND manual = 0;
 
 -- name: InsertShare :one
 INSERT INTO music_playlist_shares (playlist_id, token, password_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *;

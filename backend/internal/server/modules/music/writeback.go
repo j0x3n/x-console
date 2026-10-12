@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"go.senan.xyz/taglib"
@@ -72,12 +73,12 @@ func (m *Module) copyToTemp(ctx context.Context, drive contracts.DriveFiles, f c
 	return tmp.Name(), cleanup, nil
 }
 
-// writeBack embeds lyrics and a cover in the song file. It works on a copy,
+// writeBack embeds metadata, lyrics and a cover in the song file. It works on a copy,
 // reads the copy back to check it, and only then replaces the file in the
 // drive; any failure leaves the original untouched. Lyrics or cover that are
 // empty are left alone. It returns the hash of the new content.
-func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, cover []byte, album string) (string, error) {
-	if lyrics == "" && len(cover) == 0 && album == "" {
+func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, cover []byte, metadata trackMetadata) (string, error) {
+	if lyrics == "" && len(cover) == 0 && metadata.empty() {
 		return "", errors.New("nothing to write")
 	}
 	drive, err := m.drive()
@@ -102,14 +103,18 @@ func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, 
 		// Not a playable audio file; do not touch it.
 		return "", errors.New("这个文件读不出音频内容")
 	}
-	if lyrics != "" {
-		if err := taglib.WriteTags(path, map[string][]string{taglib.Lyrics: {lyrics}}, 0); err != nil {
-			return "", fmt.Errorf("写歌词: %w", err)
+	tagsToWrite := make(map[string][]string)
+	for key, value := range map[string]string{taglib.Artist: metadata.Artist, taglib.Album: metadata.Album, taglib.AlbumArtist: metadata.AlbumArtist, taglib.Lyrics: lyrics} {
+		if value != "" {
+			tagsToWrite[key] = []string{value}
 		}
 	}
-	if album != "" {
-		if err := taglib.WriteTags(path, map[string][]string{taglib.Album: {album}}, 0); err != nil {
-			return "", fmt.Errorf("写专辑: %w", err)
+	if metadata.Year > 0 {
+		tagsToWrite[taglib.Date] = []string{strconv.Itoa(metadata.Year)}
+	}
+	if len(tagsToWrite) > 0 {
+		if err := taglib.WriteTags(path, tagsToWrite, 0); err != nil {
+			return "", fmt.Errorf("写歌曲标签: %w", err)
 		}
 	}
 	var jpg []byte
@@ -124,16 +129,19 @@ func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, 
 
 	// Check the copy: what was written reads back the same, and the audio
 	// properties did not change.
-	if album != "" {
+	if len(tagsToWrite) > 0 {
 		tags, err := taglib.ReadTags(path)
-		if err != nil || strings.Join(tags[taglib.Album], "") != album {
-			return "", errors.New("写入后读不回专辑")
+		if err != nil {
+			return "", fmt.Errorf("写入后读不回标签: %w", err)
 		}
-	}
-	if lyrics != "" {
-		tags, err := taglib.ReadTags(path)
-		if err != nil || strings.TrimSpace(strings.Join(tags[taglib.Lyrics], "")) != strings.TrimSpace(lyrics) {
-			return "", errors.New("写入后读不回歌词")
+		for key, values := range tagsToWrite {
+			got, want := strings.Join(tags[key], ""), values[0]
+			if key == taglib.Lyrics {
+				got, want = strings.TrimSpace(got), strings.TrimSpace(want)
+			}
+			if got != want {
+				return "", fmt.Errorf("写入后读不回标签 %s", key)
+			}
 		}
 	}
 	if len(jpg) > 0 {

@@ -88,7 +88,7 @@ func queryOf(t db.MusicTrack) query {
 
 // found is what a match run learned about a song.
 type found struct {
-	album      string
+	metadata   trackMetadata
 	lyrics     string
 	cover      []byte
 	candidates []candidate // for the user to choose from, when nothing was accepted
@@ -227,20 +227,27 @@ func (m *Module) chooseCandidates(ctx context.Context, t db.MusicTrack, parts ma
 func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wantCover bool) found {
 	all := m.collect(ctx, o, q)
 	var res found
-	var plain string
-	var plainAlbum string
-	if !wantLyrics && !wantCover {
+	// 确定歌手后，其他来源必须与这个歌手匹配。
+	if q.Artist == "" {
 		for _, c := range all {
-			if accepts(q, c) && strings.TrimSpace(c.Album) != "" {
-				res.album = c.Album
-				return res
+			if accepts(q, c) {
+				q.Artist = cleanTag(c.Artist)
+				break
 			}
 		}
+	}
+	for _, c := range all {
+		if q.Artist != "" && accepts(q, c) {
+			res.metadata.merge(c)
+		}
+	}
+	var plain string
+	if !wantLyrics && !wantCover {
 		return res
 	}
 	if wantLyrics {
 		for _, c := range all {
-			if !c.Lyrics || !accepts(q, c) {
+			if !c.Lyrics || q.Artist == "" || !accepts(q, c) {
 				continue
 			}
 			text, err := m.providers.get(c.Source).FetchLyrics(ctx, c)
@@ -249,22 +256,19 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 			}
 			if isSyncedLyrics(text) {
 				res.lyrics = text
-				res.album = c.Album
 				break
 			}
 			if plain == "" {
 				plain = text
-				plainAlbum = c.Album
 			}
 		}
 		if res.lyrics == "" {
 			res.lyrics = plain
-			res.album = plainAlbum
 		}
 	}
 	if wantCover {
 		for _, c := range all {
-			if !c.Cover || !accepts(q, c) {
+			if !c.Cover || q.Artist == "" || !accepts(q, c) {
 				continue
 			}
 			data, err := m.providers.get(c.Source).FetchCover(ctx, c)
@@ -272,9 +276,6 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 				continue
 			}
 			res.cover = data
-			if res.album == "" {
-				res.album = c.Album
-			}
 			break
 		}
 	}
@@ -284,20 +285,17 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 }
 
 // applyFound stores what was found, writes it into the file when that is on,
-// and returns the new match state.
-func (m *Module) applyFound(ctx context.Context, o options, t db.MusicTrack, lyrics string, cover []byte, album, source string) error {
+// and preserves fields that already have a value or were manually edited.
+func (m *Module) applyFound(ctx context.Context, o options, t db.MusicTrack, lyrics string, cover []byte, metadata trackMetadata, source string) error {
 	now := time.Now().UTC()
-	album = cleanTag(album)
-	if t.Album != "" || t.Manual != 0 {
-		album = ""
-	}
-	if album != "" {
-		changed, err := m.q.FillTrackAlbum(ctx, db.FillTrackAlbumParams{Album: album, UpdatedAt: now, ID: t.ID})
+	metadata = metadata.missingFrom(t)
+	if !metadata.empty() {
+		changed, err := m.q.FillTrackMetadata(ctx, db.FillTrackMetadataParams{Artist: metadata.Artist, Album: metadata.Album, AlbumArtist: metadata.AlbumArtist, Year: int64(metadata.Year), UpdatedAt: now, ID: t.ID})
 		if err != nil {
 			return err
 		}
 		if changed == 0 {
-			album = ""
+			metadata = trackMetadata{}
 		}
 	}
 	lyricsSource, coverSource := source, source
@@ -312,8 +310,8 @@ func (m *Module) applyFound(ctx context.Context, o options, t db.MusicTrack, lyr
 	}
 	// Write into the file first: when it works the library says "embedded",
 	// when it does not (or is off) the data still lives in the library.
-	if o.WriteBack && (lyrics != "" || len(cover) > 0 || album != "") {
-		sha, err := m.writeBack(ctx, t, lyrics, cover, album)
+	if o.WriteBack && (lyrics != "" || len(cover) > 0 || !metadata.empty()) {
+		sha, err := m.writeBack(ctx, t, lyrics, cover, metadata)
 		if err != nil {
 			slog.Warn("music: cannot write tags back", "track", t.ID, "err", err)
 		} else {
@@ -341,14 +339,21 @@ func (m *Module) applyFound(ctx context.Context, o options, t db.MusicTrack, lyr
 }
 
 func (m *Module) saveCandidates(ctx context.Context, trackID int64, cands []candidate) error {
-	if err := m.q.ClearCandidates(ctx, trackID); err != nil {
+	if err := m.clearCandidates(ctx, trackID); err != nil {
 		return err
 	}
+	var extra []candidateMetadata
 	for i, c := range cands {
 		if err := m.q.InsertCandidate(ctx, db.InsertCandidateParams{TrackID: trackID, Source: c.Source, SourceID: c.SourceID, Title: c.Title, Artist: c.Artist,
 			Album: c.Album, DurationMs: int64(c.DurationMs), HasLyrics: b2i(c.Lyrics), HasCover: b2i(c.Cover), LyricsText: c.LyricsText, CoverRef: c.coverRef, Position: int64(i)}); err != nil {
 			return err
 		}
+		if c.Year > 0 || c.AlbumArtist != "" {
+			extra = append(extra, candidateMetadata{Source: c.Source, SourceID: c.SourceID, Year: c.Year, AlbumArtist: c.AlbumArtist})
+		}
+	}
+	if len(extra) > 0 {
+		return m.d.Settings.Set(ctx, candidateMetadataKey(trackID), extra)
 	}
 	return nil
 }
@@ -376,18 +381,19 @@ func (m *Module) matchTrackParts(ctx context.Context, t db.MusicTrack, force boo
 	o := m.options(ctx)
 	wantLyrics := parts.lyrics && (force || t.LyricsSource == "none")
 	wantCover := parts.cover && (force || t.CoverSource == "none")
-	if !wantLyrics && !wantCover {
+	if !wantLyrics && !wantCover && !needsMetadata(t) {
 		return t, nil
 	}
 	res := m.search(ctx, o, queryOf(t), wantLyrics, wantCover)
+	res.metadata = res.metadata.missingFrom(t)
+	if err := m.applyFound(ctx, o, t, res.lyrics, res.cover, res.metadata, "online"); err != nil {
+		return t, err
+	}
 	now := time.Now().UTC()
 	state := "matched"
 	switch {
-	case res.lyrics != "" || res.cover != nil:
-		if err := m.applyFound(ctx, o, t, res.lyrics, res.cover, res.album, "online"); err != nil {
-			return t, err
-		}
-		if err := m.q.ClearCandidates(ctx, t.ID); err != nil {
+	case res.lyrics != "" || res.cover != nil || !res.metadata.empty():
+		if err := m.clearCandidates(ctx, t.ID); err != nil {
 			return t, err
 		}
 		if len(res.candidates) > 0 {
@@ -403,7 +409,7 @@ func (m *Module) matchTrackParts(ctx context.Context, t db.MusicTrack, force boo
 		}
 	default:
 		state = "failed"
-		if err := m.q.ClearCandidates(ctx, t.ID); err != nil {
+		if err := m.clearCandidates(ctx, t.ID); err != nil {
 			return t, err
 		}
 	}

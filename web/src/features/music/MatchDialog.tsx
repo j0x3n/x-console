@@ -72,8 +72,8 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
       onSuccess: (r) =>
         toast(
           r.total > 0
-            ? t("Filling in albums in the background")
-            : t("Every song already has an album"),
+            ? t("Filling in song info in the background")
+            : t("Every song already has its info"),
         ),
       onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
     });
@@ -102,7 +102,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div className="music-option">
             <span>
-              {t("Write lyrics, covers and albums into the song files")}
+              {t("Write lyrics, covers and song info into the song files")}
               <small className="music-muted">
                 {t(
                   "This changes the files in Drive directly. The old version is not kept.",
@@ -111,7 +111,9 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
             </span>
             <Switch
               checked={settings.data.writeBack}
-              label={t("Write lyrics, covers and albums into the song files")}
+              label={t(
+                "Write lyrics, covers and song info into the song files",
+              )}
               disabled={save.isPending}
               onChange={(writeBack) => change({ writeBack })}
             />
@@ -161,10 +163,12 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
               type="button"
               className="xc-btn"
               disabled={fillAlbums.isPending || busy}
-              title={t("Look up only the album name for songs that have none")}
+              title={t(
+                "Look up the missing artist, album and year. Lyrics and covers are not fetched.",
+              )}
               onClick={runFillAlbums}
             >
-              <Disc3 size={14} /> {t("Fill in albums")}
+              <Disc3 size={14} /> {t("Fill in song info")}
             </button>
             <button
               type="button"
@@ -192,7 +196,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
           )}
           {albumProgress?.running && (
             <p className="music-muted">
-              {t("Filling in albums")} {albumProgress.done}/
+              {t("Filling in song info")} {albumProgress.done}/
               {albumProgress.total}
               {albumProgress.current ? ` · ${albumProgress.current}` : ""}
             </p>

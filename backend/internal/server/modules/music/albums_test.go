@@ -68,7 +68,7 @@ func TestFillAlbumsOnlySearchesAndReportsProgress(t *testing.T) {
 	e := setupMatch(t)
 	e.MustDo(http.MethodPut, "/music/settings", map[string]any{"autoMatch": false, "writeBack": true}, nil)
 	_, a := e.add(t, "empty.mp3", idTags, nil)
-	_, b := e.add(t, "existing.mp3", map[string][]string{taglib.Title: {"夜曲"}, taglib.Artist: {"周杰伦"}, taglib.Album: {"原专辑"}}, nil)
+	_, b := e.add(t, "existing.mp3", map[string][]string{taglib.Title: {"夜曲"}, taglib.Artist: {"周杰伦"}, taglib.Album: {"原专辑"}, taglib.Date: {"2001"}}, nil)
 	_, c := e.add(t, "manual.mp3", idTags, nil)
 	e.MustDo(http.MethodPatch, fmt.Sprintf("/music/tracks/%d", c.Id), map[string]any{"album": ""}, nil)
 	_, d := e.add(t, "skipped.mp3", idTags, nil)
@@ -96,6 +96,7 @@ func TestFillAlbumsOnlySearchesAndReportsProgress(t *testing.T) {
 		}
 		json.NewEncoder(w).Encode([]map[string]any{{"id": 11, "trackName": "夜曲", "artistName": "周杰伦", "albumName": "专辑", "duration": float64(a.DurationMs) / 1000, "syncedLyrics": syncedLRC}})
 	})
+	metadataHit(e, a.DurationMs, "周杰伦", "2005-11-01")
 	events, cancel := e.App.Deps.Bus.Subscribe("music.", 64)
 	defer cancel()
 	var out struct{ Total int }

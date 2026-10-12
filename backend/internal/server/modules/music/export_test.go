@@ -28,6 +28,9 @@ func (m *Module) SourceLyrics(ctx context.Context, source, id string) (string, e
 func (m *Module) SourceSearch(ctx context.Context, source string) ([]MatchCandidate, error) {
 	return m.providers.get(source).Search(ctx, query{Title: "晴天", Artist: "周杰伦"})
 }
+func (m *Module) SourceSearchQuery(ctx context.Context, source string, q MatchQuery) ([]MatchCandidate, error) {
+	return m.providers.get(source).Search(ctx, q)
+}
 func (m *Module) SourceCover(ctx context.Context, source, ref string) ([]byte, error) {
 	return m.providers.get(source).FetchCover(ctx, candidate{Source: source, Cover: true, coverRef: ref})
 }

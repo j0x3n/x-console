@@ -10,10 +10,10 @@ paths:
       operationId: fillMusicAlbums
       tags: [music]
       description: |
-        在后台补全 album 为空、manual 为 0 且未跳过匹配的歌曲。只搜索专辑，不下载歌词或封面，不修改匹配状态或候选。
+        在后台补全歌手、专辑、年份等信息。处理 manual 为 0 且未跳过匹配的歌曲，artist、album 为空或 year 为 0 任意一项满足即可。只补空字段，不下载歌词或封面，不修改匹配状态或候选。
         与后台匹配互斥。没有可处理的歌曲时 total 为 0，不启动任务。
-        进度事件 music.album_progress 的数据为 { running, done, total, current? }。结束时发 music.library_changed。
-        开启写回时同步写入文件专辑标签。
+        补全歌手、专辑、年份等信息的进度事件仍为 music.album_progress，数据为 { running, done, total, current? }。结束时发 music.library_changed。
+        来源明确给出专辑歌手时补空的 album_artist。开启写回时同步写入文件的歌手、专辑、专辑歌手和年份标签。
       responses:
         "202":
           description: 本次待处理的歌曲数

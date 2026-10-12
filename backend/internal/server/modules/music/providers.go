@@ -51,6 +51,8 @@ func (q query) keywords() string { return strings.TrimSpace(q.Title + " " + q.Ar
 type candidate struct {
 	Source, SourceID     string
 	Title, Artist, Album string
+	AlbumArtist          string
+	Year                 int
 	DurationMs           int // 0 when the source does not say
 	Lyrics, Cover        bool
 	// Inline lyrics, for sources that return them with the search hit.
@@ -267,8 +269,10 @@ func (p neteaseProvider) Search(ctx context.Context, q query) ([]candidate, erro
 					Name string `json:"name"`
 				} `json:"artists"`
 				Album struct {
-					Name string `json:"name"`
+					Name        string `json:"name"`
+					PublishTime int64  `json:"publishTime"`
 				} `json:"album"`
+				PublishTime int64 `json:"publishTime"`
 			} `json:"songs"`
 		} `json:"result"`
 	}
@@ -284,8 +288,16 @@ func (p neteaseProvider) Search(ctx context.Context, q query) ([]candidate, erro
 		for _, a := range s.Artists {
 			names = append(names, a.Name)
 		}
+		published := s.PublishTime
+		if published <= 0 {
+			published = s.Album.PublishTime
+		}
+		var releaseYear int
+		if published > 0 {
+			releaseYear = year(time.UnixMilli(published).UTC().Format("2006"))
+		}
 		out = append(out, candidate{Source: SourceNetease, SourceID: strconv.FormatInt(s.ID, 10), Title: s.Name, Artist: strings.Join(names, "/"),
-			Album: s.Album.Name, DurationMs: s.Duration, Lyrics: true, Cover: true})
+			Album: s.Album.Name, Year: releaseYear, DurationMs: s.Duration, Lyrics: true, Cover: true})
 	}
 	return out, nil
 }
@@ -345,12 +357,13 @@ func (p qqProvider) Search(ctx context.Context, q query) ([]candidate, error) {
 		Data *struct {
 			Song *struct {
 				List []struct {
-					SongMID   string `json:"songmid"`
-					SongName  string `json:"songname"`
-					AlbumName string `json:"albumname"`
-					AlbumMID  string `json:"albummid"`
-					Interval  int    `json:"interval"`
-					Singer    []struct {
+					SongMID    string `json:"songmid"`
+					SongName   string `json:"songname"`
+					AlbumName  string `json:"albumname"`
+					AlbumMID   string `json:"albummid"`
+					Interval   int    `json:"interval"`
+					PublicTime string `json:"publictime"`
+					Singer     []struct {
 						Name string `json:"name"`
 					} `json:"singer"`
 				} `json:"list"`
@@ -370,7 +383,7 @@ func (p qqProvider) Search(ctx context.Context, q query) ([]candidate, error) {
 			names = append(names, a.Name)
 		}
 		out = append(out, candidate{Source: SourceQQ, SourceID: s.SongMID, Title: s.SongName, Artist: strings.Join(names, "/"),
-			Album: s.AlbumName, DurationMs: s.Interval * 1000, Lyrics: true, Cover: s.AlbumMID != "", coverRef: s.AlbumMID})
+			Album: s.AlbumName, Year: year(s.PublicTime), DurationMs: s.Interval * 1000, Lyrics: true, Cover: s.AlbumMID != "", coverRef: s.AlbumMID})
 	}
 	return out, nil
 }
@@ -410,12 +423,14 @@ func (p itunesProvider) Search(ctx context.Context, q query) ([]candidate, error
 	v := url.Values{"term": {q.keywords()}, "entity": {"song"}, "limit": {"10"}}
 	var res struct {
 		Results []struct {
-			TrackID    int64  `json:"trackId"`
-			TrackName  string `json:"trackName"`
-			ArtistName string `json:"artistName"`
-			Collection string `json:"collectionName"`
-			Millis     int    `json:"trackTimeMillis"`
-			Artwork    string `json:"artworkUrl100"`
+			TrackID          int64  `json:"trackId"`
+			TrackName        string `json:"trackName"`
+			ArtistName       string `json:"artistName"`
+			Collection       string `json:"collectionName"`
+			CollectionArtist string `json:"collectionArtistName"`
+			ReleaseDate      string `json:"releaseDate"`
+			Millis           int    `json:"trackTimeMillis"`
+			Artwork          string `json:"artworkUrl100"`
 		} `json:"results"`
 	}
 	if err := p.s.getJSON(ctx, p.s.urls[SourceITunes]+"/search?"+v.Encode(), nil, &res); err != nil {
@@ -426,11 +441,8 @@ func (p itunesProvider) Search(ctx context.Context, q query) ([]candidate, error
 	}
 	var out []candidate
 	for _, r := range res.Results {
-		if r.Artwork == "" {
-			continue
-		}
 		out = append(out, candidate{Source: SourceITunes, SourceID: strconv.FormatInt(r.TrackID, 10), Title: r.TrackName, Artist: r.ArtistName,
-			Album: r.Collection, DurationMs: r.Millis, Cover: true, coverRef: r.Artwork})
+			Album: r.Collection, AlbumArtist: r.CollectionArtist, Year: year(r.ReleaseDate), DurationMs: r.Millis, Cover: r.Artwork != "", coverRef: r.Artwork})
 	}
 	return out, nil
 }
@@ -486,6 +498,7 @@ func (p musicbrainzProvider) Search(ctx context.Context, q query) ([]candidate, 
 			Releases []struct {
 				ID    string `json:"id"`
 				Title string `json:"title"`
+				Date  string `json:"date"`
 			} `json:"releases"`
 		} `json:"recordings"`
 	}
@@ -505,7 +518,7 @@ func (p musicbrainzProvider) Search(ctx context.Context, q query) ([]candidate, 
 			names = append(names, a.Name)
 		}
 		out = append(out, candidate{Source: SourceMusicBrainz, SourceID: r.ID, Title: r.Title, Artist: strings.Join(names, "/"),
-			Album: r.Releases[0].Title, DurationMs: r.Length, Cover: true, coverRef: r.Releases[0].ID})
+			Album: r.Releases[0].Title, Year: year(r.Releases[0].Date), DurationMs: r.Length, Cover: r.Releases[0].ID != "", coverRef: r.Releases[0].ID})
 	}
 	return out, nil
 }

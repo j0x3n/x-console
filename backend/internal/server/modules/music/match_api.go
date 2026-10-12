@@ -138,8 +138,10 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 	if prov == nil {
 		return t, httpx.Invalid("不认识的来源")
 	}
-	c := candidate{Source: row.Source, SourceID: row.SourceID, Title: row.Title, Artist: row.Artist, Album: row.Album, DurationMs: int(row.DurationMs),
-		Lyrics: row.HasLyrics != 0, Cover: row.HasCover != 0, LyricsText: row.LyricsText, coverRef: row.CoverRef}
+	c, err := m.candidateFromRow(ctx, row)
+	if err != nil {
+		return t, err
+	}
 	// 两样都要（包括没传 parts）时，候选有哪样用哪样。
 	// 只要其中一样而候选没有时，直接告诉用户，不去别的来源找。
 	if parts.lyrics && parts.cover {
@@ -167,7 +169,7 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 	if strings.TrimSpace(lyrics) == "" && cover == nil {
 		return t, httpx.NewError(http.StatusBadGateway, "source_failed", "这个来源现在取不到歌词和封面，可以换一个候选或稍后再试")
 	}
-	if err := m.applyFound(ctx, o, t, strings.TrimSpace(lyrics), cover, c.Album, "online"); err != nil {
+	if err := m.applyFound(ctx, o, t, strings.TrimSpace(lyrics), cover, metadataOf(c), "online"); err != nil {
 		return t, err
 	}
 	t, err = m.q.GetTrack(ctx, t.ID)
@@ -184,8 +186,11 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 			continue
 		}
 		if t.LyricsSource == "none" && row.HasLyrics != 0 || t.CoverSource == "none" && row.HasCover != 0 {
-			remaining = append(remaining, candidate{Source: row.Source, SourceID: row.SourceID, Title: row.Title, Artist: row.Artist,
-				Album: row.Album, DurationMs: int(row.DurationMs), Lyrics: row.HasLyrics != 0, Cover: row.HasCover != 0, LyricsText: row.LyricsText, coverRef: row.CoverRef})
+			c, err := m.candidateFromRow(ctx, row)
+			if err != nil {
+				return t, err
+			}
+			remaining = append(remaining, c)
 		}
 	}
 	if err := m.saveCandidates(ctx, t.ID, remaining); err != nil {
@@ -208,7 +213,7 @@ func (m *Module) SkipMusicMatch(w http.ResponseWriter, r *http.Request, id api.T
 	if _, err := m.track(ctx, id); fail(w, r, err) {
 		return
 	}
-	if fail(w, r, m.q.ClearCandidates(ctx, id)) {
+	if fail(w, r, m.clearCandidates(ctx, id)) {
 		return
 	}
 	if fail(w, r, m.q.SetMatchState(ctx, db.SetMatchStateParams{MatchState: "skipped", UpdatedAt: time.Now().UTC(), ID: id})) {
@@ -246,7 +251,7 @@ func (m *Module) PutMusicTrackLyrics(w http.ResponseWriter, r *http.Request, id 
 	if body.WriteBack != nil {
 		o.WriteBack = *body.WriteBack
 	}
-	err = m.applyFound(ctx, o, t, text, nil, "", "online")
+	err = m.applyFound(ctx, o, t, text, nil, trackMetadata{}, "online")
 	m.matchMu.Unlock()
 	if fail(w, r, err) {
 		return
@@ -274,7 +279,7 @@ func (m *Module) UploadMusicTrackCover(w http.ResponseWriter, r *http.Request, i
 	if p.WriteBack != nil {
 		o.WriteBack = *p.WriteBack
 	}
-	err = m.applyFound(ctx, o, t, "", data, "", "online")
+	err = m.applyFound(ctx, o, t, "", data, trackMetadata{}, "online")
 	m.matchMu.Unlock()
 	if fail(w, r, err) {
 		return

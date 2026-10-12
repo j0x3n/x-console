@@ -14,7 +14,8 @@ import (
 //  1. the titles are the same once case, width, punctuation and bracketed
 //     notes are ignored, and the version marks (live, remix, instrumental)
 //     are the same on both sides;
-//  2. the artists share at least one name;
+//  2. the artists share at least one name, or the song has no artist yet and
+//     the candidate provides one;
 //  3. both durations are known and differ by at most 2 seconds.
 
 const maxDurationDiffMs = 2000
@@ -108,7 +109,11 @@ func durationsMatch(a, b int) bool {
 
 // accepts reports whether c may be used without asking.
 func accepts(q query, c candidate) bool {
-	return titlesMatch(q.Title, c.Title) && artistsOverlap(q.Artist, c.Artist) && durationsMatch(q.DurationMs, c.DurationMs)
+	artistMatches := artistsOverlap(q.Artist, c.Artist)
+	if q.Artist == "" {
+		artistMatches = cleanTag(c.Artist) != ""
+	}
+	return titlesMatch(q.Title, c.Title) && artistMatches && durationsMatch(q.DurationMs, c.DurationMs)
 }
 
 // score 给待确认候选打分，分数越高越靠前。

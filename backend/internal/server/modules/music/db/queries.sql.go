@@ -44,6 +44,17 @@ func (q *Queries) ClearCandidates(ctx context.Context, trackID int64) error {
 	return err
 }
 
+const clearOrphanCandidateMetadata = `-- name: ClearOrphanCandidateMetadata :exec
+DELETE FROM settings
+WHERE key GLOB 'music.candidate_metadata.*'
+  AND NOT EXISTS (SELECT 1 FROM music_candidates WHERE settings.key = 'music.candidate_metadata.' || music_candidates.track_id)
+`
+
+func (q *Queries) ClearOrphanCandidateMetadata(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, clearOrphanCandidateMetadata)
+	return err
+}
+
 const clearPlaylistItems = `-- name: ClearPlaylistItems :exec
 DELETE FROM music_playlist_items WHERE playlist_id = ?
 `
@@ -88,7 +99,7 @@ func (q *Queries) CountTracksByIDs(ctx context.Context, ids []int64) (int64, err
 const countTracksToMatch = `-- name: CountTracksToMatch :one
 SELECT CAST(COUNT(*) AS INTEGER) FROM music_tracks
 WHERE (match_state = 'none' OR (match_state = 'failed' AND ?1 = 1))
-  AND (lyrics_source = 'none' OR cover_source = 'none')
+  AND (lyrics_source = 'none' OR cover_source = 'none' OR (manual = 0 AND (artist = '' OR album = '' OR album_artist = '' OR year = 0)))
 `
 
 func (q *Queries) CountTracksToMatch(ctx context.Context, retryFailed interface{}) (int64, error) {
@@ -128,18 +139,34 @@ func (q *Queries) DeleteTrack(ctx context.Context, id int64) error {
 	return err
 }
 
-const fillTrackAlbum = `-- name: FillTrackAlbum :execrows
-UPDATE music_tracks SET album = ?, updated_at = ? WHERE id = ? AND album = '' AND manual = 0
+const fillTrackMetadata = `-- name: FillTrackMetadata :execrows
+UPDATE music_tracks SET
+  artist = CASE WHEN artist = '' THEN ?1 ELSE artist END,
+  album = CASE WHEN album = '' THEN ?2 ELSE album END,
+  album_artist = CASE WHEN album_artist = '' THEN ?3 ELSE album_artist END,
+  year = CASE WHEN year = 0 AND ?4 > 0 THEN ?4 ELSE year END,
+  updated_at = ?5
+WHERE id = ?6 AND manual = 0
 `
 
-type FillTrackAlbumParams struct {
-	Album     string
-	UpdatedAt time.Time
-	ID        int64
+type FillTrackMetadataParams struct {
+	Artist      string
+	Album       string
+	AlbumArtist string
+	Year        interface{}
+	UpdatedAt   time.Time
+	ID          int64
 }
 
-func (q *Queries) FillTrackAlbum(ctx context.Context, arg FillTrackAlbumParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, fillTrackAlbum, arg.Album, arg.UpdatedAt, arg.ID)
+func (q *Queries) FillTrackMetadata(ctx context.Context, arg FillTrackMetadataParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, fillTrackMetadata,
+		arg.Artist,
+		arg.Album,
+		arg.AlbumArtist,
+		arg.Year,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	if err != nil {
 		return 0, err
 	}
@@ -902,7 +929,7 @@ func (q *Queries) ListTrackSync(ctx context.Context) ([]ListTrackSyncRow, error)
 }
 
 const listTracksToFillAlbums = `-- name: ListTracksToFillAlbums :many
-SELECT id, drive_item_id, sha256, companion, title, artist, album, album_artist, manual, track_no, disc_no, year, duration_ms, bitrate, format, has_cover, cover_source, cover_key, lyrics_source, lyrics_synced, lyrics_text, favorite, play_count, last_played_at, match_state, created_at, updated_at FROM music_tracks WHERE album = '' AND manual = 0 AND match_state <> 'skipped' ORDER BY id
+SELECT id, drive_item_id, sha256, companion, title, artist, album, album_artist, manual, track_no, disc_no, year, duration_ms, bitrate, format, has_cover, cover_source, cover_key, lyrics_source, lyrics_synced, lyrics_text, favorite, play_count, last_played_at, match_state, created_at, updated_at FROM music_tracks WHERE (artist = '' OR album = '' OR year = 0) AND manual = 0 AND match_state <> 'skipped' ORDER BY id
 `
 
 func (q *Queries) ListTracksToFillAlbums(ctx context.Context) ([]MusicTrack, error) {
@@ -959,7 +986,7 @@ func (q *Queries) ListTracksToFillAlbums(ctx context.Context) ([]MusicTrack, err
 const listTracksToMatch = `-- name: ListTracksToMatch :many
 SELECT id, drive_item_id, sha256, companion, title, artist, album, album_artist, manual, track_no, disc_no, year, duration_ms, bitrate, format, has_cover, cover_source, cover_key, lyrics_source, lyrics_synced, lyrics_text, favorite, play_count, last_played_at, match_state, created_at, updated_at FROM music_tracks
 WHERE (match_state = 'none' OR (match_state = 'failed' AND ?1 = 1))
-  AND (lyrics_source = 'none' OR cover_source = 'none')
+  AND (lyrics_source = 'none' OR cover_source = 'none' OR (manual = 0 AND (artist = '' OR album = '' OR album_artist = '' OR year = 0)))
 ORDER BY id LIMIT ?2
 `
 

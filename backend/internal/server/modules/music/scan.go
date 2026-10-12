@@ -50,6 +50,10 @@ func (m *Module) Reconcile(ctx context.Context) error {
 	}
 	defer func() { <-m.scanLock }()
 
+	// 云盘删除可能已通过外键移除了歌曲和候选。
+	if err := m.q.ClearOrphanCandidateMetadata(ctx); err != nil {
+		return err
+	}
 	ids, err := m.folders(ctx)
 	if err != nil {
 		return err
@@ -128,6 +132,9 @@ func (m *Module) Reconcile(ctx context.Context) error {
 	for _, r := range rows {
 		if !seen[r.DriveItemID] {
 			if err := m.q.DeleteTrack(ctx, r.ID); err != nil {
+				return err
+			}
+			if err := m.d.Settings.Delete(ctx, candidateMetadataKey(r.ID)); err != nil {
 				return err
 			}
 			res.Removed++

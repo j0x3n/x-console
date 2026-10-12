@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B174（2026-10-13）：`POST /music/fill-albums` 扩大为补全歌手、专辑、专辑歌手和年份。路径、operationId、返回字段及 `music.album_progress` 事件名不变。批量处理未手动编辑且未跳过的歌曲，歌手、专辑、年份任意一项缺失即可。只补空字段，专辑歌手仅取来源明确给出的值。歌手为空时用完整标题和两秒内的时长差确认，确定歌手后再筛选歌词和封面。自动匹配与用户采用候选都补这些字段。开启写回时同步标签并读回校验。候选新增信息保存在现有设置存储的 `music.candidate_metadata.<trackId>` 中，清除候选或移除歌曲时删除。没有新增数据库迁移，也没有改前端代码。
+
 - B172（2026-10-13）：`pkg/protocol` 增加能力和方法 `net.fetch`、共享域名白名单，以及有界 GET 参数和响应。`internal/agent/conn.New` 内置注册处理器并上报 hello 能力，保持原命令兼容。音乐来源直连失败时可通过在线 Windows 代理请求，歌词和封面共用入口。来源检查增加必填 `via`（`direct` / `agent`）和可选 `agentName`、`directError`，检查忽略 10 分钟路径缓存，保留直连失败原因。没有改前端页面。
 
 - B171（2026-10-13）：音乐增加 `POST /music/fill-albums`（`fillMusicAlbums`），返回 `202 { total }`，与后台匹配互斥时回 `409`。新增事件 `music.album_progress`，数据为 `{ running, done, total, current? }`，结束时发 `music.library_changed`。匹配采用候选时只填未手动编辑的空专辑，开启写回时同步文件专辑标签及 sha。不改标题、歌手和专辑歌手。

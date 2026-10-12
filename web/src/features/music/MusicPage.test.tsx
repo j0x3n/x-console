@@ -359,7 +359,7 @@ describe("在线匹配对话框", () => {
     }));
     renderTab();
     const toggle = await screen.findByRole("checkbox", {
-      name: "把歌词、封面和专辑写进歌曲文件",
+      name: "把歌词、封面和歌曲信息写进歌曲文件",
     });
     expect((toggle as HTMLInputElement).checked).toBe(true);
     fireEvent.click(toggle);
@@ -414,7 +414,7 @@ describe("在线匹配对话框", () => {
       expect(api.calls.some((c) => c.path === "/music/match")).toBe(true),
     );
   });
-  it("补全专辑调用批量接口", async () => {
+  it("补全信息调用批量接口", async () => {
     api.routes.clear();
     api.calls.length = 0;
     api.routes.set("GET /music/settings", () => ({
@@ -428,7 +428,7 @@ describe("在线匹配对话框", () => {
       body: { total: 3 },
     }));
     renderTab();
-    fireEvent.click(await screen.findByRole("button", { name: /补全专辑/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /补全信息/ }));
     await waitFor(() =>
       expect(api.calls.some((c) => c.path === "/music/fill-albums")).toBe(true),
     );

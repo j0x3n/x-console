@@ -12,7 +12,7 @@ import (
 
 func (m *Module) FillMusicAlbums(w http.ResponseWriter, r *http.Request) {
 	if !m.matching.CompareAndSwap(false, true) {
-		httpx.Fail(w, r, httpx.NewError(http.StatusConflict, "music_busy", "正在匹配或补全专辑，请等完成后再试"))
+		httpx.Fail(w, r, httpx.NewError(http.StatusConflict, "music_busy", "正在匹配或补全信息，请等完成后再试"))
 		return
 	}
 	tracks, err := m.q.ListTracksToFillAlbums(r.Context())
@@ -42,7 +42,7 @@ func (m *Module) fillAlbums(ctx context.Context, tracks []db.MusicTrack) {
 		}
 		m.d.Bus.Publish("music.album_progress", matchProgress{Running: true, Done: done, Total: len(tracks), Current: t.Title})
 		if err := m.fillAlbum(ctx, t.ID); err != nil && ctx.Err() == nil {
-			slog.Warn("补全专辑失败", "track", t.ID, "err", err)
+			slog.Warn("补全歌曲信息失败", "track", t.ID, "err", err)
 		}
 		done++
 		select {
@@ -60,13 +60,13 @@ func (m *Module) fillAlbum(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if t.Album != "" || t.Manual != 0 || t.MatchState == "skipped" {
+	if t.Manual != 0 || t.MatchState == "skipped" || (t.Artist != "" && t.Album != "" && t.Year != 0) {
 		return nil
 	}
 	o := m.options(ctx)
 	res := m.search(ctx, o, queryOf(t), false, false)
-	if res.album == "" {
+	if res.metadata.empty() {
 		return nil
 	}
-	return m.applyFound(ctx, o, t, "", nil, res.album, "online")
+	return m.applyFound(ctx, o, t, "", nil, res.metadata, "online")
 }
