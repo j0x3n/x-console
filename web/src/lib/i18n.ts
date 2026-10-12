@@ -117,6 +117,12 @@ registerZh({
   "Pin to sidebar": "固定到左栏",
   "Unpin from sidebar": "从左栏移除",
   "No matching apps": "没有匹配的功能",
+  // B189 左栏分隔线
+  "Sidebar order": "左栏顺序",
+  "Add divider": "加分隔线",
+  Divider: "分隔线",
+  "Remove divider": "删除分隔线",
+  "Drag to reorder": "拖动调整顺序",
   Dark: "深色",
   Light: "浅色",
   Language: "语言",

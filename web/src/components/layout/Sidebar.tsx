@@ -12,7 +12,7 @@ import {
   Languages,
   type LucideIcon,
 } from "lucide-react";
-import { entryOf, navItems, navMerges } from "../../app/nav";
+import { defaultNavPins, entryOf, navItems, navMerges } from "../../app/nav";
 import { moduleOfPath, useModules } from "../../app/modules";
 import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
@@ -39,7 +39,7 @@ import { NavPanelGroup, NavPanelLink } from "./NavPanel";
 import {
   buildEntries,
   isPinned,
-  railEntries,
+  railItems,
   togglePin,
   type NavEntry,
 } from "./navEntries";
@@ -103,7 +103,7 @@ export default function Sidebar({
   const entries = buildEntries(visible);
   const pins = usePreferencesStore((s) => s.navPins);
   const setPins = usePreferencesStore((s) => s.setNavPins);
-  const rail = railEntries(entries, pins, currentPath);
+  const rail = railItems(entries, pins, currentPath);
   const currentEntry = currentPath ? entryOf(currentPath) : undefined;
   const [launcher, setLauncher] = useState(false);
   const closeLauncher = useCallback(() => setLauncher(false), []);
@@ -173,22 +173,29 @@ export default function Sidebar({
           )}
           <span className="nav-rail-sep first" aria-hidden />
           <div className="nav-rail-scroll">
-            {rail.map((entry) => (
-              <RailLink
-                key={entry.path}
-                to={entryTarget(entry, location.pathname)}
-                label={entry.label}
-                icon={entry.icon}
-                selected={entry.path === currentEntry}
-                keys={{
-                  icon: extraKey(entry, extras.icons),
-                  badge: extraKey(entry, extras.badges),
-                  status: extraKey(entry, extras.statuses),
-                }}
-                extras={extras}
-                onClose={close}
-              />
-            ))}
+            {rail.map((item) => {
+              if (item.kind === "sep")
+                return (
+                  <span key={item.key} className="nav-rail-sep" aria-hidden />
+                );
+              const entry = item.entry;
+              return (
+                <RailLink
+                  key={entry.path}
+                  to={entryTarget(entry, location.pathname)}
+                  label={entry.label}
+                  icon={entry.icon}
+                  selected={entry.path === currentEntry}
+                  keys={{
+                    icon: extraKey(entry, extras.icons),
+                    badge: extraKey(entry, extras.badges),
+                    status: extraKey(entry, extras.statuses),
+                  }}
+                  extras={extras}
+                  onClose={close}
+                />
+              );
+            })}
           </div>
           {/* B179：全部功能在启动台里，可以固定到左栏 */}
           <button
@@ -237,8 +244,10 @@ export default function Sidebar({
       {launcher && (
         <Launcher
           entries={entries}
+          pins={pins ?? defaultNavPins}
           pinned={(path) => isPinned(pins, path)}
           onTogglePin={(path) => setPins(togglePin(pins, path))}
+          onChangePins={setPins}
           onOpen={(entry) => {
             closeLauncher();
             close();

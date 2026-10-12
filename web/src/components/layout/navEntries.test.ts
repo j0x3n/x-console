@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { defaultNavPins, entryOf, navItems } from "../../app/nav";
-import { buildEntries, isPinned, railEntries, togglePin } from "./navEntries";
+import {
+  buildEntries,
+  isPinned,
+  movePin,
+  newSeparator,
+  railEntries,
+  railItems,
+  togglePin,
+} from "./navEntries";
 
 const all = buildEntries(navItems);
 const paths = (list: { path: string }[]) => list.map((e) => e.path);
@@ -63,5 +71,29 @@ describe("左栏入口（B179）", () => {
     expect(isPinned(pins, "/contacts")).toBe(true);
     expect(togglePin(pins, "/projects")).not.toContain("/projects");
     expect(isPinned(null, "/projects")).toBe(true);
+  });
+
+  it("分隔线：去掉开头、结尾和连着的，编号不重复", () => {
+    const keys = (pins: string[]) =>
+      railItems(all, pins, "/").map((i) =>
+        i.kind === "sep" ? "-" : i.entry.path,
+      );
+    expect(keys(["/-/1", "/notes", "/-/2", "/-/3", "/mail", "/-/4"])).toEqual([
+      "/notes",
+      "-",
+      "/mail",
+    ]);
+    // 中间的入口不认识（比如被隐藏），两条线只留一条
+    expect(keys(["/notes", "/-/1", "/nope", "/-/2", "/mail"])).toEqual([
+      "/notes",
+      "-",
+      "/mail",
+    ]);
+    expect(newSeparator(["/-/1", "/-/3"])).toBe("/-/2");
+  });
+
+  it("移动固定项", () => {
+    expect(movePin(["/a", "/b", "/c"], 0, 2)).toEqual(["/b", "/c", "/a"]);
+    expect(movePin(["/a", "/b", "/c"], 2, 0)).toEqual(["/c", "/a", "/b"]);
   });
 });

@@ -448,6 +448,69 @@
   font-size: var(--fs-12);
   font-weight: 500;
 }
+/* B189：左栏顺序 */
+.launcher-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.launcher-rail-head h3 {
+  margin-bottom: 0;
+}
+.launcher-rail-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 4px;
+}
+.launcher-rail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 4px 0 4px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 7px;
+  background: var(--xc-surface);
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  cursor: grab;
+  user-select: none;
+}
+.launcher-rail-chip:hover {
+  background: var(--xc-surface-2);
+}
+.launcher-rail-chip.dragging {
+  opacity: 0.4;
+}
+.launcher-rail-chip.sep {
+  border-style: dashed;
+  color: var(--xc-muted);
+}
+.launcher-rail-chip.sep i {
+  width: 12px;
+  height: 1px;
+  background: var(--xc-border-strong);
+}
+.launcher-rail-grip {
+  color: var(--xc-faint);
+}
+.launcher-rail-remove {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--xc-faint);
+}
+.launcher-rail-remove:hover {
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
+  color: var(--xc-text);
+}
 .launcher-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));

@@ -63,6 +63,56 @@ export function railEntries(
   return list;
 }
 
+/** B189：左栏的分隔线也存在 navPins 里，写成 /-/<编号>，后端的地址校验能通过。 */
+export function isNavSeparator(pin: string): boolean {
+  return pin.startsWith("/-/");
+}
+
+/** 新分隔线的值：编号取没用过的最小值。 */
+export function newSeparator(pins: string[]): string {
+  let n = 1;
+  while (pins.includes(`/-/${n}`)) n++;
+  return `/-/${n}`;
+}
+
+export type RailItem =
+  | { kind: "entry"; entry: NavEntry }
+  | { kind: "sep"; key: string };
+
+/**
+ * 图标栏里的入口和分隔线（B189）。入口的规则同 railEntries。
+ * 去掉开头、结尾和连着的分隔线，入口被隐藏后不会留下两条线挨在一起。
+ */
+export function railItems(
+  entries: NavEntry[],
+  pins: string[] | null,
+  current: string | undefined,
+): RailItem[] {
+  const out: RailItem[] = [];
+  for (const pin of pins ?? defaultNavPins) {
+    if (isNavSeparator(pin)) {
+      if (out.length && out[out.length - 1].kind === "entry")
+        out.push({ kind: "sep", key: pin });
+      continue;
+    }
+    const entry = entries.find((e) => e.path === pin);
+    if (entry) out.push({ kind: "entry", entry });
+  }
+  if (out.length && out[out.length - 1].kind === "sep") out.pop();
+  const here = current && entries.find((e) => e.path === entryOf(current));
+  if (here && !out.some((item) => item.kind === "entry" && item.entry === here))
+    out.push({ kind: "entry", entry: here });
+  return out;
+}
+
+/** 把 from 位置的固定项移到 to 位置，返回新的列表。 */
+export function movePin(pins: string[], from: number, to: number): string[] {
+  const list = [...pins];
+  const [item] = list.splice(from, 1);
+  list.splice(Math.max(0, Math.min(to, list.length)), 0, item);
+  return list;
+}
+
 /** 固定或取消固定一个入口，返回新的列表。 */
 export function togglePin(pins: string[] | null, path: string): string[] {
   const list = pins ?? defaultNavPins;
