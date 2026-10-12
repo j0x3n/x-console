@@ -200,6 +200,16 @@ export function foldLines(
  * 界面上换回 host.run_command。effect 是默认的风险，run_command 由后端按命令判断，
  * 放在待确认动作的 effect 里。
  */
+/** 服务器 Agent 的权限档（B33）。服务器详情的 Agent 标签和 AI 窗口共用。 */
+export const HOST_PERMISSIONS: {
+  value: "confirm" | "read_auto" | "all_auto";
+  label: string;
+}[] = [
+  { value: "confirm", label: "Confirm each step" },
+  { value: "read_auto", label: "Run read-only commands" },
+  { value: "all_auto", label: "Run everything" },
+];
+
 export const HOST_TOOLS: Tool[] = [
   {
     name: "host__run_command",

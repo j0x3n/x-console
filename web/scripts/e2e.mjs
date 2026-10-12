@@ -472,6 +472,16 @@ try {
         );
       });
       assert.equal((await api("/ai/usage")).calls, 1);
+      // B183：统一会话列表里有这个对话，顶栏的 AI 按钮打开窗口能在左边看到它。
+      const aiSessions = await api("/ai/sessions");
+      assert.ok(
+        aiSessions.some((s) => s.id === `chat:${aiConversation.id}`),
+        JSON.stringify(aiSessions),
+      );
+      await page.locator(".ai-topbar").click();
+      const aiDialog = page.getByRole("dialog", { name: "AI", exact: true });
+      await aiDialog.locator(".ai-session", { hasText: "你好" }).first().waitFor();
+      await aiDialog.getByRole("button", { name: "关闭", exact: true }).click();
       setStage("B32 笔记自动标题和标签");
       const aiNoteBody = "这是一篇用于端到端验证的笔记。".repeat(12);
       const noteResponse = await page

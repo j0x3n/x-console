@@ -33,6 +33,7 @@ import Timeline from "../../assistant/components/Timeline";
 import {
   buildTimeline,
   conversationTitle,
+  HOST_PERMISSIONS,
   HOST_TOOLS,
 } from "../../assistant/logic";
 import { useAssistant } from "../../assistant/store";
@@ -41,11 +42,7 @@ import "../../assistant/assistant.css";
 import { useHostDraftMode } from "../agentDraft";
 import "../../assistant/i18n";
 
-const PERMISSIONS: { value: HostAgentPermission; label: string }[] = [
-  { value: "confirm", label: "Confirm each step" },
-  { value: "read_auto", label: "Run read-only commands" },
-  { value: "all_auto", label: "Run everything" },
-];
+const PERMISSIONS = HOST_PERMISSIONS;
 
 const EXAMPLES = [
   "Why is the disk almost full?",

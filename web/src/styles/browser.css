@@ -91,11 +91,6 @@ html .notes-layout {
   min-height: 0;
 }
 
-html .ai-fab {
-  right: calc(20px + var(--xc-safe-right));
-  bottom: calc(20px + var(--xc-safe-bottom));
-}
-
 html .ai-panel {
   max-height: calc(
     var(--xc-visible-height) - 40px - var(--xc-safe-top) - var(--xc-safe-bottom)
@@ -209,11 +204,6 @@ html .toast {
     right: var(--xc-safe-right);
     left: var(--xc-safe-left);
     padding-bottom: calc(10px + var(--xc-safe-bottom));
-  }
-
-  html .ai-fab {
-    right: calc(16px + var(--xc-safe-right));
-    bottom: calc(16px + var(--xc-safe-bottom));
   }
 
   html .ai-panel,

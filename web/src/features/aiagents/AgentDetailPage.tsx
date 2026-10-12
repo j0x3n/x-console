@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ListTodo, Pencil, Trash2 } from "lucide-react";
 import MoreMenu from "../../components/ui/MoreMenu";
 import PageHeading from "../../components/ui/PageHeading";
@@ -28,6 +28,8 @@ const ACCESS_LABEL: Record<string, string> = {
 export default function AgentDetailPage() {
   const t = useT();
   const id = Number(useParams().agentId);
+  // B183：?run=<执行 id>，从 AI 窗口“打开来源”过来时先选中这次执行
+  const run = Number(useSearchParams()[0].get("run")) || undefined;
   const agent = useAiAgent(id);
   const tasks = useTasks();
   const repos = useRepos();
@@ -139,7 +141,7 @@ export default function AgentDetailPage() {
             <div className="xc-card-head">
               <h2>{t("Execution log")}</h2>
             </div>
-            <AgentRunLog agentId={a.id} hideWhenEmpty />
+            <AgentRunLog key={run} agentId={a.id} runId={run} hideWhenEmpty />
           </section>
         </main>
         <aside className="aiagent-detail-side">

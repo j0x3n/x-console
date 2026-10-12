@@ -17,11 +17,7 @@ export default function NotesAiCard() {
       <div className="ai-switch-row">
         <span>
           <strong>{t("Title notes automatically")}</strong>
-          <small>
-            {t(
-              "Fills in an empty title 3 seconds after saving.",
-            )}
-          </small>
+          <small>{t("Fills in an empty title 3 seconds after saving.")}</small>
         </span>
         <Switch
           checked={s.autoTitle}

@@ -299,11 +299,6 @@
   width: 90px;
 }
 
-/* 有歌在播放条里时：页面底部让位，AI 浮钮上移 */
-html.music-full-open .ai-fab {
-  display: none;
-}
-
 /* 全屏播放页 */
 .music-full {
   position: fixed;

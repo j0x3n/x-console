@@ -1,68 +1,62 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
+  useLayoutEffect,
   useRef,
   useState,
-  type FormEvent,
-  type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 import {
-  ArrowUp,
-  Bot,
-  ChevronDown,
-  FileText,
-  Loader2,
+  ChevronLeft,
+  ExternalLink,
   Maximize2,
   Minimize2,
-  Paperclip,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Sparkles,
-  Square,
   Trash2,
   X,
 } from "lucide-react";
-import { toast } from "../../hooks/useToast";
 import { useQueryClient } from "@tanstack/react-query";
-import { errorMessage } from "../../api/client";
 import { onServerEvent } from "../../api/events";
-import { ErrorState, Loading } from "../../components/ui/States";
+import { ErrorState } from "../../components/ui/States";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 import { useT } from "../../contexts/LanguageContext";
 import {
   aiKeys,
-  attachmentUrl,
   isNotLive,
-  uploadAttachment,
   useAiProviders,
+  useAiSessions,
   useConversation,
   useConversations,
   useDeleteConversation,
   useModelSettings,
-  useSendMessage,
-  type ChatSettings,
-  useStopReply,
-  useTools,
-  type AiAttachment,
-  type PageContext,
+  type AiSession,
 } from "./api";
-import Timeline from "./components/Timeline";
-import ChatControls from "./components/ChatControls";
-import { buildTimeline, conversationTitle } from "./logic";
+import ConversationView from "./components/ConversationView";
+import RunView from "./components/RunView";
+import SessionList, {
+  SessionIcon,
+  sourceLabel,
+  StatusBadge,
+} from "./components/SessionList";
+import { conversationTitle } from "./logic";
+import { isSelected, sessionSource } from "./sessions";
 import { clampOffset, useAssistant } from "./store";
 import "./i18n";
 import "./assistant.css";
-import { confirmAction } from "../../components/ui/ConfirmDialog";
 
-const PANEL = { width: 400, height: 600 };
+const PANEL = { width: 760, height: 620 };
+/** 窗口比这个窄时，列表和内容分两层显示。 */
+const NARROW = 600;
 
 /*
- * AI（B3，原名 AI 助手）：右下角的圆形按钮，点开是浮窗。⌘J 开关。
- * 浮窗可以拖动，也可以放大成右侧整列。手机上是全屏的底部弹层。
+ * AI（B3，B183 重做）：顶栏的 AI 按钮或 ⌘J 打开。左边是全部会话（面板对话、服务器 Agent、
+ * Agent 执行记录），右边是选中的那个。浮窗可以拖动，也可以放大成右侧整列。手机上全屏。
  */
 export default function AssistantPanel() {
-  const t = useT();
   const open = useAssistant((s) => s.open);
   const toggle = useAssistant((s) => s.toggle);
   useAssistantEvents();
@@ -78,196 +72,139 @@ export default function AssistantPanel() {
     return () => document.removeEventListener("keydown", onKey);
   }, [toggle]);
 
-  return (
-    <>
-      {!open && (
-        <button
-          type="button"
-          className="ai-fab"
-          aria-label={`${t("AI")} (⌘J)`}
-          title={`${t("AI")} (⌘J)`}
-          onClick={toggle}
-        >
-          <Sparkles size={20} />
-        </button>
-      )}
-      {open && <Panel />}
-    </>
-  );
+  return open ? <Panel /> : null;
 }
 
-/** 处理 ai.* 事件：文字增量、存了新消息、有动作待确认、一轮结束、出错。 */
+/** 处理 ai.* 事件：文字增量、存了新消息、有动作待确认、一轮结束、出错。会话列表跟着刷新。 */
 function useAssistantEvents() {
   const qc = useQueryClient();
-  useEffect(
-    () =>
-      onServerEvent((event) => {
-        if (!event.topic.startsWith("ai.")) return;
-        const data = (event.data ?? {}) as {
-          conversationId?: number;
-          text?: string;
-          message?: string;
-        };
-        const id = data.conversationId;
-        if (!id) return;
-        const s = useAssistant.getState();
-        const refresh = () =>
-          qc.invalidateQueries({ queryKey: aiKeys.conversation(id) });
-        switch (event.topic) {
-          case "ai.delta":
-            s.appendDelta(id, data.text ?? "");
-            break;
-          case "ai.message_saved":
-          case "ai.action_pending":
-            // 存下来的消息已经包含这段文字，清掉临时的。
-            s.clearStreaming(id);
-            refresh();
-            break;
-          case "ai.message_done":
-            s.clearStreaming(id);
-            refresh();
-            qc.invalidateQueries({ queryKey: aiKeys.conversations });
-            qc.invalidateQueries({ queryKey: ["ai", "host-conversations"] });
-            break;
-          case "ai.error":
-            s.setError(id, data.message ?? "出错了");
-            refresh();
-            break;
-        }
-      }),
-    [qc],
-  );
-}
-
-function pageContext(pathname: string): PageContext {
-  const h1 = document.querySelector("#main .xc-page-title h1, #main h1");
-  return { path: pathname, title: h1?.textContent?.trim() ?? "" };
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // 一轮里事件很多，列表合并成 300 毫秒刷新一次
+    const refreshSessions = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        qc.invalidateQueries({ queryKey: aiKeys.sessions });
+      }, 300);
+    };
+    const off = onServerEvent((event) => {
+      if (event.topic.startsWith("ai_agent.")) {
+        refreshSessions();
+        return;
+      }
+      if (!event.topic.startsWith("ai.")) return;
+      const data = (event.data ?? {}) as {
+        conversationId?: number;
+        text?: string;
+        message?: string;
+      };
+      const id = data.conversationId;
+      if (!id) return;
+      const s = useAssistant.getState();
+      const refresh = () =>
+        qc.invalidateQueries({ queryKey: aiKeys.conversation(id) });
+      switch (event.topic) {
+        case "ai.delta":
+          s.appendDelta(id, data.text ?? "");
+          break;
+        case "ai.message_started":
+          refresh();
+          refreshSessions();
+          break;
+        case "ai.message_saved":
+        case "ai.action_pending":
+          // 存下来的消息已经包含这段文字，清掉临时的。
+          s.clearStreaming(id);
+          refresh();
+          refreshSessions();
+          break;
+        case "ai.message_done":
+          s.clearStreaming(id);
+          refresh();
+          qc.invalidateQueries({ queryKey: aiKeys.conversations });
+          qc.invalidateQueries({ queryKey: ["ai", "host-conversations"] });
+          refreshSessions();
+          break;
+        case "ai.permission_changed":
+          refresh();
+          break;
+        case "ai.error":
+          s.setError(id, data.message ?? "出错了");
+          refresh();
+          refreshSessions();
+          break;
+      }
+    });
+    return () => {
+      off();
+      if (timer) clearTimeout(timer);
+    };
+  }, [qc]);
 }
 
 function Panel() {
   const t = useT();
-  const location = useLocation();
+  const qc = useQueryClient();
   const setOpen = useAssistant((s) => s.setOpen);
   const expanded = useAssistant((s) => s.expanded);
   const setExpanded = useAssistant((s) => s.setExpanded);
   const offset = useAssistant((s) => s.offset);
   const setOffset = useAssistant((s) => s.setOffset);
   const conversationId = useAssistant((s) => s.conversationId);
+  const runId = useAssistant((s) => s.runId);
   const setConversation = useAssistant((s) => s.setConversation);
-  const streaming = useAssistant((s) =>
-    conversationId ? s.streaming[conversationId] : undefined,
-  );
-  const liveError = useAssistant((s) =>
-    conversationId ? s.errors[conversationId] : undefined,
-  );
+  const setRun = useAssistant((s) => s.setRun);
+  const listOpen = useAssistant((s) => s.listOpen);
+  const setListOpen = useAssistant((s) => s.setListOpen);
 
   const conversations = useConversations();
   const notLive = conversations.isError && isNotLive(conversations.error);
   const providers = useAiProviders(!notLive);
   const models = useModelSettings(!notLive && !!providers.data);
   const noKey = models.data !== undefined && !models.data.agent;
-  const tools = useTools(!notLive);
+  const sessions = useAiSessions(!notLive);
   const detail = useConversation(notLive ? null : conversationId);
-  const send = useSendMessage();
-  const stop = useStopReply();
-  // B60：这个对话的权限、模型和思考程度。还没有对话时先记在这里。
-  const [draft, setDraft] = useState<ChatSettings | null>(null);
-  const current = detail.data?.conversation;
-  const chat: ChatSettings & { until?: string | null } =
-    conversationId && current
-      ? {
-          permission: current.panelPermission ?? "manual",
-          model: current.model ?? "",
-          effort: current.effort ?? "",
-          until: current.panelPermissionUntil,
-        }
-      : (draft ?? {
-          permission: models.data?.defaultPermission ?? "manual",
-          model: "",
-          effort: "",
-        });
   const remove = useDeleteConversation();
 
-  const [text, setText] = useState("");
-  const [attachments, setAttachments] = useState<AiAttachment[]>([]);
-  const [uploading, setUploading] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // 窄的时候列表和内容分两层：narrowList 为真时只显示列表。
+  const ref = useRef<HTMLElement>(null);
+  const [narrow, setNarrow] = useState(false);
+  const [narrowList, setNarrowList] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => {
+      const width = el.getBoundingClientRect().width;
+      // 宽度为 0（还没布局）时不算窄
+      setNarrow(width > 0 && width < NARROW);
+    };
+    check();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const showList = narrow ? narrowList : listOpen;
+  const showDetail = !narrow || !narrowList;
 
-  // 当前对话被删了或不存在时，回到新对话。
-  useEffect(() => {
-    if (detail.isError) setConversation(null);
-  }, [detail.isError]);
-
-  const running = !!detail.data?.running || send.isPending;
-  const items = useMemo(
-    () =>
-      detail.data
-        ? buildTimeline(
-            detail.data.messages,
-            detail.data.pendingActions,
-            tools.data ?? [],
-            { running, streaming },
-          )
-        : [],
-    [detail.data, tools.data, running, streaming],
+  const list = sessions.data ?? [];
+  const current: AiSession | undefined = list.find((s) =>
+    isSelected(s, conversationId, runId),
   );
-
-  // 有新内容时滚到底。
+  // 选中的执行记录不在列表里了（比如被删掉），回到新对话
   useEffect(() => {
-    const el = bodyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [items.length, streaming]);
+    if (runId && sessions.data && !current) setRun(null);
+  }, [runId, sessions.data, current]);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, [conversationId]);
-
-  // B39：图片和文本文件先上传，发消息时带上 id。
-  const addFiles = (files: File[]) => {
-    const room = 10 - attachments.length - uploading;
-    if (files.length > room)
-      toast({ message: t("Up to 10 attachments per message"), tone: "error" });
-    for (const file of files.slice(0, Math.max(room, 0))) {
-      setUploading((n) => n + 1);
-      uploadAttachment(file)
-        .then((a) => setAttachments((list) => [...list, a]))
-        .catch((err) => toast({ message: errorMessage(err), tone: "error" }))
-        .finally(() => setUploading((n) => n - 1));
-    }
+  const pick = (s: AiSession) => {
+    if (s.kind === "agent") setRun(s.refId);
+    else setConversation(s.refId);
+    setNarrowList(false);
   };
-
-  const submit = (e?: FormEvent) => {
-    e?.preventDefault();
-    const value = text.trim();
-    if ((!value && !attachments.length) || running || uploading) return;
-    send.mutate(
-      {
-        conversationId,
-        text: value || t("Please look at the attachments."),
-        context: pageContext(location.pathname),
-        attachmentIds: attachments.map((a) => a.id),
-        settings: conversationId ? undefined : chat,
-      },
-      {
-        onSuccess: (id) => {
-          setText("");
-          setAttachments([]);
-          setDraft(null);
-          if (id !== conversationId) setConversation(id);
-        },
-      },
-    );
-  };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // 输入法选字时的回车不发送。
-    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      submit();
-    }
+  const startNew = () => {
+    setConversation(null);
+    setNarrowList(false);
   };
 
   // 拖动标题栏移动浮窗。放大和手机上不能拖。
@@ -276,12 +213,9 @@ function Panel() {
   );
   const onPointerDown = (e: PointerEvent<HTMLElement>) => {
     if (expanded || window.innerWidth <= 640) return;
-    // 按钮、历史菜单和它的遮罩上不开始拖动
     if (
       e.button !== 0 ||
-      (e.target as HTMLElement).closest(
-        "button, input, select, .ai-history-wrap",
-      )
+      (e.target as HTMLElement).closest("button, input, select, a")
     )
       return;
     // 不让浏览器开始选中文字或拖拽，否则收不到松开事件，浮窗会一直跟着鼠标
@@ -298,10 +232,11 @@ function Panel() {
         drag.current = null;
         return;
       }
+      const rect = ref.current?.getBoundingClientRect();
       setOffset(
         clampOffset(
           { x: d.ox - (e.clientX - d.x), y: d.oy - (e.clientY - d.y) },
-          PANEL,
+          rect ? { width: rect.width, height: rect.height } : PANEL,
           { width: window.innerWidth, height: window.innerHeight },
         ),
       );
@@ -315,16 +250,22 @@ function Panel() {
       el.releasePointerCapture(e.pointerId);
   };
 
-  const title = detail.data
-    ? conversationTitle(detail.data.conversation.title)
-    : t("New conversation");
+  const conv = detail.data?.conversation;
+  const title = runId
+    ? (current?.title ?? "")
+    : conv
+      ? conversationTitle(conv.title)
+      : t("New conversation");
+  const source = current ? sessionSource(current) : null;
+  const deletable = !runId && !!conversationId && !!conv;
   const style = expanded
     ? undefined
     : { right: 20 + offset.x, bottom: 20 + offset.y };
 
   return (
     <section
-      className={`ai-panel${expanded ? " expanded" : ""}`}
+      ref={ref}
+      className={`ai-panel${expanded ? " expanded" : ""}${showList ? " with-list" : ""}${narrow ? " narrow" : ""}`}
       style={style}
       role="dialog"
       aria-label={t("AI")}
@@ -337,66 +278,27 @@ function Panel() {
         onPointerCancel={onPointerUp}
         onLostPointerCapture={() => (drag.current = null)}
       >
-        <Bot size={16} className="ai-head-icon" />
-        <div className="ai-history-wrap">
-          <button
-            type="button"
-            className="ai-title"
-            aria-expanded={historyOpen}
-            disabled={notLive}
-            onClick={() => setHistoryOpen((v) => !v)}
-          >
-            <span>{title}</span>
-            <ChevronDown size={13} />
-          </button>
-          {historyOpen && conversations.data && (
-            <>
-              <div
-                className="ai-menu-backdrop"
-                onClick={() => setHistoryOpen(false)}
-              />
-              <div className="ai-history" role="menu">
-                {conversations.data.length === 0 && (
-                  <p className="ai-muted">{t("No conversations yet")}</p>
-                )}
-                {conversations.data.map((c) => (
-                  <div
-                    key={c.id}
-                    className={`ai-history-item${c.id === conversationId ? " active" : ""}`}
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setConversation(c.id);
-                        setHistoryOpen(false);
-                      }}
-                    >
-                      {conversationTitle(c.title)}
-                    </button>
-                    <button
-                      type="button"
-                      className="ai-icon-btn"
-                      aria-label={`${t("Delete")} ${conversationTitle(c.title)}`}
-                      onClick={async () =>
-                        (await confirmAction({
-                          title: `${t("Delete")}“${conversationTitle(c.title)}”？`,
-                        })) &&
-                        remove.mutate(c.id, {
-                          onSuccess: () => {
-                            if (c.id === conversationId) setConversation(null);
-                          },
-                        })
-                      }
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
+        <button
+          type="button"
+          className="ai-icon-btn"
+          title={showList ? t("Hide list") : t("Show list")}
+          aria-label={showList ? t("Hide list") : t("Show list")}
+          aria-expanded={showList}
+          disabled={notLive}
+          onClick={() =>
+            narrow ? setNarrowList(!narrowList) : setListOpen(!listOpen)
+          }
+        >
+          {showList ? (
+            <PanelLeftClose size={16} />
+          ) : (
+            <PanelLeftOpen size={16} />
           )}
-        </div>
+        </button>
+        <span className="ai-brand">
+          <Sparkles size={15} />
+          AI
+        </span>
         <span className="xc-spacer" />
         <button
           type="button"
@@ -404,10 +306,7 @@ function Panel() {
           title={t("New conversation")}
           aria-label={t("New conversation")}
           disabled={notLive}
-          onClick={() => {
-            setConversation(null);
-            setText("");
-          }}
+          onClick={startNew}
         >
           <Plus size={16} />
         </button>
@@ -431,160 +330,107 @@ function Panel() {
         </button>
       </header>
 
-      <div className="ai-body" ref={bodyRef} aria-live="polite">
-        {notLive ? (
+      {notLive ? (
+        <div className="ai-body">
           <div className="ai-empty">
             <Sparkles size={26} />
             <strong>AI 还没上线</strong>
             <p>界面已经做好，服务端还在开发。</p>
           </div>
-        ) : providers.isError ? (
+        </div>
+      ) : providers.isError ? (
+        <div className="ai-body">
           <ErrorState
             error={providers.error}
             onRetry={() => providers.refetch()}
           />
-        ) : noKey ? (
-          <div className="ai-empty">
-            <Sparkles size={26} />
-            <strong>还没有选 Agent 模型</strong>
-            <p>
-              去 <Link to="/settings/assistant">设置 → AI</Link>{" "}
-              添加供应商，再选一个 Agent 模型就能用了。
-            </p>
-          </div>
-        ) : conversationId && detail.isPending ? (
-          <Loading />
-        ) : items.length === 0 && !running ? (
-          <div className="ai-empty">
-            <Sparkles size={26} />
-            <strong>有什么要我做的？</strong>
-            <p>
-              我能查看和修改笔记、提醒、项目、习惯、云盘，也能看服务器状态。
-            </p>
-          </div>
-        ) : (
-          <>
-            <Timeline items={items} />
-            {running &&
-              !streaming &&
-              !items.some(
-                (i) => i.kind === "action" && i.status === "waiting",
-              ) && (
-                <div className="ai-thinking" role="status">
-                  <span />
-                  <span />
-                  <span />
+        </div>
+      ) : (
+        <div className="ai-main">
+          {showList && (
+            <SessionList
+              sessions={list}
+              conversationId={conversationId}
+              runId={runId}
+              onPick={pick}
+            />
+          )}
+          {showDetail && (
+            <div className="ai-detail">
+              <div className="ai-detail-head">
+                {narrow && (
+                  <button
+                    type="button"
+                    className="ai-icon-btn"
+                    title={t("Back")}
+                    aria-label={t("Back")}
+                    onClick={() => setNarrowList(true)}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                )}
+                {current ? (
+                  <SessionIcon session={current} size={26} />
+                ) : (
+                  <SessionIcon
+                    session={{ kind: "chat", sourceName: "", status: "idle" }}
+                    size={26}
+                  />
+                )}
+                <div className="ai-detail-title">
+                  <strong title={title}>{title}</strong>
+                  {current && (
+                    <span className="ai-detail-sub">
+                      <span>{sourceLabel(current, t)}</span>
+                      <StatusBadge session={current} />
+                    </span>
+                  )}
                 </div>
-              )}
-          </>
-        )}
-        {(liveError || send.isError) && (
-          <p className="xc-error-text ai-error">
-            {liveError ?? errorMessage(send.error)}
-          </p>
-        )}
-      </div>
-
-      {(attachments.length > 0 || uploading > 0) && (
-        <div className="ai-pending-attachments">
-          {attachments.map((a) => (
-            <span key={a.id} className="ai-attach-chip" title={a.name}>
-              {a.kind === "image" ? (
-                <img src={attachmentUrl(a.id)} alt="" />
+                {source && (
+                  <Link
+                    className="xc-btn small ghost ai-source"
+                    to={source}
+                    title={t("Open where it runs")}
+                  >
+                    <ExternalLink size={13} />
+                    <span>{t("Open where it runs")}</span>
+                  </Link>
+                )}
+                {deletable && (
+                  <button
+                    type="button"
+                    className="ai-icon-btn"
+                    title={t("Delete")}
+                    aria-label={`${t("Delete")} ${title}`}
+                    onClick={async () =>
+                      (await confirmAction({
+                        title: `${t("Delete")}“${title}”？`,
+                      })) &&
+                      remove.mutate(conversationId, {
+                        onSuccess: () => {
+                          setConversation(null);
+                          qc.invalidateQueries({ queryKey: aiKeys.sessions });
+                        },
+                      })
+                    }
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+              {runId ? (
+                <RunView key={runId} runId={runId} session={current} />
               ) : (
-                <FileText size={13} />
+                <ConversationView
+                  key={conversationId ?? "new"}
+                  conversationId={conversationId}
+                  noKey={noKey}
+                />
               )}
-              <span>{a.name}</span>
-              <button
-                type="button"
-                className="ai-attach-remove"
-                aria-label={`${t("Remove attachment")} ${a.name}`}
-                onClick={() =>
-                  setAttachments((list) => list.filter((x) => x.id !== a.id))
-                }
-              >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
-          {uploading > 0 && (
-            <span className="ai-attach-chip" role="status">
-              <Loader2 size={13} className="ai-spin" />
-              <span>{t("Uploading…")}</span>
-            </span>
+            </div>
           )}
         </div>
       )}
-      {!notLive && !noKey && (
-        <ChatControls
-          conversationId={conversationId}
-          value={chat}
-          defaultModel={models.data?.agent?.model ?? ""}
-          onDraft={setDraft}
-        />
-      )}
-      <form className="ai-composer" onSubmit={submit}>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          hidden
-          accept="image/png,image/jpeg,image/webp,image/gif,text/*,.md,.json,.yaml,.yml,.toml,.csv,.log,.go,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.java,.rs,.c,.h,.cpp,.css,.html,.xml,.ini,.conf"
-          onChange={(e) => {
-            addFiles(Array.from(e.target.files ?? []));
-            e.target.value = "";
-          }}
-        />
-        <button
-          type="button"
-          className="ai-attach-btn"
-          title={t("Attach images or text files")}
-          aria-label={t("Attach images or text files")}
-          disabled={notLive}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Paperclip size={15} />
-        </button>
-        <textarea
-          ref={inputRef}
-          rows={1}
-          value={text}
-          disabled={notLive}
-          placeholder={t("Ask or tell me what to do")}
-          aria-label={t("Message")}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-          onPaste={(e) => {
-            const files = Array.from(e.clipboardData.files);
-            if (files.length) {
-              e.preventDefault();
-              addFiles(files);
-            }
-          }}
-        />
-        {running && conversationId ? (
-          <button
-            type="button"
-            className="ai-send stop"
-            title={t("Stop")}
-            aria-label={t("Stop")}
-            onClick={() => stop.mutate(conversationId)}
-          >
-            <Square size={13} />
-          </button>
-        ) : (
-          <button
-            className="ai-send"
-            title={t("Send")}
-            aria-label={t("Send")}
-            disabled={
-              (!text.trim() && !attachments.length) || uploading > 0 || notLive
-            }
-          >
-            <ArrowUp size={16} />
-          </button>
-        )}
-      </form>
     </section>
   );
 }

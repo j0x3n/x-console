@@ -190,4 +190,38 @@ registerZh({
   "Remove attachment": "去掉附件",
   "Off is quickest. Turn it up for polishing long notes.":
     "关掉最快。润色长笔记时可以调高。",
+  // B183：AI 窗口
+  "At work": "工作中",
+  Server: "服务器",
+  "AI agent": "Agent",
+  Chat: "对话",
+  "In progress": "进行中",
+  Recent: "最近",
+  Idle: "空闲",
+  Canceled: "已取消",
+  "Search conversations": "搜索对话",
+  Conversations: "会话",
+  "Filter conversations": "筛选会话",
+  "No matching conversations": "没有匹配的对话",
+  "Open where it runs": "打开来源",
+  "Show list": "显示列表",
+  "Hide list": "收起列表",
+  Back: "返回",
+  "{n} at work": "{n} 个在工作",
+  "{n} waiting for you": "{n} 个等你确认",
+  "This is an agent run. You can approve, reject or stop it here.":
+    "这是 Agent 的执行记录，可以在这里批准、拒绝或停止。",
+  "Run not found": "找不到这次执行",
+  "Confirm each step": "每步确认",
+  "Run read-only commands": "只读命令自动执行",
+  "Run everything": "全部自动执行",
+  "Run everything without asking?": "全部自动执行，不再问你？",
+  "Dangerous commands still need your confirmation. It goes back to confirming each step after 2 hours without a new message.":
+    "高危命令仍然要你确认。2 小时没有新消息后改回每步确认。",
+  "Run command": "执行命令",
+  "Read file": "读文件",
+  "Write file": "写文件",
+  "List folder": "列目录",
+  "Tell the Agent what to do on this machine":
+    "告诉 Agent 要在这台机器上做什么",
 });

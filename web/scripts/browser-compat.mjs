@@ -226,7 +226,7 @@ for (const [name, engine] of Object.entries({ chromium, firefox, webkit })) {
         .getByRole("button", { name: "关闭", exact: true })
         .click();
       await page.setViewportSize(size);
-      await page.locator(".ai-fab").click();
+      await page.locator(".ai-topbar").click();
       await page.getByRole("dialog", { name: "AI", exact: true }).waitFor();
       await page.setViewportSize({ width: size.width, height: 360 });
       await page.waitForTimeout(100);

@@ -32,9 +32,12 @@ export default function AgentRunLog({
   agentId,
   issueKey,
   hideWhenEmpty,
+  runId,
 }: {
   agentId?: number;
   issueKey?: string;
+  /** B183：先选中这次执行（从 AI 窗口“打开来源”过来） */
+  runId?: number;
   /** 卡片详情里没有执行记录时整块不显示 */
   hideWhenEmpty?: boolean;
 }) {
@@ -55,7 +58,9 @@ export default function AgentRunLog({
       }),
     [runs.data, tasks.data, agentId, issueKey],
   );
-  const [picked, setPicked] = useState<string>();
+  const [picked, setPicked] = useState<string | undefined>(
+    runId ? `r${runId}` : undefined,
+  );
   const current =
     entries.find((e) => e.key === picked) ??
     entries.find((e) => e.active) ??
@@ -135,7 +140,7 @@ export default function AgentRunLog({
   );
 }
 
-function StopButton({ entry }: { entry: RunEntry }) {
+export function StopButton({ entry }: { entry: RunEntry }) {
   const t = useT();
   const cancelRun = useCancelAgentRun();
   const cancelTask = useCancelTask();
@@ -155,7 +160,13 @@ function StopButton({ entry }: { entry: RunEntry }) {
 }
 
 /** CLI 类型：直接用编码任务的输出。 */
-function TaskLog({ taskId, running }: { taskId: number; running: boolean }) {
+export function TaskLog({
+  taskId,
+  running,
+}: {
+  taskId: number;
+  running: boolean;
+}) {
   const events = useTaskEvents(taskId);
   if (events.isPending) return <Loading />;
   if (events.isError) return null;
@@ -167,7 +178,7 @@ function TaskLog({ taskId, running }: { taskId: number; running: boolean }) {
 }
 
 /** 内置类型：工具调用、输出、出错，一行一条。 */
-function RunEvents({ runId }: { runId?: number }) {
+export function RunEvents({ runId }: { runId?: number }) {
   const t = useT();
   const language = useLanguage();
   const events = useAgentRunEvents(runId);

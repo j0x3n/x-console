@@ -45,6 +45,7 @@ export type HostAgentPermission = components["schemas"]["HostAgentPermission"];
 
 export const aiKeys = {
   all: ["ai"] as const,
+  sessions: ["ai", "sessions"] as const,
   conversations: ["ai", "conversations"] as const,
   conversation: (id: number) => ["ai", "conversation", id] as const,
   tools: ["ai", "tools"] as const,
@@ -118,6 +119,21 @@ export function attachmentUrl(id: number) {
 }
 
 /** 没有对话时先建一个，再发消息。返回对话 id。 */
+// ---- B183：AI 窗口左边的会话列表（对话、服务器 Agent、Agent 执行记录） ----
+
+export type AiSession = components["schemas"]["AiSession"];
+
+export function useAiSessions(enabled = true) {
+  return useQuery({
+    queryKey: aiKeys.sessions,
+    queryFn: () =>
+      unwrap(aiApi.GET("/ai/sessions", { params: { query: { limit: 200 } } })),
+    enabled,
+    // 接口还没上线（404）时不反复重试
+    retry: (count, err) => !isNotLive(err) && count < 2,
+  });
+}
+
 export function useSendMessage() {
   const qc = useQueryClient();
   return useMutation({

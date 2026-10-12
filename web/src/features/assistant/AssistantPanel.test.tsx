@@ -79,6 +79,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import AssistantPanel from "./AssistantPanel";
+import AssistantButton from "./AssistantButton";
 import { useAssistant } from "./store";
 
 function renderPanel() {
@@ -91,6 +92,7 @@ function renderPanel() {
             <h1>XC 项目</h1>
           </div>
         </main>
+        <AssistantButton />
         <AssistantPanel />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -191,6 +193,8 @@ afterEach(() => {
     open: false,
     expanded: false,
     conversationId: null,
+    runId: null,
+    listOpen: true,
     streaming: {},
     errors: {},
   });
@@ -357,5 +361,67 @@ describe("assistant panel", () => {
     expect(elevation.calls).toBe(0);
     fireEvent.change(perm, { target: { value: "all" } });
     await waitFor(() => expect(elevation.calls).toBe(1));
+  });
+
+  it("lists server agents with chats; picking one shows it with its source (B183)", async () => {
+    live();
+    api.routes.set("GET /ai/sessions", () => ({
+      status: 200,
+      body: [
+        {
+          id: "host:8",
+          kind: "host",
+          refId: 8,
+          title: "磁盘快满了",
+          sourceName: "hk-1",
+          hostId: "h1",
+          status: "working",
+          pendingCount: 0,
+          updatedAt: at,
+        },
+        {
+          id: "chat:5",
+          kind: "chat",
+          refId: 5,
+          title: "删笔记",
+          sourceName: "",
+          status: "idle",
+          pendingCount: 0,
+          updatedAt: at,
+        },
+      ],
+    }));
+    api.routes.set("GET /ai/conversations/8", () => ({
+      status: 200,
+      body: {
+        conversation: {
+          id: 8,
+          title: "磁盘快满了",
+          hostId: "h1",
+          permission: "read_auto",
+          createdAt: at,
+          updatedAt: at,
+        },
+        messages: [],
+        pendingActions: [],
+        running: true,
+      },
+    }));
+    renderPanel();
+    // 顶栏按钮提示有一个在工作
+    const button = await screen.findByRole("button", { name: /1 个在工作/ });
+    fireEvent.click(button);
+    fireEvent.click(await screen.findByRole("button", { name: /磁盘快满了/ }));
+    expect(useAssistant.getState().conversationId).toBe(8);
+    const link = await screen.findByRole("link", { name: /打开来源/ });
+    expect(link.getAttribute("href")).toBe("/servers/h1/agent?c=8");
+    // 服务器会话显示服务器 Agent 的权限，不显示附件按钮
+    expect(
+      ((await screen.findByLabelText("权限")) as HTMLSelectElement).value,
+    ).toBe("read_auto");
+    expect(screen.queryByLabelText("添加图片或文本文件")).toBeNull();
+    // 筛选“服务器”只剩服务器会话
+    fireEvent.click(screen.getByRole("button", { name: "服务器" }));
+    expect(screen.queryByRole("button", { name: /删笔记/ })).toBeNull();
   });
 });

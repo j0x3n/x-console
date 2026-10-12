@@ -5,6 +5,8 @@ import { create } from "zustand";
  * streaming 是正在生成的文字，按对话分开存，收到 ai.message_done 后清空。
  */
 const CONV_KEY = "xc.ai.conversation";
+const RUN_KEY = "xc.ai.run";
+const LIST_KEY = "xc.ai.list";
 
 function readConversation(): number | null {
   try {
@@ -15,12 +17,34 @@ function readConversation(): number | null {
   }
 }
 
+function readNumber(key: string): number | null {
+  try {
+    const v = Number(localStorage.getItem(key));
+    return v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function save(key: string, value: string | null) {
+  try {
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    /* 记不住就算了 */
+  }
+}
+
 interface AssistantState {
   open: boolean;
   expanded: boolean;
   /** 浮窗离右下角的偏移，拖动后改变。 */
   offset: { x: number; y: number };
   conversationId: number | null;
+  /** B183：选中的 Agent 执行记录。和 conversationId 只会有一个不为空，都为空是新对话。 */
+  runId: number | null;
+  /** B183：左边的会话列表是否显示。 */
+  listOpen: boolean;
   streaming: Record<number, string>;
   errors: Record<number, string>;
   setOpen: (open: boolean) => void;
@@ -28,6 +52,8 @@ interface AssistantState {
   setExpanded: (expanded: boolean) => void;
   setOffset: (offset: { x: number; y: number }) => void;
   setConversation: (id: number | null) => void;
+  setRun: (id: number | null) => void;
+  setListOpen: (open: boolean) => void;
   appendDelta: (id: number, text: string) => void;
   clearStreaming: (id: number) => void;
   setError: (id: number, message: string) => void;
@@ -38,6 +64,14 @@ export const useAssistant = create<AssistantState>()((set, get) => ({
   expanded: false,
   offset: { x: 0, y: 0 },
   conversationId: readConversation(),
+  runId: readNumber(RUN_KEY),
+  listOpen: (() => {
+    try {
+      return localStorage.getItem(LIST_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  })(),
   streaming: {},
   errors: {},
   setOpen: (open) => set({ open }),
@@ -45,13 +79,18 @@ export const useAssistant = create<AssistantState>()((set, get) => ({
   setExpanded: (expanded) => set({ expanded }),
   setOffset: (offset) => set({ offset }),
   setConversation: (id) => {
-    try {
-      if (id) localStorage.setItem(CONV_KEY, String(id));
-      else localStorage.removeItem(CONV_KEY);
-    } catch {
-      /* 记不住就算了 */
-    }
-    set({ conversationId: id });
+    save(CONV_KEY, id ? String(id) : null);
+    save(RUN_KEY, null);
+    set({ conversationId: id, runId: null });
+  },
+  setRun: (id) => {
+    save(RUN_KEY, id ? String(id) : null);
+    save(CONV_KEY, null);
+    set({ runId: id, conversationId: null });
+  },
+  setListOpen: (listOpen) => {
+    save(LIST_KEY, listOpen ? null : "0");
+    set({ listOpen });
   },
   appendDelta: (id, text) => {
     const { streaming, errors } = get();

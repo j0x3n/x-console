@@ -628,10 +628,6 @@
   padding-right: 6px;
   border-right: 1px solid var(--xc-border);
 }
-/* 查看器打开时藏起 AI 助手的圆按钮，免得挡住内容。 */
-body:has(.drive-viewer-backdrop) .ai-fab {
-  display: none;
-}
 .drive-viewer-nav:hover {
   opacity: 1;
   color: var(--xc-text);
