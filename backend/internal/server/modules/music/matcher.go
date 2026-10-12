@@ -6,9 +6,13 @@ import (
 	"errors"
 	"image"
 	"log/slog"
+	"net"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/modules/music/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/music/db"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
@@ -89,13 +93,19 @@ type found struct {
 	candidates []candidate // for the user to choose from, when nothing was accepted
 }
 
+// matchParts 指定这次匹配允许读取和替换的部分。
+type matchParts struct {
+	lyrics bool
+	cover  bool
+}
+
 // collect asks every enabled source for hits. A source that fails is skipped.
 func (m *Module) collect(ctx context.Context, o options, q query) []candidate {
 	var all []candidate
 	for _, p := range o.enabled(m.providers) {
 		cands, err := p.Search(ctx, q)
 		if err != nil {
-			slog.Debug("music: source search failed", "source", p.Name(), "err", err)
+			slog.Warn("音乐来源搜索失败", "source", p.Name(), "err", err)
 			continue
 		}
 		all = append(all, cands...)
@@ -103,23 +113,95 @@ func (m *Module) collect(ctx context.Context, o options, q query) []candidate {
 	return all
 }
 
-// chooseCandidates puts the closest hits into the pending list and lets the
-// user pick (2026-10-11 自动匹配的结果不对时，用户手动看别的来源).
-func (m *Module) chooseCandidates(ctx context.Context, t db.MusicTrack) (db.MusicTrack, error) {
+// checkSources 同时检查所有来源，整体最多等待 20 秒。
+// 只搜索一次，不下载歌词和封面，也不修改歌曲或候选。
+func (m *Module) checkSources(ctx context.Context, q query) []api.MusicSourceCheck {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	o := m.options(ctx)
+	out := make([]api.MusicSourceCheck, len(AllSources))
+	var wg sync.WaitGroup
+	for i, source := range AllSources {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			start := time.Now()
+			cands, err := m.providers.get(source).Search(ctx, q)
+			row := api.MusicSourceCheck{Source: api.MusicSourceCheckSource(source), Enabled: o.Providers[source], Ok: err == nil, Ms: int(time.Since(start).Milliseconds())}
+			if err != nil {
+				row.Error = sourceCheckError(err)
+			} else {
+				row.Hits = len(cands)
+				for _, c := range cands {
+					if c.Lyrics {
+						row.LyricsHits++
+					}
+					if c.Cover {
+						row.CoverHits++
+					}
+				}
+			}
+			out[i] = row
+		}()
+	}
+	wg.Wait()
+	return out
+}
+
+func sourceCheckError(err error) string {
+	var netErr net.Error
+	if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &netErr) && netErr.Timeout() {
+		return "超时"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "请求已取消"
+	}
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return "连接来源失败"
+	}
+	if errors.Is(err, errSourceFormat) || strings.HasPrefix(err.Error(), "网易云") || strings.HasPrefix(err.Error(), "HTTP ") {
+		return err.Error()
+	}
+	return "读取来源失败"
+}
+
+// partCandidates 分别挑选歌词和封面候选，按来源和来源编号去重。
+func partCandidates(q query, all []candidate, parts matchParts, limit int) []candidate {
+	var lyrics, covers []candidate
+	for _, c := range all {
+		if parts.lyrics && c.Lyrics {
+			lyrics = append(lyrics, c)
+		}
+		if parts.cover && c.Cover {
+			covers = append(covers, c)
+		}
+	}
+	seen := map[[2]string]bool{}
+	var out []candidate
+	for _, list := range [][]candidate{rank(q, lyrics, limit), rank(q, covers, limit)} {
+		for _, c := range list {
+			key := [2]string{c.Source, c.SourceID}
+			if !seen[key] {
+				seen[key] = true
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}
+
+// chooseCandidates 把指定部分的候选放进待确认，交给用户选择。
+func (m *Module) chooseCandidates(ctx context.Context, t db.MusicTrack, parts matchParts) (db.MusicTrack, error) {
 	m.matchMu.Lock()
 	defer m.matchMu.Unlock()
 	o := m.options(ctx)
-	var usable []candidate
-	for _, c := range m.collect(ctx, o, queryOf(t)) {
-		if c.Lyrics || c.Cover {
-			usable = append(usable, c)
-		}
-	}
-	cands := rank(queryOf(t), usable, 8)
+	cands := partCandidates(queryOf(t), m.collect(ctx, o, queryOf(t)), parts, 8)
 	state := "pending"
 	if len(cands) == 0 {
 		state = "failed"
-	} else if err := m.saveCandidates(ctx, t.ID, cands); err != nil {
+	}
+	if err := m.saveCandidates(ctx, t.ID, cands); err != nil {
 		return t, err
 	}
 	if err := m.q.SetMatchState(ctx, db.SetMatchStateParams{MatchState: state, UpdatedAt: time.Now().UTC(), ID: t.ID}); err != nil {
@@ -168,20 +250,8 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 			break
 		}
 	}
-	switch {
-	case res.lyrics == "" && res.cover == nil:
-		res.candidates = rank(q, all, 5)
-	case wantLyrics && res.lyrics == "":
-		// 2026-10-11 只找到封面没找到歌词时，这首歌以前直接算“已匹配”，
-		// 用户再也没机会选歌词。现在把带歌词的候选放进待确认。
-		var withLyrics []candidate
-		for _, c := range all {
-			if c.Lyrics {
-				withLyrics = append(withLyrics, c)
-			}
-		}
-		res.candidates = rank(q, withLyrics, 5)
-	}
+	// 待确认只保留本次请求中没有找到的部分。
+	res.candidates = partCandidates(q, all, matchParts{lyrics: wantLyrics && res.lyrics == "", cover: wantCover && res.cover == nil}, 5)
 	return res
 }
 
@@ -249,14 +319,22 @@ func b2i(b bool) int64 {
 	return 0
 }
 
-// matchTrack runs one automatic match. force (the user asked) also looks for
-// lyrics and covers the song already has and replaces them.
+// matchTrack 用于后台匹配，默认补齐歌词和封面。
 func (m *Module) matchTrack(ctx context.Context, t db.MusicTrack, force bool) (db.MusicTrack, error) {
+	return m.matchTrackParts(ctx, t, force, matchParts{lyrics: true, cover: true})
+}
+
+// matchTrackParts 只查找指定部分。force 也只替换指定部分。
+func (m *Module) matchTrackParts(ctx context.Context, t db.MusicTrack, force bool, parts matchParts) (db.MusicTrack, error) {
 	m.matchMu.Lock()
 	defer m.matchMu.Unlock()
+	var err error
+	if t, err = m.q.GetTrack(ctx, t.ID); err != nil {
+		return t, err
+	}
 	o := m.options(ctx)
-	wantLyrics := force || t.LyricsSource == "none"
-	wantCover := force || t.CoverSource == "none"
+	wantLyrics := parts.lyrics && (force || t.LyricsSource == "none")
+	wantCover := parts.cover && (force || t.CoverSource == "none")
 	if !wantLyrics && !wantCover {
 		return t, nil
 	}
@@ -271,7 +349,7 @@ func (m *Module) matchTrack(ctx context.Context, t db.MusicTrack, force bool) (d
 		if err := m.q.ClearCandidates(ctx, t.ID); err != nil {
 			return t, err
 		}
-		if res.lyrics == "" && len(res.candidates) > 0 {
+		if len(res.candidates) > 0 {
 			state = "pending"
 			if err := m.saveCandidates(ctx, t.ID, res.candidates); err != nil {
 				return t, err
@@ -284,6 +362,9 @@ func (m *Module) matchTrack(ctx context.Context, t db.MusicTrack, force bool) (d
 		}
 	default:
 		state = "failed"
+		if err := m.q.ClearCandidates(ctx, t.ID); err != nil {
+			return t, err
+		}
 	}
 	if err := m.q.SetMatchState(ctx, db.SetMatchStateParams{MatchState: state, UpdatedAt: now, ID: t.ID}); err != nil {
 		return t, err

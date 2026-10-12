@@ -111,19 +111,31 @@ func accepts(q query, c candidate) bool {
 	return titlesMatch(q.Title, c.Title) && artistsOverlap(q.Artist, c.Artist) && durationsMatch(q.DurationMs, c.DurationMs)
 }
 
-// score ranks the candidates the user will choose from. Higher is closer.
+// score 给待确认候选打分，分数越高越靠前。
+// 歌词候选标题一致加 8 分，时长差不超过 2 秒加 6 分。
+// 封面候选这两项分别加 4 分和 2 分。标题部分包含加 1 分。
+// 歌手重叠加 3 分。歌词候选歌手不重叠扣 1 分，不直接排除。
+// 能提供歌词或封面各加 1 分。自动采用仍由 accepts 的原规则决定。
 func score(q query, c candidate) int {
 	s := 0
 	if titlesMatch(q.Title, c.Title) {
 		s += 4
+		if c.Lyrics {
+			s += 4
+		}
 	} else if a, b := normTitle(q.Title), normTitle(c.Title); a != "" && b != "" && (strings.Contains(a, b) || strings.Contains(b, a)) {
 		s += 1
 	}
 	if artistsOverlap(q.Artist, c.Artist) {
 		s += 3
+	} else if c.Lyrics {
+		s--
 	}
 	if durationsMatch(q.DurationMs, c.DurationMs) {
 		s += 2
+		if c.Lyrics {
+			s += 4
+		}
 	}
 	if c.Lyrics {
 		s++
@@ -134,8 +146,8 @@ func score(q query, c candidate) int {
 	return s
 }
 
-// rank sorts candidates, best first, keeping the order of sources for ties,
-// and returns at most n of them. Hits with nothing in common score 0 and are dropped.
+// rank 保留分数超过 2 的候选，最多返回 n 个。
+// 按分数从高到低排序。同分时保留来源顺序。
 func rank(q query, cands []candidate, n int) []candidate {
 	type scored struct {
 		c candidate

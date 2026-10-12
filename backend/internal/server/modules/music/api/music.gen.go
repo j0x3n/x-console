@@ -16,25 +16,25 @@ import (
 
 // Defines values for MusicCandidateSource.
 const (
-	Itunes      MusicCandidateSource = "itunes"
-	Lrclib      MusicCandidateSource = "lrclib"
-	Musicbrainz MusicCandidateSource = "musicbrainz"
-	Netease     MusicCandidateSource = "netease"
-	Qqmusic     MusicCandidateSource = "qqmusic"
+	MusicCandidateSourceItunes      MusicCandidateSource = "itunes"
+	MusicCandidateSourceLrclib      MusicCandidateSource = "lrclib"
+	MusicCandidateSourceMusicbrainz MusicCandidateSource = "musicbrainz"
+	MusicCandidateSourceNetease     MusicCandidateSource = "netease"
+	MusicCandidateSourceQqmusic     MusicCandidateSource = "qqmusic"
 )
 
 // Valid indicates whether the value is a known member of the MusicCandidateSource enum.
 func (e MusicCandidateSource) Valid() bool {
 	switch e {
-	case Itunes:
+	case MusicCandidateSourceItunes:
 		return true
-	case Lrclib:
+	case MusicCandidateSourceLrclib:
 		return true
-	case Musicbrainz:
+	case MusicCandidateSourceMusicbrainz:
 		return true
-	case Netease:
+	case MusicCandidateSourceNetease:
 		return true
-	case Qqmusic:
+	case MusicCandidateSourceQqmusic:
 		return true
 	default:
 		return false
@@ -65,6 +65,24 @@ func (e MusicLyricsSource) Valid() bool {
 	}
 }
 
+// Defines values for MusicMatchRequestParts.
+const (
+	Cover  MusicMatchRequestParts = "cover"
+	Lyrics MusicMatchRequestParts = "lyrics"
+)
+
+// Valid indicates whether the value is a known member of the MusicMatchRequestParts enum.
+func (e MusicMatchRequestParts) Valid() bool {
+	switch e {
+	case Cover:
+		return true
+	case Lyrics:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MusicSleepMode.
 const (
 	Time   MusicSleepMode = "time"
@@ -77,6 +95,33 @@ func (e MusicSleepMode) Valid() bool {
 	case Time:
 		return true
 	case Tracks:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MusicSourceCheckSource.
+const (
+	MusicSourceCheckSourceItunes      MusicSourceCheckSource = "itunes"
+	MusicSourceCheckSourceLrclib      MusicSourceCheckSource = "lrclib"
+	MusicSourceCheckSourceMusicbrainz MusicSourceCheckSource = "musicbrainz"
+	MusicSourceCheckSourceNetease     MusicSourceCheckSource = "netease"
+	MusicSourceCheckSourceQqmusic     MusicSourceCheckSource = "qqmusic"
+)
+
+// Valid indicates whether the value is a known member of the MusicSourceCheckSource enum.
+func (e MusicSourceCheckSource) Valid() bool {
+	switch e {
+	case MusicSourceCheckSourceItunes:
+		return true
+	case MusicSourceCheckSourceLrclib:
+		return true
+	case MusicSourceCheckSourceMusicbrainz:
+		return true
+	case MusicSourceCheckSourceNetease:
+		return true
+	case MusicSourceCheckSourceQqmusic:
 		return true
 	default:
 		return false
@@ -325,10 +370,16 @@ type MusicMatchRequest struct {
 		SourceId string `json:"sourceId"`
 	} `json:"candidate,omitempty"`
 
-	// Choose 为 true 时不自动采用，只把各来源里最像的几个候选放进待确认（最多 8 个），由用户选。选定再用 candidate 调一次。
+	// Choose 为 true 时不自动采用，只放入能提供指定部分的候选。歌词和封面各最多 8 个，合并后去重。选定再用 candidate 调一次。
 	Choose    *bool `json:"choose,omitempty"`
 	Overwrite *bool `json:"overwrite,omitempty"`
+
+	// Parts 要匹配的部分。不传时歌词和封面都要。空数组回 400
+	Parts *[]MusicMatchRequestParts `json:"parts,omitempty"`
 }
+
+// MusicMatchRequestParts defines model for MusicMatchRequest.Parts.
+type MusicMatchRequestParts string
 
 // MusicPending defines model for MusicPending.
 type MusicPending struct {
@@ -474,6 +525,36 @@ type MusicSleepInput struct {
 	Tracks        *int `json:"tracks,omitempty"`
 }
 
+// MusicSourceCheck defines model for MusicSourceCheck.
+type MusicSourceCheck struct {
+	// CoverHits 能提供封面的命中数
+	CoverHits int `json:"coverHits"`
+
+	// Enabled 这个来源是否已启用
+	Enabled bool `json:"enabled"`
+
+	// Error 中文错误原因。成功时为空
+	Error string `json:"error"`
+
+	// Hits 搜索命中数
+	Hits int `json:"hits"`
+
+	// LyricsHits 能提供歌词的命中数
+	LyricsHits int `json:"lyricsHits"`
+
+	// Ms 搜索耗时毫秒
+	Ms int `json:"ms"`
+
+	// Ok 搜索是否成功。没有命中也算成功
+	Ok bool `json:"ok"`
+
+	// Source 来源名称
+	Source MusicSourceCheckSource `json:"source"`
+}
+
+// MusicSourceCheckSource 来源名称
+type MusicSourceCheckSource string
+
 // MusicStats defines model for MusicStats.
 type MusicStats struct {
 	Days       int `json:"days"`
@@ -588,6 +669,12 @@ type UpdateMusicPlaylistJSONBody struct {
 	Name *string `json:"name,omitempty"`
 }
 
+// CheckMusicSourcesJSONBody defines parameters for CheckMusicSources.
+type CheckMusicSourcesJSONBody struct {
+	// TrackId 用这首歌的信息搜索。不传时搜索晴天和周杰伦
+	TrackId *int64 `json:"trackId,omitempty"`
+}
+
 // GetMusicStatsParams defines parameters for GetMusicStats.
 type GetMusicStatsParams struct {
 	// Days 最近几天，含今天。默认 30，最多 365
@@ -697,6 +784,9 @@ type PutMusicSettingsJSONRequestBody = MusicSettingsInput
 // PutMusicSleepJSONRequestBody defines body for PutMusicSleep for application/json ContentType.
 type PutMusicSleepJSONRequestBody = MusicSleepInput
 
+// CheckMusicSourcesJSONRequestBody defines body for CheckMusicSources for application/json ContentType.
+type CheckMusicSourcesJSONRequestBody CheckMusicSourcesJSONBody
+
 // UpdateMusicTrackJSONRequestBody defines body for UpdateMusicTrack for application/json ContentType.
 type UpdateMusicTrackJSONRequestBody = MusicTrackPatch
 
@@ -774,6 +864,9 @@ type ServerInterface interface {
 
 	// (PUT /music/sleep)
 	PutMusicSleep(w http.ResponseWriter, r *http.Request)
+
+	// (POST /music/sources/check)
+	CheckMusicSources(w http.ResponseWriter, r *http.Request)
 
 	// (GET /music/stats)
 	GetMusicStats(w http.ResponseWriter, r *http.Request, params GetMusicStatsParams)
@@ -928,6 +1021,11 @@ func (_ Unimplemented) GetMusicSleep(w http.ResponseWriter, r *http.Request) {
 
 // (PUT /music/sleep)
 func (_ Unimplemented) PutMusicSleep(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /music/sources/check)
+func (_ Unimplemented) CheckMusicSources(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1411,6 +1509,20 @@ func (siw *ServerInterfaceWrapper) PutMusicSleep(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutMusicSleep(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckMusicSources operation middleware
+func (siw *ServerInterfaceWrapper) CheckMusicSources(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckMusicSources(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2278,6 +2390,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/music/tracks/{trackId}/match", wrapper.MatchMusicTrack)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/music/sources/check", wrapper.CheckMusicSources)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/music/tracks/{trackId}/skip", wrapper.SkipMusicMatch)

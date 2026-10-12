@@ -218,6 +218,8 @@ export function useMatchTrack() {
       overwrite?: boolean;
       /** 不自动采用，只找候选放进待确认。 */
       choose?: boolean;
+      /** 只匹配歌词或只匹配封面（B169）。不传是两个都要。 */
+      parts?: MatchPart[];
     }) =>
       unwrap(
         musicApi.POST("/music/tracks/{trackId}/match", {
@@ -226,10 +228,26 @@ export function useMatchTrack() {
             candidate: v.candidate,
             overwrite: v.overwrite,
             choose: v.choose,
+            parts: v.parts,
           },
         }),
       ),
     onSuccess: refresh,
+  });
+}
+
+export type MatchPart = "lyrics" | "cover";
+export type SourceCheck = S["MusicSourceCheck"];
+
+/** 试一下每个来源能不能用（B169）。不改歌。 */
+export function useCheckSources() {
+  return useMutation({
+    mutationFn: (trackId?: number) =>
+      unwrap(
+        musicApi.POST("/music/sources/check", {
+          body: trackId ? { trackId } : {},
+        }),
+      ),
   });
 }
 

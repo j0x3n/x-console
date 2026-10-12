@@ -3,7 +3,31 @@ package music
 import (
 	"context"
 	"time"
+
+	"github.com/j0x3n/x-console/backend/internal/server/modules/music/api"
 )
+
+// 匹配规则只通过测试文件暴露。
+type MatchQuery = query
+type MatchCandidate = candidate
+
+var (
+	TitlesMatch      = titlesMatch
+	ArtistsOverlap   = artistsOverlap
+	DurationsMatch   = durationsMatch
+	AcceptsCandidate = accepts
+	RankCandidates   = rank
+)
+
+// SourceLyrics 在测试中直接检查来源的歌词响应。
+func (m *Module) SourceLyrics(ctx context.Context, source, id string) (string, error) {
+	return m.providers.get(source).FetchLyrics(ctx, candidate{Source: source, SourceID: id, Lyrics: true})
+}
+
+// CheckSources 在测试中用较短的请求期限验证取消行为。
+func (m *Module) CheckSources(ctx context.Context, q MatchQuery) []api.MusicSourceCheck {
+	return m.checkSources(ctx, q)
+}
 
 // SetSourceURLs points the lyric and cover sources at a test server and
 // removes the pauses between requests.

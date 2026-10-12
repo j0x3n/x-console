@@ -243,7 +243,7 @@ describe("音乐页", () => {
     );
   });
 
-  it("待确认：采用一个候选会把来源和编号发给接口", async () => {
+  it("待确认：歌词和封面分开采用，把来源、编号和部分发给接口", async () => {
     setup([{ id: 1, name: "音乐", path: "/音乐" }], []);
     api.routes.set("GET /music/pending", () => ({
       status: 200,
@@ -271,11 +271,14 @@ describe("音乐页", () => {
     }));
     renderIt("/music?view=pending");
     expect(await screen.findByText("网易云音乐")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /采用/ }));
+    fireEvent.click(screen.getByRole("button", { name: /用封面/ }));
     await waitFor(() =>
       expect(
         api.calls.find((c) => c.path === "/music/tracks/1/match")?.body,
-      ).toEqual({ candidate: { source: "netease", sourceId: "99" } }),
+      ).toEqual({
+        candidate: { source: "netease", sourceId: "99" },
+        parts: ["cover"],
+      }),
     );
   });
 

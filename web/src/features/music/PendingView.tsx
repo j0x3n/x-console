@@ -1,4 +1,4 @@
-import { Check, ListChecks, SkipForward } from "lucide-react";
+import { Captions, Image, ListChecks, SkipForward } from "lucide-react";
 import { errorMessage } from "../../api/client";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useT } from "../../contexts/LanguageContext";
@@ -8,6 +8,7 @@ import {
   usePending,
   useSkipMatch,
   type Candidate,
+  type MatchPart,
   type Pending,
 } from "./api";
 import { TrackCover } from "./Cover";
@@ -32,8 +33,8 @@ export function sourceName(source: string): string {
 }
 
 /**
- * 待确认（B148）：在线匹配拿不准的歌。每首歌列出最多 5 个候选，
- * 选一个采用，或者都不对就跳过（以后不再自动匹配）。
+ * 待确认（B148）：在线匹配拿不准的歌。每首歌列出几个候选，
+ * 歌词和封面分开采用（B169），或者都不对就跳过（以后不再自动匹配）。
  */
 export default function PendingView() {
   const t = useT();
@@ -69,16 +70,17 @@ function PendingCard({ item }: { item: Pending }) {
   const skip = useSkipMatch();
   const busy = match.isPending || skip.isPending;
   const track = item.track;
-  const choose = (c: Candidate) =>
+  // 歌词和封面分开采用（B169）：可以用一个来源的歌词、另一个来源的封面。
+  const choose = (c: Candidate, part: MatchPart) =>
     match.mutate(
-      { id: track.id, candidate: { source: c.source, sourceId: c.sourceId } },
       {
-        onSuccess: (next) =>
-          toast(
-            next.lyricsSource === "none"
-              ? t("Applied, but no lyrics were found")
-              : t("Applied"),
-          ),
+        id: track.id,
+        candidate: { source: c.source, sourceId: c.sourceId },
+        parts: [part],
+      },
+      {
+        onSuccess: () =>
+          toast(part === "lyrics" ? t("Lyrics applied") : t("Cover applied")),
         onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
       },
     );
@@ -124,17 +126,31 @@ function PendingCard({ item }: { item: Pending }) {
             </div>
             <span className="music-candidate-tags">
               <span className="xc-badge">{sourceName(c.source)}</span>
-              {c.lyrics && <span className="xc-badge info">{t("Lyrics")}</span>}
-              {c.cover && <span className="xc-badge info">{t("Cover")}</span>}
             </span>
-            <button
-              type="button"
-              className="xc-btn small primary"
-              disabled={busy}
-              onClick={() => choose(c)}
-            >
-              <Check size={13} /> {t("Use this")}
-            </button>
+            <span className="music-candidate-actions">
+              {c.lyrics && (
+                <button
+                  type="button"
+                  className="xc-btn small"
+                  disabled={busy}
+                  title={t("Use the lyrics from this source")}
+                  onClick={() => choose(c, "lyrics")}
+                >
+                  <Captions size={13} /> {t("Use lyrics")}
+                </button>
+              )}
+              {c.cover && (
+                <button
+                  type="button"
+                  className="xc-btn small"
+                  disabled={busy}
+                  title={t("Use the cover from this source")}
+                  onClick={() => choose(c, "cover")}
+                >
+                  <Image size={13} /> {t("Use cover")}
+                </button>
+              )}
+            </span>
           </li>
         ))}
       </ul>

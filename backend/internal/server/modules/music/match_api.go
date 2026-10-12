@@ -46,6 +46,24 @@ func (m *Module) MatchMusic(w http.ResponseWriter, r *http.Request, p api.MatchM
 	httpx.JSON(w, http.StatusAccepted, api.MusicScanStatus{Running: true})
 }
 
+func (m *Module) CheckMusicSources(w http.ResponseWriter, r *http.Request) {
+	var body api.CheckMusicSourcesJSONRequestBody
+	if r.ContentLength != 0 {
+		if fail(w, r, httpx.Decode(r, &body)) {
+			return
+		}
+	}
+	q := query{Title: "晴天", Artist: "周杰伦"}
+	if body.TrackId != nil {
+		t, err := m.track(r.Context(), *body.TrackId)
+		if fail(w, r, err) {
+			return
+		}
+		q = queryOf(t)
+	}
+	httpx.JSON(w, http.StatusOK, m.checkSources(r.Context(), q))
+}
+
 func (m *Module) MatchMusicTrack(w http.ResponseWriter, r *http.Request, id api.TrackId) {
 	ctx := r.Context()
 	var body api.MusicMatchRequest
@@ -53,6 +71,10 @@ func (m *Module) MatchMusicTrack(w http.ResponseWriter, r *http.Request, id api.
 		if err := httpx.Decode(r, &body); fail(w, r, err) {
 			return
 		}
+	}
+	parts, err := parseMatchParts(body)
+	if fail(w, r, err) {
+		return
 	}
 	t, err := m.track(ctx, id)
 	if fail(w, r, err) {
@@ -62,11 +84,11 @@ func (m *Module) MatchMusicTrack(w http.ResponseWriter, r *http.Request, id api.
 	ctx, cancel := contextWithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	if body.Candidate != nil {
-		t, err = m.applyCandidate(ctx, t, body.Candidate.Source, body.Candidate.SourceId)
+		t, err = m.applyCandidate(ctx, t, body.Candidate.Source, body.Candidate.SourceId, parts)
 	} else if body.Choose != nil && *body.Choose {
-		t, err = m.chooseCandidates(ctx, t)
+		t, err = m.chooseCandidates(ctx, t, parts)
 	} else {
-		t, err = m.matchTrack(ctx, t, body.Overwrite != nil && *body.Overwrite)
+		t, err = m.matchTrackParts(ctx, t, body.Overwrite != nil && *body.Overwrite, parts)
 	}
 	if fail(w, r, err) {
 		return
@@ -76,8 +98,35 @@ func (m *Module) MatchMusicTrack(w http.ResponseWriter, r *http.Request, id api.
 	httpx.JSON(w, http.StatusOK, toTrack(t))
 }
 
-// applyCandidate uses the candidate the user chose from the pending list.
-func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, sourceID string) (db.MusicTrack, error) {
+func parseMatchParts(body api.MusicMatchRequest) (matchParts, error) {
+	if body.Parts == nil {
+		return matchParts{lyrics: true, cover: true}, nil
+	}
+	if len(*body.Parts) == 0 {
+		return matchParts{}, httpx.Invalid("请选择歌词或封面")
+	}
+	var parts matchParts
+	for _, part := range *body.Parts {
+		switch string(part) {
+		case "lyrics":
+			parts.lyrics = true
+		case "cover":
+			parts.cover = true
+		default:
+			return parts, httpx.Invalid("匹配部分只能是歌词或封面")
+		}
+	}
+	return parts, nil
+}
+
+// applyCandidate 只采用用户指定的部分，不再向其他来源补查歌词。
+func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, sourceID string, parts matchParts) (db.MusicTrack, error) {
+	m.matchMu.Lock()
+	defer m.matchMu.Unlock()
+	var err error
+	if t, err = m.q.GetTrack(ctx, t.ID); err != nil {
+		return t, err
+	}
 	row, err := m.q.GetCandidate(ctx, db.GetCandidateParams{TrackID: t.ID, Source: source, SourceID: sourceID})
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, httpx.Invalid("这个候选已经不在列表里了")
@@ -91,26 +140,29 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 	}
 	c := candidate{Source: row.Source, SourceID: row.SourceID, Title: row.Title, Artist: row.Artist, Album: row.Album, DurationMs: int(row.DurationMs),
 		Lyrics: row.HasLyrics != 0, Cover: row.HasCover != 0, LyricsText: row.LyricsText, coverRef: row.CoverRef}
-
-	m.matchMu.Lock()
-	defer m.matchMu.Unlock()
+	// 两样都要（包括没传 parts）时，候选有哪样用哪样。
+	// 只要其中一样而候选没有时，直接告诉用户，不去别的来源找。
+	if parts.lyrics && parts.cover {
+		parts = matchParts{lyrics: c.Lyrics, cover: c.Cover}
+	}
+	if parts.lyrics && !c.Lyrics {
+		return t, httpx.Invalid("这个候选没有歌词")
+	}
+	if parts.cover && !c.Cover {
+		return t, httpx.Invalid("这个候选没有封面")
+	}
 	o := m.options(ctx)
 	var lyrics string
 	var cover []byte
-	if c.Lyrics {
+	if parts.lyrics && c.Lyrics {
 		if lyrics, err = prov.FetchLyrics(ctx, c); err != nil {
 			lyrics = ""
 		}
 	}
-	if c.Cover {
+	if parts.cover && c.Cover {
 		if cover, err = prov.FetchCover(ctx, c); err != nil {
 			cover = nil
 		}
-	}
-	if strings.TrimSpace(lyrics) == "" && t.LyricsSource == "none" {
-		// 用户选的这个来源没有歌词（比如只有封面），换成它的歌名歌手去别的来源找。
-		q := query{Title: c.Title, Artist: c.Artist, Album: c.Album, DurationMs: c.DurationMs}
-		lyrics = m.search(ctx, o, q, true, false).lyrics
 	}
 	if strings.TrimSpace(lyrics) == "" && cover == nil {
 		return t, httpx.NewError(http.StatusBadGateway, "source_failed", "这个来源现在取不到歌词和封面，可以换一个候选或稍后再试")
@@ -118,10 +170,32 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 	if err := m.applyFound(ctx, o, t, strings.TrimSpace(lyrics), cover, "online"); err != nil {
 		return t, err
 	}
-	if err := m.q.ClearCandidates(ctx, t.ID); err != nil {
+	t, err = m.q.GetTrack(ctx, t.ID)
+	if err != nil {
 		return t, err
 	}
-	if err := m.q.SetMatchState(ctx, db.SetMatchStateParams{MatchState: "matched", UpdatedAt: time.Now().UTC(), ID: t.ID}); err != nil {
+	rows, err := m.q.ListCandidates(ctx, t.ID)
+	if err != nil {
+		return t, err
+	}
+	var remaining []candidate
+	for _, row := range rows {
+		if row.Source == source && row.SourceID == sourceID {
+			continue
+		}
+		if t.LyricsSource == "none" && row.HasLyrics != 0 || t.CoverSource == "none" && row.HasCover != 0 {
+			remaining = append(remaining, candidate{Source: row.Source, SourceID: row.SourceID, Title: row.Title, Artist: row.Artist,
+				Album: row.Album, DurationMs: int(row.DurationMs), Lyrics: row.HasLyrics != 0, Cover: row.HasCover != 0, LyricsText: row.LyricsText, coverRef: row.CoverRef})
+		}
+	}
+	if err := m.saveCandidates(ctx, t.ID, remaining); err != nil {
+		return t, err
+	}
+	state := "matched"
+	if len(remaining) > 0 {
+		state = "pending"
+	}
+	if err := m.q.SetMatchState(ctx, db.SetMatchStateParams{MatchState: state, UpdatedAt: time.Now().UTC(), ID: t.ID}); err != nil {
 		return t, err
 	}
 	return m.q.GetTrack(ctx, t.ID)

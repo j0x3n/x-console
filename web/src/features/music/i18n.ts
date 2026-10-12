@@ -98,13 +98,26 @@ registerZh({
   "Remove from queue": "从队列中移除",
   "Tap to start playing": "点一下开始播放",
   "Looking in other sources…": "正在其他来源里找…",
-  "Choose lyrics and cover from other sources": "从其他来源选歌词和封面",
   "Matched the cover, no lyrics found": "封面匹配了，没找到歌词",
-  "Applied, but no lyrics were found": "已采用，但没找到歌词",
   "Match lyrics and covers online": "在线匹配歌词和封面",
   Match: "匹配",
   "Pin to every page": "固定，所有页面都显示",
   "Unpin from every page": "取消固定",
+  // B169
+  "Choose lyrics from other sources": "从其他来源选歌词",
+  "Choose a cover from other sources": "从其他来源选封面",
+  "Use lyrics": "用歌词",
+  "Use cover": "用封面",
+  "Use the lyrics from this source": "用这个来源的歌词，封面不变",
+  "Use the cover from this source": "用这个来源的封面，歌词不变",
+  "Lyrics applied": "歌词已换上",
+  "Cover applied": "封面已换上",
+  "Check sources": "检查来源",
+  "Checking…": "检查中…",
+  "Search every source once and show whether it works from the server":
+    "让服务器在每个来源搜一次，看能不能用",
+  Works: "可用",
+  Failed: "失败",
   "Cannot play this song, skipped": "这首歌播放不了，已跳过",
   "Cannot play these songs. Check that the files still exist.":
     "这些歌都播放不了，请检查文件还在不在。",
@@ -138,14 +151,12 @@ registerZh({
   // B148 在线匹配
   "To confirm": "待确认",
   Cover: "封面",
-  Applied: "已采用",
   "Nothing to confirm": "没有要确认的歌",
   "Songs the online match is not sure about are listed here, with the closest candidates.":
     "在线匹配拿不准的歌会列在这里，附上最接近的候选。",
   "None of these": "都不对",
   "None of these is right. Do not match this song again.":
     "候选都不对，以后不再自动匹配这首歌。",
-  "Use this": "采用",
   "Match lyrics and cover": "匹配歌词和封面",
   "Match again and replace": "重新匹配并替换",
   "Edit lyrics": "编辑歌词",
@@ -158,8 +169,8 @@ registerZh({
     "拿不准，请到“待确认”里选。",
   "Nothing found": "没有找到",
   "Online match": "在线匹配",
-  "Songs without lyrics or a cover are looked up online and the result is written into the file. Only songs that clearly match (same title, a shared artist, length within 2 seconds) are used. The others wait in To confirm. If a match is wrong, use Choose lyrics and cover from other sources in the song menu.":
-    "缺歌词或封面的歌会在线查，结果写进文件。只有明确对得上的（歌名相同、歌手有交集、时长相差不超过 2 秒）才自动采用，其他的放进“待确认”。匹配得不对时，在歌的菜单里选“从其他来源选歌词和封面”。",
+  "Songs without lyrics or a cover are looked up online and the result is written into the file. Only songs that clearly match (same title, a shared artist, length within 2 seconds) are used. The others wait in To confirm. If a match is wrong, choose lyrics or a cover from other sources in the song menu.":
+    "缺歌词或封面的歌会在线查，结果写进文件。只有明确对得上的（歌名相同、歌手有交集、时长相差不超过 2 秒）才自动采用，其他的放进“待确认”。匹配得不对时，在歌的菜单里选“从其他来源选歌词”或“从其他来源选封面”。",
   "Match new songs automatically": "自动匹配新歌",
   "Write lyrics and covers into the song files": "把歌词和封面写进歌曲文件",
   "This changes the files in Drive directly. The old version is not kept.":

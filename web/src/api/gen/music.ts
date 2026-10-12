@@ -211,7 +211,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 在线匹配没法确定的歌，每首带最多 5 个候选，让用户选。选定用 POST /music/tracks/{trackId}/match，都不对用 POST /music/tracks/{trackId}/skip。 */
+        /** @description 在线匹配没法确定的歌，附带可选的歌词和封面候选。选定用 POST /music/tracks/{trackId}/match，都不对用 POST /music/tracks/{trackId}/skip。 */
         get: operations["listMusicPending"];
         put?: never;
         post?: never;
@@ -251,11 +251,30 @@ export interface paths {
         put?: never;
         /**
          * @description 手动匹配这首歌，等匹配完成再返回，最长约半分钟。
-         *     不带 candidate：按自动匹配的规则找。overwrite 为 true 时，已经有的歌词和封面也换掉。
-         *     带 candidate：用待确认列表里选的那个候选的歌词和封面，直接换掉现有的。
-         *     choose 为 true：不改歌，只找候选放进待确认（matchState 变成 pending）。没找到时回 failed。
+         *     parts 指定要匹配的部分。不传时匹配歌词和封面。
+         *     不带 candidate：按自动匹配的规则找。overwrite 为 true 时，只替换 parts 指定的部分。
+         *     带 candidate：只采用这个候选中 parts 指定的部分。需要歌词但候选没有歌词时回 400。
+         *     choose 为 true：不改歌，只找能提供指定部分的候选。歌词和封面各最多 8 个，合并后去重。
+         *     应用候选后，缺失部分还有可用候选时保留它们并保持 pending。否则清空候选并设为 matched。
          */
         post: operations["matchMusicTrack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/music/sources/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 每个来源并发搜索一次，包含已关闭的来源。整体超时 20 秒。不修改歌曲或候选。 */
+        post: operations["checkMusicSources"];
         delete?: never;
         options?: never;
         head?: never;
@@ -657,13 +676,36 @@ export interface components {
             candidates: components["schemas"]["MusicCandidate"][];
         };
         MusicMatchRequest: {
+            /** @description 要匹配的部分。不传时歌词和封面都要。空数组回 400 */
+            parts?: ("lyrics" | "cover")[];
             candidate?: {
                 source: string;
                 sourceId: string;
             };
             overwrite?: boolean;
-            /** @description 为 true 时不自动采用，只把各来源里最像的几个候选放进待确认（最多 8 个），由用户选。选定再用 candidate 调一次。 */
+            /** @description 为 true 时不自动采用，只放入能提供指定部分的候选。歌词和封面各最多 8 个，合并后去重。选定再用 candidate 调一次。 */
             choose?: boolean;
+        };
+        MusicSourceCheck: {
+            /**
+             * @description 来源名称
+             * @enum {string}
+             */
+            source: "lrclib" | "netease" | "qqmusic" | "itunes" | "musicbrainz";
+            /** @description 这个来源是否已启用 */
+            enabled: boolean;
+            /** @description 搜索是否成功。没有命中也算成功 */
+            ok: boolean;
+            /** @description 搜索命中数 */
+            hits: number;
+            /** @description 能提供歌词的命中数 */
+            lyricsHits: number;
+            /** @description 能提供封面的命中数 */
+            coverHits: number;
+            /** @description 中文错误原因。成功时为空 */
+            error: string;
+            /** @description 搜索耗时毫秒 */
+            ms: number;
         };
         MusicSleep: {
             active: boolean;
@@ -1332,6 +1374,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MusicTrack"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    checkMusicSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: int64
+                     * @description 用这首歌的信息搜索。不传时搜索晴天和周杰伦
+                     */
+                    trackId?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 每个来源一行检查结果，按来源顺序返回 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MusicSourceCheck"][];
                 };
             };
             default: components["responses"]["Error"];

@@ -653,6 +653,22 @@ html.music-full-open .ai-fab {
   flex-wrap: wrap;
   gap: 4px;
 }
+.music-candidate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 164px;
+}
+.music-source-check {
+  display: block;
+  font-size: var(--fs-12);
+}
+.music-source-check.ok {
+  color: var(--xc-success);
+}
+.music-source-check.fail {
+  color: var(--xc-danger);
+}
 .music-option {
   display: flex;
   align-items: center;
@@ -676,6 +692,9 @@ html.music-full-open .ai-fab {
 @media (max-width: 720px) {
   .music-candidates li {
     flex-wrap: wrap;
+  }
+  .music-candidate-actions {
+    min-width: 0;
   }
 }
 

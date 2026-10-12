@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useCallback, useState } from "react";
-import { Wand2 } from "lucide-react";
+import { Activity, Wand2 } from "lucide-react";
 import { useServerEvent, type ServerEvent } from "../../api/events";
 import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
@@ -9,11 +9,13 @@ import Switch from "../../components/ui/Switch";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import {
+  useCheckSources,
   useMatchAll,
   useMusicSettings,
   usePending,
   usePutMusicSettings,
   type MatchProgress,
+  type SourceCheck,
 } from "./api";
 import { sourceName } from "./PendingView";
 import "./i18n";
@@ -34,6 +36,10 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
   const save = usePutMusicSettings();
   const matchAll = useMatchAll();
   const pending = usePending();
+  const check = useCheckSources();
+  const checked = new Map<string, SourceCheck>(
+    (check.data ?? []).map((c) => [c.source, c]),
+  );
   const [progress, setProgress] = useState<MatchProgress | null>(null);
   const onProgress = useCallback((e: ServerEvent) => {
     setProgress(e.data as MatchProgress);
@@ -61,7 +67,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
         <div className="music-settings">
           <p className="music-muted">
             {t(
-              "Songs without lyrics or a cover are looked up online and the result is written into the file. Only songs that clearly match (same title, a shared artist, length within 2 seconds) are used. The others wait in To confirm. If a match is wrong, use Choose lyrics and cover from other sources in the song menu.",
+              "Songs without lyrics or a cover are looked up online and the result is written into the file. Only songs that clearly match (same title, a shared artist, length within 2 seconds) are used. The others wait in To confirm. If a match is wrong, choose lyrics or a cover from other sources in the song menu.",
             )}
           </p>
           <div className="music-option">
@@ -103,6 +109,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
                       )}
                     </small>
                   )}
+                  <SourceStatus result={checked.get(name)} />
                 </span>
                 <Switch
                   checked={settings.data.providers[name]}
@@ -129,6 +136,23 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
             >
               {t("Try failed songs again")}
             </button>
+            <button
+              type="button"
+              className="xc-btn"
+              disabled={check.isPending}
+              title={t(
+                "Search every source once and show whether it works from the server",
+              )}
+              onClick={() =>
+                check.mutate(undefined, {
+                  onError: (e) =>
+                    toast({ message: errorMessage(e), tone: "error" }),
+                })
+              }
+            >
+              <Activity size={14} />{" "}
+              {check.isPending ? t("Checking…") : t("Check sources")}
+            </button>
           </div>
           {progress?.running && (
             <p className="music-muted">
@@ -147,5 +171,23 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
         </div>
       )}
     </Dialog>
+  );
+}
+
+/** 来源检查的结果（B169）：能不能用，搜到几条，失败的原因。 */
+function SourceStatus({ result }: { result?: SourceCheck }) {
+  const t = useT();
+  if (!result) return null;
+  if (!result.ok)
+    return (
+      <small className="music-source-check fail">
+        {result.error || t("Failed")}
+      </small>
+    );
+  return (
+    <small className="music-source-check ok">
+      {t("Works")} · {t("Lyrics")} {result.lyricsHits} · {t("Cover")}{" "}
+      {result.coverHits} · {result.ms} ms
+    </small>
   );
 }

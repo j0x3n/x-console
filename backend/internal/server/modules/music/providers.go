@@ -110,6 +110,8 @@ func (s *providerSet) get(name string) provider {
 
 const maxBody = 8 << 20
 
+var errSourceFormat = errors.New("返回的不是预期格式（可能限制了海外访问）")
+
 // do sends a GET and returns the body of a 200 response.
 func (s *providerSet) do(ctx context.Context, rawURL string, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -136,7 +138,10 @@ func (s *providerSet) getJSON(ctx context.Context, rawURL string, headers map[st
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(body, out)
+	if err := json.Unmarshal(body, out); err != nil {
+		return errSourceFormat
+	}
+	return nil
 }
 
 // ---- LRCLIB ----
@@ -162,6 +167,9 @@ func (p lrclibProvider) Search(ctx context.Context, q query) ([]candidate, error
 	}
 	if err := p.s.getJSON(ctx, p.s.urls[SourceLRCLIB]+"/api/search?"+v.Encode(), nil, &hits); err != nil {
 		return nil, err
+	}
+	if hits == nil {
+		return nil, errSourceFormat
 	}
 	var out []candidate
 	for _, h := range hits {
@@ -196,13 +204,38 @@ type neteaseProvider struct{ s *providerSet }
 func (neteaseProvider) Name() string { return SourceNetease }
 
 func (p neteaseProvider) headers() map[string]string {
-	return map[string]string{"Referer": "https://music.163.com/", "Cookie": "appver=2.0.2"}
+	return map[string]string{"Referer": "https://music.163.com/", "Cookie": "appver=2.0.2", "X-Real-IP": "211.161.244.70"}
+}
+
+// getJSON 先检查海外限制和状态码，再解析可能被加密的业务字段。
+func (p neteaseProvider) getJSON(ctx context.Context, rawURL string, out any) error {
+	body, err := p.s.do(ctx, rawURL, p.headers())
+	if err != nil {
+		return err
+	}
+	var status struct {
+		Abroad bool `json:"abroad"`
+		Code   int  `json:"code"`
+	}
+	if err := json.Unmarshal(body, &status); err != nil {
+		return errSourceFormat
+	}
+	if status.Abroad {
+		return errors.New("网易云限制了海外访问")
+	}
+	if status.Code != http.StatusOK {
+		return fmt.Errorf("网易云返回 code=%d", status.Code)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return errSourceFormat
+	}
+	return nil
 }
 
 func (p neteaseProvider) Search(ctx context.Context, q query) ([]candidate, error) {
 	v := url.Values{"s": {q.keywords()}, "type": {"1"}, "offset": {"0"}, "total": {"true"}, "limit": {"10"}}
 	var res struct {
-		Result struct {
+		Result *struct {
 			Songs []struct {
 				ID       int64  `json:"id"`
 				Name     string `json:"name"`
@@ -216,8 +249,11 @@ func (p neteaseProvider) Search(ctx context.Context, q query) ([]candidate, erro
 			} `json:"songs"`
 		} `json:"result"`
 	}
-	if err := p.s.getJSON(ctx, p.s.urls[SourceNetease]+"/api/search/get/web?"+v.Encode(), p.headers(), &res); err != nil {
+	if err := p.getJSON(ctx, p.s.urls[SourceNetease]+"/api/search/get/web?"+v.Encode(), &res); err != nil {
 		return nil, err
+	}
+	if res.Result == nil {
+		return nil, errSourceFormat
 	}
 	var out []candidate
 	for _, s := range res.Result.Songs {
@@ -238,11 +274,11 @@ func (p neteaseProvider) FetchLyrics(ctx context.Context, c candidate) (string, 
 		} `json:"lrc"`
 	}
 	u := p.s.urls[SourceNetease] + "/api/song/lyric?lv=1&kv=1&tv=-1&id=" + url.QueryEscape(c.SourceID)
-	if err := p.s.getJSON(ctx, u, p.headers(), &res); err != nil {
+	if err := p.getJSON(ctx, u, &res); err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(res.Lrc.Lyric) == "" {
-		return "", errors.New("no lyrics")
+		return "", errors.New("这个来源没有返回歌词")
 	}
 	return res.Lrc.Lyric, nil
 }
@@ -257,11 +293,11 @@ func (p neteaseProvider) FetchCover(ctx context.Context, c candidate) ([]byte, e
 	}
 	id := url.QueryEscape(c.SourceID)
 	u := p.s.urls[SourceNetease] + "/api/song/detail/?id=" + id + "&ids=%5B" + id + "%5D"
-	if err := p.s.getJSON(ctx, u, p.headers(), &res); err != nil {
+	if err := p.getJSON(ctx, u, &res); err != nil {
 		return nil, err
 	}
 	if len(res.Songs) == 0 || res.Songs[0].Album.PicURL == "" {
-		return nil, errors.New("no cover")
+		return nil, errors.New("这个来源没有返回封面")
 	}
 	pic := res.Songs[0].Album.PicURL
 	if strings.HasPrefix(pic, "http://") && !strings.HasPrefix(p.s.urls[SourceNetease], "http://127.") {
@@ -283,8 +319,8 @@ func (qqProvider) headers() map[string]string {
 func (p qqProvider) Search(ctx context.Context, q query) ([]candidate, error) {
 	v := url.Values{"w": {q.keywords()}, "format": {"json"}, "p": {"1"}, "n": {"10"}, "cr": {"1"}, "t": {"0"}}
 	var res struct {
-		Data struct {
-			Song struct {
+		Data *struct {
+			Song *struct {
 				List []struct {
 					SongMID   string `json:"songmid"`
 					SongName  string `json:"songname"`
@@ -300,6 +336,9 @@ func (p qqProvider) Search(ctx context.Context, q query) ([]candidate, error) {
 	}
 	if err := p.s.getJSON(ctx, p.s.urls[SourceQQ]+"/soso/fcgi-bin/client_search_cp?"+v.Encode(), p.headers(), &res); err != nil {
 		return nil, err
+	}
+	if res.Data == nil || res.Data.Song == nil {
+		return nil, errSourceFormat
 	}
 	var out []candidate
 	for _, s := range res.Data.Song.List {
@@ -358,6 +397,9 @@ func (p itunesProvider) Search(ctx context.Context, q query) ([]candidate, error
 	}
 	if err := p.s.getJSON(ctx, p.s.urls[SourceITunes]+"/search?"+v.Encode(), nil, &res); err != nil {
 		return nil, err
+	}
+	if res.Results == nil {
+		return nil, errSourceFormat
 	}
 	var out []candidate
 	for _, r := range res.Results {
@@ -426,6 +468,9 @@ func (p musicbrainzProvider) Search(ctx context.Context, q query) ([]candidate, 
 	}
 	if err := p.s.getJSON(ctx, p.s.urls[SourceMusicBrainz]+"/ws/2/recording?"+v.Encode(), nil, &res); err != nil {
 		return nil, err
+	}
+	if res.Recordings == nil {
+		return nil, errSourceFormat
 	}
 	var out []candidate
 	for _, r := range res.Recordings {

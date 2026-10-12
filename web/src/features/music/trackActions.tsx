@@ -23,6 +23,7 @@ import {
   useMatchTrack,
   useUpdateTrack,
   useUploadCover,
+  type MatchPart,
   type Track,
 } from "./api";
 import { openAddToPlaylist, openEditLyrics, openEditTrack } from "./dialogs";
@@ -87,11 +88,11 @@ export function useTrackMenu() {
     );
   };
 
-  // 自动匹配得不对时，手动看别的来源，选一个内嵌
-  const choose = (track: Track) => {
+  // 自动匹配得不对时，手动看别的来源。歌词和封面分开选（B169）。
+  const choose = (track: Track, part: MatchPart) => {
     toast(t("Looking in other sources…"));
     matchTrack.mutate(
-      { id: track.id, choose: true },
+      { id: track.id, choose: true, parts: [part] },
       {
         onSuccess: (next) => {
           if (next.matchState === "pending") navigate("/music?view=pending");
@@ -178,10 +179,16 @@ export function useTrackMenu() {
       onSelect: () => match(track, true),
     },
     {
-      key: "choose",
-      label: t("Choose lyrics and cover from other sources"),
+      key: "choose-lyrics",
+      label: t("Choose lyrics from other sources"),
       icon: icon(Wand2),
-      onSelect: () => choose(track),
+      onSelect: () => choose(track, "lyrics"),
+    },
+    {
+      key: "choose-cover",
+      label: t("Choose a cover from other sources"),
+      icon: icon(Wand2),
+      onSelect: () => choose(track, "cover"),
     },
     {
       key: "lyrics",
