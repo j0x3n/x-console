@@ -581,6 +581,47 @@ func TestRainAlertAndPlaces(t *testing.T) {
 	}
 }
 
+func TestRainProbabilityYieldsToMinutelyReminder(t *testing.T) {
+	env, m, ws := setup(t)
+	putSettings(t, env, baseSettings(ws))
+	env.MustDo(http.MethodPut, "/weather/alert", api.RainAlert{Enabled: true, Threshold: 60, LeadHours: 3}, nil)
+	var n api.WeatherNotify
+	env.MustDo(http.MethodGet, "/weather/notify", nil, &n)
+	n.RainSoon = true
+	env.MustDo(http.MethodPut, "/weather/notify", n, nil)
+	hits := ws.hits.Load()
+	if err := brief.CheckRain(m, context.Background(), at(27, 8, 0)); err != nil {
+		t.Fatal(err)
+	}
+	if ws.hits.Load() != hits {
+		t.Fatal("probability forecast fetched while minutely reminder is enabled")
+	}
+	var notes struct {
+		Items []struct{ Kind string }
+	}
+	env.MustDo(http.MethodGet, "/notifications", nil, &notes)
+	for _, item := range notes.Items {
+		if item.Kind == "weather.rain" {
+			t.Fatal("duplicate probability reminder")
+		}
+	}
+	n.RainSoon = false
+	env.MustDo(http.MethodPut, "/weather/notify", n, nil)
+	if err := brief.CheckRain(m, context.Background(), at(27, 8, 30)); err != nil {
+		t.Fatal(err)
+	}
+	env.MustDo(http.MethodGet, "/notifications", nil, &notes)
+	count := 0
+	for _, item := range notes.Items {
+		if item.Kind == "weather.rain" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("probability reminder should resume: %d", count)
+	}
+}
+
 // B92: with an AI summary only the summary is pushed, without a heading.
 func TestNotifyBodyOnlySummary(t *testing.T) {
 	content := "# 早报\n\n## 总结\n\n今天有一个会。\n\n## 天气\n\n晴"

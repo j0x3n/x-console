@@ -75,6 +75,10 @@ func (m *Module) checkRain(ctx context.Context, now time.Time) error {
 	if err != nil || !a.Enabled {
 		return err
 	}
+	push, err := m.loadNotify(ctx)
+	if err != nil || push.RainSoon {
+		return err
+	}
 	cfg, err := m.load(ctx)
 	if err != nil || cfg.Location == nil {
 		return err

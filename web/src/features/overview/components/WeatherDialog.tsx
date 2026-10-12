@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LocateFixed, MapPin, Search } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, errorMessage } from "../../../api/client";
@@ -88,6 +88,7 @@ export default function WeatherDialog({
 }) {
   const t = useT();
   const qc = useQueryClient();
+  const saving = useRef(false);
   const settings = useBriefSettings();
   const saveSettings = useSaveBriefSettings();
   const alert = useRainAlert();
@@ -107,6 +108,9 @@ export default function WeatherDialog({
   const saveNotify = useSaveWeatherNotify();
   const qweather = useQWeatherConfig();
   const [push, setPush] = useState<WeatherNotify>(defaultNotify);
+  const [rainMode, setRainMode] = useState<"minutely" | "probability">(
+    "minutely",
+  );
   const [error, setError] = useState("");
   const places = useWeatherPlaces(search);
   const alertMissing =
@@ -122,11 +126,28 @@ export default function WeatherDialog({
     setError("");
   }, [open, settings.data]);
   useEffect(() => {
-    if (open && alert.data) setRain(alert.data);
+    if (open && alert.data && !saving.current) setRain(alert.data);
   }, [open, alert.data]);
   useEffect(() => {
-    if (open && notify.data) setPush(notify.data);
+    if (open && notify.data && !saving.current) setPush(notify.data);
   }, [open, notify.data]);
+
+  useEffect(() => {
+    if (!open || saving.current || alert.isPending || notify.isPending) return;
+    setRainMode(
+      notify.data?.rainSoon || (!alert.data?.enabled && notify.data)
+        ? "minutely"
+        : "probability",
+    );
+  }, [open, alert.isPending, alert.data, notify.isPending, notify.data]);
+
+  const rainEnabled = push.rainSoon || rain.enabled;
+  const rainReady = !alert.isPending && !notify.isPending;
+  const setRainReminder = (enabled: boolean, mode = rainMode) => {
+    setRainMode(mode);
+    setPush({ ...push, rainSoon: enabled && mode === "minutely" });
+    setRain({ ...rain, enabled: enabled && mode === "probability" });
+  };
 
   const locate = () => {
     if (!navigator.geolocation) {
@@ -166,6 +187,8 @@ export default function WeatherDialog({
   const pending =
     saveSettings.isPending || saveAlert.isPending || saveNotify.isPending;
   const submit = async () => {
+    if (saving.current) return;
+    saving.current = true;
     setError("");
     try {
       const s = settings.data;
@@ -181,13 +204,28 @@ export default function WeatherDialog({
         });
         qc.invalidateQueries({ queryKey: calendarKeys.weather });
       }
-      if (!alertMissing && alert.data) await saveAlert.mutateAsync(rain);
-      if (notify.data) await saveNotify.mutateAsync(push);
+      const nextRain = {
+        ...rain,
+        enabled: rainEnabled && rainMode === "probability",
+      };
+      const nextPush = {
+        ...push,
+        rainSoon: rainEnabled && rainMode === "minutely",
+      };
+      if (rainMode === "minutely") {
+        if (!alertMissing && alert.data) await saveAlert.mutateAsync(nextRain);
+        if (notify.data) await saveNotify.mutateAsync(nextPush);
+      } else {
+        if (notify.data) await saveNotify.mutateAsync(nextPush);
+        if (!alertMissing && alert.data) await saveAlert.mutateAsync(nextRain);
+      }
       saveWeatherShow(show);
       toast(t("Saved"));
       onClose();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      saving.current = false;
     }
   };
 
@@ -317,39 +355,149 @@ export default function WeatherDialog({
           </label>
         </section>
 
+        <section>
+          <div className="weather-alert-head">
+            <h3>{t("Precipitation reminder")}</h3>
+            <Switch
+              checked={rainEnabled}
+              disabled={pending || !rainReady || (!alert.data && !notify.data)}
+              onChange={(v) => setRainReminder(v)}
+              label={t("Precipitation reminder")}
+            />
+          </div>
+          {!qweather.data?.keySet && (
+            <p className="weather-note">
+              {t(
+                "Precipitation reminders need a QWeather key. Add it in Settings → Daily brief.",
+              )}
+            </p>
+          )}
+          {!rainReady ? (
+            <p className="weather-note">{t("Loading")}…</p>
+          ) : !alert.data && !notify.data ? (
+            <p className="weather-note">
+              {alertMissing
+                ? t("Not live yet")
+                : t(
+                    "Could not load precipitation settings. Reopen this dialog to retry.",
+                  )}
+            </p>
+          ) : (
+            <>
+              <label className="xc-field">
+                <span>{t("Precipitation reminder method")}</span>
+                <select
+                  className="xc-select"
+                  value={rainMode}
+                  disabled={!rainEnabled || pending}
+                  onChange={(e) =>
+                    setRainReminder(
+                      rainEnabled,
+                      e.target.value as "minutely" | "probability",
+                    )
+                  }
+                >
+                  <option value="minutely" disabled={!notify.data}>
+                    {t("By minute forecast (rain or snow)")}
+                  </option>
+                  <option value="probability" disabled={!alert.data}>
+                    {t("By precipitation probability")}
+                  </option>
+                </select>
+              </label>
+              {rainMode === "minutely" ? (
+                <>
+                  <label className="xc-field">
+                    <span>{t("Lead time")}</span>
+                    <select
+                      className="xc-select"
+                      value={push.rainLeadMinutes}
+                      disabled={!rainEnabled || pending}
+                      onChange={(e) =>
+                        setPush({
+                          ...push,
+                          rainLeadMinutes: Number(e.target.value),
+                        })
+                      }
+                    >
+                      {[15, 30, 60, 120].map((m) => (
+                        <option key={m} value={m}>
+                          {t("Ahead by")} {m} {t("min")}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="weather-note">
+                    {t(
+                      "Checked every 5 minutes. Reminds you when rain or snow is coming within the lead time.",
+                    )}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="weather-alert-row">
+                    <label className="xc-field">
+                      <span>{t("Look ahead")}</span>
+                      <select
+                        className="xc-select"
+                        value={rain.leadHours}
+                        disabled={!rainEnabled || pending}
+                        onChange={(e) =>
+                          setRain({
+                            ...rain,
+                            leadHours: Number(e.target.value),
+                          })
+                        }
+                      >
+                        {[1, 2, 3, 4, 6].map((h) => (
+                          <option key={h} value={h}>
+                            {h} {t("hours")}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="xc-field">
+                      <span>{t("When the chance of rain reaches")}</span>
+                      <select
+                        className="xc-select"
+                        value={rain.threshold}
+                        disabled={!rainEnabled || pending}
+                        onChange={(e) =>
+                          setRain({
+                            ...rain,
+                            threshold: Number(e.target.value),
+                          })
+                        }
+                      >
+                        {[40, 50, 60, 70, 80, 90].map((p) => (
+                          <option key={p} value={p}>
+                            {p}%
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <p className="weather-note">
+                    {t(
+                      "Checked every 30 minutes. At most one notice every 6 hours.",
+                    )}
+                  </p>
+                </>
+              )}
+            </>
+          )}
+        </section>
+
         {notify.data && (
           <section>
             <h3>{t("Push alerts")}</h3>
             {!qweather.data?.keySet && (
               <p className="weather-note">
                 {t(
-                  "Rain by the minute and weather warnings need a QWeather key. Add it in Settings → Daily brief.",
+                  "Weather warnings need a QWeather key. Add it in Settings → Daily brief.",
                 )}
               </p>
             )}
-            <div className="weather-push-row">
-              <Switch
-                checked={push.rainSoon}
-                onChange={(v) => setPush({ ...push, rainSoon: v })}
-                label={t("Rain or snow is coming")}
-              />
-              <span>{t("Rain or snow is coming")}</span>
-              <select
-                className="xc-select"
-                aria-label={t("Lead time")}
-                value={push.rainLeadMinutes}
-                disabled={!push.rainSoon}
-                onChange={(e) =>
-                  setPush({ ...push, rainLeadMinutes: Number(e.target.value) })
-                }
-              >
-                {[15, 30, 60, 120].map((m) => (
-                  <option key={m} value={m}>
-                    {t("Ahead by")} {m} {t("min")}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="weather-push-row">
               <Switch
                 checked={push.warnings}
@@ -419,71 +567,12 @@ export default function WeatherDialog({
             </div>
             <p className="weather-note">
               {t(
-                "Rain and warnings are checked every 5 minutes, earthquakes every 2 minutes. Each warning is sent once, and again when it is upgraded or lifted.",
+                "Warnings are checked every 5 minutes, earthquakes every 2 minutes. Each warning is sent once, and again when it is upgraded or lifted.",
               )}
             </p>
           </section>
         )}
 
-        <section>
-          <div className="weather-alert-head">
-            <h3>{t("Rain alert")}</h3>
-            {!alertMissing && (
-              <Switch
-                checked={rain.enabled}
-                onChange={(v) => setRain({ ...rain, enabled: v })}
-                label={t("Rain alert")}
-              />
-            )}
-          </div>
-          {alertMissing ? (
-            <p className="weather-note">{t("Not live yet")}</p>
-          ) : (
-            <>
-              <p className="weather-note">
-                {t(
-                  "Checked every 30 minutes. At most one notice every 6 hours.",
-                )}
-              </p>
-              <div className="weather-alert-row">
-                <label className="xc-field">
-                  <span>{t("Look ahead")}</span>
-                  <select
-                    className="xc-select"
-                    value={rain.leadHours}
-                    disabled={!rain.enabled}
-                    onChange={(e) =>
-                      setRain({ ...rain, leadHours: Number(e.target.value) })
-                    }
-                  >
-                    {[1, 2, 3, 4, 6].map((h) => (
-                      <option key={h} value={h}>
-                        {h} {t("hours")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="xc-field">
-                  <span>{t("When the chance of rain reaches")}</span>
-                  <select
-                    className="xc-select"
-                    value={rain.threshold}
-                    disabled={!rain.enabled}
-                    onChange={(e) =>
-                      setRain({ ...rain, threshold: Number(e.target.value) })
-                    }
-                  >
-                    {[40, 50, 60, 70, 80, 90].map((p) => (
-                      <option key={p} value={p}>
-                        {p}%
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </>
-          )}
-        </section>
         {error && <p className="weather-error">{error}</p>}
         <div className="xc-dialog-actions">
           <button type="button" className="xc-btn ghost" onClick={onClose}>
@@ -492,7 +581,7 @@ export default function WeatherDialog({
           <button
             type="button"
             className="xc-btn primary"
-            disabled={pending}
+            disabled={pending || !rainReady}
             onClick={submit}
           >
             {t("Save")}

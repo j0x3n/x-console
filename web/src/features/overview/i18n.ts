@@ -71,7 +71,16 @@ registerZh({
   "Show on the today page": "今日页上显示",
   "Low and high of the day": "今天的最低和最高温度",
   "Chance of rain": "降雨概率",
-  "Rain alert": "降雨提醒",
+  "Precipitation reminder": "降水提醒",
+  "Precipitation reminder method": "提醒方式",
+  "By minute forecast (rain or snow)": "按分钟预报（雨或雪）",
+  "By precipitation probability": "按降水概率",
+  "Precipitation reminders need a QWeather key. Add it in Settings → Daily brief.":
+    "降水提醒要先在设置 → 早报里填和风天气的 key。",
+  "Checked every 5 minutes. Reminds you when rain or snow is coming within the lead time.":
+    "每 5 分钟检查一次。预计在设定时间内下雨或下雪时提醒。",
+  "Could not load precipitation settings. Reopen this dialog to retry.":
+    "降水设置加载失败。请重新打开天气设置。",
   "Not live yet": "还没上线",
   "Checked every 30 minutes. At most one notice every 6 hours.":
     "每 30 分钟看一次预报，6 小时内最多提醒一次。",
@@ -98,10 +107,10 @@ registerZh({
   "Next two hours": "未来两小时",
   "No earthquakes nearby in 3 days": "最近 3 天附近没有地震",
   "Push alerts": "推送",
-  "Rain and warnings are checked every 5 minutes, earthquakes every 2 minutes. Each warning is sent once, and again when it is upgraded or lifted.":
-    "降水和预警每 5 分钟查一次，地震每 2 分钟查一次。同一条预警只推一次，升级或解除时再推。",
-  "Rain by the minute and weather warnings need a QWeather key. Add it in Settings → Daily brief.":
-    "降水和天气预警要先在设置 → 早报里填和风天气的 key。",
+  "Warnings are checked every 5 minutes, earthquakes every 2 minutes. Each warning is sent once, and again when it is upgraded or lifted.":
+    "预警每 5 分钟查一次，地震每 2 分钟查一次。同一条预警只推一次，升级或解除时再推。",
+  "Weather warnings need a QWeather key. Add it in Settings → Daily brief.":
+    "天气预警要先在设置 → 早报里填和风天气的 key。",
   "Rain or snow is coming": "快下雨下雪时",
   Sunrise: "日出",
   Sunset: "日落",
