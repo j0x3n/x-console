@@ -51,15 +51,19 @@ func (m *Module) saveHostAddresses(ctx context.Context, id, kind string, input [
 	addresses := normalizeHostAddresses(input)
 	raw, _ := json.Marshal(addresses)
 	ip := ""
+	country := ""
 	for _, a := range addresses {
-		if a.Public {
+		if !a.Public {
+			continue
+		}
+		if ip == "" {
+			ip = a.IP
+		}
+		// 一个地址查不到时继续尝试，包括公网 IPv6。
+		if country = m.geo.country(m.baseCtx, a.IP); country != "" {
 			ip = a.IP
 			break
 		}
-	}
-	country := ""
-	if ip != "" {
-		country = m.geo.country(m.baseCtx, ip)
 	}
 	tx, err := m.d.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -73,8 +77,14 @@ func (m *Module) saveHostAddresses(ctx context.Context, id, kind string, input [
 	if err != nil {
 		return err
 	}
-	if country == "" && old.CountryIP == ip {
-		country = old.Country
+	if country == "" && old.Country != "" {
+		// 国家库暂时不可用时，保留仍在当前地址列表里的结果。
+		for _, a := range addresses {
+			if a.Public && a.IP == old.CountryIP {
+				country, ip = old.Country, old.CountryIP
+				break
+			}
+		}
 	}
 	_, err = tx.ExecContext(ctx, "UPDATE host_info SET addresses=?,country_code=?,country_ip=?,country_checked_at=? WHERE host_id=?", string(raw), country, ip, time.Now().UTC(), id)
 	if err != nil {

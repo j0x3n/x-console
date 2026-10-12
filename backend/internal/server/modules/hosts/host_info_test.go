@@ -4,10 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
+	"github.com/j0x3n/x-console/backend/internal/server/config"
+	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/hosts/api"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
@@ -139,3 +145,129 @@ func TestHostAddressesStoredAcrossListAndDetail(t *testing.T) {
 }
 
 func jsonID(id int64) string { raw, _ := json.Marshal(id); return string(raw) }
+
+func hostCountryEnv(t *testing.T) *testutil.Env {
+	t.Helper()
+	return testutil.NewWithConfig(t, func(cfg *config.Config) {
+		raw, err := os.ReadFile(filepath.Join("testdata", "GeoIP2-Country-Test.mmdb"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Join(cfg.DataDir, "geo"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(cfg.DataDir, "geo", "country.mmdb"), raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}, hosts.New)
+}
+
+func TestHostCountryTriesAllPublicAddresses(t *testing.T) {
+	for _, tc := range []struct {
+		name, country, ip string
+		addresses         []protocol.HostAddress
+	}{
+		{"IPv4回退", "GB", "81.2.69.142", []protocol.HostAddress{{IP: "8.8.8.8"}, {IP: "81.2.69.142"}}},
+		{"IPv6回退", "JP", "2001:218::", []protocol.HostAddress{{IP: "8.8.8.8"}, {IP: "2001:218::"}}},
+		{"只有IPv6", "JP", "2001:218::", []protocol.HostAddress{{IP: "10.0.0.2"}, {IP: "2001:218::"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := hostCountryEnv(t)
+			id := env.Agent("server", []string{protocol.CapSystemInfo}, func(c *conn.Client) {
+				c.Handle(protocol.MethodSystemInfo, func(context.Context, json.RawMessage) (any, error) {
+					return protocol.SystemInfo{Addresses: tc.addresses}, nil
+				})
+			})
+			var detail api.HostDetail
+			env.MustDo(http.MethodGet, "/hosts/"+id, nil, &detail)
+			if detail.Country == nil || detail.Country.Code != tc.country {
+				t.Fatalf("country %+v", detail.Country)
+			}
+			var ip string
+			if err := env.App.Deps.DB.QueryRow("SELECT country_ip FROM host_info WHERE host_id=?", id).Scan(&ip); err != nil || ip != tc.ip {
+				t.Fatalf("country IP %q %v", ip, err)
+			}
+			var list []api.HostListItem
+			env.MustDo(http.MethodGet, "/hosts?kind=server", nil, &list)
+			if len(list) != 1 || list[0].Country == nil || list[0].Country.Code != tc.country {
+				t.Fatalf("list %+v", list)
+			}
+		})
+	}
+}
+
+func TestPrivateHostCountryUsesTrustedProxySource(t *testing.T) {
+	for _, trusted := range []bool{false, true} {
+		t.Run(strconv.FormatBool(trusted), func(t *testing.T) {
+			env := hostCountryEnv(t)
+			if trusted {
+				prefixes, err := httpx.ParseTrustedProxies("127.0.0.1")
+				if err != nil {
+					t.Fatal(err)
+				}
+				env.App.Deps.Agents.SetTrustedProxies(prefixes)
+			}
+			var token string
+			id := env.Agent("server", []string{protocol.CapSystemInfo}, func(c *conn.Client) {
+				token = c.Token
+				c.Handle(protocol.MethodSystemInfo, func(context.Context, json.RawMessage) (any, error) {
+					return protocol.SystemInfo{Addresses: []protocol.HostAddress{{IP: "10.0.0.2"}}}, nil
+				})
+			})
+			r := httptest.NewRequest(http.MethodGet, "/api/v1/agent/whoami", nil)
+			r.RemoteAddr = "127.0.0.1:8080"
+			r.Header.Set("Authorization", "Bearer "+token)
+			r.Header.Set("X-Forwarded-For", "81.2.69.142")
+			w := httptest.NewRecorder()
+			env.App.Handler.ServeHTTP(w, r)
+			if w.Code != http.StatusOK {
+				t.Fatalf("whoami %d %s", w.Code, w.Body.String())
+			}
+			wantSource := "127.0.0.1"
+			if trusted {
+				wantSource = "81.2.69.142"
+			}
+			if got := env.App.Deps.Agents.SourceIP(id); got != wantSource {
+				t.Fatalf("来源地址 %q，预期 %q", got, wantSource)
+			}
+			var detail api.HostDetail
+			env.MustDo(http.MethodGet, "/hosts/"+id, nil, &detail)
+			if trusted && (detail.Country == nil || detail.Country.Code != "GB") {
+				t.Fatalf("trusted country %+v", detail.Country)
+			}
+			if !trusted && detail.Country != nil {
+				t.Fatalf("不应信任未配置的转发头: %+v", detail.Country)
+			}
+		})
+	}
+}
+
+func TestHostCountryRetainsCurrentAddressOnLookupFailure(t *testing.T) {
+	env := hostCountryEnv(t)
+	id := env.Agent("server", []string{protocol.CapSystemInfo}, func(c *conn.Client) {
+		c.Handle(protocol.MethodSystemInfo, func(context.Context, json.RawMessage) (any, error) {
+			return protocol.SystemInfo{Addresses: []protocol.HostAddress{{IP: "8.8.8.8"}, {IP: "9.9.9.9"}}}, nil
+		})
+	})
+	if _, err := env.App.Deps.DB.Exec("UPDATE host_info SET country_code='GB',country_ip='9.9.9.9' WHERE host_id=?", id); err != nil {
+		t.Fatal(err)
+	}
+	var detail api.HostDetail
+	env.MustDo(http.MethodGet, "/hosts/"+id, nil, &detail)
+	if detail.Country == nil || detail.Country.Code != "GB" {
+		t.Fatalf("已有国家丢失: %+v", detail.Country)
+	}
+	var ip string
+	if err := env.App.Deps.DB.QueryRow("SELECT country_ip FROM host_info WHERE host_id=?", id).Scan(&ip); err != nil || ip != "9.9.9.9" {
+		t.Fatalf("country IP %q %v", ip, err)
+	}
+	if _, err := env.App.Deps.DB.Exec("UPDATE host_info SET country_code='GB',country_ip='1.1.1.1' WHERE host_id=?", id); err != nil {
+		t.Fatal(err)
+	}
+	// 解码到新对象，避免 JSON 缺省字段保留上一次的指针。
+	detail = api.HostDetail{}
+	env.MustDo(http.MethodGet, "/hosts/"+id, nil, &detail)
+	if detail.Country != nil {
+		t.Fatalf("地址已变更却保留旧国家: %+v", detail.Country)
+	}
+}

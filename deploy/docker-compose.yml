@@ -13,6 +13,11 @@ services:
       dockerfile: deploy/Dockerfile
     restart: unless-stopped
     env_file: .env
+    # B186：面板端口只绑 127.0.0.1，能连进来的只有本机或容器里的反向代理。
+    # 信任它们传来的 X-Forwarded-For，代理和审计才能拿到真实来源 IP（服务器国旗靠它）。
+    # .env 里写了 XC_TRUSTED_PROXIES 时用 .env 的。
+    environment:
+      XC_TRUSTED_PROXIES: ${XC_TRUSTED_PROXIES:-127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
     volumes:
       - xc-data:/data
     ports:
