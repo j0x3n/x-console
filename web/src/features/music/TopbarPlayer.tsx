@@ -287,14 +287,16 @@ export default function TopbarPlayer() {
 
   const isPlaying = playing && !blocked;
   const play = blocked ? resume : toggle;
+  // 暂停时一律折叠成一个播放按钮，接着播放时恢复原来的展开状态
+  const shown = expanded && isPlaying;
 
   return (
     <div
-      className={`music-top${expanded ? " expanded" : ""}`}
+      className={`music-top${shown ? " expanded" : ""}`}
       role="group"
       aria-label={t("Music player")}
     >
-      {!expanded && (
+      {!shown && (
         <button
           type="button"
           className={`icon-button music-top-main${isPlaying ? " music-top-on" : ""}${blocked ? " music-top-blocked" : ""}`}
@@ -314,11 +316,7 @@ export default function TopbarPlayer() {
           {isPlaying ? <PlayingBars /> : <Play size={16} />}
         </button>
       )}
-      <div
-        className="music-top-extra"
-        aria-hidden={!expanded}
-        inert={!expanded}
-      >
+      <div className="music-top-extra" aria-hidden={!shown} inert={!shown}>
         <button
           type="button"
           className={`music-top-cover${open ? " on" : ""}`}

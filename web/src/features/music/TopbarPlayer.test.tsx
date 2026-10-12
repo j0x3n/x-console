@@ -99,6 +99,7 @@ describe("页头播放器", () => {
 
   it("点封面弹出迷你播放器，带歌词，点别处收起", () => {
     resetMini({ expanded: true });
+    usePlayer.setState({ playing: true });
     renderBar();
     fireEvent.click(cover());
     expect(screen.getByRole("dialog", { name: "正在播放" })).toBeTruthy();
@@ -109,6 +110,7 @@ describe("页头播放器", () => {
 
   it("迷你播放器里展开和收起播放列表", () => {
     resetMini({ expanded: true });
+    usePlayer.setState({ playing: true });
     renderBar();
     fireEvent.click(cover());
     expect(screen.queryByText("队列内容")).toBeNull();
@@ -120,6 +122,7 @@ describe("页头播放器", () => {
 
   it("固定后点别处不收起，并且记住", () => {
     resetMini({ expanded: true });
+    usePlayer.setState({ playing: true });
     renderBar();
     fireEvent.click(cover());
     fireEvent.click(
@@ -144,6 +147,18 @@ describe("页头播放器", () => {
     renderBar();
     fireEvent.click(screen.getByRole("button", { name: "暂停" }));
     expect(usePlayer.getState().playing).toBe(false);
+    // 暂停就折叠，只剩播放按钮；接着播放时恢复展开
+    expect(screen.queryByRole("button", { name: "下一首" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "播放" }));
+    expect(usePlayer.getState().playing).toBe(true);
+    expect(screen.getByRole("button", { name: "下一首" })).toBeTruthy();
+  });
+
+  it("打开页面时是暂停的，也是折叠的", () => {
+    resetMini({ expanded: true });
+    renderBar();
+    expect(screen.queryByRole("button", { name: "下一首" })).toBeNull();
+    expect(screen.getByRole("button", { name: "播放" })).toBeTruthy();
   });
 });
 
@@ -172,7 +187,7 @@ describe("系统媒体控制的进度", () => {
 
   it("音量只有一个按钮，点开出竖直滑块，滚轮也能调", () => {
     resetMini({ expanded: true, open: true });
-    usePlayer.setState({ volume: 0.5 });
+    usePlayer.setState({ volume: 0.5, playing: true });
     renderBar();
     expect(screen.queryByRole("slider", { name: "音量" })).toBeNull();
     const button = screen.getByRole("button", { name: "音量" });
