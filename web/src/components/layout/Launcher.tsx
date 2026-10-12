@@ -239,8 +239,10 @@ function RailOrder({
               <button
                 type="button"
                 className="launcher-rail-remove"
-                aria-label={`${sep ? t("Remove divider") : t("Unpin from sidebar")}: ${label}`}
-                title={sep ? t("Remove divider") : t("Unpin from sidebar")}
+                aria-label={`${sep ? t("Remove divider") : t("Remove from sidebar order")}: ${label}`}
+                title={
+                  sep ? t("Remove divider") : t("Remove from sidebar order")
+                }
                 onClick={() => onChange(pins.filter((p) => p !== pin))}
               >
                 <X size={12} />

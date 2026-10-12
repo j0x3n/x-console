@@ -122,6 +122,7 @@ registerZh({
   "Add divider": "加分隔线",
   Divider: "分隔线",
   "Remove divider": "删除分隔线",
+  "Remove from sidebar order": "从左栏顺序里移除",
   "Drag to reorder": "拖动调整顺序",
   Dark: "深色",
   Light: "浅色",
