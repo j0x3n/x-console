@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LocateFixed, MapPin, Search } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError, errorMessage } from "../../../api/client";
@@ -125,14 +125,14 @@ export default function WeatherDialog({
     setSearch("");
     setError("");
   }, [open, settings.data]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open && alert.data && !saving.current) setRain(alert.data);
   }, [open, alert.data]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open && notify.data && !saving.current) setPush(notify.data);
   }, [open, notify.data]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open || saving.current || alert.isPending || notify.isPending) return;
     setRainMode(
       notify.data?.rainSoon || (!alert.data?.enabled && notify.data)
