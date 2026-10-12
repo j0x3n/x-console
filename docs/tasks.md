@@ -11,8 +11,7 @@
 
 ## 当前状态（2026-10-11 更新）
 
-- 线上是 `develop` 的最新部署（带部署标记的提交会部署，见 AGENTS.md）。B146 到 B152 和 kanban 分支已在 2026-10-11 部署。
-- `frontend-done` 分支是交给 Codex 之前的版本，需要时可以回到这里。
+- 线上是 `develop` 的最新部署（带部署标记的提交会部署，见 AGENTS.md）。B146 到 B152 和 kanban 分支已在 2026-10-11 部署，kanban 分支已合并删除。
 - 后端早期的完成记录见 [backend-todo.md](backend-todo.md)。
 
 ## 进行中
