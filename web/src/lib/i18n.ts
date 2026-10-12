@@ -108,6 +108,7 @@ registerZh({
   Ocean: "海蓝",
   Rose: "玫瑰",
   Graphite: "石墨",
+  Cyber: "赛博",
   Dark: "深色",
   Light: "浅色",
   Language: "语言",

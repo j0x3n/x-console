@@ -17,7 +17,7 @@ const preferencesKey = "ui.preferences"
 
 var (
 	nightModes = []string{"on", "off", "auto"}
-	accents    = []string{"indigo", "ocean", "teal", "violet", "rose", "graphite"}
+	accents    = []string{"indigo", "ocean", "teal", "violet", "rose", "graphite", "cyber"}
 	languages  = []string{"zh", "en"}
 	// B98 removed these accents. Old saves and old clients still send them.
 	legacyAccents = map[api.PreferencesAccent]api.PreferencesAccent{"ember": "indigo", "mint": "teal"}

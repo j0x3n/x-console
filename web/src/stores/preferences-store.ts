@@ -9,6 +9,7 @@ export const accents: Accent[] = [
   "violet",
   "rose",
   "graphite",
+  "cyber",
 ];
 
 /** B98 去掉了 ember 和 mint。旧的本地设置和旧服务端还会给这两个值。 */

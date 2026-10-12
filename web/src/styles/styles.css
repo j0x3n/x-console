@@ -3,6 +3,15 @@
   color: var(--xc-text);
   background: var(--xc-bg);
   font-synthesis: none;
+  /* B175 原生的勾选框、单选、滑块、进度条也用主题色 */
+  accent-color: var(--xc-accent);
+}
+/* B175 没写颜色的链接不用浏览器默认的蓝色 */
+a {
+  color: var(--xc-accent-text);
+}
+::selection {
+  background: color-mix(in srgb, var(--xc-accent) 28%, transparent);
 }
 * {
   box-sizing: border-box;
@@ -49,11 +58,11 @@ svg {
 .command-footer kbd {
   font-size: var(--fs-10);
   line-height: 1;
-  border: 1px solid #303036;
+  border: 1px solid var(--xc-border-strong);
   border-radius: 4px;
-  color: #7d7d87;
+  color: var(--xc-muted);
   padding: 3px 4px;
-  background: #1d1d21;
+  background: var(--xc-surface-2);
 }
 .favorites-label {
   margin-top: 8px;
@@ -160,7 +169,7 @@ svg {
   height: 100%;
   overflow: auto;
   scrollbar-width: thin;
-  scrollbar-color: #333338 transparent;
+  scrollbar-color: var(--xc-border-strong) transparent;
 }
 /* B100：顶栏 58px，下边一条线 */
 .topbar {
@@ -254,15 +263,15 @@ svg {
   width: 27px;
   height: 27px;
   padding: 0;
-  color: #898991;
+  color: var(--xc-muted);
   background: transparent;
   border: 0;
   border-radius: 6px;
 }
 .icon-button:hover,
 .command-button:hover {
-  background: #252529;
-  color: #efeff1;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
+  color: var(--xc-text);
 }
 .notification-button {
   position: relative;
@@ -274,8 +283,8 @@ svg {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #ec7547;
-  box-shadow: 0 0 0 2px #111113;
+  background: var(--xc-accent);
+  box-shadow: 0 0 0 2px var(--xc-bg);
 }
 .command-button {
   height: 26px;
@@ -599,7 +608,7 @@ svg {
 .axis {
   display: flex;
   justify-content: space-between;
-  color: #686872;
+  color: var(--xc-muted);
   font-size: var(--fs-9);
   margin-top: 6px;
 }
@@ -684,7 +693,7 @@ svg {
   right: 0;
   top: 5px;
   height: 1px;
-  background: #67666c;
+  background: var(--xc-border-strong);
 }
 .time-track i {
   position: absolute;
@@ -722,8 +731,8 @@ svg {
   width: 2px;
   height: 16px;
   border-radius: 2px;
-  background: #e78358;
-  box-shadow: 0 0 0 2px var(--card-bg, #17171a);
+  background: var(--xc-accent);
+  box-shadow: 0 0 0 2px var(--card-bg, var(--xc-surface));
 }
 .meeting-timeline .axis {
   position: relative;
@@ -895,7 +904,7 @@ svg {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #777781;
+  color: var(--xc-muted);
   margin-top: 7px;
   font-size: var(--fs-10);
   min-width: 0;
@@ -908,7 +917,7 @@ svg {
 .receipts em {
   font-style: normal;
   margin-left: auto;
-  color: #85858e;
+  color: var(--xc-muted);
 }
 .decision-actions {
   display: flex;
@@ -1414,8 +1423,8 @@ svg {
 .agent-card {
   min-height: 170px;
   padding: 17px;
-  background: #17171a;
-  border: 1px solid #29292f;
+  background: var(--xc-surface);
+  border: 1px solid var(--xc-border);
   border-radius: 8px;
 }
 .agent-card .agent-badge {
@@ -1436,7 +1445,7 @@ svg {
 }
 .agent-card p {
   line-height: 1.5;
-  color: #898993;
+  color: var(--xc-muted);
   font-size: var(--fs-11);
   margin: 12px 0 0;
 }
@@ -1542,8 +1551,8 @@ svg {
 .command-dialog,
 .form-dialog {
   width: min(530px, 100%);
-  background: #202024;
-  border: 1px solid #3b3b42;
+  background: var(--xc-elevated);
+  border: 1px solid var(--xc-border-strong);
   border-radius: 10px;
   box-shadow: 0 25px 70px #000a;
   overflow: hidden;
@@ -1554,24 +1563,24 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 0 15px;
-  border-bottom: 1px solid #38383e;
-  color: #a2a2ab;
+  border-bottom: 1px solid var(--xc-border);
+  color: var(--xc-text-2);
 }
 .command-input input {
   flex: 1;
   min-width: 0;
   background: none;
   border: 0;
-  color: #f0f0f2;
+  color: var(--xc-text);
   outline: 0;
   font-size: var(--fs-14);
 }
 .command-input input::placeholder {
-  color: #777780;
+  color: var(--xc-faint);
 }
 .command-caption {
   padding: 14px 15px 7px;
-  color: #767680;
+  color: var(--xc-muted);
   text-transform: uppercase;
   font-size: var(--fs-10);
   font-weight: 600;
@@ -1586,14 +1595,14 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 0 8px;
-  color: #e2e2e6;
+  color: var(--xc-text);
   background: none;
   border: 0;
   border-radius: 6px;
   text-align: left;
 }
 .command-results button:hover {
-  background: #303036;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 .result-icon {
   width: 22px;
@@ -1607,11 +1616,11 @@ svg {
 }
 .command-results button > svg {
   margin-left: auto;
-  color: #888891;
+  color: var(--xc-muted);
 }
 .empty-result {
   padding: 18px;
-  color: #8c8c95;
+  color: var(--xc-muted);
 }
 .command-footer {
   height: 34px;
@@ -1619,8 +1628,8 @@ svg {
   gap: 18px;
   align-items: center;
   padding: 0 14px;
-  border-top: 1px solid #37373d;
-  color: #777780;
+  border-top: 1px solid var(--xc-border);
+  color: var(--xc-muted);
   font-size: var(--fs-10);
 }
 .command-footer span {
@@ -1708,14 +1717,14 @@ svg {
   align-items: center;
   gap: 8px;
   padding: 11px 14px;
-  color: #e8f7ee;
-  background: #20372e;
-  border: 1px solid #40745b;
+  color: var(--xc-text);
+  background: var(--xc-elevated);
+  border: 1px solid var(--xc-border-strong);
   border-radius: 7px;
   box-shadow: 0 10px 30px #0007;
 }
 .toast svg {
-  color: #79c99c;
+  color: var(--xc-ok);
 }
 .toast > span {
   min-width: 0;
@@ -1734,13 +1743,13 @@ svg {
   cursor: pointer;
 }
 .toast button:hover {
-  background: #ffffff1a;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 .toast button svg {
   color: currentColor;
 }
 html[data-theme="light"] .toast button:hover {
-  background: #1d593e14;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 @media (max-width: 1300px) {
   .metrics {

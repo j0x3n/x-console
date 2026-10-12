@@ -20,6 +20,14 @@ html[data-theme="dark"] {
   --xc-accent-soft: #5b5ee626;
   --xc-accent-text: #a5b4fc;
   --xc-on-accent: #ffffff;
+  /* B175 辅色。只有赛博主题单独设，其他主题等于主色 */
+  --xc-accent-2: var(--xc-accent);
+  --xc-accent-2-soft: var(--xc-accent-soft);
+  --xc-accent-2-text: var(--xc-accent-text);
+  /* B175 站标：主题色浅底，X 用主色，光标用辅色 */
+  --xc-logo-bg: color-mix(in srgb, var(--xc-accent) 20%, var(--xc-bg));
+  --xc-logo-fg: var(--xc-accent-text);
+  --xc-logo-fg-2: var(--xc-accent-2-text);
   --xc-brand-grad: var(--xc-accent);
   --xc-ok: #4ade80;
   --xc-ok-soft: #4ade8026;
@@ -100,6 +108,9 @@ html[data-theme="light"] {
   --xc-accent-soft: #4f46e51a;
   --xc-accent-text: #4338ca;
   --xc-on-accent: #ffffff;
+  --xc-logo-bg: color-mix(in srgb, var(--xc-accent) 14%, var(--xc-bg));
+  --xc-logo-fg: var(--xc-accent);
+  --xc-logo-fg-2: var(--xc-accent-2);
   --xc-ok: #16a34a;
   --xc-ok-soft: #16a34a1a;
   --xc-warn: #b45309;
@@ -166,4 +177,66 @@ html[data-theme="dark"][data-accent="graphite"] {
   --xc-accent-soft: #e4e4e71f;
   --xc-accent-text: #e4e4e7;
   --xc-on-accent: #18181b;
+}
+
+/*
+ * 赛博（B175，霓虹粉紫）。和别的主题色不同，底色、边框、文字一起换成偏紫的色调。
+ * 主色粉、辅色紫，“信息”状态色也用紫。深色下主要按钮是亮粉底配深色字，对比度不低于 4.5:1。
+ */
+html[data-theme="light"][data-accent="cyber"] {
+  --xc-bg: #fdfaff;
+  --xc-panel: #f8f2fd;
+  --xc-surface: #ffffff;
+  --xc-surface-2: #f8f2fd;
+  --xc-elevated: #ffffff;
+  --xc-border: #efe4f7;
+  --xc-border-strong: #e4d5f0;
+  --xc-text: #1e0f2e;
+  --xc-text-2: #3d2b52;
+  --xc-muted: #7a6a8e;
+  --xc-faint: #ab9cbd;
+  --xc-accent: #c8157a;
+  --xc-accent-soft: #c8157a1a;
+  --xc-accent-text: #a3105f;
+  --xc-on-accent: #ffffff;
+  --xc-accent-2: #7c3aed;
+  --xc-accent-2-soft: #7c3aed1a;
+  --xc-accent-2-text: #6d28d9;
+  --xc-logo-bg: #f5e8ff;
+  --xc-logo-fg: #e0218a;
+  --xc-logo-fg-2: #7c3aed;
+  --xc-info: #7c3aed;
+  --xc-info-soft: #7c3aed1a;
+  --xc-shadow: 0 18px 50px #2a10401f;
+}
+html[data-theme="dark"][data-accent="cyber"] {
+  --xc-bg: #100a1c;
+  --xc-panel: #0b0714;
+  --xc-surface: #170f27;
+  --xc-surface-2: #1d1430;
+  --xc-elevated: #21173a;
+  --xc-border: #2a1d42;
+  --xc-border-strong: #3a2a58;
+  --xc-text: #f3ecff;
+  --xc-text-2: #d2c6ea;
+  --xc-muted: #9584b4;
+  --xc-faint: #64567f;
+  --xc-accent: #ff2a9d;
+  --xc-accent-soft: #ff2a9d26;
+  --xc-accent-text: #ff7cc6;
+  --xc-on-accent: #1a0626;
+  --xc-accent-2: #b066ff;
+  --xc-accent-2-soft: #b066ff26;
+  --xc-accent-2-text: #c99bff;
+  --xc-logo-bg: #1d0b33;
+  --xc-logo-fg: #ff2a9d;
+  --xc-logo-fg-2: #b066ff;
+  --xc-ok: #3ee8a0;
+  --xc-ok-soft: #3ee8a026;
+  --xc-warn: #ffd23f;
+  --xc-warn-soft: #ffd23f26;
+  --xc-danger: #ff5c5c;
+  --xc-danger-soft: #ff5c5c26;
+  --xc-info: #b066ff;
+  --xc-info-soft: #b066ff26;
 }

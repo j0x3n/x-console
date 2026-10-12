@@ -12,7 +12,7 @@ html[data-theme="light"] .main-panel {
 
 html[data-theme="light"] .main-scroll,
 html[data-theme="light"] .activity-list {
-  scrollbar-color: #ceced2 transparent;
+  scrollbar-color: var(--xc-border-strong) transparent;
 }
 
 html[data-theme="light"] .section-heading h2,
@@ -27,12 +27,12 @@ html[data-theme="light"] .activity-list,
 html[data-theme="light"] .records-section,
 html[data-theme="light"] .plain-section,
 html[data-theme="light"] .agent-card {
-  background: #fff;
-  border-color: #e9e9eb;
+  background: var(--xc-surface);
+  border-color: var(--xc-border);
 }
 
 html[data-theme="light"] .metric-card {
-  --card-bg: #fff;
+  --card-bg: var(--xc-surface);
 }
 
 html[data-theme="light"] .delegate-button kbd,
@@ -40,9 +40,9 @@ html[data-theme="light"] .command-button,
 html[data-theme="light"] .keyboard-help kbd,
 html[data-theme="light"] .command-input kbd,
 html[data-theme="light"] .command-footer kbd {
-  color: #8d8d92;
-  background: #f4f4f5;
-  border-color: #e4e4e7;
+  color: var(--xc-muted);
+  background: var(--xc-surface-2);
+  border-color: var(--xc-border-strong);
 }
 
 html[data-theme="light"] .agent-badge.teal {
@@ -102,18 +102,18 @@ html[data-theme="light"] .subtle-action {
 
 html[data-theme="light"] .delegate-button svg,
 html[data-theme="light"] .icon-button {
-  color: #727279;
+  color: var(--xc-muted);
 }
 
 html[data-theme="light"] .icon-button:hover,
 html[data-theme="light"] .command-button:hover,
 html[data-theme="light"] .subtle-action:hover {
-  color: #151519;
-  background: #ececee;
+  color: var(--xc-text);
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 
 html[data-theme="light"] .notification-button i {
-  box-shadow: 0 0 0 2px #fafafa;
+  box-shadow: 0 0 0 2px var(--xc-bg);
 }
 
 html[data-theme="light"] .greeting-row p,
@@ -159,7 +159,7 @@ html[data-theme="light"] .eyebrow,
 html[data-theme="light"] .agent-card p,
 html[data-theme="light"] .plain-section p,
 html[data-theme="light"] .empty-copy {
-  color: #77777d;
+  color: var(--xc-muted);
 }
 
 html[data-theme="light"] .metric-card:hover,
@@ -256,7 +256,7 @@ html[data-theme="light"] .meeting-row:hover,
 html[data-theme="light"] .activity-row:hover,
 html[data-theme="light"] .record-row:hover,
 html[data-theme="light"] .command-results button:hover {
-  background: #f3f3f5;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 html[data-theme="light"] .meeting-tag.ready,
 html[data-theme="light"] .metric-secondary.positive {
@@ -280,9 +280,9 @@ html[data-theme="light"] .profile-popover,
 html[data-theme="light"] .notifications-popover,
 html[data-theme="light"] .command-dialog,
 html[data-theme="light"] .form-dialog {
-  color: #171719;
-  background: #fff;
-  border-color: #dedee1;
+  color: var(--xc-text);
+  background: var(--xc-elevated);
+  border-color: var(--xc-border-strong);
   box-shadow: 0 16px 40px #1111111a;
 }
 
@@ -293,7 +293,7 @@ html[data-theme="light"] .profile-menu-item kbd,
 html[data-theme="light"] .notification-entry small,
 html[data-theme="light"] .command-caption,
 html[data-theme="light"] .command-footer {
-  color: #77777d;
+  color: var(--xc-muted);
 }
 html[data-theme="light"] .profile-menu-section,
 html[data-theme="light"] .popover-head,
@@ -301,22 +301,22 @@ html[data-theme="light"] .notification-entry,
 html[data-theme="light"] .command-input,
 html[data-theme="light"] .command-footer,
 html[data-theme="light"] .edit-dialog label {
-  border-color: #ececee;
+  border-color: var(--xc-border);
 }
 html[data-theme="light"] .profile-menu-item,
 html[data-theme="light"] .command-results button {
-  color: #29292e;
+  color: var(--xc-text-2);
 }
 html[data-theme="light"] .profile-menu-item:hover,
 html[data-theme="light"] .profile-menu-item:focus-visible {
-  background: #f2f2f4;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 html[data-theme="light"] .profile-menu-item .menu-check {
-  color: #dc7544;
+  color: var(--xc-accent-text);
 }
 html[data-theme="light"] .command-input input,
 html[data-theme="light"] .edit-dialog label strong {
-  color: #171719;
+  color: var(--xc-text);
 }
 html[data-theme="light"] .result-icon {
   background: #f1f1f3;
@@ -331,7 +331,7 @@ html[data-theme="light"] .modal-backdrop {
   background: #1b1b2266;
 }
 html[data-theme="light"] .toast {
-  color: #1d593e;
-  background: #eaf7ee;
-  border-color: #b8dec5;
+  color: var(--xc-text);
+  background: var(--xc-elevated);
+  border-color: var(--xc-border-strong);
 }

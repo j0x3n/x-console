@@ -1686,6 +1686,10 @@ a.xc-badge:hover {
   background: #18181b;
   box-shadow: inset 0 0 0 1px #ffffff33;
 }
+/* B175 赛博：粉紫对半 */
+.profile-accent.accent-cyber {
+  background: linear-gradient(135deg, #e0218a 50%, #7c3aed 50%);
+}
 .profile-accent.accent-graphite.active {
   box-shadow:
     0 0 0 2px var(--xc-elevated),

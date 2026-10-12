@@ -3,14 +3,15 @@ import type { Dispatch, SetStateAction } from "react";
 // 只放跨模块共用的界面类型。接口数据的类型来自 api/gen/<模块>.ts。
 export type Language = "zh" | "en";
 export type ThemeMode = "system" | "dark" | "light";
-/** 主题色（B22，B98 改过），深浅主题都生效。 */
+/** 主题色（B22，B98 改过），深浅主题都生效。cyber 是 B175 加的赛博，连底色一起换。 */
 export type Accent =
   | "indigo"
   | "ocean"
   | "teal"
   | "violet"
   | "rose"
-  | "graphite";
+  | "graphite"
+  | "cyber";
 export type Text = string | number | null | undefined;
 export type Translate = (text: Text) => string;
 export type Setter<T> = Dispatch<SetStateAction<T>>;

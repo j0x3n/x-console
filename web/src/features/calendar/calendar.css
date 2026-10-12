@@ -116,7 +116,7 @@
   padding: 0 4px;
   border-radius: 12px;
   background: var(--xc-accent);
-  color: #fff;
+  color: var(--xc-on-accent);
 }
 .calendar-allday {
   border-bottom: 1px solid var(--xc-border);

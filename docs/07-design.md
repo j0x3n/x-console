@@ -106,8 +106,13 @@
 
 ### 主题色
 
-- 6 种：靛蓝 `indigo`（默认）、海蓝 `ocean`、青色 `teal`、紫罗兰 `violet`、玫瑰 `rose`、石墨 `graphite`。深浅主题都跟着用户选的走。
-- 变量：`--xc-accent`（按钮底、进度条、选中图标）、`--xc-accent-soft`（选中项浅底）、`--xc-accent-text`（主题色文字）、`--xc-on-accent`（主题色底上的字，石墨深色时是黑字）。
+- 7 种：靛蓝 `indigo`（默认）、海蓝 `ocean`、青色 `teal`、紫罗兰 `violet`、玫瑰 `rose`、石墨 `graphite`、赛博 `cyber`。深浅主题都跟着用户选的走。
+- 赛博（B175，霓虹粉紫）和别的不同：底色、边框、文字也换成偏紫的色调，主色粉、辅色紫，深色下主要按钮是亮粉底配深色字。所以底色、边框、文字一律用变量，写死的灰色在赛博主题下会很突兀。
+- 变量：`--xc-accent`（按钮底、进度条、选中图标）、`--xc-accent-soft`（选中项浅底）、`--xc-accent-text`（主题色文字）、`--xc-on-accent`（主题色底上的字，石墨深色和赛博深色时是深色字，主题色底上不要写死白字）。
+- 辅色（B175）：`--xc-accent-2`、`--xc-accent-2-soft`、`--xc-accent-2-text`，用在第二种强调（图表第二条线、标签）。只有赛博单独设，其他主题等于主色。
+- 站标：`components/ui/BrandMark` 是 LED 像素风的 “X_”，颜色取 `--xc-logo-bg`、`--xc-logo-fg`、`--xc-logo-fg-2`。浏览器和安装图标固定用赛博配色。
+- 悬停底色用 `color-mix(in srgb, var(--xc-text) 8%, transparent)`，在卡片、弹窗、侧栏上都能看出来。
+- 全局已设 `accent-color`，原生勾选框、滑块跟着主题色；没写颜色的链接是 `--xc-accent-text`。
 - 只用在：主要按钮、选中状态、Logo、头像、进度条、关键数字、开关打开。不要大面积铺。
 - 原来的褐色 `ember` 和薄荷绿 `mint` 已去掉。旧设置读出来时自动换成 `indigo` 和 `teal`。
 

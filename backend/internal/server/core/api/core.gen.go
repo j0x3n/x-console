@@ -83,6 +83,7 @@ func (e NotificationPriority) Valid() bool {
 
 // Defines values for PreferencesAccent.
 const (
+	Cyber    PreferencesAccent = "cyber"
 	Ember    PreferencesAccent = "ember"
 	Graphite PreferencesAccent = "graphite"
 	Indigo   PreferencesAccent = "indigo"
@@ -96,6 +97,8 @@ const (
 // Valid indicates whether the value is a known member of the PreferencesAccent enum.
 func (e PreferencesAccent) Valid() bool {
 	switch e {
+	case Cyber:
+		return true
 	case Ember:
 		return true
 	case Graphite:
@@ -321,7 +324,7 @@ type PairRequest struct {
 
 // Preferences defines model for Preferences.
 type Preferences struct {
-	// Accent 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
+	// Accent 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。cyber 是赛博（B175），连底色一起换。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
 	Accent   PreferencesAccent   `json:"accent"`
 	Language PreferencesLanguage `json:"language"`
 
@@ -338,7 +341,7 @@ type Preferences struct {
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
-// PreferencesAccent 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
+// PreferencesAccent 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。cyber 是赛博（B175），连底色一起换。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
 type PreferencesAccent string
 
 // PreferencesLanguage defines model for Preferences.Language.

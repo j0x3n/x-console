@@ -299,6 +299,7 @@ const accentLabels: Record<Accent, string> = {
   violet: "Violet",
   rose: "Rose",
   graphite: "Graphite",
+  cyber: "Cyber",
 };
 
 function ProfileMenu() {

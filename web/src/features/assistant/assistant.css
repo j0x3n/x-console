@@ -11,7 +11,7 @@
   border: 0;
   border-radius: 50%;
   background: var(--xc-accent);
-  color: #fff;
+  color: var(--xc-on-accent);
   box-shadow: 0 8px 24px #0005;
   cursor: pointer;
 }
@@ -473,7 +473,7 @@
   border: 0;
   border-radius: 8px;
   background: var(--xc-accent);
-  color: #fff;
+  color: var(--xc-on-accent);
 }
 .ai-send:disabled {
   opacity: 0.4;
@@ -801,6 +801,11 @@ button.ai-model-row:hover,
 html[data-theme="dark"] .ai-usage {
   --ai-usage-cached: #4f98e0;
   --ai-usage-miss: #cc7752;
+}
+/* B175 赛博主题：用主色和辅色 */
+html[data-accent="cyber"] .ai-usage {
+  --ai-usage-cached: var(--xc-accent-2);
+  --ai-usage-miss: var(--xc-accent);
 }
 .ai-usage-bar {
   display: flex;

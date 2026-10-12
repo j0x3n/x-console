@@ -1651,7 +1651,7 @@
 }
 .projects-cardmenu .projects-cardmenu-custom button.primary {
   background: var(--xc-accent);
-  color: #fff;
+  color: var(--xc-on-accent);
 }
 @media (max-width: 640px) {
   .projects-cardmenu {

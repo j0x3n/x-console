@@ -14,22 +14,22 @@
   left: 0;
   width: 100%;
   overflow: hidden;
-  border: 1px solid #303036;
+  border: 1px solid var(--xc-border-strong);
   border-radius: 8px;
-  background: #202024;
+  background: var(--xc-elevated);
   box-shadow: 0 16px 36px #0008;
-  color: #e9e9ec;
+  color: var(--xc-text);
 }
 
 .profile-email {
   padding: 11px 12px;
-  color: #898991;
+  color: var(--xc-muted);
   font-size: var(--fs-11);
 }
 
 .profile-menu-section {
   padding: 6px;
-  border-top: 1px solid #34343a;
+  border-top: 1px solid var(--xc-border);
 }
 
 .profile-menu-label {
@@ -48,17 +48,17 @@
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: #d9d9dd;
+  color: var(--xc-text-2);
   text-align: left;
 }
 
 .profile-menu-item:hover,
 .profile-menu-item:focus-visible {
-  background: #303036;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 
 .profile-menu-item > svg:first-child {
-  color: #96969e;
+  color: var(--xc-muted);
 }
 
 .profile-menu-item span {
@@ -66,11 +66,11 @@
 }
 
 .profile-menu-item .menu-check {
-  color: #e98756;
+  color: var(--xc-accent-text);
 }
 
 .profile-menu-item kbd {
-  color: #85858d;
+  color: var(--xc-muted);
   font-size: var(--fs-10);
 }
 

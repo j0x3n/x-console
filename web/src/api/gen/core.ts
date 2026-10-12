@@ -539,10 +539,10 @@ export interface components {
              */
             nightMode: "on" | "off" | "auto";
             /**
-             * @description 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
+             * @description 主题色（B98），深浅主题都生效。indigo 是默认的靛蓝。cyber 是赛博（B175），连底色一起换。ember、mint 是旧值，只为兼容旧版本保留，读出来时分别换成 indigo、teal
              * @enum {string}
              */
-            accent: "indigo" | "ocean" | "teal" | "violet" | "rose" | "graphite" | "ember" | "mint";
+            accent: "indigo" | "ocean" | "teal" | "violet" | "rose" | "graphite" | "cyber" | "ember" | "mint";
             /** @enum {string} */
             language: "zh" | "en";
             /** @description B88。今日页问候语里的称呼，空时用登录名 */

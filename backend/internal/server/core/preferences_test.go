@@ -64,6 +64,13 @@ func TestPreferences(t *testing.T) {
 		}
 	}
 
+	// B175: the cyber theme
+	env.MustDo(http.MethodPut, "/me/preferences", prefs{NightMode: "on", Accent: "cyber", Language: "zh"}, &saved)
+	env.MustDo(http.MethodGet, "/me/preferences", nil, &got)
+	if saved.Accent != "cyber" || got.Accent != "cyber" {
+		t.Fatalf("cyber accent: saved %s, got %s", saved.Accent, got.Accent)
+	}
+
 	env.MustDo(http.MethodPost, "/auth/logout", nil, nil)
 	if status, _ := env.Do(http.MethodGet, "/me/preferences", nil, nil); status != http.StatusUnauthorized {
 		t.Fatalf("logged out: %d", status)

@@ -1111,3 +1111,9 @@ button.servers-file:hover {
   gap: 8px;
   font-size: var(--fs-13);
 }
+
+/* B175 赛博主题：图表两条线用主色和辅色 */
+html[data-accent="cyber"] {
+  --servers-series-1: var(--xc-accent-2);
+  --servers-series-2: var(--xc-accent);
+}

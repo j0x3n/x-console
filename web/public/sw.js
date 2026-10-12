@@ -17,12 +17,12 @@ const SHELL_CACHE = "xc-shell-v3";
 const ASSET_CACHE = "xc-assets-v3";
 const SHELL = [
   "/",
-  "/manifest.webmanifest?v=connect-1",
-  "/favicon.svg?v=connect-1",
-  "/icons/icon-192.png?v=connect-1",
-  "/icons/icon-512.png?v=connect-1",
-  "/icons/apple-touch-icon.png?v=connect-1",
-  "/icons/maskable-512.png?v=connect-1",
+  "/manifest.webmanifest?v=led-1",
+  "/favicon.svg?v=led-1",
+  "/icons/icon-192.png?v=led-1",
+  "/icons/icon-512.png?v=led-1",
+  "/icons/apple-touch-icon.png?v=led-1",
+  "/icons/maskable-512.png?v=led-1",
 ];
 // Built files under /assets/ have a content hash in the name, so a cached
 // copy never goes stale. Keep the newest ones only.
@@ -154,11 +154,11 @@ const NOTIFY_ICONS = [
 function notifyIcons(data) {
   const ua = (self.navigator && self.navigator.userAgent) || "";
   const custom = /Windows|Android/.test(ua);
-  if (!custom) return { icon: "/icons/icon-192.png?v=connect-1" };
+  if (!custom) return { icon: "/icons/icon-192.png?v=led-1" };
   const kind = String(data.kind || "");
   const hit = NOTIFY_ICONS.find(([re]) => re.test(kind));
   const name = hit ? hit[1] : "app";
-  const version = name === "app" ? "?v=connect-1" : "";
+  const version = name === "app" ? "?v=led-1" : "";
   return {
     icon: data.icon || `/icons/notify/${name}.png${version}`,
     badge: data.badge || `/icons/notify/${name}-badge.png${version}`,

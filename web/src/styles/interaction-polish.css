@@ -316,9 +316,9 @@
   min-height: 60px;
   gap: 10px;
   padding: 10px 12px;
-  color: #e9e9ed;
-  background: #212125;
-  border-color: #3a3a40;
+  color: var(--xc-text);
+  background: var(--xc-elevated);
+  border-color: var(--xc-border-strong);
   border-radius: 12px;
   box-shadow: 0 12px 36px #0007;
   animation: toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -345,13 +345,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #95959e;
+  color: var(--xc-muted);
   font-size: var(--fs-10);
 }
 .toast .toast-undo {
   flex: none;
   margin: 0 0 0 auto;
-  color: #e8e8eb;
+  color: var(--xc-text);
   font-size: var(--fs-11);
   font-weight: 500;
 }
@@ -359,11 +359,11 @@
   flex: none;
   margin: 0;
   padding: 3px;
-  color: #96969f;
+  color: var(--xc-muted);
 }
 .toast .toast-undo:hover,
 .toast .toast-close:hover {
-  background: #34343a;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 .toast .toast-check {
   display: inline-flex;
@@ -372,8 +372,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #28463b;
-  color: #7fd0a6;
+  background: var(--xc-ok-soft);
+  color: var(--xc-ok);
 }
 
 .decision-outcome-status {
@@ -383,9 +383,9 @@
 }
 html[data-theme="light"] .reassign-menu,
 html[data-theme="light"] .toast {
-  color: #242428;
-  background: #fff;
-  border-color: #e4e4e8;
+  color: var(--xc-text);
+  background: var(--xc-elevated);
+  border-color: var(--xc-border-strong);
   box-shadow: 0 14px 36px #1112;
 }
 html[data-theme="light"] .reassign-menu button {
@@ -409,17 +409,17 @@ html[data-theme="light"] .popover-head span {
   color: #929298;
 }
 html[data-theme="light"] .toast-copy small {
-  color: #8b8b92;
+  color: var(--xc-muted);
 }
 html[data-theme="light"] .toast .toast-undo {
-  color: #303036;
+  color: var(--xc-text);
 }
 html[data-theme="light"] .toast .toast-close {
-  color: #929298;
+  color: var(--xc-muted);
 }
 html[data-theme="light"] .toast .toast-undo:hover,
 html[data-theme="light"] .toast .toast-close:hover {
-  background: #f0f0f2;
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
 }
 
 @media (max-width: 430px) {
