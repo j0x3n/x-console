@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:response>
+    <D:href>/alice/calendars/work/deleted.ics</D:href>
+    <D:propstat>
+      <D:prop><D:getetag>"deleted-1"</D:getetag></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+    <D:propstat>
+      <D:prop><C:calendar-data/></D:prop>
+      <D:status>HTTP/1.1 404 Not Found</D:status>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/alice/calendars/work/meeting%20one.ics</D:href>
+    <D:propstat>
+      <D:prop><D:getetag>"icloud-good-1"</D:getetag></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+    <D:propstat>
+      <D:prop><C:calendar-data><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCloud Calendar//EN
+BEGIN:VEVENT
+UID:icloud-good-1
+DTSTAMP:20261013T000000Z
+DTSTART:20261020T020000Z
+DTEND:20261020T030000Z
+SUMMARY:会议
+END:VEVENT
+END:VCALENDAR
+]]></C:calendar-data></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+    <D:propstat>
+      <D:prop><D:getlastmodified/></D:prop>
+      <D:status>HTTP/1.1 404 Not Found</D:status>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/alice/calendars/work/gone.ics</D:href>
+    <D:status>HTTP/1.1 404 Not Found</D:status>
+  </D:response>
+  <D:response>
+    <D:href>/alice/calendars/work/offsite.ics</D:href>
+    <D:propstat>
+      <D:prop><C:calendar-data><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCloud Calendar//EN
+BEGIN:VEVENT
+UID:icloud-good-2
+DTSTAMP:20261013T000000Z
+DTSTART;VALUE=DATE:20261022
+DTEND;VALUE=DATE:20261023
+SUMMARY:外出
+END:VEVENT
+END:VCALENDAR
+]]></C:calendar-data><D:getetag>"icloud-good-2"</D:getetag></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>

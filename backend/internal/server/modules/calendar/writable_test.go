@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -64,7 +65,7 @@ func TestCalDAVWritebackAndConflict(t *testing.T) {
 		if r.Method == http.MethodDelete {
 			backend.mu.Lock()
 			for _, obj := range backend.objects[workPath] {
-				if obj.Path == r.URL.Path && r.Header.Get("If-Match") != obj.ETag {
+				if obj.Path == r.URL.Path && r.Header.Get("If-Match") != strconv.Quote(obj.ETag) {
 					backend.mu.Unlock()
 					w.WriteHeader(http.StatusPreconditionFailed)
 					return
@@ -114,10 +115,14 @@ func TestCalDAVWritebackAndConflict(t *testing.T) {
 		t.Fatalf("remote title: %s", title)
 	}
 	path := fmt.Sprintf("/calendar/events/%d", event.EventId)
+	// 模拟旧版本留下的不带引号的远端版本。
+	if _, err := env.App.Deps.DB.Exec("UPDATE calendar_events SET etag='created' WHERE id=?", event.EventId); err != nil {
+		t.Fatal(err)
+	}
 	env.MustDo(http.MethodPatch, path, map[string]any{"title": "远端会议改期"}, &event)
 	backend.mu.Lock()
 	match := backend.lastMatch
-	backend.objects[workPath][0].ETag = `"elsewhere"`
+	backend.objects[workPath][0].ETag = "elsewhere"
 	backend.mu.Unlock()
 	if match != `"created"` {
 		t.Fatalf("If-Match: %q", match)
@@ -131,8 +136,11 @@ func TestCalDAVWritebackAndConflict(t *testing.T) {
 		t.Fatalf("conflict changed local event: %q %v", savedTitle, err)
 	}
 	backend.mu.Lock()
-	backend.objects[workPath][0].ETag = `"updated"`
+	backend.objects[workPath][0].ETag = "updated"
 	backend.mu.Unlock()
+	if _, err := env.App.Deps.DB.Exec("UPDATE calendar_events SET etag='updated' WHERE id=?", event.EventId); err != nil {
+		t.Fatal(err)
+	}
 	env.MustDo(http.MethodDelete, path, nil, nil)
 	backend.mu.Lock()
 	defer backend.mu.Unlock()

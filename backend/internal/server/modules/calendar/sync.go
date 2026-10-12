@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/emersion/go-ical"
 	"github.com/emersion/go-webdav"
 	"github.com/emersion/go-webdav/caldav"
 
@@ -214,38 +213,26 @@ func (m *Module) fetchCalDAV(ctx context.Context, rawURL, username, password str
 	}
 	var out []parsedEvent
 	found := false
+	readable := false
+	hasEntries := false
 	for _, c := range cals {
 		if !supportsEvents(c) {
 			continue
 		}
 		found = true
-		objs, err := client.QueryCalendar(ctx, c.Path, &caldav.CalendarQuery{
-			CompRequest: caldav.CalendarCompRequest{Name: "VCALENDAR", AllProps: true, AllComps: true},
-			CompFilter:  caldav.CompFilter{Name: "VCALENDAR", Comps: []caldav.CompFilter{{Name: "VEVENT"}}},
-		})
+		result, err := queryCalendar(ctx, hc, u, c.Path)
 		if err != nil {
 			return nil, fmt.Errorf("读取日历失败: %w", cleanErr(err))
 		}
-		for _, o := range objs {
-			if o.Data == nil {
-				continue
-			}
-			var buf bytes.Buffer
-			if err := ical.NewEncoder(&buf).Encode(o.Data); err != nil {
-				continue
-			}
-			events, err := parseICS(buf.Bytes())
-			if err != nil {
-				continue
-			}
-			for i := range events {
-				events[i].Href, events[i].ETag = o.Path, o.ETag
-			}
-			out = append(out, events...)
-		}
+		readable = readable || result.readable
+		hasEntries = hasEntries || result.hasEntries
+		out = append(out, result.events...)
 	}
 	if !found {
 		return nil, errors.New("这个地址下没有日程日历")
+	}
+	if hasEntries && !readable {
+		return nil, errors.New("读取日历失败: 所有日历条目都无法读取")
 	}
 	return out, nil
 }

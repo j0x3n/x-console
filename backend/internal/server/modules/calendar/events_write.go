@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -334,16 +335,22 @@ func (m *Module) DeleteCalendarEvent(w http.ResponseWriter, r *http.Request, id 
 type conditionalClient struct {
 	webdav.HTTPClient
 	header, value string
+	responseETag  *string
 }
 
 func (c conditionalClient) Do(r *http.Request) (*http.Response, error) {
 	if r.Method == http.MethodPut {
 		r.Header.Set(c.header, c.value)
 	}
-	return c.HTTPClient.Do(r)
+	resp, err := c.HTTPClient.Do(r)
+	if resp != nil && c.responseETag != nil {
+		// 保留 HTTP ETag 的引号，后续 If-Match 必须使用原值。
+		*c.responseETag = resp.Header.Get("ETag")
+	}
+	return resp, err
 }
 
-func (m *Module) remoteClient(c db.Calendar, header, value string) (*caldav.Client, error) {
+func (m *Module) remoteClient(c db.Calendar, header, value string, responseETag *string) (*caldav.Client, error) {
 	password, err := m.password(c)
 	if err != nil {
 		return nil, httpx.Invalid("密码无法解密，请重新填写")
@@ -353,7 +360,7 @@ func (m *Module) remoteClient(c db.Calendar, header, value string) (*caldav.Clie
 		hc = webdav.HTTPClientWithBasicAuth(m.http, c.Username, password)
 	}
 	if header != "" {
-		hc = conditionalClient{hc, header, value}
+		hc = conditionalClient{hc, header, value, responseETag}
 	}
 	return caldav.NewClient(hc, c.Url)
 }
@@ -366,6 +373,14 @@ func remoteError(err error) error {
 		return httpx.NewError(http.StatusConflict, "calendar_conflict", "日程在别处改过了，刷新后再改")
 	}
 	return httpx.NewError(http.StatusBadGateway, "caldav_failed", "CalDAV 写入失败: "+cleanErr(err).Error())
+}
+
+func matchETag(etag string) string {
+	// 兼容旧版本保存的不带引号的 ETag。
+	if !strings.HasPrefix(etag, `"`) && !strings.HasPrefix(etag, `W/"`) {
+		return strconv.Quote(etag)
+	}
+	return etag
 }
 
 func eventICal(v eventValues) *ical.Calendar {
@@ -391,7 +406,7 @@ func eventICal(v eventValues) *ical.Calendar {
 }
 
 func (m *Module) collection(ctx context.Context, c db.Calendar) (string, error) {
-	client, err := m.remoteClient(c, "", "")
+	client, err := m.remoteClient(c, "", "", nil)
 	if err != nil {
 		return "", err
 	}
@@ -440,23 +455,27 @@ func (m *Module) putRemote(ctx context.Context, c db.Calendar, v eventValues, hr
 	}
 	header, value := "If-None-Match", "*"
 	if etag != "" {
-		header, value = "If-Match", etag
+		header, value = "If-Match", matchETag(etag)
 	}
-	client, err := m.remoteClient(c, header, value)
+	var responseETag string
+	client, err := m.remoteClient(c, header, value, &responseETag)
 	if err != nil {
 		return "", "", err
 	}
-	obj, err := client.PutCalendarObject(ctx, href, eventICal(v))
+	_, err = client.PutCalendarObject(ctx, href, eventICal(v))
 	if err != nil {
 		return "", "", remoteError(err)
 	}
-	if obj.ETag == "" {
-		obj, err = client.GetCalendarObject(ctx, href)
+	if responseETag == "" {
+		_, err = client.GetCalendarObject(ctx, href)
 		if err != nil {
 			return "", "", remoteError(err)
 		}
 	}
-	return href, obj.ETag, nil
+	if responseETag == "" {
+		return "", "", remoteError(fmt.Errorf("远端没有返回日程版本，请先同步"))
+	}
+	return href, responseETag, nil
 }
 
 func (m *Module) deleteRemote(ctx context.Context, c db.Calendar, href, etag string) error {
@@ -472,7 +491,7 @@ func (m *Module) deleteRemote(ctx context.Context, c db.Calendar, href, etag str
 	if err != nil {
 		return err
 	}
-	req.Header.Set("If-Match", etag)
+	req.Header.Set("If-Match", matchETag(etag))
 	password, err := m.password(c)
 	if err != nil {
 		return httpx.Invalid("密码无法解密，请重新填写")
