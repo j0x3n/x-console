@@ -488,6 +488,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 12px;
 }
 
 /* 手机：全屏的底部弹层 */
@@ -703,56 +704,6 @@ button.ai-model-row:hover,
 .ai-model-note {
   margin: 8px 0 0;
   font-size: var(--fs-12);
-}
-
-/* 用量 */
-.ai-usage-sum {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 8px;
-  margin: 0 0 12px;
-}
-.ai-usage-sum div {
-  padding: 8px 10px;
-  border-radius: var(--xc-radius);
-  background: var(--xc-surface-2);
-}
-.ai-usage-sum dt {
-  font-size: var(--fs-12);
-  color: var(--xc-muted);
-}
-.ai-usage-sum dd {
-  margin: 2px 0 0;
-  font-size: var(--fs-16);
-  font-weight: 600;
-}
-.ai-usage-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--fs-13);
-  margin-bottom: 8px;
-}
-.ai-usage-table th {
-  white-space: nowrap;
-  text-align: left;
-  font-weight: 500;
-  font-size: var(--fs-12);
-  color: var(--xc-muted);
-  padding: 4px 6px 4px 0;
-}
-.ai-usage-table td {
-  padding: 6px 6px 6px 0;
-  border-top: 1px solid var(--xc-border);
-  vertical-align: top;
-}
-.ai-usage-table td:first-child {
-  word-break: break-all;
-}
-.ai-usage-table td:first-child small {
-  display: block;
-}
-.ai-usage-table td:not(:first-child) {
-  white-space: nowrap;
 }
 
 /* 笔记开关 */
@@ -994,10 +945,6 @@ html[data-accent="cyber"] .ai-usage {
 .ai-usage-more {
   margin-top: 12px;
   text-align: center;
-}
-.ai-usage-link {
-  align-self: flex-start;
-  margin-top: 8px;
 }
 @media (max-width: 720px) {
   .ai-usage-bar > a {

@@ -122,66 +122,71 @@ function XCard({ state }: { state: XAuth }) {
       {state.configured && state.status !== "ok" && state.message && (
         <p className="xc-error-text">{state.message}</p>
       )}
-      <label className="xc-field">
-        <span>{t("auth_token value")}</span>
-        <input
-          className="xc-input"
-          type="password"
-          value={authToken}
-          onChange={(e) => setAuthToken(e.target.value)}
-          placeholder={
-            state.configured ? t("Leave empty to keep the saved cookie") : ""
-          }
-          autoComplete="off"
-        />
-      </label>
-      <label className="xc-field">
-        <span>{t("ct0 value")}</span>
-        <input
-          className="xc-input"
-          type="password"
-          value={ct0}
-          onChange={(e) => setCt0(e.target.value)}
-          placeholder={
-            state.configured ? t("Leave empty to keep the saved cookie") : ""
-          }
-          autoComplete="off"
-        />
-        <small>
+      <div className="settings-form">
+        <label className="xc-field">
+          <span>{t("auth_token value")}</span>
+          <input
+            className="xc-input"
+            type="password"
+            value={authToken}
+            onChange={(e) => setAuthToken(e.target.value)}
+            placeholder={
+              state.configured ? t("Leave empty to keep the saved cookie") : ""
+            }
+            autoComplete="off"
+          />
+        </label>
+        <label className="xc-field">
+          <span>{t("ct0 value")}</span>
+          <input
+            className="xc-input"
+            type="password"
+            value={ct0}
+            onChange={(e) => setCt0(e.target.value)}
+            placeholder={
+              state.configured ? t("Leave empty to keep the saved cookie") : ""
+            }
+            autoComplete="off"
+          />
+        </label>
+        <small className="xc-muted full">
           {t(
             "How to find them: sign in to x.com in your browser, open the developer tools, then Application → Cookies → https://x.com. Copy the values of auth_token and ct0. Use a spare account. This goes against X's terms and the account may be limited.",
           )}
         </small>
-      </label>
-      <label className="xc-check">
-        <input
-          type="checkbox"
-          checked={fx}
-          onChange={(e) => setFx(e.target.checked)}
-        />
-        <span>{t("Use a third-party converter as the last step")}</span>
-      </label>
-      <small className="xc-check-hint">
-        {t(
-          "When the two steps above fail, the post link is sent to api.fxtwitter.com. Off by default.",
-        )}
-      </small>
-      <label className="xc-field">
-        <span>{t("GraphQL queryId")}</span>
-        <input
-          className="xc-input"
-          value={queryId}
-          onChange={(e) => setQueryId(e.target.value)}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <small>
+      </div>
+      <details className="settings-help">
+        <summary>{t("More options")}</summary>
+        <label className="xc-check">
+          <input
+            type="checkbox"
+            checked={fx}
+            onChange={(e) => setFx(e.target.checked)}
+          />
+          <span>{t("Use a third-party converter as the last step")}</span>
+        </label>
+        <small className="xc-check-hint">
           {t(
-            "Leave empty to use the built-in one. Change it only when the test says the interface changed.",
+            "When the two steps above fail, the post link is sent to api.fxtwitter.com. Off by default.",
           )}
         </small>
-      </label>
-      <div className="xc-dialog-actions">
+        <label className="xc-field">
+          <span>{t("GraphQL queryId")}</span>
+          <input
+            className="xc-input"
+            value={queryId}
+            onChange={(e) => setQueryId(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <small>
+            {t(
+              "Leave empty to use the built-in one. Change it only when the test says the interface changed.",
+            )}
+          </small>
+        </label>
+      </details>
+      <div className="settings-actions">
         {state.configured && (
           <button
             type="button"

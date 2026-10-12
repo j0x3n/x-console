@@ -1,6 +1,10 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B181 设置页整理
+  "Push channels": "推送渠道",
+  "Show settings": "展开",
+  "Hide settings": "收起",
   // 提醒页
   "Completed reminders": "完成过的提醒",
   "Next reminder": "下一个提醒",

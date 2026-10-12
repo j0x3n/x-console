@@ -696,6 +696,9 @@ function SnapshotsCard() {
   if (snapshots.isError)
     return (
       <section className="xc-card">
+        <div className="xc-card-head">
+          <h2>{t("Snapshots")}</h2>
+        </div>
         <ErrorState
           error={snapshots.error}
           onRetry={() => snapshots.refetch()}

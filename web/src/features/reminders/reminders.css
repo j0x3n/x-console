@@ -116,22 +116,34 @@
   }
 }
 
-/* 通知设置 */
-.notify-channels {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+/* 通知设置：推送渠道一行一个，展开再填配置（B181） */
+.notify-channel + .notify-channel {
+  border-top: 1px solid var(--xc-border);
 }
-@media (max-width: 420px) {
-  .notify-channels {
-    grid-template-columns: 1fr;
-  }
+.notify-channel > .settings-line {
+  padding: 10px 0;
+  border-top: 0;
 }
-.notify-channel {
+.notify-channel:first-child > .settings-line {
+  padding-top: 0;
+}
+.notify-channel:last-child:not(.open) > .settings-line {
+  padding-bottom: 0;
+}
+.notify-chevron {
+  transition: transform 0.15s;
+}
+.notify-channel.open .notify-chevron {
+  transform: rotate(180deg);
+}
+.notify-channel-body {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  padding: 0 0 12px;
 }
 .notify-channel-actions {
-  margin-top: auto;
-  padding-top: 4px;
+  padding-top: 2px;
 }
 .notify-help {
   margin: -4px 0 12px;
@@ -143,12 +155,8 @@
   flex-direction: column;
   gap: 8px;
   padding: 10px 12px;
-  margin-bottom: 14px;
   border-radius: var(--xc-radius);
   background: var(--xc-surface-2);
-}
-.notify-webhook {
-  margin-bottom: 12px;
 }
 .notify-webhook p {
   margin: 0 0 8px;
@@ -186,8 +194,8 @@
   gap: 0;
   justify-content: flex-end;
 }
-.notify-quiet {
-  max-width: 520px;
+.settings-inline > .notify-time {
+  width: 112px;
 }
 
 .reminders-groups {
@@ -417,8 +425,9 @@
   width: 110px;
 }
 .digest-types {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  column-gap: 24px;
   margin: 4px 0 0;
   padding: 0;
   list-style: none;
@@ -427,8 +436,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 40px;
-  padding: 4px 0;
+  min-height: 36px;
+  padding: 2px 0;
   border-bottom: 1px solid var(--xc-border);
 }
 .digest-types li:last-child {

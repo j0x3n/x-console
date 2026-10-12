@@ -228,9 +228,6 @@
 }
 
 /* 设置 → 邮件 */
-.mail-settings {
-  max-width: 760px;
-}
 .mail-account-list {
   margin: 0;
   padding: 0;

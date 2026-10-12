@@ -28,7 +28,7 @@ export default function HASettingsTab() {
   if (config.isError)
     return <ErrorState error={config.error} onRetry={() => config.refetch()} />;
   return (
-    <div className="home-settings">
+    <div className="settings-grid">
       <ConfigForm initial={config.data} />
       <StatusCard />
     </div>
@@ -45,6 +45,7 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
   const [mode, setMode] = useState<HAMode>(initial.mode);
   const [agentId, setAgentId] = useState(initial.agentId);
   const [result, setResult] = useState<HATestResult | null>(null);
+  const status = useHAStatus();
 
   useEffect(() => {
     setUrl(initial.url);
@@ -88,74 +89,82 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
     <form className="xc-card" onSubmit={onSave}>
       <div className="xc-card-head">
         <h2>Home Assistant</h2>
+        {status.data?.configured &&
+          (status.data.connected ? (
+            <span className="xc-badge ok">{t("Connected")}</span>
+          ) : (
+            <span className="xc-badge warn">{t("Not connected")}</span>
+          ))}
       </div>
-      <label className="xc-field">
-        <span>{t("Address")}</span>
-        <input
-          className="xc-input"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="http://homeassistant.local:8123"
-          inputMode="url"
-          autoComplete="off"
-        />
-        <small>
-          HA 有公网地址时填公网地址，比如 Nabu Casa
-          或自己的反向代理。只在家里能访问时，选“通过代理”，填家里的地址。
-        </small>
-      </label>
-      <label className="xc-field">
-        <span>{t("Long-lived access token")}</span>
-        <input
-          className="xc-input"
-          type="password"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder={
-            initial.hasToken
-              ? `${initial.token}（${t("leave empty to keep")}）`
-              : ""
-          }
-          autoComplete="new-password"
-        />
-        <small>
-          在 HA 左下角点头像，打开“安全”页，在最下面创建长期访问令牌。
-        </small>
-      </label>
-      <label className="xc-field">
-        <span>{t("Connection mode")}</span>
-        <select
-          className="xc-select"
-          value={mode}
-          onChange={(e) => setMode(e.target.value as HAMode)}
-        >
-          <option value="direct">{t("Direct from the server")}</option>
-          <option value="agent">{t("Through an agent at home")}</option>
-        </select>
-      </label>
-      {mode === "agent" && (
+      <div className="settings-form">
         <label className="xc-field">
-          <span>{t("Agent")}</span>
-          <select
-            className="xc-select"
-            value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
-          >
-            <option value="">{t("Choose an agent")}</option>
-            {proxyAgents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-                {a.online ? "" : ` (${t("Offline")})`}
-              </option>
-            ))}
-          </select>
+          <span>{t("Address")}</span>
+          <input
+            className="xc-input"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="http://homeassistant.local:8123"
+            inputMode="url"
+            autoComplete="off"
+          />
           <small>
-            选一台和 HA 在同一个网络里的设备。代理只转发到内网地址。
-            {proxyAgents.length === 0 &&
-              " 还没有支持转发的代理，请先在“设备与代理”里配对，或升级代理程序。"}
+            HA 有公网地址时填公网地址，比如 Nabu Casa
+            或自己的反向代理。只在家里能访问时，选“通过代理”，填家里的地址。
           </small>
         </label>
-      )}
+        <label className="xc-field">
+          <span>{t("Long-lived access token")}</span>
+          <input
+            className="xc-input"
+            type="password"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder={
+              initial.hasToken
+                ? `${initial.token}（${t("leave empty to keep")}）`
+                : ""
+            }
+            autoComplete="new-password"
+          />
+          <small>
+            在 HA 左下角点头像，打开“安全”页，在最下面创建长期访问令牌。
+          </small>
+        </label>
+        <label className="xc-field">
+          <span>{t("Connection mode")}</span>
+          <select
+            className="xc-select"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as HAMode)}
+          >
+            <option value="direct">{t("Direct from the server")}</option>
+            <option value="agent">{t("Through an agent at home")}</option>
+          </select>
+        </label>
+        {mode === "agent" && (
+          <label className="xc-field">
+            <span>{t("Agent")}</span>
+            <select
+              className="xc-select"
+              value={agentId}
+              onChange={(e) => setAgentId(e.target.value)}
+            >
+              <option value="">{t("Choose an agent")}</option>
+              {proxyAgents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.online ? "" : ` (${t("Offline")})`}
+                </option>
+              ))}
+            </select>
+            <small>
+              选一台和 HA 在同一个网络里的设备。代理只转发到内网地址。
+              {proxyAgents.length === 0 &&
+                " 还没有支持转发的代理，请先在“设备与代理”里配对，或升级代理程序。"}
+            </small>
+          </label>
+        )}
+      </div>
       {result && (
         <p
           className={`home-test-result ${result.ok ? "ok" : "fail"}`}
@@ -166,7 +175,7 @@ function ConfigForm({ initial }: { initial: HAConfig }) {
             : result.message}
         </p>
       )}
-      <div className="xc-dialog-actions">
+      <div className="settings-actions">
         <button
           type="button"
           className="xc-btn"
@@ -188,25 +197,15 @@ function StatusCard() {
   const t = useT();
   const language = useLanguage();
   const status = useHAStatus();
-  if (!status.data) return null;
+  if (!status.data?.configured) return null;
   const s = status.data;
   return (
     <div className="xc-card">
       <div className="xc-card-head">
         <h2>{t("Status")}</h2>
       </div>
-      {!s.configured ? (
-        <p className="xc-muted">{t("Not configured")}</p>
-      ) : (
+      {
         <dl className="home-status">
-          <dt>{t("Connection status")}</dt>
-          <dd>
-            {s.connected ? (
-              <span className="xc-badge ok">{t("Connected")}</span>
-            ) : (
-              <span className="xc-badge warn">{t("Not connected")}</span>
-            )}
-          </dd>
           <dt>{t("Connection mode")}</dt>
           <dd>
             {s.mode === "agent"
@@ -234,7 +233,7 @@ function StatusCard() {
             </>
           )}
         </dl>
-      )}
+      }
     </div>
   );
 }

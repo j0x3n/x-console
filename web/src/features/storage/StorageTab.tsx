@@ -139,17 +139,19 @@ function LocationCard({ status }: { status: StorageStatus }) {
           {m.error && <p className="xc-error-text">{m.error}</p>}
         </div>
       )}
-      {!running && (
-        <label className="xc-check">
-          <input
-            type="checkbox"
-            checked={deleteSource}
-            onChange={(e) => setDeleteSource(e.target.checked)}
-          />
-          <span>{t("Delete the files in the old place after switching")}</span>
-        </label>
-      )}
-      <div className="storage-actions">
+      <div className="storage-switch">
+        {!running && (
+          <label className="xc-check">
+            <input
+              type="checkbox"
+              checked={deleteSource}
+              onChange={(e) => setDeleteSource(e.target.checked)}
+            />
+            <span>
+              {t("Delete the files in the old place after switching")}
+            </span>
+          </label>
+        )}
         {running ? (
           <button
             className="xc-btn"

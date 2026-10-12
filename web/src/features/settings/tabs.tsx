@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { useT } from "../../contexts/LanguageContext";
 import {
   Bell,
   Bookmark,
@@ -65,10 +66,12 @@ export const settingsGroups: SettingsGroup[] = [
 
 // 几个小页并进相关的页，上下排着。
 function AiWithUsage() {
+  const t = useT();
   return (
     <div className="settings-stack">
       <AssistantSettingsTab />
       <div id="ai-usage">
+        <h3 className="settings-subhead">{t("Usage")}</h3>
         <AiUsageTab />
       </div>
     </div>

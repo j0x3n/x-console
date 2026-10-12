@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   BellRing,
+  ChevronDown,
   Plus,
   Send,
   Trash2,
@@ -12,6 +13,7 @@ import {
 import { errorMessage } from "../../api/client";
 import { withElevation } from "../../auth/elevation";
 import { ErrorState, Loading } from "../../components/ui/States";
+import Switch from "../../components/ui/Switch";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -92,6 +94,7 @@ const onError = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
 
 export default function NotificationsTab() {
+  const t = useT();
   const channels = useNotifyChannels();
   if (channels.isPending) return <Loading />;
   if (channels.isError)
@@ -100,45 +103,33 @@ export default function NotificationsTab() {
     );
   return (
     <div className="xc-stack notify-settings">
-      <div className="xc-grid notify-channels">
-        {channels.data.map((ch) => (
-          <ChannelCard key={ch.name} channel={ch} />
-        ))}
-      </div>
+      <section className="xc-card">
+        <div className="xc-card-head">
+          <h2>{t("Push channels")}</h2>
+        </div>
+        <div className="notify-channel-list">
+          {channels.data.map((ch) => (
+            <ChannelRow key={ch.name} channel={ch} />
+          ))}
+        </div>
+      </section>
       <RoutesCard channels={channels.data.map((c) => c.name as ChannelName)} />
       <DigestCard />
       <QuietHoursCard />
       <MutesCard />
       <AgentNotifyCard />
-      <ScheduleLinkCard />
     </div>
   );
 }
 
-/** B83：作息在习惯页里设，这里给一个入口。 */
-function ScheduleLinkCard() {
-  const t = useT();
-  return (
-    <section className="xc-card notify-schedule-link">
-      <div className="xc-card-head">
-        <h2>{t("Daily schedule")}</h2>
-        <Link className="xc-btn small" to="/habits?schedule=1">
-          {t("Set daily schedule")}
-        </Link>
-      </div>
-      <p className="xc-muted">
-        {t("Health reminders use your work days, wake and sleep times.")}
-      </p>
-    </section>
-  );
-}
-
-function ChannelCard({ channel }: { channel: NotifyChannel }) {
+/** 一个推送渠道占一行，点“展开”再填配置（B181）。 */
+function ChannelRow({ channel }: { channel: NotifyChannel }) {
   const t = useT();
   const name = channel.name as ChannelName;
   const update = useUpdateChannel();
   const test = useTestChannel();
   const [values, setValues] = useState<Record<string, string>>({});
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -158,63 +149,85 @@ function ChannelCard({ channel }: { channel: NotifyChannel }) {
       update.mutateAsync({ channel: name, values: changed }),
     ).then(() => toast(t("Saved")), onError);
 
+  const label = t(channelLabels[name]);
   return (
-    <div className="xc-card notify-channel">
-      <div className="xc-card-head">
-        <h2>{t(channelLabels[name])}</h2>
-        <span className={`xc-badge ${channel.configured ? "ok" : ""}`}>
-          {channel.configured ? t("Ready") : t("Not set up")}
-        </span>
-      </div>
-      <p className="xc-muted notify-help">{t(channelHelp[name])}</p>
-      {name === "webpush" && <PushControls channel={channel} />}
-      {channel.fields.map((f) => (
-        <label className="xc-field" key={f.key}>
-          <span>
-            {t(fieldLabels[f.key] ?? f.key)}
-            {!f.required && (
-              <small className="xc-muted"> · {t("optional")}</small>
-            )}
+    <div className={`notify-channel${open ? " open" : ""}`}>
+      <div className="settings-line">
+        <div>
+          <strong>{label}</strong>
+          <small>{t(channelHelp[name])}</small>
+        </div>
+        <div className="settings-inline">
+          <span className={`xc-badge ${channel.configured ? "ok" : ""}`}>
+            {channel.configured ? t("Ready") : t("Not set up")}
           </span>
-          <input
-            className="xc-input"
-            type={f.secret ? "password" : "text"}
-            autoComplete="off"
-            value={values[f.key] ?? ""}
-            placeholder={
-              f.secret && f.set
-                ? `${t("Saved")} ${f.value}`
-                : (f.placeholder ?? "")
-            }
-            onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
-          />
-        </label>
-      ))}
-      {name === "telegram" && <TelegramWebhook channel={channel} />}
-      <div className="xc-row notify-channel-actions">
-        {name !== "webpush" && (
           <button
             className="xc-btn small"
-            disabled={!channel.configured || test.isPending}
-            onClick={() =>
-              test.mutate(name, {
-                onSuccess: () => toast(t("Test message sent")),
-                onError,
-              })
-            }
+            aria-expanded={open}
+            aria-label={`${open ? t("Hide settings") : t("Show settings")} ${label}`}
+            onClick={() => setOpen(!open)}
           >
-            <Send size={13} /> {t("Send test")}
+            {open ? t("Hide settings") : t("Show settings")}
+            <ChevronDown size={13} className="notify-chevron" />
           </button>
-        )}
-        <span className="xc-spacer" />
-        <button
-          className="xc-btn small primary"
-          disabled={!dirty || update.isPending}
-          onClick={save}
-        >
-          {t("Save")}
-        </button>
+        </div>
       </div>
+      {open && (
+        <div className="notify-channel-body">
+          {name === "webpush" && <PushControls channel={channel} />}
+          <div className="settings-form">
+            {channel.fields.map((f) => (
+              <label className="xc-field" key={f.key}>
+                <span>
+                  {t(fieldLabels[f.key] ?? f.key)}
+                  {!f.required && (
+                    <small className="xc-muted"> · {t("optional")}</small>
+                  )}
+                </span>
+                <input
+                  className="xc-input"
+                  type={f.secret ? "password" : "text"}
+                  autoComplete="off"
+                  value={values[f.key] ?? ""}
+                  placeholder={
+                    f.secret && f.set
+                      ? `${t("Saved")} ${f.value}`
+                      : (f.placeholder ?? "")
+                  }
+                  onChange={(e) =>
+                    setValues({ ...values, [f.key]: e.target.value })
+                  }
+                />
+              </label>
+            ))}
+          </div>
+          {name === "telegram" && <TelegramWebhook channel={channel} />}
+          <div className="xc-row notify-channel-actions">
+            {name !== "webpush" && (
+              <button
+                className="xc-btn small"
+                disabled={!channel.configured || test.isPending}
+                onClick={() =>
+                  test.mutate(name, {
+                    onSuccess: () => toast(t("Test message sent")),
+                    onError,
+                  })
+                }
+              >
+                <Send size={13} /> {t("Send test")}
+              </button>
+            )}
+            <span className="xc-spacer" />
+            <button
+              className="xc-btn small primary"
+              disabled={!dirty || update.isPending}
+              onClick={save}
+            >
+              {t("Save")}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -704,59 +717,59 @@ function QuietHoursCard() {
     setStart(quiet.data.start);
     setEnd(quiet.data.end);
   }, [quiet.data]);
+  const saveQuiet = (next: { enabled: boolean; start: string; end: string }) =>
+    save.mutate(next, { onSuccess: () => toast(t("Saved")), onError });
+  const dirty =
+    !!quiet.data && (start !== quiet.data.start || end !== quiet.data.end);
   return (
-    <div className="xc-card notify-quiet">
-      <div className="xc-card-head">
-        <h2>{t("Quiet hours")}</h2>
-      </div>
-      <p className="xc-muted notify-help">
-        {t(
-          "During quiet hours only urgent notifications go to your phone. Others stay in the app.",
-        )}
-      </p>
-      <label className="reminders-check">
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-        />
-        {t("Turn on quiet hours")}
-      </label>
-      <div className="reminders-form-row">
-        <label className="xc-field">
-          <span>{t("From")}</span>
+    <section className="xc-card notify-quiet">
+      <div className="settings-line">
+        <div>
+          <strong>{t("Quiet hours")}</strong>
+          <small>
+            {t(
+              "During quiet hours only urgent notifications go to your phone. Others stay in the app.",
+            )}{" "}
+            {t("Health reminders use your work days, wake and sleep times.")}{" "}
+            <Link to="/habits?schedule=1">{t("Set daily schedule")}</Link>
+          </small>
+        </div>
+        <div className="settings-inline">
           <input
-            className="xc-input"
+            className="xc-input notify-time"
             type="time"
+            aria-label={t("From")}
             value={start}
             onChange={(e) => setStart(e.target.value)}
           />
-        </label>
-        <label className="xc-field">
-          <span>{t("To")}</span>
+          <span className="xc-muted">–</span>
           <input
-            className="xc-input"
+            className="xc-input notify-time"
             type="time"
+            aria-label={t("To")}
             value={end}
             onChange={(e) => setEnd(e.target.value)}
           />
-        </label>
+          {dirty && (
+            <button
+              className="xc-btn small primary"
+              disabled={save.isPending}
+              onClick={() => saveQuiet({ enabled, start, end })}
+            >
+              {t("Save")}
+            </button>
+          )}
+          <Switch
+            checked={enabled}
+            label={t("Turn on quiet hours")}
+            disabled={save.isPending || !quiet.data}
+            onChange={(on) => {
+              setEnabled(on);
+              saveQuiet({ enabled: on, start, end });
+            }}
+          />
+        </div>
       </div>
-      <div className="xc-row">
-        <span className="xc-spacer" />
-        <button
-          className="xc-btn small primary"
-          disabled={save.isPending || !quiet.data}
-          onClick={() =>
-            save.mutate(
-              { enabled, start, end },
-              { onSuccess: () => toast(t("Saved")), onError },
-            )
-          }
-        >
-          {t("Save")}
-        </button>
-      </div>
-    </div>
+    </section>
   );
 }

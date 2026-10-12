@@ -30,7 +30,7 @@ export default function LinearSettingsTab() {
   if (config.isError)
     return <ErrorState error={config.error} onRetry={() => config.refetch()} />;
   return (
-    <div className="github-settings">
+    <div className="settings-grid">
       <ConfigForm initial={config.data} />
       <StatusCard />
     </div>
@@ -157,37 +157,42 @@ function ConfigForm({ initial }: { initial: LinearConfig }) {
     <form className="xc-card" onSubmit={onSave}>
       <div className="xc-card-head">
         <h2>Linear</h2>
+        <span className={`xc-badge ${initial.hasKey ? "ok" : ""}`}>
+          {initial.hasKey ? t("Ready") : t("Not set up")}
+        </span>
       </div>
-      <label className="xc-field">
-        <span>{t("API key")}</span>
-        <input
-          className="xc-input"
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder={
-            initial.hasKey
-              ? `${initial.apiKey}（${t("leave empty to keep")}）`
-              : "lin_api_..."
-          }
-          autoComplete="new-password"
-        />
-        <small>
-          在 Linear 的 Settings → Security &amp; access 里创建个人 API key。
-        </small>
-      </label>
-      <label className="xc-field">
-        <span>{t("API address")}</span>
-        <input
-          className="xc-input"
-          value={apiUrl}
-          onChange={(e) => setApiUrl(e.target.value)}
-          placeholder={DEFAULT_URL}
-          inputMode="url"
-          autoComplete="off"
-        />
-        <small>一般留空。</small>
-      </label>
+      <div className="settings-form">
+        <label className="xc-field">
+          <span>{t("API key")}</span>
+          <input
+            className="xc-input"
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={
+              initial.hasKey
+                ? `${initial.apiKey}（${t("leave empty to keep")}）`
+                : "lin_api_..."
+            }
+            autoComplete="new-password"
+          />
+          <small>
+            在 Linear 的 Settings → Security &amp; access 里创建个人 API key。
+          </small>
+        </label>
+        <label className="xc-field">
+          <span>{t("API address")}</span>
+          <input
+            className="xc-input"
+            value={apiUrl}
+            onChange={(e) => setApiUrl(e.target.value)}
+            placeholder={DEFAULT_URL}
+            inputMode="url"
+            autoComplete="off"
+          />
+          <small>一般留空。</small>
+        </label>
+      </div>
 
       <div className="xc-field">
         <span>{t("Teams and projects")}</span>
@@ -309,14 +314,14 @@ function StatusCard() {
   const language = useLanguage();
   const status = useLinearStatus();
   const sync = useSyncLinear();
-  if (!status.data) return null;
+  if (!status.data?.configured) return null;
   const s = status.data;
   const last = s.lastSync;
   const busy = sync.isPending || s.syncing;
   return (
     <div className="xc-card">
       <div className="xc-card-head">
-        <h2>{t("Sync status")}</h2>
+        <h2>{t("Linear sync")}</h2>
         {s.configured && (
           <button
             className="xc-btn small"

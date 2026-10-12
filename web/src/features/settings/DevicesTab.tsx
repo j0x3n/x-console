@@ -46,7 +46,7 @@ export default function DevicesTab() {
   return (
     <div className="xc-card">
       <div className="xc-card-head">
-        <h2>{t("Devices & agents")}</h2>
+        <h2>{t("Paired devices")}</h2>
         <button className="xc-btn small" onClick={() => setPairOpen(true)}>
           <Plus size={14} /> {t("Add a device")}
         </button>
@@ -150,8 +150,8 @@ function UninstallHelp() {
   const t = useT();
   const server = location.origin;
   return (
-    <div className="devices-uninstall">
-      <h3>{t("Uninstall and update")}</h3>
+    <details className="settings-help">
+      <summary>{t("Uninstall and update")}</summary>
       <p className="devices-note">
         更新不用卸载，也不用先吊销：在“添加设备”里复制安装命令再执行一次，只会替换程序，不会重新配对。
         要彻底卸载，先在设备上执行下面的命令，再到上面的列表里吊销这台设备。先吊销再重装的话，旧的配对信息还在，装完仍然连不上。
@@ -165,7 +165,7 @@ function UninstallHelp() {
         command={`curl -fsSL ${server}/api/v1/agent/uninstall.sh | sudo sh`}
       />
       <p className="devices-note">Unraid 上去掉 sudo。</p>
-    </div>
+    </details>
   );
 }
 

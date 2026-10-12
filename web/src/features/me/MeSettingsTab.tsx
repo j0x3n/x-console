@@ -20,6 +20,7 @@ import {
   type MeSettingsInput,
 } from "./api";
 import { validHomeEntity, validSleepEntity } from "./logic";
+import NicknameCard from "../settings/NicknameCard";
 import "./i18n";
 import "./me.css";
 
@@ -80,52 +81,28 @@ function Form({ data }: { data: MeSettings }) {
 
   return (
     <div className="settings-grid me-settings">
-      <section className="xc-card">
-        <div className="xc-card-head">
-          <h3>{t("Which signal to use")}</h3>
-        </div>
-        <p className="xc-muted">
-          {t(
-            "Your computers tell when you are working. Your phone tells the rest. Two ways work together.",
-          )}
-        </p>
-        <ul className="me-split">
-          <li>
-            {t(
-              "Home and out: use Home Assistant (person or device_tracker). The Home Assistant app finds your place in the background more reliably.",
-            )}
-          </li>
-          <li>
-            {t(
-              "Sleep: use an iPhone shortcut with the Sleep focus mode or the bedtime. Home Assistant cannot tell whether a focus mode is the Sleep one.",
-            )}
-          </li>
-          <li>
-            {t(
-              "If both report the same thing within 2 minutes, it counts once. If they disagree, the last one received wins.",
-            )}
-          </li>
-        </ul>
-      </section>
+      <NicknameCard />
 
       <section className="xc-card">
         <div className="xc-card-head">
           <h3>{t("Work computers")}</h3>
         </div>
-        <p className="xc-muted">
+        <p className="settings-note">
           {t(
             "Working means one of these is in use. If you pick none, every computer that reports idle time counts.",
           )}
         </p>
         {data.hosts.length === 0 ? (
-          <p className="xc-muted">
-            {t(
-              "No computer reports idle time yet. Pair a Windows agent in Devices first.",
-            )}{" "}
+          <div className="settings-line">
+            <small>
+              {t(
+                "No computer reports idle time yet. Pair a Windows agent in Devices first.",
+              )}
+            </small>
             <Link className="xc-btn small" to="/settings/devices">
               {t("Devices & agents")}
             </Link>
-          </p>
+          </div>
         ) : (
           <ul className="me-hosts">
             {data.hosts.map((h) => (
@@ -151,18 +128,18 @@ function Form({ data }: { data: MeSettings }) {
       </section>
 
       <section className="xc-card">
-        <div className="xc-card-head">
-          <h3>{t("Guess sleep from my schedule")}</h3>
-        </div>
-        <div className="me-option">
-          <span>
-            {t("Guess that I am asleep")}
-            <small className="xc-muted">
+        <div className="settings-line">
+          <div>
+            <strong>{t("Guess that I am asleep")}</strong>
+            <small>
               {t(
                 "From 1 hour before your bedtime to your wake-up time, when no work computer was used for 30 minutes and you are not out. It is marked Guessed.",
-              )}
+              )}{" "}
+              <Link to="/habits?schedule=1">
+                {t("Edit the daily schedule")}
+              </Link>
             </small>
-          </span>
+          </div>
           <Switch
             checked={data.guessSleep}
             label={t("Guess that I am asleep")}
@@ -170,15 +147,9 @@ function Form({ data }: { data: MeSettings }) {
             onChange={(guessSleep) => change({ guessSleep })}
           />
         </div>
-        <p className="xc-muted">
-          <Link className="xc-btn small" to="/habits?schedule=1">
-            {t("Edit the daily schedule")}
-          </Link>
-        </p>
       </section>
 
       <PhoneReport />
-      <ShortcutSteps />
       <HomeAssistant data={data} saving={save.isPending} onSave={change} />
     </div>
   );
@@ -254,19 +225,19 @@ function PhoneReport() {
           {s.enabled ? t("On") : t("Off")}
         </span>
       </div>
-      <p className="xc-muted">
+      <p className="settings-note">
         {t(
           "An iPhone shortcut (or any script) posts one event with a token. It sends no location, only the event name.",
         )}
       </p>
-      <p>
+      <p className="me-report-state">
         {!s.enabled
           ? t("Not turned on")
           : s.lastReportAt
             ? `${t("Last report")}: ${when(s.lastReportAt)}${s.lastEvent ? ` (${s.lastEvent})` : ""}`
             : t("No report received yet")}
       </p>
-      <p className="xc-muted">
+      <p className="xc-muted me-report-url">
         {t("Address")}: <code className="me-url">{s.reportUrl}</code>
       </p>
       <table className="me-events">
@@ -328,6 +299,8 @@ function PhoneReport() {
           </div>
         </>
       )}
+      <ShortcutSteps />
+      <SignalHelp />
     </section>
   );
 }
@@ -342,10 +315,8 @@ const EVENTS: [string, string][] = [
 function ShortcutSteps() {
   const t = useT();
   return (
-    <section className="xc-card">
-      <div className="xc-card-head">
-        <h3>{t("iPhone shortcut steps")}</h3>
-      </div>
+    <details className="settings-help">
+      <summary>{t("iPhone shortcut steps")}</summary>
       <ol className="me-steps">
         <li>
           {t(
@@ -369,7 +340,39 @@ function ShortcutSteps() {
           )}
         </li>
       </ol>
-    </section>
+    </details>
+  );
+}
+
+/** 手机和 Home Assistant 两种来源怎么配合，平时不用看，收起来。 */
+function SignalHelp() {
+  const t = useT();
+  return (
+    <details className="settings-help">
+      <summary>{t("Which signal to use")}</summary>
+      <p className="settings-note">
+        {t(
+          "Your computers tell when you are working. Your phone tells the rest. Two ways work together.",
+        )}
+      </p>
+      <ul className="me-split">
+        <li>
+          {t(
+            "Home and out: use Home Assistant (person or device_tracker). The Home Assistant app finds your place in the background more reliably.",
+          )}
+        </li>
+        <li>
+          {t(
+            "Sleep: use an iPhone shortcut with the Sleep focus mode or the bedtime. Home Assistant cannot tell whether a focus mode is the Sleep one.",
+          )}
+        </li>
+        <li>
+          {t(
+            "If both report the same thing within 2 minutes, it counts once. If they disagree, the last one received wins.",
+          )}
+        </li>
+      </ul>
+    </details>
   );
 }
 
@@ -398,50 +401,54 @@ function HomeAssistant({
       {ha.isPending ? (
         <Loading />
       ) : !connected ? (
-        <p className="xc-muted">
-          {t("Connect Home Assistant in Settings first.")}{" "}
+        <div className="settings-line">
+          <small>{t("Connect Home Assistant in Settings first.")}</small>
           <Link className="xc-btn small" to="/settings/homeassistant">
             {t("Home Assistant")}
           </Link>
-        </p>
+        </div>
       ) : (
         <>
-          <p className="xc-muted">{t("Leave a field empty to skip it.")}</p>
-          <label className="xc-field">
-            <span>{t("At-home entity")}</span>
-            <input
-              className="xc-input"
-              value={home}
-              placeholder="person.me"
-              aria-invalid={!validHomeEntity(home)}
-              onChange={(e) => setHome(e.target.value)}
-            />
-            <small className="xc-muted">
-              {t(
-                "person.xxx or device_tracker.xxx. The state home means arrived. Any other state means left.",
-              )}
-            </small>
-          </label>
-          <label className="xc-field">
-            <span>{t("Sleep focus entity")}</span>
-            <input
-              className="xc-input"
-              value={sleep}
-              placeholder="binary_sensor.iphone_focus"
-              aria-invalid={!validSleepEntity(sleep)}
-              onChange={(e) => setSleep(e.target.value)}
-            />
-            <small className="xc-muted">
-              {t(
-                "The focus sensor of the Home Assistant app. On means asleep. Off means awake.",
-              )}
-            </small>
-            <small className="me-warn">
-              {t(
-                "This sensor is on for every focus mode, not only Sleep. If you also use other focus modes in the daytime, leave it empty and use a shortcut instead.",
-              )}
-            </small>
-          </label>
+          <p className="settings-note">
+            {t("Leave a field empty to skip it.")}
+          </p>
+          <div className="settings-form">
+            <label className="xc-field">
+              <span>{t("At-home entity")}</span>
+              <input
+                className="xc-input"
+                value={home}
+                placeholder="person.me"
+                aria-invalid={!validHomeEntity(home)}
+                onChange={(e) => setHome(e.target.value)}
+              />
+              <small className="xc-muted">
+                {t(
+                  "person.xxx or device_tracker.xxx. The state home means arrived. Any other state means left.",
+                )}
+              </small>
+            </label>
+            <label className="xc-field">
+              <span>{t("Sleep focus entity")}</span>
+              <input
+                className="xc-input"
+                value={sleep}
+                placeholder="binary_sensor.iphone_focus"
+                aria-invalid={!validSleepEntity(sleep)}
+                onChange={(e) => setSleep(e.target.value)}
+              />
+              <small className="xc-muted">
+                {t(
+                  "The focus sensor of the Home Assistant app. On means asleep. Off means awake.",
+                )}
+              </small>
+              <small className="me-warn">
+                {t(
+                  "This sensor is on for every focus mode, not only Sleep. If you also use other focus modes in the daytime, leave it empty and use a shortcut instead.",
+                )}
+              </small>
+            </label>
+          </div>
           <div className="me-actions">
             <button
               type="button"

@@ -4,6 +4,7 @@ import Dialog from "../../components/ui/Dialog";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import { ErrorState, Loading } from "../../components/ui/States";
 import { CopyButton } from "../../components/ui/ErrorNotices";
+import { Segmented } from "../../components/ui/Toolbar";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { relativeTime } from "../../lib/time";
 import { errorMessage } from "../../api/client";
@@ -74,6 +75,7 @@ export default function RemoteAccessTab() {
   const tokens = useTokens();
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
+  const [client, setClient] = useState<"claude" | "codex" | "json">("claude");
   if (tokens.isPending) return <Loading />;
   if (tokens.isError)
     return <ErrorState error={tokens.error} onRetry={() => tokens.refetch()} />;
@@ -101,16 +103,32 @@ export default function RemoteAccessTab() {
       <section className="xc-card">
         <div className="xc-card-head">
           <h2>{t("How to connect")}</h2>
+          <Segmented
+            value={client}
+            onChange={setClient}
+            label={t("How to connect")}
+            options={[
+              { value: "claude", label: "Claude Code" },
+              { value: "codex", label: "Codex CLI" },
+              { value: "json", label: t("Cursor and other JSON configs") },
+            ]}
+          />
         </div>
         <p className="xc-muted">
           {t("Address")}: <code className="xc-mono">{mcpUrl()}</code>
         </p>
-        <Snippet title="Claude Code" text={snippets.claude} />
-        <Snippet title="Codex CLI" text={snippets.codex} />
-        <Snippet
-          title={t("Cursor and other JSON configs")}
-          text={snippets.json}
-        />
+        {client === "claude" && (
+          <Snippet title="Claude Code" text={snippets.claude} />
+        )}
+        {client === "codex" && (
+          <Snippet title="Codex CLI" text={snippets.codex} />
+        )}
+        {client === "json" && (
+          <Snippet
+            title={t("Cursor and other JSON configs")}
+            text={snippets.json}
+          />
+        )}
         <small className="xc-muted">
           {t(
             "Cloud AIs (claude.ai, ChatGPT) need the address reachable from the internet and an OAuth login, which is not supported yet.",

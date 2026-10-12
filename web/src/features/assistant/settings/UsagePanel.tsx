@@ -127,46 +127,55 @@ export default function UsagePanel() {
       ) : (
         <>
           <Totals summary={byDay.data} />
-          <section className="xc-card">
-            <div className="xc-card-head">
-              <h2>{t("Input tokens by day")}</h2>
-            </div>
-            <DailyChart summary={byDay.data} />
-          </section>
-          <div className="ai-usage-tables">
-            <GroupTable
-              title={t("By model")}
-              column={t("Model")}
-              summary={byModel.data}
-              label={(key) => key}
-              active={picked.model}
-              onPick={(key) =>
-                setPicked((p) => ({
-                  ...p,
-                  model: p.model === key ? undefined : key,
-                }))
-              }
-            />
-            <GroupTable
-              title={t("By source")}
-              column={t("Source")}
-              summary={bySource.data}
-              label={(key) => t(sourceLabel(key))}
-              active={picked.source}
-              onPick={(key) =>
-                setPicked((p) => ({
-                  ...p,
-                  source: p.source === key ? undefined : key,
-                }))
-              }
-            />
-          </div>
-          <Records
-            filter={filter}
-            picked={picked}
-            onClear={(key) => setPicked((p) => ({ ...p, [key]: undefined }))}
-            onStatus={(status) => setPicked((p) => ({ ...p, status }))}
-          />
+          {/* B181：这段时间没有调用时，下面的图表和明细都是空的，不再一张张列出来 */}
+          {byDay.data.total.calls === 0 ? (
+            <p className="xc-muted">{t("No calls in this period")}</p>
+          ) : (
+            <>
+              <section className="xc-card">
+                <div className="xc-card-head">
+                  <h2>{t("Input tokens by day")}</h2>
+                </div>
+                <DailyChart summary={byDay.data} />
+              </section>
+              <div className="ai-usage-tables">
+                <GroupTable
+                  title={t("By model")}
+                  column={t("Model")}
+                  summary={byModel.data}
+                  label={(key) => key}
+                  active={picked.model}
+                  onPick={(key) =>
+                    setPicked((p) => ({
+                      ...p,
+                      model: p.model === key ? undefined : key,
+                    }))
+                  }
+                />
+                <GroupTable
+                  title={t("By source")}
+                  column={t("Source")}
+                  summary={bySource.data}
+                  label={(key) => t(sourceLabel(key))}
+                  active={picked.source}
+                  onPick={(key) =>
+                    setPicked((p) => ({
+                      ...p,
+                      source: p.source === key ? undefined : key,
+                    }))
+                  }
+                />
+              </div>
+              <Records
+                filter={filter}
+                picked={picked}
+                onClear={(key) =>
+                  setPicked((p) => ({ ...p, [key]: undefined }))
+                }
+                onStatus={(status) => setPicked((p) => ({ ...p, status }))}
+              />
+            </>
+          )}
         </>
       )}
     </div>

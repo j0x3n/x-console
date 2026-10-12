@@ -25,6 +25,20 @@
   gap: 8px;
   margin-top: 12px;
 }
+/* 存储位置：勾选框在左，切换按钮在右，一行（B181） */
+.storage-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.storage-switch > .xc-check {
+  margin: 0;
+}
+.storage-switch > button {
+  margin-left: auto;
+}
 .storage-migration {
   display: grid;
   gap: 6px;

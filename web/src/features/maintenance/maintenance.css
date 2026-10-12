@@ -1,17 +1,17 @@
 /* 设置 → 维护（B79） */
 .mt-page {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
 }
 .mt-page .xc-stats {
   margin-bottom: 0;
 }
+/* B181：单列排。版本卡片很矮，和存储占用并排会空一大块 */
 .mt-columns {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
 }
 .mt-spark {
   width: 100%;
@@ -41,7 +41,7 @@
 /* 版本 */
 .mt-dl {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 8px 14px;
   margin: 0;
   font-size: var(--fs-13);
@@ -226,12 +226,10 @@
   color: var(--xc-muted);
 }
 
-@media (max-width: 900px) {
-  .mt-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (max-width: 640px) {
+  .mt-dl {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
   .mt-row {
     grid-template-columns: minmax(0, 1fr) auto;
     row-gap: 4px;

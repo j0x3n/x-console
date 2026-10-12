@@ -167,7 +167,6 @@ describe("AI settings", () => {
 
     expect(await screen.findByText("OpenAI")).toBeTruthy();
     expect(await screen.findByText(/AI 现在改用 OpenAI 兼容接口/)).toBeTruthy();
-    expect(await screen.findByText("本月用量")).toBeTruthy();
 
     // 选 Agent 模型：不支持工具调用的不能选。
     fireEvent.click(screen.getByRole("button", { name: "Agent 模型" }));

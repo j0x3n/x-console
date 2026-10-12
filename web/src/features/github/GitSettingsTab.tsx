@@ -55,16 +55,12 @@ import "./github.css";
 export default function GitSettingsTab() {
   // B70：两栏。左边账号、同步状态、通知；右边关注的仓库。窄屏一栏。
   return (
-    <div className="github-settings">
-      <div className="github-settings-col">
-        <AccountsCard />
-        <StatusCard />
-        <NotifyCard />
-        <CIQuotaCard />
-      </div>
-      <div className="github-settings-col">
-        <GitHubPageCard />
-      </div>
+    <div className="settings-grid">
+      <AccountsCard />
+      <StatusCard />
+      <GitHubPageCard />
+      <NotifyCard />
+      <CIQuotaCard />
     </div>
   );
 }
@@ -573,36 +569,37 @@ function CIQuotaCard() {
   };
   return (
     <form className="xc-card" onSubmit={onSubmit}>
-      <div className="xc-card-head">
-        <h2>{t("CI minutes quota")}</h2>
-      </div>
-      <p className="xc-muted">
-        {t(
-          "GitHub Free includes 2000 minutes a month. Change it after you upgrade your plan.",
-        )}
-      </p>
-      <label className="xc-field">
-        <span>{t("Free CI minutes per month")}</span>
-        <input
-          className="xc-input"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={1000000}
-          step={1}
-          value={minutes}
-          onChange={(e) => setMinutes(e.target.value)}
-        />
-      </label>
-      <div className="xc-dialog-actions">
-        <span className="xc-spacer" />
-        <button
-          type="submit"
-          className="xc-btn primary"
-          disabled={!valid || save.isPending || n === saved}
-        >
-          {t("Save")}
-        </button>
+      <div className="settings-line">
+        <div>
+          <label htmlFor="git-ci-minutes">
+            <strong>{t("Free CI minutes per month")}</strong>
+          </label>
+          <small>
+            {t(
+              "GitHub Free includes 2000 minutes a month. Change it after you upgrade your plan.",
+            )}
+          </small>
+        </div>
+        <div className="settings-inline">
+          <input
+            id="git-ci-minutes"
+            className="xc-input git-ci-minutes"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={1000000}
+            step={1}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="xc-btn primary"
+            disabled={!valid || save.isPending || n === saved}
+          >
+            {t("Save")}
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -613,7 +610,7 @@ function StatusCard() {
   const language = useLanguage();
   const status = useGitHubStatus();
   const sync = useSyncGitHub();
-  if (!status.data) return null;
+  if (!status.data?.configured) return null;
   const s = status.data;
   const busy = sync.isPending || s.syncing;
   return (

@@ -12,7 +12,6 @@ import { toast } from "../../hooks/useToast";
 import VaultPasswordCard from "../vault/VaultPasswordCard";
 import HiddenModulesCard from "../vault/HiddenModulesCard";
 import ElevationModeCard from "./ElevationModeCard";
-import NicknameCard from "./NicknameCard";
 import { MIN_PASSWORD, passwordFormError } from "./security";
 
 /** 设置里的“安全”标签：两步验证开关、修改登录密码。 */
@@ -25,7 +24,6 @@ export default function SecurityTab() {
   const enabled = status.data.totpEnabled ?? true;
   return (
     <div className="settings-grid">
-      <NicknameCard />
       <TotpCard enabled={enabled} />
       <PasswordCard />
       <ElevationModeCard />
@@ -78,6 +76,28 @@ function TotpCard({ enabled }: { enabled: boolean }) {
         <span className={`xc-badge ${enabled ? "ok" : ""}`}>
           {enabled ? t("2FA on") : t("2FA off")}
         </span>
+        {enabled ? (
+          <button
+            className="xc-btn small danger"
+            type="button"
+            onClick={() => setDisabling(true)}
+          >
+            <ShieldOff size={14} />
+            {t("Turn off two-step verification")}
+          </button>
+        ) : (
+          !enrollment && (
+            <button
+              className="xc-btn small primary"
+              type="button"
+              disabled={enroll.isPending}
+              onClick={() => enroll.mutate()}
+            >
+              <ShieldCheck size={14} />
+              {t("Turn on two-step verification")}
+            </button>
+          )
+        )}
       </div>
       <p className="settings-note">
         {enabled
@@ -85,16 +105,7 @@ function TotpCard({ enabled }: { enabled: boolean }) {
           : "现在只用密码登录，高危操作要再输一次密码。开启后，这两处都改成输入验证码。"}
       </p>
 
-      {enabled ? (
-        <button
-          className="xc-btn danger"
-          type="button"
-          onClick={() => setDisabling(true)}
-        >
-          <ShieldOff size={15} />
-          {t("Turn off two-step verification")}
-        </button>
-      ) : enrollment ? (
+      {!enabled && enrollment && (
         <form onSubmit={onConfirm}>
           <p className="settings-note">
             用验证器 App（比如 Google Authenticator 或
@@ -137,16 +148,6 @@ function TotpCard({ enabled }: { enabled: boolean }) {
             </button>
           </div>
         </form>
-      ) : (
-        <button
-          className="xc-btn primary"
-          type="button"
-          disabled={enroll.isPending}
-          onClick={() => enroll.mutate()}
-        >
-          <ShieldCheck size={15} />
-          {t("Turn on two-step verification")}
-        </button>
       )}
 
       <DisableTotpDialog open={disabling} onClose={() => setDisabling(false)} />
@@ -262,41 +263,43 @@ function PasswordCard() {
         <h2>{t("Login password")}</h2>
       </div>
       <p className="settings-note">改完之后，其他设备上的登录会全部退出。</p>
-      <label className="xc-field">
-        <span>{t("Current password")}</span>
-        <input
-          className="xc-input"
-          type="password"
-          autoComplete="current-password"
-          value={form.oldPassword}
-          onChange={(e) => setForm({ ...form, oldPassword: e.target.value })}
-          required
-        />
-      </label>
-      <label className="xc-field">
-        <span>{t("New password")}</span>
-        <input
-          className="xc-input"
-          type="password"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD}
-          value={form.newPassword}
-          onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-          required
-        />
-        <small>至少 {MIN_PASSWORD} 位</small>
-      </label>
-      <label className="xc-field">
-        <span>{t("Repeat new password")}</span>
-        <input
-          className="xc-input"
-          type="password"
-          autoComplete="new-password"
-          value={form.confirm}
-          onChange={(e) => setForm({ ...form, confirm: e.target.value })}
-          required
-        />
-      </label>
+      <div className="settings-form settings-form-3">
+        <label className="xc-field">
+          <span>{t("Current password")}</span>
+          <input
+            className="xc-input"
+            type="password"
+            autoComplete="current-password"
+            value={form.oldPassword}
+            onChange={(e) => setForm({ ...form, oldPassword: e.target.value })}
+            required
+          />
+        </label>
+        <label className="xc-field">
+          <span>{t("New password")}</span>
+          <input
+            className="xc-input"
+            type="password"
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD}
+            value={form.newPassword}
+            onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+            required
+          />
+          <small>至少 {MIN_PASSWORD} 位</small>
+        </label>
+        <label className="xc-field">
+          <span>{t("Repeat new password")}</span>
+          <input
+            className="xc-input"
+            type="password"
+            autoComplete="new-password"
+            value={form.confirm}
+            onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+            required
+          />
+        </label>
+      </div>
       {error && <p className="xc-error-text">{error}</p>}
       <div className="settings-actions">
         <button className="xc-btn primary" disabled={change.isPending}>

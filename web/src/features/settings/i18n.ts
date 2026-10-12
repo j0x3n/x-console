@@ -2,11 +2,11 @@ import { registerZh } from "../../lib/i18n";
 
 registerZh({
   // B88 称呼
-  "What to call you": "称呼",
   "Name in the greeting": "问候语里的名字",
   "Shown on the today page, like “Good morning, …”. Empty uses your login name.":
     "显示在今日页，比如“早上好，…”。不填就用登录名。",
   General: "通用",
+  "Paired devices": "已配对的设备",
   // B180 设置弹窗
   "Sign-in & verification": "登录与验证",
   Data: "数据",

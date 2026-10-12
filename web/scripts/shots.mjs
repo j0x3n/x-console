@@ -488,6 +488,13 @@ const routes = [
   ["settings-storage", "/settings/storage"],
   ["settings-backup", "/settings/backup"],
   ["settings-router", "/settings/router"],
+  ["settings-notifications", "/settings/notifications"],
+  ["settings-brief", "/settings/brief"],
+  ["settings-devices", "/settings/devices"],
+  ["settings-audit", "/settings/audit"],
+  ["settings-homeassistant", "/settings/homeassistant"],
+  ["settings-mail", "/settings/mail"],
+  ["settings-music", "/settings/music"],
 ]
   .filter(Boolean)
   .filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));

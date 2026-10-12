@@ -1,5 +1,3 @@
-import { formatRate } from "../usage";
-import { Link } from "react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
@@ -19,7 +17,6 @@ import { toast } from "../../../hooks/useToast";
 import { relativeTime } from "../../../lib/time";
 import {
   useAiModels,
-  useAiUsage,
   useModelSettings,
   useProviderMutations,
   useSaveModelSettings,
@@ -34,13 +31,7 @@ import ModelPicker from "./ModelPicker";
 import NotesAiCard from "./NotesAiCard";
 import MemoryCard from "./MemoryCard";
 import ProviderDialog from "./ProviderDialog";
-import {
-  canUseTools,
-  currentMonth,
-  findModel,
-  formatCost,
-  formatTokens,
-} from "./models";
+import { canUseTools, findModel } from "./models";
 
 const EFFORTS: { value: ReasoningEffort; label: string }[] = [
   { value: "off", label: "Off" },
@@ -49,7 +40,7 @@ const EFFORTS: { value: ReasoningEffort; label: string }[] = [
   { value: "high", label: "High" },
 ];
 
-/** 设置 → AI（B32）：供应商、两个模型、思考程度、用量、笔记。 */
+/** 设置 → AI（B32）：供应商、两个模型、思考程度、记忆、笔记。用量在同一页下面（B180）。 */
 export default function AiSettingsView({
   providers,
 }: {
@@ -67,7 +58,6 @@ export default function AiSettingsView({
           models={models.data ?? []}
         />
       )}
-      <UsageCard />
       <MemoryCard />
       <NotesAiCard />
     </div>
@@ -255,101 +245,107 @@ function ModelsCard({
           )}
         </p>
       )}
-      <div className="xc-field">
-        <span>{t("Agent model")}</span>
-        <ModelPicker
-          label={t("Agent model")}
-          value={agent}
-          onChange={setAgent}
-          models={models}
-          providers={providers}
-          disabled={(m) => (canUseTools(m) ? null : t("No tool calls"))}
-          onFillSpec={setSpec}
-        />
-        <small>
-          {t(
-            "Used by the AI panel, automations and the server Agent tab. It must support tool calls.",
-          )}
-        </small>
-      </div>
-      <div className="xc-field">
-        <span>{t("Reasoning effort")}</span>
-        <div className={noReasoning ? "ai-disabled" : undefined}>
-          <Segmented
-            label={t("Reasoning effort")}
-            value={noReasoning ? "off" : effort}
-            onChange={(v) => !noReasoning && setEffort(v)}
-            options={EFFORTS.map((o) => ({
-              value: o.value,
-              label: t(o.label),
-            }))}
+      <div className="settings-form">
+        <div className="xc-field">
+          <span>{t("Agent model")}</span>
+          <ModelPicker
+            label={t("Agent model")}
+            value={agent}
+            onChange={setAgent}
+            models={models}
+            providers={providers}
+            disabled={(m) => (canUseTools(m) ? null : t("No tool calls"))}
+            onFillSpec={setSpec}
           />
-        </div>
-        {noReasoning && (
-          <small>{t("This model does not support reasoning.")}</small>
-        )}
-        {initial.reasoningUnsupported && !noReasoning && (
-          <small className="ai-warn">
+          <small>
             {t(
-              "This API rejected the reasoning effort, so it is sent without it.",
+              "Used by the AI panel, automations and the server Agent tab. It must support tool calls.",
             )}
           </small>
-        )}
-      </div>
-      <div className="xc-field">
-        <span>{t("Fast model")}</span>
-        <ModelPicker
-          label={t("Fast model")}
-          value={fast}
-          onChange={setFast}
-          models={models}
-          providers={providers}
-          allowNone={t("Same as the Agent model")}
-          onFillSpec={setSpec}
-        />
-        <small>
-          {t("Used for note titles and tags, and to polish the daily brief.")}
-        </small>
-      </div>
-      <div className="xc-field">
-        <span>{t("Fast model reasoning effort")}</span>
-        <div className={fastNoReasoning ? "ai-disabled" : undefined}>
-          <Segmented
-            label={t("Fast model reasoning effort")}
-            value={fastNoReasoning ? "off" : fastEffort}
-            onChange={(v) => !fastNoReasoning && setFastEffort(v)}
-            options={EFFORTS.map((o) => ({
-              value: o.value,
-              label: t(o.label),
-            }))}
-          />
         </div>
-        {fastNoReasoning ? (
-          <small>{t("This model does not support reasoning.")}</small>
-        ) : (
-          <small>
-            {t("Off is quickest. Turn it up for polishing long notes.")}
-          </small>
-        )}
-      </div>
-      <label className="xc-field">
-        <span>{t("Default permission for new chats")}</span>
-        <select
-          className="xc-select"
-          value={defaultPerm}
-          onChange={(e) => setDefaultPerm(e.target.value as "manual" | "write")}
-        >
-          <option value="manual">{t("Manual: ask before every change")}</option>
-          <option value="write">
-            {t("Write: changes run, deletes and risky actions ask")}
-          </option>
-        </select>
-        <small>
-          {t(
-            "Each chat can change it in the assistant. Allow all is never the default.",
+        <div className="xc-field">
+          <span>{t("Reasoning effort")}</span>
+          <div className={noReasoning ? "ai-disabled" : undefined}>
+            <Segmented
+              label={t("Reasoning effort")}
+              value={noReasoning ? "off" : effort}
+              onChange={(v) => !noReasoning && setEffort(v)}
+              options={EFFORTS.map((o) => ({
+                value: o.value,
+                label: t(o.label),
+              }))}
+            />
+          </div>
+          {noReasoning && (
+            <small>{t("This model does not support reasoning.")}</small>
           )}
-        </small>
-      </label>
+          {initial.reasoningUnsupported && !noReasoning && (
+            <small className="ai-warn">
+              {t(
+                "This API rejected the reasoning effort, so it is sent without it.",
+              )}
+            </small>
+          )}
+        </div>
+        <div className="xc-field">
+          <span>{t("Fast model")}</span>
+          <ModelPicker
+            label={t("Fast model")}
+            value={fast}
+            onChange={setFast}
+            models={models}
+            providers={providers}
+            allowNone={t("Same as the Agent model")}
+            onFillSpec={setSpec}
+          />
+          <small>
+            {t("Used for note titles and tags, and to polish the daily brief.")}
+          </small>
+        </div>
+        <div className="xc-field">
+          <span>{t("Fast model reasoning effort")}</span>
+          <div className={fastNoReasoning ? "ai-disabled" : undefined}>
+            <Segmented
+              label={t("Fast model reasoning effort")}
+              value={fastNoReasoning ? "off" : fastEffort}
+              onChange={(v) => !fastNoReasoning && setFastEffort(v)}
+              options={EFFORTS.map((o) => ({
+                value: o.value,
+                label: t(o.label),
+              }))}
+            />
+          </div>
+          {fastNoReasoning ? (
+            <small>{t("This model does not support reasoning.")}</small>
+          ) : (
+            <small>
+              {t("Off is quickest. Turn it up for polishing long notes.")}
+            </small>
+          )}
+        </div>
+        <label className="xc-field full">
+          <span>{t("Default permission for new chats")}</span>
+          <select
+            className="xc-select"
+            value={defaultPerm}
+            onChange={(e) =>
+              setDefaultPerm(e.target.value as "manual" | "write")
+            }
+          >
+            <option value="manual">
+              {t("Manual: ask before every change")}
+            </option>
+            <option value="write">
+              {t("Write: changes run, deletes and risky actions ask")}
+            </option>
+          </select>
+          <small>
+            {t(
+              "Each chat can change it in the assistant. Allow all is never the default.",
+            )}
+          </small>
+        </label>
+      </div>
       <div className="ai-form-actions">
         <button className="xc-btn primary" disabled={save.isPending}>
           {t("Save")}
@@ -447,85 +443,5 @@ function SpecDialog({
         </button>
       </div>
     </Dialog>
-  );
-}
-
-function UsageCard() {
-  const t = useT();
-  const month = currentMonth();
-  const usage = useAiUsage(month);
-  const data = usage.data;
-  return (
-    <section className="xc-card">
-      <div className="xc-card-head">
-        <h2>{t("Usage this month")}</h2>
-        {data?.cost !== undefined && (
-          <span className="xc-badge">{formatCost(data.cost)}</span>
-        )}
-      </div>
-      {usage.isError ? (
-        <p className="xc-muted">{t("Usage is not available yet.")}</p>
-      ) : !data ? (
-        <p className="xc-muted">{t("Loading")}…</p>
-      ) : data.calls === 0 ? (
-        <p className="xc-muted">{t("No calls this month.")}</p>
-      ) : (
-        <>
-          <dl className="ai-usage-sum">
-            <div>
-              <dt>{t("Calls")}</dt>
-              <dd>{data.calls}</dd>
-            </div>
-            <div>
-              <dt>{t("Input tokens")}</dt>
-              <dd>{formatTokens(data.inputTokens)}</dd>
-            </div>
-            <div>
-              <dt>{t("Output tokens")}</dt>
-              <dd>{formatTokens(data.outputTokens)}</dd>
-            </div>
-            <div>
-              <dt>{t("Cache hit rate")}</dt>
-              <dd>{formatRate(data.cacheHitRate)}</dd>
-            </div>
-          </dl>
-          <table className="ai-usage-table">
-            <thead>
-              <tr>
-                <th>{t("Model")}</th>
-                <th>{t("Calls")}</th>
-                <th>Token</th>
-                <th>{t("Cost")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.byModel.map((m) => (
-                <tr key={`${m.providerId}-${m.model}`}>
-                  <td>
-                    <span className="xc-mono">{m.model}</span>
-                    <small className="xc-muted">{m.providerName}</small>
-                  </td>
-                  <td>{m.calls}</td>
-                  <td>
-                    {formatTokens(m.inputTokens)} /{" "}
-                    {formatTokens(m.outputTokens)}
-                  </td>
-                  <td>{formatCost(m.cost) || "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <small className="xc-muted">
-            {t("Estimated from models.dev prices. Your bill may differ.")}
-          </small>
-          <Link
-            className="xc-btn small ai-usage-link"
-            to="/settings/assistant?section=ai-usage"
-          >
-            {t("See usage details")}
-          </Link>
-        </>
-      )}
-    </section>
   );
 }

@@ -80,11 +80,6 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.router-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 10px;
-}
 .router-steps {
   margin: 0;
   padding-left: 20px;
@@ -126,9 +121,6 @@
   .router-col-mac,
   .router-col-lease {
     display: none;
-  }
-  .router-form-row {
-    grid-template-columns: 1fr;
   }
 }
 /* 今日页的“网络”卡片 */

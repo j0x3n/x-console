@@ -53,11 +53,35 @@ export default function MusicSettingsTab() {
       <section className="xc-card music-settings">
         <div className="xc-card-head">
           <h3>{t("Music folders")}</h3>
+          <div className="settings-inline">
+            <button
+              type="button"
+              className="xc-btn small"
+              disabled={scan.isPending || folders.length === 0}
+              onClick={() =>
+                scan.mutate(undefined, {
+                  onSuccess: () => toast(t("Scanning in the background")),
+                  onError: (e) =>
+                    toast({ message: errorMessage(e), tone: "error" }),
+                })
+              }
+            >
+              <RefreshCw size={14} /> {t("Scan now")}
+            </button>
+            <button
+              type="button"
+              className="xc-btn small"
+              onClick={() => setPicking(true)}
+            >
+              <Plus size={14} /> {t("Add a folder")}
+            </button>
+          </div>
         </div>
-        <p className="music-muted">
+        <p className="settings-note">
           {t(
             "Songs in these Drive folders, and the folders inside them, are added to the library. New files are picked up a few seconds after they are uploaded.",
-          )}
+          )}{" "}
+          {t("Hidden folders and files in the trash are never added.")}
         </p>
         <ul className="music-folder-list">
           {folders.map((f) => (
@@ -81,44 +105,18 @@ export default function MusicSettingsTab() {
             <li className="music-muted">{t("No music folder yet")}</li>
           )}
         </ul>
-        <div className="music-settings-actions">
-          <button
-            type="button"
-            className="xc-btn primary"
-            onClick={() => setPicking(true)}
-          >
-            <Plus size={14} /> {t("Add a folder")}
-          </button>
-          <button
-            type="button"
-            className="xc-btn"
-            disabled={scan.isPending || folders.length === 0}
-            onClick={() =>
-              scan.mutate(undefined, {
-                onSuccess: () => toast(t("Scanning in the background")),
-                onError: (e) =>
-                  toast({ message: errorMessage(e), tone: "error" }),
-              })
-            }
-          >
-            <RefreshCw size={14} /> {t("Scan now")}
-          </button>
-        </div>
-        <p className="music-muted">
-          {t("Hidden folders and files in the trash are never added.")}
-        </p>
       </section>
       <section className="xc-card music-settings">
         <div className="xc-card-head">
           <h3>{t("Focus")}</h3>
         </div>
-        <p className="music-muted">
+        <p className="settings-note">
           {t(
             "Tie the music to the pomodoro timer. Only the page you are looking at plays. If the browser blocks playing by itself, the player asks you to tap once.",
           )}
         </p>
-        <div className="music-option">
-          <span>{t("Play when a focus session starts")}</span>
+        <div className="settings-line">
+          <strong>{t("Play when a focus session starts")}</strong>
           <Switch
             checked={settings.data.focus.autoPlay}
             label={t("Play when a focus session starts")}
@@ -126,32 +124,34 @@ export default function MusicSettingsTab() {
             onChange={(autoPlay) => change({ focus: { autoPlay } })}
           />
         </div>
-        <div className="xc-field">
-          <label htmlFor="music-focus-list">{t("Focus playlist")}</label>
-          <select
-            id="music-focus-list"
-            className="xc-select"
-            value={settings.data.focus.playlistId}
-            disabled={save.isPending}
-            onChange={(e) =>
-              change({ focus: { playlistId: Number(e.target.value) } })
-            }
-          >
-            <option value={0}>{t("The current queue")}</option>
-            {(playlists.data ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+        <div className="settings-line">
+          <label htmlFor="music-focus-list">
+            <strong>{t("Focus playlist")}</strong>
+          </label>
+          <div className="settings-inline">
+            <select
+              id="music-focus-list"
+              className="xc-select"
+              value={settings.data.focus.playlistId}
+              disabled={save.isPending}
+              onChange={(e) =>
+                change({ focus: { playlistId: Number(e.target.value) } })
+              }
+            >
+              <option value={0}>{t("The current queue")}</option>
+              {(playlists.data ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="music-option">
-          <span>
-            {t("Only use the focus playlist during focus")}
-            <small className="music-muted">
-              {t("The queue you had comes back when focus ends.")}
-            </small>
-          </span>
+        <div className="settings-line">
+          <div>
+            <strong>{t("Only use the focus playlist during focus")}</strong>
+            <small>{t("The queue you had comes back when focus ends.")}</small>
+          </div>
           <Switch
             checked={settings.data.focus.onlyFocusList}
             label={t("Only use the focus playlist during focus")}
@@ -163,8 +163,8 @@ export default function MusicSettingsTab() {
             onChange={(onlyFocusList) => change({ focus: { onlyFocusList } })}
           />
         </div>
-        <div className="music-option">
-          <span>{t("Pause when focus ends or is stopped")}</span>
+        <div className="settings-line">
+          <strong>{t("Pause when focus ends or is stopped")}</strong>
           <Switch
             checked={settings.data.focus.autoPause}
             label={t("Pause when focus ends or is stopped")}

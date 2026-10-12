@@ -182,12 +182,13 @@ describe("MeSettingsTab", () => {
     serve();
     wrap(<MeSettingsTab />);
     await screen.findByText("办公室电脑");
-    expect(screen.getByText(/手机 App 在后台定位更稳/)).toBeTruthy();
+    // B181：两段说明收进了“手机上报”分区，默认收起
+    expect(await screen.findByText(/手机 App 在后台定位更稳/)).toBeTruthy();
     expect(screen.getByText(/分不出是不是睡眠模式/)).toBeTruthy();
     expect(screen.getByText(/以最后收到的为准/)).toBeTruthy();
     const steps = screen
       .getByText("iPhone 快捷指令的配置步骤")
-      .closest("section")!;
+      .closest("details")!;
     expect(within(steps).getAllByRole("listitem")).toHaveLength(5);
     expect(within(steps).getByText(/点“自动化”，点右上角的“\+”/)).toBeTruthy();
     expect(

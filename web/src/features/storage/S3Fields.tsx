@@ -71,8 +71,9 @@ export default function S3Fields({
       {hint && <small>{hint}</small>}
     </label>
   );
+  // 两列排（B181），勾选框占一整行
   return (
-    <>
+    <div className="settings-form">
       {field("endpoint", t("Endpoint"), "https://s3.amazonaws.com")}
       {field("region", t("Region"), "us-east-1", "R2 填 auto。")}
       {field("bucket", t("Bucket"), "my-console")}
@@ -94,15 +95,17 @@ export default function S3Fields({
           autoComplete="new-password"
         />
       </label>
-      <label className="xc-check">
-        <input
-          type="checkbox"
-          checked={value.pathStyle}
-          onChange={(e) => set("pathStyle", e.target.checked)}
-        />
-        <span>{t("Path-style URLs")}</span>
-      </label>
-      <small className="xc-check-hint">MinIO 一般要勾上。</small>
-    </>
+      <div className="full">
+        <label className="xc-check">
+          <input
+            type="checkbox"
+            checked={value.pathStyle}
+            onChange={(e) => set("pathStyle", e.target.checked)}
+          />
+          <span>{t("Path-style URLs")}</span>
+        </label>
+        <small className="xc-check-hint">MinIO 一般要勾上。</small>
+      </div>
+    </div>
   );
 }

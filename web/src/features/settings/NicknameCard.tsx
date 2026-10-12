@@ -19,33 +19,33 @@ export default function NicknameCard() {
   };
   return (
     <form className="xc-card" onSubmit={submit}>
-      <div className="xc-card-head">
-        <h2>{t("What to call you")}</h2>
-      </div>
-      <div className="xc-field">
-        <label htmlFor="settings-nickname">{t("Name in the greeting")}</label>
-        <input
-          id="settings-nickname"
-          className="xc-input"
-          maxLength={20}
-          value={value}
-          placeholder={auth.data?.username}
-          onChange={(e) => setValue(e.target.value)}
-        />
-        <small>
-          {t(
-            "Shown on the today page, like “Good morning, …”. Empty uses your login name.",
-          )}
-        </small>
-      </div>
-      <div className="xc-row">
-        <span className="xc-spacer" />
-        <button
-          className="xc-btn small primary"
-          disabled={value.trim() === nickname}
-        >
-          {t("Save")}
-        </button>
+      <div className="settings-line">
+        <div>
+          <label htmlFor="settings-nickname">
+            <strong>{t("Name in the greeting")}</strong>
+          </label>
+          <small>
+            {t(
+              "Shown on the today page, like “Good morning, …”. Empty uses your login name.",
+            )}
+          </small>
+        </div>
+        <div className="settings-inline">
+          <input
+            id="settings-nickname"
+            className="xc-input"
+            maxLength={20}
+            value={value}
+            placeholder={auth.data?.username}
+            onChange={(e) => setValue(e.target.value)}
+          />
+          <button
+            className="xc-btn primary"
+            disabled={value.trim() === nickname}
+          >
+            {t("Save")}
+          </button>
+        </div>
       </div>
     </form>
   );

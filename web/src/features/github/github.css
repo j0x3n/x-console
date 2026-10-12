@@ -119,23 +119,8 @@
   margin-left: 6px;
 }
 
-/* 设置页（B70）：两栏，每栏里的卡片上下排，不会因为另一栏的卡片高而留空 */
-.github-settings {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: start;
-}
-.github-settings-col {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-}
-@media (max-width: 960px) {
-  .github-settings {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.settings-inline > .git-ci-minutes {
+  width: 120px;
 }
 .github-actions {
   flex-wrap: wrap;

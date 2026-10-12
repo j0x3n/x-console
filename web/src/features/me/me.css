@@ -112,16 +112,6 @@
 .me-hosts .xc-badge {
   margin-left: auto;
 }
-.me-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 0;
-}
-.me-option small {
-  display: block;
-}
 .me-warn {
   display: block;
   margin: 6px 0 0;
@@ -194,6 +184,12 @@
   font-size: var(--fs-12);
   overflow-wrap: anywhere;
 }
+.me-report-state {
+  margin: 0 0 4px;
+}
+.me-report-url {
+  margin: 0;
+}
 .me-actions {
   display: flex;
   flex-wrap: wrap;
@@ -216,5 +212,6 @@
   word-break: break-all;
 }
 .me-events td:first-child {
+  width: 140px;
   white-space: nowrap;
 }

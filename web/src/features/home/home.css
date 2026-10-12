@@ -204,19 +204,8 @@
 }
 
 /* 设置页 */
-.home-settings {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 560px) minmax(0, 320px);
-  align-items: start;
-}
-@media (max-width: 900px) {
-  .home-settings {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 .home-test-result {
-  margin: 4px 0 0;
+  margin: 12px 0 0;
   padding: 8px 10px;
   border-radius: var(--xc-radius);
 }

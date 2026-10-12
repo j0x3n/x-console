@@ -78,10 +78,10 @@ export default function BriefSettingsTab() {
       <ErrorState error={settings.error} onRetry={() => settings.refetch()} />
     );
   return (
-    <>
+    <div className="settings-grid">
       <BriefForm view={settings.data} />
       <QWeatherCard />
-    </>
+    </div>
   );
 }
 
@@ -172,46 +172,38 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
 
   return (
     <form
-      className="xc-stack brief-settings"
+      className="xc-card brief-settings"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
-      <section className="xc-card brief-settings-card">
-        <h3>{t("Schedule")}</h3>
-        <label className="brief-check">
+      <div className="settings-pair">
+        <div>
+          <strong>{t("Send time")}</strong>
+        </div>
+        <div className="brief-schedule">
+          <label className="brief-check">
+            <input
+              type="checkbox"
+              checked={form.enabled}
+              onChange={(e) => set("enabled", e.target.checked)}
+            />
+            <span>{t("Send the brief every day")}</span>
+          </label>
           <input
-            type="checkbox"
-            checked={form.enabled}
-            onChange={(e) => set("enabled", e.target.checked)}
-          />
-          <span>{t("Send the brief every day")}</span>
-        </label>
-        <label className="xc-field brief-time">
-          <span>{t("Time")}</span>
-          <input
-            className="xc-input"
+            className="xc-input brief-time"
             type="time"
+            aria-label={t("Time")}
             value={form.time}
             onChange={(e) => set("time", e.target.value)}
             required
           />
-        </label>
-        <div className="xc-field">
-          <span>{t("Channels")}</span>
-          <div className="brief-options">
-            {view.availableChannels.map((name) => (
-              <label key={name} className="brief-check">
-                <input
-                  type="checkbox"
-                  checked={form.channels.includes(name)}
-                  onChange={() => set("channels", toggle(form.channels, name))}
-                />
-                <span>{t(channelLabels[name] ?? name)}</span>
-              </label>
-            ))}
-          </div>
+        </div>
+      </div>
+      <div className="settings-pair">
+        <div>
+          <strong>{t("Channels")}</strong>
           <small>
             {t(
               "With none picked, the routing rules in notification settings decide.",
@@ -221,10 +213,26 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
             </Link>
           </small>
         </div>
-      </section>
-
-      <section className="xc-card brief-settings-card">
-        <h3>{t("Contents")}</h3>
+        <div className="brief-options">
+          {view.availableChannels.map((name) => (
+            <label key={name} className="brief-check">
+              <input
+                type="checkbox"
+                checked={form.channels.includes(name)}
+                onChange={() => set("channels", toggle(form.channels, name))}
+              />
+              <span>{t(channelLabels[name] ?? name)}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="settings-pair">
+        <div>
+          <strong>{t("Contents")}</strong>
+          <small>
+            {t("A part is left out when its module is not set up.")}
+          </small>
+        </div>
         <div className="brief-options">
           {sectionKeys.map((key) => (
             <label key={key} className="brief-check">
@@ -236,78 +244,68 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
               <span>{t(sectionLabels[key])}</span>
             </label>
           ))}
+          {view.aiAvailable && (
+            <label className="brief-check">
+              <input
+                type="checkbox"
+                checked={form.aiPolish}
+                onChange={(e) => set("aiPolish", e.target.checked)}
+              />
+              <span>{t("Start with a short AI summary")}</span>
+            </label>
+          )}
         </div>
-        <small className="xc-muted">
-          {t("A part is left out when its module is not set up.")}
-        </small>
-        {view.aiAvailable && (
-          <label className="brief-check">
-            <input
-              type="checkbox"
-              checked={form.aiPolish}
-              onChange={(e) => set("aiPolish", e.target.checked)}
-            />
-            <span>{t("Start with a short AI summary")}</span>
-          </label>
-        )}
-      </section>
-
-      <section className="xc-card brief-settings-card">
-        <h3>{t("Weather location")}</h3>
+      </div>
+      <div className="settings-pair">
+        <div>
+          <strong>{t("Weather location")}</strong>
+          <small>{t("Leave empty to skip the weather.")}</small>
+        </div>
         <div className="brief-location">
-          <label className="xc-field">
-            <span>{t("Latitude")}</span>
-            <input
-              className="xc-input"
-              inputMode="decimal"
-              value={form.lat}
-              onChange={(e) => set("lat", e.target.value)}
-              placeholder="31.23"
-            />
-          </label>
-          <label className="xc-field">
-            <span>{t("Longitude")}</span>
-            <input
-              className="xc-input"
-              inputMode="decimal"
-              value={form.lon}
-              onChange={(e) => set("lon", e.target.value)}
-              placeholder="121.47"
-            />
-          </label>
-          <label className="xc-field">
-            <span>{t("Place name")}</span>
-            <input
-              className="xc-input"
-              value={form.place}
-              onChange={(e) => set("place", e.target.value)}
-              placeholder={t("Shanghai")}
-            />
-          </label>
-        </div>
-        <div className="xc-row">
+          <input
+            className="xc-input"
+            inputMode="decimal"
+            aria-label={t("Latitude")}
+            value={form.lat}
+            onChange={(e) => set("lat", e.target.value)}
+            placeholder="31.23"
+          />
+          <input
+            className="xc-input"
+            inputMode="decimal"
+            aria-label={t("Longitude")}
+            value={form.lon}
+            onChange={(e) => set("lon", e.target.value)}
+            placeholder="121.47"
+          />
+          <input
+            className="xc-input"
+            aria-label={t("Place name")}
+            value={form.place}
+            onChange={(e) => set("place", e.target.value)}
+            placeholder={t("Shanghai")}
+          />
           <button
             type="button"
-            className="xc-btn small"
+            className="xc-btn"
             disabled={locating}
             onClick={locate}
           >
             <LocateFixed size={14} /> {t("Use my location")}
           </button>
-          <small className="xc-muted">
-            {t("Leave empty to skip the weather.")}
-          </small>
         </div>
-      </section>
-
+      </div>
       {error && <p className="xc-error-text">{error}</p>}
-      <div className="xc-row">
+      <div className="settings-actions">
+        <Link
+          className="xc-btn ghost settings-actions-start"
+          to="/calendar/briefs"
+        >
+          <Newspaper size={14} /> {t("Brief history")}
+        </Link>
         <button className="xc-btn primary" disabled={save.isPending}>
           {t("Save")}
         </button>
-        <Link className="xc-btn ghost" to="/calendar/briefs">
-          <Newspaper size={14} /> {t("Brief history")}
-        </Link>
       </div>
     </form>
   );

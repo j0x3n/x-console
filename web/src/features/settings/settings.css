@@ -140,7 +140,187 @@
 .settings-stack {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+/* 一页里并进来的另一部分，比如 AI 下面的用量 */
+.settings-subhead {
+  margin: 8px 0 10px;
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+/* B181 设置页单列分区：每张卡片是一个分区，占满宽度，从上到下排。
+   两列卡片高矮不齐会空一大块，单列就没有这个问题。 */
+.settings-main-body .settings-grid,
+.xc-dialog .settings-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.settings-main-body .xc-card {
+  padding: 14px 16px;
+}
+/* 分区标题旁的状态标签 */
+.settings-main-body .xc-card-head > h2 + .xc-badge,
+.settings-main-body .xc-card-head > h3 + .xc-badge {
+  margin-right: auto;
+}
+/* 空状态、出错提示在设置里压成一行，不放大图标 */
+.settings-main-body .xc-empty {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px 8px;
+  padding: 2px 0;
+  text-align: left;
+}
+.settings-main-body .xc-empty > svg {
+  display: none;
+}
+.settings-main-body .xc-empty > p {
+  margin: 0;
+}
+
+/* 表单两列排：地址和令牌、用户名和密码这类放一行 */
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  align-items: start;
+}
+.settings-form + .xc-field,
+.settings-form + .settings-form {
+  margin-top: 10px;
+}
+.settings-form-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.settings-form > .xc-field {
+  margin: 0;
+}
+.settings-form ~ .settings-actions,
+.settings-form + .xc-error-text {
+  margin-top: 12px;
+}
+.settings-form > .full {
+  grid-column: 1 / -1;
+}
+/* 设置行：左边名称和说明，右边开关、下拉或按钮 */
+.settings-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
+  min-height: 40px;
+  padding: 8px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.xc-card-head + .settings-line,
+.settings-line:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.settings-line > div:first-child {
+  min-width: 0;
+}
+.settings-line strong {
+  display: block;
+  color: var(--xc-text);
+  font-size: var(--fs-13);
+  font-weight: 500;
+}
+.settings-line small {
+  display: block;
+  margin-top: 2px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.settings-line > :last-child:not(:first-child) {
+  flex: none;
+}
+/* 名称在左、内容在右的一行，右边放勾选框组、几个输入框这类比较宽的内容 */
+.settings-pair {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 6px 20px;
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.settings-pair:first-child,
+.xc-card-head + .settings-pair {
+  border-top: 0;
+  padding-top: 0;
+}
+.settings-pair > div:first-child strong {
+  display: block;
+  color: var(--xc-text);
+  font-size: var(--fs-13);
+  font-weight: 500;
+  line-height: 30px;
+}
+.settings-pair > div:first-child small {
+  display: block;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.settings-pair + .settings-actions,
+.settings-pair + .xc-error-text {
+  padding-top: 10px;
+  border-top: 1px solid var(--xc-border);
+}
+/* 设置行右边的输入框加按钮 */
+.settings-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-inline > .xc-input,
+.settings-inline > .xc-select {
+  width: 220px;
+}
+/* 很少看的配置步骤、命令默认收起 */
+.settings-help {
+  margin-top: 10px;
+  border-top: 1px solid var(--xc-border);
+  padding-top: 8px;
+}
+.settings-help > summary {
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+  cursor: pointer;
+  user-select: none;
+}
+.settings-help > summary:hover {
+  color: var(--xc-text);
+}
+.settings-help[open] > summary {
+  margin-bottom: 8px;
+}
+@media (max-width: 720px) {
+  .settings-form,
+  .elevation-modes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-line {
+    flex-wrap: wrap;
+  }
+  .settings-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-pair > div:first-child strong {
+    line-height: 1.5;
+  }
+  .settings-inline {
+    width: 100%;
+  }
+  .settings-inline > .xc-input,
+  .settings-inline > .xc-select {
+    flex: 1;
+    width: auto;
+  }
 }
 @media (max-width: 720px) {
   /* browser.css 给弹窗遮罩留了边距，设置在手机上要占满，只留刘海和底部横条 */
@@ -226,6 +406,9 @@
   justify-content: flex-end;
   gap: 8px;
 }
+.settings-actions-start {
+  margin-right: auto;
+}
 @media (max-width: 400px) {
   .settings-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -250,15 +433,6 @@
   line-height: 1.5;
   word-break: break-all;
   user-select: all;
-}
-.devices-uninstall {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid var(--xc-border);
-}
-.devices-uninstall h3 {
-  margin: 0 0 8px;
-  font-size: var(--fs-14);
 }
 .devices-note {
   margin: 0 0 10px;
@@ -303,8 +477,8 @@
 
 /* B48 二次验证方式 */
 .elevation-modes {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin: 10px 0;
 }

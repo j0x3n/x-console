@@ -38,7 +38,7 @@ export default function MailSettingsTab() {
       <ErrorState error={accounts.error} onRetry={() => accounts.refetch()} />
     );
   return (
-    <div className="mail-settings">
+    <div className="settings-grid">
       <div className="xc-card">
         <div className="xc-card-head">
           <h2>{t("Mailboxes")}</h2>

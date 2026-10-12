@@ -1,6 +1,10 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  // B181 设置页整理
+  Ready: "可用",
+  "Not set up": "未配置",
+  "Linear sync": "Linear 同步",
   // B109：本月 CI 时长
   "CI minutes this month": "本月 CI 时长",
   "{total} minutes in total · {percent}% used":
@@ -33,7 +37,7 @@ registerZh({
   "No commits yet": "还没有提交",
   "Step details are not live yet.": "步骤详情还没上线。",
   "This server does not report step details.": "这个服务器不提供步骤详情。",
-  "Add a Git account first.": "先在左边添加一个 Git 账号。",
+  "Add a Git account first.": "先在上面添加一个 Git 账号。",
   "Some repositories belong to a deleted account:": "这些仓库的账号已经删了：",
   "Pick from account": "从哪个账号选",
   "You can watch up to": "最多关注",

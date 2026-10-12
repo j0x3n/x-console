@@ -36,7 +36,6 @@ function Loaded({ initial }: { initial: RouterConfig }) {
   return (
     <div className="settings-grid">
       <ConfigForm initial={initial} mode={mode} setMode={setMode} />
-      {mode !== "push" && <PrepareCard />}
     </div>
   );
 }
@@ -110,23 +109,22 @@ function ConfigForm({
     <form className="xc-card" onSubmit={onSave}>
       <div className="xc-card-head">
         <h2>{t("Router")}</h2>
+        {initial.url && <span className="xc-badge ok">{t("Ready")}</span>}
       </div>
-      <label className="xc-field">
-        <span>{t("Connection mode")}</span>
-        <select
-          className="xc-select"
-          value={mode}
-          onChange={(e) => setMode(e.target.value as RouterMode)}
-        >
-          <option value="direct">{t("Direct from the server")}</option>
-          <option value="agent">{t("Through an agent at home")}</option>
-          <option value="push">{t("The router reports by itself")}</option>
-        </select>
-      </label>
-      {mode === "push" ? (
-        <PushPanel initial={initial} />
-      ) : (
-        <>
+      <div className="settings-form">
+        <label className="xc-field">
+          <span>{t("Connection mode")}</span>
+          <select
+            className="xc-select"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as RouterMode)}
+          >
+            <option value="direct">{t("Direct from the server")}</option>
+            <option value="agent">{t("Through an agent at home")}</option>
+            <option value="push">{t("The router reports by itself")}</option>
+          </select>
+        </label>
+        {mode !== "push" && (
           <label className="xc-field">
             <span>{t("Address")}</span>
             <input
@@ -141,7 +139,13 @@ function ConfigForm({
               路由器的管理地址。面板服务器访问不到家里的地址时，连接方式选“通过家里的代理”。
             </small>
           </label>
-          <div className="router-form-row">
+        )}
+      </div>
+      {mode === "push" ? (
+        <PushPanel initial={initial} />
+      ) : (
+        <>
+          <div className="settings-form">
             <label className="xc-field">
               <span>{t("Username")}</span>
               <input
@@ -190,7 +194,7 @@ function ConfigForm({
           )}
         </>
       )}
-      <div className="xc-dialog-actions">
+      <div className="settings-actions">
         {mode !== "push" && initial.url && (
           <button
             type="button"
@@ -210,6 +214,7 @@ function ConfigForm({
           </button>
         )}
       </div>
+      {mode !== "push" && <PrepareHelp />}
     </form>
   );
 }
@@ -361,13 +366,11 @@ uci add_list rpcd.@login[-1].write='x-console'
 uci commit rpcd
 /etc/init.d/rpcd restart`;
 
-function PrepareCard() {
+function PrepareHelp() {
   const t = useT();
   return (
-    <section className="xc-card">
-      <div className="xc-card-head">
-        <h2>{t("On the router")}</h2>
-      </div>
+    <details className="settings-help">
+      <summary>{t("On the router")}</summary>
       <ol className="router-steps">
         <li>
           装好 ubus 的网页接口。装了 LuCI 的一般已经有，没有就在路由器上执行
@@ -378,7 +381,7 @@ function PrepareCard() {
           <CodeBlock text={ACL} />
         </li>
         <li>
-          建一个给面板用的账号 xconsole，密码自己定，然后把同一个密码填到左边：
+          建一个给面板用的账号 xconsole，密码自己定，然后把同一个密码填到上面：
           <CodeBlock text={LOGIN} />
           不建议直接用 root，root 能做任何事。
         </li>
@@ -386,7 +389,7 @@ function PrepareCard() {
           面板服务器要能访问到路由器。面板在外网时，可以在家里的电脑上装代理，连接方式选“通过家里的代理”。
         </li>
       </ol>
-    </section>
+    </details>
   );
 }
 

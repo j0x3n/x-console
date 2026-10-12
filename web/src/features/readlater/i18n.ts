@@ -1,6 +1,7 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
+  "More options": "更多选项", // B181
   // B117
   "Read later": "稍后阅读",
   "Add link": "添加链接",

@@ -69,11 +69,13 @@ export default function QWeatherCard() {
   };
 
   return (
-    <form
-      className="xc-card brief-settings-card brief-qweather"
-      onSubmit={submit}
-    >
-      <h3>{t("QWeather")}</h3>
+    <form className="xc-card brief-qweather" onSubmit={submit}>
+      <div className="xc-card-head">
+        <h3>{t("QWeather")}</h3>
+        {config.data?.keySet && (
+          <span className="xc-badge ok">{t("Ready")}</span>
+        )}
+      </div>
       <p className="xc-muted brief-qweather-note">
         {t(
           "Adds weather warnings, rain for the next two hours, air quality, daily tips and sunrise times. The free plan is enough.",
@@ -90,43 +92,42 @@ export default function QWeatherCard() {
         <p className="xc-muted">{t("Not live yet")}</p>
       ) : (
         <>
-          <label className="xc-field">
-            <span>API Host</span>
-            <input
-              className="xc-input"
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              placeholder="abc1234xyz.re.qweatherapi.com"
-              spellCheck={false}
-              autoCapitalize="off"
-            />
-            <small>{t("Console → Settings → API Host")}</small>
-          </label>
-          <label className="xc-field">
-            <span>API KEY</span>
-            <input
-              className="xc-input"
-              type="password"
-              autoComplete="off"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder={
-                config.data?.keySet
-                  ? t("Saved. Leave empty to keep it.")
-                  : undefined
-              }
-            />
-            <small>
-              {t("Console → Project → Credentials → API KEY")}
-              {config.data?.checkedAt &&
-                ` · ${t("Checked")} ${relativeTime(config.data.checkedAt, language)}`}
-            </small>
-          </label>
+          <div className="settings-form">
+            <label className="xc-field">
+              <span>API Host</span>
+              <input
+                className="xc-input"
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+                placeholder="abc1234xyz.re.qweatherapi.com"
+                spellCheck={false}
+                autoCapitalize="off"
+              />
+              <small>{t("Console → Settings → API Host")}</small>
+            </label>
+            <label className="xc-field">
+              <span>API KEY</span>
+              <input
+                className="xc-input"
+                type="password"
+                autoComplete="off"
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                placeholder={
+                  config.data?.keySet
+                    ? t("Saved. Leave empty to keep it.")
+                    : undefined
+                }
+              />
+              <small>
+                {t("Console → Project → Credentials → API KEY")}
+                {config.data?.checkedAt &&
+                  ` · ${t("Checked")} ${relativeTime(config.data.checkedAt, language)}`}
+              </small>
+            </label>
+          </div>
           {error && <p className="xc-error-text">{error}</p>}
-          <div className="xc-row">
-            <button className="xc-btn primary" disabled={save.isPending}>
-              {save.isPending ? t("Checking…") : t("Save and check")}
-            </button>
+          <div className="settings-actions">
             {config.data?.keySet && (
               <button
                 type="button"
@@ -137,6 +138,9 @@ export default function QWeatherCard() {
                 {t("Remove key")}
               </button>
             )}
+            <button className="xc-btn primary" disabled={save.isPending}>
+              {save.isPending ? t("Checking…") : t("Save and check")}
+            </button>
           </div>
         </>
       )}
