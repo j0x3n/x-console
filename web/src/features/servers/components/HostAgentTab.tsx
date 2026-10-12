@@ -38,6 +38,7 @@ import {
 import { useAssistant } from "../../assistant/store";
 import type { HostDetail } from "../api";
 import "../../assistant/assistant.css";
+import { useHostDraftMode } from "../agentDraft";
 import "../../assistant/i18n";
 
 const PERMISSIONS: { value: HostAgentPermission; label: string }[] = [
@@ -91,7 +92,11 @@ function AgentView({
       ? wanted
       : (conversations[0]?.id ?? null),
   );
-  const [draftMode, setDraftMode] = useState<HostAgentPermission>("confirm");
+  // B184：还没发消息时选的权限按机器记在全局，切走再回来还在
+  const draftMode = useHostDraftMode((s) => s.modes[host.id] ?? "confirm");
+  const setDraftModeFor = useHostDraftMode((s) => s.set);
+  const setDraftMode = (mode: HostAgentPermission) =>
+    setDraftModeFor(host.id, mode);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -131,18 +136,7 @@ function AgentView({
     ? (detail.data?.conversation.permission ?? "confirm")
     : draftMode;
 
-  // “全部自动”只在这次打开页面时有效：离开会话或离开页面就改回每步确认。
-  // autoIds 记下这次打开页面时改成“全部自动”的会话。
-  const autoIds = useRef(new Set<number>());
-  const resetRef = useRef(setPermission.mutate);
-  resetRef.current = setPermission.mutate;
-  useEffect(
-    () => () => {
-      if (selected && autoIds.current.delete(selected))
-        resetRef.current({ id: selected, mode: "confirm" });
-    },
-    [selected],
-  );
+  // B184：权限存在服务端，离开页面不再改回。“全部自动”2 小时没有新消息由服务端改回每步确认。
 
   const running = !!detail.data?.running || sending;
   const tools = useMemo(
@@ -176,7 +170,7 @@ function AgentView({
       !(await confirmAction({
         title: t("Run everything without asking?"),
         description: t(
-          "Dangerous commands still need your confirmation. This only lasts while this page is open.",
+          "Dangerous commands still need your confirmation. It goes back to confirming each step after 2 hours without a new message.",
         ),
         confirmLabel: t("Run everything"),
       }))
@@ -190,10 +184,6 @@ function AgentView({
     setPermission.mutate(
       { id, mode: next },
       {
-        onSuccess: () =>
-          next === "all_auto"
-            ? autoIds.current.add(id)
-            : autoIds.current.delete(id),
         onError: (err) => toast({ message: errorMessage(err), tone: "error" }),
       },
     );
@@ -212,7 +202,6 @@ function AgentView({
         id = created.id;
         if (draftMode !== "confirm")
           await setPermission.mutateAsync({ id, mode: draftMode });
-        if (draftMode === "all_auto") autoIds.current.add(id);
         setSelected(id);
       }
       await unwrap(

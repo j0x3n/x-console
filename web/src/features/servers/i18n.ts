@@ -265,8 +265,8 @@ registerZh({
   "Run read-only commands": "只读命令自动执行",
   "Run everything": "全部自动执行",
   "Run everything without asking?": "全部自动执行，不再问你？",
-  "Dangerous commands still need your confirmation. This only lasts while this page is open.":
-    "高危命令还是要你确认。只在这次打开页面时有效。",
+  "Dangerous commands still need your confirmation. It goes back to confirming each step after 2 hours without a new message.":
+    "高危命令仍然要你确认。2 小时没有新消息后改回每步确认。",
   "No Agent model yet": "还没有选 Agent 模型",
   "Choose one in": "去这里选一个：",
   "Settings → AI": "设置 → AI",

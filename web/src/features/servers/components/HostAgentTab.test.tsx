@@ -191,12 +191,9 @@ describe("host Agent tab", () => {
       api.calls.find((c) => c.path === "/ai/conversations/7/messages")?.body,
     ).toEqual({ text: "看看为什么磁盘快满了" });
 
-    // 离开页面后“全部自动”改回每步确认。
+    // B184：离开页面不再改回每步确认。
     view.unmount();
-    await waitFor(() =>
-      expect(api.calls.filter((c) => c.method === "PUT").at(-1)?.body).toEqual({
-        mode: "confirm",
-      }),
-    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(api.calls.filter((c) => c.method === "PUT")).toHaveLength(1);
   });
 });
