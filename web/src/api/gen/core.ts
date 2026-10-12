@@ -552,6 +552,8 @@ export interface components {
              * @enum {string}
              */
             quoteMode?: "off" | "fixed" | "refresh" | "daily";
+            /** @description B179。左栏固定的入口地址。不传时用前端默认值 */
+            navPins?: string[];
             /**
              * Format: date-time
              * @description 上次保存的时间。从没保存过时不返回，前端会把本地的偏好存上来

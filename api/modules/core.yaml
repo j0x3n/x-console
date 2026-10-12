@@ -598,6 +598,11 @@ components:
           type: string
           enum: ["off", fixed, refresh, daily]
           description: B89。今日页问候语后面的每日一句。off 不显示（默认）；fixed 固定显示置顶的第一条名言；refresh 每次打开随机一条；daily 每天随机一条
+        navPins:
+          type: array
+          items: { type: string, maxLength: 64, pattern: "^/[a-z0-9/-]*$" }
+          maxItems: 40
+          description: B179。左栏固定的入口地址。不传时用前端默认值
         updatedAt:
           type: string
           format: date-time

@@ -328,6 +328,9 @@ type Preferences struct {
 	Accent   PreferencesAccent   `json:"accent"`
 	Language PreferencesLanguage `json:"language"`
 
+	// NavPins B179。左栏固定的入口地址。不传时用前端默认值
+	NavPins *[]string `json:"navPins,omitempty"`
+
 	// Nickname B88。今日页问候语里的称呼，空时用登录名
 	Nickname *string `json:"nickname,omitempty"`
 

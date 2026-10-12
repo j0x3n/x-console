@@ -35,6 +35,24 @@ func defaultPreferences() api.Preferences {
 	return api.Preferences{NightMode: "auto", Accent: "indigo", Language: "zh"}
 }
 
+// validNavPins checks path syntax without requiring a known frontend route.
+func validNavPins(pins []string) bool {
+	if len(pins) > 40 {
+		return false
+	}
+	for _, pin := range pins {
+		if !strings.HasPrefix(pin, "/") || len(pin) > 64 {
+			return false
+		}
+		for _, c := range pin {
+			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '/') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // GetPreferences returns the saved UI preferences, or the defaults without
 // updatedAt when nothing has been saved yet.
 func (h *Handlers) GetPreferences(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +82,9 @@ func (h *Handlers) GetPreferences(w http.ResponseWriter, r *http.Request) {
 		if saved.QuoteMode != nil && saved.QuoteMode.Valid() {
 			out.QuoteMode = saved.QuoteMode
 		}
+		if saved.NavPins != nil && validNavPins(*saved.NavPins) {
+			out.NavPins = saved.NavPins
+		}
 		out.UpdatedAt = saved.UpdatedAt
 	}
 	httpx.JSON(w, http.StatusOK, out)
@@ -90,6 +111,9 @@ func (h *Handlers) PutPreferences(w http.ResponseWriter, r *http.Request) {
 	case body.QuoteMode != nil && !body.QuoteMode.Valid():
 		httpx.Fail(w, r, httpx.Invalid("每日一句的显示方式不对"))
 		return
+	case body.NavPins != nil && !validNavPins(*body.NavPins):
+		httpx.Fail(w, r, httpx.Invalid("左栏固定的入口不对"))
+		return
 	}
 	if body.Nickname != nil {
 		name := strings.TrimSpace(*body.Nickname)
@@ -98,6 +122,15 @@ func (h *Handlers) PutPreferences(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		body.Nickname = &name
+	}
+	if body.NavPins != nil {
+		pins := make([]string, 0, len(*body.NavPins))
+		for _, pin := range *body.NavPins {
+			if !slices.Contains(pins, pin) {
+				pins = append(pins, pin)
+			}
+		}
+		body.NavPins = &pins
 	}
 	now := time.Now().UTC()
 	body.UpdatedAt = &now

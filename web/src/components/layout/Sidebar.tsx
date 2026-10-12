@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import {
+  LayoutGrid,
   LogOut,
   Moon,
   PanelLeftClose,
@@ -11,12 +12,7 @@ import {
   Languages,
   type LucideIcon,
 } from "lucide-react";
-import {
-  navGroupLabels,
-  navItems,
-  type NavGroup,
-  type NavItem,
-} from "../../app/nav";
+import { entryOf, navItems, navMerges } from "../../app/nav";
 import { moduleOfPath, useModules } from "../../app/modules";
 import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
@@ -38,6 +34,31 @@ import {
 import { lastPathFor } from "../../hooks/useKeepScroll";
 import { useSidebar } from "../../stores/sidebar";
 import BrandMark from "../ui/BrandMark";
+import Launcher from "./Launcher";
+import { NavPanelGroup, NavPanelLink } from "./NavPanel";
+import {
+  buildEntries,
+  isPinned,
+  railEntries,
+  togglePin,
+  type NavEntry,
+} from "./navEntries";
+
+/** 每个合并组上次看的是哪个功能，点组的入口时回到那里（B179）。 */
+const lastMember = new Map<string, string>();
+
+/** 入口要跳去的地址：组里上次看的功能，再加上那个功能里上次看的页面。 */
+function entryTarget(entry: NavEntry, pathname: string): string {
+  const remembered = lastMember.get(entry.path);
+  const member =
+    entry.members.find((m) => m.path === remembered) ?? entry.members[0];
+  return lastPathFor(member.path, pathname);
+}
+
+/** 组里第一个登记了这种标记（数量、状态、图标）的功能。 */
+function extraKey(entry: NavEntry, map: Record<string, unknown>) {
+  return entry.members.map((m) => m.path).find((p) => map[p]);
+}
 
 /** 图标栏会滚动，提示是 fixed 定位，悬停或聚焦时把图标中线的纵坐标告诉它。 */
 function placeTip(event: SyntheticEvent<HTMLElement>) {
@@ -56,7 +77,8 @@ interface SidebarProps {
 }
 
 /*
- * 左栏（B99）：最左边一条图标栏放全部模块，右边是当前模块的二级菜单。
+ * 左栏（B99）：最左边一条图标栏，右边是当前模块的二级菜单。
+ * B179：图标栏只放固定的常用入口，其余在“全部”打开的启动台里；几组相近的功能合并成一个入口。
  * 二级菜单只有登记过 registerNavChildren 的模块才有，⌘B 收起或展开。
  * 手机上整个左栏是一个抽屉，图标栏和二级菜单一起出来。
  */
@@ -73,21 +95,23 @@ export default function Sidebar({
   const location = useLocation();
   // B57：锁定时被隐藏的模块不出现，分组空了整组不显示
   const modules = useModules();
-  const { current, currentPath, Panel } = useCurrentNavPanel();
+  const { currentPath, Panel, panelLabel } = useCurrentNavPanel();
   const visible = navItems.filter((item) =>
     modules.has(moduleOfPath(item.path)),
   );
   const home = visible.find((item) => item.path === "/");
-  const groups = (Object.keys(navGroupLabels) as NavGroup[])
-    .map((group) => ({
-      group,
-      items: visible.filter(
-        (item) => item.group === group && item.path !== "/",
-      ),
-    }))
-    .filter((g) => g.items.length > 0);
-  const action = current ? extras.actions[current.path] : undefined;
-  const showPanel = !!current && !!Panel && (mobileOpen || !panelHidden);
+  const entries = buildEntries(visible);
+  const pins = usePreferencesStore((s) => s.navPins);
+  const setPins = usePreferencesStore((s) => s.setNavPins);
+  const rail = railEntries(entries, pins, currentPath);
+  const currentEntry = currentPath ? entryOf(currentPath) : undefined;
+  const [launcher, setLauncher] = useState(false);
+  const closeLauncher = useCallback(() => setLauncher(false), []);
+  useEffect(() => {
+    if (currentPath) lastMember.set(entryOf(currentPath), currentPath);
+  }, [currentPath]);
+  const action = currentPath ? extras.actions[currentPath] : undefined;
+  const showPanel = !!Panel && (mobileOpen || !panelHidden);
   const close = () => setMobileOpen(false);
   return (
     <>
@@ -134,38 +158,56 @@ export default function Sidebar({
           {/* B178：站标、搜索、今日固定在顶部，头像固定在底部，只有中间的模块滚动。窗口矮时回今日不用往回滚 */}
           {home && (
             <RailLink
-              item={home}
-              currentPath={currentPath}
-              pathname={location.pathname}
+              to="/"
+              label={home.label}
+              icon={home.icon}
+              selected={currentPath === "/"}
+              keys={{
+                icon: extras.icons["/"] ? "/" : undefined,
+                badge: extras.badges["/"] ? "/" : undefined,
+                status: extras.statuses["/"] ? "/" : undefined,
+              }}
               extras={extras}
               onClose={close}
             />
           )}
           <span className="nav-rail-sep first" aria-hidden />
           <div className="nav-rail-scroll">
-            {groups.map(({ group, items }, index) => (
-              <Fragment key={group}>
-                {index > 0 && <span className="nav-rail-sep" aria-hidden />}
-                {items.map((item) => (
-                  <RailLink
-                    key={item.path}
-                    item={item}
-                    currentPath={currentPath}
-                    pathname={location.pathname}
-                    extras={extras}
-                    onClose={close}
-                  />
-                ))}
-              </Fragment>
+            {rail.map((entry) => (
+              <RailLink
+                key={entry.path}
+                to={entryTarget(entry, location.pathname)}
+                label={entry.label}
+                icon={entry.icon}
+                selected={entry.path === currentEntry}
+                keys={{
+                  icon: extraKey(entry, extras.icons),
+                  badge: extraKey(entry, extras.badges),
+                  status: extraKey(entry, extras.statuses),
+                }}
+                extras={extras}
+                onClose={close}
+              />
             ))}
           </div>
+          {/* B179：全部功能在启动台里，可以固定到左栏 */}
+          <button
+            type="button"
+            className={`nav-rail-item nav-rail-all${launcher ? " selected" : ""}`}
+            aria-label={t("All apps")}
+            aria-haspopup="dialog"
+            onClick={() => setLauncher(true)}
+          >
+            <LayoutGrid size={18} strokeWidth={1.6} />
+            <span className="nav-rail-tip">{t("All apps")}</span>
+          </button>
           {/* 设置只从头像菜单进（用户 2026-10-05 要求），图标栏不再放 */}
           <ProfileMenu />
         </nav>
         {showPanel && (
-          <aside className="nav-panel" aria-label={t(current.label)}>
+          <aside className="nav-panel" aria-label={t(panelLabel)}>
             <div className="nav-panel-head">
-              <span>{t(current.label)}</span>
+              <span>{t(panelLabel)}</span>
               {action && (
                 <NavActionButton
                   action={action}
@@ -192,49 +234,65 @@ export default function Sidebar({
           </aside>
         )}
       </div>
+      {launcher && (
+        <Launcher
+          entries={entries}
+          pinned={(path) => isPinned(pins, path)}
+          onTogglePin={(path) => setPins(togglePin(pins, path))}
+          onOpen={(entry) => {
+            closeLauncher();
+            close();
+            navigate(entryTarget(entry, location.pathname));
+          }}
+          onClose={closeLauncher}
+        />
+      )}
     </>
   );
 }
 
-/** 图标栏里的一个模块入口。 */
+/** 图标栏里的一个入口。keys 是数量、状态、图标这些标记用哪个功能登记的（合并组用组里第一个有的）。 */
 function RailLink({
-  item,
-  currentPath,
-  pathname,
+  to,
+  label,
+  icon: Icon,
+  selected,
+  keys,
   extras,
   onClose,
 }: {
-  item: NavItem;
-  currentPath: string | undefined;
-  pathname: string;
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  selected: boolean;
+  keys: { icon?: string; badge?: string; status?: string };
   extras: ReturnType<typeof useNavExtras>;
   onClose: () => void;
 }) {
   const t = useT();
+  const iconHook = keys.icon ? extras.icons[keys.icon] : undefined;
+  const badgeHook = keys.badge ? extras.badges[keys.badge] : undefined;
+  const statusHook = keys.status ? extras.statuses[keys.status] : undefined;
   return (
     <NavLink
-      to={item.path === "/" ? "/" : lastPathFor(item.path, pathname)}
-      aria-label={t(item.label)}
+      to={to}
+      aria-label={t(label)}
       onClick={onClose}
-      className={`nav-rail-item${item.path === currentPath ? " selected" : ""}`}
+      className={`nav-rail-item${selected ? " selected" : ""}`}
     >
-      {extras.icons[item.path] ? (
-        <NavIconMark hook={extras.icons[item.path]} fallback={item.icon} />
+      {iconHook ? (
+        <NavIconMark hook={iconHook} fallback={Icon} />
       ) : (
-        <item.icon size={18} strokeWidth={1.6} />
+        <Icon size={18} strokeWidth={1.6} />
       )}
-      {extras.badges[item.path] ? (
-        <NavBadgeMark hook={extras.badges[item.path]} />
+      {badgeHook ? (
+        <NavBadgeMark hook={badgeHook} />
       ) : (
-        extras.statuses[item.path] && (
-          <NavStatusDot hook={extras.statuses[item.path]} />
-        )
+        statusHook && <NavStatusDot hook={statusHook} />
       )}
       <span className="nav-rail-tip">
-        {t(item.label)}
-        {extras.statuses[item.path] && (
-          <NavStatusText hook={extras.statuses[item.path]} />
-        )}
+        {t(label)}
+        {statusHook && <NavStatusText hook={statusHook} />}
       </span>
     </NavLink>
   );
@@ -252,8 +310,56 @@ export function useCurrentNavPanel() {
   const current = navItems.find(
     (n) => n.path === currentPath && modules.has(moduleOfPath(n.path)),
   );
-  const Panel = current ? children[current.path] : undefined;
-  return { current, currentPath, Panel };
+  // B179：在合并组里时，二级菜单顶部列出组里的功能，下面是当前功能自己的菜单
+  const entry = current ? entryOf(current.path) : undefined;
+  const visibleMembers = (entry ? (navMerges[entry] ?? []) : []).filter((p) =>
+    modules.has(moduleOfPath(p)),
+  );
+  const merged = visibleMembers.length > 1;
+  const Panel = merged
+    ? MergedNavPanel
+    : current
+      ? children[current.path]
+      : undefined;
+  const panelLabel = merged
+    ? (buildEntries(navItems).find((e) => e.path === entry)?.label ?? "")
+    : (current?.label ?? "");
+  return { current, currentPath, Panel, panelLabel };
+}
+
+/** 合并组的二级菜单：组里的功能在上面，当前功能自己的菜单在下面（B179）。 */
+function MergedNavPanel({ onNavigate }: { onNavigate: () => void }) {
+  const t = useT();
+  const location = useLocation();
+  const modules = useModules();
+  const children = useNavChildren();
+  const currentPath = moduleForPath(location.pathname);
+  const entry = currentPath ? entryOf(currentPath) : "";
+  const members = navItems.filter(
+    (n) =>
+      (navMerges[entry] ?? []).includes(n.path) &&
+      modules.has(moduleOfPath(n.path)),
+  );
+  const Inner = currentPath ? children[currentPath] : undefined;
+  return (
+    <>
+      <div className="nav-merge">
+        <NavPanelGroup>
+          {members.map((m) => (
+            <NavPanelLink
+              key={m.path}
+              to={lastPathFor(m.path, location.pathname)}
+              icon={m.icon}
+              label={t(m.label)}
+              active={m.path === currentPath}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </NavPanelGroup>
+      </div>
+      {Inner && <Inner onNavigate={onNavigate} />}
+    </>
+  );
 }
 
 /** 图标右上角的数量（B76）。单独一个组件，登记的 Hook 在这里调用，顺序固定。 */

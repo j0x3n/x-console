@@ -139,3 +139,46 @@ export const navGroupLabels: Record<NavGroup, string> = {
   machines: "Machines",
   integrations: "Integrations",
 };
+
+/**
+ * 合并的入口（B179）。键是入口地址，值是组里的功能，第一个就是入口自己。
+ * 合并后在左栏和启动台里只占一个位置，二级菜单顶部可以在组里切换。地址都不变。
+ */
+export const navMerges: Record<string, string[]> = {
+  "/notes": ["/notes", "/readlater", "/cards", "/ask"],
+  "/habits": ["/habits", "/goals", "/checkins", "/experiments"],
+  "/home": ["/home", "/router"],
+};
+
+/** 合并入口在左栏和启动台里用的名字，没写的用入口自己的名字。 */
+export const navEntryLabels: Record<string, string> = {
+  "/home": "Home and network",
+};
+
+/** 左栏默认固定的入口（B179）。今日一直在顶部，不在这里。 */
+export const defaultNavPins = [
+  "/projects",
+  "/coding",
+  "/notes",
+  "/calendar",
+  "/reminders",
+  "/mail",
+  "/music",
+  "/drive",
+  "/servers",
+];
+
+/** 功能所在的入口地址。不在合并组里的就是它自己。 */
+export function entryOf(path: string): string {
+  for (const [entry, members] of Object.entries(navMerges))
+    if (members.includes(path)) return entry;
+  return path;
+}
+
+/** 启动台里分组的名字。main 组在左栏没有标题，启动台里叫“工作”。 */
+export const launcherGroupLabels: Record<NavGroup, string> = {
+  main: "Work",
+  personal: "Personal",
+  machines: "Machines",
+  integrations: "Integrations",
+};

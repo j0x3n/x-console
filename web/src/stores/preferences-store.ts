@@ -57,6 +57,20 @@ export interface PreferencesState {
   /** B89：问候语后面的每日一句 */
   quoteMode: QuoteMode;
   setQuoteMode: (mode: QuoteMode) => void;
+  /** B179：左栏固定的入口地址。null 时用 app/nav.ts 的默认值 */
+  navPins: string[] | null;
+  setNavPins: (pins: string[] | null) => void;
+}
+
+function readNavPins(): string[] | null {
+  try {
+    const value = JSON.parse(readPreference("x-console-nav-pins") ?? "null");
+    return Array.isArray(value) && value.every((p) => typeof p === "string")
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export type QuoteMode = "off" | "fixed" | "refresh" | "daily";
@@ -95,5 +109,10 @@ export const usePreferencesStore = create<PreferencesState>()((set) => ({
   setQuoteMode: (quoteMode) => {
     savePreference("x-console-quote", quoteMode);
     set({ quoteMode });
+  },
+  navPins: readNavPins(),
+  setNavPins: (navPins) => {
+    savePreference("x-console-nav-pins", JSON.stringify(navPins));
+    set({ navPins });
   },
 }));
