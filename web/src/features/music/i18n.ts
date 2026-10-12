@@ -103,6 +103,9 @@ registerZh({
   Match: "匹配",
   "Pin to every page": "固定，所有页面都显示",
   "Unpin from every page": "取消固定",
+  // B168
+  "Show the player": "展开播放器",
+  "Collapse the player": "收起播放器",
   // B169
   "Choose lyrics from other sources": "从其他来源选歌词",
   "Choose a cover from other sources": "从其他来源选封面",

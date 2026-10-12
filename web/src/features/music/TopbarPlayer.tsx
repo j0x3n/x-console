@@ -1,5 +1,5 @@
 import {
-  Captions,
+  ChevronRight,
   ListMusic,
   Maximize2,
   Music,
@@ -7,6 +7,7 @@ import {
   Pin,
   PinOff,
   Play,
+  SkipForward,
   X,
 } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -14,240 +15,137 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router";
 import { create } from "zustand";
 import { useT } from "../../contexts/LanguageContext";
+import { coverUrl } from "./api";
 import { TrackCover } from "./Cover";
 import Lyrics from "./LyricsView";
 import QueueList from "./QueueList";
-import {
-  Controls,
-  ModeButton,
-  SeekBar,
-  TimeText,
-  VolumeControl,
-} from "./PlayerBar";
+import { Controls, ModeButton, SeekBar, VolumeControl } from "./PlayerBar";
 import { SleepButton } from "./SleepDialog";
-import { currentTrack, usePlayer } from "./player";
+import { formatClock } from "./lyrics";
+import { currentTrack, usePlayer, useProgress } from "./player";
 import "./i18n";
 import "./music.css";
 
 /*
- * 页头右上角的迷你播放器：封面、播放暂停、队列、歌词四个按钮。
- * 点队列、歌词、封面在旁边弹出小组件，小组件上的图钉固定后，换到哪个页面都还在。
+ * 页头右上角的播放器（B168）。
+ * 默认只有一个播放按钮，点了展开封面、暂停、下一首。
+ * 点封面弹出迷你播放器：封面、完整控制、歌词，底部可以展开播放列表。
+ * 迷你播放器固定后，换到哪个页面都还在。
  */
 
-type Panel = "now" | "queue" | "lyrics";
-const PANELS: Panel[] = ["now", "queue", "lyrics"];
-const PIN_KEY = "xc.music.pinned";
+const STORE_KEY = "xc.music.mini";
 
-function loadPinned(): Panel[] {
+interface Saved {
+  expanded: boolean;
+  pinned: boolean;
+  queueOpen: boolean;
+}
+
+function load(): Saved {
+  const fallback = { expanded: false, pinned: false, queueOpen: false };
   try {
-    const raw = JSON.parse(localStorage.getItem(PIN_KEY) ?? "[]");
-    return Array.isArray(raw)
-      ? PANELS.filter((p) => (raw as unknown[]).includes(p))
-      : [];
+    const raw = JSON.parse(localStorage.getItem(STORE_KEY) ?? "{}") as Record<
+      string,
+      unknown
+    >;
+    return {
+      expanded: raw.expanded === true,
+      pinned: raw.pinned === true,
+      queueOpen: raw.queueOpen === true,
+    };
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function savePinned(pinned: Panel[]) {
+function save(s: Saved) {
   try {
-    localStorage.setItem(PIN_KEY, JSON.stringify(pinned));
+    localStorage.setItem(STORE_KEY, JSON.stringify(s));
   } catch {
     // 存不了就只在这次打开期间有效
   }
 }
 
-interface PopState {
-  /** 点开但没固定的那个，点别处就收起。 */
-  open: Panel | null;
-  pinned: Panel[];
-  toggle: (panel: Panel) => void;
-  togglePin: (panel: Panel) => void;
-  close: (panel: Panel) => void;
-  closeOpen: () => void;
+interface MiniState extends Saved {
+  /** 迷你播放器是否打开。固定时一直打开。 */
+  open: boolean;
+  setExpanded: (expanded: boolean) => void;
+  toggleOpen: () => void;
+  close: () => void;
+  /** 点别处时收起没固定的迷你播放器。 */
+  dismiss: () => void;
+  togglePin: () => void;
+  toggleQueue: () => void;
 }
 
-export const useTopbarPlayer = create<PopState>()((set, get) => ({
-  open: null,
-  pinned: loadPinned(),
-  toggle: (panel) => {
-    const { open, pinned } = get();
-    if (pinned.includes(panel)) {
-      // 已固定的再点一次，取消固定并收起
-      const next = pinned.filter((p) => p !== panel);
-      savePinned(next);
-      set({ pinned: next, open: open === panel ? null : open });
-    } else set({ open: open === panel ? null : panel });
-  },
-  togglePin: (panel) => {
-    const { open, pinned } = get();
-    if (pinned.includes(panel)) {
-      const next = pinned.filter((p) => p !== panel);
-      savePinned(next);
-      set({ pinned: next, open: panel });
-    } else {
-      const next = PANELS.filter((p) => p === panel || pinned.includes(p));
-      savePinned(next);
-      set({ pinned: next, open: open === panel ? null : open });
-    }
-  },
-  close: (panel) => {
-    const { open, pinned } = get();
-    const next = pinned.filter((p) => p !== panel);
-    if (next.length !== pinned.length) savePinned(next);
-    set({ pinned: next, open: open === panel ? null : open });
-  },
-  closeOpen: () => set({ open: null }),
-}));
+export const useTopbarPlayer = create<MiniState>()((set, get) => {
+  const initial = load();
+  const persist = (patch: Partial<Saved>) => {
+    const { expanded, pinned, queueOpen } = { ...get(), ...patch };
+    save({ expanded, pinned, queueOpen });
+    set(patch);
+  };
+  return {
+    ...initial,
+    open: initial.pinned,
+    setExpanded: (expanded) => persist({ expanded }),
+    toggleOpen: () => {
+      const { open, pinned } = get();
+      // 已固定的再点一次封面，取消固定并收起
+      if (open && pinned) persist({ pinned: false });
+      set({ open: !open });
+    },
+    close: () => {
+      if (get().pinned) persist({ pinned: false });
+      set({ open: false });
+    },
+    dismiss: () => {
+      if (!get().pinned) set({ open: false });
+    },
+    togglePin: () => persist({ pinned: !get().pinned }),
+    toggleQueue: () => persist({ queueOpen: !get().queueOpen }),
+  };
+});
 
-const PANEL_TITLE: Record<Panel, string> = {
-  now: "Now playing",
-  queue: "Queue",
-  lyrics: "Lyrics",
-};
-
-function PopBody({ panel }: { panel: Panel }) {
-  const t = useT();
-  const track = usePlayer(currentTrack);
-  const setFullOpen = usePlayer((s) => s.setFullOpen);
-  const toggle = useTopbarPlayer((s) => s.toggle);
-  if (!track) return null;
-  if (panel === "queue") return <QueueList />;
-  if (panel === "lyrics")
-    return (
-      <>
-        <p className="music-pop-song">
-          {track.title}
-          <small>{track.artist || t("Unknown artist")}</small>
-        </p>
-        <div className="music-pop-lyrics">
-          <Lyrics trackId={track.id} />
-        </div>
-      </>
-    );
+function MiniTime() {
+  const time = useProgress((s) => s.time);
+  const duration = useProgress((s) => s.duration);
   return (
-    <div className="music-pop-now">
-      <div className="music-pop-track">
-        <TrackCover track={track} size={256} className="music-pop-cover" />
-        <span className="music-row-main">
-          <span className="music-row-title">{track.title}</span>
-          <span className="music-row-artist">
-            {track.artist || t("Unknown artist")}
-          </span>
-        </span>
-      </div>
-      <SeekBar />
-      <div className="music-pop-time">
-        <TimeText />
-      </div>
-      <div className="music-pop-controls">
-        <ModeButton />
-        <Controls />
-        <SleepButton />
-      </div>
-      <div className="music-pop-extra">
-        <VolumeControl />
-        <button
-          type="button"
-          className="music-btn music-pop-list"
-          aria-label={t("Queue")}
-          title={t("Queue")}
-          onClick={() => toggle("queue")}
-        >
-          <ListMusic size={16} />
-        </button>
-        <button
-          type="button"
-          className="music-btn music-pop-list"
-          aria-label={t("Lyrics")}
-          title={t("Lyrics")}
-          onClick={() => toggle("lyrics")}
-        >
-          <Captions size={16} />
-        </button>
-        <button
-          type="button"
-          className="music-btn"
-          aria-label={t("Open the player")}
-          title={t("Open the player")}
-          onClick={() => setFullOpen(true)}
-        >
-          <Maximize2 size={16} />
-        </button>
-      </div>
+    <div className="music-mini-time">
+      <span>{formatClock(time)}</span>
+      <span>{formatClock(duration)}</span>
     </div>
   );
 }
 
-function Pop({ panel, pinned }: { panel: Panel; pinned: boolean }) {
+function MiniPlayer() {
   const t = useT();
-  const togglePin = useTopbarPlayer((s) => s.togglePin);
-  const close = useTopbarPlayer((s) => s.close);
-  return (
-    <section
-      className={`music-pop music-pop-${panel}`}
-      role="dialog"
-      aria-label={t(PANEL_TITLE[panel])}
-    >
-      <header className="music-pop-head">
-        <strong>{t(PANEL_TITLE[panel])}</strong>
-        <span className="music-pop-tools">
-          <button
-            type="button"
-            className={`music-btn small${pinned ? " on" : ""}`}
-            aria-pressed={pinned}
-            aria-label={
-              pinned ? t("Unpin from every page") : t("Pin to every page")
-            }
-            title={pinned ? t("Unpin from every page") : t("Pin to every page")}
-            onClick={() => togglePin(panel)}
-          >
-            {pinned ? <PinOff size={14} /> : <Pin size={14} />}
-          </button>
-          <button
-            type="button"
-            className="music-btn small"
-            aria-label={t("Close")}
-            title={t("Close")}
-            onClick={() => close(panel)}
-          >
-            <X size={14} />
-          </button>
-        </span>
-      </header>
-      <div className="music-pop-body">
-        <PopBody panel={panel} />
-      </div>
-    </section>
-  );
-}
-
-function PopStack() {
-  const open = useTopbarPlayer((s) => s.open);
+  const track = usePlayer(currentTrack);
+  const setFullOpen = usePlayer((s) => s.setFullOpen);
   const pinned = useTopbarPlayer((s) => s.pinned);
-  const closeOpen = useTopbarPlayer((s) => s.closeOpen);
-  const ref = useRef<HTMLDivElement>(null);
+  const queueOpen = useTopbarPlayer((s) => s.queueOpen);
+  const togglePin = useTopbarPlayer((s) => s.togglePin);
+  const toggleQueue = useTopbarPlayer((s) => s.toggleQueue);
+  const close = useTopbarPlayer((s) => s.close);
+  const dismiss = useTopbarPlayer((s) => s.dismiss);
+  const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (open == null) return;
+    if (pinned) return;
     const onDown = (event: PointerEvent) => {
-      const target = event.target as Node;
+      const target = event.target as HTMLElement;
       if (ref.current?.contains(target)) return;
-      // 点顶栏上的播放器按钮由按钮自己处理
-      if ((target as HTMLElement).closest?.(".music-top")) return;
+      // 点页头上的播放器按钮由按钮自己处理
+      if (target.closest?.(".music-top")) return;
       // 弹窗和菜单（队列里的更多菜单、确认框）不算点在外面
-      if (
-        (target as HTMLElement).closest?.(
-          ".modal-backdrop, .xc-more-menu, .xc-more-backdrop",
-        )
-      )
+      if (target.closest?.(".modal-backdrop, .xc-more-menu, .xc-more-backdrop"))
         return;
-      closeOpen();
+      dismiss();
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (document.querySelector(".modal-backdrop")) return;
-      closeOpen();
+      dismiss();
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
@@ -255,17 +153,110 @@ function PopStack() {
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, closeOpen]);
+  }, [pinned, dismiss]);
 
-  const shown = PANELS.filter((p) => p === open || pinned.includes(p));
-  if (shown.length === 0) return null;
+  if (!track) return null;
+  const pinLabel = pinned ? t("Unpin from every page") : t("Pin to every page");
   return createPortal(
-    <div className="music-pop-stack" ref={ref}>
-      {shown.map((p) => (
-        <Pop key={p} panel={p} pinned={pinned.includes(p)} />
-      ))}
-    </div>,
+    <section
+      className="music-mini"
+      role="dialog"
+      aria-label={t("Now playing")}
+      ref={ref}
+    >
+      <div className="music-mini-head">
+        {track.hasCover && (
+          <img
+            className="music-mini-backdrop"
+            src={coverUrl(track.id, 96, track.updatedAt)}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+          />
+        )}
+        <div className="music-mini-track">
+          <TrackCover track={track} size={256} className="music-mini-cover" />
+          <span className="music-row-main">
+            <span className="music-row-title" title={track.title}>
+              {track.title}
+            </span>
+            <span className="music-row-artist">
+              {track.artist || t("Unknown artist")}
+            </span>
+          </span>
+          <span className="music-mini-tools">
+            <button
+              type="button"
+              className={`music-btn small${pinned ? " on" : ""}`}
+              aria-pressed={pinned}
+              aria-label={pinLabel}
+              title={pinLabel}
+              onClick={togglePin}
+            >
+              {pinned ? <PinOff size={14} /> : <Pin size={14} />}
+            </button>
+            <button
+              type="button"
+              className="music-btn small"
+              aria-label={t("Close")}
+              title={t("Close")}
+              onClick={close}
+            >
+              <X size={14} />
+            </button>
+          </span>
+        </div>
+        <SeekBar />
+        <MiniTime />
+        <div className="music-mini-controls">
+          <ModeButton />
+          <Controls />
+          <SleepButton />
+        </div>
+      </div>
+      <div className="music-mini-lyrics">
+        <Lyrics trackId={track.id} />
+      </div>
+      <div className="music-mini-foot">
+        <VolumeControl />
+        <button
+          type="button"
+          className={`music-btn small${queueOpen ? " on" : ""}`}
+          aria-label={t("Queue")}
+          title={t("Queue")}
+          aria-expanded={queueOpen}
+          onClick={toggleQueue}
+        >
+          <ListMusic size={15} />
+        </button>
+        <button
+          type="button"
+          className="music-btn small"
+          aria-label={t("Open the player")}
+          title={t("Open the player")}
+          onClick={() => setFullOpen(true)}
+        >
+          <Maximize2 size={14} />
+        </button>
+      </div>
+      <div className={`music-mini-queue${queueOpen ? " open" : ""}`}>
+        <div className="music-mini-queue-inner">
+          {queueOpen && <QueueList />}
+        </div>
+      </div>
+    </section>,
     document.body,
+  );
+}
+
+/** 收起时播放中的状态：三根跳动的竖条。 */
+function PlayingBars() {
+  return (
+    <span className="music-bars" aria-hidden="true">
+      <i />
+      <i />
+      <i />
+    </span>
   );
 }
 
@@ -276,9 +267,12 @@ export default function TopbarPlayer() {
   const blocked = usePlayer((s) => s.blocked);
   const toggle = usePlayer((s) => s.toggle);
   const resume = usePlayer((s) => s.resume);
+  const next = usePlayer((s) => s.next);
+  const expanded = useTopbarPlayer((s) => s.expanded);
+  const setExpanded = useTopbarPlayer((s) => s.setExpanded);
   const open = useTopbarPlayer((s) => s.open);
-  const pinned = useTopbarPlayer((s) => s.pinned);
-  const togglePanel = useTopbarPlayer((s) => s.toggle);
+  const toggleOpen = useTopbarPlayer((s) => s.toggleOpen);
+  const dismiss = useTopbarPlayer((s) => s.dismiss);
 
   // 没有歌的时候只留一个去音乐页的入口
   if (!track)
@@ -293,51 +287,88 @@ export default function TopbarPlayer() {
       </Link>
     );
 
-  const on = (p: Panel) => open === p || pinned.includes(p);
+  const isPlaying = playing && !blocked;
+  const play = blocked ? resume : toggle;
+
   return (
-    <div className="music-top" role="group" aria-label={t("Music player")}>
-      <button
-        type="button"
-        className="music-top-cover"
-        aria-label={`${t("Now playing")}: ${track.title}`}
-        title={`${track.title} · ${track.artist || t("Unknown artist")}`}
-        aria-expanded={on("now")}
-        onClick={() => togglePanel("now")}
+    <div
+      className={`music-top${expanded ? " expanded" : ""}`}
+      role="group"
+      aria-label={t("Music player")}
+    >
+      {!expanded && (
+        <button
+          type="button"
+          className={`icon-button music-top-main${isPlaying ? " music-top-on" : ""}${blocked ? " music-top-blocked" : ""}`}
+          aria-label={isPlaying ? t("Show the player") : t("Play")}
+          title={
+            blocked
+              ? t("Tap to start playing")
+              : isPlaying
+                ? `${track.title} · ${track.artist || t("Unknown artist")}`
+                : t("Play")
+          }
+          onClick={() => {
+            if (!isPlaying) play();
+            setExpanded(true);
+          }}
+        >
+          {isPlaying ? <PlayingBars /> : <Play size={16} />}
+        </button>
+      )}
+      <div
+        className="music-top-extra"
+        aria-hidden={!expanded}
+        inert={!expanded}
       >
-        <TrackCover track={track} />
-      </button>
-      <button
-        type="button"
-        className={`icon-button${blocked ? " music-top-blocked" : ""}`}
-        aria-label={playing ? t("Pause") : t("Play")}
-        title={
-          blocked ? t("Tap to start playing") : playing ? t("Pause") : t("Play")
-        }
-        onClick={blocked ? resume : toggle}
-      >
-        {playing && !blocked ? <Pause size={16} /> : <Play size={16} />}
-      </button>
-      <button
-        type="button"
-        className={`icon-button music-top-list${on("queue") ? " music-top-on" : ""}`}
-        aria-label={t("Queue")}
-        title={t("Queue")}
-        aria-expanded={on("queue")}
-        onClick={() => togglePanel("queue")}
-      >
-        <ListMusic size={16} />
-      </button>
-      <button
-        type="button"
-        className={`icon-button music-top-lyrics${on("lyrics") ? " music-top-on" : ""}`}
-        aria-label={t("Lyrics")}
-        title={t("Lyrics")}
-        aria-expanded={on("lyrics")}
-        onClick={() => togglePanel("lyrics")}
-      >
-        <Captions size={16} />
-      </button>
-      <PopStack />
+        <button
+          type="button"
+          className={`music-top-cover${open ? " on" : ""}`}
+          aria-label={`${t("Now playing")}: ${track.title}`}
+          title={`${track.title} · ${track.artist || t("Unknown artist")}`}
+          aria-expanded={open}
+          onClick={toggleOpen}
+        >
+          <TrackCover track={track} />
+        </button>
+        <button
+          type="button"
+          className={`icon-button${blocked ? " music-top-blocked" : ""}`}
+          aria-label={isPlaying ? t("Pause") : t("Play")}
+          title={
+            blocked
+              ? t("Tap to start playing")
+              : isPlaying
+                ? t("Pause")
+                : t("Play")
+          }
+          onClick={play}
+        >
+          {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={t("Next song")}
+          title={t("Next song")}
+          onClick={() => next("manual")}
+        >
+          <SkipForward size={16} />
+        </button>
+        <button
+          type="button"
+          className="icon-button music-top-fold"
+          aria-label={t("Collapse the player")}
+          title={t("Collapse the player")}
+          onClick={() => {
+            setExpanded(false);
+            dismiss();
+          }}
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      {open && <MiniPlayer />}
     </div>
   );
 }

@@ -40,7 +40,34 @@ export function seek(seconds: number) {
   useProgress.setState({ time: t });
 }
 
+/**
+ * 把进度告诉系统媒体控制（Windows 的媒体浮窗、锁屏）。
+ * 系统会按播放速度自己往前推，所以只在跳动的时候（换歌、拖动、暂停、改速度）更新，
+ * 播放中再每隔几秒校准一次。没有时长时清空，免得系统显示上一首的进度。
+ */
+export function syncPosition(el: HTMLMediaElement) {
+  if (typeof navigator === "undefined" || !("mediaSession" in navigator))
+    return;
+  const ms = navigator.mediaSession;
+  if (typeof ms.setPositionState !== "function") return;
+  try {
+    const duration = el.duration;
+    if (!Number.isFinite(duration) || duration <= 0) {
+      ms.setPositionState();
+      return;
+    }
+    ms.setPositionState({
+      duration,
+      position: Math.min(Math.max(0, el.currentTime), duration),
+      playbackRate: el.playbackRate || 1,
+    });
+  } catch {
+    /* 有的浏览器不支持，不影响播放 */
+  }
+}
+
 const REPORT_SECONDS = 30;
+const POSITION_SYNC_MS = 5000;
 
 interface Played {
   id: number | null;
@@ -106,7 +133,11 @@ export default function PlayerHost() {
   // 事件只绑一次，需要的最新状态从 store 里现读。
   useEffect(() => {
     if (!audio) return;
-    let lastPosition = 0;
+    let lastSync = 0;
+    const sync = () => {
+      lastSync = Date.now();
+      syncPosition(audio);
+    };
     const onTime = () => {
       const time = audio.currentTime;
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
@@ -124,19 +155,7 @@ export default function PlayerHost() {
         p.reported = true;
         reportPlayed(p.id, p.seconds);
       }
-      if ("mediaSession" in navigator && time - lastPosition >= 1) {
-        lastPosition = time;
-        try {
-          if (duration > 0)
-            navigator.mediaSession.setPositionState({
-              duration,
-              position: Math.min(time, duration),
-              playbackRate: audio.playbackRate || 1,
-            });
-        } catch {
-          /* 有的浏览器不支持，不影响播放 */
-        }
-      }
+      if (Date.now() - lastSync >= POSITION_SYNC_MS) sync();
     };
     const onMeta = () => {
       const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
@@ -145,6 +164,7 @@ export default function PlayerHost() {
       }
       resume.time = 0;
       useProgress.setState({ duration, time: audio.currentTime });
+      sync();
     };
     const onEnded = () => {
       const s = usePlayer.getState();
@@ -206,6 +226,16 @@ export default function PlayerHost() {
     audio.addEventListener("playing", onPlaying);
     audio.addEventListener("pause", onPause);
     audio.addEventListener("error", onError);
+    // 这些时候进度会跳，系统那边要马上知道。
+    const jumps = [
+      "durationchange",
+      "play",
+      "pause",
+      "seeked",
+      "ratechange",
+      "emptied",
+    ];
+    for (const name of jumps) audio.addEventListener(name, sync);
     const save = window.setInterval(() => {
       if (!audio.paused) persist(audio.currentTime);
     }, 5000);
@@ -218,6 +248,7 @@ export default function PlayerHost() {
       audio.removeEventListener("playing", onPlaying);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("error", onError);
+      for (const name of jumps) audio.removeEventListener(name, sync);
       window.clearInterval(save);
       window.removeEventListener("pagehide", onHide);
     };
@@ -343,7 +374,11 @@ export default function PlayerHost() {
       [
         "seekto",
         (d) => {
-          if (d.seekTime != null) seek(d.seekTime);
+          if (d.seekTime == null) return;
+          if (d.fastSeek && typeof audio.fastSeek === "function")
+            audio.fastSeek(d.seekTime);
+          else seek(d.seekTime);
+          syncPosition(audio);
         },
       ],
       ["seekbackward", () => seek(audio.currentTime - 10)],
