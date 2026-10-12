@@ -187,6 +187,16 @@ function MiniPlayer() {
           <span className="music-mini-tools">
             <button
               type="button"
+              className={`music-btn small${queueOpen ? " on" : ""}`}
+              aria-label={t("Queue")}
+              title={t("Queue")}
+              aria-expanded={queueOpen}
+              onClick={toggleQueue}
+            >
+              <ListMusic size={14} />
+            </button>
+            <button
+              type="button"
               className={`music-btn small${pinned ? " on" : ""}`}
               aria-pressed={pinned}
               aria-label={pinLabel}
@@ -217,21 +227,16 @@ function MiniPlayer() {
         </div>
         <SeekBar />
         <MiniTime />
+        {/* B191：左中右三段，播放按钮在正中间 */}
         <div className="music-mini-controls">
-          <ModeButton />
+          <span className="music-mini-side">
+            <ModeButton />
+            <SleepButton />
+          </span>
           <Controls />
-          <button
-            type="button"
-            className={`music-btn${queueOpen ? " on" : ""}`}
-            aria-label={t("Queue")}
-            title={t("Queue")}
-            aria-expanded={queueOpen}
-            onClick={toggleQueue}
-          >
-            <ListMusic size={17} />
-          </button>
-          <SleepButton />
-          <VolumeButton />
+          <span className="music-mini-side end">
+            <VolumeButton horizontal />
+          </span>
         </div>
       </div>
       <div className="music-mini-lyrics">

@@ -1056,10 +1056,17 @@ html.music-full-open .ai-fab {
   font-variant-numeric: tabular-nums;
 }
 .music-mini-controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-top: 2px;
+}
+.music-mini-side {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 2px;
+}
+.music-mini-side.end {
+  justify-content: flex-end;
 }
 .music-mini-controls .music-btn.main {
   width: 38px;
@@ -1068,14 +1075,14 @@ html.music-full-open .ai-fab {
 .music-mini-lyrics {
   display: grid;
   flex: none;
-  height: 132px;
+  height: 100px;
   border-top: 1px solid var(--xc-border);
   overflow: hidden;
 }
 .music-mini-lyrics .music-lyrics {
   position: relative;
   min-height: 0;
-  padding: 50px 12px 70px;
+  padding: 36px 12px 52px;
   text-align: center;
   scrollbar-width: none;
   mask-image: linear-gradient(
@@ -1087,9 +1094,9 @@ html.music-full-open .ai-fab {
   );
 }
 .music-mini-lyrics .music-lyric {
-  padding: 3px 0;
+  padding: 1px 0;
   font-size: var(--fs-13);
-  line-height: 1.45;
+  line-height: 1.4;
   text-align: center;
   transition: color 0.15s ease;
 }
@@ -1132,6 +1139,26 @@ html.music-full-open .ai-fab {
   border-radius: 8px;
   background: var(--xc-elevated);
   box-shadow: var(--xc-shadow);
+}
+/* 迷你播放器里横着往左弹 */
+.music-vol.horizontal .music-vol-pop {
+  top: 50%;
+  right: calc(100% + 4px);
+  bottom: auto;
+  left: auto;
+  flex-direction: row;
+  padding: 4px 8px;
+  transform: translateY(-50%);
+}
+.music-vol.horizontal .music-vol-range {
+  width: 96px;
+  height: 20px;
+  writing-mode: horizontal-tb;
+  direction: ltr;
+}
+.music-vol.horizontal .music-vol-num {
+  min-width: 22px;
+  text-align: right;
 }
 .music-vol-range {
   width: 20px;

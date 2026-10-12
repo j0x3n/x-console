@@ -149,7 +149,8 @@ export function VolumeControl() {
  * 只有一个按钮的音量：点一下往上弹出竖直滑块，上下拖动调音量；
  * 鼠标停在按钮上滚轮也能调。点别处或按 Esc 收起。
  */
-export function VolumeButton() {
+/** horizontal：滑块横着往左弹出，用在迷你播放器里，往上弹会被裁掉（B191）。 */
+export function VolumeButton({ horizontal = false }: { horizontal?: boolean }) {
   const t = useT();
   const volume = usePlayer((s) => s.volume);
   const setVolume = usePlayer((s) => s.setVolume);
@@ -180,7 +181,7 @@ export function VolumeButton() {
       Math.min(1, Math.max(0, Math.round((volume + delta) * 100) / 100)),
     );
   return (
-    <div className="music-vol" ref={ref}>
+    <div className={`music-vol${horizontal ? " horizontal" : ""}`} ref={ref}>
       <button
         type="button"
         className={`music-btn${open ? " on" : ""}`}
@@ -201,7 +202,7 @@ export function VolumeButton() {
             max={100}
             value={Math.round(volume * 100)}
             aria-label={t("Volume")}
-            aria-orientation="vertical"
+            aria-orientation={horizontal ? "horizontal" : "vertical"}
             onChange={(e) => setVolume(Number(e.target.value) / 100)}
             onWheel={(e) => step(e.deltaY < 0 ? 0.05 : -0.05)}
           />
