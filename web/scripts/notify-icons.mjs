@@ -12,8 +12,8 @@ const brandGlyph = readFileSync(
   "utf8",
 ).replace(/<rect[^>]*\/>/, "");
 
+// app（通用图标）由 brand-icons.mjs 从 favicon.svg 生成，这里不要再生成。
 const kinds = {
-  app: ["BrandMark", "#4f46e5"],
   server: ["Server", "#4b7bd8"],
   monitor: ["Radar", "#d1663d"],
   mail: ["Mail", "#3a8fd6"],

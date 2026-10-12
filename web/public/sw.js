@@ -151,6 +151,12 @@ const NOTIFY_ICONS = [
   [/^router\./, "router"],
   [/^(ha|homeassistant)\./, "home"],
 ];
+// 站标换过之后，服务端给的通用图标地址没有版本号，系统会一直用缓存里的旧图，这里补上。
+function brandVersion(url) {
+  return /^\/icons\/notify\/app(-badge)?\.png$/.test(url || "")
+    ? `${url}?v=led-1`
+    : url;
+}
 function notifyIcons(data) {
   const ua = (self.navigator && self.navigator.userAgent) || "";
   const custom = /Windows|Android/.test(ua);
@@ -160,8 +166,9 @@ function notifyIcons(data) {
   const name = hit ? hit[1] : "app";
   const version = name === "app" ? "?v=led-1" : "";
   return {
-    icon: data.icon || `/icons/notify/${name}.png${version}`,
-    badge: data.badge || `/icons/notify/${name}-badge.png${version}`,
+    icon: brandVersion(data.icon) || `/icons/notify/${name}.png${version}`,
+    badge:
+      brandVersion(data.badge) || `/icons/notify/${name}-badge.png${version}`,
   };
 }
 
