@@ -172,8 +172,9 @@ registerZh({
   "In use": "正在使用",
   "Idle for {n} min": "空闲 {n} 分钟",
   "Screen locked": "已锁屏",
-  "Can't tell, counted as in use": "无法判断，按在线算",
-  "Can't tell": "无法判断",
+  Unknown: "未知",
+  "Whether someone is using the keyboard or mouse on this computer.":
+    "看这台电脑的键盘和鼠标有没有人在用。",
   "Next reminder at": "下次提醒",
   "Computer usage": "使用状态",
   since: "开始于",

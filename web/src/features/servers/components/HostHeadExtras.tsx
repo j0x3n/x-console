@@ -4,6 +4,7 @@ import { useT } from "../../../contexts/LanguageContext";
 import { usePageMark } from "../../../stores/page-title";
 import type { HostDetail } from "../api";
 import CountryFlag from "./CountryFlag";
+import { HostInterval, RefreshControl, useHostRefresh } from "../refresh";
 import { HostInfoDialog } from "./HostInfo";
 
 /**
@@ -13,12 +14,15 @@ import { HostInfoDialog } from "./HostInfo";
 export default function HostHeadExtras({ host }: { host: HostDetail }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
+  const refresh = useHostRefresh((s) => s.ms);
   usePageMark(
     host.country ? <CountryFlag country={host.country} /> : null,
     host.country?.code ?? "",
   );
   return (
     <>
+      <RefreshControl />
+      {refresh > 0 && <HostInterval hostId={host.id} />}
       <button
         type="button"
         className="xc-btn"

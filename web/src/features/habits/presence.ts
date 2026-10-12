@@ -1,6 +1,6 @@
 import type { HabitInput, HabitTemplate, HostPresence } from "./api";
 
-/** 电脑使用状态的一句话（B83）：正在使用 / 空闲 12 分钟 / 已锁屏 / 离线 / 无法判断。 */
+/** 电脑使用状态的一句话（B83）：正在使用 / 空闲 12 分钟 / 已锁屏 / 离线 / 未知。 */
 export function presenceText(
   p: Pick<HostPresence, "state" | "idleSeconds" | "online">,
   t: (s: string) => string,
@@ -17,7 +17,8 @@ export function presenceText(
     case "offline":
       return t("Offline");
     default:
-      return p.online ? t("Can't tell, counted as in use") : t("Can't tell");
+      // B187：判断不出来时只写“未知”
+      return t("Unknown");
   }
 }
 

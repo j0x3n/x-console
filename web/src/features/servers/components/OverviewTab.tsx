@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  useMetricsInterval,
-  useServerEvent,
-  type ServerEvent,
-} from "../../../api/events";
+import { useServerEvent, type ServerEvent } from "../../../api/events";
+import { useHostRefresh } from "../refresh";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatBytes } from "../../../lib/time";
 import { ErrorState, Loading } from "../../../components/ui/States";
@@ -33,18 +30,6 @@ const S1 = "var(--servers-series-1)";
 const S2 = "var(--servers-series-2)";
 const pct = (v: number) => `${Math.round(v)}%`;
 
-/** 刷新周期（B26）。存在 localStorage，所有机器共用。 */
-const REFRESH_KEY = "xc.hosts.refresh";
-const refreshChoices = [1000, 5000, 30000] as const;
-function readRefresh(): number {
-  try {
-    const v = Number(localStorage.getItem(REFRESH_KEY));
-    return (refreshChoices as readonly number[]).includes(v) ? v : 5000;
-  } catch {
-    return 5000;
-  }
-}
-
 /** 1 秒刷新时，趋势图只画浏览器里收到的最近 5 分钟。 */
 function useLivePoints(hostId: string, enabled: boolean) {
   const [points, setPoints] = useState<MetricsPoint[]>([]);
@@ -69,17 +54,9 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
   const t = useT();
   const language = useLanguage();
   const [range, setRange] = useState<MetricsRange>("1h");
-  const [refresh, setRefreshState] = useState(readRefresh);
+  // B187：刷新间隔在页头设置，这里只看是不是 1 秒（画实时曲线）
+  const refresh = useHostRefresh((s) => s.ms);
   const [disksOpen, setDisksOpen] = useState(false);
-  const setRefresh = (ms: number) => {
-    setRefreshState(ms);
-    try {
-      localStorage.setItem(REFRESH_KEY, String(ms));
-    } catch {
-      /* 记不住就算了 */
-    }
-  };
-  useMetricsInterval(host.id, refresh);
   const live = refresh === 1000;
   const livePoints = useLivePoints(host.id, live);
   const metrics = useHostMetrics(host.id, range);
@@ -98,20 +75,27 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
 
   return (
     <div className="xc-stack">
-      {host.presence && (
-        // B83：电脑有没有人在用（看键盘鼠标，不是看开没开机）
-        <div className="servers-presence">
-          <span className="xc-muted">{t("Computer usage")}</span>
-          <span className={`xc-badge ${presenceTone(host.presence.state)}`}>
-            {presenceText(host.presence, t)}
-          </span>
-          {host.presence.state !== "unknown" && (
-            <small className="xc-muted">
-              {t("since")} {relativeTime(host.presence.since, language)}
-            </small>
-          )}
-        </div>
-      )}
+      {host.presence &&
+        // B187：没有桌面的 Linux 服务器永远判断不出来，不显示
+        !(host.presence.state === "unknown" && host.os === "linux") && (
+          // B83：电脑有没有人在用（看键盘鼠标，不是看开没开机）
+          <div
+            className="servers-presence"
+            title={t(
+              "Whether someone is using the keyboard or mouse on this computer.",
+            )}
+          >
+            <span className="xc-muted">{t("Computer usage")}</span>
+            <span className={`xc-badge ${presenceTone(host.presence.state)}`}>
+              {presenceText(host.presence, t)}
+            </span>
+            {host.presence.state !== "unknown" && (
+              <small className="xc-muted">
+                {t("since")} {relativeTime(host.presence.since, language)}
+              </small>
+            )}
+          </div>
+        )}
       <div className="servers-stats servers-stats-6">
         <Stat
           label={t("CPU")}
@@ -212,24 +196,6 @@ export default function OverviewTab({ host }: { host: HostDetail }) {
         <div className="xc-card-head">
           <h2>{t("Trends")}</h2>
           <div className="servers-trend-controls">
-            <div
-              className="servers-segmented"
-              role="radiogroup"
-              aria-label={t("Refresh every")}
-              title={t("Refresh every")}
-            >
-              {refreshChoices.map((ms) => (
-                <button
-                  key={ms}
-                  role="radio"
-                  aria-checked={refresh === ms}
-                  className={refresh === ms ? "active" : ""}
-                  onClick={() => setRefresh(ms)}
-                >
-                  {ms / 1000} {t("sec")}
-                </button>
-              ))}
-            </div>
             {live ? (
               <span className="xc-muted servers-live-note">
                 {t("Last 5 minutes, live")}

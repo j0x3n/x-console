@@ -1117,3 +1117,27 @@ html[data-accent="cyber"] {
   --servers-series-1: var(--xc-accent-2);
   --servers-series-2: var(--xc-accent);
 }
+
+/* B187：页头的刷新间隔 */
+.servers-refresh {
+  gap: 6px;
+  padding-right: 6px;
+  cursor: pointer;
+}
+.servers-refresh select {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  outline: 0;
+}
+.servers-refresh.paused {
+  color: var(--xc-warn);
+}
+/* 手机上顶栏放不下，不显示，沿用电脑上选的间隔 */
+@media (max-width: 720px) {
+  .servers-refresh {
+    display: none;
+  }
+}

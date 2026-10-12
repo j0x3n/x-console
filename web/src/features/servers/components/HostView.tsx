@@ -7,6 +7,7 @@ import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { relativeTime } from "../../../lib/time";
 import { applyMetricsEvent, useHost, type HostDetail } from "../api";
 import { tabsFor } from "../tabs";
+import { useHostRefresh } from "../refresh";
 
 interface HostViewProps {
   hostId: string;
@@ -30,8 +31,9 @@ export default function HostView({
   const t = useT();
   const language = useLanguage();
   const host = useHost(hostId);
+  const refresh = useHostRefresh((s) => s.ms);
   useServerEvent("host.metrics", applyMetricsEvent);
-  useEventTopic(`host.metrics:${hostId}`);
+  useEventTopic(refresh ? `host.metrics:${hostId}` : "");
 
   if (host.isPending) return <Loading />;
   if (host.isError)

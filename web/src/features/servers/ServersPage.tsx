@@ -22,6 +22,7 @@ import {
 import { AlertHistoryCard, AlertRulesCard } from "./components/AlertRules";
 import HostCard from "./components/HostCard";
 import SshHostsDialog from "./components/SshHosts";
+import { HostInterval, RefreshControl, useHostRefresh } from "./refresh";
 
 export default function ServersPage() {
   const t = useT();
@@ -30,8 +31,9 @@ export default function ServersPage() {
   const order = useHostOrder("server");
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const refresh = useHostRefresh((s) => s.ms);
   useServerEvent("host.metrics", applyMetricsEvent);
-  useEventTopic("host.metrics");
+  useEventTopic(refresh ? "host.metrics" : "");
   const [sshOpen, setSshOpen] = useState(params.get("ssh") === "1");
   const alertsOpen = params.get("alerts") === "1";
   const closeAlerts = () => {
@@ -67,6 +69,9 @@ export default function ServersPage() {
         }
         aside={
           <>
+            <RefreshControl />
+            {refresh > 0 &&
+              list.map((h) => <HostInterval key={h.id} hostId={h.id} />)}
             <button
               className="xc-btn"
               onClick={() => setParams({ alerts: "1" })}
