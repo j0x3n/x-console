@@ -220,7 +220,7 @@ function Remembered({ item }: { item: TimelineItem }) {
   const text = rememberedText(item);
   if (!text) return null;
   return (
-    <Link className="ai-remembered" to="/settings/assistant#ai-memory">
+    <Link className="ai-remembered" to="/settings/assistant?section=ai-memory">
       {t("Remembered")}：{text}
     </Link>
   );

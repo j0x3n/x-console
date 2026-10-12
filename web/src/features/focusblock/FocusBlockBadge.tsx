@@ -7,7 +7,7 @@ import "./focusblock.css";
 
 /**
  * 番茄钟上的“屏蔽中”小标（B131）。有电脑的屏蔽生效时显示“屏蔽中”，
- * 选了电脑但没成功时显示“屏蔽有问题”，点进设置页看原因。什么都没开时不显示。
+ * 选了电脑但没成功时显示“屏蔽有问题”，点开屏蔽设置看原因。什么都没开时不显示。
  */
 export default function FocusBlockBadge() {
   const t = useT();
@@ -18,7 +18,7 @@ export default function FocusBlockBadge() {
     return (
       <Link
         className="xc-badge warn focusblock-badge"
-        to="/settings/focus-block"
+        to="/calendar/focus?block=1"
         title={t("Block has a problem")}
       >
         <ShieldAlert size={12} /> {t("Block has a problem")}

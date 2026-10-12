@@ -308,11 +308,11 @@ describe("番茄钟上的屏蔽小标", () => {
     expect(await screen.findByText("屏蔽中")).toBeTruthy();
   });
 
-  it("选了电脑但没成功时显示“屏蔽有问题”，点进设置页", async () => {
+  it("选了电脑但没成功时显示“屏蔽有问题”，点开屏蔽设置", async () => {
     status({ blocking: false, activeComputers: 0, problemComputers: 1 });
     renderIt(<FocusBlockBadge />);
     const link = await screen.findByRole("link", { name: /屏蔽有问题/ });
-    expect(link.getAttribute("href")).toBe("/settings/focus-block");
+    expect(link.getAttribute("href")).toBe("/calendar/focus?block=1");
   });
 
   it("没在屏蔽、接口还没上线时什么都不显示", async () => {

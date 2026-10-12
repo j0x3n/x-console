@@ -3,6 +3,7 @@ import AssistantPanel from "../features/assistant/AssistantPanel";
 import PushSync from "../features/reminders/PushSync";
 import FloatingNotes from "../features/notes/FloatingNotes";
 import MusicPlayer from "../features/music/PlayerBar";
+import SettingsHost from "../features/settings/SettingsHost";
 
 /*
  * 布局里的全局浮层位置，例如 AI 助手侧边面板（M12）、番茄钟计时条（M11）。
@@ -16,6 +17,7 @@ export default function GlobalPanels() {
       <PushSync />
       <FloatingNotes />
       <MusicPlayer />
+      <SettingsHost />
     </>
   );
 }

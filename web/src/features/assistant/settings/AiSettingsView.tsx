@@ -518,7 +518,10 @@ function UsageCard() {
           <small className="xc-muted">
             {t("Estimated from models.dev prices. Your bill may differ.")}
           </small>
-          <Link className="xc-btn small ai-usage-link" to="/settings/ai-usage">
+          <Link
+            className="xc-btn small ai-usage-link"
+            to="/settings/assistant?section=ai-usage"
+          >
             {t("See usage details")}
           </Link>
         </>

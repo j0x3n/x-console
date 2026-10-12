@@ -7,7 +7,13 @@ registerZh({
   "Shown on the today page, like “Good morning, …”. Empty uses your login name.":
     "显示在今日页，比如“早上好，…”。不填就用登录名。",
   General: "通用",
-  "Security, devices and integrations": "安全、设备和集成",
+  // B180 设置弹窗
+  "Sign-in & verification": "登录与验证",
+  Data: "数据",
+  System: "系统",
+  Integrations: "集成",
+  Back: "返回",
+  "Close settings": "关闭设置",
   "Devices & agents": "设备与代理",
   "Audit log": "审计日志",
   Appearance: "外观",

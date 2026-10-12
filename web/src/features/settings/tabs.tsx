@@ -1,4 +1,24 @@
 import type { ComponentType } from "react";
+import {
+  Bell,
+  Bookmark,
+  DatabaseBackup,
+  GitBranch,
+  HardDrive,
+  House,
+  KeyRound,
+  Mail,
+  MonitorSmartphone,
+  Music,
+  Plug,
+  Router,
+  ScrollText,
+  Sparkles,
+  Sunrise,
+  UserRound,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import DevicesTab from "./DevicesTab";
 import AuditTab from "./AuditTab";
 import SecurityTab from "./SecurityTab";
@@ -18,39 +38,181 @@ import RouterSettingsTab from "../router/RouterSettingsTab";
 import MaintenanceTab from "../maintenance/MaintenanceTab";
 import XSettingsTab from "../readlater/XSettingsTab";
 import MusicSettingsTab from "../music/MusicSettingsTab";
-import CardsSettingsTab from "../cards/CardsSettingsTab";
-import FocusBlockSettingsTab from "../focusblock/FocusBlockSettingsTab";
 import MeSettingsTab from "../me/MeSettingsTab";
 
 export interface SettingsTab {
-  id: string; // 路径段，/settings/<id>
+  id: string; // 地址里的 ?settings=<id>，旧地址 /settings/<id> 也能用
   label: string; // 英文原文，中文在 i18n
+  icon: LucideIcon;
+  group: string; // settingsGroups 里的 id
   component: ComponentType;
 }
 
-// 设置页的标签。模块有自己的配置页时在这里加一行，
-// 例如 { id: "notifications", label: "Notifications", component: NotificationSettings }。
+export interface SettingsGroup {
+  id: string;
+  label: string;
+}
+
+// 设置弹窗左边的分组（B180）。
+export const settingsGroups: SettingsGroup[] = [
+  { id: "general", label: "General" },
+  { id: "security", label: "Security" },
+  { id: "ai", label: "AI" },
+  { id: "integrations", label: "Integrations" },
+  { id: "data", label: "Data" },
+  { id: "system", label: "System" },
+];
+
+// 几个小页并进相关的页，上下排着。
+function AiWithUsage() {
+  return (
+    <div className="settings-stack">
+      <AssistantSettingsTab />
+      <div id="ai-usage">
+        <AiUsageTab />
+      </div>
+    </div>
+  );
+}
+
+function GitWithLinear() {
+  return (
+    <div className="settings-stack">
+      <GitSettingsTab />
+      <LinearSettingsTab />
+    </div>
+  );
+}
+
+function MaintenanceWithErrors() {
+  return (
+    <div className="settings-stack">
+      <MaintenanceTab />
+      <ErrorsTab />
+    </div>
+  );
+}
+
+// 设置弹窗的每一项。模块有自己的配置时在这里加一行，放进合适的分组。
+// 只和一个功能有关的设置放在那个功能的页面里，不放这里。
 export const settingsTabs: SettingsTab[] = [
-  { id: "security", label: "Security", component: SecurityTab },
-  { id: "devices", label: "Devices & agents", component: DevicesTab },
-  { id: "audit", label: "Audit log", component: AuditTab },
-  { id: "notifications", label: "Notifications", component: NotificationsTab },
-  { id: "homeassistant", label: "Home Assistant", component: HASettingsTab },
-  { id: "git", label: "Git & repositories", component: GitSettingsTab },
-  { id: "linear", label: "Linear", component: LinearSettingsTab },
-  { id: "brief", label: "Daily brief", component: BriefSettingsTab },
-  { id: "storage", label: "Storage", component: StorageTab },
-  { id: "backup", label: "Backup", component: BackupTab },
-  { id: "assistant", label: "AI", component: AssistantSettingsTab },
-  { id: "ai-usage", label: "AI usage", component: AiUsageTab },
-  { id: "errors", label: "Recent errors", component: ErrorsTab },
-  { id: "remote", label: "Remote access", component: RemoteAccessTab },
-  { id: "mail", label: "Mail", component: MailSettingsTab },
-  { id: "router", label: "Router", component: RouterSettingsTab },
-  { id: "maintenance", label: "Maintenance", component: MaintenanceTab },
-  { id: "readlater", label: "Read later", component: XSettingsTab },
-  { id: "music", label: "Music", component: MusicSettingsTab },
-  { id: "cards", label: "Review cards", component: CardsSettingsTab },
-  { id: "focus-block", label: "Focus block", component: FocusBlockSettingsTab },
-  { id: "me", label: "My status", component: MeSettingsTab },
+  {
+    id: "me",
+    label: "My status",
+    icon: UserRound,
+    group: "general",
+    component: MeSettingsTab,
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    icon: Bell,
+    group: "general",
+    component: NotificationsTab,
+  },
+  {
+    id: "brief",
+    label: "Daily brief",
+    icon: Sunrise,
+    group: "general",
+    component: BriefSettingsTab,
+  },
+  {
+    id: "security",
+    label: "Sign-in & verification",
+    icon: KeyRound,
+    group: "security",
+    component: SecurityTab,
+  },
+  {
+    id: "devices",
+    label: "Devices & agents",
+    icon: MonitorSmartphone,
+    group: "security",
+    component: DevicesTab,
+  },
+  {
+    id: "remote",
+    label: "Remote access",
+    icon: Plug,
+    group: "security",
+    component: RemoteAccessTab,
+  },
+  {
+    id: "audit",
+    label: "Audit log",
+    icon: ScrollText,
+    group: "security",
+    component: AuditTab,
+  },
+  {
+    id: "assistant",
+    label: "AI",
+    icon: Sparkles,
+    group: "ai",
+    component: AiWithUsage,
+  },
+  {
+    id: "git",
+    label: "Git & repositories",
+    icon: GitBranch,
+    group: "integrations",
+    component: GitWithLinear,
+  },
+  {
+    id: "homeassistant",
+    label: "Home Assistant",
+    icon: House,
+    group: "integrations",
+    component: HASettingsTab,
+  },
+  {
+    id: "mail",
+    label: "Mail",
+    icon: Mail,
+    group: "integrations",
+    component: MailSettingsTab,
+  },
+  {
+    id: "router",
+    label: "Router",
+    icon: Router,
+    group: "integrations",
+    component: RouterSettingsTab,
+  },
+  {
+    id: "readlater",
+    label: "Read later",
+    icon: Bookmark,
+    group: "integrations",
+    component: XSettingsTab,
+  },
+  {
+    id: "music",
+    label: "Music",
+    icon: Music,
+    group: "integrations",
+    component: MusicSettingsTab,
+  },
+  {
+    id: "storage",
+    label: "Storage",
+    icon: HardDrive,
+    group: "data",
+    component: StorageTab,
+  },
+  {
+    id: "backup",
+    label: "Backup",
+    icon: DatabaseBackup,
+    group: "data",
+    component: BackupTab,
+  },
+  {
+    id: "maintenance",
+    label: "Maintenance",
+    icon: Wrench,
+    group: "system",
+    component: MaintenanceWithErrors,
+  },
 ];

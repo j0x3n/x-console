@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router";
-import { Play, Timer } from "lucide-react";
+import { Link, useSearchParams } from "react-router";
+import { Play, ShieldBan, Timer } from "lucide-react";
 import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { formatTime, relativeTime } from "../../lib/time";
@@ -10,6 +10,8 @@ import { issuePath } from "../projects/logic";
 import { useFocusPanel } from "./hooks";
 import PageActions from "../../components/layout/PageActions";
 import FocusBlockBadge from "../focusblock/FocusBlockBadge";
+import FocusBlockSettingsTab from "../focusblock/FocusBlockSettingsTab";
+import Dialog from "../../components/ui/Dialog";
 
 const ranges = [7, 30];
 
@@ -20,6 +22,19 @@ export default function FocusPage() {
   const [days, setDays] = useState(7);
   const stats = useFocusStats(days);
   const openFor = useFocusPanel((s) => s.openFor);
+  // 专注屏蔽的设置（B180 从设置页挪过来），地址带 ?block=1 时打开
+  const [params, setParams] = useSearchParams();
+  const blockOpen = params.get("block") === "1";
+  const setBlockOpen = (on: boolean) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (on) next.set("block", "1");
+        else next.delete("block");
+        return next;
+      },
+      { replace: true },
+    );
 
   if (stats.isPending) return <Loading />;
   if (stats.isError)
@@ -46,6 +61,13 @@ export default function FocusPage() {
         </div>
         <FocusBlockBadge />
         <PageActions>
+          <button
+            className="xc-btn small"
+            onClick={() => setBlockOpen(true)}
+            title={t("Focus block")}
+          >
+            <ShieldBan size={14} /> {t("Focus block")}
+          </button>
           <button
             className="xc-btn primary small"
             onClick={() => openFor("")}
@@ -162,6 +184,15 @@ export default function FocusPage() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={blockOpen}
+        onClose={() => setBlockOpen(false)}
+        title={t("Focus block")}
+        wide
+      >
+        <FocusBlockSettingsTab />
+      </Dialog>
     </div>
   );
 }

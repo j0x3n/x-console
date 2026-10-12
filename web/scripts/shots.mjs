@@ -24,11 +24,18 @@ const arg = (name, fallback) => {
 const BASE = arg("base", "http://127.0.0.1:5173");
 const ONLY = arg("only", "")?.split(",").filter(Boolean) ?? [];
 const THEME = arg("theme", "");
-if (THEME && !["dark", "light"].includes(THEME)) throw new Error("theme 只能是 dark 或 light");
+if (THEME && !["dark", "light"].includes(THEME))
+  throw new Error("theme 只能是 dark 或 light");
 // 主题色（B22，B98 改过）：indigo、ocean、teal、violet、rose、graphite、cyber（B175）。深浅主题都生效。
 const ACCENT = arg("accent", "");
 const WIDTHS = arg("widths", "1360,390").split(",").map(Number);
-const OUT = join(import.meta.dirname, "..", "screenshots", THEME || "", ACCENT || "");
+const OUT = join(
+  import.meta.dirname,
+  "..",
+  "screenshots",
+  THEME || "",
+  ACCENT || "",
+);
 const USER = process.env.XC_SHOTS_USER ?? "demo";
 const PASSWORD = process.env.XC_SHOTS_PASSWORD ?? "demo-password-123";
 let totpSecret = process.env.XC_SHOTS_TOTP ?? "";
@@ -38,9 +45,7 @@ function totp(secret) {
   let bits = "";
   for (const c of secret.replace(/=+$/, "").toUpperCase())
     bits += alphabet.indexOf(c).toString(2).padStart(5, "0");
-  const key = Buffer.from(
-    bits.match(/.{8}/g).map((b) => parseInt(b, 2)),
-  );
+  const key = Buffer.from(bits.match(/.{8}/g).map((b) => parseInt(b, 2)));
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
   const h = crypto.createHmac("sha1", key).update(counter).digest();
@@ -49,11 +54,15 @@ function totp(secret) {
 }
 
 const browser = await chromium.launch(
-  process.env.XC_SHOTS_BROWSER ? { executablePath: process.env.XC_SHOTS_BROWSER } : {},
+  process.env.XC_SHOTS_BROWSER
+    ? { executablePath: process.env.XC_SHOTS_BROWSER }
+    : {},
 );
 
 // ---- 登录（没有账号时先建一个）----
-const ctx = await browser.newContext({ viewport: { width: 1360, height: 860 } });
+const ctx = await browser.newContext({
+  viewport: { width: 1360, height: 860 },
+});
 // Explicit screenshot options must survive the server preference sync.
 async function applyScreenshotPreferences(context) {
   if (!THEME && !ACCENT) return;
@@ -78,7 +87,9 @@ if (ACCENT)
   }, ACCENT);
 const page = await ctx.newPage();
 await page.goto(BASE);
-const status = await page.evaluate(() => fetch("/api/v1/auth/status").then((r) => r.json()));
+const status = await page.evaluate(() =>
+  fetch("/api/v1/auth/status").then((r) => r.json()),
+);
 if (status.setupRequired) {
   await page.getByLabel("用户名").fill(USER);
   await page.getByLabel(/^密码/).fill(PASSWORD);
@@ -92,7 +103,8 @@ if (status.setupRequired) {
   const code = page.getByLabel(/^两步验证码/);
   await code.waitFor({ timeout: 3000 }).catch(() => {});
   if (await code.count()) {
-    if (!totpSecret) throw new Error("这个账号开了两步验证，请设置 XC_SHOTS_TOTP");
+    if (!totpSecret)
+      throw new Error("这个账号开了两步验证，请设置 XC_SHOTS_TOTP");
     await code.fill(totp(totpSecret));
     await page.getByRole("button", { name: "登录" }).click();
   }
@@ -101,14 +113,22 @@ await page.locator(".sidebar").waitFor();
 
 // ---- 示例数据：没有项目时才造 ----
 const ids = await page.evaluate(async () => {
-  const h = { "Content-Type": "application/json", "X-Requested-With": "x-console" };
-  const get = (u) => fetch("/api/v1" + u, { headers: h }).then((r) => (r.ok ? r.json() : null));
+  const h = {
+    "Content-Type": "application/json",
+    "X-Requested-With": "x-console",
+  };
+  const get = (u) =>
+    fetch("/api/v1" + u, { headers: h }).then((r) => (r.ok ? r.json() : null));
   const post = (u, b) =>
-    fetch("/api/v1" + u, { method: "POST", headers: h, body: JSON.stringify(b) }).then((r) =>
-      r.ok ? r.json() : null,
-    );
+    fetch("/api/v1" + u, {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify(b),
+    }).then((r) => (r.ok ? r.json() : null));
   const send = (method, u, b) =>
-    fetch("/api/v1" + u, { method, headers: h, body: JSON.stringify(b) }).then((r) => (r.ok ? r.text() : null));
+    fetch("/api/v1" + u, { method, headers: h, body: JSON.stringify(b) }).then(
+      (r) => (r.ok ? r.text() : null),
+    );
   let projects = (await get("/projects")) ?? [];
   if (projects.length === 0) {
     const list = [
@@ -116,62 +136,239 @@ const ids = await page.evaluate(async () => {
       ["HOME", "家里的网络", "#5cc98b"],
       ["BLOG", "博客改版", "#70b5f7"],
     ];
-    for (const [key, name, color] of list) await post("/projects", { key, name, color });
+    for (const [key, name, color] of list)
+      await post("/projects", { key, name, color });
     projects = (await get("/projects")) ?? [];
     const xc = projects.find((p) => p.key === "XC");
     // B101：两张带截止时间，视图页才有内容（一张已过期，一张今天到期）
-    const dueIn = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
-    for (const [title, dueAt] of [["登录页改版", dueIn(-48)], ["云盘上传进度", dueIn(1)], ["修复移动端溢出"], ["接入 S3"]])
-      await post(`/projects/${xc.id}/issues`, dueAt ? { title, dueAt } : { title });
+    const dueIn = (hours) =>
+      new Date(Date.now() + hours * 3600e3).toISOString();
+    for (const [title, dueAt] of [
+      ["登录页改版", dueIn(-48)],
+      ["云盘上传进度", dueIn(1)],
+      ["修复移动端溢出"],
+      ["接入 S3"],
+    ])
+      await post(
+        `/projects/${xc.id}/issues`,
+        dueAt ? { title, dueAt } : { title },
+      );
     // B118：完成一张卡片，每日时间线才有内容
     await send("PATCH", "/issues/XC-1", { status: "done" });
-    for (const [i, title] of ["周会记录", "读书笔记", "家里网络拓扑", "旅行清单"].entries())
-      await post("/notes", { title, body: `示例内容 ${i + 1}\n\n- 第一点\n- 第二点`, pinned: i === 0 });
+    for (const [i, title] of [
+      "周会记录",
+      "读书笔记",
+      "家里网络拓扑",
+      "旅行清单",
+    ].entries())
+      await post("/notes", {
+        title,
+        body: `示例内容 ${i + 1}\n\n- 第一点\n- 第二点`,
+        pinned: i === 0,
+      });
     const at = (hours) => new Date(Date.now() + hours * 3600e3).toISOString();
-    for (const [title, hours] of [["交电费", 3], ["组会", 26], ["体检", 50]])
+    for (const [title, hours] of [
+      ["交电费", 3],
+      ["组会", 26],
+      ["体检", 50],
+    ])
       await post("/reminders", { title, at: at(hours) });
     // B115：证件档案，一份已过期、一份快到期、一份没有到期日
-    const dayAt = (days) => new Date(Date.now() + days * 86400e3).toISOString().slice(0, 10);
-    await post("/documents", { kind: "passport", name: "李四的护照", holder: "李四", number: "E12345678", expiresOn: dayAt(26) });
-    await post("/documents", { kind: "insurance", name: "车险", expiresOn: dayAt(-3) });
-    await post("/documents", { kind: "item", name: "笔记本电脑", serial: "SN-42", price: 8999, currency: "CNY", expiresOn: dayAt(300) });
+    const dayAt = (days) =>
+      new Date(Date.now() + days * 86400e3).toISOString().slice(0, 10);
+    await post("/documents", {
+      kind: "passport",
+      name: "李四的护照",
+      holder: "李四",
+      number: "E12345678",
+      expiresOn: dayAt(26),
+    });
+    await post("/documents", {
+      kind: "insurance",
+      name: "车险",
+      expiresOn: dayAt(-3),
+    });
+    await post("/documents", {
+      kind: "item",
+      name: "笔记本电脑",
+      serial: "SN-42",
+      price: 8999,
+      currency: "CNY",
+      expiresOn: dayAt(300),
+    });
     await post("/documents", { kind: "contract", name: "租房合同" });
     // B117：稍后阅读。沙箱里抓不到网页，条目会显示成正在抓取或抓取失败
-    await post("/readlater", { url: "https://example.com/articles/whale-protocol", note: "同事推荐" });
+    await post("/readlater", {
+      url: "https://example.com/articles/whale-protocol",
+      note: "同事推荐",
+    });
     await post("/readlater", { url: "https://example.org/blog/read-later" });
     // B120：密钥，一条快到期、一条久未更换、一条没有期限
-    await post("/credentials", { kind: "access_token", name: "部署用令牌", platform: "GitHub", account: "li4@example.com", usedBy: ["服务器 hk-1", "项目 x-console"], scopes: "repo, workflow", hint: "a9f3", expiresOn: dayAt(20) });
-    await post("/credentials", { kind: "api_key", name: "翻译接口", platform: "OpenAI", usedBy: ["服务器 hk-1"], createdOn: dayAt(-200), rotateEveryDays: 90 });
-    await post("/credentials", { kind: "ssh_key", name: "笔记本登录密钥", usedBy: ["服务器 hk-1", "服务器 sg-2", "服务器 la-3"], hint: "SHA256:Qx1b" });
+    await post("/credentials", {
+      kind: "access_token",
+      name: "部署用令牌",
+      platform: "GitHub",
+      account: "li4@example.com",
+      usedBy: ["服务器 hk-1", "项目 x-console"],
+      scopes: "repo, workflow",
+      hint: "a9f3",
+      expiresOn: dayAt(20),
+    });
+    await post("/credentials", {
+      kind: "api_key",
+      name: "翻译接口",
+      platform: "OpenAI",
+      usedBy: ["服务器 hk-1"],
+      createdOn: dayAt(-200),
+      rotateEveryDays: 90,
+    });
+    await post("/credentials", {
+      kind: "ssh_key",
+      name: "笔记本登录密钥",
+      usedBy: ["服务器 hk-1", "服务器 sg-2", "服务器 la-3"],
+      hint: "SHA256:Qx1b",
+    });
     // B122：联系人，一个生日快到，一个太久没联系，一个没有日期
     const mmdd = (days) => dayAt(days).slice(5);
-    await post("/contacts", { name: "老王", group: "friend", events: [{ kind: "birthday", date: `1990-${mmdd(5)}` }], lastContactOn: dayAt(-20) });
-    await post("/contacts", { name: "小李", group: "colleague", contactEveryDays: 60, lastContactOn: dayAt(-131) });
-    await post("/contacts", { name: "妈妈", group: "family", events: [{ kind: "birthday", date: mmdd(120) }, { kind: "anniversary", label: "结婚纪念日", date: `1988-${mmdd(60)}` }], lastContactOn: dayAt(-3) });
+    await post("/contacts", {
+      name: "老王",
+      group: "friend",
+      events: [{ kind: "birthday", date: `1990-${mmdd(5)}` }],
+      lastContactOn: dayAt(-20),
+    });
+    await post("/contacts", {
+      name: "小李",
+      group: "colleague",
+      contactEveryDays: 60,
+      lastContactOn: dayAt(-131),
+    });
+    await post("/contacts", {
+      name: "妈妈",
+      group: "family",
+      events: [
+        { kind: "birthday", date: mmdd(120) },
+        { kind: "anniversary", label: "结婚纪念日", date: `1988-${mmdd(60)}` },
+      ],
+      lastContactOn: dayAt(-3),
+    });
     // B130：几张复习卡片，一张已经评过分
-    await post("/cards", { question: "SQLite 的 WAL 模式有什么好处？", answer: "读写互不阻塞。", deck: "数据库", sourceTitle: "SQLite 笔记", sourceLink: "/notes" });
-    await post("/cards", { question: "Go 的 context 用来做什么？", answer: "传递取消信号和超时。", deck: "后端" });
-    await post("/cards", { question: "HTTP 204 是什么意思？", answer: "成功，没有内容。", deck: "后端" });
+    await post("/cards", {
+      question: "SQLite 的 WAL 模式有什么好处？",
+      answer: "读写互不阻塞。",
+      deck: "数据库",
+      sourceTitle: "SQLite 笔记",
+      sourceLink: "/notes",
+    });
+    await post("/cards", {
+      question: "Go 的 context 用来做什么？",
+      answer: "传递取消信号和超时。",
+      deck: "后端",
+    });
+    await post("/cards", {
+      question: "HTTP 204 是什么意思？",
+      answer: "成功，没有内容。",
+      deck: "后端",
+    });
     // B121：配置下发，没有配对的机器，只放配置
     await send("PUT", "/aiconfig", {
-      claude: { rules: "回答用中文。\n提交前先跑测试。", allow: ["Bash(git status)", "Bash(npm test)"], ask: ["Bash(git push *)"], deny: ["Read(./.env)"], mcp: [{ name: "docs", transport: "http", url: "https://mcp.example.com/mcp" }] },
-      codex: { rules: "Answer in Chinese.", mcp: [{ name: "fs", transport: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem"] }] },
+      claude: {
+        rules: "回答用中文。\n提交前先跑测试。",
+        allow: ["Bash(git status)", "Bash(npm test)"],
+        ask: ["Bash(git push *)"],
+        deny: ["Read(./.env)"],
+        mcp: [
+          {
+            name: "docs",
+            transport: "http",
+            url: "https://mcp.example.com/mcp",
+          },
+        ],
+      },
+      codex: {
+        rules: "Answer in Chinese.",
+        mcp: [
+          {
+            name: "fs",
+            transport: "stdio",
+            command: "npx",
+            args: ["-y", "@modelcontextprotocol/server-filesystem"],
+          },
+        ],
+      },
       hostIds: [],
     });
     // B118：今天的日记
-    const todayKey = ((await get("/journal/recent")) ?? { days: [] }).days[0]?.day;
-    if (todayKey) await send("PUT", `/journal/days/${todayKey}/diary`, { body: "## 今天\n\n上午改完登录页，下午处理移动端溢出。\n\n- 明天接 S3" });
+    const todayKey = ((await get("/journal/recent")) ?? { days: [] }).days[0]
+      ?.day;
+    if (todayKey)
+      await send("PUT", `/journal/days/${todayKey}/diary`, {
+        body: "## 今天\n\n上午改完登录页，下午处理移动端溢出。\n\n- 明天接 S3",
+      });
     await post("/habits", { name: "跑步", unit: "次", dailyTarget: 1 });
-    await post("/habits", { name: "力量训练", kind: "workout", dailyTarget: 1 });
-    await post("/workouts/logs", { durationMinutes: 30, items: [{ name: "深蹲" }] });
-    await post("/habits/library/activate", { ids: ["words", "review", "protein", "eyes", "stand"] });
-    const dateParts = Object.fromEntries(new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map(({ type, value }) => [type, value]));
+    await post("/habits", {
+      name: "力量训练",
+      kind: "workout",
+      dailyTarget: 1,
+    });
+    await post("/workouts/logs", {
+      durationMinutes: 30,
+      items: [{ name: "深蹲" }],
+    });
+    await post("/habits/library/activate", {
+      ids: ["words", "review", "protein", "eyes", "stand"],
+    });
+    const dateParts = Object.fromEntries(
+      new Intl.DateTimeFormat("en", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      })
+        .formatToParts(new Date())
+        .map(({ type, value }) => [type, value]),
+    );
     const today = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
-    await post(`/habits/personal/days/${today}/check`, { id: "words", done: true });
-    await fetch(`/api/v1/habits/personal/days/${today}`, { method: "PATCH", headers: h, body: JSON.stringify({ weight: "81.5", waist: "91", sleep: "7.5", steps: "6300", energy: "一般", back: "和平时相近", english: "Could you confirm the deadline?", food: "第一餐：鸡蛋、牛奶和燕麦。", sets: { "A1:0:0": true } }) });
+    await post(`/habits/personal/days/${today}/check`, {
+      id: "words",
+      done: true,
+    });
+    await fetch(`/api/v1/habits/personal/days/${today}`, {
+      method: "PATCH",
+      headers: h,
+      body: JSON.stringify({
+        weight: "81.5",
+        waist: "91",
+        sleep: "7.5",
+        steps: "6300",
+        energy: "一般",
+        back: "和平时相近",
+        english: "Could you confirm the deadline?",
+        food: "第一餐：鸡蛋、牛奶和燕麦。",
+        sets: { "A1:0:0": true },
+      }),
+    });
     const profile = await get("/habits/personal/profile");
-    const logs = Object.fromEntries([1, 3, 5, 8, 12, 16, 20].map((ago, i) => [new Date(Date.parse(`${today}T12:00:00Z`) - ago * 86400000).toISOString().slice(0, 10), { weight: (81.7 + i * 0.2).toFixed(1), sleep: String(7 + (i % 3) * 0.5), restingHr: String(58 + (i % 4)), steps: String(5200 + i * 450), back: "和平时相近" }]));
-    await post("/habits/personal/backup", { version: 1, profile, logs, checks: {}, sets: {} });
+    const logs = Object.fromEntries(
+      [1, 3, 5, 8, 12, 16, 20].map((ago, i) => [
+        new Date(Date.parse(`${today}T12:00:00Z`) - ago * 86400000)
+          .toISOString()
+          .slice(0, 10),
+        {
+          weight: (81.7 + i * 0.2).toFixed(1),
+          sleep: String(7 + (i % 3) * 0.5),
+          restingHr: String(58 + (i % 4)),
+          steps: String(5200 + i * 450),
+          back: "和平时相近",
+        },
+      ]),
+    );
+    await post("/habits/personal/backup", {
+      version: 1,
+      profile,
+      logs,
+      checks: {},
+      sets: {},
+    });
   }
   // B47 的示例 Agent，没有时才造。
   if (((await get("/ai-agents")) ?? []).length === 0) {
@@ -183,7 +380,13 @@ const ids = await page.evaluate(async () => {
       instructions: "你是后端开发，只改 backend 目录，做完前跑 go test。",
       monthlyBudgetUsd: 20,
     });
-    await post("/ai-agents", { name: "前端", kind: "codex", avatar: "🚀", color: "#8a5cc7", model: "gpt-5-codex" });
+    await post("/ai-agents", {
+      name: "前端",
+      kind: "codex",
+      avatar: "🚀",
+      color: "#8a5cc7",
+      model: "gpt-5-codex",
+    });
     await post("/ai-agents", {
       name: "整理员",
       kind: "builtin",
@@ -225,8 +428,18 @@ const routes = [
   ["habits-fitness-daily", "/habits/fitness?view=daily"],
   ["habits-fitness-library", "/habits/fitness?view=library"],
   ["habits-recommend", "/habits/plan"],
-  ...["overview", "training", "daily", "food", "english", "records", "settings", "reference"].map((section) => [
-    `habits-personal-${section}`, `/habits/plan?section=${section}`,
+  ...[
+    "overview",
+    "training",
+    "daily",
+    "food",
+    "english",
+    "records",
+    "settings",
+    "reference",
+  ].map((section) => [
+    `habits-personal-${section}`,
+    `/habits/plan?section=${section}`,
   ]),
   ["drive", "/drive"],
   ["calendar", "/calendar"],
@@ -254,7 +467,7 @@ const routes = [
   ["goals-review", "/goals/review"],
   ["cards", "/cards"],
   ["cards-list", "/cards?tab=cards"],
-  ["settings-cards", "/settings/cards"],
+  ["cards-settings", "/cards?tab=settings"],
   ["settings-me", "/settings/me"], // B162
   ["aiconfig", "/coding/config"],
   ["codingroi", "/coding/roi"],
@@ -265,16 +478,19 @@ const routes = [
   ["calendar-focus", "/calendar/focus"],
   ["calendar-manage", "/calendar/calendars"],
   ["github", "/github"],
+  ["settings-menu", "/settings"], // B180 手机上先显示菜单
   ["settings", "/settings/security"],
   ["settings-ai", "/settings/assistant"],
-  ["settings-ai-usage", "/settings/ai-usage"],
-  ["settings-errors", "/settings/errors"],
+  ["settings-maintenance", "/settings/maintenance"], // B180 并进了最近错误
+  ["focus-block", "/calendar/focus?block=1"], // B180 从设置挪过来
   ["settings-remote", "/settings/remote"],
   ["settings-readlater", "/settings/readlater"],
   ["settings-storage", "/settings/storage"],
   ["settings-backup", "/settings/backup"],
   ["settings-router", "/settings/router"],
-].filter(Boolean).filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));
+]
+  .filter(Boolean)
+  .filter(([, path]) => ONLY.length === 0 || ONLY.includes(path));
 
 // ---- 截图和检查 ----
 rmSync(OUT, { recursive: true, force: true });
@@ -298,9 +514,14 @@ for (const width of WIDTHS) {
     await p.waitForLoadState("networkidle").catch(() => {});
     await p.waitForTimeout(400);
     const overflow = await p.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
     );
-    await p.screenshot({ path: join(OUT, String(width), `${name}.png`), fullPage: true });
+    await p.screenshot({
+      path: join(OUT, String(width), `${name}.png`),
+      fullPage: true,
+    });
     const bad = [];
     const actualTheme = await p.locator("html").getAttribute("data-theme");
     if (THEME && actualTheme !== THEME) bad.push(`主题不对：${actualTheme}`);
@@ -312,29 +533,44 @@ for (const width of WIDTHS) {
         const inputs = new Set();
         const visible = (el) => {
           const r = el.getBoundingClientRect();
-          return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+          return (
+            r.width > 0 &&
+            r.height > 0 &&
+            getComputedStyle(el).visibility !== "hidden"
+          );
         };
         const label = (el) =>
           `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).join(".") : ""}`;
         for (const el of document.querySelectorAll("#main *, .sidebar *")) {
-          const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+          const own = [...el.childNodes].some(
+            (n) => n.nodeType === 3 && n.textContent.trim(),
+          );
           if (!own || !visible(el)) continue;
           const size = parseFloat(getComputedStyle(el).fontSize);
           // 0 是手机上故意藏起文字、只显示图标的按钮。
           if (size > 0 && size < 11) small.add(`${label(el)} ${size}px`);
         }
-        for (const el of document.querySelectorAll("#main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), #main select, #main textarea")) {
+        for (const el of document.querySelectorAll(
+          "#main input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]), #main select, #main textarea",
+        )) {
           if (!visible(el)) continue;
           const size = parseFloat(getComputedStyle(el).fontSize);
           if (size !== 16) inputs.add(`${label(el)} ${size}px`);
         }
-        return { small: [...small].slice(0, 5), inputs: [...inputs].slice(0, 5) };
+        return {
+          small: [...small].slice(0, 5),
+          inputs: [...inputs].slice(0, 5),
+        };
       });
-      if (fonts.small.length) bad.push(`文字小于 11px：${fonts.small.join("、")}`);
-      if (fonts.inputs.length) bad.push(`输入框不是 16px：${fonts.inputs.join("、")}`);
+      if (fonts.small.length)
+        bad.push(`文字小于 11px：${fonts.small.join("、")}`);
+      if (fonts.inputs.length)
+        bad.push(`输入框不是 16px：${fonts.inputs.join("、")}`);
     }
     if (errors.length) bad.push(`页面报错：${errors.join("；")}`);
-    console.log(`${bad.length ? "✗" : "✓"} ${String(width).padStart(4)}  ${path.padEnd(28)} ${bad.join("，")}`);
+    console.log(
+      `${bad.length ? "✗" : "✓"} ${String(width).padStart(4)}  ${path.padEnd(28)} ${bad.join("，")}`,
+    );
     if (bad.length) problems.push(`${width} ${path}：${bad.join("，")}`);
   }
   await c.close();

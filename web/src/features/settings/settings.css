@@ -1,6 +1,192 @@
-/* 设置页：顶部一排标签，下面是卡片。标签多，窄屏时横向滚动。 */
-.settings-tabs {
+/* 设置弹窗（B180）：左边分组菜单，右边是选中的那一页。
+   手机上全屏，先显示菜单，点进去再显示内容。 */
+/* 层级和其他弹窗一样。确认框、提升权限框在页面结构里排在后面，会盖在设置上面。 */
+.settings-dialog {
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  width: min(1120px, 100%);
+  height: min(780px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-bg);
+  box-shadow: var(--xc-shadow);
+  color: var(--xc-text);
+  white-space: normal;
+  outline: none;
+}
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--xc-border);
+  background: var(--xc-panel);
+}
+.settings-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  padding: 0 10px 0 16px;
+  flex: none;
+}
+.settings-nav-head h2 {
+  margin: 0;
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+.settings-nav-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
   scrollbar-width: thin;
+}
+.settings-nav-group + .settings-nav-group {
+  margin-top: 6px;
+}
+.settings-nav-label {
+  display: block;
+  padding: 3px 8px;
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+  font-weight: 500;
+}
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--xc-radius);
+  background: none;
+  color: var(--xc-text-2);
+  font: inherit;
+  font-size: var(--fs-13);
+  text-align: left;
+  cursor: pointer;
+}
+.settings-nav-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-nav-item svg {
+  flex: none;
+  color: var(--xc-muted);
+}
+.settings-nav-item:hover {
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
+}
+.settings-nav-item.active {
+  background: var(--xc-accent-soft);
+  color: var(--xc-accent-text);
+  font-weight: 500;
+}
+.settings-nav-item.active svg {
+  color: var(--xc-accent-text);
+}
+.settings-nav .settings-version {
+  justify-content: flex-start;
+  margin: 0;
+  padding: 10px 16px;
+  border-top: 1px solid var(--xc-border);
+}
+.settings-icon-btn {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+}
+.settings-close,
+.settings-back {
+  display: none;
+}
+.settings-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.settings-main-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px 0 20px;
+  border-bottom: 1px solid var(--xc-border);
+  flex: none;
+}
+.settings-main-head h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-15);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-main-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 20px 24px;
+}
+/* 并在一起的几页上下排 */
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+@media (max-width: 720px) {
+  /* browser.css 给弹窗遮罩留了边距，设置在手机上要占满，只留刘海和底部横条 */
+  html .modal-backdrop.settings-backdrop {
+    padding: var(--xc-safe-top) var(--xc-safe-right) var(--xc-safe-bottom)
+      var(--xc-safe-left);
+  }
+  .settings-dialog {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+  .settings-dialog.is-menu .settings-main,
+  .settings-dialog:not(.is-menu) .settings-nav {
+    display: none;
+  }
+  .settings-nav {
+    border-right: 0;
+  }
+  .settings-close,
+  .settings-back {
+    display: inline-flex;
+  }
+  .settings-main-head {
+    padding: 0 8px;
+  }
+  .settings-main-body {
+    padding: 16px;
+  }
+  .settings-nav-item {
+    height: 40px;
+  }
+  .settings-nav-group + .settings-nav-group {
+    margin-top: 10px;
+  }
+  /* 菜单页还没选哪一项，不高亮 */
+  .settings-dialog.is-menu .settings-nav-item.active {
+    background: none;
+    color: var(--xc-text-2);
+    font-weight: 400;
+  }
+  .settings-dialog.is-menu .settings-nav-item.active svg {
+    color: var(--xc-muted);
+  }
 }
 .settings-grid {
   display: grid;

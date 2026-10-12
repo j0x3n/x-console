@@ -122,7 +122,15 @@ export default function DevicesTab() {
         initialKind={add === "desktop" ? "desktop" : "server"}
         onClose={() => {
           setPairOpen(false);
-          if (add) setParams({}, { replace: true });
+          // 只去掉 add，设置弹窗和页面自己的参数还要留着
+          if (add)
+            setParams(
+              (p) => {
+                p.delete("add");
+                return p;
+              },
+              { replace: true },
+            );
         }}
       />
     </div>
