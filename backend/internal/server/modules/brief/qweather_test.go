@@ -411,76 +411,58 @@ func TestRainSoonNotify(t *testing.T) {
 	}
 }
 
-// 2026-10-07 东海：实况晴、逐小时降水概率 0，分钟降水却说一直在下小雨。
-func TestDoubtfulMinutelyRain(t *testing.T) {
-	env, m, f := setupQW(t)
-	configureQW(t, env)
-	n := api.WeatherNotify{RainSoon: true, RainLeadMinutes: 30, WarningMinLevel: api.Yellow, QuakeMinMagnitude: 4.5, QuakeRadiusKm: 500}
-	env.MustDo(http.MethodPut, "/weather/notify", n, nil)
-	ctx := context.Background()
-	now := time.Now()
-	var pts, hours []string
-	for i := 0; i < 24; i++ {
-		pts = append(pts, fmt.Sprintf(`{"fxTime":%q,"precip":"0.05","type":"rain"}`, now.Add(time.Duration(i)*5*time.Minute).Format("2006-01-02T15:04-07:00")))
-	}
-	hour := now.Truncate(time.Hour)
-	setPop := func(pop string) {
-		hours = hours[:0]
-		for i := 0; i < 4; i++ {
-			hours = append(hours, fmt.Sprintf(`{"fxTime":%q,"pop":%q}`, hour.Add(time.Duration(i)*time.Hour).Format("2006-01-02T15:04-07:00"), pop))
-		}
-		f.set(func(f *qwFake) { f.hourly = "[" + strings.Join(hours, ",") + "]" })
-	}
-	f.set(func(f *qwFake) {
-		f.minutely = "[" + strings.Join(pts, ",") + "]"
-		f.nowIcon = "150"
-	})
-	setPop("0")
-	extra := func() api.WeatherExtra {
-		t.Helper()
-		brief.DropCaches(m)
-		var ex api.WeatherExtra
-		env.MustDo(http.MethodGet, "/weather/extra?refresh=true", nil, &ex)
-		if ex.Minutely == nil || len(ex.Minutely.Points) != 24 {
-			t.Fatalf("minutely: %+v", ex.Minutely)
-		}
-		return ex
-	}
-
-	ex := extra()
-	// 实况晴、概率 0：页面按没有降水显示并写明依据，推送也不发
-	if ex.Minutely.Points[0].Precip != 0 || !strings.Contains(ex.Minutely.Summary, "降水概率 0%，没有降水") {
-		t.Fatalf("doubtful rain kept: %+v", ex.Minutely)
-	}
-	if err := brief.CheckRainSoon(m, ctx, now); err != nil {
-		t.Fatal(err)
-	}
-	if got := notes(t, env, "weather.rain_soon"); len(got) != 0 {
-		t.Fatalf("doubtful rain pushed: %+v", got)
-	}
-
-	// 2026-10-11 东海雾天：实况是雾，概率 30，分钟降水说正在下，不信
-	setPop("30")
-	f.set(func(f *qwFake) { f.nowIcon = "501" })
-	if ex := extra(); ex.Minutely.Points[0].Precip != 0 {
-		t.Fatalf("fog with pop 30: %+v", ex.Minutely)
-	}
-	f.set(func(f *qwFake) { f.nowIcon = "150" })
-
-	// 逐小时也说可能下，信分钟降水
-	setPop("60")
-	if ex := extra(); ex.Minutely.Points[0].Precip != 0.05 {
-		t.Fatalf("pop 60: %+v", ex.Minutely)
-	}
-	// 实况在下雨，也信
-	setPop("0")
-	f.set(func(f *qwFake) { f.nowIcon = "305" })
-	brief.DropCaches(m)
-	if err := brief.CheckRainSoon(m, ctx, now); err != nil {
-		t.Fatal(err)
-	}
-	if got := notes(t, env, "weather.rain_soon"); len(got) != 1 {
-		t.Fatalf("raining now: %+v", got)
+// B165：分钟降水保留上游数值，不能用雾天或逐小时概率猜测并清零。
+func TestMinutelyRainUsesProviderData(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		precip     string
+		offset     time.Duration
+		wantNotify bool
+	}{
+		{"zero rain type", "0", 0, false},
+		{"wet despite fog and zero hourly probability", "0.05", 0, true},
+		{"expired rain", "0.05", -5 * time.Minute, false},
+		{"future rain", "0.05", 5 * time.Minute, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env, m, f := setupQW(t)
+			configureQW(t, env)
+			env.MustDo(http.MethodPut, "/weather/notify", api.WeatherNotify{RainSoon: true, RainLeadMinutes: 30, WarningMinLevel: api.Yellow, QuakeMinMagnitude: 4.5, QuakeRadiusKm: 500}, nil)
+			now := time.Now().Truncate(time.Minute)
+			f.set(func(f *qwFake) {
+				f.nowIcon = "501"
+				f.hourly = fmt.Sprintf(`[{"fxTime":%q,"pop":"0"}]`, now.Format(time.RFC3339))
+				f.minutely = fmt.Sprintf(`[{"fxTime":%q,"precip":%q,"type":"rain"}]`, now.Add(tc.offset).Format(time.RFC3339), tc.precip)
+			})
+			var ex api.WeatherExtra
+			env.MustDo(http.MethodGet, "/weather/extra?refresh=true", nil, &ex)
+			if ex.Minutely == nil || len(ex.Minutely.Points) != 1 {
+				t.Fatalf("minutely: %+v", ex.Minutely)
+			}
+			want := 0.0
+			if tc.precip != "0" {
+				want = 0.05
+			}
+			if ex.Minutely.Points[0].Precip != want || ex.Minutely.Summary != "20分钟后有雨" {
+				t.Fatalf("provider data changed: %+v", ex.Minutely)
+			}
+			if err := brief.CheckRainSoon(m, context.Background(), now); err != nil {
+				t.Fatal(err)
+			}
+			got := notes(t, env, "weather.rain_soon")
+			if (len(got) == 1) != tc.wantNotify || len(got) > 1 {
+				t.Fatalf("notices: %+v", got)
+			}
+			if tc.wantNotify {
+				wantTitle := "正在下雨（上海）"
+				if tc.offset > 0 {
+					wantTitle = "5 分钟后有雨（上海）"
+				}
+				if got[0].Title != wantTitle {
+					t.Fatalf("title: %s", got[0].Title)
+				}
+			}
+		})
 	}
 }
 

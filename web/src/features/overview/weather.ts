@@ -55,7 +55,7 @@ export interface RainSoon {
   inMinutes: number;
   /**
    * B90：正在下时，还要下多久（分钟）。两小时内不停时为 null。
-   * 还没开始下时不返回。
+   * 还没开始下或数据覆盖不足时不返回。
    */
   endsIn?: number | null;
 }
@@ -65,24 +65,40 @@ export function rainSoon(
   minutely: WeatherExtra["minutely"],
   now: Date,
 ): RainSoon | null {
-  const points = minutely?.points ?? [];
+  const nowMs = now.getTime();
+  const interval = 5 * 60_000;
+  const horizon = nowMs + 120 * 60_000;
+  const points = (minutely?.points ?? [])
+    .filter((p) => {
+      const time = Date.parse(p.time);
+      return time + interval > nowMs && time <= horizon;
+    })
+    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
   const hitIndex = points.findIndex((p) => p.precip > 0);
   if (hitIndex < 0) return null;
   const hit = points[hitIndex];
   const minutesTo = (iso: string) =>
-    Math.max(0, Math.round((Date.parse(iso) - now.getTime()) / 60_000));
+    Math.max(0, Math.ceil((Date.parse(iso) - nowMs) / 60_000));
   const inMinutes = minutesTo(hit.time);
   const kind = hit.kind === "snow" ? "snow" : "rain";
-  if (inMinutes > 5) return { kind, inMinutes };
-  // 正在下：找下一个没有降水的点
-  const stop = points.slice(hitIndex + 1).find((p) => p.precip <= 0);
-  return { kind, inMinutes, endsIn: stop ? minutesTo(stop.time) : null };
+  if (inMinutes > 0) return { kind, inMinutes };
+  // 只在连续五分钟时段中找停雨点，缺数据时不推断停雨时间。
+  let coveredUntil = Date.parse(hit.time) + interval;
+  for (const p of points.slice(hitIndex + 1)) {
+    const time = Date.parse(p.time);
+    if (time !== coveredUntil) return { kind, inMinutes };
+    if (p.precip <= 0) return { kind, inMinutes, endsIn: minutesTo(p.time) };
+    coveredUntil = time + interval;
+  }
+  return coveredUntil >= horizon
+    ? { kind, inMinutes, endsIn: null }
+    : { kind, inMinutes };
 }
 
 /** 天气条上的一小段字：“正在下雨，约 25 分钟后停”“20 分钟后有雪”。 */
 export function rainSoonText(r: RainSoon): string {
   const what = r.kind === "snow" ? "雪" : "雨";
-  if (r.inMinutes > 5) return `${r.inMinutes} 分钟后有${what}`;
+  if (r.inMinutes > 0) return `${r.inMinutes} 分钟后有${what}`;
   if (r.endsIn === null) return `正在下${what}，两小时内不会停`;
   if (r.endsIn !== undefined && r.endsIn <= 5) return `正在下${what}，马上就停`;
   if (r.endsIn !== undefined) return `正在下${what}，约 ${r.endsIn} 分钟后停`;

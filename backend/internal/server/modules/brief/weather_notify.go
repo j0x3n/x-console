@@ -134,9 +134,6 @@ func (m *Module) checkRainSoon(ctx context.Context, now time.Time) error {
 	if first == nil {
 		return nil
 	}
-	if doubt, _ := m.rainDoubtful(ctx, *cfg.Location, first.Time.Add(5*time.Minute).After(now) && !first.Time.After(now)); doubt {
-		return nil
-	}
 	quiet := !st.LastSent.IsZero() && now.Sub(st.LastSent) < rainSoonQuiet
 	stopped := st.LastWet.IsZero() || now.Sub(st.LastWet) >= rainSoonDry
 	st.LastWet = now
