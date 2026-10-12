@@ -1110,25 +1110,15 @@ html.music-full-open .ai-fab {
 .music-mini-lyrics > .xc-spinner {
   place-self: center;
 }
-.music-mini-foot {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 8px 6px;
-  border-top: 1px solid var(--xc-border);
+.music-mini-head .music-volume {
+  margin-top: 2px;
 }
-.music-mini-foot .music-volume {
-  flex: 1;
-  min-width: 0;
-}
-.music-mini-foot .music-volume .music-btn {
+.music-mini-head .music-volume .music-btn {
   width: 28px;
   height: 28px;
 }
-.music-mini-foot .music-volume-range {
+.music-mini-head .music-volume-range {
   width: 100%;
-  max-width: 120px;
 }
 /* 播放列表展开：高度从 0 过渡到内容高度 */
 .music-mini-queue {

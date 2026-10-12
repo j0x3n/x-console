@@ -198,6 +198,15 @@ function MiniPlayer() {
             <button
               type="button"
               className="music-btn small"
+              aria-label={t("Open the player")}
+              title={t("Open the player")}
+              onClick={() => setFullOpen(true)}
+            >
+              <Maximize2 size={14} />
+            </button>
+            <button
+              type="button"
+              className="music-btn small"
               aria-label={t("Close")}
               title={t("Close")}
               onClick={close}
@@ -211,33 +220,22 @@ function MiniPlayer() {
         <div className="music-mini-controls">
           <ModeButton />
           <Controls />
+          <button
+            type="button"
+            className={`music-btn${queueOpen ? " on" : ""}`}
+            aria-label={t("Queue")}
+            title={t("Queue")}
+            aria-expanded={queueOpen}
+            onClick={toggleQueue}
+          >
+            <ListMusic size={17} />
+          </button>
           <SleepButton />
         </div>
+        <VolumeControl />
       </div>
       <div className="music-mini-lyrics">
         <Lyrics trackId={track.id} />
-      </div>
-      <div className="music-mini-foot">
-        <VolumeControl />
-        <button
-          type="button"
-          className={`music-btn small${queueOpen ? " on" : ""}`}
-          aria-label={t("Queue")}
-          title={t("Queue")}
-          aria-expanded={queueOpen}
-          onClick={toggleQueue}
-        >
-          <ListMusic size={15} />
-        </button>
-        <button
-          type="button"
-          className="music-btn small"
-          aria-label={t("Open the player")}
-          title={t("Open the player")}
-          onClick={() => setFullOpen(true)}
-        >
-          <Maximize2 size={14} />
-        </button>
       </div>
       <div className={`music-mini-queue${queueOpen ? " open" : ""}`}>
         <div className="music-mini-queue-inner">
