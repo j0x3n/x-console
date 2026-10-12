@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run && node --test scripts/browser-diagnostics.test.mjs",
     "gen:api": "node scripts/gen-api.mjs",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "shots": "node scripts/shots.mjs",

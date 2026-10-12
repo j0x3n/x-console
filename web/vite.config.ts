@@ -44,5 +44,7 @@ export default defineConfig({
     maxWorkers: process.env.CI ? undefined : 1,
     testTimeout: 30_000,
     setupFiles: ["./src/test/setup.ts"],
+    // scripts/*.test.mjs 用 node:test 写，由 npm test 里的 node --test 单独跑
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });
