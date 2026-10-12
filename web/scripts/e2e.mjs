@@ -19,6 +19,7 @@ import os from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 import { verifyWeatherReminder } from "./weather-reminder-flow.mjs";
+import { watchBrowserErrors } from "./browser-diagnostics.mjs";
 
 const webDir = resolve(import.meta.dirname, "..");
 const backendDir = resolve(webDir, "../backend");
@@ -1969,12 +1970,19 @@ try {
         // The same search endpoint reverse-geocodes browser coordinates.
         const nearby = await api("/weather/places?q=118.75,34.54");
         assert.equal(nearby[0].id, "101191002");
-        await verifyWeatherReminder(page, base, async () => {
-          await page.locator(".today-weather-strip").click();
-          await dialog("天气")
-            .getByRole("button", { name: "天气设置" })
-            .click();
-        });
+        const weatherDiagnostics = watchBrowserErrors(page);
+        try {
+          await weatherDiagnostics.run(() =>
+            verifyWeatherReminder(page, base, async () => {
+              await page.locator(".today-weather-strip").click();
+              await dialog("天气")
+                .getByRole("button", { name: "天气设置" })
+                .click();
+            }),
+          );
+        } finally {
+          weatherDiagnostics.dispose();
+        }
         for (const width of [1360, 390]) {
           await page.setViewportSize({ width, height: 860 });
           await page.locator(".today-weather-strip").click();

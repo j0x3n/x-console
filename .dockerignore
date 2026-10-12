@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/data
+**/dist
+**/*.db
+**/*.db-wal
+**/*.db-shm
+web/screenshots
+web/e2e-artifacts
+backend/agent
+backend/server
+backend/*.exe
+.local

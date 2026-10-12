@@ -10,7 +10,9 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 
-if [ $# -gt 0 ]; then
+if [ "${1:-}" = "--worktree" ]; then
+  base=HEAD
+elif [ $# -gt 0 ]; then
   base=$1
 elif git rev-parse --verify -q '@{upstream}' >/dev/null; then
   base=$(git merge-base HEAD '@{upstream}')
@@ -25,8 +27,27 @@ if [ -z "$changed" ]; then
 fi
 
 has() { grep -qE "$1" <<<"$changed"; }
-step() { printf '\n== %s\n' "$*"; }
+step_started=0
+step() {
+  if [ "$step_started" -ne 0 ]; then
+    printf '上一步用时 %s 秒。\n' "$(($(date +%s) - step_started))"
+  fi
+  printf '\n== %s\n' "$*"
+  step_started=$(date +%s)
+}
 started=$(date +%s)
+
+if has '^\.github/workflows/|^deploy/Dockerfile$|^\.dockerignore$|^scripts/check-pipeline\.py$'; then
+  step "构建流程检查"
+  python scripts/check-pipeline.py
+  if command -v actionlint >/dev/null; then actionlint; fi
+fi
+if has '^scripts/.*\.sh$'; then
+  step "Shell 脚本语法"
+  while IFS= read -r f; do
+    [ -f "$f" ] && bash -n "$f"
+  done < <(grep -E '^scripts/.*\.sh$' <<<"$changed")
+fi
 
 # ---------- 后端 ----------
 if has '^(backend|api)/'; then
@@ -99,8 +120,20 @@ if has '^(web|api)/'; then
     npm run gen:api
   fi
 
-  step "类型检查"
-  npm run typecheck
+  scriptfiles=$(grep -E '^web/scripts/.*\.mjs$' <<<"$changed" | sed 's#^web/##' | while read -r f; do
+    [ -f "$f" ] && echo "$f"
+  done || true)
+  if [ -n "$scriptfiles" ]; then
+    step "前端脚本语法和 Node 测试"
+    while IFS= read -r f; do node --check "$f"; done <<<"$scriptfiles"
+    tests=$(compgen -G 'scripts/*.test.mjs' || true)
+    if [ -n "$tests" ]; then node --test $tests; fi
+  fi
+
+  if has '^web/src/|^web/(package(-lock)?\.json|tsconfig[^/]*\.json|vite\.config\.[^/]+)$|^api/'; then
+    step "类型检查"
+    npm run typecheck
+  fi
 
   srcfiles=$(grep -E '^web/src/.*\.(ts|tsx|css)$' <<<"$changed" | grep -v '^web/src/api/gen/' | sed 's#^web/##' | while read -r f; do
     [ -f "$f" ] && echo "$f"
@@ -124,5 +157,8 @@ if has '^(web|api)/'; then
   cd "$root"
 fi
 
+if [ "$step_started" -ne 0 ]; then
+  printf '上一步用时 %s 秒。\n' "$(($(date +%s) - step_started))"
+fi
 echo
 echo "快速检查通过，用时 $(($(date +%s) - started)) 秒。完整检查由 CI 跑（PR 和带部署标记的推送）。"

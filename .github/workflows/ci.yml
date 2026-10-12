@@ -111,7 +111,7 @@ jobs:
         run: go install gotest.tools/gotestsum@v1.13.0
       - name: Test shard ${{ matrix.shard }} of 8
         env:
-          RACE_INPUT: ${{ github.event_name != 'workflow_call' && 'true' || inputs.race }}
+          RACE_INPUT: ${{ toJSON(inputs.race) != 'false' }}
           SHARD: ${{ matrix.shard }}
           TESTS: ${{ needs.changes.outputs.tests }}
           PACKAGES: ${{ needs.changes.outputs.packages }}
@@ -221,6 +221,7 @@ jobs:
         env:
           XC_SHOTS_BROWSER: /usr/bin/google-chrome
           XC_E2E_PART: ${{ matrix.part }}
+          XC_E2E_TIMING: "1"
       - name: Upload failed test evidence
         if: failure()
         uses: actions/upload-artifact@v4

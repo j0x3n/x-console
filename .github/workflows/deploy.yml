@@ -65,32 +65,35 @@ jobs:
           cache-to: type=gha,mode=max
 
   agents:
-    needs: test
+    needs: [test, image]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - { goos: linux, goarch: amd64, ext: "" }
-          - { goos: windows, goarch: amd64, ext: ".exe" }
+    permissions:
+      contents: read
+      packages: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: docker/login-action@v3
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-      - name: Build agent
-        working-directory: backend
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract agents from image
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
+          IMAGE_REF: ${{ needs.image.outputs.ref }}
         run: |
-          gui=; [ "$GOOS" = windows ] && gui="-H=windowsgui"
-          go build -trimpath -ldflags "-s -w $gui -X main.Version=${GITHUB_SHA::7}" -o ../dist/x-console-agent${{ matrix.ext }} ./cmd/agent
+          docker pull "$IMAGE_REF"
+          container=$(docker create "$IMAGE_REF")
+          trap 'docker rm "$container" >/dev/null' EXIT
+          mkdir -p dist
+          docker cp "$container:/usr/share/x-console/agents/linux-amd64/x-console-agent" dist/x-console-agent
+          docker cp "$container:/usr/share/x-console/agents/windows-amd64/x-console-agent.exe" dist/x-console-agent.exe
       - uses: actions/upload-artifact@v4
         with:
-          name: x-console-agent-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/x-console-agent${{ matrix.ext }}
+          name: x-console-agent-linux-amd64
+          path: dist/x-console-agent
+      - uses: actions/upload-artifact@v4
+        with:
+          name: x-console-agent-windows-amd64
+          path: dist/x-console-agent.exe
 
   # 测试和镜像都成功后，才把这个镜像标成 latest。只改标签，不重新构建。
   latest:
