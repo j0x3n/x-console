@@ -11,7 +11,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useT } from "../../contexts/LanguageContext";
 import MusicDialogs from "./dialogs";
 import { formatClock } from "./lyrics";
@@ -141,6 +141,73 @@ export function VolumeControl() {
         style={{ ["--music-progress" as string]: `${volume * 100}%` }}
         onChange={(e) => setVolume(Number(e.target.value) / 100)}
       />
+    </div>
+  );
+}
+
+/**
+ * 只有一个按钮的音量：点一下往上弹出竖直滑块，上下拖动调音量；
+ * 鼠标停在按钮上滚轮也能调。点别处或按 Esc 收起。
+ */
+export function VolumeButton() {
+  const t = useT();
+  const volume = usePlayer((s) => s.volume);
+  const setVolume = usePlayer((s) => s.setVolume);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const Icon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: PointerEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
+
+  const step = (delta: number) =>
+    setVolume(
+      Math.min(1, Math.max(0, Math.round((volume + delta) * 100) / 100)),
+    );
+  return (
+    <div className="music-vol" ref={ref}>
+      <button
+        type="button"
+        className={`music-btn${open ? " on" : ""}`}
+        aria-label={t("Volume")}
+        title={`${t("Volume")} ${Math.round(volume * 100)}%`}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onWheel={(e) => step(e.deltaY < 0 ? 0.05 : -0.05)}
+      >
+        <Icon size={17} />
+      </button>
+      {open && (
+        <div className="music-vol-pop">
+          <input
+            type="range"
+            className="music-vol-range"
+            min={0}
+            max={100}
+            value={Math.round(volume * 100)}
+            aria-label={t("Volume")}
+            aria-orientation="vertical"
+            onChange={(e) => setVolume(Number(e.target.value) / 100)}
+            onWheel={(e) => step(e.deltaY < 0 ? 0.05 : -0.05)}
+          />
+          <span className="music-vol-num">{Math.round(volume * 100)}</span>
+        </div>
+      )}
     </div>
   );
 }

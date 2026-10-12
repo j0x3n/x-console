@@ -19,7 +19,7 @@ import { coverUrl } from "./api";
 import { TrackCover } from "./Cover";
 import Lyrics from "./LyricsView";
 import QueueList from "./QueueList";
-import { Controls, ModeButton, SeekBar, VolumeControl } from "./PlayerBar";
+import { Controls, ModeButton, SeekBar, VolumeButton } from "./PlayerBar";
 import { SleepButton } from "./SleepDialog";
 import { formatClock } from "./lyrics";
 import { currentTrack, usePlayer, useProgress } from "./player";
@@ -231,8 +231,8 @@ function MiniPlayer() {
             <ListMusic size={17} />
           </button>
           <SleepButton />
+          <VolumeButton />
         </div>
-        <VolumeControl />
       </div>
       <div className="music-mini-lyrics">
         <Lyrics trackId={track.id} />

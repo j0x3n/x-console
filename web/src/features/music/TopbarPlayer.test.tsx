@@ -169,4 +169,20 @@ describe("系统媒体控制的进度", () => {
     expect(setPositionState).toHaveBeenLastCalledWith();
     Reflect.deleteProperty(navigator, "mediaSession");
   });
+
+  it("音量只有一个按钮，点开出竖直滑块，滚轮也能调", () => {
+    resetMini({ expanded: true, open: true });
+    usePlayer.setState({ volume: 0.5 });
+    renderBar();
+    expect(screen.queryByRole("slider", { name: "音量" })).toBeNull();
+    const button = screen.getByRole("button", { name: "音量" });
+    fireEvent.wheel(button, { deltaY: -100 });
+    expect(usePlayer.getState().volume).toBeCloseTo(0.55);
+    fireEvent.click(button);
+    const slider = screen.getByRole("slider", { name: "音量" });
+    fireEvent.change(slider, { target: { value: "20" } });
+    expect(usePlayer.getState().volume).toBeCloseTo(0.2);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("slider", { name: "音量" })).toBeNull();
+  });
 });
