@@ -149,6 +149,15 @@ html .toast {
     overflow: visible;
   }
 
+  /* B190：手机上整页滚动，顶栏贴着可见区域的顶部 */
+  html .app-shell {
+    overflow: clip;
+  }
+  html .topbar {
+    position: sticky;
+    top: 0;
+  }
+
   html .sidebar {
     top: var(--xc-visible-top);
     height: var(--xc-visible-height);

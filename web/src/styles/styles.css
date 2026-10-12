@@ -160,20 +160,28 @@ svg {
 }
 .main-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   flex: 1;
   background: var(--xc-bg);
   overflow: hidden;
 }
 .main-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--xc-border-strong) transparent;
 }
 /* B100：顶栏 58px，下边一条线 */
+/* B190：白底（卡片色），赛博这类底色偏色的主题下和内容区分开 */
 .topbar {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 30;
   height: 58px;
+  background: var(--xc-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;

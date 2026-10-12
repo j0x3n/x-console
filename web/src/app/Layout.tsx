@@ -61,11 +61,12 @@ export default function Layout() {
         openPalette={() => setPaletteOpen(true)}
       />
       <main className="main-panel" id="main">
+        {/* B190：顶栏在滚动区外面，固定在顶部，只有下面的内容滚动 */}
+        <Topbar
+          openMobile={() => setMobileOpen(true)}
+          openPalette={() => setPaletteOpen(true)}
+        />
         <div className="main-scroll" ref={mainRef}>
-          <Topbar
-            openMobile={() => setMobileOpen(true)}
-            openPalette={() => setPaletteOpen(true)}
-          />
           {/* 页面按需加载（B6），加载时显示转圈 */}
           <ErrorBoundary key={location.pathname}>
             <Suspense fallback={<Loading />}>
