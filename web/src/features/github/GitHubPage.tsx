@@ -435,6 +435,15 @@ function CIUsageCard() {
           >
             {osList || "Linux 0"}
           </span>
+          {/* B177：公开仓库不收费，不算进已用 */}
+          {(u.publicMinutes ?? 0) > 0 && (
+            <span>
+              {t("Public repos: {n} min, not billed").replace(
+                "{n}",
+                String(u.publicMinutes),
+              )}
+            </span>
+          )}
         </>
       }
     >

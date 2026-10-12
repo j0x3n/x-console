@@ -368,11 +368,13 @@ export interface components {
         GitHubActionsUsage: {
             /** @description 哪个月，UTC，例如 2026-10 */
             month: string;
-            /** @description 折算后的已用分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍） */
+            /** @description 只算私有仓库（收费的）。折算后的已用分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍） */
             usedMinutes: number;
+            /** @description 公开仓库的折算分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍），不收费 */
+            publicMinutes: number;
             /** @description 每月免费分钟数。GitHub 没给时用设置里的值，默认 2000 */
             includedMinutes: number;
-            /** @description 按系统分开的折算分钟数 */
+            /** @description 只算私有仓库（收费的）。按系统分开的折算分钟数 */
             byOS: {
                 linux: number;
                 windows: number;

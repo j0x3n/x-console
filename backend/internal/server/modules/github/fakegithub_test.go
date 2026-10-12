@@ -24,6 +24,9 @@ type fakeGitHub struct {
 	token         string
 	login         string
 	defaultBranch string
+	publicRepos   map[string]bool // false by default
+	repoStatuses  map[string]int  // GET /repos/{owner}/{name} errors
+	repoRequests  map[string]int
 	pulls         map[string][]map[string]any // repo → pull objects
 	reviews       map[string][]map[string]any // "repo#n" → reviews
 	statuses      map[string]map[string]any   // sha → combined status
@@ -55,6 +58,7 @@ func newFakeGitHub(t *testing.T) *fakeGitHub {
 		statuses: map[string]map[string]any{}, checkRuns: map[string][]map[string]any{},
 		runs: map[string][]map[string]any{}, issues: map[string][]map[string]any{}, nextPR: 100,
 		commits: map[string][]map[string]any{}, jobs: map[string][]map[string]any{}, releases: map[string]map[string]any{},
+		publicRepos: map[string]bool{}, repoStatuses: map[string]int{}, repoRequests: map[string]int{},
 	}
 	f.srv = httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(f.srv.Close)
@@ -127,7 +131,14 @@ func (f *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/user":
 		body = map[string]any{"login": f.login}
 	case len(parts) == 3 && parts[0] == "repos":
-		body = map[string]any{"default_branch": f.defaultBranch}
+		repo := parts[1] + "/" + parts[2]
+		f.repoRequests[repo]++
+		if status := f.repoStatuses[repo]; status != 0 {
+			w.WriteHeader(status)
+			_, _ = io.WriteString(w, `{"message":"no"}`)
+			return
+		}
+		body = map[string]any{"default_branch": f.defaultBranch, "private": !f.publicRepos[repo]}
 	case len(parts) == 4 && parts[3] == "pulls" && r.Method == http.MethodPost:
 		repo := parts[1] + "/" + parts[2]
 		var in map[string]any

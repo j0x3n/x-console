@@ -41,12 +41,15 @@ func TestActionsUsageNewAPIAndCache(t *testing.T) {
 	env, gh := setup(t)
 	clock := time.Date(2026, 10, 5, 9, 0, 0, 0, time.UTC)
 	githubModule(t, env).SetNow(func() time.Time { return clock })
-	gh.set(func(f *fakeGitHub) { f.billingUsage = readTestdata(t, "billing_usage.json") })
+	gh.set(func(f *fakeGitHub) {
+		f.billingUsage = readTestdata(t, "billing_usage.json")
+		f.publicRepos["jo/x-console"] = true
+	})
 
 	got := usage(t, env, "")
-	// Linux 70+50, Windows 15 counts double, storage and packages left out.
-	if got.Month != "2026-10" || got.UsedMinutes != 150 || got.IncludedMinutes != 2000 ||
-		got.ByOS.Linux != 120 || got.ByOS.Windows != 30 || got.ByOS.Macos != 0 {
+	// Private Linux 70+50 is billed; public Windows 15 counts double separately.
+	if got.Month != "2026-10" || got.UsedMinutes != 120 || got.PublicMinutes != 30 || got.IncludedMinutes != 2000 ||
+		got.ByOS.Linux != 120 || got.ByOS.Windows != 0 || got.ByOS.Macos != 0 {
 		t.Fatalf("usage: %+v", got)
 	}
 	gh.set(func(f *fakeGitHub) {
@@ -54,28 +57,32 @@ func TestActionsUsageNewAPIAndCache(t *testing.T) {
 			t.Errorf("query: %s", f.billingQuery)
 		}
 	})
-	billing := func() (n int) {
-		gh.set(func(f *fakeGitHub) { n = f.billingRequests })
-		return n
+	checkRequests := func(want int) {
+		t.Helper()
+		gh.set(func(f *fakeGitHub) {
+			if f.billingRequests != want || f.repoRequests["jo/app"] != want || f.repoRequests["jo/x-console"] != want {
+				t.Fatalf("want %d requests each, billing: %d, repositories: %v", want, f.billingRequests, f.repoRequests)
+			}
+		})
 	}
-	if billing() != 1 {
-		t.Fatalf("requests: %d", billing())
-	}
+	checkRequests(1)
 	usage(t, env, "")
 	clock = clock.Add(9 * time.Minute)
-	usage(t, env, "")
-	if billing() != 1 {
-		t.Fatalf("cached for 10 minutes, requests: %d", billing())
+	gh.set(func(f *fakeGitHub) { f.publicRepos["jo/x-console"] = false })
+	if got := usage(t, env, ""); got.UsedMinutes != 120 || got.PublicMinutes != 30 {
+		t.Fatalf("cached visibility: %+v", got)
 	}
-	usage(t, env, "?refresh=true")
-	if billing() != 2 {
-		t.Fatalf("refresh, requests: %d", billing())
+	checkRequests(1)
+	if got := usage(t, env, "?refresh=true"); got.UsedMinutes != 150 || got.PublicMinutes != 0 || got.ByOS.Windows != 30 {
+		t.Fatalf("refreshed visibility: %+v", got)
 	}
+	checkRequests(2)
 	clock = clock.Add(11 * time.Minute)
-	usage(t, env, "")
-	if billing() != 3 {
-		t.Fatalf("expired, requests: %d", billing())
+	gh.set(func(f *fakeGitHub) { f.publicRepos["jo/x-console"] = true })
+	if got := usage(t, env, ""); got.UsedMinutes != 120 || got.PublicMinutes != 30 {
+		t.Fatalf("expired visibility: %+v", got)
 	}
+	checkRequests(3)
 
 	// The setting fills in the free minutes; only it changes.
 	var cfg api.GitHubConfig
@@ -91,6 +98,65 @@ func TestActionsUsageNewAPIAndCache(t *testing.T) {
 	}
 }
 
+func TestActionsUsageRepositoryLookupFailureIsBilled(t *testing.T) {
+	for _, status := range []int{http.StatusNotFound, http.StatusForbidden, http.StatusInternalServerError} {
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+			env, gh := setup(t)
+			gh.set(func(f *fakeGitHub) {
+				f.billingUsage = readTestdata(t, "billing_usage.json")
+				f.publicRepos["jo/app"], f.publicRepos["jo/x-console"] = true, true
+				f.repoStatuses["jo/app"] = status
+			})
+			got := usage(t, env, "")
+			if got.UsedMinutes != 120 || got.PublicMinutes != 30 ||
+				got.ByOS.Linux != 120 || got.ByOS.Windows != 0 || got.ByOS.Macos != 0 {
+				t.Fatalf("failed lookup: %+v", got)
+			}
+			gh.set(func(f *fakeGitHub) {
+				if f.repoRequests["jo/app"] != 1 || f.repoRequests["jo/x-console"] != 1 {
+					t.Fatalf("requests: %v", f.repoRequests)
+				}
+				delete(f.repoStatuses, "jo/app")
+			})
+			if got := usage(t, env, ""); got.UsedMinutes != 120 || got.PublicMinutes != 30 {
+				t.Fatalf("cached failed lookup: %+v", got)
+			}
+			if got := usage(t, env, "?refresh=true"); got.UsedMinutes != 0 || got.PublicMinutes != 150 {
+				t.Fatalf("retried lookup: %+v", got)
+			}
+			gh.set(func(f *fakeGitHub) {
+				if f.repoRequests["jo/app"] != 2 || f.repoRequests["jo/x-console"] != 2 {
+					t.Fatalf("refresh requests: %v", f.repoRequests)
+				}
+			})
+		})
+	}
+}
+
+func TestActionsUsageMissingRepositoryNameAndPublicWeights(t *testing.T) {
+	env, gh := setup(t)
+	gh.set(func(f *fakeGitHub) {
+		f.publicRepos["jo/x-console"] = true
+		f.billingUsage = `{"usageItems":[
+			{"product":"Actions","sku":"Actions Linux","quantity":120,"unitType":"minutes","repositoryName":""},
+			{"product":"Actions","sku":"Actions Windows","quantity":15,"unitType":"minutes"},
+			{"product":"Actions","sku":"Actions Linux","quantity":10,"unitType":"minutes","repositoryName":"jo/x-console"},
+			{"product":"Actions","sku":"Actions Windows","quantity":15,"unitType":"minutes","repositoryName":"jo/x-console"},
+			{"product":"Actions","sku":"Actions macOS","quantity":3,"unitType":"minutes","repositoryName":"jo/x-console"}
+		]}`
+	})
+	got := usage(t, env, "")
+	if got.UsedMinutes != 150 || got.PublicMinutes != 70 ||
+		got.ByOS.Linux != 120 || got.ByOS.Windows != 30 || got.ByOS.Macos != 0 {
+		t.Fatalf("usage: %+v", got)
+	}
+	gh.set(func(f *fakeGitHub) {
+		if len(f.repoRequests) != 1 || f.repoRequests["jo/x-console"] != 1 {
+			t.Fatalf("requests: %v", f.repoRequests)
+		}
+	})
+}
+
 func TestActionsUsageLegacyFallback(t *testing.T) {
 	for _, status := range []int{http.StatusNotFound, http.StatusGone} {
 		env, gh := setup(t)
@@ -99,7 +165,7 @@ func TestActionsUsageLegacyFallback(t *testing.T) {
 			f.billingActions = readTestdata(t, "billing_actions.json")
 		})
 		got := usage(t, env, "")
-		if got.UsedMinutes != 150 || got.IncludedMinutes != 2000 || got.ByOS.Linux != 120 || got.ByOS.Windows != 30 {
+		if got.UsedMinutes != 150 || got.PublicMinutes != 0 || got.IncludedMinutes != 2000 || got.ByOS.Linux != 120 || got.ByOS.Windows != 30 {
 			t.Fatalf("%d: %+v", status, got)
 		}
 	}
@@ -184,5 +250,29 @@ func TestCIQuotaNotifications(t *testing.T) {
 	check(1900)
 	if count("github.ci_quota_80") != 2 {
 		t.Fatalf("off: %v", notifications(t, env))
+	}
+}
+
+func TestCIQuotaNotificationsIgnorePublicMinutes(t *testing.T) {
+	env, gh := setup(t)
+	clock := time.Date(2026, 10, 5, 9, 0, 0, 0, time.UTC)
+	m := githubModule(t, env)
+	m.SetNow(func() time.Time { return clock })
+	gh.set(func(f *fakeGitHub) {
+		f.publicRepos["jo/x-console"] = true
+		f.billingUsage = `{"usageItems":[
+			{"product":"Actions","sku":"Actions Linux","quantity":1580,"unitType":"minutes","repositoryName":"jo/app"},
+			{"product":"Actions","sku":"Actions Windows","quantity":250,"unitType":"minutes","repositoryName":"jo/x-console"}
+		]}`
+	})
+	if err := m.CheckCIQuota(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := usage(t, env, "")
+	if got.UsedMinutes != 1580 || got.PublicMinutes != 500 {
+		t.Fatalf("usage: %+v", got)
+	}
+	if countKind(notifications(t, env), "github.ci_quota_80") != 0 || countKind(notifications(t, env), "github.ci_quota_100") != 0 {
+		t.Fatalf("public minutes triggered a notice: %v", notifications(t, env))
 	}
 }

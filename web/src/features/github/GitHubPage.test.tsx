@@ -157,6 +157,7 @@ describe("GitHubPage", () => {
       usedMinutes: 1650,
       includedMinutes: 2000,
       byOS: { linux: 1500, windows: 150, macos: 0 },
+      publicMinutes: 1200,
       fetchedAt: "2026-10-05T10:00:00Z",
     });
     renderPage();
@@ -166,6 +167,7 @@ describe("GitHubPage", () => {
     const card = foot.closest(".xc-stat")!;
     expect(card.textContent).toContain("本月 CI 时长");
     expect(card.textContent).toContain("Linux 1500 · Windows 150");
+    expect(card.textContent).toContain("公开仓库 1200 分钟不收费");
     expect(card.querySelector("[title]")?.getAttribute("title")).toBe(
       "按系统：Linux 1500 · Windows 150 · macOS 0",
     );

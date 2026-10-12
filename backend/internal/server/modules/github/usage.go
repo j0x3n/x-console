@@ -40,12 +40,13 @@ var osWeight = map[string]float64{"linux": 1, "windows": 2, "macos": 10}
 // usageResult is one fetch. includedMinutes is what GitHub said, 0 when it
 // said nothing; the setting fills it in when answering.
 type usageResult struct {
-	login    string
-	connID   int64
-	month    string
-	byOS     map[string]float64 // weighted minutes
-	included int
-	at       time.Time
+	login      string
+	connID     int64
+	month      string
+	byOS       map[string]float64 // private weighted minutes
+	publicByOS map[string]float64 // public weighted minutes
+	included   int
+	at         time.Time
 }
 
 // usageCache keeps the latest result and the login of each token in memory.
@@ -115,6 +116,9 @@ func (m *Module) usageToAPI(ctx context.Context, res usageResult) (api.GitHubAct
 	out.ByOS.Windows = int(math.Round(res.byOS["windows"]))
 	out.ByOS.Macos = int(math.Round(res.byOS["macos"]))
 	out.UsedMinutes = out.ByOS.Linux + out.ByOS.Windows + out.ByOS.Macos
+	for _, minutes := range res.publicByOS {
+		out.PublicMinutes += int(math.Round(minutes))
+	}
 	return out, nil
 }
 
@@ -208,10 +212,11 @@ func usageError(err error) error {
 
 type ghBillingUsage struct {
 	UsageItems []struct {
-		Product  string  `json:"product"`
-		SKU      string  `json:"sku"`
-		Quantity float64 `json:"quantity"`
-		UnitType string  `json:"unitType"`
+		Product        string  `json:"product"`
+		SKU            string  `json:"sku"`
+		Quantity       float64 `json:"quantity"`
+		UnitType       string  `json:"unitType"`
+		RepositoryName string  `json:"repositoryName"`
 	} `json:"usageItems"`
 }
 
@@ -229,14 +234,26 @@ func fetchUsage(ctx context.Context, c *restClient, login string, now time.Time)
 	var fresh ghBillingUsage
 	err := c.get(ctx, user+"/usage", q, &fresh)
 	if err == nil {
-		res := usageResult{byOS: map[string]float64{}}
+		res := usageResult{byOS: map[string]float64{}, publicByOS: map[string]float64{}}
+		publicRepos := map[string]bool{}
 		for _, it := range fresh.UsageItems {
 			unit := strings.ToLower(it.UnitType)
 			if !strings.EqualFold(it.Product, "actions") || (unit != "" && !strings.Contains(unit, "minute")) {
 				continue // storage and other products
 			}
+			isPublic, checked := publicRepos[it.RepositoryName]
+			if !checked && it.RepositoryName != "" {
+				var repo ghRepo
+				// Failed lookups count as billed and are not retried within this fetch.
+				isPublic = c.get(ctx, "/repos/"+it.RepositoryName, nil, &repo) == nil && !repo.Private
+				publicRepos[it.RepositoryName] = isPublic
+			}
 			sys := runnerOS(it.SKU)
-			res.byOS[sys] += it.Quantity * osWeight[sys]
+			byOS := res.byOS
+			if isPublic {
+				byOS = res.publicByOS
+			}
+			byOS[sys] += it.Quantity * osWeight[sys]
 		}
 		return res, nil
 	}

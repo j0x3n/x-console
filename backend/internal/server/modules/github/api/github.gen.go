@@ -148,7 +148,7 @@ type Forge string
 
 // GitHubActionsUsage defines model for GitHubActionsUsage.
 type GitHubActionsUsage struct {
-	// ByOS 按系统分开的折算分钟数
+	// ByOS 只算私有仓库（收费的）。按系统分开的折算分钟数
 	ByOS struct {
 		Linux   int `json:"linux"`
 		Macos   int `json:"macos"`
@@ -164,7 +164,10 @@ type GitHubActionsUsage struct {
 	// Month 哪个月，UTC，例如 2026-10
 	Month string `json:"month"`
 
-	// UsedMinutes 折算后的已用分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍）
+	// PublicMinutes 公开仓库的折算分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍），不收费
+	PublicMinutes int `json:"publicMinutes"`
+
+	// UsedMinutes 只算私有仓库（收费的）。折算后的已用分钟数（Linux 1 倍，Windows 2 倍，macOS 10 倍）
 	UsedMinutes int `json:"usedMinutes"`
 }
 

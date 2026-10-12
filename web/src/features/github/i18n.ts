@@ -6,6 +6,8 @@ registerZh({
   "{total} minutes in total · {percent}% used":
     "共 {total} 分钟 · 已用 {percent}%",
   "By system: {list}": "按系统：{list}",
+  // B177：只算收费的分钟数
+  "Public repos: {n} min, not billed": "公开仓库 {n} 分钟不收费",
   "No billing access": "未授权",
   "The token needs billing read permission": "令牌需要账单读权限",
   min: "分钟",
