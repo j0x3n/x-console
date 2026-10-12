@@ -11,7 +11,12 @@ import {
   Languages,
   type LucideIcon,
 } from "lucide-react";
-import { navGroupLabels, navItems, type NavGroup } from "../../app/nav";
+import {
+  navGroupLabels,
+  navItems,
+  type NavGroup,
+  type NavItem,
+} from "../../app/nav";
 import { moduleOfPath, useModules } from "../../app/modules";
 import { useAuthStatus, useLogout } from "../../api/core";
 import { useT } from "../../contexts/LanguageContext";
@@ -69,11 +74,15 @@ export default function Sidebar({
   // B57：锁定时被隐藏的模块不出现，分组空了整组不显示
   const modules = useModules();
   const { current, currentPath, Panel } = useCurrentNavPanel();
+  const visible = navItems.filter((item) =>
+    modules.has(moduleOfPath(item.path)),
+  );
+  const home = visible.find((item) => item.path === "/");
   const groups = (Object.keys(navGroupLabels) as NavGroup[])
     .map((group) => ({
       group,
-      items: navItems.filter(
-        (item) => item.group === group && modules.has(moduleOfPath(item.path)),
+      items: visible.filter(
+        (item) => item.group === group && item.path !== "/",
       ),
     }))
     .filter((g) => g.items.length > 0);
@@ -122,50 +131,34 @@ export default function Sidebar({
               {t("Search")} <kbd>⌘K</kbd>
             </span>
           </button>
-          {groups.map(({ group, items }, index) => (
-            <Fragment key={group}>
-              <span
-                className={`nav-rail-sep${index === 0 ? " first" : ""}`}
-                aria-hidden
-              />
-              {items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={
-                    item.path === "/"
-                      ? "/"
-                      : lastPathFor(item.path, location.pathname)
-                  }
-                  aria-label={t(item.label)}
-                  onClick={close}
-                  className={`nav-rail-item${item.path === currentPath ? " selected" : ""}`}
-                >
-                  {extras.icons[item.path] ? (
-                    <NavIconMark
-                      hook={extras.icons[item.path]}
-                      fallback={item.icon}
-                    />
-                  ) : (
-                    <item.icon size={18} strokeWidth={1.6} />
-                  )}
-                  {extras.badges[item.path] ? (
-                    <NavBadgeMark hook={extras.badges[item.path]} />
-                  ) : (
-                    extras.statuses[item.path] && (
-                      <NavStatusDot hook={extras.statuses[item.path]} />
-                    )
-                  )}
-                  <span className="nav-rail-tip">
-                    {t(item.label)}
-                    {extras.statuses[item.path] && (
-                      <NavStatusText hook={extras.statuses[item.path]} />
-                    )}
-                  </span>
-                </NavLink>
-              ))}
-            </Fragment>
-          ))}
-          <span className="nav-rail-spacer" />
+          {/* B178：站标、搜索、今日固定在顶部，头像固定在底部，只有中间的模块滚动。窗口矮时回今日不用往回滚 */}
+          {home && (
+            <RailLink
+              item={home}
+              currentPath={currentPath}
+              pathname={location.pathname}
+              extras={extras}
+              onClose={close}
+            />
+          )}
+          <span className="nav-rail-sep first" aria-hidden />
+          <div className="nav-rail-scroll">
+            {groups.map(({ group, items }, index) => (
+              <Fragment key={group}>
+                {index > 0 && <span className="nav-rail-sep" aria-hidden />}
+                {items.map((item) => (
+                  <RailLink
+                    key={item.path}
+                    item={item}
+                    currentPath={currentPath}
+                    pathname={location.pathname}
+                    extras={extras}
+                    onClose={close}
+                  />
+                ))}
+              </Fragment>
+            ))}
+          </div>
           {/* 设置只从头像菜单进（用户 2026-10-05 要求），图标栏不再放 */}
           <ProfileMenu />
         </nav>
@@ -200,6 +193,50 @@ export default function Sidebar({
         )}
       </div>
     </>
+  );
+}
+
+/** 图标栏里的一个模块入口。 */
+function RailLink({
+  item,
+  currentPath,
+  pathname,
+  extras,
+  onClose,
+}: {
+  item: NavItem;
+  currentPath: string | undefined;
+  pathname: string;
+  extras: ReturnType<typeof useNavExtras>;
+  onClose: () => void;
+}) {
+  const t = useT();
+  return (
+    <NavLink
+      to={item.path === "/" ? "/" : lastPathFor(item.path, pathname)}
+      aria-label={t(item.label)}
+      onClick={onClose}
+      className={`nav-rail-item${item.path === currentPath ? " selected" : ""}`}
+    >
+      {extras.icons[item.path] ? (
+        <NavIconMark hook={extras.icons[item.path]} fallback={item.icon} />
+      ) : (
+        <item.icon size={18} strokeWidth={1.6} />
+      )}
+      {extras.badges[item.path] ? (
+        <NavBadgeMark hook={extras.badges[item.path]} />
+      ) : (
+        extras.statuses[item.path] && (
+          <NavStatusDot hook={extras.statuses[item.path]} />
+        )
+      )}
+      <span className="nav-rail-tip">
+        {t(item.label)}
+        {extras.statuses[item.path] && (
+          <NavStatusText hook={extras.statuses[item.path]} />
+        )}
+      </span>
+    </NavLink>
   );
 }
 

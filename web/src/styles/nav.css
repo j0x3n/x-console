@@ -20,12 +20,23 @@
   gap: 2px;
   padding: 14px 0 12px;
   background: var(--xc-panel);
-  /* 窗口矮时图标栏自己滚动，滚动条不显示 */
+  overflow: hidden;
+}
+/* B178：只有中间的模块列表滚动，站标、搜索、今日和头像不动。滚动条不显示 */
+.nav-rail-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 0 12px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
 }
-.nav-rail::-webkit-scrollbar {
+.nav-rail-scroll::-webkit-scrollbar {
   display: none;
 }
 .nav-rail-brand {
@@ -60,10 +71,6 @@
 }
 .nav-rail-sep.first {
   margin-top: 4px;
-}
-.nav-rail-spacer {
-  flex: 1;
-  min-height: 12px;
 }
 .nav-rail-item {
   position: relative;
@@ -351,10 +358,6 @@
   }
   .sidebar.open {
     transform: translateX(0);
-  }
-  .nav-rail {
-    overflow-y: auto;
-    scrollbar-width: none;
   }
   .nav-rail-tip {
     display: none !important;

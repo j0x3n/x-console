@@ -137,10 +137,14 @@ html[data-theme="light"][data-accent="teal"] {
   --xc-accent-soft: #0f766e1a;
   --xc-accent-text: #115e59;
 }
+/* B178 紫罗兰换成站标配色里的电子紫（C7） */
 html[data-theme="light"][data-accent="violet"] {
-  --xc-accent: #7c3aed;
-  --xc-accent-soft: #7c3aed1a;
-  --xc-accent-text: #6d28d9;
+  --xc-accent: #8b2cf5;
+  --xc-accent-soft: #8b2cf51a;
+  --xc-accent-text: #7417e0;
+  --xc-logo-bg: #ede4ff;
+  --xc-logo-fg: #8b2cf5;
+  --xc-logo-fg-2: #8b2cf5;
 }
 html[data-theme="light"][data-accent="rose"] {
   --xc-accent: #e11d48;
@@ -163,9 +167,12 @@ html[data-theme="dark"][data-accent="teal"] {
   --xc-accent-text: #5eead4;
 }
 html[data-theme="dark"][data-accent="violet"] {
-  --xc-accent: #7c4ef0;
-  --xc-accent-soft: #7c4ef026;
-  --xc-accent-text: #c4b5fd;
+  --xc-accent: #8b3dff;
+  --xc-accent-soft: #8b3dff26;
+  --xc-accent-text: #c4a1ff;
+  --xc-logo-bg: #22104a;
+  --xc-logo-fg: #b77bff;
+  --xc-logo-fg-2: #b77bff;
 }
 html[data-theme="dark"][data-accent="rose"] {
   --xc-accent: #e0335a;
