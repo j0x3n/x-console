@@ -92,7 +92,7 @@ func TestMemoryInPanelAndAgents(t *testing.T) {
 	env.MustDo(http.MethodPost, fmt.Sprintf("/ai/conversations/%d/messages", conversation.Id), map[string]any{"text": "记住周报周五写"}, nil)
 	await(t, env, conversation.Id, func(d api.ConversationDetail) bool { return !d.Running && len(fake.Calls) == 2 })
 	first := fake.Calls[0]
-	if !strings.Contains(first.System, "主路由是 OpenWrt") || !strings.Contains(first.System, "memory__save") {
+	if !strings.Contains(first.System, "主路由是 OpenWrt") || !strings.Contains(first.System, "memory__save") || strings.Contains(first.Messages[0].Content, "主路由是 OpenWrt") {
 		t.Fatalf("panel system prompt: %q", first.System)
 	}
 	tools := map[string]bool{}

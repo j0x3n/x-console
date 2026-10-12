@@ -100,8 +100,7 @@ func (m *Module) system(context.Context) string {
 	return systemPrompt + "\n" + fmt.Sprintf("时区：%s。每条用户消息后面附有发送时的时间等情况。", m.d.Config.Location)
 }
 
-// panelSystem is the system prompt of the panel AI: the base, when to write
-// memory, and the memory itself (B61).
+// panelSystem 把记忆放在固定规则末尾，避免每轮历史重复保存。
 func (m *Module) panelSystem(ctx context.Context) string {
 	out := m.system(ctx)
 	if !m.memoryEnabled(ctx) {
@@ -164,7 +163,7 @@ func (m *Module) generate(ctx, visible context.Context, id int64) error {
 		if err != nil {
 			return err
 		}
-		stream, err := m.llm.Stream(ctx, llm.Request{Purpose: "agent", System: prompt, Messages: history, Tools: tools})
+		stream, err := m.llm.Stream(ctx, llm.Request{Purpose: "agent", CacheKey: cacheKey(ctx, "agent"), System: prompt, Messages: history, Tools: tools})
 		if err != nil {
 			return err
 		}
@@ -219,7 +218,10 @@ func (m *Module) generate(ctx, visible context.Context, id int64) error {
 					continue
 				}
 				effect := hostagent.Classify(use.Name, input)
-				mode := m.permission(id)
+				mode, err := m.permission(ctx, id)
+				if err != nil {
+					return err
+				}
 				confirm := effect == hostagent.Dangerous || mode == api.Confirm || mode == api.ReadAuto && effect != hostagent.Read
 				name := strings.ReplaceAll(use.Name, "__", ".")
 				if confirm {
@@ -533,6 +535,7 @@ func (m *Module) completeAfterDecisions(ctx context.Context, id int64, resume bo
 	state := &generation{cancel: cancel}
 	m.running[id] = state
 	m.mu.Unlock()
+	m.d.Bus.Publish("ai.message_started", map[string]any{"conversationId": id})
 	go m.run(worker, id, auth.FromContext(ctx), state)
 	return nil
 }

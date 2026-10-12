@@ -3,6 +3,7 @@ package notes_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -210,7 +211,7 @@ func TestNoteAIToolsOnDemand(t *testing.T) {
 		t.Fatalf("polish: %q", polished.Body)
 	}
 	call := fake.Calls[len(fake.Calls)-1]
-	if !strings.Contains(call.System, "改成要点列表") || call.Messages[0].Content != "周报 完成了接口" {
+	if strings.Contains(call.System, "改成要点列表") || !strings.Contains(call.Messages[0].Content, "改成要点列表") || !strings.Contains(call.Messages[0].Content, "周报 完成了接口") {
 		t.Fatalf("polish request: %+v", call)
 	}
 	fake.Queue(llm.Result{Text: `{"title":"本周工作总结和下周计划安排说明文档"}`}, nil)
@@ -233,5 +234,33 @@ func TestNoteAIToolsOnDemand(t *testing.T) {
 	}
 	if status, _ := env.Do(http.MethodPost, "/notes/ai/polish", map[string]any{"body": "   "}, nil); status != http.StatusBadRequest {
 		t.Fatalf("empty body: %d", status)
+	}
+}
+
+func TestNoteAIPrefixIgnoresRequestsAndTagChanges(t *testing.T) {
+	env, delay, fake := setupNoteAI(t)
+	for _, request := range []string{"改成列表", "改成段落"} {
+		fake.Queue(llm.Result{Text: "结果"}, nil)
+		env.MustDo("POST", "/notes/ai/polish", map[string]any{"body": "笔记正文", "prompt": request}, nil)
+	}
+	if fake.Calls[0].System != fake.Calls[1].System || !strings.Contains(fake.Calls[1].Messages[0].Content, "改成段落") {
+		t.Fatal("润色要求改变了 system 或丢失")
+	}
+	for _, tag := range []string{"已有标签", "新增标签"} {
+		env.MustDo("POST", "/notes", map[string]any{"title": "手写标题", "body": "短正文", "tags": []string{tag}}, nil)
+		fake.Queue(llm.Result{Text: `{"tags":["已有标签"]}`}, nil)
+		env.MustDo("POST", "/notes/ai/tags", map[string]any{"body": "笔记正文"}, nil)
+	}
+	if fake.Calls[2].System != fake.Calls[3].System || strings.Contains(fake.Calls[3].System, "新增标签") || !strings.Contains(fake.Calls[3].Messages[0].Content, "新增标签") {
+		t.Fatal("标签变化改变了 system 或丢失")
+	}
+	for i, tag := range []string{"自动前标签", "自动后标签"} {
+		env.MustDo("POST", "/notes", map[string]any{"title": "手写标题", "body": "短正文", "tags": []string{tag}}, nil)
+		fake.Queue(llm.Result{Text: `{"title":"自动标题","tags":["已有标签"]}`}, nil)
+		env.MustDo("POST", "/notes", map[string]any{"body": strings.Repeat(fmt.Sprintf("第 %d 轮自动笔记正文。", i), 30)}, nil)
+		delay.Fire()
+	}
+	if len(fake.Calls) != 6 || fake.Calls[4].System != fake.Calls[5].System || !strings.Contains(fake.Calls[5].Messages[0].Content, "自动后标签") {
+		t.Fatalf("自动标题标签前缀：%+v", fake.Calls)
 	}
 }

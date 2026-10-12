@@ -44,17 +44,13 @@ var polishScenes = map[api.PolishScene]string{
 	api.General:  `整理成通顺、清楚、简洁的文字。`,
 }
 
-// polishPrompt is the system prompt for a scene and an optional user request.
-func polishPrompt(scene api.PolishScene, request string) (string, bool) {
+// polishPrompt 只返回场景的固定说明。
+func polishPrompt(scene api.PolishScene, _ string) (string, bool) {
 	extra, ok := polishScenes[scene]
 	if !ok {
 		return "", false
 	}
-	system := polishBase + "\n\n" + extra
-	if request = strings.TrimSpace(request); request != "" {
-		system += "\n\n这次用户的要求（优先按它来）：" + request
-	}
-	return system, true
+	return polishBase + "\n\n" + extra, true
 }
 
 // PolishText is POST /ai/polish (B56).
@@ -83,6 +79,9 @@ func (m *Module) PolishText(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	if request = strings.TrimSpace(request); request != "" {
+		text = "这次用户的要求（优先按它来）：" + request + "\n\n原文：\n" + text
+	}
 	defer cancel()
 	out, err := m.CompleteText(contracts.WithAIUsage(ctx, "polish", string(in.Scene)), "fast", system, text)
 	if errors.Is(err, llm.ErrNotConfigured) {

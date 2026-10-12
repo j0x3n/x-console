@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 	"time"
@@ -32,4 +33,14 @@ func PolishPromptForTest(scene, request string) (string, bool) {
 // HostSystemForTest exposes the machine conversation prompt (B61).
 func (m *Module) HostSystemForTest(ctx context.Context, hostID string) string {
 	return m.hostSystem(ctx, hostID)
+}
+
+// GenerateForTest 同步完成一轮，避免后台读写竞争。
+func (m *Module) GenerateForTest(ctx context.Context, id int64) error {
+	return m.generate(auth.WithoutVault(ctx), ctx, id)
+}
+
+// SaveTurnForTest 使用实际消息保存流程。
+func (m *Module) SaveTurnForTest(ctx context.Context, id int64, hostID *string, text string) error {
+	return m.saveMessage(ctx, id, "user", []map[string]any{{"type": "text", "text": text}, {"type": "text", "text": m.turnContext(ctx, hostID), "context": true}})
 }

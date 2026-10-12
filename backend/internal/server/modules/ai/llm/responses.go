@@ -64,6 +64,9 @@ func responsesBody(cfg Config, req Request, fallbackJSON, stream bool) (map[stri
 		}
 	}
 	body := map[string]any{"model": cfg.Model, "input": input, "store": false, "stream": stream}
+	if !req.omitCacheKey {
+		body["prompt_cache_key"] = req.cacheKey()
+	}
 	if instructions != "" {
 		body["instructions"] = instructions
 	}
@@ -175,13 +178,11 @@ func (r responseObject) result() Result {
 	return out
 }
 
-// retryResponses runs call and, like the chat side, drops the reasoning
-// setting or the JSON schema format when the endpoint says it does not
-// support them.
+// retryResponses 移除供应商不支持的推理、格式或缓存字段后重试。
 func (s *service) retryResponses(ctx context.Context, cfg Config, req Request, stream bool) (*http.Response, Config, bool, error) {
 	fallbackJSON := false
 	var err error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 4; attempt++ {
 		var body map[string]any
 		body, err = responsesBody(cfg, req, fallbackJSON, stream)
 		if err != nil {
@@ -201,6 +202,10 @@ func (s *service) retryResponses(ctx context.Context, cfg Config, req Request, s
 		}
 		if len(req.JSONSchema) > 0 && !fallbackJSON && (unsupported(err, "text.format") || unsupported(err, "json_schema")) {
 			fallbackJSON = true
+			continue
+		}
+		if !req.omitCacheKey && unsupported(err, "prompt_cache_key") {
+			req.omitCacheKey = true
 			continue
 		}
 		return nil, cfg, fallbackJSON, err

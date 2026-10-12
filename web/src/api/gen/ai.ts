@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/ai/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAiSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/conversations": {
         parameters: {
             query?: never;
@@ -393,7 +409,7 @@ export interface paths {
         /** @description B33。这台机器的 Agent 会话，按更新时间倒序。AI 浮窗的列表里不显示这些。 */
         get: operations["listHostAgentConversations"];
         put?: never;
-        /** @description 新会话的权限是 confirm（每步确认）。消息、停止、确认和拒绝用 /ai/conversations 下的接口。 */
+        /** @description 默认权限是 confirm。可以指定 mode，all_auto 要二次验证。消息、停止、确认和拒绝用 /ai/conversations 下的接口。 */
         post: operations["createHostAgentConversation"];
         delete?: never;
         options?: never;
@@ -411,7 +427,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description B33。只对机器的会话有效，其他会话回 400。all_auto 要提升权限，只在内存里生效，服务重启或 2 小时没有消息后回到 confirm。 */
+        /** @description 只对机器会话有效。权限存库。all_auto 要二次验证，2 小时没有新消息后回到 confirm。 */
         put: operations["setAiConversationPermission"];
         post?: never;
         delete?: never;
@@ -540,6 +556,30 @@ export interface components {
         };
         PolishResult: {
             text: string;
+        };
+        AiSession: {
+            /** @description chat、host 或 run 加冒号和记录 id */
+            id: string;
+            /** @enum {string} */
+            kind: "chat" | "host" | "agent";
+            /** Format: int64 */
+            refId: number;
+            title: string;
+            sourceName: string;
+            hostId?: string;
+            /** Format: int64 */
+            agentId?: number;
+            agentKind?: string;
+            agentAvatar?: string;
+            agentColor?: string;
+            issueKey?: string;
+            /** Format: int64 */
+            taskId?: number;
+            /** @enum {string} */
+            status: "working" | "waiting" | "idle" | "done" | "failed" | "canceled";
+            pendingCount: number;
+            /** Format: date-time */
+            updatedAt: string;
         };
         Conversation: {
             /** Format: int64 */
@@ -929,6 +969,29 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listAiSessions: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 统一会话列表。工作中和待确认的在前，同组按最后变化时间倒序。 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSession"][];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listAiConversations: {
         parameters: {
             query?: never;
@@ -1601,6 +1664,7 @@ export interface operations {
             content: {
                 "application/json": {
                     title?: string;
+                    mode?: components["schemas"]["HostAgentPermission"];
                 };
             };
         };

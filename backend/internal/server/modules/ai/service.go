@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
 )
 
@@ -15,7 +16,7 @@ func (m *Module) Available(ctx context.Context) bool {
 }
 
 func (m *Module) CompleteText(ctx context.Context, purpose, system, user string) (string, error) {
-	result, err := m.llm.Complete(ctx, llm.Request{Purpose: purpose, System: system, Messages: []llm.Message{{Role: "user", Content: user}}})
+	result, err := m.llm.Complete(ctx, llm.Request{Purpose: purpose, CacheKey: cacheKey(ctx, purpose), System: system, Messages: []llm.Message{{Role: "user", Content: user}}})
 	text := strings.TrimSpace(result.Text)
 	if err == nil && result.Truncated {
 		if text == "" {
@@ -29,7 +30,7 @@ func (m *Module) CompleteText(ctx context.Context, purpose, system, user string)
 var errTruncated = errors.New("模型回复达到长度上限，被截断了，没有拿到结果")
 
 func (m *Module) CompleteJSON(ctx context.Context, purpose, system, user string, schema json.RawMessage, out any) error {
-	result, err := m.llm.Complete(ctx, llm.Request{Purpose: purpose, System: system, Messages: []llm.Message{{Role: "user", Content: user}}, JSONSchema: schema})
+	result, err := m.llm.Complete(ctx, llm.Request{Purpose: purpose, CacheKey: cacheKey(ctx, purpose), System: system, Messages: []llm.Message{{Role: "user", Content: user}}, JSONSchema: schema})
 	if err != nil {
 		return err
 	}
@@ -37,4 +38,18 @@ func (m *Module) CompleteJSON(ctx context.Context, purpose, system, user string,
 		return errTruncated
 	}
 	return json.Unmarshal([]byte(result.Text), out)
+}
+
+func cacheKey(ctx context.Context, purpose string) string {
+	u := contracts.AIUsageFrom(ctx)
+	if u.Source == "" {
+		return purpose
+	}
+	switch u.Source {
+	case "assistant", "host_agent", "coding", "ai_agent", "polish":
+		if u.Ref != "" {
+			return u.Source + ":" + u.Ref
+		}
+	}
+	return u.Source
 }

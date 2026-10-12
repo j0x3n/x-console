@@ -21,8 +21,8 @@ func TestPolishPromptScenes(t *testing.T) {
 		t.Fatalf("card prompt should differ from note and ask for a professional tone: %q", card)
 	}
 	withAsk, _ := ai.PolishPromptForTest("note", " 改成要点列表 ")
-	if !strings.HasSuffix(withAsk, "改成要点列表") {
-		t.Fatalf("user request not appended: %q", withAsk)
+	if withAsk != note {
+		t.Fatalf("用户要求改变了系统提示：%q", withAsk)
 	}
 	if _, ok := ai.PolishPromptForTest("poem", ""); ok {
 		t.Fatal("unknown scene accepted")

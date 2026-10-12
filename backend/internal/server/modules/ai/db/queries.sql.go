@@ -11,7 +11,7 @@ import (
 )
 
 const createConversation = `-- name: CreateConversation :one
-INSERT INTO ai_conversations(title,created_at,updated_at,permission,model,effort) VALUES(?,?,?,?,?,?) RETURNING id, title, created_at, updated_at, host_id, permission, model, effort
+INSERT INTO ai_conversations(title,created_at,updated_at,permission,model,effort) VALUES(?,?,?,?,?,?) RETURNING id, title, created_at, updated_at, host_id, permission, model, effort, host_permission, host_permission_until
 `
 
 type CreateConversationParams struct {
@@ -42,6 +42,8 @@ func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversation
 		&i.Permission,
 		&i.Model,
 		&i.Effort,
+		&i.HostPermission,
+		&i.HostPermissionUntil,
 	)
 	return i, err
 }
@@ -59,7 +61,7 @@ func (q *Queries) DeleteConversation(ctx context.Context, id int64) (int64, erro
 }
 
 const getConversation = `-- name: GetConversation :one
-SELECT id, title, created_at, updated_at, host_id, permission, model, effort FROM ai_conversations WHERE id=? LIMIT 1
+SELECT id, title, created_at, updated_at, host_id, permission, model, effort, host_permission, host_permission_until FROM ai_conversations WHERE id=? LIMIT 1
 `
 
 func (q *Queries) GetConversation(ctx context.Context, id int64) (AiConversation, error) {
@@ -74,12 +76,14 @@ func (q *Queries) GetConversation(ctx context.Context, id int64) (AiConversation
 		&i.Permission,
 		&i.Model,
 		&i.Effort,
+		&i.HostPermission,
+		&i.HostPermissionUntil,
 	)
 	return i, err
 }
 
 const listConversations = `-- name: ListConversations :many
-SELECT id, title, created_at, updated_at, host_id, permission, model, effort FROM ai_conversations WHERE host_id IS NULL ORDER BY updated_at DESC,id DESC
+SELECT id, title, created_at, updated_at, host_id, permission, model, effort, host_permission, host_permission_until FROM ai_conversations WHERE host_id IS NULL ORDER BY updated_at DESC,id DESC
 `
 
 func (q *Queries) ListConversations(ctx context.Context) ([]AiConversation, error) {
@@ -100,6 +104,8 @@ func (q *Queries) ListConversations(ctx context.Context) ([]AiConversation, erro
 			&i.Permission,
 			&i.Model,
 			&i.Effort,
+			&i.HostPermission,
+			&i.HostPermissionUntil,
 		); err != nil {
 			return nil, err
 		}

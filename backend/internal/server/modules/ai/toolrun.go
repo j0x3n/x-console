@@ -70,7 +70,7 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 	}
 	history := []llm.Message{{Role: "user", Content: in.Prompt}}
 	for turn := 0; turn < turns; turn++ {
-		res, err := m.llm.Complete(ctx, llm.Request{Purpose: "agent", System: in.System, Messages: history, Tools: tools})
+		res, err := m.llm.Complete(ctx, llm.Request{Purpose: "agent", CacheKey: cacheKey(ctx, "agent"), System: in.System, Messages: history, Tools: tools})
 		if err != nil {
 			return "", err
 		}
@@ -95,6 +95,8 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 					content = answer
 				}
 			} else if a, ok := allowed[call.Name]; !ok {
+				content, isErr = "没有这个工具，或者这个 Agent 不能用它", true
+			} else if _, visible := m.d.Actions.Get(visible, a.Name); !visible {
 				content, isErr = "没有这个工具，或者这个 Agent 不能用它", true
 			} else {
 				args := call.Arguments

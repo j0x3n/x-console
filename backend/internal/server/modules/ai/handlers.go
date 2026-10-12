@@ -113,7 +113,6 @@ func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id
 	}
 	m.deleteAttachmentFiles(r.Context(), attachments) // rows went with the conversation
 	m.mu.Lock()
-	delete(m.permissions, id)
 	delete(m.panelAll, id)
 	delete(m.lastAgent, id)
 	m.mu.Unlock()
@@ -121,6 +120,9 @@ func (m *Module) DeleteAiConversation(w http.ResponseWriter, r *http.Request, id
 	httpx.NoContent(w)
 }
 func (m *Module) GetAiConversation(w http.ResponseWriter, r *http.Request, id api.ConversationId) {
+	if m.fail(w, r, m.expireHostPermission(r.Context(), id)) {
+		return
+	}
 	row, err := m.q.GetConversation(r.Context(), id)
 	if m.fail(w, r, notFound(err)) {
 		return
@@ -213,7 +215,11 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		return
 	}
 	if row.HostID != nil {
-		m.touchPermission(id)
+		if err := m.touchPermission(ctx, id); err != nil {
+			m.stop(id)
+			httpx.Fail(w, r, err)
+			return
+		}
 	} else {
 		m.touchPanel(id)
 	}
@@ -223,6 +229,7 @@ func (m *Module) SendAiMessage(w http.ResponseWriter, r *http.Request, id api.Co
 		return
 	}
 	session := auth.FromContext(ctx)
+	m.d.Bus.Publish("ai.message_started", map[string]any{"conversationId": id})
 	go m.run(worker, id, session, state)
 	httpx.JSON(w, 202, nil)
 }
@@ -279,7 +286,11 @@ func (m *Module) saveMessage(ctx context.Context, id int64, role string, blocks 
 	if err != nil {
 		return err
 	}
-	_, err = m.d.DB.ExecContext(ctx, "INSERT INTO ai_messages(conversation_id,seq,role,content,created_at) VALUES(?,(SELECT COALESCE(max(seq),0)+1 FROM ai_messages WHERE conversation_id=?),?,?,?)", id, id, role, string(raw), time.Now().UTC())
+	now := m.now().UTC()
+	_, err = m.d.DB.ExecContext(ctx, "INSERT INTO ai_messages(conversation_id,seq,role,content,created_at) VALUES(?,(SELECT COALESCE(max(seq),0)+1 FROM ai_messages WHERE conversation_id=?),?,?,?)", id, id, role, string(raw), now)
+	if err == nil {
+		_, err = m.d.DB.ExecContext(ctx, "UPDATE ai_conversations SET updated_at=? WHERE id=?", now, id)
+	}
 	if err == nil {
 		m.d.Bus.Publish("ai.message_saved", map[string]any{"conversationId": id})
 	}

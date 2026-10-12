@@ -47,11 +47,14 @@ type Tool struct {
 }
 
 type Request struct {
-	Purpose    string
-	System     string
-	Messages   []Message
-	Tools      []Tool
-	JSONSchema json.RawMessage
+	Purpose string
+	// CacheKey 按会话或用途标识缓存。空值使用 Purpose。
+	CacheKey     string
+	omitCacheKey bool
+	System       string
+	Messages     []Message
+	Tools        []Tool
+	JSONSchema   json.RawMessage
 }
 
 type Result struct {
@@ -126,6 +129,9 @@ func New(resolve ResolveFunc, record RecordFunc, unsupported UnsupportedFunc) Cl
 
 func requestParams(cfg Config, req Request, fallbackJSON bool) (openai.ChatCompletionNewParams, error) {
 	params := openai.ChatCompletionNewParams{Model: openai.ChatModel(cfg.Model)}
+	if !req.omitCacheKey {
+		params.PromptCacheKey = param.NewOpt(req.cacheKey())
+	}
 	if req.System != "" {
 		params.Messages = append(params.Messages, openai.SystemMessage(req.System))
 	}
@@ -211,7 +217,7 @@ func (s *service) Complete(ctx context.Context, req Request) (result Result, err
 	}
 	client := sdk(cfg)
 	fallbackJSON := false
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 4; attempt++ {
 		var params openai.ChatCompletionNewParams
 		params, err = requestParams(cfg, req, fallbackJSON)
 		if err != nil {
@@ -244,6 +250,10 @@ func (s *service) Complete(ctx context.Context, req Request) (result Result, err
 		}
 		if len(req.JSONSchema) > 0 && !fallbackJSON && unsupported(err, "response_format") {
 			fallbackJSON = true
+			continue
+		}
+		if !req.omitCacheKey && unsupported(err, "prompt_cache_key") {
+			req.omitCacheKey = true
 			continue
 		}
 		return result, err
@@ -292,7 +302,7 @@ func (s *service) Stream(ctx context.Context, req Request) (Stream, error) {
 	var inner *stream
 	fallbackJSON := false
 	var lastErr error
-	for attempt := 0; attempt < 3; attempt++ {
+	for attempt := 0; attempt < 4; attempt++ {
 		params, err := requestParams(cfg, req, fallbackJSON)
 		if err != nil {
 			if s.record != nil {
@@ -325,6 +335,10 @@ func (s *service) Stream(ctx context.Context, req Request) (Stream, error) {
 			fallbackJSON = true
 			continue
 		}
+		if !req.omitCacheKey && unsupported(err, "prompt_cache_key") {
+			req.omitCacheKey = true
+			continue
+		}
 		if s.record != nil {
 			s.record(context.WithoutCancel(ctx), cfg, req.Purpose, Result{}, time.Since(start), err)
 		}
@@ -334,6 +348,16 @@ func (s *service) Stream(ctx context.Context, req Request) (Stream, error) {
 		s.record(context.WithoutCancel(ctx), cfg, req.Purpose, Result{}, time.Since(start), lastErr)
 	}
 	return nil, lastErr
+}
+
+func (r Request) cacheKey() string {
+	if r.CacheKey != "" {
+		return r.CacheKey
+	}
+	if r.Purpose != "" {
+		return r.Purpose
+	}
+	return "ai"
 }
 
 func (s *stream) Next() bool {

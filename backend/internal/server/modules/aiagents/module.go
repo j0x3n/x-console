@@ -58,6 +58,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.GitAccounts](d.Registry, contracts.GitAccountsKey, m) // B62
 	module.Provide[contracts.GitIssues](d.Registry, contracts.GitIssuesKey, m)
 	module.Provide[contracts.AgentRuns](d.Registry, contracts.AgentRunsKey, m)
+	module.Provide[contracts.AISessionRuns](d.Registry, contracts.AISessionRunsKey, m)
 	d.Notify.OnAction("ai_agent.", m.notificationAction)
 	module.Provide[contracts.CodingQuestions](d.Registry, contracts.CodingQuestionsKey, m)
 	m.registerActions()

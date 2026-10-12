@@ -5,6 +5,7 @@ info:
   description: |
     AI 助手。工具来自动作目录，隐藏内容（B13）对助手不可见。
     发消息后接口立即返回，回复通过事件推送：
+    - ai.message_started：{conversationId} 开始生成
     - ai.delta：{conversationId, text} 文本增量
     - ai.message_saved：{conversationId} 存了一条新消息（比如工具调用和结果），前端重新拉对话
     - ai.action_pending：{conversationId, action: PendingAction} 有动作等确认
@@ -15,6 +16,24 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /ai/sessions:
+    get:
+      operationId: listAiSessions
+      tags: [ai]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100, minimum: 1, maximum: 300 }
+      responses:
+        "200":
+          description: 统一会话列表。工作中和待确认的在前，同组按最后变化时间倒序。
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AiSession" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /ai/conversations:
     get:
       operationId: listAiConversations
@@ -482,7 +501,7 @@ paths:
     post:
       operationId: createHostAgentConversation
       tags: [host-agent]
-      description: 新会话的权限是 confirm（每步确认）。消息、停止、确认和拒绝用 /ai/conversations 下的接口。
+      description: 默认权限是 confirm。可以指定 mode，all_auto 要二次验证。消息、停止、确认和拒绝用 /ai/conversations 下的接口。
       requestBody:
         content:
           application/json:
@@ -490,6 +509,7 @@ paths:
               type: object
               properties:
                 title: { type: string }
+                mode: { $ref: "#/components/schemas/HostAgentPermission" }
       responses:
         "201":
           description: 已创建
@@ -504,7 +524,7 @@ paths:
     put:
       operationId: setAiConversationPermission
       tags: [host-agent]
-      description: B33。只对机器的会话有效，其他会话回 400。all_auto 要提升权限，只在内存里生效，服务重启或 2 小时没有消息后回到 confirm。
+      description: 只对机器会话有效。权限存库。all_auto 要二次验证，2 小时没有新消息后回到 confirm。
       requestBody:
         required: true
         content:
@@ -695,6 +715,28 @@ components:
       required: [text]
       properties:
         text: { type: string }
+    AiSession:
+      type: object
+      required: [id, kind, refId, title, sourceName, status, pendingCount, updatedAt]
+      properties:
+        id: { type: string, description: chat、host 或 run 加冒号和记录 id }
+        kind:
+          type: string
+          enum: [chat, host, agent]
+          x-enum-varnames: [SessionChat, SessionHost, SessionAgent]
+        refId: { type: integer, format: int64 }
+        title: { type: string }
+        sourceName: { type: string }
+        hostId: { type: string }
+        agentId: { type: integer, format: int64 }
+        agentKind: { type: string }
+        agentAvatar: { type: string }
+        agentColor: { type: string }
+        issueKey: { type: string }
+        taskId: { type: integer, format: int64 }
+        status: { type: string, enum: [working, waiting, idle, done, failed, canceled] }
+        pendingCount: { type: integer }
+        updatedAt: { type: string, format: date-time }
     Conversation:
       type: object
       required: [id, title, createdAt, updatedAt]

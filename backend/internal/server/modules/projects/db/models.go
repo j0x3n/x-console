@@ -95,14 +95,16 @@ type AiAttachment struct {
 }
 
 type AiConversation struct {
-	ID         int64
-	Title      string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	HostID     *string
-	Permission string
-	Model      string
-	Effort     string
+	ID                  int64
+	Title               string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	HostID              *string
+	Permission          string
+	Model               string
+	Effort              string
+	HostPermission      string
+	HostPermissionUntil *time.Time
 }
 
 type AiMemory struct {

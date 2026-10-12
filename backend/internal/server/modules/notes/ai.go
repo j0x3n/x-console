@@ -273,11 +273,12 @@ func (m *Module) processNoteAI(ctx context.Context, id int64, quick bool) error 
 		Title string   `json:"title"`
 		Tags  []string `json:"tags"`
 	}
-	system := "给笔记生成 20 字以内的中文标题和最多 3 个标签。尽量从已有标签中选，只有很确定时才新建。只返回 JSON。已有标签：" + strings.Join(names, "、")
+	system := "给笔记生成 20 字以内的中文标题和最多 3 个标签。尽量从已有标签中选，只有很确定时才新建。只返回 JSON。"
 	input := body
 	if runes := []rune(input); len(runes) > maxNoteAIInput {
 		input = string(runes[:maxNoteAIInput])
 	}
+	input = "已有标签：" + strings.Join(names, "、") + "\n\n笔记：\n" + input
 	if err := client.CompleteJSON(contracts.WithAIUsage(ctx, "notes", ""), "fast", system, input, json.RawMessage(noteAISchema), &answer); err != nil {
 		return err
 	}

@@ -132,6 +132,57 @@ func (e AiPermission) Valid() bool {
 	}
 }
 
+// Defines values for AiSessionKind.
+const (
+	SessionAgent AiSessionKind = "agent"
+	SessionChat  AiSessionKind = "chat"
+	SessionHost  AiSessionKind = "host"
+)
+
+// Valid indicates whether the value is a known member of the AiSessionKind enum.
+func (e AiSessionKind) Valid() bool {
+	switch e {
+	case SessionAgent:
+		return true
+	case SessionChat:
+		return true
+	case SessionHost:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AiSessionStatus.
+const (
+	AiSessionStatusCanceled AiSessionStatus = "canceled"
+	AiSessionStatusDone     AiSessionStatus = "done"
+	AiSessionStatusFailed   AiSessionStatus = "failed"
+	AiSessionStatusIdle     AiSessionStatus = "idle"
+	AiSessionStatusWaiting  AiSessionStatus = "waiting"
+	AiSessionStatusWorking  AiSessionStatus = "working"
+)
+
+// Valid indicates whether the value is a known member of the AiSessionStatus enum.
+func (e AiSessionStatus) Valid() bool {
+	switch e {
+	case AiSessionStatusCanceled:
+		return true
+	case AiSessionStatusDone:
+		return true
+	case AiSessionStatusFailed:
+		return true
+	case AiSessionStatusIdle:
+		return true
+	case AiSessionStatusWaiting:
+		return true
+	case AiSessionStatusWorking:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AiUsageByModelPurpose.
 const (
 	AiUsageByModelPurposeAgent AiUsageByModelPurpose = "agent"
@@ -290,25 +341,25 @@ func (e PendingActionEffect) Valid() bool {
 
 // Defines values for PendingActionStatus.
 const (
-	Approved PendingActionStatus = "approved"
-	Done     PendingActionStatus = "done"
-	Failed   PendingActionStatus = "failed"
-	Pending  PendingActionStatus = "pending"
-	Rejected PendingActionStatus = "rejected"
+	PendingActionStatusApproved PendingActionStatus = "approved"
+	PendingActionStatusDone     PendingActionStatus = "done"
+	PendingActionStatusFailed   PendingActionStatus = "failed"
+	PendingActionStatusPending  PendingActionStatus = "pending"
+	PendingActionStatusRejected PendingActionStatus = "rejected"
 )
 
 // Valid indicates whether the value is a known member of the PendingActionStatus enum.
 func (e PendingActionStatus) Valid() bool {
 	switch e {
-	case Approved:
+	case PendingActionStatusApproved:
 		return true
-	case Done:
+	case PendingActionStatusDone:
 		return true
-	case Failed:
+	case PendingActionStatusFailed:
 		return true
-	case Pending:
+	case PendingActionStatusPending:
 		return true
-	case Rejected:
+	case PendingActionStatusRejected:
 		return true
 	default:
 		return false
@@ -653,6 +704,33 @@ type AiProviderTest struct {
 	Ok         bool   `json:"ok"`
 }
 
+// AiSession defines model for AiSession.
+type AiSession struct {
+	AgentAvatar *string `json:"agentAvatar,omitempty"`
+	AgentColor  *string `json:"agentColor,omitempty"`
+	AgentId     *int64  `json:"agentId,omitempty"`
+	AgentKind   *string `json:"agentKind,omitempty"`
+	HostId      *string `json:"hostId,omitempty"`
+
+	// Id chat、host 或 run 加冒号和记录 id
+	Id           string          `json:"id"`
+	IssueKey     *string         `json:"issueKey,omitempty"`
+	Kind         AiSessionKind   `json:"kind"`
+	PendingCount int             `json:"pendingCount"`
+	RefId        int64           `json:"refId"`
+	SourceName   string          `json:"sourceName"`
+	Status       AiSessionStatus `json:"status"`
+	TaskId       *int64          `json:"taskId,omitempty"`
+	Title        string          `json:"title"`
+	UpdatedAt    time.Time       `json:"updatedAt"`
+}
+
+// AiSessionKind defines model for AiSession.Kind.
+type AiSessionKind string
+
+// AiSessionStatus defines model for AiSession.Status.
+type AiSessionStatus string
+
 // AiUsage defines model for AiUsage.
 type AiUsage struct {
 	ByModel []struct {
@@ -969,7 +1047,9 @@ type SetAiConversationPermissionJSONBody struct {
 
 // CreateHostAgentConversationJSONBody defines parameters for CreateHostAgentConversation.
 type CreateHostAgentConversationJSONBody struct {
-	Title *string `json:"title,omitempty"`
+	// Mode B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
+	Mode  *HostAgentPermission `json:"mode,omitempty"`
+	Title *string              `json:"title,omitempty"`
 }
 
 // SetAiMemoryEnabledJSONBody defines parameters for SetAiMemoryEnabled.
@@ -980,6 +1060,11 @@ type SetAiMemoryEnabledJSONBody struct {
 // ListAiModelsParams defines parameters for ListAiModels.
 type ListAiModelsParams struct {
 	ProviderId *int64 `form:"providerId,omitempty" json:"providerId,omitempty"`
+}
+
+// ListAiSessionsParams defines parameters for ListAiSessions.
+type ListAiSessionsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // GetAiUsageParams defines parameters for GetAiUsage.
@@ -1343,6 +1428,9 @@ type ServerInterface interface {
 	// (POST /ai/providers/{providerId}/test)
 	TestAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId)
 
+	// (GET /ai/sessions)
+	ListAiSessions(w http.ResponseWriter, r *http.Request, params ListAiSessionsParams)
+
 	// (GET /ai/tools)
 	ListAiTools(w http.ResponseWriter, r *http.Request)
 
@@ -1510,6 +1598,11 @@ func (_ Unimplemented) RefreshAiModels(w http.ResponseWriter, r *http.Request, p
 
 // (POST /ai/providers/{providerId}/test)
 func (_ Unimplemented) TestAiProvider(w http.ResponseWriter, r *http.Request, providerId ProviderId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/sessions)
+func (_ Unimplemented) ListAiSessions(w http.ResponseWriter, r *http.Request, params ListAiSessionsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2190,6 +2283,39 @@ func (siw *ServerInterfaceWrapper) TestAiProvider(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListAiSessions operation middleware
+func (siw *ServerInterfaceWrapper) ListAiSessions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAiSessionsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAiSessions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAiTools operation middleware
 func (siw *ServerInterfaceWrapper) ListAiTools(w http.ResponseWriter, r *http.Request) {
 
@@ -2605,6 +2731,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/sessions", wrapper.ListAiSessions)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/ai/conversations", wrapper.ListAiConversations)
 	})

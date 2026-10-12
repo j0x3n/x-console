@@ -334,16 +334,11 @@ func (m *Module) operateHost(ctx context.Context, raw json.RawMessage) (any, err
 	now := m.now().UTC()
 	title := agent.Name + "：" + truncateRunes(strings.TrimSpace(in.Request), 60)
 	var row db.AiConversation
-	err = m.d.DB.QueryRowContext(ctx, "INSERT INTO ai_conversations(title,created_at,updated_at,host_id) VALUES(?,?,?,?) RETURNING id,title,created_at,updated_at,host_id",
-		title, now, now, host.ID).Scan(&row.ID, &row.Title, &row.CreatedAt, &row.UpdatedAt, &row.HostID)
+	mode := hostModeFor(panel.permission)
+	err = m.d.DB.QueryRowContext(ctx, "INSERT INTO ai_conversations(title,created_at,updated_at,host_id,host_permission,host_permission_until) VALUES(?,?,?,?,?,?) RETURNING id,title,created_at,updated_at,host_id",
+		title, now, now, host.ID, mode, m.permissionUntil(mode)).Scan(&row.ID, &row.Title, &row.CreatedAt, &row.UpdatedAt, &row.HostID)
 	if err != nil {
 		return nil, err
-	}
-	mode := hostModeFor(panel.permission)
-	if mode != api.Confirm {
-		m.mu.Lock()
-		m.permissions[row.ID] = hostPermission{mode: mode, lastMessage: m.now()}
-		m.mu.Unlock()
 	}
 	text := in.Request
 	if instructions := strings.TrimSpace(agent.Instructions); instructions != "" {
@@ -365,6 +360,7 @@ func (m *Module) operateHost(ctx context.Context, raw json.RawMessage) (any, err
 	m.mu.Lock()
 	m.running[row.ID] = &generation{cancel: cancel}
 	m.mu.Unlock()
+	m.d.Bus.Publish("ai.message_started", map[string]any{"conversationId": row.ID})
 	genErr := m.generate(worker, worker, row.ID)
 	cancel()
 	m.mu.Lock()
