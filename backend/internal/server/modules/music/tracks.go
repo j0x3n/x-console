@@ -175,6 +175,8 @@ func (m *Module) GetMusicTrack(w http.ResponseWriter, r *http.Request, id api.Tr
 }
 
 func (m *Module) UpdateMusicTrack(w http.ResponseWriter, r *http.Request, id api.TrackId) {
+	m.matchMu.Lock()
+	defer m.matchMu.Unlock()
 	ctx := r.Context()
 	var body api.MusicTrackPatch
 	if fail(w, r, httpx.Decode(r, &body)) {

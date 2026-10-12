@@ -2,6 +2,7 @@ package music
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/modules/music/api"
@@ -22,6 +23,25 @@ var (
 // SourceLyrics 在测试中直接检查来源的歌词响应。
 func (m *Module) SourceLyrics(ctx context.Context, source, id string) (string, error) {
 	return m.providers.get(source).FetchLyrics(ctx, candidate{Source: source, SourceID: id, Lyrics: true})
+}
+
+func (m *Module) SourceSearch(ctx context.Context, source string) ([]MatchCandidate, error) {
+	return m.providers.get(source).Search(ctx, query{Title: "晴天", Artist: "周杰伦"})
+}
+func (m *Module) SourceCover(ctx context.Context, source, ref string) ([]byte, error) {
+	return m.providers.get(source).FetchCover(ctx, candidate{Source: source, Cover: true, coverRef: ref})
+}
+func (m *Module) SetSourceHTTPClient(client *http.Client) { m.providers.client = client }
+func (m *Module) SetSourceClock(now func() time.Time) {
+	m.providers.routeMu.Lock()
+	defer m.providers.routeMu.Unlock()
+	m.providers.now = now
+}
+func (m *Module) SelectedFetchAgent(ctx context.Context) string {
+	if agent := m.providers.fetchAgent(ctx); agent != nil {
+		return agent.ID
+	}
+	return ""
 }
 
 // CheckSources 在测试中用较短的请求期限验证取消行为。

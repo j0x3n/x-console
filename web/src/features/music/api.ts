@@ -276,6 +276,13 @@ export function useMatchAll() {
   });
 }
 
+/** 后台给专辑为空的歌补专辑（B171）。进度用 music.album_progress 事件，形状和匹配进度一样。 */
+export function useFillAlbums() {
+  return useMutation({
+    mutationFn: () => unwrap(musicApi.POST("/music/fill-albums")),
+  });
+}
+
 export function usePutLyrics() {
   const refresh = useRefresh();
   return useMutation({

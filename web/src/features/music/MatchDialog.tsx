@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useCallback, useState } from "react";
-import { Activity, Wand2 } from "lucide-react";
+import { Activity, Disc3, Wand2 } from "lucide-react";
 import { useServerEvent, type ServerEvent } from "../../api/events";
 import { errorMessage } from "../../api/client";
 import Dialog from "../../components/ui/Dialog";
@@ -10,6 +10,7 @@ import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import {
   useCheckSources,
+  useFillAlbums,
   useMatchAll,
   useMusicSettings,
   usePending,
@@ -35,6 +36,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
   const settings = useMusicSettings();
   const save = usePutMusicSettings();
   const matchAll = useMatchAll();
+  const fillAlbums = useFillAlbums();
   const pending = usePending();
   const check = useCheckSources();
   const checked = new Map<string, SourceCheck>(
@@ -45,6 +47,14 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
     setProgress(e.data as MatchProgress);
   }, []);
   useServerEvent("music.match_progress", onProgress);
+  const [albumProgress, setAlbumProgress] = useState<MatchProgress | null>(
+    null,
+  );
+  const onAlbumProgress = useCallback((e: ServerEvent) => {
+    setAlbumProgress(e.data as MatchProgress);
+  }, []);
+  useServerEvent("music.album_progress", onAlbumProgress);
+  const busy = progress?.running === true || albumProgress?.running === true;
 
   const change = (patch: Parameters<typeof save.mutate>[0]) =>
     save.mutate(patch, {
@@ -54,6 +64,17 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
   const runMatch = (retry: boolean) =>
     matchAll.mutate(retry, {
       onSuccess: () => toast(t("Matching in the background")),
+      onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
+    });
+
+  const runFillAlbums = () =>
+    fillAlbums.mutate(undefined, {
+      onSuccess: (r) =>
+        toast(
+          r.total > 0
+            ? t("Filling in albums in the background")
+            : t("Every song already has an album"),
+        ),
       onError: (e) => toast({ message: errorMessage(e), tone: "error" }),
     });
 
@@ -81,7 +102,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div className="music-option">
             <span>
-              {t("Write lyrics and covers into the song files")}
+              {t("Write lyrics, covers and albums into the song files")}
               <small className="music-muted">
                 {t(
                   "This changes the files in Drive directly. The old version is not kept.",
@@ -90,7 +111,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
             </span>
             <Switch
               checked={settings.data.writeBack}
-              label={t("Write lyrics and covers into the song files")}
+              label={t("Write lyrics, covers and albums into the song files")}
               disabled={save.isPending}
               onChange={(writeBack) => change({ writeBack })}
             />
@@ -123,7 +144,7 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               className="xc-btn primary"
-              disabled={matchAll.isPending || progress?.running === true}
+              disabled={matchAll.isPending || busy}
               onClick={() => runMatch(false)}
             >
               <Wand2 size={14} /> {t("Match now")}
@@ -131,10 +152,19 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               className="xc-btn"
-              disabled={matchAll.isPending || progress?.running === true}
+              disabled={matchAll.isPending || busy}
               onClick={() => runMatch(true)}
             >
               {t("Try failed songs again")}
+            </button>
+            <button
+              type="button"
+              className="xc-btn"
+              disabled={fillAlbums.isPending || busy}
+              title={t("Look up only the album name for songs that have none")}
+              onClick={runFillAlbums}
+            >
+              <Disc3 size={14} /> {t("Fill in albums")}
             </button>
             <button
               type="button"
@@ -160,6 +190,13 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
               {progress.current ? ` · ${progress.current}` : ""}
             </p>
           )}
+          {albumProgress?.running && (
+            <p className="music-muted">
+              {t("Filling in albums")} {albumProgress.done}/
+              {albumProgress.total}
+              {albumProgress.current ? ` · ${albumProgress.current}` : ""}
+            </p>
+          )}
           {(pending.data?.length ?? 0) > 0 && (
             <p>
               <Link to="/music?view=pending" onClick={onClose}>
@@ -174,20 +211,28 @@ export default function MatchDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** 来源检查的结果（B169）：能不能用，搜到几条，失败的原因。 */
+/** 来源检查的结果（B169）：能不能用，搜到几条，失败的原因。B172 起显示走直连还是代理。 */
 function SourceStatus({ result }: { result?: SourceCheck }) {
   const t = useT();
   if (!result) return null;
+  const via =
+    result.via === "agent"
+      ? `${t("Through agent")} ${result.agentName ?? ""}`.trim()
+      : t("Direct");
   if (!result.ok)
     return (
       <small className="music-source-check fail">
         {result.error || t("Failed")}
+        {result.directError && result.directError !== result.error
+          ? ` · ${t("Direct")}: ${result.directError}`
+          : ""}
       </small>
     );
   return (
     <small className="music-source-check ok">
-      {t("Works")} · {t("Lyrics")} {result.lyricsHits} · {t("Cover")}{" "}
+      {t("Works")} · {via} · {t("Lyrics")} {result.lyricsHits} · {t("Cover")}{" "}
       {result.coverHits} · {result.ms} ms
+      {result.directError ? ` · ${t("Direct")}: ${result.directError}` : ""}
     </small>
   );
 }

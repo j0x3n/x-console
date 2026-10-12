@@ -128,6 +128,24 @@ func (q *Queries) DeleteTrack(ctx context.Context, id int64) error {
 	return err
 }
 
+const fillTrackAlbum = `-- name: FillTrackAlbum :execrows
+UPDATE music_tracks SET album = ?, updated_at = ? WHERE id = ? AND album = '' AND manual = 0
+`
+
+type FillTrackAlbumParams struct {
+	Album     string
+	UpdatedAt time.Time
+	ID        int64
+}
+
+func (q *Queries) FillTrackAlbum(ctx context.Context, arg FillTrackAlbumParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, fillTrackAlbum, arg.Album, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getCandidate = `-- name: GetCandidate :one
 SELECT id, track_id, source, source_id, title, artist, album, duration_ms, has_lyrics, has_cover, lyrics_text, cover_ref, position FROM music_candidates WHERE track_id = ? AND source = ? AND source_id = ? LIMIT 1
 `
@@ -869,6 +887,61 @@ func (q *Queries) ListTrackSync(ctx context.Context) ([]ListTrackSyncRow, error)
 			&i.DriveItemID,
 			&i.Sha256,
 			&i.Companion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTracksToFillAlbums = `-- name: ListTracksToFillAlbums :many
+SELECT id, drive_item_id, sha256, companion, title, artist, album, album_artist, manual, track_no, disc_no, year, duration_ms, bitrate, format, has_cover, cover_source, cover_key, lyrics_source, lyrics_synced, lyrics_text, favorite, play_count, last_played_at, match_state, created_at, updated_at FROM music_tracks WHERE album = '' AND manual = 0 AND match_state <> 'skipped' ORDER BY id
+`
+
+func (q *Queries) ListTracksToFillAlbums(ctx context.Context) ([]MusicTrack, error) {
+	rows, err := q.db.QueryContext(ctx, listTracksToFillAlbums)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MusicTrack
+	for rows.Next() {
+		var i MusicTrack
+		if err := rows.Scan(
+			&i.ID,
+			&i.DriveItemID,
+			&i.Sha256,
+			&i.Companion,
+			&i.Title,
+			&i.Artist,
+			&i.Album,
+			&i.AlbumArtist,
+			&i.Manual,
+			&i.TrackNo,
+			&i.DiscNo,
+			&i.Year,
+			&i.DurationMs,
+			&i.Bitrate,
+			&i.Format,
+			&i.HasCover,
+			&i.CoverSource,
+			&i.CoverKey,
+			&i.LyricsSource,
+			&i.LyricsSynced,
+			&i.LyricsText,
+			&i.Favorite,
+			&i.PlayCount,
+			&i.LastPlayedAt,
+			&i.MatchState,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

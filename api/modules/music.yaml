@@ -5,6 +5,29 @@ info:
 servers:
   - url: /api/v1
 paths:
+  /music/fill-albums:
+    post:
+      operationId: fillMusicAlbums
+      tags: [music]
+      description: |
+        在后台补全 album 为空、manual 为 0 且未跳过匹配的歌曲。只搜索专辑，不下载歌词或封面，不修改匹配状态或候选。
+        与后台匹配互斥。没有可处理的歌曲时 total 为 0，不启动任务。
+        进度事件 music.album_progress 的数据为 { running, done, total, current? }。结束时发 music.library_changed。
+        开启写回时同步写入文件专辑标签。
+      responses:
+        "202":
+          description: 本次待处理的歌曲数
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total]
+                properties:
+                  total: { type: integer }
+        "409":
+          $ref: "../common.yaml#/components/responses/Error"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /music/tracks:
     get:
       operationId: listMusicTracks
@@ -396,7 +419,7 @@ paths:
     post:
       operationId: checkMusicSources
       tags: [music]
-      description: 每个来源并发搜索一次，包含已关闭的来源。整体超时 20 秒。不修改歌曲或候选。
+      description: 每个来源并发搜索一次，包含已关闭的来源。整体超时 20 秒。始终先检查直连，失败后尝试 Windows 代理。via 表示最终路径，directError 保留直连失败原因。不修改歌曲或候选。
       requestBody:
         required: false
         content:
@@ -913,7 +936,7 @@ components:
           description: 为 true 时不自动采用，只放入能提供指定部分的候选。歌词和封面各最多 8 个，合并后去重。选定再用 candidate 调一次。
     MusicSourceCheck:
       type: object
-      required: [source, enabled, ok, hits, lyricsHits, coverHits, error, ms]
+      required: [source, enabled, ok, hits, lyricsHits, coverHits, error, ms, via]
       properties:
         source: { type: string, enum: [lrclib, netease, qqmusic, itunes, musicbrainz], description: 来源名称 }
         enabled: { type: boolean, description: 这个来源是否已启用 }
@@ -923,6 +946,9 @@ components:
         coverHits: { type: integer, description: 能提供封面的命中数 }
         error: { type: string, description: 中文错误原因。成功时为空 }
         ms: { type: integer, description: 搜索耗时毫秒 }
+        via: { type: string, enum: [direct, agent], description: 本次检查最终使用的请求路径 }
+        agentName: { type: string, description: 走代理时的代理名称 }
+        directError: { type: string, description: 直连失败原因。代理成功时也保留，便于同时查看两条路径的结果 }
     MusicSleep:
       type: object
       required: [active]

@@ -137,6 +137,12 @@ UPDATE music_tracks SET cover_key = ?, has_cover = 1, cover_source = ?, updated_
 -- name: SetTrackSha :exec
 UPDATE music_tracks SET sha256 = ? WHERE id = ?;
 
+-- name: ListTracksToFillAlbums :many
+SELECT * FROM music_tracks WHERE album = '' AND manual = 0 AND match_state <> 'skipped' ORDER BY id;
+
+-- name: FillTrackAlbum :execrows
+UPDATE music_tracks SET album = ?, updated_at = ? WHERE id = ? AND album = '' AND manual = 0;
+
 -- name: InsertShare :one
 INSERT INTO music_playlist_shares (playlist_id, token, password_hash, expires_at, created_at) VALUES (?, ?, ?, ?, ?) RETURNING *;
 

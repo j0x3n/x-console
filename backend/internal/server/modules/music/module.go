@@ -46,6 +46,7 @@ type Module struct {
 
 	providers  *providerSet
 	matchReq   chan bool // true: also retry songs that failed before
+	albumReq   chan []db.MusicTrack
 	matchMu    sync.Mutex
 	matching   atomic.Bool
 	matchPause time.Duration
@@ -67,8 +68,10 @@ func New(d *module.Deps) (module.Module, error) {
 		d: d, q: db.New(d.DB), store: d.Files.For("music"), tmpDir: d.Config.TmpDir(),
 		scanReq: make(chan struct{}, 1), scanDelay: scanDelay, scanLock: make(chan struct{}, 1),
 		providers: newProviderSet(), matchReq: make(chan bool, 1), matchPause: 500 * time.Millisecond, sleepUnit: time.Minute,
+		albumReq: make(chan []db.MusicTrack, 1),
 	}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	m.providers.bindAgents(d.Agents)
 	m.registerActions()
 	return m, nil
 }
@@ -112,6 +115,8 @@ func (m *Module) Start(ctx context.Context) error {
 				}
 			case retry := <-m.matchReq:
 				m.runMatches(ctx, retry)
+			case tracks := <-m.albumReq:
+				m.fillAlbums(ctx, tracks)
 			}
 		}
 	}()

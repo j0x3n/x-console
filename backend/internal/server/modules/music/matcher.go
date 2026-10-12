@@ -88,6 +88,7 @@ func queryOf(t db.MusicTrack) query {
 
 // found is what a match run learned about a song.
 type found struct {
+	album      string
 	lyrics     string
 	cover      []byte
 	candidates []candidate // for the user to choose from, when nothing was accepted
@@ -126,8 +127,19 @@ func (m *Module) checkSources(ctx context.Context, q query) []api.MusicSourceChe
 		go func() {
 			defer wg.Done()
 			start := time.Now()
+			route := &sourceRoute{forceDirect: true}
+			ctx := context.WithValue(ctx, sourceRouteKey{}, route)
 			cands, err := m.providers.get(source).Search(ctx, q)
 			row := api.MusicSourceCheck{Source: api.MusicSourceCheckSource(source), Enabled: o.Providers[source], Ok: err == nil, Ms: int(time.Since(start).Milliseconds())}
+			row.Via = "direct"
+			if route.usedAgent {
+				row.Via = "agent"
+				row.AgentName = &route.agent.Name
+			}
+			if route.directError != nil {
+				message := sourceCheckError(route.directError)
+				row.DirectError = &message
+			}
 			if err != nil {
 				row.Error = sourceCheckError(err)
 			} else {
@@ -216,6 +228,16 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 	all := m.collect(ctx, o, q)
 	var res found
 	var plain string
+	var plainAlbum string
+	if !wantLyrics && !wantCover {
+		for _, c := range all {
+			if accepts(q, c) && strings.TrimSpace(c.Album) != "" {
+				res.album = c.Album
+				return res
+			}
+		}
+		return res
+	}
 	if wantLyrics {
 		for _, c := range all {
 			if !c.Lyrics || !accepts(q, c) {
@@ -227,14 +249,17 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 			}
 			if isSyncedLyrics(text) {
 				res.lyrics = text
+				res.album = c.Album
 				break
 			}
 			if plain == "" {
 				plain = text
+				plainAlbum = c.Album
 			}
 		}
 		if res.lyrics == "" {
 			res.lyrics = plain
+			res.album = plainAlbum
 		}
 	}
 	if wantCover {
@@ -247,6 +272,9 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 				continue
 			}
 			res.cover = data
+			if res.album == "" {
+				res.album = c.Album
+			}
 			break
 		}
 	}
@@ -257,8 +285,21 @@ func (m *Module) search(ctx context.Context, o options, q query, wantLyrics, wan
 
 // applyFound stores what was found, writes it into the file when that is on,
 // and returns the new match state.
-func (m *Module) applyFound(ctx context.Context, o options, t db.MusicTrack, lyrics string, cover []byte, source string) error {
+func (m *Module) applyFound(ctx context.Context, o options, t db.MusicTrack, lyrics string, cover []byte, album, source string) error {
 	now := time.Now().UTC()
+	album = cleanTag(album)
+	if t.Album != "" || t.Manual != 0 {
+		album = ""
+	}
+	if album != "" {
+		changed, err := m.q.FillTrackAlbum(ctx, db.FillTrackAlbumParams{Album: album, UpdatedAt: now, ID: t.ID})
+		if err != nil {
+			return err
+		}
+		if changed == 0 {
+			album = ""
+		}
+	}
 	lyricsSource, coverSource := source, source
 	var coverKey string
 	if len(cover) > 0 {
@@ -271,8 +312,8 @@ func (m *Module) applyFound(ctx context.Context, o options, t db.MusicTrack, lyr
 	}
 	// Write into the file first: when it works the library says "embedded",
 	// when it does not (or is off) the data still lives in the library.
-	if o.WriteBack && (lyrics != "" || len(cover) > 0) {
-		sha, err := m.writeBack(ctx, t, lyrics, cover)
+	if o.WriteBack && (lyrics != "" || len(cover) > 0 || album != "") {
+		sha, err := m.writeBack(ctx, t, lyrics, cover, album)
 		if err != nil {
 			slog.Warn("music: cannot write tags back", "track", t.ID, "err", err)
 		} else {
@@ -343,7 +384,7 @@ func (m *Module) matchTrackParts(ctx context.Context, t db.MusicTrack, force boo
 	state := "matched"
 	switch {
 	case res.lyrics != "" || res.cover != nil:
-		if err := m.applyFound(ctx, o, t, res.lyrics, res.cover, "online"); err != nil {
+		if err := m.applyFound(ctx, o, t, res.lyrics, res.cover, res.album, "online"); err != nil {
 			return t, err
 		}
 		if err := m.q.ClearCandidates(ctx, t.ID); err != nil {

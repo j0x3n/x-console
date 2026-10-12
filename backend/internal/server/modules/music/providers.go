@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/j0x3n/x-console/backend/internal/server/agenthub"
 )
 
 // Sources of lyrics and covers (B148). Each one is a small client with a base
@@ -71,9 +73,14 @@ type providerSet struct {
 	client *http.Client
 	urls   map[string]string
 
-	mbMu       sync.Mutex
-	mbLast     time.Time
-	mbInterval time.Duration
+	mbMu        sync.Mutex
+	mbLast      time.Time
+	mbInterval  time.Duration
+	agents      *agenthub.Hub
+	routeMu     sync.Mutex
+	preferAgent map[string]time.Time
+	heartbeats  map[string]time.Time
+	now         func() time.Time
 }
 
 func newProviderSet() *providerSet {
@@ -88,11 +95,20 @@ func newProviderSet() *providerSet {
 			"coverart":        "https://coverartarchive.org",
 			"qqcover":         "https://y.gtimg.cn",
 		},
-		mbInterval: 1100 * time.Millisecond,
+		mbInterval:  1100 * time.Millisecond,
+		preferAgent: map[string]time.Time{}, heartbeats: map[string]time.Time{}, now: time.Now,
 	}
 }
 
 func (s *providerSet) get(name string) provider {
+	p := s.rawProvider(name)
+	if p == nil {
+		return nil
+	}
+	return routedProvider{s: s, provider: p}
+}
+
+func (s *providerSet) rawProvider(name string) provider {
 	switch name {
 	case SourceLRCLIB:
 		return lrclibProvider{s}
@@ -113,7 +129,7 @@ const maxBody = 8 << 20
 var errSourceFormat = errors.New("返回的不是预期格式（可能限制了海外访问）")
 
 // do sends a GET and returns the body of a 200 response.
-func (s *providerSet) do(ctx context.Context, rawURL string, headers map[string]string) ([]byte, error) {
+func (s *providerSet) direct(ctx context.Context, rawURL string, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
@@ -128,9 +144,16 @@ func (s *providerSet) do(ctx context.Context, rawURL string, headers map[string]
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		return nil, sourceStatusError{status: resp.StatusCode}
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+	if err != nil {
+		return nil, &url.Error{Op: "read", URL: rawURL, Err: err}
+	}
+	if err == nil && len(body) > maxBody {
+		return nil, errors.New("音乐来源响应超过大小限制")
+	}
+	return body, err
 }
 
 func (s *providerSet) getJSON(ctx context.Context, rawURL string, headers map[string]string, out any) error {
@@ -221,10 +244,10 @@ func (p neteaseProvider) getJSON(ctx context.Context, rawURL string, out any) er
 		return errSourceFormat
 	}
 	if status.Abroad {
-		return errors.New("网易云限制了海外访问")
+		return sourceFormatError{message: "网易云限制了海外访问"}
 	}
 	if status.Code != http.StatusOK {
-		return fmt.Errorf("网易云返回 code=%d", status.Code)
+		return sourceStatusError{status: status.Code, message: fmt.Sprintf("网易云返回 code=%d", status.Code)}
 	}
 	if err := json.Unmarshal(body, out); err != nil {
 		return errSourceFormat

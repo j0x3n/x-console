@@ -176,6 +176,8 @@ registerZh({
     "缺歌词或封面的歌会在线查，结果写进文件。只有明确对得上的（歌名相同、歌手有交集、时长相差不超过 2 秒）才自动采用，其他的放进“待确认”。匹配得不对时，在歌的菜单里选“从其他来源选歌词”或“从其他来源选封面”。",
   "Match new songs automatically": "自动匹配新歌",
   "Write lyrics and covers into the song files": "把歌词和封面写进歌曲文件",
+  "Write lyrics, covers and albums into the song files":
+    "把歌词、封面和专辑写进歌曲文件",
   "This changes the files in Drive directly. The old version is not kept.":
     "会直接修改云盘里的文件，不保留旧版本。",
   Sources: "来源",
@@ -186,6 +188,16 @@ registerZh({
   Matching: "匹配中",
   "Matching in the background": "正在后台匹配",
   "songs are waiting for you to confirm": "首歌等你确认",
+
+  // B171、B172
+  "Fill in albums": "补全专辑",
+  "Filling in albums": "补全专辑中",
+  "Filling in albums in the background": "正在后台补全专辑",
+  "Every song already has an album": "每首歌都有专辑了",
+  "Look up only the album name for songs that have none":
+    "只给没有专辑的歌查专辑名，不重抓歌词和封面",
+  "Through agent": "走代理",
+  Direct: "直连",
 
   // B149 定时暂停和分享
   "Sleep timer": "定时暂停",

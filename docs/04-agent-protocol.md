@@ -124,6 +124,7 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | coding | 装了 claude 或 codex 才有 | 有 |
 | coding.remote（B47：`coding.ensure_repo`，以及下面说的新字段） | 和 coding 一起 | 和 coding 一起 |
 | proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
+| net.fetch（只读音乐来源的公网 HTTPS 请求，B172） | 有 | 有 |
 | aiconfig（B121，有 Claude Code 或 Codex 才上报） | 有 | 有 |
 
 ### Docker 日志和镜像（B28）
@@ -166,6 +167,15 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - 代理在配置文件所在目录的 `aiconfig-state.json` 里记下哪些条目是面板加的。第一次改某个文件前复制一份 `<文件名>.x-console.bak`。写文件先写临时文件再改名，符号链接会跟随，权限不变。
 - 配置目录：Claude Code 用 `CLAUDE_CONFIG_DIR`，Codex 用 `CODEX_HOME`，没设就是家目录下的 `.claude` 和 `.codex`。目录不存在而且 PATH 里没有命令的工具，所有项目报 `absent`，不创建任何文件。
 - 参数代理自己也校验一遍（名称、数量、控制字符），不合格回 `bad_params`。服务端只在代理上报了 `aiconfig` 能力时才调用。
+
+### 音乐来源请求（B172）
+
+- `net.fetch {url, headers?, maxBytes?, timeoutMs?}`：只发 GET。返回 `{status, contentType, body}`，body 为 base64。非 200 状态照实返回。
+- 主机白名单由 `protocol.NetFetchHosts` 共用：music.163.com、c.y.qq.com、u.y.qq.com、y.qq.com、y.gtimg.cn、lrclib.net、itunes.apple.com、musicbrainz.org、coverartarchive.org。也允许 .mzstatic.com、.music.126.net、.gtimg.cn、.archive.org 的子域名。
+- 只允许 HTTPS 默认端口或 443，不接受 URL 凭据。请求头只接受 User-Agent、Referer、Accept、Cookie。响应默认和上限为 8 MiB，超时默认 8000 毫秒、上限 15000 毫秒。
+- 最多跟随 5 次重定向，每一跳都检查白名单。拨号时检查实际 IP，拒绝私有、回环、链路本地和非公网地址。不使用环境代理。
+- 这是连接客户端的内置命令。`conn.New` 注册处理器并给 hello 加 `net.fetch`，Linux 和 Windows 共用实现，无需改代理入口。
+- 音乐模块只选在线的 Windows 代理，优先使用最近收到 metrics 心跳的代理。尚未收到心跳时使用连接时间。直连失败而代理成功后，同一个来源优先走代理 10 分钟。代理失败清除该来源的缓存。
 
 ## 新增方法的步骤
 

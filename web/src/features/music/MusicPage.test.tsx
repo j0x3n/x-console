@@ -359,7 +359,7 @@ describe("在线匹配对话框", () => {
     }));
     renderTab();
     const toggle = await screen.findByRole("checkbox", {
-      name: "把歌词和封面写进歌曲文件",
+      name: "把歌词、封面和专辑写进歌曲文件",
     });
     expect((toggle as HTMLInputElement).checked).toBe(true);
     fireEvent.click(toggle);
@@ -413,5 +413,65 @@ describe("在线匹配对话框", () => {
     await waitFor(() =>
       expect(api.calls.some((c) => c.path === "/music/match")).toBe(true),
     );
+  });
+  it("补全专辑调用批量接口", async () => {
+    api.routes.clear();
+    api.calls.length = 0;
+    api.routes.set("GET /music/settings", () => ({
+      status: 200,
+      body: settings,
+    }));
+    api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /music/playlists", () => ({ status: 200, body: [] }));
+    api.routes.set("POST /music/fill-albums", () => ({
+      status: 202,
+      body: { total: 3 },
+    }));
+    renderTab();
+    fireEvent.click(await screen.findByRole("button", { name: /补全专辑/ }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.path === "/music/fill-albums")).toBe(true),
+    );
+  });
+
+  it("来源检查显示走直连还是走代理", async () => {
+    api.routes.clear();
+    api.calls.length = 0;
+    api.routes.set("GET /music/settings", () => ({
+      status: 200,
+      body: settings,
+    }));
+    api.routes.set("GET /music/pending", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /music/playlists", () => ({ status: 200, body: [] }));
+    api.routes.set("POST /music/sources/check", () => ({
+      status: 200,
+      body: [
+        {
+          source: "qqmusic",
+          enabled: true,
+          ok: true,
+          ms: 120,
+          lyricsHits: 2,
+          coverHits: 1,
+          via: "agent",
+          agentName: "我的电脑",
+          directError: "HTTP 403",
+        },
+        {
+          source: "lrclib",
+          enabled: true,
+          ok: true,
+          ms: 80,
+          lyricsHits: 1,
+          coverHits: 0,
+          via: "direct",
+        },
+      ],
+    }));
+    renderTab();
+    fireEvent.click(await screen.findByRole("button", { name: /检查来源/ }));
+    expect(await screen.findByText(/走代理 我的电脑/)).toBeTruthy();
+    expect(screen.getByText(/直连: HTTP 403/)).toBeTruthy();
+    expect(screen.getByText(/可用 · 直连 · /)).toBeTruthy();
   });
 });

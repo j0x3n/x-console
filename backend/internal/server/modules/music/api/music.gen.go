@@ -128,6 +128,24 @@ func (e MusicSourceCheckSource) Valid() bool {
 	}
 }
 
+// Defines values for MusicSourceCheckVia.
+const (
+	Agent  MusicSourceCheckVia = "agent"
+	Direct MusicSourceCheckVia = "direct"
+)
+
+// Valid indicates whether the value is a known member of the MusicSourceCheckVia enum.
+func (e MusicSourceCheckVia) Valid() bool {
+	switch e {
+	case Agent:
+		return true
+	case Direct:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MusicTrackCoverSource.
 const (
 	MusicTrackCoverSourceEmbedded MusicTrackCoverSource = "embedded"
@@ -527,8 +545,14 @@ type MusicSleepInput struct {
 
 // MusicSourceCheck defines model for MusicSourceCheck.
 type MusicSourceCheck struct {
+	// AgentName 走代理时的代理名称
+	AgentName *string `json:"agentName,omitempty"`
+
 	// CoverHits 能提供封面的命中数
 	CoverHits int `json:"coverHits"`
+
+	// DirectError 直连失败原因。代理成功时也保留，便于同时查看两条路径的结果
+	DirectError *string `json:"directError,omitempty"`
 
 	// Enabled 这个来源是否已启用
 	Enabled bool `json:"enabled"`
@@ -550,10 +574,16 @@ type MusicSourceCheck struct {
 
 	// Source 来源名称
 	Source MusicSourceCheckSource `json:"source"`
+
+	// Via 本次检查最终使用的请求路径
+	Via MusicSourceCheckVia `json:"via"`
 }
 
 // MusicSourceCheckSource 来源名称
 type MusicSourceCheckSource string
+
+// MusicSourceCheckVia 本次检查最终使用的请求路径
+type MusicSourceCheckVia string
 
 // MusicStats defines model for MusicStats.
 type MusicStats struct {
@@ -811,6 +841,9 @@ type ServerInterface interface {
 	// (GET /music/artists)
 	ListMusicArtists(w http.ResponseWriter, r *http.Request)
 
+	// (POST /music/fill-albums)
+	FillMusicAlbums(w http.ResponseWriter, r *http.Request)
+
 	// (POST /music/match)
 	MatchMusic(w http.ResponseWriter, r *http.Request, params MatchMusicParams)
 
@@ -931,6 +964,11 @@ func (_ Unimplemented) ListMusicAlbums(w http.ResponseWriter, r *http.Request) {
 
 // (GET /music/artists)
 func (_ Unimplemented) ListMusicArtists(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /music/fill-albums)
+func (_ Unimplemented) FillMusicAlbums(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1142,6 +1180,20 @@ func (siw *ServerInterfaceWrapper) ListMusicArtists(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListMusicArtists(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FillMusicAlbums operation middleware
+func (siw *ServerInterfaceWrapper) FillMusicAlbums(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FillMusicAlbums(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2328,6 +2380,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/music/fill-albums", wrapper.FillMusicAlbums)
+	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/music/tracks", wrapper.ListMusicTracks)
 	})

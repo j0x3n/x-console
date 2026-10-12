@@ -1,5 +1,9 @@
 # 接口变更记录
 
+- B172（2026-10-13）：`pkg/protocol` 增加能力和方法 `net.fetch`、共享域名白名单，以及有界 GET 参数和响应。`internal/agent/conn.New` 内置注册处理器并上报 hello 能力，保持原命令兼容。音乐来源直连失败时可通过在线 Windows 代理请求，歌词和封面共用入口。来源检查增加必填 `via`（`direct` / `agent`）和可选 `agentName`、`directError`，检查忽略 10 分钟路径缓存，保留直连失败原因。没有改前端页面。
+
+- B171（2026-10-13）：音乐增加 `POST /music/fill-albums`（`fillMusicAlbums`），返回 `202 { total }`，与后台匹配互斥时回 `409`。新增事件 `music.album_progress`，数据为 `{ running, done, total, current? }`，结束时发 `music.library_changed`。匹配采用候选时只填未手动编辑的空专辑，开启写回时同步文件专辑标签及 sha。不改标题、歌手和专辑歌手。
+
 - B157（2026-10-11）：音乐展示组件改名为 PlayerBar.tsx、LyricsView.tsx，避免与 player.ts、lyrics.ts 在 Windows 的 TypeScript 模块解析中重号。GlobalPanels 只调整播放器的导入路径，导出和界面行为保持兼容。
 
 - B156（2026-10-11，原提交标题用 B152）：storage 增加外部网盘新建文件夹、改名、删除和文件内容写入接口。下载增加可选 inline 参数，支持同源预览和文本内容的 ETag 校验。隐藏账号复用原有权限检查。files 包只增加 WebDAV / Google Drive 的文件操作方法，新 Google 授权增加读写范围。既有账号和备份读写方式保持兼容。

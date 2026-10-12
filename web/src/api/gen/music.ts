@@ -4,6 +4,28 @@
  */
 
 export interface paths {
+    "/music/fill-albums": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description 在后台补全 album 为空、manual 为 0 且未跳过匹配的歌曲。只搜索专辑，不下载歌词或封面，不修改匹配状态或候选。
+         *     与后台匹配互斥。没有可处理的歌曲时 total 为 0，不启动任务。
+         *     进度事件 music.album_progress 的数据为 { running, done, total, current? }。结束时发 music.library_changed。
+         *     开启写回时同步写入文件专辑标签。
+         */
+        post: operations["fillMusicAlbums"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/music/tracks": {
         parameters: {
             query?: never;
@@ -273,7 +295,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description 每个来源并发搜索一次，包含已关闭的来源。整体超时 20 秒。不修改歌曲或候选。 */
+        /** @description 每个来源并发搜索一次，包含已关闭的来源。整体超时 20 秒。始终先检查直连，失败后尝试 Windows 代理。via 表示最终路径，directError 保留直连失败原因。不修改歌曲或候选。 */
         post: operations["checkMusicSources"];
         delete?: never;
         options?: never;
@@ -706,6 +728,15 @@ export interface components {
             error: string;
             /** @description 搜索耗时毫秒 */
             ms: number;
+            /**
+             * @description 本次检查最终使用的请求路径
+             * @enum {string}
+             */
+            via: "direct" | "agent";
+            /** @description 走代理时的代理名称 */
+            agentName?: string;
+            /** @description 直连失败原因。代理成功时也保留，便于同时查看两条路径的结果 */
+            directError?: string;
         };
         MusicSleep: {
             active: boolean;
@@ -839,6 +870,30 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    fillMusicAlbums: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 本次待处理的歌曲数 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        total: number;
+                    };
+                };
+            };
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
     listMusicTracks: {
         parameters: {
             query?: {

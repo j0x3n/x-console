@@ -76,8 +76,8 @@ func (m *Module) copyToTemp(ctx context.Context, drive contracts.DriveFiles, f c
 // reads the copy back to check it, and only then replaces the file in the
 // drive; any failure leaves the original untouched. Lyrics or cover that are
 // empty are left alone. It returns the hash of the new content.
-func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, cover []byte) (string, error) {
-	if lyrics == "" && len(cover) == 0 {
+func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, cover []byte, album string) (string, error) {
+	if lyrics == "" && len(cover) == 0 && album == "" {
 		return "", errors.New("nothing to write")
 	}
 	drive, err := m.drive()
@@ -107,6 +107,11 @@ func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, 
 			return "", fmt.Errorf("写歌词: %w", err)
 		}
 	}
+	if album != "" {
+		if err := taglib.WriteTags(path, map[string][]string{taglib.Album: {album}}, 0); err != nil {
+			return "", fmt.Errorf("写专辑: %w", err)
+		}
+	}
 	var jpg []byte
 	if len(cover) > 0 {
 		if jpg, err = normalizeCover(cover); err != nil {
@@ -119,6 +124,12 @@ func (m *Module) writeBack(ctx context.Context, t db.MusicTrack, lyrics string, 
 
 	// Check the copy: what was written reads back the same, and the audio
 	// properties did not change.
+	if album != "" {
+		tags, err := taglib.ReadTags(path)
+		if err != nil || strings.Join(tags[taglib.Album], "") != album {
+			return "", errors.New("写入后读不回专辑")
+		}
+	}
 	if lyrics != "" {
 		tags, err := taglib.ReadTags(path)
 		if err != nil || strings.TrimSpace(strings.Join(tags[taglib.Lyrics], "")) != strings.TrimSpace(lyrics) {

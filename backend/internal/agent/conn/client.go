@@ -11,11 +11,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/j0x3n/x-console/backend/internal/agent/netfetch"
 
 	"github.com/j0x3n/x-console/backend/pkg/protocol"
 	"github.com/j0x3n/x-console/backend/pkg/rpc"
@@ -37,8 +39,15 @@ type Client struct {
 // New builds a client. hello.ProtocolVersion is filled in automatically.
 func New(server, token string, hello protocol.Hello) *Client {
 	hello.ProtocolVersion = protocol.Version
-	return &Client{Server: strings.TrimRight(server, "/"), Token: token, Hello: hello,
+	// This bounded GET is a built-in method on every agent platform.
+	hello.Capabilities = slices.Clone(hello.Capabilities)
+	if !slices.Contains(hello.Capabilities, protocol.CapNetFetch) {
+		hello.Capabilities = append(hello.Capabilities, protocol.CapNetFetch)
+	}
+	c := &Client{Server: strings.TrimRight(server, "/"), Token: token, Hello: hello,
 		handlers: map[string]rpc.Handler{}, streamHandlers: map[string]rpc.StreamHandler{}}
+	c.Handle(protocol.MethodNetFetch, netfetch.Fetch)
+	return c
 }
 
 // Handle registers a request handler for method.

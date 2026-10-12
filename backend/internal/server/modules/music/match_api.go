@@ -167,7 +167,7 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 	if strings.TrimSpace(lyrics) == "" && cover == nil {
 		return t, httpx.NewError(http.StatusBadGateway, "source_failed", "这个来源现在取不到歌词和封面，可以换一个候选或稍后再试")
 	}
-	if err := m.applyFound(ctx, o, t, strings.TrimSpace(lyrics), cover, "online"); err != nil {
+	if err := m.applyFound(ctx, o, t, strings.TrimSpace(lyrics), cover, c.Album, "online"); err != nil {
 		return t, err
 	}
 	t, err = m.q.GetTrack(ctx, t.ID)
@@ -202,6 +202,8 @@ func (m *Module) applyCandidate(ctx context.Context, t db.MusicTrack, source, so
 }
 
 func (m *Module) SkipMusicMatch(w http.ResponseWriter, r *http.Request, id api.TrackId) {
+	m.matchMu.Lock()
+	defer m.matchMu.Unlock()
 	ctx := r.Context()
 	if _, err := m.track(ctx, id); fail(w, r, err) {
 		return
@@ -244,7 +246,7 @@ func (m *Module) PutMusicTrackLyrics(w http.ResponseWriter, r *http.Request, id 
 	if body.WriteBack != nil {
 		o.WriteBack = *body.WriteBack
 	}
-	err = m.applyFound(ctx, o, t, text, nil, "online")
+	err = m.applyFound(ctx, o, t, text, nil, "", "online")
 	m.matchMu.Unlock()
 	if fail(w, r, err) {
 		return
@@ -272,7 +274,7 @@ func (m *Module) UploadMusicTrackCover(w http.ResponseWriter, r *http.Request, i
 	if p.WriteBack != nil {
 		o.WriteBack = *p.WriteBack
 	}
-	err = m.applyFound(ctx, o, t, "", data, "online")
+	err = m.applyFound(ctx, o, t, "", data, "", "online")
 	m.matchMu.Unlock()
 	if fail(w, r, err) {
 		return
