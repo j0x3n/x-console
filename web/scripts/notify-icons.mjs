@@ -1,36 +1,34 @@
 // 生成通知图标（B91）：彩色底白色图案 192px，和 Android 用的单色 badge 96px。
 // 用法：cd web && XC_SHOTS_BROWSER=<chromium 路径> node scripts/notify-icons.mjs
+// 生成后把 public/icons/notify/ 下的大图标同步复制到
+// backend/internal/server/modules/reminders/icon_assets/（后端画进度环和图标要用）。
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import * as L from "lucide-react";
 import { chromium } from "playwright-core";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
-const brandGlyph = readFileSync(
-  join(import.meta.dirname, "..", "public", "favicon.svg"),
-  "utf8",
-).replace(/<rect[^>]*\/>/, "");
-
+// 底色用站标的两个颜色：紫是系统类，粉是个人类。
 // app（通用图标）由 brand-icons.mjs 从 favicon.svg 生成，这里不要再生成。
+const PINK = "#e0218a";
+const PURPLE = "#7c3aed";
 const kinds = {
-  server: ["Server", "#4b7bd8"],
-  monitor: ["Radar", "#d1663d"],
-  mail: ["Mail", "#3a8fd6"],
-  repo: ["GitBranch", "#6b5bd2"],
-  agent: ["Bot", "#c2653d"],
-  weather: ["CloudSun", "#2f9fd6"],
-  reminder: ["Bell", "#d6a12f"],
-  habit: ["HeartPulse", "#d8505f"],
-  water: ["Droplets", "#2f8fe0"],
-  eyes: ["Eye", "#3aa37a"],
-  move: ["Footprints", "#7c8a2f"],
-  medicine: ["Pill", "#b5578c"],
-  brief: ["Newspaper", "#5b6b80"],
-  calendar: ["CalendarDays", "#3a9a5b"],
-  drive: ["HardDrive", "#5b6b80"],
-  router: ["Router", "#2f7f8f"],
-  home: ["House", "#3a9a5b"],
+  server: ["Server", PURPLE],
+  monitor: ["Radar", PURPLE],
+  mail: ["Mail", PURPLE],
+  repo: ["GitBranch", PURPLE],
+  agent: ["Bot", PURPLE],
+  drive: ["HardDrive", PURPLE],
+  router: ["Router", PURPLE],
+  home: ["House", PURPLE],
+  weather: ["CloudSun", PINK],
+  reminder: ["Bell", PINK],
+  habit: ["HeartPulse", PINK],
+  water: ["Droplets", PINK],
+  eyes: ["Eye", PINK],
+  move: ["Footprints", PINK],
+  medicine: ["Pill", PINK],
+  brief: ["Newspaper", PINK],
+  calendar: ["CalendarDays", PINK],
 };
 const browser = await chromium.launch({
   executablePath: process.env.XC_SHOTS_BROWSER,
@@ -38,14 +36,12 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ deviceScaleFactor: 1 });
 for (const [name, [icon, color]] of Object.entries(kinds)) {
   const glyph = (size, stroke) =>
-    icon === "BrandMark"
-      ? brandGlyph.replace("<svg ", `<svg width="${size}" height="${size}" `)
-      : renderToStaticMarkup(
-          createElement(L[icon], { size, color: "#fff", strokeWidth: stroke }),
-        );
+    renderToStaticMarkup(
+      createElement(L[icon], { size, color: "#fff", strokeWidth: stroke }),
+    );
   // 大图标：圆角方块
   await page.setContent(
-    `<div id=i style="width:192px;height:192px;border-radius:${name === "app" ? 48 : 44}px;background:${color};display:grid;place-items:center">${glyph(name === "app" ? 192 : 112, 2)}</div>`,
+    `<div id=i style="width:192px;height:192px;border-radius:44px;background:${color};display:grid;place-items:center">${glyph(112, 2)}</div>`,
   );
   await page.locator("#i").screenshot({
     path: `public/icons/notify/${name}.png`,
@@ -53,7 +49,7 @@ for (const [name, [icon, color]] of Object.entries(kinds)) {
   });
   // 单色 badge：透明底白色图案
   await page.setContent(
-    `<div id=i style="width:96px;height:96px;display:grid;place-items:center">${glyph(name === "app" ? 96 : 80, 2.4)}</div>`,
+    `<div id=i style="width:96px;height:96px;display:grid;place-items:center">${glyph(80, 2.4)}</div>`,
   );
   await page.locator("#i").screenshot({
     path: `public/icons/notify/${name}-badge.png`,

@@ -85,12 +85,10 @@ func drawGlyph(name string) *image.RGBA {
 		line(point{111, 58}, point{135, 82})
 		line(point{57, 112}, point{81, 136})
 	}
-	bg := color.RGBA{75, 123, 216, 255}
-	if name == "apple" || name == "salad" {
-		bg = color.RGBA{58, 155, 91, 255}
-	}
-	if name == "moon" {
-		bg = color.RGBA{107, 91, 210, 255}
+	// 底色用站标的两个颜色：粉（#e0218a）是默认，紫（#7c3aed）给月亮和饮食。
+	bg := color.RGBA{224, 33, 138, 255}
+	if name == "apple" || name == "salad" || name == "moon" {
+		bg = color.RGBA{124, 58, 237, 255}
 	}
 	out := image.NewRGBA(image.Rect(0, 0, 192, 192))
 	// Four samples per pixel soften the stroke and rounded background edges.

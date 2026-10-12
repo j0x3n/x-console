@@ -151,9 +151,9 @@ const NOTIFY_ICONS = [
   [/^router\./, "router"],
   [/^(ha|homeassistant)\./, "home"],
 ];
-// 站标换过之后，服务端给的通用图标地址没有版本号，系统会一直用缓存里的旧图，这里补上。
+// 换过站标和图标配色之后，服务端给的固定图标地址没有版本号，系统会一直用缓存里的旧图，这里补上。
 function brandVersion(url) {
-  return /^\/icons\/notify\/app(-badge)?\.png$/.test(url || "")
+  return /^\/icons\/notify\/[a-z]+(-badge)?\.png$/.test(url || "")
     ? `${url}?v=led-1`
     : url;
 }
@@ -164,7 +164,7 @@ function notifyIcons(data) {
   const kind = String(data.kind || "");
   const hit = NOTIFY_ICONS.find(([re]) => re.test(kind));
   const name = hit ? hit[1] : "app";
-  const version = name === "app" ? "?v=led-1" : "";
+  const version = "?v=led-1";
   return {
     icon: brandVersion(data.icon) || `/icons/notify/${name}.png${version}`,
     badge:
