@@ -62,6 +62,7 @@ func New(d *module.Deps) (module.Module, error) {
 		states:      map[int64]accountState{},
 	}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	m.registerActions()
 	return m, nil
 }
 

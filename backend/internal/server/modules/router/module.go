@@ -72,6 +72,7 @@ var (
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), direct: newDirect(), now: time.Now, seen: map[string]time.Time{}}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	m.registerActions()
 	return m, nil
 }
 

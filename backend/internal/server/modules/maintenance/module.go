@@ -36,6 +36,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, ctx: context.Background(), started: time.Now().UTC(), snapshot: map[string][]contracts.CleanupItem{}, consumed: map[string]bool{}, scan: Job{State: "idle", Groups: []Group{}}, cleanup: Job{State: "idle", Groups: []Group{}}}
 	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"records", recordCleaner{d.DB})
 	module.Provide[contracts.Cleaner](d.Registry, contracts.MaintenanceCleanerPrefix+"tmp", temporaryCleaner{d.Config.TmpDir(), d.Registry})
+	m.registerActions()
 	return m, nil
 }
 

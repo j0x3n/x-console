@@ -67,6 +67,7 @@ func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), wake: make(chan struct{}, 1), pending: map[string]bool{}, nowFn: time.Now}
 	m.haCall = m.callHA
 	module.Provide[*Module](d.Registry, ServiceKey, m)
+	m.registerActions()
 	return m, nil
 }
 

@@ -60,6 +60,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.AgentRuns](d.Registry, contracts.AgentRunsKey, m)
 	d.Notify.OnAction("ai_agent.", m.notificationAction)
 	module.Provide[contracts.CodingQuestions](d.Registry, contracts.CodingQuestionsKey, m)
+	m.registerActions()
 	return m, nil
 }
 

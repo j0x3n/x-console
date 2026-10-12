@@ -1,0 +1,143 @@
+package aiagents_test
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/j0x3n/x-console/backend/internal/server/actions"
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/testutil"
+)
+
+func TestAIAgentActions(t *testing.T) {
+	env := testutil.New(t)
+	for i := 1; i <= 2; i++ {
+		_, err := env.App.Deps.DB.Exec(`INSERT INTO ai_agents(id,name,kind,model,instructions,created_at,updated_at) VALUES(?,'测试 Agent','builtin','test:model','隐藏指令',?,?)`, i, time.Now(), time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 1; i <= 3; i++ {
+		_, err := env.App.Deps.DB.Exec(`INSERT INTO ai_agent_runs(id,agent_id,issue_key,issue_title,kind,status,summary,created_at) VALUES(?,1,'XC-1','任务标题','builtin','done','隐藏执行结果',?)`, i, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	page := callAIAction(t, env, "aiagents.list", `{"limit":1}`).(map[string]any)
+	if len(page["items"].([]any)) != 1 || page["truncated"] != true {
+		t.Fatalf("Agent 限量: %+v", page)
+	}
+	detail := callAIAction(t, env, "aiagents.get", `{"id":1}`).(map[string]any)
+	if detail["kind"] != "builtin" || detail["instructions"] != nil || detail["repoIds"] != nil {
+		t.Fatalf("Agent 详情: %+v", detail)
+	}
+	page = callAIAction(t, env, "aiagents.runs", `{"agentId":1,"issueKey":"xc-1","limit":1}`).(map[string]any)
+	if len(page["items"].([]any)) != 1 || page["truncated"] != true {
+		t.Fatalf("运行限量: %+v", page)
+	}
+	row := page["items"].([]any)[0].(map[string]any)
+	if row["issueKey"] != "XC-1" || row["summary"] != nil {
+		t.Fatalf("运行摘要: %+v", row)
+	}
+	if _, err := env.App.Deps.Actions.Run(context.Background(), "aiagents.get", json.RawMessage(`{"id":999}`)); err == nil {
+		t.Fatal("不存在的 Agent 应返回错误")
+	}
+	module.Provide[contracts.HiddenModules](env.App.Deps.Registry, contracts.HiddenModulesKey, aiHiddenModules{"projects": true})
+	page = callAIAction(t, env, "aiagents.runs", `{}`).(map[string]any)
+	if len(page["items"].([]any)) != 0 {
+		t.Fatalf("隐藏任务泄漏: %+v", page)
+	}
+	checkAIActionInputs(t, env, "aiagents.list", "aiagents.get", "aiagents.runs")
+	checkAIHiddenModule(t, env, "coding", "aiagents.list", "aiagents.get", "aiagents.runs")
+}
+
+func callAIAction(t *testing.T, env *testutil.Env, name, input string) any {
+	t.Helper()
+	until := time.Now().Add(time.Hour)
+	ctx := auth.WithSession(context.Background(), &auth.Session{Username: "jo", VaultUntil: &until})
+	result, err := env.App.Deps.Actions.Run(ctx, name, json.RawMessage(input))
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func checkAIActionInputs(t *testing.T, env *testutil.Env, names ...string) {
+	t.Helper()
+	until := time.Now().Add(time.Hour)
+	ctx := auth.WithSession(context.Background(), &auth.Session{VaultUntil: &until})
+	for _, name := range names {
+		a, ok := env.App.Deps.Actions.Get(ctx, name)
+		if !ok {
+			t.Fatalf("操作未注册: %s", name)
+		}
+		wantEffect := actions.Read
+		if name == "backup.export" {
+			wantEffect = actions.Dangerous
+		}
+		if a.Effect != wantEffect {
+			t.Fatalf("%s 的 Effect 不正确: %s", name, a.Effect)
+		}
+		for _, raw := range []string{`{"unexpected":true}`, `null`, `{} {}`, `{"limit":51}`, `{"limit":0}`, `{"limit":-1}`} {
+			_, err := a.Run(ctx, json.RawMessage(raw))
+			var failure *httpx.Error
+			if !errors.As(err, &failure) || failure.Status != 400 {
+				t.Fatalf("%s 无效参数未返回 400: %s %v", name, raw, err)
+			}
+		}
+	}
+}
+
+type aiHiddenModules map[string]bool
+
+func (h aiHiddenModules) Hidden(ctx context.Context, name string) bool {
+	return h[name] && !auth.VaultUnlocked(ctx)
+}
+
+func checkAIHiddenModule(t *testing.T, env *testutil.Env, side string, names ...string) {
+	t.Helper()
+	module.Provide[contracts.HiddenModules](env.App.Deps.Registry, contracts.HiddenModulesKey, aiHiddenModules{side: true})
+	until := time.Now().Add(time.Hour)
+	ctx := auth.WithSession(context.Background(), &auth.Session{VaultUntil: &until})
+	for _, name := range names {
+		a, ok := env.App.Deps.Actions.Get(ctx, name)
+		if !ok {
+			t.Fatalf("找不到操作 %s", name)
+		}
+		raw := json.RawMessage(`{}`)
+		var spec struct {
+			Required []string `json:"required"`
+		}
+		_ = json.Unmarshal(a.Input, &spec)
+		fields := map[string]any{}
+		for _, key := range spec.Required {
+			if key == "q" {
+				fields[key] = "测试"
+			} else {
+				fields[key] = 1
+			}
+		}
+		if len(fields) > 0 {
+			raw, _ = json.Marshal(fields)
+		}
+		_, err := a.Run(ctx, raw)
+		var failure *httpx.Error
+		if !errors.As(err, &failure) || failure.Status != 404 {
+			t.Fatalf("%s 隐藏内容未被阻止: %v", name, err)
+		}
+	}
+}

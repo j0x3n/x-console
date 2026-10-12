@@ -103,6 +103,7 @@ func New(d *module.Deps) (module.Module, error) {
 	if err := m.load(ctx); err != nil {
 		return nil, fmt.Errorf("storage: %w", err)
 	}
+	m.registerActions()
 	return m, nil
 }
 

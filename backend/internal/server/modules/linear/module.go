@@ -59,12 +59,14 @@ var (
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
-	return &Module{
+	m := &Module{
 		d: d, q: db.New(d.DB), log: d.Log.With("module", "linear"),
 		hc:     &http.Client{Timeout: 15 * time.Second},
 		now:    func() time.Time { return time.Now().UTC() },
 		states: map[string][]lnState{},
-	}, nil
+	}
+	m.registerActions()
+	return m, nil
 }
 
 // Name implements module.Module.

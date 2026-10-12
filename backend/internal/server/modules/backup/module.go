@@ -89,6 +89,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	module.Provide[contracts.RemoteUser](d.Registry, contracts.RemoteUserKey, m)
 	module.Provide[contracts.StorageReporter](d.Registry, contracts.MaintenanceStoragePrefix+"backup", maintenance.StoreReporter{Store: m.local, Registry: d.Registry, Key: "backups", Label: "本地备份", Location: "local"})
+	m.registerActions()
 	return m, nil
 }
 

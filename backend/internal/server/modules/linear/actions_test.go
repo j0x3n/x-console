@@ -1,0 +1,128 @@
+package linear_test
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/j0x3n/x-console/backend/internal/server/actions"
+	"github.com/j0x3n/x-console/backend/internal/server/auth"
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
+	"github.com/j0x3n/x-console/backend/internal/server/httpx"
+	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/testutil"
+)
+
+func TestAILinearActions(t *testing.T) {
+	env, _, _ := setup(t)
+	status := callAIAction(t, env, "linear.status", `{}`).(map[string]any)
+	if status["configured"] != true || status["mappingCount"] != float64(1) {
+		t.Fatalf("状态: %+v", status)
+	}
+	teams := callAIAction(t, env, "linear.teams", `{"limit":1}`).(map[string]any)
+	if len(teams["items"].([]any)) != 1 {
+		t.Fatalf("团队: %+v", teams)
+	}
+	mappings := callAIAction(t, env, "linear.mappings", `{"limit":1}`).(map[string]any)
+	if len(mappings["items"].([]any)) != 1 {
+		t.Fatalf("映射: %+v", mappings)
+	}
+	module.Provide[contracts.HiddenModules](env.App.Deps.Registry, contracts.HiddenModulesKey, aiHiddenModules{"projects": true})
+	mappings = callAIAction(t, env, "linear.mappings", `{}`).(map[string]any)
+	if len(mappings["items"].([]any)) != 0 {
+		t.Fatalf("隐藏项目映射泄漏: %+v", mappings)
+	}
+	status = callAIAction(t, env, "linear.status", `{}`).(map[string]any)
+	if status["mappingCount"] != nil || status["lastSync"] != nil {
+		t.Fatalf("隐藏项目统计泄漏: %+v", status)
+	}
+	checkAIActionInputs(t, env, "linear.status", "linear.teams", "linear.mappings")
+	checkAIHiddenModule(t, env, "github", "linear.status", "linear.teams", "linear.mappings")
+}
+
+func callAIAction(t *testing.T, env *testutil.Env, name, input string) any {
+	t.Helper()
+	until := time.Now().Add(time.Hour)
+	ctx := auth.WithSession(context.Background(), &auth.Session{Username: "jo", VaultUntil: &until})
+	result, err := env.App.Deps.Actions.Run(ctx, name, json.RawMessage(input))
+	if err != nil {
+		t.Fatalf("%s: %v", name, err)
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func checkAIActionInputs(t *testing.T, env *testutil.Env, names ...string) {
+	t.Helper()
+	until := time.Now().Add(time.Hour)
+	ctx := auth.WithSession(context.Background(), &auth.Session{VaultUntil: &until})
+	for _, name := range names {
+		a, ok := env.App.Deps.Actions.Get(ctx, name)
+		if !ok {
+			t.Fatalf("操作未注册: %s", name)
+		}
+		wantEffect := actions.Read
+		if name == "backup.export" {
+			wantEffect = actions.Dangerous
+		}
+		if a.Effect != wantEffect {
+			t.Fatalf("%s 的 Effect 不正确: %s", name, a.Effect)
+		}
+		for _, raw := range []string{`{"unexpected":true}`, `null`, `{} {}`, `{"limit":51}`, `{"limit":0}`, `{"limit":-1}`} {
+			_, err := a.Run(ctx, json.RawMessage(raw))
+			var failure *httpx.Error
+			if !errors.As(err, &failure) || failure.Status != 400 {
+				t.Fatalf("%s 无效参数未返回 400: %s %v", name, raw, err)
+			}
+		}
+	}
+}
+
+type aiHiddenModules map[string]bool
+
+func (h aiHiddenModules) Hidden(ctx context.Context, name string) bool {
+	return h[name] && !auth.VaultUnlocked(ctx)
+}
+
+func checkAIHiddenModule(t *testing.T, env *testutil.Env, side string, names ...string) {
+	t.Helper()
+	module.Provide[contracts.HiddenModules](env.App.Deps.Registry, contracts.HiddenModulesKey, aiHiddenModules{side: true})
+	until := time.Now().Add(time.Hour)
+	ctx := auth.WithSession(context.Background(), &auth.Session{VaultUntil: &until})
+	for _, name := range names {
+		a, ok := env.App.Deps.Actions.Get(ctx, name)
+		if !ok {
+			t.Fatalf("找不到操作 %s", name)
+		}
+		raw := json.RawMessage(`{}`)
+		var spec struct {
+			Required []string `json:"required"`
+		}
+		_ = json.Unmarshal(a.Input, &spec)
+		fields := map[string]any{}
+		for _, key := range spec.Required {
+			if key == "q" {
+				fields[key] = "测试"
+			} else {
+				fields[key] = 1
+			}
+		}
+		if len(fields) > 0 {
+			raw, _ = json.Marshal(fields)
+		}
+		_, err := a.Run(ctx, raw)
+		var failure *httpx.Error
+		if !errors.As(err, &failure) || failure.Status != 404 {
+			t.Fatalf("%s 隐藏内容未被阻止: %v", name, err)
+		}
+	}
+}

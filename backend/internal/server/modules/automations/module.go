@@ -36,7 +36,9 @@ var _ module.Starter = (*Module)(nil)
 var _ module.PublicPather = (*Module)(nil)
 
 func New(d *module.Deps) (module.Module, error) {
-	return &Module{d: d, jobs: map[int64]scheduler.EntryID{}, last: map[int64]time.Time{}, eventRuns: map[int64][]time.Time{}, metricHigh: map[string]bool{}}, nil
+	m := &Module{d: d, jobs: map[int64]scheduler.EntryID{}, last: map[int64]time.Time{}, eventRuns: map[int64][]time.Time{}, metricHigh: map[string]bool{}}
+	m.registerActions()
+	return m, nil
 }
 func (m *Module) Name() string          { return "automations" }
 func (m *Module) PublicPaths() []string { return []string{"/hooks"} }
