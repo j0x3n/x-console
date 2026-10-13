@@ -11,6 +11,7 @@ import (
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
@@ -59,10 +60,10 @@ func TestEmbed(t *testing.T) {
 		t.Fatal("embedder not registered")
 	}
 	ctx := context.Background()
-	if em.Available(ctx) {
+	if em.Available(ctx, 0) {
 		t.Fatal("available without a provider")
 	}
-	if _, err := em.Embed(ctx, "", []string{"x"}); err == nil || !strings.Contains(err.Error(), "供应商") {
+	if _, err := em.Embed(ctx, 0, "", []string{"x"}); err == nil || !strings.Contains(err.Error(), "供应商") {
 		t.Fatalf("without provider: %v", err)
 	}
 	var provider api.AiProvider
@@ -73,37 +74,69 @@ func TestEmbed(t *testing.T) {
 		t.Fatal(err)
 	}
 	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}, "fast": nil, "reasoningEffort": "off"}, nil)
-	if !em.Available(ctx) {
+	if !em.Available(ctx, 0) {
 		t.Fatal("not available with a provider")
 	}
 
-	vecs, err := em.Embed(ctx, "", []string{"一二", "一二三四"})
+	vecs, err := em.Embed(ctx, 0, "", []string{"一二", "一二三四"})
 	if err != nil || len(vecs) != 2 || vecs[0][0] != 2 || vecs[1][0] != 4 {
 		t.Fatalf("embed: %v %v", vecs, err)
 	}
 	if gotModel != "text-embedding-3-small" || gotAuth != "Bearer secret-value" {
 		t.Errorf("request: model %q auth %q", gotModel, gotAuth)
 	}
-	if _, err := em.Embed(ctx, "other-model", []string{"x"}); err != nil || gotModel != "other-model" {
+	if _, err := em.Embed(ctx, 0, "other-model", []string{"x"}); err != nil || gotModel != "other-model" {
 		t.Errorf("model override: %v %q", err, gotModel)
 	}
-	// 300 texts go in three requests of at most 128, and the order is kept.
-	many := make([]string, 300)
+	// 250 texts go in three requests of at most 100 (Google's limit), and the order is kept.
+	many := make([]string, 250)
 	for i := range many {
 		many[i] = strings.Repeat("字", i+1)
 	}
 	requests, maxBatch = 0, 0
-	vecs, err = em.Embed(ctx, "", many)
-	if err != nil || len(vecs) != 300 || requests != 3 || maxBatch != 128 || vecs[299][0] != 300 || vecs[0][0] != 1 {
+	vecs, err = em.Embed(ctx, 0, "", many)
+	if err != nil || len(vecs) != 250 || requests != 3 || maxBatch != 100 || vecs[249][0] != 250 || vecs[0][0] != 1 {
 		t.Fatalf("batches: %d vectors, %d requests, max %d, %v", len(vecs), requests, maxBatch, err)
 	}
 	// The API may answer out of order; the index field decides.
 	shuffle = true
-	vecs, err = em.Embed(ctx, "", []string{"一", "一二", "一二三"})
+	vecs, err = em.Embed(ctx, 0, "", []string{"一", "一二", "一二三"})
 	if err != nil || vecs[0][0] != 1 || vecs[1][0] != 2 || vecs[2][0] != 3 {
 		t.Fatalf("shuffled: %v %v", vecs, err)
 	}
-	if v, err := em.Embed(ctx, "", nil); err != nil || v != nil {
+	if v, err := em.Embed(ctx, 0, "", nil); err != nil || v != nil {
 		t.Errorf("empty: %v %v", v, err)
+	}
+
+	// B197: another provider than fast AI, picked by id.
+	var gotPath, otherAuth, otherModel string
+	google := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Model string }
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		gotPath, otherAuth, otherModel = r.URL.Path, r.Header.Get("Authorization"), body.Model
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[3,4]}]}`)
+	}))
+	defer google.Close()
+	var other api.AiProvider
+	env.MustDo("POST", "/ai/providers", map[string]any{"name": "Google", "baseUrl": google.URL + "/v1beta/openai", "apiKey": "google-key"}, &other)
+	if !em.Available(ctx, other.Id) || em.Available(ctx, other.Id+100) {
+		t.Fatal("availability by provider")
+	}
+	vecs, err = em.Embed(ctx, other.Id, "my-embed", []string{"x"})
+	if err != nil || len(vecs) != 1 || vecs[0][0] != 3 {
+		t.Fatalf("other provider: %v %v", vecs, err)
+	}
+	if gotPath != "/v1beta/openai/embeddings" || otherAuth != "Bearer google-key" || otherModel != "my-embed" {
+		t.Errorf("other provider request: %q %q %q", gotPath, otherAuth, otherModel)
+	}
+	if _, err := em.Embed(ctx, other.Id+100, "", []string{"x"}); err == nil || !strings.Contains(err.Error(), "删除") {
+		t.Errorf("deleted provider: %v", err)
+	}
+}
+
+func TestEmbedGoogleDefaultModel(t *testing.T) {
+	if !ai.IsGoogle("https://generativelanguage.googleapis.com/v1beta/openai/") || ai.IsGoogle("https://api.openai.com/v1") || ai.IsGoogle("::") {
+		t.Fatal("isGoogle")
 	}
 }

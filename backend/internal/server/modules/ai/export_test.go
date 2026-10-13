@@ -44,3 +44,6 @@ func (m *Module) GenerateForTest(ctx context.Context, id int64) error {
 func (m *Module) SaveTurnForTest(ctx context.Context, id int64, hostID *string, text string) error {
 	return m.saveMessage(ctx, id, "user", []map[string]any{{"type": "text", "text": text}, {"type": "text", "text": m.turnContext(ctx, hostID), "context": true}})
 }
+
+// IsGoogle exposes the check that picks Google's default embedding model (B197).
+func IsGoogle(baseURL string) bool { return isGoogle(baseURL) }

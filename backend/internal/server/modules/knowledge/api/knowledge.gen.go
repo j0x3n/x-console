@@ -42,8 +42,11 @@ type KnowledgeHit struct {
 type KnowledgeSettings struct {
 	Enabled bool `json:"enabled"`
 
-	// Model 嵌入模型，空表示默认 text-embedding-3-small
+	// Model 嵌入模型，空表示供应商的默认模型（Google 是 gemini-embedding-001，其他是 text-embedding-3-small）
 	Model string `json:"model"`
+
+	// ProviderId B197。嵌入用的 AI 供应商，不填或 0 用快速 AI 的供应商
+	ProviderId *int64 `json:"providerId,omitempty"`
 
 	// Sources 要索引的来源，可选 notes、readlater、journal、cards
 	Sources []string `json:"sources"`

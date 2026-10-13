@@ -10,12 +10,15 @@ const EmbedderKey = "ai.embedder"
 
 // Embedder turns texts into vectors with the AI provider the user configured
 // (an OpenAI compatible /embeddings endpoint).
+//
+// providerID picks the AI provider (B197). 0 uses the provider chosen for
+// fast AI calls.
 type Embedder interface {
-	// Available says whether a provider is configured.
-	Available(ctx context.Context) bool
+	// Available says whether the provider exists.
+	Available(ctx context.Context, providerID int64) bool
 	// Embed returns one vector per input, in the same order. model is the
-	// model name; empty uses the default.
-	Embed(ctx context.Context, model string, inputs []string) ([][]float32, error)
+	// model name; empty uses the provider's default.
+	Embed(ctx context.Context, providerID int64, model string, inputs []string) ([][]float32, error)
 }
 
 // KnowledgeSourcePrefix is the registry key prefix of the modules whose text

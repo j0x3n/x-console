@@ -48,8 +48,8 @@ func docKey(source, ref string) string { return source + "\x00" + ref }
 // syncOnce returns how many passages were left for the next time.
 func (m *Module) syncOnce(ctx context.Context, opts api.KnowledgeSettings) (int, error) {
 	em, ok := m.embedder()
-	if !ok || !em.Available(ctx) {
-		return 0, errors.New("还没有配置 AI 供应商，不能建索引")
+	if !ok || !em.Available(ctx, providerID(opts)) {
+		return 0, errors.New(noProvider(opts))
 	}
 	rows, err := m.q.ListKnowledgeDocs(ctx)
 	if err != nil {
@@ -69,7 +69,7 @@ func (m *Module) syncOnce(ctx context.Context, opts api.KnowledgeSettings) (int,
 			delete(existing, docKey(r.Source, r.Ref))
 		}
 	}
-	mdl := model(opts)
+	mdl := indexKey(opts)
 	budget, pending := m.budget, 0
 	for _, name := range AllSources {
 		src, registered := sources[name]
@@ -124,7 +124,7 @@ func (m *Module) indexDoc(ctx context.Context, em contracts.Embedder, opts api.K
 			inputs[i] = title + "\n" + c
 		}
 	}
-	vecs, err := em.Embed(ctx, opts.Model, inputs)
+	vecs, err := em.Embed(ctx, providerID(opts), opts.Model, inputs)
 	if err != nil {
 		return err
 	}

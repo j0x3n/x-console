@@ -221,6 +221,43 @@ describe("资料问答页", () => {
     });
   });
 
+  it("嵌入可以选别的供应商（B197）", async () => {
+    api.routes.set("GET /ai/providers", () => ({
+      status: 200,
+      body: [
+        {
+          id: 3,
+          name: "Google",
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+          apiStyle: "chat",
+          hasApiKey: true,
+          modelCount: 0,
+          createdAt: "2026-10-13T00:00:00Z",
+        },
+      ],
+    }));
+    api.routes.set("PUT /knowledge/settings", (body) => ({
+      status: 200,
+      body,
+    }));
+    renderPage();
+    fireEvent.click(
+      await screen.findByRole("button", { name: /资料问答设置/ }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("option", { name: "Google" });
+    fireEvent.change(within(dialog).getByLabelText(/嵌入用的供应商/), {
+      target: { value: "3" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.method === "PUT")).toBe(true),
+    );
+    expect(api.calls.find((c) => c.method === "PUT")?.body).toMatchObject({
+      providerId: 3,
+    });
+  });
+
   it("接口还没上线时显示还没上线", async () => {
     api.routes.clear();
     renderPage();

@@ -102,6 +102,14 @@ func (m *Module) embedder() (contracts.Embedder, bool) {
 	return module.Lookup[contracts.Embedder](m.d.Registry, contracts.EmbedderKey)
 }
 
+// noProvider is the message when the embedding provider is missing.
+func noProvider(o api.KnowledgeSettings) string {
+	if providerID(o) > 0 {
+		return "嵌入用的 AI 供应商已经删除，请在资料问答设置里重新选"
+	}
+	return "还没有配置 AI 供应商，不能建索引"
+}
+
 // sources returns the registered sources by name.
 func (m *Module) sources() map[string]contracts.KnowledgeSource {
 	out := map[string]contracts.KnowledgeSource{}
@@ -154,9 +162,10 @@ func (m *Module) GetKnowledgeStatus(w http.ResponseWriter, r *http.Request) {
 			st.Sources = append(st.Sources, c)
 		}
 	}
-	st.Enabled = m.options(ctx).Enabled
+	opts := m.options(ctx)
+	st.Enabled = opts.Enabled
 	if em, ok := m.embedder(); ok {
-		st.Available = em.Available(ctx)
+		st.Available = em.Available(ctx, providerID(opts))
 	}
 	m.mu.Lock()
 	st.Syncing = m.syncing

@@ -36,7 +36,13 @@ registerZh({
   "Ask enable hint":
     "开启后才会向 AI 供应商发送内容。关闭后不再发送，已建的索引保留。",
   "Ask model": "嵌入模型",
-  "Ask model hint": "不填用 text-embedding-3-small",
+  "Ask model hint":
+    "不填时 Google 用 gemini-embedding-001，其他用 text-embedding-3-small",
+  "Ask embed provider": "嵌入用的供应商",
+  "Ask embed provider fast": "和快速 AI 一样",
+  "Ask embed provider gone": "已删除的供应商",
+  "Ask embed provider hint":
+    "要用 Google：先在 AI 设置里加一个供应商，地址填 https://generativelanguage.googleapis.com/v1beta/openai，再在这里选它。换供应商或模型后索引会全部重建。",
   "Ask sources to index": "要建索引的内容",
   "Ask clear index": "清空索引",
   "Ask clear title": "清空全部索引？",

@@ -4,6 +4,7 @@ import { confirmAction } from "../../components/ui/ConfirmDialog";
 import Dialog from "../../components/ui/Dialog";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
+import { useAiProviders } from "../assistant/api";
 import {
   useClearKnowledge,
   usePutKnowledgeSettings,
@@ -13,7 +14,7 @@ import { SOURCE_LABELS } from "./format";
 
 const ALL = ["notes", "readlater", "journal", "cards"];
 
-/** 资料问答设置：开关、嵌入模型、要建索引的内容、清空索引。 */
+/** 资料问答设置：开关、嵌入用的供应商和模型、要建索引的内容、清空索引。 */
 export default function KnowledgeSettingsDialog({
   open,
   onClose,
@@ -26,12 +27,15 @@ export default function KnowledgeSettingsDialog({
   const t = useT();
   const save = usePutKnowledgeSettings();
   const clear = useClearKnowledge();
+  const providers = useAiProviders(open);
+  const providerList = providers.data ?? [];
   const [form, setForm] = useState<KnowledgeSettings>({
     enabled: false,
     model: "",
     sources: ALL,
   });
   const [error, setError] = useState("");
+  const providerId = form.providerId ?? 0;
   useEffect(() => {
     if (open && settings) {
       setForm(settings);
@@ -83,6 +87,34 @@ export default function KnowledgeSettingsDialog({
           <span>{t("Ask enable")}</span>
         </label>
         <p className="xc-muted ask-hint">{t("Ask enable hint")}</p>
+        <label className="xc-field">
+          <span>{t("Ask embed provider")}</span>
+          <select
+            className="xc-select"
+            value={providerId}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                providerId: Number(e.target.value) || undefined,
+              })
+            }
+          >
+            <option value={0}>{t("Ask embed provider fast")}</option>
+            {providerList.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            {providerId > 0 &&
+              !providers.isPending &&
+              !providerList.some((p) => p.id === providerId) && (
+                <option value={providerId}>
+                  {t("Ask embed provider gone")}
+                </option>
+              )}
+          </select>
+          <small>{t("Ask embed provider hint")}</small>
+        </label>
         <label className="xc-field">
           <span>{t("Ask model")}</span>
           <input

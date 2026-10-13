@@ -28,10 +28,13 @@ func (m *Module) search(ctx context.Context, question string) ([]api.KnowledgeHi
 		return nil, httpx.Invalid("资料问答还没开启，请先在设置里开启")
 	}
 	em, ok := m.embedder()
-	if !ok || !em.Available(ctx) {
+	if !ok || !em.Available(ctx, providerID(opts)) {
+		if providerID(opts) > 0 {
+			return nil, httpx.Invalid(noProvider(opts))
+		}
 		return nil, httpx.Invalid("还没有配置 AI 供应商")
 	}
-	qv, err := em.Embed(ctx, opts.Model, []string{question})
+	qv, err := em.Embed(ctx, providerID(opts), opts.Model, []string{question})
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +47,7 @@ func (m *Module) search(ctx context.Context, question string) ([]api.KnowledgeHi
 		return nil, err
 	}
 	hidden := m.hiddenFn(ctx)
-	mdl := model(opts)
+	mdl := indexKey(opts)
 	type scored struct {
 		v     *vec
 		score float32

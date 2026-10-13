@@ -28,6 +28,8 @@ type fakeAI struct {
 	err       error
 	inputs    [][]string // one entry per Embed call
 	models    []string
+	providers []int64        // the provider of each Embed call
+	known     map[int64]bool // providers other than 0 that exist
 	prompts   []string
 	answer    string
 	answerErr error
@@ -39,11 +41,22 @@ func (f *fakeAI) Available(context.Context) bool {
 	return f.available
 }
 
-func (f *fakeAI) Embed(_ context.Context, model string, inputs []string) ([][]float32, error) {
+// fakeEmbedder is fakeAI seen as a contracts.Embedder. Its Available takes a
+// provider, unlike the LLM's.
+type fakeEmbedder struct{ *fakeAI }
+
+func (f fakeEmbedder) Available(_ context.Context, provider int64) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.available && (provider == 0 || f.known[provider])
+}
+
+func (f fakeEmbedder) Embed(_ context.Context, provider int64, model string, inputs []string) ([][]float32, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.inputs = append(f.inputs, inputs)
 	f.models = append(f.models, model)
+	f.providers = append(f.providers, provider)
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -84,7 +97,7 @@ func (f *fakeAI) embedded() int {
 func (f *fakeAI) reset() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.inputs, f.models, f.prompts = nil, nil, nil
+	f.inputs, f.models, f.providers, f.prompts = nil, nil, nil, nil
 }
 
 type hiddenSet struct{ set map[string]bool }
@@ -104,8 +117,8 @@ func setup(t *testing.T) *fixture {
 	if !ok {
 		t.Fatal("knowledge module not registered")
 	}
-	ai := &fakeAI{available: true, answer: "把 80 端口让出来。[1]"}
-	module.Provide[contracts.Embedder](env.App.Deps.Registry, contracts.EmbedderKey, ai)
+	ai := &fakeAI{available: true, answer: "把 80 端口让出来。[1]", known: map[int64]bool{}}
+	module.Provide[contracts.Embedder](env.App.Deps.Registry, contracts.EmbedderKey, fakeEmbedder{ai})
 	module.Provide[contracts.LLM](env.App.Deps.Registry, contracts.LLMKey, ai)
 	return &fixture{env: env, m: m, ai: ai}
 }
@@ -384,6 +397,55 @@ func TestModelChangeAndSourcesOff(t *testing.T) {
 	f.sync()
 	if len(f.ai.inputs) != 0 {
 		t.Fatal("sent while off")
+	}
+}
+
+// B197: embeddings can use another provider than fast AI, for example Google.
+func TestProviderChoice(t *testing.T) {
+	f := setup(t)
+	seven := int64(7)
+	// A provider that does not exist is refused.
+	if code, _ := f.env.Do(http.MethodPut, "/knowledge/settings", api.KnowledgeSettings{Enabled: true, ProviderId: &seven, Sources: []string{"notes"}}, nil); code != http.StatusBadRequest && code != http.StatusUnprocessableEntity {
+		t.Fatalf("unknown provider: %d", code)
+	}
+	// 0 means the fast AI provider and is saved as empty.
+	zero := int64(0)
+	var got api.KnowledgeSettings
+	f.env.MustDo(http.MethodPut, "/knowledge/settings", api.KnowledgeSettings{Enabled: true, ProviderId: &zero, Sources: []string{"notes"}}, &got)
+	if got.ProviderId != nil {
+		t.Fatalf("zero saved as %d", *got.ProviderId)
+	}
+	f.note(t, "甲", "证书", false)
+	f.sync()
+	// Another provider rebuilds everything, and the old vectors are not searched meanwhile.
+	f.ai.known[7] = true
+	f.env.MustDo(http.MethodPut, "/knowledge/settings", api.KnowledgeSettings{Enabled: true, ProviderId: &seven, Sources: []string{"notes"}}, &got)
+	if got.ProviderId == nil || *got.ProviderId != 7 {
+		t.Fatalf("saved: %+v", got)
+	}
+	f.ai.reset()
+	if hits := f.search(t, "证书"); len(hits) != 0 {
+		t.Errorf("old provider searched: %s", titles(hits))
+	}
+	f.ai.reset()
+	f.sync()
+	if n := f.ai.embedded(); n != 1 {
+		t.Fatalf("rebuild embedded %d", n)
+	}
+	if hits := f.search(t, "证书"); titles(hits) != "甲" {
+		t.Errorf("after rebuild: %s", titles(hits))
+	}
+	for _, p := range f.ai.providers {
+		if p != 7 {
+			t.Errorf("provider %d", p)
+		}
+	}
+	// A deleted provider shows in the status, and the index stays.
+	f.ai.known[7] = false
+	f.sync()
+	st := f.status(t)
+	if st.Available || st.LastError == nil || !strings.Contains(*st.LastError, "删除") || st.Docs != 1 {
+		t.Fatalf("deleted provider: %+v", st)
 	}
 }
 

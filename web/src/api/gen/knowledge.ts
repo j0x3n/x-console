@@ -153,8 +153,13 @@ export interface components {
         };
         KnowledgeSettings: {
             enabled: boolean;
-            /** @description 嵌入模型，空表示默认 text-embedding-3-small */
+            /** @description 嵌入模型，空表示供应商的默认模型（Google 是 gemini-embedding-001，其他是 text-embedding-3-small） */
             model: string;
+            /**
+             * Format: int64
+             * @description B197。嵌入用的 AI 供应商，不填或 0 用快速 AI 的供应商
+             */
+            providerId?: number;
             /** @description 要索引的来源，可选 notes、readlater、journal、cards */
             sources: string[];
         };
