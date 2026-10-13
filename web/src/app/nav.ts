@@ -145,7 +145,8 @@ export const navGroupLabels: Record<NavGroup, string> = {
  * 合并后在左栏和启动台里只占一个位置，二级菜单顶部可以在组里切换。地址都不变。
  */
 export const navMerges: Record<string, string[]> = {
-  "/notes": ["/notes", "/readlater", "/cards", "/ask"],
+  // B198：知识库单独成一个入口，合在笔记里找不到
+  "/notes": ["/notes", "/readlater", "/cards"],
   "/habits": ["/habits", "/goals", "/checkins", "/experiments"],
   "/home": ["/home", "/router"],
 };
@@ -160,6 +161,7 @@ export const defaultNavPins = [
   "/projects",
   "/coding",
   "/notes",
+  "/ask",
   "/calendar",
   "/reminders",
   "/mail",

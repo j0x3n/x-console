@@ -1231,14 +1231,14 @@ try {
       (await api("/skills")).items.some((x) => x.name === "端到端技能" && x.weekMinutes === 30),
     );
 
-    setStage("资料问答");
+    setStage("知识库");
     // B139：默认关着，页面说明会发送什么；去开启后保存，状态变成已开启。没配置 AI 供应商，所以提示不能建索引。
     await page.goto(`${base}/ask`);
-    await page.getByText("资料问答还没开启").waitFor();
+    await page.getByText("知识库还没开启").waitFor();
     await page.getByRole("button", { name: "去开启" }).click();
-    await page.getByLabel("开启资料问答").check();
+    await page.getByLabel("开启知识库").check();
     await page.getByRole("dialog").getByRole("button", { name: "保存" }).click();
-    await until("资料问答开启", async () => (await api("/knowledge/settings")).enabled === true);
+    await until("知识库开启", async () => (await api("/knowledge/settings")).enabled === true);
     await page.getByText(/还没有配置 AI 供应商/).waitFor();
 
     setStage("今日计划");

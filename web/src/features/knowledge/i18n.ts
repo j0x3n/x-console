@@ -2,9 +2,9 @@ import { registerZh } from "../../lib/i18n";
 
 registerZh({
   // B139 个人资料问答
-  "Ask my data": "资料问答",
-  "Ask settings": "资料问答设置",
-  "Ask off title": "资料问答还没开启",
+  "Ask my data": "知识库",
+  "Ask settings": "知识库设置",
+  "Ask off title": "知识库还没开启",
   "Ask off body":
     "开启后，笔记、稍后读正文、日记和复习卡片会被切成小段，发给你配置的 AI 供应商转成向量。",
   "Ask turn on": "去开启",
@@ -32,7 +32,7 @@ registerZh({
   "Ask source readlater": "稍后读",
   "Ask source journal": "日记",
   "Ask source cards": "复习卡片",
-  "Ask enable": "开启资料问答",
+  "Ask enable": "开启知识库",
   "Ask enable hint":
     "开启后才会向 AI 供应商发送内容。关闭后不再发送，已建的索引保留。",
   "Ask model": "嵌入模型",

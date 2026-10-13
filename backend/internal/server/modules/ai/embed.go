@@ -45,7 +45,7 @@ func (e embedder) config(ctx context.Context, providerID int64) (llm.Config, err
 		return llm.Config{}, errors.New("还没有配置 AI 供应商，不能建索引")
 	}
 	if errors.Is(err, httpx.ErrNotFound) {
-		return llm.Config{}, errors.New("嵌入用的 AI 供应商已经删除，请在资料问答设置里重新选")
+		return llm.Config{}, errors.New("嵌入用的 AI 供应商已经删除，请在知识库设置里重新选")
 	}
 	return cfg, err
 }

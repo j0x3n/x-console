@@ -105,7 +105,7 @@ func (m *Module) embedder() (contracts.Embedder, bool) {
 // noProvider is the message when the embedding provider is missing.
 func noProvider(o api.KnowledgeSettings) string {
 	if providerID(o) > 0 {
-		return "嵌入用的 AI 供应商已经删除，请在资料问答设置里重新选"
+		return "嵌入用的 AI 供应商已经删除，请在知识库设置里重新选"
 	}
 	return "还没有配置 AI 供应商，不能建索引"
 }
@@ -185,7 +185,7 @@ func (m *Module) GetKnowledgeStatus(w http.ResponseWriter, r *http.Request) {
 // SyncKnowledge implements api.ServerInterface.
 func (m *Module) SyncKnowledge(w http.ResponseWriter, r *http.Request) {
 	if !m.options(r.Context()).Enabled {
-		httpx.Fail(w, r, httpx.Invalid("资料问答还没开启"))
+		httpx.Fail(w, r, httpx.Invalid("知识库还没开启"))
 		return
 	}
 	go m.sync(context.WithoutCancel(r.Context()))

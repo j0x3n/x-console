@@ -25,7 +25,7 @@ func (m *Module) search(ctx context.Context, question string) ([]api.KnowledgeHi
 	}
 	opts := m.options(ctx)
 	if !opts.Enabled {
-		return nil, httpx.Invalid("资料问答还没开启，请先在设置里开启")
+		return nil, httpx.Invalid("知识库还没开启，请先在设置里开启")
 	}
 	em, ok := m.embedder()
 	if !ok || !em.Available(ctx, providerID(opts)) {

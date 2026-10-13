@@ -121,15 +121,15 @@ function routes(s: unknown = status) {
 beforeEach(() => routes());
 afterEach(cleanup);
 
-describe("资料问答页", () => {
+describe("知识库页", () => {
   it("没开启时说明会发送什么，并给出开启入口", async () => {
     routes({ ...status, enabled: false });
     renderPage();
-    expect(await screen.findByText("资料问答还没开启")).toBeTruthy();
+    expect(await screen.findByText("知识库还没开启")).toBeTruthy();
     expect(screen.getByText(/转成向量/)).toBeTruthy();
     expect(screen.queryByLabelText("问题")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "去开启" }));
-    expect(await screen.findByLabelText("开启资料问答")).toBeTruthy();
+    expect(await screen.findByLabelText("开启知识库")).toBeTruthy();
   });
 
   it("开启后显示索引数量和各来源", async () => {
@@ -202,9 +202,7 @@ describe("资料问答页", () => {
       body,
     }));
     renderPage();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /资料问答设置/ }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /知识库设置/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByLabelText("稍后读"));
     fireEvent.change(within(dialog).getByLabelText("嵌入模型"), {
@@ -241,9 +239,7 @@ describe("资料问答页", () => {
       body,
     }));
     renderPage();
-    fireEvent.click(
-      await screen.findByRole("button", { name: /资料问答设置/ }),
-    );
+    fireEvent.click(await screen.findByRole("button", { name: /知识库设置/ }));
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByRole("option", { name: "Google" });
     fireEvent.change(within(dialog).getByLabelText(/嵌入用的供应商/), {

@@ -11,10 +11,11 @@ const AskPage = lazy(() => import("./AskPage"));
 registerCommands([
   {
     id: "knowledge.open",
-    title: "打开资料问答",
-    group: "资料问答",
+    title: "打开知识库",
+    group: "知识库",
     icon: Library,
-    keywords: "ask knowledge search rag semantic 资料 问答 搜索 笔记 提问",
+    keywords:
+      "ask knowledge search rag semantic 知识库 资料 问答 搜索 笔记 提问",
     run: ({ navigate }) => navigate("/ask"),
   },
 ]);

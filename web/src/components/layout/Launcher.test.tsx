@@ -33,9 +33,7 @@ describe("启动台（B179）", () => {
     renderLauncher([]);
     expect(screen.getByRole("dialog", { name: "全部功能" })).toBeTruthy();
     expect(screen.getByText("工作")).toBeTruthy();
-    expect(
-      screen.getByText("笔记 · 稍后阅读 · 复习卡片 · 资料问答"),
-    ).toBeTruthy();
+    expect(screen.getByText("笔记 · 稍后阅读 · 复习卡片")).toBeTruthy();
     expect(screen.getByText("家")).toBeTruthy();
   });
 

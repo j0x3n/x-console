@@ -15,15 +15,10 @@ const paths = (list: { path: string }[]) => list.map((e) => e.path);
 
 describe("左栏入口（B179）", () => {
   it("合并三组，今日不在里面", () => {
-    expect(all.length).toBe(navItems.length - 1 - 7);
+    expect(all.length).toBe(navItems.length - 1 - 6);
     expect(paths(all)).not.toContain("/");
     const notes = all.find((e) => e.path === "/notes")!;
-    expect(paths(notes.members)).toEqual([
-      "/notes",
-      "/readlater",
-      "/cards",
-      "/ask",
-    ]);
+    expect(paths(notes.members)).toEqual(["/notes", "/readlater", "/cards"]);
     expect(all.find((e) => e.path === "/home")?.label).toBe("Home and network");
     expect(paths(all)).not.toContain("/readlater");
     expect(paths(all)).not.toContain("/router");
