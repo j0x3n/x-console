@@ -2858,7 +2858,7 @@ try {
     await page.getByRole("button", { name: "新建习惯" }).click();
     await dialog("新建习惯").getByLabel("名称").fill("端到端护眼");
     await dialog("新建习惯").getByLabel("目标方式").selectOption("prompts");
-    await dialog("新建习惯").getByLabel("提醒", { exact: true }).selectOption("interval");
+    await dialog("新建习惯").getByRole("combobox", { name: /^提醒/ }).selectOption("interval");
     await dialog("新建习惯").getByRole("button", { name: "保存" }).click();
     await dialog("新建习惯").waitFor({ state: "hidden" });
     await until("跟着提醒走", async () => {
@@ -2869,7 +2869,7 @@ try {
     await page.getByRole("button", { name: "新建习惯" }).click();
     await dialog("新建习惯").getByLabel("名称").fill("端到端早睡");
     await dialog("新建习惯").getByLabel("自动打卡").selectOption("bedtime");
-    await dialog("新建习惯").getByLabel("时间", { exact: true }).fill("23:30");
+    await dialog("新建习惯").getByLabel(/^时间/).fill("23:30");
     await dialog("新建习惯").getByRole("button", { name: "保存" }).click();
     await dialog("新建习惯").waitFor({ state: "hidden" });
     await until("早睡自动打卡", async () => {
