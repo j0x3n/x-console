@@ -1,30 +1,34 @@
 /* AI 窗口（B3，B183 重做：左边会话列表，右边内容） */
 
-/* 顶栏按钮（B194：图标加文字，主题色浅底） */
+/* 顶栏按钮（B196）：桌面上是“图标 + AI”的普通按钮，图标带主题色渐变；
+   手机上和旁边的按钮一样只有图标，没有底色和边框 */
 .ai-topbar {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   height: 28px;
-  padding: 0 10px 0 8px;
-  border: 1px solid color-mix(in srgb, var(--xc-accent) 22%, transparent);
-  border-radius: 999px;
-  background: var(--xc-accent-soft);
-  color: var(--xc-accent-text);
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--xc-border-strong);
+  border-radius: 7px;
+  background: var(--xc-surface);
+  color: var(--xc-text);
   font-size: var(--fs-12-5);
   font-weight: 600;
-  letter-spacing: 0.02em;
   transition:
     background 0.15s,
     border-color 0.15s;
 }
 .ai-topbar:hover {
-  border-color: color-mix(in srgb, var(--xc-accent) 45%, transparent);
-  background: color-mix(in srgb, var(--xc-accent) 18%, var(--xc-surface));
+  background: var(--xc-surface-2);
 }
 .ai-topbar.on {
-  border-color: var(--xc-accent);
+  border-color: color-mix(
+    in srgb,
+    var(--xc-accent) 55%,
+    var(--xc-border-strong)
+  );
+  background: var(--xc-accent-soft);
 }
 .ai-topbar-count {
   position: absolute;
@@ -1025,10 +1029,18 @@
   .ai-input textarea {
     font-size: var(--fs-input);
   }
-  .ai-topbar {
+  .ai-topbar,
+  .ai-topbar:hover,
+  .ai-topbar.on {
     width: 30px;
     padding: 0;
     justify-content: center;
+    border-color: transparent;
+    background: none;
+  }
+  .ai-topbar .ai-mark {
+    width: 20px;
+    height: 20px;
   }
   .ai-topbar-label {
     display: none;
