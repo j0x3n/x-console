@@ -591,3 +591,60 @@
 .habits-suggest-added svg {
   color: var(--xc-ok);
 }
+
+/* B203 今天练什么 */
+.habits-today-workout {
+  margin-bottom: 16px;
+}
+.habits-today-workout .xc-card-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.habits-today-workout-meta {
+  margin: 0 0 6px;
+  font-size: var(--fs-12-5);
+}
+.habits-today-workout-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.habits-today-workout-row {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border: 0;
+  border-top: 1px solid var(--xc-border);
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.habits-today-workout-row:hover .habits-today-workout-name {
+  color: var(--xc-accent);
+}
+.habits-today-workout-row > span:last-child {
+  flex-shrink: 0;
+  max-width: 50%;
+  font-size: var(--fs-12-5);
+  text-align: right;
+}
+.habits-today-workout-safety {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 8px 0 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.habits-today-workout-safety svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--xc-warn);
+}

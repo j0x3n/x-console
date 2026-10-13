@@ -50,6 +50,13 @@ registerZh({
     "提醒了几次，目标就是几次。点“推迟”的那次不算。一整天没提醒也没打卡，不算断。",
   "Turn on reminders to follow them": "跟着提醒走要先打开提醒",
   "Goal follows the reminders": "目标跟着每天的提醒次数走",
+  // B203
+  "Today's training": "今天练什么",
+  "Start guided training": "开始跟练",
+  "From personal plan": "按个人计划",
+  "Training sets": "组",
+  "Back safety note":
+    "只做到不痛的范围，不憋气。出现新的腿麻、腿痛往下窜或者无力，停下并去看医生。会阴发麻、大小便控制不了，马上去急诊。",
   // B201
   "Auto check-in": "自动打卡",
   "By hand": "不自动，手动打卡",

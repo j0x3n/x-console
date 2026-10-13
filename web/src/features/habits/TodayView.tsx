@@ -32,6 +32,7 @@ import { EXTRA_RECOMMENDATIONS, programForHabit, sameName } from "./recommend";
 import { HABIT_TEMPLATES } from "./presence";
 import { FitnessSummary, TodayLogDialog } from "./FitnessModule";
 import HabitDialog from "./HabitDialog";
+import TodayWorkout from "./TodayWorkout";
 import { formatAmount, ratio, remindSummary, ringGeometry } from "./progress";
 import { relativeTime } from "../../lib/time";
 
@@ -121,6 +122,7 @@ export default function TodayView({
           onEdit={setEditing}
         />
       )}
+      <TodayWorkout />
       {today.isPending ? (
         <Loading />
       ) : today.isError ? (
