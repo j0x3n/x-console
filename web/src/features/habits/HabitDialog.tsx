@@ -12,6 +12,7 @@ import {
   type Habit,
   type HabitInput,
   type HabitKind,
+  type HabitTargetMode,
   type HabitTemplate,
   type RemindMode,
   type RemindWhen,
@@ -89,6 +90,7 @@ export default function HabitDialog({
   const [color, setColor] = useState("accent");
   const [unit, setUnit] = useState("次");
   const [target, setTarget] = useState("1");
+  const [targetMode, setTargetMode] = useState<HabitTargetMode>("fixed");
   const [mode, setMode] = useState<RemindMode>("none");
   const [interval, setIntervalMinutes] = useState("60");
   const [windowStart, setWindowStart] = useState("09:00");
@@ -114,6 +116,7 @@ export default function HabitDialog({
     setColor(h?.color || "accent");
     setUnit(h?.unit ?? "次");
     setTarget(String(h?.dailyTarget ?? 1));
+    setTargetMode(h?.targetMode ?? "fixed");
     setMode(h?.remindMode ?? "none");
     setIntervalMinutes(String(h?.remindIntervalMinutes || 60));
     const w = splitWindow(h?.remindWindow ?? "09:00-21:00");
@@ -144,6 +147,7 @@ export default function HabitDialog({
     setIcon(v.icon ?? "");
     setUnit(v.unit ?? "次");
     setTarget(String(v.dailyTarget ?? 1));
+    setTargetMode(v.targetMode ?? "fixed");
     setMode(v.remindMode ?? "none");
     setIntervalMinutes(String(v.remindIntervalMinutes || 60));
     setTimes((v.remindTimes ?? []).join(", "));
@@ -171,10 +175,13 @@ export default function HabitDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const dailyTarget = Number(target);
+    const followReminders = kind === "count" && targetMode === "prompts";
+    const dailyTarget = followReminders ? 1 : Number(target);
     if (!name.trim()) return setError(t("Name is required"));
     if (!(dailyTarget > 0))
       return setError(t("The daily goal must be above 0"));
+    if (followReminders && mode === "none")
+      return setError(t("Turn on reminders to follow them"));
     const remindTimes = parseTimes(times);
     if (mode === "times" && (!remindTimes || remindTimes.length === 0))
       return setError(t("Write times like 08:00, 20:00"));
@@ -191,6 +198,7 @@ export default function HabitDialog({
       color,
       unit: kind === "workout" ? "次" : unit.trim() || "次",
       dailyTarget,
+      targetMode: followReminders ? "prompts" : "fixed",
       remindMode: mode,
       remindIntervalMinutes: mode === "interval" ? minutes : 0,
       remindWindow:
@@ -365,18 +373,36 @@ export default function HabitDialog({
             )}
           </div>
         )}
-        <div className="habits-form-row">
+        {kind === "count" && (
           <label className="xc-field">
-            <span>{t("Daily goal")}</span>
-            <input
-              className="xc-input"
-              type="number"
-              min="0"
-              step="any"
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-            />
+            <span>{t("Goal type")}</span>
+            <select
+              className="xc-select"
+              value={targetMode}
+              onChange={(e) => setTargetMode(e.target.value as HabitTargetMode)}
+            >
+              <option value="fixed">{t("Same goal every day")}</option>
+              <option value="prompts">{t("Follow the reminders")}</option>
+            </select>
+            {targetMode === "prompts" && (
+              <small>{t("Follow the reminders hint")}</small>
+            )}
           </label>
+        )}
+        <div className="habits-form-row">
+          {(kind !== "count" || targetMode === "fixed") && (
+            <label className="xc-field">
+              <span>{t("Daily goal")}</span>
+              <input
+                className="xc-input"
+                type="number"
+                min="0"
+                step="any"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+              />
+            </label>
+          )}
           {kind !== "workout" && (
             <label className="xc-field">
               <span>{t("Unit")}</span>

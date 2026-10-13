@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -392,5 +393,68 @@ func TestHabitActionsReminderFields(t *testing.T) {
 	}
 	if _, err := env.App.Deps.Actions.Run(ctx, "habits.update", json.RawMessage(`{"remindMode":"times"}`)); err == nil {
 		t.Fatal("update without id accepted")
+	}
+}
+
+// B202: a habit whose target follows the reminders that went out.
+func TestPromptsTarget(t *testing.T) {
+	env, m := setup(t)
+	ctx := context.Background()
+	if status, _ := env.Do(http.MethodPost, "/habits", map[string]any{"name": "护眼", "targetMode": "prompts"}, nil); status != http.StatusBadRequest {
+		t.Fatalf("prompts without reminders: %d", status)
+	}
+	var h api.Habit
+	env.MustDo(http.MethodPost, "/habits", map[string]any{
+		"name": "护眼", "targetMode": "prompts", "remindMode": "interval",
+		"remindIntervalMinutes": 30, "remindWindow": "09:00-21:00",
+	}, &h)
+	if h.TargetMode != api.Prompts {
+		t.Fatalf("mode: %q", h.TargetMode)
+	}
+	if p := todayOf(t, env, h.Id); p.Target != 0 || p.Reached {
+		t.Fatalf("before reminders: %+v", p)
+	}
+	now := time.Now().In(shanghai)
+	sim := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, shanghai)
+	if err := habits.Tick(m, ctx, sim); err != nil {
+		t.Fatal(err)
+	}
+	if p := todayOf(t, env, h.Id); p.Target != 1 || p.Reached {
+		t.Fatalf("after one reminder: %+v", p)
+	}
+	env.MustDo(http.MethodPost, "/notify/actions", map[string]string{"actionId": fmt.Sprintf("habit.checkin:%d:1", h.Id)}, nil)
+	if p := todayOf(t, env, h.Id); p.Done != 1 || !p.Reached {
+		t.Fatalf("after rest: %+v", p)
+	}
+	// Reaching the target does not stop the reminders; the next one raises it.
+	if err := habits.Tick(m, ctx, sim.Add(40*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	var notes struct {
+		Items []struct{ Kind, Body string }
+	}
+	env.MustDo(http.MethodGet, "/notifications", nil, &notes)
+	if len(notes.Items) != 2 || !strings.Contains(notes.Items[0].Body, "1/2") {
+		t.Fatalf("second reminder: %+v", notes.Items)
+	}
+	if p := todayOf(t, env, h.Id); p.Target != 2 || p.Reached {
+		t.Fatalf("after second reminder: %+v", p)
+	}
+	// Snoozing takes the reminder back; it is counted when it comes again.
+	env.MustDo(http.MethodPost, "/notify/actions", map[string]string{"actionId": fmt.Sprintf("habit.snooze:%d", h.Id)}, nil)
+	if p := todayOf(t, env, h.Id); p.Target != 1 || !p.Reached {
+		t.Fatalf("after snooze: %+v", p)
+	}
+	var stats api.HabitStats
+	env.MustDo(http.MethodGet, fmt.Sprintf("/habits/%d/stats?days=7", h.Id), nil, &stats)
+	last := stats.Days[len(stats.Days)-1]
+	if last.Target != 1 || !last.Reached || stats.Streak != 1 {
+		t.Fatalf("stats: %+v", stats)
+	}
+	// Switching back to a fixed target.
+	var fixed api.Habit
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/habits/%d", h.Id), map[string]any{"targetMode": "fixed", "dailyTarget": 8}, &fixed)
+	if p := todayOf(t, env, h.Id); fixed.TargetMode != api.Fixed || p.Target != 8 || p.Reached {
+		t.Fatalf("fixed again: %+v", p)
 	}
 }

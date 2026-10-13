@@ -49,7 +49,7 @@ export default function HabitsPage() {
   const reached = items.filter((h) => h.reached).length;
   const progress = items.length
     ? items.reduce(
-        (sum, h) => sum + ratio(h.done, h.habit.dailyTarget ?? 0),
+        (sum, h) => sum + (h.reached ? 1 : ratio(h.done, h.target)),
         0,
       ) / items.length
     : 0;
@@ -57,11 +57,7 @@ export default function HabitsPage() {
   const checkins = items.reduce((sum, h) => sum + h.logs.length, 0);
   const behind = items
     .filter((h) => !h.reached)
-    .sort(
-      (a, b) =>
-        ratio(a.done, a.habit.dailyTarget ?? 0) -
-        ratio(b.done, b.habit.dailyTarget ?? 0),
-    )[0];
+    .sort((a, b) => ratio(a.done, a.target) - ratio(b.done, b.target))[0];
   return (
     <div className="xc-page">
       <PageHeading
@@ -146,7 +142,7 @@ export default function HabitsPage() {
               value={behind ? behind.habit.name : t("None")}
               foot={
                 behind
-                  ? `${formatAmount(behind.done)} / ${formatAmount(behind.habit.dailyTarget ?? 0)} ${behind.habit.unit ?? ""}`
+                  ? `${formatAmount(behind.done)} / ${formatAmount(behind.target)} ${behind.habit.unit ?? ""}`
                   : t("All reached")
               }
             />

@@ -876,6 +876,7 @@ type Habit struct {
 	RemindOnHost          int64
 	Template              string
 	SnoozedUntil          *time.Time
+	TargetMode            string
 }
 
 type HabitLog struct {
@@ -886,6 +887,12 @@ type HabitLog struct {
 	Source       string
 	Note         string
 	WorkoutLogID *int64
+}
+
+type HabitPrompt struct {
+	HabitID int64
+	Day     string
+	Count   int64
 }
 
 type HabitSchedule struct {

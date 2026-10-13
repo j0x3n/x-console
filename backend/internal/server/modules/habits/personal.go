@@ -394,7 +394,7 @@ func (m *Module) personalPublishCheckin(ctx context.Context, logID int64) {
 	if err != nil {
 		return
 	}
-	m.d.Bus.Publish("habit.checked_in", map[string]any{"habitId": h.ID, "name": h.Name, "log": logToAPI(log), "done": p.Done, "target": h.DailyTarget, "source": log.Source})
+	m.d.Bus.Publish("habit.checked_in", map[string]any{"habitId": h.ID, "name": h.Name, "log": logToAPI(log), "done": p.Done, "target": p.Target, "source": log.Source})
 	rules, err := m.loadSchedule(ctx)
 	if err != nil {
 		return
@@ -405,8 +405,8 @@ func (m *Module) personalPublishCheckin(ctx context.Context, logID int64) {
 	}
 	m.clock.reset(h.ID, now)
 	_ = m.q.SetHabitSnoozedUntil(ctx, db.SetHabitSnoozedUntilParams{ID: h.ID})
-	if p.Reached && p.Done-log.Amount < h.DailyTarget {
-		m.d.Bus.Publish("habit.goal_reached", map[string]any{"habitId": h.ID, "name": h.Name, "done": p.Done, "target": h.DailyTarget, "streak": p.Streak})
+	if p.Reached && p.Done-log.Amount < p.Target {
+		m.d.Bus.Publish("habit.goal_reached", map[string]any{"habitId": h.ID, "name": h.Name, "done": p.Done, "target": p.Target, "streak": p.Streak})
 	}
 }
 func (m *Module) GetPersonalLibrary(w http.ResponseWriter, r *http.Request) {

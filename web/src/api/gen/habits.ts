@@ -442,6 +442,11 @@ export interface components {
          * @enum {string}
          */
         HabitKind: "count" | "workout";
+        /**
+         * @description B202。fixed 每天固定目标 dailyTarget；prompts 目标是当天实际发出的提醒次数（护眼、起身这类说不准一天几次的），没发提醒又没打卡的日子不算断
+         * @enum {string}
+         */
+        HabitTargetMode: "fixed" | "prompts";
         Habit: {
             /** Format: int64 */
             id: number;
@@ -452,6 +457,7 @@ export interface components {
             unit: string;
             /** Format: double */
             dailyTarget: number;
+            targetMode: components["schemas"]["HabitTargetMode"];
             remindMode: components["schemas"]["RemindMode"];
             remindIntervalMinutes: number;
             /** @description 形如 09:00-21:00 */
@@ -479,6 +485,7 @@ export interface components {
             unit?: string;
             /** Format: double */
             dailyTarget?: number;
+            targetMode?: components["schemas"]["HabitTargetMode"];
             remindMode?: components["schemas"]["RemindMode"];
             remindIntervalMinutes?: number;
             remindWindow?: string;
@@ -499,6 +506,7 @@ export interface components {
             unit?: string;
             /** Format: double */
             dailyTarget?: number;
+            targetMode?: components["schemas"]["HabitTargetMode"];
             remindMode?: components["schemas"]["RemindMode"];
             remindIntervalMinutes?: number;
             remindWindow?: string;
@@ -532,6 +540,11 @@ export interface components {
              * @description 今天累计
              */
             done: number;
+            /**
+             * Format: double
+             * @description B202。今天的目标。fixed 是 dailyTarget，prompts 是今天到现在发出的提醒次数
+             */
+            target: number;
             /** @description 连续达标天数（含今天，如果今天已达标） */
             streak: number;
             reached: boolean;
@@ -543,6 +556,11 @@ export interface components {
             date: string;
             /** Format: double */
             amount: number;
+            /**
+             * Format: double
+             * @description B202。这天的目标，prompts 方式下是这天发出的提醒次数
+             */
+            target: number;
             reached: boolean;
         };
         HabitStats: {

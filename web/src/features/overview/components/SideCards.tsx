@@ -119,7 +119,7 @@ export function HabitsCard() {
           <div className="today-row" key={h.id}>
             <Ring
               value={p.done}
-              max={h.dailyTarget}
+              max={p.target}
               size={30}
               stroke={4}
               tone={p.reached ? "ok" : "accent"}
@@ -130,7 +130,7 @@ export function HabitsCard() {
                 {h.name}
               </strong>
               <small>
-                {formatAmount(p.done)} / {formatAmount(h.dailyTarget)} {h.unit}
+                {formatAmount(p.done)} / {formatAmount(p.target)} {h.unit}
                 {p.streak > 0 && (
                   <>
                     {" "}
@@ -158,7 +158,7 @@ export function HabitsCard() {
                     onSuccess: (res) =>
                       toast({
                         message: t("Checked in"),
-                        subtitle: `${h.name} ${formatAmount(res.today.done)}/${formatAmount(h.dailyTarget)} ${h.unit}`,
+                        subtitle: `${h.name} ${formatAmount(res.today.done)}/${formatAmount(res.today.target)} ${h.unit}`,
                         onUndo: () => undo.mutate(res.log.id, { onError }),
                       }),
                     onError,

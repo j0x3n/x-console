@@ -42,6 +42,14 @@ registerZh({
   Icon: "图标",
   Name: "名称",
   "Daily goal": "每日目标",
+  // B202
+  "Goal type": "目标方式",
+  "Same goal every day": "每天固定次数",
+  "Follow the reminders": "跟着提醒走",
+  "Follow the reminders hint":
+    "提醒了几次，目标就是几次。点“推迟”的那次不算。一整天没提醒也没打卡，不算断。",
+  "Turn on reminders to follow them": "跟着提醒走要先打开提醒",
+  "Goal follows the reminders": "目标跟着每天的提醒次数走",
   Unit: "单位",
   Color: "颜色",
   Orange: "橙色",

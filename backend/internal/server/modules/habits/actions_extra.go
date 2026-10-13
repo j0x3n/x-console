@@ -16,6 +16,7 @@ const habitFieldsSchema = `"name":{"type":"string"},` +
 	`"icon":{"type":"string","description":"an emoji, e.g. 💧"},` +
 	`"unit":{"type":"string","description":"e.g. 杯, 次"},` +
 	`"dailyTarget":{"type":"number"},` +
+	`"targetMode":{"type":"string","enum":["fixed","prompts"],"description":"prompts: the target is the number of reminders sent that day"},` +
 	`"template":{"type":"string","enum":["water","eyes","move","medicine"]},` +
 	`"remindMode":{"type":"string","enum":["none","interval","times"]},` +
 	`"remindIntervalMinutes":{"type":"integer","minimum":5,"maximum":1440},` +
@@ -30,7 +31,9 @@ const habitFieldsSchema = `"name":{"type":"string"},` +
 const habitFieldsHelp = "Reminders: remindMode none (no reminder), interval (every remindIntervalMinutes) or times (at each remindTimes HH:MM). " +
 	"For interval, remindWhen chooses when it runs: window (inside remindWindow), awake (between wake and sleep time), " +
 	"work (work hours on work days), active (only while someone uses one of activeHostIds; get the ids from hosts.list). " +
-	"remindOnHost also shows the reminder on those computers. Reminders stop once the daily target is reached."
+	"remindOnHost also shows the reminder on those computers. Reminders stop once the daily target is reached, " +
+	"except with targetMode prompts (B202): then the day's target is how many reminders went out, which suits eye breaks " +
+	"and getting up, where the count per day is not known in advance. prompts needs a reminder."
 
 func (m *Module) registerExtraActions() {
 	m.d.Actions.Register(actions.Action{Name: "habits.stats", Title: "习惯统计", Description: "Get habit stats for up to 366 days.", Input: actions.Schema(`{"type":"object","properties":{"id":{"type":"integer"},"days":{"type":"integer","minimum":1,"maximum":366}},"required":["id"]}`), Effect: actions.Read, Run: func(ctx context.Context, raw json.RawMessage) (any, error) {

@@ -164,7 +164,9 @@ function HabitStatsPanel({ habit }: { habit: Habit }) {
         <div className="xc-card-head">
           <h2>{t("Per day")}</h2>
           <span className="xc-muted">
-            {t("Goal")} {formatAmount(habit.dailyTarget)} {habit.unit}
+            {habit.targetMode === "prompts"
+              ? t("Goal follows the reminders")
+              : `${t("Goal")} ${formatAmount(habit.dailyTarget)} ${habit.unit}`}
           </span>
         </div>
         <Bars
@@ -237,8 +239,8 @@ function Heatmap({
           d ? (
             <i
               key={d.date}
-              className={`habits-heat l${heatLevel(d.amount, target)}`}
-              title={`${d.date} · ${formatAmount(d.amount)} ${unit}`}
+              className={`habits-heat l${heatLevel(d.amount, d.target || target)}`}
+              title={`${d.date} · ${formatAmount(d.amount)} / ${formatAmount(d.target)} ${unit}`}
             />
           ) : (
             <i key={`pad-${i}`} className="habits-heat pad" />
@@ -260,8 +262,10 @@ function Bars({
   unit: string;
   color: string;
 }) {
+  // B202：跟着提醒走时每天的目标不一样，不画目标线
+  const line = days.every((d) => d.target === target);
   const max = barMax(
-    days.map((d) => d.amount),
+    days.map((d) => Math.max(d.amount, d.target)),
     target,
   );
   const w = 10;
@@ -287,20 +291,22 @@ function Bars({
               rx={1.5}
               fill={d.reached ? color : "var(--xc-border-strong)"}
             >
-              <title>{`${d.date} · ${formatAmount(d.amount)} ${unit}`}</title>
+              <title>{`${d.date} · ${formatAmount(d.amount)} / ${formatAmount(d.target)} ${unit}`}</title>
             </rect>
           );
         })}
-        <line
-          x1={0}
-          x2={days.length * w}
-          y1={targetY}
-          y2={targetY}
-          stroke="var(--xc-muted)"
-          strokeDasharray="3 3"
-          strokeWidth={0.8}
-          vectorEffect="non-scaling-stroke"
-        />
+        {line && (
+          <line
+            x1={0}
+            x2={days.length * w}
+            y1={targetY}
+            y2={targetY}
+            stroke="var(--xc-muted)"
+            strokeDasharray="3 3"
+            strokeWidth={0.8}
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
       </svg>
       <div className="habits-bars-axis">
         <span>{days[0]?.date.slice(5)}</span>

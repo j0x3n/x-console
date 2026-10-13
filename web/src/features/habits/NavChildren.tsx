@@ -52,7 +52,7 @@ export default function HabitsNavChildren({ onNavigate }: NavChildrenProps) {
       key: `h${h.habit.id}`,
       to: `/habits?habit=${h.habit.id}`,
       label: `${h.habit.icon ? h.habit.icon + " " : ""}${h.habit.name}`,
-      hint: `${formatAmount(h.done)}/${formatAmount(h.habit.dailyTarget)}`,
+      hint: `${formatAmount(h.done)}/${formatAmount(h.target)}`,
       active: false,
       action: (
         <button

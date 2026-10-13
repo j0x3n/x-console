@@ -48,12 +48,20 @@ func parseTimes(raw string) []string {
 func toAPI(h db.Habit) api.Habit {
 	return api.Habit{
 		Id: h.ID, Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, DailyTarget: h.DailyTarget,
-		Kind:       habitKindPtr(h.Kind),
+		Kind: habitKindPtr(h.Kind), TargetMode: api.HabitTargetMode(targetModeOf(h)),
 		RemindMode: api.RemindMode(h.RemindMode), RemindIntervalMinutes: int(h.RemindIntervalMinutes),
 		RemindWindow: h.RemindWindow, RemindTimes: parseTimes(h.RemindTimes), HaEntityId: h.HaEntityID,
 		Archived: h.ArchivedAt != nil, SortOrder: int(h.SortOrder), CreatedAt: h.CreatedAt,
 		RemindWhen: habitWhen(h.RemindWhen), ActiveHostIds: parseTimes(h.ActiveHostIds), RemindOnHost: h.RemindOnHost != 0, Template: habitTemplate(h.Template),
 	}
+}
+
+// targetModeOf reads the stored mode; rows from before B202 are fixed.
+func targetModeOf(h db.Habit) string {
+	if h.TargetMode == targetPrompts {
+		return targetPrompts
+	}
+	return targetFixed
 }
 
 func habitKindPtr(kind string) *api.HabitKind {
@@ -69,6 +77,7 @@ func logToAPI(l db.HabitLog) api.HabitLog {
 type habitFields struct {
 	Name, Icon, Color, Unit, Kind string
 	Target                        float64
+	TargetMode                    string
 	Mode                          string
 	Interval                      int
 	Window                        string
@@ -104,6 +113,12 @@ func (f *habitFields) validate() error {
 	}
 	if f.Target <= 0 || f.Target > 100000 || math.IsNaN(f.Target) {
 		return httpx.Invalid("每日目标要大于 0")
+	}
+	if f.TargetMode == "" {
+		f.TargetMode = targetFixed
+	}
+	if f.TargetMode != targetFixed && f.TargetMode != targetPrompts {
+		return httpx.Invalid("目标方式只能是固定次数或跟着提醒")
 	}
 	f.Entity = strings.TrimSpace(f.Entity)
 	if f.Entity != "" && !strings.Contains(f.Entity, ".") {
@@ -147,6 +162,14 @@ func (f *habitFields) validate() error {
 	default:
 		return httpx.Invalid("提醒方式无效: " + f.Mode)
 	}
+	if f.TargetMode == targetPrompts {
+		if f.Kind == "workout" {
+			return httpx.Invalid("健身类习惯不能跟着提醒算目标")
+		}
+		if f.Mode == modeNone {
+			return httpx.Invalid("跟着提醒算目标要先打开提醒")
+		}
+	}
 	return nil
 }
 
@@ -177,6 +200,9 @@ func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error
 		f.Kind = string(*in.Kind)
 	}
 	setIf(&f.Target, in.DailyTarget)
+	if in.TargetMode != nil {
+		f.TargetMode = string(*in.TargetMode)
+	}
 	setIf(&f.Interval, in.RemindIntervalMinutes)
 	setIf(&f.Window, in.RemindWindow)
 	setIf(&f.Times, in.RemindTimes)
@@ -205,6 +231,7 @@ func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, SortOrder: int64(f.SortOrder), CreatedAt: time.Now().UTC(),
 		Kind: f.Kind, RemindWhen: jsonStrings(f.When), ActiveHostIds: jsonStrings(f.HostIDs), RemindOnHost: boolInt(f.OnHost), Template: f.Template,
+		TargetMode: f.TargetMode,
 	})
 	m.d.Audit.Record(ctx, "habit.create", strconv.FormatInt(h.ID, 10), map[string]any{"name": f.Name}, err)
 	if err != nil {
@@ -227,7 +254,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		return h, err
 	}
 	f := habitFields{
-		Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, Kind: h.Kind, Target: h.DailyTarget, Mode: h.RemindMode,
+		Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, Kind: h.Kind, Target: h.DailyTarget, TargetMode: targetModeOf(h), Mode: h.RemindMode,
 		Interval: int(h.RemindIntervalMinutes), Window: h.RemindWindow, Times: parseTimes(h.RemindTimes),
 		Entity: h.HaEntityID, SortOrder: int(h.SortOrder), When: parseTimes(h.RemindWhen), HostIDs: parseTimes(h.ActiveHostIds), OnHost: h.RemindOnHost != 0, Template: h.Template,
 	}
@@ -247,6 +274,9 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		f.Kind = string(*p.Kind)
 	}
 	setIf(&f.Target, p.DailyTarget)
+	if p.TargetMode != nil {
+		f.TargetMode = string(*p.TargetMode)
+	}
 	setIf(&f.Interval, p.RemindIntervalMinutes)
 	setIf(&f.Window, p.RemindWindow)
 	setIf(&f.Times, p.RemindTimes)
@@ -277,6 +307,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, ArchivedAt: archived, SortOrder: int64(f.SortOrder), ID: id,
 		Kind: f.Kind, RemindWhen: jsonStrings(f.When), ActiveHostIds: jsonStrings(f.HostIDs), RemindOnHost: boolInt(f.OnHost), Template: f.Template,
+		TargetMode: f.TargetMode,
 	})
 	m.d.Audit.Record(ctx, "habit.update", strconv.FormatInt(id, 10), nil, err)
 	if err != nil {
@@ -321,13 +352,29 @@ func historyStart(now time.Time, loc *time.Location) time.Time {
 	return startOfDay(now, loc).AddDate(-1, 0, -1).UTC()
 }
 
-// progress builds today's view of one habit from its logs (newest first).
-func progress(h db.Habit, logs []db.HabitLog, now time.Time, loc *time.Location) api.HabitToday {
+// promptTotals maps local dates to the reminders sent that day (B202).
+func promptTotals(rows []db.HabitPrompt) map[string]float64 {
+	out := map[string]float64{}
+	for _, r := range rows {
+		out[r.Day] = float64(r.Count)
+	}
+	return out
+}
+
+// promptsStart is the first day whose reminder counts are read.
+func promptsStart(now time.Time, loc *time.Location) string {
+	return dateKey(historyStart(now, loc), loc)
+}
+
+// progress builds today's view of one habit from its logs (newest first) and
+// the reminders sent per day.
+func progress(h db.Habit, logs []db.HabitLog, prompts map[string]float64, now time.Time, loc *time.Location) api.HabitToday {
 	totals := dailyTotals(logs, loc)
 	today := dateKey(now, loc)
+	goal := goalOf(targetModeOf(h), h.DailyTarget, prompts)
 	out := api.HabitToday{Habit: toAPI(h), Done: totals[today], Logs: []api.HabitLog{}}
-	out.Reached = out.Done >= h.DailyTarget
-	out.Streak = streak(totals, h.DailyTarget, now, loc)
+	out.Target, out.Reached, _ = goal(today, out.Done)
+	out.Streak = streak(totals, goal, now, loc)
 	for _, l := range logs {
 		if dateKey(l.At, loc) == today {
 			out.Logs = append(out.Logs, logToAPI(l))
@@ -355,9 +402,17 @@ func (m *Module) today(ctx context.Context, now time.Time) ([]api.HabitToday, er
 	for _, l := range logs {
 		byHabit[l.HabitID] = append(byHabit[l.HabitID], l)
 	}
+	promptRows, err := m.q.ListHabitPromptsSince(ctx, promptsStart(now, loc))
+	if err != nil {
+		return nil, err
+	}
+	prompts := map[int64][]db.HabitPrompt{}
+	for _, r := range promptRows {
+		prompts[r.HabitID] = append(prompts[r.HabitID], r)
+	}
 	out := make([]api.HabitToday, 0, len(habits))
 	for _, h := range habits {
-		p := progress(h, byHabit[h.ID], now, loc)
+		p := progress(h, byHabit[h.ID], promptTotals(prompts[h.ID]), now, loc)
 		p.Habit.NextRemindAt, err = m.nextReminder(ctx, h, p, now)
 		if err != nil {
 			return nil, err
@@ -379,7 +434,11 @@ func (m *Module) progressOf(ctx context.Context, h db.Habit, now time.Time) (api
 	if err != nil {
 		return api.HabitToday{}, err
 	}
-	p := progress(h, logs, now, rules.location())
+	prompts, err := m.habitPrompts(ctx, h.ID, now, rules.location())
+	if err != nil {
+		return api.HabitToday{}, err
+	}
+	p := progress(h, logs, prompts, now, rules.location())
 	p.Habit.NextRemindAt, err = m.nextReminder(ctx, h, p, now)
 	return p, err
 }
@@ -424,11 +483,11 @@ func (m *Module) checkin(ctx context.Context, id int64, amount float64, note, so
 		return log, after, err
 	}
 	m.d.Bus.Publish("habit.checked_in", map[string]any{
-		"habitId": id, "name": h.Name, "log": logToAPI(log), "done": after.Done, "target": h.DailyTarget, "source": source,
+		"habitId": id, "name": h.Name, "log": logToAPI(log), "done": after.Done, "target": after.Target, "source": source,
 	})
 	if !before.Reached && after.Reached {
 		m.d.Bus.Publish("habit.goal_reached", map[string]any{
-			"habitId": id, "name": h.Name, "done": after.Done, "target": h.DailyTarget, "streak": after.Streak,
+			"habitId": id, "name": h.Name, "done": after.Done, "target": after.Target, "streak": after.Streak,
 		})
 	}
 	return log, after, nil
@@ -468,17 +527,31 @@ func (m *Module) stats(ctx context.Context, id int64, days int, now time.Time) (
 	if err != nil {
 		return api.HabitStats{}, err
 	}
+	prompts, err := m.habitPrompts(ctx, id, now, loc)
+	if err != nil {
+		return api.HabitStats{}, err
+	}
 	totals := dailyTotals(logs, loc)
-	list, best := series(totals, h.DailyTarget, days, now, loc)
-	out := api.HabitStats{HabitId: id, Streak: streak(totals, h.DailyTarget, now, loc), BestStreak: best, Days: []api.HabitDay{}}
+	goal := goalOf(targetModeOf(h), h.DailyTarget, prompts)
+	list, best := series(totals, goal, days, now, loc)
+	out := api.HabitStats{HabitId: id, Streak: streak(totals, goal, now, loc), BestStreak: best, Days: []api.HabitDay{}}
 	for _, d := range list {
-		out.Days = append(out.Days, api.HabitDay{Date: d.Date, Amount: d.Amount, Reached: d.Reached})
+		out.Days = append(out.Days, api.HabitDay{Date: d.Date, Amount: d.Amount, Target: d.Target, Reached: d.Reached})
 		out.Total += d.Amount
 		if d.Reached {
 			out.ReachedDays++
 		}
 	}
 	return out, nil
+}
+
+// habitPrompts reads the reminders sent per day for one habit.
+func (m *Module) habitPrompts(ctx context.Context, id int64, now time.Time, loc *time.Location) (map[string]float64, error) {
+	rows, err := m.q.ListHabitPromptsForHabitSince(ctx, db.ListHabitPromptsForHabitSinceParams{HabitID: id, Day: promptsStart(now, loc)})
+	if err != nil {
+		return nil, err
+	}
+	return promptTotals(rows), nil
 }
 
 // ---- reminders ----
@@ -505,7 +578,7 @@ func (m *Module) remindAll(ctx context.Context, now time.Time) error {
 		if err != nil {
 			return err
 		}
-		if p.Reached {
+		if reachedStopsReminders(h, p) {
 			continue
 		}
 		due, _ := m.evaluateReminder(h, p, rules, now, selectedPresence(h, presence), true)
@@ -517,7 +590,15 @@ func (m *Module) remindAll(ctx context.Context, now time.Time) error {
 			return err
 		}
 		m.clock.reset(h.ID, now)
-		n := reminderNotification(h, p.Done)
+		target := p.Target
+		if targetModeOf(h) == targetPrompts {
+			// This reminder raises today's target by one.
+			if err := m.q.AddHabitPrompt(ctx, db.AddHabitPromptParams{HabitID: h.ID, Day: dateKey(now, rules.location())}); err != nil {
+				return err
+			}
+			target++
+		}
+		n := reminderNotification(h, p.Done, target)
 		if _, err := m.d.Notify.Send(ctx, n); err != nil {
 			return err
 		}
@@ -530,19 +611,19 @@ func (m *Module) remindAll(ctx context.Context, now time.Time) error {
 
 func formatAmount(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
 
-func reminderNotification(h db.Habit, done float64) notify.Notification {
+func reminderNotification(h db.Habit, done, target float64) notify.Notification {
 	id := strconv.FormatInt(h.ID, 10)
 	return notify.Notification{
 		Kind:   "habit.reminder",
 		Title:  h.Name,
-		Body:   strings.TrimSpace(fmt.Sprintf("今天 %s/%s %s。 %s", formatAmount(done), formatAmount(h.DailyTarget), h.Unit, reminderHint(h.Template))),
+		Body:   strings.TrimSpace(fmt.Sprintf("今天 %s/%s %s。 %s", formatAmount(done), formatAmount(target), h.Unit, reminderHint(h.Template))),
 		Link:   "/habits",
 		Source: "habits",
 		Actions: []notify.Action{
 			{ID: "habit.checkin:" + id + ":1", Label: "完成"},
 			{ID: "habit.snooze:" + id, Label: "推迟 10 分钟"},
 		},
-		Data: map[string]any{"habitId": h.ID, "icon": h.Icon, "template": h.Template, "done": done, "target": h.DailyTarget},
+		Data: map[string]any{"habitId": h.ID, "icon": h.Icon, "template": h.Template, "done": done, "target": target},
 	}
 }
 
@@ -581,11 +662,22 @@ func (m *Module) handleAction(ctx context.Context, actionID string) error {
 		_, _, err = m.checkin(ctx, id, amount, "", sourceFromActor(ctx), now)
 		return err
 	case parts[0] == "snooze" && len(parts) == 2:
-		if _, err := m.get(ctx, id); err != nil {
+		h, err := m.get(ctx, id)
+		if err != nil {
 			return err
 		}
+		if targetModeOf(h) == targetPrompts {
+			// The reminder comes again in 10 minutes and is counted then.
+			rules, err := m.loadSchedule(ctx)
+			if err != nil {
+				return err
+			}
+			if err := m.q.TakeBackHabitPrompt(ctx, db.TakeBackHabitPromptParams{HabitID: id, Day: dateKey(now, rules.location())}); err != nil {
+				return err
+			}
+		}
 		until := now.Add(10 * time.Minute).UTC()
-		err := m.q.SetHabitSnoozedUntil(ctx, db.SetHabitSnoozedUntilParams{SnoozedUntil: &until, ID: id})
+		err = m.q.SetHabitSnoozedUntil(ctx, db.SetHabitSnoozedUntilParams{SnoozedUntil: &until, ID: id})
 		m.d.Audit.Record(ctx, "habit.snooze", strconv.FormatInt(id, 10), nil, err)
 		if err == nil {
 			m.clock.snooze(id, now)
@@ -624,7 +716,7 @@ func (m *Module) Today(ctx context.Context) ([]contracts.HabitProgress, error) {
 	out := make([]contracts.HabitProgress, 0, len(list))
 	for _, p := range list {
 		out = append(out, contracts.HabitProgress{ID: p.Habit.Id, Name: p.Habit.Name, Unit: p.Habit.Unit,
-			Target: p.Habit.DailyTarget, Done: p.Done, Streak: p.Streak})
+			Target: p.Target, Done: p.Done, Streak: p.Streak})
 	}
 	return out, nil
 }

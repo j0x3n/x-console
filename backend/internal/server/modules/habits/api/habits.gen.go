@@ -175,6 +175,24 @@ func (e HabitPatchTemplate) Valid() bool {
 	}
 }
 
+// Defines values for HabitTargetMode.
+const (
+	Fixed   HabitTargetMode = "fixed"
+	Prompts HabitTargetMode = "prompts"
+)
+
+// Valid indicates whether the value is a known member of the HabitTargetMode enum.
+func (e HabitTargetMode) Valid() bool {
+	switch e {
+	case Fixed:
+		return true
+	case Prompts:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HostPresenceState.
 const (
 	HostPresenceStateActive  HostPresenceState = "active"
@@ -330,10 +348,13 @@ type Habit struct {
 	RemindWhen   []HabitRemindWhen `json:"remindWhen"`
 
 	// RemindWindow 形如 09:00-21:00
-	RemindWindow string         `json:"remindWindow"`
-	SortOrder    int            `json:"sortOrder"`
-	Template     *HabitTemplate `json:"template,omitempty"`
-	Unit         string         `json:"unit"`
+	RemindWindow string `json:"remindWindow"`
+	SortOrder    int    `json:"sortOrder"`
+
+	// TargetMode B202。fixed 每天固定目标 dailyTarget；prompts 目标是当天实际发出的提醒次数（护眼、起身这类说不准一天几次的），没发提醒又没打卡的日子不算断
+	TargetMode HabitTargetMode `json:"targetMode"`
+	Template   *HabitTemplate  `json:"template,omitempty"`
+	Unit       string          `json:"unit"`
 }
 
 // HabitRemindWhen defines model for Habit.RemindWhen.
@@ -349,6 +370,9 @@ type HabitDay struct {
 	// Date 用户时区的日期 YYYY-MM-DD
 	Date    string `json:"date"`
 	Reached bool   `json:"reached"`
+
+	// Target B202。这天的目标，prompts 方式下是这天发出的提醒次数
+	Target float64 `json:"target"`
 }
 
 // HabitInput defines model for HabitInput.
@@ -371,8 +395,11 @@ type HabitInput struct {
 	RemindWhen   *[]HabitInputRemindWhen `json:"remindWhen,omitempty"`
 	RemindWindow *string                 `json:"remindWindow,omitempty"`
 	SortOrder    *int                    `json:"sortOrder,omitempty"`
-	Template     *HabitInputTemplate     `json:"template,omitempty"`
-	Unit         *string                 `json:"unit,omitempty"`
+
+	// TargetMode B202。fixed 每天固定目标 dailyTarget；prompts 目标是当天实际发出的提醒次数（护眼、起身这类说不准一天几次的），没发提醒又没打卡的日子不算断
+	TargetMode *HabitTargetMode    `json:"targetMode,omitempty"`
+	Template   *HabitInputTemplate `json:"template,omitempty"`
+	Unit       *string             `json:"unit,omitempty"`
 }
 
 // HabitInputRemindWhen defines model for HabitInput.RemindWhen.
@@ -417,8 +444,11 @@ type HabitPatch struct {
 	RemindWhen   *[]HabitPatchRemindWhen `json:"remindWhen,omitempty"`
 	RemindWindow *string                 `json:"remindWindow,omitempty"`
 	SortOrder    *int                    `json:"sortOrder,omitempty"`
-	Template     *HabitPatchTemplate     `json:"template,omitempty"`
-	Unit         *string                 `json:"unit,omitempty"`
+
+	// TargetMode B202。fixed 每天固定目标 dailyTarget；prompts 目标是当天实际发出的提醒次数（护眼、起身这类说不准一天几次的），没发提醒又没打卡的日子不算断
+	TargetMode *HabitTargetMode    `json:"targetMode,omitempty"`
+	Template   *HabitPatchTemplate `json:"template,omitempty"`
+	Unit       *string             `json:"unit,omitempty"`
 }
 
 // HabitPatchRemindWhen defines model for HabitPatch.RemindWhen.
@@ -438,6 +468,9 @@ type HabitStats struct {
 	Total       float64    `json:"total"`
 }
 
+// HabitTargetMode B202。fixed 每天固定目标 dailyTarget；prompts 目标是当天实际发出的提醒次数（护眼、起身这类说不准一天几次的），没发提醒又没打卡的日子不算断
+type HabitTargetMode string
+
 // HabitToday defines model for HabitToday.
 type HabitToday struct {
 	// Done 今天累计
@@ -450,6 +483,9 @@ type HabitToday struct {
 
 	// Streak 连续达标天数（含今天，如果今天已达标）
 	Streak int `json:"streak"`
+
+	// Target B202。今天的目标。fixed 是 dailyTarget，prompts 是今天到现在发出的提醒次数
+	Target float64 `json:"target"`
 }
 
 // HostPresence defines model for HostPresence.

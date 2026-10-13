@@ -15,6 +15,10 @@ const (
 	modeNone     = "none"
 	modeInterval = "interval"
 	modeTimes    = "times"
+
+	// Target modes (B202).
+	targetFixed   = "fixed"
+	targetPrompts = "prompts"
 )
 
 // timesGrace is how late a fixed-time reminder may still go out, for example
@@ -142,18 +146,49 @@ func normalizeTimes(in []string) ([]string, error) {
 	return out, nil
 }
 
+// dayGoal tells the target of a local date and whether the day was reached.
+// A day that does not count (no reminder went out and nothing was done in
+// the prompts mode) neither adds to a streak nor breaks it.
+type dayGoal func(day string, done float64) (target float64, reached, counts bool)
+
+// fixedGoal is the same target every day.
+func fixedGoal(target float64) dayGoal {
+	return func(_ string, done float64) (float64, bool, bool) { return target, done >= target, true }
+}
+
+// goalOf is the daily goal of a habit. prompts maps local dates to the number
+// of reminders sent that day (B202).
+func goalOf(targetMode string, target float64, prompts map[string]float64) dayGoal {
+	if targetMode != targetPrompts {
+		return fixedGoal(target)
+	}
+	return func(day string, done float64) (float64, bool, bool) {
+		n := prompts[day]
+		if n == 0 {
+			return 0, done > 0, done > 0
+		}
+		return n, done >= n, true
+	}
+}
+
 // streak counts reached days going back from yesterday, plus today when it
 // is already reached. totals maps local dates to amounts.
-func streak(totals map[string]float64, target float64, now time.Time, loc *time.Location) int {
+func streak(totals map[string]float64, goal dayGoal, now time.Time, loc *time.Location) int {
 	day := startOfDay(now, loc)
 	n := 0
 	for i := 1; i <= 3660; i++ {
-		if totals[day.AddDate(0, 0, -i).Format(time.DateOnly)] < target {
+		key := day.AddDate(0, 0, -i).Format(time.DateOnly)
+		_, reached, counts := goal(key, totals[key])
+		if !counts {
+			continue
+		}
+		if !reached {
 			break
 		}
 		n++
 	}
-	if totals[day.Format(time.DateOnly)] >= target {
+	key := day.Format(time.DateOnly)
+	if _, reached, _ := goal(key, totals[key]); reached {
 		n++
 	}
 	return n
@@ -163,23 +198,25 @@ func streak(totals map[string]float64, target float64, now time.Time, loc *time.
 type dayStat struct {
 	Date    string
 	Amount  float64
+	Target  float64
 	Reached bool
 }
 
 // series returns the last `days` days ending today, oldest first, and the
 // longest run of reached days inside it.
-func series(totals map[string]float64, target float64, days int, now time.Time, loc *time.Location) (out []dayStat, best int) {
+func series(totals map[string]float64, goal dayGoal, days int, now time.Time, loc *time.Location) (out []dayStat, best int) {
 	day := startOfDay(now, loc)
 	run := 0
 	for i := days - 1; i >= 0; i-- {
 		key := day.AddDate(0, 0, -i).Format(time.DateOnly)
-		d := dayStat{Date: key, Amount: totals[key], Reached: totals[key] >= target}
+		target, reached, counts := goal(key, totals[key])
+		d := dayStat{Date: key, Amount: totals[key], Target: target, Reached: reached}
 		if d.Reached {
 			run++
 			if run > best {
 				best = run
 			}
-		} else {
+		} else if counts {
 			run = 0
 		}
 		out = append(out, d)

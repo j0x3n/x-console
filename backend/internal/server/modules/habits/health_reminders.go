@@ -88,8 +88,14 @@ func selectedPresence(h db.Habit, values []contracts.HostPresence) []contracts.H
 	return out
 }
 
+// reachedStopsReminders is true for fixed targets. A prompts target grows
+// with every reminder, so reminders go on all day (B202).
+func reachedStopsReminders(h db.Habit, p api.HabitToday) bool {
+	return p.Reached && targetModeOf(h) == targetFixed
+}
+
 func (m *Module) evaluateReminder(h db.Habit, p api.HabitToday, rules scheduleRules, now time.Time, hosts []contracts.HostPresence, commit bool) (bool, *time.Time) {
-	if h.ArchivedAt != nil || h.RemindMode == modeNone || p.Reached {
+	if h.ArchivedAt != nil || h.RemindMode == modeNone || reachedStopsReminders(h, p) {
 		return false, nil
 	}
 	when, _ := normalizeRemindWhen(parseTimes(h.RemindWhen))
@@ -108,7 +114,7 @@ func (m *Module) evaluateReminder(h db.Habit, p api.HabitToday, rules scheduleRu
 }
 
 func (m *Module) nextReminder(ctx context.Context, h db.Habit, p api.HabitToday, now time.Time) (*time.Time, error) {
-	if h.ArchivedAt != nil || h.RemindMode == modeNone || p.Reached {
+	if h.ArchivedAt != nil || h.RemindMode == modeNone || reachedStopsReminders(h, p) {
 		return nil, nil
 	}
 	rules, err := m.loadSchedule(ctx)

@@ -2852,6 +2852,17 @@ try {
       );
       return habit?.reached && habit.logs.length === 1;
     });
+    // B202：目标跟着提醒走，还没提醒时今天的目标是 0。
+    await page.getByRole("button", { name: "新建习惯" }).click();
+    await dialog("新建习惯").getByLabel("名称").fill("端到端护眼");
+    await dialog("新建习惯").getByLabel("目标方式").selectOption("prompts");
+    await dialog("新建习惯").getByLabel("提醒", { exact: true }).selectOption("interval");
+    await dialog("新建习惯").getByRole("button", { name: "保存" }).click();
+    await dialog("新建习惯").waitFor({ state: "hidden" });
+    await until("跟着提醒走", async () => {
+      const habit = (await api("/habits/today")).find((item) => item.habit.name === "端到端护眼");
+      return habit?.habit.targetMode === "prompts" && habit.target === 0;
+    });
 
     setStage("训练自动打卡");
     const workoutHabitResponse = await page

@@ -53,6 +53,8 @@ export const HABIT_TEMPLATES: {
       icon: "👀",
       unit: "次",
       dailyTarget: 1,
+      // B202：一天要几次说不准，提醒几次就算几次
+      targetMode: "prompts",
       remindMode: "interval",
       remindIntervalMinutes: 20,
       remindWhen: ["active"],
@@ -66,6 +68,8 @@ export const HABIT_TEMPLATES: {
       icon: "🚶",
       unit: "次",
       dailyTarget: 1,
+      // B202：一天要几次说不准，提醒几次就算几次
+      targetMode: "prompts",
       remindMode: "interval",
       remindIntervalMinutes: 45,
       remindWhen: ["active"],

@@ -1,7 +1,7 @@
 -- name: CreateHabit :one
 INSERT INTO habits (name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes,
-                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind, remind_when, active_host_ids, remind_on_host, template)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind, remind_when, active_host_ids, remind_on_host, template, target_mode)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetHabit :one
@@ -16,7 +16,7 @@ ORDER BY sort_order, id;
 UPDATE habits
 SET name = ?, icon = ?, color = ?, unit = ?, daily_target = ?, remind_mode = ?,
     remind_interval_minutes = ?, remind_window = ?, remind_times = ?, ha_entity_id = ?,
-    archived_at = ?, sort_order = ?, kind = ?, remind_when = ?, active_host_ids = ?, remind_on_host = ?, template = ?, snoozed_until = NULL
+    archived_at = ?, sort_order = ?, kind = ?, remind_when = ?, active_host_ids = ?, remind_on_host = ?, template = ?, target_mode = ?, snoozed_until = NULL
 WHERE id = ?
 RETURNING *;
 
@@ -80,3 +80,16 @@ DELETE FROM workout_logs WHERE id = ?;
 
 -- name: SetHabitSnoozedUntil :exec
 UPDATE habits SET snoozed_until = ? WHERE id = ?;
+
+-- name: AddHabitPrompt :exec
+INSERT INTO habit_prompts (habit_id, day, count) VALUES (?, ?, 1)
+ON CONFLICT (habit_id, day) DO UPDATE SET count = count + 1;
+
+-- name: TakeBackHabitPrompt :exec
+UPDATE habit_prompts SET count = max(count - 1, 0) WHERE habit_id = ? AND day = ?;
+
+-- name: ListHabitPromptsSince :many
+SELECT habit_id, day, count FROM habit_prompts WHERE day >= ?;
+
+-- name: ListHabitPromptsForHabitSince :many
+SELECT habit_id, day, count FROM habit_prompts WHERE habit_id = ? AND day >= ?;

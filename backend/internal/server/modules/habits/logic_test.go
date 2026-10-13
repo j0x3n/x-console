@@ -125,16 +125,58 @@ func TestStreakAndSeries(t *testing.T) {
 		"2026-10-01": 8,
 	}
 	now := at(5, 12, 0)
-	if n := streak(totals, 8, now, shanghai); n != 3 {
+	if n := streak(totals, fixedGoal(8), now, shanghai); n != 3 {
 		t.Fatalf("streak with today: %d", n)
 	}
 	totals["2026-10-05"] = 2
-	if n := streak(totals, 8, now, shanghai); n != 2 {
+	if n := streak(totals, fixedGoal(8), now, shanghai); n != 2 {
 		t.Fatalf("streak without today: %d", n)
 	}
-	days, best := series(totals, 8, 5, now, shanghai)
+	days, best := series(totals, fixedGoal(8), 5, now, shanghai)
 	if len(days) != 5 || days[0].Date != "2026-10-01" || days[4].Date != "2026-10-05" || best != 2 {
 		t.Fatalf("series %+v best %d", days, best)
+	}
+}
+
+// B202: with the prompts target, a day's goal is the reminders sent that day,
+// and a day without reminders or check-ins is skipped.
+func TestPromptsGoal(t *testing.T) {
+	prompts := map[string]float64{
+		"2026-10-05": 3, // today
+		"2026-10-04": 5,
+		// 2026-10-03: the computer was off all day
+		"2026-10-02": 4,
+		"2026-10-01": 6,
+	}
+	totals := map[string]float64{
+		"2026-10-05": 1,
+		"2026-10-04": 5,
+		"2026-10-02": 6,
+		"2026-10-01": 2,
+	}
+	goal := goalOf(targetPrompts, 1, prompts)
+	now := at(5, 12, 0)
+	if target, reached, _ := goal("2026-10-05", 1); target != 3 || reached {
+		t.Fatalf("today: %v %v", target, reached)
+	}
+	if n := streak(totals, goal, now, shanghai); n != 2 {
+		t.Fatalf("streak skips the day without reminders: %d", n)
+	}
+	totals["2026-10-05"] = 3
+	if n := streak(totals, goal, now, shanghai); n != 3 {
+		t.Fatalf("streak with today: %d", n)
+	}
+	// Resting without a reminder still counts.
+	totals["2026-10-03"] = 1
+	if _, reached, counts := goal("2026-10-03", 1); !reached || !counts {
+		t.Fatal("check-in without reminders")
+	}
+	days, best := series(totals, goal, 5, now, shanghai)
+	if days[0].Target != 6 || days[0].Reached || days[2].Target != 0 || !days[2].Reached || best != 4 {
+		t.Fatalf("series %+v best %d", days, best)
+	}
+	if _, _, counts := goalOf(targetPrompts, 1, nil)("2026-10-05", 0); counts {
+		t.Fatal("empty day counts")
 	}
 }
 

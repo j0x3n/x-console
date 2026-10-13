@@ -6,6 +6,7 @@ type reminderTemplate struct {
 	Name, Icon, Unit string
 	Target           float64
 	Mode             string
+	TargetMode       string // empty is fixed
 	Interval         int
 	When, Times      []string
 }
@@ -15,9 +16,9 @@ func healthTemplate(name string) (reminderTemplate, error) {
 	case "", "water":
 		return reminderTemplate{Name: "喝水", Icon: "💧", Unit: "杯", Target: 8, Mode: modeInterval, Interval: 60, When: []string{"awake"}}, nil
 	case "eyes":
-		return reminderTemplate{Name: "护眼", Icon: "👀", Unit: "次", Target: 24, Mode: modeInterval, Interval: 20, When: []string{"active"}}, nil
+		return reminderTemplate{Name: "护眼", Icon: "👀", Unit: "次", Target: 1, TargetMode: targetPrompts, Mode: modeInterval, Interval: 20, When: []string{"active"}}, nil
 	case "move":
-		return reminderTemplate{Name: "起来活动", Icon: "🚶", Unit: "次", Target: 12, Mode: modeInterval, Interval: 45, When: []string{"active"}}, nil
+		return reminderTemplate{Name: "起来活动", Icon: "🚶", Unit: "次", Target: 1, TargetMode: targetPrompts, Mode: modeInterval, Interval: 45, When: []string{"active"}}, nil
 	case "medicine":
 		return reminderTemplate{Name: "吃药", Icon: "💊", Unit: "次", Target: 2, Mode: modeTimes, When: []string{"window"}, Times: []string{"09:00", "21:00"}}, nil
 	default:
@@ -36,6 +37,7 @@ func (f *habitFields) applyTemplate(name string) error {
 	f.Template = name
 	f.Name, f.Icon, f.Unit, f.Target = template.Name, template.Icon, template.Unit, template.Target
 	f.Mode, f.Interval, f.When, f.Times = template.Mode, template.Interval, template.When, template.Times
+	f.TargetMode = template.TargetMode
 	return nil
 }
 

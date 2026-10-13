@@ -335,7 +335,7 @@ function HabitCard({
               res.today.reached && !p.reached
                 ? t("Goal reached today")
                 : t("Checked in"),
-            subtitle: `${h.name} ${formatAmount(res.today.done)}/${formatAmount(h.dailyTarget)} ${h.unit}`,
+            subtitle: `${h.name} ${formatAmount(res.today.done)}/${formatAmount(res.today.target)} ${h.unit}`,
             onUndo: () => undo.mutate(res.log.id, { onError }),
           }),
         onError,
@@ -344,9 +344,12 @@ function HabitCard({
 
   return (
     <div className={`xc-card habits-card${p.reached ? " is-reached" : ""}`}>
-      <ProgressRing value={ratio(p.done, h.dailyTarget)} color={color}>
+      <ProgressRing
+        value={p.reached ? 1 : ratio(p.done, p.target)}
+        color={color}
+      >
         <strong>{formatAmount(p.done)}</strong>
-        <small>/ {formatAmount(h.dailyTarget)}</small>
+        <small>/ {formatAmount(p.target)}</small>
       </ProgressRing>
       <div className="habits-card-main">
         <div className="habits-card-title">

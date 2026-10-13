@@ -156,11 +156,16 @@ describe("todayProgress", () => {
     const h = (done: number, target: number, reached = done >= target) => ({
       done,
       reached,
-      habit: { dailyTarget: target },
+      target,
     });
     const p = todayProgress([h(1, 8), h(0, 1), h(1, 1)]);
     expect(p).toMatchObject({ total: 3, reached: 1, started: 1 });
     expect(p.ratio).toBeCloseTo((1 / 8 + 0 + 1) / 3);
     expect(todayProgress([]).ratio).toBe(0);
+  });
+
+  it("跟着提醒走、今天还没提醒时不算落后（B202）", () => {
+    const p = todayProgress([{ done: 0, reached: false, target: 0 }]);
+    expect(p.ratio).toBe(0);
   });
 });
