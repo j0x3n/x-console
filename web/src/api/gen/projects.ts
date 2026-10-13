@@ -761,6 +761,11 @@ export interface components {
             description?: string;
             color?: string;
             icon?: string;
+            /**
+             * @description B204。按模板建好里程碑、标签和起步卡片。indie-game 是独立游戏从概念验证到发售的流程，描述不填时用模板的说明
+             * @enum {string}
+             */
+            template?: "indie-game";
         };
         UpdateProject: {
             name?: string;

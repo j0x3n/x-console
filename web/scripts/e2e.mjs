@@ -3427,6 +3427,17 @@ try {
     await send("PUT", "/vault/modules", { hidden: [] });
     await send("POST", "/vault/lock");
 
+    setStage("B204 独立游戏项目模板");
+    await page.goto(`${base}/projects`);
+    await page.getByRole("button", { name: "新建项目" }).click();
+    await dialog("新建项目").getByLabel("名称").fill("端到端游戏");
+    await dialog("新建项目").getByLabel("Key").fill("EEG");
+    await dialog("新建项目").getByLabel("模板").selectOption("indie-game");
+    await dialog("新建项目").getByRole("button", { name: "创建项目" }).click();
+    await page.waitForURL(/\/projects\/EEG$/);
+    const game = (await api("/projects")).find((item) => item.key === "EEG");
+    assert.equal(game?.issueCount, 10, "独立游戏模板没有建好起步卡片");
+
     // 要用本部分数据的页面
     await renderPages([
       "/projects/EET",

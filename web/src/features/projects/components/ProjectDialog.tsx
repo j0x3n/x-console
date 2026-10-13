@@ -36,6 +36,8 @@ export default function ProjectDialog({
   const [keyTouched, setKeyTouched] = useState(false);
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PROJECT_COLORS[0]);
+  // B204：新建时可以选模板，建好里程碑、标签和起步卡片
+  const [template, setTemplate] = useState<"" | "indie-game">("");
   const [error, setError] = useState("");
   const create = useCreateProject();
   const update = useUpdateProject();
@@ -47,6 +49,7 @@ export default function ProjectDialog({
     setKeyTouched(!!project);
     setDescription(project?.description ?? "");
     setColor(project?.color || PROJECT_COLORS[0]);
+    setTemplate("");
     setError("");
   }, [open, project]);
 
@@ -64,7 +67,7 @@ export default function ProjectDialog({
       );
     else
       create.mutate(
-        { key, name, description, color },
+        { key, name, description, color, template: template || undefined },
         { onSuccess: done, onError: (err) => setError(errorMessage(err)) },
       );
   };
@@ -117,6 +120,22 @@ export default function ProjectDialog({
                 "2 to 5 capital letters. Issue keys look like XC-12. It cannot be changed later.",
               )}
             </small>
+          </label>
+        )}
+        {!project && (
+          <label className="xc-field">
+            <span>{t("Project template")}</span>
+            <select
+              className="xc-select"
+              value={template}
+              onChange={(e) => setTemplate(e.target.value as "" | "indie-game")}
+            >
+              <option value="">{t("Empty project")}</option>
+              <option value="indie-game">{t("Indie game")}</option>
+            </select>
+            {template === "indie-game" && (
+              <small>{t("Indie game template hint")}</small>
+            )}
           </label>
         )}
         <div className="xc-field">

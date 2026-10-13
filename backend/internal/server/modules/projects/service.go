@@ -75,6 +75,15 @@ func (m *Module) createProject(ctx context.Context, in api.CreateProject) (out a
 	if in.Name == "" {
 		return out, httpx.Invalid("项目名称不能为空")
 	}
+	if in.Template != nil {
+		tpl, ok := projectTemplates[*in.Template]
+		if !ok {
+			return out, httpx.Invalid("项目模板不存在")
+		}
+		if strings.TrimSpace(deref(in.Description)) == "" {
+			in.Description = &tpl.Description
+		}
+	}
 	if n, err := m.q.ProjectKeyExists(ctx, in.Key); err != nil {
 		return out, err
 	} else if n > 0 {
@@ -94,6 +103,11 @@ func (m *Module) createProject(ctx context.Context, in api.CreateProject) (out a
 		return err
 	}); err != nil {
 		return out, err
+	}
+	if in.Template != nil {
+		if err = m.applyProjectTemplate(ctx, id, *in.Template); err != nil {
+			return out, err
+		}
 	}
 	out, err = m.getProject(ctx, id)
 	if err != nil {

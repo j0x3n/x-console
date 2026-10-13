@@ -336,4 +336,10 @@ registerZh({
   "Card title. Paste images here.": "卡片标题，可以直接粘贴图片",
   "Add image": "添加图片",
   Remove: "移除",
+  // B204
+  "Project template": "模板",
+  "Empty project": "空项目",
+  "Indie game": "独立游戏",
+  "Indie game template hint":
+    "建好 6 个里程碑（概念验证到正式发售）、标签和 10 张带检查清单的起步卡片。描述不填时写上整个流程。",
 });

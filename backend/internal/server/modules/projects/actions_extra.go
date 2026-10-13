@@ -31,7 +31,7 @@ func (m *Module) registerExtraActions() {
 		}
 		return m.getProject(ctx, id)
 	})
-	add("projects.create", "新建项目", `{"type":"object","properties":{"key":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"}},"required":["key","name"]}`, actions.Write, func(ctx context.Context, raw json.RawMessage) (any, error) {
+	add("projects.create", "新建项目", `{"type":"object","properties":{"key":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"template":{"type":"string","enum":["indie-game"],"description":"indie-game adds milestones, labels and starter cards for making an indie game, from concept to Steam launch"}},"required":["key","name"]}`, actions.Write, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in api.CreateProject
 		if err := decodeInput(raw, &in); err != nil {
 			return nil, err
