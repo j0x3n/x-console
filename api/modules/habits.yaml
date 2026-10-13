@@ -573,6 +573,16 @@ components:
       type: string
       description: count 普通打卡；workout 健身，记一次训练就算打卡一次
       enum: [count, workout]
+    HabitAutoCheck:
+      type: object
+      description: B201。按“我的状态”收到的入睡和起床时间自动打卡。推测出来的作息和不到 3 小时的睡眠不算
+      required: [kind, before]
+      properties:
+        kind:
+          type: string
+          description: none 不自动；bedtime 在 before 之前睡着；wake 在 before 之前起床。改习惯时传 none 表示关掉
+          enum: [none, bedtime, wake]
+        before: { type: string, description: HH:MM }
     HabitTargetMode:
       type: string
       description: B202。fixed 每天固定目标 dailyTarget；prompts 目标是当天实际发出的提醒次数（护眼、起身这类说不准一天几次的），没发提醒又没打卡的日子不算断
@@ -590,6 +600,7 @@ components:
         unit: { type: string }
         dailyTarget: { type: number, format: double }
         targetMode: { $ref: "#/components/schemas/HabitTargetMode" }
+        autoCheck: { $ref: "#/components/schemas/HabitAutoCheck" }
         remindMode: { $ref: "#/components/schemas/RemindMode" }
         remindIntervalMinutes: { type: integer }
         remindWindow:
@@ -625,6 +636,7 @@ components:
         unit: { type: string }
         dailyTarget: { type: number, format: double }
         targetMode: { $ref: "#/components/schemas/HabitTargetMode" }
+        autoCheck: { $ref: "#/components/schemas/HabitAutoCheck" }
         remindMode: { $ref: "#/components/schemas/RemindMode" }
         remindIntervalMinutes: { type: integer }
         remindWindow: { type: string }
@@ -652,6 +664,7 @@ components:
         unit: { type: string }
         dailyTarget: { type: number, format: double }
         targetMode: { $ref: "#/components/schemas/HabitTargetMode" }
+        autoCheck: { $ref: "#/components/schemas/HabitAutoCheck" }
         remindMode: { $ref: "#/components/schemas/RemindMode" }
         remindIntervalMinutes: { type: integer }
         remindWindow: { type: string }

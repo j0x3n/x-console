@@ -442,6 +442,16 @@ export interface components {
          * @enum {string}
          */
         HabitKind: "count" | "workout";
+        /** @description B201。按“我的状态”收到的入睡和起床时间自动打卡。推测出来的作息和不到 3 小时的睡眠不算 */
+        HabitAutoCheck: {
+            /**
+             * @description none 不自动；bedtime 在 before 之前睡着；wake 在 before 之前起床。改习惯时传 none 表示关掉
+             * @enum {string}
+             */
+            kind: "none" | "bedtime" | "wake";
+            /** @description HH:MM */
+            before: string;
+        };
         /**
          * @description B202。fixed 每天固定目标 dailyTarget；prompts 目标是当天实际发出的提醒次数（护眼、起身这类说不准一天几次的），没发提醒又没打卡的日子不算断
          * @enum {string}
@@ -458,6 +468,7 @@ export interface components {
             /** Format: double */
             dailyTarget: number;
             targetMode: components["schemas"]["HabitTargetMode"];
+            autoCheck?: components["schemas"]["HabitAutoCheck"];
             remindMode: components["schemas"]["RemindMode"];
             remindIntervalMinutes: number;
             /** @description 形如 09:00-21:00 */
@@ -486,6 +497,7 @@ export interface components {
             /** Format: double */
             dailyTarget?: number;
             targetMode?: components["schemas"]["HabitTargetMode"];
+            autoCheck?: components["schemas"]["HabitAutoCheck"];
             remindMode?: components["schemas"]["RemindMode"];
             remindIntervalMinutes?: number;
             remindWindow?: string;
@@ -507,6 +519,7 @@ export interface components {
             /** Format: double */
             dailyTarget?: number;
             targetMode?: components["schemas"]["HabitTargetMode"];
+            autoCheck?: components["schemas"]["HabitAutoCheck"];
             remindMode?: components["schemas"]["RemindMode"];
             remindIntervalMinutes?: number;
             remindWindow?: string;

@@ -877,6 +877,8 @@ type Habit struct {
 	Template              string
 	SnoozedUntil          *time.Time
 	TargetMode            string
+	AutoCheck             string
+	AutoBefore            string
 }
 
 type HabitLog struct {

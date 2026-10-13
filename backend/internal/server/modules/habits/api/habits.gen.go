@@ -61,6 +61,27 @@ func (e HabitTemplate) Valid() bool {
 	}
 }
 
+// Defines values for HabitAutoCheckKind.
+const (
+	HabitAutoCheckKindBedtime HabitAutoCheckKind = "bedtime"
+	HabitAutoCheckKindNone    HabitAutoCheckKind = "none"
+	HabitAutoCheckKindWake    HabitAutoCheckKind = "wake"
+)
+
+// Valid indicates whether the value is a known member of the HabitAutoCheckKind enum.
+func (e HabitAutoCheckKind) Valid() bool {
+	switch e {
+	case HabitAutoCheckKindBedtime:
+		return true
+	case HabitAutoCheckKindNone:
+		return true
+	case HabitAutoCheckKindWake:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HabitInputRemindWhen.
 const (
 	HabitInputRemindWhenActive HabitInputRemindWhen = "active"
@@ -282,19 +303,19 @@ func (e PersonalBackupVersion) Valid() bool {
 
 // Defines values for RemindMode.
 const (
-	Interval RemindMode = "interval"
-	None     RemindMode = "none"
-	Times    RemindMode = "times"
+	RemindModeInterval RemindMode = "interval"
+	RemindModeNone     RemindMode = "none"
+	RemindModeTimes    RemindMode = "times"
 )
 
 // Valid indicates whether the value is a known member of the RemindMode enum.
 func (e RemindMode) Valid() bool {
 	switch e {
-	case Interval:
+	case RemindModeInterval:
 		return true
-	case None:
+	case RemindModeNone:
 		return true
-	case Times:
+	case RemindModeTimes:
 		return true
 	default:
 		return false
@@ -324,11 +345,14 @@ type BodyPushToken struct {
 
 // Habit defines model for Habit.
 type Habit struct {
-	ActiveHostIds []string  `json:"activeHostIds"`
-	Archived      bool      `json:"archived"`
-	Color         string    `json:"color"`
-	CreatedAt     time.Time `json:"createdAt"`
-	DailyTarget   float64   `json:"dailyTarget"`
+	ActiveHostIds []string `json:"activeHostIds"`
+	Archived      bool     `json:"archived"`
+
+	// AutoCheck B201。按“我的状态”收到的入睡和起床时间自动打卡。推测出来的作息和不到 3 小时的睡眠不算
+	AutoCheck   *HabitAutoCheck `json:"autoCheck,omitempty"`
+	Color       string          `json:"color"`
+	CreatedAt   time.Time       `json:"createdAt"`
+	DailyTarget float64         `json:"dailyTarget"`
 
 	// HaEntityId 这个 Home Assistant 实体状态变化时自动打卡一次
 	HaEntityId string `json:"haEntityId"`
@@ -363,6 +387,18 @@ type HabitRemindWhen string
 // HabitTemplate defines model for Habit.Template.
 type HabitTemplate string
 
+// HabitAutoCheck B201。按“我的状态”收到的入睡和起床时间自动打卡。推测出来的作息和不到 3 小时的睡眠不算
+type HabitAutoCheck struct {
+	// Before HH:MM
+	Before string `json:"before"`
+
+	// Kind none 不自动；bedtime 在 before 之前睡着；wake 在 before 之前起床。改习惯时传 none 表示关掉
+	Kind HabitAutoCheckKind `json:"kind"`
+}
+
+// HabitAutoCheckKind none 不自动；bedtime 在 before 之前睡着；wake 在 before 之前起床。改习惯时传 none 表示关掉
+type HabitAutoCheckKind string
+
 // HabitDay defines model for HabitDay.
 type HabitDay struct {
 	Amount float64 `json:"amount"`
@@ -378,10 +414,13 @@ type HabitDay struct {
 // HabitInput defines model for HabitInput.
 type HabitInput struct {
 	ActiveHostIds *[]string `json:"activeHostIds,omitempty"`
-	Color         *string   `json:"color,omitempty"`
-	DailyTarget   *float64  `json:"dailyTarget,omitempty"`
-	HaEntityId    *string   `json:"haEntityId,omitempty"`
-	Icon          *string   `json:"icon,omitempty"`
+
+	// AutoCheck B201。按“我的状态”收到的入睡和起床时间自动打卡。推测出来的作息和不到 3 小时的睡眠不算
+	AutoCheck   *HabitAutoCheck `json:"autoCheck,omitempty"`
+	Color       *string         `json:"color,omitempty"`
+	DailyTarget *float64        `json:"dailyTarget,omitempty"`
+	HaEntityId  *string         `json:"haEntityId,omitempty"`
+	Icon        *string         `json:"icon,omitempty"`
 
 	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
 	Kind                  *HabitKind `json:"kind,omitempty"`
@@ -427,10 +466,13 @@ type HabitLog struct {
 type HabitPatch struct {
 	ActiveHostIds *[]string `json:"activeHostIds,omitempty"`
 	Archived      *bool     `json:"archived,omitempty"`
-	Color         *string   `json:"color,omitempty"`
-	DailyTarget   *float64  `json:"dailyTarget,omitempty"`
-	HaEntityId    *string   `json:"haEntityId,omitempty"`
-	Icon          *string   `json:"icon,omitempty"`
+
+	// AutoCheck B201。按“我的状态”收到的入睡和起床时间自动打卡。推测出来的作息和不到 3 小时的睡眠不算
+	AutoCheck   *HabitAutoCheck `json:"autoCheck,omitempty"`
+	Color       *string         `json:"color,omitempty"`
+	DailyTarget *float64        `json:"dailyTarget,omitempty"`
+	HaEntityId  *string         `json:"haEntityId,omitempty"`
+	Icon        *string         `json:"icon,omitempty"`
 
 	// Kind count 普通打卡；workout 健身，记一次训练就算打卡一次
 	Kind                  *HabitKind `json:"kind,omitempty"`

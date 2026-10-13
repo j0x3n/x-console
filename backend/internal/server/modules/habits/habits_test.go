@@ -82,7 +82,7 @@ func TestHabitCRUDAndCheckin(t *testing.T) {
 		t.Fatalf("checkin missing: %d", status)
 	}
 	h := createWater(t, env)
-	if h.Unit != "杯" || h.DailyTarget != 8 || h.RemindMode != api.Interval {
+	if h.Unit != "杯" || h.DailyTarget != 8 || h.RemindMode != api.RemindModeInterval {
 		t.Fatalf("created: %+v", h)
 	}
 

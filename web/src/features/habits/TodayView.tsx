@@ -8,6 +8,7 @@ import {
   Dumbbell,
   Flame,
   HeartPulse,
+  MoonStar,
   Pencil,
   Plus,
   Undo2,
@@ -369,6 +370,15 @@ function HabitCard({
           {p.streak > 0 && (
             <span title={t("Streak")}>
               <Flame size={12} /> {p.streak} {t("days")}
+            </span>
+          )}
+          {h.autoCheck && (
+            <span title={t("Auto check-in hint")}>
+              <MoonStar size={12} />{" "}
+              {h.autoCheck.kind === "bedtime"
+                ? t("Asleep before")
+                : t("Up before")}{" "}
+              {h.autoCheck.before}
             </span>
           )}
           {summary && (

@@ -19,6 +19,11 @@ const (
 	// Target modes (B202).
 	targetFixed   = "fixed"
 	targetPrompts = "prompts"
+
+	// Automatic check-ins from the sleep the "me" module saw (B201).
+	autoNone    = "none"
+	autoBedtime = "bedtime"
+	autoWake    = "wake"
 )
 
 // timesGrace is how late a fixed-time reminder may still go out, for example

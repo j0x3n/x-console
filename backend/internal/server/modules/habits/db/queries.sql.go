@@ -27,9 +27,9 @@ func (q *Queries) AddHabitPrompt(ctx context.Context, arg AddHabitPromptParams) 
 
 const createHabit = `-- name: CreateHabit :one
 INSERT INTO habits (name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes,
-                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind, remind_when, active_host_ids, remind_on_host, template, target_mode)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode
+                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind, remind_when, active_host_ids, remind_on_host, template, target_mode, auto_check, auto_before)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode, auto_check, auto_before
 `
 
 type CreateHabitParams struct {
@@ -51,6 +51,8 @@ type CreateHabitParams struct {
 	RemindOnHost          int64
 	Template              string
 	TargetMode            string
+	AutoCheck             string
+	AutoBefore            string
 }
 
 func (q *Queries) CreateHabit(ctx context.Context, arg CreateHabitParams) (Habit, error) {
@@ -73,6 +75,8 @@ func (q *Queries) CreateHabit(ctx context.Context, arg CreateHabitParams) (Habit
 		arg.RemindOnHost,
 		arg.Template,
 		arg.TargetMode,
+		arg.AutoCheck,
+		arg.AutoBefore,
 	)
 	var i Habit
 	err := row.Scan(
@@ -99,6 +103,8 @@ func (q *Queries) CreateHabit(ctx context.Context, arg CreateHabitParams) (Habit
 		&i.Template,
 		&i.SnoozedUntil,
 		&i.TargetMode,
+		&i.AutoCheck,
+		&i.AutoBefore,
 	)
 	return i, err
 }
@@ -255,7 +261,7 @@ func (q *Queries) DeleteWorkoutPlans(ctx context.Context) error {
 }
 
 const getHabit = `-- name: GetHabit :one
-SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode FROM habits WHERE id = ?
+SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode, auto_check, auto_before FROM habits WHERE id = ?
 `
 
 func (q *Queries) GetHabit(ctx context.Context, id int64) (Habit, error) {
@@ -285,6 +291,8 @@ func (q *Queries) GetHabit(ctx context.Context, id int64) (Habit, error) {
 		&i.Template,
 		&i.SnoozedUntil,
 		&i.TargetMode,
+		&i.AutoCheck,
+		&i.AutoBefore,
 	)
 	return i, err
 }
@@ -331,7 +339,7 @@ func (q *Queries) InsertWorkoutPlan(ctx context.Context, arg InsertWorkoutPlanPa
 }
 
 const listActiveWorkoutHabits = `-- name: ListActiveWorkoutHabits :many
-SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode FROM habits WHERE kind = 'workout' AND archived_at IS NULL ORDER BY id
+SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode, auto_check, auto_before FROM habits WHERE kind = 'workout' AND archived_at IS NULL ORDER BY id
 `
 
 func (q *Queries) ListActiveWorkoutHabits(ctx context.Context) ([]Habit, error) {
@@ -367,6 +375,61 @@ func (q *Queries) ListActiveWorkoutHabits(ctx context.Context) ([]Habit, error) 
 			&i.Template,
 			&i.SnoozedUntil,
 			&i.TargetMode,
+			&i.AutoCheck,
+			&i.AutoBefore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAutoCheckHabits = `-- name: ListAutoCheckHabits :many
+SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode, auto_check, auto_before FROM habits WHERE auto_check <> '' AND archived_at IS NULL ORDER BY id
+`
+
+func (q *Queries) ListAutoCheckHabits(ctx context.Context) ([]Habit, error) {
+	rows, err := q.db.QueryContext(ctx, listAutoCheckHabits)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Habit
+	for rows.Next() {
+		var i Habit
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Icon,
+			&i.Color,
+			&i.Unit,
+			&i.DailyTarget,
+			&i.RemindMode,
+			&i.RemindIntervalMinutes,
+			&i.RemindWindow,
+			&i.RemindTimes,
+			&i.HaEntityID,
+			&i.ArchivedAt,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.LastRemindedAt,
+			&i.QuietUntil,
+			&i.Kind,
+			&i.RemindWhen,
+			&i.ActiveHostIds,
+			&i.RemindOnHost,
+			&i.Template,
+			&i.SnoozedUntil,
+			&i.TargetMode,
+			&i.AutoCheck,
+			&i.AutoBefore,
 		); err != nil {
 			return nil, err
 		}
@@ -516,7 +579,7 @@ func (q *Queries) ListHabitPromptsSince(ctx context.Context, day string) ([]Habi
 }
 
 const listHabits = `-- name: ListHabits :many
-SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode FROM habits
+SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode, auto_check, auto_before FROM habits
 WHERE CAST(?1 AS INTEGER) = 1 OR archived_at IS NULL
 ORDER BY sort_order, id
 `
@@ -554,6 +617,8 @@ func (q *Queries) ListHabits(ctx context.Context, includeArchived int64) ([]Habi
 			&i.Template,
 			&i.SnoozedUntil,
 			&i.TargetMode,
+			&i.AutoCheck,
+			&i.AutoBefore,
 		); err != nil {
 			return nil, err
 		}
@@ -569,7 +634,7 @@ func (q *Queries) ListHabits(ctx context.Context, includeArchived int64) ([]Habi
 }
 
 const listHabitsByEntity = `-- name: ListHabitsByEntity :many
-SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode FROM habits WHERE ha_entity_id = ? AND archived_at IS NULL
+SELECT id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode, auto_check, auto_before FROM habits WHERE ha_entity_id = ? AND archived_at IS NULL
 `
 
 func (q *Queries) ListHabitsByEntity(ctx context.Context, haEntityID string) ([]Habit, error) {
@@ -605,6 +670,8 @@ func (q *Queries) ListHabitsByEntity(ctx context.Context, haEntityID string) ([]
 			&i.Template,
 			&i.SnoozedUntil,
 			&i.TargetMode,
+			&i.AutoCheck,
+			&i.AutoBefore,
 		); err != nil {
 			return nil, err
 		}
@@ -757,9 +824,9 @@ const updateHabit = `-- name: UpdateHabit :one
 UPDATE habits
 SET name = ?, icon = ?, color = ?, unit = ?, daily_target = ?, remind_mode = ?,
     remind_interval_minutes = ?, remind_window = ?, remind_times = ?, ha_entity_id = ?,
-    archived_at = ?, sort_order = ?, kind = ?, remind_when = ?, active_host_ids = ?, remind_on_host = ?, template = ?, target_mode = ?, snoozed_until = NULL
+    archived_at = ?, sort_order = ?, kind = ?, remind_when = ?, active_host_ids = ?, remind_on_host = ?, template = ?, target_mode = ?, auto_check = ?, auto_before = ?, snoozed_until = NULL
 WHERE id = ?
-RETURNING id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode
+RETURNING id, name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes, remind_window, remind_times, ha_entity_id, archived_at, sort_order, created_at, last_reminded_at, quiet_until, kind, remind_when, active_host_ids, remind_on_host, template, snoozed_until, target_mode, auto_check, auto_before
 `
 
 type UpdateHabitParams struct {
@@ -781,6 +848,8 @@ type UpdateHabitParams struct {
 	RemindOnHost          int64
 	Template              string
 	TargetMode            string
+	AutoCheck             string
+	AutoBefore            string
 	ID                    int64
 }
 
@@ -804,6 +873,8 @@ func (q *Queries) UpdateHabit(ctx context.Context, arg UpdateHabitParams) (Habit
 		arg.RemindOnHost,
 		arg.Template,
 		arg.TargetMode,
+		arg.AutoCheck,
+		arg.AutoBefore,
 		arg.ID,
 	)
 	var i Habit
@@ -831,6 +902,8 @@ func (q *Queries) UpdateHabit(ctx context.Context, arg UpdateHabitParams) (Habit
 		&i.Template,
 		&i.SnoozedUntil,
 		&i.TargetMode,
+		&i.AutoCheck,
+		&i.AutoBefore,
 	)
 	return i, err
 }

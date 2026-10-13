@@ -17,6 +17,7 @@ const habitFieldsSchema = `"name":{"type":"string"},` +
 	`"unit":{"type":"string","description":"e.g. 杯, 次"},` +
 	`"dailyTarget":{"type":"number"},` +
 	`"targetMode":{"type":"string","enum":["fixed","prompts"],"description":"prompts: the target is the number of reminders sent that day"},` +
+	`"autoCheck":{"type":"object","properties":{"kind":{"type":"string","enum":["none","bedtime","wake"]},"before":{"type":"string","description":"HH:MM"}},"required":["kind","before"],"description":"check in automatically when the user fell asleep (bedtime) or woke up (wake) before this time; none turns it off"},` +
 	`"template":{"type":"string","enum":["water","eyes","move","medicine"]},` +
 	`"remindMode":{"type":"string","enum":["none","interval","times"]},` +
 	`"remindIntervalMinutes":{"type":"integer","minimum":5,"maximum":1440},` +

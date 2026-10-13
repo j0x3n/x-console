@@ -55,6 +55,31 @@ const daily = (
 
 /** 写死的常见习惯。名字就是新建出来的习惯名，判断“已添加”也按名字。 */
 export const EXTRA_RECOMMENDATIONS: Recommendation[] = [
+  // B201：早睡早起，按“我的状态”收到的入睡、起床时间自动打卡
+  {
+    id: "early-sleep",
+    category: "routine",
+    name: "早睡",
+    icon: "🌙",
+    summary:
+      "睡着的时间早于设定就自动打卡。从现在的作息开始，每周往前挪 15 到 30 分钟，别一下子提前几个小时。",
+    input: daily("早睡", "🌙", {
+      autoCheck: { kind: "bedtime", before: "23:30" },
+      remindMode: "times",
+      remindTimes: ["23:00"],
+    }),
+  },
+  {
+    id: "early-wake",
+    category: "routine",
+    name: "早起",
+    icon: "🌅",
+    summary:
+      "起床时间早于设定就自动打卡。周末也尽量同一时间起，比早睡更容易先做到。",
+    input: daily("早起", "🌅", {
+      autoCheck: { kind: "wake", before: "07:30" },
+    }),
+  },
   {
     id: "sun",
     category: "routine",

@@ -21,7 +21,7 @@ import (
 )
 
 // Check-in sources.
-var sources = map[string]bool{"web": true, "telegram": true, "webpush": true, "ha": true, "ai": true, "automation": true}
+var sources = map[string]bool{"web": true, "telegram": true, "webpush": true, "ha": true, "ai": true, "automation": true, "me": true}
 
 func decodeStrict(raw []byte, v any) error {
 	dec := json.NewDecoder(bytes.NewReader(raw))
@@ -48,11 +48,30 @@ func parseTimes(raw string) []string {
 func toAPI(h db.Habit) api.Habit {
 	return api.Habit{
 		Id: h.ID, Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, DailyTarget: h.DailyTarget,
-		Kind: habitKindPtr(h.Kind), TargetMode: api.HabitTargetMode(targetModeOf(h)),
+		Kind: habitKindPtr(h.Kind), TargetMode: api.HabitTargetMode(targetModeOf(h)), AutoCheck: autoCheckOf(h),
 		RemindMode: api.RemindMode(h.RemindMode), RemindIntervalMinutes: int(h.RemindIntervalMinutes),
 		RemindWindow: h.RemindWindow, RemindTimes: parseTimes(h.RemindTimes), HaEntityId: h.HaEntityID,
 		Archived: h.ArchivedAt != nil, SortOrder: int(h.SortOrder), CreatedAt: h.CreatedAt,
 		RemindWhen: habitWhen(h.RemindWhen), ActiveHostIds: parseTimes(h.ActiveHostIds), RemindOnHost: h.RemindOnHost != 0, Template: habitTemplate(h.Template),
+	}
+}
+
+// autoCheckOf is the B201 rule, nil when the habit is checked in by hand.
+func autoCheckOf(h db.Habit) *api.HabitAutoCheck {
+	if h.AutoCheck == "" {
+		return nil
+	}
+	return &api.HabitAutoCheck{Kind: api.HabitAutoCheckKind(h.AutoCheck), Before: h.AutoBefore}
+}
+
+// setAutoCheck copies a rule from a request; kind none clears it.
+func (f *habitFields) setAutoCheck(in *api.HabitAutoCheck) {
+	if in == nil {
+		return
+	}
+	f.AutoKind, f.AutoBefore = string(in.Kind), in.Before
+	if f.AutoKind == autoNone {
+		f.AutoKind, f.AutoBefore = "", ""
 	}
 }
 
@@ -78,6 +97,7 @@ type habitFields struct {
 	Name, Icon, Color, Unit, Kind string
 	Target                        float64
 	TargetMode                    string
+	AutoKind, AutoBefore          string // B201
 	Mode                          string
 	Interval                      int
 	Window                        string
@@ -162,6 +182,18 @@ func (f *habitFields) validate() error {
 	default:
 		return httpx.Invalid("提醒方式无效: " + f.Mode)
 	}
+	if f.AutoKind != "" {
+		if f.AutoKind != autoBedtime && f.AutoKind != autoWake {
+			return httpx.Invalid("自动打卡只能按入睡或起床时间")
+		}
+		if _, ok := parseClock(f.AutoBefore); !ok {
+			return httpx.Invalid("自动打卡的时间要写成 23:30 这样")
+		}
+		if f.Kind != "count" || f.TargetMode != targetFixed {
+			return httpx.Invalid("自动打卡只能用在每天固定次数的普通习惯上")
+		}
+		f.Target = 1
+	}
 	if f.TargetMode == targetPrompts {
 		if f.Kind == "workout" {
 			return httpx.Invalid("健身类习惯不能跟着提醒算目标")
@@ -203,6 +235,7 @@ func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error
 	if in.TargetMode != nil {
 		f.TargetMode = string(*in.TargetMode)
 	}
+	f.setAutoCheck(in.AutoCheck)
 	setIf(&f.Interval, in.RemindIntervalMinutes)
 	setIf(&f.Window, in.RemindWindow)
 	setIf(&f.Times, in.RemindTimes)
@@ -231,7 +264,7 @@ func (m *Module) create(ctx context.Context, in api.HabitInput) (db.Habit, error
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, SortOrder: int64(f.SortOrder), CreatedAt: time.Now().UTC(),
 		Kind: f.Kind, RemindWhen: jsonStrings(f.When), ActiveHostIds: jsonStrings(f.HostIDs), RemindOnHost: boolInt(f.OnHost), Template: f.Template,
-		TargetMode: f.TargetMode,
+		TargetMode: f.TargetMode, AutoCheck: f.AutoKind, AutoBefore: f.AutoBefore,
 	})
 	m.d.Audit.Record(ctx, "habit.create", strconv.FormatInt(h.ID, 10), map[string]any{"name": f.Name}, err)
 	if err != nil {
@@ -254,7 +287,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		return h, err
 	}
 	f := habitFields{
-		Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, Kind: h.Kind, Target: h.DailyTarget, TargetMode: targetModeOf(h), Mode: h.RemindMode,
+		Name: h.Name, Icon: h.Icon, Color: h.Color, Unit: h.Unit, Kind: h.Kind, Target: h.DailyTarget, TargetMode: targetModeOf(h), AutoKind: h.AutoCheck, AutoBefore: h.AutoBefore, Mode: h.RemindMode,
 		Interval: int(h.RemindIntervalMinutes), Window: h.RemindWindow, Times: parseTimes(h.RemindTimes),
 		Entity: h.HaEntityID, SortOrder: int(h.SortOrder), When: parseTimes(h.RemindWhen), HostIDs: parseTimes(h.ActiveHostIds), OnHost: h.RemindOnHost != 0, Template: h.Template,
 	}
@@ -277,6 +310,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 	if p.TargetMode != nil {
 		f.TargetMode = string(*p.TargetMode)
 	}
+	f.setAutoCheck(p.AutoCheck)
 	setIf(&f.Interval, p.RemindIntervalMinutes)
 	setIf(&f.Window, p.RemindWindow)
 	setIf(&f.Times, p.RemindTimes)
@@ -307,7 +341,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.HabitPatch) (db.Hab
 		RemindIntervalMinutes: int64(f.Interval), RemindWindow: f.Window, RemindTimes: string(times),
 		HaEntityID: f.Entity, ArchivedAt: archived, SortOrder: int64(f.SortOrder), ID: id,
 		Kind: f.Kind, RemindWhen: jsonStrings(f.When), ActiveHostIds: jsonStrings(f.HostIDs), RemindOnHost: boolInt(f.OnHost), Template: f.Template,
-		TargetMode: f.TargetMode,
+		TargetMode: f.TargetMode, AutoCheck: f.AutoKind, AutoBefore: f.AutoBefore,
 	})
 	m.d.Audit.Record(ctx, "habit.update", strconv.FormatInt(id, 10), nil, err)
 	if err != nil {

@@ -50,6 +50,15 @@ registerZh({
     "提醒了几次，目标就是几次。点“推迟”的那次不算。一整天没提醒也没打卡，不算断。",
   "Turn on reminders to follow them": "跟着提醒走要先打开提醒",
   "Goal follows the reminders": "目标跟着每天的提醒次数走",
+  // B201
+  "Auto check-in": "自动打卡",
+  "By hand": "不自动，手动打卡",
+  "Asleep before": "几点前睡着",
+  "Up before": "几点前起床",
+  "Auto check-in time": "时间",
+  "Write the time like 23:30": "时间要写成 23:30 这样",
+  "Auto check-in hint":
+    "按“我的状态”收到的睡觉和起床时间自动打卡，要先在“我的状态”里接上手机快捷指令或 Home Assistant。推测出来的作息和不到 3 小时的睡眠不算。收不到时可以手动打卡。",
   Unit: "单位",
   Color: "颜色",
   Orange: "橙色",

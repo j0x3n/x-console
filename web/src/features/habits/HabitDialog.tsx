@@ -12,6 +12,7 @@ import {
   type Habit,
   type HabitInput,
   type HabitKind,
+  type HabitAutoCheck,
   type HabitTargetMode,
   type HabitTemplate,
   type RemindMode,
@@ -91,6 +92,9 @@ export default function HabitDialog({
   const [unit, setUnit] = useState("次");
   const [target, setTarget] = useState("1");
   const [targetMode, setTargetMode] = useState<HabitTargetMode>("fixed");
+  // B201：按入睡、起床时间自动打卡
+  const [autoKind, setAutoKind] = useState<HabitAutoCheck["kind"]>("none");
+  const [autoBefore, setAutoBefore] = useState("23:30");
   const [mode, setMode] = useState<RemindMode>("none");
   const [interval, setIntervalMinutes] = useState("60");
   const [windowStart, setWindowStart] = useState("09:00");
@@ -117,6 +121,8 @@ export default function HabitDialog({
     setUnit(h?.unit ?? "次");
     setTarget(String(h?.dailyTarget ?? 1));
     setTargetMode(h?.targetMode ?? "fixed");
+    setAutoKind(h?.autoCheck?.kind ?? "none");
+    setAutoBefore(h?.autoCheck?.before ?? "23:30");
     setMode(h?.remindMode ?? "none");
     setIntervalMinutes(String(h?.remindIntervalMinutes || 60));
     const w = splitWindow(h?.remindWindow ?? "09:00-21:00");
@@ -148,6 +154,8 @@ export default function HabitDialog({
     setUnit(v.unit ?? "次");
     setTarget(String(v.dailyTarget ?? 1));
     setTargetMode(v.targetMode ?? "fixed");
+    setAutoKind(v.autoCheck?.kind ?? "none");
+    setAutoBefore(v.autoCheck?.before ?? "23:30");
     setMode(v.remindMode ?? "none");
     setIntervalMinutes(String(v.remindIntervalMinutes || 60));
     setTimes((v.remindTimes ?? []).join(", "));
@@ -175,13 +183,17 @@ export default function HabitDialog({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const followReminders = kind === "count" && targetMode === "prompts";
-    const dailyTarget = followReminders ? 1 : Number(target);
+    const auto = kind === "count" && autoKind !== "none";
+    const followReminders =
+      kind === "count" && !auto && targetMode === "prompts";
+    const dailyTarget = followReminders || auto ? 1 : Number(target);
     if (!name.trim()) return setError(t("Name is required"));
     if (!(dailyTarget > 0))
       return setError(t("The daily goal must be above 0"));
     if (followReminders && mode === "none")
       return setError(t("Turn on reminders to follow them"));
+    if (auto && !/^\d\d:\d\d$/.test(autoBefore))
+      return setError(t("Write the time like 23:30"));
     const remindTimes = parseTimes(times);
     if (mode === "times" && (!remindTimes || remindTimes.length === 0))
       return setError(t("Write times like 08:00, 20:00"));
@@ -199,6 +211,14 @@ export default function HabitDialog({
       unit: kind === "workout" ? "次" : unit.trim() || "次",
       dailyTarget,
       targetMode: followReminders ? "prompts" : "fixed",
+      // 原来没设过又没选时不传，免得老习惯被写上 none
+      ...(auto || habit?.autoCheck
+        ? {
+            autoCheck: auto
+              ? { kind: autoKind, before: autoBefore }
+              : { kind: "none" as const, before: "" },
+          }
+        : {}),
       remindMode: mode,
       remindIntervalMinutes: mode === "interval" ? minutes : 0,
       remindWindow:
@@ -374,6 +394,38 @@ export default function HabitDialog({
           </div>
         )}
         {kind === "count" && (
+          <div className="habits-form-row">
+            <label className="xc-field">
+              <span>{t("Auto check-in")}</span>
+              <select
+                className="xc-select"
+                value={autoKind}
+                onChange={(e) =>
+                  setAutoKind(e.target.value as HabitAutoCheck["kind"])
+                }
+              >
+                <option value="none">{t("By hand")}</option>
+                <option value="bedtime">{t("Asleep before")}</option>
+                <option value="wake">{t("Up before")}</option>
+              </select>
+            </label>
+            {autoKind !== "none" && (
+              <label className="xc-field">
+                <span>{t("Auto check-in time")}</span>
+                <input
+                  className="xc-input"
+                  type="time"
+                  value={autoBefore}
+                  onChange={(e) => setAutoBefore(e.target.value)}
+                />
+              </label>
+            )}
+          </div>
+        )}
+        {kind === "count" && autoKind !== "none" && (
+          <p className="xc-muted habits-hint">{t("Auto check-in hint")}</p>
+        )}
+        {kind === "count" && autoKind === "none" && (
           <label className="xc-field">
             <span>{t("Goal type")}</span>
             <select
@@ -390,7 +442,8 @@ export default function HabitDialog({
           </label>
         )}
         <div className="habits-form-row">
-          {(kind !== "count" || targetMode === "fixed") && (
+          {(kind !== "count" ||
+            (targetMode === "fixed" && autoKind === "none")) && (
             <label className="xc-field">
               <span>{t("Daily goal")}</span>
               <input

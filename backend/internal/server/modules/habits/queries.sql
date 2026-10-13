@@ -1,7 +1,7 @@
 -- name: CreateHabit :one
 INSERT INTO habits (name, icon, color, unit, daily_target, remind_mode, remind_interval_minutes,
-                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind, remind_when, active_host_ids, remind_on_host, template, target_mode)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    remind_window, remind_times, ha_entity_id, sort_order, created_at, kind, remind_when, active_host_ids, remind_on_host, template, target_mode, auto_check, auto_before)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetHabit :one
@@ -16,7 +16,7 @@ ORDER BY sort_order, id;
 UPDATE habits
 SET name = ?, icon = ?, color = ?, unit = ?, daily_target = ?, remind_mode = ?,
     remind_interval_minutes = ?, remind_window = ?, remind_times = ?, ha_entity_id = ?,
-    archived_at = ?, sort_order = ?, kind = ?, remind_when = ?, active_host_ids = ?, remind_on_host = ?, template = ?, target_mode = ?, snoozed_until = NULL
+    archived_at = ?, sort_order = ?, kind = ?, remind_when = ?, active_host_ids = ?, remind_on_host = ?, template = ?, target_mode = ?, auto_check = ?, auto_before = ?, snoozed_until = NULL
 WHERE id = ?
 RETURNING *;
 
@@ -93,3 +93,6 @@ SELECT habit_id, day, count FROM habit_prompts WHERE day >= ?;
 
 -- name: ListHabitPromptsForHabitSince :many
 SELECT habit_id, day, count FROM habit_prompts WHERE habit_id = ? AND day >= ?;
+
+-- name: ListAutoCheckHabits :many
+SELECT * FROM habits WHERE auto_check <> '' AND archived_at IS NULL ORDER BY id;
