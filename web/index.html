@@ -38,8 +38,8 @@
       document.documentElement.dataset.accent = accent;
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
       const mobile = matchMedia("(max-width: 720px)").matches;
-      // 和 tokens.css 一致：桌面用内容区底色，手机用左栏底色
-      const colors = dark ? ["#111113", "#0c0c0e"] : ["#ffffff", "#fafafa"];
+      // 和 tokens.css 一致：桌面用内容区底色，手机用顶栏底色
+      const colors = dark ? ["#111113", "#161618"] : ["#ffffff", "#ffffff"];
       document.querySelector('meta[name="theme-color"]').content = colors[mobile ? 1 : 0];
       if (savedLanguage === "en") {
         document.documentElement.lang = "en";

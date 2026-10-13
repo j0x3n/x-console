@@ -343,9 +343,10 @@
 
 /* ---- 手机：整个左栏是抽屉 ---- */
 @media (max-width: 720px) {
+  /* 顶栏是 30，抽屉和遮罩要盖在顶栏上面 */
   .sidebar {
     position: fixed;
-    z-index: 22;
+    z-index: 32;
     left: 0;
     top: 0;
     max-width: calc(100vw - 48px);

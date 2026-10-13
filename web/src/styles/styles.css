@@ -1799,7 +1799,7 @@ html[data-theme="light"] .toast button:hover {
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 21;
+    z-index: 31;
     background: #0009;
     border: 0;
   }

@@ -144,13 +144,17 @@ html .toast {
     overflow: visible;
   }
 
-  /* B190：手机上整页滚动，顶栏贴着可见区域的顶部 */
+  /* B190：手机上整页滚动，顶栏贴着可见区域的顶部。
+     顶部安全区归顶栏，和顶栏同一个底色，状态栏下面不再有一条色差 */
   html .app-shell {
     overflow: clip;
+    padding-top: 0;
   }
   html .topbar {
     position: sticky;
     top: 0;
+    height: calc(56px + var(--xc-safe-top));
+    padding-top: var(--xc-safe-top);
   }
 
   html .sidebar {

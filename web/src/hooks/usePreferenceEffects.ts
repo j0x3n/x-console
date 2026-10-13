@@ -29,7 +29,7 @@ export function usePreferenceEffects() {
     const update = () => {
       const styles = getComputedStyle(document.documentElement);
       const color = styles
-        .getPropertyValue(mobile.matches ? "--xc-panel" : "--xc-bg")
+        .getPropertyValue(mobile.matches ? "--xc-surface" : "--xc-bg")
         .trim();
       if (color)
         document
