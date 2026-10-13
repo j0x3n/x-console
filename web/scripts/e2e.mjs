@@ -1240,6 +1240,23 @@ try {
     await page.getByRole("dialog").getByRole("button", { name: "保存" }).click();
     await until("知识库开启", async () => (await api("/knowledge/settings")).enabled === true);
     await page.getByText(/还没有配置 AI 供应商/).waitFor();
+    // B199：在设置里选一个云盘文件夹，保存后接口返回它的路径。
+    const kbFolderResponse = await page
+      .context()
+      .request.post(`${base}/api/v1/drive/folders`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { name: "端到端知识库" },
+      });
+    assert.equal(kbFolderResponse.status(), 201, await kbFolderResponse.text());
+    await page.getByRole("button", { name: /知识库设置/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /添加文件夹/ }).click();
+    const kbPicker = dialog("选一个云盘文件夹");
+    await kbPicker.getByRole("button", { name: /端到端知识库/ }).click();
+    await kbPicker.getByRole("button", { name: "选择这个文件夹" }).click();
+    await dialog("知识库设置").getByRole("button", { name: "保存" }).click();
+    await until("知识库云盘文件夹", async () =>
+      ((await api("/knowledge/settings")).driveFolders ?? []).some((x) => x.path === "/端到端知识库"),
+    );
 
     setStage("今日计划");
     // B135：没有候选事项也能手动排：加一件事、保存、确认；确认后在今日页的计划卡片里能看到。

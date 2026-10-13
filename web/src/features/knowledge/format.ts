@@ -5,6 +5,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   readlater: "Ask source readlater",
   journal: "Ask source journal",
   cards: "Ask source cards",
+  drive: "Ask source drive",
 };
 
 /** 出处链接是网页地址还是应用内路径。 */

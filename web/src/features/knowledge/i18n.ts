@@ -32,6 +32,17 @@ registerZh({
   "Ask source readlater": "稍后读",
   "Ask source journal": "日记",
   "Ask source cards": "复习卡片",
+  "Ask source drive": "云盘",
+  "Ask unreadable files":
+    "个云盘文件读不出文字，可能是扫描件、加了密码的 PDF 或用了特殊字体。",
+  "Ask drive folders": "云盘文件夹",
+  "Ask drive folders hint":
+    "选中的文件夹和子文件夹里的文本、Markdown、网页、Word（docx）和 PDF 会进索引，每个文件只取开头约两万字。扫描件读不出文字。",
+  "Ask add drive folder": "添加文件夹",
+  "Ask remove drive folder": "移除文件夹",
+  "Ask drive folder gone": "已删除或隐藏的文件夹",
+  "Ask choose drive folder": "选一个云盘文件夹",
+  "Ask choose drive folder hint": "这个文件夹和子文件夹里的文件会进知识库。",
   "Ask enable": "开启知识库",
   "Ask enable hint":
     "开启后才会向 AI 供应商发送内容。关闭后不再发送，已建的索引保留。",

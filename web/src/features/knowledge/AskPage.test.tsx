@@ -254,6 +254,51 @@ describe("知识库页", () => {
     });
   });
 
+  it("云盘文件夹可以移除和添加（B199）", async () => {
+    api.routes.set("GET /knowledge/settings", () => ({
+      status: 200,
+      body: { ...settings, driveFolders: [{ id: 5, path: "/资料" }] },
+    }));
+    api.routes.set("GET /drive/items", () => ({
+      status: 200,
+      body: {
+        items: [
+          { id: 7, name: "论文", isDir: true },
+          { id: 8, name: "a.pdf", isDir: false },
+        ],
+      },
+    }));
+    api.routes.set("PUT /knowledge/settings", (body) => ({
+      status: 200,
+      body,
+    }));
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /知识库设置/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("/资料")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: /移除文件夹/ }));
+    expect(within(dialog).queryByText("/资料")).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: /添加文件夹/ }));
+    const picker = await screen.findByRole("dialog", {
+      name: "选一个云盘文件夹",
+    });
+    fireEvent.click(
+      await within(picker).findByRole("button", { name: /论文/ }),
+    );
+    fireEvent.click(
+      within(picker).getByRole("button", {
+        name: /Choose this folder|选择这个文件夹/,
+      }),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.method === "PUT")).toBe(true),
+    );
+    expect(api.calls.find((c) => c.method === "PUT")?.body).toMatchObject({
+      driveFolders: [{ id: 7 }],
+    });
+  });
+
   it("接口还没上线时显示还没上线", async () => {
     api.routes.clear();
     renderPage();

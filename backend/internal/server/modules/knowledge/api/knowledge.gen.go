@@ -22,6 +22,14 @@ type KnowledgeAnswer struct {
 	Sources []KnowledgeHit `json:"sources"`
 }
 
+// KnowledgeDriveFolder defines model for KnowledgeDriveFolder.
+type KnowledgeDriveFolder struct {
+	Id int64 `json:"id"`
+
+	// Path 只读。文件夹路径，比如 /资料/论文；文件夹删了或隐藏了是空的
+	Path *string `json:"path,omitempty"`
+}
+
 // KnowledgeHit defines model for KnowledgeHit.
 type KnowledgeHit struct {
 	// Link 应用内路径
@@ -40,7 +48,9 @@ type KnowledgeHit struct {
 
 // KnowledgeSettings defines model for KnowledgeSettings.
 type KnowledgeSettings struct {
-	Enabled bool `json:"enabled"`
+	// DriveFolders B199。要索引的云盘文件夹，含子文件夹。只认文本、Markdown、网页、Word（docx）和 PDF。保存时只看 id
+	DriveFolders *[]KnowledgeDriveFolder `json:"driveFolders,omitempty"`
+	Enabled      bool                    `json:"enabled"`
 
 	// Model 嵌入模型，空表示供应商的默认模型（Google 是 gemini-embedding-001，其他是 text-embedding-3-small）
 	Model string `json:"model"`
@@ -54,8 +64,10 @@ type KnowledgeSettings struct {
 
 // KnowledgeSourceCount defines model for KnowledgeSourceCount.
 type KnowledgeSourceCount struct {
-	Chunks int    `json:"chunks"`
-	Docs   int    `json:"docs"`
+	Chunks int `json:"chunks"`
+	Docs   int `json:"docs"`
+
+	// Source notes、readlater、journal、cards 或 drive
 	Source string `json:"source"`
 }
 
@@ -73,6 +85,9 @@ type KnowledgeStatus struct {
 	Pending *int                   `json:"pending,omitempty"`
 	Sources []KnowledgeSourceCount `json:"sources"`
 	Syncing bool                   `json:"syncing"`
+
+	// Unreadable B199。上次同步时读不出文字的云盘文件数，比如扫描件
+	Unreadable *int `json:"unreadable,omitempty"`
 }
 
 // AskKnowledgeJSONBody defines parameters for AskKnowledge.

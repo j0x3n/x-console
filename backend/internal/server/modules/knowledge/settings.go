@@ -67,7 +67,7 @@ func indexKey(o api.KnowledgeSettings) string {
 
 // GetKnowledgeSettings implements api.ServerInterface.
 func (m *Module) GetKnowledgeSettings(w http.ResponseWriter, r *http.Request) {
-	httpx.JSON(w, http.StatusOK, m.options(r.Context()))
+	httpx.JSON(w, http.StatusOK, m.withFolderPaths(r.Context(), m.options(r.Context())))
 }
 
 // PutKnowledgeSettings implements api.ServerInterface.
@@ -97,6 +97,10 @@ func (m *Module) PutKnowledgeSettings(w http.ResponseWriter, r *http.Request) {
 		clean = []string{}
 	}
 	body.Sources = clean
+	if err := m.cleanDriveFolders(r.Context(), &body); err != nil {
+		httpx.Fail(w, r, httpx.Invalid(err.Error()))
+		return
+	}
 	if id := providerID(body); id > 0 {
 		if em, ok := m.embedder(); !ok || !em.Available(r.Context(), id) {
 			httpx.Fail(w, r, httpx.Invalid("找不到这个 AI 供应商"))
@@ -106,9 +110,9 @@ func (m *Module) PutKnowledgeSettings(w http.ResponseWriter, r *http.Request) {
 		body.ProviderId = nil
 	}
 	err := m.d.Settings.Set(r.Context(), OptionsKey, body)
-	m.d.Audit.Record(r.Context(), "knowledge.settings", "", map[string]any{"enabled": body.Enabled, "sources": body.Sources, "provider": providerID(body)}, err)
+	m.d.Audit.Record(r.Context(), "knowledge.settings", "", map[string]any{"enabled": body.Enabled, "sources": body.Sources, "provider": providerID(body), "driveFolders": driveFolderIDs(body)}, err)
 	if fail(w, r, err) {
 		return
 	}
-	httpx.JSON(w, http.StatusOK, body)
+	httpx.JSON(w, http.StatusOK, m.withFolderPaths(r.Context(), body))
 }

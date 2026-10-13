@@ -139,6 +139,11 @@ function IndexCard({
           {t("Ask last error")}：{status.lastError}
         </p>
       )}
+      {!!status.unreadable && (
+        <p className="xc-muted">
+          {status.unreadable} {t("Ask unreadable files")}
+        </p>
+      )}
     </section>
   );
 }

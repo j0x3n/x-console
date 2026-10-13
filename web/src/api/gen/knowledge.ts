@@ -132,7 +132,14 @@ export interface components {
             /** @description 出处，顺序对应回答里的 [1][2] */
             sources: components["schemas"]["KnowledgeHit"][];
         };
+        KnowledgeDriveFolder: {
+            /** Format: int64 */
+            id: number;
+            /** @description 只读。文件夹路径，比如 /资料/论文；文件夹删了或隐藏了是空的 */
+            path?: string;
+        };
         KnowledgeSourceCount: {
+            /** @description notes、readlater、journal、cards 或 drive */
             source: string;
             docs: number;
             chunks: number;
@@ -146,6 +153,8 @@ export interface components {
             chunks: number;
             /** @description 上次同步后还有多少段没嵌入 */
             pending?: number;
+            /** @description B199。上次同步时读不出文字的云盘文件数，比如扫描件 */
+            unreadable?: number;
             sources: components["schemas"]["KnowledgeSourceCount"][];
             /** Format: date-time */
             lastSyncAt?: string;
@@ -162,6 +171,8 @@ export interface components {
             providerId?: number;
             /** @description 要索引的来源，可选 notes、readlater、journal、cards */
             sources: string[];
+            /** @description B199。要索引的云盘文件夹，含子文件夹。只认文本、Markdown、网页、Word（docx）和 PDF。保存时只看 id */
+            driveFolders?: components["schemas"]["KnowledgeDriveFolder"][];
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */

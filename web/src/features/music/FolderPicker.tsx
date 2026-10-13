@@ -13,11 +13,16 @@ export default function FolderPicker({
   exclude,
   onPick,
   onClose,
+  title,
+  description,
 }: {
   /** 已经选过的文件夹，不再列出。 */
   exclude: number[];
   onPick: (id: number) => void;
   onClose: () => void;
+  /** 别的模块借用时换标题（B199 知识库）。 */
+  title?: string;
+  description?: string;
 }) {
   const t = useT();
   const [trail, setTrail] = useState<{ id: number; name: string }[]>([]);
@@ -29,8 +34,10 @@ export default function FolderPicker({
     <Dialog
       open
       onClose={onClose}
-      title={t("Choose a music folder")}
-      description={t("Songs in this folder and its subfolders are added.")}
+      title={title ?? t("Choose a music folder")}
+      description={
+        description ?? t("Songs in this folder and its subfolders are added.")
+      }
     >
       <nav className="music-trail" aria-label={t("Folder path")}>
         <button

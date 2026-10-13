@@ -1,3 +1,4 @@
+import { FolderOpen, Plus, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { errorMessage } from "../../api/client";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
@@ -5,6 +6,7 @@ import Dialog from "../../components/ui/Dialog";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { useAiProviders } from "../assistant/api";
+import FolderPicker from "../music/FolderPicker";
 import {
   useClearKnowledge,
   usePutKnowledgeSettings,
@@ -36,6 +38,10 @@ export default function KnowledgeSettingsDialog({
   });
   const [error, setError] = useState("");
   const providerId = form.providerId ?? 0;
+  const [picking, setPicking] = useState(false);
+  const folders = form.driveFolders ?? [];
+  const setFolders = (next: typeof folders) =>
+    setForm((f) => ({ ...f, driveFolders: next }));
   useEffect(() => {
     if (open && settings) {
       setForm(settings);
@@ -138,6 +144,45 @@ export default function KnowledgeSettingsDialog({
             </label>
           ))}
         </fieldset>
+        <fieldset className="ask-sources">
+          <legend>{t("Ask drive folders")}</legend>
+          {folders.length > 0 && (
+            <ul className="ask-folder-list">
+              {folders.map((f) => (
+                <li key={f.id}>
+                  <FolderOpen size={14} />
+                  <span
+                    className={
+                      f.path ? "ask-folder-path" : "ask-folder-path xc-muted"
+                    }
+                    title={f.path}
+                  >
+                    {f.path || t("Ask drive folder gone")}
+                  </span>
+                  <button
+                    type="button"
+                    className="xc-btn small ghost"
+                    aria-label={`${t("Ask remove drive folder")} ${f.path ?? f.id}`}
+                    onClick={() =>
+                      setFolders(folders.filter((x) => x.id !== f.id))
+                    }
+                  >
+                    <X size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            className="xc-btn small ask-add-folder"
+            disabled={folders.length >= 20}
+            onClick={() => setPicking(true)}
+          >
+            <Plus size={14} /> {t("Ask add drive folder")}
+          </button>
+          <small className="xc-muted">{t("Ask drive folders hint")}</small>
+        </fieldset>
         {error && (
           <p className="xc-error" role="alert">
             {error}
@@ -163,6 +208,18 @@ export default function KnowledgeSettingsDialog({
           </button>
         </div>
       </form>
+      {picking && (
+        <FolderPicker
+          title={t("Ask choose drive folder")}
+          description={t("Ask choose drive folder hint")}
+          exclude={folders.map((f) => f.id)}
+          onClose={() => setPicking(false)}
+          onPick={(id) => {
+            setPicking(false);
+            setFolders([...folders, { id }]);
+          }}
+        />
+      )}
     </Dialog>
   );
 }

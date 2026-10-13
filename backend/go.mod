@@ -16,6 +16,7 @@ require (
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-shiori/go-readability v0.0.0-20251205110129-5db1dc9836f0
 	github.com/google/uuid v1.6.0
+	github.com/ledongthuc/pdf v0.0.0-20240201131950-da5b75280b06
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/open-spaced-repetition/go-fsrs/v4 v4.0.0

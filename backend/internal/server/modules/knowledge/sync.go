@@ -28,12 +28,13 @@ func (m *Module) sync(ctx context.Context) {
 	m.syncing = true
 	m.mu.Unlock()
 
-	pending, err := m.syncOnce(ctx, opts)
+	pending, skipped, err := m.syncOnce(ctx, opts)
 
 	m.mu.Lock()
 	m.syncing = false
 	m.last = m.now().UTC()
 	m.pending = pending
+	m.skipped = skipped
 	m.lastErr = ""
 	if err != nil {
 		m.lastErr = err.Error()
@@ -45,15 +46,16 @@ func (m *Module) sync(ctx context.Context) {
 
 func docKey(source, ref string) string { return source + "\x00" + ref }
 
-// syncOnce returns how many passages were left for the next time.
-func (m *Module) syncOnce(ctx context.Context, opts api.KnowledgeSettings) (int, error) {
+// syncOnce returns how many passages were left for the next time, and how
+// many files had no readable text.
+func (m *Module) syncOnce(ctx context.Context, opts api.KnowledgeSettings) (int, int, error) {
 	em, ok := m.embedder()
 	if !ok || !em.Available(ctx, providerID(opts)) {
-		return 0, errors.New(noProvider(opts))
+		return 0, 0, errors.New(noProvider(opts))
 	}
 	rows, err := m.q.ListKnowledgeDocs(ctx)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	existing := make(map[string]db.KnowledgeDoc, len(rows))
 	for _, r := range rows {
@@ -64,57 +66,110 @@ func (m *Module) syncOnce(ctx context.Context, opts api.KnowledgeSettings) (int,
 	for _, r := range rows {
 		if _, registered := sources[r.Source]; !registered || !sourceEnabled(opts, r.Source) {
 			if err := m.q.DeleteKnowledgeDoc(ctx, db.DeleteKnowledgeDocParams{Source: r.Source, Ref: r.Ref}); err != nil {
-				return 0, err
+				return 0, 0, err
 			}
 			delete(existing, docKey(r.Source, r.Ref))
 		}
 	}
 	mdl := indexKey(opts)
-	budget, pending := m.budget, 0
-	for _, name := range AllSources {
+	run := &syncRun{em: em, opts: opts, mdl: mdl, existing: existing, budget: m.budget}
+	for _, name := range indexOrder() {
 		src, registered := sources[name]
 		if !registered || !sourceEnabled(opts, name) {
 			continue
 		}
 		seen := map[string]bool{}
-		err := src.Each(ctx, func(doc contracts.KnowledgeDoc) error {
-			return m.indexDoc(ctx, em, opts, mdl, name, src.Module(), doc, existing, seen, &budget, &pending)
-		})
+		var err error
+		if fs, ok := src.(fileSource); ok {
+			err = fs.EachFile(ctx, opts, func(doc fileDoc) error {
+				return m.indexDoc(ctx, run, name, src.Module(), doc, seen)
+			})
+		} else {
+			err = src.Each(ctx, func(doc contracts.KnowledgeDoc) error {
+				return m.indexDoc(ctx, run, name, src.Module(), fileDoc{KnowledgeDoc: doc}, seen)
+			})
+		}
 		if err != nil {
-			return pending, err
+			return run.pending, run.skipped, err
 		}
 		// Documents the source does not offer any more: deleted, archived, hidden or empty.
 		for key, r := range existing {
 			if r.Source == name && !seen[key] {
 				if err := m.q.DeleteKnowledgeDoc(ctx, db.DeleteKnowledgeDocParams{Source: r.Source, Ref: r.Ref}); err != nil {
-					return pending, err
+					return run.pending, run.skipped, err
 				}
 			}
 		}
 	}
-	return pending, nil
+	return run.pending, run.skipped, nil
 }
 
-func (m *Module) indexDoc(ctx context.Context, em contracts.Embedder, opts api.KnowledgeSettings, mdl, source, mod string,
-	doc contracts.KnowledgeDoc, existing map[string]db.KnowledgeDoc, seen map[string]bool, budget, pending *int) error {
+// syncRun is the state of one sync.
+type syncRun struct {
+	em       contracts.Embedder
+	opts     api.KnowledgeSettings
+	mdl      string
+	existing map[string]db.KnowledgeDoc
+	budget   int // passages that may still be embedded
+	pending  int // passages left for the next sync
+	skipped  int // files without readable text
+}
+
+func hashOf(parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	return hex.EncodeToString(sum[:])
+}
+
+// indexDoc embeds a document when it changed. A document with a Load
+// function is a file: its version decides whether it changed, and its text is
+// read only then.
+func (m *Module) indexDoc(ctx context.Context, run *syncRun, source, mod string, doc fileDoc, seen map[string]bool) error {
 	title := strings.TrimSpace(doc.Title)
-	chunks := chunkText(doc.Text)
-	if len(chunks) == 0 {
-		return nil // not seen: an empty document leaves the index
-	}
 	key := docKey(source, doc.Ref)
-	seen[key] = true
-	sum := sha256.Sum256([]byte(mdl + "\x00" + title + "\x00" + strings.Join(chunks, "\x01")))
-	hash := hex.EncodeToString(sum[:])
-	old, had := existing[key]
-	if had && old.Hash == hash {
+	old, had := run.existing[key]
+	keep := func() error {
+		seen[key] = true
 		if old.Module != mod || old.Title != title || old.Link != doc.Link {
 			return m.q.UpdateKnowledgeDocMeta(ctx, db.UpdateKnowledgeDocMetaParams{Module: mod, Title: title, Link: doc.Link, Source: source, Ref: doc.Ref})
 		}
 		return nil
 	}
-	if len(chunks) > *budget {
-		*pending += len(chunks)
+	var chunks []string
+	var hash string
+	if doc.Load != nil {
+		hash = hashOf(run.mdl, title, "file", doc.Version)
+		if had && old.Hash == hash {
+			return keep()
+		}
+		if m.isUnreadable(doc.Version) {
+			run.skipped++
+			return nil
+		}
+		text, err := doc.Load()
+		var bad unreadableError
+		if errors.As(err, &bad) {
+			m.markUnreadable(doc.Version)
+			run.skipped++
+			m.d.Log.Info("knowledge file has no text", "source", source, "ref", doc.Ref, "err", err)
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		chunks = chunkText(text)
+	} else {
+		chunks = chunkText(doc.Text)
+		hash = hashOf(run.mdl, title, strings.Join(chunks, "\x01"))
+	}
+	if len(chunks) == 0 {
+		return nil // not seen: an empty document leaves the index
+	}
+	if had && old.Hash == hash {
+		return keep()
+	}
+	seen[key] = true
+	if len(chunks) > run.budget {
+		run.pending += len(chunks)
 		return nil
 	}
 	inputs := make([]string, len(chunks))
@@ -124,7 +179,7 @@ func (m *Module) indexDoc(ctx context.Context, em contracts.Embedder, opts api.K
 			inputs[i] = title + "\n" + c
 		}
 	}
-	vecs, err := em.Embed(ctx, providerID(opts), opts.Model, inputs)
+	vecs, err := run.em.Embed(ctx, providerID(run.opts), run.opts.Model, inputs)
 	if err != nil {
 		return err
 	}
@@ -141,7 +196,7 @@ func (m *Module) indexDoc(ctx context.Context, em contracts.Embedder, opts api.K
 		return err
 	}
 	if err := q.UpsertKnowledgeDoc(ctx, db.UpsertKnowledgeDocParams{Source: source, Ref: doc.Ref, Module: mod, Title: title,
-		Link: doc.Link, Hash: hash, Model: mdl, IndexedAt: m.now().UTC()}); err != nil {
+		Link: doc.Link, Hash: hash, Model: run.mdl, IndexedAt: m.now().UTC()}); err != nil {
 		return err
 	}
 	for i, c := range chunks {
@@ -153,7 +208,7 @@ func (m *Module) indexDoc(ctx context.Context, em contracts.Embedder, opts api.K
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	*budget -= len(chunks)
+	run.budget -= len(chunks)
 	return nil
 }
 
@@ -188,4 +243,16 @@ func (m *Module) loadVecs(ctx context.Context) ([]vec, error) {
 	m.cache, m.cached = out, true
 	m.mu.Unlock()
 	return out, nil
+}
+
+func (m *Module) isUnreadable(version string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.unreadable[version]
+}
+
+func (m *Module) markUnreadable(version string) {
+	m.mu.Lock()
+	m.unreadable[version] = true
+	m.mu.Unlock()
 }

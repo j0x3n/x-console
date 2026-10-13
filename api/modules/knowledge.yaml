@@ -134,11 +134,17 @@ components:
           type: array
           description: 出处，顺序对应回答里的 [1][2]
           items: { $ref: "#/components/schemas/KnowledgeHit" }
+    KnowledgeDriveFolder:
+      type: object
+      required: [id]
+      properties:
+        id: { type: integer, format: int64 }
+        path: { type: string, description: 只读。文件夹路径，比如 /资料/论文；文件夹删了或隐藏了是空的 }
     KnowledgeSourceCount:
       type: object
       required: [source, docs, chunks]
       properties:
-        source: { type: string }
+        source: { type: string, description: notes、readlater、journal、cards 或 drive }
         docs: { type: integer }
         chunks: { type: integer }
     KnowledgeStatus:
@@ -151,6 +157,7 @@ components:
         docs: { type: integer }
         chunks: { type: integer }
         pending: { type: integer, description: 上次同步后还有多少段没嵌入 }
+        unreadable: { type: integer, description: B199。上次同步时读不出文字的云盘文件数，比如扫描件 }
         sources:
           type: array
           items: { $ref: "#/components/schemas/KnowledgeSourceCount" }
@@ -170,3 +177,8 @@ components:
           type: array
           description: 要索引的来源，可选 notes、readlater、journal、cards
           items: { type: string }
+        driveFolders:
+          type: array
+          maxItems: 20
+          description: B199。要索引的云盘文件夹，含子文件夹。只认文本、Markdown、网页、Word（docx）和 PDF。保存时只看 id
+          items: { $ref: "#/components/schemas/KnowledgeDriveFolder" }

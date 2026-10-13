@@ -86,3 +86,27 @@
 .ask-clear {
   margin-right: auto;
 }
+
+/* B199 云盘文件夹，和音乐设置的文件夹列表一样 */
+.ask-folder-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ask-folder-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--xc-border);
+}
+.ask-folder-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-add-folder {
+  justify-self: start;
+}

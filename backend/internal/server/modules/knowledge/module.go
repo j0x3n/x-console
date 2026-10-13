@@ -2,7 +2,8 @@
 // Notes, saved articles, the diary and review cards are cut into passages and
 // turned into vectors by the AI provider's embedding endpoint. A question is
 // matched against the passages, and the AI answers from the best ones with
-// links to the sources. Off by default. See docs/specs/B139.md.
+// links to the sources. Off by default. See docs/specs/B139.md. Files in
+// chosen drive folders can be indexed too (B199, drivesource.go).
 package knowledge
 
 import (
@@ -52,8 +53,12 @@ type Module struct {
 	last    time.Time
 	lastErr string
 	pending int
-	cache   []vec // nil when it has to be loaded again
-	cached  bool
+	// skipped is how many drive files had no readable text at the last sync.
+	skipped int
+	// unreadable holds the versions of files whose text could not be read.
+	unreadable map[string]bool
+	cache      []vec // nil when it has to be loaded again
+	cached     bool
 }
 
 var (
@@ -63,7 +68,7 @@ var (
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
-	m := &Module{d: d, q: db.New(d.DB), nowFn: time.Now, budget: embedBudget}
+	m := &Module{d: d, q: db.New(d.DB), nowFn: time.Now, budget: embedBudget, unreadable: map[string]bool{}}
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	m.registerActions()
 	return m, nil
@@ -118,6 +123,9 @@ func (m *Module) sources() map[string]contracts.KnowledgeSource {
 			out[name] = src
 		}
 	}
+	if files, ok := m.driveFiles(); ok {
+		out[DriveSource] = driveSource{files}
+	}
 	return out
 }
 
@@ -138,6 +146,9 @@ func (m *Module) hiddenFn(ctx context.Context) func(string) bool {
 }
 
 func sourceEnabled(opts api.KnowledgeSettings, name string) bool {
+	if name == DriveSource {
+		return len(driveFolderIDs(opts)) > 0
+	}
 	return slices.Contains(opts.Sources, name)
 }
 
@@ -157,7 +168,7 @@ func (m *Module) GetKnowledgeStatus(w http.ResponseWriter, r *http.Request) {
 		st.Docs += int(row.Docs)
 		st.Chunks += int(row.Chunks)
 	}
-	for _, name := range AllSources {
+	for _, name := range indexOrder() {
 		if c, ok := byName[name]; ok {
 			st.Sources = append(st.Sources, c)
 		}
@@ -177,6 +188,9 @@ func (m *Module) GetKnowledgeStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if m.pending > 0 {
 		st.Pending = ptr(m.pending)
+	}
+	if m.skipped > 0 {
+		st.Unreadable = ptr(m.skipped)
 	}
 	m.mu.Unlock()
 	httpx.JSON(w, http.StatusOK, st)
@@ -201,7 +215,8 @@ func (m *Module) ClearKnowledgeIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	m.invalidate()
 	m.mu.Lock()
-	m.pending, m.lastErr = 0, ""
+	m.pending, m.skipped, m.lastErr = 0, 0, ""
+	m.unreadable = map[string]bool{} // read the files again
 	m.mu.Unlock()
 	httpx.NoContent(w)
 }
