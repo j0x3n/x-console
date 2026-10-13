@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Loader2, Search, Server, Sparkles } from "lucide-react";
+import { Loader2, Search, Server } from "lucide-react";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { relativeTime } from "../../../lib/time";
 import AgentAvatar from "../../aiagents/AgentAvatar";
 import type { AiSession } from "../api";
 import { conversationTitle } from "../logic";
+import AiMark from "./AiMark";
 import {
   filterSessions,
   groupSessions,
@@ -38,14 +39,17 @@ export function SessionIcon({
         failed={session.status === "failed"}
       />
     );
-  const Icon = session.kind === "host" ? Server : Sparkles;
   return (
     <span
       className={`ai-session-icon ${session.kind}`}
       style={{ width: size, height: size }}
       aria-hidden
     >
-      <Icon size={Math.round(size * 0.5)} />
+      {session.kind === "host" ? (
+        <Server size={Math.round(size * 0.5)} />
+      ) : (
+        <AiMark size={Math.round(size * 0.6)} />
+      )}
     </span>
   );
 }

@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type PointerEvent,
@@ -15,7 +14,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -35,6 +33,7 @@ import {
   useModelSettings,
   type AiSession,
 } from "./api";
+import AiMark from "./components/AiMark";
 import ConversationView from "./components/ConversationView";
 import RunView from "./components/RunView";
 import SessionList, {
@@ -51,6 +50,12 @@ import "./assistant.css";
 const PANEL = { width: 760, height: 620 };
 /** 窗口比这个窄时，列表和内容分两层显示。 */
 const NARROW = 600;
+
+/** 带列表时窗口的宽度，和 assistant.css 里的 .ai-panel 对应。 */
+export function panelWidth(viewport: number, expanded: boolean) {
+  if (viewport <= 640) return viewport;
+  return expanded ? Math.min(740, viewport) : Math.min(760, viewport - 40);
+}
 
 /*
  * AI（B3，B183 重做）：顶栏的 AI 按钮或 ⌘J 打开。左边是全部会话（面板对话、服务器 Agent、
@@ -168,23 +173,17 @@ function Panel() {
   const remove = useDeleteConversation();
 
   // 窄的时候列表和内容分两层：narrowList 为真时只显示列表。
+  // 按窗口带列表时能有多宽来判断，不看当前宽度：收起列表后窗口会变窄，
+  // 看当前宽度会在宽窄之间来回切换（B194）。
   const ref = useRef<HTMLElement>(null);
-  const [narrow, setNarrow] = useState(false);
-  const [narrowList, setNarrowList] = useState(false);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const check = () => {
-      const width = el.getBoundingClientRect().width;
-      // 宽度为 0（还没布局）时不算窄
-      setNarrow(width > 0 && width < NARROW);
-    };
-    check();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(check);
-    ro.observe(el);
-    return () => ro.disconnect();
+  const [viewport, setViewport] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const onResize = () => setViewport(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
+  const narrow = panelWidth(viewport, expanded) < NARROW;
+  const [narrowList, setNarrowList] = useState(false);
   const showList = narrow ? narrowList : listOpen;
   const showDetail = !narrow || !narrowList;
 
@@ -296,7 +295,7 @@ function Panel() {
           )}
         </button>
         <span className="ai-brand">
-          <Sparkles size={15} />
+          <AiMark size={16} />
           AI
         </span>
         <span className="xc-spacer" />
@@ -333,7 +332,7 @@ function Panel() {
       {notLive ? (
         <div className="ai-body">
           <div className="ai-empty">
-            <Sparkles size={26} />
+            <AiMark size={22} tile />
             <strong>AI 还没上线</strong>
             <p>界面已经做好，服务端还在开发。</p>
           </div>

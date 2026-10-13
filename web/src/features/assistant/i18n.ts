@@ -9,6 +9,13 @@ registerZh({
   "Valid for 2 hours": "2 小时内有效",
   "Chat settings": "对话设置",
   Default: "默认",
+  // B194：输入框底部的小下拉
+  "Ask before every change": "所有改动都先问你",
+  "Changes run, deletes and risky actions ask":
+    "新建和修改直接执行，删除和高危操作先问你",
+  Low: "低",
+  Medium: "中",
+  High: "高",
   "ran N commands": "执行了 N 条命令",
   "N waiting for you": "N 个等你确认",
   "View the steps": "查看过程",

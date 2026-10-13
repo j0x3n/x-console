@@ -322,12 +322,15 @@ describe("assistant panel", () => {
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: /^AI/ }));
     const box = await screen.findByLabelText("消息");
-    const model = (await screen.findByLabelText("模型")) as HTMLSelectElement;
-    await waitFor(() => expect(model.options.length).toBe(3));
-    expect((screen.getByLabelText("权限") as HTMLSelectElement).value).toBe(
-      "write",
+    // B194：权限、模型、思考程度是输入框底部的小下拉
+    expect((await screen.findByLabelText("权限")).textContent).toContain(
+      "写入",
     );
-    fireEvent.change(model, { target: { value: "1:other" } });
+    fireEvent.click(await screen.findByLabelText("模型"));
+    await waitFor(() => expect(screen.getAllByRole("option").length).toBe(3));
+    fireEvent.click(screen.getByRole("option", { name: "other" }));
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(screen.getByLabelText("模型").textContent).toContain("other");
     fireEvent.change(box, { target: { value: "你好" } });
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() =>
@@ -350,16 +353,18 @@ describe("assistant panel", () => {
       },
     }));
     await waitFor(() => expect(useAssistant.getState().conversationId).toBe(5));
-    const perm = screen.getByLabelText("权限") as HTMLSelectElement;
+    const perm = screen.getByLabelText("权限");
     elevation.calls = 0;
-    fireEvent.change(perm, { target: { value: "manual" } });
+    fireEvent.click(perm);
+    fireEvent.click(screen.getByRole("option", { name: /^写入/ }));
     await waitFor(() =>
       expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
-        permission: "manual",
+        permission: "write",
       }),
     );
     expect(elevation.calls).toBe(0);
-    fireEvent.change(perm, { target: { value: "all" } });
+    fireEvent.click(perm);
+    fireEvent.click(screen.getByRole("option", { name: /^全部允许/ }));
     await waitFor(() => expect(elevation.calls).toBe(1));
   });
 
@@ -416,12 +421,19 @@ describe("assistant panel", () => {
     const link = await screen.findByRole("link", { name: /打开来源/ });
     expect(link.getAttribute("href")).toBe("/servers/h1/agent?c=8");
     // 服务器会话显示服务器 Agent 的权限，不显示附件按钮
-    expect(
-      ((await screen.findByLabelText("权限")) as HTMLSelectElement).value,
-    ).toBe("read_auto");
+    expect((await screen.findByLabelText("权限")).textContent).toContain(
+      "只读命令自动执行",
+    );
     expect(screen.queryByLabelText("添加图片或文本文件")).toBeNull();
     // 筛选“服务器”只剩服务器会话
     fireEvent.click(screen.getByRole("button", { name: "服务器" }));
     expect(screen.queryByRole("button", { name: /删笔记/ })).toBeNull();
+
+    // B194：收起列表再展开，列表回来，不会卡在宽窄之间
+    fireEvent.click(screen.getByRole("button", { name: "收起列表" }));
+    expect(screen.queryByRole("navigation", { name: "会话" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "显示列表" }));
+    expect(screen.getByRole("navigation", { name: "会话" })).toBeTruthy();
+    expect(screen.getByLabelText("消息")).toBeTruthy();
   });
 });

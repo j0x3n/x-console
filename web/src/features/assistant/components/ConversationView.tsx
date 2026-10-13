@@ -12,7 +12,8 @@ import {
   FileText,
   Loader2,
   Paperclip,
-  Sparkles,
+  ShieldAlert,
+  ShieldCheck,
   Square,
   X,
 } from "lucide-react";
@@ -39,7 +40,9 @@ import {
 } from "../api";
 import { buildTimeline, HOST_PERMISSIONS, HOST_TOOLS } from "../logic";
 import { useAssistant } from "../store";
+import AiMark from "./AiMark";
 import ChatControls from "./ChatControls";
+import Picker from "./Picker";
 import Timeline from "./Timeline";
 
 function pageContext(pathname: string): PageContext {
@@ -213,7 +216,7 @@ export default function ConversationView({
       <div className="ai-body" ref={bodyRef} aria-live="polite">
         {noKey && !host ? (
           <div className="ai-empty">
-            <Sparkles size={26} />
+            <AiMark size={22} tile />
             <strong>还没有选 Agent 模型</strong>
             <p>
               去 <Link to="/settings/assistant">设置 → AI</Link>{" "}
@@ -226,7 +229,7 @@ export default function ConversationView({
           <ErrorState error={detail.error} onRetry={() => detail.refetch()} />
         ) : items.length === 0 && !running ? (
           <div className="ai-empty">
-            <Sparkles size={26} />
+            <AiMark size={22} tile />
             <strong>有什么要我做的？</strong>
             <p>
               我能查看和修改笔记、提醒、项目、习惯、云盘，也能看服务器状态。
@@ -251,89 +254,36 @@ export default function ConversationView({
         )}
       </div>
 
-      {(attachments.length > 0 || uploading > 0) && (
-        <div className="ai-pending-attachments">
-          {attachments.map((a) => (
-            <span key={a.id} className="ai-attach-chip" title={a.name}>
-              {a.kind === "image" ? (
-                <img src={attachmentUrl(a.id)} alt="" />
-              ) : (
-                <FileText size={13} />
-              )}
-              <span>{a.name}</span>
-              <button
-                type="button"
-                className="ai-attach-remove"
-                aria-label={`${t("Remove attachment")} ${a.name}`}
-                onClick={() =>
-                  setAttachments((list) => list.filter((x) => x.id !== a.id))
-                }
-              >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
-          {uploading > 0 && (
-            <span className="ai-attach-chip" role="status">
-              <Loader2 size={13} className="ai-spin" />
-              <span>{t("Uploading…")}</span>
-            </span>
-          )}
-        </div>
-      )}
-      {host ? (
-        <div className="ai-controls">
-          <select
-            className={`xc-select small ai-control host${current?.permission === "all_auto" ? " warn" : ""}`}
-            aria-label={t("Permission")}
-            title={t("Permission")}
-            value={current?.permission ?? "confirm"}
-            disabled={setHostPermission.isPending}
-            onChange={(e) =>
-              void changeHostMode(e.target.value as HostAgentPermission)
-            }
-          >
-            {HOST_PERMISSIONS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {t(p.label)}
-              </option>
+      <form className="ai-input" onSubmit={submit}>
+        {(attachments.length > 0 || uploading > 0) && (
+          <div className="ai-pending-attachments">
+            {attachments.map((a) => (
+              <span key={a.id} className="ai-attach-chip" title={a.name}>
+                {a.kind === "image" ? (
+                  <img src={attachmentUrl(a.id)} alt="" />
+                ) : (
+                  <FileText size={13} />
+                )}
+                <span>{a.name}</span>
+                <button
+                  type="button"
+                  className="ai-attach-remove"
+                  aria-label={`${t("Remove attachment")} ${a.name}`}
+                  onClick={() =>
+                    setAttachments((list) => list.filter((x) => x.id !== a.id))
+                  }
+                >
+                  <X size={12} />
+                </button>
+              </span>
             ))}
-          </select>
-        </div>
-      ) : (
-        !noKey && (
-          <ChatControls
-            conversationId={conversationId}
-            value={chat}
-            defaultModel={models.data?.agent?.model ?? ""}
-            onDraft={setDraft}
-          />
-        )
-      )}
-      <form className="ai-composer" onSubmit={submit}>
-        {!host && (
-          <>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              hidden
-              accept="image/png,image/jpeg,image/webp,image/gif,text/*,.md,.json,.yaml,.yml,.toml,.csv,.log,.go,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.java,.rs,.c,.h,.cpp,.css,.html,.xml,.ini,.conf"
-              onChange={(e) => {
-                addFiles(Array.from(e.target.files ?? []));
-                e.target.value = "";
-              }}
-            />
-            <button
-              type="button"
-              className="ai-attach-btn"
-              title={t("Attach images or text files")}
-              aria-label={t("Attach images or text files")}
-              onClick={() => fileRef.current?.click()}
-            >
-              <Paperclip size={15} />
-            </button>
-          </>
+            {uploading > 0 && (
+              <span className="ai-attach-chip" role="status">
+                <Loader2 size={13} className="ai-spin" />
+                <span>{t("Uploading…")}</span>
+              </span>
+            )}
+          </div>
         )}
         <textarea
           ref={inputRef}
@@ -356,26 +306,83 @@ export default function ConversationView({
             }
           }}
         />
-        {running && conversationId ? (
-          <button
-            type="button"
-            className="ai-send stop"
-            title={t("Stop")}
-            aria-label={t("Stop")}
-            onClick={() => stop.mutate(conversationId)}
-          >
-            <Square size={13} />
-          </button>
-        ) : (
-          <button
-            className="ai-send"
-            title={t("Send")}
-            aria-label={t("Send")}
-            disabled={(!text.trim() && !attachments.length) || uploading > 0}
-          >
-            <ArrowUp size={16} />
-          </button>
-        )}
+        <div className="ai-composer-bar">
+          {!host && (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                hidden
+                accept="image/png,image/jpeg,image/webp,image/gif,text/*,.md,.json,.yaml,.yml,.toml,.csv,.log,.go,.ts,.tsx,.js,.jsx,.py,.sh,.sql,.java,.rs,.c,.h,.cpp,.css,.html,.xml,.ini,.conf"
+                onChange={(e) => {
+                  addFiles(Array.from(e.target.files ?? []));
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className="ai-attach-btn"
+                title={t("Attach images or text files")}
+                aria-label={t("Attach images or text files")}
+                onClick={() => fileRef.current?.click()}
+              >
+                <Paperclip size={15} />
+              </button>
+            </>
+          )}
+          <div className="ai-chips">
+            {host ? (
+              <Picker
+                label={t("Permission")}
+                icon={
+                  current?.permission === "all_auto" ? (
+                    <ShieldAlert size={13} />
+                  ) : (
+                    <ShieldCheck size={13} />
+                  )
+                }
+                tone={current?.permission === "all_auto" ? "warn" : undefined}
+                value={current?.permission ?? "confirm"}
+                disabled={setHostPermission.isPending}
+                options={HOST_PERMISSIONS.map((p) => ({
+                  value: p.value,
+                  label: t(p.label),
+                }))}
+                onChange={(v) => void changeHostMode(v as HostAgentPermission)}
+              />
+            ) : (
+              !noKey && (
+                <ChatControls
+                  conversationId={conversationId}
+                  value={chat}
+                  defaultModel={models.data?.agent?.model ?? ""}
+                  onDraft={setDraft}
+                />
+              )
+            )}
+          </div>
+          {running && conversationId ? (
+            <button
+              type="button"
+              className="ai-send stop"
+              title={t("Stop")}
+              aria-label={t("Stop")}
+              onClick={() => stop.mutate(conversationId)}
+            >
+              <Square size={12} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              className="ai-send"
+              title={t("Send")}
+              aria-label={t("Send")}
+              disabled={(!text.trim() && !attachments.length) || uploading > 0}
+            >
+              <ArrowUp size={16} />
+            </button>
+          )}
+        </div>
       </form>
     </>
   );
