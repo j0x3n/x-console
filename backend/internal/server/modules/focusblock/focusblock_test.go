@@ -458,8 +458,10 @@ func TestHomeAssistantFailureIsShown(t *testing.T) {
 	r.configure(t, map[string]any{"haStart": "scene.focus_on"})
 	s := r.startFocus(t, 25)
 	eventually(t, "message", func() bool { return strings.Contains(r.settings(t).HaMessage, "没有打开") })
+	// The block itself still works. Wait for the agent, which runs on its own
+	// goroutine and can be late on a busy machine.
+	eventually(t, "applied", func() bool { a, _ := r.agent.counts(); return a >= 1 })
 	r.stopFocus(t, s.Id)
-	// The block itself still works.
 	if a, _ := r.agent.counts(); a != 1 {
 		t.Fatalf("applied %d times", a)
 	}
