@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeLine, formatClock } from "./lyrics";
+import { activeLine, formatClock, visibleLines } from "./lyrics";
 
 const lines = [
   { timeMs: 1000, text: "一" },
@@ -23,6 +23,22 @@ describe("当前歌词行", () => {
   it("没有时间轴或没有歌词", () => {
     expect(activeLine([{ text: "a" }, { text: "b" }], 5000)).toBe(-1);
     expect(activeLine([], 5000)).toBe(-1);
+  });
+});
+
+describe("去掉空白行（B195）", () => {
+  it("空行、只有空格和全角空格的行都去掉", () => {
+    const lines = [
+      { timeMs: 0, text: "爱比不爱可悲" },
+      { timeMs: 1000, text: "" },
+      { timeMs: 2000, text: "  " },
+      { timeMs: 3000, text: "　" },
+      { timeMs: 4000, text: "听山盟海誓" },
+    ];
+    expect(visibleLines(lines).map((l) => l.text)).toEqual([
+      "爱比不爱可悲",
+      "听山盟海誓",
+    ]);
   });
 });
 

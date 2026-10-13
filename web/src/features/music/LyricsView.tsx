@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useT } from "../../contexts/LanguageContext";
 import { Loading } from "../../components/ui/States";
 import { useLyrics } from "./api";
-import { activeLine } from "./lyrics";
+import { activeLine, visibleLines } from "./lyrics";
 import { seek } from "./PlayerHost";
 import { useProgress } from "./player";
 
@@ -13,7 +13,10 @@ import { useProgress } from "./player";
 export default function Lyrics({ trackId }: { trackId: number }) {
   const t = useT();
   const lyrics = useLyrics(trackId);
-  const lines = useMemo(() => lyrics.data?.lines ?? [], [lyrics.data]);
+  const lines = useMemo(
+    () => visibleLines(lyrics.data?.lines ?? []),
+    [lyrics.data],
+  );
   const synced = lyrics.data?.synced === true;
   // 只订阅“第几行”，进度每秒变几次，行没变时不重新渲染。
   const active = useProgress((s) =>

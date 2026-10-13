@@ -27,6 +27,11 @@ export function activeLine(lines: LyricLine[], ms: number): number {
   return found;
 }
 
+/** 去掉空白行（B195）：歌词文件里的空行和只有空格的行不显示。 */
+export function visibleLines(lines: LyricLine[]): LyricLine[] {
+  return lines.filter((line) => line.text.trim() !== "");
+}
+
 /** mm:ss，超过一小时写 h:mm:ss。 */
 export function formatClock(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";

@@ -1070,14 +1070,14 @@
 .music-mini-lyrics {
   display: grid;
   flex: none;
-  height: 100px;
+  height: 76px;
   border-top: 1px solid var(--xc-border);
   overflow: hidden;
 }
 .music-mini-lyrics .music-lyrics {
   position: relative;
   min-height: 0;
-  padding: 36px 12px 52px;
+  padding: 26px 12px 34px;
   text-align: center;
   scrollbar-width: none;
   mask-image: linear-gradient(
@@ -1089,14 +1089,14 @@
   );
 }
 .music-mini-lyrics .music-lyric {
-  padding: 1px 0;
-  font-size: var(--fs-13);
-  line-height: 1.4;
+  padding: 0;
+  font-size: var(--fs-12);
+  line-height: 1.5;
   text-align: center;
   transition: color 0.15s ease;
 }
 .music-mini-lyrics .music-lyric.plain {
-  font-size: var(--fs-13);
+  font-size: var(--fs-12);
 }
 .music-mini-lyrics .music-lyric.active {
   color: var(--xc-accent-text);
