@@ -35,6 +35,7 @@ import { canEdit } from "../viewer/kind";
 import type { FileSource } from "../viewer/source";
 import NameDialog from "./NameDialog";
 import FileIcon from "./FileIcon";
+import SortHeader from "./SortHeader";
 
 /** 外部网盘使用云盘的列表、网格、文件查看器和名称弹窗。 */
 export default function RemoteView({
@@ -302,36 +303,25 @@ export default function RemoteView({
             {layout === "list" && (
               <div className="drive-row drive-head">
                 <span />
-                <button
-                  onClick={() =>
-                    setSort({
-                      key: "name",
-                      desc: sort.key === "name" ? !sort.desc : false,
-                    })
-                  }
-                >
-                  {t("Name")}
-                </button>
-                <button
-                  onClick={() =>
-                    setSort({
-                      key: "size",
-                      desc: sort.key === "size" ? !sort.desc : false,
-                    })
-                  }
-                >
-                  {t("Size")}
-                </button>
-                <button
-                  onClick={() =>
-                    setSort({
-                      key: "updatedAt",
-                      desc: sort.key === "updatedAt" ? !sort.desc : false,
-                    })
-                  }
-                >
-                  {t("Modified")}
-                </button>
+                <SortHeader
+                  label={t("Name")}
+                  col="name"
+                  sort={sort}
+                  setSort={setSort}
+                />
+                <SortHeader
+                  label={t("Size")}
+                  col="size"
+                  sort={sort}
+                  setSort={setSort}
+                />
+                <SortHeader
+                  label={t("Modified")}
+                  col="updatedAt"
+                  sort={sort}
+                  setSort={setSort}
+                />
+                <span />
                 <span />
               </div>
             )}

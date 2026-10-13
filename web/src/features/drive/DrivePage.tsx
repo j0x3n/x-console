@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
-  ArrowDown,
   Cloud,
   Copy,
   FileArchive,
-  ArrowUp,
   ChevronRight,
   Download,
   EyeOff,
@@ -54,6 +52,7 @@ import {
   type S3Status,
 } from "./api";
 import FileIcon from "./components/FileIcon";
+import SortHeader from "./components/SortHeader";
 import ItemMenu, { itemActions, type ItemAction } from "./components/ItemMenu";
 import ArchiveDialog from "./components/ArchiveDialog";
 import ExtractDialog from "./components/ExtractDialog";
@@ -71,10 +70,8 @@ import {
   archiveName,
   daysLeftInTrash,
   fileKind,
-  nextSort,
   sortItems,
   type Sort,
-  type SortKey,
 } from "./logic";
 import { useUploads } from "./upload";
 import FileViewer from "./viewer/FileViewer";
@@ -999,36 +996,6 @@ function Thumb({ item }: { item: DriveItem }) {
       loading="lazy"
       onError={() => setFailed(true)}
     />
-  );
-}
-
-function SortHeader({
-  label,
-  col,
-  sort,
-  setSort,
-}: {
-  label: string;
-  col: SortKey;
-  sort: Sort;
-  setSort: (s: Sort) => void;
-}) {
-  const active = sort.key === col;
-  return (
-    <span
-      role="columnheader"
-      className={col === "name" ? "" : "drive-col"}
-      aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"}
-    >
-      <button
-        className="drive-sort"
-        onClick={() => setSort(nextSort(sort, col))}
-      >
-        {label}
-        {active &&
-          (sort.desc ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
-      </button>
-    </span>
   );
 }
 

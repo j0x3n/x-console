@@ -154,3 +154,15 @@
     grid-column: 1 / -1;
   }
 }
+
+/* 手机上“怎么接入”和切换按钮放不下一行，切换按钮换到下一行 */
+.mcp-connect-head {
+  flex-wrap: wrap;
+}
+.mcp-connect-head h2 {
+  white-space: nowrap;
+}
+.mcp-connect-head .xc-segmented {
+  max-width: 100%;
+  overflow-x: auto;
+}

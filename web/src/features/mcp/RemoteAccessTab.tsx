@@ -101,7 +101,7 @@ export default function RemoteAccessTab() {
         <TokenList tokens={tokens.data} />
       </section>
       <section className="xc-card">
-        <div className="xc-card-head">
+        <div className="xc-card-head mcp-connect-head">
           <h2>{t("How to connect")}</h2>
           <Segmented
             value={client}
@@ -110,7 +110,7 @@ export default function RemoteAccessTab() {
             options={[
               { value: "claude", label: "Claude Code" },
               { value: "codex", label: "Codex CLI" },
-              { value: "json", label: t("Cursor and other JSON configs") },
+              { value: "json", label: t("JSON config") },
             ]}
           />
         </div>

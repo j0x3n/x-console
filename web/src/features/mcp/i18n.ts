@@ -8,6 +8,7 @@ registerZh({
     "别的 AI 客户端（Claude Code、Codex、Cursor 等）用令牌通过 MCP 读写你的数据。执行命令、开关机和设置永远不开放。",
   "How to connect": "怎么接入",
   "Cursor and other JSON configs": "Cursor 等用 JSON 配置的客户端",
+  "JSON config": "JSON 配置",
   "Cloud AIs (claude.ai, ChatGPT) need the address reachable from the internet and an OAuth login, which is not supported yet.":
     "网页版 AI（claude.ai、ChatGPT）要求地址能从公网访问，还要 OAuth 登录，目前还不支持。",
   "Token created": "令牌已创建",
