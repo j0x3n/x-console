@@ -20,10 +20,29 @@ services:
       XC_TRUSTED_PROXIES: ${XC_TRUSTED_PROXIES:-127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
     volumes:
       - xc-data:/data
+    environment:
+      # 网页盯梢用的浏览器（B205）。不开 browser profile 时连不上，只影响网页盯梢。
+      - XC_BROWSER=${XC_BROWSER:-http://browser:9222}
     ports:
       - "127.0.0.1:${XC_PORT:-17380}:8080"
     # 防止异常时占满服务器内存和磁盘
     mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 网页盯梢用的浏览器（B205）。.env 里 COMPOSE_PROFILES 加上 browser 才启动，
+  # 比如 COMPOSE_PROFILES=browser 或 COMPOSE_PROFILES=caddy,browser。
+  # 只在 Docker 内部网络上开 9222 端口，外网和服务器本机都连不到。
+  # 登录状态由面板加密存进数据库，这个容器不存数据，重启不丢。
+  browser:
+    image: ${XC_BROWSER_IMAGE:-chromedp/headless-shell:latest}
+    profiles: ["browser"]
+    restart: unless-stopped
+    mem_limit: 1g
+    shm_size: 256m
     logging:
       driver: json-file
       options:
