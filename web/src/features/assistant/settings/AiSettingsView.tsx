@@ -30,6 +30,7 @@ import {
 import ModelPicker from "./ModelPicker";
 import NotesAiCard from "./NotesAiCard";
 import MemoryCard from "./MemoryCard";
+import WebSearchCard from "./WebSearchCard";
 import ProviderDialog from "./ProviderDialog";
 import { canUseTools, findModel } from "./models";
 
@@ -59,6 +60,7 @@ export default function AiSettingsView({
         />
       )}
       <MemoryCard />
+      <WebSearchCard />
       <NotesAiCard />
     </div>
   );

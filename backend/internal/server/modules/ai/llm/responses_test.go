@@ -136,3 +136,95 @@ func TestResponsesErrorCarriesBody(t *testing.T) {
 		t.Fatalf("error: %v", err)
 	}
 }
+
+// B211: the web search tool goes into the request and the cited pages come back.
+func TestResponsesWebSearchSources(t *testing.T) {
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		tools, _ := body["tools"].([]any)
+		if len(tools) != 1 || tools[0].(map[string]any)["type"] != "web_search" || body["text"] == nil {
+			t.Errorf("request: %+v", body)
+		}
+		cite := func(url, title string) map[string]any {
+			return map[string]any{"type": "url_citation", "url": url, "title": title, "start_index": 0, "end_index": 1}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "completed",
+			"output": []any{
+				map[string]any{"type": "web_search_call", "id": "ws_1", "status": "completed"},
+				map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": `{"ok":true}`,
+					"annotations": []any{cite("https://a.example/1", " 菜谱一 "), cite("https://b.example/2", "菜谱二"), cite("https://a.example/1", "重复"),
+						map[string]any{"type": "file_citation", "file_id": "f"}}}}},
+			},
+			"usage": map[string]any{"input_tokens": 5, "output_tokens": 6}})
+	}))
+	defer remote.Close()
+	result, err := responsesClient(remote.URL, "", nil, nil).Complete(context.Background(), llm.Request{Purpose: "agent", WebSearch: true,
+		Messages: []llm.Message{{Role: "user", Content: "找菜谱"}}, JSONSchema: json.RawMessage(`{"type":"object"}`)})
+	if err != nil || result.Text != `{"ok":true}` {
+		t.Fatalf("complete: %+v %v", result, err)
+	}
+	want := []llm.Source{{Title: "菜谱一", URL: "https://a.example/1"}, {Title: "菜谱二", URL: "https://b.example/2"}}
+	if len(result.Sources) != 2 || result.Sources[0] != want[0] || result.Sources[1] != want[1] {
+		t.Fatalf("sources: %+v", result.Sources)
+	}
+}
+
+// Without WebSearch the request has no tools and the result no sources.
+func TestResponsesWithoutWebSearchUnchanged(t *testing.T) {
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if _, ok := body["tools"]; ok {
+			t.Errorf("tools in request: %+v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "completed",
+			"output": []any{map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": "好",
+				"annotations": []any{map[string]any{"type": "url_citation", "url": "https://a.example", "title": "A"}}}}}}})
+	}))
+	defer remote.Close()
+	result, err := responsesClient(remote.URL, "", nil, nil).Complete(context.Background(), llm.Request{Purpose: "agent", Messages: []llm.Message{{Role: "user", Content: "hi"}}})
+	if err != nil || result.Text != "好" {
+		t.Fatalf("complete: %+v %v", result, err)
+	}
+}
+
+// A provider that refuses a schema together with web search gets one retry
+// without the schema; the JSON is then pulled out of the text.
+func TestResponsesWebSearchSchemaFallback(t *testing.T) {
+	var calls atomic.Int32
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		calls.Add(1)
+		if body["text"] != nil {
+			http.Error(w, `{"error":{"message":"Web Search cannot be used with structured output."}}`, 400)
+			return
+		}
+		if !strings.Contains(body["instructions"].(string), "只输出 JSON") || body["tools"] == nil {
+			t.Errorf("retry request: %+v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "completed",
+			"output": []any{map[string]any{"type": "message", "content": []any{map[string]any{"type": "output_text", "text": "结果如下\n{\"ok\":true}\n"}}}}})
+	}))
+	defer remote.Close()
+	result, err := responsesClient(remote.URL, "", nil, nil).Complete(context.Background(), llm.Request{Purpose: "agent", WebSearch: true,
+		Messages: []llm.Message{{Role: "user", Content: "找"}}, JSONSchema: json.RawMessage(`{"type":"object"}`)})
+	if err != nil || result.Text != `{"ok":true}` || calls.Load() != 2 {
+		t.Fatalf("complete: %+v %v calls=%d", result, err, calls.Load())
+	}
+}
+
+// Providers with the chat style have no web search tool.
+func TestWebSearchNeedsResponsesStyle(t *testing.T) {
+	client := llm.New(func(context.Context, string) (llm.Config, error) {
+		return llm.Config{BaseURL: "http://127.0.0.1:1", Model: "m", APIStyle: "chat"}, nil
+	}, nil, nil)
+	_, err := client.Complete(context.Background(), llm.Request{Purpose: "agent", WebSearch: true, Messages: []llm.Message{{Role: "user", Content: "hi"}}})
+	if err != llm.ErrWebSearchStyle {
+		t.Fatalf("error: %v", err)
+	}
+}

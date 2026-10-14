@@ -1581,6 +1581,22 @@ type Recipe struct {
 	Nutrition    string
 }
 
+type RecipeCandidate struct {
+	ID        int64
+	Draft     string
+	Reason    string
+	Sources   string
+	Status    string
+	RecipeID  *int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type RecipeDiscoverRun struct {
+	Day  string
+	Runs int64
+}
+
 type Reminder struct {
 	ID           int64
 	Title        string

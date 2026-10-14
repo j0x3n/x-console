@@ -1581,3 +1581,37 @@ html[data-accent="cyber"] .ai-usage {
   flex: 1;
   min-width: 0;
 }
+
+/* ---- 联网搜索（B211） ---- */
+.ai-web-search .xc-muted {
+  margin: 0 0 12px;
+  font-size: var(--fs-12-5);
+}
+.ai-web-actions {
+  justify-content: flex-end;
+}
+.ai-web-error {
+  margin: 0 0 12px;
+  color: var(--xc-danger);
+  font-size: var(--fs-12-5);
+}
+.ai-web-results {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.ai-web-results li {
+  padding: 4px 0;
+  font-size: var(--fs-12-5);
+}
+.ai-web-results a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--xc-accent-text);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

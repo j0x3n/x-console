@@ -100,6 +100,45 @@ func (e MealSlot) Valid() bool {
 	}
 }
 
+// Defines values for RecipeCandidatePatchStatus.
+const (
+	RecipeCandidatePatchStatusAccepted  RecipeCandidatePatchStatus = "accepted"
+	RecipeCandidatePatchStatusDismissed RecipeCandidatePatchStatus = "dismissed"
+)
+
+// Valid indicates whether the value is a known member of the RecipeCandidatePatchStatus enum.
+func (e RecipeCandidatePatchStatus) Valid() bool {
+	switch e {
+	case RecipeCandidatePatchStatusAccepted:
+		return true
+	case RecipeCandidatePatchStatusDismissed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RecipeCandidateStatus.
+const (
+	RecipeCandidateStatusAccepted  RecipeCandidateStatus = "accepted"
+	RecipeCandidateStatusDismissed RecipeCandidateStatus = "dismissed"
+	RecipeCandidateStatusPending   RecipeCandidateStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the RecipeCandidateStatus enum.
+func (e RecipeCandidateStatus) Valid() bool {
+	switch e {
+	case RecipeCandidateStatusAccepted:
+		return true
+	case RecipeCandidateStatusDismissed:
+		return true
+	case RecipeCandidateStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RecipeNutrition.
 const (
 	HighCarb    RecipeNutrition = "high_carb"
@@ -151,6 +190,27 @@ func (e RecipeRecommendationsContextEffectiveGoal) Valid() bool {
 	case RecipeRecommendationsContextEffectiveGoalNone:
 		return true
 	case RecipeRecommendationsContextEffectiveGoalSteady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RecipeTasteProfileWebSearch.
+const (
+	Brave  RecipeTasteProfileWebSearch = "brave"
+	Off    RecipeTasteProfileWebSearch = "off"
+	Openai RecipeTasteProfileWebSearch = "openai"
+)
+
+// Valid indicates whether the value is a known member of the RecipeTasteProfileWebSearch enum.
+func (e RecipeTasteProfileWebSearch) Valid() bool {
+	switch e {
+	case Brave:
+		return true
+	case Off:
+		return true
+	case Openai:
 		return true
 	default:
 		return false
@@ -315,6 +375,42 @@ type Recipe struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
+// RecipeCandidate defines model for RecipeCandidate.
+type RecipeCandidate struct {
+	CreatedAt time.Time   `json:"createdAt"`
+	Draft     RecipeInput `json:"draft"`
+	Id        int64       `json:"id"`
+
+	// Reason 为什么推荐
+	Reason string `json:"reason"`
+
+	// RecipeId 收进菜单后的菜谱
+	RecipeId *int64                `json:"recipeId"`
+	Sources  []RecipeSource        `json:"sources"`
+	Status   RecipeCandidateStatus `json:"status"`
+}
+
+// RecipeCandidatePatch defines model for RecipeCandidatePatch.
+type RecipeCandidatePatch struct {
+	RecipeId *int64                     `json:"recipeId,omitempty"`
+	Status   RecipeCandidatePatchStatus `json:"status"`
+}
+
+// RecipeCandidatePatchStatus defines model for RecipeCandidatePatch.Status.
+type RecipeCandidatePatchStatus string
+
+// RecipeCandidateStatus defines model for RecipeCandidateStatus.
+type RecipeCandidateStatus string
+
+// RecipeDiscoverInput defines model for RecipeDiscoverInput.
+type RecipeDiscoverInput struct {
+	// Count 找几道，1 到 5，默认 3
+	Count *int `json:"count,omitempty"`
+
+	// Hint 这次想吃什么，可以空，最多 100 字
+	Hint *string `json:"hint,omitempty"`
+}
+
 // RecipeIngredient defines model for RecipeIngredient.
 type RecipeIngredient struct {
 	// Amount 用量，比如“1 汤匙”“1500 克”，最多 30 字
@@ -436,6 +532,12 @@ type RecipeSettingsInput struct {
 	Staples  *[]string `json:"staples,omitempty"`
 }
 
+// RecipeSource defines model for RecipeSource.
+type RecipeSource struct {
+	Title string `json:"title"`
+	Url   string `json:"url"`
+}
+
 // RecipeStep defines model for RecipeStep.
 type RecipeStep struct {
 	// Ingredients 这一步要加的食材，是 ingredients 里的下标（从 0 开始），不能重复，不能越界
@@ -457,6 +559,25 @@ type RecipeTagCount struct {
 	Tag   string `json:"tag"`
 }
 
+// RecipeTasteProfile defines model for RecipeTasteProfile.
+type RecipeTasteProfile struct {
+	// DietGoal none 不设、lose 减重、gain 增肌、steady 保持
+	DietGoal  DietGoal          `json:"dietGoal"`
+	Nutrition []RecipeNutrition `json:"nutrition"`
+
+	// RunsLeft 今天还能找几次
+	RunsLeft int `json:"runsLeft"`
+
+	// Tags 口味画像里的标签，最多 5 个
+	Tags []string `json:"tags"`
+
+	// WebSearch 联网搜索的方式，off 时不能找
+	WebSearch RecipeTasteProfileWebSearch `json:"webSearch"`
+}
+
+// RecipeTasteProfileWebSearch 联网搜索的方式，off 时不能找
+type RecipeTasteProfileWebSearch string
+
 // RecipeTimer defines model for RecipeTimer.
 type RecipeTimer struct {
 	// Label 计时器名字，比如“炖煮”，最多 30 字
@@ -468,6 +589,9 @@ type RecipeTimer struct {
 	// Seconds 时长，1 到 86400
 	Seconds int `json:"seconds"`
 }
+
+// CandidateId defines model for CandidateId.
+type CandidateId = int64
 
 // MealId defines model for MealId.
 type MealId = int64
@@ -505,8 +629,14 @@ type CreateMealJSONRequestBody = MealInput
 // UpdateMealJSONRequestBody defines body for UpdateMeal for application/json ContentType.
 type UpdateMealJSONRequestBody = MealPatch
 
+// UpdateRecipeCandidateJSONRequestBody defines body for UpdateRecipeCandidate for application/json ContentType.
+type UpdateRecipeCandidateJSONRequestBody = RecipeCandidatePatch
+
 // CreateRecipeJSONRequestBody defines body for CreateRecipe for application/json ContentType.
 type CreateRecipeJSONRequestBody = RecipeInput
+
+// DiscoverRecipesJSONRequestBody defines body for DiscoverRecipes for application/json ContentType.
+type DiscoverRecipesJSONRequestBody = RecipeDiscoverInput
 
 // ParseRecipeJSONRequestBody defines body for ParseRecipe for application/json ContentType.
 type ParseRecipeJSONRequestBody = RecipeParseInput
@@ -544,11 +674,20 @@ type ServerInterface interface {
 	// (PATCH /meals/{mealId})
 	UpdateMeal(w http.ResponseWriter, r *http.Request, mealId MealId)
 
+	// (GET /recipe-candidates)
+	ListRecipeCandidates(w http.ResponseWriter, r *http.Request)
+
+	// (PATCH /recipe-candidates/{candidateId})
+	UpdateRecipeCandidate(w http.ResponseWriter, r *http.Request, candidateId CandidateId)
+
 	// (GET /recipes)
 	ListRecipes(w http.ResponseWriter, r *http.Request, params ListRecipesParams)
 
 	// (POST /recipes)
 	CreateRecipe(w http.ResponseWriter, r *http.Request)
+
+	// (POST /recipes/discover)
+	DiscoverRecipes(w http.ResponseWriter, r *http.Request)
 
 	// (POST /recipes/nutrition/fill)
 	FillRecipeNutrition(w http.ResponseWriter, r *http.Request)
@@ -622,6 +761,16 @@ func (_ Unimplemented) UpdateMeal(w http.ResponseWriter, r *http.Request, mealId
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /recipe-candidates)
+func (_ Unimplemented) ListRecipeCandidates(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /recipe-candidates/{candidateId})
+func (_ Unimplemented) UpdateRecipeCandidate(w http.ResponseWriter, r *http.Request, candidateId CandidateId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /recipes)
 func (_ Unimplemented) ListRecipes(w http.ResponseWriter, r *http.Request, params ListRecipesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -629,6 +778,11 @@ func (_ Unimplemented) ListRecipes(w http.ResponseWriter, r *http.Request, param
 
 // (POST /recipes)
 func (_ Unimplemented) CreateRecipe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /recipes/discover)
+func (_ Unimplemented) DiscoverRecipes(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -878,6 +1032,46 @@ func (siw *ServerInterfaceWrapper) UpdateMeal(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListRecipeCandidates operation middleware
+func (siw *ServerInterfaceWrapper) ListRecipeCandidates(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRecipeCandidates(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRecipeCandidate operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRecipeCandidate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "candidateId" -------------
+	var candidateId CandidateId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "candidateId", chi.URLParam(r, "candidateId"), &candidateId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "candidateId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRecipeCandidate(w, r, candidateId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRecipes operation middleware
 func (siw *ServerInterfaceWrapper) ListRecipes(w http.ResponseWriter, r *http.Request) {
 
@@ -929,6 +1123,20 @@ func (siw *ServerInterfaceWrapper) CreateRecipe(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateRecipe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DiscoverRecipes operation middleware
+func (siw *ServerInterfaceWrapper) DiscoverRecipes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DiscoverRecipes(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1269,6 +1477,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/meals/{mealId}", wrapper.UpdateMeal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/recipes/discover", wrapper.DiscoverRecipes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/recipe-candidates", wrapper.ListRecipeCandidates)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/recipe-candidates/{candidateId}", wrapper.UpdateRecipeCandidate)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/cook-timers", wrapper.ListCookTimers)

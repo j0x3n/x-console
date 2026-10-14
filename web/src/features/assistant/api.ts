@@ -518,3 +518,35 @@ export function useConversationSettings() {
     },
   });
 }
+
+/* ---- B211：联网搜索 ---- */
+
+export type AiWebSearch = components["schemas"]["AiWebSearch"];
+export type AiWebSearchInput = components["schemas"]["AiWebSearchInput"];
+export type AiWebSearchMode = components["schemas"]["AiWebSearchMode"];
+export type AiWebSource = components["schemas"]["AiWebSource"];
+
+const webSearchKey = ["ai", "web-search"] as const;
+
+export function useWebSearch() {
+  return useQuery({
+    queryKey: webSearchKey,
+    queryFn: () => unwrap(aiApi.GET("/ai/web-search")),
+    retry: false,
+  });
+}
+
+export function useSaveWebSearch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AiWebSearchInput) =>
+      withElevation(() => unwrap(aiApi.PUT("/ai/web-search", { body }))),
+    onSuccess: (data) => qc.setQueryData(webSearchKey, data),
+  });
+}
+
+export function useTestWebSearch() {
+  return useMutation({
+    mutationFn: () => unwrap(aiApi.POST("/ai/web-search/test")),
+  });
+}

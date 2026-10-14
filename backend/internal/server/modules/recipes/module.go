@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -87,11 +88,16 @@ func (m *Module) Mount(r chi.Router) {
 	api.HandlerWithOptions(m, api.ChiServerOptions{BaseRouter: r, ErrorHandlerFunc: httpx.BadParam})
 }
 
-// Start schedules the timer check.
-func (m *Module) Start(context.Context) error {
+// Start schedules the timer check and the cleanup of old candidates.
+func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("recipes.timers", timerCheckEvery, func(ctx context.Context) error {
 		return m.checkTimers(ctx, m.now())
 	})
+	// B211: old candidates go once at start and then every day.
+	if err := m.cleanCandidates(ctx); err != nil {
+		slog.Warn("recipes: clean candidates", "err", err)
+	}
+	m.d.Scheduler.Every("recipes.candidates", candidateEvery, m.cleanCandidates)
 	return nil
 }
 

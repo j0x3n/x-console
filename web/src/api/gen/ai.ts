@@ -311,6 +311,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/web-search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B211。联网搜索的方式。密钥只返回存没存过。 */
+        get: operations["getAiWebSearch"];
+        /**
+         * @description B211。要提升权限。只改给了的字段。
+         *     mode 是 openai 时主模型的服务商要是 Responses 接口风格，否则 400；
+         *     mode 是 brave 时要已经存过密钥或者这次给了密钥，否则 400。
+         *     braveKey 给空字符串是删掉密钥（这时 mode 不能是 brave）。
+         */
+        put: operations["putAiWebSearch"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/web-search/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B211。用当前设置搜一次“西红柿炒鸡蛋 做法”，返回前 3 条来源。关着时回 501。 */
+        post: operations["testAiWebSearch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/polish": {
         parameters: {
             query?: never;
@@ -935,6 +975,25 @@ export interface components {
          * @enum {string}
          */
         HostAgentPermission: "confirm" | "read_auto" | "all_auto";
+        /**
+         * @description off 关闭，openai 用 OpenAI 自带的联网搜索，brave 用 Brave Search API（B211）
+         * @enum {string}
+         */
+        AiWebSearchMode: "off" | "openai" | "brave";
+        AiWebSearch: {
+            mode: components["schemas"]["AiWebSearchMode"];
+            /** @description 存过 Brave 的密钥 */
+            braveKeySet: boolean;
+        };
+        AiWebSearchInput: {
+            mode?: components["schemas"]["AiWebSearchMode"];
+            /** @description 只写。空字符串是删掉 */
+            braveKey?: string;
+        };
+        AiWebSource: {
+            title: string;
+            url: string;
+        };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;
@@ -1488,6 +1547,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiModelSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getAiWebSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiWebSearch"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putAiWebSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiWebSearchInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiWebSearch"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    testAiWebSearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 搜到的来源 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sources: components["schemas"]["AiWebSource"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

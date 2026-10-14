@@ -47,3 +47,11 @@ func (m *Module) SaveTurnForTest(ctx context.Context, id int64, hostID *string, 
 
 // IsGoogle exposes the check that picks Google's default embedding model (B197).
 func IsGoogle(baseURL string) bool { return isGoogle(baseURL) }
+
+// SetBraveURLForTest points the Brave Search client at a test server and
+// returns the function that puts the real address back (B211).
+func SetBraveURLForTest(url string) (restore func()) {
+	old := braveSearchURL
+	braveSearchURL = url
+	return func() { braveSearchURL = old }
+}

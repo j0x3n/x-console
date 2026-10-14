@@ -50,7 +50,7 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 	} else if e, ok := effortOverride(ctx); ok {
 		effort = e // B60: the conversation's own effort
 	}
-	if effort != api.Off && effort != "" {
+	if effort != api.ReasoningEffortOff && effort != "" {
 		unsupported, err := m.reasoningUnsupported(ctx, p.Id)
 		if err != nil {
 			return llm.Config{}, err

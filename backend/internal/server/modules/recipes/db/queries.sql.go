@@ -56,6 +56,27 @@ func (q *Queries) DeleteMeal(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteOldRecipeCandidates = `-- name: DeleteOldRecipeCandidates :execrows
+DELETE FROM recipe_candidates WHERE status != 'pending' AND updated_at < ?
+`
+
+func (q *Queries) DeleteOldRecipeCandidates(ctx context.Context, updatedAt time.Time) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOldRecipeCandidates, updatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteOldRecipeDiscoverRuns = `-- name: DeleteOldRecipeDiscoverRuns :exec
+DELETE FROM recipe_discover_runs WHERE day < ?
+`
+
+func (q *Queries) DeleteOldRecipeDiscoverRuns(ctx context.Context, day string) error {
+	_, err := q.db.ExecContext(ctx, deleteOldRecipeDiscoverRuns, day)
+	return err
+}
+
 const deleteRecipe = `-- name: DeleteRecipe :execrows
 DELETE FROM recipes WHERE id = ?
 `
@@ -154,6 +175,37 @@ func (q *Queries) GetRecipe(ctx context.Context, id int64) (Recipe, error) {
 		&i.Nutrition,
 	)
 	return i, err
+}
+
+const getRecipeCandidate = `-- name: GetRecipeCandidate :one
+SELECT id, draft, reason, sources, status, recipe_id, created_at, updated_at FROM recipe_candidates WHERE id = ?
+`
+
+func (q *Queries) GetRecipeCandidate(ctx context.Context, id int64) (RecipeCandidate, error) {
+	row := q.db.QueryRowContext(ctx, getRecipeCandidate, id)
+	var i RecipeCandidate
+	err := row.Scan(
+		&i.ID,
+		&i.Draft,
+		&i.Reason,
+		&i.Sources,
+		&i.Status,
+		&i.RecipeID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getRecipeDiscoverRuns = `-- name: GetRecipeDiscoverRuns :one
+SELECT runs FROM recipe_discover_runs WHERE day = ?
+`
+
+func (q *Queries) GetRecipeDiscoverRuns(ctx context.Context, day string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getRecipeDiscoverRuns, day)
+	var runs int64
+	err := row.Scan(&runs)
+	return runs, err
 }
 
 const insertCookTimer = `-- name: InsertCookTimer :one
@@ -300,6 +352,70 @@ func (q *Queries) InsertRecipe(ctx context.Context, arg InsertRecipeParams) (Rec
 	return i, err
 }
 
+const insertRecipeCandidate = `-- name: InsertRecipeCandidate :one
+INSERT INTO recipe_candidates (draft, reason, sources, status, created_at, updated_at)
+VALUES (?, ?, ?, 'pending', ?, ?)
+RETURNING id, draft, reason, sources, status, recipe_id, created_at, updated_at
+`
+
+type InsertRecipeCandidateParams struct {
+	Draft     string
+	Reason    string
+	Sources   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) InsertRecipeCandidate(ctx context.Context, arg InsertRecipeCandidateParams) (RecipeCandidate, error) {
+	row := q.db.QueryRowContext(ctx, insertRecipeCandidate,
+		arg.Draft,
+		arg.Reason,
+		arg.Sources,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i RecipeCandidate
+	err := row.Scan(
+		&i.ID,
+		&i.Draft,
+		&i.Reason,
+		&i.Sources,
+		&i.Status,
+		&i.RecipeID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const likedRecipeIDs = `-- name: LikedRecipeIDs :many
+SELECT DISTINCT CAST(recipe_id AS INTEGER) AS recipe_id FROM meals
+WHERE cooked = 1 AND rating >= 4 AND recipe_id IS NOT NULL
+`
+
+func (q *Queries) LikedRecipeIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, likedRecipeIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var recipe_id int64
+		if err := rows.Scan(&recipe_id); err != nil {
+			return nil, err
+		}
+		items = append(items, recipe_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCookTimers = `-- name: ListCookTimers :many
 SELECT id, recipe_id, recipe_title, step_index, label, seconds, state, ends_at, remaining_seconds, done_at, created_at FROM cook_timers ORDER BY id
 `
@@ -408,6 +524,42 @@ func (q *Queries) ListMeals(ctx context.Context, arg ListMealsParams) ([]Meal, e
 			&i.Rating,
 			&i.Note,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecipeCandidatesByStatus = `-- name: ListRecipeCandidatesByStatus :many
+SELECT id, draft, reason, sources, status, recipe_id, created_at, updated_at FROM recipe_candidates WHERE status = ? ORDER BY id DESC
+`
+
+func (q *Queries) ListRecipeCandidatesByStatus(ctx context.Context, status string) ([]RecipeCandidate, error) {
+	rows, err := q.db.QueryContext(ctx, listRecipeCandidatesByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecipeCandidate
+	for rows.Next() {
+		var i RecipeCandidate
+		if err := rows.Scan(
+			&i.ID,
+			&i.Draft,
+			&i.Reason,
+			&i.Sources,
+			&i.Status,
+			&i.RecipeID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -745,6 +897,39 @@ func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Rec
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Nutrition,
+	)
+	return i, err
+}
+
+const updateRecipeCandidateStatus = `-- name: UpdateRecipeCandidateStatus :one
+UPDATE recipe_candidates SET status = ?1, recipe_id = ?2, updated_at = ?3
+WHERE id = ?4 AND status = 'pending' RETURNING id, draft, reason, sources, status, recipe_id, created_at, updated_at
+`
+
+type UpdateRecipeCandidateStatusParams struct {
+	Status    string
+	RecipeID  *int64
+	UpdatedAt time.Time
+	ID        int64
+}
+
+func (q *Queries) UpdateRecipeCandidateStatus(ctx context.Context, arg UpdateRecipeCandidateStatusParams) (RecipeCandidate, error) {
+	row := q.db.QueryRowContext(ctx, updateRecipeCandidateStatus,
+		arg.Status,
+		arg.RecipeID,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	var i RecipeCandidate
+	err := row.Scan(
+		&i.ID,
+		&i.Draft,
+		&i.Reason,
+		&i.Sources,
+		&i.Status,
+		&i.RecipeID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

@@ -1,6 +1,6 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router";
-import { ChefHat, FileInput, Plus } from "lucide-react";
+import { ChefHat, FileInput, Globe, Plus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { registerNavAction } from "../../lib/navBadges";
 import { registerNavChildren } from "../../lib/navChildren";
@@ -22,6 +22,7 @@ const RecipePage = lazy(() => import("./RecipePage"));
 const RecipeEditPage = lazy(() => import("./RecipeEditPage"));
 const CookPage = lazy(() => import("./CookPage"));
 const MealsPage = lazy(() => import("./MealsPage"));
+const DiscoverPage = lazy(() => import("./DiscoverPage"));
 
 registerCommands([
   {
@@ -48,6 +49,14 @@ registerCommands([
     keywords: "recipe import ai 导入 菜谱 教程",
     run: ({ navigate }) => navigate("/recipes?import=1"),
   },
+  {
+    id: "recipes.discover",
+    title: "联网找新菜谱",
+    group: "菜谱",
+    icon: Globe,
+    keywords: "recipe discover search web 找 菜谱 联网 新菜",
+    run: ({ navigate }) => navigate("/recipes/discover"),
+  },
 ]);
 
 export const routes: RouteObject[] = [
@@ -55,6 +64,11 @@ export const routes: RouteObject[] = [
   {
     path: "recipes/meals",
     element: <MealsPage />,
+    handle: { title: "Recipes" },
+  },
+  {
+    path: "recipes/discover",
+    element: <DiscoverPage />,
     handle: { title: "Recipes" },
   },
   {

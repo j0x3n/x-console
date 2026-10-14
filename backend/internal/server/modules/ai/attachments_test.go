@@ -138,7 +138,7 @@ func TestResponsesStyleAndFastReasoning(t *testing.T) {
 	ref := map[string]any{"providerId": provider.Id, "model": "test-model"}
 	var settings api.AiModelSettings
 	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": ref, "fast": ref, "reasoningEffort": "off", "fastReasoningEffort": "medium"}, &settings)
-	if settings.FastReasoningEffort != api.Medium || settings.ReasoningEffort != api.Off {
+	if settings.FastReasoningEffort != api.ReasoningEffortMedium || settings.ReasoningEffort != api.ReasoningEffortOff {
 		t.Fatalf("settings: %+v", settings)
 	}
 	var out struct{ Title string }

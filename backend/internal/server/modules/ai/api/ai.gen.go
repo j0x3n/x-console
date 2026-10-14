@@ -261,6 +261,27 @@ func (e AiUsageSummaryGroupBy) Valid() bool {
 	}
 }
 
+// Defines values for AiWebSearchMode.
+const (
+	AiWebSearchModeBrave  AiWebSearchMode = "brave"
+	AiWebSearchModeOff    AiWebSearchMode = "off"
+	AiWebSearchModeOpenai AiWebSearchMode = "openai"
+)
+
+// Valid indicates whether the value is a known member of the AiWebSearchMode enum.
+func (e AiWebSearchMode) Valid() bool {
+	switch e {
+	case AiWebSearchModeBrave:
+		return true
+	case AiWebSearchModeOff:
+		return true
+	case AiWebSearchModeOpenai:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApiStyle.
 const (
 	Chat      ApiStyle = "chat"
@@ -401,22 +422,22 @@ func (e PolishScene) Valid() bool {
 
 // Defines values for ReasoningEffort.
 const (
-	High   ReasoningEffort = "high"
-	Low    ReasoningEffort = "low"
-	Medium ReasoningEffort = "medium"
-	Off    ReasoningEffort = "off"
+	ReasoningEffortHigh   ReasoningEffort = "high"
+	ReasoningEffortLow    ReasoningEffort = "low"
+	ReasoningEffortMedium ReasoningEffort = "medium"
+	ReasoningEffortOff    ReasoningEffort = "off"
 )
 
 // Valid indicates whether the value is a known member of the ReasoningEffort enum.
 func (e ReasoningEffort) Valid() bool {
 	switch e {
-	case High:
+	case ReasoningEffortHigh:
 		return true
-	case Low:
+	case ReasoningEffortLow:
 		return true
-	case Medium:
+	case ReasoningEffortMedium:
 		return true
-	case Off:
+	case ReasoningEffortOff:
 		return true
 	default:
 		return false
@@ -847,6 +868,33 @@ type AiUsageTotals struct {
 	ReasoningTokens int64 `json:"reasoningTokens"`
 }
 
+// AiWebSearch defines model for AiWebSearch.
+type AiWebSearch struct {
+	// BraveKeySet 存过 Brave 的密钥
+	BraveKeySet bool `json:"braveKeySet"`
+
+	// Mode off 关闭，openai 用 OpenAI 自带的联网搜索，brave 用 Brave Search API（B211）
+	Mode AiWebSearchMode `json:"mode"`
+}
+
+// AiWebSearchInput defines model for AiWebSearchInput.
+type AiWebSearchInput struct {
+	// BraveKey 只写。空字符串是删掉
+	BraveKey *string `json:"braveKey,omitempty"`
+
+	// Mode off 关闭，openai 用 OpenAI 自带的联网搜索，brave 用 Brave Search API（B211）
+	Mode *AiWebSearchMode `json:"mode,omitempty"`
+}
+
+// AiWebSearchMode off 关闭，openai 用 OpenAI 自带的联网搜索，brave 用 Brave Search API（B211）
+type AiWebSearchMode string
+
+// AiWebSource defines model for AiWebSource.
+type AiWebSource struct {
+	Title string `json:"title"`
+	Url   string `json:"url"`
+}
+
 // ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
 type ApiStyle string
 
@@ -1151,6 +1199,9 @@ type CreateAiProviderJSONRequestBody = AiProviderInput
 // UpdateAiProviderJSONRequestBody defines body for UpdateAiProvider for application/json ContentType.
 type UpdateAiProviderJSONRequestBody = AiProviderPatch
 
+// PutAiWebSearchJSONRequestBody defines body for PutAiWebSearch for application/json ContentType.
+type PutAiWebSearchJSONRequestBody = AiWebSearchInput
+
 // Getter for additional properties for ContentBlock. Returns the specified
 // element and whether it was found
 func (a ContentBlock) Get(fieldName string) (value interface{}, found bool) {
@@ -1445,6 +1496,15 @@ type ServerInterface interface {
 
 	// (GET /ai/usage/summary)
 	GetAiUsageSummary(w http.ResponseWriter, r *http.Request, params GetAiUsageSummaryParams)
+
+	// (GET /ai/web-search)
+	GetAiWebSearch(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /ai/web-search)
+	PutAiWebSearch(w http.ResponseWriter, r *http.Request)
+
+	// (POST /ai/web-search/test)
+	TestAiWebSearch(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -1628,6 +1688,21 @@ func (_ Unimplemented) ExportAiUsageRecords(w http.ResponseWriter, r *http.Reque
 
 // (GET /ai/usage/summary)
 func (_ Unimplemented) GetAiUsageSummary(w http.ResponseWriter, r *http.Request, params GetAiUsageSummaryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /ai/web-search)
+func (_ Unimplemented) GetAiWebSearch(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /ai/web-search)
+func (_ Unimplemented) PutAiWebSearch(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /ai/web-search/test)
+func (_ Unimplemented) TestAiWebSearch(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2618,6 +2693,48 @@ func (siw *ServerInterfaceWrapper) GetAiUsageSummary(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// GetAiWebSearch operation middleware
+func (siw *ServerInterfaceWrapper) GetAiWebSearch(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAiWebSearch(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAiWebSearch operation middleware
+func (siw *ServerInterfaceWrapper) PutAiWebSearch(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAiWebSearch(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestAiWebSearch operation middleware
+func (siw *ServerInterfaceWrapper) TestAiWebSearch(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestAiWebSearch(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -2796,6 +2913,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/ai/model-settings", wrapper.PutAiModelSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/ai/web-search", wrapper.GetAiWebSearch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/ai/web-search", wrapper.PutAiWebSearch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/ai/web-search/test", wrapper.TestAiWebSearch)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/ai/polish", wrapper.PolishText)

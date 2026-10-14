@@ -21,3 +21,6 @@ func Recommend(recs []api.Recipe, lastEaten map[int64]string, goal api.DietGoal,
 
 // EffectiveGoal is the goal the scoring uses.
 func EffectiveGoal(goal api.DietGoal, change *float64) string { return effectiveGoal(goal, change) }
+
+// CleanCandidates runs the daily cleanup of old candidates (B211).
+func CleanCandidates(m *Module, ctx context.Context) error { return m.cleanCandidates(ctx) }

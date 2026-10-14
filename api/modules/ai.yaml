@@ -374,6 +374,59 @@ paths:
               schema: { $ref: "#/components/schemas/AiModelSettings" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /ai/web-search:
+    get:
+      operationId: getAiWebSearch
+      tags: [ai]
+      description: B211。联网搜索的方式。密钥只返回存没存过。
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiWebSearch" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putAiWebSearch
+      tags: [ai]
+      description: |
+        B211。要提升权限。只改给了的字段。
+        mode 是 openai 时主模型的服务商要是 Responses 接口风格，否则 400；
+        mode 是 brave 时要已经存过密钥或者这次给了密钥，否则 400。
+        braveKey 给空字符串是删掉密钥（这时 mode 不能是 brave）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiWebSearchInput" }
+      responses:
+        "200":
+          description: 已保存
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiWebSearch" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /ai/web-search/test:
+    post:
+      operationId: testAiWebSearch
+      tags: [ai]
+      description: B211。用当前设置搜一次“西红柿炒鸡蛋 做法”，返回前 3 条来源。关着时回 501。
+      responses:
+        "200":
+          description: 搜到的来源
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sources]
+                properties:
+                  sources:
+                    type: array
+                    items: { $ref: "#/components/schemas/AiWebSource" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /ai/polish:
     post:
       operationId: polishText
@@ -1041,3 +1094,25 @@ components:
       type: string
       description: B33。confirm 每步确认；read_auto 只读命令自动执行；all_auto 全部自动（高危命令仍要确认）
       enum: [confirm, read_auto, all_auto]
+    AiWebSearchMode:
+      type: string
+      description: off 关闭，openai 用 OpenAI 自带的联网搜索，brave 用 Brave Search API（B211）
+      enum: ["off", openai, brave]
+    AiWebSearch:
+      type: object
+      required: [mode, braveKeySet]
+      properties:
+        mode: { $ref: "#/components/schemas/AiWebSearchMode" }
+        braveKeySet: { type: boolean, description: 存过 Brave 的密钥 }
+    AiWebSearchInput:
+      type: object
+      properties:
+        mode: { $ref: "#/components/schemas/AiWebSearchMode" }
+        braveKey: { type: string, description: 只写。空字符串是删掉 }
+    AiWebSource:
+      type: object
+      required: [title, url]
+      properties:
+        title: { type: string }
+        url: { type: string }
+

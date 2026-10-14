@@ -1082,6 +1082,11 @@ try {
         !(await api("/recipes")).items.some((r) => r.title === "端到端炒鸡"),
     );
 
+    // B211：没开联网搜索时，找新菜谱页提示去设置
+    await page.goto(`${base}/recipes/discover`);
+    await page.getByText("联网搜索还没打开").waitFor();
+    await page.getByRole("link", { name: "去设置" }).waitFor();
+
     setStage("联系人");
     // B122：新建一个五天后过生日的联系人，状态是近期；列表上记一次联系；搜索；删除不需要提升权限。
     await page.goto(`${base}/contacts`);

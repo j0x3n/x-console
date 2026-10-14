@@ -63,6 +63,7 @@ import {
   Routes,
 } from "react-router";
 import CookPage from "./CookPage";
+import DiscoverPage from "./DiscoverPage";
 import RecipeEditPage from "./RecipeEditPage";
 import RecipesPage from "./RecipesPage";
 import "./i18n";
@@ -346,5 +347,132 @@ describe("编辑页", () => {
     expect(body.ingredients.map((i) => i.name)).toEqual(["花椒", "八角"]);
     expect(body.steps.map((s) => s.ingredients)).toEqual([[], [1]]);
     expect(await screen.findByText("详情")).toBeTruthy();
+  });
+});
+
+describe("B211 找新菜谱", () => {
+  const profile = {
+    tags: ["辣", "鲁菜"],
+    nutrition: ["high_protein"],
+    dietGoal: "none",
+    webSearch: "brave",
+    runsLeft: 9,
+  };
+  const candidate = {
+    id: 7,
+    draft: {
+      title: "辣子鸡",
+      summary: "重庆家常做法",
+      ingredients: [{ name: "鸡腿", amount: "500 克" }],
+      steps: [{ text: "鸡腿切丁腌 15 分钟" }],
+      tags: ["辣"],
+      nutrition: ["high_protein"],
+      sourceUrl: "https://example.com/lazi",
+    },
+    reason: "你常做辣的菜",
+    sources: [{ title: "辣子鸡做法", url: "https://example.com/lazi" }],
+    status: "pending",
+    recipeId: null,
+    createdAt: "2026-10-14T00:00:00Z",
+  };
+  const renderDiscover = () =>
+    render(
+      <QueryClientProvider client={client()}>
+        <MemoryRouter initialEntries={["/recipes/discover"]}>
+          <DiscoverPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+  it("联网搜索关着时提示去设置", async () => {
+    api.routes.set("GET /recipe-candidates", () => ({
+      status: 200,
+      body: { items: [], profile: { ...profile, webSearch: "off" } },
+    }));
+    renderDiscover();
+    expect(await screen.findByText("联网搜索还没打开")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "去设置" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /帮我找/ })).toBeNull();
+  });
+
+  it("按要求找菜，候选能不要", async () => {
+    api.routes.set("GET /recipe-candidates", () => ({
+      status: 200,
+      body: { items: [candidate], profile },
+    }));
+    api.routes.set("POST /recipes/discover", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("PATCH /recipe-candidates/7", (body) => ({
+      status: 200,
+      body: { ...candidate, ...(body as object) },
+    }));
+    renderDiscover();
+    expect(await screen.findByText("辣子鸡")).toBeTruthy();
+    expect(screen.getByText("你常做辣的菜")).toBeTruthy();
+    expect(screen.getByText(/今天还能找：9/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("这次想吃什么"), {
+      target: { value: "清淡的汤" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /帮我找/ }));
+    await waitFor(() =>
+      expect(
+        api.calls.find((c) => c.path === "/recipes/discover")?.body,
+      ).toEqual({ hint: "清淡的汤", count: 3 }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /不要/ }));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+        status: "dismissed",
+      }),
+    );
+  });
+
+  it("收进菜单：保存后把候选标成已收下", async () => {
+    api.routes.set("POST /recipes", (body) => ({
+      status: 201,
+      body: { ...chicken, ...(body as object), id: 9 },
+    }));
+    api.routes.set("PATCH /recipe-candidates/7", (body) => ({
+      status: 200,
+      body: { ...candidate, ...(body as object) },
+    }));
+    const router = createMemoryRouter(
+      [
+        { path: "/recipes/new", element: <RecipeEditPage /> },
+        { path: "/recipes/:id", element: <div>详情</div> },
+      ],
+      {
+        initialEntries: [
+          {
+            pathname: "/recipes/new",
+            state: { draft: candidate.draft, candidateId: 7 },
+          },
+        ],
+      },
+    );
+    render(
+      <QueryClientProvider client={client()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    await screen.findByDisplayValue("辣子鸡");
+    fireEvent.click(screen.getAllByRole("button", { name: /保存/ })[0]);
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
+        status: "accepted",
+        recipeId: 9,
+      }),
+    );
+    expect(
+      (
+        api.calls.find((c) => c.path === "/recipes")?.body as {
+          sourceUrl: string;
+        }
+      ).sourceUrl,
+    ).toBe("https://example.com/lazi");
   });
 });

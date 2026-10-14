@@ -107,7 +107,7 @@ func effortOverride(ctx context.Context) (api.ReasoningEffort, bool) {
 
 func validEffort(e string) bool {
 	switch api.ReasoningEffort(e) {
-	case api.Off, api.Low, api.Medium, api.High:
+	case api.ReasoningEffortOff, api.ReasoningEffortLow, api.ReasoningEffortMedium, api.ReasoningEffortHigh:
 		return true
 	}
 	return false

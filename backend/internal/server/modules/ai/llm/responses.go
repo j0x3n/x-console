@@ -70,8 +70,11 @@ func responsesBody(cfg Config, req Request, fallbackJSON, stream bool) (map[stri
 	if instructions != "" {
 		body["instructions"] = instructions
 	}
-	if len(req.Tools) > 0 {
+	if len(req.Tools) > 0 || req.WebSearch {
 		tools := []any{}
+		if req.WebSearch {
+			tools = append(tools, map[string]any{"type": "web_search"})
+		}
 		for _, tool := range req.Tools {
 			var schema any
 			if err := json.Unmarshal(tool.Parameters, &schema); err != nil {
@@ -134,8 +137,13 @@ type responseObject struct {
 	Output []struct {
 		Type    string `json:"type"`
 		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
+			Type        string `json:"type"`
+			Text        string `json:"text"`
+			Annotations []struct {
+				Type  string `json:"type"`
+				URL   string `json:"url"`
+				Title string `json:"title"`
+			} `json:"annotations"`
 		} `json:"content"`
 		CallID    string `json:"call_id"`
 		Name      string `json:"name"`
@@ -160,12 +168,21 @@ type responseObject struct {
 
 func (r responseObject) result() Result {
 	var out Result
+	seen := map[string]bool{}
 	for _, item := range r.Output {
 		switch item.Type {
 		case "message":
 			for _, part := range item.Content {
-				if part.Type == "output_text" {
-					out.Text += part.Text
+				if part.Type != "output_text" {
+					continue
+				}
+				out.Text += part.Text
+				// Web search cites its pages as url_citation annotations (B211).
+				for _, note := range part.Annotations {
+					if note.Type == "url_citation" && note.URL != "" && !seen[note.URL] {
+						seen[note.URL] = true
+						out.Sources = append(out.Sources, Source{Title: strings.TrimSpace(note.Title), URL: note.URL})
+					}
 				}
 			}
 		case "function_call":
@@ -206,6 +223,14 @@ func (s *service) retryResponses(ctx context.Context, cfg Config, req Request, s
 		}
 		if !req.omitCacheKey && unsupported(err, "prompt_cache_key") {
 			req.omitCacheKey = true
+			continue
+		}
+		// Some providers refuse a schema together with web search (B211) and
+		// word the reason in their own way, so any other 400 gets one retry
+		// without the schema.
+		var apiErr *APIError
+		if req.WebSearch && len(req.JSONSchema) > 0 && !fallbackJSON && errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusBadRequest {
+			fallbackJSON = true
 			continue
 		}
 		return nil, cfg, fallbackJSON, err
@@ -340,6 +365,7 @@ func (s *responsesStream) Result() Result {
 		if len(s.final.ToolCalls) > 0 {
 			result.ToolCalls = s.final.ToolCalls
 		}
+		result.Sources = s.final.Sources
 		result.InputTokens, result.OutputTokens, result.Truncated = s.final.InputTokens, s.final.OutputTokens, s.final.Truncated
 		result.CachedInputTokens, result.CacheWriteTokens, result.ReasoningTokens = s.final.CachedInputTokens, s.final.CacheWriteTokens, s.final.ReasoningTokens
 	}

@@ -165,6 +165,37 @@ registerZh({
   "Recipe settings": "菜谱设置",
   "You could cook": "今天可以做",
   "Weight in the last 30 days": "最近 30 天体重",
+  // B211
+  "Find new recipes": "找新菜谱",
+  Found: "找到",
+  "new recipes": "道新菜",
+  "Nothing suitable this time. Try asking another way.":
+    "这次没找到合适的，换个说法试试。",
+  "No recipes waiting": "没有待确认的菜谱",
+  "Recipes found online wait here. Add the ones you like to your menu.":
+    "联网找到的菜谱先放在这里。喜欢的再收进菜单。",
+  "waiting for you": "道等你确认",
+  "Web search is off": "联网搜索还没打开",
+  "Finding recipes online needs web search. Choose OpenAI built-in search or Brave Search in the AI settings.":
+    "联网找菜谱要先打开联网搜索。在 AI 设置里选 OpenAI 自带的搜索或者 Brave Search。",
+  "Your taste": "按你的口味",
+  "Not enough records yet. Searching by what you type.":
+    "记录还不够多，先按你输入的要求找。",
+  "What do you feel like eating?": "这次想吃什么",
+  "What do you feel like eating? Optional, e.g. a light soup":
+    "这次想吃什么，可以不填，比如：清淡的汤",
+  "How many dishes": "找几道",
+  dishes: "道",
+  "Find for me": "帮我找",
+  "This can take about a minute.": "可能要一分钟左右。",
+  "Searches left today": "今天还能找",
+  "Recipes online can be wrong. Check the amounts against the source before you add one.":
+    "网上的菜谱可能有错，收进来之前对照来源看一下用量。",
+  "Show details": "展开看看",
+  "Not this one": "不要",
+  "Add to menu": "收进菜单",
+  "Pages read": "读过的网页",
+  "Searching…": "正在搜…",
   // 和别的模块相同的词，B210 用到的
   Date: "日期",
   "Last 30 days": "最近 30 天",

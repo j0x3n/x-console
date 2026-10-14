@@ -31,6 +31,7 @@ import {
   useEstimateNutrition,
   useParseRecipe,
   useRecipe,
+  useUpdateCandidate,
   useUpdateRecipe,
   type RecipeInput,
   type RecipeNutrition,
@@ -83,7 +84,13 @@ function Editor({ id, initial }: { id: number; initial: Draft | null }) {
   const location = useLocation();
   const [params] = useSearchParams();
   const fromNote = Number(params.get("fromNote") ?? 0);
-  const stateDraft = (location.state as { draft?: RecipeInput } | null)?.draft;
+  const state = location.state as {
+    draft?: RecipeInput;
+    candidateId?: number;
+  } | null;
+  const stateDraft = state?.draft;
+  // B211：从“找新菜谱”收进来的，保存后把候选标成已收下
+  const candidateId = state?.candidateId ?? 0;
 
   const start = initial ?? (stateDraft ? toDraft(stateDraft) : emptyDraft());
   const [draft, setDraft] = useState<Draft>(start);
@@ -91,6 +98,7 @@ function Editor({ id, initial }: { id: number; initial: Draft | null }) {
   const [saving, setSaving] = useState(false);
   const create = useCreateRecipe();
   const update = useUpdateRecipe();
+  const accept = useUpdateCandidate();
   const dirty = JSON.stringify(draft) !== saved.current;
 
   // 从笔记转换：读笔记正文，交给 AI 整理，结果填进表单
@@ -164,7 +172,19 @@ function Editor({ id, initial }: { id: number; initial: Draft | null }) {
         { id, body: { ...body, totalMinutes: body.totalMinutes ?? null } },
         { onSuccess: (r) => done(r.id), onError: fail },
       );
-    else create.mutate(body, { onSuccess: (r) => done(r.id), onError: fail });
+    else
+      create.mutate(body, {
+        onSuccess: (r) => {
+          if (candidateId > 0)
+            accept.mutate({
+              id: candidateId,
+              status: "accepted",
+              recipeId: r.id,
+            });
+          done(r.id);
+        },
+        onError: fail,
+      });
   };
 
   const pageTitle = id > 0 ? draft.title || t("Edit recipe") : t("New recipe");

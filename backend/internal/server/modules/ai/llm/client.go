@@ -55,7 +55,20 @@ type Request struct {
 	Messages     []Message
 	Tools        []Tool
 	JSONSchema   json.RawMessage
+	// WebSearch adds the provider's own web search tool (B211). Only the
+	// "responses" style has one; with "chat" the call fails.
+	WebSearch bool
 }
+
+// Source is a web page the provider cited in its answer (B211).
+type Source struct {
+	Title string
+	URL   string
+}
+
+// ErrWebSearchStyle is returned when a web search is asked of a provider that
+// uses the chat style.
+var ErrWebSearchStyle = errors.New("OpenAI 自带的联网搜索要用 Responses 接口的服务商")
 
 type Result struct {
 	Text      string
@@ -70,6 +83,9 @@ type Result struct {
 	// Truncated is set when the model stopped at its output limit
 	// (finish_reason "length"). Tool call arguments may then be cut off.
 	Truncated bool
+	// Sources are the pages cited in the answer, without repeats (B211).
+	// Only the "responses" style fills them.
+	Sources []Source
 }
 
 type ToolCallDelta struct {
@@ -215,6 +231,9 @@ func (s *service) Complete(ctx context.Context, req Request) (result Result, err
 	if cfg.APIStyle == "responses" {
 		return s.completeResponses(ctx, cfg, req)
 	}
+	if req.WebSearch {
+		return result, ErrWebSearchStyle
+	}
 	client := sdk(cfg)
 	fallbackJSON := false
 	for attempt := 0; attempt < 4; attempt++ {
@@ -296,6 +315,9 @@ func (s *service) Stream(ctx context.Context, req Request) (Stream, error) {
 	}
 	if cfg.APIStyle == "responses" {
 		return s.streamResponses(ctx, cfg, req)
+	}
+	if req.WebSearch {
+		return nil, ErrWebSearchStyle
 	}
 	start := time.Now()
 	client := sdk(cfg)

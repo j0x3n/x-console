@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: X Console recipes, cooking timers and meals (B209, B210)
+  title: X Console recipes, cooking timers, meals and discovery (B209 to B211)
   version: 0.1.0
 servers:
   - url: /api/v1
@@ -272,6 +272,72 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /recipes/discover:
+    post:
+      operationId: discoverRecipes
+      tags: [recipes]
+      description: |
+        B211。按口味和这次的要求联网找新菜谱，结果存成待确认的候选，返回这次新加的。
+        联网搜索关着回 501；每天最多 10 次，超了回 429。可能要跑一分钟。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecipeDiscoverInput" }
+      responses:
+        "200":
+          description: 这次新加的候选，可能是空的
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/RecipeCandidate" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /recipe-candidates:
+    get:
+      operationId: listRecipeCandidates
+      tags: [recipes]
+      description: B211。待确认的候选，新的在前；带口味画像和今天还能找几次。
+      responses:
+        "200":
+          description: 候选
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, profile]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/RecipeCandidate" }
+                  profile: { $ref: "#/components/schemas/RecipeTasteProfile" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /recipe-candidates/{candidateId}:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    patch:
+      operationId: updateRecipeCandidate
+      tags: [recipes]
+      description: B211。收进菜单（accepted，可以带 recipeId）或者不要（dismissed）。只能改待确认的。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecipeCandidatePatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecipeCandidate" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /cook-timers:
     get:
       operationId: listCookTimers
@@ -348,6 +414,11 @@ components:
       schema: { type: integer, format: int64 }
     MealId:
       name: mealId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    CandidateId:
+      name: candidateId
       in: path
       required: true
       schema: { type: integer, format: int64 }
@@ -638,3 +709,56 @@ components:
       properties:
         date: { type: string, description: YYYY-MM-DD }
         weight: { type: number, description: kg }
+    RecipeDiscoverInput:
+      type: object
+      properties:
+        hint: { type: string, description: 这次想吃什么，可以空，最多 100 字 }
+        count: { type: integer, description: 找几道，1 到 5，默认 3 }
+    RecipeSource:
+      type: object
+      required: [title, url]
+      properties:
+        title: { type: string }
+        url: { type: string }
+    RecipeCandidateStatus:
+      type: string
+      enum: [pending, accepted, dismissed]
+    RecipeCandidate:
+      type: object
+      required: [id, draft, reason, sources, status, recipeId, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        draft: { $ref: "#/components/schemas/RecipeInput" }
+        reason: { type: string, description: 为什么推荐 }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeSource" }
+        status: { $ref: "#/components/schemas/RecipeCandidateStatus" }
+        recipeId: { type: integer, format: int64, nullable: true, description: 收进菜单后的菜谱 }
+        createdAt: { type: string, format: date-time }
+    RecipeCandidatePatch:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [accepted, dismissed]
+        recipeId: { type: integer, format: int64, nullable: true }
+    RecipeTasteProfile:
+      type: object
+      required: [tags, nutrition, dietGoal, webSearch, runsLeft]
+      properties:
+        tags:
+          type: array
+          description: 口味画像里的标签，最多 5 个
+          items: { type: string }
+        nutrition:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeNutrition" }
+        dietGoal: { $ref: "#/components/schemas/DietGoal" }
+        webSearch:
+          type: string
+          description: 联网搜索的方式，off 时不能找
+          enum: ["off", openai, brave]
+        runsLeft: { type: integer, description: 今天还能找几次 }
+

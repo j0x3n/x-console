@@ -231,4 +231,23 @@ registerZh({
   "List folder": "列目录",
   "Tell the Agent what to do on this machine":
     "告诉 Agent 要在这台机器上做什么",
+  // B211：联网搜索
+  "Web search": "联网搜索",
+  "Search with": "用什么搜",
+  "Web search off": "关闭",
+  "OpenAI built-in search": "OpenAI 自带的搜索",
+  "Brave Search": "Brave Search",
+  "Uses the main model. Its provider must use the Responses API, such as OpenAI itself.":
+    "用主模型来搜。主模型的服务商要用 Responses 接口，比如 OpenAI 官方。",
+  "Brave Search API key": "Brave Search 的密钥",
+  "Saved. Type a new key to replace it": "已保存。要换就输入新的",
+  "Paste the key from api.search.brave.com":
+    "粘贴 api.search.brave.com 上的密钥",
+  "Pages found are read on the server. Addresses on this machine or the local network are refused.":
+    "搜到的网页由服务器去读。本机和内网的地址会被拒绝。",
+  "Each search uses AI credit, and Brave may charge for searches too. Only used when you ask, never on a schedule.":
+    "每次搜索都会用 AI 额度，Brave 也可能另外收费。只在你点按钮时用，不会定时自动搜。",
+  "No pages found": "没搜到",
+  "Save first, then test": "先保存再测试",
+  "Searching…": "正在搜…",
 });

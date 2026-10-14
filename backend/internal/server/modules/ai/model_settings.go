@@ -24,7 +24,7 @@ func optionalSetting[T any](ctx context.Context, m *Module, key string, value *T
 }
 
 func (m *Module) modelSettings(ctx context.Context) (api.AiModelSettings, error) {
-	out := api.AiModelSettings{ReasoningEffort: api.Off, FastReasoningEffort: api.Off}
+	out := api.AiModelSettings{ReasoningEffort: api.ReasoningEffortOff, FastReasoningEffort: api.ReasoningEffortOff}
 	if err := optionalSetting(ctx, m, "ai.fast_model", &out.Fast); err != nil {
 		return out, err
 	}

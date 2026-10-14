@@ -172,6 +172,62 @@ export interface paths {
         patch: operations["updateMeal"];
         trace?: never;
     };
+    "/recipes/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B211。按口味和这次的要求联网找新菜谱，结果存成待确认的候选，返回这次新加的。
+         *     联网搜索关着回 501；每天最多 10 次，超了回 429。可能要跑一分钟。
+         */
+        post: operations["discoverRecipes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipe-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description B211。待确认的候选，新的在前；带口味画像和今天还能找几次。 */
+        get: operations["listRecipeCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipe-candidates/{candidateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description B211。收进菜单（accepted，可以带 recipeId）或者不要（dismissed）。只能改待确认的。 */
+        patch: operations["updateRecipeCandidate"];
+        trace?: never;
+    };
     "/cook-timers": {
         parameters: {
             query?: never;
@@ -468,6 +524,53 @@ export interface components {
             /** @description kg */
             weight: number;
         };
+        RecipeDiscoverInput: {
+            /** @description 这次想吃什么，可以空，最多 100 字 */
+            hint?: string;
+            /** @description 找几道，1 到 5，默认 3 */
+            count?: number;
+        };
+        RecipeSource: {
+            title: string;
+            url: string;
+        };
+        /** @enum {string} */
+        RecipeCandidateStatus: "pending" | "accepted" | "dismissed";
+        RecipeCandidate: {
+            /** Format: int64 */
+            id: number;
+            draft: components["schemas"]["RecipeInput"];
+            /** @description 为什么推荐 */
+            reason: string;
+            sources: components["schemas"]["RecipeSource"][];
+            status: components["schemas"]["RecipeCandidateStatus"];
+            /**
+             * Format: int64
+             * @description 收进菜单后的菜谱
+             */
+            recipeId: number | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RecipeCandidatePatch: {
+            /** @enum {string} */
+            status: "accepted" | "dismissed";
+            /** Format: int64 */
+            recipeId?: number | null;
+        };
+        RecipeTasteProfile: {
+            /** @description 口味画像里的标签，最多 5 个 */
+            tags: string[];
+            nutrition: components["schemas"]["RecipeNutrition"][];
+            dietGoal: components["schemas"]["DietGoal"];
+            /**
+             * @description 联网搜索的方式，off 时不能找
+             * @enum {string}
+             */
+            webSearch: "off" | "openai" | "brave";
+            /** @description 今天还能找几次 */
+            runsLeft: number;
+        };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;
@@ -494,6 +597,7 @@ export interface components {
     parameters: {
         RecipeId: number;
         MealId: number;
+        CandidateId: number;
         TimerId: number;
     };
     requestBodies: never;
@@ -868,6 +972,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Meal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    discoverRecipes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeDiscoverInput"];
+            };
+        };
+        responses: {
+            /** @description 这次新加的候选，可能是空的 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RecipeCandidate"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRecipeCandidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 候选 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RecipeCandidate"][];
+                        profile: components["schemas"]["RecipeTasteProfile"];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateRecipeCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidateId: components["parameters"]["CandidateId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeCandidatePatch"];
+            };
+        };
+        responses: {
+            /** @description 已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeCandidate"];
                 };
             };
             default: components["responses"]["Error"];

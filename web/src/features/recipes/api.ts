@@ -28,6 +28,8 @@ export type MealInput = S["MealInput"];
 export type MealPatch = S["MealPatch"];
 export type MealSlot = S["MealSlot"];
 export type DayWeight = S["DayWeight"];
+export type RecipeCandidate = S["RecipeCandidate"];
+export type RecipeTasteProfile = S["RecipeTasteProfile"];
 
 export const recipeKeys = {
   all: ["recipes"] as const,
@@ -37,12 +39,14 @@ export const recipeKeys = {
   recommend: ["recipes", "recommend"] as const,
   settings: ["recipes", "settings"] as const,
   meals: (from: string, to: string) => ["recipes", "meals", from, to] as const,
+  candidates: ["recipes", "candidates"] as const,
 };
 
 invalidateOn("recipe.", recipeKeys.all);
 invalidateOn("cook_timer.", recipeKeys.timers);
 // B210：饮食记录变了，菜谱的统计和推荐也跟着变
 invalidateOn("meal.", recipeKeys.all);
+invalidateOn("recipe_candidate.", recipeKeys.candidates);
 
 /** 全部菜谱。标签筛选和搜索在页面里做，数据量很小。 */
 export function useRecipes() {
@@ -288,5 +292,43 @@ export function useDeleteMeal() {
         }),
       ),
     onSuccess: refresh,
+  });
+}
+
+// ---- B211：联网找新菜谱 ----
+
+export function useCandidates() {
+  return useQuery({
+    queryKey: recipeKeys.candidates,
+    queryFn: () => unwrap(recipesApi.GET("/recipe-candidates")),
+    retry: false,
+  });
+}
+
+/** 联网找菜，可能要跑一分钟。 */
+export function useDiscover() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { hint?: string; count?: number }) =>
+      unwrap(recipesApi.POST("/recipes/discover", { body })),
+    onSettled: () => qc.invalidateQueries({ queryKey: recipeKeys.candidates }),
+  });
+}
+
+export function useUpdateCandidate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: {
+      id: number;
+      status: "accepted" | "dismissed";
+      recipeId?: number | null;
+    }) =>
+      unwrap(
+        recipesApi.PATCH("/recipe-candidates/{candidateId}", {
+          params: { path: { candidateId: v.id } },
+          body: { status: v.status, recipeId: v.recipeId ?? null },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: recipeKeys.candidates }),
   });
 }

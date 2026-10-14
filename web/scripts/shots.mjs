@@ -505,6 +505,7 @@ const routes = [
   ["recipe-edit", "/recipes/1/edit"],
   ["recipe-cook", "/recipes/1/cook"],
   ["recipe-meals", "/recipes/meals"],
+  ["recipe-discover", "/recipes/discover"],
   ["checkins", "/checkins"],
   ["inbox", "/inbox"],
   ["plan", "/plan"],

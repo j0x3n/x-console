@@ -87,3 +87,31 @@ WHERE id = ?8 RETURNING *;
 
 -- name: DeleteMeal :execrows
 DELETE FROM meals WHERE id = ?;
+
+-- name: ListRecipeCandidatesByStatus :many
+SELECT * FROM recipe_candidates WHERE status = ? ORDER BY id DESC;
+
+-- name: GetRecipeCandidate :one
+SELECT * FROM recipe_candidates WHERE id = ?;
+
+-- name: InsertRecipeCandidate :one
+INSERT INTO recipe_candidates (draft, reason, sources, status, created_at, updated_at)
+VALUES (?, ?, ?, 'pending', ?, ?)
+RETURNING *;
+
+-- name: UpdateRecipeCandidateStatus :one
+UPDATE recipe_candidates SET status = ?1, recipe_id = ?2, updated_at = ?3
+WHERE id = ?4 AND status = 'pending' RETURNING *;
+
+-- name: DeleteOldRecipeCandidates :execrows
+DELETE FROM recipe_candidates WHERE status != 'pending' AND updated_at < ?;
+
+-- name: GetRecipeDiscoverRuns :one
+SELECT runs FROM recipe_discover_runs WHERE day = ?;
+
+-- name: DeleteOldRecipeDiscoverRuns :exec
+DELETE FROM recipe_discover_runs WHERE day < ?;
+
+-- name: LikedRecipeIDs :many
+SELECT DISTINCT CAST(recipe_id AS INTEGER) AS recipe_id FROM meals
+WHERE cooked = 1 AND rating >= 4 AND recipe_id IS NOT NULL;
