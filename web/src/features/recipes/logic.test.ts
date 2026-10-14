@@ -184,6 +184,10 @@ describe("标签和筛选", () => {
       tips: "",
       sourceNoteId: null,
       sourceUrl: "",
+      nutrition: [],
+      cookedCount: 0,
+      lastCookedOn: "",
+      avgRating: null,
       createdAt: "",
       updatedAt: "",
     };

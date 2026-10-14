@@ -52,6 +52,111 @@ func (e CookTimerState) Valid() bool {
 	}
 }
 
+// Defines values for DietGoal.
+const (
+	DietGoalGain   DietGoal = "gain"
+	DietGoalLose   DietGoal = "lose"
+	DietGoalNone   DietGoal = "none"
+	DietGoalSteady DietGoal = "steady"
+)
+
+// Valid indicates whether the value is a known member of the DietGoal enum.
+func (e DietGoal) Valid() bool {
+	switch e {
+	case DietGoalGain:
+		return true
+	case DietGoalLose:
+		return true
+	case DietGoalNone:
+		return true
+	case DietGoalSteady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MealSlot.
+const (
+	Breakfast MealSlot = "breakfast"
+	Dinner    MealSlot = "dinner"
+	Lunch     MealSlot = "lunch"
+	Snack     MealSlot = "snack"
+)
+
+// Valid indicates whether the value is a known member of the MealSlot enum.
+func (e MealSlot) Valid() bool {
+	switch e {
+	case Breakfast:
+		return true
+	case Dinner:
+		return true
+	case Lunch:
+		return true
+	case Snack:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RecipeNutrition.
+const (
+	HighCarb    RecipeNutrition = "high_carb"
+	HighProtein RecipeNutrition = "high_protein"
+	LowFat      RecipeNutrition = "low_fat"
+	Oily        RecipeNutrition = "oily"
+	Sugary      RecipeNutrition = "sugary"
+	VegRich     RecipeNutrition = "veg_rich"
+)
+
+// Valid indicates whether the value is a known member of the RecipeNutrition enum.
+func (e RecipeNutrition) Valid() bool {
+	switch e {
+	case HighCarb:
+		return true
+	case HighProtein:
+		return true
+	case LowFat:
+		return true
+	case Oily:
+		return true
+	case Sugary:
+		return true
+	case VegRich:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RecipeRecommendationsContextEffectiveGoal.
+const (
+	RecipeRecommendationsContextEffectiveGoalGain     RecipeRecommendationsContextEffectiveGoal = "gain"
+	RecipeRecommendationsContextEffectiveGoalLose     RecipeRecommendationsContextEffectiveGoal = "lose"
+	RecipeRecommendationsContextEffectiveGoalLoseHalf RecipeRecommendationsContextEffectiveGoal = "lose_half"
+	RecipeRecommendationsContextEffectiveGoalNone     RecipeRecommendationsContextEffectiveGoal = "none"
+	RecipeRecommendationsContextEffectiveGoalSteady   RecipeRecommendationsContextEffectiveGoal = "steady"
+)
+
+// Valid indicates whether the value is a known member of the RecipeRecommendationsContextEffectiveGoal enum.
+func (e RecipeRecommendationsContextEffectiveGoal) Valid() bool {
+	switch e {
+	case RecipeRecommendationsContextEffectiveGoalGain:
+		return true
+	case RecipeRecommendationsContextEffectiveGoalLose:
+		return true
+	case RecipeRecommendationsContextEffectiveGoalLoseHalf:
+		return true
+	case RecipeRecommendationsContextEffectiveGoalNone:
+		return true
+	case RecipeRecommendationsContextEffectiveGoalSteady:
+		return true
+	default:
+		return false
+	}
+}
+
 // CookTimer defines model for CookTimer.
 type CookTimer struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -99,11 +204,91 @@ type CookTimerPatchAction string
 // CookTimerState defines model for CookTimerState.
 type CookTimerState string
 
+// DayWeight defines model for DayWeight.
+type DayWeight struct {
+	// Date YYYY-MM-DD
+	Date string `json:"date"`
+
+	// Weight kg
+	Weight float32 `json:"weight"`
+}
+
+// DietGoal none 不设、lose 减重、gain 增肌、steady 保持
+type DietGoal string
+
+// Meal defines model for Meal.
+type Meal struct {
+	// Cooked 自己做的
+	Cooked    bool      `json:"cooked"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Date YYYY-MM-DD
+	Date string `json:"date"`
+	Id   int64  `json:"id"`
+	Note string `json:"note"`
+
+	// Rating 1 到 5
+	Rating   *int   `json:"rating"`
+	RecipeId *int64 `json:"recipeId"`
+
+	// Slot breakfast 早饭、lunch 午饭、dinner 晚饭、snack 加餐
+	Slot  MealSlot `json:"slot"`
+	Title string   `json:"title"`
+}
+
+// MealInput defines model for MealInput.
+type MealInput struct {
+	Cooked *bool `json:"cooked,omitempty"`
+
+	// Date YYYY-MM-DD，不填是今天，不能晚于今天
+	Date *string `json:"date,omitempty"`
+
+	// Note 最多 1000 字
+	Note *string `json:"note,omitempty"`
+
+	// Rating 1 到 5
+	Rating   *int   `json:"rating,omitempty"`
+	RecipeId *int64 `json:"recipeId,omitempty"`
+
+	// Slot breakfast 早饭、lunch 午饭、dinner 晚饭、snack 加餐
+	Slot MealSlot `json:"slot"`
+
+	// Title 不填时用菜谱的菜名；没有菜谱时必填。最多 100 字
+	Title *string `json:"title,omitempty"`
+}
+
+// MealPatch defines model for MealPatch.
+type MealPatch struct {
+	Cooked   *bool   `json:"cooked,omitempty"`
+	Date     *string `json:"date,omitempty"`
+	Note     *string `json:"note,omitempty"`
+	Rating   *int    `json:"rating,omitempty"`
+	RecipeId *int64  `json:"recipeId,omitempty"`
+
+	// Slot breakfast 早饭、lunch 午饭、dinner 晚饭、snack 加餐
+	Slot  *MealSlot `json:"slot,omitempty"`
+	Title *string   `json:"title,omitempty"`
+}
+
+// MealSlot breakfast 早饭、lunch 午饭、dinner 晚饭、snack 加餐
+type MealSlot string
+
 // Recipe defines model for Recipe.
 type Recipe struct {
+	// AvgRating 打过分的饮食记录的平均分，保留一位小数，没有就是空
+	AvgRating *float32 `json:"avgRating"`
+
+	// CookedCount 饮食记录里自己做过几次（B210）
+	CookedCount int                `json:"cookedCount"`
 	CreatedAt   time.Time          `json:"createdAt"`
 	Id          int64              `json:"id"`
 	Ingredients []RecipeIngredient `json:"ingredients"`
+
+	// LastCookedOn 最近一次自己做的日期 YYYY-MM-DD，没有就是空字符串
+	LastCookedOn string `json:"lastCookedOn"`
+
+	// Nutrition 营养分类（B210），AI 估算，可以改。空数组是还没估
+	Nutrition []RecipeNutrition `json:"nutrition"`
 
 	// Servings 份量，比如“一只散养公鸡”“2 人份”
 	Servings string `json:"servings"`
@@ -147,6 +332,9 @@ type RecipeInput struct {
 	// Ingredients 最多 100 个
 	Ingredients *[]RecipeIngredient `json:"ingredients,omitempty"`
 
+	// Nutrition 不能重复
+	Nutrition *[]RecipeNutrition `json:"nutrition,omitempty"`
+
 	// Servings 最多 50 字
 	Servings     *string `json:"servings,omitempty"`
 	SourceNoteId *int64  `json:"sourceNoteId,omitempty"`
@@ -173,6 +361,9 @@ type RecipeInput struct {
 	TotalMinutes *int `json:"totalMinutes,omitempty"`
 }
 
+// RecipeNutrition high_protein 高蛋白、veg_rich 蔬菜多、low_fat 少油、oily 油重、high_carb 主食多、sugary 偏甜
+type RecipeNutrition string
+
 // RecipeParseInput defines model for RecipeParseInput.
 type RecipeParseInput struct {
 	// SourceNoteId 原文来自哪篇笔记，原样放进草稿
@@ -185,6 +376,7 @@ type RecipeParseInput struct {
 // RecipePatch 只改给了的字段。给 ingredients 时 steps 里的下标按新的 ingredients 检查。
 type RecipePatch struct {
 	Ingredients  *[]RecipeIngredient `json:"ingredients,omitempty"`
+	Nutrition    *[]RecipeNutrition  `json:"nutrition,omitempty"`
 	Servings     *string             `json:"servings,omitempty"`
 	SourceNoteId *int64              `json:"sourceNoteId,omitempty"`
 	SourceUrl    *string             `json:"sourceUrl,omitempty"`
@@ -194,6 +386,54 @@ type RecipePatch struct {
 	Tips         *string             `json:"tips,omitempty"`
 	Title        *string             `json:"title,omitempty"`
 	TotalMinutes *int                `json:"totalMinutes,omitempty"`
+}
+
+// RecipeRecommendation defines model for RecipeRecommendation.
+type RecipeRecommendation struct {
+	// Reasons 推荐理由，比如“少油，适合减重”“你打过 4.5 分”
+	Reasons []string `json:"reasons"`
+	Recipe  Recipe   `json:"recipe"`
+}
+
+// RecipeRecommendations defines model for RecipeRecommendations.
+type RecipeRecommendations struct {
+	Context struct {
+		// DietGoal none 不设、lose 减重、gain 增肌、steady 保持
+		DietGoal DietGoal `json:"dietGoal"`
+
+		// EffectiveGoal 实际按哪个目标算。没设目标但体重涨了 1 kg 以上时是 lose_half
+		EffectiveGoal RecipeRecommendationsContextEffectiveGoal `json:"effectiveGoal"`
+
+		// MissingNutrition 还没有营养分类的菜谱有几份
+		MissingNutrition int `json:"missingNutrition"`
+
+		// WeightChange30d 最近 30 天体重变化（kg），保留一位小数。记录少于 2 次是空
+		WeightChange30d *float32 `json:"weightChange30d"`
+	} `json:"context"`
+	Items []RecipeRecommendation `json:"items"`
+}
+
+// RecipeRecommendationsContextEffectiveGoal 实际按哪个目标算。没设目标但体重涨了 1 kg 以上时是 lose_half
+type RecipeRecommendationsContextEffectiveGoal string
+
+// RecipeSettings defines model for RecipeSettings.
+type RecipeSettings struct {
+	// DietGoal none 不设、lose 减重、gain 增肌、steady 保持
+	DietGoal DietGoal `json:"dietGoal"`
+
+	// HabitId 自己做完一顿在哪个习惯打卡，空是不打卡
+	HabitId *int64 `json:"habitId"`
+
+	// Staples 常备调料，筛选“我手头有”时不算缺。最多 50 个，每个最多 20 字
+	Staples []string `json:"staples"`
+}
+
+// RecipeSettingsInput defines model for RecipeSettingsInput.
+type RecipeSettingsInput struct {
+	// DietGoal none 不设、lose 减重、gain 增肌、steady 保持
+	DietGoal *DietGoal `json:"dietGoal,omitempty"`
+	HabitId  *int64    `json:"habitId,omitempty"`
+	Staples  *[]string `json:"staples,omitempty"`
 }
 
 // RecipeStep defines model for RecipeStep.
@@ -229,11 +469,20 @@ type RecipeTimer struct {
 	Seconds int `json:"seconds"`
 }
 
+// MealId defines model for MealId.
+type MealId = int64
+
 // RecipeId defines model for RecipeId.
 type RecipeId = int64
 
 // TimerId defines model for TimerId.
 type TimerId = int64
+
+// ListMealsParams defines parameters for ListMeals.
+type ListMealsParams struct {
+	From *string `form:"from,omitempty" json:"from,omitempty"`
+	To   *string `form:"to,omitempty" json:"to,omitempty"`
+}
 
 // ListRecipesParams defines parameters for ListRecipes.
 type ListRecipesParams struct {
@@ -250,11 +499,20 @@ type CreateCookTimerJSONRequestBody = CookTimerInput
 // UpdateCookTimerJSONRequestBody defines body for UpdateCookTimer for application/json ContentType.
 type UpdateCookTimerJSONRequestBody = CookTimerPatch
 
+// CreateMealJSONRequestBody defines body for CreateMeal for application/json ContentType.
+type CreateMealJSONRequestBody = MealInput
+
+// UpdateMealJSONRequestBody defines body for UpdateMeal for application/json ContentType.
+type UpdateMealJSONRequestBody = MealPatch
+
 // CreateRecipeJSONRequestBody defines body for CreateRecipe for application/json ContentType.
 type CreateRecipeJSONRequestBody = RecipeInput
 
 // ParseRecipeJSONRequestBody defines body for ParseRecipe for application/json ContentType.
 type ParseRecipeJSONRequestBody = RecipeParseInput
+
+// PutRecipeSettingsJSONRequestBody defines body for PutRecipeSettings for application/json ContentType.
+type PutRecipeSettingsJSONRequestBody = RecipeSettingsInput
 
 // UpdateRecipeJSONRequestBody defines body for UpdateRecipe for application/json ContentType.
 type UpdateRecipeJSONRequestBody = RecipePatch
@@ -274,14 +532,38 @@ type ServerInterface interface {
 	// (PATCH /cook-timers/{timerId})
 	UpdateCookTimer(w http.ResponseWriter, r *http.Request, timerId TimerId)
 
+	// (GET /meals)
+	ListMeals(w http.ResponseWriter, r *http.Request, params ListMealsParams)
+
+	// (POST /meals)
+	CreateMeal(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /meals/{mealId})
+	DeleteMeal(w http.ResponseWriter, r *http.Request, mealId MealId)
+
+	// (PATCH /meals/{mealId})
+	UpdateMeal(w http.ResponseWriter, r *http.Request, mealId MealId)
+
 	// (GET /recipes)
 	ListRecipes(w http.ResponseWriter, r *http.Request, params ListRecipesParams)
 
 	// (POST /recipes)
 	CreateRecipe(w http.ResponseWriter, r *http.Request)
 
+	// (POST /recipes/nutrition/fill)
+	FillRecipeNutrition(w http.ResponseWriter, r *http.Request)
+
 	// (POST /recipes/parse)
 	ParseRecipe(w http.ResponseWriter, r *http.Request)
+
+	// (GET /recipes/recommend)
+	RecommendRecipes(w http.ResponseWriter, r *http.Request)
+
+	// (GET /recipes/settings)
+	GetRecipeSettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /recipes/settings)
+	PutRecipeSettings(w http.ResponseWriter, r *http.Request)
 
 	// (DELETE /recipes/{recipeId})
 	DeleteRecipe(w http.ResponseWriter, r *http.Request, recipeId RecipeId)
@@ -291,6 +573,9 @@ type ServerInterface interface {
 
 	// (PATCH /recipes/{recipeId})
 	UpdateRecipe(w http.ResponseWriter, r *http.Request, recipeId RecipeId)
+
+	// (POST /recipes/{recipeId}/nutrition)
+	EstimateRecipeNutrition(w http.ResponseWriter, r *http.Request, recipeId RecipeId)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -317,6 +602,26 @@ func (_ Unimplemented) UpdateCookTimer(w http.ResponseWriter, r *http.Request, t
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /meals)
+func (_ Unimplemented) ListMeals(w http.ResponseWriter, r *http.Request, params ListMealsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /meals)
+func (_ Unimplemented) CreateMeal(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /meals/{mealId})
+func (_ Unimplemented) DeleteMeal(w http.ResponseWriter, r *http.Request, mealId MealId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /meals/{mealId})
+func (_ Unimplemented) UpdateMeal(w http.ResponseWriter, r *http.Request, mealId MealId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /recipes)
 func (_ Unimplemented) ListRecipes(w http.ResponseWriter, r *http.Request, params ListRecipesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -327,8 +632,28 @@ func (_ Unimplemented) CreateRecipe(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /recipes/nutrition/fill)
+func (_ Unimplemented) FillRecipeNutrition(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /recipes/parse)
 func (_ Unimplemented) ParseRecipe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /recipes/recommend)
+func (_ Unimplemented) RecommendRecipes(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /recipes/settings)
+func (_ Unimplemented) GetRecipeSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /recipes/settings)
+func (_ Unimplemented) PutRecipeSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -344,6 +669,11 @@ func (_ Unimplemented) GetRecipe(w http.ResponseWriter, r *http.Request, recipeI
 
 // (PATCH /recipes/{recipeId})
 func (_ Unimplemented) UpdateRecipe(w http.ResponseWriter, r *http.Request, recipeId RecipeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /recipes/{recipeId}/nutrition)
+func (_ Unimplemented) EstimateRecipeNutrition(w http.ResponseWriter, r *http.Request, recipeId RecipeId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -436,6 +766,118 @@ func (siw *ServerInterfaceWrapper) UpdateCookTimer(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListMeals operation middleware
+func (siw *ServerInterfaceWrapper) ListMeals(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListMealsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMeals(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMeal operation middleware
+func (siw *ServerInterfaceWrapper) CreateMeal(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMeal(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMeal operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMeal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mealId" -------------
+	var mealId MealId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mealId", chi.URLParam(r, "mealId"), &mealId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mealId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMeal(w, r, mealId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMeal operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMeal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mealId" -------------
+	var mealId MealId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mealId", chi.URLParam(r, "mealId"), &mealId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mealId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMeal(w, r, mealId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRecipes operation middleware
 func (siw *ServerInterfaceWrapper) ListRecipes(w http.ResponseWriter, r *http.Request) {
 
@@ -496,11 +938,67 @@ func (siw *ServerInterfaceWrapper) CreateRecipe(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// FillRecipeNutrition operation middleware
+func (siw *ServerInterfaceWrapper) FillRecipeNutrition(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FillRecipeNutrition(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ParseRecipe operation middleware
 func (siw *ServerInterfaceWrapper) ParseRecipe(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ParseRecipe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecommendRecipes operation middleware
+func (siw *ServerInterfaceWrapper) RecommendRecipes(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecommendRecipes(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRecipeSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetRecipeSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRecipeSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutRecipeSettings operation middleware
+func (siw *ServerInterfaceWrapper) PutRecipeSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutRecipeSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -579,6 +1077,32 @@ func (siw *ServerInterfaceWrapper) UpdateRecipe(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateRecipe(w, r, recipeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EstimateRecipeNutrition operation middleware
+func (siw *ServerInterfaceWrapper) EstimateRecipeNutrition(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "recipeId" -------------
+	var recipeId RecipeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "recipeId", chi.URLParam(r, "recipeId"), &recipeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recipeId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EstimateRecipeNutrition(w, r, recipeId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -718,6 +1242,33 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/recipes/{recipeId}", wrapper.UpdateRecipe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/recipes/{recipeId}/nutrition", wrapper.EstimateRecipeNutrition)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/recipes/nutrition/fill", wrapper.FillRecipeNutrition)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/recipes/recommend", wrapper.RecommendRecipes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/recipes/settings", wrapper.GetRecipeSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/recipes/settings", wrapper.PutRecipeSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/meals", wrapper.ListMeals)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/meals", wrapper.CreateMeal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/meals/{mealId}", wrapper.DeleteMeal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/meals/{mealId}", wrapper.UpdateMeal)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/cook-timers", wrapper.ListCookTimers)

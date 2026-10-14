@@ -61,6 +61,8 @@ type Module struct {
 	// timerMu serializes the changes of timers, so the 5 second check and a
 	// request cannot both act on the same timer, and the limit holds.
 	timerMu sync.Mutex
+	// fillMu serializes the batch nutrition fills.
+	fillMu sync.Mutex
 }
 
 var (
@@ -107,13 +109,14 @@ type draft struct {
 	tags                     []string
 	sourceNoteID             *int64
 	sourceURL                string
+	nutrition                []string
 }
 
 func draftOf(r api.Recipe) draft {
 	return draft{
 		title: r.Title, summary: r.Summary, servings: r.Servings, totalMinutes: r.TotalMinutes,
 		ingredients: r.Ingredients, steps: r.Steps, tips: r.Tips, tags: r.Tags,
-		sourceNoteID: r.SourceNoteId, sourceURL: r.SourceUrl,
+		sourceNoteID: r.SourceNoteId, sourceURL: r.SourceUrl, nutrition: nutritionStrings(r.Nutrition),
 	}
 }
 
@@ -130,7 +133,26 @@ func draftOfInput(in api.RecipeInput) draft {
 	if in.Tags != nil {
 		d.tags = *in.Tags
 	}
+	if in.Nutrition != nil {
+		d.nutrition = nutritionStrings(*in.Nutrition)
+	}
 	return d
+}
+
+func nutritionStrings(in []api.RecipeNutrition) []string {
+	out := make([]string, len(in))
+	for i, n := range in {
+		out[i] = string(n)
+	}
+	return out
+}
+
+func nutritionValues(in []string) []api.RecipeNutrition {
+	out := make([]api.RecipeNutrition, len(in))
+	for i, n := range in {
+		out[i] = api.RecipeNutrition(n)
+	}
+	return out
 }
 
 func str(p *string) string {
@@ -150,11 +172,15 @@ func parseJSON[T any](s string) []T {
 	return out
 }
 
-func (m *Module) view(row db.Recipe) api.Recipe {
+// view builds the API form of a row. st is the meal statistics of the recipe
+// (the zero value when it has no meals).
+func (m *Module) view(row db.Recipe, st mealStat) api.Recipe {
 	v := api.Recipe{
 		Id: row.ID, Title: row.Title, Summary: row.Summary, Servings: row.Servings,
 		Ingredients: parseJSON[api.RecipeIngredient](row.Ingredients), Steps: parseJSON[api.RecipeStep](row.Steps),
 		Tips: row.Tips, Tags: parseJSON[string](row.Tags), SourceUrl: row.SourceUrl,
+		Nutrition:   nutritionValues(parseJSON[string](row.Nutrition)),
+		CookedCount: st.cookedCount, LastCookedOn: st.lastCookedOn, AvgRating: st.avgRating(),
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 	if row.TotalMinutes != nil {
@@ -162,6 +188,15 @@ func (m *Module) view(row db.Recipe) api.Recipe {
 	}
 	v.SourceNoteId = row.SourceNoteID
 	return v
+}
+
+// viewOne builds the API form of one row with its meal statistics.
+func (m *Module) viewOne(ctx context.Context, row db.Recipe) (api.Recipe, error) {
+	stats, err := m.mealStats(ctx)
+	if err != nil {
+		return api.Recipe{}, err
+	}
+	return m.view(row, stats[row.ID]), nil
 }
 
 // ---------- validation ----------
@@ -188,6 +223,35 @@ func cleanTags(in []string) []string {
 		out = append(out, t)
 	}
 	return out
+}
+
+// nutritionKinds are the only values of the nutrition classes (B210).
+var nutritionKinds = []string{"high_protein", "veg_rich", "low_fat", "oily", "high_carb", "sugary"}
+
+func isNutrition(v string) bool {
+	for _, k := range nutritionKinds {
+		if k == v {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanNutrition refuses unknown and repeated values. It never returns nil.
+func cleanNutrition(in []string) ([]string, error) {
+	out := make([]string, 0, len(in))
+	seen := map[string]bool{}
+	for _, v := range in {
+		if !isNutrition(v) {
+			return nil, httpx.Invalid("营养分类“" + v + "”不认识")
+		}
+		if seen[v] {
+			return nil, httpx.Invalid("营养分类“" + v + "”重复了")
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	return out, nil
 }
 
 func validTimerSeconds(label string, t api.RecipeTimer) error {
@@ -233,6 +297,9 @@ func validate(d draft) (draft, error) {
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			return d, httpx.Invalid("来源地址要以 http:// 或 https:// 开头")
 		}
+	}
+	if d.nutrition, err = cleanNutrition(d.nutrition); err != nil {
+		return d, err
 	}
 	d.tags = cleanTags(d.tags)
 	if len(d.tags) > maxTags {
@@ -338,12 +405,16 @@ func (m *Module) list(ctx context.Context, q, tag string) ([]api.Recipe, []api.R
 	if err != nil {
 		return nil, nil, err
 	}
+	stats, err := m.mealStats(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
 	q, tag = strings.ToLower(strings.TrimSpace(q)), strings.ToLower(strings.TrimSpace(tag))
 	items := []api.Recipe{}
 	counts := map[string]int{}
 	names := map[string]string{}
 	for _, row := range rows {
-		v := m.view(row)
+		v := m.view(row, stats[row.ID])
 		for _, t := range v.Tags {
 			k := strings.ToLower(t)
 			counts[k]++
@@ -419,7 +490,12 @@ func (m *Module) GetRecipe(w http.ResponseWriter, r *http.Request, id api.Recipe
 		httpx.Fail(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, m.view(row))
+	v, err := m.viewOne(r.Context(), row)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, v)
 }
 
 // ---------- create, update, delete ----------
@@ -450,16 +526,17 @@ func (m *Module) create(ctx context.Context, in api.RecipeInput) (api.Recipe, er
 	ings, _ := json.Marshal(d.ingredients)
 	steps, _ := json.Marshal(d.steps)
 	tags, _ := json.Marshal(d.tags)
+	nutrition, _ := json.Marshal(d.nutrition)
 	now := m.now().UTC()
 	row, err := m.q.InsertRecipe(ctx, db.InsertRecipeParams{
 		Title: d.title, Summary: d.summary, Servings: d.servings, TotalMinutes: intPtr(d.totalMinutes),
 		Ingredients: string(ings), Steps: string(steps), Tips: d.tips, Tags: string(tags),
-		SourceNoteID: d.sourceNoteID, SourceUrl: d.sourceURL, CreatedAt: now, UpdatedAt: now,
+		SourceNoteID: d.sourceNoteID, SourceUrl: d.sourceURL, Nutrition: string(nutrition), CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
 		return api.Recipe{}, err
 	}
-	v := m.view(row)
+	v := m.view(row, mealStat{})
 	m.d.Bus.Publish("recipe.created", v)
 	return v, nil
 }
@@ -524,7 +601,7 @@ func (m *Module) update(ctx context.Context, id int64, p api.RecipePatch, clearM
 	if err != nil {
 		return api.Recipe{}, err
 	}
-	d := draftOf(m.view(cur))
+	d := draftOf(m.view(cur, mealStat{}))
 	if p.Title != nil {
 		d.title = *p.Title
 	}
@@ -561,6 +638,9 @@ func (m *Module) update(ctx context.Context, id int64, p api.RecipePatch, clearM
 	if p.SourceUrl != nil {
 		d.sourceURL = *p.SourceUrl
 	}
+	if p.Nutrition != nil {
+		d.nutrition = nutritionStrings(*p.Nutrition)
+	}
 	d, err = validate(d)
 	if err != nil {
 		return api.Recipe{Title: cur.Title}, err
@@ -568,15 +648,19 @@ func (m *Module) update(ctx context.Context, id int64, p api.RecipePatch, clearM
 	ings, _ := json.Marshal(d.ingredients)
 	steps, _ := json.Marshal(d.steps)
 	tags, _ := json.Marshal(d.tags)
+	nutrition, _ := json.Marshal(d.nutrition)
 	row, err := m.q.UpdateRecipe(ctx, db.UpdateRecipeParams{
 		Title: d.title, Summary: d.summary, Servings: d.servings, TotalMinutes: intPtr(d.totalMinutes),
 		Ingredients: string(ings), Steps: string(steps), Tips: d.tips, Tags: string(tags),
-		SourceNoteID: d.sourceNoteID, SourceUrl: d.sourceURL, UpdatedAt: m.now().UTC(), ID: id,
+		SourceNoteID: d.sourceNoteID, SourceUrl: d.sourceURL, Nutrition: string(nutrition), UpdatedAt: m.now().UTC(), ID: id,
 	})
 	if err != nil {
 		return api.Recipe{}, err
 	}
-	v := m.view(row)
+	v, err := m.viewOne(ctx, row)
+	if err != nil {
+		return api.Recipe{}, err
+	}
 	m.d.Bus.Publish("recipe.updated", v)
 	return v, nil
 }

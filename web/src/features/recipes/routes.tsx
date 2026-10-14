@@ -3,6 +3,8 @@ import type { RouteObject } from "react-router";
 import { ChefHat, FileInput, Plus } from "lucide-react";
 import { registerCommands } from "../../lib/commands";
 import { registerNavAction } from "../../lib/navBadges";
+import { registerNavChildren } from "../../lib/navChildren";
+import NavChildren from "./NavChildren";
 import "./i18n";
 import "./recipes.css";
 
@@ -12,11 +14,14 @@ registerNavAction("/recipes", {
   run: (navigate) => navigate("/recipes/new"),
 });
 
+registerNavChildren("/recipes", NavChildren);
+
 // 页面按需加载（B6），主包里只留路由、命令和样式。
 const RecipesPage = lazy(() => import("./RecipesPage"));
 const RecipePage = lazy(() => import("./RecipePage"));
 const RecipeEditPage = lazy(() => import("./RecipeEditPage"));
 const CookPage = lazy(() => import("./CookPage"));
+const MealsPage = lazy(() => import("./MealsPage"));
 
 registerCommands([
   {
@@ -47,6 +52,11 @@ registerCommands([
 
 export const routes: RouteObject[] = [
   { path: "recipes", element: <RecipesPage />, handle: { title: "Recipes" } },
+  {
+    path: "recipes/meals",
+    element: <MealsPage />,
+    handle: { title: "Recipes" },
+  },
   {
     path: "recipes/new",
     element: <RecipeEditPage />,

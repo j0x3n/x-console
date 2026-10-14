@@ -2,6 +2,7 @@ import type {
   Recipe,
   RecipeIngredient,
   RecipeInput,
+  RecipeNutrition,
   RecipeStep,
   RecipeTagCount,
 } from "./api";
@@ -21,6 +22,7 @@ export interface Draft {
   tags: string[];
   sourceNoteId: number | null;
   sourceUrl: string;
+  nutrition: RecipeNutrition[];
 }
 
 export function emptyDraft(): Draft {
@@ -35,6 +37,7 @@ export function emptyDraft(): Draft {
     tags: [],
     sourceNoteId: null,
     sourceUrl: "",
+    nutrition: [],
   };
 }
 
@@ -60,6 +63,7 @@ export function toDraft(r: RecipeInput | Recipe): Draft {
     tags: [...(r.tags ?? [])],
     sourceNoteId: r.sourceNoteId ?? null,
     sourceUrl: r.sourceUrl ?? "",
+    nutrition: [...(r.nutrition ?? [])],
   };
 }
 
@@ -94,6 +98,7 @@ export function toInput(d: Draft): RecipeInput {
     tags: d.tags,
     sourceNoteId: d.sourceNoteId,
     sourceUrl: d.sourceUrl.trim(),
+    nutrition: d.nutrition,
   };
 }
 

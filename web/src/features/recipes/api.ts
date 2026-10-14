@@ -17,16 +17,32 @@ export type RecipeTagCount = S["RecipeTagCount"];
 export type CookTimer = S["CookTimer"];
 export type CookTimerInput = S["CookTimerInput"];
 export type CookTimerPatch = S["CookTimerPatch"];
+export type RecipeNutrition = S["RecipeNutrition"];
+export type DietGoal = S["DietGoal"];
+export type RecipeSettings = S["RecipeSettings"];
+export type RecipeSettingsInput = S["RecipeSettingsInput"];
+export type RecipeRecommendation = S["RecipeRecommendation"];
+export type RecipeRecommendations = S["RecipeRecommendations"];
+export type Meal = S["Meal"];
+export type MealInput = S["MealInput"];
+export type MealPatch = S["MealPatch"];
+export type MealSlot = S["MealSlot"];
+export type DayWeight = S["DayWeight"];
 
 export const recipeKeys = {
   all: ["recipes"] as const,
   list: ["recipes", "list"] as const,
   recipe: (id: number) => ["recipes", "recipe", id] as const,
   timers: ["recipes", "timers"] as const,
+  recommend: ["recipes", "recommend"] as const,
+  settings: ["recipes", "settings"] as const,
+  meals: (from: string, to: string) => ["recipes", "meals", from, to] as const,
 };
 
 invalidateOn("recipe.", recipeKeys.all);
 invalidateOn("cook_timer.", recipeKeys.timers);
+// B210：饮食记录变了，菜谱的统计和推荐也跟着变
+invalidateOn("meal.", recipeKeys.all);
 
 /** 全部菜谱。标签筛选和搜索在页面里做，数据量很小。 */
 export function useRecipes() {
@@ -159,6 +175,116 @@ export function useDeleteTimer() {
       unwrap(
         recipesApi.DELETE("/cook-timers/{timerId}", {
           params: { path: { timerId: id } },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+}
+
+// ---- B210：营养分类、推荐、设置、饮食记录 ----
+
+/** 推荐。后端没上线时当作没有推荐，不报错。 */
+export function useRecommend() {
+  return useQuery({
+    queryKey: recipeKeys.recommend,
+    queryFn: async (): Promise<RecipeRecommendations | null> => {
+      try {
+        return await unwrap(recipesApi.GET("/recipes/recommend"));
+      } catch (error) {
+        if (
+          error instanceof ApiError &&
+          (error.status === 404 || error.status === 501)
+        )
+          return null;
+        throw error;
+      }
+    },
+    meta: { silentError: true },
+  });
+}
+
+export function useRecipeSettings() {
+  return useQuery({
+    queryKey: recipeKeys.settings,
+    queryFn: () => unwrap(recipesApi.GET("/recipes/settings")),
+    retry: false,
+  });
+}
+
+export function useSaveRecipeSettings() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (body: RecipeSettingsInput) =>
+      unwrap(recipesApi.PUT("/recipes/settings", { body })),
+    onSuccess: refresh,
+  });
+}
+
+/** 用 AI 估一份菜谱的营养分类，不保存。 */
+export function useEstimateNutrition() {
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        recipesApi.POST("/recipes/{recipeId}/nutrition", {
+          params: { path: { recipeId: id } },
+        }),
+      ),
+  });
+}
+
+/** 用 AI 给还没有营养分类的菜谱补上，直接保存。 */
+export function useFillNutrition() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: () => unwrap(recipesApi.POST("/recipes/nutrition/fill")),
+    onSuccess: refresh,
+  });
+}
+
+/** 饮食记录。不传日期时是服务器时区的最近 30 天（含今天）。 */
+export function useMeals(from = "", to = "") {
+  return useQuery({
+    queryKey: recipeKeys.meals(from, to),
+    queryFn: () =>
+      unwrap(
+        recipesApi.GET("/meals", {
+          params: { query: { from: from || undefined, to: to || undefined } },
+        }),
+      ),
+    retry: false,
+  });
+}
+
+export function useCreateMeal() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (body: MealInput) =>
+      unwrap(recipesApi.POST("/meals", { body })),
+    onSuccess: refresh,
+  });
+}
+
+export function useUpdateMeal() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (v: { id: number; body: MealPatch }) =>
+      unwrap(
+        recipesApi.PATCH("/meals/{mealId}", {
+          params: { path: { mealId: v.id } },
+          body: v.body,
+        }),
+      ),
+    onSuccess: refresh,
+  });
+}
+
+export function useDeleteMeal() {
+  const refresh = useRefresh();
+  return useMutation({
+    mutationFn: (id: number) =>
+      unwrap(
+        recipesApi.DELETE("/meals/{mealId}", {
+          params: { path: { mealId: id } },
         }),
       ),
     onSuccess: refresh,

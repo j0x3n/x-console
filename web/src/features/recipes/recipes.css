@@ -707,6 +707,211 @@
   font-size: var(--fs-13);
 }
 
+/* ---- B210：推荐、筛选、饮食记录 ---- */
+.recipes-suggest {
+  margin-bottom: 16px;
+}
+.recipes-suggest-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 8px;
+  font-size: var(--fs-13);
+}
+.recipes-suggest-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.recipes-suggest-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+  background: var(--xc-surface);
+  color: var(--xc-text);
+  text-decoration: none;
+}
+.recipes-suggest-item:hover {
+  background: var(--xc-surface-2);
+}
+.recipes-suggest-item strong {
+  overflow: hidden;
+  font-size: var(--fs-13-5);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recipes-suggest-item small {
+  color: var(--xc-accent-text);
+  font-size: var(--fs-12);
+}
+.recipes-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-bottom: 14px;
+}
+.recipes-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.recipes-filter-label {
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+}
+.recipes-filter-group .xc-badge {
+  gap: 4px;
+}
+.recipes-filter-group .xc-badge button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.recipes-filter-group .recipes-have-input {
+  width: 180px;
+  min-height: 28px;
+}
+.recipes-card-missing {
+  color: var(--xc-warn);
+  font-size: var(--fs-12);
+}
+.recipes-card-missing.ok {
+  color: var(--xc-ok);
+}
+.recipes-stars {
+  display: flex;
+  gap: 2px;
+}
+.recipes-stars button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--xc-faint);
+  cursor: pointer;
+}
+.recipes-stars button:hover {
+  background: var(--xc-surface-2);
+}
+.recipes-stars button.on {
+  color: var(--xc-warn);
+}
+.recipes-stars button.on svg {
+  fill: currentColor;
+}
+.recipes-meal-form .xc-check {
+  margin-bottom: 14px;
+}
+.recipes-meal-delete {
+  margin-right: auto;
+}
+.recipes-note {
+  margin: 0 0 14px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.recipes-days {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.recipes-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: var(--fs-13-5);
+}
+.recipes-day-head .recipes-muted {
+  font-variant-numeric: tabular-nums;
+}
+.recipes-day-slot {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--xc-border);
+}
+.recipes-day-slot-name {
+  flex: none;
+  width: 44px;
+  padding-top: 8px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.recipes-day-slot ul {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recipes-day-slot li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.recipes-meal-row {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--xc-text);
+  font-size: var(--fs-13);
+  text-align: left;
+  cursor: pointer;
+}
+.recipes-meal-row:hover {
+  background: var(--xc-surface-2);
+}
+.recipes-meal-row .xc-badge {
+  gap: 3px;
+}
+.recipes-meal-title {
+  font-weight: 500;
+}
+.recipes-meal-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--xc-warn);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+.recipes-meal-note {
+  flex-basis: 100%;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.recipes-meal-link {
+  flex: none;
+  color: var(--xc-accent-text);
+  font-size: var(--fs-12);
+  text-decoration: none;
+}
+
 @media (max-width: 900px) {
   .recipes-detail {
     grid-template-columns: minmax(0, 1fr);
@@ -728,6 +933,10 @@
   }
   .recipes-cook-step {
     padding: 16px;
+  }
+  .recipes-filter-group .recipes-have-input {
+    flex: 1 1 140px;
+    width: auto;
   }
   .recipes-bar {
     right: 16px;

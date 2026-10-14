@@ -29,8 +29,9 @@ const parseSchema = `{"type":"object","properties":{
 "ingredients":{"type":"array","items":{"type":"integer"}}},
 "required":["title","text","timers","ingredients"],"additionalProperties":false}},
 "tips":{"type":"string"},
-"tags":{"type":"array","items":{"type":"string"}}},
-"required":["title","summary","servings","totalMinutes","ingredients","steps","tips","tags"],"additionalProperties":false}`
+"tags":{"type":"array","items":{"type":"string"}},
+"nutrition":{"type":"array","items":{"type":"string","enum":["high_protein","veg_rich","low_fat","oily","high_carb","sugary"]}}},
+"required":["title","summary","servings","totalMinutes","ingredients","steps","tips","tags","nutrition"],"additionalProperties":false}`
 
 const parseSystem = `你是烹饪教程整理员。把用户给的教程原文整理成结构化的菜谱，只返回符合 JSON Schema 的 JSON。
 
@@ -43,6 +44,14 @@ const parseSystem = `你是烹饪教程整理员。把用户给的教程原文�
 - 每一步的 ingredients 是这一步用到的食材，写 ingredients 数组里的下标，从 0 开始。只写这一步明确要加的，不要重复。
 - 原文剩下的说明、要点、来源链接，放进 tips，保留 Markdown。不要丢内容。不要把已经放进步骤的内容再重复写一遍。
 - tags 给 3 到 6 个，包括口味、菜系、主料、做法，比如“辣”“鲁菜”“鸡肉”“炖”。每个不超过 20 字。
+- nutrition 是营养分类，按食材和用量估，可以多选，不要编造原文没有的食材。只能从下表选：
+  - high_protein：主料是肉、蛋、豆制品、鱼虾
+  - veg_rich：蔬菜占用量的一半以上
+  - low_fat：用油少，不油炸，不用肥肉
+  - oily：用油多、油炸、肥肉多
+  - high_carb：米、面、土豆这类主食占比大
+  - sugary：糖、蜂蜜用得多
+  拿不准的不选。
 - 用原文的语言。`
 
 // aiRecipe is the answer of the model. Numbers are read as floats because
@@ -67,8 +76,9 @@ type aiRecipe struct {
 		} `json:"timers"`
 		Ingredients []float64 `json:"ingredients"`
 	} `json:"steps"`
-	Tips string   `json:"tips"`
-	Tags []string `json:"tags"`
+	Tips      string   `json:"tips"`
+	Tags      []string `json:"tags"`
+	Nutrition []string `json:"nutrition"`
 }
 
 var (
@@ -133,6 +143,8 @@ func inputOf(d draft) api.RecipeInput {
 		Ingredients: &d.ingredients, Steps: &d.steps, Tips: &d.tips, Tags: &d.tags, SourceNoteId: d.sourceNoteID,
 		SourceUrl: &d.sourceURL,
 	}
+	nutrition := nutritionValues(d.nutrition)
+	in.Nutrition = &nutrition
 	return in
 }
 
@@ -227,5 +239,21 @@ func repair(a aiRecipe) draft {
 	if len(d.tags) > maxTags {
 		d.tags = d.tags[:maxTags]
 	}
+	d.nutrition = repairNutrition(a.Nutrition)
 	return d
+}
+
+// repairNutrition drops the values that are not a nutrition class and the repeats.
+func repairNutrition(in []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, v := range in {
+		v = strings.TrimSpace(v)
+		if !isNutrition(v) || seen[v] {
+			continue
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	return out
 }

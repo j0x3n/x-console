@@ -290,6 +290,10 @@ const ids = await page.evaluate(async () => {
       steps: [{ text: "鸡蛋炒到半熟盛出，再炒番茄，最后合在一起。" }],
       tags: ["家常", "快手"],
     });
+    // B210：几条饮食记录，一条自己做的打了分
+    await post("/meals", { date: dayAt(0), slot: "lunch", title: "楼下的牛肉面" });
+    await post("/meals", { date: dayAt(-1), slot: "dinner", recipeId: 1, cooked: true, rating: 4, note: "咸了，下次少放盐" });
+    await post("/meals", { date: dayAt(-1), slot: "breakfast", recipeId: 2, cooked: true });
     // B130：几张复习卡片，一张已经评过分
     await post("/cards", {
       question: "SQLite 的 WAL 模式有什么好处？",
@@ -500,6 +504,7 @@ const routes = [
   ["recipe", "/recipes/1"],
   ["recipe-edit", "/recipes/1/edit"],
   ["recipe-cook", "/recipes/1/cook"],
+  ["recipe-meals", "/recipes/meals"],
   ["checkins", "/checkins"],
   ["inbox", "/inbox"],
   ["plan", "/plan"],

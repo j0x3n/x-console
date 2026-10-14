@@ -8,6 +8,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/actions"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/recipes/api"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/recipes/db"
 )
 
 const recipeInputSchema = `{"type":"object","properties":{
@@ -65,7 +66,7 @@ func (m *Module) registerActions() {
 			if err != nil {
 				return nil, err
 			}
-			return m.view(row), nil
+			return m.viewOne(ctx, row)
 		},
 	})
 	m.d.Actions.Register(actions.Action{
@@ -118,6 +119,85 @@ func (m *Module) registerActions() {
 				return nil, err
 			}
 			return v, nil
+		},
+	})
+	m.d.Actions.Register(actions.Action{
+		Name:  "meals.log",
+		Title: "记一顿饭",
+		Description: "Log something the user ate. `slot` is breakfast, lunch, dinner or snack. `date` is YYYY-MM-DD (default today, not in the future). " +
+			"Give `recipeId` for a saved recipe (the title defaults to its name) or `title` for anything else. Set `cooked` true only when the user cooked it " +
+			"themselves: it counts in the recipe's statistics and checks in the habit chosen in the recipe settings. `rating` is 1 to 5, `note` is free text.",
+		Input: actions.Schema(`{"type":"object","properties":{"date":{"type":"string"},"slot":{"type":"string","enum":["breakfast","lunch","dinner","snack"]},` +
+			`"recipeId":{"type":"integer"},"title":{"type":"string"},"cooked":{"type":"boolean"},"rating":{"type":"integer","minimum":1,"maximum":5},"note":{"type":"string"}},` +
+			`"required":["slot"],"additionalProperties":false}`),
+		Effect: actions.Write,
+		Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var in api.MealInput
+			if err := json.Unmarshal(raw, &in); err != nil {
+				return nil, err
+			}
+			v, err := m.createMeal(ctx, in)
+			m.auditMeal(ctx, "meal.create", v.Id, v.Title, "ai", err)
+			if err != nil {
+				return nil, err
+			}
+			return v, nil
+		},
+	})
+	m.d.Actions.Register(actions.Action{
+		Name:  "meals.list",
+		Title: "查看饮食记录",
+		Description: "List what the user ate in the last `days` days (default 7, at most 90), newest first. Each item has id, date, slot, recipeId, title, " +
+			"cooked (made by the user), rating (1 to 5 or null) and note.",
+		Input:  actions.Schema(`{"type":"object","properties":{"days":{"type":"integer","minimum":1,"maximum":90}},"additionalProperties":false}`),
+		Effect: actions.Read,
+		Run: func(ctx context.Context, raw json.RawMessage) (any, error) {
+			var in struct {
+				Days *int `json:"days"`
+			}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &in); err != nil {
+					return nil, err
+				}
+			}
+			days := 7
+			if in.Days != nil {
+				days = *in.Days
+			}
+			if days < 1 {
+				return nil, httpx.Invalid("天数要在 1 到 90 之间")
+			}
+			days = min(days, 90)
+			end := m.today()
+			rows, err := m.q.ListMeals(ctx, db.ListMealsParams{Date: dayKey(end.AddDate(0, 0, -(days - 1))), Date_2: dayKey(end)})
+			if err != nil {
+				return nil, err
+			}
+			items := make([]api.Meal, len(rows))
+			for i, r := range rows {
+				items[i] = mealView(r)
+			}
+			return map[string]any{"items": items}, nil
+		},
+	})
+	m.d.Actions.Register(actions.Action{
+		Name:  "recipes.recommend",
+		Title: "推荐今天做什么",
+		Description: "Recommend up to 6 saved recipes to cook, scored by the user's diet goal, the weight change of the last 30 days, ratings and what was eaten lately. " +
+			"Each item has id, title, tags, nutrition classes (an AI estimate, coarse) and reasons. `context` says which goal was used and the weight change in kg (null if unknown). " +
+			"Say that this is a rule-based suggestion, not nutrition advice.",
+		Input:  actions.Schema(`{"type":"object","properties":{},"additionalProperties":false}`),
+		Effect: actions.Read,
+		Run: func(ctx context.Context, _ json.RawMessage) (any, error) {
+			rec, err := m.recommendations(ctx)
+			if err != nil {
+				return nil, err
+			}
+			items := make([]map[string]any, len(rec.Items))
+			for i, it := range rec.Items {
+				items[i] = map[string]any{"id": it.Recipe.Id, "title": it.Recipe.Title, "tags": it.Recipe.Tags, "nutrition": it.Recipe.Nutrition, "reasons": it.Reasons}
+			}
+			return map[string]any{"items": items, "context": rec.Context}, nil
 		},
 	})
 }

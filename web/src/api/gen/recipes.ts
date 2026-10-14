@@ -64,6 +64,114 @@ export interface paths {
         patch: operations["updateRecipe"];
         trace?: never;
     };
+    "/recipes/{recipeId}/nutrition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipeId: components["parameters"]["RecipeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 用 AI 按食材和用量估这份菜谱的营养分类，不保存。没配 AI 回 501。 */
+        post: operations["estimateRecipeNutrition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/nutrition/fill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 用 AI 给还没有营养分类的菜谱补上，最多 20 份，直接保存。没配 AI 回 501。 */
+        post: operations["fillRecipeNutrition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/recommend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 按饮食目标、体重变化、打分和最近吃过的推荐最多 6 道菜。规则见 docs/specs/B210.md。 */
+        get: operations["recommendRecipes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recipes/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRecipeSettings"];
+        /** @description 只改给了的字段。habitId 给 null 是不打卡。 */
+        put: operations["putRecipeSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/meals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 饮食记录，日期新的在前，同一天按餐次排。from、to 是 YYYY-MM-DD，默认最近 30 天（含今天），最多 366 天。 */
+        get: operations["listMeals"];
+        put?: never;
+        /** @description 记一样吃的。cooked 为 true 且设了习惯时，在那个习惯打一次卡。 */
+        post: operations["createMeal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/meals/{mealId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mealId: components["parameters"]["MealId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 删除记录。已经打的习惯卡不撤销。 */
+        delete: operations["deleteMeal"];
+        options?: never;
+        head?: never;
+        /** @description 只改给了的字段。recipeId 给 null 是取消关联，rating 给 null 是清掉打分。改成 cooked 不会补打卡。 */
+        patch: operations["updateMeal"];
+        trace?: never;
+    };
     "/cook-timers": {
         parameters: {
             query?: never;
@@ -162,6 +270,14 @@ export interface components {
             sourceNoteId: number | null;
             /** @description 网上来源，可以空 */
             sourceUrl: string;
+            /** @description 营养分类（B210），AI 估算，可以改。空数组是还没估 */
+            nutrition: components["schemas"]["RecipeNutrition"][];
+            /** @description 饮食记录里自己做过几次（B210） */
+            cookedCount: number;
+            /** @description 最近一次自己做的日期 YYYY-MM-DD，没有就是空字符串 */
+            lastCookedOn: string;
+            /** @description 打过分的饮食记录的平均分，保留一位小数，没有就是空 */
+            avgRating: number | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -188,6 +304,8 @@ export interface components {
             sourceNoteId?: number | null;
             /** @description 只接受 http 或 https 地址，最多 2000 字 */
             sourceUrl?: string;
+            /** @description 不能重复 */
+            nutrition?: components["schemas"]["RecipeNutrition"][];
         };
         /** @description 只改给了的字段。给 ingredients 时 steps 里的下标按新的 ingredients 检查。 */
         RecipePatch: {
@@ -202,6 +320,7 @@ export interface components {
             /** Format: int64 */
             sourceNoteId?: number | null;
             sourceUrl?: string;
+            nutrition?: components["schemas"]["RecipeNutrition"][];
         };
         RecipeParseInput: {
             /** @description 教程原文，Markdown 或纯文字，最多 20000 字 */
@@ -251,6 +370,104 @@ export interface components {
             action?: "pause" | "resume";
             addSeconds?: number;
         };
+        /**
+         * @description high_protein 高蛋白、veg_rich 蔬菜多、low_fat 少油、oily 油重、high_carb 主食多、sugary 偏甜
+         * @enum {string}
+         */
+        RecipeNutrition: "high_protein" | "veg_rich" | "low_fat" | "oily" | "high_carb" | "sugary";
+        /**
+         * @description none 不设、lose 减重、gain 增肌、steady 保持
+         * @enum {string}
+         */
+        DietGoal: "none" | "lose" | "gain" | "steady";
+        RecipeSettings: {
+            /**
+             * Format: int64
+             * @description 自己做完一顿在哪个习惯打卡，空是不打卡
+             */
+            habitId: number | null;
+            dietGoal: components["schemas"]["DietGoal"];
+            /** @description 常备调料，筛选“我手头有”时不算缺。最多 50 个，每个最多 20 字 */
+            staples: string[];
+        };
+        RecipeSettingsInput: {
+            /** Format: int64 */
+            habitId?: number | null;
+            dietGoal?: components["schemas"]["DietGoal"];
+            staples?: string[];
+        };
+        RecipeRecommendation: {
+            recipe: components["schemas"]["Recipe"];
+            /** @description 推荐理由，比如“少油，适合减重”“你打过 4.5 分” */
+            reasons: string[];
+        };
+        RecipeRecommendations: {
+            items: components["schemas"]["RecipeRecommendation"][];
+            context: {
+                dietGoal: components["schemas"]["DietGoal"];
+                /**
+                 * @description 实际按哪个目标算。没设目标但体重涨了 1 kg 以上时是 lose_half
+                 * @enum {string}
+                 */
+                effectiveGoal: "none" | "lose" | "gain" | "steady" | "lose_half";
+                /** @description 最近 30 天体重变化（kg），保留一位小数。记录少于 2 次是空 */
+                weightChange30d: number | null;
+                /** @description 还没有营养分类的菜谱有几份 */
+                missingNutrition: number;
+            };
+        };
+        /**
+         * @description breakfast 早饭、lunch 午饭、dinner 晚饭、snack 加餐
+         * @enum {string}
+         */
+        MealSlot: "breakfast" | "lunch" | "dinner" | "snack";
+        Meal: {
+            /** Format: int64 */
+            id: number;
+            /** @description YYYY-MM-DD */
+            date: string;
+            slot: components["schemas"]["MealSlot"];
+            /** Format: int64 */
+            recipeId: number | null;
+            title: string;
+            /** @description 自己做的 */
+            cooked: boolean;
+            /** @description 1 到 5 */
+            rating: number | null;
+            note: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MealInput: {
+            /** @description YYYY-MM-DD，不填是今天，不能晚于今天 */
+            date?: string;
+            slot: components["schemas"]["MealSlot"];
+            /** Format: int64 */
+            recipeId?: number | null;
+            /** @description 不填时用菜谱的菜名；没有菜谱时必填。最多 100 字 */
+            title?: string;
+            cooked?: boolean;
+            /** @description 1 到 5 */
+            rating?: number | null;
+            /** @description 最多 1000 字 */
+            note?: string;
+        };
+        MealPatch: {
+            date?: string;
+            slot?: components["schemas"]["MealSlot"];
+            /** Format: int64 */
+            recipeId?: number | null;
+            title?: string;
+            cooked?: boolean;
+            rating?: number | null;
+            note?: string;
+        };
+        DayWeight: {
+            /** @description YYYY-MM-DD */
+            date: string;
+            /** @description kg */
+            weight: number;
+        };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;
@@ -276,6 +493,7 @@ export interface components {
     };
     parameters: {
         RecipeId: number;
+        MealId: number;
         TimerId: number;
     };
     requestBodies: never;
@@ -429,6 +647,227 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Recipe"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    estimateRecipeNutrition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipeId: components["parameters"]["RecipeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 估出的营养分类 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        nutrition: components["schemas"]["RecipeNutrition"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    fillRecipeNutrition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 处理结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description 补上了几份 */
+                        filled: number;
+                        /** @description AI 出错的有几份 */
+                        failed: number;
+                        /** @description 还剩几份没有营养分类 */
+                        remaining: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    recommendRecipes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 推荐 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeRecommendations"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRecipeSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 菜谱设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putRecipeSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecipeSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMeals: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 饮食记录 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Meal"][];
+                        /** @description 这段时间里有体重记录的日子，没有身体数据时是空数组 */
+                        weights: components["schemas"]["DayWeight"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createMeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MealInput"];
+            };
+        };
+        responses: {
+            /** @description 已记下 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meal"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteMeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mealId: components["parameters"]["MealId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateMeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mealId: components["parameters"]["MealId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MealPatch"];
+            };
+        };
+        responses: {
+            /** @description 已更新 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Meal"];
                 };
             };
             default: components["responses"]["Error"];

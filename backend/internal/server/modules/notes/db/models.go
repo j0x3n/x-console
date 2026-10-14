@@ -1214,6 +1214,18 @@ type MeState struct {
 	EndedAt   *time.Time
 }
 
+type Meal struct {
+	ID        int64
+	Date      string
+	Slot      string
+	RecipeID  *int64
+	Title     string
+	Cooked    bool
+	Rating    *int64
+	Note      string
+	CreatedAt time.Time
+}
+
 type Milestone struct {
 	ID        int64
 	ProjectID int64
@@ -1566,6 +1578,7 @@ type Recipe struct {
 	SourceUrl    string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	Nutrition    string
 }
 
 type Reminder struct {

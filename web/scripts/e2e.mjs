@@ -1048,6 +1048,27 @@ try {
           (x) => x.recipeId === recipe.id,
         ),
     );
+    // B210：做完了记一顿，饮食记录页能看到，再删掉
+    await page.getByRole("button", { name: /做完了/ }).click();
+    await page.getByRole("button", { name: "记下来" }).click();
+    await until("记一顿", async () =>
+      (await api("/meals")).items.some(
+        (m) => m.recipeId === recipe.id && m.cooked,
+      ),
+    );
+    assert.equal((await api(`/recipes/${recipe.id}`)).cookedCount, 1);
+    await page.goto(`${base}/recipes/meals`);
+    await page.locator(".recipes-meal-row", { hasText: "端到端炒鸡" }).click();
+    await dialog("编辑记录").getByRole("button", { name: /删除/ }).click();
+    await page
+      .getByRole("button", { name: "删除", exact: true })
+      .last()
+      .click();
+    await until(
+      "删除饮食记录",
+      async () =>
+        !(await api("/meals")).items.some((m) => m.recipeId === recipe.id),
+    );
     await page.goto(`${base}/recipes/${recipe.id}`);
     await page.getByRole("button", { name: /更多/ }).first().click();
     await page.getByRole("menuitem", { name: "删除" }).click();

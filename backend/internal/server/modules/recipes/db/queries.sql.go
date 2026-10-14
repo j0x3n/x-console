@@ -21,12 +21,35 @@ func (q *Queries) CountCookTimers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countRecipesWithoutNutrition = `-- name: CountRecipesWithoutNutrition :one
+SELECT COUNT(*) FROM recipes WHERE nutrition = '[]'
+`
+
+func (q *Queries) CountRecipesWithoutNutrition(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRecipesWithoutNutrition)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteCookTimer = `-- name: DeleteCookTimer :execrows
 DELETE FROM cook_timers WHERE id = ?
 `
 
 func (q *Queries) DeleteCookTimer(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteCookTimer, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteMeal = `-- name: DeleteMeal :execrows
+DELETE FROM meals WHERE id = ?
+`
+
+func (q *Queries) DeleteMeal(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteMeal, id)
 	if err != nil {
 		return 0, err
 	}
@@ -86,8 +109,29 @@ func (q *Queries) GetCookTimer(ctx context.Context, id int64) (CookTimer, error)
 	return i, err
 }
 
+const getMeal = `-- name: GetMeal :one
+SELECT id, date, slot, recipe_id, title, cooked, rating, note, created_at FROM meals WHERE id = ?
+`
+
+func (q *Queries) GetMeal(ctx context.Context, id int64) (Meal, error) {
+	row := q.db.QueryRowContext(ctx, getMeal, id)
+	var i Meal
+	err := row.Scan(
+		&i.ID,
+		&i.Date,
+		&i.Slot,
+		&i.RecipeID,
+		&i.Title,
+		&i.Cooked,
+		&i.Rating,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at FROM recipes WHERE id = ?
+SELECT id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at, nutrition FROM recipes WHERE id = ?
 `
 
 func (q *Queries) GetRecipe(ctx context.Context, id int64) (Recipe, error) {
@@ -107,6 +151,7 @@ func (q *Queries) GetRecipe(ctx context.Context, id int64) (Recipe, error) {
 		&i.SourceUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Nutrition,
 	)
 	return i, err
 }
@@ -154,10 +199,53 @@ func (q *Queries) InsertCookTimer(ctx context.Context, arg InsertCookTimerParams
 	return i, err
 }
 
+const insertMeal = `-- name: InsertMeal :one
+INSERT INTO meals (date, slot, recipe_id, title, cooked, rating, note, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, date, slot, recipe_id, title, cooked, rating, note, created_at
+`
+
+type InsertMealParams struct {
+	Date      string
+	Slot      string
+	RecipeID  *int64
+	Title     string
+	Cooked    bool
+	Rating    *int64
+	Note      string
+	CreatedAt time.Time
+}
+
+func (q *Queries) InsertMeal(ctx context.Context, arg InsertMealParams) (Meal, error) {
+	row := q.db.QueryRowContext(ctx, insertMeal,
+		arg.Date,
+		arg.Slot,
+		arg.RecipeID,
+		arg.Title,
+		arg.Cooked,
+		arg.Rating,
+		arg.Note,
+		arg.CreatedAt,
+	)
+	var i Meal
+	err := row.Scan(
+		&i.ID,
+		&i.Date,
+		&i.Slot,
+		&i.RecipeID,
+		&i.Title,
+		&i.Cooked,
+		&i.Rating,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertRecipe = `-- name: InsertRecipe :one
-INSERT INTO recipes (title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at
+INSERT INTO recipes (title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, nutrition, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at, nutrition
 `
 
 type InsertRecipeParams struct {
@@ -171,6 +259,7 @@ type InsertRecipeParams struct {
 	Tags         string
 	SourceNoteID *int64
 	SourceUrl    string
+	Nutrition    string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -187,6 +276,7 @@ func (q *Queries) InsertRecipe(ctx context.Context, arg InsertRecipeParams) (Rec
 		arg.Tags,
 		arg.SourceNoteID,
 		arg.SourceUrl,
+		arg.Nutrition,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -205,6 +295,7 @@ func (q *Queries) InsertRecipe(ctx context.Context, arg InsertRecipeParams) (Rec
 		&i.SourceUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Nutrition,
 	)
 	return i, err
 }
@@ -287,8 +378,52 @@ func (q *Queries) ListDueCookTimers(ctx context.Context, endsAt *time.Time) ([]C
 	return items, nil
 }
 
+const listMeals = `-- name: ListMeals :many
+SELECT id, date, slot, recipe_id, title, cooked, rating, note, created_at FROM meals WHERE date >= ?1 AND date <= ?2
+ORDER BY date DESC,
+  CASE slot WHEN 'breakfast' THEN 0 WHEN 'lunch' THEN 1 WHEN 'dinner' THEN 2 ELSE 3 END, id
+`
+
+type ListMealsParams struct {
+	Date   string
+	Date_2 string
+}
+
+func (q *Queries) ListMeals(ctx context.Context, arg ListMealsParams) ([]Meal, error) {
+	rows, err := q.db.QueryContext(ctx, listMeals, arg.Date, arg.Date_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Meal
+	for rows.Next() {
+		var i Meal
+		if err := rows.Scan(
+			&i.ID,
+			&i.Date,
+			&i.Slot,
+			&i.RecipeID,
+			&i.Title,
+			&i.Cooked,
+			&i.Rating,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecipes = `-- name: ListRecipes :many
-SELECT id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at FROM recipes ORDER BY updated_at DESC, id DESC
+SELECT id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at, nutrition FROM recipes ORDER BY updated_at DESC, id DESC
 `
 
 func (q *Queries) ListRecipes(ctx context.Context) ([]Recipe, error) {
@@ -314,6 +449,49 @@ func (q *Queries) ListRecipes(ctx context.Context) ([]Recipe, error) {
 			&i.SourceUrl,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Nutrition,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecipesWithoutNutrition = `-- name: ListRecipesWithoutNutrition :many
+SELECT id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at, nutrition FROM recipes WHERE nutrition = '[]' ORDER BY updated_at DESC, id DESC LIMIT ?
+`
+
+func (q *Queries) ListRecipesWithoutNutrition(ctx context.Context, limit int64) ([]Recipe, error) {
+	rows, err := q.db.QueryContext(ctx, listRecipesWithoutNutrition, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Recipe
+	for rows.Next() {
+		var i Recipe
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Servings,
+			&i.TotalMinutes,
+			&i.Ingredients,
+			&i.Steps,
+			&i.Tips,
+			&i.Tags,
+			&i.SourceNoteID,
+			&i.SourceUrl,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Nutrition,
 		); err != nil {
 			return nil, err
 		}
@@ -345,6 +523,85 @@ func (q *Queries) ListStaleDoneCookTimers(ctx context.Context, doneAt *time.Time
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recipeLastEaten = `-- name: RecipeLastEaten :many
+SELECT recipe_id AS recipe_id, CAST(MAX(date) AS TEXT) AS last_eaten_on
+FROM meals WHERE recipe_id IS NOT NULL GROUP BY recipe_id
+`
+
+type RecipeLastEatenRow struct {
+	RecipeID    *int64
+	LastEatenOn string
+}
+
+func (q *Queries) RecipeLastEaten(ctx context.Context) ([]RecipeLastEatenRow, error) {
+	rows, err := q.db.QueryContext(ctx, recipeLastEaten)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecipeLastEatenRow
+	for rows.Next() {
+		var i RecipeLastEatenRow
+		if err := rows.Scan(&i.RecipeID, &i.LastEatenOn); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const recipeMealStats = `-- name: RecipeMealStats :many
+SELECT recipe_id AS recipe_id,
+  CAST(SUM(CASE WHEN cooked THEN 1 ELSE 0 END) AS INTEGER) AS cooked_count,
+  CAST(COALESCE(MAX(CASE WHEN cooked THEN date END), '') AS TEXT) AS last_cooked_on,
+  CAST(COALESCE(SUM(rating), 0) AS INTEGER) AS rating_sum,
+  COUNT(rating) AS rating_count
+FROM meals WHERE recipe_id IS NOT NULL GROUP BY recipe_id
+`
+
+type RecipeMealStatsRow struct {
+	RecipeID     *int64
+	CookedCount  int64
+	LastCookedOn string
+	RatingSum    int64
+	RatingCount  int64
+}
+
+func (q *Queries) RecipeMealStats(ctx context.Context) ([]RecipeMealStatsRow, error) {
+	rows, err := q.db.QueryContext(ctx, recipeMealStats)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecipeMealStatsRow
+	for rows.Next() {
+		var i RecipeMealStatsRow
+		if err := rows.Scan(
+			&i.RecipeID,
+			&i.CookedCount,
+			&i.LastCookedOn,
+			&i.RatingSum,
+			&i.RatingCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -392,10 +649,52 @@ func (q *Queries) UpdateCookTimerState(ctx context.Context, arg UpdateCookTimerS
 	return i, err
 }
 
+const updateMeal = `-- name: UpdateMeal :one
+UPDATE meals SET date = ?1, slot = ?2, recipe_id = ?3, title = ?4, cooked = ?5, rating = ?6, note = ?7
+WHERE id = ?8 RETURNING id, date, slot, recipe_id, title, cooked, rating, note, created_at
+`
+
+type UpdateMealParams struct {
+	Date     string
+	Slot     string
+	RecipeID *int64
+	Title    string
+	Cooked   bool
+	Rating   *int64
+	Note     string
+	ID       int64
+}
+
+func (q *Queries) UpdateMeal(ctx context.Context, arg UpdateMealParams) (Meal, error) {
+	row := q.db.QueryRowContext(ctx, updateMeal,
+		arg.Date,
+		arg.Slot,
+		arg.RecipeID,
+		arg.Title,
+		arg.Cooked,
+		arg.Rating,
+		arg.Note,
+		arg.ID,
+	)
+	var i Meal
+	err := row.Scan(
+		&i.ID,
+		&i.Date,
+		&i.Slot,
+		&i.RecipeID,
+		&i.Title,
+		&i.Cooked,
+		&i.Rating,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const updateRecipe = `-- name: UpdateRecipe :one
 UPDATE recipes SET title = ?1, summary = ?2, servings = ?3, total_minutes = ?4, ingredients = ?5, steps = ?6,
-  tips = ?7, tags = ?8, source_note_id = ?9, source_url = ?10, updated_at = ?11
-WHERE id = ?12 RETURNING id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at
+  tips = ?7, tags = ?8, source_note_id = ?9, source_url = ?10, nutrition = ?11, updated_at = ?12
+WHERE id = ?13 RETURNING id, title, summary, servings, total_minutes, ingredients, steps, tips, tags, source_note_id, source_url, created_at, updated_at, nutrition
 `
 
 type UpdateRecipeParams struct {
@@ -409,6 +708,7 @@ type UpdateRecipeParams struct {
 	Tags         string
 	SourceNoteID *int64
 	SourceUrl    string
+	Nutrition    string
 	UpdatedAt    time.Time
 	ID           int64
 }
@@ -425,6 +725,7 @@ func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Rec
 		arg.Tags,
 		arg.SourceNoteID,
 		arg.SourceUrl,
+		arg.Nutrition,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -443,6 +744,21 @@ func (q *Queries) UpdateRecipe(ctx context.Context, arg UpdateRecipeParams) (Rec
 		&i.SourceUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Nutrition,
 	)
 	return i, err
+}
+
+const updateRecipeNutrition = `-- name: UpdateRecipeNutrition :exec
+UPDATE recipes SET nutrition = ?1 WHERE id = ?2
+`
+
+type UpdateRecipeNutritionParams struct {
+	Nutrition string
+	ID        int64
+}
+
+func (q *Queries) UpdateRecipeNutrition(ctx context.Context, arg UpdateRecipeNutritionParams) error {
+	_, err := q.db.ExecContext(ctx, updateRecipeNutrition, arg.Nutrition, arg.ID)
+	return err
 }

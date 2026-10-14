@@ -28,14 +28,17 @@ import { useQuery } from "@tanstack/react-query";
 import { notesApi, notesKeys } from "../notes/api";
 import {
   useCreateRecipe,
+  useEstimateNutrition,
   useParseRecipe,
   useRecipe,
   useUpdateRecipe,
   type RecipeInput,
+  type RecipeNutrition,
   type RecipeStep,
   type RecipeTimer,
 } from "./api";
 import { ParseError } from "./ImportDialog";
+import { NUTRITION, NUTRITION_LABELS } from "./pick";
 import {
   addTag,
   emptyDraft,
@@ -252,6 +255,11 @@ function Editor({ id, initial }: { id: number; initial: Draft | null }) {
           </label>
         </div>
         <TagInput tags={draft.tags} onChange={(tags) => set({ tags })} />
+        <NutritionPicker
+          id={id}
+          value={draft.nutrition}
+          onChange={(nutrition) => set({ nutrition })}
+        />
       </section>
 
       <section className="xc-card">
@@ -684,6 +692,73 @@ function TagInput({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+/** 营养分类（B210）：点选，编辑已有菜谱时可以让 AI 估一下。 */
+function NutritionPicker({
+  id,
+  value,
+  onChange,
+}: {
+  id: number;
+  value: RecipeNutrition[];
+  onChange: (v: RecipeNutrition[]) => void;
+}) {
+  const t = useT();
+  const estimate = useEstimateNutrition();
+  return (
+    <div className="xc-field">
+      <span>{t("Nutrition")}</span>
+      <div className="recipes-step-pick">
+        <div>
+          {NUTRITION.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`recipes-pick${value.includes(n) ? " on" : ""}`}
+              aria-pressed={value.includes(n)}
+              onClick={() =>
+                onChange(
+                  value.includes(n)
+                    ? value.filter((x) => x !== n)
+                    : NUTRITION.filter((x) => x === n || value.includes(x)),
+                )
+              }
+            >
+              {t(NUTRITION_LABELS[n])}
+            </button>
+          ))}
+          {id > 0 && (
+            <button
+              type="button"
+              className="xc-btn small ghost"
+              disabled={estimate.isPending}
+              onClick={() =>
+                estimate.mutate(id, {
+                  onSuccess: (out) => {
+                    onChange(out.nutrition);
+                    toast(
+                      t("AI filled in the nutrition. Check it, then save."),
+                    );
+                  },
+                  onError: (err) =>
+                    toast({ message: errorMessage(err), tone: "error" }),
+                })
+              }
+            >
+              <WandSparkles size={14} />
+              {estimate.isPending ? t("AI is working…") : t("Estimate with AI")}
+            </button>
+          )}
+        </div>
+      </div>
+      <small>
+        {t(
+          "A rough guess from the ingredients and amounts, not a nutrition table.",
+        )}
+      </small>
     </div>
   );
 }

@@ -99,6 +99,10 @@ const chicken = {
   tags: ["辣", "鲁菜"],
   sourceNoteId: null,
   sourceUrl: "",
+  nutrition: ["high_protein"],
+  cookedCount: 2,
+  lastCookedOn: "2026-10-10",
+  avgRating: 4.5,
   createdAt: "2026-10-14T00:00:00Z",
   updatedAt: "2026-10-14T00:00:00Z",
 };
@@ -109,6 +113,9 @@ const eggs = {
   summary: "",
   ingredients: [{ name: "鸡蛋", amount: "3 个" }],
   tags: ["家常"],
+  nutrition: ["veg_rich"],
+  cookedCount: 0,
+  avgRating: null,
 };
 
 afterEach(() => {
@@ -174,6 +181,42 @@ describe("菜单", () => {
   });
 });
 
+describe("B210 菜单筛选", () => {
+  it("填了我手头有，只列能做的菜，写出还缺什么", async () => {
+    api.routes.set("GET /recipes", () => ({
+      status: 200,
+      body: { items: [chicken, eggs], tags: [] },
+    }));
+    api.routes.set("GET /cook-timers", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("GET /recipes/settings", () => ({
+      status: 200,
+      body: { habitId: null, dietGoal: "none", staples: ["花椒"] },
+    }));
+    render(
+      <QueryClientProvider client={client()}>
+        <MemoryRouter initialEntries={["/recipes"]}>
+          <RecipesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByText("番茄炒蛋");
+    const input = screen.getByLabelText("我手头有");
+    fireEvent.change(input, { target: { value: "鸡" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    // “鸡”对上散养公鸡和鸡蛋；临沂炒鸡还缺八角（花椒是常备调料）
+    await screen.findByText("还缺：八角");
+    expect(screen.getByText("都有了")).toBeTruthy();
+    // 只要高蛋白的
+    fireEvent.click(screen.getByRole("button", { name: "高蛋白" }));
+    expect(screen.queryByText("番茄炒蛋")).toBeNull();
+    expect(screen.getByText("临沂炒鸡")).toBeTruthy();
+    expect(screen.getByText(/做过 2 次 · 4.5 分/)).toBeTruthy();
+  });
+});
+
 describe("做菜页", () => {
   it("显示这一步的料，点计时按钮开始计时，能切到下一步", async () => {
     api.routes.set("GET /recipes/1", () => ({ status: 200, body: chicken }));
@@ -221,6 +264,49 @@ describe("做菜页", () => {
     expect(screen.getByText("八角")).toBeTruthy();
     expect(localStorage.getItem("recipes.cook.1")).toBe("1");
     expect(screen.getByRole("button", { name: /做完了/ })).toBeTruthy();
+  });
+
+  it("做完了弹出记一顿，记下来是自己做的，打了分", async () => {
+    localStorage.setItem("recipes.cook.1", "1");
+    api.routes.set("GET /recipes/1", () => ({ status: 200, body: chicken }));
+    api.routes.set("GET /recipes", () => ({
+      status: 200,
+      body: { items: [chicken], tags: [] },
+    }));
+    api.routes.set("GET /cook-timers", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("POST /meals", (body) => ({
+      status: 201,
+      body: { id: 5, createdAt: "", ...(body as object) },
+    }));
+    render(
+      <QueryClientProvider client={client()}>
+        <MemoryRouter initialEntries={["/recipes/1/cook"]}>
+          <Routes>
+            <Route path="/recipes/:id/cook" element={<CookPage />} />
+            <Route path="/recipes/:id" element={<div>详情</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /做完了/ }));
+    await screen.findByText("做完了，记一下这顿吗？");
+    fireEvent.click(screen.getByRole("radio", { name: "4 分" }));
+    fireEvent.click(screen.getByRole("button", { name: "记下来" }));
+    await waitFor(() =>
+      expect(
+        api.calls.find((c) => c.method === "POST" && c.path === "/meals")?.body,
+      ).toMatchObject({
+        recipeId: 1,
+        title: "临沂炒鸡",
+        cooked: true,
+        rating: 4,
+      }),
+    );
+    expect(await screen.findByText("详情")).toBeTruthy();
+    expect(localStorage.getItem("recipes.cook.1")).toBeNull();
   });
 });
 

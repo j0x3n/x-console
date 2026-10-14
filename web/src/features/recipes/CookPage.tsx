@@ -17,6 +17,7 @@ import { useCookTimers, useRecipe, useStartTimer, type Recipe } from "./api";
 import { unlockAudio, useNow } from "./alarm";
 import { durationLabel } from "./durations";
 import { loadStep, saveStep, stepIngredients, stepTimerChoices } from "./logic";
+import MealDialog from "./MealDialog";
 import TimerList from "./TimerList";
 import "./i18n";
 import "./recipes.css";
@@ -78,6 +79,7 @@ function Cook({ recipe: r }: { recipe: Recipe }) {
   const count = r.steps.length;
   const [step, setStep] = useState(() => loadStep(r.id, count));
   const [showAll, setShowAll] = useState(false);
+  const [logging, setLogging] = useState(false);
   const timers = useCookTimers().data ?? [];
   const now = useNow(timers.some((x) => x.state === "running"));
   const startTimer = useStartTimer();
@@ -266,11 +268,19 @@ function Cook({ recipe: r }: { recipe: Recipe }) {
             {t("Next step")} <ChevronRight size={18} />
           </button>
         ) : (
-          <button className="xc-btn primary" onClick={finish}>
+          <button className="xc-btn primary" onClick={() => setLogging(true)}>
             <Check size={18} /> {t("All done")}
           </button>
         )}
       </nav>
+      <MealDialog
+        open={logging}
+        onClose={() => setLogging(false)}
+        onDone={finish}
+        initial={{ recipeId: r.id, title: r.title, cooked: true }}
+        title={t("Done. Record this meal?")}
+        skipLabel={t("Do not record")}
+      />
     </div>
   );
 }

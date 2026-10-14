@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ChefHat,
@@ -7,6 +8,7 @@ import {
   Pencil,
   RefreshCw,
   Trash2,
+  UtensilsCrossed,
 } from "lucide-react";
 import { errorMessage, isNotLive } from "../../api/client";
 import Markdown from "../../components/markdown/Markdown";
@@ -19,6 +21,8 @@ import { toast } from "../../hooks/useToast";
 import { useDeleteRecipe, useRecipe, type Recipe } from "./api";
 import { durationLabel } from "./durations";
 import { stepIngredients } from "./logic";
+import MealDialog from "./MealDialog";
+import { NUTRITION_LABELS, nutritionTone } from "./pick";
 import "./i18n";
 import "./recipes.css";
 
@@ -47,6 +51,7 @@ function RecipeView({ recipe: r }: { recipe: Recipe }) {
   const t = useT();
   const navigate = useNavigate();
   const remove = useDeleteRecipe();
+  const [logging, setLogging] = useState(false);
 
   const onDelete = async () => {
     const ok = await confirmAction({
@@ -66,6 +71,12 @@ function RecipeView({ recipe: r }: { recipe: Recipe }) {
   };
 
   const more = [
+    {
+      key: "log",
+      label: t("Record a meal"),
+      icon: <UtensilsCrossed size={14} />,
+      onSelect: () => setLogging(true),
+    },
     ...(r.sourceNoteId
       ? [
           {
@@ -171,6 +182,21 @@ function RecipeView({ recipe: r }: { recipe: Recipe }) {
                   <dd>{r.servings}</dd>
                 </>
               )}
+              {r.cookedCount > 0 && (
+                <>
+                  <dt>{t("Cooked")}</dt>
+                  <dd>
+                    {r.cookedCount} {t("times")}
+                    {r.avgRating != null && ` · ${r.avgRating} ${t("stars")}`}
+                  </dd>
+                </>
+              )}
+              {r.lastCookedOn && (
+                <>
+                  <dt>{t("Last cooked")}</dt>
+                  <dd>{r.lastCookedOn}</dd>
+                </>
+              )}
               {r.totalMinutes != null && (
                 <>
                   <dt>{t("Time needed")}</dt>
@@ -187,6 +213,24 @@ function RecipeView({ recipe: r }: { recipe: Recipe }) {
                     {x}
                   </span>
                 ))}
+              </div>
+            )}
+            {(r.nutrition ?? []).length > 0 && (
+              <div>
+                <h3>
+                  {t("Nutrition")}
+                  <small className="recipes-muted">
+                    {" "}
+                    · {t("estimated by AI")}
+                  </small>
+                </h3>
+                <div className="recipes-card-tags">
+                  {r.nutrition.map((n) => (
+                    <span key={n} className={`xc-badge ${nutritionTone(n)}`}>
+                      {t(NUTRITION_LABELS[n])}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
             <div>
@@ -225,6 +269,11 @@ function RecipeView({ recipe: r }: { recipe: Recipe }) {
           </div>
         </aside>
       </div>
+      <MealDialog
+        open={logging}
+        onClose={() => setLogging(false)}
+        initial={{ recipeId: r.id, title: r.title, cooked: true }}
+      />
     </div>
   );
 }
