@@ -3470,7 +3470,7 @@ try {
     await page.goto(`${base}/monitoring/watchers`);
     await page.getByRole("button", { name: "新建盯梢" }).first().click();
     const xDialog = dialog("新建盯梢");
-    await xDialog.getByLabel("盯什么").selectOption("x");
+    await xDialog.getByLabel("盯什么", { exact: true }).selectOption("x");
     await xDialog.getByLabel("名称").fill("端到端推文");
     await xDialog.getByLabel("账号、推文或搜索词").fill("@e2e_user");
     await xDialog.getByRole("button", { name: "保存" }).click();
