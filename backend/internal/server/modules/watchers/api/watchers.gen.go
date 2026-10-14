@@ -12,6 +12,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for WatcherKind.
+const (
+	Web WatcherKind = "web"
+	X   WatcherKind = "x"
+)
+
+// Valid indicates whether the value is a known member of the WatcherKind enum.
+func (e WatcherKind) Valid() bool {
+	switch e {
+	case Web:
+		return true
+	case X:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WatcherMode.
 const (
 	Ai     WatcherMode = "ai"
@@ -196,7 +214,7 @@ type Watcher struct {
 	CurrentValue string    `json:"currentValue"`
 	Enabled      bool      `json:"enabled"`
 
-	// Goal 一句话目标，告诉 AI 要盯什么
+	// Goal 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空
 	Goal string `json:"goal"`
 
 	// HasLogin 存了用户名和密码
@@ -209,9 +227,12 @@ type Watcher struct {
 	IntervalMinutes int   `json:"intervalMinutes"`
 
 	// KeepaliveMinutes 0 是不保活
-	KeepaliveMinutes int        `json:"keepaliveMinutes"`
-	LastChangeAt     *time.Time `json:"lastChangeAt,omitempty"`
-	LastCheckedAt    *time.Time `json:"lastCheckedAt,omitempty"`
+	KeepaliveMinutes int `json:"keepaliveMinutes"`
+
+	// Kind web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
+	Kind          WatcherKind `json:"kind"`
+	LastChangeAt  *time.Time  `json:"lastChangeAt,omitempty"`
+	LastCheckedAt *time.Time  `json:"lastCheckedAt,omitempty"`
 
 	// Mode replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
 	Mode        WatcherMode     `json:"mode"`
@@ -226,7 +247,9 @@ type Watcher struct {
 	// login 需要登录（等了没人处理）；error 出错；paused 已暂停。
 	Status       WatcherStatus `json:"status"`
 	StatusDetail string        `json:"statusDetail"`
-	Url          string        `json:"url"`
+
+	// Url 网页地址；X 是账号、搜索或推文的 x.com 地址
+	Url string `json:"url"`
 }
 
 // WatcherChange defines model for WatcherChange.
@@ -250,7 +273,7 @@ type WatcherDetail struct {
 	CurrentValue string          `json:"currentValue"`
 	Enabled      bool            `json:"enabled"`
 
-	// Goal 一句话目标，告诉 AI 要盯什么
+	// Goal 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空
 	Goal string `json:"goal"`
 
 	// HasLogin 存了用户名和密码
@@ -263,9 +286,12 @@ type WatcherDetail struct {
 	IntervalMinutes int   `json:"intervalMinutes"`
 
 	// KeepaliveMinutes 0 是不保活
-	KeepaliveMinutes int        `json:"keepaliveMinutes"`
-	LastChangeAt     *time.Time `json:"lastChangeAt,omitempty"`
-	LastCheckedAt    *time.Time `json:"lastCheckedAt,omitempty"`
+	KeepaliveMinutes int `json:"keepaliveMinutes"`
+
+	// Kind web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
+	Kind          WatcherKind `json:"kind"`
+	LastChangeAt  *time.Time  `json:"lastChangeAt,omitempty"`
+	LastCheckedAt *time.Time  `json:"lastCheckedAt,omitempty"`
 
 	// Mode replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
 	Mode        WatcherMode         `json:"mode"`
@@ -287,7 +313,9 @@ type WatcherDetail struct {
 
 	// TargetNote 要盯的内容在哪
 	TargetNote *string `json:"targetNote,omitempty"`
-	Url        string  `json:"url"`
+
+	// Url 网页地址；X 是账号、搜索或推文的 x.com 地址
+	Url string `json:"url"`
 }
 
 // WatcherInput defines model for WatcherInput.
@@ -302,16 +330,24 @@ type WatcherInput struct {
 	// KeepaliveMinutes 0 是不保活，最少 5
 	KeepaliveMinutes *int `json:"keepaliveMinutes,omitempty"`
 
+	// Kind web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
+	Kind *WatcherKind `json:"kind,omitempty"`
+
 	// Mode replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
 	Mode     *WatcherMode `json:"mode,omitempty"`
 	Name     string       `json:"name"`
 	Password *string      `json:"password,omitempty"`
 
 	// Proxy 出口代理，http://、https:// 或 socks5://，可带用户名密码
-	Proxy    *string `json:"proxy,omitempty"`
+	Proxy *string `json:"proxy,omitempty"`
+
+	// Url X 可以写 @账号、账号或推文的链接、搜索词
 	Url      string  `json:"url"`
 	Username *string `json:"username,omitempty"`
 }
+
+// WatcherKind web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
+type WatcherKind string
 
 // WatcherMode replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
 type WatcherMode string
@@ -396,6 +432,9 @@ type WatchersSettings struct {
 
 	// DangerWords 按钮上有这些字时，点之前要批准
 	DangerWords []string `json:"dangerWords"`
+
+	// XQueryIds X 网页接口的 queryId，键是 UserByScreenName、UserTweets、SearchTimeline、TweetDetail。X 改版后要换。不填用默认值。
+	XQueryIds *map[string]string `json:"xQueryIds,omitempty"`
 }
 
 // WatchersStatus defines model for WatchersStatus.
@@ -409,6 +448,9 @@ type WatchersStatus struct {
 	BrowserError      *string `json:"browserError,omitempty"`
 	BudgetUsd         float64 `json:"budgetUsd"`
 	SpentToday        float64 `json:"spentToday"`
+
+	// X 存了 X 的登录 Cookie，而且没有过期
+	X bool `json:"x"`
 }
 
 // WatcherId defines model for WatcherId.

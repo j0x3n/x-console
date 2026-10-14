@@ -105,11 +105,14 @@ func (m *Module) answer(id int64, a string) bool {
 }
 
 func (m *Module) onNotifyAction(ctx context.Context, actionID string) error {
-	// watcher.approve:3, watcher.deny:3
+	// watcher.approve:3, watcher.deny:3, watcher.save:<change id>
 	name, idText, ok := strings.Cut(strings.TrimPrefix(actionID, "watcher."), ":")
 	id, err := strconv.ParseInt(idText, 10, 64)
-	if !ok || err != nil || (name != "approve" && name != "deny") {
+	if !ok || err != nil || (name != "approve" && name != "deny" && name != "save") {
 		return fmt.Errorf("不认识的按钮 %s", actionID)
+	}
+	if name == "save" {
+		return m.saveChange(ctx, id)
 	}
 	if !m.answer(id, name) {
 		return errors.New("这个任务现在没有在等你")
@@ -220,7 +223,13 @@ func (m *Module) run(ctx context.Context, rs *runState) error {
 		return err
 	}
 	kind := rs.kind
-	if kind == "check" && (w.Recipe == "" || w.Mode == "ai") {
+	if w.Kind == "x" {
+		if kind == "keepalive" {
+			return nil
+		}
+		kind = "check"
+	}
+	if kind == "check" && w.Kind != "x" && (w.Recipe == "" || w.Mode == "ai") {
 		kind = "explore"
 	}
 	runKind := kind
@@ -239,6 +248,10 @@ func (m *Module) run(ctx context.Context, rs *runState) error {
 	if kind != "keepalive" {
 		_ = m.q.SetWatcherStatus(ctx, db.SetWatcherStatusParams{Status: status, StatusDetail: "", UpdatedAt: m.now(), ID: w.ID})
 		m.publish(w.ID)
+	}
+
+	if w.Kind == "x" {
+		return m.finish(ctx, w, rec, kind, m.runX(ctx, w, rec))
 	}
 
 	if (kind == "explore") && m.chat() == nil {
@@ -301,6 +314,8 @@ type result struct {
 	login   bool // ended on a login page or captcha nobody solved
 	shot    *int64
 	noRetry bool // a failure that AI cannot fix by exploring again
+	xState  *xState
+	xFresh  []xPost
 }
 
 func (m *Module) runManual(ctx context.Context, rs *runState, w db.Watcher, sess *browser.Session, rec *recorder) result {
@@ -442,6 +457,10 @@ func (m *Module) finish(ctx context.Context, w db.Watcher, rec *recorder, kind s
 		b, _ := json.Marshal(res.recipe)
 		_ = m.q.SetWatcherRecipe(ctx, db.SetWatcherRecipeParams{Recipe: string(b), UpdatedAt: now, ID: w.ID})
 	}
+	if res.xState != nil {
+		b, _ := json.Marshal(res.xState)
+		_ = m.q.SetWatcherRecipe(ctx, db.SetWatcherRecipeParams{Recipe: string(b), UpdatedAt: now, ID: w.ID})
+	}
 	params := db.FinishWatcherCheckParams{CurrentValue: fresh.CurrentValue, LastCheckedAt: &now, NextCheckAt: &next,
 		LastChangeAt: fresh.LastChangeAt, UpdatedAt: now, ID: w.ID}
 	switch {
@@ -489,7 +508,12 @@ func (m *Module) finish(ctx context.Context, w db.Watcher, rec *recorder, kind s
 		if kind == "explore" && fresh.Recipe == "" {
 			outcome = "ok"
 		}
-		if old != "" && value != old {
+		switch {
+		case len(res.xFresh) > 0:
+			outcome = "changed"
+			params.LastChangeAt = &now
+			m.recordXPosts(ctx, w, res.xFresh)
+		case w.Kind != "x" && old != "" && value != old:
 			outcome = "changed"
 			params.LastChangeAt = &now
 			m.recordChange(ctx, w, old, value, res.shot)
@@ -519,7 +543,7 @@ func (m *Module) sendNotice(ctx context.Context, w db.Watcher, kind, title, body
 // recordChange asks AI whether the change matters, stores it and notifies.
 func (m *Module) recordChange(ctx context.Context, w db.Watcher, old, value string, shot *int64) {
 	summary, important := m.judge(ctx, w, old, value)
-	_ = m.q.CreateChange(ctx, db.CreateChangeParams{WatcherID: w.ID, OldValue: old, NewValue: value, Summary: summary,
+	_, _ = m.q.CreateChange(ctx, db.CreateChangeParams{WatcherID: w.ID, OldValue: old, NewValue: value, Summary: summary,
 		Important: boolInt(important), ShotID: shot, CreatedAt: m.now()})
 	if !important {
 		return

@@ -19,11 +19,13 @@ export default function SettingsDialog({
   const save = usePutWatchersSettings();
   const [budget, setBudget] = useState("1");
   const [words, setWords] = useState("");
+  const [ids, setIds] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open || !settings.data) return;
     setBudget(String(settings.data.budgetUsd));
     setWords(settings.data.dangerWords.join("，"));
+    setIds(settings.data.xQueryIds ?? {});
   }, [open, settings.data]);
 
   const value = Number(budget);
@@ -44,7 +46,11 @@ export default function SettingsDialog({
             disabled={!valid || save.isPending || !settings.data}
             onClick={() =>
               save.mutate(
-                { budgetUsd: value, dangerWords: parseHosts(words) },
+                {
+                  budgetUsd: value,
+                  dangerWords: parseHosts(words),
+                  xQueryIds: ids,
+                },
                 {
                   onSuccess: () => {
                     toast(t("Saved"));
@@ -88,6 +94,26 @@ export default function SettingsDialog({
           />
           <small>AI 要点的按钮上有这些字时，先发通知问你。用逗号分开。</small>
         </div>
+        <details className="watchers-ids">
+          <summary>{t("X query ids")}</summary>
+          <p className="xc-muted watchers-small">
+            X 改版后读不到推文、报错说 queryId
+            不对时，从浏览器开发者工具里找新的编号填进来。
+          </p>
+          {Object.keys(ids)
+            .sort()
+            .map((k) => (
+              <div className="xc-field" key={k}>
+                <label htmlFor={`watchers-id-${k}`}>{k}</label>
+                <input
+                  id={`watchers-id-${k}`}
+                  className="xc-input"
+                  value={ids[k]}
+                  onChange={(e) => setIds({ ...ids, [k]: e.target.value })}
+                />
+              </div>
+            ))}
+        </details>
       </div>
     </Dialog>
   );

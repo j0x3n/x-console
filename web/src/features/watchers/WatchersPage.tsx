@@ -101,7 +101,7 @@ export default function WatchersPage() {
             label={t("Needs you")}
             value={waiting}
             tone={waiting > 0 ? "warn" : undefined}
-            foot={waiting > 0 ? "验证码、扫码或批准" : "没有要你处理的"}
+            foot={waiting > 0 ? "验证码、登录或批准" : "没有要你处理的"}
           />
           <StatCard
             label={t("AI cost today")}
@@ -115,11 +115,22 @@ export default function WatchersPage() {
           <StatCard
             label={t("Browser")}
             value={!status.data ? "—" : status.data.browser ? "正常" : "没启动"}
-            tone={status.data && !status.data.browser ? "danger" : undefined}
+            tone={
+              status.data &&
+              !status.data.browser &&
+              watchers.some((w) => w.kind === "web")
+                ? "danger"
+                : undefined
+            }
             foot={status.data?.ai === false ? "没配 AI 模型" : "AI 已配置"}
           />
         </StatStrip>
-        {status.data && !status.data.browser && <BrowserHelp />}
+        {status.data &&
+          !status.data.browser &&
+          watchers.some((w) => w.kind === "web") && <BrowserHelp />}
+        {status.data &&
+          !status.data.x &&
+          watchers.some((w) => w.kind === "x") && <XHelp />}
         {watchers.length === 0 ? (
           <EmptyState title={t("No watchers yet")} icon={<ScanEye size={26} />}>
             <span>
@@ -177,6 +188,18 @@ function BrowserHelp() {
   );
 }
 
+function XHelp() {
+  return (
+    <div className="xc-card watchers-help">
+      <strong>X 的登录 Cookie 没填或者过期了</strong>
+      <p>
+        盯 X 用的是稍后读里存的 Cookie。去 设置 → 稍后读 填 auth_token 和
+        ct0，建议用小号。
+      </p>
+    </div>
+  );
+}
+
 function Row({ w }: { w: Watcher }) {
   const t = useT();
   const language = useLanguage();
@@ -200,7 +223,10 @@ function Row({ w }: { w: Watcher }) {
   return (
     <div className={`watchers-row${needsUser(w) ? " attention" : ""}`}>
       <Link to={`/monitoring/watchers/${w.id}`} className="watchers-row-main">
-        <span className="watchers-row-name">{w.name}</span>
+        <span className="watchers-row-name">
+          {w.kind === "x" && <span className="watchers-x">X</span>}
+          {w.name}
+        </span>
         <span className="watchers-row-value" title={w.currentValue}>
           {w.currentValue ||
             (w.status === "new" || w.status === "exploring"

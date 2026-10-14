@@ -31,7 +31,7 @@ import {
   type WatcherDetail,
   type WatcherRun,
 } from "./api";
-import { minutesText, money, STATUS } from "./lib";
+import { minutesText, money, STATUS, xLabel } from "./lib";
 import WatcherDialog from "./WatcherDialog";
 import "./i18n";
 import "./watchers.css";
@@ -140,7 +140,7 @@ function Detail({ w }: { w: WatcherDetail }) {
         <div className="watchers-main">
           <section className="xc-card watchers-value-card">
             <div className="xc-card-head">
-              <h2>{t("Current value")}</h2>
+              <h2>{w.kind === "x" ? t("Latest post") : t("Current value")}</h2>
               <span className={`xc-badge ${st.tone}`}>{st.label}</span>
             </div>
             <p className="watchers-value">
@@ -153,7 +153,7 @@ function Detail({ w }: { w: WatcherDetail }) {
                 {w.statusDetail}
               </p>
             )}
-            {w.targetNote && (
+            {w.kind === "web" && w.targetNote && (
               <p className="xc-muted watchers-small">位置：{w.targetNote}</p>
             )}
           </section>
@@ -215,20 +215,24 @@ function Detail({ w }: { w: WatcherDetail }) {
         </div>
         <aside className="watchers-side">
           <section className="xc-card watchers-actions">
-            <button
-              className="xc-btn"
-              disabled={busy}
-              onClick={() => start("explore", "AI 开始重新摸索")}
-            >
-              <Sparkles size={15} /> {t("Explore again")}
-            </button>
-            <button
-              className="xc-btn"
-              disabled={busy}
-              onClick={() => start("manual", "浏览器已打开")}
-            >
-              <LogIn size={15} /> {t("Log in by hand")}
-            </button>
+            {w.kind === "web" && (
+              <>
+                <button
+                  className="xc-btn"
+                  disabled={busy}
+                  onClick={() => start("explore", "AI 开始重新摸索")}
+                >
+                  <Sparkles size={15} /> {t("Explore again")}
+                </button>
+                <button
+                  className="xc-btn"
+                  disabled={busy}
+                  onClick={() => start("manual", "浏览器已打开")}
+                >
+                  <LogIn size={15} /> {t("Log in by hand")}
+                </button>
+              </>
+            )}
             <button
               className="xc-btn"
               onClick={() =>
@@ -250,19 +254,32 @@ function Detail({ w }: { w: WatcherDetail }) {
               <dt>{t("Address")}</dt>
               <dd>
                 <a href={w.url} target="_blank" rel="noreferrer">
-                  {w.url}
+                  {w.kind === "x" ? xLabel(w.url) : w.url}
                 </a>
               </dd>
-              <dt>{t("Goal")}</dt>
-              <dd>{w.goal}</dd>
-              <dt>{t("Check every")}</dt>
-              <dd>{minutesText(w.intervalMinutes)}</dd>
-              <dt>{t("Watch mode")}</dt>
-              <dd>
-                {w.mode === "ai" ? "每次都让 AI 看" : "AI 记下步骤，平时回放"}
-              </dd>
-              <dt>{t("Login")}</dt>
-              <dd>{w.hasLogin ? "已存用户名和密码" : "没有存"}</dd>
+              {w.kind === "x" ? (
+                <>
+                  <dt>{t("Only tell me about")}</dt>
+                  <dd>{w.goal || "全部提醒"}</dd>
+                  <dt>{t("Check every")}</dt>
+                  <dd>{minutesText(w.intervalMinutes)}</dd>
+                </>
+              ) : (
+                <>
+                  <dt>{t("Goal")}</dt>
+                  <dd>{w.goal}</dd>
+                  <dt>{t("Check every")}</dt>
+                  <dd>{minutesText(w.intervalMinutes)}</dd>
+                  <dt>{t("Watch mode")}</dt>
+                  <dd>
+                    {w.mode === "ai"
+                      ? "每次都让 AI 看"
+                      : "AI 记下步骤，平时回放"}
+                  </dd>
+                  <dt>{t("Login")}</dt>
+                  <dd>{w.hasLogin ? "已存用户名和密码" : "没有存"}</dd>
+                </>
+              )}
               {w.keepaliveMinutes > 0 && (
                 <>
                   <dt>{t("Keep login alive")}</dt>

@@ -6,6 +6,7 @@ import {
   parseHosts,
   sortWatchers,
   toPage,
+  xLabel,
 } from "./lib";
 
 describe("watchers lib", () => {
@@ -44,6 +45,16 @@ describe("watchers lib", () => {
     expect(toPage(330, 245, rect, page)).toEqual({ x: 640, y: 450 });
     expect(toPage(0, 0, rect, page)).toEqual({ x: 0, y: 0 });
     expect(toPage(9999, 9999, rect, page)).toEqual({ x: 1280, y: 900 });
+  });
+
+  it("names X targets", () => {
+    expect(xLabel("https://x.com/alice")).toBe("@alice");
+    expect(
+      xLabel(
+        "https://x.com/search?f=live&q=%E7%BE%8E%E8%81%94%E5%82%A8+%E9%99%8D%E6%81%AF",
+      ),
+    ).toBe("搜索：美联储 降息");
+    expect(xLabel("https://x.com/i/status/123")).toBe("推文 123 的回复");
   });
 
   it("formats money", () => {

@@ -14,6 +14,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,6 +66,8 @@ type Module struct {
 	// chatOverride and llmOverride replace the ai module in tests.
 	chatOverride contracts.ToolChat
 	llmOverride  contracts.LLM
+	xOverride    contracts.XGraphQL
+	xLimit       xLimiter
 	waitFor      time.Duration // how long a run waits for the user
 
 	mu      sync.Mutex
@@ -176,8 +179,9 @@ type Pending struct {
 
 // Options are the module settings.
 type Options struct {
-	BudgetUSD   *float64 `json:"budgetUsd,omitempty"`
-	DangerWords []string `json:"dangerWords,omitempty"`
+	BudgetUSD   *float64          `json:"budgetUsd,omitempty"`
+	DangerWords []string          `json:"dangerWords,omitempty"`
+	XQueryIDs   map[string]string `json:"xQueryIds,omitempty"`
 }
 
 func (m *Module) options(ctx context.Context) (budget float64, words []string) {
@@ -255,10 +259,10 @@ func (m *Module) publish(id int64) {
 
 func (m *Module) toAPI(ctx context.Context, w db.Watcher) api.Watcher {
 	out := api.Watcher{
-		Id: w.ID, Name: w.Name, Url: w.Url, Goal: w.Goal, AllowedHosts: parseHosts(w.AllowedHosts),
+		Id: w.ID, Kind: api.WatcherKind(w.Kind), Name: w.Name, Url: w.Url, Goal: w.Goal, AllowedHosts: parseHosts(w.AllowedHosts),
 		IntervalMinutes: int(w.IntervalMinutes), KeepaliveMinutes: int(w.KeepaliveMinutes), Mode: api.WatcherMode(w.Mode),
 		Enabled: w.Enabled == 1, Status: api.WatcherStatus(w.Status), StatusDetail: w.StatusDetail, CurrentValue: w.CurrentValue,
-		HasLogin: w.LoginSealed != "", HasProxy: w.ProxySealed != "", HasRecipe: w.Recipe != "",
+		HasLogin: w.LoginSealed != "", HasProxy: w.ProxySealed != "", HasRecipe: w.Recipe != "" && w.Kind != "x",
 		LastCheckedAt: w.LastCheckedAt, LastChangeAt: w.LastChangeAt, NextCheckAt: w.NextCheckAt, CreatedAt: w.CreatedAt,
 	}
 	if out.AllowedHosts == nil {
@@ -287,6 +291,7 @@ func sessionKey(id int64) string { return "watcher:" + strconv.FormatInt(id, 10)
 // ---- validation ----
 
 type fields struct {
+	kind             string
 	name, url, goal  string
 	hosts            []string
 	interval, keepAl int
@@ -299,6 +304,9 @@ func (f *fields) check() error {
 	f.url = strings.TrimSpace(f.url)
 	if f.name == "" || utf8.RuneCountInString(f.name) > maxName {
 		return httpx.Invalid("名字要写，最多 100 个字")
+	}
+	if f.kind == "x" {
+		return f.checkX()
 	}
 	if f.goal == "" || utf8.RuneCountInString(f.goal) > maxGoal {
 		return httpx.Invalid("目标要写一句话，最多 1000 个字")
@@ -339,6 +347,26 @@ func (f *fields) check() error {
 	if f.mode != string(api.Replay) && f.mode != string(api.Ai) {
 		return httpx.Invalid("模式只能是 replay 或 ai")
 	}
+	return nil
+}
+
+// checkX validates an X watcher (B207). The goal is an optional filter.
+func (f *fields) checkX() error {
+	if utf8.RuneCountInString(f.goal) > maxGoal {
+		return httpx.Invalid("过滤条件最多 1000 个字")
+	}
+	_, canonical, err := parseXTarget(f.url)
+	if err != nil {
+		return err
+	}
+	f.url, f.hosts, f.mode = canonical, []string{"x.com"}, string(api.Replay)
+	if f.interval == 0 {
+		f.interval = xDefaultInterval
+	}
+	if f.interval < minInterval || f.interval > maxInterval {
+		return httpx.Invalid("检查间隔最少 15 分钟，最多 7 天")
+	}
+	f.keepAl = 0
 	return nil
 }
 
@@ -385,6 +413,8 @@ func checkProxy(p string) error {
 	return nil
 }
 
+var queryIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{8,64}$`)
+
 // ---- handlers ----
 
 // ListWatchers implements api.ServerInterface.
@@ -422,7 +452,13 @@ func (m *Module) CreateWatcher(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher, error) {
-	f := fields{name: body.Name, url: body.Url, goal: body.Goal, mode: ""}
+	f := fields{kind: "web", name: body.Name, url: body.Url, goal: body.Goal, mode: ""}
+	if body.Kind != nil {
+		if *body.Kind != api.Web && *body.Kind != api.X {
+			return db.Watcher{}, httpx.Invalid("kind 只能是 web 或 x")
+		}
+		f.kind = string(*body.Kind)
+	}
 	if body.AllowedHosts != nil {
 		f.hosts = *body.AllowedHosts
 	}
@@ -468,7 +504,10 @@ func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher,
 	}
 	hosts, _ := json.Marshal(f.hosts)
 	now := m.now()
-	return m.q.CreateWatcher(ctx, db.CreateWatcherParams{Kind: "web", Name: f.name, Url: f.url, Goal: f.goal,
+	if f.kind == "x" && (loginSealed != "" || proxySealed != "") {
+		return db.Watcher{}, httpx.Invalid("X 用稍后读里存的 Cookie，不用填登录资料和代理")
+	}
+	return m.q.CreateWatcher(ctx, db.CreateWatcherParams{Kind: f.kind, Name: f.name, Url: f.url, Goal: f.goal,
 		AllowedHosts: string(hosts), IntervalMinutes: int64(f.interval), KeepaliveMinutes: int64(f.keepAl), Mode: f.mode,
 		LoginSealed: loginSealed, ProxySealed: proxySealed, NextCheckAt: &now, CreatedAt: now, UpdatedAt: now})
 }
@@ -545,7 +584,7 @@ func (m *Module) update(ctx context.Context, id int64, body api.WatcherPatch) (d
 	if m.busy(id) && (body.Url != nil || body.Goal != nil || body.Username != nil || body.Password != nil || body.ClearLogin != nil) {
 		return cur, httpx.NewError(http.StatusConflict, "busy", "任务正在跑，等它跑完再改")
 	}
-	f := fields{name: cur.Name, url: cur.Url, goal: cur.Goal, hosts: parseHosts(cur.AllowedHosts),
+	f := fields{kind: cur.Kind, name: cur.Name, url: cur.Url, goal: cur.Goal, hosts: parseHosts(cur.AllowedHosts),
 		interval: int(cur.IntervalMinutes), keepAl: int(cur.KeepaliveMinutes), mode: cur.Mode}
 	if body.Name != nil {
 		f.name = *body.Name
@@ -605,7 +644,7 @@ func (m *Module) update(ctx context.Context, id int64, body api.WatcherPatch) (d
 		}
 	}
 	next := cur.NextCheckAt
-	if f.url != cur.Url || f.goal != cur.Goal {
+	if f.url != cur.Url || (f.goal != cur.Goal && cur.Kind != "x") {
 		// The old steps lead to the old value; explore again soon.
 		recipe = ""
 		now := m.now()
@@ -726,13 +765,17 @@ func (m *Module) GetWatchersStatus(w http.ResponseWriter, r *http.Request) {
 		out.Ai = c.Available(r.Context(), "agent")
 		out.SpentToday, _ = c.Spent(r.Context(), "watchers", "", m.startOfDay())
 	}
+	if x := m.xClient(); x != nil {
+		out.X = x.Ready(r.Context())
+	}
 	httpx.JSON(w, http.StatusOK, out)
 }
 
 // GetWatchersSettings implements api.ServerInterface.
 func (m *Module) GetWatchersSettings(w http.ResponseWriter, r *http.Request) {
 	budget, words := m.options(r.Context())
-	httpx.JSON(w, http.StatusOK, api.WatchersSettings{BudgetUsd: budget, DangerWords: words})
+	ids := m.xQueryIDs(r.Context())
+	httpx.JSON(w, http.StatusOK, api.WatchersSettings{BudgetUsd: budget, DangerWords: words, XQueryIds: &ids})
 }
 
 // PutWatchersSettings implements api.ServerInterface.
@@ -751,12 +794,32 @@ func (m *Module) PutWatchersSettings(w http.ResponseWriter, r *http.Request) {
 			words = append(words, x)
 		}
 	}
-	err := m.d.Settings.Set(r.Context(), OptionsKey, Options{BudgetUSD: &body.BudgetUsd, DangerWords: words})
+	opts := Options{BudgetUSD: &body.BudgetUsd, DangerWords: words}
+	if body.XQueryIds != nil {
+		opts.XQueryIDs = map[string]string{}
+		for k, v := range *body.XQueryIds {
+			v = strings.TrimSpace(v)
+			if _, known := defaultXQueryIDs[k]; !known || v == "" || v == defaultXQueryIDs[k] {
+				continue
+			}
+			if !queryIDRe.MatchString(v) {
+				fail(w, r, httpx.Invalid(k+" 的 queryId 格式不对"))
+				return
+			}
+			opts.XQueryIDs[k] = v
+		}
+	} else {
+		var old Options
+		_ = m.d.Settings.Get(r.Context(), OptionsKey, &old)
+		opts.XQueryIDs = old.XQueryIDs
+	}
+	err := m.d.Settings.Set(r.Context(), OptionsKey, opts)
 	m.d.Audit.Record(r.Context(), "watcher.settings", "", map[string]any{"budget": body.BudgetUsd}, err)
 	if fail(w, r, err) {
 		return
 	}
-	httpx.JSON(w, http.StatusOK, api.WatchersSettings{BudgetUsd: body.BudgetUsd, DangerWords: words})
+	ids := m.xQueryIDs(r.Context())
+	httpx.JSON(w, http.StatusOK, api.WatchersSettings{BudgetUsd: body.BudgetUsd, DangerWords: words, XQueryIds: &ids})
 }
 
 // cleanup drops old runs and screenshots that no change points at.

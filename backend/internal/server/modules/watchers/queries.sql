@@ -63,9 +63,13 @@ INSERT INTO watcher_shots (watcher_id, data, created_at) VALUES (?, ?, ?) RETURN
 -- name: GetShot :one
 SELECT data FROM watcher_shots WHERE id = ?;
 
--- name: CreateChange :exec
+-- name: CreateChange :one
 INSERT INTO watcher_changes (watcher_id, old_value, new_value, summary, important, shot_id, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id;
+
+-- name: GetChange :one
+SELECT * FROM watcher_changes WHERE id = ?;
 
 -- name: ListChanges :many
 SELECT * FROM watcher_changes WHERE watcher_id = ? ORDER BY id DESC LIMIT 50;

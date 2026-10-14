@@ -39,4 +39,10 @@ registerZh({
   "I'm done": "我弄好了",
   "Back to the watcher": "回到任务",
   "Server browser": "服务器上的浏览器",
+  // B207 盯 X
+  "Watch what": "盯什么",
+  "Account, post or search": "账号、推文或搜索词",
+  "Only tell me about": "只告诉我",
+  "X query ids": "X 接口编号",
+  "Latest post": "最新一条",
 });

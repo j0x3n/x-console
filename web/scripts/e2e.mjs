@@ -3465,6 +3465,26 @@ try {
     );
     await send("DELETE", `/watchers/${watcher.id}`);
 
+    setStage("B207 盯 X");
+    // 没填 X 的 Cookie，第一次检查停在“需要登录”，页面提示去稍后读填。
+    await page.goto(`${base}/monitoring/watchers`);
+    await page.getByRole("button", { name: "新建盯梢" }).first().click();
+    const xDialog = dialog("新建盯梢");
+    await xDialog.getByLabel("盯什么").selectOption("x");
+    await xDialog.getByLabel("名称").fill("端到端推文");
+    await xDialog.getByLabel("账号、推文或搜索词").fill("@e2e_user");
+    await xDialog.getByRole("button", { name: "保存" }).click();
+    await page.waitForURL(/\/monitoring\/watchers\/\d+$/);
+    await page
+      .locator(".watchers-value-card .xc-badge", { hasText: "需要登录" })
+      .waitFor();
+    await page.getByText("@e2e_user").first().waitFor();
+    const xWatcher = (await api("/watchers")).items.find(
+      (item) => item.name === "端到端推文",
+    );
+    assert.equal(xWatcher?.url, "https://x.com/e2e_user");
+    await send("DELETE", `/watchers/${xWatcher.id}`);
+
     // 要用本部分数据的页面
     await renderPages([
       "/projects/EET",

@@ -14,6 +14,7 @@ export type WatcherDetail = S["WatcherDetail"];
 export type WatcherInput = S["WatcherInput"];
 export type WatcherPatch = S["WatcherPatch"];
 export type WatcherStatus = S["WatcherStatus"];
+export type WatcherKind = S["WatcherKind"];
 export type WatcherRun = S["WatcherRun"];
 export type WatchersStatus = S["WatchersStatus"];
 export type WatchersSettings = S["WatchersSettings"];

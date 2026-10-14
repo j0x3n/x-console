@@ -385,3 +385,36 @@
     justify-content: flex-end;
   }
 }
+
+/* B207 盯 X */
+.watchers-x {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--xc-text);
+  color: var(--xc-bg);
+  font-size: var(--fs-10-5);
+  font-weight: 600;
+  line-height: 16px;
+  vertical-align: 1px;
+}
+.watchers-ids {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.watchers-ids summary {
+  cursor: pointer;
+  font-size: var(--fs-13);
+  color: var(--xc-text-2);
+}
+.watchers-ids[open] summary {
+  margin-bottom: 8px;
+}
+.watchers-ids .xc-field {
+  margin-top: 8px;
+}
+.watchers-change-values span:last-child {
+  white-space: pre-wrap;
+}

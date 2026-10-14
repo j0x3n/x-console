@@ -10,9 +10,10 @@ import (
 	"time"
 )
 
-const createChange = `-- name: CreateChange :exec
+const createChange = `-- name: CreateChange :one
 INSERT INTO watcher_changes (watcher_id, old_value, new_value, summary, important, shot_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)
+RETURNING id
 `
 
 type CreateChangeParams struct {
@@ -25,8 +26,8 @@ type CreateChangeParams struct {
 	CreatedAt time.Time
 }
 
-func (q *Queries) CreateChange(ctx context.Context, arg CreateChangeParams) error {
-	_, err := q.db.ExecContext(ctx, createChange,
+func (q *Queries) CreateChange(ctx context.Context, arg CreateChangeParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, createChange,
 		arg.WatcherID,
 		arg.OldValue,
 		arg.NewValue,
@@ -35,7 +36,9 @@ func (q *Queries) CreateChange(ctx context.Context, arg CreateChangeParams) erro
 		arg.ShotID,
 		arg.CreatedAt,
 	)
-	return err
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }
 
 const createRun = `-- name: CreateRun :one
@@ -198,6 +201,26 @@ func (q *Queries) FinishWatcherCheck(ctx context.Context, arg FinishWatcherCheck
 		arg.ID,
 	)
 	return err
+}
+
+const getChange = `-- name: GetChange :one
+SELECT id, watcher_id, old_value, new_value, summary, important, shot_id, created_at FROM watcher_changes WHERE id = ?
+`
+
+func (q *Queries) GetChange(ctx context.Context, id int64) (WatcherChange, error) {
+	row := q.db.QueryRowContext(ctx, getChange, id)
+	var i WatcherChange
+	err := row.Scan(
+		&i.ID,
+		&i.WatcherID,
+		&i.OldValue,
+		&i.NewValue,
+		&i.Summary,
+		&i.Important,
+		&i.ShotID,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getShot = `-- name: GetShot :one

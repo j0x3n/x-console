@@ -77,6 +77,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.ActivitySource](d.Registry, contracts.ActivitySourcePrefix+"readlater", activitySource{m})    // B118
 	module.Provide[contracts.KnowledgeSource](d.Registry, contracts.KnowledgeSourcePrefix+"readlater", knowledgeSource{m}) // B139
 	module.Provide[contracts.TelegramInbox](d.Registry, contracts.TelegramInboxKey, m)
+	module.Provide[contracts.XGraphQL](d.Registry, contracts.XGraphQLKey, xGraphQL{m}) // B207
 	return m, nil
 }
 

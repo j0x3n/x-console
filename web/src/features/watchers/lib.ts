@@ -65,6 +65,20 @@ export function toPage(
   };
 }
 
+/** X 任务的地址换成看得懂的说法：@账号、搜索：…、推文 123 的回复。 */
+export function xLabel(url: string) {
+  try {
+    const u = new URL(url);
+    if (u.pathname === "/search")
+      return `搜索：${u.searchParams.get("q") ?? ""}`;
+    const post = u.pathname.match(/\/status\/(\d+)/);
+    if (post) return `推文 ${post[1]} 的回复`;
+    return `@${u.pathname.replace(/^\/|\/$/g, "")}`;
+  } catch {
+    return url;
+  }
+}
+
 export function money(v: number | undefined) {
   if (v == null) return "—";
   return `$${v < 1 ? v.toFixed(3) : v.toFixed(2)}`;

@@ -232,16 +232,21 @@ components:
         message: { type: string }
         since: { type: string, format: date-time }
         live: { type: boolean, description: 浏览器还开着，可以接管 }
+    WatcherKind:
+      type: string
+      description: web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
+      enum: [web, x]
     Watcher:
       type: object
       required:
-        [id, name, url, goal, allowedHosts, intervalMinutes, keepaliveMinutes, mode, enabled, status, statusDetail,
+        [id, kind, name, url, goal, allowedHosts, intervalMinutes, keepaliveMinutes, mode, enabled, status, statusDetail,
          currentValue, hasLogin, hasProxy, hasRecipe, createdAt]
       properties:
         id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/WatcherKind" }
         name: { type: string }
-        url: { type: string }
-        goal: { type: string, description: 一句话目标，告诉 AI 要盯什么 }
+        url: { type: string, description: 网页地址；X 是账号、搜索或推文的 x.com 地址 }
+        goal: { type: string, description: 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空 }
         allowedHosts: { type: array, items: { type: string } }
         intervalMinutes: { type: integer }
         keepaliveMinutes: { type: integer, description: 0 是不保活 }
@@ -263,8 +268,9 @@ components:
       type: object
       required: [name, url, goal]
       properties:
+        kind: { $ref: "#/components/schemas/WatcherKind" }
         name: { type: string }
-        url: { type: string }
+        url: { type: string, description: X 可以写 @账号、账号或推文的链接、搜索词 }
         goal: { type: string }
         allowedHosts: { type: array, items: { type: string }, description: 不填就用网址的域名 }
         intervalMinutes: { type: integer, description: 默认 60，最少 15 }
@@ -338,12 +344,13 @@ components:
             targetNote: { type: string, description: 要盯的内容在哪 }
     WatchersStatus:
       type: object
-      required: [browser, browserConfigured, ai, spentToday, budgetUsd]
+      required: [browser, browserConfigured, ai, x, spentToday, budgetUsd]
       properties:
         browser: { type: boolean, description: 浏览器连得上 }
         browserConfigured: { type: boolean }
         browserError: { type: string }
         ai: { type: boolean, description: 配了 AI 模型 }
+        x: { type: boolean, description: 存了 X 的登录 Cookie，而且没有过期 }
         spentToday: { type: number, format: double }
         budgetUsd: { type: number, format: double }
     WatchersSettings:
@@ -352,3 +359,7 @@ components:
       properties:
         budgetUsd: { type: number, format: double, description: 每天 AI 花费上限（美元），0 是不用 AI }
         dangerWords: { type: array, items: { type: string }, description: 按钮上有这些字时，点之前要批准 }
+        xQueryIds:
+          type: object
+          additionalProperties: { type: string }
+          description: X 网页接口的 queryId，键是 UserByScreenName、UserTweets、SearchTimeline、TweetDetail。X 改版后要换。不填用默认值。

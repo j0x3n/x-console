@@ -190,12 +190,19 @@ export interface components {
             /** @description 浏览器还开着，可以接管 */
             live?: boolean;
         };
+        /**
+         * @description web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
+         * @enum {string}
+         */
+        WatcherKind: "web" | "x";
         Watcher: {
             /** Format: int64 */
             id: number;
+            kind: components["schemas"]["WatcherKind"];
             name: string;
+            /** @description 网页地址；X 是账号、搜索或推文的 x.com 地址 */
             url: string;
-            /** @description 一句话目标，告诉 AI 要盯什么 */
+            /** @description 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空 */
             goal: string;
             allowedHosts: string[];
             intervalMinutes: number;
@@ -227,7 +234,9 @@ export interface components {
             createdAt: string;
         };
         WatcherInput: {
+            kind?: components["schemas"]["WatcherKind"];
             name: string;
+            /** @description X 可以写 @账号、账号或推文的链接、搜索词 */
             url: string;
             goal: string;
             /** @description 不填就用网址的域名 */
@@ -316,6 +325,8 @@ export interface components {
             browserError?: string;
             /** @description 配了 AI 模型 */
             ai: boolean;
+            /** @description 存了 X 的登录 Cookie，而且没有过期 */
+            x: boolean;
             /** Format: double */
             spentToday: number;
             /** Format: double */
@@ -329,6 +340,10 @@ export interface components {
             budgetUsd: number;
             /** @description 按钮上有这些字时，点之前要批准 */
             dangerWords: string[];
+            /** @description X 网页接口的 queryId，键是 UserByScreenName、UserTweets、SearchTimeline、TweetDetail。X 改版后要换。不填用默认值。 */
+            xQueryIds?: {
+                [key: string]: string;
+            };
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */

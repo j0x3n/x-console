@@ -78,6 +78,7 @@ function renderAt(path: string, node: React.ReactNode, pattern = "*") {
 
 const base = {
   id: 3,
+  kind: "web",
   name: "签证进度",
   url: "https://example.gov.cn/status",
   goal: "盯办理状态",
@@ -192,6 +193,42 @@ describe("WatchersPage", () => {
         mode: "replay",
         username: "alice",
         password: "pw",
+      }),
+    );
+  });
+});
+
+describe("X watchers", () => {
+  it("creates an X watcher without login fields", async () => {
+    api.routes.set("GET /watchers", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("GET /watchers/status", () => ({ status: 404 }));
+    api.routes.set("POST /watchers", (body) => ({
+      status: 201,
+      body: { ...base, ...(body as object), id: 10 },
+    }));
+    renderAt("/monitoring/watchers?new=1", <WatchersPage />);
+    await screen.findByText("还没有盯梢任务");
+    fireEvent.change(screen.getByLabelText("盯什么"), {
+      target: { value: "x" },
+    });
+    expect(screen.queryByLabelText(/^(Password|密码)$/)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^(Name|名称)$/), {
+      target: { value: "Alice" },
+    });
+    fireEvent.change(screen.getByLabelText("账号、推文或搜索词"), {
+      target: { value: "@alice" },
+    });
+    fireEvent.click(screen.getByText(/^(Save|保存)$/));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({
+        kind: "x",
+        name: "Alice",
+        url: "@alice",
+        goal: "",
+        intervalMinutes: 30,
       }),
     );
   });

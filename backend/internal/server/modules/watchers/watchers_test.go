@@ -199,8 +199,20 @@ func (f *fakeLLM) Available(context.Context) bool { return true }
 func (f *fakeLLM) CompleteText(context.Context, string, string, string) (string, error) {
 	return "", nil
 }
-func (f *fakeLLM) CompleteJSON(_ context.Context, _, _, user string, _ json.RawMessage, out any) error {
+func (f *fakeLLM) CompleteJSON(_ context.Context, _, system, user string, _ json.RawMessage, out any) error {
 	f.calls++
+	if strings.Contains(system, "推文") {
+		// keep only posts about 降息
+		keep := []int{}
+		for _, line := range strings.Split(user, "\n") {
+			var i int
+			if _, err := fmt.Sscanf(line, "[%d]", &i); err == nil && strings.Contains(line, "降息") {
+				keep = append(keep, i)
+			}
+		}
+		raw, _ := json.Marshal(map[string]any{"keep": keep, "summary": "有降息的消息"})
+		return json.Unmarshal(raw, out)
+	}
 	return json.Unmarshal([]byte(`{"important":true,"summary":"办理状态变成已受理"}`), out)
 }
 
