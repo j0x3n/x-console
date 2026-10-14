@@ -18,11 +18,10 @@ services:
     # .env 里写了 XC_TRUSTED_PROXIES 时用 .env 的。
     environment:
       XC_TRUSTED_PROXIES: ${XC_TRUSTED_PROXIES:-127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
+      # 网页盯梢用的浏览器（B205）。不开 browser profile 时连不上，只影响网页盯梢。
+      XC_BROWSER: ${XC_BROWSER:-http://browser:9222}
     volumes:
       - xc-data:/data
-    environment:
-      # 网页盯梢用的浏览器（B205）。不开 browser profile 时连不上，只影响网页盯梢。
-      - XC_BROWSER=${XC_BROWSER:-http://browser:9222}
     ports:
       - "127.0.0.1:${XC_PORT:-17380}:8080"
     # 防止异常时占满服务器内存和磁盘
