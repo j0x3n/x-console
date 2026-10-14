@@ -52,6 +52,7 @@ func New(d *module.Deps) (module.Module, error) {
 	module.Provide[contracts.ToolRunner](d.Registry, contracts.ToolRunnerKey, m) // B47
 	module.Provide[contracts.Memories](d.Registry, contracts.MemoriesKey, m)     // B61
 	module.Provide[contracts.AssistantDecisions](d.Registry, contracts.AssistantDecisionsKey, m)
+	module.Provide[contracts.ToolChat](d.Registry, contracts.ToolChatKey, toolChat{m}) // B206
 	// A second module on the same registry (tests) keeps the first one's actions.
 	if _, ok := d.Actions.Get(context.Background(), "memory.save"); !ok {
 		m.registerMemoryActions()

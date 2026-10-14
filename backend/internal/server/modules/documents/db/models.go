@@ -1722,6 +1722,66 @@ type User struct {
 	SetupCompleted int64
 }
 
+type Watcher struct {
+	ID               int64
+	Kind             string
+	Name             string
+	Url              string
+	Goal             string
+	AllowedHosts     string
+	IntervalMinutes  int64
+	KeepaliveMinutes int64
+	Mode             string
+	Enabled          int64
+	Status           string
+	StatusDetail     string
+	CurrentValue     string
+	Recipe           string
+	Pending          string
+	FailCount        int64
+	LoginSealed      string
+	ProxySealed      string
+	StateSealed      string
+	AsksDay          string
+	AsksCount        int64
+	LastCheckedAt    *time.Time
+	LastChangeAt     *time.Time
+	LastKeepaliveAt  *time.Time
+	NextCheckAt      *time.Time
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type WatcherChange struct {
+	ID        int64
+	WatcherID int64
+	OldValue  string
+	NewValue  string
+	Summary   string
+	Important int64
+	ShotID    *int64
+	CreatedAt time.Time
+}
+
+type WatcherRun struct {
+	ID         int64
+	WatcherID  int64
+	Kind       string
+	Outcome    string
+	Detail     string
+	Steps      string
+	Tokens     int64
+	StartedAt  time.Time
+	FinishedAt *time.Time
+}
+
+type WatcherShot struct {
+	ID        int64
+	WatcherID int64
+	Data      []byte
+	CreatedAt time.Time
+}
+
 type WebpushSubscription struct {
 	ID          int64
 	Endpoint    string

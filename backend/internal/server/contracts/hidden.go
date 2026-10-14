@@ -52,6 +52,7 @@ var backendSidebar = map[string]string{
 	"drive":         "drive",
 	"calendar":      "calendar",
 	"monitoring":    "monitoring",
+	"watchers":      "monitoring", // B206
 	"homeassistant": "home",
 	"automations":   "automations",
 	"github":        "github",
@@ -90,7 +91,7 @@ func ActionHidden(ctx context.Context, h HiddenModules, name string) bool {
 		return h.Hidden(ctx, "calendar")
 	case "hosts":
 		return h.Hidden(ctx, "servers") && h.Hidden(ctx, "pc")
-	case "scripts", "monitors", "subscriptions", "monitoring":
+	case "scripts", "monitors", "subscriptions", "monitoring", "watchers": // B206
 		return h.Hidden(ctx, "monitoring")
 	case "ha", "homeassistant":
 		return h.Hidden(ctx, "home")

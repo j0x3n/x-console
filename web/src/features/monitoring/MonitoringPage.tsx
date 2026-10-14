@@ -25,6 +25,8 @@ import SubscriptionsTab from "./components/SubscriptionsTab";
 
 // AI 额度（B152）放在监控下面，页面自带标题和统计条
 const QuotasPage = lazy(() => import("../quotas/QuotasPage"));
+// 网页盯梢（B206）也放在监控下面，页面自带标题和统计条
+const WatchersPage = lazy(() => import("../watchers/WatchersPage"));
 
 const tabs = [
   { id: "", label: "Websites", to: "/monitoring", add: "New website" },
@@ -61,6 +63,12 @@ export default function MonitoringPage() {
     return (
       <Suspense fallback={<Loading />}>
         <QuotasPage />
+      </Suspense>
+    );
+  if (tab === "watchers")
+    return (
+      <Suspense fallback={<Loading />}>
+        <WatchersPage />
       </Suspense>
     );
   return (

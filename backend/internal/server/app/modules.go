@@ -49,6 +49,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/skills"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/storage"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/vault"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/watchers"
 )
 
 // constructors lists every feature module. Add one line per module:
@@ -106,4 +107,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	dayplan.New,     // B135
 	focusblock.New,  // B131
 	me.New,          // B162
+	watchers.New,    // B206
 }

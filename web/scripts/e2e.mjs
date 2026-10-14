@@ -3438,6 +3438,33 @@ try {
     const game = (await api("/projects")).find((item) => item.key === "EEG");
     assert.equal(game?.issueCount, 10, "独立游戏模板没有建好起步卡片");
 
+    setStage("B206 网页盯梢");
+    // 端到端环境没有浏览器容器，建好后第一次摸索会出错，页面要说清原因。
+    await page.goto(`${base}/monitoring/watchers`);
+    await page.getByRole("button", { name: "新建盯梢" }).first().click();
+    const watcherDialog = dialog("新建盯梢");
+    await watcherDialog.getByLabel("名称").fill("端到端办件");
+    await watcherDialog
+      .getByLabel("地址")
+      .fill("https://www.example.gov.cn/status");
+    await watcherDialog.getByLabel("要盯什么").fill("看办理状态");
+    await watcherDialog.getByRole("button", { name: "保存" }).click();
+    await page.waitForURL(/\/monitoring\/watchers\/\d+$/);
+    await page
+      .locator(".watchers-value-card .xc-badge", { hasText: "出错" })
+      .waitFor();
+    await page.getByText("AI 摸索").first().waitFor();
+    const watcher = (await api("/watchers")).items.find(
+      (item) => item.name === "端到端办件",
+    );
+    assert.deepEqual(watcher?.allowedHosts, ["example.gov.cn"]);
+    await page.getByRole("button", { name: "暂停" }).click();
+    await until(
+      "网页盯梢暂停",
+      async () => (await api(`/watchers/${watcher.id}`)).enabled === false,
+    );
+    await send("DELETE", `/watchers/${watcher.id}`);
+
     // 要用本部分数据的页面
     await renderPages([
       "/projects/EET",

@@ -12,6 +12,7 @@ import { routes as calendar } from "../features/calendar/routes";
 import { routes as servers } from "../features/servers/routes";
 import { routes as pc } from "../features/pc/routes";
 import { routes as monitoring } from "../features/monitoring/routes";
+import { routes as watchers } from "../features/watchers/routes";
 import { routes as home } from "../features/home/routes";
 import { routes as router } from "../features/router/routes";
 import { routes as quotas } from "../features/quotas/routes";
@@ -52,6 +53,7 @@ export const moduleRoutes: RouteObject[] = [
   ...servers,
   ...pc,
   ...monitoring,
+  ...watchers,
   ...home,
   ...router,
   ...quotas,

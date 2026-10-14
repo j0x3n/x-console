@@ -92,7 +92,8 @@ function __xc(op, arg) {
       const t = (el.type || 'text').toLowerCase();
       if (t === 'submit' || t === 'button' || t === 'reset') return '[' + ref + '] 按钮 "' + cut(norm(el.value), 60) + '"';
       if (t === 'checkbox' || t === 'radio') return '[' + ref + '] ' + (t === 'checkbox' ? '勾选框' : '单选') + ' "' + cut(label(el) || el.name || '', 60) + '"' + (el.checked ? ' 已选' : '');
-      const val = t === 'password' ? (el.value ? '已填' : '空') : cut(el.value || '', 60);
+      const hidden = t === 'password' || el.hasAttribute('data-xc-secret');
+      const val = hidden ? (el.value ? '已填' : '空') : cut(el.value || '', 60);
       return '[' + ref + '] 输入框 type=' + t + (el.name ? ' name=' + el.name : '') + (label(el) ? ' "' + cut(label(el), 60) + '"' : '') + ' 值=' + JSON.stringify(val);
     }
     if (tag === 'SELECT') {
@@ -256,7 +257,9 @@ function __xc(op, arg) {
       if (loc.text) tries.push(() => pick(Array.from(doc.querySelectorAll(tag)).filter((el) => cut(norm(el.innerText || el.value || ''), 80) === loc.text)));
       if (loc.placeholder) tries.push(() => pick(Array.from(doc.querySelectorAll(tag + '[placeholder="' + CSS.escape(loc.placeholder) + '"]'))));
       if (loc.aria) tries.push(() => pick(Array.from(doc.querySelectorAll(tag + '[aria-label="' + CSS.escape(loc.aria) + '"]'))));
-      if (loc.css) tries.push(() => pick(Array.from(doc.querySelectorAll(loc.css))));
+      // By position only when the text still matches, so a moved layout
+      // never turns a click on one button into a click on another.
+      if (loc.css) tries.push(() => pick(Array.from(doc.querySelectorAll(loc.css)).filter((el) => !loc.text || cut(norm(el.innerText || el.value || ''), 80) === loc.text)));
     }
     for (const t of tries) {
       let el = null;
@@ -347,6 +350,11 @@ function __xc(op, arg) {
     return norm(el.innerText || el.value || '');
   }
 
+  function el_secret(ref) {
+    const el = byRef(ref);
+    return !!(el && el.hasAttribute('data-xc-secret'));
+  }
+
   function storage() {
     const out = {};
     try {
@@ -378,7 +386,12 @@ function __xc(op, arg) {
     case 'check':
       return check();
     case 'text':
-      return text(arg);
+      return el_secret(arg) ? null : text(arg);
+    case 'secret': {
+      const el = byRef(arg);
+      if (el) el.setAttribute('data-xc-secret', '1');
+      return !!el;
+    }
     case 'storage':
       return storage();
   }

@@ -712,6 +712,25 @@ func (x *Session) Type(ctx context.Context, ref, text string) error {
 	return x.c.call(ctx, x.sid, "Input.insertText", map[string]any{"text": text}, nil)
 }
 
+// Fill types a secret, such as a stored user name, into the field with ref.
+// Snapshot then shows the field as filled without its value, and Text
+// does not read it.
+func (x *Session) Fill(ctx context.Context, ref, text string) error {
+	if err := x.Type(ctx, ref, text); err != nil {
+		return err
+	}
+	x.ops.Lock()
+	defer x.ops.Unlock()
+	var ok bool
+	if err := x.eval(ctx, "secret", ref, &ok); err != nil {
+		return err
+	}
+	if !ok {
+		return ErrNoElement
+	}
+	return nil
+}
+
 // Select picks the option with this text or value in a drop-down.
 func (x *Session) Select(ctx context.Context, ref, value string) error {
 	x.ops.Lock()

@@ -1,5 +1,12 @@
 import { useLocation } from "react-router";
-import { FileCode2, Gauge, Globe, Receipt, ShieldCheck } from "lucide-react";
+import {
+  FileCode2,
+  Gauge,
+  Globe,
+  Receipt,
+  ScanEye,
+  ShieldCheck,
+} from "lucide-react";
 import NavChildLinks from "../../components/layout/NavChildLinks";
 import {
   NavPanelGroup,
@@ -11,6 +18,7 @@ import type { NavChildrenProps } from "../../lib/navChildren";
 import { useMonitors, useScripts, useSubscriptions } from "./api";
 import { monitorTone } from "./lib";
 import { useQuotaAccounts } from "../quotas/api";
+import { useWatchers } from "../watchers/api";
 
 /**
  * 左栏“监控”的二级菜单（用户 2026-10-05 要求）：网站、证书与域名、脚本、订阅，
@@ -26,6 +34,7 @@ export default function MonitoringNavChildren({
   const scripts = useScripts();
   const subs = useSubscriptions(false);
   const quotas = useQuotaAccounts();
+  const watchers = useWatchers();
   const list = monitors.data ?? [];
   const down = list.filter((m) => m.enabled && m.lastStatus === "down");
   const sites = list.filter((m) => m.kind === "http");
@@ -86,6 +95,20 @@ export default function MonitoringNavChildren({
           }
           danger
           active={tab === "quotas"}
+          onNavigate={onNavigate}
+        />
+        {/* B206：网页盯梢。数字是等你处理的任务数 */}
+        <NavPanelLink
+          to="/monitoring/watchers"
+          icon={ScanEye}
+          label={t("Web watchers")}
+          count={
+            (watchers.data ?? []).filter(
+              (w) => w.status === "waiting" || w.status === "login",
+            ).length || null
+          }
+          danger
+          active={tab !== null && tab.startsWith("watchers")}
           onNavigate={onNavigate}
         />
       </NavPanelGroup>

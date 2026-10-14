@@ -450,6 +450,7 @@ const routes = [
   ["home", "/home"],
   ["router", "/router"],
   ["quotas", "/monitoring/quotas"],
+  ["watchers", "/monitoring/watchers"],
   ["documents", "/documents"],
   ["screentime", "/screentime"],
   ["readlater", "/readlater"],

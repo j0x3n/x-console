@@ -1,0 +1,354 @@
+openapi: 3.0.3
+info:
+  title: X Console watchers (B206)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /watchers:
+    get:
+      operationId: listWatchers
+      tags: [watchers]
+      responses:
+        "200":
+          description: 全部盯梢任务，按创建时间
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Watcher" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createWatcher
+      tags: [watchers]
+      description: 新建任务。带登录资料或出口代理时需要提升权限。建好后马上开始第一次摸索。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatcherInput" }
+      responses:
+        "201":
+          description: 新任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Watcher" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/status:
+    get:
+      operationId: getWatchersStatus
+      tags: [watchers]
+      description: 浏览器能不能用，AI 能不能用，今天花了多少。
+      responses:
+        "200":
+          description: 状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchersStatus" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/settings:
+    get:
+      operationId: getWatchersSettings
+      tags: [watchers]
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchersSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putWatchersSettings
+      tags: [watchers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchersSettings" }
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchersSettings" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/shots/{shotId}:
+    parameters:
+      - name: shotId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    get:
+      operationId: getWatcherShot
+      tags: [watchers]
+      description: 一张截图（JPEG）。
+      responses:
+        "200":
+          description: 截图
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/{watcherId}:
+    parameters:
+      - $ref: "#/components/parameters/WatcherId"
+    get:
+      operationId: getWatcher
+      tags: [watchers]
+      responses:
+        "200":
+          description: 任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatcherDetail" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateWatcher
+      tags: [watchers]
+      description: 改任务。改登录资料或出口代理时需要提升权限。改了网址或目标时，下次检查前重新摸索。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatcherPatch" }
+      responses:
+        "200":
+          description: 改后的任务
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Watcher" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteWatcher
+      tags: [watchers]
+      description: 删除任务、历史和截图，也删掉保存的登录状态。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/{watcherId}/run:
+    parameters:
+      - $ref: "#/components/parameters/WatcherId"
+    post:
+      operationId: runWatcher
+      tags: [watchers]
+      description: |
+        立即跑一次。check 按记下的步骤检查（没有步骤时等于 explore），explore 让 AI 重新摸索，
+        manual 打开浏览器交给用户（比如第一次扫码登录），用户点“我弄好了”后保存登录状态。
+        任务正在跑时回 409。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind: { type: string, enum: [check, explore, manual] }
+      responses:
+        "202":
+          description: 已开始
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/{watcherId}/answer:
+    parameters:
+      - $ref: "#/components/parameters/WatcherId"
+    post:
+      operationId: answerWatcher
+      tags: [watchers]
+      description: |
+        回答任务正在等的事。done 是验证码、扫码或手动登录弄好了；approve 和 deny 是批准或拒绝点一个可能改数据的按钮；
+        cancel 是不处理了，这次检查结束。没有在等时回 409。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answer]
+              properties:
+                answer: { type: string, enum: [done, approve, deny, cancel] }
+      responses:
+        "204":
+          description: 已回答
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/{watcherId}/live:
+    parameters:
+      - $ref: "#/components/parameters/WatcherId"
+    get:
+      operationId: openWatcherLive
+      tags: [watchers]
+      description: |
+        WebSocket 人工接管。需要提升权限，在升级之前检查。任务没有打开的浏览器时回 409。
+        服务端发二进制帧（页面的 JPEG 画面）和文本帧 JSON {"type":"frame","width":1280,"height":900}（紧跟在画面后面，说明坐标范围）、
+        {"type":"closed"}（浏览器关了）。客户端发文本帧 JSON：
+        {"type":"click|down|move|drag|up","x":..,"y":..}、{"type":"wheel","x":..,"y":..,"deltaY":..}、
+        {"type":"text","text":"..."}、{"type":"key","key":"Enter|Tab|Backspace|Escape|ArrowDown|ArrowUp"}。
+      responses:
+        "101":
+          description: 升级为 WebSocket
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    WatcherId:
+      name: watcherId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    WatcherStatus:
+      type: string
+      description: |
+        new 还没跑过；exploring AI 在摸索；checking 在检查；ok 正常；waiting 等你处理（验证码、扫码、批准）；
+        login 需要登录（等了没人处理）；error 出错；paused 已暂停。
+      enum: [new, exploring, checking, ok, waiting, login, error, paused]
+    WatcherMode:
+      type: string
+      description: replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
+      enum: [replay, ai]
+    WatcherPending:
+      type: object
+      required: [kind, message, since]
+      properties:
+        kind:
+          type: string
+          description: captcha 验证码、短信或扫码；approve 要批准点一个按钮；manual 用户自己操作；stuck AI 卡住了要用户帮忙
+          enum: [captcha, approve, manual, stuck]
+        message: { type: string }
+        since: { type: string, format: date-time }
+        live: { type: boolean, description: 浏览器还开着，可以接管 }
+    Watcher:
+      type: object
+      required:
+        [id, name, url, goal, allowedHosts, intervalMinutes, keepaliveMinutes, mode, enabled, status, statusDetail,
+         currentValue, hasLogin, hasProxy, hasRecipe, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        url: { type: string }
+        goal: { type: string, description: 一句话目标，告诉 AI 要盯什么 }
+        allowedHosts: { type: array, items: { type: string } }
+        intervalMinutes: { type: integer }
+        keepaliveMinutes: { type: integer, description: 0 是不保活 }
+        mode: { $ref: "#/components/schemas/WatcherMode" }
+        enabled: { type: boolean }
+        status: { $ref: "#/components/schemas/WatcherStatus" }
+        statusDetail: { type: string }
+        currentValue: { type: string }
+        hasLogin: { type: boolean, description: 存了用户名和密码 }
+        hasProxy: { type: boolean }
+        hasRecipe: { type: boolean, description: 已经记下了步骤 }
+        pending: { $ref: "#/components/schemas/WatcherPending" }
+        lastCheckedAt: { type: string, format: date-time }
+        lastChangeAt: { type: string, format: date-time }
+        nextCheckAt: { type: string, format: date-time }
+        spent30d: { type: number, format: double, description: 最近 30 天的 AI 花费（美元） }
+        createdAt: { type: string, format: date-time }
+    WatcherInput:
+      type: object
+      required: [name, url, goal]
+      properties:
+        name: { type: string }
+        url: { type: string }
+        goal: { type: string }
+        allowedHosts: { type: array, items: { type: string }, description: 不填就用网址的域名 }
+        intervalMinutes: { type: integer, description: 默认 60，最少 15 }
+        keepaliveMinutes: { type: integer, description: 0 是不保活，最少 5 }
+        mode: { $ref: "#/components/schemas/WatcherMode" }
+        proxy: { type: string, description: 出口代理，http://、https:// 或 socks5://，可带用户名密码 }
+        username: { type: string }
+        password: { type: string }
+    WatcherPatch:
+      type: object
+      properties:
+        name: { type: string }
+        url: { type: string }
+        goal: { type: string }
+        allowedHosts: { type: array, items: { type: string } }
+        intervalMinutes: { type: integer }
+        keepaliveMinutes: { type: integer }
+        mode: { $ref: "#/components/schemas/WatcherMode" }
+        enabled: { type: boolean }
+        proxy: { type: string, description: 空字符串是去掉代理 }
+        username: { type: string }
+        password: { type: string }
+        clearLogin: { type: boolean, description: 删掉存的用户名、密码和登录状态 }
+    WatcherChange:
+      type: object
+      required: [id, oldValue, newValue, summary, important, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        oldValue: { type: string }
+        newValue: { type: string }
+        summary: { type: string }
+        important: { type: boolean }
+        shotId: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+    WatcherStep:
+      type: object
+      required: [at, text]
+      properties:
+        at: { type: string, format: date-time }
+        text: { type: string }
+        shotId: { type: integer, format: int64 }
+    WatcherRun:
+      type: object
+      required: [id, kind, startedAt, outcome, detail, steps, tokens]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { type: string, enum: [check, explore, manual, keepalive] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        outcome:
+          type: string
+          description: running 还在跑；same 没变化；changed 有变化；ok 完成；failed 失败；cancelled 取消
+          enum: [running, same, changed, ok, failed, cancelled]
+        detail: { type: string }
+        steps: { type: array, items: { $ref: "#/components/schemas/WatcherStep" } }
+        tokens: { type: integer, format: int64 }
+    WatcherRecipeStep:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, description: 给人看的一句话 }
+    WatcherDetail:
+      allOf:
+        - $ref: "#/components/schemas/Watcher"
+        - type: object
+          required: [changes, runs, recipe]
+          properties:
+            changes: { type: array, items: { $ref: "#/components/schemas/WatcherChange" }, description: 最近 50 条 }
+            runs: { type: array, items: { $ref: "#/components/schemas/WatcherRun" }, description: 最近 20 次 }
+            recipe: { type: array, items: { $ref: "#/components/schemas/WatcherRecipeStep" } }
+            targetNote: { type: string, description: 要盯的内容在哪 }
+    WatchersStatus:
+      type: object
+      required: [browser, browserConfigured, ai, spentToday, budgetUsd]
+      properties:
+        browser: { type: boolean, description: 浏览器连得上 }
+        browserConfigured: { type: boolean }
+        browserError: { type: string }
+        ai: { type: boolean, description: 配了 AI 模型 }
+        spentToday: { type: number, format: double }
+        budgetUsd: { type: number, format: double }
+    WatchersSettings:
+      type: object
+      required: [budgetUsd, dangerWords]
+      properties:
+        budgetUsd: { type: number, format: double, description: 每天 AI 花费上限（美元），0 是不用 AI }
+        dangerWords: { type: array, items: { type: string }, description: 按钮上有这些字时，点之前要批准 }
