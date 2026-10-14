@@ -468,6 +468,20 @@ type Contact struct {
 	ExternalID       string
 }
 
+type CookTimer struct {
+	ID               int64
+	RecipeID         *int64
+	RecipeTitle      string
+	StepIndex        *int64
+	Label            string
+	Seconds          int64
+	State            string
+	EndsAt           *time.Time
+	RemainingSeconds int64
+	DoneAt           *time.Time
+	CreatedAt        time.Time
+}
+
 type Credential struct {
 	ID              int64
 	Kind            string
@@ -1536,6 +1550,22 @@ type ReadItem struct {
 	Kind          string
 	MetaJson      string
 	DownloadMedia int64
+}
+
+type Recipe struct {
+	ID           int64
+	Title        string
+	Summary      string
+	Servings     string
+	TotalMinutes *int64
+	Ingredients  string
+	Steps        string
+	Tips         string
+	Tags         string
+	SourceNoteID *int64
+	SourceUrl    string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type Reminder struct {

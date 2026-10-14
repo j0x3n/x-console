@@ -29,6 +29,7 @@ import { routes as inbox } from "../features/inbox/routes";
 import { routes as knowledge } from "../features/knowledge/routes";
 import { routes as skills } from "../features/skills/routes";
 import { routes as dayplan } from "../features/dayplan/routes";
+import { routes as recipes } from "../features/recipes/routes";
 import { routes as credentials } from "../features/credentials/routes";
 import { routes as aiconfig } from "../features/aiconfig/routes";
 import { routes as readlater } from "../features/readlater/routes";
@@ -72,6 +73,7 @@ export const moduleRoutes: RouteObject[] = [
   ...skills,
   ...knowledge,
   ...dayplan,
+  ...recipes,
   ...credentials,
   ...aiconfig,
   ...automations,

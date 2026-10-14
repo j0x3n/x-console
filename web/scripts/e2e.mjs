@@ -1014,6 +1014,53 @@ try {
         !(await api("/credentials")).items.some((c) => c.name === "端到端令牌"),
     );
 
+    setStage("菜谱");
+    // B209：新建菜谱，打开做菜页，点计时按钮开始计时，取消计时，删除菜谱。
+    await page.goto(`${base}/recipes/new`);
+    await page.getByLabel("菜名", { exact: true }).fill("端到端炒鸡");
+    await page.getByLabel("食材名", { exact: true }).first().fill("公鸡");
+    await page
+      .getByLabel("这一步怎么做", { exact: true })
+      .first()
+      .fill("小火炖 20 分钟");
+    await page.getByRole("button", { name: /保存/ }).last().click();
+    await until("菜谱新建", async () =>
+      (await api("/recipes")).items.some((r) => r.title === "端到端炒鸡"),
+    );
+    const recipe = (await api("/recipes")).items.find(
+      (r) => r.title === "端到端炒鸡",
+    );
+    assert.equal(recipe.ingredients[0].name, "公鸡");
+    await page.waitForURL(`${base}/recipes/${recipe.id}`);
+    await page.getByRole("button", { name: /开始做菜/ }).first().click();
+    await page.getByRole("button", { name: /计时 20 分钟/ }).click();
+    await until("开始计时", async () =>
+      (await api("/cook-timers")).items.some((x) => x.recipeId === recipe.id),
+    );
+    await page
+      .locator(".recipes-cook-running")
+      .getByRole("button", { name: "取消计时" })
+      .click();
+    await until(
+      "取消计时",
+      async () =>
+        !(await api("/cook-timers")).items.some(
+          (x) => x.recipeId === recipe.id,
+        ),
+    );
+    await page.goto(`${base}/recipes/${recipe.id}`);
+    await page.getByRole("button", { name: /更多/ }).first().click();
+    await page.getByRole("menuitem", { name: "删除" }).click();
+    await page
+      .getByRole("button", { name: "删除", exact: true })
+      .last()
+      .click();
+    await until(
+      "菜谱删除",
+      async () =>
+        !(await api("/recipes")).items.some((r) => r.title === "端到端炒鸡"),
+    );
+
     setStage("联系人");
     // B122：新建一个五天后过生日的联系人，状态是近期；列表上记一次联系；搜索；删除不需要提升权限。
     await page.goto(`${base}/contacts`);

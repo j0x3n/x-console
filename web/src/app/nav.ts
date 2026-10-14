@@ -30,6 +30,7 @@ import {
   Sun,
   Target,
   Users,
+  ChefHat,
   Workflow,
 } from "lucide-react";
 
@@ -94,6 +95,8 @@ export const navItems: NavItem[] = [
     icon: FlaskConical,
     group: "personal",
   },
+  // B209：菜谱和做菜计时
+  { path: "/recipes", label: "Recipes", icon: ChefHat, group: "personal" },
   {
     path: "/calendar",
     label: "Schedule & focus",

@@ -1,0 +1,356 @@
+openapi: 3.0.3
+info:
+  title: X Console recipes and cooking timers (B209)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /recipes:
+    get:
+      operationId: listRecipes
+      tags: [recipes]
+      description: |
+        全部菜谱，最近改过的在前。数据量很小，不分页。
+        tags 是全部菜谱用到的标签和个数，不受 q、tag 的限制。
+      parameters:
+        - name: q
+          in: query
+          description: 在菜名、简介、食材名、标签里找
+          schema: { type: string }
+        - name: tag
+          in: query
+          description: 只列带这个标签的
+          schema: { type: string }
+      responses:
+        "200":
+          description: 菜谱列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, tags]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Recipe" }
+                  tags:
+                    type: array
+                    items: { $ref: "#/components/schemas/RecipeTagCount" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createRecipe
+      tags: [recipes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecipeInput" }
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recipe" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /recipes/parse:
+    post:
+      operationId: parseRecipe
+      tags: [recipes]
+      description: |
+        用 AI 把一段烹饪教程（比如一篇笔记的正文）整理成菜谱草稿，不保存。
+        前端把草稿放进编辑表单，用户确认后再调 createRecipe。
+        AI 没配置时回 501 feature_unavailable。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecipeParseInput" }
+      responses:
+        "200":
+          description: 菜谱草稿
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecipeInput" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /recipes/{recipeId}:
+    parameters:
+      - $ref: "#/components/parameters/RecipeId"
+    get:
+      operationId: getRecipe
+      tags: [recipes]
+      responses:
+        "200":
+          description: 菜谱
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recipe" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    patch:
+      operationId: updateRecipe
+      tags: [recipes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecipePatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recipe" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteRecipe
+      tags: [recipes]
+      description: 删除菜谱。这道菜还在跑的计时器保留，只是不再关联菜谱。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cook-timers:
+    get:
+      operationId: listCookTimers
+      tags: [recipes]
+      description: 还没关掉的计时器：在走的、暂停的、时间到了还没关的。先到点的在前。
+      responses:
+        "200":
+          description: 计时器列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/CookTimer" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createCookTimer
+      tags: [recipes]
+      description: 开始一个计时器。同时最多 20 个没关掉的。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CookTimerInput" }
+      responses:
+        "201":
+          description: 已开始
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CookTimer" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /cook-timers/{timerId}:
+    parameters:
+      - $ref: "#/components/parameters/TimerId"
+    patch:
+      operationId: updateCookTimer
+      tags: [recipes]
+      description: |
+        pause 暂停在走的；resume 继续暂停的；addSeconds 加时（可以是负数，加完至少剩 1 秒），
+        时间到了的计时器加时会重新开始走。一次只做一件事。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CookTimerPatch" }
+      responses:
+        "200":
+          description: 已更新
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CookTimer" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteCookTimer
+      tags: [recipes]
+      description: 取消或关掉一个计时器。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    RecipeId:
+      name: recipeId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    TimerId:
+      name: timerId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  schemas:
+    RecipeIngredient:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: 食材名，比如“花椒”，最多 50 字 }
+        amount: { type: string, description: 用量，比如“1 汤匙”“1500 克”，最多 30 字 }
+        note: { type: string, description: 处理方法，比如“切段”，最多 100 字 }
+    RecipeTimer:
+      type: object
+      required: [label, seconds]
+      properties:
+        label: { type: string, description: 计时器名字，比如“炖煮”，最多 30 字 }
+        seconds: { type: integer, description: 时长，1 到 86400 }
+        maxSeconds:
+          type: integer
+          nullable: true
+          description: 时长是一个范围时的上限，比如“20 到 40 分钟”，要大于 seconds
+    RecipeStep:
+      type: object
+      required: [text]
+      properties:
+        title: { type: string, description: 步骤小标题，比如“泡血水”，可以空，最多 30 字 }
+        text: { type: string, description: 步骤正文，必填，最多 2000 字 }
+        timers:
+          type: array
+          description: 这一步的计时，最多 5 个
+          items: { $ref: "#/components/schemas/RecipeTimer" }
+        ingredients:
+          type: array
+          description: 这一步要加的食材，是 ingredients 里的下标（从 0 开始），不能重复，不能越界
+          items: { type: integer }
+    RecipeTagCount:
+      type: object
+      required: [tag, count]
+      properties:
+        tag: { type: string }
+        count: { type: integer }
+    Recipe:
+      type: object
+      required: [id, title, summary, servings, totalMinutes, ingredients, steps, tips, tags, sourceNoteId, sourceUrl, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        summary: { type: string, description: 一两句简介 }
+        servings: { type: string, description: 份量，比如“一只散养公鸡”“2 人份” }
+        totalMinutes:
+          type: integer
+          nullable: true
+          description: 大概要多少分钟，不知道就是空
+        ingredients:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeIngredient" }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeStep" }
+        tips: { type: string, description: 备注和要点，Markdown }
+        tags:
+          type: array
+          description: 口味、菜系、主料等标签，比如“辣”“鲁菜”“鸡肉”
+          items: { type: string }
+        sourceNoteId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 从哪篇笔记转来的
+        sourceUrl: { type: string, description: 网上来源，可以空 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    RecipeInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, description: 必填，最多 100 字 }
+        summary: { type: string, description: 最多 500 字 }
+        servings: { type: string, description: 最多 50 字 }
+        totalMinutes: { type: integer, nullable: true, description: 1 到 10080 }
+        ingredients:
+          type: array
+          description: 最多 100 个
+          items: { $ref: "#/components/schemas/RecipeIngredient" }
+        steps:
+          type: array
+          description: 最多 100 步
+          items: { $ref: "#/components/schemas/RecipeStep" }
+        tips: { type: string, description: 最多 20000 字 }
+        tags:
+          type: array
+          description: 最多 20 个，每个最多 20 字，去掉首尾空格后去重
+          items: { type: string }
+        sourceNoteId: { type: integer, format: int64, nullable: true }
+        sourceUrl: { type: string, description: 只接受 http 或 https 地址，最多 2000 字 }
+    RecipePatch:
+      type: object
+      description: 只改给了的字段。给 ingredients 时 steps 里的下标按新的 ingredients 检查。
+      properties:
+        title: { type: string }
+        summary: { type: string }
+        servings: { type: string }
+        totalMinutes: { type: integer, nullable: true }
+        ingredients:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeIngredient" }
+        steps:
+          type: array
+          items: { $ref: "#/components/schemas/RecipeStep" }
+        tips: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        sourceNoteId: { type: integer, format: int64, nullable: true }
+        sourceUrl: { type: string }
+    RecipeParseInput:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, description: 教程原文，Markdown 或纯文字，最多 20000 字 }
+        sourceNoteId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 原文来自哪篇笔记，原样放进草稿
+    CookTimerState:
+      type: string
+      enum: [running, paused, done]
+    CookTimer:
+      type: object
+      required: [id, recipeId, recipeTitle, stepIndex, label, seconds, state, endsAt, remainingSeconds, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        recipeId: { type: integer, format: int64, nullable: true }
+        recipeTitle: { type: string, description: 开始时的菜名，菜谱删了也留着 }
+        stepIndex:
+          type: integer
+          nullable: true
+          description: 第几步（从 0 开始）
+        label: { type: string }
+        seconds: { type: integer, description: 最初设的时长 }
+        state: { $ref: "#/components/schemas/CookTimerState" }
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: running 和 done 时是到点的时间，paused 时是空
+        remainingSeconds: { type: integer, description: 返回时还剩几秒，done 是 0 }
+        createdAt: { type: string, format: date-time }
+    CookTimerInput:
+      type: object
+      required: [label, seconds]
+      properties:
+        label: { type: string, description: 必填，最多 30 字 }
+        seconds: { type: integer, description: 1 到 86400 }
+        recipeId: { type: integer, format: int64, nullable: true }
+        stepIndex: { type: integer, nullable: true }
+    CookTimerPatch:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [pause, resume]
+        addSeconds: { type: integer }

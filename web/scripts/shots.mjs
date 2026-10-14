@@ -251,6 +251,45 @@ const ids = await page.evaluate(async () => {
       ],
       lastContactOn: dayAt(-3),
     });
+    // B209：菜谱，一份完整的，一份只有菜名和标签
+    await post("/recipes", {
+      title: "临沂炒鸡",
+      summary: "先用大火煸干鸡肉，再加开水炖，最后大火收汁。",
+      servings: "一只散养公鸡",
+      totalMinutes: 90,
+      ingredients: [
+        { name: "散养公鸡", amount: "1500 克", note: "剁成小块" },
+        { name: "花生油", amount: "4 汤匙" },
+        { name: "花椒", amount: "1 汤匙" },
+        { name: "八角", amount: "2 颗" },
+        { name: "干辣椒", amount: "10 个" },
+        { name: "生姜", amount: "30 克", note: "切片" },
+        { name: "黄豆酱", amount: "2 汤匙" },
+        { name: "开水", amount: "800 毫升" },
+        { name: "皱皮辣椒", amount: "300 克", note: "掰成块" },
+      ],
+      steps: [
+        { title: "泡血水", text: "将鸡剁成麻将块大小，用冷水浸泡半小时，中途换一次水。", timers: [{ label: "泡血水", seconds: 1800 }], ingredients: [0] },
+        { title: "煸鸡", text: "铁锅烧热，倒入花生油。放入鸡块，用中大火不停翻炒，直到锅里没有水汽。", ingredients: [1] },
+        { title: "炒香料", text: "把鸡推到锅边，放入花椒、八角、干辣椒和生姜，炒出香味。", ingredients: [2, 3, 4, 5] },
+        { title: "加开水炖", text: "倒入开水，烧开后转小火，盖上锅盖炖煮。", timers: [{ label: "炖煮", seconds: 1200, maxSeconds: 2400 }], ingredients: [6, 7] },
+        { title: "下辣椒出锅", text: "汤汁变稠后加入皱皮辣椒，大火翻炒一两分钟。", ingredients: [8] },
+      ],
+      tips: "**加开水，不加凉水。** 鸡块煸炒后表面是热的，突然倒入凉水，肉会收紧变柴。",
+      tags: ["辣", "鲁菜", "鸡肉"],
+      sourceUrl: "https://example.com/linyi-chicken",
+    });
+    await post("/recipes", {
+      title: "番茄炒蛋",
+      summary: "家常快手菜",
+      totalMinutes: 15,
+      ingredients: [
+        { name: "鸡蛋", amount: "3 个" },
+        { name: "番茄", amount: "2 个" },
+      ],
+      steps: [{ text: "鸡蛋炒到半熟盛出，再炒番茄，最后合在一起。" }],
+      tags: ["家常", "快手"],
+    });
     // B130：几张复习卡片，一张已经评过分
     await post("/cards", {
       question: "SQLite 的 WAL 模式有什么好处？",
@@ -457,6 +496,10 @@ const routes = [
   ["journal", "/journal"],
   ["credentials", "/credentials"],
   ["contacts", "/contacts"],
+  ["recipes", "/recipes"],
+  ["recipe", "/recipes/1"],
+  ["recipe-edit", "/recipes/1/edit"],
+  ["recipe-cook", "/recipes/1/cook"],
   ["checkins", "/checkins"],
   ["inbox", "/inbox"],
   ["plan", "/plan"],

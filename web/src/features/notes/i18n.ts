@@ -193,4 +193,6 @@ registerZh({
   "Note polished": "已替换成润色后的正文",
   "Generate title with AI": "用 AI 生成标题",
   "Generate tags with AI": "用 AI 生成标签",
+  // B209：笔记转成菜谱
+  "Turn into recipe": "转成菜谱",
 });

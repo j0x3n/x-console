@@ -38,6 +38,7 @@ import {
   Share2,
   Sparkles,
   SquareKanban,
+  ChefHat,
   StickyNote,
   Trash2,
   WandSparkles,
@@ -782,6 +783,17 @@ function EditorBody({
                   onClick={() => flushThen(() => setDialog("issue"))}
                 >
                   <SquareKanban size={14} /> {t("Turn into issue")}
+                </button>
+                <button
+                  role="menuitem"
+                  disabled={!hasBody}
+                  onClick={() =>
+                    flushThen(() =>
+                      navigate(`/recipes/new?fromNote=${note.id}`),
+                    )
+                  }
+                >
+                  <ChefHat size={14} /> {t("Turn into recipe")}
                 </button>
                 <button
                   role="menuitem"
