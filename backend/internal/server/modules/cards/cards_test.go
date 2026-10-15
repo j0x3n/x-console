@@ -31,6 +31,9 @@ type rig struct {
 func setup(t *testing.T) *rig {
 	t.Helper()
 	env := testutil.New(t)
+	// Notifications are held while the me module guesses the user sleeps,
+	// which it does from the real clock at night.
+	env.MustDo(http.MethodPut, "/me/settings", map[string]any{"guessSleep": false, "workHosts": []string{}}, nil)
 	m, ok := module.Lookup[*cards.Module](env.App.Deps.Registry, cards.ServiceKey)
 	if !ok {
 		t.Fatal("cards module not registered")

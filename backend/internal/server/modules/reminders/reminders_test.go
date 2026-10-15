@@ -79,6 +79,9 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 
 func setup(t *testing.T) (*testutil.Env, *reminders.Module) {
 	env := testutil.New(t)
+	// Sleeping counts as quiet hours, and the me module guesses sleep from
+	// the clock. Without this, tests run at night hold every notification.
+	env.MustDo(http.MethodPut, "/me/settings", map[string]any{"guessSleep": false, "workHosts": []string{}}, nil)
 	svc, ok := module.Lookup[contracts.Reminders](env.App.Deps.Registry, contracts.RemindersKey)
 	if !ok {
 		t.Fatal("contracts.Reminders not provided")
