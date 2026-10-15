@@ -629,6 +629,20 @@ func (x *Session) Info(ctx context.Context, ref string) (Element, error) {
 	return *e, nil
 }
 
+// Common returns the ref of the smallest element that holds all of refs.
+func (x *Session) Common(ctx context.Context, refs []string) (string, error) {
+	x.ops.Lock()
+	defer x.ops.Unlock()
+	var ref *string
+	if err := x.eval(ctx, "common", refs, &ref); err != nil {
+		return "", err
+	}
+	if ref == nil {
+		return "", ErrNoElement
+	}
+	return *ref, nil
+}
+
 // Text returns the visible text of the element with ref.
 func (x *Session) Text(ctx context.Context, ref string) (string, error) {
 	x.ops.Lock()

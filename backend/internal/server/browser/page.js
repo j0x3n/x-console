@@ -344,6 +344,16 @@ function __xc(op, arg) {
     return { password: password, captcha: captcha, url: location.href };
   }
 
+  function common(refs) {
+    // The smallest element that holds all of refs, so a list can be read as
+    // one area even when its container has no text of its own.
+    const els = (refs || []).map(byRef);
+    if (!els.length || els.some((e) => !e)) return null;
+    let cur = els[0];
+    while (cur && !els.every((e) => cur.contains(e))) cur = cur.parentElement;
+    return cur ? refOf(cur) : null;
+  }
+
   function text(ref) {
     const el = byRef(ref);
     if (!el) return null;
@@ -387,6 +397,8 @@ function __xc(op, arg) {
       return check();
     case 'text':
       return el_secret(arg) ? null : text(arg);
+    case 'common':
+      return common(arg);
     case 'secret': {
       const el = byRef(arg);
       if (el) el.setAttribute('data-xc-secret', '1');

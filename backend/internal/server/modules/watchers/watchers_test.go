@@ -106,7 +106,11 @@ type fakeChat struct {
 	calls int
 	seen  []string
 	spent float64
+	// manual turns off the automatic confirm of finish.
+	manual bool
 }
+
+func (f *fakeChat) autoConfirm() bool { return !f.manual }
 
 func (f *fakeChat) Available(context.Context, string) bool { return true }
 
@@ -132,6 +136,14 @@ func (f *fakeChat) Chat(_ context.Context, _, system string, msgs []contracts.Ch
 		if msgs[i].Role != "assistant" {
 			page = msgs[i].Content
 			break
+		}
+	}
+	// finish asks to confirm what it read. A scripted finish confirms by
+	// itself unless the script says otherwise.
+	if n := len(msgs); n >= 2 && f.autoConfirm() && strings.HasPrefix(msgs[n-1].Content, "这块区域读到的文字是") {
+		if prev := msgs[n-2].ToolCalls; len(prev) == 1 && prev[0].Name == "finish" {
+			return contracts.ChatReply{ToolCalls: []contracts.ChatToolCall{{ID: "c" + strconv.Itoa(f.calls), Name: "finish", Arguments: prev[0].Arguments}},
+				InputTokens: 100, OutputTokens: 10}, nil
 		}
 	}
 	name, args := "give_up", map[string]any{"reason": "脚本走完了"}
@@ -601,4 +613,35 @@ func TestBudgetStopsTheAgent(t *testing.T) {
 func mustJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// The model only picks a heading at first. finish shows it what it read, it
+// switches to the whole row, and the row is kept after it confirms.
+func TestFinishConfirmsWhatItRead(t *testing.T) {
+	f := setup(t, true)
+	f.chat.manual = true
+	var row []string
+	pick := do("finish", func(p string) map[string]any {
+		row = []string{ref(p, "] 办理状态"), ref(p, "审核中")}
+		return map[string]any{"refs": []string{ref(p, "] 办理状态")}, "note": "办理状态"}
+	})
+	widen := do("finish", func(string) map[string]any { return map[string]any{"refs": row, "note": "办理状态那一行"} })
+	f.chat.script(append(loginMoves(), pick, widen, widen)...)
+	w := f.create(t, map[string]any{"name": "签证", "url": f.site.URL + "/status", "goal": "盯办理状态",
+		"username": "alice", "password": "s3cret"})
+	got := f.until(t, w.Id, api.WatcherStatusOk)
+	watchers.WaitRuns(f.m)
+	if got.CurrentValue != "办理状态 审核中" {
+		t.Fatalf("value %q", got.CurrentValue)
+	}
+	if !f.chat.saw("这块区域读到的文字是：\n办理状态\n") {
+		t.Fatal("the model was not shown what it read")
+	}
+	// A later check finds the same row without AI.
+	f.site.set(func(s *site) { s.value = "已受理" })
+	f.env.MustDo(http.MethodPost, fmt.Sprintf("/watchers/%d/run", w.Id), map[string]string{"kind": "check"}, nil)
+	watchers.WaitRuns(f.m)
+	if got := f.get(t, w.Id); got.CurrentValue != "办理状态 已受理" {
+		t.Fatalf("after check: %q %s", got.CurrentValue, got.StatusDetail)
+	}
 }
