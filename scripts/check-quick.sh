@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 小修用的快速检查：只检查这次改动涉及的部分，完整检查交给 CI。
-# 规则见 AGENTS.md 的“小修”。
+# 规则见 AGENTS.md 的“流程”。
 #
 # 用法（在仓库任意目录）：
 #   scripts/check-quick.sh            # 和上游分支比，包括还没提交的改动
