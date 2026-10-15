@@ -166,6 +166,15 @@ html .toast {
     max-width: calc(100% - 48px - var(--xc-safe-right));
   }
 
+  /* iOS 弹出键盘时不缩小页面，而是把可见区域往下移（--xc-visible-top）。
+     笔记区按可见高度算会短一截，和键盘之间空出一块，所以加上下移的距离 */
+  html .notes-layout {
+    height: calc(
+      var(--xc-visible-height) + var(--xc-visible-top) - 60px -
+        var(--xc-safe-top) - var(--xc-safe-bottom)
+    );
+  }
+
   html .mobile-scrim {
     top: var(--xc-visible-top);
     bottom: auto;
