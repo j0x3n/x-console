@@ -262,6 +262,10 @@ describe("RouterSettingsTab B114", () => {
         reportUrl: "https://x.example/api/v1/router/report",
         script:
           "cat > /usr/bin/xc-report.sh <<'XC_EOF'\nTOKEN='t0k3n'\nXC_EOF\n",
+        installUrl: "https://x.example/api/v1/router/install/abc",
+        command:
+          "wget -qO /tmp/xc-install.sh 'https://x.example/api/v1/router/install/abc' && sh /tmp/xc-install.sh",
+        installExpiresAt: "2026-10-15T08:15:00Z",
       },
     }));
     renderIt(<RouterSettingsTab />);
@@ -271,7 +275,13 @@ describe("RouterSettingsTab B114", () => {
     expect(screen.queryByPlaceholderText("http://192.168.1.1")).toBeNull();
     expect(screen.queryByRole("button", { name: "保存并检查" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "生成上报令牌" }));
-    expect(await screen.findByText(/TOKEN='t0k3n'/)).toBeTruthy();
+    // B227：先显示一行命令，完整脚本收在“手动安装”里
+    expect(
+      await screen.findByText(/wget -qO \/tmp\/xc-install.sh/),
+    ).toBeTruthy();
+    expect(screen.getByText("手动安装")).toBeTruthy();
+    expect(screen.getByText(/TOKEN='t0k3n'/)).toBeTruthy();
+    expect(screen.getByText(/ca-bundle/)).toBeTruthy();
     expect(api.calls.some((c) => c.path === "/router/push/token")).toBe(true);
   });
 

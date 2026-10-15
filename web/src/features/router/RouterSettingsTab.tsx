@@ -6,6 +6,7 @@ import { ErrorState, Loading } from "../../components/ui/States";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { copyText } from "../../lib/errors";
+import { formatTime } from "../../lib/time";
 import {
   useCreateRouterPushToken,
   useRouterConfig,
@@ -305,25 +306,39 @@ function PushPanel({ initial }: { initial: RouterConfig }) {
           {active ? t("Create a new token") : t("Create router token")}
         </button>
       </div>
-      {issued && (
-        <>
-          <p>
-            在路由器上登录
-            SSH，粘贴执行下面的命令。令牌只显示这一次，关掉页面就看不到了。
-          </p>
-          <CodeBlock text={issued.script} />
-          <p className="xc-muted">
-            脚本放在 /usr/bin/xc-report.sh，用 cron 每分钟运行。地址是 https
-            时，路由器要装 ca-bundle 和 libustream-mbedtls，或者装
-            curl。命令最后一行会立刻上报一次，成功会显示“已上报一次”。
-          </p>
-        </>
-      )}
+      {issued && <InstallSteps issued={issued} />}
       {active && !issued && (
         <p className="xc-muted">
           令牌面板只存了哈希，看不到原文。要重装路由器上的脚本，就重新生成一个。
         </p>
       )}
+    </>
+  );
+}
+
+/** B227：一行命令，路由器自己下载安装脚本。完整脚本收进“手动安装”。 */
+function InstallSteps({ issued }: { issued: RouterPushToken }) {
+  const t = useT();
+  const language = useLanguage();
+  const https = issued.installUrl.startsWith("https:");
+  return (
+    <>
+      <p>{t("Run this command in the router's SSH.")}</p>
+      <CodeBlock text={issued.command} />
+      <p className="xc-muted">
+        链接只能用一次，{formatTime(issued.installExpiresAt, language)}
+        前有效。令牌只显示这一次。命令最后会立刻上报一次，成功会显示“已上报一次”。
+        {https &&
+          "面板地址是 https，路由器没装 ca-bundle 时会下载失败，失败就用下面的手动安装。"}
+      </p>
+      <details className="settings-help">
+        <summary>{t("Manual install")}</summary>
+        <p className="xc-muted">
+          路由器下载不了时，在 SSH 里粘贴执行下面整段。脚本放在
+          /usr/bin/xc-report.sh，用 cron 每分钟运行。
+        </p>
+        <CodeBlock text={issued.script} />
+      </details>
     </>
   );
 }

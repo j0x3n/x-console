@@ -66,4 +66,8 @@ registerZh({
   "Queued. The router runs it on its next report.":
     "已排队，路由器下次上报时执行",
   "No report received yet": "还没有收到过上报",
+  // B227
+  "Run this command in the router's SSH.":
+    "在路由器上登录 SSH，执行下面这一行命令。",
+  "Manual install": "手动安装",
 });
