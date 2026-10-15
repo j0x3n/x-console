@@ -7,6 +7,7 @@ import {
   reminderTimeFor,
   replaceCid,
   senderName,
+  stripTrackingPixels,
   textToHtml,
 } from "./logic";
 
@@ -17,6 +18,28 @@ describe("邮件（B53）", () => {
       hasRemoteImages('<div style="background:url(http://a/b.png)">'),
     ).toBe(true);
     expect(hasRemoteImages('<img src="cid:logo">')).toBe(false);
+  });
+  it("去掉追踪打开的 1 像素图片，正常图片保留", () => {
+    const keep = [
+      '<img src="https://a/logo.png">',
+      '<img src="https://a/b.png" width="600" height="1">',
+      '<img src="https://a/b.png" width="100%" height="1">',
+      '<img src="https://a/b.png" style="max-width:1px;width:300px">',
+      '<img src="https://a/b.png" data-width="1" data-height="1">',
+    ];
+    for (const tag of keep) expect(stripTrackingPixels(tag)).toBe(tag);
+    const drop = [
+      '<img src="https://t/o.gif" width="1" height="1">',
+      "<img src='https://t/o.gif' height=1 width=1 />",
+      '<img src="https://t/o.gif" width="0">',
+      '<img src="https://t/o.gif" style="width:1px;height:1px">',
+      '<img src="https://t/o.gif" style="display: none">',
+      '<IMG SRC="https://t/o.gif" STYLE="visibility:hidden">',
+    ];
+    for (const tag of drop)
+      expect(stripTrackingPixels(`<p>a</p>${tag}<p>b</p>`)).toBe(
+        "<p>a</p><p>b</p>",
+      );
   });
   it("cid 换成附件地址", () => {
     const html = replaceCid(

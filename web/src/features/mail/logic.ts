@@ -12,6 +12,37 @@ export function hasRemoteImages(html: string): boolean {
   );
 }
 
+/**
+ * 去掉用来追踪打开的图片：宽高都不超过 1 像素的，宽或高是 0 的，藏起来不显示的。
+ * 这类图片看不见，只用来让对方知道你打开了邮件。外部图片默认显示时先过一遍这里。
+ */
+export function stripTrackingPixels(html: string): string {
+  return html.replace(/<img\b[^>]*>/gi, (tag) =>
+    isTrackingPixel(tag) ? "" : tag,
+  );
+}
+
+function isTrackingPixel(tag: string): boolean {
+  const style = /\sstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(tag);
+  const css = (style?.[1] ?? style?.[2] ?? "").toLowerCase();
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/.test(css)) return true;
+  const size = (name: string): number | undefined => {
+    const prop = new RegExp(
+      `(?:^|[;\\s])${name}\\s*:\\s*(\\d+)(?:px)?\\s*(?:;|!|$)`,
+    ).exec(css);
+    const attr = new RegExp(
+      `\\s${name}\\s*=\\s*["']?\\s*(\\d+)(?:px)?["'\\s/>]`,
+      "i",
+    ).exec(tag);
+    const value = prop?.[1] ?? attr?.[1];
+    return value === undefined ? undefined : Number(value);
+  };
+  const w = size("width");
+  const h = size("height");
+  if (w === 0 || h === 0) return true;
+  return w !== undefined && h !== undefined && w <= 1 && h <= 1;
+}
+
 /** 正文里的 cid:xxx 换成附件地址，内嵌图片才能显示。 */
 export function replaceCid(
   html: string,
@@ -28,7 +59,7 @@ export function replaceCid(
 
 /**
  * 放进沙盒 iframe 的完整页面。用 CSP 拦住脚本和外部请求：
- * 默认只允许站内地址（内嵌图片）和 data: 图片，点“显示图片”后才放开外部图片。
+ * 不放开时只允许站内地址（内嵌图片）和 data: 图片，showImages 为真时才放开外部图片。
  * 链接都在新窗口打开。
  */
 export function mailDocument(

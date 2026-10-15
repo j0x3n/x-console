@@ -83,8 +83,8 @@ registerZh({
   "Mark as unread": "标为未读",
   "Mail to": "收件人",
   Cc: "抄送",
-  "Remote images are hidden to protect your privacy.":
-    "为了保护隐私，外部图片没有加载。",
+  "Remote images in promo mail are not loaded.":
+    "营销邮件的外部图片没有加载，免得对方知道你打开了。",
   "Show images": "显示图片",
   "Mail body": "邮件正文",
   "Connection error": "出错",

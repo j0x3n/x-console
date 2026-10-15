@@ -30,6 +30,7 @@ import {
   reminderTimeFor,
   replaceCid,
   senderName,
+  stripTrackingPixels,
   textToHtml,
 } from "../logic";
 import { triageLabel } from "../triage";
@@ -182,17 +183,23 @@ function MetaLines({ m }: { m: MailMessage }) {
   );
 }
 
-/** 正文。外部图片默认不加载，点按钮后才显示，免得对方知道你看了邮件。 */
+/**
+ * 正文。外部图片默认显示，追踪打开用的 1 像素图片先去掉。
+ * AI 分成营销的邮件不加载外部图片，点按钮后才显示，免得对方知道你打开了邮件。
+ */
 function MailBody({ m }: { m: MailMessage }) {
   const t = useT();
-  const [showImages, setShowImages] = useState(false);
+  const [allowImages, setAllowImages] = useState(false);
   const [height, setHeight] = useState(240);
   const frame = useRef<HTMLIFrameElement>(null);
-  useEffect(() => setShowImages(false), [m.id]);
-  const html = m.html
-    ? replaceCid(m.html, m.attachments, (i) => attachmentUrl(m.id, i))
-    : textToHtml(m.text);
-  const remote = !!m.html && hasRemoteImages(m.html);
+  useEffect(() => setAllowImages(false), [m.id]);
+  const clean = m.html ? stripTrackingPixels(m.html) : null;
+  const html =
+    clean !== null
+      ? replaceCid(clean, m.attachments, (i) => attachmentUrl(m.id, i))
+      : textToHtml(m.text);
+  const remote = clean !== null && hasRemoteImages(clean);
+  const showImages = allowImages || m.triage?.category !== "promo";
   const doc = useMemo(
     () => mailDocument(html, { origin: location.origin, showImages }),
     [html, showImages],
@@ -206,11 +213,11 @@ function MailBody({ m }: { m: MailMessage }) {
       {remote && !showImages && (
         <div className="mail-images-off">
           <ImageOff size={14} />
-          <span>{t("Remote images are hidden to protect your privacy.")}</span>
+          <span>{t("Remote images in promo mail are not loaded.")}</span>
           <button
             type="button"
             className="xc-btn small"
-            onClick={() => setShowImages(true)}
+            onClick={() => setAllowImages(true)}
           >
             <MailOpen size={14} /> {t("Show images")}
           </button>

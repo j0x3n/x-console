@@ -234,3 +234,46 @@ describe("邮件分拣（B136）", () => {
     );
   });
 });
+
+describe("邮件外部图片", () => {
+  const withHtml = (triage?: object) => () => ({
+    status: 200,
+    body: {
+      ...row(1, "带图的信", triage),
+      to: [],
+      cc: [],
+      text: "",
+      html: '<p>hi</p><img src="https://a/logo.png"><img src="https://t/o.gif" width="1" height="1">',
+      attachments: [],
+      unread: false,
+    },
+  });
+  const frameDoc = async () =>
+    (await screen.findByTitle("带图的信")).getAttribute("srcdoc") ?? "";
+
+  it("不是营销邮件时默认显示，1 像素图片去掉", async () => {
+    api.routes.set(
+      "GET /mail/messages/1",
+      withHtml({ category: "notice", summary: "通知", dates: [] }),
+    );
+    renderAt("/mail?m=1");
+    const doc = await frameDoc();
+    expect(doc).toContain("https: http:");
+    expect(doc).toContain("https://a/logo.png");
+    expect(doc).not.toContain("https://t/o.gif");
+    expect(screen.queryByRole("button", { name: "显示图片" })).toBeNull();
+  });
+
+  it("营销邮件先不加载，点“显示图片”后放开", async () => {
+    api.routes.set(
+      "GET /mail/messages/1",
+      withHtml({ category: "promo", summary: "促销", dates: [] }),
+    );
+    renderAt("/mail?m=1");
+    expect(await frameDoc()).not.toContain("https: http:");
+    fireEvent.click(await screen.findByRole("button", { name: "显示图片" }));
+    await waitFor(async () =>
+      expect(await frameDoc()).toContain("https: http:"),
+    );
+  });
+});
