@@ -185,7 +185,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description B220：今日页用。AI 分拣成“要处理”、还没标成已处理、30 天内收到的邮件，新的在前，最多 20 封。
+         * @description B220：今日页用。AI 分拣成“要处理”、还没标成已处理、今天收到的邮件，新的在前，最多 20 封。
          *     decision 为 true 的放进“需要你决定”卡片，其余放进“今天要做”卡片。每封都带 triage。
          */
         get: operations["listMailTodo"];
@@ -207,7 +207,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description B220：把一封“要处理”的邮件标成已处理（今日页不再显示），或者取消。只改本地，不动邮箱服务器。没分拣过的邮件回 404。 */
+        /** @description B220：把一封“要处理”的邮件标成已处理（今日页不再显示），或者取消。标成已处理时如果还是未读，同时在邮箱服务器上标成已读。取消不改已读状态。没分拣过的邮件回 404。邮箱服务器没存上已读时回 502，本地也不标成已处理。 */
         put: operations["setMailDone"];
         post?: never;
         delete?: never;

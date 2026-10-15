@@ -110,7 +110,7 @@ func TestTriageDefaultAIDecision(t *testing.T) {
 	}
 }
 
-func TestMailTodoListsOpenActionMailOfThirtyDays(t *testing.T) {
+func TestMailTodoListsTodaysOpenActionMail(t *testing.T) {
 	env, _, f := setup(t)
 	withAI(t, env)
 	firstSync(t, env, f, true)
@@ -122,14 +122,23 @@ func TestMailTodoListsOpenActionMailOfThirtyDays(t *testing.T) {
 		"账单已出":  now,
 	})
 	waitSorted(t, env, "合同请签字", "请批准报销", "双十一促销", "账单已出")
-	// Automatic triage only looks at mail from the last minutes, so an old
+	// Automatic triage only looks at mail from the last minutes, so older
 	// mail is sorted on request.
-	addMails(t, f, map[string]time.Time{"旧合同请签字": now.AddDate(0, 0, -40)})
-	eventually(t, "old mail", func() bool { syncNow(env); return bySubject(list(t, env, ""), "旧合同请签字") != nil })
-	old := bySubject(list(t, env, ""), "旧合同请签字")
-	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", old.Id), nil, nil)
-	if x := bySubject(list(t, env, ""), "旧合同请签字"); x.Triage == nil || x.Triage.Category != api.Action {
-		t.Fatalf("old mail: %+v", x)
+	addMails(t, f, map[string]time.Time{
+		"旧合同请签字": now.AddDate(0, 0, -40),
+		"昨天的合同":  now.AddDate(0, 0, -1),
+	})
+	eventually(t, "old mail", func() bool {
+		syncNow(env)
+		items := list(t, env, "")
+		return bySubject(items, "旧合同请签字") != nil && bySubject(items, "昨天的合同") != nil
+	})
+	for _, subject := range []string{"旧合同请签字", "昨天的合同"} {
+		old := bySubject(list(t, env, ""), subject)
+		env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", old.Id), nil, nil)
+		if x := bySubject(list(t, env, ""), subject); x.Triage == nil || x.Triage.Category != api.Action {
+			t.Fatalf("%s: %+v", subject, x)
+		}
 	}
 	got := todo(t, env)
 	if len(got) != 2 || got[0].Subject != "请批准报销" || got[1].Subject != "合同请签字" {
@@ -156,11 +165,22 @@ func TestMailTodoListsOpenActionMailOfThirtyDays(t *testing.T) {
 	if msg.Triage == nil || msg.Triage.DoneAt == nil || time.Since(*msg.Triage.DoneAt) > time.Minute {
 		t.Errorf("doneAt: %+v", msg.Triage)
 	}
+	if msg.Unread {
+		t.Error("marking handled left the message unread")
+	}
+	syncNow(env)
+	eventually(t, "stays read", func() bool {
+		x := bySubject(list(t, env, ""), "请批准报销")
+		return x != nil && !x.Unread
+	})
 	if status := setDone(env, id, false); status != http.StatusNoContent {
 		t.Fatalf("undo: %d", status)
 	}
 	if got := todo(t, env); len(got) != 2 || got[0].Id != id || got[0].Triage.DoneAt != nil {
 		t.Errorf("after undo: %+v", got)
+	}
+	if bySubject(list(t, env, ""), "请批准报销").Unread {
+		t.Error("undoing handled marked the message unread again")
 	}
 }
 

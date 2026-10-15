@@ -415,15 +415,23 @@ func (m *Module) TriageMailMessage(w http.ResponseWriter, r *http.Request, id ap
 	httpx.JSON(w, http.StatusOK, t)
 }
 
-const (
-	todoDays  = 30 // how far back the Today page looks
-	todoLimit = 20
-)
+const todoLimit = 20
 
-// ListMailTodo lists the action mail that is not marked done (B220).
+func (m *Module) startOfToday() time.Time {
+	now := m.now()
+	loc := time.Local
+	if m.d.Config.Location != nil {
+		loc = m.d.Config.Location
+	}
+	now = now.In(loc)
+	y, mo, d := now.Date()
+	return time.Date(y, mo, d, 0, 0, 0, 0, loc).UTC()
+}
+
+// ListMailTodo lists today's action mail that is not marked done (B220, B224).
 func (m *Module) ListMailTodo(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	rows, err := m.q.ListTodo(ctx, db.ListTodoParams{Date: m.now().UTC().AddDate(0, 0, -todoDays), Limit: todoLimit})
+	rows, err := m.q.ListTodo(ctx, db.ListTodoParams{Date: m.startOfToday(), Limit: todoLimit})
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
@@ -444,7 +452,8 @@ func (m *Module) ListMailTodo(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, out)
 }
 
-// SetMailDone marks a sorted message done, or clears it. Local only.
+// SetMailDone marks a sorted message done, or clears it.
+// Marking done also marks the message read on the mailbox.
 func (m *Module) SetMailDone(w http.ResponseWriter, r *http.Request, id api.MessageId) {
 	ctx := r.Context()
 	var in api.MailDone
@@ -459,6 +468,16 @@ func (m *Module) SetMailDone(w http.ResponseWriter, r *http.Request, id api.Mess
 	}
 	var doneAt *time.Time
 	if in.Done {
+		if row.Unread != 0 {
+			if err := m.apply(ctx, row.AccountID, opSeen, []int64{row.Uid}); err != nil {
+				httpx.Fail(w, r, unavailable(err))
+				return
+			}
+			if err := m.q.SetMessageFlags(ctx, db.SetMessageFlagsParams{Unread: 0, Flagged: row.Flagged, ID: row.ID}); err != nil {
+				httpx.Fail(w, r, err)
+				return
+			}
+		}
 		now := m.now().UTC()
 		doneAt = &now
 	}
