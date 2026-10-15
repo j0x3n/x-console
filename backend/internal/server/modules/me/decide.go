@@ -88,6 +88,9 @@ type decision struct {
 	// SleptAt is when the sleep began, for a sleep reported by the phone.
 	SleptAt time.Time
 	AtHome  *bool
+	// Filled in after decide (B164), they do not change State.
+	PhoneActive bool
+	Host        string
 }
 
 func (in input) sleepStarted() bool {

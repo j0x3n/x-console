@@ -11,11 +11,11 @@ import (
 )
 
 const countDigestItems = `-- name: CountDigestItems :one
-SELECT count(*) FROM notify_digest_queue
+SELECT count(*) FROM notify_digest_queue WHERE hold_for = ?
 `
 
-func (q *Queries) CountDigestItems(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countDigestItems)
+func (q *Queries) CountDigestItems(ctx context.Context, holdFor string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countDigestItems, holdFor)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -79,12 +79,26 @@ func (q *Queries) CreateReminder(ctx context.Context, arg CreateReminderParams) 
 	return i, err
 }
 
-const deleteDigestItemsUpTo = `-- name: DeleteDigestItemsUpTo :exec
-DELETE FROM notify_digest_queue WHERE id <= ?
+const deleteDigestItem = `-- name: DeleteDigestItem :exec
+DELETE FROM notify_digest_queue WHERE id = ?
 `
 
-func (q *Queries) DeleteDigestItemsUpTo(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, deleteDigestItemsUpTo, id)
+func (q *Queries) DeleteDigestItem(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteDigestItem, id)
+	return err
+}
+
+const deleteDigestItemsUpTo = `-- name: DeleteDigestItemsUpTo :exec
+DELETE FROM notify_digest_queue WHERE id <= ? AND hold_for = ?
+`
+
+type DeleteDigestItemsUpToParams struct {
+	ID      int64
+	HoldFor string
+}
+
+func (q *Queries) DeleteDigestItemsUpTo(ctx context.Context, arg DeleteDigestItemsUpToParams) error {
+	_, err := q.db.ExecContext(ctx, deleteDigestItemsUpTo, arg.ID, arg.HoldFor)
 	return err
 }
 
@@ -216,8 +230,8 @@ func (q *Queries) GetReminder(ctx context.Context, id int64) (Reminder, error) {
 
 const insertDigestItem = `-- name: InsertDigestItem :exec
 
-INSERT INTO notify_digest_queue (notification_id, created_at, kind, title, body, link, priority, source, category)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO notify_digest_queue (notification_id, created_at, kind, title, body, link, priority, source, category, hold_for)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertDigestItemParams struct {
@@ -230,6 +244,7 @@ type InsertDigestItemParams struct {
 	Priority       string
 	Source         string
 	Category       string
+	HoldFor        string
 }
 
 // B127: queue of notifications held for the digest
@@ -244,6 +259,7 @@ func (q *Queries) InsertDigestItem(ctx context.Context, arg InsertDigestItemPara
 		arg.Priority,
 		arg.Source,
 		arg.Category,
+		arg.HoldFor,
 	)
 	return err
 }
@@ -312,11 +328,11 @@ func (q *Queries) InsertRoute(ctx context.Context, arg InsertRouteParams) (Notif
 }
 
 const listDigestItems = `-- name: ListDigestItems :many
-SELECT id, notification_id, created_at, kind, title, body, link, priority, source, category FROM notify_digest_queue ORDER BY id
+SELECT id, notification_id, created_at, kind, title, body, link, priority, source, category, hold_for FROM notify_digest_queue WHERE hold_for = ? ORDER BY id
 `
 
-func (q *Queries) ListDigestItems(ctx context.Context) ([]NotifyDigestQueue, error) {
-	rows, err := q.db.QueryContext(ctx, listDigestItems)
+func (q *Queries) ListDigestItems(ctx context.Context, holdFor string) ([]NotifyDigestQueue, error) {
+	rows, err := q.db.QueryContext(ctx, listDigestItems, holdFor)
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +351,7 @@ func (q *Queries) ListDigestItems(ctx context.Context) ([]NotifyDigestQueue, err
 			&i.Priority,
 			&i.Source,
 			&i.Category,
+			&i.HoldFor,
 		); err != nil {
 			return nil, err
 		}
@@ -639,11 +656,11 @@ func (q *Queries) MarkPushOK(ctx context.Context, arg MarkPushOKParams) error {
 }
 
 const oldestDigestItemAt = `-- name: OldestDigestItemAt :one
-SELECT created_at FROM notify_digest_queue ORDER BY created_at LIMIT 1
+SELECT created_at FROM notify_digest_queue WHERE hold_for = ? ORDER BY created_at LIMIT 1
 `
 
-func (q *Queries) OldestDigestItemAt(ctx context.Context) (time.Time, error) {
-	row := q.db.QueryRowContext(ctx, oldestDigestItemAt)
+func (q *Queries) OldestDigestItemAt(ctx context.Context, holdFor string) (time.Time, error) {
+	row := q.db.QueryRowContext(ctx, oldestDigestItemAt, holdFor)
 	var created_at time.Time
 	err := row.Scan(&created_at)
 	return created_at, err

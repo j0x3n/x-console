@@ -256,7 +256,11 @@ type quietHours struct {
 	Enabled bool   `json:"enabled"`
 	Start   string `json:"start"`
 	End     string `json:"end"`
+	// WhenAsleep (B164): sleeping counts as quiet too. Nil means on.
+	WhenAsleep *bool `json:"whenAsleep,omitempty"`
 }
+
+func (q quietHours) whenAsleep() bool { return q.WhenAsleep == nil || *q.WhenAsleep }
 
 // parseClock turns "HH:MM" into minutes after midnight.
 func parseClock(s string) (int, bool) {

@@ -202,7 +202,8 @@ func (m *Module) ReplaceNotifyRoutes(w http.ResponseWriter, r *http.Request) {
 
 func (m *Module) GetQuietHours(w http.ResponseWriter, r *http.Request) {
 	q := m.quietHours(r.Context())
-	httpx.JSON(w, http.StatusOK, api.QuietHours{Enabled: q.Enabled, Start: q.Start, End: q.End})
+	asleep := q.whenAsleep()
+	httpx.JSON(w, http.StatusOK, api.QuietHours{Enabled: q.Enabled, Start: q.Start, End: q.End, WhenAsleep: &asleep})
 }
 
 func (m *Module) UpdateQuietHours(w http.ResponseWriter, r *http.Request) {
@@ -217,13 +218,18 @@ func (m *Module) UpdateQuietHours(w http.ResponseWriter, r *http.Request) {
 		httpx.Fail(w, r, httpx.Invalid("时间格式要写成 23:00 这样"))
 		return
 	}
-	q := quietHours{Enabled: body.Enabled, Start: body.Start, End: body.End}
+	q := quietHours{Enabled: body.Enabled, Start: body.Start, End: body.End, WhenAsleep: body.WhenAsleep}
+	if q.WhenAsleep == nil {
+		q.WhenAsleep = m.quietHours(r.Context()).WhenAsleep // not sent: keep it
+	}
 	err := m.d.Settings.Set(r.Context(), quietHoursKey, q)
-	m.d.Audit.Record(r.Context(), "notify.quiet_hours.update", "", map[string]any{"enabled": q.Enabled, "start": q.Start, "end": q.End}, err)
+	m.d.Audit.Record(r.Context(), "notify.quiet_hours.update", "", map[string]any{"enabled": q.Enabled, "start": q.Start, "end": q.End, "whenAsleep": q.whenAsleep()}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return
 	}
+	asleep := q.whenAsleep()
+	body.WhenAsleep = &asleep
 	httpx.JSON(w, http.StatusOK, body)
 }
 

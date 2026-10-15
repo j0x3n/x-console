@@ -223,4 +223,16 @@ registerZh({
   Domain: "域名",
   Issue: "卡片",
   Overdue: "已过期",
+  // B164 按状态推送
+  "When working": "工作时",
+  "{n} waiting for the computer": "{n} 条等回到电脑前",
+  "When working: sent at once while you use a work computer. Otherwise they wait until you are back at it, or show on the phone when the panel is open there. This works with batched push off too.":
+    "选“工作时”的：在用工作电脑时马上发。不在时先攒着，回到电脑前再弹出来。手机上打开面板时，会在手机上列出。推送合并关着也生效。",
+  "When I am out, push “when working” ones to the phone at once":
+    "外出时直接推到手机（选了“工作时”的）",
+  "Asleep counts as quiet": "睡觉时当作免打扰",
+  "When My status says you are asleep, guessed sleep included, it works like quiet hours. Either one is enough.":
+    "“我的状态”是睡觉时（包括推测的），按免打扰处理。和上面的时段满足一个就算。",
+  "While you were away from the computer": "你不在电脑前时的通知",
+  "Got it": "知道了",
 });

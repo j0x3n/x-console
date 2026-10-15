@@ -54,6 +54,7 @@ export default function DigestCard() {
   const [enabled, setEnabled] = useState(false);
   const [times, setTimes] = useState<string[]>([]);
   const [modes, setModes] = useState<Record<string, DigestMode>>({});
+  const [outDirect, setOutDirect] = useState(true);
 
   const data = digest.data;
   // 只在服务端的设置真的变了时才覆盖表单，积压数量变化不会冲掉没保存的修改。
@@ -62,18 +63,21 @@ export default function DigestCard() {
         data.enabled,
         data.times,
         data.categories.map((c) => [c.id, c.mode]),
+        data.outDirect,
       ])
     : "";
   useEffect(() => {
     if (!signature) return;
-    const [on, ts, cats] = JSON.parse(signature) as [
+    const [on, ts, cats, out] = JSON.parse(signature) as [
       boolean,
       string[],
       [string, DigestMode][],
+      boolean,
     ];
     setEnabled(on);
     setTimes(ts);
     setModes(Object.fromEntries(cats));
+    setOutDirect(out);
   }, [signature]);
 
   if (digest.isPending) return <Loading />;
@@ -90,11 +94,13 @@ export default function DigestCard() {
       enabled,
       times,
       status.categories.map((c) => modes[c.id]),
+      outDirect,
     ]) !==
     JSON.stringify([
       status.enabled,
       status.times,
       status.categories.map((c) => c.mode),
+      status.outDirect,
     ]);
   const invalid = timesError(times);
 
@@ -121,6 +127,14 @@ export default function DigestCard() {
         {status.oldestAt && (
           <small className="xc-muted">
             {t("Oldest")} {relativeTime(status.oldestAt, language)}
+          </small>
+        )}
+        {status.pendingWorking > 0 && (
+          <small className="xc-muted">
+            {t("{n} waiting for the computer").replace(
+              "{n}",
+              String(status.pendingWorking),
+            )}
           </small>
         )}
         {status.enabled && status.nextAt && (
@@ -199,6 +213,9 @@ export default function DigestCard() {
         <small>
           {t(
             "Urgent notifications and notifications with buttons are always sent at once.",
+          )}{" "}
+          {t(
+            "When working: sent at once while you use a work computer. Otherwise they wait until you are back at it, or show on the phone when the panel is open there. This works with batched push off too.",
           )}
         </small>
         <ul className="digest-types">
@@ -217,12 +234,22 @@ export default function DigestCard() {
                 >
                   <option value="now">{t("Immediately")}</option>
                   <option value="digest">{t("In batch")}</option>
+                  <option value="working">{t("When working")}</option>
                 </select>
               </li>
             );
           })}
         </ul>
       </div>
+
+      <label className="reminders-check">
+        <input
+          type="checkbox"
+          checked={outDirect}
+          onChange={(e) => setOutDirect(e.target.checked)}
+        />
+        {t("When I am out, push “when working” ones to the phone at once")}
+      </label>
 
       <div className="xc-row">
         <span className="xc-spacer" />
@@ -237,6 +264,7 @@ export default function DigestCard() {
                 modes: Object.fromEntries(
                   status.categories.map((c) => [c.id, modes[c.id] ?? c.mode]),
                 ),
+                outDirect,
               },
               { onSuccess: () => toast(t("Saved")), onError },
             )

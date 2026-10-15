@@ -82,6 +82,8 @@ function status(over: Record<string, unknown> = {}) {
       return { id, mode, defaultMode: mode };
     }),
     pending: 3,
+    pendingWorking: 0,
+    outDirect: true,
     oldestAt: new Date(Date.now() - 3600_000).toISOString(),
     ...over,
   };
@@ -216,5 +218,28 @@ describe("DigestCard", () => {
       name: /现在发送积压/,
     })) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
+  });
+
+  it("waits for the computer and keeps out-direct off (B164)", async () => {
+    api.routes.set("GET /notify/digest", () => ({
+      status: 200,
+      body: status({ pendingWorking: 2 }),
+    }));
+    let saved: unknown;
+    api.routes.set("PUT /notify/digest", (body) => {
+      saved = body;
+      return { status: 200, body: status() };
+    });
+    renderCard();
+    expect(await screen.findByText("2 条等回到电脑前")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("新邮件"), {
+      target: { value: "working" },
+    });
+    fireEvent.click(screen.getByLabelText(/外出时直接推到手机/));
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(saved).toBeDefined());
+    const body = saved as { modes: Record<string, string>; outDirect: boolean };
+    expect(body.modes.mail).toBe("working");
+    expect(body.outDirect).toBe(false);
   });
 });

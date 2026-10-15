@@ -454,3 +454,32 @@
   width: 96px;
   flex: none;
 }
+
+/* B164 手机上列出等回到电脑前的通知 */
+.held-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.held-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--xc-radius);
+  background: transparent;
+  color: var(--xc-text);
+  text-align: left;
+  cursor: pointer;
+}
+.held-item:hover:not(:disabled) {
+  background: var(--xc-elevated);
+}
+.held-item span {
+  overflow-wrap: anywhere;
+}

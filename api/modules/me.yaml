@@ -49,6 +49,23 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/MeState" }
         default: { $ref: "../common.yaml#/components/responses/Error" }
+  /me/seen:
+    post:
+      operationId: meSeen
+      tags: [me]
+      description: B164。手机上的面板打开着时每分钟调一次。2 分钟内调过就算在用手机（MeState.phoneActive）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device]
+              properties:
+                device: { type: string, enum: [phone] }
+      responses:
+        "204": { description: 已记下 }
+        default: { $ref: "../common.yaml#/components/responses/Error" }
   /me/history:
     get:
       operationId: getMeHistory
@@ -165,6 +182,12 @@ components:
         atHome:
           type: boolean
           description: 在不在家。没有位置信息时没有这个字段
+        phoneActive:
+          type: boolean
+          description: B164。2 分钟内手机上的面板打开着（调过 POST /me/seen）。不影响 state
+        host:
+          type: string
+          description: B164。工作中时正在用的那台工作电脑的编号，几台都在用时取最近有操作的那台
     MeManualInput:
       type: object
       required: [state, duration]

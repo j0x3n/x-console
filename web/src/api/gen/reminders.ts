@@ -291,6 +291,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notify/digest/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B164。手机上的面板打开着时调用：取走等“回到电脑前”的通知（模式 working），从队列里删掉，由面板自己显示。
+         *     不再推外部渠道。没有时返回空数组。
+         */
+        post: operations["claimHeldNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notify/actions": {
         parameters: {
             query?: never;
@@ -553,12 +573,27 @@ export interface components {
             enabled: boolean;
             start: string;
             end: string;
+            /** @description B164。“我的状态”是睡觉（包括推测的）时也算免打扰。不传时保持原值，默认开 */
+            whenAsleep?: boolean;
         };
         /**
-         * @description now 是立即发，digest 是攒起来合并发
+         * @description now 是立即发，digest 是攒起来合并发，working 是工作中立即发、不在工作时等回到电脑前（B164）
          * @enum {string}
          */
-        DigestMode: "now" | "digest";
+        DigestMode: "now" | "digest" | "working";
+        HeldNotification: {
+            /**
+             * Format: int64
+             * @description 通知中心里的编号
+             */
+            id: number;
+            kind: string;
+            title: string;
+            body: string;
+            link: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
         DigestSettings: {
             enabled: boolean;
             /** @description 每天合并推送的时间点，1 到 6 个不重复的 HH:MM，服务端时区 */
@@ -567,6 +602,8 @@ export interface components {
             modes: {
                 [key: string]: components["schemas"]["DigestMode"];
             };
+            /** @description B164。外出时，选了“工作时”的通知直接按路由发，不进队列。不传时保持原值，默认开 */
+            outDirect?: boolean;
         };
         DigestCategory: {
             id: string;
@@ -575,6 +612,10 @@ export interface components {
         };
         DigestStatus: {
             enabled: boolean;
+            /** @description B164。外出时直接推到手机 */
+            outDirect: boolean;
+            /** @description B164。等回到电脑前的条数，不算在 pending 里 */
+            pendingWorking: number;
             times: string[];
             categories: components["schemas"]["DigestCategory"][];
             /** @description 积压条数 */
@@ -1245,6 +1286,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DigestFlushResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    claimHeldNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取走的通知，按时间先后 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["HeldNotification"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

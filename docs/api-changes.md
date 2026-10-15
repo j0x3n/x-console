@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B164（2026-10-15）：`contracts.MeState` 加 `PhoneActive`、`Host`（只加不改）。`me.yaml` 的 `MeState` 加 `phoneActive`、`host`，加 `POST /me/seen`。`reminders.yaml`：`DigestMode` 加 `working`；`DigestSettings` 加可选 `outDirect`、`QuietHours` 加可选 `whenAsleep`，不传时都保持原值；`DigestStatus` 加 `outDirect`、`pendingWorking`；加 `POST /notify/digest/claim`（`HeldNotification`）。迁移 `20261015020000_m53_b164_digest_hold_for.sql`（`notify_digest_queue.hold_for`）。`notify.digest_queued` 事件的载荷加 `holdFor`。基础代码：`web/src/app/GlobalPanels.tsx` 加两行（`PhoneSeen`、`HeldNotices`）。`web/scripts/e2e.mjs` 第一部分加一步，用一个临时 MCP 令牌调 `notify_send`。
+
 - B163（2026-10-15）：`brief.yaml` 的 `BriefSettings` 加可选 `sendMode`（`time`、`wake`），不传时保持原值，旧调用方不受影响。设置键 `brief.send_mode`。`brief` 订阅总线事件 `me.woke`。`web/scripts/e2e.mjs` 第一部分加一步。
 
 - B215（2026-10-15）：`calendar.yaml` 加 Google 账号接口（`/calendar/accounts` 增删改查、`/calendar/accounts/{accountId}/auth`、`/calendar/accounts/{accountId}/remote-calendars` 列出和添加）和公开回调 `/calendar/google/callback`；`Calendar` 加可选的 `accountId`。迁移 `20261015010000_m52_b215_calendar_accounts.sql`（新表 `calendar_accounts`，`calendars` 加 `account_id`、`remote_id`、`read_only` 三列，只加不删）。设置键 `calendar.account.<id>.client_secret`、`calendar.account.<id>.refresh_token`（加密）。通知 kind `calendar.google_expired`。基础代码只在 `files` 包加了 `files/google.go`：`GoogleEndpoints.WithDefaults`、`GoogleAuthURLFor`（按传入的权限范围生成授权地址）、`GoogleRefresh`，Drive 原有的函数没动。`web/scripts/e2e.mjs` 第一部分加一步。

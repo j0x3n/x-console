@@ -1464,6 +1464,7 @@ type NotifyDigestQueue struct {
 	Priority       string
 	Source         string
 	Category       string
+	HoldFor        string
 }
 
 type PairingCode struct {

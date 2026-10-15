@@ -15,8 +15,9 @@ import (
 
 // Defines values for DigestMode.
 const (
-	Digest DigestMode = "digest"
-	Now    DigestMode = "now"
+	Digest  DigestMode = "digest"
+	Now     DigestMode = "now"
+	Working DigestMode = "working"
 )
 
 // Valid indicates whether the value is a known member of the DigestMode enum.
@@ -25,6 +26,8 @@ func (e DigestMode) Valid() bool {
 	case Digest:
 		return true
 	case Now:
+		return true
+	case Working:
 		return true
 	default:
 		return false
@@ -215,11 +218,11 @@ type ChannelField struct {
 
 // DigestCategory defines model for DigestCategory.
 type DigestCategory struct {
-	// DefaultMode now 是立即发，digest 是攒起来合并发
+	// DefaultMode now 是立即发，digest 是攒起来合并发，working 是工作中立即发、不在工作时等回到电脑前（B164）
 	DefaultMode DigestMode `json:"defaultMode"`
 	Id          string     `json:"id"`
 
-	// Mode now 是立即发，digest 是攒起来合并发
+	// Mode now 是立即发，digest 是攒起来合并发，working 是工作中立即发、不在工作时等回到电脑前（B164）
 	Mode DigestMode `json:"mode"`
 }
 
@@ -232,7 +235,7 @@ type DigestFlushResult struct {
 	Delivered int `json:"delivered"`
 }
 
-// DigestMode now 是立即发，digest 是攒起来合并发
+// DigestMode now 是立即发，digest 是攒起来合并发，working 是工作中立即发、不在工作时等回到电脑前（B164）
 type DigestMode string
 
 // DigestSettings defines model for DigestSettings.
@@ -241,6 +244,9 @@ type DigestSettings struct {
 
 	// Modes 分类 id 到模式。没写的分类用默认值
 	Modes map[string]DigestMode `json:"modes"`
+
+	// OutDirect B164。外出时，选了“工作时”的通知直接按路由发，不进队列。不传时保持原值，默认开
+	OutDirect *bool `json:"outDirect,omitempty"`
 
 	// Times 每天合并推送的时间点，1 到 6 个不重复的 HH:MM，服务端时区
 	Times []string `json:"times"`
@@ -258,9 +264,15 @@ type DigestStatus struct {
 	// OldestAt 最早一条的时间
 	OldestAt *time.Time `json:"oldestAt,omitempty"`
 
+	// OutDirect B164。外出时直接推到手机
+	OutDirect bool `json:"outDirect"`
+
 	// Pending 积压条数
-	Pending int      `json:"pending"`
-	Times   []string `json:"times"`
+	Pending int `json:"pending"`
+
+	// PendingWorking B164。等回到电脑前的条数，不算在 pending 里
+	PendingWorking int      `json:"pendingWorking"`
+	Times          []string `json:"times"`
 }
 
 // ExternalReminder defines model for ExternalReminder.
@@ -287,6 +299,18 @@ type ExternalReminder struct {
 
 // ExternalReminderSource 来源。前端按它显示标签，不认识的用 sourceLabel
 type ExternalReminderSource string
+
+// HeldNotification defines model for HeldNotification.
+type HeldNotification struct {
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Id 通知中心里的编号
+	Id    int64  `json:"id"`
+	Kind  string `json:"kind"`
+	Link  string `json:"link"`
+	Title string `json:"title"`
+}
 
 // NotifyChannel defines model for NotifyChannel.
 type NotifyChannel struct {
@@ -353,6 +377,9 @@ type QuietHours struct {
 	Enabled bool   `json:"enabled"`
 	End     string `json:"end"`
 	Start   string `json:"start"`
+
+	// WhenAsleep B164。“我的状态”是睡觉（包括推测的）时也算免打扰。不传时保持原值，默认开
+	WhenAsleep *bool `json:"whenAsleep,omitempty"`
 }
 
 // Reminder defines model for Reminder.
@@ -581,6 +608,9 @@ type ServerInterface interface {
 	// (PUT /notify/digest)
 	UpdateNotifyDigest(w http.ResponseWriter, r *http.Request)
 
+	// (POST /notify/digest/claim)
+	ClaimHeldNotifications(w http.ResponseWriter, r *http.Request)
+
 	// (POST /notify/digest/flush)
 	FlushNotifyDigest(w http.ResponseWriter, r *http.Request)
 
@@ -698,6 +728,11 @@ func (_ Unimplemented) GetNotifyDigest(w http.ResponseWriter, r *http.Request) {
 
 // (PUT /notify/digest)
 func (_ Unimplemented) UpdateNotifyDigest(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /notify/digest/claim)
+func (_ Unimplemented) ClaimHeldNotifications(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -974,6 +1009,20 @@ func (siw *ServerInterfaceWrapper) UpdateNotifyDigest(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateNotifyDigest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClaimHeldNotifications operation middleware
+func (siw *ServerInterfaceWrapper) ClaimHeldNotifications(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClaimHeldNotifications(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1705,6 +1754,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notify/digest/flush", wrapper.FlushNotifyDigest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/notify/digest/claim", wrapper.ClaimHeldNotifications)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/notify/actions", wrapper.RunNotifyAction)

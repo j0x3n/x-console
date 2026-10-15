@@ -83,6 +83,7 @@ func (m *Module) Start(ctx context.Context) error {
 	m.d.Scheduler.Every("reminders.scan", scanInterval, func(ctx context.Context) error {
 		return m.scan(ctx, time.Now())
 	})
+	m.followMe(ctx)
 	m.d.Scheduler.Every("notify.digest", time.Minute, func(ctx context.Context) error {
 		return m.digestTick(ctx, time.Now())
 	})

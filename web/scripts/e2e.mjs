@@ -1432,6 +1432,58 @@ try {
     await briefSave.click();
     await until("早报改回固定时间", async () => (await api("/briefs/settings")).sendMode === "time");
 
+    setStage("工作时才推送");
+    // B164：Bark 指向本地假服务。“其他”这一类改成“工作时”。暂离时用 MCP 的 notify_send 发一条（提醒带按钮，会立即发，不能用），
+    // 只进队列不推；手动设成工作中后推出去。
+    const workBark = [];
+    const workBarkFake = http.createServer(async (request, response) => {
+      let raw = "";
+      for await (const chunk of request) raw += chunk;
+      if (request.url === "/push") workBark.push(raw);
+      response.writeHead(200, { "Content-Type": "application/json" }).end('{"code":200,"message":"success"}');
+    });
+    await new Promise((ready) => workBarkFake.listen(0, "127.0.0.1", ready));
+    const call = (method, path, data) =>
+      page.context().request.fetch(`${base}/api/v1${path}`, { method, headers: { "X-Requested-With": "x-console" }, data });
+    const digestBefore = await api("/notify/digest");
+    let workToken;
+    try {
+      assert.equal((await call("POST", "/auth/elevate", { password })).status(), 200);
+      const barkSet = await call("PUT", "/notify/channels/bark", {
+        values: { device_key: "E2EWORKKEY", server: `http://127.0.0.1:${workBarkFake.address().port}` },
+      });
+      assert.equal(barkSet.status(), 200, await barkSet.text());
+      const modes = Object.fromEntries(digestBefore.categories.map((c) => [c.id, c.mode]));
+      const digestSet = await call("PUT", "/notify/digest", {
+        enabled: digestBefore.enabled, times: digestBefore.times, modes: { ...modes, other: "working" },
+      });
+      assert.equal(digestSet.status(), 200, await digestSet.text());
+      assert.equal((await call("PUT", "/me/manual", { state: "away", duration: "1h" })).status(), 200);
+      const tokenRes = await call("POST", "/api-tokens", { name: "端到端工作时推送", access: "write" });
+      assert.equal(tokenRes.status(), 201, await tokenRes.text());
+      workToken = await tokenRes.json();
+      const sent = await page.context().request.post(`${base}/api/v1/mcp`, {
+        headers: { Authorization: `Bearer ${workToken.secret}`, Accept: "application/json, text/event-stream" },
+        data: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "notify_send", arguments: { title: "端到端工作时推送", kind: "e2e.work" } } },
+      });
+      assert.equal(sent.status(), 200, await sent.text());
+      assert.notEqual((await sent.json()).result?.isError, true);
+      await until("通知等回到电脑前", async () => (await api("/notify/digest")).pendingWorking >= 1);
+      assert.equal(workBark.length, 0, "暂离时不应该推出去");
+      assert.equal((await call("PUT", "/me/manual", { state: "working", duration: "1h" })).status(), 200);
+      await until("回到电脑前推出去", async () => workBark.some((b) => b.includes("端到端工作时推送")));
+      assert.equal((await api("/notify/digest")).pendingWorking, 0);
+    } finally {
+      if (workToken) await call("DELETE", `/api-tokens/${workToken.token.id}`);
+      await call("DELETE", "/me/manual");
+      await call("PUT", "/notify/digest", {
+        enabled: digestBefore.enabled, times: digestBefore.times,
+        modes: Object.fromEntries(digestBefore.categories.map((c) => [c.id, c.mode])),
+      });
+      await call("PUT", "/notify/channels/bark", { values: { device_key: "", server: "" } });
+      await new Promise((closed) => workBarkFake.close(closed));
+    }
+
     setStage("新建项目和卡片");
     await page.goto(`${base}/projects`);
     await page.getByRole("button", { name: "新建项目" }).click();

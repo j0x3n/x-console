@@ -67,6 +67,21 @@ func (e MeStateName) Valid() bool {
 	}
 }
 
+// Defines values for MeSeenJSONBodyDevice.
+const (
+	Phone MeSeenJSONBodyDevice = "phone"
+)
+
+// Valid indicates whether the value is a known member of the MeSeenJSONBodyDevice enum.
+func (e MeSeenJSONBodyDevice) Valid() bool {
+	switch e {
+	case Phone:
+		return true
+	default:
+		return false
+	}
+}
+
 // MeDay defines model for MeDay.
 type MeDay struct {
 	// Date YYYY-MM-DD
@@ -172,11 +187,17 @@ type MeState struct {
 	// Guessed 按作息推测出来的
 	Guessed bool `json:"guessed"`
 
+	// Host B164。工作中时正在用的那台工作电脑的编号，几台都在用时取最近有操作的那台
+	Host *string `json:"host,omitempty"`
+
 	// Manual 手动设定的
 	Manual bool `json:"manual"`
 
 	// ManualUntil 手动设定到期的时间。一直到改回来为空
 	ManualUntil *time.Time `json:"manualUntil,omitempty"`
+
+	// PhoneActive B164。2 分钟内手机上的面板打开着（调过 POST /me/seen）。不影响 state
+	PhoneActive *bool `json:"phoneActive,omitempty"`
 
 	// Since 这次变化的时间
 	Since time.Time `json:"since"`
@@ -197,8 +218,19 @@ type GetMeHistoryParams struct {
 	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
+// MeSeenJSONBody defines parameters for MeSeen.
+type MeSeenJSONBody struct {
+	Device MeSeenJSONBodyDevice `json:"device"`
+}
+
+// MeSeenJSONBodyDevice defines parameters for MeSeen.
+type MeSeenJSONBodyDevice string
+
 // SetMeManualJSONRequestBody defines body for SetMeManual for application/json ContentType.
 type SetMeManualJSONRequestBody = MeManualInput
+
+// MeSeenJSONRequestBody defines body for MeSeen for application/json ContentType.
+type MeSeenJSONRequestBody MeSeenJSONBody
 
 // SetMeSettingsJSONRequestBody defines body for SetMeSettings for application/json ContentType.
 type SetMeSettingsJSONRequestBody = MeSettingsInput
@@ -229,6 +261,9 @@ type ServerInterface interface {
 
 	// (POST /me/report/token)
 	CreateMeReportToken(w http.ResponseWriter, r *http.Request)
+
+	// (POST /me/seen)
+	MeSeen(w http.ResponseWriter, r *http.Request)
 
 	// (GET /me/settings)
 	GetMeSettings(w http.ResponseWriter, r *http.Request)
@@ -278,6 +313,11 @@ func (_ Unimplemented) ReportMe(w http.ResponseWriter, r *http.Request) {
 
 // (POST /me/report/token)
 func (_ Unimplemented) CreateMeReportToken(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /me/seen)
+func (_ Unimplemented) MeSeen(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -422,6 +462,20 @@ func (siw *ServerInterfaceWrapper) CreateMeReportToken(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateMeReportToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MeSeen operation middleware
+func (siw *ServerInterfaceWrapper) MeSeen(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MeSeen(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -580,6 +634,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/me/manual", wrapper.SetMeManual)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/me/seen", wrapper.MeSeen)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me/history", wrapper.GetMeHistory)

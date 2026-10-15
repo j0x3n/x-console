@@ -164,14 +164,18 @@ func (m *Module) recomputeLocked(ctx context.Context) error {
 	hosts := m.cfg.workHosts(m.listHosts(ctx))
 	active := false
 	var lastInput time.Time
+	activeHost := ""
 	for _, h := range hosts {
 		if h.State != "active" {
 			continue
 		}
 		active = true
+		if activeHost == "" {
+			activeHost = h.ID
+		}
 		if h.Idle != nil {
 			if t := now.Add(-*h.Idle); t.After(lastInput) {
-				lastInput = t
+				lastInput, activeHost = t, h.ID
 			}
 		}
 	}
@@ -202,6 +206,10 @@ func (m *Module) recomputeLocked(ctx context.Context) error {
 		Now: now, Manual: m.manual, PCActive: active, LastActive: m.lastActive,
 		Sleep: sleep, Place: place, GuessSleep: m.cfg.GuessSleep, Schedule: sched, LastWoke: m.lastWoke,
 	})
+	d.PhoneActive = !m.phoneSeen.IsZero() && now.Sub(m.phoneSeen) < phoneActiveFor
+	if d.State == contracts.MeWorking && d.Source == srcPC {
+		d.Host = activeHost
+	}
 	return m.apply(ctx, now, d)
 }
 
@@ -263,6 +271,13 @@ func (m *Module) apply(ctx context.Context, now time.Time, d decision) error {
 		m.cur.Source, m.cur.Guessed, m.cur.Manual = d.Source, guessed, manual
 	}
 	view := api.MeState{State: api.MeStateName(d.State), Since: m.cur.StartedAt, Guessed: d.Guessed, Manual: d.Manual, Source: d.Source, AtHome: d.AtHome}
+	if d.PhoneActive {
+		view.PhoneActive = &d.PhoneActive
+	}
+	if d.Host != "" {
+		host := d.Host
+		view.Host = &host
+	}
 	if d.Manual && m.manual != nil && !m.manual.Until.IsZero() {
 		until := m.manual.Until
 		view.ManualUntil = &until
@@ -284,7 +299,8 @@ func (m *Module) apply(ctx context.Context, now time.Time, d decision) error {
 func sameView(a, b api.MeState) bool {
 	return a.State == b.State && a.Since.Equal(b.Since) && a.Guessed == b.Guessed && a.Manual == b.Manual && a.Source == b.Source &&
 		((a.AtHome == nil) == (b.AtHome == nil)) && (a.AtHome == nil || *a.AtHome == *b.AtHome) &&
-		((a.ManualUntil == nil) == (b.ManualUntil == nil)) && (a.ManualUntil == nil || a.ManualUntil.Equal(*b.ManualUntil))
+		((a.ManualUntil == nil) == (b.ManualUntil == nil)) && (a.ManualUntil == nil || a.ManualUntil.Equal(*b.ManualUntil)) &&
+		(a.PhoneActive != nil) == (b.PhoneActive != nil) && deref(a.Host) == deref(b.Host)
 }
 
 func b2i(v bool) int64 {

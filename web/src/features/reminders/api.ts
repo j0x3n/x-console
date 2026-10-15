@@ -198,6 +198,7 @@ export function useSaveQuietHours() {
 export type DigestStatus = Schemas["DigestStatus"];
 export type DigestSettings = Schemas["DigestSettings"];
 export type DigestMode = Schemas["DigestMode"];
+export type HeldNotification = Schemas["HeldNotification"];
 
 export function useDigest() {
   return useQuery({

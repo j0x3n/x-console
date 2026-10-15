@@ -44,6 +44,7 @@ type Module struct {
 	cur        *db.MeState // the open row of me_states
 	lastActive time.Time   // the last time a work computer was in use
 	lastWoke   time.Time   // when the last sleep of three hours or more ended
+	phoneSeen  time.Time   // B164: the last POST /me/seen from a phone
 	view       api.MeState
 	subs       map[chan contracts.MeState]struct{}
 	// listHosts lists the computers that report idle time. Tests replace it.
@@ -175,5 +176,6 @@ func (m *Module) Subscribe() (<-chan contracts.MeState, func()) {
 }
 
 func toContract(v api.MeState) contracts.MeState {
-	return contracts.MeState{State: string(v.State), Since: v.Since, Guessed: v.Guessed, Manual: v.Manual, Source: v.Source, AtHome: v.AtHome}
+	return contracts.MeState{State: string(v.State), Since: v.Since, Guessed: v.Guessed, Manual: v.Manual, Source: v.Source, AtHome: v.AtHome,
+		PhoneActive: v.PhoneActive != nil && *v.PhoneActive, Host: deref(v.Host)}
 }

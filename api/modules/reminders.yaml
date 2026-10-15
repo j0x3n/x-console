@@ -425,6 +425,27 @@ paths:
               schema: { $ref: "#/components/schemas/DigestFlushResult" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /notify/digest/claim:
+    post:
+      operationId: claimHeldNotifications
+      tags: [notify]
+      description: |
+        B164。手机上的面板打开着时调用：取走等“回到电脑前”的通知（模式 working），从队列里删掉，由面板自己显示。
+        不再推外部渠道。没有时返回空数组。
+      responses:
+        "200":
+          description: 取走的通知，按时间先后
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/HeldNotification" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /notify/actions:
     post:
       operationId: runNotifyAction
@@ -724,10 +745,23 @@ components:
         enabled: { type: boolean }
         start: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
         end: { type: string, pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$" }
+        whenAsleep:
+          type: boolean
+          description: B164。“我的状态”是睡觉（包括推测的）时也算免打扰。不传时保持原值，默认开
     DigestMode:
       type: string
-      description: now 是立即发，digest 是攒起来合并发
-      enum: [now, digest]
+      description: now 是立即发，digest 是攒起来合并发，working 是工作中立即发、不在工作时等回到电脑前（B164）
+      enum: [now, digest, working]
+    HeldNotification:
+      type: object
+      required: [id, kind, title, body, link, createdAt]
+      properties:
+        id: { type: integer, format: int64, description: 通知中心里的编号 }
+        kind: { type: string }
+        title: { type: string }
+        body: { type: string }
+        link: { type: string }
+        createdAt: { type: string, format: date-time }
     DigestSettings:
       type: object
       required: [enabled, times, modes]
@@ -743,6 +777,9 @@ components:
           type: object
           description: 分类 id 到模式。没写的分类用默认值
           additionalProperties: { $ref: "#/components/schemas/DigestMode" }
+        outDirect:
+          type: boolean
+          description: B164。外出时，选了“工作时”的通知直接按路由发，不进队列。不传时保持原值，默认开
     DigestCategory:
       type: object
       required: [id, mode, defaultMode]
@@ -752,9 +789,11 @@ components:
         defaultMode: { $ref: "#/components/schemas/DigestMode" }
     DigestStatus:
       type: object
-      required: [enabled, times, categories, pending]
+      required: [enabled, times, categories, pending, pendingWorking, outDirect]
       properties:
         enabled: { type: boolean }
+        outDirect: { type: boolean, description: B164。外出时直接推到手机 }
+        pendingWorking: { type: integer, description: B164。等回到电脑前的条数，不算在 pending 里 }
         times:
           type: array
           items: { type: string }

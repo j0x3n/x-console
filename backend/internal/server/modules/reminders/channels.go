@@ -271,7 +271,7 @@ func (r *router) Route(ctx context.Context, n notify.Stored) []string {
 	for _, row := range rows {
 		routes = append(routes, routeFromDB(row))
 	}
-	quiet := inQuietHours(m.quietHours(ctx), time.Now(), m.d.Config.Location)
+	quiet := m.isQuiet(ctx, time.Now())
 	mutes := m.loadMutes(ctx)
 	var out []string
 	for _, name := range pickChannels(routes, n.Kind, n.Priority, quiet) {

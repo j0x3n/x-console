@@ -24,6 +24,12 @@ type MeState struct {
 	Manual  bool      `json:"manual"`
 	Source  string    `json:"source"`           // pc phone ha manual schedule
 	AtHome  *bool     `json:"atHome,omitempty"` // empty when no location was ever reported
+	// B164: the panel was open on the phone in the last two minutes. It does
+	// not change State.
+	PhoneActive bool `json:"phoneActive"`
+	// B164: the work computer in use while working, the one with the latest
+	// input when several are.
+	Host string `json:"host,omitempty"`
 }
 
 // MeWoke is the payload of the "me.woke" event: a sleep of at least three

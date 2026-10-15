@@ -92,22 +92,25 @@ SELECT * FROM webpush_subscriptions WHERE id = ?;
 -- B127: queue of notifications held for the digest
 
 -- name: InsertDigestItem :exec
-INSERT INTO notify_digest_queue (notification_id, created_at, kind, title, body, link, priority, source, category)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO notify_digest_queue (notification_id, created_at, kind, title, body, link, priority, source, category, hold_for)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: ListDigestItems :many
-SELECT * FROM notify_digest_queue ORDER BY id;
+SELECT * FROM notify_digest_queue WHERE hold_for = ? ORDER BY id;
 
 -- name: CountDigestItems :one
-SELECT count(*) FROM notify_digest_queue;
+SELECT count(*) FROM notify_digest_queue WHERE hold_for = ?;
 
 -- name: OldestDigestItemAt :one
-SELECT created_at FROM notify_digest_queue ORDER BY created_at LIMIT 1;
+SELECT created_at FROM notify_digest_queue WHERE hold_for = ? ORDER BY created_at LIMIT 1;
 
 -- name: DeleteDigestItemsUpTo :exec
-DELETE FROM notify_digest_queue WHERE id <= ?;
+DELETE FROM notify_digest_queue WHERE id <= ? AND hold_for = ?;
 
 -- name: TrimDigestItems :exec
 -- Keeps only the newest `keep` rows.
 DELETE FROM notify_digest_queue
 WHERE id <= (SELECT id FROM notify_digest_queue ORDER BY id DESC LIMIT 1 OFFSET sqlc.arg(keep));
+
+-- name: DeleteDigestItem :exec
+DELETE FROM notify_digest_queue WHERE id = ?;

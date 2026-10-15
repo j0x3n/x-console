@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/reminders/db"
@@ -32,8 +33,9 @@ const (
 	digestGroupItems = 5                // listed per category
 	digestBodyRunes  = 3000             // Telegram allows 4096 including the title
 
-	modeNow    = "now"
-	modeDigest = "digest"
+	modeNow     = "now"
+	modeDigest  = "digest"
+	modeWorking = "working" // B164: now while working, otherwise back at the computer
 )
 
 var defaultDigestTimes = []string{"11:00", "15:00", "19:00"}
@@ -91,11 +93,16 @@ type digestConfig struct {
 	Enabled bool              `json:"enabled"`
 	Times   []string          `json:"times"`
 	Modes   map[string]string `json:"modes"`
+	// OutDirect (B164): while out, "working" notifications go out at once.
+	// Nil means on.
+	OutDirect *bool `json:"outDirect,omitempty"`
 }
+
+func (c digestConfig) outDirect() bool { return c.OutDirect == nil || *c.OutDirect }
 
 // mode is the chosen mode of a category, or its default.
 func (c digestConfig) mode(id string) string {
-	if v := c.Modes[id]; v == modeNow || v == modeDigest {
+	if v := c.Modes[id]; v == modeNow || v == modeDigest || v == modeWorking {
 		return v
 	}
 	if cat, ok := digestCategoryByID(id); ok {
@@ -129,19 +136,35 @@ func (m *Module) digestState(ctx context.Context) digestState {
 	return s
 }
 
-// digestDecision says which category a notification belongs to and whether
-// it waits for the digest. Urgent notifications, notifications marked
-// Immediate and notifications with buttons are always sent at once: the
-// buttons cannot be kept in a merged message.
-func digestDecision(cfg digestConfig, n notify.Stored) (category string, hold bool) {
+// digestDecision says which category a notification belongs to and what it
+// waits for: modeDigest (the next time point), modeWorking (back at the
+// computer, B164) or "" (send now). Urgent notifications, notifications
+// marked Immediate and notifications with buttons are always sent at once:
+// the buttons cannot be kept in a merged message. "working" does not depend
+// on the digest switch. me is the user's state, State empty when unknown.
+func digestDecision(cfg digestConfig, n notify.Stored, me contracts.MeState) (category, holdFor string) {
 	category = digestCategoryOf(n.Kind)
 	switch {
-	case !cfg.Enabled, n.Immediate, n.Priority == notify.PriorityUrgent, len(n.Actions) > 0:
-		return category, false
+	case n.Immediate, n.Priority == notify.PriorityUrgent, len(n.Actions) > 0:
+		return category, ""
 	case category == digestFallback && n.Priority == notify.PriorityHigh:
-		return category, false
+		return category, ""
 	}
-	return category, cfg.mode(category) == modeDigest
+	switch cfg.mode(category) {
+	case modeWorking:
+		switch {
+		case me.State == "", me.State == contracts.MeWorking:
+			return category, ""
+		case me.State == contracts.MeOut && cfg.outDirect():
+			return category, ""
+		}
+		return category, modeWorking
+	case modeDigest:
+		if cfg.Enabled {
+			return category, modeDigest
+		}
+	}
+	return category, ""
 }
 
 // digestHolder plugs the digest into notify.Service.
@@ -153,8 +176,8 @@ func (h *digestHolder) Hold(ctx context.Context, n notify.Stored) bool { return 
 // so a broken queue never swallows a notification.
 func (m *Module) hold(ctx context.Context, n notify.Stored) bool {
 	cfg := m.digestSettings(ctx)
-	category, hold := digestDecision(cfg, n)
-	if !hold {
+	category, holdFor := digestDecision(cfg, n, m.meState())
+	if holdFor == "" {
 		return false
 	}
 	if m.mutedEverywhere(ctx, n) {
@@ -166,7 +189,7 @@ func (m *Module) hold(ctx context.Context, n notify.Stored) bool {
 	}
 	err := m.q.InsertDigestItem(ctx, db.InsertDigestItemParams{
 		NotificationID: n.ID, CreatedAt: created.UTC(), Kind: n.Kind, Title: n.Title, Body: n.Body, Link: n.Link,
-		Priority: n.Priority, Source: n.Source, Category: category,
+		Priority: n.Priority, Source: n.Source, Category: category, HoldFor: holdFor,
 	})
 	if err != nil {
 		m.d.Log.Warn("queue notification for digest", "err", err)
@@ -175,7 +198,7 @@ func (m *Module) hold(ctx context.Context, n notify.Stored) bool {
 	if err := m.q.TrimDigestItems(ctx, digestMaxQueue); err != nil {
 		m.d.Log.Warn("trim digest queue", "err", err)
 	}
-	m.d.Bus.Publish("notify.digest_queued", map[string]any{"id": n.ID, "category": category})
+	m.d.Bus.Publish("notify.digest_queued", map[string]any{"id": n.ID, "category": category, "holdFor": holdFor})
 	return true
 }
 
@@ -227,7 +250,7 @@ func nextSlot(times []string, now time.Time, loc *time.Location) (time.Time, boo
 }
 
 func (m *Module) quietNow(ctx context.Context, now time.Time) bool {
-	return inQuietHours(m.quietHours(ctx), now, m.d.Config.Location)
+	return m.isQuiet(ctx, now)
 }
 
 // digestTick runs every minute. It sends the queue once per time point,
@@ -237,7 +260,10 @@ func (m *Module) digestTick(ctx context.Context, now time.Time) error {
 	if m.quietNow(ctx, now) {
 		return nil
 	}
-	pending, err := m.q.CountDigestItems(ctx)
+	if err := m.flushStaleHeld(ctx, now); err != nil {
+		m.d.Log.Warn("send held notifications", "err", err)
+	}
+	pending, err := m.q.CountDigestItems(ctx, modeDigest)
 	if err != nil {
 		return err
 	}
@@ -297,7 +323,7 @@ func (m *Module) flushDigest(ctx context.Context, now time.Time, manual bool) (a
 	if !manual && now.Before(m.digestRetryAt) {
 		return api.DigestFlushResult{}, errDigestBackoff
 	}
-	items, err := m.q.ListDigestItems(ctx)
+	items, err := m.q.ListDigestItems(ctx, modeDigest)
 	if err != nil {
 		return api.DigestFlushResult{}, err
 	}
@@ -310,7 +336,7 @@ func (m *Module) flushDigest(ctx context.Context, now time.Time, manual bool) (a
 		m.digestRetryAt = now.Add(digestRetryAfter)
 		return api.DigestFlushResult{}, httpx.NewError(http.StatusBadGateway, "delivery_failed", "合并推送发送失败，积压的通知还在，稍后会重试")
 	}
-	if err := m.q.DeleteDigestItemsUpTo(ctx, items[len(items)-1].ID); err != nil {
+	if err := m.q.DeleteDigestItemsUpTo(ctx, db.DeleteDigestItemsUpToParams{ID: items[len(items)-1].ID, HoldFor: modeDigest}); err != nil {
 		return api.DigestFlushResult{}, err
 	}
 	sent := now.UTC()
@@ -380,17 +406,22 @@ func buildDigest(items []db.NotifyDigestQueue, now time.Time, loc *time.Location
 
 func (m *Module) digestStatus(ctx context.Context, now time.Time) (api.DigestStatus, error) {
 	cfg := m.digestSettings(ctx)
-	out := api.DigestStatus{Enabled: cfg.Enabled, Times: digestTimesSorted(cfg.Times), Categories: []api.DigestCategory{}}
+	out := api.DigestStatus{Enabled: cfg.Enabled, OutDirect: cfg.outDirect(), Times: digestTimesSorted(cfg.Times), Categories: []api.DigestCategory{}}
 	for _, c := range digestCategories {
 		out.Categories = append(out.Categories, api.DigestCategory{Id: c.ID, Mode: api.DigestMode(cfg.mode(c.ID)), DefaultMode: api.DigestMode(c.Default)})
 	}
-	n, err := m.q.CountDigestItems(ctx)
+	n, err := m.q.CountDigestItems(ctx, modeDigest)
 	if err != nil {
 		return out, err
 	}
 	out.Pending = int(n)
+	held, err := m.q.CountDigestItems(ctx, modeWorking)
+	if err != nil {
+		return out, err
+	}
+	out.PendingWorking = int(held)
 	if n > 0 {
-		if at, err := m.q.OldestDigestItemAt(ctx); err == nil {
+		if at, err := m.q.OldestDigestItemAt(ctx, modeDigest); err == nil {
 			out.OldestAt = &at
 		}
 	}
@@ -439,11 +470,11 @@ func normalizeDigest(in api.DigestSettings) (digestConfig, error) {
 			return digestConfig{}, httpx.Invalid("没有这个分类：" + id)
 		}
 		if !mode.Valid() {
-			return digestConfig{}, httpx.Invalid("模式只能是 now 或 digest")
+			return digestConfig{}, httpx.Invalid("模式只能是 now、digest 或 working")
 		}
 		modes[id] = string(mode)
 	}
-	return digestConfig{Enabled: in.Enabled, Times: digestTimesSorted(times), Modes: modes}, nil
+	return digestConfig{Enabled: in.Enabled, Times: digestTimesSorted(times), Modes: modes, OutDirect: in.OutDirect}, nil
 }
 
 func (m *Module) GetNotifyDigest(w http.ResponseWriter, r *http.Request) {
@@ -462,6 +493,9 @@ func (m *Module) UpdateNotifyDigest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg, err := normalizeDigest(body)
+	if err == nil && cfg.OutDirect == nil {
+		cfg.OutDirect = m.digestSettings(r.Context()).OutDirect // not sent: keep it
+	}
 	if err == nil {
 		err = m.d.Settings.Set(r.Context(), digestKey, cfg)
 	}

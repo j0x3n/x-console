@@ -34,6 +34,7 @@ import {
   type NotifyChannel,
   type NotifyPriority,
   type NotifyRoute,
+  type QuietHours,
   type WebPushSubscriptionInfo,
   type WebPushTestResult,
 } from "./api";
@@ -717,7 +718,7 @@ function QuietHoursCard() {
     setStart(quiet.data.start);
     setEnd(quiet.data.end);
   }, [quiet.data]);
-  const saveQuiet = (next: { enabled: boolean; start: string; end: string }) =>
+  const saveQuiet = (next: QuietHours) =>
     save.mutate(next, { onSuccess: () => toast(t("Saved")), onError });
   const dirty =
     !!quiet.data && (start !== quiet.data.start || end !== quiet.data.end);
@@ -767,6 +768,26 @@ function QuietHoursCard() {
               setEnabled(on);
               saveQuiet({ enabled: on, start, end });
             }}
+          />
+        </div>
+      </div>
+      <div className="settings-line">
+        <div>
+          <strong>{t("Asleep counts as quiet")}</strong>
+          <small>
+            {t(
+              "When My status says you are asleep, guessed sleep included, it works like quiet hours. Either one is enough.",
+            )}
+          </small>
+        </div>
+        <div className="settings-inline">
+          <Switch
+            checked={quiet.data?.whenAsleep ?? true}
+            label={t("Asleep counts as quiet")}
+            disabled={save.isPending || !quiet.data}
+            onChange={(on) =>
+              saveQuiet({ enabled, start, end, whenAsleep: on })
+            }
           />
         </div>
       </div>

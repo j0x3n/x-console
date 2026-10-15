@@ -45,6 +45,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description B164。手机上的面板打开着时每分钟调一次。2 分钟内调过就算在用手机（MeState.phoneActive） */
+        post: operations["meSeen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/history": {
         parameters: {
             query?: never;
@@ -160,6 +177,10 @@ export interface components {
             source: string;
             /** @description 在不在家。没有位置信息时没有这个字段 */
             atHome?: boolean;
+            /** @description B164。2 分钟内手机上的面板打开着（调过 POST /me/seen）。不影响 state */
+            phoneActive?: boolean;
+            /** @description B164。工作中时正在用的那台工作电脑的编号，几台都在用时取最近有操作的那台 */
+            host?: string;
         };
         MeManualInput: {
             state: components["schemas"]["MeStateName"];
@@ -336,6 +357,32 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MeState"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    meSeen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    device: "phone";
+                };
+            };
+        };
+        responses: {
+            /** @description 已记下 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

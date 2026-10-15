@@ -1104,3 +1104,37 @@ func TestStateSurvivesARestart(t *testing.T) {
 	r.set(start.Add(41 * time.Minute))
 	r.want("unknown")
 }
+
+// B164: the phone's panel says it is open; the state names the computer.
+func TestPhoneSeenAndComputerInUse(t *testing.T) {
+	r := setup(t)
+	if s := r.state(); s.PhoneActive != nil {
+		t.Fatalf("phone active before any call: %+v", s)
+	}
+	if code, _ := r.env.Do(http.MethodPost, "/me/seen", map[string]any{"device": "tablet"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("bad device: %d", code)
+	}
+	r.env.MustDo(http.MethodPost, "/me/seen", map[string]any{"device": "phone"}, nil)
+	if s := r.want("unknown"); s.PhoneActive == nil || !*s.PhoneActive {
+		t.Fatalf("phone active: %+v", s)
+	}
+	r.advance(2 * time.Minute)
+	if s := r.state(); s.PhoneActive != nil {
+		t.Fatalf("still active after two minutes: %+v", s)
+	}
+
+	r.mu.Lock()
+	r.hosts = []me.Host{
+		{ID: "pc1", Name: "台式机", Online: true, State: "active", Idle: 40 * time.Second},
+		{ID: "pc2", Name: "笔记本", Online: true, State: "active", Idle: 5 * time.Second},
+	}
+	r.mu.Unlock()
+	if s := r.want("working"); s.Host == nil || *s.Host != "pc2" {
+		t.Fatalf("host: %+v", s.Host)
+	}
+	r.advance(10 * time.Minute)
+	r.pc("idle", 10*time.Minute)
+	if s := r.want("away"); s.Host != nil {
+		t.Fatalf("host while away: %v", *s.Host)
+	}
+}

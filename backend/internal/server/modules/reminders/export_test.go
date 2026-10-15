@@ -57,7 +57,22 @@ func BuildDigest(items []db.NotifyDigestQueue, now time.Time, loc *time.Location
 func DigestCategoryOf(kind string) string { return digestCategoryOf(kind) }
 
 func DigestDecision(enabled bool, modes map[string]string, n notify.Stored) (string, bool) {
-	return digestDecision(digestConfig{Enabled: enabled, Modes: modes}, n)
+	cat, holdFor := digestDecision(digestConfig{Enabled: enabled, Modes: modes}, n, contracts.MeState{})
+	return cat, holdFor != ""
+}
+
+// HoldFor is the B164 decision: "", "digest" or "working".
+func HoldFor(enabled bool, modes map[string]string, outDirect bool, n notify.Stored, state string) string {
+	_, holdFor := digestDecision(digestConfig{Enabled: enabled, Modes: modes, OutDirect: &outDirect}, n, contracts.MeState{State: state})
+	return holdFor
+}
+
+func DeliverHeld(m *Module, ctx context.Context, host string, now time.Time) error {
+	return m.deliverHeld(ctx, host, now)
+}
+
+func FlushStaleHeld(m *Module, ctx context.Context, now time.Time) error {
+	return m.flushStaleHeld(ctx, now)
 }
 
 func LatestSlot(times []string, now time.Time, loc *time.Location) (time.Time, bool) {
