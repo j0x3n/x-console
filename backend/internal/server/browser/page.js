@@ -344,6 +344,52 @@ function __xc(op, arg) {
     return { password: password, captcha: captcha, url: location.href };
   }
 
+  // B214: the image of a character captcha and the field its answer goes in.
+  const CAPTCHA = /captcha|yzm|checkcode|validatecode|vcode|verifycode|验证码/;
+  const NOT_IMAGE_CODE = /短信|手机|sms|mobile|phone|邮箱|email/;
+  function hintOf(el) {
+    return ((el.getAttribute('src') || '') + ' ' + el.id + ' ' + el.className + ' ' + (el.getAttribute('alt') || '') + ' ' + (el.getAttribute('placeholder') || '') + ' ' + (el.getAttribute('name') || '') + ' ' + (el.getAttribute('aria-label') || '') + ' ' + label(el)).toLowerCase();
+  }
+  function textField(el) {
+    if (el.tagName !== 'INPUT' || !visible(el) || el.disabled || el.readOnly) return false;
+    const t = (el.getAttribute('type') || 'text').toLowerCase();
+    return t === 'text' || t === 'tel' || t === 'number' || t === '';
+  }
+  function captcha() {
+    if (check().captcha !== '图形验证码') return null;
+    for (const d of docs()) {
+      const img = Array.from(d.doc.querySelectorAll('img,canvas')).find((el) => visible(el) && CAPTCHA.test(hintOf(el)));
+      if (!img) continue;
+      const fields = Array.from(d.doc.querySelectorAll('input')).filter(textField);
+      let input = fields.find((el) => CAPTCHA.test(hintOf(el)) && !NOT_IMAGE_CODE.test(hintOf(el)));
+      // No hint on the field: the empty text field next to the image.
+      for (let p = img.parentElement, i = 0; !input && p && i < 4; p = p.parentElement, i++) {
+        input = fields.find((el) => p.contains(el) && !el.value);
+      }
+      if (!input) return null;
+      return { image: refOf(img), input: refOf(input) };
+    }
+    return null;
+  }
+
+  function box(ref) {
+    // Where the element is on the page, in CSS pixels, for a screenshot of it.
+    const el = byRef(ref);
+    if (!el) return null;
+    el.scrollIntoView({ block: 'center', inline: 'center' });
+    const r = el.getBoundingClientRect();
+    let x = r.left;
+    let y = r.top;
+    let win = el.ownerDocument.defaultView;
+    while (win && win !== top && win.frameElement) {
+      const fr = win.frameElement.getBoundingClientRect();
+      x += fr.left;
+      y += fr.top;
+      win = win.parent;
+    }
+    return { x: x + top.scrollX, y: y + top.scrollY, w: r.width, h: r.height };
+  }
+
   function common(refs) {
     // The smallest element that holds all of refs, so a list can be read as
     // one area even when its container has no text of its own.
@@ -454,6 +500,10 @@ function __xc(op, arg) {
       return select(arg.ref, arg.value);
     case 'info':
       return info(arg);
+    case 'captcha':
+      return captcha();
+    case 'box':
+      return box(arg);
     case 'check':
       return check();
     case 'text':

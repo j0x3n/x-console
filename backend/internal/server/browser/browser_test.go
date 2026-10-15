@@ -2,9 +2,11 @@ package browser_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image/png"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -185,6 +187,18 @@ func TestCaptchaFramesAndHosts(t *testing.T) {
 	}
 	if st, _ := x.Check(c); st.Captcha == "" {
 		t.Fatalf("captcha not detected: %+v", st)
+	}
+	// B214: the image and its field are found, and the image can be shot alone.
+	parts, ok, err := x.Captcha(c)
+	if err != nil || !ok || parts.Image == "" || parts.Input == "" {
+		t.Fatalf("captcha parts: %+v %v %v", parts, ok, err)
+	}
+	png, err := x.ElementShot(c, parts.Image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg, err := pngSize(png); err != nil || cfg[0] < 70 || cfg[0] > 90 || cfg[1] < 25 || cfg[1] > 35 {
+		t.Fatalf("element shot size %v %v", cfg, err)
 	}
 
 	if err := x.Navigate(c, srv.URL+"/frame"); err != nil {
@@ -368,4 +382,9 @@ func TestRemoteAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	x.Close()
+}
+
+func pngSize(b []byte) ([2]int, error) {
+	cfg, err := png.DecodeConfig(bytes.NewReader(b))
+	return [2]int{cfg.Width, cfg.Height}, err
 }

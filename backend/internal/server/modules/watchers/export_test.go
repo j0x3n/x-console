@@ -78,3 +78,6 @@ func StartEgress(m *Module, ctx context.Context, addr string) (string, error) {
 
 // EgressProxyURL is the address the browser of watcher id is given.
 func EgressProxyURL(m *Module, id int64) (string, error) { return m.egress.proxyURL(id) }
+
+// CaptchaCode exposes how a model's captcha answer is cleaned (B214).
+func CaptchaCode(s string) string { return captchaCode(s) }

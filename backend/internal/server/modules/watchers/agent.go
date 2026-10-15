@@ -28,7 +28,8 @@ const agentSystem = `你在一个浏览器里替用户操作一个网站。用�
 - 不要打开允许的域名以外的网站。
 - 每次操作后你会收到当前页面：每行一个元素，以 [编号] 开头。操作时用这个编号。
 - 要登录时，用 fill_login 填用户名和密码，再点登录按钮。不要自己编用户名密码。没有存登录资料时，调用 ask_user 让用户登录。
-- 遇到图形验证码、短信验证码、扫码登录、滑块，调用 ask_user 交给用户处理。不要自己猜验证码。
+- 遇到字母或数字的图形验证码，先填好用户名和密码，再调用 solve_captcha，系统会读出来填上，然后你点登录。点完还在登录页、说验证码不对，就再调用 solve_captcha，会换一张图。solve_captcha 说做不成时，调用 ask_user。
+- 遇到短信验证码、扫码登录、滑块、点选图片，调用 ask_user 交给用户处理。不要自己猜验证码，不要用 type_text 填验证码。
 - 做完后调用 finish。refs 填要盯的内容里的元素编号，系统取包住它们的最小区域。只填一个标题、菜单或页签的编号不行，读出来只有那几个字。内容有好几行时，填第一行和最后一行里的编号。不要选整页。
 - 内容是好几条同样格式的记录（列表、表格，比如几件业务各自的类型、名称、状态）时，finish 再填 fields 和 template。fields 从第一条记录里选，每个字段一个元素，名字用中文，比如“类型”“名称”“状态”。template 写成一句用户一眼能看懂的话，比如“{类型}（{名称}）最新状态为“{状态}””。以后每条记录都套这句话，用分号连起来。不用的字段不要选。
 - 用最少的步骤做完。走错了可以回到开始的网址重来。
@@ -73,6 +74,7 @@ var agentTools = []contracts.ChatTool{
 	{Name: "wait", Description: "等页面加载几秒。", Parameters: schema(`{"type":"object","properties":{"seconds":{"type":"integer","minimum":1,"maximum":10}},"required":["seconds"],"additionalProperties":false}`)},
 	{Name: "read_page", Description: "重新读当前页面的内容。", Parameters: schema(`{"type":"object","properties":{},"additionalProperties":false}`)},
 	{Name: "screenshot", Description: "看一下当前页面的截图。页面文字看不明白时再用。", Parameters: schema(`{"type":"object","properties":{},"additionalProperties":false}`)},
+	{Name: "solve_captcha", Description: "读出页面上字母或数字的图形验证码，填进验证码输入框。再次调用会先换一张图。短信验证码、滑块、点选图片不能用。", Parameters: schema(`{"type":"object","properties":{},"additionalProperties":false}`)},
 	{Name: "ask_user", Description: "请用户处理验证码、短信验证码、扫码、登录这类你做不了的事。用户处理完你会收到新的页面。", Parameters: schema(`{"type":"object","properties":{"kind":{"type":"string","enum":["captcha","sms","qrcode","login","other"]},"message":{"type":"string","description":"告诉用户要做什么，一句中文"}},"required":["kind","message"],"additionalProperties":false}`)},
 	{Name: "finish", Description: "做完了，选好了要盯的内容。refs 是这块内容里的元素编号，可以填几个，系统取包住它们的最小区域。note 用一句中文说明它是什么。内容是好几条同样格式的记录时，再填 fields 和 template：fields 是第一条记录里每个要显示的字段，template 用 {字段名} 拼成一句话。系统会把读到的结果给你确认一次。", Parameters: schema(`{"type":"object","properties":{"refs":{"type":"array","items":{"type":"string"},"minItems":1,"maxItems":20},"note":{"type":"string"},"fields":{"type":"array","maxItems":8,"items":{"type":"object","properties":{"name":{"type":"string"},"ref":{"type":"string"}},"required":["name","ref"],"additionalProperties":false}},"template":{"type":"string"}},"required":["refs","note"],"additionalProperties":false}`)},
 	{Name: "give_up", Description: "做不成或找不到要盯的内容，说明原因。", Parameters: schema(`{"type":"object","properties":{"reason":{"type":"string"}},"required":["reason"],"additionalProperties":false}`)},
@@ -88,6 +90,8 @@ type agent struct {
 	login *Login
 	words []string
 	taken []Step
+	// captchaReads counts solve_captcha calls (B214).
+	captchaReads int
 	// confirm is the area finish read last time. Calling finish again on the
 	// same area accepts it.
 	confirm string
@@ -273,6 +277,18 @@ func (a *agent) tool(ctx context.Context, call contracts.ChatToolCall, last bool
 			return "截图出错：" + err.Error(), nil, result{}, false
 		}
 		return "截图在下一条消息里。", &contracts.ChatImage{MIME: "image/jpeg", Data: img}, result{}, false
+	case "solve_captcha":
+		if a.captchaReads >= maxCaptchaReads {
+			return page("验证码已经读了 " + strconv.Itoa(maxCaptchaReads) + " 次还是不对。请调用 ask_user 交给用户。"), nil, result{}, false
+		}
+		a.captchaReads++
+		if err := a.m.solveCaptcha(ctx, a.w, a.sess, a.rec, a.captchaReads > 1); err != nil {
+			return page("没做成：" + err.Error() + "。请调用 ask_user 交给用户。"), nil, result{}, false
+		}
+		if a.captchaReads == 1 {
+			a.taken = append(a.taken, Step{Action: "ask", Optional: true, Note: captchaStepNote})
+		}
+		return page("验证码填好了。接着点登录。"), nil, result{}, false
 	case "ask_user":
 		kind := "captcha"
 		if in.Kind == "other" || in.Kind == "login" {

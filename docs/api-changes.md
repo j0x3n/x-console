@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B214（2026-10-15）：`browser.Session` 加 `Captcha`（找字母或数字验证码的图片和输入框，返回 `browser.CaptchaParts`）和 `ElementShot`（只截一个元素的 PNG）；`page.js` 加 `captcha`、`box`。只加不改。网站自动化的 AI 工具加 `solve_captcha`。
+
 - B212（2026-10-15）：`contracts` 加 `AIModel`、`WithAIModel(ctx, model, effort)`、`AIModelFrom`。ai 模块 `resolveLLM` 在它有值时不管用途都用这个模型和思考程度，模型不存在或格式不对返回 `llm.ErrNotConfigured`。只加不改，不带它的调用方行为不变。`watchers.yaml` 的 `WatchersSettings` 加可选的 `agentModel`、`agentEffort`、`judgeModel`、`judgeEffort`，新类型 `WatcherEffort`（空字符串是跟随）。保存时不带字段表示不改。
 
 - B235（2026-10-15）：`browser.Session` 加 `Shape`（从第一条记录的字段算出列表的格式）和 `Rows`（按格式读出每条记录的字段），类型 `browser.Shape`；`page.js` 加 `shape`、`rows`。只加不改。网站自动化的 `recipe` 加可选的 `format`，AI 的 `finish` 工具加可选参数 `fields`、`template`。不改接口，不加迁移。

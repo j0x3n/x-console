@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,11 +86,14 @@ func parseRecipe(raw string) (Recipe, bool) {
 	return r, true
 }
 
-// replay follows the recorded steps and reads the value. It does not call AI.
+// replay follows the recorded steps and reads the value. It calls AI only to
+// read a captcha (B214).
 func (m *Module) replay(ctx context.Context, rs *runState, w db.Watcher, sess *browser.Session, rec *recorder, r Recipe) result {
 	login := m.login(w)
 	_, words := m.options(ctx)
-	skipped, filled := false, false
+	reads := 0 // captcha reads, B214
+again:
+	skipped, filled, solved := false, false, false
 	for i, st := range r.Steps {
 		if ctx.Err() != nil {
 			return result{err: ctx.Err(), noRetry: true}
@@ -150,6 +154,15 @@ func (m *Module) replay(ctx context.Context, rs *runState, w db.Watcher, sess *b
 			if cerr != nil || c.Captcha == "" {
 				continue
 			}
+			if c.Captcha == "图形验证码" && reads < maxCaptchaReads {
+				reads++
+				serr := m.solveCaptcha(ctx, w, sess, rec, false)
+				if serr == nil {
+					solved = true
+					continue
+				}
+				rec.add("没能自动填验证码：" + serr.Error())
+			}
 			if res, done := m.askCaptcha(ctx, rs, w, sess, rec, c.Captcha); done {
 				return res
 			}
@@ -158,6 +171,14 @@ func (m *Module) replay(ctx context.Context, rs *runState, w db.Watcher, sess *b
 			rec.shot(ctx, sess)
 			return result{err: fmt.Errorf("第 %d 步（%s）出错：%v", i+1, st.Note, err)}
 		}
+	}
+	// The captcha was read wrong: start again, which loads a new image.
+	if solved && captchaWrong(ctx, sess) {
+		if reads < maxCaptchaReads {
+			rec.add("验证码好像不对，换一张再试")
+			goto again
+		}
+		rec.add("验证码读了 " + strconv.Itoa(reads) + " 次都不对，交给你")
 	}
 	// Still on a login page: the password is wrong, or a captcha appeared
 	// that the AI did not see when it explored.

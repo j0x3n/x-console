@@ -712,6 +712,47 @@ func (x *Session) Check(ctx context.Context) (Status, error) {
 	return st, err
 }
 
+// CaptchaParts are the refs of a character captcha's image and its answer
+// field (B214).
+type CaptchaParts struct {
+	Image string `json:"image"`
+	Input string `json:"input"`
+}
+
+// Captcha finds a character captcha on the page. ok is false when there is
+// none, or it is a slider or picture puzzle, or its field cannot be found.
+func (x *Session) Captcha(ctx context.Context) (CaptchaParts, bool, error) {
+	x.ops.Lock()
+	defer x.ops.Unlock()
+	var c *CaptchaParts
+	if err := x.eval(ctx, "captcha", nil, &c); err != nil || c == nil {
+		return CaptchaParts{}, false, err
+	}
+	return *c, true, nil
+}
+
+// ElementShot returns a PNG of just the element with ref, such as a captcha
+// image.
+func (x *Session) ElementShot(ctx context.Context, ref string) ([]byte, error) {
+	x.ops.Lock()
+	defer x.ops.Unlock()
+	var b *struct{ X, Y, W, H float64 }
+	if err := x.eval(ctx, "box", ref, &b); err != nil {
+		return nil, err
+	}
+	if b == nil || b.W < 1 || b.H < 1 {
+		return nil, ErrNoElement
+	}
+	var res struct {
+		Data string `json:"data"`
+	}
+	clip := map[string]any{"x": b.X, "y": b.Y, "width": b.W, "height": b.H, "scale": 1}
+	if err := x.c.call(ctx, x.sid, "Page.captureScreenshot", map[string]any{"format": "png", "clip": clip}, &res); err != nil {
+		return nil, err
+	}
+	return base64.StdEncoding.DecodeString(res.Data)
+}
+
 // target is where an element is on the page: its middle and its size.
 type target struct{ X, Y, W, H float64 }
 

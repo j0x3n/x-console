@@ -129,6 +129,10 @@ type fakeChat struct {
 	manual bool
 	// models is the B212 model choice each call carried.
 	models []contracts.AIModel
+	// codes are the answers to captcha reads, in order (B214). reads
+	// counts the reads that came with a PNG image.
+	codes []string
+	reads int
 }
 
 func (f *fakeChat) autoConfirm() bool { return !f.manual }
@@ -147,6 +151,16 @@ func (f *fakeChat) Chat(ctx context.Context, _, system string, msgs []contracts.
 	f.calls++
 	c, _ := contracts.AIModelFrom(ctx)
 	f.models = append(f.models, c)
+	if strings.Contains(system, "图形验证码") && len(msgs) == 1 && strings.HasPrefix(system, "你在读") {
+		if len(msgs[0].Images) == 1 && msgs[0].Images[0].MIME == "image/png" {
+			f.reads++
+		}
+		answer := "看不清"
+		if len(f.codes) > 0 {
+			answer, f.codes = f.codes[0], f.codes[1:]
+		}
+		return contracts.ChatReply{Text: answer, InputTokens: 50, OutputTokens: 2}, nil
+	}
 	f.seen = append(f.seen, system)
 	for _, m := range msgs {
 		f.seen = append(f.seen, m.Content)
