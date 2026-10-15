@@ -13,6 +13,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for RouterDeviceConn.
+const (
+	Wifi  RouterDeviceConn = "wifi"
+	Wired RouterDeviceConn = "wired"
+)
+
+// Valid indicates whether the value is a known member of the RouterDeviceConn enum.
+func (e RouterDeviceConn) Valid() bool {
+	switch e {
+	case Wifi:
+		return true
+	case Wired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RouterMode.
 const (
 	RouterModeAgent  RouterMode = "agent"
@@ -107,6 +125,9 @@ type RouterClient struct {
 	Mac            string     `json:"mac"`
 	Name           *string    `json:"name,omitempty"`
 
+	// Note mode=push 时，用户给这台设备写的备注
+	Note *string `json:"note,omitempty"`
+
 	// OnlineSince 面板第一次连续看到它在线的时间。面板重启后重新算
 	OnlineSince *time.Time `json:"onlineSince,omitempty"`
 }
@@ -146,6 +167,63 @@ type RouterConfigInput struct {
 	Username *string `json:"username,omitempty"`
 }
 
+// RouterDevice defines model for RouterDevice.
+type RouterDevice struct {
+	// Conn 没判断出来（老脚本）是空
+	Conn *RouterDeviceConn `json:"conn,omitempty"`
+
+	// CooldownMinutes 再次通知间隔（分钟），空表示跟随默认
+	CooldownMinutes *int `json:"cooldownMinutes"`
+
+	// DisplayName 备注，没有就用主机名，再没有就用 MAC
+	DisplayName string    `json:"displayName"`
+	FirstSeen   time.Time `json:"firstSeen"`
+	Ip          *string   `json:"ip,omitempty"`
+
+	// Ipv6 最近一次上报里看到的 IPv6 地址。离线的设备没有
+	Ipv6           *[]string  `json:"ipv6,omitempty"`
+	LastSeen       time.Time  `json:"lastSeen"`
+	LeaseExpiresAt *time.Time `json:"leaseExpiresAt,omitempty"`
+
+	// Mac 大写，冒号分隔
+	Mac string `json:"mac"`
+
+	// Name 主机名（DHCP 租约里的）
+	Name *string `json:"name,omitempty"`
+
+	// Note 用户写的备注，最多 40 个字。没写是空字符串
+	Note string `json:"note"`
+
+	// Notify 这台设备上下线时是否通知（还要总开关开着）
+	Notify bool `json:"notify"`
+	Online bool `json:"online"`
+
+	// OnlineSince 这次上线的时间。离线时为空
+	OnlineSince *time.Time `json:"onlineSince,omitempty"`
+
+	// RxRate B229：下载速率（字节/秒），按最近约 10 秒平均。离线或没有 nlbwmon 数据时为空
+	RxRate *float64 `json:"rxRate,omitempty"`
+
+	// TodayRx B229：今天（面板时区）的下载字节数。没有 nlbwmon 数据时为空
+	TodayRx *int64   `json:"todayRx,omitempty"`
+	TodayTx *int64   `json:"todayTx,omitempty"`
+	TxRate  *float64 `json:"txRate,omitempty"`
+
+	// WifiIface 连在哪个 Wi-Fi 接口上，比如 wlan0
+	WifiIface *string `json:"wifiIface,omitempty"`
+}
+
+// RouterDeviceConn 没判断出来（老脚本）是空
+type RouterDeviceConn string
+
+// RouterDeviceUpdate defines model for RouterDeviceUpdate.
+type RouterDeviceUpdate struct {
+	// CooldownMinutes 只能是 0、5、15、30、60，或者空（跟随默认）
+	CooldownMinutes *int   `json:"cooldownMinutes"`
+	Note            string `json:"note"`
+	Notify          bool   `json:"notify"`
+}
+
 // RouterInterface defines model for RouterInterface.
 type RouterInterface struct {
 	// Device 实际的网卡，比如 eth1、pppoe-wan
@@ -166,6 +244,21 @@ type RouterInterface struct {
 
 // RouterMode direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
 type RouterMode string
+
+// RouterOptions defines model for RouterOptions.
+type RouterOptions struct {
+	// DeviceNotify 设备上下线通知的总开关，默认关
+	DeviceNotify bool `json:"deviceNotify"`
+
+	// LogDays 事件和系统日志保存几天，默认 7
+	LogDays int `json:"logDays"`
+
+	// NewDeviceNotify 新设备第一次接入时通知（B232），默认开
+	NewDeviceNotify bool `json:"newDeviceNotify"`
+
+	// NotifyCooldownMinutes 默认的再次通知间隔，0、5、15、30、60，默认 15
+	NotifyCooldownMinutes int `json:"notifyCooldownMinutes"`
+}
 
 // RouterPushToken defines model for RouterPushToken.
 type RouterPushToken struct {
@@ -197,6 +290,9 @@ type RouterStatus struct {
 	Hostname   string            `json:"hostname"`
 	Interfaces []RouterInterface `json:"interfaces"`
 
+	// KnownDevices mode=push 时，面板记住的设备数（含离线的）
+	KnownDevices *int `json:"knownDevices,omitempty"`
+
 	// Load 1、5、15 分钟负载
 	Load            *[]float64 `json:"load,omitempty"`
 	MemoryAvailable *int64     `json:"memoryAvailable,omitempty"`
@@ -213,6 +309,12 @@ type RouterStatus struct {
 	TxRate        *float64         `json:"txRate,omitempty"`
 	UptimeSeconds int64            `json:"uptimeSeconds"`
 	Wan           *RouterInterface `json:"wan,omitempty"`
+
+	// WifiClients mode=push 时，在线的 Wi-Fi 设备数
+	WifiClients *int `json:"wifiClients,omitempty"`
+
+	// WiredClients mode=push 时，在线的有线设备数
+	WiredClients *int `json:"wiredClients,omitempty"`
 }
 
 // RouterStatusSource ubus 是面板读出来的；push 是路由器上报的，不能从面板重启接口和路由器
@@ -265,6 +367,12 @@ type GetRouterTrafficParamsRange string
 // PutRouterConfigJSONRequestBody defines body for PutRouterConfig for application/json ContentType.
 type PutRouterConfigJSONRequestBody = RouterConfigInput
 
+// UpdateRouterDeviceJSONRequestBody defines body for UpdateRouterDevice for application/json ContentType.
+type UpdateRouterDeviceJSONRequestBody = RouterDeviceUpdate
+
+// PutRouterOptionsJSONRequestBody defines body for PutRouterOptions for application/json ContentType.
+type PutRouterOptionsJSONRequestBody = RouterOptions
+
 // PutRouterPushIntervalJSONRequestBody defines body for PutRouterPushInterval for application/json ContentType.
 type PutRouterPushIntervalJSONRequestBody PutRouterPushIntervalJSONBody
 
@@ -283,11 +391,26 @@ type ServerInterface interface {
 	// (PUT /router/config)
 	PutRouterConfig(w http.ResponseWriter, r *http.Request)
 
+	// (GET /router/devices)
+	ListRouterDevices(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /router/devices/{mac})
+	DeleteRouterDevice(w http.ResponseWriter, r *http.Request, mac string)
+
+	// (PATCH /router/devices/{mac})
+	UpdateRouterDevice(w http.ResponseWriter, r *http.Request, mac string)
+
 	// (GET /router/install/{code})
 	GetRouterInstall(w http.ResponseWriter, r *http.Request, code string)
 
 	// (POST /router/interfaces/{name}/restart)
 	RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string)
+
+	// (GET /router/options)
+	GetRouterOptions(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /router/options)
+	PutRouterOptions(w http.ResponseWriter, r *http.Request)
 
 	// (PUT /router/push/interval)
 	PutRouterPushInterval(w http.ResponseWriter, r *http.Request)
@@ -327,6 +450,21 @@ func (_ Unimplemented) PutRouterConfig(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /router/devices)
+func (_ Unimplemented) ListRouterDevices(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /router/devices/{mac})
+func (_ Unimplemented) DeleteRouterDevice(w http.ResponseWriter, r *http.Request, mac string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /router/devices/{mac})
+func (_ Unimplemented) UpdateRouterDevice(w http.ResponseWriter, r *http.Request, mac string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /router/install/{code})
 func (_ Unimplemented) GetRouterInstall(w http.ResponseWriter, r *http.Request, code string) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -334,6 +472,16 @@ func (_ Unimplemented) GetRouterInstall(w http.ResponseWriter, r *http.Request, 
 
 // (POST /router/interfaces/{name}/restart)
 func (_ Unimplemented) RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /router/options)
+func (_ Unimplemented) GetRouterOptions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /router/options)
+func (_ Unimplemented) PutRouterOptions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -418,6 +566,72 @@ func (siw *ServerInterfaceWrapper) PutRouterConfig(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ListRouterDevices operation middleware
+func (siw *ServerInterfaceWrapper) ListRouterDevices(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRouterDevices(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteRouterDevice operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRouterDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mac" -------------
+	var mac string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mac", chi.URLParam(r, "mac"), &mac, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mac", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteRouterDevice(w, r, mac)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRouterDevice operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRouterDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mac" -------------
+	var mac string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mac", chi.URLParam(r, "mac"), &mac, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mac", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRouterDevice(w, r, mac)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetRouterInstall operation middleware
 func (siw *ServerInterfaceWrapper) GetRouterInstall(w http.ResponseWriter, r *http.Request) {
 
@@ -461,6 +675,34 @@ func (siw *ServerInterfaceWrapper) RestartRouterInterface(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RestartRouterInterface(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRouterOptions operation middleware
+func (siw *ServerInterfaceWrapper) GetRouterOptions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRouterOptions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutRouterOptions operation middleware
+func (siw *ServerInterfaceWrapper) PutRouterOptions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutRouterOptions(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -703,6 +945,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/router/install/{code}", wrapper.GetRouterInstall)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/router/devices", wrapper.ListRouterDevices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/router/devices/{mac}", wrapper.DeleteRouterDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/router/devices/{mac}", wrapper.UpdateRouterDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/router/options", wrapper.GetRouterOptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/router/options", wrapper.PutRouterOptions)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/router/status", wrapper.GetRouterStatus)

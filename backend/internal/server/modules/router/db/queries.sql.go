@@ -9,6 +9,64 @@ import (
 	"context"
 )
 
+const countRouterDeviceFlips = `-- name: CountRouterDeviceFlips :one
+SELECT COUNT(*) FROM router_events WHERE mac = ? AND at >= ? AND kind IN ('device_online', 'device_offline')
+`
+
+type CountRouterDeviceFlipsParams struct {
+	Mac *string
+	At  int64
+}
+
+func (q *Queries) CountRouterDeviceFlips(ctx context.Context, arg CountRouterDeviceFlipsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRouterDeviceFlips, arg.Mac, arg.At)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteRouterDevice = `-- name: DeleteRouterDevice :exec
+DELETE FROM router_devices WHERE mac = ?
+`
+
+func (q *Queries) DeleteRouterDevice(ctx context.Context, mac string) error {
+	_, err := q.db.ExecContext(ctx, deleteRouterDevice, mac)
+	return err
+}
+
+const deleteRouterDeviceTraffic = `-- name: DeleteRouterDeviceTraffic :exec
+DELETE FROM router_device_traffic WHERE mac = ?
+`
+
+func (q *Queries) DeleteRouterDeviceTraffic(ctx context.Context, mac string) error {
+	_, err := q.db.ExecContext(ctx, deleteRouterDeviceTraffic, mac)
+	return err
+}
+
+const insertRouterEvent = `-- name: InsertRouterEvent :exec
+INSERT INTO router_events (at, kind, mac, title, detail) VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertRouterEventParams struct {
+	At     int64
+	Kind   string
+	Mac    *string
+	Title  string
+	Detail string
+}
+
+// B228, B230: what happened
+func (q *Queries) InsertRouterEvent(ctx context.Context, arg InsertRouterEventParams) error {
+	_, err := q.db.ExecContext(ctx, insertRouterEvent,
+		arg.At,
+		arg.Kind,
+		arg.Mac,
+		arg.Title,
+		arg.Detail,
+	)
+	return err
+}
+
 const insertTraffic = `-- name: InsertTraffic :exec
 INSERT INTO router_traffic (at, seconds, rx, tx) VALUES (?, ?, ?, ?)
 ON CONFLICT (at) DO UPDATE SET seconds = seconds + excluded.seconds, rx = rx + excluded.rx, tx = tx + excluded.tx
@@ -30,6 +88,51 @@ func (q *Queries) InsertTraffic(ctx context.Context, arg InsertTrafficParams) er
 		arg.Tx,
 	)
 	return err
+}
+
+const listRouterDevices = `-- name: ListRouterDevices :many
+SELECT mac, note, notify, cooldown_minutes, conn, wifi_iface, last_name, last_ip, online, online_since, offline_since, first_seen, last_seen, notified_at, notified_online
+FROM router_devices
+`
+
+// B228: the devices the panel has seen
+func (q *Queries) ListRouterDevices(ctx context.Context) ([]RouterDevice, error) {
+	rows, err := q.db.QueryContext(ctx, listRouterDevices)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RouterDevice
+	for rows.Next() {
+		var i RouterDevice
+		if err := rows.Scan(
+			&i.Mac,
+			&i.Note,
+			&i.Notify,
+			&i.CooldownMinutes,
+			&i.Conn,
+			&i.WifiIface,
+			&i.LastName,
+			&i.LastIp,
+			&i.Online,
+			&i.OnlineSince,
+			&i.OfflineSince,
+			&i.FirstSeen,
+			&i.LastSeen,
+			&i.NotifiedAt,
+			&i.NotifiedOnline,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listTraffic = `-- name: ListTraffic :many
@@ -64,11 +167,120 @@ func (q *Queries) ListTraffic(ctx context.Context, at int64) ([]RouterTraffic, e
 	return items, nil
 }
 
+const pruneOrphanDeviceTraffic = `-- name: PruneOrphanDeviceTraffic :exec
+DELETE FROM router_device_traffic WHERE mac NOT IN (SELECT mac FROM router_devices)
+`
+
+func (q *Queries) PruneOrphanDeviceTraffic(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, pruneOrphanDeviceTraffic)
+	return err
+}
+
+const pruneRouterDevices = `-- name: PruneRouterDevices :exec
+DELETE FROM router_devices WHERE last_seen < ? AND note = '' AND online = 0
+`
+
+func (q *Queries) PruneRouterDevices(ctx context.Context, lastSeen int64) error {
+	_, err := q.db.ExecContext(ctx, pruneRouterDevices, lastSeen)
+	return err
+}
+
+const pruneRouterEvents = `-- name: PruneRouterEvents :exec
+DELETE FROM router_events WHERE at < ?
+`
+
+func (q *Queries) PruneRouterEvents(ctx context.Context, at int64) error {
+	_, err := q.db.ExecContext(ctx, pruneRouterEvents, at)
+	return err
+}
+
 const pruneTraffic = `-- name: PruneTraffic :exec
 DELETE FROM router_traffic WHERE at < ?
 `
 
 func (q *Queries) PruneTraffic(ctx context.Context, at int64) error {
 	_, err := q.db.ExecContext(ctx, pruneTraffic, at)
+	return err
+}
+
+const resetRouterNotified = `-- name: ResetRouterNotified :exec
+UPDATE router_devices SET notified_at = NULL, notified_online = NULL
+`
+
+func (q *Queries) ResetRouterNotified(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, resetRouterNotified)
+	return err
+}
+
+const updateRouterDeviceSettings = `-- name: UpdateRouterDeviceSettings :exec
+UPDATE router_devices SET note = ?, notify = ?, cooldown_minutes = ?, notified_at = ?, notified_online = ? WHERE mac = ?
+`
+
+type UpdateRouterDeviceSettingsParams struct {
+	Note            string
+	Notify          int64
+	CooldownMinutes *int64
+	NotifiedAt      *int64
+	NotifiedOnline  *int64
+	Mac             string
+}
+
+func (q *Queries) UpdateRouterDeviceSettings(ctx context.Context, arg UpdateRouterDeviceSettingsParams) error {
+	_, err := q.db.ExecContext(ctx, updateRouterDeviceSettings,
+		arg.Note,
+		arg.Notify,
+		arg.CooldownMinutes,
+		arg.NotifiedAt,
+		arg.NotifiedOnline,
+		arg.Mac,
+	)
+	return err
+}
+
+const upsertRouterDevice = `-- name: UpsertRouterDevice :exec
+INSERT INTO router_devices (mac, note, notify, cooldown_minutes, conn, wifi_iface, last_name, last_ip, online, online_since, offline_since, first_seen, last_seen, notified_at, notified_online)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (mac) DO UPDATE SET conn = excluded.conn, wifi_iface = excluded.wifi_iface, last_name = excluded.last_name, last_ip = excluded.last_ip,
+    online = excluded.online, online_since = excluded.online_since, offline_since = excluded.offline_since, last_seen = excluded.last_seen,
+    notified_at = excluded.notified_at, notified_online = excluded.notified_online
+`
+
+type UpsertRouterDeviceParams struct {
+	Mac             string
+	Note            string
+	Notify          int64
+	CooldownMinutes *int64
+	Conn            string
+	WifiIface       string
+	LastName        string
+	LastIp          string
+	Online          int64
+	OnlineSince     *int64
+	OfflineSince    *int64
+	FirstSeen       int64
+	LastSeen        int64
+	NotifiedAt      *int64
+	NotifiedOnline  *int64
+}
+
+// A new row gets all columns. For a known device only what the reports change is written: note, notify and cooldown are changed by the user, never here.
+func (q *Queries) UpsertRouterDevice(ctx context.Context, arg UpsertRouterDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, upsertRouterDevice,
+		arg.Mac,
+		arg.Note,
+		arg.Notify,
+		arg.CooldownMinutes,
+		arg.Conn,
+		arg.WifiIface,
+		arg.LastName,
+		arg.LastIp,
+		arg.Online,
+		arg.OnlineSince,
+		arg.OfflineSince,
+		arg.FirstSeen,
+		arg.LastSeen,
+		arg.NotifiedAt,
+		arg.NotifiedOnline,
+	)
 	return err
 }

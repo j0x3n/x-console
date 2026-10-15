@@ -5,9 +5,11 @@
 # 间隔小于 60 秒时，脚本在这一分钟里按间隔循环上报，到分钟末尾退出，由 cron 接着启动。
 URL='@URL@'
 TOKEN='@TOKEN@'
-TMP=/tmp/xc-report.body
-RESP=/tmp/xc-report.resp
-LOCK=/tmp/xc-report.pid
+# 临时文件放哪里。测试时用 XC_REPORT_DIR 换掉
+DIR=${XC_REPORT_DIR:-/tmp}
+TMP=$DIR/xc-report.body
+RESP=$DIR/xc-report.resp
+LOCK=$DIR/xc-report.pid
 
 # 上一次启动的还在跑就不重复启动
 if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
@@ -15,6 +17,26 @@ if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
 fi
 echo $$ > "$LOCK"
 trap 'rm -f "$LOCK" "$TMP" "$RESP"' EXIT
+
+# Wi-Fi 上连着的终端（B228）。每个接口一段：
+#   =hostapd <ubus 对象名>，后面是 ubus call 的 JSON（clients 的键是 MAC）
+#   =iwinfo <接口>，后面是 iwinfo <接口> assoclist 的原文
+# 有 hostapd 的 ubus 对象就用它，没有再用 iwinfo。解析放在面板里
+collect_wifi() {
+	found=0
+	for obj in $(ubus list 'hostapd.*' 2>/dev/null); do
+		echo "=hostapd $obj"
+		ubus call "$obj" get_clients 2>/dev/null
+		found=1
+	done
+	[ "$found" -eq 1 ] && return
+	for d in "${XC_SYS_NET:-/sys/class/net}"/*; do
+		[ -d "$d/wireless" ] || [ -d "$d/phy80211" ] || continue
+		i=${d##*/}
+		echo "=iwinfo $i"
+		iwinfo "$i" assoclist 2>/dev/null
+	done
+}
 
 collect() {
 	{
@@ -32,6 +54,13 @@ collect() {
 		cat /tmp/dhcp.leases 2>/dev/null
 		echo '#xc:arp'
 		cat /proc/net/arp 2>/dev/null
+		echo '#xc:wifi'
+		collect_wifi
+		# 没有 ip 命令就不带这一段，面板退回读上面的 arp
+		if command -v ip >/dev/null 2>&1; then
+			echo '#xc:neigh'
+			ip neigh show 2>/dev/null
+		fi
 	} > "$TMP"
 }
 

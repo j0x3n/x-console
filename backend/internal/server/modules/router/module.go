@@ -62,6 +62,8 @@ type Module struct {
 	report       *pushSnapshot
 	lastReport   time.Time
 	install      installCode // B227: the download code of the install script
+	opts         *options    // B228: cached settings, nil until read
+	devs         deviceStore // B228: the devices (see devices.go)
 }
 
 var (

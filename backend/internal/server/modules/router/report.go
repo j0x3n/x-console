@@ -211,7 +211,24 @@ func (m *Module) pollPush(ctx context.Context, now time.Time) {
 	if stale {
 		m.wanState(ctx, now, false, "unreachable", "")
 	}
+	m.pollDevices(ctx, now)
 	m.prune(ctx, now)
+}
+
+// wanDevices are the network devices of the WAN interfaces. Their neighbors
+// belong to the provider.
+func wanDevices(list []ifaceInfo) map[string]bool {
+	out := map[string]bool{}
+	for _, i := range list {
+		if strings.HasPrefix(i.Interface, "wan") {
+			for _, d := range []string{i.Device, i.L3Device} {
+				if d != "" {
+					out[d] = true
+				}
+			}
+		}
+	}
+	return out
 }
 
 func hashToken(token string) string {
@@ -338,6 +355,12 @@ type report struct {
 	leases     string
 	arp        string
 	routerTime time.Time // the router's clock, to turn lease expiry times into seconds left
+	// B228: the sections newer scripts add. hasX says the script sent it, so
+	// an empty list is told from a script that does not know the section.
+	wifi     map[string]string // MAC to Wi-Fi interface
+	hasWifi  bool
+	neigh    []neighEntry
+	hasNeigh bool
 }
 
 type deviceStat struct {
@@ -404,6 +427,13 @@ func parseReport(body []byte) (report, error) {
 		}
 	}
 	rep.leases, rep.arp = sec["leases"], sec["arp"]
+	if text, ok := sec["wifi"]; ok {
+		// A list that could not be read is not an empty list: nobody left.
+		rep.wifi, rep.hasWifi = parseWifi(text)
+	}
+	if text, ok := sec["neigh"]; ok {
+		rep.neigh, rep.hasNeigh = parseNeigh(text), true
+	}
 	if secs, err := strconv.ParseInt(strings.TrimSpace(sec["time"]), 10, 64); err == nil && secs > 0 {
 		rep.routerTime = time.Unix(secs, 0)
 	}
@@ -432,8 +462,11 @@ func (m *Module) applyReport(ctx context.Context, rep report, now time.Time) {
 	if leaseNow.IsZero() {
 		leaseNow = now
 	}
-	clients := m.mergeClients(now, parseLeaseFile(rep.leases, leaseNow), parseARP(rep.arp))
+	up := m.updateDevices(ctx, rep, wanDevices(rep.interfaces), leaseNow, now)
+	clients := up.clients
 	st.ClientCount = len(clients)
+	known, wifi, wired := up.knownAll, up.wifi, up.wired
+	st.KnownDevices, st.WifiClients, st.WiredClients = &known, &wifi, &wired
 	m.mu.Lock()
 	m.report = &pushSnapshot{at: now, status: st, clients: clients}
 	m.lastReport = now

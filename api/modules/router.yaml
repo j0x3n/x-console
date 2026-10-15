@@ -137,6 +137,97 @@ paths:
                 type: string
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /router/devices:
+    get:
+      operationId: listRouterDevices
+      tags: [router]
+      description: |
+        B228：面板记住的所有设备，在线的排前面。只在 mode=push 时可用，否则回 409 router_not_push。
+        trafficAvailable 为 true 表示最近一次上报带了 nlbwmon 的数据（B229），rxRate、txRate、todayRx、todayTx 才有值。
+      responses:
+        "200":
+          description: 设备列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, trafficAvailable]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RouterDevice"
+                  trafficAvailable: { type: boolean }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/devices/{mac}:
+    parameters:
+      - name: mac
+        in: path
+        required: true
+        schema: { type: string }
+        description: 设备的 MAC，不分大小写，冒号分隔
+    patch:
+      operationId: updateRouterDevice
+      tags: [router]
+      description: 改备注、通知开关和再次通知间隔。三个字段都要传。不需要提升权限。MAC 不存在回 404。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterDeviceUpdate"
+      responses:
+        "200":
+          description: 更新后的设备
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterDevice"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteRouterDevice
+      tags: [router]
+      description: 忘掉这台设备：删掉备注、设备记录和它的流量。它再出现时当新设备。
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/options:
+    get:
+      operationId: getRouterOptions
+      tags: [router]
+      description: 设备通知和日志的设置。
+      responses:
+        "200":
+          description: 设置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterOptions"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    put:
+      operationId: putRouterOptions
+      tags: [router]
+      description: 整个对象一起传，返回保存后的整个对象。notifyCooldownMinutes 只能是 0、5、15、30、60，logDays 在 1 到 15 之间。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RouterOptions"
+      responses:
+        "200":
+          description: 保存后的设置
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterOptions"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /router/status:
     get:
       operationId: getRouterStatus
@@ -157,7 +248,9 @@ paths:
     get:
       operationId: getRouterClients
       tags: [router]
-      description: 在线设备：合并 DHCP 租约和 host hints，按 IP 排序。
+      description: |
+        在线设备，按 IP 排序。mode=push 时只返回面板判断为在线的设备（B228），带备注；
+        其他模式合并 DHCP 租约和 host hints。AI 动作也在用这个接口。
       responses:
         "200":
           description: 设备列表
@@ -365,6 +458,15 @@ components:
         clientCount:
           type: integer
           description: 在线设备数
+        knownDevices:
+          type: integer
+          description: mode=push 时，面板记住的设备数（含离线的）
+        wifiClients:
+          type: integer
+          description: mode=push 时，在线的 Wi-Fi 设备数
+        wiredClients:
+          type: integer
+          description: mode=push 时，在线的有线设备数
         checkedAt:
           type: string
           format: date-time
@@ -375,6 +477,9 @@ components:
       properties:
         mac: { type: string }
         name: { type: string }
+        note:
+          type: string
+          description: mode=push 时，用户给这台设备写的备注
         ip: { type: string }
         ipv6:
           type: array
@@ -419,3 +524,108 @@ components:
           type: integer
           format: int64
           description: 这段时间的上行总字节数
+
+    RouterDevice:
+      type: object
+      required: [mac, note, displayName, online, lastSeen, firstSeen, notify, cooldownMinutes]
+      properties:
+        mac:
+          type: string
+          description: 大写，冒号分隔
+        name:
+          type: string
+          nullable: true
+          description: 主机名（DHCP 租约里的）
+        note:
+          type: string
+          description: 用户写的备注，最多 40 个字。没写是空字符串
+        displayName:
+          type: string
+          description: 备注，没有就用主机名，再没有就用 MAC
+        ip:
+          type: string
+          nullable: true
+        ipv6:
+          type: array
+          items: { type: string }
+          description: 最近一次上报里看到的 IPv6 地址。离线的设备没有
+        conn:
+          type: string
+          nullable: true
+          enum: [wifi, wired]
+          description: 没判断出来（老脚本）是空
+        wifiIface:
+          type: string
+          nullable: true
+          description: 连在哪个 Wi-Fi 接口上，比如 wlan0
+        online: { type: boolean }
+        onlineSince:
+          type: string
+          format: date-time
+          nullable: true
+          description: 这次上线的时间。离线时为空
+        lastSeen:
+          type: string
+          format: date-time
+        firstSeen:
+          type: string
+          format: date-time
+        leaseExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        notify:
+          type: boolean
+          description: 这台设备上下线时是否通知（还要总开关开着）
+        cooldownMinutes:
+          type: integer
+          nullable: true
+          description: 再次通知间隔（分钟），空表示跟随默认
+        rxRate:
+          type: number
+          format: double
+          nullable: true
+          description: B229：下载速率（字节/秒），按最近约 10 秒平均。离线或没有 nlbwmon 数据时为空
+        txRate:
+          type: number
+          format: double
+          nullable: true
+        todayRx:
+          type: integer
+          format: int64
+          nullable: true
+          description: B229：今天（面板时区）的下载字节数。没有 nlbwmon 数据时为空
+        todayTx:
+          type: integer
+          format: int64
+          nullable: true
+    RouterDeviceUpdate:
+      type: object
+      required: [note, notify, cooldownMinutes]
+      properties:
+        note:
+          type: string
+          maxLength: 40
+        notify: { type: boolean }
+        cooldownMinutes:
+          type: integer
+          nullable: true
+          description: 只能是 0、5、15、30、60，或者空（跟随默认）
+    RouterOptions:
+      type: object
+      required: [deviceNotify, newDeviceNotify, notifyCooldownMinutes, logDays]
+      properties:
+        deviceNotify:
+          type: boolean
+          description: 设备上下线通知的总开关，默认关
+        newDeviceNotify:
+          type: boolean
+          description: 新设备第一次接入时通知（B232），默认开
+        notifyCooldownMinutes:
+          type: integer
+          description: 默认的再次通知间隔，0、5、15、30、60，默认 15
+        logDays:
+          type: integer
+          minimum: 1
+          maximum: 15
+          description: 事件和系统日志保存几天，默认 7

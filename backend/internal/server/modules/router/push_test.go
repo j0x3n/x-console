@@ -56,6 +56,7 @@ func reportBody(rx, tx int, wanUp bool, routerNow int64) string {
 #xc:arp
 IP address       HW type     Flags       HW address            Mask     Device
 192.168.1.3      0x1         0x2         aa:bb:cc:00:00:03     *        br-lan
+192.168.1.20     0x1         0x2         aa:bb:cc:00:00:02     *        br-lan
 192.168.1.50     0x1         0x2         aa:bb:cc:00:00:05     *        br-lan
 192.168.1.60     0x1         0x0         00:00:00:00:00:00     *        br-lan
 `, routerNow, wanUp, rx, tx, routerNow+3600)

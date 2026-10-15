@@ -105,6 +105,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/router/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B228：面板记住的所有设备，在线的排前面。只在 mode=push 时可用，否则回 409 router_not_push。
+         *     trafficAvailable 为 true 表示最近一次上报带了 nlbwmon 的数据（B229），rxRate、txRate、todayRx、todayTx 才有值。
+         */
+        get: operations["listRouterDevices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/router/devices/{mac}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 设备的 MAC，不分大小写，冒号分隔 */
+                mac: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 忘掉这台设备：删掉备注、设备记录和它的流量。它再出现时当新设备。 */
+        delete: operations["deleteRouterDevice"];
+        options?: never;
+        head?: never;
+        /** @description 改备注、通知开关和再次通知间隔。三个字段都要传。不需要提升权限。MAC 不存在回 404。 */
+        patch: operations["updateRouterDevice"];
+        trace?: never;
+    };
+    "/router/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 设备通知和日志的设置。 */
+        get: operations["getRouterOptions"];
+        /** @description 整个对象一起传，返回保存后的整个对象。notifyCooldownMinutes 只能是 0、5、15、30、60，logDays 在 1 到 15 之间。 */
+        put: operations["putRouterOptions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/router/status": {
         parameters: {
             query?: never;
@@ -132,7 +191,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 在线设备：合并 DHCP 租约和 host hints，按 IP 排序。 */
+        /**
+         * @description 在线设备，按 IP 排序。mode=push 时只返回面板判断为在线的设备（B228），带备注；
+         *     其他模式合并 DHCP 租约和 host hints。AI 动作也在用这个接口。
+         */
         get: operations["getRouterClients"];
         put?: never;
         post?: never;
@@ -295,6 +357,12 @@ export interface components {
             txRate?: number;
             /** @description 在线设备数 */
             clientCount: number;
+            /** @description mode=push 时，面板记住的设备数（含离线的） */
+            knownDevices?: number;
+            /** @description mode=push 时，在线的 Wi-Fi 设备数 */
+            wifiClients?: number;
+            /** @description mode=push 时，在线的有线设备数 */
+            wiredClients?: number;
             /**
              * Format: date-time
              * @description 读取时间。source=push 时是收到上报的时间
@@ -304,6 +372,8 @@ export interface components {
         RouterClient: {
             mac: string;
             name?: string;
+            /** @description mode=push 时，用户给这台设备写的备注 */
+            note?: string;
             ip?: string;
             ipv6?: string[];
             /**
@@ -342,6 +412,72 @@ export interface components {
              * @description 这段时间的上行总字节数
              */
             txBytes: number;
+        };
+        RouterDevice: {
+            /** @description 大写，冒号分隔 */
+            mac: string;
+            /** @description 主机名（DHCP 租约里的） */
+            name?: string | null;
+            /** @description 用户写的备注，最多 40 个字。没写是空字符串 */
+            note: string;
+            /** @description 备注，没有就用主机名，再没有就用 MAC */
+            displayName: string;
+            ip?: string | null;
+            /** @description 最近一次上报里看到的 IPv6 地址。离线的设备没有 */
+            ipv6?: string[];
+            /**
+             * @description 没判断出来（老脚本）是空
+             * @enum {string|null}
+             */
+            conn?: "wifi" | "wired" | null;
+            /** @description 连在哪个 Wi-Fi 接口上，比如 wlan0 */
+            wifiIface?: string | null;
+            online: boolean;
+            /**
+             * Format: date-time
+             * @description 这次上线的时间。离线时为空
+             */
+            onlineSince?: string | null;
+            /** Format: date-time */
+            lastSeen: string;
+            /** Format: date-time */
+            firstSeen: string;
+            /** Format: date-time */
+            leaseExpiresAt?: string | null;
+            /** @description 这台设备上下线时是否通知（还要总开关开着） */
+            notify: boolean;
+            /** @description 再次通知间隔（分钟），空表示跟随默认 */
+            cooldownMinutes: number | null;
+            /**
+             * Format: double
+             * @description B229：下载速率（字节/秒），按最近约 10 秒平均。离线或没有 nlbwmon 数据时为空
+             */
+            rxRate?: number | null;
+            /** Format: double */
+            txRate?: number | null;
+            /**
+             * Format: int64
+             * @description B229：今天（面板时区）的下载字节数。没有 nlbwmon 数据时为空
+             */
+            todayRx?: number | null;
+            /** Format: int64 */
+            todayTx?: number | null;
+        };
+        RouterDeviceUpdate: {
+            note: string;
+            notify: boolean;
+            /** @description 只能是 0、5、15、30、60，或者空（跟随默认） */
+            cooldownMinutes: number | null;
+        };
+        RouterOptions: {
+            /** @description 设备上下线通知的总开关，默认关 */
+            deviceNotify: boolean;
+            /** @description 新设备第一次接入时通知（B232），默认开 */
+            newDeviceNotify: boolean;
+            /** @description 默认的再次通知间隔，0、5、15、30、60，默认 15 */
+            notifyCooldownMinutes: number;
+            /** @description 事件和系统日志保存几天，默认 7 */
+            logDays: number;
         };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
@@ -520,6 +656,126 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRouterDevices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设备列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RouterDevice"][];
+                        trafficAvailable: boolean;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteRouterDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 设备的 MAC，不分大小写，冒号分隔 */
+                mac: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateRouterDevice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 设备的 MAC，不分大小写，冒号分隔 */
+                mac: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouterDeviceUpdate"];
+            };
+        };
+        responses: {
+            /** @description 更新后的设备 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterDevice"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRouterOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterOptions"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    putRouterOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RouterOptions"];
+            };
+        };
+        responses: {
+            /** @description 保存后的设置 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterOptions"];
                 };
             };
             default: components["responses"]["Error"];

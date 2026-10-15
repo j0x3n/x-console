@@ -1631,6 +1631,49 @@ type Reminder struct {
 	Icon         string
 }
 
+type RouterDevice struct {
+	Mac             string
+	Note            string
+	Notify          int64
+	CooldownMinutes *int64
+	Conn            string
+	WifiIface       string
+	LastName        string
+	LastIp          string
+	Online          int64
+	OnlineSince     *int64
+	OfflineSince    *int64
+	FirstSeen       int64
+	LastSeen        int64
+	NotifiedAt      *int64
+	NotifiedOnline  *int64
+}
+
+type RouterDeviceTraffic struct {
+	Mac  string
+	Hour int64
+	Rx   int64
+	Tx   int64
+}
+
+type RouterEvent struct {
+	ID     int64
+	At     int64
+	Kind   string
+	Mac    *string
+	Title  string
+	Detail string
+}
+
+type RouterLog struct {
+	ID       int64
+	At       int64
+	Level    string
+	Facility string
+	Program  string
+	Message  string
+}
+
 type RouterTraffic struct {
 	At      int64
 	Seconds int64

@@ -134,6 +134,14 @@ func (m *Module) prune(ctx context.Context, now time.Time) {
 	if err := m.q.PruneTraffic(ctx, now.Add(-keepTraffic).Unix()); err != nil {
 		m.d.Log.Warn("router prune", "err", err)
 	}
+	m.pruneDevices(ctx, now)
+	days := defaultLogDays
+	if o, err := m.options(ctx); err == nil {
+		days = o.LogDays
+	}
+	if err := m.q.PruneRouterEvents(ctx, now.Add(-time.Duration(days)*24*time.Hour).Unix()); err != nil {
+		m.d.Log.Warn("router prune events", "err", err)
+	}
 }
 
 // wanState moves the outage tracker and sends the down and back notifications.
