@@ -162,6 +162,10 @@ if [ -n "$CURRENT_CONTAINER" ]; then
 fi
 
 set_image "$IMAGE"
+# 开了浏览器（COMPOSE_PROFILES 含 browser）时，顺便更新带中文字体的浏览器镜像。
+if grep -q '^COMPOSE_PROFILES=.*browser' .env; then
+	docker compose pull -q browser || echo "警告：浏览器镜像没拉下来，用本机已有的" >&2
+fi
 if ! fetch_image "$IMAGE" || ! docker compose up -d --no-build --remove-orphans || ! health; then
 	echo "新版本没有就绪，最近日志：" >&2
 	docker compose logs --tail 50 x-console >&2 || true

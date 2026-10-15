@@ -36,8 +36,9 @@ services:
   # 比如 COMPOSE_PROFILES=browser 或 COMPOSE_PROFILES=caddy,browser。
   # 只在 Docker 内部网络上开 9222 端口，外网和服务器本机都连不到。
   # 登录状态由面板加密存进数据库，这个容器不存数据，重启不丢。
+  # 镜像在 headless-shell 上补了中文字体（deploy/browser.Dockerfile），由部署流程构建。
   browser:
-    image: ${XC_BROWSER_IMAGE:-chromedp/headless-shell:latest}
+    image: ${XC_BROWSER_IMAGE:-ghcr.io/j0x3n/x-console-browser:latest}
     profiles: ["browser"]
     restart: unless-stopped
     mem_limit: 1g

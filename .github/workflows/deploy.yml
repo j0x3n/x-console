@@ -64,6 +64,31 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # 网页盯梢用的浏览器镜像：headless-shell 加中文字体。有缓存时几十秒。
+  browser:
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[deploy]')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: deploy
+          file: deploy/browser.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}-browser:latest
+          cache-from: type=gha,scope=browser
+          cache-to: type=gha,scope=browser,mode=max
+
   agents:
     needs: [test, image]
     runs-on: ubuntu-latest
@@ -112,7 +137,7 @@ jobs:
       - run: docker buildx imagetools create -t "$IMAGE:latest" "${{ needs.image.outputs.ref }}"
 
   deploy:
-    needs: [test, image]
+    needs: [test, image, browser]
     runs-on: ubuntu-latest
     permissions:
       contents: read
