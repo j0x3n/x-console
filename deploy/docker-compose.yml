@@ -20,6 +20,13 @@ services:
       XC_TRUSTED_PROXIES: ${XC_TRUSTED_PROXIES:-127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7}
       # 网页盯梢用的浏览器（B205）。不开 browser profile 时连不上，只影响网页盯梢。
       XC_BROWSER: ${XC_BROWSER:-http://browser:9222}
+      # 网站自动化经过已连接的机器上网（B208）。面板在这个地址上开一个 HTTP 代理，
+      # 浏览器容器连它，它再把流量转给任务选的那台机器的代理程序。
+      # 只在 Docker 内部网络上能连，端口不映射到服务器本机或外网。
+      # LISTEN 是面板监听的地址，URL 是浏览器容器连它用的地址，主机名是面板的服务名 x-console。
+      # LISTEN 设为空就不开，选了出口机器的任务会报“服务器没有开出口转发”。
+      XC_BROWSER_EGRESS_LISTEN: ${XC_BROWSER_EGRESS_LISTEN-:8091}
+      XC_BROWSER_EGRESS_URL: ${XC_BROWSER_EGRESS_URL:-http://x-console:8091}
     volumes:
       - xc-data:/data
     ports:

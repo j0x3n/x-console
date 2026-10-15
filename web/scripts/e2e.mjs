@@ -4205,6 +4205,30 @@ try {
     );
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width: 1360, height: 860 });
+
+    setStage("B208 网站自动化经过已连接的机器上网");
+    // 端到端环境没有开出口转发，只看能选这台机器、存下来、详情页写明出口。
+    await page.goto(`${base}/monitoring/watchers`);
+    await page.getByRole("button", { name: "新建盯梢" }).first().click();
+    const egressDialog = dialog("新建盯梢");
+    await egressDialog.getByLabel("名称").fill("端到端出口");
+    await egressDialog
+      .getByLabel("地址")
+      .fill("https://www.example.gov.cn/status");
+    await egressDialog.getByLabel("要盯什么").fill("看办理状态");
+    await egressDialog.getByRole("button", { name: "更多选项" }).click();
+    await egressDialog
+      .getByLabel("出口", { exact: true })
+      .selectOption({ label: "e2e-linux" });
+    await egressDialog.getByRole("button", { name: "保存" }).click();
+    await page.waitForURL(/\/monitoring\/watchers\/\d+$/);
+    await page.locator("dd", { hasText: "e2e-linux" }).waitFor();
+    const egressWatcher = (await api("/watchers")).items.find(
+      (item) => item.name === "端到端出口",
+    );
+    assert.equal(egressWatcher?.egressAgentId, host.id, "出口机器没有存下");
+    await send("DELETE", `/watchers/${egressWatcher.id}`);
+
     setStage("吊销代理并停止进程");
     await page.goto(`${base}/settings/devices`);
     const agentRow = page.locator("tr").filter({ hasText: "e2e-linux" });

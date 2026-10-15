@@ -15,6 +15,9 @@ type Config struct {
 	Token   string `json:"token"`
 	// Coding holds the M4 runner settings (repo roots, executor paths).
 	Coding json.RawMessage `json:"coding,omitempty"`
+	// DisableEgress turns the B208 egress off: the agent does not announce
+	// it and refuses net.dial.
+	DisableEgress bool `json:"disableEgress,omitempty"`
 }
 
 // DefaultPath is <user config dir>/x-console-agent/config.json.

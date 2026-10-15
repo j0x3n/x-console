@@ -1827,6 +1827,7 @@ type Watcher struct {
 	NextCheckAt      *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	EgressAgentID    string
 }
 
 type WatcherChange struct {

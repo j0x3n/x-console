@@ -198,6 +198,111 @@ describe("WatchersPage", () => {
   });
 });
 
+describe("出口（B208）", () => {
+  const agents = [
+    {
+      id: "vm1",
+      name: "Unraid 虚拟机",
+      kind: "server",
+      os: "linux",
+      arch: "amd64",
+      hostname: "vm",
+      version: "1",
+      online: true,
+      capabilities: ["egress"],
+      createdAt: "2026-10-01T00:00:00Z",
+    },
+    {
+      id: "old",
+      name: "旧机器",
+      kind: "server",
+      os: "linux",
+      arch: "amd64",
+      hostname: "old",
+      version: "1",
+      online: true,
+      capabilities: [],
+      createdAt: "2026-10-01T00:00:00Z",
+    },
+  ];
+
+  it("creates a watcher that goes online via a connected machine", async () => {
+    api.routes.set("GET /watchers", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("GET /watchers/status", () => ({ status: 404 }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: agents }));
+    api.routes.set("POST /watchers", (body) => ({
+      status: 201,
+      body: { ...base, ...(body as object), id: 9 },
+    }));
+    renderAt("/monitoring/watchers?new=1", <WatchersPage />);
+    await screen.findByText("还没有盯梢任务");
+    fireEvent.change(screen.getByLabelText(/^(Name|名称)$/), {
+      target: { value: "全链通" },
+    });
+    fireEvent.change(screen.getByLabelText(/^(Address|地址)$/), {
+      target: { value: "https://www.jszwfw.gov.cn/" },
+    });
+    fireEvent.change(screen.getByLabelText("要盯什么"), {
+      target: { value: "看办理进度" },
+    });
+    fireEvent.click(screen.getByText(/^(More options|更多设置)$/));
+    const select = screen.getByLabelText("出口") as HTMLSelectElement;
+    await screen.findByRole("option", { name: "Unraid 虚拟机" });
+    // 不支持出口的机器不列出来
+    expect(screen.queryByRole("option", { name: "旧机器" })).toBeNull();
+    expect(screen.queryByLabelText("出口代理")).toBeNull();
+    fireEvent.change(select, { target: { value: "vm1" } });
+    fireEvent.click(screen.getByText(/^(Save|保存)$/));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "POST")?.body).toMatchObject({
+        egressAgentId: "vm1",
+      }),
+    );
+    expect(
+      (api.calls.find((c) => c.method === "POST")?.body as object) ?? {},
+    ).not.toHaveProperty("proxy");
+  });
+
+  it("shows the proxy field only when asked, and switching clears the old exit", async () => {
+    const watcher = { ...base, egressAgentId: "vm1" };
+    api.routes.set("GET /watchers/3", () => ({
+      status: 200,
+      body: { ...watcher, changes: [], runs: [], recipe: [] },
+    }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: agents }));
+    api.routes.set("PATCH /watchers/3", (body) => ({
+      status: 200,
+      body: { ...watcher, ...(body as object) },
+    }));
+    renderAt(
+      "/monitoring/watchers/3",
+      <WatcherPage />,
+      "/monitoring/watchers/:watcherId",
+    );
+    await screen.findByText("Unraid 虚拟机");
+    fireEvent.click(screen.getByRole("button", { name: /^(Edit|编辑|修改)$/ }));
+    fireEvent.click(await screen.findByText(/^(More options|更多设置)$/));
+    const select = screen.getByLabelText("出口") as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("vm1"));
+    fireEvent.change(select, { target: { value: ":proxy" } });
+    const save = screen.getByText(/^(Save|保存)$/).closest("button")!;
+    // 没填代理地址不能保存
+    expect(save.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("出口代理"), {
+      target: { value: "socks5://10.0.0.2:1080" },
+    });
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+        proxy: "socks5://10.0.0.2:1080",
+      }),
+    );
+  });
+});
+
 describe("X watchers", () => {
   it("creates an X watcher without login fields", async () => {
     api.routes.set("GET /watchers", () => ({

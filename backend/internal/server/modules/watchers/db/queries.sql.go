@@ -77,9 +77,9 @@ func (q *Queries) CreateShot(ctx context.Context, arg CreateShotParams) (int64, 
 
 const createWatcher = `-- name: CreateWatcher :one
 INSERT INTO watchers (kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode,
-  login_sealed, proxy_sealed, next_check_at, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at
+  login_sealed, proxy_sealed, egress_agent_id, next_check_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id
 `
 
 type CreateWatcherParams struct {
@@ -93,6 +93,7 @@ type CreateWatcherParams struct {
 	Mode             string
 	LoginSealed      string
 	ProxySealed      string
+	EgressAgentID    string
 	NextCheckAt      *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
@@ -110,6 +111,7 @@ func (q *Queries) CreateWatcher(ctx context.Context, arg CreateWatcherParams) (W
 		arg.Mode,
 		arg.LoginSealed,
 		arg.ProxySealed,
+		arg.EgressAgentID,
 		arg.NextCheckAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
@@ -143,6 +145,7 @@ func (q *Queries) CreateWatcher(ctx context.Context, arg CreateWatcherParams) (W
 		&i.NextCheckAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EgressAgentID,
 	)
 	return i, err
 }
@@ -235,7 +238,7 @@ func (q *Queries) GetShot(ctx context.Context, id int64) ([]byte, error) {
 }
 
 const getWatcher = `-- name: GetWatcher :one
-SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at FROM watchers WHERE id = ?
+SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id FROM watchers WHERE id = ?
 `
 
 func (q *Queries) GetWatcher(ctx context.Context, id int64) (Watcher, error) {
@@ -269,6 +272,7 @@ func (q *Queries) GetWatcher(ctx context.Context, id int64) (Watcher, error) {
 		&i.NextCheckAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.EgressAgentID,
 	)
 	return i, err
 }
@@ -347,7 +351,7 @@ func (q *Queries) ListRuns(ctx context.Context, watcherID int64) ([]WatcherRun, 
 }
 
 const listWatchers = `-- name: ListWatchers :many
-SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at FROM watchers ORDER BY id
+SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id FROM watchers ORDER BY id
 `
 
 func (q *Queries) ListWatchers(ctx context.Context) ([]Watcher, error) {
@@ -387,6 +391,7 @@ func (q *Queries) ListWatchers(ctx context.Context) ([]Watcher, error) {
 			&i.NextCheckAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.EgressAgentID,
 		); err != nil {
 			return nil, err
 		}
@@ -437,6 +442,27 @@ type SetWatcherKeepaliveParams struct {
 
 func (q *Queries) SetWatcherKeepalive(ctx context.Context, arg SetWatcherKeepaliveParams) error {
 	_, err := q.db.ExecContext(ctx, setWatcherKeepalive, arg.LastKeepaliveAt, arg.ID)
+	return err
+}
+
+const setWatcherNextCheck = `-- name: SetWatcherNextCheck :exec
+UPDATE watchers SET status_detail = ?, next_check_at = ?, updated_at = ? WHERE id = ?
+`
+
+type SetWatcherNextCheckParams struct {
+	StatusDetail string
+	NextCheckAt  *time.Time
+	UpdatedAt    time.Time
+	ID           int64
+}
+
+func (q *Queries) SetWatcherNextCheck(ctx context.Context, arg SetWatcherNextCheckParams) error {
+	_, err := q.db.ExecContext(ctx, setWatcherNextCheck,
+		arg.StatusDetail,
+		arg.NextCheckAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }
 
@@ -532,7 +558,7 @@ func (q *Queries) UpdateRun(ctx context.Context, arg UpdateRunParams) error {
 
 const updateWatcherSettings = `-- name: UpdateWatcherSettings :exec
 UPDATE watchers SET name = ?, url = ?, goal = ?, allowed_hosts = ?, interval_minutes = ?, keepalive_minutes = ?,
-  mode = ?, enabled = ?, login_sealed = ?, proxy_sealed = ?, state_sealed = ?, recipe = ?, next_check_at = ?, updated_at = ?
+  mode = ?, enabled = ?, login_sealed = ?, proxy_sealed = ?, egress_agent_id = ?, state_sealed = ?, recipe = ?, next_check_at = ?, updated_at = ?
 WHERE id = ?
 `
 
@@ -547,6 +573,7 @@ type UpdateWatcherSettingsParams struct {
 	Enabled          int64
 	LoginSealed      string
 	ProxySealed      string
+	EgressAgentID    string
 	StateSealed      string
 	Recipe           string
 	NextCheckAt      *time.Time
@@ -566,6 +593,7 @@ func (q *Queries) UpdateWatcherSettings(ctx context.Context, arg UpdateWatcherSe
 		arg.Enabled,
 		arg.LoginSealed,
 		arg.ProxySealed,
+		arg.EgressAgentID,
 		arg.StateSealed,
 		arg.Recipe,
 		arg.NextCheckAt,

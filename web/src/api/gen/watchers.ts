@@ -216,6 +216,8 @@ export interface components {
             /** @description 存了用户名和密码 */
             hasLogin: boolean;
             hasProxy: boolean;
+            /** @description B208：经过这台已连接的机器上网，没选时不给 */
+            egressAgentId?: string;
             /** @description 已经记下了步骤 */
             hasRecipe: boolean;
             pending?: components["schemas"]["WatcherPending"];
@@ -248,6 +250,8 @@ export interface components {
             mode?: components["schemas"]["WatcherMode"];
             /** @description 出口代理，http://、https:// 或 socks5://，可带用户名密码 */
             proxy?: string;
+            /** @description B208：经过这台已连接的机器上网，和 proxy 只能填一个 */
+            egressAgentId?: string;
             username?: string;
             password?: string;
         };
@@ -262,6 +266,8 @@ export interface components {
             enabled?: boolean;
             /** @description 空字符串是去掉代理 */
             proxy?: string;
+            /** @description B208：空字符串是去掉；填了会清掉代理，和 proxy 只能填一个 */
+            egressAgentId?: string;
             username?: string;
             password?: string;
             /** @description 删掉存的用户名、密码和登录状态 */

@@ -6,17 +6,20 @@ SELECT * FROM watchers WHERE id = ?;
 
 -- name: CreateWatcher :one
 INSERT INTO watchers (kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode,
-  login_sealed, proxy_sealed, next_check_at, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  login_sealed, proxy_sealed, egress_agent_id, next_check_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: UpdateWatcherSettings :exec
 UPDATE watchers SET name = ?, url = ?, goal = ?, allowed_hosts = ?, interval_minutes = ?, keepalive_minutes = ?,
-  mode = ?, enabled = ?, login_sealed = ?, proxy_sealed = ?, state_sealed = ?, recipe = ?, next_check_at = ?, updated_at = ?
+  mode = ?, enabled = ?, login_sealed = ?, proxy_sealed = ?, egress_agent_id = ?, state_sealed = ?, recipe = ?, next_check_at = ?, updated_at = ?
 WHERE id = ?;
 
 -- name: DeleteWatcher :exec
 DELETE FROM watchers WHERE id = ?;
+
+-- name: SetWatcherNextCheck :exec
+UPDATE watchers SET status_detail = ?, next_check_at = ?, updated_at = ? WHERE id = ?;
 
 -- name: SetWatcherStatus :exec
 UPDATE watchers SET status = ?, status_detail = ?, updated_at = ? WHERE id = ?;

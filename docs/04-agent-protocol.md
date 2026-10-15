@@ -126,6 +126,7 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | proxy（访问代理所在内网的 HTTP 和 WebSocket，只允许私有地址） | 有 | 有 |
 | net.fetch（只读音乐来源的公网 HTTPS 请求，B172） | 有 | 有 |
 | aiconfig（B121，有 Claude Code 或 Codex 才上报） | 有 | 有 |
+| egress（B208：`net.dial`，只连公网地址。配置里 `"disableEgress": true` 时不上报） | 有 | 有 |
 
 ### Docker 日志和镜像（B28）
 
@@ -176,6 +177,13 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - 最多跟随 5 次重定向，每一跳都检查白名单。拨号时检查实际 IP，拒绝私有、回环、链路本地和非公网地址。不使用环境代理。
 - 这是连接客户端的内置命令。`conn.New` 注册处理器并给 hello 加 `net.fetch`，Linux 和 Windows 共用实现，无需改代理入口。
 - 音乐模块只选在线的 Windows 代理，优先使用最近收到 metrics 心跳的代理。尚未收到心跳时使用连接时间。直连失败而代理成功后，同一个来源优先走代理 10 分钟。代理失败清除该来源的缓存。
+
+### 出口（B208）
+
+- `net.dial {host, port}` 是流。服务端的浏览器经过一个 HTTP 代理（`modules/watchers/egress.go`）上网，代理为每条 TCP 连接开一个 `net.dial` 流。
+- 代理连目标，10 秒超时。连上以后先发一个空的数据帧，服务端收到它才告诉浏览器已经连上。连不上时流以错误结束。之后两个方向的数据帧都是原样的 TCP 字节，任一方关闭流就结束。
+- 只连公网地址。检查在 DNS 解析之后、`net.Dialer.Control` 里对真实要连的 IP 做。回环、私有、链路本地、CGNAT（100.64.0.0/10）、组播、未指定地址和保留段都拒绝，错误码 `forbidden_target`。端口 1 到 65535 都可以。
+- 配置 `"disableEgress": true` 的代理不上报 `egress`，收到 `net.dial` 回 `unsupported`。不认识这个方法的旧代理回 `unknown_method`，服务端提示“这台机器的代理太旧，先更新代理”。
 
 ## 新增方法的步骤
 

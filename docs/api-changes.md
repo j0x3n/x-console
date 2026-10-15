@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B208（2026-10-15）：网站自动化可以经过一台已连接的机器上网。`watchers.yaml` 的 `Watcher` 加可选的 `egressAgentId`（没选时不给），`WatcherInput`、`WatcherPatch` 加 `egressAgentId`（空字符串是去掉）。它和 `proxy` 只能选一个，同时填回 400；填 `egressAgentId` 会清掉代理，填 `proxy` 会清掉出口机器；X 任务不能选。迁移 `20261015070000_m57_b208_watcher_egress.sql` 给 `watchers` 加 `egress_agent_id`（只加不删）。新协议方法 `net.dial`（流，`NetDialParams`）和能力 `egress`（`pkg/protocol/methods_egress.go`，`docs/04-agent-protocol.md` 加一节）；新包 `internal/agent/egress`；代理配置 `config.Config` 加 `disableEgress`；`cmd/agent/main.go` 加一行 `egress.Register`（注册方法并上报能力）。服务端新文件 `modules/watchers/egress.go`（HTTP 代理，监听 `XC_BROWSER_EGRESS_LISTEN`）。新环境变量 `XC_BROWSER_EGRESS_LISTEN`、`XC_BROWSER_EGRESS_URL`，`deploy/docker-compose.yml` 的 `x-console` 服务加这两个（默认 `:8091` 和 `http://x-console:8091`，端口不映射到宿主机）。 创建或修改时带 `egressAgentId` 要二次验证（和改代理一样）。`POST /watchers/{watcherId}/run` 在出口机器离线时回 409 `egress_offline`。
+
 - B225（2026-10-15）：`mail.yaml` 的 `MailTriage` 加必有的 `code`（验证码、一次性密码或登录码。营销一律 false）。迁移 `20261015060000_m56_b225_mail_triage_code.sql`（`mail_triage` 加 `code`，只加不删）。选了 Jev 时，类别置信度低于或等于 0.85 的那封不采用，改走原来的整封分拣。用量在 Jev 已成功返回时照记。新邮件里验证码马上推送，营销不推送。没分拣出来的仍照旧推送。
 
 - B224（2026-10-15）：`GET /mail/todo` 只返回今天收到的要处理邮件，不再包含最近 30 天。`PUT /mail/messages/{messageId}/done` 在标成已处理时，如果这封还是未读，会在邮箱服务器上标成已读。取消已处理不改已读。服务器没存上已读时回 502，本地也不标成已处理。

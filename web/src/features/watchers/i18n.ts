@@ -17,6 +17,7 @@ registerZh({
   "How AI watches": "盯的方式",
   "Keep login alive": "保持登录",
   "Outgoing proxy": "出口代理",
+  "Go online via": "出口",
   "Allowed domains": "允许的域名",
   "Daily AI limit (USD)": "每天 AI 花费上限（美元）",
   "Buttons that need approval": "点之前要批准的按钮",

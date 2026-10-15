@@ -257,6 +257,7 @@ components:
         currentValue: { type: string }
         hasLogin: { type: boolean, description: 存了用户名和密码 }
         hasProxy: { type: boolean }
+        egressAgentId: { type: string, description: B208：经过这台已连接的机器上网，没选时不给 }
         hasRecipe: { type: boolean, description: 已经记下了步骤 }
         pending: { $ref: "#/components/schemas/WatcherPending" }
         lastCheckedAt: { type: string, format: date-time }
@@ -277,6 +278,7 @@ components:
         keepaliveMinutes: { type: integer, description: 0 是不保活，最少 5 }
         mode: { $ref: "#/components/schemas/WatcherMode" }
         proxy: { type: string, description: 出口代理，http://、https:// 或 socks5://，可带用户名密码 }
+        egressAgentId: { type: string, description: B208：经过这台已连接的机器上网，和 proxy 只能填一个 }
         username: { type: string }
         password: { type: string }
     WatcherPatch:
@@ -291,6 +293,7 @@ components:
         mode: { $ref: "#/components/schemas/WatcherMode" }
         enabled: { type: boolean }
         proxy: { type: string, description: 空字符串是去掉代理 }
+        egressAgentId: { type: string, description: B208：空字符串是去掉；填了会清掉代理，和 proxy 只能填一个 }
         username: { type: string }
         password: { type: string }
         clearLogin: { type: boolean, description: 删掉存的用户名、密码和登录状态 }

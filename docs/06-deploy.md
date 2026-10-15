@@ -129,6 +129,8 @@ docker compose up -d --build
 | `XC_DEBUG` | 空 | 设为 `1` 输出调试日志 |
 | `XC_IMAGE` | `ghcr.io/j0x3n/x-console:latest` | 仅 docker compose 使用，自动部署会写入具体版本 |
 | `XC_PORT` | `17380` | 仅 docker compose 使用，面板在服务器本机监听的端口 |
+| `XC_BROWSER_EGRESS_LISTEN` | compose 里是 `:8091` | 网站自动化经过已连接的机器上网用的 HTTP 代理（B208）。不设或设为空就不开。只在 Docker 内部网络上能连，不要映射到服务器本机或外网 |
+| `XC_BROWSER_EGRESS_URL` | compose 里是 `http://x-console:8091` | 浏览器容器连上面这个代理用的地址。主机名是面板的服务名 |
 | `XC_LOCAL_AGENT` | `1` | 自动安装并更新面板所在服务器的代理；设为 `0` 并部署一次可卸载 |
 | `COMPOSE_PROFILES` | 空 | 设为 `caddy` 时启动自带的 Caddy |
 
@@ -178,6 +180,7 @@ sh remote-deploy.sh restore x-console-20260927-153000-sha-8fed186.db
 - 已经装过的机器再执行一次命令只升级程序，不会再配对，也不会多出一条记录。要重新配对，在 `sh` 后面加 `-s -- --repair`（Windows 删掉 `%APPDATA%\x-console-agent\config.json` 再执行）。升级时也要在面板里生成一个新的配对码，用过的码会得到 404。
 - 卸载：`curl -fsSL "<面板>/api/v1/agent/uninstall.sh" | sudo sh`。面板里的记录要在设备页里吊销。
 - 代理是主动连面板的，内网机器只要能访问面板地址就行，不用开端口。
+- 网站自动化的任务可以选一台已连接的机器当出口（B208），浏览器的全部请求经过这台机器的代理出去，网站看到的就是这台机器所在网络的 IP。这需要面板开了出口转发（`XC_BROWSER_EGRESS_LISTEN`，compose 默认开）和代理升级到支持 `egress` 的版本。出口只连公网地址。不想让某台机器当出口，在它的 `config.json` 里加 `"disableEgress": true`，重启代理。
 - 资源实测（2026-09-30）：在限制为 1 核、1 GB 的 Linux 容器中，服务端和代理同容器运行。代理连接后预热 10 秒，再取 30 秒的进程 CPU 时间差和末尾 RSS。空闲时 RSS 11.1 MiB、平均 CPU 0.00%；通过 `/events` 订阅详情并要求 1 秒刷新时，RSS 13.8 MiB、平均 CPU 0.10%。CPU 读数精度约 0.03 个百分点。真实服务器上的 systemd 安装仍需验收。
 - 这些接口不用登录，但要带有效的配对码，无效、过期或用过的码一律回 404，同一个 IP 每分钟最多 10 次请求，超过回 429。脚本里的面板地址来自 `XC_PUBLIC_URL`，没设时来自请求的 `Host`，只接受字母、数字、`.`、`-`、`:` 组成的地址。
 - 代理程序在镜像里，四个平台各一份，在 `/usr/share/x-console/agents/<系统>-<架构>/`，旁边有 `SHA256SUMS`。下载接口的响应头 `X-Checksum-Sha256` 是文件的校验值，脚本用它检查。

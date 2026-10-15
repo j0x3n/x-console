@@ -1,3 +1,4 @@
+import type { Agent } from "../../api/core";
 import type { Watcher, WatcherStatus } from "./api";
 
 /** 状态的中文名和颜色。 */
@@ -82,4 +83,21 @@ export function xLabel(url: string) {
 export function money(v: number | undefined) {
   if (v == null) return "—";
   return `$${v < 1 ? v.toFixed(3) : v.toFixed(2)}`;
+}
+
+/** B208：出口下拉框里“服务器直接访问”和“填代理地址”的值，机器用它的 id。 */
+export const EGRESS_DIRECT = "";
+export const EGRESS_PROXY = ":proxy";
+const CAP_EGRESS = "egress";
+
+export function egressOf(w: Pick<Watcher, "egressAgentId" | "hasProxy">) {
+  if (w.egressAgentId) return w.egressAgentId;
+  return w.hasProxy ? EGRESS_PROXY : EGRESS_DIRECT;
+}
+
+/** 能当出口的机器。任务已经选了的那台即使现在不支持也列出来，下拉框才显示得对。 */
+export function egressAgents(agents: Agent[], current?: string) {
+  return agents.filter(
+    (a) => a.capabilities.includes(CAP_EGRESS) || a.id === current,
+  );
 }

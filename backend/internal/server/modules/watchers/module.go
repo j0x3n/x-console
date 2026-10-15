@@ -14,6 +14,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -68,6 +69,7 @@ type Module struct {
 	llmOverride  contracts.LLM
 	xOverride    contracts.XGraphQL
 	xLimit       xLimiter
+	egress       *egressProxy  // B208
 	waitFor      time.Duration // how long a run waits for the user
 
 	mu      sync.Mutex
@@ -85,6 +87,7 @@ var (
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), browser: browser.FromEnv(d.Log), nowFn: time.Now,
 		running: map[int64]*runState{}, waitFor: 30 * time.Minute, ctx: context.Background()}
+	m.egress = newEgress(m, os.Getenv(EnvEgressURL))
 	module.Provide[*Module](d.Registry, ServiceKey, m)
 	m.registerActions()
 	d.Notify.OnAction("watcher.", m.onNotifyAction)
@@ -108,6 +111,15 @@ func (m *Module) Start(ctx context.Context) error {
 	}
 	if err := m.q.ResetBusyWatchers(ctx, "服务重启，上次没跑完"); err != nil {
 		return err
+	}
+	if addr := strings.TrimSpace(os.Getenv(EnvEgressListen)); addr != "" {
+		// A watcher that picked an egress machine fails with a clear message
+		// when this cannot start, so the rest of the server keeps going.
+		if got, err := m.egress.start(ctx, addr); err != nil {
+			m.d.Log.Error("watcher egress proxy", "listen", addr, "err", err)
+		} else {
+			m.d.Log.Info("watcher egress proxy listening", "addr", got.String())
+		}
 	}
 	m.d.Scheduler.Every("watchers.due", time.Minute, m.tick)
 	m.d.Scheduler.Every("watchers.cleanup", 6*time.Hour, m.cleanup)
@@ -161,6 +173,13 @@ func fail(w http.ResponseWriter, r *http.Request, err error) bool {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
 
 // ---- stored types ----
 
@@ -267,6 +286,9 @@ func (m *Module) toAPI(ctx context.Context, w db.Watcher) api.Watcher {
 	}
 	if out.AllowedHosts == nil {
 		out.AllowedHosts = []string{}
+	}
+	if w.EgressAgentID != "" {
+		out.EgressAgentId = ptr(w.EgressAgentID)
 	}
 	if !out.Enabled {
 		out.Status = api.WatcherStatusPaused
@@ -413,6 +435,24 @@ func checkProxy(p string) error {
 	return nil
 }
 
+// checkEgress returns the id of the machine the browser goes out through. An
+// empty id means no machine.
+func (m *Module) checkEgress(ctx context.Context, id string) (string, error) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "", nil
+	}
+	if _, err := m.d.Agents.Get(ctx, id); err != nil {
+		if errors.Is(err, httpx.ErrNotFound) {
+			return "", httpx.Invalid("这台出口机器不存在或已吊销")
+		}
+		return "", err
+	}
+	return id, nil
+}
+
+var errEgressOrProxy = httpx.Invalid("出口代理和出口机器只能选一个")
+
 var queryIDRe = regexp.MustCompile(`^[A-Za-z0-9_-]{8,64}$`)
 
 // ---- handlers ----
@@ -436,13 +476,16 @@ func (m *Module) CreateWatcher(w http.ResponseWriter, r *http.Request) {
 	if fail(w, r, httpx.Decode(r, &body)) {
 		return
 	}
-	if body.Username != nil || body.Password != nil || (body.Proxy != nil && *body.Proxy != "") {
+	// B208: an egress machine sends the browser through someone's own network.
+	if body.Username != nil || body.Password != nil || (body.Proxy != nil && *body.Proxy != "") ||
+		(body.EgressAgentId != nil && *body.EgressAgentId != "") {
 		if fail(w, r, auth.RequireElevated(r.Context())) {
 			return
 		}
 	}
 	row, err := m.create(r.Context(), body)
-	m.d.Audit.Record(r.Context(), "watcher.create", "", map[string]any{"url": body.Url, "login": body.Username != nil}, err)
+	m.d.Audit.Record(r.Context(), "watcher.create", "", map[string]any{"url": body.Url, "login": body.Username != nil,
+		"proxy": body.Proxy != nil && *body.Proxy != "", "egress": deref(body.EgressAgentId)}, err)
 	if fail(w, r, err) {
 		return
 	}
@@ -482,6 +525,18 @@ func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher,
 		return db.Watcher{}, httpx.Invalid("最多 100 个盯梢任务")
 	}
 	var loginSealed, proxySealed string
+	egressID := ""
+	if body.EgressAgentId != nil {
+		if egressID, err = m.checkEgress(ctx, *body.EgressAgentId); err != nil {
+			return db.Watcher{}, err
+		}
+	}
+	if egressID != "" && body.Proxy != nil && *body.Proxy != "" {
+		return db.Watcher{}, errEgressOrProxy
+	}
+	if egressID != "" && f.kind == "x" {
+		return db.Watcher{}, httpx.Invalid("X 任务不走浏览器，不能选出口机器")
+	}
 	if body.Username != nil || body.Password != nil {
 		l := Login{}
 		if body.Username != nil {
@@ -509,7 +564,7 @@ func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher,
 	}
 	return m.q.CreateWatcher(ctx, db.CreateWatcherParams{Kind: f.kind, Name: f.name, Url: f.url, Goal: f.goal,
 		AllowedHosts: string(hosts), IntervalMinutes: int64(f.interval), KeepaliveMinutes: int64(f.keepAl), Mode: f.mode,
-		LoginSealed: loginSealed, ProxySealed: proxySealed, NextCheckAt: &now, CreatedAt: now, UpdatedAt: now})
+		LoginSealed: loginSealed, ProxySealed: proxySealed, EgressAgentID: egressID, NextCheckAt: &now, CreatedAt: now, UpdatedAt: now})
 }
 
 // GetWatcher implements api.ServerInterface.
@@ -561,14 +616,16 @@ func (m *Module) UpdateWatcher(w http.ResponseWriter, r *http.Request, id api.Wa
 	if fail(w, r, httpx.Decode(r, &body)) {
 		return
 	}
-	if body.Username != nil || body.Password != nil || body.Proxy != nil || (body.ClearLogin != nil && *body.ClearLogin) {
+	if body.Username != nil || body.Password != nil || body.Proxy != nil || body.EgressAgentId != nil ||
+		(body.ClearLogin != nil && *body.ClearLogin) {
 		if fail(w, r, auth.RequireElevated(r.Context())) {
 			return
 		}
 	}
 	row, err := m.update(r.Context(), id, body)
 	m.d.Audit.Record(r.Context(), "watcher.update", strconv.FormatInt(id, 10),
-		map[string]any{"login": body.Username != nil || body.Password != nil, "proxy": body.Proxy != nil}, err)
+		map[string]any{"login": body.Username != nil || body.Password != nil, "proxy": body.Proxy != nil,
+			"egressChanged": body.EgressAgentId != nil, "egress": deref(body.EgressAgentId)}, err)
 	if fail(w, r, err) {
 		return
 	}
@@ -643,6 +700,24 @@ func (m *Module) update(ctx context.Context, id int64, body api.WatcherPatch) (d
 			}
 		}
 	}
+	egressID := cur.EgressAgentID
+	if body.EgressAgentId != nil {
+		if egressID, err = m.checkEgress(ctx, *body.EgressAgentId); err != nil {
+			return cur, err
+		}
+		if egressID != "" {
+			if body.Proxy != nil && *body.Proxy != "" {
+				return cur, errEgressOrProxy
+			}
+			if cur.Kind == "x" {
+				return cur, httpx.Invalid("X 任务不走浏览器，不能选出口机器")
+			}
+			proxySealed = "" // the machine replaces the proxy
+		}
+	}
+	if body.Proxy != nil && *body.Proxy != "" {
+		egressID = "" // the proxy replaces the machine
+	}
 	next := cur.NextCheckAt
 	if f.url != cur.Url || (f.goal != cur.Goal && cur.Kind != "x") {
 		// The old steps lead to the old value; explore again soon.
@@ -664,7 +739,7 @@ func (m *Module) update(ctx context.Context, id int64, body api.WatcherPatch) (d
 	hosts, _ := json.Marshal(f.hosts)
 	err = m.q.UpdateWatcherSettings(ctx, db.UpdateWatcherSettingsParams{Name: f.name, Url: f.url, Goal: f.goal,
 		AllowedHosts: string(hosts), IntervalMinutes: int64(f.interval), KeepaliveMinutes: int64(f.keepAl), Mode: f.mode,
-		Enabled: enabled, LoginSealed: loginSealed, ProxySealed: proxySealed, StateSealed: stateSealed, Recipe: recipe,
+		Enabled: enabled, LoginSealed: loginSealed, ProxySealed: proxySealed, EgressAgentID: egressID, StateSealed: stateSealed, Recipe: recipe,
 		NextCheckAt: next, UpdatedAt: m.now(), ID: id})
 	if err != nil {
 		return cur, err
@@ -678,6 +753,7 @@ func (m *Module) DeleteWatcher(w http.ResponseWriter, r *http.Request, id api.Wa
 		return
 	}
 	m.cancelRun(id)
+	m.egress.forget(id)
 	err := m.q.DeleteWatcher(r.Context(), id)
 	m.d.Audit.Record(r.Context(), "watcher.delete", strconv.FormatInt(id, 10), nil, err)
 	if fail(w, r, err) {
@@ -701,7 +777,14 @@ func (m *Module) RunWatcher(w http.ResponseWriter, r *http.Request, id api.Watch
 		fail(w, r, httpx.Invalid("kind 只能是 check、explore 或 manual"))
 		return
 	}
-	if _, err := m.get(r.Context(), id); fail(w, r, err) {
+	row, err := m.get(r.Context(), id)
+	if fail(w, r, err) {
+		return
+	}
+	// B208: a scheduled check waits quietly for the machine; a run started by
+	// hand says so at once.
+	if row.EgressAgentID != "" && !m.d.Agents.Online(row.EgressAgentID) {
+		fail(w, r, httpx.NewError(http.StatusConflict, "egress_offline", "出口机器不在线，等它上线再试"))
 		return
 	}
 	if !m.startRun(id, body.Kind) {

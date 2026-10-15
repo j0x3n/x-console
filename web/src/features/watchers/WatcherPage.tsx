@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { errorMessage } from "../../api/client";
+import { useAgents } from "../../api/core";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import PageActions from "../../components/layout/PageActions";
 import { ErrorState, Loading } from "../../components/ui/States";
@@ -82,6 +83,7 @@ function Detail({ w }: { w: WatcherDetail }) {
   const update = useUpdateWatcher();
   const remove = useDeleteWatcher();
   const [editing, setEditing] = useState(false);
+  const agents = useAgents();
   const st = STATUS[w.status];
   const busy =
     w.status === "checking" ||
@@ -286,10 +288,15 @@ function Detail({ w }: { w: WatcherDetail }) {
                   <dd>每 {minutesText(w.keepaliveMinutes)}</dd>
                 </>
               )}
-              {w.hasProxy && (
+              {(w.hasProxy || w.egressAgentId) && (
                 <>
-                  <dt>{t("Outgoing proxy")}</dt>
-                  <dd>已设置</dd>
+                  <dt>{t("Go online via")}</dt>
+                  <dd>
+                    {w.egressAgentId
+                      ? (agents.data?.find((a) => a.id === w.egressAgentId)
+                          ?.name ?? "已删除的机器")
+                      : "代理"}
+                  </dd>
                 </>
               )}
               <dt>{t("Last check")}</dt>

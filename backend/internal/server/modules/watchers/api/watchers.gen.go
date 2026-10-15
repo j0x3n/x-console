@@ -212,7 +212,10 @@ type Watcher struct {
 	AllowedHosts []string  `json:"allowedHosts"`
 	CreatedAt    time.Time `json:"createdAt"`
 	CurrentValue string    `json:"currentValue"`
-	Enabled      bool      `json:"enabled"`
+
+	// EgressAgentId B208：经过这台已连接的机器上网，没选时不给
+	EgressAgentId *string `json:"egressAgentId,omitempty"`
+	Enabled       bool    `json:"enabled"`
 
 	// Goal 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空
 	Goal string `json:"goal"`
@@ -271,7 +274,10 @@ type WatcherDetail struct {
 	Changes      []WatcherChange `json:"changes"`
 	CreatedAt    time.Time       `json:"createdAt"`
 	CurrentValue string          `json:"currentValue"`
-	Enabled      bool            `json:"enabled"`
+
+	// EgressAgentId B208：经过这台已连接的机器上网，没选时不给
+	EgressAgentId *string `json:"egressAgentId,omitempty"`
+	Enabled       bool    `json:"enabled"`
 
 	// Goal 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空
 	Goal string `json:"goal"`
@@ -322,7 +328,10 @@ type WatcherDetail struct {
 type WatcherInput struct {
 	// AllowedHosts 不填就用网址的域名
 	AllowedHosts *[]string `json:"allowedHosts,omitempty"`
-	Goal         string    `json:"goal"`
+
+	// EgressAgentId B208：经过这台已连接的机器上网，和 proxy 只能填一个
+	EgressAgentId *string `json:"egressAgentId,omitempty"`
+	Goal          string  `json:"goal"`
 
 	// IntervalMinutes 默认 60，最少 15
 	IntervalMinutes *int `json:"intervalMinutes,omitempty"`
@@ -357,7 +366,10 @@ type WatcherPatch struct {
 	AllowedHosts *[]string `json:"allowedHosts,omitempty"`
 
 	// ClearLogin 删掉存的用户名、密码和登录状态
-	ClearLogin       *bool   `json:"clearLogin,omitempty"`
+	ClearLogin *bool `json:"clearLogin,omitempty"`
+
+	// EgressAgentId B208：空字符串是去掉；填了会清掉代理，和 proxy 只能填一个
+	EgressAgentId    *string `json:"egressAgentId,omitempty"`
 	Enabled          *bool   `json:"enabled,omitempty"`
 	Goal             *string `json:"goal,omitempty"`
 	IntervalMinutes  *int    `json:"intervalMinutes,omitempty"`

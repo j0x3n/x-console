@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { errorMessage } from "../../api/client";
+import { useAgents } from "../../api/core";
 import Dialog from "../../components/ui/Dialog";
 import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
@@ -11,7 +12,16 @@ import {
   type WatcherKind,
   type WatcherPatch,
 } from "./api";
-import { INTERVALS, KEEPALIVES, minutesText, parseHosts } from "./lib";
+import {
+  EGRESS_DIRECT,
+  EGRESS_PROXY,
+  INTERVALS,
+  KEEPALIVES,
+  egressAgents,
+  egressOf,
+  minutesText,
+  parseHosts,
+} from "./lib";
 
 /** 新建或修改一个盯梢任务。传了 watcher 就是修改。 */
 export default function WatcherDialog({
@@ -38,7 +48,11 @@ export default function WatcherDialog({
   const [mode, setMode] = useState<"replay" | "ai">("replay");
   const [hosts, setHosts] = useState("");
   const [proxy, setProxy] = useState("");
+  // B208：服务器直接访问、经过一台已连接的机器，或者填代理地址
+  const [egress, setEgress] = useState(EGRESS_DIRECT);
   const [more, setMore] = useState(false);
+  const agents = useAgents();
+  const exits = egressAgents(agents.data ?? [], watcher?.egressAgentId);
   const create = useCreateWatcher();
   const update = useUpdateWatcher();
   const pending = create.isPending || update.isPending;
@@ -56,6 +70,7 @@ export default function WatcherDialog({
     setMode(watcher?.mode ?? "replay");
     setHosts(watcher?.allowedHosts.join(", ") ?? "");
     setProxy("");
+    setEgress(watcher ? egressOf(watcher) : EGRESS_DIRECT);
     setMore(false);
   }, [open, watcher]);
 
@@ -64,7 +79,9 @@ export default function WatcherDialog({
     ? name.trim() !== "" && url.trim() !== ""
     : name.trim() !== "" &&
       /^https?:\/\/\S+$/.test(url.trim()) &&
-      goal.trim() !== "";
+      goal.trim() !== "" &&
+      (egress !== EGRESS_PROXY || proxy.trim() !== "" || !!watcher?.hasProxy);
+  const viaAgent = egress !== EGRESS_DIRECT && egress !== EGRESS_PROXY;
 
   const submit = () => {
     const fail = (e: unknown) =>
@@ -124,7 +141,14 @@ export default function WatcherDialog({
         body.allowedHosts = hostList;
       if (username.trim()) body.username = username.trim();
       if (password) body.password = password;
-      if (proxy.trim()) body.proxy = proxy.trim();
+      if (egress === EGRESS_PROXY) {
+        if (proxy.trim()) body.proxy = proxy.trim();
+      } else if (viaAgent) {
+        if (egress !== watcher.egressAgentId) body.egressAgentId = egress;
+      } else {
+        if (watcher.egressAgentId) body.egressAgentId = "";
+        if (watcher.hasProxy) body.proxy = "";
+      }
       update.mutate(
         { id: watcher.id, body },
         {
@@ -148,7 +172,8 @@ export default function WatcherDialog({
     if (hostList.length) body.allowedHosts = hostList;
     if (username.trim()) body.username = username.trim();
     if (password) body.password = password;
-    if (proxy.trim()) body.proxy = proxy.trim();
+    if (egress === EGRESS_PROXY && proxy.trim()) body.proxy = proxy.trim();
+    if (viaAgent) body.egressAgentId = egress;
     create.mutate(body, {
       onSuccess: (w) => {
         toast("已建好，AI 开始摸索");
@@ -341,21 +366,43 @@ export default function WatcherDialog({
                   <small>网站有操作就续期时才有用。</small>
                 </div>
                 <div className="xc-field">
-                  <label htmlFor="watcher-proxy">{t("Outgoing proxy")}</label>
-                  <input
-                    id="watcher-proxy"
-                    className="xc-input"
-                    value={proxy}
-                    autoComplete="off"
-                    placeholder={
-                      watcher?.hasProxy
-                        ? "已存，不改就留空"
-                        : "socks5://主机:端口"
-                    }
-                    onChange={(e) => setProxy(e.target.value)}
-                  />
-                  <small>国内网站拦境外 IP 时，填一个国内的代理。</small>
+                  <label htmlFor="watcher-egress">{t("Go online via")}</label>
+                  <select
+                    id="watcher-egress"
+                    className="xc-select"
+                    value={egress}
+                    onChange={(e) => setEgress(e.target.value)}
+                  >
+                    <option value={EGRESS_DIRECT}>服务器直接访问</option>
+                    {exits.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.online ? a.name : `${a.name}（离线）`}
+                      </option>
+                    ))}
+                    <option value={EGRESS_PROXY}>填代理地址</option>
+                  </select>
+                  <small>
+                    国内网站拦境外 IP
+                    时，选一台在国内的机器，或者填一个国内的代理。
+                  </small>
                 </div>
+                {egress === EGRESS_PROXY && (
+                  <div className="xc-field">
+                    <label htmlFor="watcher-proxy">{t("Outgoing proxy")}</label>
+                    <input
+                      id="watcher-proxy"
+                      className="xc-input"
+                      value={proxy}
+                      autoComplete="off"
+                      placeholder={
+                        watcher?.hasProxy
+                          ? "已存，不改就留空"
+                          : "socks5://主机:端口"
+                      }
+                      onChange={(e) => setProxy(e.target.value)}
+                    />
+                  </div>
+                )}
                 <div className="xc-field full">
                   <label htmlFor="watcher-hosts">{t("Allowed domains")}</label>
                   <input

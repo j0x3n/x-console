@@ -236,6 +236,10 @@ func (m *Module) run(ctx context.Context, rs *runState) error {
 	if rs.kind == "check" && kind == "explore" && w.Recipe != "" {
 		runKind = "check" // ai mode: still a check in the history
 	}
+	if w.EgressAgentID != "" && !m.d.Agents.Online(w.EgressAgentID) {
+		return m.egressOffline(ctx, w, kind)
+	}
+	started := time.Now()
 	runID, err := m.q.CreateRun(ctx, db.CreateRunParams{WatcherID: w.ID, Kind: runKind, StartedAt: m.now()})
 	if err != nil {
 		return err
@@ -261,8 +265,15 @@ func (m *Module) run(ctx context.Context, rs *runState) error {
 		return m.finish(ctx, w, rec, kind, result{err: errNoAI})
 	}
 
-	sess, err := m.browser.Open(ctx, browser.Options{Key: sessionKey(w.ID), Proxy: m.proxy(w), State: m.state(w),
-		AllowedHosts: parseHosts(w.AllowedHosts), Timezone: m.timezone(), Locale: "zh-CN"})
+	proxy := m.proxy(w)
+	var sess *browser.Session
+	if w.EgressAgentID != "" {
+		proxy, err = m.egress.proxyURL(w.ID) // B208: out through the chosen machine
+	}
+	if err == nil {
+		sess, err = m.browser.Open(ctx, browser.Options{Key: sessionKey(w.ID), Proxy: proxy, State: m.state(w),
+			AllowedHosts: parseHosts(w.AllowedHosts), Timezone: m.timezone(), Locale: "zh-CN"})
+	}
 	if err != nil {
 		if kind == "keepalive" {
 			rec.save("failed", err.Error())
@@ -283,6 +294,12 @@ func (m *Module) run(ctx context.Context, rs *runState) error {
 	default:
 		res = m.runCheck(ctx, rs, w, sess, rec)
 	}
+	if res.err != nil && w.EgressAgentID != "" {
+		// Say why the machine could not reach the site, not only that the page failed.
+		if msg := m.egress.failedSince(w.ID, started); msg != "" {
+			res.err = fmt.Errorf("%s：%w", msg, res.err)
+		}
+	}
 	// Keep the login whatever happened, unless the page is a login form:
 	// then the stored state is no better than before.
 	sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -302,6 +319,27 @@ func (m *Module) run(ctx context.Context, rs *runState) error {
 		return nil
 	}
 	return m.finish(sctx, w, rec, kind, res)
+}
+
+// egressOffline is a run that cannot start because the machine the browser
+// goes out through is not connected. It is not a failure: the status stays,
+// the detail says why, and the next check comes after the usual interval.
+func (m *Module) egressOffline(ctx context.Context, w db.Watcher, kind string) error {
+	if kind == "keepalive" {
+		return nil
+	}
+	name := w.EgressAgentID
+	if a, err := m.d.Agents.Get(ctx, w.EgressAgentID); err == nil && a.Name != "" {
+		name = a.Name
+	}
+	now := m.now()
+	next := now.Add(time.Duration(w.IntervalMinutes) * time.Minute)
+	if err := m.q.SetWatcherNextCheck(ctx, db.SetWatcherNextCheckParams{StatusDetail: "出口机器 " + name + " 不在线，等它上线再检查",
+		NextCheckAt: &next, UpdatedAt: now, ID: w.ID}); err != nil {
+		return err
+	}
+	m.publish(w.ID)
+	return nil
 }
 
 // result is how a run ended.

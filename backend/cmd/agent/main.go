@@ -27,6 +27,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/config"
 	"github.com/j0x3n/x-console/backend/internal/agent/conn"
 	"github.com/j0x3n/x-console/backend/internal/agent/docker"
+	"github.com/j0x3n/x-console/backend/internal/agent/egress"
 	agentexec "github.com/j0x3n/x-console/backend/internal/agent/exec"
 	"github.com/j0x3n/x-console/backend/internal/agent/files"
 	"github.com/j0x3n/x-console/backend/internal/agent/focusblock"
@@ -191,6 +192,7 @@ func register(c *conn.Client, cfg config.Config) {
 	screentime.Register(c)                              // B116: foreground program, one sample per minute (Windows)
 	aiconfig.Register(c)                                // B121: the panel's part of the Claude Code and Codex configuration
 	focusblock.Register(c, cfg.Server)                  // B131: hosts file block and program ending while a pomodoro runs
+	egress.Register(c, cfg.DisableEgress)               // B208: net.dial for the browser's egress, announces the capability unless disabled
 }
 
 // capabilities lists what this build supports on this OS.

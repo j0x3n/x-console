@@ -51,3 +51,17 @@ func CollectPosts(body []byte) ([]string, error) {
 	}
 	return out, nil
 }
+
+// StartEgress starts the egress proxy on addr (use "127.0.0.1:0") until ctx
+// ends, and points the proxy address given to the browser at it.
+func StartEgress(m *Module, ctx context.Context, addr string) (string, error) {
+	got, err := m.egress.start(ctx, addr)
+	if err != nil {
+		return "", err
+	}
+	m.egress.publicURL = "http://" + got.String()
+	return got.String(), nil
+}
+
+// EgressProxyURL is the address the browser of watcher id is given.
+func EgressProxyURL(m *Module, id int64) (string, error) { return m.egress.proxyURL(id) }
