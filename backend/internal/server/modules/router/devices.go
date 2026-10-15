@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/netip"
@@ -24,6 +25,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/router/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/router/db"
 	"github.com/j0x3n/x-console/backend/internal/server/notify"
+	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
 
 const (
@@ -91,6 +93,9 @@ type deviceStore struct {
 	loaded bool
 	byMAC  map[string]*devState
 	pruned time.Time
+	// seeded is true once the first report has been taken in (B232). Until
+	// then every device is new and none is announced.
+	seeded bool
 }
 
 func (d *devState) displayName() string {
@@ -174,6 +179,18 @@ func (m *Module) loadDevices(ctx context.Context) error {
 	for _, r := range rows {
 		s.byMAC[r.Mac] = fromRow(r)
 	}
+	var seeded bool
+	if err := m.d.Settings.Get(ctx, keyDevicesSeeded, &seeded); err != nil && !errors.Is(err, settings.ErrNotSet) {
+		return err
+	}
+	if !seeded && len(rows) > 0 {
+		// Devices from before the flag existed: the first report is long past.
+		seeded = true
+		if err := m.d.Settings.Set(ctx, keyDevicesSeeded, true); err != nil {
+			return err
+		}
+	}
+	s.seeded = seeded
 	s.loaded = true
 	return nil
 }
@@ -321,7 +338,7 @@ func (m *Module) updateDevices(ctx context.Context, rep report, wanDevs map[stri
 	}
 	slices.Sort(macs)
 
-	var save []*devState
+	var save, arrived []*devState
 	for _, mac := range macs {
 		o := obs[mac]
 		d := s.byMAC[mac]
@@ -332,8 +349,8 @@ func (m *Module) updateDevices(ctx context.Context, rep report, wanDevs map[stri
 			}
 			d = &devState{mac: mac, firstSeen: now, lastSeen: now}
 			s.byMAC[mac] = d
-			m.deviceArrived(ctx, d, o, leases[mac], rep.hasWifi, now, opts, &send)
-			save = append(save, d)
+			m.deviceArrived(d, o, leases[mac], rep.hasWifi, now)
+			save, arrived = append(save, d), append(arrived, d)
 			continue
 		}
 		before := *d
@@ -352,6 +369,7 @@ func (m *Module) updateDevices(ctx context.Context, rep report, wanDevs map[stri
 		}
 	}
 	m.saveDevices(ctx, save, now)
+	m.announceArrivals(ctx, arrived, now, opts, &send)
 
 	var up deviceUpdate
 	up.knownAll = len(s.byMAC)
@@ -454,9 +472,8 @@ func (m *Module) fillDevice(d *devState, o *seen, lease dhcpLease, now time.Time
 	}
 }
 
-// deviceArrived handles a MAC the table does not have yet. B232 adds the
-// notification for it.
-func (m *Module) deviceArrived(ctx context.Context, d *devState, o *seen, lease dhcpLease, hasWifi bool, now time.Time, opts options, send *[]notify.Notification) {
+// deviceArrived fills in a MAC the table does not have yet.
+func (m *Module) deviceArrived(d *devState, o *seen, lease dhcpLease, hasWifi bool, now time.Time) {
 	d.online, d.onlineSince = true, now
 	switch {
 	case hasWifi && o.wifiIface != "":
@@ -465,6 +482,52 @@ func (m *Module) deviceArrived(ctx context.Context, d *devState, o *seen, lease 
 		d.conn = connWired
 	}
 	m.fillDevice(d, o, lease, now)
+}
+
+// announceArrivals handles the devices that are new in this report. The very
+// first report only takes them in: at that moment every device in the house
+// is new. After that each one is a line in the event list and, when the
+// switch is on, a high priority notification, once. The cool-down and the
+// device switches do not apply, the device has no settings yet.
+func (m *Module) announceArrivals(ctx context.Context, arrived []*devState, now time.Time, opts options, send *[]notify.Notification) {
+	s := &m.devs
+	if !s.seeded {
+		m.addEvent(ctx, now, "devices_seeded", "", "第一次上报，记下了 "+strconv.Itoa(len(arrived))+" 台设备", "")
+		if err := m.d.Settings.Set(ctx, keyDevicesSeeded, true); err != nil {
+			m.d.Log.Warn("router devices seeded", "err", err)
+		}
+		s.seeded = true
+		return
+	}
+	for _, d := range arrived {
+		title := "新设备连上了：" + d.displayName()
+		body := newDeviceBody(d)
+		m.addEvent(ctx, now, "device_new", d.mac, title, body)
+		if opts.NewDeviceNotify {
+			*send = append(*send, notify.Notification{Kind: "router.device_new", Priority: notify.PriorityHigh, Title: title, Body: body,
+				Link: "/router?device=" + d.mac, Source: "router", Scope: "device:" + d.mac})
+		}
+	}
+}
+
+// newDeviceBody is the text of a new device: where it is and how it is connected.
+func newDeviceBody(d *devState) string {
+	var parts []string
+	if d.ip != "" {
+		parts = append(parts, "IP "+d.ip)
+	}
+	parts = append(parts, "MAC "+d.mac)
+	switch d.conn {
+	case connWifi:
+		if d.wifiIface != "" {
+			parts = append(parts, "Wi-Fi，接口 "+d.wifiIface)
+		} else {
+			parts = append(parts, "Wi-Fi")
+		}
+	case connWired:
+		parts = append(parts, "有线")
+	}
+	return strings.Join(parts, "。") + "。"
 }
 
 // deviceFlipped records the change and decides whether to notify.
