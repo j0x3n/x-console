@@ -39,6 +39,7 @@ import {
   type RouterClient,
   type RouterInterface,
   type RouterStatus,
+  type RouterTraffic,
   type TrafficRange,
 } from "./api";
 
@@ -474,6 +475,34 @@ function TrafficView({ range }: { range: TrafficRange }) {
           {formatBytes(traffic.data.txBytes)}
         </p>
       )}
+      {traffic.data && <DevicesVsWan data={traffic.data} />}
     </div>
+  );
+}
+
+/** B229：设备流量能不能信，跟 WAN 口对一下。 */
+const TRUST_MIN_WAN = 500 * 1024 * 1024;
+
+function DevicesVsWan({ data }: { data: RouterTraffic }) {
+  const t = useT();
+  if (data.devicesTodayRx == null || data.wanTodayRx == null) return null;
+  const devices = (data.devicesTodayRx ?? 0) + (data.devicesTodayTx ?? 0);
+  const wan = (data.wanTodayRx ?? 0) + (data.wanTodayTx ?? 0);
+  const low = wan > TRUST_MIN_WAN && devices < wan * 0.7;
+  return (
+    <>
+      <p className="router-traffic-total">
+        {t("Today")}：{t("all devices")} ↓{" "}
+        {formatBytes(data.devicesTodayRx ?? 0)} ↑{" "}
+        {formatBytes(data.devicesTodayTx ?? 0)}，WAN ↓{" "}
+        {formatBytes(data.wanTodayRx ?? 0)} ↑{" "}
+        {formatBytes(data.wanTodayTx ?? 0)}
+      </p>
+      {low && (
+        <p className="router-hint warn">
+          设备流量比 WAN 少很多。可能是分载没有把计数写回，设备流量只能参考。
+        </p>
+      )}
+    </>
   );
 }

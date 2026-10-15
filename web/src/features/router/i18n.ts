@@ -96,6 +96,9 @@ registerZh({
   "Device notifications": "设备通知",
   "Notify when devices go online or offline": "设备上下线时通知",
   "Default interval before notifying again": "默认再次通知间隔",
+  // B229
+  Today: "今天",
+  "all devices": "设备合计",
   // B232
   "Notify when a new device joins": "新设备接入时通知",
 });

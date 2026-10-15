@@ -338,3 +338,47 @@
     z-index: 60;
   }
 }
+/* B229：设备流量 */
+.router-zero {
+  color: var(--xc-faint);
+}
+.router-hint {
+  margin: -6px 0 0;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+}
+.router-hint.warn {
+  color: var(--xc-warn);
+}
+.router-drawer-traffic {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.router-drawer-figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--xc-border);
+  border-radius: var(--xc-radius-lg);
+}
+.router-drawer-figures > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.router-drawer-figures > div + div {
+  border-left: 1px solid var(--xc-border);
+}
+.router-drawer-figures small {
+  color: var(--xc-muted);
+  font-size: var(--fs-11);
+}
+.router-drawer-figures strong {
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+.router-drawer-figures span {
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+}

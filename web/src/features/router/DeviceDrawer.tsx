@@ -5,14 +5,21 @@ import { confirmAction } from "../../components/ui/ConfirmDialog";
 import Switch from "../../components/ui/Switch";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
-import { formatDate, formatTime } from "../../lib/time";
+import { ErrorState, Loading } from "../../components/ui/States";
+import { Segmented } from "../../components/ui/Toolbar";
+import { formatBytes, formatDate, formatTime } from "../../lib/time";
+import type { MetricsPoint } from "../servers/api";
+import MetricChart from "../servers/components/MetricChart";
+import { formatRate, niceRateMax } from "../servers/lib";
 import {
   COOLDOWNS,
   cooldownLabel,
+  useDeviceTraffic,
   useForgetRouterDevice,
   useRouterOptions,
   useUpdateRouterDevice,
   type RouterDevice,
+  type TrafficRange,
 } from "./api";
 import { sinceText } from "./DevicesView";
 
@@ -25,9 +32,11 @@ const fail = (err: unknown) =>
 /** B228：一台设备的详情。备注、通知开关、再次通知间隔和设备信息。 */
 export default function DeviceDrawer({
   device,
+  traffic,
   onClose,
 }: {
   device: RouterDevice;
+  traffic: boolean;
   onClose: () => void;
 }) {
   const t = useT();
@@ -125,6 +134,7 @@ export default function DeviceDrawer({
           {device.online ? t("Online") : t("Offline")} ·{" "}
           {sinceText(device, language, Date.now())}
         </p>
+        {traffic && <DeviceTraffic device={device} />}
         <form className="xc-field" onSubmit={onSaveNote}>
           <span>{t("Device note")}</span>
           <div className="router-note-row">
@@ -222,5 +232,70 @@ export default function DeviceDrawer({
         </div>
       </div>
     </aside>
+  );
+}
+
+const S1 = "var(--servers-series-1)";
+const S2 = "var(--servers-series-2)";
+
+/** B229：这台设备的速率、今天的流量和最近的曲线。 */
+function DeviceTraffic({ device }: { device: RouterDevice }) {
+  const t = useT();
+  const [range, setRange] = useState<TrafficRange>("24h");
+  const traffic = useDeviceTraffic(device.mac, range);
+  const points = (traffic.data?.points ?? []).map(
+    (p) => ({ at: p.at, netRx: p.rxRate, netTx: p.txRate }) as MetricsPoint,
+  );
+  return (
+    <section className="router-drawer-traffic">
+      <div className="router-drawer-figures">
+        <div>
+          <small>{t("Current speed")}</small>
+          <strong>
+            ↓ {device.online ? formatRate(device.rxRate ?? 0) : "—"}
+          </strong>
+          <span>↑ {device.online ? formatRate(device.txRate ?? 0) : "—"}</span>
+        </div>
+        <div>
+          <small>{t("Today")}</small>
+          <strong>↓ {formatBytes(device.todayRx ?? 0)}</strong>
+          <span>↑ {formatBytes(device.todayTx ?? 0)}</span>
+        </div>
+      </div>
+      <Segmented
+        label={t("Traffic")}
+        value={range}
+        onChange={setRange}
+        options={[
+          { value: "24h", label: t("Last 24 hours") },
+          { value: "7d", label: t("Last 7 days") },
+        ]}
+      />
+      {traffic.isPending ? (
+        <Loading />
+      ) : traffic.isError ? (
+        <ErrorState error={traffic.error} onRetry={() => traffic.refetch()} />
+      ) : points.length === 0 ? (
+        <p className="xc-muted">{t("No traffic yet")}</p>
+      ) : (
+        <>
+          <MetricChart
+            title={t("Traffic")}
+            points={points}
+            stepSeconds={traffic.data.stepSeconds}
+            format={formatRate}
+            nice={niceRateMax}
+            series={[
+              { key: "netRx", label: t("Downstream"), color: S1 },
+              { key: "netTx", label: t("Upstream"), color: S2 },
+            ]}
+          />
+          <p className="router-traffic-total">
+            {t("Total in this range")}：↓ {formatBytes(traffic.data.rxBytes)} ↑{" "}
+            {formatBytes(traffic.data.txBytes)}
+          </p>
+        </>
+      )}
+    </section>
   );
 }

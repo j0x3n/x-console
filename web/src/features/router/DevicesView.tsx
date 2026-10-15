@@ -5,8 +5,8 @@ import { EmptyState, ErrorState, Loading } from "../../components/ui/States";
 import { SearchBox, Segmented, Toolbar } from "../../components/ui/Toolbar";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import type { Language } from "../../types/domain";
-import { relativeTime } from "../../lib/time";
-import { formatUptime } from "../servers/lib";
+import { formatBytes, relativeTime } from "../../lib/time";
+import { formatRate, formatUptime } from "../servers/lib";
 import { useRouterDevices, type RouterDevice } from "./api";
 import DeviceDrawer from "./DeviceDrawer";
 
@@ -75,7 +75,14 @@ export default function DevicesView() {
         title={q ? t("No matching devices") : t("No devices online")}
       />
     );
-  else body = <DeviceTable items={list} onOpen={open} />;
+  else
+    body = (
+      <DeviceTable
+        items={list}
+        traffic={devices.data.trafficAvailable}
+        onOpen={open}
+      />
+    );
 
   const current = items?.find((d) => d.mac === openMAC);
   return (
@@ -101,17 +108,31 @@ export default function DevicesView() {
           />
         }
       />
+      {devices.data && !devices.data.trafficAvailable && (
+        <p className="router-hint">
+          在路由器上装
+          nlbwmon（带宽监控）后显示每台设备的流量。装好后重新生成令牌，再执行一次安装命令。
+        </p>
+      )}
       {body}
-      {current && <DeviceDrawer device={current} onClose={() => open(null)} />}
+      {current && (
+        <DeviceDrawer
+          device={current}
+          traffic={devices.data?.trafficAvailable ?? false}
+          onClose={() => open(null)}
+        />
+      )}
     </>
   );
 }
 
 function DeviceTable({
   items,
+  traffic,
   onOpen,
 }: {
   items: RouterDevice[];
+  traffic: boolean;
   onOpen: (mac: string) => void;
 }) {
   const t = useT();
@@ -125,6 +146,13 @@ function DeviceTable({
               <th>{t("Name")}</th>
               <th className="router-col-conn" aria-label={t("Connection")} />
               <th className="router-col-ip">IP</th>
+              {traffic && (
+                <>
+                  <th className="router-num router-col-rx">↓</th>
+                  <th className="router-num router-col-tx">↑</th>
+                  <th className="router-num router-col-today">{t("Today")}</th>
+                </>
+              )}
               <th className="router-col-since">{t("Online for")}</th>
             </tr>
           </thead>
@@ -133,6 +161,7 @@ function DeviceTable({
               <DeviceRow
                 key={d.mac}
                 d={d}
+                traffic={traffic}
                 language={language}
                 onOpen={() => onOpen(d.mac)}
               />
@@ -182,15 +211,31 @@ export function sinceText(d: RouterDevice, language: Language, now: number) {
   return language === "zh" ? `${ago}离线` : `offline ${ago}`;
 }
 
+/** 速率是 0 也显示“0”，灰色；没有数据才是“—”。 */
+function Rate({ value }: { value: number | null | undefined }) {
+  if (value == null) return <>—</>;
+  if (value < 1) return <span className="router-zero">0</span>;
+  return <>{formatRate(value)}</>;
+}
+
+/** 今天的下载加上传。 */
+export function todayBytes(d: RouterDevice) {
+  if (d.todayRx == null && d.todayTx == null) return null;
+  return (d.todayRx ?? 0) + (d.todayTx ?? 0);
+}
+
 function DeviceRow({
   d,
+  traffic,
   language,
   onOpen,
 }: {
   d: RouterDevice;
+  traffic: boolean;
   language: Language;
   onOpen: () => void;
 }) {
+  const today = todayBytes(d);
   const t = useT();
   const hostname = d.note && d.name ? d.name : null;
   return (
@@ -237,6 +282,19 @@ function DeviceRow({
       >
         {d.ip ?? d.ipv6?.[0] ?? "—"}
       </td>
+      {traffic && (
+        <>
+          <td className="router-num router-col-rx">
+            <Rate value={d.online ? d.rxRate : null} />
+          </td>
+          <td className="router-num router-col-tx">
+            <Rate value={d.online ? d.txRate : null} />
+          </td>
+          <td className="router-num router-col-today">
+            {today == null ? "—" : formatBytes(today)}
+          </td>
+        </>
+      )}
       <td className="router-num router-col-since">
         {sinceText(d, language, Date.now())}
       </td>

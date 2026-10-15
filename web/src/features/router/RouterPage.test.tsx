@@ -531,3 +531,92 @@ describe("B232 新设备通知", () => {
     );
   });
 });
+
+describe("B229 设备流量", () => {
+  it("有 nlbwmon 时显示速率和今天的流量，详情里取曲线", async () => {
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: pushStatus,
+    }));
+    api.routes.set("GET /router/devices", () => ({
+      status: 200,
+      body: {
+        items: [
+          {
+            ...phone,
+            rxRate: 3 * 1024 * 1024,
+            txRate: 0,
+            todayRx: 2 * 1024 * 1024 * 1024,
+            todayTx: 0,
+          },
+        ],
+        trafficAvailable: true,
+      },
+    }));
+    api.routes.set("GET /router/options", () => ({
+      status: 200,
+      body: options,
+    }));
+    api.routes.set("GET /router/devices/AABBCC000003/traffic", () => ({
+      status: 200,
+      body: {
+        range: "24h",
+        stepSeconds: 3600,
+        points: [],
+        rxBytes: 0,
+        txBytes: 0,
+      },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("3.0 MB/s")).toBeTruthy();
+    expect(screen.getByText("2.0 GB")).toBeTruthy();
+    expect(screen.queryByText(/装 nlbwmon/)).toBeNull();
+    fireEvent.click(screen.getByText("我的手机"));
+    await waitFor(() =>
+      expect(
+        api.calls.some(
+          (c) => c.path === "/router/devices/AABBCC000003/traffic?range=24h",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("没有 nlbwmon 时提示安装", async () => {
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: pushStatus,
+    }));
+    api.routes.set("GET /router/devices", () => ({
+      status: 200,
+      body: { items: [phone], trafficAvailable: false },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText(/装 nlbwmon/)).toBeTruthy();
+    expect(screen.queryByText("↓")).toBeNull();
+  });
+
+  it("设备合计比 WAN 少很多时提示", async () => {
+    localStorage.setItem("router.tab", "traffic");
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: pushStatus,
+    }));
+    const GB = 1024 * 1024 * 1024;
+    api.routes.set("GET /router/traffic", () => ({
+      status: 200,
+      body: {
+        range: "24h",
+        stepSeconds: 60,
+        points: [],
+        rxBytes: 0,
+        txBytes: 0,
+        devicesTodayRx: GB / 10,
+        devicesTodayTx: 0,
+        wanTodayRx: 2 * GB,
+        wanTodayTx: 0,
+      },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText(/设备流量比 WAN 少很多/)).toBeTruthy();
+  });
+});

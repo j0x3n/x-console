@@ -34,6 +34,8 @@ export const routerKeys = {
   clients: ["router", "clients"] as const,
   traffic: (range: TrafficRange) => ["router", "traffic", range] as const,
   devices: ["router", "devices"] as const,
+  deviceTraffic: (mac: string, range: TrafficRange) =>
+    ["router", "device-traffic", mac, range] as const,
   options: ["router", "options"] as const,
 };
 
@@ -247,5 +249,21 @@ export function useSaveRouterOptions() {
     mutationFn: (body: RouterOptions) =>
       unwrap(routerApi.PUT("/router/options", { body })),
     onSuccess: (data) => qc.setQueryData(routerKeys.options, data),
+  });
+}
+
+/** B229：一台设备最近 24 小时或 7 天的流量，按小时。 */
+export function useDeviceTraffic(mac: string, range: TrafficRange) {
+  return useQuery({
+    queryKey: routerKeys.deviceTraffic(mac, range),
+    queryFn: () =>
+      unwrap(
+        routerApi.GET("/router/devices/{mac}/traffic", {
+          params: { path: { mac: macPath(mac) }, query: { range } },
+        }),
+      ),
+    retry: false,
+    meta: { silentError: true },
+    refetchInterval: 60_000,
   });
 }
