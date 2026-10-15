@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/j0x3n/x-console/backend/internal/server/browser"
@@ -29,6 +30,51 @@ type Recipe struct {
 	Steps      []Step          `json:"steps"`
 	Target     browser.Locator `json:"target"`
 	TargetNote string          `json:"targetNote"`
+	Format     *Format         `json:"format,omitempty"`
+}
+
+// formatLost is said when the page no longer fits the format.
+const formatLost = "格式对不上，先显示原文。点“重新摸索”重新定格式"
+
+// Format turns a list into sentences: each record fills Template, and the
+// records are joined with "；". It is set when the AI explores, so later
+// checks need no AI.
+type Format struct {
+	Shape    browser.Shape `json:"shape"`
+	Names    []string      `json:"names"`
+	Template string        `json:"template"`
+}
+
+// render fills the template once per record.
+func (f *Format) render(rows [][]string) string {
+	lines := make([]string, 0, len(rows))
+	for _, r := range rows {
+		if len(r) != len(f.Names) {
+			continue
+		}
+		s := f.Template
+		for i, n := range f.Names {
+			s = strings.ReplaceAll(s, "{"+n+"}", r[i])
+		}
+		lines = append(lines, strings.TrimSpace(s))
+	}
+	return strings.Join(lines, "；")
+}
+
+// readArea reads the area ref, put into sentences when f is set. plain is
+// true when f matched no record and the text of the area is returned.
+func readArea(ctx context.Context, sess *browser.Session, ref string, f *Format) (value string, records int, plain bool, err error) {
+	if f != nil {
+		rows, err := sess.Rows(ctx, ref, f.Shape)
+		if err != nil {
+			return "", 0, false, err
+		}
+		if v := f.render(rows); v != "" {
+			return v, len(rows), false, nil
+		}
+	}
+	value, err = sess.Text(ctx, ref)
+	return value, 0, f != nil, err
 }
 
 func parseRecipe(raw string) (Recipe, bool) {
@@ -139,7 +185,7 @@ func (m *Module) replay(ctx context.Context, rs *runState, w db.Watcher, sess *b
 		rec.shot(ctx, sess)
 		return result{err: errors.New("找不到要盯的内容，页面可能改版了")}
 	}
-	value, err := sess.Text(ctx, ref)
+	value, _, plain, err := readArea(ctx, sess, ref, r.Format)
 	if err != nil {
 		return result{err: err}
 	}
@@ -149,6 +195,10 @@ func (m *Module) replay(ctx context.Context, rs *runState, w db.Watcher, sess *b
 	}
 	rec.add("读到：" + clip(value, 200))
 	res := result{value: value, found: true}
+	if plain {
+		rec.add(formatLost)
+		res.detail = formatLost + "。当前值：" + clip(value, 200)
+	}
 	if value != w.CurrentValue && w.CurrentValue != "" {
 		res.shot = rec.shot(ctx, sess)
 	}

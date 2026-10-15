@@ -33,6 +33,10 @@ type site struct {
 	sessions map[string]bool
 	revoked  int
 	logins   int
+	// business is the rows of /business: type, name, status. flat shows
+	// them as one paragraph, as if the site was redesigned.
+	business [][3]string
+	flat     bool
 }
 
 func newSite(t *testing.T) *site {
@@ -75,6 +79,21 @@ func newSite(t *testing.T) *site {
 		fmt.Fprintf(w, `<html><body><h1>我的办件</h1><p>访问时间 %d</p>
 <table><tr><td>办理状态</td><td id="st">%s</td></tr></table>
 <form method="post" action="/revoke"><button type="submit">撤销申请</button></form></body></html>`, time.Now().UnixNano(), s.value)
+	})
+	mux.HandleFunc("/business", func(w http.ResponseWriter, r *http.Request) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		var b strings.Builder
+		b.WriteString(`<html><body><h2>我的业务</h2><div class="list"><div class="head"><span>业务</span><span>名称</span><span><b>状态</b></span></div>`)
+		for _, row := range s.business {
+			if s.flat {
+				fmt.Fprintf(&b, `<p>%s %s %s</p>`, row[0], row[1], row[2])
+				continue
+			}
+			fmt.Fprintf(&b, `<div class="row"><span>%s</span><span>%s</span><span><b>%s</b></span></div>`, row[0], row[1], row[2])
+		}
+		b.WriteString(`</div></body></html>`)
+		fmt.Fprint(w, b.String())
 	})
 	mux.HandleFunc("/revoke", func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
@@ -140,7 +159,7 @@ func (f *fakeChat) Chat(_ context.Context, _, system string, msgs []contracts.Ch
 	}
 	// finish asks to confirm what it read. A scripted finish confirms by
 	// itself unless the script says otherwise.
-	if n := len(msgs); n >= 2 && f.autoConfirm() && strings.HasPrefix(msgs[n-1].Content, "这块区域读到的文字是") {
+	if n := len(msgs); n >= 2 && f.autoConfirm() && (strings.HasPrefix(msgs[n-1].Content, "这块区域读到的文字是") || strings.HasPrefix(msgs[n-1].Content, "按格式读到")) {
 		if prev := msgs[n-2].ToolCalls; len(prev) == 1 && prev[0].Name == "finish" {
 			return contracts.ChatReply{ToolCalls: []contracts.ChatToolCall{{ID: "c" + strconv.Itoa(f.calls), Name: "finish", Arguments: prev[0].Arguments}},
 				InputTokens: 100, OutputTokens: 10}, nil

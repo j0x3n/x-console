@@ -354,6 +354,67 @@ function __xc(op, arg) {
     return cur ? refOf(cur) : null;
   }
 
+  function relPath(from, el) {
+    const parts = [];
+    for (let cur = el; cur !== from; cur = cur.parentElement) {
+      let i = 1;
+      let sib = cur;
+      while ((sib = sib.previousElementSibling)) if (sib.tagName === cur.tagName) i++;
+      parts.unshift(cur.tagName.toLowerCase() + ':nth-of-type(' + i + ')');
+    }
+    return parts.length ? ':scope > ' + parts.join(' > ') : ':scope';
+  }
+
+  function shape(arg) {
+    // fields are in the first record of a list. The smallest element that
+    // holds them all is one record; other records sit at the same depth.
+    const region = byRef(arg.region);
+    const fields = (arg.fields || []).map(byRef);
+    if (!region || !fields.length || fields.some((e) => !e || !region.contains(e))) return null;
+    let rec = fields[0];
+    while (rec && !fields.every((e) => rec.contains(e))) rec = rec.parentElement;
+    if (!rec || !region.contains(rec)) return null;
+    const row = [];
+    for (let cur = rec; cur !== region; cur = cur.parentElement) row.unshift(cur.tagName.toLowerCase());
+    return { row: row, class: Array.from(rec.classList), paths: fields.map((e) => relPath(rec, e)) };
+  }
+
+  function rows(arg) {
+    const region = byRef(arg.region);
+    if (!region) return null;
+    let set = [region];
+    for (const tag of arg.row || []) {
+      const next = [];
+      for (const el of set) for (const c of el.children) if (c.tagName.toLowerCase() === tag) next.push(c);
+      set = next;
+    }
+    const out = [];
+    // A header row often has the same tags. It must share a class with the
+    // first record when that record has any.
+    const cls = arg.class || [];
+    for (const r of set) {
+      if (!visible(r)) continue;
+      if (cls.length && !cls.some((c) => r.classList.contains(c))) continue;
+      const vals = [];
+      let ok = true;
+      for (const p of arg.paths || []) {
+        let el = null;
+        try {
+          el = p === ':scope' ? r : r.querySelector(p);
+        } catch (e) {
+          el = null;
+        }
+        if (!el || el.hasAttribute('data-xc-secret')) {
+          ok = false;
+          break;
+        }
+        vals.push(norm(el.innerText || el.value || ''));
+      }
+      if (ok) out.push(vals);
+    }
+    return out;
+  }
+
   function text(ref) {
     const el = byRef(ref);
     if (!el) return null;
@@ -399,6 +460,10 @@ function __xc(op, arg) {
       return el_secret(arg) ? null : text(arg);
     case 'common':
       return common(arg);
+    case 'shape':
+      return shape(arg);
+    case 'rows':
+      return rows(arg);
     case 'secret': {
       const el = byRef(arg);
       if (el) el.setAttribute('data-xc-secret', '1');

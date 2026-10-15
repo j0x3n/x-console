@@ -643,6 +643,45 @@ func (x *Session) Common(ctx context.Context, refs []string) (string, error) {
 	return *ref, nil
 }
 
+// Shape says how a list area splits into records and where each field sits
+// in a record.
+type Shape struct {
+	// Row is the tag names from the area down to one record.
+	Row []string `json:"row"`
+	// Class is the classes of the first record. Another record shares one.
+	Class []string `json:"class,omitempty"`
+	// Paths are the CSS paths from a record to each field.
+	Paths []string `json:"paths"`
+}
+
+// Shape works out the shape of the area region from the fields of its
+// first record.
+func (x *Session) Shape(ctx context.Context, region string, fields []string) (Shape, error) {
+	x.ops.Lock()
+	defer x.ops.Unlock()
+	var s *Shape
+	if err := x.eval(ctx, "shape", map[string]any{"region": region, "fields": fields}, &s); err != nil {
+		return Shape{}, err
+	}
+	if s == nil {
+		return Shape{}, ErrNoElement
+	}
+	return *s, nil
+}
+
+// Rows reads the fields of every record in the area region. A record that
+// misses a field, such as a header row, is left out.
+func (x *Session) Rows(ctx context.Context, region string, s Shape) ([][]string, error) {
+	x.ops.Lock()
+	defer x.ops.Unlock()
+	var rows [][]string
+	arg := map[string]any{"region": region, "row": s.Row, "class": s.Class, "paths": s.Paths}
+	if err := x.eval(ctx, "rows", arg, &rows); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // Text returns the visible text of the element with ref.
 func (x *Session) Text(ctx context.Context, ref string) (string, error) {
 	x.ops.Lock()

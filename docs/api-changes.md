@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B235（2026-10-15）：`browser.Session` 加 `Shape`（从第一条记录的字段算出列表的格式）和 `Rows`（按格式读出每条记录的字段），类型 `browser.Shape`；`page.js` 加 `shape`、`rows`。只加不改。网站自动化的 `recipe` 加可选的 `format`，AI 的 `finish` 工具加可选参数 `fields`、`template`。不改接口，不加迁移。
+
 - 修复（2026-10-15）：网站自动化选结果区域。`browser.Session` 加 `Common`（取包住几个元素的最小元素），`page.js` 加对应的 `common`，只加不改。AI 的 `finish` 工具参数从 `ref` 改成 `refs`（旧的 `ref` 仍认），先把读到的文字回给 AI 确认，再调用一次同样的区域才算选定。不改接口，不加迁移。
 
 - B233（2026-10-15）：代理自动更新。新协议能力 `update` 和流方法 `agent.update`（`AgentUpdateParams{version, size, sha256}`，`pkg/protocol/methods_update.go`，`docs/04-agent-protocol.md` 加一节）；新包 `internal/agent/selfupdate`；代理配置 `config.Config` 加 `disableUpdate`；`cmd/agent/main.go` 加两行（`selfupdate.Register`、启动时清 `.old`）。新模块 `agentupdate`，接口 `api/modules/agentupdate.yaml`：`GET /agent-updates`、`POST /agent-updates/{agentId}`（二次验证，回 202，不在线、不支持、已是最新、正在更新、同时已有两台在更新、面板没有这个系统的代理程序回 409）、`PUT /agent-updates/{agentId}/auto`（打开要二次验证，关掉不用）。设置键 `agentupdate.disabled`（关掉自动更新的机器 id 列表）。事件 `agentupdate.changed`（`{agentId}`，浏览器默认收得到）。审计 `agent_update.run`、`agent_update.auto`。不加迁移。基础代码只在 `app/modules.go` 加一行。模块直接读 `core.Version` 当面板带的代理版本（`maintenance`、`mcp` 也这样用）。
