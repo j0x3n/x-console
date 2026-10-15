@@ -267,7 +267,7 @@ func (m *Module) run(ctx context.Context, rs *runState) error {
 	if (kind == "explore") && m.chat() == nil {
 		return m.finish(ctx, w, rec, kind, result{err: errNoAI})
 	}
-	if kind == "explore" && !m.chat().Available(ctx, "agent") {
+	if kind == "explore" && !m.chat().Available(m.agentCtx(ctx), "agent") {
 		return m.finish(ctx, w, rec, kind, result{err: errNoAI})
 	}
 
@@ -619,6 +619,7 @@ var judgeSchema = json.RawMessage(`{"type":"object","properties":{"important":{"
 
 func (m *Module) judge(ctx context.Context, w db.Watcher, old, value string) (string, bool) {
 	fallback := "内容有变化"
+	ctx = m.judgeCtx(ctx)
 	l := m.llm()
 	if l == nil || !l.Available(ctx) || m.overBudget(ctx) {
 		return fallback, true

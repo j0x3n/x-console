@@ -28,6 +28,14 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 	if o, ok := modelOverride(ctx); ok {
 		ref = &o // B47: a built-in agent's own model
 	}
+	choice, chosen := contracts.AIModelFrom(ctx)
+	if chosen && choice.Model != "" {
+		o, ok := parseModel(choice.Model) // B212: the feature's own model
+		if !ok {
+			return llm.Config{}, llm.ErrNotConfigured
+		}
+		ref = &o
+	}
 	if ref == nil {
 		return llm.Config{}, llm.ErrNotConfigured
 	}
@@ -53,6 +61,9 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 		effort = selected.FastReasoningEffort
 	} else if e, ok := effortOverride(ctx); ok {
 		effort = e // B60: the conversation's own effort
+	}
+	if chosen && validEffort(choice.Effort) {
+		effort = api.ReasoningEffort(choice.Effort)
 	}
 	if effort != api.ReasoningEffortOff && effort != "" {
 		unsupported, err := m.reasoningUnsupported(ctx, p.Id)

@@ -444,7 +444,18 @@ export interface components {
             xQueryIds?: {
                 [key: string]: string;
             };
+            /** @description 操作网页的模型（B212），格式是 <供应商 id>:<模型 id>。AI 摸索、每次都让 AI 看、读验证码用。空字符串是跟随 设置 → AI 的 Agent 模型。不带这个字段时不改。 */
+            agentModel?: string;
+            agentEffort?: components["schemas"]["WatcherEffort"];
+            /** @description 判断变化的模型（B212）。判断变化重不重要、筛选 X 推文用。空字符串是跟随快速模型。不带这个字段时不改。 */
+            judgeModel?: string;
+            judgeEffort?: components["schemas"]["WatcherEffort"];
         };
+        /**
+         * @description 思考程度。空字符串是跟随 设置 → AI。
+         * @enum {string}
+         */
+        WatcherEffort: "" | "off" | "low" | "medium" | "high";
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;

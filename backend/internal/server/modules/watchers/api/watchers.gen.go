@@ -13,6 +13,33 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for WatcherEffort.
+const (
+	Empty  WatcherEffort = ""
+	High   WatcherEffort = "high"
+	Low    WatcherEffort = "low"
+	Medium WatcherEffort = "medium"
+	Off    WatcherEffort = "off"
+)
+
+// Valid indicates whether the value is a known member of the WatcherEffort enum.
+func (e WatcherEffort) Valid() bool {
+	switch e {
+	case Empty:
+		return true
+	case High:
+		return true
+	case Low:
+		return true
+	case Medium:
+		return true
+	case Off:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WatcherKind.
 const (
 	Web WatcherKind = "web"
@@ -350,6 +377,9 @@ type WatcherDetail struct {
 	Url string `json:"url"`
 }
 
+// WatcherEffort 思考程度。空字符串是跟随 设置 → AI。
+type WatcherEffort string
+
 // WatcherInput kind 可以不填，不填时按 url 认。@ 开头或 x.com、twitter.com 的链接是 x，其他 http:// 或 https:// 网址是 web，不含 . 和 / 的文字是 x 的搜索词，都不是就报错。
 type WatcherInput struct {
 	// AllowedHosts 不填就用网址的域名
@@ -496,11 +526,23 @@ type WatcherStep struct {
 
 // WatchersSettings defines model for WatchersSettings.
 type WatchersSettings struct {
+	// AgentEffort 思考程度。空字符串是跟随 设置 → AI。
+	AgentEffort *WatcherEffort `json:"agentEffort,omitempty"`
+
+	// AgentModel 操作网页的模型（B212），格式是 <供应商 id>:<模型 id>。AI 摸索、每次都让 AI 看、读验证码用。空字符串是跟随 设置 → AI 的 Agent 模型。不带这个字段时不改。
+	AgentModel *string `json:"agentModel,omitempty"`
+
 	// BudgetUsd 每天 AI 花费上限（美元），0 是不用 AI
 	BudgetUsd float64 `json:"budgetUsd"`
 
 	// DangerWords 按钮上有这些字时，点之前要批准
 	DangerWords []string `json:"dangerWords"`
+
+	// JudgeEffort 思考程度。空字符串是跟随 设置 → AI。
+	JudgeEffort *WatcherEffort `json:"judgeEffort,omitempty"`
+
+	// JudgeModel 判断变化的模型（B212）。判断变化重不重要、筛选 X 推文用。空字符串是跟随快速模型。不带这个字段时不改。
+	JudgeModel *string `json:"judgeModel,omitempty"`
 
 	// XQueryIds X 网页接口的 queryId，键是 UserByScreenName、UserTweets、SearchTimeline、TweetDetail。X 改版后要换。不填用默认值。
 	XQueryIds *map[string]string `json:"xQueryIds,omitempty"`

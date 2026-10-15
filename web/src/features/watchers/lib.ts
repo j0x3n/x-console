@@ -176,3 +176,14 @@ export function emptyValue(w: Pick<Watcher, "status" | "statusDetail">) {
   if (w.statusDetail) return w.statusDetail;
   return STATUS[w.status].label;
 }
+
+/** "3:gpt-4o" → { providerId: 3, model: "gpt-4o" }；空的或格式不对返回 undefined（B212）。 */
+export function parseModelRef(
+  s: string,
+): { providerId: number; model: string } | undefined {
+  const i = s.indexOf(":");
+  const id = Number(s.slice(0, i));
+  if (i <= 0 || !Number.isInteger(id) || id <= 0 || i === s.length - 1)
+    return undefined;
+  return { providerId: id, model: s.slice(i + 1) };
+}

@@ -443,7 +443,7 @@ var xFilterSchema = json.RawMessage(`{"type":"object","properties":{"keep":{"typ
 func (m *Module) recordXPosts(ctx context.Context, w db.Watcher, fresh []xPost) {
 	keep, summary := fresh, fmt.Sprintf("%d 条新推文", len(fresh))
 	if goal := strings.TrimSpace(w.Goal); goal != "" {
-		if l := m.llm(); l != nil && l.Available(ctx) && !m.overBudget(ctx) {
+		if l := m.llm(); l != nil && l.Available(m.judgeCtx(ctx)) && !m.overBudget(ctx) {
 			var b strings.Builder
 			for i, p := range fresh {
 				fmt.Fprintf(&b, "[%d] @%s：%s\n", i, p.Handle, clip(p.Text, 500))
@@ -452,7 +452,7 @@ func (m *Module) recordXPosts(ctx context.Context, w db.Watcher, fresh []xPost) 
 				Keep    []int  `json:"keep"`
 				Summary string `json:"summary"`
 			}
-			actx := contracts.WithAIUsage(ctx, "watchers", strconv.FormatInt(w.ID, 10))
+			actx := contracts.WithAIUsage(m.judgeCtx(ctx), "watchers", strconv.FormatInt(w.ID, 10))
 			if err := l.CompleteJSON(actx, "fast", xFilterSystem, "用户关心的："+goal+"\n\n新推文：\n"+b.String(), xFilterSchema, &out); err == nil {
 				keep = nil
 				for _, i := range out.Keep {

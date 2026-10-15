@@ -465,3 +465,17 @@ components:
           type: object
           additionalProperties: { type: string }
           description: X 网页接口的 queryId，键是 UserByScreenName、UserTweets、SearchTimeline、TweetDetail。X 改版后要换。不填用默认值。
+        agentModel:
+          type: string
+          description: 操作网页的模型（B212），格式是 <供应商 id>:<模型 id>。AI 摸索、每次都让 AI 看、读验证码用。空字符串是跟随 设置 → AI 的 Agent 模型。不带这个字段时不改。
+        agentEffort:
+          $ref: "#/components/schemas/WatcherEffort"
+        judgeModel:
+          type: string
+          description: 判断变化的模型（B212）。判断变化重不重要、筛选 X 推文用。空字符串是跟随快速模型。不带这个字段时不改。
+        judgeEffort:
+          $ref: "#/components/schemas/WatcherEffort"
+    WatcherEffort:
+      type: string
+      enum: ["", "off", "low", "medium", "high"]
+      description: 思考程度。空字符串是跟随 设置 → AI。

@@ -6,6 +6,7 @@ import {
   money,
   needsUser,
   parseHosts,
+  parseModelRef,
   runShots,
   sortWatchers,
   toPage,
@@ -123,5 +124,15 @@ describe("watchers lib", () => {
       { id: 3, text: "打开" },
       { id: 5, text: "读到" },
     ]);
+  });
+
+  it("parses a model choice", () => {
+    expect(parseModelRef("3:gpt-4o:mini")).toEqual({
+      providerId: 3,
+      model: "gpt-4o:mini",
+    });
+    expect(parseModelRef("")).toBeUndefined();
+    expect(parseModelRef("x:gpt")).toBeUndefined();
+    expect(parseModelRef("3:")).toBeUndefined();
   });
 });

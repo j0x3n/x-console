@@ -23,6 +23,7 @@ export type WatcherKind = S["WatcherKind"];
 export type WatcherRun = S["WatcherRun"];
 export type WatchersStatus = S["WatchersStatus"];
 export type WatchersSettings = S["WatchersSettings"];
+export type WatcherEffort = S["WatcherEffort"];
 export type WatcherChange = S["WatcherChange"];
 
 export const watcherKeys = {

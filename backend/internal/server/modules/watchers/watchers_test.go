@@ -127,6 +127,8 @@ type fakeChat struct {
 	spent float64
 	// manual turns off the automatic confirm of finish.
 	manual bool
+	// models is the B212 model choice each call carried.
+	models []contracts.AIModel
 }
 
 func (f *fakeChat) autoConfirm() bool { return !f.manual }
@@ -139,10 +141,12 @@ func (f *fakeChat) Spent(context.Context, string, string, time.Time) (float64, e
 	return f.spent, nil
 }
 
-func (f *fakeChat) Chat(_ context.Context, _, system string, msgs []contracts.ChatMessage, _ []contracts.ChatTool) (contracts.ChatReply, error) {
+func (f *fakeChat) Chat(ctx context.Context, _, system string, msgs []contracts.ChatMessage, _ []contracts.ChatTool) (contracts.ChatReply, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
+	c, _ := contracts.AIModelFrom(ctx)
+	f.models = append(f.models, c)
 	f.seen = append(f.seen, system)
 	for _, m := range msgs {
 		f.seen = append(f.seen, m.Content)
@@ -224,14 +228,19 @@ func finish(want string) move {
 	return do("finish", func(p string) map[string]any { return map[string]any{"ref": ref(p, want), "note": "办理状态"} })
 }
 
-type fakeLLM struct{ calls int }
+type fakeLLM struct {
+	calls  int
+	models []contracts.AIModel
+}
 
 func (f *fakeLLM) Available(context.Context) bool { return true }
 func (f *fakeLLM) CompleteText(context.Context, string, string, string) (string, error) {
 	return "", nil
 }
-func (f *fakeLLM) CompleteJSON(_ context.Context, _, system, user string, _ json.RawMessage, out any) error {
+func (f *fakeLLM) CompleteJSON(ctx context.Context, _, system, user string, _ json.RawMessage, out any) error {
 	f.calls++
+	c, _ := contracts.AIModelFrom(ctx)
+	f.models = append(f.models, c)
 	if strings.Contains(system, "推文") {
 		// keep only posts about 降息
 		keep := []int{}

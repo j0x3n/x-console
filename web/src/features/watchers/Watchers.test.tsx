@@ -62,6 +62,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import WatchersPage from "./WatchersPage";
 import WatcherPage from "./WatcherPage";
 import TodayWatchersCard from "./TodayWatchersCard";
+import SettingsDialog from "./SettingsDialog";
 import "./i18n";
 
 function renderAt(path: string, node: React.ReactNode, pattern = "*") {
@@ -558,5 +559,47 @@ describe("B234 cards, run history and screenshots", () => {
     const rows = container.querySelectorAll("a.today-row");
     expect(rows[0].textContent).toContain("任务 8");
     expect(screen.getByText("还有 2 个")).toBeTruthy();
+  });
+});
+
+describe("SettingsDialog", () => {
+  it("saves the models chosen for this module (B212)", async () => {
+    api.routes.set("GET /watchers/settings", () => ({
+      status: 200,
+      body: {
+        budgetUsd: 1,
+        dangerWords: ["提交"],
+        xQueryIds: {},
+        agentModel: "",
+        agentEffort: "",
+        judgeModel: "1:fast-m",
+        judgeEffort: "off",
+      },
+    }));
+    api.routes.set("GET /ai/providers", () => ({
+      status: 200,
+      body: [{ id: 1, name: "P", baseUrl: "https://p/v1", hasKey: true }],
+    }));
+    api.routes.set("GET /ai/models", () => ({
+      status: 200,
+      body: [{ providerId: 1, id: "fast-m", name: "Fast M" }],
+    }));
+    api.routes.set("PUT /watchers/settings", (body) => ({
+      status: 200,
+      body,
+    }));
+    renderAt("/", <SettingsDialog open onClose={() => {}} />);
+    await screen.findByText("操作网页的模型");
+    await screen.findByText("fast-m");
+    fireEvent.click(screen.getAllByRole("button", { name: "高" })[0]);
+    fireEvent.click(screen.getByText(/^(Save|保存)$/));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PUT")?.body).toMatchObject({
+        agentModel: "",
+        agentEffort: "high",
+        judgeModel: "1:fast-m",
+        judgeEffort: "off",
+      }),
+    );
   });
 });

@@ -201,6 +201,26 @@ type Options struct {
 	BudgetUSD   *float64          `json:"budgetUsd,omitempty"`
 	DangerWords []string          `json:"dangerWords,omitempty"`
 	XQueryIDs   map[string]string `json:"xQueryIds,omitempty"`
+	// B212: the models to use instead of Settings → AI. Empty follows it.
+	AgentModel  string `json:"agentModel,omitempty"`
+	AgentEffort string `json:"agentEffort,omitempty"`
+	JudgeModel  string `json:"judgeModel,omitempty"`
+	JudgeEffort string `json:"judgeEffort,omitempty"`
+}
+
+// agentCtx makes the AI calls on ctx use the model chosen for working the
+// page: exploring, looking every time and reading captchas (B212).
+func (m *Module) agentCtx(ctx context.Context) context.Context {
+	var o Options
+	_ = m.d.Settings.Get(ctx, OptionsKey, &o)
+	return contracts.WithAIModel(ctx, o.AgentModel, o.AgentEffort)
+}
+
+// judgeCtx is agentCtx for judging changes and filtering X posts.
+func (m *Module) judgeCtx(ctx context.Context) context.Context {
+	var o Options
+	_ = m.d.Settings.Get(ctx, OptionsKey, &o)
+	return contracts.WithAIModel(ctx, o.JudgeModel, o.JudgeEffort)
 }
 
 func (m *Module) options(ctx context.Context) (budget float64, words []string) {
@@ -900,7 +920,7 @@ func (m *Module) GetWatchersStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if c := m.chat(); c != nil {
-		out.Ai = c.Available(r.Context(), "agent")
+		out.Ai = c.Available(m.agentCtx(r.Context()), "agent")
 		out.SpentToday, _ = c.Spent(r.Context(), "watchers", "", m.startOfDay())
 	}
 	if x := m.xClient(); x != nil {
@@ -911,10 +931,37 @@ func (m *Module) GetWatchersStatus(w http.ResponseWriter, r *http.Request) {
 
 // GetWatchersSettings implements api.ServerInterface.
 func (m *Module) GetWatchersSettings(w http.ResponseWriter, r *http.Request) {
-	budget, words := m.options(r.Context())
-	ids := m.xQueryIDs(r.Context())
-	httpx.JSON(w, http.StatusOK, api.WatchersSettings{BudgetUsd: budget, DangerWords: words, XQueryIds: &ids})
+	httpx.JSON(w, http.StatusOK, m.settingsOut(r.Context()))
 }
+
+func (m *Module) settingsOut(ctx context.Context) api.WatchersSettings {
+	budget, words := m.options(ctx)
+	ids := m.xQueryIDs(ctx)
+	var o Options
+	_ = m.d.Settings.Get(ctx, OptionsKey, &o)
+	ae, je := api.WatcherEffort(o.AgentEffort), api.WatcherEffort(o.JudgeEffort)
+	return api.WatchersSettings{BudgetUsd: budget, DangerWords: words, XQueryIds: &ids,
+		AgentModel: &o.AgentModel, AgentEffort: &ae, JudgeModel: &o.JudgeModel, JudgeEffort: &je}
+}
+
+// modelChoice checks one B212 field. A nil field keeps the old value.
+func modelChoice(model *string, effort *api.WatcherEffort, oldModel, oldEffort string) (string, string, error) {
+	if model != nil {
+		oldModel = strings.TrimSpace(*model)
+		if oldModel != "" && !modelRe.MatchString(oldModel) {
+			return "", "", httpx.Invalid("模型格式不对，应该是 <供应商 id>:<模型 id>")
+		}
+	}
+	if effort != nil {
+		if !effort.Valid() {
+			return "", "", httpx.Invalid("思考程度只能是关、低、中、高")
+		}
+		oldEffort = string(*effort)
+	}
+	return oldModel, oldEffort, nil
+}
+
+var modelRe = regexp.MustCompile(`^[1-9][0-9]*:\S.*$`)
 
 // PutWatchersSettings implements api.ServerInterface.
 func (m *Module) PutWatchersSettings(w http.ResponseWriter, r *http.Request) {
@@ -932,7 +979,16 @@ func (m *Module) PutWatchersSettings(w http.ResponseWriter, r *http.Request) {
 			words = append(words, x)
 		}
 	}
+	var old Options
+	_ = m.d.Settings.Get(r.Context(), OptionsKey, &old)
 	opts := Options{BudgetUSD: &body.BudgetUsd, DangerWords: words}
+	var err error
+	if opts.AgentModel, opts.AgentEffort, err = modelChoice(body.AgentModel, body.AgentEffort, old.AgentModel, old.AgentEffort); fail(w, r, err) {
+		return
+	}
+	if opts.JudgeModel, opts.JudgeEffort, err = modelChoice(body.JudgeModel, body.JudgeEffort, old.JudgeModel, old.JudgeEffort); fail(w, r, err) {
+		return
+	}
 	if body.XQueryIds != nil {
 		opts.XQueryIDs = map[string]string{}
 		for k, v := range *body.XQueryIds {
@@ -947,17 +1003,14 @@ func (m *Module) PutWatchersSettings(w http.ResponseWriter, r *http.Request) {
 			opts.XQueryIDs[k] = v
 		}
 	} else {
-		var old Options
-		_ = m.d.Settings.Get(r.Context(), OptionsKey, &old)
 		opts.XQueryIDs = old.XQueryIDs
 	}
-	err := m.d.Settings.Set(r.Context(), OptionsKey, opts)
-	m.d.Audit.Record(r.Context(), "watcher.settings", "", map[string]any{"budget": body.BudgetUsd}, err)
+	err = m.d.Settings.Set(r.Context(), OptionsKey, opts)
+	m.d.Audit.Record(r.Context(), "watcher.settings", "", map[string]any{"budget": body.BudgetUsd, "agentModel": opts.AgentModel, "judgeModel": opts.JudgeModel}, err)
 	if fail(w, r, err) {
 		return
 	}
-	ids := m.xQueryIDs(r.Context())
-	httpx.JSON(w, http.StatusOK, api.WatchersSettings{BudgetUsd: body.BudgetUsd, DangerWords: words, XQueryIds: &ids})
+	httpx.JSON(w, http.StatusOK, m.settingsOut(r.Context()))
 }
 
 // cleanup drops old runs and screenshots that no change points at.

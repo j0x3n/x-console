@@ -3,6 +3,7 @@ package ai_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/llm"
@@ -101,5 +103,64 @@ func TestAiReasoningFallbackPersists(t *testing.T) {
 	env.MustDo("GET", "/ai/model-settings", nil, &settings)
 	if rejected.Load() != 1 || accepted.Load() != 2 || !settings.ReasoningUnsupported {
 		t.Fatalf("reasoning fallback rejected=%d accepted=%d settings=%+v", rejected.Load(), accepted.Load(), settings)
+	}
+}
+
+// B212: a feature's own model and effort win over Settings → AI for both
+// purposes. A model that is gone is "not configured", not swapped.
+func TestAiFeatureModelChoice(t *testing.T) {
+	type seen struct {
+		model  string
+		effort any
+	}
+	got := make(chan seen, 10)
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/models" {
+			fmt.Fprint(w, `{"data":[{"id":"test-model"},{"id":"vision-model"}]}`)
+			return
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		model, _ := body["model"].(string)
+		got <- seen{model: model, effort: body["reasoning_effort"]}
+		fmt.Fprint(w, `{"id":"chat_1","object":"chat.completion","created":1,"model":"x","choices":[{"index":0,"message":{"role":"assistant","content":"好"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`)
+	}))
+	defer remote.Close()
+	env := testutil.New(t)
+	env.Elevate()
+	var provider api.AiProvider
+	env.MustDo("POST", "/ai/providers", map[string]any{"name": "Test", "baseUrl": remote.URL + "/v1"}, &provider)
+	env.MustDo("POST", fmt.Sprintf("/ai/providers/%d/models", provider.Id), nil, nil)
+	env.MustDo("PUT", "/ai/model-settings", map[string]any{"agent": map[string]any{"providerId": provider.Id, "model": "test-model"}, "reasoningEffort": "off", "fastReasoningEffort": "off"}, nil)
+	built, err := ai.New(env.App.Deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := built.(*ai.Module).LLMForTest()
+	call := func(ctx context.Context, purpose string) (seen, error) {
+		_, err := client.Complete(ctx, llm.Request{Purpose: purpose, Messages: []llm.Message{{Role: "user", Content: "测试"}}})
+		if err != nil {
+			return seen{}, err
+		}
+		return <-got, nil
+	}
+	vision := fmt.Sprintf("%d:vision-model", provider.Id)
+	for _, purpose := range []string{"agent", "fast"} {
+		s, err := call(contracts.WithAIModel(context.Background(), vision, "high"), purpose)
+		if err != nil || s.model != "vision-model" || s.effort != "high" {
+			t.Fatalf("%s with a chosen model: %+v %v", purpose, s, err)
+		}
+	}
+	if s, err := call(contracts.WithAIModel(context.Background(), "", "low"), "fast"); err != nil || s.model != "test-model" || s.effort != "low" {
+		t.Fatalf("effort only: %+v %v", s, err)
+	}
+	if s, err := call(context.Background(), "agent"); err != nil || s.model != "test-model" || s.effort != nil {
+		t.Fatalf("no choice: %+v %v", s, err)
+	}
+	for _, gone := range []string{fmt.Sprintf("%d:deleted-model", provider.Id), "999:test-model", "bad"} {
+		if _, err := call(contracts.WithAIModel(context.Background(), gone, ""), "agent"); !errors.Is(err, llm.ErrNotConfigured) {
+			t.Fatalf("%s: %v", gone, err)
+		}
 	}
 }

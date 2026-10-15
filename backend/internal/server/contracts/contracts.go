@@ -127,6 +127,32 @@ func AIUsageFrom(ctx context.Context) AIUsage {
 	return u
 }
 
+// AIModel is a feature's own model choice (B212). Model is
+// "<provider id>:<model id>" and Effort is off, low, medium or high. An
+// empty field keeps what Settings → AI picks for the purpose.
+type AIModel struct {
+	Model  string
+	Effort string
+}
+
+type aiModelKey struct{}
+
+// WithAIModel makes the AI calls made with ctx use this model and effort,
+// whatever the purpose. A model that no longer exists counts as AI not
+// configured; it is never swapped for another one.
+func WithAIModel(ctx context.Context, model, effort string) context.Context {
+	if model == "" && effort == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, aiModelKey{}, AIModel{Model: model, Effort: effort})
+}
+
+// AIModelFrom returns what WithAIModel stored.
+func AIModelFrom(ctx context.Context) (AIModel, bool) {
+	c, ok := ctx.Value(aiModelKey{}).(AIModel)
+	return c, ok
+}
+
 // ---- M5 projects ----
 
 // IssueRef is the cross-module view of an issue.

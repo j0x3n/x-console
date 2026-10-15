@@ -94,6 +94,7 @@ type agent struct {
 }
 
 func (m *Module) runExplore(ctx context.Context, rs *runState, w db.Watcher, sess *browser.Session, rec *recorder) result {
+	ctx = m.agentCtx(ctx)
 	chat := m.chat()
 	if chat == nil || !chat.Available(ctx, "agent") {
 		return result{err: errNoAI, noRetry: true}
