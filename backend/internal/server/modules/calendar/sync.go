@@ -104,6 +104,9 @@ func (m *Module) fetch(ctx context.Context, cal db.Calendar) ([]parsedEvent, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
+	if cal.AccountID != nil {
+		return m.fetchGoogle(ctx, cal)
+	}
 	if cal.Kind == kindCalDAV {
 		return m.fetchCalDAV(ctx, cal.Url, cal.Username, password)
 	}
@@ -235,6 +238,23 @@ func (m *Module) fetchCalDAV(ctx context.Context, rawURL, username, password str
 		return nil, errors.New("读取日历失败: 所有日历条目都无法读取")
 	}
 	return out, nil
+}
+
+// fetchGoogle reads a Google calendar. Its address is the collection
+// itself, so there is nothing to discover.
+func (m *Module) fetchGoogle(ctx context.Context, cal db.Calendar) ([]parsedEvent, error) {
+	u, err := url.Parse(cal.Url)
+	if err != nil || u.Host == "" {
+		return nil, errors.New("地址格式不对")
+	}
+	result, err := queryCalendar(ctx, bearerClient{m, *cal.AccountID}, u, u.Path)
+	if err != nil {
+		return nil, fmt.Errorf("读取日历失败: %w", err)
+	}
+	if result.hasEntries && !result.readable {
+		return nil, errors.New("读取日历失败: 所有日历条目都无法读取")
+	}
+	return result.events, nil
 }
 
 func supportsEvents(c caldav.Calendar) bool {

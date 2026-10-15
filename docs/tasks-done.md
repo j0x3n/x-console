@@ -395,3 +395,4 @@
 | B209 | 菜谱和做菜计时：新模块 `recipes`，页面 `/recipes`。菜单按标签和关键字找；AI 把烹饪教程（粘贴或笔记）整理成菜谱，用户确认后保存；做菜页一屏一步，列出这一步要加的料，点按钮开始计时；计时器存在服务端，到点推送，全局浮条倒数并响铃；动作 `recipes.search`、`recipes.get`、`recipes.create`、`cook_timers.start`。后端 Claude（Sonnet 子代理），前端 Claude。提交 `a33c5c57`。[规格](specs/B209.md) |
 | B210 | 菜谱第二批：营养分类（AI 估算，六个粗分类）；饮食记录页 `/recipes/meals`，做完一道菜记一顿、打分；自己做的一顿在选定的习惯打卡；按饮食目标、体重变化、打分和最近吃过推荐菜；菜单按“我手头有”和营养分类筛选。动作 `meals.log`、`meals.list`、`recipes.recommend`。后端 Claude（Sonnet 子代理），前端 Claude。提交 `4bd63c21`。[规格](specs/B210.md) |
 | B211 | 菜谱第三批：联网找新菜谱。AI 模块加公共的联网研究能力（新契约 `contracts.WebSearch`，OpenAI 自带搜索或 Brave Search，设置在 设置 → AI），稍后读开放 `contracts.PageReader` 读网页。菜谱新页面 `/recipes/discover` 按口味找，结果放进待确认，收进菜单才保存，每天最多 10 次。后端 Claude（Sonnet 子代理），前端 Claude。提交 `6a926e41`。[规格](specs/B211.md) |
+| B215 | Google 日历双向同步：日历管理里加 Google 账号（自己的 OAuth 客户端），授权后勾选要同步的日历；同步和写回走现有的 CalDAV 代码，认证换成 Bearer；只读日历不能写；授权过期提示并一天通知一次；删账号时撤销授权。后端和前端 Claude。提交见 `git log --grep '^B215'`。[规格](specs/B215.md) |

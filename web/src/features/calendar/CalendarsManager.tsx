@@ -8,15 +8,22 @@ import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { relativeTime } from "../../lib/time";
 import {
+  useCalendarAccounts,
   useCalendars,
   useCreateCalendar,
   useDeleteCalendar,
   useSyncCalendar,
   useUpdateCalendar,
   type Calendar,
+  type CalendarAccount,
   type CalendarPatch,
 } from "./api";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
+import {
+  GoogleAccountForm,
+  GoogleAccountsList,
+  RemoteCalendarsDialog,
+} from "./GoogleAccounts";
 
 const onError = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
@@ -28,7 +35,32 @@ export default function CalendarsManager() {
   const creating = !!params.get("new");
   const presetKind = params.get("new") === "local" ? "local" : undefined;
   const [editing, setEditing] = useState<Calendar | null>(null);
+  const [reauth, setReauth] = useState<CalendarAccount | null>(null);
+  const [pick, setPick] = useState<number | null>(null);
   const list = useCalendars();
+  const accounts = useCalendarAccounts();
+  const emails = new Map(
+    (accounts.data?.accounts ?? []).map((a) => [a.id, a.email]),
+  );
+
+  // B215：从 Google 授权页回来，成功就弹出日历勾选，失败显示原因
+  const google = params.get("google");
+  useEffect(() => {
+    if (!google) return;
+    if (google === "ok") {
+      const id = Number(params.get("account"));
+      if (id > 0) setPick(id);
+      toast(t("Google account authorized"));
+    } else {
+      toast({
+        message: params.get("message") || t("Authorization failed"),
+        tone: "error",
+      });
+    }
+    const next = new URLSearchParams(params);
+    ["google", "account", "message"].forEach((k) => next.delete(k));
+    setParams(next, { replace: true });
+  }, [google, params, setParams, t]);
 
   const closeDialog = () => {
     setEditing(null);
@@ -55,6 +87,7 @@ export default function CalendarsManager() {
           <Plus size={15} /> {t("Add calendar")}
         </button>
       </div>
+      <GoogleAccountsList onAuthorize={setReauth} onPick={setPick} />
       {list.isPending ? (
         <Loading />
       ) : list.isError ? (
@@ -69,7 +102,12 @@ export default function CalendarsManager() {
       ) : (
         <div className="xc-card calendar-list">
           {list.data.map((c) => (
-            <CalendarRow key={c.id} calendar={c} onEdit={() => setEditing(c)} />
+            <CalendarRow
+              key={c.id}
+              calendar={c}
+              account={c.accountId ? emails.get(c.accountId) : undefined}
+              onEdit={() => setEditing(c)}
+            />
           ))}
         </div>
       )}
@@ -79,15 +117,25 @@ export default function CalendarsManager() {
         presetKind={presetKind}
         onClose={closeDialog}
       />
+      <Dialog
+        open={reauth !== null}
+        onClose={() => setReauth(null)}
+        title={t("Authorize Google account")}
+      >
+        <GoogleAccountForm account={reauth} onCancel={() => setReauth(null)} />
+      </Dialog>
+      <RemoteCalendarsDialog accountId={pick} onClose={() => setPick(null)} />
     </div>
   );
 }
 
 function CalendarRow({
   calendar: c,
+  account,
   onEdit,
 }: {
   calendar: Calendar;
+  account?: string;
   onEdit: () => void;
 }) {
   const t = useT();
@@ -105,18 +153,24 @@ function CalendarRow({
         <div className="calendar-item-title">
           <strong>{c.name}</strong>
           <span className="xc-badge">
-            {c.kind === "ics"
-              ? "ICS"
-              : c.kind === "caldav"
-                ? "CalDAV"
-                : t("Local")}
+            {c.accountId
+              ? "Google"
+              : c.kind === "ics"
+                ? "ICS"
+                : c.kind === "caldav"
+                  ? "CalDAV"
+                  : t("Local")}
           </span>
-          {c.kind !== "ics" && (
+          {c.writable ? (
             <span className="xc-badge ok">{t("Editable")}</span>
+          ) : (
+            c.accountId && <span className="xc-badge">{t("Read only")}</span>
           )}
           {!c.enabled && <span className="xc-badge warn">{t("Hidden")}</span>}
         </div>
-        {c.url && <div className="calendar-item-url xc-mono">{c.url}</div>}
+        {c.accountId
+          ? account && <div className="calendar-item-url">{account}</div>
+          : c.url && <div className="calendar-item-url xc-mono">{c.url}</div>}
         <div className="calendar-item-meta">
           {c.kind === "local" ? (
             <span>
@@ -206,7 +260,7 @@ function CalendarRow({
 
 interface FormState {
   name: string;
-  kind: "ics" | "caldav" | "local";
+  kind: "ics" | "caldav" | "local" | "google";
   url: string;
   username: string;
   password: string;
@@ -246,7 +300,7 @@ function CalendarDialog({
       calendar
         ? {
             name: calendar.name,
-            kind: calendar.kind,
+            kind: calendar.accountId ? "google" : calendar.kind,
             url: calendar.url,
             username: calendar.username,
             password: "",
@@ -269,18 +323,21 @@ function CalendarDialog({
     };
     const fail = (err: unknown) => setError(errorMessage(err));
     if (calendar) {
-      const body: CalendarPatch = {
-        name: form.name,
-        url: form.url,
-        username: form.username,
-        color: form.color,
-      };
-      if (form.password) body.password = form.password;
+      // Google 日历的地址和账号由授权决定，只能改名字和颜色
+      const body: CalendarPatch = calendar.accountId
+        ? { name: form.name, color: form.color }
+        : {
+            name: form.name,
+            url: form.url,
+            username: form.username,
+            color: form.color,
+          };
+      if (form.password && !calendar.accountId) body.password = form.password;
       update.mutate(
         { id: calendar.id, body },
         { onSuccess: done, onError: fail },
       );
-    } else {
+    } else if (form.kind !== "google") {
       create.mutate(
         {
           name: form.name,
@@ -296,140 +353,153 @@ function CalendarDialog({
   };
 
   const pending = create.isPending || update.isPending;
+  // 新加 Google 日历：先授权账号，授权回来再勾选日历
+  const addGoogle = !calendar && form.kind === "google";
+  const typeField = !calendar && (
+    <label className="xc-field">
+      <span>{t("Type")}</span>
+      <select
+        className="xc-select"
+        value={form.kind}
+        onChange={(e) => set("kind", e.target.value as FormState["kind"])}
+      >
+        <option value="local">{t("Local calendar")}</option>
+        <option value="google">{t("Google Calendar")}</option>
+        <option value="caldav">{t("CalDAV, such as iCloud")}</option>
+        <option value="ics">{t("ICS subscription link")}</option>
+      </select>
+    </label>
+  );
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title={calendar ? t("Edit calendar") : t("Add calendar")}
       footer={
-        <>
-          <button className="xc-btn" onClick={onClose}>
-            {t("Cancel")}
-          </button>
-          <button
-            className="xc-btn primary"
-            disabled={pending}
-            onClick={submit}
-          >
-            {t("Save")}
-          </button>
-        </>
+        addGoogle ? undefined : (
+          <>
+            <button className="xc-btn" onClick={onClose}>
+              {t("Cancel")}
+            </button>
+            <button
+              className="xc-btn primary"
+              disabled={pending}
+              onClick={submit}
+            >
+              {t("Save")}
+            </button>
+          </>
+        )
       }
     >
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <label className="xc-field">
-          <span>{t("Name")}</span>
-          <input
-            className="xc-input"
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-            autoFocus
-          />
-        </label>
-        {!calendar && (
+      {addGoogle ? (
+        <div className="xc-stack">
+          {typeField}
+          <GoogleAccountForm account={null} onCancel={onClose} />
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
           <label className="xc-field">
-            <span>{t("Type")}</span>
-            <select
-              className="xc-select"
-              value={form.kind}
-              onChange={(e) => set("kind", e.target.value as FormState["kind"])}
-            >
-              <option value="local">{t("Local calendar")}</option>
-              <option value="caldav">{t("CalDAV, such as iCloud")}</option>
-              <option value="ics">{t("ICS subscription link")}</option>
-            </select>
-          </label>
-        )}
-        {form.kind === "local" && (
-          <p className="calendar-kind-hint">
-            {t("Saved on your own server. Add and edit events here.")}
-          </p>
-        )}
-        {form.kind !== "local" && (
-          <>
-            <label className="xc-field">
-              <span>{t("Address")}</span>
-              <input
-                className="xc-input"
-                value={form.url}
-                inputMode="url"
-                placeholder={
-                  form.kind === "ics"
-                    ? "https://…/basic.ics"
-                    : "https://caldav.example.com/"
-                }
-                onChange={(e) => set("url", e.target.value)}
-              />
-              <small>
-                {form.kind === "ics"
-                  ? t(
-                      "A webcal:// link works too. For Google Calendar, use the secret address in iCal format from its settings.",
-                    )
-                  : t(
-                      "For iCloud, use https://caldav.icloud.com, your Apple ID and an app-specific password. Events you add here are written back.",
-                    )}
-              </small>
-            </label>
-            <div className="calendar-form-row">
-              <label className="xc-field">
-                <span>
-                  {t("Username")}{" "}
-                  <small className="xc-muted">{t("optional")}</small>
-                </span>
-                <input
-                  className="xc-input"
-                  value={form.username}
-                  autoComplete="off"
-                  onChange={(e) => set("username", e.target.value)}
-                />
-              </label>
-              <label className="xc-field">
-                <span>
-                  {t("Password")}{" "}
-                  <small className="xc-muted">{t("optional")}</small>
-                </span>
-                <input
-                  className="xc-input"
-                  type="password"
-                  value={form.password}
-                  autoComplete="new-password"
-                  placeholder={
-                    calendar?.hasPassword ? t("Leave empty to keep it") : ""
-                  }
-                  onChange={(e) => set("password", e.target.value)}
-                />
-              </label>
-            </div>
-          </>
-        )}
-        <label className="xc-field">
-          <span>{t("Color")}</span>
-          <div className="xc-row">
+            <span>{t("Name")}</span>
             <input
-              type="color"
-              className="calendar-color"
-              value={form.color || "#cc7752"}
-              onChange={(e) => set("color", e.target.value)}
+              className="xc-input"
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+              autoFocus
             />
-            {form.color && (
-              <button
-                type="button"
-                className="xc-btn ghost small"
-                onClick={() => set("color", "")}
-              >
-                {t("Default color")}
-              </button>
-            )}
-          </div>
-        </label>
-        {error && <p className="xc-error-text">{error}</p>}
-        <button type="submit" hidden />
-      </form>
+          </label>
+          {typeField}
+          {form.kind === "local" && (
+            <p className="calendar-kind-hint">
+              {t("Saved on your own server. Add and edit events here.")}
+            </p>
+          )}
+          {form.kind !== "local" && form.kind !== "google" && (
+            <>
+              <label className="xc-field">
+                <span>{t("Address")}</span>
+                <input
+                  className="xc-input"
+                  value={form.url}
+                  inputMode="url"
+                  placeholder={
+                    form.kind === "ics"
+                      ? "https://…/basic.ics"
+                      : "https://caldav.example.com/"
+                  }
+                  onChange={(e) => set("url", e.target.value)}
+                />
+                <small>
+                  {form.kind === "ics"
+                    ? t(
+                        "A webcal:// link works too. For Google Calendar, use the secret address in iCal format from its settings.",
+                      )
+                    : t(
+                        "For iCloud, use https://caldav.icloud.com, your Apple ID and an app-specific password. Events you add here are written back.",
+                      )}
+                </small>
+              </label>
+              <div className="calendar-form-row">
+                <label className="xc-field">
+                  <span>
+                    {t("Username")}{" "}
+                    <small className="xc-muted">{t("optional")}</small>
+                  </span>
+                  <input
+                    className="xc-input"
+                    value={form.username}
+                    autoComplete="off"
+                    onChange={(e) => set("username", e.target.value)}
+                  />
+                </label>
+                <label className="xc-field">
+                  <span>
+                    {t("Password")}{" "}
+                    <small className="xc-muted">{t("optional")}</small>
+                  </span>
+                  <input
+                    className="xc-input"
+                    type="password"
+                    value={form.password}
+                    autoComplete="new-password"
+                    placeholder={
+                      calendar?.hasPassword ? t("Leave empty to keep it") : ""
+                    }
+                    onChange={(e) => set("password", e.target.value)}
+                  />
+                </label>
+              </div>
+            </>
+          )}
+          <label className="xc-field">
+            <span>{t("Color")}</span>
+            <div className="xc-row">
+              <input
+                type="color"
+                className="calendar-color"
+                value={form.color || "#cc7752"}
+                onChange={(e) => set("color", e.target.value)}
+              />
+              {form.color && (
+                <button
+                  type="button"
+                  className="xc-btn ghost small"
+                  onClick={() => set("color", "")}
+                >
+                  {t("Default color")}
+                </button>
+              )}
+            </div>
+          </label>
+          {error && <p className="xc-error-text">{error}</p>}
+          <button type="submit" hidden />
+        </form>
+      )}
     </Dialog>
   );
 }

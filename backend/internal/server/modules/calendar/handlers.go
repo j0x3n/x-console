@@ -20,16 +20,23 @@ import (
 
 func (m *Module) toAPI(ctx context.Context, c db.Calendar) api.Calendar {
 	count, _ := m.q.CountCalendarEvents(ctx, c.ID)
-	writable := c.Kind == kindLocal || c.Kind == kindCalDAV
+	writable := calendarWritable(c)
 	return api.Calendar{
 		Id: c.ID, Name: c.Name, Kind: api.CalendarKind(c.Kind), Url: c.Url, Username: c.Username,
 		HasPassword: c.Secret != "", Color: c.Color, Enabled: c.Enabled == 1, LastSyncedAt: c.LastSyncedAt,
 		LastError: c.LastError, EventCount: int(count), CreatedAt: c.CreatedAt, Writable: &writable,
+		AccountId: c.AccountID,
 	}
 }
 
+// calendarWritable tells whether events can be added and changed. Google
+// calendars shared read only are not (B215).
+func calendarWritable(c db.Calendar) bool {
+	return (c.Kind == kindLocal || c.Kind == kindCalDAV) && c.ReadOnly == 0
+}
+
 func occurrenceToAPI(o occurrence) api.CalendarEvent {
-	writable := (o.row.CalendarKind == kindLocal || o.row.CalendarKind == kindCalDAV) && !o.recurring && o.row.Rrule == "" && o.row.RecurrenceID == nil && o.row.Rdates == "[]"
+	writable := (o.row.CalendarKind == kindLocal || o.row.CalendarKind == kindCalDAV) && o.row.CalendarReadOnly == 0 && !o.recurring && o.row.Rrule == "" && o.row.RecurrenceID == nil && o.row.Rdates == "[]"
 	ev := api.CalendarEvent{
 		Id: eventKey(o), EventId: o.row.ID, CalendarId: o.row.CalendarID, Calendar: o.row.CalendarName,
 		Color: o.row.CalendarColor, Title: o.row.Title, Start: o.start, End: o.end, AllDay: o.row.AllDay == 1,
@@ -140,6 +147,9 @@ func (m *Module) update(ctx context.Context, id int64, p api.CalendarPatch) (row
 	cur, err := m.q.GetCalendar(ctx, id)
 	if err != nil {
 		return cur, false, notFound(err)
+	}
+	if cur.AccountID != nil && (p.Url != nil || p.Username != nil || p.Password != nil) {
+		return cur, false, httpx.Invalid("Google 日历的地址和账号不能改")
 	}
 	next := db.UpdateCalendarParams{
 		ID: id, Name: cur.Name, Url: cur.Url, Username: cur.Username, Secret: cur.Secret, Color: cur.Color, Enabled: cur.Enabled,

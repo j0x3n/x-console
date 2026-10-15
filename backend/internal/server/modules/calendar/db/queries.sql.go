@@ -21,10 +21,56 @@ func (q *Queries) CountCalendarEvents(ctx context.Context, calendarID int64) (in
 	return count, err
 }
 
+const createAccountCalendar = `-- name: CreateAccountCalendar :one
+INSERT INTO calendars (name, kind, url, color, enabled, created_at, account_id, remote_id, read_only)
+VALUES (?, 'caldav', ?, ?, 1, ?, ?, ?, ?)
+RETURNING id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at, account_id, remote_id, read_only
+`
+
+type CreateAccountCalendarParams struct {
+	Name      string
+	Url       string
+	Color     string
+	CreatedAt time.Time
+	AccountID *int64
+	RemoteID  string
+	ReadOnly  int64
+}
+
+func (q *Queries) CreateAccountCalendar(ctx context.Context, arg CreateAccountCalendarParams) (Calendar, error) {
+	row := q.db.QueryRowContext(ctx, createAccountCalendar,
+		arg.Name,
+		arg.Url,
+		arg.Color,
+		arg.CreatedAt,
+		arg.AccountID,
+		arg.RemoteID,
+		arg.ReadOnly,
+	)
+	var i Calendar
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Kind,
+		&i.Url,
+		&i.Username,
+		&i.Secret,
+		&i.Color,
+		&i.Enabled,
+		&i.LastSyncedAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.AccountID,
+		&i.RemoteID,
+		&i.ReadOnly,
+	)
+	return i, err
+}
+
 const createCalendar = `-- name: CreateCalendar :one
 INSERT INTO calendars (name, kind, url, username, secret, color, enabled, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at
+RETURNING id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at, account_id, remote_id, read_only
 `
 
 type CreateCalendarParams struct {
@@ -62,6 +108,37 @@ func (q *Queries) CreateCalendar(ctx context.Context, arg CreateCalendarParams) 
 		&i.LastSyncedAt,
 		&i.LastError,
 		&i.CreatedAt,
+		&i.AccountID,
+		&i.RemoteID,
+		&i.ReadOnly,
+	)
+	return i, err
+}
+
+const createCalendarAccount = `-- name: CreateCalendarAccount :one
+INSERT INTO calendar_accounts (provider, client_id, created_at, updated_at)
+VALUES ('google', ?, ?, ?)
+RETURNING id, provider, email, client_id, auth_error, auth_notified_at, created_at, updated_at
+`
+
+type CreateCalendarAccountParams struct {
+	ClientID  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (q *Queries) CreateCalendarAccount(ctx context.Context, arg CreateCalendarAccountParams) (CalendarAccount, error) {
+	row := q.db.QueryRowContext(ctx, createCalendarAccount, arg.ClientID, arg.CreatedAt, arg.UpdatedAt)
+	var i CalendarAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Email,
+		&i.ClientID,
+		&i.AuthError,
+		&i.AuthNotifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -72,6 +149,18 @@ DELETE FROM calendars WHERE id = ?
 
 func (q *Queries) DeleteCalendar(ctx context.Context, id int64) (int64, error) {
 	result, err := q.db.ExecContext(ctx, deleteCalendar, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteCalendarAccount = `-- name: DeleteCalendarAccount :execrows
+DELETE FROM calendar_accounts WHERE id = ?
+`
+
+func (q *Queries) DeleteCalendarAccount(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteCalendarAccount, id)
 	if err != nil {
 		return 0, err
 	}
@@ -100,7 +189,7 @@ func (q *Queries) DeleteCalendarEvents(ctx context.Context, calendarID int64) er
 }
 
 const getCalendar = `-- name: GetCalendar :one
-SELECT id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at FROM calendars WHERE id = ?
+SELECT id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at, account_id, remote_id, read_only FROM calendars WHERE id = ?
 `
 
 func (q *Queries) GetCalendar(ctx context.Context, id int64) (Calendar, error) {
@@ -118,6 +207,29 @@ func (q *Queries) GetCalendar(ctx context.Context, id int64) (Calendar, error) {
 		&i.LastSyncedAt,
 		&i.LastError,
 		&i.CreatedAt,
+		&i.AccountID,
+		&i.RemoteID,
+		&i.ReadOnly,
+	)
+	return i, err
+}
+
+const getCalendarAccount = `-- name: GetCalendarAccount :one
+SELECT id, provider, email, client_id, auth_error, auth_notified_at, created_at, updated_at FROM calendar_accounts WHERE id = ?
+`
+
+func (q *Queries) GetCalendarAccount(ctx context.Context, id int64) (CalendarAccount, error) {
+	row := q.db.QueryRowContext(ctx, getCalendarAccount, id)
+	var i CalendarAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Email,
+		&i.ClientID,
+		&i.AuthError,
+		&i.AuthNotifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -215,8 +327,86 @@ func (q *Queries) InsertCalendarEvent(ctx context.Context, arg InsertCalendarEve
 	return i, err
 }
 
+const listAccountCalendars = `-- name: ListAccountCalendars :many
+SELECT id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at, account_id, remote_id, read_only FROM calendars WHERE account_id = ? ORDER BY id
+`
+
+func (q *Queries) ListAccountCalendars(ctx context.Context, accountID *int64) ([]Calendar, error) {
+	rows, err := q.db.QueryContext(ctx, listAccountCalendars, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Calendar
+	for rows.Next() {
+		var i Calendar
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Kind,
+			&i.Url,
+			&i.Username,
+			&i.Secret,
+			&i.Color,
+			&i.Enabled,
+			&i.LastSyncedAt,
+			&i.LastError,
+			&i.CreatedAt,
+			&i.AccountID,
+			&i.RemoteID,
+			&i.ReadOnly,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCalendarAccounts = `-- name: ListCalendarAccounts :many
+SELECT id, provider, email, client_id, auth_error, auth_notified_at, created_at, updated_at FROM calendar_accounts ORDER BY id
+`
+
+func (q *Queries) ListCalendarAccounts(ctx context.Context) ([]CalendarAccount, error) {
+	rows, err := q.db.QueryContext(ctx, listCalendarAccounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CalendarAccount
+	for rows.Next() {
+		var i CalendarAccount
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.Email,
+			&i.ClientID,
+			&i.AuthError,
+			&i.AuthNotifiedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCalendars = `-- name: ListCalendars :many
-SELECT id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at FROM calendars ORDER BY id
+SELECT id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at, account_id, remote_id, read_only FROM calendars ORDER BY id
 `
 
 func (q *Queries) ListCalendars(ctx context.Context) ([]Calendar, error) {
@@ -240,6 +430,9 @@ func (q *Queries) ListCalendars(ctx context.Context) ([]Calendar, error) {
 			&i.LastSyncedAt,
 			&i.LastError,
 			&i.CreatedAt,
+			&i.AccountID,
+			&i.RemoteID,
+			&i.ReadOnly,
 		); err != nil {
 			return nil, err
 		}
@@ -255,7 +448,7 @@ func (q *Queries) ListCalendars(ctx context.Context) ([]Calendar, error) {
 }
 
 const listEventCandidates = `-- name: ListEventCandidates :many
-SELECT e.id, e.calendar_id, e.uid, e.title, e.starts_at, e.ends_at, e.all_day, e.tzid, e.location, e.description, e.rrule, e.rdates, e.exdates, e.recurrence_id, e.href, e.etag, c.name AS calendar_name, c.color AS calendar_color, c.kind AS calendar_kind
+SELECT e.id, e.calendar_id, e.uid, e.title, e.starts_at, e.ends_at, e.all_day, e.tzid, e.location, e.description, e.rrule, e.rdates, e.exdates, e.recurrence_id, e.href, e.etag, c.name AS calendar_name, c.color AS calendar_color, c.kind AS calendar_kind, c.read_only AS calendar_read_only
 FROM calendar_events e
 JOIN calendars c ON c.id = e.calendar_id
 WHERE c.enabled = 1
@@ -269,25 +462,26 @@ type ListEventCandidatesParams struct {
 }
 
 type ListEventCandidatesRow struct {
-	ID            int64
-	CalendarID    int64
-	Uid           string
-	Title         string
-	StartsAt      time.Time
-	EndsAt        time.Time
-	AllDay        int64
-	Tzid          string
-	Location      string
-	Description   string
-	Rrule         string
-	Rdates        string
-	Exdates       string
-	RecurrenceID  *time.Time
-	Href          string
-	Etag          string
-	CalendarName  string
-	CalendarColor string
-	CalendarKind  string
+	ID               int64
+	CalendarID       int64
+	Uid              string
+	Title            string
+	StartsAt         time.Time
+	EndsAt           time.Time
+	AllDay           int64
+	Tzid             string
+	Location         string
+	Description      string
+	Rrule            string
+	Rdates           string
+	Exdates          string
+	RecurrenceID     *time.Time
+	Href             string
+	Etag             string
+	CalendarName     string
+	CalendarColor    string
+	CalendarKind     string
+	CalendarReadOnly int64
 }
 
 // Every repeating event plus single events near the range. Times are wall
@@ -322,6 +516,7 @@ func (q *Queries) ListEventCandidates(ctx context.Context, arg ListEventCandidat
 			&i.CalendarName,
 			&i.CalendarColor,
 			&i.CalendarKind,
+			&i.CalendarReadOnly,
 		); err != nil {
 			return nil, err
 		}
@@ -336,9 +531,69 @@ func (q *Queries) ListEventCandidates(ctx context.Context, arg ListEventCandidat
 	return items, nil
 }
 
+const setCalendarAccountAuthError = `-- name: SetCalendarAccountAuthError :one
+UPDATE calendar_accounts SET auth_error = ?, auth_notified_at = ?, updated_at = ?
+WHERE id = ? RETURNING id, provider, email, client_id, auth_error, auth_notified_at, created_at, updated_at
+`
+
+type SetCalendarAccountAuthErrorParams struct {
+	AuthError      string
+	AuthNotifiedAt *time.Time
+	UpdatedAt      time.Time
+	ID             int64
+}
+
+func (q *Queries) SetCalendarAccountAuthError(ctx context.Context, arg SetCalendarAccountAuthErrorParams) (CalendarAccount, error) {
+	row := q.db.QueryRowContext(ctx, setCalendarAccountAuthError,
+		arg.AuthError,
+		arg.AuthNotifiedAt,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	var i CalendarAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Email,
+		&i.ClientID,
+		&i.AuthError,
+		&i.AuthNotifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const setCalendarAccountAuthorized = `-- name: SetCalendarAccountAuthorized :one
+UPDATE calendar_accounts SET email = ?, auth_error = '', auth_notified_at = NULL, updated_at = ?
+WHERE id = ? RETURNING id, provider, email, client_id, auth_error, auth_notified_at, created_at, updated_at
+`
+
+type SetCalendarAccountAuthorizedParams struct {
+	Email     string
+	UpdatedAt time.Time
+	ID        int64
+}
+
+func (q *Queries) SetCalendarAccountAuthorized(ctx context.Context, arg SetCalendarAccountAuthorizedParams) (CalendarAccount, error) {
+	row := q.db.QueryRowContext(ctx, setCalendarAccountAuthorized, arg.Email, arg.UpdatedAt, arg.ID)
+	var i CalendarAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Email,
+		&i.ClientID,
+		&i.AuthError,
+		&i.AuthNotifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const setCalendarSync = `-- name: SetCalendarSync :one
 UPDATE calendars SET last_synced_at = ?, last_error = ? WHERE id = ?
-RETURNING id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at
+RETURNING id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at, account_id, remote_id, read_only
 `
 
 type SetCalendarSyncParams struct {
@@ -362,6 +617,9 @@ func (q *Queries) SetCalendarSync(ctx context.Context, arg SetCalendarSyncParams
 		&i.LastSyncedAt,
 		&i.LastError,
 		&i.CreatedAt,
+		&i.AccountID,
+		&i.RemoteID,
+		&i.ReadOnly,
 	)
 	return i, err
 }
@@ -370,7 +628,7 @@ const updateCalendar = `-- name: UpdateCalendar :one
 UPDATE calendars
 SET name = ?, url = ?, username = ?, secret = ?, color = ?, enabled = ?
 WHERE id = ?
-RETURNING id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at
+RETURNING id, name, kind, url, username, secret, color, enabled, last_synced_at, last_error, created_at, account_id, remote_id, read_only
 `
 
 type UpdateCalendarParams struct {
@@ -406,6 +664,35 @@ func (q *Queries) UpdateCalendar(ctx context.Context, arg UpdateCalendarParams) 
 		&i.LastSyncedAt,
 		&i.LastError,
 		&i.CreatedAt,
+		&i.AccountID,
+		&i.RemoteID,
+		&i.ReadOnly,
+	)
+	return i, err
+}
+
+const updateCalendarAccountClient = `-- name: UpdateCalendarAccountClient :one
+UPDATE calendar_accounts SET client_id = ?, updated_at = ? WHERE id = ? RETURNING id, provider, email, client_id, auth_error, auth_notified_at, created_at, updated_at
+`
+
+type UpdateCalendarAccountClientParams struct {
+	ClientID  string
+	UpdatedAt time.Time
+	ID        int64
+}
+
+func (q *Queries) UpdateCalendarAccountClient(ctx context.Context, arg UpdateCalendarAccountClientParams) (CalendarAccount, error) {
+	row := q.db.QueryRowContext(ctx, updateCalendarAccountClient, arg.ClientID, arg.UpdatedAt, arg.ID)
+	var i CalendarAccount
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Email,
+		&i.ClientID,
+		&i.AuthError,
+		&i.AuthNotifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

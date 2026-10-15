@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { createApi, unwrap } from "../../api/client";
 import { invalidateOn } from "../../api/events";
 import { useInvalidate } from "../../api/useInvalidate";
+import { withElevation } from "../../auth/elevation";
 import type {
   components as CalendarComponents,
   paths as CalendarPaths,
@@ -27,6 +28,10 @@ export type CalendarPatch = CalendarComponents["schemas"]["CalendarPatch"];
 export type CalendarEvent = CalendarComponents["schemas"]["CalendarEvent"];
 export type EventInput = CalendarComponents["schemas"]["EventInput"];
 export type EventPatch = CalendarComponents["schemas"]["EventPatch"];
+export type CalendarAccount = CalendarComponents["schemas"]["CalendarAccount"];
+export type CalendarAccountInput =
+  CalendarComponents["schemas"]["CalendarAccountInput"];
+export type RemoteCalendar = CalendarComponents["schemas"]["RemoteCalendar"];
 export type Brief = BriefComponents["schemas"]["Brief"];
 export type BriefSettings = BriefComponents["schemas"]["BriefSettings"];
 export type BriefSettingsView = BriefComponents["schemas"]["BriefSettingsView"];
@@ -50,6 +55,9 @@ export type FocusStats = FocusComponents["schemas"]["FocusStats"];
 export const calendarKeys = {
   all: ["calendar"] as const,
   calendars: ["calendar", "calendars"] as const,
+  accounts: ["calendar", "calendars", "accounts"] as const,
+  remoteCalendars: (id: number) =>
+    ["calendar", "calendars", "accounts", id, "remote"] as const,
   events: (from: string, to: string) =>
     ["calendar", "events", from, to] as const,
   eventsAll: ["calendar", "events"] as const,
@@ -170,6 +178,88 @@ export function useSyncCalendar() {
       unwrap(
         calendarApi.POST("/calendars/{calendarId}/sync", {
           params: { path: { calendarId: id } },
+        }),
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+// ---- B215 Google 账号 ----
+
+export function useCalendarAccounts() {
+  return useQuery({
+    queryKey: calendarKeys.accounts,
+    queryFn: () => unwrap(calendarApi.GET("/calendar/accounts")),
+  });
+}
+
+export function useSaveCalendarAccount() {
+  const invalidate = useInvalidate(calendarKeys.calendars);
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: number; body: CalendarAccountInput }) =>
+      withElevation(() =>
+        unwrap(
+          id
+            ? calendarApi.PATCH("/calendar/accounts/{accountId}", {
+                params: { path: { accountId: id } },
+                body,
+              })
+            : calendarApi.POST("/calendar/accounts", { body }),
+        ),
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteCalendarAccount() {
+  const invalidate = useInvalidate(calendarKeys.all);
+  return useMutation({
+    mutationFn: (id: number) =>
+      withElevation(() =>
+        unwrap(
+          calendarApi.DELETE("/calendar/accounts/{accountId}", {
+            params: { path: { accountId: id } },
+          }),
+        ),
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+export function useStartCalendarAuth() {
+  return useMutation({
+    mutationFn: (id: number) =>
+      withElevation(() =>
+        unwrap(
+          calendarApi.GET("/calendar/accounts/{accountId}/auth", {
+            params: { path: { accountId: id } },
+          }),
+        ),
+      ),
+  });
+}
+
+export function useRemoteCalendars(id: number | null) {
+  return useQuery({
+    queryKey: calendarKeys.remoteCalendars(id ?? 0),
+    queryFn: () =>
+      unwrap(
+        calendarApi.GET("/calendar/accounts/{accountId}/remote-calendars", {
+          params: { path: { accountId: id ?? 0 } },
+        }),
+      ),
+    enabled: id !== null,
+  });
+}
+
+export function useAddRemoteCalendars() {
+  const invalidate = useInvalidate(calendarKeys.calendars);
+  return useMutation({
+    mutationFn: ({ id, ids }: { id: number; ids: string[] }) =>
+      unwrap(
+        calendarApi.POST("/calendar/accounts/{accountId}/remote-calendars", {
+          params: { path: { accountId: id } },
+          body: { ids },
         }),
       ),
     onSuccess: invalidate,

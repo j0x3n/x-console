@@ -166,4 +166,31 @@ registerZh({
   "After I wake up, at the latest": "起床后，最晚",
   "No wake-up signal yet, so it only goes out at the latest time. Turn on phone reports or sleep guessing in My status.":
     "还没有起床信号，只会在最晚时间发。可以在“我的状态”里打开手机上报或推测睡觉。",
+  // B215 Google 日历
+  "Google Calendar": "Google 日历",
+  "Google account": "Google 账号",
+  "Not authorized": "还没授权",
+  Expired: "已过期",
+  calendars: "个日历",
+  "Add calendars": "添加日历",
+  "Authorize again": "重新授权",
+  Authorize: "授权",
+  "Delete this Google account and its synced calendars?":
+    "删除这个 Google 账号和同步下来的日历？",
+  "Events on Google are not touched. Only the copies here are removed.":
+    "Google 上的日程不会动，只删掉这里同步的副本。",
+  "Client ID": "客户端 ID",
+  "Client secret": "客户端密钥",
+  "Client ID is required": "客户端 ID 要填",
+  "Client secret is required": "客户端密钥要填",
+  "Save and authorize": "保存并授权",
+  "Choose Google calendars": "选择要同步的 Google 日历",
+  "{n} calendars added. Syncing now.": "加了 {n} 个日历，正在同步",
+  Primary: "主日历",
+  "Read only": "只读",
+  "Already added": "已添加",
+  "Google account authorized": "Google 账号授权好了",
+  "Authorization failed": "授权失败",
+  "Authorize Google account": "授权 Google 账号",
+  "Saved, leave empty to keep": "已保存，不改就留空",
 });

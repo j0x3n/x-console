@@ -13,6 +13,21 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for CalendarAccountProvider.
+const (
+	Google CalendarAccountProvider = "google"
+)
+
+// Valid indicates whether the value is a known member of the CalendarAccountProvider enum.
+func (e CalendarAccountProvider) Valid() bool {
+	switch e {
+	case Google:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CalendarKind.
 const (
 	Caldav CalendarKind = "caldav"
@@ -36,6 +51,9 @@ func (e CalendarKind) Valid() bool {
 
 // Calendar defines model for Calendar.
 type Calendar struct {
+	// AccountId 属于哪个 Google 账号（B215），没有表示自己填的地址
+	AccountId *int64 `json:"accountId,omitempty"`
+
 	// Color #rrggbb，空表示默认色
 	Color     string    `json:"color"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -56,8 +74,37 @@ type Calendar struct {
 	Url          string     `json:"url"`
 	Username     string     `json:"username"`
 
-	// Writable 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 为 false
+	// Writable 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 和只读的 Google 日历为 false
 	Writable *bool `json:"writable,omitempty"`
+}
+
+// CalendarAccount defines model for CalendarAccount.
+type CalendarAccount struct {
+	// AuthError 授权过期时的提示，正常时为空
+	AuthError string `json:"authError"`
+
+	// Authorized 有 refresh token
+	Authorized    bool      `json:"authorized"`
+	CalendarCount int       `json:"calendarCount"`
+	ClientId      string    `json:"clientId"`
+	CreatedAt     time.Time `json:"createdAt"`
+
+	// Email 授权的 Google 账号，没授权时为空
+	Email     string                  `json:"email"`
+	Id        int64                   `json:"id"`
+	Provider  CalendarAccountProvider `json:"provider"`
+	SecretSet bool                    `json:"secretSet"`
+}
+
+// CalendarAccountProvider defines model for CalendarAccount.Provider.
+type CalendarAccountProvider string
+
+// CalendarAccountInput defines model for CalendarAccountInput.
+type CalendarAccountInput struct {
+	ClientId *string `json:"clientId,omitempty"`
+
+	// ClientSecret 加密保存，不会再返回。修改时留空表示不改
+	ClientSecret *string `json:"clientSecret,omitempty"`
 }
 
 // CalendarEvent defines model for CalendarEvent.
@@ -155,14 +202,52 @@ type EventPatch struct {
 	Title       *string    `json:"title,omitempty"`
 }
 
+// RemoteCalendar defines model for RemoteCalendar.
+type RemoteCalendar struct {
+	Added bool   `json:"added"`
+	Color string `json:"color"`
+
+	// Id Google 的日历 ID
+	Id      string `json:"id"`
+	Name    string `json:"name"`
+	Primary bool   `json:"primary"`
+
+	// ReadOnly 只能看不能改（节假日、别人只读共享的）
+	ReadOnly bool `json:"readOnly"`
+}
+
+// AccountId defines model for AccountId.
+type AccountId = int64
+
 // CalendarId defines model for CalendarId.
 type CalendarId = int64
+
+// AddRemoteCalendarsJSONBody defines parameters for AddRemoteCalendars.
+type AddRemoteCalendarsJSONBody struct {
+	Ids []string `json:"ids"`
+}
 
 // ListCalendarEventsParams defines parameters for ListCalendarEvents.
 type ListCalendarEventsParams struct {
 	From time.Time `form:"from" json:"from"`
 	To   time.Time `form:"to" json:"to"`
 }
+
+// CalendarGoogleCallbackParams defines parameters for CalendarGoogleCallback.
+type CalendarGoogleCallbackParams struct {
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
+// CreateCalendarAccountJSONRequestBody defines body for CreateCalendarAccount for application/json ContentType.
+type CreateCalendarAccountJSONRequestBody = CalendarAccountInput
+
+// UpdateCalendarAccountJSONRequestBody defines body for UpdateCalendarAccount for application/json ContentType.
+type UpdateCalendarAccountJSONRequestBody = CalendarAccountInput
+
+// AddRemoteCalendarsJSONRequestBody defines body for AddRemoteCalendars for application/json ContentType.
+type AddRemoteCalendarsJSONRequestBody AddRemoteCalendarsJSONBody
 
 // CreateCalendarEventJSONRequestBody defines body for CreateCalendarEvent for application/json ContentType.
 type CreateCalendarEventJSONRequestBody = EventInput
@@ -179,6 +264,27 @@ type UpdateCalendarJSONRequestBody = CalendarPatch
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /calendar/accounts)
+	ListCalendarAccounts(w http.ResponseWriter, r *http.Request)
+
+	// (POST /calendar/accounts)
+	CreateCalendarAccount(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /calendar/accounts/{accountId})
+	DeleteCalendarAccount(w http.ResponseWriter, r *http.Request, accountId AccountId)
+
+	// (PATCH /calendar/accounts/{accountId})
+	UpdateCalendarAccount(w http.ResponseWriter, r *http.Request, accountId AccountId)
+
+	// (GET /calendar/accounts/{accountId}/auth)
+	StartCalendarAccountAuth(w http.ResponseWriter, r *http.Request, accountId AccountId)
+
+	// (GET /calendar/accounts/{accountId}/remote-calendars)
+	ListRemoteCalendars(w http.ResponseWriter, r *http.Request, accountId AccountId)
+
+	// (POST /calendar/accounts/{accountId}/remote-calendars)
+	AddRemoteCalendars(w http.ResponseWriter, r *http.Request, accountId AccountId)
+
 	// (GET /calendar/events)
 	ListCalendarEvents(w http.ResponseWriter, r *http.Request, params ListCalendarEventsParams)
 
@@ -190,6 +296,9 @@ type ServerInterface interface {
 
 	// (PATCH /calendar/events/{eventId})
 	UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, eventId int64)
+
+	// (GET /calendar/google/callback)
+	CalendarGoogleCallback(w http.ResponseWriter, r *http.Request, params CalendarGoogleCallbackParams)
 
 	// (GET /calendars)
 	ListCalendars(w http.ResponseWriter, r *http.Request)
@@ -214,6 +323,41 @@ type ServerInterface interface {
 
 type Unimplemented struct{}
 
+// (GET /calendar/accounts)
+func (_ Unimplemented) ListCalendarAccounts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /calendar/accounts)
+func (_ Unimplemented) CreateCalendarAccount(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /calendar/accounts/{accountId})
+func (_ Unimplemented) DeleteCalendarAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /calendar/accounts/{accountId})
+func (_ Unimplemented) UpdateCalendarAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /calendar/accounts/{accountId}/auth)
+func (_ Unimplemented) StartCalendarAccountAuth(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /calendar/accounts/{accountId}/remote-calendars)
+func (_ Unimplemented) ListRemoteCalendars(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /calendar/accounts/{accountId}/remote-calendars)
+func (_ Unimplemented) AddRemoteCalendars(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /calendar/events)
 func (_ Unimplemented) ListCalendarEvents(w http.ResponseWriter, r *http.Request, params ListCalendarEventsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -231,6 +375,11 @@ func (_ Unimplemented) DeleteCalendarEvent(w http.ResponseWriter, r *http.Reques
 
 // (PATCH /calendar/events/{eventId})
 func (_ Unimplemented) UpdateCalendarEvent(w http.ResponseWriter, r *http.Request, eventId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /calendar/google/callback)
+func (_ Unimplemented) CalendarGoogleCallback(w http.ResponseWriter, r *http.Request, params CalendarGoogleCallbackParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -272,6 +421,164 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListCalendarAccounts operation middleware
+func (siw *ServerInterfaceWrapper) ListCalendarAccounts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCalendarAccounts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateCalendarAccount operation middleware
+func (siw *ServerInterfaceWrapper) CreateCalendarAccount(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateCalendarAccount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCalendarAccount operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCalendarAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCalendarAccount(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCalendarAccount operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCalendarAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCalendarAccount(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartCalendarAccountAuth operation middleware
+func (siw *ServerInterfaceWrapper) StartCalendarAccountAuth(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartCalendarAccountAuth(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRemoteCalendars operation middleware
+func (siw *ServerInterfaceWrapper) ListRemoteCalendars(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRemoteCalendars(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddRemoteCalendars operation middleware
+func (siw *ServerInterfaceWrapper) AddRemoteCalendars(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddRemoteCalendars(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListCalendarEvents operation middleware
 func (siw *ServerInterfaceWrapper) ListCalendarEvents(w http.ResponseWriter, r *http.Request) {
@@ -376,6 +683,65 @@ func (siw *ServerInterfaceWrapper) UpdateCalendarEvent(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateCalendarEvent(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CalendarGoogleCallback operation middleware
+func (siw *ServerInterfaceWrapper) CalendarGoogleCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CalendarGoogleCallbackParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CalendarGoogleCallback(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -659,6 +1025,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/calendar/events/{eventId}", wrapper.UpdateCalendarEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/calendar/accounts", wrapper.ListCalendarAccounts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/calendar/accounts", wrapper.CreateCalendarAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/calendar/accounts/{accountId}", wrapper.DeleteCalendarAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/calendar/accounts/{accountId}", wrapper.UpdateCalendarAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/calendar/accounts/{accountId}/auth", wrapper.StartCalendarAccountAuth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/calendar/google/callback", wrapper.CalendarGoogleCallback)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/calendar/accounts/{accountId}/remote-calendars", wrapper.ListRemoteCalendars)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/calendar/accounts/{accountId}/remote-calendars", wrapper.AddRemoteCalendars)
 	})
 
 	return r

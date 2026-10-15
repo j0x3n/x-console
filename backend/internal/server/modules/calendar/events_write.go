@@ -69,7 +69,7 @@ func (m *Module) writableCalendar(ctx context.Context, id int64) (db.Calendar, e
 	if err != nil {
 		return c, notFound(err)
 	}
-	if c.Kind != kindLocal && c.Kind != kindCalDAV {
+	if !calendarWritable(c) {
 		return c, httpx.Invalid("这个日历只能查看，不能修改日程")
 	}
 	return c, nil
@@ -96,7 +96,7 @@ func (m *Module) eventAPI(e db.CalendarEvent, c db.Calendar) api.CalendarEvent {
 		loc = m.d.Config.Location
 	}
 	start, end := inZone(e.StartsAt, loc), inZone(e.EndsAt, loc)
-	writable := c.Kind == kindLocal || c.Kind == kindCalDAV
+	writable := calendarWritable(c)
 	out := api.CalendarEvent{Id: itoa(e.ID) + "-" + itoa(start.Unix()), EventId: e.ID,
 		CalendarId: c.ID, Calendar: c.Name, Color: c.Color, Title: e.Title,
 		Start: start, End: end, AllDay: e.AllDay == 1, Location: e.Location,
@@ -350,14 +350,26 @@ func (c conditionalClient) Do(r *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-func (m *Module) remoteClient(c db.Calendar, header, value string, responseETag *string) (*caldav.Client, error) {
+// davHTTP is the HTTP client that signs requests for a CalDAV calendar:
+// Bearer for Google accounts, Basic for the rest.
+func (m *Module) davHTTP(c db.Calendar) (webdav.HTTPClient, error) {
+	if c.AccountID != nil {
+		return bearerClient{m, *c.AccountID}, nil
+	}
 	password, err := m.password(c)
 	if err != nil {
 		return nil, httpx.Invalid("密码无法解密，请重新填写")
 	}
-	var hc webdav.HTTPClient = m.http
 	if c.Username != "" || password != "" {
-		hc = webdav.HTTPClientWithBasicAuth(m.http, c.Username, password)
+		return webdav.HTTPClientWithBasicAuth(m.http, c.Username, password), nil
+	}
+	return m.http, nil
+}
+
+func (m *Module) remoteClient(c db.Calendar, header, value string, responseETag *string) (*caldav.Client, error) {
+	hc, err := m.davHTTP(c)
+	if err != nil {
+		return nil, err
 	}
 	if header != "" {
 		hc = conditionalClient{hc, header, value, responseETag}
@@ -406,6 +418,13 @@ func eventICal(v eventValues) *ical.Calendar {
 }
 
 func (m *Module) collection(ctx context.Context, c db.Calendar) (string, error) {
+	if c.AccountID != nil {
+		u, err := url.Parse(c.Url)
+		if err != nil {
+			return "", httpx.Invalid("CalDAV 地址格式不对")
+		}
+		return u.Path, nil
+	}
 	client, err := m.remoteClient(c, "", "", nil)
 	if err != nil {
 		return "", err
@@ -492,14 +511,11 @@ func (m *Module) deleteRemote(ctx context.Context, c db.Calendar, href, etag str
 		return err
 	}
 	req.Header.Set("If-Match", matchETag(etag))
-	password, err := m.password(c)
+	hc, err := m.davHTTP(c)
 	if err != nil {
-		return httpx.Invalid("密码无法解密，请重新填写")
+		return err
 	}
-	if c.Username != "" || password != "" {
-		req.SetBasicAuth(c.Username, password)
-	}
-	resp, err := m.http.Do(req)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return remoteError(err)
 	}

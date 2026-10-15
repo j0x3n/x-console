@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -108,7 +109,8 @@ func (b *fakeCalDAV) PutCalendarObject(_ context.Context, p string, data *ical.C
 		return nil, webdav.NewHTTPError(http.StatusPreconditionFailed, nil)
 	}
 	object := caldav.CalendarObject{Path: p, ETag: "created", Data: data, ModTime: time.Now()}
-	b.objects[workPath] = append(b.objects[workPath], object)
+	dir := path.Dir(p) + "/"
+	b.objects[dir] = append(b.objects[dir], object)
 	return &object, nil
 }
 

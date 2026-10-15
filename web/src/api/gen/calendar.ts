@@ -97,10 +97,139 @@ export interface paths {
         patch: operations["updateCalendarEvent"];
         trace?: never;
     };
+    "/calendar/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Google 账号（B215）。redirectUri 是要填进 Google 控制台的重定向地址。 */
+        get: operations["listCalendarAccounts"];
+        put?: never;
+        /** @description 新建 Google 账号，填客户端 ID 和密钥。之后调 auth 去授权。要提升权限 */
+        post: operations["createCalendarAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendar/accounts/{accountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description 撤销 Google 授权，删掉账号和它下面的日历（只删本地同步的数据）。要提升权限 */
+        delete: operations["deleteCalendarAccount"];
+        options?: never;
+        head?: never;
+        /** @description 改客户端 ID 或密钥。改了客户端 ID 要重新授权。要提升权限 */
+        patch: operations["updateCalendarAccount"];
+        trace?: never;
+    };
+    "/calendar/accounts/{accountId}/auth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        /** @description 返回 Google 授权页的地址，前端跳过去。要提升权限 */
+        get: operations["startCalendarAccountAuth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendar/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Google 授权完跳回来的地址，不用登录，靠一次性 state 校验。
+         *     然后跳到 /calendar/calendars?google=ok&account=<id>，失败时 google=error&message=原因
+         */
+        get: operations["calendarGoogleCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendar/accounts/{accountId}/remote-calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        /** @description 这个 Google 账号下的全部日历，标出已经添加的 */
+        get: operations["listRemoteCalendars"];
+        put?: never;
+        /** @description 把勾选的 Google 日历加进来，已经加过的跳过。加完在后台同步 */
+        post: operations["addRemoteCalendars"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CalendarAccount: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            provider: "google";
+            /** @description 授权的 Google 账号，没授权时为空 */
+            email: string;
+            clientId: string;
+            secretSet: boolean;
+            /** @description 有 refresh token */
+            authorized: boolean;
+            /** @description 授权过期时的提示，正常时为空 */
+            authError: string;
+            calendarCount: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CalendarAccountInput: {
+            clientId?: string;
+            /** @description 加密保存，不会再返回。修改时留空表示不改 */
+            clientSecret?: string;
+        };
+        RemoteCalendar: {
+            /** @description Google 的日历 ID */
+            id: string;
+            name: string;
+            color: string;
+            /** @description 只能看不能改（节假日、别人只读共享的） */
+            readOnly: boolean;
+            primary: boolean;
+            added: boolean;
+        };
         /**
          * @description ics 订阅链接，只读；caldav 可以读写（iCloud 等）；local 存在自己服务器上的日历
          * @enum {string}
@@ -123,8 +252,13 @@ export interface components {
             lastError: string;
             /** @description 同步下来的事件条数（重复事件算一条） */
             eventCount: number;
-            /** @description 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 为 false */
+            /** @description 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 和只读的 Google 日历为 false */
             writable?: boolean;
+            /**
+             * Format: int64
+             * @description 属于哪个 Google 账号（B215），没有表示自己填的地址
+             */
+            accountId?: number;
             /** Format: date-time */
             createdAt: string;
         };
@@ -236,6 +370,7 @@ export interface components {
         };
     };
     parameters: {
+        AccountId: number;
         CalendarId: number;
     };
     requestBodies: never;
@@ -475,6 +610,207 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarEvent"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCalendarAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 账号列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accounts: components["schemas"]["CalendarAccount"][];
+                        redirectUri: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createCalendarAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarAccountInput"];
+            };
+        };
+        responses: {
+            /** @description 新账号，还没授权 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteCalendarAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateCalendarAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarAccountInput"];
+            };
+        };
+        responses: {
+            /** @description 改好的账号 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarAccount"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startCalendarAccountAuth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 授权地址 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                        redirectUri: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    calendarGoogleCallback: {
+        parameters: {
+            query?: {
+                state?: string;
+                code?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 跳回日历管理页 */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listRemoteCalendars: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 日历列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendars: components["schemas"]["RemoteCalendar"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addRemoteCalendars: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description 新加的日历 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        calendars: components["schemas"]["Calendar"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

@@ -301,6 +301,20 @@ type Calendar struct {
 	LastSyncedAt *time.Time
 	LastError    string
 	CreatedAt    time.Time
+	AccountID    *int64
+	RemoteID     string
+	ReadOnly     int64
+}
+
+type CalendarAccount struct {
+	ID             int64
+	Provider       string
+	Email          string
+	ClientID       string
+	AuthError      string
+	AuthNotifiedAt *time.Time
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type CalendarEvent struct {

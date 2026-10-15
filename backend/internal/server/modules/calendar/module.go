@@ -37,17 +37,21 @@ type Module struct {
 
 	syncMu sync.Mutex // one sync at a time
 	ctx    context.Context
+
+	google googleAuth // B215
 }
 
 var (
 	_ api.ServerInterface = (*Module)(nil)
 	_ contracts.Calendar  = (*Module)(nil)
 	_ module.Starter      = (*Module)(nil)
+	_ module.PublicPather = (*Module)(nil)
 )
 
 // New builds the module.
 func New(d *module.Deps) (module.Module, error) {
 	m := &Module{d: d, q: db.New(d.DB), http: &http.Client{Timeout: 30 * time.Second}, ctx: context.Background()}
+	m.google.states, m.google.tokens = map[string]googleState{}, map[int64]googleToken{}
 	module.Provide[contracts.Calendar](d.Registry, contracts.CalendarKey, m)
 	m.registerActions()
 	return m, nil

@@ -161,14 +161,199 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /calendar/accounts:
+    get:
+      operationId: listCalendarAccounts
+      tags: [calendar]
+      description: Google 账号（B215）。redirectUri 是要填进 Google 控制台的重定向地址。
+      responses:
+        "200":
+          description: 账号列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts, redirectUri]
+                properties:
+                  accounts:
+                    type: array
+                    items: { $ref: "#/components/schemas/CalendarAccount" }
+                  redirectUri: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: createCalendarAccount
+      tags: [calendar]
+      description: 新建 Google 账号，填客户端 ID 和密钥。之后调 auth 去授权。要提升权限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CalendarAccountInput" }
+      responses:
+        "201":
+          description: 新账号，还没授权
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarAccount" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /calendar/accounts/{accountId}:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    patch:
+      operationId: updateCalendarAccount
+      tags: [calendar]
+      description: 改客户端 ID 或密钥。改了客户端 ID 要重新授权。要提升权限
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CalendarAccountInput" }
+      responses:
+        "200":
+          description: 改好的账号
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarAccount" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    delete:
+      operationId: deleteCalendarAccount
+      tags: [calendar]
+      description: 撤销 Google 授权，删掉账号和它下面的日历（只删本地同步的数据）。要提升权限
+      responses:
+        "204":
+          description: 已删除
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /calendar/accounts/{accountId}/auth:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      operationId: startCalendarAccountAuth
+      tags: [calendar]
+      description: 返回 Google 授权页的地址，前端跳过去。要提升权限
+      responses:
+        "200":
+          description: 授权地址
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, redirectUri]
+                properties:
+                  url: { type: string }
+                  redirectUri: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /calendar/google/callback:
+    get:
+      operationId: calendarGoogleCallback
+      tags: [calendar]
+      description: |
+        Google 授权完跳回来的地址，不用登录，靠一次性 state 校验。
+        然后跳到 /calendar/calendars?google=ok&account=<id>，失败时 google=error&message=原因
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "302":
+          description: 跳回日历管理页
+  /calendar/accounts/{accountId}/remote-calendars:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      operationId: listRemoteCalendars
+      tags: [calendar]
+      description: 这个 Google 账号下的全部日历，标出已经添加的
+      responses:
+        "200":
+          description: 日历列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [calendars]
+                properties:
+                  calendars:
+                    type: array
+                    items: { $ref: "#/components/schemas/RemoteCalendar" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+    post:
+      operationId: addRemoteCalendars
+      tags: [calendar]
+      description: 把勾选的 Google 日历加进来，已经加过的跳过。加完在后台同步
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                  maxItems: 50
+      responses:
+        "201":
+          description: 新加的日历
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [calendars]
+                properties:
+                  calendars:
+                    type: array
+                    items: { $ref: "#/components/schemas/Calendar" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
 components:
   parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
     CalendarId:
       name: calendarId
       in: path
       required: true
       schema: { type: integer, format: int64 }
   schemas:
+    CalendarAccount:
+      type: object
+      required: [id, provider, email, clientId, secretSet, authorized, authError, calendarCount, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        provider: { type: string, enum: [google] }
+        email: { type: string, description: 授权的 Google 账号，没授权时为空 }
+        clientId: { type: string }
+        secretSet: { type: boolean }
+        authorized: { type: boolean, description: 有 refresh token }
+        authError: { type: string, description: 授权过期时的提示，正常时为空 }
+        calendarCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    CalendarAccountInput:
+      type: object
+      properties:
+        clientId: { type: string }
+        clientSecret: { type: string, description: 加密保存，不会再返回。修改时留空表示不改 }
+    RemoteCalendar:
+      type: object
+      required: [id, name, color, readOnly, primary, added]
+      properties:
+        id: { type: string, description: Google 的日历 ID }
+        name: { type: string }
+        color: { type: string }
+        readOnly: { type: boolean, description: 只能看不能改（节假日、别人只读共享的） }
+        primary: { type: boolean }
+        added: { type: boolean }
     CalendarKind:
       type: string
       description: ics 订阅链接，只读；caldav 可以读写（iCloud 等）；local 存在自己服务器上的日历
@@ -190,7 +375,8 @@ components:
         eventCount: { type: integer, description: 同步下来的事件条数（重复事件算一条） }
         writable:
           type: boolean
-          description: 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 为 false
+          description: 能不能在这个日历里新建和修改事件。local 和 caldav 为 true，ics 和只读的 Google 日历为 false
+        accountId: { type: integer, format: int64, description: 属于哪个 Google 账号（B215），没有表示自己填的地址 }
         createdAt: { type: string, format: date-time }
     CalendarInput:
       type: object

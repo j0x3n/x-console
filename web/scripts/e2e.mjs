@@ -2349,6 +2349,36 @@ try {
       );
     assert.equal(deleteResponse.status(), 204, await deleteResponse.text());
 
+    // B215：添加 Google 日历走到 Google 授权页。授权以后的流程在后端集成测试里用假服务器测
+    setStage("Google 日历授权入口");
+    const googleAuthPage = "https://accounts.google.com/**";
+    await page.route(googleAuthPage, (route) =>
+      route.fulfill({ status: 200, contentType: "text/html", body: "google" }),
+    );
+    await page.goto(`${base}/calendar/calendars?new=1`);
+    const addCalendar = dialog("添加日历");
+    await addCalendar.getByLabel("类型").selectOption("google");
+    await addCalendar
+      .getByLabel("客户端 ID")
+      .fill("e2e.apps.googleusercontent.com");
+    await addCalendar.getByLabel("客户端密钥").fill("e2e-secret");
+    await addCalendar.getByRole("button", { name: "保存并授权" }).click();
+    await verifyIfAsked();
+    await page.waitForURL(/accounts\.google\.com/);
+    const googleAuth = new URL(page.url());
+    assert.equal(
+      googleAuth.searchParams.get("scope"),
+      "https://www.googleapis.com/auth/calendar",
+    );
+    assert.equal(
+      googleAuth.searchParams.get("client_id"),
+      "e2e.apps.googleusercontent.com",
+    );
+    const googleAccounts = await api("/calendar/accounts");
+    assert.equal(googleAccounts.accounts.length, 1);
+    assert.equal(googleAccounts.accounts[0].authorized, false);
+    await page.unroute(googleAuthPage);
+
     setStage("自动化规则运行");
     const automationResponse = await page
       .context()
