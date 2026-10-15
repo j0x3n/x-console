@@ -1,18 +1,20 @@
-/* 邮件（B53）：左边列表，右边阅读。邮箱切换在左栏二级菜单里 */
+/* 邮件（B53）：左边列表，右边阅读。邮箱切换在左栏二级菜单里。
+   B218：和笔记一样铺满右侧，四周不留边，两栏之间一条线 */
 .mail-layout {
   display: grid;
   grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
-  gap: 12px;
-  height: calc(100vh - 120px);
+  height: calc(100dvh - 58px); /* 顶栏 58px，下面全给邮件 */
   min-height: 420px;
 }
 .mail-list,
 .mail-read {
   min-height: 0;
   overflow: auto;
-  border: 1px solid var(--xc-border);
-  border-radius: var(--xc-radius-lg);
   background: var(--xc-surface);
+}
+.mail-list {
+  border-right: 1px solid var(--xc-border);
+  background: var(--xc-panel);
 }
 .mail-account-error {
   padding: 8px 12px;
@@ -33,7 +35,7 @@
   gap: 6px;
   padding: 8px;
   border-bottom: 1px solid var(--xc-border);
-  background: var(--xc-surface);
+  background: var(--xc-panel);
 }
 .mail-list-tools .xc-search {
   flex: 1;
@@ -132,7 +134,7 @@
   text-align: center;
 }
 .mail-reader {
-  padding: 14px 18px 18px;
+  padding: 16px 24px 24px;
 }
 .mail-reader-head {
   display: flex;
@@ -299,13 +301,11 @@
 /* 手机：一次只显示列表或阅读区 */
 @media (max-width: 720px) {
   .mail-layout {
-    display: flex;
-    flex-direction: column;
-    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    height: calc(100dvh - 56px);
   }
-  .mail-list,
-  .mail-read {
-    overflow: visible;
+  .mail-list {
+    border-right: 0;
   }
   .mail-page:not(.is-reading) .mail-read,
   .mail-page.is-reading .mail-list {

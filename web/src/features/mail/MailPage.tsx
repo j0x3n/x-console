@@ -28,7 +28,7 @@ import { CATEGORY_FILTERS, CATEGORY_LABELS, categoryFromParam } from "./triage";
 import { useKeepScroll } from "../../hooks/useKeepScroll";
 
 /*
- * 邮件（B53）：左边收件箱，右边阅读。窄屏时一次只显示一栏。
+ * 邮件（B53）：左边收件箱，右边阅读，和笔记一样铺满右侧（B218）。窄屏时一次只显示一栏。
  * 邮箱和未读切换在左栏二级菜单里（2026-10-05），页面里不再放。
  * 地址参数：?a=账号 id，?m=邮件 id，?unread=1，?new=1 打开添加邮箱。
  */
@@ -110,7 +110,7 @@ export default function MailPage() {
     (a) => a.status === "error" && (!accountId || a.id === accountId),
   );
   return (
-    <div className={`xc-page wide mail-page${openId ? " is-reading" : ""}`}>
+    <div className={`mail-page${openId ? " is-reading" : ""}`}>
       <PageHeading
         title={
           accounts.data.find((a) => a.id === accountId)?.name ??
