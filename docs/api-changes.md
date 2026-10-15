@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B220（2026-10-15）：`mail.yaml` 的 `MailTriage` 加必有的 `decision` 和可选的 `doneAt`。加 `GET /mail/todo`（返回 `MailPage`，只要处理、没标成已处理、30 天内、最多 20 封）和 `PUT /mail/messages/{messageId}/done`（body `MailDone`，只改本地，没分拣过回 404）。`GET /mail/summary` 的 `latest` 带上 triage。迁移 `20261015030000_m54_b220_mail_triage_decision.sql`（`mail_triage` 加 `decision`、`done_at`，只加不删）。重新分拣不改 `done_at`。标成已处理或取消后发 `mail.updated`。
+
 - B222（2026-10-15）：`web/src/styles/ui.css` 末尾加全局规则，`.xc-page` 不再有四周内边距，最外层的 `xc-stats`、`xc-toolbar`、`xc-card` 贴边，其他最外层内容左右留 `--xc-page-x`。只加规则，没改组件。说明见 `07-design.md` 第二节。
 
 - B164（2026-10-15）：`contracts.MeState` 加 `PhoneActive`、`Host`（只加不改）。`me.yaml` 的 `MeState` 加 `phoneActive`、`host`，加 `POST /me/seen`。`reminders.yaml`：`DigestMode` 加 `working`；`DigestSettings` 加可选 `outDirect`、`QuietHours` 加可选 `whenAsleep`，不传时都保持原值；`DigestStatus` 加 `outDirect`、`pendingWorking`；加 `POST /notify/digest/claim`（`HeldNotification`）。迁移 `20261015020000_m53_b164_digest_hold_for.sql`（`notify_digest_queue.hold_for`）。`notify.digest_queued` 事件的载荷加 `holdFor`。基础代码：`web/src/app/GlobalPanels.tsx` 加两行（`PhoneSeen`、`HeldNotices`）。`web/scripts/e2e.mjs` 第一部分加一步，用一个临时 MCP 令牌调 `notify_send`。

@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
+import { useToastStore } from "../../hooks/useToast";
 
 // openapi-fetch 在建客户端时就取走 fetch，所以要在 import 页面之前替换。
 const api = vi.hoisted(() => {
@@ -68,11 +69,13 @@ const api = vi.hoisted(() => {
       body: text ? JSON.parse(text) : null,
     });
     const hit = routes.get(`${req.method} ${path}`);
-    if (hit)
+    if (hit) {
+      if (hit.body == null) return new Response(null, { status: hit.status });
       return new Response(JSON.stringify(hit.body), {
         status: hit.status,
         headers: { "Content-Type": "application/json" },
       });
+    }
     if (req.method === "GET" && path in empty)
       return new Response(JSON.stringify(empty[path]), {
         status: 200,
@@ -265,6 +268,9 @@ describe("TodayPage", () => {
           (c) => c.method === "PUT" && c.path === "/mail/messages/1/done",
         )?.body,
       ).toEqual({ done: true }),
+    );
+    await waitFor(() =>
+      expect(useToastStore.getState().current?.message).toBe("已标成已处理"),
     );
   });
 });
