@@ -169,9 +169,17 @@ type RouterMode string
 
 // RouterPushToken defines model for RouterPushToken.
 type RouterPushToken struct {
-	ReportUrl string `json:"reportUrl"`
+	// Command 在路由器的 SSH 里执行的一行命令，下载并运行安装脚本
+	Command string `json:"command"`
 
-	// Script 在路由器上执行的完整安装命令，已经填好地址和令牌
+	// InstallExpiresAt installUrl 失效的时间
+	InstallExpiresAt time.Time `json:"installExpiresAt"`
+
+	// InstallUrl 路由器下载安装脚本的地址（B227），15 分钟内有效，只能下载一次
+	InstallUrl string `json:"installUrl"`
+	ReportUrl  string `json:"reportUrl"`
+
+	// Script 在路由器上执行的完整安装命令，已经填好地址和令牌。路由器下载不了时手动安装用
 	Script string `json:"script"`
 	Token  string `json:"token"`
 }
@@ -218,7 +226,9 @@ type RouterTraffic struct {
 	// RxBytes 这段时间的下行总字节数
 	RxBytes     int64 `json:"rxBytes"`
 	StepSeconds int   `json:"stepSeconds"`
-	TxBytes     int64 `json:"txBytes"`
+
+	// TxBytes 这段时间的上行总字节数
+	TxBytes int64 `json:"txBytes"`
 }
 
 // RouterTrafficPoint defines model for RouterTrafficPoint.
@@ -273,6 +283,9 @@ type ServerInterface interface {
 	// (PUT /router/config)
 	PutRouterConfig(w http.ResponseWriter, r *http.Request)
 
+	// (GET /router/install/{code})
+	GetRouterInstall(w http.ResponseWriter, r *http.Request, code string)
+
 	// (POST /router/interfaces/{name}/restart)
 	RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string)
 
@@ -311,6 +324,11 @@ func (_ Unimplemented) GetRouterConfig(w http.ResponseWriter, r *http.Request) {
 
 // (PUT /router/config)
 func (_ Unimplemented) PutRouterConfig(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /router/install/{code})
+func (_ Unimplemented) GetRouterInstall(w http.ResponseWriter, r *http.Request, code string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -391,6 +409,32 @@ func (siw *ServerInterfaceWrapper) PutRouterConfig(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutRouterConfig(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRouterInstall operation middleware
+func (siw *ServerInterfaceWrapper) GetRouterInstall(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRouterInstall(w, r, code)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -656,6 +700,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/router/report", wrapper.ReportRouter)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/router/install/{code}", wrapper.GetRouterInstall)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/router/status", wrapper.GetRouterStatus)

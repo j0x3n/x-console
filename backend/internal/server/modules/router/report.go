@@ -46,7 +46,7 @@ var reportScript string
 
 // PublicPaths implements module.PublicPather: the router has no session, the
 // report is checked against the token instead.
-func (m *Module) PublicPaths() []string { return []string{reportPath} }
+func (m *Module) PublicPaths() []string { return []string{reportPath, installPrefix} }
 
 // pushSnapshot is the latest report, ready to serve.
 type pushSnapshot struct {
@@ -227,8 +227,8 @@ func bearerToken(r *http.Request) string {
 	return ""
 }
 
-// reportURL is the address the router posts to.
-func (m *Module) reportURL(r *http.Request) string {
+// apiBase is the address of the API as the router sees it.
+func (m *Module) apiBase(r *http.Request) string {
 	base := strings.TrimRight(m.d.Config.PublicURL, "/")
 	if base == "" {
 		scheme := "http"
@@ -237,8 +237,11 @@ func (m *Module) reportURL(r *http.Request) string {
 		}
 		base = scheme + "://" + r.Host
 	}
-	return base + "/api/v1" + reportPath
+	return base + "/api/v1"
 }
+
+// reportURL is the address the router posts to.
+func (m *Module) reportURL(r *http.Request) string { return m.apiBase(r) + reportPath }
 
 // installScript fills the router script in and wraps it in the commands that
 // put it on the router and schedule it.
@@ -282,7 +285,16 @@ func (m *Module) CreateRouterPushToken(w http.ResponseWriter, r *http.Request) {
 	}
 	m.reset()
 	url := m.reportURL(r)
-	httpx.JSON(w, http.StatusOK, api.RouterPushToken{Token: token, ReportUrl: url, Script: installScript(url, token)})
+	script := installScript(url, token)
+	// B227: the router downloads the script with one command. A new token
+	// replaces the previous download code.
+	installURL, expires, err := m.newInstall(r, script)
+	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, api.RouterPushToken{Token: token, ReportUrl: url, Script: script,
+		InstallUrl: installURL, Command: installCommand(installURL), InstallExpiresAt: expires.UTC()})
 }
 
 // ReportRouter takes one report from the router script.

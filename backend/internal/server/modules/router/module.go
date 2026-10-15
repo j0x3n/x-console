@@ -61,6 +61,7 @@ type Module struct {
 	cmdSeq       int64
 	report       *pushSnapshot
 	lastReport   time.Time
+	install      installCode // B227: the download code of the install script
 }
 
 var (
@@ -188,6 +189,7 @@ func (m *Module) reset() {
 	m.leaseSource, m.hintSource = "", ""
 	m.watch = wanWatch{}
 	m.pushLoaded, m.pushHash, m.pushInterval, m.report, m.lastReport, m.cmds = false, "", 0, nil, time.Time{}, nil
+	m.install = installCode{}
 	m.mu.Unlock()
 }
 

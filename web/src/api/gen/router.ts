@@ -37,7 +37,7 @@ export interface paths {
         /**
          * @description B114：生成上报令牌并切到“路由器主动上报”。旧令牌和旧的 ubus 配置立即作废。
          *     要提升权限。令牌只在这次回复里出现，面板只存它的哈希。
-         *     回复里的 script 是填好地址和令牌、可以直接在路由器上粘贴执行的安装命令。
+         *     回复里的 command 是一行命令，路由器用它从 installUrl 下载安装脚本（B227）；script 是同一份脚本的全文，手动安装用。
          */
         post: operations["createRouterPushToken"];
         delete?: never;
@@ -78,6 +78,27 @@ export interface paths {
          *     leases 是 /tmp/dhcp.leases，arp 是 /proc/net/arp。接口定义里不写 requestBody，由服务端自己解析。
          */
         post: operations["reportRouter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/router/install/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B227：路由器用一行命令下载安装脚本。不需要登录会话，下载码就是凭证：32 字节随机数，
+         *     面板只在内存里存它的哈希，15 分钟内有效，下载一次就作废。重新生成令牌后旧下载码马上作废，面板重启也作废。
+         *     失效时回 404，正文是“安装链接失效了，回面板重新生成”，路由器上的 wget 会失败，后面的 sh 不会执行。
+         */
+        get: operations["getRouterInstall"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -216,8 +237,17 @@ export interface components {
         RouterPushToken: {
             token: string;
             reportUrl: string;
-            /** @description 在路由器上执行的完整安装命令，已经填好地址和令牌 */
+            /** @description 在路由器上执行的完整安装命令，已经填好地址和令牌。路由器下载不了时手动安装用 */
             script: string;
+            /** @description 路由器下载安装脚本的地址（B227），15 分钟内有效，只能下载一次 */
+            installUrl: string;
+            /** @description 在路由器的 SSH 里执行的一行命令，下载并运行安装脚本 */
+            command: string;
+            /**
+             * Format: date-time
+             * @description installUrl 失效的时间
+             */
+            installExpiresAt: string;
         };
         RouterInterface: {
             /** @description 接口名，比如 wan、lan、wan6 */
@@ -307,7 +337,10 @@ export interface components {
              * @description 这段时间的下行总字节数
              */
             rxBytes: number;
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description 这段时间的上行总字节数
+             */
             txBytes: number;
         };
         Error: {
@@ -450,6 +483,38 @@ export interface operations {
              *     每条命令只下发一次。老版本的脚本不读回复，也能正常上报。
              */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRouterInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 填好地址和令牌的安装脚本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description 下载码失效 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
