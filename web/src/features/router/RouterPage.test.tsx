@@ -339,3 +339,153 @@ describe("RouterSettingsTab B114", () => {
     expect(screen.getByRole("button", { name: "重新生成令牌" })).toBeTruthy();
   });
 });
+
+const pushStatus = { ...status, source: "push" };
+const phone = {
+  mac: "AA:BB:CC:00:00:03",
+  name: "iPhone",
+  note: "我的手机",
+  displayName: "我的手机",
+  ip: "192.168.1.3",
+  conn: "wifi",
+  wifiIface: "wlan1",
+  online: true,
+  onlineSince: "2026-10-01T11:00:00Z",
+  lastSeen: "2026-10-01T12:00:00Z",
+  firstSeen: "2026-09-01T12:00:00Z",
+  notify: false,
+  cooldownMinutes: null,
+};
+const tv = {
+  mac: "AA:BB:CC:00:00:09",
+  name: "tv",
+  note: "",
+  displayName: "tv",
+  ip: "192.168.1.9",
+  conn: "wired",
+  online: false,
+  lastSeen: "2026-10-01T10:00:00Z",
+  firstSeen: "2026-09-01T12:00:00Z",
+  notify: false,
+  cooldownMinutes: null,
+};
+const options = {
+  deviceNotify: true,
+  newDeviceNotify: true,
+  notifyCooldownMinutes: 15,
+  logDays: 7,
+};
+
+describe("RouterPage B228 设备", () => {
+  function setup() {
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: pushStatus,
+    }));
+    api.routes.set("GET /router/devices", () => ({
+      status: 200,
+      body: { items: [phone, tv], trafficAvailable: false },
+    }));
+    api.routes.set("GET /router/options", () => ({
+      status: 200,
+      body: options,
+    }));
+  }
+
+  it("默认只看在线的，切到全部能看到离线设备，可以搜", async () => {
+    setup();
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("我的手机")).toBeTruthy();
+    expect(screen.queryByText("tv")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "全部" }));
+    expect(await screen.findByText("tv")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("搜名字、备注、IP 或 MAC"), {
+      target: { value: "00:09" },
+    });
+    expect(screen.queryByText("我的手机")).toBeNull();
+    expect(screen.getByText("tv")).toBeTruthy();
+  });
+
+  it("点设备打开详情，改备注和通知开关", async () => {
+    setup();
+    api.routes.set("PATCH /router/devices/AABBCC000003", (body) => ({
+      status: 200,
+      body: { ...phone, ...(body as object) },
+    }));
+    renderIt(<RouterPage />);
+    fireEvent.click(await screen.findByText("我的手机"));
+    const dialog = await screen.findByRole("dialog", { name: "我的手机" });
+    expect(dialog.textContent).toContain("AA:BB:CC:00:00:03");
+    fireEvent.change(screen.getByDisplayValue("我的手机"), {
+      target: { value: "老婆的手机" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
+        note: "老婆的手机",
+        notify: false,
+        cooldownMinutes: null,
+      }),
+    );
+    fireEvent.click(screen.getByLabelText("上下线通知"));
+    await waitFor(() =>
+      expect(
+        api.calls.filter((c) => c.method === "PATCH").at(-1)?.body,
+      ).toMatchObject({ notify: true }),
+    );
+  });
+
+  it("忘掉设备调删除接口", async () => {
+    setup();
+    api.routes.set("DELETE /router/devices/AABBCC000003", () => ({
+      status: 204,
+    }));
+    renderIt(<RouterPage />);
+    fireEvent.click(await screen.findByText("我的手机"));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "忘掉这台设备" }),
+    );
+    await waitFor(() =>
+      expect(
+        api.calls.some(
+          (c) =>
+            c.method === "DELETE" && c.path === "/router/devices/AABBCC000003",
+        ),
+      ).toBe(true),
+    );
+  });
+});
+
+describe("RouterSettingsTab B228 设备通知", () => {
+  it("主动上报模式下能开关总开关、改默认间隔", async () => {
+    api.routes.set("GET /router/config", () => ({
+      status: 200,
+      body: { url: "", username: "", mode: "push", hasPassword: false },
+    }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /router/options", () => ({
+      status: 200,
+      body: { ...options, deviceNotify: false },
+    }));
+    api.routes.set("PUT /router/options", (body) => ({
+      status: 200,
+      body,
+    }));
+    renderIt(<RouterSettingsTab />);
+    fireEvent.click(await screen.findByLabelText("设备上下线时通知"));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+        ...options,
+        deviceNotify: true,
+      }),
+    );
+    fireEvent.change(screen.getByLabelText(/默认再次通知间隔/), {
+      target: { value: "60" },
+    });
+    await waitFor(() =>
+      expect(
+        api.calls.filter((c) => c.method === "PUT").at(-1)?.body,
+      ).toMatchObject({ notifyCooldownMinutes: 60 }),
+    );
+  });
+});

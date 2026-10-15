@@ -17,6 +17,15 @@ export type RouterInterface = S["RouterInterface"];
 export type RouterClient = S["RouterClient"];
 export type RouterTraffic = S["RouterTraffic"];
 export type TrafficRange = "24h" | "7d";
+export type RouterDevice = S["RouterDevice"];
+export type RouterOptions = S["RouterOptions"];
+/** 再次通知间隔可选的分钟数，和后端一致（B228）。 */
+export const COOLDOWNS = [0, 5, 15, 30, 60] as const;
+
+/** 再次通知间隔的文字，0 表示每次都推。 */
+export function cooldownLabel(minutes: number) {
+  return minutes === 0 ? "每次都推" : `${minutes} 分钟`;
+}
 
 export const routerKeys = {
   all: ["router"] as const,
@@ -24,7 +33,17 @@ export const routerKeys = {
   status: ["router", "status"] as const,
   clients: ["router", "clients"] as const,
   traffic: (range: TrafficRange) => ["router", "traffic", range] as const,
+  devices: ["router", "devices"] as const,
+  options: ["router", "options"] as const,
 };
+
+/** 路径里的 MAC 不带冒号，省得转义。后端认冒号、横杠和不带分隔的写法。 */
+export const macPath = (mac: string) => mac.replace(/[:-]/g, "");
+
+/** 不是主动上报模式，没有设备列表（B228）。 */
+export function isNotPush(error: unknown) {
+  return error instanceof ApiError && error.code === "router_not_push";
+}
 
 /** 还没填路由器地址。 */
 export function isNotConfigured(error: unknown) {
@@ -150,5 +169,83 @@ export function useRebootRouter() {
       withElevation(() =>
         unwrap(routerApi.POST("/router/reboot", { body: { confirm: "重启" } })),
       ),
+  });
+}
+
+/** B228：面板记住的设备。跟着刷新频率，最快 3 秒，和最短的上报间隔一样。 */
+export function useRouterDevices(enabled = true) {
+  const chosen = useRouterInterval();
+  return useQuery({
+    queryKey: routerKeys.devices,
+    queryFn: () => unwrap(routerApi.GET("/router/devices")),
+    retry: false,
+    enabled,
+    meta: { silentError: true },
+    refetchInterval: (q) =>
+      chosen === 0 || isNotPush(q.state.error) ? false : Math.max(chosen, 3000),
+  });
+}
+
+export interface DeviceSettings {
+  note: string;
+  notify: boolean;
+  cooldownMinutes: number | null;
+}
+
+/** 改备注、通知开关和再次通知间隔。三项一起传。 */
+export function useUpdateRouterDevice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ mac, body }: { mac: string; body: DeviceSettings }) =>
+      unwrap(
+        routerApi.PATCH("/router/devices/{mac}", {
+          params: { path: { mac: macPath(mac) } },
+          body,
+        }),
+      ),
+    onSuccess: (device) => {
+      qc.setQueryData(
+        routerKeys.devices,
+        (
+          old: { items: RouterDevice[]; trafficAvailable: boolean } | undefined,
+        ) =>
+          old && {
+            ...old,
+            items: old.items.map((d) => (d.mac === device.mac ? device : d)),
+          },
+      );
+      qc.invalidateQueries({ queryKey: routerKeys.clients });
+    },
+  });
+}
+
+/** 忘掉一台设备：删备注和流量，再出现时当新设备。 */
+export function useForgetRouterDevice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (mac: string) =>
+      unwrap(
+        routerApi.DELETE("/router/devices/{mac}", {
+          params: { path: { mac: macPath(mac) } },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: routerKeys.devices }),
+  });
+}
+
+export function useRouterOptions() {
+  return useQuery({
+    queryKey: routerKeys.options,
+    queryFn: () => unwrap(routerApi.GET("/router/options")),
+    retry: false,
+  });
+}
+
+export function useSaveRouterOptions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RouterOptions) =>
+      unwrap(routerApi.PUT("/router/options", { body })),
+    onSuccess: (data) => qc.setQueryData(routerKeys.options, data),
   });
 }

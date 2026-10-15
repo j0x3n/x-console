@@ -480,7 +480,10 @@ try {
       );
       await page.locator(".ai-topbar").click();
       const aiDialog = page.getByRole("dialog", { name: "AI", exact: true });
-      await aiDialog.locator(".ai-session", { hasText: "你好" }).first().waitFor();
+      await aiDialog
+        .locator(".ai-session", { hasText: "你好" })
+        .first()
+        .waitFor();
       await aiDialog.getByRole("button", { name: "关闭", exact: true }).click();
       setStage("B32 笔记自动标题和标签");
       const aiNoteBody = "这是一篇用于端到端验证的笔记。".repeat(12);
@@ -545,48 +548,60 @@ try {
     });
     await new Promise((ready) => jevFake.listen(0, "127.0.0.1", ready));
     try {
-      const jevElevated = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
-        headers: { "X-Requested-With": "x-console" },
-        data: { password },
-      });
+      const jevElevated = await page
+        .context()
+        .request.post(`${base}/api/v1/auth/elevate`, {
+          headers: { "X-Requested-With": "x-console" },
+          data: { password },
+        });
       assert.equal(jevElevated.status(), 200, await jevElevated.text());
-      const createdJev = await page.context().request.post(`${base}/api/v1/ai/providers`, {
-        headers: { "X-Requested-With": "x-console" },
-        data: {
-          name: "Jev",
-          baseUrl: `http://127.0.0.1:${jevFake.address().port}/v1`,
-          apiKey: "jev-secret",
-          apiStyle: "jev",
-        },
-      });
+      const createdJev = await page
+        .context()
+        .request.post(`${base}/api/v1/ai/providers`, {
+          headers: { "X-Requested-With": "x-console" },
+          data: {
+            name: "Jev",
+            baseUrl: `http://127.0.0.1:${jevFake.address().port}/v1`,
+            apiKey: "jev-secret",
+            apiStyle: "jev",
+          },
+        });
       assert.equal(createdJev.status(), 201, await createdJev.text());
       const jevProvider = await createdJev.json();
       assert.equal(jevProvider.apiStyle, "jev");
-      const jevModels = await page.context().request.post(
-        `${base}/api/v1/ai/providers/${jevProvider.id}/models`,
-        { headers: { "X-Requested-With": "x-console" } },
-      );
+      const jevModels = await page
+        .context()
+        .request.post(`${base}/api/v1/ai/providers/${jevProvider.id}/models`, {
+          headers: { "X-Requested-With": "x-console" },
+        });
       assert.equal(jevModels.status(), 200, await jevModels.text());
       const jevModelList = await jevModels.json();
       assert.ok(
         jevModelList.some((model) => model.id === "jev-latest"),
         JSON.stringify(jevModelList),
       );
-      const rejectedJev = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
-        headers: { "X-Requested-With": "x-console" },
-        data: { agent: { providerId: jevProvider.id, model: "jev-latest" } },
-      });
+      const rejectedJev = await page
+        .context()
+        .request.put(`${base}/api/v1/ai/model-settings`, {
+          headers: { "X-Requested-With": "x-console" },
+          data: { agent: { providerId: jevProvider.id, model: "jev-latest" } },
+        });
       assert.equal(rejectedJev.status(), 400, await rejectedJev.text());
-      const savedJev = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
-        headers: { "X-Requested-With": "x-console" },
-        data: { mailTriage: { providerId: jevProvider.id, model: "jev-latest" } },
-      });
+      const savedJev = await page
+        .context()
+        .request.put(`${base}/api/v1/ai/model-settings`, {
+          headers: { "X-Requested-With": "x-console" },
+          data: {
+            mailTriage: { providerId: jevProvider.id, model: "jev-latest" },
+          },
+        });
       assert.equal(savedJev.status(), 200, await savedJev.text());
       assert.equal((await savedJev.json()).mailTriage.model, "jev-latest");
-      const removedJev = await page.context().request.delete(
-        `${base}/api/v1/ai/providers/${jevProvider.id}`,
-        { headers: { "X-Requested-With": "x-console" } },
-      );
+      const removedJev = await page
+        .context()
+        .request.delete(`${base}/api/v1/ai/providers/${jevProvider.id}`, {
+          headers: { "X-Requested-With": "x-console" },
+        });
       assert.equal(removedJev.status(), 204, await removedJev.text());
       assert.equal((await api("/ai/model-settings")).mailTriage, undefined);
     } finally {
@@ -709,6 +724,84 @@ try {
       assert.equal(routerCleared.status(), 200, await routerCleared.text());
     } finally {
       await new Promise((done) => ubusFake.close(done));
+    }
+
+    setStage("B228 路由器主动上报的设备");
+    // 生成上报令牌，用令牌上报一次，路由器页能看到设备，能写备注，日志里有记录
+    {
+      const req = page.context().request;
+      const headers = { "X-Requested-With": "x-console" };
+      const elevated = await req.post(`${base}/api/v1/auth/elevate`, {
+        headers,
+        data: { password },
+      });
+      assert.equal(elevated.status(), 200, await elevated.text());
+      const tokenReply = await req.post(`${base}/api/v1/router/push/token`, {
+        headers,
+      });
+      assert.equal(tokenReply.status(), 200, await tokenReply.text());
+      const pushToken = await tokenReply.json();
+      assert.match(pushToken.command, /^wget -qO \/tmp\/xc-install.sh '/);
+      const t = Math.floor(Date.now() / 1000);
+      const reportBody =
+        [
+          "#xc:time",
+          t,
+          "#xc:board",
+          JSON.stringify({ hostname: "OpenWrt", model: "端到端主动上报" }),
+          "#xc:info",
+          JSON.stringify({
+            uptime: 100,
+            load: [0, 0, 0],
+            memory: { total: 100, available: 50 },
+          }),
+          "#xc:interfaces",
+          JSON.stringify({
+            interface: [
+              {
+                interface: "lan",
+                up: true,
+                device: "br-lan",
+                "ipv4-address": [{ address: "192.168.7.1", mask: 24 }],
+              },
+            ],
+          }),
+          "#xc:leases",
+          `${t + 3600} aa:bb:cc:07:00:01 192.168.7.10 e2e-phone *`,
+          "#xc:arp",
+          "IP address HW type Flags HW address Mask Device",
+          "#xc:wifi",
+          "=hostapd hostapd.wlan0",
+          JSON.stringify({ clients: { "aa:bb:cc:07:00:01": { assoc: true } } }),
+          "#xc:neigh",
+          "192.168.7.10 dev br-lan lladdr aa:bb:cc:07:00:01 REACHABLE",
+          "#xc:log",
+          "Wed Oct 15 12:00:01 2026 daemon.info dnsmasq[1]: 端到端日志",
+        ].join("\n") + "\n";
+      const reported = await req.post(`${base}/api/v1/router/report`, {
+        headers: {
+          Authorization: `Bearer ${pushToken.token}`,
+          "Content-Type": "text/plain",
+        },
+        data: reportBody,
+      });
+      assert.equal(reported.status(), 200, await reported.text());
+      await page.goto(`${base}/router`);
+      await page.getByRole("button", { name: "设备", exact: true }).click();
+      await page.getByText("e2e-phone", { exact: true }).click();
+      const drawer = page.getByRole("dialog", { name: "e2e-phone" });
+      await drawer.getByPlaceholder("e2e-phone").fill("端到端备注");
+      await drawer.getByRole("button", { name: "保存" }).click();
+      await page.getByRole("dialog", { name: "端到端备注" }).waitFor();
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "日志", exact: true }).click();
+      await page.getByRole("button", { name: "系统日志" }).click();
+      await page.getByText("端到端日志").waitFor();
+      const pushCleared = await req.put(`${base}/api/v1/router/config`, {
+        headers,
+        data: { url: "" },
+      });
+      assert.equal(pushCleared.status(), 200, await pushCleared.text());
     }
 
     setStage("AI 额度");
@@ -1106,7 +1199,10 @@ try {
     );
     assert.equal(recipe.ingredients[0].name, "公鸡");
     await page.waitForURL(`${base}/recipes/${recipe.id}`);
-    await page.getByRole("button", { name: /开始做菜/ }).first().click();
+    await page
+      .getByRole("button", { name: /开始做菜/ })
+      .first()
+      .click();
     await page.getByRole("button", { name: /计时 20 分钟/ }).click();
     await until("开始计时", async () =>
       (await api("/cook-timers")).items.some((x) => x.recipeId === recipe.id),
@@ -1305,43 +1401,68 @@ try {
     // B132：页面上新建一个问题，再补答今天已经过了时间的一条；趋势里出现平均分。
     await page.goto(`${base}/checkins`);
     await page.getByRole("button", { name: "新建问题" }).first().click();
-    await dialog("新建问题").getByLabel("问题", { exact: true }).fill("端到端心情");
+    await dialog("新建问题")
+      .getByLabel("问题", { exact: true })
+      .fill("端到端心情");
     await dialog("新建问题").getByRole("button", { name: "保存" }).click();
     await until("打卡问题新建", async () =>
-      (await api("/checkins/questions")).items.some((q) => q.label === "端到端心情"),
+      (await api("/checkins/questions")).items.some(
+        (q) => q.label === "端到端心情",
+      ),
     );
-    const checkinQuestion = (await api("/checkins/questions")).items.find((q) => q.label === "端到端心情");
-    const checkinAnswer = await page.context().request.put(`${base}/api/v1/checkins/answers`, {
-      headers: { "X-Requested-With": "x-console" },
-      data: { questionId: checkinQuestion.id, value: 4 },
-    });
+    const checkinQuestion = (await api("/checkins/questions")).items.find(
+      (q) => q.label === "端到端心情",
+    );
+    const checkinAnswer = await page
+      .context()
+      .request.put(`${base}/api/v1/checkins/answers`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { questionId: checkinQuestion.id, value: 4 },
+      });
     assert.equal(checkinAnswer.status(), 200, await checkinAnswer.text());
     await page.reload();
-    await page.getByRole("article", { name: "端到端心情" }).getByText("4").first().waitFor();
+    await page
+      .getByRole("article", { name: "端到端心情" })
+      .getByText("4")
+      .first()
+      .waitFor();
     setStage("自我实验");
     // B133：页面上新建一个实验，选身体数据里的体重；详情页能打开，样本太少时说不能下结论。
     await page.goto(`${base}/experiments`);
     await page.getByRole("button", { name: "新建实验" }).first().click();
-    await dialog("新建实验").getByPlaceholder("例如 下午不喝咖啡").fill("端到端实验");
+    await dialog("新建实验")
+      .getByPlaceholder("例如 下午不喝咖啡")
+      .fill("端到端实验");
     await dialog("新建实验").getByRole("checkbox", { name: "体重" }).check();
     await dialog("新建实验").getByRole("button", { name: "保存" }).click();
     await until("实验新建", async () =>
       (await api("/experiments")).items.some((x) => x.title === "端到端实验"),
     );
     await page.getByRole("link", { name: /端到端实验/ }).click();
-    await page.getByRole("article", { name: "体重" }).getByText("还没有数据。").waitFor();
+    await page
+      .getByRole("article", { name: "体重" })
+      .getByText("还没有数据。")
+      .waitFor();
 
     setStage("收集箱");
     // B134：页面上记一条，没配置 AI 时没有建议，默认归成笔记；归档后笔记列表里有它。
     await page.goto(`${base}/inbox`);
-    await page.getByRole("textbox", { name: "写一条" }).fill("端到端收集箱想法");
+    await page
+      .getByRole("textbox", { name: "写一条" })
+      .fill("端到端收集箱想法");
     await page.getByRole("button", { name: "记下来" }).click();
     await until("收集箱收到", async () =>
       (await api("/inbox")).items.some((x) => x.text === "端到端收集箱想法"),
     );
-    await page.getByRole("article").filter({ hasText: "端到端收集箱想法" }).getByRole("button", { name: "归档" }).click();
+    await page
+      .getByRole("article")
+      .filter({ hasText: "端到端收集箱想法" })
+      .getByRole("button", { name: "归档" })
+      .click();
     await until("收集箱归档", async () =>
-      (await api("/inbox?status=closed")).items.some((x) => x.text === "端到端收集箱想法" && x.status === "filed"),
+      (await api("/inbox?status=closed")).items.some(
+        (x) => x.text === "端到端收集箱想法" && x.status === "filed",
+      ),
     );
 
     setStage("预测记录");
@@ -1349,16 +1470,29 @@ try {
     await page.goto(`${base}/forecasts`);
     await page.getByLabel("内容").fill("端到端预测");
     await page.getByLabel("把握（%）").fill("70");
-    await page.getByLabel("到期日").fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
+    await page
+      .getByLabel("到期日")
+      .fill(new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: "记下来" }).click();
     await until("预测记下", async () =>
-      (await api("/forecasts")).items.some((x) => x.statement === "端到端预测" && x.probability === 70),
+      (await api("/forecasts")).items.some(
+        (x) => x.statement === "端到端预测" && x.probability === 70,
+      ),
     );
-    await page.getByRole("article").filter({ hasText: "端到端预测" }).getByRole("button", { name: "成了" }).click();
+    await page
+      .getByRole("article")
+      .filter({ hasText: "端到端预测" })
+      .getByRole("button", { name: "成了" })
+      .click();
     await until("预测有结果", async () =>
-      (await api("/forecasts?status=resolved")).items.some((x) => x.statement === "端到端预测" && x.outcome === "yes"),
+      (await api("/forecasts?status=resolved")).items.some(
+        (x) => x.statement === "端到端预测" && x.outcome === "yes",
+      ),
     );
-    await until("预测统计", async () => (await api("/forecasts/stats")).count === 1);
+    await until(
+      "预测统计",
+      async () => (await api("/forecasts/stats")).count === 1,
+    );
 
     setStage("技能练习");
     // B138：建一项技能（每周目标 100 分钟），记一次 30 分钟，本周分钟数变成 30。
@@ -1366,16 +1500,29 @@ try {
     await page.getByRole("button", { name: "新建技能" }).click();
     await page.getByLabel("技能名称").fill("端到端技能");
     await page.getByLabel("每周目标（分钟）").fill("100");
-    await page.getByRole("dialog").getByRole("button", { name: "保存" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "保存" })
+      .click();
     await until("技能新建", async () =>
-      (await api("/skills")).items.some((x) => x.name === "端到端技能" && x.weeklyTarget === 100),
+      (await api("/skills")).items.some(
+        (x) => x.name === "端到端技能" && x.weeklyTarget === 100,
+      ),
     );
-    await page.getByRole("article", { name: "端到端技能" }).getByRole("button", { name: "记一次" }).click();
+    await page
+      .getByRole("article", { name: "端到端技能" })
+      .getByRole("button", { name: "记一次" })
+      .click();
     await page.getByLabel("分钟数").fill("30");
     await page.getByLabel("练了什么").fill("端到端练习");
-    await page.getByRole("dialog").getByRole("button", { name: "保存" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "保存" })
+      .click();
     await until("技能练习", async () =>
-      (await api("/skills")).items.some((x) => x.name === "端到端技能" && x.weekMinutes === 30),
+      (await api("/skills")).items.some(
+        (x) => x.name === "端到端技能" && x.weekMinutes === 30,
+      ),
     );
 
     setStage("知识库");
@@ -1384,8 +1531,14 @@ try {
     await page.getByText("知识库还没开启").waitFor();
     await page.getByRole("button", { name: "去开启" }).click();
     await page.getByLabel("开启知识库").check();
-    await page.getByRole("dialog").getByRole("button", { name: "保存" }).click();
-    await until("知识库开启", async () => (await api("/knowledge/settings")).enabled === true);
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "保存" })
+      .click();
+    await until(
+      "知识库开启",
+      async () => (await api("/knowledge/settings")).enabled === true,
+    );
     await page.getByText(/还没有配置 AI 供应商/).waitFor();
     // B199：在设置里选一个云盘文件夹，保存后接口返回它的路径。
     const kbFolderResponse = await page
@@ -1396,13 +1549,18 @@ try {
       });
     assert.equal(kbFolderResponse.status(), 201, await kbFolderResponse.text());
     await page.getByRole("button", { name: /知识库设置/ }).click();
-    await page.getByRole("dialog").getByRole("button", { name: /添加文件夹/ }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /添加文件夹/ })
+      .click();
     const kbPicker = dialog("选一个云盘文件夹");
     await kbPicker.getByRole("button", { name: /端到端知识库/ }).click();
     await kbPicker.getByRole("button", { name: "选择这个文件夹" }).click();
     await dialog("知识库设置").getByRole("button", { name: "保存" }).click();
     await until("知识库云盘文件夹", async () =>
-      ((await api("/knowledge/settings")).driveFolders ?? []).some((x) => x.path === "/端到端知识库"),
+      ((await api("/knowledge/settings")).driveFolders ?? []).some(
+        (x) => x.path === "/端到端知识库",
+      ),
     );
 
     setStage("今日计划");
@@ -1411,9 +1569,16 @@ try {
     await page.getByRole("button", { name: /加一件/ }).click();
     await page.getByLabel("事项名称").fill("端到端要事");
     await page.getByRole("button", { name: "保存修改" }).click();
-    await until("计划保存", async () => ((await api("/dayplan")).plan?.items ?? []).some((x) => x.title === "端到端要事"));
+    await until("计划保存", async () =>
+      ((await api("/dayplan")).plan?.items ?? []).some(
+        (x) => x.title === "端到端要事",
+      ),
+    );
     await page.getByRole("button", { name: "确认计划" }).click();
-    await until("计划确认", async () => (await api("/dayplan")).plan?.status === "confirmed");
+    await until(
+      "计划确认",
+      async () => (await api("/dayplan")).plan?.status === "confirmed",
+    );
     await page.goto(`${base}/`);
     await page.getByRole("checkbox", { name: "做完了 端到端要事" }).waitFor();
 
@@ -1498,13 +1663,22 @@ try {
     // B163：早报设置里选“起床后，最晚”，保存后接口里是 wake；再改回固定时间。
     await page.goto(`${base}/settings/brief`);
     const briefForm = page.locator("form.brief-settings");
-    const briefSave = briefForm.getByRole("button", { name: "保存", exact: true });
+    const briefSave = briefForm.getByRole("button", {
+      name: "保存",
+      exact: true,
+    });
     await briefForm.getByLabel("起床后，最晚").check();
     await briefSave.click();
-    await until("早报改成起床后发", async () => (await api("/briefs/settings")).sendMode === "wake");
+    await until(
+      "早报改成起床后发",
+      async () => (await api("/briefs/settings")).sendMode === "wake",
+    );
     await briefForm.getByLabel("固定时间").check();
     await briefSave.click();
-    await until("早报改回固定时间", async () => (await api("/briefs/settings")).sendMode === "time");
+    await until(
+      "早报改回固定时间",
+      async () => (await api("/briefs/settings")).sendMode === "time",
+    );
 
     setStage("工作时才推送");
     // B164：Bark 指向本地假服务。“其他”这一类改成“工作时”。暂离时用 MCP 的 notify_send 发一条（提醒带按钮，会立即发，不能用），
@@ -1514,47 +1688,99 @@ try {
       let raw = "";
       for await (const chunk of request) raw += chunk;
       if (request.url === "/push") workBark.push(raw);
-      response.writeHead(200, { "Content-Type": "application/json" }).end('{"code":200,"message":"success"}');
+      response
+        .writeHead(200, { "Content-Type": "application/json" })
+        .end('{"code":200,"message":"success"}');
     });
     await new Promise((ready) => workBarkFake.listen(0, "127.0.0.1", ready));
     const call = (method, path, data) =>
-      page.context().request.fetch(`${base}/api/v1${path}`, { method, headers: { "X-Requested-With": "x-console" }, data });
+      page
+        .context()
+        .request.fetch(`${base}/api/v1${path}`, {
+          method,
+          headers: { "X-Requested-With": "x-console" },
+          data,
+        });
     const digestBefore = await api("/notify/digest");
     let workToken;
     try {
-      assert.equal((await call("POST", "/auth/elevate", { password })).status(), 200);
+      assert.equal(
+        (await call("POST", "/auth/elevate", { password })).status(),
+        200,
+      );
       const barkSet = await call("PUT", "/notify/channels/bark", {
-        values: { device_key: "E2EWORKKEY", server: `http://127.0.0.1:${workBarkFake.address().port}` },
+        values: {
+          device_key: "E2EWORKKEY",
+          server: `http://127.0.0.1:${workBarkFake.address().port}`,
+        },
       });
       assert.equal(barkSet.status(), 200, await barkSet.text());
-      const modes = Object.fromEntries(digestBefore.categories.map((c) => [c.id, c.mode]));
+      const modes = Object.fromEntries(
+        digestBefore.categories.map((c) => [c.id, c.mode]),
+      );
       const digestSet = await call("PUT", "/notify/digest", {
-        enabled: digestBefore.enabled, times: digestBefore.times, modes: { ...modes, other: "working" },
+        enabled: digestBefore.enabled,
+        times: digestBefore.times,
+        modes: { ...modes, other: "working" },
       });
       assert.equal(digestSet.status(), 200, await digestSet.text());
-      assert.equal((await call("PUT", "/me/manual", { state: "away", duration: "1h" })).status(), 200);
-      const tokenRes = await call("POST", "/api-tokens", { name: "端到端工作时推送", access: "write" });
+      assert.equal(
+        (
+          await call("PUT", "/me/manual", { state: "away", duration: "1h" })
+        ).status(),
+        200,
+      );
+      const tokenRes = await call("POST", "/api-tokens", {
+        name: "端到端工作时推送",
+        access: "write",
+      });
       assert.equal(tokenRes.status(), 201, await tokenRes.text());
       workToken = await tokenRes.json();
       const sent = await page.context().request.post(`${base}/api/v1/mcp`, {
-        headers: { Authorization: `Bearer ${workToken.secret}`, Accept: "application/json, text/event-stream" },
-        data: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "notify_send", arguments: { title: "端到端工作时推送", kind: "e2e.work" } } },
+        headers: {
+          Authorization: `Bearer ${workToken.secret}`,
+          Accept: "application/json, text/event-stream",
+        },
+        data: {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "notify_send",
+            arguments: { title: "端到端工作时推送", kind: "e2e.work" },
+          },
+        },
       });
       assert.equal(sent.status(), 200, await sent.text());
       assert.notEqual((await sent.json()).result?.isError, true);
-      await until("通知等回到电脑前", async () => (await api("/notify/digest")).pendingWorking >= 1);
+      await until(
+        "通知等回到电脑前",
+        async () => (await api("/notify/digest")).pendingWorking >= 1,
+      );
       assert.equal(workBark.length, 0, "暂离时不应该推出去");
-      assert.equal((await call("PUT", "/me/manual", { state: "working", duration: "1h" })).status(), 200);
-      await until("回到电脑前推出去", async () => workBark.some((b) => b.includes("端到端工作时推送")));
+      assert.equal(
+        (
+          await call("PUT", "/me/manual", { state: "working", duration: "1h" })
+        ).status(),
+        200,
+      );
+      await until("回到电脑前推出去", async () =>
+        workBark.some((b) => b.includes("端到端工作时推送")),
+      );
       assert.equal((await api("/notify/digest")).pendingWorking, 0);
     } finally {
       if (workToken) await call("DELETE", `/api-tokens/${workToken.token.id}`);
       await call("DELETE", "/me/manual");
       await call("PUT", "/notify/digest", {
-        enabled: digestBefore.enabled, times: digestBefore.times,
-        modes: Object.fromEntries(digestBefore.categories.map((c) => [c.id, c.mode])),
+        enabled: digestBefore.enabled,
+        times: digestBefore.times,
+        modes: Object.fromEntries(
+          digestBefore.categories.map((c) => [c.id, c.mode]),
+        ),
       });
-      await call("PUT", "/notify/channels/bark", { values: { device_key: "", server: "" } });
+      await call("PUT", "/notify/channels/bark", {
+        values: { device_key: "", server: "" },
+      });
       await new Promise((closed) => workBarkFake.close(closed));
     }
 
@@ -3099,11 +3325,15 @@ try {
     await page.getByRole("button", { name: "新建习惯" }).click();
     await dialog("新建习惯").getByLabel("名称").fill("端到端护眼");
     await dialog("新建习惯").getByLabel("目标方式").selectOption("prompts");
-    await dialog("新建习惯").getByRole("combobox", { name: /^提醒/ }).selectOption("interval");
+    await dialog("新建习惯")
+      .getByRole("combobox", { name: /^提醒/ })
+      .selectOption("interval");
     await dialog("新建习惯").getByRole("button", { name: "保存" }).click();
     await dialog("新建习惯").waitFor({ state: "hidden" });
     await until("跟着提醒走", async () => {
-      const habit = (await api("/habits/today")).find((item) => item.habit.name === "端到端护眼");
+      const habit = (await api("/habits/today")).find(
+        (item) => item.habit.name === "端到端护眼",
+      );
       return habit?.habit.targetMode === "prompts" && habit.target === 0;
     });
     // B201：按入睡时间自动打卡的习惯。
@@ -3114,8 +3344,13 @@ try {
     await dialog("新建习惯").getByRole("button", { name: "保存" }).click();
     await dialog("新建习惯").waitFor({ state: "hidden" });
     await until("早睡自动打卡", async () => {
-      const habit = (await api("/habits/today")).find((item) => item.habit.name === "端到端早睡");
-      return habit?.habit.autoCheck?.kind === "bedtime" && habit.habit.autoCheck.before === "23:30";
+      const habit = (await api("/habits/today")).find(
+        (item) => item.habit.name === "端到端早睡",
+      );
+      return (
+        habit?.habit.autoCheck?.kind === "bedtime" &&
+        habit.habit.autoCheck.before === "23:30"
+      );
     });
 
     setStage("训练自动打卡");

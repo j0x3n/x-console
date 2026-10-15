@@ -3,17 +3,23 @@ import { useAgents } from "../../api/core";
 import { errorMessage } from "../../api/client";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
 import { ErrorState, Loading } from "../../components/ui/States";
+import Switch from "../../components/ui/Switch";
 import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { copyText } from "../../lib/errors";
 import { formatTime } from "../../lib/time";
 import {
+  COOLDOWNS,
+  cooldownLabel,
   useCreateRouterPushToken,
+  useRouterOptions,
+  useSaveRouterOptions,
   useRouterConfig,
   useSaveRouterConfig,
   useSetPushInterval,
   type RouterConfig,
   type RouterMode,
+  type RouterOptions,
   type RouterPushToken,
 } from "./api";
 import "./i18n";
@@ -37,6 +43,7 @@ function Loaded({ initial }: { initial: RouterConfig }) {
   return (
     <div className="settings-grid">
       <ConfigForm initial={initial} mode={mode} setMode={setMode} />
+      {initial.mode === "push" && <NotifyCard />}
     </div>
   );
 }
@@ -217,6 +224,68 @@ function ConfigForm({
       </div>
       {mode !== "push" && <PrepareHelp />}
     </form>
+  );
+}
+
+/** B228：设备上下线通知的总开关和默认再次通知间隔。只有主动上报模式有。 */
+function NotifyCard() {
+  const t = useT();
+  const options = useRouterOptions();
+  const save = useSaveRouterOptions();
+  if (options.isPending) return <Loading />;
+  if (options.isError)
+    return (
+      <ErrorState error={options.error} onRetry={() => options.refetch()} />
+    );
+  const o = options.data;
+  const put = (patch: Partial<RouterOptions>) =>
+    save.mutate(
+      { ...o, ...patch },
+      {
+        onSuccess: () => toast(t("Saved")),
+        onError: (error) =>
+          toast({ message: errorMessage(error), tone: "error" }),
+      },
+    );
+  return (
+    <section className="xc-card">
+      <div className="xc-card-head">
+        <h2>{t("Device notifications")}</h2>
+      </div>
+      <div className="router-setting-row">
+        <span>{t("Notify when devices go online or offline")}</span>
+        <Switch
+          checked={o.deviceNotify}
+          label={t("Notify when devices go online or offline")}
+          disabled={save.isPending}
+          onChange={(deviceNotify) => put({ deviceNotify })}
+        />
+      </div>
+      <p className="xc-muted">
+        总开关打开后，还要在路由器页点开设备，打开它自己的通知。Wi-Fi
+        设备在下一次上报时就能发现变化，有线设备连续 5 分钟看不到才算离线。
+      </p>
+      <label className="xc-field">
+        <span>{t("Default interval before notifying again")}</span>
+        <select
+          className="xc-select"
+          value={o.notifyCooldownMinutes}
+          disabled={save.isPending}
+          onChange={(e) =>
+            put({ notifyCooldownMinutes: Number(e.target.value) })
+          }
+        >
+          {COOLDOWNS.map((n) => (
+            <option key={n} value={n}>
+              {cooldownLabel(n)}
+            </option>
+          ))}
+        </select>
+        <small>
+          同一台设备推送过一次后，这段时间里再变化只记日志，不推送。每台设备也可以单独设。
+        </small>
+      </label>
+    </section>
   );
 }
 

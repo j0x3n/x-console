@@ -27,6 +27,7 @@ import { toast } from "../../hooks/useToast";
 import { formatBytes, formatDate, formatTime } from "../../lib/time";
 import type { MetricsPoint } from "../servers/api";
 import MetricChart from "../servers/components/MetricChart";
+import DevicesView from "./DevicesView";
 import { formatRate, formatUptime, niceRateMax } from "../servers/lib";
 import {
   isNotConfigured,
@@ -72,6 +73,8 @@ export default function RouterPage() {
     }
   };
   const notConfigured = status.isError && isNotConfigured(status.error);
+  // B228：主动上报模式下有设备表，直连和代理模式还是原来的在线设备表
+  const push = status.data?.source === "push";
 
   const onReboot = async () => {
     const ok = await confirmAction({
@@ -114,7 +117,7 @@ export default function RouterPage() {
                 className={tab === "clients" ? "active" : ""}
                 onClick={() => setTab("clients")}
               >
-                {t("Online devices")}
+                {push ? t("Devices") : t("Online devices")}
               </button>
               <button
                 className={tab === "traffic" ? "active" : ""}
@@ -138,7 +141,15 @@ export default function RouterPage() {
             )
           }
         />
-        {tab === "clients" ? <ClientsTable /> : <TrafficView range={range} />}
+        {tab === "clients" ? (
+          push ? (
+            <DevicesView />
+          ) : (
+            <ClientsTable />
+          )
+        ) : (
+          <TrafficView range={range} />
+        )}
       </>
     );
 
