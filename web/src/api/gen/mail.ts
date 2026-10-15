@@ -334,6 +334,8 @@ export interface components {
             category: components["schemas"]["MailCategory"];
             /** @description B220：要处理的邮件里，需要我做决定的（批准、选方案、答应或拒绝）。只有 category 是 action 时可能为 true */
             decision: boolean;
+            /** @description B225：这封是验证码、一次性密码或登录码。营销邮件一律 false */
+            code: boolean;
             /**
              * Format: date-time
              * @description B220：标成已处理的时间，没标时不给

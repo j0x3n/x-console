@@ -338,10 +338,11 @@ func (m *Module) syncOnce(ctx context.Context, c *imapclient.Client, id int64, s
 	if changed || flagsChanged {
 		m.d.Bus.Publish("mail.updated", map[string]any{"accountId": acc.ID})
 	}
-	// B136: sort the new mail first, so that only the mail that needs me is pushed at once.
-	cats := m.triageArrived(ctx, acc, fresh)
+	// B136: sort first. Action mail and verification codes are pushed at once.
+	// Marketing mail is not pushed.
+	sorted := m.triageArrived(ctx, acc, fresh)
 	if acc.Notify == 1 {
-		m.notifyNew(ctx, acc, fresh, cats)
+		m.notifyNew(ctx, acc, fresh, sorted)
 	}
 	return nil
 }
@@ -431,8 +432,8 @@ func cleanLine(s string) string {
 }
 
 // notifyNew pushes new mail: one notice each, or one for all when many
-// arrived at once.
-func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.MailMessage, cats map[int64]api.MailCategory) {
+// arrived at once. Promo mail is left out. Unsorted mail is still pushed.
+func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.MailMessage, sorted map[int64]api.MailTriage) {
 	if len(msgs) == 0 {
 		return
 	}
@@ -440,42 +441,69 @@ func (m *Module) notifyNew(ctx context.Context, acc db.MailAccount, msgs []db.Ma
 		n.Kind, n.Source = "mail.new", "mail"
 		n.Scope = fmt.Sprintf("mail:%d", acc.ID) // B113: mute rules can name one mailbox
 		// B136: mail that needs me is not held back for the digest (B127).
+		// B225: a verification code is pushed at once too. Promo is not sent.
 		n.Immediate = immediate
 		if _, err := m.d.Notify.Send(ctx, n); err != nil {
 			m.d.Log.Warn("mail: notify", "err", err)
 		}
 	}
-	if len(msgs) > notifyGroup {
+	var kept []db.MailMessage
+	immediate := false
+	for _, x := range msgs {
+		skip, now, _ := mailPush(sorted, x.ID)
+		if skip {
+			continue
+		}
+		immediate = immediate || now
+		kept = append(kept, x)
+	}
+	if len(kept) == 0 {
+		return
+	}
+	if len(kept) > notifyGroup {
 		var lines []string
-		for _, x := range msgs[len(msgs)-notifyGroup:] {
+		for _, x := range kept[len(kept)-notifyGroup:] {
 			lines = append(lines, subjectOrNone(x.Subject))
 		}
 		slices.Reverse(lines)
-		anyAction := false
-		for _, x := range msgs {
-			anyAction = anyAction || cats[x.ID] == api.Action
-		}
 		send(notify.Notification{
-			Title: fmt.Sprintf("%s 收到 %d 封新邮件", acc.Name, len(msgs)), Body: strings.Join(lines, "\n"),
-			Link: fmt.Sprintf("/mail?a=%d", acc.ID), Data: map[string]any{"accountId": acc.ID, "count": len(msgs)},
-		}, anyAction)
+			Title: fmt.Sprintf("%s 收到 %d 封新邮件", acc.Name, len(kept)), Body: strings.Join(lines, "\n"),
+			Link: fmt.Sprintf("/mail?a=%d", acc.ID), Data: map[string]any{"accountId": acc.ID, "count": len(kept)},
+		}, immediate)
 		return
 	}
-	for _, x := range msgs {
+	for _, x := range kept {
 		from := x.FromName
 		if from == "" {
 			from = x.FromAddress
 		}
 		title := from + "：" + subjectOrNone(x.Subject)
-		action := cats[x.ID] == api.Action
-		if action {
-			title = "（要处理）" + title
+		_, now, prefix := mailPush(sorted, x.ID)
+		if prefix != "" {
+			title = prefix + title
 		}
 		send(notify.Notification{
 			Title: title, Body: cutRunes(cleanText(x.Snippet), 100),
 			Link: fmt.Sprintf("/mail?m=%d", x.ID), Data: map[string]any{"accountId": acc.ID, "messageId": x.ID},
-		}, action)
+		}, now)
 	}
+}
+
+func mailPush(sorted map[int64]api.MailTriage, id int64) (skip bool, immediate bool, prefix string) {
+	t, ok := sorted[id]
+	if !ok {
+		return false, false, ""
+	}
+	if t.Category == api.Promo {
+		return true, false, ""
+	}
+	if t.Code {
+		return false, true, "（验证码）"
+	}
+	if t.Category == api.Action {
+		return false, true, "（要处理）"
+	}
+	return false, false, ""
 }
 
 func subjectOrNone(s string) string {

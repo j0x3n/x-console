@@ -361,10 +361,11 @@ components:
         text: { type: string, description: 这个日期是什么事，比如 续费截止 }
     MailTriage:
       type: object
-      required: [category, decision, summary, dates]
+      required: [category, decision, code, summary, dates]
       properties:
         category: { $ref: "#/components/schemas/MailCategory" }
         decision: { type: boolean, description: B220：要处理的邮件里，需要我做决定的（批准、选方案、答应或拒绝）。只有 category 是 action 时可能为 true }
+        code: { type: boolean, description: B225：这封是验证码、一次性密码或登录码。营销邮件一律 false }
         doneAt: { type: string, format: date-time, description: B220：标成已处理的时间，没标时不给 }
         summary: { type: string, description: 一句话说明这封邮件要你做什么或讲了什么 }
         dates:

@@ -268,7 +268,7 @@ export default function AccountDialog({
         </label>
         <small className="xc-muted">
           {t(
-            "The sender, subject and first lines of each new mail are sent to your AI provider. Mail that needs you is pushed at once; the rest waits for the digest.",
+            "The sender, subject and first lines of each new mail are sent to your AI. Mail that needs you and verification codes are pushed at once. Marketing mail is not pushed. Other mail waits for the digest.",
           )}
         </small>
         <div className="mail-notify-targets">

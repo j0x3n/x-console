@@ -1210,6 +1210,7 @@ type MailTriage struct {
 	TriagedAt time.Time
 	Decision  int64
 	DoneAt    *time.Time
+	Code      int64
 }
 
 type MeReport struct {

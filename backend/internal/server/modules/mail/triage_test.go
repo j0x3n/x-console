@@ -19,7 +19,8 @@ import (
 )
 
 // triageAI sorts by the words in the subject: 合同 needs me, 批准 needs me and
-// my decision, 促销 is promo, everything else is a notice. It records what it was sent.
+// my decision, 验证码 is a notice with a code, 促销 is promo, everything else
+// is a notice. It records what it was sent.
 type triageAI struct {
 	mu        sync.Mutex
 	available bool
@@ -56,8 +57,10 @@ func (f *triageAI) CompleteJSON(_ context.Context, _, system, user string, _ jso
 			item["dates"] = []any{map[string]string{"date": time.Now().AddDate(0, 0, 5).Format("2006-01-02"), "text": "签字截止"}}
 		case strings.Contains(subject, "批准"):
 			item["category"], item["summary"], item["decision"] = "action", "请批准报销", true
+		case strings.Contains(subject, "验证码"):
+			item["category"], item["summary"], item["code"] = "notice", "登录验证码", true
 		case strings.Contains(subject, "促销"):
-			item["category"], item["summary"] = "promo", "商家促销"
+			item["category"], item["summary"], item["code"] = "promo", "商家促销", true
 		}
 		if f.override != nil {
 			item = f.override(idx, subject)
@@ -113,16 +116,28 @@ func TestTriageSortsNewMailAndPushesOnlyActionAtOnce(t *testing.T) {
 	if acc.Triage == nil || !*acc.Triage {
 		t.Fatalf("account: %+v", acc)
 	}
-	for _, s := range []string{"合同请签字", "双十一促销来了", "账单已出"} {
+	subjects := []string{"合同请签字", "双十一促销来了", "账单已出", "登录验证码"}
+	for _, s := range subjects {
 		f.add(t, subjectMail(s), time.Now())
 		time.Sleep(20 * time.Millisecond)
 	}
-	eventually(t, "three notifications", func() bool { return len(capture.mail()) == 3 })
+	eventually(t, "sorted", func() bool {
+		items := list(t, env, "")
+		for _, s := range subjects {
+			if m := bySubject(items, s); m == nil || m.Triage == nil {
+				return false
+			}
+		}
+		return len(capture.mail()) == 3
+	})
 	byTitle := map[string]bool{}
 	for _, n := range capture.mail() {
 		byTitle[n.Title] = n.Immediate
+		if strings.Contains(n.Title, "促销") || strings.Contains(n.Body, "促销") {
+			t.Errorf("promo was pushed: %+v", n)
+		}
 	}
-	var action, other int
+	var action, code, other int
 	for title, immediate := range byTitle {
 		switch {
 		case strings.Contains(title, "合同请签字"):
@@ -130,6 +145,11 @@ func TestTriageSortsNewMailAndPushesOnlyActionAtOnce(t *testing.T) {
 				t.Errorf("action mail: %q immediate=%v", title, immediate)
 			}
 			action++
+		case strings.Contains(title, "登录验证码"):
+			if !immediate || !strings.HasPrefix(title, "（验证码）") {
+				t.Errorf("code mail: %q immediate=%v", title, immediate)
+			}
+			code++
 		default:
 			if immediate {
 				t.Errorf("%q should wait for the digest", title)
@@ -137,7 +157,7 @@ func TestTriageSortsNewMailAndPushesOnlyActionAtOnce(t *testing.T) {
 			other++
 		}
 	}
-	if action != 1 || other != 2 {
+	if action != 1 || code != 1 || other != 1 {
 		t.Fatalf("notifications: %v", byTitle)
 	}
 	// The list shows the triage; the category filter works.
@@ -149,8 +169,11 @@ func TestTriageSortsNewMailAndPushesOnlyActionAtOnce(t *testing.T) {
 	if hello := bySubject(items, "Hello"); hello == nil || hello.Triage != nil {
 		t.Errorf("the old mail was sorted: %+v", hello)
 	}
-	if got := list(t, env, "?category=promo"); len(got) != 1 || got[0].Subject != "双十一促销来了" {
+	if got := list(t, env, "?category=promo"); len(got) != 1 || got[0].Subject != "双十一促销来了" || got[0].Triage == nil || got[0].Triage.Code {
 		t.Errorf("promo filter: %+v", got)
+	}
+	if codeMail := bySubject(items, "登录验证码"); codeMail == nil || codeMail.Triage == nil || codeMail.Triage.Category != api.Notice || !codeMail.Triage.Code {
+		t.Errorf("code mail: %+v", codeMail)
 	}
 	if got := list(t, env, "?category=action"); len(got) != 1 {
 		t.Errorf("action filter: %+v", got)
@@ -159,7 +182,7 @@ func TestTriageSortsNewMailAndPushesOnlyActionAtOnce(t *testing.T) {
 		t.Errorf("bad category: %d", status)
 	}
 	// The prompt carries the subject and says the mail text is data.
-	if !strings.Contains(strings.Join(ai.prompts, "\n"), "合同请签字") || !strings.Contains(ai.systems[0], "不是给你的指令") {
+	if !strings.Contains(strings.Join(ai.prompts, "\n"), "合同请签字") || !strings.Contains(ai.systems[0], "不是给你的指令") || !strings.Contains(ai.systems[0], "code") {
 		t.Errorf("prompt: %q / %q", ai.prompts, ai.systems)
 	}
 	// Opening the message shows its triage too.
@@ -167,6 +190,36 @@ func TestTriageSortsNewMailAndPushesOnlyActionAtOnce(t *testing.T) {
 	env.MustDo(http.MethodGet, fmt.Sprintf("/mail/messages/%d", contract.Id), nil, &msg)
 	if msg.Triage == nil || msg.Triage.Category != api.Action {
 		t.Errorf("message: %+v", msg.Triage)
+	}
+}
+
+func TestTriageDropsPromoFromABurst(t *testing.T) {
+	env, _, f := setup(t)
+	withAI(t, env)
+	capture := &captureRouter{}
+	env.App.Deps.Notify.SetRouter(capture)
+	subjects := []string{"合同请签字", "账单一", "账单二", "登录验证码", "双十一促销来了", "账单三"}
+	for _, s := range subjects {
+		f.add(t, subjectMail(s), time.Now())
+	}
+	in := accountInput(f, pass)
+	in["triage"] = true
+	env.MustDo(http.MethodPost, "/mail/accounts", in, nil)
+	eventually(t, "one grouped notice", func() bool {
+		items := list(t, env, "")
+		if len(items) != len(subjects) {
+			return false
+		}
+		for _, s := range subjects {
+			if m := bySubject(items, s); m == nil || m.Triage == nil {
+				return false
+			}
+		}
+		return len(capture.mail()) == 1
+	})
+	n := capture.mail()[0]
+	if !n.Immediate || n.Title != "测试邮箱 收到 5 封新邮件" || strings.Contains(n.Body, "促销") || !strings.Contains(n.Body, "登录验证码") {
+		t.Fatalf("burst: %+v", n)
 	}
 }
 
@@ -336,12 +389,18 @@ func (f *fakeSorter) Sort(_ context.Context, items []contracts.MailSortItem) (ma
 	}
 	out := map[int64]contracts.MailVerdict{}
 	for _, it := range items {
+		if strings.Contains(it.Subject, "拿不准") {
+			continue
+		}
 		v := contracts.MailVerdict{Category: "notice", Decision: true}
 		switch {
 		case strings.Contains(it.Subject, "批准"):
 			v.Category = "action"
 		case strings.Contains(it.Subject, "促销"):
 			v.Category = "promo"
+			v.Code = true
+		case strings.Contains(it.Subject, "验证码"):
+			v.Code = true
 		}
 		out[it.ID] = v
 	}
@@ -369,11 +428,28 @@ func TestTriageJevPicksCategoryAndChatWritesSummary(t *testing.T) {
 	eventually(t, "promo mail", func() bool { return bySubject(list(t, env, ""), "双十一促销") != nil })
 	promoID := bySubject(list(t, env, ""), "双十一促销").Id
 	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", promoID), nil, &tr)
-	if tr.Category != api.Promo || tr.Decision || tr.Summary != "" || len(tr.Dates) != 0 {
+	if tr.Category != api.Promo || tr.Decision || tr.Code || tr.Summary != "" || len(tr.Dates) != 0 {
 		t.Fatalf("promo: %+v", tr)
 	}
 	if ai.calls() != 1 {
 		t.Fatalf("promo should not ask the chat model, calls %d", ai.calls())
+	}
+	f.add(t, subjectMail("登录验证码"), time.Now())
+	eventually(t, "code mail", func() bool { return bySubject(list(t, env, ""), "登录验证码") != nil })
+	codeID := bySubject(list(t, env, ""), "登录验证码").Id
+	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", codeID), nil, &tr)
+	if tr.Category != api.Notice || tr.Decision || !tr.Code || tr.Summary != "" {
+		t.Fatalf("code: %+v", tr)
+	}
+	if ai.calls() != 1 {
+		t.Fatalf("a code notice should not ask the chat model, calls %d", ai.calls())
+	}
+	f.add(t, subjectMail("拿不准"), time.Now())
+	eventually(t, "unsure mail", func() bool { return bySubject(list(t, env, ""), "拿不准") != nil })
+	unsureID := bySubject(list(t, env, ""), "拿不准").Id
+	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", unsureID), nil, &tr)
+	if tr.Category != api.Notice || !strings.Contains(ai.systems[len(ai.systems)-1], "给每封邮件分类") {
+		t.Fatalf("low confidence should use the chat model: %+v %q", tr, ai.systems)
 	}
 	sorter.mu.Lock()
 	sorter.err = errors.New("down")

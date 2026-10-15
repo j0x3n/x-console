@@ -113,6 +113,12 @@ function setup(triage = true) {
           summary: "商家促销",
           dates: [],
         }),
+        row(4, "登录验证码", {
+          category: "notice",
+          code: true,
+          summary: "登录验证码",
+          dates: [],
+        }),
         row(3, "没分拣的信"),
       ],
     },
@@ -153,7 +159,8 @@ describe("邮件分拣（B136）", () => {
     expect(within(rows[0]).getByText("要处理")).toBeTruthy();
     expect(within(rows[0]).getByText("请在截止前签字")).toBeTruthy();
     expect(within(rows[1]).getByText("营销")).toBeTruthy();
-    expect(within(rows[2]).getByText("没分拣的信的开头")).toBeTruthy();
+    expect(within(rows[2]).getByText("验证码")).toBeTruthy();
+    expect(within(rows[3]).getByText("没分拣的信的开头")).toBeTruthy();
   });
 
   it("有邮箱开了分拣时出现类别切换，点“要处理”带上 category", async () => {

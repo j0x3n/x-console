@@ -431,14 +431,14 @@ function MessageRow({
           <small>{mailTime(m.date, now)}</small>
         </span>
         <span className="mail-row-subject">
-          {m.triage?.category === "action" && (
+          {m.triage && (m.triage.category === "action" || m.triage.code) && (
             <span
               className={`xc-badge ${triageLabel(m.triage).tone} mail-row-tag`}
             >
               {t(triageLabel(m.triage).label)}
             </span>
           )}
-          {m.triage && m.triage.category !== "action" && (
+          {m.triage && m.triage.category !== "action" && !m.triage.code && (
             <small className="mail-row-kind">
               {t(CATEGORY_LABELS[m.triage.category].label)}
             </small>

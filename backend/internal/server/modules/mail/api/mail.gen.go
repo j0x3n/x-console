@@ -308,6 +308,9 @@ type MailTriage struct {
 	// Category action 要处理；notice 通知；promo 营销
 	Category MailCategory `json:"category"`
 
+	// Code B225：这封是验证码、一次性密码或登录码。营销邮件一律 false
+	Code bool `json:"code"`
+
 	// Dates 邮件里提到的需要留意的日期，最多 3 个
 	Dates []MailTriageDate `json:"dates"`
 

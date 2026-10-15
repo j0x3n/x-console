@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B225（2026-10-15）：`mail.yaml` 的 `MailTriage` 加必有的 `code`（验证码、一次性密码或登录码。营销一律 false）。迁移 `20261015060000_m56_b225_mail_triage_code.sql`（`mail_triage` 加 `code`，只加不删）。选了 Jev 时，类别置信度低于或等于 0.85 的那封不采用，改走原来的整封分拣。用量在 Jev 已成功返回时照记。新邮件里验证码马上推送，营销不推送。没分拣出来的仍照旧推送。
+
 - B224（2026-10-15）：`GET /mail/todo` 只返回今天收到的要处理邮件，不再包含最近 30 天。`PUT /mail/messages/{messageId}/done` 在标成已处理时，如果这封还是未读，会在邮箱服务器上标成已读。取消已处理不改已读。服务器没存上已读时回 502，本地也不标成已处理。
 
 - B223（2026-10-15）：`ai.yaml` 的 `ApiStyle` 加 `jev`。`AiModelSettings` 和 `AiModelSettingsInput` 加可选的 `mailTriage`。保存时不传 `mailTriage` 表示不改，传 null 表示清空。Jev 不能当 Agent 或快速模型，邮件分拣只能选 Jev。迁移 `20261015040000_m55_b223_ai_jev.sql` 给 `ai_providers.api_style` 加上 `jev`（换表，数据照搬）。新契约 `contracts.MailSorter`（键 `ai.mail_sort`），ai 模块提供，邮件分拣优先用它判类别和要不要做决定，摘要仍走 `contracts.LLM`。设置键 `ai.mail_triage_model`。用量仍记在 `ai_usage`，purpose 用 `fast`（这张表只允许 fast 和 agent），source 为 `mail`，费用按每百万输入 token 0.042 美元估算，输出不计费。`web/scripts/e2e.mjs` 第一部分加一步。

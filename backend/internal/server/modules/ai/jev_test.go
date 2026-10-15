@@ -34,14 +34,16 @@ func TestJevProviderSortsMailAndCannotChat(t *testing.T) {
 			mu.Lock()
 			bodies = append(bodies, string(raw))
 			mu.Unlock()
-			choice, noul := "action", 0.91
+			choice, noul, codeNoul, confidence := "action", 0.91, 0.1, 0.91
 			switch {
 			case strings.Contains(string(raw), "促销"):
-				choice, noul = "promo", 0.99
+				choice, noul, codeNoul = "promo", 0.99, 0.99
 			case strings.Contains(string(raw), "拿不准"):
-				choice, noul = "action", 0.5
+				choice, noul, confidence = "action", 0.5, 0.85
+			case strings.Contains(string(raw), "验证码"):
+				choice, noul, codeNoul = "notice", 0.1, 0.91
 			}
-			fmt.Fprintf(w, `{"model":"jev-1.13.0","answers":{"category":{"type":"choice","choice":%q,"probabilities":{},"confidence":0.7},"decision":{"type":"noul","noul":%g}},"usage":{"input_tokens":1000,"output_tokens":20}}`, choice, noul)
+			fmt.Fprintf(w, `{"model":"jev-1.13.0","answers":{"category":{"type":"choice","choice":%q,"probabilities":{},"confidence":%g},"decision":{"type":"noul","noul":%g},"code":{"type":"noul","noul":%g}},"usage":{"input_tokens":1000,"output_tokens":20}}`, choice, confidence, noul, codeNoul)
 		default:
 			http.NotFound(w, r)
 		}
@@ -101,17 +103,18 @@ func TestJevProviderSortsMailAndCannotChat(t *testing.T) {
 		{ID: 1, From: "a@b.c", Subject: "请批准", Text: "请批准这笔报销"},
 		{ID: 2, From: "a@b.c", Subject: "促销", Text: "全场促销"},
 		{ID: 3, From: "a@b.c", Subject: "拿不准", Text: "也许要你看一下"},
+		{ID: 4, From: "a@b.c", Subject: "验证码", Text: "你的验证码是 123456"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !out[1].Decision || out[1].Category != "action" || out[2].Decision || out[2].Category != "promo" || out[3].Decision || out[3].Category != "action" {
+	if _, kept := out[3]; kept || !out[1].Decision || out[1].Category != "action" || out[1].Code || out[2].Decision || out[2].Code || out[2].Category != "promo" || !out[4].Code || out[4].Decision || out[4].Category != "notice" {
 		t.Fatalf("verdicts: %+v", out)
 	}
 	mu.Lock()
 	got := append([]string(nil), bodies...)
 	mu.Unlock()
-	if len(got) != 3 {
+	if len(got) != 4 {
 		t.Fatalf("calls: %d", len(got))
 	}
 	var req map[string]any
@@ -124,7 +127,8 @@ func TestJevProviderSortsMailAndCannotChat(t *testing.T) {
 	questions, _ := req["questions"].(map[string]any)
 	category, _ := questions["category"].(map[string]any)
 	decision, _ := questions["decision"].(map[string]any)
-	if category["type"] != "choice" || decision["type"] != "noul" {
+	code, _ := questions["code"].(map[string]any)
+	if category["type"] != "choice" || decision["type"] != "noul" || code["type"] != "noul" {
 		t.Fatalf("questions: %v", questions)
 	}
 	var model, purpose, source, ref string
@@ -135,6 +139,9 @@ func TestJevProviderSortsMailAndCannotChat(t *testing.T) {
 	}
 	if model != "jev-1.13.0" || purpose != "fast" || source != "mail" || ref != "1" || input != 1000 || math.Abs(cost-0.000042) > 1e-9 {
 		t.Fatalf("usage %s %s %s %s %d %g", model, purpose, source, ref, input, cost)
+	}
+	if err := env.App.Deps.DB.QueryRow(`SELECT COUNT(*) FROM ai_usage WHERE ref='3'`).Scan(&input); err != nil || input != 1 {
+		t.Fatalf("low confidence should still be recorded: %v %d", err, input)
 	}
 	env.MustDo("DELETE", fmt.Sprintf("/ai/providers/%d", jev.Id), nil, nil)
 	settings = api.AiModelSettings{}

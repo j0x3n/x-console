@@ -3,13 +3,14 @@ import { registerZh } from "../../lib/i18n";
 registerZh({
   // B136 邮件 AI 分拣
   "Sort new mail with AI": "用 AI 分拣新邮件",
-  "The sender, subject and first lines of each new mail are sent to your AI provider. Mail that needs you is pushed at once; the rest waits for the digest.":
-    "每封新邮件的发件人、主题和开头几行会发给你的 AI 供应商。要处理的邮件马上推送，其余的等合并推送。",
+  "The sender, subject and first lines of each new mail are sent to your AI. Mail that needs you and verification codes are pushed at once. Marketing mail is not pushed. Other mail waits for the digest.":
+    "每封新邮件的发件人、主题和开头几行会发给你的 AI。要处理和验证码马上推送。营销邮件不推送。其他的等合并推送。",
   "AI sorting": "AI 分拣",
   "Mail needs action": "要处理",
   "Mail notice": "通知",
   "Mail promo": "营销",
   "Mail needs decision": "待决定",
+  "Mail verification code": "验证码",
   "Mark handled": "标成已处理",
   "Marked handled": "已标成已处理",
   "Mail all kinds": "全部",
