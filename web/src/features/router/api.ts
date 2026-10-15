@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ApiError, createApi, unwrap } from "../../api/client";
 import type { components, paths } from "../../api/gen/router";
 import { withElevation } from "../../auth/elevation";
@@ -19,6 +25,10 @@ export type RouterTraffic = S["RouterTraffic"];
 export type TrafficRange = "24h" | "7d";
 export type RouterDevice = S["RouterDevice"];
 export type RouterOptions = S["RouterOptions"];
+export type RouterEvent = S["RouterEvent"];
+export type RouterLogLine = S["RouterLogLine"];
+export type EventGroup = "device" | "wan" | "report" | "command";
+export type LogLevel = "warn" | "err";
 /** 再次通知间隔可选的分钟数，和后端一致（B228）。 */
 export const COOLDOWNS = [0, 5, 15, 30, 60] as const;
 
@@ -37,6 +47,10 @@ export const routerKeys = {
   deviceTraffic: (mac: string, range: TrafficRange) =>
     ["router", "device-traffic", mac, range] as const,
   options: ["router", "options"] as const,
+  events: (group: string, mac: string) =>
+    ["router", "events", group, mac] as const,
+  logs: (q: string, level: string, program: string) =>
+    ["router", "logs", q, level, program] as const,
 };
 
 /** 路径里的 MAC 不带冒号，省得转义。后端认冒号、横杠和不带分隔的写法。 */
@@ -265,5 +279,80 @@ export function useDeviceTraffic(mac: string, range: TrafficRange) {
     retry: false,
     meta: { silentError: true },
     refetchInterval: 60_000,
+  });
+}
+
+/** 日志一页多少条。 */
+const LOG_PAGE = 100;
+
+/**
+ * B230：面板记的事件，新的在前，往下翻页。
+ * 只看第一页时跟着刷新频率刷新，翻过页就不自动刷新，免得列表跳动。
+ */
+export function useRouterEvents(group: EventGroup | "", mac: string) {
+  const chosen = useRouterInterval();
+  return useInfiniteQuery({
+    queryKey: routerKeys.events(group, mac),
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        routerApi.GET("/router/events", {
+          params: {
+            query: {
+              group: group || undefined,
+              mac: mac ? macPath(mac) : undefined,
+              before: pageParam || undefined,
+              limit: LOG_PAGE,
+            },
+          },
+        }),
+      ),
+    initialPageParam: 0,
+    // 换筛选条件时先留着旧的列表，程序名下拉也不会闪空
+    placeholderData: keepPreviousData,
+    getNextPageParam: (last) =>
+      last.hasMore ? last.items.at(-1)?.id : undefined,
+    retry: false,
+    meta: { silentError: true },
+    refetchInterval: (q) =>
+      chosen && (q.state.data?.pages.length ?? 0) <= 1
+        ? Math.max(chosen, 5000)
+        : false,
+  });
+}
+
+/** B230：路由器的系统日志，翻页和刷新规则同上。 */
+export function useRouterLogs(
+  q: string,
+  level: LogLevel | "",
+  program: string,
+) {
+  const chosen = useRouterInterval();
+  return useInfiniteQuery({
+    queryKey: routerKeys.logs(q, level, program),
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        routerApi.GET("/router/logs", {
+          params: {
+            query: {
+              q: q || undefined,
+              level: level || undefined,
+              program: program || undefined,
+              before: pageParam || undefined,
+              limit: LOG_PAGE,
+            },
+          },
+        }),
+      ),
+    initialPageParam: 0,
+    // 换筛选条件时先留着旧的列表，程序名下拉也不会闪空
+    placeholderData: keepPreviousData,
+    getNextPageParam: (last) =>
+      last.hasMore ? last.items.at(-1)?.id : undefined,
+    retry: false,
+    meta: { silentError: true },
+    refetchInterval: (query) =>
+      chosen && (query.state.data?.pages.length ?? 0) <= 1
+        ? Math.max(chosen, 5000)
+        : false,
   });
 }

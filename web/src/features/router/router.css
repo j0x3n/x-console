@@ -382,3 +382,116 @@
   color: var(--xc-text-2);
   font-size: var(--fs-12-5);
 }
+/* B230：日志 */
+.router-log-select {
+  width: auto;
+  max-width: 180px;
+}
+.router-logs {
+  padding: 0;
+  overflow: hidden;
+}
+.router-log-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.router-log-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--xc-border);
+  font-size: var(--fs-13);
+}
+.router-log-row:last-child {
+  border-bottom: none;
+}
+.router-log-link {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.router-log-link:hover .router-log-text {
+  color: var(--xc-accent-text);
+}
+.router-log-time {
+  flex: none;
+  color: var(--xc-muted);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
+}
+.router-log-row .xc-badge {
+  flex: none;
+}
+.router-log-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.router-log-text small {
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.router-log-list.is-system .router-log-row {
+  min-height: 30px;
+  padding: 5px 16px;
+  font-family: var(--xc-mono);
+  font-size: var(--fs-12);
+}
+.router-log-list.is-system .router-log-text b {
+  font-weight: 600;
+}
+.router-log-level {
+  flex: none;
+  width: 48px;
+  color: var(--xc-muted);
+}
+.router-log-row.is-err .router-log-level,
+.router-log-row.is-err .router-log-text {
+  color: var(--xc-danger);
+}
+.router-log-row.is-warn .router-log-level,
+.router-log-row.is-warn .router-log-text {
+  color: var(--xc-warn);
+}
+.router-log-paused,
+.router-log-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+}
+.router-log-paused {
+  border-bottom: 1px solid var(--xc-border);
+}
+@media (max-width: 720px) {
+  .router-log-row {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+  .router-log-link {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+  .router-log-text {
+    flex-basis: 100%;
+  }
+  .router-log-select {
+    max-width: 130px;
+  }
+}

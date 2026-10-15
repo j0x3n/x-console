@@ -620,3 +620,149 @@ describe("B229 设备流量", () => {
     expect(await screen.findByText(/设备流量比 WAN 少很多/)).toBeTruthy();
   });
 });
+
+describe("B230 日志", () => {
+  function setup() {
+    localStorage.setItem("router.tab", "logs");
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: pushStatus,
+    }));
+    api.routes.set("GET /router/devices", () => ({
+      status: 200,
+      body: { items: [phone, tv], trafficAvailable: false },
+    }));
+    api.routes.set("GET /router/options", () => ({
+      status: 200,
+      body: options,
+    }));
+    api.routes.set("GET /router/events", () => ({
+      status: 200,
+      body: {
+        items: [
+          {
+            id: 9,
+            at: "2026-10-01T11:59:00Z",
+            kind: "device_offline",
+            mac: phone.mac,
+            title: "我的手机 离线了",
+            detail: "",
+          },
+          {
+            id: 8,
+            at: "2026-10-01T11:00:00Z",
+            kind: "wan_down",
+            title: "WAN 口掉线了",
+            detail: "掉线 3 分钟",
+          },
+        ],
+        hasMore: true,
+      },
+    }));
+    api.routes.set("GET /router/logs", () => ({
+      status: 200,
+      body: {
+        items: [
+          {
+            id: 3,
+            at: "2026-10-01T11:59:00Z",
+            level: "err",
+            facility: "daemon",
+            program: "dnsmasq",
+            message: "failed to bind",
+          },
+        ],
+        hasMore: false,
+        programs: ["dnsmasq", "netifd"],
+      },
+    }));
+  }
+
+  it("事件按类型筛选、能翻页，点设备事件打开设备", async () => {
+    setup();
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("WAN 口掉线了")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("事件类型"), {
+      target: { value: "wan" },
+    });
+    await waitFor(() =>
+      expect(
+        api.calls.some((c) => c.path.startsWith("/router/events?group=wan")),
+      ).toBe(true),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "加载更多" }));
+    await waitFor(() =>
+      expect(api.calls.some((c) => c.path.includes("before=8"))).toBe(true),
+    );
+    fireEvent.click(screen.getAllByText("我的手机 离线了")[0]);
+    expect(
+      await screen.findByRole("dialog", { name: "我的手机" }),
+    ).toBeTruthy();
+  });
+
+  it("系统日志按级别和程序筛选", async () => {
+    setup();
+    localStorage.setItem("router.logs.part", "system");
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("failed to bind")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("级别"), {
+      target: { value: "err" },
+    });
+    fireEvent.change(screen.getByLabelText("程序"), {
+      target: { value: "dnsmasq" },
+    });
+    await waitFor(() =>
+      expect(
+        api.calls.some(
+          (c) =>
+            c.path.startsWith("/router/logs") &&
+            c.path.includes("level=err") &&
+            c.path.includes("program=dnsmasq"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("直连模式没有日志页签", async () => {
+    localStorage.setItem("router.tab", "logs");
+    api.routes.set("GET /router/status", () => ({ status: 200, body: status }));
+    api.routes.set("GET /router/traffic", () => ({
+      status: 200,
+      body: {
+        range: "24h",
+        stepSeconds: 60,
+        points: [],
+        rxBytes: 0,
+        txBytes: 0,
+      },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("100.64.1.2")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "日志" })).toBeNull();
+  });
+});
+
+describe("RouterSettingsTab B230 日志保存天数", () => {
+  it("改保存天数", async () => {
+    api.routes.set("GET /router/config", () => ({
+      status: 200,
+      body: { url: "", username: "", mode: "push", hasPassword: false },
+    }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /router/options", () => ({
+      status: 200,
+      body: options,
+    }));
+    api.routes.set("PUT /router/options", (body) => ({ status: 200, body }));
+    renderIt(<RouterSettingsTab />);
+    fireEvent.change(await screen.findByLabelText(/保存天数/), {
+      target: { value: "15" },
+    });
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+        ...options,
+        logDays: 15,
+      }),
+    );
+  });
+});

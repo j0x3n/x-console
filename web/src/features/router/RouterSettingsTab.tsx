@@ -44,6 +44,7 @@ function Loaded({ initial }: { initial: RouterConfig }) {
     <div className="settings-grid">
       <ConfigForm initial={initial} mode={mode} setMode={setMode} />
       {initial.mode === "push" && <NotifyCard />}
+      {initial.mode === "push" && <LogCard />}
     </div>
   );
 }
@@ -296,6 +297,49 @@ function NotifyCard() {
         </select>
         <small>
           同一台设备推送过一次后，这段时间里再变化只记日志，不推送。每台设备也可以单独设。
+        </small>
+      </label>
+    </section>
+  );
+}
+
+/** B230：日志保存几天，1 到 15 天。 */
+function LogCard() {
+  const t = useT();
+  const options = useRouterOptions();
+  const save = useSaveRouterOptions();
+  if (!options.data) return null;
+  const o = options.data;
+  return (
+    <section className="xc-card">
+      <div className="xc-card-head">
+        <h2>{t("Router logs")}</h2>
+      </div>
+      <label className="xc-field">
+        <span>{t("Keep logs for")}</span>
+        <select
+          className="xc-select"
+          value={o.logDays}
+          disabled={save.isPending}
+          onChange={(e) =>
+            save.mutate(
+              { ...o, logDays: Number(e.target.value) },
+              {
+                onSuccess: () => toast(t("Saved")),
+                onError: (error) =>
+                  toast({ message: errorMessage(error), tone: "error" }),
+              },
+            )
+          }
+        >
+          {Array.from({ length: 15 }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              {n} 天
+            </option>
+          ))}
+        </select>
+        <small>
+          事件和路由器的系统日志都按这个天数保存，每小时清一次。改小以后，多出来的在下一次清理时删掉。
         </small>
       </label>
     </section>

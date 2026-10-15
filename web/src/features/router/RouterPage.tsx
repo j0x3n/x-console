@@ -28,6 +28,7 @@ import { formatBytes, formatDate, formatTime } from "../../lib/time";
 import type { MetricsPoint } from "../servers/api";
 import MetricChart from "../servers/components/MetricChart";
 import DevicesView from "./DevicesView";
+import LogsView from "./LogsView";
 import { formatRate, formatUptime, niceRateMax } from "../servers/lib";
 import {
   isNotConfigured,
@@ -43,12 +44,13 @@ import {
   type TrafficRange,
 } from "./api";
 
-type Tab = "clients" | "traffic";
+type Tab = "clients" | "traffic" | "logs";
 const TAB_KEY = "router.tab";
 
 function readTab(): Tab {
   try {
-    return localStorage.getItem(TAB_KEY) === "traffic" ? "traffic" : "clients";
+    const v = localStorage.getItem(TAB_KEY);
+    return v === "traffic" || v === "logs" ? v : "clients";
   } catch {
     return "clients";
   }
@@ -64,7 +66,7 @@ export default function RouterPage() {
   const status = useRouterStatus();
   const reboot = useRebootRouter();
   // B232：通知里的链接带 ?device=MAC，要打开设备页签才能看到详情
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
   const [tab, setTabState] = useState<Tab>(() =>
     search.get("device") ? "clients" : readTab(),
   );
@@ -76,6 +78,13 @@ export default function RouterPage() {
     } catch {
       /* 存不了就算了 */
     }
+  };
+  // B230：日志里点设备事件，回到设备页签打开它
+  const openDevice = (mac: string) => {
+    const next = new URLSearchParams(search);
+    next.set("device", mac);
+    setSearch(next, { replace: true });
+    setTab("clients");
   };
   const notConfigured = status.isError && isNotConfigured(status.error);
   // B228：主动上报模式下有设备表，直连和代理模式还是原来的在线设备表
@@ -130,6 +139,14 @@ export default function RouterPage() {
               >
                 {t("Traffic")}
               </button>
+              {push && (
+                <button
+                  className={tab === "logs" ? "active" : ""}
+                  onClick={() => setTab("logs")}
+                >
+                  {t("Logs")}
+                </button>
+              )}
             </nav>
           }
           end={
@@ -152,6 +169,8 @@ export default function RouterPage() {
           ) : (
             <ClientsTable />
           )
+        ) : tab === "logs" && push ? (
+          <LogsView onOpenDevice={openDevice} />
         ) : (
           <TrafficView range={range} />
         )}
