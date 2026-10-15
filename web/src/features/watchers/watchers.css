@@ -1,4 +1,4 @@
-/* 网页盯梢（B206） */
+/* 网站自动化（B206） */
 .watchers-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -101,3 +101,34 @@ export function egressAgents(agents: Agent[], current?: string) {
     (a) => a.capabilities.includes(CAP_EGRESS) || a.id === current,
   );
 }
+
+/**
+ * B213：新建时不再选类型，按填的网址认。规则和后端一样：
+ * @ 开头或者 x.com、twitter.com 的地址是 X；其他 http(s) 地址是网页；
+ * 不带 . 也不带 / 的文字是 X 的搜索词。认不出来回 null。
+ */
+export type GuessedKind = { kind: "web" | "x"; label: string };
+
+const X_HOSTS = /^(?:(?:www|mobile)\.)?(?:x|twitter)\.com$/i;
+
+export function guessKind(input: string): GuessedKind | null {
+  const text = input.trim();
+  if (!text) return null;
+  if (text.startsWith("@")) return { kind: "x", label: "X 账号" };
+  const withScheme = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+  try {
+    const u = new URL(withScheme);
+    if (X_HOSTS.test(u.hostname)) {
+      if (u.pathname === "/search") return { kind: "x", label: "X 搜索" };
+      if (/\/status\/\d+/.test(u.pathname))
+        return { kind: "x", label: "X 推文的回复" };
+      return { kind: "x", label: "X 账号" };
+    }
+  } catch {
+    // 不是网址，往下按搜索词或者缺了 https:// 处理
+  }
+  if (/^https?:\/\/\S+$/i.test(text)) return { kind: "web", label: "网页" };
+  if (!text.includes(".") && !text.includes("/"))
+    return { kind: "x", label: "X 搜索" };
+  return null;
+}

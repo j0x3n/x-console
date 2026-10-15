@@ -5,7 +5,7 @@ import { coreApi } from "../../api/core";
 import type { components, paths } from "../../api/gen/watchers";
 import { withElevation } from "../../auth/elevation";
 
-/* 网页盯梢（B206）：AI 摸索一次记下步骤，平时回放，变了通知。 */
+/* 网站自动化（B206 网页盯梢，B213 改名）：AI 摸索一次记下步骤，平时回放，变了通知。 */
 export const watchersApi = createApi<paths>();
 
 type S = components["schemas"];

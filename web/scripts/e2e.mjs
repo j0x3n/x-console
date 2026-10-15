@@ -3914,16 +3914,16 @@ try {
     const game = (await api("/projects")).find((item) => item.key === "EEG");
     assert.equal(game?.issueCount, 10, "独立游戏模板没有建好起步卡片");
 
-    setStage("B206 网页盯梢");
+    setStage("B206 网站自动化");
     // 端到端环境没有浏览器容器，建好后第一次摸索会出错，页面要说清原因。
+    // B213：“要 AI 做什么”可以不填。
     await page.goto(`${base}/monitoring/watchers`);
-    await page.getByRole("button", { name: "新建盯梢" }).first().click();
-    const watcherDialog = dialog("新建盯梢");
+    await page.getByRole("button", { name: "新建任务" }).first().click();
+    const watcherDialog = dialog("新建任务");
     await watcherDialog.getByLabel("名称").fill("端到端办件");
     await watcherDialog
       .getByLabel("地址")
       .fill("https://www.example.gov.cn/status");
-    await watcherDialog.getByLabel("要盯什么").fill("看办理状态");
     await watcherDialog.getByRole("button", { name: "保存" }).click();
     await page.waitForURL(/\/monitoring\/watchers\/\d+$/);
     await page
@@ -3936,7 +3936,7 @@ try {
     assert.deepEqual(watcher?.allowedHosts, ["example.gov.cn"]);
     await page.getByRole("button", { name: "暂停" }).click();
     await until(
-      "网页盯梢暂停",
+      "网站自动化暂停",
       async () => (await api(`/watchers/${watcher.id}`)).enabled === false,
     );
     await send("DELETE", `/watchers/${watcher.id}`);
@@ -3944,11 +3944,12 @@ try {
     setStage("B207 盯 X");
     // 没填 X 的 Cookie，第一次检查停在“需要登录”，页面提示去稍后读填。
     await page.goto(`${base}/monitoring/watchers`);
-    await page.getByRole("button", { name: "新建盯梢" }).first().click();
-    const xDialog = dialog("新建盯梢");
-    await xDialog.getByLabel("盯什么", { exact: true }).selectOption("x");
+    await page.getByRole("button", { name: "新建任务" }).first().click();
+    const xDialog = dialog("新建任务");
+    // B213：不选类型，填 @账号 就认成 X
     await xDialog.getByLabel("名称").fill("端到端推文");
-    await xDialog.getByLabel("账号、推文或搜索词").fill("@e2e_user");
+    await xDialog.getByLabel("地址").fill("@e2e_user");
+    await xDialog.getByText("认出来是：X 账号").waitFor();
     await xDialog.getByRole("button", { name: "保存" }).click();
     await page.waitForURL(/\/monitoring\/watchers\/\d+$/);
     await page
@@ -4457,13 +4458,13 @@ try {
     setStage("B208 网站自动化经过已连接的机器上网");
     // 端到端环境没有开出口转发，只看能选这台机器、存下来、详情页写明出口。
     await page.goto(`${base}/monitoring/watchers`);
-    await page.getByRole("button", { name: "新建盯梢" }).first().click();
-    const egressDialog = dialog("新建盯梢");
+    await page.getByRole("button", { name: "新建任务" }).first().click();
+    const egressDialog = dialog("新建任务");
     await egressDialog.getByLabel("名称").fill("端到端出口");
     await egressDialog
       .getByLabel("地址")
       .fill("https://www.example.gov.cn/status");
-    await egressDialog.getByLabel("要盯什么").fill("看办理状态");
+    await egressDialog.getByLabel("要 AI 做什么").fill("看办理状态");
     await egressDialog.getByRole("button", { name: "更多选项" }).click();
     await egressDialog
       .getByLabel("出口", { exact: true })

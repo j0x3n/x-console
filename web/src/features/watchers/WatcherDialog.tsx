@@ -9,7 +9,6 @@ import {
   useUpdateWatcher,
   type Watcher,
   type WatcherInput,
-  type WatcherKind,
   type WatcherPatch,
 } from "./api";
 import {
@@ -19,11 +18,12 @@ import {
   KEEPALIVES,
   egressAgents,
   egressOf,
+  guessKind,
   minutesText,
   parseHosts,
 } from "./lib";
 
-/** 新建或修改一个盯梢任务。传了 watcher 就是修改。 */
+/** 新建或修改一个网站自动化任务。传了 watcher 就是修改。 */
 export default function WatcherDialog({
   open,
   watcher,
@@ -37,13 +37,14 @@ export default function WatcherDialog({
 }) {
   const t = useT();
   const editing = !!watcher;
-  const [kind, setKind] = useState<WatcherKind>("web");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [goal, setGoal] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [every, setEvery] = useState(60);
+  // 用户自己选过间隔就不再跟着类型换默认值
+  const [everyTouched, setEveryTouched] = useState(false);
   const [keepalive, setKeepalive] = useState(0);
   const [mode, setMode] = useState<"replay" | "ai">("replay");
   const [hosts, setHosts] = useState("");
@@ -59,13 +60,13 @@ export default function WatcherDialog({
 
   useEffect(() => {
     if (!open) return;
-    setKind(watcher?.kind ?? "web");
     setName(watcher?.name ?? "");
     setUrl(watcher?.url ?? "");
     setGoal(watcher?.goal ?? "");
     setUsername("");
     setPassword("");
     setEvery(watcher?.intervalMinutes ?? 60);
+    setEveryTouched(false);
     setKeepalive(watcher?.keepaliveMinutes ?? 0);
     setMode(watcher?.mode ?? "replay");
     setHosts(watcher?.allowedHosts.join(", ") ?? "");
@@ -74,12 +75,29 @@ export default function WatcherDialog({
     setMore(false);
   }, [open, watcher]);
 
+  // B213：新建时按网址认类型，修改时类型不变
+  const guessed = guessKind(url);
+  const kind = watcher?.kind ?? guessed?.kind ?? "web";
   const isX = kind === "x";
+  const defaultEvery = isX ? 30 : 60;
+  useEffect(() => {
+    if (!editing && !everyTouched) setEvery(defaultEvery);
+  }, [editing, everyTouched, defaultEvery]);
+  const pickEvery = (m: number) => {
+    setEvery(m);
+    setEveryTouched(true);
+  };
+  const urlHint = editing
+    ? undefined
+    : !url.trim()
+      ? "网页写完整网址。X 写 @账号、账号或推文的链接，或者搜索词。"
+      : guessed
+        ? `认出来是：${guessed.label}`
+        : "网址要以 https:// 开头";
   const valid = isX
     ? name.trim() !== "" && url.trim() !== ""
     : name.trim() !== "" &&
       /^https?:\/\/\S+$/.test(url.trim()) &&
-      goal.trim() !== "" &&
       (egress !== EGRESS_PROXY || proxy.trim() !== "" || !!watcher?.hasProxy);
   const viaAgent = egress !== EGRESS_DIRECT && egress !== EGRESS_PROXY;
 
@@ -111,7 +129,6 @@ export default function WatcherDialog({
     if (isX) {
       create.mutate(
         {
-          kind: "x",
           name: name.trim(),
           url: url.trim(),
           goal: goal.trim(),
@@ -161,6 +178,7 @@ export default function WatcherDialog({
       );
       return;
     }
+    // B213：新建时不传类型，后端按网址认（和 guessKind 的规则一样）
     const body: WatcherInput = {
       name: name.trim(),
       url: url.trim(),
@@ -195,7 +213,7 @@ export default function WatcherDialog({
           ? undefined
           : isX
             ? "盯一个账号的新推文、一个搜索的新结果，或者一条推文的新回复。用稍后读里存的 X Cookie。"
-            : "给一个网址和一句话目标，AI 会自己找到要盯的内容，记下步骤，以后按步骤定时去看。"
+            : "给一个网址，AI 会自己找到页面上要盯的内容，记下步骤，以后按步骤定时去看。也可以让它照你说的去操作。"
       }
       footer={
         <>
@@ -219,70 +237,52 @@ export default function WatcherDialog({
           if (valid && !pending) submit();
         }}
       >
-        {!editing && (
-          <div className="xc-field full">
-            <label htmlFor="watcher-kind">{t("Watch what")}</label>
-            <select
-              id="watcher-kind"
-              className="xc-select"
-              value={kind}
-              onChange={(e) => {
-                const next = e.target.value as WatcherKind;
-                setKind(next);
-                setEvery(next === "x" ? 30 : 60);
-              }}
-            >
-              <option value="web">网页（政务网站、办理进度这类）</option>
-              <option value="x">X（推特）</option>
-            </select>
-          </div>
-        )}
+        <div className="xc-field">
+          <label htmlFor="watcher-name">{t("Name")}</label>
+          <input
+            id="watcher-name"
+            className="xc-input"
+            value={name}
+            maxLength={100}
+            placeholder={isX ? "比如：美联储消息" : "比如：签证办理进度"}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="xc-field">
+          <label htmlFor="watcher-url">{t("Address")}</label>
+          <input
+            id="watcher-url"
+            className="xc-input"
+            value={url}
+            inputMode="url"
+            placeholder="https:// 或者 @账号"
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          {urlHint && <small>{urlHint}</small>}
+        </div>
         {isX ? (
           <XFields
-            name={name}
-            setName={setName}
-            url={url}
-            setUrl={setUrl}
             goal={goal}
             setGoal={setGoal}
             every={every}
-            setEvery={setEvery}
+            setEvery={pickEvery}
           />
         ) : (
           <>
-            <div className="xc-field">
-              <label htmlFor="watcher-name">{t("Name")}</label>
-              <input
-                id="watcher-name"
-                className="xc-input"
-                value={name}
-                maxLength={100}
-                placeholder="比如：签证办理进度"
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div className="xc-field">
-              <label htmlFor="watcher-url">{t("Address")}</label>
-              <input
-                id="watcher-url"
-                className="xc-input"
-                value={url}
-                inputMode="url"
-                placeholder="https://"
-                onChange={(e) => setUrl(e.target.value)}
-              />
-            </div>
             <div className="xc-field full">
-              <label htmlFor="watcher-goal">{t("What to watch")}</label>
+              <label htmlFor="watcher-goal">{t("What AI should do")}</label>
               <input
                 id="watcher-goal"
                 className="xc-input"
                 value={goal}
                 maxLength={1000}
-                placeholder="比如：登录后看申请编号 A123 的办理状态"
+                placeholder="可以不填。比如：登录后看申请编号 A123 的办理状态"
                 onChange={(e) => setGoal(e.target.value)}
               />
-              <small>写清楚在哪、看什么。AI 按这句话找。</small>
+              <small>
+                不填就让 AI
+                自己找页面上会变的内容，比如状态、进度、余额。填了就照着做，要点提交、删除这类按钮时先问你。
+              </small>
             </div>
             <div className="xc-field">
               <label htmlFor="watcher-user">{t("Username")}</label>
@@ -316,7 +316,7 @@ export default function WatcherDialog({
                 id="watcher-every"
                 className="xc-select"
                 value={every}
-                onChange={(e) => setEvery(Number(e.target.value))}
+                onChange={(e) => pickEvery(Number(e.target.value))}
               >
                 {INTERVALS.map((m) => (
                   <option key={m} value={m}>
@@ -426,10 +426,6 @@ export default function WatcherDialog({
 }
 
 function XFields(p: {
-  name: string;
-  setName: (v: string) => void;
-  url: string;
-  setUrl: (v: string) => void;
   goal: string;
   setGoal: (v: string) => void;
   every: number;
@@ -439,15 +435,16 @@ function XFields(p: {
   return (
     <>
       <div className="xc-field">
-        <label htmlFor="watcher-name">{t("Name")}</label>
+        <label htmlFor="watcher-goal">{t("Only tell me about")}</label>
         <input
-          id="watcher-name"
+          id="watcher-goal"
           className="xc-input"
-          value={p.name}
-          maxLength={100}
-          placeholder="比如：美联储消息"
-          onChange={(e) => p.setName(e.target.value)}
+          value={p.goal}
+          maxLength={1000}
+          placeholder="可以不填。比如：只要和降息有关的"
+          onChange={(e) => p.setGoal(e.target.value)}
         />
+        <small>填了就让 AI 先挑一遍，不相关的不提醒。</small>
       </div>
       <div className="xc-field">
         <label htmlFor="watcher-every">{t("Check every")}</label>
@@ -463,32 +460,6 @@ function XFields(p: {
             </option>
           ))}
         </select>
-      </div>
-      <div className="xc-field full">
-        <label htmlFor="watcher-url">{t("Account, post or search")}</label>
-        <input
-          id="watcher-url"
-          className="xc-input"
-          value={p.url}
-          placeholder="@账号、账号或推文的链接、或者搜索词"
-          onChange={(e) => p.setUrl(e.target.value)}
-        />
-        <small>
-          写 @账号
-          就盯这个账号发的新推文；贴一条推文的链接就盯它的新回复；其他文字当搜索词。
-        </small>
-      </div>
-      <div className="xc-field full">
-        <label htmlFor="watcher-goal">{t("Only tell me about")}</label>
-        <input
-          id="watcher-goal"
-          className="xc-input"
-          value={p.goal}
-          maxLength={1000}
-          placeholder="可以不填。比如：只要和降息有关的"
-          onChange={(e) => p.setGoal(e.target.value)}
-        />
-        <small>填了就让 AI 先挑一遍，不相关的不提醒。</small>
       </div>
     </>
   );

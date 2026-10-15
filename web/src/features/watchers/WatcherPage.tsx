@@ -57,7 +57,7 @@ const OUTCOME: Record<WatcherRun["outcome"], { label: string; tone: string }> =
     cancelled: { label: "取消", tone: "" },
   };
 
-/** 一个盯梢任务的详情：当前值、等你处理的事、变化历史、检查记录。 */
+/** 一个网站自动化任务的详情：当前值、等你处理的事、变化历史、检查记录。 */
 export default function WatcherPage() {
   const t = useT();
   const id = Number(useParams().watcherId);
@@ -268,8 +268,8 @@ function Detail({ w }: { w: WatcherDetail }) {
                 </>
               ) : (
                 <>
-                  <dt>{t("Goal")}</dt>
-                  <dd>{w.goal}</dd>
+                  <dt>{t("What AI should do")}</dt>
+                  <dd>{w.goal || "没写，AI 自己找要盯的内容"}</dd>
                   <dt>{t("Check every")}</dt>
                   <dd>{minutesText(w.intervalMinutes)}</dd>
                   <dt>{t("Watch mode")}</dt>

@@ -97,7 +97,7 @@ export default function MonitoringNavChildren({
           active={tab === "quotas"}
           onNavigate={onNavigate}
         />
-        {/* B206：网页盯梢。数字是等你处理的任务数 */}
+        {/* B206：网站自动化。数字是等你处理的任务数 */}
         <NavPanelLink
           to="/monitoring/watchers"
           icon={ScanEye}

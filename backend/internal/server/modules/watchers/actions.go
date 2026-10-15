@@ -12,8 +12,8 @@ import (
 func (m *Module) registerActions() {
 	m.d.Actions.Register(actions.Action{
 		Name:        "watchers.list",
-		Title:       "查看网页盯梢",
-		Description: "List the web watchers: name, address, goal, the value read last time, status and when it was last checked.",
+		Title:       "查看网站自动化",
+		Description: "List the website automations (web and X): name, address, goal (what the AI should do, may be empty), the value read last time, status and when it was last checked.",
 		Input:       actions.Schema(`{"type":"object","properties":{},"additionalProperties":false}`),
 		Effect:      actions.Read,
 		Run: func(ctx context.Context, _ json.RawMessage) (any, error) {
@@ -30,8 +30,8 @@ func (m *Module) registerActions() {
 	})
 	m.d.Actions.Register(actions.Action{
 		Name:        "watchers.check",
-		Title:       "立即检查网页盯梢",
-		Description: "Check one web watcher now. The check runs in the background; read watchers.list later for the value.",
+		Title:       "立即检查网站自动化",
+		Description: "Check one website automation now. The check runs in the background; read watchers.list later for the value.",
 		Input:       actions.Schema(`{"type":"object","properties":{"id":{"type":"integer"}},"required":["id"],"additionalProperties":false}`),
 		Effect:      actions.Write,
 		Run: func(ctx context.Context, raw json.RawMessage) (any, error) {

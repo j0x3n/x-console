@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  guessKind,
   minutesText,
   money,
   needsUser,
@@ -61,5 +62,24 @@ describe("watchers lib", () => {
     expect(money(undefined)).toBe("—");
     expect(money(0.0123)).toBe("$0.012");
     expect(money(2.5)).toBe("$2.50");
+  });
+
+  it("guesses the kind from the address (B213)", () => {
+    expect(guessKind("")).toBeNull();
+    expect(guessKind("@alice")).toEqual({ kind: "x", label: "X 账号" });
+    expect(guessKind("https://x.com/alice")?.label).toBe("X 账号");
+    expect(guessKind("twitter.com/alice")?.kind).toBe("x");
+    expect(guessKind("https://mobile.twitter.com/a/status/12")?.label).toBe(
+      "X 推文的回复",
+    );
+    expect(guessKind("x.com/search?q=fed")?.label).toBe("X 搜索");
+    expect(guessKind("降息")).toEqual({ kind: "x", label: "X 搜索" });
+    expect(guessKind(" https://www.jszwfw.gov.cn/ ")).toEqual({
+      kind: "web",
+      label: "网页",
+    });
+    // 没写 https:// 的网址认不出来，要用户补上
+    expect(guessKind("example.com")).toBeNull();
+    expect(guessKind("a/b")).toBeNull();
   });
 });

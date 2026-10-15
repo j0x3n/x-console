@@ -202,7 +202,7 @@ export interface components {
             name: string;
             /** @description 网页地址；X 是账号、搜索或推文的 x.com 地址 */
             url: string;
-            /** @description 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空 */
+            /** @description 要 AI 做什么，可以为空。为空就只监测，AI 自己判断盯什么；X 是过滤条件 */
             goal: string;
             allowedHosts: string[];
             intervalMinutes: number;
@@ -235,11 +235,13 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        /** @description kind 可以不填，不填时按 url 认。@ 开头或 x.com、twitter.com 的链接是 x，其他 http:// 或 https:// 网址是 web，不含 . 和 / 的文字是 x 的搜索词，都不是就报错。 */
         WatcherInput: {
             kind?: components["schemas"]["WatcherKind"];
             name: string;
             /** @description X 可以写 @账号、账号或推文的链接、搜索词 */
             url: string;
+            /** @description 要 AI 做什么，可以不填。不填就只监测，AI 自己判断盯什么；X 是过滤条件 */
             goal: string;
             /** @description 不填就用网址的域名 */
             allowedHosts?: string[];
@@ -392,7 +394,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 全部盯梢任务，按创建时间 */
+            /** @description 全部网站自动化任务，按创建时间 */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -217,7 +217,7 @@ type Watcher struct {
 	EgressAgentId *string `json:"egressAgentId,omitempty"`
 	Enabled       bool    `json:"enabled"`
 
-	// Goal 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空
+	// Goal 要 AI 做什么，可以为空。为空就只监测，AI 自己判断盯什么；X 是过滤条件
 	Goal string `json:"goal"`
 
 	// HasLogin 存了用户名和密码
@@ -279,7 +279,7 @@ type WatcherDetail struct {
 	EgressAgentId *string `json:"egressAgentId,omitempty"`
 	Enabled       bool    `json:"enabled"`
 
-	// Goal 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空
+	// Goal 要 AI 做什么，可以为空。为空就只监测，AI 自己判断盯什么；X 是过滤条件
 	Goal string `json:"goal"`
 
 	// HasLogin 存了用户名和密码
@@ -324,14 +324,16 @@ type WatcherDetail struct {
 	Url string `json:"url"`
 }
 
-// WatcherInput defines model for WatcherInput.
+// WatcherInput kind 可以不填，不填时按 url 认。@ 开头或 x.com、twitter.com 的链接是 x，其他 http:// 或 https:// 网址是 web，不含 . 和 / 的文字是 x 的搜索词，都不是就报错。
 type WatcherInput struct {
 	// AllowedHosts 不填就用网址的域名
 	AllowedHosts *[]string `json:"allowedHosts,omitempty"`
 
 	// EgressAgentId B208：经过这台已连接的机器上网，和 proxy 只能填一个
 	EgressAgentId *string `json:"egressAgentId,omitempty"`
-	Goal          string  `json:"goal"`
+
+	// Goal 要 AI 做什么，可以不填。不填就只监测，AI 自己判断盯什么；X 是过滤条件
+	Goal string `json:"goal"`
 
 	// IntervalMinutes 默认 60，最少 15
 	IntervalMinutes *int `json:"intervalMinutes,omitempty"`

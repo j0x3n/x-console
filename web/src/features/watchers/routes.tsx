@@ -12,18 +12,19 @@ const LivePage = lazy(() => import("./LivePage"));
 registerCommands([
   {
     id: "watchers.list",
-    title: "网页盯梢",
+    title: "网站自动化",
     group: "监控",
     icon: ScanEye,
-    keywords: "watch web page ai 盯 网页 政务 办理 状态",
+    keywords:
+      "watch web page ai automation 盯梢 网页 网站 自动化 政务 办理 状态",
     run: ({ navigate }) => navigate("/monitoring/watchers"),
   },
   {
     id: "watchers.new",
-    title: "新建网页盯梢",
+    title: "新建网站自动化",
     group: "监控",
     icon: Plus,
-    keywords: "watch web page new 盯 网页",
+    keywords: "watch web page new automation 盯梢 网页 网站 自动化",
     run: ({ navigate }) => navigate("/monitoring/watchers?new=1"),
   },
 ]);

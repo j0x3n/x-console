@@ -11,7 +11,7 @@ paths:
       tags: [watchers]
       responses:
         "200":
-          description: 全部盯梢任务，按创建时间
+          description: 全部网站自动化任务，按创建时间
           content:
             application/json:
               schema:
@@ -246,7 +246,7 @@ components:
         kind: { $ref: "#/components/schemas/WatcherKind" }
         name: { type: string }
         url: { type: string, description: 网页地址；X 是账号、搜索或推文的 x.com 地址 }
-        goal: { type: string, description: 一句话目标，告诉 AI 要盯什么；X 是过滤条件，可以为空 }
+        goal: { type: string, description: 要 AI 做什么，可以为空。为空就只监测，AI 自己判断盯什么；X 是过滤条件 }
         allowedHosts: { type: array, items: { type: string } }
         intervalMinutes: { type: integer }
         keepaliveMinutes: { type: integer, description: 0 是不保活 }
@@ -267,12 +267,13 @@ components:
         createdAt: { type: string, format: date-time }
     WatcherInput:
       type: object
+      description: kind 可以不填，不填时按 url 认。@ 开头或 x.com、twitter.com 的链接是 x，其他 http:// 或 https:// 网址是 web，不含 . 和 / 的文字是 x 的搜索词，都不是就报错。
       required: [name, url, goal]
       properties:
         kind: { $ref: "#/components/schemas/WatcherKind" }
         name: { type: string }
         url: { type: string, description: X 可以写 @账号、账号或推文的链接、搜索词 }
-        goal: { type: string }
+        goal: { type: string, description: 要 AI 做什么，可以不填。不填就只监测，AI 自己判断盯什么；X 是过滤条件 }
         allowedHosts: { type: array, items: { type: string }, description: 不填就用网址的域名 }
         intervalMinutes: { type: integer, description: 默认 60，最少 15 }
         keepaliveMinutes: { type: integer, description: 0 是不保活，最少 5 }

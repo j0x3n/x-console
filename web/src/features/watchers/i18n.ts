@@ -1,20 +1,20 @@
 import { registerZh } from "../../lib/i18n";
 
 registerZh({
-  // B206 网页盯梢
-  "Web watchers": "网页盯梢",
-  "New watcher": "新建盯梢",
-  "Edit watcher": "修改盯梢",
-  "Delete watcher": "删除盯梢",
-  "Watcher settings": "网页盯梢设置",
-  "No watchers yet": "还没有盯梢任务",
+  // B206 网页盯梢，B213 改名网站自动化
+  "Web watchers": "网站自动化",
+  "New watcher": "新建任务",
+  "Edit watcher": "修改任务",
+  "Delete watcher": "删除任务",
+  "Watcher settings": "网站自动化设置",
+  "No watchers yet": "还没有网站自动化任务",
   Watchers: "任务",
   "Needs you": "等你处理",
   "AI cost today": "今天 AI 花费",
   "Handle it": "去处理",
-  "What to watch": "要盯什么",
+  "What AI should do": "要 AI 做什么",
   "Check every": "检查间隔",
-  "How AI watches": "盯的方式",
+  "How AI watches": "运行方式",
   "Keep login alive": "保持登录",
   "Outgoing proxy": "出口代理",
   "Go online via": "出口",
@@ -41,8 +41,6 @@ registerZh({
   "Back to the watcher": "回到任务",
   "Server browser": "服务器上的浏览器",
   // B207 盯 X
-  "Watch what": "盯什么",
-  "Account, post or search": "账号、推文或搜索词",
   "Only tell me about": "只告诉我",
   "X query ids": "X 接口编号",
   "Latest post": "最新一条",

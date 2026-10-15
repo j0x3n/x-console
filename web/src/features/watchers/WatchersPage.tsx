@@ -32,7 +32,7 @@ import "./watchers.css";
 const fail = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
 
-/** 网页盯梢（B206）列表。放在监控的二级菜单下。 */
+/** 网站自动化（B206）列表。放在监控的二级菜单下。 */
 export default function WatchersPage() {
   const t = useT();
   const navigate = useNavigate();
@@ -134,8 +134,7 @@ export default function WatchersPage() {
         {watchers.length === 0 ? (
           <EmptyState title={t("No watchers yet")} icon={<ScanEye size={26} />}>
             <span>
-              给 AI
-              一个网址和一句话目标，它会登录、找到要盯的内容，变了就通知你。
+              给 AI 一个网址，它会登录，自己找到要盯的内容。变了就通知你。
             </span>
             <button
               className="xc-btn primary"

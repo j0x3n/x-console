@@ -166,14 +166,14 @@ describe("WatchersPage", () => {
       body: { ...base, ...(body as object), id: 9 },
     }));
     renderAt("/monitoring/watchers?new=1", <WatchersPage />);
-    await screen.findByText("还没有盯梢任务");
+    await screen.findByText("还没有网站自动化任务");
     fireEvent.change(screen.getByLabelText(/^(Name|名称)$/), {
       target: { value: "护照" },
     });
     fireEvent.change(screen.getByLabelText(/^(Address|地址)$/), {
       target: { value: "https://a.gov.cn/x" },
     });
-    fireEvent.change(screen.getByLabelText("要盯什么"), {
+    fireEvent.change(screen.getByLabelText("要 AI 做什么"), {
       target: { value: "看护照进度" },
     });
     fireEvent.change(screen.getByLabelText(/^(Username|用户名)$/), {
@@ -238,15 +238,12 @@ describe("出口（B208）", () => {
       body: { ...base, ...(body as object), id: 9 },
     }));
     renderAt("/monitoring/watchers?new=1", <WatchersPage />);
-    await screen.findByText("还没有盯梢任务");
+    await screen.findByText("还没有网站自动化任务");
     fireEvent.change(screen.getByLabelText(/^(Name|名称)$/), {
       target: { value: "全链通" },
     });
     fireEvent.change(screen.getByLabelText(/^(Address|地址)$/), {
       target: { value: "https://www.jszwfw.gov.cn/" },
-    });
-    fireEvent.change(screen.getByLabelText("要盯什么"), {
-      target: { value: "看办理进度" },
     });
     fireEvent.click(screen.getByText(/^(More options|更多设置)$/));
     const select = screen.getByLabelText("出口") as HTMLSelectElement;
@@ -315,21 +312,19 @@ describe("X watchers", () => {
       body: { ...base, ...(body as object), id: 10 },
     }));
     renderAt("/monitoring/watchers?new=1", <WatchersPage />);
-    await screen.findByText("还没有盯梢任务");
-    fireEvent.change(screen.getByLabelText("盯什么"), {
-      target: { value: "x" },
-    });
-    expect(screen.queryByLabelText(/^(Password|密码)$/)).toBeNull();
+    await screen.findByText("还没有网站自动化任务");
     fireEvent.change(screen.getByLabelText(/^(Name|名称)$/), {
       target: { value: "Alice" },
     });
-    fireEvent.change(screen.getByLabelText("账号、推文或搜索词"), {
+    // B213：不用选类型，填 @账号 就认成 X
+    fireEvent.change(screen.getByLabelText(/^(Address|地址)$/), {
       target: { value: "@alice" },
     });
+    expect(screen.getByText("认出来是：X 账号")).toBeTruthy();
+    expect(screen.queryByLabelText(/^(Password|密码)$/)).toBeNull();
     fireEvent.click(screen.getByText(/^(Save|保存)$/));
     await waitFor(() =>
       expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({
-        kind: "x",
         name: "Alice",
         url: "@alice",
         goal: "",

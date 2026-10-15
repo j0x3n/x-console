@@ -39,6 +39,19 @@ func ParseXTarget(in string) (string, string, string, error) {
 	return t.Kind, t.Value, u, err
 }
 
+// DetectKind exposes the kind detection: kind and the address to store.
+func DetectKind(in string) (string, string, error) { return detectKind(in) }
+
+// JudgeUser exposes the message the change judge gets.
+func JudgeUser(goal, old, value string) string { return judgeUser(goal, old, value) }
+
+// AgentSystem and AgentFirstMessage expose the exploration prompts.
+func AgentSystem() string { return agentSystem }
+
+func AgentFirstMessage(url, goal string, hasLogin bool, page string) string {
+	return agentFirstMessage(url, goal, hasLogin, page)
+}
+
 // CollectPosts returns the ids and handles of the posts in an X answer.
 func CollectPosts(body []byte) ([]string, error) {
 	var doc any

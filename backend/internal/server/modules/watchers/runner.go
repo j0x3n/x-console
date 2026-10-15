@@ -34,7 +34,7 @@ var (
 	errNoAnswer  = errors.New("等了 30 分钟没人处理")
 	errNeedLogin = errors.New("网站要登录，但是没有存用户名和密码")
 	errNoAI      = errors.New("没有配置 AI 模型，去设置 → AI 里配一个能看图的模型")
-	errBudget    = errors.New("今天的 AI 花费到上限了，明天再试，或者在网页盯梢的设置里调高上限")
+	errBudget    = errors.New("今天的 AI 花费到上限了，明天再试，或者在网站自动化的设置里调高上限")
 	errAskLimit  = errors.New("今天已经提醒过你 3 次，这次先不打扰")
 )
 
@@ -597,7 +597,8 @@ func boolInt(b bool) int64 {
 	return 0
 }
 
-const judgeSystem = `你帮用户盯一个网页上的内容。用户告诉你他关心什么，你拿到这个内容变化前后的文字。
+const judgeSystem = `你帮用户留意网站上的内容变化。用户会说关心什么，你拿到这个内容变化前后的文字。
+用户没说关心什么时，状态、进度、金额、结果这类变化算重要。
 判断这次变化是不是用户关心的变化。只是时间戳、访问次数、广告、排序这类无关紧要的变化，important 填 false。
 summary 用一句中文说清楚变了什么，不超过 30 个字，比如“办理状态变成已受理”。`
 
@@ -614,11 +615,21 @@ func (m *Module) judge(ctx context.Context, w db.Watcher, old, value string) (st
 		Summary   string `json:"summary"`
 	}
 	ctx = contracts.WithAIUsage(ctx, "watchers", strconv.FormatInt(w.ID, 10))
-	user := fmt.Sprintf("用户关心的：%s\n\n变化前：\n%s\n\n变化后：\n%s", w.Goal, clip(old, 3000), clip(value, 3000))
+	user := judgeUser(w.Goal, old, value)
 	if err := l.CompleteJSON(ctx, "fast", judgeSystem, user, judgeSchema, &out); err != nil || strings.TrimSpace(out.Summary) == "" {
 		return fallback, true
 	}
 	return clip(strings.TrimSpace(out.Summary), 60), out.Important
+}
+
+// judgeUser is the message the judge gets. An empty goal is said in words, so
+// the model does not read an empty "what the user cares about".
+func judgeUser(goal, old, value string) string {
+	care := "用户关心的：" + goal
+	if strings.TrimSpace(goal) == "" {
+		care = "用户没说关心什么。状态、进度、金额、结果这类变化算重要"
+	}
+	return fmt.Sprintf("%s\n\n变化前：\n%s\n\n变化后：\n%s", care, clip(old, 3000), clip(value, 3000))
 }
 
 // overBudget reports whether today's AI cost reached the limit.

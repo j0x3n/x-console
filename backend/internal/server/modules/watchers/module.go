@@ -330,8 +330,8 @@ func (f *fields) check() error {
 	if f.kind == "x" {
 		return f.checkX()
 	}
-	if f.goal == "" || utf8.RuneCountInString(f.goal) > maxGoal {
-		return httpx.Invalid("目标要写一句话，最多 1000 个字")
+	if utf8.RuneCountInString(f.goal) > maxGoal {
+		return httpx.Invalid("要 AI 做的事最多 1000 个字")
 	}
 	u, err := url.Parse(f.url)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
@@ -370,6 +370,42 @@ func (f *fields) check() error {
 		return httpx.Invalid("模式只能是 replay 或 ai")
 	}
 	return nil
+}
+
+// detectKind tells the kind from what the user typed in the address box
+// (B213). It returns the kind and the address to store: an X link written
+// without https:// gets it added. Text with no "." and no "/" is an X search.
+func detectKind(in string) (kind, addr string, err error) {
+	in = strings.TrimSpace(in)
+	if in == "" {
+		return "", "", httpx.Invalid("要写网址、@账号或搜索词")
+	}
+	if strings.HasPrefix(in, "@") {
+		return "x", in, nil
+	}
+	lower := strings.ToLower(in)
+	scheme := strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
+	rest := lower
+	if scheme {
+		rest = lower[strings.Index(lower, "://")+3:]
+	}
+	if i := strings.IndexAny(rest, "/?#"); i >= 0 {
+		rest = rest[:i]
+	}
+	host := strings.TrimPrefix(strings.TrimPrefix(rest, "www."), "mobile.")
+	if host == "x.com" || host == "twitter.com" {
+		if scheme {
+			return "x", in, nil
+		}
+		return "x", "https://" + in, nil
+	}
+	if scheme {
+		return "web", in, nil
+	}
+	if !strings.ContainsAny(in, "./") {
+		return "x", in, nil
+	}
+	return "", "", httpx.Invalid("网址要以 https:// 开头")
 }
 
 // checkX validates an X watcher (B207). The goal is an optional filter.
@@ -501,6 +537,12 @@ func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher,
 			return db.Watcher{}, httpx.Invalid("kind 只能是 web 或 x")
 		}
 		f.kind = string(*body.Kind)
+	} else {
+		kind, addr, err := detectKind(body.Url)
+		if err != nil {
+			return db.Watcher{}, err
+		}
+		f.kind, f.url = kind, addr
 	}
 	if body.AllowedHosts != nil {
 		f.hosts = *body.AllowedHosts
@@ -522,7 +564,7 @@ func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher,
 		return db.Watcher{}, err
 	}
 	if len(rows) >= maxWatchers {
-		return db.Watcher{}, httpx.Invalid("最多 100 个盯梢任务")
+		return db.Watcher{}, httpx.Invalid("最多 100 个网站自动化任务")
 	}
 	var loginSealed, proxySealed string
 	egressID := ""

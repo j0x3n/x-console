@@ -6,7 +6,7 @@ import { toast } from "../../hooks/useToast";
 import { usePutWatchersSettings, useWatchersSettings } from "./api";
 import { parseHosts } from "./lib";
 
-/** 网页盯梢的设置：每天的 AI 花费上限、点之前要批准的按钮字样。 */
+/** 网站自动化的设置：每天的 AI 花费上限、点之前要批准的按钮字样。 */
 export default function SettingsDialog({
   open,
   onClose,
@@ -78,7 +78,7 @@ export default function SettingsDialog({
             onChange={(e) => setBudget(e.target.value)}
           />
           <small>
-            所有网页盯梢一天最多花这么多。到了上限只按记下的步骤检查，不再叫
+            所有网站自动化任务一天最多花这么多。到了上限只按记下的步骤检查，不再叫
             AI。填 0 就完全不用 AI。
           </small>
         </div>
