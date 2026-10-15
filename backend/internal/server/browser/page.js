@@ -287,7 +287,7 @@ function __xc(op, arg) {
       y += fr.top;
       win = win.parent;
     }
-    return { x: x, y: y, visible: visible(el) };
+    return { x: x, y: y, w: r.width, h: r.height, visible: visible(el) };
   }
 
   function clear(ref) {

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -57,6 +58,13 @@ type Session struct {
 	done     chan struct{}
 	closed   bool
 	release  func()
+
+	mouseMu  sync.Mutex // the last position of the mouse
+	mouseX   float64
+	mouseY   float64
+	mouseSet bool
+
+	paceScale atomic.Int64 // percent of the human delays to wait, 0 is all
 
 	inflight  map[string]bool
 	lastNet   time.Time
@@ -177,7 +185,8 @@ func (s *Service) open(ctx context.Context, o Options) (*Session, error) {
 		{"Page.enable", nil},
 		{"Runtime.enable", nil},
 		{"Network.enable", nil},
-		{"Emulation.setDeviceMetricsOverride", map[string]any{"width": ViewWidth, "height": ViewHeight, "deviceScaleFactor": 1, "mobile": false}},
+		{"Emulation.setDeviceMetricsOverride", map[string]any{"width": ViewWidth, "height": ViewHeight, "deviceScaleFactor": 1, "mobile": false,
+			"screenWidth": screenWidth, "screenHeight": screenHeight}},
 	}
 	if o.Timezone != "" {
 		setup = append(setup, struct {
@@ -191,18 +200,29 @@ func (s *Service) open(ctx context.Context, o Options) (*Session, error) {
 			return fail(fmt.Errorf("%s: %w", step.method, err))
 		}
 	}
-	// Headless Chrome says so in its user agent, and some sites refuse it.
+	// Headless Chrome says so in its user agent and in the Client Hints that
+	// go with it (Sec-CH-UA, navigator.userAgentData), and some sites refuse it.
 	var ver struct {
-		UA string `json:"userAgent"`
+		UA      string `json:"userAgent"`
+		Product string `json:"product"`
 	}
 	if c.call(ctx, "", "Browser.getVersion", nil, &ver) == nil && ver.UA != "" {
 		lang := o.Locale
 		if lang == "" {
 			lang = "zh-CN"
 		}
-		_ = c.call(ctx, x.sid, "Network.setUserAgentOverride", map[string]any{
-			"userAgent": strings.ReplaceAll(ver.UA, "HeadlessChrome", "Chrome"), "acceptLanguage": lang + "," + strings.SplitN(lang, "-", 2)[0] + ";q=0.9",
-		}, nil)
+		ua, meta, ok := userAgent(ver.UA, ver.Product)
+		p := map[string]any{"userAgent": ua, "acceptLanguage": lang + "," + strings.SplitN(lang, "-", 2)[0] + ";q=0.9"}
+		if ok {
+			p["userAgentMetadata"] = meta
+		}
+		_ = c.call(ctx, x.sid, "Network.setUserAgentOverride", p, nil)
+	}
+	// Runs in every document and frame of the session, before the scripts of
+	// the page. Not part of the storage script below: that one exists only
+	// when there is saved state.
+	if err := c.call(ctx, x.sid, "Page.addScriptToEvaluateOnNewDocument", map[string]any{"source": stealthSource(o.Locale)}, nil); err != nil {
+		s.log.Warn("browser stealth script", "err", err)
 	}
 	if len(x.origins) > 0 {
 		raw, _ := json.Marshal(x.origins)
@@ -639,46 +659,35 @@ func (x *Session) Check(ctx context.Context) (Status, error) {
 	return st, err
 }
 
-func (x *Session) clickAt(ctx context.Context, px, py float64) error {
-	for _, typ := range []string{"mouseMoved", "mousePressed", "mouseReleased"} {
-		p := map[string]any{"type": typ, "x": px, "y": py, "button": "left", "clickCount": 1}
-		if typ == "mouseMoved" {
-			p["button"] = "none"
-			p["clickCount"] = 0
-		}
-		if err := x.c.call(ctx, x.sid, "Input.dispatchMouseEvent", p, nil); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// target is where an element is on the page: its middle and its size.
+type target struct{ X, Y, W, H float64 }
 
-func (x *Session) point(ctx context.Context, ref string) (float64, float64, error) {
+func (x *Session) point(ctx context.Context, ref string) (target, error) {
 	var pt *struct {
-		X, Y    float64
+		target
 		Visible bool
 	}
 	if err := x.eval(ctx, "point", ref, &pt); err != nil {
-		return 0, 0, err
+		return target{}, err
 	}
 	if pt == nil {
-		return 0, 0, ErrNoElement
+		return target{}, ErrNoElement
 	}
 	if !pt.Visible {
-		return 0, 0, errors.New("这个元素现在看不见")
+		return target{}, errors.New("这个元素现在看不见")
 	}
-	return pt.X, pt.Y, nil
+	return pt.target, nil
 }
 
 // Click clicks the element with ref like a mouse does and waits for the page.
 func (x *Session) Click(ctx context.Context, ref string) error {
 	x.ops.Lock()
 	defer x.ops.Unlock()
-	px, py, err := x.point(ctx, ref)
+	pt, err := x.point(ctx, ref)
 	if err != nil {
 		return err
 	}
-	if err := x.clickAt(ctx, px, py); err != nil {
+	if err := x.humanClick(ctx, pt.X, pt.Y, pt.W, pt.H); err != nil {
 		return err
 	}
 	// A click may start a navigation; give it a moment to begin.
@@ -695,11 +704,11 @@ func (x *Session) Click(ctx context.Context, ref string) error {
 func (x *Session) Type(ctx context.Context, ref, text string) error {
 	x.ops.Lock()
 	defer x.ops.Unlock()
-	px, py, err := x.point(ctx, ref)
+	pt, err := x.point(ctx, ref)
 	if err != nil {
 		return err
 	}
-	if err := x.clickAt(ctx, px, py); err != nil {
+	if err := x.humanClick(ctx, pt.X, pt.Y, pt.W, pt.H); err != nil {
 		return err
 	}
 	var ok bool
@@ -709,7 +718,7 @@ func (x *Session) Type(ctx context.Context, ref, text string) error {
 	if !ok {
 		return ErrNoElement
 	}
-	return x.c.call(ctx, x.sid, "Input.insertText", map[string]any{"text": text}, nil)
+	return x.typeText(ctx, text)
 }
 
 // Fill types a secret, such as a stored user name, into the field with ref.
