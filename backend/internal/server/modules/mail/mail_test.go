@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,6 +41,38 @@ type fakeIMAP struct {
 	port int
 	user *imapmemserver.User
 	tls  *tls.Config // what clients use to trust it
+
+	logins atomic.Int32 // 登录过多少次，用来看有没有另开连接
+	lossy  atomic.Bool  // 设上以后 STORE 不保存任何状态
+}
+
+// session is the fake server's session. In lossy mode STORE answers with the
+// old flags, like a server that does not keep what it is told.
+type session struct {
+	*imapmemserver.UserSession
+	f   *fakeIMAP
+	usr *imapmemserver.User
+}
+
+func (s *session) Login(username, password string) error {
+	if username != user {
+		return imapserver.ErrAuthFailed
+	}
+	if err := s.usr.Login(username, password); err != nil {
+		return err
+	}
+	s.f.logins.Add(1)
+	s.UserSession = imapmemserver.NewUserSession(s.usr)
+	return nil
+}
+
+func (s *session) Store(w *imapserver.FetchWriter, numSet imap.NumSet, flags *imap.StoreFlags, options *imap.StoreOptions) error {
+	if s.f.lossy.Load() {
+		none := *flags
+		none.Flags = nil
+		flags = &none
+	}
+	return s.UserSession.Store(w, numSet, flags, options)
 }
 
 func newFakeIMAP(t *testing.T) *fakeIMAP {
@@ -50,15 +83,14 @@ func newFakeIMAP(t *testing.T) *fakeIMAP {
 	pool.AddCert(h.Certificate())
 	h.Close()
 
-	mem := imapmemserver.New()
 	u := imapmemserver.NewUser(user, pass)
 	if err := u.Create("INBOX", nil); err != nil {
 		t.Fatal(err)
 	}
-	mem.AddUser(u)
+	fake := &fakeIMAP{user: u}
 	srv := imapserver.New(&imapserver.Options{
 		NewSession: func(*imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
-			return mem.NewSession(), nil, nil
+			return &session{f: fake, usr: u}, nil, nil
 		},
 		Caps:         imap.CapSet{imap.CapIMAP4rev1: {}, imap.CapIdle: {}},
 		InsecureAuth: true,
@@ -70,7 +102,8 @@ func newFakeIMAP(t *testing.T) *fakeIMAP {
 	}
 	go func() { _ = srv.Serve(ln) }()
 	t.Cleanup(func() { _ = srv.Close() })
-	return &fakeIMAP{addr: ln.Addr().String(), port: ln.Addr().(*net.TCPAddr).Port, user: u, tls: &tls.Config{RootCAs: pool}}
+	fake.addr, fake.port, fake.tls = ln.Addr().String(), ln.Addr().(*net.TCPAddr).Port, &tls.Config{RootCAs: pool}
+	return fake
 }
 
 type quietLogger struct{}
@@ -508,5 +541,122 @@ func TestNewMailCarriesItsMailboxAndDeleteAnnouncesIt(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("no notify.scope_removed event")
+	}
+}
+
+// serverFlags returns the flags the server holds for one UID of INBOX.
+func serverFlags(t *testing.T, c *imapclient.Client, uid imap.UID) []imap.Flag {
+	t.Helper()
+	got, err := c.Fetch(imap.UIDSetNum(uid), &imap.FetchOptions{UID: true, Flags: true}).Collect()
+	if err != nil || len(got) != 1 {
+		t.Fatalf("fetch flags of %d: %+v %v", uid, got, err)
+	}
+	return got[0].Flags
+}
+
+// connected waits until the account's connection is up and idling.
+func connected(t *testing.T, env *testutil.Env, id int64) {
+	t.Helper()
+	eventually(t, "account connected", func() bool {
+		var accounts []api.MailAccount
+		env.MustDo(http.MethodGet, "/mail/accounts", nil, &accounts)
+		for _, a := range accounts {
+			if a.Id == id && a.Status == api.Ok && a.Idle != nil && *a.Idle {
+				return true
+			}
+		}
+		return false
+	})
+	time.Sleep(200 * time.Millisecond) // 第一次同步做完，进到 IDLE
+}
+
+// B217: 标成已读以后，后面几次同步不能把它改回未读。
+func TestReadStaysReadAcrossSyncs(t *testing.T) {
+	env, _, f := setup(t)
+	old := time.Now().Add(-time.Hour)
+	for _, s := range []string{"One", "Two", "Three"} {
+		f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: "+s, 1), old)
+	}
+	var acc api.MailAccount
+	env.MustDo(http.MethodPost, "/mail/accounts", accountInput(f, pass), &acc)
+	eventually(t, "first sync", func() bool { return len(list(t, env, "")) == 3 })
+	connected(t, env, acc.Id)
+
+	one := bySubject(list(t, env, ""), "One")
+	other := f.client(t)
+	logins := f.logins.Load()
+	var sum api.MailSummary
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/mail/messages/%d", one.Id), map[string]any{"unread": false}, &sum)
+	if sum.Unread {
+		t.Fatal("still unread")
+	}
+	if n := f.logins.Load(); n != logins {
+		t.Fatalf("PATCH opened %d extra connections, want it done on the live one", n-logins)
+	}
+	if !hasFlag(serverFlags(t, other, 1), imap.FlagSeen) {
+		t.Fatal("server has no \\Seen")
+	}
+
+	// 让同步跑几次：别的设备给另外两封加星标，每次都会触发一次同步
+	for i, subject := range []string{"Two", "Three"} {
+		if err := other.Store(imap.UIDSetNum(imap.UID(i+2)), &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagFlagged}}, nil).Close(); err != nil {
+			t.Fatal(err)
+		}
+		eventually(t, subject+" flagged", func() bool {
+			x := bySubject(list(t, env, ""), subject)
+			return x != nil && x.Flagged
+		})
+		if x := bySubject(list(t, env, ""), "One"); x == nil || x.Unread {
+			t.Fatalf("after sync %d, One is unread again: %+v", i+1, x)
+		}
+	}
+	if !hasFlag(serverFlags(t, other, 1), imap.FlagSeen) {
+		t.Fatal("server lost \\Seen")
+	}
+
+	// 标星、取消星标、改回未读，也走同一条连接
+	for _, step := range []struct {
+		body map[string]any
+		want func(api.MailSummary) bool
+		flag bool
+		seen bool
+	}{
+		{map[string]any{"flagged": true}, func(s api.MailSummary) bool { return s.Flagged && !s.Unread }, true, true},
+		{map[string]any{"flagged": false, "unread": true}, func(s api.MailSummary) bool { return !s.Flagged && s.Unread }, false, false},
+	} {
+		env.MustDo(http.MethodPatch, fmt.Sprintf("/mail/messages/%d", one.Id), step.body, &sum)
+		fl := serverFlags(t, other, 1)
+		if !step.want(sum) || hasFlag(fl, imap.FlagFlagged) != step.flag || hasFlag(fl, imap.FlagSeen) != step.seen {
+			t.Fatalf("patch %v: %+v, server %v", step.body, sum, fl)
+		}
+	}
+	if n := f.logins.Load(); n != logins {
+		t.Fatalf("PATCH opened %d extra connections", n-logins)
+	}
+}
+
+// B217: 服务器说存上了但状态没变，要回 502，本地不改。
+func TestPatchFailsWhenServerKeepsNothing(t *testing.T) {
+	env, _, f := setup(t)
+	f.add(t, plainMail, time.Now().Add(-time.Hour))
+	var acc api.MailAccount
+	env.MustDo(http.MethodPost, "/mail/accounts", accountInput(f, pass), &acc)
+	eventually(t, "first sync", func() bool { return len(list(t, env, "")) == 1 })
+	connected(t, env, acc.Id)
+	id := list(t, env, "")[0].Id
+
+	f.lossy.Store(true)
+	status, body := env.Do(http.MethodPatch, fmt.Sprintf("/mail/messages/%d", id), map[string]any{"unread": false}, nil)
+	if status != http.StatusBadGateway || !strings.Contains(string(body), "mail_unavailable") || !strings.Contains(string(body), "没有保存") {
+		t.Fatalf("lossy server: %d %s", status, body)
+	}
+	if got := list(t, env, ""); len(got) != 1 || !got[0].Unread {
+		t.Fatalf("local changed anyway: %+v", got)
+	}
+
+	f.lossy.Store(false)
+	env.MustDo(http.MethodPatch, fmt.Sprintf("/mail/messages/%d", id), map[string]any{"unread": false}, nil)
+	if got := list(t, env, ""); got[0].Unread {
+		t.Fatalf("still unread: %+v", got)
 	}
 }

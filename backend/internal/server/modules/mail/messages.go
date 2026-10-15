@@ -331,9 +331,26 @@ func (m *Module) UpdateMailMessage(w http.ResponseWriter, r *http.Request, messa
 		httpx.JSON(w, http.StatusOK, rowSummary(row))
 		return
 	}
-	if err := m.storeFlags(ctx, row, body); err != nil {
-		httpx.Fail(w, r, err)
-		return
+	// B217: 先改邮箱服务器，存上了再改本地
+	if body.Unread != nil {
+		kind := opSeen
+		if *body.Unread {
+			kind = opUnseen
+		}
+		if err := m.apply(ctx, row.AccountID, kind, []int64{row.Uid}); err != nil {
+			httpx.Fail(w, r, unavailable(err))
+			return
+		}
+	}
+	if body.Flagged != nil {
+		kind := opUnflag
+		if *body.Flagged {
+			kind = opFlag
+		}
+		if err := m.apply(ctx, row.AccountID, kind, []int64{row.Uid}); err != nil {
+			httpx.Fail(w, r, unavailable(err))
+			return
+		}
 	}
 	if body.Unread != nil {
 		row.Unread = boolInt(*body.Unread)
@@ -349,41 +366,14 @@ func (m *Module) UpdateMailMessage(w http.ResponseWriter, r *http.Request, messa
 	httpx.JSON(w, http.StatusOK, rowSummary(row))
 }
 
-// storeFlags changes \Seen and \Flagged on the server with UID STORE.
-func (m *Module) storeFlags(ctx context.Context, row db.MailMessage, p api.MailMessagePatch) error {
-	acc, err := m.getAccount(ctx, row.AccountID)
-	if err != nil {
+// unavailable turns a mailbox failure into a 502. Errors that already are
+// HTTP errors (account gone) stay as they are.
+func unavailable(err error) error {
+	var he *httpx.Error
+	if errors.As(err, &he) || errors.Is(err, context.Canceled) {
 		return err
 	}
-	cfg, err := m.accountConfig(acc)
-	if err != nil {
-		return httpx.NewError(http.StatusBadGateway, "mail_unavailable", err.Error())
-	}
-	c, _, err := m.connect(ctx, cfg, nil)
-	if err != nil {
-		return httpx.NewError(http.StatusBadGateway, "mail_unavailable", err.Error())
-	}
-	defer c.Close()
-	uid := imap.UIDSetNum(imap.UID(row.Uid))
-	change := func(flag imap.Flag, on bool) error {
-		op := imap.StoreFlagsDel
-		if on {
-			op = imap.StoreFlagsAdd
-		}
-		return c.Store(uid, &imap.StoreFlags{Op: op, Silent: true, Flags: []imap.Flag{flag}}, nil).Close()
-	}
-	if p.Unread != nil {
-		if err := change(imap.FlagSeen, !*p.Unread); err != nil {
-			return httpx.NewError(http.StatusBadGateway, "mail_unavailable", "改邮箱上的状态失败："+err.Error())
-		}
-	}
-	if p.Flagged != nil {
-		if err := change(imap.FlagFlagged, *p.Flagged); err != nil {
-			return httpx.NewError(http.StatusBadGateway, "mail_unavailable", "改邮箱上的状态失败："+err.Error())
-		}
-	}
-	_ = c.Logout().Wait()
-	return nil
+	return httpx.NewError(http.StatusBadGateway, "mail_unavailable", err.Error())
 }
 
 func boolInt(b bool) int64 {

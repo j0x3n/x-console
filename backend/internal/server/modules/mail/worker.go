@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -38,6 +39,10 @@ type worker struct {
 	poke   chan struct{} // sync now: new mail, flag changes, or the sync button
 	cancel context.CancelFunc
 	done   chan struct{}
+
+	mu   sync.Mutex
+	live bool   // B217: 连着，能收请求
+	jobs []*job // 等这条连接去改邮箱的请求
 }
 
 func (w *worker) wake() {
@@ -183,15 +188,18 @@ func (m *Module) session(ctx context.Context, w *worker) (connected bool, err er
 	defer c.Close()
 	stop := context.AfterFunc(ctx, func() { c.Close() })
 	defer stop()
+	defer w.failJobs() // 还在等的请求改走短连接
 
 	caps := c.Caps()
 	idle := caps.Has(imap.CapIdle) || caps.Has(imap.CapIMAP4rev2)
+	w.setLive(true)
 	m.setState(w.id, accountState{Status: api.Ok, Idle: idle})
 
 	if err := m.checkValidity(ctx, acc, sel.UIDValidity); err != nil {
 		return true, err
 	}
 	for {
+		m.runJobs(ctx, c, w)
 		if err := m.syncOnce(ctx, c, w.id, sel.NumMessages); err != nil {
 			return true, fmt.Errorf("同步失败: %w", err)
 		}
