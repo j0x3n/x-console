@@ -422,7 +422,11 @@ func TestPromptsTarget(t *testing.T) {
 	if p := todayOf(t, env, h.Id); p.Target != 1 || p.Reached {
 		t.Fatalf("after one reminder: %+v", p)
 	}
-	env.MustDo(http.MethodPost, "/notify/actions", map[string]string{"actionId": fmt.Sprintf("habit.checkin:%d:1", h.Id)}, nil)
+	// 用模拟时间打卡。通知按钮打卡记的是真实时间，上海时间 10:40 以后跑时，
+	// 打卡比下面模拟的 10:40 还晚，提醒会被正常地推后，测试就失败了。
+	if err := habits.CheckinAt(m, ctx, h.Id, 1, "webpush", sim.Add(5*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
 	if p := todayOf(t, env, h.Id); p.Done != 1 || !p.Reached {
 		t.Fatalf("after rest: %+v", p)
 	}

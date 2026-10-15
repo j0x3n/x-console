@@ -46,7 +46,6 @@ B95：用户 2026-10-02 确认树莓派装的是 64 位系统。服务端已经�
 
 ## 已知问题
 
-- B202 的测试 `habits` 包 `TestPromptsTarget` 在上海时间 10:40 以后跑会失败（2026-10-15 发现，不是 B215 引起的，没改代码时一样）。测试按今天 10:00 和 10:40 模拟提醒，打卡却记成真实时间，晚于 10:40 时第二次提醒被跳过。要么测试里打卡也用模拟时间，要么判断时忽略晚于本次提醒的打卡。部署时 CI 在这个时间段跑也会红。
 - B215：Google 日历没有用真实账号测过，测试用的是照文档写的假服务器。第一次授权后看日历列表、同步和写回。出错时看日历上的错误原文，常见原因是 Google Cloud 里没启用 CalDAV API 或 Google Calendar API。
 - B211（2026-10-14）：OpenAI 自带的联网搜索（`web_search` 工具、`url_citation` 来源）和 Brave Search 都只用假服务器测过。上线后在 设置 → AI → 联网搜索 里各点一次“测试”，结果写进 `docs/qa/`。OpenAI 报 400 时先试把工具名换成 `web_search_preview`。
 - 代理的 `internal/agent/focusblock` 测试偶尔在清理临时目录时失败（`TestNewApplyReplacesTheOldRun`，directory not empty）。2026-10-14 全量跑时出现一次，单独连跑三次都通过。
