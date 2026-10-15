@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { invalidateOn } from "../../api/events";
 import { API_BASE, ApiError, createApi, unwrap } from "../../api/client";
 import { coreApi } from "../../api/core";
@@ -18,11 +23,13 @@ export type WatcherKind = S["WatcherKind"];
 export type WatcherRun = S["WatcherRun"];
 export type WatchersStatus = S["WatchersStatus"];
 export type WatchersSettings = S["WatchersSettings"];
+export type WatcherChange = S["WatcherChange"];
 
 export const watcherKeys = {
   all: ["watchers"] as const,
   list: ["watchers", "list"] as const,
   one: (id: number) => ["watchers", "one", id] as const,
+  runs: (id: number) => ["watchers", "runs", id] as const,
   status: ["watchers", "status"] as const,
   settings: ["watchers", "settings"] as const,
 };
@@ -141,6 +148,61 @@ export function useAnswerWatcher() {
         watchersApi.POST("/watchers/{watcherId}/answer", {
           params: { path: { watcherId: v.id } },
           body: { answer: v.answer },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: watcherKeys.all }),
+  });
+}
+
+const RUNS_PAGE = 10;
+
+/** B234：检查记录，每次取 10 条，用最后一条的编号往前翻。 */
+export function useWatcherRuns(id: number) {
+  return useInfiniteQuery({
+    queryKey: watcherKeys.runs(id),
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        watchersApi.GET("/watchers/{watcherId}/runs", {
+          params: {
+            path: { watcherId: id },
+            query: { before: pageParam || undefined, limit: RUNS_PAGE },
+          },
+        }),
+      ),
+    getNextPageParam: (last) =>
+      last.hasMore && last.items.length > 0
+        ? last.items[last.items.length - 1].id
+        : undefined,
+    enabled: Number.isFinite(id) && id > 0,
+  });
+}
+
+export type ShotsKeep = "latest" | "none";
+
+/** B234：清理一个任务的截图。 */
+export function useCleanupShots() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: number; keep: ShotsKeep }) =>
+      unwrap(
+        watchersApi.POST("/watchers/{watcherId}/shots/cleanup", {
+          params: { path: { watcherId: v.id } },
+          body: { keep: v.keep },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: watcherKeys.all }),
+  });
+}
+
+/** B234：删一次运行的截图。 */
+export function useDeleteRunShots() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: number; runId: number }) =>
+      unwrap(
+        watchersApi.DELETE("/watchers/{watcherId}/runs/{runId}/shots", {
+          params: { path: { watcherId: v.id, runId: v.runId } },
         }),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: watcherKeys.all }),

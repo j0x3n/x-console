@@ -61,6 +61,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import WatchersPage from "./WatchersPage";
 import WatcherPage from "./WatcherPage";
+import TodayWatchersCard from "./TodayWatchersCard";
 import "./i18n";
 
 function renderAt(path: string, node: React.ReactNode, pattern = "*") {
@@ -387,5 +388,175 @@ describe("WatcherPage", () => {
         api.calls.find((c) => c.path === "/watchers/3/answer")?.body,
       ).toEqual({ answer: "deny" }),
     );
+  });
+});
+
+describe("B234 cards, run history and screenshots", () => {
+  const failedRun = (id: number) => ({
+    id,
+    kind: "explore",
+    startedAt: `2026-10-14T0${id}:00:00Z`,
+    outcome: "failed",
+    detail: "今天已经提醒过你 3 次，明天再检查",
+    steps: [
+      { at: "2026-10-14T02:00:00Z", text: "打开网址" },
+      { at: "2026-10-14T02:00:01Z", text: "等你处理：要登录", shotId: 40 + id },
+    ],
+    tokens: 120,
+  });
+
+  it("shows each watcher as a card with the latest value and change", async () => {
+    api.routes.set("GET /watchers", () => ({
+      status: 200,
+      body: {
+        items: [
+          {
+            ...base,
+            lastChange: {
+              summary: "办理状态变成审核中",
+              important: true,
+              createdAt: "2026-10-14T02:00:00Z",
+            },
+          },
+          {
+            ...base,
+            id: 4,
+            name: "公司注销",
+            currentValue: "",
+            status: "exploring",
+          },
+        ],
+      },
+    }));
+    api.routes.set("GET /watchers/status", () => ({ status: 404 }));
+    const { container } = renderAt("/monitoring/watchers", <WatchersPage />);
+    await screen.findByText("签证进度");
+    expect(container.querySelectorAll(".watchers-card")).toHaveLength(2);
+    expect(screen.getByText("审核中")).toBeTruthy();
+    expect(screen.getByText("办理状态变成审核中")).toBeTruthy();
+    // 还没读到值时写现在在干什么
+    expect(screen.getByText("AI 在找要盯的内容")).toBeTruthy();
+  });
+
+  it("folds the same failures, loads more and shows screenshots in the page", async () => {
+    api.routes.set("GET /watchers/3", () => ({
+      status: 200,
+      body: {
+        ...base,
+        changes: [],
+        runs: [],
+        recipe: [],
+        shots: { count: 4, bytes: 3 * 1024 * 1024 },
+      },
+    }));
+    api.routes.set("GET /watchers/3/runs", () => {
+      const before = api.calls.at(-1)?.path.match(/before=(\d+)/)?.[1];
+      return before
+        ? {
+            status: 200,
+            body: {
+              items: [{ ...failedRun(2), outcome: "ok", detail: "找到了" }],
+              hasMore: false,
+            },
+          }
+        : {
+            status: 200,
+            body: {
+              items: [failedRun(5), failedRun(4), failedRun(3)],
+              hasMore: true,
+            },
+          };
+    });
+    renderAt(
+      "/monitoring/watchers/3",
+      <WatcherPage />,
+      "/monitoring/watchers/:watcherId",
+    );
+    await screen.findByText("同样 3 次");
+    expect(screen.getByText("截图 4 张，共 3.0 MB")).toBeTruthy();
+    // 默认折叠，看不到步骤
+    expect(screen.queryByText("等你处理：要登录")).toBeNull();
+
+    fireEvent.click(screen.getByText("同样 3 次"));
+    await screen.findByText("等你处理：要登录");
+    fireEvent.click(screen.getByRole("button", { name: /看大图/ }));
+    const box = await screen.findByRole("dialog", { name: "等你处理：要登录" });
+    expect(box.querySelector("img")?.getAttribute("src")).toContain(
+      "/watchers/shots/45",
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "等你处理：要登录" }),
+      ).toBeNull(),
+    );
+
+    fireEvent.click(screen.getByText(/^(Load more|加载更多)$/));
+    await screen.findByText("找到了");
+    expect(
+      api.calls.some((c) => c.path === "/watchers/3/runs?before=3&limit=10"),
+    ).toBe(true);
+  });
+
+  it("cleans up screenshots and deletes one run's screenshots", async () => {
+    api.routes.set("GET /watchers/3", () => ({
+      status: 200,
+      body: {
+        ...base,
+        changes: [],
+        runs: [],
+        recipe: [],
+        shots: { count: 4, bytes: 2048 },
+      },
+    }));
+    api.routes.set("GET /watchers/3/runs", () => ({
+      status: 200,
+      body: { items: [failedRun(5)], hasMore: false },
+    }));
+    api.routes.set("POST /watchers/3/shots/cleanup", () => ({
+      status: 200,
+      body: { deleted: 3, bytes: 1536 },
+    }));
+    api.routes.set("DELETE /watchers/3/runs/5/shots", () => ({
+      status: 200,
+      body: { deleted: 1, bytes: 512 },
+    }));
+    renderAt(
+      "/monitoring/watchers/3",
+      <WatcherPage />,
+      "/monitoring/watchers/:watcherId",
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "清理截图" }));
+    fireEvent.click(await screen.findByText("只留最近一次成功的"));
+    await waitFor(() =>
+      expect(
+        api.calls.find((c) => c.path === "/watchers/3/shots/cleanup")?.body,
+      ).toEqual({ keep: "latest" }),
+    );
+
+    fireEvent.click(screen.getByText("今天已经提醒过你 3 次，明天再检查"));
+    fireEvent.click(await screen.findByText("删除截图"));
+    await waitFor(() =>
+      expect(
+        api.calls.some(
+          (c) => c.method === "DELETE" && c.path === "/watchers/3/runs/5/shots",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("lists watchers on the today page, the ones that need you first", async () => {
+    const items = Array.from({ length: 8 }, (_, i) => ({
+      ...base,
+      id: i + 1,
+      name: `任务 ${i + 1}`,
+      status: i === 7 ? "waiting" : "ok",
+    }));
+    api.routes.set("GET /watchers", () => ({ status: 200, body: { items } }));
+    const { container } = renderAt("/", <TodayWatchersCard />);
+    await screen.findByText("任务 8");
+    const rows = container.querySelectorAll("a.today-row");
+    expect(rows[0].textContent).toContain("任务 8");
+    expect(screen.getByText("还有 2 个")).toBeTruthy();
   });
 });

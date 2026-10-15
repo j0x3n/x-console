@@ -163,6 +163,76 @@ paths:
           description: 已开始
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /watchers/{watcherId}/runs:
+    parameters:
+      - $ref: "#/components/parameters/WatcherId"
+    get:
+      operationId: listWatcherRuns
+      tags: [watchers]
+      description: B234：检查记录分页。按编号从新到旧，before 不填从最新开始，limit 默认 10，最多 50。
+      parameters:
+        - name: before
+          in: query
+          description: 只要编号小于它的运行
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10, minimum: 1, maximum: 50 }
+      responses:
+        "200":
+          description: 一页检查记录
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatcherRunPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/{watcherId}/runs/{runId}/shots:
+    parameters:
+      - $ref: "#/components/parameters/WatcherId"
+      - name: runId
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      operationId: deleteWatcherRunShots
+      tags: [watchers]
+      description: |
+        B234：删一次运行的全部截图，包括变化记录用到的那张。运行记录和变化记录里对应的截图编号一起去掉。
+        运行不属于这个任务时回 404，运行还没结束时回 409。不需要提升权限。
+      responses:
+        "200":
+          description: 删了多少
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatcherShotsDeleted" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /watchers/{watcherId}/shots/cleanup:
+    parameters:
+      - $ref: "#/components/parameters/WatcherId"
+    post:
+      operationId: cleanupWatcherShots
+      tags: [watchers]
+      description: |
+        B234：清理截图。latest 留下最近一次成功的运行（same、changed、ok）的截图和变化记录用到的截图，其他全删；
+        none 全删，变化记录的截图也删。正在跑的那次运行的截图不动。不需要提升权限。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keep]
+              properties:
+                keep: { type: string, enum: [latest, none] }
+      responses:
+        "200":
+          description: 删了多少
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatcherShotsDeleted" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /watchers/{watcherId}/answer:
     parameters:
       - $ref: "#/components/parameters/WatcherId"
@@ -264,7 +334,34 @@ components:
         lastChangeAt: { type: string, format: date-time }
         nextCheckAt: { type: string, format: date-time }
         spent30d: { type: number, format: double, description: 最近 30 天的 AI 花费（美元） }
+        lastChange: { $ref: "#/components/schemas/WatcherLastChange" }
         createdAt: { type: string, format: date-time }
+    WatcherLastChange:
+      type: object
+      description: B234：最近一条变化记录。没有变化记录时 Watcher 不给这个字段。
+      required: [summary, important, createdAt]
+      properties:
+        summary: { type: string }
+        important: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    WatcherRunPage:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/WatcherRun" } }
+        hasMore: { type: boolean, description: 还有更早的运行 }
+    WatcherShotsDeleted:
+      type: object
+      required: [deleted, bytes]
+      properties:
+        deleted: { type: integer, description: 删了几张 }
+        bytes: { type: integer, format: int64, description: 腾出多少字节 }
+    WatcherShotsUsage:
+      type: object
+      required: [count, bytes]
+      properties:
+        count: { type: integer }
+        bytes: { type: integer, format: int64 }
     WatcherInput:
       type: object
       description: kind 可以不填，不填时按 url 认。@ 开头或 x.com、twitter.com 的链接是 x，其他 http:// 或 https:// 网址是 web，不含 . 和 / 的文字是 x 的搜索词，都不是就报错。
@@ -340,8 +437,9 @@ components:
       allOf:
         - $ref: "#/components/schemas/Watcher"
         - type: object
-          required: [changes, runs, recipe]
+          required: [changes, runs, recipe, shots]
           properties:
+            shots: { $ref: "#/components/schemas/WatcherShotsUsage" }
             changes: { type: array, items: { $ref: "#/components/schemas/WatcherChange" }, description: 最近 50 条 }
             runs: { type: array, items: { $ref: "#/components/schemas/WatcherRun" }, description: 最近 20 次 }
             recipe: { type: array, items: { $ref: "#/components/schemas/WatcherRecipeStep" } }

@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+const clearChangeShot = `-- name: ClearChangeShot :exec
+UPDATE watcher_changes SET shot_id = NULL WHERE shot_id = ?
+`
+
+func (q *Queries) ClearChangeShot(ctx context.Context, shotID *int64) error {
+	_, err := q.db.ExecContext(ctx, clearChangeShot, shotID)
+	return err
+}
+
 const createChange = `-- name: CreateChange :one
 INSERT INTO watcher_changes (watcher_id, old_value, new_value, summary, important, shot_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -150,6 +159,20 @@ func (q *Queries) CreateWatcher(ctx context.Context, arg CreateWatcherParams) (W
 	return i, err
 }
 
+const deleteShot = `-- name: DeleteShot :exec
+DELETE FROM watcher_shots WHERE id = ? AND watcher_id = ?
+`
+
+type DeleteShotParams struct {
+	ID        int64
+	WatcherID int64
+}
+
+func (q *Queries) DeleteShot(ctx context.Context, arg DeleteShotParams) error {
+	_, err := q.db.ExecContext(ctx, deleteShot, arg.ID, arg.WatcherID)
+	return err
+}
+
 const deleteWatcher = `-- name: DeleteWatcher :exec
 DELETE FROM watchers WHERE id = ?
 `
@@ -226,6 +249,27 @@ func (q *Queries) GetChange(ctx context.Context, id int64) (WatcherChange, error
 	return i, err
 }
 
+const getRun = `-- name: GetRun :one
+SELECT id, watcher_id, kind, outcome, detail, steps, tokens, started_at, finished_at FROM watcher_runs WHERE id = ?
+`
+
+func (q *Queries) GetRun(ctx context.Context, id int64) (WatcherRun, error) {
+	row := q.db.QueryRowContext(ctx, getRun, id)
+	var i WatcherRun
+	err := row.Scan(
+		&i.ID,
+		&i.WatcherID,
+		&i.Kind,
+		&i.Outcome,
+		&i.Detail,
+		&i.Steps,
+		&i.Tokens,
+		&i.StartedAt,
+		&i.FinishedAt,
+	)
+	return i, err
+}
+
 const getShot = `-- name: GetShot :one
 SELECT data FROM watcher_shots WHERE id = ?
 `
@@ -277,6 +321,90 @@ func (q *Queries) GetWatcher(ctx context.Context, id int64) (Watcher, error) {
 	return i, err
 }
 
+const lastChange = `-- name: LastChange :one
+SELECT summary, important, created_at FROM watcher_changes WHERE watcher_id = ? ORDER BY id DESC LIMIT 1
+`
+
+type LastChangeRow struct {
+	Summary   string
+	Important int64
+	CreatedAt time.Time
+}
+
+func (q *Queries) LastChange(ctx context.Context, watcherID int64) (LastChangeRow, error) {
+	row := q.db.QueryRowContext(ctx, lastChange, watcherID)
+	var i LastChangeRow
+	err := row.Scan(&i.Summary, &i.Important, &i.CreatedAt)
+	return i, err
+}
+
+const lastChanges = `-- name: LastChanges :many
+SELECT watcher_id, summary, important, created_at FROM watcher_changes
+WHERE id IN (SELECT MAX(id) FROM watcher_changes GROUP BY watcher_id)
+`
+
+type LastChangesRow struct {
+	WatcherID int64
+	Summary   string
+	Important int64
+	CreatedAt time.Time
+}
+
+func (q *Queries) LastChanges(ctx context.Context) ([]LastChangesRow, error) {
+	rows, err := q.db.QueryContext(ctx, lastChanges)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LastChangesRow
+	for rows.Next() {
+		var i LastChangesRow
+		if err := rows.Scan(
+			&i.WatcherID,
+			&i.Summary,
+			&i.Important,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChangeShots = `-- name: ListChangeShots :many
+SELECT shot_id FROM watcher_changes WHERE watcher_id = ? AND shot_id IS NOT NULL
+`
+
+func (q *Queries) ListChangeShots(ctx context.Context, watcherID int64) ([]*int64, error) {
+	rows, err := q.db.QueryContext(ctx, listChangeShots, watcherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*int64
+	for rows.Next() {
+		var shot_id *int64
+		if err := rows.Scan(&shot_id); err != nil {
+			return nil, err
+		}
+		items = append(items, shot_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listChanges = `-- name: ListChanges :many
 SELECT id, watcher_id, old_value, new_value, summary, important, shot_id, created_at FROM watcher_changes WHERE watcher_id = ? ORDER BY id DESC LIMIT 50
 `
@@ -299,6 +427,45 @@ func (q *Queries) ListChanges(ctx context.Context, watcherID int64) ([]WatcherCh
 			&i.Important,
 			&i.ShotID,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRunSteps = `-- name: ListRunSteps :many
+SELECT id, outcome, started_at, steps FROM watcher_runs WHERE watcher_id = ? ORDER BY id DESC
+`
+
+type ListRunStepsRow struct {
+	ID        int64
+	Outcome   string
+	StartedAt time.Time
+	Steps     string
+}
+
+func (q *Queries) ListRunSteps(ctx context.Context, watcherID int64) ([]ListRunStepsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRunSteps, watcherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRunStepsRow
+	for rows.Next() {
+		var i ListRunStepsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Outcome,
+			&i.StartedAt,
+			&i.Steps,
 		); err != nil {
 			return nil, err
 		}
@@ -337,6 +504,82 @@ func (q *Queries) ListRuns(ctx context.Context, watcherID int64) ([]WatcherRun, 
 			&i.StartedAt,
 			&i.FinishedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRunsPage = `-- name: ListRunsPage :many
+SELECT id, watcher_id, kind, outcome, detail, steps, tokens, started_at, finished_at FROM watcher_runs WHERE watcher_id = ? AND id < ? ORDER BY id DESC LIMIT ?
+`
+
+type ListRunsPageParams struct {
+	WatcherID int64
+	ID        int64
+	Limit     int64
+}
+
+func (q *Queries) ListRunsPage(ctx context.Context, arg ListRunsPageParams) ([]WatcherRun, error) {
+	rows, err := q.db.QueryContext(ctx, listRunsPage, arg.WatcherID, arg.ID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WatcherRun
+	for rows.Next() {
+		var i WatcherRun
+		if err := rows.Scan(
+			&i.ID,
+			&i.WatcherID,
+			&i.Kind,
+			&i.Outcome,
+			&i.Detail,
+			&i.Steps,
+			&i.Tokens,
+			&i.StartedAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShotSizes = `-- name: ListShotSizes :many
+SELECT id, CAST(length(data) AS INTEGER) AS size, created_at FROM watcher_shots WHERE watcher_id = ?
+`
+
+type ListShotSizesRow struct {
+	ID        int64
+	Size      int64
+	CreatedAt time.Time
+}
+
+func (q *Queries) ListShotSizes(ctx context.Context, watcherID int64) ([]ListShotSizesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listShotSizes, watcherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListShotSizesRow
+	for rows.Next() {
+		var i ListShotSizesRow
+		if err := rows.Scan(&i.ID, &i.Size, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -413,6 +656,20 @@ WHERE status IN ('exploring', 'checking', 'waiting')
 
 func (q *Queries) ResetBusyWatchers(ctx context.Context, statusDetail string) error {
 	_, err := q.db.ExecContext(ctx, resetBusyWatchers, statusDetail)
+	return err
+}
+
+const setRunSteps = `-- name: SetRunSteps :exec
+UPDATE watcher_runs SET steps = ? WHERE id = ? AND outcome != 'running'
+`
+
+type SetRunStepsParams struct {
+	Steps string
+	ID    int64
+}
+
+func (q *Queries) SetRunSteps(ctx context.Context, arg SetRunStepsParams) error {
+	_, err := q.db.ExecContext(ctx, setRunSteps, arg.Steps, arg.ID)
 	return err
 }
 
@@ -529,6 +786,22 @@ func (q *Queries) SetWatcherStatus(ctx context.Context, arg SetWatcherStatusPara
 		arg.ID,
 	)
 	return err
+}
+
+const shotsUsage = `-- name: ShotsUsage :one
+SELECT COUNT(*) AS count, CAST(COALESCE(SUM(length(data)), 0) AS INTEGER) AS bytes FROM watcher_shots WHERE watcher_id = ?
+`
+
+type ShotsUsageRow struct {
+	Count int64
+	Bytes int64
+}
+
+func (q *Queries) ShotsUsage(ctx context.Context, watcherID int64) (ShotsUsageRow, error) {
+	row := q.db.QueryRowContext(ctx, shotsUsage, watcherID)
+	var i ShotsUsageRow
+	err := row.Scan(&i.Count, &i.Bytes)
+	return i, err
 }
 
 const updateRun = `-- name: UpdateRun :exec

@@ -499,9 +499,19 @@ func (m *Module) ListWatchers(w http.ResponseWriter, r *http.Request) {
 	if fail(w, r, err) {
 		return
 	}
+	last, err := m.q.LastChanges(r.Context())
+	if fail(w, r, err) {
+		return
+	}
+	lastBy := make(map[int64]*api.WatcherLastChange, len(last))
+	for _, c := range last {
+		lastBy[c.WatcherID] = toAPILastChange(c.Summary, c.Important, c.CreatedAt)
+	}
 	items := make([]api.Watcher, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, m.toAPI(r.Context(), row))
+		item := m.toAPI(r.Context(), row)
+		item.LastChange = lastBy[row.ID]
+		items = append(items, item)
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }
@@ -616,6 +626,10 @@ func (m *Module) GetWatcher(w http.ResponseWriter, r *http.Request, id api.Watch
 		return
 	}
 	base := m.toAPI(r.Context(), row)
+	// B234: the list fills lastChange with one query for all watchers.
+	if c, err := m.q.LastChange(r.Context(), id); err == nil {
+		base.LastChange = toAPILastChange(c.Summary, c.Important, c.CreatedAt)
+	}
 	var out api.WatcherDetail
 	b, _ := json.Marshal(base)
 	_ = json.Unmarshal(b, &out)
@@ -635,14 +649,13 @@ func (m *Module) GetWatcher(w http.ResponseWriter, r *http.Request, id api.Watch
 		return
 	}
 	for _, run := range runs {
-		item := api.WatcherRun{Id: run.ID, Kind: api.WatcherRunKind(run.Kind), StartedAt: run.StartedAt, FinishedAt: run.FinishedAt,
-			Outcome: api.WatcherRunOutcome(run.Outcome), Detail: run.Detail, Tokens: run.Tokens, Steps: []api.WatcherStep{}}
-		_ = json.Unmarshal([]byte(run.Steps), &item.Steps)
-		if item.Steps == nil {
-			item.Steps = []api.WatcherStep{}
-		}
-		out.Runs = append(out.Runs, item)
+		out.Runs = append(out.Runs, toAPIRun(run))
 	}
+	usage, err := m.q.ShotsUsage(r.Context(), id)
+	if fail(w, r, err) {
+		return
+	}
+	out.Shots = api.WatcherShotsUsage{Count: int(usage.Count), Bytes: usage.Bytes}
 	if rec, ok := parseRecipe(row.Recipe); ok {
 		for _, st := range rec.Steps {
 			out.Recipe = append(out.Recipe, api.WatcherRecipeStep{Text: st.Note})

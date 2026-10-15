@@ -59,6 +59,8 @@ import TodayScreenTimeCard from "../screentime/TodayScreenTimeCard";
 import { useScreenSummary } from "../screentime/api";
 import TodayGoalsCard, { useTodayGoals } from "../goals/TodayGoalsCard";
 import TodayMeCard from "../me/TodayMeCard";
+import TodayWatchersCard from "../watchers/TodayWatchersCard";
+import { useWatchers } from "../watchers/api";
 import { useMe } from "../me/api";
 
 const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
@@ -77,6 +79,7 @@ const cardBodies: Record<string, { body: () => ReactNode; more?: string }> = {
   dayplan: { body: () => <TodayPlanCard />, more: "/plan" }, // B135
   mail: { body: () => <MailCard />, more: "/mail" },
   monitoring: { body: () => <MonitoringCard />, more: "/monitoring" },
+  watchers: { body: () => <TodayWatchersCard />, more: "/monitoring/watchers" }, // B234
   activity: { body: () => <ActivityCard /> },
   fitness: { body: () => <FitnessSummary compact />, more: "/habits" },
 };
@@ -131,6 +134,9 @@ export default function TodayPage() {
   // B116：今天还没有电脑时间记录时，“电脑时间”卡片不出现
   const screen = useScreenSummary("day", "", "");
   const hasScreen = (screen.data?.minutes ?? 0) > 0;
+  // B234：没有网站自动化任务，或接口还没上线时，这张卡片不出现
+  const watchers = useWatchers();
+  const hasWatchers = (watchers.data?.length ?? 0) > 0;
   // B150：播放条里没有歌时，“正在播放”卡片不出现
   const hasTrack = usePlayer((s) => s.currentId != null);
   // B128：本季度没有进行中的目标，或接口还没上线时，“目标”卡片不出现
@@ -149,6 +155,7 @@ export default function TodayPage() {
     modules.has(cardModule(c.id) as ModuleId | null) &&
     (c.id !== "quotas" || editing || hasQuotas) &&
     (c.id !== "screentime" || editing || hasScreen) &&
+    (c.id !== "watchers" || editing || hasWatchers) &&
     (c.id !== "music" || editing || hasTrack) &&
     (c.id !== "goals" || editing || hasGoals) &&
     (c.id !== "cards" || editing || hasDueCards) &&

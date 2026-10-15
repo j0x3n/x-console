@@ -83,6 +83,14 @@ export const cardDefs: CardDef[] = [
     weight: 2,
     module: "monitoring",
   },
+  // B234：没有网站自动化任务时这张卡片不出现（TodayPage 里判断）
+  {
+    id: "watchers",
+    title: "Web watchers",
+    column: "side",
+    weight: 2,
+    module: "monitoring",
+  },
   // B150：播放条里有歌时才显示（TodayPage 里判断）
   { id: "music", title: "Now playing", column: "side", weight: 1 },
   // B128：本季度没有进行中的目标时这张卡片不出现（TodayPage 里判断）

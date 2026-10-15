@@ -132,3 +132,47 @@ export function guessKind(input: string): GuessedKind | null {
     return { kind: "x", label: "X 搜索" };
   return null;
 }
+/**
+ * B234：连续几次一样的运行（同类、同结果、同说明）合成一组，
+ * 页面上显示成一行“同样 N 次”。列表从新到旧，每组的第一条是最近的一次。
+ * 正在跑的运行不合并。
+ */
+export interface RunGroup<T> {
+  latest: T;
+  count: number;
+}
+
+export function groupRuns<
+  T extends { kind: string; outcome: string; detail: string },
+>(runs: T[]): RunGroup<T>[] {
+  const out: RunGroup<T>[] = [];
+  for (const r of runs) {
+    const last = out[out.length - 1];
+    if (
+      last &&
+      r.outcome !== "running" &&
+      last.latest.outcome !== "running" &&
+      last.latest.kind === r.kind &&
+      last.latest.outcome === r.outcome &&
+      last.latest.detail === r.detail
+    )
+      last.count++;
+    else out.push({ latest: r, count: 1 });
+  }
+  return out;
+}
+
+/** 一次运行里带截图的步骤，按顺序。页内看大图时左右切换用。 */
+export function runShots(steps: { text: string; shotId?: number }[]) {
+  return steps.flatMap((s) =>
+    s.shotId != null ? [{ id: s.shotId, text: s.text }] : [],
+  );
+}
+
+/** B234：还没读到值时，卡片上写现在在干什么。 */
+export function emptyValue(w: Pick<Watcher, "status" | "statusDetail">) {
+  if (w.status === "new") return "等第一次检查";
+  if (w.status === "exploring") return "AI 在找要盯的内容";
+  if (w.statusDetail) return w.statusDetail;
+  return STATUS[w.status].label;
+}

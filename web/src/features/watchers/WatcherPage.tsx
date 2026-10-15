@@ -29,33 +29,18 @@ import {
   useWatcher,
   type Answer,
   type RunKind,
+  type WatcherChange,
   type WatcherDetail,
-  type WatcherRun,
 } from "./api";
 import { minutesText, money, STATUS, xLabel } from "./lib";
+import RunHistory from "./RunHistory";
 import WatcherDialog from "./WatcherDialog";
+import ImageLightbox from "../../components/ui/ImageLightbox";
 import "./i18n";
 import "./watchers.css";
 
 const fail = (err: unknown) =>
   toast({ message: errorMessage(err), tone: "error" });
-
-const RUN_KIND: Record<WatcherRun["kind"], string> = {
-  check: "检查",
-  explore: "AI 摸索",
-  manual: "手动登录",
-  keepalive: "保活",
-};
-
-const OUTCOME: Record<WatcherRun["outcome"], { label: string; tone: string }> =
-  {
-    running: { label: "进行中", tone: "info" },
-    same: { label: "没变化", tone: "" },
-    changed: { label: "有变化", tone: "accent" },
-    ok: { label: "完成", tone: "ok" },
-    failed: { label: "失败", tone: "danger" },
-    cancelled: { label: "取消", tone: "" },
-  };
 
 /** 一个网站自动化任务的详情：当前值、等你处理的事、变化历史、检查记录。 */
 export default function WatcherPage() {
@@ -159,61 +144,8 @@ function Detail({ w }: { w: WatcherDetail }) {
               <p className="xc-muted watchers-small">位置：{w.targetNote}</p>
             )}
           </section>
-          <section className="xc-card">
-            <div className="xc-card-head">
-              <h2>{t("Value changes")}</h2>
-              <span className="xc-muted">{w.changes.length}</span>
-            </div>
-            {w.changes.length === 0 ? (
-              <p className="xc-muted watchers-small">还没有变化。</p>
-            ) : (
-              <ul className="watchers-changes">
-                {w.changes.map((c) => (
-                  <li key={c.id}>
-                    <div className="watchers-change-head">
-                      <strong>{c.summary}</strong>
-                      {!c.important && <span className="xc-badge">不重要</span>}
-                      <span className="xc-muted">
-                        {formatDate(c.createdAt, language)}{" "}
-                        {formatTime(c.createdAt, language)}
-                      </span>
-                      {c.shotId != null && (
-                        <a
-                          className="xc-btn ghost small"
-                          href={shotUrl(c.shotId)}
-                          target="_blank"
-                          rel="noreferrer"
-                          title={t("Screenshot")}
-                          aria-label={t("Screenshot")}
-                        >
-                          <Camera size={14} />
-                        </a>
-                      )}
-                    </div>
-                    <div className="watchers-change-values">
-                      <span className="old">{c.oldValue}</span>
-                      <span className="arrow">→</span>
-                      <span>{c.newValue}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-          <section className="xc-card">
-            <div className="xc-card-head">
-              <h2>{t("Check history")}</h2>
-            </div>
-            {w.runs.length === 0 ? (
-              <p className="xc-muted watchers-small">还没检查过。</p>
-            ) : (
-              <div className="watchers-runs">
-                {w.runs.map((r, i) => (
-                  <RunItem key={r.id} r={r} open={i === 0} />
-                ))}
-              </div>
-            )}
-          </section>
+          <Changes changes={w.changes} />
+          <RunHistory w={w} />
         </div>
         <aside className="watchers-side">
           <section className="xc-card watchers-actions">
@@ -388,34 +320,69 @@ export function PendingCard({
   );
 }
 
-function RunItem({ r, open }: { r: WatcherRun; open: boolean }) {
+const CHANGES_SHOWN = 5;
+
+/** 变化记录。先显示最近 5 条，截图在页面里看大图（B234）。 */
+function Changes({ changes }: { changes: WatcherChange[] }) {
+  const t = useT();
   const language = useLanguage();
-  const o = OUTCOME[r.outcome];
+  const [all, setAll] = useState(false);
+  const [shot, setShot] = useState<WatcherChange | null>(null);
+  const shown = all ? changes : changes.slice(0, CHANGES_SHOWN);
   return (
-    <details className="watchers-run" open={open}>
-      <summary>
-        <span className="watchers-run-kind">{RUN_KIND[r.kind]}</span>
-        <span className={`xc-badge ${o.tone}`}>{o.label}</span>
-        <span className="watchers-run-detail">{r.detail}</span>
-        <span className="xc-muted">{relativeTime(r.startedAt, language)}</span>
-      </summary>
-      <ol className="watchers-steps">
-        {r.steps.map((s, i) => (
-          <li key={i}>
-            <span>{s.text}</span>
-            {s.shotId != null && (
-              <a href={shotUrl(s.shotId)} target="_blank" rel="noreferrer">
-                <img src={shotUrl(s.shotId)} alt="截图" loading="lazy" />
-              </a>
-            )}
-          </li>
-        ))}
-      </ol>
-      {r.tokens > 0 && (
-        <p className="xc-muted watchers-small">
-          用了 {r.tokens.toLocaleString()} 个 token
-        </p>
+    <section className="xc-card">
+      <div className="xc-card-head">
+        <h2>{t("Value changes")}</h2>
+        <span className="xc-muted">{changes.length}</span>
+      </div>
+      {changes.length === 0 ? (
+        <p className="xc-muted watchers-small">还没有变化。</p>
+      ) : (
+        <ul className="watchers-changes">
+          {shown.map((c) => (
+            <li key={c.id}>
+              <div className="watchers-change-head">
+                <strong>{c.summary}</strong>
+                {!c.important && <span className="xc-badge">不重要</span>}
+                <span className="xc-muted">
+                  {formatDate(c.createdAt, language)}{" "}
+                  {formatTime(c.createdAt, language)}
+                </span>
+                {c.shotId != null && (
+                  <button
+                    type="button"
+                    className="xc-btn ghost small"
+                    title={t("View screenshot")}
+                    aria-label={t("View screenshot")}
+                    onClick={() => setShot(c)}
+                  >
+                    <Camera size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="watchers-change-values">
+                <span className="old">{c.oldValue}</span>
+                <span className="arrow">→</span>
+                <span>{c.newValue}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
-    </details>
+      {changes.length > CHANGES_SHOWN && (
+        <button
+          className="xc-btn ghost small watchers-more"
+          onClick={() => setAll(!all)}
+        >
+          {all ? t("Show less") : `${t("Show all")} ${changes.length}`}
+        </button>
+      )}
+      {shot?.shotId != null && (
+        <ImageLightbox
+          images={[{ src: shotUrl(shot.shotId), alt: shot.summary }]}
+          onClose={() => setShot(null)}
+        />
+      )}
+    </section>
   );
 }

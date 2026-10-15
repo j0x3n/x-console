@@ -23,7 +23,7 @@ import {
   useWatchersStatus,
   type Watcher,
 } from "./api";
-import { money, needsUser, sortWatchers, STATUS } from "./lib";
+import { emptyValue, money, needsUser, sortWatchers, STATUS } from "./lib";
 import SettingsDialog from "./SettingsDialog";
 import WatcherDialog from "./WatcherDialog";
 import "./i18n";
@@ -144,9 +144,9 @@ export default function WatchersPage() {
             </button>
           </EmptyState>
         ) : (
-          <div className="watchers-list">
+          <div className="watchers-grid">
             {watchers.map((w) => (
-              <Row key={w.id} w={w} />
+              <WatcherCard key={w.id} w={w} />
             ))}
           </div>
         )}
@@ -199,7 +199,8 @@ function XHelp() {
   );
 }
 
-function Row({ w }: { w: Watcher }) {
+/** B234：一个任务一张卡片，直接显示最新结果和最近一次变化。 */
+function WatcherCard({ w }: { w: Watcher }) {
   const t = useT();
   const language = useLanguage();
   const run = useRunWatcher();
@@ -219,65 +220,88 @@ function Row({ w }: { w: Watcher }) {
         onError: fail,
       });
   };
+  const to = `/monitoring/watchers/${w.id}`;
   return (
-    <div className={`watchers-row${needsUser(w) ? " attention" : ""}`}>
-      <Link to={`/monitoring/watchers/${w.id}`} className="watchers-row-main">
-        <span className="watchers-row-name">
+    <div className={`xc-card watchers-card${needsUser(w) ? " attention" : ""}`}>
+      <div className="watchers-card-head">
+        <Link to={to} className="watchers-card-name">
           {w.kind === "x" && <span className="watchers-x">X</span>}
           {w.name}
-        </span>
-        <span className="watchers-row-value" title={w.currentValue}>
-          {w.currentValue ||
-            (w.status === "new" || w.status === "exploring"
-              ? "还没读到"
-              : w.statusDetail || "—")}
-        </span>
-      </Link>
-      <span className={`xc-badge ${st.tone}`}>{st.label}</span>
-      <span className="watchers-row-time">
-        {w.lastCheckedAt ? relativeTime(w.lastCheckedAt, language) : "—"}
-      </span>
-      {w.pending?.live ? (
-        <Link
-          className="xc-btn small primary"
-          to={`/monitoring/watchers/${w.id}/live`}
-        >
-          {t("Handle it")}
         </Link>
-      ) : (
-        <button
-          className="xc-btn small"
-          disabled={busy || !w.enabled}
-          onClick={() =>
-            run.mutate(
-              { id: w.id, kind: "check" },
-              { onSuccess: () => toast("开始检查"), onError: fail },
-            )
-          }
+        <span className={`xc-badge ${st.tone}`}>{st.label}</span>
+      </div>
+      <Link
+        to={to}
+        className={`watchers-card-value${w.currentValue ? "" : " empty"}`}
+        title={w.currentValue || undefined}
+      >
+        {w.currentValue || emptyValue(w)}
+      </Link>
+      {w.currentValue && w.statusDetail && w.status !== "ok" && (
+        <p
+          className={`watchers-card-note${w.status === "error" ? " danger" : ""}`}
         >
-          {t("Check now")}
-        </button>
+          {w.statusDetail}
+        </p>
       )}
-      <MoreMenu
-        label={t("More")}
-        items={[
-          {
-            key: "toggle",
-            label: w.enabled ? t("Pause") : t("Resume"),
-            onSelect: () =>
-              update.mutate(
-                { id: w.id, body: { enabled: !w.enabled } },
-                { onError: fail },
-              ),
-          },
-          {
-            key: "delete",
-            label: t("Delete"),
-            danger: true,
-            onSelect: onDelete,
-          },
-        ]}
-      />
+      {w.lastChange && (
+        <p className="watchers-card-change">
+          <span className="watchers-card-change-text">
+            {w.lastChange.summary}
+          </span>
+          <span className="xc-muted">
+            {relativeTime(w.lastChange.createdAt, language)}
+          </span>
+        </p>
+      )}
+      <div className="watchers-card-foot">
+        <span className="xc-muted">
+          {w.lastCheckedAt
+            ? `${t("Last check")} ${relativeTime(w.lastCheckedAt, language)}`
+            : "还没检查过"}
+        </span>
+        {w.pending?.live ? (
+          <Link
+            className="xc-btn small primary"
+            to={`/monitoring/watchers/${w.id}/live`}
+          >
+            {t("Handle it")}
+          </Link>
+        ) : (
+          <button
+            className="xc-btn small"
+            disabled={busy || !w.enabled}
+            onClick={() =>
+              run.mutate(
+                { id: w.id, kind: "check" },
+                { onSuccess: () => toast("开始检查"), onError: fail },
+              )
+            }
+          >
+            {t("Check now")}
+          </button>
+        )}
+        <MoreMenu
+          label={t("More")}
+          items={[
+            {
+              key: "toggle",
+              label: w.enabled ? t("Pause") : t("Resume"),
+              onSelect: () =>
+                update.mutate(
+                  { id: w.id, body: { enabled: !w.enabled } },
+                  { onError: fail },
+                ),
+            },
+            {
+              key: "delete",
+              label: t("Delete"),
+              danger: true,
+              onSelect: onDelete,
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 }

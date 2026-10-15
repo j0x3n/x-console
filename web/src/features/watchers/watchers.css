@@ -27,71 +27,101 @@
   font-size: var(--fs-12);
 }
 
-.watchers-list {
+.watchers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+.watchers-card {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--xc-border);
-  border-radius: var(--xc-radius-lg);
-  background: var(--xc-surface);
+  gap: 8px;
+  min-width: 0;
 }
-.watchers-row {
+.watchers-card.attention {
+  border-color: var(--xc-warn);
+}
+.watchers-card-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 6px 12px 6px 16px;
-  border-top: 1px solid var(--xc-border);
+  gap: 8px;
+  min-width: 0;
 }
-.watchers-row:first-child {
-  border-top: 0;
-}
-.watchers-row:hover {
-  background: var(--xc-surface-2);
-}
-.watchers-row.attention .watchers-row-name::before {
-  content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 7px;
-  border-radius: 50%;
-  background: var(--xc-warn);
-  vertical-align: middle;
-}
-.watchers-row-main {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
+.watchers-card-name {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: inherit;
+  font-weight: 600;
+  font-size: var(--fs-14);
   text-decoration: none;
 }
-.watchers-row-name {
-  flex: none;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-  font-size: var(--fs-13-5);
+.watchers-card-name:hover {
+  color: var(--xc-accent);
 }
-.watchers-row-value {
+.watchers-card-head .xc-badge {
+  flex: none;
+}
+.watchers-card-value {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+  color: var(--xc-text);
+  font-size: var(--fs-13-5);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+.watchers-card-value.empty {
+  color: var(--xc-muted);
+}
+.watchers-card-note {
+  margin: 0;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12);
+  overflow-wrap: anywhere;
+}
+.watchers-card-note.danger {
+  color: var(--xc-danger);
+}
+.watchers-card-change {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-12-5);
+}
+.watchers-card-change-text {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--xc-muted);
-  font-size: var(--fs-12-5);
+  color: var(--xc-text-2);
 }
-.watchers-row-time {
+.watchers-card-change .xc-muted {
   flex: none;
-  width: 72px;
-  text-align: right;
-  color: var(--xc-muted);
   font-size: var(--fs-12);
-  font-variant-numeric: tabular-nums;
+}
+.watchers-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.watchers-card-foot > .xc-muted {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-12);
 }
 
 .watchers-pending {
@@ -276,12 +306,48 @@
 .watchers-steps li {
   overflow-wrap: anywhere;
 }
-.watchers-steps img {
+/* B234：截图是小图，点了在页面里看大图 */
+.watchers-thumb {
   display: block;
   margin-top: 4px;
-  max-width: min(100%, 360px);
+  padding: 0;
   border: 1px solid var(--xc-border);
   border-radius: var(--xc-radius);
+  background: var(--xc-surface-2);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.watchers-thumb:hover {
+  border-color: var(--xc-border-strong);
+}
+.watchers-thumb img {
+  display: block;
+  width: 160px;
+  aspect-ratio: 1280 / 900;
+  object-fit: cover;
+  object-position: top;
+}
+.watchers-run-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: var(--fs-12);
+}
+.watchers-run-foot .xc-btn {
+  margin-left: auto;
+}
+.watchers-run summary .xc-badge {
+  flex: none;
+}
+.watchers-more {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+.watchers-shots-size {
+  margin-left: auto;
+  font-size: var(--fs-12);
+  font-variant-numeric: tabular-nums;
 }
 
 .watchers-live {
@@ -359,23 +425,8 @@
   .watchers-form {
     grid-template-columns: minmax(0, 1fr);
   }
-  .watchers-row {
-    flex-wrap: wrap;
-    gap: 6px 10px;
-    padding: 8px 12px;
-  }
-  .watchers-row-main {
-    flex-basis: 100%;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .watchers-row-name,
-  .watchers-row-value {
-    max-width: 100%;
-  }
-  .watchers-row-time {
-    width: auto;
-    margin-right: auto;
+  .watchers-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
   .watchers-pending {
     flex-wrap: wrap;
@@ -417,4 +468,14 @@
 }
 .watchers-change-values span:last-child {
   white-space: pre-wrap;
+}
+
+/* B234 今日页卡片 */
+.watchers-today-more {
+  justify-content: center;
+  color: var(--xc-muted);
+  font-size: var(--fs-12-5);
+}
+.watchers-history-head {
+  flex-wrap: wrap;
 }

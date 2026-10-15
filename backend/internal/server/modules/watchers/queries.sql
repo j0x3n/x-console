@@ -76,3 +76,37 @@ SELECT * FROM watcher_changes WHERE id = ?;
 
 -- name: ListChanges :many
 SELECT * FROM watcher_changes WHERE watcher_id = ? ORDER BY id DESC LIMIT 50;
+
+-- name: LastChanges :many
+SELECT watcher_id, summary, important, created_at FROM watcher_changes
+WHERE id IN (SELECT MAX(id) FROM watcher_changes GROUP BY watcher_id);
+
+-- name: LastChange :one
+SELECT summary, important, created_at FROM watcher_changes WHERE watcher_id = ? ORDER BY id DESC LIMIT 1;
+
+-- name: ListRunsPage :many
+SELECT * FROM watcher_runs WHERE watcher_id = ? AND id < ? ORDER BY id DESC LIMIT ?;
+
+-- name: GetRun :one
+SELECT * FROM watcher_runs WHERE id = ?;
+
+-- name: ShotsUsage :one
+SELECT COUNT(*) AS count, CAST(COALESCE(SUM(length(data)), 0) AS INTEGER) AS bytes FROM watcher_shots WHERE watcher_id = ?;
+
+-- name: ListShotSizes :many
+SELECT id, CAST(length(data) AS INTEGER) AS size, created_at FROM watcher_shots WHERE watcher_id = ?;
+
+-- name: ListRunSteps :many
+SELECT id, outcome, started_at, steps FROM watcher_runs WHERE watcher_id = ? ORDER BY id DESC;
+
+-- name: ListChangeShots :many
+SELECT shot_id FROM watcher_changes WHERE watcher_id = ? AND shot_id IS NOT NULL;
+
+-- name: ClearChangeShot :exec
+UPDATE watcher_changes SET shot_id = NULL WHERE shot_id = ?;
+
+-- name: DeleteShot :exec
+DELETE FROM watcher_shots WHERE id = ? AND watcher_id = ?;
+
+-- name: SetRunSteps :exec
+UPDATE watcher_runs SET steps = ? WHERE id = ? AND outcome != 'running';

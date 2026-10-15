@@ -116,6 +116,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/watchers/{watcherId}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                watcherId: components["parameters"]["WatcherId"];
+            };
+            cookie?: never;
+        };
+        /** @description B234：检查记录分页。按编号从新到旧，before 不填从最新开始，limit 默认 10，最多 50。 */
+        get: operations["listWatcherRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/watchers/{watcherId}/runs/{runId}/shots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                watcherId: components["parameters"]["WatcherId"];
+                runId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description B234：删一次运行的全部截图，包括变化记录用到的那张。运行记录和变化记录里对应的截图编号一起去掉。
+         *     运行不属于这个任务时回 404，运行还没结束时回 409。不需要提升权限。
+         */
+        delete: operations["deleteWatcherRunShots"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/watchers/{watcherId}/shots/cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                watcherId: components["parameters"]["WatcherId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description B234：清理截图。latest 留下最近一次成功的运行（same、changed、ok）的截图和变化记录用到的截图，其他全删；
+         *     none 全删，变化记录的截图也删。正在跑的那次运行的截图不动。不需要提升权限。
+         */
+        post: operations["cleanupWatcherShots"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/watchers/{watcherId}/answer": {
         parameters: {
             query?: never;
@@ -232,8 +296,35 @@ export interface components {
              * @description 最近 30 天的 AI 花费（美元）
              */
             spent30d?: number;
+            lastChange?: components["schemas"]["WatcherLastChange"];
             /** Format: date-time */
             createdAt: string;
+        };
+        /** @description B234：最近一条变化记录。没有变化记录时 Watcher 不给这个字段。 */
+        WatcherLastChange: {
+            summary: string;
+            important: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        WatcherRunPage: {
+            items: components["schemas"]["WatcherRun"][];
+            /** @description 还有更早的运行 */
+            hasMore: boolean;
+        };
+        WatcherShotsDeleted: {
+            /** @description 删了几张 */
+            deleted: number;
+            /**
+             * Format: int64
+             * @description 腾出多少字节
+             */
+            bytes: number;
+        };
+        WatcherShotsUsage: {
+            count: number;
+            /** Format: int64 */
+            bytes: number;
         };
         /** @description kind 可以不填，不填时按 url 认。@ 开头或 x.com、twitter.com 的链接是 x，其他 http:// 或 https:// 网址是 web，不含 . 和 / 的文字是 x 的搜索词，都不是就报错。 */
         WatcherInput: {
@@ -318,6 +409,7 @@ export interface components {
             text: string;
         };
         WatcherDetail: components["schemas"]["Watcher"] & {
+            shots: components["schemas"]["WatcherShotsUsage"];
             /** @description 最近 50 条 */
             changes: components["schemas"]["WatcherChange"][];
             /** @description 最近 20 次 */
@@ -618,6 +710,87 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listWatcherRuns: {
+        parameters: {
+            query?: {
+                /** @description 只要编号小于它的运行 */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                watcherId: components["parameters"]["WatcherId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 一页检查记录 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatcherRunPage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteWatcherRunShots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                watcherId: components["parameters"]["WatcherId"];
+                runId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 删了多少 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatcherShotsDeleted"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    cleanupWatcherShots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                watcherId: components["parameters"]["WatcherId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    keep: "latest" | "none";
+                };
+            };
+        };
+        responses: {
+            /** @description 删了多少 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatcherShotsDeleted"];
+                };
             };
             default: components["responses"]["Error"];
         };

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  groupRuns,
   guessKind,
   minutesText,
   money,
   needsUser,
   parseHosts,
+  runShots,
   sortWatchers,
   toPage,
   xLabel,
@@ -81,5 +83,45 @@ describe("watchers lib", () => {
     // 没写 https:// 的网址认不出来，要用户补上
     expect(guessKind("example.com")).toBeNull();
     expect(guessKind("a/b")).toBeNull();
+  });
+
+  it("folds runs that end the same way (B234)", () => {
+    const run = (id: number, outcome: string, detail = "提醒满了") => ({
+      id,
+      kind: "explore",
+      outcome,
+      detail,
+    });
+    const groups = groupRuns([
+      run(9, "running", ""),
+      run(8, "failed"),
+      run(7, "failed"),
+      run(6, "failed"),
+      run(5, "ok", "找到了"),
+      run(4, "failed"),
+    ]);
+    expect(groups.map((g) => [g.latest.id, g.count])).toEqual([
+      [9, 1],
+      [8, 3],
+      [5, 1],
+      [4, 1],
+    ]);
+    // 说明不同的失败不合并
+    expect(
+      groupRuns([run(2, "failed", "a"), run(1, "failed", "b")]),
+    ).toHaveLength(2);
+  });
+
+  it("lists the screenshots of a run", () => {
+    expect(
+      runShots([
+        { text: "打开", shotId: 3 },
+        { text: "点击" },
+        { text: "读到", shotId: 5 },
+      ]),
+    ).toEqual([
+      { id: 3, text: "打开" },
+      { id: 5, text: "读到" },
+    ]);
   });
 });

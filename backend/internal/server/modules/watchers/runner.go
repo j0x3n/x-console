@@ -196,6 +196,11 @@ func (r *recorder) shot(ctx context.Context, x *browser.Session) *int64 {
 
 func (r *recorder) save(outcome, detail string) {
 	r.mu.Lock()
+	// B234: a run that failed keeps its last screenshot only.
+	var dropped []int64
+	if outcome == "failed" || outcome == "cancelled" {
+		dropped = keepLastShot(r.steps)
+	}
 	b, _ := json.Marshal(r.steps)
 	tokens := r.tokens
 	r.mu.Unlock()
@@ -206,6 +211,7 @@ func (r *recorder) save(outcome, detail string) {
 	}
 	_ = r.m.q.UpdateRun(context.Background(), db.UpdateRunParams{Outcome: outcome, Detail: clip(detail, 1000), Steps: string(b),
 		Tokens: tokens, FinishedAt: finished, ID: r.runID})
+	r.m.dropRunShots(context.Background(), r.wid, dropped)
 }
 
 func clip(s string, n int) string {
@@ -403,11 +409,12 @@ func (m *Module) runCheck(ctx context.Context, rs *runState, w db.Watcher, sess 
 // hand and is watching).
 func (m *Module) ask(ctx context.Context, rs *runState, w db.Watcher, sess *browser.Session, rec *recorder, kind, message string, notifyUser bool) string {
 	rec.add("等你处理：" + message)
-	shot := rec.shot(ctx, sess)
+	// Count the reminder first: a run that may not ask makes no screenshot.
 	if notifyUser && !m.allowAsk(ctx, w) {
 		rec.add(errAskLimit.Error())
 		return "limit"
 	}
+	shot := rec.shot(ctx, sess)
 	p := Pending{Kind: kind, Message: message, Since: m.now()}
 	raw, _ := json.Marshal(p)
 	_ = m.q.SetWatcherPending(ctx, db.SetWatcherPendingParams{Pending: string(raw), UpdatedAt: m.now(), ID: w.ID})
@@ -519,6 +526,12 @@ func (m *Module) finish(ctx context.Context, w db.Watcher, rec *recorder, kind s
 		if res.login {
 			params.Status = "login"
 			params.FailCount = fresh.FailCount
+		}
+		if errors.Is(res.err, errAskLimit) {
+			// Asking again today is not allowed: wait for tomorrow.
+			tomorrow := m.startOfDay().AddDate(0, 0, 1)
+			params.NextCheckAt = &tomorrow
+			params.StatusDetail = "今天已经提醒过你 3 次，明天再检查"
 		}
 		if errors.Is(res.err, errCancelled) {
 			params.Status, params.FailCount = fresh.Status, fresh.FailCount

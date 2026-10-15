@@ -4,6 +4,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -207,6 +208,24 @@ func (e RunWatcherJSONBodyKind) Valid() bool {
 	}
 }
 
+// Defines values for CleanupWatcherShotsJSONBodyKeep.
+const (
+	Latest CleanupWatcherShotsJSONBodyKeep = "latest"
+	None   CleanupWatcherShotsJSONBodyKeep = "none"
+)
+
+// Valid indicates whether the value is a known member of the CleanupWatcherShotsJSONBodyKeep enum.
+func (e CleanupWatcherShotsJSONBodyKeep) Valid() bool {
+	switch e {
+	case Latest:
+		return true
+	case None:
+		return true
+	default:
+		return false
+	}
+}
+
 // Watcher defines model for Watcher.
 type Watcher struct {
 	AllowedHosts []string  `json:"allowedHosts"`
@@ -233,9 +252,12 @@ type Watcher struct {
 	KeepaliveMinutes int `json:"keepaliveMinutes"`
 
 	// Kind web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
-	Kind          WatcherKind `json:"kind"`
-	LastChangeAt  *time.Time  `json:"lastChangeAt,omitempty"`
-	LastCheckedAt *time.Time  `json:"lastCheckedAt,omitempty"`
+	Kind WatcherKind `json:"kind"`
+
+	// LastChange B234：最近一条变化记录。没有变化记录时 Watcher 不给这个字段。
+	LastChange    *WatcherLastChange `json:"lastChange,omitempty"`
+	LastChangeAt  *time.Time         `json:"lastChangeAt,omitempty"`
+	LastCheckedAt *time.Time         `json:"lastCheckedAt,omitempty"`
 
 	// Mode replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
 	Mode        WatcherMode     `json:"mode"`
@@ -295,9 +317,12 @@ type WatcherDetail struct {
 	KeepaliveMinutes int `json:"keepaliveMinutes"`
 
 	// Kind web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
-	Kind          WatcherKind `json:"kind"`
-	LastChangeAt  *time.Time  `json:"lastChangeAt,omitempty"`
-	LastCheckedAt *time.Time  `json:"lastCheckedAt,omitempty"`
+	Kind WatcherKind `json:"kind"`
+
+	// LastChange B234：最近一条变化记录。没有变化记录时 Watcher 不给这个字段。
+	LastChange    *WatcherLastChange `json:"lastChange,omitempty"`
+	LastChangeAt  *time.Time         `json:"lastChangeAt,omitempty"`
+	LastCheckedAt *time.Time         `json:"lastCheckedAt,omitempty"`
 
 	// Mode replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
 	Mode        WatcherMode         `json:"mode"`
@@ -307,7 +332,8 @@ type WatcherDetail struct {
 	Recipe      []WatcherRecipeStep `json:"recipe"`
 
 	// Runs 最近 20 次
-	Runs []WatcherRun `json:"runs"`
+	Runs  []WatcherRun      `json:"runs"`
+	Shots WatcherShotsUsage `json:"shots"`
 
 	// Spent30d 最近 30 天的 AI 花费（美元）
 	Spent30d *float64 `json:"spent30d,omitempty"`
@@ -359,6 +385,13 @@ type WatcherInput struct {
 
 // WatcherKind web 是网页（B206），x 是 X 上的账号、搜索或推文回复（B207）。
 type WatcherKind string
+
+// WatcherLastChange B234：最近一条变化记录。没有变化记录时 Watcher 不给这个字段。
+type WatcherLastChange struct {
+	CreatedAt time.Time `json:"createdAt"`
+	Important bool      `json:"important"`
+	Summary   string    `json:"summary"`
+}
 
 // WatcherMode replay 是 AI 记下步骤后平时回放，ai 是每次都让 AI 看。
 type WatcherMode string
@@ -428,6 +461,28 @@ type WatcherRunKind string
 // WatcherRunOutcome running 还在跑；same 没变化；changed 有变化；ok 完成；failed 失败；cancelled 取消
 type WatcherRunOutcome string
 
+// WatcherRunPage defines model for WatcherRunPage.
+type WatcherRunPage struct {
+	// HasMore 还有更早的运行
+	HasMore bool         `json:"hasMore"`
+	Items   []WatcherRun `json:"items"`
+}
+
+// WatcherShotsDeleted defines model for WatcherShotsDeleted.
+type WatcherShotsDeleted struct {
+	// Bytes 腾出多少字节
+	Bytes int64 `json:"bytes"`
+
+	// Deleted 删了几张
+	Deleted int `json:"deleted"`
+}
+
+// WatcherShotsUsage defines model for WatcherShotsUsage.
+type WatcherShotsUsage struct {
+	Bytes int64 `json:"bytes"`
+	Count int   `json:"count"`
+}
+
 // WatcherStatus new 还没跑过；exploring AI 在摸索；checking 在检查；ok 正常；waiting 等你处理（验证码、扫码、批准）；
 // login 需要登录（等了没人处理）；error 出错；paused 已暂停。
 type WatcherStatus string
@@ -486,6 +541,21 @@ type RunWatcherJSONBody struct {
 // RunWatcherJSONBodyKind defines parameters for RunWatcher.
 type RunWatcherJSONBodyKind string
 
+// ListWatcherRunsParams defines parameters for ListWatcherRuns.
+type ListWatcherRunsParams struct {
+	// Before 只要编号小于它的运行
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// CleanupWatcherShotsJSONBody defines parameters for CleanupWatcherShots.
+type CleanupWatcherShotsJSONBody struct {
+	Keep CleanupWatcherShotsJSONBodyKeep `json:"keep"`
+}
+
+// CleanupWatcherShotsJSONBodyKeep defines parameters for CleanupWatcherShots.
+type CleanupWatcherShotsJSONBodyKeep string
+
 // CreateWatcherJSONRequestBody defines body for CreateWatcher for application/json ContentType.
 type CreateWatcherJSONRequestBody = WatcherInput
 
@@ -500,6 +570,9 @@ type AnswerWatcherJSONRequestBody AnswerWatcherJSONBody
 
 // RunWatcherJSONRequestBody defines body for RunWatcher for application/json ContentType.
 type RunWatcherJSONRequestBody RunWatcherJSONBody
+
+// CleanupWatcherShotsJSONRequestBody defines body for CleanupWatcherShots for application/json ContentType.
+type CleanupWatcherShotsJSONRequestBody CleanupWatcherShotsJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -539,6 +612,15 @@ type ServerInterface interface {
 
 	// (POST /watchers/{watcherId}/run)
 	RunWatcher(w http.ResponseWriter, r *http.Request, watcherId WatcherId)
+
+	// (GET /watchers/{watcherId}/runs)
+	ListWatcherRuns(w http.ResponseWriter, r *http.Request, watcherId WatcherId, params ListWatcherRunsParams)
+
+	// (DELETE /watchers/{watcherId}/runs/{runId}/shots)
+	DeleteWatcherRunShots(w http.ResponseWriter, r *http.Request, watcherId WatcherId, runId int64)
+
+	// (POST /watchers/{watcherId}/shots/cleanup)
+	CleanupWatcherShots(w http.ResponseWriter, r *http.Request, watcherId WatcherId)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -602,6 +684,21 @@ func (_ Unimplemented) OpenWatcherLive(w http.ResponseWriter, r *http.Request, w
 
 // (POST /watchers/{watcherId}/run)
 func (_ Unimplemented) RunWatcher(w http.ResponseWriter, r *http.Request, watcherId WatcherId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /watchers/{watcherId}/runs)
+func (_ Unimplemented) ListWatcherRuns(w http.ResponseWriter, r *http.Request, watcherId WatcherId, params ListWatcherRunsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /watchers/{watcherId}/runs/{runId}/shots)
+func (_ Unimplemented) DeleteWatcherRunShots(w http.ResponseWriter, r *http.Request, watcherId WatcherId, runId int64) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /watchers/{watcherId}/shots/cleanup)
+func (_ Unimplemented) CleanupWatcherShots(w http.ResponseWriter, r *http.Request, watcherId WatcherId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -866,6 +963,122 @@ func (siw *ServerInterfaceWrapper) RunWatcher(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// ListWatcherRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListWatcherRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "watcherId" -------------
+	var watcherId WatcherId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "watcherId", chi.URLParam(r, "watcherId"), &watcherId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "watcherId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWatcherRunsParams
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWatcherRuns(w, r, watcherId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteWatcherRunShots operation middleware
+func (siw *ServerInterfaceWrapper) DeleteWatcherRunShots(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "watcherId" -------------
+	var watcherId WatcherId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "watcherId", chi.URLParam(r, "watcherId"), &watcherId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "watcherId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "runId" -------------
+	var runId int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", chi.URLParam(r, "runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteWatcherRunShots(w, r, watcherId, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CleanupWatcherShots operation middleware
+func (siw *ServerInterfaceWrapper) CleanupWatcherShots(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "watcherId" -------------
+	var watcherId WatcherId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "watcherId", chi.URLParam(r, "watcherId"), &watcherId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "watcherId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CleanupWatcherShots(w, r, watcherId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1008,6 +1221,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/watchers/{watcherId}/run", wrapper.RunWatcher)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/watchers/{watcherId}/runs", wrapper.ListWatcherRuns)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/watchers/{watcherId}/runs/{runId}/shots", wrapper.DeleteWatcherRunShots)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/watchers/{watcherId}/shots/cleanup", wrapper.CleanupWatcherShots)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/watchers/{watcherId}/answer", wrapper.AnswerWatcher)

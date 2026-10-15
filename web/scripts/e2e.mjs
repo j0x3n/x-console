@@ -1694,13 +1694,11 @@ try {
     });
     await new Promise((ready) => workBarkFake.listen(0, "127.0.0.1", ready));
     const call = (method, path, data) =>
-      page
-        .context()
-        .request.fetch(`${base}/api/v1${path}`, {
-          method,
-          headers: { "X-Requested-With": "x-console" },
-          data,
-        });
+      page.context().request.fetch(`${base}/api/v1${path}`, {
+        method,
+        headers: { "X-Requested-With": "x-console" },
+        data,
+      });
     const digestBefore = await api("/notify/digest");
     let workToken;
     try {
@@ -3939,6 +3937,12 @@ try {
       "网站自动化暂停",
       async () => (await api(`/watchers/${watcher.id}`)).enabled === false,
     );
+    // B234：列表是卡片，卡片上直接写状态
+    await page.goto(`${base}/monitoring/watchers`);
+    await page
+      .locator(".watchers-card", { hasText: "端到端办件" })
+      .locator(".xc-badge")
+      .waitFor();
     await send("DELETE", `/watchers/${watcher.id}`);
 
     setStage("B207 盯 X");

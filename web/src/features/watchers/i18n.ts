@@ -44,4 +44,12 @@ registerZh({
   "Only tell me about": "只告诉我",
   "X query ids": "X 接口编号",
   "Latest post": "最新一条",
+  // B234 卡片和截图清理
+  "Clean up screenshots": "清理截图",
+  "Delete screenshots": "删除截图",
+  "View screenshot": "看大图",
+  "Keep the latest success": "只留最近一次成功的",
+  "Delete all": "全部删掉",
+  "Show all": "显示全部",
+  "Show less": "收起",
 });
