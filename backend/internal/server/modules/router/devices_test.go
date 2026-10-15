@@ -26,6 +26,7 @@ type devOpts struct {
 	arp    string
 	wifi   *string
 	neigh  *string
+	nlbw   *string
 }
 
 func ptr(s string) *string { return &s }
@@ -52,6 +53,9 @@ func devReport(now time.Time, o devOpts) string {
 	}
 	if o.neigh != nil {
 		body += "#xc:neigh\n" + *o.neigh
+	}
+	if o.nlbw != nil {
+		body += "#xc:nlbw\n" + *o.nlbw
 	}
 	return body
 }

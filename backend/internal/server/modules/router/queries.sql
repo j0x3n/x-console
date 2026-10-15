@@ -49,3 +49,20 @@ DELETE FROM router_events WHERE at < ?;
 
 -- name: ResetRouterNotified :exec
 UPDATE router_devices SET notified_at = NULL, notified_online = NULL;
+
+-- B229: traffic per device and hour
+-- name: AddDeviceTraffic :exec
+INSERT INTO router_device_traffic (mac, hour, rx, tx) VALUES (?, ?, ?, ?)
+ON CONFLICT (mac, hour) DO UPDATE SET rx = rx + excluded.rx, tx = tx + excluded.tx;
+
+-- name: SumDeviceTraffic :many
+SELECT mac, CAST(SUM(rx) AS INTEGER) AS rx, CAST(SUM(tx) AS INTEGER) AS tx FROM router_device_traffic WHERE hour >= ? GROUP BY mac;
+
+-- name: ListDeviceTraffic :many
+SELECT hour, rx, tx FROM router_device_traffic WHERE mac = ? AND hour >= ? ORDER BY hour;
+
+-- name: PruneDeviceTraffic :exec
+DELETE FROM router_device_traffic WHERE hour < ?;
+
+-- name: SumTrafficSince :one
+SELECT CAST(COALESCE(SUM(rx), 0) AS INTEGER) AS rx, CAST(COALESCE(SUM(tx), 0) AS INTEGER) AS tx FROM router_traffic WHERE at >= ?;

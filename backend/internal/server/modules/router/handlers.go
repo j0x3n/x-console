@@ -231,6 +231,13 @@ func (m *Module) GetRouterTraffic(w http.ResponseWriter, r *http.Request, params
 			At: at.UTC(), RxRate: float64(b.rx) / float64(b.secs), TxRate: float64(b.tx) / float64(b.secs),
 		})
 	}
+	// B229: in push mode the devices' sum is shown next to the WAN's.
+	if push, err := m.pushMode(r.Context()); err == nil && push {
+		if err := m.addTodayTotals(r.Context(), &out); err != nil {
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
 	httpx.JSON(w, http.StatusOK, out)
 }
 

@@ -206,3 +206,66 @@ func isUpperWord(s string) bool {
 	}
 	return s != ""
 }
+
+// nlbwRow is the byte counters of one device since nlbwmon's period began.
+type nlbwRow struct{ rx, tx uint64 }
+
+// parseNlbw reads `nlbw -c json -g mac`:
+// {"columns":["mac","conns","rx_bytes",...],"data":[[...],...]}.
+// Columns are found by name. rx is download and tx is upload. The second
+// result is false when the text is not nlbwmon's answer.
+func parseNlbw(text string) (map[string]nlbwRow, bool) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, false
+	}
+	var v struct {
+		Columns []string            `json:"columns"`
+		Data    [][]json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal([]byte(text), &v) != nil || len(v.Columns) == 0 {
+		return nil, false
+	}
+	col := map[string]int{}
+	for i, c := range v.Columns {
+		col[c] = i
+	}
+	mi, ok1 := col["mac"]
+	ri, ok2 := col["rx_bytes"]
+	ti, ok3 := col["tx_bytes"]
+	if !ok1 || !ok2 || !ok3 {
+		return nil, false
+	}
+	out := map[string]nlbwRow{}
+	for _, row := range v.Data {
+		if mi >= len(row) || ri >= len(row) || ti >= len(row) {
+			continue
+		}
+		var macText string
+		if json.Unmarshal(row[mi], &macText) != nil {
+			continue
+		}
+		mac := deviceMAC(macText)
+		if mac == "" {
+			continue
+		}
+		r := out[mac]
+		r.rx += jsonUint(row[ri])
+		r.tx += jsonUint(row[ti])
+		out[mac] = r
+	}
+	return out, true
+}
+
+// jsonUint reads a JSON number as a byte count. Counters can be big, so the
+// integer form is tried first.
+func jsonUint(raw json.RawMessage) uint64 {
+	s := strings.TrimSpace(string(raw))
+	if n, err := strconv.ParseUint(s, 10, 64); err == nil {
+		return n
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil && f > 0 {
+		return uint64(f)
+	}
+	return 0
+}

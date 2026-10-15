@@ -195,6 +195,34 @@ paths:
           description: 已删除
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /router/devices/{mac}/traffic:
+    get:
+      operationId: getRouterDeviceTraffic
+      tags: [router]
+      description: |
+        B229：一台设备最近 24 小时或 7 天的流量，都按小时一个点。结构和 GET /router/traffic 一样。
+        MAC 不存在回 404。
+      parameters:
+        - name: mac
+          in: path
+          required: true
+          schema: { type: string }
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["24h", "7d"]
+            default: "24h"
+      responses:
+        "200":
+          description: 流量
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouterTraffic"
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /router/options:
     get:
       operationId: getRouterOptions
@@ -524,7 +552,20 @@ components:
           type: integer
           format: int64
           description: 这段时间的上行总字节数
-
+        devicesTodayRx:
+          type: integer
+          format: int64
+          description: B229：mode=push 且路由器上报了 nlbwmon 数据时，今天所有设备的下载合计。只有 GET /router/traffic 给
+        devicesTodayTx:
+          type: integer
+          format: int64
+        wanTodayRx:
+          type: integer
+          format: int64
+          description: 今天 WAN 口的下载合计，和 devicesTodayRx 一起给
+        wanTodayTx:
+          type: integer
+          format: int64
     RouterDevice:
       type: object
       required: [mac, note, displayName, online, lastSeen, firstSeen, notify, cooldownMinutes]

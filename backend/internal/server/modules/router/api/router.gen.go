@@ -70,6 +70,24 @@ func (e RouterStatusSource) Valid() bool {
 	}
 }
 
+// Defines values for GetRouterDeviceTrafficParamsRange.
+const (
+	GetRouterDeviceTrafficParamsRangeN24h GetRouterDeviceTrafficParamsRange = "24h"
+	GetRouterDeviceTrafficParamsRangeN7d  GetRouterDeviceTrafficParamsRange = "7d"
+)
+
+// Valid indicates whether the value is a known member of the GetRouterDeviceTrafficParamsRange enum.
+func (e GetRouterDeviceTrafficParamsRange) Valid() bool {
+	switch e {
+	case GetRouterDeviceTrafficParamsRangeN24h:
+		return true
+	case GetRouterDeviceTrafficParamsRangeN7d:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PutRouterPushIntervalJSONBodySeconds.
 const (
 	N10 PutRouterPushIntervalJSONBodySeconds = 10
@@ -99,16 +117,16 @@ func (e PutRouterPushIntervalJSONBodySeconds) Valid() bool {
 
 // Defines values for GetRouterTrafficParamsRange.
 const (
-	N24h GetRouterTrafficParamsRange = "24h"
-	N7d  GetRouterTrafficParamsRange = "7d"
+	GetRouterTrafficParamsRangeN24h GetRouterTrafficParamsRange = "24h"
+	GetRouterTrafficParamsRangeN7d  GetRouterTrafficParamsRange = "7d"
 )
 
 // Valid indicates whether the value is a known member of the GetRouterTrafficParamsRange enum.
 func (e GetRouterTrafficParamsRange) Valid() bool {
 	switch e {
-	case N24h:
+	case GetRouterTrafficParamsRangeN24h:
 		return true
-	case N7d:
+	case GetRouterTrafficParamsRangeN7d:
 		return true
 	default:
 		return false
@@ -322,8 +340,11 @@ type RouterStatusSource string
 
 // RouterTraffic defines model for RouterTraffic.
 type RouterTraffic struct {
-	Points []RouterTrafficPoint `json:"points"`
-	Range  string               `json:"range"`
+	// DevicesTodayRx B229：mode=push 且路由器上报了 nlbwmon 数据时，今天所有设备的下载合计。只有 GET /router/traffic 给
+	DevicesTodayRx *int64               `json:"devicesTodayRx,omitempty"`
+	DevicesTodayTx *int64               `json:"devicesTodayTx,omitempty"`
+	Points         []RouterTrafficPoint `json:"points"`
+	Range          string               `json:"range"`
 
 	// RxBytes 这段时间的下行总字节数
 	RxBytes     int64 `json:"rxBytes"`
@@ -331,6 +352,10 @@ type RouterTraffic struct {
 
 	// TxBytes 这段时间的上行总字节数
 	TxBytes int64 `json:"txBytes"`
+
+	// WanTodayRx 今天 WAN 口的下载合计，和 devicesTodayRx 一起给
+	WanTodayRx *int64 `json:"wanTodayRx,omitempty"`
+	WanTodayTx *int64 `json:"wanTodayTx,omitempty"`
 }
 
 // RouterTrafficPoint defines model for RouterTrafficPoint.
@@ -341,6 +366,14 @@ type RouterTrafficPoint struct {
 	RxRate float64 `json:"rxRate"`
 	TxRate float64 `json:"txRate"`
 }
+
+// GetRouterDeviceTrafficParams defines parameters for GetRouterDeviceTraffic.
+type GetRouterDeviceTrafficParams struct {
+	Range *GetRouterDeviceTrafficParamsRange `form:"range,omitempty" json:"range,omitempty"`
+}
+
+// GetRouterDeviceTrafficParamsRange defines parameters for GetRouterDeviceTraffic.
+type GetRouterDeviceTrafficParamsRange string
 
 // PutRouterPushIntervalJSONBody defines parameters for PutRouterPushInterval.
 type PutRouterPushIntervalJSONBody struct {
@@ -399,6 +432,9 @@ type ServerInterface interface {
 
 	// (PATCH /router/devices/{mac})
 	UpdateRouterDevice(w http.ResponseWriter, r *http.Request, mac string)
+
+	// (GET /router/devices/{mac}/traffic)
+	GetRouterDeviceTraffic(w http.ResponseWriter, r *http.Request, mac string, params GetRouterDeviceTrafficParams)
 
 	// (GET /router/install/{code})
 	GetRouterInstall(w http.ResponseWriter, r *http.Request, code string)
@@ -462,6 +498,11 @@ func (_ Unimplemented) DeleteRouterDevice(w http.ResponseWriter, r *http.Request
 
 // (PATCH /router/devices/{mac})
 func (_ Unimplemented) UpdateRouterDevice(w http.ResponseWriter, r *http.Request, mac string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /router/devices/{mac}/traffic)
+func (_ Unimplemented) GetRouterDeviceTraffic(w http.ResponseWriter, r *http.Request, mac string, params GetRouterDeviceTrafficParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -623,6 +664,48 @@ func (siw *ServerInterfaceWrapper) UpdateRouterDevice(w http.ResponseWriter, r *
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateRouterDevice(w, r, mac)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRouterDeviceTraffic operation middleware
+func (siw *ServerInterfaceWrapper) GetRouterDeviceTraffic(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mac" -------------
+	var mac string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mac", chi.URLParam(r, "mac"), &mac, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mac", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRouterDeviceTrafficParams
+
+	// ------------- Optional query parameter "range" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "range", r.URL.Query(), &params.Range, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "range"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "range", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRouterDeviceTraffic(w, r, mac, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -954,6 +1037,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/router/devices/{mac}", wrapper.UpdateRouterDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/router/devices/{mac}/traffic", wrapper.GetRouterDeviceTraffic)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/router/options", wrapper.GetRouterOptions)

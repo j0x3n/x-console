@@ -9,6 +9,29 @@ import (
 	"context"
 )
 
+const addDeviceTraffic = `-- name: AddDeviceTraffic :exec
+INSERT INTO router_device_traffic (mac, hour, rx, tx) VALUES (?, ?, ?, ?)
+ON CONFLICT (mac, hour) DO UPDATE SET rx = rx + excluded.rx, tx = tx + excluded.tx
+`
+
+type AddDeviceTrafficParams struct {
+	Mac  string
+	Hour int64
+	Rx   int64
+	Tx   int64
+}
+
+// B229: traffic per device and hour
+func (q *Queries) AddDeviceTraffic(ctx context.Context, arg AddDeviceTrafficParams) error {
+	_, err := q.db.ExecContext(ctx, addDeviceTraffic,
+		arg.Mac,
+		arg.Hour,
+		arg.Rx,
+		arg.Tx,
+	)
+	return err
+}
+
 const countRouterDeviceFlips = `-- name: CountRouterDeviceFlips :one
 SELECT COUNT(*) FROM router_events WHERE mac = ? AND at >= ? AND kind IN ('device_online', 'device_offline')
 `
@@ -90,6 +113,44 @@ func (q *Queries) InsertTraffic(ctx context.Context, arg InsertTrafficParams) er
 	return err
 }
 
+const listDeviceTraffic = `-- name: ListDeviceTraffic :many
+SELECT hour, rx, tx FROM router_device_traffic WHERE mac = ? AND hour >= ? ORDER BY hour
+`
+
+type ListDeviceTrafficParams struct {
+	Mac  string
+	Hour int64
+}
+
+type ListDeviceTrafficRow struct {
+	Hour int64
+	Rx   int64
+	Tx   int64
+}
+
+func (q *Queries) ListDeviceTraffic(ctx context.Context, arg ListDeviceTrafficParams) ([]ListDeviceTrafficRow, error) {
+	rows, err := q.db.QueryContext(ctx, listDeviceTraffic, arg.Mac, arg.Hour)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDeviceTrafficRow
+	for rows.Next() {
+		var i ListDeviceTrafficRow
+		if err := rows.Scan(&i.Hour, &i.Rx, &i.Tx); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRouterDevices = `-- name: ListRouterDevices :many
 SELECT mac, note, notify, cooldown_minutes, conn, wifi_iface, last_name, last_ip, online, online_since, offline_since, first_seen, last_seen, notified_at, notified_online
 FROM router_devices
@@ -167,6 +228,15 @@ func (q *Queries) ListTraffic(ctx context.Context, at int64) ([]RouterTraffic, e
 	return items, nil
 }
 
+const pruneDeviceTraffic = `-- name: PruneDeviceTraffic :exec
+DELETE FROM router_device_traffic WHERE hour < ?
+`
+
+func (q *Queries) PruneDeviceTraffic(ctx context.Context, hour int64) error {
+	_, err := q.db.ExecContext(ctx, pruneDeviceTraffic, hour)
+	return err
+}
+
 const pruneOrphanDeviceTraffic = `-- name: PruneOrphanDeviceTraffic :exec
 DELETE FROM router_device_traffic WHERE mac NOT IN (SELECT mac FROM router_devices)
 `
@@ -210,6 +280,55 @@ UPDATE router_devices SET notified_at = NULL, notified_online = NULL
 func (q *Queries) ResetRouterNotified(ctx context.Context) error {
 	_, err := q.db.ExecContext(ctx, resetRouterNotified)
 	return err
+}
+
+const sumDeviceTraffic = `-- name: SumDeviceTraffic :many
+SELECT mac, CAST(SUM(rx) AS INTEGER) AS rx, CAST(SUM(tx) AS INTEGER) AS tx FROM router_device_traffic WHERE hour >= ? GROUP BY mac
+`
+
+type SumDeviceTrafficRow struct {
+	Mac string
+	Rx  int64
+	Tx  int64
+}
+
+func (q *Queries) SumDeviceTraffic(ctx context.Context, hour int64) ([]SumDeviceTrafficRow, error) {
+	rows, err := q.db.QueryContext(ctx, sumDeviceTraffic, hour)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SumDeviceTrafficRow
+	for rows.Next() {
+		var i SumDeviceTrafficRow
+		if err := rows.Scan(&i.Mac, &i.Rx, &i.Tx); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const sumTrafficSince = `-- name: SumTrafficSince :one
+SELECT CAST(COALESCE(SUM(rx), 0) AS INTEGER) AS rx, CAST(COALESCE(SUM(tx), 0) AS INTEGER) AS tx FROM router_traffic WHERE at >= ?
+`
+
+type SumTrafficSinceRow struct {
+	Rx int64
+	Tx int64
+}
+
+func (q *Queries) SumTrafficSince(ctx context.Context, at int64) (SumTrafficSinceRow, error) {
+	row := q.db.QueryRowContext(ctx, sumTrafficSince, at)
+	var i SumTrafficSinceRow
+	err := row.Scan(&i.Rx, &i.Tx)
+	return i, err
 }
 
 const updateRouterDeviceSettings = `-- name: UpdateRouterDeviceSettings :exec

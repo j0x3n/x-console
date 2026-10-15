@@ -135,6 +135,9 @@ func (m *Module) prune(ctx context.Context, now time.Time) {
 		m.d.Log.Warn("router prune", "err", err)
 	}
 	m.pruneDevices(ctx, now)
+	if err := m.q.PruneDeviceTraffic(ctx, now.Add(-keepTraffic).Unix()); err != nil {
+		m.d.Log.Warn("router prune device traffic", "err", err)
+	}
 	days := defaultLogDays
 	if o, err := m.options(ctx); err == nil {
 		days = o.LogDays

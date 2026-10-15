@@ -27,3 +27,13 @@ func (n NeighEntry) Reachable() bool { return n.reachable() }
 func (n NeighEntry) State() string   { return n.state }
 
 type NeighEntry = neighEntry
+
+var ParseNlbw = parseNlbw
+
+// NlbwSetup is the part of the install script that sets up nlbwmon.
+const NlbwSetup = nlbwSetup
+
+type NlbwRow = nlbwRow
+
+func (r NlbwRow) RX() uint64 { return r.rx }
+func (r NlbwRow) TX() uint64 { return r.tx }

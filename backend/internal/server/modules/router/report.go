@@ -53,6 +53,7 @@ type pushSnapshot struct {
 	at      time.Time
 	status  api.RouterStatus
 	clients []api.RouterClient
+	hasNlbw bool // B229: this report had nlbwmon's numbers
 }
 
 // errNoReport is what the pages get before the first report and after the
@@ -260,6 +261,35 @@ func (m *Module) apiBase(r *http.Request) string {
 // reportURL is the address the router posts to.
 func (m *Module) reportURL(r *http.Request) string { return m.apiBase(r) + reportPath }
 
+// nlbwSetup makes nlbwmon refresh its counters every 5 seconds (B229). Its
+// default is 30 seconds, which makes the speed of a device jump. The old value
+// is kept in /etc/xc-report.nlbw.bak, and only the first time, so running the
+// install again does not lose it. The restart costs nlbwmon a few seconds of
+// counting.
+const nlbwSetup = `if command -v nlbw >/dev/null 2>&1 && uci -q get nlbwmon.@nlbwmon[0] >/dev/null 2>&1; then
+	cur=$(uci -q get nlbwmon.@nlbwmon[0].refresh_interval)
+	num=${cur%[smhd]}
+	unit=${cur#"$num"}
+	case "$num" in
+	'' | *[!0-9]*) secs=0 ;;
+	*)
+		case "$unit" in
+		'' | s) secs=$num ;;
+		m) secs=$((num * 60)) ;;
+		h) secs=$((num * 3600)) ;;
+		*) secs=$((num * 86400)) ;;
+		esac
+		;;
+	esac
+	if [ "$secs" -gt 5 ]; then
+		[ -f /etc/xc-report.nlbw.bak ] || echo "$cur" > /etc/xc-report.nlbw.bak
+		uci set nlbwmon.@nlbwmon[0].refresh_interval=5s
+		uci commit nlbwmon
+		/etc/init.d/nlbwmon restart
+	fi
+fi
+`
+
 // installScript fills the router script in and wraps it in the commands that
 // put it on the router and schedule it.
 func installScript(url, token string) string {
@@ -270,6 +300,7 @@ func installScript(url, token string) string {
 		"(crontab -l 2>/dev/null | grep -v xc-report.sh; echo '* * * * * /usr/bin/xc-report.sh') | crontab -\n" +
 		"/etc/init.d/cron enable\n" +
 		"/etc/init.d/cron restart\n" +
+		nlbwSetup +
 		"/usr/bin/xc-report.sh && echo '已上报一次'\n"
 }
 
@@ -361,6 +392,10 @@ type report struct {
 	hasWifi  bool
 	neigh    []neighEntry
 	hasNeigh bool
+	// B229: nlbwmon's byte counters per device. hasNlbw is false when the
+	// router has no nlbwmon or it did not answer.
+	nlbw    map[string]nlbwRow
+	hasNlbw bool
 }
 
 type deviceStat struct {
@@ -434,6 +469,7 @@ func parseReport(body []byte) (report, error) {
 	if text, ok := sec["neigh"]; ok {
 		rep.neigh, rep.hasNeigh = parseNeigh(text), true
 	}
+	rep.nlbw, rep.hasNlbw = parseNlbw(sec["nlbw"])
 	if secs, err := strconv.ParseInt(strings.TrimSpace(sec["time"]), 10, 64); err == nil && secs > 0 {
 		rep.routerTime = time.Unix(secs, 0)
 	}
@@ -468,7 +504,7 @@ func (m *Module) applyReport(ctx context.Context, rep report, now time.Time) {
 	known, wifi, wired := up.knownAll, up.wifi, up.wired
 	st.KnownDevices, st.WifiClients, st.WiredClients = &known, &wifi, &wired
 	m.mu.Lock()
-	m.report = &pushSnapshot{at: now, status: st, clients: clients}
+	m.report = &pushSnapshot{at: now, status: st, clients: clients, hasNlbw: up.hasNlbw}
 	m.lastReport = now
 	m.mu.Unlock()
 }

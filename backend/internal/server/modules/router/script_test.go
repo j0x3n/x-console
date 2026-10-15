@@ -106,8 +106,9 @@ func TestScriptWifiAndNeighSections(t *testing.T) {
 	env, _, _, tok := setupPush(t)
 	e := newScriptEnv(t, tok.Token)
 	e.fake("ip", fakeIP)
+	e.fake("nlbw", "#!/bin/sh\n[ \"$*\" = \"-c json -g mac\" ] && echo '{\"columns\":[\"mac\",\"rx_bytes\",\"tx_bytes\"],\"data\":[[\"aa:bb:cc:00:01:01\",4000,300]]}'\n")
 	body := e.run("FAKE_HOSTAPD=1")
-	for _, want := range []string{"#xc:wifi\n=hostapd hostapd.wlan0\n", "=hostapd hostapd.wlan1\n", "#xc:neigh\n192.168.1.11 dev br-lan lladdr aa:bb:cc:00:01:01 REACHABLE"} {
+	for _, want := range []string{"#xc:wifi\n=hostapd hostapd.wlan0\n", "=hostapd hostapd.wlan1\n", "#xc:neigh\n192.168.1.11 dev br-lan lladdr aa:bb:cc:00:01:01 REACHABLE", "#xc:nlbw\n{\"columns\""} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("body misses %q:\n%s", want, body)
 		}
@@ -119,6 +120,9 @@ func TestScriptWifiAndNeighSections(t *testing.T) {
 	d := findDevice(t, env, macPhone)
 	if !d.Online || *d.Conn != "wifi" || *d.WifiIface != "wlan0" {
 		t.Fatalf("phone: %+v", d)
+	}
+	if _, avail := trafficList(t, env); !avail {
+		t.Fatal("the nlbw section did not arrive")
 	}
 	// A STALE neighbor is not a device that is there.
 	if _, ok := tryFind(listDevices(t, env), macPC); ok {
@@ -141,7 +145,7 @@ func TestScriptWithoutHostapdUsesIwinfo(t *testing.T) {
 		t.Fatalf("body:\n%s", body)
 	}
 	// No ip command: the neighbor section is left out and the ARP table stays.
-	if strings.Contains(body, "#xc:neigh") || !strings.Contains(body, "#xc:arp") {
+	if strings.Contains(body, "#xc:neigh") || strings.Contains(body, "#xc:nlbw") || !strings.Contains(body, "#xc:arp") {
 		t.Fatalf("body:\n%s", body)
 	}
 }

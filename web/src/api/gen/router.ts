@@ -146,6 +146,26 @@ export interface paths {
         patch: operations["updateRouterDevice"];
         trace?: never;
     };
+    "/router/devices/{mac}/traffic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B229：一台设备最近 24 小时或 7 天的流量，都按小时一个点。结构和 GET /router/traffic 一样。
+         *     MAC 不存在回 404。
+         */
+        get: operations["getRouterDeviceTraffic"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/router/options": {
         parameters: {
             query?: never;
@@ -412,6 +432,20 @@ export interface components {
              * @description 这段时间的上行总字节数
              */
             txBytes: number;
+            /**
+             * Format: int64
+             * @description B229：mode=push 且路由器上报了 nlbwmon 数据时，今天所有设备的下载合计。只有 GET /router/traffic 给
+             */
+            devicesTodayRx?: number;
+            /** Format: int64 */
+            devicesTodayTx?: number;
+            /**
+             * Format: int64
+             * @description 今天 WAN 口的下载合计，和 devicesTodayRx 一起给
+             */
+            wanTodayRx?: number;
+            /** Format: int64 */
+            wanTodayTx?: number;
         };
         RouterDevice: {
             /** @description 大写，冒号分隔 */
@@ -730,6 +764,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RouterDevice"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getRouterDeviceTraffic: {
+        parameters: {
+            query?: {
+                range?: "24h" | "7d";
+            };
+            header?: never;
+            path: {
+                mac: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 流量 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RouterTraffic"];
                 };
             };
             default: components["responses"]["Error"];

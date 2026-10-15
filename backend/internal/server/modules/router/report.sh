@@ -61,6 +61,11 @@ collect() {
 			echo '#xc:neigh'
 			ip neigh show 2>/dev/null
 		fi
+		# nlbwmon（带宽监控）里每台设备的字节数（B229）。没装就不带这一段
+		if command -v nlbw >/dev/null 2>&1; then
+			echo '#xc:nlbw'
+			nlbw -c json -g mac 2>/dev/null
+		fi
 	} > "$TMP"
 }
 

@@ -96,6 +96,12 @@ type deviceStore struct {
 	// seeded is true once the first report has been taken in (B232). Until
 	// then every device is new and none is announced.
 	seeded bool
+
+	// B229
+	tracks  map[string]*nlbwTrack
+	pending map[trafficKey]nlbwDelta
+	// pendingSince is when the oldest sum in pending was added.
+	pendingSince time.Time
 }
 
 func (d *devState) displayName() string {
@@ -227,6 +233,7 @@ func (m *Module) saveDevices(ctx context.Context, ds []*devState, now time.Time)
 type seen struct {
 	wifiIface string
 	reach     bool // on the network now
+	grew      bool // its byte counter in nlbwmon went up (B229)
 	ipv4      []neighIP
 	ipv6      []string
 }
@@ -300,6 +307,7 @@ func pickIP(s *seen, lease string) string {
 type deviceUpdate struct {
 	clients                       []api.RouterClient
 	online, wifi, wired, knownAll int
+	hasNlbw                       bool
 }
 
 // updateDevices takes one report into the device table: who is online, who
@@ -319,6 +327,22 @@ func (m *Module) updateDevices(ctx context.Context, rep report, wanDevs map[stri
 		return deviceUpdate{}
 	}
 	obs := observe(rep, wanDevs)
+	var deltas map[string]nlbwDelta
+	if rep.hasNlbw {
+		// A device whose counter moved is on the network, also when the
+		// neighbor table does not say so. Only devices already seen count.
+		deltas = m.trackNlbw(rep.nlbw, now)
+		for mac, dl := range deltas {
+			if dl.rx+dl.tx == 0 {
+				continue
+			}
+			if o := obs[mac]; o != nil {
+				o.grew = true
+			} else if s.byMAC[mac] != nil {
+				obs[mac] = &seen{grew: true}
+			}
+		}
+	}
 	leases := map[string]dhcpLease{}
 	for _, l := range parseLeaseFile(rep.leases, leaseNow) {
 		if mac := deviceMAC(l.MAC); mac != "" {
@@ -342,7 +366,7 @@ func (m *Module) updateDevices(ctx context.Context, rep report, wanDevs map[stri
 	for _, mac := range macs {
 		o := obs[mac]
 		d := s.byMAC[mac]
-		present := o != nil && o.reach
+		present := o != nil && (o.reach || o.grew && !(d != nil && d.online && d.conn == connWifi && rep.hasWifi))
 		if d == nil {
 			if !present {
 				continue // seen in the neighbor table only as STALE, not worth a row
@@ -370,8 +394,10 @@ func (m *Module) updateDevices(ctx context.Context, rep report, wanDevs map[stri
 	}
 	m.saveDevices(ctx, save, now)
 	m.announceArrivals(ctx, arrived, now, opts, &send)
+	m.recordTraffic(ctx, rep, deltas, now)
 
 	var up deviceUpdate
+	up.hasNlbw = rep.hasNlbw
 	up.knownAll = len(s.byMAC)
 	for _, d := range s.byMAC {
 		if !d.online {
@@ -390,6 +416,33 @@ func (m *Module) updateDevices(ctx context.Context, rep report, wanDevs map[stri
 	sortClients(up.clients)
 	m.sendNotifications(ctx, send)
 	return up
+}
+
+// recordTraffic adds the increases of this report to the hourly sums and sets
+// the speed of every device. The caller holds m.devs.mu.
+func (m *Module) recordTraffic(ctx context.Context, rep report, deltas map[string]nlbwDelta, now time.Time) {
+	s := &m.devs
+	if !rep.hasNlbw {
+		for _, d := range s.byMAC {
+			d.rate = devRate{}
+		}
+		return
+	}
+	hour := hourOf(now)
+	for mac, d := range s.byMAC {
+		if _, listed := rep.nlbw[mac]; !listed {
+			d.rate = devRate{ok: true} // nlbwmon has nothing for it: it moved nothing
+			continue
+		}
+		d.rate = devRate{}
+		if dl, ok := deltas[mac]; ok {
+			s.addTraffic(mac, hour, dl, now)
+		}
+		if t := s.tracks[mac]; t != nil {
+			d.rate.rx, d.rate.tx, d.rate.ok = t.rates()
+		}
+	}
+	m.flushTraffic(ctx, now, false)
 }
 
 // changedFrom says whether something the table stores differs from before.
@@ -656,6 +709,7 @@ func (m *Module) pollDevices(ctx context.Context, now time.Time) {
 		}
 	}
 	m.saveDevices(ctx, save, now)
+	m.flushTraffic(ctx, now, true)
 	s.mu.Unlock()
 	m.sendNotifications(ctx, send)
 }
@@ -806,12 +860,32 @@ func (m *Module) ListRouterDevices(w http.ResponseWriter, r *http.Request) {
 		list = append(list, d)
 	}
 	slices.SortFunc(list, compareDevices)
+	avail := m.trafficAvailable()
+	var today map[string]nlbwDelta
+	if avail {
+		var err error
+		if today, _, err = m.todayTotals(ctx, m.now()); err != nil {
+			s.mu.Unlock()
+			httpx.Fail(w, r, err)
+			return
+		}
+	}
 	items := make([]api.RouterDevice, 0, len(list))
 	for _, d := range list {
-		items = append(items, m.deviceView(d))
+		v := m.deviceView(d)
+		if avail {
+			t := today[d.mac]
+			rx, tx := int64(t.rx), int64(t.tx)
+			v.TodayRx, v.TodayTx = &rx, &tx
+			if d.online && d.rate.ok {
+				rxRate, txRate := d.rate.rx, d.rate.tx
+				v.RxRate, v.TxRate = &rxRate, &txRate
+			}
+		}
+		items = append(items, v)
 	}
 	s.mu.Unlock()
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "trafficAvailable": false})
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "trafficAvailable": avail})
 }
 
 // compareDevices puts the online devices first, by IP. The others follow, the
