@@ -62,7 +62,7 @@ func apiStyle(value *api.ApiStyle, current api.ApiStyle) (api.ApiStyle, error) {
 		return current, nil
 	}
 	if !value.Valid() {
-		return "", httpx.Invalid("接口类型只能是 chat 或 responses")
+		return "", httpx.Invalid("接口类型只能是 chat、responses 或 jev")
 	}
 	return *value, nil
 }
@@ -217,7 +217,7 @@ func (m *Module) DeleteAiProvider(w http.ResponseWriter, r *http.Request, id api
 		httpx.Fail(w, r, err)
 		return
 	}
-	for _, key := range []string{"ai.fast_model", "ai.agent_model"} {
+	for _, key := range []string{"ai.fast_model", "ai.agent_model", mailTriageSetting} {
 		if _, err = tx.ExecContext(ctx, `DELETE FROM settings WHERE key=? AND json_extract(value,'$.providerId')=?`, key, id); err != nil {
 			httpx.Fail(w, r, err)
 			return
@@ -288,20 +288,44 @@ func (m *Module) fetchModels(ctx context.Context, p providerRow) ([]string, erro
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("接口返回 %d", resp.StatusCode)
 	}
-	var data struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, err
 	}
-	if err = json.NewDecoder(io.LimitReader(resp.Body, 10<<20)).Decode(&data); err != nil {
-		return nil, fmt.Errorf("模型列表解析失败: %w", err)
+	var ids []string
+	if p.ApiStyle == api.Jev {
+		var data struct {
+			Models []struct {
+				Name string `json:"name"`
+			} `json:"models"`
+		}
+		if err = json.Unmarshal(body, &data); err != nil {
+			return nil, fmt.Errorf("模型列表解析失败: %w", err)
+		}
+		ids = make([]string, 0, len(data.Models))
+		for _, model := range data.Models {
+			ids = append(ids, model.Name)
+		}
+	} else {
+		var data struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err = json.Unmarshal(body, &data); err != nil {
+			return nil, fmt.Errorf("模型列表解析失败: %w", err)
+		}
+		ids = make([]string, 0, len(data.Data))
+		for _, model := range data.Data {
+			ids = append(ids, model.ID)
+		}
 	}
-	models := make([]string, 0, len(data.Data))
+	models := make([]string, 0, len(ids))
 	seen := map[string]bool{}
-	for _, model := range data.Data {
-		if model.ID != "" && !seen[model.ID] {
-			seen[model.ID] = true
-			models = append(models, model.ID)
+	for _, id := range ids {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			models = append(models, id)
 		}
 	}
 	return models, nil

@@ -3,8 +3,9 @@ package ai
 import (
 	"context"
 	"errors"
-	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"time"
+
+	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 
 	"github.com/j0x3n/x-console/backend/internal/server/contracts"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
@@ -36,6 +37,9 @@ func (m *Module) resolveLLM(ctx context.Context, purpose string) (llm.Config, er
 	}
 	if err != nil {
 		return llm.Config{}, err
+	}
+	if p.ApiStyle == api.Jev {
+		return llm.Config{}, errors.New("Jev 只做分类，不能对话")
 	}
 	cfg := llm.Config{ProviderID: p.Id, ProviderName: p.Name, BaseURL: p.BaseUrl, Model: ref.Model, APIStyle: string(p.ApiStyle)}
 	if p.key.Valid && p.key.String != "" {

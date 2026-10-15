@@ -35,6 +35,7 @@ const (
 	CalendarKey      = "calendar.calendar"   // M11 provides
 	GitHubKey        = "github.github"       // M13 provides
 	LLMKey           = "ai.llm"              // M12 provides
+	MailSortKey      = "ai.mail_sort"        // B223 ai provides, mail uses
 	MemoriesKey      = "ai.memories"         // B61 ai provides, aiagents uses
 	AIUsageKey       = "ai.usage"            // M12 provides, B42
 	FilesKey         = "files.files"         // B36 provides
@@ -72,6 +73,27 @@ type LLM interface {
 	Available(ctx context.Context) bool
 	CompleteJSON(ctx context.Context, purpose, system, user string, schema json.RawMessage, out any) error
 	CompleteText(ctx context.Context, purpose, system, user string) (string, error)
+}
+
+// MailSortItem is one message for a classifier that only picks a category.
+type MailSortItem struct {
+	ID            int64
+	From, Subject string
+	Text          string
+}
+
+// MailVerdict is the category and whether the recipient must decide.
+// Category is action, notice or promo. Decision is only meaningful for action.
+type MailVerdict struct {
+	Category string
+	Decision bool
+}
+
+// MailSorter classifies mail without writing a summary. Available is false
+// when no classifier model is selected. Sort omits items it could not judge.
+type MailSorter interface {
+	Available(ctx context.Context) bool
+	Sort(ctx context.Context, items []MailSortItem) (map[int64]MailVerdict, error)
 }
 
 // AIUsage says which feature made an AI call, for the usage records (B42).

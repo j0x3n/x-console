@@ -1,16 +1,28 @@
-import type { AiModel, ModelRef } from "../api";
+import type { AiModel, AiProvider, ApiStyle, ModelRef } from "../api";
 
 /*
  * AI 设置页（B32）用的纯函数：模型规格的显示、搜索、分组。
  */
 
 /** 常见的 OpenAI 兼容接口，新建供应商时可以直接选。 */
-export const PROVIDER_PRESETS = [
+export const PROVIDER_PRESETS: {
+  name: string;
+  baseUrl: string;
+  apiStyle?: ApiStyle;
+}[] = [
   { name: "OpenAI", baseUrl: "https://api.openai.com/v1" },
   { name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1" },
   { name: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
   { name: "Ollama", baseUrl: "http://127.0.0.1:11434/v1" },
+  {
+    name: "Jev",
+    baseUrl: "https://api.typesafe.ai/v1",
+    apiStyle: "jev",
+  },
 ];
+
+export const isJevModel = (providers: AiProvider[], model: AiModel) =>
+  providers.find((p) => p.id === model.providerId)?.apiStyle === "jev";
 
 /** 上下文长度：131072 → 128K，400000 → 400K，1000000 → 1M。 */
 export function formatContext(tokens?: number): string {

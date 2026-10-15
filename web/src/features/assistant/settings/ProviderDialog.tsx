@@ -93,6 +93,7 @@ export default function ProviderDialog({
                 onClick={() => {
                   setName(p.name);
                   setBaseUrl(p.baseUrl);
+                  setApiStyle(p.apiStyle ?? "chat");
                 }}
               >
                 {p.name}
@@ -151,11 +152,14 @@ export default function ProviderDialog({
           >
             <option value="chat">Chat Completions</option>
             <option value="responses">Responses</option>
+            <option value="jev">Jev</option>
           </select>
           <small>
-            {t(
-              "Most services support Chat Completions. Choose Responses if the service asks for it.",
-            )}
+            {apiStyle === "jev"
+              ? t("Jev only classifies. It cannot chat.")
+              : t(
+                  "Most services support Chat Completions. Choose Responses if the service asks for it.",
+                )}
           </small>
         </label>
         {error && <p className="xc-error-text">{error}</p>}

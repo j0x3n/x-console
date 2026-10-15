@@ -76,7 +76,7 @@ registerZh({
   "Models that use it are cleared from the settings.":
     "用到它的模型设置会被清空。",
   "Add an OpenAI compatible provider, such as OpenAI, DeepSeek, OpenRouter or a local Ollama.":
-    "添加一个兼容 OpenAI 接口的供应商。比如 OpenAI、DeepSeek、OpenRouter，或者本机的 Ollama。",
+    "添加一个兼容 OpenAI 接口的供应商。比如 OpenAI、DeepSeek、OpenRouter，或者本机的 Ollama。Jev 也可以加，它只给邮件分类。",
   "Any service with an OpenAI compatible API works, including local models.":
     "兼容 OpenAI 接口的服务都可以用，本机模型也行。",
   Presets: "常用",
@@ -190,6 +190,12 @@ registerZh({
   "API type": "接口类型",
   "Most services support Chat Completions. Choose Responses if the service asks for it.":
     "大多数服务支持 Chat Completions。服务要求用 Responses 时再选它。",
+  "Jev only classifies. It cannot chat.": "Jev 只做分类，不能对话。",
+  "Mail sorting model": "邮件分拣模型",
+  "Use the fast model": "用快速模型分拣",
+  "Only a Jev model can be selected here.": "这里只能选 Jev。",
+  "Jev picks the category and whether a decision is needed. The fast model still writes the summary and dates.":
+    "Jev 只判断类别和要不要做决定。摘要和日期仍由快速模型写。",
   "Fast model reasoning effort": "快速模型思考程度",
   "Attach images or text files": "添加图片或文本文件",
   "Up to 10 attachments per message": "一条消息最多 10 个附件",

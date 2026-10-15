@@ -3,6 +3,7 @@
 // environment instead of this project's TypeScript 7.
 import { execFileSync } from "node:child_process";
 import { readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 const specDir = join(import.meta.dirname, "..", "..", "api", "modules");
@@ -24,6 +25,6 @@ for (const file of readdirSync(specDir).filter((f) => f.endsWith(".yaml"))) {
       "-o",
       join(outDir, `${name}.ts`),
     ],
-    { stdio: "inherit", shell: process.platform === "win32" },
+    { stdio: "inherit", shell: process.platform === "win32", cwd: tmpdir() },
   );
 }

@@ -896,8 +896,8 @@ components:
       enum: [off, low, medium, high]
     ApiStyle:
       type: string
-      description: B39。chat 用 /chat/completions；responses 用 /responses
-      enum: [chat, responses]
+      description: B39。chat 用 /chat/completions；responses 用 /responses。B223。jev 用 TypeSafe 的 /systemone，只做分类
+      enum: [chat, responses, jev]
     AiAttachment:
       type: object
       required: [id, name, mime, size, kind]
@@ -984,6 +984,10 @@ components:
       properties:
         fast: { $ref: "#/components/schemas/ModelRef" }
         agent: { $ref: "#/components/schemas/ModelRef" }
+        mailTriage:
+          allOf:
+            - $ref: "#/components/schemas/ModelRef"
+          description: B223。邮件分拣用的 Jev 模型。不设时仍用快速模型做整封分拣
         reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         fastReasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         reasoningUnsupported:
@@ -1003,6 +1007,10 @@ components:
       properties:
         fast: { nullable: true, allOf: [{ $ref: "#/components/schemas/ModelRef" }], description: 传 null 表示清空 }
         agent: { nullable: true, allOf: [{ $ref: "#/components/schemas/ModelRef" }], description: 传 null 表示清空 }
+        mailTriage:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/ModelRef" }]
+          description: B223。传 null 表示清空。不传这个字段表示不改
         reasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         fastReasoningEffort: { $ref: "#/components/schemas/ReasoningEffort" }
         confirmAllWrites: { type: boolean }

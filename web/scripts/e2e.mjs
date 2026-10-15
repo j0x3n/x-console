@@ -519,6 +519,80 @@ try {
       await new Promise((done) => aiFake.close(done));
     }
 
+    setStage("B223 Jev 供应商和邮件分拣模型");
+    const jevFake = http.createServer((request, response) => {
+      if (request.url === "/v1/models") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(
+          JSON.stringify({
+            models: [
+              {
+                name: "jev-latest",
+                description: "stable",
+                release_date: "2026-09-15",
+              },
+              {
+                name: "jev-preview",
+                description: "preview",
+                release_date: "2026-10-14",
+              },
+            ],
+          }),
+        );
+        return;
+      }
+      response.writeHead(404).end();
+    });
+    await new Promise((ready) => jevFake.listen(0, "127.0.0.1", ready));
+    try {
+      const jevElevated = await page.context().request.post(`${base}/api/v1/auth/elevate`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { password },
+      });
+      assert.equal(jevElevated.status(), 200, await jevElevated.text());
+      const createdJev = await page.context().request.post(`${base}/api/v1/ai/providers`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: {
+          name: "Jev",
+          baseUrl: `http://127.0.0.1:${jevFake.address().port}/v1`,
+          apiKey: "jev-secret",
+          apiStyle: "jev",
+        },
+      });
+      assert.equal(createdJev.status(), 201, await createdJev.text());
+      const jevProvider = await createdJev.json();
+      assert.equal(jevProvider.apiStyle, "jev");
+      const jevModels = await page.context().request.post(
+        `${base}/api/v1/ai/providers/${jevProvider.id}/models`,
+        { headers: { "X-Requested-With": "x-console" } },
+      );
+      assert.equal(jevModels.status(), 200, await jevModels.text());
+      const jevModelList = await jevModels.json();
+      assert.ok(
+        jevModelList.some((model) => model.id === "jev-latest"),
+        JSON.stringify(jevModelList),
+      );
+      const rejectedJev = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { agent: { providerId: jevProvider.id, model: "jev-latest" } },
+      });
+      assert.equal(rejectedJev.status(), 400, await rejectedJev.text());
+      const savedJev = await page.context().request.put(`${base}/api/v1/ai/model-settings`, {
+        headers: { "X-Requested-With": "x-console" },
+        data: { mailTriage: { providerId: jevProvider.id, model: "jev-latest" } },
+      });
+      assert.equal(savedJev.status(), 200, await savedJev.text());
+      assert.equal((await savedJev.json()).mailTriage.model, "jev-latest");
+      const removedJev = await page.context().request.delete(
+        `${base}/api/v1/ai/providers/${jevProvider.id}`,
+        { headers: { "X-Requested-With": "x-console" } },
+      );
+      assert.equal(removedJev.status(), 204, await removedJev.text());
+      assert.equal((await api("/ai/model-settings")).mailTriage, undefined);
+    } finally {
+      await new Promise((done) => jevFake.close(done));
+    }
+
     setStage("B65 路由器");
     // 假的 OpenWrt ubus：登录、系统信息、接口、网卡计数、DHCP 租约和 host hints。
     const ubusFake = http.createServer(async (request, response) => {

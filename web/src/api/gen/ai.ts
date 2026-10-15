@@ -733,10 +733,10 @@ export interface components {
          */
         ReasoningEffort: "off" | "low" | "medium" | "high";
         /**
-         * @description B39。chat 用 /chat/completions；responses 用 /responses
+         * @description B39。chat 用 /chat/completions；responses 用 /responses。B223。jev 用 TypeSafe 的 /systemone，只做分类
          * @enum {string}
          */
-        ApiStyle: "chat" | "responses";
+        ApiStyle: "chat" | "responses" | "jev";
         AiAttachment: {
             /** Format: int64 */
             id: number;
@@ -827,6 +827,8 @@ export interface components {
         AiModelSettings: {
             fast?: components["schemas"]["ModelRef"];
             agent?: components["schemas"]["ModelRef"];
+            /** @description B223。邮件分拣用的 Jev 模型。不设时仍用快速模型做整封分拣 */
+            mailTriage?: components["schemas"]["ModelRef"];
             reasoningEffort: components["schemas"]["ReasoningEffort"];
             fastReasoningEffort: components["schemas"]["ReasoningEffort"];
             /** @description 上次调用时接口不认 reasoning_effort，已自动去掉重试 */
@@ -850,6 +852,8 @@ export interface components {
             fast?: components["schemas"]["ModelRef"] | null;
             /** @description 传 null 表示清空 */
             agent?: components["schemas"]["ModelRef"] | null;
+            /** @description B223。传 null 表示清空。不传这个字段表示不改 */
+            mailTriage?: components["schemas"]["ModelRef"] | null;
             reasoningEffort?: components["schemas"]["ReasoningEffort"];
             fastReasoningEffort?: components["schemas"]["ReasoningEffort"];
             confirmAllWrites?: boolean;

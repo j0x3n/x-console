@@ -285,6 +285,7 @@ func (e AiWebSearchMode) Valid() bool {
 // Defines values for ApiStyle.
 const (
 	Chat      ApiStyle = "chat"
+	Jev       ApiStyle = "jev"
 	Responses ApiStyle = "responses"
 )
 
@@ -292,6 +293,8 @@ const (
 func (e ApiStyle) Valid() bool {
 	switch e {
 	case Chat:
+		return true
+	case Jev:
 		return true
 	case Responses:
 		return true
@@ -627,6 +630,9 @@ type AiModelSettings struct {
 	// LegacyAnthropic 旧版的 Anthropic 设置还在，但已不再使用，界面提示重新配置
 	LegacyAnthropic *bool `json:"legacyAnthropic,omitempty"`
 
+	// MailTriage B223。邮件分拣用的 Jev 模型。不设时仍用快速模型做整封分拣
+	MailTriage *ModelRef `json:"mailTriage,omitempty"`
+
 	// ModelsDevSyncedAt 上次从 models.dev 同步规格的时间
 	ModelsDevSyncedAt *time.Time `json:"modelsDevSyncedAt,omitempty"`
 
@@ -653,6 +659,9 @@ type AiModelSettingsInput struct {
 	// FastReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
 	FastReasoningEffort *ReasoningEffort `json:"fastReasoningEffort,omitempty"`
 
+	// MailTriage B223。传 null 表示清空。不传这个字段表示不改
+	MailTriage *ModelRef `json:"mailTriage,omitempty"`
+
 	// ReasoningEffort B32。思考程度，off 表示不传 reasoning_effort
 	ReasoningEffort *ReasoningEffort `json:"reasoningEffort,omitempty"`
 }
@@ -675,7 +684,7 @@ type AiPermission string
 
 // AiProvider defines model for AiProvider.
 type AiProvider struct {
-	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses。B223。jev 用 TypeSafe 的 /systemone，只做分类
 	ApiStyle ApiStyle `json:"apiStyle"`
 
 	// BaseUrl 例如 https://api.openai.com/v1
@@ -696,7 +705,7 @@ type AiProviderInput struct {
 	// ApiKey 可以不填，本地模型不需要
 	ApiKey *string `json:"apiKey,omitempty"`
 
-	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses。B223。jev 用 TypeSafe 的 /systemone，只做分类
 	ApiStyle *ApiStyle `json:"apiStyle,omitempty"`
 
 	// BaseUrl http 或 https 地址
@@ -709,7 +718,7 @@ type AiProviderPatch struct {
 	// ApiKey 不传表示不改，空字符串表示删除
 	ApiKey *string `json:"apiKey,omitempty"`
 
-	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+	// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses。B223。jev 用 TypeSafe 的 /systemone，只做分类
 	ApiStyle *ApiStyle `json:"apiStyle,omitempty"`
 	BaseUrl  *string   `json:"baseUrl,omitempty"`
 	Name     *string   `json:"name,omitempty"`
@@ -895,7 +904,7 @@ type AiWebSource struct {
 	Url   string `json:"url"`
 }
 
-// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses
+// ApiStyle B39。chat 用 /chat/completions；responses 用 /responses。B223。jev 用 TypeSafe 的 /systemone，只做分类
 type ApiStyle string
 
 // ContentBlock 常见的几种：

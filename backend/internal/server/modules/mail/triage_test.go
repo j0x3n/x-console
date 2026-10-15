@@ -318,3 +318,68 @@ func TestTriageOnRequestUsesTheBody(t *testing.T) {
 		t.Errorf("AI error: %d", status)
 	}
 }
+
+type fakeSorter struct {
+	mu        sync.Mutex
+	available bool
+	err       error
+	calls     int
+}
+
+func (f *fakeSorter) Available(context.Context) bool { return f.available }
+func (f *fakeSorter) Sort(_ context.Context, items []contracts.MailSortItem) (map[int64]contracts.MailVerdict, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	out := map[int64]contracts.MailVerdict{}
+	for _, it := range items {
+		v := contracts.MailVerdict{Category: "notice", Decision: true}
+		switch {
+		case strings.Contains(it.Subject, "批准"):
+			v.Category = "action"
+		case strings.Contains(it.Subject, "促销"):
+			v.Category = "promo"
+		}
+		out[it.ID] = v
+	}
+	return out, nil
+}
+
+func TestTriageJevPicksCategoryAndChatWritesSummary(t *testing.T) {
+	env, _, f := setup(t)
+	ai := withAI(t, env)
+	sorter := &fakeSorter{available: true}
+	module.Provide[contracts.MailSorter](env.App.Deps.Registry, contracts.MailSortKey, sorter)
+	firstSync(t, env, f, false)
+	f.add(t, subjectMail("请批准报销"), time.Now())
+	eventually(t, "decision mail", func() bool { return bySubject(list(t, env, ""), "请批准报销") != nil })
+	id := bySubject(list(t, env, ""), "请批准报销").Id
+	var tr api.MailTriage
+	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", id), nil, &tr)
+	if tr.Category != api.Action || !tr.Decision || tr.Summary != "请批准报销" {
+		t.Fatalf("jev triage: %+v", tr)
+	}
+	if ai.calls() != 1 || !strings.Contains(ai.systems[0], "邮件摘要助手") || strings.Contains(ai.systems[0], "给每封邮件分类") {
+		t.Fatalf("summary prompt: %q", ai.systems)
+	}
+	f.add(t, subjectMail("双十一促销"), time.Now())
+	eventually(t, "promo mail", func() bool { return bySubject(list(t, env, ""), "双十一促销") != nil })
+	promoID := bySubject(list(t, env, ""), "双十一促销").Id
+	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", promoID), nil, &tr)
+	if tr.Category != api.Promo || tr.Decision || tr.Summary != "" || len(tr.Dates) != 0 {
+		t.Fatalf("promo: %+v", tr)
+	}
+	if ai.calls() != 1 {
+		t.Fatalf("promo should not ask the chat model, calls %d", ai.calls())
+	}
+	sorter.mu.Lock()
+	sorter.err = errors.New("down")
+	sorter.mu.Unlock()
+	env.MustDo(http.MethodPost, fmt.Sprintf("/mail/messages/%d/triage", id), nil, &tr)
+	if tr.Category != api.Action || !tr.Decision || !strings.Contains(ai.systems[len(ai.systems)-1], "给每封邮件分类") {
+		t.Fatalf("fallback: %+v systems %q", tr, ai.systems)
+	}
+}

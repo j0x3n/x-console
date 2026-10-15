@@ -93,9 +93,19 @@ describe("AI settings", () => {
           id: 1,
           name: "OpenAI",
           baseUrl: "https://api.openai.com/v1",
+          apiStyle: "chat",
           hasApiKey: true,
           modelCount: 2,
           createdAt: "2026-09-01T00:00:00Z",
+        },
+        {
+          id: 2,
+          name: "Jev",
+          baseUrl: "https://api.typesafe.ai/v1",
+          apiStyle: "jev",
+          hasApiKey: true,
+          modelCount: 1,
+          createdAt: "2026-10-15T00:00:00Z",
         },
       ],
     }));
@@ -117,6 +127,11 @@ describe("AI settings", () => {
           id: "text-only",
           toolCall: false,
           specSource: "exact",
+        },
+        {
+          providerId: 2,
+          id: "jev-latest",
+          specSource: "unknown",
         },
       ],
     }));
@@ -172,13 +187,20 @@ describe("AI settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Agent 模型" }));
     const off = await screen.findByRole("option", { name: /text-only/ });
     expect(off.getAttribute("aria-disabled")).toBe("true");
+    const jevOff = screen.getByRole("option", { name: /jev-latest/ });
+    expect(jevOff.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(off);
     fireEvent.click(screen.getByRole("option", { name: /gpt-5/ }));
+    fireEvent.click(screen.getByRole("button", { name: "邮件分拣模型" }));
+    const chatOff = await screen.findByRole("option", { name: /gpt-5/ });
+    expect(chatOff.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(screen.getByRole("option", { name: /jev-latest/ }));
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(saved).not.toBeNull());
     expect(saved).toEqual({
       fast: null,
       agent: { providerId: 1, model: "gpt-5" },
+      mailTriage: { providerId: 2, model: "jev-latest" },
       reasoningEffort: "medium",
       // B60：没选过默认权限时按原来的开关，关着就是“写入”
       defaultPermission: "write",

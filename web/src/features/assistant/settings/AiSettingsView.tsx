@@ -32,7 +32,7 @@ import NotesAiCard from "./NotesAiCard";
 import MemoryCard from "./MemoryCard";
 import WebSearchCard from "./WebSearchCard";
 import ProviderDialog from "./ProviderDialog";
-import { canUseTools, findModel } from "./models";
+import { canUseTools, findModel, isJevModel } from "./models";
 
 const EFFORTS: { value: ReasoningEffort; label: string }[] = [
   { value: "off", label: "Off" },
@@ -122,6 +122,7 @@ function ProvidersCard({ providers }: { providers: AiProvider[] }) {
                     ` · ${t("Refreshed")} ${relativeTime(p.modelsRefreshedAt, language)}`}
                   {!p.hasApiKey && ` · ${t("No key")}`}
                   {p.apiStyle === "responses" && " · Responses"}
+                  {p.apiStyle === "jev" && " · Jev"}
                 </span>
                 {p.lastError && (
                   <span className="xc-error-text ai-provider-error">
@@ -187,6 +188,9 @@ function ModelsCard({
   const save = useSaveModelSettings();
   const [fast, setFast] = useState<ModelRef | undefined>(initial.fast);
   const [agent, setAgent] = useState<ModelRef | undefined>(initial.agent);
+  const [mailTriage, setMailTriage] = useState<ModelRef | undefined>(
+    initial.mailTriage,
+  );
   const [effort, setEffort] = useState<ReasoningEffort>(
     initial.reasoningEffort,
   );
@@ -202,6 +206,7 @@ function ModelsCard({
   useEffect(() => {
     setFast(initial.fast);
     setAgent(initial.agent);
+    setMailTriage(initial.mailTriage);
     setEffort(initial.reasoningEffort);
     setFastEffort(initial.fastReasoningEffort);
     setDefaultPerm(
@@ -222,6 +227,7 @@ function ModelsCard({
       {
         fast: fast ?? null,
         agent: agent ?? null,
+        mailTriage: mailTriage ?? null,
         reasoningEffort: noReasoning ? "off" : effort,
         fastReasoningEffort: fastNoReasoning ? "off" : fastEffort,
         defaultPermission: defaultPerm,
@@ -256,7 +262,13 @@ function ModelsCard({
             onChange={setAgent}
             models={models}
             providers={providers}
-            disabled={(m) => (canUseTools(m) ? null : t("No tool calls"))}
+            disabled={(m) =>
+              isJevModel(providers, m)
+                ? t("Jev only classifies. It cannot chat.")
+                : canUseTools(m)
+                  ? null
+                  : t("No tool calls")
+            }
             onFillSpec={setSpec}
           />
           <small>
@@ -298,6 +310,11 @@ function ModelsCard({
             models={models}
             providers={providers}
             allowNone={t("Same as the Agent model")}
+            disabled={(m) =>
+              isJevModel(providers, m)
+                ? t("Jev only classifies. It cannot chat.")
+                : null
+            }
             onFillSpec={setSpec}
           />
           <small>
@@ -324,6 +341,27 @@ function ModelsCard({
               {t("Off is quickest. Turn it up for polishing long notes.")}
             </small>
           )}
+        </div>
+        <div className="xc-field">
+          <span>{t("Mail sorting model")}</span>
+          <ModelPicker
+            label={t("Mail sorting model")}
+            value={mailTriage}
+            onChange={setMailTriage}
+            models={models}
+            providers={providers}
+            allowNone={t("Use the fast model")}
+            disabled={(m) =>
+              isJevModel(providers, m)
+                ? null
+                : t("Only a Jev model can be selected here.")
+            }
+          />
+          <small>
+            {t(
+              "Jev picks the category and whether a decision is needed. The fast model still writes the summary and dates.",
+            )}
+          </small>
         </div>
         <label className="xc-field full">
           <span>{t("Default permission for new chats")}</span>

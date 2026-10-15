@@ -1,10 +1,12 @@
 package ai
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"reflect"
 	"time"
@@ -14,6 +16,8 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai/api"
 	"github.com/j0x3n/x-console/backend/internal/server/settings"
 )
+
+const mailTriageSetting = "ai.mail_triage_model"
 
 func optionalSetting[T any](ctx context.Context, m *Module, key string, value *T) error {
 	err := m.d.Settings.Get(ctx, key, value)
@@ -29,6 +33,9 @@ func (m *Module) modelSettings(ctx context.Context) (api.AiModelSettings, error)
 		return out, err
 	}
 	if err := optionalSetting(ctx, m, "ai.agent_model", &out.Agent); err != nil {
+		return out, err
+	}
+	if err := optionalSetting(ctx, m, mailTriageSetting, &out.MailTriage); err != nil {
 		return out, err
 	}
 	if err := optionalSetting(ctx, m, "ai.reasoning_effort", &out.ReasoningEffort); err != nil {
@@ -87,7 +94,7 @@ func (m *Module) GetAiModelSettings(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, 200, out)
 }
 
-func (m *Module) validateModelRef(ctx context.Context, ref *api.ModelRef, agent bool) error {
+func (m *Module) validateModelRef(ctx context.Context, ref *api.ModelRef, kind string) error {
 	if ref == nil {
 		return nil
 	}
@@ -95,15 +102,30 @@ func (m *Module) validateModelRef(ctx context.Context, ref *api.ModelRef, agent 
 	if err != nil {
 		return err
 	}
-	for _, model := range models {
-		if model.Id == ref.Model {
-			if agent && model.ToolCall != nil && !*model.ToolCall {
-				return httpx.NewError(400, "model_without_tools", "这个模型不支持工具调用")
-			}
-			return nil
+	var found *api.AiModel
+	for i := range models {
+		if models[i].Id == ref.Model {
+			found = &models[i]
+			break
 		}
 	}
-	return httpx.NewError(400, "unknown_model", "模型不在供应商的列表里")
+	if found == nil {
+		return httpx.NewError(400, "unknown_model", "模型不在供应商的列表里")
+	}
+	p, err := m.provider(ctx, ref.ProviderId)
+	if err != nil {
+		return err
+	}
+	if p.ApiStyle == api.Jev && kind != "jev" {
+		return httpx.NewError(400, "jev_not_chat", "Jev 只做分类，不能当对话模型")
+	}
+	if kind == "jev" && p.ApiStyle != api.Jev {
+		return httpx.NewError(400, "not_jev", "邮件分拣只能选 Jev")
+	}
+	if kind == "agent" && found.ToolCall != nil && !*found.ToolCall {
+		return httpx.NewError(400, "model_without_tools", "这个模型不支持工具调用")
+	}
+	return nil
 }
 
 func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
@@ -111,16 +133,33 @@ func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
 	if m.fail(w, r, auth.RequireElevated(ctx)) {
 		return
 	}
+	raw, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, 1<<20))
+	if m.fail(w, r, err) {
+		return
+	}
 	var body api.AiModelSettingsInput
-	if m.fail(w, r, httpx.Decode(r, &body)) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	if err = dec.Decode(&body); err != nil {
+		httpx.Fail(w, r, httpx.Invalid("请求体格式不正确: "+err.Error()))
+		return
+	}
+	var present map[string]json.RawMessage
+	if err = json.Unmarshal(raw, &present); err != nil {
+		httpx.Fail(w, r, httpx.Invalid("请求体格式不正确: "+err.Error()))
 		return
 	}
 	if body.ReasoningEffort != nil && !body.ReasoningEffort.Valid() || body.FastReasoningEffort != nil && !body.FastReasoningEffort.Valid() {
 		httpx.Fail(w, r, httpx.Invalid("思考程度不正确"))
 		return
 	}
-	if m.fail(w, r, m.validateModelRef(ctx, body.Agent, true)) || m.fail(w, r, m.validateModelRef(ctx, body.Fast, false)) {
+	if m.fail(w, r, m.validateModelRef(ctx, body.Agent, "agent")) || m.fail(w, r, m.validateModelRef(ctx, body.Fast, "fast")) {
 		return
+	}
+	if _, ok := present["mailTriage"]; ok {
+		if m.fail(w, r, m.validateModelRef(ctx, body.MailTriage, "jev")) {
+			return
+		}
 	}
 	previous, err := m.modelSettings(ctx)
 	if m.fail(w, r, err) {
@@ -139,6 +178,16 @@ func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
 			_, err = tx.ExecContext(ctx, `DELETE FROM settings WHERE key=?`, item.key)
 		} else {
 			err = setAISetting(ctx, tx, item.key, item.value)
+		}
+		if m.fail(w, r, err) {
+			return
+		}
+	}
+	if _, ok := present["mailTriage"]; ok {
+		if body.MailTriage == nil {
+			_, err = tx.ExecContext(ctx, `DELETE FROM settings WHERE key=?`, mailTriageSetting)
+		} else {
+			err = setAISetting(ctx, tx, mailTriageSetting, body.MailTriage)
 		}
 		if m.fail(w, r, err) {
 			return
@@ -180,7 +229,7 @@ func (m *Module) PutAiModelSettings(w http.ResponseWriter, r *http.Request) {
 	if m.fail(w, r, tx.Commit()) {
 		return
 	}
-	m.d.Audit.Record(ctx, "ai.settings.update", "", map[string]any{"agent": body.Agent, "fast": body.Fast}, nil)
+	m.d.Audit.Record(ctx, "ai.settings.update", "", map[string]any{"agent": body.Agent, "fast": body.Fast, "mailTriage": body.MailTriage}, nil)
 	m.d.Bus.Publish("ai.provider_changed", nil)
 	m.GetAiModelSettings(w, r)
 }
