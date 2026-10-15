@@ -72,3 +72,9 @@ func DropCaches(m *Module) {
 func NotifyBody(content, sections string) string {
 	return notifyBody(db.Brief{Content: content, Sections: sections})
 }
+
+func OnWake(m *Module, ctx context.Context, now time.Time) error { return m.onWake(ctx, now) }
+
+func CompareHigh(today, yesterday float64) string { return compareHigh(today, yesterday) }
+
+func RainSpans(hours []int) string { return rainSpans(hours) }

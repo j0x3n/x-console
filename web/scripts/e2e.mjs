@@ -1420,6 +1420,18 @@ try {
     await page.getByRole("button", { name: "删除 新邮件" }).click();
     await page.getByText("还没有静音规则").waitFor();
 
+    setStage("起床后发早报");
+    // B163：早报设置里选“起床后，最晚”，保存后接口里是 wake；再改回固定时间。
+    await page.goto(`${base}/settings/brief`);
+    const briefForm = page.locator("form.brief-settings");
+    const briefSave = briefForm.getByRole("button", { name: "保存", exact: true });
+    await briefForm.getByLabel("起床后，最晚").check();
+    await briefSave.click();
+    await until("早报改成起床后发", async () => (await api("/briefs/settings")).sendMode === "wake");
+    await briefForm.getByLabel("固定时间").check();
+    await briefSave.click();
+    await until("早报改回固定时间", async () => (await api("/briefs/settings")).sendMode === "time");
+
     setStage("新建项目和卡片");
     await page.goto(`${base}/projects`);
     await page.getByRole("button", { name: "新建项目" }).click();

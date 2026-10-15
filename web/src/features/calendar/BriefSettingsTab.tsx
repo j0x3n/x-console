@@ -14,6 +14,7 @@ import {
   type BriefSettings,
   type BriefSettingsView,
 } from "./api";
+import { useMeReport, useMeSettings } from "../me/api";
 import "./i18n";
 import "./calendar.css";
 
@@ -46,6 +47,7 @@ const channelLabels: Record<string, string> = {
 interface Form {
   enabled: boolean;
   time: string;
+  sendMode: "time" | "wake";
   channels: string[];
   sections: BriefSectionKey[];
   lat: string;
@@ -59,6 +61,7 @@ function toForm(v: BriefSettingsView): Form {
   return {
     enabled: v.enabled,
     time: v.time,
+    sendMode: v.sendMode ?? "time",
     channels: v.channels,
     sections: v.sections,
     lat: v.location ? String(v.location.lat) : "",
@@ -156,6 +159,7 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
     const body: BriefSettings = {
       enabled: form.enabled,
       time: form.time,
+      sendMode: form.sendMode,
       channels: form.channels,
       sections: form.sections,
       location: hasLat
@@ -191,6 +195,26 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
             />
             <span>{t("Send the brief every day")}</span>
           </label>
+          <span className="brief-options" role="radiogroup">
+            <label className="brief-check">
+              <input
+                type="radio"
+                name="brief-send-mode"
+                checked={form.sendMode === "time"}
+                onChange={() => set("sendMode", "time")}
+              />
+              <span>{t("At a fixed time")}</span>
+            </label>
+            <label className="brief-check">
+              <input
+                type="radio"
+                name="brief-send-mode"
+                checked={form.sendMode === "wake"}
+                onChange={() => set("sendMode", "wake")}
+              />
+              <span>{t("After I wake up, at the latest")}</span>
+            </label>
+          </span>
           <input
             className="xc-input brief-time"
             type="time"
@@ -199,6 +223,7 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
             onChange={(e) => set("time", e.target.value)}
             required
           />
+          {form.sendMode === "wake" && <WakeSignalHint />}
         </div>
       </div>
       <div className="settings-pair">
@@ -308,5 +333,25 @@ function BriefForm({ view }: { view: BriefSettingsView }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/** B163：没有起床信号时，起床后发其实只会在最晚时间发。 */
+function WakeSignalHint() {
+  const t = useT();
+  const settings = useMeSettings();
+  const report = useMeReport();
+  if (settings.isPending || report.isPending) return null;
+  const hasSignal =
+    !!settings.data?.guessSleep ||
+    !!settings.data?.haSleep ||
+    !!report.data?.enabled;
+  if (hasSignal) return null;
+  return (
+    <small className="xc-muted brief-wake-hint">
+      {t(
+        "No wake-up signal yet, so it only goes out at the latest time. Turn on phone reports or sleep guessing in My status.",
+      )}
+    </small>
   );
 }

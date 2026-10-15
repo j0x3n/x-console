@@ -711,3 +711,7 @@
   gap: 3px;
   color: var(--xc-accent-text);
 }
+/* B163 起床后发 */
+.brief-wake-hint {
+  flex-basis: 100%;
+}

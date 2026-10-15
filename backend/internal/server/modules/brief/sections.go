@@ -31,6 +31,8 @@ type input struct {
 	reg       *module.Registry
 	cfg       config
 	weather   func(ctx context.Context, base string, loc api.BriefLocation) (api.Weather, error)
+	// weatherMore gives the lines below the weather line (B163).
+	weatherMore func(ctx context.Context, loc api.BriefLocation, w api.Weather) []string
 }
 
 type section struct {
@@ -70,7 +72,11 @@ func buildWeather(ctx context.Context, in input) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return weatherLine(w), nil
+	lines := []string{weatherLine(w)}
+	if in.weatherMore != nil {
+		lines = append(lines, in.weatherMore(ctx, *in.cfg.Location, w)...)
+	}
+	return strings.Join(lines, "\n"), nil
 }
 
 func buildCalendar(ctx context.Context, in input) (string, error) {
@@ -321,6 +327,9 @@ func (m *Module) generate(ctx context.Context, cfg config, reg *module.Registry,
 		now: l, loc: loc, today: today, tomorrow: today.AddDate(0, 0, 1), yesterday: today.AddDate(0, 0, -1),
 		reg: reg, cfg: cfg, weather: func(ctx context.Context, base string, loc api.BriefLocation) (api.Weather, error) {
 			return m.fetchWeather(ctx, base, loc, false)
+		},
+		weatherMore: func(ctx context.Context, loc api.BriefLocation, w api.Weather) []string {
+			return m.weatherMore(ctx, loc, w, now)
 		},
 	}
 	out := result{date: today.Format(time.DateOnly), sections: []api.BriefSection{}}

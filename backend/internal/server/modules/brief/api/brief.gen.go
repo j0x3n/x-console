@@ -56,6 +56,42 @@ func (e BriefSectionKey) Valid() bool {
 	}
 }
 
+// Defines values for BriefSettingsSendMode.
+const (
+	BriefSettingsSendModeTime BriefSettingsSendMode = "time"
+	BriefSettingsSendModeWake BriefSettingsSendMode = "wake"
+)
+
+// Valid indicates whether the value is a known member of the BriefSettingsSendMode enum.
+func (e BriefSettingsSendMode) Valid() bool {
+	switch e {
+	case BriefSettingsSendModeTime:
+		return true
+	case BriefSettingsSendModeWake:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BriefSettingsViewSendMode.
+const (
+	BriefSettingsViewSendModeTime BriefSettingsViewSendMode = "time"
+	BriefSettingsViewSendModeWake BriefSettingsViewSendMode = "wake"
+)
+
+// Valid indicates whether the value is a known member of the BriefSettingsViewSendMode enum.
+func (e BriefSettingsViewSendMode) Valid() bool {
+	switch e {
+	case BriefSettingsViewSendModeTime:
+		return true
+	case BriefSettingsViewSendModeWake:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MinutelyPointKind.
 const (
 	Rain MinutelyPointKind = "rain"
@@ -205,13 +241,19 @@ type BriefSettings struct {
 	// Sections 启用的部分，顺序固定
 	Sections []BriefSectionKey `json:"sections"`
 
-	// Time HH:MM，用户时区，默认 08:00
+	// SendMode B163。time 是固定时间发；wake 是起床后发（收到 me.woke），到 time 还没起床就照常发。不传时保持原来的设置，默认 time
+	SendMode *BriefSettingsSendMode `json:"sendMode,omitempty"`
+
+	// Time HH:MM，用户时区，默认 08:00。sendMode 是 wake 时是最晚发送时间
 	Time string `json:"time"`
 
 	// WeatherApiBase 旧客户端兼容字段，不再用于天气查询
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	WeatherApiBase *string `json:"weatherApiBase,omitempty"`
 }
+
+// BriefSettingsSendMode B163。time 是固定时间发；wake 是起床后发（收到 me.woke），到 time 还没起床就照常发。不传时保持原来的设置，默认 time
+type BriefSettingsSendMode string
 
 // BriefSettingsView defines model for BriefSettingsView.
 type BriefSettingsView struct {
@@ -235,13 +277,19 @@ type BriefSettingsView struct {
 	// Sections 启用的部分，顺序固定
 	Sections []BriefSectionKey `json:"sections"`
 
-	// Time HH:MM，用户时区，默认 08:00
+	// SendMode B163。time 是固定时间发；wake 是起床后发（收到 me.woke），到 time 还没起床就照常发。不传时保持原来的设置，默认 time
+	SendMode *BriefSettingsViewSendMode `json:"sendMode,omitempty"`
+
+	// Time HH:MM，用户时区，默认 08:00。sendMode 是 wake 时是最晚发送时间
 	Time string `json:"time"`
 
 	// WeatherApiBase 旧客户端兼容字段，不再用于天气查询
 	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	WeatherApiBase *string `json:"weatherApiBase,omitempty"`
 }
+
+// BriefSettingsViewSendMode B163。time 是固定时间发；wake 是起床后发（收到 me.woke），到 time 还没起床就照常发。不传时保持原来的设置，默认 time
+type BriefSettingsViewSendMode string
 
 // DayRange defines model for DayRange.
 type DayRange struct {

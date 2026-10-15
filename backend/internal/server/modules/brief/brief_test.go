@@ -37,7 +37,10 @@ func newWeatherServer(t *testing.T) *weatherServer {
 	s := &weatherServer{}
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.hits.Add(1)
-		s.query.Store(r.URL.RawQuery)
+		// The brief's extra lines (B163) ask yesterday's weather and the warnings after the weather.
+		if p := r.URL.Path; !strings.HasPrefix(p, "/v7/historical/") && !strings.HasPrefix(p, "/v7/warning/") && !strings.HasPrefix(p, "/weatheralert/") {
+			s.query.Store(r.URL.RawQuery)
+		}
 		switch r.URL.Path {
 		case "/geo/v2/city/lookup":
 			query := r.URL.Query().Get("location")

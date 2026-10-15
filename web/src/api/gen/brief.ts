@@ -394,8 +394,13 @@ export interface components {
         BriefSettings: {
             /** @description 每天定时生成并发送 */
             enabled: boolean;
-            /** @description HH:MM，用户时区，默认 08:00 */
+            /** @description HH:MM，用户时区，默认 08:00。sendMode 是 wake 时是最晚发送时间 */
             time: string;
+            /**
+             * @description B163。time 是固定时间发；wake 是起床后发（收到 me.woke），到 time 还没起床就照常发。不传时保持原来的设置，默认 time
+             * @enum {string}
+             */
+            sendMode?: "time" | "wake";
             /** @description 发到哪些渠道。空数组表示按通知的路由规则 */
             channels: string[];
             location?: components["schemas"]["BriefLocation"];

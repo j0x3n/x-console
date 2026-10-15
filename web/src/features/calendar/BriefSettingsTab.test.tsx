@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const server = vi.hoisted(() => {
   const state = {
     aiAvailable: false,
+    guessSleep: false,
     puts: [] as Record<string, unknown>[],
     places: [] as string[],
   };
@@ -40,6 +41,21 @@ const server = vi.hoisted(() => {
         { headers: { "Content-Type": "application/json" } },
       );
     }
+    if (path === "/me/settings")
+      return new Response(
+        JSON.stringify({
+          workHosts: [],
+          hosts: [],
+          guessSleep: state.guessSleep,
+          haHome: "",
+          haSleep: "",
+        }),
+        { headers: { "Content-Type": "application/json" } },
+      );
+    if (path === "/me/report")
+      return new Response(JSON.stringify({ enabled: false, reportUrl: "" }), {
+        headers: { "Content-Type": "application/json" },
+      });
     const view = {
       enabled: true,
       time: "08:00",
@@ -93,6 +109,7 @@ afterEach(() => {
   cleanup();
   server.puts.length = 0;
   server.places.length = 0;
+  server.guessSleep = false;
   vi.unstubAllGlobals();
 });
 
@@ -156,5 +173,30 @@ describe("BriefSettingsTab", () => {
     expect(
       await screen.findByText("Start with a short AI summary"),
     ).toBeTruthy();
+  });
+
+  it("sends after waking up and says when there is no wake-up signal", async () => {
+    renderTab();
+    fireEvent.click(
+      await screen.findByLabelText("After I wake up, at the latest"),
+    );
+    await screen.findByText(/No wake-up signal yet/);
+    fireEvent.click(screen.getByText("Save"));
+    await waitFor(() => expect(server.puts).toHaveLength(1));
+    expect(server.puts[0]).toMatchObject({ sendMode: "wake", time: "08:00" });
+  });
+
+  it("has no hint when sleep is guessed", async () => {
+    server.guessSleep = true;
+    renderTab();
+    fireEvent.click(
+      await screen.findByLabelText("After I wake up, at the latest"),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/No wake-up signal yet/)).toBeNull();
+    expect(screen.getByLabelText("At a fixed time")).toHaveProperty(
+      "checked",
+      false,
+    );
   });
 });

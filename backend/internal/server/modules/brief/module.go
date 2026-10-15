@@ -81,7 +81,8 @@ func (m *Module) Mount(r chi.Router) {
 
 // Start checks every minute whether the brief is due. The send time is a
 // setting, so a fixed cron entry would need rebuilding on every change.
-func (m *Module) Start(context.Context) error {
+func (m *Module) Start(ctx context.Context) error {
+	m.followWake(ctx)
 	m.d.Scheduler.Every("brief.daily", time.Minute, func(ctx context.Context) error {
 		return m.tick(ctx, time.Now())
 	})
@@ -329,6 +330,12 @@ func (m *Module) PutBriefSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg, err := m.validate(body)
+	if err == nil && cfg.SendMode == "" {
+		var old config
+		if old, err = m.load(r.Context()); err == nil {
+			cfg.SendMode = old.SendMode
+		}
+	}
 	if err == nil && cfg.Location != nil {
 		var c qwConfig
 		c, err = m.requireQWeather(r.Context())
@@ -341,7 +348,7 @@ func (m *Module) PutBriefSettings(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		err = m.save(r.Context(), cfg)
 	}
-	m.d.Audit.Record(r.Context(), "brief.settings", "", map[string]any{"enabled": cfg.Enabled, "time": cfg.Time}, err)
+	m.d.Audit.Record(r.Context(), "brief.settings", "", map[string]any{"enabled": cfg.Enabled, "time": cfg.Time, "sendMode": cfg.SendMode}, err)
 	if err != nil {
 		httpx.Fail(w, r, err)
 		return

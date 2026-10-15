@@ -22,6 +22,13 @@ const (
 	keySections    = "brief.sections"
 	keyAIPolish    = "brief.ai_polish"
 	keyWeatherBase = "brief.weather_api_base"
+	keySendMode    = "brief.send_mode" // B163
+)
+
+// Send modes (B163).
+const (
+	sendAtTime = "time" // a fixed time every day
+	sendOnWake = "wake" // after waking up, Time is the latest
 )
 
 const (
@@ -36,6 +43,7 @@ var allSections = []string{"weather", "calendar", "plan", "issues", "reminders",
 type config struct {
 	Enabled     bool
 	Time        string
+	SendMode    string
 	Channels    []string
 	Location    *api.BriefLocation
 	Sections    []string
@@ -54,12 +62,12 @@ func (m *Module) get(ctx context.Context, key string, v any) error {
 
 // load reads the configuration. Missing keys take their defaults.
 func (m *Module) load(ctx context.Context) (config, error) {
-	c := config{Enabled: true, Time: defaultTime, Channels: []string{}, Sections: slices.Clone(allSections), WeatherBase: defaultWeatherBase}
+	c := config{Enabled: true, Time: defaultTime, SendMode: sendAtTime, Channels: []string{}, Sections: slices.Clone(allSections), WeatherBase: defaultWeatherBase}
 	var loc api.BriefLocation
 	var hasLoc bool
 	for key, v := range map[string]any{
 		keyEnabled: &c.Enabled, keyTime: &c.Time, keyChannels: &c.Channels, keySections: &c.Sections,
-		keyAIPolish: &c.AIPolish, keyWeatherBase: &c.WeatherBase,
+		keyAIPolish: &c.AIPolish, keyWeatherBase: &c.WeatherBase, keySendMode: &c.SendMode,
 	} {
 		if err := m.get(ctx, key, v); err != nil {
 			return c, err
@@ -73,6 +81,9 @@ func (m *Module) load(ctx context.Context) (config, error) {
 	}
 	if c.WeatherBase == "" {
 		c.WeatherBase = defaultWeatherBase
+	}
+	if c.SendMode != sendOnWake {
+		c.SendMode = sendAtTime
 	}
 	if c.Channels == nil {
 		c.Channels = []string{}
@@ -88,6 +99,13 @@ func (m *Module) validate(in api.BriefSettings) (config, error) {
 	}
 	if _, err := time.Parse("15:04", c.Time); err != nil {
 		return c, httpx.Invalid("时间要写成 HH:MM，例如 08:00")
+	}
+	// Empty SendMode means "keep the stored one"; the handler fills it in.
+	if in.SendMode != nil {
+		if !in.SendMode.Valid() {
+			return c, httpx.Invalid("发送方式只能是固定时间或起床后")
+		}
+		c.SendMode = string(*in.SendMode)
 	}
 	known := m.d.Notify.ChannelNames()
 	c.Channels = []string{}
@@ -139,7 +157,7 @@ func (m *Module) validate(in api.BriefSettings) (config, error) {
 func (m *Module) save(ctx context.Context, c config) error {
 	for key, v := range map[string]any{
 		keyEnabled: c.Enabled, keyTime: c.Time, keyChannels: c.Channels, keySections: c.Sections,
-		keyAIPolish: c.AIPolish, keyWeatherBase: c.WeatherBase,
+		keyAIPolish: c.AIPolish, keyWeatherBase: c.WeatherBase, keySendMode: c.SendMode,
 	} {
 		if err := m.d.Settings.Set(ctx, key, v); err != nil {
 			return err
@@ -164,6 +182,8 @@ func (m *Module) view(ctx context.Context, c config, now time.Time) api.BriefSet
 		Enabled: c.Enabled, Time: c.Time, Channels: c.Channels, Location: c.Location, Sections: sections,
 		AiPolish: &c.AIPolish, WeatherApiBase: &base, AvailableChannels: channels, AiAvailable: aiOK,
 	}
+	mode := api.BriefSettingsViewSendMode(c.SendMode)
+	out.SendMode = &mode
 	if c.Enabled {
 		if next, ok := nextRun(c.Time, now, m.d.Config.Location, m.sentOn(ctx, now)); ok {
 			out.NextRunAt = &next

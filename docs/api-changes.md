@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B163（2026-10-15）：`brief.yaml` 的 `BriefSettings` 加可选 `sendMode`（`time`、`wake`），不传时保持原值，旧调用方不受影响。设置键 `brief.send_mode`。`brief` 订阅总线事件 `me.woke`。`web/scripts/e2e.mjs` 第一部分加一步。
+
 - B207（2026-10-14）：`watchers.yaml` 加 `WatcherKind`（web、x），`Watcher.kind`、`WatcherInput.kind`、`WatchersStatus.x`、`WatchersSettings.xQueryIds`。不加迁移（X 任务用已有的 `kind` 列，见过的推文编号存在 `recipe` 列）。查询 `CreateChange` 改成返回编号，加 `GetChange`。新契约 `contracts.XGraphQL`（`contracts/xgraphql.go`，键 `readlater.xgraphql`，错误 `contracts.ErrXAuth`），稍后读在 `modules/readlater/xgraphql.go` 提供，`module.go` 加一行。通知 kind `watcher.x`，按钮 `watcher.save:<变化编号>` 调动作 `readlater.add`。`web/scripts/e2e.mjs` 第一部分加一步。
 
 - B206（2026-10-14）：新模块 `watchers`，接口 `api/modules/watchers.yaml`，迁移 `20261014030000_m48_b206_watchers.sql`（表 `watchers`、`watcher_runs`、`watcher_shots`、`watcher_changes`，只加表）。设置键 `watchers.options`。事件 `watcher.updated`。通知 kind `watcher.ask`、`watcher.changed`、`watcher.failed`，按钮 id 前缀 `watcher.`。动作 `watchers.list`、`watchers.check`。新契约 `contracts.ToolChat`（`contracts/toolchat.go`，键 `ai.toolchat`），ai 模块在 `modules/ai/toolchat.go` 提供，`module.go` 加一行。`contracts/hidden.go` 加两处映射（`watchers` 归到 `monitoring`）。`browser.Session` 加 `Fill`（填进去的值在页面内容和 `Text` 里都读不到），`page.js` 按位置找元素时要求文字也对得上。基础代码只改了 `app/modules.go`、`web/src/app/routes.tsx` 各加一行。监控模块的 `MonitoringPage.tsx` 和 `NavChildren.tsx` 各加一个入口。`web/scripts/shots.mjs` 加一页，`e2e.mjs` 第一部分加一步。

@@ -161,4 +161,9 @@ registerZh({
   "Remove the QWeather key?": "删除和风天气的 key？",
   "Warnings, rain by the minute and air quality stop showing. Earthquakes still work.":
     "预警、分钟降水和空气质量不再显示。地震照常。",
+  // B163 起床后发早报
+  "At a fixed time": "固定时间",
+  "After I wake up, at the latest": "起床后，最晚",
+  "No wake-up signal yet, so it only goes out at the latest time. Turn on phone reports or sleep guessing in My status.":
+    "还没有起床信号，只会在最晚时间发。可以在“我的状态”里打开手机上报或推测睡觉。",
 });
