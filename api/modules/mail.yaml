@@ -222,11 +222,42 @@ paths:
               schema: { $ref: "#/components/schemas/MailTriage" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /mail/todo:
+    get:
+      operationId: listMailTodo
+      tags: [mail]
+      description: |
+        B220：今日页用。AI 分拣成“要处理”、还没标成已处理、30 天内收到的邮件，新的在前，最多 20 封。
+        decision 为 true 的放进“需要你决定”卡片，其余放进“今天要做”卡片。每封都带 triage。
+      responses:
+        "200":
+          description: 要处理的邮件
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailPage" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/messages/{messageId}/done:
+    parameters:
+      - $ref: "#/components/parameters/MessageId"
+    put:
+      operationId: setMailDone
+      tags: [mail]
+      description: B220：把一封“要处理”的邮件标成已处理（今日页不再显示），或者取消。只改本地，不动邮箱服务器。没分拣过的邮件回 404。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailDone" }
+      responses:
+        "204": { description: 已保存 }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /mail/summary:
     get:
       operationId: getMailSummary
       tags: [mail]
-      description: 今日页用：未读数和最近几封未读。
+      description: 今日页用：未读数和最近几封未读。latest 里分拣过的邮件带 triage（B220）。
       responses:
         "200":
           description: 概要
@@ -330,9 +361,11 @@ components:
         text: { type: string, description: 这个日期是什么事，比如 续费截止 }
     MailTriage:
       type: object
-      required: [category, summary, dates]
+      required: [category, decision, summary, dates]
       properties:
         category: { $ref: "#/components/schemas/MailCategory" }
+        decision: { type: boolean, description: B220：要处理的邮件里，需要我做决定的（批准、选方案、答应或拒绝）。只有 category 是 action 时可能为 true }
+        doneAt: { type: string, format: date-time, description: B220：标成已处理的时间，没标时不给 }
         summary: { type: string, description: 一句话说明这封邮件要你做什么或讲了什么 }
         dates:
           type: array
@@ -377,6 +410,11 @@ components:
       properties:
         unread: { type: boolean }
         flagged: { type: boolean }
+    MailDone:
+      type: object
+      required: [done]
+      properties:
+        done: { type: boolean }
     MailBatchAction:
       type: string
       description: read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除

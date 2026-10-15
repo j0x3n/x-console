@@ -104,6 +104,20 @@ a.today-row:hover {
   font-size: var(--fs-13);
   font-weight: 500;
 }
+/* B220：今日页邮件卡片的标题后面标上分拣类别。标题太长时只省略标题，类别始终显示 */
+.today-row-main strong.today-row-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.today-row-title > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-row-title .xc-badge {
+  flex: none;
+}
 .today-row-main small {
   color: var(--xc-muted);
   font-size: var(--fs-11);

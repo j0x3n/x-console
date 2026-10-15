@@ -217,6 +217,11 @@ type MailBatchResult struct {
 // MailCategory action 要处理；notice 通知；promo 营销
 type MailCategory string
 
+// MailDone defines model for MailDone.
+type MailDone struct {
+	Done bool `json:"done"`
+}
+
 // MailMessage defines model for MailMessage.
 type MailMessage struct {
 	AccountId      int64            `json:"accountId"`
@@ -306,6 +311,12 @@ type MailTriage struct {
 	// Dates 邮件里提到的需要留意的日期，最多 3 个
 	Dates []MailTriageDate `json:"dates"`
 
+	// Decision B220：要处理的邮件里，需要我做决定的（批准、选方案、答应或拒绝）。只有 category 是 action 时可能为 true
+	Decision bool `json:"decision"`
+
+	// DoneAt B220：标成已处理的时间，没标时不给
+	DoneAt *time.Time `json:"doneAt,omitempty"`
+
 	// Summary 一句话说明这封邮件要你做什么或讲了什么
 	Summary string `json:"summary"`
 }
@@ -356,6 +367,9 @@ type BatchMailMessagesJSONRequestBody = MailBatch
 // UpdateMailMessageJSONRequestBody defines body for UpdateMailMessage for application/json ContentType.
 type UpdateMailMessageJSONRequestBody = MailMessagePatch
 
+// SetMailDoneJSONRequestBody defines body for SetMailDone for application/json ContentType.
+type SetMailDoneJSONRequestBody = MailDone
+
 // MarkAllMailReadJSONRequestBody defines body for MarkAllMailRead for application/json ContentType.
 type MarkAllMailReadJSONRequestBody = MailReadAll
 
@@ -392,6 +406,9 @@ type ServerInterface interface {
 	// (GET /mail/messages/{messageId}/attachments/{index})
 	DownloadMailAttachment(w http.ResponseWriter, r *http.Request, messageId MessageId, index int)
 
+	// (PUT /mail/messages/{messageId}/done)
+	SetMailDone(w http.ResponseWriter, r *http.Request, messageId MessageId)
+
 	// (POST /mail/messages/{messageId}/triage)
 	TriageMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId)
 
@@ -400,6 +417,9 @@ type ServerInterface interface {
 
 	// (GET /mail/summary)
 	GetMailSummary(w http.ResponseWriter, r *http.Request)
+
+	// (GET /mail/todo)
+	ListMailTodo(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -456,6 +476,11 @@ func (_ Unimplemented) DownloadMailAttachment(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (PUT /mail/messages/{messageId}/done)
+func (_ Unimplemented) SetMailDone(w http.ResponseWriter, r *http.Request, messageId MessageId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /mail/messages/{messageId}/triage)
 func (_ Unimplemented) TriageMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -468,6 +493,11 @@ func (_ Unimplemented) MarkAllMailRead(w http.ResponseWriter, r *http.Request) {
 
 // (GET /mail/summary)
 func (_ Unimplemented) GetMailSummary(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /mail/todo)
+func (_ Unimplemented) ListMailTodo(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -785,6 +815,32 @@ func (siw *ServerInterfaceWrapper) DownloadMailAttachment(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// SetMailDone operation middleware
+func (siw *ServerInterfaceWrapper) SetMailDone(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "messageId" -------------
+	var messageId MessageId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "messageId", chi.URLParam(r, "messageId"), &messageId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "messageId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetMailDone(w, r, messageId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // TriageMailMessage operation middleware
 func (siw *ServerInterfaceWrapper) TriageMailMessage(w http.ResponseWriter, r *http.Request) {
 
@@ -830,6 +886,20 @@ func (siw *ServerInterfaceWrapper) GetMailSummary(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMailSummary(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMailTodo operation middleware
+func (siw *ServerInterfaceWrapper) ListMailTodo(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMailTodo(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -987,6 +1057,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/mail/messages/{messageId}/triage", wrapper.TriageMailMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/mail/todo", wrapper.ListMailTodo)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/mail/messages/{messageId}/done", wrapper.SetMailDone)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/mail/summary", wrapper.GetMailSummary)

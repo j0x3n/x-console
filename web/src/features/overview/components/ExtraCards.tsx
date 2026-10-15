@@ -5,6 +5,7 @@ import { useT } from "../../../contexts/LanguageContext";
 import { useNow } from "../../calendar/hooks";
 import { useMailSummary } from "../../mail/api";
 import { mailTime, senderName } from "../../mail/logic";
+import { triageLabel } from "../../mail/triage";
 import { useMonitors, useSubscriptions } from "../../monitoring/api";
 import { attentionItems, type AttentionItem } from "../attention";
 import { Empty, Pending, QueryState } from "./shared";
@@ -62,7 +63,15 @@ export function MailCard() {
                 <Mail size={15} />
               </span>
               <span className="today-row-main">
-                <strong>{m.subject || t("(No subject)")}</strong>
+                <strong className="today-row-title">
+                  <span>{m.subject || t("(No subject)")}</span>
+                  {/* B220：标题后面标上 AI 分拣的类别 */}
+                  {m.triage && (
+                    <span className={`xc-badge ${triageLabel(m.triage).tone}`}>
+                      {t(triageLabel(m.triage).label)}
+                    </span>
+                  )}
+                </strong>
                 <small>
                   {senderName(m.from)} · {mailTime(m.date, now)}
                 </small>

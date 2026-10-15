@@ -1,11 +1,14 @@
 import { Link } from "react-router";
-import { AlarmClock, Check, Code2, SquareKanban } from "lucide-react";
+import { AlarmClock, Check, Code2, Mail, SquareKanban } from "lucide-react";
 import { errorMessage } from "../../../api/client";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { toast } from "../../../hooks/useToast";
 import { formatTime, relativeTime } from "../../../lib/time";
 import { useTasks } from "../../coding/api";
 import { useAgentDecisions } from "../../aiagents/api";
+import { useNow } from "../../calendar/hooks";
+import { useMailTodo, useSetMailDone, type MailSummary } from "../../mail/api";
+import { mailTime, senderName } from "../../mail/logic";
 import { DecisionRow } from "../../aiagents/DecisionRows";
 import { useMyIssues, type Issue } from "../../projects/api";
 import { PRIORITY_LABELS } from "../../projects/logic";
@@ -51,6 +54,59 @@ function IssueRow({ issue, late }: { issue: Issue; late?: number }) {
 }
 
 /** 今日待办：今天截止的 Issue 和今天还没完成的提醒。 */
+/**
+ * B220：AI 分拣成要处理的邮件。显示 AI 总结、发件人和邮件里的日期，
+ * 点了打开邮件，勾一下标成已处理，今日页就不再显示。
+ */
+function MailTodoRow({ m }: { m: MailSummary }) {
+  const t = useT();
+  const now = useNow(60_000);
+  const done = useSetMailDone();
+  const date = m.triage?.dates[0];
+  return (
+    <div className="today-row">
+      <span className="today-row-icon">
+        <Mail size={15} />
+      </span>
+      <Link className="today-row-main" to={`/mail?m=${m.id}`}>
+        <strong>{m.triage?.summary || m.subject || t("(No subject)")}</strong>
+        <small>
+          {senderName(m.from)} ·{" "}
+          {date ? `${date.text} ${date.date}` : mailTime(m.date, now)}
+        </small>
+      </Link>
+      <button
+        className="xc-btn small ghost"
+        title={t("Mark handled")}
+        aria-label={t("Mark handled")}
+        disabled={done.isPending}
+        onClick={() =>
+          done.mutate(
+            { id: m.id, done: true },
+            {
+              onSuccess: () => toast(t("Marked handled")),
+              onError: (e) =>
+                toast({ message: errorMessage(e), tone: "error" }),
+            },
+          )
+        }
+      >
+        <Check size={14} />
+      </button>
+    </div>
+  );
+}
+
+/** B220：要处理的邮件分成两份，要做决定的进“需要你决定”，其余进“今天要做”。 */
+function useMailTodos() {
+  const todo = useMailTodo();
+  const items = Array.isArray(todo.data) ? todo.data : [];
+  return {
+    tasks: items.filter((m) => !m.triage?.decision),
+    decisions: items.filter((m) => m.triage?.decision),
+  };
+}
+
 export function TodosCard() {
   const t = useT();
   const language = useLanguage();
@@ -65,7 +121,9 @@ export function TodosCard() {
   );
   // 其他模块今天到期的事项（订阅续费、证书到期这类），点了去来源页面
   const external = counts.externalToday;
-  const total = todayIssues.length + todayReminders.length + external.length;
+  const mail = useMailTodos().tasks;
+  const total =
+    todayIssues.length + todayReminders.length + external.length + mail.length;
   const loading = issues.isPending || reminders.isPending;
 
   return (
@@ -126,6 +184,9 @@ export function TodosCard() {
                 {todayIssues.slice(0, LIMIT).map((i) => (
                   <IssueRow key={`i${i.id}`} issue={i} />
                 ))}
+                {mail.slice(0, LIMIT).map((m) => (
+                  <MailTodoRow key={`m${m.id}`} m={m} />
+                ))}
               </div>
             )
           )}
@@ -159,7 +220,8 @@ export function DecisionsCard() {
   const now = new Date();
   const late = overdue(issues.data ?? [], now);
   const review = tasks.data ?? [];
-  const total = asks.length + review.length + late.length;
+  const mail = useMailTodos().decisions;
+  const total = asks.length + review.length + late.length + mail.length;
 
   if (tasks.isPending || issues.isPending) return <Pending />;
   return (
@@ -200,6 +262,9 @@ export function DecisionsCard() {
               issue={i}
               late={daysLate(i.dueDate ?? "", now)}
             />
+          ))}
+          {mail.slice(0, LIMIT).map((m) => (
+            <MailTodoRow key={`m${m.id}`} m={m} />
           ))}
         </div>
       )}

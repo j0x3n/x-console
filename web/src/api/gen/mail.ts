@@ -177,6 +177,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mail/todo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B220：今日页用。AI 分拣成“要处理”、还没标成已处理、30 天内收到的邮件，新的在前，最多 20 封。
+         *     decision 为 true 的放进“需要你决定”卡片，其余放进“今天要做”卡片。每封都带 triage。
+         */
+        get: operations["listMailTodo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mail/messages/{messageId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: components["parameters"]["MessageId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description B220：把一封“要处理”的邮件标成已处理（今日页不再显示），或者取消。只改本地，不动邮箱服务器。没分拣过的邮件回 404。 */
+        put: operations["setMailDone"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/mail/summary": {
         parameters: {
             query?: never;
@@ -184,7 +223,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description 今日页用：未读数和最近几封未读。 */
+        /** @description 今日页用：未读数和最近几封未读。latest 里分拣过的邮件带 triage（B220）。 */
         get: operations["getMailSummary"];
         put?: never;
         post?: never;
@@ -293,6 +332,13 @@ export interface components {
         };
         MailTriage: {
             category: components["schemas"]["MailCategory"];
+            /** @description B220：要处理的邮件里，需要我做决定的（批准、选方案、答应或拒绝）。只有 category 是 action 时可能为 true */
+            decision: boolean;
+            /**
+             * Format: date-time
+             * @description B220：标成已处理的时间，没标时不给
+             */
+            doneAt?: string;
             /** @description 一句话说明这封邮件要你做什么或讲了什么 */
             summary: string;
             /** @description 邮件里提到的需要留意的日期，最多 3 个 */
@@ -327,6 +373,9 @@ export interface components {
         MailMessagePatch: {
             unread?: boolean;
             flagged?: boolean;
+        };
+        MailDone: {
+            done: boolean;
         };
         /**
          * @description read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
@@ -684,6 +733,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MailTriage"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMailTodo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 要处理的邮件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailPage"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setMailDone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                messageId: components["parameters"]["MessageId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailDone"];
+            };
+        };
+        responses: {
+            /** @description 已保存 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

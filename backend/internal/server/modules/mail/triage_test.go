@@ -18,8 +18,8 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/server/testutil"
 )
 
-// triageAI sorts by the words in the subject: 合同 needs me, 促销 is promo,
-// everything else is a notice. It records what it was sent.
+// triageAI sorts by the words in the subject: 合同 needs me, 批准 needs me and
+// my decision, 促销 is promo, everything else is a notice. It records what it was sent.
 type triageAI struct {
 	mu        sync.Mutex
 	available bool
@@ -54,6 +54,8 @@ func (f *triageAI) CompleteJSON(_ context.Context, _, system, user string, _ jso
 		case strings.Contains(subject, "合同"):
 			item["category"], item["summary"] = "action", "请在截止日前签字"
 			item["dates"] = []any{map[string]string{"date": time.Now().AddDate(0, 0, 5).Format("2006-01-02"), "text": "签字截止"}}
+		case strings.Contains(subject, "批准"):
+			item["category"], item["summary"], item["decision"] = "action", "请批准报销", true
 		case strings.Contains(subject, "促销"):
 			item["category"], item["summary"] = "promo", "商家促销"
 		}
@@ -92,6 +94,13 @@ func firstSync(t *testing.T, env *testutil.Env, f *fakeIMAP, triage bool) api.Ma
 	var acc api.MailAccount
 	env.MustDo(http.MethodPost, "/mail/accounts", in, &acc)
 	eventually(t, "first sync", func() bool { return len(list(t, env, "")) == 1 })
+	// The sync saves its position after it stores the messages. Mail added
+	// before that is picked up by a second, overlapping sync.
+	eventually(t, "sync position", func() bool {
+		var accounts []api.MailAccount
+		env.MustDo(http.MethodGet, "/mail/accounts", nil, &accounts)
+		return len(accounts) == 1 && accounts[0].LastSyncAt != nil
+	})
 	return acc
 }
 

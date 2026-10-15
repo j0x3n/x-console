@@ -188,7 +188,7 @@ func (q *Queries) GetMessageByUID(ctx context.Context, arg GetMessageByUIDParams
 }
 
 const getTriage = `-- name: GetTriage :one
-SELECT message_id, category, summary, dates, source, triaged_at FROM mail_triage WHERE message_id = ?
+SELECT message_id, category, summary, dates, source, triaged_at, decision, done_at FROM mail_triage WHERE message_id = ?
 `
 
 func (q *Queries) GetTriage(ctx context.Context, messageID int64) (MailTriage, error) {
@@ -201,6 +201,8 @@ func (q *Queries) GetTriage(ctx context.Context, messageID int64) (MailTriage, e
 		&i.Dates,
 		&i.Source,
 		&i.TriagedAt,
+		&i.Decision,
+		&i.DoneAt,
 	)
 	return i, err
 }
@@ -464,8 +466,72 @@ func (q *Queries) ListMessagesByIDs(ctx context.Context, ids []int64) ([]ListMes
 	return items, nil
 }
 
+const listTodo = `-- name: ListTodo :many
+SELECT m.id, m.account_id, m.uid, m.message_id, m.from_name, m.from_address, m.subject, m.snippet, m.date, m.unread, m.flagged, m.has_attachments
+FROM mail_messages m JOIN mail_triage t ON t.message_id = m.id
+WHERE t.category = 'action' AND t.done_at IS NULL AND m.date >= ?
+ORDER BY m.date DESC, m.id DESC
+LIMIT ?
+`
+
+type ListTodoParams struct {
+	Date  time.Time
+	Limit int64
+}
+
+type ListTodoRow struct {
+	ID             int64
+	AccountID      int64
+	Uid            int64
+	MessageID      string
+	FromName       string
+	FromAddress    string
+	Subject        string
+	Snippet        string
+	Date           time.Time
+	Unread         int64
+	Flagged        int64
+	HasAttachments int64
+}
+
+func (q *Queries) ListTodo(ctx context.Context, arg ListTodoParams) ([]ListTodoRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTodo, arg.Date, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTodoRow
+	for rows.Next() {
+		var i ListTodoRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Uid,
+			&i.MessageID,
+			&i.FromName,
+			&i.FromAddress,
+			&i.Subject,
+			&i.Snippet,
+			&i.Date,
+			&i.Unread,
+			&i.Flagged,
+			&i.HasAttachments,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTriageByIDs = `-- name: ListTriageByIDs :many
-SELECT message_id, category, summary, dates, source, triaged_at FROM mail_triage WHERE message_id IN (/*SLICE:ids*/?)
+SELECT message_id, category, summary, dates, source, triaged_at, decision, done_at FROM mail_triage WHERE message_id IN (/*SLICE:ids*/?)
 `
 
 func (q *Queries) ListTriageByIDs(ctx context.Context, ids []int64) ([]MailTriage, error) {
@@ -494,6 +560,8 @@ func (q *Queries) ListTriageByIDs(ctx context.Context, ids []int64) ([]MailTriag
 			&i.Dates,
 			&i.Source,
 			&i.TriagedAt,
+			&i.Decision,
+			&i.DoneAt,
 		); err != nil {
 			return nil, err
 		}
@@ -644,6 +712,23 @@ func (q *Queries) SetSyncState(ctx context.Context, arg SetSyncStateParams) erro
 	return err
 }
 
+const setTriageDone = `-- name: SetTriageDone :execrows
+UPDATE mail_triage SET done_at = ? WHERE message_id = ?
+`
+
+type SetTriageDoneParams struct {
+	DoneAt    *time.Time
+	MessageID int64
+}
+
+func (q *Queries) SetTriageDone(ctx context.Context, arg SetTriageDoneParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setTriageDone, arg.DoneAt, arg.MessageID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const setUnreadByUIDs = `-- name: SetUnreadByUIDs :exec
 UPDATE mail_messages SET unread = ? WHERE account_id = ? AND uid IN (/*SLICE:uids*/?)
 `
@@ -777,14 +862,15 @@ func (q *Queries) UpdateAccount(ctx context.Context, arg UpdateAccountParams) (M
 }
 
 const upsertTriage = `-- name: UpsertTriage :exec
-INSERT INTO mail_triage (message_id, category, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?)
-ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, summary = excluded.summary, dates = excluded.dates,
- source = excluded.source, triaged_at = excluded.triaged_at
+INSERT INTO mail_triage (message_id, category, decision, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, decision = excluded.decision, summary = excluded.summary,
+ dates = excluded.dates, source = excluded.source, triaged_at = excluded.triaged_at
 `
 
 type UpsertTriageParams struct {
 	MessageID int64
 	Category  string
+	Decision  int64
 	Summary   string
 	Dates     string
 	Source    string
@@ -795,6 +881,7 @@ func (q *Queries) UpsertTriage(ctx context.Context, arg UpsertTriageParams) erro
 	_, err := q.db.ExecContext(ctx, upsertTriage,
 		arg.MessageID,
 		arg.Category,
+		arg.Decision,
 		arg.Summary,
 		arg.Dates,
 		arg.Source,

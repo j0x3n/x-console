@@ -457,8 +457,17 @@ func (m *Module) GetMailSummary(w http.ResponseWriter, r *http.Request) {
 	if out.Accounts == nil {
 		out.Accounts = out.Accounts[:0]
 	}
+	ids := make([]int64, 0, len(latest))
 	for _, x := range latest {
-		out.Latest = append(out.Latest, summaryView(db.ListMessagesRow(x)))
+		ids = append(ids, x.ID)
+	}
+	triage := m.triageMap(ctx, ids)
+	for _, x := range latest {
+		s := summaryView(db.ListMessagesRow(x))
+		if t, ok := triage[x.ID]; ok {
+			s.Triage = &t
+		}
+		out.Latest = append(out.Latest, s)
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }

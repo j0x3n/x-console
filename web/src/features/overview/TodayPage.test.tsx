@@ -91,6 +91,7 @@ const api = vi.hoisted(() => {
 
 import "../habits/i18n";
 import "../home/i18n";
+import "../mail/i18n";
 import "./i18n";
 import TodayPage from "./TodayPage";
 
@@ -204,5 +205,66 @@ describe("TodayPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "完成" }));
     expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
     expect(screen.queryByText("今日待办", { selector: "h2" })).toBeNull();
+  });
+  it("shows mail the AI sorted as to do or needs a call, and marks it handled", async () => {
+    const mail = (id: number, subject: string, decision: boolean) => ({
+      id,
+      accountId: 1,
+      from: { name: "财务部", address: "fin@example.com" },
+      subject,
+      snippet: "",
+      date: new Date().toISOString(),
+      unread: true,
+      flagged: false,
+      hasAttachments: false,
+      triage: {
+        category: "action",
+        decision,
+        summary: `${subject}的总结`,
+        dates: decision ? [] : [{ date: "2026-10-20", text: "报销截止" }],
+      },
+    });
+    api.routes.set("GET /mail/todo", {
+      status: 200,
+      body: { items: [mail(1, "报销单", false), mail(2, "报价确认", true)] },
+    });
+    api.routes.set("GET /mail/summary", {
+      status: 200,
+      body: {
+        unread: 2,
+        accounts: [{ id: 1, name: "公司邮箱", unread: 2, status: "ok" }],
+        latest: [
+          mail(2, "报价确认", true),
+          {
+            ...mail(3, "周末促销", false),
+            triage: {
+              category: "promo",
+              decision: false,
+              summary: "",
+              dates: [],
+            },
+          },
+        ],
+      },
+    });
+    api.routes.set("PUT /mail/messages/1/done", { status: 204, body: null });
+    renderPage();
+    // 不用做决定的进“今日待办”，带邮件里的日期
+    expect(await screen.findByText("报销单的总结")).toBeTruthy();
+    expect(screen.getByText(/报销截止 2026-10-20/)).toBeTruthy();
+    // 要做决定的进“待你决定”
+    expect(await screen.findByText("报价确认的总结")).toBeTruthy();
+    // 邮件卡片：标题后面标上分拣类别
+    expect(await screen.findByText("周末促销")).toBeTruthy();
+    expect(screen.getByText("营销")).toBeTruthy();
+    expect(screen.getByText("待决定")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "标成已处理" })[0]);
+    await waitFor(() =>
+      expect(
+        api.calls.find(
+          (c) => c.method === "PUT" && c.path === "/mail/messages/1/done",
+        )?.body,
+      ).toEqual({ done: true }),
+    );
   });
 });

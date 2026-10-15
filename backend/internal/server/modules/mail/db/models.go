@@ -1208,6 +1208,8 @@ type MailTriage struct {
 	Dates     string
 	Source    string
 	TriagedAt time.Time
+	Decision  int64
+	DoneAt    *time.Time
 }
 
 type MeReport struct {

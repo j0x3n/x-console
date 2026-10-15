@@ -63,9 +63,19 @@ ORDER BY date DESC, id DESC
 LIMIT sqlc.arg(lim);
 
 -- name: UpsertTriage :exec
-INSERT INTO mail_triage (message_id, category, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?)
-ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, summary = excluded.summary, dates = excluded.dates,
- source = excluded.source, triaged_at = excluded.triaged_at;
+INSERT INTO mail_triage (message_id, category, decision, summary, dates, source, triaged_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (message_id) DO UPDATE SET category = excluded.category, decision = excluded.decision, summary = excluded.summary,
+ dates = excluded.dates, source = excluded.source, triaged_at = excluded.triaged_at;
+
+-- name: SetTriageDone :execrows
+UPDATE mail_triage SET done_at = ? WHERE message_id = ?;
+
+-- name: ListTodo :many
+SELECT m.id, m.account_id, m.uid, m.message_id, m.from_name, m.from_address, m.subject, m.snippet, m.date, m.unread, m.flagged, m.has_attachments
+FROM mail_messages m JOIN mail_triage t ON t.message_id = m.id
+WHERE t.category = 'action' AND t.done_at IS NULL AND m.date >= ?
+ORDER BY m.date DESC, m.id DESC
+LIMIT ?;
 
 -- name: GetTriage :one
 SELECT * FROM mail_triage WHERE message_id = ?;

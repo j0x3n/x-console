@@ -32,7 +32,7 @@ import {
   senderName,
   textToHtml,
 } from "../logic";
-import { CATEGORY_LABELS } from "../triage";
+import { triageLabel } from "../triage";
 
 /** 阅读区：发件人、收件人、附件，正文放在沙盒 iframe 里（B53）。 */
 export default function MessageView({
@@ -259,10 +259,8 @@ function TriagePanel({ m }: { m: MailMessage }) {
       {result ? (
         <>
           <div className="mail-triage-head">
-            <span
-              className={`xc-badge ${CATEGORY_LABELS[result.category].tone}`}
-            >
-              {t(CATEGORY_LABELS[result.category].label)}
+            <span className={`xc-badge ${triageLabel(result).tone}`}>
+              {t(triageLabel(result).label)}
             </span>
             <span>{result.summary}</span>
           </div>

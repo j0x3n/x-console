@@ -39,7 +39,12 @@ import {
 import AccountDialog from "./components/AccountDialog";
 import MessageView from "./components/MessageView";
 import { mailTime, senderName } from "./logic";
-import { CATEGORY_FILTERS, CATEGORY_LABELS, categoryFromParam } from "./triage";
+import {
+  CATEGORY_FILTERS,
+  CATEGORY_LABELS,
+  categoryFromParam,
+  triageLabel,
+} from "./triage";
 import { useKeepScroll } from "../../hooks/useKeepScroll";
 
 /*
@@ -428,9 +433,9 @@ function MessageRow({
         <span className="mail-row-subject">
           {m.triage?.category === "action" && (
             <span
-              className={`xc-badge ${CATEGORY_LABELS.action.tone} mail-row-tag`}
+              className={`xc-badge ${triageLabel(m.triage).tone} mail-row-tag`}
             >
-              {t(CATEGORY_LABELS.action.label)}
+              {t(triageLabel(m.triage).label)}
             </span>
           )}
           {m.triage && m.triage.category !== "action" && (

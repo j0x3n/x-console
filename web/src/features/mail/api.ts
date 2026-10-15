@@ -38,6 +38,7 @@ export const mailKeys = {
   list: (f: MailFilter) => ["mail", "list", f] as const,
   message: (id: number) => ["mail", "message", id] as const,
   summary: ["mail", "summary"] as const,
+  todo: ["mail", "todo"] as const,
 };
 
 // 新邮件、已读状态、账号连接状态变化时服务端发 mail.*
@@ -199,6 +200,32 @@ export function useMarkAllMailRead() {
         }),
       ),
     onSettled: () => qc.invalidateQueries({ queryKey: mailKeys.all }),
+  });
+}
+
+/** B220：今日页用。AI 分拣成要处理、还没标成已处理的邮件。 */
+export function useMailTodo(enabled = true) {
+  return useQuery({
+    queryKey: mailKeys.todo,
+    queryFn: async () => (await unwrap(mailApi.GET("/mail/todo"))).items ?? [],
+    retry: false,
+    enabled,
+    meta: { silentError: true },
+  });
+}
+
+/** B220：把一封要处理的邮件标成已处理，今日页不再显示。 */
+export function useSetMailDone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, done }: { id: number; done: boolean }) =>
+      unwrap(
+        mailApi.PUT("/mail/messages/{messageId}/done", {
+          params: { path: { messageId: id } },
+          body: { done },
+        }),
+      ),
+    onSuccess: () => qc.invalidateQueries({ queryKey: mailKeys.all }),
   });
 }
 
