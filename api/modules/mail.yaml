@@ -133,7 +133,7 @@ paths:
     patch:
       operationId: updateMailMessage
       tags: [mail]
-      description: 标记已读、未读、星标。同时改邮箱服务器上的状态。
+      description: 标记已读、未读、星标。同时改邮箱服务器上的状态。服务器没存上时回 502（B217）。
       requestBody:
         required: true
         content:
@@ -145,6 +145,45 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MailSummary" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/messages/batch:
+    post:
+      operationId: batchMailMessages
+      tags: [mail]
+      description: |
+        批量标已读、未读、星标，或删除（B219）。先改邮箱服务器，成功的账号再改本地。
+        删除是移到邮箱的“已删除”文件夹；找不到这个文件夹时彻底删除。
+        一个账号失败不影响别的账号，失败原因写在 errors 里。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailBatch" }
+      responses:
+        "200":
+          description: 结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailBatchResult" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /mail/read-all:
+    post:
+      operationId: markAllMailRead
+      tags: [mail]
+      description: 把一个邮箱（不传 accountId 就是所有邮箱）的未读邮件全部标成已读（B219）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailReadAll" }
+      responses:
+        "200":
+          description: 结果
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailBatchResult" }
         default:
           $ref: "../common.yaml#/components/responses/Error"
   /mail/messages/{messageId}/attachments/{index}:
@@ -338,6 +377,33 @@ components:
       properties:
         unread: { type: boolean }
         flagged: { type: boolean }
+    MailBatchAction:
+      type: string
+      description: read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
+      enum: [read, unread, star, unstar, delete]
+    MailBatch:
+      type: object
+      required: [ids, action]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items: { type: integer, format: int64 }
+        action: { $ref: "#/components/schemas/MailBatchAction" }
+    MailReadAll:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+    MailBatchResult:
+      type: object
+      required: [done, errors]
+      properties:
+        done: { type: integer, description: 改成功的邮件数 }
+        errors:
+          type: array
+          description: 失败的账号和原因，比如“个人 Gmail：连不上服务器”
+          items: { type: string }
     MailSummaryView:
       type: object
       required: [unread, accounts, latest]

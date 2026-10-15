@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Mail, Paperclip, Plus, RefreshCw, Star } from "lucide-react";
+import {
+  CheckCheck,
+  ListChecks,
+  Mail,
+  MailOpen,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { isNotLive } from "../../api/client";
 import PageHeading from "../../components/ui/PageHeading";
 import { SearchBox, Segmented } from "../../components/ui/Toolbar";
+import { confirmAction } from "../../components/ui/ConfirmDialog";
 import {
   EmptyState,
   ErrorState,
@@ -14,10 +25,14 @@ import { useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { useNow } from "../calendar/hooks";
 import {
+  useBatchMail,
   useMailAccounts,
   useMailMessages,
+  useMarkAllMailRead,
   useSyncMailAccount,
   type MailAccount,
+  type MailBatchAction,
+  type MailBatchResult,
   type MailFilter,
   type MailSummary,
 } from "./api";
@@ -30,6 +45,7 @@ import { useKeepScroll } from "../../hooks/useKeepScroll";
 /*
  * 邮件（B53）：左边收件箱，右边阅读，和笔记一样铺满右侧（B218）。窄屏时一次只显示一栏。
  * 邮箱和未读切换在左栏二级菜单里（2026-10-05），页面里不再放。
+ * B219：列表可以多选，批量标已读、未读或删除；顶栏有“全部已读”。
  * 地址参数：?a=账号 id，?m=邮件 id，?unread=1，?new=1 打开添加邮箱。
  */
 export default function MailPage() {
@@ -37,6 +53,8 @@ export default function MailPage() {
   const [params, setParams] = useSearchParams();
   const accounts = useMailAccounts();
   const sync = useSyncMailAccount();
+  const batch = useBatchMail();
+  const readAll = useMarkAllMailRead();
   const [q, setQ] = useState("");
   const [query, setQuery] = useState("");
   useEffect(() => {
@@ -67,6 +85,20 @@ export default function MailPage() {
   const filter: MailFilter = { accountId, unread, q: query, category };
   const list = useMailMessages(filter, accounts.isSuccess);
   const total = (accounts.data ?? []).reduce((n, a) => n + a.unread, 0);
+
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  // 换了邮箱、未读或搜索词，之前选的就不算了
+  const scopeKey = `${accountId}|${unread}|${query}|${category}`;
+  const [lastScope, setLastScope] = useState(scopeKey);
+  if (scopeKey !== lastScope) {
+    setLastScope(scopeKey);
+    setSelected(new Set());
+  }
 
   if (accounts.isPending) return <Loading />;
   if (accounts.isError)
@@ -109,6 +141,46 @@ export default function MailPage() {
   const broken = accounts.data.filter(
     (a) => a.status === "error" && (!accountId || a.id === accountId),
   );
+  const scopeUnread = accountId
+    ? (accounts.data.find((a) => a.id === accountId)?.unread ?? 0)
+    : total;
+  const report = (res: MailBatchResult, done: string) =>
+    toast(
+      res.errors.length
+        ? { message: res.errors.join("\n"), tone: "error" }
+        : `${res.done} ${t(done)}`,
+    );
+  const runBatch = async (action: MailBatchAction) => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (
+      action === "delete" &&
+      !(await confirmAction({
+        title: `${t("Delete")} ${ids.length} ${t("mails")}？`,
+        description: t("Mail goes to the Trash folder of your mailbox."),
+      }))
+    )
+      return;
+    batch.mutate(
+      { ids, action },
+      {
+        onSuccess: (res) => {
+          report(
+            res,
+            action === "delete"
+              ? "mails deleted"
+              : action === "read"
+                ? "mails marked as read"
+                : "mails marked as unread",
+          );
+          if (action === "delete" && openId && ids.includes(openId))
+            set("m", null);
+          stopSelecting();
+        },
+        onError: (e) => toast({ message: e.message, tone: "error" }),
+      },
+    );
+  };
   return (
     <div className={`mail-page${openId ? " is-reading" : ""}`}>
       <PageHeading
@@ -118,40 +190,131 @@ export default function MailPage() {
         }
         subtitle={total ? `${total} ${t("unread")}` : undefined}
         aside={
-          <button
-            className="xc-btn small"
-            title={t("Sync now")}
-            aria-label={t("Sync now")}
-            onClick={() => {
-              for (const a of accounts.data)
-                if (!accountId || a.id === accountId) sync.mutate(a.id);
-              toast(t("Syncing mail"));
-            }}
-          >
-            <RefreshCw size={14} />
-          </button>
+          <>
+            {scopeUnread > 0 && (
+              <button
+                className="xc-btn small"
+                title={t("Mark all read")}
+                aria-label={t("Mark all read")}
+                disabled={readAll.isPending}
+                onClick={() =>
+                  readAll.mutate(accountId, {
+                    onSuccess: (res) => report(res, "mails marked as read"),
+                    onError: (e) =>
+                      toast({ message: e.message, tone: "error" }),
+                  })
+                }
+              >
+                <CheckCheck size={14} />
+              </button>
+            )}
+            <button
+              className="xc-btn small"
+              title={t("Sync now")}
+              aria-label={t("Sync now")}
+              onClick={() => {
+                for (const a of accounts.data)
+                  if (!accountId || a.id === accountId) sync.mutate(a.id);
+                toast(t("Syncing mail"));
+              }}
+            >
+              <RefreshCw size={14} />
+            </button>
+          </>
         }
       />
       <div className="mail-layout">
         <section className="mail-list" aria-label={t("Inbox")} ref={listRef}>
-          <div className="mail-list-tools">
-            <SearchBox
-              value={q}
-              onChange={setQ}
-              placeholder={t("Search sender or subject")}
-            />
-            {(category || accounts.data.some((a) => a.triage)) && (
-              <Segmented<string>
-                label={t("AI sorting")}
-                value={category ?? "all"}
-                onChange={(v) => set("c", v === "all" ? null : v)}
-                options={CATEGORY_FILTERS.map((o) => ({
-                  value: o.value,
-                  label: t(o.label),
-                }))}
+          {selecting ? (
+            <div className="mail-list-tools mail-select-bar">
+              <label className="xc-check">
+                <input
+                  type="checkbox"
+                  checked={items.length > 0 && selected.size === items.length}
+                  onChange={(e) =>
+                    setSelected(
+                      e.target.checked
+                        ? new Set(items.map((m) => m.id))
+                        : new Set(),
+                    )
+                  }
+                />
+                <span>
+                  {selected.size
+                    ? `${t("Selected")} ${selected.size}`
+                    : t("Select all")}
+                </span>
+              </label>
+              <span className="xc-spacer" />
+              <button
+                type="button"
+                className="xc-btn ghost small"
+                title={t("Mark as read")}
+                aria-label={t("Mark as read")}
+                disabled={!selected.size || batch.isPending}
+                onClick={() => runBatch("read")}
+              >
+                <MailOpen size={14} />
+              </button>
+              <button
+                type="button"
+                className="xc-btn ghost small"
+                title={t("Mark as unread")}
+                aria-label={t("Mark as unread")}
+                disabled={!selected.size || batch.isPending}
+                onClick={() => runBatch("unread")}
+              >
+                <Mail size={14} />
+              </button>
+              <button
+                type="button"
+                className="xc-btn ghost small mail-danger"
+                title={t("Delete")}
+                aria-label={t("Delete")}
+                disabled={!selected.size || batch.isPending}
+                onClick={() => runBatch("delete")}
+              >
+                <Trash2 size={14} />
+              </button>
+              <button
+                type="button"
+                className="xc-btn ghost small"
+                onClick={stopSelecting}
+              >
+                {t("Cancel")}
+              </button>
+            </div>
+          ) : (
+            <div className="mail-list-tools">
+              <SearchBox
+                value={q}
+                onChange={setQ}
+                placeholder={t("Search sender or subject")}
               />
-            )}
-          </div>
+              {(category || accounts.data.some((a) => a.triage)) && (
+                <Segmented<string>
+                  label={t("AI sorting")}
+                  value={category ?? "all"}
+                  onChange={(v) => set("c", v === "all" ? null : v)}
+                  options={CATEGORY_FILTERS.map((o) => ({
+                    value: o.value,
+                    label: t(o.label),
+                  }))}
+                />
+              )}
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  className="xc-btn ghost small"
+                  title={t("Select mail")}
+                  aria-label={t("Select mail")}
+                  onClick={() => setSelecting(true)}
+                >
+                  <ListChecks size={14} />
+                </button>
+              )}
+            </div>
+          )}
           {broken.map((a) => (
             <p key={a.id} className="mail-account-error" title={a.lastError}>
               {a.name}：{t("Connection error")}
@@ -177,6 +340,16 @@ export default function MailPage() {
                     accountId === null && accounts.data.length > 1
                       ? accounts.data.find((a) => a.id === m.accountId)
                       : undefined
+                  }
+                  selecting={selecting}
+                  checked={selected.has(m.id)}
+                  onToggle={() =>
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(m.id)) next.delete(m.id);
+                      else next.add(m.id);
+                      return next;
+                    })
                   }
                   onOpen={() => set("m", String(m.id))}
                 />
@@ -213,21 +386,38 @@ function MessageRow({
   m,
   active,
   account,
+  selecting,
+  checked,
+  onToggle,
   onOpen,
 }: {
   m: MailSummary;
   active: boolean;
   account?: MailAccount;
+  selecting: boolean;
+  checked: boolean;
+  onToggle: () => void;
   onOpen: () => void;
 }) {
   const t = useT();
   const now = useNow(60_000);
   return (
-    <li>
+    <li
+      className={`mail-item${selecting ? " selecting" : ""}${checked ? " checked" : ""}`}
+    >
+      {selecting && (
+        <input
+          type="checkbox"
+          className="mail-row-check"
+          checked={checked}
+          aria-label={`${t("Select")} ${m.subject || t("(No subject)")}`}
+          onChange={onToggle}
+        />
+      )}
       <button
         type="button"
         className={`mail-row${m.unread ? " unread" : ""}${active ? " active" : ""}`}
-        onClick={onOpen}
+        onClick={selecting ? onToggle : onOpen}
       >
         <span className="mail-row-top">
           <strong>{senderName(m.from)}</strong>

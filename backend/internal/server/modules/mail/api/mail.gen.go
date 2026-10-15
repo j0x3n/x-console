@@ -34,6 +34,33 @@ func (e MailAccountStatus) Valid() bool {
 	}
 }
 
+// Defines values for MailBatchAction.
+const (
+	Delete MailBatchAction = "delete"
+	Read   MailBatchAction = "read"
+	Star   MailBatchAction = "star"
+	Unread MailBatchAction = "unread"
+	Unstar MailBatchAction = "unstar"
+)
+
+// Valid indicates whether the value is a known member of the MailBatchAction enum.
+func (e MailBatchAction) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	case Read:
+		return true
+	case Star:
+		return true
+	case Unread:
+		return true
+	case Unstar:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MailCategory.
 const (
 	Action MailCategory = "action"
@@ -168,6 +195,25 @@ type MailAttachment struct {
 	Size      int64   `json:"size"`
 }
 
+// MailBatch defines model for MailBatch.
+type MailBatch struct {
+	// Action read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
+	Action MailBatchAction `json:"action"`
+	Ids    []int64         `json:"ids"`
+}
+
+// MailBatchAction read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
+type MailBatchAction string
+
+// MailBatchResult defines model for MailBatchResult.
+type MailBatchResult struct {
+	// Done 改成功的邮件数
+	Done int `json:"done"`
+
+	// Errors 失败的账号和原因，比如“个人 Gmail：连不上服务器”
+	Errors []string `json:"errors"`
+}
+
 // MailCategory action 要处理；notice 通知；promo 营销
 type MailCategory string
 
@@ -212,6 +258,11 @@ type MailPage struct {
 
 // MailProvider gmail 和 aliyun 有预设的服务器地址，other 要自己填
 type MailProvider string
+
+// MailReadAll defines model for MailReadAll.
+type MailReadAll struct {
+	AccountId *int64 `json:"accountId,omitempty"`
+}
 
 // MailSummary defines model for MailSummary.
 type MailSummary struct {
@@ -299,8 +350,14 @@ type CreateMailAccountJSONRequestBody = MailAccountInput
 // UpdateMailAccountJSONRequestBody defines body for UpdateMailAccount for application/json ContentType.
 type UpdateMailAccountJSONRequestBody = MailAccountPatch
 
+// BatchMailMessagesJSONRequestBody defines body for BatchMailMessages for application/json ContentType.
+type BatchMailMessagesJSONRequestBody = MailBatch
+
 // UpdateMailMessageJSONRequestBody defines body for UpdateMailMessage for application/json ContentType.
 type UpdateMailMessageJSONRequestBody = MailMessagePatch
+
+// MarkAllMailReadJSONRequestBody defines body for MarkAllMailRead for application/json ContentType.
+type MarkAllMailReadJSONRequestBody = MailReadAll
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -323,6 +380,9 @@ type ServerInterface interface {
 	// (GET /mail/messages)
 	ListMailMessages(w http.ResponseWriter, r *http.Request, params ListMailMessagesParams)
 
+	// (POST /mail/messages/batch)
+	BatchMailMessages(w http.ResponseWriter, r *http.Request)
+
 	// (GET /mail/messages/{messageId})
 	GetMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId)
 
@@ -334,6 +394,9 @@ type ServerInterface interface {
 
 	// (POST /mail/messages/{messageId}/triage)
 	TriageMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId)
+
+	// (POST /mail/read-all)
+	MarkAllMailRead(w http.ResponseWriter, r *http.Request)
 
 	// (GET /mail/summary)
 	GetMailSummary(w http.ResponseWriter, r *http.Request)
@@ -373,6 +436,11 @@ func (_ Unimplemented) ListMailMessages(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /mail/messages/batch)
+func (_ Unimplemented) BatchMailMessages(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /mail/messages/{messageId})
 func (_ Unimplemented) GetMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -390,6 +458,11 @@ func (_ Unimplemented) DownloadMailAttachment(w http.ResponseWriter, r *http.Req
 
 // (POST /mail/messages/{messageId}/triage)
 func (_ Unimplemented) TriageMailMessage(w http.ResponseWriter, r *http.Request, messageId MessageId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /mail/read-all)
+func (_ Unimplemented) MarkAllMailRead(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -611,6 +684,20 @@ func (siw *ServerInterfaceWrapper) ListMailMessages(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// BatchMailMessages operation middleware
+func (siw *ServerInterfaceWrapper) BatchMailMessages(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BatchMailMessages(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMailMessage operation middleware
 func (siw *ServerInterfaceWrapper) GetMailMessage(w http.ResponseWriter, r *http.Request) {
 
@@ -715,6 +802,20 @@ func (siw *ServerInterfaceWrapper) TriageMailMessage(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TriageMailMessage(w, r, messageId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MarkAllMailRead operation middleware
+func (siw *ServerInterfaceWrapper) MarkAllMailRead(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MarkAllMailRead(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -874,6 +975,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/mail/messages/{messageId}", wrapper.UpdateMailMessage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/mail/messages/batch", wrapper.BatchMailMessages)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/mail/read-all", wrapper.MarkAllMailRead)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/mail/messages/{messageId}/attachments/{index}", wrapper.DownloadMailAttachment)

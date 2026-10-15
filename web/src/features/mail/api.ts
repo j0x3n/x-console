@@ -21,6 +21,8 @@ export type MailMessage = S["MailMessage"];
 export type MailSummaryView = S["MailSummaryView"];
 export type MailTriage = S["MailTriage"];
 export type MailCategory = S["MailCategory"];
+export type MailBatchAction = S["MailBatchAction"];
+export type MailBatchResult = S["MailBatchResult"];
 
 export interface MailFilter {
   accountId: number | null;
@@ -173,6 +175,30 @@ export function useTriageMailMessage() {
         }),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: mailKeys.all }),
+  });
+}
+
+/** B219：批量标已读、未读、星标或删除。 */
+export function useBatchMail() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, action }: { ids: number[]; action: MailBatchAction }) =>
+      unwrap(mailApi.POST("/mail/messages/batch", { body: { ids, action } })),
+    onSettled: () => qc.invalidateQueries({ queryKey: mailKeys.all }),
+  });
+}
+
+/** B219：一个邮箱（不传就是全部邮箱）的未读全部标成已读。 */
+export function useMarkAllMailRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: number | null) =>
+      unwrap(
+        mailApi.POST("/mail/read-all", {
+          body: { accountId: accountId ?? undefined },
+        }),
+      ),
+    onSettled: () => qc.invalidateQueries({ queryKey: mailKeys.all }),
   });
 }
 

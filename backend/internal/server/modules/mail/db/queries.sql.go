@@ -421,6 +421,49 @@ func (q *Queries) ListMessages(ctx context.Context, arg ListMessagesParams) ([]L
 	return items, nil
 }
 
+const listMessagesByIDs = `-- name: ListMessagesByIDs :many
+SELECT id, account_id, uid FROM mail_messages WHERE id IN (/*SLICE:ids*/?)
+`
+
+type ListMessagesByIDsRow struct {
+	ID        int64
+	AccountID int64
+	Uid       int64
+}
+
+func (q *Queries) ListMessagesByIDs(ctx context.Context, ids []int64) ([]ListMessagesByIDsRow, error) {
+	query := listMessagesByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMessagesByIDsRow
+	for rows.Next() {
+		var i ListMessagesByIDsRow
+		if err := rows.Scan(&i.ID, &i.AccountID, &i.Uid); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTriageByIDs = `-- name: ListTriageByIDs :many
 SELECT message_id, category, summary, dates, source, triaged_at FROM mail_triage WHERE message_id IN (/*SLICE:ids*/?)
 `
@@ -503,6 +546,33 @@ func (q *Queries) RecentFlags(ctx context.Context, arg RecentFlagsParams) ([]Rec
 	return items, nil
 }
 
+const setFlaggedByUIDs = `-- name: SetFlaggedByUIDs :exec
+UPDATE mail_messages SET flagged = ? WHERE account_id = ? AND uid IN (/*SLICE:uids*/?)
+`
+
+type SetFlaggedByUIDsParams struct {
+	Flagged   int64
+	AccountID int64
+	Uids      []int64
+}
+
+func (q *Queries) SetFlaggedByUIDs(ctx context.Context, arg SetFlaggedByUIDsParams) error {
+	query := setFlaggedByUIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Flagged)
+	queryParams = append(queryParams, arg.AccountID)
+	if len(arg.Uids) > 0 {
+		for _, v := range arg.Uids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:uids*/?", strings.Repeat(",?", len(arg.Uids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:uids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
 const setFlagsByUID = `-- name: SetFlagsByUID :exec
 UPDATE mail_messages SET unread = ?, flagged = ? WHERE account_id = ? AND uid = ?
 `
@@ -574,6 +644,33 @@ func (q *Queries) SetSyncState(ctx context.Context, arg SetSyncStateParams) erro
 	return err
 }
 
+const setUnreadByUIDs = `-- name: SetUnreadByUIDs :exec
+UPDATE mail_messages SET unread = ? WHERE account_id = ? AND uid IN (/*SLICE:uids*/?)
+`
+
+type SetUnreadByUIDsParams struct {
+	Unread    int64
+	AccountID int64
+	Uids      []int64
+}
+
+func (q *Queries) SetUnreadByUIDs(ctx context.Context, arg SetUnreadByUIDsParams) error {
+	query := setUnreadByUIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Unread)
+	queryParams = append(queryParams, arg.AccountID)
+	if len(arg.Uids) > 0 {
+		for _, v := range arg.Uids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:uids*/?", strings.Repeat(",?", len(arg.Uids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:uids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
 const unreadCounts = `-- name: UnreadCounts :many
 SELECT account_id, COUNT(*) AS unread FROM mail_messages WHERE unread = 1 GROUP BY account_id
 `
@@ -596,6 +693,33 @@ func (q *Queries) UnreadCounts(ctx context.Context) ([]UnreadCountsRow, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const unreadUIDs = `-- name: UnreadUIDs :many
+SELECT uid FROM mail_messages WHERE account_id = ? AND unread = 1
+`
+
+func (q *Queries) UnreadUIDs(ctx context.Context, accountID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, unreadUIDs, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err != nil {
+			return nil, err
+		}
+		items = append(items, uid)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

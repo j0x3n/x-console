@@ -84,4 +84,18 @@ registerZh({
   "Show images": "显示图片",
   "Mail body": "邮件正文",
   "Connection error": "出错",
+  // B219 批量操作
+  mails: "封邮件",
+  "this mail": "这封邮件",
+  "Select mail": "选择邮件",
+  Select: "选择",
+  "Select all": "全选",
+  Selected: "已选",
+  "Mark as read": "标为已读",
+  "mails marked as read": "封邮件已标为已读",
+  "mails marked as unread": "封邮件已标为未读",
+  "mails deleted": "封邮件已删除",
+  "Mark all read": "全部已读",
+  "Mail goes to the Trash folder of your mailbox.":
+    "邮件会移到邮箱的“已删除”文件夹。",
 });

@@ -7,7 +7,9 @@ import {
   MailOpen,
   Paperclip,
   Star,
+  Trash2,
 } from "lucide-react";
+import { confirmAction } from "../../../components/ui/ConfirmDialog";
 import { ErrorState, Loading } from "../../../components/ui/States";
 import { useLanguage, useT } from "../../../contexts/LanguageContext";
 import { formatBytes, formatDate, formatTime } from "../../../lib/time";
@@ -16,6 +18,7 @@ import { toast } from "../../../hooks/useToast";
 import { useCreateReminder } from "../../reminders/api";
 import {
   attachmentUrl,
+  useBatchMail,
   useMailMessage,
   useTriageMailMessage,
   useUpdateMailMessage,
@@ -42,6 +45,7 @@ export default function MessageView({
   const t = useT();
   const message = useMailMessage(id);
   const update = useUpdateMailMessage();
+  const batch = useBatchMail();
   // 打开一封未读邮件时标成已读，同一封只标一次
   const marked = useRef<number | null>(null);
   useEffect(() => {
@@ -90,6 +94,40 @@ export default function MessageView({
           }}
         >
           <Mail size={15} />
+        </button>
+        <button
+          type="button"
+          className="xc-btn ghost small mail-danger"
+          title={t("Delete")}
+          aria-label={t("Delete")}
+          disabled={batch.isPending}
+          onClick={async () => {
+            if (
+              !(await confirmAction({
+                title: `${t("Delete")} ${t("this mail")}？`,
+                description: t(
+                  "Mail goes to the Trash folder of your mailbox.",
+                ),
+              }))
+            )
+              return;
+            batch.mutate(
+              { ids: [m.id], action: "delete" },
+              {
+                onSuccess: (res) => {
+                  if (res.errors.length) {
+                    toast({ message: res.errors.join("\n"), tone: "error" });
+                    return;
+                  }
+                  toast(t("Deleted"));
+                  onBack();
+                },
+                onError: (e) => toast({ message: e.message, tone: "error" }),
+              },
+            );
+          }}
+        >
+          <Trash2 size={15} />
         </button>
       </header>
       <MetaLines m={m} />

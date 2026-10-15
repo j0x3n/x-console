@@ -79,3 +79,15 @@ SELECT account_id, COUNT(*) AS unread FROM mail_messages WHERE unread = 1 GROUP 
 -- name: LatestUnread :many
 SELECT id, account_id, uid, message_id, from_name, from_address, subject, snippet, date, unread, flagged, has_attachments
 FROM mail_messages WHERE unread = 1 ORDER BY date DESC, id DESC LIMIT ?;
+
+-- name: ListMessagesByIDs :many
+SELECT id, account_id, uid FROM mail_messages WHERE id IN (sqlc.slice(ids));
+
+-- name: UnreadUIDs :many
+SELECT uid FROM mail_messages WHERE account_id = ? AND unread = 1;
+
+-- name: SetUnreadByUIDs :exec
+UPDATE mail_messages SET unread = ? WHERE account_id = ? AND uid IN (sqlc.slice(uids));
+
+-- name: SetFlaggedByUIDs :exec
+UPDATE mail_messages SET flagged = ? WHERE account_id = ? AND uid IN (sqlc.slice(uids));

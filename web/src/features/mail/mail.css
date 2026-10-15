@@ -46,6 +46,43 @@
   background: var(--xc-accent-soft);
   color: var(--xc-accent-text);
 }
+/* B219：多选 */
+.mail-select-bar {
+  align-items: center;
+  gap: 2px;
+  min-height: 49px;
+  padding: 4px 8px 4px 12px;
+}
+.mail-select-bar .xc-check {
+  margin: 0;
+  font-size: var(--fs-12-5);
+  white-space: nowrap;
+}
+.mail-danger:not(:disabled):hover {
+  color: var(--xc-danger);
+}
+.mail-item {
+  display: flex;
+  align-items: stretch;
+}
+.mail-item.selecting {
+  border-bottom: 1px solid var(--xc-border);
+}
+.mail-item .mail-row {
+  flex: 1;
+  min-width: 0;
+}
+.mail-item.selecting .mail-row {
+  border-bottom: 0;
+}
+.mail-row-check {
+  flex: none;
+  margin: 12px 0 0 12px;
+  accent-color: var(--xc-accent);
+}
+.mail-item.checked {
+  background: var(--xc-accent-soft);
+}
 .mail-row {
   display: flex;
   flex-direction: column;

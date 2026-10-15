@@ -660,3 +660,239 @@ func TestPatchFailsWhenServerKeepsNothing(t *testing.T) {
 		t.Fatalf("still unread: %+v", got)
 	}
 }
+
+type batchResult = api.MailBatchResult
+
+func batch(t *testing.T, env *testutil.Env, action string, ids ...int64) batchResult {
+	t.Helper()
+	var out batchResult
+	env.MustDo(http.MethodPost, "/mail/messages/batch", map[string]any{"ids": ids, "action": action}, &out)
+	return out
+}
+
+func idsOf(t *testing.T, items []api.MailSummary, subjects ...string) []int64 {
+	t.Helper()
+	var ids []int64
+	for _, s := range subjects {
+		x := bySubject(items, s)
+		if x == nil {
+			t.Fatalf("no mail %q in %+v", s, items)
+		}
+		ids = append(ids, x.Id)
+	}
+	return ids
+}
+
+func batchSetup(t *testing.T) (*testutil.Env, *mail.Module, *fakeIMAP, api.MailAccount) {
+	t.Helper()
+	env, m, f := setup(t)
+	for _, s := range []string{"One", "Two", "Three", "Four"} {
+		f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: "+s, 1), time.Now().Add(-time.Hour))
+	}
+	var acc api.MailAccount
+	env.MustDo(http.MethodPost, "/mail/accounts", accountInput(f, pass), &acc)
+	eventually(t, "first sync", func() bool { return len(list(t, env, "")) == 4 })
+	connected(t, env, acc.Id)
+	return env, m, f, acc
+}
+
+// B219
+func TestBatchReadUnreadStar(t *testing.T) {
+	env, _, f, _ := batchSetup(t)
+	other := f.client(t)
+	items := list(t, env, "")
+	ids := idsOf(t, items, "One", "Two")
+
+	if r := batch(t, env, "read", append(ids, ids[0])...); r.Done != 2 || len(r.Errors) != 0 { // 重复的 id 只算一次
+		t.Fatalf("read: %+v", r)
+	}
+	items = list(t, env, "")
+	for _, s := range []string{"One", "Two"} {
+		if x := bySubject(items, s); x.Unread {
+			t.Fatalf("%s still unread", s)
+		}
+	}
+	if x := bySubject(items, "Three"); !x.Unread {
+		t.Fatal("Three should stay unread")
+	}
+	for _, uid := range []imap.UID{1, 2} {
+		if !hasFlag(serverFlags(t, other, uid), imap.FlagSeen) {
+			t.Fatalf("server: uid %d has no \\Seen", uid)
+		}
+	}
+	if hasFlag(serverFlags(t, other, 3), imap.FlagSeen) {
+		t.Fatal("server: uid 3 marked read")
+	}
+
+	if r := batch(t, env, "star", ids...); r.Done != 2 {
+		t.Fatalf("star: %+v", r)
+	}
+	if !hasFlag(serverFlags(t, other, 1), imap.FlagFlagged) || !bySubject(list(t, env, ""), "One").Flagged {
+		t.Fatal("star not saved")
+	}
+	if r := batch(t, env, "unstar", ids[0]); r.Done != 1 {
+		t.Fatalf("unstar: %+v", r)
+	}
+	if hasFlag(serverFlags(t, other, 1), imap.FlagFlagged) || bySubject(list(t, env, ""), "One").Flagged {
+		t.Fatal("unstar not saved")
+	}
+	if r := batch(t, env, "unread", ids...); r.Done != 2 {
+		t.Fatalf("unread: %+v", r)
+	}
+	if hasFlag(serverFlags(t, other, 2), imap.FlagSeen) || !bySubject(list(t, env, ""), "Two").Unread {
+		t.Fatal("unread not saved")
+	}
+
+	// 同步以后状态不变
+	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Five", 1), time.Now().Add(-time.Hour))
+	eventually(t, "sync", func() bool { return len(list(t, env, "")) == 5 })
+	if x := bySubject(list(t, env, ""), "Two"); !x.Unread || !x.Flagged {
+		t.Fatalf("after sync: %+v", x)
+	}
+
+	// 不存在的 id 忽略
+	if r := batch(t, env, "read", 99999); r.Done != 0 || len(r.Errors) != 0 {
+		t.Fatalf("unknown id: %+v", r)
+	}
+}
+
+func TestBatchValidation(t *testing.T) {
+	env, _, _, _ := batchSetup(t)
+	tooMany := make([]int64, 501)
+	for i := range tooMany {
+		tooMany[i] = int64(i + 1)
+	}
+	for name, body := range map[string]map[string]any{
+		"empty":    {"ids": []int64{}, "action": "read"},
+		"too many": {"ids": tooMany, "action": "read"},
+		"action":   {"ids": []int64{1}, "action": "burn"},
+	} {
+		if status, out := env.Do(http.MethodPost, "/mail/messages/batch", body, nil); status != http.StatusBadRequest {
+			t.Fatalf("%s: %d %s", name, status, out)
+		}
+	}
+	if status, out := env.Do(http.MethodPost, "/mail/read-all", map[string]any{"accountId": 9999}, nil); status != http.StatusNotFound {
+		t.Fatalf("read-all unknown account: %d %s", status, out)
+	}
+}
+
+// B219: 有“已删除”文件夹就移过去。
+func TestBatchDeleteMovesToTrash(t *testing.T) {
+	env, m, f, acc := batchSetup(t)
+	if err := f.user.Create("Trash", nil); err != nil {
+		t.Fatal(err)
+	}
+	items := list(t, env, "")
+	rep := idsOf(t, items, "One")[0]
+	// 先看一封带附件的，删除时附件文件也要删
+	f.add(t, htmlMail, time.Now().Add(-time.Hour))
+	eventually(t, "report", func() bool { return bySubject(list(t, env, ""), "Report") != nil })
+	report := bySubject(list(t, env, ""), "Report")
+	env.MustDo(http.MethodGet, fmt.Sprintf("/mail/messages/%d", report.Id), nil, nil)
+	if mail.FileCount(m, fmt.Sprint(acc.Id)) != 2 {
+		t.Fatal("attachments not stored")
+	}
+
+	if r := batch(t, env, "delete", rep, report.Id); r.Done != 2 || len(r.Errors) != 0 {
+		t.Fatalf("delete: %+v", r)
+	}
+	left := list(t, env, "")
+	if len(left) != 3 || bySubject(left, "One") != nil || bySubject(left, "Report") != nil {
+		t.Fatalf("local: %+v", left)
+	}
+	if mail.FileCount(m, fmt.Sprint(acc.Id)) != 0 {
+		t.Fatal("attachment files left")
+	}
+	other := f.client(t)
+	inbox, err := other.Fetch(imap.UIDSetNum(1, 2, 3, 4, 5), &imap.FetchOptions{UID: true, Envelope: true}).Collect()
+	if err != nil || len(inbox) != 3 {
+		t.Fatalf("server INBOX: %+v %v", inbox, err)
+	}
+	for _, b := range inbox {
+		if b.Envelope.Subject == "One" || b.Envelope.Subject == "Report" {
+			t.Fatalf("still in INBOX: %s", b.Envelope.Subject)
+		}
+	}
+	sel, err := other.Select("Trash", nil).Wait()
+	if err != nil || sel.NumMessages != 2 {
+		t.Fatalf("Trash: %+v %v", sel, err)
+	}
+	// 之后同步不会把它们带回来
+	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Six", 1), time.Now().Add(-time.Hour))
+	eventually(t, "sync", func() bool { return bySubject(list(t, env, ""), "Six") != nil })
+	if got := list(t, env, ""); len(got) != 4 {
+		t.Fatalf("after sync: %+v", got)
+	}
+}
+
+// B219: 没有“已删除”文件夹就彻底删除。
+func TestBatchDeleteWithoutTrash(t *testing.T) {
+	env, _, f, _ := batchSetup(t)
+	ids := idsOf(t, list(t, env, ""), "Two", "Three")
+	if r := batch(t, env, "delete", ids...); r.Done != 2 || len(r.Errors) != 0 {
+		t.Fatalf("delete: %+v", r)
+	}
+	if got := list(t, env, ""); len(got) != 2 || bySubject(got, "Two") != nil {
+		t.Fatalf("local: %+v", got)
+	}
+	other := f.client(t)
+	inbox, err := other.Fetch(imap.UIDSetNum(1, 2, 3, 4), &imap.FetchOptions{UID: true}).Collect()
+	if err != nil || len(inbox) != 2 || inbox[0].UID != 1 || inbox[1].UID != 4 {
+		t.Fatalf("server INBOX: %+v %v", inbox, err)
+	}
+}
+
+// B219: 账号连不上时只报那个账号的错，本地不改。
+func TestBatchReportsFailedAccount(t *testing.T) {
+	env, _, f, acc := batchSetup(t)
+	ids := idsOf(t, list(t, env, ""), "One")
+	f.lossy.Store(true)
+	var r batchResult
+	env.MustDo(http.MethodPost, "/mail/messages/batch", map[string]any{"ids": ids, "action": "read"}, &r)
+	if r.Done != 0 || len(r.Errors) != 1 || !strings.HasPrefix(r.Errors[0], "测试邮箱：") {
+		t.Fatalf("result: %+v (account %d)", r, acc.Id)
+	}
+	if x := bySubject(list(t, env, ""), "One"); !x.Unread {
+		t.Fatal("local changed anyway")
+	}
+}
+
+func TestMarkAllRead(t *testing.T) {
+	env, _, f, acc := batchSetup(t)
+	other := f.client(t)
+	if err := other.Store(imap.UIDSetNum(1), &imap.StoreFlags{Op: imap.StoreFlagsAdd, Silent: true, Flags: []imap.Flag{imap.FlagSeen}}, nil).Close(); err != nil {
+		t.Fatal(err)
+	}
+	eventually(t, "one read", func() bool { return len(list(t, env, "?unread=true")) == 3 })
+
+	var r batchResult
+	env.MustDo(http.MethodPost, "/mail/read-all", map[string]any{"accountId": acc.Id}, &r)
+	if r.Done != 3 || len(r.Errors) != 0 {
+		t.Fatalf("read-all: %+v", r)
+	}
+	if got := list(t, env, "?unread=true"); len(got) != 0 {
+		t.Fatalf("still unread: %+v", got)
+	}
+	var summary api.MailSummaryView
+	env.MustDo(http.MethodGet, "/mail/summary", nil, &summary)
+	if summary.Unread != 0 {
+		t.Fatalf("summary: %+v", summary)
+	}
+	for uid := imap.UID(1); uid <= 4; uid++ {
+		if !hasFlag(serverFlags(t, other, uid), imap.FlagSeen) {
+			t.Fatalf("server: uid %d unread", uid)
+		}
+	}
+
+	// 没有未读了，再来一次什么也不做；不传 accountId 就是所有邮箱
+	env.MustDo(http.MethodPost, "/mail/read-all", map[string]any{}, &r)
+	if r.Done != 0 || len(r.Errors) != 0 {
+		t.Fatalf("second read-all: %+v", r)
+	}
+	f.add(t, strings.Replace(plainMail, "Subject: Hello", "Subject: Late", 1), time.Now().Add(-time.Hour))
+	eventually(t, "late mail", func() bool { return len(list(t, env, "?unread=true")) == 1 })
+	env.MustDo(http.MethodPost, "/mail/read-all", map[string]any{}, &r)
+	if r.Done != 1 || len(list(t, env, "?unread=true")) != 0 {
+		t.Fatalf("read-all without account: %+v", r)
+	}
+}

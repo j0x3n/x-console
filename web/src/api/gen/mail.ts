@@ -93,8 +93,46 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description 标记已读、未读、星标。同时改邮箱服务器上的状态。 */
+        /** @description 标记已读、未读、星标。同时改邮箱服务器上的状态。服务器没存上时回 502（B217）。 */
         patch: operations["updateMailMessage"];
+        trace?: never;
+    };
+    "/mail/messages/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description 批量标已读、未读、星标，或删除（B219）。先改邮箱服务器，成功的账号再改本地。
+         *     删除是移到邮箱的“已删除”文件夹；找不到这个文件夹时彻底删除。
+         *     一个账号失败不影响别的账号，失败原因写在 errors 里。
+         */
+        post: operations["batchMailMessages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/mail/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description 把一个邮箱（不传 accountId 就是所有邮箱）的未读邮件全部标成已读（B219）。 */
+        post: operations["markAllMailRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/mail/messages/{messageId}/attachments/{index}": {
@@ -289,6 +327,25 @@ export interface components {
         MailMessagePatch: {
             unread?: boolean;
             flagged?: boolean;
+        };
+        /**
+         * @description read 标已读；unread 标未读；star 加星标；unstar 去掉星标；delete 删除
+         * @enum {string}
+         */
+        MailBatchAction: "read" | "unread" | "star" | "unstar" | "delete";
+        MailBatch: {
+            ids: number[];
+            action: components["schemas"]["MailBatchAction"];
+        };
+        MailReadAll: {
+            /** Format: int64 */
+            accountId?: number;
+        };
+        MailBatchResult: {
+            /** @description 改成功的邮件数 */
+            done: number;
+            /** @description 失败的账号和原因，比如“个人 Gmail：连不上服务器” */
+            errors: string[];
         };
         MailSummaryView: {
             /** @description 所有账号的未读总数 */
@@ -529,6 +586,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MailSummary"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    batchMailMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailBatch"];
+            };
+        };
+        responses: {
+            /** @description 结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailBatchResult"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    markAllMailRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailReadAll"];
+            };
+        };
+        responses: {
+            /** @description 结果 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailBatchResult"];
                 };
             };
             default: components["responses"]["Error"];
