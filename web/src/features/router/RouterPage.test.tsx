@@ -63,11 +63,11 @@ import RouterPage from "./RouterPage";
 import RouterSettingsTab from "./RouterSettingsTab";
 import "./i18n";
 
-function renderIt(node: React.ReactNode) {
+function renderIt(node: React.ReactNode, path = "/") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>{node}</MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>{node}</MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -486,6 +486,48 @@ describe("RouterSettingsTab B228 设备通知", () => {
       expect(
         api.calls.filter((c) => c.method === "PUT").at(-1)?.body,
       ).toMatchObject({ notifyCooldownMinutes: 60 }),
+    );
+  });
+});
+
+describe("B232 新设备通知", () => {
+  it("通知链接带 device 时直接打开这台设备，流量页签也一样", async () => {
+    localStorage.setItem("router.tab", "traffic");
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: pushStatus,
+    }));
+    api.routes.set("GET /router/devices", () => ({
+      status: 200,
+      body: { items: [phone, tv], trafficAvailable: false },
+    }));
+    api.routes.set("GET /router/options", () => ({
+      status: 200,
+      body: options,
+    }));
+    renderIt(<RouterPage />, "/router?device=AA:BB:CC:00:00:09");
+    // 离线的设备也能打开
+    expect(await screen.findByRole("dialog", { name: "tv" })).toBeTruthy();
+  });
+
+  it("设置里能关掉新设备通知", async () => {
+    api.routes.set("GET /router/config", () => ({
+      status: 200,
+      body: { url: "", username: "", mode: "push", hasPassword: false },
+    }));
+    api.routes.set("GET /agents", () => ({ status: 200, body: [] }));
+    api.routes.set("GET /router/options", () => ({
+      status: 200,
+      body: options,
+    }));
+    api.routes.set("PUT /router/options", (body) => ({ status: 200, body }));
+    renderIt(<RouterSettingsTab />);
+    fireEvent.click(await screen.findByLabelText("新设备接入时通知"));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+        ...options,
+        newDeviceNotify: false,
+      }),
     );
   });
 });

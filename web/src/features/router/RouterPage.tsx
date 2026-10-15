@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Power,
   RefreshCw,
@@ -62,7 +62,11 @@ export default function RouterPage() {
   const navigate = useNavigate();
   const status = useRouterStatus();
   const reboot = useRebootRouter();
-  const [tab, setTabState] = useState<Tab>(readTab);
+  // B232：通知里的链接带 ?device=MAC，要打开设备页签才能看到详情
+  const [search] = useSearchParams();
+  const [tab, setTabState] = useState<Tab>(() =>
+    search.get("device") ? "clients" : readTab(),
+  );
   const [range, setRange] = useState<TrafficRange>("24h");
   const setTab = (next: Tab) => {
     setTabState(next);

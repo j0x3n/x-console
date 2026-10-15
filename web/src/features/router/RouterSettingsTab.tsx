@@ -265,6 +265,19 @@ function NotifyCard() {
         总开关打开后，还要在路由器页点开设备，打开它自己的通知。Wi-Fi
         设备在下一次上报时就能发现变化，有线设备连续 5 分钟看不到才算离线。
       </p>
+      <div className="router-setting-row">
+        <span>{t("Notify when a new device joins")}</span>
+        <Switch
+          checked={o.newDeviceNotify}
+          label={t("Notify when a new device joins")}
+          disabled={save.isPending}
+          onChange={(newDeviceNotify) => put({ newDeviceNotify })}
+        />
+      </div>
+      <p className="xc-muted">
+        面板没见过的设备连上来时推一条，每台只推一次。刚装好脚本的第一次上报不推。手机的私有
+        Wi-Fi 地址设成“轮换”时，换了地址会被当成新设备。
+      </p>
       <label className="xc-field">
         <span>{t("Default interval before notifying again")}</span>
         <select
