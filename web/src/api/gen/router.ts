@@ -184,6 +184,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/router/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B230：面板自己记的事件，新的在前。group 不传是全部：device（设备上下线、新设备、第一次记下设备）、
+         *     wan（WAN 掉线和恢复）、report（停止上报和恢复）、command（重启接口和重启路由器）。
+         *     before 是上一页最后一条的 id。
+         */
+        get: operations["listRouterEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/router/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description B230：路由器的系统日志（logread），新的在前。level 填 warn 或 err，表示这个级别及以上。
+         *     q 搜内容。programs 是保存期内出现过的程序名，最多 100 个。
+         */
+        get: operations["listRouterLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/router/status": {
         parameters: {
             query?: never;
@@ -513,6 +554,32 @@ export interface components {
             /** @description 事件和系统日志保存几天，默认 7 */
             logDays: number;
         };
+        RouterEvent: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /**
+             * @description device_new、device_online、device_offline、devices_seeded（第一次上报记下的设备数）、
+             *     wan_down、wan_up、report_lost、report_back、interface_restart、reboot
+             */
+            kind: string;
+            /** @description 设备事件才有 */
+            mac?: string | null;
+            title: string;
+            detail: string;
+        };
+        RouterLogLine: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** @description emerg、alert、crit、err、warn、notice、info、debug。拆不出来是空 */
+            level: string;
+            facility: string;
+            program: string;
+            message: string;
+        };
         Error: {
             /** @description 机器可读的错误码，例如 not_found、validation_failed、elevation_required */
             code: string;
@@ -835,6 +902,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RouterOptions"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRouterEvents: {
+        parameters: {
+            query?: {
+                group?: "device" | "wan" | "report" | "command";
+                mac?: string;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 事件 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RouterEvent"][];
+                        hasMore: boolean;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRouterLogs: {
+        parameters: {
+            query?: {
+                q?: string;
+                level?: "warn" | "err";
+                program?: string;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 日志 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["RouterLogLine"][];
+                        hasMore: boolean;
+                        programs: string[];
+                    };
                 };
             };
             default: components["responses"]["Error"];

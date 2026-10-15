@@ -88,6 +88,48 @@ func (e GetRouterDeviceTrafficParamsRange) Valid() bool {
 	}
 }
 
+// Defines values for ListRouterEventsParamsGroup.
+const (
+	Command ListRouterEventsParamsGroup = "command"
+	Device  ListRouterEventsParamsGroup = "device"
+	Report  ListRouterEventsParamsGroup = "report"
+	Wan     ListRouterEventsParamsGroup = "wan"
+)
+
+// Valid indicates whether the value is a known member of the ListRouterEventsParamsGroup enum.
+func (e ListRouterEventsParamsGroup) Valid() bool {
+	switch e {
+	case Command:
+		return true
+	case Device:
+		return true
+	case Report:
+		return true
+	case Wan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListRouterLogsParamsLevel.
+const (
+	Err  ListRouterLogsParamsLevel = "err"
+	Warn ListRouterLogsParamsLevel = "warn"
+)
+
+// Valid indicates whether the value is a known member of the ListRouterLogsParamsLevel enum.
+func (e ListRouterLogsParamsLevel) Valid() bool {
+	switch e {
+	case Err:
+		return true
+	case Warn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PutRouterPushIntervalJSONBodySeconds.
 const (
 	N10 PutRouterPushIntervalJSONBodySeconds = 10
@@ -242,6 +284,21 @@ type RouterDeviceUpdate struct {
 	Notify          bool   `json:"notify"`
 }
 
+// RouterEvent defines model for RouterEvent.
+type RouterEvent struct {
+	At     time.Time `json:"at"`
+	Detail string    `json:"detail"`
+	Id     int64     `json:"id"`
+
+	// Kind device_new、device_online、device_offline、devices_seeded（第一次上报记下的设备数）、
+	// wan_down、wan_up、report_lost、report_back、interface_restart、reboot
+	Kind string `json:"kind"`
+
+	// Mac 设备事件才有
+	Mac   *string `json:"mac,omitempty"`
+	Title string  `json:"title"`
+}
+
 // RouterInterface defines model for RouterInterface.
 type RouterInterface struct {
 	// Device 实际的网卡，比如 eth1、pppoe-wan
@@ -258,6 +315,18 @@ type RouterInterface struct {
 	Proto         *string `json:"proto,omitempty"`
 	Up            bool    `json:"up"`
 	UptimeSeconds *int64  `json:"uptimeSeconds,omitempty"`
+}
+
+// RouterLogLine defines model for RouterLogLine.
+type RouterLogLine struct {
+	At       time.Time `json:"at"`
+	Facility string    `json:"facility"`
+	Id       int64     `json:"id"`
+
+	// Level emerg、alert、crit、err、warn、notice、info、debug。拆不出来是空
+	Level   string `json:"level"`
+	Message string `json:"message"`
+	Program string `json:"program"`
 }
 
 // RouterMode direct 面板直接访问；agent 让家里的代理转发；push 路由器上的脚本主动上报
@@ -375,6 +444,29 @@ type GetRouterDeviceTrafficParams struct {
 // GetRouterDeviceTrafficParamsRange defines parameters for GetRouterDeviceTraffic.
 type GetRouterDeviceTrafficParamsRange string
 
+// ListRouterEventsParams defines parameters for ListRouterEvents.
+type ListRouterEventsParams struct {
+	Group  *ListRouterEventsParamsGroup `form:"group,omitempty" json:"group,omitempty"`
+	Mac    *string                      `form:"mac,omitempty" json:"mac,omitempty"`
+	Before *int64                       `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *int                         `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListRouterEventsParamsGroup defines parameters for ListRouterEvents.
+type ListRouterEventsParamsGroup string
+
+// ListRouterLogsParams defines parameters for ListRouterLogs.
+type ListRouterLogsParams struct {
+	Q       *string                    `form:"q,omitempty" json:"q,omitempty"`
+	Level   *ListRouterLogsParamsLevel `form:"level,omitempty" json:"level,omitempty"`
+	Program *string                    `form:"program,omitempty" json:"program,omitempty"`
+	Before  *int64                     `form:"before,omitempty" json:"before,omitempty"`
+	Limit   *int                       `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListRouterLogsParamsLevel defines parameters for ListRouterLogs.
+type ListRouterLogsParamsLevel string
+
 // PutRouterPushIntervalJSONBody defines parameters for PutRouterPushInterval.
 type PutRouterPushIntervalJSONBody struct {
 	Seconds PutRouterPushIntervalJSONBodySeconds `json:"seconds"`
@@ -436,11 +528,17 @@ type ServerInterface interface {
 	// (GET /router/devices/{mac}/traffic)
 	GetRouterDeviceTraffic(w http.ResponseWriter, r *http.Request, mac string, params GetRouterDeviceTrafficParams)
 
+	// (GET /router/events)
+	ListRouterEvents(w http.ResponseWriter, r *http.Request, params ListRouterEventsParams)
+
 	// (GET /router/install/{code})
 	GetRouterInstall(w http.ResponseWriter, r *http.Request, code string)
 
 	// (POST /router/interfaces/{name}/restart)
 	RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string)
+
+	// (GET /router/logs)
+	ListRouterLogs(w http.ResponseWriter, r *http.Request, params ListRouterLogsParams)
 
 	// (GET /router/options)
 	GetRouterOptions(w http.ResponseWriter, r *http.Request)
@@ -506,6 +604,11 @@ func (_ Unimplemented) GetRouterDeviceTraffic(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /router/events)
+func (_ Unimplemented) ListRouterEvents(w http.ResponseWriter, r *http.Request, params ListRouterEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /router/install/{code})
 func (_ Unimplemented) GetRouterInstall(w http.ResponseWriter, r *http.Request, code string) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -513,6 +616,11 @@ func (_ Unimplemented) GetRouterInstall(w http.ResponseWriter, r *http.Request, 
 
 // (POST /router/interfaces/{name}/restart)
 func (_ Unimplemented) RestartRouterInterface(w http.ResponseWriter, r *http.Request, name string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /router/logs)
+func (_ Unimplemented) ListRouterLogs(w http.ResponseWriter, r *http.Request, params ListRouterLogsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -715,6 +823,78 @@ func (siw *ServerInterfaceWrapper) GetRouterDeviceTraffic(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListRouterEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListRouterEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRouterEventsParams
+
+	// ------------- Optional query parameter "group" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "group", r.URL.Query(), &params.Group, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "group"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "mac" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "mac", r.URL.Query(), &params.Mac, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "mac"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mac", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRouterEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetRouterInstall operation middleware
 func (siw *ServerInterfaceWrapper) GetRouterInstall(w http.ResponseWriter, r *http.Request) {
 
@@ -758,6 +938,91 @@ func (siw *ServerInterfaceWrapper) RestartRouterInterface(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RestartRouterInterface(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRouterLogs operation middleware
+func (siw *ServerInterfaceWrapper) ListRouterLogs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRouterLogsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "level" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "level", r.URL.Query(), &params.Level, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "level"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "level", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "program" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "program", r.URL.Query(), &params.Program, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "program"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "program", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRouterLogs(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1046,6 +1311,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/router/options", wrapper.PutRouterOptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/router/events", wrapper.ListRouterEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/router/logs", wrapper.ListRouterLogs)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/router/status", wrapper.GetRouterStatus)

@@ -10,13 +10,18 @@ DIR=${XC_REPORT_DIR:-/tmp}
 TMP=$DIR/xc-report.body
 RESP=$DIR/xc-report.resp
 LOCK=$DIR/xc-report.pid
+# 系统日志发到哪一行了（B230）。LOGNEW 在面板收下之后才改名成 LOGPOS，上报失败就下次重发
+LOGPOS=$DIR/xc-report.logpos
+LOGNEW=$DIR/xc-report.logpos.new
+LOGALL=$DIR/xc-report.logall
+LOGOUT=$DIR/xc-report.logout
 
 # 上一次启动的还在跑就不重复启动
 if [ -f "$LOCK" ] && kill -0 "$(cat "$LOCK" 2>/dev/null)" 2>/dev/null; then
 	exit 0
 fi
 echo $$ > "$LOCK"
-trap 'rm -f "$LOCK" "$TMP" "$RESP"' EXIT
+trap 'rm -f "$LOCK" "$TMP" "$RESP" "$LOGNEW" "$LOGALL" "$LOGOUT"' EXIT
 
 # Wi-Fi 上连着的终端（B228）。每个接口一段：
 #   =hostapd <ubus 对象名>，后面是 ubus call 的 JSON（clients 的键是 MAC）
@@ -38,10 +43,32 @@ collect_wifi() {
 	done
 }
 
+# 系统日志里上次发过之后的新行，一次最多 500 行（B230）。
+# LOGPOS 存发过的最后一行。在 logread 的输出里找到它，就只发它后面的；找不到
+# （路由器重启了，或者日志缓冲区写满被覆盖了）就从头发。多出来的下次再发
+collect_log() {
+	rm -f "$LOGNEW"
+	command -v logread >/dev/null 2>&1 || return 0
+	logread > "$LOGALL" 2>/dev/null || return 0
+	start=1
+	if [ -s "$LOGPOS" ]; then
+		n=$(grep -nxF -- "$(cat "$LOGPOS")" "$LOGALL" | tail -n 1 | cut -d: -f1)
+		[ -n "$n" ] && start=$((n + 1))
+	fi
+	sed -n "${start},$((start + 499))p" "$LOGALL" > "$LOGOUT"
+	[ -s "$LOGOUT" ] || return 0
+	echo '#xc:log'
+	cat "$LOGOUT"
+	tail -n 1 "$LOGOUT" > "$LOGNEW"
+	return 0
+}
+
 collect() {
 	{
 		echo '#xc:time'
 		date +%s
+		echo '#xc:tz'
+		date +%z
 		echo '#xc:board'
 		ubus call system board
 		echo '#xc:info'
@@ -66,6 +93,7 @@ collect() {
 			echo '#xc:nlbw'
 			nlbw -c json -g mac 2>/dev/null
 		fi
+		collect_log
 	} > "$TMP"
 }
 
@@ -111,6 +139,8 @@ while :; do
 		logger -t xc-report "上报失败，退出码 $rc"
 		exit "$rc"
 	fi
+	# 面板收下了，日志的位置才往前走
+	[ -s "$LOGNEW" ] && mv "$LOGNEW" "$LOGPOS"
 	while IFS= read -r line; do
 		case "$line" in
 		interval=*)

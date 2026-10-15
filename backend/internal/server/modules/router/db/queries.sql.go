@@ -90,6 +90,30 @@ func (q *Queries) InsertRouterEvent(ctx context.Context, arg InsertRouterEventPa
 	return err
 }
 
+const insertRouterLog = `-- name: InsertRouterLog :exec
+INSERT INTO router_logs (at, level, facility, program, message) VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertRouterLogParams struct {
+	At       int64
+	Level    string
+	Facility string
+	Program  string
+	Message  string
+}
+
+// B230: the router's system log
+func (q *Queries) InsertRouterLog(ctx context.Context, arg InsertRouterLogParams) error {
+	_, err := q.db.ExecContext(ctx, insertRouterLog,
+		arg.At,
+		arg.Level,
+		arg.Facility,
+		arg.Program,
+		arg.Message,
+	)
+	return err
+}
+
 const insertTraffic = `-- name: InsertTraffic :exec
 INSERT INTO router_traffic (at, seconds, rx, tx) VALUES (?, ?, ?, ?)
 ON CONFLICT (at) DO UPDATE SET seconds = seconds + excluded.seconds, rx = rx + excluded.rx, tx = tx + excluded.tx
@@ -196,6 +220,33 @@ func (q *Queries) ListRouterDevices(ctx context.Context) ([]RouterDevice, error)
 	return items, nil
 }
 
+const listRouterLogPrograms = `-- name: ListRouterLogPrograms :many
+SELECT program FROM router_logs WHERE program != '' GROUP BY program ORDER BY program LIMIT 100
+`
+
+func (q *Queries) ListRouterLogPrograms(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listRouterLogPrograms)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var program string
+		if err := rows.Scan(&program); err != nil {
+			return nil, err
+		}
+		items = append(items, program)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTraffic = `-- name: ListTraffic :many
 SELECT at, seconds, rx, tx FROM router_traffic WHERE at >= ? ORDER BY at
 `
@@ -264,6 +315,15 @@ func (q *Queries) PruneRouterEvents(ctx context.Context, at int64) error {
 	return err
 }
 
+const pruneRouterLogs = `-- name: PruneRouterLogs :exec
+DELETE FROM router_logs WHERE at < ?
+`
+
+func (q *Queries) PruneRouterLogs(ctx context.Context, at int64) error {
+	_, err := q.db.ExecContext(ctx, pruneRouterLogs, at)
+	return err
+}
+
 const pruneTraffic = `-- name: PruneTraffic :exec
 DELETE FROM router_traffic WHERE at < ?
 `
@@ -329,6 +389,16 @@ func (q *Queries) SumTrafficSince(ctx context.Context, at int64) (SumTrafficSinc
 	var i SumTrafficSinceRow
 	err := row.Scan(&i.Rx, &i.Tx)
 	return i, err
+}
+
+const trimRouterLogs = `-- name: TrimRouterLogs :exec
+DELETE FROM router_logs WHERE id <= (SELECT id FROM router_logs ORDER BY id DESC LIMIT 1 OFFSET ?)
+`
+
+// Keep the newest rows only. The subquery is NULL while there are fewer rows than the limit, and then nothing matches.
+func (q *Queries) TrimRouterLogs(ctx context.Context, offset int64) error {
+	_, err := q.db.ExecContext(ctx, trimRouterLogs, offset)
+	return err
 }
 
 const updateRouterDeviceSettings = `-- name: UpdateRouterDeviceSettings :exec

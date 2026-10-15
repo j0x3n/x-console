@@ -1,6 +1,7 @@
 package router_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +35,7 @@ while [ $# -gt 0 ]; do
 	esac
 	shift
 done
+[ -n "$FAKE_FAIL" ] && exit 22
 echo 'interval=60' > "$out"
 `
 
@@ -78,6 +80,7 @@ func newScriptEnv(t *testing.T, token string) *scriptEnv {
 	}
 	e.fake("ubus", fakeUbusScript)
 	e.fake("curl", fakeCurl)
+	e.fake("logger", "#!/bin/sh\n")
 	return e
 }
 
@@ -90,16 +93,22 @@ func (e *scriptEnv) fake(name, body string) {
 
 func (e *scriptEnv) run(extraEnv ...string) string {
 	e.t.Helper()
-	cmd := exec.Command("/bin/sh", filepath.Join(e.root, "report.sh"))
-	cmd.Env = append([]string{"PATH=" + e.bin, "XC_REPORT_DIR=" + e.root, "XC_FAKE_OUT=" + e.out, "XC_SYS_NET=" + filepath.Join(e.root, "net")}, extraEnv...)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	body, out, err := e.try(extraEnv...)
+	if err != nil {
 		e.t.Fatalf("script: %v\n%s", err, out)
 	}
-	body, err := os.ReadFile(filepath.Join(e.out, "body"))
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	return string(body)
+	return body
+}
+
+// try runs the script and returns the body it posted, its output and its error.
+func (e *scriptEnv) try(extraEnv ...string) (string, []byte, error) {
+	e.t.Helper()
+	_ = os.Remove(filepath.Join(e.out, "body"))
+	cmd := exec.Command("/bin/sh", filepath.Join(e.root, "report.sh"))
+	cmd.Env = append([]string{"PATH=" + e.bin, "XC_REPORT_DIR=" + e.root, "XC_FAKE_OUT=" + e.out, "XC_SYS_NET=" + filepath.Join(e.root, "net")}, extraEnv...)
+	out, err := cmd.CombinedOutput()
+	body, _ := os.ReadFile(filepath.Join(e.out, "body"))
+	return string(body), out, err
 }
 
 func TestScriptWifiAndNeighSections(t *testing.T) {
@@ -147,5 +156,105 @@ func TestScriptWithoutHostapdUsesIwinfo(t *testing.T) {
 	// No ip command: the neighbor section is left out and the ARP table stays.
 	if strings.Contains(body, "#xc:neigh") || strings.Contains(body, "#xc:nlbw") || !strings.Contains(body, "#xc:arp") {
 		t.Fatalf("body:\n%s", body)
+	}
+}
+
+// logread prints the file FAKE_LOG.
+const fakeLogread = "#!/bin/sh\ncat \"$FAKE_LOG\"\n"
+
+func logLines(from, to int) string {
+	var b strings.Builder
+	for i := from; i <= to; i++ {
+		fmt.Fprintf(&b, "Thu Oct  9 20:00:%02d 2026 daemon.info dnsmasq[%d]: line %d\n", i%60, i, i)
+	}
+	return b.String()
+}
+
+// sentLines are the lines under #xc:log in a body.
+func sentLines(body string) []string {
+	_, rest, ok := strings.Cut(body, "#xc:log\n")
+	if !ok {
+		return nil
+	}
+	rest, _, _ = strings.Cut(rest, "\n#xc:")
+	return strings.Split(strings.TrimRight(rest, "\n"), "\n")
+}
+
+func TestScriptSendsOnlyNewLogLines(t *testing.T) {
+	e := newScriptEnv(t, "tok")
+	e.fake("logread", fakeLogread)
+	logFile := filepath.Join(e.root, "log")
+	write := func(text string) {
+		if err := os.WriteFile(logFile, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run := func(extra ...string) []string {
+		return sentLines(e.run(append([]string{"FAKE_LOG=" + logFile}, extra...)...))
+	}
+
+	// The first time, no position is known: everything goes.
+	write(logLines(1, 5))
+	if got := run(); len(got) != 5 || !strings.HasSuffix(got[0], "line 1") || !strings.HasSuffix(got[4], "line 5") {
+		t.Fatalf("first: %v", got)
+	}
+	pos, _ := os.ReadFile(filepath.Join(e.root, "xc-report.logpos"))
+	if !strings.HasSuffix(strings.TrimSpace(string(pos)), "line 5") {
+		t.Fatalf("position: %q", pos)
+	}
+	// Two more lines: only those.
+	write(logLines(1, 7))
+	if got := run(); len(got) != 2 || !strings.HasSuffix(got[0], "line 6") {
+		t.Fatalf("second: %v", got)
+	}
+	// Nothing new: no section at all.
+	if got := run(); got != nil {
+		t.Fatalf("third: %v", got)
+	}
+	// The router restarted: its log began again and the last line is not in it.
+	write(logLines(20, 22))
+	if got := run(); len(got) != 3 || !strings.HasSuffix(got[0], "line 20") {
+		t.Fatalf("after restart: %v", got)
+	}
+	// The panel did not take the report: the same lines go again.
+	write(logLines(20, 24))
+	if _, _, err := e.try("FAKE_LOG="+logFile, "FAKE_FAIL=1"); err == nil {
+		t.Fatal("the script ignored a failed post")
+	}
+	pos, _ = os.ReadFile(filepath.Join(e.root, "xc-report.logpos"))
+	if !strings.HasSuffix(strings.TrimSpace(string(pos)), "line 22") {
+		t.Fatalf("position moved on a failed report: %q", pos)
+	}
+	if got := run(); len(got) != 2 || !strings.HasSuffix(got[0], "line 23") {
+		t.Fatalf("after a failed report: %v", got)
+	}
+}
+
+func TestScriptLogLimit(t *testing.T) {
+	e := newScriptEnv(t, "tok")
+	e.fake("logread", fakeLogread)
+	logFile := filepath.Join(e.root, "log")
+	if err := os.WriteFile(logFile, []byte(logLines(1, 1200)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run := func() []string { return sentLines(e.run("FAKE_LOG=" + logFile)) }
+	// 500 at a time; the position is the 500th line, so the next run goes on from there.
+	first, second, third := run(), run(), run()
+	if len(first) != 500 || !strings.HasSuffix(first[0], "line 1") || !strings.HasSuffix(first[499], "line 500") {
+		t.Fatalf("first: %d lines", len(first))
+	}
+	if len(second) != 500 || !strings.HasSuffix(second[0], "line 501") || !strings.HasSuffix(second[499], "line 1000") {
+		t.Fatalf("second: %d lines", len(second))
+	}
+	if len(third) != 200 || !strings.HasSuffix(third[0], "line 1001") {
+		t.Fatalf("third: %d lines", len(third))
+	}
+}
+
+func TestScriptSendsTimeZone(t *testing.T) {
+	e := newScriptEnv(t, "tok")
+	body := e.run("TZ=Asia/Shanghai")
+	if !strings.Contains(body, "#xc:tz\n") {
+		t.Fatalf("no time zone:\n%s", body)
 	}
 }

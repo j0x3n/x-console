@@ -142,9 +142,7 @@ func (m *Module) prune(ctx context.Context, now time.Time) {
 	if o, err := m.options(ctx); err == nil {
 		days = o.LogDays
 	}
-	if err := m.q.PruneRouterEvents(ctx, now.Add(-time.Duration(days)*24*time.Hour).Unix()); err != nil {
-		m.d.Log.Warn("router prune events", "err", err)
-	}
+	m.pruneLogs(ctx, now, days)
 }
 
 // wanState moves the outage tracker and sends the down and back notifications.
@@ -152,6 +150,7 @@ func (m *Module) wanState(ctx context.Context, now time.Time, up bool, reason, d
 	m.mu.Lock()
 	w := m.watch
 	var send *notify.Notification
+	var kind string // the event written with the notification
 	switch {
 	case up && w.since.IsZero():
 	case up:
@@ -161,6 +160,10 @@ func (m *Module) wanState(ctx context.Context, now time.Time, up bool, reason, d
 				body += "WAN 口 IP：" + detail
 			}
 			send = &notify.Notification{Kind: "router.wan_up", Title: "家里网络恢复了", Body: body}
+			kind = "wan_up"
+			if w.push {
+				kind = "report_back"
+			}
 		}
 		w = wanWatch{}
 	default:
@@ -172,6 +175,10 @@ func (m *Module) wanState(ctx context.Context, now time.Time, up bool, reason, d
 		}
 		if !w.notified && now.Sub(w.since) >= downAfter && !now.Before(m.quiet) {
 			w.notified = true
+			kind = "wan_down"
+			if w.reason != "wan" && w.push {
+				kind = "report_lost"
+			}
 			if w.reason == "wan" {
 				send = &notify.Notification{Kind: "router.wan_down", Priority: "high", Title: "WAN 口掉线了",
 					Body: "已经断了 " + humanDuration(now.Sub(w.since)) + "。路由器能连上，是外网断了。"}
@@ -190,6 +197,9 @@ func (m *Module) wanState(ctx context.Context, now time.Time, up bool, reason, d
 		return
 	}
 	send.Link, send.Source = "/router", "router"
+	if kind != "" {
+		m.addEvent(ctx, now, kind, "", send.Title, send.Body)
+	}
 	if _, err := m.d.Notify.Send(ctx, *send); err != nil {
 		m.d.Log.Warn("router notification failed", "err", err)
 	}

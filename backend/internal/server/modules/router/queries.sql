@@ -66,3 +66,17 @@ DELETE FROM router_device_traffic WHERE hour < ?;
 
 -- name: SumTrafficSince :one
 SELECT CAST(COALESCE(SUM(rx), 0) AS INTEGER) AS rx, CAST(COALESCE(SUM(tx), 0) AS INTEGER) AS tx FROM router_traffic WHERE at >= ?;
+
+-- B230: the router's system log
+-- name: InsertRouterLog :exec
+INSERT INTO router_logs (at, level, facility, program, message) VALUES (?, ?, ?, ?, ?);
+
+-- name: PruneRouterLogs :exec
+DELETE FROM router_logs WHERE at < ?;
+
+-- name: TrimRouterLogs :exec
+-- Keep the newest rows only. The subquery is NULL while there are fewer rows than the limit, and then nothing matches.
+DELETE FROM router_logs WHERE id <= (SELECT id FROM router_logs ORDER BY id DESC LIMIT 1 OFFSET ?);
+
+-- name: ListRouterLogPrograms :many
+SELECT program FROM router_logs WHERE program != '' GROUP BY program ORDER BY program LIMIT 100;

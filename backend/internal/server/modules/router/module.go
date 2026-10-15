@@ -61,9 +61,10 @@ type Module struct {
 	cmdSeq       int64
 	report       *pushSnapshot
 	lastReport   time.Time
-	install      installCode // B227: the download code of the install script
-	opts         *options    // B228: cached settings, nil until read
-	devs         deviceStore // B228: the devices (see devices.go)
+	install      installCode  // B227: the download code of the install script
+	opts         *options     // B228: cached settings, nil until read
+	devs         deviceStore  // B228: the devices (see devices.go)
+	programNames programCache // B230: names for the filter of the log page
 }
 
 var (

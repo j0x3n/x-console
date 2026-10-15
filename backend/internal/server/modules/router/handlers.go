@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/j0x3n/x-console/backend/internal/server/audit"
 	"github.com/j0x3n/x-console/backend/internal/server/auth"
 	"github.com/j0x3n/x-console/backend/internal/server/httpx"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/router/api"
@@ -276,6 +277,7 @@ func (m *Module) RestartRouterInterface(w http.ResponseWriter, r *http.Request, 
 		fail(w, r, err)
 		return
 	}
+	m.commandEvent(ctx, "interface_restart", name, false)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -315,11 +317,26 @@ func (m *Module) RebootRouter(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
+	m.commandEvent(ctx, "reboot", "", false)
 	m.reset()
 	m.mu.Lock()
 	m.quiet = m.now().Add(5 * time.Minute) // a reboot takes a minute or two
 	m.mu.Unlock()
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// commandEvent writes the restart a person asked for to the event list: who,
+// and whether it waits for the router's next report.
+func (m *Module) commandEvent(ctx context.Context, kind, iface string, queued bool) {
+	title := "重启路由器"
+	if kind == "interface_restart" {
+		title = "重启接口 " + iface
+	}
+	detail := "操作者 " + audit.Actor(ctx) + "。"
+	if queued {
+		detail += "命令排队，路由器下次上报时执行。"
+	}
+	m.addEvent(ctx, m.now(), kind, "", title, detail)
 }
 
 // queuePush answers a restart request in push mode: the panel cannot reach the
@@ -335,5 +352,10 @@ func (m *Module) queuePush(w http.ResponseWriter, r *http.Request, auditAction, 
 		httpx.Fail(w, r, err)
 		return
 	}
+	kind := "reboot"
+	if action == "restart_interface" {
+		kind = "interface_restart"
+	}
+	m.commandEvent(r.Context(), kind, arg, true)
 	w.WriteHeader(http.StatusAccepted)
 }

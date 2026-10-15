@@ -396,6 +396,10 @@ type report struct {
 	// router has no nlbwmon or it did not answer.
 	nlbw    map[string]nlbwRow
 	hasNlbw bool
+	// B230: the new lines of the router's system log, and the router's time
+	// zone as `date +%z` prints it.
+	logText string
+	tz      string
 }
 
 type deviceStat struct {
@@ -470,6 +474,7 @@ func parseReport(body []byte) (report, error) {
 		rep.neigh, rep.hasNeigh = parseNeigh(text), true
 	}
 	rep.nlbw, rep.hasNlbw = parseNlbw(sec["nlbw"])
+	rep.logText, rep.tz = sec["log"], sec["tz"]
 	if secs, err := strconv.ParseInt(strings.TrimSpace(sec["time"]), 10, 64); err == nil && secs > 0 {
 		rep.routerTime = time.Unix(secs, 0)
 	}
@@ -478,6 +483,9 @@ func parseReport(body []byte) (report, error) {
 
 // applyReport stores a report: traffic sample, WAN state, status and devices.
 func (m *Module) applyReport(ctx context.Context, rep report, now time.Time) {
+	// The router may drop the connection while the panel is still writing; what
+	// it sent has to be stored all the same.
+	ctx = context.WithoutCancel(ctx)
 	st := buildStatus(rep.board, rep.info, rep.interfaces, now)
 	st.Source = api.RouterStatusSourcePush
 	if wan, ok := pickWAN(rep.interfaces); ok {
@@ -498,6 +506,7 @@ func (m *Module) applyReport(ctx context.Context, rep report, now time.Time) {
 	if leaseNow.IsZero() {
 		leaseNow = now
 	}
+	m.storeLogs(ctx, rep, now)
 	up := m.updateDevices(ctx, rep, wanDevices(rep.interfaces), leaseNow, now)
 	clients := up.clients
 	st.ClientCount = len(clients)

@@ -256,6 +256,98 @@ paths:
                 $ref: "#/components/schemas/RouterOptions"
         default:
           $ref: "../common.yaml#/components/responses/Error"
+  /router/events:
+    get:
+      operationId: listRouterEvents
+      tags: [router]
+      description: |
+        B230：面板自己记的事件，新的在前。group 不传是全部：device（设备上下线、新设备、第一次记下设备）、
+        wan（WAN 掉线和恢复）、report（停止上报和恢复）、command（重启接口和重启路由器）。
+        before 是上一页最后一条的 id。
+      parameters:
+        - name: group
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [device, wan, report, command]
+        - name: mac
+          in: query
+          required: false
+          schema: { type: string }
+        - name: before
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
+      responses:
+        "200":
+          description: 事件
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, hasMore]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RouterEvent"
+                  hasMore: { type: boolean }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /router/logs:
+    get:
+      operationId: listRouterLogs
+      tags: [router]
+      description: |
+        B230：路由器的系统日志（logread），新的在前。level 填 warn 或 err，表示这个级别及以上。
+        q 搜内容。programs 是保存期内出现过的程序名，最多 100 个。
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string }
+        - name: level
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [warn, err]
+        - name: program
+          in: query
+          required: false
+          schema: { type: string }
+        - name: before
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 200, default: 100 }
+      responses:
+        "200":
+          description: 日志
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, hasMore, programs]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RouterLogLine"
+                  hasMore: { type: boolean }
+                  programs:
+                    type: array
+                    items: { type: string }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
   /router/status:
     get:
       operationId: getRouterStatus
@@ -670,3 +762,32 @@ components:
           minimum: 1
           maximum: 15
           description: 事件和系统日志保存几天，默认 7
+    RouterEvent:
+      type: object
+      required: [id, at, kind, title, detail]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        kind:
+          type: string
+          description: |
+            device_new、device_online、device_offline、devices_seeded（第一次上报记下的设备数）、
+            wan_down、wan_up、report_lost、report_back、interface_restart、reboot
+        mac:
+          type: string
+          nullable: true
+          description: 设备事件才有
+        title: { type: string }
+        detail: { type: string }
+    RouterLogLine:
+      type: object
+      required: [id, at, level, facility, program, message]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        level:
+          type: string
+          description: emerg、alert、crit、err、warn、notice、info、debug。拆不出来是空
+        facility: { type: string }
+        program: { type: string }
+        message: { type: string }

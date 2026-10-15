@@ -37,3 +37,17 @@ type NlbwRow = nlbwRow
 
 func (r NlbwRow) RX() uint64 { return r.rx }
 func (r NlbwRow) TX() uint64 { return r.tx }
+
+// LogLine is a parsed line of the system log.
+type LogLine = logLine
+
+func (l LogLine) At() time.Time    { return l.at }
+func (l LogLine) Level() string    { return l.level }
+func (l LogLine) Facility() string { return l.facility }
+func (l LogLine) Program() string  { return l.program }
+func (l LogLine) Message() string  { return l.message }
+
+var (
+	ParseLogs      = parseLogs
+	ZoneFromOffset = zoneFromOffset
+)
