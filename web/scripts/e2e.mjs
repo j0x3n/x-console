@@ -3785,6 +3785,19 @@ try {
       ),
     );
     assert.equal("capabilities" in host, false, "列表接口带了详情字段");
+    setStage("B233 设备页的代理自动更新");
+    // 端到端里面板和代理都是 dev，不会真的更新，只看开关和接口。
+    await page.goto(`${base}/settings/devices`);
+    await page
+      .locator("tr", { hasText: "e2e-linux" })
+      .getByLabel("这台机器自动更新 开关")
+      .waitFor();
+    const updates = await api("/agent-updates");
+    assert.equal(
+      updates.items.find((item) => item.agentId === host.id)?.autoUpdate,
+      true,
+      "新配对的代理没有默认打开自动更新",
+    );
     setStage("B82 服务器信息 API 主流程");
     await send("PATCH", `/hosts/${host.id}`, {
       info: {

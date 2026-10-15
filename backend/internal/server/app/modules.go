@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/j0x3n/x-console/backend/internal/server/module"
+	"github.com/j0x3n/x-console/backend/internal/server/modules/agentupdate"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/ai"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/aiagents"
 	"github.com/j0x3n/x-console/backend/internal/server/modules/aiconfig"
@@ -110,4 +111,5 @@ var constructors = []func(*module.Deps) (module.Module, error){
 	me.New,          // B162
 	watchers.New,    // B206
 	recipes.New,     // B209
+	agentupdate.New, // B233
 }

@@ -40,6 +40,7 @@ import (
 	"github.com/j0x3n/x-console/backend/internal/agent/pty"
 	"github.com/j0x3n/x-console/backend/internal/agent/quota"
 	"github.com/j0x3n/x-console/backend/internal/agent/screentime"
+	"github.com/j0x3n/x-console/backend/internal/agent/selfupdate"
 	"github.com/j0x3n/x-console/backend/internal/agent/setup"
 	"github.com/j0x3n/x-console/backend/internal/agent/svc"
 	"github.com/j0x3n/x-console/backend/internal/agent/sysinfo"
@@ -163,6 +164,7 @@ func run(args []string) error {
 	aiconfig.SetStateDir(filepath.Dir(*path))   // B121: next to the config file
 	focusblock.SetStateDir(filepath.Dir(*path)) // B131: same place
 	register(client, cfg)
+	selfupdate.CleanOldInBackground() // B233: delete <program>.old left by an update
 	return client.Run(ctx)
 }
 
@@ -193,6 +195,7 @@ func register(c *conn.Client, cfg config.Config) {
 	aiconfig.Register(c)                                // B121: the panel's part of the Claude Code and Codex configuration
 	focusblock.Register(c, cfg.Server)                  // B131: hosts file block and program ending while a pomodoro runs
 	egress.Register(c, cfg.DisableEgress)               // B208: net.dial for the browser's egress, announces the capability unless disabled
+	selfupdate.Register(c, cfg.DisableUpdate)           // B233: agent.update, announces the capability unless disabled
 }
 
 // capabilities lists what this build supports on this OS.

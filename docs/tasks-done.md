@@ -12,6 +12,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B233 | 代理自动更新：代理连上时版本和面板带的不一样就自动更新，每台机器可以在设备页关掉，也能点“更新”马上更新。面板经已有连接把新程序发给代理，代理校验 sha256、试运行核对版本后才替换，旧程序留成 `.old`。Linux 用 exec 换成新程序，Windows 启动新进程后旧进程退出。同时最多 2 台，同一版本 1 小时内只自动试一次。配置里 `"disableUpdate": true` 能拒绝更新。规格见 [B233](specs/B233.md)。后端 Claude Sonnet 5.5 写，前端 Claude Opus 5.5 写，Claude Opus 5.5 审查（Windows 重启不再把旧进程的输出句柄传给新进程）。Windows 和真实 Linux 的重启没在真机跑过。提交为本记录所在的提交 |
 | B208 | 网站自动化经过已连接的机器上网：任务的“出口”可以选服务器直接访问、一台已连接的机器（Linux、Windows 都行）或填代理地址。选了机器，浏览器的全部请求经面板里的 HTTP 代理和新的 `net.dial` 流从那台机器出去，只能连公网地址。机器离线时到点的检查不跑、不算出错，手动运行回 409。改出口要二次验证。代理配置里 `"disableEgress": true` 能关掉。端到端第二部分加了一步。规格见 [B208](specs/B208.md)。后端 Claude Sonnet 5.5 写，前端 Claude Opus 5.5 写，Claude Opus 5.5 审查（补了改出口要二次验证、手动运行时机器离线直接报错）。没连真实政务网站。提交 `70656abd` |
 | B226 | 网站自动化的浏览器看起来更像普通浏览器：`navigator.webdriver` 为 false，Client Hints 和 `userAgentData` 里没有 HeadlessChrome，5 个 PDF 插件，补 `window.chrome`，通知权限两边对得上，`outerHeight` 加浏览器边框，屏幕 1920×1080，WebGL 显卡名换成 Intel，改过的函数显示原生代码。AI 点击先分几步移动鼠标，输入 200 字以内逐字按键。接管页面里用户的操作不变。规格见 [B226](specs/B226.md)。用真实 Chrome 测过，没在线上 headless-shell 镜像里验证。Claude Sonnet 5.5 写，Claude Opus 5.5 审查。提交 `04eb4212` |
 | B225 | 验证码邮件马上推送，标题前面加“（验证码）”。营销邮件不推送，合并通知里也不写。Jev 对类别的置信度不超过 85% 时，这封改用对话模型分。规格见 [B225](specs/B225.md)。没有连真实 TypeSafe。提交为本记录所在的提交 |

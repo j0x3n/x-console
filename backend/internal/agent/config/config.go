@@ -18,6 +18,9 @@ type Config struct {
 	// DisableEgress turns the B208 egress off: the agent does not announce
 	// it and refuses net.dial.
 	DisableEgress bool `json:"disableEgress,omitempty"`
+	// DisableUpdate turns the B233 self-update off: the agent does not
+	// announce it and refuses agent.update.
+	DisableUpdate bool `json:"disableUpdate,omitempty"`
 }
 
 // DefaultPath is <user config dir>/x-console-agent/config.json.

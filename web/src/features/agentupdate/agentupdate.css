@@ -1,0 +1,12 @@
+/* B233：设备页版本那一格，版本号、标记和按钮排成一行，放不下就换行。 */
+.agentupdate-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.agentupdate-cell small {
+  flex-basis: 100%;
+  white-space: normal;
+}

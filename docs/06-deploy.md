@@ -177,6 +177,7 @@ sh remote-deploy.sh restore x-console-20260927-153000-sha-8fed186.db
 
 - Linux 服务器：`curl -fsSL "<面板>/api/v1/agent/install.sh?code=XXXX-XXXX" | sudo sh`。脚本会判断 amd64 或 arm64，从面板下载代理并校验，装到 `/usr/local/bin/x-console-agent`，配对，写 systemd 服务（限制内存 128 MB、CPU 20%）并启动。没有 systemd 时装好程序和配对，打印手动启动命令。
 - Windows 电脑：PowerShell 里执行 `irm "<面板>/api/v1/agent/install.ps1?code=XXXX-XXXX" | iex`，或者下载 `<面板>/api/v1/agent/setup.exe?code=XXXX-XXXX` 双击。代理装到 `%LOCALAPPDATA%\x-console-agent`，用任务计划程序在登录时启动。
+- 代理会自动更新（B233）：连上面板时版本和面板带的不一样，面板就把新程序发给它，它校验、试运行、换掉自己再重启。设备页每台机器能关自动更新，也能点“立即更新”。**这个功能上线前装的代理没有这个能力，第一次还要手动更新**（下一条的命令）。某台机器不想被更新，在它的 `config.json` 里加 `"disableUpdate": true`，重启代理。更新时旧程序留成 `<程序名>.old`，代理下次启动时删掉。
 - 已经装过的机器再执行一次命令只升级程序，不会再配对，也不会多出一条记录。要重新配对，在 `sh` 后面加 `-s -- --repair`（Windows 删掉 `%APPDATA%\x-console-agent\config.json` 再执行）。升级时也要在面板里生成一个新的配对码，用过的码会得到 404。
 - 卸载：`curl -fsSL "<面板>/api/v1/agent/uninstall.sh" | sudo sh`。面板里的记录要在设备页里吊销。
 - 代理是主动连面板的，内网机器只要能访问面板地址就行，不用开端口。

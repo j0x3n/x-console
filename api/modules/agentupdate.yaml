@@ -1,0 +1,93 @@
+openapi: 3.0.3
+info:
+  title: X Console agent updates (B233)
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /agent-updates:
+    get:
+      operationId: listAgentUpdates
+      tags: [agentupdate]
+      description: 面板带的代理版本，以及每台已配对机器的版本、自动更新开关和更新状态。
+      responses:
+        "200":
+          description: 更新状态
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentUpdateList" }
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agent-updates/{agentId}:
+    parameters:
+      - $ref: "#/components/parameters/AgentId"
+    post:
+      operationId: updateAgentNow
+      tags: [agentupdate]
+      description: |
+        马上把这台机器的代理更新到面板带的版本，在后台进行。需要提升权限。
+        机器不在线、不支持更新、已经是最新、正在更新时回 409。
+      responses:
+        "202":
+          description: 已开始更新
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+  /agent-updates/{agentId}/auto:
+    parameters:
+      - $ref: "#/components/parameters/AgentId"
+    put:
+      operationId: setAgentAutoUpdate
+      tags: [agentupdate]
+      description: 打开或关掉这台机器的自动更新。默认打开。打开要提升权限，关掉不用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [on]
+              properties:
+                on: { type: boolean }
+      responses:
+        "204":
+          description: 已保存
+        default:
+          $ref: "../common.yaml#/components/responses/Error"
+components:
+  parameters:
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    AgentUpdateList:
+      type: object
+      required: [latest, items]
+      properties:
+        latest:
+          type: string
+          description: 面板带的代理版本。开发环境是 dev，这时不会自动更新
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AgentUpdate" }
+    AgentUpdateState:
+      type: string
+      description: idle 没在更新；updating 正在更新；failed 上次更新失败，原因在 error 里
+      enum: [idle, updating, failed]
+    AgentUpdate:
+      type: object
+      required: [agentId, version, autoUpdate, canUpdate, state]
+      properties:
+        agentId: { type: string }
+        version: { type: string, description: 代理上次连上时报的版本 }
+        autoUpdate: { type: boolean, description: 这台机器开着自动更新 }
+        canUpdate:
+          type: boolean
+          description: 代理报了 update 能力。老代理和配置里关了更新的代理是 false
+        state: { $ref: "#/components/schemas/AgentUpdateState" }
+        error: { type: string, description: state 是 failed 时的原因 }
+        updatedAt:
+          type: string
+          format: date-time
+          description: 状态最后一次变化的时间，面板重启后没有

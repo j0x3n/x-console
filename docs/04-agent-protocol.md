@@ -127,6 +127,7 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 | net.fetch（只读音乐来源的公网 HTTPS 请求，B172） | 有 | 有 |
 | aiconfig（B121，有 Claude Code 或 Codex 才上报） | 有 | 有 |
 | egress（B208：`net.dial`，只连公网地址。配置里 `"disableEgress": true` 时不上报） | 有 | 有 |
+| update（B233：`agent.update`，代理自己换成面板带的版本。配置里 `"disableUpdate": true` 时不上报） | 有 | 有 |
 
 ### Docker 日志和镜像（B28）
 
@@ -184,6 +185,16 @@ d.Agents.OnEvent(protocol.EventMetrics, func(agentID string, raw json.RawMessage
 - 代理连目标，10 秒超时。连上以后先发一个空的数据帧，服务端收到它才告诉浏览器已经连上。连不上时流以错误结束。之后两个方向的数据帧都是原样的 TCP 字节，任一方关闭流就结束。
 - 只连公网地址。检查在 DNS 解析之后、`net.Dialer.Control` 里对真实要连的 IP 做。回环、私有、链路本地、CGNAT（100.64.0.0/10）、组播、未指定地址和保留段都拒绝，错误码 `forbidden_target`。端口 1 到 65535 都可以。
 - 配置 `"disableEgress": true` 的代理不上报 `egress`，收到 `net.dial` 回 `unsupported`。不认识这个方法的旧代理回 `unknown_method`，服务端提示“这台机器的代理太旧，先更新代理”。
+
+### 代理自更新（B233）
+
+- `agent.update {version, size, sha256}` 是流。面板每次开一条，把面板带的代理程序分块（32 KB）写进去。流没有半关闭，代理按 `size` 数字节，收够就开始处理，多收一个字节就报错。
+- 代理把程序写到自己所在目录的临时文件（`<程序名>.new-*`），检查大小和 sha256，再运行一次 `<临时文件> version`（Windows 上不弹窗，15 秒超时），输出要和 `version` 一样。任何一步不对都删掉临时文件，用中文错误结束流，不换程序。错误有“校验不对”“新程序跑不起来”“新程序的版本不对”“没有权限写程序文件”“没有权限换掉程序文件”等。
+- 都对了就把正在运行的程序改名成 `<程序名>.old`，临时文件改名成程序名（换第二步失败会把旧程序改回来），发一个空的数据帧，然后重启。程序路径用 `os.Executable()` 再 `EvalSymlinks`。
+- 重启：Linux 用 `syscall.Exec`，参数和环境不变，进程号不变，systemd 不会当成退出。Windows 用原来的参数启动新程序（不弹窗，脱离当前进程，方式和 `setup.Background` 一样，输出接到同一个日志文件），然后退出当前进程。重启失败时流以错误结束（消息以“换好了新程序，但重启失败”开头）。
+- 代理每次 `run` 启动时删掉 `<程序名>.old`。Windows 上旧进程可能还没退出，删不掉就每 2 秒再试，最多 30 次。
+- 配置 `"disableUpdate": true` 的代理不上报 `update`，收到 `agent.update` 回 `unsupported`（“这台机器关掉了更新”）。不认识这个方法的旧代理回 `unknown_method`，面板提示“这台代理太旧，要手动更新一次”。
+- 面板一侧（`modules/agentupdate`）：代理上线时，面板版本不是 `dev`、代理报了 `update`、版本和面板不同、没关自动更新、同一台同一个目标版本 1 小时内没试过，就更新。同时最多 2 台。收到空数据帧后等代理用新版本重新连上，2 分钟没连上就记失败。整次传输和检查最多 5 分钟。
 
 ## 新增方法的步骤
 

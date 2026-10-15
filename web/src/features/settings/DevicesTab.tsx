@@ -18,12 +18,20 @@ import {
   type InfoDraft,
 } from "../servers/components/HostInfo";
 import { confirmAction } from "../../components/ui/ConfirmDialog";
+import { useAgentUpdates } from "../agentupdate/api";
+import {
+  AgentAutoUpdateCell,
+  AgentVersionCell,
+} from "../agentupdate/AgentUpdateCell";
 
 export default function DevicesTab() {
   const t = useT();
   const language = useLanguage();
   const qc = useQueryClient();
   const agents = useAgents();
+  const updates = useAgentUpdates(); // B233
+  const updateOf = (id: string) =>
+    updates.data?.items.find((u) => u.agentId === id);
   // 服务器页、电脑页的“添加”跳过来时带 ?add=server 或 ?add=desktop。
   const [params, setParams] = useSearchParams();
   const add = params.get("add");
@@ -65,6 +73,7 @@ export default function DevicesTab() {
                 <th>{t("Device name")}</th>
                 <th>{t("Device type")}</th>
                 <th>{t("Version")}</th>
+                <th>{t("Auto update")}</th>
                 <th>{t("Last seen")}</th>
                 <th />
               </tr>
@@ -85,7 +94,17 @@ export default function DevicesTab() {
                       : t("Windows computer")}{" "}
                     · {agent.os}/{agent.arch}
                   </td>
-                  <td className="xc-mono">{agent.version}</td>
+                  <td>
+                    <AgentVersionCell
+                      version={agent.version}
+                      info={updateOf(agent.id)}
+                      latest={updates.data?.latest}
+                      online={agent.online}
+                    />
+                  </td>
+                  <td>
+                    <AgentAutoUpdateCell info={updateOf(agent.id)} />
+                  </td>
                   <td>
                     {agent.online
                       ? t("Online")
