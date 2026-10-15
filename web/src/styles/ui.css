@@ -2012,3 +2012,49 @@ html {
 .nav-child-toggle.open svg {
   transform: rotate(90deg);
 }
+
+/*
+ * B222：页面和笔记一样铺满右侧（2026-10-15 用户定）。
+ * 页面四周不留边。最外层的统计条、工具栏、卡片贴着两边，上下之间只有一条线；
+ * 其他内容（网格、表单、空状态、说明）左右留 24px，手机上 16px，免得文字贴着屏幕边。
+ */
+.xc-page {
+  --xc-page-x: 24px;
+  padding: 0 0 40px;
+}
+.xc-page > :is(.xc-stats, .xc-toolbar, .xc-card) {
+  margin: 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+.xc-page > .xc-toolbar {
+  padding: 10px var(--xc-page-x) 0;
+}
+.xc-page > .xc-card {
+  padding-left: var(--xc-page-x);
+  padding-right: var(--xc-page-x);
+}
+.xc-page > :not(.xc-stats, .xc-toolbar, .xc-card, .xc-page-head.empty) {
+  margin-left: var(--xc-page-x);
+  margin-right: var(--xc-page-x);
+}
+/* 贴边的块后面、页面开头的内容，和上面空开 */
+.xc-page
+  > :is(.xc-stats, .xc-toolbar, .xc-card, .xc-page-head.empty)
+  + :not(.xc-stats, .xc-toolbar, .xc-card),
+.xc-page > :first-child:not(.xc-stats, .xc-toolbar, .xc-card) {
+  margin-top: 20px;
+}
+/* 两段内容之间夹着贴边的块时，贴边的块和上面也空开 */
+.xc-page
+  > :not(.xc-stats, .xc-toolbar, .xc-card, .xc-page-head.empty)
+  + :is(.xc-stats, .xc-toolbar, .xc-card) {
+  margin-top: 20px;
+  border-top-width: 1px;
+}
+@media (max-width: 720px) {
+  .xc-page {
+    --xc-page-x: 16px;
+    padding: 0 0 32px;
+  }
+}

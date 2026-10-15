@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B222（2026-10-15）：`web/src/styles/ui.css` 末尾加全局规则，`.xc-page` 不再有四周内边距，最外层的 `xc-stats`、`xc-toolbar`、`xc-card` 贴边，其他最外层内容左右留 `--xc-page-x`。只加规则，没改组件。说明见 `07-design.md` 第二节。
+
 - B164（2026-10-15）：`contracts.MeState` 加 `PhoneActive`、`Host`（只加不改）。`me.yaml` 的 `MeState` 加 `phoneActive`、`host`，加 `POST /me/seen`。`reminders.yaml`：`DigestMode` 加 `working`；`DigestSettings` 加可选 `outDirect`、`QuietHours` 加可选 `whenAsleep`，不传时都保持原值；`DigestStatus` 加 `outDirect`、`pendingWorking`；加 `POST /notify/digest/claim`（`HeldNotification`）。迁移 `20261015020000_m53_b164_digest_hold_for.sql`（`notify_digest_queue.hold_for`）。`notify.digest_queued` 事件的载荷加 `holdFor`。基础代码：`web/src/app/GlobalPanels.tsx` 加两行（`PhoneSeen`、`HeldNotices`）。`web/scripts/e2e.mjs` 第一部分加一步，用一个临时 MCP 令牌调 `notify_send`。
 
 - B163（2026-10-15）：`brief.yaml` 的 `BriefSettings` 加可选 `sendMode`（`time`、`wake`），不传时保持原值，旧调用方不受影响。设置键 `brief.send_mode`。`brief` 订阅总线事件 `me.woke`。`web/scripts/e2e.mjs` 第一部分加一步。
