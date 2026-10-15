@@ -2,6 +2,7 @@ package mail
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -469,6 +470,14 @@ func (m *Module) SetMailDone(w http.ResponseWriter, r *http.Request, id api.Mess
 	}
 	row, err := m.getMessage(ctx, id)
 	if err != nil {
+		httpx.Fail(w, r, err)
+		return
+	}
+	// Check first, so an unsorted message is not marked read before the 404.
+	if _, err := m.q.GetTriage(ctx, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			err = httpx.ErrNotFound
+		}
 		httpx.Fail(w, r, err)
 		return
 	}

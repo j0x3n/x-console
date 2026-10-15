@@ -234,6 +234,9 @@ func TestSetMailDoneNeedsASortedMessage(t *testing.T) {
 	if status := setDone(env, id, true); status != http.StatusNotFound {
 		t.Errorf("unsorted message: %d", status)
 	}
+	if !list(t, env, "")[0].Unread {
+		t.Error("a 404 still marked the message read")
+	}
 	if status := setDone(env, 9999, true); status != http.StatusNotFound {
 		t.Errorf("unknown message: %d", status)
 	}
