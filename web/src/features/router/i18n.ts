@@ -126,6 +126,12 @@ registerZh({
   "Load more": "加载更多",
   "Router logs": "日志",
   "Keep logs for": "保存天数",
+  // B231
+  known: "记住",
+  "Load and memory": "负载和内存",
+  Memory: "内存",
+  Download: "下载",
+  Upload: "上传",
   // B232
   "Notify when a new device joins": "新设备接入时通知",
 });

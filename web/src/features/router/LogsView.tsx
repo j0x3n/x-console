@@ -40,8 +40,10 @@ function stamp(at: string, language: Language) {
 
 /** B230：路由器页的日志页签。事件是面板记的，系统日志是路由器的 logread。 */
 export default function LogsView({
+  tabs,
   onOpenDevice,
 }: {
+  tabs: React.ReactNode;
   onOpenDevice: (mac: string) => void;
 }) {
   const t = useT();
@@ -66,9 +68,9 @@ export default function LogsView({
     />
   );
   return part === "events" ? (
-    <EventsPart switcher={switcher} onOpenDevice={onOpenDevice} />
+    <EventsPart tabs={tabs} switcher={switcher} onOpenDevice={onOpenDevice} />
   ) : (
-    <SystemPart switcher={switcher} />
+    <SystemPart tabs={tabs} switcher={switcher} />
   );
 }
 
@@ -108,9 +110,11 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 function EventsPart({
+  tabs,
   switcher,
   onOpenDevice,
 }: {
+  tabs: React.ReactNode;
   switcher: React.ReactNode;
   onOpenDevice: (mac: string) => void;
 }) {
@@ -148,9 +152,10 @@ function EventsPart({
   return (
     <>
       <Toolbar
-        start={switcher}
+        start={tabs}
         end={
           <>
+            {switcher}
             <select
               className="xc-select router-log-select"
               aria-label={t("Event type")}
@@ -235,7 +240,13 @@ function EventRow({
   );
 }
 
-function SystemPart({ switcher }: { switcher: React.ReactNode }) {
+function SystemPart({
+  tabs,
+  switcher,
+}: {
+  tabs: React.ReactNode;
+  switcher: React.ReactNode;
+}) {
   const t = useT();
   const language = useLanguage();
   const qc = useQueryClient();
@@ -276,9 +287,10 @@ function SystemPart({ switcher }: { switcher: React.ReactNode }) {
   return (
     <>
       <Toolbar
-        start={switcher}
+        start={tabs}
         end={
           <>
+            {switcher}
             <select
               className="xc-select router-log-select"
               aria-label={t("Level")}

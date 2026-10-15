@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import {
+  ChevronDown,
+  ChevronRight,
   Power,
   RefreshCw,
   Router as RouterIcon,
@@ -109,6 +111,32 @@ export default function RouterPage() {
     });
   };
 
+  // B231：页签和各页签自己的筛选放在同一行
+  const tabs = (
+    <nav className="xc-tabs">
+      <button
+        className={tab === "clients" ? "active" : ""}
+        onClick={() => setTab("clients")}
+      >
+        {push ? t("Devices") : t("Online devices")}
+      </button>
+      <button
+        className={tab === "traffic" ? "active" : ""}
+        onClick={() => setTab("traffic")}
+      >
+        {t("Traffic")}
+      </button>
+      {push && (
+        <button
+          className={tab === "logs" ? "active" : ""}
+          onClick={() => setTab("logs")}
+        >
+          {t("Logs")}
+        </button>
+      )}
+    </nav>
+  );
+
   let content;
   if (status.isPending) content = <Loading />;
   else if (notConfigured) content = <SetupGuide />;
@@ -124,55 +152,34 @@ export default function RouterPage() {
           items={status.data.interfaces}
           queued={status.data.source === "push"}
         />
-        <Toolbar
-          start={
-            <nav className="xc-tabs">
-              <button
-                className={tab === "clients" ? "active" : ""}
-                onClick={() => setTab("clients")}
-              >
-                {push ? t("Devices") : t("Online devices")}
-              </button>
-              <button
-                className={tab === "traffic" ? "active" : ""}
-                onClick={() => setTab("traffic")}
-              >
-                {t("Traffic")}
-              </button>
-              {push && (
-                <button
-                  className={tab === "logs" ? "active" : ""}
-                  onClick={() => setTab("logs")}
-                >
-                  {t("Logs")}
-                </button>
-              )}
-            </nav>
-          }
-          end={
-            tab === "traffic" && (
-              <Segmented
-                label={t("Traffic")}
-                value={range}
-                onChange={setRange}
-                options={[
-                  { value: "24h", label: t("Last 24 hours") },
-                  { value: "7d", label: t("Last 7 days") },
-                ]}
-              />
-            )
-          }
-        />
-        {tab === "clients" ? (
-          push ? (
-            <DevicesView />
-          ) : (
-            <ClientsTable />
-          )
+        {tab === "clients" && push ? (
+          <DevicesView tabs={tabs} />
         ) : tab === "logs" && push ? (
-          <LogsView onOpenDevice={openDevice} />
+          <LogsView tabs={tabs} onOpenDevice={openDevice} />
         ) : (
-          <TrafficView range={range} />
+          <>
+            <Toolbar
+              start={tabs}
+              end={
+                tab === "traffic" && (
+                  <Segmented
+                    label={t("Traffic")}
+                    value={range}
+                    onChange={setRange}
+                    options={[
+                      { value: "24h", label: t("Last 24 hours") },
+                      { value: "7d", label: t("Last 7 days") },
+                    ]}
+                  />
+                )
+              }
+            />
+            {tab === "clients" ? (
+              <ClientsTable />
+            ) : (
+              <TrafficView range={range} />
+            )}
+          </>
         )}
       </>
     );
@@ -258,12 +265,42 @@ function SetupGuide() {
   );
 }
 
+/** B231：五张概要卡片。WAN、设备、速率、负载和内存、运行时长。 */
 function RouterStats({ status }: { status: RouterStatus }) {
   const t = useT();
   const language = useLanguage();
+  const zh = language === "zh";
   const wan = status.wan;
   const wanIP = wan?.ipv4[0]?.replace(/\/\d+$/, "");
   const hasRate = status.rxRate != null && status.txRate != null;
+  // IP 单独一个元素，方便复制，也方便端到端测试按文字找
+  const wanUptime =
+    wan?.up && wan.uptimeSeconds != null
+      ? formatUptime(wan.uptimeSeconds, zh)
+      : null;
+  const wanFoot = !wan ? (
+    t("No WAN interface")
+  ) : wan.up ? (
+    <>
+      {wanIP && <span>{wanIP}</span>}
+      {wanIP && wanUptime && " · "}
+      {wanUptime}
+    </>
+  ) : (
+    " "
+  );
+  const known = status.knownDevices;
+  const devicesFoot =
+    status.wifiClients != null && status.wiredClients != null
+      ? `Wi-Fi ${status.wifiClients} · ${t("Wired")} ${status.wiredClients}`
+      : " ";
+  const memUsed =
+    status.memoryTotal && status.memoryAvailable != null
+      ? Math.round(
+          ((status.memoryTotal - status.memoryAvailable) / status.memoryTotal) *
+            100,
+        )
+      : null;
   return (
     <StatStrip label={t("Router")}>
       <StatCard
@@ -271,12 +308,13 @@ function RouterStats({ status }: { status: RouterStatus }) {
         caption={wan?.proto}
         value={wan ? t(wan.up ? "WAN up" : "WAN down") : "—"}
         tone={wan ? (wan.up ? "ok" : "danger") : undefined}
-        foot={wan ? (wan.up ? (wanIP ?? "") : "") : t("No WAN interface")}
+        foot={wanFoot}
       />
       <StatCard
         label={t("Online devices")}
+        caption={known != null ? `${t("known")} ${known}` : undefined}
         value={status.clientCount}
-        foot={`${t("Updated at")} ${formatTime(status.checkedAt, language)}`}
+        foot={devicesFoot}
       />
       <StatCard
         label={t("Current speed")}
@@ -284,13 +322,15 @@ function RouterStats({ status }: { status: RouterStatus }) {
         foot={hasRate ? `↑ ${formatRate(status.txRate!)}` : " "}
       />
       <StatCard
+        label={t("Load and memory")}
+        value={status.load ? status.load[0].toFixed(2) : "—"}
+        tone={memUsed != null && memUsed >= 90 ? "warn" : undefined}
+        foot={memUsed != null ? `${t("Memory")} ${memUsed}%` : " "}
+      />
+      <StatCard
         label={t("Running for")}
-        value={formatUptime(status.uptimeSeconds, language === "zh")}
-        foot={
-          wan?.up && wan.uptimeSeconds != null
-            ? `WAN ${formatUptime(wan.uptimeSeconds, language === "zh")}`
-            : " "
-        }
+        value={formatUptime(status.uptimeSeconds, zh)}
+        foot={`${t("Updated at")} ${formatTime(status.checkedAt, language)}`}
       />
     </StatStrip>
   );
@@ -325,47 +365,74 @@ function InterfacesCard({
       onError: fail,
     });
   };
+  // B231：默认收起成一行。有接口断开时展开，断开的排前面
+  const down = items.filter((i) => !i.up).length;
+  const [open, setOpen] = useState<boolean | null>(null);
+  const expanded = open ?? down > 0;
+  const sorted = [...items].sort((a, b) => Number(a.up) - Number(b.up));
   return (
-    <section className="xc-card router-ifaces">
-      <div className="xc-card-head">
-        <h2>{t("Interfaces")}</h2>
-        <span className="xc-muted">{items.length}</span>
-      </div>
-      <ul className="router-iface-list">
-        {items.map((i) => (
-          <li key={i.name}>
-            <span className={`xc-dot ${i.up ? "ok" : "danger"}`} />
-            <div className="router-iface-main">
-              <strong>{i.name}</strong>
-              <small className="xc-muted">
-                {[i.proto, i.device].filter(Boolean).join(" · ")}
+    <section className={`xc-card router-ifaces${expanded ? "" : " is-closed"}`}>
+      <button
+        type="button"
+        className="router-ifaces-head"
+        aria-expanded={expanded}
+        onClick={() => setOpen(!expanded)}
+      >
+        {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+        <strong>{t("Interfaces")}</strong>
+        <span className={down ? "router-ifaces-bad" : "xc-muted"}>
+          {down
+            ? `${items.length} 个，${down} 个断开`
+            : `${items.length} 个，全部正常`}
+        </span>
+        {!expanded && (
+          <span className="router-ifaces-chips">
+            {sorted.map((i) => (
+              <span key={i.name}>
+                <span className={`xc-dot ${i.up ? "ok" : "danger"}`} />
+                {i.name}
+              </span>
+            ))}
+          </span>
+        )}
+      </button>
+      {expanded && (
+        <ul className="router-iface-list">
+          {sorted.map((i) => (
+            <li key={i.name}>
+              <span className={`xc-dot ${i.up ? "ok" : "danger"}`} />
+              <div className="router-iface-main">
+                <strong>{i.name}</strong>
+                <small className="xc-muted">
+                  {[i.proto, i.device].filter(Boolean).join(" · ")}
+                </small>
+              </div>
+              <span
+                className="router-iface-ip"
+                title={[...i.ipv4, ...i.ipv6].join("\n")}
+              >
+                {i.ipv4[0] ?? i.ipv6[0] ?? "—"}
+              </span>
+              <small className="router-iface-uptime xc-muted">
+                {i.up && i.uptimeSeconds != null
+                  ? formatUptime(i.uptimeSeconds, language === "zh")
+                  : t("WAN down")}
               </small>
-            </div>
-            <span
-              className="router-iface-ip"
-              title={[...i.ipv4, ...i.ipv6].join("\n")}
-            >
-              {i.ipv4[0] ?? i.ipv6[0] ?? "—"}
-            </span>
-            <small className="router-iface-uptime xc-muted">
-              {i.up && i.uptimeSeconds != null
-                ? formatUptime(i.uptimeSeconds, language === "zh")
-                : t("WAN down")}
-            </small>
-            <button
-              type="button"
-              className="xc-btn small"
-              title={`${t("Restart interface")} ${i.name}`}
-              aria-label={`${t("Restart interface")} ${i.name}`}
-              disabled={restart.isPending}
-              onClick={() => onRestart(i.name)}
-            >
-              <RotateCcw size={13} />
-              <span className="router-btn-label">{t("Restart")}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
+              <button
+                type="button"
+                className="xc-btn small"
+                title={`${t("Restart interface")} ${i.name}`}
+                aria-label={`${t("Restart interface")} ${i.name}`}
+                disabled={restart.isPending}
+                onClick={() => onRestart(i.name)}
+              >
+                <RotateCcw size={13} />
+                <span className="router-btn-label">{t("Restart")}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

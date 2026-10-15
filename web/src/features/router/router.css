@@ -495,3 +495,112 @@
     max-width: 130px;
   }
 }
+/* B231：页面密度 */
+.router-dev-table td,
+.router-dev-table th {
+  height: 36px;
+  padding-top: 0;
+  padding-bottom: 0;
+  white-space: nowrap;
+}
+.router-dev-table .router-num {
+  text-align: right;
+}
+.router-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.router-sort.on {
+  color: var(--xc-text);
+  font-weight: 600;
+}
+.router-ifaces {
+  padding: 0;
+}
+.router-ifaces-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  background: none;
+  color: var(--xc-text);
+  font: inherit;
+  font-size: var(--fs-13);
+  text-align: left;
+  cursor: pointer;
+}
+.router-ifaces-head strong {
+  font-weight: 600;
+}
+.router-ifaces-bad {
+  color: var(--xc-danger);
+}
+.router-ifaces-chips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 12px;
+  min-width: 0;
+  color: var(--xc-text-2);
+  font-size: var(--fs-12-5);
+}
+.router-ifaces-chips > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.router-ifaces .router-iface-list {
+  padding: 0 16px;
+  border-top: 1px solid var(--xc-border);
+}
+@media (max-width: 720px) {
+  .router-col-tx,
+  .router-col-today,
+  .router-col-since {
+    display: none;
+  }
+  .router-dev-table:not(:has(.router-col-rx)) .router-col-since {
+    display: table-cell;
+  }
+  .router-dev-table td.router-dev-name {
+    height: auto;
+    padding-top: 7px;
+    padding-bottom: 7px;
+    white-space: normal;
+  }
+  .router-ifaces-chips {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  /* 五张卡片两列排，最后一张占满一行，不留空格 */
+  .router-page .xc-stats > .xc-stat:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  /* 名字一列占剩下的宽度，下载速率固定在右边 */
+  .xc-table-wrap > .router-dev-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+  .router-dev-table .router-col-rx,
+  .router-dev-table:not(:has(.router-col-rx)) .router-col-since {
+    width: 92px;
+  }
+  .router-dev-label {
+    display: flex;
+    max-width: none;
+  }
+  .router-dev-name > .xc-dot {
+    float: left;
+    margin-top: 6px;
+  }
+}

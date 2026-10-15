@@ -21,6 +21,41 @@ function readShow(): Show {
   }
 }
 
+type SortKey = "rx" | "name" | "ip" | "today";
+const SORT_KEY = "router.devices.sort";
+
+function readSort(): SortKey {
+  try {
+    const v = localStorage.getItem(SORT_KEY);
+    return v === "name" || v === "ip" || v === "today" ? v : "rx";
+  } catch {
+    return "rx";
+  }
+}
+
+/** IPv4 转成数字好比较，没有 IP 的排最后。 */
+function ipNumber(ip: string | null | undefined) {
+  const parts = ip?.split(".").map(Number);
+  if (!parts || parts.length !== 4 || parts.some(Number.isNaN))
+    return Number.MAX_SAFE_INTEGER;
+  return parts.reduce((n, p) => n * 256 + p, 0);
+}
+
+/** B231：在线的永远排前面，再按选的列排。速率和流量从大到小。 */
+function sortDevices(list: RouterDevice[], key: SortKey) {
+  const byName = (a: RouterDevice, b: RouterDevice) =>
+    a.displayName.localeCompare(b.displayName, "zh-CN");
+  return [...list].sort((a, b) => {
+    if (a.online !== b.online) return a.online ? -1 : 1;
+    let diff = 0;
+    if (key === "rx") diff = (b.rxRate ?? 0) - (a.rxRate ?? 0);
+    else if (key === "today")
+      diff = (todayBytes(b) ?? 0) - (todayBytes(a) ?? 0);
+    else if (key === "ip") diff = ipNumber(a.ip) - ipNumber(b.ip);
+    return diff || byName(a, b);
+  });
+}
+
 /** 搜名字、备注、IP、MAC。 */
 function matches(d: RouterDevice, q: string) {
   if (!q) return true;
@@ -32,12 +67,21 @@ function matches(d: RouterDevice, q: string) {
 }
 
 /** B228：主动上报模式下的设备表。点一行打开右边的详情面板。 */
-export default function DevicesView() {
+export default function DevicesView({ tabs }: { tabs: React.ReactNode }) {
   const t = useT();
   const devices = useRouterDevices();
   const [search, setSearch] = useSearchParams();
   const [show, setShowState] = useState<Show>(readShow);
   const [q, setQ] = useState("");
+  const [sort, setSortState] = useState<SortKey>(readSort);
+  const setSort = (next: SortKey) => {
+    setSortState(next);
+    try {
+      localStorage.setItem(SORT_KEY, next);
+    } catch {
+      /* 存不了就算了 */
+    }
+  };
   const setShow = (next: Show) => {
     setShowState(next);
     try {
@@ -55,12 +99,19 @@ export default function DevicesView() {
   };
 
   const items = devices.data?.items;
+  const traffic = devices.data?.trafficAvailable ?? false;
+  // 没有设备流量时按速率排没有意义，改按名字
+  const sortKey: SortKey =
+    !traffic && (sort === "rx" || sort === "today") ? "name" : sort;
   const list = useMemo(
     () =>
-      (items ?? []).filter(
-        (d) => (show === "all" || d.online) && matches(d, q.trim()),
+      sortDevices(
+        (items ?? []).filter(
+          (d) => (show === "all" || d.online) && matches(d, q.trim()),
+        ),
+        sortKey,
       ),
-    [items, show, q],
+    [items, show, q, sortKey],
   );
 
   let body;
@@ -79,7 +130,9 @@ export default function DevicesView() {
     body = (
       <DeviceTable
         items={list}
-        traffic={devices.data.trafficAvailable}
+        traffic={traffic}
+        sort={sortKey}
+        onSort={setSort}
         onOpen={open}
       />
     );
@@ -88,24 +141,24 @@ export default function DevicesView() {
   return (
     <>
       <Toolbar
-        className="router-dev-toolbar"
-        start={
-          <Segmented
-            label={t("Devices")}
-            value={show}
-            onChange={setShow}
-            options={[
-              { value: "online", label: t("Online") },
-              { value: "all", label: t("All") },
-            ]}
-          />
-        }
+        start={tabs}
         end={
-          <SearchBox
-            value={q}
-            onChange={setQ}
-            placeholder={t("Search name, note, IP or MAC")}
-          />
+          <>
+            <Segmented
+              label={t("Devices")}
+              value={show}
+              onChange={setShow}
+              options={[
+                { value: "online", label: t("Online") },
+                { value: "all", label: t("All") },
+              ]}
+            />
+            <SearchBox
+              value={q}
+              onChange={setQ}
+              placeholder={t("Search name, note, IP or MAC")}
+            />
+          </>
         }
       />
       {devices.data && !devices.data.trafficAvailable && (
@@ -129,28 +182,52 @@ export default function DevicesView() {
 function DeviceTable({
   items,
   traffic,
+  sort,
+  onSort,
   onOpen,
 }: {
   items: RouterDevice[];
   traffic: boolean;
+  sort: SortKey;
+  onSort: (key: SortKey) => void;
   onOpen: (mac: string) => void;
 }) {
   const t = useT();
   const language = useLanguage();
+  const head = (key: SortKey, label: string, className = "") => (
+    <th
+      className={className}
+      aria-sort={
+        sort === key
+          ? key === "name" || key === "ip"
+            ? "ascending"
+            : "descending"
+          : undefined
+      }
+    >
+      <button
+        type="button"
+        className={`router-sort${sort === key ? " on" : ""}`}
+        onClick={() => onSort(key)}
+      >
+        {label}
+      </button>
+    </th>
+  );
   return (
     <div className="xc-card router-clients">
       <div className="xc-table-wrap">
         <table className="xc-table router-dev-table">
           <thead>
             <tr>
-              <th>{t("Name")}</th>
+              {head("name", t("Name"))}
               <th className="router-col-conn" aria-label={t("Connection")} />
-              <th className="router-col-ip">IP</th>
+              {head("ip", "IP", "router-col-ip")}
               {traffic && (
                 <>
-                  <th className="router-num router-col-rx">↓</th>
-                  <th className="router-num router-col-tx">↑</th>
-                  <th className="router-num router-col-today">{t("Today")}</th>
+                  {head("rx", `↓ ${t("Download")}`, "router-num router-col-rx")}
+                  <th className="router-num router-col-tx">↑ {t("Upload")}</th>
+                  {head("today", t("Today"), "router-num router-col-today")}
                 </>
               )}
               <th className="router-col-since">{t("Online for")}</th>
@@ -268,6 +345,9 @@ function DeviceRow({
               : d.conn === "wired"
                 ? t("Wired")
                 : null,
+            traffic && today != null
+              ? `${t("Today")} ${formatBytes(today)}`
+              : null,
           ]
             .filter(Boolean)
             .join(" · ")}

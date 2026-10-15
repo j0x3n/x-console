@@ -150,6 +150,8 @@ describe("RouterPage B65", () => {
     expect(await screen.findByText("phone")).toBeTruthy();
     expect(screen.getByText("AA:BB:CC:00:00:02")).toBeTruthy();
 
+    // B231：接口默认收起，点开才有重启按钮
+    fireEvent.click(screen.getByRole("button", { name: /^接口/ }));
     fireEvent.click(screen.getByRole("button", { name: "重启接口 wan" }));
     await waitFor(() =>
       expect(
@@ -172,6 +174,8 @@ describe("RouterPage B65", () => {
     }));
     renderIt(<RouterPage />);
     expect(await screen.findByText("100.64.1.2")).toBeTruthy();
+    // B231：接口默认收起，点开才有重启按钮
+    fireEvent.click(screen.getByRole("button", { name: /^接口/ }));
     fireEvent.click(screen.getByRole("button", { name: "重启接口 wan" }));
     await waitFor(() =>
       expect(
@@ -764,5 +768,81 @@ describe("RouterSettingsTab B230 日志保存天数", () => {
         logDays: 15,
       }),
     );
+  });
+});
+
+describe("B231 页面密度", () => {
+  it("五张概要卡片，接口全部正常时收起", async () => {
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: {
+        ...pushStatus,
+        load: [0.42, 0.3, 0.2],
+        memoryTotal: 1000,
+        memoryAvailable: 250,
+        knownDevices: 12,
+        wifiClients: 5,
+        wiredClients: 2,
+      },
+    }));
+    api.routes.set("GET /router/devices", () => ({
+      status: 200,
+      body: { items: [], trafficAvailable: false },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("0.42")).toBeTruthy();
+    expect(screen.getByText("内存 75%")).toBeTruthy();
+    expect(screen.getByText("记住 12")).toBeTruthy();
+    expect(screen.getByText("Wi-Fi 5 · 有线 2")).toBeTruthy();
+    expect(screen.getByText("2 个，全部正常")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "重启接口 wan" })).toBeNull();
+  });
+
+  it("有接口断开时默认展开", async () => {
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: {
+        ...status,
+        interfaces: [
+          status.interfaces[0],
+          { ...status.interfaces[1], up: false },
+        ],
+      },
+    }));
+    api.routes.set("GET /router/clients", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    renderIt(<RouterPage />);
+    expect(await screen.findByText("2 个，1 个断开")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "重启接口 wan" })).toBeTruthy();
+  });
+
+  it("设备默认按下载速率排，点表头按名字排", async () => {
+    api.routes.set("GET /router/status", () => ({
+      status: 200,
+      body: pushStatus,
+    }));
+    api.routes.set("GET /router/devices", () => ({
+      status: 200,
+      body: {
+        items: [
+          { ...phone, displayName: "A 手机", note: "A 手机", rxRate: 10 },
+          { ...tv, displayName: "B 电视", online: true, rxRate: 5000 },
+        ],
+        trafficAvailable: true,
+      },
+    }));
+    renderIt(<RouterPage />);
+    await screen.findByText("A 手机");
+    const names = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => r.querySelector("strong")?.textContent);
+    expect(names()).toEqual(["B 电视", "A 手机"]);
+    fireEvent.click(screen.getByRole("button", { name: "名称" }));
+    expect(names()).toEqual(["A 手机", "B 电视"]);
+    expect(localStorage.getItem("router.devices.sort")).toBe("name");
   });
 });
