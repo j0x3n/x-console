@@ -14,9 +14,23 @@ func (m *Module) registerExtraActions() {
 	// get_issue, create_issue and update_issue, which have fuller schemas.
 	// They stay for saved automation rules but are hidden from the lists.
 	aliases := map[string]string{"issues.list": "projects.list_issues", "issues.get": "projects.get_issue",
-		"issues.create": "projects.create_issue", "issues.update": "projects.update_issue"}
+		"issues.create": "projects.create_issue", "issues.update": "projects.update_issue",
+		"issues.comment": "projects.comment"}
+	descriptions := map[string]string{
+		"projects.get":      "Get one project by its key (e.g. XC).",
+		"projects.create":   "Create a project. key is the prefix of its card keys (XC in XC-12); name is shown in the panel.",
+		"projects.update":   "Change the name or description of the project with this key. Only the given fields change.",
+		"projects.archive":  "Archive the project with this key. It leaves the active project list.",
+		"issues.move":       "Move a card (key, e.g. XC-12) into the list of its board that stands for status. afterKey or beforeKey places it next to another card in that list. Fails when the board has no list for that status.",
+		"issues.delete":     "Delete a card (key, e.g. XC-12).",
+		"milestones.create": "Create a milestone in a project (projectKey, e.g. XC). dueDate is YYYY-MM-DD.",
+	}
 	add := func(name, title, schema string, effect actions.Effect, run func(context.Context, json.RawMessage) (any, error)) {
-		m.d.Actions.Register(actions.Action{Name: name, Title: title, Description: title, Input: actions.Schema(schema), Effect: effect, Run: run, AliasOf: aliases[name]})
+		description := descriptions[name]
+		if description == "" {
+			description = title
+		}
+		m.d.Actions.Register(actions.Action{Name: name, Title: title, Description: description, Input: actions.Schema(schema), Effect: effect, Run: run, AliasOf: aliases[name]})
 	}
 	add("projects.get", "查看项目", `{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}`, actions.Read, func(ctx context.Context, raw json.RawMessage) (any, error) {
 		var in struct {

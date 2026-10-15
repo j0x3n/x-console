@@ -12,6 +12,7 @@
 
 | 批次 | 内容 |
 | --- | --- |
+| B221 | 提示词审计修复：机器工具的 reason 改为参数必填，去掉描述和系统提示词里重复的“说明 reason”；补全 run_command、read_file、write_file 和 ask_user 的工具描述（输出截断、返回字段、大小上限）；项目模块 7 个只有标题的工具补上描述，`issues.comment` 改成 `projects.comment` 的别名；AGENTS.md 删掉已过期的 B8、B19 条件和历史说明，ci.yml 注释改成跑 `scripts/check-quick.sh`。审计建议删的“只返回 JSON”没删：有的 OpenAI 兼容服务会忽略 `response_format`，这句是兜底。Claude Opus 5.5 写，Claude Opus 5.5 审查。提交为本记录所在的 B221 提交 |
 | B218 | 邮件页和笔记一样铺满右侧：去掉四周留白和两栏的圆角边框，高度到屏幕底。别的页面没改，等用户说是哪几页。提交见 git log --grep B218 |
 | B217 | 修阿里企业邮箱已读又变回未读：已读、星标、删除改由账号的常连连接执行，STORE 不用 .SILENT，核对服务器返回的状态，没存上回 502。常连连接没连上或 15 秒没处理时另开短连接。原因是推测的，没用真实阿里邮箱验证，见“已知问题”。提交见 git log --grep B217（后端由 Sonnet 子代理写，Claude 审查） |
 | B219 | 邮件批量操作：列表多选，批量标已读、未读、删除（移到邮箱的“已删除”文件夹，没有就彻底删除）；顶栏“全部已读”；阅读区单封删除。接口 `POST /mail/messages/batch`、`POST /mail/read-all`。端到端没有邮件流程（要 IMAP 服务器），由后端集成测试覆盖。提交为本记录所在的 B219 提交 |

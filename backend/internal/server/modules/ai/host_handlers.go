@@ -88,7 +88,7 @@ func (m *Module) conversation(row db.AiConversation) api.Conversation {
 
 // hostSystem 把记忆放在固定规则和机器 id 末尾。
 func (m *Module) hostSystem(ctx context.Context, hostID string) string {
-	base := m.system(ctx) + "\n你只能通过给你的机器工具操作当前这台机器。先看再改；改文件前说明原因；每一步都填写 reason。"
+	base := m.system(ctx) + "\n你只能通过给你的机器工具操作当前这台机器。先看再改。"
 	base += "\n当前机器 ID：" + hostID + "。机器信息附在每条用户消息后。若机器离线，说明操作无法执行。"
 	if mem := m.Prompt(ctx); mem != "" {
 		base += "\n\n" + mem

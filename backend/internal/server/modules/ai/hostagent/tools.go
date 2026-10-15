@@ -33,25 +33,23 @@ func schema(fields map[string]string, required ...string) json.RawMessage {
 	for name, description := range fields {
 		properties[name] = map[string]any{"type": "string", "description": description}
 	}
-	if required == nil {
-		required = []string{} // "required": null is rejected by the API
-	}
+	required = append([]string{"reason"}, required...)
 	raw, _ := json.Marshal(map[string]any{"type": "object", "properties": properties, "required": required, "additionalProperties": false})
 	return raw
 }
 
 func Tools() []llm.Tool {
 	return []llm.Tool{
-		{Name: "host__run_command", Description: "在当前机器执行一条命令。说明 reason；timeout 是秒，默认 60，最多 600。", Parameters: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"},"cwd":{"type":"string"},"timeout":{"type":"integer","minimum":1,"maximum":600},"reason":{"type":"string"}},"required":["command"],"additionalProperties":false}`)},
-		{Name: "host__read_file", Description: "读取当前机器上的文本文件，最多 256 KB。说明 reason。", Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"startLine":{"type":"integer","minimum":1},"endLine":{"type":"integer","minimum":1},"reason":{"type":"string"}},"required":["path"],"additionalProperties":false}`)},
-		{Name: "host__write_file", Description: "写当前机器上的文件。覆盖前会备份原文件。说明 reason。", Parameters: schema(map[string]string{"path": "文件路径", "content": "新文件内容"}, "path", "content")},
-		{Name: "host__list_dir", Description: "列当前机器上的目录，最多 500 条。说明 reason。", Parameters: schema(map[string]string{"path": "目录路径"}, "path")},
-		{Name: "host__system_info", Description: "读取当前机器的系统和最新资源指标。说明 reason。", Parameters: schema(nil)},
-		{Name: "host__list_processes", Description: "按 CPU 排序列出最多 50 个进程。说明 reason。", Parameters: schema(nil)},
-		{Name: "host__list_services", Description: "列出服务，可用 filter 筛选名字。说明 reason。", Parameters: schema(map[string]string{"filter": "服务名筛选"})},
-		{Name: "host__list_containers", Description: "列出容器。说明 reason。", Parameters: schema(nil)},
-		{Name: "host__service_action", Description: "启动、停止或重启服务。说明 reason。", Parameters: schema(map[string]string{"name": "服务名", "action": "start、stop 或 restart"}, "name", "action")},
-		{Name: "host__container_action", Description: "启动、停止或重启容器。说明 reason。", Parameters: schema(map[string]string{"id": "容器 ID", "action": "start、stop 或 restart"}, "id", "action")},
+		{Name: "host__run_command", Description: "在当前机器执行一条命令。cwd 是工作目录，不填用代理的默认目录。timeout 是秒，默认 60，最多 600，超时会结束命令。返回 exitCode、stdout、stderr、timedOut 和 durationMs；stdout 和 stderr 各自最多保留 64 KB，超出的部分截掉。", Parameters: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"},"cwd":{"type":"string"},"timeout":{"type":"integer","minimum":1,"maximum":600},"reason":{"type":"string","description":"为什么要做这一步"}},"required":["reason","command"],"additionalProperties":false}`)},
+		{Name: "host__read_file", Description: "读取当前机器上的文本文件。只读前 256 KB，返回 content、文件总大小 size 和是否没读完 truncated。startLine、endLine 从 1 开始，只返回这几行。二进制文件只返回“这是二进制文件”。", Parameters: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"startLine":{"type":"integer","minimum":1},"endLine":{"type":"integer","minimum":1},"reason":{"type":"string","description":"为什么要做这一步"}},"required":["reason","path"],"additionalProperties":false}`)},
+		{Name: "host__write_file", Description: "用 content 整个替换当前机器上的文件，不存在就新建。内容最多 1 MB。覆盖前会备份原文件，返回 backupPath。", Parameters: schema(map[string]string{"path": "文件路径", "content": "新文件内容"}, "path", "content")},
+		{Name: "host__list_dir", Description: "列当前机器上的目录，最多 500 条。", Parameters: schema(map[string]string{"path": "目录路径"}, "path")},
+		{Name: "host__system_info", Description: "读取当前机器的系统和最新资源指标。", Parameters: schema(nil)},
+		{Name: "host__list_processes", Description: "按 CPU 排序列出最多 50 个进程。", Parameters: schema(nil)},
+		{Name: "host__list_services", Description: "列出服务，可用 filter 筛选名字。", Parameters: schema(map[string]string{"filter": "服务名筛选"})},
+		{Name: "host__list_containers", Description: "列出容器。", Parameters: schema(nil)},
+		{Name: "host__service_action", Description: "启动、停止或重启服务。", Parameters: schema(map[string]string{"name": "服务名", "action": "start、stop 或 restart"}, "name", "action")},
+		{Name: "host__container_action", Description: "启动、停止或重启容器。", Parameters: schema(map[string]string{"id": "容器 ID", "action": "start、stop 或 restart"}, "id", "action")},
 	}
 }
 

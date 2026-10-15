@@ -2,7 +2,7 @@ name: CI
 
 # 除 main 以外的分支和所有 PR 都跑测试。main 的推送由 deploy.yml 调用本工作流。
 # 只在 PR 上跑（只改文档时不跑），以及被 deploy.yml 调用、手动运行时跑。
-# 平时推送到 develop 不跑，省构建额度。推送前在本地跑 AGENTS.md 里的全部检查。
+# 平时推送到 develop 不跑，省构建额度。推送前在本地跑 scripts/check-quick.sh。
 on:
   pull_request:
     paths-ignore:

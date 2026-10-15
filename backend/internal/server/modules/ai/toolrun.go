@@ -62,7 +62,7 @@ func (m *Module) RunTools(ctx context.Context, in contracts.ToolRun) (string, er
 		tools = append(tools, llm.Tool{Name: name, Description: desc, Parameters: a.Input})
 	}
 	if in.Decider != nil {
-		tools = append(tools, llm.Tool{Name: "ask_user", Description: "暂停任务，向用户提问。可以给出选项。", Parameters: json.RawMessage(`{"type":"object","required":["title"],"properties":{"title":{"type":"string"},"detail":{"type":"string"},"options":{"type":"array","items":{"type":"string"}}}}`)})
+		tools = append(tools, llm.Tool{Name: "ask_user", Description: "缺少只有用户知道的信息，或者要用户在几种做法里选一个时用。任务会停下，等用户回答后继续。title 是问题，detail 写背景，options 是可选的回答。返回用户的回答。", Parameters: json.RawMessage(`{"type":"object","required":["title"],"properties":{"title":{"type":"string"},"detail":{"type":"string"},"options":{"type":"array","items":{"type":"string"}}}}`)})
 	}
 	turns := in.MaxTurns
 	if turns <= 0 {
