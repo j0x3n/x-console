@@ -1590,6 +1590,12 @@ a.xc-badge:hover {
   .nav-panel-collapse {
     display: none !important;
   }
+  /* 手机上详情页只显示具体名称，不显示前面的“模块 / 上级 /”，给名称和按钮留位置 */
+  .topbar.has-detail
+    .breadcrumbs
+    > :is(.topbar-module, .breadcrumb-mid, .breadcrumb-sep) {
+    display: none;
+  }
 }
 @media (max-width: 1100px) {
   .topbar-subtitle {

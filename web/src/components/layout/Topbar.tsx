@@ -78,7 +78,9 @@ export default function Topbar({
   }, [open]);
   const unread = notifications.data?.unreadCount ?? 0;
   return (
-    <header className={`topbar${panelOpen ? " panel-open" : ""}`}>
+    <header
+      className={`topbar${panelOpen ? " panel-open" : ""}${detail ? " has-detail" : ""}`}
+    >
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         {/* 桌面上展开收起的二级菜单，手机上打开抽屉（B20、B103） */}
         <button
