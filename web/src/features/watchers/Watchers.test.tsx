@@ -63,6 +63,8 @@ import WatchersPage from "./WatchersPage";
 import WatcherPage from "./WatcherPage";
 import TodayWatchersCard from "./TodayWatchersCard";
 import SettingsDialog from "./SettingsDialog";
+import WatcherDialog from "./WatcherDialog";
+import type { Watcher } from "./api";
 import "./i18n";
 
 function renderAt(path: string, node: React.ReactNode, pattern = "*") {
@@ -197,6 +199,100 @@ describe("WatchersPage", () => {
         password: "pw",
       }),
     );
+  });
+});
+
+describe("检查时段（B236）", () => {
+  it("creates a watcher with a check window and refuses half a window", async () => {
+    api.routes.set("GET /watchers", () => ({
+      status: 200,
+      body: { items: [] },
+    }));
+    api.routes.set("GET /watchers/status", () => ({ status: 404 }));
+    api.routes.set("POST /watchers", (body) => ({
+      status: 201,
+      body: { ...base, ...(body as object), id: 9 },
+    }));
+    renderAt("/monitoring/watchers?new=1", <WatchersPage />);
+    await screen.findByText("还没有网站自动化任务");
+    fireEvent.change(screen.getByLabelText(/^(Name|名称)$/), {
+      target: { value: "护照" },
+    });
+    fireEvent.change(screen.getByLabelText(/^(Address|地址)$/), {
+      target: { value: "https://a.gov.cn/x" },
+    });
+    // 只填开始时间：不能保存
+    fireEvent.change(screen.getByLabelText("开始时间"), {
+      target: { value: "09:00" },
+    });
+    expect(screen.getByText("开始和结束时间要一起填")).toBeTruthy();
+    const save = screen.getByText(/^(Save|保存)$/) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("结束时间"), {
+      target: { value: "18:00" },
+    });
+    for (const day of ["周一", "周二", "周三", "周四", "周五"])
+      fireEvent.click(screen.getByLabelText(day));
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "POST")?.body).toMatchObject({
+        activeFrom: "09:00",
+        activeTo: "18:00",
+        activeDays: [1, 2, 3, 4, 5],
+      }),
+    );
+  });
+
+  it("clears the window when editing", async () => {
+    api.routes.set("GET /agents", () => ({ status: 200, body: [] }));
+    api.routes.set("PATCH /watchers/3", (body) => ({
+      status: 200,
+      body: { ...base, ...(body as object) },
+    }));
+    const watcher = {
+      ...base,
+      activeFrom: "09:00",
+      activeTo: "18:00",
+      activeDays: [1, 2, 3, 4, 5],
+    } as unknown as Watcher;
+    renderAt("/", <WatcherDialog open watcher={watcher} onClose={() => {}} />);
+    expect((screen.getByLabelText("开始时间") as HTMLInputElement).value).toBe(
+      "09:00",
+    );
+    fireEvent.click(await screen.findByText("清除"));
+    fireEvent.click(screen.getByText(/^(Save|保存)$/));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PATCH")?.body).toMatchObject({
+        activeFrom: "",
+        activeTo: "",
+        activeDays: [],
+      }),
+    );
+  });
+
+  it("shows the window on the watcher page", async () => {
+    api.routes.set("GET /watchers/3", () => ({
+      status: 200,
+      body: {
+        ...base,
+        activeFrom: "09:00",
+        activeTo: "18:00",
+        activeDays: [1, 2, 3, 4, 5],
+        nextCheckAt: "2026-10-14T03:00:00Z",
+        changes: [],
+        runs: [],
+        recipe: [],
+      },
+    }));
+    renderAt(
+      "/monitoring/watchers/3",
+      <WatcherPage />,
+      "/monitoring/watchers/:watcherId",
+    );
+    await screen.findByText("工作日 09:00–18:00");
+    // 下次检查的时间已经过了，又设了时段：说明在等时段开始
+    expect(screen.getByText("等检查时段开始")).toBeTruthy();
   });
 });
 

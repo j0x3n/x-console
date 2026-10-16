@@ -10,6 +10,8 @@ import {
   runShots,
   sortWatchers,
   toPage,
+  windowError,
+  windowText,
   xLabel,
 } from "./lib";
 
@@ -134,5 +136,42 @@ describe("watchers lib", () => {
     expect(parseModelRef("")).toBeUndefined();
     expect(parseModelRef("x:gpt")).toBeUndefined();
     expect(parseModelRef("3:")).toBeUndefined();
+  });
+});
+
+describe("check window", () => {
+  it("没设时段返回空", () => {
+    expect(windowText({})).toBe("");
+    expect(windowText({ activeFrom: "", activeTo: "", activeDays: [] })).toBe(
+      "",
+    );
+  });
+  it("写成一行", () => {
+    expect(windowText({ activeFrom: "09:00", activeTo: "18:00" })).toBe(
+      "每天 09:00–18:00",
+    );
+    expect(
+      windowText({
+        activeFrom: "09:00",
+        activeTo: "18:00",
+        activeDays: [5, 4, 3, 2, 1],
+      }),
+    ).toBe("工作日 09:00–18:00");
+    expect(windowText({ activeDays: [6, 7] })).toBe("周末");
+    expect(
+      windowText({
+        activeFrom: "22:00",
+        activeTo: "06:00",
+        activeDays: [1, 3],
+      }),
+    ).toBe("周一、三 22:00–06:00");
+  });
+  it("开始和结束要一起填，不能相同", () => {
+    expect(windowError("", "")).toBe("");
+    expect(windowError("09:00", "18:00")).toBe("");
+    expect(windowError("22:00", "06:00")).toBe("");
+    expect(windowError("09:00", "")).not.toBe("");
+    expect(windowError("", "18:00")).not.toBe("");
+    expect(windowError("09:00", "09:00")).not.toBe("");
   });
 });

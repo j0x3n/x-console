@@ -272,6 +272,12 @@ export interface components {
             intervalMinutes: number;
             /** @description 0 是不保活 */
             keepaliveMinutes: number;
+            /** @description B236。每天几点开始检查（HH:MM，服务器时区）。和 activeTo 一起填，都空表示全天检查。时段外不检查，也不发提醒。手动“立即检查”不受限 */
+            activeFrom?: string;
+            /** @description B236。每天几点停止检查。比 activeFrom 小表示跨午夜，例如 22:00 到 06:00。不能等于 activeFrom */
+            activeTo?: string;
+            /** @description B236。哪几天检查，1 是周一，7 是周日。空表示每天。跨午夜的时段按开始那天算 */
+            activeDays?: number[];
             mode: components["schemas"]["WatcherMode"];
             enabled: boolean;
             status: components["schemas"]["WatcherStatus"];
@@ -340,6 +346,12 @@ export interface components {
             intervalMinutes?: number;
             /** @description 0 是不保活，最少 5 */
             keepaliveMinutes?: number;
+            /** @description B236。每天几点开始检查（HH:MM，服务器时区）。和 activeTo 一起填，都空表示全天检查。时段外不检查，也不发提醒。手动“立即检查”不受限 */
+            activeFrom?: string;
+            /** @description B236。每天几点停止检查。比 activeFrom 小表示跨午夜，例如 22:00 到 06:00。不能等于 activeFrom */
+            activeTo?: string;
+            /** @description B236。哪几天检查，1 是周一，7 是周日。空表示每天。跨午夜的时段按开始那天算 */
+            activeDays?: number[];
             mode?: components["schemas"]["WatcherMode"];
             /** @description 出口代理，http://、https:// 或 socks5://，可带用户名密码 */
             proxy?: string;
@@ -355,6 +367,12 @@ export interface components {
             allowedHosts?: string[];
             intervalMinutes?: number;
             keepaliveMinutes?: number;
+            /** @description B236。每天几点开始检查（HH:MM，服务器时区）。和 activeTo 一起填，都空表示全天检查。时段外不检查，也不发提醒。手动“立即检查”不受限 */
+            activeFrom?: string;
+            /** @description B236。每天几点停止检查。比 activeFrom 小表示跨午夜，例如 22:00 到 06:00。不能等于 activeFrom */
+            activeTo?: string;
+            /** @description B236。哪几天检查，1 是周一，7 是周日。空表示每天。跨午夜的时段按开始那天算 */
+            activeDays?: number[];
             mode?: components["schemas"]["WatcherMode"];
             enabled?: boolean;
             /** @description 空字符串是去掉代理 */

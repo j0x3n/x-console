@@ -1871,6 +1871,9 @@ type Watcher struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	EgressAgentID    string
+	ActiveFrom       string
+	ActiveTo         string
+	ActiveDays       string
 }
 
 type WatcherChange struct {

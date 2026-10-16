@@ -11,6 +11,27 @@
   grid-column: 1 / -1;
 }
 
+.watchers-window {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.watchers-window .xc-input {
+  flex: 1 1 130px;
+  min-width: 0;
+  max-width: 170px;
+}
+.watchers-window-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+}
+.watchers-window-days .xc-check {
+  margin: 0;
+}
+
 .watchers-help {
   display: flex;
   flex-direction: column;

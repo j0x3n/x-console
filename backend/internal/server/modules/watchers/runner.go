@@ -127,12 +127,20 @@ func (m *Module) tick(ctx context.Context) error {
 		return err
 	}
 	now := m.now()
+	loc := m.d.Scheduler.Location()
 	for _, w := range rows {
 		if w.Enabled == 0 || m.busy(w.ID) {
 			continue
 		}
+		// B236: outside the check window nothing is checked. A task that has
+		// not learned its steps yet is still being set up, so it runs
+		// whenever it is due. A check that is due waits for the window to
+		// open and runs right at the start. Keeping the login alive is not a
+		// check and follows its own interval.
+		due := w.NextCheckAt == nil || !now.Before(*w.NextCheckAt)
+		open := w.Recipe == "" || windowFromStored(w.ActiveFrom, w.ActiveTo, w.ActiveDays).open(now, loc)
 		switch {
-		case w.NextCheckAt == nil || !now.Before(*w.NextCheckAt):
+		case due && open:
 			m.startRun(w.ID, "check")
 		case keepaliveDue(w, now):
 			m.startRun(w.ID, "keepalive")

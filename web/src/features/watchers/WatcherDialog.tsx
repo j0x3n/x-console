@@ -21,7 +21,9 @@ import {
   guessKind,
   minutesText,
   parseHosts,
+  windowError,
 } from "./lib";
+import WindowFields from "./WindowFields";
 
 /** 新建或修改一个网站自动化任务。传了 watcher 就是修改。 */
 export default function WatcherDialog({
@@ -52,6 +54,10 @@ export default function WatcherDialog({
   // B208：服务器直接访问、经过一台已连接的机器，或者填代理地址
   const [egress, setEgress] = useState(EGRESS_DIRECT);
   const [more, setMore] = useState(false);
+  // B236：检查时段
+  const [activeFrom, setActiveFrom] = useState("");
+  const [activeTo, setActiveTo] = useState("");
+  const [activeDays, setActiveDays] = useState<number[]>([]);
   const agents = useAgents();
   const exits = egressAgents(agents.data ?? [], watcher?.egressAgentId);
   const create = useCreateWatcher();
@@ -73,6 +79,9 @@ export default function WatcherDialog({
     setProxy("");
     setEgress(watcher ? egressOf(watcher) : EGRESS_DIRECT);
     setMore(false);
+    setActiveFrom(watcher?.activeFrom ?? "");
+    setActiveTo(watcher?.activeTo ?? "");
+    setActiveDays(watcher?.activeDays ?? []);
   }, [open, watcher]);
 
   // B213：新建时按网址认类型，修改时类型不变
@@ -94,11 +103,24 @@ export default function WatcherDialog({
       : guessed
         ? `认出来是：${guessed.label}`
         : "网址要以 https:// 开头";
-  const valid = isX
-    ? name.trim() !== "" && url.trim() !== ""
-    : name.trim() !== "" &&
-      /^https?:\/\/\S+$/.test(url.trim()) &&
-      (egress !== EGRESS_PROXY || proxy.trim() !== "" || !!watcher?.hasProxy);
+  const windowOk = windowError(activeFrom, activeTo) === "";
+  const valid =
+    windowOk &&
+    (isX
+      ? name.trim() !== "" && url.trim() !== ""
+      : name.trim() !== "" &&
+        /^https?:\/\/\S+$/.test(url.trim()) &&
+        (egress !== EGRESS_PROXY ||
+          proxy.trim() !== "" ||
+          !!watcher?.hasProxy));
+  // 七天都选等于不限；改任务时一直带上三项，清除时段才能传空值
+  const windowBody = {
+    activeFrom,
+    activeTo,
+    activeDays: activeDays.length === 7 ? [] : activeDays,
+  };
+  const windowSet =
+    activeFrom !== "" || activeTo !== "" || activeDays.length > 0;
   const viaAgent = egress !== EGRESS_DIRECT && egress !== EGRESS_PROXY;
 
   const submit = () => {
@@ -114,6 +136,7 @@ export default function WatcherDialog({
             url: url.trim(),
             goal: goal.trim(),
             intervalMinutes: every,
+            ...windowBody,
           },
         },
         {
@@ -133,6 +156,7 @@ export default function WatcherDialog({
           url: url.trim(),
           goal: goal.trim(),
           intervalMinutes: every,
+          ...(windowSet ? windowBody : {}),
         },
         {
           onSuccess: (w) => {
@@ -153,6 +177,7 @@ export default function WatcherDialog({
         intervalMinutes: every,
         keepaliveMinutes: keepalive,
         mode,
+        ...windowBody,
       };
       if (hostList.join(",") !== watcher.allowedHosts.join(","))
         body.allowedHosts = hostList;
@@ -186,6 +211,7 @@ export default function WatcherDialog({
       intervalMinutes: every,
       keepaliveMinutes: keepalive,
       mode,
+      ...(windowSet ? windowBody : {}),
     };
     if (hostList.length) body.allowedHosts = hostList;
     if (username.trim()) body.username = username.trim();
@@ -261,12 +287,24 @@ export default function WatcherDialog({
           {urlHint && <small>{urlHint}</small>}
         </div>
         {isX ? (
-          <XFields
-            goal={goal}
-            setGoal={setGoal}
-            every={every}
-            setEvery={pickEvery}
-          />
+          <>
+            <XFields
+              goal={goal}
+              setGoal={setGoal}
+              every={every}
+              setEvery={pickEvery}
+            />
+            <WindowFields
+              from={activeFrom}
+              to={activeTo}
+              days={activeDays}
+              onChange={(v) => {
+                setActiveFrom(v.from);
+                setActiveTo(v.to);
+                setActiveDays(v.days);
+              }}
+            />
+          </>
         ) : (
           <>
             <div className="xc-field full">
@@ -337,6 +375,16 @@ export default function WatcherDialog({
                 <option value="ai">每次都让 AI 看（费钱）</option>
               </select>
             </div>
+            <WindowFields
+              from={activeFrom}
+              to={activeTo}
+              days={activeDays}
+              onChange={(v) => {
+                setActiveFrom(v.from);
+                setActiveTo(v.to);
+                setActiveDays(v.days);
+              }}
+            />
             {!more ? (
               <button
                 type="button"

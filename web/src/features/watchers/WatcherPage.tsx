@@ -32,7 +32,7 @@ import {
   type WatcherChange,
   type WatcherDetail,
 } from "./api";
-import { minutesText, money, STATUS, xLabel } from "./lib";
+import { minutesText, money, STATUS, windowText, xLabel } from "./lib";
 import RunHistory from "./RunHistory";
 import WatcherDialog from "./WatcherDialog";
 import ImageLightbox from "../../components/ui/ImageLightbox";
@@ -74,6 +74,14 @@ function Detail({ w }: { w: WatcherDetail }) {
     w.status === "checking" ||
     w.status === "exploring" ||
     w.status === "waiting";
+  // B236：到点了还没检查，又设了检查时段，就是在等时段开始
+  const windowLabel = windowText(w);
+  const waitingForWindow =
+    windowLabel !== "" &&
+    !busy &&
+    w.status !== "new" &&
+    !!w.nextCheckAt &&
+    Date.parse(w.nextCheckAt) < Date.now() - 2 * 60 * 1000;
 
   const start = (kind: RunKind, message: string) =>
     run.mutate(
@@ -237,10 +245,18 @@ function Detail({ w }: { w: WatcherDetail }) {
                   ? relativeTime(w.lastCheckedAt, language)
                   : "—"}
               </dd>
+              {windowLabel && (
+                <>
+                  <dt>检查时段</dt>
+                  <dd>{windowLabel}</dd>
+                </>
+              )}
               <dt>{t("Next check")}</dt>
               <dd>
                 {w.enabled && w.nextCheckAt
-                  ? relativeTime(w.nextCheckAt, language)
+                  ? waitingForWindow
+                    ? "等检查时段开始"
+                    : relativeTime(w.nextCheckAt, language)
                   : "—"}
               </dd>
               <dt>{t("AI cost, 30 days")}</dt>

@@ -187,3 +187,32 @@ export function parseModelRef(
     return undefined;
   return { providerId: id, model: s.slice(i + 1) };
 }
+
+/** 一周七天的简称，下标 0 是周一，和后端的星期 1 到 7 对应。 */
+export const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
+
+/** 检查时段的一行说明（B236）；没设时段返回空字符串。 */
+export function windowText(
+  w: Pick<Watcher, "activeFrom" | "activeTo" | "activeDays">,
+) {
+  const days = [...(w.activeDays ?? [])].sort((a, b) => a - b);
+  const hasTimes = !!w.activeFrom && !!w.activeTo;
+  if (!hasTimes && days.length === 0) return "";
+  const key = days.join(",");
+  const dayText =
+    days.length === 0
+      ? "每天"
+      : key === "1,2,3,4,5"
+        ? "工作日"
+        : key === "6,7"
+          ? "周末"
+          : "周" + days.map((d) => WEEKDAY_LABELS[d - 1]).join("、");
+  return hasTimes ? `${dayText} ${w.activeFrom}–${w.activeTo}` : dayText;
+}
+
+/** 检查时段填得对不对；对就返回空字符串，不对返回要显示的提示。 */
+export function windowError(from: string, to: string) {
+  if (!from !== !to) return "开始和结束时间要一起填";
+  if (from && from === to) return "开始和结束不能是同一时间";
+  return "";
+}

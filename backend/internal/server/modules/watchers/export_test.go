@@ -81,3 +81,6 @@ func EgressProxyURL(m *Module, id int64) (string, error) { return m.egress.proxy
 
 // CaptchaCode exposes how a model's captcha answer is cleaned (B214).
 func CaptchaCode(s string) string { return captchaCode(s) }
+
+// SetNow replaces the clock the schedule reads.
+func SetNow(m *Module, fn func() time.Time) { m.nowFn = fn }

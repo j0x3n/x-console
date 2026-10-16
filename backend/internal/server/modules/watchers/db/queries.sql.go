@@ -86,9 +86,9 @@ func (q *Queries) CreateShot(ctx context.Context, arg CreateShotParams) (int64, 
 
 const createWatcher = `-- name: CreateWatcher :one
 INSERT INTO watchers (kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode,
-  login_sealed, proxy_sealed, egress_agent_id, next_check_at, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id
+  login_sealed, proxy_sealed, egress_agent_id, next_check_at, created_at, updated_at, active_from, active_to, active_days)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id, active_from, active_to, active_days
 `
 
 type CreateWatcherParams struct {
@@ -106,6 +106,9 @@ type CreateWatcherParams struct {
 	NextCheckAt      *time.Time
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	ActiveFrom       string
+	ActiveTo         string
+	ActiveDays       string
 }
 
 func (q *Queries) CreateWatcher(ctx context.Context, arg CreateWatcherParams) (Watcher, error) {
@@ -124,6 +127,9 @@ func (q *Queries) CreateWatcher(ctx context.Context, arg CreateWatcherParams) (W
 		arg.NextCheckAt,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.ActiveFrom,
+		arg.ActiveTo,
+		arg.ActiveDays,
 	)
 	var i Watcher
 	err := row.Scan(
@@ -155,6 +161,9 @@ func (q *Queries) CreateWatcher(ctx context.Context, arg CreateWatcherParams) (W
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EgressAgentID,
+		&i.ActiveFrom,
+		&i.ActiveTo,
+		&i.ActiveDays,
 	)
 	return i, err
 }
@@ -282,7 +291,7 @@ func (q *Queries) GetShot(ctx context.Context, id int64) ([]byte, error) {
 }
 
 const getWatcher = `-- name: GetWatcher :one
-SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id FROM watchers WHERE id = ?
+SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id, active_from, active_to, active_days FROM watchers WHERE id = ?
 `
 
 func (q *Queries) GetWatcher(ctx context.Context, id int64) (Watcher, error) {
@@ -317,6 +326,9 @@ func (q *Queries) GetWatcher(ctx context.Context, id int64) (Watcher, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.EgressAgentID,
+		&i.ActiveFrom,
+		&i.ActiveTo,
+		&i.ActiveDays,
 	)
 	return i, err
 }
@@ -594,7 +606,7 @@ func (q *Queries) ListShotSizes(ctx context.Context, watcherID int64) ([]ListSho
 }
 
 const listWatchers = `-- name: ListWatchers :many
-SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id FROM watchers ORDER BY id
+SELECT id, kind, name, url, goal, allowed_hosts, interval_minutes, keepalive_minutes, mode, enabled, status, status_detail, current_value, recipe, pending, fail_count, login_sealed, proxy_sealed, state_sealed, asks_day, asks_count, last_checked_at, last_change_at, last_keepalive_at, next_check_at, created_at, updated_at, egress_agent_id, active_from, active_to, active_days FROM watchers ORDER BY id
 `
 
 func (q *Queries) ListWatchers(ctx context.Context) ([]Watcher, error) {
@@ -635,6 +647,9 @@ func (q *Queries) ListWatchers(ctx context.Context) ([]Watcher, error) {
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.EgressAgentID,
+			&i.ActiveFrom,
+			&i.ActiveTo,
+			&i.ActiveDays,
 		); err != nil {
 			return nil, err
 		}
@@ -831,7 +846,8 @@ func (q *Queries) UpdateRun(ctx context.Context, arg UpdateRunParams) error {
 
 const updateWatcherSettings = `-- name: UpdateWatcherSettings :exec
 UPDATE watchers SET name = ?, url = ?, goal = ?, allowed_hosts = ?, interval_minutes = ?, keepalive_minutes = ?,
-  mode = ?, enabled = ?, login_sealed = ?, proxy_sealed = ?, egress_agent_id = ?, state_sealed = ?, recipe = ?, next_check_at = ?, updated_at = ?
+  mode = ?, enabled = ?, login_sealed = ?, proxy_sealed = ?, egress_agent_id = ?, state_sealed = ?, recipe = ?, next_check_at = ?, updated_at = ?,
+  active_from = ?, active_to = ?, active_days = ?
 WHERE id = ?
 `
 
@@ -851,6 +867,9 @@ type UpdateWatcherSettingsParams struct {
 	Recipe           string
 	NextCheckAt      *time.Time
 	UpdatedAt        time.Time
+	ActiveFrom       string
+	ActiveTo         string
+	ActiveDays       string
 	ID               int64
 }
 
@@ -871,6 +890,9 @@ func (q *Queries) UpdateWatcherSettings(ctx context.Context, arg UpdateWatcherSe
 		arg.Recipe,
 		arg.NextCheckAt,
 		arg.UpdatedAt,
+		arg.ActiveFrom,
+		arg.ActiveTo,
+		arg.ActiveDays,
 		arg.ID,
 	)
 	return err

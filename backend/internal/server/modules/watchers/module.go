@@ -303,7 +303,13 @@ func (m *Module) toAPI(ctx context.Context, w db.Watcher) api.Watcher {
 		Enabled: w.Enabled == 1, Status: api.WatcherStatus(w.Status), StatusDetail: w.StatusDetail, CurrentValue: w.CurrentValue,
 		HasLogin: w.LoginSealed != "", HasProxy: w.ProxySealed != "", HasRecipe: w.Recipe != "" && w.Kind != "x",
 		LastCheckedAt: w.LastCheckedAt, LastChangeAt: w.LastChangeAt, NextCheckAt: w.NextCheckAt, CreatedAt: w.CreatedAt,
+		ActiveFrom: ptr(w.ActiveFrom), ActiveTo: ptr(w.ActiveTo),
 	}
+	days := windowFromStored(w.ActiveFrom, w.ActiveTo, w.ActiveDays).days
+	if days == nil {
+		days = []int{}
+	}
+	out.ActiveDays = &days
 	if out.AllowedHosts == nil {
 		out.AllowedHosts = []string{}
 	}
@@ -338,9 +344,16 @@ type fields struct {
 	hosts            []string
 	interval, keepAl int
 	mode             string
+	// Check window (B236). check() validates it and fills the stored form.
+	activeFrom, activeTo             string
+	activeDays                       []int
+	storedFrom, storedTo, storedDays string
 }
 
 func (f *fields) check() error {
+	if err := f.checkWindow(); err != nil {
+		return err
+	}
 	f.name = strings.TrimSpace(f.name)
 	f.goal = strings.TrimSpace(f.goal)
 	f.url = strings.TrimSpace(f.url)
@@ -388,6 +401,16 @@ func (f *fields) check() error {
 	}
 	if f.mode != string(api.Replay) && f.mode != string(api.Ai) {
 		return httpx.Invalid("模式只能是 replay 或 ai")
+	}
+	return nil
+}
+
+// checkWindow validates the check window (B236).
+func (f *fields) checkWindow() error {
+	var err error
+	_, f.storedFrom, f.storedTo, f.storedDays, err = newCheckWindow(f.activeFrom, f.activeTo, f.activeDays)
+	if err != nil {
+		return httpx.Invalid(err.Error())
 	}
 	return nil
 }
@@ -586,6 +609,15 @@ func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher,
 	if body.Mode != nil {
 		f.mode = string(*body.Mode)
 	}
+	if body.ActiveFrom != nil {
+		f.activeFrom = *body.ActiveFrom
+	}
+	if body.ActiveTo != nil {
+		f.activeTo = *body.ActiveTo
+	}
+	if body.ActiveDays != nil {
+		f.activeDays = *body.ActiveDays
+	}
 	if err := f.check(); err != nil {
 		return db.Watcher{}, err
 	}
@@ -636,7 +668,8 @@ func (m *Module) create(ctx context.Context, body api.WatcherInput) (db.Watcher,
 	}
 	return m.q.CreateWatcher(ctx, db.CreateWatcherParams{Kind: f.kind, Name: f.name, Url: f.url, Goal: f.goal,
 		AllowedHosts: string(hosts), IntervalMinutes: int64(f.interval), KeepaliveMinutes: int64(f.keepAl), Mode: f.mode,
-		LoginSealed: loginSealed, ProxySealed: proxySealed, EgressAgentID: egressID, NextCheckAt: &now, CreatedAt: now, UpdatedAt: now})
+		LoginSealed: loginSealed, ProxySealed: proxySealed, EgressAgentID: egressID, NextCheckAt: &now, CreatedAt: now, UpdatedAt: now,
+		ActiveFrom: f.storedFrom, ActiveTo: f.storedTo, ActiveDays: f.storedDays})
 }
 
 // GetWatcher implements api.ServerInterface.
@@ -717,7 +750,8 @@ func (m *Module) update(ctx context.Context, id int64, body api.WatcherPatch) (d
 		return cur, httpx.NewError(http.StatusConflict, "busy", "任务正在跑，等它跑完再改")
 	}
 	f := fields{kind: cur.Kind, name: cur.Name, url: cur.Url, goal: cur.Goal, hosts: parseHosts(cur.AllowedHosts),
-		interval: int(cur.IntervalMinutes), keepAl: int(cur.KeepaliveMinutes), mode: cur.Mode}
+		interval: int(cur.IntervalMinutes), keepAl: int(cur.KeepaliveMinutes), mode: cur.Mode,
+		activeFrom: cur.ActiveFrom, activeTo: cur.ActiveTo, activeDays: windowFromStored(cur.ActiveFrom, cur.ActiveTo, cur.ActiveDays).days}
 	if body.Name != nil {
 		f.name = *body.Name
 	}
@@ -741,6 +775,15 @@ func (m *Module) update(ctx context.Context, id int64, body api.WatcherPatch) (d
 	}
 	if body.Mode != nil {
 		f.mode = string(*body.Mode)
+	}
+	if body.ActiveFrom != nil {
+		f.activeFrom = *body.ActiveFrom
+	}
+	if body.ActiveTo != nil {
+		f.activeTo = *body.ActiveTo
+	}
+	if body.ActiveDays != nil {
+		f.activeDays = *body.ActiveDays
 	}
 	if err := f.check(); err != nil {
 		return cur, err
@@ -815,7 +858,8 @@ func (m *Module) update(ctx context.Context, id int64, body api.WatcherPatch) (d
 	err = m.q.UpdateWatcherSettings(ctx, db.UpdateWatcherSettingsParams{Name: f.name, Url: f.url, Goal: f.goal,
 		AllowedHosts: string(hosts), IntervalMinutes: int64(f.interval), KeepaliveMinutes: int64(f.keepAl), Mode: f.mode,
 		Enabled: enabled, LoginSealed: loginSealed, ProxySealed: proxySealed, EgressAgentID: egressID, StateSealed: stateSealed, Recipe: recipe,
-		NextCheckAt: next, UpdatedAt: m.now(), ID: id})
+		NextCheckAt: next, UpdatedAt: m.now(),
+		ActiveFrom: f.storedFrom, ActiveTo: f.storedTo, ActiveDays: f.storedDays, ID: id})
 	if err != nil {
 		return cur, err
 	}
