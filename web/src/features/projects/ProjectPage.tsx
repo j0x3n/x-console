@@ -70,6 +70,7 @@ import {
   type SortKey,
 } from "./logic";
 import { useShortcuts } from "./useShortcuts";
+import { useMediaQuery } from "./useMediaQuery";
 
 type View = "board" | "list";
 
@@ -124,6 +125,8 @@ export default function ProjectPage() {
   const ops = useBoardMutations(project?.id ?? 0);
   const updateProject = useUpdateProject();
   const [localLock, setLocalLock] = useLocalLock(project?.id);
+  // 手机上顶栏放不下：项目按钮收进“更多”，看板页签放到页面里
+  const narrow = useMediaQuery("(max-width: 640px)");
   const [prefs, setPrefs] = useState(loadPrefs);
   const [filter, setFilter] = useState<IssueFilter>(emptyFilter);
   const [search, setSearch] = useSearchParams();
@@ -377,89 +380,171 @@ export default function ProjectPage() {
     />
   );
 
+  // 列表视图的分组和排序：电脑上放在工具栏右边，手机上跟着筛选一行左右滑动
+  const viewOptions = prefs.view === "list" && (
+    <>
+      <select
+        className="xc-select projects-filter-select"
+        value={prefs.groupBy}
+        aria-label={t("Group by")}
+        onChange={(e) => changePrefs({ groupBy: e.target.value as GroupBy })}
+      >
+        <option value="status">{t("Group by status")}</option>
+        <option value="priority">{t("Group by priority")}</option>
+        <option value="none">{t("No grouping")}</option>
+      </select>
+      <select
+        className="xc-select projects-filter-select"
+        value={prefs.sort}
+        aria-label={t("Sort")}
+        onChange={(e) => changePrefs({ sort: e.target.value as SortKey })}
+      >
+        <option value="manual">{t("Manual order")}</option>
+        <option value="updated">{t("Recently updated")}</option>
+        <option value="priority">{t("Priority")}</option>
+        <option value="due">{t("Due date")}</option>
+      </select>
+    </>
+  );
+
+  const boardTabs = (
+    <nav className="projects-board-tabs" aria-label={t("Boards")}>
+      {allBoards.map((b) => (
+        <button
+          key={b.id}
+          role="tab"
+          aria-selected={b.id === board?.id}
+          className={b.id === board?.id ? "on" : ""}
+          onClick={() => setParam("board", String(b.id))}
+          onDoubleClick={() => !locked && setBoardDialog(b)}
+        >
+          {b.icon && <span className="projects-board-icon">{b.icon}</span>}
+          {b.name}
+        </button>
+      ))}
+      {!archived && !locked && (
+        <button
+          className="projects-board-add"
+          aria-label={t("New board")}
+          title={t("New board")}
+          onClick={() => setBoardDialog("new")}
+        >
+          <Plus size={14} />
+        </button>
+      )}
+    </nav>
+  );
+
   return (
     <div className="xc-page wide projects-page">
       <PageHeading
         title={project.name}
         subtitle={project.description || undefined}
         aside={
-          <>
-            <button
-              className={`xc-btn small icon${locked ? " on" : ""}`}
-              onClick={toggleLock}
-              aria-pressed={locked}
-              title={
-                locked
-                  ? t("Unlock board layout")
-                  : t("Lock board layout: no new boards or lists")
-              }
-              aria-label={
-                locked ? t("Unlock board layout") : t("Lock board layout")
-              }
-            >
-              {locked ? <Lock size={14} /> : <LockOpen size={14} />}
-            </button>
-            <button
-              className="xc-btn small"
-              onClick={() => setEditOpen(true)}
-              title={t("Edit")}
-            >
-              <Pencil size={14} /> {t("Edit")}
-            </button>
-            <button
-              className="xc-btn small icon projects-desktop-only"
-              onClick={() => setShortcutsOpen(true)}
-              aria-label={t("Keyboard shortcuts")}
-              title={`${t("Keyboard shortcuts")} (?)`}
-            >
-              <Keyboard size={14} />
-            </button>
-            <button
-              className="xc-btn small icon"
-              onClick={() => setSettingsOpen(true)}
-              aria-label={t("Settings")}
-              title={t("Settings")}
-            >
-              <Settings2 size={14} />
-            </button>
-            <button
-              className="xc-btn primary small"
-              onClick={newCard}
-              disabled={archived || !board}
-              title={`${t("New issue")} (C)`}
-            >
-              <Plus size={14} /> {t("New issue")}
-            </button>
-          </>
+          narrow ? (
+            <>
+              <MoreMenu
+                label={`${t("More")}：${project.name}`}
+                title={project.name}
+                items={[
+                  {
+                    key: "edit",
+                    label: t("Edit project"),
+                    icon: <Pencil size={14} />,
+                    onSelect: () => setEditOpen(true),
+                  },
+                  {
+                    key: "lock",
+                    label: locked
+                      ? t("Unlock board layout")
+                      : t("Lock board layout"),
+                    icon: locked ? <LockOpen size={14} /> : <Lock size={14} />,
+                    onSelect: toggleLock,
+                  },
+                  ...(!archived && !locked
+                    ? [
+                        {
+                          key: "board",
+                          label: t("New board"),
+                          icon: <Plus size={14} />,
+                          onSelect: () => setBoardDialog("new" as const),
+                        },
+                      ]
+                    : []),
+                  {
+                    key: "settings",
+                    label: t("Settings"),
+                    icon: <Settings2 size={14} />,
+                    onSelect: () => setSettingsOpen(true),
+                  },
+                ]}
+              />
+              <button
+                className="xc-btn primary small"
+                onClick={newCard}
+                disabled={archived || !board}
+                title={`${t("New issue")} (C)`}
+              >
+                <Plus size={14} /> {t("New issue")}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className={`xc-btn small icon${locked ? " on" : ""}`}
+                onClick={toggleLock}
+                aria-pressed={locked}
+                title={
+                  locked
+                    ? t("Unlock board layout")
+                    : t("Lock board layout: no new boards or lists")
+                }
+                aria-label={
+                  locked ? t("Unlock board layout") : t("Lock board layout")
+                }
+              >
+                {locked ? <Lock size={14} /> : <LockOpen size={14} />}
+              </button>
+              <button
+                className="xc-btn small"
+                onClick={() => setEditOpen(true)}
+                title={t("Edit")}
+              >
+                <Pencil size={14} /> {t("Edit")}
+              </button>
+              <button
+                className="xc-btn small icon projects-desktop-only"
+                onClick={() => setShortcutsOpen(true)}
+                aria-label={t("Keyboard shortcuts")}
+                title={`${t("Keyboard shortcuts")} (?)`}
+              >
+                <Keyboard size={14} />
+              </button>
+              <button
+                className="xc-btn small icon"
+                onClick={() => setSettingsOpen(true)}
+                aria-label={t("Settings")}
+                title={t("Settings")}
+              >
+                <Settings2 size={14} />
+              </button>
+              <button
+                className="xc-btn primary small"
+                onClick={newCard}
+                disabled={archived || !board}
+                title={`${t("New issue")} (C)`}
+              >
+                <Plus size={14} /> {t("New issue")}
+              </button>
+            </>
+          )
         }
       />
-      <PageTitleActions>
-        <nav className="projects-board-tabs" aria-label={t("Boards")}>
-          {allBoards.map((b) => (
-            <button
-              key={b.id}
-              role="tab"
-              aria-selected={b.id === board?.id}
-              className={b.id === board?.id ? "on" : ""}
-              onClick={() => setParam("board", String(b.id))}
-              onDoubleClick={() => !locked && setBoardDialog(b)}
-            >
-              {b.icon && <span className="projects-board-icon">{b.icon}</span>}
-              {b.name}
-            </button>
-          ))}
-          {!archived && !locked && (
-            <button
-              className="projects-board-add"
-              aria-label={t("New board")}
-              title={t("New board")}
-              onClick={() => setBoardDialog("new")}
-            >
-              <Plus size={14} />
-            </button>
-          )}
-        </nav>
-      </PageTitleActions>
+      {narrow ? (
+        allBoards.length > 1 && boardTabs
+      ) : (
+        <PageTitleActions>{boardTabs}</PageTitleActions>
+      )}
       <Toolbar
         className="projects-toolbar"
         start={
@@ -504,42 +589,15 @@ export default function ProjectPage() {
               labels={labels.data ?? []}
               milestones={milestones.data ?? []}
               showStatus={prefs.view === "list"}
-              extra={
-                prefs.view === "list" && (
-                  <>
-                    <select
-                      className="xc-select projects-filter-select"
-                      value={prefs.groupBy}
-                      aria-label={t("Group by")}
-                      onChange={(e) =>
-                        changePrefs({ groupBy: e.target.value as GroupBy })
-                      }
-                    >
-                      <option value="status">{t("Group by status")}</option>
-                      <option value="priority">{t("Group by priority")}</option>
-                      <option value="none">{t("No grouping")}</option>
-                    </select>
-                    <select
-                      className="xc-select projects-filter-select"
-                      value={prefs.sort}
-                      aria-label={t("Sort")}
-                      onChange={(e) =>
-                        changePrefs({ sort: e.target.value as SortKey })
-                      }
-                    >
-                      <option value="manual">{t("Manual order")}</option>
-                      <option value="updated">{t("Recently updated")}</option>
-                      <option value="priority">{t("Priority")}</option>
-                      <option value="due">{t("Due date")}</option>
-                    </select>
-                  </>
-                )
-              }
+              extra={narrow && viewOptions}
             />
           </>
         }
         end={
           <>
+            {!narrow && viewOptions && (
+              <div className="projects-filter-extra">{viewOptions}</div>
+            )}
             {boardMenu}
             <Segmented
               label={t("View")}

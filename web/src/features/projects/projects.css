@@ -289,13 +289,20 @@
   flex: none;
   padding-bottom: 0;
 }
+/* 筛选一行不折行，放不下时左右滑动（和手机上一样），工具栏始终一行 */
 .projects-filters {
   display: flex;
-  flex: 1;
-  flex-wrap: wrap;
+  /* 先缩搜索框，搜索框缩到最小后筛选才开始滑动 */
+  flex: 1 0.01 auto;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.projects-filters > * {
+  flex: none;
 }
 .projects-filter-extra {
   display: flex;
@@ -310,7 +317,8 @@
   font-size: var(--fs-12);
 }
 .xc-search.projects-search {
-  width: 200px;
+  flex: 0 1 160px;
+  min-width: 120px;
   height: 28px;
 }
 
