@@ -190,7 +190,8 @@ type Issues interface {
 	Create(ctx context.Context, in CreateIssue) (IssueRef, error)
 	SetStatus(ctx context.Context, key, status string) error
 	AttachLink(ctx context.Context, key string, link IssueLink) error
-	// ListDue returns open issues due before until, soonest first.
+	// ListDue returns issues due before until, soonest first. Done, canceled
+	// and in-review issues are left out: they no longer wait on the owner.
 	ListDue(ctx context.Context, until time.Time) ([]IssueRef, error)
 }
 

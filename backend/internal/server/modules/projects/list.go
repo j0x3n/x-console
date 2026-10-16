@@ -92,7 +92,7 @@ func (m *Module) listIssues(ctx context.Context, f issueFilter) ([]api.Issue, in
 	case "week":
 		add("i.due_at >= ? AND i.due_at < ?", start, today.AddDate(0, 0, 7).UTC().Format(time.RFC3339))
 	case "overdue":
-		add("i.due_at < ? AND i.status NOT IN ('done', 'canceled')", m.now().UTC().Format(time.RFC3339))
+		add("i.due_at < ? AND i.status NOT IN ('done', 'canceled', 'in_review')", m.now().UTC().Format(time.RFC3339))
 	default:
 		return nil, 0, httpx.Invalid("due 只能是 today、week 或 overdue")
 	}

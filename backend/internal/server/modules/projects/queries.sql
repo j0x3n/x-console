@@ -130,7 +130,7 @@ INSERT OR IGNORE INTO issue_labels (issue_id, label_id) VALUES (?, ?);
 SELECT sqlc.embed(issues), projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.due_at IS NOT NULL AND issues.due_at <= ?
-  AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL AND issues.archived_at IS NULL
+  AND issues.status NOT IN ('done', 'canceled', 'in_review') AND projects.archived_at IS NULL AND issues.archived_at IS NULL
 ORDER BY issues.due_at, CASE issues.priority WHEN 0 THEN 5 ELSE issues.priority END, issues.id;
 
 -- name: ChangedSince :many

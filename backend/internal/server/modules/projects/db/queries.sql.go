@@ -1396,7 +1396,7 @@ const listDue = `-- name: ListDue :many
 SELECT issues.id, issues.project_id, issues.number, issues.title, issues.description, issues.status, issues.priority, issues.due_date, issues.milestone_id, issues.sort_order, issues.external_source, issues.external_id, issues.created_at, issues.updated_at, issues.completed_at, issues.category_id, issues.due_at, issues.due_remind, issues.due_notified_at, issues.board_id, issues.list_id, issues.archived_at, issues.cover_file_id, issues.color, issues.external_url, projects.key AS project_key
 FROM issues JOIN projects ON projects.id = issues.project_id
 WHERE issues.due_at IS NOT NULL AND issues.due_at <= ?
-  AND issues.status NOT IN ('done', 'canceled') AND projects.archived_at IS NULL AND issues.archived_at IS NULL
+  AND issues.status NOT IN ('done', 'canceled', 'in_review') AND projects.archived_at IS NULL AND issues.archived_at IS NULL
 ORDER BY issues.due_at, CASE issues.priority WHEN 0 THEN 5 ELSE issues.priority END, issues.id
 `
 

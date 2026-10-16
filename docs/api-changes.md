@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- 修复（2026-10-16）：待审核的 Issue 不再算到期和过期。`contracts.Issues.ListDue` 不再返回 `in_review`（每日计划和晨报跟着变）；`GET /issues?due=overdue` 不含待审核；到期通知和提醒页的 Issue 到期事项也不含待审核。退回其他状态后照常算。不改字段，不加迁移。
+
 - 修复（2026-10-16）：公共顶栏 `components/layout/Topbar.tsx` 在有具体名称（详情页）时给 `header` 加 `has-detail` 类；`styles/ui.css` 在 720px 以下按这个类隐藏模块名、上级和分隔的“/”，只留具体名称。电脑上不变。不改接口。
 
 - B237（2026-10-16）：基础样式 `styles/ui.css` 改了两处。单选的 `select.xc-select` 去掉系统箭头（`appearance: none`），用两段渐变画一个 `--xc-muted` 色的小三角，右内边距 26px，圆角 7px，悬停底色 `--xc-surface-2`。多选下拉框不变。模块里给 `.xc-select` 写 `background` 简写会盖掉小三角，要写成 `background-color`。顶栏页面按钮里加了 `icon` 类的 `.xc-btn` 是 28px 正方形。不改接口，不加迁移。

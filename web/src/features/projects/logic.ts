@@ -44,6 +44,10 @@ export const PRIORITY_LABELS: Record<number, string> = {
 export const isClosed = (status: IssueStatus) =>
   status === "done" || status === "canceled";
 
+/** 待审核、已完成、已取消的卡片不再按截止时间算到期和过期。 */
+export const dueSettled = (status: IssueStatus) =>
+  isClosed(status) || status === "in_review";
+
 export const OPEN_STATUSES: IssueStatus[] = [
   "backlog",
   "todo",
@@ -88,10 +92,10 @@ export function isFilterActive(filter: IssueFilter) {
   );
 }
 
-/** 按截止时间筛选。已完成和已取消的不算到期。 */
+/** 按截止时间筛选。待审核、已完成和已取消的不算到期。 */
 export function matchDue(issue: Issue, due: DueFilter, now = new Date()) {
   const at = issueDue(issue);
-  if (!at || isClosed(issue.status)) return false;
+  if (!at || dueSettled(issue.status)) return false;
   if (due === "overdue") return at < now;
   if (due === "today") return localDate(at) === localDate(now);
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -213,7 +217,7 @@ export type DueState = "overdue" | "today" | "soon" | "later";
 export function issueDueState(issue: Issue, now = new Date()): DueState | null {
   const at = issueDue(issue);
   if (!at) return null;
-  if (isClosed(issue.status)) return "later";
+  if (dueSettled(issue.status)) return "later";
   if (at < now) return "overdue";
   if (localDate(at) === localDate(now)) return "today";
   return at.getTime() - now.getTime() <= 3 * 86_400_000 ? "soon" : "later";
@@ -518,7 +522,7 @@ export function dueState(
   status?: IssueStatus,
 ): "overdue" | "today" | "soon" | "later" | null {
   if (!dueDate) return null;
-  if (status && isClosed(status)) return "later";
+  if (status && dueSettled(status)) return "later";
   if (dueDate < today) return "overdue";
   if (dueDate === today) return "today";
   const diff =

@@ -124,3 +124,33 @@ func TestIssueDueNotificationOnceAndReschedule(t *testing.T) {
 		t.Fatalf("disabled notifications: %d", count())
 	}
 }
+
+func TestInReviewIssueIsNotOverdue(t *testing.T) {
+	env := newEnv(t)
+	project := createProject(t, env, "REV")
+	now := time.Now().UTC().Truncate(time.Second)
+	issue := createIssue(t, env, project.Id, map[string]any{"title": "交审了", "dueAt": now.Add(-time.Hour).Format(time.RFC3339), "dueRemind": "15m", "status": "in_review"})
+	if err := projects.RunDueForTest(env.App.Deps, now); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := env.App.Deps.DB.QueryRow("SELECT count(*) FROM notifications WHERE kind='issue.due'").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("in-review issue notified: %d", n)
+	}
+	var page struct {
+		Items []struct{ Key string } `json:"items"`
+	}
+	env.MustDo("GET", fmt.Sprintf("/issues?projectId=%d&due=overdue", project.Id), nil, &page)
+	if len(page.Items) != 0 {
+		t.Fatalf("in-review issue listed as overdue: %+v", page.Items)
+	}
+	// 审核没过退回进行中，重新算过期
+	env.MustDo("PATCH", "/issues/"+issue.Key, map[string]any{"status": "in_progress"}, nil)
+	env.MustDo("GET", fmt.Sprintf("/issues?projectId=%d&due=overdue", project.Id), nil, &page)
+	if len(page.Items) != 1 {
+		t.Fatalf("back in progress, overdue items: %+v", page.Items)
+	}
+}

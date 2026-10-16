@@ -20,7 +20,7 @@ type dueCandidate struct {
 func (m *Module) activeDue(ctx context.Context, until time.Time) ([]dueCandidate, error) {
 	rows, err := m.d.DB.QueryContext(ctx, `SELECT i.id,p.key,i.number,i.title,i.due_at,i.due_remind,i.due_notified_at
 FROM issues i JOIN projects p ON p.id=i.project_id
-WHERE i.due_at IS NOT NULL AND i.due_at<=? AND i.status NOT IN ('done','canceled')
+WHERE i.due_at IS NOT NULL AND i.due_at<=? AND i.status NOT IN ('done','canceled','in_review')
 AND p.archived_at IS NULL ORDER BY i.due_at,i.id`, until.UTC().Format(dueLayout))
 	if err != nil {
 		return nil, err

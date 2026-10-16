@@ -11,7 +11,7 @@ import { useMailTodo, useSetMailDone, type MailSummary } from "../../mail/api";
 import { mailTime, senderName } from "../../mail/logic";
 import { DecisionRow } from "../../aiagents/DecisionRows";
 import { useMyIssues, type Issue } from "../../projects/api";
-import { PRIORITY_LABELS } from "../../projects/logic";
+import { PRIORITY_LABELS, dueSettled } from "../../projects/logic";
 import {
   useCompleteReminder,
   useReminderCounts,
@@ -52,6 +52,10 @@ function IssueRow({ issue, late }: { issue: Issue; late?: number }) {
     </Link>
   );
 }
+
+/** 还要自己做的 Issue：待审核的已经交出去了，不算今天到期，也不算逾期。 */
+const ownIssues = (issues: Issue[] | undefined) =>
+  (issues ?? []).filter((i) => !dueSettled(i.status));
 
 /** 今日待办：今天截止的 Issue 和今天还没完成的提醒。 */
 /**
@@ -115,12 +119,13 @@ export function TodosCard() {
   const complete = useCompleteReminder();
   const counts = useReminderCounts();
   const now = new Date();
-  const todayIssues = dueToday(issues.data ?? [], now);
+  const todayIssues = dueToday(ownIssues(issues.data), now);
   const todayReminders = (reminders.data ?? []).filter(
     (r) => r.status !== "done" && r.status !== "ended",
   );
-  // 其他模块今天到期的事项（订阅续费、证书到期这类），点了去来源页面
-  const external = counts.externalToday;
+  // 其他模块今天到期的事项（订阅续费、证书到期这类），点了去来源页面。
+  // 项目卡片下面按 Issue 单独列，这里去掉，免得同一张卡片出现两次。
+  const external = counts.externalToday.filter((x) => x.source !== "issue");
   const mail = useMailTodos().tasks;
   const total =
     todayIssues.length + todayReminders.length + external.length + mail.length;
@@ -202,8 +207,12 @@ export function useTodoCount() {
   const reminders = useReminderCounts();
   const now = new Date();
   return {
-    issues: issues.data ? dueToday(issues.data, now).length : undefined,
-    overdue: issues.data ? overdue(issues.data, now).length : undefined,
+    issues: issues.data
+      ? dueToday(ownIssues(issues.data), now).length
+      : undefined,
+    overdue: issues.data
+      ? overdue(ownIssues(issues.data), now).length
+      : undefined,
     reminders: reminders.loading ? undefined : reminders.today,
   };
 }
@@ -218,7 +227,7 @@ export function DecisionsCard() {
   const decisions = useAgentDecisions();
   const asks = Array.isArray(decisions.data) ? decisions.data : [];
   const now = new Date();
-  const late = overdue(issues.data ?? [], now);
+  const late = overdue(ownIssues(issues.data), now);
   const review = tasks.data ?? [];
   const mail = useMailTodos().decisions;
   const total = asks.length + review.length + late.length + mail.length;

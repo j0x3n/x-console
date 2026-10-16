@@ -344,6 +344,10 @@ describe("B36 due time", () => {
     expect(issueDueState(issue({ dueAt: at(10), status: "done" }), now)).toBe(
       "later",
     );
+    // 放到待审核就不算过期了
+    expect(
+      issueDueState(issue({ dueAt: at(10), status: "in_review" }), now),
+    ).toBe("later");
   });
   it("says how long ago it was due", () => {
     const ago = (ms: number) => new Date(now.getTime() - ms);

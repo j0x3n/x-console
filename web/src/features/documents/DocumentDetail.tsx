@@ -17,6 +17,7 @@ import { useLanguage, useT } from "../../contexts/LanguageContext";
 import { toast } from "../../hooks/useToast";
 import { showError } from "./util";
 import { contentUrl } from "../drive/api";
+import { useVaultUnlocked } from "../vault/api";
 import {
   useDeleteDocument,
   useRemoveDocumentFile,
@@ -43,6 +44,7 @@ export default function DocumentDetail({
   onClose: () => void;
 }) {
   const t = useT();
+  const unlocked = useVaultUnlocked();
   const language = useLanguage();
   const update = useUpdateDocument();
   const remove = useDeleteDocument();
@@ -238,9 +240,15 @@ export default function DocumentDetail({
         <p className="xc-muted documents-hint">
           {t(
             "Files are kept in the drive folder “Documents”. Removing one here does not delete it from the drive.",
-          )}{" "}
-          {t(
-            "Files are saved as hidden files while hidden content is unlocked.",
+          )}
+          {/* 锁着的时候不提隐藏内容，别让人看出有这个功能 */}
+          {unlocked && (
+            <>
+              {" "}
+              {t(
+                "Files are saved as hidden files while hidden content is unlocked.",
+              )}
+            </>
           )}
         </p>
         {renewing && (

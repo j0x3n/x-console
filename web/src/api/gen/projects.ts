@@ -183,7 +183,7 @@ export interface paths {
         };
         /**
          * @description 跨项目查询 Issue。不带 projectId 时不包含已归档项目的 Issue。
-         *     due：today 今天到期；week 今天起 7 天内到期；overdue 已过期且未完成。日期按服务器时区算。B36 起按 dueAt 算。
+         *     due：today 今天到期；week 今天起 7 天内到期；overdue 已过期且未完成，待审核的不算。日期按服务器时区算。B36 起按 dueAt 算。
          */
         get: operations["listIssues"];
         put?: never;
