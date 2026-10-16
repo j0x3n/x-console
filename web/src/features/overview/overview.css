@@ -773,11 +773,17 @@ a.today-row:hover {
 .today-card:not(.is-editing) .xc-section-head h2 {
   font-weight: 600;
 }
+/* B238：卡片里标题下面和行之间都不画线，只靠间距分开，行悬停是圆角浅底 */
 .today-card:not(.is-editing) .xc-section > .xc-list,
 .today-card:not(.is-editing) .xc-section > .today-note {
   border: 0;
-  border-top: 1px solid var(--xc-border);
   border-radius: 0;
+}
+.today-card:not(.is-editing) .xc-section > .xc-list {
+  padding: 0 6px 6px;
+}
+.today-card:not(.is-editing) .xc-section > .xc-list > * + * {
+  border-top: 0;
 }
 .today-card:not(.is-editing)
   .xc-section
@@ -787,4 +793,8 @@ a.today-row:hover {
 .today-card .today-row {
   min-height: 44px;
   padding: 8px 16px;
+}
+.today-card:not(.is-editing) .xc-section > .xc-list > .today-row {
+  padding: 8px 10px;
+  border-radius: 8px;
 }
