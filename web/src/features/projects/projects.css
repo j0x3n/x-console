@@ -462,41 +462,93 @@
   text-align: center;
 }
 
-/* ---- 列表 ---- */
+/* ---- 列表（B239 改成表格：表头对齐每一列，组名是色带，行之间不画线） ---- */
 .projects-list {
-  border: 1px solid var(--xc-border);
-  border-radius: var(--xc-radius-lg);
-  background: var(--xc-surface);
-  overflow: hidden;
+  container-type: inline-size;
+  --c-cat: ;
+  --c-time: ;
+}
+.projects-list.with-category {
+  --c-cat: minmax(0, 140px);
+}
+.projects-list.with-time {
+  --c-time: 72px;
+}
+.projects-list-head,
+.projects-row {
+  --c-labels: minmax(0, 170px);
+  --c-members: 64px;
+  display: grid;
+  grid-template-columns:
+    64px minmax(0, 1fr) var(--c-cat) 84px var(--c-labels)
+    120px var(--c-members) var(--c-time);
+  column-gap: 12px;
+  align-items: center;
+  padding: 0 10px;
+}
+.projects-list-head {
+  height: 30px;
+  color: var(--xc-muted);
+  font-size: var(--fs-12);
+}
+.projects-list-head .name {
+  grid-column: span 2;
+}
+.projects-list-head .end {
+  text-align: right;
 }
 .projects-list-group > header {
+  --band: var(--xc-muted);
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 34px;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--xc-border);
-  background: var(--xc-surface-2);
+  height: 32px;
+  margin: 10px 0 4px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--band) 11%, var(--xc-surface));
   color: var(--xc-text);
-  font-size: var(--fs-12);
+  font-size: var(--fs-12-5);
+}
+.projects-list-group:first-of-type > header {
+  margin-top: 2px;
+}
+.projects-list-group > header b {
+  font-weight: 500;
 }
 .projects-list-group > header span {
-  color: var(--xc-faint);
+  color: var(--xc-muted);
+  font-family: var(--xc-mono);
+  font-size: var(--fs-11);
+}
+/* 色带的颜色和状态图标一致 */
+.projects-list-group > header[data-status="todo"] {
+  --band: var(--xc-info);
+}
+.projects-list-group > header[data-status="in_progress"] {
+  --band: var(--xc-warn);
+}
+.projects-list-group > header[data-status="in_review"] {
+  --band: var(--xc-ok);
+}
+.projects-list-group > header[data-priority="1"] {
+  --band: var(--xc-danger);
+}
+.projects-list-group
+  > header:is(
+    [data-status="backlog"],
+    [data-status="canceled"],
+    [data-priority="0"]
+  ) {
+  --band: var(--xc-faint);
 }
 .projects-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 38px;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--xc-border);
+  min-height: 40px;
+  border-radius: 8px;
   color: var(--xc-text-2);
   cursor: pointer;
   content-visibility: auto;
-  contain-intrinsic-size: auto 38px;
-}
-.projects-list-group:last-child .projects-row:last-child {
-  border-bottom: 0;
+  contain-intrinsic-size: auto 40px;
 }
 .projects-row:hover {
   background: var(--xc-surface-2);
@@ -507,30 +559,93 @@
   background: var(--xc-accent-soft);
 }
 .projects-row-key {
-  flex: none;
-  width: 64px;
+  overflow: hidden;
   color: var(--xc-muted);
   font-size: var(--fs-12);
+  white-space: nowrap;
+}
+.projects-row-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .projects-row-title {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   color: var(--xc-text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.projects-row-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--fs-12);
+  white-space: nowrap;
+}
 .projects-row-labels {
   display: flex;
   gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+.projects-row-due,
+.projects-row-members {
+  display: flex;
+  align-items: center;
+  min-width: 0;
   overflow: hidden;
 }
 .projects-row-time {
-  flex: none;
-  width: 72px;
   color: var(--xc-faint);
   font-size: var(--fs-11);
   text-align: right;
+  white-space: nowrap;
+}
+/* 列表窄了先收起标签和成员，再窄就只留编号、名称、优先级图标和截止时间 */
+@container (max-width: 820px) {
+  .projects-list-head,
+  .projects-row {
+    --c-labels: ;
+    --c-members: ;
+  }
+  .projects-list-head :is(.labels, .members),
+  .projects-row-labels,
+  .projects-row-members {
+    display: none;
+  }
+}
+@container (max-width: 520px) {
+  .projects-list-head {
+    display: none;
+  }
+  /* 手机上截止时间放到名称下面一行 */
+  .projects-row {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "key name priority"
+      ". due due";
+    padding-block: 6px;
+  }
+  .projects-row-key {
+    grid-area: key;
+  }
+  .projects-row-name {
+    grid-area: name;
+  }
+  .projects-row-priority {
+    grid-area: priority;
+  }
+  .projects-row-due {
+    grid-area: due;
+  }
+  .projects-row-category,
+  .projects-row-time,
+  .projects-row-priority-label {
+    display: none;
+  }
 }
 
 /* ---- Issue 详情 ---- */
@@ -754,10 +869,7 @@
   .projects-lane-list {
     max-height: none;
   }
-  .projects-hint,
-  .projects-row-labels,
-  .projects-row-category,
-  .projects-row-time {
+  .projects-hint {
     display: none;
   }
   /* 窄屏两行：搜索和视图切换一行，筛选一行（左右滑动） */
