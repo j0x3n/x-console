@@ -1,34 +1,26 @@
 /* AI 窗口（B3，B183 重做：左边会话列表，右边内容） */
 
-/* 顶栏按钮（B196）：桌面上是“图标 + AI”的普通按钮，图标带主题色渐变；
-   手机上和旁边的按钮一样只有图标，没有底色和边框 */
+/* 顶栏按钮（B196，B237 改过）：和旁边的全局按钮一样没有边框和底色，
+   桌面上是“图标 + AI”，手机上只有图标 */
 .ai-topbar {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 28px;
-  padding: 0 11px 0 9px;
-  border: 1px solid var(--xc-border-strong);
-  border-radius: 7px;
-  background: var(--xc-surface);
-  color: var(--xc-text);
+  padding: 0 8px 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--xc-text-2);
   font-size: var(--fs-12-5);
-  font-weight: 600;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
+  font-weight: 500;
+  transition: background 0.15s;
 }
-.ai-topbar:hover {
-  background: var(--xc-surface-2);
-}
+.ai-topbar:hover,
 .ai-topbar.on {
-  border-color: color-mix(
-    in srgb,
-    var(--xc-accent) 55%,
-    var(--xc-border-strong)
-  );
-  background: var(--xc-accent-soft);
+  background: color-mix(in srgb, var(--xc-text) 8%, transparent);
+  color: var(--xc-text);
 }
 .ai-topbar-count {
   position: absolute;

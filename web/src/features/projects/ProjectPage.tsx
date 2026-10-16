@@ -385,7 +385,7 @@ export default function ProjectPage() {
         aside={
           <>
             <button
-              className={`xc-btn small${locked ? " on" : ""}`}
+              className={`xc-btn small icon${locked ? " on" : ""}`}
               onClick={toggleLock}
               aria-pressed={locked}
               title={
@@ -407,7 +407,7 @@ export default function ProjectPage() {
               <Pencil size={14} /> {t("Edit")}
             </button>
             <button
-              className="xc-btn small projects-desktop-only"
+              className="xc-btn small icon projects-desktop-only"
               onClick={() => setShortcutsOpen(true)}
               aria-label={t("Keyboard shortcuts")}
               title={`${t("Keyboard shortcuts")} (?)`}
@@ -415,9 +415,10 @@ export default function ProjectPage() {
               <Keyboard size={14} />
             </button>
             <button
-              className="xc-btn small"
+              className="xc-btn small icon"
               onClick={() => setSettingsOpen(true)}
               aria-label={t("Settings")}
+              title={t("Settings")}
             >
               <Settings2 size={14} />
             </button>
@@ -425,9 +426,9 @@ export default function ProjectPage() {
               className="xc-btn primary small"
               onClick={newCard}
               disabled={archived || !board}
+              title={`${t("New issue")} (C)`}
             >
               <Plus size={14} /> {t("New issue")}
-              <kbd className="projects-kbd">C</kbd>
             </button>
           </>
         }

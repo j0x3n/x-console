@@ -1,5 +1,7 @@
 # 接口变更记录
 
+- B237（2026-10-16）：基础样式 `styles/ui.css` 改了两处。单选的 `select.xc-select` 去掉系统箭头（`appearance: none`），用两段渐变画一个 `--xc-muted` 色的小三角，右内边距 26px，圆角 7px，悬停底色 `--xc-surface-2`。多选下拉框不变。模块里给 `.xc-select` 写 `background` 简写会盖掉小三角，要写成 `background-color`。顶栏页面按钮里加了 `icon` 类的 `.xc-btn` 是 28px 正方形。不改接口，不加迁移。
+
 - B214（2026-10-15）：`browser.Session` 加 `Captcha`（找字母或数字验证码的图片和输入框，返回 `browser.CaptchaParts`）和 `ElementShot`（只截一个元素的 PNG）；`page.js` 加 `captcha`、`box`。只加不改。网站自动化的 AI 工具加 `solve_captcha`。
 
 - B212（2026-10-15）：`contracts` 加 `AIModel`、`WithAIModel(ctx, model, effort)`、`AIModelFrom`。ai 模块 `resolveLLM` 在它有值时不管用途都用这个模型和思考程度，模型不存在或格式不对返回 `llm.ErrNotConfigured`。只加不改，不带它的调用方行为不变。`watchers.yaml` 的 `WatchersSettings` 加可选的 `agentModel`、`agentEffort`、`judgeModel`、`judgeEffort`，新类型 `WatcherEffort`（空字符串是跟随）。保存时不带字段表示不改。

@@ -187,6 +187,31 @@
 .xc-textarea:focus {
   border-color: var(--xc-accent);
 }
+/*
+ * B237：单选下拉框和按钮一个样子。去掉系统自带的箭头，右边画一个灰色小三角，
+ * 圆角和悬停底色跟 .xc-btn 一样。展开后的选项列表还是系统的。
+ */
+select.xc-select:not([multiple]) {
+  appearance: none;
+  padding-right: 26px;
+  border-radius: 7px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--xc-muted) 50%),
+    linear-gradient(135deg, var(--xc-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+select.xc-select:not([multiple]):hover:not(:disabled) {
+  background-color: var(--xc-surface-2);
+}
+select.xc-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 .xc-input::placeholder,
 .xc-textarea::placeholder {
   color: var(--xc-faint);
@@ -1533,6 +1558,11 @@ a.xc-badge:hover {
 }
 .page-actions .xc-select {
   height: 28px;
+}
+/* B237：只有图标的页面按钮（加 icon 类）是 28px 的正方形，和带字的按钮一样高 */
+.page-actions .xc-btn.icon {
+  width: 28px;
+  padding: 0;
 }
 .sidebar-toggle {
   margin-left: -6px;
